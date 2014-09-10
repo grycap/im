@@ -1,4 +1,5 @@
 recursive-exclude test *
+include etc/im.cfg
 include LICENSE
 include INSTALL
 include NOTICE
