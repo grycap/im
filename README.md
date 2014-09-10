@@ -112,8 +112,7 @@ to the next configuration variables, as they are the most important
 IM_PATH - must be set to the full path where the IM system is installed 
          (e.g. /usr/local/im)
          
-1.4.1 SECURITY
---------------
+### 1.4.1 SECURITY
 
 Security is disabled by default, but it should be taken into account that it would
 be possible that someone that has local network access can "sniff" the traffic and
