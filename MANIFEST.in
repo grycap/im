@@ -1,3 +1,6 @@
 recursive-exclude IM.egg-info *
 recursive-exclude test *
-include etc/im.cfg
+include LICENSE
+include INSTALL
+include NOTICE
+include changelog

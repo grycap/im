@@ -1,0 +1,46 @@
+-------------------------------------
+ IM - Infrastructure Manager client
+-------------------------------------
+
+IM is a tool that ease the access and the usability of IaaS clouds by automating
+the VMI selection, deployment, configuration, software installation, monitoring
+and update of Virtual Appliances. It supports APIs from a large number of
+virtual platforms, making user applications cloud-agnostic. In addition it
+integrates a contextualization system to enable the installation and
+configuration of all the user required applications providing the user with a
+fully functional infrastructure.
+
+usage: client.py [-u|--xmlrpc-url <url>] [-a|--auth_file <filename>] operation op_parameters
+
+Authentication File:
+
+The authorization data is used to validate access to the components in the
+infrastructure. This file is composed of a set of "key - value" pairs,
+where the user specifies the authorization data for all the components and cloud
+deployments available. File auth.dat shows examples of authorization data.
+
+The list of "key" values that must be specified for each component are:
+
+- id: An optional field used to identify the virtual deployment. It must be unique
+      in the authorization data.
+- type: The type of the component. It can be any of the components of the
+        architecture, such as the "InfrastructureManager", "VMRC" or any of
+        the cloud deployments currently supported by the IM: OpenNebula, EC2,
+        OpenStack, OCCI or LibVirt.
+- username: The name of the user for the authentication. In the EC2 and OpenStack
+            cases it refers to the Access Key ID value. password: The password for
+            the authentication. In the EC2 and OpenStack cases it refers to the
+            Secret Access Key value.
+- host: The address to the server in format "address:port" to specify the cloud
+        deployment to access. In the EC2 and in the system components (IM and VMRC)
+        this field is not used.
+
+To avoid typing the parameters in all the client calls. The user can define a config
+file "im_client.cfg" in the current directory or a file ".im_client.cfg" in their 
+home directory. In the config file the user can specify the following parameters:
+
+[im_client]
+xmlrpc_url=http://localhost:8899
+auth_file=auth.dat
+xmlrpc_ssl=no
+xmlrpc_ssl_ca_certs=/tmp/pki/ca-chain.pem
