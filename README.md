@@ -20,6 +20,9 @@ Read the documentation and more at http://www.grycap.upv.es/im.
 IM is based on python, so Python 2.4 or higher runtime and standard library must
 be installed in the system.
 
+It is also required to install the Python Lex & Yacc library (http://www.dabeaz.com/ply/).
+Ir is available in all of the main distributions as 'python-ply' package.
+
 It is also required to install the paramiko ssh2 protocol library for python
 (http://www.lag.net/paramiko/). It is available in all of the main distributions
 as 'python-paramiko' package.
@@ -46,6 +49,9 @@ record_host_keys = False
 
 In case of using the Amazon EC2 plugin the boto library version 2.0 or later
 must be installed (http://boto.readthedocs.org/en/latest/).
+
+In case of using the LibCloud plugin the apache-libcloud library version 0.15 or later
+must be installed (http://libcloud.apache.org/).
 
 In case of using the SSL secured version of the XMLRPC API the SpringPython
 framework (http://springpython.webfactional.com/) must be installed.
