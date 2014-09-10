@@ -38,3 +38,4 @@ IM 1.0.0
     * Enable to change the credentials of the VMI user
     * Change Ansible version to 1.7.1
     * Improve LibCloud connector
+    * Modify setup to use in pip
