@@ -1,30 +1,3 @@
-exclude setup.py
-exclude parse*
-exclude ./connectors/Azure.py
-exclude connectors/Azure.py
-exclude ./connectors/LibCloud.py
-exclude connectors/LibCloud.py
-exclude ./connectors/test_cloud.py
-exclude connectors/test_cloud.py
-exclude connectors/LibVirt_old.txt
-exclude ./connectors/LibVirt_old.txt
-exclude connectors/vCloud.py
-exclude ./connectors/vCloud.py
-exclude connectors/OCCIone.py
-exclude ./connectors/OCCIone.py
-exclude MANIFEST.in
 recursive-exclude IM.egg-info *
 recursive-exclude test *
-recursive-exclude web *
-recursive-exclude ec3 *
-recursive-exclude doc *
-recursive-exclude examples *
-recursive-exclude client *
-recursive-exclude contextualization/AnsibleRecipes *
-include contextualization/*
-exclude contextualization/*.txt
-include contextualization/AnsibleRecipes/utils/tasks/*
-include contextualization/AnsibleRecipes/utils/templates/*
-include contextualization/AnsibleRecipes/utils/vars/*
-include contextualization/AnsibleRecipes/utils/handlers/*
 include etc/im.cfg
