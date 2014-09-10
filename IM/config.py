@@ -31,7 +31,7 @@ class Config:
 	XMLRCP_PORT = 8899
 	ACTIVATE_REST = False
 	REST_PORT = 8800
-	IM_PATH = '.'
+	IM_PATH = '/usr/local/im'
 	LOG_FILE = IM_PATH + '/log/inf.log'
 	LOG_FILE_MAX_SIZE = 10485760
 	LOG_LEVEL = logging.DEBUG
@@ -50,8 +50,6 @@ class Config:
 	REST_SSL_KEYFILE =  IM_PATH + "/pki/server-key.pem"
 	REST_SSL_CERTFILE = IM_PATH + "/pki/server-cert.pem"
 	REST_SSL_CA_CERTS = IM_PATH + "/pki/ca-chain.pem"
-
-
 
 
 im_path = os.path.dirname(os.path.realpath(__file__))

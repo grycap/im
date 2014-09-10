@@ -1,0 +1,10 @@
+Metadata-Version: 1.0
+Name: IM
+Version: 1.0.0
+Summary: IM is a tool to manage virtual infrastructures on Cloud deployments
+Home-page: http://www.grycap.upv.es/im
+Author: GRyCAP - Universitat Politecnica de Valencia
+Author-email: micafer1@upv.es
+License: GPL version 3, http://www.gnu.org/licenses/gpl-3.0.txt
+Description: IM is a tool that ease the access and the usability of IaaS clouds by automating the VMI selection, deployment, configuration, software installation, monitoring and update of Virtual Appliances. It supports APIs from a large number of virtual platforms, making user applications cloud-agnostic. In addition it integrates a contextualization system to enable the installation and configuration of all the user required applications providing the user with a fully functional infrastructure.
+Platform: any

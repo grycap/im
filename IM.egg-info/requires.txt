@@ -1,0 +1,7 @@
+ansible >= 1.4
+paramiko
+PyYAML
+SOAPpy
+boto >= 2.29
+apache-libcloud >= 0.15
+ply

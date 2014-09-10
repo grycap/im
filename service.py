@@ -320,6 +320,10 @@ def launch_daemon():
 		get_system_queue().timed_process_loop(None, 1)
 
 def config_logging():
+	log_dir = os.path.dirname(Config.LOG_FILE)
+	if not os.path.isdir(log_dir):
+		os.makedirs(log_dir)
+	
 	fileh = logging.handlers.RotatingFileHandler(filename=Config.LOG_FILE, maxBytes=Config.LOG_FILE_MAX_SIZE, backupCount=3)
 	formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 	fileh.setFormatter(formatter)
