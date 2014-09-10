@@ -37,8 +37,8 @@ class CloudInfo:
 			raise Exception("Not valid cloud provider.")
 		try:
 			return getattr(sys.modules['connectors.' + self.type], self.type + "CloudConnector")(self)
-		except:
-			raise Exception("Cloud provider not supported: %s" % self.type)
+		except Exception, ex:
+			raise Exception("Cloud provider not supported: %s (error: %s)" % (self.type, str(ex)))
 
 	def __str__(self):
 		res = ""

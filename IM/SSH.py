@@ -146,6 +146,10 @@ class SSH:
             return True
         except paramiko.AuthenticationException:
             raise AuthenticationException("Authentication Error!!")
+        except paramiko.SSHException, e:
+            if str(e) == "No authentication methods available":
+                raise AuthenticationException("Authentication Error!!")
+            return False
         except:
             return False
 

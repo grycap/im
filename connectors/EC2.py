@@ -317,14 +317,14 @@ class EC2CloudConnector(CloudConnector):
 		   - timeout(int): Time needed to create the volume.
 		Returns: a :py:class:`boto.ec2.volume.Volume` of the new volume	
 		"""
-		curr_vol = volume = conn.create_volume(disk_size, placement)
+		volume = conn.create_volume(disk_size, placement)
 		cont = 0
 		while str(volume.status) != 'available' and cont < timeout:
 			self.logger.debug("State: " + str(volume.status))
 			cont += 2
 			time.sleep(2)
-			curr_vol = conn.get_all_volumes([volume.id])[0]
-		return curr_vol
+			volume = conn.get_all_volumes([volume.id])[0]
+		return volume
 
 	def attach_volumes(self, instance, vm):
 		"""
@@ -352,7 +352,7 @@ class EC2CloudConnector(CloudConnector):
 			self.logger.error("Error creating or attaching the volume to the instance")
 			self.logger.error(ex)
 			
-	def delete_volumes(self, conn, vm, timeout = 60):
+	def delete_volumes(self, conn, vm, timeout = 240):
 		"""
 		Delete the volumes of a VM
 
@@ -676,9 +676,6 @@ class EC2CloudConnector(CloudConnector):
 		if public_key is None or len(public_key) == 0 or (len(public_key) >= 1 and public_key.find('-----BEGIN CERTIFICATE-----') != -1):
 			# only delete in case of the user do not specify the keypair name
 			conn.delete_key_pair(vm.keypair_name)
-		
-		# Delete the EBS volumes
-		self.delete_volumes(conn, vm)
 
 		# Delete the elastic IPs
 		self.delete_elastic_ips(conn, vm)
@@ -690,6 +687,9 @@ class EC2CloudConnector(CloudConnector):
 		if (instance != None):
 			instance.update()
 			instance.terminate()
+		
+		# Delete the EBS volumes
+		self.delete_volumes(conn, vm)
 		
 		return (True, "")
 		
