@@ -257,8 +257,8 @@ class ConfManager(threading.Thread):
 		(user, _, _, _) = creds
 		new_creds = self.inf.vm_master.getCredentialValues(new=True)
 		if len(list(set(new_creds))) > 1 or list(set(new_creds))[0] != None:
+			change_creds = False
 			if cmp(new_creds,creds) != 0:
-				change_creds = False
 				(_, new_passwd, new_public_key, new_private_key) = new_creds
 				if new_passwd:
 					ConfManager.logger.info("Changing password to master VM")

@@ -18,6 +18,7 @@
 
 
 import unittest, os, time
+import logging, logging.config
 
 from IM.CloudInfo import CloudInfo
 from IM.auth import Authentication
@@ -40,8 +41,22 @@ class TestConnectors(unittest.TestCase):
     """ List of VMs launched in the test """
     
     #connectors_to_test = "all"
-    connectors_to_test = ["ec2"]
+    connectors_to_test = ["libcloud"]
     """ Specify the connectors to test: "all": All the connectors specified in the auth file or a list with the IDs"""
+
+    @classmethod
+    def setUpClass(cls):
+        ch = logging.StreamHandler()
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        ch.setFormatter(formatter)
+        
+        logging.RootLogger.propagate = 0
+        logging.root.setLevel(logging.ERROR)
+        
+        logger = logging.getLogger('CloudConnector')
+        logger.setLevel(logging.DEBUG)
+        logger.propagate = 0
+        logger.addHandler(ch)
 
     def concrete_systems_with_vmrc(self, radl):
         # Get VMRC credentials
@@ -94,7 +109,9 @@ class TestConnectors(unittest.TestCase):
             net_interface.0.connection = 'net' and
             net_interface.0.dns_name = 'test' and
             disk.0.os.flavour='scientific' and
-            disk.0.os.version>='6'
+            disk.0.os.version>='6' and
+            disk.1.size=1GB and
+            disk.1.device='hdb'
             )"""
         
         radl = radl_parse.parse_radl(radl_data)
@@ -126,9 +143,12 @@ class TestConnectors(unittest.TestCase):
         # wait the VM to be stopped
         wait = 0
         err_states = [VirtualMachine.FAILED, VirtualMachine.OFF]
-        while vm.state != state and vm.state not in err_states and wait < timeout: 
-            (success, new_vm) = cl.updateVMInfo(vm, auth)
-            self.assertTrue(success, msg="ERROR: getting VM info for cloud: " + vm.cloud.id + ": " + str(new_vm))
+        while vm.state != state and vm.state not in err_states and wait < timeout:
+            try: 
+                (success, new_vm) = cl.updateVMInfo(vm, auth)
+            except:
+                success = False
+                pass
             if success:
                 vm = new_vm
                 wait += 5
@@ -149,7 +169,7 @@ class TestConnectors(unittest.TestCase):
             self.assertTrue(success, msg="ERROR: stopping VM for cloud: " + vm.cloud.id + ": " + str(msg))
             
             # wait the VM to be stopped
-            wait_ok = self.wait_vm_state(cl,vm,VirtualMachine.STOPPED,90)
+            wait_ok = self.wait_vm_state(cl,vm,VirtualMachine.STOPPED,120)
             
             self.assertTrue(wait_ok, msg="ERROR: waiting stop op VM for cloud: " + vm.cloud.id)
             
