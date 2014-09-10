@@ -29,8 +29,9 @@
 # description: IM - Infrastructure Manager
 
 
-IM_PATH=/usr/local/im
-IMDAEMON=${IM_PATH}/service.py
+IM_LOG_PATH=/var/log/im
+IM_BIN_PATH=/usr/bin
+IMDAEMON=${IM_BIN_PATH}/im_service.py
 
 # the server will record its PID in this file
 PIDFILE=/var/run/im.pid
@@ -43,12 +44,12 @@ fi
 
 function start() {
         echo -n "Starting IM Daemon: "
-        test -d ${IM_PATH}/log || mkdir ${IM_PATH}/log
+        test -d ${IM_LOG_PATH} || mkdir ${IM_LOG_PATH}
         if [ $? -ne 0 ]; then
                 echo "[Error]"
                 return
         fi
-        ${IMDAEMON} 2> ${IM_PATH}/log/im.err &
+        ${IMDAEMON} 2> ${IM_LOG_PATH}/im.err &
         pid=$!
         echo ${pid} > ${PIDFILE}
         sleep 2
@@ -56,7 +57,7 @@ function start() {
         if [ ${alive} -eq 1 ]
         then
                 # if there is some error msg en the err file
-                if [ -s ${IM_PATH}/log/im.err ]
+                if [ -s ${IM_LOG_PATH}/im.err ]
                 then
                         # kill the daemon and return error
                         kill ${pid}
