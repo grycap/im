@@ -76,7 +76,14 @@ You only have to call the install command of the pip tool with the IM package.
 pip install IM
 ```
 
+Finally you must set the executable permissions on the init script.
+
+```
+chmod +x /etc/init.d/im
+```
+
 ### 1.3.2 FROM SOURCE
+
 Select a proper path where to install the IM service (i.e. /usr/local/im, 
 /opt/im or other). This path will be called IM_PATH
 
@@ -86,9 +93,13 @@ $ chown -R root:root IM-X.XX
 $ mv IM-X.XX /usr/local
 ```
 
-In case that you want the IM service to be started at boot time, you must copy
-(or link) $IM_PATH/im file to /etc/init.d directory and the can execute the next
-set of commands:
+Finally you must copy (or link) $IM_PATH/im file to /etc/init.d directory.
+
+1.4 CONFIGURATION
+-----------------
+
+In case that you want the IM service to be started at boot time, you must 
+execute the next set of commands:
 
 On Debian Systems:
 
@@ -111,9 +122,6 @@ $ ln -s /etc/init.d/im /etc/rc5.d/S99im
 $ ln -s /etc/init.d/im /etc/rc1.d/K05im
 $ ln -s /etc/init.d/im /etc/rc6.d/K05im
 ```
-
-1.4 CONFIGURATION
------------------
 
 Adjust the installation path by setting the IM_BIN_PATH variable at /etc/init.d/im 
 to the path where the IM im_service.py is installed (e.g. /usr/local/im).
