@@ -33,6 +33,8 @@ IM 0.60
     * Add launch_time info to the EC2 VMs
 
 IM 1.0.0
+    * Minor bug fixes
     * Improve contextualization code
     * Enable to change the credentials of the VMI user
     * Change Ansible version to 1.7.1
+    * Improve LibCloud connector
