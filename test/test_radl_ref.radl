@@ -1,0 +1,21 @@
+network publica ( outbound = 'yes')
+network ref_publica
+
+system main (
+net_interface.0.connection='publica' and
+net_interface.1.connection='ref_publica'
+)
+system wn
+contextualize (
+system main configure recipe
+system wn configure ref_recipe
+) 
+
+configure recipe (
+@begin
+---
+  test: True
+@end
+)
+configure ref_recipe
+

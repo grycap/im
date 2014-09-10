@@ -1,0 +1,52 @@
+network publica (outbound = 'yes')
+network privada ()
+
+system front (
+cpu.arch='x86_64' and
+cpu.count>=1 and
+memory.size>=1536m and
+net_interface.0.connection = 'publica' and
+net_interface.0.dns_name = 'hadoopmaster' and
+net_interface.1.connection = 'privada' and
+disk.0.os.name='linux' and
+disk.0.os.flavour='ubuntu' and
+disk.0.os.version='12.04'and
+#disk.0.os.flavour='scientific' and
+#disk.0.os.version>='6' and
+disk.0.applications contains (name='ansible.modules.micafer.hadoop')
+)
+
+system wn (
+cpu.arch='x86_64' and
+cpu.count>=1 and
+memory.size>=1536m and
+net_interface.0.connection = 'privada' and
+net_interface.0.dns_name = 'wn-#N#' and
+disk.0.os.name='linux' and
+disk.0.os.flavour='ubuntu' and
+disk.0.os.version='12.04'
+#disk.0.os.flavour='scientific' and
+#disk.0.os.version>='6'
+)
+
+
+configure front (
+@begin
+---
+ - roles:
+    - { role: 'micafer.hadoop', hadoop_master: 'hadoopmaster', hadoop_type_of_node: 'master' }
+
+@end
+)
+
+configure wn (
+@begin
+---
+ - roles:
+    - { role: 'micafer.hadoop', hadoop_master: 'hadoopmaster' }
+
+@end
+)
+
+deploy front 1
+deploy wn 1

@@ -1,0 +1,14 @@
+network publica (outbound = 'yes')
+
+system front (
+cpu.arch='x86_64' and
+cpu.count>=1 and
+memory.size>=512m and
+net_interface.0.connection = 'publica' and
+disk.0.image.url = 'one://onecloud.i3m.upv.es/2' and
+disk.0.os.credentials.username = 'ubuntu' and
+disk.0.os.credentials.password = 'yoyoyo' and
+disk.0.os.name = 'linux'
+)
+
+deploy front 1 

@@ -1,0 +1,25 @@
+system main (
+cpu.arch='x86_64' and
+cpu.count>=1 and
+memory.size>=512 and
+disk.0.os.name='linux' and
+disk.0.os.flavour='ubuntu' and
+soft 100 (
+  cpu.arch='x86_64' and
+  cpu.count>=2 and
+  memory.size>=1G
+) and
+soft 101 (
+  disk.0.os.flavour='ubuntu' and
+  disk.0.os.version='12.04'
+) and
+soft 50 (
+  disk.0.os.name='windows'
+)
+)
+system wn (
+cpu.arch='x86_64' and
+cpu.count>=1 and
+memory.size>=512 and
+disk.0.os.name='linux'
+)

@@ -1,0 +1,38 @@
+IM 0.10
+
+    * Initial version
+
+IM 0.20
+
+    * Minor bugfixes
+    * Improving the messages of the contextualization stage
+    * Change radl module internals
+    * Add support to spot instances in EC2 plugin
+
+IM 0.30
+
+    * Important internal code modifications
+
+IM 0.40
+
+    * Change OCCI connector to be OCCI 1.1 compliant
+    * Minor bug fixes in InfrastructureManager
+    * Minor bug fixes in OpenNebula connector
+    * Minor changes in SSH module
+    * Use Ansible Galaxy to install remote roles
+
+IM 0.50
+
+    * Support to application requirements in the Recipes D.B.
+    * Minor bug fixes
+    * Change Ansible version to 1.6.6
+    * Add internal ID to VMs
+    
+IM 0.60
+    * Solve some concurrency bug fixes
+    * Add launch_time info to the EC2 VMs
+
+IM 1.0.0
+    * Improve contextualization code
+    * Enable to change the credentials of the VMI user
+    * Change Ansible version to 1.7.1

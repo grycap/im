@@ -1,4 +1,126 @@
-im
-==
+ IM - Infrastructure Manager
+============================
 
-Infrastructure Manager
+IM is a tool that ease the access and the usability of IaaS clouds by automating
+the VMI selection, deployment, configuration, software installation, monitoring
+and update of Virtual Appliances. It supports APIs from a large number of
+virtual platforms, making user applications cloud-agnostic. In addition it
+integrates a contextualization system to enable the installation and
+configuration of all the user required applications providing the user with a
+fully functional infrastructure.
+
+Read the documentation and more at http://www.grycap.upv.es/im.
+
+1. INSTALLATION
+===============
+
+1.1 REQUISITES
+--------------
+
+IM is based on python, so Python 2.4 or higher runtime and standard library must
+be installed in the system.
+
+It is also required to install the paramiko ssh2 protocol library for python
+(http://www.lag.net/paramiko/). It is available in all of the main distributions
+as 'python-paramiko' package.
+
+It is also required the YAML library for python. It is available in all of the
+main distributions as 'python-yaml' or 'PyYAML' package
+
+It is also required the SOAPpy library for python. It is available in all of the
+main distributions as 'python-soappy' or 'SOAPpy' package
+
+The IM uses ansible to configure nodes in the infrastructures. So Ansible
+(http://www.ansibleworks.com/) 1.4.2 or later must be installed in the system.
+To ensure the functionality the following values must be set in the ansible.cfg file:
+
+```
+[defaults]
+host_key_checking = False
+transport = paramiko
+record_host_keys = False
+```
+
+1.2 OPTIONAL PACKAGES
+---------------------
+
+In case of using the Amazon EC2 plugin the boto library version 2.0 or later
+must be installed (http://boto.readthedocs.org/en/latest/).
+
+In case of using the SSL secured version of the XMLRPC API the SpringPython
+framework (http://springpython.webfactional.com/) must be installed.
+
+In case of using the REST API the Bottle framework
+(http://bottlepy.org/) must be installed.
+
+In case of using the SSL secured version of the REST API the CherryPy Web
+framework (http://www.cherrypy.org/) must be installed.
+
+1.3 INSTALLING
+--------------
+
+Select a proper path where to install the IM service (i.e. /usr/local/im, 
+/opt/im or other). This path will be called IM_PATH
+
+```
+$ tar xvzf IM-X.XX.tar.gz
+$ chown -R root:root IM-X.XX
+$ mv IM-X.XX /usr/local
+```
+
+In case that you want the IM service to be started at boot time, you must copy
+(or link) $IM_PATH/im file to /etc/init.d directory and the can execute the next
+set of commands:
+
+On Debian Systems:
+
+```
+$ chkconfig im on
+```
+
+On RedHat Systems:
+
+```
+$ update-rc.d im start 99 2 3 4 5 . stop 05 0 1 6 .
+```
+
+Or you can do it manually:
+
+```
+$ ln -s /etc/init.d/im /etc/rc2.d/S99im
+$ ln -s /etc/init.d/im /etc/rc3.d/S99im
+$ ln -s /etc/init.d/im /etc/rc5.d/S99im
+$ ln -s /etc/init.d/im /etc/rc1.d/K05im
+$ ln -s /etc/init.d/im /etc/rc6.d/K05im
+```
+
+1.4 CONFIGURATION
+-----------------
+
+Adjust the installation path by setting the IM_PATH variable at $IM_PATH/im 
+to the path where the IM service is installed (e.g. /usr/local/im).
+
+Adjust the parameters in $IM_PATH/etc/im.cfg or /etc/im/im.cfg. Please pay attention 
+to the next configuration variables, as they are the most important
+
+IM_PATH - must be set to the full path where the IM system is installed 
+         (e.g. /usr/local/im)
+         
+1.4.1 SECURITY
+--------------
+
+Security is disabled by default, but it should be taken into account that it would
+be possible that someone that has local network access can "sniff" the traffic and
+get the messages with the IM with the authorisation data with the cloud providers.
+
+I can be activated both in the XMLRPC and REST APIs. Setting this variables:
+
+XMLRCP_SSL = True
+
+or
+
+REST_SSL = True
+
+And then set the variables: XMLRCP_SSL_* or REST_SSL_* to your certificates paths.
+
+

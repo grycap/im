@@ -1,0 +1,14 @@
+network publica (outbound = 'yes')
+
+system node (
+cpu.arch='x86_64' and
+cpu.count>=1 and
+memory.size>=512m and
+net_interface.0.connection = 'publica' and
+net_interface.0.dns_name = 'testnode' and
+disk.0.os.name='linux' and
+disk.0.os.flavour='ubuntu' and
+disk.0.os.version>='10.04'
+)
+
+deploy node 1

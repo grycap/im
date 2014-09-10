@@ -1,0 +1,79 @@
+---
+- hosts: all
+  sudo: yes
+  vars_files:
+    - [ "utils/vars/{{ ansible_distribution }}.yml", "utils/vars/os_defaults.yml" ]
+  vars:
+    ANSIBLE_VERSION: 1.7.1
+  tasks:
+    - name: Apt-get update
+      apt: update_cache=yes cache_valid_time=604800
+      when: debian_os
+      
+    - name: Install libselinux-python in RH
+      action: yum pkg=libselinux-python state=installed
+      when: redhat_os
+
+    - name: EPEL
+      #template: src=utils/templates/epel.repo dest=/etc/yum.repos.d/epel.repo
+      template: src=utils/templates/epel-es.repo dest=/etc/yum.repos.d/epel.repo
+      when: redhat_os
+    
+    - name: Apt install requirements
+      #action: apt pkg=python-mysqldb,unzip,python-pip
+      action: command apt-get -y install python-pip gcc python-dev 
+      when: debian_os
+        
+    - name: Yum install requirements Fedora
+      action: command yum -y install python-distribute gcc python-devel
+      when: fedora_os
+      
+    - name: Yum install requirements RH6
+      action: command yum -y install python-distribute gcc python-devel
+      when: redhat_os and {{ ansible_distribution_version|float }} >= 6
+        
+    - name: Yum install requirements RH5
+      action: command yum -y --nogpg install python26 python26-simplejson python26-distribute gcc python26-devel
+      when: redhat_os and {{ ansible_distribution_version|float }} < 6
+        
+    - name: Install Pip 2.6
+      action: command easy_install-2.6 pip==1.4.1
+      when: redhat_os and {{ ansible_distribution_version|float }} < 6
+      
+    - name: Install Pip
+      easy_install: name=pip
+      when: not redhat_os or {{ ansible_distribution_version|float }} >= 6
+
+    - name: Link python 
+      file: src=/usr/bin/python dest=/usr/bin/python_ansible state=link
+      when: not redhat_os or {{ ansible_distribution_version|float }} >= 6
+
+    - name: Link python 2.6
+      file: src=/usr/bin/python2.6 dest=/usr/bin/python_ansible state=link
+      when: redhat_os and {{ ansible_distribution_version|float }} < 6
+
+    - name: Install ansible with Pip
+      pip: name=ansible version={{ ANSIBLE_VERSION }}
+      when: not redhat_os or {{ ansible_distribution_version|float }} >= 6
+      
+    - name: Install ansible with Pip 2.6
+      action: command pip-2.6 install ansible=={{ ANSIBLE_VERSION }}
+      when: redhat_os and {{ ansible_distribution_version|float }} < 6
+
+    - name: Disable SELinux
+      command: /usr/sbin/setenforce 0
+      when: redhat_os or fedora_os
+      ignore_errors: yes
+      
+    - name: Create /etc/ansible
+      file: path=/etc/ansible state=directory
+      
+    - name: Set host_key_checking to false in ansible.cfg
+      ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=host_key_checking value=False
+      
+    - name: Set transport to paramiko in ansible.cfg
+      ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=transport value=paramiko
+
+    - name: Set jinja2.ext.do to jinja2_extensions in ansible.cfg
+      ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=jinja2_extensions value=jinja2.ext.do
+

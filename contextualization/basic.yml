@@ -1,0 +1,33 @@
+---
+- gather_facts: False
+  tasks: 
+    # In case of REL 5 system install python-simplejson (the user must be root)
+    - name: Install python-simplejson on REL 5
+      action: raw cat /etc/redhat-release | grep "release 5" &&  yum -y install python-simplejson
+      ignore_errors: yes
+    - name: Check requiretty in REL 5
+      action: raw cat /etc/sudoers | grep -v requiretty >> /tmp/sudoers.tmp; mv -f /tmp/sudoers.tmp  /etc/sudoers; echo 'Defaults !requiretty' >> /etc/sudoers
+      ignore_errors: yes
+
+    # In case of redhat systems libselinux-python is needed
+    - name: Install libselinux-python on redhat systems
+      action: yum pkg=libselinux-python state=installed
+      sudo: yes
+      ignore_errors: yes
+
+    # Set the correct hostname
+    - name: Set the hostname of the node
+      action: hostname name={{ IM_NODE_FQDN }}
+      sudo: yes
+      ignore_errors: yes
+
+    # In case of redhat systems disble SELinux
+    - name: Disable SELinux in REL systems
+      action: selinux state=disabled
+      sudo: yes
+      ignore_errors: yes
+
+    # Add the authorized_key to the nodes to enable accessing without password
+    # pk_file var must be added by the ctxt agent
+    - name: Add the authorized_key to the nodes
+      action: authorized_key user={{IM_NODE_USER}} key="{{ lookup('file', pk_file) }}"

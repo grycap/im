@@ -1,0 +1,5 @@
+[epel]
+name=Extra Packages for Enterprise Linux {{ ansible_distribution_version.split('.')[0] }} - $basearch
+baseurl=http://mirror.uv.es/mirror/fedora-epel/{{ ansible_distribution_version.split('.')[0] }}/$basearch
+enabled=1
+gpgcheck=0

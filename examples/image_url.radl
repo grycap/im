@@ -1,0 +1,18 @@
+network publica (outbound = 'yes')
+
+system test (
+cpu.arch='x86_64' and
+cpu.count>=1 and
+memory.size>=512M and
+net_interface.0.connection = 'publica' and
+net_interface.0.dns_name = 'blast.i3m.upv.es' and
+disk.0.image.url = 'one://onecloud.i3m.upv.es/171' and
+disk.0.os.credentials.username = 'root' and
+disk.0.os.credentials.password = 'grycap01' and
+#disk.0.image.url = 'one://onecloud.i3m.upv.es/175' and
+#disk.0.os.credentials.username = 'ubuntu' and
+#disk.0.os.credentials.password = 'yoyoyo' and
+disk.0.os.name = 'linux'
+)
+
+deploy test 1

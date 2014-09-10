@@ -1,0 +1,240 @@
+# IM - Infrastructure Manager
+# Copyright (C) 2011 - GRyCAP - Universitat Politecnica de Valencia
+# 
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+from InfrastructureManager import InfrastructureManager
+from auth import Authentication
+import threading
+import bottle
+from config import Config
+
+AUTH_LINE_SEPARATOR = '\\n'
+
+# Declaration of new class that inherits from ServerAdapter  
+# It's almost equal to the supported cherrypy class CherryPyServer  
+class MySSLCherryPy(bottle.ServerAdapter):  
+	def run(self, handler):
+		from cherrypy.wsgiserver.ssl_builtin import BuiltinSSLAdapter
+		from cherrypy import wsgiserver
+		server = wsgiserver.CherryPyWSGIServer((self.host, self.port), handler)  
+
+		# If cert variable is has a valid path, SSL will be used  
+		# You can set it to None to disable SSL
+		server.ssl_adapter = BuiltinSSLAdapter(Config.REST_SSL_CERTFILE, Config.REST_SSL_KEYFILE, Config.REST_SSL_CA_CERTS)
+		try:  
+			server.start()  
+		finally:  
+			server.stop()  
+
+app = bottle.Bottle()  
+
+def run_in_thread(host, port):
+	bottle_thr = threading.Thread(target=run, args=(host, port))
+	bottle_thr.start()
+
+def run(host, port):
+	if Config.REST_SSL:
+		# Add our new MySSLCherryPy class to the supported servers  
+		# under the key 'mysslcherrypy'
+		bottle.server_names['mysslcherrypy'] = MySSLCherryPy
+		bottle.run(app, host=host, port=port, server='mysslcherrypy', quiet=True)
+	else:
+		bottle.run(app, host=host, port=port, quiet=True)
+
+@app.route('/inf/:id', method='DELETE')
+def RESTDestroyInfrastructure(id=None):
+	try:
+		auth_data = bottle.request.headers['AUTHORIZATION'].split(AUTH_LINE_SEPARATOR)
+		auth = Authentication(Authentication.read_auth_data(auth_data))
+	except:
+		bottle.abort(401, "No authentication data provided")
+	
+	try:
+		InfrastructureManager.DestroyInfrastructure(int(id), auth)
+		return ""
+	except Exception, ex:
+		bottle.abort(409, "Error Destroying Inf: " + str(ex))
+		return False
+
+@app.route('/inf/:id', method='GET')
+def RESTGetInfrastructureInfo(id=None):
+	try:
+		auth_data = bottle.request.headers['AUTHORIZATION'].split(AUTH_LINE_SEPARATOR)
+		auth = Authentication(Authentication.read_auth_data(auth_data))
+	except:
+		bottle.abort(401, "No authentication data provided")
+	
+	try:
+		inf_info = InfrastructureManager.GetInfrastructureInfo(int(id), auth)
+		res = {}
+		vm_ids = inf_info['vm_list']
+		res['cont_out'] = inf_info['cont_out']
+		res['vm_list'] = []
+		
+		server_ip = bottle.request.environ['SERVER_NAME']
+		server_port = bottle.request.environ['SERVER_PORT']
+		
+		for vm_id in vm_ids:
+			res['vm_list'].append('http://' + server_ip + ':' + server_port + '/vms/' + str(id) + '/' + str(vm_id))
+		
+		return res
+	except Exception, ex:
+		bottle.abort(409, "Error Getting Inf. info: " + str(ex))
+
+
+@app.route('/infrastructure', method='GET')
+def RESTGetInfrastructureList():
+	try:
+		auth_data = bottle.request.headers['AUTHORIZATION'].split(AUTH_LINE_SEPARATOR)
+		auth = Authentication(Authentication.read_auth_data(auth_data))
+	except:
+		bottle.abort(401, "No authentication data provided")
+	
+	try:
+		inf_ids = InfrastructureManager.GetInfrastructureList(auth)
+		
+		server_ip = bottle.request.environ['SERVER_NAME']
+		server_port = bottle.request.environ['SERVER_PORT']
+		
+		res = ""
+		for inf_id in inf_ids:
+			res += "http://" + server_ip + ":" + server_port + "/inf/" + str(inf_id) + "\n"
+		
+		bottle.response.content_type = "text/uri-list"
+		return res
+	except Exception, ex:
+		bottle.abort(409, "Error Getting Inf. List: " + str(ex))
+		return False		
+
+
+@app.route('/infrastructure', method='POST')
+def RESTCreateInfrastructure():
+	try:
+		auth_data = bottle.request.headers['AUTHORIZATION'].split(AUTH_LINE_SEPARATOR)
+		auth = Authentication(Authentication.read_auth_data(auth_data))
+	except:
+		bottle.abort(401, "No authentication data provided")
+
+	try:
+		radl_data = bottle.request.body.read()
+		inf_id = InfrastructureManager.CreateInfrastructure(radl_data, auth)
+
+		server_ip = bottle.request.environ['SERVER_NAME']
+		server_port = bottle.request.environ['SERVER_PORT']
+		
+		bottle.response.content_type = "text/uri-list"
+		return "http://" + server_ip + ":" + server_port + "/inf/" + str(inf_id)
+	except Exception, ex:
+		bottle.abort(409, "Error Creating Inf.: " + str(ex))
+		return False
+
+@app.route('/vms/:infid/:vmid', method='GET')
+def RESTGetVMInfo(infid=None, vmid=None):
+	try:
+		auth_data = bottle.request.headers['AUTHORIZATION'].split(AUTH_LINE_SEPARATOR)
+		auth = Authentication(Authentication.read_auth_data(auth_data))
+	except:
+		bottle.abort(401, "No authentication data provided")
+	
+	try:
+		info = InfrastructureManager.GetVMInfo(int(infid), vmid, auth)
+		return info
+	except Exception, ex:
+		bottle.abort(409, "Error Getting VM info: " + str(ex))
+		return False
+
+@app.route('/inf/:id', method='POST')
+def RESTAddResource(id=None):
+	try:
+		auth_data = bottle.request.headers['AUTHORIZATION'].split(AUTH_LINE_SEPARATOR)
+		auth = Authentication(Authentication.read_auth_data(auth_data))
+	except:
+		bottle.abort(401, "No authentication data provided")
+
+	try:
+		radl_data = bottle.request.body.read()
+		vm_ids = InfrastructureManager.AddResource(int(id), radl_data, auth)
+
+		server_ip = bottle.request.environ['SERVER_NAME']
+		server_port = bottle.request.environ['SERVER_PORT']
+		
+		res = ""
+		for vm_id in vm_ids:
+			res += "http://" + server_ip + ":" + server_port + "/vms/" + str(id) + "/" + str(vm_id) + "\n"
+		
+		bottle.response.content_type = "text/uri-list"
+		return res
+	except Exception, ex:
+		bottle.abort(409, "Error Adding resources: " + str(ex))
+		return False
+				
+@app.route('/vms/:infid/:vmid', method='DELETE')
+def RESTRemoveResource(infid=None, vmid=None):
+	try:
+		auth_data = bottle.request.headers['AUTHORIZATION'].split(AUTH_LINE_SEPARATOR)
+		auth = Authentication(Authentication.read_auth_data(auth_data))
+	except:
+		bottle.abort(401, "No authentication data provided")
+	
+	try:
+		InfrastructureManager.RemoveResource(int(infid), vmid, auth)
+		return ""
+	except Exception, ex:
+		bottle.abort(409, "Error Removing resources: " + str(ex))
+		return False
+
+@app.route('/vms/:infid/:vmid', method='PUT')
+def RESTAlterVM(infid=None, vmid=None):
+	try:
+		auth_data = bottle.request.headers['AUTHORIZATION'].split(AUTH_LINE_SEPARATOR)
+		auth = Authentication(Authentication.read_auth_data(auth_data))
+	except:
+		bottle.abort(401, "No authentication data provided")
+	
+	try:
+		radl_data = bottle.request.body.read()
+		InfrastructureManager.AlterVM(int(infid), vmid, radl_data, auth)
+		return ""
+	except Exception, ex:
+		bottle.abort(409, "Error modifying resources: " + str(ex))
+		return False
+
+@app.route('/inf/:id', method='PUT')
+def RESTStartStopReconfigureInfrastructure(id=None):
+	try:
+		auth_data = bottle.request.headers['AUTHORIZATION'].split(AUTH_LINE_SEPARATOR)
+		auth = Authentication(Authentication.read_auth_data(auth_data))
+	except:
+		bottle.abort(401, "No authentication data provided")
+
+	op = bottle.request.forms.get('op')
+
+	try:
+		if op in ["start", "stop"]:
+			if op == "start":
+				InfrastructureManager.StartInfrastructure(int(id), auth)
+			else:
+				InfrastructureManager.StopInfrastructure(int(id), auth)
+	
+			return ""
+		elif op == "reconfigure":
+			radl_data = bottle.request.forms.get('radl')
+			InfrastructureManager.Reconfigure(int(id), radl_data, auth)
+		else:
+			bottle.abort(405, "Incorrect operation: only start or stop are allowed")
+			return False
+	except Exception, ex:
+		bottle.abort(409, "Error performing " + op + " operation: " + str(ex))
+		return False
