@@ -59,6 +59,14 @@
     - name: Install ansible with Pip 2.6
       action: command pip-2.6 install ansible=={{ ANSIBLE_VERSION }}
       when: redhat_os and {{ ansible_distribution_version|float }} < 6
+      
+    - name: Install pywinrm for windows support in ansible with Pip
+      pip: name=http://github.com/diyan/pywinrm/archive/master.zip#egg=pywinrm
+      when: not redhat_os or {{ ansible_distribution_version|float }} >= 6
+      
+    - name: Install pywinrm for windows support in ansible with Pip 2.6
+      action: command pip-2.6 install http://github.com/diyan/pywinrm/archive/master.zip#egg=pywinrm
+      when: redhat_os and {{ ansible_distribution_version|float }} < 6
 
     - name: Disable SELinux
       command: /usr/sbin/setenforce 0
