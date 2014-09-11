@@ -857,7 +857,7 @@ class ConfManager(threading.Thread):
 		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Copy the contextualization agent files")
 
 		files = []
-		files.append((Config.IM_PATH + "/IM/SSH.py",ConfManager.CONF_DIR + "/SSH.py"))
+		files.append((Config.IM_PATH + "/SSH.py",ConfManager.CONF_DIR + "/SSH.py"))
 		files.append((Config.CONTEXTUALIZATION_DIR + "/ansible_callbacks.py", ConfManager.CONF_DIR + "/ansible_callbacks.py")) 
 		files.append((Config.CONTEXTUALIZATION_DIR + "/ansible-playbook", ConfManager.CONF_DIR + "/ansible-playbook"))
 		files.append((Config.CONTEXTUALIZATION_DIR + "/ctxt_agent.py", ConfManager.CONF_DIR + "/ctxt_agent.py"))
