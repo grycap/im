@@ -72,6 +72,9 @@ framework (http://www.cherrypy.org/) must be installed.
 
 You only have to call the install command of the pip tool with the IM package.
 
+**WARNING: In some linux distributions (REL 6 or equivalents) you must unistall
+the packages python-paramiko and python-crypto before installing the IM with pip.**
+
 ```
 pip install IM
 ```
@@ -79,7 +82,7 @@ pip install IM
 Finally you must set the executable permissions on the init script.
 
 ```
-chmod +x /etc/init.d/im
+$ chmod +x /etc/init.d/im
 ```
 
 ### 1.3.2 FROM SOURCE
@@ -94,6 +97,10 @@ $ mv IM-X.XX /usr/local
 ```
 
 Finally you must copy (or link) $IM_PATH/im file to /etc/init.d directory.
+
+```
+$ ln -s /usr/local/im/im /etc/init.d
+```
 
 1.4 CONFIGURATION
 -----------------

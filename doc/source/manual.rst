@@ -58,6 +58,9 @@ Form Pip
 
 You only have to call the install command of the pip tool with the IM package::
 
+**WARNING: In some linux distributions (REL 6 or equivalents) you must unistall
+the packages python-paramiko and python-crypto before installing the IM with pip.**
+
    $ pip install IM
 
 Finally you must set the executable permissions on the init script::
