@@ -1,0 +1,43 @@
+{#
+    scrolls/layout.html
+    ~~~~~~~~~~~~~~~~~~~
+
+    Sphinx layout template for the scrolls theme, originally written
+    by Armin Ronacher.
+
+    :copyright: Copyright 2007-2014 by the Sphinx team, see AUTHORS.
+    :license: BSD, see LICENSE for details.
+#}
+{%- extends "basic/layout.html" %}
+{% set script_files = script_files + ['_static/theme_extras.js'] %}
+{#   % set css_files = css_files + ['_static/print.css'] %    #}
+{% set css_files = css_files + ['_static/grycap.css'] %}
+{# do not display relbars #}
+{% block relbar1 %}{% endblock %}
+{% block relbar2 %}{% endblock %}
+{% block content %}
+<div id="main-wrapper">
+    <div id="logo">
+       <div class="img"><img height="90" src="{{ pathto('_static/logo.png', 1) }}"></img></div>
+    </div>
+    <div class="break hole"></div>
+    <div id="menu">
+      <div id="menu-text">
+         <ul>
+            <li><a href="../index.php">Home</a>
+            </li><li><a href="../overview.php">Overview</a>            
+            </li><li><a href="../usecases.php">Use Cases</a>
+            </li><li><a href="../download.php">Download</a>
+            </li><li><a href="{{ pathto('index') }}">Documentation</a>
+            </li><li class="last"><a href="../about.php">About</a>
+         </li></ul>
+      </div>
+    </div>
+    <div class="break hole"></div>
+    <div id="content">
+      <div id="contentwrapper">
+        {% block body %}{% endblock %}
+      </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,251 @@
+* {
+	padding: 0;
+	margin: 0;
+}
+body {
+	text-align: center;
+	background-color: #aaa;
+	background: url(bg2.jpg) no-repeat;
+}
+#main-wrapper {
+	width:900px;
+	margin:0 auto;
+	margin-top: 32px;
+}
+div.break {
+	clear: both;	
+}
+div.hole {
+	background: transparent;
+	height: 24px;
+}
+
+#code{
+    margin-left: 40px;
+	padding-left: 10px;
+	width: 800px;
+	border-radius: 10px;
+	-moz-border-radius: 10px;
+	background-color: #FFF;
+	-moz-box-shadow: 0px 0px 40px #acc;
+	-webkit-box-shadow: 0px 0px 40px #acc;	
+	position: relative;
+	top: 3px;
+	left: 0px;
+	text-align: justify;
+	box-shadow: 0px 0px 40px #acc;
+	color: #034d80;
+	font-family: Courier;
+	font-size: 14px;
+}
+
+#logo {
+	width: 900px;
+	border-radius: 10px;
+	-moz-border-radius: 10px;
+	background-color: #AAAA;
+	height: 128px;
+	box-shadow: 0px 0px 40px #acc;
+	-moz-box-shadow: 0px 0px 40px #acc;
+	-webkit-box-shadow: 0px 0px 40px #acc;
+}
+#logo .img {
+	float: left;
+	position: relative;
+	top: 15px;
+	left: 52px;
+	padding-right: 10px;
+}
+#logo .text {
+	position: relative;
+	top: 3px;
+	left: 52px;
+	text-align: left;
+	height: 98px;
+	color: #034d80;
+	font-family: Helvetica, Arial, Verdana, sans-serif;
+	font-size: 90px;
+	text-shadow: 2px 2px 4px #575;
+}
+#logo .min {
+	position: relative;
+	left: -75px;
+	top: 21px;
+	padding-top: 21px; /* para explorer */
+	font-size: 14px;
+	height: 32px;
+}
+
+
+#menu {
+	width: 100%;
+	border-radius: 10px;
+	-moz-border-radius: 10px;
+	background-color: #fff;
+	text-align: left;
+	height: 48px;
+	background: url(fondobarra2.png)
+}
+#menu-text {
+	position: relative;
+	top: 14px;
+	margin: 0px 10px;
+	text-align: center;
+}
+#menu-text a {
+	color: #fff;
+	font-family: Helvetica, Arial, Verdana, sans-serif;
+	font-size: 16px;
+	text-decoration: none;
+}
+#menu-text li {
+	display: inline;
+	padding: 0 16px;
+	border-right: 1px solid #aca;
+}
+#menu-text li.last {
+	border-right: 0px;
+}
+#menu-text ul {
+	list-style-type: none;
+	display: block;
+}
+#content {
+	width: 100%;
+	border-radius: 10px;
+	-moz-border-radius: 10px;
+	background-color: #fff;
+	font-family: Helvetica, Arial, Verdana, sans-serif;
+	font-size: 14px;
+	color: #367;
+	text-decoration: none;
+	text-align: left;
+	background: #fff no-repeat 0 0;
+	box-shadow: 0px 0px 40px #acc;
+	-moz-box-shadow: 0px 0px 40px #acc;
+	-webkit-box-shadow: 0px 0px 40px #acc;
+}
+#content h1 {
+	font-size: 32px;
+	padding: 48px 52px 16px 52px;
+}
+#content h2 {
+	font-size: 24px;
+	padding: 16px 52px 0px 52px;
+}
+#content h3 {
+	padding: 16px 52px 0px 52px;
+}
+#content p, #content dd {
+	font-size: 14px;
+	padding: 8px 52px;
+	text-align: justify;
+	line-height: 22px;
+	with: 100%;
+}
+#content dd table {
+   margin: 5px 0px;
+}
+#content ol, #content ul {
+	font-size: 14px;
+	padding: 0px 56px;
+	text-align: justify;
+	line-height: 22px;
+	width: 100%;
+}
+#content dd p, #content dd dl, #content li pre, #content dd ul {
+   padding: 0px;
+   margin: 0px;
+}
+
+#content li {
+	/*padding-right: 128px; /* los 72 + 56 */
+	padding-right: 124px;
+	padding-bottom: 8px;
+	/*padding-top: 8px;*/
+	position: relative;
+	left: 16px;
+}
+#content li p {
+   padding: 8px 0px;
+}
+#content a {
+	color: #367;
+	font-weight: bold;
+	/*text-decoration: underline;*/
+}
+
+#content table {
+	/* padding-left: 30px; */
+}
+#content table thead td {
+	text-align: center;
+	font-weight: bold;
+}
+/*#content tbody td {
+	text-align: right;
+	padding: 5px 5px;
+}*/
+#content th {
+	color:#fff;
+	background-color: #367;	
+	padding: 7px 7px;
+	border-radius: 10px;
+	-moz-border-radius: 10px;
+	box-shadow: 0px 0px 40px #acc;
+	-moz-box-shadow: 0px 0px 40px #acc;
+	-webkit-box-shadow: 0px 0px 40px #acc;
+}
+.credits {
+	font-size: 11px;
+	text-align: center;
+	padding-top: 32px;
+}
+.italic {
+	font-style: italic;
+}
+.destacado {
+	font-weight: bold;
+}
+#content img {
+	/* padding: 16px 52px; */
+	border: 0px;
+	margin: 16px 52px;
+}
+#content div {
+	/*padding: 16px 52px;*/
+}
+#content .right {
+	float: right;
+}
+#content .center {
+	clear: both;
+	text-align: center;
+}
+#content .left {
+	float: left;
+}
+.sup {
+	vertical-align: baseline;
+	font-size: 60%;
+	position: relative;
+	top: -0.4em;
+}
+.foot {
+}
+#content p.legend {
+	text-align: center;
+	font-size: 10px;
+	padding-top: 0;
+	padding-bottom: 0;
+}
+#content input {
+	width: 300px;
+}
+#content textarea {
+	width: 300px;
+	height: 200px;
+}
+#content input.button {
+	width: 100px;
+}
