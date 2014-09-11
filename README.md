@@ -12,7 +12,7 @@ fully functional infrastructure.
 Read the documentation and more at http://www.grycap.upv.es/im.
 
 There is also an Infrastructure Manager youtube channel with a set of videos with demos 
-of the functionality of the platform: https://www.youtube.com/channel/UCF16QmMHlRNtsC-0Cb2d8fg
+of the functionality of the platform: [YouTube IM channel](https://www.youtube.com/channel/UCF16QmMHlRNtsC-0Cb2d8fg)
 
 
 1. INSTALLATION
