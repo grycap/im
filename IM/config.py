@@ -31,31 +31,28 @@ class Config:
 	XMLRCP_PORT = 8899
 	ACTIVATE_REST = False
 	REST_PORT = 8800
-	IM_PATH = '/usr/local/im'
-	LOG_FILE = IM_PATH + '/log/inf.log'
+	IM_PATH = os.path.dirname(os.path.realpath(__file__))
+	LOG_FILE = '/var/log/im/inf.log'
 	LOG_FILE_MAX_SIZE = 10485760
 	LOG_LEVEL = logging.DEBUG
-	CONTEXTUALIZATION_DIR = IM_PATH + '/contextualization'
+	CONTEXTUALIZATION_DIR = '/usr/share/im/contextualization'
 	RECIPES_DIR = CONTEXTUALIZATION_DIR + '/AnsibleRecipes'
 	RECIPES_DB_FILE = CONTEXTUALIZATION_DIR + '/recipes_ansible.db'
 	MAX_CONTEXTUALIZATION_TIME = 7200
 	MAX_SIMULTANEOUS_LAUNCHES = 1
-	DATA_FILE = IM_PATH + '/inf.dat'
+	DATA_FILE = '/etc/im/inf.dat'
 	MAX_INF_STORED = 20
 	XMLRCP_SSL = False
-	XMLRCP_SSL_KEYFILE =  IM_PATH + "/pki/server-key.pem"
-	XMLRCP_SSL_CERTFILE = IM_PATH + "/pki/server-cert.pem"
-	XMLRCP_SSL_CA_CERTS = IM_PATH + "/pki/ca-chain.pem"
+	XMLRCP_SSL_KEYFILE =  "/etc/im/pki/server-key.pem"
+	XMLRCP_SSL_CERTFILE = "/etc/im/pki/server-cert.pem"
+	XMLRCP_SSL_CA_CERTS = "/etc/im/pki/ca-chain.pem"
 	REST_SSL = False
-	REST_SSL_KEYFILE =  IM_PATH + "/pki/server-key.pem"
-	REST_SSL_CERTFILE = IM_PATH + "/pki/server-cert.pem"
-	REST_SSL_CA_CERTS = IM_PATH + "/pki/ca-chain.pem"
-
-
-im_path = os.path.dirname(os.path.realpath(__file__))
+	REST_SSL_KEYFILE =  "/etc/im/pki/server-key.pem"
+	REST_SSL_CERTFILE = "/etc/im/pki/server-cert.pem"
+	REST_SSL_CA_CERTS = "/etc/im/pki/ca-chain.pem"
 
 config = ConfigParser.ConfigParser()
-config.read([im_path + '/../im.cfg', im_path + '/../etc/im.cfg', '/etc/im/im.cfg'])
+config.read([Config.IM_PATH + '/../im.cfg', Config.IM_PATH + '/../etc/im.cfg', '/etc/im/im.cfg'])
 
 if config.has_option('im', "DEFAULT_VM_MEMORY"):
 	Config.DEFAULT_VM_MEMORY = config.getint('im', "DEFAULT_VM_MEMORY")
