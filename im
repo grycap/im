@@ -30,17 +30,16 @@
 
 
 IM_LOG_PATH=/var/log/im
-IM_BIN_PATH=/usr/bin
-IMDAEMON=${IM_BIN_PATH}/im_service.py
+IMDAEMON=im_service.py
+
+which ${IMDAEMON} > /dev/null 2> /dev/null
+if [ $? -ne 0 ]; then
+	echo "[Error] ${IMDAEMON} not in PATH"
+	exit 1
+fi
 
 # the server will record its PID in this file
 PIDFILE=/var/run/im.pid
-
-# verify presence of server binary
-if ! [ -x ${IMDAEMON} ]; then
-        echo "Error: could not find executable ${IMDAEMON}"
-        exit 1
-fi
 
 function start() {
         echo -n "Starting IM Daemon: "
