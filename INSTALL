@@ -96,8 +96,8 @@ $ ln -s /etc/init.d/im /etc/rc5.d/S99im
 $ ln -s /etc/init.d/im /etc/rc1.d/K05im
 $ ln -s /etc/init.d/im /etc/rc6.d/K05im
 
-Adjust the installation path by setting the IM_BIN_PATH variable at /etc/init.d/im 
-to the path where the IM im_service.py is installed (e.g. /usr/local/im).
+Adjust the installation path by setting the IMDAEMON variable at /etc/init.d/im 
+to the path where the IM im_service.py is installed (e.g. /usr/local/im/im_service.py).
 
 Adjust the parameters in $IM_PATH/etc/im.cfg or /etc/im/im.cfg. Please pay attention
 to the next configuration variables, as they are the most important

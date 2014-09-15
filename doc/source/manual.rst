@@ -88,10 +88,10 @@ Configuration
 
 If you want the IM Service to be started at boot time, do
 
-1. Update the value of the variable ``IM_BIN_PATH`` in :file:`/etc/init.d/im` file to
+1. Update the value of the variable ``IMDAEMON`` in :file:`/etc/init.d/im` file to
    the installation path::
 
-   $ sudo sed -i 's/`IM_BIN_PATH=.*/`IM_BIN_PATH=/usr/local/IM-0.1/'/etc/init.d/im
+   $ sudo sed -i 's/`IMDAEMON=.*/`IMDAEMON=/usr/local/IM-0.1/im_service.py'/etc/init.d/im
 
 3. Register the service.
 
