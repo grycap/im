@@ -83,12 +83,6 @@ the packages python-paramiko and python-crypto before installing the IM with pip
 pip install IM
 ```
 
-Finally you must set the executable permissions on the init script.
-
-```
-$ chmod +x /etc/init.d/im
-```
-
 ### 1.3.2 FROM SOURCE
 
 Select a proper path where to install the IM service (i.e. /usr/local/im, 
