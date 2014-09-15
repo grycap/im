@@ -63,10 +63,6 @@ the packages python-paramiko and python-crypto before installing the IM with pip
 
    $ pip install IM
 
-Finally you must set the executable permissions on the init script::
-
-   $ chmod +x /etc/init.d/im
-
 Form Source
 ^^^^^^^^^^^
 
