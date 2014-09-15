@@ -7,7 +7,7 @@ Prerequisites
 
 IM needs at least Python 2.4 to run, as well as the next libraries:
 
-* `Python Lex & Yacc <http://www.dabeaz.com/ply/>`_, ssh2 protocol library for python.
+* `PLY <http://www.dabeaz.com/ply/>`_, Python Lex & Yacc library for python.
 * `paramiko <http://www.lag.net/paramiko/>`_, ssh2 protocol library for python.
 * `PyYAML <http://pyyaml.org/>`_, a YAML parser.
 * `SOAPpy <http://pywebsvcs.sourceforge.net/>`_, a full-featured SOAP library
@@ -93,7 +93,7 @@ If you want the IM Service to be started at boot time, do
 
    $ sudo sed -i 's/`IMDAEMON=.*/`IMDAEMON=/usr/local/IM-0.1/im_service.py'/etc/init.d/im
 
-3. Register the service.
+2. Register the service.
 
 To do the last step on a Debian based distributions, execute::
 
