@@ -83,6 +83,14 @@ the packages python-paramiko and python-crypto before installing the IM with pip
 pip install IM
 ```
 
+Pip will install all the pre-requisites needed. So Ansible  1.4.2 or later will
+ be installed in the system. In some cases it will need to have installed the GCC 
+ compiler and the python developer libraries ('python-dev' or 'python-devel' 
+ packages in main distributions).
+
+You must also remember to modify the ansible.cfg file setting as specified in the 
+REQUISITES section.
+
 ### 1.3.2 FROM SOURCE
 
 Select a proper path where to install the IM service (i.e. /usr/local/im, 
@@ -129,9 +137,11 @@ $ ln -s /etc/init.d/im /etc/rc6.d/K05im
 ```
 
 Adjust the installation path by setting the IMDAEMON variable at /etc/init.d/im 
-to the path where the IM im_service.py is installed (e.g. /usr/local/im/im_service.py).
+to the path where the IM im_service.py file is installed (e.g. /usr/local/im/im_service.py),
+or set the name of the script file (im_service.py) if the file is in the PATH
+(pip puts the im_service.py file in the PATH as default).
 
-Adjust the parameters in $IM_PATH/etc/im.cfg or /etc/im/im.cfg. Please pay attention
+Check the parameters in $IM_PATH/etc/im.cfg or /etc/im/im.cfg. Please pay attention
 to the next configuration variables, as they are the most important
 
 DATA_FILE - must be set to the full path where the IM data file will be created 
