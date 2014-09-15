@@ -63,6 +63,14 @@ You only have to call the install command of the pip tool with the IM package::
 **WARNING: In some linux distributions (REL 6 or equivalents) you must unistall
 the packages python-paramiko and python-crypto before installing the IM with pip.**
 
+Pip will install all the pre-requisites needed. So Ansible 1.4.2 or later will be
+ installed in the system. In some cases it will need to have installed the GCC 
+ compiler and the python developer libraries ('python-dev' or 'python-devel' 
+ packages in main distributions).
+
+You must also remember to modify the ansible.cfg file setting as specified in the 
+REQUISITES section.
+
 Form Source
 ^^^^^^^^^^^
 
@@ -84,8 +92,10 @@ Configuration
 
 If you want the IM Service to be started at boot time, do
 
-1. Update the value of the variable ``IMDAEMON`` in :file:`/etc/init.d/im` file to
-   the installation path::
+1. Update the value of the variable ``IMDAEMON`` in :file:`/etc/init.d/im` file
+   to the path where the IM im_service.py file is installed (e.g. /usr/local/im/im_service.py),
+   or set the name of the script file (im_service.py) if the file is in the PATH
+   (pip puts the im_service.py file in the PATH as default)::
 
    $ sudo sed -i 's/`IMDAEMON=.*/`IMDAEMON=/usr/local/IM-0.1/im_service.py'/etc/init.d/im
 
