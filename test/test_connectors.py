@@ -26,7 +26,7 @@ from IM.radl import radl_parse
 from IM.VirtualMachine import VirtualMachine
 from IM.VMRC import VMRC
 
-TESTS_PATH = os.getcwd() + '/test'
+TESTS_PATH = '/home/micafer/codigo/git_im/im/test'
 AUTH_FILE = TESTS_PATH + '/auth.dat'
 
 auth = Authentication(Authentication.read_auth_data(AUTH_FILE))
@@ -41,7 +41,7 @@ class TestConnectors(unittest.TestCase):
     """ List of VMs launched in the test """
     
     #connectors_to_test = "all"
-    connectors_to_test = ["libcloud"]
+    connectors_to_test = ["docker"]
     """ Specify the connectors to test: "all": All the connectors specified in the auth file or a list with the IDs"""
 
     @classmethod
@@ -75,7 +75,7 @@ class TestConnectors(unittest.TestCase):
                                      for s0 in vmrc_res ])
 
         return  res
-
+            
     def test_10_concrete(self):
         radl_data = """
             network net ()
@@ -83,10 +83,10 @@ class TestConnectors(unittest.TestCase):
             cpu.arch='x86_64' and
             cpu.count>=1 and
             memory.size>=512m and
-            net_interface.0.connection = 'privada' and
+            net_interface.0.connection = 'net' and
             net_interface.0.dns_name = 'test' and
-            disk.0.os.flavour='scientific' and
-            disk.0.os.version>='6'
+            disk.0.os.flavour='ubuntu' and
+            disk.0.os.version>='14.04'
             )"""
         radl = radl_parse.parse_radl(radl_data)
         radl_system = radl.systems[0]
@@ -108,12 +108,11 @@ class TestConnectors(unittest.TestCase):
             memory.size>=512m and
             net_interface.0.connection = 'net' and
             net_interface.0.dns_name = 'test' and
-            disk.0.os.flavour='scientific' and
-            disk.0.os.version>='6' and
+            disk.0.os.flavour='ubuntu' and
+            disk.0.os.version>='14.04' and
             disk.1.size=1GB and
             disk.1.device='hdb'
             )"""
-        
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
         radl_system = radl.systems[0]
