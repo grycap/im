@@ -121,6 +121,8 @@ class LibCloudCloudConnector(CloudConnector):
 				res_system.addFeature(Feature("disk.0.free_size", "=", instance_type.disk , 'G'), conflict="other", missing="other")
 				res_system.addFeature(Feature("price", "=", instance_type.price), conflict="me", missing="other")
 				
+				res_system.addFeature(Feature("instance_type", "=", instance_type.name), conflict="other", missing="other")
+				
 				res_system.addFeature(Feature("provider.type", "=", self.type), conflict="other", missing="other")
 				if self.cloud.server:
 					res_system.addFeature(Feature("provider.host", "=", self.cloud.server), conflict="other", missing="other")

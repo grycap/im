@@ -56,6 +56,8 @@ class EC2CloudConnector(CloudConnector):
 				res_system.addFeature(Feature("price", "=", instance_type.price), conflict="me", missing="other")
 				res_system.addFeature(Feature("virtual_system_type", "=", "ec2"), conflict="other", missing="other")
 				
+				res_system.addFeature(Feature("instance_type", "=", instance_type.name), conflict="other", missing="other")
+				
 				res_system.addFeature(Feature("provider.type", "=", self.type), conflict="other", missing="other")
 					
 				return [res_system]
