@@ -54,6 +54,7 @@ class EC2CloudConnector(CloudConnector):
 				res_system.addFeature(Feature("disk.0.free_size", "=", instance_type.disks * instance_type.disk_space, 'G'), conflict="other", missing="other")
 				res_system.addFeature(Feature("cpu.performance", "=", instance_type.cpu_perf, 'ECU'), conflict="other", missing="other")
 				res_system.addFeature(Feature("price", "=", instance_type.price), conflict="me", missing="other")
+				res_system.addFeature(Feature("virtual_system_type", "=", "ec2"), conflict="other", missing="other")
 					
 				return [res_system]
 			else:
@@ -154,18 +155,60 @@ class EC2CloudConnector(CloudConnector):
 		instace_types = EC2InstanceTypes.get_all_instance_types()
 
 		res = None
-		for type in instace_types:
+		for instace_type in instace_types:
 			# get the instance type with the lowest price
-			if res is None or (type.price <= res.price):
-				if arch in type.cpu_arch and type.cores_per_cpu * type.num_cpu >= cpu and type.mem >= memory and type.cpu_perf >= performance and type.disks * type.disk_space >= disk_free:
-					res = type
+			if res is None or (instace_type.price <= res.price):
+				if arch in instace_type.cpu_arch and instace_type.cores_per_cpu * instace_type.num_cpu >= cpu and instace_type.mem >= memory and instace_type.cpu_perf >= performance and instace_type.disks * instace_type.disk_space >= disk_free:
+					res = instace_type
 		
 		if res is None:
 			EC2InstanceTypes.get_instance_type_by_name(self.INSTANCE_TYPE)
 		else:
 			return res
 
-	def launch(self, radl, requested_radl, num_vm, auth_data):
+	def create_security_group(self, conn, inf, radl):
+		res = "default"
+		try:
+			sg = None
+			sg_name = "im-" + str(id(inf))
+			for elem in conn.get_all_security_groups():
+				if elem.name == sg_name:
+					sg = elem
+					break
+			if not sg: 
+				self.logger.debug("Creating security group: " + sg_name)
+				sg = conn.create_security_group(sg_name, "Security group created by the IM")
+			
+			res = sg_name
+			
+			public_net = None
+			for net in radl.networks:
+				if net.isPublic():
+					public_net = net
+	
+			ssh_found = False
+			if public_net:
+				outports = public_net.getValue('outports')
+				if outports:
+					ports = outports.split(',')
+					for port in enumerate(ports):
+						parts = port.split('-')
+						local_port = parts[1]
+						remote_port = parts[0]
+						if local_port == "22":
+							ssh_found = True
+						sg.authorize('tcp', remote_port, local_port, '0.0.0.0/0')
+			
+			if not ssh_found:
+				sg.authorize('tcp', 22, 22, '0.0.0.0/0')
+			
+		except Exception, ex:
+			self.logger.exception("Error Creating the Security group")
+			pass
+		
+		return res
+
+	def launch(self, inf, radl, requested_radl, num_vm, auth_data):
 		
 		system = radl.systems[0]
 		
@@ -186,15 +229,7 @@ class EC2CloudConnector(CloudConnector):
 		
 		images = conn.get_all_images([ami])
 
-		try:
-			# TODO: create one
-			for sg in conn.get_all_security_groups():
-				if sg.name == 'default':
-					sg.authorize('tcp', 22, 22, '0.0.0.0/0')
-		except Exception, ex:
-			self.logger.debug("Error adding SSH port to the default security group. Probably it was already added.")
-			self.logger.debug(ex)
-			pass
+		sg_name = self.create_security_group(conn, inf, radl)
 		
 		if len(images) == 1:
 			keypair_name = "im-" + str(int(time.time()*100))
@@ -261,7 +296,7 @@ class EC2CloudConnector(CloudConnector):
 								availability_zone = zone.name
 					self.logger.debug("Launching the spot request in the zone " + availability_zone)
 					
-					request = conn.request_spot_instances(price=price, image_id=images[0].id, count=1, type='one-time', instance_type=instance_type.name, placement=availability_zone, key_name=keypair_name)
+					request = conn.request_spot_instances(price=price, image_id=images[0].id, count=1, type='one-time', instance_type=instance_type.name, placement=availability_zone, key_name=keypair_name, security_groups=[sg_name])
 					
 					if request:
 						vm_id = region_name + ";" + request[0].id
@@ -269,7 +304,7 @@ class EC2CloudConnector(CloudConnector):
 						self.logger.debug("RADL:")
 						self.logger.debug(system)
 					
-						vm = VirtualMachine(vm_id, self.cloud, radl, requested_radl)
+						vm = VirtualMachine(inf, vm_id, self.cloud, radl, requested_radl)
 						# Add the keypair name to remove it later 
 						vm.keypair_name = keypair_name
 						self.logger.debug("Instance successfully launched.")
@@ -285,7 +320,7 @@ class EC2CloudConnector(CloudConnector):
 						self.logger.debug(system)
 						res.append((False, "Error launching the VM, no instance type available for the requirements."))
 
-					reservation = images[0].run(min_count=1,max_count=1,key_name=keypair_name,instance_type=instance_type.name)
+					reservation = images[0].run(min_count=1,max_count=1,key_name=keypair_name,instance_type=instance_type.name,security_groups=[sg_name])
 
 					if len(reservation.instances) == 1:
 						instance = reservation.instances[0]
@@ -294,7 +329,7 @@ class EC2CloudConnector(CloudConnector):
 						self.logger.debug("RADL:")
 						self.logger.debug(system)
 						
-						vm = VirtualMachine(vm_id, self.cloud, radl, requested_radl)
+						vm = VirtualMachine(inf, vm_id, self.cloud, radl, requested_radl)
 						# Add the keypair name to remove it later 
 						vm.keypair_name = keypair_name
 						self.logger.debug("Instance successfully launched.")
@@ -671,6 +706,12 @@ class EC2CloudConnector(CloudConnector):
 		instance_id = vm.id.split(";")[1]
 		
 		conn = self.get_connection(region_name, auth_data)
+		
+		# Terminate the instance
+		instance = self.get_instance_by_id(instance_id, region_name, auth_data)
+		if (instance != None):
+			instance.update()
+			instance.terminate()
 
 		public_key = vm.getRequestedSystem().getValue('disk.0.os.credentials.public_key')
 		if public_key is None or len(public_key) == 0 or (len(public_key) >= 1 and public_key.find('-----BEGIN CERTIFICATE-----') != -1):
@@ -682,16 +723,50 @@ class EC2CloudConnector(CloudConnector):
 		
 		# Delete the  spot instance requests
 		self.cancel_spot_requests(conn, vm)
-
-		instance = self.get_instance_by_id(instance_id, region_name, auth_data)
-		if (instance != None):
-			instance.update()
-			instance.terminate()
 		
 		# Delete the EBS volumes
 		self.delete_volumes(conn, vm)
 		
+		# Delete the SG if this is the last VM
+		self.delete_security_group(conn, vm)
+		
 		return (True, "")
+	
+	def delete_security_group(self, conn, vm, timeout = 90):
+		"""
+		Delete the SG of this infrastructure if this is the last VM
+
+		Arguments:
+		   - conn(:py:class:`boto.ec2.connection`): object to connect to EC2 API.
+		   - vm(:py:class:`IM.VirtualMachine`): VM information.	
+		"""
+		sg_name = "im-" + str(id(vm.inf))
+		for elem in conn.get_all_security_groups():
+			if elem.name == sg_name:
+				sg = elem
+				break
+
+		if sg:
+			# Check that all there are only one active instance (this one)
+			if len(sg.instances()) == 1:
+				instance = sg.instances()[0]
+				# wait it to terminate and then remove the SG
+				cont = 0
+				while instance.state != 'terminated' and cont < timeout:
+					time.sleep(5)
+					cont += 5
+					instance.update()
+	
+				if instance.state == 'terminated':
+					self.logger.debug("Remove the SG: " + sg_name)
+					sg.delete()
+			elif len(sg.instances()) == 0:
+				# If there are no active instances we can delete it
+				sg.delete()
+			else:
+				# If there are more than 1, we skip this step
+				self.logger.debug("There are active instances. Not removing the SG")
+		
 		
 	def stop(self, vm, auth_data):
 		region_name = vm.id.split(";")[0]

@@ -69,12 +69,12 @@ class ThreadSSH(Thread):
 class SSH:
     """ Class to encapsulate SSH operations using paramiko """
 
-    def __init__(self, host, user, passwd, private_key = None):
+    def __init__(self, host, user, passwd, private_key = None, port=22):
         # Atributo para la version "thread"
         self.thread = None
         
         self.tty = False
-        self.port = 22
+        self.port = port
         self.host = host
         self.username = user
         self.password = passwd
@@ -94,7 +94,7 @@ class SSH:
             self.private_key_obj = paramiko.RSAKey.from_private_key(private_key_obj)
 
     def __str__(self):
-        res = "SSH: host: " + self.host + ", user: " + self.username
+        res = "SSH: host: " + self.host + ", port: " + str(self.port) + ", user: " + self.username
         if self.password != None:
             res += ", password: " + self.password
         if self.private_key != None:
@@ -116,14 +116,14 @@ class SSH:
         if self.password and self.private_key_obj:
             # If both credentials are provided first try to use the password
             try:
-                client.connect(self.host, username=self.username,
+                client.connect(self.host, self.port, username=self.username,
                            password=self.password, timeout=time_out)
             except paramiko.AuthenticationException:
                 # and then use the private key
-                client.connect(self.host, username=self.username,
+                client.connect(self.host, self.port, username=self.username,
                            pkey = self.private_key_obj, timeout=time_out)
         else:
-            client.connect(self.host, username=self.username,
+            client.connect(self.host, self.port, username=self.username,
                        password=self.password, timeout=time_out,
                        pkey = self.private_key_obj)
             

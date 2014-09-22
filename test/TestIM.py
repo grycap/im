@@ -17,11 +17,10 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
-import sys, os
+import os
 import xmlrpclib
 import time
 
-sys.path.append("..")
 from IM.config import Config
 from IM.auth import Authentication
 from IM.VirtualMachine import VirtualMachine
@@ -29,7 +28,7 @@ from IM.radl import radl_parse
 
 RADL_ADD = "network publica\nnetwork privada\nsystem wn\ndeploy wn 1 one"
 RADL_ADD_ERROR = "system wnno deploy wnno 1"
-TESTS_PATH = os.getcwd() + '/test'
+TESTS_PATH = '/home/micafer/codigo/git_im/im/test'
 RADL_FILE = TESTS_PATH + '/test.radl'
 #RADL_FILE =  TESTS_PATH + '/test_ec2.radl'
 AUTH_FILE = TESTS_PATH + '/auth.dat'

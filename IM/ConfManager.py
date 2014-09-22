@@ -184,7 +184,7 @@ class ConfManager(threading.Thread):
 					if ip != None:
 						(user, passwd, _, private_key) = vm.getCredentialValues()
 
-						ssh = SSH(ip, user, passwd, private_key)
+						ssh = SSH(ip, user, passwd, private_key, vm.getSSHPort())
 						ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " + 'SSH Connecting with: ' + ip + ' to the VM: ' + str(vm.id))
 						
 						connected = False
@@ -215,36 +215,6 @@ class ConfManager(threading.Thread):
 			return True
 		else:
 			return False
-
-	def select_vm_master(self):
-		"""
-		Select the VM master of the infrastructure.
-		The master VM must be connected with all the VMs and must have a Linux OS
-		It will select the first created VM that fulfills this requirements  
-	
-		Returns: a tuples (vm_master, master_num) where:
-		   - vm_master(:py:class:`IM.VirtualMachine`): the selected master VM.
-		   - master_num(int): the num of the the master VM inside their type of VM
-		"""
-		vm_master = None
-		num = 0
-		master_num = 0
-		for vm in self.inf.get_vm_list():
-			if vm.getOS() and vm.getOS().lower() == 'linux' and vm.hasPublicNet():
-				# check that is connected with all the VMs
-				full_connected = True
-				for other_vm in self.inf.get_vm_list():
-					if not vm.isConnectedWith(other_vm):
-						full_connected = False
-				if full_connected:
-					vm_master = vm
-					master_num = num
-					num += 1
-					break
-				else:
-					ConfManager.logger.error("All the VMs are not connected")
-
-		return (vm_master, master_num)
 
 	def change_master_credentials(self, ssh):
 		"""
@@ -290,9 +260,9 @@ class ConfManager(threading.Thread):
 		try:
 			# Select the master VM
 			self.inf.add_cont_msg("Select master VM")
-			(self.inf.vm_master, master_num) = self.select_vm_master()
+			self.inf.select_vm_master()
 
-			if self.inf.vm_master is None:
+			if not self.inf.vm_master:
 				# If there are not a valid master VM, exit
 				ConfManager.logger.error("Inf ID: " + str(self.inf.id) + ": No correct Master VM found. Exit")
 				self.inf.add_cont_msg("Contextualization Error: No correct Master VM found. Check if there a linux VM with Public IP and connected with the rest of VMs.")
@@ -300,7 +270,7 @@ class ConfManager(threading.Thread):
 				return
 
 			# Now check if the master VM has specified a hostname or set the master VM hostname with the default values			
-			(master_name, masterdom) = self.inf.vm_master.getRequestedName(master_num, Config.DEFAULT_MASTERVM_NAME, Config.DEFAULT_DOMAIN)
+			(master_name, masterdom) = self.inf.vm_master.getRequestedName(self.inf.vm_master_num, Config.DEFAULT_MASTERVM_NAME, Config.DEFAULT_DOMAIN)
 
 			ConfManager.logger.info("Inf ID: " + str(self.inf.id) + ": Wait the master VM to be running")
 
@@ -336,7 +306,7 @@ class ConfManager(threading.Thread):
 				master_priv_ip = ip
 
 			(user, passwd, _, private_key) = self.inf.vm_master.getCredentialValues()
-			ssh = SSH(ip, user, passwd, private_key)
+			ssh = SSH(ip, user, passwd, private_key, self.inf.vm_master.getSSHPort())
 			# Activate tty mode to avoid some problems with sudo in REL
 			ssh.tty = True
 
@@ -461,7 +431,7 @@ class ConfManager(threading.Thread):
 		recipe_files = []
 		# Create the ansible inventory file
 		with open(tmp_dir + "/inventory.cfg", 'w') as inv_out:
-			inv_out.write(ssh.host + "\n\n")
+			inv_out.write(ssh.host + ":" + str(ssh.port) + "\n\n")
 		
 		shutil.copy(Config.CONTEXTUALIZATION_DIR + "/" + ConfManager.MASTER_YAML, tmp_dir + "/" + ConfManager.MASTER_YAML)
 		
@@ -700,7 +670,7 @@ class ConfManager(threading.Thread):
 						else:
 							hosts_out.write(ip + " " + nodename + "." + nodedom + " " + nodename + "\r\n")
 
-					node_line = ip
+					node_line = ip + ":" + str(vm.getSSHPort())
 					node_line += ' IM_NODE_HOSTNAME=' + nodename
 					node_line += ' IM_NODE_HOSTNAME=' + nodename
 					node_line += ' IM_NODE_FQDN=' + nodename + "." + nodedom
@@ -748,6 +718,7 @@ class ConfManager(threading.Thread):
 		recipe_out.write("      file: path=/etc/ansible state=directory\n")
 		recipe_out.write("    - name: Copy the {{ item.dest }} file (needs to be sudo)\n")
 		recipe_out.write("      copy: src={{ item.src }} dest={{ item.dest }}\n")
+		recipe_out.write("      ignore_errors: yes\n")
 		recipe_out.write("      with_items:\n")
 		recipe_out.write("      - { src: '" + ansible_file + "', dest: '/etc/ansible/hosts' }\n")
 		recipe_out.write("      - { src: '" + hosts_file + "', dest: '/etc/hosts' }\n")
@@ -791,6 +762,7 @@ class ConfManager(threading.Thread):
 					vm_conf_data['ip'] = vm.getPublicIP()
 					if not vm_conf_data['ip']:
 						vm_conf_data['ip'] = vm.getPrivateIP()
+					vm_conf_data['ssh_port'] = vm.getSSHPort()
 					creds = vm.getCredentialValues()
 					new_creds = vm.getCredentialValues(new=True)
 					(vm_conf_data['user'], vm_conf_data['passwd'], _, vm_conf_data['private_key']) = creds

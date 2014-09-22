@@ -42,7 +42,7 @@ def wait_ssh_access(vm):
 	while wait < SSH_WAIT_TIMEOUT:
 		logger.debug("Testing SSH access to VM: " + vm['ip'])
 		wait += delay
-		ssh_client = SSH(vm['ip'], vm['user'], vm['passwd'], vm['private_key'])
+		ssh_client = SSH(vm['ip'], vm['user'], vm['passwd'], vm['private_key'], vm['ssh_port'])
 		if ssh_client.test_connectivity():
 			return True
 		else:
@@ -152,7 +152,7 @@ def changeVMCredentials(vm, res):
 	if not vm['master']:
 		if 'new_passwd' in vm and vm['new_passwd']:
 			logger.info("Changing password to VM: " + vm['ip'])
-			ssh_client = SSH(vm['ip'], vm['user'], vm['passwd'], vm['private_key'])
+			ssh_client = SSH(vm['ip'], vm['user'], vm['passwd'], vm['private_key'], vm['ssh_port'])
 			(out, err, code) = ssh_client.execute('sudo bash -c \'echo "' + vm['user'] + ':' + vm['new_passwd'] + '" | chpasswd && echo "OK"\' 2> /dev/null')
 			
 			if code == 0:
@@ -164,7 +164,7 @@ def changeVMCredentials(vm, res):
 
 		if 'new_public_key' in vm and vm['new_public_key'] and 'new_private_key' in vm and vm['new_private_key']:
 			logger.info("Changing public key to VM: " + vm['ip'])
-			ssh_client = SSH(vm['ip'], vm['user'], vm['passwd'], vm['private_key'])
+			ssh_client = SSH(vm['ip'], vm['user'], vm['passwd'], vm['private_key'], vm['ssh_port'])
 			(out, err, code) = ssh_client.execute('echo ' + vm['new_public_key'] + ' >> .ssh/authorized_keys')
 			if code != 0:
 				res[vm['ip']] = False

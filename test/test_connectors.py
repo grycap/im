@@ -25,6 +25,7 @@ from IM.auth import Authentication
 from IM.radl import radl_parse
 from IM.VirtualMachine import VirtualMachine
 from IM.VMRC import VMRC
+from IM.InfrastructureInfo import InfrastructureInfo
 
 TESTS_PATH = '/home/micafer/codigo/git_im/im/test'
 AUTH_FILE = TESTS_PATH + '/auth.dat'
@@ -41,7 +42,7 @@ class TestConnectors(unittest.TestCase):
     """ List of VMs launched in the test """
     
     #connectors_to_test = "all"
-    connectors_to_test = ["docker"]
+    connectors_to_test = ["ec2"]
     """ Specify the connectors to test: "all": All the connectors specified in the auth file or a list with the IDs"""
 
     @classmethod
@@ -86,7 +87,7 @@ class TestConnectors(unittest.TestCase):
             net_interface.0.connection = 'net' and
             net_interface.0.dns_name = 'test' and
             disk.0.os.flavour='ubuntu' and
-            disk.0.os.version>='14.04'
+            disk.0.os.version>='12.04'
             )"""
         radl = radl_parse.parse_radl(radl_data)
         radl_system = radl.systems[0]
@@ -109,7 +110,7 @@ class TestConnectors(unittest.TestCase):
             net_interface.0.connection = 'net' and
             net_interface.0.dns_name = 'test' and
             disk.0.os.flavour='ubuntu' and
-            disk.0.os.version>='14.04' and
+            disk.0.os.version>='12.04' and
             disk.1.size=1GB and
             disk.1.device='hdb'
             )"""
@@ -127,7 +128,7 @@ class TestConnectors(unittest.TestCase):
     
                 launch_radl = radl.clone()
                 launch_radl.systems = [concrete_systems[0]]
-                res = cloud.launch(launch_radl, launch_radl, 1, auth)
+                res = cloud.launch(InfrastructureInfo(), launch_radl, launch_radl, 1, auth)
                 for success, vm in res:
                     self.assertTrue(success, msg="ERROR: launching a VM for cloud: " + cloud_id)
                     self.__class__.vm_list.append(vm) 
