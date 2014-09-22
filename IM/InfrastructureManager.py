@@ -124,7 +124,7 @@ class InfrastructureManager:
 		return deploy_groups
 
 	@staticmethod
-	def _launch_group(deploy_group, deploys_group_cloud_list, cloud_list, concrete_systems,
+	def _launch_group(sel_inf, deploy_group, deploys_group_cloud_list, cloud_list, concrete_systems,
 	                  radl, auth, deployed_vm, cancel_deployment):
 		"""Launch a group of deploys together."""
 
@@ -150,7 +150,7 @@ class InfrastructureManager:
 					requested_radl = radl.clone()
 					requested_radl.systems = [radl.get_system_by_name(concrete_system.name)]
 					try:
-						launched_vms = cloud.launch(launch_radl, requested_radl, remain_vm, auth)
+						launched_vms = cloud.launch(sel_inf, launch_radl, requested_radl, remain_vm, auth)
 					except Exception, e:
 						InfrastructureManager.logger.exception("Error launching some of the VMs: %s" % e)
 						exceptions.append(e)
@@ -429,11 +429,11 @@ class InfrastructureManager:
 		try:
 			#pool = ThreadPool(processes=Config.MAX_SIMULTANEOUS_LAUNCHES)
 			#pool.map(
-			#	lambda ds: InfrastructureManager._launch_group(
+			#	lambda ds: InfrastructureManager._launch_group(sel_inf
 			#		ds, deploys_group_cloud_list[id(ds)], cloud_list, concrete_systems,
 			#		radl, auth, deployed_vm, cancel_deployment), deploy_groups)
 			for ds in deploy_groups:
-				InfrastructureManager._launch_group(
+				InfrastructureManager._launch_group(sel_inf,
 					ds, deploys_group_cloud_list[id(ds)], cloud_list, concrete_systems,
 					radl, auth, deployed_vm, cancel_deployment)
 		except Exception, e:
@@ -832,6 +832,7 @@ class InfrastructureManager:
 		# Add the resources in radl_data
 		try:
 			InfrastructureManager.AddResource(inf.id, radl, auth)
+			InfrastructureManager.save_data()
 		except Exception, e:
 			inf.delete()
 			InfrastructureManager.remove_old_inf()

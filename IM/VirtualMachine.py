@@ -25,11 +25,13 @@ class VirtualMachine:
 	FAILED = "failed"
 	CONFIGURED = "configured"
 
-	def __init__(self, id, cloud, info, requested_radl):
+	def __init__(self, inf, id, cloud, info, requested_radl):
 		# Flag para indicar si esta VM ha sido eliminada por el usuario
 		self.destroy = False
 		# estado de la VM
 		self.state = self.UNKNOWN
+		# Infrastructure which this VM is part of 
+		self.inf = inf
 		# el ID de la VM asignado por el despliegue cloud
 		self.id = id
 		# el ID de la VM asignado por el IM
@@ -197,3 +199,26 @@ class VirtualMachine:
 				parts = req_app.getValue("name")[16:].split(".")
 				to_install.append(req_app.getValue("name")[16:])
 		return to_install
+	
+	def getSSHPort(self):
+		"""
+		Get the SSH port from the RADL 
+
+		Returns: int with the port
+		"""
+		ssh_port = 22
+
+		public_net = None
+		for net in self.info.networks:
+			if net.isPublic():
+				public_net = net
+				
+		if public_net:
+			outports = public_net.getValue('outports')
+			if outports:
+				for elem in outports.split(","):
+					parts = elem.split("-")
+					if len(parts) == 2 and parts[1] == "22":
+						ssh_port = int(parts[0])
+		
+		return ssh_port

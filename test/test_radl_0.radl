@@ -1,4 +1,4 @@
-network publica (outbound = 'yes')
+network publica (outbound = 'yes' and outports='8899-8899,22-22')
 system cursoaws (
 cpu.arch='x86_64' and
 cpu.count>=1 and

@@ -49,6 +49,8 @@ class InfrastructureInfo:
 		"""ConfManager Thread to contextualize"""
 		self.vm_master = None
 		"""VM selected as the master node to the contextualization step"""
+		self.vm_master_num = None
+		"""The num of the instance of the VM selected as the master node to the contextualization step"""
 		self.cont_out = ""
 		"""Contextualization output message"""
 		self.configured = None
@@ -226,3 +228,24 @@ class InfrastructureInfo:
 				
 		# Check the RADL
 		radl.check();
+		
+	def select_vm_master(self):
+		"""
+		Select the VM master of the infrastructure.
+		The master VM must be connected with all the VMs and must have a Linux OS
+		It will select the first created VM that fulfills this requirements
+		and store the values in the vm_master and vm_master_num fields
+		"""
+		num = 0
+		for vm in self.get_vm_list():
+			if vm.getOS() and vm.getOS().lower() == 'linux' and vm.hasPublicNet():
+				# check that is connected with all the VMs
+				full_connected = True
+				for other_vm in self.get_vm_list():
+					if not vm.isConnectedWith(other_vm):
+						full_connected = False
+				if full_connected:
+					self.vm_master = vm
+					self.vm_master_num = num
+					num += 1
+					break
