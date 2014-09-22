@@ -716,12 +716,14 @@ class ConfManager(threading.Thread):
 		recipe_out.write("  tasks:\n")
 		recipe_out.write("    - name: Create the /etc/ansible directory\n")
 		recipe_out.write("      file: path=/etc/ansible state=directory\n")
-		recipe_out.write("    - name: Copy the {{ item.dest }} file (needs to be sudo)\n")
-		recipe_out.write("      copy: src={{ item.src }} dest={{ item.dest }}\n")
+		
+		recipe_out.write("    - name: Copy the /etc/ansible/hosts file (needs to be sudo)\n")
+		recipe_out.write("      copy: src=" + ansible_file + " dest=/etc/ansible/hosts\n")	
+		
+		recipe_out.write("    - name: Copy the /etc/hosts file (needs to be sudo)\n")
+		recipe_out.write("      copy: src=" + hosts_file + " dest=/etc/hosts\n")
 		recipe_out.write("      ignore_errors: yes\n")
-		recipe_out.write("      with_items:\n")
-		recipe_out.write("      - { src: '" + ansible_file + "', dest: '/etc/ansible/hosts' }\n")
-		recipe_out.write("      - { src: '" + hosts_file + "', dest: '/etc/hosts' }\n")
+		
 		recipe_out.write("    - name: Set the " + ConfManager.CONF_DIR + " directory owner\n")
 		recipe_out.write("      file: path=" + ConfManager.CONF_DIR + " state=directory owner=" + ssh.username + "\n")
 		recipe_out.close()
