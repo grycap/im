@@ -553,7 +553,7 @@ class InfrastructureManager:
 		else:
 			state = VirtualMachine.FAILED
 
-		vm.info.setValue("state", state)  
+		vm.info.systems[0].setValue("state", state)  
 
 		res = str(vm.info)
 

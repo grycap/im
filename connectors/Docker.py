@@ -71,7 +71,7 @@ class DockerCloudConnector(CloudConnector):
 				res_system.getFeature("memory.size").operator = "="
 				
 				res_system.addFeature(Feature("provider.type", "=", self.type), conflict="other", missing="other")
-				res_system.addFeature(Feature("provider.host", "=", self.cloud.host), conflict="other", missing="other")
+				res_system.addFeature(Feature("provider.host", "=", self.cloud.server), conflict="other", missing="other")
 				res_system.addFeature(Feature("provider.port", "=", self.cloud.port), conflict="other", missing="other")
 					
 				return [res_system]
