@@ -533,33 +533,29 @@ class InfrastructureManager:
 		return cont
 
 	@staticmethod
-	def get_vminfo_res(vm, configured):
+	def update_vm_status(vm, configured):
 		"""
-		Get information about a virtual machine.
+		Update and return the information about a virtual machine.
 
 		Args:
 
 		- vm(:py:class:`IM.VirtualMachine`): virtual machine information.
 
-		Return: a dict with keys
-
-		- state(str): virtual machine state.
-		- info(str): the information about the virtual machine in RADL format
-		- cloud(str): some information about the cloud provider
+		Return: a str with the updated RADL
 		"""
 
-		res = {}
 		if vm.state != VirtualMachine.RUNNING:
-			res['state'] = vm.state
+			state = vm.state
 		elif configured is None:
-			res['state'] = VirtualMachine.RUNNING
+			state = VirtualMachine.RUNNING
 		elif configured:
-			res['state'] = VirtualMachine.CONFIGURED
+			state = VirtualMachine.CONFIGURED
 		else:
-			res['state'] = VirtualMachine.FAILED
+			state = VirtualMachine.FAILED
 
-		res['info'] = str(vm.info)
-		res['cloud'] = str(vm.cloud)
+		vm.info.setValue("state", state)  
+
+		res = str(vm.info)
 
 		InfrastructureManager.logger.info("Information obtained successfully")
 		InfrastructureManager.logger.debug(res)
@@ -577,11 +573,7 @@ class InfrastructureManager:
 		- vm_id(str): virtual machine id.
 		- auth(Authentication): parsed authentication tokens.
 
-		Return: a dict with keys
-
-		- state(str): virtual machine state.
-		- info(str): the information about the virtual machine in RADL format
-		- cloud(str): some information about the cloud provider
+		Return: a str with the information about the VM
 		"""
 
 		InfrastructureManager.logger.info("Get information about the vm: '" + str(vm_id) + "' from inf: " + str(inf_id))
@@ -605,9 +597,9 @@ class InfrastructureManager:
 		if not success:
 			InfrastructureManager.logger.warn("Error getting the informacion about the VM " + str(vm_id) + ": " + str(vm))
 			InfrastructureManager.logger.warn("Using last information retrieved")
-			res = InfrastructureManager.get_vminfo_res(vm, sel_inf.configured)
+			res = InfrastructureManager.update_vm_status(vm, sel_inf.configured)
 		else:
-			res = InfrastructureManager.get_vminfo_res(new_vm, sel_inf.configured)
+			res = InfrastructureManager.update_vm_status(new_vm, sel_inf.configured)
 		return res
 
 	@staticmethod
@@ -622,11 +614,7 @@ class InfrastructureManager:
 		- radl(str): RADL description.
 		- auth(Authentication): parsed authentication tokens.
 
-		Return: a dict with keys
-
-		- state(str): virtual machine state.
-		- info(str): the information about the virtual machine in RADL format
-		- cloud(str): some information about the cloud provider
+		Return: a str with the information about the VM
 		"""
 
 		InfrastructureManager.logger.info("Modifying the VM: '" + str(vm_id) + "' from inf: " + str(inf_id))
@@ -651,7 +639,7 @@ class InfrastructureManager:
 			InfrastructureManager.logger.warn("Error getting the information about the VM " + str(vm_id) + ": " + str(alter_res))
 			InfrastructureManager.logger.warn("Using last information retrieved")
 
-		res = InfrastructureManager.get_vminfo_res(vm, sel_inf.configured)
+		res = InfrastructureManager.update_vm_status(vm, sel_inf.configured)
 		return res
 	
 	@staticmethod

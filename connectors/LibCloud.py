@@ -120,6 +120,12 @@ class LibCloudCloudConnector(CloudConnector):
 				res_system.addFeature(Feature("memory.size", "=", instance_type.ram, 'M'), conflict="other", missing="other")
 				res_system.addFeature(Feature("disk.0.free_size", "=", instance_type.disk , 'G'), conflict="other", missing="other")
 				res_system.addFeature(Feature("price", "=", instance_type.price), conflict="me", missing="other")
+				
+				res_system.addFeature(Feature("provider.type", "=", self.type), conflict="other", missing="other")
+				if self.cloud.server:
+					res_system.addFeature(Feature("provider.host", "=", self.cloud.server), conflict="other", missing="other")
+				if self.cloud.port != -1:
+					res_system.addFeature(Feature("provider.port", "=", self.cloud.port), conflict="other", missing="other")				
 					
 				return [res_system]
 		else:

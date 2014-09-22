@@ -629,6 +629,7 @@ class network(Features, Aspect):
 	def check(self, radl):
 		"""Check the features in this network."""
 
+		# TODO: add outports
 		SIMPLE_FEATURES = {
 			"outbound": (str, ["YES", "NO"])
 		}
@@ -871,7 +872,7 @@ class system(Features, Aspect):
 
 		mem_units = ["", "B", "K", "M", "G", "KB", "MB", "GB"]
 		SIMPLE_FEATURES = {
-			"instance_type": (str, ["ONDEMAND", "SPOT"]),
+			"spot": (str, ["YES", "NO"]),
 			"image_type": (str, ["VMDK", "QCOW", "QCOW2", "RAW"]),
 			"virtual_system_type": (str, system._check_virtual_system_type),
 			"price": (float, positive, None),

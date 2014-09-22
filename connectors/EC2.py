@@ -55,6 +55,8 @@ class EC2CloudConnector(CloudConnector):
 				res_system.addFeature(Feature("cpu.performance", "=", instance_type.cpu_perf, 'ECU'), conflict="other", missing="other")
 				res_system.addFeature(Feature("price", "=", instance_type.price), conflict="me", missing="other")
 				res_system.addFeature(Feature("virtual_system_type", "=", "ec2"), conflict="other", missing="other")
+				
+				res_system.addFeature(Feature("provider.type", "=", self.type), conflict="other", missing="other")
 					
 				return [res_system]
 			else:
@@ -258,12 +260,11 @@ class EC2CloudConnector(CloudConnector):
 				os.unlink(keypair_file)
 			i = 0
 			while i < num_vm:
-				instance_type = "ondemand"
-				if system.getValue("instance_type"):
-					instance_type = system.getValue("instance_type")
-					self.logger.debug("The instance type is: " + instance_type)
+				spot = False
+				if system.getValue("spot") == "yes":
+					spot = True
 
-				if instance_type == "spot":
+				if spot:
 					self.logger.debug("Launching a spot instance")
 					instance_type = self.get_instance_type(system)
 					if not instance_type:
