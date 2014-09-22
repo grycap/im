@@ -39,3 +39,10 @@ IM 1.0.0
     * Change Ansible version to 1.7.1
     * Improve LibCloud connector
     * Modify setup to use in pip
+
+IM 1.1.0
+    * Add Docker connector
+    * Improve EC2 connector
+    * Change GetVMInfo and AlterVM functions to return only RADL data 
+    * Add provider information in the RADL
+    * Bug fixes in LibVirt connector

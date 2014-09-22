@@ -22,6 +22,8 @@ from IM.xmlobject import XMLObject
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from CloudConnector import CloudConnector
+from IM.radl.radl import Feature
+from IM.config import Config
 
 # clases para parsear el resultado de las llamadas a virsh
 class forward(XMLObject):
@@ -72,6 +74,29 @@ class LibVirtCloudConnector(CloudConnector):
 		'crashed'  : VirtualMachine.FAILED,
 		''  : VirtualMachine.UNKNOWN
 	}
+
+	def concreteSystem(self, radl_system, auth_data):
+		if radl_system.getValue("disk.0.image.url"):
+			url = uriparse(radl_system.getValue("disk.0.image.url"))
+			protocol = url[0]
+			if protocol == "file":
+				res_system = radl_system.clone()
+				res_system.addFeature(Feature("cpu.count", "=", Config.DEFAULT_VM_CPUS), conflict="me", missing="other")
+				res_system.addFeature(Feature("memory.size", "=", Config.DEFAULT_VM_MEMORY, Config.DEFAULT_VM_MEMORY_UNIT), conflict="me", missing="other")
+				res_system.addFeature(Feature("cpu.arch", "=", Config.DEFAULT_VM_CPU_ARCH), conflict="me", missing="other")
+				
+				# TODO: set operator to "=" in all the features
+				res_system.getFeature("cpu.count").operator = "="
+				res_system.getFeature("memory.size").operator = "="
+
+				res_system.addFeature(Feature("provider.type", "=", self.type), conflict="other", missing="other")
+				res_system.addFeature(Feature("provider.host", "=", self.cloud.server), conflict="other", missing="other")
+					
+				return [res_system]
+			else:
+				return []
+		else:
+			return [radl_system.clone()]
 
 	def get_ssh_from_auth_data(self, auth_data):
 		auth = auth_data.getAuthInfo(LibVirtCloudConnector.type)

@@ -16,10 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import sys, os
-
-sys.path.append("..")
-TESTS_PATH = os.getcwd() + '/test'
+TESTS_PATH = '/home/micafer/codigo/git_im/im/test'
 
 
 from IM.radl.radl_parse import parse_radl

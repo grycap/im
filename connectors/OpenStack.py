@@ -16,6 +16,8 @@
 
 import boto.ec2
 from connectors.EC2 import EC2CloudConnector, InstanceTypeInfo
+from IM.uriparse import uriparse
+from IM.radl.radl import Feature
 
 class OpenStackCloudConnector(EC2CloudConnector):
     
@@ -23,6 +25,38 @@ class OpenStackCloudConnector(EC2CloudConnector):
     # In case of using OpenStack set these details
     OPENSTACK_EC2_PATH="/services/Cloud"
     INSTANCE_TYPE = 'm1.tiny'
+
+
+    def concreteSystem(self, radl_system, auth_data):
+        if radl_system.getValue("disk.0.image.url"):
+            url = uriparse(radl_system.getValue("disk.0.image.url"))
+            protocol = url[0]
+            protocol = url[0]
+            src_host = url[1].split(':')[0]
+            # TODO: check the port
+            if protocol == "ost" and self.cloud.server == src_host:
+                res_system = radl_system.clone()
+                if res_system.getValue('disk.0.os.credentials.private_key'):
+                    res_system.delValue('disk.0.os.credentials.password')
+                
+                instance_type = self.get_instance_type(res_system)
+
+                res_system.addFeature(Feature("cpu.count", "=", instance_type.num_cpu * instance_type.cores_per_cpu), conflict="other", missing="other")
+                res_system.addFeature(Feature("memory.size", "=", instance_type.mem, 'M'), conflict="other", missing="other")
+                res_system.addFeature(Feature("disk.0.free_size", "=", instance_type.disks * instance_type.disk_space, 'G'), conflict="other", missing="other")
+                res_system.addFeature(Feature("cpu.performance", "=", instance_type.cpu_perf, 'ECU'), conflict="other", missing="other")
+                res_system.addFeature(Feature("price", "=", instance_type.price), conflict="me", missing="other")
+                res_system.addFeature(Feature("virtual_system_type", "=", "ec2"), conflict="other", missing="other")
+                
+                res_system.addFeature(Feature("provider.type", "=", self.type), conflict="other", missing="other")
+                res_system.addFeature(Feature("provider.host", "=", self.cloud.server), conflict="other", missing="other")
+                res_system.addFeature(Feature("provider.port", "=", self.cloud.port), conflict="other", missing="other")                
+                    
+                return [res_system]
+            else:
+                return []
+        else:
+            return [radl_system.clone()]
 
     # Get the EC2 connection object
     def get_connection(self, region_name, auth_data):
