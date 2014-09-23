@@ -43,6 +43,7 @@ IM 1.0.0
 IM 1.1.0
     * Add Docker connector
     * Improve EC2 connector
+    * Improve OpenNebula connector
     * Change GetVMInfo and AlterVM functions to return only RADL data 
     * Add provider information in the RADL
     * Bug fixes in LibVirt connector

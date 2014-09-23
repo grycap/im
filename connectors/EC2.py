@@ -54,7 +54,6 @@ class EC2CloudConnector(CloudConnector):
 				res_system.addFeature(Feature("disk.0.free_size", "=", instance_type.disks * instance_type.disk_space, 'G'), conflict="other", missing="other")
 				res_system.addFeature(Feature("cpu.performance", "=", instance_type.cpu_perf, 'ECU'), conflict="other", missing="other")
 				res_system.addFeature(Feature("price", "=", instance_type.price), conflict="me", missing="other")
-				res_system.addFeature(Feature("virtual_system_type", "=", "ec2"), conflict="other", missing="other")
 				
 				res_system.addFeature(Feature("instance_type", "=", instance_type.name), conflict="other", missing="other")
 				
@@ -653,6 +652,9 @@ class EC2CloudConnector(CloudConnector):
 		instance = self.get_instance_by_id(instance_id, region, auth_data)
 		if (instance != None):
 			instance.update()
+			
+			vm.info.systems[0].setValue("virtual_system_type", instance.virtualization_type)
+			vm.info.systems[0].setValue("availability_zone", instance.placement)
 			
 			if instance.state == 'pending':
 				res_state = VirtualMachine.PENDING
