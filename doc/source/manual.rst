@@ -128,6 +128,28 @@ Basic Options
 
    Full path to the data file.
    The default value is :file:`/etc/im/inf.dat`.
+   
+.. confval:: USER_DB
+
+   Full path to the IM user DB json file.
+   To restrict the users that can access the IM service.
+   Comment it or set a blank value to disable user check.
+   The default value is empty.
+   JSON format of the file::
+   
+   	{
+   		"users": [
+   			{
+   				"username": "user1",
+   				"password": "pass1"
+   			},
+   			{
+   				"username": "user2",
+   				"password": "pass2"
+   			}
+   		]
+   	}
+   
 
 .. confval:: MAX_VM_FAILS
 

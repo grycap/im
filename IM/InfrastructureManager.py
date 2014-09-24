@@ -14,6 +14,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import json
+import os
 import pickle
 import threading
 import string
@@ -796,6 +798,35 @@ class InfrastructureManager:
 		return ""
 	
 	@staticmethod
+	def check_im_user(auth):
+		"""
+		Check if the IM user is valid
+
+		Args:
+		- auth(Authentication): IM parsed authentication tokens.
+
+		Return(bool): true if the user is valid or false otherwise.
+		"""
+		if Config.USER_DB:
+			if os.path.isfile(Config.USER_DB):
+				try:
+					found = False
+					user_db = json.load(open(Config.USER_DB, "r"))
+					for user in user_db['users']:
+						if user['username'] == auth[0]['username'] and user['password'] == auth[0]['password']: 
+							found = True
+							break
+					return found
+				except:
+					InfrastructureManager.logger.exception("Incorrect format in the User DB file %s" % Config.USER_DB)
+					return False
+			else:
+				InfrastructureManager.logger.error("User DB file %s not found" % Config.USER_DB)
+				return False
+		else:
+			return True
+		
+	@staticmethod
 	def CreateInfrastructure(radl, auth):
 		"""
 		Create a new infrastructure.
@@ -810,7 +841,11 @@ class InfrastructureManager:
 
 		Return(int): the new infrastructure ID if successful.
 		"""
-
+		
+		# First check if it is configured to check the users from a list
+		if not InfrastructureManager.check_im_user(auth.getAuthInfo("InfrastructureManager")):
+			raise Exception("Invalid InfrastructureManager credentials")
+		
 		# Create a new infrastructure
 		inf = InfrastructureInfo.InfrastructureInfo()
 		inf.auth = Authentication(auth.getAuthInfo("InfrastructureManager"))
