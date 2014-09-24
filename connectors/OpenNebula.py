@@ -75,10 +75,16 @@ class LEASES(XMLObject):
 	
 class RANGE(XMLObject):
 	values = [ 'IP_START', 'IP_END' ]
+	
+class AR(XMLObject):
+	values = [ 'IP', 'MAC', 'TYPE', 'ALLOCATED', 'GLOBAL_PREFIX', 'AR_ID' ]
+	
+class AR_POOL(XMLObject):
+	tuples_lists = { 'AR': AR }
 
 class VNET(XMLObject):
 	values = [ 'ID', 'UID', 'GID', 'UNAME', 'GNAME', 'NAME', 'TYPE', 'BRIDGE', 'PUBLIC' ]
-	tuples = { 'TEMPLATE': TEMPLATE_VNET, 'LEASES': LEASES, 'RANGE': RANGE }
+	tuples = { 'TEMPLATE': TEMPLATE_VNET, 'LEASES': LEASES, 'RANGE': RANGE, 'AR_POOL':AR_POOL }
 	
 class VNET_POOL(XMLObject):
 	tuples_lists = { 'VNET': VNET }
@@ -204,7 +210,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 		else:
 			return (success, res_info)
 
-	def launch(self, inf, radl, requested_radl, num_vm, auth_data):
+	def launch(self, inf, vm_id, radl, requested_radl, num_vm, auth_data):
 		server_url = "http://%s:%d/RPC2" % (self.cloud.server, self.cloud.port)
 		server = xmlrpclib.ServerProxy(server_url,allow_none=True)
 		session_id = self.getSessionID(auth_data)
@@ -230,7 +236,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 				return [(False, "Error in the one.vm.allocate return value")]
 				
 			if success:
-				vm = VirtualMachine(inf, str(res_id), self.cloud, radl, requested_radl)
+				vm = VirtualMachine(inf, vm_id, str(res_id), self.cloud, radl, requested_radl)
 				res.append((success, vm))
 			else:
 				res.append((success, "ERROR: " + str(res_id)))
@@ -397,95 +403,20 @@ class OpenNebulaCloudConnector(CloudConnector):
 		self.logger.debug("OpenNebula version: " + version)
 		return version
 
-	def getONENetwork(self, outbound, auth_data):
+	def free_address(self, addres_range):
 		"""
-		Get the first ONE (public/private) network
+		Check if there are at least one address free
 
 		Arguments:
-		   - outbound(boolean): specifies if the network is public (True) or private (False)
-		   - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
+		   - leases(:py:class:`AR`): List of AddressRange of a ONE network.
 		 
-		 Returns: a tuple (net_name, net_id) with the name and ID of the found network (None, None) if not found
+		 Returns: bool, True if there are at least one lease free or False otherwise
 		"""
-		server_url = "http://%s:%d/RPC2" % (self.cloud.server, self.cloud.port)
-		server = xmlrpclib.ServerProxy(server_url,allow_none=True)
-		session_id = self.getSessionID(auth_data)
-		if session_id == None:
-			return (None, None)
-		func_res = server.one.vnpool.info(session_id, -2, -1, -1)
-		
-		if len(func_res) == 2:
-			(success, info) = func_res
-		elif len(func_res) == 3:
-			(success, info, err_code) = func_res
-		else:
-			self.logger.error("Error in the  one.vnpool.info return value")
-			return (None, None)
-		
-		if success:
-			pool_info = VNET_POOL(info)
-		else:
-			self.logger.error("Error in the function one.vnpool.info: " + info)
-			return (None, None)
-
-		net_priv = None
-		net_pub = None
-		for net in pool_info.VNET:
-			if net.TEMPLATE.NETWORK_ADDRESS:
-				ip = net.TEMPLATE.NETWORK_ADDRESS
-			elif net.TEMPLATE.LEASES and len(net.TEMPLATE.LEASES) > 0:
-				ip = net.TEMPLATE.LEASES[0].IP
-			else:
-				self.logger.error("IP information is not in the VNET POOL. Use the vn.info")
-				info_res = server.one.vn.info(session_id, int(net.ID))
-				
-				if len(info_res) == 2:
-					(success, info) = info_res
-				elif len(func_res) == 3:
-					(success, info, err_code) = info_res
-				else:
-					self.logger.warn("Error in the one.vn.info return value. Ignoring network: " + net.NAME)
-					break
-				
-				net = VNET(info)
-				
-				if net.LEASES and net.LEASES.LEASE and len(net.LEASES.LEASE) > 0:
-					if self.free_leases(net.LEASES):
-						ip = net.LEASES.LEASE[0].IP
-					else:
-						self.logger.warn("The network with IPs like: " + net.LEASES.LEASE[0].IP + " does not have free leases")
-						break
-				elif net.RANGE and net.RANGE.IP_START:
-					ip = net.RANGE.IP_START
-				else:
-					self.logger.error("Unknown type of network")
-					return (None, None)
-				
-			if ip.startswith("10") or ip.startswith("172") or ip.startswith("169.254") or ip.startswith("192.168"):
-				# Private net
-				if net_priv is None:
-					net_priv = net
-			else:
-				# Public net
-				if net_pub is None:
-					net_pub = net
-
-		# if a public net is requested only a public net can be returned
-		if outbound and net_pub is not None:
-			return (net_pub.NAME, net_pub.ID)
-		
-		# A not public net is requested
-		if not outbound:
-			# 1st try the private
-			if net_priv is not None:
-				return (net_priv.NAME, net_priv.ID)
-			# if not return the public one
-			elif net_pub is not None:
-				return (net_pub.NAME, net_pub.ID)
-
-		self.logger.error("No network was found.")
-		return (None, None)
-
+		for ar in addres_range:
+			if ar.ALLOCATED == "":
+				return True 
+		return False
+	
 	def free_leases(self, leases):
 		"""
 		Check if there are at least one lease free
@@ -536,6 +467,15 @@ class OpenNebulaCloudConnector(CloudConnector):
 				ip = net.TEMPLATE.NETWORK_ADDRESS
 			elif net.TEMPLATE.LEASES and len(net.TEMPLATE.LEASES) > 0:
 				ip = net.TEMPLATE.LEASES[0].IP
+			elif net.TEMPLATE.LEASES and len(net.TEMPLATE.LEASES) > 0:
+				ip = net.TEMPLATE.LEASES[0].IP
+			elif net.AR_POOL and net.AR_POOL.AR and len(net.AR_POOL.AR) > 0:
+				# This is the case for one 4.8
+				if self.free_address(net.AR_POOL.AR):
+					ip = net.AR_POOL.AR[0].IP
+				else:
+					self.logger.warn("The network with IPs like: " + net.AR_POOL.AR[0].IP + " does not have free leases")
+					break				
 			else:
 				self.logger.warn("IP information is not in the VNET POOL. Use the vn.info")
 				info_res = server.one.vn.info(session_id, int(net.ID))

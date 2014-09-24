@@ -27,6 +27,7 @@ class InfrastructureInfo:
 	"""
 	
 	logger = logging.getLogger('InfrastructureManager')
+
 	
 	def __init__(self):
 		self._lock = threading.Lock()
@@ -49,12 +50,12 @@ class InfrastructureInfo:
 		"""ConfManager Thread to contextualize"""
 		self.vm_master = None
 		"""VM selected as the master node to the contextualization step"""
-		self.vm_master_num = None
-		"""The num of the instance of the VM selected as the master node to the contextualization step"""
 		self.cont_out = ""
 		"""Contextualization output message"""
 		self.configured = None
 		"""Configure flag. If it is None the contextualization has not been finished yet"""
+		self.vm_id = 0
+		"""Next vm id available."""
 	
 	def __getstate__(self):
 		"""
@@ -81,7 +82,14 @@ class InfrastructureInfo:
 		# because the configuration process will be lost
 		if self.configured is None:
 			self.configured = False
-		
+			
+	def get_next_vm_id(self):
+		"""Get the next vm id available."""
+		with self._lock:
+			vmid = self.vm_id
+			self.vm_id += 1
+		return vmid
+	
 	def delete(self):
 		"""
 		Set this Inf as deleted
@@ -99,8 +107,6 @@ class InfrastructureInfo:
 		Add, and assigns a new VM ID to the infrastructure 
 		"""
 		with self._lock:
-			# Assign the VM IM ID
-			vm.im_id = str(len(self.vm_list))
 			self.vm_list.append(vm)
 	
 	def add_cont_msg(self, msg):
@@ -234,9 +240,8 @@ class InfrastructureInfo:
 		Select the VM master of the infrastructure.
 		The master VM must be connected with all the VMs and must have a Linux OS
 		It will select the first created VM that fulfills this requirements
-		and store the values in the vm_master and vm_master_num fields
+		and store the value in the vm_master field
 		"""
-		num = 0
 		for vm in self.get_vm_list():
 			if vm.getOS() and vm.getOS().lower() == 'linux' and vm.hasPublicNet():
 				# check that is connected with all the VMs
@@ -246,6 +251,4 @@ class InfrastructureInfo:
 						full_connected = False
 				if full_connected:
 					self.vm_master = vm
-					self.vm_master_num = num
-					num += 1
 					break

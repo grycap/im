@@ -64,9 +64,9 @@ You only have to call the install command of the pip tool with the IM package::
 the packages python-paramiko and python-crypto before installing the IM with pip.**
 
 Pip will install all the pre-requisites needed. So Ansible 1.4.2 or later will be
- installed in the system. In some cases it will need to have installed the GCC 
- compiler and the python developer libraries ('python-dev' or 'python-devel' 
- packages in main distributions).
+installed in the system. In some cases it will need to have installed the GCC 
+compiler and the python developer libraries ('python-dev' or 'python-devel' 
+packages in main distributions).
 
 You must also remember to modify the ansible.cfg file setting as specified in the 
 REQUISITES section.
@@ -175,10 +175,10 @@ Default Virtual Machine Options
    Allowed values: ``i386`` and ``x86_64``.
    The default value is ``x86_64``.
 
-.. confval:: DEFAULT_MASTERVM_NAME 
+.. confval:: DEFAULT_VM_NAME 
 
-   Default name of virtual machine with the *master* role.
-   The default value is ``vmmaster``.
+   Default name of virtual machines.
+   The default value is ``vnode-#N#``.
 
 .. confval:: DEFAULT_DOMAIN 
 

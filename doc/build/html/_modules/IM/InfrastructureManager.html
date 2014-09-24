@@ -1,0 +1,972 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>IM.InfrastructureManager &mdash; IM 1.0.0 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/scrolls.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/grycap.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '1.0.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/theme_extras.js"></script>
+    <link rel="top" title="IM 1.0.0 documentation" href="../../index.html" />
+    <link rel="up" title="Module code" href="../index.html" /> 
+  </head>
+  <body>
+<div id="main-wrapper">
+    <div id="logo">
+       <div class="img"><img height="90" src="../../_static/logo.png"></img></div>
+    </div>
+    <div class="break hole"></div>
+    <div id="menu">
+      <div id="menu-text">
+         <ul>
+            <li><a href="../index.php">Home</a>
+            </li><li><a href="../overview.php">Overview</a>            
+            </li><li><a href="../usecases.php">Use Cases</a>
+            </li><li><a href="../download.php">Download</a>
+            </li><li><a href="../../index.html">Documentation</a>
+            </li><li class="last"><a href="../about.php">About</a>
+         </li></ul>
+      </div>
+    </div>
+    <div class="break hole"></div>
+    <div id="content">
+      <div id="contentwrapper">
+        
+  <h1>Source code for IM.InfrastructureManager</h1><div class="highlight"><pre>
+<span class="c"># IM - Infrastructure Manager</span>
+<span class="c"># Copyright (C) 2011 - GRyCAP - Universitat Politecnica de Valencia</span>
+<span class="c"># </span>
+<span class="c"># This program is free software: you can redistribute it and/or modify</span>
+<span class="c"># it under the terms of the GNU General Public License as published by</span>
+<span class="c"># the Free Software Foundation, either version 3 of the License, or</span>
+<span class="c"># (at your option) any later version.</span>
+<span class="c">#</span>
+<span class="c"># This program is distributed in the hope that it will be useful,</span>
+<span class="c"># but WITHOUT ANY WARRANTY; without even the implied warranty of</span>
+<span class="c"># MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the</span>
+<span class="c"># GNU General Public License for more details.</span>
+<span class="c">#</span>
+<span class="c"># You should have received a copy of the GNU General Public License</span>
+<span class="c"># along with this program.  If not, see &lt;http://www.gnu.org/licenses/&gt;.</span>
+
+<span class="kn">import</span> <span class="nn">pickle</span>
+<span class="kn">import</span> <span class="nn">threading</span>
+<span class="kn">import</span> <span class="nn">string</span>
+<span class="kn">import</span> <span class="nn">random</span>
+<span class="kn">from</span> <span class="nn">multiprocessing.pool</span> <span class="kn">import</span> <span class="n">ThreadPool</span>
+
+<span class="kn">from</span> <span class="nn">VMRC</span> <span class="kn">import</span> <span class="n">VMRC</span>
+<span class="kn">from</span> <span class="nn">CloudInfo</span> <span class="kn">import</span> <span class="n">CloudInfo</span> 
+<span class="kn">from</span> <span class="nn">VirtualMachine</span> <span class="kn">import</span> <span class="n">VirtualMachine</span>
+<span class="kn">from</span> <span class="nn">auth</span> <span class="kn">import</span> <span class="n">Authentication</span>
+
+<span class="kn">import</span> <span class="nn">logging</span>
+
+<span class="kn">import</span> <span class="nn">InfrastructureInfo</span>
+<span class="kn">from</span> <span class="nn">ganglia</span> <span class="kn">import</span> <span class="n">ganglia_info</span>
+<span class="kn">from</span> <span class="nn">IM.radl</span> <span class="kn">import</span> <span class="n">radl_parse</span>
+<span class="kn">from</span> <span class="nn">IM.radl.radl</span> <span class="kn">import</span> <span class="n">RADL</span>
+<span class="kn">from</span> <span class="nn">IM.recipe</span> <span class="kn">import</span> <span class="n">Recipe</span>
+
+<span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="n">Config</span>
+
+<div class="viewcode-block" id="InfrastructureManager"><a class="viewcode-back" href="../../mods.html#IM.InfrastructureManager.InfrastructureManager">[docs]</a><span class="k">class</span> <span class="nc">InfrastructureManager</span><span class="p">:</span>
+	<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">	Front-end to the functionality of the service.</span>
+<span class="sd">	&quot;&quot;&quot;</span>
+
+	<span class="n">global_inf_id</span> <span class="o">=</span> <span class="mi">0</span>
+	<span class="sd">&quot;&quot;&quot;Next infrastructure id available.&quot;&quot;&quot;</span>
+
+	<span class="n">infrastructure_list</span> <span class="o">=</span> <span class="p">{}</span>
+	<span class="sd">&quot;&quot;&quot;Map from int to :py:class:`InfrastructureInfo`.&quot;&quot;&quot;</span>
+
+	<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s">&#39;InfrastructureManager&#39;</span><span class="p">)</span>
+	<span class="sd">&quot;&quot;&quot;Logger object.&quot;&quot;&quot;</span>
+	
+	<span class="n">_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
+	<span class="sd">&quot;&quot;&quot;Threading Lock to avoid concurrency problems.&quot;&quot;&quot;</span>
+
+	<span class="nd">@staticmethod</span>
+	<span class="k">def</span> <span class="nf">_reinit</span><span class="p">():</span>
+		<span class="sd">&quot;&quot;&quot;Restart the class attributes to initial values.&quot;&quot;&quot;</span>
+
+		<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">global_inf_id</span> <span class="o">=</span> <span class="mi">0</span>
+		<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">infrastructure_list</span> <span class="o">=</span> <span class="p">{}</span>
+		<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
+
+	<span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="InfrastructureManager.add_infrastructure"><a class="viewcode-back" href="../../mods.html#IM.InfrastructureManager.InfrastructureManager.add_infrastructure">[docs]</a>	<span class="k">def</span> <span class="nf">add_infrastructure</span><span class="p">(</span><span class="n">inf</span><span class="p">):</span>
+		<span class="sd">&quot;&quot;&quot;Add a new Infrastructure and set the ID.&quot;&quot;&quot;</span>
+
+		<span class="k">with</span> <span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+			<span class="n">inf</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">global_inf_id</span>
+			<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">global_inf_id</span> <span class="o">+=</span> <span class="mi">1</span>
+			<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">infrastructure_list</span><span class="p">[</span><span class="n">inf</span><span class="o">.</span><span class="n">id</span><span class="p">]</span> <span class="o">=</span> <span class="n">inf</span>
+</div>
+	<span class="nd">@staticmethod</span>
+	<span class="k">def</span> <span class="nf">_compute_deploy_groups</span><span class="p">(</span><span class="n">radl</span><span class="p">):</span>
+		<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">		Group the virtual machines that had to be deployed together.</span>
+
+<span class="sd">		Args:</span>
+
+<span class="sd">		- radl(RADL): RADL to consider.</span>
+
+<span class="sd">		Return(list of list of deploy): list of group of deploys.</span>
+<span class="sd">		&quot;&quot;&quot;</span>
+
+		<span class="c"># If some virtual machine is in two private networks, the machines in both</span>
+		<span class="c"># networks will be in the same group</span>
+		<span class="c"># NOTE: net_groups is a *Disjoint-set data structure*</span>
+		<span class="n">net_groups</span> <span class="o">=</span> <span class="p">{}</span>
+		<span class="k">for</span> <span class="n">net</span> <span class="ow">in</span> <span class="n">radl</span><span class="o">.</span><span class="n">networks</span><span class="p">:</span>
+			<span class="n">net_groups</span><span class="p">[</span><span class="n">net</span><span class="o">.</span><span class="n">id</span><span class="p">]</span> <span class="o">=</span> <span class="n">net</span><span class="o">.</span><span class="n">id</span>
+
+		<span class="k">def</span> <span class="nf">root</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+			<span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
+				<span class="n">n0</span> <span class="o">=</span> <span class="n">net_groups</span><span class="p">[</span><span class="n">n</span><span class="p">]</span>
+				<span class="k">if</span> <span class="n">n0</span> <span class="o">==</span> <span class="n">n</span><span class="p">:</span> <span class="k">return</span> <span class="n">n</span>
+				<span class="n">n</span> <span class="o">=</span> <span class="n">n0</span>
+
+		<span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">radl</span><span class="o">.</span><span class="n">deploys</span><span class="p">:</span>
+			<span class="n">private_nets</span> <span class="o">=</span> <span class="p">[</span><span class="n">net</span><span class="o">.</span><span class="n">id</span> <span class="k">for</span> <span class="n">net</span> <span class="ow">in</span> <span class="n">radl</span><span class="o">.</span><span class="n">networks</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">net</span><span class="o">.</span><span class="n">isPublic</span><span class="p">()</span> <span class="ow">and</span>
+			                   <span class="n">net</span><span class="o">.</span><span class="n">id</span> <span class="ow">in</span> <span class="n">radl</span><span class="o">.</span><span class="n">get_system_by_name</span><span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">id</span><span class="p">)</span><span class="o">.</span><span class="n">getNetworkIDs</span><span class="p">()]</span>
+			<span class="k">if</span> <span class="ow">not</span> <span class="n">private_nets</span><span class="p">:</span> <span class="k">continue</span>
+			<span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">private_nets</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
+				<span class="n">net_groups</span><span class="p">[</span><span class="n">root</span><span class="p">(</span><span class="n">n</span><span class="p">)]</span> <span class="o">=</span> <span class="n">net_groups</span><span class="p">[</span><span class="n">root</span><span class="p">(</span><span class="n">private_nets</span><span class="p">[</span><span class="mi">0</span><span class="p">])]</span>
+			
+		<span class="n">deploy_groups</span> <span class="o">=</span> <span class="p">[]</span>
+		<span class="n">deploy_groups_net</span> <span class="o">=</span> <span class="p">{}</span>
+		<span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">radl</span><span class="o">.</span><span class="n">deploys</span><span class="p">:</span>
+			<span class="n">private_nets</span> <span class="o">=</span> <span class="p">[</span><span class="n">net</span><span class="o">.</span><span class="n">id</span> <span class="k">for</span> <span class="n">net</span> <span class="ow">in</span> <span class="n">radl</span><span class="o">.</span><span class="n">networks</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">net</span><span class="o">.</span><span class="n">isPublic</span><span class="p">()</span> <span class="ow">and</span>
+			                   <span class="n">net</span><span class="o">.</span><span class="n">id</span> <span class="ow">in</span> <span class="n">radl</span><span class="o">.</span><span class="n">get_system_by_name</span><span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">id</span><span class="p">)</span><span class="o">.</span><span class="n">getNetworkIDs</span><span class="p">()]</span>
+			<span class="c"># If no private net is set, every launch can go in a separate group</span>
+			<span class="k">if</span> <span class="ow">not</span> <span class="n">private_nets</span><span class="p">:</span>
+				<span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">vm_number</span><span class="p">):</span>
+					<span class="n">d0</span> <span class="o">=</span> <span class="n">d</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span>
+					<span class="n">d0</span><span class="o">.</span><span class="n">vm_number</span> <span class="o">=</span> <span class="mi">1</span>
+					<span class="n">deploy_groups</span><span class="o">.</span><span class="n">append</span><span class="p">([</span> <span class="n">d0</span> <span class="p">])</span>
+				<span class="k">continue</span>
+			<span class="c"># Otherwise the deploy goes to some group</span>
+			<span class="n">net</span> <span class="o">=</span> <span class="n">net_groups</span><span class="p">[</span><span class="n">root</span><span class="p">(</span><span class="n">private_nets</span><span class="p">[</span><span class="mi">0</span><span class="p">])]</span>
+			<span class="k">if</span> <span class="ow">not</span> <span class="n">net</span> <span class="ow">in</span> <span class="n">deploy_groups_net</span><span class="p">:</span>
+				<span class="n">deploy_groups_net</span><span class="p">[</span><span class="n">net</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">d</span><span class="p">]</span>
+			<span class="k">else</span><span class="p">:</span>
+				<span class="n">deploy_groups_net</span><span class="p">[</span><span class="n">net</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
+
+		<span class="n">deploy_groups</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">deploy_groups_net</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>	
+		<span class="k">return</span> <span class="n">deploy_groups</span>
+
+	<span class="nd">@staticmethod</span>
+	<span class="k">def</span> <span class="nf">_launch_group</span><span class="p">(</span><span class="n">deploy_group</span><span class="p">,</span> <span class="n">deploys_group_cloud_list</span><span class="p">,</span> <span class="n">cloud_list</span><span class="p">,</span> <span class="n">concrete_systems</span><span class="p">,</span>
+	                  <span class="n">radl</span><span class="p">,</span> <span class="n">auth</span><span class="p">,</span> <span class="n">deployed_vm</span><span class="p">,</span> <span class="n">cancel_deployment</span><span class="p">):</span>
+		<span class="sd">&quot;&quot;&quot;Launch a group of deploys together.&quot;&quot;&quot;</span>
+
+		<span class="k">if</span> <span class="ow">not</span> <span class="n">deploy_group</span><span class="p">:</span>
+			<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s">&quot;No VMs to deploy!&quot;</span><span class="p">)</span>
+			<span class="k">return</span>
+		<span class="k">if</span> <span class="ow">not</span> <span class="n">deploys_group_cloud_list</span><span class="p">:</span>
+			<span class="n">cancel_deployment</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="ne">Exception</span><span class="p">(</span><span class="s">&quot;No cloud provider available&quot;</span><span class="p">))</span>
+			<span class="k">return</span>
+		<span class="n">all_ok</span> <span class="o">=</span> <span class="bp">False</span>
+		<span class="n">exceptions</span> <span class="o">=</span> <span class="p">[]</span>
+		<span class="k">for</span> <span class="n">cloud_id</span> <span class="ow">in</span> <span class="n">deploys_group_cloud_list</span><span class="p">:</span>
+			<span class="n">cloud</span> <span class="o">=</span> <span class="n">cloud_list</span><span class="p">[</span><span class="n">cloud_id</span><span class="p">]</span>
+			<span class="n">all_ok</span> <span class="o">=</span> <span class="bp">True</span>
+			<span class="k">for</span> <span class="n">deploy</span> <span class="ow">in</span> <span class="n">deploy_group</span><span class="p">:</span>
+				<span class="n">remain_vm</span><span class="p">,</span> <span class="n">fail_cont</span> <span class="o">=</span> <span class="n">deploy</span><span class="o">.</span><span class="n">vm_number</span><span class="p">,</span> <span class="mi">0</span>
+				<span class="k">while</span> <span class="p">(</span><span class="n">remain_vm</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">fail_cont</span> <span class="o">&lt;</span> <span class="n">Config</span><span class="o">.</span><span class="n">MAX_VM_FAILS</span> <span class="ow">and</span>
+				       <span class="ow">not</span> <span class="n">cancel_deployment</span><span class="p">):</span>
+					<span class="n">concrete_system</span> <span class="o">=</span> <span class="n">concrete_systems</span><span class="p">[</span><span class="n">cloud_id</span><span class="p">][</span><span class="n">deploy</span><span class="o">.</span><span class="n">id</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+					<span class="k">if</span> <span class="ow">not</span> <span class="n">concrete_system</span><span class="p">:</span> <span class="k">break</span>
+					<span class="n">launch_radl</span> <span class="o">=</span> <span class="n">radl</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span>
+					<span class="n">launch_radl</span><span class="o">.</span><span class="n">systems</span> <span class="o">=</span> <span class="p">[</span><span class="n">concrete_system</span><span class="p">]</span>
+					<span class="n">requested_radl</span> <span class="o">=</span> <span class="n">radl</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span>
+					<span class="n">requested_radl</span><span class="o">.</span><span class="n">systems</span> <span class="o">=</span> <span class="p">[</span><span class="n">radl</span><span class="o">.</span><span class="n">get_system_by_name</span><span class="p">(</span><span class="n">concrete_system</span><span class="o">.</span><span class="n">name</span><span class="p">)]</span>
+					<span class="k">try</span><span class="p">:</span>
+						<span class="n">launched_vms</span> <span class="o">=</span> <span class="n">cloud</span><span class="o">.</span><span class="n">launch</span><span class="p">(</span><span class="n">launch_radl</span><span class="p">,</span> <span class="n">requested_radl</span><span class="p">,</span> <span class="n">remain_vm</span><span class="p">,</span> <span class="n">auth</span><span class="p">)</span>
+					<span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+						<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s">&quot;Error launching some of the VMs: </span><span class="si">%s</span><span class="s">&quot;</span> <span class="o">%</span> <span class="n">e</span><span class="p">)</span>
+						<span class="n">exceptions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+						<span class="n">launched_vms</span> <span class="o">=</span> <span class="p">[]</span>
+					<span class="c">#cloud.addVMLaunch()</span>
+					<span class="k">for</span> <span class="n">success</span><span class="p">,</span> <span class="n">launched_vm</span> <span class="ow">in</span> <span class="n">launched_vms</span><span class="p">:</span>
+						<span class="k">if</span> <span class="n">success</span><span class="p">:</span>
+							<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&quot;VM successfully launched: &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">launched_vm</span><span class="o">.</span><span class="n">id</span><span class="p">))</span>
+							<span class="n">deployed_vm</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">deploy</span><span class="p">,</span> <span class="p">[])</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+								<span class="n">launched_vm</span><span class="p">)</span>
+							<span class="n">deploy</span><span class="o">.</span><span class="n">cloud_id</span> <span class="o">=</span> <span class="n">cloud_id</span>
+							<span class="n">remain_vm</span> <span class="o">-=</span> <span class="mi">1</span>
+						<span class="k">else</span><span class="p">:</span>
+							<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s">&quot;Error launching some of the VMs: &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">launched_vm</span><span class="p">))</span>
+							<span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">launched_vm</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+								<span class="n">cloud</span><span class="o">.</span><span class="n">finalize</span><span class="p">(</span><span class="n">launched_vm</span><span class="p">,</span> <span class="n">auth</span><span class="p">)</span>
+					<span class="n">fail_cont</span> <span class="o">+=</span> <span class="mi">1</span>
+				<span class="k">if</span> <span class="n">remain_vm</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">cancel_deployment</span><span class="p">:</span>
+					<span class="n">all_ok</span> <span class="o">=</span> <span class="bp">False</span>
+					<span class="k">break</span>
+			<span class="k">if</span> <span class="ow">not</span> <span class="n">all_ok</span><span class="p">:</span>
+				<span class="k">for</span> <span class="n">deploy</span> <span class="ow">in</span> <span class="n">deploy_group</span><span class="p">:</span>
+					<span class="k">for</span> <span class="n">vm</span> <span class="ow">in</span> <span class="n">deployed_vm</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">deploy</span><span class="p">,</span> <span class="p">[]):</span>
+						<span class="n">vm</span><span class="o">.</span><span class="n">cloud</span><span class="o">.</span><span class="n">finalize</span><span class="p">(</span><span class="n">vm</span><span class="p">,</span> <span class="n">auth</span><span class="p">)</span>
+					<span class="n">deployed_vm</span><span class="p">[</span><span class="n">deploy</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+			<span class="k">if</span> <span class="n">cancel_deployment</span> <span class="ow">or</span> <span class="n">all_ok</span><span class="p">:</span>
+				<span class="k">break</span>
+		<span class="k">if</span> <span class="ow">not</span> <span class="n">all_ok</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">cancel_deployment</span><span class="p">:</span>
+			<span class="n">cancel_deployment</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="ne">Exception</span><span class="p">(</span><span class="s">&quot;All machines could not be launched: </span><span class="si">%s</span><span class="s">&quot;</span> <span class="o">%</span> <span class="n">exceptions</span><span class="p">))</span>
+
+	<span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="InfrastructureManager.get_infrastructure"><a class="viewcode-back" href="../../mods.html#IM.InfrastructureManager.InfrastructureManager.get_infrastructure">[docs]</a>	<span class="k">def</span> <span class="nf">get_infrastructure</span><span class="p">(</span><span class="n">inf_id</span><span class="p">,</span> <span class="n">auth</span><span class="p">):</span>
+		<span class="sd">&quot;&quot;&quot;Return infrastructure info with some id if valid authorization provided.&quot;&quot;&quot;</span>
+
+		<span class="k">if</span> <span class="n">inf_id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">infrastructure_list</span><span class="p">:</span>
+			<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s">&quot;Error, incorrect infrastructure ID&quot;</span><span class="p">)</span>
+			<span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s">&quot;Invalid infrastructure ID or access not granted.&quot;&quot;&quot;</span><span class="p">)</span>
+		<span class="n">sel_inf</span> <span class="o">=</span> <span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">infrastructure_list</span><span class="p">[</span><span class="n">inf_id</span><span class="p">]</span>
+		<span class="k">if</span> <span class="n">sel_inf</span><span class="o">.</span><span class="n">auth</span> <span class="o">!=</span> <span class="bp">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">sel_inf</span><span class="o">.</span><span class="n">auth</span><span class="o">.</span><span class="n">compare</span><span class="p">(</span><span class="n">auth</span><span class="p">,</span> <span class="s">&#39;InfrastructureManager&#39;</span><span class="p">):</span>
+			<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s">&quot;Access Error&quot;</span><span class="p">)</span>
+			<span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s">&quot;Invalid infrastructure ID or access not granted.&quot;&quot;&quot;</span><span class="p">)</span>
+		<span class="k">if</span> <span class="n">sel_inf</span><span class="o">.</span><span class="n">deleted</span><span class="p">:</span>
+			<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s">&quot;Access to a deleted infrastructure.&quot;</span><span class="p">)</span>
+			<span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s">&quot;Deleted infrastructure.&quot;&quot;&quot;</span><span class="p">)</span>
+			
+		<span class="k">return</span> <span class="n">sel_inf</span>
+</div>
+	<span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="InfrastructureManager.get_vm_from_inf"><a class="viewcode-back" href="../../mods.html#IM.InfrastructureManager.InfrastructureManager.get_vm_from_inf">[docs]</a>	<span class="k">def</span> <span class="nf">get_vm_from_inf</span><span class="p">(</span><span class="n">inf_id</span><span class="p">,</span> <span class="n">vm_id</span><span class="p">,</span> <span class="n">auth</span><span class="p">):</span>
+		<span class="sd">&quot;&quot;&quot;Return VirtualMachie info with some id of an infrastructure if valid authorization provided.&quot;&quot;&quot;</span>
+		<span class="n">sel_inf</span> <span class="o">=</span> <span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">get_infrastructure</span><span class="p">(</span><span class="n">inf_id</span><span class="p">,</span> <span class="n">auth</span><span class="p">)</span>
+		<span class="k">return</span> <span class="n">sel_inf</span><span class="o">.</span><span class="n">get_vm</span><span class="p">(</span><span class="n">vm_id</span><span class="p">)</span>
+</div>
+	<span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="InfrastructureManager.Reconfigure"><a class="viewcode-back" href="../../mods.html#IM.InfrastructureManager.InfrastructureManager.Reconfigure">[docs]</a>	<span class="k">def</span> <span class="nf">Reconfigure</span><span class="p">(</span><span class="n">inf_id</span><span class="p">,</span> <span class="n">radl_data</span><span class="p">,</span> <span class="n">auth</span><span class="p">):</span>
+		<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">		Add and update RADL definitions and reconfigure the infrastructure.</span>
+
+<span class="sd">		Args:</span>
+
+<span class="sd">		- inf_id(int): infrastructure id.</span>
+<span class="sd">		- radl_data(str): RADL description, it can be empty.</span>
+<span class="sd">		- auth(Authentication): parsed authentication tokens.</span>
+
+<span class="sd">		Return: &quot;&quot; if success.</span>
+<span class="sd">		&quot;&quot;&quot;</span>
+
+		<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;Reconfiguring the inf: &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">inf_id</span><span class="p">))</span>
+		<span class="n">radl</span> <span class="o">=</span> <span class="n">radl_parse</span><span class="o">.</span><span class="n">parse_radl</span><span class="p">(</span><span class="n">radl_data</span><span class="p">)</span>
+		<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">radl</span><span class="p">)</span>
+
+		<span class="n">sel_inf</span> <span class="o">=</span> <span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">get_infrastructure</span><span class="p">(</span><span class="n">inf_id</span><span class="p">,</span> <span class="n">auth</span><span class="p">)</span>
+
+		<span class="k">if</span> <span class="n">sel_inf</span><span class="o">.</span><span class="n">is_contextualizing</span><span class="p">():</span>
+			<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;The infrastructure is contextualizing. You must wait&quot;</span><span class="p">)</span>
+			<span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s">&quot;The infrastructure is contextualizing. You must wait&quot;</span><span class="p">)</span>
+
+		<span class="c"># Update infrastructure RADL with this new RADL</span>
+		<span class="c"># Add or update configures</span>
+		<span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">radl</span><span class="o">.</span><span class="n">configures</span><span class="p">:</span>
+			<span class="n">sel_inf</span><span class="o">.</span><span class="n">radl</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">s</span><span class="o">.</span><span class="n">clone</span><span class="p">(),</span> <span class="s">&quot;replace&quot;</span><span class="p">)</span>
+			<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;(Re)definition of </span><span class="si">%s</span><span class="s"> </span><span class="si">%s</span><span class="s">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">s</span><span class="p">),</span> <span class="n">s</span><span class="o">.</span><span class="n">getId</span><span class="p">()))</span>
+		
+		<span class="c"># and update contextualize</span>
+		<span class="n">sel_inf</span><span class="o">.</span><span class="n">radl</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">radl</span><span class="o">.</span><span class="n">contextualize</span><span class="p">)</span>
+		
+		<span class="c"># Check if the user want to set a new password to any system:</span>
+		<span class="k">for</span> <span class="n">system</span> <span class="ow">in</span> <span class="n">sel_inf</span><span class="o">.</span><span class="n">radl</span><span class="o">.</span><span class="n">systems</span><span class="p">:</span>
+			<span class="n">new_system</span> <span class="o">=</span> <span class="n">radl</span><span class="o">.</span><span class="n">get_system_by_name</span><span class="p">(</span><span class="n">system</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+			<span class="k">if</span> <span class="n">new_system</span><span class="p">:</span>
+				<span class="n">new_creds</span> <span class="o">=</span> <span class="n">new_system</span><span class="o">.</span><span class="n">getCredentialValues</span><span class="p">(</span><span class="n">new</span> <span class="o">=</span> <span class="bp">True</span><span class="p">)</span>
+				<span class="c"># The user has specified a credential:</span>
+				<span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">new_creds</span><span class="p">)))</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">or</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">new_creds</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="bp">None</span><span class="p">:</span>
+					<span class="n">creds</span> <span class="o">=</span> <span class="n">system</span><span class="o">.</span><span class="n">getCredentialValues</span><span class="p">()</span>
+					<span class="k">if</span> <span class="nb">cmp</span><span class="p">(</span><span class="n">new_creds</span><span class="p">,</span><span class="n">creds</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+						<span class="c"># The credentials have changed</span>
+						<span class="p">(</span><span class="n">_</span><span class="p">,</span> <span class="n">password</span><span class="p">,</span> <span class="n">public_key</span><span class="p">,</span> <span class="n">private_key</span><span class="p">)</span> <span class="o">=</span> <span class="n">new_creds</span>
+						<span class="n">system</span><span class="o">.</span><span class="n">setCredentialValues</span><span class="p">(</span><span class="n">password</span><span class="o">=</span><span class="n">password</span><span class="p">,</span> <span class="n">public_key</span><span class="o">=</span><span class="n">public_key</span><span class="p">,</span> <span class="n">private_key</span><span class="o">=</span><span class="n">private_key</span><span class="p">,</span> <span class="n">new</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+		
+		<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">save_data</span><span class="p">()</span>
+
+		<span class="c"># Stick all virtual machines to be reconfigured</span>
+		<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;Contextualize the inf.&quot;</span><span class="p">)</span>
+		<span class="n">sel_inf</span><span class="o">.</span><span class="n">Contextualize</span><span class="p">(</span><span class="n">auth</span><span class="p">)</span>
+
+		<span class="k">return</span> <span class="s">&quot;&quot;</span>
+</div>
+	<span class="nd">@staticmethod</span>
+	<span class="k">def</span> <span class="nf">_compute_score</span><span class="p">(</span><span class="n">system_score</span><span class="p">,</span> <span class="n">requested_radl</span><span class="p">):</span>
+		<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">		Computes the score of a concrete radl comparing with the requested one.</span>
+
+<span class="sd">		Args:</span>
+
+<span class="sd">		- system_score(tuple(radl.system, int)): System object to deploy and the score</span>
+<span class="sd">		- requested_radl(radl.system): Original system requested by the user.</span>
+
+<span class="sd">		Return(tuple(radl.system, int)): System object to deploy and the new computed score</span>
+<span class="sd">		&quot;&quot;&quot;</span>
+		
+		<span class="n">concrete_system</span><span class="p">,</span> <span class="n">score</span> <span class="o">=</span> <span class="n">system_score</span>
+		
+		<span class="n">req_apps</span> <span class="o">=</span> <span class="n">requested_radl</span><span class="o">.</span><span class="n">getApplications</span><span class="p">()</span>
+		<span class="n">inst_apps</span> <span class="o">=</span> <span class="n">concrete_system</span><span class="o">.</span><span class="n">getApplications</span><span class="p">()</span>
+		
+		<span class="c"># Set highest priority to the original score</span>
+		<span class="n">score</span> <span class="o">*=</span> <span class="mi">10000</span>
+
+		<span class="c"># For each requested app installed in the VMI score with +100</span>
+		<span class="k">if</span> <span class="n">inst_apps</span><span class="p">:</span>
+			<span class="k">for</span> <span class="n">req_app</span> <span class="ow">in</span> <span class="n">req_apps</span><span class="p">:</span>
+				<span class="k">for</span> <span class="n">inst_app</span> <span class="ow">in</span> <span class="n">inst_apps</span><span class="p">:</span>
+					<span class="k">if</span> <span class="n">inst_app</span><span class="o">.</span><span class="n">isNewerThan</span><span class="p">(</span><span class="n">req_app</span><span class="p">):</span>
+						<span class="n">score</span> <span class="o">+=</span> <span class="mi">100</span>
+
+		<span class="c"># For each installed app that is not requested score with -1</span>
+		<span class="k">if</span> <span class="n">inst_apps</span><span class="p">:</span>
+			<span class="k">for</span> <span class="n">inst_app</span> <span class="ow">in</span> <span class="n">inst_apps</span><span class="p">:</span>
+				<span class="k">if</span> <span class="n">inst_app</span> <span class="ow">in</span> <span class="n">req_apps</span><span class="p">:</span>
+					<span class="c"># Check the version</span>
+					<span class="k">for</span> <span class="n">req_app</span> <span class="ow">in</span> <span class="n">req_apps</span><span class="p">:</span>
+						<span class="k">if</span> <span class="n">req_app</span><span class="o">.</span><span class="n">isNewerThan</span><span class="p">(</span><span class="n">inst_app</span><span class="p">):</span>
+							<span class="n">score</span> <span class="o">-=</span> <span class="mi">1</span>
+				<span class="k">elif</span> <span class="ow">not</span> <span class="n">inst_app</span><span class="o">.</span><span class="n">getValue</span><span class="p">(</span><span class="s">&quot;version&quot;</span><span class="p">):</span>
+					<span class="k">pass</span>
+				<span class="k">else</span><span class="p">:</span>
+					<span class="c"># if is not requested -1</span>
+					<span class="n">score</span> <span class="o">-=</span> <span class="mi">1</span>
+		
+		<span class="k">return</span> <span class="n">concrete_system</span><span class="p">,</span> <span class="n">score</span>
+
+	<span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="InfrastructureManager.AddResource"><a class="viewcode-back" href="../../mods.html#IM.InfrastructureManager.InfrastructureManager.AddResource">[docs]</a>	<span class="k">def</span> <span class="nf">AddResource</span><span class="p">(</span><span class="n">inf_id</span><span class="p">,</span> <span class="n">radl_data</span><span class="p">,</span> <span class="n">auth</span><span class="p">,</span> <span class="n">context</span> <span class="o">=</span> <span class="bp">True</span><span class="p">,</span> <span class="n">failed_clouds</span> <span class="o">=</span> <span class="p">[]):</span>
+		<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">		Add the resources in the RADL to the infrastructure.</span>
+
+<span class="sd">		Args:</span>
+
+<span class="sd">		- inf_id(int): infrastructure id.</span>
+<span class="sd">		- radl(str): RADL description.</span>
+<span class="sd">		- auth(Authentication): parsed authentication tokens.</span>
+
+<span class="sd">		Return(list of int): ids of the new virtual machine created.</span>
+<span class="sd">		&quot;&quot;&quot;</span>
+
+		<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;Adding resources to inf: &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">inf_id</span><span class="p">))</span>
+		
+		<span class="n">radl</span> <span class="o">=</span> <span class="n">radl_parse</span><span class="o">.</span><span class="n">parse_radl</span><span class="p">(</span><span class="n">radl_data</span><span class="p">)</span>
+		<span class="n">radl</span><span class="o">.</span><span class="n">check</span><span class="p">()</span>
+		
+		<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">radl</span><span class="p">)</span>
+		
+		<span class="n">sel_inf</span> <span class="o">=</span> <span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">get_infrastructure</span><span class="p">(</span><span class="n">inf_id</span><span class="p">,</span> <span class="n">auth</span><span class="p">)</span>
+
+		<span class="k">if</span> <span class="n">sel_inf</span><span class="o">.</span><span class="n">is_contextualizing</span><span class="p">():</span>
+			<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;The infrastructure is contextualizing. You must wait&quot;</span><span class="p">)</span>
+			<span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s">&quot;The infrastructure is contextualizing. You must wait&quot;</span><span class="p">)</span>
+		
+		<span class="c"># Update infrastructure RADL with this new RADL</span>
+		<span class="n">sel_inf</span><span class="o">.</span><span class="n">complete_radl</span><span class="p">(</span><span class="n">radl</span><span class="p">)</span>
+
+		<span class="c"># If any deploy is defined, only update definitions.</span>
+		<span class="k">if</span> <span class="ow">not</span> <span class="n">radl</span><span class="o">.</span><span class="n">deploys</span><span class="p">:</span>
+			<span class="n">sel_inf</span><span class="o">.</span><span class="n">update_radl</span><span class="p">(</span><span class="n">radl</span><span class="p">,</span> <span class="p">[])</span>
+			<span class="k">return</span> <span class="p">[]</span>
+
+		<span class="c"># Add apps requirements to the RADL</span>
+		<span class="k">for</span> <span class="n">system</span> <span class="ow">in</span> <span class="n">radl</span><span class="o">.</span><span class="n">systems</span><span class="p">:</span>
+			<span class="n">apps_to_install</span> <span class="o">=</span> <span class="n">system</span><span class="o">.</span><span class="n">getApplications</span><span class="p">()</span>
+			<span class="k">for</span> <span class="n">app_to_install</span> <span class="ow">in</span> <span class="n">apps_to_install</span><span class="p">:</span>
+				<span class="k">for</span> <span class="n">app_avail</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">requirements</span> <span class="ow">in</span> <span class="n">Recipe</span><span class="o">.</span><span class="n">getInstallableApps</span><span class="p">():</span>
+					<span class="k">if</span> <span class="n">requirements</span> <span class="ow">and</span> <span class="n">app_avail</span><span class="o">.</span><span class="n">isNewerThan</span><span class="p">(</span><span class="n">app_to_install</span><span class="p">):</span>
+						<span class="c"># This app must be installed and it has special requirements</span>
+						<span class="k">try</span><span class="p">:</span>
+							<span class="n">requirements_radl</span> <span class="o">=</span> <span class="n">radl_parse</span><span class="o">.</span><span class="n">parse_radl</span><span class="p">(</span><span class="n">requirements</span><span class="p">)</span><span class="o">.</span><span class="n">systems</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+							<span class="n">system</span><span class="o">.</span><span class="n">applyFeatures</span><span class="p">(</span><span class="n">requirements_radl</span><span class="p">,</span> <span class="n">conflict</span><span class="o">=</span><span class="s">&quot;other&quot;</span><span class="p">,</span> <span class="n">missing</span><span class="o">=</span><span class="s">&quot;other&quot;</span><span class="p">)</span>
+						<span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+							<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s">&quot;Error in the requirements of the app: &quot;</span> <span class="o">+</span> <span class="n">app_to_install</span><span class="o">.</span><span class="n">getValue</span><span class="p">(</span><span class="s">&quot;name&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="s">&quot;. Ignore them.&quot;</span><span class="p">)</span>
+							<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">requirements</span><span class="p">)</span>
+						<span class="k">break</span>				
+
+		<span class="c"># Get VMRC credentials</span>
+		<span class="n">vmrc_list</span> <span class="o">=</span> <span class="p">[]</span>
+		<span class="k">for</span> <span class="n">vmrc_elem</span> <span class="ow">in</span> <span class="n">auth</span><span class="o">.</span><span class="n">getAuthInfo</span><span class="p">(</span><span class="s">&#39;VMRC&#39;</span><span class="p">):</span>
+			<span class="k">if</span> <span class="p">(</span><span class="s">&#39;host&#39;</span> <span class="ow">in</span> <span class="n">vmrc_elem</span> <span class="ow">and</span> <span class="s">&#39;username&#39;</span> <span class="ow">in</span> <span class="n">vmrc_elem</span> <span class="ow">and</span>
+			    <span class="s">&#39;password&#39;</span> <span class="ow">in</span> <span class="n">vmrc_elem</span><span class="p">):</span>
+				<span class="n">vmrc_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">VMRC</span><span class="p">(</span><span class="n">vmrc_elem</span><span class="p">[</span><span class="s">&#39;host&#39;</span><span class="p">],</span> <span class="n">vmrc_elem</span><span class="p">[</span><span class="s">&#39;username&#39;</span><span class="p">],</span>
+				                      <span class="n">vmrc_elem</span><span class="p">[</span><span class="s">&#39;password&#39;</span><span class="p">]))</span>
+
+		<span class="c"># Concrete systems using VMRC</span>
+		<span class="c"># NOTE: consider not-fake deploys (vm_number &gt; 0)</span>
+		<span class="n">systems_with_vmrc</span> <span class="o">=</span> <span class="p">{}</span>
+		<span class="k">for</span> <span class="n">system_id</span> <span class="ow">in</span> <span class="nb">set</span><span class="p">([</span> <span class="n">d</span><span class="o">.</span><span class="n">id</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">radl</span><span class="o">.</span><span class="n">deploys</span> <span class="k">if</span> <span class="n">d</span><span class="o">.</span><span class="n">vm_number</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="p">]):</span>
+			<span class="n">s</span> <span class="o">=</span> <span class="n">radl</span><span class="o">.</span><span class="n">get_system_by_name</span><span class="p">(</span><span class="n">system_id</span><span class="p">)</span>
+			
+			<span class="k">if</span> <span class="ow">not</span> <span class="n">s</span><span class="o">.</span><span class="n">getValue</span><span class="p">(</span><span class="s">&quot;disk.0.image.url&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">vmrc_list</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+				<span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s">&quot;No correct VMRC auth data provided nor image URL&quot;</span><span class="p">)</span>
+			
+			<span class="c"># Remove the requested apps from the system</span>
+			<span class="n">s_without_apps</span> <span class="o">=</span> <span class="n">radl</span><span class="o">.</span><span class="n">get_system_by_name</span><span class="p">(</span><span class="n">system_id</span><span class="p">)</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span>
+			<span class="n">s_without_apps</span><span class="o">.</span><span class="n">delValue</span><span class="p">(</span><span class="s">&quot;disk.0.applications&quot;</span><span class="p">)</span>
+
+			<span class="n">vmrc_res</span> <span class="o">=</span> <span class="p">[</span> <span class="n">s0</span> <span class="k">for</span> <span class="n">vmrc</span> <span class="ow">in</span> <span class="n">vmrc_list</span> <span class="k">for</span> <span class="n">s0</span> <span class="ow">in</span> <span class="n">vmrc</span><span class="o">.</span><span class="n">search_vm</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="p">]</span>
+			<span class="k">if</span> <span class="ow">not</span> <span class="n">s</span><span class="o">.</span><span class="n">getValue</span><span class="p">(</span><span class="s">&quot;disk.0.image.url&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">vmrc_res</span><span class="p">:</span>
+				<span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s">&quot;No VMI obtained from VMRC to system: &quot;</span> <span class="o">+</span> <span class="n">system_id</span><span class="p">)</span>
+			
+			<span class="n">n</span> <span class="o">=</span> <span class="p">[</span> <span class="n">s_without_apps</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span><span class="o">.</span><span class="n">applyFeatures</span><span class="p">(</span><span class="n">s0</span><span class="p">,</span> <span class="n">conflict</span><span class="o">=</span><span class="s">&quot;other&quot;</span><span class="p">,</span> <span class="n">missing</span><span class="o">=</span><span class="s">&quot;other&quot;</span><span class="p">)</span>
+			                         <span class="k">for</span> <span class="n">s0</span> <span class="ow">in</span> <span class="n">vmrc_res</span> <span class="p">]</span>
+			<span class="n">systems_with_vmrc</span><span class="p">[</span><span class="n">system_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">n</span> <span class="k">if</span> <span class="n">n</span> <span class="k">else</span> <span class="p">[</span><span class="n">s_without_apps</span><span class="p">]</span>			
+
+
+		<span class="c"># Concrete systems with cloud providers and select systems with the greatest score</span>
+		<span class="c"># in every cloud</span>
+		<span class="n">cloud_list</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">([</span> <span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">c</span><span class="o">.</span><span class="n">getCloudConnector</span><span class="p">())</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">CloudInfo</span><span class="o">.</span><span class="n">get_cloud_list</span><span class="p">(</span><span class="n">auth</span><span class="p">)</span> <span class="p">])</span>
+		<span class="n">concrete_systems</span> <span class="o">=</span> <span class="p">{}</span>
+		<span class="k">for</span> <span class="n">cloud_id</span><span class="p">,</span> <span class="n">cloud</span> <span class="ow">in</span> <span class="n">cloud_list</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+			<span class="k">for</span> <span class="n">system_id</span><span class="p">,</span> <span class="n">systems</span> <span class="ow">in</span> <span class="n">systems_with_vmrc</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+				<span class="n">s1</span> <span class="o">=</span> <span class="p">[</span><span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">_compute_score</span><span class="p">(</span><span class="n">s</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span><span class="o">.</span><span class="n">applyFeatures</span><span class="p">(</span><span class="n">s0</span><span class="p">,</span> <span class="n">missing</span><span class="o">=</span><span class="s">&quot;other&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">concrete</span><span class="p">(),</span> <span class="n">radl</span><span class="o">.</span><span class="n">get_system_by_name</span><span class="p">(</span><span class="n">system_id</span><span class="p">))</span>
+				                <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">systems</span> <span class="k">for</span> <span class="n">s0</span> <span class="ow">in</span> <span class="n">cloud</span><span class="o">.</span><span class="n">concreteSystem</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">auth</span><span class="p">)]</span>
+				<span class="c"># Store the concrete system with largest score</span>
+				<span class="n">concrete_systems</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">cloud_id</span><span class="p">,</span> <span class="p">{})[</span><span class="n">system_id</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+					<span class="nb">max</span><span class="p">(</span><span class="n">s1</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="k">if</span> <span class="n">s1</span> <span class="k">else</span> <span class="p">(</span><span class="bp">None</span><span class="p">,</span> <span class="o">-</span><span class="mf">1e9</span><span class="p">)</span> <span class="p">)</span>
+
+		<span class="c"># Group virtual machines to deploy by network dependencies</span>
+		<span class="n">deploy_groups</span> <span class="o">=</span> <span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">_compute_deploy_groups</span><span class="p">(</span><span class="n">radl</span><span class="p">)</span>
+		<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&quot;Groups of VMs with dependencies&quot;</span><span class="p">)</span>
+		<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">deploy_groups</span><span class="p">)</span>
+
+		<span class="c"># Sort by score the cloud providers</span>
+		<span class="c"># NOTE: consider fake deploys (vm_number == 0)</span>
+		<span class="n">deploys_group_cloud_list</span> <span class="o">=</span> <span class="p">{}</span>
+		<span class="k">for</span> <span class="n">deploy_group</span> <span class="ow">in</span> <span class="n">deploy_groups</span><span class="p">:</span>
+			<span class="n">suggested_cloud_ids</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">([</span> <span class="n">d</span><span class="o">.</span><span class="n">cloud_id</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">deploy_group</span> <span class="k">if</span> <span class="n">d</span><span class="o">.</span><span class="n">cloud_id</span> <span class="p">]))</span>
+			<span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">suggested_cloud_ids</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+				<span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s">&quot;Two deployments that have to be launched in the same cloud provider are asked to be deployed in different cloud providers: </span><span class="si">%s</span><span class="s">&quot;</span> <span class="o">%</span> <span class="n">deploy_group</span><span class="p">)</span>
+			<span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">suggested_cloud_ids</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+				<span class="n">cloud_list0</span> <span class="o">=</span> <span class="p">[</span> <span class="p">(</span><span class="n">suggested_cloud_ids</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">cloud_list</span><span class="p">[</span><span class="n">suggested_cloud_ids</span><span class="p">[</span><span class="mi">0</span><span class="p">]])</span> <span class="p">]</span>
+			<span class="k">else</span><span class="p">:</span>
+				<span class="n">cloud_list0</span> <span class="o">=</span> <span class="n">cloud_list</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+			<span class="k">if</span> <span class="n">d</span><span class="o">.</span><span class="n">vm_number</span><span class="p">:</span>
+				<span class="n">scored_clouds</span> <span class="o">=</span> <span class="p">[</span> <span class="p">(</span><span class="n">cloud_id</span><span class="p">,</span> <span class="nb">sum</span><span class="p">([</span> <span class="n">d</span><span class="o">.</span><span class="n">vm_number</span><span class="o">*</span><span class="n">concrete_systems</span><span class="p">[</span><span class="n">cloud_id</span><span class="p">][</span><span class="n">d</span><span class="o">.</span><span class="n">id</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+			                         <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">deploy_group</span> <span class="p">]))</span> <span class="k">for</span> <span class="n">cloud_id</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">cloud_list0</span> <span class="p">]</span>
+			<span class="k">else</span><span class="p">:</span>
+				<span class="n">scored_clouds</span> <span class="o">=</span> <span class="p">[</span> <span class="p">(</span><span class="n">cloud_id</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">cloud_id</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">cloud_list0</span> <span class="p">]</span>
+			
+			<span class="n">ordered_cloud_list</span> <span class="o">=</span> <span class="p">[</span> <span class="n">c</span><span class="o">.</span><span class="n">id</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">CloudInfo</span><span class="o">.</span><span class="n">get_cloud_list</span><span class="p">(</span><span class="n">auth</span><span class="p">)</span> <span class="p">]</span>
+			<span class="c"># reverse the list to use the reverse order inthe sort function</span>
+			<span class="n">ordered_cloud_list</span><span class="o">.</span><span class="n">reverse</span><span class="p">()</span>
+			<span class="c"># Order the clouds first by the score and then using the cloud order in the auth data </span>
+			<span class="n">sorted_scored_clouds</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">scored_clouds</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">ordered_cloud_list</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">])),</span> <span class="n">reverse</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+			<span class="n">deploys_group_cloud_list</span><span class="p">[</span><span class="nb">id</span><span class="p">(</span><span class="n">deploy_group</span><span class="p">)]</span> <span class="o">=</span> <span class="p">[</span> <span class="n">c</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">sorted_scored_clouds</span> <span class="p">]</span>
+
+		<span class="c"># Launch every group in the same cloud provider</span>
+		<span class="n">deployed_vm</span> <span class="o">=</span> <span class="p">{}</span>
+		<span class="n">cancel_deployment</span> <span class="o">=</span> <span class="p">[]</span>
+		<span class="k">try</span><span class="p">:</span>
+			<span class="c">#pool = ThreadPool(processes=Config.MAX_SIMULTANEOUS_LAUNCHES)</span>
+			<span class="c">#pool.map(</span>
+			<span class="c">#	lambda ds: InfrastructureManager._launch_group(</span>
+			<span class="c">#		ds, deploys_group_cloud_list[id(ds)], cloud_list, concrete_systems,</span>
+			<span class="c">#		radl, auth, deployed_vm, cancel_deployment), deploy_groups)</span>
+			<span class="k">for</span> <span class="n">ds</span> <span class="ow">in</span> <span class="n">deploy_groups</span><span class="p">:</span>
+				<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">_launch_group</span><span class="p">(</span>
+					<span class="n">ds</span><span class="p">,</span> <span class="n">deploys_group_cloud_list</span><span class="p">[</span><span class="nb">id</span><span class="p">(</span><span class="n">ds</span><span class="p">)],</span> <span class="n">cloud_list</span><span class="p">,</span> <span class="n">concrete_systems</span><span class="p">,</span>
+					<span class="n">radl</span><span class="p">,</span> <span class="n">auth</span><span class="p">,</span> <span class="n">deployed_vm</span><span class="p">,</span> <span class="n">cancel_deployment</span><span class="p">)</span>
+		<span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+			<span class="c"># Please, avoid exception to arrive to this level, because some virtual</span>
+			<span class="c"># machine may lost.</span>
+			<span class="n">cancel_deployment</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+
+		<span class="c"># We make this to maintain the order of the VMs in the sel_inf.vm_list</span>
+		<span class="c"># according to the deploys shown in the RADL 		</span>
+		<span class="n">new_vms</span> <span class="o">=</span> <span class="p">[]</span>
+		<span class="k">for</span> <span class="n">orig_dep</span> <span class="ow">in</span> <span class="n">radl</span><span class="o">.</span><span class="n">deploys</span><span class="p">:</span>
+			<span class="k">for</span> <span class="n">deploy</span> <span class="ow">in</span> <span class="n">deployed_vm</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+				<span class="k">if</span> <span class="n">orig_dep</span><span class="o">.</span><span class="n">id</span> <span class="o">==</span> <span class="n">deploy</span><span class="o">.</span><span class="n">id</span><span class="p">:</span>
+					<span class="k">for</span> <span class="n">vm</span> <span class="ow">in</span> <span class="n">deployed_vm</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">deploy</span><span class="p">,</span> <span class="p">[]):</span>
+						<span class="n">new_vms</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">vm</span><span class="p">)</span>
+
+		<span class="k">if</span> <span class="n">cancel_deployment</span><span class="p">:</span>
+			<span class="c"># If error, all deployed virtual machine will be undeployed.</span>
+			<span class="k">for</span> <span class="n">vm</span> <span class="ow">in</span> <span class="n">new_vms</span><span class="p">:</span>
+				<span class="n">vm</span><span class="o">.</span><span class="n">cloud</span><span class="o">.</span><span class="n">finalize</span><span class="p">(</span><span class="n">vm</span><span class="p">,</span> <span class="n">auth</span><span class="p">)</span>
+			<span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s">&quot;Some deploys did not proceed successfully: </span><span class="si">%s</span><span class="s">&quot;</span> <span class="o">%</span> <span class="n">cancel_deployment</span><span class="p">)</span>
+
+
+		<span class="k">for</span> <span class="n">vm</span> <span class="ow">in</span> <span class="n">new_vms</span><span class="p">:</span>
+			<span class="n">sel_inf</span><span class="o">.</span><span class="n">add_vm</span><span class="p">(</span><span class="n">vm</span><span class="p">)</span>
+
+			<span class="p">(</span><span class="n">_</span><span class="p">,</span> <span class="n">passwd</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">)</span> <span class="o">=</span> <span class="n">vm</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">systems</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">getCredentialValues</span><span class="p">()</span>
+			<span class="p">(</span><span class="n">_</span><span class="p">,</span> <span class="n">new_passwd</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">)</span> <span class="o">=</span> <span class="n">vm</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">systems</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">getCredentialValues</span><span class="p">(</span><span class="n">new</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+			<span class="k">if</span> <span class="n">passwd</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">new_passwd</span><span class="p">:</span>
+				<span class="c"># The VM uses the VMI password, set to change it</span>
+				<span class="n">random_password</span> <span class="o">=</span> <span class="s">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">string</span><span class="o">.</span><span class="n">letters</span> <span class="o">+</span> <span class="n">string</span><span class="o">.</span><span class="n">digits</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">8</span><span class="p">))</span>
+				<span class="n">vm</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">systems</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">setCredentialValues</span><span class="p">(</span><span class="n">password</span><span class="o">=</span><span class="n">random_password</span><span class="p">,</span> <span class="n">new</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+
+		<span class="c"># Add the new virtual machines to the infrastructure</span>
+		<span class="n">sel_inf</span><span class="o">.</span><span class="n">update_radl</span><span class="p">(</span><span class="n">radl</span><span class="p">,</span> <span class="p">[(</span><span class="n">d</span><span class="p">,</span> <span class="n">deployed_vm</span><span class="p">[</span><span class="n">d</span><span class="p">],</span> <span class="n">concrete_systems</span><span class="p">[</span><span class="n">d</span><span class="o">.</span><span class="n">cloud_id</span><span class="p">][</span><span class="n">d</span><span class="o">.</span><span class="n">id</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>
+			<span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">deployed_vm</span><span class="p">])</span>
+		<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">save_data</span><span class="p">()</span>
+		<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;VMs </span><span class="si">%s</span><span class="s"> successfully added to Inf id </span><span class="si">%s</span><span class="s">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">new_vms</span><span class="p">,</span> <span class="n">sel_inf</span><span class="o">.</span><span class="n">id</span><span class="p">))</span>
+
+		<span class="c"># Let&#39;s contextualize!</span>
+		<span class="k">if</span> <span class="n">context</span><span class="p">:</span>
+			<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;Contextualize the inf&quot;</span><span class="p">)</span>
+			<span class="n">sel_inf</span><span class="o">.</span><span class="n">Contextualize</span><span class="p">(</span><span class="n">auth</span><span class="p">)</span>
+
+		<span class="k">return</span> <span class="p">[</span><span class="n">vm</span><span class="o">.</span><span class="n">im_id</span> <span class="k">for</span> <span class="n">vm</span> <span class="ow">in</span> <span class="n">new_vms</span><span class="p">]</span>
+		</div>
+	<span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="InfrastructureManager.RemoveResource"><a class="viewcode-back" href="../../mods.html#IM.InfrastructureManager.InfrastructureManager.RemoveResource">[docs]</a>	<span class="k">def</span> <span class="nf">RemoveResource</span><span class="p">(</span><span class="n">inf_id</span><span class="p">,</span> <span class="n">vm_list</span><span class="p">,</span> <span class="n">auth</span><span class="p">):</span>
+		<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">		Remove a list of resources from the infrastructure.</span>
+
+<span class="sd">		Args:</span>
+
+<span class="sd">		- inf_id(int): infrastructure id.</span>
+<span class="sd">		- vm_list(list of int): list of virtual machine ids.</span>
+<span class="sd">		- auth(Authentication): parsed authentication tokens.</span>
+
+<span class="sd">		Return(int): number of undeployed virtual machines.</span>
+<span class="sd">		&quot;&quot;&quot;</span>
+
+		<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;Removing the VMs: &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">vm_list</span><span class="p">)</span> <span class="o">+</span> <span class="s">&quot; from inf ID: &#39;&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">inf_id</span><span class="p">)</span> <span class="o">+</span> <span class="s">&quot;&#39;&quot;</span><span class="p">)</span>
+
+		<span class="n">sel_inf</span> <span class="o">=</span> <span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">get_infrastructure</span><span class="p">(</span><span class="n">inf_id</span><span class="p">,</span> <span class="n">auth</span><span class="p">)</span>
+
+		<span class="k">if</span> <span class="n">sel_inf</span><span class="o">.</span><span class="n">is_contextualizing</span><span class="p">():</span>
+			<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;The infrastructure is contextualizing. You must wait&quot;</span><span class="p">)</span>
+			<span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s">&quot;The infrastructure is contextualizing. You must wait&quot;</span><span class="p">)</span>
+
+		<span class="n">vm_ids</span> <span class="o">=</span> <span class="n">vm_list</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&quot;,&quot;</span><span class="p">)</span>
+
+		<span class="n">cont</span> <span class="o">=</span> <span class="mi">0</span>
+		<span class="n">exceptions</span> <span class="o">=</span> <span class="p">[]</span>
+		<span class="k">for</span> <span class="n">vmid</span> <span class="ow">in</span> <span class="n">vm_ids</span><span class="p">:</span>
+			<span class="k">for</span> <span class="n">vm</span> <span class="ow">in</span> <span class="n">sel_inf</span><span class="o">.</span><span class="n">get_vm_list</span><span class="p">():</span>
+				<span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="n">vm</span><span class="o">.</span><span class="n">im_id</span><span class="p">)</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span><span class="n">vmid</span><span class="p">):</span>
+					<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&quot;Removing the VM ID: &#39;&quot;</span> <span class="o">+</span> <span class="n">vmid</span> <span class="o">+</span> <span class="s">&quot;&#39;&quot;</span><span class="p">)</span>
+					<span class="k">try</span><span class="p">:</span>
+						<span class="n">cl</span> <span class="o">=</span> <span class="n">vm</span><span class="o">.</span><span class="n">cloud</span><span class="o">.</span><span class="n">getCloudConnector</span><span class="p">()</span>
+						<span class="n">cl</span><span class="o">.</span><span class="n">finalize</span><span class="p">(</span><span class="n">vm</span><span class="p">,</span> <span class="n">auth</span><span class="p">)</span>
+					<span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+						<span class="n">exceptions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+					<span class="k">else</span><span class="p">:</span>
+						<span class="n">vm</span><span class="o">.</span><span class="n">destroy</span> <span class="o">=</span> <span class="bp">True</span>
+						<span class="n">cont</span> <span class="o">+=</span> <span class="mi">1</span>
+
+		<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">save_data</span><span class="p">()</span>
+		<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">cont</span><span class="p">)</span> <span class="o">+</span> <span class="s">&quot; VMs successfully removed&quot;</span><span class="p">)</span>
+
+		<span class="k">if</span> <span class="n">cont</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+			<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;Reconfigure it&quot;</span><span class="p">)</span>
+			<span class="n">sel_inf</span><span class="o">.</span><span class="n">Contextualize</span><span class="p">(</span><span class="n">auth</span><span class="p">)</span>
+			
+		<span class="k">if</span> <span class="n">exceptions</span><span class="p">:</span>
+			<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s">&quot;Error removing resources&quot;</span><span class="p">)</span>
+			<span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s">&quot;Error removing resources: </span><span class="si">%s</span><span class="s">&quot;</span> <span class="o">%</span> <span class="n">exceptions</span><span class="p">)</span>
+
+		<span class="k">return</span> <span class="n">cont</span>
+</div>
+	<span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="InfrastructureManager.get_vminfo_res"><a class="viewcode-back" href="../../mods.html#IM.InfrastructureManager.InfrastructureManager.get_vminfo_res">[docs]</a>	<span class="k">def</span> <span class="nf">get_vminfo_res</span><span class="p">(</span><span class="n">vm</span><span class="p">,</span> <span class="n">configured</span><span class="p">):</span>
+		<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">		Get information about a virtual machine.</span>
+
+<span class="sd">		Args:</span>
+
+<span class="sd">		- vm(:py:class:`IM.VirtualMachine`): virtual machine information.</span>
+
+<span class="sd">		Return: a dict with keys</span>
+
+<span class="sd">		- state(str): virtual machine state.</span>
+<span class="sd">		- info(str): the information about the virtual machine in RADL format</span>
+<span class="sd">		- cloud(str): some information about the cloud provider</span>
+<span class="sd">		&quot;&quot;&quot;</span>
+
+		<span class="n">res</span> <span class="o">=</span> <span class="p">{}</span>
+		<span class="k">if</span> <span class="n">vm</span><span class="o">.</span><span class="n">state</span> <span class="o">!=</span> <span class="n">VirtualMachine</span><span class="o">.</span><span class="n">RUNNING</span><span class="p">:</span>
+			<span class="n">res</span><span class="p">[</span><span class="s">&#39;state&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">vm</span><span class="o">.</span><span class="n">state</span>
+		<span class="k">elif</span> <span class="n">configured</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+			<span class="n">res</span><span class="p">[</span><span class="s">&#39;state&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">VirtualMachine</span><span class="o">.</span><span class="n">RUNNING</span>
+		<span class="k">elif</span> <span class="n">configured</span><span class="p">:</span>
+			<span class="n">res</span><span class="p">[</span><span class="s">&#39;state&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">VirtualMachine</span><span class="o">.</span><span class="n">CONFIGURED</span>
+		<span class="k">else</span><span class="p">:</span>
+			<span class="n">res</span><span class="p">[</span><span class="s">&#39;state&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">VirtualMachine</span><span class="o">.</span><span class="n">FAILED</span>
+
+		<span class="n">res</span><span class="p">[</span><span class="s">&#39;info&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">vm</span><span class="o">.</span><span class="n">info</span><span class="p">)</span>
+		<span class="n">res</span><span class="p">[</span><span class="s">&#39;cloud&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">vm</span><span class="o">.</span><span class="n">cloud</span><span class="p">)</span>
+
+		<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;Information obtained successfully&quot;</span><span class="p">)</span>
+		<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
+
+		<span class="k">return</span> <span class="n">res</span>
+</div>
+	<span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="InfrastructureManager.GetVMInfo"><a class="viewcode-back" href="../../mods.html#IM.InfrastructureManager.InfrastructureManager.GetVMInfo">[docs]</a>	<span class="k">def</span> <span class="nf">GetVMInfo</span><span class="p">(</span><span class="n">inf_id</span><span class="p">,</span> <span class="n">vm_id</span><span class="p">,</span> <span class="n">auth</span><span class="p">):</span>
+		<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">		Get information about a virtual machine in an infrastructure.</span>
+
+<span class="sd">		Args:</span>
+
+<span class="sd">		- inf_id(int): infrastructure id.</span>
+<span class="sd">		- vm_id(str): virtual machine id.</span>
+<span class="sd">		- auth(Authentication): parsed authentication tokens.</span>
+
+<span class="sd">		Return: a dict with keys</span>
+
+<span class="sd">		- state(str): virtual machine state.</span>
+<span class="sd">		- info(str): the information about the virtual machine in RADL format</span>
+<span class="sd">		- cloud(str): some information about the cloud provider</span>
+<span class="sd">		&quot;&quot;&quot;</span>
+
+		<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;Get information about the vm: &#39;&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">vm_id</span><span class="p">)</span> <span class="o">+</span> <span class="s">&quot;&#39; from inf: &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">inf_id</span><span class="p">))</span>
+	
+		<span class="n">sel_inf</span> <span class="o">=</span> <span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">get_infrastructure</span><span class="p">(</span><span class="n">inf_id</span><span class="p">,</span> <span class="n">auth</span><span class="p">)</span>
+
+		<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&quot;Getting information from monitors&quot;</span><span class="p">)</span>
+		<span class="k">try</span><span class="p">:</span>
+			<span class="p">(</span><span class="n">success</span><span class="p">,</span> <span class="n">msg</span><span class="p">)</span> <span class="o">=</span> <span class="n">ganglia_info</span><span class="o">.</span><span class="n">update_ganglia_info</span><span class="p">(</span><span class="n">sel_inf</span><span class="p">)</span>
+			<span class="k">if</span> <span class="ow">not</span> <span class="n">success</span><span class="p">:</span>
+				<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+		<span class="k">except</span><span class="p">:</span>
+			<span class="k">pass</span>
+
+		<span class="n">vm</span> <span class="o">=</span> <span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">get_vm_from_inf</span><span class="p">(</span><span class="n">inf_id</span><span class="p">,</span> <span class="n">vm_id</span><span class="p">,</span> <span class="n">auth</span><span class="p">)</span>
+		<span class="k">if</span> <span class="ow">not</span> <span class="n">vm</span><span class="p">:</span>
+			<span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s">&quot;VM does not exist or Access Error&quot;</span><span class="p">)</span>
+		<span class="n">cl</span> <span class="o">=</span> <span class="n">vm</span><span class="o">.</span><span class="n">cloud</span><span class="o">.</span><span class="n">getCloudConnector</span><span class="p">()</span>
+		<span class="p">(</span><span class="n">success</span><span class="p">,</span> <span class="n">new_vm</span><span class="p">)</span> <span class="o">=</span> <span class="n">cl</span><span class="o">.</span><span class="n">updateVMInfo</span><span class="p">(</span><span class="n">vm</span><span class="p">,</span> <span class="n">auth</span><span class="p">)</span>
+		<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">save_data</span><span class="p">()</span>
+		<span class="k">if</span> <span class="ow">not</span> <span class="n">success</span><span class="p">:</span>
+			<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s">&quot;Error getting the informacion about the VM &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">vm_id</span><span class="p">)</span> <span class="o">+</span> <span class="s">&quot;: &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">vm</span><span class="p">))</span>
+			<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s">&quot;Using last information retrieved&quot;</span><span class="p">)</span>
+			<span class="n">res</span> <span class="o">=</span> <span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">get_vminfo_res</span><span class="p">(</span><span class="n">vm</span><span class="p">,</span> <span class="n">sel_inf</span><span class="o">.</span><span class="n">configured</span><span class="p">)</span>
+		<span class="k">else</span><span class="p">:</span>
+			<span class="n">res</span> <span class="o">=</span> <span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">get_vminfo_res</span><span class="p">(</span><span class="n">new_vm</span><span class="p">,</span> <span class="n">sel_inf</span><span class="o">.</span><span class="n">configured</span><span class="p">)</span>
+		<span class="k">return</span> <span class="n">res</span>
+</div>
+	<span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="InfrastructureManager.AlterVM"><a class="viewcode-back" href="../../mods.html#IM.InfrastructureManager.InfrastructureManager.AlterVM">[docs]</a>	<span class="k">def</span> <span class="nf">AlterVM</span><span class="p">(</span><span class="n">inf_id</span><span class="p">,</span> <span class="n">vm_id</span><span class="p">,</span> <span class="n">radl_data</span><span class="p">,</span> <span class="n">auth</span><span class="p">):</span>
+		<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">		Get information about a virtual machine in an infrastructure.</span>
+
+<span class="sd">		Args:</span>
+
+<span class="sd">		- inf_id(int): infrastructure id.</span>
+<span class="sd">		- vm_id(int): virtual machine id.</span>
+<span class="sd">		- radl(str): RADL description.</span>
+<span class="sd">		- auth(Authentication): parsed authentication tokens.</span>
+
+<span class="sd">		Return: a dict with keys</span>
+
+<span class="sd">		- state(str): virtual machine state.</span>
+<span class="sd">		- info(str): the information about the virtual machine in RADL format</span>
+<span class="sd">		- cloud(str): some information about the cloud provider</span>
+<span class="sd">		&quot;&quot;&quot;</span>
+
+		<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;Modifying the VM: &#39;&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">vm_id</span><span class="p">)</span> <span class="o">+</span> <span class="s">&quot;&#39; from inf: &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">inf_id</span><span class="p">))</span>
+		<span class="n">sel_inf</span> <span class="o">=</span> <span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">get_infrastructure</span><span class="p">(</span><span class="n">inf_id</span><span class="p">,</span> <span class="n">auth</span><span class="p">)</span>
+		<span class="n">vm</span> <span class="o">=</span> <span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">get_vm_from_inf</span><span class="p">(</span><span class="n">inf_id</span><span class="p">,</span> <span class="n">vm_id</span><span class="p">,</span> <span class="n">auth</span><span class="p">)</span>
+		<span class="k">if</span> <span class="ow">not</span> <span class="n">vm</span><span class="p">:</span>
+			<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;VM does not exist or Access Error&quot;</span><span class="p">)</span>
+			<span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s">&quot;VM does not exist or Access Error&quot;</span><span class="p">)</span>
+		
+		<span class="n">radl</span> <span class="o">=</span> <span class="n">radl_parse</span><span class="o">.</span><span class="n">parse_radl</span><span class="p">(</span><span class="n">radl_data</span><span class="p">)</span>
+
+		<span class="n">exception</span> <span class="o">=</span> <span class="bp">None</span>
+		<span class="k">try</span><span class="p">:</span>
+			<span class="n">cl</span> <span class="o">=</span> <span class="n">vm</span><span class="o">.</span><span class="n">cloud</span><span class="o">.</span><span class="n">getCloudConnector</span><span class="p">()</span>
+			<span class="p">(</span><span class="n">success</span><span class="p">,</span> <span class="n">alter_res</span><span class="p">)</span> <span class="o">=</span> <span class="n">cl</span><span class="o">.</span><span class="n">alterVM</span><span class="p">(</span><span class="n">vm</span><span class="p">,</span> <span class="n">radl</span><span class="p">,</span> <span class="n">auth</span><span class="p">)</span>
+		<span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+			<span class="n">exception</span> <span class="o">=</span> <span class="n">e</span>
+		<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">save_data</span><span class="p">()</span>
+		<span class="k">if</span> <span class="n">exception</span><span class="p">:</span>
+			<span class="k">raise</span> <span class="n">exception</span>
+		<span class="k">if</span> <span class="ow">not</span> <span class="n">success</span><span class="p">:</span>
+			<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s">&quot;Error getting the information about the VM &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">vm_id</span><span class="p">)</span> <span class="o">+</span> <span class="s">&quot;: &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">alter_res</span><span class="p">))</span>
+			<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s">&quot;Using last information retrieved&quot;</span><span class="p">)</span>
+
+		<span class="n">res</span> <span class="o">=</span> <span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">get_vminfo_res</span><span class="p">(</span><span class="n">vm</span><span class="p">,</span> <span class="n">sel_inf</span><span class="o">.</span><span class="n">configured</span><span class="p">)</span>
+		<span class="k">return</span> <span class="n">res</span>
+	</div>
+	<span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="InfrastructureManager.GetInfrastructureInfo"><a class="viewcode-back" href="../../mods.html#IM.InfrastructureManager.InfrastructureManager.GetInfrastructureInfo">[docs]</a>	<span class="k">def</span> <span class="nf">GetInfrastructureInfo</span><span class="p">(</span><span class="n">inf_id</span><span class="p">,</span> <span class="n">auth</span><span class="p">):</span>
+		<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">		Get information about an infrastructure.</span>
+
+<span class="sd">		Args:</span>
+
+<span class="sd">		- inf_id(int): infrastructure id.</span>
+<span class="sd">		- auth(Authentication): parsed authentication tokens.</span>
+
+<span class="sd">		Return: a dict with keys</span>
+
+<span class="sd">		- cont_out(str): contextualization informmation.</span>
+<span class="sd">		- vm_list(list of str): list of virtual machine ids.</span>
+<span class="sd">		&quot;&quot;&quot;</span>
+
+		<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;Getting information about the inf: &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">inf_id</span><span class="p">))</span>
+	
+		<span class="n">sel_inf</span> <span class="o">=</span> <span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">get_infrastructure</span><span class="p">(</span><span class="n">inf_id</span><span class="p">,</span> <span class="n">auth</span><span class="p">)</span>
+		<span class="n">res</span> <span class="o">=</span> <span class="p">{}</span>
+		<span class="n">res</span><span class="p">[</span><span class="s">&#39;cont_out&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sel_inf</span><span class="o">.</span><span class="n">cont_out</span>
+		<span class="c">#: .. todo::</span>
+		<span class="c">#:   Return int instead</span>
+		<span class="n">res</span><span class="p">[</span><span class="s">&#39;vm_list&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">vm</span><span class="o">.</span><span class="n">im_id</span><span class="p">)</span> <span class="k">for</span> <span class="n">vm</span> <span class="ow">in</span> <span class="n">sel_inf</span><span class="o">.</span><span class="n">get_vm_list</span><span class="p">()]</span>
+	
+		<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;Information obtained successfully&quot;</span><span class="p">)</span>
+		<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
+		<span class="k">return</span> <span class="n">res</span>
+</div>
+	<span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="InfrastructureManager.StopInfrastructure"><a class="viewcode-back" href="../../mods.html#IM.InfrastructureManager.InfrastructureManager.StopInfrastructure">[docs]</a>	<span class="k">def</span> <span class="nf">StopInfrastructure</span><span class="p">(</span><span class="n">inf_id</span><span class="p">,</span> <span class="n">auth</span><span class="p">):</span>
+		<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">		Stop all virtual machines in an infrastructure.</span>
+
+<span class="sd">		Args:</span>
+
+<span class="sd">		- inf_id(int): infrastructure id.</span>
+<span class="sd">		- auth(Authentication): parsed authentication tokens.</span>
+
+<span class="sd">		Return(str): error messages; empty string means all was ok.</span>
+<span class="sd">		&quot;&quot;&quot;</span>
+
+		<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;Stopping the infrastructure id: &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">inf_id</span><span class="p">))</span>
+
+		<span class="n">sel_inf</span> <span class="o">=</span> <span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">get_infrastructure</span><span class="p">(</span><span class="n">inf_id</span><span class="p">,</span> <span class="n">auth</span><span class="p">)</span>
+		<span class="n">exceptions</span> <span class="o">=</span> <span class="p">[]</span>
+		<span class="k">for</span> <span class="n">vm</span> <span class="ow">in</span> <span class="n">sel_inf</span><span class="o">.</span><span class="n">get_vm_list</span><span class="p">():</span>
+			<span class="k">try</span><span class="p">:</span>
+				<span class="n">success</span> <span class="o">=</span> <span class="bp">False</span>
+				<span class="n">cl</span> <span class="o">=</span> <span class="n">vm</span><span class="o">.</span><span class="n">cloud</span><span class="o">.</span><span class="n">getCloudConnector</span><span class="p">()</span>
+				<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&quot;Stopping the VM id: &quot;</span> <span class="o">+</span> <span class="n">vm</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+				<span class="p">(</span><span class="n">success</span><span class="p">,</span> <span class="n">msg</span><span class="p">)</span> <span class="o">=</span> <span class="n">cl</span><span class="o">.</span><span class="n">stop</span><span class="p">(</span><span class="n">vm</span><span class="p">,</span> <span class="n">auth</span><span class="p">)</span>
+			<span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+				<span class="n">msg</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+			<span class="k">if</span> <span class="ow">not</span> <span class="n">success</span><span class="p">:</span>
+				<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;The VM cannot be stopped&quot;</span><span class="p">)</span>
+				<span class="n">exceptions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+
+		<span class="k">if</span> <span class="n">exceptions</span><span class="p">:</span>
+			<span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s">&quot;Error stopping the infrastructure: </span><span class="si">%s</span><span class="s">&quot;</span> <span class="o">%</span> <span class="s">&quot;</span><span class="se">\n</span><span class="s">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">exceptions</span><span class="p">))</span>
+
+		<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;Infrastructure successfully stopped&quot;</span><span class="p">)</span>
+		<span class="k">return</span> <span class="s">&quot;&quot;</span>
+</div>
+	<span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="InfrastructureManager.StartInfrastructure"><a class="viewcode-back" href="../../mods.html#IM.InfrastructureManager.InfrastructureManager.StartInfrastructure">[docs]</a>	<span class="k">def</span> <span class="nf">StartInfrastructure</span><span class="p">(</span><span class="n">inf_id</span><span class="p">,</span> <span class="n">auth</span><span class="p">):</span>
+		<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">		Start all virtual machines in an infrastructure previously stopped.</span>
+
+<span class="sd">		Args:</span>
+
+<span class="sd">		- inf_id(int): infrastructure id.</span>
+<span class="sd">		- auth(Authentication): parsed authentication tokens.</span>
+
+<span class="sd">		Return(str): error messages; empty string means all was ok.</span>
+<span class="sd">		&quot;&quot;&quot;</span>
+
+		<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;Starting the infrastructure id: &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">inf_id</span><span class="p">))</span>
+
+		<span class="n">sel_inf</span> <span class="o">=</span> <span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">get_infrastructure</span><span class="p">(</span><span class="n">inf_id</span><span class="p">,</span> <span class="n">auth</span><span class="p">)</span>
+		<span class="n">exceptions</span> <span class="o">=</span> <span class="p">[]</span>
+		<span class="k">for</span> <span class="n">vm</span> <span class="ow">in</span> <span class="n">sel_inf</span><span class="o">.</span><span class="n">get_vm_list</span><span class="p">():</span>
+			<span class="k">try</span><span class="p">:</span>
+				<span class="n">success</span> <span class="o">=</span> <span class="bp">False</span>
+				<span class="n">cl</span> <span class="o">=</span> <span class="n">vm</span><span class="o">.</span><span class="n">cloud</span><span class="o">.</span><span class="n">getCloudConnector</span><span class="p">()</span>
+				<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&quot;Stating the VM id: &quot;</span> <span class="o">+</span> <span class="n">vm</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+				<span class="p">(</span><span class="n">success</span><span class="p">,</span> <span class="n">msg</span><span class="p">)</span> <span class="o">=</span> <span class="n">cl</span><span class="o">.</span><span class="n">start</span><span class="p">(</span><span class="n">vm</span><span class="p">,</span> <span class="n">auth</span><span class="p">)</span>
+			<span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+				<span class="n">msg</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+			<span class="k">if</span> <span class="ow">not</span> <span class="n">success</span><span class="p">:</span>
+				<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;The VM cannot be restarted&quot;</span><span class="p">)</span>
+				<span class="n">exceptions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+
+		<span class="k">if</span> <span class="n">exceptions</span><span class="p">:</span>
+			<span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s">&quot;Error starting the infrastructure: </span><span class="si">%s</span><span class="s">&quot;</span> <span class="o">%</span> <span class="s">&quot;</span><span class="se">\n</span><span class="s">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">exceptions</span><span class="p">))</span>
+
+		<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;Infrastructure successfully restarted&quot;</span><span class="p">)</span>
+		<span class="k">return</span> <span class="s">&quot;&quot;</span>
+</div>
+	<span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="InfrastructureManager.remove_old_inf"><a class="viewcode-back" href="../../mods.html#IM.InfrastructureManager.InfrastructureManager.remove_old_inf">[docs]</a>	<span class="k">def</span> <span class="nf">remove_old_inf</span><span class="p">():</span>
+		<span class="sd">&quot;&quot;&quot;Remove destroyed infrastructure.&quot;&quot;&quot;</span>
+
+		<span class="k">with</span> <span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+			<span class="n">items_to_delete</span> <span class="o">=</span> <span class="p">[]</span>
+			<span class="k">for</span> <span class="n">infId</span><span class="p">,</span> <span class="n">inf</span> <span class="ow">in</span> <span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">infrastructure_list</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+				<span class="k">if</span> <span class="n">inf</span><span class="o">.</span><span class="n">deleted</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">infrastructure_list</span><span class="p">)</span> <span class="o">-</span> <span class="n">infId</span> <span class="o">&gt;=</span> <span class="n">Config</span><span class="o">.</span><span class="n">MAX_INF_STORED</span><span class="p">:</span>
+						<span class="n">items_to_delete</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">infId</span><span class="p">)</span>
+	
+			<span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">items_to_delete</span><span class="p">:</span>
+				<span class="k">del</span> <span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">infrastructure_list</span><span class="p">[</span><span class="n">item</span><span class="p">]</span>
+</div>
+	<span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="InfrastructureManager.DestroyInfrastructure"><a class="viewcode-back" href="../../mods.html#IM.InfrastructureManager.InfrastructureManager.DestroyInfrastructure">[docs]</a>	<span class="k">def</span> <span class="nf">DestroyInfrastructure</span><span class="p">(</span><span class="n">inf_id</span><span class="p">,</span> <span class="n">auth</span><span class="p">):</span>
+		<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">		Destroy all virtual machines in an infrastructure.</span>
+
+<span class="sd">		Args:</span>
+
+<span class="sd">		- inf_id(int): infrastructure id.</span>
+<span class="sd">		- auth(Authentication): parsed authentication tokens.</span>
+
+<span class="sd">		Return: None.</span>
+<span class="sd">		&quot;&quot;&quot;</span>
+
+		<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;Destroying the infrastructure id: &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">inf_id</span><span class="p">))</span>
+
+		<span class="n">sel_inf</span> <span class="o">=</span> <span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">get_infrastructure</span><span class="p">(</span><span class="n">inf_id</span><span class="p">,</span> <span class="n">auth</span><span class="p">)</span>
+		<span class="n">exceptions</span> <span class="o">=</span> <span class="p">[]</span>
+		<span class="k">for</span> <span class="n">vm</span> <span class="ow">in</span> <span class="n">sel_inf</span><span class="o">.</span><span class="n">get_vm_list</span><span class="p">():</span>
+			<span class="k">try</span><span class="p">:</span>
+				<span class="n">success</span> <span class="o">=</span> <span class="bp">False</span>
+				<span class="n">cl</span> <span class="o">=</span> <span class="n">vm</span><span class="o">.</span><span class="n">cloud</span><span class="o">.</span><span class="n">getCloudConnector</span><span class="p">()</span>
+				<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&quot;Finalizing the VM id: &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">vm</span><span class="o">.</span><span class="n">id</span><span class="p">))</span>
+				<span class="p">(</span><span class="n">success</span><span class="p">,</span> <span class="n">msg</span><span class="p">)</span> <span class="o">=</span> <span class="n">cl</span><span class="o">.</span><span class="n">finalize</span><span class="p">(</span><span class="n">vm</span><span class="p">,</span> <span class="n">auth</span><span class="p">)</span>
+			<span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+				<span class="n">msg</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+			<span class="k">if</span> <span class="ow">not</span> <span class="n">success</span><span class="p">:</span>
+				<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;The VM cannot be finalized&quot;</span><span class="p">)</span>
+				<span class="n">exceptions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+			<span class="k">else</span><span class="p">:</span>
+				<span class="n">vm</span><span class="o">.</span><span class="n">destroy</span> <span class="o">=</span> <span class="bp">True</span>
+
+		<span class="k">if</span> <span class="n">exceptions</span><span class="p">:</span>
+			<span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s">&quot;Error destroying the infrastructure: </span><span class="si">%s</span><span class="s">&quot;</span> <span class="o">%</span> <span class="s">&quot;</span><span class="se">\n</span><span class="s">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">exceptions</span><span class="p">))</span>
+
+		<span class="n">sel_inf</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
+		<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">remove_old_inf</span><span class="p">()</span>
+		<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">save_data</span><span class="p">()</span>
+		<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;Infrastructure successfully destroyed&quot;</span><span class="p">)</span>
+		<span class="k">return</span> <span class="s">&quot;&quot;</span>
+	</div>
+	<span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="InfrastructureManager.CreateInfrastructure"><a class="viewcode-back" href="../../mods.html#IM.InfrastructureManager.InfrastructureManager.CreateInfrastructure">[docs]</a>	<span class="k">def</span> <span class="nf">CreateInfrastructure</span><span class="p">(</span><span class="n">radl</span><span class="p">,</span> <span class="n">auth</span><span class="p">):</span>
+		<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">		Create a new infrastructure.</span>
+
+<span class="sd">		IM creates an infrastructure based on the RADL description and associated it to</span>
+<span class="sd">		the first valid IM user in the authentication tokens.</span>
+
+<span class="sd">		Args:</span>
+
+<span class="sd">		- radl(RADL): RADL description.</span>
+<span class="sd">		- auth(Authentication): parsed authentication tokens.</span>
+
+<span class="sd">		Return(int): the new infrastructure ID if successful.</span>
+<span class="sd">		&quot;&quot;&quot;</span>
+
+		<span class="c"># Create a new infrastructure</span>
+		<span class="n">inf</span> <span class="o">=</span> <span class="n">InfrastructureInfo</span><span class="o">.</span><span class="n">InfrastructureInfo</span><span class="p">()</span>
+		<span class="n">inf</span><span class="o">.</span><span class="n">auth</span> <span class="o">=</span> <span class="n">Authentication</span><span class="p">(</span><span class="n">auth</span><span class="o">.</span><span class="n">getAuthInfo</span><span class="p">(</span><span class="s">&quot;InfrastructureManager&quot;</span><span class="p">))</span>
+		<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">add_infrastructure</span><span class="p">(</span><span class="n">inf</span><span class="p">)</span>
+		<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">save_data</span><span class="p">()</span>
+		<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;Creating new infrastructure with id: &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">inf</span><span class="o">.</span><span class="n">id</span><span class="p">))</span>
+
+		<span class="c"># Add the resources in radl_data</span>
+		<span class="k">try</span><span class="p">:</span>
+			<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">AddResource</span><span class="p">(</span><span class="n">inf</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">radl</span><span class="p">,</span> <span class="n">auth</span><span class="p">)</span>
+		<span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+			<span class="n">inf</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
+			<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">remove_old_inf</span><span class="p">()</span>
+			<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">save_data</span><span class="p">()</span>
+			<span class="k">raise</span> <span class="n">e</span>
+		<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;Infrastructure id &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">inf</span><span class="o">.</span><span class="n">id</span><span class="p">)</span> <span class="o">+</span> <span class="s">&quot; successfully created&quot;</span><span class="p">)</span>	
+	
+		<span class="k">return</span> <span class="n">inf</span><span class="o">.</span><span class="n">id</span>
+</div>
+	<span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="InfrastructureManager.GetInfrastructureList"><a class="viewcode-back" href="../../mods.html#IM.InfrastructureManager.InfrastructureManager.GetInfrastructureList">[docs]</a>	<span class="k">def</span> <span class="nf">GetInfrastructureList</span><span class="p">(</span><span class="n">auth</span><span class="p">):</span>
+		<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">		Return the infrastructure ids associated to IM tokens.</span>
+
+<span class="sd">		Args:</span>
+
+<span class="sd">		- auth(Authentication): parsed authentication tokens.</span>
+
+<span class="sd">		Return(list of int): list of infrastructure ids.</span>
+<span class="sd">		&quot;&quot;&quot;</span>
+
+		<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;Listing the user infrastructures&quot;</span><span class="p">)</span>
+	
+		<span class="n">res</span> <span class="o">=</span> <span class="p">[]</span>	
+		<span class="k">for</span> <span class="n">elem</span> <span class="ow">in</span> <span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">infrastructure_list</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+			<span class="k">if</span> <span class="n">elem</span><span class="o">.</span><span class="n">auth</span> <span class="o">!=</span> <span class="bp">None</span> <span class="ow">and</span> <span class="n">elem</span><span class="o">.</span><span class="n">auth</span><span class="o">.</span><span class="n">compare</span><span class="p">(</span><span class="n">auth</span><span class="p">,</span> <span class="s">&#39;InfrastructureManager&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">elem</span><span class="o">.</span><span class="n">deleted</span><span class="p">:</span>
+				<span class="n">res</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">elem</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+		
+		<span class="k">return</span> <span class="n">res</span>
+</div>
+	<span class="nd">@staticmethod</span>
+	<span class="k">def</span> <span class="nf">ExportInfrastructure</span><span class="p">(</span><span class="n">inf_id</span><span class="p">,</span> <span class="n">delete</span><span class="p">,</span> <span class="n">auth_data</span><span class="p">):</span>
+		<span class="n">auth</span> <span class="o">=</span> <span class="n">Authentication</span><span class="p">(</span><span class="n">auth_data</span><span class="p">)</span>
+
+		<span class="n">sel_inf</span> <span class="o">=</span> <span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">get_infrastructure</span><span class="p">(</span><span class="n">inf_id</span><span class="p">,</span> <span class="n">auth</span><span class="p">)</span>
+		<span class="n">str_inf</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">sel_inf</span><span class="p">)</span>
+		<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;Exporting infrastructure id: &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">sel_inf</span><span class="o">.</span><span class="n">id</span><span class="p">))</span>
+		<span class="k">if</span> <span class="n">delete</span><span class="p">:</span>
+			<span class="n">sel_inf</span><span class="o">.</span><span class="n">deleted</span> <span class="o">=</span> <span class="bp">True</span>
+		<span class="k">return</span> <span class="n">str_inf</span>
+
+	<span class="nd">@staticmethod</span>
+	<span class="k">def</span> <span class="nf">ImportInfrastructure</span><span class="p">(</span><span class="n">str_inf</span><span class="p">,</span> <span class="n">auth_data</span><span class="p">):</span>
+		<span class="n">auth</span> <span class="o">=</span> <span class="n">Authentication</span><span class="p">(</span><span class="n">auth_data</span><span class="p">)</span>
+		<span class="k">try</span><span class="p">:</span>
+			<span class="n">new_inf</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">str_inf</span><span class="p">)</span>
+		<span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">ex</span><span class="p">:</span>
+			<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s">&quot;Error importing the infrastructure, incorrect data&quot;</span><span class="p">)</span>
+			<span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s">&quot;Error importing the infrastructure, incorrect data: &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">ex</span><span class="p">))</span>
+
+		<span class="n">new_inf</span><span class="o">.</span><span class="n">auth</span> <span class="o">=</span> <span class="n">Authentication</span><span class="p">(</span><span class="n">auth</span><span class="o">.</span><span class="n">getAuthInfo</span><span class="p">(</span><span class="s">&quot;InfrastructureManager&quot;</span><span class="p">))</span>
+
+		<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">add_infrastructure</span><span class="p">(</span><span class="n">new_inf</span><span class="p">)</span>
+		<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;Importing new infrastructure with id: &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">new_inf</span><span class="o">.</span><span class="n">id</span><span class="p">))</span>
+		<span class="c"># Guardamos estado</span>
+		<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">save_data</span><span class="p">()</span>
+		<span class="k">return</span> <span class="n">new_inf</span><span class="o">.</span><span class="n">id</span>
+
+	<span class="nd">@staticmethod</span>
+	<span class="k">def</span> <span class="nf">load_data</span><span class="p">():</span>
+		<span class="k">with</span> <span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+			<span class="n">data_file</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">Config</span><span class="o">.</span><span class="n">DATA_FILE</span><span class="p">,</span> <span class="s">&#39;rb&#39;</span><span class="p">)</span>
+			<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">global_inf_id</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">data_file</span><span class="p">)</span>
+			<span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">infrastructure_list</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">data_file</span><span class="p">)</span>
+			<span class="n">data_file</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+	<span class="nd">@staticmethod</span>
+	<span class="k">def</span> <span class="nf">save_data</span><span class="p">():</span>
+		<span class="k">with</span> <span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+			<span class="n">data_file</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">Config</span><span class="o">.</span><span class="n">DATA_FILE</span><span class="p">,</span> <span class="s">&#39;wb&#39;</span><span class="p">)</span>
+			<span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">global_inf_id</span><span class="p">,</span> <span class="n">data_file</span><span class="p">)</span>
+			<span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">InfrastructureManager</span><span class="o">.</span><span class="n">infrastructure_list</span><span class="p">,</span> <span class="n">data_file</span><span class="p">)</span>
+			<span class="n">data_file</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
+</pre></div>
+
+      </div>
+    </div>
+</div>
+
+    <div class="footer">
+        &copy; Copyright 2014, Miguel Caballer Fernandez.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

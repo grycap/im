@@ -150,7 +150,8 @@ class InfrastructureManager:
 					requested_radl = radl.clone()
 					requested_radl.systems = [radl.get_system_by_name(concrete_system.name)]
 					try:
-						launched_vms = cloud.launch(sel_inf, launch_radl, requested_radl, remain_vm, auth)
+						vm_id = sel_inf.get_next_vm_id()
+						launched_vms = cloud.launch(sel_inf, vm_id, launch_radl, requested_radl, remain_vm, auth)
 					except Exception, e:
 						InfrastructureManager.logger.exception("Error launching some of the VMs: %s" % e)
 						exceptions.append(e)

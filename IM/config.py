@@ -24,7 +24,7 @@ class Config:
 	DEFAULT_VM_MEMORY_UNIT = 'M'
 	DEFAULT_VM_CPUS = 1
 	DEFAULT_VM_CPU_ARCH = 'x86_64'
-	DEFAULT_MASTERVM_NAME = 'vmmaster'
+	DEFAULT_VM_NAME = 'vnode-#N#'
 	DEFAULT_DOMAIN = 'localdomain'
 	MAX_VM_FAILS = 3
 	WAIT_RUNNING_VM_TIMEOUT = 1800
@@ -65,9 +65,9 @@ if config.has_option('im', "DEFAULT_VM_CPUS"):
 
 if config.has_option('im', "DEFAULT_VM_CPU_ARCH"):
 	Config.DEFAULT_VM_CPU_ARCH = config.get('im', "DEFAULT_VM_CPU_ARCH")
-
-if config.has_option('im', "DEFAULT_MASTERVM_NAME"):
-	Config.DEFAULT_MASTERVM_NAME = config.get('im', "DEFAULT_MASTERVM_NAME")
+	
+if config.has_option('im', "DEFAULT_VM_NAME"):
+	Config.DEFAULT_VM_NAME = config.get('im', "DEFAULT_VM_NAME")
 
 if config.has_option('im', "DEFAULT_DOMAIN"):
 	Config.DEFAULT_DOMAIN = config.get('im', "DEFAULT_DOMAIN")
