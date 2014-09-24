@@ -467,8 +467,6 @@ class OpenNebulaCloudConnector(CloudConnector):
 				ip = net.TEMPLATE.NETWORK_ADDRESS
 			elif net.TEMPLATE.LEASES and len(net.TEMPLATE.LEASES) > 0:
 				ip = net.TEMPLATE.LEASES[0].IP
-			elif net.TEMPLATE.LEASES and len(net.TEMPLATE.LEASES) > 0:
-				ip = net.TEMPLATE.LEASES[0].IP
 			elif net.AR_POOL and net.AR_POOL.AR and len(net.AR_POOL.AR) > 0:
 				# This is the case for one 4.8
 				if self.free_address(net.AR_POOL.AR):
