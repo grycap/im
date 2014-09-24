@@ -17,6 +17,8 @@
 import copy
 from itertools import groupby
 from distutils.version import LooseVersion
+from IM.config import Config
+from IM.VirtualMachine import VirtualMachine
 
 def UnitToValue(unit):
 	"""Return the value of an unit."""
@@ -751,12 +753,39 @@ class system(Features, Aspect):
 				return None
 			if value == connection:
 				return i
-			i += 1
+			i += 1 
 
-	def getRequestedName(self, iface_num=0):
+	def getRequestedNameIface(self, iface_num=0, num = None, default_hostname = Config.DEFAULT_VM_NAME, default_domain = Config.DEFAULT_DOMAIN):
 		"""Return the dns name associated to the net interface."""
-
-		return self.getValue("net_interface.%d.dns_name" % iface_num)
+		
+		full_name = self.getValue("net_interface.%d.dns_name" % iface_num)
+		replaced_full_name = system._replaceTemplateName(full_name, num)
+	
+		if replaced_full_name:
+			(hostname, domain) = replaced_full_name
+			if not domain:
+				domain = default_domain
+			return (hostname, domain)
+		else:
+			if default_hostname:
+				return (default_hostname, default_domain)
+			else:
+				return None
+	
+	@staticmethod
+	def _replaceTemplateName(full_name, num = None):
+		if full_name:
+			if num is not None:
+				full_name = full_name.replace("#N#", str(num))
+			dot_pos = full_name.find('.')
+			if dot_pos != -1:
+				domain = full_name[dot_pos+1:]
+				name = full_name[:dot_pos]
+				return (name, domain)
+			else:
+				return (full_name, None)
+		else:
+			return full_name
 	
 	def getNetworkIDs(self):
 		"""Return a list of network id of this system."""

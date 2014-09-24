@@ -48,18 +48,22 @@ class EC2CloudConnector(CloudConnector):
 					res_system.delValue('disk.0.os.credentials.password')
 				
 				instance_type = self.get_instance_type(res_system)
-
-				res_system.addFeature(Feature("cpu.count", "=", instance_type.num_cpu * instance_type.cores_per_cpu), conflict="other", missing="other")
-				res_system.addFeature(Feature("memory.size", "=", instance_type.mem, 'M'), conflict="other", missing="other")
-				res_system.addFeature(Feature("disk.0.free_size", "=", instance_type.disks * instance_type.disk_space, 'G'), conflict="other", missing="other")
-				res_system.addFeature(Feature("cpu.performance", "=", instance_type.cpu_perf, 'ECU'), conflict="other", missing="other")
-				res_system.addFeature(Feature("price", "=", instance_type.price), conflict="me", missing="other")
-				
-				res_system.addFeature(Feature("instance_type", "=", instance_type.name), conflict="other", missing="other")
-				
-				res_system.addFeature(Feature("provider.type", "=", self.type), conflict="other", missing="other")
+				if not instance_type:
+					self.logger.error("Error launching the VM, no instance type available for the requirements.")
+					self.logger.debug(res_system)
+					return []
+				else:
+					res_system.addFeature(Feature("cpu.count", "=", instance_type.num_cpu * instance_type.cores_per_cpu), conflict="other", missing="other")
+					res_system.addFeature(Feature("memory.size", "=", instance_type.mem, 'M'), conflict="other", missing="other")
+					res_system.addFeature(Feature("disk.0.free_size", "=", instance_type.disks * instance_type.disk_space, 'G'), conflict="other", missing="other")
+					res_system.addFeature(Feature("cpu.performance", "=", instance_type.cpu_perf, 'ECU'), conflict="other", missing="other")
+					res_system.addFeature(Feature("price", "=", instance_type.price), conflict="me", missing="other")
 					
-				return [res_system]
+					res_system.addFeature(Feature("instance_type", "=", instance_type.name), conflict="other", missing="other")
+					
+					res_system.addFeature(Feature("provider.type", "=", self.type), conflict="other", missing="other")
+						
+					return [res_system]
 			else:
 				return []
 		else:
@@ -133,6 +137,8 @@ class EC2CloudConnector(CloudConnector):
 		   - radl(str): RADL document with the requirements of the VM to get the instance type
 		Returns: a str with the name of the instance type to launch to EC2	
 		"""
+		instance_type_name = radl.getValue('instance_type')
+		
 		cpu = radl.getValue('cpu.count')
 		if not cpu:
 			cpu = Config.DEFAULT_VM_CPUS
@@ -162,7 +168,8 @@ class EC2CloudConnector(CloudConnector):
 			# get the instance type with the lowest price
 			if res is None or (instace_type.price <= res.price):
 				if arch in instace_type.cpu_arch and instace_type.cores_per_cpu * instace_type.num_cpu >= cpu and instace_type.mem >= memory and instace_type.cpu_perf >= performance and instace_type.disks * instace_type.disk_space >= disk_free:
-					res = instace_type
+					if not instance_type_name or instace_type.name == instance_type_name:
+						res = instace_type
 		
 		if res is None:
 			EC2InstanceTypes.get_instance_type_by_name(self.INSTANCE_TYPE)
@@ -211,7 +218,7 @@ class EC2CloudConnector(CloudConnector):
 		
 		return res
 
-	def launch(self, inf, radl, requested_radl, num_vm, auth_data):
+	def launch(self, inf, vm_id, radl, requested_radl, num_vm, auth_data):
 		
 		system = radl.systems[0]
 		
@@ -301,12 +308,12 @@ class EC2CloudConnector(CloudConnector):
 					request = conn.request_spot_instances(price=price, image_id=images[0].id, count=1, type='one-time', instance_type=instance_type.name, placement=availability_zone, key_name=keypair_name, security_groups=[sg_name])
 					
 					if request:
-						vm_id = region_name + ";" + request[0].id
+						ec2_vm_id = region_name + ";" + request[0].id
 						
 						self.logger.debug("RADL:")
 						self.logger.debug(system)
 					
-						vm = VirtualMachine(inf, vm_id, self.cloud, radl, requested_radl)
+						vm = VirtualMachine(inf, vm_id, ec2_vm_id, self.cloud, radl, requested_radl)
 						# Add the keypair name to remove it later 
 						vm.keypair_name = keypair_name
 						self.logger.debug("Instance successfully launched.")
@@ -326,12 +333,12 @@ class EC2CloudConnector(CloudConnector):
 
 					if len(reservation.instances) == 1:
 						instance = reservation.instances[0]
-						vm_id = region_name + ";" + instance.id
+						ec2_vm_id = region_name + ";" + instance.id
 							
 						self.logger.debug("RADL:")
 						self.logger.debug(system)
 						
-						vm = VirtualMachine(inf, vm_id, self.cloud, radl, requested_radl)
+						vm = VirtualMachine(inf, vm_id, ec2_vm_id, self.cloud, radl, requested_radl)
 						# Add the keypair name to remove it later 
 						vm.keypair_name = keypair_name
 						self.logger.debug("Instance successfully launched.")
@@ -653,8 +660,8 @@ class EC2CloudConnector(CloudConnector):
 		if (instance != None):
 			instance.update()
 			
-			vm.info.systems[0].setValue("virtual_system_type", instance.virtualization_type)
-			vm.info.systems[0].setValue("availability_zone", instance.placement)
+			vm.info.systems[0].setValue("virtual_system_type", "'" + instance.virtualization_type + "'")
+			vm.info.systems[0].setValue("availability_zone",  "'" + instance.placement + "'")
 			
 			if instance.state == 'pending':
 				res_state = VirtualMachine.PENDING
@@ -752,22 +759,28 @@ class EC2CloudConnector(CloudConnector):
 				break
 
 		if sg:
+			some_vm_running = False
+			for instance in sg.instances():
+				if instance.state == 'running':
+					some_vm_running = True
+			
 			# Check that all there are only one active instance (this one)
-			if len(sg.instances()) == 1:
-				instance = sg.instances()[0]
+			if not some_vm_running:
 				# wait it to terminate and then remove the SG
 				cont = 0
-				while instance.state != 'terminated' and cont < timeout:
-					time.sleep(5)
-					cont += 5
-					instance.update()
+				all_vms_terminated = True
+				for instance in sg.instances():
+					while instance.state != 'terminated' and cont < timeout:
+						time.sleep(5)
+						cont += 5
+						instance.update()
+
+					if instance.state != 'terminated':
+						all_vms_terminated = False
 	
-				if instance.state == 'terminated':
+				if all_vms_terminated:
 					self.logger.debug("Remove the SG: " + sg_name)
 					sg.delete()
-			elif len(sg.instances()) == 0:
-				# If there are no active instances we can delete it
-				sg.delete()
 			else:
 				# If there are more than 1, we skip this step
 				self.logger.debug("There are active instances. Not removing the SG")

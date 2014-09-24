@@ -185,7 +185,7 @@ class LibVirtCloudConnector(CloudConnector):
 		self.logger.error("No se ha encontrado ninguna red adecuada.")
 		return None
 	
-	def launch(self, inf, radl, requested_radl, num_vm, auth_data):
+	def launch(self, inf, vm_id, radl, requested_radl, num_vm, auth_data):
 		res = []
 		i = 0
 		while i < num_vm:
@@ -194,7 +194,7 @@ class LibVirtCloudConnector(CloudConnector):
 			if not name:
 				name = "userimage"
 			name += "-" + timestamp
-			vm = VirtualMachine(inf, name, self.cloud, radl, requested_radl)
+			vm = VirtualMachine(inf, vm_id, name, self.cloud, radl, requested_radl)
 			
 			template = self.getTemplate(vm, radl, timestamp, auth_data)
 			

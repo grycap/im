@@ -13,7 +13,9 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-	
+
+from IM.config import Config
+
 class VirtualMachine:
 
 	# estados de las VMs
@@ -25,7 +27,7 @@ class VirtualMachine:
 	FAILED = "failed"
 	CONFIGURED = "configured"
 
-	def __init__(self, inf, id, cloud, info, requested_radl):
+	def __init__(self, inf, im_id, cloud_id, cloud, info, requested_radl):
 		# Flag para indicar si esta VM ha sido eliminada por el usuario
 		self.destroy = False
 		# estado de la VM
@@ -33,9 +35,9 @@ class VirtualMachine:
 		# Infrastructure which this VM is part of 
 		self.inf = inf
 		# el ID de la VM asignado por el despliegue cloud
-		self.id = id
+		self.id = cloud_id 
 		# el ID de la VM asignado por el IM
-		self.im_id = None
+		self.im_id = im_id
 		# datos sobre el despliegue cloud donde ha sido lanzada
 		self.cloud = cloud
 		# Objeto RADL con la informacion actual sobre la VM: memoria, cpu, aplicaciones, redes, etc.
@@ -95,40 +97,14 @@ class VirtualMachine:
 		
 	def getRequestedApplications(self):
 		return self.requested_radl.systems[0].getApplications()
-		
-	def getRequestedName(self, num = None, default_hostname = None, default_domain = None):
+
+	def getRequestedName(self, num = None, default_hostname = Config.DEFAULT_VM_NAME, default_domain = Config.DEFAULT_DOMAIN):
 		return self.getRequestedNameIface(0, num, default_hostname, default_domain)
 
-	def getRequestedNameIface(self, iface_num, num = None, default_hostname = None, default_domain = None):
-		full_name = self.requested_radl.systems[0].getRequestedName(iface_num)
-		replaced_full_name = VirtualMachine.replaceTemplateName(full_name, num)
-	
-		if replaced_full_name:
-			(hostname, domain) = replaced_full_name
-			if not domain:
-				domain = default_domain
-			return (hostname, domain)
-		else:
-			if default_hostname:
-				return (default_hostname, default_domain)
-			else:
-				return None
-	
-	@staticmethod
-	def replaceTemplateName(full_name, num = None):
-		if full_name:
-			if num is not None:
-				full_name = full_name.replace("#N#", str(num))
-			dot_pos = full_name.find('.')
-			if dot_pos != -1:
-				domain = full_name[dot_pos+1:]
-				name = full_name[:dot_pos]
-				return (name, domain)
-			else:
-				return (full_name, None)
-		else:
-			return full_name
-	
+	def getRequestedNameIface(self, iface_num, num = None, default_hostname = Config.DEFAULT_VM_NAME, default_domain = Config.DEFAULT_DOMAIN):		
+		return self.requested_radl.systems[0].getRequestedNameIface(iface_num, num, default_hostname, default_domain)
+
+
 	# Devuelve True si la VM actual y la indicada se pueden conectar
 	# por alguna red
 	def isConnectedWith(self, vm):

@@ -171,7 +171,7 @@ class DockerCloudConnector(CloudConnector):
 
 		return port_bindings
 
-	def launch(self, inf, radl, requested_radl, num_vm, auth_data):
+	def launch(self, inf, vm_id, radl, requested_radl, num_vm, auth_data):
 		system = radl.systems[0]
 		
 		cpu = int(system.getValue('cpu.count'))
@@ -186,8 +186,10 @@ class DockerCloudConnector(CloudConnector):
 		for net in radl.networks:
 			if net.isPublic():
 				public_net = net
-		
-		outports = public_net.getValue('outports')
+
+		outports = None
+		if public_net:
+			outports = public_net.getValue('outports')
 		
 		exposed_ports = '"22/tcp": {}'
 		if outports:
@@ -198,7 +200,11 @@ class DockerCloudConnector(CloudConnector):
 				if local_port != "22":
 					exposed_ports = exposed_ports + ', "' + local_port + '/tcp": {}'
 
+		(nodename, nodedom) = system.getRequestedNameIface(num = vm_id)
+
 		create_request_json = """ {
+			 "Hostname":"%s",
+			 "Domainname": "%s",
 			 "Cpuset": "0-%d",
 			 "Memory":%s,
 			 "Cmd":[
@@ -209,7 +215,7 @@ class DockerCloudConnector(CloudConnector):
 					 %s
 			 }
 			 %s
-		}""" % (cpu-1, memory,image_name,exposed_ports,volumes)
+		}""" % (nodename, nodedom, cpu-1, memory,image_name,exposed_ports,volumes)
 		
 		conn = self.get_http_connection(auth_data)
 		res = []
@@ -233,10 +239,10 @@ class DockerCloudConnector(CloudConnector):
 					continue
 
 				output = json.loads(output)
-				vm_id = output["Id"]
+				docker_vm_id = output["Id"]
 				
 				# Now start it
-				conn.putrequest('POST', "/containers/" + vm_id + "/start")
+				conn.putrequest('POST', "/containers/" + docker_vm_id + "/start")
 				conn.putheader('Content-Type', 'application/json')
 				
 				start_request_json = "{}"
@@ -262,7 +268,7 @@ class DockerCloudConnector(CloudConnector):
 					res.append(False, "Error creating the Container: " + output)
 					continue
 				
-				vm = VirtualMachine(inf, vm_id, self.cloud, radl, requested_radl)
+				vm = VirtualMachine(inf, vm_id, docker_vm_id, self.cloud, radl, requested_radl)
 				
 				# Set ssh port in the RADL info
 				self.setSSHPort(vm, ssh_port)

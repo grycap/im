@@ -42,7 +42,7 @@ class TestConnectors(unittest.TestCase):
     """ List of VMs launched in the test """
     
     #connectors_to_test = "all"
-    connectors_to_test = ["ec2"]
+    connectors_to_test = ["one"]
     """ Specify the connectors to test: "all": All the connectors specified in the auth file or a list with the IDs"""
 
     @classmethod
@@ -128,7 +128,7 @@ class TestConnectors(unittest.TestCase):
     
                 launch_radl = radl.clone()
                 launch_radl.systems = [concrete_systems[0]]
-                res = cloud.launch(InfrastructureInfo(), launch_radl, launch_radl, 1, auth)
+                res = cloud.launch(InfrastructureInfo(), 0, launch_radl, launch_radl, 1, auth)
                 for success, vm in res:
                     self.assertTrue(success, msg="ERROR: launching a VM for cloud: " + cloud_id)
                     self.__class__.vm_list.append(vm) 
