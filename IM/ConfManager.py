@@ -284,6 +284,10 @@ class ConfManager(threading.Thread):
 				if not self.inf.configured: self.inf.configured = False
 				return
 
+			# To avoid problems with the known hosts of previous calls
+			if os.path.isfile(os.path.expanduser("~/.ssh/known_hosts")):
+				os.remove(os.path.expanduser("~/.ssh/known_hosts"))
+
 			self.inf.add_cont_msg("Wait master VM to have the SSH active.")
 			all_connected = self.waitConnectedVMs([self.inf.vm_master], timeout)
 			if not all_connected:
@@ -455,10 +459,6 @@ class ConfManager(threading.Thread):
 
 		self.inf.add_cont_msg("Creating and copying Ansible playbook files")
 		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Preparing Ansible playbook to copy Ansible modules: " + str(modules))
-
-		# To avoid problems with the known hosts of previous calls
-		if os.path.isfile(os.path.expanduser("~/.ssh/known_hosts")):
-			os.remove(os.path.expanduser("~/.ssh/known_hosts"))
 
 		ssh.sftp_mkdir(ConfManager.CONF_DIR)
 		# Copy the utils helper files

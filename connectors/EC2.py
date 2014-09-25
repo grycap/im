@@ -22,7 +22,32 @@ import os
 from IM.VirtualMachine import VirtualMachine
 from CloudConnector import CloudConnector
 from IM.radl.radl import network, Feature
-from IM.config import Config
+
+class InstanceTypeInfo:
+	"""
+	Information about the instance type
+
+	Args:
+		- name(str, optional): name of the type of the instance
+		- cpu_arch(list of str, optional): cpu architectures supported
+		- num_cpu(int, optional): number of cpus
+		- cores_per_cpu(int, optional): number of cores per cpu
+		- mem(int, optional): amount of memory
+		- price(int, optional): price per hour
+		- cpu_perf(int, optional): performance of the type in ECUs
+		- disks(int, optional): number of disks
+		- disk_space(int, optional): size of the disks
+	"""
+	def __init__(self, name = "", cpu_arch = ["i386"], num_cpu = 1, cores_per_cpu = 1, mem = 0, price = 0, cpu_perf = 0, disks = 0, disk_space = 0):
+		self.name = name
+		self.num_cpu = num_cpu
+		self.cores_per_cpu = cores_per_cpu
+		self.mem = mem
+		self.cpu_arch = cpu_arch
+		self.price = price
+		self.cpu_perf = cpu_perf
+		self.disks = disks
+		self.disk_space = disk_space
 
 class EC2CloudConnector(CloudConnector):
 	"""
@@ -140,15 +165,15 @@ class EC2CloudConnector(CloudConnector):
 		instance_type_name = radl.getValue('instance_type')
 		
 		cpu = radl.getValue('cpu.count')
-		cpu_op = radl.getFeature('cpu.count').operator
+		cpu_op = radl.getFeature('cpu.count').getLogOperator()
 		arch = radl.getValue('cpu.arch')
 		memory = radl.getFeature('memory.size').getValue('M')
-		memory_op = radl.getFeature('memory.size').operator
+		memory_op = radl.getFeature('memory.size').getLogOperator()
 		disk_free = 0
 		disk_free_op = ">="
 		if radl.getValue('disk.0.free_size'):
 			disk_free = radl.getFeature('disk.0.free_size').getValue('G')
-			disk_free_op = radl.getFeature('memory.size').operator
+			disk_free_op = radl.getFeature('memory.size').getLogOperator()
 		
 		performance = 0
 		performance_op = ">="
@@ -157,11 +182,11 @@ class EC2CloudConnector(CloudConnector):
 			# Assume that GCEU = ECU
 			if cpu_perf.unit == "ECU" or cpu_perf.unidad == "GCEU":
 				performance = float(cpu_perf.value)
-				performance_op = cpu_perf.operator
+				performance_op = cpu_perf.getLogOperator()
 			else:
 				self.logger.debug("Performance unit unknown: " + cpu_perf.unit + ". Ignore it")
 		
-		instace_types = EC2InstanceTypes.get_all_instance_types()
+		instace_types = self.get_all_instance_types()
 
 		res = None
 		for instace_type in instace_types:
@@ -179,7 +204,7 @@ class EC2CloudConnector(CloudConnector):
 						res = instace_type
 		
 		if res is None:
-			EC2InstanceTypes.get_instance_type_by_name(self.INSTANCE_TYPE)
+			self.get_instance_type_by_name(self.INSTANCE_TYPE)
 		else:
 			return res
 
@@ -300,6 +325,8 @@ class EC2CloudConnector(CloudConnector):
 						#operative_system = 'Linux/UNIX'
 					
 					availability_zone = 'us-east-1c'
+					if system.getValue('availability_zone'):
+						availability_zone = system.getValue('availability_zone')
 					historical_price = 1000.0
 					availability_zone_list = conn.get_all_zones()
 					for zone in availability_zone_list:
@@ -336,7 +363,8 @@ class EC2CloudConnector(CloudConnector):
 						self.logger.debug(system)
 						res.append((False, "Error launching the VM, no instance type available for the requirements."))
 
-					reservation = images[0].run(min_count=1,max_count=1,key_name=keypair_name,instance_type=instance_type.name,security_groups=[sg_name])
+					placement = system.getValue('availability_zone')
+					reservation = images[0].run(min_count=1,max_count=1,key_name=keypair_name,instance_type=instance_type.name,security_groups=[sg_name],placement=placement)
 
 					if len(reservation.instances) == 1:
 						instance = reservation.instances[0]
@@ -818,45 +846,13 @@ class EC2CloudConnector(CloudConnector):
 	def alterVM(self, vm, radl, auth_data):
 		return (False, "Not supported")
 
-class InstanceTypeInfo:
-	"""
-	Information about the instance type
-
-	Args:
-		- name(str, optional): name of the type of the instance
-		- cpu_arch(list of str, optional): cpu architectures supported
-		- num_cpu(int, optional): number of cpus
-		- cores_per_cpu(int, optional): number of cores per cpu
-		- mem(int, optional): amount of memory
-		- price(int, optional): price per hour
-		- cpu_perf(int, optional): performance of the type in ECUs
-		- disks(int, optional): number of disks
-		- disk_space(int, optional): size of the disks
-	"""
-	def __init__(self, name = "", cpu_arch = ["i386"], num_cpu = 1, cores_per_cpu = 1, mem = 0, price = 0, cpu_perf = 0, disks = 0, disk_space = 0):
-		self.name = name
-		self.num_cpu = num_cpu
-		self.cores_per_cpu = cores_per_cpu
-		self.mem = mem
-		self.cpu_arch = cpu_arch
-		self.price = price
-		self.cpu_perf = cpu_perf
-		self.disks = disks
-		self.disk_space = disk_space
-
-# TODO: use some like Cloudymetrics or CloudHarmony
-class EC2InstanceTypes:
-	"""
-	Information about the instance types in EC2 (Static class)
-	"""
-	
-	@staticmethod
-	def get_all_instance_types():
+	def get_all_instance_types(self):
 		"""
 		Get all the EC2 instance types
 		
 		Returns: a list of :py:class:`InstanceTypeInfo`
 		"""
+		# TODO: use some like Cloudymetrics or CloudHarmony	
 		list = []
 		
 		t1_micro = InstanceTypeInfo("t1.micro", ["i386", "x86_64"], 1, 1, 613, 0.0031, 0.5)
@@ -938,14 +934,13 @@ class EC2InstanceTypes:
 		
 		return list
 
-	@staticmethod
-	def get_instance_type_by_name(name):
+	def get_instance_type_by_name(self, name):
 		"""
 		Get the EC2 instance type with the specified name
 		
 		Returns: an :py:class:`InstanceTypeInfo` or None if the type is not found
 		"""
-		for type in EC2InstanceTypes.get_all_instance_types():
-			if type.name == name:
-				return type
+		for inst_type in self.get_all_instance_types():
+			if inst_type.name == name:
+				return inst_type
 		return None
