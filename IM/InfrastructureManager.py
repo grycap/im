@@ -451,7 +451,8 @@ class InfrastructureManager:
 			for deploy in deployed_vm.keys():
 				if orig_dep.id == deploy.id:
 					for vm in deployed_vm.get(deploy, []):
-						new_vms.append(vm)
+						if vm not in new_vms: 
+							new_vms.append(vm)
 
 		if cancel_deployment:
 			# If error, all deployed virtual machine will be undeployed.
