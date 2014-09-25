@@ -162,8 +162,7 @@ class InfrastructureManager:
 					for success, launched_vm in launched_vms:
 						if success:
 							InfrastructureManager.logger.debug("VM successfully launched: " + str(launched_vm.id))
-							deployed_vm.setdefault(deploy, []).append(
-								launched_vm)
+							deployed_vm.setdefault(deploy, []).append(launched_vm)
 							deploy.cloud_id = cloud_id
 							remain_vm -= 1
 						else:
