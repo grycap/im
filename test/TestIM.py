@@ -85,9 +85,13 @@ class TestIM(unittest.TestCase):
             for vm_id in vm_ids:
                 (success, info)  = self.server.GetVMInfo(self.inf_id, vm_id, self.auth_data)
                 self.assertTrue(success, msg="ERROR al obtener la informacion de la VM:" + str(res))
-                if info['state'] in err_states:
+                
+                info_radl = radl_parse.parse_radl(info)
+                vm_state = info_radl.systems[0].getValue('state')
+                
+                if vm_state in err_states:
                     return False
-                elif info['state'] != state:
+                elif vm_state != state:
                     all_ok = False
 
             if not all_ok:
@@ -126,6 +130,10 @@ class TestIM(unittest.TestCase):
         vm_ids = res['vm_list']
         (success, info)  = self.server.GetVMInfo(self.inf_id, vm_ids[0], self.auth_data)
         self.assertTrue(success, msg="ERROR al obtener la informacion de la VM: " + str(info))
+        try:
+            radl_parse.parse_radl(info)
+        except Exception, ex:
+            self.assertTrue(False, msg="ERROR al parsear el RADL con la informacion de la VM: " + str(ex))            
 
     def test_15_get_ganglia_info(self):
         (success, res) = self.server.GetInfrastructureInfo(self.inf_id, self.auth_data)
@@ -133,7 +141,7 @@ class TestIM(unittest.TestCase):
         vm_ids = res['vm_list']
         (success, info)  = self.server.GetVMInfo(self.inf_id, vm_ids[0], self.auth_data)
         self.assertIs(success, True, msg="ERROR al obtener la informacion de la VM: " + str(info))
-        info_radl = radl_parse.parse_radl(info['info'])
+        info_radl = radl_parse.parse_radl(info)
         prop_usage = info_radl.systems[0].getValue("cpu.usage")
         self.assertIsNotNone(prop_usage, msg="ERROR al obtener la informacion de ganglia de la VM (cpu.usage = None)")
 

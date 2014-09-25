@@ -30,7 +30,7 @@ import InfrastructureManager
 from VirtualMachine import VirtualMachine
 from SSH import SSH, AuthenticationException
 from recipe import Recipe
-from radl.radl import contextualize_item
+from radl.radl import contextualize_item, system
 
 from config import Config
 
@@ -270,7 +270,7 @@ class ConfManager(threading.Thread):
 				return
 
 			# Now check if the master VM has specified a hostname or set the master VM hostname with the default values			
-			(master_name, masterdom) = self.inf.vm_master.getRequestedName(self.inf.vm_master.im_id)
+			(master_name, masterdom) = self.inf.vm_master.getRequestedName(default_hostname = Config.DEFAULT_VM_NAME, default_domain = Config.DEFAULT_DOMAIN)
 
 			ConfManager.logger.info("Inf ID: " + str(self.inf.id) + ": Wait the master VM to be running")
 
@@ -638,14 +638,13 @@ class ConfManager(threading.Thread):
 			all_vars += 'IM_' + group.upper() + '_NUM_VMS=' + str(len(vm_group[group])) + '\n'
 
 			for vm in vm_group[group]:
-				num = vm.im_id
 				if not vm.destroy:
 					ifaces_im_vars = ''
 					for i in range(vm.getNumNetworkIfaces()):
 						iface_ip = vm.getIfaceIP(i)
 						ifaces_im_vars = ' IM_NODE_NET_' + str(i) + '_IP=' + iface_ip
-						if vm.getRequestedNameIface(i, num):
-							(nodename, nodedom) = vm.getRequestedNameIface(i, num)
+						if vm.getRequestedNameIface(i):
+							(nodename, nodedom) = vm.getRequestedNameIface(i, default_domain = Config.DEFAULT_DOMAIN)
 							hosts_out.write(iface_ip + " " + nodename + "." + nodedom + " " + nodename + "\r\n")
 							ifaces_im_vars += ' IM_NODE_NET_' + str(i) + '_HOSTNAME=' + nodename
 							ifaces_im_vars += ' IM_NODE_NET_' + str(i) + '_DOMAIN=' + nodedom
@@ -658,10 +657,9 @@ class ConfManager(threading.Thread):
 	
 					# the master node
 					# TODO: Known issue: the master VM must set the public network in the iface 0 
-					nodedom = Config.DEFAULT_DOMAIN
-					nodename = Config.DEFAULT_VM_NAME + str(num)
-					if vm.getRequestedName(num):
-						(nodename, nodedom) = vm.getRequestedName(num)
+					(nodename ,nodedom) = system.replaceTemplateName(Config.DEFAULT_VM_NAME + "." + Config.DEFAULT_DOMAIN, str(vm.im_id))
+					if vm.getRequestedName():
+						(nodename, nodedom) = vm.getRequestedName(default_domain = Config.DEFAULT_DOMAIN)
 					else:
 						hosts_out.write(ip + " " + nodename + "." + nodedom + " " + nodename + "\r\n")
 
@@ -670,7 +668,7 @@ class ConfManager(threading.Thread):
 					node_line += ' IM_NODE_HOSTNAME=' + nodename
 					node_line += ' IM_NODE_FQDN=' + nodename + "." + nodedom
 					node_line += ' IM_NODE_DOMAIN=' + nodedom
-					node_line += ' IM_NODE_NUM=' + str(num)
+					node_line += ' IM_NODE_NUM=' + str(vm.im_id)
 					node_line += ' IM_NODE_VMID=' + str(vm.id)
 					node_line += ' IM_NODE_ANSIBLE_IP=' + ip
 					node_line += ifaces_im_vars

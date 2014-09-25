@@ -196,7 +196,7 @@ class DockerCloudConnector(CloudConnector):
 				if local_port != "22":
 					exposed_ports = exposed_ports + ', "' + local_port + '/tcp": {}'
 
-		(nodename, nodedom) = system.getRequestedNameIface(num = vm_id)
+		(nodename, nodedom) = system.getRequestedNameIface(num = vm_id, default_hostname = Config.DEFAULT_VM_NAME, default_domain = Config.DEFAULT_DOMAIN)
 
 		create_request_json = """ {
 			 "Hostname":"%s",
@@ -266,8 +266,8 @@ class DockerCloudConnector(CloudConnector):
 				
 				vm = VirtualMachine(inf, vm_id, docker_vm_id, self.cloud, radl, requested_radl)
 				
-				# Set ssh port in the RADL info
-				self.setSSHPort(vm, ssh_port)
+				# Set ssh port in the RADL info of the VM
+				vm.setSSHPort(ssh_port)
 				
 				res.append((True, vm))
 
@@ -276,25 +276,6 @@ class DockerCloudConnector(CloudConnector):
 				res.append((False, "ERROR: " + str(ex)))
 
 		return res
-	
-	def setSSHPort(self, vm, ssh_port):
-		now = str(int(time.time()*100))
-
-		public_net = None
-		for net in vm.info.networks:
-			if net.isPublic():
-				public_net = net
-				
-		if public_net is None:
-			public_net = network.createNetwork("public." + now, True)
-			vm.info.networks.append(public_net)
-
-		outports = public_net.getValue('outports')
-		if outports:
-			outports = outports + "," + str(ssh_port) + "-22"
-		else:
-			outports = str(ssh_port) + "-22"
-		public_net.setValue('outports', outports)
 
 	def updateVMInfo(self, vm, auth_data):	
 		try:
