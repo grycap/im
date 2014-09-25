@@ -14,6 +14,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import time
+from IM.radl.radl import network
 from IM.config import Config
 
 class VirtualMachine:
@@ -98,12 +100,11 @@ class VirtualMachine:
 	def getRequestedApplications(self):
 		return self.requested_radl.systems[0].getApplications()
 
-	def getRequestedName(self, num = None, default_hostname = Config.DEFAULT_VM_NAME, default_domain = Config.DEFAULT_DOMAIN):
-		return self.getRequestedNameIface(0, num, default_hostname, default_domain)
+	def getRequestedName(self, default_hostname = None, default_domain = None):
+		return self.getRequestedNameIface(0, default_hostname, default_domain)
 
-	def getRequestedNameIface(self, iface_num, num = None, default_hostname = Config.DEFAULT_VM_NAME, default_domain = Config.DEFAULT_DOMAIN):		
-		return self.requested_radl.systems[0].getRequestedNameIface(iface_num, num, default_hostname, default_domain)
-
+	def getRequestedNameIface(self, iface_num, default_hostname = None, default_domain = None):		
+		return self.requested_radl.systems[0].getRequestedNameIface(iface_num, self.im_id, default_hostname, default_domain)
 
 	# Devuelve True si la VM actual y la indicada se pueden conectar
 	# por alguna red
@@ -198,3 +199,34 @@ class VirtualMachine:
 						ssh_port = int(parts[0])
 		
 		return ssh_port
+	
+	def setSSHPort(self, ssh_port):
+		"""
+		Set the SSH port in the RADL info of this VM 
+		"""
+		now = str(int(time.time()*100))
+
+		public_net = None
+		for net in self.info.networks:
+			if net.isPublic():
+				public_net = net
+		
+		# If it do
+		if public_net is None:
+			public_net = network.createNetwork("public." + now, True)
+			self.info.networks.append(public_net)
+
+		outports = public_net.getValue('outports')
+		if outports:
+			outports = outports + "," + str(ssh_port) + "-22"
+		else:
+			outports = str(ssh_port) + "-22"
+		public_net.setValue('outports', outports)
+		
+		# get the ID
+		num_net = self.getNumNetworkWithConnection(public_net.id)
+		if num_net is None:
+			# There are a public net but it has not been used in this VM
+			num_net = self.getNumNetworkIfaces()
+
+		self.info.systems[0].setValue('net_interface.' + str(num_net) + '.connection',public_net.id)

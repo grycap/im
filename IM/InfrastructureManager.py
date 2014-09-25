@@ -20,7 +20,7 @@ import pickle
 import threading
 import string
 import random
-from multiprocessing.pool import ThreadPool
+#from multiprocessing.pool import ThreadPool
 
 from VMRC import VMRC
 from CloudInfo import CloudInfo 
@@ -32,7 +32,7 @@ import logging
 import InfrastructureInfo
 from ganglia import ganglia_info
 from IM.radl import radl_parse
-from IM.radl.radl import RADL, Feature
+from IM.radl.radl import Feature
 from IM.recipe import Recipe
 
 from config import Config
@@ -460,7 +460,7 @@ class InfrastructureManager:
 		if cancel_deployment:
 			# If error, all deployed virtual machine will be undeployed.
 			for vm in new_vms:
-				vm.cloud.finalize(vm, auth)
+				vm.cloud.getCloudConnector().finalize(vm, auth)
 			raise Exception("Some deploys did not proceed successfully: %s" % cancel_deployment)
 
 
