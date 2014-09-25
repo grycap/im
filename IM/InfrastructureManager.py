@@ -32,7 +32,7 @@ import logging
 import InfrastructureInfo
 from ganglia import ganglia_info
 from IM.radl import radl_parse
-from IM.radl.radl import RADL
+from IM.radl.radl import RADL, Feature
 from IM.recipe import Recipe
 
 from config import Config
@@ -339,8 +339,8 @@ class InfrastructureManager:
 			sel_inf.update_radl(radl, [])
 			return []
 
-		# Add apps requirements to the RADL
 		for system in radl.systems:
+			# Add apps requirements to the RADL
 			apps_to_install = system.getApplications()
 			for app_to_install in apps_to_install:
 				for app_avail, _, _, _, requirements in Recipe.getInstallableApps():
@@ -379,10 +379,14 @@ class InfrastructureManager:
 			if not s.getValue("disk.0.image.url") and not vmrc_res:
 				raise Exception("No VMI obtained from VMRC to system: " + system_id)
 			
+			# Set the default values for cpu, memory
+			s_without_apps.addFeature(Feature("cpu.count", ">=", Config.DEFAULT_VM_CPUS), conflict="me", missing="other")
+			s_without_apps.addFeature(Feature("memory.size", ">=", Config.DEFAULT_VM_MEMORY, Config.DEFAULT_VM_MEMORY_UNIT), conflict="me", missing="other")
+			s_without_apps.addFeature(Feature("cpu.arch", "=", Config.DEFAULT_VM_CPU_ARCH), conflict="me", missing="other")
+			
 			n = [ s_without_apps.clone().applyFeatures(s0, conflict="other", missing="other")
 			                         for s0 in vmrc_res ]
 			systems_with_vmrc[system_id] = n if n else [s_without_apps]			
-
 
 		# Concrete systems with cloud providers and select systems with the greatest score
 		# in every cloud
