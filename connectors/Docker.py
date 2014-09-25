@@ -254,9 +254,9 @@ class DockerCloudConnector(CloudConnector):
 					ssh_port = DockerCloudConnector._port_base_num + DockerCloudConnector._port_counter
 					DockerCloudConnector._port_counter += 1
 
-					start_request_json = start_request_json + self._generate_port_bindings(outports, ssh_port)
+					start_request_json += self._generate_port_bindings(outports, ssh_port)
 					
-					start_request_json = start_request_json + "}" 
+					start_request_json += "}" 
 				
 				body = start_request_json
 				conn.putheader('Content-Length', len(body))
