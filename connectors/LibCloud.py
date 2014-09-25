@@ -80,7 +80,7 @@ class LibCloudCloudConnector(CloudConnector):
 	
 	def get_instance_type(self, sizes, radl):
 		"""
-		Get the name of the instance type to launch to EC2
+		Get the name of the instance type to launch to LibCloud
 
 		Arguments:
 		   - size(list of :py:class: `libcloud.compute.base.NodeSize`): List of sizes on a provider
@@ -88,12 +88,14 @@ class LibCloudCloudConnector(CloudConnector):
 		Returns: a :py:class:`libcloud.compute.base.NodeSize` with the instance type to launch	
 		"""
 		memory = radl.getFeature('memory.size').getValue('M')
+		memory_op = radl.getFeature('memory.size').operator
 
 		res = None
 		for size in sizes:
 			# get the node size with the lowest price
 			if res is None or (size.price <= res.price):
-				if size.ram >= memory:
+				str_compare = "size.ram " + memory_op + " memory"
+				if eval(str_compare):
 					res = size
 		
 		if res is None:

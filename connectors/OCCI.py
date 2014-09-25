@@ -65,12 +65,7 @@ class OCCICloudConnector(CloudConnector):
 			protocol = url[0]
 			if protocol in ['http','https'] and url[5]:
 				res_system = radl_system.clone()
-				
-				res_system.addFeature(Feature("cpu.count", "=", Config.DEFAULT_VM_CPUS), conflict="me", missing="other")
-				res_system.addFeature(Feature("memory.size", "=", Config.DEFAULT_VM_MEMORY, Config.DEFAULT_VM_MEMORY_UNIT), conflict="me", missing="other")
-				res_system.addFeature(Feature("cpu.arch", "=", Config.DEFAULT_VM_CPU_ARCH), conflict="me", missing="other")
-				
-				# TODO: set operator to "=" in all the features
+
 				res_system.getFeature("cpu.count").operator = "="
 				res_system.getFeature("memory.size").operator = "="
 				

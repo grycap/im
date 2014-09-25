@@ -104,13 +104,8 @@ class OpenNebulaCloudConnector(CloudConnector):
 			src_host = url[1].split(':')[0]
 			# TODO: check the port
 			if (protocol == "one") and self.cloud.server == src_host:
-				# Set the default values
 				res_system = radl_system.clone()
-				res_system.addFeature(Feature("cpu.count", "=", Config.DEFAULT_VM_CPUS), conflict="me", missing="other")
-				res_system.addFeature(Feature("memory.size", "=", Config.DEFAULT_VM_MEMORY, Config.DEFAULT_VM_MEMORY_UNIT), conflict="me", missing="other")
-				res_system.addFeature(Feature("cpu.arch", "=", Config.DEFAULT_VM_CPU_ARCH), conflict="me", missing="other")
-				
-				# TODO: set operator to "=" in all the features
+
 				res_system.getFeature("cpu.count").operator = "="
 				res_system.getFeature("memory.size").operator = "="
 

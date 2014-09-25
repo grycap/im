@@ -60,10 +60,6 @@ class DockerCloudConnector(CloudConnector):
 			protocol = url[0]
 			if protocol == 'docker' and url[1]:
 				res_system = radl_system.clone()
-				
-				res_system.addFeature(Feature("cpu.count", "=", Config.DEFAULT_VM_CPUS), conflict="me", missing="other")
-				res_system.addFeature(Feature("memory.size", "=", Config.DEFAULT_VM_MEMORY, Config.DEFAULT_VM_MEMORY_UNIT), conflict="me", missing="other")
-				res_system.addFeature(Feature("cpu.arch", "=", Config.DEFAULT_VM_CPU_ARCH), conflict="me", missing="other")
 
 				res_system.addFeature(Feature("virtual_system_type", "=", "docker"), conflict="other", missing="other")
 
