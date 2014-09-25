@@ -286,6 +286,7 @@ class ConfManager(threading.Thread):
 
 			# To avoid problems with the known hosts of previous calls
 			if os.path.isfile(os.path.expanduser("~/.ssh/known_hosts")):
+				ConfManager.logger.debug("Remove " + os.path.expanduser("~/.ssh/known_hosts"))
 				os.remove(os.path.expanduser("~/.ssh/known_hosts"))
 
 			self.inf.add_cont_msg("Wait master VM to have the SSH active.")
