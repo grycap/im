@@ -469,7 +469,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 					ip = net.AR_POOL.AR[0].IP
 				else:
 					self.logger.warn("The network with IPs like: " + net.AR_POOL.AR[0].IP + " does not have free leases")
-					break				
+					continue				
 			else:
 				self.logger.warn("IP information is not in the VNET POOL. Use the vn.info")
 				info_res = server.one.vn.info(session_id, int(net.ID))
