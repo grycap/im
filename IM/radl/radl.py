@@ -75,6 +75,13 @@ class Feature:
 		"""Return a copy of this Feature."""
 
 		return copy.deepcopy(self)
+	
+	def getLogOperator(self):
+		"""Return the operator of this Feature in python style."""
+		if self.operator == "=":
+			return "=="
+		else:
+			return self.operator
 
 	def getValue(self, unit=None):
 		"""

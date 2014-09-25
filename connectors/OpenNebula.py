@@ -343,13 +343,14 @@ class OpenNebulaCloudConnector(CloudConnector):
 			NAME = %s
 
 			CPU = %s
+			VCPU = %s
 			MEMORY = %s
 			OS = [ ARCH = "%s" ]
 
 			%s
 
 			GRAPHICS = [type="vnc",listen="0.0.0.0"]
-		''' % (name, cpu, memory, arch, disks)
+		''' % (name, cpu, cpu, memory, arch, disks)
 
 		res += self.get_networks_template(radl, auth_data)
 
