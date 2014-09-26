@@ -83,7 +83,7 @@ class TestConnectors(unittest.TestCase):
             system test (
             cpu.arch='x86_64' and
             cpu.count>=1 and
-            memory.size>=512m and
+            disks.free_size>=2g and
             net_interface.0.connection = 'net' and
             net_interface.0.dns_name = 'test' and
             disk.0.os.flavour='ubuntu' and
@@ -107,6 +107,7 @@ class TestConnectors(unittest.TestCase):
             cpu.arch='x86_64' and
             cpu.count>=1 and
             memory.size>=512m and
+            disks.free_size>=2g and
             net_interface.0.connection = 'net' and
             net_interface.0.dns_name = 'test' and
             disk.0.os.flavour='ubuntu' and

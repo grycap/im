@@ -80,7 +80,10 @@ class EC2CloudConnector(CloudConnector):
 				else:
 					res_system.addFeature(Feature("cpu.count", "=", instance_type.num_cpu * instance_type.cores_per_cpu), conflict="other", missing="other")
 					res_system.addFeature(Feature("memory.size", "=", instance_type.mem, 'M'), conflict="other", missing="other")
-					res_system.addFeature(Feature("disk.0.free_size", "=", instance_type.disks * instance_type.disk_space, 'G'), conflict="other", missing="other")
+					if instance_type.disks > 0:
+						res_system.addFeature(Feature("disks.free_size", "=", instance_type.disks * instance_type.disk_space, 'G'), conflict="other", missing="other")
+						for i in range(1,instance_type.disks+1):
+							res_system.addFeature(Feature("disk.%d.free_size" % i, "=", instance_type.disk_space, 'G'), conflict="other", missing="other")						
 					res_system.addFeature(Feature("cpu.performance", "=", instance_type.cpu_perf, 'ECU'), conflict="other", missing="other")
 					res_system.addFeature(Feature("price", "=", instance_type.price), conflict="me", missing="other")
 					
@@ -171,8 +174,8 @@ class EC2CloudConnector(CloudConnector):
 		memory_op = radl.getFeature('memory.size').getLogOperator()
 		disk_free = 0
 		disk_free_op = ">="
-		if radl.getValue('disk.0.free_size'):
-			disk_free = radl.getFeature('disk.0.free_size').getValue('G')
+		if radl.getValue('disks.free_size'):
+			disk_free = radl.getFeature('disks.free_size').getValue('G')
 			disk_free_op = radl.getFeature('memory.size').getLogOperator()
 		
 		performance = 0
