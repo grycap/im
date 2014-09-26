@@ -104,6 +104,16 @@ class OpenNebulaCloudConnector(CloudConnector):
 			src_host = url[1].split(':')[0]
 			# TODO: check the port
 			if (protocol == "one") and self.cloud.server == src_host:
+				# Check the space in image and compare with disks.free_size
+				if radl_system.getValue('disks.free_size'):
+					disk_free = int(radl_system.getFeature('disks.free_size').getValue('M'))
+					# The VMRC specified the value in MB
+					disk_size = int(radl_system.getValue("disk.0.size"))
+				
+					if disk_size < disk_free:
+						# if the image do not have enough space, discard it
+						return []
+
 				res_system = radl_system.clone()
 
 				res_system.getFeature("cpu.count").operator = "="
