@@ -380,9 +380,9 @@ class InfrastructureManager:
 				raise Exception("No VMI obtained from VMRC to system: " + system_id)
 			
 			# Set the default values for cpu, memory
-			s_without_apps.addFeature(Feature("cpu.count", ">=", Config.DEFAULT_VM_CPUS), conflict="me", missing="other")
-			s_without_apps.addFeature(Feature("memory.size", ">=", Config.DEFAULT_VM_MEMORY, Config.DEFAULT_VM_MEMORY_UNIT), conflict="me", missing="other")
-			s_without_apps.addFeature(Feature("cpu.arch", "=", Config.DEFAULT_VM_CPU_ARCH), conflict="me", missing="other")
+			#s_without_apps.addFeature(Feature("cpu.count", ">=", Config.DEFAULT_VM_CPUS), conflict="me", missing="other")
+			#s_without_apps.addFeature(Feature("memory.size", ">=", Config.DEFAULT_VM_MEMORY, Config.DEFAULT_VM_MEMORY_UNIT), conflict="me", missing="other")
+			#s_without_apps.addFeature(Feature("cpu.arch", "=", Config.DEFAULT_VM_CPU_ARCH), conflict="me", missing="other")
 			
 			n = [ s_without_apps.clone().applyFeatures(s0, conflict="other", missing="other")
 			                         for s0 in vmrc_res ]
@@ -396,6 +396,10 @@ class InfrastructureManager:
 			for system_id, systems in systems_with_vmrc.items():
 				s1 = [InfrastructureManager._compute_score(s.clone().applyFeatures(s0, missing="other").concrete(), radl.get_system_by_name(system_id))
 				                for s in systems for s0 in cloud.concreteSystem(s, auth)]
+				for s2,_ in s1:
+					s2.addFeature(Feature("cpu.count", ">=", Config.DEFAULT_VM_CPUS), conflict="me", missing="other")
+					s2.addFeature(Feature("memory.size", ">=", Config.DEFAULT_VM_MEMORY, Config.DEFAULT_VM_MEMORY_UNIT), conflict="me", missing="other")
+					s2.addFeature(Feature("cpu.arch", "=", Config.DEFAULT_VM_CPU_ARCH), conflict="me", missing="other")
 				# Store the concrete system with largest score
 				concrete_systems.setdefault(cloud_id, {})[system_id] = (
 					max(s1, key=lambda x: x[1]) if s1 else (None, -1e9) )
