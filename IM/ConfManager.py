@@ -891,26 +891,43 @@ class ConfManager(threading.Thread):
 		   - yaml1(str): string with the second YAML
 		Returns: The merged YAML. In case of errors, it concatenates both strings
 		"""
+		yamlo1 = {}
 		try:
 			yamlo1 = yaml.load(yaml1)[0]
-			yamlo2 = yaml.load(yaml2)[0]
-			
-			all_keys = []
-			all_keys.extend(yamlo1.keys())
-			all_keys.extend(yamlo2.keys())
-			all_keys = set(all_keys)
-
-			for key in all_keys:
-				if key in yamlo1 and yamlo1[key]:
-					if key in yamlo2 and yamlo2[key]:
-						if isinstance(yamlo1[key], dict):
-							yamlo1[key].update(yamlo2[key])
-						else:
-							yamlo1[key].extend(yamlo2[key])
-				elif key in yamlo2 and yamlo2[key]:
-					yamlo1[key] = yamlo2[key]
-
-			return yaml.dump([yamlo1], default_flow_style=False, explicit_start=True, width=256)
+			if not isinstance(yamlo1, dict):
+				yamlo1 = {}
 		except Exception:
-			ConfManager.logger.exception("Error parsing YAML.")
-			return yaml1 + "\n" + yaml2
+			ConfManager.logger.exception("Error parsing YAML: " + yaml1 + "\n Ignore it")
+		
+		yamlo2 = {}	
+		try:
+			yamlo2 = yaml.load(yaml2)[0]
+			if not isinstance(yamlo2, dict):
+				yamlo2 = {}
+		except Exception:
+			ConfManager.logger.exception("Error parsing YAML: " + yaml2 + "\n Ignore it")
+
+		if not yamlo2 and not yamlo1:
+			return ""
+
+		all_keys = []
+		all_keys.extend(yamlo1.keys())
+		all_keys.extend(yamlo2.keys())
+		all_keys = set(all_keys)
+
+		for key in all_keys:
+			if key in yamlo1 and yamlo1[key]:
+				if key in yamlo2 and yamlo2[key]:
+					if isinstance(yamlo1[key], dict):
+						yamlo1[key].update(yamlo2[key])
+					elif isinstance(yamlo1[key], list):
+						yamlo1[key].extend(yamlo2[key])
+					else:
+						# Both use have the same key with merge in a lists
+						v1 = yamlo1[key]
+						v2 = yamlo2[key]
+						yamlo1[key] = [v1, v2]
+			elif key in yamlo2 and yamlo2[key]:
+				yamlo1[key] = yamlo2[key]
+
+		return yaml.dump([yamlo1], default_flow_style=False, explicit_start=True, width=256)
