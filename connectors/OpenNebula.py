@@ -419,7 +419,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 		 Returns: bool, True if there are at least one lease free or False otherwise
 		"""
 		for ar in addres_range:
-			if ar.ALLOCATED == "":
+			if not ar.ALLOCATED:
 				return True 
 		return False
 	
