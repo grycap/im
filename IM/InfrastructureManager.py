@@ -14,11 +14,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import json
+import os
 import pickle
 import threading
 import string
 import random
-from multiprocessing.pool import ThreadPool
+#from multiprocessing.pool import ThreadPool
 
 from VMRC import VMRC
 from CloudInfo import CloudInfo 
@@ -30,7 +32,7 @@ import logging
 import InfrastructureInfo
 from ganglia import ganglia_info
 from IM.radl import radl_parse
-from IM.radl.radl import RADL
+from IM.radl.radl import Feature
 from IM.recipe import Recipe
 
 from config import Config
@@ -160,8 +162,7 @@ class InfrastructureManager:
 					for success, launched_vm in launched_vms:
 						if success:
 							InfrastructureManager.logger.debug("VM successfully launched: " + str(launched_vm.id))
-							deployed_vm.setdefault(deploy, []).append(
-								launched_vm)
+							deployed_vm.setdefault(deploy, []).append(launched_vm)
 							deploy.cloud_id = cloud_id
 							remain_vm -= 1
 						else:
@@ -338,8 +339,8 @@ class InfrastructureManager:
 			sel_inf.update_radl(radl, [])
 			return []
 
-		# Add apps requirements to the RADL
 		for system in radl.systems:
+			# Add apps requirements to the RADL
 			apps_to_install = system.getApplications()
 			for app_to_install in apps_to_install:
 				for app_avail, _, _, _, requirements in Recipe.getInstallableApps():
@@ -378,10 +379,14 @@ class InfrastructureManager:
 			if not s.getValue("disk.0.image.url") and not vmrc_res:
 				raise Exception("No VMI obtained from VMRC to system: " + system_id)
 			
+			# Set the default values for cpu, memory
+			#s_without_apps.addFeature(Feature("cpu.count", ">=", Config.DEFAULT_VM_CPUS), conflict="me", missing="other")
+			#s_without_apps.addFeature(Feature("memory.size", ">=", Config.DEFAULT_VM_MEMORY, Config.DEFAULT_VM_MEMORY_UNIT), conflict="me", missing="other")
+			#s_without_apps.addFeature(Feature("cpu.arch", "=", Config.DEFAULT_VM_CPU_ARCH), conflict="me", missing="other")
+			
 			n = [ s_without_apps.clone().applyFeatures(s0, conflict="other", missing="other")
 			                         for s0 in vmrc_res ]
 			systems_with_vmrc[system_id] = n if n else [s_without_apps]			
-
 
 		# Concrete systems with cloud providers and select systems with the greatest score
 		# in every cloud
@@ -391,6 +396,10 @@ class InfrastructureManager:
 			for system_id, systems in systems_with_vmrc.items():
 				s1 = [InfrastructureManager._compute_score(s.clone().applyFeatures(s0, missing="other").concrete(), radl.get_system_by_name(system_id))
 				                for s in systems for s0 in cloud.concreteSystem(s, auth)]
+				for s2,_ in s1:
+					s2.addFeature(Feature("cpu.count", ">=", Config.DEFAULT_VM_CPUS), conflict="me", missing="other")
+					s2.addFeature(Feature("memory.size", ">=", Config.DEFAULT_VM_MEMORY, Config.DEFAULT_VM_MEMORY_UNIT), conflict="me", missing="other")
+					s2.addFeature(Feature("cpu.arch", "=", Config.DEFAULT_VM_CPU_ARCH), conflict="me", missing="other")
 				# Store the concrete system with largest score
 				concrete_systems.setdefault(cloud_id, {})[system_id] = (
 					max(s1, key=lambda x: x[1]) if s1 else (None, -1e9) )
@@ -449,12 +458,13 @@ class InfrastructureManager:
 			for deploy in deployed_vm.keys():
 				if orig_dep.id == deploy.id:
 					for vm in deployed_vm.get(deploy, []):
-						new_vms.append(vm)
+						if vm not in new_vms: 
+							new_vms.append(vm)
 
 		if cancel_deployment:
 			# If error, all deployed virtual machine will be undeployed.
 			for vm in new_vms:
-				vm.cloud.finalize(vm, auth)
+				vm.cloud.getCloudConnector().finalize(vm, auth)
 			raise Exception("Some deploys did not proceed successfully: %s" % cancel_deployment)
 
 
@@ -797,6 +807,35 @@ class InfrastructureManager:
 		return ""
 	
 	@staticmethod
+	def check_im_user(auth):
+		"""
+		Check if the IM user is valid
+
+		Args:
+		- auth(Authentication): IM parsed authentication tokens.
+
+		Return(bool): true if the user is valid or false otherwise.
+		"""
+		if Config.USER_DB:
+			if os.path.isfile(Config.USER_DB):
+				try:
+					found = False
+					user_db = json.load(open(Config.USER_DB, "r"))
+					for user in user_db['users']:
+						if user['username'] == auth[0]['username'] and user['password'] == auth[0]['password']: 
+							found = True
+							break
+					return found
+				except:
+					InfrastructureManager.logger.exception("Incorrect format in the User DB file %s" % Config.USER_DB)
+					return False
+			else:
+				InfrastructureManager.logger.error("User DB file %s not found" % Config.USER_DB)
+				return False
+		else:
+			return True
+		
+	@staticmethod
 	def CreateInfrastructure(radl, auth):
 		"""
 		Create a new infrastructure.
@@ -811,7 +850,11 @@ class InfrastructureManager:
 
 		Return(int): the new infrastructure ID if successful.
 		"""
-
+		
+		# First check if it is configured to check the users from a list
+		if not InfrastructureManager.check_im_user(auth.getAuthInfo("InfrastructureManager")):
+			raise Exception("Invalid InfrastructureManager credentials")
+		
 		# Create a new infrastructure
 		inf = InfrastructureInfo.InfrastructureInfo()
 		inf.auth = Authentication(auth.getAuthInfo("InfrastructureManager"))

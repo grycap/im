@@ -80,21 +80,32 @@ class LibCloudCloudConnector(CloudConnector):
 	
 	def get_instance_type(self, sizes, radl):
 		"""
-		Get the name of the instance type to launch to EC2
+		Get the name of the instance type to launch to LibCloud
 
 		Arguments:
 		   - size(list of :py:class: `libcloud.compute.base.NodeSize`): List of sizes on a provider
 		   - radl(str): RADL document with the requirements of the VM to get the instance type
 		Returns: a :py:class:`libcloud.compute.base.NodeSize` with the instance type to launch	
 		"""
+		instance_type_name = radl.getValue('instance_type')
+		
 		memory = radl.getFeature('memory.size').getValue('M')
+		memory_op = radl.getFeature('memory.size').getLogOperator()
+		disk_free = 0
+		disk_free_op = ">="
+		if radl.getValue('disk.0.free_size'):
+			disk_free = radl.getFeature('disk.0.free_size').getValue('G')
+			disk_free_op = radl.getFeature('memory.size').getLogOperator()
 
 		res = None
 		for size in sizes:
 			# get the node size with the lowest price
 			if res is None or (size.price <= res.price):
-				if size.ram >= memory:
-					res = size
+				str_compare = "size.ram " + memory_op + " memory"
+				str_compare += " and size.disk " + disk_free_op + " disk_free"
+				if eval(str_compare):
+					if not instance_type_name or size.name == instance_type_name:
+						res = size
 		
 		if res is None:
 			self.logger.error("No compatible size found")

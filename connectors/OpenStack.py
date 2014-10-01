@@ -83,30 +83,7 @@ class OpenStackCloudConnector(EC2CloudConnector):
 
         return conn
     
-    def get_instace_type(self, radl):
-        cpu = radl.getValue('cpu.count')
-        arch = radl.getValue('cpu.arch')
-        memory = radl.getValue('memory.size')
-
-        instace_types = OpenStackInstanceTypes.get_all_instance_types()
-
-        res = None
-        for type in instace_types:
-                # cogemos la de menor precio
-                if res is None or (type.price <= res.price):
-                        if arch in type.cpu_arch and type.cores_per_cpu * type.num_cpu >= cpu and type.mem >= memory:
-                                res = type
-        
-        if res is None:
-                self.logger.debug("Lanzaremos una instancia de tipo: " + self.INSTANCE_TYPE)
-                return OpenStackInstanceTypes.get_instance_type_by_name(self.INSTANCE_TYPE)
-        else:
-                self.logger.debug("Lanzaremos una instancia de tipo: " + res.name)
-                return res
-
-class OpenStackInstanceTypes:
-    @staticmethod
-    def get_all_instance_types():
+    def get_all_instance_types(self):
         list = []
         
         # A Definir con la plataforma concreta o sacarlo de algun modo (API propia o LibCloud)
@@ -114,10 +91,3 @@ class OpenStackInstanceTypes:
         list.append(t1_micro)
         
         return list
-
-    @staticmethod
-    def get_instance_type_by_name(name):
-        for type in OpenStackInstanceTypes.get_all_instance_types():
-            if type.name == name:
-                return type
-        return None

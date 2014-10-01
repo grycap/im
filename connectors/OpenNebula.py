@@ -104,13 +104,18 @@ class OpenNebulaCloudConnector(CloudConnector):
 			src_host = url[1].split(':')[0]
 			# TODO: check the port
 			if (protocol == "one") and self.cloud.server == src_host:
-				# Set the default values
-				res_system = radl_system.clone()
-				res_system.addFeature(Feature("cpu.count", "=", Config.DEFAULT_VM_CPUS), conflict="me", missing="other")
-				res_system.addFeature(Feature("memory.size", "=", Config.DEFAULT_VM_MEMORY, Config.DEFAULT_VM_MEMORY_UNIT), conflict="me", missing="other")
-				res_system.addFeature(Feature("cpu.arch", "=", Config.DEFAULT_VM_CPU_ARCH), conflict="me", missing="other")
+				# Check the space in image and compare with disks.free_size
+				if radl_system.getValue('disks.free_size'):
+					disk_free = int(radl_system.getFeature('disks.free_size').getValue('M'))
+					# The VMRC specified the value in MB
+					disk_size = int(radl_system.getValue("disk.0.size"))
 				
-				# TODO: set operator to "=" in all the features
+					if disk_size < disk_free:
+						# if the image do not have enough space, discard it
+						return []
+
+				res_system = radl_system.clone()
+
 				res_system.getFeature("cpu.count").operator = "="
 				res_system.getFeature("memory.size").operator = "="
 
@@ -348,13 +353,14 @@ class OpenNebulaCloudConnector(CloudConnector):
 			NAME = %s
 
 			CPU = %s
+			VCPU = %s
 			MEMORY = %s
 			OS = [ ARCH = "%s" ]
 
 			%s
 
 			GRAPHICS = [type="vnc",listen="0.0.0.0"]
-		''' % (name, cpu, memory, arch, disks)
+		''' % (name, cpu, cpu, memory, arch, disks)
 
 		res += self.get_networks_template(radl, auth_data)
 
@@ -413,7 +419,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 		 Returns: bool, True if there are at least one lease free or False otherwise
 		"""
 		for ar in addres_range:
-			if ar.ALLOCATED == "":
+			if not ar.ALLOCATED:
 				return True 
 		return False
 	
@@ -473,7 +479,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 					ip = net.AR_POOL.AR[0].IP
 				else:
 					self.logger.warn("The network with IPs like: " + net.AR_POOL.AR[0].IP + " does not have free leases")
-					break				
+					continue				
 			else:
 				self.logger.warn("IP information is not in the VNET POOL. Use the vn.info")
 				info_res = server.one.vn.info(session_id, int(net.ID))

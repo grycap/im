@@ -42,7 +42,7 @@ class TestRADL(unittest.TestCase):
 		self.radl_check(r, [1, 1, 1, 1, 0])
 		s = r.get_system_by_name("cursoaws")
 		self.assertIsInstance(s, system)
-		self.assertEqual(len(s.features), 16)
+		self.assertEqual(len(s.features), 17)
 		self.assertEqual(s.getValue("disk.0.os.name"), "linux")
 
 	def test_basic0(self):
