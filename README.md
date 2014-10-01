@@ -1,17 +1,19 @@
  IM - Infrastructure Manager
 ============================
 
-IM is a tool that ease the access and the usability of IaaS clouds by automating
-the VMI selection, deployment, configuration, software installation, monitoring
-and update of Virtual Appliances. It supports APIs from a large number of
-virtual platforms, making user applications cloud-agnostic. In addition it
-integrates a contextualization system to enable the installation and
-configuration of all the user required applications providing the user with a
-fully functional infrastructure.
+IM is a tool that deploys complex and customized virtual infrastructures on IaaS
+Cloud deployments (such as AWS, OpenStack, etc.). It eases the access and the
+usability of IaaS clouds by automating the VMI (Virtual Machine Image)
+selection, deployment, configuration, software installation, monitoring and
+update of the virtual infrastructure. It supports APIs from a large number of virtual
+platforms, making user applications cloud-agnostic. In addition it integrates a
+contextualization system to enable the installation and configuration of all the
+user required applications providing the user with a fully functional
+infrastructure.
 
 Read the documentation and more at http://www.grycap.upv.es/im.
 
-There is also an Infrastructure Manager youtube channel with a set of videos with demos 
+There is also an Infrastructure Manager youtube channel with a set of videos with demos
 of the functionality of the platform: [YouTube IM channel](https://www.youtube.com/channel/UCF16QmMHlRNtsC-0Cb2d8fg)
 
 
@@ -21,28 +23,25 @@ of the functionality of the platform: [YouTube IM channel](https://www.youtube.c
 1.1 REQUISITES
 --------------
 
-IM is based on python, so Python 2.4 or higher runtime and standard library must
+IM is based on Python, so Python 2.4 or higher runtime and standard library must
 be installed in the system.
 
-If you will use pip to install the IM, all the requisites will be installed.
-You must install them if you will install IM from sources.
+If you use pip to install the IM, all the requisites will be installed.
+However, if you install IM from sources you should install:
 
-It is also required to install the Python Lex & Yacc library (http://www.dabeaz.com/ply/).
-It is available in all of the main distributions as 'python-ply' package.
+ + The Python Lex & Yacc library (http://www.dabeaz.com/ply/), typically available
+   as the 'python-ply' package.
 
-It is also required to install the paramiko ssh2 protocol library for python
-(http://www.lag.net/paramiko/). It is available in all of the main distributions
-as 'python-paramiko' package.
+ + The paramiko ssh2 protocol library for python
+(http://www.lag.net/paramiko/), typically available as the 'python-paramiko' package.
 
-It is also required the YAML library for python. It is available in all of the
-main distributions as 'python-yaml' or 'PyYAML' package
+ + The YAML library for Python, typically available as the 'python-yaml' or 'PyYAML' package.
 
-It is also required the SOAPpy library for python. It is available in all of the
-main distributions as 'python-soappy' or 'SOAPpy' package
+ + The SOAPpy library for Python, typically available as the 'python-soappy' or 'SOAPpy' package.
 
-The IM uses ansible to configure nodes in the infrastructures. So Ansible
-(http://www.ansibleworks.com/) 1.4.2 or later must be installed in the system.
-To ensure the functionality the following values must be set in the ansible.cfg file:
+ + Ansible (http://www.ansibleworks.com/) to configure nodes in the infrastructures.
+   In particular, Ansible 1.4.2+ must be installed.
+   To ensure the functionality the following values must be set in the ansible.cfg file:
 
 ```
 [defaults]
@@ -74,26 +73,26 @@ framework (http://www.cherrypy.org/) must be installed.
 
 ### 1.3.1 FROM PIP
 
-You only have to call the install command of the pip tool with the IM package.
-
-**WARNING: In some linux distributions (REL 6 or equivalents) you must unistall
+**WARNING: In some GNU/Linux distributions (RHEL 6 or equivalents) you must uninstall
 the packages python-paramiko and python-crypto before installing the IM with pip.**
+
+You only have to install the IM package through the pip tool.
 
 ```
 pip install IM
 ```
 
 Pip will install all the pre-requisites needed. So Ansible  1.4.2 or later will
- be installed in the system. In some cases it will need to have installed the GCC 
- compiler and the python developer libraries ('python-dev' or 'python-devel' 
+ be installed in the system. In some cases it will need to have installed the GCC
+ compiler and the python developer libraries ('python-dev' or 'python-devel'
  packages in main distributions).
 
-You must also remember to modify the ansible.cfg file setting as specified in the 
+You must also remember to modify the ansible.cfg file setting as specified in the
 REQUISITES section.
 
 ### 1.3.2 FROM SOURCE
 
-Select a proper path where to install the IM service (i.e. /usr/local/im, 
+Select a proper path where the IM service will be installed (i.e. /usr/local/im,
 /opt/im or other). This path will be called IM_PATH
 
 ```
@@ -102,28 +101,28 @@ $ chown -R root:root IM-X.XX
 $ mv IM-X.XX /usr/local
 ```
 
-Finally you must copy (or link) $IM_PATH/im file to /etc/init.d directory.
+Finally you must copy (or link) $IM_PATH/im.init.d file to /etc/init.d directory.
 
 ```
-$ ln -s /usr/local/im/im /etc/init.d
+$ ln -s /usr/local/im/im.init.d /etc/init.d/im
 ```
 
 1.4 CONFIGURATION
 -----------------
 
-In case that you want the IM service to be started at boot time, you must 
+In case that you want the IM service to be started at boot time, you must
 execute the next set of commands:
 
 On Debian Systems:
 
 ```
-$ chkconfig im on
+$ chkconfig im.init.d on
 ```
 
 On RedHat Systems:
 
 ```
-$ update-rc.d im start 99 2 3 4 5 . stop 05 0 1 6 .
+$ update-rc.d im.init.d start 99 2 3 4 5 . stop 05 0 1 6 .
 ```
 
 Or you can do it manually:
@@ -136,7 +135,7 @@ $ ln -s /etc/init.d/im /etc/rc1.d/K05im
 $ ln -s /etc/init.d/im /etc/rc6.d/K05im
 ```
 
-Adjust the installation path by setting the IMDAEMON variable at /etc/init.d/im 
+Adjust the installation path by setting the IMDAEMON variable at /etc/init.d/im.init.d
 to the path where the IM im_service.py file is installed (e.g. /usr/local/im/im_service.py),
 or set the name of the script file (im_service.py) if the file is in the PATH
 (pip puts the im_service.py file in the PATH as default).
@@ -144,22 +143,21 @@ or set the name of the script file (im_service.py) if the file is in the PATH
 Check the parameters in $IM_PATH/etc/im.cfg or /etc/im/im.cfg. Please pay attention
 to the next configuration variables, as they are the most important
 
-DATA_FILE - must be set to the full path where the IM data file will be created 
+DATA_FILE - must be set to the full path where the IM data file will be created
          (e.g. /usr/local/im/inf.dat). Be careful if you have two different instances
          of the IM service running in the same machine!!.
-         
+
 CONTEXTUALIZATION_DIR - must be set to the full path where the IM contextualization files
 		are located. In case of using pip installation the default value is correct
-		(/usr/share/im/contextualization) in case of installing from sources set to 
-		$IM_PATH/contextualization (e.g. /usr/local/im/contextualization)       
-         
+		(/usr/share/im/contextualization) in case of installing from sources set to
+		$IM_PATH/contextualization (e.g. /usr/local/im/contextualization)
+
 ### 1.4.1 SECURITY
 
-Security is disabled by default, but it should be taken into account that it would
-be possible that someone that has local network access can "sniff" the traffic and
+Security is disabled by default. Please notice that someone with local network access can "sniff" the traffic and
 get the messages with the IM with the authorisation data with the cloud providers.
 
-I can be activated both in the XMLRPC and REST APIs. Setting this variables:
+Security can be activated both in the XMLRPC and REST APIs. Setting this variables:
 
 XMLRCP_SSL = True
 
@@ -168,5 +166,3 @@ or
 REST_SSL = True
 
 And then set the variables: XMLRCP_SSL_* or REST_SSL_* to your certificates paths.
-
-
