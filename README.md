@@ -101,10 +101,10 @@ $ chown -R root:root IM-X.XX
 $ mv IM-X.XX /usr/local
 ```
 
-Finally you must copy (or link) $IM_PATH/im.init.d file to /etc/init.d directory.
+Finally you must copy (or link) $IM_PATH/scripts/im file to /etc/init.d directory.
 
 ```
-$ ln -s /usr/local/im/im.init.d /etc/init.d/im
+$ ln -s /usr/local/im/scripts/im /etc/init.d/im
 ```
 
 1.4 CONFIGURATION
@@ -116,13 +116,13 @@ execute the next set of commands:
 On Debian Systems:
 
 ```
-$ chkconfig im.init.d on
+$ chkconfig im on
 ```
 
 On RedHat Systems:
 
 ```
-$ update-rc.d im.init.d start 99 2 3 4 5 . stop 05 0 1 6 .
+$ update-rc.d im start 99 2 3 4 5 . stop 05 0 1 6 .
 ```
 
 Or you can do it manually:
@@ -135,7 +135,7 @@ $ ln -s /etc/init.d/im /etc/rc1.d/K05im
 $ ln -s /etc/init.d/im /etc/rc6.d/K05im
 ```
 
-Adjust the installation path by setting the IMDAEMON variable at /etc/init.d/im.init.d
+Adjust the installation path by setting the IMDAEMON variable at /etc/init.d/im
 to the path where the IM im_service.py file is installed (e.g. /usr/local/im/im_service.py),
 or set the name of the script file (im_service.py) if the file is in the PATH
 (pip puts the im_service.py file in the PATH as default).
