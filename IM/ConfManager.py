@@ -30,7 +30,7 @@ import InfrastructureManager
 from VirtualMachine import VirtualMachine
 from SSH import SSH, AuthenticationException
 from recipe import Recipe
-from radl.radl import contextualize_item
+from radl.radl import contextualize_item, system
 
 from config import Config
 
@@ -270,7 +270,7 @@ class ConfManager(threading.Thread):
 				return
 
 			# Now check if the master VM has specified a hostname or set the master VM hostname with the default values			
-			(master_name, masterdom) = self.inf.vm_master.getRequestedName(self.inf.vm_master.im_id)
+			(master_name, masterdom) = self.inf.vm_master.getRequestedName(default_hostname = Config.DEFAULT_VM_NAME, default_domain = Config.DEFAULT_DOMAIN)
 
 			ConfManager.logger.info("Inf ID: " + str(self.inf.id) + ": Wait the master VM to be running")
 
@@ -283,6 +283,11 @@ class ConfManager(threading.Thread):
 				self.inf.add_cont_msg("Contextualization Error: Error Waiting the Master VM to boot")
 				if not self.inf.configured: self.inf.configured = False
 				return
+
+			# To avoid problems with the known hosts of previous calls
+			if os.path.isfile(os.path.expanduser("~/.ssh/known_hosts")):
+				ConfManager.logger.debug("Remove " + os.path.expanduser("~/.ssh/known_hosts"))
+				os.remove(os.path.expanduser("~/.ssh/known_hosts"))
 
 			self.inf.add_cont_msg("Wait master VM to have the SSH active.")
 			all_connected = self.waitConnectedVMs([self.inf.vm_master], timeout)
@@ -455,10 +460,6 @@ class ConfManager(threading.Thread):
 
 		self.inf.add_cont_msg("Creating and copying Ansible playbook files")
 		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Preparing Ansible playbook to copy Ansible modules: " + str(modules))
-
-		# To avoid problems with the known hosts of previous calls
-		if os.path.isfile(os.path.expanduser("~/.ssh/known_hosts")):
-			os.remove(os.path.expanduser("~/.ssh/known_hosts"))
 
 		ssh.sftp_mkdir(ConfManager.CONF_DIR)
 		# Copy the utils helper files
@@ -637,14 +638,13 @@ class ConfManager(threading.Thread):
 			all_vars += 'IM_' + group.upper() + '_NUM_VMS=' + str(len(vm_group[group])) + '\n'
 
 			for vm in vm_group[group]:
-				num = vm.im_id
 				if not vm.destroy:
 					ifaces_im_vars = ''
 					for i in range(vm.getNumNetworkIfaces()):
 						iface_ip = vm.getIfaceIP(i)
 						ifaces_im_vars = ' IM_NODE_NET_' + str(i) + '_IP=' + iface_ip
-						if vm.getRequestedNameIface(i, num):
-							(nodename, nodedom) = vm.getRequestedNameIface(i, num)
+						if vm.getRequestedNameIface(i):
+							(nodename, nodedom) = vm.getRequestedNameIface(i, default_domain = Config.DEFAULT_DOMAIN)
 							hosts_out.write(iface_ip + " " + nodename + "." + nodedom + " " + nodename + "\r\n")
 							ifaces_im_vars += ' IM_NODE_NET_' + str(i) + '_HOSTNAME=' + nodename
 							ifaces_im_vars += ' IM_NODE_NET_' + str(i) + '_DOMAIN=' + nodedom
@@ -657,10 +657,9 @@ class ConfManager(threading.Thread):
 	
 					# the master node
 					# TODO: Known issue: the master VM must set the public network in the iface 0 
-					nodedom = Config.DEFAULT_DOMAIN
-					nodename = Config.DEFAULT_VM_NAME + str(num)
-					if vm.getRequestedName(num):
-						(nodename, nodedom) = vm.getRequestedName(num)
+					(nodename ,nodedom) = system.replaceTemplateName(Config.DEFAULT_VM_NAME + "." + Config.DEFAULT_DOMAIN, str(vm.im_id))
+					if vm.getRequestedName():
+						(nodename, nodedom) = vm.getRequestedName(default_domain = Config.DEFAULT_DOMAIN)
 					else:
 						hosts_out.write(ip + " " + nodename + "." + nodedom + " " + nodename + "\r\n")
 
@@ -669,7 +668,7 @@ class ConfManager(threading.Thread):
 					node_line += ' IM_NODE_HOSTNAME=' + nodename
 					node_line += ' IM_NODE_FQDN=' + nodename + "." + nodedom
 					node_line += ' IM_NODE_DOMAIN=' + nodedom
-					node_line += ' IM_NODE_NUM=' + str(num)
+					node_line += ' IM_NODE_NUM=' + str(vm.im_id)
 					node_line += ' IM_NODE_VMID=' + str(vm.id)
 					node_line += ' IM_NODE_ANSIBLE_IP=' + ip
 					node_line += ifaces_im_vars
@@ -892,26 +891,43 @@ class ConfManager(threading.Thread):
 		   - yaml1(str): string with the second YAML
 		Returns: The merged YAML. In case of errors, it concatenates both strings
 		"""
+		yamlo1 = {}
 		try:
 			yamlo1 = yaml.load(yaml1)[0]
-			yamlo2 = yaml.load(yaml2)[0]
-			
-			all_keys = []
-			all_keys.extend(yamlo1.keys())
-			all_keys.extend(yamlo2.keys())
-			all_keys = set(all_keys)
-
-			for key in all_keys:
-				if key in yamlo1 and yamlo1[key]:
-					if key in yamlo2 and yamlo2[key]:
-						if isinstance(yamlo1[key], dict):
-							yamlo1[key].update(yamlo2[key])
-						else:
-							yamlo1[key].extend(yamlo2[key])
-				elif key in yamlo2 and yamlo2[key]:
-					yamlo1[key] = yamlo2[key]
-
-			return yaml.dump([yamlo1], default_flow_style=False, explicit_start=True, width=256)
+			if not isinstance(yamlo1, dict):
+				yamlo1 = {}
 		except Exception:
-			ConfManager.logger.exception("Error parsing YAML.")
-			return yaml1 + "\n" + yaml2
+			ConfManager.logger.exception("Error parsing YAML: " + yaml1 + "\n Ignore it")
+		
+		yamlo2 = {}	
+		try:
+			yamlo2 = yaml.load(yaml2)[0]
+			if not isinstance(yamlo2, dict):
+				yamlo2 = {}
+		except Exception:
+			ConfManager.logger.exception("Error parsing YAML: " + yaml2 + "\n Ignore it")
+
+		if not yamlo2 and not yamlo1:
+			return ""
+
+		all_keys = []
+		all_keys.extend(yamlo1.keys())
+		all_keys.extend(yamlo2.keys())
+		all_keys = set(all_keys)
+
+		for key in all_keys:
+			if key in yamlo1 and yamlo1[key]:
+				if key in yamlo2 and yamlo2[key]:
+					if isinstance(yamlo1[key], dict):
+						yamlo1[key].update(yamlo2[key])
+					elif isinstance(yamlo1[key], list):
+						yamlo1[key].extend(yamlo2[key])
+					else:
+						# Both use have the same key with merge in a lists
+						v1 = yamlo1[key]
+						v2 = yamlo2[key]
+						yamlo1[key] = [v1, v2]
+			elif key in yamlo2 and yamlo2[key]:
+				yamlo1[key] = yamlo2[key]
+
+		return yaml.dump([yamlo1], default_flow_style=False, explicit_start=True, width=256)

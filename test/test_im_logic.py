@@ -31,6 +31,7 @@ from connectors.CloudConnector import CloudConnector
 class TestIM(unittest.TestCase):
 	def __init__(self, *args):
 		unittest.TestCase.__init__(self, *args)
+		self.cloud = None
 
 	def setUp(self):
 
@@ -51,6 +52,13 @@ class TestIM(unittest.TestCase):
 	def register_cloudconnector(self, name, cloud_connector):
 		sys.modules['connectors.' + name] = type('MyConnector', (object,),
 		                                         {name + 'CloudConnector': cloud_connector})
+	
+	def gen_launch_res(self, inf, vm_id, radl, requested_radl, num_vm, auth_data):
+		vm = VirtualMachine(None, str(vm_id), 1234, self.cloud, radl, radl)
+		return [(True, vm)]
+	
+	def gen_finalize_res(self, vm, auth_data):
+		return (True, vm)
 		
 	def test_inf_creation0(self):
 		"""Create infrastructure with empty RADL."""
@@ -81,14 +89,12 @@ class TestIM(unittest.TestCase):
 		
 		cl_info = CloudInfo
 		cl_info.getCloudConnector = Mock(return_value=cloud)
+		self.cloud = cl_info
 		
 		radl = RADL()
 		radl.add(system("s0", [ Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er") ]))
 		radl.add(deploy("s0", 1))
-		
-		vm = VirtualMachine(None, '0', 1234, cl_info, radl, radl)
-		cloud.launch = Mock(return_value=[(True, vm)])
-
+		cloud.launch = Mock(side_effect=self.gen_launch_res)
 		self.register_cloudconnector("Mock", cloud)
 		auth0 = self.getAuth([0], [], [("Mock", 0)])
 		infId = IM.CreateInfrastructure("", auth0)
@@ -101,9 +107,9 @@ class TestIM(unittest.TestCase):
 		radl.add(system("s0", reference=True))
 		radl.add(deploy("s0", 1))
 		vms = IM.AddResource(infId, str(radl), auth0)
-		self.assertEqual(vms, ['0'])
+		self.assertEqual(vms, ['1'])
 
-		cloud.finalize = Mock(return_value=(True, vm))
+		cloud.finalize = Mock(side_effect=self.gen_finalize_res)
 		IM.DestroyInfrastructure(infId, auth0)
 
 	def test_inf_addresources1(self):
@@ -114,20 +120,20 @@ class TestIM(unittest.TestCase):
 		cl_info = CloudInfo
 		cloud = CloudConnector
 		cl_info.getCloudConnector = Mock(return_value=cloud)
+		self.cloud = cl_info
 		radl = RADL()
 		radl.add(system("s0", [ Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er") ]))
 		radl.add(deploy("s0", n))
-		vm = VirtualMachine(None, '0', 1224, cl_info, radl, radl)
-		cloud.launch = Mock(return_value=[(True, vm)])
+		cloud.launch = Mock(side_effect=self.gen_launch_res)
 		self.register_cloudconnector("Mock", cloud)
 		auth0 = self.getAuth([0], [], [("Mock", 0)])
 		infId = IM.CreateInfrastructure("", auth0)
 		vms = IM.AddResource(infId, str(radl), auth0)
-		self.assertEqual(vms, [ '0' for _ in range(n) ])
+		self.assertEqual(len(vms), n)
 		self.assertEqual(cloud.launch.call_count, n)
 		for call, _ in cloud.launch.call_args_list:
 			self.assertEqual(call[4], 1)
-		cloud.finalize = Mock(return_value=(True, vm))
+		cloud.finalize = Mock(side_effect=self.gen_finalize_res)
 		IM.DestroyInfrastructure(infId, auth0)
 
 	def test_inf_addresources2(self):
@@ -147,19 +153,21 @@ class TestIM(unittest.TestCase):
 		cloud0 = type("MyMock0", (CloudConnector,object), {})
 		cl_info0 = CloudInfo
 		cl_info0.getCloudConnector = Mock(return_value=cloud0)
-		cloud0.launch = Mock(return_value=[(True, VirtualMachine(None, '0' , 0, cl_info0, radl, radl))])
+		self.cloud = cl_info0
+		cloud0.launch = Mock(side_effect=self.gen_launch_res)
 		cloud0.concreteSystem = lambda _0, s, _1: concreteSystem(s, "mock0")
 		self.register_cloudconnector("Mock0", cloud0)
 		cloud1 = type("MyMock1", (CloudConnector,object), {})
 		cl_info1 = CloudInfo
 		cl_info1.getCloudConnector = Mock(return_value=cloud1)
-		cloud1.launch = Mock(return_value=[(True, VirtualMachine(None, '1' , 1, cl_info1, radl, radl))])
+		self.cloud = cl_info1
+		cloud1.launch = Mock(side_effect=self.gen_launch_res)
 		cloud1.concreteSystem = lambda _0, s, _1: concreteSystem(s, "mock1")
 		self.register_cloudconnector("Mock1", cloud1)
 		auth0 = self.getAuth([0], [], [("Mock0", 0), ("Mock1", 1)])
 		infId = IM.CreateInfrastructure("", auth0)
 		vms = IM.AddResource(infId, str(radl), auth0)
-		self.assertEqual(sorted(vms), ['0' for _ in range(n0)] + ['1' for _ in range(n1)])
+		self.assertEqual(len(vms), n0+n1)
 		self.assertEqual(cloud0.launch.call_count, n0)
 		self.assertEqual(cloud1.launch.call_count, n1)
 		for call, _ in cloud0.launch.call_args_list + cloud1.launch.call_args_list:
@@ -182,19 +190,21 @@ class TestIM(unittest.TestCase):
 		cloud0 = type("MyMock0", (CloudConnector,object), {})
 		cl_info0 = CloudInfo
 		cl_info0.getCloudConnector = Mock(return_value=cloud0)
-		cloud0.launch = Mock(return_value=[(True, VirtualMachine(None, '0' , 0, cl_info0, radl, radl))])
+		self.cloud = cl_info0
+		cloud0.launch = Mock(side_effect=self.gen_launch_res)
 		cloud0.concreteSystem = lambda _0, s, _1: concreteSystem(s, 500)
 		self.register_cloudconnector("Mock0", cloud0)
 		cloud1 = type("MyMock1", (CloudConnector,object), {})
 		cl_info1 = CloudInfo
 		cl_info1.getCloudConnector = Mock(return_value=cloud1)
-		cloud1.launch = Mock(return_value=[(True, VirtualMachine(None, '1', 1, cl_info1, radl, radl))])
+		self.cloud = cl_info1
+		cloud1.launch = Mock(side_effect=self.gen_launch_res)
 		cloud1.concreteSystem = lambda _0, s, _1: concreteSystem(s, 1000)
 		self.register_cloudconnector("Mock1", cloud1)
 		auth0 = self.getAuth([0], [0], [("Mock0", 0), ("Mock1", 1)])
 		infId = IM.CreateInfrastructure("", auth0)
 		vms = IM.AddResource(infId, str(radl), auth0)
-		self.assertEqual(sorted(vms), ['0' for _ in range(n0)] + ['1' for _ in range(n1)])
+		self.assertEqual(len(vms), n0+n1)
 		self.assertEqual(cloud0.launch.call_count, n0)
 		self.assertEqual(cloud1.launch.call_count, n1)
 		for call, _ in cloud0.launch.call_args_list + cloud1.launch.call_args_list:

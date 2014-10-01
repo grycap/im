@@ -1,6 +1,6 @@
 recursive-exclude test *
 recursive-include contextualization *
-include im
+include im.init.d
 include etc/im.cfg
 include LICENSE
 include INSTALL

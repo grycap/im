@@ -31,6 +31,7 @@ class Config:
 	XMLRCP_PORT = 8899
 	ACTIVATE_REST = False
 	REST_PORT = 8800
+	USER_DB = ""
 	IM_PATH = os.path.dirname(os.path.realpath(__file__))
 	LOG_FILE = '/var/log/im/inf.log'
 	LOG_FILE_MAX_SIZE = 10485760
@@ -89,6 +90,9 @@ if config.has_option('im', "REST_PORT"):
 
 if config.has_option('im', "IM_PATH"):
 	Config.IM_PATH = config.get('im', "IM_PATH")
+	
+if config.has_option('im', "USER_DB"):
+	Config.USER_DB = config.get('im', "USER_DB")
 
 if config.has_option('im', "LOG_LEVEL"):
 	Config.LOG_LEVEL = eval(config.get('im', "LOG_LEVEL"))

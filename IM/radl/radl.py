@@ -17,8 +17,6 @@
 import copy
 from itertools import groupby
 from distutils.version import LooseVersion
-from IM.config import Config
-from IM.VirtualMachine import VirtualMachine
 
 def UnitToValue(unit):
 	"""Return the value of an unit."""
@@ -75,6 +73,13 @@ class Feature:
 		"""Return a copy of this Feature."""
 
 		return copy.deepcopy(self)
+	
+	def getLogOperator(self):
+		"""Return the operator of this Feature in python style."""
+		if self.operator == "=":
+			return "=="
+		else:
+			return self.operator
 
 	def getValue(self, unit=None):
 		"""
@@ -755,11 +760,12 @@ class system(Features, Aspect):
 				return i
 			i += 1 
 
-	def getRequestedNameIface(self, iface_num=0, num = None, default_hostname = Config.DEFAULT_VM_NAME, default_domain = Config.DEFAULT_DOMAIN):
+	def getRequestedNameIface(self, iface_num=0, num = None, default_hostname = None, default_domain = None):
 		"""Return the dns name associated to the net interface."""
 		
 		full_name = self.getValue("net_interface.%d.dns_name" % iface_num)
-		replaced_full_name = system._replaceTemplateName(full_name, num)
+		
+		replaced_full_name = system.replaceTemplateName(full_name, num)
 	
 		if replaced_full_name:
 			(hostname, domain) = replaced_full_name
@@ -773,7 +779,7 @@ class system(Features, Aspect):
 				return None
 	
 	@staticmethod
-	def _replaceTemplateName(full_name, num = None):
+	def replaceTemplateName(full_name, num = None):
 		if full_name:
 			if num is not None:
 				full_name = full_name.replace("#N#", str(num))

@@ -60,10 +60,6 @@ class DockerCloudConnector(CloudConnector):
 			protocol = url[0]
 			if protocol == 'docker' and url[1]:
 				res_system = radl_system.clone()
-				
-				res_system.addFeature(Feature("cpu.count", "=", Config.DEFAULT_VM_CPUS), conflict="me", missing="other")
-				res_system.addFeature(Feature("memory.size", "=", Config.DEFAULT_VM_MEMORY, Config.DEFAULT_VM_MEMORY_UNIT), conflict="me", missing="other")
-				res_system.addFeature(Feature("cpu.arch", "=", Config.DEFAULT_VM_CPU_ARCH), conflict="me", missing="other")
 
 				res_system.addFeature(Feature("virtual_system_type", "=", "docker"), conflict="other", missing="other")
 
@@ -200,7 +196,7 @@ class DockerCloudConnector(CloudConnector):
 				if local_port != "22":
 					exposed_ports = exposed_ports + ', "' + local_port + '/tcp": {}'
 
-		(nodename, nodedom) = system.getRequestedNameIface(num = vm_id)
+		(nodename, nodedom) = system.getRequestedNameIface(num = vm_id, default_hostname = Config.DEFAULT_VM_NAME, default_domain = Config.DEFAULT_DOMAIN)
 
 		create_request_json = """ {
 			 "Hostname":"%s",
@@ -254,9 +250,9 @@ class DockerCloudConnector(CloudConnector):
 					ssh_port = DockerCloudConnector._port_base_num + DockerCloudConnector._port_counter
 					DockerCloudConnector._port_counter += 1
 
-					start_request_json = start_request_json + self._generate_port_bindings(outports, ssh_port)
+					start_request_json += self._generate_port_bindings(outports, ssh_port)
 					
-					start_request_json = start_request_json + "}" 
+					start_request_json += "}" 
 				
 				body = start_request_json
 				conn.putheader('Content-Length', len(body))
@@ -270,8 +266,8 @@ class DockerCloudConnector(CloudConnector):
 				
 				vm = VirtualMachine(inf, vm_id, docker_vm_id, self.cloud, radl, requested_radl)
 				
-				# Set ssh port in the RADL info
-				self.setSSHPort(vm, ssh_port)
+				# Set ssh port in the RADL info of the VM
+				vm.setSSHPort(ssh_port)
 				
 				res.append((True, vm))
 
@@ -280,25 +276,6 @@ class DockerCloudConnector(CloudConnector):
 				res.append((False, "ERROR: " + str(ex)))
 
 		return res
-	
-	def setSSHPort(self, vm, ssh_port):
-		now = str(int(time.time()*100))
-
-		public_net = None
-		for net in vm.info.networks:
-			if net.isPublic():
-				public_net = net
-				
-		if public_net is None:
-			public_net = network.createNetwork("public." + now, True)
-			vm.info.networks.append(public_net)
-
-		outports = public_net.getValue('outports')
-		if outports:
-			outports = outports + "," + str(ssh_port) + "-22"
-		else:
-			outports = str(ssh_port) + "-22"
-		public_net.setValue('outports', outports)
 
 	def updateVMInfo(self, vm, auth_data):	
 		try:
