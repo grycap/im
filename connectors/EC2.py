@@ -236,7 +236,7 @@ class EC2CloudConnector(CloudConnector):
 				outports = public_net.getValue('outports')
 				if outports:
 					ports = outports.split(',')
-					for port in enumerate(ports):
+					for port in ports:
 						parts = port.split('-')
 						local_port = parts[1]
 						remote_port = parts[0]
