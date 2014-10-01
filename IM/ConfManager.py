@@ -702,8 +702,6 @@ class ConfManager(threading.Thread):
 		recipe_out.write("---\n")
 		recipe_out.write("- hosts: all\n")
 		recipe_out.write("  sudo: yes\n")
-		recipe_out.write("  vars_files:\n")
-		recipe_out.write('    - [ "utils/vars/{{ ansible_distribution }}.yml", "utils/vars/os_defaults.yml" ]\n')
 		recipe_out.write("  tasks:\n")
 		recipe_out.write("    - name: Create the /etc/ansible directory\n")
 		recipe_out.write("      file: path=/etc/ansible state=directory\n")
