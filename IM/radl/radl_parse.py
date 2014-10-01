@@ -54,7 +54,7 @@ def p_recipe(t):
 	"""recipe : RECIPE_LINE
 			  | RECIPE_LINE recipe"""
 	if len(t) == 3:
-		t[0] = t[1] + "\n" + t[2]
+		t[0] = t[1] + t[2]
 	else:
 		t[0] = t[1]
 
@@ -170,7 +170,7 @@ def p_feature_contains(t):
 	t[0] = Feature(t[1], t[2], Features(t[4]), line=t.lineno(1))
 
 def p_error(t):
-	raise RADLParseException("Parse error in: " + str(t))
+	raise RADLParseException("Parse error in: " + str(t), line=t.lineno if t else None)
 
 def parse_radl(data):
 	"""
@@ -186,7 +186,7 @@ def parse_radl(data):
 		f = open(data)
 		data = "".join(f.readlines())
 		f.close()
-	elif data == "":
-		return RADL()
+	data = data + "\n"
 	lexer.lineno = 1
-	return yacc.yacc().parse(data)
+	lexer.begin('INITIAL')
+	return yacc.yacc().parse(data, tracking=True, debug=0)

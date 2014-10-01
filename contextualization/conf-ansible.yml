@@ -29,44 +29,50 @@
       when: fedora_os
       
     - name: Yum install requirements RH6
-      action: command yum -y install python-distribute gcc python-devel
-      when: redhat_os and {{ ansible_distribution_version|float }} >= 6
+      action: command yum -y install python-distribute gcc python-devel wget
+      when: redhat_os and ansible_distribution_version|float >= 6.0
         
     - name: Yum install requirements RH5
       action: command yum -y --nogpg install python26 python26-simplejson python26-distribute gcc python26-devel
-      when: redhat_os and {{ ansible_distribution_version|float }} < 6
+      when: redhat_os and ansible_distribution_version|float < 6.0
         
     - name: Install Pip 2.6
       action: command easy_install-2.6 pip==1.4.1
-      when: redhat_os and {{ ansible_distribution_version|float }} < 6
+      when: redhat_os and ansible_distribution_version|float < 6.0
       
     - name: Install Pip
       easy_install: name=pip
-      when: not redhat_os or {{ ansible_distribution_version|float }} >= 6
+      when: not redhat_os or ansible_distribution_version|float >= 6.0
+      register: result_install_pip
+      ignore_errors: True
+
+    - name: Install Pip (alternative)
+      shell: wget https://raw.github.com/pypa/pip/master/contrib/get-pip.py && python get-pip.py
+      when: result_install_pip|failed
 
     - name: Link python 
       file: src=/usr/bin/python dest=/usr/bin/python_ansible state=link
-      when: not redhat_os or {{ ansible_distribution_version|float }} >= 6
+      when: not redhat_os or ansible_distribution_version|float >= 6
 
     - name: Link python 2.6
       file: src=/usr/bin/python2.6 dest=/usr/bin/python_ansible state=link
-      when: redhat_os and {{ ansible_distribution_version|float }} < 6
+      when: redhat_os and ansible_distribution_version|float < 6
 
     - name: Install ansible with Pip
       pip: name=ansible version={{ ANSIBLE_VERSION }}
-      when: not redhat_os or {{ ansible_distribution_version|float }} >= 6
+      when: not redhat_os or ansible_distribution_version|float >= 6
       
     - name: Install ansible with Pip 2.6
       action: command pip-2.6 install ansible=={{ ANSIBLE_VERSION }}
-      when: redhat_os and {{ ansible_distribution_version|float }} < 6
+      when: redhat_os and ansible_distribution_version|float < 6
       
     - name: Install pywinrm for windows support in ansible with Pip
       pip: name=http://github.com/diyan/pywinrm/archive/master.zip#egg=pywinrm
-      when: not redhat_os or {{ ansible_distribution_version|float }} >= 6
+      when: not redhat_os or ansible_distribution_version|float >= 6
       
     - name: Install pywinrm for windows support in ansible with Pip 2.6
       action: command pip-2.6 install http://github.com/diyan/pywinrm/archive/master.zip#egg=pywinrm
-      when: redhat_os and {{ ansible_distribution_version|float }} < 6
+      when: redhat_os and ansible_distribution_version|float < 6
 
     - name: Disable SELinux
       command: /usr/sbin/setenforce 0

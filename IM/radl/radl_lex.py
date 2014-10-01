@@ -16,12 +16,10 @@
 
 import ply.lex as lex
 
-# Ponemos los estados para gestionan el tema de las recetas
 states = (
    ('recipe', 'exclusive'),
 )
 
-# Lista de nombres de Token. Esto es obligatorio.
 tokens = (
 	'LPAREN',
 	'RPAREN',
@@ -86,7 +84,7 @@ def t_RPAREN(t):
 	r'\)'
 	return t
 
-def t_ANY_newline(t):
+def t_newline(t):
 	r'\n+'
 	t.lexer.lineno += len(t.value)
 
@@ -118,7 +116,7 @@ reserved = {
 
 def t_VAR(t):
 	r'[a-zA-Z_.][\w\d_.]*'
-	t.type = reserved.get(t.value, 'VAR')  # Verificar palabras reservadas
+	t.type = reserved.get(t.value, 'VAR')  # Check reserved words
 	return t
 
 def t_RECIPE_BEGIN(t):
@@ -131,18 +129,17 @@ def t_recipe_RECIPE_END(t):
 	t.lexer.begin('INITIAL')
 	return t
 
-# Definimos la receta con cualquier caracter diferente de "(" y ")"
 def t_recipe_RECIPE_LINE(t):
-	r'.+'
+	r'.*\n'
 	t.type = 'RECIPE_LINE'
+	t.lexer.lineno += t.value.count("\n")
 	return t
 
 # Error handling rule
 def t_ANY_error(t):
-	print "Illegal character '%s'" % t.value[0]
+	print "Illegal character '%s' in line %s" % (t.value[0], t.lineno)
 	t.lexer.skip(1)
 
-#lexer = lex.lex(optimize=1)
-lexer = lex.lex()
+lexer = lex.lex(optimize=1)
 if __name__ == "__main__":
 	lex.runmain(lexer)

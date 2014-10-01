@@ -772,7 +772,8 @@ class InfrastructureManager:
 
 		sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
 		exceptions = []
-		for vm in sel_inf.get_vm_list():
+		# If IM server is the first VM, then it will be the last destroyed
+		for vm in reversed(sel_inf.get_vm_list()):
 			try:
 				success = False
 				cl = vm.cloud.getCloudConnector()
