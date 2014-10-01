@@ -174,3 +174,30 @@ This is the list of method names:
    Update the infrastructure with ID ``infId`` using the *configuration
    sections* in the RADL ``radl``. Some virtual machines associated to the
    infrastructure may be reconfigured.
+
+.. _ExportInfrastructure-xmlrpc:
+
+``ExportInfrastructure``
+   :parameter 0: ``infId``: integer
+   :parameter 1: ``delete``: bool
+   :parameter 2: ``auth``: array of structs
+   :ok response: [true, string]
+   :fail response: [false, ``error``: string]
+
+   Return the serialization of the infrastructure with ID ``infId``. If
+   ``delete`` is true, the infrastructure is marked as ``deleted`` after
+   that (and no machine is undeployed). This function is useful to transfer
+   the control of an infrastructure to other IM server. See 
+   :ref:`ImportInfrastructure <ImportInfrastructure-xmlrpc>`.
+
+.. _ImportInfrastructure-xmlrpc:
+
+``ImportInfrastructure``
+   :parameter 0: ``strInf``: string
+   :parameter 1: ``auth``: array of structs
+   :ok response: [true, ``infId``: integer]
+   :fail response: [false, ``error``: string]
+
+   Take control of the infrastructure serialized in ``strInf`` and return
+   the ID associated in the server. See
+   :ref:`ExportInfrastructure <ExportInfrastructure-xmlrpc>`.
