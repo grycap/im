@@ -536,7 +536,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 			if radl_net.id not in res:
 				res[radl_net.id] = last_net
 	
-		# In case of there are no private network, use public ones for non maped networks
+		# In case of there are no private network, use public ones for non mapped networks
 		used_nets = []
 		for radl_net in radl_nets:
 			if not res[radl_net.id]:
