@@ -102,10 +102,10 @@ $ chown -R root:root IM-X.XX
 $ mv IM-X.XX /usr/local
 ```
 
-Finally you must copy (or link) $IM_PATH/im file to /etc/init.d directory.
+Finally you must copy (or link) $IM_PATH/im.init.d file to /etc/init.d directory.
 
 ```
-$ ln -s /usr/local/im/im /etc/init.d
+$ ln -s /usr/local/im/im.init.d /etc/init.d
 ```
 
 1.4 CONFIGURATION
