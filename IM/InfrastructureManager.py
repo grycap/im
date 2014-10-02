@@ -376,9 +376,12 @@ class InfrastructureManager:
 			s_without_apps.delValue("disk.0.applications")
 			
 			# Set the default values for cpu, memory
-			s_without_apps.addFeature(Feature("cpu.count", ">=", Config.DEFAULT_VM_CPUS), conflict="me", missing="other")
-			s_without_apps.addFeature(Feature("memory.size", ">=", Config.DEFAULT_VM_MEMORY, Config.DEFAULT_VM_MEMORY_UNIT), conflict="me", missing="other")
-			s_without_apps.addFeature(Feature("cpu.arch", "=", Config.DEFAULT_VM_CPU_ARCH), conflict="me", missing="other")
+			defaults = (Feature("cpu.count", ">=", Config.DEFAULT_VM_CPUS),
+			            Feature("memory.size", ">=", Config.DEFAULT_VM_MEMORY),
+			            Feature("cpu.arch", "=", Config.DEFAULT_VM_CPU_ARCH))
+			for f in defaults:
+				if not s_without_apps.hasFeature(f.prop, check_softs=True):
+					s_without_apps.addFeature(f)
 
 			vmrc_res = [ s0 for vmrc in vmrc_list for s0 in vmrc.search_vm(s) ]
 			if not s.getValue("disk.0.image.url") and not vmrc_res:

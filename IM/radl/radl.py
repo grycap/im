@@ -252,10 +252,11 @@ class Features(object):
 			elif value0.value != f.value and conflict == "error":
 				raise RADLParseException("Conflict adding `%s` because `%s` is already set." % (f, value0), line=f.line)
 
-	def hasFeature(self, prop):
+	def hasFeature(self, prop, check_softs=False):
 		"""Return if there is a property with that name."""
 
-		return prop in self.props
+		return prop in self.props or (check_softs and
+			any([ fs.hasFeature(prop) for fs in self.props.get(SoftFeatures.SOFT, []) ]))
 
 	def getValue(self, prop, default=None):
 		"""Return the value of feature with that name or ``default``."""

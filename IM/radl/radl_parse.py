@@ -186,6 +186,8 @@ def parse_radl(data):
 		f = open(data)
 		data = "".join(f.readlines())
 		f.close()
+	if data == "":
+		return RADL()
 	data = data + "\n"
 	lexer.lineno = 1
 	lexer.begin('INITIAL')
