@@ -17,11 +17,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
-import os
 import xmlrpclib
 import time
 
-from IM.config import Config
 from IM.auth import Authentication
 from IM.VirtualMachine import VirtualMachine
 from IM.radl import radl_parse
@@ -35,19 +33,6 @@ AUTH_FILE = TESTS_PATH + '/auth.dat'
 
 HOSTNAME = "localhost"
 TEST_PORT = 8899
-
-def setConfig():
-    Config.XMLRCP_PORT = TEST_PORT
-    Config.ACTIVATE_REST = False
-    # Poner bien este parametro
-    Config.IM_PATH = os.getcwd()
-    Config.LOG_FILE = Config.IM_PATH + '/test/inf.log'
-    Config.CONTEXTUALIZATION_DIR = Config.IM_PATH + '/contextualization'
-    Config.RECIPES_DIR = Config.CONTEXTUALIZATION_DIR + '/AnsibleRecipes'
-    Config.RECIPES_DB_FILE = Config.CONTEXTUALIZATION_DIR + '/recipes_ansible.db'
-    Config.DATA_FILE = Config.IM_PATH + '/test/inf.dat'
-    Config.XMLRCP_SSL = False
-    Config.REST_SSL = False
 
 class TestIM(unittest.TestCase):
 

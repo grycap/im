@@ -653,6 +653,42 @@ class network(Features, Aspect):
 
 		return network(name, [Feature("outbound", "=", "yes" if public else "no")])
 
+	def getOutPorts(self):
+		"""
+		Get the outports of this network.
+		outports format: 22/tcp-22/tcp,8899/tcp,8800
+		Returns a tuple with the format: (remote_port,remote_protocol,local_port,local_protocol)
+		"""
+		outports = self.getValue("outports")
+		if outports:
+			res = []
+			ports = outports.split(',')
+			for port in ports:
+				parts = port.split('-')
+				remote_port = parts[0]
+				if len(parts) > 1:
+					local_port = parts[1]
+				else:
+					local_port = remote_port
+
+				local_port_parts = local_port.split("/")
+				if len(local_port_parts) > 1:
+					local_protocol = local_port_parts[1]
+					local_port = local_port_parts[0]
+				else:
+					local_protocol = "tcp"
+			
+				remote_port_parts = remote_port.split("/")	
+				if len(remote_port_parts) > 1:
+					remote_protocol = remote_port_parts[1]
+					remote_port = remote_port_parts[0]
+				else:
+					remote_protocol = "tcp"
+				res.append((remote_port,remote_protocol,local_port,local_protocol))
+			return res
+		else:
+			return None
+
 class FeaturesApp(Features):
 	"""Store an RADL application."""
 

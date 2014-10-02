@@ -182,11 +182,13 @@ def parse_radl(data):
 	Return: RADL object.
 	"""
 
-	if os.path.isfile(data):
+	if data is None:
+		return None
+	elif os.path.isfile(data):
 		f = open(data)
 		data = "".join(f.readlines())
 		f.close()
-	if data == "":
+	elif data.strip() == "":
 		return RADL()
 	data = data + "\n"
 	lexer.lineno = 1

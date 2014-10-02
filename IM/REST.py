@@ -211,30 +211,45 @@ def RESTAlterVM(infid=None, vmid=None):
 		bottle.abort(409, "Error modifying resources: " + str(ex))
 		return False
 
-@app.route('/inf/:id', method='PUT')
-def RESTStartStopReconfigureInfrastructure(id=None):
+@app.route('/inf/:id/reconfigure', method='PUT')
+def RESTReconfigureInfrastructure(id=None):
 	try:
 		auth_data = bottle.request.headers['AUTHORIZATION'].split(AUTH_LINE_SEPARATOR)
 		auth = Authentication(Authentication.read_auth_data(auth_data))
 	except:
 		bottle.abort(401, "No authentication data provided")
 
-	op = bottle.request.forms.get('op')
+	try:
+		radl_data = bottle.request.forms.get('radl')
+		return InfrastructureManager.Reconfigure(int(id), radl_data, auth)
+	except Exception, ex:
+		bottle.abort(409, "Error reconfiguring infrastructure: " + str(ex))
+		return False
+
+@app.route('/inf/:id/start', method='PUT')
+def RESTStartInfrastructure(id=None):
+	try:
+		auth_data = bottle.request.headers['AUTHORIZATION'].split(AUTH_LINE_SEPARATOR)
+		auth = Authentication(Authentication.read_auth_data(auth_data))
+	except:
+		bottle.abort(401, "No authentication data provided")
 
 	try:
-		if op in ["start", "stop"]:
-			if op == "start":
-				InfrastructureManager.StartInfrastructure(int(id), auth)
-			else:
-				InfrastructureManager.StopInfrastructure(int(id), auth)
-	
-			return ""
-		elif op == "reconfigure":
-			radl_data = bottle.request.forms.get('radl')
-			InfrastructureManager.Reconfigure(int(id), radl_data, auth)
-		else:
-			bottle.abort(405, "Incorrect operation: only start or stop are allowed")
-			return False
+		return InfrastructureManager.StartInfrastructure(int(id), auth)	
 	except Exception, ex:
-		bottle.abort(409, "Error performing " + op + " operation: " + str(ex))
+		bottle.abort(409, "Error starting infrastructure: " + str(ex))
+		return False
+
+@app.route('/inf/:id/stop', method='PUT')
+def RESTStopInfrastructure(id=None):
+	try:
+		auth_data = bottle.request.headers['AUTHORIZATION'].split(AUTH_LINE_SEPARATOR)
+		auth = Authentication(Authentication.read_auth_data(auth_data))
+	except:
+		bottle.abort(401, "No authentication data provided")
+
+	try:
+		return InfrastructureManager.StopInfrastructure(int(id), auth)	
+	except Exception, ex:
+		bottle.abort(409, "Error stopping infrastructure: " + str(ex))
 		return False
