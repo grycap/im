@@ -37,6 +37,25 @@ from IM.recipe import Recipe
 
 from config import Config
 
+class IncorrectInfrastructureException(Exception):
+	""" Invalid infrastructure ID or access not granted. """
+
+	def __init__(self, msg="Invalid infrastructure ID or access not granted."):
+		Exception.__init__(self, msg)
+		
+class DeletedInfrastructureException(Exception):
+	""" Deleted infrastructure. """
+
+	def __init__(self, msg="Deleted infrastructure."):
+		Exception.__init__(self, msg)
+		
+class UnauthorizedUserException(Exception):
+	""" Invalid InfrastructureManager credentials """
+
+	def __init__(self, msg="Invalid InfrastructureManager credentials"):
+		Exception.__init__(self, msg)
+
+
 class InfrastructureManager:
 	"""
 	Front-end to the functionality of the service.
@@ -189,14 +208,14 @@ class InfrastructureManager:
 
 		if inf_id not in InfrastructureManager.infrastructure_list:
 			InfrastructureManager.logger.error("Error, incorrect infrastructure ID")
-			raise Exception("Invalid infrastructure ID or access not granted.""")
+			raise IncorrectInfrastructureException()
 		sel_inf = InfrastructureManager.infrastructure_list[inf_id]
 		if sel_inf.auth != None and not sel_inf.auth.compare(auth, 'InfrastructureManager'):
 			InfrastructureManager.logger.error("Access Error")
-			raise Exception("Invalid infrastructure ID or access not granted.""")
+			raise IncorrectInfrastructureException()
 		if sel_inf.deleted:
 			InfrastructureManager.logger.error("Access to a deleted infrastructure.")
-			raise Exception("Deleted infrastructure.""")
+			raise DeletedInfrastructureException()
 			
 		return sel_inf
 
@@ -852,7 +871,7 @@ class InfrastructureManager:
 		
 		# First check if it is configured to check the users from a list
 		if not InfrastructureManager.check_im_user(auth.getAuthInfo("InfrastructureManager")):
-			raise Exception("Invalid InfrastructureManager credentials")
+			raise UnauthorizedUserException()
 		
 		# Create a new infrastructure
 		inf = InfrastructureInfo.InfrastructureInfo()

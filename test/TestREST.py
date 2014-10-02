@@ -55,13 +55,13 @@ class TestIM(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         try:
-            cls.server.request('DELETE', "/inf/" + cls.inf_id, headers = {'Authorization' : cls.auth_data})
+            cls.server.request('DELETE', "/infrastructures/" + cls.inf_id, headers = {'Authorization' : cls.auth_data})
             cls.server.getresponse()
         except Exception, ex:
             print "Error deleting the infrastructure: ", ex
 
     def wait_inf_state(self, state, timeout):
-        self.server.request('GET', "/inf/" + self.inf_id, headers = {'AUTHORIZATION' : self.auth_data})
+        self.server.request('GET', "/infrastructures/" + self.inf_id, headers = {'AUTHORIZATION' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
         self.assertIs(resp.status, 200, msg="ERROR al obtener la informacion de la infraestructura:" + output)
@@ -99,7 +99,7 @@ class TestIM(unittest.TestCase):
         return all_ok
 
     def test_10_list(self):
-        self.server.request('GET', "/infrastructure", headers = {'AUTHORIZATION' : self.auth_data})
+        self.server.request('GET', "/infrastructures", headers = {'AUTHORIZATION' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
         self.assertIs(resp.status, 200, msg="ERROR al listar las infraestructuras:" + output)
@@ -111,7 +111,7 @@ class TestIM(unittest.TestCase):
             radl += line
         f.close()
 
-        self.server.request('POST', "/infrastructure", body = radl, headers = {'AUTHORIZATION' : self.auth_data})
+        self.server.request('POST', "/infrastructures", body = radl, headers = {'AUTHORIZATION' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
         self.assertIs(resp.status, 200, msg="ERROR creating the infrastructure:" + output)
@@ -122,7 +122,7 @@ class TestIM(unittest.TestCase):
         self.assertTrue(all_configured, msg="ERROR al esperar la creacion de la Infraestructura.")
 
     def test_14_get_vm_info(self):
-        self.server.request('GET', "/inf/" + self.inf_id, headers = {'AUTHORIZATION' : self.auth_data})
+        self.server.request('GET', "/infrastructures/" + self.inf_id, headers = {'AUTHORIZATION' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
         self.assertIs(resp.status, 200, msg="ERROR getting the infrastructure info:" + output)
@@ -136,12 +136,12 @@ class TestIM(unittest.TestCase):
         self.assertIs(resp.status, 200, msg="ERROR al obtener la informacion de la VM:" + output)
 
     def test_18_addresource(self):
-        self.server.request('POST', "/inf/" + self.inf_id, body = RADL_ADD, headers = {'AUTHORIZATION' : self.auth_data})
+        self.server.request('POST', "/infrastructures/" + self.inf_id, body = RADL_ADD, headers = {'AUTHORIZATION' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
         self.assertIs(resp.status, 200, msg="ERROR al anaydir recursos a la infraestructura:" + output)
 
-        self.server.request('GET', "/inf/" + self.inf_id, headers = {'AUTHORIZATION' : self.auth_data})
+        self.server.request('GET', "/infrastructures/" + self.inf_id, headers = {'AUTHORIZATION' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
         self.assertIs(resp.status, 200, msg="ERROR getting the infrastructure info:" + output)
@@ -152,7 +152,7 @@ class TestIM(unittest.TestCase):
         self.assertTrue(all_configured, msg="ERROR al esperar la creacion de la Infraestructura.")
 
     def test_19_removeresource(self):
-        self.server.request('GET', "/inf/" + self.inf_id, headers = {'AUTHORIZATION' : self.auth_data})
+        self.server.request('GET', "/infrastructures/" + self.inf_id, headers = {'AUTHORIZATION' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
         self.assertIs(resp.status, 200, msg="ERROR getting the infrastructure info:" + output)
@@ -165,7 +165,7 @@ class TestIM(unittest.TestCase):
         output = str(resp.read())
         self.assertIs(resp.status, 200, msg="ERROR al borrar recursos de la infraestructura:" + output)
 
-        self.server.request('GET', "/inf/" + self.inf_id, headers = {'AUTHORIZATION' : self.auth_data})
+        self.server.request('GET', "/infrastructures/" + self.inf_id, headers = {'AUTHORIZATION' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
         self.assertIs(resp.status, 200, msg="ERROR getting the infrastructure info:" + output)
@@ -177,7 +177,7 @@ class TestIM(unittest.TestCase):
         self.assertTrue(all_configured, msg="ERROR al esperar la eliminacion de un nodo a la Infraestructura.")
 
     def test_20_stop(self):
-        self.server.request('PUT', "/inf/" + self.inf_id + "/stop", headers = {"Content-type": "application/x-www-form-urlencoded", 'AUTHORIZATION' : self.auth_data})
+        self.server.request('PUT', "/infrastructures/" + self.inf_id + "/stop", headers = {"Content-type": "application/x-www-form-urlencoded", 'AUTHORIZATION' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
         self.assertIs(resp.status, 200, msg="ERROR al parar la infraestructura:" + output)
@@ -186,7 +186,7 @@ class TestIM(unittest.TestCase):
         self.assertTrue(all_stopped, msg="ERROR al esperar la parada de la Infraestructura.")
 
     def test_21_start(self):
-        self.server.request('PUT', "/inf/" + self.inf_id + "/start", headers = {"Content-type": "application/x-www-form-urlencoded", 'AUTHORIZATION' : self.auth_data})
+        self.server.request('PUT', "/infrastructures/" + self.inf_id + "/start", headers = {"Content-type": "application/x-www-form-urlencoded", 'AUTHORIZATION' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
         self.assertIs(resp.status, 200, msg="ERROR al parar la infraestructura:" + output)
@@ -195,7 +195,7 @@ class TestIM(unittest.TestCase):
         self.assertTrue(all_stopped, msg="ERROR al esperar la parada de la Infraestructura.")
 
     def test_50_destroy(self):
-        self.server.request('DELETE', "/inf/" + self.inf_id, headers = {'Authorization' : self.auth_data})
+        self.server.request('DELETE', "/infrastructures/" + self.inf_id, headers = {'Authorization' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
         self.assertIs(resp.status, 200, msg="ERROR al borrar la infraestructura:" + output)
