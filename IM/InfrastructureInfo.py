@@ -21,6 +21,18 @@ import ConfManager
 from datetime import datetime
 from IM.radl.radl import RADL, Feature, deploy, system
 
+class IncorrectVMException(Exception):
+	""" Invalid VM ID. """
+
+	def __init__(self, msg="Invalid VM ID"):
+		Exception.__init__(self, msg)
+		
+class DeletedVMException(Exception):
+	""" Deleted VM. """
+
+	def __init__(self, msg="Deleted VM."):
+		Exception.__init__(self, msg)
+
 class InfrastructureInfo:
 	"""
 	Stores all the information about a registered infrastructure.
@@ -131,9 +143,12 @@ class InfrastructureInfo:
 		vm_id = int(str_vm_id)
 		if vm_id >= 0 and vm_id < len(self.vm_list):
 			vm = self.vm_list[vm_id]
-			return vm if not vm.destroy else None
+			if not vm.destroy:
+				return vm
+			else:
+				raise DeletedVMException()
 		else:
-			return None		
+			raise IncorrectVMException()
 
 	def get_vm_list_by_system_name(self):
 		groups = {}
