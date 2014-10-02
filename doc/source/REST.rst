@@ -114,13 +114,13 @@ DELETE ``http://imserver.com/infrastructures/<infId>``
    ``infId``.
 
 GET ``http://imserver.com/infrastructures/<infId>/vms/<vmId>``
-   :Content-type: application/json
+   :Content-type: text/plain
    :ok response: 200 OK
    :fail response: 401, 404, 400
 
    Return information about the virtual machine with ID ``vmId`` associated to
-   the infrastructure with ID ``infId``. See the details of the output in
-   :ref:`GetVMInfo <GetVMInfo-xmlrpc>`.
+   the infrastructure with ID ``infId``. The returned string is in RADL format. 
+   See more the details of the output in :ref:`GetVMInfo <GetVMInfo-xmlrpc>`.
 
 PUT ``http://imserver.com/infrastructures/<infId>/vms/<vmId>``
    :body: ``RADL document``

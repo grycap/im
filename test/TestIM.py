@@ -57,7 +57,7 @@ class TestIM(unittest.TestCase):
     def wait_inf_state(self, state, timeout):
         (success, res) = self.server.GetInfrastructureInfo(self.inf_id, self.auth_data)
         self.assertTrue(success, msg="ERROR al obtener la informacion de la infraestructura:" + str(res))
-        self.assertIs(len(res), 2, msg="ERROR al obtener la informacion de la infraestructura: Numero incorrecto de VMs(" + str(len(res)) + ") deberia ser 2")
+        self.assertEqual(len(res), 2, msg="ERROR al obtener la informacion de la infraestructura: Numero incorrecto de VMs(" + str(len(res)) + ") deberia ser 2")
 
         vm_ids = res['vm_list']
 
@@ -125,7 +125,7 @@ class TestIM(unittest.TestCase):
         self.assertTrue(success, msg="ERROR getting the infrastructure info: " + str(res))
         vm_ids = res['vm_list']
         (success, info)  = self.server.GetVMInfo(self.inf_id, vm_ids[0], self.auth_data)
-        self.assertIs(success, True, msg="ERROR al obtener la informacion de la VM: " + str(info))
+        self.assertEqual(success, True, msg="ERROR al obtener la informacion de la VM: " + str(info))
         info_radl = radl_parse.parse_radl(info)
         prop_usage = info_radl.systems[0].getValue("cpu.usage")
         self.assertIsNotNone(prop_usage, msg="ERROR al obtener la informacion de ganglia de la VM (cpu.usage = None)")
@@ -143,7 +143,7 @@ class TestIM(unittest.TestCase):
         (success, res) = self.server.GetInfrastructureInfo(self.inf_id, self.auth_data)
         self.assertTrue(success, msg="ERROR al obtener la informacion de la infraestructura:" + str(res))
         vm_ids = res['vm_list']
-        self.assertIs(len(vm_ids), 3, msg="ERROR al obtener la informacion de la infraestructura: Numero incorrecto de VMs(" + str(len(vm_ids)) + ") deberia ser 3")
+        self.assertEqual(len(vm_ids), 3, msg="ERROR al obtener la informacion de la infraestructura: Numero incorrecto de VMs(" + str(len(vm_ids)) + ") deberia ser 3")
 
         all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 900)
         self.assertTrue(all_configured, msg="ERROR al esperar la adicion de un nodo a la Infraestructura.")
@@ -158,7 +158,7 @@ class TestIM(unittest.TestCase):
         (success, res) = self.server.GetInfrastructureInfo(self.inf_id, self.auth_data)
         self.assertTrue(success, msg="ERROR al obtener la informacion de la infraestructura:" + str(res))
         vm_ids = res['vm_list']
-        self.assertIs(len(vm_ids), 2, msg="ERROR al obtener la informacion de la infraestructura: Numero incorrecto de VMs(" + str(len(vm_ids)) + ") deberia ser 2")
+        self.assertEqual(len(vm_ids), 2, msg="ERROR al obtener la informacion de la infraestructura: Numero incorrecto de VMs(" + str(len(vm_ids)) + ") deberia ser 2")
 
         all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 600)
         self.assertTrue(all_configured, msg="ERROR al esperar la eliminacion de un nodo a la Infraestructura.")
