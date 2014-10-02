@@ -10,7 +10,7 @@ the content of the :ref:`auth-file`, but the lines separated with
 "\\n" instead. If the content cannot be parsed successfully, or the user and
 password are not valid, it is returned the HTTP error code 401.
 
-Next table summaries the resources and the HTTP methods available.
+Next tables summaries the resources and the HTTP methods available.
 
 +-------------+-----------------------+-------------------+-------------------------+
 | HTTP method |   /infrastructure     |   /inf/<infId>    |   /vms/<infId>/<vmId>   |
@@ -26,18 +26,24 @@ Next table summaries the resources and the HTTP methods available.
 |             | based on the RADL     | based on the RADL |                         |
 |             | posted.               | posted.           |                         |
 +-------------+-----------------------+-------------------+-------------------------+
-| **PUT**     |                       | **Stop**,         | **Modify** the virtual  |
-|             |                       | **start** or      | machine based on the    |
-|             |                       | **reconfigure**   | RADL posted.            |
-|             |                       | the               |                         |
-|             |                       | infrastructure.   |                         |
+| **PUT**     |                       |                   | **Modify** the virtual  |
+|             |                       |                   | machine based on the    |
+|             |                       |                   | RADL posted.            |
 +-------------+-----------------------+-------------------+-------------------------+
 | **DELETE**  |                       | **Undeploy** all  | **Undeploy** the        |
 |             |                       | the virtual       | virtual machine.        |
 |             |                       | machine in the    |                         |
 |             |                       | infrastructure.   |                         |
 +-------------+-----------------------+-------------------+-------------------------+
-   
+ 
++-------------+--------------------+--------------------+----------------------------+
+| HTTP method |  /inf/<infId>/stop |  /inf/<infId>/stop |  /inf/<infId>/reconfigure  |
++=============+====================+====================+============================+
+| **PUT**     | **Stop** the       | **Start** the      | **Reconfigure** the        |
+|             | infrastructure.    | infrastructure.    | infrastructure.            |
++-------------+--------------------+--------------------+----------------------------+
+
+
 GET ``http://imserver.com/infrastructure``
    :Content-type: text/uri-list
    :ok response: 200 OK
@@ -77,23 +83,33 @@ POST ``http://imserver.com/inf/<infId>``
    :ref:`RPC-XML AddResource <addresource-xmlrpc>`. If success, it is returned
    a list of URIs of the new virtual machines.
 
-PUT ``http://imserver.com/inf/<infId>``
-   :input fields: ``op``, ``radl`` (compulsory if ``op`` is ``reconfigure``)
+PUT ``http://imserver.com/inf/<infId>/stop``
    :Content-type: text/uri-list
    :ok response: 200 OK
    :fail response: 409
 
-   Perform an action on the infrastructure with ID ``infID`` indicated by the
-   value of ``op``:
+   Perform the ``stop`` action in all the virtual machines in the
+   the infrastructure with ID ``infID``:
+   
+PUT ``http://imserver.com/inf/<infId>/start``
+   :Content-type: text/uri-list
+   :ok response: 200 OK
+   :fail response: 409
 
-   - ``stop``: stop (but do not undeploy) all the virtual machines in the
-     infrastructure.
+   Perform the ``start`` action in all the virtual machines in the
+   the infrastructure with ID ``infID``:
+   
+PUT ``http://imserver.com/inf/<infId>/reconfigure``
+   :input fields: ``radl`` (compulsory)
+   :Content-type: text/uri-list
+   :ok response: 200 OK
+   :fail response: 409
 
-   - ``start``: resume all the virtual machines in the infrastructure.
-
-   - ``reconfigure``: update the configuration of the infrastructure as
-     indicated in ``radl``. The RADL restrictions are the same as in
-     :ref:`RPC-XML Reconfigure <reconfigure-xmlrpc>`.
+   Perform the ``reconfigure`` action in all the virtual machines in the
+   the infrastructure with ID ``infID``. It updates the configuration 
+   of the infrastructure as indicated in ``radl``. The RADL restrictions 
+   are the same as in :ref:`RPC-XML Reconfigure <reconfigure-xmlrpc>`. If no
+   RADL are specified, the contextualization process is stated again.
 
 DELETE ``http://imserver.com/inf/<infId>``
    :ok response: 200 OK

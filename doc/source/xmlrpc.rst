@@ -50,12 +50,8 @@ This is the list of method names:
    :ok response: [true, struct(``info``: string, ``cloud``: string, ``state``: string)]
    :fail response: [false, ``error``: string]
 
-   Return a struct with information about the virtual machine with ID ``vmId``
-   in the infrastructure with ID ``infId``. The returned struct is composed by
-
-   * ``info``, information about the virtual machine in RADL format;
-   * ``cloud``, information about the cloud; and
-   * ``state``, state of the virtual machine.
+   Return a string with information about the virtual machine with ID ``vmId``
+   in the infrastructure with ID ``infId``. The returned string is in RADL format.
 
    The ``state`` can be
 

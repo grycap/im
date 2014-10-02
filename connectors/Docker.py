@@ -151,16 +151,12 @@ class DockerCloudConnector(CloudConnector):
 		port_bindings = ""
 		ssh_found = False
 		if outports:
-			ports = outports.split(',')
-			for num, port in enumerate(ports):
-				parts = port.split('-')
-				local_port = parts[1]
-				if local_port == "22":
-					ssh_found = True
-				remote_port = parts[0]
+			num = 0
+			for remote_port,_,local_port,local_protocol in outports:
 				if num > 0:
 					port_bindings = port_bindings + ",\n"
-				port_bindings = port_bindings + '"PortBindings":{ "' + local_port + '/tcp": [{ "HostPort": "' + remote_port + '" }] }'
+				port_bindings = port_bindings + '"PortBindings":{ "' + local_port + '/' + local_protocol + '": [{ "HostPort": "' + remote_port + '" }] }'
+				num += 1
 	
 		if not ssh_found:
 			port_bindings = port_bindings + ',\n"PortBindings":{ "22/tcp": [{ "HostPort": "' + str(ssh_port) + '" }] }\n'
@@ -185,16 +181,13 @@ class DockerCloudConnector(CloudConnector):
 
 		outports = None
 		if public_net:
-			outports = public_net.getValue('outports')
+			outports = public_net.getOutPorts()
 		
 		exposed_ports = '"22/tcp": {}'
 		if outports:
-			ports = outports.split(',')
-			for port in ports:
-				parts = port.split('-')
-				local_port = parts[1]
+			for _,_,local_port,local_protocol in outports:
 				if local_port != "22":
-					exposed_ports = exposed_ports + ', "' + local_port + '/tcp": {}'
+					exposed_ports = exposed_ports + ', "' + local_port + '/' + local_protocol + '": {}'
 
 		(nodename, nodedom) = system.getRequestedNameIface(num = vm_id, default_hostname = Config.DEFAULT_VM_NAME, default_domain = Config.DEFAULT_DOMAIN)
 

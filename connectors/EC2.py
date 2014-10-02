@@ -230,22 +230,19 @@ class EC2CloudConnector(CloudConnector):
 			for net in radl.networks:
 				if net.isPublic():
 					public_net = net
-	
-			ssh_found = False
+
 			if public_net:
-				outports = public_net.getValue('outports')
+				outports = public_net.getOutPorts()
 				if outports:
-					ports = outports.split(',')
-					for port in ports:
-						parts = port.split('-')
-						local_port = parts[1]
-						remote_port = parts[0]
-						if local_port == "22":
-							ssh_found = True
-						sg.authorize('tcp', remote_port, local_port, '0.0.0.0/0')
+					for remote_port,remote_protocol,local_port,local_protocol in outports:
+						if local_port != "22":						
+							protocol = remote_protocol
+							if remote_protocol != local_protocol:
+								self.logger.warn("Diferent protocols used in outports ignoring local port protocol!")								
+													
+							sg.authorize(protocol, remote_port, local_port, '0.0.0.0/0')
 			
-			if not ssh_found:
-				sg.authorize('tcp', 22, 22, '0.0.0.0/0')
+			sg.authorize('tcp', 22, 22, '0.0.0.0/0')
 			
 		except Exception, ex:
 			self.logger.exception("Error Creating the Security group")

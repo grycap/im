@@ -42,7 +42,7 @@ class TestConnectors(unittest.TestCase):
     """ List of VMs launched in the test """
     
     #connectors_to_test = "all"
-    connectors_to_test = ["one"]
+    connectors_to_test = ["ec2"]
     """ Specify the connectors to test: "all": All the connectors specified in the auth file or a list with the IDs"""
 
     @classmethod
@@ -83,6 +83,7 @@ class TestConnectors(unittest.TestCase):
             system test (
             cpu.arch='x86_64' and
             cpu.count>=1 and
+            memory.size>=512m and
             disks.free_size>=2g and
             net_interface.0.connection = 'net' and
             net_interface.0.dns_name = 'test' and
@@ -102,7 +103,7 @@ class TestConnectors(unittest.TestCase):
             
     def test_20_launch(self):
         radl_data = """
-            network net ()
+            network net (outbound='yes' and outports='8899/tcp,22/tcp-22/tcp')
             system test (
             cpu.arch='x86_64' and
             cpu.count>=1 and

@@ -17,42 +17,24 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
-import sys, os, signal
+import os
 import httplib
 import time
 import json
-import urllib
 
-sys.path.append("..")
-from IM.config import Config
 from IM.VirtualMachine import VirtualMachine
-from IM.radl import radl_parse
 from IM.uriparse import uriparse
-
-LAUNCH_SERVER = False
+from IM.radl import radl_parse
 
 PID = None
 RADL_ADD = "network publica\nsystem front\ndeploy front 1"
 RADL_ADD_ERROR = "system wnno deploy wnno 1"
-TESTS_PATH = os.getcwd() + '/test'
+TESTS_PATH = '/home/micafer/codigo/git_im/im/test'
 RADL_FILE = TESTS_PATH + '/test_simple.radl'
-#RADL_FILE =  TESTS_PATH + '/test_ec2.radl'
 AUTH_FILE = TESTS_PATH + '/auth.dat'
 
 HOSTNAME = "jonsu.i3m.upv.es"
 TEST_PORT = 8800
-
-def setConfig():
-    Config.XMLRCP_PORT = TEST_PORT
-    Config.ACTIVATE_REST = True
-    Config.IM_PATH = os.getcwd()
-    Config.LOG_FILE = Config.IM_PATH + '/test/inf.log'
-    Config.CONTEXTUALIZATION_DIR = Config.IM_PATH + '/contextualization'
-    Config.RECIPES_DIR = Config.CONTEXTUALIZATION_DIR + '/AnsibleRecipes'
-    Config.RECIPES_DB_FILE = Config.CONTEXTUALIZATION_DIR + '/recipes_ansible.db'
-    Config.DATA_FILE = Config.IM_PATH + '/test/inf.dat'
-    Config.XMLRCP_SSL = False
-    Config.REST_SSL = False
 
 class TestIM(unittest.TestCase):
 
@@ -62,8 +44,6 @@ class TestIM(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        if LAUNCH_SERVER:
-            time.sleep(3)
         cls.server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
         f = open(AUTH_FILE)
         cls.auth_data = ""
@@ -74,16 +54,11 @@ class TestIM(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        # Por si acaso la borro
         try:
             cls.server.request('DELETE', "/inf/" + cls.inf_id, headers = {'Authorization' : cls.auth_data})
             cls.server.getresponse()
-            if LAUNCH_SERVER:
-                print "Mato el servicio: ", PID
-                os.kill(PID, signal.SIGTERM)
-                os.remove('inf.dat')
         except Exception, ex:
-            print "Error al matar el servicio: ", ex
+            print "Error deleting the infrastructure: ", ex
 
     def wait_inf_state(self, state, timeout):
         self.server.request('GET', "/inf/" + self.inf_id, headers = {'AUTHORIZATION' : self.auth_data})
@@ -109,11 +84,12 @@ class TestIM(unittest.TestCase):
                 resp = self.server.getresponse()
                 output = str(resp.read())
                 self.assertIs(resp.status, 200, msg="ERROR al obtener la informacion de la VM:" + output)
-                output_obj = json.loads(output)
+                info_radl = radl_parse.parse_radl(output)
+                vm_state = info_radl.systems[0].getValue('state')
 
-                if output_obj['state'] in err_states:
+                if vm_state in err_states:
                     return False
-                elif output_obj['state'] != state:
+                elif vm_state != state:
                     all_ok = False
 
             if not all_ok:
@@ -201,8 +177,7 @@ class TestIM(unittest.TestCase):
         self.assertTrue(all_configured, msg="ERROR al esperar la eliminacion de un nodo a la Infraestructura.")
 
     def test_20_stop(self):
-        params = urllib.urlencode({'op': 'stop'})
-        self.server.request('PUT', "/inf/" + self.inf_id, params, headers = {"Content-type": "application/x-www-form-urlencoded", 'AUTHORIZATION' : self.auth_data})
+        self.server.request('PUT', "/inf/" + self.inf_id + "/stop", headers = {"Content-type": "application/x-www-form-urlencoded", 'AUTHORIZATION' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
         self.assertIs(resp.status, 200, msg="ERROR al parar la infraestructura:" + output)
@@ -211,8 +186,7 @@ class TestIM(unittest.TestCase):
         self.assertTrue(all_stopped, msg="ERROR al esperar la parada de la Infraestructura.")
 
     def test_21_start(self):
-        params = urllib.urlencode({'op': 'start'})
-        self.server.request('PUT', "/inf/" + self.inf_id, params, headers = {"Content-type": "application/x-www-form-urlencoded", 'AUTHORIZATION' : self.auth_data})
+        self.server.request('PUT', "/inf/" + self.inf_id + "/start", headers = {"Content-type": "application/x-www-form-urlencoded", 'AUTHORIZATION' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
         self.assertIs(resp.status, 200, msg="ERROR al parar la infraestructura:" + output)
@@ -227,22 +201,4 @@ class TestIM(unittest.TestCase):
         self.assertIs(resp.status, 200, msg="ERROR al borrar la infraestructura:" + output)
 
 if __name__ == '__main__':
-    if LAUNCH_SERVER:
-        PID = os.fork()
-        if PID == 0:
-            print "Arranco el servicio: http://" + HOSTNAME + ":" + str(TEST_PORT)
-            try:
-                os.remove("inf.pkl")
-            except:
-                pass
-            from service import config_logging, launch_daemon
-            setConfig()
-            config_logging()
-            sys.stdout = open('inf.out', 'w')
-            sys.stderr = sys.stdout
-            launch_daemon()
-            sys.stdout.close()
-        else:
-            unittest.main()
-    else:
-        unittest.main()
+    unittest.main()
