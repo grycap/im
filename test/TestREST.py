@@ -64,11 +64,11 @@ class TestIM(unittest.TestCase):
         self.server.request('GET', "/infrastructures/" + self.inf_id, headers = {'AUTHORIZATION' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
-        self.assertIs(resp.status, 200, msg="ERROR al obtener la informacion de la infraestructura:" + output)
+        self.assertEqual(resp.status, 200, msg="ERROR al obtener la informacion de la infraestructura:" + output)
         
         output_obj = json.loads(output)
         
-        self.assertIs(len(output_obj), 2, msg="ERROR al obtener la informacion de la infraestructura: Numero incorrecto de VMs(" + str(len(output_obj)) + ") deberia ser 2")
+        self.assertEqual(len(output_obj), 2, msg="ERROR al obtener la informacion de la infraestructura: Numero incorrecto de VMs(" + str(len(output_obj)) + ") deberia ser 2")
 
         vm_ids = output_obj['vm_list']
 
@@ -83,7 +83,7 @@ class TestIM(unittest.TestCase):
                 self.server.request('GET', vm_uri[2], headers = {'AUTHORIZATION' : self.auth_data})
                 resp = self.server.getresponse()
                 output = str(resp.read())
-                self.assertIs(resp.status, 200, msg="ERROR al obtener la informacion de la VM:" + output)
+                self.assertEqual(resp.status, 200, msg="ERROR al obtener la informacion de la VM:" + output)
                 info_radl = radl_parse.parse_radl(output)
                 vm_state = info_radl.systems[0].getValue('state')
 
@@ -102,9 +102,21 @@ class TestIM(unittest.TestCase):
         self.server.request('GET', "/infrastructures", headers = {'AUTHORIZATION' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
-        self.assertIs(resp.status, 200, msg="ERROR al listar las infraestructuras:" + output)
+        self.assertEqual(resp.status, 200, msg="ERROR al listar las infraestructuras:" + output)
+        
+    def test_15_get_incorrect_info(self):
+        self.server.request('GET', "/infrastructures/999999", headers = {'AUTHORIZATION' : self.auth_data})
+        resp = self.server.getresponse()
+        resp.read()
+        self.assertEqual(resp.status, 404, msg="Incorrect error message: " + str(resp.status))
 
-    def test_11_create(self):
+    def test_18_get_info_without_auth_data(self):
+        self.server.request('GET', "/infrastructures/0")
+        resp = self.server.getresponse()
+        resp.read()
+        self.assertEqual(resp.status, 401, msg="Incorrect error message: " + str(resp.status))
+
+    def test_20_create(self):
         f = open(RADL_FILE)
         radl = ""
         for line in f.readlines():
@@ -114,18 +126,18 @@ class TestIM(unittest.TestCase):
         self.server.request('POST', "/infrastructures", body = radl, headers = {'AUTHORIZATION' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
-        self.assertIs(resp.status, 200, msg="ERROR creating the infrastructure:" + output)
+        self.assertEqual(resp.status, 200, msg="ERROR creating the infrastructure:" + output)
 
         self.__class__.inf_id = str(os.path.basename(output))
         
         all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 600)
         self.assertTrue(all_configured, msg="ERROR al esperar la creacion de la Infraestructura.")
 
-    def test_14_get_vm_info(self):
+    def test_30_get_vm_info(self):
         self.server.request('GET', "/infrastructures/" + self.inf_id, headers = {'AUTHORIZATION' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
-        self.assertIs(resp.status, 200, msg="ERROR getting the infrastructure info:" + output)
+        self.assertEqual(resp.status, 200, msg="ERROR getting the infrastructure info:" + output)
         output_obj = json.loads(output)
         vm_ids = output_obj['vm_list']
 
@@ -133,29 +145,29 @@ class TestIM(unittest.TestCase):
         self.server.request('GET', vm_uri[2], headers = {'AUTHORIZATION' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
-        self.assertIs(resp.status, 200, msg="ERROR al obtener la informacion de la VM:" + output)
+        self.assertEqual(resp.status, 200, msg="ERROR al obtener la informacion de la VM:" + output)
 
-    def test_18_addresource(self):
+    def test_40_addresource(self):
         self.server.request('POST', "/infrastructures/" + self.inf_id, body = RADL_ADD, headers = {'AUTHORIZATION' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
-        self.assertIs(resp.status, 200, msg="ERROR al anaydir recursos a la infraestructura:" + output)
+        self.assertEqual(resp.status, 200, msg="ERROR al anaydir recursos a la infraestructura:" + output)
 
         self.server.request('GET', "/infrastructures/" + self.inf_id, headers = {'AUTHORIZATION' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
-        self.assertIs(resp.status, 200, msg="ERROR getting the infrastructure info:" + output)
+        self.assertEqual(resp.status, 200, msg="ERROR getting the infrastructure info:" + output)
         output_obj = json.loads(output)
         vm_ids = output_obj['vm_list']
-        self.assertIs(len(vm_ids), 2, msg="ERROR al obtener la informacion de la infraestructura: Numero incorrecto de VMs(" + str(len(vm_ids)) + ") deberia ser 3")
+        self.assertEqual(len(vm_ids), 2, msg="ERROR al obtener la informacion de la infraestructura: Numero incorrecto de VMs(" + str(len(vm_ids)) + ") deberia ser 3")
         all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 600)
         self.assertTrue(all_configured, msg="ERROR al esperar la creacion de la Infraestructura.")
 
-    def test_19_removeresource(self):
+    def test_50_removeresource(self):
         self.server.request('GET', "/infrastructures/" + self.inf_id, headers = {'AUTHORIZATION' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
-        self.assertIs(resp.status, 200, msg="ERROR getting the infrastructure info:" + output)
+        self.assertEqual(resp.status, 200, msg="ERROR getting the infrastructure info:" + output)
         output_obj = json.loads(output)
         vm_ids = output_obj['vm_list']
         
@@ -163,42 +175,42 @@ class TestIM(unittest.TestCase):
         self.server.request('DELETE', vm_uri[2], headers = {'AUTHORIZATION' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
-        self.assertIs(resp.status, 200, msg="ERROR al borrar recursos de la infraestructura:" + output)
+        self.assertEqual(resp.status, 200, msg="ERROR al borrar recursos de la infraestructura:" + output)
 
         self.server.request('GET', "/infrastructures/" + self.inf_id, headers = {'AUTHORIZATION' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
-        self.assertIs(resp.status, 200, msg="ERROR getting the infrastructure info:" + output)
+        self.assertEqual(resp.status, 200, msg="ERROR getting the infrastructure info:" + output)
         output_obj = json.loads(output)
         vm_ids = output_obj['vm_list']
-        self.assertIs(len(vm_ids), 1, msg="ERROR al obtener la informacion de la infraestructura: Numero incorrecto de VMs(" + str(len(vm_ids)) + ") deberia ser 2")
+        self.assertEqual(len(vm_ids), 1, msg="ERROR al obtener la informacion de la infraestructura: Numero incorrecto de VMs(" + str(len(vm_ids)) + ") deberia ser 2")
 
         all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 300)
         self.assertTrue(all_configured, msg="ERROR al esperar la eliminacion de un nodo a la Infraestructura.")
 
-    def test_20_stop(self):
+    def test_60_stop(self):
         self.server.request('PUT', "/infrastructures/" + self.inf_id + "/stop", headers = {"Content-type": "application/x-www-form-urlencoded", 'AUTHORIZATION' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
-        self.assertIs(resp.status, 200, msg="ERROR al parar la infraestructura:" + output)
+        self.assertEqual(resp.status, 200, msg="ERROR al parar la infraestructura:" + output)
 
         all_stopped = self.wait_inf_state(VirtualMachine.STOPPED, 120)
         self.assertTrue(all_stopped, msg="ERROR al esperar la parada de la Infraestructura.")
 
-    def test_21_start(self):
+    def test_70_start(self):
         self.server.request('PUT', "/infrastructures/" + self.inf_id + "/start", headers = {"Content-type": "application/x-www-form-urlencoded", 'AUTHORIZATION' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
-        self.assertIs(resp.status, 200, msg="ERROR al parar la infraestructura:" + output)
+        self.assertEqual(resp.status, 200, msg="ERROR al parar la infraestructura:" + output)
 
         all_stopped = self.wait_inf_state(VirtualMachine.CONFIGURED, 120)
         self.assertTrue(all_stopped, msg="ERROR al esperar la parada de la Infraestructura.")
 
-    def test_50_destroy(self):
+    def test_80_destroy(self):
         self.server.request('DELETE', "/infrastructures/" + self.inf_id, headers = {'Authorization' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
-        self.assertIs(resp.status, 200, msg="ERROR al borrar la infraestructura:" + output)
+        self.assertEqual(resp.status, 200, msg="ERROR al borrar la infraestructura:" + output)
 
 if __name__ == '__main__':
     unittest.main()
