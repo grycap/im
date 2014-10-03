@@ -144,7 +144,17 @@ class Authentication:
 					if len(key_value) != 2:
 						break;
 					else:
-						auth[key_value[0].strip()] = key_value[1].strip().replace("\\n","\n") 
+						value = key_value[1].strip().replace("\\n","\n")
+						# Enable to specify a filename and set the contents of it
+						if value.startswith("file(") and value.endswith(")"):
+							filename = value[5:len(value)-1]
+							try:
+								value_file = open(filename, 'r')
+								value = value_file.readl()
+								value_file.close()
+							except:
+								pass
+						auth[key_value[0].strip()] = value 
 				res.append(auth)
 		
 		return res
