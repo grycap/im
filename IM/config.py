@@ -51,6 +51,7 @@ class Config:
 	REST_SSL_KEYFILE =  "/etc/im/pki/server-key.pem"
 	REST_SSL_CERTFILE = "/etc/im/pki/server-cert.pem"
 	REST_SSL_CA_CERTS = "/etc/im/pki/ca-chain.pem"
+	GET_GANGLIA_INFO = False
 
 config = ConfigParser.ConfigParser()
 config.read([Config.IM_PATH + '/../im.cfg', Config.IM_PATH + '/../etc/im.cfg', '/etc/im/im.cfg'])
@@ -147,3 +148,7 @@ if config.has_option('im', "REST_SSL_CERTFILE"):
 
 if config.has_option('im', "REST_SSL_CA_CERTS"):
 	Config.REST_SSL_CA_CERTS = config.get('im', "REST_SSL_CA_CERTS")
+	
+if config.has_option('im', "GET_GANGLIA_INFO"):
+	Config.GET_GANGLIA_INFO = config.getboolean('im', "GET_GANGLIA_INFO")
+

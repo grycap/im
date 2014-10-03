@@ -195,7 +195,7 @@ class InfrastructureManager:
 			if not all_ok:
 				for deploy in deploy_group:
 					for vm in deployed_vm.get(deploy, []):
-						vm.cloud.finalize(vm, auth)
+						vm.cloud.getCloudConnector().finalize(vm, auth)
 					deployed_vm[deploy] = []
 			if cancel_deployment or all_ok:
 				break
@@ -562,36 +562,6 @@ class InfrastructureManager:
 		return cont
 
 	@staticmethod
-	def update_vm_status(vm, configured):
-		"""
-		Update and return the information about a virtual machine.
-
-		Args:
-
-		- vm(:py:class:`IM.VirtualMachine`): virtual machine information.
-
-		Return: a str with the updated RADL
-		"""
-
-		if vm.state != VirtualMachine.RUNNING:
-			state = vm.state
-		elif configured is None:
-			state = VirtualMachine.RUNNING
-		elif configured:
-			state = VirtualMachine.CONFIGURED
-		else:
-			state = VirtualMachine.FAILED
-
-		vm.info.systems[0].setValue("state", state)  
-
-		res = str(vm.info)
-
-		InfrastructureManager.logger.info("Information obtained successfully")
-		InfrastructureManager.logger.debug(res)
-
-		return res
-
-	@staticmethod
 	def GetVMInfo(inf_id, vm_id, auth):
 		"""
 		Get information about a virtual machine in an infrastructure.
@@ -609,27 +579,23 @@ class InfrastructureManager:
 	
 		sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
 
-		InfrastructureManager.logger.debug("Getting information from monitors")
-		try:
-			(success, msg) = ganglia_info.update_ganglia_info(sel_inf)
-			if not success:
-				InfrastructureManager.logger.debug(msg)
-		except:
-			pass
+		if Config.GET_GANGLIA_INFO:
+			InfrastructureManager.logger.debug("Getting information from monitors")
+			try:
+				(success, msg) = ganglia_info.update_ganglia_info(sel_inf)
+				if not success:
+					InfrastructureManager.logger.debug(msg)
+			except:
+				pass
 
 		vm = InfrastructureManager.get_vm_from_inf(inf_id, vm_id, auth)
-		if not vm:
-			raise Exception("VM does not exist or Access Error")
-		cl = vm.cloud.getCloudConnector()
-		(success, new_vm) = cl.updateVMInfo(vm, auth)
+		
+		success = vm.update_status(auth)
 		InfrastructureManager.save_data()
 		if not success:
-			InfrastructureManager.logger.warn("Error getting the informacion about the VM " + str(vm_id) + ": " + str(vm))
-			InfrastructureManager.logger.warn("Using last information retrieved")
-			res = InfrastructureManager.update_vm_status(vm, sel_inf.configured)
-		else:
-			res = InfrastructureManager.update_vm_status(new_vm, sel_inf.configured)
-		return res
+			InfrastructureManager.logger.warn("Information not updated. Using last information retrieved")
+
+		return str(vm.info)
 
 	@staticmethod
 	def AlterVM(inf_id, vm_id, radl_data, auth):
@@ -683,7 +649,7 @@ class InfrastructureManager:
 
 		Return: a dict with keys
 
-		- cont_out(str): contextualization informmation.
+		- cont_out(str): contextualization information.
 		- vm_list(list of str): list of virtual machine ids.
 		"""
 
