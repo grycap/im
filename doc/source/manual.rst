@@ -300,5 +300,10 @@ REST API
    Full path to the SSL Certification Authorities (CA) certificate.
    The default value is :file:`/etc/im/pki/ca-chain.pem`.
 
+GANGLIA INTEGRATION
+^^^^^^^^^^^^^^^^^^^
 
+.. confval:: GET_GANGLIA_INFO 
 
+   Flag to enable the retrieval of the ganglia info of the VMs.
+   The default value is ``False``.

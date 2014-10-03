@@ -15,8 +15,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import time
+import threading
 from IM.radl.radl import network
-from IM.config import Config
 
 class VirtualMachine:
 
@@ -28,8 +28,16 @@ class VirtualMachine:
 	OFF = "off"
 	FAILED = "failed"
 	CONFIGURED = "configured"
+	
+	UPDATE_FREQUENCY = 10
+	""" Maximum frequency to update the VM info (in secs) """
 
 	def __init__(self, inf, im_id, cloud_id, cloud, info, requested_radl):
+		self._lock = threading.Lock()
+		"""Threading Lock to avoid concurrency problems."""
+		self.last_update = 0
+		"""Last update of the VM info"""
+		
 		# Flag para indicar si esta VM ha sido eliminada por el usuario
 		self.destroy = False
 		# estado de la VM
@@ -46,7 +54,25 @@ class VirtualMachine:
 		self.info = info.clone() if info else None
 		# Objeto RADL con la informacion pedida para la VM: memoria, cpu, aplicaciones, etc.
 		self.requested_radl = requested_radl
-		
+
+	def __getstate__(self):
+		"""
+		Function to save the information to pickle
+		"""
+		with self._lock:
+			odict = self.__dict__.copy()
+		# Quit the lock to the data to be store by pickle
+		del odict['_lock']
+		return odict
+	
+	def __setstate__(self, dic):
+		"""
+		Function to load the information to pickle
+		"""
+		self._lock = threading.Lock()
+		with self._lock:
+			self.__dict__.update(dic)
+
 	# Devuelve el objeto system con los datos RADL solicitados por el usuario para crear esta VM
 	def getRequestedSystem(self):
 		return self.requested_radl.systems[0]
@@ -230,3 +256,40 @@ class VirtualMachine:
 			num_net = self.getNumNetworkIfaces()
 
 		self.info.systems[0].setValue('net_interface.' + str(num_net) + '.connection',public_net.id)
+		
+	def update_status(self, auth):
+		"""
+		Update the status of this virtual machine.
+		Only performs the update with UPDATE_FREQUENCY secs. 
+		
+		Args:
+		- auth(Authentication): parsed authentication tokens.
+		Return:
+		- boolean: True if the information has been updated, false otherwise
+		"""
+		now = int(time.time())
+		# This if avoids to refresh the information too quickly
+		if now - self.last_update > VirtualMachine.UPDATE_FREQUENCY:
+			cl = self.cloud.getCloudConnector()
+			(success, new_vm) = cl.updateVMInfo(self, auth)
+			if not success:
+				state = self.state
+			else:
+				state = new_vm.state
+	
+			if state != VirtualMachine.RUNNING:
+				new_state = state
+			elif self.inf.configured is None:
+				new_state = VirtualMachine.RUNNING
+			elif self.inf.configured:
+				new_state = VirtualMachine.CONFIGURED
+			else:
+				new_state = VirtualMachine.FAILED
+	
+			with self._lock:
+				self.info.systems[0].setValue("state", new_state)
+				self.last_update = now
+		else:
+			success = False
+
+		return success

@@ -118,7 +118,7 @@ class Authentication:
 		type = VMRC; host = http://server:8080/vmrc; username = user; password = pass
 		id = ec2; type = EC2; username = ACCESS_KEY; password = SECRET_KEY
 		id = oshost; type = OpenStack; host = oshost:8773; username = ACCESS_KEY; key = SECRET_KEY
-		id = occi; type = OCCI; host = occiserver:4567; username = user; password = pass
+		id = occi; type = OCCI; host = occiserver:4567; username = user; password = file(/tmp/filename)
 	
 		Arguments:
 		   - filename(str): The filename to read
