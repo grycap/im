@@ -24,13 +24,11 @@ import random
 
 from VMRC import VMRC
 from CloudInfo import CloudInfo 
-from VirtualMachine import VirtualMachine
 from auth import Authentication
 
 import logging
 
 import InfrastructureInfo
-from ganglia import ganglia_info
 from IM.radl import radl_parse
 from IM.radl.radl import Feature
 from IM.recipe import Recipe
@@ -412,7 +410,7 @@ class InfrastructureManager:
 
 		# Concrete systems with cloud providers and select systems with the greatest score
 		# in every cloud
-		cloud_list = dict([ (c.id, c.getCloudConnector()) for c in CloudInfo.get_cloud_list(auth) ])
+		cloud_list = dict([ (c.id, c.getCloudConnector()) for c in CloudInfo.get_cloud_list(auth) if c not in failed_clouds ])
 		concrete_systems = {}
 		for cloud_id, cloud in cloud_list.items():
 			for system_id, systems in systems_with_vmrc.items():
@@ -579,14 +577,8 @@ class InfrastructureManager:
 	
 		sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
 
-		if Config.GET_GANGLIA_INFO:
-			InfrastructureManager.logger.debug("Getting information from monitors")
-			try:
-				(success, msg) = ganglia_info.update_ganglia_info(sel_inf)
-				if not success:
-					InfrastructureManager.logger.debug(msg)
-			except:
-				pass
+		# Getting information from monitors
+		sel_inf.update_ganglia_info()
 
 		vm = InfrastructureManager.get_vm_from_inf(inf_id, vm_id, auth)
 		
@@ -613,7 +605,6 @@ class InfrastructureManager:
 		"""
 
 		InfrastructureManager.logger.info("Modifying the VM: '" + str(vm_id) + "' from inf: " + str(inf_id))
-		sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
 		vm = InfrastructureManager.get_vm_from_inf(inf_id, vm_id, auth)
 		if not vm:
 			InfrastructureManager.logger.info("VM does not exist or Access Error")
@@ -634,8 +625,8 @@ class InfrastructureManager:
 			InfrastructureManager.logger.warn("Error getting the information about the VM " + str(vm_id) + ": " + str(alter_res))
 			InfrastructureManager.logger.warn("Using last information retrieved")
 
-		res = InfrastructureManager.update_vm_status(vm, sel_inf.configured)
-		return res
+		vm.update_status(auth)
+		return str(vm.info)
 	
 	@staticmethod
 	def GetInfrastructureInfo(inf_id, auth):
