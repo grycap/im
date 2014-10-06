@@ -9,17 +9,20 @@
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# GNU General Public Licenslast_updatee for more details.
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import logging
 import threading
+import time
 
+from ganglia import ganglia_info
 import ConfManager
 from datetime import datetime
 from IM.radl.radl import RADL, Feature, deploy, system
+from config import Config
 
 class IncorrectVMException(Exception):
 	""" Invalid VM ID. """
@@ -39,6 +42,9 @@ class InfrastructureInfo:
 	"""
 	
 	logger = logging.getLogger('InfrastructureManager')
+	"""Logger object."""
+	UPDATE_FREQUENCY = 30
+	""" Maximum frequency to update the Ganglia info (in secs) """
 
 	
 	def __init__(self):
@@ -68,6 +74,8 @@ class InfrastructureInfo:
 		"""Configure flag. If it is None the contextualization has not been finished yet"""
 		self.vm_id = 0
 		"""Next vm id available."""
+		self.last_ganglia_update = 0
+		"""Last update of the ganglia info"""
 	
 	def __getstate__(self):
 		"""
@@ -267,3 +275,27 @@ class InfrastructureInfo:
 				if full_connected:
 					self.vm_master = vm
 					break
+
+	def update_ganglia_info(self):
+		"""
+		Get information about the infrastructure from ganglia monitors.
+		"""
+		if Config.GET_GANGLIA_INFO:
+			InfrastructureInfo.logger.debug("Getting information from monitors")
+
+			now = int(time.time())
+			# To avoid to refresh the information too quickly
+			if now - self.last_ganglia_update > InfrastructureInfo.UPDATE_FREQUENCY:
+				try:
+					(success, msg) = ganglia_info.update_ganglia_info(self)
+				except Exception, ex:
+					success = False
+					msg = str(ex)
+			else:
+				success = False
+				msg = "The information was updated recently. Using last information obtained"
+
+			if not success:
+				InfrastructureInfo.logger.debug(msg)
+		
+		

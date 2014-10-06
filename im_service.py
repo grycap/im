@@ -331,20 +331,20 @@ def config_logging():
 	logging.RootLogger.propagate = 0
 	logging.root.setLevel(logging.ERROR)
 	
-	logger = logging.getLogger('ConfManager')
-	logger.setLevel(logging.DEBUG)
-	logger.propagate = 0
-	logger.addHandler(fileh)
+	log = logging.getLogger('ConfManager')
+	log.setLevel(logging.DEBUG)
+	log.propagate = 0
+	log.addHandler(fileh)
 	
-	logger = logging.getLogger('CloudConnector')
-	logger.setLevel(logging.DEBUG)
-	logger.propagate = 0
-	logger.addHandler(fileh)
+	log = logging.getLogger('CloudConnector')
+	log.setLevel(logging.DEBUG)
+	log.propagate = 0
+	log.addHandler(fileh)
 	
-	logger = logging.getLogger('InfrastructureManager')
-	logger.setLevel(logging.DEBUG)
-	logger.propagate = 0
-	logger.addHandler(fileh)
+	log = logging.getLogger('InfrastructureManager')
+	log.setLevel(logging.DEBUG)
+	log.propagate = 0
+	log.addHandler(fileh)
 
 if __name__ == "__main__":
 	config_logging()

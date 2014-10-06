@@ -14,7 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import os
 
 class Authentication:
 	"""
@@ -150,7 +149,7 @@ class Authentication:
 							filename = value[5:len(value)-1]
 							try:
 								value_file = open(filename, 'r')
-								value = value_file.readl()
+								value = value_file.read()
 								value_file.close()
 							except:
 								pass

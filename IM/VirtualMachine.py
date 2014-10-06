@@ -20,7 +20,7 @@ from IM.radl.radl import network
 
 class VirtualMachine:
 
-	# estados de las VMs
+	# VM states
 	UNKNOWN = "unknown"
 	PENDING = "pending"
 	RUNNING = "running"
@@ -37,23 +37,22 @@ class VirtualMachine:
 		"""Threading Lock to avoid concurrency problems."""
 		self.last_update = 0
 		"""Last update of the VM info"""
-		
-		# Flag para indicar si esta VM ha sido eliminada por el usuario
 		self.destroy = False
-		# estado de la VM
+		"""Flag to specify that this VM has been destroyed"""
 		self.state = self.UNKNOWN
-		# Infrastructure which this VM is part of 
+		"""VM State"""
 		self.inf = inf
-		# el ID de la VM asignado por el despliegue cloud
+		"""Infrastructure which this VM is part of"""
 		self.id = cloud_id 
-		# el ID de la VM asignado por el IM
+		"""The ID of the VM assigned by the cloud provider"""
 		self.im_id = im_id
-		# datos sobre el despliegue cloud donde ha sido lanzada
+		"""The internal ID of the VM assigned by the IM"""
 		self.cloud = cloud
-		# Objeto RADL con la informacion actual sobre la VM: memoria, cpu, aplicaciones, redes, etc.
+		"""CloudInfo object with the information about the cloud provider"""
 		self.info = info.clone() if info else None
-		# Objeto RADL con la informacion pedida para la VM: memoria, cpu, aplicaciones, etc.
+		"""RADL object with the current information about the VM"""
 		self.requested_radl = requested_radl
+		"""Original RADL requested by the user"""
 
 	def __getstate__(self):
 		"""
@@ -73,73 +72,107 @@ class VirtualMachine:
 		with self._lock:
 			self.__dict__.update(dic)
 
-	# Devuelve el objeto system con los datos RADL solicitados por el usuario para crear esta VM
 	def getRequestedSystem(self):
+		"""
+		Get the system object with the requested RADL data
+		"""
 		return self.requested_radl.systems[0]
 	
-	# Devuelve True si tiene alguna ip publica
 	def hasPublicIP(self):
+		"""
+		Return True if this VM has a public IP
+		"""
 		return bool(self.info.getPublicIP())
 	
-	# Devuelve True si tiene alguna ip publica
 	def hasPublicNet(self):
+		"""
+		Return True if this VM is connected to some network defined as public
+		"""
 		return self.info.hasPublicNet(self.info.systems[0].name)
-		
-	# Devuelve si la VM tiene alguna IP igual a la especificada
+
 	def hasIP(self, ip):
+		"""
+		Return True if this VM has an IP equals to the specified ip
+		"""
 		return self.info.systems[0].hasIP(ip)
 		
-	# Devuelve la primera interfaz de red con IP publica
-	# Suponemos que solo habra una publica en cada VM
 	def getPublicIP(self):
+		"""
+		Get the first net interface with public IP
+		"""
 		return self.info.getPublicIP()
 	
-	# Devuelve la primera interfaz de red con IP privada
 	def getPrivateIP(self):
+		"""
+		Get the first net interface with private IP
+		"""
 		return self.info.getPrivateIP()
 
-	# Devuelve el numero de interfaces de red definidas
 	def getNumNetworkIfaces(self):
+		"""
+		Get the number of net interfaces of this VM 
+		"""
 		return self.info.systems[0].getNumNetworkIfaces()
 
-	# Devuelve el numero de la interfax con el nombre de conexion indicado
 	def getNumNetworkWithConnection(self, connection):
+		"""
+		Get the number of the interface connected with the net id specified 
+		"""
 		return self.info.systems[0].getNumNetworkWithConnection(connection)
 
-	# Devuelve la IP de la interfaz indicada
 	def getIfaceIP(self, iface_num):
+		"""
+		Get the IP of the interface specified 
+		"""
 		return self.info.systems[0].getIfaceIP(iface_num)
 		
 	def getOS(self):
+		"""
+		Get O.S. of this VM 
+		"""
 		return self.info.systems[0].getValue("disk.0.os.name")
-	
-	# Devuelve las credenciales de acceso a la VM
-	def getCredentials(self):
-		return self.info.systems[0].getCredentials()
 		
 	def getCredentialValues(self, new = False):
+		"""
+		Get The credentials to access of this VM by SSH
+		"""
 		return self.info.systems[0].getCredentialValues(new=new)
 
 	def getInstalledApplications(self):
+		"""
+		Get the list of installed applications in this VM.
+		(Obtained from the VMRC)
+		"""
 		return self.info.systems[0].getApplications()
 		
 	def getRequestedApplications(self):
+		"""
+		Get the list of requested applications to be installed in this VM.
+		"""
 		return self.requested_radl.systems[0].getApplications()
 
 	def getRequestedName(self, default_hostname = None, default_domain = None):
+		"""
+		Get the requested name for this VM (interface 0)
+		"""
 		return self.getRequestedNameIface(0, default_hostname, default_domain)
 
 	def getRequestedNameIface(self, iface_num, default_hostname = None, default_domain = None):		
+		"""
+		Get the requested name for the specified interface of this VM
+		"""
 		return self.requested_radl.systems[0].getRequestedNameIface(iface_num, self.im_id, default_hostname, default_domain)
 
-	# Devuelve True si la VM actual y la indicada se pueden conectar
-	# por alguna red
+
 	def isConnectedWith(self, vm):
-		# Si las 2 tienen IP publica
+		"""
+		Check if this VM is connected with the specified VM with a network
+		"""
+		# If both VMs have public IPs
 		if self.hasPublicIP() and vm.hasPublicIP():
 			return True
 
-		# O si las 2 estan conectadas una misma red
+		# Or if both VMs are connected to the same network
 		i = 0
 		while self.info.systems[0].getValue("net_interface." + str(i) + ".connection"):
 			net_name = self.info.systems[0].getValue("net_interface." + str(i) + ".connection")
@@ -199,7 +232,6 @@ class VirtualMachine:
 		to_install = []
 		for req_app in requested:
 			if req_app.getValue("name").startswith("ansible.modules."):
-				parts = req_app.getValue("name")[16:].split(".")
 				to_install.append(req_app.getValue("name")[16:])
 		return to_install
 	
@@ -268,7 +300,7 @@ class VirtualMachine:
 		- boolean: True if the information has been updated, false otherwise
 		"""
 		now = int(time.time())
-		# This if avoids to refresh the information too quickly
+		# To avoid to refresh the information too quickly
 		if now - self.last_update > VirtualMachine.UPDATE_FREQUENCY:
 			cl = self.cloud.getCloudConnector()
 			(success, new_vm) = cl.updateVMInfo(self, auth)
