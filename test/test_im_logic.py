@@ -21,8 +21,9 @@ import unittest
 import sys
 from mock import Mock
 
+from IM.VirtualMachine import VirtualMachine
 from IM import CloudInfo
-from IM.InfrastructureManager import InfrastructureManager as IM, VirtualMachine
+from IM.InfrastructureManager import InfrastructureManager as IM
 from IM.auth import Authentication
 from IM.radl.radl import RADL, system, deploy, Feature, SoftFeatures
 from IM.config import Config
@@ -54,7 +55,7 @@ class TestIM(unittest.TestCase):
 		                                         {name + 'CloudConnector': cloud_connector})
 	
 	def gen_launch_res(self, inf, vm_id, radl, requested_radl, num_vm, auth_data):
-		vm = VirtualMachine(None, str(vm_id), 1234, self.cloud, radl, radl)
+		vm = VirtualMachine(inf, str(vm_id), 1234, self.cloud, radl, radl)
 		return [(True, vm)]
 	
 	def gen_finalize_res(self, vm, auth_data):
