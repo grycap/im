@@ -102,11 +102,9 @@ class ConfManager(threading.Thread):
 						vm = new_vm_info
 
 					if vm.state == VirtualMachine.RUNNING:
-						vm.cloud.setVMBootTime(vm.id, datetime.now() - start_time)
 						running += 1
 					elif vm.state == VirtualMachine.FAILED:
 						ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": VM " + str(vm.id) + " is FAILED")
-						vm.cloud.addVMFail()
 
 						if relaunch and retries < Config.MAX_VM_FAILS:
 							ConfManager.logger.info("Inf ID: " + str(self.inf.id) + ": Launching new VM")
@@ -138,7 +136,6 @@ class ConfManager(threading.Thread):
 
 						if vm.state != VirtualMachine.RUNNING:
 							ConfManager.logger.warn("VM " + str(vm.id) + " timeout")
-							vm.cloud.addVMFail()
 
 							if relaunch:
 								ConfManager.logger.info("Launch a new VM")

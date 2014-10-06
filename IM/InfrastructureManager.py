@@ -175,7 +175,6 @@ class InfrastructureManager:
 						InfrastructureManager.logger.exception("Error launching some of the VMs: %s" % e)
 						exceptions.append(e)
 						launched_vms = []
-					#cloud.addVMLaunch()
 					for success, launched_vm in launched_vms:
 						if success:
 							InfrastructureManager.logger.debug("VM successfully launched: " + str(launched_vm.id))

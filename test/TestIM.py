@@ -124,7 +124,7 @@ class TestIM(unittest.TestCase):
         (success, res) = self.server.GetInfrastructureInfo(self.inf_id, self.auth_data)
         self.assertTrue(success, msg="ERROR getting the infrastructure info: " + str(res))
         vm_ids = res['vm_list']
-        (success, info)  = self.server.GetVMInfo(self.inf_id, vm_ids[0], self.auth_data)
+        (success, info)  = self.server.GetVMInfo(self.inf_id, vm_ids[1], self.auth_data)
         self.assertEqual(success, True, msg="ERROR al obtener la informacion de la VM: " + str(info))
         info_radl = radl_parse.parse_radl(info)
         prop_usage = info_radl.systems[0].getValue("cpu.usage")
