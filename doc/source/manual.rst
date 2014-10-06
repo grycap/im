@@ -240,6 +240,11 @@ XML-RPC API
 
    Port number where IM XML-RPC API is available.
    The default value is 8899.
+   
+.. confval:: XMLRCP_ADDRESS
+
+   IP address where IM XML-RPC API is available.
+   The default value is 0.0.0.0 (all the IPs).
 
 .. confval:: XMLRCP_SSL 
 
@@ -277,6 +282,11 @@ REST API
 
    Port number where REST API is available.
    The default value is 8800.
+   
+.. confval:: REST_ADDRESS
+
+   IP address where REST API is available.
+   The default value is 0.0.0.0 (all the IPs).
 
 .. confval:: REST_SSL 
 

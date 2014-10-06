@@ -87,7 +87,6 @@ class ConfManager(threading.Thread):
 		wait = 0
 		running = 0
 		deleted = 0
-		start_time = datetime.now()
 		while running + deleted < len(vm_list) and wait < timeout:
 			running = 0
 			deleted = 0
