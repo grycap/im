@@ -27,299 +27,256 @@ from IM import __version__ as version
 
 logger = logging.getLogger('InfrastructureManager')
 
-# Clase request para anyadir los recursos definidos por el RADL a la infraestructura indicada
-class Request_AddResource(AsyncRequest):
+class IMBaseRequest(AsyncRequest):
+	"""
+	Base class for the IM requests
+	"""
+	def __init__(self, arguments = (), priority = Request.PRIORITY_NORMAL):
+		AsyncRequest.__init__(self, arguments, priority)
+		self._error_mesage = "Error."
+		
 	def _execute(self):
 		try:
-			(inf_id, radl_data, auth_data) = self.arguments
-			res = InfrastructureManager.AddResource(inf_id, radl_data, Authentication(auth_data))
+			res = self._call_function()
 			self.set(res)
 			return True
 		except Exception, ex:
-			logger.exception("Error Adding resources.")
-			self.set(str(ex))
-			return False
-	
-# Clase request para borrar un recurso a una Infraestructura
-class Request_RemoveResource(AsyncRequest):
-	def _execute(self):
-		try:
-			(inf_id, vm_list, auth_data) = self.arguments
-			res = InfrastructureManager.RemoveResource(inf_id, vm_list, Authentication(auth_data))
-			self.set(res)
-			return True
-		except Exception, ex:
-			logger.exception("Error Removing resources.")
-			self.set(str(ex))
-			return False
-	
-# Clase request para devolver el listado de la VMs que forman parte de la infraestructura
-class Request_GetInfrastructureInfo(AsyncRequest):
-	def _execute(self):
-		try:
-			(inf_id, auth_data) = self.arguments
-			res = InfrastructureManager.GetInfrastructureInfo(inf_id, Authentication(auth_data))
-			self.set(res)
-			return True
-		except Exception, ex:
-			logger.exception("Error Getting Inf. Info.")
+			logger.exception(self._error_mesage)
 			self.set(str(ex))
 			return False
 
-
-# Clase request para devolver la informacion sobre una VM
-class Request_GetVMInfo(AsyncRequest):
-	def _execute(self):
-		try:
-			(inf_id, vm_id, auth_data) = self.arguments
-			res = InfrastructureManager.GetVMInfo(inf_id, vm_id, Authentication(auth_data))
-			self.set(res)
-			return True
-		except Exception, ex:
-			logger.exception("Error Getting VM Info.")
-			self.set(str(ex))
-			return False
+class Request_AddResource(IMBaseRequest):
+	"""
+	Request class for the AddResource function
+	"""	
+	def _call_function(self):
+		self._error_mesage = "Error Adding resources."
+		(inf_id, radl_data, auth_data) = self.arguments
+		return InfrastructureManager.AddResource(inf_id, radl_data, Authentication(auth_data))
 	
-# Clase request para devolver la informacion sobre una VM
-class Request_AlterVM(AsyncRequest):
-	def _execute(self):
-		try:
-			(inf_id, vm_id, radl, auth_data) = self.arguments
-			res = InfrastructureManager.AlterVM(inf_id, vm_id, radl, Authentication(auth_data))
-			self.set(res)
-			return True
-		except Exception, ex:
-			logger.exception("Error Changing VM Info.")
-			self.set(str(ex))
-			return False
+class Request_RemoveResource(IMBaseRequest):
+	"""
+	Request class for the RemoveResource function
+	"""
+	def _call_function(self):
+		self._error_mesage = "Error Removing resources."
+		(inf_id, vm_list, auth_data) = self.arguments
+		return InfrastructureManager.RemoveResource(inf_id, vm_list, Authentication(auth_data))
+
+class Request_GetInfrastructureInfo(IMBaseRequest):
+	"""
+	Request class for the GetInfrastructureInfo function
+	"""
+	def _call_function(self):
+		self._error_mesage = "Error Getting Inf. Info."
+		(inf_id, auth_data) = self.arguments
+		return InfrastructureManager.GetInfrastructureInfo(inf_id, Authentication(auth_data))
+
+class Request_GetVMInfo(IMBaseRequest):
+	"""
+	Request class for the GetVMInfo function
+	"""
+	def _call_function(self):
+		self._error_mesage = "Error Getting VM Info."
+		(inf_id, vm_id, auth_data) = self.arguments
+		return InfrastructureManager.GetVMInfo(inf_id, vm_id, Authentication(auth_data))
+	
+class Request_AlterVM(IMBaseRequest):
+	"""
+	Request class for the AlterVM function
+	"""
+	def _call_function(self):
+		self._error_mesage = "Error Changing VM Info."
+		(inf_id, vm_id, radl, auth_data) = self.arguments
+		return InfrastructureManager.AlterVM(inf_id, vm_id, radl, Authentication(auth_data))
+
+class Request_DestroyInfrastructure(IMBaseRequest):
+	"""
+	Request class for the DestroyInfrastructure function
+	"""
+	def _call_function(self):
+		self._error_mesage = "Error Destroying Inf."
+		(inf_id, auth_data) = self.arguments
+		return InfrastructureManager.DestroyInfrastructure(inf_id, Authentication(auth_data))
+
+class Request_StopInfrastructure(IMBaseRequest):
+	"""
+	Request class for the StopInfrastructure function
+	"""
+	def _call_function(self):
+		self._error_mesage = "Error Stopping Inf."
+		(inf_id, auth_data) = self.arguments
+		return InfrastructureManager.StopInfrastructure(inf_id, Authentication(auth_data))
+	
+class Request_StartInfrastructure(IMBaseRequest):
+	"""
+	Request class for the StartInfrastructure function
+	"""
+	def _call_function(self):
+		self._error_mesage = "Error Starting Inf."
+		(inf_id, auth_data) = self.arguments
+		return InfrastructureManager.StartInfrastructure(inf_id, Authentication(auth_data))
+
+class Request_CreateInfrastructure(IMBaseRequest):
+	"""
+	Request class for the CreateInfrastructure function
+	"""
+	def _call_function(self):
+		self._error_mesage = "Error Creating Inf."
+		(radl_data, auth_data) = self.arguments
+		return InfrastructureManager.CreateInfrastructure(radl_data, Authentication(auth_data))
+
+class Request_GetInfrastructureList(IMBaseRequest):
+	"""
+	Request class for the GetInfrastructureList function
+	"""
+	def _call_function(self):
+		self._error_mesage = "Error Getting Inf. List."
+		(auth_data) = self.arguments
+		return InfrastructureManager.GetInfrastructureList(Authentication(auth_data))
 
 
-# Clase request para eliminar la Infraestructura con todas sus VMs
-class Request_DestroyInfrastructure(AsyncRequest):
-	def _execute(self):
-		try:
-			(inf_id, auth_data) = self.arguments
-			res = InfrastructureManager.DestroyInfrastructure(inf_id, Authentication(auth_data))
-			self.set(res)
-			return True
-		except Exception, ex:
-			logger.exception("Error Destroying Inf.")
-			self.set(str(ex))
-			return False
-	
-# Clase request para parar la Infraestructura con todas sus VMs
-class Request_StopInfrastructure(AsyncRequest):
-	def _execute(self):
-		try:
-			(inf_id, auth_data) = self.arguments
-			res = InfrastructureManager.StopInfrastructure(inf_id, Authentication(auth_data))
-			self.set(res)
-			return True
-		except Exception, ex:
-			logger.exception("Error Stopping Inf.")
-			self.set(str(ex))
-			return False
-	
-# Clase request para parar la Infraestructura con todas sus VMs
-class Request_StartInfrastructure(AsyncRequest):
-	def _execute(self):
-		try:
-			(inf_id, auth_data) = self.arguments
-			res = InfrastructureManager.StartInfrastructure(inf_id, Authentication(auth_data))
-			self.set(res)
-			return True
-		except Exception, ex:
-			logger.exception("Error Starting Inf.")
-			self.set(str(ex))
-			return False
-	
-# Clase request para crear la infraestructura definida por el RADL y la anyade a la lista del servicio
-class Request_CreateInfrastructure(AsyncRequest):
-	def _execute(self):
-		try:
-			(radl_data, auth_data) = self.arguments
-			res = InfrastructureManager.CreateInfrastructure(radl_data, Authentication(auth_data))
-			self.set(res)
-			return True
-		except Exception, ex:
-			logger.exception("Error Creating Inf.")
-			self.set(str(ex))
-			return False
-	
-# Clase request para listar las infraestucturas del usuario
-class Request_GetInfrastructureList(AsyncRequest):
-	def _execute(self):
-		try:
-			(auth_data) = self.arguments
-			res = InfrastructureManager.GetInfrastructureList(Authentication(auth_data))
-			self.set(res)
-			return True
-		except Exception, ex:
-			logger.exception("Error Getting Inf. List")
-			self.set(str(ex))
-			return False
-	
-# Clase request para reconfigurar los recursos definidos por el RADL a la infraestructura indicada
-class Request_Reconfigure(AsyncRequest):
-	def _execute(self):
-		try:
-			(inf_id, radl_data, auth_data) = self.arguments
-			res = InfrastructureManager.Reconfigure(inf_id, radl_data, Authentication(auth_data))
-			self.set(res)
-			return True
-		except Exception, ex:
-			logger.exception("Error Reconfiguring Inf.")
-			self.set(str(ex))
-			return False
+class Request_Reconfigure(IMBaseRequest):
+	"""
+	Request class for the Reconfigure function
+	"""
+	def _call_function(self):
+		self._error_mesage = "Error Reconfiguring Inf."
+		(inf_id, radl_data, auth_data) = self.arguments
+		return InfrastructureManager.Reconfigure(inf_id, radl_data, Authentication(auth_data))
 
-# Clase request para la funcion de importar una infraestructura
-class Request_ImportInfrastructure(AsyncRequest):
-	def _execute(self):
-		try:
-			(str_inf, auth_data) = self.arguments
-			res = InfrastructureManager.ImportInfrastructure(str_inf, Authentication(auth_data))
-			self.set(res)
-			return True
-		except Exception, ex:
-			logger.exception("Error Importing Inf.")
-			self.set(str(ex))
-			return False
+class Request_ImportInfrastructure(IMBaseRequest):
+	"""
+	Request class for the ImportInfrastructure function
+	"""
+	def _call_function(self):
+		self._error_mesage = "Error Importing Inf."
+		(str_inf, auth_data) = self.arguments
+		return InfrastructureManager.ImportInfrastructure(str_inf, Authentication(auth_data))
 
-# Clase request para la funcion de exportar una infraestructura
-class Request_ExportInfrastructure(AsyncRequest):
-	def _execute(self):
-		try:
-			(inf_id, delete, auth_data) = self.arguments
-			res = InfrastructureManager.ExportInfrastructure(inf_id, delete, Authentication(auth_data))
-			self.set(res)
-			return True
-		except Exception, ex:
-			logger.exception("Error Exporting Inf.")
-			self.set(str(ex))
-			return False
+class Request_ExportInfrastructure(IMBaseRequest):
+	"""
+	Request class for the ExportInfrastructure function
+	"""
+	def _call_function(self):
+		self._error_mesage = "Error Exporting Inf."
+		(inf_id, delete, auth_data) = self.arguments
+		return InfrastructureManager.ExportInfrastructure(inf_id, delete, Authentication(auth_data))
 
-def AddResource(inf_id, radl_data, auth_data):
-	request = Request_AddResource((inf_id, radl_data, auth_data))
+def WaitRequest(request):
+	"""
+	Wait for the specified request
+	"""
 	request.wait()
 	success = (request.status() == Request.STATUS_PROCESSED)
 	return (success, request.get())
+
+"""
+API functions.
+They create the specified request and wait for it.
+"""
+def AddResource(inf_id, radl_data, auth_data):
+	request = Request_AddResource((inf_id, radl_data, auth_data))
+	return WaitRequest(request)
 
 def RemoveResource(inf_id, vm_list, auth_data):
 	request = Request_RemoveResource((inf_id, vm_list, auth_data))
-	request.wait()
-	success = (request.status() == Request.STATUS_PROCESSED)
-	return (success, request.get())
+	return WaitRequest(request)
 
 def GetVMInfo(inf_id, vm_id, auth_data):
 	request = Request_GetVMInfo((inf_id, vm_id, auth_data))
-	request.wait()
-	success = (request.status() == Request.STATUS_PROCESSED)
-	return (success, request.get())
+	return WaitRequest(request)
 
 def AlterVM(inf_id, vm_id, radl, auth_data):
 	request = Request_AlterVM((inf_id, vm_id, radl, auth_data))
-	request.wait()
-	success = (request.status() == Request.STATUS_PROCESSED)
-	return (success, request.get())
+	return WaitRequest(request)
 
 def GetInfrastructureInfo(inf_id, auth_data):
 	request = Request_GetInfrastructureInfo((inf_id, auth_data))
-	request.wait()
-	success = (request.status() == Request.STATUS_PROCESSED)
-	return (success, request.get())
+	return WaitRequest(request)
 
 def StopInfrastructure(inf_id, auth_data):
 	request = Request_StopInfrastructure((inf_id, auth_data))
-	request.wait()
-	success = (request.status() == Request.STATUS_PROCESSED)
-	return (success, request.get())
+	return WaitRequest(request)
 
 def StartInfrastructure(inf_id, auth_data):
 	request = Request_StartInfrastructure((inf_id, auth_data))
-	request.wait()
-	success = (request.status() == Request.STATUS_PROCESSED)
-	return (success, request.get())
+	return WaitRequest(request)
 
 def DestroyInfrastructure(inf_id, auth_data):
 	request = Request_DestroyInfrastructure((inf_id, auth_data))
-	request.wait()
-	success = (request.status() == Request.STATUS_PROCESSED)
-	return (success, request.get())
+	return WaitRequest(request)
 
 def CreateInfrastructure(radl_data, auth_data):
 	request = Request_CreateInfrastructure((radl_data, auth_data))
-	request.wait()
-	success = (request.status() == Request.STATUS_PROCESSED)
-	return (success, request.get())
+	return WaitRequest(request)
 
 def GetInfrastructureList(auth_data):
 	request = Request_GetInfrastructureList((auth_data))
-	request.wait()
-	success = (request.status() == Request.STATUS_PROCESSED)
-	return (success, request.get())
+	return WaitRequest(request)
 
 def Reconfigure(inf_id, radl_data, auth_data):
 	request = Request_Reconfigure((inf_id, radl_data, auth_data))
-	request.wait()
-	success = (request.status() == Request.STATUS_PROCESSED)
-	return (success, request.get())
+	return WaitRequest(request)
 
 def ImportInfrastructure(str_inf, auth_data):
 	request = Request_ImportInfrastructure((str_inf, auth_data))
-	request.wait()
-	success = (request.status() == Request.STATUS_PROCESSED)
-	return (success, request.get())
+	return WaitRequest(request)
 
 def ExportInfrastructure(inf_id, delete, auth_data):
 	request = Request_ExportInfrastructure((inf_id, delete, auth_data))
-	request.wait()
-	success = (request.status() == Request.STATUS_PROCESSED)
-	return (success, request.get())
+	return WaitRequest(request)
 
 def launch_daemon():
-		if os.path.isfile(Config.DATA_FILE):
-				InfrastructureManager.load_data()
-		
-		# y con esa IP creamos el servidor XMLRPC
-		if Config.XMLRCP_SSL:
-				import ssl
-				from IM.request import AsyncSSLXMLRPCServer
-				server = AsyncSSLXMLRPCServer("0.0.0.0", Config.XMLRCP_PORT, Config.XMLRCP_SSL_KEYFILE,
-											  Config.XMLRCP_SSL_CERTFILE, Config.XMLRCP_SSL_CA_CERTS,
-											  cert_reqs=ssl.CERT_OPTIONAL)
-		else:
-				server = AsyncXMLRPCServer(("0.0.0.0", Config.XMLRCP_PORT))
-		
-		server.register_function(CreateInfrastructure)
-		server.register_function(DestroyInfrastructure)
-		server.register_function(StartInfrastructure)
-		server.register_function(StopInfrastructure)
-		server.register_function(GetInfrastructureInfo)
-		server.register_function(GetVMInfo)
-		server.register_function(AlterVM)
-		server.register_function(RemoveResource)
-		server.register_function(AddResource)
-		server.register_function(GetInfrastructureList)
-		server.register_function(Reconfigure)
-		server.register_function(ExportInfrastructure)
-		server.register_function(ImportInfrastructure)
-		
-		InfrastructureManager.logger.info('************ Start Infrastucture Manager daemon (v.%s) ************' % version)
+	"""
+	Launch the IM daemon
+	"""
+	if os.path.isfile(Config.DATA_FILE):
+		InfrastructureManager.load_data()
+	
+	if Config.XMLRCP_SSL:
+		# if specified launch the secure version
+		import ssl
+		from IM.request import AsyncSSLXMLRPCServer
+		server = AsyncSSLXMLRPCServer(Config.XMLRCP_ADDRESS, Config.XMLRCP_PORT, Config.XMLRCP_SSL_KEYFILE,
+									  Config.XMLRCP_SSL_CERTFILE, Config.XMLRCP_SSL_CA_CERTS,
+									  cert_reqs=ssl.CERT_OPTIONAL)
+	else:
+		# otherwise the standard XML-RPC service
+		server = AsyncXMLRPCServer((Config.XMLRCP_ADDRESS, Config.XMLRCP_PORT))
+	
+	# Register the API functions
+	server.register_function(CreateInfrastructure)
+	server.register_function(DestroyInfrastructure)
+	server.register_function(StartInfrastructure)
+	server.register_function(StopInfrastructure)
+	server.register_function(GetInfrastructureInfo)
+	server.register_function(GetVMInfo)
+	server.register_function(AlterVM)
+	server.register_function(RemoveResource)
+	server.register_function(AddResource)
+	server.register_function(GetInfrastructureList)
+	server.register_function(Reconfigure)
+	server.register_function(ExportInfrastructure)
+	server.register_function(ImportInfrastructure)
+	
+	InfrastructureManager.logger.info('************ Start Infrastucture Manager daemon (v.%s) ************' % version)
 
-		# Lanzamos el thread del API XMLRPC
-		server.serve_forever_in_thread()
-		
-		if Config.ACTIVATE_REST:
-				import IM.REST
-				# Lanzamos el thread del API REST
-				IM.REST.run_in_thread(host="0.0.0.0", port=Config.REST_PORT)
-		
-		"""
-		Arrancamos la cola de mensajes del sistema
-		"""
-		get_system_queue().timed_process_loop(None, 1)
+	# Launch the API XMLRPC thread 
+	server.serve_forever_in_thread()
+	
+	if Config.ACTIVATE_REST:
+		# If specified launch the REST server
+		import IM.REST
+		IM.REST.run_in_thread(host=Config.REST_ADDRESS, port=Config.REST_PORT)
+	
+	# Start the messages queue
+	get_system_queue().timed_process_loop(None, 1)
 
 def config_logging():
+	"""
+	Init the logging info
+	"""
 	log_dir = os.path.dirname(Config.LOG_FILE)
 	if not os.path.isdir(log_dir):
 		os.makedirs(log_dir)

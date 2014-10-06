@@ -29,8 +29,10 @@ class Config:
 	MAX_VM_FAILS = 3
 	WAIT_RUNNING_VM_TIMEOUT = 1800
 	XMLRCP_PORT = 8899
+	XMLRCP_ADDRESS = "0.0.0.0"
 	ACTIVATE_REST = False
 	REST_PORT = 8800
+	REST_ADDRESS =  "0.0.0.0"
 	USER_DB = ""
 	IM_PATH = os.path.dirname(os.path.realpath(__file__))
 	LOG_FILE = '/var/log/im/inf.log'
@@ -82,12 +84,18 @@ if config.has_option('im', "WAIT_RUNNING_VM_TIMEOUT"):
 
 if config.has_option('im', "XMLRCP_PORT"):
 	Config.XMLRCP_PORT = config.getint('im', "XMLRCP_PORT")
+	
+if config.has_option('im', "XMLRCP_ADDRESS"):
+	Config.XMLRCP_ADDRESS = config.get('im', "XMLRCP_ADDRESS")
 
 if config.has_option('im', "ACTIVATE_REST"):
 	Config.ACTIVATE_REST = config.getboolean('im', "ACTIVATE_REST")
 
 if config.has_option('im', "REST_PORT"):
 	Config.REST_PORT = config.getint('im', "REST_PORT")
+	
+if config.has_option('im', "REST_ADDRESS"):
+	Config.REST_ADDRESS = config.get('im', "REST_ADDRESS")
 
 if config.has_option('im', "IM_PATH"):
 	Config.IM_PATH = config.get('im', "IM_PATH")

@@ -41,6 +41,7 @@ IM 1.0.0
     * Modify setup to use in pip
 
 IM 1.1.0
+    * Minor bug fixes and code improvements
     * Add Docker connector
     * Improve EC2 connector
     * Improve OpenNebula connector to support version 4.8
