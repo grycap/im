@@ -947,10 +947,10 @@ class system(Features, Aspect):
 			"spot": (str, ["YES", "NO"]),
 			"image_type": (str, ["VMDK", "QCOW", "QCOW2", "RAW"]),
 			"virtual_system_type": (str, system._check_virtual_system_type),
-			"price": (float, positive, None),
+			"price": ((int,float), positive, None),
 			"cpu.count": (int, positive, None),
 			"cpu.arch": (str, ['I386', 'X86_64']),
-			"cpu.performance": (float, positive, ["ECU", "GCEU", "HRZ"]),
+			"cpu.performance": ((int,float), positive, ["ECU", "GCEU", "HRZ"]),
 			"memory.size": (int, positive, mem_units),
 			SoftFeatures.SOFT: (SoftFeatures, lambda x, r: x.check(r))
 		}
