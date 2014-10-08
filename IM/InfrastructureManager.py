@@ -393,7 +393,8 @@ class InfrastructureManager:
 			
 			# Set the default values for cpu, memory
 			defaults = (Feature("cpu.count", ">=", Config.DEFAULT_VM_CPUS),
-			            Feature("memory.size", ">=", Config.DEFAULT_VM_MEMORY),
+			            Feature("memory.size", ">=", Config.DEFAULT_VM_MEMORY,
+			                    Config.DEFAULT_VM_MEMORY_UNIT),
 			            Feature("cpu.arch", "=", Config.DEFAULT_VM_CPU_ARCH))
 			for f in defaults:
 				if not s_without_apps.hasFeature(f.prop, check_softs=True):
