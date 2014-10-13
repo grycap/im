@@ -25,6 +25,7 @@ import shutil
 import subprocess
 import json
 import string
+import copy
 
 import InfrastructureManager
 from VirtualMachine import VirtualMachine
@@ -885,43 +886,47 @@ class ConfManager(threading.Thread):
 		   - yaml1(str): string with the second YAML
 		Returns: The merged YAML. In case of errors, it concatenates both strings
 		"""
-		yamlo1 = {}
+		yamlo1o = {}
 		try:
-			yamlo1 = yaml.load(yaml1)[0]
-			if not isinstance(yamlo1, dict):
-				yamlo1 = {}
+			yamlo1o = yaml.load(yaml1)[0]
+			if not isinstance(yamlo1o, dict):
+				yamlo1o = {}
 		except Exception:
 			ConfManager.logger.exception("Error parsing YAML: " + yaml1 + "\n Ignore it")
 		
-		yamlo2 = {}	
 		try:
-			yamlo2 = yaml.load(yaml2)[0]
-			if not isinstance(yamlo2, dict):
-				yamlo2 = {}
+			yamlo2s = yaml.load(yaml2)
+			if not isinstance(yamlo2s, list) or any([ not isinstance(d, dict) for d in yamlo2s ]):
+				yamlo2s = {}
 		except Exception:
 			ConfManager.logger.exception("Error parsing YAML: " + yaml2 + "\n Ignore it")
+			yamlo2s = {}
 
-		if not yamlo2 and not yamlo1:
+		if not yamlo2s and not yamlo1o:
 			return ""
 
-		all_keys = []
-		all_keys.extend(yamlo1.keys())
-		all_keys.extend(yamlo2.keys())
-		all_keys = set(all_keys)
+		result = []
+		for yamlo2 in yamlo2s:
+			yamlo1 = copy.deepcopy(yamlo1o)
+			all_keys = []
+			all_keys.extend(yamlo1.keys())
+			all_keys.extend(yamlo2.keys())
+			all_keys = set(all_keys)
 
-		for key in all_keys:
-			if key in yamlo1 and yamlo1[key]:
-				if key in yamlo2 and yamlo2[key]:
-					if isinstance(yamlo1[key], dict):
-						yamlo1[key].update(yamlo2[key])
-					elif isinstance(yamlo1[key], list):
-						yamlo1[key].extend(yamlo2[key])
-					else:
-						# Both use have the same key with merge in a lists
-						v1 = yamlo1[key]
-						v2 = yamlo2[key]
-						yamlo1[key] = [v1, v2]
-			elif key in yamlo2 and yamlo2[key]:
-				yamlo1[key] = yamlo2[key]
+			for key in all_keys:
+				if key in yamlo1 and yamlo1[key]:
+					if key in yamlo2 and yamlo2[key]:
+						if isinstance(yamlo1[key], dict):
+							yamlo1[key].update(yamlo2[key])
+						elif isinstance(yamlo1[key], list):
+							yamlo1[key].extend(yamlo2[key])
+						else:
+							# Both use have the same key with merge in a lists
+							v1 = yamlo1[key]
+							v2 = yamlo2[key]
+							yamlo1[key] = [v1, v2]
+				elif key in yamlo2 and yamlo2[key]:
+					yamlo1[key] = yamlo2[key]
+			result.append(yamlo1)
 
-		return yaml.dump([yamlo1], default_flow_style=False, explicit_start=True, width=256)
+		return yaml.dump(result, default_flow_style=False, explicit_start=True, width=256)
