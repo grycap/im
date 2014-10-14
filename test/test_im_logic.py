@@ -24,6 +24,7 @@ from mock import Mock
 from IM.VirtualMachine import VirtualMachine
 from IM import CloudInfo
 from IM.InfrastructureManager import InfrastructureManager as IM
+from IM.InfrastructureManager import IncorrectVMCrecentialsException
 from IM.auth import Authentication
 from IM.radl.radl import RADL, system, deploy, Feature, SoftFeatures
 from IM.config import Config
@@ -83,8 +84,8 @@ class TestIM(unittest.TestCase):
 		IM.DestroyInfrastructure(infId0, auth0)
 		IM.DestroyInfrastructure(infId1, auth1)
 
-	def test_inf_addresources0(self):
-		"""Deploy single virtual machines and test reference."""
+	def test_inf_addresources_without_credentials(self):
+		"""Deploy single virtual machine without credentials to check that it raises the correct exception."""
 
 		cloud = CloudConnector
 		
@@ -95,6 +96,33 @@ class TestIM(unittest.TestCase):
 		radl = RADL()
 		radl.add(system("s0", [ Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er") ]))
 		radl.add(deploy("s0", 1))
+		
+		cloud.launch = Mock(side_effect=self.gen_launch_res)
+		self.register_cloudconnector("Mock", cloud)
+		auth0 = self.getAuth([0], [], [("Mock", 0)])
+		infId = IM.CreateInfrastructure("", auth0)
+
+		with self.assertRaises(IncorrectVMCrecentialsException):
+			IM.AddResource(infId, str(radl), auth0)
+
+		cloud.finalize = Mock(side_effect=self.gen_finalize_res)
+		IM.DestroyInfrastructure(infId, auth0)
+
+	def test_inf_addresources0(self):
+		"""Deploy single virtual machines and test reference."""
+
+		cloud = CloudConnector
+		
+		cl_info = CloudInfo
+		cl_info.getCloudConnector = Mock(return_value=cloud)
+		self.cloud = cl_info
+		
+		radl = RADL()
+		radl.add(system("s0", [ Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
+								Feature("disk.0.os.credentials.username", "=", "user"),
+								Feature("disk.0.os.credentials.password", "=", "pass") ]))
+		radl.add(deploy("s0", 1))
+		
 		cloud.launch = Mock(side_effect=self.gen_launch_res)
 		self.register_cloudconnector("Mock", cloud)
 		auth0 = self.getAuth([0], [], [("Mock", 0)])
@@ -123,7 +151,9 @@ class TestIM(unittest.TestCase):
 		cl_info.getCloudConnector = Mock(return_value=cloud)
 		self.cloud = cl_info
 		radl = RADL()
-		radl.add(system("s0", [ Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er") ]))
+		radl.add(system("s0", [ Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
+								Feature("disk.0.os.credentials.username", "=", "user"),
+								Feature("disk.0.os.credentials.password", "=", "pass") ]))		
 		radl.add(deploy("s0", n))
 		cloud.launch = Mock(side_effect=self.gen_launch_res)
 		self.register_cloudconnector("Mock", cloud)
@@ -142,8 +172,12 @@ class TestIM(unittest.TestCase):
 
 		n0, n1 = 2, 5 # Machines to deploy
 		radl = RADL()
-		radl.add(system("s0", [ Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er") ]))
-		radl.add(system("s1", [ Feature("disk.0.image.url", "=", "mock1://wind.ows.suc.kz") ]))
+		radl.add(system("s0", [ Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
+								Feature("disk.0.os.credentials.username", "=", "user"),
+								Feature("disk.0.os.credentials.password", "=", "pass") ]))
+		radl.add(system("s1", [ Feature("disk.0.image.url", "=", "mock1://wind.ows.suc.kz"),
+								Feature("disk.0.os.credentials.username", "=", "user"),
+								Feature("disk.0.os.credentials.private_key", "=", "private_key") ]))		
 		radl.add(deploy("s0", n0))
 		radl.add(deploy("s1", n1))
 		
@@ -180,8 +214,14 @@ class TestIM(unittest.TestCase):
 
 		n0, n1 = 2, 5 # Machines to deploy
 		radl = RADL()
-		radl.add(system("s0", [ Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"), SoftFeatures(10, [ Feature("memory.size", "<=", 500) ]) ]))
-		radl.add(system("s1", [ Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),  SoftFeatures(10, [ Feature("memory.size", ">=", 800) ]) ]))
+		radl.add(system("s0", [ Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
+								SoftFeatures(10, [ Feature("memory.size", "<=", 500) ]),
+								Feature("disk.0.os.credentials.username", "=", "user"),
+								Feature("disk.0.os.credentials.password", "=", "pass") ]))
+		radl.add(system("s1", [ Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
+								SoftFeatures(10, [ Feature("memory.size", ">=", 800) ]),
+								Feature("disk.0.os.credentials.username", "=", "user"),
+								Feature("disk.0.os.credentials.password", "=", "pass") ]))
 		radl.add(deploy("s0", n0))
 		radl.add(deploy("s1", n1))
 		
@@ -217,9 +257,15 @@ class TestIM(unittest.TestCase):
 
 		n0, n1 = 1, 1 # Machines to deploy
 		radl = RADL()
-		radl.add(system("s0", [ Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"), Feature("cpu.count", "=", 1) ]))
+		radl.add(system("s0", [ Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
+								Feature("cpu.count", "=", 1),
+								Feature("disk.0.os.credentials.username", "=", "user"),
+								Feature("disk.0.os.credentials.password", "=", "pass") ]))
 		radl.add(deploy("s0", n0))
-		radl.add(system("s1", [ Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"), Feature("cpu.count", "=", 1) ]))
+		radl.add(system("s1", [ Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
+								Feature("cpu.count", "=", 1),
+								Feature("disk.0.os.credentials.username", "=", "user"),
+								Feature("disk.0.os.credentials.password", "=", "pass") ]))
 		radl.add(deploy("s1", n1))
 		
 		cloud0 = type("MyMock0", (CloudConnector,object), {})
