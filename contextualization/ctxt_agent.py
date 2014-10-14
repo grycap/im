@@ -30,7 +30,7 @@ from SSH import SSH
 SSH_WAIT_TIMEOUT = 600
 # This value enables to retry the playbooks to avoid some SSH connectivity problems
 # The minimum value is 1
-PLAYBOOK_RETRIES = 1
+PLAYBOOK_RETRIES = 3
 
 
 def wait_ssh_access(vm):

@@ -52,6 +52,12 @@ class UnauthorizedUserException(Exception):
 
 	def __init__(self, msg="Invalid InfrastructureManager credentials"):
 		Exception.__init__(self, msg)
+		
+class IncorrectVMCrecentialsException(Exception):
+	""" Invalid InfrastructureManager credentials """
+
+	def __init__(self, msg="Incorrect VM credentials"):
+		Exception.__init__(self, msg)
 
 
 class InfrastructureManager:
@@ -401,19 +407,28 @@ class InfrastructureManager:
 					s_without_apps.addFeature(f)
 
 			vmrc_res = [ s0 for vmrc in vmrc_list for s0 in vmrc.search_vm(s) ]
+			# Check that now the image URL is in the RADL
 			if not s.getValue("disk.0.image.url") and not vmrc_res:
 				raise Exception("No VMI obtained from VMRC to system: " + system_id)
 			
 			n = [ s_without_apps.clone().applyFeatures(s0, conflict="other", missing="other")
 			                         for s0 in vmrc_res ]
-			systems_with_vmrc[system_id] = n if n else [s_without_apps]			
+			systems_with_vmrc[system_id] = n if n else [s_without_apps]
+			
+			for system_with_vmrc in systems_with_vmrc[system_id]:
+				# Check that now username is available in the RADL
+				(username, password, _, private_key) = system_with_vmrc.getCredentialValues()
+				if not username:
+					raise IncorrectVMCrecentialsException("No username for system: " + system_id)
+				if not password and not private_key:
+					raise IncorrectVMCrecentialsException("Password or private_key must be defined for system: " + system_id)
 
 		# Concrete systems with cloud providers and select systems with the greatest score
 		# in every cloud
 		cloud_list = dict([ (c.id, c.getCloudConnector()) for c in CloudInfo.get_cloud_list(auth) if c not in failed_clouds ])
 		concrete_systems = {}
 		for cloud_id, cloud in cloud_list.items():
-			for system_id, systems in systems_with_vmrc.items():
+			for system_id, systems in systems_with_vmrc.items():				
 				s1 = [InfrastructureManager._compute_score(s.clone().applyFeatures(s0, missing="other").concrete(), radl.get_system_by_name(system_id))
 				                for s in systems for s0 in cloud.concreteSystem(s, auth)]
 				# Store the concrete system with largest score
