@@ -4,7 +4,7 @@
   vars_files:
     - [ "utils/vars/{{ ansible_distribution }}.yml", "utils/vars/os_defaults.yml" ]
   vars:
-    ANSIBLE_VERSION: 1.7.1
+    ANSIBLE_VERSION: 1.7.2
   tasks:
     - name: Apt-get update
       apt: update_cache=yes cache_valid_time=604800
@@ -20,8 +20,7 @@
       when: ansible_os_family == "RedHat"
     
     - name: Apt install requirements
-      #action: apt pkg=python-mysqldb,unzip,python-pip,gcc,python-dev
-      action: command apt-get -y install python-mysqldb unzip python-pip gcc python-dev 
+      action: command apt-get -y install python-mysqldb unzip python-pip gcc python-dev
       when: ansible_os_family == "Debian"
 
     - name: Yum install requirements RH6 or Fedora
@@ -86,6 +85,3 @@
 
     - name: Set jinja2.ext.do to jinja2_extensions in ansible.cfg
       ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=jinja2_extensions value=jinja2.ext.do
-
-    - name: Active pipelining in ansible.cfg
-      ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=pipelining value=True

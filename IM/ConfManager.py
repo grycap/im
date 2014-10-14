@@ -411,6 +411,9 @@ class ConfManager(threading.Thread):
 		if os != 'windows':
 			conf_content += "  sudo: yes\n"
 		conf_content += "  user: \"{{ IM_NODE_USER }}\"\n"
+		# Activate the accelerated mode
+		conf_content += "  accelerate: true\n"
+		
 
 		# Add the utils helper vars 
 		conf_content += "  vars_files: \n"
