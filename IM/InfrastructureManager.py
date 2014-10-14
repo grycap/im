@@ -170,6 +170,11 @@ class InfrastructureManager:
 				       not cancel_deployment):
 					concrete_system = concrete_systems[cloud_id][deploy.id][0]
 					if not concrete_system: break
+					
+					(username, _, _, _) = concrete_system.getCredentialValues()
+					if not username:
+						raise IncorrectVMCrecentialsException("No username for deploy: " + deploy.id)
+					
 					launch_radl = radl.clone()
 					launch_radl.systems = [concrete_system]
 					requested_radl = radl.clone()
@@ -414,14 +419,6 @@ class InfrastructureManager:
 			n = [ s_without_apps.clone().applyFeatures(s0, conflict="other", missing="other")
 			                         for s0 in vmrc_res ]
 			systems_with_vmrc[system_id] = n if n else [s_without_apps]
-			
-			for system_with_vmrc in systems_with_vmrc[system_id]:
-				# Check that now username is available in the RADL
-				(username, password, _, private_key) = system_with_vmrc.getCredentialValues()
-				if not username:
-					raise IncorrectVMCrecentialsException("No username for system: " + system_id)
-				if not password and not private_key:
-					raise IncorrectVMCrecentialsException("Password or private_key must be defined for system: " + system_id)
 
 		# Concrete systems with cloud providers and select systems with the greatest score
 		# in every cloud
