@@ -789,6 +789,7 @@ class EC2CloudConnector(CloudConnector):
 		   - vm(:py:class:`IM.VirtualMachine`): VM information.	
 		"""
 		sg_name = "im-" + str(id(vm.inf))
+		sg = None
 		for elem in conn.get_all_security_groups():
 			if elem.name == sg_name:
 				sg = elem
