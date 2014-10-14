@@ -32,7 +32,6 @@ SSH_WAIT_TIMEOUT = 600
 # The minimum value is 1
 PLAYBOOK_RETRIES = 3
 
-
 def wait_ssh_access(vm):
 	"""
 	 Test the SSH access to the VM
