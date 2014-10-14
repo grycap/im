@@ -17,12 +17,14 @@
 import logging
 import threading
 import time
+from uuid import uuid1
 
 from ganglia import ganglia_info
 import ConfManager
 from datetime import datetime
 from IM.radl.radl import RADL, Feature, deploy, system
 from config import Config
+
 
 class IncorrectVMException(Exception):
 	""" Invalid VM ID. """
@@ -50,8 +52,10 @@ class InfrastructureInfo:
 	def __init__(self):
 		self._lock = threading.Lock()
 		"""Threading Lock to avoid concurrency problems."""
+		self.uuid = str(uuid1())
+		"""Infrastructure unique ID. """
 		self.id = 0
-		"""Infrastructure ID."""
+		"""Infrastructure internal ID."""
 		self.vm_list = []
 		"""Map of int to VirtualMachine."""
 		self.auth = None

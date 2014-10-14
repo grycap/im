@@ -215,7 +215,8 @@ class EC2CloudConnector(CloudConnector):
 		res = "default"
 		try:
 			sg = None
-			sg_name = "im-" + str(id(inf))
+
+			sg_name = "im-" + str(inf.uuid)
 			for elem in conn.get_all_security_groups():
 				if elem.name == sg_name:
 					sg = elem
