@@ -87,3 +87,5 @@
     - name: Set jinja2.ext.do to jinja2_extensions in ansible.cfg
       ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=jinja2_extensions value=jinja2.ext.do
 
+    - name: Active pipelining in ansible.cfg
+      ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=pipelining value=True
