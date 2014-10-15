@@ -102,8 +102,10 @@ class TestIM(unittest.TestCase):
 		auth0 = self.getAuth([0], [], [("Mock", 0)])
 		infId = IM.CreateInfrastructure("", auth0)
 
-		with self.assertRaises(IncorrectVMCrecentialsException):
+		with self.assertRaises(Exception) as ex:
 			IM.AddResource(infId, str(radl), auth0)
+		
+		self.assertIn("IncorrectVMCrecentialsException", ex.exception.message)
 
 		cloud.finalize = Mock(side_effect=self.gen_finalize_res)
 		IM.DestroyInfrastructure(infId, auth0)
