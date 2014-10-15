@@ -5,6 +5,7 @@
     - name: Install python-simplejson on REL 5
       action: raw cat /etc/redhat-release | grep "release 5" &&  yum -y install python-simplejson
       ignore_errors: yes
+      
     - name: Check requiretty in REL 5
       action: raw cat /etc/sudoers | grep -v requiretty >> /tmp/sudoers.tmp; mv -f /tmp/sudoers.tmp  /etc/sudoers; echo 'Defaults !requiretty' >> /etc/sudoers
       ignore_errors: yes
@@ -12,6 +13,23 @@
     # In case of redhat systems libselinux-python is needed
     - name: Install libselinux-python on redhat systems
       action: yum pkg=libselinux-python state=installed
+      sudo: yes
+      ignore_errors: yes
+
+    # In case of redhat systems epel repo is needed
+    - name: EPEL
+      template: src=utils/templates/epel.repo dest=/etc/yum.repos.d/epel.repo
+      sudo: yes
+      ignore_errors: yes
+
+    # In case of redhat systems python-keyczar is needed for the accelerated mode
+    - name: Install python-keyczar on redhat systems
+      action: yum pkg=python-keyczar state=installed
+      sudo: yes
+      ignore_errors: yes
+      
+    - name: Install python-keyczar on debian systems
+      action: apt pkg=python-keyczar state=installed
       sudo: yes
       ignore_errors: yes
 
