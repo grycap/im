@@ -29,7 +29,7 @@
       ignore_errors: yes
       
     - name: Install python-keyczar on debian systems
-      action: apt pkg=python-keyczar state=installed
+      action: apt pkg=python-keyczar state=installed cache_valid_time=604800
       sudo: yes
       ignore_errors: yes
 

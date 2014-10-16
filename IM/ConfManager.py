@@ -413,13 +413,29 @@ class ConfManager(threading.Thread):
 		conf_content += "  user: \"{{ IM_NODE_USER }}\"\n"
 		# Activate the accelerated mode
 		conf_content += "  accelerate: true\n"
-		
 
 		# Add the utils helper vars 
 		conf_content += "  vars_files: \n"
 		conf_content += '    - [ "utils/vars/{{ ansible_distribution }}.yml", "utils/vars/os_defaults.yml" ]\n\n'
 
 		return conf_content 
+
+	def create_all_recipe(self, tmp_dir, filename):
+		"""
+		Create the recipe "all" enabling to access all the ansible variables from all hosts
+		Arguments:
+		   - tmp_dir(str): Temp directory where all the playbook files will be stored.
+		   - filename(str): name of he yaml to include (without the extension)
+		"""
+		conf_all_out = open(tmp_dir + "/" + filename + "_all.yml", 'w')
+		conf_all_out.write("---\n")
+		conf_all_out.write("- hosts: all\n")
+		conf_all_out.write("  user: \"{{ IM_NODE_USER }}\"\n")
+		# Activate the accelerated mode
+		conf_all_out.write("  accelerate: true\n")
+		conf_all_out.write("- include: " + filename + ".yml\n")
+		conf_all_out.write("\n\n")
+		conf_all_out.close()
 
 	def configure_ansible(self, ssh, tmp_dir, master_name, masterdom):
 		"""
@@ -499,15 +515,10 @@ class ConfManager(threading.Thread):
 										ConfManager.CONF_DIR + "/" + ctxt_elem.configure + "_" + ctxt_elem.system + ".yml"))
 	
 					# create the "all" to enable this playbook to see the facts of all the nodes
-					conf_all_out = open(tmp_dir + "/" + ctxt_elem.configure + "_" + ctxt_elem.system + "_all.yml", 'w')
-					conf_all_out.write("---\n")
-					conf_all_out.write("- hosts: all\n")
-					conf_all_out.write("  user: \"{{ IM_NODE_USER }}\"\n")
-					conf_all_out.write("- include: " + ctxt_elem.configure + "_" + ctxt_elem.system + ".yml\n")
-					conf_all_out.write("\n\n")
-					conf_all_out.close()
-					recipe_files.append((tmp_dir + "/" + ctxt_elem.configure + "_" + ctxt_elem.system + "_all.yml",
-										ConfManager.CONF_DIR + "/" + ctxt_elem.configure + "_" + ctxt_elem.system + "_all.yml"))
+					all_filename = ctxt_elem.configure + "_" + ctxt_elem.system
+					self.create_all_recipe(tmp_dir, all_filename)
+					all_filename += "_all.yml"
+					recipe_files.append((tmp_dir + "/" + all_filename, ConfManager.CONF_DIR + "/" + all_filename))
 
 		# Create the other configure sections (it may be included in other configure)
 		if self.inf.radl.configures:
@@ -565,15 +576,10 @@ class ConfManager(threading.Thread):
 							ConfManager.CONF_DIR + "/main_" + group + ".yml"))
 			
 			# create the "all" to enable this playbook to see the facts of all the nodes
-			conf_all_out = open(tmp_dir + "/main_" + group + "_all.yml", 'w')
-			conf_all_out.write("---\n")
-			conf_all_out.write("- hosts: all\n")
-			conf_all_out.write("  user: \"{{ IM_NODE_USER }}\"\n")
-			conf_all_out.write("- include: main_" + group + ".yml\n")
-			conf_all_out.write("\n\n")
-			conf_all_out.close()
-			recipe_files.append((tmp_dir + "/main_" + group + "_all.yml",
-								ConfManager.CONF_DIR + "/main_" + group + "_all.yml"))
+			all_filename = "main_" + group
+			self.create_all_recipe(tmp_dir, all_filename)
+			all_filename += "_all.yml"
+			recipe_files.append((tmp_dir + "/" + all_filename, ConfManager.CONF_DIR + "/" + all_filename ))
 			
 
 		self.inf.add_cont_msg("Copying generated playbook files.")
@@ -832,7 +838,6 @@ class ConfManager(threading.Thread):
 		recipe_out = open(tmp_dir + "/" + contextualize_yaml, 'w')
 		recipe_out.write("---\n")
 		recipe_out.write("- hosts: all\n")
-		recipe_out.write("  sudo: yes\n")
 		recipe_out.write("  tasks:\n")
 		recipe_out.write("    - name: Lanza el Contextualizador\n")
 		recipe_out.write("      command: python_ansible " + ConfManager.CONF_DIR + "/ctxt_agent.py " + ConfManager.CONF_DIR + "/" + os.path.basename(conf_file) + "\n")

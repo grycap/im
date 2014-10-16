@@ -48,3 +48,5 @@ IM 1.1.0
     * Change GetVMInfo and AlterVM functions to return only RADL data 
     * Add provider information in the RADL
     * Bug fixes in LibVirt connector
+    * Change Ansible version to 1.7.2
+    * Use the accelerated mode of ansible to improve preformace in the contextualization step
