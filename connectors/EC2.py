@@ -236,7 +236,7 @@ class EC2CloudConnector(CloudConnector):
 				outports = public_net.getOutPorts()
 				if outports:
 					for remote_port,remote_protocol,local_port,local_protocol in outports:
-						if local_port != "22":						
+						if local_port != "22" and local_port != "5099":						
 							protocol = remote_protocol
 							if remote_protocol != local_protocol:
 								self.logger.warn("Diferent protocols used in outports ignoring local port protocol!")								
@@ -244,6 +244,7 @@ class EC2CloudConnector(CloudConnector):
 							sg.authorize(protocol, remote_port, local_port, '0.0.0.0/0')
 			
 			sg.authorize('tcp', 22, 22, '0.0.0.0/0')
+			sg.authorize('tcp', 5099, 5099, '0.0.0.0/0')
 			
 		except Exception, ex:
 			self.logger.exception("Error Creating the Security group")
@@ -574,55 +575,24 @@ class EC2CloudConnector(CloudConnector):
 		   - vm(:py:class:`IM.VirtualMachine`): VM information.	
 		   - instance(:py:class:`boto.ec2.instance`): object to connect to EC2 instance.
 		"""
-		num_pub_nets = num_nets = 0
-		now = str(int(time.time()*100))
-		#vm.info.network = []
+		
 		vm_system = vm.info.systems[0]
-
+		num_pub_nets = num_nets = 0
+		public_ips = []
+		private_ips = []
 		if instance.ip_address != None and len(instance.ip_address) > 0 and instance.ip_address != instance.private_ip_address:
-			public_net = None
-			for net in vm.info.networks:
-				if net.isPublic():
-					public_net = net
-			
-			if public_net is None:
-				public_net = network.createNetwork("public." + now, True)
-				vm.info.networks.append(public_net)
-				num_net = vm.getNumNetworkIfaces()
-			else:
-				# If there are are public net, get the ID
-				num_net = vm.getNumNetworkWithConnection(public_net.id)
-				if num_net is None:
-					# There are a public net but it has not been used in this VM
-					num_net = vm.getNumNetworkIfaces()
-
-			vm_system.setValue('net_interface.' + str(num_net) + '.ip', str(instance.ip_address))
-			vm_system.setValue('net_interface.' + str(num_net) + '.connection',public_net.id)
-				
+			public_ips = [instance.ip_address]
 			num_nets += 1
 			num_pub_nets = 1
-
 		if instance.private_ip_address != None and len(instance.private_ip_address) > 0:
-			private_net = None
-			for net in vm.info.networks:
-				if not net.isPublic():
-					private_net = net
-			
-			if private_net is None:
-				private_net = network.createNetwork("private." + now)
-				vm.info.networks.append(private_net)
-				num_net = vm.getNumNetworkIfaces()
-			else:
-				# If there are are private net, get the ID
-				num_net = vm.getNumNetworkWithConnection(private_net.id)
-				if num_net is None:
-					# There are a private net but it has not been used in this VM
-					num_net = vm.getNumNetworkIfaces()
-
-			vm_system.setValue('net_interface.' + str(num_net) + '.ip', str(instance.private_ip_address))
-			vm_system.setValue('net_interface.' + str(num_net) + '.connection',private_net.id)
-				
+			private_ips = [instance.private_ip_address]
 			num_nets += 1
+		
+		self.setIpsToVM(vm, public_ips, private_ips)
+
+		for net in vm.info.networks:
+			if net.isPublic():
+				public_net = net
 
 		elastic_ips = []
 		# Get the elastic IPs assigned (there must be only 1)

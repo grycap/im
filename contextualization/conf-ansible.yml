@@ -13,6 +13,11 @@
     - name: Install libselinux-python in RH
       action: yum pkg=libselinux-python state=installed
       when: ansible_os_family == "RedHat"
+      
+    - name: Remove the python-crypto
+      action: command rpm -e --nodeps python-crypto
+      when: ansible_os_family == "RedHat"
+      ignore_errors: True
 
     - name: EPEL
       #template: src=utils/templates/epel.repo dest=/etc/yum.repos.d/epel.repo

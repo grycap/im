@@ -16,10 +16,13 @@
 
 import hashlib
 import xmlrpclib
+import time
+
 from IM.xmlobject import XMLObject
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from CloudConnector import CloudConnector
+from IM.radl.radl import network
 
 from IM.config import Config
 from IM.radl.radl import Feature
@@ -161,8 +164,16 @@ class OpenNebulaCloudConnector(CloudConnector):
 		   - vm(:py:class:`IM.VirtualMachine`): VM information.
 		   - template(:py:class:`TEMPLATE`): ONE Template information. 
 		"""
-		for i, nic in enumerate(template.NIC):
-			vm.info.systems[0].setValue('net_interface.' + str(i) + '.ip',str(nic.IP))
+		public_ips = []
+		private_ips = []
+		for nic in template.NIC:
+			ip = str(nic.IP)
+			if self.isPrivate(ip):
+				private_ips.append(ip)
+			else:
+				public_ips.append(ip)
+
+		self.setIpsToVM(vm, public_ips, private_ips)
 
 	def updateVMInfo(self, vm, auth_data):
 		server_url = "http://%s:%d/RPC2" % (self.cloud.server, self.cloud.port)
@@ -520,7 +531,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 		   - radl_nets(list of :py:class:`radl.network` objects): RADL networks.
 		   - one_nets(a list of tuples (net_name, net_id, is_public)): ONE networks (returned by getONENetworks function).
 		 
-		 Returns: a dict with key the RADL network id and value a tuple (one_net_name, one_net_id)
+		 Returns: a dict with key the RADL network id and value a tuple (one_net_name, one_net_id, is_public)
 		"""
 		res = {}
 		
@@ -529,9 +540,9 @@ class OpenNebulaCloudConnector(CloudConnector):
 		for radl_net in radl_nets:
 			for (net_name, net_id, is_public) in one_nets:
 				if net_id not in used_nets and radl_net.isPublic() == is_public :
-					res[radl_net.id] = (net_name, net_id)
+					res[radl_net.id] = (net_name, net_id, is_public)
 					used_nets.append(net_id)
-					last_net = (net_name, net_id)
+					last_net = (net_name, net_id, is_public)
 					break
 			if radl_net.id not in res:
 				res[radl_net.id] = last_net
@@ -542,9 +553,9 @@ class OpenNebulaCloudConnector(CloudConnector):
 			if not res[radl_net.id]:
 				for (net_name, net_id, is_public) in one_nets:
 					if net_id not in used_nets and is_public:
-						res[radl_net.id] = (net_name, net_id)
+						res[radl_net.id] = (net_name, net_id, is_public)
 						used_nets.append(net_id)
-						last_net = (net_name, net_id)
+						last_net = (net_name, net_id, is_public)
 						break
 				if radl_net.id not in res:
 					res[radl_net.id] = last_net	
@@ -572,32 +583,35 @@ class OpenNebulaCloudConnector(CloudConnector):
 		nets = self.map_radl_one_networks(radl.networks, one_nets)
 
 		system = radl.systems[0]
-		i = 0
-		while system.getValue("net_interface." + str(i) + ".connection"):
-			network = system.getValue("net_interface." + str(i) + ".connection")
-			fixed_ip = system.getValue("net_interface." + str(i) + ".ip")
-			
-			# get the one network info
-			if nets[network]:
-				(net_name, net_id) = nets[network]
-			else:
-				self.logger.error("No ONE network found for network: " + network)
-				raise Exception("No ONE network found for network: " + network)
-			
-			if net_id is not None:
-				if one_ver.startswith("2."):
-					res += 'NIC=[ \nNETWORK="' + net_name + '"\n'
+		# First set the public ones (onecloud issues...)
+		for public in [True, False]:
+			i = 0
+			while system.getValue("net_interface." + str(i) + ".connection"):
+				network = system.getValue("net_interface." + str(i) + ".connection")
+				fixed_ip = system.getValue("net_interface." + str(i) + ".ip")
+				
+				# get the one network info
+				if nets[network]:
+					(net_name, net_id, is_public) = nets[network]
 				else:
-					res += 'NIC=[ \nNETWORK_ID="' + net_id + '"\n'
-
-				if fixed_ip:
-					res += ',IP = "' + fixed_ip + '"\n'
-
-				res +=  ']\n'
-			else:
-				self.logger.error("The net: " + network + " cannot be defined in ONE")
-
-			i += 1
+					self.logger.error("No ONE network found for network: " + network)
+					raise Exception("No ONE network found for network: " + network)
+				
+				if public == is_public:
+					if net_id is not None:
+						if one_ver.startswith("2."):
+							res += 'NIC=[ \nNETWORK="' + net_name + '"\n'
+						else:
+							res += 'NIC=[ \nNETWORK_ID="' + net_id + '"\n'
+		
+						if fixed_ip:
+							res += ',IP = "' + fixed_ip + '"\n'
+		
+						res +=  ']\n'
+					else:
+						self.logger.error("The net: " + network + " cannot be defined in ONE")
+	
+				i += 1
 			
 		return res
 
