@@ -801,17 +801,17 @@ class system(Features, Aspect):
 		"""Return the dns name associated to the net interface."""
 		
 		full_name = self.getValue("net_interface.%d.dns_name" % iface_num)
-		
-		replaced_full_name = system.replaceTemplateName(full_name, num)
-	
-		if replaced_full_name:
+
+		if full_name:
+			replaced_full_name = system.replaceTemplateName(full_name, num)
 			(hostname, domain) = replaced_full_name
 			if not domain:
 				domain = default_domain
 			return (hostname, domain)
 		else:
 			if default_hostname:
-				return (default_hostname, default_domain)
+				(hostname, _) = system.replaceTemplateName(default_hostname, num)
+				return (hostname, default_domain)
 			else:
 				return None
 	
