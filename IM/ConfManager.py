@@ -832,6 +832,7 @@ class ConfManager(threading.Thread):
 		recipe_out = open(tmp_dir + "/" + contextualize_yaml, 'w')
 		recipe_out.write("---\n")
 		recipe_out.write("- hosts: all\n")
+		recipe_out.write("  sudo: yes\n")
 		recipe_out.write("  tasks:\n")
 		recipe_out.write("    - name: Lanza el Contextualizador\n")
 		recipe_out.write("      command: python_ansible " + ConfManager.CONF_DIR + "/ctxt_agent.py " + ConfManager.CONF_DIR + "/" + os.path.basename(conf_file) + "\n")
