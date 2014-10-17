@@ -30,7 +30,7 @@ TESTS_PATH = '/home/micafer/codigo/git_im/im/test'
 RADL_FILE = TESTS_PATH + '/test.radl'
 #RADL_FILE =  TESTS_PATH + '/test_ec2.radl'
 AUTH_FILE = TESTS_PATH + '/auth.dat'
-
+br
 HOSTNAME = "localhost"
 TEST_PORT = 8899
 
@@ -77,8 +77,8 @@ class TestIM(unittest.TestCase):
                 
                 info_radl = radl_parse.parse_radl(info)
                 vm_state = info_radl.systems[0].getValue('state')
-                
-                self.assertFalse(vm_state in err_states, msg="ERROR waiting for a state. '%s' state was expected and '%s' was obtained in the VM %s" % (state, vm_state, vm_id))
+
+                self.assertFalse(vm_state in err_states, msg="ERROR waiting for a state. '" + vm_state + "' was obtained in the VM: " + str(vm_id) + " err_states = " + str(err_states))
                 
                 if vm_state in err_states:
                     return False
