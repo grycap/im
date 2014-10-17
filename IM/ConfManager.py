@@ -168,6 +168,8 @@ class ConfManager(threading.Thread):
 		vms_connected = 0
 		vms_ignored = 0
 		vms_without_ip = 0
+		auth_errors = {}
+		auth_error_retries = 3
 		while (vms_connected + vms_ignored + vms_without_ip) < total_vms and wait < timeout:
 			vms_connected = 0
 			vms_ignored = 0
@@ -188,8 +190,15 @@ class ConfManager(threading.Thread):
 						try:
 							connected = ssh.test_connectivity(5)
 						except AuthenticationException:
-							ConfManager.logger.error("Error connecting with ip: " + ip + " incorrect credentials.")
-							return False
+							ConfManager.logger.warn("Error connecting with ip: " + ip + " incorrect credentials.")
+							if ip in auth_errors:
+								auth_errors[ip] += 1
+							else:
+								auth_errors[ip] = 1
+
+							if auth_errors[ip] >= auth_error_retries:
+								ConfManager.logger.error("Too many authentication errors")
+								return False 
 						
 						if connected:
 							ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " + 'Works!')
@@ -411,8 +420,6 @@ class ConfManager(threading.Thread):
 		if os != 'windows':
 			conf_content += "  sudo: yes\n"
 		conf_content += "  user: \"{{ IM_NODE_USER }}\"\n"
-		# Activate the accelerated mode
-		conf_content += "  accelerate: true\n"
 
 		# Add the utils helper vars 
 		conf_content += "  vars_files: \n"
@@ -431,8 +438,6 @@ class ConfManager(threading.Thread):
 		conf_all_out.write("---\n")
 		conf_all_out.write("- hosts: all\n")
 		conf_all_out.write("  user: \"{{ IM_NODE_USER }}\"\n")
-		# Activate the accelerated mode
-		conf_all_out.write("  accelerate: true\n")
 		conf_all_out.write("- include: " + filename + ".yml\n")
 		conf_all_out.write("\n\n")
 		conf_all_out.close()
