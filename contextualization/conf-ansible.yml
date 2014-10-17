@@ -13,6 +13,11 @@
     - name: Install libselinux-python in RH
       action: yum pkg=libselinux-python state=installed
       when: ansible_os_family == "RedHat"
+      
+    - name: Remove the python-crypto
+      action: yum name=python-crypto state=absent
+      when: ansible_os_family == "RedHat"
+      ignore_errors: True
 
     - name: EPEL
       #template: src=utils/templates/epel.repo dest=/etc/yum.repos.d/epel.repo
@@ -59,6 +64,14 @@
       
     - name: Install ansible with Pip 2.6
       action: command pip-2.6 install ansible=={{ ANSIBLE_VERSION }}
+      when: ansible_os_family == "RedHat" and ansible_distribution_version|float < 6.0
+      
+    - name: Install python-keyczar with Pip
+      pip: name=python-keyczar version=0.71c
+      when: ansible_os_family != "RedHat" or ansible_distribution_version|float >= 6.0
+      
+    - name: Install python-keyczar with Pip 2.6
+      action: command pip-2.6 install python-keyczar==0.71c
       when: ansible_os_family == "RedHat" and ansible_distribution_version|float < 6.0
       
     - name: Install pywinrm for windows support in ansible with Pip
