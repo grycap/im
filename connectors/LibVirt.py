@@ -23,7 +23,7 @@ from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from CloudConnector import CloudConnector
 from IM.radl.radl import Feature
-from IM.config import Config
+from IM.radl.radl import network as radl_network
 
 # clases para parsear el resultado de las llamadas a virsh
 class forward(XMLObject):
@@ -158,7 +158,7 @@ class LibVirtCloudConnector(CloudConnector):
 		net_priv = None
 		net_pub = None
 		for net in res:
-			if net.ip.address.startswith("10") or net.ip.address.startswith("172") or net.ip.address.startswith("169.254") or net.ip.address.startswith("192.168"):
+			if radl_network.isPrivateIP(net.ip.address):
 				# Red privada
 				net_priv = net
 			else:

@@ -588,7 +588,7 @@ class EC2CloudConnector(CloudConnector):
 			private_ips = [instance.private_ip_address]
 			num_nets += 1
 		
-		self.setIpsToVM(vm, public_ips, private_ips)
+		vm.setIps(public_ips, private_ips)
 
 		for net in vm.info.networks:
 			if net.isPublic():
