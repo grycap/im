@@ -10,46 +10,18 @@
       action: raw cat /etc/sudoers | grep -v requiretty >> /tmp/sudoers.tmp; mv -f /tmp/sudoers.tmp  /etc/sudoers; echo 'Defaults !requiretty' >> /etc/sudoers
       ignore_errors: yes
 
-    # to test if it is a "redhat" system
-    - name: check the dir /etc/yum.repos.d 
-      stat: path=/etc/yum.repos.d/
-      register: yum_repos_dir
-
-    # to test if it is a "debian" system
-    - name: check the file sources.list 
-      stat: path=/etc/apt/sources.list
-      register: sources_list
-
     # In case of redhat systems libselinux-python is needed
     - name: Install libselinux-python on redhat systems
       action: yum pkg=libselinux-python state=installed
       sudo: yes
-      when: yum_repos_dir.stat.exists
-
-    # In case of redhat systems epel repo is needed
-    - name: EPEL
-      template: src=utils/templates/epel.repo dest=/etc/yum.repos.d/epel.repo
-      sudo: yes
-      when: yum_repos_dir.stat.exists
-
-    # In case of redhat systems python-keyczar is needed for the accelerated mode
-    - name: Install python-keyczar on redhat systems
-      action: yum pkg=python-keyczar state=installed
-      sudo: yes
-      when: yum_repos_dir.stat.exists
-      
-    - name: Install python-keyczar on debian systems
-      action: apt pkg=python-keyczar state=installed cache_valid_time=86400
-      sudo: yes
-      when: sources_list.stat.exists
+      ignore_errors: yes
 
     # Set the correct hostname
     - name: Set the hostname of the node
       action: hostname name={{ IM_NODE_FQDN }}
       sudo: yes
-      ignore_errors: yes
 
-    # In case of redhat systems disble SELinux
+    # In case of redhat systems disable SELinux
     - name: Disable SELinux in REL systems
       action: selinux state=disabled
       sudo: yes

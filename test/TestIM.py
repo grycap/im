@@ -30,7 +30,6 @@ TESTS_PATH = '/home/micafer/codigo/git_im/im/test'
 RADL_FILE = TESTS_PATH + '/test.radl'
 #RADL_FILE =  TESTS_PATH + '/test_ec2.radl'
 AUTH_FILE = TESTS_PATH + '/auth.dat'
-br
 HOSTNAME = "localhost"
 TEST_PORT = 8899
 
