@@ -168,12 +168,12 @@ class OpenNebulaCloudConnector(CloudConnector):
 		private_ips = []
 		for nic in template.NIC:
 			ip = str(nic.IP)
-			if self.isPrivate(ip):
+			if network.isPrivateIP(ip):
 				private_ips.append(ip)
 			else:
 				public_ips.append(ip)
 
-		self.setIpsToVM(vm, public_ips, private_ips)
+		vm.setIps(public_ips, private_ips)
 
 	def updateVMInfo(self, vm, auth_data):
 		server_url = "http://%s:%d/RPC2" % (self.cloud.server, self.cloud.port)
@@ -517,7 +517,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 					self.logger.error("Unknown type of network")
 					return (None, None)
 			
-			is_public = not (ip.startswith("10") or ip.startswith("172") or ip.startswith("169.254") or ip.startswith("192.168")) 
+			is_public = not (network.isPrivateIP(ip)) 
 
 			res.append((net.NAME, net.ID, is_public))
 				

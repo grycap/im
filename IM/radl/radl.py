@@ -15,6 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import copy
+import socket,struct,time
 from itertools import groupby
 from distutils.version import LooseVersion
 
@@ -619,6 +620,8 @@ class deploy(Aspect):
 
 class network(Features, Aspect):
 	"""Store a RADL ``network``."""
+	
+	private_net_masks = ["10.0.0.0/8","172.16.0.0/12","192.168.0.0/16","169.254.0.0/16"]
 
 	def __init__(self, name, features=None, reference=False, line=None):
 		self.id = name
@@ -627,6 +630,29 @@ class network(Features, Aspect):
 		"""True if it is only a reference and it isn't a definition."""
 		Features.__init__(self, features)
 		self.line = line
+
+	@staticmethod
+	def isPrivateIP(ip):
+		"""
+		Check if an IP address is private
+		"""
+		for mask in network.private_net_masks: 
+			if network.addressInNetwork(ip,mask):
+				return True
+		return False
+
+	@staticmethod
+	def addressInNetwork(ip,net):
+		"""Is an address in a network (format: 10.0.0.0/24)"""
+		ipaddr = struct.unpack('>L',socket.inet_aton(ip))[0]
+		netaddr,bits = net.split('/')
+		netmask = struct.unpack('>L',socket.inet_aton(netaddr))[0]
+		ipaddr_masked = ipaddr & (4294967295<<(32-int(bits)))   # Logical AND of IP address and mask will equal the network address if it matches
+		if netmask == netmask & (4294967295<<(32-int(bits))):   # Validate network address is valid for mask
+			return ipaddr_masked == netmask
+		else:
+			# print "***WARNING*** Network",netaddr,"not valid with mask /"+bits
+			return False
 
 	def getId(self):
 		return self.id

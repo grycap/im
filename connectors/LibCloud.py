@@ -288,7 +288,7 @@ class LibCloudCloudConnector(CloudConnector):
 		   - node(:py:class:`libcloud.compute.base.Node`): object to connect to EC2 instance.
 		"""
 
-		self.setIpsToVM(vm, node.public_ips, node.private_ips)
+		vm.setIps(node.public_ips, node.private_ips)
 		self.manage_elastic_ips(vm, node)
 		
 	def manage_elastic_ips(self, vm, node):
