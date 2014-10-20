@@ -231,6 +231,7 @@ def contextualizeGroups(group_list, contextualize_list, conf_dir):
 		allok = launch_playbook_processes(group_list, conf_dir, "basic_",basic_play)
 		if allok:
 			res_data['BASIC'] = True
+			res_data['OK'] = True
 			logger.info("Basic playbook executed successfully.")
 		else:
 			logger.error("Error executing basic playbook.")
@@ -239,8 +240,6 @@ def contextualizeGroups(group_list, contextualize_list, conf_dir):
 			return res_data
 	
 	# Now we can access all the VMs with SSH without password
-		
-	res_data['OK'] = True
 
 	group_forks = {}
 	# First execute the "main" playbook
@@ -268,6 +267,7 @@ def contextualizeGroups(group_list, contextualize_list, conf_dir):
 			return res_data
 		else:
 			res_data['MAIN'] = True
+			res_data['OK'] = True
 
 	# Now execute the other playbooks grouped using the  "contxt_num"
 	for contxt_num in sorted(contextualize_list.keys()):
@@ -295,6 +295,7 @@ def contextualizeGroups(group_list, contextualize_list, conf_dir):
 				res_data['OK'] = False
 			else:
 				res_data['CTXT'][contxt_num] = True
+				res_data['OK'] = True
 
 	# Finally check if we must chage user credentials
 	res_data['CHANGE_CREDS'] = changeCredentials(group_list)
