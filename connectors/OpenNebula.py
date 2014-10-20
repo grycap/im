@@ -370,7 +370,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 
 			%s
 
-			GRAPHICS = [type="vnc",listen="0.0.0.0"]
+			GRAPHICS = [type="vnc",listen="0.0.0.0", keymap="es"]
 		''' % (name, cpu, cpu, memory, arch, disks)
 
 		res += self.get_networks_template(radl, auth_data)

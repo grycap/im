@@ -109,7 +109,14 @@ class ConfManager(threading.Thread):
 						if relaunch and retries < Config.MAX_VM_FAILS:
 							ConfManager.logger.info("Inf ID: " + str(self.inf.id) + ": Launching new VM")
 							InfrastructureManager.InfrastructureManager.RemoveResource(self.inf.id, vm.id, self.auth)
-							InfrastructureManager.InfrastructureManager.AddResource(self.inf.id, "system " + vm.getRequestedSystem().name + "\ndeploy " + vm.getRequestedSystem().name + " 1", self.auth, False, [vm.cloud])
+							
+							new_radl = ""
+							for net in vm.info.networks:
+								new_radl = "network " + net.id + "\n"								
+							new_radl += "system " + vm.getRequestedSystem().name + "\n"
+							new_radl += "deploy " + vm.getRequestedSystem().name + " 1"
+							
+							InfrastructureManager.InfrastructureManager.AddResource(self.inf.id, new_radl, self.auth, False, [vm.cloud])
 							# Set the wait counter to 0
 							wait = 0
 							retries += 1
@@ -238,7 +245,7 @@ class ConfManager(threading.Thread):
 				(_, new_passwd, new_public_key, new_private_key) = new_creds
 				if new_passwd:
 					ConfManager.logger.info("Changing password to master VM")
-					(out, err, code) = ssh.execute('sudo bash -c \'echo "' + user + ':' + new_passwd + '" | chpasswd && echo "OK"\' 2> /dev/null')
+					(out, err, code) = ssh.execute('sudo bash -c \'echo "' + user + ':' + new_passwd + '" | /usr/sbin/chpasswd && echo "OK"\' 2> /dev/null')
 					
 					if code == 0:
 						change_creds = True
@@ -598,7 +605,8 @@ class ConfManager(threading.Thread):
 		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " + stdout + stderr)
 
 		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Remove requiretty in sshd config")
-		(stdout, stderr, _) = ssh.execute("cat /etc/sudoers | grep -v requiretty >> /tmp/sudoers.tmp; mv -f /tmp/sudoers.tmp  /etc/sudoers; echo 'Defaults !requiretty' >> /etc/sudoers ", 120)
+		#(stdout, stderr, _) = ssh.execute("cat /etc/sudoers | grep -v requiretty >> /tmp/sudoers.tmp; mv -f /tmp/sudoers.tmp  /etc/sudoers; echo 'Defaults !requiretty' >> /etc/sudoers ", 120)
+		(stdout, stderr, _) = ssh.execute("sed -i 's/^.*requiretty/Defaults !requiretty/' /etc/sudoers", 120)
 		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " + stdout + stderr)
 		
 		self.inf.add_cont_msg("Configure Ansible in the master VM (step 1).")
