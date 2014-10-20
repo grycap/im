@@ -203,7 +203,7 @@ class InfrastructureManager:
 			if not all_ok:
 				for deploy in deploy_group:
 					for vm in deployed_vm.get(deploy, []):
-						vm.cloud.getCloudConnector().finalize(vm, auth)
+						vm.finalize(auth)
 					deployed_vm[deploy] = []
 			if cancel_deployment or all_ok:
 				break
@@ -492,7 +492,7 @@ class InfrastructureManager:
 		if cancel_deployment:
 			# If error, all deployed virtual machine will be undeployed.
 			for vm in new_vms:
-				vm.cloud.getCloudConnector().finalize(vm, auth)
+				vm.finalize(auth)
 			raise Exception("Some deploys did not proceed successfully: %s" % cancel_deployment)
 
 
@@ -550,12 +550,10 @@ class InfrastructureManager:
 				if str(vm.im_id) == str(vmid):
 					InfrastructureManager.logger.debug("Removing the VM ID: '" + vmid + "'")
 					try:
-						cl = vm.cloud.getCloudConnector()
-						cl.finalize(vm, auth)
+						vm.finalize(auth)
 					except Exception, e:
 						exceptions.append(e)
 					else:
-						vm.destroy = True
 						cont += 1
 
 		InfrastructureManager.save_data()
@@ -626,8 +624,7 @@ class InfrastructureManager:
 
 		exception = None
 		try:
-			cl = vm.cloud.getCloudConnector()
-			(success, alter_res) = cl.alterVM(vm, radl, auth)
+			(success, alter_res) = vm.alter(vm, radl, auth)
 		except Exception, e:
 			exception = e
 		InfrastructureManager.save_data()
@@ -689,9 +686,8 @@ class InfrastructureManager:
 		for vm in sel_inf.get_vm_list():
 			try:
 				success = False
-				cl = vm.cloud.getCloudConnector()
 				InfrastructureManager.logger.debug("Stopping the VM id: " + vm.id)
-				(success, msg) = cl.stop(vm, auth)
+				(success, msg) = vm.stop(auth)
 			except Exception, e:
 				msg = str(e)
 			if not success:
@@ -724,9 +720,8 @@ class InfrastructureManager:
 		for vm in sel_inf.get_vm_list():
 			try:
 				success = False
-				cl = vm.cloud.getCloudConnector()
 				InfrastructureManager.logger.debug("Stating the VM id: " + vm.id)
-				(success, msg) = cl.start(vm, auth)
+				(success, msg) = vm.start(auth)
 			except Exception, e:
 				msg = str(e)
 			if not success:
@@ -773,9 +768,8 @@ class InfrastructureManager:
 		for vm in reversed(sel_inf.get_vm_list()):
 			try:
 				success = False
-				cl = vm.cloud.getCloudConnector()
 				InfrastructureManager.logger.debug("Finalizing the VM id: " + str(vm.id))
-				(success, msg) = cl.finalize(vm, auth)
+				(success, msg) = vm.finalize(auth)
 			except Exception, e:
 				msg = str(e)
 			if not success:

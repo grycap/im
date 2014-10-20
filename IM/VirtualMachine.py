@@ -72,6 +72,50 @@ class VirtualMachine:
 		with self._lock:
 			self.__dict__.update(dic)
 
+	def finalize(self, auth):
+		"""
+		Finalize the VM
+		"""
+		if not self.destroy:
+			cl = self.cloud.getCloudConnector()
+			(success, msg) = cl.finalize(self, auth)
+			self.destroy = True
+			# force the update of the information
+			self.last_update = 0
+			return (success, msg)
+		else:
+			return (True, "")
+
+	def alter(self, radl, auth):
+		"""
+		Modify the features of the the VM
+		"""
+		cl = self.cloud.getCloudConnector()
+		(success, alter_res) = cl.alterVM(self, radl, auth)
+		# force the update of the information
+		self.last_update = 0
+		return (success, alter_res)
+	
+	def stop(self, auth):
+		"""
+		Stop the VM
+		"""
+		cl = self.cloud.getCloudConnector()
+		(success, msg) = cl.stop(self, auth)
+		# force the update of the information
+		self.last_update = 0
+		return (success, msg)
+		
+	def start(self, auth):
+		"""
+		Start the VM
+		"""
+		cl = self.cloud.getCloudConnector()
+		(success, msg) = cl.start(self, auth)
+		# force the update of the information
+		self.last_update = 0
+		return (success, msg)
+
 	def getRequestedSystem(self):
 		"""
 		Get the system object with the requested RADL data
@@ -327,6 +371,9 @@ class VirtualMachine:
 		return success
 
 	def setIps(self,public_ips,private_ips):
+		"""
+		Set the specified IPs in the VM RADL info 
+		"""
 		now = str(int(time.time()*100))
 		vm_system = self.info.systems[0]
 
