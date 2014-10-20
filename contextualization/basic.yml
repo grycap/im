@@ -26,10 +26,6 @@
       action: selinux state=disabled
       sudo: yes
       ignore_errors: yes
-      
-    - name: Open accelerated port in the firewall
-      command: iptables -I INPUT -p tcp --dport 5099:5099 -j ACCEPT
-      ignore_errors: yes
 
     # Add the authorized_key to the nodes to enable accessing without password
     # pk_file var must be added by the ctxt agent
