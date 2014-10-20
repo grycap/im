@@ -22,9 +22,7 @@ import sys
 from mock import Mock
 
 from IM.VirtualMachine import VirtualMachine
-from IM import CloudInfo
 from IM.InfrastructureManager import InfrastructureManager as IM
-from IM.InfrastructureManager import IncorrectVMCrecentialsException
 from IM.auth import Authentication
 from IM.radl.radl import RADL, system, deploy, Feature, SoftFeatures
 from IM.config import Config
@@ -33,7 +31,6 @@ from connectors.CloudConnector import CloudConnector
 class TestIM(unittest.TestCase):
 	def __init__(self, *args):
 		unittest.TestCase.__init__(self, *args)
-		self.cloud = None
 
 	def setUp(self):
 
@@ -56,11 +53,13 @@ class TestIM(unittest.TestCase):
 		                                         {name + 'CloudConnector': cloud_connector})
 	
 	def gen_launch_res(self, inf, vm_id, radl, requested_radl, num_vm, auth_data):
-		vm = VirtualMachine(inf, str(vm_id), 1234, self.cloud, radl, radl)
-		return [(True, vm)]
-	
-	def gen_finalize_res(self, vm, auth_data):
-		return (True, vm)
+		res = []
+		for i in range(num_vm):
+			vm = VirtualMachine(inf, str(vm_id), 1234+vm_id, None, radl, requested_radl)
+			# create the mock for the vm finalize function
+			vm.finalize = Mock(return_value=(True, vm))
+			res.append((True, vm))
+		return res
 		
 	def test_inf_creation0(self):
 		"""Create infrastructure with empty RADL."""
@@ -89,10 +88,6 @@ class TestIM(unittest.TestCase):
 
 		cloud = CloudConnector
 		
-		cl_info = CloudInfo
-		cl_info.getCloudConnector = Mock(return_value=cloud)
-		self.cloud = cl_info
-		
 		radl = RADL()
 		radl.add(system("s0", [ Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er") ]))
 		radl.add(deploy("s0", 1))
@@ -107,17 +102,12 @@ class TestIM(unittest.TestCase):
 		
 		self.assertIn("IncorrectVMCrecentialsException", ex.exception.message)
 
-		cloud.finalize = Mock(side_effect=self.gen_finalize_res)
 		IM.DestroyInfrastructure(infId, auth0)
 
 	def test_inf_addresources0(self):
 		"""Deploy single virtual machines and test reference."""
 
 		cloud = CloudConnector
-		
-		cl_info = CloudInfo
-		cl_info.getCloudConnector = Mock(return_value=cloud)
-		self.cloud = cl_info
 		
 		radl = RADL()
 		radl.add(system("s0", [ Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
@@ -140,7 +130,6 @@ class TestIM(unittest.TestCase):
 		vms = IM.AddResource(infId, str(radl), auth0)
 		self.assertEqual(vms, ['1'])
 
-		cloud.finalize = Mock(side_effect=self.gen_finalize_res)
 		IM.DestroyInfrastructure(infId, auth0)
 
 	def test_inf_addresources1(self):
@@ -148,10 +137,7 @@ class TestIM(unittest.TestCase):
 
 		n = 100 # Machines to deploy
 		Config.MAX_SIMULTANEOUS_LAUNCHES = n/2  # Test the pool
-		cl_info = CloudInfo
 		cloud = CloudConnector
-		cl_info.getCloudConnector = Mock(return_value=cloud)
-		self.cloud = cl_info
 		radl = RADL()
 		radl.add(system("s0", [ Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
 								Feature("disk.0.os.credentials.username", "=", "user"),
@@ -166,7 +152,6 @@ class TestIM(unittest.TestCase):
 		self.assertEqual(cloud.launch.call_count, n)
 		for call, _ in cloud.launch.call_args_list:
 			self.assertEqual(call[4], 1)
-		cloud.finalize = Mock(side_effect=self.gen_finalize_res)
 		IM.DestroyInfrastructure(infId, auth0)
 
 	def test_inf_addresources2(self):
@@ -188,16 +173,10 @@ class TestIM(unittest.TestCase):
 			url = s.getValue("disk.0.image.url")
 			return [s.clone()] if url.partition(":")[0] == cloud_id else []
 		cloud0 = type("MyMock0", (CloudConnector,object), {})
-		cl_info0 = CloudInfo
-		cl_info0.getCloudConnector = Mock(return_value=cloud0)
-		self.cloud = cl_info0
 		cloud0.launch = Mock(side_effect=self.gen_launch_res)
 		cloud0.concreteSystem = lambda _0, s, _1: concreteSystem(s, "mock0")
 		self.register_cloudconnector("Mock0", cloud0)
 		cloud1 = type("MyMock1", (CloudConnector,object), {})
-		cl_info1 = CloudInfo
-		cl_info1.getCloudConnector = Mock(return_value=cloud1)
-		self.cloud = cl_info1
 		cloud1.launch = Mock(side_effect=self.gen_launch_res)
 		cloud1.concreteSystem = lambda _0, s, _1: concreteSystem(s, "mock1")
 		self.register_cloudconnector("Mock1", cloud1)
@@ -231,16 +210,10 @@ class TestIM(unittest.TestCase):
 		def concreteSystem(s, mem):
 			return [ system(s.name, [ Feature("memory.size", "=", mem) ]) ]
 		cloud0 = type("MyMock0", (CloudConnector,object), {})
-		cl_info0 = CloudInfo
-		cl_info0.getCloudConnector = Mock(return_value=cloud0)
-		self.cloud = cl_info0
 		cloud0.launch = Mock(side_effect=self.gen_launch_res)
 		cloud0.concreteSystem = lambda _0, s, _1: concreteSystem(s, 500)
 		self.register_cloudconnector("Mock0", cloud0)
 		cloud1 = type("MyMock1", (CloudConnector,object), {})
-		cl_info1 = CloudInfo
-		cl_info1.getCloudConnector = Mock(return_value=cloud1)
-		self.cloud = cl_info1
 		cloud1.launch = Mock(side_effect=self.gen_launch_res)
 		cloud1.concreteSystem = lambda _0, s, _1: concreteSystem(s, 1000)
 		self.register_cloudconnector("Mock1", cloud1)
@@ -271,14 +244,10 @@ class TestIM(unittest.TestCase):
 		radl.add(deploy("s1", n1))
 		
 		cloud0 = type("MyMock0", (CloudConnector,object), {})
-		cl_info0 = CloudInfo
-		cl_info0.getCloudConnector = Mock(return_value=cloud0)
-		cloud0.launch = Mock(return_value=[(True, VirtualMachine(None, '0', 0, cl_info0, radl, radl))])
+		cloud0.launch = Mock(side_effect=self.gen_launch_res)
 		self.register_cloudconnector("Mock0", cloud0)
 		cloud1 = type("MyMock1", (CloudConnector,object), {})
-		cl_info1 = CloudInfo
-		cl_info1.getCloudConnector = Mock(return_value=cloud1)
-		cloud1.launch = Mock(return_value=[(True, VirtualMachine(None, '1', 1, cl_info1, radl, radl))])
+		cloud1.launch = Mock(side_effect=self.gen_launch_res)
 		self.register_cloudconnector("Mock1", cloud1)
 		auth0 = self.getAuth([0], [0], [("Mock0", 0), ("Mock1", 1)])
 		infId = IM.CreateInfrastructure(str(radl), auth0)
