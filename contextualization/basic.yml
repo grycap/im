@@ -6,8 +6,9 @@
       action: raw cat /etc/redhat-release | grep "release 5" &&  yum -y install python-simplejson
       ignore_errors: yes
       
-    - name: Check requiretty in REL 5
-      action: raw cat /etc/sudoers | grep -v requiretty >> /tmp/sudoers.tmp; mv -f /tmp/sudoers.tmp  /etc/sudoers; echo 'Defaults !requiretty' >> /etc/sudoers
+    - name: Check requiretty in REL 5 (the user must be root)
+      #action: raw cat /etc/sudoers | grep -v requiretty >> /tmp/sudoers.tmp; mv -f /tmp/sudoers.tmp  /etc/sudoers; echo 'Defaults !requiretty' >> /etc/sudoers
+      action: raw sed -i 's/^.*requiretty/Defaults !requiretty/' /etc/sudoers
       ignore_errors: yes
 
     # In case of redhat systems libselinux-python is needed

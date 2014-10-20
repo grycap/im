@@ -152,7 +152,7 @@ def changeVMCredentials(vm, res):
 		if 'new_passwd' in vm and vm['new_passwd']:
 			logger.info("Changing password to VM: " + vm['ip'])
 			ssh_client = SSH(vm['ip'], vm['user'], vm['passwd'], vm['private_key'], vm['ssh_port'])
-			(out, err, code) = ssh_client.execute('sudo bash -c \'echo "' + vm['user'] + ':' + vm['new_passwd'] + '" | chpasswd && echo "OK"\' 2> /dev/null')
+			(out, err, code) = ssh_client.execute('sudo bash -c \'echo "' + vm['user'] + ':' + vm['new_passwd'] + '" | /usr/sbin/chpasswd && echo "OK"\' 2> /dev/null')
 			
 			if code == 0:
 				res[vm['ip']] = True
