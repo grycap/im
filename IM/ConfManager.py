@@ -748,6 +748,7 @@ class ConfManager(threading.Thread):
 		"""
 		conf_data = {}
 		
+		conf_data['playbook_retries'] = Config.PLAYBOOK_RETRIES
 		conf_data['groups'] = []
 		for group in vm_group:
 			group_conf_data = {}

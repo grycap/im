@@ -317,3 +317,13 @@ GANGLIA INTEGRATION
 
    Flag to enable the retrieval of the ganglia info of the VMs.
    The default value is ``False``.
+
+   
+CONTEXTUALIZATION PROCESS
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. confval:: PLAYBOOK_RETRIES 
+
+   Number of retries of the Ansible playbooks in case of failure.
+   The default value is 1.
+   
