@@ -29,9 +29,19 @@ Fedora, etc.), do::
 Finally, check the next values in the Ansible configuration file
 :file:`ansible.cfg`, (usually found in :file:`/etc/ansible`)::
 
+   [default]
    host_key_checking = False
-   transport = paramiko
+   transport = smart
+
+   [paramiko_connection]
    record_host_keys = False
+   
+   [ssh_connection]
+   pipelining=True
+   # Only in systems with OpenSSH support to ControlPersist 
+   ssh_args = -o ControlMaster=auto -o ControlPersist=900s
+   # In systems with older versions of OpenSSH (RHEL 6, CentOS 6, SLES 10 or SLES 11) 
+   ssh_args =
 
 Optional Packages
 -----------------
