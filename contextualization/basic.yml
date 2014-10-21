@@ -15,18 +15,6 @@
       action: yum pkg=libselinux-python state=installed
       sudo: yes
       ignore_errors: yes
-    
-    # Install the openssh-clients
-    - name: Install openssh-clients on redhat systems
-      action: yum pkg=openssh-clients state=installed
-      sudo: yes
-      ignore_errors: yes
-    
-    # Install the openssh-client  
-    - name: Install openssh-client on debian systems
-      action: apt pkg=openssh-client state=installed
-      sudo: yes
-      ignore_errors: yes
 
     # Set the correct hostname
     - name: Set the hostname of the node
