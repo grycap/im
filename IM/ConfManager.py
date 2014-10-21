@@ -661,7 +661,7 @@ class ConfManager(threading.Thread):
 					ifaces_im_vars = ''
 					for i in range(vm.getNumNetworkIfaces()):
 						iface_ip = vm.getIfaceIP(i)
-						ifaces_im_vars = ' IM_NODE_NET_' + str(i) + '_IP=' + iface_ip
+						ifaces_im_vars += ' IM_NODE_NET_' + str(i) + '_IP=' + iface_ip
 						if vm.getRequestedNameIface(i):
 							(nodename, nodedom) = vm.getRequestedNameIface(i, default_domain = Config.DEFAULT_DOMAIN)
 							hosts_out.write(iface_ip + " " + nodename + "." + nodedom + " " + nodename + "\r\n")
