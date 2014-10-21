@@ -20,15 +20,15 @@
       when: ansible_os_family == "RedHat"
     
     - name: Apt install requirements
-      action: command apt-get -y install python-mysqldb unzip python-pip gcc python-dev openssh-client
+      action: command apt-get -y install python-mysqldb unzip python-pip gcc python-dev openssh-client sshpass
       when: ansible_os_family == "Debian"
 
     - name: Yum install requirements RH6 or Fedora
-      action: command yum -y install python-distribute gcc python-devel wget openssh-clients
+      action: command yum -y install python-distribute gcc python-devel wget openssh-clients sshpass
       when: ansible_os_family == "RedHat" and ansible_distribution_version|float >= 6.0
         
     - name: Yum install requirements RH5
-      action: command yum -y install python26 python26-simplejson python26-distribute gcc python26-devel openssh-clients
+      action: command yum -y install python26 python26-simplejson python26-distribute gcc python26-devel openssh-clients sshpass
       when: ansible_os_family == "RedHat" and ansible_distribution_version|float < 6.0
         
     - name: Install Pip 2.6
