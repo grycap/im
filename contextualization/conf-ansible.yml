@@ -20,15 +20,15 @@
       when: ansible_os_family == "RedHat"
     
     - name: Apt install requirements
-      action: command apt-get -y install python-mysqldb unzip python-pip gcc python-dev
+      action: command apt-get -y install python-mysqldb unzip python-pip gcc python-dev openssh-client
       when: ansible_os_family == "Debian"
 
     - name: Yum install requirements RH6 or Fedora
-      action: command yum -y install python-distribute gcc python-devel wget
+      action: command yum -y install python-distribute gcc python-devel wget openssh-clients
       when: ansible_os_family == "RedHat" and ansible_distribution_version|float >= 6.0
         
     - name: Yum install requirements RH5
-      action: command yum -y install python26 python26-simplejson python26-distribute gcc python26-devel
+      action: command yum -y install python26 python26-simplejson python26-distribute gcc python26-devel openssh-clients
       when: ansible_os_family == "RedHat" and ansible_distribution_version|float < 6.0
         
     - name: Install Pip 2.6
@@ -79,9 +79,25 @@
       
     - name: Set host_key_checking to false in ansible.cfg
       ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=host_key_checking value=False
+
+    - name: Set transport to smart in ansible.cfg
+      ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=transport value=ssh
+      when: ansible_os_family != "RedHat" or ansible_distribution_version|float >= 6.0
       
-    - name: Set transport to paramiko in ansible.cfg
-      ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=transport value=paramiko
+    - name: Set transport to smart in ansible.cfg
+      ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=transport value=smart
+      when: ansible_os_family == "RedHat" and ansible_distribution_version|float < 6.0
+
+    - name: Change ssh_args to set ControlPersist to 15 min in ansible.cfg
+      ini_file: dest=/etc/ansible/ansible.cfg section=ssh_connection option=ssh_args value="-o ControlMaster=auto -o ControlPersist=900s"
+      when: ansible_os_family != "RedHat" or ansible_distribution_version|float >= 7.0
+      
+    - name: Change ssh_args to remove ControlPersist in REL 6 and older in ansible.cfg
+      ini_file: dest=/etc/ansible/ansible.cfg section=ssh_connection option=ssh_args value=""
+      when: ansible_os_family == "RedHat" and ansible_distribution_version|float < 7.0
+      
+    - name: Activate SSH pipelining in ansible.cfg
+      ini_file: dest=/etc/ansible/ansible.cfg section=ssh_connection option=pipelining value=True
 
     - name: Set jinja2.ext.do to jinja2_extensions in ansible.cfg
       ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=jinja2_extensions value=jinja2.ext.do
