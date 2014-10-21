@@ -19,6 +19,7 @@ import re
 import base64
 import string
 import httplib
+import tempfile
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from CloudConnector import CloudConnector
@@ -40,11 +41,20 @@ class OCCICloudConnector(CloudConnector):
 		auth = auth_data.getAuthInfo(OCCICloudConnector.type)
 		if auth and 'proxy' in auth[0]:
 			proxy = auth[0]['proxy']
-			conn = httplib.HTTPSConnection(self.cloud.server, self.cloud.port, cert_file = proxy)
+			
+			(fproxy, proxy_filename) = tempfile.mkstemp()
+			os.write(fproxy, proxy)
+			os.close(fproxy)
+			
+			conn = httplib.HTTPSConnection(self.cloud.server, self.cloud.port, cert_file = proxy_filename)
 		else:
 			conn = httplib.HTTPConnection(self.cloud.server, self.cloud.port)
 		
 		return conn
+	
+	def delete_proxy(self, conn):
+		if conn.cert_file and os.path.isfile(conn.cert_file):
+			os.unlink(conn.cert_file)
 
 	@staticmethod
 	def get_auth_header(auth_data):
@@ -154,14 +164,16 @@ class OCCICloudConnector(CloudConnector):
 			conn = self.get_http_connection(auth_data)
 			conn.request('GET', "/compute/" + vm.id, headers = headers) 
 			resp = conn.getresponse()
+			self.delete_proxy(conn)
 			
 			output = resp.read()
-
-			vm.state = self.VM_STATE_MAP.get(self.get_vm_state(output), VirtualMachine.UNKNOWN)
-			
-			# Actualizamos los datos de la red
-			self.setIPs(vm,output)
-			return (True, vm)
+			if resp.status != 200:
+				return (False, output)
+			else:
+				vm.state = self.VM_STATE_MAP.get(self.get_vm_state(output), VirtualMachine.UNKNOWN)
+				# Update the network data
+				self.setIPs(vm,output)
+				return (True, vm)
 
 		except Exception, ex:
 			self.logger.error("Error connecting with OCCI server")
@@ -205,7 +217,7 @@ class OCCICloudConnector(CloudConnector):
 				body += 'X-OCCI-Attribute: occi.core.title="' + name + '"\n'
 				body += 'X-OCCI-Attribute: occi.compute.hostname="' + name + '"\n'
 				body += 'X-OCCI-Attribute: occi.compute.cores=' + str(cpu) +'\n'
-				body += 'X-OCCI-Attribute: occi.compute.architecture=' + arch +'\n'
+				#body += 'X-OCCI-Attribute: occi.compute.architecture=' + arch +'\n'
 				body += 'X-OCCI-Attribute: occi.compute.memory=' + str(memory) + '\n'
 				conn.putheader('Content-Length', len(body))
 				conn.endheaders(body)
@@ -214,16 +226,22 @@ class OCCICloudConnector(CloudConnector):
 				
 				# With this format: X-OCCI-Location: http://fc-one.i3m.upv.es:11080/compute/8
 				output = resp.read()
-				occi_vm_id = os.path.basename(output)
 				
-				vm = VirtualMachine(inf, vm_id, occi_vm_id, self.cloud, radl, requested_radl)
-				res.append((True, vm))
+				if resp.status != 201:
+					res.append((False, output))
+				else:
+					occi_vm_id = os.path.basename(output)				
+					vm = VirtualMachine(inf, vm_id, occi_vm_id, self.cloud, radl, requested_radl)
+					res.append((True, vm))
 
 			except Exception, ex:
 				self.logger.exception("Error connecting with OCCI server")
 				res.append((False, "ERROR: " + str(ex)))
 
 			i += 1
+			
+		self.delete_proxy(conn)
+		
 		return res
 
 	def finalize(self, vm, auth_data):
@@ -235,7 +253,8 @@ class OCCICloudConnector(CloudConnector):
 		try:
 			conn = self.get_http_connection(auth_data)
 			conn.request('DELETE', "/compute/" + vm.id, headers = headers) 
-			resp = conn.getresponse()			
+			resp = conn.getresponse()	
+			self.delete_proxy(conn)		
 			output = str(resp.read())
 			if resp.status != 200:
 				return (False, "Error removing the VM: " + output)
@@ -261,6 +280,7 @@ class OCCICloudConnector(CloudConnector):
 			conn.endheaders(body)
 
 			resp = conn.getresponse()
+			self.delete_proxy(conn)	
 			output = str(resp.read())
 			if resp.status != 200:
 				return (False, "Error stopping the VM: " + output)
@@ -285,6 +305,7 @@ class OCCICloudConnector(CloudConnector):
 			conn.endheaders(body)
 
 			resp = conn.getresponse()
+			self.delete_proxy(conn)	
 			output = str(resp.read())
 			if resp.status != 200:
 				return (False, "Error starting the VM: " + output)
