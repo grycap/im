@@ -344,31 +344,32 @@ class VirtualMachine:
 		- boolean: True if the information has been updated, false otherwise
 		"""
 		now = int(time.time())
+		state = self.state
+		updated = False
 		# To avoid to refresh the information too quickly
 		if now - self.last_update > VirtualMachine.UPDATE_FREQUENCY:
 			cl = self.cloud.getCloudConnector()
 			(success, new_vm) = cl.updateVMInfo(self, auth)
-			if not success:
-				state = self.state
-			else:
+			if success:
 				state = new_vm.state
-	
-			if state != VirtualMachine.RUNNING:
-				new_state = state
-			elif self.inf.configured is None:
-				new_state = VirtualMachine.RUNNING
-			elif self.inf.configured:
-				new_state = VirtualMachine.CONFIGURED
-			else:
-				new_state = VirtualMachine.FAILED
-	
-			with self._lock:
-				self.info.systems[0].setValue("state", new_state)
-				self.last_update = now
-		else:
-			success = False
+				updated = True
 
-		return success
+			with self._lock:
+				self.last_update = now
+	
+		if state != VirtualMachine.RUNNING:
+			new_state = state
+		elif self.inf.configured is None:
+			new_state = VirtualMachine.RUNNING
+		elif self.inf.configured:
+			new_state = VirtualMachine.CONFIGURED
+		else:
+			new_state = VirtualMachine.FAILED
+
+		with self._lock:
+			self.info.systems[0].setValue("state", new_state)
+
+		return updated
 
 	def setIps(self,public_ips,private_ips):
 		"""
