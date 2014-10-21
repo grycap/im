@@ -43,10 +43,11 @@ IM 1.0.0
 IM 1.1.0
     * Minor bug fixes and code improvements
     * Add Docker connector
+    * Bugfixes in OCCI connector
     * Improve EC2 connector
     * Improve OpenNebula connector to support version 4.8
     * Change GetVMInfo and AlterVM functions to return only RADL data 
     * Add provider information in the RADL
     * Bug fixes in LibVirt connector
     * Change Ansible version to 1.7.2
-    * Use the accelerated mode of ansible to improve preformace in the contextualization step
+    * Use the ssh connector with the pipelining option in ansible to improve preformace in the contextualization step
