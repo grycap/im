@@ -85,12 +85,10 @@ class TestIM(unittest.TestCase):
             all_ok = True
             for vm_id in vm_ids:
                 vm_uri = uriparse(vm_id)
-                self.server.request('GET', vm_uri[2], headers = {'AUTHORIZATION' : self.auth_data})
+                self.server.request('GET', vm_uri[2] + "/state", headers = {'AUTHORIZATION' : self.auth_data})
                 resp = self.server.getresponse()
-                output = str(resp.read())
+                vm_state = str(resp.read())
                 self.assertEqual(resp.status, 200, msg="ERROR getting VM info:" + output)
-                info_radl = radl_parse.parse_radl(output)
-                vm_state = info_radl.systems[0].getValue('state')
 
                 self.assertFalse(vm_state in err_states, msg="ERROR waiting for a state. '%s' state was expected and '%s' was obtained in the VM %s" % (state, vm_state, vm_uri))
 
@@ -153,6 +151,20 @@ class TestIM(unittest.TestCase):
         resp = self.server.getresponse()
         output = str(resp.read())
         self.assertEqual(resp.status, 200, msg="ERROR getting VM info:" + output)
+        
+    def test_35_get_vm_property(self):
+        self.server.request('GET', "/infrastructures/" + self.inf_id, headers = {'AUTHORIZATION' : self.auth_data})
+        resp = self.server.getresponse()
+        output = str(resp.read())
+        self.assertEqual(resp.status, 200, msg="ERROR getting the infrastructure info:" + output)
+        output_obj = json.loads(output)
+        vm_ids = output_obj['vm_list']
+
+        vm_uri = uriparse(vm_ids[0])
+        self.server.request('GET', vm_uri[2] + "/state", headers = {'AUTHORIZATION' : self.auth_data})
+        resp = self.server.getresponse()
+        output = str(resp.read())
+        self.assertEqual(resp.status, 200, msg="ERROR getting VM property:" + output)
 
     def test_40_addresource(self):
         self.server.request('POST', "/infrastructures/" + self.inf_id, body = RADL_ADD, headers = {'AUTHORIZATION' : self.auth_data})
