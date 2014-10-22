@@ -32,12 +32,18 @@ Next tables summaries the resources and the HTTP methods available.
 |             |                        | infrastructure.               |                                         |
 +-------------+------------------------+-------------------------------+-----------------------------------------+
  
-+-------------+--------------------------------+--------------------------------+----------------------------------------+
-| HTTP method |  /infrastructures/<infId>/stop |  /infrastructures/<infId>/stop |  /infrastructures/<infId>/reconfigure  |
-+=============+================================+================================+========================================+
-| **PUT**     | **Stop** the infrastructure.   | **Start** the infrastructure.  | **Reconfigure** the infrastructure.    |
-+-------------+--------------------------------+--------------------------------+----------------------------------------+
++-------------+--------------------------------+---------------------------------+----------------------------------------+
+| HTTP method |  /infrastructures/<infId>/stop |  /infrastructures/<infId>/start |  /infrastructures/<infId>/reconfigure  |
++=============+================================+=================================+========================================+
+| **PUT**     | **Stop** the infrastructure.   | **Start** the infrastructure.   | **Reconfigure** the infrastructure.    |
++-------------+--------------------------------+---------------------------------+----------------------------------------+
 
++-------------+--------------------------------------------------------+
+| HTTP method |   /infrastructures/<infId>/vms/<vmId>/<property_name>  |
++=============+========================================================+
+| **GET**     | **Get** the specified property ``property_name``       |
+|             | associated to the machine ``vmId`` in ``infId``        |
++-------------+--------------------------------------------------------+
 
 GET ``http://imserver.com/infrastructures``
    :Content-type: text/uri-list
@@ -121,6 +127,14 @@ GET ``http://imserver.com/infrastructures/<infId>/vms/<vmId>``
    Return information about the virtual machine with ID ``vmId`` associated to
    the infrastructure with ID ``infId``. The returned string is in RADL format. 
    See more the details of the output in :ref:`GetVMInfo <GetVMInfo-xmlrpc>`.
+   
+GET ``http://imserver.com/infrastructures/<infId>/vms/<vmId>/<property_name>``
+   :Content-type: text/plain
+   :ok response: 200 OK
+   :fail response: 401, 404, 400
+
+   Return property ``property_name`` from to the virtual machine with ID 
+   ``vmId`` associated to the infrastructure with ID ``infId``.
 
 PUT ``http://imserver.com/infrastructures/<infId>/vms/<vmId>``
    :body: ``RADL document``

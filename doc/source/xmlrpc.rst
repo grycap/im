@@ -47,7 +47,7 @@ This is the list of method names:
    :parameter 0: ``infId``: integer
    :parameter 1: ``vmId``: string
    :parameter 2: ``auth``: array of structs
-   :ok response: [true, struct(``info``: string, ``cloud``: string, ``state``: string)]
+   :ok response: [true, ``radl_info``: string]
    :fail response: [false, ``error``: string]
 
    Return a string with information about the virtual machine with ID ``vmId``
@@ -75,6 +75,17 @@ This is the list of method names:
       "configured" -> "stopped";
       "configured" -> "running";
       "stopped" -> "running";
+   
+``GetVMProperty``
+   :parameter 0: ``infId``: integer
+   :parameter 1: ``vmId``: string
+   :parameter 2: ``property_name``: string
+   :parameter 3: ``auth``: array of structs
+   :ok response: [true, ``property_value``: string]
+   :fail response: [false, ``error``: string]
+
+   Return a string with the specific property of the RADL information about the virtual
+   machine with ID ``vmId`` in the infrastructure with ID ``infId``.
    
 ``AlterVM``
    :parameter 0: ``infId``: integer

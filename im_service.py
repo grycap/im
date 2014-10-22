@@ -81,6 +81,15 @@ class Request_GetVMInfo(IMBaseRequest):
 		(inf_id, vm_id, auth_data) = self.arguments
 		return InfrastructureManager.GetVMInfo(inf_id, vm_id, Authentication(auth_data))
 	
+class Request_GetVMProperty(IMBaseRequest):
+	"""
+	Request class for the GetVMProperty function
+	"""
+	def _call_function(self):
+		self._error_mesage = "Error Getting VM Property."
+		(inf_id, vm_id, property_name, auth_data) = self.arguments
+		return InfrastructureManager.GetVMProperty(inf_id, vm_id, property_name, Authentication(auth_data))
+	
 class Request_AlterVM(IMBaseRequest):
 	"""
 	Request class for the AlterVM function
@@ -187,6 +196,10 @@ def GetVMInfo(inf_id, vm_id, auth_data):
 	request = Request_GetVMInfo((inf_id, vm_id, auth_data))
 	return WaitRequest(request)
 
+def GetVMProperty(inf_id, vm_id, property_name, auth_data):
+	request = Request_GetVMProperty((inf_id, vm_id, property_name, auth_data))
+	return WaitRequest(request)
+
 def AlterVM(inf_id, vm_id, radl, auth_data):
 	request = Request_AlterVM((inf_id, vm_id, radl, auth_data))
 	return WaitRequest(request)
@@ -252,6 +265,7 @@ def launch_daemon():
 	server.register_function(StopInfrastructure)
 	server.register_function(GetInfrastructureInfo)
 	server.register_function(GetVMInfo)
+	server.register_function(GetVMProperty)
 	server.register_function(AlterVM)
 	server.register_function(RemoveResource)
 	server.register_function(AddResource)

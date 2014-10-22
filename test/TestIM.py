@@ -71,11 +71,8 @@ class TestIM(unittest.TestCase):
         while not all_ok and wait < timeout:
             all_ok = True
             for vm_id in vm_ids:
-                (success, info)  = self.server.GetVMInfo(self.inf_id, vm_id, self.auth_data)
+                (success, vm_state)  = self.server.GetVMProperty(self.inf_id, vm_id, "state", self.auth_data)
                 self.assertTrue(success, msg="ERROR getting VM info:" + str(res))
-                
-                info_radl = radl_parse.parse_radl(info)
-                vm_state = info_radl.systems[0].getValue('state')
 
                 self.assertFalse(vm_state in err_states, msg="ERROR waiting for a state. '" + vm_state + "' was obtained in the VM: " + str(vm_id) + " err_states = " + str(err_states))
                 
@@ -135,9 +132,21 @@ class TestIM(unittest.TestCase):
         try:
             radl_parse.parse_radl(info)
         except Exception, ex:
-            self.assertTrue(False, msg="ERROR parsing the RADL returned by GetVMInfo: " + str(ex))            
+            self.assertTrue(False, msg="ERROR parsing the RADL returned by GetVMInfo: " + str(ex))       
+            
+    def test_15_get_vm_property(self):
+        """
+        Test the GetVMProperty IM function
+        """
+        (success, res) = self.server.GetInfrastructureInfo(self.inf_id, self.auth_data)
+        self.assertTrue(success, msg="ERROR calling GetInfrastructureInfo: " + str(res))
+        vm_ids = res['vm_list']
+        (success, info)  = self.server.GetVMProperty(self.inf_id, vm_ids[0], "state", self.auth_data)
+        self.assertTrue(success, msg="ERROR calling GetVMProperty: " + str(info))
+        self.assertNotEqual(info, None, msg="ERROR in the value returned by GetVMProperty: " + info)
+        self.assertNotEqual(info, "", msg="ERROR in the value returned by GetVMPropert: " + info)    
 
-    def test_15_get_ganglia_info(self):
+    def test_16_get_ganglia_info(self):
         """
         Test the Ganglia IM information integration
         """

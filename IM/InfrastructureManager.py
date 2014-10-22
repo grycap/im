@@ -570,6 +570,27 @@ class InfrastructureManager:
 		return cont
 
 	@staticmethod
+	def GetVMProperty(inf_id, vm_id, property_name, auth):
+		"""
+		Get a particular property about a virtual machine in an infrastructure.
+
+		Args:
+
+		- inf_id(int): infrastructure id.
+		- vm_id(str): virtual machine id.
+		- property(str): RADL property to get.
+		- auth(Authentication): parsed authentication tokens.
+
+		Return: a str with the property value
+		"""
+		radl_data = InfrastructureManager.GetVMInfo(inf_id, vm_id, auth)
+		radl = radl_parse.parse_radl(radl_data)
+		res = None
+		if radl.systems:
+			res = radl.systems[0].getValue(property_name)
+		return res
+
+	@staticmethod
 	def GetVMInfo(inf_id, vm_id, auth):
 		"""
 		Get information about a virtual machine in an infrastructure.

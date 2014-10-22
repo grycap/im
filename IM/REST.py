@@ -185,6 +185,34 @@ def RESTGetVMInfo(infid=None, vmid=None):
 		bottle.abort(400, "Error Getting VM info: " + str(ex))
 		return False
 
+@app.route('/infrastructures/:infid/vms/:vmid/:prop', method='GET')
+def RESTGetVMProperty(infid=None, vmid=None, prop=None):
+	try:
+		auth_data = bottle.request.headers['AUTHORIZATION'].split(AUTH_LINE_SEPARATOR)
+		auth = Authentication(Authentication.read_auth_data(auth_data))
+	except:
+		bottle.abort(401, "No authentication data provided")
+	
+	try:
+		info = InfrastructureManager.GetVMProperty(int(infid), vmid, prop, auth)
+		bottle.response.content_type = "text/plain"
+		return info
+	except DeletedInfrastructureException, ex:
+		bottle.abort(404, "Error Getting VM. property: " + str(ex))
+		return False
+	except IncorrectInfrastructureException, ex:
+		bottle.abort(404, "Error Getting VM. property: " + str(ex))
+		return False
+	except DeletedVMException, ex:
+		bottle.abort(404, "Error Getting VM. property: " + str(ex))
+		return False
+	except IncorrectVMException, ex:
+		bottle.abort(404, "Error Getting VM. property: " + str(ex))
+		return False
+	except Exception, ex:
+		bottle.abort(400, "Error Getting VM property: " + str(ex))
+		return False
+
 @app.route('/infrastructures/:id', method='POST')
 def RESTAddResource(id=None):
 	try:
