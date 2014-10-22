@@ -15,13 +15,13 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import json
-import time
+import socket
 import httplib
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from IM.config import Config
 from CloudConnector import CloudConnector
-from IM.radl.radl import Feature, network
+from IM.radl.radl import Feature
 	
 
 class DockerCloudConnector(CloudConnector):
@@ -86,44 +86,12 @@ class DockerCloudConnector(CloudConnector):
 		   - cont_info(dict): JSON information about the container
 		"""
 
-		now = str(int(time.time()*100))
-		vm_system = vm.info.systems[0]
+		public_ips = [socket.gethostbyname(vm.cloud.server)]
+		private_ips = []
+		if str(cont_info["NetworkSettings"]["IPAddress"]):
+			private_ips.append(str(cont_info["NetworkSettings"]["IPAddress"]))
 
-		public_net = None
-		for net in vm.info.networks:
-			if net.isPublic():
-				public_net = net
-				
-		if public_net:
-			# If there are are public net, get the ID
-			num_net = vm.getNumNetworkWithConnection(public_net.id)
-			if num_net is None:
-				# There are a public net but it has not been used in this VM
-				num_net = vm.getNumNetworkIfaces()
-
-			vm_system.setValue('net_interface.' + str(num_net) + '.ip', vm.cloud.server)
-			vm_system.setValue('net_interface.' + str(num_net) + '.connection',public_net.id)
-		
-		# Put the Container Private Address
-		private_net = None
-		for net in vm.info.networks:
-			if not net.isPublic():
-				private_net = net
-		
-		if private_net is None:
-			private_net = network.createNetwork("private." + now)
-			vm.info.networks.append(private_net)
-			num_net = vm.getNumNetworkIfaces()
-		else:
-			# If there are are private net, get the ID
-			num_net = vm.getNumNetworkWithConnection(private_net.id)
-			if num_net is None:
-				# There are a private net but it has not been used in this VM
-				num_net = vm.getNumNetworkIfaces()
-
-		vm_system.setValue('net_interface.' + str(num_net) + '.ip', str(cont_info["NetworkSettings"]["IPAddress"]))
-		vm_system.setValue('net_interface.' + str(num_net) + '.connection',private_net.id)
-
+		vm.setIps(public_ips, private_ips)
 
 	def _generate_volumes(self, system):
 		volumes = ',"Volumes":{'

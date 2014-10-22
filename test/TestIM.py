@@ -199,10 +199,8 @@ class TestIM(unittest.TestCase):
         vm_ids = res['vm_list']
         self.assertEqual(len(vm_ids), 2, msg="ERROR getting infrastructure info: Incorrect number of VMs(" + str(len(vm_ids)) + "). It must be 2")
 
-        (success, info)  = self.server.GetVMInfo(self.inf_id, vm_ids[0], self.auth_data)
-        self.assertTrue(success, msg="ERROR getting VM info:" + str(res))
-        vm_state = radl_parse.parse_radl(info).systems[0].getValue('state')
-        
+        (success, vm_state)  = self.server.GetVMProperty(self.inf_id, vm_ids[0], "state", self.auth_data)
+        self.assertTrue(success, msg="ERROR getting VM state:" + str(res))
         self.assertEqual(vm_state, VirtualMachine.RUNNING, msg="ERROR unexpected state. Expected 'running' and obtained " + vm_state)
 
         all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 600)

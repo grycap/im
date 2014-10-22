@@ -344,10 +344,18 @@ class LibVirtCloudConnector(CloudConnector):
 			return (False, "Error conectando con el servidor libvirt")
 
 	def setIPs(self, vm, domain, auth_data):
+		public_ips = []
+		private_ips = []
+		
 		# Tenemos que hacer esto https://rwmj.wordpress.com/2010/10/26/tip-find-the-ip-address-of-a-virtual-machine/
-		for i, interface in enumerate(domain.devices.interface):
+		for interface in domain.devices.interface:
 			ip = self.getIPfromMAC(interface.mac.address, auth_data)
-			vm.info.system[0].setValue('net_interface.' + str(i) + '.ip',ip)
+			if network.isPrivateIP(ip):
+				private_ips.append(ip)
+			else:
+				public_ips.append(ip)
+			
+		vm.setIps(public_ips, private_ips)
 
 	def getIPfromMAC(self, mac, auth_data):
 		ssh = self.get_ssh_from_auth_data(auth_data)

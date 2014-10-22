@@ -16,7 +16,6 @@
 
 import hashlib
 import xmlrpclib
-import time
 
 from IM.xmlobject import XMLObject
 from IM.uriparse import uriparse
@@ -24,7 +23,6 @@ from IM.VirtualMachine import VirtualMachine
 from CloudConnector import CloudConnector
 from IM.radl.radl import network
 
-from IM.config import Config
 from IM.radl.radl import Feature
 
 # clases para parsear el resultado de las llamadas a la API de ONE
