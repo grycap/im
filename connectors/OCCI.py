@@ -106,25 +106,18 @@ class OCCICloudConnector(CloudConnector):
 		return res
 
 	def setIPs(self, vm, occi_res):
-		vm_system = vm.info.systems[0]
 		
-		# Delete the old networks
-		vm.info.networks = []
-		i = 0
-		while vm_system.hasFeature("net_interface.%d.connection" % i):
-			vm_system.delValue("net_interface.%d.connection" % i)
-			if vm_system.hasFeature("net_interface.%d.ip" % i):
-				vm_system.delValue("net_interface.%d.ip" % i)
-			i += 1
+		public_ips = []
+		private_ips = []
 		
 		addresses = self.get_net_info(occi_res)
-		for num_interface, ip_address, is_public in addresses:
-			# Set the net_interface.* with the num of the net_interface
-			net = network.createNetwork("occinet_" + str(num_interface), is_public)
-			vm.info.networks.append(net)
-			vm_system.setValue('net_interface.' + str(num_interface) + '.ip', ip_address)
-			vm_system.setValue('net_interface.' + str(num_interface) + '.connection',net.id)
-
+		for _, ip_address, is_public in addresses:
+			if is_public:
+				public_ips.append(ip_address)
+			else:
+				private_ips.append(ip_address)
+		
+		vm.setIps(public_ips, private_ips)
 	
 	def get_vm_state(self, occi_res):
 		lines = occi_res.split("\n")

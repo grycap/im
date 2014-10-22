@@ -529,16 +529,3 @@ class LibCloudCloudConnector(CloudConnector):
 				if not success:
 					all_ok = False
 		return all_ok
-			
-	@staticmethod
-	def addressInNetwork(ip,net):
-			"""Is an address in a network (format: 10.0.0.0/24)"""
-			ipaddr = struct.unpack('>L',socket.inet_aton(ip))[0]
-			netaddr,bits = net.split('/')
-			netmask = struct.unpack('>L',socket.inet_aton(netaddr))[0]
-			ipaddr_masked = ipaddr & (4294967295<<(32-int(bits)))   # Logical AND of IP address and mask will equal the network address if it matches
-			if netmask == netmask & (4294967295<<(32-int(bits))):   # Validate network address is valid for mask
-				return ipaddr_masked == netmask
-			else:
-				# print "***WARNING*** Network",netaddr,"not valid with mask /"+bits
-				return False
