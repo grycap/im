@@ -129,6 +129,19 @@ cpu.count<=5
 		concrete_s, score = s.concrete()
 		self.assertIsInstance(concrete_s, system)
 		self.assertEqual(score, 201)
+		
+		
+	def test_outports(self):
+
+		radl = """
+network publica (outbound = 'yes' and outports='8899a-8899,22-22')
+
+system main (
+net_interface.0.connection = 'publica'
+)		"""
+		r = parse_radl(radl)
+		with self.assertRaises(RADLParseException):
+			self.radl_check(r)
 
 
 if __name__ == "__main__":

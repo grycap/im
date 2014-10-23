@@ -15,8 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import copy
-import socket,struct,time
-from itertools import groupby
+import socket,struct
 from distutils.version import LooseVersion
 
 def UnitToValue(unit):
@@ -35,6 +34,23 @@ def UnitToValue(unit):
 
 def is_version(version, _):
 	return all([num.isdigit() for num in version.getValue().split(".")])
+
+def check_outports_format(outports, _):
+	"""
+	Check the format of the outports string.
+	Valid formats:
+	8899/tcp-8899/tcp,22/tcp-22/tcp
+	8899/tcp-8899,22/tcp-22
+	8899-8899,22-22
+	8899/tcp,22/udp
+	8899,22
+	"""
+	try:
+		network.parseOutPorts(outports.getValue())
+	except:
+		return False
+	else:
+		return True
 
 class RADLParseException(Exception):
 	"""Error parsing RADL document."""
@@ -167,7 +183,7 @@ class Features(object):
 		"""List of features."""
 
 		r = []
-		for p, inter in self.props.items():
+		for _, inter in self.props.items():
 			if isinstance(inter, tuple):
 				if (inter[0] and inter[1] and inter[0].getValue() == inter[1].getValue() and
 					inter[0].operator == "=" and inter[1].operator == "="):
@@ -545,7 +561,6 @@ class contextualize(Aspect, object):
 		"""Get a dictionary of the contextualize_items grouped by the step or the default value"""
 
 		if self.items.values():
-			#return dict((k,list(v)) for k,v in groupby(sorted(self.items.values()), key=lambda x: x.num))
 			res = {}
 			for elem in self.items.values():
 				if elem.num in res:
@@ -593,8 +608,8 @@ class configure(Aspect):
 class deploy(Aspect):
 	"""Store a RADL ``deploy``."""
 
-	def __init__(self, id, vm_number, cloud_id=None, line=None):
-		self.id = id
+	def __init__(self, deploy_id, vm_number, cloud_id=None, line=None):
+		self.id = deploy_id
 		"""System id."""
 		self.vm_number = vm_number
 		"""Number of virtual machines to deploy."""
@@ -663,9 +678,9 @@ class network(Features, Aspect):
 	def check(self, radl):
 		"""Check the features in this network."""
 
-		# TODO: add outports
 		SIMPLE_FEATURES = {
-			"outbound": (str, ["YES", "NO"])
+			"outbound": (str, ["YES", "NO"]),
+			"outports": (str, check_outports_format),
 		}
 		self.check_simple(SIMPLE_FEATURES, radl)
 
@@ -679,6 +694,44 @@ class network(Features, Aspect):
 
 		return network(name, [Feature("outbound", "=", "yes" if public else "no")])
 
+	@staticmethod
+	def parseOutPorts(outports):
+		"""
+		Parse the outports string
+		Valid formats:
+		8899/tcp-8899/tcp,22/tcp-22/tcp
+		8899/tcp-8899,22/tcp-22
+		8899-8899,22-22
+		8899/tcp,22/udp
+		8899,22
+		Returns a tuple with the format: (remote_port,remote_protocol,local_port,local_protocol)
+		"""
+		res = []
+		ports = outports.split(',')
+		for port in ports:
+			parts = port.split('-')
+			remote_port = parts[0]
+			if len(parts) > 1:
+				local_port = parts[1]
+			else:
+				local_port = remote_port
+
+			local_port_parts = local_port.split("/")
+			if len(local_port_parts) > 1:
+				local_protocol = local_port_parts[1]
+				local_port = local_port_parts[0]
+			else:
+				local_protocol = "tcp"
+		
+			remote_port_parts = remote_port.split("/")	
+			if len(remote_port_parts) > 1:
+				remote_protocol = remote_port_parts[1]
+				remote_port = remote_port_parts[0]
+			else:
+				remote_protocol = "tcp"
+			res.append((int(remote_port),remote_protocol,int(local_port),local_protocol))
+		return res
+
 	def getOutPorts(self):
 		"""
 		Get the outports of this network.
@@ -687,31 +740,7 @@ class network(Features, Aspect):
 		"""
 		outports = self.getValue("outports")
 		if outports:
-			res = []
-			ports = outports.split(',')
-			for port in ports:
-				parts = port.split('-')
-				remote_port = parts[0]
-				if len(parts) > 1:
-					local_port = parts[1]
-				else:
-					local_port = remote_port
-
-				local_port_parts = local_port.split("/")
-				if len(local_port_parts) > 1:
-					local_protocol = local_port_parts[1]
-					local_port = local_port_parts[0]
-				else:
-					local_protocol = "tcp"
-			
-				remote_port_parts = remote_port.split("/")	
-				if len(remote_port_parts) > 1:
-					remote_protocol = remote_port_parts[1]
-					remote_port = remote_port_parts[0]
-				else:
-					remote_protocol = "tcp"
-				res.append((remote_port,remote_protocol,local_port,local_protocol))
-			return res
+			return self.parseOutPorts(outports)
 		else:
 			return None
 

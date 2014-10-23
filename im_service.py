@@ -34,7 +34,13 @@ class IMBaseRequest(AsyncRequest):
 	def __init__(self, arguments = (), priority = Request.PRIORITY_NORMAL):
 		AsyncRequest.__init__(self, arguments, priority)
 		self._error_mesage = "Error."
-		
+
+	def _call_function(self):
+		"""
+		This function call the IM functionality
+		"""
+		raise NotImplementedError( "Should have implemented this" )
+
 	def _execute(self):
 		try:
 			res = self._call_function()
