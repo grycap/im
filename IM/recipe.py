@@ -48,7 +48,7 @@ class Recipe:
 				
 				res = db.execute('''insert into recipes values ("%s", "%s", "%s", "%s", %d, %d, "%s", "%s")''' % (name, version, module, recipe, isapp, galaxy_module, desc, requirements))
 				return res
-			except Exception, ex:
+			except Exception:
 				return False
 
 	@staticmethod
@@ -75,7 +75,7 @@ class Recipe:
 					res.append(Recipe(name,version,modules,recipe,desc,requirements,galaxy_module,isapp))
 				
 				return res
-			except Exception, ex:
+			except Exception:
 				return []
 
 	@staticmethod
@@ -105,7 +105,7 @@ class Recipe:
 					res.append((FeaturesApp.from_str(name, version),module, galaxy_module,recipe,requirements))
 				
 				return res
-			except Exception, ex:
+			except Exception:
 				return []
 
 	@staticmethod

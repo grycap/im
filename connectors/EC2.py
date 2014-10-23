@@ -236,7 +236,7 @@ class EC2CloudConnector(CloudConnector):
 				outports = public_net.getOutPorts()
 				if outports:
 					for remote_port,remote_protocol,local_port,local_protocol in outports:
-						if local_port != "22" and local_port != "5099":						
+						if local_port != 22 and local_port != 5099:						
 							protocol = remote_protocol
 							if remote_protocol != local_protocol:
 								self.logger.warn("Diferent protocols used in outports ignoring local port protocol!")								

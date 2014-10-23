@@ -123,7 +123,7 @@ class DockerCloudConnector(CloudConnector):
 			for remote_port,_,local_port,local_protocol in outports:
 				if num > 0:
 					port_bindings = port_bindings + ",\n"
-				port_bindings = port_bindings + '"PortBindings":{ "' + local_port + '/' + local_protocol + '": [{ "HostPort": "' + remote_port + '" }] }'
+				port_bindings = port_bindings + '"PortBindings":{ "' + str(local_port) + '/' + local_protocol + '": [{ "HostPort": "' + str(remote_port) + '" }] }'
 				num += 1
 	
 		if not ssh_found:
@@ -154,8 +154,8 @@ class DockerCloudConnector(CloudConnector):
 		exposed_ports = '"22/tcp": {}'
 		if outports:
 			for _,_,local_port,local_protocol in outports:
-				if local_port != "22":
-					exposed_ports = exposed_ports + ', "' + local_port + '/' + local_protocol + '": {}'
+				if local_port != 22:
+					exposed_ports = exposed_ports + ', "' + str(local_port) + '/' + local_protocol + '": {}'
 
 		(nodename, nodedom) = system.getRequestedNameIface(num = vm_id, default_hostname = Config.DEFAULT_VM_NAME, default_domain = Config.DEFAULT_DOMAIN)
 
