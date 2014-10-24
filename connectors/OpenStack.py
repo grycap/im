@@ -14,39 +14,76 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import boto.ec2
-from connectors.EC2 import EC2CloudConnector, InstanceTypeInfo
+from connectors.LibCloud import LibCloudCloudConnector
+from libcloud.compute.types import Provider
+from libcloud.compute.providers import get_driver
 from IM.uriparse import uriparse
+
 from IM.radl.radl import Feature
 
-class OpenStackCloudConnector(EC2CloudConnector):
+class OpenStackCloudConnector(LibCloudCloudConnector):
+    """
+    Cloud Launcher to OpenStack using LibCloud (Needs version 0.16.0 or higer version)
+    """
     
     type = "OpenStack"
-    # In case of using OpenStack set these details
-    OPENSTACK_EC2_PATH="/services/Cloud"
-    INSTANCE_TYPE = 'm1.tiny'
+    """str with the name of the provider."""
+    
+    def get_driver(self, auth_data):
+        """
+        Get the driver from the auth data
 
-
+        Arguments:
+            - auth(Authentication): parsed authentication tokens.
+        
+        Returns: a :py:class:`libcloud.compute.base.NodeDriver` or None in case of error
+        """
+        auth = auth_data.getAuthInfo(self.type)
+        
+        if auth and 'username' in auth[0] and 'password' in auth[0] and 'tenant' in auth[0]:            
+            parameters = {"auth_version":'2.0_password',
+                          "auth_url":"http://" + self.cloud.server + ":" + str(self.cloud.port),
+                          "auth_token":None,
+                          "service_type":None,
+                          "service_name":None,
+                          "service_region":'regionOne',
+                          "base_url":None}
+            
+            for param in parameters:
+                if param in auth[0]:
+                    parameters[param] = auth[0][param]
+        else:
+            self.logger.error("No correct auth data has been specified to OpenStack: username and password")
+            return None
+        
+        cls = get_driver(Provider.OPENSTACK)
+        driver = cls(auth[0]['username'], auth[0]['password'],
+                     ex_tenant_name=auth[0]['tenant'], 
+                     ex_force_auth_url=parameters["auth_url"],
+                     ex_force_auth_version=parameters["auth_version"],
+                     ex_force_service_region=parameters["service_region"],
+                     ex_force_base_url=parameters["base_url"],
+                     ex_force_service_name=parameters["service_name"],
+                     ex_force_service_type=parameters["service_type"],
+                     ex_force_auth_token=parameters["auth_token"])
+        
+        return driver
+    
     def concreteSystem(self, radl_system, auth_data):
         if radl_system.getValue("disk.0.image.url"):
             url = uriparse(radl_system.getValue("disk.0.image.url"))
             protocol = url[0]
-            protocol = url[0]
             src_host = url[1].split(':')[0]
             # TODO: check the port
             if protocol == "ost" and self.cloud.server == src_host:
-                res_system = radl_system.clone()
-                if res_system.getValue('disk.0.os.credentials.private_key'):
-                    res_system.delValue('disk.0.os.credentials.password')
+                driver = self.get_driver(auth_data)
                 
-                instance_type = self.get_instance_type(res_system)
-
-                res_system.addFeature(Feature("cpu.count", "=", instance_type.num_cpu * instance_type.cores_per_cpu), conflict="other", missing="other")
-                res_system.addFeature(Feature("memory.size", "=", instance_type.mem, 'M'), conflict="other", missing="other")
-                res_system.addFeature(Feature("disk.0.free_size", "=", instance_type.disks * instance_type.disk_space, 'G'), conflict="other", missing="other")
-                res_system.addFeature(Feature("cpu.performance", "=", instance_type.cpu_perf, 'ECU'), conflict="other", missing="other")
+                res_system = radl_system.clone()
+                instance_type = self.get_instance_type(driver.list_sizes(), res_system)
+                
+                res_system.addFeature(Feature("memory.size", "=", instance_type.ram, 'M'), conflict="other", missing="other")
+                res_system.addFeature(Feature("disk.0.free_size", "=", instance_type.disk , 'G'), conflict="other", missing="other")
                 res_system.addFeature(Feature("price", "=", instance_type.price), conflict="me", missing="other")
-                res_system.addFeature(Feature("virtual_system_type", "=", "ec2"), conflict="other", missing="other")
                 
                 res_system.addFeature(Feature("instance_type", "=", instance_type.name), conflict="other", missing="other")
                 
@@ -60,34 +97,17 @@ class OpenStackCloudConnector(EC2CloudConnector):
         else:
             return [radl_system.clone()]
 
-    # Get the EC2 connection object
-    def get_connection(self, region_name, auth_data):
-        conn = None
-        try:
-            auth = auth_data.getAuthInfo(OpenStackCloudConnector.type)
-            if auth and 'username' in auth[0] and 'password' in auth[0]:            
-                region = boto.ec2.regioninfo.RegionInfo(name="nova", endpoint=self.cloud.server)
-                conn = boto.connect_ec2(aws_access_key_id=auth[0]['username'],
-                          aws_secret_access_key=auth[0]['password'],
-                          is_secure=False,
-                          region=region,
-                          port=self.cloud.port,
-                          path=self.OPENSTACK_EC2_PATH)
-            else:
-                self.logger.error("Datos de autenticacion incorrectos")
-        except Exception, e:
-            print "Error getting the region " + region_name + ": "
-            print e
-            self.logger.error("Error getting the region " + region_name + ": ")
-            self.logger.error(e)
+    def create_volume(self, node, disk_size, volume_name):
+        location = self.get_node_location(node)
+        success = node.driver.create_volume(disk_size, volume_name, location = location)                   
+        if not success:
+            self.logger.error("Error creating the volume Name " + volume_name)
+        for volume in node.driver.list_volumes():
+            if volume.name == volume_name:
+                success = self.wait_volume(volume)
+                if not success:
+                    self.logger.error("Error waiting the volume ID " + str(volume.id))
+                return volume
 
-        return conn
-    
-    def get_all_instance_types(self):
-        list = []
-        
-        # A Definir con la plataforma concreta o sacarlo de algun modo (API propia o LibCloud)
-        t1_micro = InstanceTypeInfo("m1.tiny", ["x86_64"], 1, 1, 512, 0, 0)
-        list.append(t1_micro)
-        
-        return list
+        self.logger.error("Error finding the volume Name " + volume_name)
+        return None
