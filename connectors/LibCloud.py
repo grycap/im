@@ -14,8 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import socket,struct
-
 import time
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
@@ -25,7 +23,7 @@ from libcloud.compute.base import NodeImage, NodeAuthSSHKey
 from libcloud.compute.types import NodeState, Provider
 from libcloud.compute.providers import get_driver
 
-from IM.radl.radl import network, Feature
+from IM.radl.radl import Feature
 
 class LibCloudCloudConnector(CloudConnector):
 	"""
@@ -99,8 +97,8 @@ class LibCloudCloudConnector(CloudConnector):
 
 		res = None
 		for size in sizes:
-			# get the node size with the lowest price
-			if res is None or (size.price <= res.price):
+			# get the node size with the lowest price and memory (in the case of the price is not set)
+			if res is None or (size.price <= res.price and size.ram <= res.ram):
 				str_compare = "size.ram " + memory_op + " memory"
 				str_compare += " and size.disk " + disk_free_op + " disk_free"
 				if eval(str_compare):
@@ -154,6 +152,18 @@ class LibCloudCloudConnector(CloudConnector):
 		"""
 		return uriparse(path)[2][1:]
 
+	@staticmethod
+	def driver_uses_keypair(driver):
+		#return "ssh_key" in driver.features.get("create_node", [])
+		try:
+			driver.get_key_pair("keypair")
+		except NotImplementedError:
+			return False
+		except Exception:
+			return True
+		else:
+			return True
+
 	def launch(self, inf, vm_id, radl, requested_radl, num_vm, auth_data):
 		driver = self.get_driver(auth_data)
 
@@ -173,20 +183,22 @@ class LibCloudCloudConnector(CloudConnector):
 		
 		keypair = None
 		public_key = system.getValue("disk.0.os.credentials.public_key")
-		if "ssh_key" in driver.features.get("create_node", []):
-			
+		if self.driver_uses_keypair(driver):			
 			if public_key:
 				keypair = driver.get_key_pair(public_key)
 				if keypair:
 					system.setUserKeyCredentials(system.getCredentials().username, None, keypair.private_key)
 				else:
-					args["auth"] = NodeAuthSSHKey(public_key)
+					if "ssh_key" in driver.features.get("create_node", []):
+						args["auth"] = NodeAuthSSHKey(public_key)
+					else:
+						args["ex_keyname"] = keypair.name
 			elif not system.getValue("disk.0.os.credentials.password"):
-				keypair_name = "im-%s" % time.time()
+				keypair_name = "im-%d" % int(time.time()*100.0)
 				keypair = driver.create_key_pair(keypair_name)
 				system.setUserKeyCredentials(system.getCredentials().username, None, keypair.private_key)
 				
-				if keypair.public_key:
+				if keypair.public_key and "ssh_key" in driver.features.get("create_node", []):
 					args["auth"] = NodeAuthSSHKey(keypair.public_key)
 				else:
 					args["ex_keyname"] = keypair_name
@@ -200,7 +212,7 @@ class LibCloudCloudConnector(CloudConnector):
 			
 			if node:
 				vm = VirtualMachine(inf, vm_id, node.id, self.cloud, radl, requested_radl)
-				# Add the keypair name to remove it later 
+				# Add the keypair name to remove it later
 				vm.keypair = keypair
 				self.logger.debug("Node successfully created.")
 				res.append((True, vm))
@@ -211,12 +223,12 @@ class LibCloudCloudConnector(CloudConnector):
 
 		return res
 		
-	def get_node_with_id(self, id, auth_data):
+	def get_node_with_id(self, node_id, auth_data):
 		"""
 		Get the node with the specified ID
 
 		Arguments:
-		   - id(str): ID of the node to get
+		   - node_id(str): ID of the node to get
 		   - auth(Authentication): parsed authentication tokens.
 		Returns: a :py:class:`libcloud.compute.base.Node` with the node info	
 		"""
@@ -225,7 +237,7 @@ class LibCloudCloudConnector(CloudConnector):
 		
 		res = None
 		for node in nodes:
-			if node.id == id:
+			if node.id == node_id:
 				res = node
 		return res
 		
@@ -236,7 +248,7 @@ class LibCloudCloudConnector(CloudConnector):
 			success = node.destroy()
 			
 			public_key = vm.getRequestedSystem().getValue('disk.0.os.credentials.public_key')
-			if public_key is None or len(public_key) == 0 or (len(public_key) >= 1 and public_key.find('-----BEGIN CERTIFICATE-----') != -1):
+			if vm.keypair and public_key is None or len(public_key) == 0 or (len(public_key) >= 1 and public_key.find('-----BEGIN CERTIFICATE-----') != -1):
 				# only delete in case of the user do not specify the keypair name
 				node.driver.delete_key_pair(vm.keypair)
 			
@@ -344,13 +356,17 @@ class LibCloudCloudConnector(CloudConnector):
 					node.driver.ex_associate_address_with_node(node, elastic_ip)
 					return elastic_ip
 				elif node.driver.name == "OpenStack":
-					pool = node.driver.ex_list_floating_ip_pools()[0]
-					if fixed_ip:
-						floating_ip = node.driver.ex_get_floating_ip(fixed_ip)
+					if node.driver.ex_list_floating_ip_pools():
+						pool = node.driver.ex_list_floating_ip_pools()[0]
+						if fixed_ip:
+							floating_ip = node.driver.ex_get_floating_ip(fixed_ip)
+						else:
+							floating_ip = pool.create_floating_ip()
+						node.driver.ex_attach_floating_ip_to_node(node, floating_ip)
+						return floating_ip
 					else:
-						floating_ip = pool.create_floating_ip()
-					node.driver.ex_attach_floating_ip_to_node(node, floating_ip)
-					return floating_ip
+						self.logger.error("Error adding a Floating IP: No pools available.")
+						return None
 				else:
 					return None
 			except Exception:
@@ -440,13 +456,14 @@ class LibCloudCloudConnector(CloudConnector):
 		Wait a volume (with the state extra parameter) to be in certain state.
 
 		Arguments:
-		   - volume(:py:class:`libcloud.compute.base.StorageVolume`): volume object.
+		   - volume(:py:class:`libcloud.compute.base.StorageVolume`): volume object or boolean.
 		   - state(str): State to wait for (default value 'available').	
 		   - timeout(int): Max time to wait in seconds (default value 60).
 		"""
 		if 'state' in volume.extra:
 			cont = 0
-			while volume.extra['state'] != state and cont < timeout:
+			err_states = ["error"]
+			while volume.extra['state'] != state and volume.extra['state'] not in err_states and cont < timeout:
 				cont += 2
 				time.sleep(2)
 				for vol in volume.driver.list_volumes():
@@ -456,7 +473,21 @@ class LibCloudCloudConnector(CloudConnector):
 			return volume.extra['state'] == state
 
 		return True
-		
+	
+	def create_volume(self, node, disk_size, volume_name):
+		"""
+		Creates a volume in the specified node
+
+		Arguments:
+		   - node(:py:class:`libcloud.compute.base.Node`): node object.
+		"""
+		location = self.get_node_location(node)
+		volume = node.driver.create_volume(disk_size, volume_name, location = location)
+		success = self.wait_volume(volume)					
+		if not success:
+			self.logger.error("Error waiting the volume ID " + str(volume.id))
+		return volume
+	
 	def attach_volumes(self, vm, node):
 		"""
 		Attach a the required volumes (in the RADL) to the launched node
@@ -473,15 +504,13 @@ class LibCloudCloudConnector(CloudConnector):
 					disk_size = vm.info.systems[0].getFeature("disk." + str(cont) + ".size").getValue('G')
 					disk_device = vm.info.systems[0].getValue("disk." + str(cont) + ".device")
 					self.logger.debug("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
-					volume_name = "im-%s" % time.time()
-					location = self.get_node_location(node)
-					volume = node.driver.create_volume(int(disk_size), volume_name, location = location)
-					success = self.wait_volume(volume)
-					if not success:
-						self.logger.error("Error waiting the volume ID " + str(volume.id))
-					vm.volumes.append(volume)					
-					self.logger.debug("Attach the volume ID " + str(volume.id))
-					volume.attach(node, "/dev/" + disk_device)
+					volume_name = "im-%d" % int(time.time()*100.0)
+					volume = self.create_volume(node, int(disk_size), volume_name)
+					if volume:					
+						vm.volumes.append(volume)
+						self.logger.debug("Attach the volume ID " + str(volume.id))
+						volume.attach(node, "/dev/" + disk_device)
+					
 					cont += 1
 			return True
 		except Exception:
