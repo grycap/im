@@ -21,7 +21,7 @@ import boto.ec2
 import os
 from IM.VirtualMachine import VirtualMachine
 from CloudConnector import CloudConnector
-from IM.radl.radl import network, Feature
+from IM.radl.radl import Feature
 
 class InstanceTypeInfo:
 	"""
@@ -246,7 +246,7 @@ class EC2CloudConnector(CloudConnector):
 			sg.authorize('tcp', 22, 22, '0.0.0.0/0')
 			sg.authorize('tcp', 5099, 5099, '0.0.0.0/0')
 			
-		except Exception, ex:
+		except Exception:
 			self.logger.exception("Error Creating the Security group")
 			pass
 		

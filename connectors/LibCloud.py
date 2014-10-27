@@ -474,20 +474,6 @@ class LibCloudCloudConnector(CloudConnector):
 
 		return True
 	
-	def create_volume(self, node, disk_size, volume_name):
-		"""
-		Creates a volume in the specified node
-
-		Arguments:
-		   - node(:py:class:`libcloud.compute.base.Node`): node object.
-		"""
-		location = self.get_node_location(node)
-		volume = node.driver.create_volume(disk_size, volume_name, location = location)
-		success = self.wait_volume(volume)					
-		if not success:
-			self.logger.error("Error waiting the volume ID " + str(volume.id))
-		return volume
-	
 	def attach_volumes(self, vm, node):
 		"""
 		Attach a the required volumes (in the RADL) to the launched node
@@ -505,9 +491,16 @@ class LibCloudCloudConnector(CloudConnector):
 					disk_device = vm.info.systems[0].getValue("disk." + str(cont) + ".device")
 					self.logger.debug("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
 					volume_name = "im-%d" % int(time.time()*100.0)
-					volume = self.create_volume(node, int(disk_size), volume_name)
-					if volume:					
+					
+					location = self.get_node_location(node)
+					volume = node.driver.create_volume(int(disk_size), volume_name, location = location)
+					success = self.wait_volume(volume)
+					if volume:
+						# Add the volume to the VM to remove it later
 						vm.volumes.append(volume)
+					if not success:
+						self.logger.error("Error waiting the volume ID " + str(volume.id) + " not attaching to the VM.")
+					else:
 						self.logger.debug("Attach the volume ID " + str(volume.id))
 						volume.attach(node, "/dev/" + disk_device)
 					
