@@ -427,7 +427,7 @@ class VirtualMachine:
 			
 				# if it is still None, then create a new one
 				if private_net is None:
-					private_net = network.createNetwork("private." + private_net_mask)
+					private_net = network.createNetwork("private." + private_net_mask.split('/')[0])
 					self.info.networks.append(private_net)
 					num_net = self.getNumNetworkIfaces()
 				else:
