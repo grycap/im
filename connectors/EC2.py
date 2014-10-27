@@ -400,12 +400,19 @@ class EC2CloudConnector(CloudConnector):
 		"""
 		volume = conn.create_volume(disk_size, placement)
 		cont = 0
-		while str(volume.status) != 'available' and cont < timeout:
+		err_states = ["error"]
+		while str(volume.status) != 'available' and str(volume.status) not in err_states and cont < timeout:
 			self.logger.debug("State: " + str(volume.status))
 			cont += 2
 			time.sleep(2)
 			volume = conn.get_all_volumes([volume.id])[0]
-		return volume
+		
+		if str(volume.status) == 'available':
+			return volume
+		else:
+			self.logger.error("Error creating the volume %s, deleting it" % (volume.id) )
+			conn.delete_volume(volume.id)
+			return None
 
 	def attach_volumes(self, instance, vm):
 		"""
@@ -425,13 +432,13 @@ class EC2CloudConnector(CloudConnector):
 					disk_device = vm.info.systems[0].getValue("disk." + str(cont) + ".device")
 					self.logger.debug("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
 					volume = self.create_volume(conn, int(disk_size), instance.placement)
-					vm.volumes.append(volume.id)
-					self.logger.debug("Attach the volume ID " + str(volume.id))
-					conn.attach_volume(volume.id, instance.id, "/dev/" + disk_device)
+					if volume:
+						vm.volumes.append(volume.id)
+						self.logger.debug("Attach the volume ID " + str(volume.id))
+						conn.attach_volume(volume.id, instance.id, "/dev/" + disk_device)
 					cont += 1
-		except Exception, ex:
-			self.logger.error("Error creating or attaching the volume to the instance")
-			self.logger.error(ex)
+		except Exception:
+			self.logger.exception("Error creating or attaching the volume to the instance")
 			
 	def delete_volumes(self, conn, vm, timeout = 240):
 		"""
