@@ -46,8 +46,8 @@ Finally, check the next values in the Ansible configuration file
 Optional Packages
 -----------------
 
-* `apache-libcloud <http://libcloud.apache.org/>`_ 0.15 or later is used in the
-  LibCloud connector.
+* `apache-libcloud <http://libcloud.apache.org/>`_ 0.16 or later is used in the
+  LibCloud and OpenStack connectors.
 * `boto <http://boto.readthedocs.org>`_ 2.19.0 or later is used as interface to
   Amazon EC2. It is available as package named ``python-boto`` in Debian based
   distributions. It can also be downloaded from `boto GitHub repository <https://github.com/boto/boto>`_.

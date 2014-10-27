@@ -96,18 +96,3 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 return []
         else:
             return [radl_system.clone()]
-
-    def create_volume(self, node, disk_size, volume_name):
-        location = self.get_node_location(node)
-        success = node.driver.create_volume(disk_size, volume_name, location = location)                   
-        if not success:
-            self.logger.error("Error creating the volume Name " + volume_name)
-        for volume in node.driver.list_volumes():
-            if volume.name == volume_name:
-                success = self.wait_volume(volume)
-                if not success:
-                    self.logger.error("Error waiting the volume ID " + str(volume.id))
-                return volume
-
-        self.logger.error("Error finding the volume Name " + volume_name)
-        return None
