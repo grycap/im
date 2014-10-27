@@ -23,7 +23,7 @@ from IM.radl.radl import Feature
 
 class OpenStackCloudConnector(LibCloudCloudConnector):
     """
-    Cloud Launcher to OpenStack using LibCloud (Needs version 0.16.0 or higer version)
+    Cloud Launcher to OpenStack using LibCloud (Needs version 0.16.0 or higher version)
     """
     
     type = "OpenStack"

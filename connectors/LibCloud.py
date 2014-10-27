@@ -460,19 +460,22 @@ class LibCloudCloudConnector(CloudConnector):
 		   - state(str): State to wait for (default value 'available').	
 		   - timeout(int): Max time to wait in seconds (default value 60).
 		"""
-		if 'state' in volume.extra:
-			cont = 0
-			err_states = ["error"]
-			while volume.extra['state'] != state and volume.extra['state'] not in err_states and cont < timeout:
-				cont += 2
-				time.sleep(2)
-				for vol in volume.driver.list_volumes():
-					if vol.id == volume.id:
-						volume = vol
-						break
-			return volume.extra['state'] == state
-
-		return True
+		if volume:
+			if 'state' in volume.extra:
+				cont = 0
+				err_states = ["error"]
+				while volume.extra['state'] != state and volume.extra['state'] not in err_states and cont < timeout:
+					cont += 2
+					time.sleep(2)
+					for vol in volume.driver.list_volumes():
+						if vol.id == volume.id:
+							volume = vol
+							break				
+				return volume.extra['state'] == state
+	
+			return True
+		else:
+			return False
 	
 	def attach_volumes(self, vm, node):
 		"""
@@ -495,14 +498,14 @@ class LibCloudCloudConnector(CloudConnector):
 					location = self.get_node_location(node)
 					volume = node.driver.create_volume(int(disk_size), volume_name, location = location)
 					success = self.wait_volume(volume)
-					if volume:
+					if success:
 						# Add the volume to the VM to remove it later
 						vm.volumes.append(volume)
-					if not success:
-						self.logger.error("Error waiting the volume ID " + str(volume.id) + " not attaching to the VM.")
-					else:
 						self.logger.debug("Attach the volume ID " + str(volume.id))
 						volume.attach(node, "/dev/" + disk_device)
+					else:
+						self.logger.error("Error waiting the volume ID " + str(volume.id) + " not attaching to the VM and destroying it.")
+						volume.destroy()
 					
 					cont += 1
 			return True
