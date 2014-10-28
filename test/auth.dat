@@ -2,3 +2,7 @@ id = one; type = OpenNebula; host = server:2633; username = user; password = pas
 type = InfrastructureManager; username = user; password = pass
 type = VMRC; host = http://server:8080/vmrc; username = user; password = pass
 id = ec2; type = EC2; username = ACESS_KEY; password = SECRET_KEY
+id = gce; type = GCE; username = CLIENT_ID; password = CLIENT_SECRET; project = project-name
+id = docker; type = Docker; host = server:2375
+id = occi; type = OCCI; host = server:8443; proxy = file(/tmp/proxy.pem)
+id = libcloud; type = LibCloud; driver = EC2; username = ACESS_KEY; password = SECRET_KEY
