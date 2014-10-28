@@ -1,9 +1,9 @@
 ---
 - gather_facts: False
   tasks: 
-    # In case of REL 5 system install python-simplejson (the user must be root)
+    # In case of REL 5 system install python-simplejson
     - name: Install python-simplejson on REL 5
-      action: raw cat /etc/redhat-release | grep "release 5" &&  yum -y install python-simplejson
+      action: raw cat /etc/redhat-release | grep "release 5" && sudo yum -y install python-simplejson
       ignore_errors: yes
 
     # In case of redhat systems libselinux-python is needed
