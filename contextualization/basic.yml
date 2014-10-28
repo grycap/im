@@ -5,13 +5,6 @@
     - name: Install python-simplejson on REL 5
       action: raw cat /etc/redhat-release | grep "release 5" &&  yum -y install python-simplejson
       ignore_errors: yes
-<<<<<<< HEAD
-=======
-      
-    - name: Check requiretty in REL 5 (the user must be root)
-      action: raw sed -i 's/^.*requiretty.*/Defaults !requiretty/' /etc/sudoers
-      ignore_errors: yes
->>>>>>> 2e4c3b6aac2b1bac1ad5dbfb1cdfff11df513970
 
     # In case of redhat systems libselinux-python is needed
     - name: Install libselinux-python on redhat systems
