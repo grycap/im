@@ -127,8 +127,10 @@ class LibCloudCloudConnector(CloudConnector):
 				instance_type = self.get_instance_type(driver.list_sizes(), res_system)
 				
 				res_system.addFeature(Feature("memory.size", "=", instance_type.ram, 'M'), conflict="other", missing="other")
-				res_system.addFeature(Feature("disk.0.free_size", "=", instance_type.disk , 'G'), conflict="other", missing="other")
-				res_system.addFeature(Feature("price", "=", instance_type.price), conflict="me", missing="other")
+				if instance_type.disk:
+					res_system.addFeature(Feature("disk.0.free_size", "=", instance_type.disk , 'G'), conflict="other", missing="other")
+				if instance_type.price:
+					res_system.addFeature(Feature("price", "=", instance_type.price), conflict="me", missing="other")
 				
 				res_system.addFeature(Feature("instance_type", "=", instance_type.name), conflict="other", missing="other")
 				

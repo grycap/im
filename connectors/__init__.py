@@ -15,4 +15,4 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-__all__ = ['CloudConnector','EC2','OCCI','OpenNebula','OpenStack','LibVirt','LibCloud','Docker']
+__all__ = ['CloudConnector','EC2','OCCI','OpenNebula','OpenStack','LibVirt','LibCloud','Docker','GCE']
