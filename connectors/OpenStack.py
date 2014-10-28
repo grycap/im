@@ -53,7 +53,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 if param in auth[0]:
                     parameters[param] = auth[0][param]
         else:
-            self.logger.error("No correct auth data has been specified to OpenStack: username and password")
+            self.logger.error("No correct auth data has been specified to OpenStack: username, password and tenant")
             return None
         
         cls = get_driver(Provider.OPENSTACK)

@@ -194,8 +194,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 
 			# update the state of the VM
 			if res_vm.STATE == 3:
-				#if res_vm.LCM_STATE == 3:
-				if res_vm.LCM_STATE == 3 or res_vm.LCM_STATE == 2:
+				if res_vm.LCM_STATE == 3:
 					res_state = VirtualMachine.RUNNING
 				else:
 					res_state = VirtualMachine.PENDING

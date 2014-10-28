@@ -197,6 +197,18 @@ def generateBasicPlaybook(conf_dir, pk_file):
 
 	return basic_play
 
+def removeRequiretty(vm):
+	if not vm['master']:
+		logger.info("Removing requiretty to VM: " + vm['ip'])
+		ssh_client = SSH(vm['ip'], vm['user'], vm['passwd'], vm['private_key'], vm['ssh_port'])
+		# Activate tty mode to avoid some problems with sudo in REL
+		ssh_client.tty = True
+		(stdout, stderr, code) = ssh_client.execute("sudo sed -i 's/.*requiretty$/#Defaults requiretty/' /etc/sudoers")
+		logger.debug("OUT: " + stdout + stderr)
+		return code == 0
+	else:
+		return True
+
 def contextualizeGroups(group_list, contextualize_list, conf_dir):
 	res_data = {}
 	pk_file = "/tmp/ansible_key"
@@ -219,6 +231,12 @@ def contextualizeGroups(group_list, contextualize_list, conf_dir):
 			else:
 				res_data['SSH_WAIT'] = True
 				logger.info("SSH access to VM: " + vm['ip']+ " Open!")
+				# Now remove requiretty in the node
+				success = removeRequiretty(vm)
+				if success:
+					logger.info("Requiretty successfully removed")
+				else:
+					logger.error("Error removing Requiretty")
 	
 	# Generate the basic playbook
 	basic_play = generateBasicPlaybook(conf_dir, pk_file)

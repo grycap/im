@@ -601,12 +601,11 @@ class ConfManager(threading.Thread):
 		self.inf.add_cont_msg("Performing preliminary steps to configure Ansible.")
 		# TODO: check to do it with ansible
 		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Check if python-simplejson is installed in REL 5 systems")
-		(stdout, stderr, _) = ssh.execute("cat /etc/redhat-release | grep \"release 5\" &&  yum -y install python-simplejson", 120)
+		(stdout, stderr, _) = ssh.execute("cat /etc/redhat-release | grep \"release 5\" &&  sudo yum -y install python-simplejson", 120)
 		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " + stdout + stderr)
 
 		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Remove requiretty in sshd config")
-		#(stdout, stderr, _) = ssh.execute("cat /etc/sudoers | grep -v requiretty >> /tmp/sudoers.tmp; mv -f /tmp/sudoers.tmp  /etc/sudoers; echo 'Defaults !requiretty' >> /etc/sudoers ", 120)
-		(stdout, stderr, _) = ssh.execute("sed -i 's/^.*requiretty/Defaults !requiretty/' /etc/sudoers", 120)
+		(stdout, stderr, _) = ssh.execute("sudo sed -i 's/.*requiretty$/#Defaults requiretty/' /etc/sudoers", 120)
 		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " + stdout + stderr)
 		
 		self.inf.add_cont_msg("Configure Ansible in the master VM (step 1).")
