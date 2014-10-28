@@ -7,7 +7,7 @@
       ignore_errors: yes
       
     - name: Check requiretty in REL 5 (the user must be root)
-      action: raw sed -i 's/^.*requiretty/Defaults !requiretty/' /etc/sudoers
+      action: raw sed -i 's/^.*requiretty.*/Defaults !requiretty/' /etc/sudoers
       ignore_errors: yes
 
     # In case of redhat systems libselinux-python is needed
