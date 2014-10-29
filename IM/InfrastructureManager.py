@@ -194,6 +194,7 @@ class InfrastructureManager:
 							remain_vm -= 1
 						else:
 							InfrastructureManager.logger.warn("Error launching some of the VMs: " + str(launched_vm))
+							exceptions.append(str(launched_vm))
 							if not isinstance(launched_vm, str):
 								cloud.finalize(launched_vm, auth)
 					fail_cont += 1
