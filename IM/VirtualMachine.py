@@ -79,7 +79,8 @@ class VirtualMachine:
 		if not self.destroy:
 			cl = self.cloud.getCloudConnector()
 			(success, msg) = cl.finalize(self, auth)
-			self.destroy = True
+			if success:
+				self.destroy = True
 			# force the update of the information
 			self.last_update = 0
 			return (success, msg)
