@@ -615,9 +615,11 @@ class InfrastructureManager:
 		vm = InfrastructureManager.get_vm_from_inf(inf_id, vm_id, auth)
 		
 		success = vm.update_status(auth)
-		InfrastructureManager.save_data()
 		if not success:
 			InfrastructureManager.logger.warn("Information not updated. Using last information retrieved")
+		else:
+			# Only save the information if it is updated
+			InfrastructureManager.save_data()
 
 		return str(vm.info)
 
@@ -797,8 +799,6 @@ class InfrastructureManager:
 			if not success:
 				InfrastructureManager.logger.info("The VM cannot be finalized")
 				exceptions.append(msg)
-			else:
-				vm.destroy = True
 
 		if exceptions:
 			raise Exception("Error destroying the infrastructure: %s" % "\n".join(exceptions))
