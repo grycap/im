@@ -159,6 +159,10 @@ class GCECloudConnector(CloudConnector):
         system = radl.systems[0]
         region, image_id = self.get_image_data(system.getValue("disk.0.image.url"))
 
+        image = driver.ex_get_image(image_id)
+        if not image:
+            return [(False, "Incorrect image name") for i in range(num_vm)]
+
         if system.getValue('availability_zone'):
             region = system.getValue('availability_zone')
 
@@ -169,7 +173,7 @@ class GCECloudConnector(CloudConnector):
             name = "userimage"
         
         args = {'size': instance_type,
-                'image': image_id,
+                'image': image,
                 'external_ip': 'ephemeral',
                 'location': region,
                 'name': "%s-%s" % (name.lower().replace("_","-"), int(time.time()*100))}
