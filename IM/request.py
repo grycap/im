@@ -79,7 +79,7 @@ class RequestQueue(Queue):
 			
 			pass
 
-	def timed_process_loop(self, callback = None, time_between_callbacks = 3, retry_missing_calls = False):
+	def timed_process_loop(self, callback = None, time_between_callbacks = 3, retry_missing_calls = False, exit_callback = None):
 		"""
 		Implementa un bucle de mensajes que trata de ejecutar un callback de acuerdo a una
 		frecuencia temporal.
@@ -98,6 +98,8 @@ class RequestQueue(Queue):
 				self.process_requests(1, tcall.programmed_time - time.time())
 		except KeyboardInterrupt:
 			# La idea es capturar el Ctrl-C para que acabe de una forma "normal"
+			if exit_callback:
+				exit_callback()
 			sys.exit(0)
 
 

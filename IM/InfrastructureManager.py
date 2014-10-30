@@ -76,6 +76,9 @@ class InfrastructureManager:
 	
 	_lock = threading.Lock()
 	"""Threading Lock to avoid concurrency problems."""
+	
+	_exiting = False
+	"""Flag to notice that the IM is going to exit."""
 
 	@staticmethod
 	def _reinit():
@@ -923,7 +926,7 @@ class InfrastructureManager:
 
 		InfrastructureManager.add_infrastructure(new_inf)
 		InfrastructureManager.logger.info("Importing new infrastructure with id: " + str(new_inf.id))
-		# Guardamos estado
+		# Save the state
 		InfrastructureManager.save_data()
 		return new_inf.id
 
@@ -938,7 +941,15 @@ class InfrastructureManager:
 	@staticmethod
 	def save_data():
 		with InfrastructureManager._lock:
-			data_file = open(Config.DATA_FILE, 'wb')
-			pickle.dump(InfrastructureManager.global_inf_id, data_file)
-			pickle.dump(InfrastructureManager.infrastructure_list, data_file)
-			data_file.close()
+			# to avoid writing data to the file if the IM is exiting
+			if not InfrastructureManager._exiting:
+				data_file = open(Config.DATA_FILE, 'wb')
+				pickle.dump(InfrastructureManager.global_inf_id, data_file)
+				pickle.dump(InfrastructureManager.infrastructure_list, data_file)
+				data_file.close()
+
+	@staticmethod
+	def stop():
+		# Acquire the lock to avoid writing datato the DATA_FILE
+		with InfrastructureManager._lock:
+			InfrastructureManager._exiting = True
