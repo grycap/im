@@ -14,9 +14,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import sys
 import json
 import os
-import pickle
+import cPickle as pickle
 import threading
 import string
 import random
@@ -933,23 +934,32 @@ class InfrastructureManager:
 	@staticmethod
 	def load_data():
 		with InfrastructureManager._lock:
-			data_file = open(Config.DATA_FILE, 'rb')
-			InfrastructureManager.global_inf_id = pickle.load(data_file)
-			InfrastructureManager.infrastructure_list = pickle.load(data_file)
-			data_file.close()
+			try:
+				data_file = open(Config.DATA_FILE, 'rb')
+				InfrastructureManager.global_inf_id = pickle.load(data_file)
+				InfrastructureManager.infrastructure_list = pickle.load(data_file)
+				data_file.close()
+			except Exception, ex:
+				InfrastructureManager.logger.exception("ERROR loading data from file: " + Config.DATA_FILE + ". Correct or delete it!!")
+				sys.stderr.write("ERROR loading data from file: " + Config.DATA_FILE + ": " + str(ex) + ".\nCorrect or delete it!! ")
+				sys.exit(-1)
 
 	@staticmethod
 	def save_data():
 		with InfrastructureManager._lock:
 			# to avoid writing data to the file if the IM is exiting
 			if not InfrastructureManager._exiting:
-				data_file = open(Config.DATA_FILE, 'wb')
-				pickle.dump(InfrastructureManager.global_inf_id, data_file)
-				pickle.dump(InfrastructureManager.infrastructure_list, data_file)
-				data_file.close()
+				try:
+					data_file = open(Config.DATA_FILE, 'wb')
+					pickle.dump(InfrastructureManager.global_inf_id, data_file)
+					pickle.dump(InfrastructureManager.infrastructure_list, data_file)
+					data_file.close()
+				except Exception, ex:
+					InfrastructureManager.logger.exception("ERROR saving data to the file: " + Config.DATA_FILE + ". Changes not stored!!")
+					sys.stderr.write("ERROR saving data to the file: " + Config.DATA_FILE  + ": " + str(ex) + ".\nChanges not stored!!")
 
 	@staticmethod
 	def stop():
-		# Acquire the lock to avoid writing datato the DATA_FILE
+		# Acquire the lock to avoid writing data to the DATA_FILE
 		with InfrastructureManager._lock:
 			InfrastructureManager._exiting = True

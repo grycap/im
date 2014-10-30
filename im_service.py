@@ -326,6 +326,9 @@ def config_logging():
 	log.addHandler(fileh)
 
 def im_stop():
+	"""
+	Function to safely stop the service
+	"""
 	try:
 		# Assure that the IM data are correctly saved
 		InfrastructureManager.logger.info('************ Stop Infrastructure Manager daemon ************')
@@ -335,6 +338,9 @@ def im_stop():
 	sys.exit(0)
 	
 def signal_term_handler(signal, frame):
+	"""
+	Callback function to catch the system signals
+	"""
 	im_stop()
 
 if __name__ == "__main__":
