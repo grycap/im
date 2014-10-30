@@ -167,6 +167,11 @@ Basic Options
    an error.
    The default value is 3.
 
+.. confval:: VM_INFO_UPDATE_FREQUENCY
+
+   Maximum frequency to update the VM info (in secs)
+   The default value is 10.
+
 .. confval:: WAIT_RUNNING_VM_TIMEOUT
 
    Timeout in seconds to get a virtual machine in running state.
@@ -327,6 +332,14 @@ GANGLIA INTEGRATION
 
    Flag to enable the retrieval of the ganglia info of the VMs.
    The default value is ``False``.
+   
+.. confval:: GANGLIA_INFO_UPDATE_FREQUENCY 
+
+   Maximum frequency to update the Ganglia info (in secs).
+   The default value is ``30``.
+   
+
+GANGLIA_INFO_UPDATE_FREQUENCY = 30
 
    
 CONTEXTUALIZATION PROCESS

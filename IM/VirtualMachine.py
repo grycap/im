@@ -17,6 +17,7 @@
 import time
 import threading
 from IM.radl.radl import network
+from config import Config
 
 class VirtualMachine:
 
@@ -28,9 +29,6 @@ class VirtualMachine:
 	OFF = "off"
 	FAILED = "failed"
 	CONFIGURED = "configured"
-	
-	UPDATE_FREQUENCY = 10
-	""" Maximum frequency to update the VM info (in secs) """
 
 	def __init__(self, inf, im_id, cloud_id, cloud, info, requested_radl):
 		self._lock = threading.Lock()
@@ -348,7 +346,7 @@ class VirtualMachine:
 		state = self.state
 		updated = False
 		# To avoid to refresh the information too quickly
-		if now - self.last_update > VirtualMachine.UPDATE_FREQUENCY:
+		if now - self.last_update > Config.VM_INFO_UPDATE_FREQUENCY:
 			cl = self.cloud.getCloudConnector()
 			(success, new_vm) = cl.updateVMInfo(self, auth)
 			if success:

@@ -54,7 +54,9 @@ class Config:
 	REST_SSL_CERTFILE = "/etc/im/pki/server-cert.pem"
 	REST_SSL_CA_CERTS = "/etc/im/pki/ca-chain.pem"
 	GET_GANGLIA_INFO = False
+	GANGLIA_INFO_UPDATE_FREQUENCY = 30
 	PLAYBOOK_RETRIES = 1
+	VM_INFO_UPDATE_FREQUENCY = 10
 
 
 config = ConfigParser.ConfigParser()
