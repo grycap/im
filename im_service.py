@@ -18,6 +18,8 @@
 
 import logging
 import os
+import signal
+import sys
 
 from IM.request import Request, AsyncRequest, AsyncXMLRPCServer, get_system_queue
 from IM.InfrastructureManager import InfrastructureManager
@@ -280,7 +282,7 @@ def launch_daemon():
 	server.register_function(ExportInfrastructure)
 	server.register_function(ImportInfrastructure)
 	
-	InfrastructureManager.logger.info('************ Start Infrastucture Manager daemon (v.%s) ************' % version)
+	InfrastructureManager.logger.info('************ Start Infrastructure Manager daemon (v.%s) ************' % version)
 
 	# Launch the API XMLRPC thread 
 	server.serve_forever_in_thread()
@@ -291,7 +293,7 @@ def launch_daemon():
 		IM.REST.run_in_thread(host=Config.REST_ADDRESS, port=Config.REST_PORT)
 	
 	# Start the messages queue
-	get_system_queue().timed_process_loop(None, 1)
+	get_system_queue().timed_process_loop(None, 1, exit_callback = im_stop)
 
 def config_logging():
 	"""
@@ -323,6 +325,19 @@ def config_logging():
 	log.propagate = 0
 	log.addHandler(fileh)
 
+def im_stop():
+	try:
+		# Assure that the IM data are correctly saved
+		InfrastructureManager.logger.info('************ Stop Infrastructure Manager daemon ************')
+		InfrastructureManager.stop()
+	except:
+		InfrastructureManager.logger.exception("Error stopping Infrastructure Manager daemon")
+	sys.exit(0)
+	
+def signal_term_handler(signal, frame):
+	im_stop()
+
 if __name__ == "__main__":
+	signal.signal(signal.SIGTERM, signal_term_handler)
 	config_logging()
 	launch_daemon()
