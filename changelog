@@ -48,6 +48,7 @@ IM 1.1.0
     * Improve EC2 connector
     * Improve OpenNebula connector to support version 4.8
     * Change GetVMInfo and AlterVM functions to return only RADL data 
+    * Add GetVMProperty function to the API
     * Add provider information in the RADL
     * Bug fixes in LibVirt connector
     * Change Ansible version to 1.7.2
