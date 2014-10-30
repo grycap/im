@@ -45,9 +45,6 @@ class InfrastructureInfo:
 	
 	logger = logging.getLogger('InfrastructureManager')
 	"""Logger object."""
-	UPDATE_FREQUENCY = 30
-	""" Maximum frequency to update the Ganglia info (in secs) """
-
 	
 	def __init__(self):
 		self._lock = threading.Lock()
@@ -289,7 +286,7 @@ class InfrastructureInfo:
 
 			now = int(time.time())
 			# To avoid to refresh the information too quickly
-			if now - self.last_ganglia_update > InfrastructureInfo.UPDATE_FREQUENCY:
+			if now - self.last_ganglia_update > Config.GANGLIA_INFO_UPDATE_FREQUENCY:
 				try:
 					(success, msg) = ganglia_info.update_ganglia_info(self)
 				except Exception, ex:
