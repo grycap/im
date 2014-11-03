@@ -255,7 +255,10 @@ def contextualizeGroups(group_list, contextualize_list, conf_dir):
 			logger.error("Error executing basic playbook.")
 			res_data['BASIC'] = False
 			res_data['OK'] = False
-			return res_data
+
+	# If the basic recipe fails, return the error
+	if not allok:
+		return res_data
 	
 	# Now we can access all the VMs with SSH without password
 
