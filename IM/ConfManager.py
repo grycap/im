@@ -18,7 +18,6 @@ import yaml
 import threading
 import os
 import time
-from datetime import datetime
 import tempfile
 import logging
 import shutil
