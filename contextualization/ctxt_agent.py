@@ -252,12 +252,13 @@ def contextualizeGroups(group_list, contextualize_list, conf_dir):
 			res_data['OK'] = True
 			logger.info("Basic playbook executed successfully.")
 		else:
-			logger.error("Error executing basic playbook.")
+			logger.warn("Error executing basic playbook (%d/%d)." % (cont,PLAYBOOK_RETRIES))
 			res_data['BASIC'] = False
 			res_data['OK'] = False
 
 	# If the basic recipe fails, return the error
 	if not allok:
+		logger.error("Error executing basic playbook.")
 		return res_data
 	
 	# Now we can access all the VMs with SSH without password
@@ -284,11 +285,15 @@ def contextualizeGroups(group_list, contextualize_list, conf_dir):
 		if not mainok:
 			res_data['MAIN'] = False
 			res_data['OK'] = False
-			logger.error("Error executing the main playbook.")
-			return res_data
+			logger.warn("Error executing the main playbook (%d/%d)." % (cont,PLAYBOOK_RETRIES))
 		else:
 			res_data['MAIN'] = True
 			res_data['OK'] = True
+
+	# If the main recipe fails, return the error
+	if not allok:
+		logger.error("Error executing the main playbook.")
+		return res_data
 
 	# Now execute the other playbooks grouped using the  "contxt_num"
 	for contxt_num in sorted(contextualize_list.keys()):
