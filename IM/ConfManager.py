@@ -312,9 +312,6 @@ class ConfManager(threading.Thread):
 			ConfManager.logger.info("Inf ID: " + str(self.inf.id) + ": VMs available.")
 			ConfManager.logger.info("Inf ID: " + str(self.inf.id) + ": Start the contextualization process.")
 
-			# set the flag the the contextualization process starts
-			self.contextualizing = True
-
 			# configure master VM with ansible
 			ip = self.inf.vm_master.getPublicIP()
 			master_priv_ip = self.inf.vm_master.getPrivateIP()
@@ -333,10 +330,18 @@ class ConfManager(threading.Thread):
 			# Force to save the data to store the log data 
 			InfrastructureManager.InfrastructureManager.save_data()
 			
+			# set the flag the the contextualization process starts
+			self.contextualizing = True
+		
+			# Get the list of the VMs at the init of the process
+			vm_init_list = self.get_vm_list()
+			# Get the groups for the different VM types
+			vm_group = self.inf.get_vm_list_by_system_name()
+			
 			# configuration dir os th emaster node to copy all the contextualization files
 			tmp_dir = tempfile.mkdtemp()
 			# Now call the ansible installation process on the master node
-			configured_ok = self.configure_ansible(ssh, tmp_dir, master_name, masterdom)
+			configured_ok = self.configure_ansible(vm_group, ssh, tmp_dir, master_name, masterdom)
 			
 			if not configured_ok:
 				ConfManager.logger.error("Inf ID: " + str(self.inf.id) + ": Error in the ansible installation process")
@@ -347,10 +352,17 @@ class ConfManager(threading.Thread):
 				ConfManager.logger.info("Inf ID: " + str(self.inf.id) + ": Ansible installation finished successfully")
 			
 			# Now call the contextualization process
-			context_ok = self.launch_ctxt_agent(ssh, tmp_dir)
+			context_ok = self.launch_ctxt_agent(vm_group, ssh, tmp_dir)
 			
 			# set the flag the the contextualization process has finished
 			self.contextualizing = False
+			
+			# Get the list of the VMs at the end of the process
+			vm_end_list = self.get_vm_list()
+			if vm_init_list != vm_end_list:
+				ConfManager.logger.error("Inf ID: " + str(self.inf.id) + ": Error VMs not contextualized has appear!!!")
+				context_ok = False
+				self.inf.add_cont_msg("Contextualization Error: VMs not contextualized has appear!!!")
 
 			if not context_ok:
 				ConfManager.logger.error("Inf ID: " + str(self.inf.id) + ": Error in the contextualization process")
@@ -448,7 +460,7 @@ class ConfManager(threading.Thread):
 		conf_all_out.write("\n\n")
 		conf_all_out.close()
 
-	def configure_ansible(self, ssh, tmp_dir, master_name, masterdom):
+	def configure_ansible(self, vm_group, ssh, tmp_dir, master_name, masterdom):
 		"""
 		Install and configure ansible in the master node
 	
@@ -466,9 +478,6 @@ class ConfManager(threading.Thread):
 			inv_out.write(ssh.host + ":" + str(ssh.port) + "\n\n")
 		
 		shutil.copy(Config.CONTEXTUALIZATION_DIR + "/" + ConfManager.MASTER_YAML, tmp_dir + "/" + ConfManager.MASTER_YAML)
-		
-		# Get the groups for the different VM types
-		vm_group = self.inf.get_vm_list_by_system_name()
 		
 		# Add all the modules needed in the RADL
 		modules = []
@@ -819,7 +828,7 @@ class ConfManager(threading.Thread):
 						if vm_ip in ctxt_agent_out['CHANGE_CREDS'] and ctxt_agent_out['CHANGE_CREDS'][vm_ip]:
 							vm.info.systems[0].updateNewCredentialValues()
 
-	def launch_ctxt_agent(self, ssh, tmp_dir):
+	def launch_ctxt_agent(self, vm_group, ssh, tmp_dir):
 		"""
 		Call the contextualization agent to perform all the contextualization steps
 	
@@ -828,9 +837,6 @@ class ConfManager(threading.Thread):
 		   - tmp_dir(str): Temp dir where the ansible files are stored.
 		Returns: True if the process finished sucessfully, False otherwise.
 		"""
-		# Get the groups for the different VM types
-		vm_group = self.inf.get_vm_list_by_system_name()
-
 		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Create the configuration file for the contextualization agent")
 		conf_file = tmp_dir + "/config.txt"
 		self.create_conf_file(conf_file, vm_group)

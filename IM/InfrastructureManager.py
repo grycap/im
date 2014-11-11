@@ -286,6 +286,11 @@ class InfrastructureManager:
 		
 		InfrastructureManager.save_data()
 
+		# Test it again
+		if sel_inf.is_contextualizing():
+			InfrastructureManager.logger.info("The infrastructure is contextualizing. You must wait")
+			raise Exception("The infrastructure is contextualizing. You must wait")
+
 		# Stick all virtual machines to be reconfigured
 		InfrastructureManager.logger.info("Contextualize the inf.")
 		sel_inf.Contextualize(auth)
@@ -358,7 +363,7 @@ class InfrastructureManager:
 		InfrastructureManager.logger.debug(radl)
 		
 		sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
-
+		
 		if sel_inf.is_contextualizing():
 			InfrastructureManager.logger.info("The infrastructure is contextualizing. You must wait")
 			raise Exception("The infrastructure is contextualizing. You must wait")
@@ -466,6 +471,11 @@ class InfrastructureManager:
 			sorted_scored_clouds = sorted(scored_clouds, key=lambda x: (x[1], ordered_cloud_list.index(x[0])), reverse=True)
 			deploys_group_cloud_list[id(deploy_group)] = [ c[0] for c in sorted_scored_clouds ]
 
+		# Now Test it again if the infrastructure is contextualizing 
+		if sel_inf.is_contextualizing():
+			InfrastructureManager.logger.info("The infrastructure is contextualizing. You must wait")
+			raise Exception("The infrastructure is contextualizing. You must wait")
+
 		# Launch every group in the same cloud provider
 		deployed_vm = {}
 		cancel_deployment = []
@@ -519,8 +529,12 @@ class InfrastructureManager:
 
 		# Let's contextualize!
 		if context:
-			InfrastructureManager.logger.info("Contextualize the inf")
-			sel_inf.Contextualize(auth)
+			# Now test again if the infrastructure is contextualizing 
+			if not sel_inf.is_contextualizing():
+				InfrastructureManager.logger.info("Contextualize the inf")
+				sel_inf.Contextualize(auth)
+			else:
+				InfrastructureManager.logger.warn("Trying to Contextualize an infrastructure that is contextualizing!!!!!")
 
 		return [vm.im_id for vm in new_vms]
 		
@@ -565,8 +579,12 @@ class InfrastructureManager:
 		InfrastructureManager.logger.info(str(cont) + " VMs successfully removed")
 
 		if cont > 0:
-			InfrastructureManager.logger.info("Reconfigure it")
-			sel_inf.Contextualize(auth)
+			# Now test again if the infrastructure is contextualizing 
+			if not sel_inf.is_contextualizing():
+				InfrastructureManager.logger.info("Reconfigure it")
+				sel_inf.Contextualize(auth)
+			else:
+				InfrastructureManager.logger.warn("Trying to Contextualize an infrastructure that is contextualizing!!!!!")
 			
 		if exceptions:
 			InfrastructureManager.logger.exception("Error removing resources")
