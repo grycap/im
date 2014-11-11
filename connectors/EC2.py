@@ -314,7 +314,6 @@ class EC2CloudConnector(CloudConnector):
 						self.logger.debug(system)
 						res.append((False, "Error launching the VM, no instance type available for the requirements."))
 						
-					#TODO: Amanda -> Mirar el boto EC2 y completar el tema de las spot
 					price = system.getValue("price")
 					#Realizamos el request de spot instances
 					if system.getValue("disk.0.os.name"):
@@ -326,17 +325,17 @@ class EC2CloudConnector(CloudConnector):
 						res.append((False, "Error launching the image: spot instances need the OS defined in the RADL"))
 						#operative_system = 'Linux/UNIX'
 					
-					availability_zone = 'us-east-1c'
 					if system.getValue('availability_zone'):
 						availability_zone = system.getValue('availability_zone')
-					historical_price = 1000.0
-					availability_zone_list = conn.get_all_zones()
-					for zone in availability_zone_list:
-						history = conn.get_spot_price_history(instance_type=instance_type.name, product_description=operative_system, availability_zone=zone.name, max_results=1)
-						self.logger.debug("Spot price history for the region " + zone.name)
-						self.logger.debug(history)
-						if history:
-							if (history[0].price < historical_price):
+					else:
+						availability_zone = 'us-east-1c'
+						historical_price = 1000.0
+						availability_zone_list = conn.get_all_zones()
+						for zone in availability_zone_list:
+							history = conn.get_spot_price_history(instance_type=instance_type.name, product_description=operative_system, availability_zone=zone.name, max_results=1)
+							self.logger.debug("Spot price history for the region " + zone.name)
+							self.logger.debug(history)
+							if history and history[0].price < historical_price:
 								historical_price = history[0].price
 								availability_zone = zone.name
 					self.logger.debug("Launching the spot request in the zone " + availability_zone)
