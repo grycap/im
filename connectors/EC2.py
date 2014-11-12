@@ -656,6 +656,8 @@ class EC2CloudConnector(CloudConnector):
 			job_sir_id = instance_id 
 			request_list = conn.get_all_spot_instance_requests()
 			for sir in request_list:
+				# TODO: Check if the request had failed and launch it in another availability zone
+				# if sir.state == 'failed':
 				if sir.id == job_sir_id:
 					job_instance_id = sir.instance_id
 					break
