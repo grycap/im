@@ -340,7 +340,10 @@ class EC2CloudConnector(CloudConnector):
 								availability_zone = zone.name
 					self.logger.debug("Launching the spot request in the zone " + availability_zone)
 					
-					request = conn.request_spot_instances(price=price, image_id=images[0].id, count=1, type='one-time', instance_type=instance_type.name, placement=availability_zone, key_name=keypair_name, security_groups=[sg_name])
+					# Force to use magnetic volumes
+					bdm = boto.ec2.blockdevicemapping.BlockDeviceMapping(conn)
+					bdm["/dev/sda1"] = boto.ec2.blockdevicemapping.BlockDeviceType(volume_type="standard")
+					request = conn.request_spot_instances(price=price, image_id=images[0].id, count=1, type='one-time', instance_type=instance_type.name, placement=availability_zone, key_name=keypair_name, security_groups=[sg_name], block_device_map=bdm)
 					
 					if request:
 						ec2_vm_id = region_name + ";" + request[0].id
@@ -365,7 +368,10 @@ class EC2CloudConnector(CloudConnector):
 						res.append((False, "Error launching the VM, no instance type available for the requirements."))
 
 					placement = system.getValue('availability_zone')
-					reservation = images[0].run(min_count=1,max_count=1,key_name=keypair_name,instance_type=instance_type.name,security_groups=[sg_name],placement=placement)
+					# Force to use magnetic volumes
+					bdm = boto.ec2.blockdevicemapping.BlockDeviceMapping(conn)
+					bdm["/dev/sda1"] = boto.ec2.blockdevicemapping.BlockDeviceType(volume_type="standard")
+					reservation = images[0].run(min_count=1,max_count=1,key_name=keypair_name,instance_type=instance_type.name,security_groups=[sg_name],placement=placement,block_device_map=bdm)
 
 					if len(reservation.instances) == 1:
 						instance = reservation.instances[0]
