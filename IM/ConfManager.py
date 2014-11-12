@@ -358,7 +358,7 @@ class ConfManager(threading.Thread):
 			self.contextualizing = False
 			
 			# Get the list of the VMs at the end of the process
-			vm_end_list = self.get_vm_list()
+			vm_end_list = self.inf.get_vm_list()
 			if vm_init_list != vm_end_list:
 				ConfManager.logger.error("Inf ID: " + str(self.inf.id) + ": Error VMs not contextualized has appear!!!")
 				context_ok = False
