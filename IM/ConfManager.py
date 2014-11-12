@@ -334,7 +334,7 @@ class ConfManager(threading.Thread):
 			self.contextualizing = True
 		
 			# Get the list of the VMs at the init of the process
-			vm_init_list = self.get_vm_list()
+			vm_init_list = self.inf.get_vm_list()
 			# Get the groups for the different VM types
 			vm_group = self.inf.get_vm_list_by_system_name()
 			
