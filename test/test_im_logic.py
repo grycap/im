@@ -52,10 +52,10 @@ class TestIM(unittest.TestCase):
 		sys.modules['connectors.' + name] = type('MyConnector', (object,),
 		                                         {name + 'CloudConnector': cloud_connector})
 	
-	def gen_launch_res(self, inf, vm_id, radl, requested_radl, num_vm, auth_data):
+	def gen_launch_res(self, inf, radl, requested_radl, num_vm, auth_data):
 		res = []
 		for i in range(num_vm):
-			vm = VirtualMachine(inf, str(vm_id), 1234+vm_id, None, radl, requested_radl)
+			vm = VirtualMachine(inf, "1234", None, radl, requested_radl)
 			# create the mock for the vm finalize function
 			vm.finalize = Mock(return_value=(True, vm))
 			res.append((True, vm))
@@ -121,14 +121,14 @@ class TestIM(unittest.TestCase):
 		infId = IM.CreateInfrastructure("", auth0)
 
 		vms = IM.AddResource(infId, str(radl), auth0)
-		self.assertEqual(vms, ['0'])
+		self.assertEqual(vms, [0])
 
 		# Test references
 		radl = RADL()
 		radl.add(system("s0", reference=True))
 		radl.add(deploy("s0", 1))
 		vms = IM.AddResource(infId, str(radl), auth0)
-		self.assertEqual(vms, ['1'])
+		self.assertEqual(vms, [1])
 
 		IM.DestroyInfrastructure(infId, auth0)
 
@@ -151,7 +151,7 @@ class TestIM(unittest.TestCase):
 		self.assertEqual(len(vms), n)
 		self.assertEqual(cloud.launch.call_count, n)
 		for call, _ in cloud.launch.call_args_list:
-			self.assertEqual(call[4], 1)
+			self.assertEqual(call[3], 1)
 		IM.DestroyInfrastructure(infId, auth0)
 
 	def test_inf_addresources2(self):
@@ -187,7 +187,7 @@ class TestIM(unittest.TestCase):
 		self.assertEqual(cloud0.launch.call_count, n0)
 		self.assertEqual(cloud1.launch.call_count, n1)
 		for call, _ in cloud0.launch.call_args_list + cloud1.launch.call_args_list:
-			self.assertEqual(call[4], 1)
+			self.assertEqual(call[3], 1)
 		IM.DestroyInfrastructure(infId, auth0)
 
 	def test_inf_addresources3(self):
@@ -224,7 +224,7 @@ class TestIM(unittest.TestCase):
 		self.assertEqual(cloud0.launch.call_count, n0)
 		self.assertEqual(cloud1.launch.call_count, n1)
 		for call, _ in cloud0.launch.call_args_list + cloud1.launch.call_args_list:
-			self.assertEqual(call[4], 1)
+			self.assertEqual(call[3], 1)
 		IM.DestroyInfrastructure(infId, auth0)
 
 	def test_inf_cloud_order(self):
