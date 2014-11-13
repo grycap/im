@@ -223,7 +223,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 		else:
 			return (success, res_info)
 
-	def launch(self, inf, vm_id, radl, requested_radl, num_vm, auth_data):
+	def launch(self, inf, radl, requested_radl, num_vm, auth_data):
 		server_url = "http://%s:%d/RPC2" % (self.cloud.server, self.cloud.port)
 		server = xmlrpclib.ServerProxy(server_url,allow_none=True)
 		session_id = self.getSessionID(auth_data)
@@ -249,7 +249,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 				return [(False, "Error in the one.vm.allocate return value")]
 				
 			if success:
-				vm = VirtualMachine(inf, vm_id, str(res_id), self.cloud, radl, requested_radl)
+				vm = VirtualMachine(inf, str(res_id), self.cloud, radl, requested_radl)
 				res.append((success, vm))
 			else:
 				res.append((success, "ERROR: " + str(res_id)))

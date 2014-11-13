@@ -153,7 +153,7 @@ class GCECloudConnector(CloudConnector):
         
         return (region, image_name)
 
-    def launch(self, inf, vm_id, radl, requested_radl, num_vm, auth_data):
+    def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         driver = self.get_driver(auth_data)
 
         system = radl.systems[0]
@@ -200,7 +200,7 @@ class GCECloudConnector(CloudConnector):
             node = driver.create_node(**args)
             
             if node:
-                vm = VirtualMachine(inf, vm_id, node.extra['name'], self.cloud, radl, requested_radl)
+                vm = VirtualMachine(inf, node.extra['name'], self.cloud, radl, requested_radl)
                 self.logger.debug("Node successfully created.")
                 res.append((True, vm))
             else:

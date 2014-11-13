@@ -30,7 +30,7 @@ class VirtualMachine:
 	FAILED = "failed"
 	CONFIGURED = "configured"
 
-	def __init__(self, inf, im_id, cloud_id, cloud, info, requested_radl):
+	def __init__(self, inf, cloud_id, cloud, info, requested_radl):
 		self._lock = threading.Lock()
 		"""Threading Lock to avoid concurrency problems."""
 		self.last_update = 0
@@ -43,7 +43,7 @@ class VirtualMachine:
 		"""Infrastructure which this VM is part of"""
 		self.id = cloud_id 
 		"""The ID of the VM assigned by the cloud provider"""
-		self.im_id = im_id
+		self.im_id = inf.get_next_vm_id()
 		"""The internal ID of the VM assigned by the IM"""
 		self.cloud = cloud
 		"""CloudInfo object with the information about the cloud provider"""

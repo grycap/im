@@ -59,14 +59,13 @@ class CloudConnector:
 
 		raise NotImplementedError( "Should have implemented this" )
 
-	def launch(self, inf, vm_id, radl, requested_radl, num_vm, auth_data):
+	def launch(self, inf, radl, requested_radl, num_vm, auth_data):
 		"""
 		Launch a set of VMs to the Cloud provider
 		
 		Args:
 
 		- inf(InfrastructureInfo): InfrastructureInfo object the VM is part of.
-		- vm_id(str): ID of the VM inside the IM.
 		- radl(RADL): RADL document.
 		- num_vm(int): number of instances to deploy.
 		- auth_data(Authentication): Authentication data to access cloud provider.
