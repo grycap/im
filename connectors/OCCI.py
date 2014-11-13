@@ -174,7 +174,7 @@ class OCCICloudConnector(CloudConnector):
 			return (False, "Error connecting with OCCI server")
 
 
-	def launch(self, inf, vm_id, radl, requested_radl, num_vm, auth_data):
+	def launch(self, inf, radl, requested_radl, num_vm, auth_data):
 		system = radl.systems[0]
 		auth_header = self.get_auth_header(auth_data)
 		
@@ -224,7 +224,7 @@ class OCCICloudConnector(CloudConnector):
 					res.append((False, output))
 				else:
 					occi_vm_id = os.path.basename(output)				
-					vm = VirtualMachine(inf, vm_id, occi_vm_id, self.cloud, radl, requested_radl)
+					vm = VirtualMachine(inf, occi_vm_id, self.cloud, radl, requested_radl)
 					res.append((True, vm))
 
 			except Exception, ex:

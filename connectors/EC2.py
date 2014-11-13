@@ -252,7 +252,7 @@ class EC2CloudConnector(CloudConnector):
 		
 		return res
 
-	def launch(self, inf, vm_id, radl, requested_radl, num_vm, auth_data):
+	def launch(self, inf, radl, requested_radl, num_vm, auth_data):
 		
 		system = radl.systems[0]
 		
@@ -351,7 +351,7 @@ class EC2CloudConnector(CloudConnector):
 						self.logger.debug("RADL:")
 						self.logger.debug(system)
 					
-						vm = VirtualMachine(inf, vm_id, ec2_vm_id, self.cloud, radl, requested_radl)
+						vm = VirtualMachine(inf, ec2_vm_id, self.cloud, radl, requested_radl)
 						# Add the keypair name to remove it later 
 						vm.keypair_name = keypair_name
 						self.logger.debug("Instance successfully launched.")
@@ -380,7 +380,7 @@ class EC2CloudConnector(CloudConnector):
 						self.logger.debug("RADL:")
 						self.logger.debug(system)
 						
-						vm = VirtualMachine(inf, vm_id, ec2_vm_id, self.cloud, radl, requested_radl)
+						vm = VirtualMachine(inf, ec2_vm_id, self.cloud, radl, requested_radl)
 						# Add the keypair name to remove it later 
 						vm.keypair_name = keypair_name
 						self.logger.debug("Instance successfully launched.")

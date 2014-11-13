@@ -131,7 +131,7 @@ class DockerCloudConnector(CloudConnector):
 
 		return port_bindings
 
-	def launch(self, inf, vm_id, radl, requested_radl, num_vm, auth_data):
+	def launch(self, inf, radl, requested_radl, num_vm, auth_data):
 		system = radl.systems[0]
 		
 		cpu = int(system.getValue('cpu.count'))
@@ -156,23 +156,6 @@ class DockerCloudConnector(CloudConnector):
 			for _,_,local_port,local_protocol in outports:
 				if local_port != 22:
 					exposed_ports = exposed_ports + ', "' + str(local_port) + '/' + local_protocol + '": {}'
-
-		(nodename, nodedom) = system.getRequestedNameIface(num = vm_id, default_hostname = Config.DEFAULT_VM_NAME, default_domain = Config.DEFAULT_DOMAIN)
-
-		create_request_json = """ {
-			 "Hostname":"%s",
-			 "Domainname": "%s",
-			 "Cpuset": "0-%d",
-			 "Memory":%s,
-			 "Cmd":[
-					 "/bin/bash", "-c", "yum install -y openssh-server ;  apt-get update && apt-get install -y openssh-server && sed -i 's/PermitRootLogin without-password/PermitRootLogin yes/g' /etc/ssh/sshd_config && service ssh start && service ssh stop ; echo 'root:yoyoyo' | chpasswd ; /usr/sbin/sshd -D"
-			 ],
-			 "Image":"%s",
-			 "ExposedPorts":{
-					 %s
-			 }
-			 %s
-		}""" % (nodename, nodedom, cpu-1, memory,image_name,exposed_ports,volumes)
 		
 		conn = self.get_http_connection(auth_data)
 		res = []
@@ -180,6 +163,25 @@ class DockerCloudConnector(CloudConnector):
 		while i < num_vm:
 			try:
 				i += 1
+
+				# Create the VM to get the nodename
+				vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl)
+				(nodename, nodedom) = vm.getRequestedNameIface(default_hostname = Config.DEFAULT_VM_NAME, default_domain = Config.DEFAULT_DOMAIN)
+		
+				create_request_json = """ {
+					 "Hostname":"%s",
+					 "Domainname": "%s",
+					 "Cpuset": "0-%d",
+					 "Memory":%s,
+					 "Cmd":[
+							 "/bin/bash", "-c", "yum install -y openssh-server ;  apt-get update && apt-get install -y openssh-server && sed -i 's/PermitRootLogin without-password/PermitRootLogin yes/g' /etc/ssh/sshd_config && service ssh start && service ssh stop ; echo 'root:yoyoyo' | chpasswd ; /usr/sbin/sshd -D"
+					 ],
+					 "Image":"%s",
+					 "ExposedPorts":{
+							 %s
+					 }
+					 %s
+				}""" % (nodename, nodedom, cpu-1, memory,image_name,exposed_ports,volumes)
 
 				# Create the container
 				conn.putrequest('POST', "/containers/create")
@@ -224,8 +226,9 @@ class DockerCloudConnector(CloudConnector):
 				if resp.status != 204:
 					res.append(False, "Error creating the Container: " + output)
 					continue
-				
-				vm = VirtualMachine(inf, vm_id, docker_vm_id, self.cloud, radl, requested_radl)
+
+				# Now set the cloud_id to the VM
+				vm.cloud_id = docker_vm_id
 				
 				# Set ssh port in the RADL info of the VM
 				vm.setSSHPort(ssh_port)
