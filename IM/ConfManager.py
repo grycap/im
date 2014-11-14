@@ -563,9 +563,12 @@ class ConfManager(threading.Thread):
 			conf_out = open(tmp_dir + "/main_" + group + ".yml", 'w')
 			conf_content = self.add_ansible_header(group, vm.getOS().lower())
 
-			conf_content += "  tasks: \n"
+			conf_content += "  pre_tasks: \n"
 			# Basic tasks set copy /etc/hosts ...
 			conf_content += "  - include: utils/tasks/main.yml\n"
+
+			conf_content += "  tasks: \n"
+			conf_content += "  - debug: msg='Install user requested apps'\n"
 			
 			for app_name, recipe in recipes:
 				self.inf.add_cont_msg("App: " + app_name + " set to be installed.")
