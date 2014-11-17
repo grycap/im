@@ -724,6 +724,10 @@ class ConfManager(threading.Thread):
 		out.write('IM_MASTER_DOMAIN=' + masterdom + '\n\n')
 
 		out.close()
+
+		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Copy the /etc/hosts file")
+		self.inf.add_cont_msg("Copy the /etc/hosts file")
+		ssh.sftp_put(hosts_file, "/etc/hosts")
 		
 		# Create the file to configure the step 2 of ansible
 		# (those that need all the IPs of the VMs)
@@ -731,16 +735,12 @@ class ConfManager(threading.Thread):
 		recipe_out.write("---\n")
 		recipe_out.write("- hosts: all\n")
 		recipe_out.write("  sudo: yes\n")
-		recipe_out.write("  tasks:\n")
+		recipe_out.write("  tasks:\n")		
 		recipe_out.write("    - name: Create the /etc/ansible directory\n")
 		recipe_out.write("      file: path=/etc/ansible state=directory\n")
 		
-		recipe_out.write("    - name: Copy the /etc/ansible/hosts file (needs to be sudo)\n")
+		recipe_out.write("    - name: Copy the /etc/ansible/hosts file\n")
 		recipe_out.write("      copy: src=" + ansible_file + " dest=/etc/ansible/hosts\n")	
-		
-		recipe_out.write("    - name: Copy the /etc/hosts file (needs to be sudo)\n")
-		recipe_out.write("      copy: src=" + hosts_file + " dest=/etc/hosts\n")
-		recipe_out.write("      ignore_errors: yes\n")
 		
 		recipe_out.write("    - name: Set the " + ConfManager.CONF_DIR + " directory owner\n")
 		recipe_out.write("      file: path=" + ConfManager.CONF_DIR + " state=directory owner=" + ssh.username + "\n")

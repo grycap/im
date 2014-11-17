@@ -127,7 +127,9 @@ class DockerCloudConnector(CloudConnector):
 				num += 1
 	
 		if not ssh_found:
-			port_bindings = port_bindings + ',\n"PortBindings":{ "22/tcp": [{ "HostPort": "' + str(ssh_port) + '" }] }\n'
+			if port_bindings:
+				port_bindings += ",\n"
+			port_bindings = port_bindings + '"PortBindings":{ "22/tcp": [{ "HostPort": "' + str(ssh_port) + '" }] }\n'
 
 		return port_bindings
 
@@ -224,7 +226,11 @@ class DockerCloudConnector(CloudConnector):
 				resp = conn.getresponse()
 				output = resp.read()
 				if resp.status != 204:
-					res.append(False, "Error creating the Container: " + output)
+					res.append((False, "Error staring the Container: " + output))
+					# Delete the container
+					conn.request('DELETE', "/containers/" + docker_vm_id) 
+					resp = conn.getresponse()			
+					resp.read()
 					continue
 
 				# Now set the cloud id to the VM

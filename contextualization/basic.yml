@@ -16,6 +16,7 @@
     - name: Set the hostname of the node
       action: hostname name={{ IM_NODE_FQDN }}
       sudo: yes
+      ignore_errors: yes
 
     # In case of redhat systems disable SELinux
     - name: Disable SELinux in REL systems
