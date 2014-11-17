@@ -76,21 +76,28 @@ def run_command(command, timeout = None, poll_delay = 5):
 		return "ERROR: Exception msg: " + str(ex)
 
 
-def wait_processes(procs_list, poll_delay = 5):
+def wait_processes(procs_list, poll_delay = 2):
 	"""
 	 Wait for a list of processes (Popen objects) to finish
 	"""
 	allok = True
+	procs_finished = []
 	if len(procs_list) > 0:
-		logger.debug('Processes launched, wait.')
-		for p in procs_list:
-			(out, err) = p.communicate()
+		while len(procs_finished) < len(procs_list):
+			for p in procs_list:
+				if p not in procs_finished:
+					if p.poll() is not None:
+						procs_finished.append(p)
+						(out, err) = p.communicate()
+					
+						if p.returncode==0:
+							logger.debug(out + "\n" + err)
+						else:
+							allok = False
+							logger.error(out + "\n" + err)
 			
-			if p.returncode==0:
-				logger.debug(out + "\n" + err)
-			else:
-				allok = False
-				logger.debug(out + "\n" + err)
+			if len(procs_finished) < len(procs_list):
+				time.sleep(poll_delay)
 
 	return allok
 
@@ -135,6 +142,7 @@ def launch_playbook_processes(group_list, conf_dir, prefix, playbook):
 			ansible_process = LaunchAnsiblePlaybook(playbook_file, vm, 1)
 			procs_list.append(ansible_process)
 
+	logger.debug('Processes launched, wait.')
 	allok = wait_processes(procs_list)
 	
 	for group in group_list:
@@ -280,7 +288,8 @@ def contextualizeGroups(group_list, contextualize_list, conf_dir):
 			ansible_process = LaunchAnsiblePlaybook(playbook, None, len(group['vms']), pk_file)
 			time.sleep(2)
 			procs_list.append(ansible_process)
-			
+		
+		logger.debug('Processes launched, wait.')
 		mainok = wait_processes(procs_list)
 	
 		if not mainok:
@@ -314,6 +323,7 @@ def contextualizeGroups(group_list, contextualize_list, conf_dir):
 				ansible_process = LaunchAnsiblePlaybook(playbook, None, group_forks[system], pk_file)
 				procs_list.append(ansible_process)
 			
+			logger.debug('Processes launched, wait.')
 			groupok = wait_processes(procs_list)
 			
 			if not groupok:
