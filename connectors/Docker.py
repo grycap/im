@@ -166,7 +166,7 @@ class DockerCloudConnector(CloudConnector):
 
 				# Create the VM to get the nodename
 				vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl)
-				(nodename, nodedom) = vm.getRequestedNameIface(default_hostname = Config.DEFAULT_VM_NAME, default_domain = Config.DEFAULT_DOMAIN)
+				(nodename, nodedom) = vm.getRequestedName(default_hostname = Config.DEFAULT_VM_NAME, default_domain = Config.DEFAULT_DOMAIN)
 		
 				create_request_json = """ {
 					 "Hostname":"%s",
@@ -227,8 +227,8 @@ class DockerCloudConnector(CloudConnector):
 					res.append(False, "Error creating the Container: " + output)
 					continue
 
-				# Now set the cloud_id to the VM
-				vm.cloud_id = docker_vm_id
+				# Now set the cloud id to the VM
+				vm.id = docker_vm_id
 				
 				# Set ssh port in the RADL info of the VM
 				vm.setSSHPort(ssh_port)
