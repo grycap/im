@@ -126,12 +126,12 @@ def launch_playbook_processes(group_list, conf_dir, prefix, playbook):
 
 	for group in group_list:
 		for vm in group['vms']:
-			out = open(conf_dir + "/" + prefix + vm['ip'] + ".yml", 'w')
+			playbook_file = conf_dir + "/" + prefix + vm['ip'] + "_" + str(vm['ssh_port']) + ".yml"
+			out = open(playbook_file, 'w')
 			out.write(playbook)
 			out.write("  hosts: " + vm['ip'] + "\n")
 			out.close()
-			
-			playbook_file = conf_dir + "/" + prefix + vm['ip'] + ".yml"
+
 			ansible_process = LaunchAnsiblePlaybook(playbook_file, vm, 1)
 			procs_list.append(ansible_process)
 
@@ -140,7 +140,8 @@ def launch_playbook_processes(group_list, conf_dir, prefix, playbook):
 	for group in group_list:
 		# Delete the YAML created files
 		for vm in group['vms']:
-			os.remove(conf_dir + "/" + prefix + vm['ip'] + ".yml")
+			playbook_file = conf_dir + "/" + prefix + vm['ip'] + "_" + str(vm['ssh_port']) + ".yml"
+			os.remove(playbook_file)
 	
 	return allok
 
@@ -291,7 +292,7 @@ def contextualizeGroups(group_list, contextualize_list, conf_dir):
 			res_data['OK'] = True
 
 	# If the main recipe fails, return the error
-	if not allok:
+	if not mainok:
 		logger.error("Error executing the main playbook.")
 		return res_data
 
