@@ -101,9 +101,9 @@ def wait_processes(procs_list, poll_delay = 2):
 
 	return allok
 
-def LaunchAnsiblePlaybook(playbook_file, vm, threads, pk_file = None):
+def LaunchAnsiblePlaybook(playbook_file, vm, threads, pk_file = None, retries = PLAYBOOK_RETRIES):
 	command = "/usr/bin/python_ansible " + conf_dir + "/ansible-playbook"
-	command += " -f " + str(2*threads)
+	command += " -f " + str(2*threads) + " -r " + str(retries)
 	
 	if pk_file:
 		command += " --private-key " + pk_file
@@ -139,7 +139,7 @@ def launch_playbook_processes(group_list, conf_dir, prefix, playbook):
 			out.write("  hosts: " + vm['ip'] + "\n")
 			out.close()
 
-			ansible_process = LaunchAnsiblePlaybook(playbook_file, vm, 1)
+			ansible_process = LaunchAnsiblePlaybook(playbook_file, vm, 1, retries = PLAYBOOK_RETRIES)
 			procs_list.append(ansible_process)
 
 	logger.debug('Processes launched, wait.')
@@ -251,88 +251,71 @@ def contextualizeGroups(group_list, contextualize_list, conf_dir):
 	basic_play = generateBasicPlaybook(conf_dir, pk_file)
 
 	# And launch the threads to configure the basic tasks
-	cont = 0
-	allok = False
-	while not allok and cont < PLAYBOOK_RETRIES:
-		cont += 1
-		allok = launch_playbook_processes(group_list, conf_dir, "basic_",basic_play)
-		if allok:
-			res_data['BASIC'] = True
-			res_data['OK'] = True
-			logger.info("Basic playbook executed successfully.")
-		else:
-			logger.warn("Error executing basic playbook (%d/%d)." % (cont,PLAYBOOK_RETRIES))
-			res_data['BASIC'] = False
-			res_data['OK'] = False
-
-	# If the basic recipe fails, return the error
-	if not allok:
+	allok = launch_playbook_processes(group_list, conf_dir, "basic_",basic_play)
+	if allok:
+		res_data['BASIC'] = True
+		res_data['OK'] = True
+		logger.info("Basic playbook executed successfully.")
+	else:
+		res_data['BASIC'] = False
+		res_data['OK'] = False
+		# If the basic recipe fails, return the error
 		logger.error("Error executing basic playbook.")
 		return res_data
-	
+
 	# Now we can access all the VMs with SSH without password
 
 	group_forks = {}
 	# First execute the "main" playbook
-	cont = 0
-	mainok = False
-	while not mainok and cont < PLAYBOOK_RETRIES:
-		cont += 1
-		procs_list = []
-		for group in group_list:
-			# get the number of VMs to use it later
-			group_forks[group['name']] = len(group['vms'])
-			logger.info('Launch the main playbook to the group: ' + group['name'] + " with " + str(len(group['vms'])) + " forks")
-			playbook = conf_dir + "/main_" + group['name'] + "_all.yml"
-	
-			ansible_process = LaunchAnsiblePlaybook(playbook, None, len(group['vms']), pk_file)
-			time.sleep(2)
-			procs_list.append(ansible_process)
-		
-		logger.debug('Processes launched, wait.')
-		mainok = wait_processes(procs_list)
-	
-		if not mainok:
-			res_data['MAIN'] = False
-			res_data['OK'] = False
-			logger.warn("Error executing the main playbook (%d/%d)." % (cont,PLAYBOOK_RETRIES))
-		else:
-			res_data['MAIN'] = True
-			res_data['OK'] = True
+	procs_list = []
+	for group in group_list:
+		# get the number of VMs to use it later
+		group_forks[group['name']] = len(group['vms'])
+		logger.info('Launch the main playbook to the group: ' + group['name'] + " with " + str(len(group['vms'])) + " forks")
+		playbook = conf_dir + "/main_" + group['name'] + "_all.yml"
 
-	# If the main recipe fails, return the error
+		ansible_process = LaunchAnsiblePlaybook(playbook, None, len(group['vms']), pk_file, retries = PLAYBOOK_RETRIES)
+		time.sleep(2)
+		procs_list.append(ansible_process)
+	
+	logger.debug('Processes launched, wait.')
+	mainok = wait_processes(procs_list)
+
 	if not mainok:
+		res_data['MAIN'] = False
+		res_data['OK'] = False
 		logger.error("Error executing the main playbook.")
 		return res_data
+	else:
+		res_data['MAIN'] = True
+		res_data['OK'] = True
 
 	# Now execute the other playbooks grouped using the  "contxt_num"
 	for contxt_num in sorted(contextualize_list.keys()):
-		cont = 0
 		groupok = False
 		res_data['CTXT'] = {}
-		while not groupok and cont < PLAYBOOK_RETRIES:
-			logger.info('Executing the playbooks with contextualization level: ' + str(contxt_num))
-			cont += 1
-			procs_list = []
-			for contextualize_elem in contextualize_list[contxt_num]:
-				system = contextualize_elem['system']
-				configure = contextualize_elem['configure']
-				logger.info('Launch the thread for the playbook ' + configure + ' for the group: ' + system + " with " + str(group_forks[system]) + " forks")
-				playbook = conf_dir + "/" + configure + "_" + system + "_all.yml"
-				
-				ansible_process = LaunchAnsiblePlaybook(playbook, None, group_forks[system], pk_file)
-				procs_list.append(ansible_process)
+
+		logger.info('Executing the playbooks with contextualization level: ' + str(contxt_num))
+		procs_list = []
+		for contextualize_elem in contextualize_list[contxt_num]:
+			system = contextualize_elem['system']
+			configure = contextualize_elem['configure']
+			logger.info('Launch the thread for the playbook ' + configure + ' for the group: ' + system + " with " + str(group_forks[system]) + " forks")
+			playbook = conf_dir + "/" + configure + "_" + system + "_all.yml"
 			
-			logger.debug('Processes launched, wait.')
-			groupok = wait_processes(procs_list)
-			
-			if not groupok:
-				logger.error('Error executing the playbooks with contextualization level: ' + str(contxt_num))
-				res_data['CTXT'][contxt_num] = False
-				res_data['OK'] = False
-			else:
-				res_data['CTXT'][contxt_num] = True
-				res_data['OK'] = True
+			ansible_process = LaunchAnsiblePlaybook(playbook, None, group_forks[system], pk_file, retries = PLAYBOOK_RETRIES)
+			procs_list.append(ansible_process)
+		
+		logger.debug('Processes launched, wait.')
+		groupok = wait_processes(procs_list)
+		
+		if not groupok:
+			logger.error('Error executing the playbooks with contextualization level: ' + str(contxt_num))
+			res_data['CTXT'][contxt_num] = False
+			res_data['OK'] = False
+		else:
+			res_data['CTXT'][contxt_num] = True
+			res_data['OK'] = True
 
 	# Finally check if we must chage user credentials
 	res_data['CHANGE_CREDS'] = changeCredentials(group_list)

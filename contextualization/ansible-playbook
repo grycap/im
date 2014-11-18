@@ -73,6 +73,9 @@ def main(args):
     # Miguel: anyado la opcion para tomar el password por parametro
     parser.add_option('-p','--ssh-password', dest='ssh_password',
         help="specify the ssh password to connect to the hosts", default=None)
+    # Miguel: anyado la opcion un numero de reintentos
+    parser.add_option('-r','--play-retries', dest='play_retries', type="int",
+        help="specify the number of times the playbook will be retried in case of failure", default=1)
 
     options, args = parser.parse_args(args)
 
@@ -197,64 +200,74 @@ def main(args):
             print 'Playbook Syntax is fine'
             return 0
 
-        failed_hosts = []
-        unreachable_hosts = []
 
-        try:
+        num_retries = 0
+        return_code = 4
+        while return_code != 0 and num_retries < options.play_retries:
+            num_retries += 1
 
-            pb.run()
+            return_code = 0
+            failed_hosts = []
+            unreachable_hosts = []
+    
+            try:
+    
+                pb.run()
+    
+                hosts = sorted(pb.stats.processed.keys())
+                display(banner("PLAY RECAP"))
+                playbook_cb.on_stats(pb.stats)
+    
+                for h in hosts:
+                    t = pb.stats.summarize(h)
+                    if t['failures'] > 0:
+                        failed_hosts.append(h)
+                    if t['unreachable'] > 0:
+                        unreachable_hosts.append(h)
+    
+                retries = failed_hosts + unreachable_hosts
+    
+                #if len(retries) > 0:
+                #    filename = pb.generate_retry_inventory(retries)
+                #    if filename:
+                #        display("           to retry, use: --limit @%s\n" % filename)
+    
+                for h in hosts:
+                    t = pb.stats.summarize(h)
+    
+                    display("%s : %s %s %s %s" % (
+                        hostcolor(h, t),
+                        colorize('ok', t['ok'], 'green'),
+                        colorize('changed', t['changed'], 'yellow'),
+                        colorize('unreachable', t['unreachable'], 'red'),
+                        colorize('failed', t['failures'], 'red')),
+                        screen_only=True
+                    )
+    
+                    display("%s : %s %s %s %s" % (
+                        hostcolor(h, t, False),
+                        colorize('ok', t['ok'], None),
+                        colorize('changed', t['changed'], None),
+                        colorize('unreachable', t['unreachable'], None),
+                        colorize('failed', t['failures'], None)),
+                        log_only=True
+                    )
 
-            hosts = sorted(pb.stats.processed.keys())
-            display(banner("PLAY RECAP"))
-            playbook_cb.on_stats(pb.stats)
+    
+                print ""
+                if len(failed_hosts) > 0:
+                    return_code = 2
+                if len(unreachable_hosts) > 0:
+                    return_code = 3
+    
+            except errors.AnsibleError, e:
+                display("ERROR: %s" % e, color='red')
+                return_code = 1
+            
+            if return_code != 0:
+                display("ERROR executing playbook (%s/%s)" % (num_retries, options.play_retries), color='red')
 
-            for h in hosts:
-                t = pb.stats.summarize(h)
-                if t['failures'] > 0:
-                    failed_hosts.append(h)
-                if t['unreachable'] > 0:
-                    unreachable_hosts.append(h)
-
-            retries = failed_hosts + unreachable_hosts
-
-            if len(retries) > 0:
-                filename = pb.generate_retry_inventory(retries)
-                if filename:
-                    display("           to retry, use: --limit @%s\n" % filename)
-
-            for h in hosts:
-                t = pb.stats.summarize(h)
-
-                display("%s : %s %s %s %s" % (
-                    hostcolor(h, t),
-                    colorize('ok', t['ok'], 'green'),
-                    colorize('changed', t['changed'], 'yellow'),
-                    colorize('unreachable', t['unreachable'], 'red'),
-                    colorize('failed', t['failures'], 'red')),
-                    screen_only=True
-                )
-
-                display("%s : %s %s %s %s" % (
-                    hostcolor(h, t, False),
-                    colorize('ok', t['ok'], None),
-                    colorize('changed', t['changed'], None),
-                    colorize('unreachable', t['unreachable'], None),
-                    colorize('failed', t['failures'], None)),
-                    log_only=True
-                )
-
-
-            print ""
-            if len(failed_hosts) > 0:
-                return 2
-            if len(unreachable_hosts) > 0:
-                return 3
-
-        except errors.AnsibleError, e:
-            display("ERROR: %s" % e, color='red')
-            return 1
-
-    return 0
+    return return_code
 
 
 if __name__ == "__main__":
