@@ -18,20 +18,24 @@
       when: ansible_os_family == "RedHat" and ansible_distribution != "Fedora"
     
     - name: Apt install requirements
-      action: command apt-get -y install unzip python-pip gcc python-dev openssh-client sshpass
+      apt: name=unzip,gcc,python-dev,openssh-client,sshpass
       when: ansible_os_family == "Debian"
 
     - name: Yum install requirements RH6 or Fedora
-      action: command yum -y install python-distribute gcc python-devel wget openssh-clients sshpass
+      yum: name=python-distribute,gcc,python-devel,wget,openssh-clients,sshpass
       when: ansible_os_family == "RedHat" and ansible_distribution_version|float >= 6.0
         
     - name: Yum install requirements RH5
-      action: command yum -y install python26 python26-simplejson python26-distribute gcc python26-devel openssh-clients sshpass
+      yum: name=python26,python26-simplejson,python26-distribute,gcc,python26-devel,openssh-clients,sshpass
       when: ansible_os_family == "RedHat" and ansible_distribution_version|float < 6.0
 
     - name: Zypper install requirements Suse
       action: command zypper -n install python python-pip gcc python-devel wget   
       when: ansible_os_family == "Suse"
+
+    - name: Install Pip from distribution repositories
+      apt: name=python-pip
+      when: ansible_os_family == "Debian" and not (ansible_distribution == "Ubuntu" and ansible_distribution_version|version_compare('14.04', '<'))
 
     - name: Install Pip 2.6
       action: command easy_install-2.6 pip==1.4.1
