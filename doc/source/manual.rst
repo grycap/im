@@ -83,9 +83,9 @@ content and move the extracted directory to the installation path (for instance
    $ sudo chown -R root:root IM-0.1.tar.gz
    $ sudo mv IM-0.1 /usr/local
 
-Finally you must copy (or link) $IM_PATH/im.init.d file to /etc/init.d directory::
+Finally you must copy (or link) $IM_PATH/scripts/im file to /etc/init.d directory::
 
-   $ sudo ln -s /usr/local/IM-0.1/im.init.d /etc/init.d
+   $ sudo ln -s /usr/local/IM-0.1/scripts/im /etc/init.d
 
 Configuration
 -------------
