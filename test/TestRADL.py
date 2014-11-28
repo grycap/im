@@ -16,10 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import sys, os
-
-sys.path.append("..")
-TESTS_PATH = os.getcwd() + '/test'
+TESTS_PATH = '/home/micafer/codigo/git_im/im/test'
 
 
 from IM.radl.radl_parse import parse_radl
@@ -45,7 +42,7 @@ class TestRADL(unittest.TestCase):
 		self.radl_check(r, [1, 1, 1, 1, 0])
 		s = r.get_system_by_name("cursoaws")
 		self.assertIsInstance(s, system)
-		self.assertEqual(len(s.features), 16)
+		self.assertEqual(len(s.features), 17)
 		self.assertEqual(s.getValue("disk.0.os.name"), "linux")
 
 	def test_basic0(self):
@@ -132,6 +129,19 @@ cpu.count<=5
 		concrete_s, score = s.concrete()
 		self.assertIsInstance(concrete_s, system)
 		self.assertEqual(score, 201)
+		
+		
+	def test_outports(self):
+
+		radl = """
+network publica (outbound = 'yes' and outports='8899a-8899,22-22')
+
+system main (
+net_interface.0.connection = 'publica'
+)		"""
+		r = parse_radl(radl)
+		with self.assertRaises(RADLParseException):
+			self.radl_check(r)
 
 
 if __name__ == "__main__":

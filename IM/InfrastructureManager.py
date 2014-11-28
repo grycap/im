@@ -14,26 +14,52 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import pickle
+import sys
+import json
+import os
+import cPickle as pickle
 import threading
 import string
 import random
-from multiprocessing.pool import ThreadPool
+#from multiprocessing.pool import ThreadPool
 
 from VMRC import VMRC
 from CloudInfo import CloudInfo 
-from VirtualMachine import VirtualMachine
 from auth import Authentication
 
 import logging
 
 import InfrastructureInfo
-from ganglia import ganglia_info
 from IM.radl import radl_parse
-from IM.radl.radl import RADL
+from IM.radl.radl import Feature
 from IM.recipe import Recipe
 
 from config import Config
+
+class IncorrectInfrastructureException(Exception):
+	""" Invalid infrastructure ID or access not granted. """
+
+	def __init__(self, msg="Invalid infrastructure ID or access not granted."):
+		Exception.__init__(self, msg)
+		
+class DeletedInfrastructureException(Exception):
+	""" Deleted infrastructure. """
+
+	def __init__(self, msg="Deleted infrastructure."):
+		Exception.__init__(self, msg)
+		
+class UnauthorizedUserException(Exception):
+	""" Invalid InfrastructureManager credentials """
+
+	def __init__(self, msg="Invalid InfrastructureManager credentials"):
+		Exception.__init__(self, msg)
+		
+class IncorrectVMCrecentialsException(Exception):
+	""" Invalid InfrastructureManager credentials """
+
+	def __init__(self, msg="Incorrect VM credentials"):
+		Exception.__init__(self, msg)
+
 
 class InfrastructureManager:
 	"""
@@ -51,6 +77,9 @@ class InfrastructureManager:
 	
 	_lock = threading.Lock()
 	"""Threading Lock to avoid concurrency problems."""
+	
+	_exiting = False
+	"""Flag to notice that the IM is going to exit."""
 
 	@staticmethod
 	def _reinit():
@@ -124,7 +153,7 @@ class InfrastructureManager:
 		return deploy_groups
 
 	@staticmethod
-	def _launch_group(deploy_group, deploys_group_cloud_list, cloud_list, concrete_systems,
+	def _launch_group(sel_inf, deploy_group, deploys_group_cloud_list, cloud_list, concrete_systems,
 	                  radl, auth, deployed_vm, cancel_deployment):
 		"""Launch a group of deploys together."""
 
@@ -145,26 +174,30 @@ class InfrastructureManager:
 				       not cancel_deployment):
 					concrete_system = concrete_systems[cloud_id][deploy.id][0]
 					if not concrete_system: break
+					
+					(username, _, _, _) = concrete_system.getCredentialValues()
+					if not username:
+						raise IncorrectVMCrecentialsException("No username for deploy: " + deploy.id)
+					
 					launch_radl = radl.clone()
 					launch_radl.systems = [concrete_system]
 					requested_radl = radl.clone()
 					requested_radl.systems = [radl.get_system_by_name(concrete_system.name)]
 					try:
-						launched_vms = cloud.launch(launch_radl, requested_radl, remain_vm, auth)
+						launched_vms = cloud.launch(sel_inf, launch_radl, requested_radl, remain_vm, auth)
 					except Exception, e:
 						InfrastructureManager.logger.exception("Error launching some of the VMs: %s" % e)
 						exceptions.append(e)
 						launched_vms = []
-					#cloud.addVMLaunch()
 					for success, launched_vm in launched_vms:
 						if success:
 							InfrastructureManager.logger.debug("VM successfully launched: " + str(launched_vm.id))
-							deployed_vm.setdefault(deploy, []).append(
-								launched_vm)
+							deployed_vm.setdefault(deploy, []).append(launched_vm)
 							deploy.cloud_id = cloud_id
 							remain_vm -= 1
 						else:
 							InfrastructureManager.logger.warn("Error launching some of the VMs: " + str(launched_vm))
+							exceptions.append(str(launched_vm))
 							if not isinstance(launched_vm, str):
 								cloud.finalize(launched_vm, auth)
 					fail_cont += 1
@@ -174,7 +207,7 @@ class InfrastructureManager:
 			if not all_ok:
 				for deploy in deploy_group:
 					for vm in deployed_vm.get(deploy, []):
-						vm.cloud.finalize(vm, auth)
+						vm.finalize(auth)
 					deployed_vm[deploy] = []
 			if cancel_deployment or all_ok:
 				break
@@ -187,14 +220,14 @@ class InfrastructureManager:
 
 		if inf_id not in InfrastructureManager.infrastructure_list:
 			InfrastructureManager.logger.error("Error, incorrect infrastructure ID")
-			raise Exception("Invalid infrastructure ID or access not granted.""")
+			raise IncorrectInfrastructureException()
 		sel_inf = InfrastructureManager.infrastructure_list[inf_id]
 		if sel_inf.auth != None and not sel_inf.auth.compare(auth, 'InfrastructureManager'):
 			InfrastructureManager.logger.error("Access Error")
-			raise Exception("Invalid infrastructure ID or access not granted.""")
+			raise IncorrectInfrastructureException()
 		if sel_inf.deleted:
 			InfrastructureManager.logger.error("Access to a deleted infrastructure.")
-			raise Exception("Deleted infrastructure.""")
+			raise DeletedInfrastructureException()
 			
 		return sel_inf
 
@@ -251,6 +284,11 @@ class InfrastructureManager:
 						system.setCredentialValues(password=password, public_key=public_key, private_key=private_key, new=True)
 		
 		InfrastructureManager.save_data()
+
+		# Test it again
+		if sel_inf.is_contextualizing():
+			InfrastructureManager.logger.info("The infrastructure is contextualizing. You must wait")
+			raise Exception("The infrastructure is contextualizing. You must wait")
 
 		# Stick all virtual machines to be reconfigured
 		InfrastructureManager.logger.info("Contextualize the inf.")
@@ -324,7 +362,7 @@ class InfrastructureManager:
 		InfrastructureManager.logger.debug(radl)
 		
 		sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
-
+		
 		if sel_inf.is_contextualizing():
 			InfrastructureManager.logger.info("The infrastructure is contextualizing. You must wait")
 			raise Exception("The infrastructure is contextualizing. You must wait")
@@ -337,8 +375,8 @@ class InfrastructureManager:
 			sel_inf.update_radl(radl, [])
 			return []
 
-		# Add apps requirements to the RADL
 		for system in radl.systems:
+			# Add apps requirements to the RADL
 			apps_to_install = system.getApplications()
 			for app_to_install in apps_to_install:
 				for app_avail, _, _, _, requirements in Recipe.getInstallableApps():
@@ -372,22 +410,31 @@ class InfrastructureManager:
 			# Remove the requested apps from the system
 			s_without_apps = radl.get_system_by_name(system_id).clone()
 			s_without_apps.delValue("disk.0.applications")
+			
+			# Set the default values for cpu, memory
+			defaults = (Feature("cpu.count", ">=", Config.DEFAULT_VM_CPUS),
+			            Feature("memory.size", ">=", Config.DEFAULT_VM_MEMORY,
+			                    Config.DEFAULT_VM_MEMORY_UNIT),
+			            Feature("cpu.arch", "=", Config.DEFAULT_VM_CPU_ARCH))
+			for f in defaults:
+				if not s_without_apps.hasFeature(f.prop, check_softs=True):
+					s_without_apps.addFeature(f)
 
 			vmrc_res = [ s0 for vmrc in vmrc_list for s0 in vmrc.search_vm(s) ]
+			# Check that now the image URL is in the RADL
 			if not s.getValue("disk.0.image.url") and not vmrc_res:
 				raise Exception("No VMI obtained from VMRC to system: " + system_id)
 			
 			n = [ s_without_apps.clone().applyFeatures(s0, conflict="other", missing="other")
 			                         for s0 in vmrc_res ]
-			systems_with_vmrc[system_id] = n if n else [s_without_apps]			
-
+			systems_with_vmrc[system_id] = n if n else [s_without_apps]
 
 		# Concrete systems with cloud providers and select systems with the greatest score
 		# in every cloud
-		cloud_list = dict([ (c.id, c.getCloudConnector()) for c in CloudInfo.get_cloud_list(auth) ])
+		cloud_list = dict([ (c.id, c.getCloudConnector()) for c in CloudInfo.get_cloud_list(auth) if c not in failed_clouds ])
 		concrete_systems = {}
 		for cloud_id, cloud in cloud_list.items():
-			for system_id, systems in systems_with_vmrc.items():
+			for system_id, systems in systems_with_vmrc.items():				
 				s1 = [InfrastructureManager._compute_score(s.clone().applyFeatures(s0, missing="other").concrete(), radl.get_system_by_name(system_id))
 				                for s in systems for s0 in cloud.concreteSystem(s, auth)]
 				# Store the concrete system with largest score
@@ -423,17 +470,22 @@ class InfrastructureManager:
 			sorted_scored_clouds = sorted(scored_clouds, key=lambda x: (x[1], ordered_cloud_list.index(x[0])), reverse=True)
 			deploys_group_cloud_list[id(deploy_group)] = [ c[0] for c in sorted_scored_clouds ]
 
+		# Now Test it again if the infrastructure is contextualizing 
+		if sel_inf.is_contextualizing():
+			InfrastructureManager.logger.info("The infrastructure is contextualizing. You must wait")
+			raise Exception("The infrastructure is contextualizing. You must wait")
+
 		# Launch every group in the same cloud provider
 		deployed_vm = {}
 		cancel_deployment = []
 		try:
 			#pool = ThreadPool(processes=Config.MAX_SIMULTANEOUS_LAUNCHES)
 			#pool.map(
-			#	lambda ds: InfrastructureManager._launch_group(
+			#	lambda ds: InfrastructureManager._launch_group(sel_inf
 			#		ds, deploys_group_cloud_list[id(ds)], cloud_list, concrete_systems,
 			#		radl, auth, deployed_vm, cancel_deployment), deploy_groups)
 			for ds in deploy_groups:
-				InfrastructureManager._launch_group(
+				InfrastructureManager._launch_group(sel_inf,
 					ds, deploys_group_cloud_list[id(ds)], cloud_list, concrete_systems,
 					radl, auth, deployed_vm, cancel_deployment)
 		except Exception, e:
@@ -448,12 +500,13 @@ class InfrastructureManager:
 			for deploy in deployed_vm.keys():
 				if orig_dep.id == deploy.id:
 					for vm in deployed_vm.get(deploy, []):
-						new_vms.append(vm)
+						if vm not in new_vms: 
+							new_vms.append(vm)
 
 		if cancel_deployment:
 			# If error, all deployed virtual machine will be undeployed.
 			for vm in new_vms:
-				vm.cloud.finalize(vm, auth)
+				vm.finalize(auth)
 			raise Exception("Some deploys did not proceed successfully: %s" % cancel_deployment)
 
 
@@ -475,8 +528,12 @@ class InfrastructureManager:
 
 		# Let's contextualize!
 		if context:
-			InfrastructureManager.logger.info("Contextualize the inf")
-			sel_inf.Contextualize(auth)
+			# Now test again if the infrastructure is contextualizing 
+			if not sel_inf.is_contextualizing():
+				InfrastructureManager.logger.info("Contextualize the inf")
+				sel_inf.Contextualize(auth)
+			else:
+				InfrastructureManager.logger.warn("Trying to Contextualize an infrastructure that is contextualizing!!!!!")
 
 		return [vm.im_id for vm in new_vms]
 		
@@ -511,20 +568,22 @@ class InfrastructureManager:
 				if str(vm.im_id) == str(vmid):
 					InfrastructureManager.logger.debug("Removing the VM ID: '" + vmid + "'")
 					try:
-						cl = vm.cloud.getCloudConnector()
-						cl.finalize(vm, auth)
+						vm.finalize(auth)
 					except Exception, e:
 						exceptions.append(e)
 					else:
-						vm.destroy = True
 						cont += 1
 
 		InfrastructureManager.save_data()
 		InfrastructureManager.logger.info(str(cont) + " VMs successfully removed")
 
 		if cont > 0:
-			InfrastructureManager.logger.info("Reconfigure it")
-			sel_inf.Contextualize(auth)
+			# Now test again if the infrastructure is contextualizing 
+			if not sel_inf.is_contextualizing():
+				InfrastructureManager.logger.info("Reconfigure it")
+				sel_inf.Contextualize(auth)
+			else:
+				InfrastructureManager.logger.warn("Trying to Contextualize an infrastructure that is contextualizing!!!!!")
 			
 		if exceptions:
 			InfrastructureManager.logger.exception("Error removing resources")
@@ -533,37 +592,24 @@ class InfrastructureManager:
 		return cont
 
 	@staticmethod
-	def get_vminfo_res(vm, configured):
+	def GetVMProperty(inf_id, vm_id, property_name, auth):
 		"""
-		Get information about a virtual machine.
+		Get a particular property about a virtual machine in an infrastructure.
 
 		Args:
 
-		- vm(:py:class:`IM.VirtualMachine`): virtual machine information.
+		- inf_id(int): infrastructure id.
+		- vm_id(str): virtual machine id.
+		- property(str): RADL property to get.
+		- auth(Authentication): parsed authentication tokens.
 
-		Return: a dict with keys
-
-		- state(str): virtual machine state.
-		- info(str): the information about the virtual machine in RADL format
-		- cloud(str): some information about the cloud provider
+		Return: a str with the property value
 		"""
-
-		res = {}
-		if vm.state != VirtualMachine.RUNNING:
-			res['state'] = vm.state
-		elif configured is None:
-			res['state'] = VirtualMachine.RUNNING
-		elif configured:
-			res['state'] = VirtualMachine.CONFIGURED
-		else:
-			res['state'] = VirtualMachine.FAILED
-
-		res['info'] = str(vm.info)
-		res['cloud'] = str(vm.cloud)
-
-		InfrastructureManager.logger.info("Information obtained successfully")
-		InfrastructureManager.logger.debug(res)
-
+		radl_data = InfrastructureManager.GetVMInfo(inf_id, vm_id, auth)
+		radl = radl_parse.parse_radl(radl_data)
+		res = None
+		if radl.systems:
+			res = radl.systems[0].getValue(property_name)
 		return res
 
 	@staticmethod
@@ -577,38 +623,26 @@ class InfrastructureManager:
 		- vm_id(str): virtual machine id.
 		- auth(Authentication): parsed authentication tokens.
 
-		Return: a dict with keys
-
-		- state(str): virtual machine state.
-		- info(str): the information about the virtual machine in RADL format
-		- cloud(str): some information about the cloud provider
+		Return: a str with the information about the VM
 		"""
 
 		InfrastructureManager.logger.info("Get information about the vm: '" + str(vm_id) + "' from inf: " + str(inf_id))
 	
 		sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
 
-		InfrastructureManager.logger.debug("Getting information from monitors")
-		try:
-			(success, msg) = ganglia_info.update_ganglia_info(sel_inf)
-			if not success:
-				InfrastructureManager.logger.debug(msg)
-		except:
-			pass
+		# Getting information from monitors
+		sel_inf.update_ganglia_info()
 
 		vm = InfrastructureManager.get_vm_from_inf(inf_id, vm_id, auth)
-		if not vm:
-			raise Exception("VM does not exist or Access Error")
-		cl = vm.cloud.getCloudConnector()
-		(success, new_vm) = cl.updateVMInfo(vm, auth)
-		InfrastructureManager.save_data()
+		
+		success = vm.update_status(auth)
 		if not success:
-			InfrastructureManager.logger.warn("Error getting the informacion about the VM " + str(vm_id) + ": " + str(vm))
-			InfrastructureManager.logger.warn("Using last information retrieved")
-			res = InfrastructureManager.get_vminfo_res(vm, sel_inf.configured)
+			InfrastructureManager.logger.warn("Information not updated. Using last information retrieved")
 		else:
-			res = InfrastructureManager.get_vminfo_res(new_vm, sel_inf.configured)
-		return res
+			# Only save the information if it is updated
+			InfrastructureManager.save_data()
+
+		return str(vm.info)
 
 	@staticmethod
 	def AlterVM(inf_id, vm_id, radl_data, auth):
@@ -622,15 +656,10 @@ class InfrastructureManager:
 		- radl(str): RADL description.
 		- auth(Authentication): parsed authentication tokens.
 
-		Return: a dict with keys
-
-		- state(str): virtual machine state.
-		- info(str): the information about the virtual machine in RADL format
-		- cloud(str): some information about the cloud provider
+		Return: a str with the information about the VM
 		"""
 
 		InfrastructureManager.logger.info("Modifying the VM: '" + str(vm_id) + "' from inf: " + str(inf_id))
-		sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
 		vm = InfrastructureManager.get_vm_from_inf(inf_id, vm_id, auth)
 		if not vm:
 			InfrastructureManager.logger.info("VM does not exist or Access Error")
@@ -640,8 +669,7 @@ class InfrastructureManager:
 
 		exception = None
 		try:
-			cl = vm.cloud.getCloudConnector()
-			(success, alter_res) = cl.alterVM(vm, radl, auth)
+			(success, alter_res) = vm.alter(vm, radl, auth)
 		except Exception, e:
 			exception = e
 		InfrastructureManager.save_data()
@@ -651,8 +679,8 @@ class InfrastructureManager:
 			InfrastructureManager.logger.warn("Error getting the information about the VM " + str(vm_id) + ": " + str(alter_res))
 			InfrastructureManager.logger.warn("Using last information retrieved")
 
-		res = InfrastructureManager.get_vminfo_res(vm, sel_inf.configured)
-		return res
+		vm.update_status(auth)
+		return str(vm.info)
 	
 	@staticmethod
 	def GetInfrastructureInfo(inf_id, auth):
@@ -666,7 +694,7 @@ class InfrastructureManager:
 
 		Return: a dict with keys
 
-		- cont_out(str): contextualization informmation.
+		- cont_out(str): contextualization information.
 		- vm_list(list of str): list of virtual machine ids.
 		"""
 
@@ -703,9 +731,8 @@ class InfrastructureManager:
 		for vm in sel_inf.get_vm_list():
 			try:
 				success = False
-				cl = vm.cloud.getCloudConnector()
 				InfrastructureManager.logger.debug("Stopping the VM id: " + vm.id)
-				(success, msg) = cl.stop(vm, auth)
+				(success, msg) = vm.stop(auth)
 			except Exception, e:
 				msg = str(e)
 			if not success:
@@ -738,9 +765,8 @@ class InfrastructureManager:
 		for vm in sel_inf.get_vm_list():
 			try:
 				success = False
-				cl = vm.cloud.getCloudConnector()
 				InfrastructureManager.logger.debug("Stating the VM id: " + vm.id)
-				(success, msg) = cl.start(vm, auth)
+				(success, msg) = vm.start(auth)
 			except Exception, e:
 				msg = str(e)
 			if not success:
@@ -783,19 +809,17 @@ class InfrastructureManager:
 
 		sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
 		exceptions = []
-		for vm in sel_inf.get_vm_list():
+		# If IM server is the first VM, then it will be the last destroyed
+		for vm in reversed(sel_inf.get_vm_list()):
 			try:
 				success = False
-				cl = vm.cloud.getCloudConnector()
 				InfrastructureManager.logger.debug("Finalizing the VM id: " + str(vm.id))
-				(success, msg) = cl.finalize(vm, auth)
+				(success, msg) = vm.finalize(auth)
 			except Exception, e:
 				msg = str(e)
 			if not success:
 				InfrastructureManager.logger.info("The VM cannot be finalized")
 				exceptions.append(msg)
-			else:
-				vm.destroy = True
 
 		if exceptions:
 			raise Exception("Error destroying the infrastructure: %s" % "\n".join(exceptions))
@@ -806,6 +830,35 @@ class InfrastructureManager:
 		InfrastructureManager.logger.info("Infrastructure successfully destroyed")
 		return ""
 	
+	@staticmethod
+	def check_im_user(auth):
+		"""
+		Check if the IM user is valid
+
+		Args:
+		- auth(Authentication): IM parsed authentication tokens.
+
+		Return(bool): true if the user is valid or false otherwise.
+		"""
+		if Config.USER_DB:
+			if os.path.isfile(Config.USER_DB):
+				try:
+					found = False
+					user_db = json.load(open(Config.USER_DB, "r"))
+					for user in user_db['users']:
+						if user['username'] == auth[0]['username'] and user['password'] == auth[0]['password']: 
+							found = True
+							break
+					return found
+				except:
+					InfrastructureManager.logger.exception("Incorrect format in the User DB file %s" % Config.USER_DB)
+					return False
+			else:
+				InfrastructureManager.logger.error("User DB file %s not found" % Config.USER_DB)
+				return False
+		else:
+			return True
+		
 	@staticmethod
 	def CreateInfrastructure(radl, auth):
 		"""
@@ -821,7 +874,11 @@ class InfrastructureManager:
 
 		Return(int): the new infrastructure ID if successful.
 		"""
-
+		
+		# First check if it is configured to check the users from a list
+		if not InfrastructureManager.check_im_user(auth.getAuthInfo("InfrastructureManager")):
+			raise UnauthorizedUserException()
+		
 		# Create a new infrastructure
 		inf = InfrastructureInfo.InfrastructureInfo()
 		inf.auth = Authentication(auth.getAuthInfo("InfrastructureManager"))
@@ -832,6 +889,7 @@ class InfrastructureManager:
 		# Add the resources in radl_data
 		try:
 			InfrastructureManager.AddResource(inf.id, radl, auth)
+			InfrastructureManager.save_data()
 		except Exception, e:
 			inf.delete()
 			InfrastructureManager.remove_old_inf()
@@ -886,22 +944,39 @@ class InfrastructureManager:
 
 		InfrastructureManager.add_infrastructure(new_inf)
 		InfrastructureManager.logger.info("Importing new infrastructure with id: " + str(new_inf.id))
-		# Guardamos estado
+		# Save the state
 		InfrastructureManager.save_data()
 		return new_inf.id
 
 	@staticmethod
 	def load_data():
 		with InfrastructureManager._lock:
-			data_file = open(Config.DATA_FILE, 'rb')
-			InfrastructureManager.global_inf_id = pickle.load(data_file)
-			InfrastructureManager.infrastructure_list = pickle.load(data_file)
-			data_file.close()
+			try:
+				data_file = open(Config.DATA_FILE, 'rb')
+				InfrastructureManager.global_inf_id = pickle.load(data_file)
+				InfrastructureManager.infrastructure_list = pickle.load(data_file)
+				data_file.close()
+			except Exception, ex:
+				InfrastructureManager.logger.exception("ERROR loading data from file: " + Config.DATA_FILE + ". Correct or delete it!!")
+				sys.stderr.write("ERROR loading data from file: " + Config.DATA_FILE + ": " + str(ex) + ".\nCorrect or delete it!! ")
+				sys.exit(-1)
 
 	@staticmethod
 	def save_data():
 		with InfrastructureManager._lock:
-			data_file = open(Config.DATA_FILE, 'wb')
-			pickle.dump(InfrastructureManager.global_inf_id, data_file)
-			pickle.dump(InfrastructureManager.infrastructure_list, data_file)
-			data_file.close()
+			# to avoid writing data to the file if the IM is exiting
+			if not InfrastructureManager._exiting:
+				try:
+					data_file = open(Config.DATA_FILE, 'wb')
+					pickle.dump(InfrastructureManager.global_inf_id, data_file)
+					pickle.dump(InfrastructureManager.infrastructure_list, data_file)
+					data_file.close()
+				except Exception, ex:
+					InfrastructureManager.logger.exception("ERROR saving data to the file: " + Config.DATA_FILE + ". Changes not stored!!")
+					sys.stderr.write("ERROR saving data to the file: " + Config.DATA_FILE  + ": " + str(ex) + ".\nChanges not stored!!")
+
+	@staticmethod
+	def stop():
+		# Acquire the lock to avoid writing data to the DATA_FILE
+		with InfrastructureManager._lock:
+			InfrastructureManager._exiting = True

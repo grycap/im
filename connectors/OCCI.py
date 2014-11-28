@@ -19,9 +19,9 @@ import re
 import base64
 import string
 import httplib
+import tempfile
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
-from IM.config import Config
 from CloudConnector import CloudConnector
 from IM.radl.radl import Feature, network
 	
@@ -41,11 +41,20 @@ class OCCICloudConnector(CloudConnector):
 		auth = auth_data.getAuthInfo(OCCICloudConnector.type)
 		if auth and 'proxy' in auth[0]:
 			proxy = auth[0]['proxy']
-			conn = httplib.HTTPSConnection(self.cloud.server, self.cloud.port, cert_file = proxy)
+			
+			(fproxy, proxy_filename) = tempfile.mkstemp()
+			os.write(fproxy, proxy)
+			os.close(fproxy)
+			
+			conn = httplib.HTTPSConnection(self.cloud.server, self.cloud.port, cert_file = proxy_filename)
 		else:
 			conn = httplib.HTTPConnection(self.cloud.server, self.cloud.port)
 		
 		return conn
+	
+	def delete_proxy(self, conn):
+		if conn.cert_file and os.path.isfile(conn.cert_file):
+			os.unlink(conn.cert_file)
 
 	@staticmethod
 	def get_auth_header(auth_data):
@@ -65,14 +74,13 @@ class OCCICloudConnector(CloudConnector):
 			protocol = url[0]
 			if protocol in ['http','https'] and url[5]:
 				res_system = radl_system.clone()
-				
-				res_system.addFeature(Feature("cpu.count", "=", Config.DEFAULT_VM_CPUS), conflict="me", missing="other")
-				res_system.addFeature(Feature("memory.size", "=", Config.DEFAULT_VM_MEMORY, Config.DEFAULT_VM_MEMORY_UNIT), conflict="me", missing="other")
-				res_system.addFeature(Feature("cpu.arch", "=", Config.DEFAULT_VM_CPU_ARCH), conflict="me", missing="other")
-				
-				# TODO: set operator to "=" in all the features
+
 				res_system.getFeature("cpu.count").operator = "="
 				res_system.getFeature("memory.size").operator = "="
+				
+				res_system.addFeature(Feature("provider.type", "=", self.type), conflict="other", missing="other")
+				res_system.addFeature(Feature("provider.host", "=", self.cloud.server), conflict="other", missing="other")
+				res_system.addFeature(Feature("provider.port", "=", self.cloud.port), conflict="other", missing="other")				
 					
 				return [res_system]
 			else:
@@ -90,7 +98,7 @@ class OCCICloudConnector(CloudConnector):
 					kv = part.split('=')
 					if kv[0] == "occi.networkinterface.address":
 						ip_address = kv[1].strip('"')
-						is_private = ip_address.startswith("10") or ip_address.startswith("172") or ip_address.startswith("169.254") or ip_address.startswith("192.168") 
+						is_private = network.isPrivateIP(ip_address) 
 					elif kv[0] == "occi.networkinterface.interface":
 						net_interface = kv[1].strip('"')
 						num_interface = re.findall('\d+', net_interface)[0]
@@ -98,25 +106,18 @@ class OCCICloudConnector(CloudConnector):
 		return res
 
 	def setIPs(self, vm, occi_res):
-		vm_system = vm.info.systems[0]
 		
-		# Delete the old networks
-		vm.info.networks = []
-		i = 0
-		while vm_system.hasFeature("net_interface.%d.connection" % i):
-			vm_system.delValue("net_interface.%d.connection" % i)
-			if vm_system.hasFeature("net_interface.%d.ip" % i):
-				vm_system.delValue("net_interface.%d.ip" % i)
-			i += 1
+		public_ips = []
+		private_ips = []
 		
 		addresses = self.get_net_info(occi_res)
-		for num_interface, ip_address, is_public in addresses:
-			# Set the net_interface.* with the num of the net_interface
-			net = network.createNetwork("occinet_" + str(num_interface), is_public)
-			vm.info.networks.append(net)
-			vm_system.setValue('net_interface.' + str(num_interface) + '.ip', ip_address)
-			vm_system.setValue('net_interface.' + str(num_interface) + '.connection',net.id)
-
+		for _, ip_address, is_public in addresses:
+			if is_public:
+				public_ips.append(ip_address)
+			else:
+				private_ips.append(ip_address)
+		
+		vm.setIps(public_ips, private_ips)
 	
 	def get_vm_state(self, occi_res):
 		lines = occi_res.split("\n")
@@ -156,14 +157,16 @@ class OCCICloudConnector(CloudConnector):
 			conn = self.get_http_connection(auth_data)
 			conn.request('GET', "/compute/" + vm.id, headers = headers) 
 			resp = conn.getresponse()
+			self.delete_proxy(conn)
 			
 			output = resp.read()
-
-			vm.state = self.VM_STATE_MAP.get(self.get_vm_state(output), VirtualMachine.UNKNOWN)
-			
-			# Actualizamos los datos de la red
-			self.setIPs(vm,output)
-			return (True, vm)
+			if resp.status != 200:
+				return (False, output)
+			else:
+				vm.state = self.VM_STATE_MAP.get(self.get_vm_state(output), VirtualMachine.UNKNOWN)
+				# Update the network data
+				self.setIPs(vm,output)
+				return (True, vm)
 
 		except Exception, ex:
 			self.logger.error("Error connecting with OCCI server")
@@ -171,7 +174,7 @@ class OCCICloudConnector(CloudConnector):
 			return (False, "Error connecting with OCCI server")
 
 
-	def launch(self, radl, requested_radl, num_vm, auth_data):
+	def launch(self, inf, radl, requested_radl, num_vm, auth_data):
 		system = radl.systems[0]
 		auth_header = self.get_auth_header(auth_data)
 		
@@ -207,7 +210,7 @@ class OCCICloudConnector(CloudConnector):
 				body += 'X-OCCI-Attribute: occi.core.title="' + name + '"\n'
 				body += 'X-OCCI-Attribute: occi.compute.hostname="' + name + '"\n'
 				body += 'X-OCCI-Attribute: occi.compute.cores=' + str(cpu) +'\n'
-				body += 'X-OCCI-Attribute: occi.compute.architecture=' + arch +'\n'
+				#body += 'X-OCCI-Attribute: occi.compute.architecture=' + arch +'\n'
 				body += 'X-OCCI-Attribute: occi.compute.memory=' + str(memory) + '\n'
 				conn.putheader('Content-Length', len(body))
 				conn.endheaders(body)
@@ -216,16 +219,22 @@ class OCCICloudConnector(CloudConnector):
 				
 				# With this format: X-OCCI-Location: http://fc-one.i3m.upv.es:11080/compute/8
 				output = resp.read()
-				vm_id = os.path.basename(output)
 				
-				vm = VirtualMachine(vm_id, self.cloud, radl, requested_radl)
-				res.append((True, vm))
+				if resp.status != 201:
+					res.append((False, output))
+				else:
+					occi_vm_id = os.path.basename(output)				
+					vm = VirtualMachine(inf, occi_vm_id, self.cloud, radl, requested_radl)
+					res.append((True, vm))
 
 			except Exception, ex:
 				self.logger.exception("Error connecting with OCCI server")
 				res.append((False, "ERROR: " + str(ex)))
 
 			i += 1
+			
+		self.delete_proxy(conn)
+		
 		return res
 
 	def finalize(self, vm, auth_data):
@@ -237,7 +246,8 @@ class OCCICloudConnector(CloudConnector):
 		try:
 			conn = self.get_http_connection(auth_data)
 			conn.request('DELETE', "/compute/" + vm.id, headers = headers) 
-			resp = conn.getresponse()			
+			resp = conn.getresponse()	
+			self.delete_proxy(conn)		
 			output = str(resp.read())
 			if resp.status != 200:
 				return (False, "Error removing the VM: " + output)
@@ -263,6 +273,7 @@ class OCCICloudConnector(CloudConnector):
 			conn.endheaders(body)
 
 			resp = conn.getresponse()
+			self.delete_proxy(conn)	
 			output = str(resp.read())
 			if resp.status != 200:
 				return (False, "Error stopping the VM: " + output)
@@ -287,6 +298,7 @@ class OCCICloudConnector(CloudConnector):
 			conn.endheaders(body)
 
 			resp = conn.getresponse()
+			self.delete_proxy(conn)	
 			output = str(resp.read())
 			if resp.status != 200:
 				return (False, "Error starting the VM: " + output)

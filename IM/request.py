@@ -15,9 +15,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import sys
-from Queue import *
+from Queue import Queue, Empty
 import threading
-from SimpleXMLRPCServer import SimpleXMLRPCServer,SimpleXMLRPCRequestHandler
+from SimpleXMLRPCServer import SimpleXMLRPCServer
 import SocketServer
 import time
 from timedcall import TimedCall
@@ -49,9 +49,9 @@ class RequestQueue(Queue):
 		while (max_requests <= 0 or requests_processed < max_requests) and not empty:
 			try:
 				if wait_time_for_element > 0:
-					priority, request = self.get(True, wait_time_for_element)
+					_, request = self.get(True, wait_time_for_element)
 				else:
-					priority, request = self.get(False)
+					_, request = self.get(False)
 				request.process()
 				requests_processed = requests_processed + 1
 			except Empty:
@@ -79,7 +79,7 @@ class RequestQueue(Queue):
 			
 			pass
 
-	def timed_process_loop(self, callback = None, time_between_callbacks = 3, retry_missing_calls = False):
+	def timed_process_loop(self, callback = None, time_between_callbacks = 3, retry_missing_calls = False, exit_callback = None):
 		"""
 		Implementa un bucle de mensajes que trata de ejecutar un callback de acuerdo a una
 		frecuencia temporal.
@@ -98,6 +98,8 @@ class RequestQueue(Queue):
 				self.process_requests(1, tcall.programmed_time - time.time())
 		except KeyboardInterrupt:
 			# La idea es capturar el Ctrl-C para que acabe de una forma "normal"
+			if exit_callback:
+				exit_callback()
 			sys.exit(0)
 
 

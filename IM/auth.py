@@ -14,7 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import os
 
 class Authentication:
 	"""
@@ -118,7 +117,7 @@ class Authentication:
 		type = VMRC; host = http://server:8080/vmrc; username = user; password = pass
 		id = ec2; type = EC2; username = ACCESS_KEY; password = SECRET_KEY
 		id = oshost; type = OpenStack; host = oshost:8773; username = ACCESS_KEY; key = SECRET_KEY
-		id = occi; type = OCCI; host = occiserver:4567; username = user; password = pass
+		id = occi; type = OCCI; host = occiserver:4567; username = user; password = file(/tmp/filename)
 	
 		Arguments:
 		   - filename(str): The filename to read
@@ -144,7 +143,17 @@ class Authentication:
 					if len(key_value) != 2:
 						break;
 					else:
-						auth[key_value[0].strip()] = key_value[1].strip().replace("\\n","\n") 
+						value = key_value[1].strip().replace("\\n","\n")
+						# Enable to specify a filename and set the contents of it
+						if value.startswith("file(") and value.endswith(")"):
+							filename = value[5:len(value)-1]
+							try:
+								value_file = open(filename, 'r')
+								value = value_file.read()
+								value_file.close()
+							except:
+								pass
+						auth[key_value[0].strip()] = value 
 				res.append(auth)
 		
 		return res

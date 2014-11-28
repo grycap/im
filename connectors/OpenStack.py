@@ -14,74 +14,85 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import boto.ec2
-from connectors.EC2 import EC2CloudConnector, InstanceTypeInfo
+from connectors.LibCloud import LibCloudCloudConnector
+from libcloud.compute.types import Provider
+from libcloud.compute.providers import get_driver
+from IM.uriparse import uriparse
 
-class OpenStackCloudConnector(EC2CloudConnector):
+from IM.radl.radl import Feature
+
+class OpenStackCloudConnector(LibCloudCloudConnector):
+    """
+    Cloud Launcher to OpenStack using LibCloud (Needs version 0.16.0 or higher version)
+    """
     
     type = "OpenStack"
-    # In case of using OpenStack set these details
-    OPENSTACK_EC2_PATH="/services/Cloud"
-    INSTANCE_TYPE = 'm1.tiny'
-
-    # Get the EC2 connection object
-    def get_connection(self, region_name, auth_data):
-        conn = None
-        try:
-            auth = auth_data.getAuthInfo(OpenStackCloudConnector.type)
-            if auth and 'username' in auth[0] and 'password' in auth[0]:            
-                region = boto.ec2.regioninfo.RegionInfo(name="nova", endpoint=self.cloud.server)
-                conn = boto.connect_ec2(aws_access_key_id=auth[0]['username'],
-                          aws_secret_access_key=auth[0]['password'],
-                          is_secure=False,
-                          region=region,
-                          port=self.cloud.port,
-                          path=self.OPENSTACK_EC2_PATH)
-            else:
-                self.logger.error("Datos de autenticacion incorrectos")
-        except Exception, e:
-            print "Error getting the region " + region_name + ": "
-            print e
-            self.logger.error("Error getting the region " + region_name + ": ")
-            self.logger.error(e)
-
-        return conn
+    """str with the name of the provider."""
     
-    def get_instace_type(self, radl):
-        cpu = radl.getValue('cpu.count')
-        arch = radl.getValue('cpu.arch')
-        memory = radl.getValue('memory.size')
+    def get_driver(self, auth_data):
+        """
+        Get the driver from the auth data
 
-        instace_types = OpenStackInstanceTypes.get_all_instance_types()
-
-        res = None
-        for type in instace_types:
-                # cogemos la de menor precio
-                if res is None or (type.price <= res.price):
-                        if arch in type.cpu_arch and type.cores_per_cpu * type.num_cpu >= cpu and type.mem >= memory:
-                                res = type
+        Arguments:
+            - auth(Authentication): parsed authentication tokens.
         
-        if res is None:
-                self.logger.debug("Lanzaremos una instancia de tipo: " + self.INSTANCE_TYPE)
-                return OpenStackInstanceTypes.get_instance_type_by_name(self.INSTANCE_TYPE)
+        Returns: a :py:class:`libcloud.compute.base.NodeDriver` or None in case of error
+        """
+        auth = auth_data.getAuthInfo(self.type)
+        
+        if auth and 'username' in auth[0] and 'password' in auth[0] and 'tenant' in auth[0]:            
+            parameters = {"auth_version":'2.0_password',
+                          "auth_url":"http://" + self.cloud.server + ":" + str(self.cloud.port),
+                          "auth_token":None,
+                          "service_type":None,
+                          "service_name":None,
+                          "service_region":'regionOne',
+                          "base_url":None}
+            
+            for param in parameters:
+                if param in auth[0]:
+                    parameters[param] = auth[0][param]
         else:
-                self.logger.debug("Lanzaremos una instancia de tipo: " + res.name)
-                return res
-
-class OpenStackInstanceTypes:
-    @staticmethod
-    def get_all_instance_types():
-        list = []
+            self.logger.error("No correct auth data has been specified to OpenStack: username, password and tenant")
+            return None
         
-        # A Definir con la plataforma concreta o sacarlo de algun modo (API propia o LibCloud)
-        t1_micro = InstanceTypeInfo("m1.tiny", ["x86_64"], 1, 1, 512, 0, 0)
-        list.append(t1_micro)
+        cls = get_driver(Provider.OPENSTACK)
+        driver = cls(auth[0]['username'], auth[0]['password'],
+                     ex_tenant_name=auth[0]['tenant'], 
+                     ex_force_auth_url=parameters["auth_url"],
+                     ex_force_auth_version=parameters["auth_version"],
+                     ex_force_service_region=parameters["service_region"],
+                     ex_force_base_url=parameters["base_url"],
+                     ex_force_service_name=parameters["service_name"],
+                     ex_force_service_type=parameters["service_type"],
+                     ex_force_auth_token=parameters["auth_token"])
         
-        return list
-
-    @staticmethod
-    def get_instance_type_by_name(name):
-        for type in OpenStackInstanceTypes.get_all_instance_types():
-            if type.name == name:
-                return type
-        return None
+        return driver
+    
+    def concreteSystem(self, radl_system, auth_data):
+        if radl_system.getValue("disk.0.image.url"):
+            url = uriparse(radl_system.getValue("disk.0.image.url"))
+            protocol = url[0]
+            src_host = url[1].split(':')[0]
+            # TODO: check the port
+            if protocol == "ost" and self.cloud.server == src_host:
+                driver = self.get_driver(auth_data)
+                
+                res_system = radl_system.clone()
+                instance_type = self.get_instance_type(driver.list_sizes(), res_system)
+                
+                res_system.addFeature(Feature("memory.size", "=", instance_type.ram, 'M'), conflict="other", missing="other")
+                res_system.addFeature(Feature("disk.0.free_size", "=", instance_type.disk , 'G'), conflict="other", missing="other")
+                res_system.addFeature(Feature("price", "=", instance_type.price), conflict="me", missing="other")
+                
+                res_system.addFeature(Feature("instance_type", "=", instance_type.name), conflict="other", missing="other")
+                
+                res_system.addFeature(Feature("provider.type", "=", self.type), conflict="other", missing="other")
+                res_system.addFeature(Feature("provider.host", "=", self.cloud.server), conflict="other", missing="other")
+                res_system.addFeature(Feature("provider.port", "=", self.cloud.port), conflict="other", missing="other")                
+                    
+                return [res_system]
+            else:
+                return []
+        else:
+            return [radl_system.clone()]

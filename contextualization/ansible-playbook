@@ -73,6 +73,9 @@ def main(args):
     # Miguel: anyado la opcion para tomar el password por parametro
     parser.add_option('-p','--ssh-password', dest='ssh_password',
         help="specify the ssh password to connect to the hosts", default=None)
+    # Miguel: anyado la opcion un numero de reintentos
+    parser.add_option('-r','--play-retries', dest='play_retries', type="int",
+        help="specify the number of times the playbook will be retried in case of failure", default=1)
 
     options, args = parser.parse_args(args)
 
@@ -120,141 +123,149 @@ def main(args):
 
     # run all playbooks specified on the command line
     for playbook in args:
+        num_retries = 0
+        return_code = 4
+        while return_code != 0 and num_retries < options.play_retries:
+            num_retries += 1
+            return_code = 0
 
-        # let inventory know which playbooks are using so it can know the basedirs
-        inventory.set_playbook_basedir(os.path.dirname(playbook))
-
-        stats = AggregateStats()
-        playbook_cb = PlaybookCallbacks(verbose=utils.VERBOSITY)
-        if options.step:
-            playbook_cb.step = options.step
-        if options.start_at:
-            playbook_cb.start_at = options.start_at
-        runner_cb = PlaybookRunnerCallbacks(stats, verbose=utils.VERBOSITY)
-
-        pb = ansible.playbook.PlayBook(
-            playbook=playbook,
-            module_path=options.module_path,
-            inventory=inventory,
-            forks=options.forks,
-            remote_user=options.remote_user,
-            remote_pass=sshpass,
-            callbacks=playbook_cb,
-            runner_callbacks=runner_cb,
-            stats=stats,
-            timeout=options.timeout,
-            transport=options.connection,
-            sudo=options.sudo,
-            sudo_user=options.sudo_user,
-            sudo_pass=sudopass,
-            extra_vars=extra_vars,
-            private_key_file=options.private_key_file,
-            only_tags=only_tags,
-            skip_tags=skip_tags,
-            check=options.check,
-            diff=options.diff
-        )
-
-        if options.listhosts or options.listtasks:
-            print ''
-            print 'playbook: %s' % playbook
-            print ''
-            playnum = 0
-            for (play_ds, play_basedir) in zip(pb.playbook, pb.play_basedirs):
-                playnum += 1
-                play = ansible.playbook.Play(pb, play_ds, play_basedir)
-                label = play.name
-                if options.listhosts:
-                    hosts = pb.inventory.list_hosts(play.hosts)
-                    print '  play #%d (%s): host count=%d' % (playnum, label, len(hosts))
-                    for host in hosts:
-                        print '    %s' % host
-                if options.listtasks:
-                    matched_tags, unmatched_tags = play.compare_tags(pb.only_tags)
-
-                    # Remove skipped tasks
-                    matched_tags = matched_tags - set(pb.skip_tags)
-
-                    unmatched_tags.discard('all')
-                    unknown_tags = ((set(pb.only_tags) | set(pb.skip_tags)) -
-                                    (matched_tags | unmatched_tags))
-
-                    if unknown_tags:
-                        continue
-                    print '  play #%d (%s):' % (playnum, label)
-
-                    for task in play.tasks():
-                        if (set(task.tags).intersection(pb.only_tags) and not
-                            set(task.tags).intersection(pb.skip_tags)):
-                            if getattr(task, 'name', None) is not None:
-                                # meta tasks have no names
-                                print '    %s' % task.name
+            # let inventory know which playbooks are using so it can know the basedirs
+            inventory.set_playbook_basedir(os.path.dirname(playbook))
+    
+            stats = AggregateStats()
+            playbook_cb = PlaybookCallbacks(verbose=utils.VERBOSITY)
+            if options.step:
+                playbook_cb.step = options.step
+            if options.start_at:
+                playbook_cb.start_at = options.start_at
+            runner_cb = PlaybookRunnerCallbacks(stats, verbose=utils.VERBOSITY)
+    
+            pb = ansible.playbook.PlayBook(
+                playbook=playbook,
+                module_path=options.module_path,
+                inventory=inventory,
+                forks=options.forks,
+                remote_user=options.remote_user,
+                remote_pass=sshpass,
+                callbacks=playbook_cb,
+                runner_callbacks=runner_cb,
+                stats=stats,
+                timeout=options.timeout,
+                transport=options.connection,
+                sudo=options.sudo,
+                sudo_user=options.sudo_user,
+                sudo_pass=sudopass,
+                extra_vars=extra_vars,
+                private_key_file=options.private_key_file,
+                only_tags=only_tags,
+                skip_tags=skip_tags,
+                check=options.check,
+                diff=options.diff
+            )
+    
+            if options.listhosts or options.listtasks:
                 print ''
-            continue
+                print 'playbook: %s' % playbook
+                print ''
+                playnum = 0
+                for (play_ds, play_basedir) in zip(pb.playbook, pb.play_basedirs):
+                    playnum += 1
+                    play = ansible.playbook.Play(pb, play_ds, play_basedir)
+                    label = play.name
+                    if options.listhosts:
+                        hosts = pb.inventory.list_hosts(play.hosts)
+                        print '  play #%d (%s): host count=%d' % (playnum, label, len(hosts))
+                        for host in hosts:
+                            print '    %s' % host
+                    if options.listtasks:
+                        matched_tags, unmatched_tags = play.compare_tags(pb.only_tags)
+    
+                        # Remove skipped tasks
+                        matched_tags = matched_tags - set(pb.skip_tags)
+    
+                        unmatched_tags.discard('all')
+                        unknown_tags = ((set(pb.only_tags) | set(pb.skip_tags)) -
+                                        (matched_tags | unmatched_tags))
+    
+                        if unknown_tags:
+                            continue
+                        print '  play #%d (%s):' % (playnum, label)
+    
+                        for task in play.tasks():
+                            if (set(task.tags).intersection(pb.only_tags) and not
+                                set(task.tags).intersection(pb.skip_tags)):
+                                if getattr(task, 'name', None) is not None:
+                                    # meta tasks have no names
+                                    print '    %s' % task.name
+                    print ''
+                continue
+    
+            if options.syntax:
+                # if we've not exited by now then we are fine.
+                print 'Playbook Syntax is fine'
+                return 0
 
-        if options.syntax:
-            # if we've not exited by now then we are fine.
-            print 'Playbook Syntax is fine'
-            return 0
+            failed_hosts = []
+            unreachable_hosts = []
+    
+            try:
+    
+                pb.run()
+    
+                hosts = sorted(pb.stats.processed.keys())
+                display(banner("PLAY RECAP"))
+                playbook_cb.on_stats(pb.stats)
+    
+                for h in hosts:
+                    t = pb.stats.summarize(h)
+                    if t['failures'] > 0:
+                        failed_hosts.append(h)
+                    if t['unreachable'] > 0:
+                        unreachable_hosts.append(h)
+    
+                retries = failed_hosts + unreachable_hosts
+    
+                #if len(retries) > 0:
+                #    filename = pb.generate_retry_inventory(retries)
+                #    if filename:
+                #        display("           to retry, use: --limit @%s\n" % filename)
+    
+                for h in hosts:
+                    t = pb.stats.summarize(h)
+    
+                    display("%s : %s %s %s %s" % (
+                        hostcolor(h, t),
+                        colorize('ok', t['ok'], 'green'),
+                        colorize('changed', t['changed'], 'yellow'),
+                        colorize('unreachable', t['unreachable'], 'red'),
+                        colorize('failed', t['failures'], 'red')),
+                        screen_only=True
+                    )
+    
+                    display("%s : %s %s %s %s" % (
+                        hostcolor(h, t, False),
+                        colorize('ok', t['ok'], None),
+                        colorize('changed', t['changed'], None),
+                        colorize('unreachable', t['unreachable'], None),
+                        colorize('failed', t['failures'], None)),
+                        log_only=True
+                    )
 
-        failed_hosts = []
-        unreachable_hosts = []
+    
+                print ""
+                if len(failed_hosts) > 0:
+                    return_code = 2
+                if len(unreachable_hosts) > 0:
+                    return_code = 3
+    
+            except errors.AnsibleError, e:
+                display("ERROR: %s" % e, color='red')
+                return_code = 1
+            
+            if return_code != 0:
+                display("ERROR executing playbook (%s/%s)" % (num_retries, options.play_retries), color='red')
 
-        try:
-
-            pb.run()
-
-            hosts = sorted(pb.stats.processed.keys())
-            display(banner("PLAY RECAP"))
-            playbook_cb.on_stats(pb.stats)
-
-            for h in hosts:
-                t = pb.stats.summarize(h)
-                if t['failures'] > 0:
-                    failed_hosts.append(h)
-                if t['unreachable'] > 0:
-                    unreachable_hosts.append(h)
-
-            retries = failed_hosts + unreachable_hosts
-
-            if len(retries) > 0:
-                filename = pb.generate_retry_inventory(retries)
-                if filename:
-                    display("           to retry, use: --limit @%s\n" % filename)
-
-            for h in hosts:
-                t = pb.stats.summarize(h)
-
-                display("%s : %s %s %s %s" % (
-                    hostcolor(h, t),
-                    colorize('ok', t['ok'], 'green'),
-                    colorize('changed', t['changed'], 'yellow'),
-                    colorize('unreachable', t['unreachable'], 'red'),
-                    colorize('failed', t['failures'], 'red')),
-                    screen_only=True
-                )
-
-                display("%s : %s %s %s %s" % (
-                    hostcolor(h, t, False),
-                    colorize('ok', t['ok'], None),
-                    colorize('changed', t['changed'], None),
-                    colorize('unreachable', t['unreachable'], None),
-                    colorize('failed', t['failures'], None)),
-                    log_only=True
-                )
-
-
-            print ""
-            if len(failed_hosts) > 0:
-                return 2
-            if len(unreachable_hosts) > 0:
-                return 3
-
-        except errors.AnsibleError, e:
-            display("ERROR: %s" % e, color='red')
-            return 1
-
-    return 0
+    return return_code
 
 
 if __name__ == "__main__":

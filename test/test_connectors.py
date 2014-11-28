@@ -17,7 +17,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-import unittest, os, time
+import unittest, time
 import logging, logging.config
 
 from IM.CloudInfo import CloudInfo
@@ -25,8 +25,9 @@ from IM.auth import Authentication
 from IM.radl import radl_parse
 from IM.VirtualMachine import VirtualMachine
 from IM.VMRC import VMRC
+from IM.InfrastructureInfo import InfrastructureInfo
 
-TESTS_PATH = os.getcwd() + '/test'
+TESTS_PATH = '/home/micafer/codigo/git_im/im/test'
 AUTH_FILE = TESTS_PATH + '/auth.dat'
 
 auth = Authentication(Authentication.read_auth_data(AUTH_FILE))
@@ -41,7 +42,7 @@ class TestConnectors(unittest.TestCase):
     """ List of VMs launched in the test """
     
     #connectors_to_test = "all"
-    connectors_to_test = ["libcloud"]
+    connectors_to_test = ["docker"]
     """ Specify the connectors to test: "all": All the connectors specified in the auth file or a list with the IDs"""
 
     @classmethod
@@ -75,7 +76,7 @@ class TestConnectors(unittest.TestCase):
                                      for s0 in vmrc_res ])
 
         return  res
-
+            
     def test_10_concrete(self):
         radl_data = """
             network net ()
@@ -83,10 +84,13 @@ class TestConnectors(unittest.TestCase):
             cpu.arch='x86_64' and
             cpu.count>=1 and
             memory.size>=512m and
-            net_interface.0.connection = 'privada' and
+            #disks.free_size>=2g and
+            net_interface.0.connection = 'net' and
             net_interface.0.dns_name = 'test' and
-            disk.0.os.flavour='scientific' and
-            disk.0.os.version>='6'
+            disk.0.os.flavour='ubuntu' and
+            disk.0.os.version>='12.04'
+            #disk.0.os.flavour='centos' and
+            #disk.0.os.version>='6'
             )"""
         radl = radl_parse.parse_radl(radl_data)
         radl_system = radl.systems[0]
@@ -101,19 +105,21 @@ class TestConnectors(unittest.TestCase):
             
     def test_20_launch(self):
         radl_data = """
-            network net ()
+            network net (outbound='yes' and outports='8899/tcp,22/tcp-22/tcp')
             system test (
             cpu.arch='x86_64' and
             cpu.count>=1 and
             memory.size>=512m and
+            #disks.free_size>=2g and
             net_interface.0.connection = 'net' and
             net_interface.0.dns_name = 'test' and
-            disk.0.os.flavour='scientific' and
-            disk.0.os.version>='6' and
+            disk.0.os.flavour='ubuntu' and
+            disk.0.os.version>='12.04' and
+            #disk.0.os.flavour='centos' and
+            #disk.0.os.version>='6' and
             disk.1.size=1GB and
             disk.1.device='hdb'
             )"""
-        
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
         radl_system = radl.systems[0]
@@ -128,7 +134,7 @@ class TestConnectors(unittest.TestCase):
     
                 launch_radl = radl.clone()
                 launch_radl.systems = [concrete_systems[0]]
-                res = cloud.launch(launch_radl, launch_radl, 1, auth)
+                res = cloud.launch(InfrastructureInfo(), launch_radl, launch_radl, 1, auth)
                 for success, vm in res:
                     self.assertTrue(success, msg="ERROR: launching a VM for cloud: " + cloud_id)
                     self.__class__.vm_list.append(vm) 
@@ -142,7 +148,7 @@ class TestConnectors(unittest.TestCase):
     def wait_vm_state(self, cl, vm, state, timeout):
         # wait the VM to be stopped
         wait = 0
-        err_states = [VirtualMachine.FAILED, VirtualMachine.OFF]
+        err_states = [VirtualMachine.FAILED, VirtualMachine.OFF, VirtualMachine.UNKNOWN]
         while vm.state != state and vm.state not in err_states and wait < timeout:
             try: 
                 (success, new_vm) = cl.updateVMInfo(vm, auth)
@@ -161,7 +167,7 @@ class TestConnectors(unittest.TestCase):
             cl = vm.cloud.getCloudConnector()
             
             # wait the VM to be running
-            wait_ok = self.wait_vm_state(cl,vm,VirtualMachine.RUNNING,90)
+            wait_ok = self.wait_vm_state(cl,vm,VirtualMachine.RUNNING,240)
             
             self.assertTrue(wait_ok, msg="ERROR: waiting stop op VM for cloud: " + vm.cloud.id)
             
