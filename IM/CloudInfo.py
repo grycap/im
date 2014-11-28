@@ -15,24 +15,27 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import sys
-from datetime import datetime, timedelta
 from connectors import *
 	
-# Clase que representa un site cloud
 class CloudInfo:
+	"""
+	Class to represent the information of a cloud provider
+	"""
 	
 	def __init__(self):
 		self.id = None
+		"""Identifier of the cloud provider"""
 		self.type = ""
+		"""Type of the cloud provider"""
 		self.server = ""
+		"""Server of the cloud provider"""
 		self.port = -1
-		self.score = 1
-		self.vm_launches = []
-		self.vm_fails = []
-		self.vm_boot_times = {}
+		"""Port of the cloud provider"""
 
-	# Devolvemos la clase adecuada para el proveedor cloud del tipo self.type
 	def getCloudConnector(self):
+		"""
+		Returns the appropriate object to contact the cloud provider
+		"""
 		if len(self.type) > 15 or "." in self.type:
 			raise Exception("Not valid cloud provider.")
 		try:
@@ -53,58 +56,11 @@ class CloudInfo:
 
 		return res
 
-	def getMeanBootTime(self):
-		if len(self.vm_boot_times) > 0:
-			total_time = timedelta(0)
-			for vm_id, boot_time in self.vm_boot_times.iteritems():
-				total_time += boot_time
-			
-			total_time /= len(self.vm_boot_times)
-			
-			return total_time
-		else:
-			return timedelta(0)
-
-	def setVMBootTime(self, vm_id, time):
-		if not self.vm_boot_times.has_key(vm_id):
-			self.vm_boot_times[vm_id] = time
-		
-		return self.vm_boot_times[vm_id]
-
-	def addVMLaunch(self):
-		self.vm_launches.append(datetime.now())
-		
-	def addVMFail(self):
-		self.vm_fails.append(datetime.now())
-		
-	def getErrorPct(self, delay = 3600):
-		diff = timedelta(seconds = delay)
-		now = datetime.now()
-		fails = 0.0
-		for fail_t in self.vm_fails:
-			if (now - fail_t) < diff:
-				fails += 1.0
-		launches = 0.0
-		for launch_t in self.vm_launches:
-			if (now - launch_t) < diff:
-				launches += 1.0
-		
-		if (launches == 0.0):
-			return 0.0
-		else:
-			return fails/launches
-
-	def getScore(self):
-		err = int(100.0 * self.getErrorPct())
-		res = (self.getMeanBootTime() * (100 - err)) / 100
-		score = res.days * 24 * 60 * 60 + res.seconds + self.score
-		#return score
-		# Esto lo desactivamos
-		return 1
-
-	# Devuelve el listado de clouds
 	@staticmethod
 	def get_cloud_list(auth_data):
+		"""
+		Get the list of cloud providers from the authentication data
+		"""
 		res = []
 
 		for i, auth in enumerate(auth_data.auth_list):

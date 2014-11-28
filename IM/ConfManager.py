@@ -18,19 +18,19 @@ import yaml
 import threading
 import os
 import time
-from datetime import datetime
 import tempfile
 import logging
 import shutil
 import subprocess
 import json
 import string
+import copy
 
 import InfrastructureManager
 from VirtualMachine import VirtualMachine
 from SSH import SSH, AuthenticationException
 from recipe import Recipe
-from radl.radl import contextualize_item
+from radl.radl import contextualize_item, system
 
 from config import Config
 
@@ -87,7 +87,6 @@ class ConfManager(threading.Thread):
 		wait = 0
 		running = 0
 		deleted = 0
-		start_time = datetime.now()
 		while running + deleted < len(vm_list) and wait < timeout:
 			running = 0
 			deleted = 0
@@ -102,16 +101,21 @@ class ConfManager(threading.Thread):
 						vm = new_vm_info
 
 					if vm.state == VirtualMachine.RUNNING:
-						vm.cloud.setVMBootTime(vm.id, datetime.now() - start_time)
 						running += 1
 					elif vm.state == VirtualMachine.FAILED:
 						ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": VM " + str(vm.id) + " is FAILED")
-						vm.cloud.addVMFail()
 
 						if relaunch and retries < Config.MAX_VM_FAILS:
 							ConfManager.logger.info("Inf ID: " + str(self.inf.id) + ": Launching new VM")
 							InfrastructureManager.InfrastructureManager.RemoveResource(self.inf.id, vm.id, self.auth)
-							InfrastructureManager.InfrastructureManager.AddResource(self.inf.id, "system " + vm.getRequestedSystem().name + "\ndeploy " + vm.getRequestedSystem().name + " 1", self.auth, False, [vm.cloud])
+							
+							new_radl = ""
+							for net in vm.info.networks:
+								new_radl = "network " + net.id + "\n"								
+							new_radl += "system " + vm.getRequestedSystem().name + "\n"
+							new_radl += "deploy " + vm.getRequestedSystem().name + " 1"
+							
+							InfrastructureManager.InfrastructureManager.AddResource(self.inf.id, new_radl, self.auth, False, [vm.cloud])
 							# Set the wait counter to 0
 							wait = 0
 							retries += 1
@@ -138,7 +142,6 @@ class ConfManager(threading.Thread):
 
 						if vm.state != VirtualMachine.RUNNING:
 							ConfManager.logger.warn("VM " + str(vm.id) + " timeout")
-							vm.cloud.addVMFail()
 
 							if relaunch:
 								ConfManager.logger.info("Launch a new VM")
@@ -171,6 +174,8 @@ class ConfManager(threading.Thread):
 		vms_connected = 0
 		vms_ignored = 0
 		vms_without_ip = 0
+		auth_errors = {}
+		auth_error_retries = 3
 		while (vms_connected + vms_ignored + vms_without_ip) < total_vms and wait < timeout:
 			vms_connected = 0
 			vms_ignored = 0
@@ -184,15 +189,22 @@ class ConfManager(threading.Thread):
 					if ip != None:
 						(user, passwd, _, private_key) = vm.getCredentialValues()
 
-						ssh = SSH(ip, user, passwd, private_key)
+						ssh = SSH(ip, user, passwd, private_key, vm.getSSHPort())
 						ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " + 'SSH Connecting with: ' + ip + ' to the VM: ' + str(vm.id))
 						
 						connected = False
 						try:
 							connected = ssh.test_connectivity(5)
 						except AuthenticationException:
-							ConfManager.logger.error("Error connecting with ip: " + ip + " incorrect credentials.")
-							return False
+							ConfManager.logger.warn("Error connecting with ip: " + ip + " incorrect credentials.")
+							if ip in auth_errors:
+								auth_errors[ip] += 1
+							else:
+								auth_errors[ip] = 1
+
+							if auth_errors[ip] >= auth_error_retries:
+								ConfManager.logger.error("Too many authentication errors")
+								return False 
 						
 						if connected:
 							ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " + 'Works!')
@@ -216,36 +228,6 @@ class ConfManager(threading.Thread):
 		else:
 			return False
 
-	def select_vm_master(self):
-		"""
-		Select the VM master of the infrastructure.
-		The master VM must be connected with all the VMs and must have a Linux OS
-		It will select the first created VM that fulfills this requirements  
-	
-		Returns: a tuples (vm_master, master_num) where:
-		   - vm_master(:py:class:`IM.VirtualMachine`): the selected master VM.
-		   - master_num(int): the num of the the master VM inside their type of VM
-		"""
-		vm_master = None
-		num = 0
-		master_num = 0
-		for vm in self.inf.get_vm_list():
-			if vm.getOS() and vm.getOS().lower() == 'linux' and vm.hasPublicNet():
-				# check that is connected with all the VMs
-				full_connected = True
-				for other_vm in self.inf.get_vm_list():
-					if not vm.isConnectedWith(other_vm):
-						full_connected = False
-				if full_connected:
-					vm_master = vm
-					master_num = num
-					num += 1
-					break
-				else:
-					ConfManager.logger.error("All the VMs are not connected")
-
-		return (vm_master, master_num)
-
 	def change_master_credentials(self, ssh):
 		"""
 		Chech the RADL of the VM master to see if we must change the user credentials
@@ -262,7 +244,7 @@ class ConfManager(threading.Thread):
 				(_, new_passwd, new_public_key, new_private_key) = new_creds
 				if new_passwd:
 					ConfManager.logger.info("Changing password to master VM")
-					(out, err, code) = ssh.execute('sudo bash -c \'echo "' + user + ':' + new_passwd + '" | chpasswd && echo "OK"\' 2> /dev/null')
+					(out, err, code) = ssh.execute('sudo bash -c \'echo "' + user + ':' + new_passwd + '" | /usr/sbin/chpasswd && echo "OK"\' 2> /dev/null')
 					
 					if code == 0:
 						change_creds = True
@@ -290,9 +272,9 @@ class ConfManager(threading.Thread):
 		try:
 			# Select the master VM
 			self.inf.add_cont_msg("Select master VM")
-			(self.inf.vm_master, master_num) = self.select_vm_master()
+			self.inf.select_vm_master()
 
-			if self.inf.vm_master is None:
+			if not self.inf.vm_master:
 				# If there are not a valid master VM, exit
 				ConfManager.logger.error("Inf ID: " + str(self.inf.id) + ": No correct Master VM found. Exit")
 				self.inf.add_cont_msg("Contextualization Error: No correct Master VM found. Check if there a linux VM with Public IP and connected with the rest of VMs.")
@@ -300,7 +282,7 @@ class ConfManager(threading.Thread):
 				return
 
 			# Now check if the master VM has specified a hostname or set the master VM hostname with the default values			
-			(master_name, masterdom) = self.inf.vm_master.getRequestedName(master_num, Config.DEFAULT_MASTERVM_NAME, Config.DEFAULT_DOMAIN)
+			(master_name, masterdom) = self.inf.vm_master.getRequestedName(default_hostname = Config.DEFAULT_VM_NAME, default_domain = Config.DEFAULT_DOMAIN)
 
 			ConfManager.logger.info("Inf ID: " + str(self.inf.id) + ": Wait the master VM to be running")
 
@@ -314,6 +296,11 @@ class ConfManager(threading.Thread):
 				if not self.inf.configured: self.inf.configured = False
 				return
 
+			# To avoid problems with the known hosts of previous calls
+			if os.path.isfile(os.path.expanduser("~/.ssh/known_hosts")):
+				ConfManager.logger.debug("Remove " + os.path.expanduser("~/.ssh/known_hosts"))
+				os.remove(os.path.expanduser("~/.ssh/known_hosts"))
+
 			self.inf.add_cont_msg("Wait master VM to have the SSH active.")
 			all_connected = self.waitConnectedVMs([self.inf.vm_master], timeout)
 			if not all_connected:
@@ -325,9 +312,6 @@ class ConfManager(threading.Thread):
 			ConfManager.logger.info("Inf ID: " + str(self.inf.id) + ": VMs available.")
 			ConfManager.logger.info("Inf ID: " + str(self.inf.id) + ": Start the contextualization process.")
 
-			# set the flag the the contextualization process starts
-			self.contextualizing = True
-
 			# configure master VM with ansible
 			ip = self.inf.vm_master.getPublicIP()
 			master_priv_ip = self.inf.vm_master.getPrivateIP()
@@ -336,7 +320,7 @@ class ConfManager(threading.Thread):
 				master_priv_ip = ip
 
 			(user, passwd, _, private_key) = self.inf.vm_master.getCredentialValues()
-			ssh = SSH(ip, user, passwd, private_key)
+			ssh = SSH(ip, user, passwd, private_key, self.inf.vm_master.getSSHPort())
 			# Activate tty mode to avoid some problems with sudo in REL
 			ssh.tty = True
 
@@ -346,10 +330,18 @@ class ConfManager(threading.Thread):
 			# Force to save the data to store the log data 
 			InfrastructureManager.InfrastructureManager.save_data()
 			
+			# set the flag the the contextualization process starts
+			self.contextualizing = True
+		
+			# Get the list of the VMs at the init of the process
+			vm_init_list = self.inf.get_vm_list()
+			# Get the groups for the different VM types
+			vm_group = self.inf.get_vm_list_by_system_name()
+			
 			# configuration dir os th emaster node to copy all the contextualization files
 			tmp_dir = tempfile.mkdtemp()
 			# Now call the ansible installation process on the master node
-			configured_ok = self.configure_ansible(ssh, tmp_dir, master_name, masterdom)
+			configured_ok = self.configure_ansible(vm_group, ssh, tmp_dir, master_name, masterdom)
 			
 			if not configured_ok:
 				ConfManager.logger.error("Inf ID: " + str(self.inf.id) + ": Error in the ansible installation process")
@@ -360,10 +352,17 @@ class ConfManager(threading.Thread):
 				ConfManager.logger.info("Inf ID: " + str(self.inf.id) + ": Ansible installation finished successfully")
 			
 			# Now call the contextualization process
-			context_ok = self.launch_ctxt_agent(ssh, tmp_dir)
+			context_ok = self.launch_ctxt_agent(vm_group, ssh, tmp_dir)
 			
 			# set the flag the the contextualization process has finished
 			self.contextualizing = False
+			
+			# Get the list of the VMs at the end of the process
+			vm_end_list = self.inf.get_vm_list()
+			if vm_init_list != vm_end_list:
+				ConfManager.logger.error("Inf ID: " + str(self.inf.id) + ": Error VMs not contextualized has appear!!!")
+				context_ok = False
+				self.inf.add_cont_msg("Contextualization Error: VMs not contextualized has appear!!!")
 
 			if not context_ok:
 				ConfManager.logger.error("Inf ID: " + str(self.inf.id) + ": Error in the contextualization process")
@@ -446,7 +445,22 @@ class ConfManager(threading.Thread):
 
 		return conf_content 
 
-	def configure_ansible(self, ssh, tmp_dir, master_name, masterdom):
+	def create_all_recipe(self, tmp_dir, filename):
+		"""
+		Create the recipe "all" enabling to access all the ansible variables from all hosts
+		Arguments:
+		   - tmp_dir(str): Temp directory where all the playbook files will be stored.
+		   - filename(str): name of he yaml to include (without the extension)
+		"""
+		conf_all_out = open(tmp_dir + "/" + filename + "_all.yml", 'w')
+		conf_all_out.write("---\n")
+		conf_all_out.write("- hosts: all\n")
+		conf_all_out.write("  user: \"{{ IM_NODE_USER }}\"\n")
+		conf_all_out.write("- include: " + filename + ".yml\n")
+		conf_all_out.write("\n\n")
+		conf_all_out.close()
+
+	def configure_ansible(self, vm_group, ssh, tmp_dir, master_name, masterdom):
 		"""
 		Install and configure ansible in the master node
 	
@@ -461,12 +475,9 @@ class ConfManager(threading.Thread):
 		recipe_files = []
 		# Create the ansible inventory file
 		with open(tmp_dir + "/inventory.cfg", 'w') as inv_out:
-			inv_out.write(ssh.host + "\n\n")
+			inv_out.write(ssh.host + ":" + str(ssh.port) + "\n\n")
 		
 		shutil.copy(Config.CONTEXTUALIZATION_DIR + "/" + ConfManager.MASTER_YAML, tmp_dir + "/" + ConfManager.MASTER_YAML)
-		
-		# Get the groups for the different VM types
-		vm_group = self.inf.get_vm_list_by_system_name()
 		
 		# Add all the modules needed in the RADL
 		modules = []
@@ -485,10 +496,6 @@ class ConfManager(threading.Thread):
 
 		self.inf.add_cont_msg("Creating and copying Ansible playbook files")
 		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Preparing Ansible playbook to copy Ansible modules: " + str(modules))
-
-		# To avoid problems with the known hosts of previous calls
-		if os.path.isfile(os.path.expanduser("~/.ssh/known_hosts")):
-			os.remove(os.path.expanduser("~/.ssh/known_hosts"))
 
 		ssh.sftp_mkdir(ConfManager.CONF_DIR)
 		# Copy the utils helper files
@@ -528,15 +535,10 @@ class ConfManager(threading.Thread):
 										ConfManager.CONF_DIR + "/" + ctxt_elem.configure + "_" + ctxt_elem.system + ".yml"))
 	
 					# create the "all" to enable this playbook to see the facts of all the nodes
-					conf_all_out = open(tmp_dir + "/" + ctxt_elem.configure + "_" + ctxt_elem.system + "_all.yml", 'w')
-					conf_all_out.write("---\n")
-					conf_all_out.write("- hosts: all\n")
-					conf_all_out.write("  user: \"{{ IM_NODE_USER }}\"\n")
-					conf_all_out.write("- include: " + ctxt_elem.configure + "_" + ctxt_elem.system + ".yml\n")
-					conf_all_out.write("\n\n")
-					conf_all_out.close()
-					recipe_files.append((tmp_dir + "/" + ctxt_elem.configure + "_" + ctxt_elem.system + "_all.yml",
-										ConfManager.CONF_DIR + "/" + ctxt_elem.configure + "_" + ctxt_elem.system + "_all.yml"))
+					all_filename = ctxt_elem.configure + "_" + ctxt_elem.system
+					self.create_all_recipe(tmp_dir, all_filename)
+					all_filename += "_all.yml"
+					recipe_files.append((tmp_dir + "/" + all_filename, ConfManager.CONF_DIR + "/" + all_filename))
 
 		# Create the other configure sections (it may be included in other configure)
 		if self.inf.radl.configures:
@@ -561,9 +563,12 @@ class ConfManager(threading.Thread):
 			conf_out = open(tmp_dir + "/main_" + group + ".yml", 'w')
 			conf_content = self.add_ansible_header(group, vm.getOS().lower())
 
-			conf_content += "  tasks: \n"
+			conf_content += "  pre_tasks: \n"
 			# Basic tasks set copy /etc/hosts ...
 			conf_content += "  - include: utils/tasks/main.yml\n"
+
+			conf_content += "  tasks: \n"
+			conf_content += "  - debug: msg='Install user requested apps'\n"
 			
 			for app_name, recipe in recipes:
 				self.inf.add_cont_msg("App: " + app_name + " set to be installed.")
@@ -594,15 +599,10 @@ class ConfManager(threading.Thread):
 							ConfManager.CONF_DIR + "/main_" + group + ".yml"))
 			
 			# create the "all" to enable this playbook to see the facts of all the nodes
-			conf_all_out = open(tmp_dir + "/main_" + group + "_all.yml", 'w')
-			conf_all_out.write("---\n")
-			conf_all_out.write("- hosts: all\n")
-			conf_all_out.write("  user: \"{{ IM_NODE_USER }}\"\n")
-			conf_all_out.write("- include: main_" + group + ".yml\n")
-			conf_all_out.write("\n\n")
-			conf_all_out.close()
-			recipe_files.append((tmp_dir + "/main_" + group + "_all.yml",
-								ConfManager.CONF_DIR + "/main_" + group + "_all.yml"))
+			all_filename = "main_" + group
+			self.create_all_recipe(tmp_dir, all_filename)
+			all_filename += "_all.yml"
+			recipe_files.append((tmp_dir + "/" + all_filename, ConfManager.CONF_DIR + "/" + all_filename ))
 			
 
 		self.inf.add_cont_msg("Copying generated playbook files.")
@@ -612,11 +612,11 @@ class ConfManager(threading.Thread):
 		self.inf.add_cont_msg("Performing preliminary steps to configure Ansible.")
 		# TODO: check to do it with ansible
 		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Check if python-simplejson is installed in REL 5 systems")
-		(stdout, stderr, _) = ssh.execute("cat /etc/redhat-release | grep \"release 5\" &&  yum -y install python-simplejson", 120)
+		(stdout, stderr, _) = ssh.execute("cat /etc/redhat-release | grep \"release 5\" &&  sudo yum -y install python-simplejson", 120)
 		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " + stdout + stderr)
 
 		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Remove requiretty in sshd config")
-		(stdout, stderr, _) = ssh.execute("cat /etc/sudoers | grep -v requiretty >> /tmp/sudoers.tmp; mv -f /tmp/sudoers.tmp  /etc/sudoers; echo 'Defaults !requiretty' >> /etc/sudoers ", 120)
+		(stdout, stderr, _) = ssh.execute("sudo sed -i 's/.*requiretty$/#Defaults requiretty/' /etc/sudoers", 120)
 		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " + stdout + stderr)
 		
 		self.inf.add_cont_msg("Configure Ansible in the master VM (step 1).")
@@ -653,7 +653,6 @@ class ConfManager(threading.Thread):
 		all_nodes = "[all]\n"
 		all_vars = ""
 		for group in vm_group:
-			num = 0
 			vm = vm_group[group][0]
 			user = vm.getCredentialValues()[0]
 			out.write('[' + group + ':vars]\n')
@@ -672,9 +671,9 @@ class ConfManager(threading.Thread):
 					ifaces_im_vars = ''
 					for i in range(vm.getNumNetworkIfaces()):
 						iface_ip = vm.getIfaceIP(i)
-						ifaces_im_vars = ' IM_NODE_NET_' + str(i) + '_IP=' + iface_ip
-						if vm.getRequestedNameIface(i, num):
-							(nodename, nodedom) = vm.getRequestedNameIface(i, num, default_domain=Config.DEFAULT_DOMAIN)
+						ifaces_im_vars += ' IM_NODE_NET_' + str(i) + '_IP=' + iface_ip
+						if vm.getRequestedNameIface(i):
+							(nodename, nodedom) = vm.getRequestedNameIface(i, default_domain = Config.DEFAULT_DOMAIN)
 							hosts_out.write(iface_ip + " " + nodename + "." + nodedom + " " + nodename + "\r\n")
 							ifaces_im_vars += ' IM_NODE_NET_' + str(i) + '_HOSTNAME=' + nodename
 							ifaces_im_vars += ' IM_NODE_NET_' + str(i) + '_DOMAIN=' + nodedom
@@ -687,25 +686,18 @@ class ConfManager(threading.Thread):
 	
 					# the master node
 					# TODO: Known issue: the master VM must set the public network in the iface 0 
-					if vm == self.inf.vm_master:
-						nodename = master_name
-						nodedom = masterdom
-						if not self.inf.vm_master.getRequestedName(0):
-							hosts_out.write(ip + " " + nodename + "." + nodedom + " " + nodename + "\r\n")
+					(nodename ,nodedom) = system.replaceTemplateName(Config.DEFAULT_VM_NAME + "." + Config.DEFAULT_DOMAIN, str(vm.im_id))
+					if vm.getRequestedName():
+						(nodename, nodedom) = vm.getRequestedName(default_domain = Config.DEFAULT_DOMAIN)
 					else:
-						nodedom = Config.DEFAULT_DOMAIN
-						nodename = "node" + str(num)
-						if vm.getRequestedName(num):
-							(nodename, nodedom) = vm.getRequestedName(num, default_domain=Config.DEFAULT_DOMAIN)
-						else:
-							hosts_out.write(ip + " " + nodename + "." + nodedom + " " + nodename + "\r\n")
+						hosts_out.write(ip + " " + nodename + "." + nodedom + " " + nodename + "\r\n")
 
-					node_line = ip
+					node_line = ip + ":" + str(vm.getSSHPort())
 					node_line += ' IM_NODE_HOSTNAME=' + nodename
 					node_line += ' IM_NODE_HOSTNAME=' + nodename
 					node_line += ' IM_NODE_FQDN=' + nodename + "." + nodedom
 					node_line += ' IM_NODE_DOMAIN=' + nodedom
-					node_line += ' IM_NODE_NUM=' + str(num)
+					node_line += ' IM_NODE_NUM=' + str(vm.im_id)
 					node_line += ' IM_NODE_VMID=' + str(vm.id)
 					node_line += ' IM_NODE_ANSIBLE_IP=' + ip
 					node_line += ifaces_im_vars
@@ -719,8 +711,6 @@ class ConfManager(threading.Thread):
 					node_line += "\n"
 					out.write(node_line)
 					all_nodes += node_line
-
-					num += 1
 				
 			out.write("\n")
 	
@@ -741,16 +731,18 @@ class ConfManager(threading.Thread):
 		recipe_out.write("---\n")
 		recipe_out.write("- hosts: all\n")
 		recipe_out.write("  sudo: yes\n")
-		recipe_out.write("  vars_files:\n")
-		recipe_out.write('    - [ "utils/vars/{{ ansible_distribution }}.yml", "utils/vars/os_defaults.yml" ]\n')
 		recipe_out.write("  tasks:\n")
+
+		recipe_out.write("    - name: Copy the /etc/hosts file (needs to be sudo)\n")
+		recipe_out.write("      copy: src=" + hosts_file + " dest=/etc/hosts\n")
+		recipe_out.write("      ignore_errors: yes\n")
+
 		recipe_out.write("    - name: Create the /etc/ansible directory\n")
 		recipe_out.write("      file: path=/etc/ansible state=directory\n")
-		recipe_out.write("    - name: Copy the {{ item.dest }} file (needs to be sudo)\n")
-		recipe_out.write("      copy: src={{ item.src }} dest={{ item.dest }}\n")
-		recipe_out.write("      with_items:\n")
-		recipe_out.write("      - { src: '" + ansible_file + "', dest: '/etc/ansible/hosts' }\n")
-		recipe_out.write("      - { src: '" + hosts_file + "', dest: '/etc/hosts' }\n")
+		
+		recipe_out.write("    - name: Copy the /etc/ansible/hosts file\n")
+		recipe_out.write("      copy: src=" + ansible_file + " dest=/etc/ansible/hosts\n")	
+		
 		recipe_out.write("    - name: Set the " + ConfManager.CONF_DIR + " directory owner\n")
 		recipe_out.write("      file: path=" + ConfManager.CONF_DIR + " state=directory owner=" + ssh.username + "\n")
 		recipe_out.close()
@@ -775,6 +767,7 @@ class ConfManager(threading.Thread):
 		"""
 		conf_data = {}
 		
+		conf_data['playbook_retries'] = Config.PLAYBOOK_RETRIES
 		conf_data['groups'] = []
 		for group in vm_group:
 			group_conf_data = {}
@@ -791,6 +784,7 @@ class ConfManager(threading.Thread):
 					vm_conf_data['ip'] = vm.getPublicIP()
 					if not vm_conf_data['ip']:
 						vm_conf_data['ip'] = vm.getPrivateIP()
+					vm_conf_data['ssh_port'] = vm.getSSHPort()
 					creds = vm.getCredentialValues()
 					new_creds = vm.getCredentialValues(new=True)
 					(vm_conf_data['user'], vm_conf_data['passwd'], _, vm_conf_data['private_key']) = creds
@@ -838,7 +832,7 @@ class ConfManager(threading.Thread):
 						if vm_ip in ctxt_agent_out['CHANGE_CREDS'] and ctxt_agent_out['CHANGE_CREDS'][vm_ip]:
 							vm.info.systems[0].updateNewCredentialValues()
 
-	def launch_ctxt_agent(self, ssh, tmp_dir):
+	def launch_ctxt_agent(self, vm_group, ssh, tmp_dir):
 		"""
 		Call the contextualization agent to perform all the contextualization steps
 	
@@ -847,9 +841,6 @@ class ConfManager(threading.Thread):
 		   - tmp_dir(str): Temp dir where the ansible files are stored.
 		Returns: True if the process finished sucessfully, False otherwise.
 		"""
-		# Get the groups for the different VM types
-		vm_group = self.inf.get_vm_list_by_system_name()
-
 		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Create the configuration file for the contextualization agent")
 		conf_file = tmp_dir + "/config.txt"
 		self.create_conf_file(conf_file, vm_group)
@@ -926,10 +917,28 @@ class ConfManager(threading.Thread):
 		   - yaml1(str): string with the second YAML
 		Returns: The merged YAML. In case of errors, it concatenates both strings
 		"""
+		yamlo1o = {}
 		try:
-			yamlo1 = yaml.load(yaml1)[0]
-			yamlo2 = yaml.load(yaml2)[0]
-			
+			yamlo1o = yaml.load(yaml1)[0]
+			if not isinstance(yamlo1o, dict):
+				yamlo1o = {}
+		except Exception:
+			ConfManager.logger.exception("Error parsing YAML: " + yaml1 + "\n Ignore it")
+		
+		try:
+			yamlo2s = yaml.load(yaml2)
+			if not isinstance(yamlo2s, list) or any([ not isinstance(d, dict) for d in yamlo2s ]):
+				yamlo2s = {}
+		except Exception:
+			ConfManager.logger.exception("Error parsing YAML: " + yaml2 + "\n Ignore it")
+			yamlo2s = {}
+
+		if not yamlo2s and not yamlo1o:
+			return ""
+
+		result = []
+		for yamlo2 in yamlo2s:
+			yamlo1 = copy.deepcopy(yamlo1o)
 			all_keys = []
 			all_keys.extend(yamlo1.keys())
 			all_keys.extend(yamlo2.keys())
@@ -940,12 +949,15 @@ class ConfManager(threading.Thread):
 					if key in yamlo2 and yamlo2[key]:
 						if isinstance(yamlo1[key], dict):
 							yamlo1[key].update(yamlo2[key])
-						else:
+						elif isinstance(yamlo1[key], list):
 							yamlo1[key].extend(yamlo2[key])
+						else:
+							# Both use have the same key with merge in a lists
+							v1 = yamlo1[key]
+							v2 = yamlo2[key]
+							yamlo1[key] = [v1, v2]
 				elif key in yamlo2 and yamlo2[key]:
 					yamlo1[key] = yamlo2[key]
+			result.append(yamlo1)
 
-			return yaml.dump([yamlo1], default_flow_style=False, explicit_start=True, width=256)
-		except Exception:
-			ConfManager.logger.exception("Error parsing YAML.")
-			return yaml1 + "\n" + yaml2
+		return yaml.dump(result, default_flow_style=False, explicit_start=True, width=256)

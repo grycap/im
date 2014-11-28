@@ -13,10 +13,15 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-	
+
+import time
+import threading
+from IM.radl.radl import network
+from config import Config
+
 class VirtualMachine:
 
-	# estados de las VMs
+	# VM states
 	UNKNOWN = "unknown"
 	PENDING = "pending"
 	RUNNING = "running"
@@ -25,116 +30,192 @@ class VirtualMachine:
 	FAILED = "failed"
 	CONFIGURED = "configured"
 
-	def __init__(self, id, cloud, info, requested_radl):
-		# Flag para indicar si esta VM ha sido eliminada por el usuario
+	def __init__(self, inf, cloud_id, cloud, info, requested_radl):
+		self._lock = threading.Lock()
+		"""Threading Lock to avoid concurrency problems."""
+		self.last_update = 0
+		"""Last update of the VM info"""
 		self.destroy = False
-		# estado de la VM
+		"""Flag to specify that this VM has been destroyed"""
 		self.state = self.UNKNOWN
-		# el ID de la VM asignado por el despliegue cloud
-		self.id = id
-		# el ID de la VM asignado por el IM
-		self.im_id = None
-		# datos sobre el despliegue cloud donde ha sido lanzada
+		"""VM State"""
+		self.inf = inf
+		"""Infrastructure which this VM is part of"""
+		self.id = cloud_id 
+		"""The ID of the VM assigned by the cloud provider"""
+		self.im_id = inf.get_next_vm_id()
+		"""The internal ID of the VM assigned by the IM"""
 		self.cloud = cloud
-		# Objeto RADL con la informacion actual sobre la VM: memoria, cpu, aplicaciones, redes, etc.
+		"""CloudInfo object with the information about the cloud provider"""
 		self.info = info.clone() if info else None
-		# Objeto RADL con la informacion pedida para la VM: memoria, cpu, aplicaciones, etc.
+		"""RADL object with the current information about the VM"""
 		self.requested_radl = requested_radl
+		"""Original RADL requested by the user"""
+
+	def __getstate__(self):
+		"""
+		Function to save the information to pickle
+		"""
+		with self._lock:
+			odict = self.__dict__.copy()
+		# Quit the lock to the data to be store by pickle
+		del odict['_lock']
+		return odict
+	
+	def __setstate__(self, dic):
+		"""
+		Function to load the information to pickle
+		"""
+		self._lock = threading.Lock()
+		with self._lock:
+			self.__dict__.update(dic)
+
+	def finalize(self, auth):
+		"""
+		Finalize the VM
+		"""
+		if not self.destroy:
+			cl = self.cloud.getCloudConnector()
+			(success, msg) = cl.finalize(self, auth)
+			if success:
+				self.destroy = True
+			# force the update of the information
+			self.last_update = 0
+			return (success, msg)
+		else:
+			return (True, "")
+
+	def alter(self, radl, auth):
+		"""
+		Modify the features of the the VM
+		"""
+		cl = self.cloud.getCloudConnector()
+		(success, alter_res) = cl.alterVM(self, radl, auth)
+		# force the update of the information
+		self.last_update = 0
+		return (success, alter_res)
+	
+	def stop(self, auth):
+		"""
+		Stop the VM
+		"""
+		cl = self.cloud.getCloudConnector()
+		(success, msg) = cl.stop(self, auth)
+		# force the update of the information
+		self.last_update = 0
+		return (success, msg)
 		
-	# Devuelve el objeto system con los datos RADL solicitados por el usuario para crear esta VM
+	def start(self, auth):
+		"""
+		Start the VM
+		"""
+		cl = self.cloud.getCloudConnector()
+		(success, msg) = cl.start(self, auth)
+		# force the update of the information
+		self.last_update = 0
+		return (success, msg)
+
 	def getRequestedSystem(self):
+		"""
+		Get the system object with the requested RADL data
+		"""
 		return self.requested_radl.systems[0]
 	
-	# Devuelve True si tiene alguna ip publica
 	def hasPublicIP(self):
+		"""
+		Return True if this VM has a public IP
+		"""
 		return bool(self.info.getPublicIP())
 	
-	# Devuelve True si tiene alguna ip publica
 	def hasPublicNet(self):
+		"""
+		Return True if this VM is connected to some network defined as public
+		"""
 		return self.info.hasPublicNet(self.info.systems[0].name)
-		
-	# Devuelve si la VM tiene alguna IP igual a la especificada
+
 	def hasIP(self, ip):
+		"""
+		Return True if this VM has an IP equals to the specified ip
+		"""
 		return self.info.systems[0].hasIP(ip)
 		
-	# Devuelve la primera interfaz de red con IP publica
-	# Suponemos que solo habra una publica en cada VM
 	def getPublicIP(self):
+		"""
+		Get the first net interface with public IP
+		"""
 		return self.info.getPublicIP()
 	
-	# Devuelve la primera interfaz de red con IP privada
 	def getPrivateIP(self):
+		"""
+		Get the first net interface with private IP
+		"""
 		return self.info.getPrivateIP()
 
-	# Devuelve el numero de interfaces de red definidas
 	def getNumNetworkIfaces(self):
+		"""
+		Get the number of net interfaces of this VM 
+		"""
 		return self.info.systems[0].getNumNetworkIfaces()
 
-	# Devuelve el numero de la interfax con el nombre de conexion indicado
 	def getNumNetworkWithConnection(self, connection):
+		"""
+		Get the number of the interface connected with the net id specified 
+		"""
 		return self.info.systems[0].getNumNetworkWithConnection(connection)
 
-	# Devuelve la IP de la interfaz indicada
 	def getIfaceIP(self, iface_num):
+		"""
+		Get the IP of the interface specified 
+		"""
 		return self.info.systems[0].getIfaceIP(iface_num)
 		
 	def getOS(self):
+		"""
+		Get O.S. of this VM 
+		"""
 		return self.info.systems[0].getValue("disk.0.os.name")
-	
-	# Devuelve las credenciales de acceso a la VM
-	def getCredentials(self):
-		return self.info.systems[0].getCredentials()
 		
 	def getCredentialValues(self, new = False):
+		"""
+		Get The credentials to access of this VM by SSH
+		"""
 		return self.info.systems[0].getCredentialValues(new=new)
 
 	def getInstalledApplications(self):
+		"""
+		Get the list of installed applications in this VM.
+		(Obtained from the VMRC)
+		"""
 		return self.info.systems[0].getApplications()
 		
 	def getRequestedApplications(self):
+		"""
+		Get the list of requested applications to be installed in this VM.
+		"""
 		return self.requested_radl.systems[0].getApplications()
-		
-	def getRequestedName(self, num = None, default_hostname = None, default_domain = None):
-		return self.getRequestedNameIface(0, num, default_hostname, default_domain)
 
-	def getRequestedNameIface(self, iface_num, num = None, default_hostname = None, default_domain = None):
-		full_name = self.requested_radl.systems[0].getRequestedName(iface_num)
-		replaced_full_name = VirtualMachine.replaceTemplateName(full_name, num)
-	
-		if replaced_full_name:
-			(hostname, domain) = replaced_full_name
-			if not domain:
-				domain = default_domain
-			return (hostname, domain)
-		else:
-			if default_hostname:
-				return (default_hostname, default_domain)
-			else:
-				return None
-	
-	@staticmethod
-	def replaceTemplateName(full_name, num = None):
-		if full_name:
-			if num is not None:
-				full_name = full_name.replace("#N#", str(num))
-			dot_pos = full_name.find('.')
-			if dot_pos != -1:
-				domain = full_name[dot_pos+1:]
-				name = full_name[:dot_pos]
-				return (name, domain)
-			else:
-				return (full_name, None)
-		else:
-			return full_name
-	
-	# Devuelve True si la VM actual y la indicada se pueden conectar
-	# por alguna red
+	def getRequestedName(self, default_hostname = None, default_domain = None):
+		"""
+		Get the requested name for this VM (interface 0)
+		"""
+		return self.getRequestedNameIface(0, default_hostname, default_domain)
+
+	def getRequestedNameIface(self, iface_num, default_hostname = None, default_domain = None):		
+		"""
+		Get the requested name for the specified interface of this VM
+		"""
+		return self.requested_radl.systems[0].getRequestedNameIface(iface_num, self.im_id, default_hostname, default_domain)
+
+
 	def isConnectedWith(self, vm):
-		# Si las 2 tienen IP publica
+		"""
+		Check if this VM is connected with the specified VM with a network
+		"""
+		# If both VMs have public IPs
 		if self.hasPublicIP() and vm.hasPublicIP():
 			return True
 
-		# O si las 2 estan conectadas una misma red
+		# Or if both VMs are connected to the same network
 		i = 0
 		while self.info.systems[0].getValue("net_interface." + str(i) + ".connection"):
 			net_name = self.info.systems[0].getValue("net_interface." + str(i) + ".connection")
@@ -194,6 +275,166 @@ class VirtualMachine:
 		to_install = []
 		for req_app in requested:
 			if req_app.getValue("name").startswith("ansible.modules."):
-				parts = req_app.getValue("name")[16:].split(".")
 				to_install.append(req_app.getValue("name")[16:])
 		return to_install
+	
+	def getSSHPort(self):
+		"""
+		Get the SSH port from the RADL 
+
+		Returns: int with the port
+		"""
+		ssh_port = 22
+
+		public_net = None
+		for net in self.info.networks:
+			if net.isPublic():
+				public_net = net
+				
+		if public_net:
+			outports = public_net.getValue('outports')
+			if outports:
+				for elem in outports.split(","):
+					parts = elem.split("-")
+					if len(parts) == 2 and parts[1] == "22":
+						ssh_port = int(parts[0])
+		
+		return ssh_port
+	
+	def setSSHPort(self, ssh_port):
+		"""
+		Set the SSH port in the RADL info of this VM 
+		"""
+		now = str(int(time.time()*100))
+
+		public_net = None
+		for net in self.info.networks:
+			if net.isPublic():
+				public_net = net
+		
+		# If it do
+		if public_net is None:
+			public_net = network.createNetwork("public." + now, True)
+			self.info.networks.append(public_net)
+
+		outports = public_net.getValue('outports')
+		if outports:
+			outports = outports + "," + str(ssh_port) + "-22"
+		else:
+			outports = str(ssh_port) + "-22"
+		public_net.setValue('outports', outports)
+		
+		# get the ID
+		num_net = self.getNumNetworkWithConnection(public_net.id)
+		if num_net is None:
+			# There are a public net but it has not been used in this VM
+			num_net = self.getNumNetworkIfaces()
+
+		self.info.systems[0].setValue('net_interface.' + str(num_net) + '.connection',public_net.id)
+		
+	def update_status(self, auth):
+		"""
+		Update the status of this virtual machine.
+		Only performs the update with UPDATE_FREQUENCY secs. 
+		
+		Args:
+		- auth(Authentication): parsed authentication tokens.
+		Return:
+		- boolean: True if the information has been updated, false otherwise
+		"""
+		now = int(time.time())
+		state = self.state
+		updated = False
+		# To avoid to refresh the information too quickly
+		if now - self.last_update > Config.VM_INFO_UPDATE_FREQUENCY:
+			cl = self.cloud.getCloudConnector()
+			(success, new_vm) = cl.updateVMInfo(self, auth)
+			if success:
+				state = new_vm.state
+				updated = True
+
+			with self._lock:
+				self.last_update = now
+	
+		if state != VirtualMachine.RUNNING:
+			new_state = state
+		elif self.inf.configured is None:
+			new_state = VirtualMachine.RUNNING
+		elif self.inf.configured:
+			new_state = VirtualMachine.CONFIGURED
+		else:
+			new_state = VirtualMachine.FAILED
+
+		with self._lock:
+			self.info.systems[0].setValue("state", new_state)
+
+		return updated
+
+	def setIps(self,public_ips,private_ips):
+		"""
+		Set the specified IPs in the VM RADL info 
+		"""
+		now = str(int(time.time()*100))
+		vm_system = self.info.systems[0]
+
+		if public_ips and not set(public_ips).issubset(set(private_ips)):
+			public_net = None
+			for net in self.info.networks:
+				if net.isPublic():
+					public_net = net
+					
+			if public_net is None:
+				public_net = network.createNetwork("public." + now, True)
+				self.info.networks.append(public_net)
+				num_net = self.getNumNetworkIfaces()
+			else:
+				# If there are are public net, get the ID
+				num_net = self.getNumNetworkWithConnection(public_net.id)
+				if num_net is None:
+					# There are a public net but it has not been used in this VM
+					num_net = self.getNumNetworkIfaces()
+
+			for public_ip in public_ips:
+				if public_ip not in private_ips:
+					vm_system.setValue('net_interface.' + str(num_net) + '.ip', str(public_ip))
+					vm_system.setValue('net_interface.' + str(num_net) + '.connection',public_net.id)
+
+		if private_ips:
+			private_net_map = {}
+			
+			for private_ip in private_ips:
+				private_net_mask = None
+
+				# Get the private network mask
+				for mask in network.private_net_masks:
+					if network.addressInNetwork(private_ip,mask):
+						private_net_mask = mask
+						break
+				
+				# Search in previous user private ips
+				private_net = None
+				for net_mask, net in private_net_map.iteritems():
+					if network.addressInNetwork(private_ip, net_mask): 	
+						private_net = net								
+
+				# Search in the RADL nets
+				if private_net is None:
+					for net in self.info.networks:
+						if not net.isPublic() and net not in private_net_map.values():
+							private_net = net
+							private_net_map[private_net_mask] = net
+			
+				# if it is still None, then create a new one
+				if private_net is None:
+					private_net = network.createNetwork("private." + private_net_mask.split('/')[0])
+					self.info.networks.append(private_net)
+					num_net = self.getNumNetworkIfaces()
+				else:
+					# If there are are private net, get the ID
+					num_net = self.getNumNetworkWithConnection(private_net.id)
+					if num_net is None:
+						# There are a private net but it has not been used in this VM
+						num_net = self.getNumNetworkIfaces()
+	
+				vm_system.setValue('net_interface.' + str(num_net) + '.ip', str(private_ip))
+				vm_system.setValue('net_interface.' + str(num_net) + '.connection',private_net.id)

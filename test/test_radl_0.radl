@@ -1,10 +1,11 @@
-network publica (outbound = 'yes')
+network publica (outbound = 'yes' and outports='8899-8899,22-22')
 system cursoaws (
 cpu.arch='x86_64' and
 cpu.count>=1 and
 memory.size>=512m and
 net_interface.0.connection = 'publica' and
 net_interface.0.dns_name = 'cursoaws' and
+disks.free_size = 3.92GB and
 disk.1.size=1GB and
 disk.1.device='hdb' and
 disk.0.free_size = 3.92GB and

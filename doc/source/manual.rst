@@ -29,15 +29,25 @@ Fedora, etc.), do::
 Finally, check the next values in the Ansible configuration file
 :file:`ansible.cfg`, (usually found in :file:`/etc/ansible`)::
 
+   [default]
    host_key_checking = False
-   transport = paramiko
+   transport = smart
+
+   [paramiko_connection]
    record_host_keys = False
+   
+   [ssh_connection]
+   pipelining=True
+   # Only in systems with OpenSSH support to ControlPersist 
+   ssh_args = -o ControlMaster=auto -o ControlPersist=900s
+   # In systems with older versions of OpenSSH (RHEL 6, CentOS 6, SLES 10 or SLES 11) 
+   ssh_args =
 
 Optional Packages
 -----------------
 
-* `apache-libcloud <http://libcloud.apache.org/>`_ 0.15 or later is used in the
-  LibCloud connector.
+* `apache-libcloud <http://libcloud.apache.org/>`_ 0.16 or later is used in the
+  LibCloud, OpenStack and GCE connectors.
 * `boto <http://boto.readthedocs.org>`_ 2.19.0 or later is used as interface to
   Amazon EC2. It is available as package named ``python-boto`` in Debian based
   distributions. It can also be downloaded from `boto GitHub repository <https://github.com/boto/boto>`_.
@@ -64,9 +74,9 @@ You only have to call the install command of the pip tool with the IM package::
 the packages python-paramiko and python-crypto before installing the IM with pip.**
 
 Pip will install all the pre-requisites needed. So Ansible 1.4.2 or later will be
- installed in the system. In some cases it will need to have installed the GCC 
- compiler and the python developer libraries ('python-dev' or 'python-devel' 
- packages in main distributions).
+installed in the system. In some cases it will need to have installed the GCC 
+compiler and the python developer libraries ('python-dev' or 'python-devel' 
+packages in main distributions).
 
 You must also remember to modify the ansible.cfg file setting as specified in the 
 REQUISITES section.
@@ -128,12 +138,39 @@ Basic Options
 
    Full path to the data file.
    The default value is :file:`/etc/im/inf.dat`.
+   
+.. confval:: USER_DB
+
+   Full path to the IM user DB json file.
+   To restrict the users that can access the IM service.
+   Comment it or set a blank value to disable user check.
+   The default value is empty.
+   JSON format of the file::
+   
+   	{
+   		"users": [
+   			{
+   				"username": "user1",
+   				"password": "pass1"
+   			},
+   			{
+   				"username": "user2",
+   				"password": "pass2"
+   			}
+   		]
+   	}
+   
 
 .. confval:: MAX_VM_FAILS
 
    Number of attempts to launch a virtual machine before considering it
    an error.
    The default value is 3.
+
+.. confval:: VM_INFO_UPDATE_FREQUENCY
+
+   Maximum frequency to update the VM info (in secs)
+   The default value is 10.
 
 .. confval:: WAIT_RUNNING_VM_TIMEOUT
 
@@ -175,10 +212,10 @@ Default Virtual Machine Options
    Allowed values: ``i386`` and ``x86_64``.
    The default value is ``x86_64``.
 
-.. confval:: DEFAULT_MASTERVM_NAME 
+.. confval:: DEFAULT_VM_NAME 
 
-   Default name of virtual machine with the *master* role.
-   The default value is ``vmmaster``.
+   Default name of virtual machines.
+   The default value is ``vnode-#N#``.
 
 .. confval:: DEFAULT_DOMAIN 
 
@@ -218,6 +255,11 @@ XML-RPC API
 
    Port number where IM XML-RPC API is available.
    The default value is 8899.
+   
+.. confval:: XMLRCP_ADDRESS
+
+   IP address where IM XML-RPC API is available.
+   The default value is 0.0.0.0 (all the IPs).
 
 .. confval:: XMLRCP_SSL 
 
@@ -255,6 +297,11 @@ REST API
 
    Port number where REST API is available.
    The default value is 8800.
+   
+.. confval:: REST_ADDRESS
+
+   IP address where REST API is available.
+   The default value is 0.0.0.0 (all the IPs).
 
 .. confval:: REST_SSL 
 
@@ -278,5 +325,28 @@ REST API
    Full path to the SSL Certification Authorities (CA) certificate.
    The default value is :file:`/etc/im/pki/ca-chain.pem`.
 
+GANGLIA INTEGRATION
+^^^^^^^^^^^^^^^^^^^
 
+.. confval:: GET_GANGLIA_INFO 
 
+   Flag to enable the retrieval of the ganglia info of the VMs.
+   The default value is ``False``.
+   
+.. confval:: GANGLIA_INFO_UPDATE_FREQUENCY 
+
+   Maximum frequency to update the Ganglia info (in secs).
+   The default value is ``30``.
+   
+
+GANGLIA_INFO_UPDATE_FREQUENCY = 30
+
+   
+CONTEXTUALIZATION PROCESS
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. confval:: PLAYBOOK_RETRIES 
+
+   Number of retries of the Ansible playbooks in case of failure.
+   The default value is 1.
+   

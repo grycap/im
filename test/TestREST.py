@@ -17,42 +17,24 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
-import sys, os, signal
+import os
 import httplib
 import time
 import json
-import urllib
 
-sys.path.append("..")
-from IM.config import Config
 from IM.VirtualMachine import VirtualMachine
-from IM.radl import radl_parse
 from IM.uriparse import uriparse
-
-LAUNCH_SERVER = False
+from IM.radl import radl_parse
 
 PID = None
 RADL_ADD = "network publica\nsystem front\ndeploy front 1"
 RADL_ADD_ERROR = "system wnno deploy wnno 1"
-TESTS_PATH = os.getcwd() + '/test'
+TESTS_PATH = '/home/micafer/codigo/git_im/im/test'
 RADL_FILE = TESTS_PATH + '/test_simple.radl'
-#RADL_FILE =  TESTS_PATH + '/test_ec2.radl'
 AUTH_FILE = TESTS_PATH + '/auth.dat'
 
 HOSTNAME = "jonsu.i3m.upv.es"
 TEST_PORT = 8800
-
-def setConfig():
-    Config.XMLRCP_PORT = TEST_PORT
-    Config.ACTIVATE_REST = True
-    Config.IM_PATH = os.getcwd()
-    Config.LOG_FILE = Config.IM_PATH + '/test/inf.log'
-    Config.CONTEXTUALIZATION_DIR = Config.IM_PATH + '/contextualization'
-    Config.RECIPES_DIR = Config.CONTEXTUALIZATION_DIR + '/AnsibleRecipes'
-    Config.RECIPES_DB_FILE = Config.CONTEXTUALIZATION_DIR + '/recipes_ansible.db'
-    Config.DATA_FILE = Config.IM_PATH + '/test/inf.dat'
-    Config.XMLRCP_SSL = False
-    Config.REST_SSL = False
 
 class TestIM(unittest.TestCase):
 
@@ -62,8 +44,6 @@ class TestIM(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        if LAUNCH_SERVER:
-            time.sleep(3)
         cls.server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
         f = open(AUTH_FILE)
         cls.auth_data = ""
@@ -74,30 +54,30 @@ class TestIM(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        # Por si acaso la borro
+        # Assure that the infrastructure is destroyed
         try:
-            cls.server.request('DELETE', "/inf/" + cls.inf_id, headers = {'Authorization' : cls.auth_data})
+            cls.server.request('DELETE', "/infrastructures/" + cls.inf_id, headers = {'Authorization' : cls.auth_data})
             cls.server.getresponse()
-            if LAUNCH_SERVER:
-                print "Mato el servicio: ", PID
-                os.kill(PID, signal.SIGTERM)
-                os.remove('inf.dat')
-        except Exception, ex:
-            print "Error al matar el servicio: ", ex
+        except Exception:
+            pass
 
-    def wait_inf_state(self, state, timeout):
-        self.server.request('GET', "/inf/" + self.inf_id, headers = {'AUTHORIZATION' : self.auth_data})
+    def wait_inf_state(self, state, timeout, incorrect_states = []):
+        """
+        Wait for an infrastructure to have a specific state
+        """
+        self.server.request('GET', "/infrastructures/" + self.inf_id, headers = {'AUTHORIZATION' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
-        self.assertIs(resp.status, 200, msg="ERROR al obtener la informacion de la infraestructura:" + output)
+        self.assertEqual(resp.status, 200, msg="ERROR getting infrastructure info:" + output)
         
         output_obj = json.loads(output)
         
-        self.assertIs(len(output_obj), 2, msg="ERROR al obtener la informacion de la infraestructura: Numero incorrecto de VMs(" + str(len(output_obj)) + ") deberia ser 2")
+        self.assertEqual(len(output_obj), 2, msg="ERROR getting infrastructure info: Incorrect number of VMs(" + str(len(output_obj)) + "). It must be 2")
 
         vm_ids = output_obj['vm_list']
 
         err_states = [VirtualMachine.FAILED, VirtualMachine.OFF]
+        err_states.extend(incorrect_states)
 
         wait = 0
         all_ok = False
@@ -105,15 +85,16 @@ class TestIM(unittest.TestCase):
             all_ok = True
             for vm_id in vm_ids:
                 vm_uri = uriparse(vm_id)
-                self.server.request('GET', vm_uri[2], headers = {'AUTHORIZATION' : self.auth_data})
+                self.server.request('GET', vm_uri[2] + "/state", headers = {'AUTHORIZATION' : self.auth_data})
                 resp = self.server.getresponse()
-                output = str(resp.read())
-                self.assertIs(resp.status, 200, msg="ERROR al obtener la informacion de la VM:" + output)
-                output_obj = json.loads(output)
+                vm_state = str(resp.read())
+                self.assertEqual(resp.status, 200, msg="ERROR getting VM info:" + output)
 
-                if output_obj['state'] in err_states:
+                self.assertFalse(vm_state in err_states, msg="ERROR waiting for a state. '%s' state was expected and '%s' was obtained in the VM %s" % (state, vm_state, vm_uri))
+
+                if vm_state in err_states:
                     return False
-                elif output_obj['state'] != state:
+                elif vm_state != state:
                     all_ok = False
 
             if not all_ok:
@@ -123,33 +104,45 @@ class TestIM(unittest.TestCase):
         return all_ok
 
     def test_10_list(self):
-        self.server.request('GET', "/infrastructure", headers = {'AUTHORIZATION' : self.auth_data})
+        self.server.request('GET', "/infrastructures", headers = {'AUTHORIZATION' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
-        self.assertIs(resp.status, 200, msg="ERROR al listar las infraestructuras:" + output)
+        self.assertEqual(resp.status, 200, msg="ERROR listing user infrastructures:" + output)
+        
+    def test_15_get_incorrect_info(self):
+        self.server.request('GET', "/infrastructures/999999", headers = {'AUTHORIZATION' : self.auth_data})
+        resp = self.server.getresponse()
+        resp.read()
+        self.assertEqual(resp.status, 404, msg="Incorrect error message: " + str(resp.status))
 
-    def test_11_create(self):
+    def test_18_get_info_without_auth_data(self):
+        self.server.request('GET', "/infrastructures/0")
+        resp = self.server.getresponse()
+        resp.read()
+        self.assertEqual(resp.status, 401, msg="Incorrect error message: " + str(resp.status))
+
+    def test_20_create(self):
         f = open(RADL_FILE)
         radl = ""
         for line in f.readlines():
             radl += line
         f.close()
 
-        self.server.request('POST', "/infrastructure", body = radl, headers = {'AUTHORIZATION' : self.auth_data})
+        self.server.request('POST', "/infrastructures", body = radl, headers = {'AUTHORIZATION' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
-        self.assertIs(resp.status, 200, msg="ERROR creating the infrastructure:" + output)
+        self.assertEqual(resp.status, 200, msg="ERROR creating the infrastructure:" + output)
 
         self.__class__.inf_id = str(os.path.basename(output))
         
         all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 600)
-        self.assertTrue(all_configured, msg="ERROR al esperar la creacion de la Infraestructura.")
+        self.assertTrue(all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
-    def test_14_get_vm_info(self):
-        self.server.request('GET', "/inf/" + self.inf_id, headers = {'AUTHORIZATION' : self.auth_data})
+    def test_30_get_vm_info(self):
+        self.server.request('GET', "/infrastructures/" + self.inf_id, headers = {'AUTHORIZATION' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
-        self.assertIs(resp.status, 200, msg="ERROR getting the infrastructure info:" + output)
+        self.assertEqual(resp.status, 200, msg="ERROR getting the infrastructure info:" + output)
         output_obj = json.loads(output)
         vm_ids = output_obj['vm_list']
 
@@ -157,29 +150,43 @@ class TestIM(unittest.TestCase):
         self.server.request('GET', vm_uri[2], headers = {'AUTHORIZATION' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
-        self.assertIs(resp.status, 200, msg="ERROR al obtener la informacion de la VM:" + output)
-
-    def test_18_addresource(self):
-        self.server.request('POST', "/inf/" + self.inf_id, body = RADL_ADD, headers = {'AUTHORIZATION' : self.auth_data})
+        self.assertEqual(resp.status, 200, msg="ERROR getting VM info:" + output)
+        
+    def test_35_get_vm_property(self):
+        self.server.request('GET', "/infrastructures/" + self.inf_id, headers = {'AUTHORIZATION' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
-        self.assertIs(resp.status, 200, msg="ERROR al anaydir recursos a la infraestructura:" + output)
-
-        self.server.request('GET', "/inf/" + self.inf_id, headers = {'AUTHORIZATION' : self.auth_data})
-        resp = self.server.getresponse()
-        output = str(resp.read())
-        self.assertIs(resp.status, 200, msg="ERROR getting the infrastructure info:" + output)
+        self.assertEqual(resp.status, 200, msg="ERROR getting the infrastructure info:" + output)
         output_obj = json.loads(output)
         vm_ids = output_obj['vm_list']
-        self.assertIs(len(vm_ids), 2, msg="ERROR al obtener la informacion de la infraestructura: Numero incorrecto de VMs(" + str(len(vm_ids)) + ") deberia ser 3")
-        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 600)
-        self.assertTrue(all_configured, msg="ERROR al esperar la creacion de la Infraestructura.")
 
-    def test_19_removeresource(self):
-        self.server.request('GET', "/inf/" + self.inf_id, headers = {'AUTHORIZATION' : self.auth_data})
+        vm_uri = uriparse(vm_ids[0])
+        self.server.request('GET', vm_uri[2] + "/state", headers = {'AUTHORIZATION' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
-        self.assertIs(resp.status, 200, msg="ERROR getting the infrastructure info:" + output)
+        self.assertEqual(resp.status, 200, msg="ERROR getting VM property:" + output)
+
+    def test_40_addresource(self):
+        self.server.request('POST', "/infrastructures/" + self.inf_id, body = RADL_ADD, headers = {'AUTHORIZATION' : self.auth_data})
+        resp = self.server.getresponse()
+        output = str(resp.read())
+        self.assertEqual(resp.status, 200, msg="ERROR adding resources:" + output)
+
+        self.server.request('GET', "/infrastructures/" + self.inf_id, headers = {'AUTHORIZATION' : self.auth_data})
+        resp = self.server.getresponse()
+        output = str(resp.read())
+        self.assertEqual(resp.status, 200, msg="ERROR getting the infrastructure info:" + output)
+        output_obj = json.loads(output)
+        vm_ids = output_obj['vm_list']
+        self.assertEqual(len(vm_ids), 2, msg="ERROR getting infrastructure info: Incorrect number of VMs(" + str(len(vm_ids)) + "). It must be 2")
+        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 600)
+        self.assertTrue(all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
+
+    def test_50_removeresource(self):
+        self.server.request('GET', "/infrastructures/" + self.inf_id, headers = {'AUTHORIZATION' : self.auth_data})
+        resp = self.server.getresponse()
+        output = str(resp.read())
+        self.assertEqual(resp.status, 200, msg="ERROR getting the infrastructure info:" + output)
         output_obj = json.loads(output)
         vm_ids = output_obj['vm_list']
         
@@ -187,62 +194,42 @@ class TestIM(unittest.TestCase):
         self.server.request('DELETE', vm_uri[2], headers = {'AUTHORIZATION' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
-        self.assertIs(resp.status, 200, msg="ERROR al borrar recursos de la infraestructura:" + output)
+        self.assertEqual(resp.status, 200, msg="ERROR removing resources:" + output)
 
-        self.server.request('GET', "/inf/" + self.inf_id, headers = {'AUTHORIZATION' : self.auth_data})
+        self.server.request('GET', "/infrastructures/" + self.inf_id, headers = {'AUTHORIZATION' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
-        self.assertIs(resp.status, 200, msg="ERROR getting the infrastructure info:" + output)
+        self.assertEqual(resp.status, 200, msg="ERROR getting the infrastructure info:" + output)
         output_obj = json.loads(output)
         vm_ids = output_obj['vm_list']
-        self.assertIs(len(vm_ids), 1, msg="ERROR al obtener la informacion de la infraestructura: Numero incorrecto de VMs(" + str(len(vm_ids)) + ") deberia ser 2")
+        self.assertEqual(len(vm_ids), 1, msg="ERROR getting infrastructure info: Incorrect number of VMs(" + str(len(vm_ids)) + "). It must be 1")
 
         all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 300)
-        self.assertTrue(all_configured, msg="ERROR al esperar la eliminacion de un nodo a la Infraestructura.")
+        self.assertTrue(all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
-    def test_20_stop(self):
-        params = urllib.urlencode({'op': 'stop'})
-        self.server.request('PUT', "/inf/" + self.inf_id, params, headers = {"Content-type": "application/x-www-form-urlencoded", 'AUTHORIZATION' : self.auth_data})
+    def test_60_stop(self):
+        self.server.request('PUT', "/infrastructures/" + self.inf_id + "/stop", headers = {"Content-type": "application/x-www-form-urlencoded", 'AUTHORIZATION' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
-        self.assertIs(resp.status, 200, msg="ERROR al parar la infraestructura:" + output)
+        self.assertEqual(resp.status, 200, msg="ERROR stopping the infrastructure:" + output)
 
-        all_stopped = self.wait_inf_state(VirtualMachine.STOPPED, 120)
-        self.assertTrue(all_stopped, msg="ERROR al esperar la parada de la Infraestructura.")
+        all_stopped = self.wait_inf_state(VirtualMachine.STOPPED, 120, [VirtualMachine.RUNNING])
+        self.assertTrue(all_stopped, msg="ERROR waiting the infrastructure to be stopped (timeout).")
 
-    def test_21_start(self):
-        params = urllib.urlencode({'op': 'start'})
-        self.server.request('PUT', "/inf/" + self.inf_id, params, headers = {"Content-type": "application/x-www-form-urlencoded", 'AUTHORIZATION' : self.auth_data})
+    def test_70_start(self):
+        self.server.request('PUT', "/infrastructures/" + self.inf_id + "/start", headers = {"Content-type": "application/x-www-form-urlencoded", 'AUTHORIZATION' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
-        self.assertIs(resp.status, 200, msg="ERROR al parar la infraestructura:" + output)
+        self.assertEqual(resp.status, 200, msg="ERROR starting the infrastructure:" + output)
 
-        all_stopped = self.wait_inf_state(VirtualMachine.CONFIGURED, 120)
-        self.assertTrue(all_stopped, msg="ERROR al esperar la parada de la Infraestructura.")
+        all_stopped = self.wait_inf_state(VirtualMachine.CONFIGURED, 120, [VirtualMachine.RUNNING])
+        self.assertTrue(all_stopped, msg="ERROR waiting the infrastructure to be started (timeout).")
 
-    def test_50_destroy(self):
-        self.server.request('DELETE', "/inf/" + self.inf_id, headers = {'Authorization' : self.auth_data})
+    def test_80_destroy(self):
+        self.server.request('DELETE', "/infrastructures/" + self.inf_id, headers = {'Authorization' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
-        self.assertIs(resp.status, 200, msg="ERROR al borrar la infraestructura:" + output)
+        self.assertEqual(resp.status, 200, msg="ERROR destroying the infrastructure:" + output)
 
 if __name__ == '__main__':
-    if LAUNCH_SERVER:
-        PID = os.fork()
-        if PID == 0:
-            print "Arranco el servicio: http://" + HOSTNAME + ":" + str(TEST_PORT)
-            try:
-                os.remove("inf.pkl")
-            except:
-                pass
-            from service import config_logging, launch_daemon
-            setConfig()
-            config_logging()
-            sys.stdout = open('inf.out', 'w')
-            sys.stderr = sys.stdout
-            launch_daemon()
-            sys.stdout.close()
-        else:
-            unittest.main()
-    else:
-        unittest.main()
+    unittest.main()

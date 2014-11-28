@@ -16,12 +16,13 @@
 
 import hashlib
 import xmlrpclib
+
 from IM.xmlobject import XMLObject
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from CloudConnector import CloudConnector
+from IM.radl.radl import network
 
-from IM.config import Config
 from IM.radl.radl import Feature
 
 # clases para parsear el resultado de las llamadas a la API de ONE
@@ -58,10 +59,10 @@ class VM(XMLObject):
 		STATE_FAILED=7
 		STATE_STR = {'0': 'init', '1': 'pending', '2': 'hold', '3': 'active', '4': 'stopped', '5': 'suspended', '6': 'done', '7': 'failed' }
 		LCM_STATE_STR={'0':'init','1':'prologing','2':'booting','3':'running','4':'migrating','5':'saving (stop)','6':'saving (suspend)','7':'saving (migrate)', '8':'prologing (migration)', '9':'prologing (resume)', '10': 'epilog (stop)','11':'epilog', '12':'cancel','13':'failure','14':'delete','15':'unknown'}
-		values = [ 'ID','UID','NAME','LAST_POLL','STATE','LCM_STATE','STIME','ETIME','DEPLOY_ID','MEMORY','CPU','NET_TX','NET_RX' ]
+		values = [ 'ID','UID','NAME','LAST_POLL','STATE','LCM_STATE','DEPLOY_ID','MEMORY','CPU','NET_TX','NET_RX', 'STIME','ETIME' ]
 #		tuples = { 'TEMPLATE': TEMPLATE, 'HISTORY': HISTORY }
 		tuples = { 'TEMPLATE': TEMPLATE }
-		numeric = [ 'ID', 'UID', 'STATE', 'LCM_STATE' ]
+		numeric = [ 'ID', 'UID', 'STATE', 'LCM_STATE', 'STIME','ETIME' ]
 
 class LEASE(XMLObject):
 	values = [ 'IP', 'MAC', 'USED' ]
@@ -75,10 +76,16 @@ class LEASES(XMLObject):
 	
 class RANGE(XMLObject):
 	values = [ 'IP_START', 'IP_END' ]
+	
+class AR(XMLObject):
+	values = [ 'IP', 'MAC', 'TYPE', 'ALLOCATED', 'GLOBAL_PREFIX', 'AR_ID' ]
+	
+class AR_POOL(XMLObject):
+	tuples_lists = { 'AR': AR }
 
 class VNET(XMLObject):
 	values = [ 'ID', 'UID', 'GID', 'UNAME', 'GNAME', 'NAME', 'TYPE', 'BRIDGE', 'PUBLIC' ]
-	tuples = { 'TEMPLATE': TEMPLATE_VNET, 'LEASES': LEASES, 'RANGE': RANGE }
+	tuples = { 'TEMPLATE': TEMPLATE_VNET, 'LEASES': LEASES, 'RANGE': RANGE, 'AR_POOL':AR_POOL }
 	
 class VNET_POOL(XMLObject):
 	tuples_lists = { 'VNET': VNET }
@@ -98,16 +105,25 @@ class OpenNebulaCloudConnector(CloudConnector):
 			src_host = url[1].split(':')[0]
 			# TODO: check the port
 			if (protocol == "one") and self.cloud.server == src_host:
-				# Set the default values
-				res_system = radl_system.clone()
-				res_system.addFeature(Feature("cpu.count", "=", Config.DEFAULT_VM_CPUS), conflict="me", missing="other")
-				res_system.addFeature(Feature("memory.size", "=", Config.DEFAULT_VM_MEMORY, Config.DEFAULT_VM_MEMORY_UNIT), conflict="me", missing="other")
-				res_system.addFeature(Feature("cpu.arch", "=", Config.DEFAULT_VM_CPU_ARCH), conflict="me", missing="other")
+				# Check the space in image and compare with disks.free_size
+				if radl_system.getValue('disks.free_size'):
+					disk_free = int(radl_system.getFeature('disks.free_size').getValue('M'))
+					# The VMRC specified the value in MB
+					disk_size = int(radl_system.getValue("disk.0.size"))
 				
-				# TODO: set operator to "=" in all the features
+					if disk_size < disk_free:
+						# if the image do not have enough space, discard it
+						return []
+
+				res_system = radl_system.clone()
+
 				res_system.getFeature("cpu.count").operator = "="
 				res_system.getFeature("memory.size").operator = "="
-								
+
+				res_system.addFeature(Feature("provider.type", "=", self.type), conflict="other", missing="other")
+				res_system.addFeature(Feature("provider.host", "=", self.cloud.server), conflict="other", missing="other")
+				res_system.addFeature(Feature("provider.port", "=", self.cloud.port), conflict="other", missing="other")
+	
 				return [res_system]
 			else:
 				return []
@@ -135,7 +151,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 				passwd = hashlib.sha1(passwd.strip()).hexdigest()
 			return auth[0]['username'] + ":" + passwd
 		else:
-			self.logger.error("No correct auth data has been specified to OpenNebula: username y password")
+			self.logger.error("No correct auth data has been specified to OpenNebula: username and password")
 			return None
 
 	def setIPsFromTemplate(self, vm, template):
@@ -146,8 +162,16 @@ class OpenNebulaCloudConnector(CloudConnector):
 		   - vm(:py:class:`IM.VirtualMachine`): VM information.
 		   - template(:py:class:`TEMPLATE`): ONE Template information. 
 		"""
-		for i, nic in enumerate(template.NIC):
-			vm.info.systems[0].setValue('net_interface.' + str(i) + '.ip',str(nic.IP))
+		public_ips = []
+		private_ips = []
+		for nic in template.NIC:
+			ip = str(nic.IP)
+			if network.isPrivateIP(ip):
+				private_ips.append(ip)
+			else:
+				public_ips.append(ip)
+
+		vm.setIps(public_ips, private_ips)
 
 	def updateVMInfo(self, vm, auth_data):
 		server_url = "http://%s:%d/RPC2" % (self.cloud.server, self.cloud.port)
@@ -170,8 +194,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 
 			# update the state of the VM
 			if res_vm.STATE == 3:
-				#if res_vm.LCM_STATE == 3:
-				if res_vm.LCM_STATE == 3 or res_vm.LCM_STATE == 2:
+				if res_vm.LCM_STATE == 3:
 					res_state = VirtualMachine.RUNNING
 				else:
 					res_state = VirtualMachine.PENDING
@@ -192,11 +215,15 @@ class OpenNebulaCloudConnector(CloudConnector):
 
 			# Update network data
 			self.setIPsFromTemplate(vm,res_vm.TEMPLATE)
+
+			if res_vm.STIME > 0:
+				vm.info.systems[0].setValue('launch_time', res_vm.STIME)
+
 			return (success, vm)
 		else:
 			return (success, res_info)
 
-	def launch(self, radl, requested_radl, num_vm, auth_data):
+	def launch(self, inf, radl, requested_radl, num_vm, auth_data):
 		server_url = "http://%s:%d/RPC2" % (self.cloud.server, self.cloud.port)
 		server = xmlrpclib.ServerProxy(server_url,allow_none=True)
 		session_id = self.getSessionID(auth_data)
@@ -222,7 +249,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 				return [(False, "Error in the one.vm.allocate return value")]
 				
 			if success:
-				vm = VirtualMachine(str(res_id), self.cloud, radl, requested_radl)
+				vm = VirtualMachine(inf, str(res_id), self.cloud, radl, requested_radl)
 				res.append((success, vm))
 			else:
 				res.append((success, "ERROR: " + str(res_id)))
@@ -334,13 +361,14 @@ class OpenNebulaCloudConnector(CloudConnector):
 			NAME = %s
 
 			CPU = %s
+			VCPU = %s
 			MEMORY = %s
 			OS = [ ARCH = "%s" ]
 
 			%s
 
-			GRAPHICS = [type="vnc",listen="0.0.0.0"]
-		''' % (name, cpu, memory, arch, disks)
+			GRAPHICS = [type="vnc",listen="0.0.0.0", keymap="es"]
+		''' % (name, cpu, cpu, memory, arch, disks)
 
 		res += self.get_networks_template(radl, auth_data)
 
@@ -389,95 +417,20 @@ class OpenNebulaCloudConnector(CloudConnector):
 		self.logger.debug("OpenNebula version: " + version)
 		return version
 
-	def getONENetwork(self, outbound, auth_data):
+	def free_address(self, addres_range):
 		"""
-		Get the first ONE (public/private) network
+		Check if there are at least one address free
 
 		Arguments:
-		   - outbound(boolean): specifies if the network is public (True) or private (False)
-		   - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
+		   - leases(:py:class:`AR`): List of AddressRange of a ONE network.
 		 
-		 Returns: a tuple (net_name, net_id) with the name and ID of the found network (None, None) if not found
+		 Returns: bool, True if there are at least one lease free or False otherwise
 		"""
-		server_url = "http://%s:%d/RPC2" % (self.cloud.server, self.cloud.port)
-		server = xmlrpclib.ServerProxy(server_url,allow_none=True)
-		session_id = self.getSessionID(auth_data)
-		if session_id == None:
-			return (None, None)
-		func_res = server.one.vnpool.info(session_id, -2, -1, -1)
-		
-		if len(func_res) == 2:
-			(success, info) = func_res
-		elif len(func_res) == 3:
-			(success, info, err_code) = func_res
-		else:
-			self.logger.error("Error in the  one.vnpool.info return value")
-			return (None, None)
-		
-		if success:
-			pool_info = VNET_POOL(info)
-		else:
-			self.logger.error("Error in the function one.vnpool.info: " + info)
-			return (None, None)
-
-		net_priv = None
-		net_pub = None
-		for net in pool_info.VNET:
-			if net.TEMPLATE.NETWORK_ADDRESS:
-				ip = net.TEMPLATE.NETWORK_ADDRESS
-			elif net.TEMPLATE.LEASES and len(net.TEMPLATE.LEASES) > 0:
-				ip = net.TEMPLATE.LEASES[0].IP
-			else:
-				self.logger.error("IP information is not in the VNET POOL. Use the vn.info")
-				info_res = server.one.vn.info(session_id, int(net.ID))
-				
-				if len(info_res) == 2:
-					(success, info) = info_res
-				elif len(func_res) == 3:
-					(success, info, err_code) = info_res
-				else:
-					self.logger.warn("Error in the one.vn.info return value. Ignoring network: " + net.NAME)
-					break
-				
-				net = VNET(info)
-				
-				if net.LEASES and net.LEASES.LEASE and len(net.LEASES.LEASE) > 0:
-					if self.free_leases(net.LEASES):
-						ip = net.LEASES.LEASE[0].IP
-					else:
-						self.logger.warn("The network with IPs like: " + net.LEASES.LEASE[0].IP + " does not have free leases")
-						break
-				elif net.RANGE and net.RANGE.IP_START:
-					ip = net.RANGE.IP_START
-				else:
-					self.logger.error("Unknown type of network")
-					return (None, None)
-				
-			if ip.startswith("10") or ip.startswith("172") or ip.startswith("169.254") or ip.startswith("192.168"):
-				# Private net
-				if net_priv is None:
-					net_priv = net
-			else:
-				# Public net
-				if net_pub is None:
-					net_pub = net
-
-		# if a public net is requested only a public net can be returned
-		if outbound and net_pub is not None:
-			return (net_pub.NAME, net_pub.ID)
-		
-		# A not public net is requested
-		if not outbound:
-			# 1st try the private
-			if net_priv is not None:
-				return (net_priv.NAME, net_priv.ID)
-			# if not return the public one
-			elif net_pub is not None:
-				return (net_pub.NAME, net_pub.ID)
-
-		self.logger.error("No network was found.")
-		return (None, None)
-
+		for ar in addres_range:
+			if not ar.ALLOCATED:
+				return True 
+		return False
+	
 	def free_leases(self, leases):
 		"""
 		Check if there are at least one lease free
@@ -528,6 +481,13 @@ class OpenNebulaCloudConnector(CloudConnector):
 				ip = net.TEMPLATE.NETWORK_ADDRESS
 			elif net.TEMPLATE.LEASES and len(net.TEMPLATE.LEASES) > 0:
 				ip = net.TEMPLATE.LEASES[0].IP
+			elif net.AR_POOL and net.AR_POOL.AR and len(net.AR_POOL.AR) > 0:
+				# This is the case for one 4.8
+				if self.free_address(net.AR_POOL.AR):
+					ip = net.AR_POOL.AR[0].IP
+				else:
+					self.logger.warn("The network with IPs like: " + net.AR_POOL.AR[0].IP + " does not have free leases")
+					continue				
 			else:
 				self.logger.warn("IP information is not in the VNET POOL. Use the vn.info")
 				info_res = server.one.vn.info(session_id, int(net.ID))
@@ -554,7 +514,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 					self.logger.error("Unknown type of network")
 					return (None, None)
 			
-			is_public = not (ip.startswith("10") or ip.startswith("172") or ip.startswith("169.254") or ip.startswith("192.168")) 
+			is_public = not (network.isPrivateIP(ip)) 
 
 			res.append((net.NAME, net.ID, is_public))
 				
@@ -568,7 +528,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 		   - radl_nets(list of :py:class:`radl.network` objects): RADL networks.
 		   - one_nets(a list of tuples (net_name, net_id, is_public)): ONE networks (returned by getONENetworks function).
 		 
-		 Returns: a dict with key the RADL network id and value a tuple (one_net_name, one_net_id)
+		 Returns: a dict with key the RADL network id and value a tuple (one_net_name, one_net_id, is_public)
 		"""
 		res = {}
 		
@@ -577,22 +537,22 @@ class OpenNebulaCloudConnector(CloudConnector):
 		for radl_net in radl_nets:
 			for (net_name, net_id, is_public) in one_nets:
 				if net_id not in used_nets and radl_net.isPublic() == is_public :
-					res[radl_net.id] = (net_name, net_id)
+					res[radl_net.id] = (net_name, net_id, is_public)
 					used_nets.append(net_id)
-					last_net = (net_name, net_id)
+					last_net = (net_name, net_id, is_public)
 					break
 			if radl_net.id not in res:
 				res[radl_net.id] = last_net
 	
-		# In case of there are no private network, use public ones for non maped networks
+		# In case of there are no private network, use public ones for non mapped networks
 		used_nets = []
 		for radl_net in radl_nets:
 			if not res[radl_net.id]:
 				for (net_name, net_id, is_public) in one_nets:
 					if net_id not in used_nets and is_public:
-						res[radl_net.id] = (net_name, net_id)
+						res[radl_net.id] = (net_name, net_id, is_public)
 						used_nets.append(net_id)
-						last_net = (net_name, net_id)
+						last_net = (net_name, net_id, is_public)
 						break
 				if radl_net.id not in res:
 					res[radl_net.id] = last_net	
@@ -620,32 +580,35 @@ class OpenNebulaCloudConnector(CloudConnector):
 		nets = self.map_radl_one_networks(radl.networks, one_nets)
 
 		system = radl.systems[0]
-		i = 0
-		while system.getValue("net_interface." + str(i) + ".connection"):
-			network = system.getValue("net_interface." + str(i) + ".connection")
-			fixed_ip = system.getValue("net_interface." + str(i) + ".ip")
-			
-			# get the one network info
-			if nets[network]:
-				(net_name, net_id) = nets[network]
-			else:
-				self.logger.error("No ONE network found for network: " + network)
-				raise Exception("No ONE network found for network: " + network)
-			
-			if net_id is not None:
-				if one_ver.startswith("2."):
-					res += 'NIC=[ \nNETWORK="' + net_name + '"\n'
+		# First set the public ones (onecloud issues...)
+		for public in [True, False]:
+			i = 0
+			while system.getValue("net_interface." + str(i) + ".connection"):
+				network = system.getValue("net_interface." + str(i) + ".connection")
+				fixed_ip = system.getValue("net_interface." + str(i) + ".ip")
+				
+				# get the one network info
+				if nets[network]:
+					(net_name, net_id, is_public) = nets[network]
 				else:
-					res += 'NIC=[ \nNETWORK_ID="' + net_id + '"\n'
-
-				if fixed_ip:
-					res += ',IP = "' + fixed_ip + '"\n'
-
-				res +=  ']\n'
-			else:
-				self.logger.error("The net: " + network + " cannot be defined in ONE")
-
-			i += 1
+					self.logger.error("No ONE network found for network: " + network)
+					raise Exception("No ONE network found for network: " + network)
+				
+				if public == is_public:
+					if net_id is not None:
+						if one_ver.startswith("2."):
+							res += 'NIC=[ \nNETWORK="' + net_name + '"\n'
+						else:
+							res += 'NIC=[ \nNETWORK_ID="' + net_id + '"\n'
+		
+						if fixed_ip:
+							res += ',IP = "' + fixed_ip + '"\n'
+		
+						res +=  ']\n'
+					else:
+						self.logger.error("The net: " + network + " cannot be defined in ONE")
+	
+				i += 1
 			
 		return res
 

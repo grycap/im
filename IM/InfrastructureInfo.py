@@ -9,17 +9,34 @@
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# GNU General Public Licenslast_updatee for more details.
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import logging
 import threading
+import time
+from uuid import uuid1
 
+from ganglia import ganglia_info
 import ConfManager
 from datetime import datetime
 from IM.radl.radl import RADL, Feature, deploy, system
+from config import Config
+
+
+class IncorrectVMException(Exception):
+	""" Invalid VM ID. """
+
+	def __init__(self, msg="Invalid VM ID"):
+		Exception.__init__(self, msg)
+		
+class DeletedVMException(Exception):
+	""" Deleted VM. """
+
+	def __init__(self, msg="Deleted VM."):
+		Exception.__init__(self, msg)
 
 class InfrastructureInfo:
 	"""
@@ -27,12 +44,15 @@ class InfrastructureInfo:
 	"""
 	
 	logger = logging.getLogger('InfrastructureManager')
+	"""Logger object."""
 	
 	def __init__(self):
 		self._lock = threading.Lock()
 		"""Threading Lock to avoid concurrency problems."""
+		self.uuid = str(uuid1())
+		"""Infrastructure unique ID. """
 		self.id = 0
-		"""Infrastructure ID."""
+		"""Infrastructure internal ID."""
 		self.vm_list = []
 		"""Map of int to VirtualMachine."""
 		self.auth = None
@@ -53,6 +73,10 @@ class InfrastructureInfo:
 		"""Contextualization output message"""
 		self.configured = None
 		"""Configure flag. If it is None the contextualization has not been finished yet"""
+		self.vm_id = 0
+		"""Next vm id available."""
+		self.last_ganglia_update = 0
+		"""Last update of the ganglia info"""
 	
 	def __getstate__(self):
 		"""
@@ -79,7 +103,14 @@ class InfrastructureInfo:
 		# because the configuration process will be lost
 		if self.configured is None:
 			self.configured = False
-		
+			
+	def get_next_vm_id(self):
+		"""Get the next vm id available."""
+		with self._lock:
+			vmid = self.vm_id
+			self.vm_id += 1
+		return vmid
+	
 	def delete(self):
 		"""
 		Set this Inf as deleted
@@ -97,8 +128,6 @@ class InfrastructureInfo:
 		Add, and assigns a new VM ID to the infrastructure 
 		"""
 		with self._lock:
-			# Assign the VM IM ID
-			vm.im_id = str(len(self.vm_list))
 			self.vm_list.append(vm)
 	
 	def add_cont_msg(self, msg):
@@ -123,9 +152,12 @@ class InfrastructureInfo:
 		vm_id = int(str_vm_id)
 		if vm_id >= 0 and vm_id < len(self.vm_list):
 			vm = self.vm_list[vm_id]
-			return vm if not vm.destroy else None
+			if not vm.destroy:
+				return vm
+			else:
+				raise DeletedVMException()
 		else:
-			return None		
+			raise IncorrectVMException()
 
 	def get_vm_list_by_system_name(self):
 		groups = {}
@@ -226,3 +258,45 @@ class InfrastructureInfo:
 				
 		# Check the RADL
 		radl.check();
+		
+	def select_vm_master(self):
+		"""
+		Select the VM master of the infrastructure.
+		The master VM must be connected with all the VMs and must have a Linux OS
+		It will select the first created VM that fulfills this requirements
+		and store the value in the vm_master field
+		"""
+		for vm in self.get_vm_list():
+			if vm.getOS() and vm.getOS().lower() == 'linux' and vm.hasPublicNet():
+				# check that is connected with all the VMs
+				full_connected = True
+				for other_vm in self.get_vm_list():
+					if not vm.isConnectedWith(other_vm):
+						full_connected = False
+				if full_connected:
+					self.vm_master = vm
+					break
+
+	def update_ganglia_info(self):
+		"""
+		Get information about the infrastructure from ganglia monitors.
+		"""
+		if Config.GET_GANGLIA_INFO:
+			InfrastructureInfo.logger.debug("Getting information from monitors")
+
+			now = int(time.time())
+			# To avoid to refresh the information too quickly
+			if now - self.last_ganglia_update > Config.GANGLIA_INFO_UPDATE_FREQUENCY:
+				try:
+					(success, msg) = ganglia_info.update_ganglia_info(self)
+				except Exception, ex:
+					success = False
+					msg = str(ex)
+			else:
+				success = False
+				msg = "The information was updated recently. Using last information obtained"
+
+			if not success:
+				InfrastructureInfo.logger.debug(msg)
+		
+		

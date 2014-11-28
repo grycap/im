@@ -79,7 +79,7 @@ class VMRC:
 
 		try:
 			vmrc_res = self.server._ns(self.namespace).list()
-		except Exception, ex:
+		except Exception:
 			return None
 
 		if len(vmrc_res) > 0:
@@ -109,7 +109,7 @@ class VMRC:
 		vmi_desc_str_val = VMRC._generateVMRC(radl_system.features).strip()
 		try:
 			vmrc_res = self.server._ns(self.namespace).search(vmiDescStr = vmi_desc_str_val)
-		except Exception, ex:
+		except Exception:
 			return []
 
 		if len(vmrc_res) > 0:

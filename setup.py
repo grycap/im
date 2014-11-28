@@ -25,7 +25,7 @@ install_path = '/usr/share/im'
 datafiles = [(os.path.join(install_path, root), [os.path.join(root, f) for f in files])
     for root, dirs, files in os.walk("contextualization")]
 # Add other special files
-datafiles.append(('/etc/init.d', ['im.init.d']))
+datafiles.append(('/etc/init.d', ['scripts/im']))
 datafiles.append(('/etc/im', ['etc/im.cfg']))
 
 setup(  name="IM", version=version, 

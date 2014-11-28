@@ -34,7 +34,7 @@ IMDAEMON=im_service.py
 
 which ${IMDAEMON} > /dev/null 2> /dev/null
 if [ $? -ne 0 ]; then
-	echo "[Error] ${IMDAEMON} not in PATH"
+	echo "[Error] ${IMDAEMON} not in found"
 	exit 1
 fi
 

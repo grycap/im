@@ -22,6 +22,8 @@ from IM.xmlobject import XMLObject
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from CloudConnector import CloudConnector
+from IM.radl.radl import Feature
+from IM.radl.radl import network as radl_network
 
 # clases para parsear el resultado de las llamadas a virsh
 class forward(XMLObject):
@@ -72,6 +74,25 @@ class LibVirtCloudConnector(CloudConnector):
 		'crashed'  : VirtualMachine.FAILED,
 		''  : VirtualMachine.UNKNOWN
 	}
+
+	def concreteSystem(self, radl_system, auth_data):
+		if radl_system.getValue("disk.0.image.url"):
+			url = uriparse(radl_system.getValue("disk.0.image.url"))
+			protocol = url[0]
+			if protocol == "file":
+				res_system = radl_system.clone()
+
+				res_system.getFeature("cpu.count").operator = "="
+				res_system.getFeature("memory.size").operator = "="
+
+				res_system.addFeature(Feature("provider.type", "=", self.type), conflict="other", missing="other")
+				res_system.addFeature(Feature("provider.host", "=", self.cloud.server), conflict="other", missing="other")
+					
+				return [res_system]
+			else:
+				return []
+		else:
+			return [radl_system.clone()]
 
 	def get_ssh_from_auth_data(self, auth_data):
 		auth = auth_data.getAuthInfo(LibVirtCloudConnector.type)
@@ -137,7 +158,7 @@ class LibVirtCloudConnector(CloudConnector):
 		net_priv = None
 		net_pub = None
 		for net in res:
-			if net.ip.address.startswith("10") or net.ip.address.startswith("172") or net.ip.address.startswith("169.254") or net.ip.address.startswith("192.168"):
+			if radl_network.isPrivateIP(net.ip.address):
 				# Red privada
 				net_priv = net
 			else:
@@ -160,7 +181,7 @@ class LibVirtCloudConnector(CloudConnector):
 		self.logger.error("No se ha encontrado ninguna red adecuada.")
 		return None
 	
-	def launch(self, radl, requested_radl, num_vm, auth_data):
+	def launch(self, inf, radl, requested_radl, num_vm, auth_data):
 		res = []
 		i = 0
 		while i < num_vm:
@@ -169,7 +190,7 @@ class LibVirtCloudConnector(CloudConnector):
 			if not name:
 				name = "userimage"
 			name += "-" + timestamp
-			vm = VirtualMachine(name, self.cloud, radl, requested_radl)
+			vm = VirtualMachine(inf, name, self.cloud, radl, requested_radl)
 			
 			template = self.getTemplate(vm, radl, timestamp, auth_data)
 			
@@ -323,10 +344,18 @@ class LibVirtCloudConnector(CloudConnector):
 			return (False, "Error conectando con el servidor libvirt")
 
 	def setIPs(self, vm, domain, auth_data):
+		public_ips = []
+		private_ips = []
+		
 		# Tenemos que hacer esto https://rwmj.wordpress.com/2010/10/26/tip-find-the-ip-address-of-a-virtual-machine/
-		for i, interface in enumerate(domain.devices.interface):
+		for interface in domain.devices.interface:
 			ip = self.getIPfromMAC(interface.mac.address, auth_data)
-			vm.info.system[0].setValue('net_interface.' + str(i) + '.ip',ip)
+			if network.isPrivateIP(ip):
+				private_ips.append(ip)
+			else:
+				public_ips.append(ip)
+			
+		vm.setIps(public_ips, private_ips)
 
 	def getIPfromMAC(self, mac, auth_data):
 		ssh = self.get_ssh_from_auth_data(auth_data)
