@@ -315,7 +315,6 @@ def contextualizeGroups(group_list, contextualize_list, conf_dir):
 			res_data['OK'] = False
 		else:
 			res_data['CTXT'][contxt_num] = True
-			res_data['OK'] = True
 
 	# Finally check if we must chage user credentials
 	res_data['CHANGE_CREDS'] = changeCredentials(group_list)
