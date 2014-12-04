@@ -313,7 +313,16 @@ class EC2CloudConnector(CloudConnector):
 				res.append((False, "Incorrect AMI selected"))
 			return res
 		else:
-			block_device = image.block_device_mapping.keys()[0]
+			block_device_name = None
+			for name, device in image.block_device_mapping.iteritems():
+				if device.snapshot_id or device.volume_id:
+					block_device_name = name
+
+			if not block_device_name:
+				self.logger.error("Error getting correct block_device name from AMI: " + str(ami))
+				for i in range(num_vm):
+					res.append((False, "Error getting correct block_device name from AMI: " + str(ami)))
+				return res
 			
 			(created_keypair, keypair_name) = self.create_keypair(system, conn)
 			if not keypair_name:
@@ -369,7 +378,7 @@ class EC2CloudConnector(CloudConnector):
 							
 							# Force to use magnetic volumes
 							bdm = boto.ec2.blockdevicemapping.BlockDeviceMapping(conn)
-							bdm[block_device] = boto.ec2.blockdevicemapping.BlockDeviceType(volume_type="standard")
+							bdm[block_device_name] = boto.ec2.blockdevicemapping.BlockDeviceType(volume_type="standard")
 							request = conn.request_spot_instances(price=price, image_id=image.id, count=1, type='one-time', instance_type=instance_type.name, placement=availability_zone, key_name=keypair_name, security_groups=[sg_name], block_device_map=bdm)
 							
 							if request:
@@ -398,7 +407,7 @@ class EC2CloudConnector(CloudConnector):
 							placement = system.getValue('availability_zone')
 							# Force to use magnetic volumes
 							bdm = boto.ec2.blockdevicemapping.BlockDeviceMapping(conn)
-							bdm[block_device] = boto.ec2.blockdevicemapping.BlockDeviceType(volume_type="standard")
+							bdm[block_device_name] = boto.ec2.blockdevicemapping.BlockDeviceType(volume_type="standard")
 							reservation = image.run(min_count=1,max_count=1,key_name=keypair_name,instance_type=instance_type.name,security_groups=[sg_name],placement=placement,block_device_map=bdm)
 		
 							if len(reservation.instances) == 1:
