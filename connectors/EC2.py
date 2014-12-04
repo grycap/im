@@ -271,11 +271,13 @@ class EC2CloudConnector(CloudConnector):
 				res.append((False, "Error connecting with EC2, check the credentials"))
 			return res
 		
-		images = conn.get_all_images([ami])
-
-		sg_name = self.create_security_group(conn, inf, radl)
+		image = conn.get_image(ami)
 		
-		if len(images) == 1:
+		if not image:
+			res.append((False, "Incorrect AMI selected"))
+		else:
+			block_device = image.block_device_mapping.keys()[0]
+
 			keypair_name = "im-" + str(int(time.time()*100))
 			# create the keypair
 			private = system.getValue('disk.0.os.credentials.private_key')
@@ -300,6 +302,10 @@ class EC2CloudConnector(CloudConnector):
 				system.setUserKeyCredentials(system.getCredentials().username, None, fkeypair.read())
 				fkeypair.close()
 				os.unlink(keypair_file)
+
+			# Create the security group for the VMs				
+			sg_name = self.create_security_group(conn, inf, radl)
+
 			i = 0
 			while i < num_vm:
 				spot = False
@@ -342,8 +348,8 @@ class EC2CloudConnector(CloudConnector):
 					
 					# Force to use magnetic volumes
 					bdm = boto.ec2.blockdevicemapping.BlockDeviceMapping(conn)
-					bdm["/dev/sda1"] = boto.ec2.blockdevicemapping.BlockDeviceType(volume_type="standard")
-					request = conn.request_spot_instances(price=price, image_id=images[0].id, count=1, type='one-time', instance_type=instance_type.name, placement=availability_zone, key_name=keypair_name, security_groups=[sg_name], block_device_map=bdm)
+					bdm[block_device] = boto.ec2.blockdevicemapping.BlockDeviceType(volume_type="standard")
+					request = conn.request_spot_instances(price=price, image_id=image.id, count=1, type='one-time', instance_type=instance_type.name, placement=availability_zone, key_name=keypair_name, security_groups=[sg_name], block_device_map=bdm)
 					
 					if request:
 						ec2_vm_id = region_name + ";" + request[0].id
@@ -370,8 +376,8 @@ class EC2CloudConnector(CloudConnector):
 					placement = system.getValue('availability_zone')
 					# Force to use magnetic volumes
 					bdm = boto.ec2.blockdevicemapping.BlockDeviceMapping(conn)
-					bdm["/dev/sda1"] = boto.ec2.blockdevicemapping.BlockDeviceType(volume_type="standard")
-					reservation = images[0].run(min_count=1,max_count=1,key_name=keypair_name,instance_type=instance_type.name,security_groups=[sg_name],placement=placement,block_device_map=bdm)
+					bdm[block_device] = boto.ec2.blockdevicemapping.BlockDeviceType(volume_type="standard")
+					reservation = image.run(min_count=1,max_count=1,key_name=keypair_name,instance_type=instance_type.name,security_groups=[sg_name],placement=placement,block_device_map=bdm)
 
 					if len(reservation.instances) == 1:
 						instance = reservation.instances[0]
@@ -761,19 +767,19 @@ class EC2CloudConnector(CloudConnector):
 		self.delete_volumes(conn, vm)
 		
 		# Delete the SG if this is the last VM
-		self.delete_security_group(conn, vm)
+		self.delete_security_group(conn, vm.inf)
 		
 		return (True, "")
 	
-	def delete_security_group(self, conn, vm, timeout = 90):
+	def delete_security_group(self, conn, inf, timeout = 90):
 		"""
 		Delete the SG of this infrastructure if this is the last VM
 
 		Arguments:
 		   - conn(:py:class:`boto.ec2.connection`): object to connect to EC2 API.
-		   - vm(:py:class:`IM.VirtualMachine`): VM information.	
+		   - inf(:py:class:`IM.InfrastructureInfo`): Infrastructure information.	
 		"""
-		sg_name = "im-" + str(id(vm.inf))
+		sg_name = "im-" + str(id(inf))
 		sg = None
 		for elem in conn.get_all_security_groups():
 			if elem.name == sg_name:
