@@ -18,6 +18,7 @@ import time
 import threading
 from IM.radl.radl import network
 from config import Config
+from IM.SSH import SSH
 
 class VirtualMachine:
 
@@ -438,3 +439,11 @@ class VirtualMachine:
 	
 				vm_system.setValue('net_interface.' + str(num_net) + '.ip', str(private_ip))
 				vm_system.setValue('net_interface.' + str(num_net) + '.connection',private_net.id)
+
+	def get_ssh(self):
+		"""
+		Get SSH object to connect with this VM
+		"""
+		(user, passwd, _, private_key) = self.getCredentialValues()
+		ip = self.getPublicIP()
+		return SSH(ip, user, passwd, private_key, self.getSSHPort())

@@ -28,7 +28,7 @@ import copy
 
 import InfrastructureManager
 from VirtualMachine import VirtualMachine
-from SSH import SSH, AuthenticationException
+from SSH import AuthenticationException
 from recipe import Recipe
 from radl.radl import contextualize_item, system
 
@@ -187,9 +187,7 @@ class ConfManager(threading.Thread):
 				else:
 					ip = vm.getPublicIP()
 					if ip != None:
-						(user, passwd, _, private_key) = vm.getCredentialValues()
-
-						ssh = SSH(ip, user, passwd, private_key, vm.getSSHPort())
+						ssh = vm.get_ssh()
 						ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " + 'SSH Connecting with: ' + ip + ' to the VM: ' + str(vm.id))
 						
 						connected = False
@@ -281,14 +279,10 @@ class ConfManager(threading.Thread):
 				if not self.inf.configured: self.inf.configured = False
 				return
 
-			# Now check if the master VM has specified a hostname or set the master VM hostname with the default values			
-			(master_name, masterdom) = self.inf.vm_master.getRequestedName(default_hostname = Config.DEFAULT_VM_NAME, default_domain = Config.DEFAULT_DOMAIN)
-
 			ConfManager.logger.info("Inf ID: " + str(self.inf.id) + ": Wait the master VM to be running")
 
-			timeout = Config.WAIT_RUNNING_VM_TIMEOUT
 			self.inf.add_cont_msg("Wait master VM to boot")
-			all_running = self.waitRunningVMs([self.inf.vm_master], timeout, True)
+			all_running = self.waitRunningVMs([self.inf.vm_master], Config.WAIT_RUNNING_VM_TIMEOUT, True)
 
 			if not all_running:
 				ConfManager.logger.error("Inf ID: " + str(self.inf.id) + ":  Error Waiting the Master VM to boot, exit")
@@ -302,7 +296,7 @@ class ConfManager(threading.Thread):
 				os.remove(os.path.expanduser("~/.ssh/known_hosts"))
 
 			self.inf.add_cont_msg("Wait master VM to have the SSH active.")
-			all_connected = self.waitConnectedVMs([self.inf.vm_master], timeout)
+			all_connected = self.waitConnectedVMs([self.inf.vm_master], Config.WAIT_RUNNING_VM_TIMEOUT)
 			if not all_connected:
 				ConfManager.logger.error("Inf ID: " + str(self.inf.id) + ": Error Waiting the Master VM to have the SSH active, exit")
 				self.inf.add_cont_msg("Contextualization Error: Error Waiting the Master VM to have the SSH active (Check credentials)")
@@ -312,15 +306,7 @@ class ConfManager(threading.Thread):
 			ConfManager.logger.info("Inf ID: " + str(self.inf.id) + ": VMs available.")
 			ConfManager.logger.info("Inf ID: " + str(self.inf.id) + ": Start the contextualization process.")
 
-			# configure master VM with ansible
-			ip = self.inf.vm_master.getPublicIP()
-			master_priv_ip = self.inf.vm_master.getPrivateIP()
-			# If the master VM does not have private IP use the public one
-			if master_priv_ip == None:
-				master_priv_ip = ip
-
-			(user, passwd, _, private_key) = self.inf.vm_master.getCredentialValues()
-			ssh = SSH(ip, user, passwd, private_key, self.inf.vm_master.getSSHPort())
+			ssh = self.inf.vm_master.get_ssh()
 			# Activate tty mode to avoid some problems with sudo in REL
 			ssh.tty = True
 
@@ -341,7 +327,7 @@ class ConfManager(threading.Thread):
 			# configuration dir os th emaster node to copy all the contextualization files
 			tmp_dir = tempfile.mkdtemp()
 			# Now call the ansible installation process on the master node
-			configured_ok = self.configure_ansible(vm_group, ssh, tmp_dir, master_name, masterdom)
+			configured_ok = self.configure_ansible(vm_group, ssh, tmp_dir)
 			
 			if not configured_ok:
 				ConfManager.logger.error("Inf ID: " + str(self.inf.id) + ": Error in the ansible installation process")
@@ -460,15 +446,13 @@ class ConfManager(threading.Thread):
 		conf_all_out.write("\n\n")
 		conf_all_out.close()
 
-	def configure_ansible(self, vm_group, ssh, tmp_dir, master_name, masterdom):
+	def configure_ansible(self, vm_group, ssh, tmp_dir):
 		"""
 		Install and configure ansible in the master node
 	
 		Arguments:
 		   - ssh(:py:class:`IM.SSH`): Object to connect with the master node.
 		   - tmp_dir(str): Temp directory where all the playbook files will be stored.
-		   - master_name(str): Hostname of the master node.
-		   - masterdom(str): Domain of the master node
 		Returns: True if the process finished sucessfully, False otherwise.
 		"""
 		
@@ -620,7 +604,7 @@ class ConfManager(threading.Thread):
 		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " + stdout + stderr)
 		
 		self.inf.add_cont_msg("Configure Ansible in the master VM (step 1).")
-		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Call Ansible to (re)configure (step 1) in the master node " + master_name)
+		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Call Ansible to (re)configure (step 1) in the master node.")
 		(success, msg) = self.call_ansible(tmp_dir, "inventory.cfg", ConfManager.MASTER_YAML, ssh)
 
 		if not success:
@@ -649,6 +633,9 @@ class ConfManager(threading.Thread):
 		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": create the ansible configuration file")
 		ansible_file = tmp_dir + "/hosts"
 		out = open(ansible_file, 'w')
+
+		# Get the master name
+		(master_name, masterdom) = self.inf.vm_master.getRequestedName(default_hostname = Config.DEFAULT_VM_NAME, default_domain = Config.DEFAULT_DOMAIN)
 
 		all_nodes = "[all]\n"
 		all_vars = ""
