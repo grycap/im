@@ -22,8 +22,9 @@ from uuid import uuid1
 from ganglia import ganglia_info
 import ConfManager
 from datetime import datetime
-from IM.radl.radl import RADL, Feature, deploy, system
+from IM.radl.radl import RADL, Feature, deploy, system, contextualize_item
 from config import Config
+from Queue import PriorityQueue
 
 
 class IncorrectVMException(Exception):
@@ -69,14 +70,18 @@ class InfrastructureInfo:
 		"""ConfManager Thread to contextualize"""
 		self.vm_master = None
 		"""VM selected as the master node to the contextualization step"""
-		self.cont_out = ""
-		"""Contextualization output message"""
-		self.configured = None
-		"""Configure flag. If it is None the contextualization has not been finished yet"""
 		self.vm_id = 0
 		"""Next vm id available."""
 		self.last_ganglia_update = 0
 		"""Last update of the ganglia info"""
+		self.cont_out = ""
+		"""Contextualization output message"""
+		self.ctxt_tasks = PriorityQueue()
+		"""List of contextualization tasks"""
+		self.ansible_configured = None
+		"""Flag to specify that ansible is configured successfully in the master node of this inf."""
+		self.configured = None
+		self.conf_threads = []
 	
 	def __getstate__(self):
 		"""
@@ -87,6 +92,8 @@ class InfrastructureInfo:
 		# Quit the ConfManager object and the lock to the data to be store by pickle
 		del odict['cm']
 		del odict['_lock']
+		del odict['ctxt_tasks']
+		del odict['conf_threads']
 		return odict
 	
 	def __setstate__(self, dic):
@@ -98,11 +105,8 @@ class InfrastructureInfo:
 			self.__dict__.update(dic)
 			# Set the ConfManager object and the lock to the data loaded by pickle
 			self.cm = None
-		
-		# If we load an Infrastructure that is not configured, set it to False
-		# because the configuration process will be lost
-		if self.configured is None:
-			self.configured = False
+			self.ctxt_tasks = PriorityQueue()
+			self.conf_threads = []
 			
 	def get_next_vm_id(self):
 		"""Get the next vm id available."""
@@ -115,6 +119,8 @@ class InfrastructureInfo:
 		"""
 		Set this Inf as deleted
 		"""
+		if self.cm and self.cm.isAlive():
+			self.cm.stop()
 		self.deleted = True
 		
 	def get_cont_out(self):
@@ -167,29 +173,6 @@ class InfrastructureInfo:
 			else:
 				groups[vm.getRequestedSystem().name] = [vm]
 		return groups
-	
-	def is_contextualizing(self):
-		"""
-		Returns if the Infrastructure is in the contextualization step
-		"""
-		if self.cm:
-			return self.cm.is_contextualizing()
-		else:
-			return False
-		
-	def Contextualize(self, auth_data):
-		"""
-		Starts the contextualization step
-		"""
-		if self.is_contextualizing():
-			raise Exception("The infrastructure is contextualizing. You must wait")
-
-		with self._lock:
-			self.configured = None
-			self.cont_out = ""
-			self.cm = ConfManager.ConfManager()
-			self.cm.Contextualize(self, auth_data)
-	
 	
 	def update_radl(self, radl, deployed_vms):
 		"""
@@ -298,5 +281,77 @@ class InfrastructureInfo:
 
 			if not success:
 				InfrastructureInfo.logger.debug(msg)
+
+	def vm_in_ctxt_tasks(self, vm):
+		found = False
+		with self._lock:
+			for (_,_,v,_) in list(self.ctxt_tasks.queue):
+				if v == vm:
+					found = True
+					break
+		return found
+	
+	def set_configured(self, conf):
+		with self._lock:
+			if conf:
+				if not self.configured:
+					self.configured = conf
+			else:
+				self.configured = conf
+	
+	def is_configured(self):
+		if self.vm_in_ctxt_tasks(self) or self.conf_threads:
+			# If there are ctxt tasks pending for this VM, return None
+			return None
+		else:
+			# Otherwise return the value of configured
+			return self.configured
+
+	def add_ctxt_tasks(self, ctxt_tasks):
+		# Use the lock to add all the tasks in a atomic way
+		with self._lock:
+			to_add = []
+			for (step, prio, vm, tasks) in ctxt_tasks:
+				# Check that the element does not exist in the Queue
+				found = False
+				for (s,_,v,t) in list(self.ctxt_tasks.queue):
+					if s == step and v == vm and t == tasks:
+						found = True
+				if not found:
+					to_add.append((step, prio,vm,tasks))
+			
+			for elem in to_add:
+				self.ctxt_tasks.put(elem)
 		
+	def Contextualize(self, auth):
+		self.cont_out = ""
+		self.configured = None
+		# get the default ctxts in case of the RADL has not specified them 
+		ctxts = [contextualize_item(group, group, 1) for group in self.get_vm_list_by_system_name() if self.radl.get_configure_by_name(group)]
+		# get the contextualize steps specified in the RADL, or use the default value
+		contextualizes = self.radl.contextualize.get_contextualize_items_by_step({1:ctxts})
 		
+		ctxt_task = []
+		ctxt_task.append((-2,0,self,['wait_master']))
+		ctxt_task.append((-1,0,self,['configure_master', 'check_vm_ips', 'generate_playbooks']))
+		
+		for vm in self.get_vm_list():
+			# First add the initial recipes: basic and main
+			tasks = {0:['basic'], 1:['main_' + vm.info.systems[0].name]}
+
+			# Then add the configure sections
+			for ctxt_num in contextualizes.keys():
+				for ctxt_elem in contextualizes[ctxt_num]:
+					if ctxt_elem.system == vm.info.systems[0].name:
+						if ctxt_num not in tasks:
+							tasks[ctxt_num] = []
+						tasks[ctxt_num].append(ctxt_elem.configure + "_" + ctxt_elem.system)
+			
+			for step in tasks.keys():
+				ctxt_task.append((step,0,vm,tasks[step]))
+
+		self.add_ctxt_tasks(ctxt_task)
+		
+		if self.cm is None or not self.cm.isAlive():
+			self.cm = ConfManager.ConfManager(self,auth)
+			self.cm.start()
