@@ -245,6 +245,11 @@ Contextualization
    Maximum time in seconds spent on contextualize a virtual machine before
    throwing an error.
    The default value is 7200.
+   
+.. confval:: REMOTE_CONF_DIR 
+
+   Directory to copy all the ansible related files used in the contextualization.
+   The default value is :file:`/tmp/conf`.
 
 .. _options-xmlrpc:
 
@@ -337,9 +342,6 @@ GANGLIA INTEGRATION
 
    Maximum frequency to update the Ganglia info (in secs).
    The default value is ``30``.
-   
-
-GANGLIA_INFO_UPDATE_FREQUENCY = 30
 
    
 CONTEXTUALIZATION PROCESS
