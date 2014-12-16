@@ -58,6 +58,7 @@ class Config:
 	PLAYBOOK_RETRIES = 1
 	VM_INFO_UPDATE_FREQUENCY = 10
 	REMOTE_CONF_DIR = "/tmp/conf"
+	MAX_SSH_ERRORS = 5
 
 config = ConfigParser.ConfigParser()
 config.read([Config.IM_PATH + '/../im.cfg', Config.IM_PATH + '/../etc/im.cfg', '/etc/im/im.cfg'])

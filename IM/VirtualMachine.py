@@ -63,6 +63,8 @@ class VirtualMachine:
 		"""Configure flag. If it is None the contextualization has not been finished yet"""
 		self.ctxt_pid = None
 		"""Number of the PID of the contextualization process being executed in this VM"""
+		self.ssh_connect_errors = 0
+		"""Number of errors in the ssh connection trying to get the state of the ctxt pid """
 
 	def __getstate__(self):
 		"""
@@ -464,17 +466,29 @@ class VirtualMachine:
 		return SSH(ip, user, passwd, private_key, self.getSSHPort())
 	
 	
-	def check_ctxt_pid(self):
+	def check_ctxt_process(self):
 		if self.ctxt_pid:
 			ssh = self.inf.vm_master.get_ssh()
-			(_, _, exit_status) = ssh.execute("ps " + str(self.ctxt_pid))
+			try:
+				(_, _, exit_status) = ssh.execute("ps " + str(self.ctxt_pid))
+			except:
+				exit_status = 0
+				self.ssh_connect_errors += 1
+				if self.ssh_connect_errors > Config.MAX_SSH_ERRORS:
+					self.ssh_connect_errors = 0
+					self.ctxt_pid = None
+					self.configured = False
+				
 			if exit_status != 0:
 				self.ctxt_pid = None
+				# The process has finished, get the outputs
+				ip = self.getPublicIP()
+				if not ip:
+					ip = ip = self.getPrivateIP()
+				remote_dir = Config.REMOTE_CONF_DIR + "/" + ip + "_" + str(self.getSSHPort())
+				ip = self.get_ctxt_output(remote_dir)
 
-		if self.ctxt_pid:
-			return True
-		else:
-			return False
+		return self.ctxt_pid
 	
 	def is_configured(self):
 		if self.inf.vm_in_ctxt_tasks(self) or self.ctxt_pid:
@@ -514,7 +528,7 @@ class VirtualMachine:
 			self.configured = False
 			self.cont_out += "Error getting contextualization agent output: "  + str(ex)
 		finally:
-			shutil.rmtree(tmp_dir)
+			shutil.rmtree(tmp_dir, ignore_errors=True)
 		
 	def process_ctxt_agent_out(self, ctxt_agent_out):
 		"""
