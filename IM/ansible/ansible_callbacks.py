@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Ansible.  If not, see <http://www.gnu.org/licenses/>.
 
-# Miguel: Simplified version of the original ones
+# Miguel: Version simplificada, eliminado el lock "sospechoso"
 
 import ansible.utils
 import sys

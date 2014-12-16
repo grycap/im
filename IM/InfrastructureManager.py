@@ -257,10 +257,6 @@ class InfrastructureManager:
 
 		sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
 
-		if sel_inf.is_contextualizing():
-			InfrastructureManager.logger.info("The infrastructure is contextualizing. You must wait")
-			raise Exception("The infrastructure is contextualizing. You must wait")
-
 		# Update infrastructure RADL with this new RADL
 		# Add or update configures
 		for s in radl.configures:
@@ -284,11 +280,6 @@ class InfrastructureManager:
 						system.setCredentialValues(password=password, public_key=public_key, private_key=private_key, new=True)
 		
 		InfrastructureManager.save_data()
-
-		# Test it again
-		if sel_inf.is_contextualizing():
-			InfrastructureManager.logger.info("The infrastructure is contextualizing. You must wait")
-			raise Exception("The infrastructure is contextualizing. You must wait")
 
 		# Stick all virtual machines to be reconfigured
 		InfrastructureManager.logger.info("Contextualize the inf.")
@@ -362,10 +353,6 @@ class InfrastructureManager:
 		InfrastructureManager.logger.debug(radl)
 		
 		sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
-		
-		if sel_inf.is_contextualizing():
-			InfrastructureManager.logger.info("The infrastructure is contextualizing. You must wait")
-			raise Exception("The infrastructure is contextualizing. You must wait")
 		
 		# Update infrastructure RADL with this new RADL
 		sel_inf.complete_radl(radl)
@@ -470,11 +457,6 @@ class InfrastructureManager:
 			sorted_scored_clouds = sorted(scored_clouds, key=lambda x: (x[1], ordered_cloud_list.index(x[0])), reverse=True)
 			deploys_group_cloud_list[id(deploy_group)] = [ c[0] for c in sorted_scored_clouds ]
 
-		# Now Test it again if the infrastructure is contextualizing 
-		if sel_inf.is_contextualizing():
-			InfrastructureManager.logger.info("The infrastructure is contextualizing. You must wait")
-			raise Exception("The infrastructure is contextualizing. You must wait")
-
 		# Launch every group in the same cloud provider
 		deployed_vm = {}
 		cancel_deployment = []
@@ -528,12 +510,7 @@ class InfrastructureManager:
 
 		# Let's contextualize!
 		if context:
-			# Now test again if the infrastructure is contextualizing 
-			if not sel_inf.is_contextualizing():
-				InfrastructureManager.logger.info("Contextualize the inf")
-				sel_inf.Contextualize(auth)
-			else:
-				InfrastructureManager.logger.warn("Trying to Contextualize an infrastructure that is contextualizing!!!!!")
+			sel_inf.Contextualize(auth)
 
 		return [vm.im_id for vm in new_vms]
 		
@@ -555,10 +532,6 @@ class InfrastructureManager:
 
 		sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
 
-		if sel_inf.is_contextualizing():
-			InfrastructureManager.logger.info("The infrastructure is contextualizing. You must wait")
-			raise Exception("The infrastructure is contextualizing. You must wait")
-
 		vm_ids = vm_list.split(",")
 
 		cont = 0
@@ -579,12 +552,8 @@ class InfrastructureManager:
 
 		if cont > 0:
 			# Now test again if the infrastructure is contextualizing 
-			if not sel_inf.is_contextualizing():
-				InfrastructureManager.logger.info("Reconfigure it")
-				sel_inf.Contextualize(auth)
-			else:
-				InfrastructureManager.logger.warn("Trying to Contextualize an infrastructure that is contextualizing!!!!!")
-			
+			sel_inf.Contextualize(auth)
+
 		if exceptions:
 			InfrastructureManager.logger.exception("Error removing resources")
 			raise Exception("Error removing resources: %s" % exceptions)
@@ -702,11 +671,11 @@ class InfrastructureManager:
 	
 		sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
 		res = {}
-		res['cont_out'] = sel_inf.cont_out
+		res['cont_out'] = sel_inf.cont_out + "\n\n".join([vm.cont_out for vm in sel_inf.get_vm_list()])
 		#: .. todo::
 		#:   Return int instead
 		res['vm_list'] = [str(vm.im_id) for vm in sel_inf.get_vm_list()]
-	
+
 		InfrastructureManager.logger.info("Information obtained successfully")
 		InfrastructureManager.logger.debug(res)
 		return res
@@ -891,6 +860,7 @@ class InfrastructureManager:
 			InfrastructureManager.AddResource(inf.id, radl, auth)
 			InfrastructureManager.save_data()
 		except Exception, e:
+			InfrastructureManager.logger.exception("Error Creating Inf id " + str(inf.id))
 			inf.delete()
 			InfrastructureManager.remove_old_inf()
 			InfrastructureManager.save_data()

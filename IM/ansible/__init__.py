@@ -1,6 +1,6 @@
 # IM - Infrastructure Manager
 # Copyright (C) 2011 - GRyCAP - Universitat Politecnica de Valencia
-# 
+#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
@@ -14,10 +14,4 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-# General Tasks
-- name: Copy the /etc/hosts
-  copy: src={{im_remote_dir}}/etc_hosts dest=/etc/hosts
-
-- name: Copy the /etc/hosts in windows
-  copy: src={{im_remote_dir}}/etc_hosts dest=/cygdrive/c/WINDOWS/system32/drivers/etc mode=0777
-  when: windows
+__all__ = ['ansible_launcher', 'ansible_callbacks']
