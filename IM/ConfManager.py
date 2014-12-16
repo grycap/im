@@ -66,8 +66,6 @@ class ConfManager(threading.Thread):
 
 	logger = logging.getLogger('ConfManager')
 	""" Logger object """
-	CONF_DIR = "/tmp/conf"
-	""" Directory to copy all the ansible related files """
 	MASTER_YAML = "conf-ansible.yml"
 	""" The file with the ansible steps to configure the master node """
 	SECOND_STEP_YAML = 'conf-ansible-s2.yml'
@@ -100,7 +98,7 @@ class ConfManager(threading.Thread):
 					else:
 						# The process has finished, get the outputs
 						ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Ansible process to configure " + ip + " has finished.")
-						remote_dir = ConfManager.CONF_DIR + "/" + ip + "_" + str(vm.getSSHPort())
+						remote_dir = Config.REMOTE_CONF_DIR + "/" + ip + "_" + str(vm.getSSHPort())
 						vm.get_ctxt_output(remote_dir)
 						
 						if vm.configured:
@@ -257,7 +255,7 @@ class ConfManager(threading.Thread):
 		ip = vm.getPublicIP()
 		if not ip:
 			ip = vm.getPrivateIP()
-		remote_dir = ConfManager.CONF_DIR + "/" + ip + "_" + str(vm.getSSHPort())
+		remote_dir = Config.REMOTE_CONF_DIR + "/" + ip + "_" + str(vm.getSSHPort())
 		tmp_dir = tempfile.mkdtemp()
 		filenames = []
 		
@@ -288,7 +286,7 @@ class ConfManager(threading.Thread):
 		shutil.rmtree(tmp_dir, ignore_errors=True)
 
 		# TODO: checkear el tema de recuperar los procesos -> guardar el pid en fichero fijo
-		(pid, _, _) = ssh.execute("nohup python_ansible " + ConfManager.CONF_DIR + "/ctxt_agent.py " + remote_dir + "/" + os.path.basename(conf_file) 
+		(pid, _, _) = ssh.execute("nohup python_ansible " + Config.REMOTE_CONF_DIR + "/ctxt_agent.py " + remote_dir + "/" + os.path.basename(conf_file) 
 				+ " > " + remote_dir + "/stdout" + " 2> " + remote_dir + "/stderr < /dev/null & echo -n $!")
 		
 		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Ansible process to configure " + ip + " launched with pid: " + pid)
@@ -512,13 +510,13 @@ class ConfManager(threading.Thread):
 				else:
 					ConfManager.logger.info("Inf ID: " + str(self.inf.id) + ": Ansible installation finished successfully")
 	
-				remote_dir = ConfManager.CONF_DIR
+				remote_dir = Config.REMOTE_CONF_DIR
 				ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Copy the contextualization agent files")  
 				ssh.sftp_mkdir(remote_dir)
 				files = []
 				files.append((Config.IM_PATH + "/SSH.py",remote_dir + "/SSH.py"))
-				files.append((Config.CONTEXTUALIZATION_DIR + "/ansible_callbacks.py", remote_dir + "/ansible_callbacks.py")) 
-				files.append((Config.CONTEXTUALIZATION_DIR + "/ansible_launcher.py", remote_dir + "/ansible_launcher.py"))
+				files.append((Config.IM_PATH + "/ansible/ansible_callbacks.py", remote_dir + "/ansible_callbacks.py")) 
+				files.append((Config.IM_PATH + "/ansible/ansible_launcher.py", remote_dir + "/ansible_launcher.py"))
 				files.append((Config.CONTEXTUALIZATION_DIR + "/ctxt_agent.py", remote_dir + "/ctxt_agent.py")) 
 				ssh.sftp_put_files(files)
 	
@@ -612,7 +610,7 @@ class ConfManager(threading.Thread):
 	def generate_playbooks(self):
 		try:
 			tmp_dir = tempfile.mkdtemp()
-			remote_dir = ConfManager.CONF_DIR
+			remote_dir = Config.REMOTE_CONF_DIR
 			# Get the groups for the different VM types
 			vm_group = self.inf.get_vm_list_by_system_name()
 				
@@ -964,10 +962,10 @@ class ConfManager(threading.Thread):
 		self.inf.add_cont_msg("Creating and copying Ansible playbook files")
 		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Preparing Ansible playbook to copy Ansible modules: " + str(modules))
 
-		ssh.sftp_mkdir(ConfManager.CONF_DIR)
+		ssh.sftp_mkdir(Config.REMOTE_CONF_DIR)
 		# Copy the utils helper files
-		ssh.sftp_mkdir(ConfManager.CONF_DIR + "/utils")
-		ssh.sftp_put_dir(Config.RECIPES_DIR + "/utils", ConfManager.CONF_DIR + "/utils")
+		ssh.sftp_mkdir(Config.REMOTE_CONF_DIR + "/utils")
+		ssh.sftp_put_dir(Config.RECIPES_DIR + "/utils", Config.REMOTE_CONF_DIR + "/utils")
 		
 		for galaxy_name in modules:
 			if galaxy_name:
@@ -1036,7 +1034,7 @@ class ConfManager(threading.Thread):
 		
 		conf_data['tasks'] = tasks
 		conf_data['remote_dir'] = remote_dir
-		conf_data['conf_dir'] = ConfManager.CONF_DIR
+		conf_data['conf_dir'] = Config.REMOTE_CONF_DIR
 		
 		conf_out = open(conf_file, 'w')
 		ConfManager.logger.debug("Ctxt agent configuration file: " + json.dumps(conf_data))
