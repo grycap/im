@@ -249,6 +249,7 @@ class InfrastructureInfo:
 		It will select the first created VM that fulfills this requirements
 		and store the value in the vm_master field
 		"""
+		self.vm_master = None
 		for vm in self.get_vm_list():
 			if vm.getOS() and vm.getOS().lower() == 'linux' and vm.hasPublicNet():
 				# check that is connected with all the VMs
@@ -323,6 +324,15 @@ class InfrastructureInfo:
 			for elem in to_add:
 				self.ctxt_tasks.put(elem)
 		
+	def check_ctxt_process(self):
+		all_finished = True
+		for t in self.conf_threads:
+			if t.isAlive():
+				all_finished = False
+		if all_finished:
+			self.conf_threads = []
+		return not all_finished
+	
 	def Contextualize(self, auth):
 		self.cont_out = ""
 		self.configured = None

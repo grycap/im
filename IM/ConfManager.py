@@ -86,41 +86,26 @@ class ConfManager(threading.Thread):
 		for step, vm_list in vms_configuring.iteritems():
 			for vm in vm_list:
 				if isinstance(vm,VirtualMachine):
-					ip = vm.getPublicIP()
-					if not ip:
-						ip = vm.getPrivateIP()
-	
-					if vm.check_ctxt_pid():
+					if vm.check_ctxt_process():
 						if step not in res:
 							res[step] = []
 						res[step].append(vm)
-						ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Ansible process to configure " + ip + " with PID " + vm.ctxt_pid + " is still running.")
-					else:
-						# The process has finished, get the outputs
-						ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Ansible process to configure " + ip + " has finished.")
-						remote_dir = Config.REMOTE_CONF_DIR + "/" + ip + "_" + str(vm.getSSHPort())
-						vm.get_ctxt_output(remote_dir)
-						
+						ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Ansible process to configure " + str(vm.im_id) + " with PID " + vm.ctxt_pid + " is still running.")
+					else:						
 						if vm.configured:
-							ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Configuration process in VM with ip " + ip + " successfully finished.")
+							ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Configuration process in VM: " + str(vm.im_id) + " successfully finished.")
 						else:
-							ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Configuration process in VM with ip " + ip + " failed.")
+							ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Configuration process in VM: " + str(vm.im_id) + " failed.")
 						# Force to save the data to store the log data 
 						InfrastructureManager.InfrastructureManager.save_data()
 				else:
 					# General Infrastructure tasks
-					all_finished = True
-					for t in vm.conf_threads:
-						if t.isAlive():
-							all_finished = False
-					
-					if not all_finished:
-						ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Configuration process of master node is still running.")
+					if vm.check_ctxt_process():
 						if step not in res:
 							res[step] = []
 						res[step].append(vm)
+						ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Configuration process of master node is still running.")
 					else:
-						vm.conf_threads = []
 						if vm.configured:
 							ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ":Configuration process of master node successfully finished.")
 						else:
@@ -191,7 +176,7 @@ class ConfManager(threading.Thread):
 
 			# if this task is from a next step
 			if last_step is not None and last_step < step:
-				if vm.is_configured() is False or self.inf.is_configured() is False:
+				if self.inf.is_configured() is False or vm.is_configured() is False:
 					ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Configuration process of step " + str(last_step) + " failed, ignoring tasks of later steps.")
 				else:
 					# Add the task again to the queue only if the last step was OK
@@ -228,19 +213,20 @@ class ConfManager(threading.Thread):
 							InfrastructureManager.InfrastructureManager.save_data()
 						except:
 							ConfManager.logger.exception("Inf ID: " + str(self.inf.id) + ": Error launching ctxt agent on VM: " + str(vm.im_id))
-							# In case of error add the task again
-							self.inf.add_ctxt_tasks([(step, prio+1, vm, tasks)])
-							# Sleep to check this later
-							time.sleep(self.THREAD_SLEEP_DELAY)
+							# Set this VM as configuration failed
+							vm.configured = False
 				else:
 					# Launch the Infrastructure tasks
+					vm.configured = None
 					for task in tasks:
 						t = threading.Thread(target=eval("self." + task))
 						t.start()
 						vm.conf_threads.append(t)
-						if step not in vms_configuring:
-							vms_configuring[step] = []
-						vms_configuring[step].append(vm)
+					if step not in vms_configuring:
+						vms_configuring[step] = []
+					vms_configuring[step].append(vm)
+					# Force to save the data to store the log data 
+					InfrastructureManager.InfrastructureManager.save_data()
 					
 					
 				last_step = step
@@ -289,7 +275,7 @@ class ConfManager(threading.Thread):
 		(pid, _, _) = ssh.execute("nohup python_ansible " + Config.REMOTE_CONF_DIR + "/ctxt_agent.py " + remote_dir + "/" + os.path.basename(conf_file) 
 				+ " > " + remote_dir + "/stdout" + " 2> " + remote_dir + "/stderr < /dev/null & echo -n $!")
 		
-		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Ansible process to configure " + ip + " launched with pid: " + pid)
+		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Ansible process to configure " + str(vm.im_id) + " launched with pid: " + pid)
 
 		return pid
 
