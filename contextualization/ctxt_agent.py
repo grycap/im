@@ -214,6 +214,7 @@ def contextualize_vm(conf_data):
 			# The basic task uses the credentials of VM stored in ctxt_vm
 			ansible_thread = LaunchAnsiblePlaybook(playbook, ctxt_vm, 2, inventory_file, None, PLAYBOOK_RETRIES, conf_data['remote_dir'])
 		else:
+<<<<<<< HEAD
 			# in the other tasks pk_file can be used
 			ansible_thread = LaunchAnsiblePlaybook(playbook, ctxt_vm, 2, inventory_file, pk_file, PLAYBOOK_RETRIES, conf_data['remote_dir'])
 		
@@ -224,6 +225,9 @@ def contextualize_vm(conf_data):
 			return res_data
 
 	res_data['OK'] = True
+=======
+			res_data['CTXT'][contxt_num] = True
+>>>>>>> e7e242fb86929fe689c4a6034989413149865f56
 
 	# Finally check if we must chage user credentials
 	# Do not change the IP of the master. It must be changed only by the ConfManager
