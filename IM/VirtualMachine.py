@@ -24,6 +24,7 @@ import string
 import json
 import tempfile
 
+
 class VirtualMachine:
 
 	# VM states
@@ -453,7 +454,7 @@ class VirtualMachine:
 	
 				vm_system.setValue('net_interface.' + str(num_net) + '.ip', str(private_ip))
 				vm_system.setValue('net_interface.' + str(num_net) + '.connection',private_net.id)
-				
+
 	def get_ssh(self):
 		"""
 		Get SSH object to connect with this VM
