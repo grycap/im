@@ -34,31 +34,6 @@ from radl.radl import system, contextualize_item
 
 from config import Config
 
-"""
-- El campo contextualize en las MVs y no en la Inf.  
-- Hay una priorityqueue con elementos de la forma (step, vm, [tasks]) con lista trabajos pendientes.
-- Las listas de trabajos descartaran insertar recetas para un mismo nodo que ya esten en la cola.
-- En un hilo separado del IM se hara lo siguiente:
-    queue: PriorityQueue 
-	while (step,node,lista_recetas) queues.get():
-			if conexion ssh con master no esta lista en s: continue
-			if hay algun proceso ansible hacia node: continue
-			pid = launch_ctxt_agent(node, lista_recetas)
-		esperamos a todos los pids
-- launch_ctxt_agent(node, lista_recetas):
-    - Lanza un ctxt_agent con todas las recetas de lista_recetas y hacia el hostname en node, que se ejecutaran en el orden que aparecen en la lista.
-    - Se anota el PID del proceso en un fichero con el nombre del host.
-- Deteccion de un proceso ansible hacia node:
-    Devuelve verdadero si existe un fichero con el hostname y el PID que contiene corresponde a un proceso vivo. Esto ultimo se puede chequear mirando /prop/<pid>.
-- El esquema garantiza que aunque se reinicie el IM, no se lanzaran dos ansibles-playbooks hacia el mismo hostname.
-- Cuando se cree un nodo:
-    - Encolar las recetas asociadas al nodo
-    - Para el resto de nodos de la misma infraestructura, encolar las recetas asociadas en sus respectivas listas. 
-    - En todas recordar que hay que ponerlas en el step adecuado.
-    - Poner un lock para que hasta que no se hayan incluido todas las recetas de este bloque, no se empiece a procesar por parte del Thread del IM
-"""
-
-
 class ConfManager(threading.Thread):
 	"""
 	Class to manage the contextualization steps
@@ -232,33 +207,11 @@ class ConfManager(threading.Thread):
 				last_step = step
 
 	def launch_ctxt_agent(self, vm, tasks):
-		"""
-	- Lanza un ctxt_agent con todas las recetas de lista_recetas y hacia el hostname en node, que se ejecutaran en el orden que aparecen en la lista.
-	Esto implica generar y copiar todos los ficheros necesarios (.yml, inventory, etc.) necesarios en un directorio temporal unico para cada nodo.
-	- Se anota el PID del proceso en un fichero con el nombre del host.
-	- Se guarda la salida en un fichero con nombre predecible o si no lo tendremos que guardar en la clase VirtualMachine
-	"""	
 		ip = vm.getPublicIP()
 		if not ip:
 			ip = vm.getPrivateIP()
 		remote_dir = Config.REMOTE_CONF_DIR + "/" + ip + "_" + str(vm.getSSHPort())
 		tmp_dir = tempfile.mkdtemp()
-		filenames = []
-		
-		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Generating hosts and inventory.")
-
-		filenames.append(self.generate_etc_hosts(tmp_dir))
-		filenames.append(self.generate_inventory(tmp_dir))
-
-		recipe_files = []
-		for f in filenames:
-			recipe_files.append((tmp_dir + "/" + f, remote_dir + "/" + f ))
-		
-		ssh = self.inf.vm_master.get_ssh()
-		self.inf.add_cont_msg("Copying generated hosts and inventory files to configure: " + str(vm.id))
-		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Copy hosts and inventory files to configure VM: " + str(vm.id))
-		ssh.sftp_mkdir(remote_dir)
-		ssh.sftp_put_files(recipe_files)
 
 		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Create the configuration file for the contextualization agent")
 		conf_file = tmp_dir + "/config.txt"
@@ -267,6 +220,8 @@ class ConfManager(threading.Thread):
 		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Copy the contextualization agent config file")
 
 		# Copy the contextualization agent config file
+		ssh = self.inf.vm_master.get_ssh()
+		ssh.sftp_mkdir(remote_dir)
 		ssh.sftp_put(conf_file, remote_dir + "/" + os.path.basename(conf_file))
 		
 		shutil.rmtree(tmp_dir, ignore_errors=True)
@@ -595,14 +550,14 @@ class ConfManager(threading.Thread):
 
 		return success
 	
-	def generate_playbooks(self):
+	def generate_playbooks_and_hosts(self):
 		try:
 			tmp_dir = tempfile.mkdtemp()
 			remote_dir = Config.REMOTE_CONF_DIR
 			# Get the groups for the different VM types
 			vm_group = self.inf.get_vm_list_by_system_name()
 				
-			ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Generating YAML files.")
+			ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Generating YAML, hosts and inventory files.")
 			# Create the other configure sections (it may be included in other configure)
 			filenames = []
 			if self.inf.radl.configures:
@@ -634,12 +589,18 @@ class ConfManager(threading.Thread):
 					vm = vm_group[ctxt_elem.system][0] 
 					filenames.extend(self.generate_playbook(vm, ctxt_elem, tmp_dir))
 			
+			filenames.append(self.generate_etc_hosts(tmp_dir))
+			filenames.append(self.generate_inventory(tmp_dir))
+			
 			recipe_files = []
 			for f in filenames:
 				recipe_files.append((tmp_dir + "/" + f, remote_dir + "/" + f ))
 			
+			# TODO: Check this
+			time.sleep(5)
+			
 			ssh = self.inf.vm_master.get_ssh()
-			self.inf.add_cont_msg("Copying YAML files.")
+			self.inf.add_cont_msg("Copying YAML, hosts and inventory files.")
 			ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Copying YAML files.")
 			ssh.sftp_mkdir(remote_dir)
 			ssh.sftp_put_files(recipe_files)

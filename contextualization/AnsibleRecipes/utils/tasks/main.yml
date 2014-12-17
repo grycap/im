@@ -16,8 +16,8 @@
 
 # General Tasks
 - name: Copy the /etc/hosts
-  copy: src={{im_remote_dir}}/etc_hosts dest=/etc/hosts
+  copy: src=etc_hosts dest=/etc/hosts
 
 - name: Copy the /etc/hosts in windows
-  copy: src={{im_remote_dir}}/etc_hosts dest=/cygdrive/c/WINDOWS/system32/drivers/etc mode=0777
+  copy: src=etc_hosts dest=/cygdrive/c/WINDOWS/system32/drivers/etc mode=0777
   when: windows

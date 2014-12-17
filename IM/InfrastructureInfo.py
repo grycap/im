@@ -342,8 +342,8 @@ class InfrastructureInfo:
 		contextualizes = self.radl.contextualize.get_contextualize_items_by_step({1:ctxts})
 		
 		ctxt_task = []
-		ctxt_task.append((-3,0,self,['wait_master']))
-		ctxt_task.append((-2,0,self,['configure_master', 'check_vm_ips', 'generate_playbooks']))
+		ctxt_task.append((-3,0,self,['wait_master', 'check_vm_ips']))
+		ctxt_task.append((-2,0,self,['configure_master', 'generate_playbooks_and_hosts']))
 		
 		for vm in self.get_vm_list():
 			tasks = {}
