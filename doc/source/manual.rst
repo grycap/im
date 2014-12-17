@@ -131,6 +131,8 @@ IM reads the configuration from :file:`$IM_PATH/etc/im.cfg`, and if it is not
 available, does from ``/etc/im/im.cfg``. There is a template of :file:`im.cfg`
 at the directory :file:`etc` on the tarball. The options are explained next.
 
+.. _options-basic:
+
 Basic Options
 ^^^^^^^^^^^^^
 
@@ -187,6 +189,8 @@ Basic Options
    Maximum size in KiB of the log file before being rotated.
    The default value is 10485760.
 
+.. _options-default-vm:
+
 Default Virtual Machine Options
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -222,6 +226,8 @@ Default Virtual Machine Options
    Default domain assigned to a virtual machine.
    The default value is ``localdomain``.
 
+.. _options-ctxt:
+
 Contextualization
 ^^^^^^^^^^^^^^^^^
 
@@ -249,7 +255,12 @@ Contextualization
 .. confval:: REMOTE_CONF_DIR 
 
    Directory to copy all the ansible related files used in the contextualization.
-   The default value is :file:`/tmp/conf`.
+   The default value is :file:`/tmp/.im`.
+   
+.. confval:: PLAYBOOK_RETRIES 
+
+   Number of retries of the Ansible playbooks in case of failure.
+   The default value is 1.
 
 .. _options-xmlrpc:
 
@@ -330,6 +341,8 @@ REST API
    Full path to the SSL Certification Authorities (CA) certificate.
    The default value is :file:`/etc/im/pki/ca-chain.pem`.
 
+.. _options-ganglia:
+
 GANGLIA INTEGRATION
 ^^^^^^^^^^^^^^^^^^^
 
@@ -343,12 +356,3 @@ GANGLIA INTEGRATION
    Maximum frequency to update the Ganglia info (in secs).
    The default value is ``30``.
 
-   
-CONTEXTUALIZATION PROCESS
-^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. confval:: PLAYBOOK_RETRIES 
-
-   Number of retries of the Ansible playbooks in case of failure.
-   The default value is 1.
-   
