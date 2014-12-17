@@ -106,7 +106,7 @@ def wait_thread(thread):
 	return (return_code==0, hosts_with_errors)
 
 
-def LaunchAnsiblePlaybook(playbook_file, vm, threads, inventory_file, pk_file, retries, remote_dir):
+def LaunchAnsiblePlaybook(playbook_file, vm, threads, inventory_file, pk_file, retries):
 	logger.debug('Call Ansible')
 	
 	passwd = None
@@ -125,7 +125,7 @@ def LaunchAnsiblePlaybook(playbook_file, vm, threads, inventory_file, pk_file, r
 			gen_pk_file = None
 			passwd = vm['passwd']
 	
-	t = AnsibleThread(playbook_file, None, threads, gen_pk_file, passwd, retries, inventory_file, None, {'im_remote_dir':remote_dir, 'IM_HOST': vm['ip'] + ":" + str(vm['ssh_port'])})
+	t = AnsibleThread(playbook_file, None, threads, gen_pk_file, passwd, retries, inventory_file, None, {'IM_HOST': vm['ip'] + ":" + str(vm['ssh_port'])})
 	t.start()
 	return t
 
@@ -208,7 +208,7 @@ def contextualize_vm(conf_data):
 	for task in conf_data['tasks']:
 		logger.debug('Launch task: ' + task)
 		playbook = conf_data['conf_dir'] + "/" + task + "_task_all.yml"
-		inventory_file  = conf_data['remote_dir'] + "/hosts"
+		inventory_file  = conf_data['conf_dir'] + "/hosts"
 		
 		if task == "change_password":
 			# Check if we must chage user credentials
@@ -218,10 +218,10 @@ def contextualize_vm(conf_data):
 		else:
 			if task == "basic":
 				# The basic task uses the credentials of VM stored in ctxt_vm
-				ansible_thread = LaunchAnsiblePlaybook(playbook, ctxt_vm, 2, inventory_file, None, PLAYBOOK_RETRIES, conf_data['remote_dir'])
+				ansible_thread = LaunchAnsiblePlaybook(playbook, ctxt_vm, 2, inventory_file, None, PLAYBOOK_RETRIES)
 			else:
 				# in the other tasks pk_file can be used
-				ansible_thread = LaunchAnsiblePlaybook(playbook, ctxt_vm, 2, inventory_file, pk_file, PLAYBOOK_RETRIES, conf_data['remote_dir'])
+				ansible_thread = LaunchAnsiblePlaybook(playbook, ctxt_vm, 2, inventory_file, pk_file, PLAYBOOK_RETRIES)
 			
 			(success, _) = wait_thread(ansible_thread)
 			res_data[task] = success
