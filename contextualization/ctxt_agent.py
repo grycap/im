@@ -210,25 +210,26 @@ def contextualize_vm(conf_data):
 		playbook = conf_data['conf_dir'] + "/" + task + "_task_all.yml"
 		inventory_file  = conf_data['remote_dir'] + "/hosts"
 		
-		if task == "basic":
-			# The basic task uses the credentials of VM stored in ctxt_vm
-			ansible_thread = LaunchAnsiblePlaybook(playbook, ctxt_vm, 2, inventory_file, None, PLAYBOOK_RETRIES, conf_data['remote_dir'])
+		if task == "change_password":
+			# Check if we must chage user credentials
+			# Do not change it on the master. It must be changed only by the ConfManager
+			if not ctxt_vm['master']:
+				res_data['CHANGE_CREDS'] = changeVMCredentials(ctxt_vm)
 		else:
-			# in the other tasks pk_file can be used
-			ansible_thread = LaunchAnsiblePlaybook(playbook, ctxt_vm, 2, inventory_file, pk_file, PLAYBOOK_RETRIES, conf_data['remote_dir'])
-		
-		(success, _) = wait_thread(ansible_thread)
-		res_data[task] = success
-		if not success:
-			res_data['OK'] = False
-			return res_data
+			if task == "basic":
+				# The basic task uses the credentials of VM stored in ctxt_vm
+				ansible_thread = LaunchAnsiblePlaybook(playbook, ctxt_vm, 2, inventory_file, None, PLAYBOOK_RETRIES, conf_data['remote_dir'])
+			else:
+				# in the other tasks pk_file can be used
+				ansible_thread = LaunchAnsiblePlaybook(playbook, ctxt_vm, 2, inventory_file, pk_file, PLAYBOOK_RETRIES, conf_data['remote_dir'])
+			
+			(success, _) = wait_thread(ansible_thread)
+			res_data[task] = success
+			if not success:
+				res_data['OK'] = False
+				return res_data
 
 	res_data['OK'] = True
-
-	# Finally check if we must chage user credentials
-	# Do not change the IP of the master. It must be changed only by the ConfManager
-	if not ctxt_vm['master']:
-		res_data['CHANGE_CREDS'] = changeVMCredentials(ctxt_vm)
 
 	logger.info('Process finished')
 	return res_data
