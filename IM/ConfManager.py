@@ -176,7 +176,7 @@ class ConfManager(threading.Thread):
 
 			# if this task is from a next step
 			if last_step is not None and last_step < step:
-				if self.inf.is_configured() is False or vm.is_configured() is False:
+				if vm.is_configured() is False:
 					ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Configuration process of step " + str(last_step) + " failed, ignoring tasks of later steps.")
 				else:
 					# Add the task again to the queue only if the last step was OK
@@ -398,8 +398,9 @@ class ConfManager(threading.Thread):
 		shutil.copy(Config.CONTEXTUALIZATION_DIR + "/basic.yml", tmp_dir + "/basic_task_all.yml")
 		f = open(tmp_dir + '/basic_task_all.yml', 'a')
 		f.write("\n  vars:\n") 
-		f.write("    - pk_file: " + pk_file + ".pub\n\n")
-		f.write("\n  hosts: all\n") 
+		f.write("    - pk_file: " + pk_file + ".pub\n")
+		f.write("  hosts: '{{IM_HOST}}'\n") 
+		f.write("  user: \"{{ IM_NODE_USER }}\"\n") 
 		f.close()
 		recipe_files.append("basic_task_all.yml")
 		return recipe_files
@@ -522,6 +523,7 @@ class ConfManager(threading.Thread):
 				# Force to save the data to store the log data 
 				InfrastructureManager.InfrastructureManager.save_data()
 			else:
+				self.inf.ansible_configured = False
 				self.inf.set_configured(False)
 
 		return success

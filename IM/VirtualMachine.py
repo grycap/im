@@ -491,12 +491,15 @@ class VirtualMachine:
 		return self.ctxt_pid
 	
 	def is_configured(self):
-		if self.inf.vm_in_ctxt_tasks(self) or self.ctxt_pid:
-			# If there are ctxt tasks pending for this VM, return None
-			return None
+		if self.inf.is_configured() is False:
+			return False 
 		else:
-			# Otherwise return the value of configured
-			return self.configured
+			if self.inf.vm_in_ctxt_tasks(self) or self.ctxt_pid:
+				# If there are ctxt tasks pending for this VM, return None
+				return None
+			else:
+				# Otherwise return the value of configured
+				return self.configured
 
 	def get_ctxt_output(self, remote_dir):
 		ssh = self.inf.vm_master.get_ssh()

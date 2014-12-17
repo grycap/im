@@ -295,7 +295,7 @@ class InfrastructureInfo:
 	def set_configured(self, conf):
 		with self._lock:
 			if conf:
-				if not self.configured:
+				if self.configured is None:
 					self.configured = conf
 			else:
 				self.configured = conf
@@ -342,12 +342,18 @@ class InfrastructureInfo:
 		contextualizes = self.radl.contextualize.get_contextualize_items_by_step({1:ctxts})
 		
 		ctxt_task = []
-		ctxt_task.append((-2,0,self,['wait_master']))
-		ctxt_task.append((-1,0,self,['configure_master', 'check_vm_ips', 'generate_playbooks']))
+		ctxt_task.append((-3,0,self,['wait_master']))
+		ctxt_task.append((-2,0,self,['configure_master', 'check_vm_ips', 'generate_playbooks']))
 		
 		for vm in self.get_vm_list():
-			# First add the initial recipes: basic and main
-			tasks = {0:['basic'], 1:['main_' + vm.info.systems[0].name]}
+			tasks = {}
+			
+			new_creds = vm.getCredentialValues(new=True)
+			if len(list(set(new_creds))) > 1 or list(set(new_creds))[0] != None:
+				tasks[-1] = ['change_password']	 
+
+			tasks[0] = ['basic']
+			tasks[1] = ['main_' + vm.info.systems[0].name]
 
 			# Then add the configure sections
 			for ctxt_num in contextualizes.keys():
