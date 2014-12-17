@@ -105,8 +105,7 @@ def wait_thread(thread):
 
 	return (return_code==0, hosts_with_errors)
 
-
-def LaunchAnsiblePlaybook(playbook_file, vm, threads, inventory_file, pk_file, retries):
+def LaunchAnsiblePlaybook(playbook_file, vm, threads, inventory_file, pk_file, retries, change_pass_ok):
 	logger.debug('Call Ansible')
 	
 	passwd = None
@@ -124,6 +123,8 @@ def LaunchAnsiblePlaybook(playbook_file, vm, threads, inventory_file, pk_file, r
 		else:
 			gen_pk_file = None
 			passwd = vm['passwd']
+			if 'new_passwd' in vm and vm['new_passwd'] and change_pass_ok:
+				passwd = vm['new_passwd']
 	
 	t = AnsibleThread(playbook_file, None, threads, gen_pk_file, passwd, retries, inventory_file, None, {'IM_HOST': vm['ip'] + ":" + str(vm['ssh_port'])})
 	t.start()
@@ -168,7 +169,7 @@ def removeRequiretty(vm):
 	else:
 		return True
 
-def contextualize_vm(conf_data):
+def contextualize_vm(general_conf_data, vm_conf_data):
 	res_data = {}
 	pk_file = "/tmp/ansible_key"
 	logger.info('Generate and copy the ssh key')
@@ -180,54 +181,57 @@ def contextualize_vm(conf_data):
 
 	# Check that we can SSH access the node
 	ctxt_vm = None
-	for vm in conf_data['vms']:
-		if vm['ctxt']:
+	for vm in general_conf_data['vms']:
+		if vm['id'] == vm_conf_data['id']:
 			ctxt_vm = vm
-		logger.info("Waiting SSH access to VM: " + vm['ip'])
-		if not wait_ssh_access(vm):
-			logger.error("Error Waiting SSH access to VM: " + vm['ip'])
-			res_data['SSH_WAIT'] = False
-			res_data['OK'] = False
-			return res_data
-		else:
-			res_data['SSH_WAIT'] = True
-			logger.info("SSH access to VM: " + vm['ip']+ " Open!")
 	
 	if not ctxt_vm:
 		logger.error("No VM to Contextualize!")
 		res_data['OK'] = False
 		return res_data
-	
-	# Now remove requiretty in the node
-	success = removeRequiretty(ctxt_vm)
-	if success:
-		logger.info("Requiretty successfully removed")
-	else:
-		logger.error("Error removing Requiretty")
 		
-	for task in conf_data['tasks']:
+	for task in vm_conf_data['tasks']:
 		logger.debug('Launch task: ' + task)
-		playbook = conf_data['conf_dir'] + "/" + task + "_task_all.yml"
-		inventory_file  = conf_data['conf_dir'] + "/hosts"
+		playbook = general_conf_data['conf_dir'] + "/" + task + "_task_all.yml"
+		inventory_file  = general_conf_data['conf_dir'] + "/hosts"
 		
-		if task == "change_password":
+		if task == "basic":
+			# This is always the fist step, so put the SSH test, the requiretty removal and change password here
+			for vm in general_conf_data['vms']:
+				logger.info("Waiting SSH access to VM: " + vm['ip'])
+				if not wait_ssh_access(vm):
+					logger.error("Error Waiting SSH access to VM: " + vm['ip'])
+					res_data['SSH_WAIT'] = False
+					res_data['OK'] = False
+					return res_data
+				else:
+					res_data['SSH_WAIT'] = True
+					logger.info("SSH access to VM: " + vm['ip']+ " Open!")
+			
+			# First remove requiretty in the node
+			success = removeRequiretty(ctxt_vm)
+			if success:
+				logger.info("Requiretty successfully removed")
+			else:
+				logger.error("Error removing Requiretty")
 			# Check if we must chage user credentials
 			# Do not change it on the master. It must be changed only by the ConfManager
+			change_creds = False
 			if not ctxt_vm['master']:
-				res_data['CHANGE_CREDS'] = changeVMCredentials(ctxt_vm)
-		else:
-			if task == "basic":
-				# The basic task uses the credentials of VM stored in ctxt_vm
-				ansible_thread = LaunchAnsiblePlaybook(playbook, ctxt_vm, 2, inventory_file, None, PLAYBOOK_RETRIES)
-			else:
-				# in the other tasks pk_file can be used
-				ansible_thread = LaunchAnsiblePlaybook(playbook, ctxt_vm, 2, inventory_file, pk_file, PLAYBOOK_RETRIES)
+				change_creds = changeVMCredentials(ctxt_vm)
+				res_data['CHANGE_CREDS'] = change_creds
 			
-			(success, _) = wait_thread(ansible_thread)
-			res_data[task] = success
-			if not success:
-				res_data['OK'] = False
-				return res_data
+			# The basic task uses the credentials of VM stored in ctxt_vm
+			ansible_thread = LaunchAnsiblePlaybook(playbook, ctxt_vm, 2, inventory_file, None, PLAYBOOK_RETRIES, change_creds)
+		else:
+			# in the other tasks pk_file can be used
+			ansible_thread = LaunchAnsiblePlaybook(playbook, ctxt_vm, 2, inventory_file, pk_file, PLAYBOOK_RETRIES, True)
+		
+		(success, _) = wait_thread(ansible_thread)
+		res_data[task] = success
+		if not success:
+			res_data['OK'] = False
+			return res_data
 
 	res_data['OK'] = True
 
@@ -235,17 +239,18 @@ def contextualize_vm(conf_data):
 	return res_data
 
 if __name__ == "__main__":
-	parser = OptionParser(usage="%prog [input_file]", version="%prog 1.0")
+	parser = OptionParser(usage="%prog [general_input_file] [vm_input_file]", version="%prog 1.0")
 	(options, args) = parser.parse_args()
 	
-	if len(args) != 1:
+	if len(args) != 2:
 		parser.error("Error: Incorrect parameters")
 	
 	# load json conf data
-	conf_data = json.load(open(args[0]))
+	general_conf_data = json.load(open(args[0]))
+	vm_conf_data = json.load(open(args[1]))
 	
 	# Root logger: is used by paramiko
-	logging.basicConfig(filename=conf_data['remote_dir'] +"/ctxt_agent.log",
+	logging.basicConfig(filename=vm_conf_data['remote_dir'] +"/ctxt_agent.log",
 			    level=logging.WARNING,
 			    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
 			    datefmt='%m-%d-%Y %H:%M:%S')
@@ -255,13 +260,13 @@ if __name__ == "__main__":
 
 	MAX_SSH_WAIT = 60
 
-	if 'playbook_retries' in conf_data:
-		PLAYBOOK_RETRIES = conf_data['playbook_retries']
+	if 'playbook_retries' in general_conf_data:
+		PLAYBOOK_RETRIES = general_conf_data['playbook_retries']
 
 	success = False
-	res_data = contextualize_vm(conf_data)
+	res_data = contextualize_vm(general_conf_data, vm_conf_data)
 	
-	ctxt_out = open(conf_data['remote_dir'] +"/ctxt_agent.out", 'w')
+	ctxt_out = open(vm_conf_data['remote_dir'] +"/ctxt_agent.out", 'w')
 	json.dump(res_data, ctxt_out, indent=2)
 	ctxt_out.close()
 

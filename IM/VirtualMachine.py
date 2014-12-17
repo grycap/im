@@ -463,6 +463,10 @@ class VirtualMachine:
 		"""
 		(user, passwd, _, private_key) = self.getCredentialValues()
 		ip = self.getPublicIP()
+		if ip == None:
+			ip = self.getPrivateIP()
+		if ip == None:
+			return None
 		return SSH(ip, user, passwd, private_key, self.getSSHPort())
 	
 	
@@ -486,7 +490,7 @@ class VirtualMachine:
 				if not ip:
 					ip = ip = self.getPrivateIP()
 				remote_dir = Config.REMOTE_CONF_DIR + "/" + ip + "_" + str(self.getSSHPort())
-				ip = self.get_ctxt_output(remote_dir)
+				self.get_ctxt_output(remote_dir)
 
 		return self.ctxt_pid
 	
@@ -513,12 +517,12 @@ class VirtualMachine:
 			
 			# Remove problematic chars
 			conf_out = filter(lambda x: x in string.printable, conf_out)
-			self.cont_out = conf_out.encode("ascii", "replace")
+			self.cont_out += conf_out.encode("ascii", "replace")
 			
 			ssh.execute("rm -rf " + remote_dir + '/ctxt_agent.log')
 		except Exception, ex:
 			self.configured = False
-			self.cont_out = "Error getting contextualization process output: " + str(ex)
+			self.cont_out += "Error getting contextualization process output: " + str(ex)
 			
 		# Donwload the contextualization agent log
 		try:

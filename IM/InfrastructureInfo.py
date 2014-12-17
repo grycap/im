@@ -342,15 +342,12 @@ class InfrastructureInfo:
 		contextualizes = self.radl.contextualize.get_contextualize_items_by_step({1:ctxts})
 		
 		ctxt_task = []
-		ctxt_task.append((-3,0,self,['wait_master', 'check_vm_ips']))
-		ctxt_task.append((-2,0,self,['configure_master', 'generate_playbooks_and_hosts']))
+		ctxt_task.append((-2,0,self,['wait_master', 'check_vm_ips']))
+		ctxt_task.append((-1,0,self,['configure_master', 'generate_playbooks_and_hosts']))
 		
 		for vm in self.get_vm_list():
+			vm.cont_out = "" 
 			tasks = {}
-			
-			new_creds = vm.getCredentialValues(new=True)
-			if len(list(set(new_creds))) > 1 or list(set(new_creds))[0] != None:
-				tasks[-1] = ['change_password']	 
 
 			tasks[0] = ['basic']
 			tasks[1] = ['main_' + vm.info.systems[0].name]

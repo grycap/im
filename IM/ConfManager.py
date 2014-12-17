@@ -167,8 +167,10 @@ class ConfManager(threading.Thread):
 						last_step = step
 			else:
 				if isinstance(vm,VirtualMachine):
-					# Check that the VM has no other ansible process running
-					if vm.ctxt_pid:
+					if vm.is_configured() is False:
+						ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Configuration process of step " + str(last_step) + " failed, ignoring tasks of later steps.")
+						# Check that the VM has no other ansible process running
+					elif vm.ctxt_pid:
 						ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": VM ID " + str(vm.im_id) + " has running processes, wait.")
 						# If there are, add the tasks again to the queue
 						# Set the priority to a higher number to decrease the proprity enabling to select other items of the queue before
@@ -214,8 +216,8 @@ class ConfManager(threading.Thread):
 		tmp_dir = tempfile.mkdtemp()
 
 		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Create the configuration file for the contextualization agent")
-		conf_file = tmp_dir + "/config.txt"
-		self.create_conf_file(conf_file, self.inf.get_vm_list(), vm.im_id, tasks, remote_dir)
+		conf_file = tmp_dir + "/config.cfg"
+		self.create_vm_conf_file(conf_file, vm.im_id, tasks, remote_dir)
 		
 		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Copy the contextualization agent config file")
 
@@ -227,7 +229,9 @@ class ConfManager(threading.Thread):
 		shutil.rmtree(tmp_dir, ignore_errors=True)
 
 		# TODO: checkear el tema de recuperar los procesos -> guardar el pid en fichero fijo
-		(pid, _, _) = ssh.execute("nohup python_ansible " + Config.REMOTE_CONF_DIR + "/ctxt_agent.py " + remote_dir + "/" + os.path.basename(conf_file) 
+		(pid, _, _) = ssh.execute("nohup python_ansible " + Config.REMOTE_CONF_DIR + "/ctxt_agent.py " 
+				+ Config.REMOTE_CONF_DIR + "/general_info.cfg "
+				+ remote_dir + "/" + os.path.basename(conf_file) 
 				+ " > " + remote_dir + "/stdout" + " 2> " + remote_dir + "/stderr < /dev/null & echo -n $!")
 		
 		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Ansible process to configure " + str(vm.im_id) + " launched with pid: " + pid)
@@ -592,12 +596,16 @@ class ConfManager(threading.Thread):
 			filenames.append(self.generate_etc_hosts(tmp_dir))
 			filenames.append(self.generate_inventory(tmp_dir))
 			
+			conf_file = "general_info.cfg"
+			self.create_general_conf_file(tmp_dir + "/" + conf_file, self.inf.get_vm_list())
+			filenames.append(conf_file)
+			
 			recipe_files = []
 			for f in filenames:
 				recipe_files.append((tmp_dir + "/" + f, remote_dir + "/" + f ))
 			
 			# TODO: Check this
-			time.sleep(5)
+			time.sleep(2)
 			
 			ssh = self.inf.vm_master.get_ssh()
 			self.inf.add_cont_msg("Copying YAML, hosts and inventory files.")
@@ -948,7 +956,7 @@ class ConfManager(threading.Thread):
 		
 		return success		
 
-	def create_conf_file(self, conf_file, vm_list, vm_id, tasks, remote_dir):
+	def create_general_conf_file(self, conf_file, vm_list):
 		"""
 		Create the configuration file needed by the contextualization agent
 		"""
@@ -958,14 +966,11 @@ class ConfManager(threading.Thread):
 		conf_data['vms'] = []
 		for vm in vm_list:
 			vm_conf_data = {}
+			vm_conf_data['id'] = vm.im_id
 			if vm.im_id == self.inf.vm_master.im_id:
 				vm_conf_data['master'] = True
 			else:
 				vm_conf_data['master'] = False
-			if vm.im_id == vm_id:
-				vm_conf_data['ctxt'] = True
-			else:
-				vm_conf_data['ctxt'] = False
 			# first try to use the public IP
 			vm_conf_data['ip'] = vm.getPublicIP()
 			if not vm_conf_data['ip']:
@@ -980,10 +985,23 @@ class ConfManager(threading.Thread):
 					(_, vm_conf_data['new_passwd'], vm_conf_data['new_public_key'], vm_conf_data['new_private_key']) = new_creds
 			
 			conf_data['vms'].append(vm_conf_data)
+
+		conf_data['conf_dir'] = Config.REMOTE_CONF_DIR
 		
+		conf_out = open(conf_file, 'w')
+		ConfManager.logger.debug("Ctxt agent configuration file: " + json.dumps(conf_data))
+		json.dump(conf_data, conf_out, indent=2)
+		conf_out.close()
+
+	def create_vm_conf_file(self, conf_file, vm_id, tasks, remote_dir):
+		"""
+		Create the configuration file needed by the contextualization agent
+		"""
+		conf_data = {}
+		
+		conf_data['id'] = vm_id	
 		conf_data['tasks'] = tasks
 		conf_data['remote_dir'] = remote_dir
-		conf_data['conf_dir'] = Config.REMOTE_CONF_DIR
 		
 		conf_out = open(conf_file, 'w')
 		ConfManager.logger.debug("Ctxt agent configuration file: " + json.dumps(conf_data))
