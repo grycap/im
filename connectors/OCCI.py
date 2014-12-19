@@ -14,6 +14,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import subprocess
+import shutil
 import os
 import re
 import base64
@@ -45,7 +47,7 @@ class OCCICloudConnector(CloudConnector):
 			(fproxy, proxy_filename) = tempfile.mkstemp()
 			os.write(fproxy, proxy)
 			os.close(fproxy)
-			
+
 			conn = httplib.HTTPSConnection(self.cloud.server, self.cloud.port, cert_file = proxy_filename)
 		else:
 			conn = httplib.HTTPConnection(self.cloud.server, self.cloud.port)
@@ -72,7 +74,7 @@ class OCCICloudConnector(CloudConnector):
 		if radl_system.getValue("disk.0.image.url"):
 			url = uriparse(radl_system.getValue("disk.0.image.url"))
 			protocol = url[0]
-			if protocol in ['http','https'] and url[5]:
+			if protocol in ['https'] and url[5] and url[1] == self.cloud.server + ":" + str(self.cloud.port):
 				res_system = radl_system.clone()
 
 				res_system.getFeature("cpu.count").operator = "="
@@ -169,10 +171,45 @@ class OCCICloudConnector(CloudConnector):
 				return (True, vm)
 
 		except Exception, ex:
-			self.logger.error("Error connecting with OCCI server")
-			self.logger.error(ex)
-			return (False, "Error connecting with OCCI server")
+			self.logger.exception("Error connecting with OCCI server")
+			return (False, "Error connecting with OCCI server: " + str(ex))
 
+	def keygen(self):
+		tmp_dir = tempfile.mkdtemp()
+		pk_file = tmp_dir + "/occi-key"
+		command = 'ssh-keygen -t rsa -b 2048 -q -N "" -f ' + pk_file
+		p=subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+		(out, err) = p.communicate()
+		if p.returncode!=0:
+			shutil.rmtree(tmp_dir, ignore_errors=True)
+			self.logger.error("Error executing ssh-keygen: " + out + err)
+			return (None, None)
+		else:
+			public = None
+			private = None
+			try:
+				with open(pk_file) as f: private = f.read()
+			except:
+				self.logger.exception("Error reading private_key file.")
+				
+			try:
+				with open(pk_file + ".pub") as f: public = f.read()
+			except:
+				self.logger.exception("Error reading public_key file.")
+			
+			shutil.rmtree(tmp_dir, ignore_errors=True)
+			return (public, private)
+		
+	def gen_cloud_config(self, public_key, user = 'cloudadm'):
+		config = "#cloud-config\n"
+		config += "users:\n"
+		config += "  - name: " + user + "\n"
+		config += "    sudo: ALL=(ALL) NOPASSWD:ALL\n"
+		config += "    lock-passwd: true\n"
+		config += "    ssh-import-id: " + user + "\n" 
+		config += "    ssh-authorized-keys:\n"
+		config += "	  - " + public_key + "\n"
+		return config
 
 	def launch(self, inf, radl, requested_radl, num_vm, auth_data):
 		system = radl.systems[0]
@@ -191,10 +228,25 @@ class OCCICloudConnector(CloudConnector):
 		res = []
 		i = 0
 		conn = self.get_http_connection(auth_data)
-		
-		# The URI has this format: http://occi.fc-one.i3m.upv.es/occi/infrastructure/os_tpl#uuid_prueba2_1
+
 		url = uriparse(system.getValue("disk.0.image.url"))
 		os_tpl = url[5]
+		os_tpl_scheme =  url[2][1:] + "#"
+		
+		public_key = system.getValue('disk.0.os.credentials.public_key')
+		
+		if not public_key:
+			# We must generate them
+			(public_key, private_key) = self.keygen()
+			system.setValue('disk.0.os.credentials.private_key', private_key)
+		
+		user = system.getValue('disk.os.credentials.user')
+		if not user:
+			user = "cloudadm"
+			system.setValue('disk.os.credentials.user', user)
+		
+		cloud_config = self.gen_cloud_config(public_key, user)
+		user_data = base64.encodestring(cloud_config).replace("\n","")
 		
 		while i < num_vm:
 			try:
@@ -205,13 +257,20 @@ class OCCICloudConnector(CloudConnector):
 				conn.putheader('Content-Type', 'text/plain,text/occi')
 				
 				body = 'Category: compute; scheme="http://schemas.ogf.org/occi/infrastructure#"; class="kind"\n'
-				#body += 'Category: ' + instance_type.name + '; scheme="http://fedcloud.egi.eu/occi/infrastructure/resource_tpl#"; class="mixin"\n'
-				body += 'Category: ' + os_tpl + '; scheme="http://occi.fc-one.i3m.upv.es/occi/infrastructure/os_tpl#"; class="mixin"\n'
+				body += 'Category: ' + os_tpl + '; scheme="' + os_tpl_scheme + '"; class="mixin"\n'
+				body += 'Category: user_data; scheme="http://schemas.openstack.org/compute/instance#"; class="mixin"\n'
+				body += 'Category: public_key; scheme="http://schemas.openstack.org/instance/credentials#"; class="mixin"\n' 				
 				body += 'X-OCCI-Attribute: occi.core.title="' + name + '"\n'
 				body += 'X-OCCI-Attribute: occi.compute.hostname="' + name + '"\n'
 				body += 'X-OCCI-Attribute: occi.compute.cores=' + str(cpu) +'\n'
 				#body += 'X-OCCI-Attribute: occi.compute.architecture=' + arch +'\n'
 				body += 'X-OCCI-Attribute: occi.compute.memory=' + str(memory) + '\n'
+				
+				# See: https://wiki.egi.eu/wiki/HOWTO10
+				#body += 'X-OCCI-Attribute: org.openstack.credentials.publickey.name="my_key"' 
+				#body += 'X-OCCI-Attribute: org.openstack.credentials.publickey.data="ssh-rsa BAA...zxe ==user@host"'
+				body += 'X-OCCI-Attribute: org.openstack.compute.user_data="' + user_data + '"\n'
+				
 				conn.putheader('Content-Length', len(body))
 				conn.endheaders(body)
 
