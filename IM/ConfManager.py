@@ -145,8 +145,7 @@ class ConfManager(threading.Thread):
 			if self.inf.ctxt_tasks.empty() and vms_configuring:
 				time.sleep(self.THREAD_SLEEP_DELAY)
 				continue
-			
-			# TODO: Pensar si no hago esto bloqueante y cuando no haya tareas acabo el thread
+
 			(step, prio, vm, tasks) = self.inf.ctxt_tasks.get()
 
 			# if this task is from a next step
@@ -228,7 +227,6 @@ class ConfManager(threading.Thread):
 		
 		shutil.rmtree(tmp_dir, ignore_errors=True)
 
-		# TODO: checkear el tema de recuperar los procesos -> guardar el pid en fichero fijo
 		(pid, _, _) = ssh.execute("nohup python_ansible " + Config.REMOTE_CONF_DIR + "/ctxt_agent.py " 
 				+ Config.REMOTE_CONF_DIR + "/general_info.cfg "
 				+ remote_dir + "/" + os.path.basename(conf_file) 
