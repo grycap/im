@@ -240,10 +240,10 @@ class OCCICloudConnector(CloudConnector):
 			(public_key, private_key) = self.keygen()
 			system.setValue('disk.0.os.credentials.private_key', private_key)
 		
-		user = system.getValue('disk.os.credentials.user')
+		user = system.getValue('disk.os.credentials.username')
 		if not user:
 			user = "cloudadm"
-			system.setValue('disk.os.credentials.user', user)
+			system.setValue('disk.os.credentials.username', user)
 		
 		cloud_config = self.gen_cloud_config(public_key, user)
 		user_data = base64.encodestring(cloud_config).replace("\n","")
