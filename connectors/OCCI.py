@@ -201,14 +201,15 @@ class OCCICloudConnector(CloudConnector):
 			return (public, private)
 		
 	def gen_cloud_config(self, public_key, user = 'cloudadm'):
-		config = "#cloud-config\n"
-		config += "users:\n"
-		config += "  - name: " + user + "\n"
-		config += "    sudo: ALL=(ALL) NOPASSWD:ALL\n"
-		config += "    lock-passwd: true\n"
-		config += "    ssh-import-id: " + user + "\n" 
-		config += "    ssh-authorized-keys:\n"
-		config += "	  - " + public_key + "\n"
+		config = """#cloud-config
+users:
+  - name: %s
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    lock-passwd: true
+    ssh-import-id: %s
+    ssh-authorized-keys:
+      - %s
+""" % (user , user, public_key)
 		return config
 
 	def launch(self, inf, radl, requested_radl, num_vm, auth_data):
@@ -246,7 +247,7 @@ class OCCICloudConnector(CloudConnector):
 			system.setValue('disk.os.credentials.username', user)
 		
 		cloud_config = self.gen_cloud_config(public_key, user)
-		user_data = base64.encodestring(cloud_config).replace("\n","")
+		user_data = base64.b64encode(cloud_config).replace("\n","")
 		
 		while i < num_vm:
 			try:
@@ -259,7 +260,7 @@ class OCCICloudConnector(CloudConnector):
 				body = 'Category: compute; scheme="http://schemas.ogf.org/occi/infrastructure#"; class="kind"\n'
 				body += 'Category: ' + os_tpl + '; scheme="' + os_tpl_scheme + '"; class="mixin"\n'
 				body += 'Category: user_data; scheme="http://schemas.openstack.org/compute/instance#"; class="mixin"\n'
-				body += 'Category: public_key; scheme="http://schemas.openstack.org/instance/credentials#"; class="mixin"\n' 				
+				#body += 'Category: public_key; scheme="http://schemas.openstack.org/instance/credentials#"; class="mixin"\n' 				
 				body += 'X-OCCI-Attribute: occi.core.title="' + name + '"\n'
 				body += 'X-OCCI-Attribute: occi.compute.hostname="' + name + '"\n'
 				body += 'X-OCCI-Attribute: occi.compute.cores=' + str(cpu) +'\n'
