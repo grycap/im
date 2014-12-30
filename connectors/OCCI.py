@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import json
 import subprocess
 import shutil
 import os
@@ -26,11 +27,13 @@ from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from CloudConnector import CloudConnector
 from IM.radl.radl import Feature, network
-	
+
 
 class OCCICloudConnector(CloudConnector):
 	
 	type = "OCCI"
+	INSTANCE_TYPE = 'small'
+	"""str with the name of the default instance type to launch."""
 	
 	VM_STATE_MAP = {
 		'waiting': VirtualMachine.PENDING,
@@ -39,18 +42,23 @@ class OCCICloudConnector(CloudConnector):
 		'suspended': VirtualMachine.OFF
 	}
 
+	def get_https_connection(self, auth, server, port):
+		proxy = auth[0]['proxy']
+		
+		(fproxy, proxy_filename) = tempfile.mkstemp()
+		os.write(fproxy, proxy)
+		os.close(fproxy)
+
+		return httplib.HTTPSConnection(server, port, cert_file = proxy_filename)
+
 	def get_http_connection(self, auth_data):
 		auth = auth_data.getAuthInfo(OCCICloudConnector.type)
-		if auth and 'proxy' in auth[0]:
-			proxy = auth[0]['proxy']
-			
-			(fproxy, proxy_filename) = tempfile.mkstemp()
-			os.write(fproxy, proxy)
-			os.close(fproxy)
-
-			conn = httplib.HTTPSConnection(self.cloud.server, self.cloud.port, cert_file = proxy_filename)
+		url = uriparse(self.cloud.server)
+		
+		if url[0] == 'https':
+			conn = self.get_https_connection(auth, url[1], self.cloud.port)
 		else:
-			conn = httplib.HTTPConnection(self.cloud.server, self.cloud.port)
+			conn = httplib.HTTPConnection(url[1], self.cloud.port)
 		
 		return conn
 	
@@ -58,14 +66,19 @@ class OCCICloudConnector(CloudConnector):
 		if conn.cert_file and os.path.isfile(conn.cert_file):
 			os.unlink(conn.cert_file)
 
-	@staticmethod
-	def get_auth_header(auth_data):
+	def get_auth_header(self, auth_data):
 		auth_header = None
 		auth = auth_data.getAuthInfo(OCCICloudConnector.type) 
-		if auth and 'username' in auth[0] and 'password' in auth[0]:
-			passwd = auth[0]['password']
-			user = auth[0]['username'] 
-			auth_header = 'Basic ' + string.strip(base64.encodestring(user + ':' + passwd))
+		keystone_uri = KeyStoneAuth.get_keystone_uri(self, auth_data)
+		
+		if keystone_uri:
+			keystone_token = KeyStoneAuth.get_keystone_token(self, keystone_uri, auth)
+			auth_header = {'X-Auth-Token' : keystone_token} 		
+		else: 
+			if auth and 'username' in auth[0] and 'password' in auth[0]:
+				passwd = auth[0]['password']
+				user = auth[0]['username'] 
+				auth_header = { 'Authorization' : 'Basic ' + string.strip(base64.encodestring(user + ':' + passwd))}
 
 		return auth_header
 		
@@ -74,7 +87,7 @@ class OCCICloudConnector(CloudConnector):
 		if radl_system.getValue("disk.0.image.url"):
 			url = uriparse(radl_system.getValue("disk.0.image.url"))
 			protocol = url[0]
-			if protocol in ['https'] and url[5] and url[1] == self.cloud.server + ":" + str(self.cloud.port):
+			if protocol in ['https', 'http'] and url[5] and (url[0] + "://" + url[1]) == (self.cloud.server + ":" + str(self.cloud.port)):
 				res_system = radl_system.clone()
 
 				res_system.getFeature("cpu.count").operator = "="
@@ -95,16 +108,19 @@ class OCCICloudConnector(CloudConnector):
 		res = []
 		for l in lines:
 			if l.find('Link:') != -1 and l.find('/network/') != -1:
+				num_interface = None
+				ip_address = None
 				parts = l.split(';')
 				for part in parts:
 					kv = part.split('=')
-					if kv[0] == "occi.networkinterface.address":
+					if kv[0].strip() == "occi.networkinterface.address":
 						ip_address = kv[1].strip('"')
 						is_private = network.isPrivateIP(ip_address) 
-					elif kv[0] == "occi.networkinterface.interface":
+					elif kv[0].strip() == "occi.networkinterface.interface":
 						net_interface = kv[1].strip('"')
 						num_interface = re.findall('\d+', net_interface)[0]
-				res.append((num_interface, ip_address, not is_private))
+				if num_interface and ip_address:
+					res.append((num_interface, ip_address, not is_private))
 		return res
 
 	def setIPs(self, vm, occi_res):
@@ -153,7 +169,7 @@ class OCCICloudConnector(CloudConnector):
 		auth = self.get_auth_header(auth_data)
 		headers = {'Accept': 'text/plain'}
 		if auth:
-			headers['Authorization'] = auth
+			headers.update(auth)
 		
 		try:
 			conn = self.get_http_connection(auth_data)
@@ -162,8 +178,11 @@ class OCCICloudConnector(CloudConnector):
 			self.delete_proxy(conn)
 			
 			output = resp.read()
-			if resp.status != 200:
-				return (False, output)
+			if resp.status == 404:
+				vm.state = VirtualMachine.OFF
+				return (True, vm)
+			elif resp.status != 200:
+				return (False, resp.reason + "\n" + output)
 			else:
 				vm.state = self.VM_STATE_MAP.get(self.get_vm_state(output), VirtualMachine.UNKNOWN)
 				# Update the network data
@@ -207,7 +226,7 @@ users:
     sudo: ALL=(ALL) NOPASSWD:ALL
     lock-passwd: true
     ssh-import-id: %s
-    ssh-authorized-keys:
+    ssh-authorized-keys:if resp.status == 404:
       - %s
 """ % (user , user, public_key)
 		return config
@@ -249,11 +268,17 @@ users:
 		cloud_config = self.gen_cloud_config(public_key, user)
 		user_data = base64.b64encode(cloud_config).replace("\n","")
 		
+		instance_type_uri = None
+		if system.getValue('instance_type'):
+			instance_type_uri = uriparse(system.getValue('instance_type'))
+			instance_name = instance_type_uri[5] 
+			instance_scheme =  instance_type_uri[0] + "://" + instance_type_uri[1] + instance_type_uri[2] + "#"
+		
 		while i < num_vm:
 			try:
-				conn.putrequest('POST', "/compute")
+				conn.putrequest('POST', "/compute/")
 				if auth_header:
-					conn.putheader('Authorization', auth_header)
+					conn.putheader(auth_header.keys()[0], auth_header.values()[0])
 				conn.putheader('Accept', 'text/plain')
 				conn.putheader('Content-Type', 'text/plain,text/occi')
 				
@@ -261,12 +286,17 @@ users:
 				body += 'Category: ' + os_tpl + '; scheme="' + os_tpl_scheme + '"; class="mixin"\n'
 				body += 'Category: user_data; scheme="http://schemas.openstack.org/compute/instance#"; class="mixin"\n'
 				#body += 'Category: public_key; scheme="http://schemas.openstack.org/instance/credentials#"; class="mixin"\n' 				
-				body += 'X-OCCI-Attribute: occi.core.title="' + name + '"\n'
-				body += 'X-OCCI-Attribute: occi.compute.hostname="' + name + '"\n'
-				body += 'X-OCCI-Attribute: occi.compute.cores=' + str(cpu) +'\n'
-				#body += 'X-OCCI-Attribute: occi.compute.architecture=' + arch +'\n'
-				body += 'X-OCCI-Attribute: occi.compute.memory=' + str(memory) + '\n'
 				
+				if instance_type_uri:
+					body += 'Category: ' + instance_name + '; scheme="' + instance_scheme + '"; class="mixin"\n'
+				else:
+					# Try to use this OCCI attributes (not supoorted by openstack)
+					body += 'X-OCCI-Attribute: occi.compute.cores=' + str(cpu) +'\n'
+					#body += 'X-OCCI-Attribute: occi.compute.architecture=' + arch +'\n'
+					body += 'X-OCCI-Attribute: occi.compute.memory=' + str(memory) + '\n'
+
+				body += 'X-OCCI-Attribute: occi.core.title="' + name + '"\n'
+				body += 'X-OCCI-Attribute: occi.compute.hostname="' + name + '"\n'				
 				# See: https://wiki.egi.eu/wiki/HOWTO10
 				#body += 'X-OCCI-Attribute: org.openstack.credentials.publickey.name="my_key"' 
 				#body += 'X-OCCI-Attribute: org.openstack.credentials.publickey.data="ssh-rsa BAA...zxe ==user@host"'
@@ -281,9 +311,12 @@ users:
 				output = resp.read()
 				
 				if resp.status != 201:
-					res.append((False, output))
+					res.append((False, resp.reason + "\n" + output))
 				else:
-					occi_vm_id = os.path.basename(output)				
+					if 'location' in resp.msg.dict:
+						occi_vm_id = os.path.basename(resp.msg.dict['location'])
+					else:
+						occi_vm_id = os.path.basename(output)				
 					vm = VirtualMachine(inf, occi_vm_id, self.cloud, radl, requested_radl)
 					res.append((True, vm))
 
@@ -301,7 +334,7 @@ users:
 		auth = self.get_auth_header(auth_data)
 		headers = {'Accept': 'text/plain'}
 		if auth:
-			headers['Authorization'] = auth
+			headers.update(auth)
 		
 		try:
 			conn = self.get_http_connection(auth_data)
@@ -309,8 +342,10 @@ users:
 			resp = conn.getresponse()	
 			self.delete_proxy(conn)		
 			output = str(resp.read())
-			if resp.status != 200:
-				return (False, "Error removing the VM: " + output)
+			if resp.status == 404:
+				return (True, vm.id)
+			elif resp.status != 200:
+				return (False, "Error removing the VM: " + resp.reason + "\n" + output)
 			else:
 				return (True, vm.id)
 		except Exception:
@@ -324,7 +359,7 @@ users:
 			conn = self.get_http_connection(auth_data)
 			conn.putrequest('POST', "/compute/" + vm.id + "?action=suspend")
 			if auth_header:
-				conn.putheader('Authorization', auth_header)
+				conn.putheader(auth_header.keys()[0], auth_header.values()[0])
 			conn.putheader('Accept', 'text/plain')
 			conn.putheader('Content-Type', 'text/plain,text/occi')
 			
@@ -336,7 +371,7 @@ users:
 			self.delete_proxy(conn)	
 			output = str(resp.read())
 			if resp.status != 200:
-				return (False, "Error stopping the VM: " + output)
+				return (False, "Error stopping the VM: " + resp.reason + "\n" + output)
 			else:
 				return (True, vm.id)
 		except Exception:
@@ -349,7 +384,7 @@ users:
 			conn = self.get_http_connection(auth_data)
 			conn.putrequest('POST', "/compute/" + vm.id + "?action=start")
 			if auth_header:
-				conn.putheader('Authorization', auth_header)
+				conn.putheader(auth_header.keys()[0], auth_header.values()[0])
 			conn.putheader('Accept', 'text/plain')
 			conn.putheader('Content-Type', 'text/plain,text/occi')
 			
@@ -361,7 +396,7 @@ users:
 			self.delete_proxy(conn)	
 			output = str(resp.read())
 			if resp.status != 200:
-				return (False, "Error starting the VM: " + output)
+				return (False, "Error starting the VM: " + resp.reason + "\n" + output)
 			else:
 				return (True, vm.id)
 		except Exception:
@@ -370,3 +405,78 @@ users:
 			
 	def alterVM(self, vm, radl, auth_data):
 		return (False, "Not supported")
+
+class KeyStoneAuth:
+	@staticmethod
+	def get_keystone_uri(occi, auth_data):
+		try:
+			headers = {'Accept': 'text/plain'}
+			conn = occi.get_http_connection(auth_data)
+			conn.request('HEAD', "/-/", headers = headers) 
+			resp = conn.getresponse()
+			www_auth_head = resp.getheader('Www-Authenticate')
+			if www_auth_head and www_auth_head.startswith('Keystone uri'):
+				return www_auth_head.split('=')[1].replace("'","")
+			else:
+				return None
+		except:
+			return None
+	
+	@staticmethod
+	def get_keystone_token(occi, keystone_uri, auth):
+		try:
+			uri = uriparse(keystone_uri)
+			server = uri[1].split(":")[0]
+			port = int(uri[1].split(":")[1])
+			
+			conn = occi.get_https_connection(auth, server, port)
+			conn.putrequest('POST', "/v2.0/tokens")
+			conn.putheader('Accept', 'application/json')
+			conn.putheader('Content-Type', 'application/json')
+			conn.putheader('Connection', 'close')
+			
+			body = '{"auth":{"voms":true}}'
+			
+			conn.putheader('Content-Length', len(body))
+			conn.endheaders(body)
+	
+			resp = conn.getresponse()
+			
+			# format: -> "{\"access\": {\"token\": {\"issued_at\": \"2014-12-29T17:10:49.609894\", \"expires\": \"2014-12-30T17:10:49Z\", \"id\": \"c861ab413e844d12a61d09b23dc4fb9c\"}, \"serviceCatalog\": [], \"user\": {\"username\": \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\", \"roles_links\": [], \"id\": \"475ce4978fb042e49ce0391de9bab49b\", \"roles\": [], \"name\": \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\"}, \"metadata\": {\"is_admin\": 0, \"roles\": []}}}"
+			output = json.loads(resp.read())
+			token_id = output['access']['token']['id']
+			
+			conn = occi.get_https_connection(auth, server, port)
+			headers = {'Accept': 'application/json', 'Content-Type' : 'application/json', 'X-Auth-Token' : token_id, 'Connection':'close'}
+			conn.request('GET', "/v2.0/tenants", headers = headers)
+			resp = conn.getresponse()
+			
+			# format: -> "{\"tenants_links\": [], \"tenants\": [{\"description\": \"egi fedcloud\", \"enabled\": true, \"id\": \"fffd98393bae4bf0acf66237c8f292ad\", \"name\": \"egi\"}]}"
+			output = json.loads(resp.read())
+			tenant = str(output['tenants'][0]['name'])		
+			
+			
+			conn = occi.get_https_connection(auth, server, port)
+			conn.putrequest('POST', "/v2.0/tokens")
+			conn.putheader('Accept', 'application/json')
+			conn.putheader('Content-Type', 'application/json')
+			conn.putheader('X-Auth-Token', token_id)
+			conn.putheader('Connection', 'close')
+			
+			body = '{"auth":{"voms":true,"tenantName":"' + tenant + '"}}'
+			
+			conn.putheader('Content-Length', len(body))
+			conn.endheaders(body)
+	
+			resp = conn.getresponse()
+			
+			# format: -> "{\"access\": {\"token\": {\"issued_at\": \"2014-12-29T17:10:49.609894\", \"expires\": \"2014-12-30T17:10:49Z\", \"id\": \"c861ab413e844d12a61d09b23dc4fb9c\"}, \"serviceCatalog\": [], \"user\": {\"username\": \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\", \"roles_links\": [], \"id\": \"475ce4978fb042e49ce0391de9bab49b\", \"roles\": [], \"name\": \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\"}, \"metadata\": {\"is_admin\": 0, \"roles\": []}}}"
+			output = json.loads(resp.read())
+			tenant_token_id = output['access']['token']['id']
+			
+			occi.delete_proxy(conn)
+		
+			return tenant_token_id
+		except:
+			occi.logger.exception("Error obtaining Keystone Token.")
+			return None

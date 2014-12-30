@@ -173,7 +173,10 @@ class InfrastructureManager:
 				while (remain_vm > 0 and fail_cont < Config.MAX_VM_FAILS and
 				       not cancel_deployment):
 					concrete_system = concrete_systems[cloud_id][deploy.id][0]
-					if not concrete_system: break
+					if not concrete_system:
+						InfrastructureManager.logger.error("Error, no concrete system to deploy: " + deploy.id + ". Check if a correct image is being used")
+						exceptions.append("Error, no concrete system to deploy: " + deploy.id + ". Check if a correct image is being used")
+						break
 					
 					(username, _, _, _) = concrete_system.getCredentialValues()
 					if not username:
