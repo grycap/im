@@ -30,8 +30,12 @@ from IM.radl.radl import Feature, network
 
 
 class OCCICloudConnector(CloudConnector):
+	"""
+	Cloud Launcher to the OCCI platform (FedCloud)
+	"""
 	
 	type = "OCCI"
+	"""str with the name of the provider."""
 	INSTANCE_TYPE = 'small'
 	"""str with the name of the default instance type to launch."""
 	
@@ -41,17 +45,29 @@ class OCCICloudConnector(CloudConnector):
 		'inactive': VirtualMachine.OFF,
 		'suspended': VirtualMachine.OFF
 	}
+	"""Dictionary with a map with the OCCI VM states to the IM states."""
 
-	def get_https_connection(self, auth, server, port):
-		proxy = auth[0]['proxy']
-		
-		(fproxy, proxy_filename) = tempfile.mkstemp()
-		os.write(fproxy, proxy)
-		os.close(fproxy)
-
-		return httplib.HTTPSConnection(server, port, cert_file = proxy_filename)
+	@staticmethod
+	def get_https_connection(auth, server, port):
+		"""
+		Get a HTTPS connection with the specified server.
+		It uses a proxy file if it has been specified in the auth credentials 
+		"""
+		if 'proxy' in auth[0]:
+			proxy = auth[0]['proxy']
+			
+			(fproxy, proxy_filename) = tempfile.mkstemp()
+			os.write(fproxy, proxy)
+			os.close(fproxy)
+	
+			return httplib.HTTPSConnection(server, port, cert_file = proxy_filename)
+		else:
+			return httplib.HTTPSConnection(server, port)
 
 	def get_http_connection(self, auth_data):
+		"""
+		Get the HTTP/HTTPS connection to contact the OCCI server
+		"""
 		auth = auth_data.getAuthInfo(OCCICloudConnector.type)
 		url = uriparse(self.cloud.server)
 		
@@ -62,11 +78,20 @@ class OCCICloudConnector(CloudConnector):
 		
 		return conn
 	
-	def delete_proxy(self, conn):
+	@staticmethod
+	def delete_proxy(conn):
+		"""
+		Delete the proxy file created to contact with the HTTPS server.
+		(Created in the get_https_connection function)
+		"""
 		if conn.cert_file and os.path.isfile(conn.cert_file):
 			os.unlink(conn.cert_file)
 
 	def get_auth_header(self, auth_data):
+		"""
+		Generate the auth header needed to contact with the OCCI server.
+		I supports Keystone tokens and basic auth.
+		"""
 		auth_header = None
 		auth = auth_data.getAuthInfo(OCCICloudConnector.type) 
 		keystone_uri = KeyStoneAuth.get_keystone_uri(self, auth_data)
@@ -104,6 +129,9 @@ class OCCICloudConnector(CloudConnector):
 			return [radl_system.clone()]
 
 	def get_net_info(self, occi_res):
+		"""
+		Get the net related information about a VM from the OCCI information returned by the server 
+		"""
 		lines = occi_res.split("\n")
 		res = []
 		for l in lines:
@@ -124,7 +152,9 @@ class OCCICloudConnector(CloudConnector):
 		return res
 
 	def setIPs(self, vm, occi_res):
-		
+		"""
+		Set to the VM info the IPs obtained from the OCCI info  
+		"""
 		public_ips = []
 		private_ips = []
 		
@@ -136,12 +166,16 @@ class OCCICloudConnector(CloudConnector):
 				private_ips.append(ip_address)
 		
 		vm.setIps(public_ips, private_ips)
-	
-	def get_vm_state(self, occi_res):
+			
+	def get_occi_attribute_value(self, occi_res, attr_name):
+		"""
+		Get the value of an OCCI attribute returned by an OCCI server
+		"""
 		lines = occi_res.split("\n")
 		for l in lines:
-			if l.find('X-OCCI-Attribute: occi.compute.state=') != -1:
-				return l.split('=')[1].strip('"')	
+			if l.find('X-OCCI-Attribute: ' + attr_name + '=') != -1:
+				return l.split('=')[1].strip('"')
+		return None
 	
 	"""
 	text/plain format:
@@ -184,7 +218,15 @@ class OCCICloudConnector(CloudConnector):
 			elif resp.status != 200:
 				return (False, resp.reason + "\n" + output)
 			else:
-				vm.state = self.VM_STATE_MAP.get(self.get_vm_state(output), VirtualMachine.UNKNOWN)
+				vm.state = self.VM_STATE_MAP.get(self.get_occi_attribute_value(output, 'occi.compute.state'), VirtualMachine.UNKNOWN)
+				
+				cores = self.get_occi_attribute_value(output, 'occi.compute.cores')
+				if cores:
+					vm.info.systems[0].setValue("cpu.count", int(cores))
+				memory = self.get_occi_attribute_value(output, 'occi.compute.memory')
+				if memory:
+					vm.info.systems[0].setValue("memory.size", float(memory), 'G')
+				
 				# Update the network data
 				self.setIPs(vm,output)
 				return (True, vm)
@@ -194,6 +236,9 @@ class OCCICloudConnector(CloudConnector):
 			return (False, "Error connecting with OCCI server: " + str(ex))
 
 	def keygen(self):
+		"""
+		Generates a keypair using the ssh-keygen command and returns a tuple (public, private)
+		"""
 		tmp_dir = tempfile.mkdtemp()
 		pk_file = tmp_dir + "/occi-key"
 		command = 'ssh-keygen -t rsa -b 2048 -q -N "" -f ' + pk_file
@@ -220,6 +265,9 @@ class OCCICloudConnector(CloudConnector):
 			return (public, private)
 		
 	def gen_cloud_config(self, public_key, user = 'cloudadm'):
+		"""
+		Generate the cloud-config file to be used in the user_data of the OCCI VM
+		"""
 		config = """#cloud-config
 users:
   - name: %s
@@ -230,6 +278,42 @@ users:
       - %s
 """ % (user , user, public_key)
 		return config
+
+	def get_instance_type_uri(self, instance_type, auth_data):
+		"""
+		Get the whole URI of an OCCI instance type contacting with the OCCI server
+		"""
+		if instance_type.startswith('http'):
+			return instance_type
+		else:
+			auth = self.get_auth_header(auth_data)
+			headers = {'Accept': 'text/plain'}
+			if auth:
+				headers.update(auth)
+			
+			try:
+				conn = self.get_http_connection(auth_data)
+				conn.request('GET', "/-/", headers = headers) 
+				resp = conn.getresponse()
+				self.delete_proxy(conn)
+				
+				output = resp.read()
+				
+				if resp.status != 200:
+					return instance_type 
+				else:
+					lines = output.split("\n")
+					for l in lines:
+						if l.find('Category: ' + instance_type) != -1 and l.find('resource_tpl') != -1:
+							parts = l.split(';')
+							for p in parts:
+								kv = p.split("=")
+								if kv[0].strip() == "scheme":
+									return kv[1].replace('"','').replace("'",'') + instance_type
+					return instance_type
+			except:
+				self.logger.exception("Error getting Instance type URI")
+				return instance_type
 
 	def launch(self, inf, radl, requested_radl, num_vm, auth_data):
 		system = radl.systems[0]
@@ -270,7 +354,8 @@ users:
 		
 		instance_type_uri = None
 		if system.getValue('instance_type'):
-			instance_type_uri = uriparse(system.getValue('instance_type'))
+			instance_type = self.get_instance_type_uri(system.getValue('instance_type'), auth_data)
+			instance_type_uri = uriparse(instance_type)
 			instance_name = instance_type_uri[5] 
 			instance_scheme =  instance_type_uri[0] + "://" + instance_type_uri[1] + instance_type_uri[2] + "#"
 		
@@ -407,8 +492,16 @@ users:
 		return (False, "Not supported")
 
 class KeyStoneAuth:
+	"""
+	Class to manage the Keystone auth tokens used in OpenStack
+	"""
+	
 	@staticmethod
 	def get_keystone_uri(occi, auth_data):
+		"""
+		Contact the OCCI server to check if it needs to contact a keystone server.
+		It returns the keystone server URI or None.
+		"""
 		try:
 			headers = {'Accept': 'text/plain'}
 			conn = occi.get_http_connection(auth_data)
@@ -424,6 +517,9 @@ class KeyStoneAuth:
 	
 	@staticmethod
 	def get_keystone_token(occi, keystone_uri, auth):
+		"""
+		Contact the specified keystone server to return the token
+		"""
 		try:
 			uri = uriparse(keystone_uri)
 			server = uri[1].split(":")[0]
