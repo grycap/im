@@ -62,3 +62,4 @@ IM 1.2.0
     * Change the contextualization process:
     	* Enable to contextualize the VMs individually.
     	* Call Ansible inside a Thread.
+    * Bugfixes in OCCI connector
