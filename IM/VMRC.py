@@ -52,7 +52,7 @@ class VMRC:
 			'userPassword': ('disk.0.os.credentials.password', str)
 		}
 		fs = [ Feature(VMRC_RADL_MAP[prop][0], "=", VMRC_RADL_MAP[prop][1](getattr(vmi, prop)))
-		                               for prop in VMRC_RADL_MAP if hasattr(vmi, prop) ]
+		                               for prop in VMRC_RADL_MAP if hasattr(vmi, prop) and getattr(vmi, prop) ]
 		fs.extend([ Feature("disk.0.os." + prop, "=", getattr(vmi.os, prop))
 		                                       for prop in ['name', "flavour", "version"]])
 		
