@@ -95,12 +95,12 @@ class ConfManager(threading.Thread):
 		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Stop Configuration thread.")
 
 
-	def check_vm_ips(self):
+	def check_vm_ips(self, timeout = Config.WAIT_RUNNING_VM_TIMEOUT):
 	
-		ips_availavle_retries = 0
+		wait = 0
 		# Assure that all the VMs of the Inf. have one IP
 		success = False
-		while not success and ips_availavle_retries <= Config.PLAYBOOK_RETRIES:
+		while not success and wait < timeout:
 			success = True
 			for vm in self.inf.get_vm_list():
 				ip = vm.getPublicIP()
@@ -120,17 +120,13 @@ class ConfManager(threading.Thread):
 						break
 			
 			if not success:
-				ips_availavle_retries += 1
-				ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": Error waiting all the VMs to have an IP %d/%d" % (ips_availavle_retries, Config.PLAYBOOK_RETRIES)) 
-				if ips_availavle_retries > Config.PLAYBOOK_RETRIES:
-					ConfManager.logger.error("Inf ID: " + str(self.inf.id) + ": Error waiting all the VMs to have an IP. Finish thread.")
-					self.inf.set_configured(False)
-					return False
-				else: 
-					# The sleep is incremental
-					time.sleep(self.THREAD_SLEEP_DELAY * ips_availavle_retries * 10)
+				ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": Error waiting all the VMs to have an IP") 
+				wait += self.THREAD_SLEEP_DELAY
+				time.sleep(self.THREAD_SLEEP_DELAY)
 			else:
 				self.inf.set_configured(True)
+				
+		return success
 
 	def run(self):
 		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Starting the ConfManager Thread")
@@ -526,8 +522,8 @@ class ConfManager(threading.Thread):
 					os.remove(os.path.expanduser("~/.ssh/known_hosts"))
 	
 				self.inf.add_cont_msg("Wait master VM to have the SSH active.")
-				all_connected = self.waitConnectedVMs([self.inf.vm_master], Config.WAIT_RUNNING_VM_TIMEOUT)
-				if not all_connected:
+				is_connected = self.wait_vm_ssh_acccess(self.inf.vm_master, Config.WAIT_RUNNING_VM_TIMEOUT)
+				if not is_connected:
 					ConfManager.logger.error("Inf ID: " + str(self.inf.id) + ": Error Waiting the Master VM to have the SSH active, exit")
 					self.inf.add_cont_msg("Contextualization Error: Error Waiting the Master VM to have the SSH active (Check credentials)")
 					self.inf.set_configured(False)
@@ -703,72 +699,60 @@ class ConfManager(threading.Thread):
 		else:
 			return True
 
-	def waitConnectedVMs(self, vm_list, timeout):
+	def wait_vm_ssh_acccess(self, vm, timeout):
 		"""
-		Wait for all the VMs with public IP to have the SSH port opened 
+		Wait for the VM to have the SSH port opened 
 	
 		Arguments:
-		   - vm_list(list of :py:class:`IM.VirtualMachine`): list of VMs to check.
-		   - timeout(int): Max time to wait the VMs to be running.
-		Returns: True if all the VMs have the SSH port open or false otherwise
+		   - vm(:py:class:`IM.VirtualMachine`): VM to check.
+		   - timeout(int): Max time to wait the VM to be to have the SSH port opened.
+		Returns: True if the VM have the SSH port open or false otherwise
 		"""
 		delay = 10
-		total_vms = len(vm_list)
 		wait = 0
-		vms_connected = 0
-		vms_ignored = 0
-		vms_without_ip = 0
-		auth_errors = {}
+		auth_errors = 0
 		auth_error_retries = 3
-		while (vms_connected + vms_ignored + vms_without_ip) < total_vms and wait < timeout:
-			vms_connected = 0
-			vms_ignored = 0
-			vms_without_ip = 0
-			for vm in vm_list:
-				if vm.destroy:
-					# in this case ignore it
-					vms_ignored += 1
-				else:
-					ip = vm.getPublicIP()
-					if ip != None:
-						ssh = vm.get_ssh()
-						ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " + 'SSH Connecting with: ' + ip + ' to the VM: ' + str(vm.id))
-						
-						connected = False
-						try:
-							connected = ssh.test_connectivity(5)
-						except AuthenticationException:
-							ConfManager.logger.warn("Error connecting with ip: " + ip + " incorrect credentials.")
-							if ip in auth_errors:
-								auth_errors[ip] += 1
-							else:
-								auth_errors[ip] = 1
+		connected = False
+		while not connected and wait < timeout:
+			if vm.destroy:
+				# in this case ignore it
+				return False
+			else:
+				ip = vm.getPublicIP()
+				if ip != None:
+					ssh = vm.get_ssh()
+					ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " + 'SSH Connecting with: ' + ip + ' to the VM: ' + str(vm.id))
 
-							if auth_errors[ip] >= auth_error_retries:
-								ConfManager.logger.error("Too many authentication errors")
-								return False 
-						
-						if connected:
-							ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " + 'Works!')
-							vms_connected += 1
-						else:
-							ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " + 'do not connect, wait ...')
-							wait += delay
-							time.sleep(delay)
+					try:
+						connected = ssh.test_connectivity(5)
+					except AuthenticationException:
+						ConfManager.logger.warn("Error connecting with ip: " + ip + " incorrect credentials.")
+						auth_errors = 1
+
+						if auth_errors >= auth_error_retries:
+							ConfManager.logger.error("Too many authentication errors")
+							return False 
+					
+					if connected:
+						ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " + 'Works!')
+						return True
 					else:
-						ip = vm.getPrivateIP()
-						if ip != None:
-							ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " + 'VM ' + str(vm.id) + ' with private IP: ' + ip)
-							vms_ignored += 1
-						else:
-							vms_without_ip += 1
-
-				ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Connected VMs: " + str(vms_ignored) + "/" + str(vms_connected) + " of " + str(total_vms) + ". Without IP: " + str(vms_without_ip))
-	
-		if (vms_connected + vms_ignored) == total_vms:
-			return True
-		else:
-			return False
+						ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " + 'do not connect, wait ...')
+						wait += delay
+						time.sleep(delay)
+				else:
+					ip = vm.getPrivateIP()
+					if ip != None:
+						ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " + 'VM ' + str(vm.id) + ' with private IP: ' + ip)
+						return False
+					else:
+						ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " + 'VM ' + str(vm.id) + ' with no IP')
+						# Update the VM info and wait to have a valid IP
+						wait += delay
+						time.sleep(delay)
+						vm.update_status(self.auth)
+		
+		return False
 
 	def change_master_credentials(self, ssh):
 		"""
