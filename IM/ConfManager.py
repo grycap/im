@@ -128,7 +128,7 @@ class ConfManager(threading.Thread):
 					return False
 				else: 
 					# The sleep is incremental
-					time.sleep(self.THREAD_SLEEP_DELAY * ips_availavle_retries * 2)
+					time.sleep(self.THREAD_SLEEP_DELAY * ips_availavle_retries * 10)
 			else:
 				self.inf.set_configured(True)
 
