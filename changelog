@@ -59,7 +59,9 @@ IM 1.1.1
     * Bugfixes in EC2 connector
 
 IM 1.2.0
+    * Minor bug fixes and code improvements
     * Change the contextualization process:
     	* Enable to contextualize the VMs individually.
     	* Call Ansible inside a Thread.
     * Bugfixes in OCCI connector
+    * Add FogBow connector

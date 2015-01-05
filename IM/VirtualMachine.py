@@ -310,12 +310,11 @@ class VirtualMachine:
 				public_net = net
 				
 		if public_net:
-			outports = public_net.getValue('outports')
+			outports = public_net.getOutPorts()
 			if outports:
-				for elem in outports.split(","):
-					parts = elem.split("-")
-					if len(parts) == 2 and parts[1] == "22":
-						ssh_port = int(parts[0])
+				for (remote_port,_,local_port,local_protocol) in outports:
+					if local_port == 22 and local_protocol == "tcp":
+						ssh_port = remote_port
 		
 		return ssh_port
 	
@@ -323,32 +322,37 @@ class VirtualMachine:
 		"""
 		Set the SSH port in the RADL info of this VM 
 		"""
-		now = str(int(time.time()*100))
+		if ssh_port != self.getSSHPort():
+			now = str(int(time.time()*100))
+	
+			public_net = None
+			for net in self.info.networks:
+				if net.isPublic():
+					public_net = net
+			
+			# If it do
+			if public_net is None:
+				public_net = network.createNetwork("public." + now, True)
+				self.info.networks.append(public_net)
 
-		public_net = None
-		for net in self.info.networks:
-			if net.isPublic():
-				public_net = net
-		
-		# If it do
-		if public_net is None:
-			public_net = network.createNetwork("public." + now, True)
-			self.info.networks.append(public_net)
-
-		outports = public_net.getValue('outports')
-		if outports:
-			outports = outports + "," + str(ssh_port) + "-22"
-		else:
-			outports = str(ssh_port) + "-22"
-		public_net.setValue('outports', outports)
-		
-		# get the ID
-		num_net = self.getNumNetworkWithConnection(public_net.id)
-		if num_net is None:
-			# There are a public net but it has not been used in this VM
-			num_net = self.getNumNetworkIfaces()
-
-		self.info.systems[0].setValue('net_interface.' + str(num_net) + '.connection',public_net.id)
+			outports_str = str(ssh_port) + "-22"
+			outports = public_net.getOutPorts()
+			if outports:
+				for (remote_port,_,local_port,local_protocol) in outports:
+					if local_port != 22 and local_protocol != "tcp":
+						if local_protocol != "tcp":
+							outports_str += str(remote_port) + "-" + str(local_port)
+						else:
+							outports_str += str(remote_port) + "/udp" + "-" + str(local_port) + "/udp"
+			public_net.setValue('outports', outports_str)
+			
+			# get the ID
+			num_net = self.getNumNetworkWithConnection(public_net.id)
+			if num_net is None:
+				# There are a public net but it has not been used in this VM
+				num_net = self.getNumNetworkIfaces()
+	
+			self.info.systems[0].setValue('net_interface.' + str(num_net) + '.connection',public_net.id)
 		
 	def update_status(self, auth):
 		"""

@@ -375,7 +375,7 @@ users:
 				if instance_type_uri:
 					body += 'Category: ' + instance_name + '; scheme="' + instance_scheme + '"; class="mixin"\n'
 				else:
-					# Try to use this OCCI attributes (not supoorted by openstack)
+					# Try to use this OCCI attributes (not supported by openstack)
 					body += 'X-OCCI-Attribute: occi.compute.cores=' + str(cpu) +'\n'
 					#body += 'X-OCCI-Attribute: occi.compute.architecture=' + arch +'\n'
 					body += 'X-OCCI-Attribute: occi.compute.memory=' + str(memory) + '\n'
