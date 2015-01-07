@@ -515,7 +515,7 @@ class ConfManager(threading.Thread):
 					self.inf.add_cont_msg("Contextualization Error: Error Waiting the Master VM to boot")
 					self.inf.set_configured(False)
 					return
-	
+
 				# To avoid problems with the known hosts of previous calls
 				if os.path.isfile(os.path.expanduser("~/.ssh/known_hosts")):
 					ConfManager.logger.debug("Remove " + os.path.expanduser("~/.ssh/known_hosts"))
@@ -598,7 +598,8 @@ class ConfManager(threading.Thread):
 			for f in filenames:
 				recipe_files.append((tmp_dir + "/" + f, remote_dir + "/" + f ))
 
-			#time.sleep(2)
+			# TODO: Study why it is needed
+			time.sleep(2)
 			
 			ssh = self.inf.vm_master.get_ssh()
 			self.inf.add_cont_msg("Copying YAML, hosts and inventory files.")
