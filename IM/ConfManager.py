@@ -508,7 +508,7 @@ class ConfManager(threading.Thread):
 				ConfManager.logger.info("Inf ID: " + str(self.inf.id) + ": Wait the master VM to be running")
 	
 				self.inf.add_cont_msg("Wait master VM to boot")
-				all_running = self.waitRunningVMs([self.inf.vm_master], Config.WAIT_RUNNING_VM_TIMEOUT, True)
+				all_running = self.wait_vm_running(self.inf.vm_master, Config.WAIT_RUNNING_VM_TIMEOUT, True)
 	
 				if not all_running:
 					ConfManager.logger.error("Inf ID: " + str(self.inf.id) + ":  Error Waiting the Master VM to boot, exit")
@@ -597,9 +597,8 @@ class ConfManager(threading.Thread):
 			recipe_files = []
 			for f in filenames:
 				recipe_files.append((tmp_dir + "/" + f, remote_dir + "/" + f ))
-			
-			# TODO: Check this
-			time.sleep(2)
+
+			#time.sleep(2)
 			
 			ssh = self.inf.vm_master.get_ssh()
 			self.inf.add_cont_msg("Copying YAML, hosts and inventory files.")
@@ -616,88 +615,90 @@ class ConfManager(threading.Thread):
 			self.inf.set_configured(False)
 			ConfManager.logger.exception("Inf ID: " + str(self.inf.id) + ": Error generating playbooks.")
 			self.inf.add_cont_msg("Error generating playbooks: " + str(ex))
-	
-	def waitRunningVMs(self, vm_list, timeout, relaunch=False):
+
+	def relaunch_vm(self, vm, failed_cloud = False):
 		"""
-		Wait for a list of VMs to be running 
+		Remove and launch again the specified VM
+		"""
+		InfrastructureManager.InfrastructureManager.RemoveResource(self.inf.id, vm.id, self.auth)
+		
+		new_radl = ""
+		for net in vm.info.networks:
+			new_radl = "network " + net.id + "\n"								
+		new_radl += "system " + vm.getRequestedSystem().name + "\n"
+		new_radl += "deploy " + vm.getRequestedSystem().name + " 1"
+		
+		failed_clouds = []
+		if failed_cloud:
+			failed_clouds = [vm.cloud]
+		InfrastructureManager.InfrastructureManager.AddResource(self.inf.id, new_radl, self.auth, False, failed_clouds)
+
+	def wait_vm_running(self, vm, timeout, relaunch=False):
+		"""
+		Wait for a VM to be running 
 	
 		Arguments:
-		   - vm_list(list of :py:class:`IM.VirtualMachine`): list of VMs to be running.
-		   - timeout(int): Max time to wait the VMs to be running.
-		   - relaunch(bool, optional): Flag to specify if the VMs must be relaunched in case of failure.
+		   - vm(:py:class:`IM.VirtualMachine`): VM to be running.
+		   - timeout(int): Max time to wait the VM to be running.
+		   - relaunch(bool, optional): Flag to specify if the VM must be relaunched in case of failure.
 		Returns: True if all the VMs are running or false otherwise
 		"""
 		timeout_retries = 0
 		retries = 0
 		delay = 10
 		wait = 0
-		running = 0
-		deleted = 0
-		while running + deleted < len(vm_list) and wait < timeout:
-			running = 0
-			deleted = 0
-			for vm in vm_list:
+		while wait < timeout:
+			if not vm.destroy:
+				vm.update_status(self.auth)
+
+				if vm.state == VirtualMachine.RUNNING:
+					return True
+				elif vm.state == VirtualMachine.FAILED:
+					ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": VM " + str(vm.id) + " is FAILED")
+
+					if relaunch and retries < Config.MAX_VM_FAILS:
+						ConfManager.logger.info("Inf ID: " + str(self.inf.id) + ": Launching new VM")
+						self.relaunch_vm(vm, True)
+						# Set the wait counter to 0
+						wait = 0
+						retries += 1
+					else:
+						ConfManager.logger.error("Inf ID: " + str(self.inf.id) + ": Relaunch is not enabled. Exit")
+						return False
+			else:
+				ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": VM deleted by the user, Exit")
+				return False
+
+			ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": VM " + str(vm.id) + " is not running yet.")
+			time.sleep(delay)
+			wait += delay
+
+			# if the timeout is passed
+			# try to relaunch max_retries times, and restart the counter
+			if wait > timeout and timeout_retries < Config.MAX_VM_FAILS:
+				timeout_retries += 1
+				# Set the wait counter to 0
+				wait = 0
 				if not vm.destroy:
 					vm.update_status(self.auth)
 
 					if vm.state == VirtualMachine.RUNNING:
-						running += 1
-					elif vm.state == VirtualMachine.FAILED:
-						ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": VM " + str(vm.id) + " is FAILED")
+						return True
+					else:
+						ConfManager.logger.warn("VM " + str(vm.id) + " timeout")
 
-						if relaunch and retries < Config.MAX_VM_FAILS:
-							ConfManager.logger.info("Inf ID: " + str(self.inf.id) + ": Launching new VM")
-							InfrastructureManager.InfrastructureManager.RemoveResource(self.inf.id, vm.id, self.auth)
-							
-							new_radl = ""
-							for net in vm.info.networks:
-								new_radl = "network " + net.id + "\n"								
-							new_radl += "system " + vm.getRequestedSystem().name + "\n"
-							new_radl += "deploy " + vm.getRequestedSystem().name + " 1"
-							
-							InfrastructureManager.InfrastructureManager.AddResource(self.inf.id, new_radl, self.auth, False, [vm.cloud])
-							# Set the wait counter to 0
-							wait = 0
-							retries += 1
+						if relaunch:
+							ConfManager.logger.info("Launch a new VM")
+							self.relaunch_vm(vm)
 						else:
-							ConfManager.logger.error("Inf ID: " + str(self.inf.id) + ": Relaunch is not enabled. Exit")
+							ConfManager.logger.error("Relaunch is not available. Exit")
 							return False
 				else:
-					ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": VM deleted by the user, ignore it")
-					deleted += 1
-
-			ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": VMs running: " + str(running) + "/" + str(len(vm_list) - deleted))
-			if running + deleted < len(vm_list):
-				wait += delay
-				time.sleep(delay)
-
-			# if the timeout is passed, set the VMs as failed
-			# try to relaunch max_retries times, and restart the counter
-			if wait > timeout and timeout_retries < Config.MAX_VM_FAILS:
-				timeout_retries += 1
-				wait = 0
-				for vm in vm_list:
-					if not vm.destroy:
-						vm.update_status(self.auth)
-
-						if vm.state != VirtualMachine.RUNNING:
-							ConfManager.logger.warn("VM " + str(vm.id) + " timeout")
-
-							if relaunch:
-								ConfManager.logger.info("Launch a new VM")
-								InfrastructureManager.InfrastructureManager.RemoveResource(self.inf.id, vm.id, self.auth)
-								InfrastructureManager.InfrastructureManager.AddResource(self.inf.id, "deploy " + vm.getRequestedSystem().name + " 1", self.auth, False)
-								# Set the wait counter to 0
-								wait = 0
-							else:
-								ConfManager.logger.error("Relaunch is not available. Exit")
-								return False
-
-
-		if running + deleted < len(vm_list):
-			return False
-		else:
-			return True
+					ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": VM deleted by the user, Exit")
+					return False
+		
+		# Timeout, return False
+		return False
 
 	def wait_vm_ssh_acccess(self, vm, timeout):
 		"""
@@ -713,7 +714,7 @@ class ConfManager(threading.Thread):
 		auth_errors = 0
 		auth_error_retries = 3
 		connected = False
-		while not connected and wait < timeout:
+		while wait < timeout:
 			if vm.destroy:
 				# in this case ignore it
 				return False
@@ -752,6 +753,7 @@ class ConfManager(threading.Thread):
 						time.sleep(delay)
 						vm.update_status(self.auth)
 		
+		# Timeout, return False
 		return False
 
 	def change_master_credentials(self, ssh):

@@ -17,6 +17,7 @@
 # General Tasks
 - name: Copy the /etc/hosts
   copy: src=etc_hosts dest=/etc/hosts
+  ignore_errors: yes
 
 - name: Copy the /etc/hosts in windows
   copy: src=etc_hosts dest=/cygdrive/c/WINDOWS/system32/drivers/etc mode=0777
