@@ -22,6 +22,7 @@ from IM.VirtualMachine import VirtualMachine
 from IM.config import Config
 from CloudConnector import CloudConnector
 from IM.radl.radl import Feature
+from IM import UnixHTTPConnection
 	
 
 class DockerCloudConnector(CloudConnector):
@@ -44,14 +45,24 @@ class DockerCloudConnector(CloudConnector):
 		   - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
 		Returns(HTTPConnection or HTTPSConnection): HTTPConnection connection object
 		"""
-		auth = auth_data.getAuthInfo(DockerCloudConnector.type)
-		if auth and 'cert' in auth[0] and 'key' in auth[0]:
-			cert = auth[0]['cert']
-			key = auth[0]['cert']
-			conn = httplib.HTTPSConnection(self.cloud.server, self.cloud.port, cert_file = cert, key_file = key)
-		else:
+
+		auth = auth_data.getAuthInfo(DockerCloudConnector.type)		
+		url = uriparse(self.cloud.server)
+		
+		if url[0] == 'unix':
+			socket_path = "/" + url[1] + url[2]
+			conn = UnixHTTPConnection.UnixHTTPConnection(socket_path)
+		elif url[0] == 'https':
+			if auth and 'cert' in auth[0] and 'key' in auth[0]:
+				cert = auth[0]['cert']
+				key = auth[0]['cert']
+				conn = httplib.HTTPSConnection(url[1], self.cloud.port, cert_file = cert, key_file = key)
+			else:
+				conn = httplib.HTTPSConnection(url[1], self.cloud.port)
+		elif url[0] == 'http':
 			self.logger.warn("Using a unsecure connection to docker API!")
-			conn = httplib.HTTPConnection(self.cloud.server, self.cloud.port)
+			conn = httplib.HTTPConnection(url[1], self.cloud.port)
+
 		return conn
 		
 	def concreteSystem(self, radl_system, auth_data):
@@ -86,7 +97,12 @@ class DockerCloudConnector(CloudConnector):
 		   - cont_info(dict): JSON information about the container
 		"""
 
-		public_ips = [socket.gethostbyname(vm.cloud.server)]
+		url = uriparse(self.cloud.server)
+		if url[0] == 'unix':
+			# TODO: This will not get the correct IP if the hostname of the machine is not correctly set
+			public_ips = [socket.gethostbyname(socket.getfqdn())]
+		else:
+			public_ips = [socket.gethostbyname(url[1])]
 		private_ips = []
 		if str(cont_info["NetworkSettings"]["IPAddress"]):
 			private_ips.append(str(cont_info["NetworkSettings"]["IPAddress"]))

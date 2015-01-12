@@ -66,7 +66,7 @@ class OCCICloudConnector(CloudConnector):
 
 	def get_http_connection(self, auth_data):
 		"""
-		Get the HTTP/HTTPS connection to contact the OCCI server
+		Get the HTTP connection to contact the OCCI server
 		"""
 		auth = auth_data.getAuthInfo(OCCICloudConnector.type)
 		url = uriparse(self.cloud.server)

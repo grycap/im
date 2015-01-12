@@ -74,9 +74,13 @@ class CloudInfo:
 					cloud_item.id = cloud_item.type + str(i)
 				try:
 					if (auth['host'] != None):
-						pos = auth['host'].rfind(':')
-						cloud_item.server = auth['host'][:pos]
-						cloud_item.port = int(auth['host'][pos+1:])
+						pos = auth['host'].find('://')
+						pos = auth['host'].find(':', pos+1)
+						if pos != -1:
+							cloud_item.server = auth['host'][:pos]
+							cloud_item.port = int(auth['host'][pos+1:])
+						else:
+							cloud_item.server = auth['host']
 				except:
 					pass
 
