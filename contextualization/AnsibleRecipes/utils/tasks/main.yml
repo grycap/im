@@ -18,6 +18,16 @@
 - name: Copy the /etc/hosts
   copy: src=etc_hosts dest=/etc/hosts
   ignore_errors: yes
+  register: result_copy_etc_hosts
+
+# In case of docker container, because the Ansible copy module does not work with the /etc/hosts file
+- name: Copy the /etc/hosts to /tmp/etc_hosts
+  copy: src=etc_hosts dest=/tmp/etc_hosts
+  when: result_copy_etc_hosts|failed
+  
+- name: Copy /tmp/etc_hosts to /etc/hosts
+  command: cp /tmp/etc_hosts /etc/hosts
+  when: result_copy_etc_hosts|failed
 
 - name: Copy the /etc/hosts in windows
   copy: src=etc_hosts dest=/cygdrive/c/WINDOWS/system32/drivers/etc mode=0777

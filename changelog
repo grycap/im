@@ -64,4 +64,5 @@ IM 1.2.0
     	* Enable to contextualize the VMs individually.
     	* Call Ansible inside a Thread.
     * Bugfixes in OCCI connector
+    * Bugfixes in Docker connector
     * Add FogBow connector
