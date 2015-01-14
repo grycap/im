@@ -74,7 +74,7 @@ This is the list of method names:
       "running" -> "failed";
       "configured" -> "stopped";
       "configured" -> "running";
-      "stopped" -> "running";
+      "stopped" -> "pending";
    
 ``GetVMProperty``
    :parameter 0: ``infId``: integer
