@@ -66,3 +66,7 @@ IM 1.2.0
     * Bugfixes in OCCI connector
     * Bugfixes in Docker connector
     * Add FogBow connector
+    * Add GetInfrastructureRADL function to the API
+    * Add GetInfrastructureContMsg function to the API
+    * Add GetVMContMsg function to the API
+    * Add new state 'unconfigured'

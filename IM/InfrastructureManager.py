@@ -614,7 +614,27 @@ class InfrastructureManager:
 			# Only save the information if it is updated
 			InfrastructureManager.save_data()
 
-		return str(vm.info)
+		return vm.get_vm_info()
+
+	@staticmethod
+	def GetVMContMsg(inf_id, vm_id, auth):
+		"""
+		Get the contextualization log of a virtual machine in an infrastructure.
+
+		Args:
+
+		- inf_id(int): infrastructure id.
+		- vm_id(str): virtual machine id.
+		- auth(Authentication): parsed authentication tokens.
+
+		Return: a str with the contextualization log of the VM
+		"""
+
+		InfrastructureManager.logger.info("Get contextualization log of the vm: '" + str(vm_id) + "' from inf: " + str(inf_id))
+	
+		vm = InfrastructureManager.get_vm_from_inf(inf_id, vm_id, auth)
+
+		return vm.cont_out
 
 	@staticmethod
 	def AlterVM(inf_id, vm_id, radl_data, auth):
@@ -655,6 +675,27 @@ class InfrastructureManager:
 		return str(vm.info)
 	
 	@staticmethod
+	def GetInfrastructureRADL(inf_id, auth):
+		"""
+		Get the original RADL of an infrastructure.
+
+		Args:
+
+		- inf_id(int): infrastructure id.
+		- auth(Authentication): parsed authentication tokens.
+
+		Return: str with the RADL
+		"""
+
+		InfrastructureManager.logger.info("Getting RADL of the inf: " + str(inf_id))
+	
+		sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
+
+		InfrastructureManager.logger.info("RADL obtained successfully")
+		InfrastructureManager.logger.debug(str(sel_inf.radl))
+		return str(sel_inf.radl)
+	
+	@staticmethod
 	def GetInfrastructureInfo(inf_id, auth):
 		"""
 		Get information about an infrastructure.
@@ -664,22 +705,38 @@ class InfrastructureManager:
 		- inf_id(int): infrastructure id.
 		- auth(Authentication): parsed authentication tokens.
 
-		Return: a dict with keys
-
-		- cont_out(str): contextualization information.
-		- vm_list(list of str): list of virtual machine ids.
+		Return: a list of str: list of virtual machine ids.
 		"""
 
 		InfrastructureManager.logger.info("Getting information about the inf: " + str(inf_id))
 	
 		sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
-		res = {}
-		res['cont_out'] = sel_inf.cont_out + "\n\n".join([vm.cont_out for vm in sel_inf.get_vm_list()])
 		#: .. todo::
 		#:   Return int instead
-		res['vm_list'] = [str(vm.im_id) for vm in sel_inf.get_vm_list()]
+		res = [str(vm.im_id) for vm in sel_inf.get_vm_list()]
 
 		InfrastructureManager.logger.info("Information obtained successfully")
+		InfrastructureManager.logger.debug(res)
+		return res
+	
+	@staticmethod
+	def GetInfrastructureContMsg(inf_id, auth):
+		"""
+		Get cont msg of an infrastructure.
+
+		Args:
+
+		- inf_id(int): infrastructure id.
+		- auth(Authentication): parsed authentication tokens.
+
+		Return: a str with the cont msg
+		"""
+
+		InfrastructureManager.logger.info("Getting cont msg of the inf: " + str(inf_id))
+	
+		sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
+		res = sel_inf.cont_out + "\n\n".join([vm.cont_out for vm in sel_inf.get_vm_list()])
+
 		InfrastructureManager.logger.debug(res)
 		return res
 

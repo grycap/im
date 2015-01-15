@@ -16,7 +16,7 @@
 
 import time
 import threading
-from IM.radl.radl import network
+from IM.radl.radl import network, RADL
 from IM.SSH import SSH
 from config import Config
 import shutil
@@ -35,6 +35,7 @@ class VirtualMachine:
 	OFF = "off"
 	FAILED = "failed"
 	CONFIGURED = "configured"
+	UNCONFIGURED = "unconfigured"
 
 	def __init__(self, inf, cloud_id, cloud, info, requested_radl):
 		self._lock = threading.Lock()
@@ -385,7 +386,7 @@ class VirtualMachine:
 		elif self.is_configured():
 			new_state = VirtualMachine.CONFIGURED
 		else:
-			new_state = VirtualMachine.FAILED
+			new_state = VirtualMachine.UNCONFIGURED
 
 		with self._lock:
 			self.info.systems[0].setValue("state", new_state)
@@ -552,3 +553,9 @@ class VirtualMachine:
 			self.configured = True
 		else:
 			self.configured = False
+	
+	def get_vm_info(self):
+		res = RADL()
+		res.networks = self.info.networks 
+		res.systems = self.info.systems
+		return str(res)

@@ -84,19 +84,18 @@ def RESTGetInfrastructureInfo(id=None):
 		bottle.abort(401, "No authentication data provided")
 	
 	try:
-		inf_info = InfrastructureManager.GetInfrastructureInfo(int(id), auth)
-		res = {}
-		vm_ids = inf_info['vm_list']
-		res['cont_out'] = inf_info['cont_out']
-		res['vm_list'] = []
+		vm_ids = InfrastructureManager.GetInfrastructureInfo(int(id), auth)
+		res = ""
 		
 		server_ip = bottle.request.environ['SERVER_NAME']
 		server_port = bottle.request.environ['SERVER_PORT']
 		
 		for vm_id in vm_ids:
-			res['vm_list'].append('http://' + server_ip + ':' + server_port + '/infrastructures/' + str(id) + '/vms/' + str(vm_id))
+			if res:
+				res += "\n"
+			res += 'http://' + server_ip + ':' + server_port + '/infrastructures/' + str(id) + '/vms/' + str(vm_id)
 		
-		bottle.response.content_type = "application/json"
+		bottle.response.content_type = "text/uri-list"
 		return res
 	except DeletedInfrastructureException, ex:
 		bottle.abort(404, "Error Getting Inf. info: " + str(ex))
@@ -107,6 +106,31 @@ def RESTGetInfrastructureInfo(id=None):
 	except Exception, ex:
 		bottle.abort(400, "Error Getting Inf. info: " + str(ex))
 
+@app.route('/infrastructures/:id/:prop', method='GET')
+def RESTGetInfrastructureProperty(id=None, prop=None):
+	try:
+		auth_data = bottle.request.headers['AUTHORIZATION'].split(AUTH_LINE_SEPARATOR)
+		auth = Authentication(Authentication.read_auth_data(auth_data))
+	except:
+		bottle.abort(401, "No authentication data provided")
+	
+	try:
+		if prop == "contmsg":
+			res = InfrastructureManager.GetInfrastructureContMsg(int(id), auth)
+		elif prop == "radl":
+			res = InfrastructureManager.GetInfrastructureRADL(int(id), auth)
+		else:
+			bottle.abort(403, "Incorrect infrastructure property")
+		bottle.response.content_type = "text/plain"
+		return res
+	except DeletedInfrastructureException, ex:
+		bottle.abort(404, "Error Getting Inf. info: " + str(ex))
+		return False
+	except IncorrectInfrastructureException, ex:
+		bottle.abort(404, "Error Getting Inf. info: " + str(ex))
+		return False
+	except Exception, ex:
+		bottle.abort(400, "Error Getting Inf. info: " + str(ex))
 
 @app.route('/infrastructures', method='GET')
 def RESTGetInfrastructureList():
@@ -194,7 +218,10 @@ def RESTGetVMProperty(infid=None, vmid=None, prop=None):
 		bottle.abort(401, "No authentication data provided")
 	
 	try:
-		info = InfrastructureManager.GetVMProperty(int(infid), vmid, prop, auth)
+		if prop == 'contmsg':
+			info = InfrastructureManager.GetVMContMsg(int(infid), vmid, auth)
+		else:
+			info = InfrastructureManager.GetVMProperty(int(infid), vmid, prop, auth)
 		bottle.response.content_type = "text/plain"
 		return info
 	except DeletedInfrastructureException, ex:
@@ -230,7 +257,9 @@ def RESTAddResource(id=None):
 		
 		res = ""
 		for vm_id in vm_ids:
-			res += "http://" + server_ip + ":" + server_port + "/infrastructures/" + str(id) + "/vms/" + str(vm_id) + "\n"
+			if res:
+				res += "\n"
+			res += "http://" + server_ip + ":" + server_port + "/infrastructures/" + str(id) + "/vms/" + str(vm_id)
 		
 		bottle.response.content_type = "text/uri-list"
 		return res
