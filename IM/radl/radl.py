@@ -264,7 +264,7 @@ class Features(object):
 				self.props.setdefault(f.prop, {})[f.value.getValue("name")] = f
 		else:
 			value0 = self.props.get(f.prop, None)
-			if not value0 or (value0.value != f.value and conflict == "other"):
+			if not value0 or (conflict == "other"):
 				self.props[f.prop] = f
 			elif value0.value != f.value and conflict == "error":
 				raise RADLParseException("Conflict adding `%s` because `%s` is already set." % (f, value0), line=f.line)
