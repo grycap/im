@@ -38,12 +38,13 @@ Next tables summaries the resources and the HTTP methods available.
 | **PUT**     | **Stop** the infrastructure.   | **Start** the infrastructure.   | **Reconfigure** the infrastructure.    |
 +-------------+--------------------------------+---------------------------------+----------------------------------------+
 
-+-------------+--------------------------------------------------------+
-| HTTP method |   /infrastructures/<infId>/vms/<vmId>/<property_name>  |
-+=============+========================================================+
-| **GET**     | **Get** the specified property ``property_name``       |
-|             | associated to the machine ``vmId`` in ``infId``        |
-+-------------+--------------------------------------------------------+
++-------------+--------------------------------------------------------+--------------------------------------------------+
+| HTTP method |   /infrastructures/<infId>/vms/<vmId>/<property_name>  |     /infrastructures/<infId>/<property_name>     | 
++=============+========================================================+==================================================+
+| **GET**     | **Get** the specified property ``property_name``       | **Get** the specified property ``property_name`` |
+|             | associated to the machine ``vmId`` in ``infId``        | associated to the infrastructure ``infId``.      |
+|             |                                                        | It has two properties: ``contmsg`` and ``radl``  |
++-------------+--------------------------------------------------------+--------------------------------------------------+
 
 GET ``http://imserver.com/infrastructures``
    :Content-type: text/uri-list
@@ -64,14 +65,22 @@ POST ``http://imserver.com/infrastructures``
    URI of the new infrastructure.  
 
 GET ``http://imserver.com/infrastructures/<infId>``
-   :Content-type: application/json
+   :Content-type: text/uri-list
    :ok response: 200 OK
    :fail response: 401, 404, 400
 
-   Return a JSON object with two elements: 
-    * vm_list: list of URIs referencing the virtual machines associated to the
-     infrastructure with ID ``infId``.
-    * cont_out: contextualization message.
+   Return a list of URIs referencing the virtual machines associated to the
+   infrastructure with ID ``infId``.
+    
+GET ``http://imserver.com/infrastructures/<infId>/<property_name>``
+   :Content-type: application/json
+   :ok response: 200 OK
+   :fail response: 401, 404, 400, 403
+
+   Return property ``property_name`` associated to the infrastructure with ID ``infId``.
+   It has two properties:
+   	:``contmsg``: a string with the contextualization message.
+   	:``radl``: a string with the original specified RADL of the infrastructure.
 
 POST ``http://imserver.com/infrastructures/<infId>``
    :body: ``RADL document``

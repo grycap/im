@@ -179,6 +179,33 @@ class Request_ExportInfrastructure(IMBaseRequest):
 		self._error_mesage = "Error Exporting Inf."
 		(inf_id, delete, auth_data) = self.arguments
 		return InfrastructureManager.ExportInfrastructure(inf_id, delete, Authentication(auth_data))
+	
+class Request_GetInfrastructureRADL(IMBaseRequest):
+	"""
+	Request class for the GetInfrastructureRADL function
+	"""
+	def _call_function(self):
+		self._error_mesage = "Error getting RADL of the Inf."
+		(inf_id, auth_data) = self.arguments
+		return InfrastructureManager.GetInfrastructureRADL(inf_id, Authentication(auth_data))
+
+class Request_GetVMContMsg(IMBaseRequest):
+	"""
+	Request class for the GetVMContMsg function
+	"""
+	def _call_function(self):
+		self._error_mesage = "Error Getting VM cont msg."
+		(inf_id, vm_id, auth_data) = self.arguments
+		return InfrastructureManager.GetVMContMsg(inf_id, vm_id, Authentication(auth_data))
+
+class Request_GetInfrastructureContMsg(IMBaseRequest):
+	"""
+	Request class for the GetInfrastructureContMsg function
+	"""
+	def _call_function(self):
+		self._error_mesage = "Error gettinf the Inf. cont msg"
+		(inf_id, auth_data) = self.arguments
+		return InfrastructureManager.GetInfrastructureContMsg(inf_id, Authentication(auth_data))
 
 def WaitRequest(request):
 	"""
@@ -248,6 +275,18 @@ def ExportInfrastructure(inf_id, delete, auth_data):
 	request = Request_ExportInfrastructure((inf_id, delete, auth_data))
 	return WaitRequest(request)
 
+def GetInfrastructureRADL(inf_id, auth_data):
+	request = Request_GetInfrastructureRADL((inf_id, auth_data))
+	return WaitRequest(request)
+
+def GetVMContMsg(inf_id, vm_id, auth_data):
+	request = Request_GetVMContMsg((inf_id, vm_id, auth_data))
+	return WaitRequest(request)
+
+def GetInfrastructureContMsg(inf_id, auth_data):
+	request = Request_GetInfrastructureContMsg((inf_id, auth_data))
+	return WaitRequest(request)
+
 def launch_daemon():
 	"""
 	Launch the IM daemon
@@ -281,6 +320,9 @@ def launch_daemon():
 	server.register_function(Reconfigure)
 	server.register_function(ExportInfrastructure)
 	server.register_function(ImportInfrastructure)
+	server.register_function(GetInfrastructureRADL)
+	server.register_function(GetInfrastructureContMsg)
+	server.register_function(GetVMContMsg)
 	
 	InfrastructureManager.logger.info('************ Start Infrastructure Manager daemon (v.%s) ************' % version)
 

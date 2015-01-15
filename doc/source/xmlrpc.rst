@@ -34,12 +34,29 @@ This is the list of method names:
 ``GetInfrastructureInfo``
    :parameter 0: ``infId``: integer
    :parameter 1: ``auth``: array of structs
-   :ok response: [true, struct(``cont_out``: string, ``vm_list``: array of integers)]
+   :ok response: [true, ``vm_list``: array of integers]
    :fail response: [false, ``error``: string]
 
-   Return in ``vm_list`` a list of IDs associated to the virtual machine of the
-   infrastructure with ID ``infId``. If the contextualization process has
-   finished, ``cont_out`` may have a message indicating why the process failed.
+   Return a list of IDs associated to the virtual machines of the
+   infrastructure with ID ``infId``.
+   
+``GetInfrastructureContMsg``
+   :parameter 0: ``infId``: integer
+   :parameter 1: ``auth``: array of structs
+   :ok response: [true, ``cont_out``: string]
+   :fail response: [false, ``error``: string]
+
+   Return the contextualization log associated to the 
+   infrastructure with ID ``infId``. 
+   
+``GetInfrastructureRADL``
+   :parameter 0: ``infId``: integer
+   :parameter 1: ``auth``: array of structs
+   :ok response: [true, ``radl_info``: string]
+   :fail response: [false, ``error``: string]
+
+   Return a string with the original RADL specified to create the 
+   infrastructure with ID ``infId``.
 
 .. _GetVMInfo-xmlrpc:
 
@@ -58,9 +75,10 @@ This is the list of method names:
    * ``pending``, launched, but still in initialization stage;
    * ``running``, created successfully and running, but still in the configuration stage;
    * ``configured``, running and contextualized;
+   * ``unconfigured``, running but not correctly contextualized;
    * ``stopped``, stopped or suspended;
    * ``off``, shutdown or removed from the infrastructure;
-   * ``failed``, an error happened during the launching or the contextualization; or
+   * ``failed``, an error happened during the launching; or
    * ``unknown``, unable to obtain the status.
 
    The next figure shows a state diagram of virtual machine status.
@@ -71,7 +89,7 @@ This is the list of method names:
       node [shape=circle, fontsize=8, fixedsize=true, height=.9, weight=.9];
       "pending" -> "running" -> "configured" -> "off" ;
       "pending" -> "failed";
-      "running" -> "failed";
+      "running" -> "unconfigured";
       "configured" -> "stopped";
       "configured" -> "running";
       "stopped" -> "pending";
@@ -85,7 +103,19 @@ This is the list of method names:
    :fail response: [false, ``error``: string]
 
    Return a string with the specific property of the RADL information about the virtual
-   machine with ID ``vmId`` in the infrastructure with ID ``infId``.
+   machine with ID ``vmId`` in the infrastructure with ID ``infId``. It enables to get a single
+   property of the RADL of the function :ref:`GetVMInfo <GetVMInfo-xmlrpc>`. 
+   
+``GetVMContMsg``
+   :parameter 0: ``infId``: integer
+   :parameter 1: ``vmId``: string
+   :parameter 2: ``auth``: array of structs
+   :ok response: [true, ``cont_msg``: string]
+   :fail response: [false, ``error``: string]
+
+   Return a string with contextualization log of the virtual machine with ID ``vmId``
+   in the infrastructure with ID ``infId``.
+
    
 ``AlterVM``
    :parameter 0: ``infId``: integer
