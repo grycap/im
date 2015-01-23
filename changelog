@@ -63,6 +63,7 @@ IM 1.2.0
     * Change the contextualization process:
     	* Enable to contextualize the VMs individually.
     	* Call Ansible inside a Thread.
+    * Improve EC2 connector
     * Bugfixes in OCCI connector
     * Bugfixes in Docker connector
     * Add FogBow connector

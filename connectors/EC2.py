@@ -246,6 +246,11 @@ class EC2CloudConnector(CloudConnector):
 			sg.authorize('tcp', 22, 22, '0.0.0.0/0')
 			sg.authorize('tcp', 5099, 5099, '0.0.0.0/0')
 			
+			# open all the ports for the VMs in the security group
+			sg.authorize('tcp', 0, 65535, src_group=sg)
+			sg.authorize('udp', 0, 65535, src_group=sg)
+			sg.authorize('icmp', 0, 65535, src_group=sg)
+			
 		except Exception:
 			self.logger.exception("Error Creating the Security group")
 			pass
