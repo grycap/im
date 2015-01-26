@@ -112,7 +112,7 @@ class OCCICloudConnector(CloudConnector):
 		if radl_system.getValue("disk.0.image.url"):
 			url = uriparse(radl_system.getValue("disk.0.image.url"))
 			protocol = url[0]
-			if protocol in ['https', 'http'] and url[5] and (url[0] + "://" + url[1]) == (self.cloud.server + ":" + str(self.cloud.port)):
+			if protocol in ['https', 'http'] and url[2] and (url[0] + "://" + url[1]) == (self.cloud.server + ":" + str(self.cloud.port)):
 				res_system = radl_system.clone()
 
 				res_system.getFeature("cpu.count").operator = "="
@@ -279,42 +279,58 @@ users:
 """ % (user , user, public_key)
 		return config
 
+	def get_scheme(self, category, ctype, auth_data):
+		"""
+		Get the scheme of an OCCI category contacting with the OCCI server
+		"""
+		auth = self.get_auth_header(auth_data)
+		headers = {'Accept': 'text/plain'}
+		if auth:
+			headers.update(auth)
+		
+		try:
+			conn = self.get_http_connection(auth_data)
+			conn.request('GET', "/-/", headers = headers) 
+			resp = conn.getresponse()
+			self.delete_proxy(conn)
+			
+			output = resp.read()
+			
+			if resp.status != 200:
+				self.logger.error("Error getting scheme for category: " + category)
+				return "" 
+			else:
+				lines = output.split("\n")
+				for l in lines:
+					if l.find('Category: ' + category) != -1 and l.find(ctype) != -1:
+						parts = l.split(';')
+						for p in parts:
+							kv = p.split("=")
+							if kv[0].strip() == "scheme":
+								return kv[1].replace('"','').replace("'",'')
+
+				self.logger.error("Error getting scheme for category: " + category)
+				return ""
+		except:
+			self.logger.exception("Error getting scheme for category: " + category)
+			return ""
+
 	def get_instance_type_uri(self, instance_type, auth_data):
 		"""
 		Get the whole URI of an OCCI instance type contacting with the OCCI server
 		"""
 		if instance_type.startswith('http'):
+			# If the user set the whole uri, do not search
 			return instance_type
 		else:
-			auth = self.get_auth_header(auth_data)
-			headers = {'Accept': 'text/plain'}
-			if auth:
-				headers.update(auth)
+			return self.get_scheme(instance_type,'resource_tpl', auth_data) + instance_type
 			
-			try:
-				conn = self.get_http_connection(auth_data)
-				conn.request('GET', "/-/", headers = headers) 
-				resp = conn.getresponse()
-				self.delete_proxy(conn)
-				
-				output = resp.read()
-				
-				if resp.status != 200:
-					return instance_type 
-				else:
-					lines = output.split("\n")
-					for l in lines:
-						if l.find('Category: ' + instance_type) != -1 and l.find('resource_tpl') != -1:
-							parts = l.split(';')
-							for p in parts:
-								kv = p.split("=")
-								if kv[0].strip() == "scheme":
-									return kv[1].replace('"','').replace("'",'') + instance_type
-					return instance_type
-			except:
-				self.logger.exception("Error getting Instance type URI")
-				return instance_type
-
+	def get_os_tpl(self, os_tpl, auth_data):
+		"""
+		Get the whole URI of an OCCI os template contacting with the OCCI server
+		"""
+		return self.get_scheme(os_tpl,'os_tpl', auth_data)
+			
 	def launch(self, inf, radl, requested_radl, num_vm, auth_data):
 		system = radl.systems[0]
 		auth_header = self.get_auth_header(auth_data)
@@ -334,8 +350,8 @@ users:
 		conn = self.get_http_connection(auth_data)
 
 		url = uriparse(system.getValue("disk.0.image.url"))
-		os_tpl = url[5]
-		os_tpl_scheme =  url[2][1:] + "#"
+		os_tpl =  url[2][1:]
+		os_tpl_scheme = self.get_os_tpl(os_tpl, auth_data)
 		
 		public_key = system.getValue('disk.0.os.credentials.public_key')
 		
@@ -356,8 +372,11 @@ users:
 		if system.getValue('instance_type'):
 			instance_type = self.get_instance_type_uri(system.getValue('instance_type'), auth_data)
 			instance_type_uri = uriparse(instance_type)
-			instance_name = instance_type_uri[5] 
-			instance_scheme =  instance_type_uri[0] + "://" + instance_type_uri[1] + instance_type_uri[2] + "#"
+			if not instance_type_uri[5]:
+				raise Exception("Error getting Instance type URI. Check that the instance_type specified is supported in the OCCI server.")
+			else:
+				instance_name = instance_type_uri[5] 
+				instance_scheme =  instance_type_uri[0] + "://" + instance_type_uri[1] + instance_type_uri[2] + "#"
 		
 		while i < num_vm:
 			try:
