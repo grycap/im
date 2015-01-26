@@ -338,6 +338,8 @@ users:
 		cpu = system.getValue('cpu.count')
 		memory = system.getFeature('memory.size').getValue('G')
 		name = system.getValue("disk.0.image.name")
+		if not name:
+			name = "im_userimage"
 		arch = system.getValue('cpu.arch')
 		
 		if arch.find('64'):
