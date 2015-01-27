@@ -729,7 +729,7 @@ class ConfManager(threading.Thread):
 						connected = ssh.test_connectivity(5)
 					except AuthenticationException:
 						ConfManager.logger.warn("Error connecting with ip: " + ip + " incorrect credentials.")
-						auth_errors = 1
+						auth_errors += 1
 
 						if auth_errors >= auth_error_retries:
 							ConfManager.logger.error("Too many authentication errors")
