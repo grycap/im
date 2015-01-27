@@ -85,7 +85,7 @@ class OCCICloudConnector(CloudConnector):
 		Delete the proxy file created to contact with the HTTPS server.
 		(Created in the get_https_connection function)
 		"""
-		if conn.cert_file and os.path.isfile(conn.cert_file):
+		if isinstance(conn, httplib.HTTPSConnection) and conn.cert_file and os.path.isfile(conn.cert_file):
 			os.unlink(conn.cert_file)
 
 	def get_auth_header(self, auth_data):
@@ -202,7 +202,7 @@ class OCCICloudConnector(CloudConnector):
 	"""	
 	def updateVMInfo(self, vm, auth_data):
 		auth = self.get_auth_header(auth_data)
-		headers = {'Accept': 'text/plain'}
+		headers = {'Accept': 'text/plain', 'Connection':'close'}
 		if auth:
 			headers.update(auth)
 		
@@ -285,7 +285,7 @@ users:
 		Get the info contacting with the OCCI server
 		"""
 		auth = self.get_auth_header(auth_data)
-		headers = {'Accept': 'text/plain'}
+		headers = {'Accept': 'text/plain', 'Connection':'close'}
 		if auth:
 			headers.update(auth)
 		
@@ -296,6 +296,7 @@ users:
 			self.delete_proxy(conn)
 			
 			output = resp.read()
+			#self.logger.debug(output)
 			
 			if resp.status != 200:
 				self.logger.error("Error querying the OCCI server")
@@ -398,7 +399,8 @@ users:
 				if auth_header:
 					conn.putheader(auth_header.keys()[0], auth_header.values()[0])
 				conn.putheader('Accept', 'text/plain')
-				conn.putheader('Content-Type', 'text/plain,text/occi')
+				conn.putheader('Content-Type', 'text/plain')
+				conn.putheader('Connection', 'close')
 				
 				body = 'Category: compute; scheme="http://schemas.ogf.org/occi/infrastructure#"; class="kind"\n'
 				body += 'Category: ' + os_tpl + '; scheme="' + os_tpl_scheme + '"; class="mixin"\n'
@@ -452,7 +454,7 @@ users:
 
 	def finalize(self, vm, auth_data):
 		auth = self.get_auth_header(auth_data)
-		headers = {'Accept': 'text/plain'}
+		headers = {'Accept': 'text/plain', 'Connection':'close'}
 		if auth:
 			headers.update(auth)
 		
@@ -482,6 +484,7 @@ users:
 				conn.putheader(auth_header.keys()[0], auth_header.values()[0])
 			conn.putheader('Accept', 'text/plain')
 			conn.putheader('Content-Type', 'text/plain,text/occi')
+			conn.putheader('Connection', 'close')
 			
 			body = 'Category: suspend;scheme="http://schemas.ogf.org/occi/infrastructure/compute/action#";class="action";\n'
 			conn.putheader('Content-Length', len(body))
@@ -507,6 +510,7 @@ users:
 				conn.putheader(auth_header.keys()[0], auth_header.values()[0])
 			conn.putheader('Accept', 'text/plain')
 			conn.putheader('Content-Type', 'text/plain,text/occi')
+			conn.putheader('Connection', 'close')
 			
 			body = 'Category: start;scheme="http://schemas.ogf.org/occi/infrastructure/compute/action#";class="action";\n'
 			conn.putheader('Content-Length', len(body))
@@ -538,7 +542,7 @@ class KeyStoneAuth:
 		It returns the keystone server URI or None.
 		"""
 		try:
-			headers = {'Accept': 'text/plain'}
+			headers = {'Accept': 'text/plain', 'Connection':'close'}
 			conn = occi.get_http_connection(auth_data)
 			conn.request('HEAD', "/-/", headers = headers) 
 			resp = conn.getresponse()
