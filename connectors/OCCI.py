@@ -296,7 +296,7 @@ users:
 			self.delete_proxy(conn)
 			
 			output = resp.read()
-			#self.logger.debug(output)
+			self.logger.debug(output)
 			
 			if resp.status != 200:
 				self.logger.error("Error querying the OCCI server")
@@ -381,6 +381,8 @@ users:
 		url = uriparse(system.getValue("disk.0.image.url"))
 		os_tpl =  url[2][1:]
 		os_tpl_scheme = self.get_os_tpl_scheme(occi_info, os_tpl)
+		if not os_tpl_scheme:
+			raise Exception("Error getting os_tpl scheme. Check that the image specified is supported in the OCCI server.")
 		
 		# Parse the info to get the instance_type (resource_tpl) scheme
 		instance_type_uri = None
