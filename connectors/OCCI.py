@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from ssl import SSLError
 import json
 import subprocess
 import shutil
@@ -274,14 +275,14 @@ users:
     sudo: ALL=(ALL) NOPASSWD:ALL
     lock-passwd: true
     ssh-import-id: %s
-    ssh-authorized-keys:if resp.status == 404:
+    ssh-authorized-keys:
       - %s
 """ % (user , user, public_key)
 		return config
 
-	def get_scheme(self, category, ctype, auth_data):
+	def query_occi(self, auth_data):
 		"""
-		Get the scheme of an OCCI category contacting with the OCCI server
+		Get the info contacting with the OCCI server
 		"""
 		auth = self.get_auth_header(auth_data)
 		headers = {'Accept': 'text/plain'}
@@ -297,39 +298,45 @@ users:
 			output = resp.read()
 			
 			if resp.status != 200:
-				self.logger.error("Error getting scheme for category: " + category)
-				return "" 
-			else:
-				lines = output.split("\n")
-				for l in lines:
-					if l.find('Category: ' + category) != -1 and l.find(ctype) != -1:
-						parts = l.split(';')
-						for p in parts:
-							kv = p.split("=")
-							if kv[0].strip() == "scheme":
-								return kv[1].replace('"','').replace("'",'')
-
-				self.logger.error("Error getting scheme for category: " + category)
+				self.logger.error("Error querying the OCCI server")
 				return ""
+			else:
+				return output
 		except:
-			self.logger.exception("Error getting scheme for category: " + category)
+			self.logger.exception("Error querying the OCCI server")
 			return ""
 
-	def get_instance_type_uri(self, instance_type, auth_data):
+	def get_scheme(self, occi_info, category, ctype):
 		"""
-		Get the whole URI of an OCCI instance type contacting with the OCCI server
+		Get the scheme of an OCCI category contacting with the OCCI server
+		"""
+		lines = occi_info.split("\n")
+		for l in lines:
+			if l.find('Category: ' + category) != -1 and l.find(ctype) != -1:
+				parts = l.split(';')
+				for p in parts:
+					kv = p.split("=")
+					if kv[0].strip() == "scheme":
+						return kv[1].replace('"','').replace("'",'')
+
+		self.logger.error("Error getting scheme for category: " + category)
+		return ""
+
+	def get_instance_type_uri(self, occi_info, instance_type):
+		"""
+		Get the whole URI of an OCCI instance from the OCCI info
 		"""
 		if instance_type.startswith('http'):
 			# If the user set the whole uri, do not search
 			return instance_type
 		else:
-			return self.get_scheme(instance_type,'resource_tpl', auth_data) + instance_type
+			return self.get_scheme(occi_info, instance_type,'resource_tpl') + instance_type
 			
-	def get_os_tpl(self, os_tpl, auth_data):
+	def get_os_tpl_scheme(self, occi_info, os_tpl):
 		"""
-		Get the whole URI of an OCCI os template contacting with the OCCI server
+		Get the whole URI of an OCCI os template from the OCCI info
 		"""
-		return self.get_scheme(os_tpl,'os_tpl', auth_data)
+		return self.get_scheme(occi_info, os_tpl,'os_tpl')
 			
 	def launch(self, inf, radl, requested_radl, num_vm, auth_data):
 		system = radl.systems[0]
@@ -350,10 +357,6 @@ users:
 		res = []
 		i = 0
 		conn = self.get_http_connection(auth_data)
-
-		url = uriparse(system.getValue("disk.0.image.url"))
-		os_tpl =  url[2][1:]
-		os_tpl_scheme = self.get_os_tpl(os_tpl, auth_data)
 		
 		public_key = system.getValue('disk.0.os.credentials.public_key')
 		
@@ -366,13 +369,22 @@ users:
 		if not user:
 			user = "cloudadm"
 			system.setValue('disk.os.credentials.username', user)
-		
+
 		cloud_config = self.gen_cloud_config(public_key, user)
 		user_data = base64.b64encode(cloud_config).replace("\n","")
 		
+		# Get the info about the OCCI server (GET /-/)
+		occi_info = self.query_occi(auth_data)
+		
+		# Parse the info to get the os_tpl scheme
+		url = uriparse(system.getValue("disk.0.image.url"))
+		os_tpl =  url[2][1:]
+		os_tpl_scheme = self.get_os_tpl_scheme(occi_info, os_tpl)
+		
+		# Parse the info to get the instance_type (resource_tpl) scheme
 		instance_type_uri = None
 		if system.getValue('instance_type'):
-			instance_type = self.get_instance_type_uri(system.getValue('instance_type'), auth_data)
+			instance_type = self.get_instance_type_uri(occi_info, system.getValue('instance_type'))
 			instance_type_uri = uriparse(instance_type)
 			if not instance_type_uri[5]:
 				raise Exception("Error getting Instance type URI. Check that the instance_type specified is supported in the OCCI server.")
@@ -397,9 +409,11 @@ users:
 					body += 'Category: ' + instance_name + '; scheme="' + instance_scheme + '"; class="mixin"\n'
 				else:
 					# Try to use this OCCI attributes (not supported by openstack)
-					body += 'X-OCCI-Attribute: occi.compute.cores=' + str(cpu) +'\n'
+					if cpu:
+						body += 'X-OCCI-Attribute: occi.compute.cores=' + str(cpu) +'\n'
 					#body += 'X-OCCI-Attribute: occi.compute.architecture=' + arch +'\n'
-					body += 'X-OCCI-Attribute: occi.compute.memory=' + str(memory) + '\n'
+					if memory:
+						body += 'X-OCCI-Attribute: occi.compute.memory=' + str(memory) + '\n'
 
 				body += 'X-OCCI-Attribute: occi.core.title="' + name + '"\n'
 				body += 'X-OCCI-Attribute: occi.compute.hostname="' + name + '"\n'				
@@ -533,7 +547,11 @@ class KeyStoneAuth:
 				return www_auth_head.split('=')[1].replace("'","")
 			else:
 				return None
+		except SSLError:
+			occi.logger.exception("Error with the credentials when contacting with the OCCI server.")
+			raise Exception("Error with the credentials when contacting with the OCCI server. Check your proxy file.")
 		except:
+			occi.logger.exception("Error contacting with the OCCI server.")
 			return None
 	
 	@staticmethod
