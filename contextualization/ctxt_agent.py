@@ -132,7 +132,7 @@ def LaunchAnsiblePlaybook(playbook_file, vm, threads, inventory_file, pk_file, r
 
 def changeVMCredentials(vm):
 	# Check if we must change user credentials in the VM
-	if 'new_passwd' in vm and vm['new_passwd']:
+	if 'passwd' in vm and vm['passwd'] and 'new_passwd' in vm and vm['new_passwd']:
 		logger.info("Changing password to VM: " + vm['ip'])
 		ssh_client = SSH(vm['ip'], vm['user'], vm['passwd'], vm['private_key'], vm['ssh_port'])
 		(out, err, code) = ssh_client.execute('sudo bash -c \'echo "' + vm['user'] + ':' + vm['new_passwd'] + '" | /usr/sbin/chpasswd && echo "OK"\' 2> /dev/null')
