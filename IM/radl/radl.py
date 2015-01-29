@@ -239,7 +239,7 @@ class Features(object):
 		elif f.prop not in self.props and missing in ["ignore", "first"]:
 			return
 		
-		if isinstance(f.value, int) or isinstance(f, float):
+		if isinstance(f.value, int) or isinstance(f.value, float):
 			if f.operator == "=":
 				inter1 = (f, f)
 			elif f.operator[0] == "<":
@@ -264,7 +264,7 @@ class Features(object):
 				self.props.setdefault(f.prop, {})[f.value.getValue("name")] = f
 		else:
 			value0 = self.props.get(f.prop, None)
-			if not value0 or (value0.value != f.value and conflict == "other"):
+			if not value0 or (conflict == "other"):
 				self.props[f.prop] = f
 			elif value0.value != f.value and conflict == "error":
 				raise RADLParseException("Conflict adding `%s` because `%s` is already set." % (f, value0), line=f.line)
@@ -704,7 +704,7 @@ class network(Features, Aspect):
 		8899-8899,22-22
 		8899/tcp,22/udp
 		8899,22
-		Returns a tuple with the format: (remote_port,remote_protocol,local_port,local_protocol)
+		Returns a list of tuple with the format: (remote_port,remote_protocol,local_port,local_protocol)
 		"""
 		res = []
 		ports = outports.split(',')
@@ -736,7 +736,7 @@ class network(Features, Aspect):
 		"""
 		Get the outports of this network.
 		outports format: 22/tcp-22/tcp,8899/tcp,8800
-		Returns a tuple with the format: (remote_port,remote_protocol,local_port,local_protocol)
+		Returns a list of tuples with the format: (remote_port,remote_protocol,local_port,local_protocol)
 		"""
 		outports = self.getValue("outports")
 		if outports:

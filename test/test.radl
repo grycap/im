@@ -21,12 +21,12 @@ system wn (
 cpu.arch='x86_64' and
 cpu.count>=1 and
 memory.size>=512m and
-net_interface.0.connection = 'publica' and
+net_interface.0.connection = 'privada' and
 disk.0.os.name='linux' and
-disk.0.image.url = 'one://onecloud.i3m.upv.es/217' and
+disk.0.image.url = 'one://ramses.i3m.upv.es/37' and
 disk.0.os.credentials.username = 'ubuntu' and
 disk.0.os.credentials.password = 'yoyoyo' and
-#disk.0.image.url = 'one://onecloud.i3m.upv.es/207' and
+#disk.0.image.url = 'one://ramses.i3m.upv.es/28' and
 #disk.0.os.credentials.username = 'root' and
 #disk.0.os.credentials.password = 'grycap01' and
 disk.0.os.credentials.new.password = 'tututu' and

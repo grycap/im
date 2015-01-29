@@ -53,3 +53,21 @@ IM 1.1.0
     * Bug fixes in LibVirt connector
     * Change Ansible version to 1.7.2
     * Use the ssh connector with the pipelining option in ansible to improve preformace in the contextualization step
+
+IM 1.1.1
+    * Minor bug fixes and code improvements
+    * Bugfixes in EC2 connector
+
+IM 1.2.0
+    * Minor bug fixes and code improvements
+    * Change the contextualization process:
+    	* Enable to contextualize the VMs individually.
+    	* Call Ansible inside a Thread.
+    * Improve EC2 connector
+    * Bugfixes in OCCI connector
+    * Bugfixes in Docker connector
+    * Add FogBow connector
+    * Add GetInfrastructureRADL function to the API
+    * Add GetInfrastructureContMsg function to the API
+    * Add GetVMContMsg function to the API
+    * Add new state 'unconfigured'
