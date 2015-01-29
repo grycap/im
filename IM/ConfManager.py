@@ -89,11 +89,12 @@ class ConfManager(threading.Thread):
 						InfrastructureManager.InfrastructureManager.save_data()
 				
 		return res
-	
+
 	def stop(self):
 		self._stop = True
+		# put a task to assure to wake up the thread 
+		self.inf.ctxt_tasks.put((-3, 0,None,None))
 		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Stop Configuration thread.")
-
 
 	def check_vm_ips(self, timeout = Config.WAIT_RUNNING_VM_TIMEOUT):
 	
@@ -143,6 +144,9 @@ class ConfManager(threading.Thread):
 				continue
 
 			(step, prio, vm, tasks) = self.inf.ctxt_tasks.get()
+			
+			if self._stop:
+				return
 
 			# if this task is from a next step
 			if last_step is not None and last_step < step:
@@ -192,6 +196,7 @@ class ConfManager(threading.Thread):
 					vm.configured = None
 					for task in tasks:
 						t = threading.Thread(target=eval("self." + task))
+						t.daemon = True
 						t.start()
 						vm.conf_threads.append(t)
 					if step not in vms_configuring:
@@ -823,6 +828,7 @@ class ConfManager(threading.Thread):
 
 		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " + 'Lanzamos ansible.')
 		t = AnsibleThread(tmp_dir + "/" + playbook, None, 2, gen_pk_file, ssh.password, 1, tmp_dir + "/" + inventory, ssh.username)
+		t.daemon = True
 		t.start()
 		t.join()
 		(return_code, output, _) = t.results

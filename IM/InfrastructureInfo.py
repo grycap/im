@@ -119,9 +119,15 @@ class InfrastructureInfo:
 		"""
 		Set this Inf as deleted
 		"""
+		self.stop_cm_thread()
+		self.deleted = True
+		
+	def stop_cm_thread(self):	
+		"""
+		Stop the Ctxt thread if is is alive.
+		"""
 		if self.cm and self.cm.isAlive():
 			self.cm.stop()
-		self.deleted = True
 		
 	def get_cont_out(self):
 		"""
