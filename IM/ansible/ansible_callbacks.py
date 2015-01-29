@@ -20,28 +20,13 @@
 import ansible.utils
 import sys
 import getpass
-import os
-import subprocess
-import random
 import fnmatch
-import tempfile
-import fcntl
 import datetime
 
-def display(msg, color=None, stderr=False, screen_only=False, log_only=False, runner=None):
+def display(msg, color=None, stderr=False, screen_only=False, log_only=False, runner=None, output=sys.stdout):
     if not log_only:
         msg2 = msg
-        if not stderr:
-            print msg2
-        else:
-            print >>sys.stderr, msg2
-
-def verbose(msg, host=None, caplevel=2):
-    if ansible.utils.VERBOSITY > caplevel:
-        if host is None:
-            display(msg, color='blue')
-        else:
-            display("<%s> %s" % (host, msg), color='blue')
+        print >>output, msg2
 
 class AggregateStats(object):
     ''' holds stats about per-host activity during playbook runs '''
@@ -161,7 +146,8 @@ def host_report_msg(hostname, module_name, result, oneline):
 class PlaybookRunnerCallbacks(object):
     ''' callbacks used for Runner() from /usr/bin/ansible-playbook '''
 
-    def __init__(self, stats, verbose=ansible.utils.VERBOSITY):
+    def __init__(self, stats, verbose=ansible.utils.VERBOSITY, output=sys.stdout):
+        self.output = output
         self.verbose = verbose
         self.stats = stats
         self._async_notified = {}
@@ -174,7 +160,7 @@ class PlaybookRunnerCallbacks(object):
             msg = "fatal: [%s] => (item=%s) => %s" % (host, item, results)
         else:
             msg = "fatal: [%s] => %s" % (host, results)
-        display(msg, color='red', runner=self.runner)
+        display(msg, color='red', runner=self.runner, output=self.output)
 
     def on_failed(self, host, results, ignore_errors=False):
 
@@ -195,18 +181,18 @@ class PlaybookRunnerCallbacks(object):
             msg = "failed: [%s] => (item=%s) => %s" % (host, item, ansible.utils.jsonify(results2))
         else:
             msg = "failed: [%s] => %s" % (host, ansible.utils.jsonify(results2))
-        display(msg, color='red', runner=self.runner)
+        display(msg, color='red', runner=self.runner, output=self.output)
 
         if stderr:
-            display("stderr: %s" % stderr, color='red', runner=self.runner)
+            display("stderr: %s" % stderr, color='red', runner=self.runner, output=self.output)
         if stdout:
-            display("stdout: %s" % stdout, color='red', runner=self.runner)
+            display("stdout: %s" % stdout, color='red', runner=self.runner, output=self.output)
         if returned_msg:
-            display("msg: %s" % returned_msg, color='red', runner=self.runner)
+            display("msg: %s" % returned_msg, color='red', runner=self.runner, output=self.output)
         if not parsed and module_msg:
-            display("invalid output was: %s" % module_msg, color='red', runner=self.runner)
+            display("invalid output was: %s" % module_msg, color='red', runner=self.runner, output=self.output)
         if ignore_errors:
-            display("...ignoring", color='cyan', runner=self.runner)
+            display("...ignoring", color='cyan', runner=self.runner, output=self.output)
 
     def on_ok(self, host, host_result):
         
@@ -239,9 +225,9 @@ class PlaybookRunnerCallbacks(object):
 
         if msg != '':
             if not changed:
-                display(msg, color='green', runner=self.runner)
+                display(msg, color='green', runner=self.runner, output=self.output)
             else:
-                display(msg, color='yellow', runner=self.runner)
+                display(msg, color='yellow', runner=self.runner, output=self.output)
 
     def on_error(self, host, err):
 
@@ -252,7 +238,7 @@ class PlaybookRunnerCallbacks(object):
         else:
             msg = "err: [%s] => %s" % (host, err)
 
-        display(msg, color='red', stderr=True, runner=self.runner)
+        display(msg, color='red', stderr=True, runner=self.runner, output=self.output)
 
     def on_skipped(self, host, item=None):
         msg = ''
@@ -260,10 +246,10 @@ class PlaybookRunnerCallbacks(object):
             msg = "skipping: [%s] => (item=%s)" % (host, item)
         else:
             msg = "skipping: [%s]" % host
-        display(msg, color='cyan', runner=self.runner)
+        display(msg, color='cyan', runner=self.runner, output=self.output)
 
     def on_no_hosts(self):
-        display("FATAL: no hosts matched or all hosts have already failed -- aborting\n", color='red', runner=self.runner)
+        display("FATAL: no hosts matched or all hosts have already failed -- aborting\n", color='red', runner=self.runner, output=self.output)
 
     def on_async_poll(self, host, res, jid, clock):
         if jid not in self._async_notified:
@@ -271,27 +257,28 @@ class PlaybookRunnerCallbacks(object):
         if self._async_notified[jid] > clock:
             self._async_notified[jid] = clock
             msg = "<job %s> polling, %ss remaining"%(jid, clock)
-            display(msg, color='cyan', runner=self.runner)
+            display(msg, color='cyan', runner=self.runner, output=self.output)
 
     def on_async_ok(self, host, res, jid):
         msg = "<job %s> finished on %s"%(jid, host)
-        display(msg, color='cyan', runner=self.runner)
+        display(msg, color='cyan', runner=self.runner, output=self.output)
 
     def on_async_failed(self, host, res, jid):
         msg = "<job %s> FAILED on %s" % (jid, host)
-        display(msg, color='red', stderr=True, runner=self.runner)
+        display(msg, color='red', stderr=True, runner=self.runner, output=self.output)
 
     def on_file_diff(self, host, diff):
-        display(ansible.utils.get_diff(diff), runner=self.runner)
+        display(ansible.utils.get_diff(diff), runner=self.runner, output=self.output)
 
 ########################################################################
 
 class PlaybookCallbacks(object):
     ''' playbook.py callbacks used by /usr/bin/ansible-playbook '''
 
-    def __init__(self, verbose=False):
+    def __init__(self, verbose=False, output=sys.stdout):
 
         self.verbose = verbose
+        self.output=output
 
     def on_start(self):
         pass
@@ -300,10 +287,10 @@ class PlaybookCallbacks(object):
         pass
 
     def on_no_hosts_matched(self):
-        display("skipping: no hosts matched", color='cyan')
+        display("skipping: no hosts matched", color='cyan', output=self.output)
 
     def on_no_hosts_remaining(self):
-        display("\nFATAL: all hosts have already failed -- aborting", color='red')
+        display("\nFATAL: all hosts have already failed -- aborting", color='red', output=self.output)
 
     def on_task_start(self, name, is_conditional):
         msg = "TASK: [%s]" % name
@@ -322,16 +309,16 @@ class PlaybookCallbacks(object):
             resp = raw_input(msg)
             if resp.lower() in ['y','yes']:
                 self.skip_task = False
-                display(banner(msg))
+                display(banner(msg), output=self.output)
             elif resp.lower() in ['c', 'continue']:
                 self.skip_task = False
                 self.step = False
-                display(banner(msg))
+                display(banner(msg), output=self.output)
             else:
                 self.skip_task = True
         else:
             self.skip_task = False
-            display(banner(msg))
+            display(banner(msg), output=self.output)
 
     def on_vars_prompt(self, varname, private=True, prompt=None, encrypt=None, confirm=False, salt_size=None, salt=None, default=None):
 
@@ -354,7 +341,7 @@ class PlaybookCallbacks(object):
                 second = prompt("confirm " + msg, private)
                 if result == second:
                     break
-                display("***** VALUES ENTERED DO NOT MATCH ****")
+                display("***** VALUES ENTERED DO NOT MATCH ****", output=self.output)
         else:
             result = prompt(msg, private)
 
@@ -369,17 +356,17 @@ class PlaybookCallbacks(object):
         return result
 
     def on_setup(self):
-        display(banner("GATHERING FACTS"))
+        display(banner("GATHERING FACTS"), output=self.output)
     def on_import_for_host(self, host, imported_file):
         msg = "%s: importing %s" % (host, imported_file)
-        display(msg, color='cyan')
+        display(msg, color='cyan', output=self.output)
 
     def on_not_import_for_host(self, host, missing_file):
         msg = "%s: not importing file: %s" % (host, missing_file)
-        display(msg, color='cyan')
+        display(msg, color='cyan', output=self.output)
 
     def on_play_start(self, pattern):
-        display(banner("PLAY [%s]" % pattern))
+        display(banner("PLAY [%s]" % pattern), output=self.output)
 
     def on_stats(self, stats):
         pass

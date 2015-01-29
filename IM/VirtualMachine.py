@@ -16,8 +16,14 @@
 
 import time
 import threading
-from IM.radl.radl import network
+from IM.radl.radl import network, RADL
+from IM.SSH import SSH
 from config import Config
+import shutil
+import string
+import json
+import tempfile
+
 
 class VirtualMachine:
 
@@ -29,6 +35,7 @@ class VirtualMachine:
 	OFF = "off"
 	FAILED = "failed"
 	CONFIGURED = "configured"
+	UNCONFIGURED = "unconfigured"
 
 	def __init__(self, inf, cloud_id, cloud, info, requested_radl):
 		self._lock = threading.Lock()
@@ -51,6 +58,14 @@ class VirtualMachine:
 		"""RADL object with the current information about the VM"""
 		self.requested_radl = requested_radl
 		"""Original RADL requested by the user"""
+		self.cont_out = ""
+		"""Contextualization output message"""
+		self.configured = None
+		"""Configure flag. If it is None the contextualization has not been finished yet"""
+		self.ctxt_pid = None
+		"""Number of the PID of the contextualization process being executed in this VM"""
+		self.ssh_connect_errors = 0
+		"""Number of errors in the ssh connection trying to get the state of the ctxt pid """
 
 	def __getstate__(self):
 		"""
@@ -69,6 +84,10 @@ class VirtualMachine:
 		self._lock = threading.Lock()
 		with self._lock:
 			self.__dict__.update(dic)
+			# If we load a VM that is not configured, set it to False
+			# because the configuration process will be lost
+			if self.configured is None:
+				self.configured = False
 
 	def finalize(self, auth):
 		"""
@@ -292,12 +311,11 @@ class VirtualMachine:
 				public_net = net
 				
 		if public_net:
-			outports = public_net.getValue('outports')
+			outports = public_net.getOutPorts()
 			if outports:
-				for elem in outports.split(","):
-					parts = elem.split("-")
-					if len(parts) == 2 and parts[1] == "22":
-						ssh_port = int(parts[0])
+				for (remote_port,_,local_port,local_protocol) in outports:
+					if local_port == 22 and local_protocol == "tcp":
+						ssh_port = remote_port
 		
 		return ssh_port
 	
@@ -305,32 +323,37 @@ class VirtualMachine:
 		"""
 		Set the SSH port in the RADL info of this VM 
 		"""
-		now = str(int(time.time()*100))
+		if ssh_port != self.getSSHPort():
+			now = str(int(time.time()*100))
+	
+			public_net = None
+			for net in self.info.networks:
+				if net.isPublic():
+					public_net = net
+			
+			# If it do
+			if public_net is None:
+				public_net = network.createNetwork("public." + now, True)
+				self.info.networks.append(public_net)
 
-		public_net = None
-		for net in self.info.networks:
-			if net.isPublic():
-				public_net = net
-		
-		# If it do
-		if public_net is None:
-			public_net = network.createNetwork("public." + now, True)
-			self.info.networks.append(public_net)
-
-		outports = public_net.getValue('outports')
-		if outports:
-			outports = outports + "," + str(ssh_port) + "-22"
-		else:
-			outports = str(ssh_port) + "-22"
-		public_net.setValue('outports', outports)
-		
-		# get the ID
-		num_net = self.getNumNetworkWithConnection(public_net.id)
-		if num_net is None:
-			# There are a public net but it has not been used in this VM
-			num_net = self.getNumNetworkIfaces()
-
-		self.info.systems[0].setValue('net_interface.' + str(num_net) + '.connection',public_net.id)
+			outports_str = str(ssh_port) + "-22"
+			outports = public_net.getOutPorts()
+			if outports:
+				for (remote_port,_,local_port,local_protocol) in outports:
+					if local_port != 22 and local_protocol != "tcp":
+						if local_protocol != "tcp":
+							outports_str += str(remote_port) + "-" + str(local_port)
+						else:
+							outports_str += str(remote_port) + "/udp" + "-" + str(local_port) + "/udp"
+			public_net.setValue('outports', outports_str)
+			
+			# get the ID
+			num_net = self.getNumNetworkWithConnection(public_net.id)
+			if num_net is None:
+				# There are a public net but it has not been used in this VM
+				num_net = self.getNumNetworkIfaces()
+	
+			self.info.systems[0].setValue('net_interface.' + str(num_net) + '.connection',public_net.id)
 		
 	def update_status(self, auth):
 		"""
@@ -358,12 +381,12 @@ class VirtualMachine:
 	
 		if state != VirtualMachine.RUNNING:
 			new_state = state
-		elif self.inf.configured is None:
+		elif self.is_configured() is None:
 			new_state = VirtualMachine.RUNNING
-		elif self.inf.configured:
+		elif self.is_configured():
 			new_state = VirtualMachine.CONFIGURED
 		else:
-			new_state = VirtualMachine.FAILED
+			new_state = VirtualMachine.UNCONFIGURED
 
 		with self._lock:
 			self.info.systems[0].setValue("state", new_state)
@@ -438,3 +461,101 @@ class VirtualMachine:
 	
 				vm_system.setValue('net_interface.' + str(num_net) + '.ip', str(private_ip))
 				vm_system.setValue('net_interface.' + str(num_net) + '.connection',private_net.id)
+
+	def get_ssh(self):
+		"""
+		Get SSH object to connect with this VM
+		"""
+		(user, passwd, _, private_key) = self.getCredentialValues()
+		ip = self.getPublicIP()
+		if ip == None:
+			ip = self.getPrivateIP()
+		if ip == None:
+			return None
+		return SSH(ip, user, passwd, private_key, self.getSSHPort())
+	
+	
+	def check_ctxt_process(self):
+		if self.ctxt_pid:
+			ssh = self.inf.vm_master.get_ssh()
+			try:
+				(_, _, exit_status) = ssh.execute("ps " + str(self.ctxt_pid))
+			except:
+				exit_status = 0
+				self.ssh_connect_errors += 1
+				if self.ssh_connect_errors > Config.MAX_SSH_ERRORS:
+					self.ssh_connect_errors = 0
+					self.ctxt_pid = None
+					self.configured = False
+				
+			if exit_status != 0:
+				self.ctxt_pid = None
+				# The process has finished, get the outputs
+				ip = self.getPublicIP()
+				if not ip:
+					ip = ip = self.getPrivateIP()
+				remote_dir = Config.REMOTE_CONF_DIR + "/" + ip + "_" + str(self.getSSHPort())
+				self.get_ctxt_output(remote_dir)
+
+		return self.ctxt_pid
+	
+	def is_configured(self):
+		if self.inf.is_configured() is False:
+			return False 
+		else:
+			if self.inf.vm_in_ctxt_tasks(self) or self.ctxt_pid:
+				# If there are ctxt tasks pending for this VM, return None
+				return None
+			else:
+				# Otherwise return the value of configured
+				return self.configured
+
+	def get_ctxt_output(self, remote_dir):
+		ssh = self.inf.vm_master.get_ssh()
+		tmp_dir = tempfile.mkdtemp()
+
+		# Donwload the contextualization agent log
+		try:
+			# Get the messages of the contextualization process
+			ssh.sftp_get(remote_dir + '/ctxt_agent.log', tmp_dir + '/ctxt_agent.log')
+			with open(tmp_dir + '/ctxt_agent.log') as f: conf_out = f.read()
+			
+			# Remove problematic chars
+			conf_out = filter(lambda x: x in string.printable, conf_out)
+			self.cont_out += conf_out.encode("ascii", "replace")
+			
+			ssh.execute("rm -rf " + remote_dir + '/ctxt_agent.log')
+		except Exception, ex:
+			self.configured = False
+			self.cont_out += "Error getting contextualization process output: " + str(ex)
+			
+		# Donwload the contextualization agent log
+		try:
+			# Get the JSON output of the ctxt_agent
+			ssh.sftp_get(remote_dir + '/ctxt_agent.out', tmp_dir + '/ctxt_agent.out')
+			with open(tmp_dir + '/ctxt_agent.out') as f: ctxt_agent_out = json.load(f)
+			# And process it
+			self.process_ctxt_agent_out(ctxt_agent_out)
+		except Exception, ex:
+			self.configured = False
+			self.cont_out += "Error getting contextualization agent output: "  + str(ex)
+		finally:
+			shutil.rmtree(tmp_dir, ignore_errors=True)
+		
+	def process_ctxt_agent_out(self, ctxt_agent_out):
+		"""
+		Get the output file of the ctxt_agent to process the results of the operations
+		"""
+		if 'CHANGE_CREDS' in ctxt_agent_out and ctxt_agent_out['CHANGE_CREDS']:
+			self.info.systems[0].updateNewCredentialValues()
+		
+		if 'OK' in ctxt_agent_out and ctxt_agent_out['OK']:	
+			self.configured = True
+		else:
+			self.configured = False
+	
+	def get_vm_info(self):
+		res = RADL()
+		res.networks = self.info.networks 
+		res.systems = self.info.systems
+		return str(res)

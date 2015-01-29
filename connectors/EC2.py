@@ -246,11 +246,51 @@ class EC2CloudConnector(CloudConnector):
 			sg.authorize('tcp', 22, 22, '0.0.0.0/0')
 			sg.authorize('tcp', 5099, 5099, '0.0.0.0/0')
 			
+			# open all the ports for the VMs in the security group
+			sg.authorize('tcp', 0, 65535, src_group=sg)
+			sg.authorize('udp', 0, 65535, src_group=sg)
+			sg.authorize('icmp', 0, 65535, src_group=sg)
+			
 		except Exception:
 			self.logger.exception("Error Creating the Security group")
 			pass
 		
 		return res
+
+	def create_keypair(self, system, conn):
+		# create the keypair
+		keypair_name = "im-" + str(int(time.time()*100))
+		created = False
+		
+		try:
+			private = system.getValue('disk.0.os.credentials.private_key')
+			public = system.getValue('disk.0.os.credentials.public_key')
+			if private and public:
+				if public.find('-----BEGIN CERTIFICATE-----') != -1:
+					self.logger.debug("The RADL specifies the PK, upload it to EC2")
+					public_key = base64.b64encode(public)
+					conn.import_key_pair(keypair_name, public_key)
+				else:
+					# the public_key nodes specifies the keypair name
+					keypair_name = public
+				# Update the credential data
+				system.setUserKeyCredentials(system.getCredentials().username, public, private)
+			else:
+				self.logger.debug("Creating the Keypair")
+				keypair_file = self.KEYPAIR_DIR + '/' + keypair_name + '.pem'
+				keypair = conn.create_key_pair(keypair_name)
+				created = True
+				keypair.save(self.KEYPAIR_DIR)
+				os.chmod(keypair_file, 0400)
+				fkeypair = open(keypair_file, "r")
+				system.setUserKeyCredentials(system.getCredentials().username, None, fkeypair.read())
+				fkeypair.close()
+				os.unlink(keypair_file)
+		except:
+			self.logger.exception("Error launching the VM, no instance type available for the requirements.")
+			keypair_name = None
+
+		return (created, keypair_name)
 
 	def launch(self, inf, radl, requested_radl, num_vm, auth_data):
 		
@@ -271,124 +311,138 @@ class EC2CloudConnector(CloudConnector):
 				res.append((False, "Error connecting with EC2, check the credentials"))
 			return res
 		
-		images = conn.get_all_images([ami])
-
-		sg_name = self.create_security_group(conn, inf, radl)
+		image = conn.get_image(ami)
 		
-		if len(images) == 1:
-			keypair_name = "im-" + str(int(time.time()*100))
-			# create the keypair
-			private = system.getValue('disk.0.os.credentials.private_key')
-			public = system.getValue('disk.0.os.credentials.public_key')
-			if private and public:
-				if public.find('-----BEGIN CERTIFICATE-----') != -1:
-					self.logger.debug("The RADL specifies the PK, upload it to EC2")
-					public_key = base64.b64encode(public)
-					conn.import_key_pair(keypair_name, public_key)
-				else:
-					# the public_key nodes specifies the keypair name
-					keypair_name = public
-				# Update the credential data
-				system.setUserKeyCredentials(system.getCredentials().username, public, private)
-			else:
-				self.logger.debug("Creating the Keypair")
-				keypair_file = self.KEYPAIR_DIR + '/' + keypair_name + '.pem'
-				keypair = conn.create_key_pair(keypair_name)
-				keypair.save(self.KEYPAIR_DIR)
-				os.chmod(keypair_file, 0400)
-				fkeypair = open(keypair_file, "r")
-				system.setUserKeyCredentials(system.getCredentials().username, None, fkeypair.read())
-				fkeypair.close()
-				os.unlink(keypair_file)
+		if not image:
+			for i in range(num_vm):
+				res.append((False, "Incorrect AMI selected"))
+			return res
+		else:
+			block_device_name = None
+			for name, device in image.block_device_mapping.iteritems():
+				if device.snapshot_id or device.volume_id:
+					block_device_name = name
+
+			if not block_device_name:
+				self.logger.error("Error getting correct block_device name from AMI: " + str(ami))
+				for i in range(num_vm):
+					res.append((False, "Error getting correct block_device name from AMI: " + str(ami)))
+				return res
+			
+			(created_keypair, keypair_name) = self.create_keypair(system, conn)
+			if not keypair_name:
+				self.logger.error("Error managing the keypair.")
+				for i in range(num_vm):
+					res.append((False, "Error managing the keypair."))
+				return res
+
+			# Create the security group for the VMs				
+			sg_name = self.create_security_group(conn, inf, radl)
+			all_failed = True
+
 			i = 0
 			while i < num_vm:
-				spot = False
-				if system.getValue("spot") == "yes":
-					spot = True
-
-				if spot:
-					self.logger.debug("Launching a spot instance")
-					instance_type = self.get_instance_type(system)
-					if not instance_type:
-						self.logger.error("Error launching the VM, no instance type available for the requirements.")
-						self.logger.debug(system)
-						res.append((False, "Error launching the VM, no instance type available for the requirements."))
-						
-					price = system.getValue("price")
-					#Realizamos el request de spot instances
-					if system.getValue("disk.0.os.name"):
-						operative_system = system.getValue("disk.0.os.name")
-						if operative_system == "linux":
-							operative_system = 'Linux/UNIX'
-							#TODO: diferenciar entre cuando sea 'Linux/UNIX', 'SUSE Linux' o 'Windows' teniendo en cuenta tambien el atributo "flavour" del RADL
-					else:
-						res.append((False, "Error launching the image: spot instances need the OS defined in the RADL"))
-						#operative_system = 'Linux/UNIX'
-					
-					if system.getValue('availability_zone'):
-						availability_zone = system.getValue('availability_zone')
-					else:
-						availability_zone = 'us-east-1c'
-						historical_price = 1000.0
-						availability_zone_list = conn.get_all_zones()
-						for zone in availability_zone_list:
-							history = conn.get_spot_price_history(instance_type=instance_type.name, product_description=operative_system, availability_zone=zone.name, max_results=1)
-							self.logger.debug("Spot price history for the region " + zone.name)
-							self.logger.debug(history)
-							if history and history[0].price < historical_price:
-								historical_price = history[0].price
-								availability_zone = zone.name
-					self.logger.debug("Launching the spot request in the zone " + availability_zone)
-					
-					# Force to use magnetic volumes
-					bdm = boto.ec2.blockdevicemapping.BlockDeviceMapping(conn)
-					bdm["/dev/sda1"] = boto.ec2.blockdevicemapping.BlockDeviceType(volume_type="standard")
-					request = conn.request_spot_instances(price=price, image_id=images[0].id, count=1, type='one-time', instance_type=instance_type.name, placement=availability_zone, key_name=keypair_name, security_groups=[sg_name], block_device_map=bdm)
-					
-					if request:
-						ec2_vm_id = region_name + ";" + request[0].id
-						
-						self.logger.debug("RADL:")
-						self.logger.debug(system)
-					
-						vm = VirtualMachine(inf, ec2_vm_id, self.cloud, radl, requested_radl)
-						# Add the keypair name to remove it later 
-						vm.keypair_name = keypair_name
-						self.logger.debug("Instance successfully launched.")
-						res.append((True, vm))
-					else: 
-						res.append((False, "Error launching the image"))
-						
-				else:
-					self.logger.debug("Launching ondemand instance")
-					instance_type = self.get_instance_type(system)
-					if not instance_type:
-						self.logger.error("Error launching the VM, no instance type available for the requirements.")
-						self.logger.debug(system)
-						res.append((False, "Error launching the VM, no instance type available for the requirements."))
-
-					placement = system.getValue('availability_zone')
-					# Force to use magnetic volumes
-					bdm = boto.ec2.blockdevicemapping.BlockDeviceMapping(conn)
-					bdm["/dev/sda1"] = boto.ec2.blockdevicemapping.BlockDeviceType(volume_type="standard")
-					reservation = images[0].run(min_count=1,max_count=1,key_name=keypair_name,instance_type=instance_type.name,security_groups=[sg_name],placement=placement,block_device_map=bdm)
-
-					if len(reservation.instances) == 1:
-						instance = reservation.instances[0]
-						ec2_vm_id = region_name + ";" + instance.id
+				try:
+					spot = False
+					if system.getValue("spot") == "yes":
+						spot = True
+	
+					if spot:
+						self.logger.debug("Launching a spot instance")
+						instance_type = self.get_instance_type(system)
+						if not instance_type:
+							self.logger.error("Error launching the VM, no instance type available for the requirements.")
+							self.logger.debug(system)
+							res.append((False, "Error launching the VM, no instance type available for the requirements."))
+						else:
+							price = system.getValue("price")
+							#Realizamos el request de spot instances
+							if system.getValue("disk.0.os.name"):
+								operative_system = system.getValue("disk.0.os.name")
+								if operative_system == "linux":
+									operative_system = 'Linux/UNIX'
+									#TODO: diferenciar entre cuando sea 'Linux/UNIX', 'SUSE Linux' o 'Windows' teniendo en cuenta tambien el atributo "flavour" del RADL
+							else:
+								res.append((False, "Error launching the image: spot instances need the OS defined in the RADL"))
+								#operative_system = 'Linux/UNIX'
 							
-						self.logger.debug("RADL:")
-						self.logger.debug(system)
-						
-						vm = VirtualMachine(inf, ec2_vm_id, self.cloud, radl, requested_radl)
-						# Add the keypair name to remove it later 
-						vm.keypair_name = keypair_name
-						self.logger.debug("Instance successfully launched.")
-						res.append((True, vm))
+							if system.getValue('availability_zone'):
+								availability_zone = system.getValue('availability_zone')
+							else:
+								availability_zone = 'us-east-1c'
+								historical_price = 1000.0
+								availability_zone_list = conn.get_all_zones()
+								for zone in availability_zone_list:
+									history = conn.get_spot_price_history(instance_type=instance_type.name, product_description=operative_system, availability_zone=zone.name, max_results=1)
+									self.logger.debug("Spot price history for the region " + zone.name)
+									self.logger.debug(history)
+									if history and history[0].price < historical_price:
+										historical_price = history[0].price
+										availability_zone = zone.name
+							self.logger.debug("Launching the spot request in the zone " + availability_zone)
+							
+							# Force to use magnetic volumes
+							bdm = boto.ec2.blockdevicemapping.BlockDeviceMapping(conn)
+							bdm[block_device_name] = boto.ec2.blockdevicemapping.BlockDeviceType(volume_type="standard")
+							request = conn.request_spot_instances(price=price, image_id=image.id, count=1, type='one-time', instance_type=instance_type.name, placement=availability_zone, key_name=keypair_name, security_groups=[sg_name], block_device_map=bdm)
+							
+							if request:
+								ec2_vm_id = region_name + ";" + request[0].id
+								
+								self.logger.debug("RADL:")
+								self.logger.debug(system)
+							
+								vm = VirtualMachine(inf, ec2_vm_id, self.cloud, radl, requested_radl)
+								# Add the keypair name to remove it later 
+								vm.keypair_name = keypair_name
+								self.logger.debug("Instance successfully launched.")
+								all_failed = False
+								res.append((True, vm))
+							else: 
+								res.append((False, "Error launching the image"))
+							
 					else:
-						res.append((False, "Error launching the image"))
+						self.logger.debug("Launching ondemand instance")
+						instance_type = self.get_instance_type(system)
+						if not instance_type:
+							self.logger.error("Error launching the VM, no instance type available for the requirements.")
+							self.logger.debug(system)
+							res.append((False, "Error launching the VM, no instance type available for the requirements."))
+						else:
+							placement = system.getValue('availability_zone')
+							# Force to use magnetic volumes
+							bdm = boto.ec2.blockdevicemapping.BlockDeviceMapping(conn)
+							bdm[block_device_name] = boto.ec2.blockdevicemapping.BlockDeviceType(volume_type="standard")
+							reservation = image.run(min_count=1,max_count=1,key_name=keypair_name,instance_type=instance_type.name,security_groups=[sg_name],placement=placement,block_device_map=bdm)
+		
+							if len(reservation.instances) == 1:
+								instance = reservation.instances[0]
+								ec2_vm_id = region_name + ";" + instance.id
+									
+								self.logger.debug("RADL:")
+								self.logger.debug(system)
+								
+								vm = VirtualMachine(inf, ec2_vm_id, self.cloud, radl, requested_radl)
+								# Add the keypair name to remove it later 
+								vm.keypair_name = keypair_name
+								self.logger.debug("Instance successfully launched.")
+								res.append((True, vm))
+								all_failed = False
+							else:
+								res.append((False, "Error launching the image"))
+					
+				except Exception, ex:
+					self.logger.exception("Error launching instance.")
+					res.append((False, "Error launching the instance: " + str(ex)))
 					
 				i += 1
+		
+		# if all the VMs have failed, remove the sg and keypair
+		if all_failed:
+			if created_keypair:
+				conn.delete_key_pair(keypair_name)
+			if sg_name != 'default':
+				conn.delete_security_group(sg_name)
 			
 		return res
 
@@ -761,19 +815,19 @@ class EC2CloudConnector(CloudConnector):
 		self.delete_volumes(conn, vm)
 		
 		# Delete the SG if this is the last VM
-		self.delete_security_group(conn, vm)
+		self.delete_security_group(conn, vm.inf)
 		
 		return (True, "")
 	
-	def delete_security_group(self, conn, vm, timeout = 90):
+	def delete_security_group(self, conn, inf, timeout = 90):
 		"""
 		Delete the SG of this infrastructure if this is the last VM
 
 		Arguments:
 		   - conn(:py:class:`boto.ec2.connection`): object to connect to EC2 API.
-		   - vm(:py:class:`IM.VirtualMachine`): VM information.	
+		   - inf(:py:class:`IM.InfrastructureInfo`): Infrastructure information.	
 		"""
-		sg_name = "im-" + str(id(vm.inf))
+		sg_name = "im-" + str(id(inf))
 		sg = None
 		for elem in conn.get_all_security_groups():
 			if elem.name == sg_name:

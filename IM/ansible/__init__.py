@@ -1,6 +1,6 @@
 # IM - Infrastructure Manager
 # Copyright (C) 2011 - GRyCAP - Universitat Politecnica de Valencia
-# 
+#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
@@ -14,21 +14,4 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-# General Tasks
-- name: Copy the /etc/hosts
-  copy: src=etc_hosts dest=/etc/hosts
-  ignore_errors: yes
-  register: result_copy_etc_hosts
-
-# In case of docker container, because the Ansible copy module does not work with the /etc/hosts file
-- name: Copy the /etc/hosts to /tmp/etc_hosts
-  copy: src=etc_hosts dest=/tmp/etc_hosts
-  when: result_copy_etc_hosts|failed
-  
-- name: Copy /tmp/etc_hosts to /etc/hosts
-  command: cp /tmp/etc_hosts /etc/hosts
-  when: result_copy_etc_hosts|failed
-
-- name: Copy the /etc/hosts in windows
-  copy: src=etc_hosts dest=/cygdrive/c/WINDOWS/system32/drivers/etc mode=0777
-  when: windows
+__all__ = ['ansible_launcher', 'ansible_callbacks']

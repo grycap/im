@@ -118,6 +118,7 @@ class Authentication:
 		id = ec2; type = EC2; username = ACCESS_KEY; password = SECRET_KEY
 		id = oshost; type = OpenStack; host = oshost:8773; username = ACCESS_KEY; key = SECRET_KEY
 		id = occi; type = OCCI; host = occiserver:4567; username = user; password = file(/tmp/filename)
+		id = occi; type = OCCI; proxy = file(/tmp/proxy.pem)
 	
 		Arguments:
 		   - filename(str): The filename to read

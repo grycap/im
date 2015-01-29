@@ -57,7 +57,8 @@ class Config:
 	GANGLIA_INFO_UPDATE_FREQUENCY = 30
 	PLAYBOOK_RETRIES = 1
 	VM_INFO_UPDATE_FREQUENCY = 10
-
+	REMOTE_CONF_DIR = "/tmp/.im"
+	MAX_SSH_ERRORS = 5
 
 config = ConfigParser.ConfigParser()
 config.read([Config.IM_PATH + '/../im.cfg', Config.IM_PATH + '/../etc/im.cfg', '/etc/im/im.cfg'])

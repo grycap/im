@@ -20,7 +20,6 @@ import unittest
 import os
 import httplib
 import time
-import json
 
 from IM.VirtualMachine import VirtualMachine
 from IM.uriparse import uriparse
@@ -70,13 +69,9 @@ class TestIM(unittest.TestCase):
         output = str(resp.read())
         self.assertEqual(resp.status, 200, msg="ERROR getting infrastructure info:" + output)
         
-        output_obj = json.loads(output)
-        
-        self.assertEqual(len(output_obj), 2, msg="ERROR getting infrastructure info: Incorrect number of VMs(" + str(len(output_obj)) + "). It must be 2")
+        vm_ids = output.split("\n")
 
-        vm_ids = output_obj['vm_list']
-
-        err_states = [VirtualMachine.FAILED, VirtualMachine.OFF]
+        err_states = [VirtualMachine.FAILED, VirtualMachine.OFF, VirtualMachine.UNCONFIGURED]
         err_states.extend(incorrect_states)
 
         wait = 0
@@ -143,8 +138,7 @@ class TestIM(unittest.TestCase):
         resp = self.server.getresponse()
         output = str(resp.read())
         self.assertEqual(resp.status, 200, msg="ERROR getting the infrastructure info:" + output)
-        output_obj = json.loads(output)
-        vm_ids = output_obj['vm_list']
+        vm_ids = output.split("\n")
 
         vm_uri = uriparse(vm_ids[0])
         self.server.request('GET', vm_uri[2], headers = {'AUTHORIZATION' : self.auth_data})
@@ -152,13 +146,43 @@ class TestIM(unittest.TestCase):
         output = str(resp.read())
         self.assertEqual(resp.status, 200, msg="ERROR getting VM info:" + output)
         
+    def test_32_get_vm_contmsg(self):
+        self.server.request('GET', "/infrastructures/" + self.inf_id, headers = {'AUTHORIZATION' : self.auth_data})
+        resp = self.server.getresponse()
+        output = str(resp.read())
+        self.assertEqual(resp.status, 200, msg="ERROR getting the infrastructure info:" + output)
+        vm_ids = output.split("\n")
+
+        vm_uri = uriparse(vm_ids[0])
+        self.server.request('GET', vm_uri[2] + "/contmsg", headers = {'AUTHORIZATION' : self.auth_data})
+        resp = self.server.getresponse()
+        output = str(resp.read())
+        self.assertEqual(resp.status, 200, msg="ERROR getting VM contmsg:" + output)
+        self.assertGreater(len(output), 100, msg="Incorrect VM contextualization message: " + output)
+        
+    def test_33_get_contmsg(self):
+        self.server.request('GET', "/infrastructures/" + self.inf_id + "/contmsg", headers = {'AUTHORIZATION' : self.auth_data})
+        resp = self.server.getresponse()
+        output = str(resp.read())
+        self.assertEqual(resp.status, 200, msg="ERROR getting the infrastructure info:" + output)
+        self.assertGreater(len(output), 100, msg="Incorrect contextualization message: " + output)
+        
+    def test_34_get_radl(self):
+        self.server.request('GET', "/infrastructures/" + self.inf_id + "/radl", headers = {'AUTHORIZATION' : self.auth_data})
+        resp = self.server.getresponse()
+        output = str(resp.read())
+        self.assertEqual(resp.status, 200, msg="ERROR getting the infrastructure RADL:" + output)
+        try:
+            radl_parse.parse_radl(output)
+        except Exception, ex:
+            self.assertTrue(False, msg="ERROR parsing the RADL returned by GetInfrastructureRADL: " + str(ex))
+        
     def test_35_get_vm_property(self):
         self.server.request('GET', "/infrastructures/" + self.inf_id, headers = {'AUTHORIZATION' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
         self.assertEqual(resp.status, 200, msg="ERROR getting the infrastructure info:" + output)
-        output_obj = json.loads(output)
-        vm_ids = output_obj['vm_list']
+        vm_ids = output.split("\n")
 
         vm_uri = uriparse(vm_ids[0])
         self.server.request('GET', vm_uri[2] + "/state", headers = {'AUTHORIZATION' : self.auth_data})
@@ -176,8 +200,7 @@ class TestIM(unittest.TestCase):
         resp = self.server.getresponse()
         output = str(resp.read())
         self.assertEqual(resp.status, 200, msg="ERROR getting the infrastructure info:" + output)
-        output_obj = json.loads(output)
-        vm_ids = output_obj['vm_list']
+        vm_ids = output.split("\n")
         self.assertEqual(len(vm_ids), 2, msg="ERROR getting infrastructure info: Incorrect number of VMs(" + str(len(vm_ids)) + "). It must be 2")
         all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 600)
         self.assertTrue(all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
@@ -187,8 +210,7 @@ class TestIM(unittest.TestCase):
         resp = self.server.getresponse()
         output = str(resp.read())
         self.assertEqual(resp.status, 200, msg="ERROR getting the infrastructure info:" + output)
-        output_obj = json.loads(output)
-        vm_ids = output_obj['vm_list']
+        vm_ids = output.split("\n")
         
         vm_uri = uriparse(vm_ids[1])
         self.server.request('DELETE', vm_uri[2], headers = {'AUTHORIZATION' : self.auth_data})
@@ -200,8 +222,7 @@ class TestIM(unittest.TestCase):
         resp = self.server.getresponse()
         output = str(resp.read())
         self.assertEqual(resp.status, 200, msg="ERROR getting the infrastructure info:" + output)
-        output_obj = json.loads(output)
-        vm_ids = output_obj['vm_list']
+        vm_ids = output.split("\n")
         self.assertEqual(len(vm_ids), 1, msg="ERROR getting infrastructure info: Incorrect number of VMs(" + str(len(vm_ids)) + "). It must be 1")
 
         all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 300)
