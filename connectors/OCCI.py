@@ -296,7 +296,7 @@ users:
 			self.delete_proxy(conn)
 			
 			output = resp.read()
-			self.logger.debug(output)
+			#self.logger.debug(output)
 			
 			if resp.status != 200:
 				self.logger.error("Error querying the OCCI server")
