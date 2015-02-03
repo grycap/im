@@ -249,3 +249,11 @@ div.hole {
 #content input.button {
 	width: 100px;
 }
+.figure {
+        text-align: center;
+}
+#content p.caption {
+        text-align: center;
+        font-weight: bold;
+}
+

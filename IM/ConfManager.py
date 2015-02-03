@@ -488,8 +488,8 @@ class ConfManager(threading.Thread):
 
 	def wait_master(self):
 		"""
-			- selecciona la VM master
-			- espera a que arranque y este accesible por SSH
+			- Select the master VM
+			- Wait it to boot and has the SSH port open 
 		"""
 		# First assure that ansible is installed in the master
 		if not self.inf.vm_master or self.inf.vm_master.destroy:
