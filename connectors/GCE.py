@@ -186,6 +186,12 @@ class GCECloudConnector(CloudConnector):
         username = system.getValue('disk.0.os.credentials.username')
         private = system.getValue('disk.0.os.credentials.private_key')
         public = system.getValue('disk.0.os.credentials.public_key')
+        
+        if not public or not private:
+            # We must generate them
+            (public, private) = self.keygen()
+            system.setValue('disk.0.os.credentials.private_key', private)
+        
         if private and public:
             #metadata = {"sshKeys": "root:ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC9i2KyVMk3Cz/rm9pCoIioFm/gMT0EvhobP5PFZnva+WxFeiH41j4shAim/+reyyUgC+hDpo9Pf6ZzvbOOCaWoGzgdEYtItixKmxE3wWoTUXZW4Lwks69+aKS2BXnOPm5z7BV6F72GVc9r7mlq/Xpd9e2EcDa5WyA6ilnBTVnMgWHOgEjQ+AEChswDELF3DSkXmLtQsWup+kVQmktwmC6+4sPztALwhUJiK1jJ+wshPCuJw0nY7t4Keybm2b/A3nLxDlLbJZay0kV70nlwAYSmTa+HcUkbPqgL0UNVlgW2/rdSNo8RSmoF1pFdXb+zii3YCFUnAC2l2FDmxUhRp0bT root@host"}
             metadata = {"sshKeys": username + ":" + public}
