@@ -249,6 +249,25 @@ machine.  The supported features are:
    can be installed during the contextualization of the virtual machine if it
    is not installed.
 
+Parametric Values
+-----------------
+RADL documents can use parametric values to be requested to the user in launch time.
+It make easy to launch different infrastructures without modifying the RADL document,
+only changing a set of values in launch time.
+
+This values are specified with the following syntax::
+  
+	@input.<variable_name>@
+
+In the following example the user will be asked for specifing the ``CPUs`` and the  ``NumNodes``
+variables (in the CLI and in the Web Interface)::
+
+   system node (
+      cpu.count = @input.CPUs@ and
+      memory.size >= 512M
+   )
+   deploy node @input.NumNodes@
+
 Configure Recipes
 -----------------
 
@@ -295,6 +314,7 @@ can be accessed by the recipes and have information about the virtual machine.
 ``IM_<application name>_PATH``
    The path to an installed application required by the virtual machine.
 
+
 Including roles of Ansible Galaxy
 ---------------------------------
 
@@ -324,7 +344,6 @@ documentation. In the particular case of the "micafer.hadoop" role is the follow
    
    @end
    )
-
 
 Examples
 --------
