@@ -548,6 +548,7 @@ class KeyStoneAuth:
 			conn = occi.get_http_connection(auth_data)
 			conn.request('HEAD', "/-/", headers = headers) 
 			resp = conn.getresponse()
+			occi.delete_proxy(conn)
 			www_auth_head = resp.getheader('Www-Authenticate')
 			if www_auth_head and www_auth_head.startswith('Keystone uri'):
 				return www_auth_head.split('=')[1].replace("'","")
@@ -582,6 +583,7 @@ class KeyStoneAuth:
 			conn.endheaders(body)
 	
 			resp = conn.getresponse()
+			occi.delete_proxy(conn)
 			
 			# format: -> "{\"access\": {\"token\": {\"issued_at\": \"2014-12-29T17:10:49.609894\", \"expires\": \"2014-12-30T17:10:49Z\", \"id\": \"c861ab413e844d12a61d09b23dc4fb9c\"}, \"serviceCatalog\": [], \"user\": {\"username\": \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\", \"roles_links\": [], \"id\": \"475ce4978fb042e49ce0391de9bab49b\", \"roles\": [], \"name\": \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\"}, \"metadata\": {\"is_admin\": 0, \"roles\": []}}}"
 			output = json.loads(resp.read())
@@ -610,6 +612,7 @@ class KeyStoneAuth:
 			conn.endheaders(body)
 	
 			resp = conn.getresponse()
+			occi.delete_proxy(conn)
 			
 			# format: -> "{\"access\": {\"token\": {\"issued_at\": \"2014-12-29T17:10:49.609894\", \"expires\": \"2014-12-30T17:10:49Z\", \"id\": \"c861ab413e844d12a61d09b23dc4fb9c\"}, \"serviceCatalog\": [], \"user\": {\"username\": \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\", \"roles_links\": [], \"id\": \"475ce4978fb042e49ce0391de9bab49b\", \"roles\": [], \"name\": \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\"}, \"metadata\": {\"is_admin\": 0, \"roles\": []}}}"
 			output = json.loads(resp.read())
