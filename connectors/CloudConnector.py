@@ -1,4 +1,7 @@
 import logging
+import subprocess
+import shutil
+import tempfile
 
 class CloudConnector:
 	"""
@@ -119,3 +122,32 @@ class CloudConnector:
 		"""
 
 		raise NotImplementedError( "Should have implemented this" )
+
+	def keygen(self):
+		"""
+		Generates a keypair using the ssh-keygen command and returns a tuple (public, private)
+		"""
+		tmp_dir = tempfile.mkdtemp()
+		pk_file = tmp_dir + "/im-ssh-key"
+		command = 'ssh-keygen -t rsa -b 2048 -q -N "" -f ' + pk_file
+		p=subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+		(out, err) = p.communicate()
+		if p.returncode!=0:
+			shutil.rmtree(tmp_dir, ignore_errors=True)
+			self.logger.error("Error executing ssh-keygen: " + out + err)
+			return (None, None)
+		else:
+			public = None
+			private = None
+			try:
+				with open(pk_file) as f: private = f.read()
+			except:
+				self.logger.exception("Error reading private_key file.")
+				
+			try:
+				with open(pk_file + ".pub") as f: public = f.read()
+			except:
+				self.logger.exception("Error reading public_key file.")
+			
+			shutil.rmtree(tmp_dir, ignore_errors=True)
+			return (public, private)
