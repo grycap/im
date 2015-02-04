@@ -72,7 +72,7 @@ class GCECloudConnector(CloudConnector):
                 
                 username = res_system.getValue('disk.0.os.credentials.username')
                 if not username:
-                    res_system.setValue('disk.0.os.credentials.username','root')
+                    res_system.setValue('disk.0.os.credentials.username','gceuser')
                 res_system.addFeature(Feature("memory.size", "=", instance_type.ram, 'M'), conflict="other", missing="other")
                 if instance_type.disk:
                     res_system.addFeature(Feature("disk.0.free_size", "=", instance_type.disk , 'G'), conflict="other", missing="other")
@@ -189,6 +189,7 @@ class GCECloudConnector(CloudConnector):
         
         if not public or not private:
             # We must generate them
+            self.logger.debug("No keys. Generating key pair.")
             (public, private) = self.keygen()
             system.setValue('disk.0.os.credentials.private_key', private)
         
@@ -197,6 +198,7 @@ class GCECloudConnector(CloudConnector):
             metadata = {"sshKeys": username + ":" + public}
             args['ex_metadata'] = metadata
             self.logger.debug("Setting ssh for user: " + username)
+            self.logger.debug(metadata)
 
         res = []
         i = 0
