@@ -17,6 +17,7 @@
 import copy
 import socket,struct
 from distutils.version import LooseVersion
+from IM.config import Config
 
 def UnitToValue(unit):
 	"""Return the value of an unit."""
@@ -636,7 +637,9 @@ class deploy(Aspect):
 class network(Features, Aspect):
 	"""Store a RADL ``network``."""
 	
-	private_net_masks = ["10.0.0.0/8","172.16.0.0/12","192.168.0.0/16","169.254.0.0/16"]
+	private_net_masks = ["10.0.0.0/8","172.16.0.0/12","192.168.0.0/16","169.254.0.0/16","100.64.0.0/10","192.0.0.0/24","198.18.0.0/15"]
+	if Config.PRIVATE_NET_AS_PUBLIC in private_net_masks:
+		private_net_masks.remove(Config.PRIVATE_NET_AS_PUBLIC)
 
 	def __init__(self, name, features=None, reference=False, line=None):
 		self.id = name
