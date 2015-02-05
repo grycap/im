@@ -26,31 +26,28 @@ from CloudConnector import CloudConnector
 from IM.radl.radl import UserPassCredential, Feature
 from IM.config import Config
 
-# clases para parsear el resultado de las llamadas a la API REST
+# Set of classes to parse the output of the REST API
 class Endpoint(XMLObject):
-	values = ['Name', 'Vip', 'PublicPort', 'LocalPort', 'Protocol', 'Port']
-
-class InputEndpoints(XMLObject):
-	tuples_lists = { 'InputEndpoint': Endpoint }
-
-class ConfigurationSet(XMLObject):
-	values = ['', '']
-	
-class ConfigurationSets(XMLObject):
-	tuples_lists = { 'ConfigurationSet': ConfigurationSet }
-
-class Role(XMLObject):
-	values = ['RoleName', '<OsVersion i:nil="true"/>OsVersion']
-	tuples = { 'ConfigurationSets': ConfigurationSets }
-	
-class RoleList(XMLObject):
-	tuples_lists = { 'Role': Role }
+	values = ['Name', 'Vip', 'PublicPort', 'LocalPort', 'Protocol']
 
 class InstanceEndpoints(XMLObject):
 	tuples_lists = { 'InstanceEndpoint': Endpoint }
 
+class DataVirtualHardDisk(XMLObject):
+	values = ['DiskName', 'Lun']
+
+class DataVirtualHardDisks(XMLObject):
+	tuples_lists = { 'DataVirtualHardDisk': DataVirtualHardDisk }
+
+class Role(XMLObject):
+	values = ['RoleName', 'RoleType']
+	tuples = { 'DataVirtualHardDisks': DataVirtualHardDisks }
+	
+class RoleList(XMLObject):
+	tuples_lists = { 'Role': Role }
+
 class RoleInstance(XMLObject):
-	values = ['InstanceSize', 'InstanceName', 'IpAddress', 'PowerState', 'HostName']
+	values = ['RoleName', 'InstanceStatus', 'InstanceSize', 'InstanceName', 'IpAddress', 'PowerState']
 	tuples = { 'InstanceEndpoints': InstanceEndpoints }
 
 class RoleInstanceList(XMLObject):
@@ -59,22 +56,9 @@ class RoleInstanceList(XMLObject):
 class Deployment(XMLObject):
 	tuples = { 'RoleInstanceList': RoleInstanceList, 'RoleList': RoleList }
 	values = ['Name', 'Status', 'Url']
-	
-	
-# Para los discos
-class AttachedTo(XMLObject):
-	values = ['DeploymentName', 'HostedServiceName', 'RoleName']
 
-class Disk(XMLObject):
-	values = ['OS', 'Location', 'LogicalDiskSizeInGB', 'MediaLink', 'Name', 'SourceImageName']
-	tuples = { 'AttachedTo': AttachedTo }
-
-class Disks(XMLObject):
-	tuples_lists = { 'Disk': Disk }
-
-# Para el storage
 class StorageServiceProperties(XMLObject):
-	values = ['Description', 'Location', 'Label', 'Status', 'GeoReplicationEnabled', 'CreationTime']
+	values = ['Description', 'Location', 'Label', 'Status', 'GeoReplicationEnabled', 'CreationTime', 'GeoPrimaryRegion', 'GeoSecondaryRegion']
 	
 class StorageService(XMLObject):
 	values = ['Url', 'ServiceName']
@@ -83,19 +67,28 @@ class StorageService(XMLObject):
 
 
 class AzureCloudConnector(CloudConnector):
+	"""
+	Cloud Launcher to the Azure platform
+	"""
 	
 	type = "Azure"
-	INSTANCE_TYPE = 'Small'
+	INSTANCE_TYPE = 'ExtraSmall'
 	AZURE_SERVER = "management.core.windows.net"
 	AZURE_PORT = 443
 	#STORAGE_NAME = "infmanager"
 	STORAGE_NAME = "portalvhdsvbfdd62js3256"
+	DEFAULT_LOCATION = "West Europe"
+	ROLE_NAME= "IMVMRole"
 	
 	VM_STATE_MAP = {
-		'Starting': VirtualMachine.PENDING,
 		'Running': VirtualMachine.RUNNING,
-		'Stopping': VirtualMachine.OFF,
-		'Stopped': VirtualMachine.OFF,
+		'Suspended': VirtualMachine.STOPPED,
+		'SuspendedTransitioning': VirtualMachine.STOPPED,
+		'RunningTransitioning': VirtualMachine.RUNNING,
+		'Starting': VirtualMachine.PENDING,
+		'Suspending': VirtualMachine.STOPPED,
+		'Deploying': VirtualMachine.PENDING,
+		'Deleting': VirtualMachine.OFF,
 	}
 	
 	def concreteSystem(self, radl_system, auth_data):
@@ -126,7 +119,6 @@ class AzureCloudConnector(CloudConnector):
 					if not username:
 						res_system.setValue('disk.0.os.credentials.username','azureuser')
 
-
 					return [res_system]
 			else:
 				return []
@@ -145,7 +137,6 @@ class AzureCloudConnector(CloudConnector):
 		
 		if not hostname:
 			hostname = "AzureNode"
-		name = "IM-" + hostname
 
 		system.updateNewCredentialValues()
 		credentials = system.getCredentials()
@@ -158,20 +149,21 @@ class AzureCloudConnector(CloudConnector):
 		while system.getValue("disk." + str(cont) + ".size") and system.getValue("disk." + str(cont) + ".device"):
 			disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('G')
 			#disk_device = system.getValue("disk." + str(cont) + ".device")
-			
+
+			disk_name = "datadisk-1-" + str(int(time.time()*100))			
 			disks += '''
 <DataVirtualHardDisks>
   <DataVirtualHardDisk>
     <HostCaching>ReadWrite</HostCaching> 
-    <DiskName>data-disk-%d</DiskName>
     <Lun>%d</Lun>
-    <LogicalDiskSizeInGB>%d</LogicalDiskSizeInGB>            
+    <LogicalDiskSizeInGB>%d</LogicalDiskSizeInGB>
+    <MediaLink>https://%s.blob.core.windows.net/vhds/%s.vhd</MediaLink>            
   </DataVirtualHardDisk>
 </DataVirtualHardDisks>
-			''' % (cont, cont, int(disk_size))
+			''' % (cont, int(disk_size), storage_account, disk_name)
 
 			cont +=1 
-		
+		#http://example.blob.core.windows.net/disks/mydatadisk.vhd
 			
 		# TODO: revisar esto
 		if system.getValue("disk.0.os.name") == "windows":
@@ -223,6 +215,7 @@ class AzureCloudConnector(CloudConnector):
 					credentials.public_key, credentials.username,
 					credentials.public_key, credentials.username)
 
+
 		res = '''
 <Deployment xmlns="http://schemas.microsoft.com/windowsazure" xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
   <Name>%s</Name>
@@ -230,7 +223,7 @@ class AzureCloudConnector(CloudConnector):
   <Label>%s</Label>
   <RoleList>
     <Role i:type="PersistentVMRole">
-      <RoleName>IMVMRole</RoleName>
+      <RoleName>%s</RoleName>
       <OsVersion i:nil="true"/>
       <RoleType>PersistentVMRole</RoleType>
       <ConfigurationSets>
@@ -256,7 +249,7 @@ class AzureCloudConnector(CloudConnector):
     </Role>
   </RoleList>
 </Deployment>
-		''' % (name, label, ConfigurationSet, disks, MediaLink, SourceImageName, instance_type.name)
+		''' % (vm.id, label, self.ROLE_NAME, ConfigurationSet, disks, MediaLink, SourceImageName, instance_type.name)
 		
 		self.logger.debug("Azure VM Create XML: " + res)
 
@@ -288,9 +281,9 @@ class AzureCloudConnector(CloudConnector):
 		else:
 			return None
 
-	def create_service(self, subscription_id, cert_file, key_file):
+	def create_service(self, subscription_id, cert_file, key_file, region):
 		service_name = "IM-" + str(int(time.time()*100))
-		self.logger.info("Create the service " + service_name)
+		self.logger.info("Create the service " + service_name + " in region: " + region)
 		
 		try:
 
@@ -301,9 +294,9 @@ class AzureCloudConnector(CloudConnector):
 	  <ServiceName>%s</ServiceName>
 	  <Label>%s</Label>
 	  <Description>Service %s created by the IM</Description>
-	  <Location>West Europe</Location>
+	  <Location>%s</Location>
 	</CreateHostedService> 
-			''' % (service_name, base64.b64encode(service_name), service_name )
+			''' % (service_name, base64.b64encode(service_name), service_name, region )
 			conn.request('POST', uri, body = service_create_xml, headers = {'x-ms-version' : '2013-03-01', 'Content-Type' : 'application/xml'}) 
 			resp = conn.getresponse()
 			output = resp.read()
@@ -321,8 +314,8 @@ class AzureCloudConnector(CloudConnector):
 	def delete_service(self, service_name, subscription_id, cert_file, key_file):
 		try:
 			conn = httplib.HTTPSConnection(self.AZURE_SERVER, self.AZURE_PORT, cert_file=cert_file, key_file=key_file)
-			uri = "/%s/services/hostedservices/%s" % (subscription_id, service_name)
-			conn.request('DELETE', uri, headers = {'x-ms-version' : '2013-03-01'}) 
+			uri = "/%s/services/hostedservices/%s?comp=media" % (subscription_id, service_name)
+			conn.request('DELETE', uri, headers = {'x-ms-version' : '2013-08-01'}) 
 			resp = conn.getresponse()
 			output = resp.read()
 			conn.close()
@@ -360,7 +353,7 @@ class AzureCloudConnector(CloudConnector):
 			self.logger.exception("Error waiting the operation")
 			return False
 	
-	def create_storage_account(self, storage_account, subscription_id, cert_file, key_file, timeout = 120):
+	def create_storage_account(self, storage_account, subscription_id, cert_file, key_file, region, timeout = 120):
 		self.logger.info("Creating the storage account " + storage_account)
 		try:
 			conn = httplib.HTTPSConnection(self.AZURE_SERVER, self.AZURE_PORT, cert_file=cert_file, key_file=key_file)
@@ -370,7 +363,7 @@ class AzureCloudConnector(CloudConnector):
   <ServiceName>%s</ServiceName>
   <Description>Storage %s created by the IM</Description>
   <Label>%s</Label>
-  <Location>West Europe</Location>
+  <Location>%s</Location>
   <GeoReplicationEnabled>false</GeoReplicationEnabled>
   <ExtendedProperties>
     <ExtendedProperty>
@@ -379,7 +372,7 @@ class AzureCloudConnector(CloudConnector):
     </ExtendedProperty>
   </ExtendedProperties>
 </CreateStorageServiceInput> 
-			''' % (storage_account, storage_account, base64.b64encode(storage_account))
+			''' % (storage_account, storage_account, base64.b64encode(storage_account), region)
 			conn.request('POST', uri, body = storage_create_xml, headers = {'x-ms-version' : '2013-03-01', 'Content-Type' : 'application/xml'}) 
 			resp = conn.getresponse()
 			output = resp.read()
@@ -402,7 +395,9 @@ class AzureCloudConnector(CloudConnector):
 		delay = 2
 		wait = 0
 		while status != "Created" and wait < timeout:
-			status = self.check_storage_account(storage_account, subscription_id, cert_file, key_file)
+			storage = self.get_storage_account(storage_account, subscription_id, cert_file, key_file)
+			if storage:
+				status = storage.Status 
 			if status != "Created":
 				time.sleep(delay)
 				wait += delay
@@ -432,7 +427,7 @@ class AzureCloudConnector(CloudConnector):
 
 		return True
 	
-	def check_storage_account(self, storage_account, subscription_id, cert_file, key_file):
+	def get_storage_account(self, storage_account, subscription_id, cert_file, key_file):
 		try:
 			conn = httplib.HTTPSConnection(self.AZURE_SERVER, self.AZURE_PORT, cert_file=cert_file, key_file=key_file)
 			uri = "/%s/services/storageservices/%s" % (subscription_id, storage_account)
@@ -442,8 +437,7 @@ class AzureCloudConnector(CloudConnector):
 			conn.close()
 			if resp.status == 200:
 				storage_info = StorageService(output)
-				status = storage_info.StorageServiceProperties.Status
-				self.logger.debug("Storage of state " + storage_account + " is: " + status)
+				return storage_info.StorageServiceProperties
 			elif resp.status == 404:
 				self.logger.debug("Storage " + storage_account + " does not exist")
 				return None
@@ -454,53 +448,6 @@ class AzureCloudConnector(CloudConnector):
 			self.logger.exception("Error checking the storage account")
 			return None
 
-		return status
-
-	def get_disk_name(self, name, subscription_id, cert_file, key_file):
-		try:
-			conn = httplib.HTTPSConnection(self.AZURE_SERVER, self.AZURE_PORT, cert_file=cert_file, key_file=key_file)
-			uri = "/%s/services/disks" % (subscription_id)
-			conn.request('GET', uri, headers = {'x-ms-version' : '2013-03-01'})
-			resp = conn.getresponse()
-			output = resp.read()
-			conn.close()
-		except Exception:
-			self.logger.exception("Error listing the disks")
-			return  None
-
-		if resp.status != 200:
-			self.logger.error("Error listing the disks: Error Code " + str(resp.status) + ". Msg: " + output)
-			return  None
-
-		self.logger.debug(output)
-		disks_info = Disks(output)
-		
-		for disk in disks_info.Disk:
-			if disk.AttachedTo and disk.AttachedTo.HostedServiceName == name:
-				return disk.Name
-		
-		return None
-
-	
-	def delete_disk(self, disk_name, subscription_id, cert_file, key_file):
-		try:
-			conn = httplib.HTTPSConnection(self.AZURE_SERVER, self.AZURE_PORT, cert_file=cert_file, key_file=key_file)
-			uri = "/%s/services/disks/%s" % (subscription_id, disk_name)
-			conn.request('DELETE', uri, headers = {'x-ms-version' : '2013-03-01'})
-			resp = conn.getresponse()
-			output = resp.read()
-			conn.close()
-		except Exception:
-			self.logger.exception("Error deleting the disk")
-			return False
-
-		if resp.status != 200:
-			self.logger.error("Error deleting the disk: Error Code " + str(resp.status) + ". Msg: " + output)
-			return False
-
-		return resp.status
-
-
 	def launch(self, inf, radl, requested_radl, num_vm, auth_data):
 		subscription_id = self.get_user_subscription_id(auth_data)
 		auth = self.get_user_cert_data(auth_data)
@@ -510,36 +457,46 @@ class AzureCloudConnector(CloudConnector):
 		else:
 			cert_file, key_file = auth
 
+		region = self.DEFAULT_LOCATION
+		if radl.systems[0].getValue('availability_zone'):
+			region = radl.systems[0].getValue('availability_zone')
+
 		res = []
 		i = 0
 		while i < num_vm:
 			try:
-				# Create the service
-				service_name = self.create_service(subscription_id, cert_file, key_file)
+				# Create storage account
+				storage_account = self.get_storage_account(self.STORAGE_NAME, subscription_id, cert_file, key_file)
+				if not storage_account:
+					storage_account_name = self.create_storage_account(self.STORAGE_NAME, subscription_id, cert_file, key_file, region)
+					if storage_account_name is None:
+						res.append((False, "Error creating the storage account"))
+				else:
+					storage_account_name = self.STORAGE_NAME
+					# if the user has specified the region
+					if radl.systems[0].getValue('availability_zone'):
+						# Check that the region of the storage account is the same of the service
+						if region != storage_account.GeoPrimaryRegion:
+							res.append((False, "Error creating the service. The specified region"))
+					else:
+						# Otherwise use the storage account region
+						region = storage_account.GeoPrimaryRegion
+
+				# and the service
+				service_name = self.create_service(subscription_id, cert_file, key_file, region)
 				if service_name is None:
 					res.append((False, "Error creating the service"))
 					break
 				
-				# y el storage account
-				if not self.check_storage_account(self.STORAGE_NAME, subscription_id, cert_file, key_file):
-					storage_account = self.create_storage_account(self.STORAGE_NAME, subscription_id, cert_file, key_file)
-				else:
-					storage_account = self.STORAGE_NAME
-					
-				if storage_account is None:
-					self.delete_service(service_name, subscription_id, cert_file, key_file)
-					res.append((False, "Error creating the storage account"))
-				
 				self.logger.debug("Creating the VM with id: " + service_name)
 				
 				# Create the VM to get the nodename
-				vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl)
+				vm = VirtualMachine(inf, service_name, self.cloud, radl, requested_radl)
 				
 				# Generate the XML to create the VM
-				vm_create_xml = self.get_azure_vm_create_xml(vm, storage_account, radl, i)
+				vm_create_xml = self.get_azure_vm_create_xml(vm, storage_account_name, radl, i)
 				
 				if vm_create_xml == None:
-					#self.delete_storage_account(storage_account, auth_data)
 					self.delete_service(service_name, subscription_id, cert_file, key_file)
 					res.append((False, "Incorrect image or auth data"))
 
@@ -551,7 +508,6 @@ class AzureCloudConnector(CloudConnector):
 				conn.close()
 				
 				if resp.status != 202:
-					#self.delete_storage_account(storage_account, auth_data)
 					self.delete_service(service_name, subscription_id, cert_file, key_file)
 					self.logger.error("Error creating the VM: Error Code " + str(resp.status) + ". Msg: " + output)
 					res.append((False, "Error creating the VM: Error Code " + str(resp.status) + ". Msg: " + output))
@@ -560,7 +516,6 @@ class AzureCloudConnector(CloudConnector):
 					request_id = resp.getheader('x-ms-request-id')
 					success = self.wait_operation_status(request_id, subscription_id, cert_file, key_file)
 					if success:
-						vm.id = service_name
 						res.append((True, vm))
 					else:
 						self.logger.exception("Error waiting the VM creation")
@@ -620,6 +575,8 @@ class AzureCloudConnector(CloudConnector):
 			return res
 		
 	def updateVMInfo(self, vm, auth_data):
+		# https://msdn.microsoft.com/en-us/library/azure/ee460804.aspx
+
 		self.logger.debug("Get the VM info with the id: " + vm.id)
 		auth = self.get_user_cert_data(auth_data)
 		subscription_id = self.get_user_subscription_id(auth_data)
@@ -647,7 +604,6 @@ class AzureCloudConnector(CloudConnector):
 		
 		if resp.status != 200:
 			self.logger.error("Error getting the VM info: " + vm.id + ". Error Code: " + str(resp.status) + ". Msg: " + output)
-			self.delete_service(service_name, subscription_id, cert_file, key_file)
 			# delete tmp files with certificates 
 			os.unlink(cert_file)
 			os.unlink(key_file)
@@ -658,9 +614,6 @@ class AzureCloudConnector(CloudConnector):
 			os.unlink(key_file)
 
 			self.logger.debug("VM info: " + vm.id + " obtained.")
-			# TODO: Arregla el problema de los namespaces
-			# de momento hago una chapuza para evitarlo
-			output = output.replace("i:type","type")
 			self.logger.debug(output)
 			vm_info = Deployment(output)
 			
@@ -668,22 +621,28 @@ class AzureCloudConnector(CloudConnector):
 				
 			vm.state = self.VM_STATE_MAP.get(vm_info.Status, VirtualMachine.UNKNOWN)
 			
-			# Actualizamos los datos de la red
+			# Update IP info
 			self.setIPs(vm,vm_info)
 			return (True, vm)
 
 	def setIPs(self, vm, vm_info):
-		private_ip = None
-		public_ip = None
+		private_ips = []
+		public_ips = []
+		
 		try:
 			role_instance = vm_info.RoleInstanceList.RoleInstance[0]
-			private_ip = role_instance.IpAddress
-			public_ip = role_instance.InstanceEndpoints.InstanceEndpoint[0].Vip
 		except:
-			self.logger.debug("No IP info")
+			return
+		try:
+			private_ips.append(role_instance.IpAddress)
+		except:
+			pass
+		try:
+			public_ips.append(role_instance.InstanceEndpoints.InstanceEndpoint[0].Vip)
+		except:
 			pass
 		
-		vm.setIps([public_ip], [private_ip])
+		vm.setIps(public_ips, private_ips)
 
 	def finalize(self, vm, auth_data):
 		self.logger.debug("Terminate VM: " + vm.id)
@@ -697,15 +656,12 @@ class AzureCloudConnector(CloudConnector):
 
 		service_name = vm.id
 		
-		# Before deletion, get the name of the disk to delete it
-		disk_name = self.get_disk_name(service_name, subscription_id, cert_file, key_file)
-		
 		res = (False,'')
 		try:
 			conn = httplib.HTTPSConnection(self.AZURE_SERVER, self.AZURE_PORT, cert_file=cert_file, key_file=key_file)
 	
-			uri = "/%s/services/hostedservices/%s/deploymentslots/Production" % (subscription_id, service_name)
-			conn.request('DELETE', uri, headers = {'x-ms-version' : '2013-03-01'}) 
+			uri = "/%s/services/hostedservices/%s/deploymentslots/Production?comp=media" % (subscription_id, service_name)
+			conn.request('DELETE', uri, headers = {'x-ms-version' : '2013-08-01'}) 
 			resp = conn.getresponse()
 			output = resp.read()
 			conn.close()
@@ -726,27 +682,66 @@ class AzureCloudConnector(CloudConnector):
 		self.wait_operation_status(request_id, subscription_id, cert_file, key_file)
 
 		# anyway we must try to delete this
-		self.delete_service(service_name, subscription_id, cert_file, key_file)
-		# WE MUST DELETE THE DISK OF THE VM
-
-		# We try it some times to assure the it is deleted
-		# because sometimes the VM do not detach the disk on time
-		status = 0
-		retries = 50
-		delay = 10
-		while disk_name and status != 200 and retries > 0:
-			status = self.delete_disk(disk_name, subscription_id, cert_file, key_file)
-			if status != 200:
-				retries -= 1
-				time.sleep(delay)
-		#self.delete_storage_account(self.STORAGE_NAME, subscription_id, cert_file, key_file)
+		# self.delete_service(service_name, subscription_id, cert_file, key_file)
 		
 		# delete tmp files with certificates 
 		os.unlink(cert_file)
 		os.unlink(key_file)
 		
 		return res
+	
+	def call_role_operation(self, op, vm, auth_data):
+		subscription_id = self.get_user_subscription_id(auth_data)
+		auth = self.get_user_cert_data(auth_data)
+		
+		if auth is None or subscription_id is None:
+			return (False, "Incorrect auth data")
+		else:
+			cert_file, key_file = auth
+
+		service_name = vm.id
+
+		try:
+			conn = httplib.HTTPSConnection(self.AZURE_SERVER, self.AZURE_PORT, cert_file=cert_file, key_file=key_file)
+			uri = "/%s/services/hostedservices/%s/deployments/%s/roleinstances/%s/Operations" % (subscription_id, service_name, service_name, self.ROLE_NAME)
 			
+			conn.request('POST', uri, body = op, headers = {'x-ms-version' : '2013-06-01', 'Content-Type' : 'application/xml'})
+			resp = conn.getresponse()
+			output = resp.read()
+			conn.close()
+		except Exception, ex:
+			# delete tmp files with certificates 
+			os.unlink(cert_file)
+			os.unlink(key_file)
+			self.logger.exception("Error calling role operation")
+			return (False, "Error calling role operation: " + str(ex))
+
+		# delete tmp files with certificates 
+		os.unlink(cert_file)
+		os.unlink(key_file)
+
+		if resp.status != 202:
+			self.logger.error("Error calling role operation: Error Code " + str(resp.status) + ". Msg: " + output)
+			return (False, "Error calling role operation: Error Code " + str(resp.status) + ". Msg: " + output)
+
+		return (True, "")
+	
+	def stop(self, vm, auth_data):
+		self.logger.debug("Stop VM: " + vm.id)
+		
+		op = """<ShutdownRoleOperation xmlns="http://schemas.microsoft.com/windowsazure" xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+  <OperationType>ShutdownRoleOperation</OperationType>
+  <PostShutdownAction>StoppedDeallocated</PostShutdownAction>
+</ShutdownRoleOperation>"""
+		return self.call_role_operation(op, vm, auth_data)			
+		
+	def start(self, vm, auth_data):
+		self.logger.debug("Start VM: " + vm.id)
+
+		op = """<StartRoleOperation xmlns="http://schemas.microsoft.com/windowsazure" xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+  <OperationType>StartRoleOperation</OperationType>
+</StartRoleOperation>"""
+		return self.call_role_operation(op, vm, auth_data)
 
 class InstanceTypeInfo:
 	def __init__(self, name = "", cpu_arch = ["i386"], num_cpu = 1, cores_per_cpu = 1, mem = 0, price = 0, disks = 0, disk_space = 0):
@@ -772,8 +767,14 @@ class AzureInstanceTypes:
 		list.append(medium)
 		large = InstanceTypeInfo("Large", ["x86_64"], 1, 4, 7168, 0.229, 1, 120)
 		list.append(large)
-		xlarge = InstanceTypeInfo("Extra Large", ["x86_64"], 1, 8, 15360, 0.4588, 1, 240)
+		xlarge = InstanceTypeInfo("Extra Large", ["x86_64"], 1, 8, 14336, 0.4588, 1, 240)
 		list.append(xlarge)
+		a5 = InstanceTypeInfo("A5", ["x86_64"], 1, 2, 14336, 0.2458, 1, 135)
+		list.append(a5)
+		a6 = InstanceTypeInfo("A6", ["x86_64"], 1, 4, 28672, 0.4916, 1, 285)
+		list.append(a6)
+		a7 = InstanceTypeInfo("A7", ["x86_64"], 1, 8, 57344, 0.9831, 1, 605)
+		list.append(a7)
 		
 		
 		return list
