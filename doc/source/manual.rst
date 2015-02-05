@@ -356,3 +356,13 @@ GANGLIA INTEGRATION
    Maximum frequency to update the Ganglia info (in secs).
    The default value is ``30``.
 
+IM IN LOCAL INSTALLATIONS
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. confval:: PRIVATE_NET_AS_PUBLIC 
+
+   Private network that IM will detect as public enabling to use
+   the IM service in installations of only one private Cloud provider.
+   It must be one of this values: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16
+   If this feature is not needed undefine or use an empty string.
+   The default value is ``''``.
