@@ -102,22 +102,25 @@ class XMLObject:
                 self.__dict__[name] = value
 
         def __init__(self, input_str):
-                if os.path.isfile(input_str):
-                        f = open(input_str)
-                        xml_str = ""
-                        for line in f.readlines():
-                                xml_str += line
+                if isinstance(input_str, xml.dom.minidom.Element):
+                        dom = input_str
                 else:
-                        xml_str = input_str
-                
-                dom = xml.dom.minidom.parseString(xml_str)
+                        if os.path.isfile(input_str):
+                                f = open(input_str)
+                                xml_str = ""
+                                for line in f.readlines():
+                                        xml_str += line
+                        else:
+                                xml_str = input_str
+
+                        dom = xml.dom.minidom.parseString(xml_str).documentElement
 
                 for tag, className in self.__class__.tuples.items():
-                        objs = self.getChildByTagName(dom.documentElement, tag)
+                        objs = self.getChildByTagName(dom, tag)
                         if (len(objs) > 0):
-                                newObj = className(objs[0].toxml())
+                                newObj = className(objs[0])
                                 try:
-                                    dom.childNodes[0].removeChild(objs[0])
+                                    dom.removeChild(objs[0])
                                 except:
                                     pass
                         else:
@@ -125,11 +128,11 @@ class XMLObject:
                         self.__setattr__(tag, newObj)
 
                 for tag, className in self.__class__.tuples_lists.items():
-                        objs = self.getChildByTagName(dom.documentElement, tag)
+                        objs = self.getChildByTagName(dom, tag)
                         obj_list = []
                         for obj in objs:
-                                newObj = className(obj.toxml())
-                                dom.childNodes[0].removeChild(obj)
+                                newObj = className(obj)
+                                dom.removeChild(obj)
                                 obj_list.append(newObj)
                         self.__setattr__(tag, obj_list)
 
@@ -150,4 +153,4 @@ class XMLObject:
                         self.__setattr__(tag, value)
 
                 for tag in self.__class__.attributes:
-                        self.__setattr__(tag, dom.documentElement.getAttribute(tag))
+                        self.__setattr__(tag, dom.getAttribute(tag))
