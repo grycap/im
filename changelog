@@ -71,3 +71,9 @@ IM 1.2.0
     * Add GetInfrastructureContMsg function to the API
     * Add GetVMContMsg function to the API
     * Add new state 'unconfigured'
+
+IM 1.2.1
+    * Add SSH keygen funtion to GCE connector
+    * Add PRIVATE_NET_AS_PUBLIC configuration variable
+    * Add Azure connector
+    * Update EC2 instance features
