@@ -906,20 +906,20 @@ class EC2CloudConnector(CloudConnector):
 		t2_medium = InstanceTypeInfo("t2.medium", ["i386", "x86_64"], 2, 1, 4096, 0.052, 0.5)
 		list.append(t2_medium)
 		
-		m1_small = InstanceTypeInfo("m1.small", ["i386", "x86_64"], 1, 1, 1740, 0.0071, 1, 1, 160)
+		m1_small = InstanceTypeInfo("m1.small", ["i386", "x86_64"], 1, 1, 1740, 0.0171, 1, 1, 160)
 		list.append(m1_small)
-		m1_medium = InstanceTypeInfo("m1.medium", ["i386", "x86_64"], 1, 1, 3840, 0.0081, 2, 1, 410)
+		m1_medium = InstanceTypeInfo("m1.medium", ["i386", "x86_64"], 1, 1, 3840, 0.0331, 2, 1, 410)
 		list.append(m1_medium)
-		m1_large = InstanceTypeInfo("m1.large", ["x86_64"], 1, 2, 7680, 0.0161, 4, 2, 420)
+		m1_large = InstanceTypeInfo("m1.large", ["x86_64"], 1, 2, 7680, 0.0661, 4, 2, 420)
 		list.append(m1_large)
-		m1_xlarge = InstanceTypeInfo("m1.xlarge", ["x86_64"], 1, 4, 15360, 0.0321, 8, 4, 420)
+		m1_xlarge = InstanceTypeInfo("m1.xlarge", ["x86_64"], 1, 4, 15360, 0.1321, 8, 4, 420)
 		list.append(m1_xlarge)
 		
-		m2_xlarge = InstanceTypeInfo("m2.xlarge", ["x86_64"], 1, 2, 17510, 0.0161, 6.5, 1, 420)
+		m2_xlarge = InstanceTypeInfo("m2.xlarge", ["x86_64"], 1, 2, 17510, 0.0701, 6.5, 1, 420)
 		list.append(m2_xlarge)
-		m2_2xlarge = InstanceTypeInfo("m2.2xlarge", ["x86_64"], 1, 4, 35020, 0.0321, 13, 1, 850)
+		m2_2xlarge = InstanceTypeInfo("m2.2xlarge", ["x86_64"], 1, 4, 35020, 0.1401, 13, 1, 850)
 		list.append(m2_2xlarge)
-		m2_4xlarge = InstanceTypeInfo("m2.4xlarge", ["x86_64"], 1, 4, 70041, 0.075, 13, 2, 840)
+		m2_4xlarge = InstanceTypeInfo("m2.4xlarge", ["x86_64"], 1, 4, 70041, 0.2801, 13, 2, 840)
 		list.append(m2_4xlarge)
 		
 		m3_medium = InstanceTypeInfo("m3.medium", ["x86_64"], 1, 1, 3840, 0.07, 3, 1, 4)
@@ -931,15 +931,15 @@ class EC2CloudConnector(CloudConnector):
 		m3_2xlarge = InstanceTypeInfo("m3.2xlarge", ["x86_64"], 1, 8, 30720, 0.56, 26, 2, 80)
 		list.append(m3_2xlarge)
 		
-		c1_medium = InstanceTypeInfo("c1.medium", ["i386", "x86_64"], 1, 2, 1740, 0.0161, 5, 1, 350)
+		c1_medium = InstanceTypeInfo("c1.medium", ["i386", "x86_64"], 1, 2, 1740, 0.05, 5, 1, 350)
 		list.append(c1_medium)
-		c1_xlarge = InstanceTypeInfo("c1.xlarge", ["x86_64"], 1, 8, 7680, 0.0641, 20, 4, 420)
+		c1_xlarge = InstanceTypeInfo("c1.xlarge", ["x86_64"], 1, 8, 7680, 0.2, 20, 4, 420)
 		list.append(c1_xlarge)
 		
-		cc2_8xlarge = InstanceTypeInfo("cc2.8xlarge", ["x86_64"], 2, 8, 61952, 0.2562, 88, 4, 840)
+		cc2_8xlarge = InstanceTypeInfo("cc2.8xlarge", ["x86_64"], 2, 8, 61952, 0.4281, 88, 4, 840)
 		list.append(cc2_8xlarge)
 		
-		cr1_8xlarge = InstanceTypeInfo("cr1.8xlarge", ["x86_64"], 2, 8, 249856, 0.3666, 88, 2, 120)
+		cr1_8xlarge = InstanceTypeInfo("cr1.8xlarge", ["x86_64"], 2, 8, 249856, 0.2687, 88, 2, 120)
 		list.append(cr1_8xlarge)
 		
 		c3_large = InstanceTypeInfo("c3.large", ["x86_64"], 2, 1, 3840, 0.105, 7, 2, 16)
@@ -972,6 +972,20 @@ class EC2CloudConnector(CloudConnector):
 		list.append(i2_4xlarge)
 		i2_8xlarge = InstanceTypeInfo("i2.8xlarge", ["x86_64"], 32, 1, 249856, 6.82, 104, 8, 800)
 		list.append(i2_8xlarge)
+		
+		hs1_8xlarge = InstanceTypeInfo("hs1.8xlarge", ["x86_64"], 16, 1, 119808, 4.6, 35, 24, 2048)
+		list.append(hs1_8xlarge)
+		
+		c4_large = InstanceTypeInfo("c4.large", ["x86_64"], 2, 1, 3840, 0.116, 8, 1, 0)
+		list.append(c4_large)
+		c4_xlarge = InstanceTypeInfo("c4.xlarge", ["x86_64"], 4, 1, 7680, 0.232, 16, 1, 0)
+		list.append(c4_xlarge)
+		c4_2xlarge = InstanceTypeInfo("c4.2xlarge", ["x86_64"], 8, 1, 15360, 0.464, 31, 1, 0)
+		list.append(c4_2xlarge)
+		c4_4xlarge = InstanceTypeInfo("c4.4xlarge", ["x86_64"], 16, 1, 30720, 0.928, 62, 1, 0)
+		list.append(c4_4xlarge)
+		c4_8xlarge = InstanceTypeInfo("c4.8xlarge", ["x86_64"], 36, 1, 61952, 1.856, 132, 1, 0)
+		list.append(c4_8xlarge)
 		
 		return list
 
