@@ -65,22 +65,22 @@ class StorageService(XMLObject):
 	tuples = { 'StorageServiceProperties': StorageServiceProperties }
 
 
-
 class AzureCloudConnector(CloudConnector):
 	"""
 	Cloud Launcher to the Azure platform
+	Using the Service Management REST API Reference:
+	https://msdn.microsoft.com/en-us/library/azure/ee460799.aspx
 	"""
 	
 	type = "Azure"
 	INSTANCE_TYPE = 'ExtraSmall'
 	AZURE_SERVER = "management.core.windows.net"
 	AZURE_PORT = 443
-	#STORAGE_NAME = "infmanager"
-	STORAGE_NAME = "portalvhdsvbfdd62js3256"
+	STORAGE_NAME = "infmanager"
 	DEFAULT_LOCATION = "West Europe"
 	ROLE_NAME= "IMVMRole"
 	
-	VM_STATE_MAP = {
+	DEPLOY_STATE_MAP = {
 		'Running': VirtualMachine.RUNNING,
 		'Suspended': VirtualMachine.STOPPED,
 		'SuspendedTransitioning': VirtualMachine.STOPPED,
@@ -89,6 +89,14 @@ class AzureCloudConnector(CloudConnector):
 		'Suspending': VirtualMachine.STOPPED,
 		'Deploying': VirtualMachine.PENDING,
 		'Deleting': VirtualMachine.OFF,
+	}
+	
+	ROLE_STATE_MAP = {
+		'Starting': VirtualMachine.PENDING,
+		'Started': VirtualMachine.RUNNING,
+		'Stopping': VirtualMachine.STOPPED,
+		'Stopped': VirtualMachine.STOPPED,
+		'Unknown': VirtualMachine.UNKNOWN
 	}
 	
 	def concreteSystem(self, radl_system, auth_data):
@@ -118,6 +126,8 @@ class AzureCloudConnector(CloudConnector):
 					username = res_system.getValue('disk.0.os.credentials.username')
 					if not username:
 						res_system.setValue('disk.0.os.credentials.username','azureuser')
+					
+					res_system.updateNewCredentialValues()
 
 					return [res_system]
 			else:
@@ -163,7 +173,6 @@ class AzureCloudConnector(CloudConnector):
 			''' % (cont, int(disk_size), storage_account, disk_name)
 
 			cont +=1 
-		#http://example.blob.core.windows.net/disks/mydatadisk.vhd
 			
 		# TODO: revisar esto
 		if system.getValue("disk.0.os.name") == "windows":
@@ -319,16 +328,25 @@ class AzureCloudConnector(CloudConnector):
 			resp = conn.getresponse()
 			output = resp.read()
 			conn.close()
-		except Exception:
+		except Exception, ex:
 			self.logger.exception("Error deleting the service")
-			return False
+			return (False, "Error deleting the service: " + str(ex))
 		
-		if resp.status != 200:
+		if resp.status != 202:
 			self.logger.error("Error deleting the service: Error Code " + str(resp.status) + ". Msg: " + output)
-			return False
+			return (False, "Error deleting the service: Error Code " + str(resp.status) + ". Msg: " + output)
+		
+		request_id = resp.getheader('x-ms-request-id')
+		
+		# Call to GET OPERATION STATUS until 200 (OK)
+		success = self.wait_operation_status(request_id, subscription_id, cert_file, key_file)
+		
+		if success:
+			return (True, "")
+		else:
+			return (False, "Error waiting the VM termination")
 
-		return True
-	
+
 	def wait_operation_status(self, request_id, subscription_id, cert_file, key_file, req_status = 200, delay = 2, timeout = 60):
 		self.logger.info("Wait the operation: " + request_id + " reach the state " + str(req_status))
 		status = 0
@@ -590,7 +608,7 @@ class AzureCloudConnector(CloudConnector):
 	
 		try:
 			conn = httplib.HTTPSConnection(self.AZURE_SERVER, self.AZURE_PORT, cert_file=cert_file, key_file=key_file)
-			uri = "/%s/services/hostedservices/%s/deploymentslots/Production" % (subscription_id, service_name)
+			uri = "/%s/services/hostedservices/%s/deployments/%s" % (subscription_id, service_name, service_name)
 			conn.request('GET', uri, headers = {'x-ms-version' : '2013-03-01'}) 
 			resp = conn.getresponse()
 			output = resp.read()
@@ -619,11 +637,21 @@ class AzureCloudConnector(CloudConnector):
 			
 			self.logger.debug("The VM state is: " + vm_info.Status)
 				
-			vm.state = self.VM_STATE_MAP.get(vm_info.Status, VirtualMachine.UNKNOWN)
+			vm.state = self.get_vm_state(vm_info)
 			
 			# Update IP info
 			self.setIPs(vm,vm_info)
 			return (True, vm)
+
+	def get_vm_state(self, vm_info):
+		try:
+			# If the deploy is running check the state of the RoleInstance
+			if vm_info.Status == "Running":
+				return self.ROLE_STATE_MAP.get(vm_info.RoleInstanceList.RoleInstance[0].PowerState, VirtualMachine.UNKNOWN)
+			else:
+				return self.DEPLOY_STATE_MAP.get(vm_info.Status, VirtualMachine.UNKNOWN)
+		except:
+			return self.DEPLOY_STATE_MAP.get(vm_info.Status, VirtualMachine.UNKNOWN)
 
 	def setIPs(self, vm, vm_info):
 		private_ips = []
@@ -655,34 +683,9 @@ class AzureCloudConnector(CloudConnector):
 			cert_file, key_file = auth
 
 		service_name = vm.id
-		
-		res = (False,'')
-		try:
-			conn = httplib.HTTPSConnection(self.AZURE_SERVER, self.AZURE_PORT, cert_file=cert_file, key_file=key_file)
-	
-			uri = "/%s/services/hostedservices/%s/deploymentslots/Production?comp=media" % (subscription_id, service_name)
-			conn.request('DELETE', uri, headers = {'x-ms-version' : '2013-08-01'}) 
-			resp = conn.getresponse()
-			output = resp.read()
-			conn.close()
-			
-			if resp.status != 202:
-				self.logger.error("Error deleting VM: " + vm.id + ". Error Code: " + str(resp.status) + ". Msg: " + output)
-				res = (False, "Error deleting VM: " + vm.id + ". Error Code: " + str(resp.status) + ". Msg: " + output)
-			else:
-				self.logger.debug("VM terminated: " + vm.id)
-				res = (True, vm.id)
-		except Exception, ex:
-			self.logger.exception("Error terminating VM: " + vm.id)
-			res = (False, "Error terminating VM: " + vm.id + ". " + str(ex))
 
-		request_id = resp.getheader('x-ms-request-id')
-		
-		# wait to finish the VM deletion. Call GET OPERATION STATUS until 200 (OK)
-		self.wait_operation_status(request_id, subscription_id, cert_file, key_file)
-
-		# anyway we must try to delete this
-		# self.delete_service(service_name, subscription_id, cert_file, key_file)
+		# Delete the service
+		res = self.delete_service(service_name, subscription_id, cert_file, key_file)
 		
 		# delete tmp files with certificates 
 		os.unlink(cert_file)
@@ -716,13 +719,22 @@ class AzureCloudConnector(CloudConnector):
 			self.logger.exception("Error calling role operation")
 			return (False, "Error calling role operation: " + str(ex))
 
-		# delete tmp files with certificates 
-		os.unlink(cert_file)
-		os.unlink(key_file)
-
 		if resp.status != 202:
+			# delete tmp files with certificates 
+			os.unlink(cert_file)
+			os.unlink(key_file)
 			self.logger.error("Error calling role operation: Error Code " + str(resp.status) + ". Msg: " + output)
 			return (False, "Error calling role operation: Error Code " + str(resp.status) + ". Msg: " + output)
+
+		request_id = resp.getheader('x-ms-request-id')
+		
+		# Call to GET OPERATION STATUS until 200 (OK)
+		success = self.wait_operation_status(request_id, subscription_id, cert_file, key_file)
+		
+		if success:
+			return (True, "")
+		else:
+			return (False, "Error waiting the VM role operation")
 
 		return (True, "")
 	

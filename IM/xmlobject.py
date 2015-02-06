@@ -19,6 +19,9 @@ import logging
 import os
 
 class XMLObject:
+        """
+        Class to easily parse XML documents 
+        """
         tuples = {}
         tuples_lists = {}
         attributes = []
@@ -38,20 +41,20 @@ class XMLObject:
                         
                 res += ">\n"
                 
-                for tag, className in self.__class__.tuples.items():
+                for tag, _ in self.__class__.tuples.items():
                         if self.__dict__[tag] != None:
                                 res += self.__dict__[tag].to_xml(tag)
 
-                for tag, className in self.__class__.tuples_lists.items():
+                for tag, _ in self.__class__.tuples_lists.items():
                         if self.__dict__[tag] != None:
-                                list = self.__dict__[tag]
-                                for obj in list:
+                                obj_list = self.__dict__[tag]
+                                for obj in obj_list:
                                         res += obj.to_xml(tag)
 
                 for tag in self.__class__.values_lists:
                         if self.__dict__[tag] != None:
-                                list = self.__dict__[tag]
-                                for value in list:
+                                obj_list = self.__dict__[tag]
+                                for value in obj_list:
                                         if value != None and len(str(value)) > 0:
                                                 res += "<" + tag + ">" + value + "</" + tag + ">\n"
 
@@ -149,7 +152,7 @@ class XMLObject:
                                         if (value == int(value)):
                                                 value = int(value)      
                                 except:
-                                        logging.error("se esperaba un valor numerico para %s y se encontro %s" % (tag, value))
+                                        logging.error("Incorrect type for %s i must be numeric but it is %s" % (tag, value))
                         self.__setattr__(tag, value)
 
                 for tag in self.__class__.attributes:
