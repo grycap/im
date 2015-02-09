@@ -735,7 +735,7 @@ class InfrastructureManager:
 		InfrastructureManager.logger.info("Getting cont msg of the inf: " + str(inf_id))
 	
 		sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
-		res = sel_inf.cont_out + "\n\n".join([vm.cont_out for vm in sel_inf.get_vm_list()])
+		res = sel_inf.cont_out + "\n\n".join([vm.cont_out for vm in sel_inf.get_vm_list() if vm.cont_out])
 
 		InfrastructureManager.logger.debug(res)
 		return res
