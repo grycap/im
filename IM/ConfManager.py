@@ -547,6 +547,7 @@ class ConfManager(threading.Thread):
 				
 				self.inf.set_configured(True)
 			except:
+				ConfManager.logger.exception("Inf ID: " + str(self.inf.id) + ": Error waiting the master VM to be running")
 				self.inf.set_configured(False)
 		else:
 			self.inf.set_configured(True)
@@ -769,34 +770,40 @@ class ConfManager(threading.Thread):
 		Arguments:
 		   - ssh(:py:class:`IM.SSH`): Object with the authentication data to access the master VM. 
 		"""
-		creds = self.inf.vm_master.getCredentialValues()
-		(user, _, _, _) = creds
-		new_creds = self.inf.vm_master.getCredentialValues(new=True)
-		if len(list(set(new_creds))) > 1 or list(set(new_creds))[0] != None:
-			change_creds = False
-			if cmp(new_creds,creds) != 0:
-				(_, new_passwd, new_public_key, new_private_key) = new_creds
-				if new_passwd:
-					ConfManager.logger.info("Changing password to master VM")
-					(out, err, code) = ssh.execute('sudo bash -c \'echo "' + user + ':' + new_passwd + '" | /usr/sbin/chpasswd && echo "OK"\' 2> /dev/null')
-					
-					if code == 0:
-						change_creds = True
-						ssh.password = new_passwd
-					else:
-						ConfManager.logger.error("Error changing password to master VM. " + out + err)
+		change_creds = False
+		try:
+			creds = self.inf.vm_master.getCredentialValues()
+			(user, _, _, _) = creds
+			new_creds = self.inf.vm_master.getCredentialValues(new=True)
+			if len(list(set(new_creds))) > 1 or list(set(new_creds))[0] != None:
+				change_creds = False
+				if cmp(new_creds,creds) != 0:
+					(_, new_passwd, new_public_key, new_private_key) = new_creds
+					if new_passwd:
+						ConfManager.logger.info("Changing password to master VM")
+						(out, err, code) = ssh.execute('sudo bash -c \'echo "' + user + ':' + new_passwd + '" | /usr/sbin/chpasswd && echo "OK"\' 2> /dev/null')
+						
+						if code == 0:
+							change_creds = True
+							ssh.password = new_passwd
+						else:
+							ConfManager.logger.error("Error changing password to master VM. " + out + err)
+		
+					if new_public_key and new_private_key:
+						ConfManager.logger.info("Changing public key to master VM")
+						(out, err, code) = ssh.execute('echo ' + new_public_key + ' >> .ssh/authorized_keys')
+						if code != 0:
+							ConfManager.logger.error("Error changing public key to master VM. " + out + err)
+						else:
+							change_creds = True
+							ssh.private_key = new_private_key
 	
-				if new_public_key and new_private_key:
-					ConfManager.logger.info("Changing public key to master VM")
-					(out, err, code) = ssh.execute('echo ' + new_public_key + ' >> .ssh/authorized_keys')
-					if code != 0:
-						ConfManager.logger.error("Error changing public key to master VM. " + out + err)
-					else:
-						change_creds = True
-						ssh.private_key = new_private_key
+				if change_creds:
+					self.inf.vm_master.info.systems[0].updateNewCredentialValues()
+		except:
+			ConfManager.logger.exception("Error changing credentials to master VM.")
 
-			if change_creds:
-				self.inf.vm_master.info.systems[0].updateNewCredentialValues()
+		return change_creds
 
 	def call_ansible(self, tmp_dir, inventory, playbook, ssh):
 		"""
