@@ -65,6 +65,29 @@ class StorageService(XMLObject):
 	values = ['Url', 'ServiceName']
 	tuples = { 'StorageServiceProperties': StorageServiceProperties }
 
+class InstanceTypeInfo:
+	"""
+	Information about the instance type
+
+	Args:
+		- name(str, optional): name of the type of the instance
+		- cpu_arch(list of str, optional): cpu architectures supported
+		- num_cpu(int, optional): number of cpus
+		- cores_per_cpu(int, optional): number of cores per cpu
+		- mem(int, optional): amount of memory
+		- price(int, optional): price per hour
+		- disks(int, optional): number of disks
+		- disk_space(int, optional): size of the disks
+	"""
+	def __init__(self, name = "", cpu_arch = ["i386"], num_cpu = 1, cores_per_cpu = 1, mem = 0, price = 0, disks = 0, disk_space = 0):
+		self.name = name
+		self.num_cpu = num_cpu
+		self.cores_per_cpu = cores_per_cpu
+		self.mem = mem
+		self.cpu_arch = cpu_arch
+		self.price = price
+		self.disks = disks
+		self.disk_space = disk_space
 
 class AzureCloudConnector(CloudConnector):
 	"""
@@ -77,8 +100,7 @@ class AzureCloudConnector(CloudConnector):
 	INSTANCE_TYPE = 'ExtraSmall'
 	AZURE_SERVER = "management.core.windows.net"
 	AZURE_PORT = 443
-	#STORAGE_NAME = "infmanager"
-	STORAGE_NAME = "portalvhdsvbfdd62js3256"
+	STORAGE_NAME = "infmanager"
 	DEFAULT_LOCATION = "West Europe"
 	ROLE_NAME= "IMVMRole"
 	
@@ -138,6 +160,11 @@ class AzureCloudConnector(CloudConnector):
 			return [radl_system.clone()]
 	
 	def gen_input_endpoints(self, radl):
+		"""
+		Gen the InputEndpoints part of the XML of the VM creation
+		using the outports field of the RADL network
+		"""
+		# SSH port must be allways available
 		res = """
 		  <InputEndpoints>
 			<InputEndpoint>
@@ -169,49 +196,17 @@ class AzureCloudConnector(CloudConnector):
 			  <Protocol>%s</Protocol>
 			</InputEndpoint>""" % (local_port, local_port, remote_port, protocol.upper())
 		
-		res += "\n</InputEndpoints>"
+		res += "\n		  </InputEndpoints>"
 		return res
 	
-	def get_azure_vm_create_xml(self, vm, storage_account, radl, num):
-		system = radl.systems[0]
-		name = system.getValue("disk.0.image.name")
-		if not name:
-			name = "userimage"
-		url = uriparse(system.getValue("disk.0.image.url"))
-
-		label = name + " IM created VM"
-		(hostname, _) = vm.getRequestedName(default_hostname = Config.DEFAULT_VM_NAME, default_domain = Config.DEFAULT_DOMAIN)
-		
-		if not hostname:
-			hostname = "AzureNode"
-
+	def gen_configuration_set(self, hostname, system):
+		"""
+		Gen the ConfigurationSet part of the XML of the VM creation
+		"""
+		# Allways use the new credentials
 		system.updateNewCredentialValues()
 		credentials = system.getCredentials()
-		SourceImageName = url[1]
-		MediaLink = "https://%s.blob.core.windows.net/vhds/%s.vhd" % (storage_account, SourceImageName)
-		instance_type = self.get_instance_type(system)
-		
-		disks = ""
-		cont = 1
-		while system.getValue("disk." + str(cont) + ".size") and system.getValue("disk." + str(cont) + ".device"):
-			disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('G')
-			#disk_device = system.getValue("disk." + str(cont) + ".device")
 
-			disk_name = "datadisk-1-" + str(int(time.time()*100))			
-			disks += '''
-<DataVirtualHardDisks>
-  <DataVirtualHardDisk>
-    <HostCaching>ReadWrite</HostCaching> 
-    <Lun>%d</Lun>
-    <LogicalDiskSizeInGB>%d</LogicalDiskSizeInGB>
-    <MediaLink>https://%s.blob.core.windows.net/vhds/%s.vhd</MediaLink>            
-  </DataVirtualHardDisk>
-</DataVirtualHardDisks>
-			''' % (cont, int(disk_size), storage_account, disk_name)
-
-			cont +=1 
-			
-		# TODO: revisar esto
 		if system.getValue("disk.0.os.name") == "windows":
 			ConfigurationSet = '''
 <ConfigurationSet i:type="WindowsProvisioningConfigurationSet">
@@ -221,8 +216,7 @@ class AzureCloudConnector(CloudConnector):
   <AdminUsername>%s</AdminUsername>
   <EnableAutomaticUpdates>true</EnableAutomaticUpdates>
   <ResetPasswordOnFirstLogon>false</ResetPasswordOnFirstLogon>
-</ConfigurationSet>
-			''' % (hostname, credentials.password, credentials.username)
+</ConfigurationSet>''' % (hostname, credentials.password, credentials.username)
 		else:
 			if isinstance(credentials, UserPassCredential):
 				ConfigurationSet = '''
@@ -232,8 +226,7 @@ class AzureCloudConnector(CloudConnector):
 	  <UserName>%s</UserName>
 	  <UserPassword>%s</UserPassword>
 	  <DisableSshPasswordAuthentication>false</DisableSshPasswordAuthentication>
-	</ConfigurationSet>
-				''' % (hostname, credentials.username, credentials.password)
+	</ConfigurationSet>''' % (hostname, credentials.username, credentials.password)
 			else:
 				ConfigurationSet = '''
 	<ConfigurationSet i:type="LinuxProvisioningConfigurationSet">
@@ -256,11 +249,60 @@ class AzureCloudConnector(CloudConnector):
               </KeyPair>
             </KeyPairs>
           </SSH>
-	</ConfigurationSet>
-				''' % (hostname, credentials.username, SourceImageName,
+	</ConfigurationSet>''' % (hostname, credentials.username, "Pass+Not-Used1",
 					credentials.public_key, credentials.username,
 					credentials.public_key, credentials.username)
+	
+		return ConfigurationSet
+	
+	def gen_data_disks(self, system, storage_account):
+		"""
+		Gen the DataVirtualHardDisks part of the XML of the VM creation
+		"""
 
+		disks = ""
+		cont = 1
+		while system.getValue("disk." + str(cont) + ".size") and system.getValue("disk." + str(cont) + ".device"):
+			disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('G')
+
+			disk_name = "datadisk-1-" + str(int(time.time()*100))			
+			disks += '''
+<DataVirtualHardDisks>
+  <DataVirtualHardDisk>
+    <HostCaching>ReadWrite</HostCaching> 
+    <Lun>%d</Lun>
+    <LogicalDiskSizeInGB>%d</LogicalDiskSizeInGB>
+    <MediaLink>https://%s.blob.core.windows.net/vhds/%s.vhd</MediaLink>            
+  </DataVirtualHardDisk>
+</DataVirtualHardDisks> ''' % (cont, int(disk_size), storage_account, disk_name)
+
+			cont +=1 
+			
+		return disks
+	
+	def get_azure_vm_create_xml(self, vm, storage_account, radl, num):
+		"""
+		Generate the XML to create the VM
+		"""
+		system = radl.systems[0]
+		name = system.getValue("disk.0.image.name")
+		if not name:
+			name = "userimage"
+		url = uriparse(system.getValue("disk.0.image.url"))
+
+		label = name + " IM created VM"
+		(hostname, _) = vm.getRequestedName(default_hostname = Config.DEFAULT_VM_NAME, default_domain = Config.DEFAULT_DOMAIN)
+		
+		if not hostname:
+			hostname = "AzureNode"
+
+		SourceImageName = url[1]
+		MediaLink = "https://%s.blob.core.windows.net/vhds/%s.vhd" % (storage_account, SourceImageName)
+		instance_type = self.get_instance_type(system)
+		
+		DataVirtualHardDisks = self.gen_data_disks(system, storage_account) 		
+		ConfigurationSet = self.gen_configuration_set(hostname, system)
+		InputEndpoints = self.gen_input_endpoints(radl)
 
 		res = '''
 <Deployment xmlns="http://schemas.microsoft.com/windowsazure" xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
@@ -288,14 +330,17 @@ class AzureCloudConnector(CloudConnector):
     </Role>
   </RoleList>
 </Deployment>
-		''' % (vm.id, label, self.ROLE_NAME, ConfigurationSet, self.gen_input_endpoints(radl), 
-			disks, MediaLink, SourceImageName, instance_type.name)
+		''' % (vm.id, label, self.ROLE_NAME, ConfigurationSet, InputEndpoints, 
+			DataVirtualHardDisks, MediaLink, SourceImageName, instance_type.name)
 		
 		self.logger.debug("Azure VM Create XML: " + res)
 
 		return res
 		
 	def get_user_subscription_id(self, auth_data):
+		"""
+		Get the Azure subscription ID from the auth data 
+		"""
 		auth = auth_data.getAuthInfo(AzureCloudConnector.type)
 		if auth and 'username' in auth[0]:
 			return auth[0]['username']
@@ -303,6 +348,9 @@ class AzureCloudConnector(CloudConnector):
 			return None
 
 	def get_user_cert_data(self, auth_data):
+		"""
+		Get the Azure private_key and public_key files from the auth data 
+		"""
 		auth = auth_data.getAuthInfo(AzureCloudConnector.type)
 		if auth and 'public_key' in auth[0] and 'private_key' in auth[0]:
 			certificate = auth[0]['public_key']
@@ -322,6 +370,9 @@ class AzureCloudConnector(CloudConnector):
 			return None
 
 	def create_service(self, subscription_id, cert_file, key_file, region):
+		"""
+		Create a Azure Cloud Service and return the name
+		"""
 		service_name = "IM-" + str(int(time.time()*100))
 		self.logger.info("Create the service " + service_name + " in region: " + region)
 		
@@ -352,6 +403,9 @@ class AzureCloudConnector(CloudConnector):
 		return service_name
 	
 	def delete_service(self, service_name, subscription_id, cert_file, key_file):
+		"""
+		Delete the Azure Cloud Service with name "service_name"
+		"""
 		try:
 			conn = httplib.HTTPSConnection(self.AZURE_SERVER, self.AZURE_PORT, cert_file=cert_file, key_file=key_file)
 			uri = "/%s/services/hostedservices/%s?comp=media" % (subscription_id, service_name)
@@ -379,6 +433,9 @@ class AzureCloudConnector(CloudConnector):
 
 
 	def wait_operation_status(self, request_id, subscription_id, cert_file, key_file, req_status = 200, delay = 2, timeout = 60):
+		"""
+		Wait for the operation "request_id" to finish in the specified state
+		"""
 		self.logger.info("Wait the operation: " + request_id + " reach the state " + str(req_status))
 		status = 0
 		wait = 0
@@ -403,6 +460,9 @@ class AzureCloudConnector(CloudConnector):
 			return False
 	
 	def create_storage_account(self, storage_account, subscription_id, cert_file, key_file, region, timeout = 120):
+		"""
+		Create an storage account with the name specified in "storage_account"
+		"""
 		self.logger.info("Creating the storage account " + storage_account)
 		try:
 			conn = httplib.HTTPSConnection(self.AZURE_SERVER, self.AZURE_PORT, cert_file=cert_file, key_file=key_file)
@@ -459,6 +519,9 @@ class AzureCloudConnector(CloudConnector):
 			return None
 	
 	def delete_storage_account(self, storage_account, subscription_id, cert_file, key_file):
+		"""
+		Delete an storage account with the name specified in "storage_account"
+		"""
 		try:
 			conn = httplib.HTTPSConnection(self.AZURE_SERVER, self.AZURE_PORT, cert_file=cert_file, key_file=key_file)
 			uri = "/%s/services/storageservices/%s" % (subscription_id, storage_account)
@@ -477,6 +540,9 @@ class AzureCloudConnector(CloudConnector):
 		return True
 	
 	def get_storage_account(self, storage_account, subscription_id, cert_file, key_file):
+		"""
+		Get the information about the Storage Account named "storage_account" or None if it does not exist
+		"""
 		try:
 			conn = httplib.HTTPSConnection(self.AZURE_SERVER, self.AZURE_PORT, cert_file=cert_file, key_file=key_file)
 			uri = "/%s/services/storageservices/%s" % (subscription_id, storage_account)
@@ -602,7 +668,7 @@ class AzureCloudConnector(CloudConnector):
 			disk_free = system.getFeature('disks.free_size').getValue('G')
 			disk_free_op = system.getFeature('memory.size').getLogOperator()
 		
-		instace_types = AzureInstanceTypes.get_all_instance_types()
+		instace_types = self.get_all_instance_types()
 
 		res = None
 		for instace_type in instace_types:
@@ -619,13 +685,11 @@ class AzureCloudConnector(CloudConnector):
 						res = instace_type
 		
 		if res is None:
-			AzureInstanceTypes.get_instance_type_by_name(self.INSTANCE_TYPE)
+			self.get_instance_type_by_name(self.INSTANCE_TYPE)
 		else:
 			return res
 		
 	def updateVMInfo(self, vm, auth_data):
-		# https://msdn.microsoft.com/en-us/library/azure/ee460804.aspx
-
 		self.logger.debug("Get the VM info with the id: " + vm.id)
 		auth = self.get_user_cert_data(auth_data)
 		subscription_id = self.get_user_subscription_id(auth_data)
@@ -675,6 +739,9 @@ class AzureCloudConnector(CloudConnector):
 			return (True, vm)
 
 	def get_vm_state(self, vm_info):
+		"""
+		Return the state of the VM using the vm info in format "Deployment"
+		"""
 		try:
 			# If the deploy is running check the state of the RoleInstance
 			if vm_info.Status == "Running":
@@ -685,6 +752,9 @@ class AzureCloudConnector(CloudConnector):
 			return self.DEPLOY_STATE_MAP.get(vm_info.Status, VirtualMachine.UNKNOWN)
 
 	def setIPs(self, vm, vm_info):
+		"""
+		Set the information about the IPs of the VM
+		"""
 		private_ips = []
 		public_ips = []
 		
@@ -725,6 +795,9 @@ class AzureCloudConnector(CloudConnector):
 		return res
 	
 	def call_role_operation(self, op, vm, auth_data):
+		"""
+		Call to the specified operation "op" to a Role
+		"""
 		subscription_id = self.get_user_subscription_id(auth_data)
 		auth = self.get_user_cert_data(auth_data)
 		
@@ -785,19 +858,7 @@ class AzureCloudConnector(CloudConnector):
   <OperationType>StartRoleOperation</OperationType>
 </StartRoleOperation>"""
 		return self.call_role_operation(op, vm, auth_data)
-
-class InstanceTypeInfo:
-	def __init__(self, name = "", cpu_arch = ["i386"], num_cpu = 1, cores_per_cpu = 1, mem = 0, price = 0, disks = 0, disk_space = 0):
-		self.name = name
-		self.num_cpu = num_cpu
-		self.cores_per_cpu = cores_per_cpu
-		self.mem = mem
-		self.cpu_arch = cpu_arch
-		self.price = price
-		self.disks = disks
-		self.disk_space = disk_space
-
-class AzureInstanceTypes:
+	
 	@staticmethod
 	def get_all_instance_types():
 		list = []
