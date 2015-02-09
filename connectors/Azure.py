@@ -25,6 +25,7 @@ from IM.VirtualMachine import VirtualMachine
 from CloudConnector import CloudConnector
 from IM.radl.radl import UserPassCredential, Feature
 from IM.config import Config
+from twisted.python import systemd
 
 # Set of classes to parse the output of the REST API
 class Endpoint(XMLObject):
@@ -76,7 +77,8 @@ class AzureCloudConnector(CloudConnector):
 	INSTANCE_TYPE = 'ExtraSmall'
 	AZURE_SERVER = "management.core.windows.net"
 	AZURE_PORT = 443
-	STORAGE_NAME = "infmanager"
+	#STORAGE_NAME = "infmanager"
+	STORAGE_NAME = "portalvhdsvbfdd62js3256"
 	DEFAULT_LOCATION = "West Europe"
 	ROLE_NAME= "IMVMRole"
 	
@@ -134,6 +136,41 @@ class AzureCloudConnector(CloudConnector):
 				return []
 		else:
 			return [radl_system.clone()]
+	
+	def gen_input_endpoints(self, radl):
+		res = """
+		  <InputEndpoints>
+			<InputEndpoint>
+			  <LocalPort>22</LocalPort>
+			  <Name>SSH</Name>
+			  <Port>22</Port>
+			  <Protocol>TCP</Protocol>
+			</InputEndpoint>"""
+		
+		public_net = None
+		for net in radl.networks:
+			if net.isPublic():
+				public_net = net
+
+		if public_net:
+			outports = public_net.getOutPorts()
+			if outports:
+				for remote_port,remote_protocol,local_port,local_protocol in outports:
+					if local_port != 22:						
+						protocol = remote_protocol
+						if remote_protocol != local_protocol:
+							self.logger.warn("Diferent protocols used in outports ignoring local port protocol!")								
+						
+						res += """
+			<InputEndpoint>
+			  <LocalPort>%d</LocalPort>
+			  <Name>Port %d</Name>
+			  <Port>%d</Port>
+			  <Protocol>%s</Protocol>
+			</InputEndpoint>""" % (local_port, local_port, remote_port, protocol.upper())
+		
+		res += "\n</InputEndpoints>"
+		return res
 	
 	def get_azure_vm_create_xml(self, vm, storage_account, radl, num):
 		system = radl.systems[0]
@@ -239,14 +276,7 @@ class AzureCloudConnector(CloudConnector):
       %s
         <ConfigurationSet i:type="NetworkConfigurationSet">
           <ConfigurationSetType>NetworkConfiguration</ConfigurationSetType>
-          <InputEndpoints>
-            <InputEndpoint>
-              <LocalPort>22</LocalPort>
-              <Name>SSH</Name>
-              <Port>22</Port>
-              <Protocol>TCP</Protocol>
-            </InputEndpoint>
-          </InputEndpoints>
+          %s
         </ConfigurationSet>
       </ConfigurationSets>
       %s
@@ -258,7 +288,8 @@ class AzureCloudConnector(CloudConnector):
     </Role>
   </RoleList>
 </Deployment>
-		''' % (vm.id, label, self.ROLE_NAME, ConfigurationSet, disks, MediaLink, SourceImageName, instance_type.name)
+		''' % (vm.id, label, self.ROLE_NAME, ConfigurationSet, self.gen_input_endpoints(radl), 
+			disks, MediaLink, SourceImageName, instance_type.name)
 		
 		self.logger.debug("Azure VM Create XML: " + res)
 
