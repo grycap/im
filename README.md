@@ -23,7 +23,7 @@ of the functionality of the platform: [YouTube IM channel](https://www.youtube.c
 1.1 REQUISITES
 --------------
 
-IM is based on Python, so Python 2.4 or higher runtime and standard library must
+IM is based on Python, so Python 2.6 or higher runtime and standard library must
 be installed in the system.
 
 If you use pip to install the IM, all the requisites will be installed.

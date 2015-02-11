@@ -16,10 +16,15 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import sys
+
+if sys.version_info <= (2, 6):
+	print "Must use python 2.6 or greater"
+	sys.exit(1)
+
 import logging
 import os
 import signal
-import sys
 
 from IM.request import Request, AsyncRequest, AsyncXMLRPCServer, get_system_queue
 from IM.InfrastructureManager import InfrastructureManager

@@ -75,5 +75,7 @@ IM 1.2.0
 IM 1.2.1
     * Add SSH keygen funtion to GCE connector
     * Add PRIVATE_NET_AS_PUBLIC configuration variable
+    * Add MAX_SIMULTANEOUS_LAUNCHES configuration variable
     * Add Azure connector
     * Update EC2 instance features
+    * Update documentation to specify python version 2.6

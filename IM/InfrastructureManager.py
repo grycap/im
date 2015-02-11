@@ -21,7 +21,6 @@ import cPickle as pickle
 import threading
 import string
 import random
-#from multiprocessing.pool import ThreadPool
 
 from VMRC import VMRC
 from CloudInfo import CloudInfo 
@@ -35,6 +34,9 @@ from IM.radl.radl import Feature
 from IM.recipe import Recipe
 
 from config import Config
+
+if Config.MAX_SIMULTANEOUS_LAUNCHES > 1:
+	from multiprocessing.pool import ThreadPool
 
 class IncorrectInfrastructureException(Exception):
 	""" Invalid infrastructure ID or access not granted. """
@@ -464,15 +466,17 @@ class InfrastructureManager:
 		deployed_vm = {}
 		cancel_deployment = []
 		try:
-			#pool = ThreadPool(processes=Config.MAX_SIMULTANEOUS_LAUNCHES)
-			#pool.map(
-			#	lambda ds: InfrastructureManager._launch_group(sel_inf
-			#		ds, deploys_group_cloud_list[id(ds)], cloud_list, concrete_systems,
-			#		radl, auth, deployed_vm, cancel_deployment), deploy_groups)
-			for ds in deploy_groups:
-				InfrastructureManager._launch_group(sel_inf,
-					ds, deploys_group_cloud_list[id(ds)], cloud_list, concrete_systems,
-					radl, auth, deployed_vm, cancel_deployment)
+			if Config.MAX_SIMULTANEOUS_LAUNCHES > 1:
+				pool = ThreadPool(processes=Config.MAX_SIMULTANEOUS_LAUNCHES)
+				pool.map(
+					lambda ds: InfrastructureManager._launch_group(sel_inf,
+						ds, deploys_group_cloud_list[id(ds)], cloud_list, concrete_systems,
+						radl, auth, deployed_vm, cancel_deployment), deploy_groups)
+			else:
+				for ds in deploy_groups:
+					InfrastructureManager._launch_group(sel_inf,
+						ds, deploys_group_cloud_list[id(ds)], cloud_list, concrete_systems,
+						radl, auth, deployed_vm, cancel_deployment)
 		except Exception, e:
 			# Please, avoid exception to arrive to this level, because some virtual
 			# machine may lost.
