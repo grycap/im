@@ -5,7 +5,7 @@ IM Service Installation
 Prerequisites
 -------------
 
-IM needs at least Python 2.4 to run, as well as the next libraries:
+IM needs at least Python 2.6 to run, as well as the next libraries:
 
 * `PLY <http://www.dabeaz.com/ply/>`_, Python Lex & Yacc library for python.
 * `paramiko <http://www.lag.net/paramiko/>`_, ssh2 protocol library for python.
@@ -162,7 +162,11 @@ Basic Options
    		]
    	}
    
+.. confval:: MAX_SIMULTANEOUS_LAUNCHES
 
+   Maximum number of simultaneous VM launch operations.
+   The default value is 1.
+ 
 .. confval:: MAX_VM_FAILS
 
    Number of attempts to launch a virtual machine before considering it
