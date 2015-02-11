@@ -50,7 +50,8 @@ class GCECloudConnector(CloudConnector):
             return driver
         else:
             self.logger.error("No correct auth data has been specified to GCE: username, password and project")
-            return None
+            self.logger.debug(auth)
+            raise Exception("No correct auth data has been specified to GCE: username, password and project")
 
     
     def concreteSystem(self, radl_system, auth_data):
