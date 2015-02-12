@@ -79,3 +79,4 @@ IM 1.2.1
     * Add Azure connector
     * Update EC2 instance features
     * Update documentation to specify python version 2.6
+    * Add provider_ids as network parameter in RADL

@@ -162,7 +162,7 @@ class GCECloudConnector(CloudConnector):
 
         image = driver.ex_get_image(image_id)
         if not image:
-            return [(False, "Incorrect image name") for i in range(num_vm)]
+            return [(False, "Incorrect image name") for _ in range(num_vm)]
 
         if system.getValue('availability_zone'):
             region = system.getValue('availability_zone')
@@ -200,6 +200,10 @@ class GCECloudConnector(CloudConnector):
             args['ex_metadata'] = metadata
             self.logger.debug("Setting ssh for user: " + username)
             self.logger.debug(metadata)
+
+        net_provider_id = self.get_net_provider_id(self.type, radl) 
+        if net_provider_id:
+            args['ex_network'] = net_provider_id
 
         res = []
         i = 0
