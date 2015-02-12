@@ -151,3 +151,18 @@ class CloudConnector:
 			
 			shutil.rmtree(tmp_dir, ignore_errors=True)
 			return (public, private)
+
+	@staticmethod
+	def get_net_provider_id(provider, radl):
+		"""
+		Get the provider ID of the net with ID 0 of this radl
+		Returns: The net provider ID or None if not defined	
+		"""
+		system = radl.systems[0]
+		net_id = system.getValue('net_interface.0.connection')
+		net = radl.get_network_by_id(net_id)
+		if net:
+			provider_ids = net.getProviderIDs()
+			if provider_ids and provider in provider_ids:
+				return provider_ids[provider]
+		return None

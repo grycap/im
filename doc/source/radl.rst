@@ -136,6 +136,25 @@ The supported features are:
    If ``yes``, IPs will be public, and if ``no``, they will be private.
    The default value is ``no``.
 
+``outports = <outports_string>``
+   Indicate the ports to be open in the VM at the Cloud provider system.
+   Valid formats:
+
+	* 8899/tcp-8899/tcp,22/tcp-22/tcp
+	* 8899/tcp-8899,22/tcp-22
+	* 8899-8899,22-22
+	* 8899/tcp,22/udp
+	* 8899,22
+
+   The default value is ``''``.
+   
+``provider_ids = <provider_ids_string>``
+   Indicate the name of the network in the specified Cloud providers.
+   Format of the String: 
+   
+   EC2=subnet-123123,GCE=default
+   
+   The default value is ``''``.
 
 System Features
 ---------------
@@ -182,6 +201,12 @@ machine.  The supported features are:
    string contains ``#N#`` they are replaced by a number that is distinct for
    every virtual machine deployed with this ``system`` description.
 
+``availability_zone``
+   Set the availability zone or region where this VM will be launched.
+
+``instance_type``
+   Set the instance type name of this VM. 
+
 ``disk.<diskId>.<feature>``
    Features under this prefix refer to virtual storage devices attached to
    the virtual machine. ``disk.0`` refers to system boot device.
@@ -190,8 +215,11 @@ machine.  The supported features are:
    Set the source of the disk image. The URI designates the cloud provider:
 
    * ``one://<server>:<port>/<image-id>``, for OpenNebula;
-   * ``ost://<server>:<port>/<ami-id>``, for OpenStack; and
-   * ``aws://<region>/<ami-id>``, for Amazon Web Service.
+   * ``ost://<server>:<port>/<ami-id>``, for OpenStack;
+   * ``aws://<region>/<ami-id>``, for Amazon Web Service;
+   * ``gce://<region>/<image-id>``, for Google Cloud;
+   * ``azr://<image-id>``, for Microsoft Azure; and
+   * ``<fedcloud_endpoint_url>/<image_id>``, for FedCloud OCCI connector.
 
    Either ``disk.0.image.url`` or ``disk.0.image.name`` must be set.
 

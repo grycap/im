@@ -773,13 +773,14 @@ class ConfManager(threading.Thread):
 		change_creds = False
 		try:
 			creds = self.inf.vm_master.getCredentialValues()
-			(user, _, _, _) = creds
+			(user, passwd, _, _) = creds
 			new_creds = self.inf.vm_master.getCredentialValues(new=True)
 			if len(list(set(new_creds))) > 1 or list(set(new_creds))[0] != None:
 				change_creds = False
 				if cmp(new_creds,creds) != 0:
 					(_, new_passwd, new_public_key, new_private_key) = new_creds
-					if new_passwd:
+					# only change to the new password if there are a previous passwd value 
+					if passwd and new_passwd:
 						ConfManager.logger.info("Changing password to master VM")
 						(out, err, code) = ssh.execute('sudo bash -c \'echo "' + user + ':' + new_passwd + '" | /usr/sbin/chpasswd && echo "OK"\' 2> /dev/null')
 						

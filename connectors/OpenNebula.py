@@ -535,14 +535,25 @@ class OpenNebulaCloudConnector(CloudConnector):
 		used_nets = []
 		last_net = None
 		for radl_net in radl_nets:
-			for (net_name, net_id, is_public) in one_nets:
-				if net_id not in used_nets and radl_net.isPublic() == is_public :
-					res[radl_net.id] = (net_name, net_id, is_public)
-					used_nets.append(net_id)
-					last_net = (net_name, net_id, is_public)
-					break
-			if radl_net.id not in res:
-				res[radl_net.id] = last_net
+			# First check if the user has specified a provider ID
+			provider_ids = radl_net.getProviderIDs()
+			if provider_ids and self.type in provider_ids:
+				net_provider_id = provider_ids[self.type]
+				for (net_name, net_id, is_public) in one_nets:
+					# If the name is the same and have the same "publicity" value
+					if net_name == net_provider_id and radl_net.isPublic() == is_public:
+						res[radl_net.id] = (net_name, net_id, is_public) 
+						used_nets.append(net_id)
+						break
+			else:
+				for (net_name, net_id, is_public) in one_nets:
+					if net_id not in used_nets and radl_net.isPublic() == is_public:
+						res[radl_net.id] = (net_name, net_id, is_public)
+						used_nets.append(net_id)
+						last_net = (net_name, net_id, is_public)
+						break
+				if radl_net.id not in res:
+					res[radl_net.id] = last_net
 	
 		# In case of there are no private network, use public ones for non mapped networks
 		used_nets = []
