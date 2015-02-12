@@ -385,7 +385,7 @@ class EC2CloudConnector(CloudConnector):
 							bdm = boto.ec2.blockdevicemapping.BlockDeviceMapping(conn)
 							bdm[block_device_name] = boto.ec2.blockdevicemapping.BlockDeviceType(volume_type="standard")
 							# Check if the user has specified the net provider id
-							subnet_id = self.get_net_provider_id(self.type, radl)
+							subnet_id = self.get_net_provider_id(radl)
 							request = conn.request_spot_instances(price=price, image_id=image.id, count=1, type='one-time', instance_type=instance_type.name, placement=availability_zone, key_name=keypair_name, security_groups=[sg_name], block_device_map=bdm,subnet_id=subnet_id)
 							
 							if request:
@@ -416,7 +416,7 @@ class EC2CloudConnector(CloudConnector):
 							bdm = boto.ec2.blockdevicemapping.BlockDeviceMapping(conn)
 							bdm[block_device_name] = boto.ec2.blockdevicemapping.BlockDeviceType(volume_type="standard")
 							# Check if the user has specified the net provider id
-							subnet_id = self.get_net_provider_id(self.type, radl) 
+							subnet_id = self.get_net_provider_id(radl) 
 							reservation = image.run(min_count=1,max_count=1,key_name=keypair_name,instance_type=instance_type.name,security_groups=[sg_name],placement=placement,block_device_map=bdm,subnet_id=subnet_id)
 		
 							if len(reservation.instances) == 1:

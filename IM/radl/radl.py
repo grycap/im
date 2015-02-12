@@ -36,19 +36,6 @@ def UnitToValue(unit):
 def is_version(version, _):
 	return all([num.isdigit() for num in version.getValue().split(".")])
 
-def check_provider_ids_format(provider_ids, _):
-	"""
-	Check the format of the provider_ids string.
-	Valid format:
-	EC2=subnet-123123,GCE=default
-	"""
-	try:
-		network.parseProviderIDs(provider_ids.getValue())
-	except:
-		return False
-	else:
-		return True
-
 def check_outports_format(outports, _):
 	"""
 	Check the format of the outports string.
@@ -696,8 +683,7 @@ class network(Features, Aspect):
 
 		SIMPLE_FEATURES = {
 			"outbound": (str, ["YES", "NO"]),
-			"outports": (str, check_outports_format),
-			"provider_ids": (str, check_provider_ids_format)
+			"outports": (str, check_outports_format)
 		}
 		self.check_simple(SIMPLE_FEATURES, radl)
 
@@ -710,39 +696,6 @@ class network(Features, Aspect):
 		"""Return a network with id being ``name`` and with outbound=yes if ``public``."""
 
 		return network(name, [Feature("outbound", "=", "yes" if public else "no")])
-
-	@staticmethod
-	def parseProviderIDs(provider_ids):
-		"""
-		Parse the format of the provider_ids string.
-		Valid format:
-		EC2=subnet-123123,GCE=default
-		Returns a dict with the format: key = provider, value = net_id
-		"""
-		res = {}
-		for provider_id in provider_ids.split(','):
-			parts = provider_id.split('=')
-			if len(parts) == 2:
-				res[parts[0]] = parts[1]
-			elif len(parts) < 2:
-				raise Exception("Incorrect format in provider_ids: " + provider_id)
-			else:
-				res[parts[0]] = "=".join(parts[1:])
-
-		return res
-
-	def getProviderIDs(self):
-		"""
-		Get the provider_ids of this network.
-		Valid format:
-		EC2=subnet-123123,GCE=default
-		Returns a dict with the format: key = provider, value = net_id
-		"""
-		provider_ids = self.getValue("provider_ids")
-		if provider_ids:
-			return self.parseProviderIDs(provider_ids)
-		else:
-			return None
 
 	@staticmethod
 	def parseOutPorts(outports):
