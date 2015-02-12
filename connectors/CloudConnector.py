@@ -153,16 +153,14 @@ class CloudConnector:
 			return (public, private)
 
 	@staticmethod
-	def get_net_provider_id(provider, radl):
+	def get_net_provider_id(radl, iface = 0):
 		"""
-		Get the provider ID of the net with ID 0 of this radl
+		Get the provider ID of the net with ID 'iface' of this radl
 		Returns: The net provider ID or None if not defined	
 		"""
 		system = radl.systems[0]
-		net_id = system.getValue('net_interface.0.connection')
+		net_id = system.getValue('net_interface.' + str(iface) + '.connection')
 		net = radl.get_network_by_id(net_id)
 		if net:
-			provider_ids = net.getProviderIDs()
-			if provider_ids and provider in provider_ids:
-				return provider_ids[provider]
+			return net.getValue('provider_id')
 		return None

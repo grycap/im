@@ -148,12 +148,8 @@ The supported features are:
 
    The default value is ``''``.
    
-``provider_ids = <provider_ids_string>``
-   Indicate the name of the network in the specified Cloud providers.
-   Format of the String: 
-   
-   EC2=subnet-123123,GCE=default
-   
+``provider_id = <string>``
+   Indicate the name of the network in a specific Cloud provider.
    The default value is ``''``.
 
 System Features

@@ -201,7 +201,7 @@ class GCECloudConnector(CloudConnector):
             self.logger.debug("Setting ssh for user: " + username)
             self.logger.debug(metadata)
 
-        net_provider_id = self.get_net_provider_id(self.type, radl) 
+        net_provider_id = self.get_net_provider_id(radl) 
         if net_provider_id:
             args['ex_network'] = net_provider_id
 
