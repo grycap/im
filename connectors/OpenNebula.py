@@ -600,6 +600,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 				# get the one network info
 				if nets[network]:
 					(net_name, net_id, is_public) = nets[network]
+					radl.get_network_by_id(network).setValue('provider_id', str(net_name))
 				else:
 					self.logger.error("No ONE network found for network: " + network)
 					raise Exception("No ONE network found for network: " + network)
