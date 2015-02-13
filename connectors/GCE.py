@@ -67,7 +67,6 @@ class GCECloudConnector(CloudConnector):
                     region = res_system.getValue('availability_zone')
                 else:
                     region, _ = self.get_image_data(res_system.getValue("disk.0.image.url"))
-                    region = res_system.setValue('availability_zone', region)
                 
                 instance_type = self.get_instance_type(driver.list_sizes(region), res_system)
                 
@@ -360,6 +359,9 @@ class GCECloudConnector(CloudConnector):
                 res_state = VirtualMachine.UNKNOWN
                 
             vm.state = res_state
+            
+            if 'zone' in node.extra:
+                vm.info.systems[0].setValue('availability_zone', node.extra['zone'])
             
             vm.setIps(node.public_ips, node.private_ips)
             self.attach_volumes(vm,node)
