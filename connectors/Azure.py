@@ -25,7 +25,6 @@ from IM.VirtualMachine import VirtualMachine
 from CloudConnector import CloudConnector
 from IM.radl.radl import UserPassCredential, Feature
 from IM.config import Config
-from twisted.python import systemd
 
 # Set of classes to parse the output of the REST API
 class Endpoint(XMLObject):
@@ -101,6 +100,7 @@ class AzureCloudConnector(CloudConnector):
 	AZURE_SERVER = "management.core.windows.net"
 	AZURE_PORT = 443
 	STORAGE_NAME = "infmanager"
+
 	DEFAULT_LOCATION = "West Europe"
 	ROLE_NAME= "IMVMRole"
 	
@@ -575,6 +575,8 @@ class AzureCloudConnector(CloudConnector):
 		region = self.DEFAULT_LOCATION
 		if radl.systems[0].getValue('availability_zone'):
 			region = radl.systems[0].getValue('availability_zone')
+		else:
+			radl.systems[0].setValue('availability_zone', region)
 
 		res = []
 		i = 0
