@@ -31,6 +31,7 @@ class GCECloudConnector(CloudConnector):
     
     type = "GCE"
     """str with the name of the provider."""
+    DEFAULT_ZONE = "us-central1"
     
     def get_driver(self, auth_data):
         """
@@ -88,6 +89,24 @@ class GCECloudConnector(CloudConnector):
         else:
             return [radl_system.clone()]
 
+    @staticmethod
+    def get_net_provider_id(radl):
+        """
+        Get the provider ID of the first net that has specified it
+        Returns: The net provider ID or None if not defined    
+        """
+        provider_id = None
+        system = radl.systems[0]
+        for i in range(system.getNumNetworkIfaces()):
+            net_id = system.getValue('net_interface.' + str(i) + '.connection')
+            net = radl.get_network_by_id(net_id)
+            
+            if net:
+                provider_id = net.getValue('provider_id')
+                break;
+        
+        return provider_id
+
     def get_instance_type(self, sizes, radl):
         """
         Get the name of the instance type to launch to LibCloud
@@ -139,17 +158,23 @@ class GCECloudConnector(CloudConnector):
         else:
             return None
 
-    # el path sera algo asi: gce://us-central1/debian-7
+    # The path must be: gce://us-central1/debian-7 or gce://debian-7
     def get_image_data(self, path):
         """
         Get the region and the image name from an URL of a VMI
 
         Arguments:
-           - path(str): URL of a VMI (some like this: gce://us-central1/debian-7)
+           - path(str): URL of a VMI (some like this: gce://us-central1/debian-7 or gce://debian-7)
         Returns: a tuple (region, image_name) with the region and the AMI ID    
         """
-        region = uriparse(path)[1]
-        image_name = uriparse(path)[2][1:]
+        uri = uriparse(path)
+        if uri[2]:
+            region = uri[1]
+            image_name = uri[2][1:]
+        else:
+            # If the image do not specify the zone, use the default one
+            region = self.DEFAULT_ZONE
+            image_name = uri[1]            
         
         return (region, image_name)
 

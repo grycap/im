@@ -211,8 +211,33 @@ class EC2CloudConnector(CloudConnector):
 		else:
 			return res
 
-	def create_security_group(self, conn, inf, radl):
-		res = "default"
+	@staticmethod
+	def get_net_provider_id(radl):
+		"""
+		Get the provider ID of the first net that has specified it
+		Returns: The net provider ID or None if not defined	
+		"""
+		provider_id = None
+		system = radl.systems[0]
+		for i in range(system.getNumNetworkIfaces()):
+			net_id = system.getValue('net_interface.' + str(i) + '.connection')
+			net = radl.get_network_by_id(net_id)
+			
+			if net:
+				provider_id = net.getValue('provider_id')
+				break;
+		
+		if provider_id:
+			parts = provider_id.split(".")
+			if len(parts) == 2:
+				return parts[0], parts[1]
+			else:
+				raise Exception("Incorrect provider_id value: " + provider_id + ". It must be <vpc-id>.<subnet-id>.")
+		else:
+			return None
+
+	def create_security_group(self, conn, inf, radl, vpc = None):
+		res = None
 		try:
 			sg = None
 
@@ -223,9 +248,12 @@ class EC2CloudConnector(CloudConnector):
 					break
 			if not sg: 
 				self.logger.debug("Creating security group: " + sg_name)
-				sg = conn.create_security_group(sg_name, "Security group created by the IM")
+				sg = conn.create_security_group(sg_name, "Security group created by the IM", vpc_id = vpc)
 			
-			res = sg_name
+			if vpc:
+				res = [sg.id]
+			else:
+				res = [sg.name]
 			
 			public_net = None
 			for net in radl.networks:
@@ -239,20 +267,26 @@ class EC2CloudConnector(CloudConnector):
 						if local_port != 22 and local_port != 5099:						
 							protocol = remote_protocol
 							if remote_protocol != local_protocol:
-								self.logger.warn("Diferent protocols used in outports ignoring local port protocol!")								
+								self.logger.warn("Different protocols used in outports ignoring local port protocol!")								
 													
 							sg.authorize(protocol, remote_port, local_port, '0.0.0.0/0')
 			
-			sg.authorize('tcp', 22, 22, '0.0.0.0/0')
-			sg.authorize('tcp', 5099, 5099, '0.0.0.0/0')
+			try:
+				sg.authorize('tcp', 22, 22, '0.0.0.0/0')
+				sg.authorize('tcp', 5099, 5099, '0.0.0.0/0')
+				
+				# open all the ports for the VMs in the security group
+				sg.authorize('tcp', 0, 65535, src_group=sg)
+				sg.authorize('udp', 0, 65535, src_group=sg)
+				#sg.authorize('icmp', 0, 65535, src_group=sg)
+			except:
+				self.logger.exception("Exception adding SG rules. Probably the rules exists.")
+				pass
 			
-			# open all the ports for the VMs in the security group
-			sg.authorize('tcp', 0, 65535, src_group=sg)
-			sg.authorize('udp', 0, 65535, src_group=sg)
-			sg.authorize('icmp', 0, 65535, src_group=sg)
-			
-		except Exception:
+		except Exception, ex:
 			self.logger.exception("Error Creating the Security group")
+			if vpc:
+				raise Exception("Error Creating the Security group: " + str(ex))
 			pass
 		
 		return res
@@ -336,8 +370,25 @@ class EC2CloudConnector(CloudConnector):
 					res.append((False, "Error managing the keypair."))
 				return res
 
+			provider_id = self.get_net_provider_id(radl)
+			if provider_id:
+				vpc, subnet = provider_id
+				sg_names = None
+				sg_ids = self.create_security_group(conn, inf, radl, vpc)
+				if not sg_ids:
+					vpc = None
+					subnet = None
+					sg_ids = None
+					sg_names = ['default']
+			else:
+				vpc = None
+				subnet = None
+				sg_ids = None
+				sg_names = self.create_security_group(conn, inf, radl, vpc)
+				if not sg_names:
+					sg_names = ['default']
 			# Create the security group for the VMs				
-			sg_name = self.create_security_group(conn, inf, radl)
+			
 			all_failed = True
 
 			i = 0
@@ -384,9 +435,7 @@ class EC2CloudConnector(CloudConnector):
 							# Force to use magnetic volumes
 							bdm = boto.ec2.blockdevicemapping.BlockDeviceMapping(conn)
 							bdm[block_device_name] = boto.ec2.blockdevicemapping.BlockDeviceType(volume_type="standard")
-							# Check if the user has specified the net provider id
-							subnet_id = self.get_net_provider_id(radl)
-							request = conn.request_spot_instances(price=price, image_id=image.id, count=1, type='one-time', instance_type=instance_type.name, placement=availability_zone, key_name=keypair_name, security_groups=[sg_name], block_device_map=bdm,subnet_id=subnet_id)
+							request = conn.request_spot_instances(price=price, image_id=image.id, count=1, type='one-time', instance_type=instance_type.name, placement=availability_zone, key_name=keypair_name, security_groups=sg_names, security_group_ids=sg_ids, block_device_map=bdm, subnet_id=subnet)
 							
 							if request:
 								ec2_vm_id = region_name + ";" + request[0].id
@@ -415,14 +464,13 @@ class EC2CloudConnector(CloudConnector):
 							# Force to use magnetic volumes
 							bdm = boto.ec2.blockdevicemapping.BlockDeviceMapping(conn)
 							bdm[block_device_name] = boto.ec2.blockdevicemapping.BlockDeviceType(volume_type="standard")
-							# Check if the user has specified the net provider id
-							subnet_id = self.get_net_provider_id(radl) 
-							reservation = image.run(min_count=1,max_count=1,key_name=keypair_name,instance_type=instance_type.name,security_groups=[sg_name],placement=placement,block_device_map=bdm,subnet_id=subnet_id)
+							# Check if the user has specified the net provider id 
+							reservation = image.run(min_count=1,max_count=1,key_name=keypair_name,instance_type=instance_type.name,security_groups=sg_names,security_group_ids=sg_ids,placement=placement,block_device_map=bdm,subnet_id=subnet)
 		
 							if len(reservation.instances) == 1:
 								instance = reservation.instances[0]
 								ec2_vm_id = region_name + ";" + instance.id
-									
+
 								self.logger.debug("RADL:")
 								self.logger.debug(system)
 								
@@ -445,8 +493,10 @@ class EC2CloudConnector(CloudConnector):
 		if all_failed:
 			if created_keypair:
 				conn.delete_key_pair(keypair_name)
-			if sg_name != 'default':
-				conn.delete_security_group(sg_name)
+			if sg_ids:
+				conn.delete_security_group(group_id = sg_ids[0])
+			if sg_names and sg_names[0] != 'default':
+				conn.delete_security_group(sg_names[0])
 			
 		return res
 
@@ -586,10 +636,15 @@ class EC2CloudConnector(CloudConnector):
 						self.logger.warn("Setting a fixed IP NOT ALLOCATED! (" + fixed_ip + "). Ignore it.")
 						return None
 				else:
-					pub_address = instance.connection.allocate_address()
+					provider_id = self.get_net_provider_id(vm.info)
+					if provider_id:
+						pub_address = instance.connection.allocate_address(domain="vpc")
+						instance.connection.associate_address(instance.id, allocation_id=pub_address.allocation_id)
+					else:
+						pub_address = instance.connection.allocate_address()
+						instance.connection.associate_address(instance.id, pub_address.public_ip)
 
 				self.logger.debug(pub_address)
-				pub_address.associate(instance.id)
 				return pub_address
 			except Exception:
 				self.logger.exception("Error adding an Elastic IP to VM ID: " + str(vm.id))
@@ -831,7 +886,7 @@ class EC2CloudConnector(CloudConnector):
 		   - conn(:py:class:`boto.ec2.connection`): object to connect to EC2 API.
 		   - inf(:py:class:`IM.InfrastructureInfo`): Infrastructure information.	
 		"""
-		sg_name = "im-" + str(id(inf))
+		sg_name = "im-" + str(inf.uuid)
 		sg = None
 		for elem in conn.get_all_security_groups():
 			if elem.name == sg_name:
@@ -860,10 +915,27 @@ class EC2CloudConnector(CloudConnector):
 	
 				if all_vms_terminated:
 					self.logger.debug("Remove the SG: " + sg_name)
-					sg.delete()
+					try:
+						sg.revoke('tcp', 0, 65535, src_group=sg)
+						sg.revoke('udp', 0, 65535, src_group=sg)
+						time.sleep(2)
+					except Exception, ex:
+						self.logger.warn("Error revoking self rules: " + str(ex))
+					
+					deleted = False
+					while not deleted and cont < timeout:
+						time.sleep(5)
+						cont += 5
+						try:
+							sg.delete()
+							deleted = True
+						except:
+							self.logger.exception("Error deleting the SG.")
 			else:
 				# If there are more than 1, we skip this step
 				self.logger.debug("There are active instances. Not removing the SG")
+		else:
+			self.logger.warn("No Security Group with name: " + sg_name)
 		
 		
 	def stop(self, vm, auth_data):
