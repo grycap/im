@@ -54,13 +54,6 @@ def launch_playbook(playbook_file, host, passwd, threads, pk_file = None, retrie
 
     options, _ = parser.parse_args([])
 
-    if inventory_file:
-        inventory = ansible.inventory.Inventory(inventory_file)
-    else:
-        inventory = ansible.inventory.Inventory(options.inventory)
-        
-    inventory.subset(host)
-
     sshpass = None
     sudopass = None
     options.sudo_user = options.sudo_user or C.DEFAULT_SUDO_USER
@@ -88,6 +81,12 @@ def launch_playbook(playbook_file, host, passwd, threads, pk_file = None, retrie
         num_retries += 1
         return_code = 0
 
+        if inventory_file:
+            inventory = ansible.inventory.Inventory(inventory_file)
+        else:
+            inventory = ansible.inventory.Inventory(options.inventory)
+            
+        inventory.subset(host)
         # let inventory know which playbooks are using so it can know the basedirs
         inventory.set_playbook_basedir(os.path.dirname(playbook_file))
 

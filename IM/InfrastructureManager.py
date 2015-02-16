@@ -835,6 +835,18 @@ class InfrastructureManager:
 				del InfrastructureManager.infrastructure_list[item]
 
 	@staticmethod
+	def _delete_vm(vm, auth, exceptions):
+		try:
+			success = False
+			InfrastructureManager.logger.debug("Finalizing the VM id: " + str(vm.id))
+			(success, msg) = vm.finalize(auth)
+		except Exception, e:
+			msg = str(e)
+		if not success:
+			InfrastructureManager.logger.info("The VM cannot be finalized")
+			exceptions.append(msg)
+
+	@staticmethod
 	def DestroyInfrastructure(inf_id, auth):
 		"""
 		Destroy all virtual machines in an infrastructure.
@@ -851,17 +863,17 @@ class InfrastructureManager:
 
 		sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
 		exceptions = []
-		# If IM server is the first VM, then it will be the last destroyed
-		for vm in reversed(sel_inf.get_vm_list()):
-			try:
-				success = False
-				InfrastructureManager.logger.debug("Finalizing the VM id: " + str(vm.id))
-				(success, msg) = vm.finalize(auth)
-			except Exception, e:
-				msg = str(e)
-			if not success:
-				InfrastructureManager.logger.info("The VM cannot be finalized")
-				exceptions.append(msg)
+		
+		if Config.MAX_SIMULTANEOUS_LAUNCHES > 1:
+			pool = ThreadPool(processes=Config.MAX_SIMULTANEOUS_LAUNCHES)
+			pool.map(
+				lambda vm: InfrastructureManager._delete_vm(vm, auth, exceptions), 
+				reversed(sel_inf.get_vm_list())
+				)
+		else:
+			# If IM server is the first VM, then it will be the last destroyed
+			for vm in reversed(sel_inf.get_vm_list()):
+				InfrastructureManager._delete_vm(vm, auth, exceptions)
 
 		if exceptions:
 			raise Exception("Error destroying the infrastructure: %s" % "\n".join(exceptions))
