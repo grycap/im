@@ -104,16 +104,18 @@ class ConfManager(threading.Thread):
 		while not success and wait < timeout:
 			success = True
 			for vm in self.inf.get_vm_list():
-				ip = vm.getPublicIP()
-				if not ip:
+				if vm.hasPublicNet():
+					ip = vm.getPublicIP()
+				else:
 					ip = vm.getPrivateIP()
 				
 				if not ip:
 					# If the IP is not Available try to update the info
 					vm.update_status(self.auth)
 	
-					ip = vm.getPublicIP()
-					if not ip:
+					if vm.hasPublicNet():
+						ip = vm.getPublicIP()
+					else:
 						ip = vm.getPrivateIP()
 						
 					if not ip:
@@ -121,7 +123,7 @@ class ConfManager(threading.Thread):
 						break
 			
 			if not success:
-				ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": Error waiting all the VMs to have an IP") 
+				ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": Error waiting all the VMs to have a correct IP") 
 				wait += self.THREAD_SLEEP_DELAY
 				time.sleep(self.THREAD_SLEEP_DELAY)
 			else:
@@ -268,12 +270,13 @@ class ConfManager(threading.Thread):
 					ifaces_im_vars = ''
 					for i in range(vm.getNumNetworkIfaces()):
 						iface_ip = vm.getIfaceIP(i)
-						ifaces_im_vars += ' IM_NODE_NET_' + str(i) + '_IP=' + iface_ip
-						if vm.getRequestedNameIface(i):
-							(nodename, nodedom) = vm.getRequestedNameIface(i, default_domain = Config.DEFAULT_DOMAIN)
-							ifaces_im_vars += ' IM_NODE_NET_' + str(i) + '_HOSTNAME=' + nodename
-							ifaces_im_vars += ' IM_NODE_NET_' + str(i) + '_DOMAIN=' + nodedom
-							ifaces_im_vars += ' IM_NODE_NET_' + str(i) + '_FQDN=' + nodename + "." + nodedom
+						if iface_ip:
+							ifaces_im_vars += ' IM_NODE_NET_' + str(i) + '_IP=' + iface_ip
+							if vm.getRequestedNameIface(i):
+								(nodename, nodedom) = vm.getRequestedNameIface(i, default_domain = Config.DEFAULT_DOMAIN)
+								ifaces_im_vars += ' IM_NODE_NET_' + str(i) + '_HOSTNAME=' + nodename
+								ifaces_im_vars += ' IM_NODE_NET_' + str(i) + '_DOMAIN=' + nodedom
+								ifaces_im_vars += ' IM_NODE_NET_' + str(i) + '_FQDN=' + nodename + "." + nodedom
 
 					# first try to use the public IP
 					ip = vm.getPublicIP()
@@ -333,8 +336,11 @@ class ConfManager(threading.Thread):
 			for vm in vm_group[group]:
 				for i in range(vm.getNumNetworkIfaces()):
 					if vm.getRequestedNameIface(i):
-						(nodename, nodedom) = vm.getRequestedNameIface(i, default_domain = Config.DEFAULT_DOMAIN)
-						hosts_out.write(vm.getIfaceIP(i) + " " + nodename + "." + nodedom + " " + nodename + "\r\n")
+						if vm.getIfaceIP(i):
+							(nodename, nodedom) = vm.getRequestedNameIface(i, default_domain = Config.DEFAULT_DOMAIN)
+							hosts_out.write(vm.getIfaceIP(i) + " " + nodename + "." + nodedom + " " + nodename + "\r\n")
+						else:
+							ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": Net interface " + str(i) + " request a name, but it does not have an IP.")
 
 					# first try to use the public IP
 					ip = vm.getPublicIP()
@@ -749,16 +755,11 @@ class ConfManager(threading.Thread):
 						wait += delay
 						time.sleep(delay)
 				else:
-					ip = vm.getPrivateIP()
-					if ip != None:
-						ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " + 'VM ' + str(vm.id) + ' with private IP: ' + ip)
-						return False
-					else:
-						ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " + 'VM ' + str(vm.id) + ' with no IP')
-						# Update the VM info and wait to have a valid IP
-						wait += delay
-						time.sleep(delay)
-						vm.update_status(self.auth)
+					ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " + 'VM ' + str(vm.id) + ' with no IP')
+					# Update the VM info and wait to have a valid public IP
+					wait += delay
+					time.sleep(delay)
+					vm.update_status(self.auth)
 		
 		# Timeout, return False
 		return False
