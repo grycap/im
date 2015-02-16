@@ -90,6 +90,18 @@ class GCECloudConnector(CloudConnector):
             return [radl_system.clone()]
 
     @staticmethod
+    def set_net_provider_id(radl, net_name):
+        """
+        Set the provider ID on all the nets of the system    
+        """
+        system = radl.systems[0]
+        for i in range(system.getNumNetworkIfaces()):
+            net_id = system.getValue('net_interface.' + str(i) + '.connection')
+            net = radl.get_network_by_id(net_id)
+            if net:
+                net.setValue('provider_id', net_name)
+
+    @staticmethod
     def get_net_provider_id(radl):
         """
         Get the provider ID of the first net that has specified it
@@ -105,6 +117,7 @@ class GCECloudConnector(CloudConnector):
                 provider_id = net.getValue('provider_id')
                 break;
         
+        # TODO: check that the net exist in GCE
         return provider_id
 
     def get_instance_type(self, sizes, radl):
@@ -178,6 +191,16 @@ class GCECloudConnector(CloudConnector):
         
         return (region, image_name)
 
+    def get_default_net(self, driver):
+        """
+    	Get the first net
+    	"""
+        nets = driver.ex_list_networks()
+        if nets:
+            return nets[0].name
+        else:
+            return None
+
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         driver = self.get_driver(auth_data)
 
@@ -228,6 +251,13 @@ class GCECloudConnector(CloudConnector):
         net_provider_id = self.get_net_provider_id(radl) 
         if net_provider_id:
             args['ex_network'] = net_provider_id
+        else:
+            net_name = self.get_default_net(driver)
+            if net_name:
+                args['ex_network'] = net_name
+                self.set_net_provider_id(radl, net_name)
+            else:
+                self.set_net_provider_id(radl, "default")
 
         res = []
         i = 0
