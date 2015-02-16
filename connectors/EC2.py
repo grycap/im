@@ -18,6 +18,7 @@ import time
 import base64
 from IM.uriparse import uriparse
 import boto.ec2
+import boto.vpc
 import os
 from IM.VirtualMachine import VirtualMachine
 from CloudConnector import CloudConnector
@@ -113,7 +114,7 @@ class EC2CloudConnector(CloudConnector):
 			if auth and 'username' in auth[0] and 'password' in auth[0]:
 				region = boto.ec2.get_region(region_name)
 				if region:
-					return boto.ec2.connection.EC2Connection(aws_access_key_id=auth[0]['username'], aws_secret_access_key=auth[0]['password'], region=region)
+					return boto.vpc.VPCConnection(aws_access_key_id=auth[0]['username'], aws_secret_access_key=auth[0]['password'], region=region)
 				else:
 					raise Exception("Incorrect region name: " + region_name)
 			else:
@@ -195,6 +196,18 @@ class EC2CloudConnector(CloudConnector):
 			return res
 
 	@staticmethod
+	def set_net_provider_id(radl, vpc, subnet):
+		"""
+		Set the provider ID on all the nets of the system	
+		"""
+		system = radl.systems[0]
+		for i in range(system.getNumNetworkIfaces()):
+			net_id = system.getValue('net_interface.' + str(i) + '.connection')
+			net = radl.get_network_by_id(net_id)
+			if net:
+				net.setValue('provider_id', vpc + "." + subnet)
+
+	@staticmethod
 	def get_net_provider_id(radl):
 		"""
 		Get the provider ID of the first net that has specified it
@@ -213,6 +226,7 @@ class EC2CloudConnector(CloudConnector):
 		if provider_id:
 			parts = provider_id.split(".")
 			if len(parts) == 2 and parts[0].startswith("vpc-") and parts[1].startswith("subnet-"):
+				# TODO: check that the VPC and subnet, exists
 				return parts[0], parts[1]
 			else:
 				raise Exception("Incorrect provider_id value: " + provider_id + ". It must be <vpc-id>.<subnet-id>.")
@@ -326,6 +340,23 @@ class EC2CloudConnector(CloudConnector):
 
 		return (created, keypair_name)
 
+	def get_default_subnet(self, conn):
+		"""
+		Get the default VPC and the first subnet
+		"""
+		vpc_id  = None
+		subnet_id = None
+		
+		for vpc in conn.get_all_vpcs():
+			if vpc.is_default:
+				vpc_id = vpc.id
+				for subnet in conn.get_all_subnets({"vpcId":vpc_id}):
+					subnet_id = subnet.id
+					break
+				break
+		
+		return vpc_id, subnet_id
+
 	def launch(self, inf, radl, requested_radl, num_vm, auth_data):
 		
 		system = radl.systems[0]
@@ -363,7 +394,7 @@ class EC2CloudConnector(CloudConnector):
 					res.append((False, "Error getting correct block_device name from AMI: " + str(ami)))
 				return res
 			
-			# Create the security group for the VMs		
+			# Create the security group for the VMs
 			provider_id = self.get_net_provider_id(radl)
 			if provider_id:
 				vpc, subnet = provider_id
@@ -375,12 +406,18 @@ class EC2CloudConnector(CloudConnector):
 					sg_ids = None
 					sg_names = ['default']
 			else:
-				vpc = None
-				subnet = None
-				sg_ids = None
-				sg_names = self.create_security_group(conn, inf, radl, vpc)
-				if not sg_names:
-					sg_names = ['default']
+				# Check the default VPC and get the first subnet with a connection with a gateway
+				# If there are no default VPC, use EC2-classic
+				vpc, subnet = self.get_default_subnet(conn)
+				if vpc:
+					self.set_net_provider_id(radl, vpc, subnet)
+					sg_names = None
+					sg_ids = self.create_security_group(conn, inf, radl, vpc)
+				else:
+					sg_ids = None
+					sg_names = self.create_security_group(conn, inf, radl, vpc)
+					if not sg_names:
+						sg_names = ['default']
 			
 			# Now create the keypair
 			(created_keypair, keypair_name) = self.create_keypair(system, conn)

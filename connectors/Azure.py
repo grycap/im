@@ -96,13 +96,19 @@ class AzureCloudConnector(CloudConnector):
 	"""
 	
 	type = "Azure"
+	"""str with the name of the provider."""
 	INSTANCE_TYPE = 'ExtraSmall'
+	"""Default instance type."""
 	AZURE_SERVER = "management.core.windows.net"
+	"""Address of the server with the Service Management REST API."""
 	AZURE_PORT = 443
+	"""Port of the server with the Service Management REST API."""
 	STORAGE_NAME = "infmanager"
-
+	"""Name of the storage account the IM will create"""
 	DEFAULT_LOCATION = "West Europe"
+	"""Default location to use"""
 	ROLE_NAME= "IMVMRole"
+	"""Name of the Role"""
 	
 	DEPLOY_STATE_MAP = {
 		'Running': VirtualMachine.RUNNING,
