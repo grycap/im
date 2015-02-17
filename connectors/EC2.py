@@ -607,6 +607,12 @@ class EC2CloudConnector(CloudConnector):
 				cont += 5
 				try:
 					curr_vol = conn.get_all_volumes([volume_id])[0]
+				except:
+					self.logger.warn("The volume " + volume_id + " does not exist. It cannot be removed. Ignore it.")
+					deleted = True
+					break
+				try:
+					curr_vol = conn.get_all_volumes([volume_id])[0]
 					if str(curr_vol.attachment_state()) == "attached":
 						self.logger.debug("Detaching the volume " + volume_id + " from the instance " + instance_id)
 						conn.detach_volume(volume_id, instance_id, force=True)
