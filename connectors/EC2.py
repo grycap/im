@@ -62,6 +62,15 @@ class EC2CloudConnector(CloudConnector):
 	INSTANCE_TYPE = 't1.micro'
 	"""str with the name of the default instance type to launch."""
 
+	VM_STATE_MAP = {
+		'pending': VirtualMachine.PENDING,
+		'running': VirtualMachine.RUNNING,
+		'stopped': VirtualMachine.STOPPED,
+		'stopping': VirtualMachine.RUNNING,
+		'shutting-down': VirtualMachine.OFF,
+		'terminated': VirtualMachine.OFF
+	}
+	"""Dictionary with a map with the EC3 VM states to the IM states."""
 
 	def concreteSystem(self, radl_system, auth_data):
 		if radl_system.getValue("disk.0.image.url"):
@@ -79,24 +88,27 @@ class EC2CloudConnector(CloudConnector):
 					self.logger.debug(res_system)
 					return []
 				else:
-					res_system.addFeature(Feature("cpu.count", "=", instance_type.num_cpu * instance_type.cores_per_cpu), conflict="other", missing="other")
-					res_system.addFeature(Feature("memory.size", "=", instance_type.mem, 'M'), conflict="other", missing="other")
-					if instance_type.disks > 0:
-						res_system.addFeature(Feature("disks.free_size", "=", instance_type.disks * instance_type.disk_space, 'G'), conflict="other", missing="other")
-						for i in range(1,instance_type.disks+1):
-							res_system.addFeature(Feature("disk.%d.free_size" % i, "=", instance_type.disk_space, 'G'), conflict="other", missing="other")						
-					res_system.addFeature(Feature("cpu.performance", "=", instance_type.cpu_perf, 'ECU'), conflict="other", missing="other")
-					res_system.addFeature(Feature("price", "=", instance_type.price), conflict="me", missing="other")
-					
-					res_system.addFeature(Feature("instance_type", "=", instance_type.name), conflict="other", missing="other")
-					
-					res_system.addFeature(Feature("provider.type", "=", self.type), conflict="other", missing="other")
-						
+					self.update_system_info_from_instance(res_system, instance_type)						
 					return [res_system]
 			else:
 				return []
 		else:
 			return [radl_system.clone()]
+
+	def update_system_info_from_instance(self, system, instance_type):
+		"""
+		Update the features of the system with the information of the instance_type
+		"""
+		system.addFeature(Feature("cpu.count", "=", instance_type.num_cpu * instance_type.cores_per_cpu), conflict="other", missing="other")
+		system.addFeature(Feature("memory.size", "=", instance_type.mem, 'M'), conflict="other", missing="other")
+		if instance_type.disks > 0:
+			system.addFeature(Feature("disks.free_size", "=", instance_type.disks * instance_type.disk_space, 'G'), conflict="other", missing="other")
+			for i in range(1,instance_type.disks+1):
+				system.addFeature(Feature("disk.%d.free_size" % i, "=", instance_type.disk_space, 'G'), conflict="other", missing="other")						
+		system.addFeature(Feature("cpu.performance", "=", instance_type.cpu_perf, 'ECU'), conflict="other", missing="other")
+		system.addFeature(Feature("price", "=", instance_type.price), conflict="me", missing="other")
+		
+		system.addFeature(Feature("instance_type", "=", instance_type.name), conflict="other", missing="other")
 
 	# Get the EC2 connection object
 	def get_connection(self, region_name, auth_data):
@@ -842,22 +854,7 @@ class EC2CloudConnector(CloudConnector):
 			vm.info.systems[0].setValue("virtual_system_type", "'" + instance.virtualization_type + "'")
 			vm.info.systems[0].setValue("availability_zone",  "'" + instance.placement + "'")
 			
-			if instance.state == 'pending':
-				res_state = VirtualMachine.PENDING
-			elif instance.state == 'running':
-				res_state = VirtualMachine.RUNNING
-			elif instance.state == 'stopped':
-				res_state = VirtualMachine.STOPPED
-			elif instance.state == 'stopping':
-				res_state = VirtualMachine.RUNNING
-			elif instance.state == 'shutting-down':
-				res_state = VirtualMachine.OFF
-			elif instance.state == 'terminated':
-				res_state = VirtualMachine.OFF
-			else:
-				res_state = VirtualMachine.UNKNOWN
-				
-			vm.state = res_state
+			vm.state = self.VM_STATE_MAP.get(instance.state, VirtualMachine.UNKNOWN)
 			
 			self.setIPsFromInstance(vm, instance)
 			self.attach_volumes(instance, vm)
@@ -1010,9 +1007,52 @@ class EC2CloudConnector(CloudConnector):
 			instance.start()
 		
 		return (True, "")
+	
+	def waitStop(self, instance, timeout = 60):
+		"""
+		Wait a instance to be stopped
+		"""
+		instance.stop()
+		wait = 0
+		powered_off = False
+		while wait < timeout and not powered_off:
+			instance.update()
+			
+			powered_off = instance.state == 'stopped'
+			if not powered_off: 
+				time.sleep(2)
+				wait += 2
+		
+		return powered_off
 		
 	def alterVM(self, vm, radl, auth_data):
-		return (False, "Not supported")
+		region_name = vm.id.split(";")[0]
+		instance_id = vm.id.split(";")[1]
+
+		# Terminate the instance
+		instance = self.get_instance_by_id(instance_id, region_name, auth_data)
+		if instance:
+			instance.update()
+		else:
+			return (False, "The instance has not been found")
+		
+		success = True
+		if radl.systems:
+			radl.systems[0].applyFeatures(vm.requested_radl.systems[0],conflict="me", missing="me")
+			instance_type = self.get_instance_type(radl.systems[0])
+			
+			if instance.instance_type != instance_type.name:
+				self.waitStop(instance)
+				success = instance.modify_attribute('instanceType', instance_type.name)
+				if success:
+					self.update_system_info_from_instance(vm.info.systems[0], instance_type)
+				instance.start()
+		
+		if success:
+			return (success, self.updateVMInfo(vm, auth_data))
+		else:
+			return (success, "Unknown Error")
+		
 
 	def get_all_instance_types(self):
 		"""

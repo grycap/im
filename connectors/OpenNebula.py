@@ -16,6 +16,7 @@
 
 import hashlib
 import xmlrpclib
+import time
 
 from IM.xmlobject import XMLObject
 from IM.uriparse import uriparse
@@ -57,7 +58,8 @@ class VM(XMLObject):
 		STATE_SUSPENDED=5
 		STATE_DONE=6
 		STATE_FAILED=7
-		STATE_STR = {'0': 'init', '1': 'pending', '2': 'hold', '3': 'active', '4': 'stopped', '5': 'suspended', '6': 'done', '7': 'failed' }
+		STATE_POWEROFF=8
+		STATE_STR = {'0': 'init', '1': 'pending', '2': 'hold', '3': 'active', '4': 'stopped', '5': 'suspended', '6': 'done', '7': 'failed' , '8': 'poweroff' }
 		LCM_STATE_STR={'0':'init','1':'prologing','2':'booting','3':'running','4':'migrating','5':'saving (stop)','6':'saving (suspend)','7':'saving (migrate)', '8':'prologing (migration)', '9':'prologing (resume)', '10': 'epilog (stop)','11':'epilog', '12':'cancel','13':'failure','14':'delete','15':'unknown'}
 		values = [ 'ID','UID','NAME','LAST_POLL','STATE','LCM_STATE','DEPLOY_ID','MEMORY','CPU','NET_TX','NET_RX', 'STIME','ETIME' ]
 #		tuples = { 'TEMPLATE': TEMPLATE, 'HISTORY': HISTORY }
@@ -209,9 +211,6 @@ class OpenNebulaCloudConnector(CloudConnector):
 			else:
 				res_state = VirtualMachine.OFF
 			vm.state = res_state
-
-			# currently only update the memory data, as it is the only one that can be changed 
-			vm.info.systems[0].setValue('memory.size', int(res_vm.TEMPLATE.MEMORY), "M") 
 
 			# Update network data
 			self.setIPsFromTemplate(vm,res_vm.TEMPLATE)
@@ -623,20 +622,66 @@ class OpenNebulaCloudConnector(CloudConnector):
 			
 		return res
 
-	def checkSetMem(self):
+	def checkResize(self):
 		"""
-		Check if the one.vm.setmem function appears in the ONE server
+		Check if the one.vm.resize function appears in the ONE server
 		 
-		 Returns: bool, True if the one.vm.setmem function appears in the ONE server or false otherwise
+		 Returns: bool, True if the one.vm.resize function appears in the ONE server or false otherwise
 		"""
 		server_url = "http://%s:%d/RPC2" % (self.cloud.server, self.cloud.port)
 		server = xmlrpclib.ServerProxy(server_url,allow_none=True)
 		
 		methods = server.system.listMethods()
-		if "one.vm.setmem" in methods:
+		if "one.vm.resize" in methods:
 			return True
 		else:
 			return False
+
+	def poweroff(self, vm, auth_data, timeout = 30):
+		"""
+		Poweroff the VM and waits for it to be in poweredoff state
+		"""
+		server_url = "http://%s:%d/RPC2" % (self.cloud.server, self.cloud.port)
+		server = xmlrpclib.ServerProxy(server_url,allow_none=True)
+		session_id = self.getSessionID(auth_data)
+		if session_id == None:
+			return (False, "Incorrect auth data")
+		func_res = server.one.vm.action(session_id, 'poweroff', int(vm.id))
+		
+		if len(func_res) == 1:
+			success = True
+			err = vm.id
+		elif len(func_res) == 2:
+			(success, err) = func_res
+		elif len(func_res) == 3:
+			(success, err, err_code) = func_res
+		else:
+			return (False, "Error in the one.vm.action return value")
+		
+		if not success:
+			return (success, err)
+
+		wait = 0
+		powered_off = False
+		while wait < timeout and not powered_off:
+			func_res = server.one.vm.info(session_id, int(vm.id))
+			if len(func_res) == 2:
+				(success, res_info) = func_res
+			elif len(func_res) == 3:
+				(success, res_info, err_code) = func_res
+			else:
+				return (False, "Error in the one.vm.info return value")
+			
+			res_vm = VM(res_info)
+			powered_off = res_vm.STATE == 8
+			if not powered_off: 
+				time.sleep(2)
+				wait += 2
+
+		if powered_off:
+			return (True, "")
+		else:
+			return (False, "Error waiting the VM to be powered off")
 
 	def alterVM(self, vm, radl, auth_data):
 		server_url = "http://%s:%d/RPC2" % (self.cloud.server, self.cloud.port)
@@ -645,12 +690,41 @@ class OpenNebulaCloudConnector(CloudConnector):
 		if session_id == None:
 			return (False, "Incorrect auth data")
 		
-		if self.checkSetMem():
-			new_mem = radl.getValue('memory.size')
-			(success, info, err_code) = server.one.vm.setmem(str(vm.id), int(new_mem))
+		if self.checkResize():
+			if not radl.systems:
+				return ""
+			system = radl.systems[0]
+
+			cpu = vm.info.systems[0].getValue('cpu.count')
+			memory = vm.info.systems[0].getFeature('memory.size').getValue('M')
 			
+			new_cpu = system.getValue('cpu.count')
+			new_memory = system.getFeature('memory.size').getValue('M')
+	
+			new_temp = ""
+			if new_cpu and new_cpu != cpu:
+				new_temp += "CPU = %s\n" % new_cpu
+				new_temp += "VCPU = %s\n" % new_cpu
+			if new_memory and new_memory != memory:
+				new_temp += "MEMORY = %s\n" % new_memory
+	
+			self.logger.debug("New Template: " + new_temp)
+			if new_temp:
+				# First we must poweroff the VM
+				(success, info) = self.poweroff(vm, auth_data)
+				if not success:
+					return (success, info)
+				(success, info, err_code) = server.one.vm.resize(session_id, int(vm.id), new_temp, False)
+				self.start(vm, auth_data)
+			else:
+				return (True, self.updateVMInfo(vm, auth_data))
+				
 			if success:
-				return self.updateVMInfo(vm, auth_data)
+				if new_cpu:
+					vm.info.systems[0].setValue('cpu.count', new_cpu)
+				if new_memory:
+					vm.info.systems[0].addFeature(Feature("memory.size", "=", new_memory, 'M'), conflict="other", missing="other")
+				return (success, self.updateVMInfo(vm, auth_data))
 			else:
 				return (success, info)
 		else:

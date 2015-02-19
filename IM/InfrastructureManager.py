@@ -176,7 +176,7 @@ class InfrastructureManager:
 				       not cancel_deployment):
 					concrete_system = concrete_systems[cloud_id][deploy.id][0]
 					if not concrete_system:
-						InfrastructureManager.logger.error("Error, no concrete system to deploy: " + deploy.id + ". Check if a correct image is being used")
+						InfrastructureManager.logger.error("Error, no concrete system to deploy: " + deploy.id + " in cloud: " + cloud_id + ". Check if a correct image is being used")
 						exceptions.append("Error, no concrete system to deploy: " + deploy.id + ". Check if a correct image is being used")
 						break
 					
@@ -456,7 +456,7 @@ class InfrastructureManager:
 				scored_clouds = [ (cloud_id, 1) for cloud_id, _ in cloud_list0 ]
 			
 			ordered_cloud_list = [ c.id for c in CloudInfo.get_cloud_list(auth) ]
-			# reverse the list to use the reverse order inthe sort function
+			# reverse the list to use the reverse order in the sort function
 			ordered_cloud_list.reverse()
 			# Order the clouds first by the score and then using the cloud order in the auth data 
 			sorted_scored_clouds = sorted(scored_clouds, key=lambda x: (x[1], ordered_cloud_list.index(x[0])), reverse=True)
@@ -665,7 +665,7 @@ class InfrastructureManager:
 
 		exception = None
 		try:
-			(success, alter_res) = vm.alter(vm, radl, auth)
+			(success, alter_res) = vm.alter(radl, auth)
 		except Exception, e:
 			exception = e
 		InfrastructureManager.save_data()
