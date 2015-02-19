@@ -81,3 +81,4 @@ IM 1.2.1
     * Update documentation to specify python version 2.6
     * Add provider_ids as network parameter in RADL
     * Add support to VPC in EC2 connector
+    * Implement AlterVM in OpenNebula and EC2 connectors
