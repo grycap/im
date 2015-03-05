@@ -932,6 +932,9 @@ class InfrastructureManager:
 		# First check if it is configured to check the users from a list
 		if not InfrastructureManager.check_im_user(auth.getAuthInfo("InfrastructureManager")):
 			raise UnauthorizedUserException()
+
+		if not auth.getAuthInfo("InfrastructureManager"):
+			raise Exception("No credentials provided for the InfrastructureManager")
 		
 		# Create a new infrastructure
 		inf = InfrastructureInfo.InfrastructureInfo()
@@ -980,7 +983,7 @@ class InfrastructureManager:
 		auth = Authentication(auth_data)
 
 		sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
-		str_inf = pickle.dumps(sel_inf)
+		str_inf = pickle.dumps(sel_inf, 2)
 		InfrastructureManager.logger.info("Exporting infrastructure id: " + str(sel_inf.id))
 		if delete:
 			sel_inf.deleted = True
@@ -1023,8 +1026,8 @@ class InfrastructureManager:
 			if not InfrastructureManager._exiting:
 				try:
 					data_file = open(Config.DATA_FILE, 'wb')
-					pickle.dump(InfrastructureManager.global_inf_id, data_file)
-					pickle.dump(InfrastructureManager.infrastructure_list, data_file)
+					pickle.dump(InfrastructureManager.global_inf_id, data_file, 2)
+					pickle.dump(InfrastructureManager.infrastructure_list, data_file, 2)
 					data_file.close()
 				except Exception, ex:
 					InfrastructureManager.logger.exception("ERROR saving data to the file: " + Config.DATA_FILE + ". Changes not stored!!")
