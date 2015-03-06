@@ -71,6 +71,9 @@ class GCECloudConnector(CloudConnector):
                 
                 instance_type = self.get_instance_type(driver.list_sizes(region), res_system)
                 
+                if not instance_type:
+                    return []
+                
                 username = res_system.getValue('disk.0.os.credentials.username')
                 if not username:
                     res_system.setValue('disk.0.os.credentials.username','gceuser')

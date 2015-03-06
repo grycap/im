@@ -17,7 +17,6 @@
 import time
 from IM.VirtualMachine import VirtualMachine
 from CloudConnector import CloudConnector
-from IM.radl.radl import Feature
 
 
 class DeployedNodeCloudConnector(CloudConnector):
@@ -44,7 +43,6 @@ class DeployedNodeCloudConnector(CloudConnector):
 			return []
 
 	def updateVMInfo(self, vm, auth_data):
-		vm.state = VirtualMachine.RUNNING
 		return (True, vm)
 
 	def launch(self, inf, radl, requested_radl, num_vm, auth_data):
@@ -53,6 +51,7 @@ class DeployedNodeCloudConnector(CloudConnector):
 			now = str(int(time.time()*100))
 			vm = VirtualMachine(inf, now, self.cloud, requested_radl, requested_radl)
 			vm.info.systems[0].setValue('provider.type', self.type)
+			vm.state = VirtualMachine.RUNNING
 			res.append((True, vm))
 		
 		return res
