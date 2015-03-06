@@ -331,7 +331,7 @@ def launch_daemon():
 	
 	InfrastructureManager.logger.info('************ Start Infrastructure Manager daemon (v.%s) ************' % version)
 
-	# Launch the API XMLRPC thread 
+	# Launch the API XMLRPC thread
 	server.serve_forever_in_thread()
 	
 	if Config.ACTIVATE_REST:

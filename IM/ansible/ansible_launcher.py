@@ -118,10 +118,9 @@ def launch_playbook(playbook_file, host, passwd, threads, pk_file = None, retrie
             diff=options.diff
         )
 
-        failed_hosts = []
-        unreachable_hosts = []
-
         try:
+            failed_hosts = []
+            unreachable_hosts = []
 
             pb.run()
 

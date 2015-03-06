@@ -160,8 +160,10 @@ class InfrastructureInfo:
 		"""
 		Get the VM with the specified ID (if it is not destroyed)
 		"""
-		
-		vm_id = int(str_vm_id)
+		try:
+			vm_id = int(str_vm_id)
+		except:
+			raise IncorrectVMException()
 		if vm_id >= 0 and vm_id < len(self.vm_list):
 			vm = self.vm_list[vm_id]
 			if not vm.destroy:

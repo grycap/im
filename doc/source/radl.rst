@@ -54,7 +54,8 @@ The sentences under the keyword ``contextualize`` indicate the recipes that
 will be executed during the deployment of the virtual machine.
 
 The ``deploy`` keyword is a request to deploy a number of virtual machines.
-Some identity of a cloud provider can be specified.
+If some identity of a cloud provider is specified the VM will be deployed in the
+Cloud provider with the "id" specified.
 
 Use Cases
 ---------

@@ -410,9 +410,12 @@ users:
 					if 'location' in resp.msg.dict:
 						occi_vm_id = os.path.basename(resp.msg.dict['location'])
 					else:
-						occi_vm_id = os.path.basename(output)				
-					vm = VirtualMachine(inf, occi_vm_id, self.cloud, radl, requested_radl)
-					res.append((True, vm))
+						occi_vm_id = os.path.basename(output)
+					if occi_vm_id:				
+						vm = VirtualMachine(inf, occi_vm_id, self.cloud, radl, requested_radl)
+						res.append((True, vm))
+					else:
+						res.append((False, 'Unknown Error launching the VM.'))
 
 			except Exception, ex:
 				self.logger.exception("Error connecting with OCCI server")
