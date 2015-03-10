@@ -47,10 +47,12 @@ class ConfManager(threading.Thread):
 	""" The file with the ansible steps to configure the second step of the the master node """
 	THREAD_SLEEP_DELAY = 5
 	
-	def __init__(self, inf, auth):
+	def __init__(self, inf, auth, max_ctxt_time = 1e9):
 		threading.Thread.__init__(self)
 		self.inf = inf
 		self.auth = auth
+		self.init_time = time.time()
+		self.max_ctxt_time = max_ctxt_time
 		self._stop = False
 	
 	def check_running_pids(self, vms_configuring):
@@ -138,6 +140,10 @@ class ConfManager(threading.Thread):
 		vms_configuring = {}
 
 		while not self._stop:
+			if self.init_time + self.max_ctxt_time < time.time():
+				ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Max contextualization time passed. Exit thread.")
+				return
+
 			vms_configuring = self.check_running_pids(vms_configuring)
 			
 			# If the queue is empty but there are vms configuring wait and test again

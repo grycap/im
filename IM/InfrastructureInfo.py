@@ -349,6 +349,10 @@ class InfrastructureInfo:
 		# get the contextualize steps specified in the RADL, or use the default value
 		contextualizes = self.radl.contextualize.get_contextualize_items_by_step({1:ctxts})
 		
+		max_ctxt_time = self.radl.contextualize.max_time
+		if not max_ctxt_time:
+			max_ctxt_time = Config.MAX_CONTEXTUALIZATION_TIME
+		
 		ctxt_task = []
 		ctxt_task.append((-2,0,self,['wait_master', 'check_vm_ips']))
 		ctxt_task.append((-1,0,self,['configure_master', 'generate_playbooks_and_hosts']))
@@ -374,5 +378,7 @@ class InfrastructureInfo:
 		self.add_ctxt_tasks(ctxt_task)
 		
 		if self.cm is None or not self.cm.isAlive():
-			self.cm = ConfManager.ConfManager(self,auth)
+			self.cm = ConfManager.ConfManager(self,auth,max_ctxt_time)
 			self.cm.start()
+		else:		
+			self.cm.init_time = time.time()

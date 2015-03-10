@@ -365,6 +365,7 @@ class InfrastructureManager:
 		# If any deploy is defined, only update definitions.
 		if not radl.deploys:
 			sel_inf.update_radl(radl, [])
+			InfrastructureManager.logger.debug("Infrastructure without any deploy. Exiting.")
 			return []
 
 		for system in radl.systems:
