@@ -217,7 +217,10 @@ class InfrastructureManager:
 			if cancel_deployment or all_ok:
 				break
 		if not all_ok and not cancel_deployment:
-			cancel_deployment.append(Exception("All machines could not be launched: %s" % exceptions))
+			msg = ""
+			for i, e in enumerate(exceptions):
+				msg += "Attempt " + str(i+1) + ": " + str(e) + "\n"
+			cancel_deployment.append(Exception("All machines could not be launched: \n%s" % msg))
 
 	@staticmethod
 	def get_infrastructure(inf_id, auth):
@@ -497,7 +500,10 @@ class InfrastructureManager:
 			# If error, all deployed virtual machine will be undeployed.
 			for vm in new_vms:
 				vm.finalize(auth)
-			raise Exception("Some deploys did not proceed successfully: %s" % cancel_deployment)
+			msg = ""
+			for e in cancel_deployment:
+				msg += str(e) + "\n"
+			raise Exception("Some deploys did not proceed successfully: %s" % msg)
 
 
 		for vm in new_vms:
@@ -783,7 +789,10 @@ class InfrastructureManager:
 				exceptions.append(msg)
 
 		if exceptions:
-			raise Exception("Error stopping the infrastructure: %s" % "\n".join(exceptions))
+			msg = ""
+			for e in exceptions:
+				msg += str(e) + "\n"
+			raise Exception("Error stopping the infrastructure: %s" % msg)
 
 		InfrastructureManager.logger.info("Infrastructure successfully stopped")
 		return ""
@@ -817,7 +826,10 @@ class InfrastructureManager:
 				exceptions.append(msg)
 
 		if exceptions:
-			raise Exception("Error starting the infrastructure: %s" % "\n".join(exceptions))
+			msg = ""
+			for e in exceptions:
+				msg += str(e) + "\n"
+			raise Exception("Error starting the infrastructure: %s" % msg)
 
 		InfrastructureManager.logger.info("Infrastructure successfully restarted")
 		return ""
@@ -877,7 +889,10 @@ class InfrastructureManager:
 				InfrastructureManager._delete_vm(vm, auth, exceptions)
 
 		if exceptions:
-			raise Exception("Error destroying the infrastructure: %s" % "\n".join(exceptions))
+			msg = ""
+			for e in exceptions:
+				msg += str(e) + "\n"
+			raise Exception("Error destroying the infrastructure: \n%s" % msg)
 
 		sel_inf.delete()
 		InfrastructureManager.remove_old_inf()
