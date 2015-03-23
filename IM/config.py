@@ -18,6 +18,21 @@ import ConfigParser
 import os
 import logging
 
+def parse_options(config, section_name, config_class):
+	options = config.options(section_name)
+	for option in options:
+		option = option.upper()
+		if option in config_class.__dict__ and not option.startswith("__"):
+			if isinstance(config_class.__dict__[option], bool):
+				config_class.__dict__[option] = config.getboolean(section_name, option)
+			elif isinstance(config_class.__dict__[option], int):
+				config_class.__dict__[option] = config.getint(section_name, option)
+			else:
+				config_class.__dict__[option] = config.get(section_name, option)
+		else:
+			logger = logging.getLogger('InfrastructureManager')
+			logger.warn("Unknown option in the IM config file. Ignoring it: " + option)
+
 class Config:
 
 	DEFAULT_VM_MEMORY = 512
@@ -65,16 +80,10 @@ config = ConfigParser.ConfigParser()
 config.read([Config.IM_PATH + '/../im.cfg', Config.IM_PATH + '/../etc/im.cfg', '/etc/im/im.cfg'])
 
 section_name = "im"
-options = config.options(section_name)
-for option in options:
-	option = option.upper()
-	if option in Config.__dict__ and not option.startswith("__"):
-		if isinstance(Config.__dict__[option], bool):
-			Config.__dict__[option] = config.getboolean(section_name, option)
-		elif isinstance(Config.__dict__[option], int):
-			Config.__dict__[option] = config.getint(section_name, option)
-		else:
-			Config.__dict__[option] = config.get(section_name, option)
-	else:
-		logger = logging.getLogger('InfrastructureManager')
-		logger.warn("Unknown option in the IM config file. Ignoring it: " + option)
+parse_options(config, section_name, Config)
+
+class ConfigOpenNebula:
+	TEMPLATE_CONTEXT = ''
+	TEMPLATE_OTHER = 'GRAPHICS = [type="vnc",listen="0.0.0.0"]'
+
+parse_options(config, 'OpenNebula', ConfigOpenNebula)

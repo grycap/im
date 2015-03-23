@@ -146,7 +146,7 @@ class XMLObject:
                         value = XMLObject.handleField(tag, dom)
                         if (value is None):
                                 value = self.noneval
-                        if (tag in self.__class__.numeric):
+                        if (tag in self.__class__.numeric and value is not None):
                                 try:
                                         value = float(value)
                                         if (value == int(value)):
