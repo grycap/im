@@ -22,9 +22,8 @@ from IM.xmlobject import XMLObject
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from CloudConnector import CloudConnector
-from IM.radl.radl import network
-
-from IM.radl.radl import Feature
+from IM.radl.radl import network, Feature
+from IM.config import ConfigOpenNebula
 
 # clases para parsear el resultado de las llamadas a la API de ONE
 class NIC(XMLObject):
@@ -80,13 +79,13 @@ class RANGE(XMLObject):
 	values = [ 'IP_START', 'IP_END' ]
 	
 class AR(XMLObject):
-	values = [ 'IP', 'MAC', 'TYPE', 'ALLOCATED', 'GLOBAL_PREFIX', 'AR_ID' ]
+	values = [ 'IP', 'MAC', 'TYPE', 'ALLOCATED', 'GLOBAL_PREFIX', 'AR_ID', 'SIZE', 'USED_LEASES' ]
 	
 class AR_POOL(XMLObject):
 	tuples_lists = { 'AR': AR }
 
 class VNET(XMLObject):
-	values = [ 'ID', 'UID', 'GID', 'UNAME', 'GNAME', 'NAME', 'TYPE', 'BRIDGE', 'PUBLIC' ]
+	values = [ 'ID', 'UID', 'GID', 'UNAME', 'GNAME', 'NAME', 'TYPE', 'BRIDGE', 'PUBLIC', 'USED_LEASES', 'TOTAL_LEASES' ]
 	tuples = { 'TEMPLATE': TEMPLATE_VNET, 'LEASES': LEASES, 'RANGE': RANGE, 'AR_POOL':AR_POOL }
 	
 class VNET_POOL(XMLObject):
@@ -366,8 +365,8 @@ class OpenNebulaCloudConnector(CloudConnector):
 
 			%s
 
-			GRAPHICS = [type="vnc",listen="0.0.0.0", keymap="es"]
-		''' % (name, cpu, cpu, memory, arch, disks)
+			%s
+		''' % (name, cpu, cpu, memory, arch, disks, ConfigOpenNebula.TEMPLATE_OTHER)
 
 		res += self.get_networks_template(radl, auth_data)
 
@@ -375,12 +374,14 @@ class OpenNebulaCloudConnector(CloudConnector):
 		# It is supported since 3.8 version, (the VM must be prepared with the ONE contextualization script)
 		private = system.getValue('disk.0.os.credentials.private_key')
 		public = system.getValue('disk.0.os.credentials.public_key')
+		res += 'CONTEXT = ['
 		if private and public:
-			res += '''
-			CONTEXT = [
-				SSH_PUBLIC_KEY = "%s"
-				]
-			''' % public
+			res += 'SSH_PUBLIC_KEY = "%s"' % public
+		if ConfigOpenNebula.TEMPLATE_CONTEXT:
+			if private and public:
+				res += ", "
+			res += ConfigOpenNebula.TEMPLATE_CONTEXT
+		res += ']'
 
 		self.logger.debug("Template: " + res)
 
@@ -416,18 +417,38 @@ class OpenNebulaCloudConnector(CloudConnector):
 		self.logger.debug("OpenNebula version: " + version)
 		return version
 
-	def free_address(self, addres_range):
+	def free_range(self, range, total_leases):
 		"""
 		Check if there are at least one address free
 
 		Arguments:
-		   - leases(:py:class:`AR`): List of AddressRange of a ONE network.
+		   - range(:py:class:`AR_POOL`): a Range of a ONE network.
+		   - total_leases(str): Number of used leases
 		 
 		 Returns: bool, True if there are at least one lease free or False otherwise
 		"""
-		for ar in addres_range:
-			if not ar.ALLOCATED:
-				return True 
+		start = long(''.join(["%02X" % long(i) for i in range.IP_START.split('.')]), 16)
+		end = long(''.join(["%02X" % long(i) for i in range.IP_END.split('.')]), 16)
+		if end - start > int(total_leases):
+			return True
+		return False
+
+	def free_address(self, addres_pool, used_leases):
+		"""
+		Check if there are at least one address free
+
+		Arguments:
+		   - address_pool(:py:class:`AR_POOL`): List of AddressRange of a ONE network.
+		   - used_leases(str): Number of used leases
+		 
+		 Returns: bool, True if there are at least one lease free or False otherwise
+		"""
+		size = 0
+		for ar in addres_pool.AR:	
+			size += int(ar.SIZE)
+		
+		if size > int(used_leases):
+			return True
 		return False
 	
 	def free_leases(self, leases):
@@ -481,12 +502,17 @@ class OpenNebulaCloudConnector(CloudConnector):
 			elif net.TEMPLATE.LEASES and len(net.TEMPLATE.LEASES) > 0:
 				ip = net.TEMPLATE.LEASES[0].IP
 			elif net.AR_POOL and net.AR_POOL.AR and len(net.AR_POOL.AR) > 0:
-				# This is the case for one 4.8
-				if self.free_address(net.AR_POOL.AR):
+				# This is the case for one 4.8 and later
+				if self.free_address(net.AR_POOL, net.USED_LEASES):
 					ip = net.AR_POOL.AR[0].IP
 				else:
 					self.logger.warn("The network with IPs like: " + net.AR_POOL.AR[0].IP + " does not have free leases")
-					continue				
+					continue
+			elif net.RANGE and net.RANGE.IP_START:
+				if self.free_range(net.RANGE, net.TOTAL_LEASES):
+					ip = net.RANGE.IP_START
+				else:
+					self.logger.warn("The network with IPs like: " + net.RANGE.IP_START + " does not have free leases")
 			else:
 				self.logger.warn("IP information is not in the VNET POOL. Use the vn.info")
 				info_res = server.one.vn.info(session_id, int(net.ID))
@@ -497,7 +523,11 @@ class OpenNebulaCloudConnector(CloudConnector):
 					(success, info, err_code) = info_res
 				else:
 					self.logger.warn("Error in the one.vn.info return value. Ignoring network: " + net.NAME)
-					break
+					continue
+				
+				if not success:
+					self.logger.warn("Error in the one.vn.info function: " + info + ". Ignoring network: " + net.NAME)
+					continue
 				
 				net = VNET(info)
 				
@@ -508,7 +538,10 @@ class OpenNebulaCloudConnector(CloudConnector):
 						self.logger.warn("The network with IPs like: " + net.LEASES.LEASE[0].IP + " does not have free leases")
 						break
 				elif net.RANGE and net.RANGE.IP_START:
-					ip = net.RANGE.IP_START
+					if self.free_range(net.RANGE, net.TOTAL_LEASES):
+						ip = net.RANGE.IP_START
+					else:
+						self.logger.warn("The network with IPs like: " + net.RANGE.IP_START + " does not have free leases")
 				else:
 					self.logger.error("Unknown type of network")
 					return (None, None)

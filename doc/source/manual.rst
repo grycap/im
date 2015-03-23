@@ -64,7 +64,7 @@ Installation
 ------------
 
 Form Pip
-^^^^^^^^^^^
+^^^^^^^^
 
 You only have to call the install command of the pip tool with the IM package::
 
@@ -129,7 +129,8 @@ Alternatively, it can be done manually::
 
 IM reads the configuration from :file:`$IM_PATH/etc/im.cfg`, and if it is not
 available, does from ``/etc/im/im.cfg``. There is a template of :file:`im.cfg`
-at the directory :file:`etc` on the tarball. The options are explained next.
+at the directory :file:`etc` on the tarball. The IM reads the values of the ``im``
+section. The options are explained next.
 
 .. _options-basic:
 
@@ -370,3 +371,19 @@ IM IN LOCAL INSTALLATIONS
    It must be one of this values: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16
    If this feature is not needed undefine or use an empty string.
    The default value is ``''``.
+   
+OpenNebula Options
+^^^^^^^^^^^^^^^^^^
+
+The configuration values under the ``OpenNebula`` section:
+
+.. confval:: TEMPLATE_CONTEXT 
+
+   Text to add to the CONTEXT section of the ONE template (except SSH_PUBLIC_KEY)
+   The default value is ``''``.
+
+.. confval:: TEMPLATE_OTHER 
+
+   Text to add to the ONE Template different to NAME, CPU, VCPU, MEMORY, OS, DISK and CONTEXT
+   The default value is ``GRAPHICS = [type="vnc",listen="0.0.0.0"]``. 
+
