@@ -419,7 +419,7 @@ class GCECloudConnector(CloudConnector):
             vm.state = res_state
             
             if 'zone' in node.extra:
-                vm.info.systems[0].setValue('availability_zone', node.extra['zone'])
+                vm.info.systems[0].setValue('availability_zone', node.extra['zone'].name)
             
             vm.setIps(node.public_ips, node.private_ips)
             self.attach_volumes(vm,node)
