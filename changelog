@@ -85,3 +85,4 @@ IM 1.2.1
     * Add DeployedNode connector to enable to configure nodes not deployed with the IM (i.e. physical nodes)
     * Minor bugfixed in InfrastructureManager class
     * Improve error messages
+    * Bugfixes in OpenNebula connector
