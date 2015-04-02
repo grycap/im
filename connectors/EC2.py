@@ -18,6 +18,7 @@ import time
 import base64
 from IM.uriparse import uriparse
 import boto.ec2
+import boto.vpc
 import os
 from IM.VirtualMachine import VirtualMachine
 from CloudConnector import CloudConnector
@@ -61,6 +62,15 @@ class EC2CloudConnector(CloudConnector):
 	INSTANCE_TYPE = 't1.micro'
 	"""str with the name of the default instance type to launch."""
 
+	VM_STATE_MAP = {
+		'pending': VirtualMachine.PENDING,
+		'running': VirtualMachine.RUNNING,
+		'stopped': VirtualMachine.STOPPED,
+		'stopping': VirtualMachine.RUNNING,
+		'shutting-down': VirtualMachine.OFF,
+		'terminated': VirtualMachine.OFF
+	}
+	"""Dictionary with a map with the EC3 VM states to the IM states."""
 
 	def concreteSystem(self, radl_system, auth_data):
 		if radl_system.getValue("disk.0.image.url"):
@@ -78,36 +88,27 @@ class EC2CloudConnector(CloudConnector):
 					self.logger.debug(res_system)
 					return []
 				else:
-					res_system.addFeature(Feature("cpu.count", "=", instance_type.num_cpu * instance_type.cores_per_cpu), conflict="other", missing="other")
-					res_system.addFeature(Feature("memory.size", "=", instance_type.mem, 'M'), conflict="other", missing="other")
-					if instance_type.disks > 0:
-						res_system.addFeature(Feature("disks.free_size", "=", instance_type.disks * instance_type.disk_space, 'G'), conflict="other", missing="other")
-						for i in range(1,instance_type.disks+1):
-							res_system.addFeature(Feature("disk.%d.free_size" % i, "=", instance_type.disk_space, 'G'), conflict="other", missing="other")						
-					res_system.addFeature(Feature("cpu.performance", "=", instance_type.cpu_perf, 'ECU'), conflict="other", missing="other")
-					res_system.addFeature(Feature("price", "=", instance_type.price), conflict="me", missing="other")
-					
-					res_system.addFeature(Feature("instance_type", "=", instance_type.name), conflict="other", missing="other")
-					
-					res_system.addFeature(Feature("provider.type", "=", self.type), conflict="other", missing="other")
-						
+					self.update_system_info_from_instance(res_system, instance_type)						
 					return [res_system]
 			else:
 				return []
 		else:
 			return [radl_system.clone()]
 
-	# Set the EC2 credentials
-	def set_ec2_credentials(self, key_id, access_key):
+	def update_system_info_from_instance(self, system, instance_type):
 		"""
-		Set the EC2 credentials as environment values
-
-		Arguments:
-		   - key_id(str): AWS_ACCESS_KEY_ID value.
-		   - access_key(str): AWS_SECRET_ACCESS_KEY value.
+		Update the features of the system with the information of the instance_type
 		"""
-		os.environ['AWS_ACCESS_KEY_ID'] = key_id
-		os.environ['AWS_SECRET_ACCESS_KEY'] = access_key
+		system.addFeature(Feature("cpu.count", "=", instance_type.num_cpu * instance_type.cores_per_cpu), conflict="other", missing="other")
+		system.addFeature(Feature("memory.size", "=", instance_type.mem, 'M'), conflict="other", missing="other")
+		if instance_type.disks > 0:
+			system.addFeature(Feature("disks.free_size", "=", instance_type.disks * instance_type.disk_space, 'G'), conflict="other", missing="other")
+			for i in range(1,instance_type.disks+1):
+				system.addFeature(Feature("disk.%d.free_size" % i, "=", instance_type.disk_space, 'G'), conflict="other", missing="other")						
+		system.addFeature(Feature("cpu.performance", "=", instance_type.cpu_perf, 'ECU'), conflict="other", missing="other")
+		system.addFeature(Feature("price", "=", instance_type.price), conflict="me", missing="other")
+		
+		system.addFeature(Feature("instance_type", "=", instance_type.name), conflict="other", missing="other")
 
 	# Get the EC2 connection object
 	def get_connection(self, region_name, auth_data):
@@ -123,22 +124,17 @@ class EC2CloudConnector(CloudConnector):
 		try:
 			auth = auth_data.getAuthInfo(EC2CloudConnector.type)
 			if auth and 'username' in auth[0] and 'password' in auth[0]:
-				self.set_ec2_credentials(auth[0]['username'], auth[0]['password'])
+				region = boto.ec2.get_region(region_name)
+				if region:
+					return boto.vpc.VPCConnection(aws_access_key_id=auth[0]['username'], aws_secret_access_key=auth[0]['password'], region=region)
+				else:
+					raise Exception("Incorrect region name: " + region_name)
 			else:
 				self.logger.error("Incorrect auth data")
 				return None
 
-			region = None
-			regions = boto.ec2.regions()
-
-			for r in regions:
-				if r.name == region_name:
-					region = r
-			if region != None:
-				conn = region.connect()
-		except Exception, e:
-			self.logger.error("Error getting the region " + region_name + ": ")
-			self.logger.error(e)
+		except Exception:
+			self.logger.exception("Error getting the region " + region_name + ": ")
 			return None
 	
 		return conn
@@ -211,21 +207,79 @@ class EC2CloudConnector(CloudConnector):
 		else:
 			return res
 
-	def create_security_group(self, conn, inf, radl):
-		res = "default"
+	@staticmethod
+	def set_net_provider_id(radl, vpc, subnet):
+		"""
+		Set the provider ID on all the nets of the system	
+		"""
+		system = radl.systems[0]
+		for i in range(system.getNumNetworkIfaces()):
+			net_id = system.getValue('net_interface.' + str(i) + '.connection')
+			net = radl.get_network_by_id(net_id)
+			if net:
+				net.setValue('provider_id', vpc + "." + subnet)
+
+	@staticmethod
+	def get_net_provider_id(radl):
+		"""
+		Get the provider ID of the first net that has specified it
+		Returns: The net provider ID or None if not defined	
+		"""
+		provider_id = None
+		system = radl.systems[0]
+		for i in range(system.getNumNetworkIfaces()):
+			net_id = system.getValue('net_interface.' + str(i) + '.connection')
+			net = radl.get_network_by_id(net_id)
+			
+			if net:
+				provider_id = net.getValue('provider_id')
+				break;
+		
+		if provider_id:
+			parts = provider_id.split(".")
+			if len(parts) == 2 and parts[0].startswith("vpc-") and parts[1].startswith("subnet-"):
+				# TODO: check that the VPC and subnet, exists
+				return parts[0], parts[1]
+			else:
+				raise Exception("Incorrect provider_id value: " + provider_id + ". It must be <vpc-id>.<subnet-id>.")
+		else:
+			return None
+
+	@staticmethod
+	def _get_security_group(conn, sg_name):
 		try:
 			sg = None
-
-			sg_name = "im-" + str(inf.uuid)
 			for elem in conn.get_all_security_groups():
 				if elem.name == sg_name:
 					sg = elem
 					break
+			return sg
+		except Exception:
+			return None
+
+	def create_security_group(self, conn, inf, radl, vpc = None):
+		res = None
+		try:
+			sg_name = "im-" + str(inf.uuid)
+			sg = self._get_security_group(conn, sg_name)
+
 			if not sg: 
 				self.logger.debug("Creating security group: " + sg_name)
-				sg = conn.create_security_group(sg_name, "Security group created by the IM")
+				try:
+					sg = conn.create_security_group(sg_name, "Security group created by the IM", vpc_id = vpc)
+				except Exception, crex:
+					# First check if the SG does exist
+					sg = self._get_security_group(conn, sg_name)
+					if not sg:
+						# if not raise the exception
+						raise crex
+					else:
+						self.logger.debug("Security group: " + sg_name + " already created.")
 			
-			res = sg_name
+			if vpc:
+				res = [sg.id]
+			else:
+				res = [sg.name]
 			
 			public_net = None
 			for net in radl.networks:
@@ -239,20 +293,26 @@ class EC2CloudConnector(CloudConnector):
 						if local_port != 22 and local_port != 5099:						
 							protocol = remote_protocol
 							if remote_protocol != local_protocol:
-								self.logger.warn("Diferent protocols used in outports ignoring local port protocol!")								
+								self.logger.warn("Different protocols used in outports ignoring local port protocol!")								
 													
 							sg.authorize(protocol, remote_port, local_port, '0.0.0.0/0')
 			
-			sg.authorize('tcp', 22, 22, '0.0.0.0/0')
-			sg.authorize('tcp', 5099, 5099, '0.0.0.0/0')
+			try:
+				sg.authorize('tcp', 22, 22, '0.0.0.0/0')
+				sg.authorize('tcp', 5099, 5099, '0.0.0.0/0')
+				
+				# open all the ports for the VMs in the security group
+				sg.authorize('tcp', 0, 65535, src_group=sg)
+				sg.authorize('udp', 0, 65535, src_group=sg)
+				#sg.authorize('icmp', 0, 65535, src_group=sg)
+			except Exception, addex:
+				self.logger.warn("Exception adding SG rules. Probably the rules exists:" + str(addex))
+				pass
 			
-			# open all the ports for the VMs in the security group
-			sg.authorize('tcp', 0, 65535, src_group=sg)
-			sg.authorize('udp', 0, 65535, src_group=sg)
-			sg.authorize('icmp', 0, 65535, src_group=sg)
-			
-		except Exception:
+		except Exception, ex:
 			self.logger.exception("Error Creating the Security group")
+			if vpc:
+				raise Exception("Error Creating the Security group: " + str(ex))
 			pass
 		
 		return res
@@ -292,6 +352,23 @@ class EC2CloudConnector(CloudConnector):
 
 		return (created, keypair_name)
 
+	def get_default_subnet(self, conn):
+		"""
+		Get the default VPC and the first subnet
+		"""
+		vpc_id  = None
+		subnet_id = None
+		
+		for vpc in conn.get_all_vpcs():
+			if vpc.is_default:
+				vpc_id = vpc.id
+				for subnet in conn.get_all_subnets({"vpcId":vpc_id}):
+					subnet_id = subnet.id
+					break
+				break
+		
+		return vpc_id, subnet_id
+
 	def launch(self, inf, radl, requested_radl, num_vm, auth_data):
 		
 		system = radl.systems[0]
@@ -329,15 +406,39 @@ class EC2CloudConnector(CloudConnector):
 					res.append((False, "Error getting correct block_device name from AMI: " + str(ami)))
 				return res
 			
+			# Create the security group for the VMs
+			provider_id = self.get_net_provider_id(radl)
+			if provider_id:
+				vpc, subnet = provider_id
+				sg_names = None
+				sg_ids = self.create_security_group(conn, inf, radl, vpc)
+				if not sg_ids:
+					vpc = None
+					subnet = None
+					sg_ids = None
+					sg_names = ['default']
+			else:
+				# Check the default VPC and get the first subnet with a connection with a gateway
+				# If there are no default VPC, use EC2-classic
+				vpc, subnet = self.get_default_subnet(conn)
+				if vpc:
+					self.set_net_provider_id(radl, vpc, subnet)
+					sg_names = None
+					sg_ids = self.create_security_group(conn, inf, radl, vpc)
+				else:
+					sg_ids = None
+					sg_names = self.create_security_group(conn, inf, radl, vpc)
+					if not sg_names:
+						sg_names = ['default']
+			
+			# Now create the keypair
 			(created_keypair, keypair_name) = self.create_keypair(system, conn)
 			if not keypair_name:
 				self.logger.error("Error managing the keypair.")
 				for i in range(num_vm):
 					res.append((False, "Error managing the keypair."))
 				return res
-
-			# Create the security group for the VMs				
-			sg_name = self.create_security_group(conn, inf, radl)
+			
 			all_failed = True
 
 			i = 0
@@ -384,7 +485,7 @@ class EC2CloudConnector(CloudConnector):
 							# Force to use magnetic volumes
 							bdm = boto.ec2.blockdevicemapping.BlockDeviceMapping(conn)
 							bdm[block_device_name] = boto.ec2.blockdevicemapping.BlockDeviceType(volume_type="standard")
-							request = conn.request_spot_instances(price=price, image_id=image.id, count=1, type='one-time', instance_type=instance_type.name, placement=availability_zone, key_name=keypair_name, security_groups=[sg_name], block_device_map=bdm)
+							request = conn.request_spot_instances(price=price, image_id=image.id, count=1, type='one-time', instance_type=instance_type.name, placement=availability_zone, key_name=keypair_name, security_groups=sg_names, security_group_ids=sg_ids, block_device_map=bdm, subnet_id=subnet)
 							
 							if request:
 								ec2_vm_id = region_name + ";" + request[0].id
@@ -413,12 +514,13 @@ class EC2CloudConnector(CloudConnector):
 							# Force to use magnetic volumes
 							bdm = boto.ec2.blockdevicemapping.BlockDeviceMapping(conn)
 							bdm[block_device_name] = boto.ec2.blockdevicemapping.BlockDeviceType(volume_type="standard")
-							reservation = image.run(min_count=1,max_count=1,key_name=keypair_name,instance_type=instance_type.name,security_groups=[sg_name],placement=placement,block_device_map=bdm)
+							# Check if the user has specified the net provider id 
+							reservation = image.run(min_count=1,max_count=1,key_name=keypair_name,instance_type=instance_type.name,security_groups=sg_names,security_group_ids=sg_ids,placement=placement,block_device_map=bdm,subnet_id=subnet)
 		
 							if len(reservation.instances) == 1:
 								instance = reservation.instances[0]
 								ec2_vm_id = region_name + ";" + instance.id
-									
+
 								self.logger.debug("RADL:")
 								self.logger.debug(system)
 								
@@ -441,8 +543,10 @@ class EC2CloudConnector(CloudConnector):
 		if all_failed:
 			if created_keypair:
 				conn.delete_key_pair(keypair_name)
-			if sg_name != 'default':
-				conn.delete_security_group(sg_name)
+			if sg_ids:
+				conn.delete_security_group(group_id = sg_ids[0])
+			if sg_names and sg_names[0] != 'default':
+				conn.delete_security_group(sg_names[0])
 			
 		return res
 
@@ -483,8 +587,9 @@ class EC2CloudConnector(CloudConnector):
 		"""
 		try:
 			if instance.state == 'running' and not "volumes" in vm.__dict__.keys():
+				# Flag to se that this VM has created (or is creating) the volumes
+				vm.volumes = True
 				conn = instance.connection
-				vm.volumes = []
 				cont = 1
 				while vm.info.systems[0].getValue("disk." + str(cont) + ".size") and vm.info.systems[0].getValue("disk." + str(cont) + ".device"):
 					disk_size = vm.info.systems[0].getFeature("disk." + str(cont) + ".size").getValue('G')
@@ -492,47 +597,51 @@ class EC2CloudConnector(CloudConnector):
 					self.logger.debug("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
 					volume = self.create_volume(conn, int(disk_size), instance.placement)
 					if volume:
-						vm.volumes.append(volume.id)
 						self.logger.debug("Attach the volume ID " + str(volume.id))
 						conn.attach_volume(volume.id, instance.id, "/dev/" + disk_device)
 					cont += 1
 		except Exception:
 			self.logger.exception("Error creating or attaching the volume to the instance")
 			
-	def delete_volumes(self, conn, vm, timeout = 240):
+	def delete_volumes(self, conn, volumes, instance_id, timeout = 240):
 		"""
-		Delete the volumes of a VM
+		Delete the volumes specified in the volumes list
 
 		Arguments:
 		   - conn(:py:class:`boto.ec2.connection`): object to connect to EC2 API.
-		   - vm(:py:class:`IM.VirtualMachine`): VM information.	
+		   - volumes(list of strings): Volume IDs to delete.	
 		   - timeout(int): Time needed to delete the volume.	
 		"""
-		if "volumes" in vm.__dict__.keys() and vm.volumes:
-			instance_id = vm.id.split(";")[1]
-			for volume_id in vm.volumes:
-				cont = 0
-				deleted = False
-				while not deleted and cont < timeout:
-					cont += 5
-					try:
-						curr_vol = conn.get_all_volumes([volume_id])[0]
-						if str(curr_vol.attachment_state()) == "attached":
-							self.logger.debug("Detaching the volume " + volume_id + " from the instance " + instance_id)
-							conn.detach_volume(volume_id, instance_id, force=True)
-						elif curr_vol.attachment_state() is None:
-							self.logger.debug("Removing the volume " + volume_id)
-							conn.delete_volume(volume_id)
-							deleted = True
-						else:
-							self.logger.debug("State: " + str(curr_vol.attachment_state()))
-					except Exception:
-						self.logger.exception("Error removing the volume.")
+		for volume_id in volumes:
+			cont = 0
+			deleted = False
+			while not deleted and cont < timeout:
+				cont += 5
+				try:
+					curr_vol = conn.get_all_volumes([volume_id])[0]
+				except:
+					self.logger.warn("The volume " + volume_id + " does not exist. It cannot be removed. Ignore it.")
+					deleted = True
+					break
+				try:
+					curr_vol = conn.get_all_volumes([volume_id])[0]
+					if str(curr_vol.attachment_state()) == "attached":
+						self.logger.debug("Detaching the volume " + volume_id + " from the instance " + instance_id)
+						conn.detach_volume(volume_id, instance_id, force=True)
+					elif curr_vol.attachment_state() is None:
+						self.logger.debug("Removing the volume " + volume_id)
+						conn.delete_volume(volume_id)
+						deleted = True
+					else:
+						self.logger.debug("State: " + str(curr_vol.attachment_state()))
+				except Exception, ex:
+					self.logger.warn("Error removing the volume: " + str(ex))
 
+				if not deleted:
 					time.sleep(5)
-				
-				if not deleted:	
-					self.logger.error("Error removing the volume " + volume_id)
+			
+			if not deleted:	
+				self.logger.error("Error removing the volume " + volume_id)
 
 	# Get the EC2 instance object with the specified ID
 	def get_instance_by_id(self, instance_id, region_name, auth_data):
@@ -567,7 +676,9 @@ class EC2CloudConnector(CloudConnector):
 		   - fixed_ip(str, optional): specifies a fixed IP to add to the instance.
 		Returns: a :py:class:`boto.ec2.address.Address` added or None if some problem occur.	
 		"""
-		if vm.state == VirtualMachine.RUNNING:
+		if vm.state == VirtualMachine.RUNNING and not "elastic_ip" in vm.__dict__.keys():
+			# Flag to set that this VM has created (or is creating) the elastic IPs
+			vm.elastic_ip = True
 			try:
 				pub_address = None
 				self.logger.debug("Add an Elastic IP")
@@ -582,10 +693,15 @@ class EC2CloudConnector(CloudConnector):
 						self.logger.warn("Setting a fixed IP NOT ALLOCATED! (" + fixed_ip + "). Ignore it.")
 						return None
 				else:
-					pub_address = instance.connection.allocate_address()
+					provider_id = self.get_net_provider_id(vm.info)
+					if provider_id:
+						pub_address = instance.connection.allocate_address(domain="vpc")
+						instance.connection.associate_address(instance.id, allocation_id=pub_address.allocation_id)
+					else:
+						pub_address = instance.connection.allocate_address()
+						instance.connection.associate_address(instance.id, pub_address.public_ip)
 
 				self.logger.debug(pub_address)
-				pub_address.associate(instance.id)
 				return pub_address
 			except Exception:
 				self.logger.exception("Error adding an Elastic IP to VM ID: " + str(vm.id))
@@ -738,30 +854,15 @@ class EC2CloudConnector(CloudConnector):
 			vm.info.systems[0].setValue("virtual_system_type", "'" + instance.virtualization_type + "'")
 			vm.info.systems[0].setValue("availability_zone",  "'" + instance.placement + "'")
 			
-			if instance.state == 'pending':
-				res_state = VirtualMachine.PENDING
-			elif instance.state == 'running':
-				res_state = VirtualMachine.RUNNING
-			elif instance.state == 'stopped':
-				res_state = VirtualMachine.STOPPED
-			elif instance.state == 'stopping':
-				res_state = VirtualMachine.RUNNING
-			elif instance.state == 'shutting-down':
-				res_state = VirtualMachine.OFF
-			elif instance.state == 'terminated':
-				res_state = VirtualMachine.OFF
-			else:
-				res_state = VirtualMachine.UNKNOWN
-				
-			vm.state = res_state
+			vm.state = self.VM_STATE_MAP.get(instance.state, VirtualMachine.UNKNOWN)
 			
 			self.setIPsFromInstance(vm, instance)
 			self.attach_volumes(instance, vm)
 			
 			try:
 				vm.info.systems[0].setValue('launch_time', int(time.mktime(time.strptime(instance.launch_time[:19],'%Y-%m-%dT%H:%M:%S'))))
-			except:
-				self.logger.exception("Error setting the launch_time of the instance")
+			except Exception, ex:
+				self.logger.warn("Error setting the launch_time of the instance. Probably the instance is not running:" + str(ex))
 			
 		else:
 			vm.state = VirtualMachine.OFF
@@ -795,9 +896,13 @@ class EC2CloudConnector(CloudConnector):
 		conn = self.get_connection(region_name, auth_data)
 		
 		# Terminate the instance
+		volumes = []
 		instance = self.get_instance_by_id(instance_id, region_name, auth_data)
 		if (instance != None):
 			instance.update()
+			# Get the volumnes to delete
+			for volume in instance.block_device_mapping.values():
+				volumes.append(volume.volume_id)
 			instance.terminate()
 
 		public_key = vm.getRequestedSystem().getValue('disk.0.os.credentials.public_key')
@@ -812,7 +917,7 @@ class EC2CloudConnector(CloudConnector):
 		self.cancel_spot_requests(conn, vm)
 		
 		# Delete the EBS volumes
-		self.delete_volumes(conn, vm)
+		self.delete_volumes(conn, volumes, instance.id)
 		
 		# Delete the SG if this is the last VM
 		self.delete_security_group(conn, vm.inf)
@@ -827,12 +932,8 @@ class EC2CloudConnector(CloudConnector):
 		   - conn(:py:class:`boto.ec2.connection`): object to connect to EC2 API.
 		   - inf(:py:class:`IM.InfrastructureInfo`): Infrastructure information.	
 		"""
-		sg_name = "im-" + str(id(inf))
-		sg = None
-		for elem in conn.get_all_security_groups():
-			if elem.name == sg_name:
-				sg = elem
-				break
+		sg_name = "im-" + str(inf.uuid)
+		sg  = self._get_security_group(conn, sg_name)
 
 		if sg:
 			some_vm_running = False
@@ -856,10 +957,33 @@ class EC2CloudConnector(CloudConnector):
 	
 				if all_vms_terminated:
 					self.logger.debug("Remove the SG: " + sg_name)
-					sg.delete()
+					try:
+						sg.revoke('tcp', 0, 65535, src_group=sg)
+						sg.revoke('udp', 0, 65535, src_group=sg)
+						time.sleep(2)
+					except Exception, ex:
+						self.logger.warn("Error revoking self rules: " + str(ex))
+					
+					deleted = False
+					while not deleted and cont < timeout:
+						time.sleep(5)
+						cont += 5
+						try:
+							sg.delete()
+							deleted = True
+						except Exception, ex:
+							# Check if it has been deleted yet
+							sg = self._get_security_group(conn, sg_name)
+							if not sg:
+								self.logger.debug("Error deleting the SG. But it does not exist. Ignore. " + str(ex))
+								deleted = True								
+							else:
+								self.logger.exception("Error deleting the SG.")
 			else:
 				# If there are more than 1, we skip this step
 				self.logger.debug("There are active instances. Not removing the SG")
+		else:
+			self.logger.warn("No Security Group with name: " + sg_name)
 		
 		
 	def stop(self, vm, auth_data):
@@ -883,9 +1007,52 @@ class EC2CloudConnector(CloudConnector):
 			instance.start()
 		
 		return (True, "")
+	
+	def waitStop(self, instance, timeout = 60):
+		"""
+		Wait a instance to be stopped
+		"""
+		instance.stop()
+		wait = 0
+		powered_off = False
+		while wait < timeout and not powered_off:
+			instance.update()
+			
+			powered_off = instance.state == 'stopped'
+			if not powered_off: 
+				time.sleep(2)
+				wait += 2
+		
+		return powered_off
 		
 	def alterVM(self, vm, radl, auth_data):
-		return (False, "Not supported")
+		region_name = vm.id.split(";")[0]
+		instance_id = vm.id.split(";")[1]
+
+		# Terminate the instance
+		instance = self.get_instance_by_id(instance_id, region_name, auth_data)
+		if instance:
+			instance.update()
+		else:
+			return (False, "The instance has not been found")
+		
+		success = True
+		if radl.systems:
+			radl.systems[0].applyFeatures(vm.requested_radl.systems[0],conflict="me", missing="me")
+			instance_type = self.get_instance_type(radl.systems[0])
+			
+			if instance.instance_type != instance_type.name:
+				self.waitStop(instance)
+				success = instance.modify_attribute('instanceType', instance_type.name)
+				if success:
+					self.update_system_info_from_instance(vm.info.systems[0], instance_type)
+				instance.start()
+		
+		if success:
+			return (success, self.updateVMInfo(vm, auth_data))
+		else:
+			return (success, "Unknown Error")
+		
 
 	def get_all_instance_types(self):
 		"""
@@ -906,20 +1073,20 @@ class EC2CloudConnector(CloudConnector):
 		t2_medium = InstanceTypeInfo("t2.medium", ["i386", "x86_64"], 2, 1, 4096, 0.052, 0.5)
 		list.append(t2_medium)
 		
-		m1_small = InstanceTypeInfo("m1.small", ["i386", "x86_64"], 1, 1, 1740, 0.0071, 1, 1, 160)
+		m1_small = InstanceTypeInfo("m1.small", ["i386", "x86_64"], 1, 1, 1740, 0.0171, 1, 1, 160)
 		list.append(m1_small)
-		m1_medium = InstanceTypeInfo("m1.medium", ["i386", "x86_64"], 1, 1, 3840, 0.0081, 2, 1, 410)
+		m1_medium = InstanceTypeInfo("m1.medium", ["i386", "x86_64"], 1, 1, 3840, 0.0331, 2, 1, 410)
 		list.append(m1_medium)
-		m1_large = InstanceTypeInfo("m1.large", ["x86_64"], 1, 2, 7680, 0.0161, 4, 2, 420)
+		m1_large = InstanceTypeInfo("m1.large", ["x86_64"], 1, 2, 7680, 0.0661, 4, 2, 420)
 		list.append(m1_large)
-		m1_xlarge = InstanceTypeInfo("m1.xlarge", ["x86_64"], 1, 4, 15360, 0.0321, 8, 4, 420)
+		m1_xlarge = InstanceTypeInfo("m1.xlarge", ["x86_64"], 1, 4, 15360, 0.1321, 8, 4, 420)
 		list.append(m1_xlarge)
 		
-		m2_xlarge = InstanceTypeInfo("m2.xlarge", ["x86_64"], 1, 2, 17510, 0.0161, 6.5, 1, 420)
+		m2_xlarge = InstanceTypeInfo("m2.xlarge", ["x86_64"], 1, 2, 17510, 0.0701, 6.5, 1, 420)
 		list.append(m2_xlarge)
-		m2_2xlarge = InstanceTypeInfo("m2.2xlarge", ["x86_64"], 1, 4, 35020, 0.0321, 13, 1, 850)
+		m2_2xlarge = InstanceTypeInfo("m2.2xlarge", ["x86_64"], 1, 4, 35020, 0.1401, 13, 1, 850)
 		list.append(m2_2xlarge)
-		m2_4xlarge = InstanceTypeInfo("m2.4xlarge", ["x86_64"], 1, 4, 70041, 0.075, 13, 2, 840)
+		m2_4xlarge = InstanceTypeInfo("m2.4xlarge", ["x86_64"], 1, 4, 70041, 0.2801, 13, 2, 840)
 		list.append(m2_4xlarge)
 		
 		m3_medium = InstanceTypeInfo("m3.medium", ["x86_64"], 1, 1, 3840, 0.07, 3, 1, 4)
@@ -931,15 +1098,15 @@ class EC2CloudConnector(CloudConnector):
 		m3_2xlarge = InstanceTypeInfo("m3.2xlarge", ["x86_64"], 1, 8, 30720, 0.56, 26, 2, 80)
 		list.append(m3_2xlarge)
 		
-		c1_medium = InstanceTypeInfo("c1.medium", ["i386", "x86_64"], 1, 2, 1740, 0.0161, 5, 1, 350)
+		c1_medium = InstanceTypeInfo("c1.medium", ["i386", "x86_64"], 1, 2, 1740, 0.05, 5, 1, 350)
 		list.append(c1_medium)
-		c1_xlarge = InstanceTypeInfo("c1.xlarge", ["x86_64"], 1, 8, 7680, 0.0641, 20, 4, 420)
+		c1_xlarge = InstanceTypeInfo("c1.xlarge", ["x86_64"], 1, 8, 7680, 0.2, 20, 4, 420)
 		list.append(c1_xlarge)
 		
-		cc2_8xlarge = InstanceTypeInfo("cc2.8xlarge", ["x86_64"], 2, 8, 61952, 0.2562, 88, 4, 840)
+		cc2_8xlarge = InstanceTypeInfo("cc2.8xlarge", ["x86_64"], 2, 8, 61952, 0.4281, 88, 4, 840)
 		list.append(cc2_8xlarge)
 		
-		cr1_8xlarge = InstanceTypeInfo("cr1.8xlarge", ["x86_64"], 2, 8, 249856, 0.3666, 88, 2, 120)
+		cr1_8xlarge = InstanceTypeInfo("cr1.8xlarge", ["x86_64"], 2, 8, 249856, 0.2687, 88, 2, 120)
 		list.append(cr1_8xlarge)
 		
 		c3_large = InstanceTypeInfo("c3.large", ["x86_64"], 2, 1, 3840, 0.105, 7, 2, 16)
@@ -972,6 +1139,20 @@ class EC2CloudConnector(CloudConnector):
 		list.append(i2_4xlarge)
 		i2_8xlarge = InstanceTypeInfo("i2.8xlarge", ["x86_64"], 32, 1, 249856, 6.82, 104, 8, 800)
 		list.append(i2_8xlarge)
+		
+		hs1_8xlarge = InstanceTypeInfo("hs1.8xlarge", ["x86_64"], 16, 1, 119808, 4.6, 35, 24, 2048)
+		list.append(hs1_8xlarge)
+		
+		c4_large = InstanceTypeInfo("c4.large", ["x86_64"], 2, 1, 3840, 0.116, 8, 1, 0)
+		list.append(c4_large)
+		c4_xlarge = InstanceTypeInfo("c4.xlarge", ["x86_64"], 4, 1, 7680, 0.232, 16, 1, 0)
+		list.append(c4_xlarge)
+		c4_2xlarge = InstanceTypeInfo("c4.2xlarge", ["x86_64"], 8, 1, 15360, 0.464, 31, 1, 0)
+		list.append(c4_2xlarge)
+		c4_4xlarge = InstanceTypeInfo("c4.4xlarge", ["x86_64"], 16, 1, 30720, 0.928, 62, 1, 0)
+		list.append(c4_4xlarge)
+		c4_8xlarge = InstanceTypeInfo("c4.8xlarge", ["x86_64"], 36, 1, 61952, 1.856, 132, 1, 0)
+		list.append(c4_8xlarge)
 		
 		return list
 

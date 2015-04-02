@@ -16,10 +16,15 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import sys
+
+if sys.version_info <= (2, 6):
+	print "Must use python 2.6 or greater"
+	sys.exit(1)
+
 import logging
 import os
 import signal
-import sys
 
 from IM.request import Request, AsyncRequest, AsyncXMLRPCServer, get_system_queue
 from IM.InfrastructureManager import InfrastructureManager
@@ -326,7 +331,7 @@ def launch_daemon():
 	
 	InfrastructureManager.logger.info('************ Start Infrastructure Manager daemon (v.%s) ************' % version)
 
-	# Launch the API XMLRPC thread 
+	# Launch the API XMLRPC thread
 	server.serve_forever_in_thread()
 	
 	if Config.ACTIVATE_REST:
@@ -348,22 +353,27 @@ def config_logging():
 	fileh = logging.handlers.RotatingFileHandler(filename=Config.LOG_FILE, maxBytes=Config.LOG_FILE_MAX_SIZE, backupCount=3)
 	formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 	fileh.setFormatter(formatter)
+	
+	try:
+		log_level = eval("logging." + Config.LOG_LEVEL)
+	except:
+		log_level = logging.DEBUG
 
 	logging.RootLogger.propagate = 0
 	logging.root.setLevel(logging.ERROR)
 	
 	log = logging.getLogger('ConfManager')
-	log.setLevel(Config.LOG_LEVEL)
+	log.setLevel(log_level)
 	log.propagate = 0
 	log.addHandler(fileh)
 	
 	log = logging.getLogger('CloudConnector')
-	log.setLevel(Config.LOG_LEVEL)
+	log.setLevel(log_level)
 	log.propagate = 0
 	log.addHandler(fileh)
 	
 	log = logging.getLogger('InfrastructureManager')
-	log.setLevel(Config.LOG_LEVEL)
+	log.setLevel(log_level)
 	log.propagate = 0
 	log.addHandler(fileh)
 

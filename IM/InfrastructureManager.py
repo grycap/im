@@ -21,7 +21,6 @@ import cPickle as pickle
 import threading
 import string
 import random
-#from multiprocessing.pool import ThreadPool
 
 from VMRC import VMRC
 from CloudInfo import CloudInfo 
@@ -35,6 +34,9 @@ from IM.radl.radl import Feature
 from IM.recipe import Recipe
 
 from config import Config
+
+if Config.MAX_SIMULTANEOUS_LAUNCHES > 1:
+	from multiprocessing.pool import ThreadPool
 
 class IncorrectInfrastructureException(Exception):
 	""" Invalid infrastructure ID or access not granted. """
@@ -174,7 +176,7 @@ class InfrastructureManager:
 				       not cancel_deployment):
 					concrete_system = concrete_systems[cloud_id][deploy.id][0]
 					if not concrete_system:
-						InfrastructureManager.logger.error("Error, no concrete system to deploy: " + deploy.id + ". Check if a correct image is being used")
+						InfrastructureManager.logger.error("Error, no concrete system to deploy: " + deploy.id + " in cloud: " + cloud_id + ". Check if a correct image is being used")
 						exceptions.append("Error, no concrete system to deploy: " + deploy.id + ". Check if a correct image is being used")
 						break
 					
@@ -215,7 +217,10 @@ class InfrastructureManager:
 			if cancel_deployment or all_ok:
 				break
 		if not all_ok and not cancel_deployment:
-			cancel_deployment.append(Exception("All machines could not be launched: %s" % exceptions))
+			msg = ""
+			for i, e in enumerate(exceptions):
+				msg += "Attempt " + str(i+1) + ": " + str(e) + "\n"
+			cancel_deployment.append(Exception("All machines could not be launched: \n%s" % msg))
 
 	@staticmethod
 	def get_infrastructure(inf_id, auth):
@@ -363,6 +368,7 @@ class InfrastructureManager:
 		# If any deploy is defined, only update definitions.
 		if not radl.deploys:
 			sel_inf.update_radl(radl, [])
+			InfrastructureManager.logger.debug("Infrastructure without any deploy. Exiting.")
 			return []
 
 		for system in radl.systems:
@@ -454,7 +460,7 @@ class InfrastructureManager:
 				scored_clouds = [ (cloud_id, 1) for cloud_id, _ in cloud_list0 ]
 			
 			ordered_cloud_list = [ c.id for c in CloudInfo.get_cloud_list(auth) ]
-			# reverse the list to use the reverse order inthe sort function
+			# reverse the list to use the reverse order in the sort function
 			ordered_cloud_list.reverse()
 			# Order the clouds first by the score and then using the cloud order in the auth data 
 			sorted_scored_clouds = sorted(scored_clouds, key=lambda x: (x[1], ordered_cloud_list.index(x[0])), reverse=True)
@@ -464,15 +470,17 @@ class InfrastructureManager:
 		deployed_vm = {}
 		cancel_deployment = []
 		try:
-			#pool = ThreadPool(processes=Config.MAX_SIMULTANEOUS_LAUNCHES)
-			#pool.map(
-			#	lambda ds: InfrastructureManager._launch_group(sel_inf
-			#		ds, deploys_group_cloud_list[id(ds)], cloud_list, concrete_systems,
-			#		radl, auth, deployed_vm, cancel_deployment), deploy_groups)
-			for ds in deploy_groups:
-				InfrastructureManager._launch_group(sel_inf,
-					ds, deploys_group_cloud_list[id(ds)], cloud_list, concrete_systems,
-					radl, auth, deployed_vm, cancel_deployment)
+			if Config.MAX_SIMULTANEOUS_LAUNCHES > 1:
+				pool = ThreadPool(processes=Config.MAX_SIMULTANEOUS_LAUNCHES)
+				pool.map(
+					lambda ds: InfrastructureManager._launch_group(sel_inf,
+						ds, deploys_group_cloud_list[id(ds)], cloud_list, concrete_systems,
+						radl, auth, deployed_vm, cancel_deployment), deploy_groups)
+			else:
+				for ds in deploy_groups:
+					InfrastructureManager._launch_group(sel_inf,
+						ds, deploys_group_cloud_list[id(ds)], cloud_list, concrete_systems,
+						radl, auth, deployed_vm, cancel_deployment)
 		except Exception, e:
 			# Please, avoid exception to arrive to this level, because some virtual
 			# machine may lost.
@@ -492,7 +500,10 @@ class InfrastructureManager:
 			# If error, all deployed virtual machine will be undeployed.
 			for vm in new_vms:
 				vm.finalize(auth)
-			raise Exception("Some deploys did not proceed successfully: %s" % cancel_deployment)
+			msg = ""
+			for e in cancel_deployment:
+				msg += str(e) + "\n"
+			raise Exception("Some deploys did not proceed successfully: %s" % msg)
 
 
 		for vm in new_vms:
@@ -661,7 +672,7 @@ class InfrastructureManager:
 
 		exception = None
 		try:
-			(success, alter_res) = vm.alter(vm, radl, auth)
+			(success, alter_res) = vm.alter(radl, auth)
 		except Exception, e:
 			exception = e
 		InfrastructureManager.save_data()
@@ -692,7 +703,16 @@ class InfrastructureManager:
 		sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
 
 		InfrastructureManager.logger.info("RADL obtained successfully")
-		InfrastructureManager.logger.debug(str(sel_inf.radl))
+		# remove the F0000__FAKE_SYSTEM__ deploys
+		# TODO: Do in a better way
+		radl = sel_inf.radl.clone()
+		deploys = []
+		for deploy in radl.deploys:
+			if not deploy.id.startswith("F0000__FAKE_SYSTEM_"):
+				deploys.append(deploy)
+		radl.deploys = deploys
+		
+		InfrastructureManager.logger.debug(str(radl))
 		return str(sel_inf.radl)
 	
 	@staticmethod
@@ -735,7 +755,7 @@ class InfrastructureManager:
 		InfrastructureManager.logger.info("Getting cont msg of the inf: " + str(inf_id))
 	
 		sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
-		res = sel_inf.cont_out + "\n\n".join([vm.cont_out for vm in sel_inf.get_vm_list()])
+		res = sel_inf.cont_out + "\n\n".join([vm.cont_out for vm in sel_inf.get_vm_list() if vm.cont_out])
 
 		InfrastructureManager.logger.debug(res)
 		return res
@@ -769,7 +789,10 @@ class InfrastructureManager:
 				exceptions.append(msg)
 
 		if exceptions:
-			raise Exception("Error stopping the infrastructure: %s" % "\n".join(exceptions))
+			msg = ""
+			for e in exceptions:
+				msg += str(e) + "\n"
+			raise Exception("Error stopping the infrastructure: %s" % msg)
 
 		InfrastructureManager.logger.info("Infrastructure successfully stopped")
 		return ""
@@ -803,7 +826,10 @@ class InfrastructureManager:
 				exceptions.append(msg)
 
 		if exceptions:
-			raise Exception("Error starting the infrastructure: %s" % "\n".join(exceptions))
+			msg = ""
+			for e in exceptions:
+				msg += str(e) + "\n"
+			raise Exception("Error starting the infrastructure: %s" % msg)
 
 		InfrastructureManager.logger.info("Infrastructure successfully restarted")
 		return ""
@@ -815,11 +841,23 @@ class InfrastructureManager:
 		with InfrastructureManager._lock:
 			items_to_delete = []
 			for infId, inf in InfrastructureManager.infrastructure_list.items():
-				if inf.deleted and len(InfrastructureManager.infrastructure_list) - infId >= Config.MAX_INF_STORED:
+				if inf.deleted and InfrastructureManager.global_inf_id - infId >= Config.MAX_INF_STORED:
 						items_to_delete.append(infId)
 	
 			for item in items_to_delete:
 				del InfrastructureManager.infrastructure_list[item]
+
+	@staticmethod
+	def _delete_vm(vm, auth, exceptions):
+		try:
+			success = False
+			InfrastructureManager.logger.debug("Finalizing the VM id: " + str(vm.id))
+			(success, msg) = vm.finalize(auth)
+		except Exception, e:
+			msg = str(e)
+		if not success:
+			InfrastructureManager.logger.info("The VM cannot be finalized")
+			exceptions.append(msg)
 
 	@staticmethod
 	def DestroyInfrastructure(inf_id, auth):
@@ -838,20 +876,23 @@ class InfrastructureManager:
 
 		sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
 		exceptions = []
-		# If IM server is the first VM, then it will be the last destroyed
-		for vm in reversed(sel_inf.get_vm_list()):
-			try:
-				success = False
-				InfrastructureManager.logger.debug("Finalizing the VM id: " + str(vm.id))
-				(success, msg) = vm.finalize(auth)
-			except Exception, e:
-				msg = str(e)
-			if not success:
-				InfrastructureManager.logger.info("The VM cannot be finalized")
-				exceptions.append(msg)
+		
+		if Config.MAX_SIMULTANEOUS_LAUNCHES > 1:
+			pool = ThreadPool(processes=Config.MAX_SIMULTANEOUS_LAUNCHES)
+			pool.map(
+				lambda vm: InfrastructureManager._delete_vm(vm, auth, exceptions), 
+				reversed(sel_inf.get_vm_list())
+				)
+		else:
+			# If IM server is the first VM, then it will be the last destroyed
+			for vm in reversed(sel_inf.get_vm_list()):
+				InfrastructureManager._delete_vm(vm, auth, exceptions)
 
 		if exceptions:
-			raise Exception("Error destroying the infrastructure: %s" % "\n".join(exceptions))
+			msg = ""
+			for e in exceptions:
+				msg += str(e) + "\n"
+			raise Exception("Error destroying the infrastructure: \n%s" % msg)
 
 		sel_inf.delete()
 		InfrastructureManager.remove_old_inf()
@@ -907,6 +948,9 @@ class InfrastructureManager:
 		# First check if it is configured to check the users from a list
 		if not InfrastructureManager.check_im_user(auth.getAuthInfo("InfrastructureManager")):
 			raise UnauthorizedUserException()
+
+		if not auth.getAuthInfo("InfrastructureManager"):
+			raise Exception("No credentials provided for the InfrastructureManager")
 		
 		# Create a new infrastructure
 		inf = InfrastructureInfo.InfrastructureInfo()
@@ -955,7 +999,7 @@ class InfrastructureManager:
 		auth = Authentication(auth_data)
 
 		sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
-		str_inf = pickle.dumps(sel_inf)
+		str_inf = pickle.dumps(sel_inf, 2)
 		InfrastructureManager.logger.info("Exporting infrastructure id: " + str(sel_inf.id))
 		if delete:
 			sel_inf.deleted = True
@@ -998,8 +1042,8 @@ class InfrastructureManager:
 			if not InfrastructureManager._exiting:
 				try:
 					data_file = open(Config.DATA_FILE, 'wb')
-					pickle.dump(InfrastructureManager.global_inf_id, data_file)
-					pickle.dump(InfrastructureManager.infrastructure_list, data_file)
+					pickle.dump(InfrastructureManager.global_inf_id, data_file, 2)
+					pickle.dump(InfrastructureManager.infrastructure_list, data_file, 2)
 					data_file.close()
 				except Exception, ex:
 					InfrastructureManager.logger.exception("ERROR saving data to the file: " + Config.DATA_FILE + ". Changes not stored!!")

@@ -31,6 +31,7 @@ class GCECloudConnector(CloudConnector):
     
     type = "GCE"
     """str with the name of the provider."""
+    DEFAULT_ZONE = "us-central1"
     
     def get_driver(self, auth_data):
         """
@@ -50,7 +51,8 @@ class GCECloudConnector(CloudConnector):
             return driver
         else:
             self.logger.error("No correct auth data has been specified to GCE: username, password and project")
-            return None
+            self.logger.debug(auth)
+            raise Exception("No correct auth data has been specified to GCE: username, password and project")
 
     
     def concreteSystem(self, radl_system, auth_data):
@@ -66,13 +68,15 @@ class GCECloudConnector(CloudConnector):
                     region = res_system.getValue('availability_zone')
                 else:
                     region, _ = self.get_image_data(res_system.getValue("disk.0.image.url"))
-                    region = res_system.setValue('availability_zone', region)
                 
                 instance_type = self.get_instance_type(driver.list_sizes(region), res_system)
                 
+                if not instance_type:
+                    return []
+                
                 username = res_system.getValue('disk.0.os.credentials.username')
                 if not username:
-                    res_system.setValue('disk.0.os.credentials.username','root')
+                    res_system.setValue('disk.0.os.credentials.username','gceuser')
                 res_system.addFeature(Feature("memory.size", "=", instance_type.ram, 'M'), conflict="other", missing="other")
                 if instance_type.disk:
                     res_system.addFeature(Feature("disk.0.free_size", "=", instance_type.disk , 'G'), conflict="other", missing="other")
@@ -87,6 +91,37 @@ class GCECloudConnector(CloudConnector):
                 return []
         else:
             return [radl_system.clone()]
+
+    @staticmethod
+    def set_net_provider_id(radl, net_name):
+        """
+        Set the provider ID on all the nets of the system    
+        """
+        system = radl.systems[0]
+        for i in range(system.getNumNetworkIfaces()):
+            net_id = system.getValue('net_interface.' + str(i) + '.connection')
+            net = radl.get_network_by_id(net_id)
+            if net:
+                net.setValue('provider_id', net_name)
+
+    @staticmethod
+    def get_net_provider_id(radl):
+        """
+        Get the provider ID of the first net that has specified it
+        Returns: The net provider ID or None if not defined    
+        """
+        provider_id = None
+        system = radl.systems[0]
+        for i in range(system.getNumNetworkIfaces()):
+            net_id = system.getValue('net_interface.' + str(i) + '.connection')
+            net = radl.get_network_by_id(net_id)
+            
+            if net:
+                provider_id = net.getValue('provider_id')
+                break;
+        
+        # TODO: check that the net exist in GCE
+        return provider_id
 
     def get_instance_type(self, sizes, radl):
         """
@@ -139,19 +174,35 @@ class GCECloudConnector(CloudConnector):
         else:
             return None
 
-    # el path sera algo asi: gce://us-central1/debian-7
+    # The path must be: gce://us-central1/debian-7 or gce://debian-7
     def get_image_data(self, path):
         """
         Get the region and the image name from an URL of a VMI
 
         Arguments:
-           - path(str): URL of a VMI (some like this: gce://us-central1/debian-7)
+           - path(str): URL of a VMI (some like this: gce://us-central1/debian-7 or gce://debian-7)
         Returns: a tuple (region, image_name) with the region and the AMI ID    
         """
-        region = uriparse(path)[1]
-        image_name = uriparse(path)[2][1:]
+        uri = uriparse(path)
+        if uri[2]:
+            region = uri[1]
+            image_name = uri[2][1:]
+        else:
+            # If the image do not specify the zone, use the default one
+            region = self.DEFAULT_ZONE
+            image_name = uri[1]            
         
         return (region, image_name)
+
+    def get_default_net(self, driver):
+        """
+    	Get the first net
+    	"""
+        nets = driver.ex_list_networks()
+        if nets:
+            return nets[0].name
+        else:
+            return None
 
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         driver = self.get_driver(auth_data)
@@ -161,7 +212,7 @@ class GCECloudConnector(CloudConnector):
 
         image = driver.ex_get_image(image_id)
         if not image:
-            return [(False, "Incorrect image name") for i in range(num_vm)]
+            return [(False, "Incorrect image name") for _ in range(num_vm)]
 
         if system.getValue('availability_zone'):
             region = system.getValue('availability_zone')
@@ -186,11 +237,30 @@ class GCECloudConnector(CloudConnector):
         username = system.getValue('disk.0.os.credentials.username')
         private = system.getValue('disk.0.os.credentials.private_key')
         public = system.getValue('disk.0.os.credentials.public_key')
+        
+        if not public or not private:
+            # We must generate them
+            self.logger.debug("No keys. Generating key pair.")
+            (public, private) = self.keygen()
+            system.setValue('disk.0.os.credentials.private_key', private)
+        
         if private and public:
             #metadata = {"sshKeys": "root:ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC9i2KyVMk3Cz/rm9pCoIioFm/gMT0EvhobP5PFZnva+WxFeiH41j4shAim/+reyyUgC+hDpo9Pf6ZzvbOOCaWoGzgdEYtItixKmxE3wWoTUXZW4Lwks69+aKS2BXnOPm5z7BV6F72GVc9r7mlq/Xpd9e2EcDa5WyA6ilnBTVnMgWHOgEjQ+AEChswDELF3DSkXmLtQsWup+kVQmktwmC6+4sPztALwhUJiK1jJ+wshPCuJw0nY7t4Keybm2b/A3nLxDlLbJZay0kV70nlwAYSmTa+HcUkbPqgL0UNVlgW2/rdSNo8RSmoF1pFdXb+zii3YCFUnAC2l2FDmxUhRp0bT root@host"}
             metadata = {"sshKeys": username + ":" + public}
             args['ex_metadata'] = metadata
             self.logger.debug("Setting ssh for user: " + username)
+            self.logger.debug(metadata)
+
+        net_provider_id = self.get_net_provider_id(radl) 
+        if net_provider_id:
+            args['ex_network'] = net_provider_id
+        else:
+            net_name = self.get_default_net(driver)
+            if net_name:
+                args['ex_network'] = net_name
+                self.set_net_provider_id(radl, net_name)
+            else:
+                self.set_net_provider_id(radl, "default")
 
         res = []
         i = 0
@@ -347,6 +417,9 @@ class GCECloudConnector(CloudConnector):
                 res_state = VirtualMachine.UNKNOWN
                 
             vm.state = res_state
+            
+            if 'zone' in node.extra:
+                vm.info.systems[0].setValue('availability_zone', node.extra['zone'].name)
             
             vm.setIps(node.public_ips, node.private_ips)
             self.attach_volumes(vm,node)

@@ -5,7 +5,7 @@ IM Service Installation
 Prerequisites
 -------------
 
-IM needs at least Python 2.4 to run, as well as the next libraries:
+IM needs at least Python 2.6 to run, as well as the next libraries:
 
 * `PLY <http://www.dabeaz.com/ply/>`_, Python Lex & Yacc library for python.
 * `paramiko <http://www.lag.net/paramiko/>`_, ssh2 protocol library for python.
@@ -64,7 +64,7 @@ Installation
 ------------
 
 Form Pip
-^^^^^^^^^^^
+^^^^^^^^
 
 You only have to call the install command of the pip tool with the IM package::
 
@@ -129,7 +129,8 @@ Alternatively, it can be done manually::
 
 IM reads the configuration from :file:`$IM_PATH/etc/im.cfg`, and if it is not
 available, does from ``/etc/im/im.cfg``. There is a template of :file:`im.cfg`
-at the directory :file:`etc` on the tarball. The options are explained next.
+at the directory :file:`etc` on the tarball. The IM reads the values of the ``im``
+section. The options are explained next.
 
 .. _options-basic:
 
@@ -162,7 +163,11 @@ Basic Options
    		]
    	}
    
+.. confval:: MAX_SIMULTANEOUS_LAUNCHES
 
+   Maximum number of simultaneous VM launch operations.
+   The default value is 1.
+ 
 .. confval:: MAX_VM_FAILS
 
    Number of attempts to launch a virtual machine before considering it
@@ -355,4 +360,30 @@ GANGLIA INTEGRATION
 
    Maximum frequency to update the Ganglia info (in secs).
    The default value is ``30``.
+
+IM IN LOCAL INSTALLATIONS
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. confval:: PRIVATE_NET_AS_PUBLIC 
+
+   Private network that IM will detect as public enabling to use
+   the IM service in installations of only one private Cloud provider.
+   It must be one of this values: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16
+   If this feature is not needed undefine or use an empty string.
+   The default value is ``''``.
+   
+OpenNebula Options
+^^^^^^^^^^^^^^^^^^
+
+The configuration values under the ``OpenNebula`` section:
+
+.. confval:: TEMPLATE_CONTEXT 
+
+   Text to add to the CONTEXT section of the ONE template (except SSH_PUBLIC_KEY)
+   The default value is ``''``.
+
+.. confval:: TEMPLATE_OTHER 
+
+   Text to add to the ONE Template different to NAME, CPU, VCPU, MEMORY, OS, DISK and CONTEXT
+   The default value is ``GRAPHICS = [type="vnc",listen="0.0.0.0"]``. 
 
