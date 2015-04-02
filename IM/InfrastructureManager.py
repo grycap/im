@@ -841,7 +841,7 @@ class InfrastructureManager:
 		with InfrastructureManager._lock:
 			items_to_delete = []
 			for infId, inf in InfrastructureManager.infrastructure_list.items():
-				if inf.deleted and len(InfrastructureManager.infrastructure_list) - infId >= Config.MAX_INF_STORED:
+				if inf.deleted and InfrastructureManager.global_inf_id - infId >= Config.MAX_INF_STORED:
 						items_to_delete.append(infId)
 	
 			for item in items_to_delete:

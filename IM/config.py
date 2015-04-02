@@ -80,10 +80,12 @@ config = ConfigParser.ConfigParser()
 config.read([Config.IM_PATH + '/../im.cfg', Config.IM_PATH + '/../etc/im.cfg', '/etc/im/im.cfg'])
 
 section_name = "im"
-parse_options(config, section_name, Config)
+if config.has_section(section_name):
+	parse_options(config, section_name, Config)
 
 class ConfigOpenNebula:
 	TEMPLATE_CONTEXT = ''
 	TEMPLATE_OTHER = 'GRAPHICS = [type="vnc",listen="0.0.0.0"]'
 
-parse_options(config, 'OpenNebula', ConfigOpenNebula)
+if config.has_section("OpenNebula"):
+	parse_options(config, 'OpenNebula', ConfigOpenNebula)

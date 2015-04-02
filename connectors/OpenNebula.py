@@ -374,14 +374,16 @@ class OpenNebulaCloudConnector(CloudConnector):
 		# It is supported since 3.8 version, (the VM must be prepared with the ONE contextualization script)
 		private = system.getValue('disk.0.os.credentials.private_key')
 		public = system.getValue('disk.0.os.credentials.public_key')
-		res += 'CONTEXT = ['
-		if private and public:
-			res += 'SSH_PUBLIC_KEY = "%s"' % public
-		if ConfigOpenNebula.TEMPLATE_CONTEXT:
+		
+		if (private and public) or ConfigOpenNebula.TEMPLATE_CONTEXT: 
+			res += 'CONTEXT = ['
 			if private and public:
-				res += ", "
-			res += ConfigOpenNebula.TEMPLATE_CONTEXT
-		res += ']'
+				res += 'SSH_PUBLIC_KEY = "%s"' % public
+			if ConfigOpenNebula.TEMPLATE_CONTEXT:
+				if private and public:
+					res += ", "
+				res += ConfigOpenNebula.TEMPLATE_CONTEXT
+			res += ']'
 
 		self.logger.debug("Template: " + res)
 
