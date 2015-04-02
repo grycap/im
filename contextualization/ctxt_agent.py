@@ -209,8 +209,6 @@ def contextualize_vm(general_conf_data, vm_conf_data):
 		logger.debug('Launch task: ' + task)
 		playbook = general_conf_data['conf_dir'] + "/" + task + "_task_all.yml"
 		inventory_file  = general_conf_data['conf_dir'] + "/hosts"
-		change_creds = False
-		pk_file = None
 		
 		if task == "basic":
 			# This is always the fist step, so put the SSH test, the requiretty removal and change password here
@@ -237,21 +235,34 @@ def contextualize_vm(general_conf_data, vm_conf_data):
 				logger.error("Error removing Requiretty")
 			# Check if we must chage user credentials
 			# Do not change it on the master. It must be changed only by the ConfManager
+			change_creds = False
 			if not ctxt_vm['master']:
 				change_creds = changeVMCredentials(ctxt_vm)
 				res_data['CHANGE_CREDS'] = change_creds
 			
 			# The basic task uses the credentials of VM stored in ctxt_vm
+			pk_file = None
 			if cred_used == "pk_file":
 				pk_file = PK_FILE
+			ansible_thread = LaunchAnsiblePlaybook(playbook, ctxt_vm, 2, inventory_file, pk_file, PLAYBOOK_RETRIES, change_creds)
 		else:
-			change_creds = True
-			cred_used = wait_ssh_access(ctxt_vm)
-			logger.debug("SSH test result: " + cred_used)
-			if cred_used == "pk_file":
-				pk_file = PK_FILE
+			# In some strange cases the pk_file disappears. So test it and remake basic recipe
+			success = False
+			try:
+				ssh_client = SSH(ctxt_vm['ip'], ctxt_vm['user'], None, PK_FILE, ctxt_vm['ssh_port'])
+				success = ssh_client.test_connectivity()
+			except:
+				success = False
+
+			if not success:
+				logger.warn("Error connecting with SSH using the ansible key with: " + ctxt_vm['ip'] + ". Call the basic playbook again.")
+				basic_playbook = general_conf_data['conf_dir'] + "/basic_task_all.yml"
+				ansible_thread = LaunchAnsiblePlaybook(basic_playbook, ctxt_vm, 2, inventory_file, None, PLAYBOOK_RETRIES, True)
+				ansible_thread.join()
+
+			# in the other tasks pk_file can be used
+			ansible_thread = LaunchAnsiblePlaybook(playbook, ctxt_vm, 2, inventory_file, PK_FILE, PLAYBOOK_RETRIES, True)
 		
-		ansible_thread = LaunchAnsiblePlaybook(playbook, ctxt_vm, 2, inventory_file, pk_file, PLAYBOOK_RETRIES, change_creds)
 		(success, _) = wait_thread(ansible_thread)
 		res_data[task] = success
 		if not success:
