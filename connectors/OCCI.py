@@ -16,8 +16,6 @@
 
 from ssl import SSLError
 import json
-import subprocess
-import shutil
 import os
 import re
 import base64
@@ -236,34 +234,6 @@ class OCCICloudConnector(CloudConnector):
 			self.logger.exception("Error connecting with OCCI server")
 			return (False, "Error connecting with OCCI server: " + str(ex))
 
-	def keygen(self):
-		"""
-		Generates a keypair using the ssh-keygen command and returns a tuple (public, private)
-		"""
-		tmp_dir = tempfile.mkdtemp()
-		pk_file = tmp_dir + "/occi-key"
-		command = 'ssh-keygen -t rsa -b 2048 -q -N "" -f ' + pk_file
-		p=subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-		(out, err) = p.communicate()
-		if p.returncode!=0:
-			shutil.rmtree(tmp_dir, ignore_errors=True)
-			self.logger.error("Error executing ssh-keygen: " + out + err)
-			return (None, None)
-		else:
-			public = None
-			private = None
-			try:
-				with open(pk_file) as f: private = f.read()
-			except:
-				self.logger.exception("Error reading private_key file.")
-				
-			try:
-				with open(pk_file + ".pub") as f: public = f.read()
-			except:
-				self.logger.exception("Error reading public_key file.")
-			
-			shutil.rmtree(tmp_dir, ignore_errors=True)
-			return (public, private)
 		
 	def gen_cloud_config(self, public_key, user = 'cloudadm'):
 		"""
@@ -440,9 +410,12 @@ users:
 					if 'location' in resp.msg.dict:
 						occi_vm_id = os.path.basename(resp.msg.dict['location'])
 					else:
-						occi_vm_id = os.path.basename(output)				
-					vm = VirtualMachine(inf, occi_vm_id, self.cloud, radl, requested_radl)
-					res.append((True, vm))
+						occi_vm_id = os.path.basename(output)
+					if occi_vm_id:				
+						vm = VirtualMachine(inf, occi_vm_id, self.cloud, radl, requested_radl)
+						res.append((True, vm))
+					else:
+						res.append((False, 'Unknown Error launching the VM.'))
 
 			except Exception, ex:
 				self.logger.exception("Error connecting with OCCI server")
@@ -548,6 +521,7 @@ class KeyStoneAuth:
 			conn = occi.get_http_connection(auth_data)
 			conn.request('HEAD', "/-/", headers = headers) 
 			resp = conn.getresponse()
+			occi.delete_proxy(conn)
 			www_auth_head = resp.getheader('Www-Authenticate')
 			if www_auth_head and www_auth_head.startswith('Keystone uri'):
 				return www_auth_head.split('=')[1].replace("'","")
@@ -582,6 +556,7 @@ class KeyStoneAuth:
 			conn.endheaders(body)
 	
 			resp = conn.getresponse()
+			occi.delete_proxy(conn)
 			
 			# format: -> "{\"access\": {\"token\": {\"issued_at\": \"2014-12-29T17:10:49.609894\", \"expires\": \"2014-12-30T17:10:49Z\", \"id\": \"c861ab413e844d12a61d09b23dc4fb9c\"}, \"serviceCatalog\": [], \"user\": {\"username\": \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\", \"roles_links\": [], \"id\": \"475ce4978fb042e49ce0391de9bab49b\", \"roles\": [], \"name\": \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\"}, \"metadata\": {\"is_admin\": 0, \"roles\": []}}}"
 			output = json.loads(resp.read())
@@ -610,6 +585,7 @@ class KeyStoneAuth:
 			conn.endheaders(body)
 	
 			resp = conn.getresponse()
+			occi.delete_proxy(conn)
 			
 			# format: -> "{\"access\": {\"token\": {\"issued_at\": \"2014-12-29T17:10:49.609894\", \"expires\": \"2014-12-30T17:10:49Z\", \"id\": \"c861ab413e844d12a61d09b23dc4fb9c\"}, \"serviceCatalog\": [], \"user\": {\"username\": \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\", \"roles_links\": [], \"id\": \"475ce4978fb042e49ce0391de9bab49b\", \"roles\": [], \"name\": \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\"}, \"metadata\": {\"is_admin\": 0, \"roles\": []}}}"
 			output = json.loads(resp.read())

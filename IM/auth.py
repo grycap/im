@@ -51,6 +51,7 @@ class Authentication:
 		for auth in self.auth_list:
 			if auth['type'] == auth_type:
 				res.append(auth)
+				break
 		return res
 	
 	def getAuthInfoByID(self, auth_id):
@@ -84,11 +85,13 @@ class Authentication:
 			for auth in self.auth_list:
 				if auth['type'] == auth_type:
 					auth_with_type = auth
+					break
 			
 			other_auth_with_type = None	
 			for auth in other_auth.auth_list:
 				if auth['type'] == auth_type:
 					other_auth_with_type = auth
+					break
 					
 			if auth_with_type != None and other_auth_with_type != None:
 				if len(auth_with_type) != len(other_auth_with_type):

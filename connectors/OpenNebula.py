@@ -16,14 +16,14 @@
 
 import hashlib
 import xmlrpclib
+import time
 
 from IM.xmlobject import XMLObject
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from CloudConnector import CloudConnector
-from IM.radl.radl import network
-
-from IM.radl.radl import Feature
+from IM.radl.radl import network, Feature
+from IM.config import ConfigOpenNebula
 
 # clases para parsear el resultado de las llamadas a la API de ONE
 class NIC(XMLObject):
@@ -57,7 +57,8 @@ class VM(XMLObject):
 		STATE_SUSPENDED=5
 		STATE_DONE=6
 		STATE_FAILED=7
-		STATE_STR = {'0': 'init', '1': 'pending', '2': 'hold', '3': 'active', '4': 'stopped', '5': 'suspended', '6': 'done', '7': 'failed' }
+		STATE_POWEROFF=8
+		STATE_STR = {'0': 'init', '1': 'pending', '2': 'hold', '3': 'active', '4': 'stopped', '5': 'suspended', '6': 'done', '7': 'failed' , '8': 'poweroff' }
 		LCM_STATE_STR={'0':'init','1':'prologing','2':'booting','3':'running','4':'migrating','5':'saving (stop)','6':'saving (suspend)','7':'saving (migrate)', '8':'prologing (migration)', '9':'prologing (resume)', '10': 'epilog (stop)','11':'epilog', '12':'cancel','13':'failure','14':'delete','15':'unknown'}
 		values = [ 'ID','UID','NAME','LAST_POLL','STATE','LCM_STATE','DEPLOY_ID','MEMORY','CPU','NET_TX','NET_RX', 'STIME','ETIME' ]
 #		tuples = { 'TEMPLATE': TEMPLATE, 'HISTORY': HISTORY }
@@ -78,13 +79,13 @@ class RANGE(XMLObject):
 	values = [ 'IP_START', 'IP_END' ]
 	
 class AR(XMLObject):
-	values = [ 'IP', 'MAC', 'TYPE', 'ALLOCATED', 'GLOBAL_PREFIX', 'AR_ID' ]
+	values = [ 'IP', 'MAC', 'TYPE', 'ALLOCATED', 'GLOBAL_PREFIX', 'AR_ID', 'SIZE', 'USED_LEASES' ]
 	
 class AR_POOL(XMLObject):
 	tuples_lists = { 'AR': AR }
 
 class VNET(XMLObject):
-	values = [ 'ID', 'UID', 'GID', 'UNAME', 'GNAME', 'NAME', 'TYPE', 'BRIDGE', 'PUBLIC' ]
+	values = [ 'ID', 'UID', 'GID', 'UNAME', 'GNAME', 'NAME', 'TYPE', 'BRIDGE', 'PUBLIC', 'USED_LEASES', 'TOTAL_LEASES' ]
 	tuples = { 'TEMPLATE': TEMPLATE_VNET, 'LEASES': LEASES, 'RANGE': RANGE, 'AR_POOL':AR_POOL }
 	
 class VNET_POOL(XMLObject):
@@ -209,9 +210,6 @@ class OpenNebulaCloudConnector(CloudConnector):
 			else:
 				res_state = VirtualMachine.OFF
 			vm.state = res_state
-
-			# currently only update the memory data, as it is the only one that can be changed 
-			vm.info.systems[0].setValue('memory.size', int(res_vm.TEMPLATE.MEMORY), "M") 
 
 			# Update network data
 			self.setIPsFromTemplate(vm,res_vm.TEMPLATE)
@@ -367,8 +365,8 @@ class OpenNebulaCloudConnector(CloudConnector):
 
 			%s
 
-			GRAPHICS = [type="vnc",listen="0.0.0.0", keymap="es"]
-		''' % (name, cpu, cpu, memory, arch, disks)
+			%s
+		''' % (name, cpu, cpu, memory, arch, disks, ConfigOpenNebula.TEMPLATE_OTHER)
 
 		res += self.get_networks_template(radl, auth_data)
 
@@ -376,12 +374,16 @@ class OpenNebulaCloudConnector(CloudConnector):
 		# It is supported since 3.8 version, (the VM must be prepared with the ONE contextualization script)
 		private = system.getValue('disk.0.os.credentials.private_key')
 		public = system.getValue('disk.0.os.credentials.public_key')
-		if private and public:
-			res += '''
-			CONTEXT = [
-				SSH_PUBLIC_KEY = "%s"
-				]
-			''' % public
+		
+		if (private and public) or ConfigOpenNebula.TEMPLATE_CONTEXT: 
+			res += 'CONTEXT = ['
+			if private and public:
+				res += 'SSH_PUBLIC_KEY = "%s"' % public
+			if ConfigOpenNebula.TEMPLATE_CONTEXT:
+				if private and public:
+					res += ", "
+				res += ConfigOpenNebula.TEMPLATE_CONTEXT
+			res += ']'
 
 		self.logger.debug("Template: " + res)
 
@@ -417,18 +419,38 @@ class OpenNebulaCloudConnector(CloudConnector):
 		self.logger.debug("OpenNebula version: " + version)
 		return version
 
-	def free_address(self, addres_range):
+	def free_range(self, range, total_leases):
 		"""
 		Check if there are at least one address free
 
 		Arguments:
-		   - leases(:py:class:`AR`): List of AddressRange of a ONE network.
+		   - range(:py:class:`AR_POOL`): a Range of a ONE network.
+		   - total_leases(str): Number of used leases
 		 
 		 Returns: bool, True if there are at least one lease free or False otherwise
 		"""
-		for ar in addres_range:
-			if not ar.ALLOCATED:
-				return True 
+		start = long(''.join(["%02X" % long(i) for i in range.IP_START.split('.')]), 16)
+		end = long(''.join(["%02X" % long(i) for i in range.IP_END.split('.')]), 16)
+		if end - start > int(total_leases):
+			return True
+		return False
+
+	def free_address(self, addres_pool, used_leases):
+		"""
+		Check if there are at least one address free
+
+		Arguments:
+		   - address_pool(:py:class:`AR_POOL`): List of AddressRange of a ONE network.
+		   - used_leases(str): Number of used leases
+		 
+		 Returns: bool, True if there are at least one lease free or False otherwise
+		"""
+		size = 0
+		for ar in addres_pool.AR:	
+			size += int(ar.SIZE)
+		
+		if size > int(used_leases):
+			return True
 		return False
 	
 	def free_leases(self, leases):
@@ -482,12 +504,17 @@ class OpenNebulaCloudConnector(CloudConnector):
 			elif net.TEMPLATE.LEASES and len(net.TEMPLATE.LEASES) > 0:
 				ip = net.TEMPLATE.LEASES[0].IP
 			elif net.AR_POOL and net.AR_POOL.AR and len(net.AR_POOL.AR) > 0:
-				# This is the case for one 4.8
-				if self.free_address(net.AR_POOL.AR):
+				# This is the case for one 4.8 and later
+				if self.free_address(net.AR_POOL, net.USED_LEASES):
 					ip = net.AR_POOL.AR[0].IP
 				else:
 					self.logger.warn("The network with IPs like: " + net.AR_POOL.AR[0].IP + " does not have free leases")
-					continue				
+					continue
+			elif net.RANGE and net.RANGE.IP_START:
+				if self.free_range(net.RANGE, net.TOTAL_LEASES):
+					ip = net.RANGE.IP_START
+				else:
+					self.logger.warn("The network with IPs like: " + net.RANGE.IP_START + " does not have free leases")
 			else:
 				self.logger.warn("IP information is not in the VNET POOL. Use the vn.info")
 				info_res = server.one.vn.info(session_id, int(net.ID))
@@ -498,7 +525,11 @@ class OpenNebulaCloudConnector(CloudConnector):
 					(success, info, err_code) = info_res
 				else:
 					self.logger.warn("Error in the one.vn.info return value. Ignoring network: " + net.NAME)
-					break
+					continue
+				
+				if not success:
+					self.logger.warn("Error in the one.vn.info function: " + info + ". Ignoring network: " + net.NAME)
+					continue
 				
 				net = VNET(info)
 				
@@ -509,7 +540,10 @@ class OpenNebulaCloudConnector(CloudConnector):
 						self.logger.warn("The network with IPs like: " + net.LEASES.LEASE[0].IP + " does not have free leases")
 						break
 				elif net.RANGE and net.RANGE.IP_START:
-					ip = net.RANGE.IP_START
+					if self.free_range(net.RANGE, net.TOTAL_LEASES):
+						ip = net.RANGE.IP_START
+					else:
+						self.logger.warn("The network with IPs like: " + net.RANGE.IP_START + " does not have free leases")
 				else:
 					self.logger.error("Unknown type of network")
 					return (None, None)
@@ -535,14 +569,24 @@ class OpenNebulaCloudConnector(CloudConnector):
 		used_nets = []
 		last_net = None
 		for radl_net in radl_nets:
-			for (net_name, net_id, is_public) in one_nets:
-				if net_id not in used_nets and radl_net.isPublic() == is_public :
-					res[radl_net.id] = (net_name, net_id, is_public)
-					used_nets.append(net_id)
-					last_net = (net_name, net_id, is_public)
-					break
-			if radl_net.id not in res:
-				res[radl_net.id] = last_net
+			# First check if the user has specified a provider ID
+			net_provider_id = radl_net.getValue('provider_id')
+			if net_provider_id:
+				for (net_name, net_id, is_public) in one_nets:
+					# If the name is the same and have the same "publicity" value
+					if net_name == net_provider_id and radl_net.isPublic() == is_public:
+						res[radl_net.id] = (net_name, net_id, is_public) 
+						used_nets.append(net_id)
+						break
+			else:
+				for (net_name, net_id, is_public) in one_nets:
+					if net_id not in used_nets and radl_net.isPublic() == is_public:
+						res[radl_net.id] = (net_name, net_id, is_public)
+						used_nets.append(net_id)
+						last_net = (net_name, net_id, is_public)
+						break
+				if radl_net.id not in res:
+					res[radl_net.id] = last_net
 	
 		# In case of there are no private network, use public ones for non mapped networks
 		used_nets = []
@@ -590,6 +634,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 				# get the one network info
 				if nets[network]:
 					(net_name, net_id, is_public) = nets[network]
+					radl.get_network_by_id(network).setValue('provider_id', str(net_name))
 				else:
 					self.logger.error("No ONE network found for network: " + network)
 					raise Exception("No ONE network found for network: " + network)
@@ -612,20 +657,66 @@ class OpenNebulaCloudConnector(CloudConnector):
 			
 		return res
 
-	def checkSetMem(self):
+	def checkResize(self):
 		"""
-		Check if the one.vm.setmem function appears in the ONE server
+		Check if the one.vm.resize function appears in the ONE server
 		 
-		 Returns: bool, True if the one.vm.setmem function appears in the ONE server or false otherwise
+		 Returns: bool, True if the one.vm.resize function appears in the ONE server or false otherwise
 		"""
 		server_url = "http://%s:%d/RPC2" % (self.cloud.server, self.cloud.port)
 		server = xmlrpclib.ServerProxy(server_url,allow_none=True)
 		
 		methods = server.system.listMethods()
-		if "one.vm.setmem" in methods:
+		if "one.vm.resize" in methods:
 			return True
 		else:
 			return False
+
+	def poweroff(self, vm, auth_data, timeout = 30):
+		"""
+		Poweroff the VM and waits for it to be in poweredoff state
+		"""
+		server_url = "http://%s:%d/RPC2" % (self.cloud.server, self.cloud.port)
+		server = xmlrpclib.ServerProxy(server_url,allow_none=True)
+		session_id = self.getSessionID(auth_data)
+		if session_id == None:
+			return (False, "Incorrect auth data")
+		func_res = server.one.vm.action(session_id, 'poweroff', int(vm.id))
+		
+		if len(func_res) == 1:
+			success = True
+			err = vm.id
+		elif len(func_res) == 2:
+			(success, err) = func_res
+		elif len(func_res) == 3:
+			(success, err, err_code) = func_res
+		else:
+			return (False, "Error in the one.vm.action return value")
+		
+		if not success:
+			return (success, err)
+
+		wait = 0
+		powered_off = False
+		while wait < timeout and not powered_off:
+			func_res = server.one.vm.info(session_id, int(vm.id))
+			if len(func_res) == 2:
+				(success, res_info) = func_res
+			elif len(func_res) == 3:
+				(success, res_info, err_code) = func_res
+			else:
+				return (False, "Error in the one.vm.info return value")
+			
+			res_vm = VM(res_info)
+			powered_off = res_vm.STATE == 8
+			if not powered_off: 
+				time.sleep(2)
+				wait += 2
+
+		if powered_off:
+			return (True, "")
+		else:
+			return (False, "Error waiting the VM to be powered off")
 
 	def alterVM(self, vm, radl, auth_data):
 		server_url = "http://%s:%d/RPC2" % (self.cloud.server, self.cloud.port)
@@ -634,12 +725,41 @@ class OpenNebulaCloudConnector(CloudConnector):
 		if session_id == None:
 			return (False, "Incorrect auth data")
 		
-		if self.checkSetMem():
-			new_mem = radl.getValue('memory.size')
-			(success, info, err_code) = server.one.vm.setmem(str(vm.id), int(new_mem))
+		if self.checkResize():
+			if not radl.systems:
+				return ""
+			system = radl.systems[0]
+
+			cpu = vm.info.systems[0].getValue('cpu.count')
+			memory = vm.info.systems[0].getFeature('memory.size').getValue('M')
 			
+			new_cpu = system.getValue('cpu.count')
+			new_memory = system.getFeature('memory.size').getValue('M')
+	
+			new_temp = ""
+			if new_cpu and new_cpu != cpu:
+				new_temp += "CPU = %s\n" % new_cpu
+				new_temp += "VCPU = %s\n" % new_cpu
+			if new_memory and new_memory != memory:
+				new_temp += "MEMORY = %s\n" % new_memory
+	
+			self.logger.debug("New Template: " + new_temp)
+			if new_temp:
+				# First we must poweroff the VM
+				(success, info) = self.poweroff(vm, auth_data)
+				if not success:
+					return (success, info)
+				(success, info, err_code) = server.one.vm.resize(session_id, int(vm.id), new_temp, False)
+				self.start(vm, auth_data)
+			else:
+				return (True, self.updateVMInfo(vm, auth_data))
+				
 			if success:
-				return self.updateVMInfo(vm, auth_data)
+				if new_cpu:
+					vm.info.systems[0].setValue('cpu.count', new_cpu)
+				if new_memory:
+					vm.info.systems[0].addFeature(Feature("memory.size", "=", new_memory, 'M'), conflict="other", missing="other")
+				return (success, self.updateVMInfo(vm, auth_data))
 			else:
 				return (success, info)
 		else:

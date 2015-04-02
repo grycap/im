@@ -4,13 +4,23 @@
   vars:
     ANSIBLE_VERSION: 1.7.2
   tasks:
-    - name: Apt-get update
-      apt: update_cache=yes cache_valid_time=604800
-      when: ansible_os_family == "Debian"
-      
     - name: Install libselinux-python in RH
       action: yum pkg=libselinux-python state=installed
       when: ansible_os_family == "RedHat"
+      
+    # Disable IPv6  
+    - lineinfile: dest=/etc/sysctl.conf regexp="{{ item }}" line="{{ item }} = 1"
+      with_items:
+       - 'net.ipv6.conf.all.disable_ipv6'
+       - 'net.ipv6.conf.default.disable_ipv6'
+       - 'net.ipv6.conf.lo.disable_ipv6'
+      ignore_errors: yes      
+    - command: sysctl -p
+      ignore_errors: yes
+  
+    - name: Apt-get update
+      apt: update_cache=yes
+      when: ansible_os_family == "Debian"
 
     - name: EPEL
       #template: src=utils/templates/epel.repo dest=/etc/yum.repos.d/epel.repo

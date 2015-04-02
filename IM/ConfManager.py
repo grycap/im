@@ -47,10 +47,12 @@ class ConfManager(threading.Thread):
 	""" The file with the ansible steps to configure the second step of the the master node """
 	THREAD_SLEEP_DELAY = 5
 	
-	def __init__(self, inf, auth):
+	def __init__(self, inf, auth, max_ctxt_time = 1e9):
 		threading.Thread.__init__(self)
 		self.inf = inf
 		self.auth = auth
+		self.init_time = time.time()
+		self.max_ctxt_time = max_ctxt_time
 		self._stop = False
 	
 	def check_running_pids(self, vms_configuring):
@@ -104,16 +106,18 @@ class ConfManager(threading.Thread):
 		while not success and wait < timeout:
 			success = True
 			for vm in self.inf.get_vm_list():
-				ip = vm.getPublicIP()
-				if not ip:
+				if vm.hasPublicNet():
+					ip = vm.getPublicIP()
+				else:
 					ip = vm.getPrivateIP()
 				
 				if not ip:
 					# If the IP is not Available try to update the info
 					vm.update_status(self.auth)
 	
-					ip = vm.getPublicIP()
-					if not ip:
+					if vm.hasPublicNet():
+						ip = vm.getPublicIP()
+					else:
 						ip = vm.getPrivateIP()
 						
 					if not ip:
@@ -121,7 +125,7 @@ class ConfManager(threading.Thread):
 						break
 			
 			if not success:
-				ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": Error waiting all the VMs to have an IP") 
+				ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": Error waiting all the VMs to have a correct IP") 
 				wait += self.THREAD_SLEEP_DELAY
 				time.sleep(self.THREAD_SLEEP_DELAY)
 			else:
@@ -136,6 +140,10 @@ class ConfManager(threading.Thread):
 		vms_configuring = {}
 
 		while not self._stop:
+			if self.init_time + self.max_ctxt_time < time.time():
+				ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Max contextualization time passed. Exit thread.")
+				return
+
 			vms_configuring = self.check_running_pids(vms_configuring)
 			
 			# If the queue is empty but there are vms configuring wait and test again
@@ -268,12 +276,13 @@ class ConfManager(threading.Thread):
 					ifaces_im_vars = ''
 					for i in range(vm.getNumNetworkIfaces()):
 						iface_ip = vm.getIfaceIP(i)
-						ifaces_im_vars += ' IM_NODE_NET_' + str(i) + '_IP=' + iface_ip
-						if vm.getRequestedNameIface(i):
-							(nodename, nodedom) = vm.getRequestedNameIface(i, default_domain = Config.DEFAULT_DOMAIN)
-							ifaces_im_vars += ' IM_NODE_NET_' + str(i) + '_HOSTNAME=' + nodename
-							ifaces_im_vars += ' IM_NODE_NET_' + str(i) + '_DOMAIN=' + nodedom
-							ifaces_im_vars += ' IM_NODE_NET_' + str(i) + '_FQDN=' + nodename + "." + nodedom
+						if iface_ip:
+							ifaces_im_vars += ' IM_NODE_NET_' + str(i) + '_IP=' + iface_ip
+							if vm.getRequestedNameIface(i):
+								(nodename, nodedom) = vm.getRequestedNameIface(i, default_domain = Config.DEFAULT_DOMAIN)
+								ifaces_im_vars += ' IM_NODE_NET_' + str(i) + '_HOSTNAME=' + nodename
+								ifaces_im_vars += ' IM_NODE_NET_' + str(i) + '_DOMAIN=' + nodedom
+								ifaces_im_vars += ' IM_NODE_NET_' + str(i) + '_FQDN=' + nodename + "." + nodedom
 
 					# first try to use the public IP
 					ip = vm.getPublicIP()
@@ -333,8 +342,11 @@ class ConfManager(threading.Thread):
 			for vm in vm_group[group]:
 				for i in range(vm.getNumNetworkIfaces()):
 					if vm.getRequestedNameIface(i):
-						(nodename, nodedom) = vm.getRequestedNameIface(i, default_domain = Config.DEFAULT_DOMAIN)
-						hosts_out.write(vm.getIfaceIP(i) + " " + nodename + "." + nodedom + " " + nodename + "\r\n")
+						if vm.getIfaceIP(i):
+							(nodename, nodedom) = vm.getRequestedNameIface(i, default_domain = Config.DEFAULT_DOMAIN)
+							hosts_out.write(vm.getIfaceIP(i) + " " + nodename + "." + nodedom + " " + nodename + "\r\n")
+						else:
+							ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": Net interface " + str(i) + " request a name, but it does not have an IP.")
 
 					# first try to use the public IP
 					ip = vm.getPublicIP()
@@ -488,8 +500,8 @@ class ConfManager(threading.Thread):
 
 	def wait_master(self):
 		"""
-			- selecciona la VM master
-			- espera a que arranque y este accesible por SSH
+			- Select the master VM
+			- Wait it to boot and has the SSH port open 
 		"""
 		# First assure that ansible is installed in the master
 		if not self.inf.vm_master or self.inf.vm_master.destroy:
@@ -547,6 +559,7 @@ class ConfManager(threading.Thread):
 				
 				self.inf.set_configured(True)
 			except:
+				ConfManager.logger.exception("Inf ID: " + str(self.inf.id) + ": Error waiting the master VM to be running")
 				self.inf.set_configured(False)
 		else:
 			self.inf.set_configured(True)
@@ -748,16 +761,11 @@ class ConfManager(threading.Thread):
 						wait += delay
 						time.sleep(delay)
 				else:
-					ip = vm.getPrivateIP()
-					if ip != None:
-						ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " + 'VM ' + str(vm.id) + ' with private IP: ' + ip)
-						return False
-					else:
-						ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " + 'VM ' + str(vm.id) + ' with no IP')
-						# Update the VM info and wait to have a valid IP
-						wait += delay
-						time.sleep(delay)
-						vm.update_status(self.auth)
+					ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " + 'VM ' + str(vm.id) + ' with no IP')
+					# Update the VM info and wait to have a valid public IP
+					wait += delay
+					time.sleep(delay)
+					vm.update_status(self.auth)
 		
 		# Timeout, return False
 		return False
@@ -769,34 +777,41 @@ class ConfManager(threading.Thread):
 		Arguments:
 		   - ssh(:py:class:`IM.SSH`): Object with the authentication data to access the master VM. 
 		"""
-		creds = self.inf.vm_master.getCredentialValues()
-		(user, _, _, _) = creds
-		new_creds = self.inf.vm_master.getCredentialValues(new=True)
-		if len(list(set(new_creds))) > 1 or list(set(new_creds))[0] != None:
-			change_creds = False
-			if cmp(new_creds,creds) != 0:
-				(_, new_passwd, new_public_key, new_private_key) = new_creds
-				if new_passwd:
-					ConfManager.logger.info("Changing password to master VM")
-					(out, err, code) = ssh.execute('sudo bash -c \'echo "' + user + ':' + new_passwd + '" | /usr/sbin/chpasswd && echo "OK"\' 2> /dev/null')
-					
-					if code == 0:
-						change_creds = True
-						ssh.password = new_passwd
-					else:
-						ConfManager.logger.error("Error changing password to master VM. " + out + err)
+		change_creds = False
+		try:
+			creds = self.inf.vm_master.getCredentialValues()
+			(user, passwd, _, _) = creds
+			new_creds = self.inf.vm_master.getCredentialValues(new=True)
+			if len(list(set(new_creds))) > 1 or list(set(new_creds))[0] != None:
+				change_creds = False
+				if cmp(new_creds,creds) != 0:
+					(_, new_passwd, new_public_key, new_private_key) = new_creds
+					# only change to the new password if there are a previous passwd value 
+					if passwd and new_passwd:
+						ConfManager.logger.info("Changing password to master VM")
+						(out, err, code) = ssh.execute('sudo bash -c \'echo "' + user + ':' + new_passwd + '" | /usr/sbin/chpasswd && echo "OK"\' 2> /dev/null')
+						
+						if code == 0:
+							change_creds = True
+							ssh.password = new_passwd
+						else:
+							ConfManager.logger.error("Error changing password to master VM. " + out + err)
+		
+					if new_public_key and new_private_key:
+						ConfManager.logger.info("Changing public key to master VM")
+						(out, err, code) = ssh.execute('echo ' + new_public_key + ' >> .ssh/authorized_keys')
+						if code != 0:
+							ConfManager.logger.error("Error changing public key to master VM. " + out + err)
+						else:
+							change_creds = True
+							ssh.private_key = new_private_key
 	
-				if new_public_key and new_private_key:
-					ConfManager.logger.info("Changing public key to master VM")
-					(out, err, code) = ssh.execute('echo ' + new_public_key + ' >> .ssh/authorized_keys')
-					if code != 0:
-						ConfManager.logger.error("Error changing public key to master VM. " + out + err)
-					else:
-						change_creds = True
-						ssh.private_key = new_private_key
+				if change_creds:
+					self.inf.vm_master.info.systems[0].updateNewCredentialValues()
+		except:
+			ConfManager.logger.exception("Error changing credentials to master VM.")
 
-			if change_creds:
-				self.inf.vm_master.info.systems[0].updateNewCredentialValues()
+		return change_creds
 
 	def call_ansible(self, tmp_dir, inventory, playbook, ssh):
 		"""

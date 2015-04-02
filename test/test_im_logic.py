@@ -21,11 +21,15 @@ import unittest
 import sys
 from mock import Mock
 
+from IM.config import Config
+# To load the ThreadPool class
+Config.MAX_SIMULTANEOUS_LAUNCHES = 2
+
 from IM.VirtualMachine import VirtualMachine
 from IM.InfrastructureManager import InfrastructureManager as IM
 from IM.auth import Authentication
 from IM.radl.radl import RADL, system, deploy, Feature, SoftFeatures
-from IM.config import Config
+from IM.CloudInfo import CloudInfo
 from connectors.CloudConnector import CloudConnector
 
 class TestIM(unittest.TestCase):
@@ -37,6 +41,9 @@ class TestIM(unittest.TestCase):
 		IM._reinit()
 		# Patch save_data
 		IM.save_data = staticmethod(lambda: None)
+	
+	def tearDown(self):
+		IM.stop()
 
 	@staticmethod
 	def getAuth(im_users=[], vmrc_users=[], clouds=[]):
@@ -55,7 +62,9 @@ class TestIM(unittest.TestCase):
 	def gen_launch_res(self, inf, radl, requested_radl, num_vm, auth_data):
 		res = []
 		for i in range(num_vm):
-			vm = VirtualMachine(inf, "1234", None, radl, requested_radl)
+			cloud = CloudInfo()
+			cloud.type = "DeployedNode"
+			vm = VirtualMachine(inf, "1234", cloud, radl, requested_radl)
 			# create the mock for the vm finalize function
 			vm.finalize = Mock(return_value=(True, vm))
 			res.append((True, vm))
@@ -100,7 +109,7 @@ class TestIM(unittest.TestCase):
 		with self.assertRaises(Exception) as ex:
 			IM.AddResource(infId, str(radl), auth0)
 		
-		self.assertIn("IncorrectVMCrecentialsException", ex.exception.message)
+		self.assertIn("No username", ex.exception.message)
 
 		IM.DestroyInfrastructure(infId, auth0)
 

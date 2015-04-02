@@ -71,3 +71,18 @@ IM 1.2.0
     * Add GetInfrastructureContMsg function to the API
     * Add GetVMContMsg function to the API
     * Add new state 'unconfigured'
+
+IM 1.2.1
+    * Add SSH keygen funtion to GCE connector
+    * Add PRIVATE_NET_AS_PUBLIC configuration variable
+    * Add MAX_SIMULTANEOUS_LAUNCHES configuration variable
+    * Add Azure connector
+    * Update EC2 instance features
+    * Update documentation to specify python version 2.6
+    * Add provider_ids as network parameter in RADL
+    * Add support to VPC in EC2 connector
+    * Implement AlterVM in OpenNebula and EC2 connectors
+    * Add DeployedNode connector to enable to configure nodes not deployed with the IM (i.e. physical nodes)
+    * Minor bugfixed in InfrastructureManager class
+    * Improve error messages
+    * Bugfixes in OpenNebula connector
