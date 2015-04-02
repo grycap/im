@@ -209,13 +209,18 @@ def contextualize_vm(general_conf_data, vm_conf_data):
 		logger.debug('Launch task: ' + task)
 		playbook = general_conf_data['conf_dir'] + "/" + task + "_task_all.yml"
 		inventory_file  = general_conf_data['conf_dir'] + "/hosts"
+		change_creds = False
+		pk_file = None
 		
 		if task == "basic":
 			# This is always the fist step, so put the SSH test, the requiretty removal and change password here
 			for vm in general_conf_data['vms']:
 				logger.info("Waiting SSH access to VM: " + vm['ip'])
-				cred_used = wait_ssh_access(vm)
-				if not cred_used:
+				ssh_res = wait_ssh_access(vm)
+				logger.debug("SSH test result: " + ssh_res)
+				if vm['id'] == vm_conf_data['id']:
+					cred_used = ssh_res
+				if not ssh_res:
 					logger.error("Error Waiting SSH access to VM: " + vm['ip'])
 					res_data['SSH_WAIT'] = False
 					res_data['OK'] = False
@@ -232,20 +237,21 @@ def contextualize_vm(general_conf_data, vm_conf_data):
 				logger.error("Error removing Requiretty")
 			# Check if we must chage user credentials
 			# Do not change it on the master. It must be changed only by the ConfManager
-			change_creds = False
 			if not ctxt_vm['master']:
 				change_creds = changeVMCredentials(ctxt_vm)
 				res_data['CHANGE_CREDS'] = change_creds
 			
 			# The basic task uses the credentials of VM stored in ctxt_vm
-			pk_file = None
 			if cred_used == "pk_file":
 				pk_file = PK_FILE
-			ansible_thread = LaunchAnsiblePlaybook(playbook, ctxt_vm, 2, inventory_file, pk_file, PLAYBOOK_RETRIES, change_creds)
 		else:
-			# in the other tasks pk_file can be used
-			ansible_thread = LaunchAnsiblePlaybook(playbook, ctxt_vm, 2, inventory_file, PK_FILE, PLAYBOOK_RETRIES, True)
+			change_creds = True
+			cred_used = wait_ssh_access(ctxt_vm)
+			logger.debug("SSH test result: " + cred_used)
+			if cred_used == "pk_file":
+				pk_file = PK_FILE
 		
+		ansible_thread = LaunchAnsiblePlaybook(playbook, ctxt_vm, 2, inventory_file, pk_file, PLAYBOOK_RETRIES, change_creds)
 		(success, _) = wait_thread(ansible_thread)
 		res_data[task] = success
 		if not success:
