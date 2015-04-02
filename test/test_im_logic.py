@@ -109,7 +109,7 @@ class TestIM(unittest.TestCase):
 		with self.assertRaises(Exception) as ex:
 			IM.AddResource(infId, str(radl), auth0)
 		
-		self.assertIn("IncorrectVMCrecentialsException", ex.exception.message)
+		self.assertIn("No username", ex.exception.message)
 
 		IM.DestroyInfrastructure(infId, auth0)
 
