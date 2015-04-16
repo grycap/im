@@ -296,6 +296,10 @@ class ConfManager(threading.Thread):
 						(nodename, nodedom) = vm.getRequestedName(default_domain = Config.DEFAULT_DOMAIN)
 
 					node_line = ip + ":" + str(vm.getSSHPort())
+					
+					if vm.id == self.inf.vm_master.id:
+						node_line += ' ansible_connection=local'
+					
 					node_line += ' IM_NODE_HOSTNAME=' + nodename
 					node_line += ' IM_NODE_HOSTNAME=' + nodename
 					node_line += ' IM_NODE_FQDN=' + nodename + "." + nodedom

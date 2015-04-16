@@ -14,7 +14,7 @@ IM web interface with the EC3 tool. It also shows how CLUES works to dinamically
 the size of the cluster automatically.
 
 The third one shows how to use the IM web interface to access `EGI FedCloud <http://www.egi.eu/infrastructure/cloud/>`_
- sites using the OCCI plugin, showing also how to launch a Hadoop Cluster with a single click.
+sites using the OCCI plugin, showing also how to launch a Hadoop Cluster with a single click.
 
 `YouTube IM channel <https://www.youtube.com/channel/UCF16QmMHlRNtsC-0Cb2d8fg>`_
 
