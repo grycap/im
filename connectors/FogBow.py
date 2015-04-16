@@ -18,16 +18,13 @@ import json
 import subprocess
 import shutil
 import os
-import re
 import sys
-import base64
-import string
 import httplib
 import tempfile
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from CloudConnector import CloudConnector
-from IM.radl.radl import Feature, network
+from IM.radl.radl import Feature
 
 
 class FogBowCloudConnector(CloudConnector):
@@ -57,18 +54,20 @@ class FogBowCloudConnector(CloudConnector):
 	}
 	"""Dictionary with a map with the FogBow Request states to the IM states."""
 
-	def get_auth_header(self, auth_data):
+	def get_auth_headers(self, auth_data):
 		"""
 		Generate the auth header needed to contact with the FogBow server.
 		"""
 		auth = auth_data.getAuthInfo(FogBowCloudConnector.type) 
 		
-		plugin = IdentityPlugin.getIdentityPlugin(auth[0]['token_type'])
+		token_type = auth[0]['token_type']
+		plugin = IdentityPlugin.getIdentityPlugin(token_type)
 		token = plugin.create_token(auth[0]).replace("\n", "").replace("\r", "")
 		
-		auth_header = {'X-Auth-Token' : token}
+		auth_headers = {'X-Federation-Auth-Token' : token}
+		#auth_headers = {'X-Auth-Token' : token, 'X-Local-Auth-Token' : token, 'Authorization' : token}
 
-		return auth_header
+		return auth_headers
 		
 		
 	def concreteSystem(self, radl_system, auth_data):
@@ -134,7 +133,7 @@ class FogBowCloudConnector(CloudConnector):
 
 	"""	
 	def updateVMInfo(self, vm, auth_data):
-		auth = self.get_auth_header(auth_data)
+		auth = self.get_auth_headers(auth_data)
 		headers = {'Accept': 'text/plain'}
 		if auth:
 			headers.update(auth)
@@ -226,7 +225,7 @@ class FogBowCloudConnector(CloudConnector):
 
 	def launch(self, inf, radl, requested_radl, num_vm, auth_data):
 		system = radl.systems[0]
-		auth_header = self.get_auth_header(auth_data)
+		auth_headers = self.get_auth_headers(auth_data)
 
 		#name = system.getValue("disk.0.image.name")
 		
@@ -235,7 +234,10 @@ class FogBowCloudConnector(CloudConnector):
 		conn = httplib.HTTPConnection(self.cloud.server, self.cloud.port)
 
 		url = uriparse(system.getValue("disk.0.image.url"))
-		os_tpl = url[1]
+		if url[1].startswith('http'):
+			os_tpl = url[1] + url[2]
+		else:
+			os_tpl = url[1]
 		
 		public_key = system.getValue('disk.0.os.credentials.public_key')
 		
@@ -249,8 +251,9 @@ class FogBowCloudConnector(CloudConnector):
 				conn.putrequest('POST', "/fogbow_request/")
 				conn.putheader('Content-Type', 'text/occi')
 				#conn.putheader('Accept', 'text/occi')
-				if auth_header:
-					conn.putheader(auth_header.keys()[0], auth_header.values()[0])
+				if auth_headers:
+					for k, v in auth_headers.iteritems():
+						conn.putheader(k, v)
 				
 				conn.putheader('Category', 'fogbow_request; scheme="http://schemas.fogbowcloud.org/request#"; class="kind"')
 				
@@ -287,7 +290,7 @@ class FogBowCloudConnector(CloudConnector):
 		return res
 
 	def finalize(self, vm, auth_data):
-		auth = self.get_auth_header(auth_data)
+		auth = self.get_auth_headers(auth_data)
 		headers = {'Accept': 'text/plain'}
 		if auth:
 			headers.update(auth)
@@ -317,7 +320,7 @@ class FogBowCloudConnector(CloudConnector):
 					output = str(resp.read())
 					if resp.status != 404 and resp.status != 200:
 						return (False, "Error removing the VM: " + resp.reason + "\n" + output)
- 
+
 			conn = httplib.HTTPConnection(self.cloud.server, self.cloud.port)
 			conn.request('DELETE', "/fogbow_request/" + vm.id, headers = headers) 
 			resp = conn.getresponse()	
@@ -371,6 +374,12 @@ class OpenNebulaIdentityPlugin(IdentityPlugin):
 		return params['username'] + ":" + params['password']
 
 class X509IdentityPlugin(IdentityPlugin):
+	
+	@staticmethod
+	def create_token(params):
+		return params['proxy']
+	
+class VOMSIdentityPlugin(IdentityPlugin):
 	
 	@staticmethod
 	def create_token(params):
