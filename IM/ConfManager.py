@@ -84,7 +84,7 @@ class ConfManager(threading.Thread):
 						ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Configuration process of master node is still running.")
 					else:
 						if vm.configured:
-							ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ":Configuration process of master node successfully finished.")
+							ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Configuration process of master node successfully finished.")
 						else:
 							ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Configuration process of master node failed.")
 						# Force to save the data to store the log data 
@@ -189,10 +189,18 @@ class ConfManager(threading.Thread):
 						try:
 							# Mark this VM as configuring 
 							vm.configured = None
-							vm.ctxt_pid = self.launch_ctxt_agent(vm, tasks)
+							# Launch the ctxt_agent using a thread
+							t = threading.Thread(target=eval("self.launch_ctxt_agent"),args=(vm, tasks))
+							t.daemon = True
+							t.start()
+							vm.inf.conf_threads.append(t)
 							if step not in vms_configuring:
 								vms_configuring[step] = []
+							vms_configuring[step].append(vm.inf)
+							# Add the VM to the list of configuring vms
 							vms_configuring[step].append(vm)
+							# Set the "special pid" to wait untill the real pid is assigned
+							vm.ctxt_pid = VirtualMachine.WAIT_TO_PID
 							# Force to save the data to store the log data 
 							InfrastructureManager.InfrastructureManager.save_data()
 						except:
@@ -236,14 +244,14 @@ class ConfManager(threading.Thread):
 		
 		shutil.rmtree(tmp_dir, ignore_errors=True)
 
-		(pid, _, _) = ssh.execute("nohup python_ansible " + Config.REMOTE_CONF_DIR + "/ctxt_agent.py " 
+		(vm.ctxt_pid, _, _) = ssh.execute("nohup python_ansible " + Config.REMOTE_CONF_DIR + "/ctxt_agent.py " 
 				+ Config.REMOTE_CONF_DIR + "/general_info.cfg "
 				+ remote_dir + "/" + os.path.basename(conf_file) 
 				+ " > " + remote_dir + "/stdout" + " 2> " + remote_dir + "/stderr < /dev/null & echo -n $!")
 		
-		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Ansible process to configure " + str(vm.im_id) + " launched with pid: " + pid)
+		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Ansible process to configure " + str(vm.im_id) + " launched with pid: " + vm.ctxt_pid)
 
-		return pid
+		return vm.ctxt_pid
 
 	def generate_inventory(self, tmp_dir):
 		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": create the ansible configuration file")

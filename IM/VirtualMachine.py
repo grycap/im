@@ -36,6 +36,8 @@ class VirtualMachine:
 	FAILED = "failed"
 	CONFIGURED = "configured"
 	UNCONFIGURED = "unconfigured"
+	
+	WAIT_TO_PID = "WAIT"
 
 	def __init__(self, inf, cloud_id, cloud, info, requested_radl):
 		self._lock = threading.Lock()
@@ -477,25 +479,26 @@ class VirtualMachine:
 	
 	def check_ctxt_process(self):
 		if self.ctxt_pid:
-			ssh = self.inf.vm_master.get_ssh()
-			try:
-				(_, _, exit_status) = ssh.execute("ps " + str(self.ctxt_pid))
-			except:
-				exit_status = 0
-				self.ssh_connect_errors += 1
-				if self.ssh_connect_errors > Config.MAX_SSH_ERRORS:
-					self.ssh_connect_errors = 0
+			if self.ctxt_pid != self.WAIT_TO_PID:
+				ssh = self.inf.vm_master.get_ssh()
+				try:
+					(_, _, exit_status) = ssh.execute("ps " + str(self.ctxt_pid))
+				except:
+					exit_status = 0
+					self.ssh_connect_errors += 1
+					if self.ssh_connect_errors > Config.MAX_SSH_ERRORS:
+						self.ssh_connect_errors = 0
+						self.ctxt_pid = None
+						self.configured = False
+					
+				if exit_status != 0:
 					self.ctxt_pid = None
-					self.configured = False
-				
-			if exit_status != 0:
-				self.ctxt_pid = None
-				# The process has finished, get the outputs
-				ip = self.getPublicIP()
-				if not ip:
-					ip = ip = self.getPrivateIP()
-				remote_dir = Config.REMOTE_CONF_DIR + "/" + ip + "_" + str(self.getSSHPort())
-				self.get_ctxt_output(remote_dir)
+					# The process has finished, get the outputs
+					ip = self.getPublicIP()
+					if not ip:
+						ip = ip = self.getPrivateIP()
+					remote_dir = Config.REMOTE_CONF_DIR + "/" + ip + "_" + str(self.getSSHPort())
+					self.get_ctxt_output(remote_dir)
 
 		return self.ctxt_pid
 	
