@@ -63,21 +63,18 @@ class ConfManager(threading.Thread):
 		for step, vm_list in vms_configuring.iteritems():
 			for vm in vm_list:
 				if isinstance(vm,VirtualMachine):
-					if vm.check_ctxt_process():
+					if vm.is_ctxt_process_running():
 						if step not in res:
 							res[step] = []
 						res[step].append(vm)
 						ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Ansible process to configure " + str(vm.im_id) + " with PID " + vm.ctxt_pid + " is still running.")
 					else:						
-						if vm.configured:
-							ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Configuration process in VM: " + str(vm.im_id) + " successfully finished.")
-						else:
-							ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Configuration process in VM: " + str(vm.im_id) + " failed.")
+						ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Configuration process in VM: " + str(vm.im_id) + " finished.")
 						# Force to save the data to store the log data 
 						InfrastructureManager.InfrastructureManager.save_data()
 				else:
 					# General Infrastructure tasks
-					if vm.check_ctxt_process():
+					if vm.is_ctxt_process_running():
 						if step not in res:
 							res[step] = []
 						res[step].append(vm)
@@ -225,33 +222,40 @@ class ConfManager(threading.Thread):
 				last_step = step
 
 	def launch_ctxt_agent(self, vm, tasks):
-		ip = vm.getPublicIP()
-		if not ip:
-			ip = vm.getPrivateIP()
-		remote_dir = Config.REMOTE_CONF_DIR + "/" + ip + "_" + str(vm.getSSHPort())
-		tmp_dir = tempfile.mkdtemp()
-
-		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Create the configuration file for the contextualization agent")
-		conf_file = tmp_dir + "/config.cfg"
-		self.create_vm_conf_file(conf_file, vm.im_id, tasks, remote_dir)
-		
-		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Copy the contextualization agent config file")
-
-		# Copy the contextualization agent config file
-		ssh = self.inf.vm_master.get_ssh()
-		ssh.sftp_mkdir(remote_dir)
-		ssh.sftp_put(conf_file, remote_dir + "/" + os.path.basename(conf_file))
-		
-		shutil.rmtree(tmp_dir, ignore_errors=True)
-
-		(vm.ctxt_pid, _, _) = ssh.execute("nohup python_ansible " + Config.REMOTE_CONF_DIR + "/ctxt_agent.py " 
-				+ Config.REMOTE_CONF_DIR + "/general_info.cfg "
-				+ remote_dir + "/" + os.path.basename(conf_file) 
-				+ " > " + remote_dir + "/stdout" + " 2> " + remote_dir + "/stderr < /dev/null & echo -n $!")
-		
-		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Ansible process to configure " + str(vm.im_id) + " launched with pid: " + vm.ctxt_pid)
-
-		return vm.ctxt_pid
+		try:
+			ip = vm.getPublicIP()
+			if not ip:
+				ip = vm.getPrivateIP()
+			remote_dir = Config.REMOTE_CONF_DIR + "/" + ip + "_" + str(vm.getSSHPort())
+			tmp_dir = tempfile.mkdtemp()
+	
+			ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Create the configuration file for the contextualization agent")
+			conf_file = tmp_dir + "/config.cfg"
+			self.create_vm_conf_file(conf_file, vm.im_id, tasks, remote_dir)
+			
+			ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Copy the contextualization agent config file")
+	
+			# Copy the contextualization agent config file
+			ssh = self.inf.vm_master.get_ssh()
+			ssh.sftp_mkdir(remote_dir)
+			ssh.sftp_put(conf_file, remote_dir + "/" + os.path.basename(conf_file))
+			
+			shutil.rmtree(tmp_dir, ignore_errors=True)
+	
+			(pid, _, _) = ssh.execute("nohup python_ansible " + Config.REMOTE_CONF_DIR + "/ctxt_agent.py " 
+					+ Config.REMOTE_CONF_DIR + "/general_info.cfg "
+					+ remote_dir + "/" + os.path.basename(conf_file) 
+					+ " > " + remote_dir + "/stdout" + " 2> " + remote_dir + "/stderr < /dev/null & echo -n $!")
+			
+			ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Ansible process to configure " + str(vm.im_id) + " launched with pid: " + pid)
+	
+			vm.ctxt_pid = pid
+			vm.launch_check_ctxt_process()
+			return pid
+		except:
+			ConfManager.logger.exception("Inf ID: " + str(self.inf.id) + ": Error launching the ansible process to configure " + str(vm.im_id))
+			vm.ctxt_pid = None
+			return None
 
 	def generate_inventory(self, tmp_dir):
 		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": create the ansible configuration file")

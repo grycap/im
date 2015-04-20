@@ -332,7 +332,7 @@ class InfrastructureInfo:
 			for elem in to_add:
 				self.ctxt_tasks.put(elem)
 		
-	def check_ctxt_process(self):
+	def is_ctxt_process_running(self):
 		all_finished = True
 		for t in self.conf_threads:
 			if t.isAlive():
