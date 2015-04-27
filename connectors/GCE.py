@@ -23,6 +23,7 @@ from libcloud.compute.providers import get_driver
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from IM.radl.radl import Feature
+from libcloud.common.google import ResourceNotFoundError
 
 class GCECloudConnector(CloudConnector):
     """
@@ -285,17 +286,14 @@ class GCECloudConnector(CloudConnector):
         
         if node:
             success = node.destroy()
-
-            # Delete the volumes
             self.delete_disks(node)
 
             if not success:
                 return (False, "Error destroying node: " + vm.id)
-
+            
             self.logger.debug("VM " + str(vm.id) + " successfully destroyed")
         else:
             self.logger.warn("VM " + str(vm.id) + " not found.")
-        
         return (True, "")
     
     def delete_disks(self, node):
@@ -332,7 +330,15 @@ class GCECloudConnector(CloudConnector):
         Returns: a :py:class:`libcloud.compute.base.Node` with the node info    
         """
         driver = self.get_driver(auth_data)
-        return driver.ex_get_node(node_id)
+        
+        node = None
+        
+        try:
+            node = driver.ex_get_node(node_id)
+        except ResourceNotFoundError:
+            self.logger.warn("VM " + str(node_id) + " does not exist.")
+        
+        return node
 
     def get_node_location(self, node):
         """
