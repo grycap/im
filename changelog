@@ -86,3 +86,8 @@ IM 1.2.1
     * Minor bugfixed in InfrastructureManager class
     * Improve error messages
     * Bugfixes in OpenNebula connector
+
+IM 1.2.2
+    * Update Fogbow connector to recent changes of the software.
+    * Minor bugfix in GCE connector
+    * Improve performance in contextualization step.
