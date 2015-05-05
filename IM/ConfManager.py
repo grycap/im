@@ -313,7 +313,6 @@ class ConfManager(threading.Thread):
 						node_line += ' ansible_connection=local'
 					
 					node_line += ' IM_NODE_HOSTNAME=' + nodename
-					node_line += ' IM_NODE_HOSTNAME=' + nodename
 					node_line += ' IM_NODE_FQDN=' + nodename + "." + nodedom
 					node_line += ' IM_NODE_DOMAIN=' + nodedom
 					node_line += ' IM_NODE_NUM=' + str(vm.im_id)
