@@ -60,14 +60,18 @@ class FogBowCloudConnector(CloudConnector):
 		"""
 		auth = auth_data.getAuthInfo(FogBowCloudConnector.type) 
 		
-		token_type = auth[0]['token_type']
-		plugin = IdentityPlugin.getIdentityPlugin(token_type)
-		token = plugin.create_token(auth[0]).replace("\n", "").replace("\r", "")
-		
-		auth_headers = {'X-Federation-Auth-Token' : token}
-		#auth_headers = {'X-Auth-Token' : token, 'X-Local-Auth-Token' : token, 'Authorization' : token}
+		if auth and 'token_type' in auth[0]:
+			token_type = auth[0]['token_type']
+			plugin = IdentityPlugin.getIdentityPlugin(token_type)
+			token = plugin.create_token(auth[0]).replace("\n", "").replace("\r", "")
+			
+			auth_headers = {'X-Federation-Auth-Token' : token}
+			#auth_headers = {'X-Auth-Token' : token, 'X-Local-Auth-Token' : token, 'Authorization' : token}
 
-		return auth_headers
+			return auth_headers
+		else:
+			raise Exception("Incorrect auth data")
+			self.logger.error("Incorrect auth data")
 		
 		
 	def concreteSystem(self, radl_system, auth_data):
