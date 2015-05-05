@@ -46,8 +46,12 @@ class OCCICloudConnector(CloudConnector):
 	}
 	"""Dictionary with a map with the OCCI VM states to the IM states."""
 
-	@staticmethod
-	def get_https_connection(auth, server, port):
+	def __init__(self, cloud_info):
+		self.proxy_filename = None
+		self.connection = None
+		CloudConnector.__init__(self, cloud_info)
+
+	def get_https_connection(self, auth, server, port):
 		"""
 		Get a HTTPS connection with the specified server.
 		It uses a proxy file if it has been specified in the auth credentials 
@@ -58,6 +62,7 @@ class OCCICloudConnector(CloudConnector):
 			(fproxy, proxy_filename) = tempfile.mkstemp()
 			os.write(fproxy, proxy)
 			os.close(fproxy)
+			self.proxy_filename = proxy_filename
 	
 			return httplib.HTTPSConnection(server, port, cert_file = proxy_filename)
 		else:
@@ -67,24 +72,21 @@ class OCCICloudConnector(CloudConnector):
 		"""
 		Get the HTTP connection to contact the OCCI server
 		"""
-		auth = auth_data.getAuthInfo(OCCICloudConnector.type)
-		url = uriparse(self.cloud.server)
-		
-		if url[0] == 'https':
-			conn = self.get_https_connection(auth, url[1], self.cloud.port)
+		# We check if the proxy file exists
+		if self.connection and (self.proxy_filename is None or os.path.isfile(self.proxy_filename)):
+			return self.connection
 		else:
-			conn = httplib.HTTPConnection(url[1], self.cloud.port)
+			auth = auth_data.getAuthInfo(OCCICloudConnector.type)
+			url = uriparse(self.cloud.server)
+			
+			if url[0] == 'https':
+				conn = self.get_https_connection(auth, url[1], self.cloud.port)
+			else:
+				conn = httplib.HTTPConnection(url[1], self.cloud.port)
+			
+			self.connection = conn
 		
 		return conn
-	
-	@staticmethod
-	def delete_proxy(conn):
-		"""
-		Delete the proxy file created to contact with the HTTPS server.
-		(Created in the get_https_connection function)
-		"""
-		if isinstance(conn, httplib.HTTPSConnection) and conn.cert_file and os.path.isfile(conn.cert_file):
-			os.unlink(conn.cert_file)
 
 	def get_auth_header(self, auth_data):
 		"""
@@ -96,6 +98,7 @@ class OCCICloudConnector(CloudConnector):
 		keystone_uri = KeyStoneAuth.get_keystone_uri(self, auth_data)
 		
 		if keystone_uri:
+			# TODO: Check validity of token
 			keystone_token = KeyStoneAuth.get_keystone_token(self, keystone_uri, auth)
 			auth_header = {'X-Auth-Token' : keystone_token} 		
 		else: 
@@ -208,7 +211,6 @@ class OCCICloudConnector(CloudConnector):
 			conn = self.get_http_connection(auth_data)
 			conn.request('GET', "/compute/" + vm.id, headers = headers) 
 			resp = conn.getresponse()
-			self.delete_proxy(conn)
 			
 			output = resp.read()
 			if resp.status == 404:
@@ -263,7 +265,6 @@ users:
 			conn = self.get_http_connection(auth_data)
 			conn.request('GET', "/-/", headers = headers) 
 			resp = conn.getresponse()
-			self.delete_proxy(conn)
 			
 			output = resp.read()
 			#self.logger.debug(output)
@@ -412,7 +413,7 @@ users:
 					else:
 						occi_vm_id = os.path.basename(output)
 					if occi_vm_id:				
-						vm = VirtualMachine(inf, occi_vm_id, self.cloud, radl, requested_radl)
+						vm = VirtualMachine(inf, occi_vm_id, self.cloud, radl, requested_radl, self)
 						res.append((True, vm))
 					else:
 						res.append((False, 'Unknown Error launching the VM.'))
@@ -422,8 +423,6 @@ users:
 				res.append((False, "ERROR: " + str(ex)))
 
 			i += 1
-			
-		self.delete_proxy(conn)
 		
 		return res
 
@@ -437,7 +436,6 @@ users:
 			conn = self.get_http_connection(auth_data)
 			conn.request('DELETE', "/compute/" + vm.id, headers = headers) 
 			resp = conn.getresponse()	
-			self.delete_proxy(conn)		
 			output = str(resp.read())
 			if resp.status == 404:
 				return (True, vm.id)
@@ -466,7 +464,6 @@ users:
 			conn.endheaders(body)
 
 			resp = conn.getresponse()
-			self.delete_proxy(conn)	
 			output = str(resp.read())
 			if resp.status != 200:
 				return (False, "Error stopping the VM: " + resp.reason + "\n" + output)
@@ -492,7 +489,6 @@ users:
 			conn.endheaders(body)
 
 			resp = conn.getresponse()
-			self.delete_proxy(conn)	
 			output = str(resp.read())
 			if resp.status != 200:
 				return (False, "Error starting the VM: " + resp.reason + "\n" + output)
@@ -521,7 +517,6 @@ class KeyStoneAuth:
 			conn = occi.get_http_connection(auth_data)
 			conn.request('HEAD', "/-/", headers = headers) 
 			resp = conn.getresponse()
-			occi.delete_proxy(conn)
 			www_auth_head = resp.getheader('Www-Authenticate')
 			if www_auth_head and www_auth_head.startswith('Keystone uri'):
 				return www_auth_head.split('=')[1].replace("'","")
@@ -556,7 +551,6 @@ class KeyStoneAuth:
 			conn.endheaders(body)
 	
 			resp = conn.getresponse()
-			occi.delete_proxy(conn)
 			
 			# format: -> "{\"access\": {\"token\": {\"issued_at\": \"2014-12-29T17:10:49.609894\", \"expires\": \"2014-12-30T17:10:49Z\", \"id\": \"c861ab413e844d12a61d09b23dc4fb9c\"}, \"serviceCatalog\": [], \"user\": {\"username\": \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\", \"roles_links\": [], \"id\": \"475ce4978fb042e49ce0391de9bab49b\", \"roles\": [], \"name\": \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\"}, \"metadata\": {\"is_admin\": 0, \"roles\": []}}}"
 			output = json.loads(resp.read())
@@ -585,13 +579,10 @@ class KeyStoneAuth:
 			conn.endheaders(body)
 	
 			resp = conn.getresponse()
-			occi.delete_proxy(conn)
 			
 			# format: -> "{\"access\": {\"token\": {\"issued_at\": \"2014-12-29T17:10:49.609894\", \"expires\": \"2014-12-30T17:10:49Z\", \"id\": \"c861ab413e844d12a61d09b23dc4fb9c\"}, \"serviceCatalog\": [], \"user\": {\"username\": \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\", \"roles_links\": [], \"id\": \"475ce4978fb042e49ce0391de9bab49b\", \"roles\": [], \"name\": \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\"}, \"metadata\": {\"is_admin\": 0, \"roles\": []}}}"
 			output = json.loads(resp.read())
 			tenant_token_id = output['access']['token']['id']
-			
-			occi.delete_proxy(conn)
 		
 			return tenant_token_id
 		except:

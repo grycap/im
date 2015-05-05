@@ -129,6 +129,12 @@ class AzureCloudConnector(CloudConnector):
 		'Unknown': VirtualMachine.UNKNOWN
 	}
 	
+	def __init__(self, cloud_info):
+		self.cert_file = None
+		self.key_file = None
+		self.connection = None
+		CloudConnector.__init__(self, cloud_info)
+	
 	def concreteSystem(self, radl_system, auth_data):
 		if radl_system.getValue("disk.0.image.url"):
 			url = uriparse(radl_system.getValue("disk.0.image.url"))
@@ -293,14 +299,14 @@ class AzureCloudConnector(CloudConnector):
 		system = radl.systems[0]
 		name = system.getValue("disk.0.image.name")
 		if not name:
-			name = "userimage"
+			name = "userimage" + str(num)
 		url = uriparse(system.getValue("disk.0.image.url"))
 
 		label = name + " IM created VM"
 		(hostname, _) = vm.getRequestedName(default_hostname = Config.DEFAULT_VM_NAME, default_domain = Config.DEFAULT_DOMAIN)
 		
 		if not hostname:
-			hostname = "AzureNode"
+			hostname = "AzureNode" + str(num)
 
 		SourceImageName = url[1]
 		MediaLink = "https://%s.blob.core.windows.net/vhds/%s.vhd" % (storage_account, SourceImageName)
@@ -353,6 +359,26 @@ class AzureCloudConnector(CloudConnector):
 		else:
 			return None
 
+	def get_connection(self, auth_data):
+		# We check if the cert and key files exist
+		if self.connection and os.path.isfile(self.cert_file) and os.path.isfile(self.key_file):
+			return self.connection
+		else:
+			subscription_id = self.get_user_subscription_id(auth_data)
+			auth = self.get_user_cert_data(auth_data)
+			
+			if auth is None or subscription_id is None:
+				return None
+			else:
+				cert_file, key_file = auth
+				
+			conn = httplib.HTTPSConnection(self.AZURE_SERVER, self.AZURE_PORT, cert_file=cert_file, key_file=key_file)
+			self.cert_file = cert_file
+			self.key_file = key_file
+			self.connection = conn
+			
+			return conn
+
 	def get_user_cert_data(self, auth_data):
 		"""
 		Get the Azure private_key and public_key files from the auth data 
@@ -375,7 +401,7 @@ class AzureCloudConnector(CloudConnector):
 		else:
 			return None
 
-	def create_service(self, subscription_id, cert_file, key_file, region):
+	def create_service(self, subscription_id, conn, region):
 		"""
 		Create a Azure Cloud Service and return the name
 		"""
@@ -383,8 +409,6 @@ class AzureCloudConnector(CloudConnector):
 		self.logger.info("Create the service " + service_name + " in region: " + region)
 		
 		try:
-
-			conn = httplib.HTTPSConnection(self.AZURE_SERVER, self.AZURE_PORT, key_file=key_file, cert_file=cert_file)
 			uri = "https://%s/%s/services/hostedservices" % (self.AZURE_SERVER,subscription_id)
 			service_create_xml = '''
 	<CreateHostedService xmlns="http://schemas.microsoft.com/windowsazure">
@@ -397,7 +421,6 @@ class AzureCloudConnector(CloudConnector):
 			conn.request('POST', uri, body = service_create_xml, headers = {'x-ms-version' : '2013-03-01', 'Content-Type' : 'application/xml'}) 
 			resp = conn.getresponse()
 			output = resp.read()
-			conn.close()
 		except Exception:
 			self.logger.exception("Error creating the service")
 			return None
@@ -408,17 +431,15 @@ class AzureCloudConnector(CloudConnector):
 		
 		return service_name
 	
-	def delete_service(self, service_name, subscription_id, cert_file, key_file):
+	def delete_service(self, service_name, subscription_id, conn):
 		"""
 		Delete the Azure Cloud Service with name "service_name"
 		"""
 		try:
-			conn = httplib.HTTPSConnection(self.AZURE_SERVER, self.AZURE_PORT, cert_file=cert_file, key_file=key_file)
 			uri = "/%s/services/hostedservices/%s?comp=media" % (subscription_id, service_name)
 			conn.request('DELETE', uri, headers = {'x-ms-version' : '2013-08-01'}) 
 			resp = conn.getresponse()
 			output = resp.read()
-			conn.close()
 		except Exception, ex:
 			self.logger.exception("Error deleting the service")
 			return (False, "Error deleting the service: " + str(ex))
@@ -430,7 +451,7 @@ class AzureCloudConnector(CloudConnector):
 		request_id = resp.getheader('x-ms-request-id')
 		
 		# Call to GET OPERATION STATUS until 200 (OK)
-		success = self.wait_operation_status(request_id, subscription_id, cert_file, key_file)
+		success = self.wait_operation_status(request_id, subscription_id, conn)
 		
 		if success:
 			return (True, "")
@@ -438,7 +459,7 @@ class AzureCloudConnector(CloudConnector):
 			return (False, "Error waiting the VM termination")
 
 
-	def wait_operation_status(self, request_id, subscription_id, cert_file, key_file, req_status = 200, delay = 2, timeout = 60):
+	def wait_operation_status(self, request_id, subscription_id, conn, req_status = 200, delay = 2, timeout = 60):
 		"""
 		Wait for the operation "request_id" to finish in the specified state
 		"""
@@ -449,12 +470,10 @@ class AzureCloudConnector(CloudConnector):
 			time.sleep(delay)
 			wait += delay
 			try:
-				conn = httplib.HTTPSConnection(self.AZURE_SERVER, self.AZURE_PORT, cert_file=cert_file, key_file=key_file)
 				uri = "/%s/operations/%s" % (subscription_id, request_id)
 				conn.request('GET', uri, headers = {'x-ms-version' : '2013-03-01'}) 
 				resp = conn.getresponse()
 				status = resp.status
-				conn.close()
 				self.logger.debug("Operation state: " + str(status))
 			except Exception:
 				self.logger.exception("Error getting the operation state: " + request_id)
@@ -465,13 +484,12 @@ class AzureCloudConnector(CloudConnector):
 			self.logger.exception("Error waiting the operation")
 			return False
 	
-	def create_storage_account(self, storage_account, subscription_id, cert_file, key_file, region, timeout = 120):
+	def create_storage_account(self, storage_account, conn, subscription_id, region, timeout = 120):
 		"""
 		Create an storage account with the name specified in "storage_account"
 		"""
 		self.logger.info("Creating the storage account " + storage_account)
 		try:
-			conn = httplib.HTTPSConnection(self.AZURE_SERVER, self.AZURE_PORT, cert_file=cert_file, key_file=key_file)
 			uri = "/%s/services/storageservices" % subscription_id
 			storage_create_xml = '''
 <CreateStorageServiceInput xmlns="http://schemas.microsoft.com/windowsazure">
@@ -491,7 +509,6 @@ class AzureCloudConnector(CloudConnector):
 			conn.request('POST', uri, body = storage_create_xml, headers = {'x-ms-version' : '2013-03-01', 'Content-Type' : 'application/xml'}) 
 			resp = conn.getresponse()
 			output = resp.read()
-			conn.close()
 		except Exception:
 			self.logger.exception("Error creating the storage account")
 			return None
@@ -503,14 +520,14 @@ class AzureCloudConnector(CloudConnector):
 		request_id = resp.getheader('x-ms-request-id')
 		
 		# Call to GET OPERATION STATUS until 200 (OK)
-		success = self.wait_operation_status(request_id, subscription_id, cert_file, key_file)
+		success = self.wait_operation_status(request_id, subscription_id, conn)
 		
 		# Wait the storage to be "Created"
 		status = None
 		delay = 2
 		wait = 0
 		while status != "Created" and wait < timeout:
-			storage = self.get_storage_account(storage_account, subscription_id, cert_file, key_file)
+			storage = self.get_storage_account(storage_account, conn, subscription_id)
 			if storage:
 				status = storage.Status 
 			if status != "Created":
@@ -521,20 +538,18 @@ class AzureCloudConnector(CloudConnector):
 			return storage_account
 		else:
 			self.logger.exception("Error creating the storage account")
-			self.delete_storage_account(storage_account, subscription_id, cert_file, key_file)
+			self.delete_storage_account(storage_account, subscription_id, conn)
 			return None
 	
-	def delete_storage_account(self, storage_account, subscription_id, cert_file, key_file):
+	def delete_storage_account(self, storage_account, subscription_id, conn):
 		"""
 		Delete an storage account with the name specified in "storage_account"
 		"""
 		try:
-			conn = httplib.HTTPSConnection(self.AZURE_SERVER, self.AZURE_PORT, cert_file=cert_file, key_file=key_file)
 			uri = "/%s/services/storageservices/%s" % (subscription_id, storage_account)
 			conn.request('DELETE', uri, headers = {'x-ms-version' : '2013-03-01'}) 
 			resp = conn.getresponse()
 			output = resp.read()
-			conn.close()
 		except Exception:
 			self.logger.exception("Error deleting the storage account")
 			return False
@@ -545,17 +560,15 @@ class AzureCloudConnector(CloudConnector):
 
 		return True
 	
-	def get_storage_account(self, storage_account, subscription_id, cert_file, key_file):
+	def get_storage_account(self, storage_account, conn, subscription_id):
 		"""
 		Get the information about the Storage Account named "storage_account" or None if it does not exist
 		"""
 		try:
-			conn = httplib.HTTPSConnection(self.AZURE_SERVER, self.AZURE_PORT, cert_file=cert_file, key_file=key_file)
 			uri = "/%s/services/storageservices/%s" % (subscription_id, storage_account)
 			conn.request('GET', uri, headers = {'x-ms-version' : '2013-03-01'}) 
 			resp = conn.getresponse()
 			output = resp.read()
-			conn.close()
 			if resp.status == 200:
 				storage_info = StorageService(output)
 				return storage_info.StorageServiceProperties
@@ -571,12 +584,10 @@ class AzureCloudConnector(CloudConnector):
 
 	def launch(self, inf, radl, requested_radl, num_vm, auth_data):
 		subscription_id = self.get_user_subscription_id(auth_data)
-		auth = self.get_user_cert_data(auth_data)
+		conn = self.get_connection(auth_data)
 		
-		if auth is None or subscription_id is None:
+		if conn is None or subscription_id is None:
 			return [(False, "Incorrect auth data")]
-		else:
-			cert_file, key_file = auth
 
 		region = self.DEFAULT_LOCATION
 		if radl.systems[0].getValue('availability_zone'):
@@ -589,9 +600,9 @@ class AzureCloudConnector(CloudConnector):
 		while i < num_vm:
 			try:
 				# Create storage account
-				storage_account = self.get_storage_account(self.STORAGE_NAME, subscription_id, cert_file, key_file)
+				storage_account = self.get_storage_account(self.STORAGE_NAME, conn, subscription_id)
 				if not storage_account:
-					storage_account_name = self.create_storage_account(self.STORAGE_NAME, subscription_id, cert_file, key_file, region)
+					storage_account_name = self.create_storage_account(self.STORAGE_NAME, conn, subscription_id, region)
 					if storage_account_name is None:
 						res.append((False, "Error creating the storage account"))
 				else:
@@ -606,7 +617,7 @@ class AzureCloudConnector(CloudConnector):
 						region = storage_account.GeoPrimaryRegion
 
 				# and the service
-				service_name = self.create_service(subscription_id, cert_file, key_file, region)
+				service_name = self.create_service(subscription_id, conn, region)
 				if service_name is None:
 					res.append((False, "Error creating the service"))
 					break
@@ -614,30 +625,28 @@ class AzureCloudConnector(CloudConnector):
 				self.logger.debug("Creating the VM with id: " + service_name)
 				
 				# Create the VM to get the nodename
-				vm = VirtualMachine(inf, service_name, self.cloud, radl, requested_radl)
+				vm = VirtualMachine(inf, service_name, self.cloud, radl, requested_radl, self)
 				
 				# Generate the XML to create the VM
 				vm_create_xml = self.get_azure_vm_create_xml(vm, storage_account_name, radl, i)
 				
 				if vm_create_xml == None:
-					self.delete_service(service_name, subscription_id, cert_file, key_file)
+					self.delete_service(service_name, subscription_id, conn)
 					res.append((False, "Incorrect image or auth data"))
 
-				conn = httplib.HTTPSConnection(self.AZURE_SERVER, self.AZURE_PORT, cert_file=cert_file, key_file=key_file)
 				uri = "/%s/services/hostedservices/%s/deployments" % (subscription_id, service_name)
 				conn.request('POST', uri, body = vm_create_xml, headers = {'x-ms-version' : '2013-03-01', 'Content-Type' : 'application/xml'}) 
 				resp = conn.getresponse()
 				output = resp.read()
-				conn.close()
 				
 				if resp.status != 202:
-					self.delete_service(service_name, subscription_id, cert_file, key_file)
+					self.delete_service(service_name, subscription_id, conn)
 					self.logger.error("Error creating the VM: Error Code " + str(resp.status) + ". Msg: " + output)
 					res.append((False, "Error creating the VM: Error Code " + str(resp.status) + ". Msg: " + output))
 				else:
 					#Call the GET OPERATION STATUS until sea 200 (OK)
 					request_id = resp.getheader('x-ms-request-id')
-					success = self.wait_operation_status(request_id, subscription_id, cert_file, key_file)
+					success = self.wait_operation_status(request_id, subscription_id, conn)
 					if success:
 						res.append((True, vm))
 					else:
@@ -647,10 +656,6 @@ class AzureCloudConnector(CloudConnector):
 			except Exception, ex:
 				self.logger.exception("Error creating the VM")
 				res.append((False, "Error creating the VM: " + str(ex)))
-			finally:
-				# delete tmp files with certificates 
-				os.unlink(cert_file)
-				os.unlink(key_file)
 
 			i += 1
 		return res
@@ -699,41 +704,27 @@ class AzureCloudConnector(CloudConnector):
 		
 	def updateVMInfo(self, vm, auth_data):
 		self.logger.debug("Get the VM info with the id: " + vm.id)
-		auth = self.get_user_cert_data(auth_data)
 		subscription_id = self.get_user_subscription_id(auth_data)
+		conn = self.get_connection(auth_data)
 		
-		if auth is None or subscription_id is None:
+		if conn is None or subscription_id is None:
 			return [(False, "Incorrect auth data")]
-		else:
-			cert_file, key_file = auth
 
 		service_name = vm.id
 	
 		try:
-			conn = httplib.HTTPSConnection(self.AZURE_SERVER, self.AZURE_PORT, cert_file=cert_file, key_file=key_file)
 			uri = "/%s/services/hostedservices/%s/deployments/%s" % (subscription_id, service_name, service_name)
 			conn.request('GET', uri, headers = {'x-ms-version' : '2013-03-01'}) 
 			resp = conn.getresponse()
-			output = resp.read()
-			conn.close()			
+			output = resp.read()			
 		except Exception, ex:
-			# delete tmp files with certificates 
-			os.unlink(cert_file)
-			os.unlink(key_file)			
 			self.logger.exception("Error getting the VM info: " + vm.id)
 			return (False, "Error getting the VM info: " + vm.id + ". " + str(ex))
 		
 		if resp.status != 200:
 			self.logger.error("Error getting the VM info: " + vm.id + ". Error Code: " + str(resp.status) + ". Msg: " + output)
-			# delete tmp files with certificates 
-			os.unlink(cert_file)
-			os.unlink(key_file)
 			return (False, "Error getting the VM info: " + vm.id + ". Error Code: " + str(resp.status) + ". Msg: " + output)
 		else:
-			# delete tmp files with certificates 
-			os.unlink(cert_file)
-			os.unlink(key_file)
-
 			self.logger.debug("VM info: " + vm.id + " obtained.")
 			self.logger.debug(output)
 			vm_info = Deployment(output)
@@ -784,21 +775,15 @@ class AzureCloudConnector(CloudConnector):
 	def finalize(self, vm, auth_data):
 		self.logger.debug("Terminate VM: " + vm.id)
 		subscription_id = self.get_user_subscription_id(auth_data)
-		auth = self.get_user_cert_data(auth_data)
+		conn = self.get_connection(auth_data)
 		
-		if auth is None or subscription_id is None:
+		if conn is None or subscription_id is None:
 			return (False, "Incorrect auth data")
-		else:
-			cert_file, key_file = auth
 
 		service_name = vm.id
 
 		# Delete the service
-		res = self.delete_service(service_name, subscription_id, cert_file, key_file)
-		
-		# delete tmp files with certificates 
-		os.unlink(cert_file)
-		os.unlink(key_file)
+		res = self.delete_service(service_name, subscription_id, conn)
 		
 		return res
 	
@@ -807,41 +792,31 @@ class AzureCloudConnector(CloudConnector):
 		Call to the specified operation "op" to a Role
 		"""
 		subscription_id = self.get_user_subscription_id(auth_data)
-		auth = self.get_user_cert_data(auth_data)
+		conn = self.get_connection(auth_data)
 		
-		if auth is None or subscription_id is None:
+		if conn is None or subscription_id is None:
 			return (False, "Incorrect auth data")
-		else:
-			cert_file, key_file = auth
 
 		service_name = vm.id
 
 		try:
-			conn = httplib.HTTPSConnection(self.AZURE_SERVER, self.AZURE_PORT, cert_file=cert_file, key_file=key_file)
 			uri = "/%s/services/hostedservices/%s/deployments/%s/roleinstances/%s/Operations" % (subscription_id, service_name, service_name, self.ROLE_NAME)
 			
 			conn.request('POST', uri, body = op, headers = {'x-ms-version' : '2013-06-01', 'Content-Type' : 'application/xml'})
 			resp = conn.getresponse()
 			output = resp.read()
-			conn.close()
 		except Exception, ex:
-			# delete tmp files with certificates 
-			os.unlink(cert_file)
-			os.unlink(key_file)
 			self.logger.exception("Error calling role operation")
 			return (False, "Error calling role operation: " + str(ex))
 
 		if resp.status != 202:
-			# delete tmp files with certificates 
-			os.unlink(cert_file)
-			os.unlink(key_file)
 			self.logger.error("Error calling role operation: Error Code " + str(resp.status) + ". Msg: " + output)
 			return (False, "Error calling role operation: Error Code " + str(resp.status) + ". Msg: " + output)
 
 		request_id = resp.getheader('x-ms-request-id')
 		
 		# Call to GET OPERATION STATUS until 200 (OK)
-		success = self.wait_operation_status(request_id, subscription_id, cert_file, key_file)
+		success = self.wait_operation_status(request_id, subscription_id, conn)
 		
 		if success:
 			return (True, "")

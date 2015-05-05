@@ -34,6 +34,10 @@ class GCECloudConnector(CloudConnector):
     """str with the name of the provider."""
     DEFAULT_ZONE = "us-central1"
     
+    def __init__(self, cloud_info):
+        self.driver = None
+        CloudConnector.__init__(self, cloud_info)
+    
     def get_driver(self, auth_data):
         """
         Get the driver from the auth data
@@ -43,17 +47,21 @@ class GCECloudConnector(CloudConnector):
         
         Returns: a :py:class:`libcloud.compute.base.NodeDriver` or None in case of error
         """
-        auth = auth_data.getAuthInfo(self.type)
-        
-        if auth and 'username' in auth[0] and 'password' in auth[0] and 'project' in auth[0]:            
-            cls = get_driver(Provider.GCE)
-            driver = cls(auth[0]['username'], auth[0]['password'], project=auth[0]['project']) 
-    
-            return driver
+        if self.driver:
+            return self.driver
         else:
-            self.logger.error("No correct auth data has been specified to GCE: username, password and project")
-            self.logger.debug(auth)
-            raise Exception("No correct auth data has been specified to GCE: username, password and project")
+            auth = auth_data.getAuthInfo(self.type)
+            
+            if auth and 'username' in auth[0] and 'password' in auth[0] and 'project' in auth[0]:
+                cls = get_driver(Provider.GCE)
+                driver = cls(auth[0]['username'], auth[0]['password'], project=auth[0]['project']) 
+        
+                self.driver = driver
+                return driver
+            else:
+                self.logger.error("No correct auth data has been specified to GCE: username, password and project")
+                self.logger.debug(auth)
+                raise Exception("No correct auth data has been specified to GCE: username, password and project")
 
     
     def concreteSystem(self, radl_system, auth_data):
@@ -271,7 +279,7 @@ class GCECloudConnector(CloudConnector):
             node = driver.create_node(**args)
             
             if node:
-                vm = VirtualMachine(inf, node.extra['name'], self.cloud, radl, requested_radl)
+                vm = VirtualMachine(inf, node.extra['name'], self.cloud, radl, requested_radl, self)
                 self.logger.debug("Node successfully created.")
                 res.append((True, vm))
             else:
@@ -337,7 +345,9 @@ class GCECloudConnector(CloudConnector):
             node = driver.ex_get_node(node_id)
         except ResourceNotFoundError:
             self.logger.warn("VM " + str(node_id) + " does not exist.")
-        
+        except:
+            self.logger.exception("Error getting VM info: %s" % node_id)
+
         return node
 
     def get_node_location(self, node):
@@ -407,7 +417,17 @@ class GCECloudConnector(CloudConnector):
             return False
    
     def updateVMInfo(self, vm, auth_data):
-        node = self.get_node_with_id(vm.id, auth_data)
+        driver = self.get_driver(auth_data)
+        
+        node = None
+        try:
+            node = driver.ex_get_node(vm.id)
+        except ResourceNotFoundError:
+            self.logger.warn("VM " + str(vm.id) + " does not exist.")
+        except Exception, ex:
+            self.logger.exception("Error getting VM info: %s" % vm.id)
+            return (False, "Error getting VM info: %s. %s" % (vm.id, str(ex)))
+        
         if node:
             if node.state == NodeState.RUNNING:
                 res_state = VirtualMachine.RUNNING

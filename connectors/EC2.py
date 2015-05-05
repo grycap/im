@@ -72,6 +72,10 @@ class EC2CloudConnector(CloudConnector):
 	}
 	"""Dictionary with a map with the EC3 VM states to the IM states."""
 
+	def __init__(self, cloud_info):
+		self.connection = None
+		CloudConnector.__init__(self, cloud_info)
+		
 	def concreteSystem(self, radl_system, auth_data):
 		if radl_system.getValue("disk.0.image.url"):
 			url = uriparse(radl_system.getValue("disk.0.image.url"))
@@ -120,24 +124,28 @@ class EC2CloudConnector(CloudConnector):
 		   - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
 		Returns: a :py:class:`boto.ec2.connection` or None in case of error		
 		"""
-		conn = None
-		try:
-			auth = auth_data.getAuthInfo(EC2CloudConnector.type)
-			if auth and 'username' in auth[0] and 'password' in auth[0]:
-				region = boto.ec2.get_region(region_name)
-				if region:
-					return boto.vpc.VPCConnection(aws_access_key_id=auth[0]['username'], aws_secret_access_key=auth[0]['password'], region=region)
+		if self.connection:
+			return self.connection
+		else:
+			conn = None
+			try:
+				auth = auth_data.getAuthInfo(EC2CloudConnector.type)
+				if auth and 'username' in auth[0] and 'password' in auth[0]:
+					region = boto.ec2.get_region(region_name)
+					if region:
+						conn = boto.vpc.VPCConnection(aws_access_key_id=auth[0]['username'], aws_secret_access_key=auth[0]['password'], region=region)
+					else:
+						raise Exception("Incorrect region name: " + region_name)
 				else:
-					raise Exception("Incorrect region name: " + region_name)
-			else:
-				self.logger.error("Incorrect auth data")
-				return None
-
-		except Exception:
-			self.logger.exception("Error getting the region " + region_name + ": ")
-			return None
+					self.logger.error("Incorrect auth data")
+					return None
 	
-		return conn
+			except Exception:
+				self.logger.exception("Error getting the region " + region_name + ": ")
+				return None
+		
+			self.connection = conn
+			return conn
 	
 	# el path sera algo asi: aws://eu-west-1/ami-00685b74
 	def getAMIData(self, path):
@@ -493,7 +501,7 @@ class EC2CloudConnector(CloudConnector):
 								self.logger.debug("RADL:")
 								self.logger.debug(system)
 							
-								vm = VirtualMachine(inf, ec2_vm_id, self.cloud, radl, requested_radl)
+								vm = VirtualMachine(inf, ec2_vm_id, self.cloud, radl, requested_radl, self)
 								# Add the keypair name to remove it later 
 								vm.keypair_name = keypair_name
 								self.logger.debug("Instance successfully launched.")
@@ -524,7 +532,7 @@ class EC2CloudConnector(CloudConnector):
 								self.logger.debug("RADL:")
 								self.logger.debug(system)
 								
-								vm = VirtualMachine(inf, ec2_vm_id, self.cloud, radl, requested_radl)
+								vm = VirtualMachine(inf, ec2_vm_id, self.cloud, radl, requested_radl, self)
 								# Add the keypair name to remove it later 
 								vm.keypair_name = keypair_name
 								self.logger.debug("Instance successfully launched.")

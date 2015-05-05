@@ -91,3 +91,5 @@ IM 1.2.2
     * Update Fogbow connector to recent changes of the software.
     * Minor bugfix in GCE connector
     * Improve performance in contextualization step.
+    * Improve the RADL parser code
+    * Improve the connectors code
