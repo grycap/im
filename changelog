@@ -93,3 +93,4 @@ IM 1.2.2
     * Improve performance in contextualization step.
     * Improve the RADL parser code
     * Improve the connectors code
+    * Implement the functions start & stop in GCE plugin

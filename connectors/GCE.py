@@ -455,10 +455,42 @@ class GCECloudConnector(CloudConnector):
         return (True, vm)
         
     def start(self, vm, auth_data):
-        return (False, "Not supported")
+        driver = self.get_driver(auth_data)
+
+        try:
+            node = driver.ex_get_node(vm.id)
+        except ResourceNotFoundError:
+            return (False, "VM " + str(vm.id) + " does not exist.")
+        except Exception, ex:
+            self.logger.exception("Error getting VM %s" % vm.id)
+            return (False, "Error getting VM %s: %s" % (vm.id, str(ex)))
+        
+        try:
+            driver.ex_start_node(node)
+        except Exception, ex:
+            self.logger.exception("Error starting VM %s" % vm.id)
+            return (False, "Error starting VM %s: %s" % (vm.id, str(ex)))
+
+        return (True, "")
 
     def stop(self, vm, auth_data):
-        return (False, "Not supported")
+        driver = self.get_driver(auth_data)
+
+        try:
+            node = driver.ex_get_node(vm.id)
+        except ResourceNotFoundError:
+            return (False, "VM " + str(vm.id) + " does not exist.")
+        except Exception, ex:
+            self.logger.exception("Error getting VM %s" % vm.id)
+            return (False, "Error getting VM %s: %s" % (vm.id, str(ex)))
+        
+        try:
+            driver.ex_stop_node(node)
+        except Exception, ex:
+            self.logger.exception("Error stopping VM %s" % vm.id)
+            return (False, "Error stopping VM %s: %s" % (vm.id, str(ex)))
+
+        return (True, "")
     
     def alterVM(self, vm, radl, auth_data):
         return (False, "Not supported")
