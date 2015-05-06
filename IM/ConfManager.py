@@ -63,6 +63,8 @@ class ConfManager(threading.Thread):
 		for step, vm_list in vms_configuring.iteritems():
 			for vm in vm_list:
 				if isinstance(vm,VirtualMachine):
+					# Update the info of the VM to check it is in a correct state
+					vm.update_status(self.auth)
 					if vm.is_ctxt_process_running():
 						if step not in res:
 							res[step] = []
