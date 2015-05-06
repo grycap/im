@@ -166,6 +166,10 @@ Basic Options
 .. confval:: MAX_SIMULTANEOUS_LAUNCHES
 
    Maximum number of simultaneous VM launch operations.
+   In some versions of python (prior to 2.7.5 or 3.3.2) it can raise an error 
+   ('Thread' object has no attribute '_children'). See https://bugs.python.org/issue10015.
+   In this case set this value to 1
+   
    The default value is 1.
  
 .. confval:: MAX_VM_FAILS
