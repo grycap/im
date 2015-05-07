@@ -45,7 +45,6 @@ class ConfManager(threading.Thread):
 	""" The file with the ansible steps to configure the master node """
 	SECOND_STEP_YAML = 'conf-ansible-s2.yml'
 	""" The file with the ansible steps to configure the second step of the the master node """
-	THREAD_SLEEP_DELAY = 5
 	
 	def __init__(self, inf, auth, max_ctxt_time = 1e9):
 		threading.Thread.__init__(self)
@@ -80,7 +79,7 @@ class ConfManager(threading.Thread):
 						if step not in res:
 							res[step] = []
 						res[step].append(vm)
-						ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Configuration process of master node is still running.")
+						ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Configuration process of master node: " + str(vm.get_ctxt_process_names()) + " is still running.")
 					else:
 						if vm.configured:
 							ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Configuration process of master node successfully finished.")
@@ -125,8 +124,8 @@ class ConfManager(threading.Thread):
 			
 			if not success:
 				ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": Error waiting all the VMs to have a correct IP") 
-				wait += self.THREAD_SLEEP_DELAY
-				time.sleep(self.THREAD_SLEEP_DELAY)
+				wait += Config.CONFMAMAGER_CHECK_STATE_INTERVAL
+				time.sleep(Config.CONFMAMAGER_CHECK_STATE_INTERVAL)
 			else:
 				self.inf.set_configured(True)
 				
@@ -147,7 +146,7 @@ class ConfManager(threading.Thread):
 			
 			# If the queue is empty but there are vms configuring wait and test again
 			if self.inf.ctxt_tasks.empty() and vms_configuring:
-				time.sleep(self.THREAD_SLEEP_DELAY)
+				time.sleep(Config.CONFMAMAGER_CHECK_STATE_INTERVAL)
 				continue
 
 			(step, prio, vm, tasks) = self.inf.ctxt_tasks.get()
@@ -166,7 +165,7 @@ class ConfManager(threading.Thread):
 					# If there are any process running of last step, wait
 					if last_step in vms_configuring and len(vms_configuring[last_step]) > 0:
 						ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Waiting processes of step " + str(last_step) + " to finish.")
-						time.sleep(self.THREAD_SLEEP_DELAY)
+						time.sleep(Config.CONFMAMAGER_CHECK_STATE_INTERVAL)
 					else:
 						# if not, update the step, to go ahead with the new step
 						ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Step " + str(last_step) + " finished. Go to step: " + str(step))
@@ -179,38 +178,33 @@ class ConfManager(threading.Thread):
 					elif vm.ctxt_pid:
 						ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": VM ID " + str(vm.im_id) + " has running processes, wait.")
 						# If there are, add the tasks again to the queue
-						# Set the priority to a higher number to decrease the proprity enabling to select other items of the queue before
+						# Set the priority to a higher number to decrease the priority enabling to select other items of the queue before
 						self.inf.add_ctxt_tasks([(step, prio+1, vm, tasks)])
 						# Sleep to check this later
-						time.sleep(self.THREAD_SLEEP_DELAY)
+						time.sleep(Config.CONFMAMAGER_CHECK_STATE_INTERVAL)
 					else:
 						# If not, launch it
-						try:
-							# Mark this VM as configuring 
-							vm.configured = None
-							# Launch the ctxt_agent using a thread
-							t = threading.Thread(target=eval("self.launch_ctxt_agent"),args=(vm, tasks))
-							t.daemon = True
-							t.start()
-							vm.inf.conf_threads.append(t)
-							if step not in vms_configuring:
-								vms_configuring[step] = []
-							vms_configuring[step].append(vm.inf)
-							# Add the VM to the list of configuring vms
-							vms_configuring[step].append(vm)
-							# Set the "special pid" to wait untill the real pid is assigned
-							vm.ctxt_pid = VirtualMachine.WAIT_TO_PID
-							# Force to save the data to store the log data 
-							InfrastructureManager.InfrastructureManager.save_data()
-						except:
-							ConfManager.logger.exception("Inf ID: " + str(self.inf.id) + ": Error launching ctxt agent on VM: " + str(vm.im_id))
-							# Set this VM as configuration failed
-							vm.configured = False
+						# Mark this VM as configuring 
+						vm.configured = None
+						# Launch the ctxt_agent using a thread
+						t = threading.Thread(name="launch_ctxt_agent_" + str(vm.id), target=eval("self.launch_ctxt_agent"),args=(vm, tasks))
+						t.daemon = True
+						t.start()
+						vm.inf.conf_threads.append(t)
+						if step not in vms_configuring:
+							vms_configuring[step] = []
+						vms_configuring[step].append(vm.inf)
+						# Add the VM to the list of configuring vms
+						vms_configuring[step].append(vm)
+						# Set the "special pid" to wait untill the real pid is assigned
+						vm.ctxt_pid = VirtualMachine.WAIT_TO_PID
+						# Force to save the data to store the log data 
+						InfrastructureManager.InfrastructureManager.save_data()
 				else:
 					# Launch the Infrastructure tasks
 					vm.configured = None
 					for task in tasks:
-						t = threading.Thread(target=eval("self." + task))
+						t = threading.Thread(name=task ,target=eval("self." + task))
 						t.daemon = True
 						t.start()
 						vm.conf_threads.append(t)
@@ -223,43 +217,60 @@ class ConfManager(threading.Thread):
 					
 				last_step = step
 
-	def launch_ctxt_agent(self, vm, tasks):
-		try:
-			ip = vm.getPublicIP()
-			if not ip:
-				ip = vm.getPrivateIP()
-			remote_dir = Config.REMOTE_CONF_DIR + "/" + ip + "_" + str(vm.getSSHPort())
-			tmp_dir = tempfile.mkdtemp()
-	
-			ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Create the configuration file for the contextualization agent")
-			conf_file = tmp_dir + "/config.cfg"
-			self.create_vm_conf_file(conf_file, vm.im_id, tasks, remote_dir)
-			
-			ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Copy the contextualization agent config file")
-	
-			# Copy the contextualization agent config file
-			ssh = self.inf.vm_master.get_ssh()
-			ssh.sftp_mkdir(remote_dir)
-			ssh.sftp_put(conf_file, remote_dir + "/" + os.path.basename(conf_file))
-			
-			shutil.rmtree(tmp_dir, ignore_errors=True)
-	
-			(pid, _, _) = ssh.execute("nohup python_ansible " + Config.REMOTE_CONF_DIR + "/ctxt_agent.py " 
-					+ Config.REMOTE_CONF_DIR + "/general_info.cfg "
-					+ remote_dir + "/" + os.path.basename(conf_file) 
-					+ " > " + remote_dir + "/stdout" + " 2> " + remote_dir + "/stderr < /dev/null & echo -n $!")
-			
-			ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Ansible process to configure " + str(vm.im_id) + " launched with pid: " + pid)
-	
-			vm.ctxt_pid = pid
-			vm.launch_check_ctxt_process()
+	def launch_ctxt_agent(self, vm, tasks, max_retries = 3):
+		"""
+		Launch the ctxt agent to configure the specified tasks in the specified VM
+		"""
+		pid = None
+		retries = 0
+		while not pid and retries < max_retries:
+			retries += 1
+			try:
+				ip = vm.getPublicIP()
+				if not ip:
+					ip = vm.getPrivateIP()
+				remote_dir = Config.REMOTE_CONF_DIR + "/" + ip + "_" + str(vm.getSSHPort())
+				tmp_dir = tempfile.mkdtemp()
+		
+				ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Create the configuration file for the contextualization agent")
+				conf_file = tmp_dir + "/config.cfg"
+				self.create_vm_conf_file(conf_file, vm.im_id, tasks, remote_dir)
+				
+				ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Copy the contextualization agent config file")
+		
+				# Copy the contextualization agent config file
+				ssh = self.inf.vm_master.get_ssh()
+				ssh.sftp_mkdir(remote_dir)
+				ssh.sftp_put(conf_file, remote_dir + "/" + os.path.basename(conf_file))
+				
+				shutil.rmtree(tmp_dir, ignore_errors=True)
+		
+				(pid, _, _) = ssh.execute("nohup python_ansible " + Config.REMOTE_CONF_DIR + "/ctxt_agent.py " 
+						+ Config.REMOTE_CONF_DIR + "/general_info.cfg "
+						+ remote_dir + "/" + os.path.basename(conf_file) 
+						+ " > " + remote_dir + "/stdout" + " 2> " + remote_dir + "/stderr < /dev/null & echo -n $!")
+				
+				ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Ansible process to configure " + str(vm.im_id) + " launched with pid: " + pid)
+				
+				vm.ctxt_pid = pid
+				vm.launch_check_ctxt_process()
+			except:
+				pid = None
+				ConfManager.logger.exception("Inf ID: " + str(self.inf.id) + ": Error (%d/%d) launching the ansible process to configure %s" % (retries, max_retries, str(vm.im_id)))
+				time.sleep(retries*2)
+
+			# If the process is not correctly launched the configuration of this VM fails
+			if pid is None:
+				vm.ctxt_pid = None
+				vm.configured = False
+				vm.cont_out = "Error launching the contextualization agent to configure the VM. Check the SSH connection."
+
 			return pid
-		except:
-			ConfManager.logger.exception("Inf ID: " + str(self.inf.id) + ": Error launching the ansible process to configure " + str(vm.im_id))
-			vm.ctxt_pid = None
-			return None
 
 	def generate_inventory(self, tmp_dir):
+		"""
+		Generate the ansible inventory file
+		"""
 		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": create the ansible configuration file")
 		res_filename = "hosts"
 		ansible_file = tmp_dir + "/" + res_filename 
@@ -347,6 +358,9 @@ class ConfManager(threading.Thread):
 		return res_filename
 	
 	def generate_etc_hosts(self, tmp_dir):
+		"""
+		Generate the /etc/hosts file to the infrastructure
+		"""
 		res_filename = "etc_hosts"
 		hosts_file = tmp_dir + "/" + res_filename
 		hosts_out = open(hosts_file, 'w')
@@ -380,6 +394,9 @@ class ConfManager(threading.Thread):
 		return res_filename
 	
 	def generate_basic_playbook(self, tmp_dir):
+		"""
+		Generate the basic playbook to be launched in all the VMs
+		"""
 		recipe_files = []
 		pk_file = "/tmp/ansible_key"
 		shutil.copy(Config.CONTEXTUALIZATION_DIR + "/basic.yml", tmp_dir + "/basic_task_all.yml")
@@ -393,6 +410,11 @@ class ConfManager(threading.Thread):
 		return recipe_files
 	
 	def generate_main_playbook(self, vm, group, tmp_dir):
+		"""
+		Generate the main playbook to be launched in all the VMs.
+		This playbook basically install the apps specified in the RADL
+		(as apps not in the configure section) 
+		"""
 		recipe_files = []
 		# Get the info about the apps from the recipes DB
 		_, recipes = Recipe.getInfoApps(vm.getAppsToInstall())
@@ -441,6 +463,9 @@ class ConfManager(threading.Thread):
 		return recipe_files
 	
 	def generate_playbook(self, vm, ctxt_elem, tmp_dir):
+		"""
+		Generate the playbook for the specified configure section 
+		"""
 		recipe_files = []
 
 		conf_filename = tmp_dir + "/" + ctxt_elem.configure + "_" + ctxt_elem.system + "_task.yml"
@@ -461,6 +486,12 @@ class ConfManager(threading.Thread):
 		return recipe_files
 
 	def configure_master(self):
+		"""
+		Perform all the tasks to configure the master VM.
+		  * Change the password
+		  * Install ansible
+		  * Copy the contextualization agent files
+		"""
 		success = True
 		if not self.inf.ansible_configured:
 			try:
@@ -584,6 +615,9 @@ class ConfManager(threading.Thread):
 		return success
 	
 	def generate_playbooks_and_hosts(self):
+		"""
+		Generate all the files needed in the contextualization, playbooks, /etc/hosts, inventory
+		"""
 		try:
 			tmp_dir = tempfile.mkdtemp()
 			remote_dir = Config.REMOTE_CONF_DIR

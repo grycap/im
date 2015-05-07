@@ -857,7 +857,12 @@ class EC2CloudConnector(CloudConnector):
 		
 		instance = self.get_instance_by_id(instance_id, region, auth_data)
 		if (instance != None):
-			instance.update()
+			try:
+				# simetime if you try to update a recently created instance this operation fails
+				instance.update()
+			except Exception, ex:
+				self.logger.exception("Error updating the instance " + instance_id)
+				return (False, "Error updating the instance " + instance_id + ": " + str(ex))
 			
 			vm.info.systems[0].setValue("virtual_system_type", "'" + instance.virtualization_type + "'")
 			vm.info.systems[0].setValue("availability_zone",  "'" + instance.placement + "'")

@@ -89,8 +89,10 @@ IM 1.2.1
 
 IM 1.2.2
     * Update Fogbow connector to recent changes of the software.
+    * Implement the functions start & stop in GCE plugin
     * Minor bugfix in GCE connector
+    * Minor bugfix in EC2 connector
     * Improve performance in contextualization step.
     * Improve the RADL parser code
     * Improve the connectors code
-    * Implement the functions start & stop in GCE plugin
+    * Improve the SSH connections in the contextualization step 

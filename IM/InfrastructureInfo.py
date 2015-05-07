@@ -331,6 +331,9 @@ class InfrastructureInfo:
 			
 			for elem in to_add:
 				self.ctxt_tasks.put(elem)
+	
+	def get_ctxt_process_names(self):
+		return [t.name for t in self.conf_threads]
 		
 	def is_ctxt_process_running(self):
 		all_finished = True
@@ -373,7 +376,11 @@ class InfrastructureInfo:
 						tasks[ctxt_num].append(ctxt_elem.configure + "_" + ctxt_elem.system)
 			
 			for step in tasks.keys():
-				ctxt_task.append((step,0,vm,tasks[step]))
+				priority = 0
+				# Set more priority to the new VMs to launch the ctxt process first in them
+				if vm.configured is None:
+					priority = -1
+				ctxt_task.append((step,priority,vm,tasks[step]))
 
 		self.add_ctxt_tasks(ctxt_task)
 		
