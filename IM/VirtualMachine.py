@@ -38,8 +38,6 @@ class VirtualMachine:
 	UNCONFIGURED = "unconfigured"
 	
 	WAIT_TO_PID = "WAIT"
-	
-	THREAD_SLEEP_DELAY = 5
 
 	def __init__(self, inf, cloud_id, cloud, info, requested_radl, cloud_connector = None):
 		self._lock = threading.Lock()
@@ -503,6 +501,10 @@ class VirtualMachine:
 		"""
 		Periodically checks if the PID of the ctxt process is running 
 		"""
+		if self.ctxt_pid == self.WAIT_TO_PID:
+			self.ctxt_pid = None
+			self.configured = False
+
 		while self.ctxt_pid:
 			if self.ctxt_pid != self.WAIT_TO_PID:
 				ssh = self.inf.vm_master.get_ssh()
@@ -535,7 +537,7 @@ class VirtualMachine:
 						remote_dir = Config.REMOTE_CONF_DIR + "/" + ip + "_" + str(self.getSSHPort())
 						self.get_ctxt_output(remote_dir)
 			else:
-				time.sleep(self.THREAD_SLEEP_DELAY)
+				time.sleep(Config.CHECK_CTXT_PROCESS_INTERVAL)
 
 		return self.ctxt_pid
 	
