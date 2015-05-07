@@ -1,46 +1,167 @@
--------------------------------------
- IM - Infrastructure Manager client
--------------------------------------
+------------------------------
+ IM - Infrastructure Manager 
+------------------------------
 
-IM is a tool that ease the access and the usability of IaaS clouds by automating
-the VMI selection, deployment, configuration, software installation, monitoring
-and update of Virtual Appliances. It supports APIs from a large number of
-virtual platforms, making user applications cloud-agnostic. In addition it
-integrates a contextualization system to enable the installation and
-configuration of all the user required applications providing the user with a
-fully functional infrastructure.
+IM is a tool that deploys complex and customized virtual infrastructures on IaaS
+Cloud deployments (such as AWS, OpenStack, etc.). It eases the access and the
+usability of IaaS clouds by automating the VMI (Virtual Machine Image)
+selection, deployment, configuration, software installation, monitoring and
+update of the virtual infrastructure. It supports APIs from a large number of virtual
+platforms, making user applications cloud-agnostic. In addition it integrates a
+contextualization system to enable the installation and configuration of all the
+user required applications providing the user with a fully functional
+infrastructure.
 
-usage: client.py [-u|--xmlrpc-url <url>] [-a|--auth_file <filename>] operation op_parameters
+Read the documentation and more at http://www.grycap.upv.es/im.
 
-Authentication File:
+There is also an Infrastructure Manager youtube channel with a set of videos with demos
+of the functionality of the platform: https://www.youtube.com/channel/UCF16QmMHlRNtsC-0Cb2d8fg.
 
-The authorization data is used to validate access to the components in the
-infrastructure. This file is composed of a set of "key - value" pairs,
-where the user specifies the authorization data for all the components and cloud
-deployments available. File auth.dat shows examples of authorization data.
 
-The list of "key" values that must be specified for each component are:
+1. INSTALLATION
+===============
 
-- id: An optional field used to identify the virtual deployment. It must be unique
-      in the authorization data.
-- type: The type of the component. It can be any of the components of the
-        architecture, such as the "InfrastructureManager", "VMRC" or any of
-        the cloud deployments currently supported by the IM: OpenNebula, EC2,
-        OpenStack, OCCI or LibVirt.
-- username: The name of the user for the authentication. In the EC2 and OpenStack
-            cases it refers to the Access Key ID value. password: The password for
-            the authentication. In the EC2 and OpenStack cases it refers to the
-            Secret Access Key value.
-- host: The address to the server in format "address:port" to specify the cloud
-        deployment to access. In the EC2 and in the system components (IM and VMRC)
-        this field is not used.
+1.1 REQUISITES
+--------------
 
-To avoid typing the parameters in all the client calls. The user can define a config
-file "im_client.cfg" in the current directory or a file ".im_client.cfg" in their 
-home directory. In the config file the user can specify the following parameters:
+IM is based on Python, so Python 2.6 or higher runtime and standard library must
+be installed in the system.
 
-[im_client]
-xmlrpc_url=http://localhost:8899
-auth_file=auth.dat
-xmlrpc_ssl=no
-xmlrpc_ssl_ca_certs=/tmp/pki/ca-chain.pem
+If you use pip to install the IM, all the requisites will be installed.
+However, if you install IM from sources you should install:
+
+ * The Python Lex & Yacc library (http://www.dabeaz.com/ply/), typically available
+   as the 'python-ply' package.
+
+ * The paramiko ssh2 protocol library for python
+(http://www.lag.net/paramiko/), typically available as the 'python-paramiko' package.
+
+ * The YAML library for Python, typically available as the 'python-yaml' or 'PyYAML' package.
+
+ * The SOAPpy library for Python, typically available as the 'python-soappy' or 'SOAPpy' package.
+
+ * Ansible (http://www.ansibleworks.com/) to configure nodes in the infrastructures.
+   In particular, Ansible 1.4.2+ must be installed.
+   To ensure the functionality the following values must be set in the ansible.cfg file:
+
+		[default]
+		host_key_checking = False
+		transport = smart
+		
+		[paramiko_connection]
+		record_host_keys = False
+		   
+		[ssh_connection]
+		pipelining=True
+		# Only in systems with OpenSSH support to ControlPersist 
+		ssh_args = -o ControlMaster=auto -o ControlPersist=900s
+		# In systems with older versions of OpenSSH (RHEL 6, CentOS 6, SLES 10 or SLES 11) 
+		ssh_args =
+
+1.2 OPTIONAL PACKAGES
+---------------------
+
+In case of using the Amazon EC2 plugin the boto library version 2.0 or later
+must be installed (http://boto.readthedocs.org/en/latest/).
+
+In case of using the LibCloud plugin the apache-libcloud library version 0.15 or later
+must be installed (http://libcloud.apache.org/).
+
+In case of using the SSL secured version of the XMLRPC API the SpringPython
+framework (http://springpython.webfactional.com/) must be installed.
+
+In case of using the REST API the Bottle framework
+(http://bottlepy.org/) must be installed.
+
+In case of using the SSL secured version of the REST API the CherryPy Web
+framework (http://www.cherrypy.org/) must be installed.
+
+1.3 INSTALLING
+--------------
+
+1.3.1 FROM PIP
+--------------
+
+**WARNING**: In some GNU/Linux distributions (RHEL 6 or equivalents) you must uninstall
+the packages python-paramiko and python-crypto before installing the IM with pip.**
+
+You only have to install the IM package through the pip tool.
+
+	pip install IM
+
+Pip will install all the pre-requisites needed. So Ansible  1.4.2 or later will
+be installed in the system. In some cases it will need to have installed the GCC
+compiler and the python developer libraries ('python-dev' or 'python-devel'
+packages in main distributions).
+
+You must also remember to modify the ansible.cfg file setting as specified in the
+REQUISITES section.
+
+1.3.2 FROM SOURCE
+-----------------
+
+Select a proper path where the IM service will be installed (i.e. /usr/local/im,
+/opt/im or other). This path will be called IM_PATH
+
+	$ tar xvzf IM-X.XX.tar.gz
+	$ chown -R root:root IM-X.XX
+	$ mv IM-X.XX /usr/local
+
+Finally you must copy (or link) $IM_PATH/scripts/im file to /etc/init.d directory.
+
+	$ ln -s /usr/local/im/scripts/im /etc/init.d/im
+
+1.4 CONFIGURATION
+-----------------
+
+In case that you want the IM service to be started at boot time, you must
+execute the next set of commands:
+
+On Debian Systems:
+
+	$ chkconfig im on
+
+On RedHat Systems:
+
+	$ update-rc.d im start 99 2 3 4 5 . stop 05 0 1 6 .
+
+Or you can do it manually:
+
+	$ ln -s /etc/init.d/im /etc/rc2.d/S99im
+	$ ln -s /etc/init.d/im /etc/rc3.d/S99im
+	$ ln -s /etc/init.d/im /etc/rc5.d/S99im
+	$ ln -s /etc/init.d/im /etc/rc1.d/K05im
+	$ ln -s /etc/init.d/im /etc/rc6.d/K05im
+
+Adjust the installation path by setting the IMDAEMON variable at /etc/init.d/im
+to the path where the IM im_service.py file is installed (e.g. /usr/local/im/im_service.py),
+or set the name of the script file (im_service.py) if the file is in the PATH
+(pip puts the im_service.py file in the PATH as default).
+
+Check the parameters in $IM_PATH/etc/im.cfg or /etc/im/im.cfg. Please pay attention
+to the next configuration variables, as they are the most important
+
+DATA_FILE - must be set to the full path where the IM data file will be created
+         (e.g. /usr/local/im/inf.dat). Be careful if you have two different instances
+         of the IM service running in the same machine!!.
+
+CONTEXTUALIZATION_DIR - must be set to the full path where the IM contextualization files
+		are located. In case of using pip installation the default value is correct
+		(/usr/share/im/contextualization) in case of installing from sources set to
+		$IM_PATH/contextualization (e.g. /usr/local/im/contextualization)
+
+1.4.1 SECURITY
+--------------
+
+Security is disabled by default. Please notice that someone with local network access can "sniff" the traffic and
+get the messages with the IM with the authorisation data with the cloud providers.
+
+Security can be activated both in the XMLRPC and REST APIs. Setting this variables:
+
+XMLRCP_SSL = True
+
+or
+
+REST_SSL = True
+
+And then set the variables: XMLRCP_SSL_* or REST_SSL_* to your certificates paths.
