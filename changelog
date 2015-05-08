@@ -96,3 +96,4 @@ IM 1.2.2
     * Improve the RADL parser code
     * Improve the connectors code
     * Improve the SSH connections in the contextualization step 
+    * Improve contextualization performance

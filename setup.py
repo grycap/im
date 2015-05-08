@@ -18,7 +18,10 @@
 
 from IM import __version__ as version
 from setuptools import setup
-import os
+import os, sys
+
+if not hasattr(sys, 'version_info') or sys.version_info < (2,6):
+    raise SystemExit("IM requires Python version 2.6 or above.")
 
 # Add contextualization dir files
 install_path = '/usr/share/im'
