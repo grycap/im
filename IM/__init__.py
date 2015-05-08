@@ -15,7 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-__all__ = ['auth','bottle','CloudManager','config','ConfManager','db','ganglia','HTTPHeaderTransport','ImageManager','InfrastructureInfo','InfrastructureManager','parsetab','radl','recipe','request','REST','SSH','timedcall','uriparse','VMRC','xmlobject']
+__all__ = ['auth','bottle','CloudManager','config','ConfManager','db','ganglia','HTTPHeaderTransport','ImageManager','InfrastructureInfo','InfrastructureManager','parsetab','radl','recipe','request','REST', 'ServiceRequests','SSH','timedcall','uriparse','VMRC','xmlobject']
 __version__ = '1.2.2'
 __author__ = 'Miguel Caballer'
 

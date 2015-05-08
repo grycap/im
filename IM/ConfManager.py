@@ -31,6 +31,7 @@ from VirtualMachine import VirtualMachine
 from SSH import AuthenticationException
 from recipe import Recipe
 from radl.radl import system, contextualize_item
+import ServiceRequests
 
 from config import Config
 
@@ -71,8 +72,8 @@ class ConfManager(threading.Thread):
 						ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Ansible process to configure " + str(vm.im_id) + " with PID " + vm.ctxt_pid + " is still running.")
 					else:						
 						ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Configuration process in VM: " + str(vm.im_id) + " finished.")
-						# Force to save the data to store the log data 
-						InfrastructureManager.InfrastructureManager.save_data()
+						# Force to save the data to store the log data ()
+						ServiceRequests.IMBaseRequest.create_request(ServiceRequests.IMBaseRequest.SAVE_DATA)
 				else:
 					# General Infrastructure tasks
 					if vm.is_ctxt_process_running():
@@ -86,7 +87,7 @@ class ConfManager(threading.Thread):
 						else:
 							ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Configuration process of master node failed.")
 						# Force to save the data to store the log data 
-						InfrastructureManager.InfrastructureManager.save_data()
+						ServiceRequests.IMBaseRequest.create_request(ServiceRequests.IMBaseRequest.SAVE_DATA)
 				
 		return res
 
@@ -199,7 +200,7 @@ class ConfManager(threading.Thread):
 						# Set the "special pid" to wait untill the real pid is assigned
 						vm.ctxt_pid = VirtualMachine.WAIT_TO_PID
 						# Force to save the data to store the log data 
-						InfrastructureManager.InfrastructureManager.save_data()
+						ServiceRequests.IMBaseRequest.create_request(ServiceRequests.IMBaseRequest.SAVE_DATA)
 				else:
 					# Launch the Infrastructure tasks
 					vm.configured = None
@@ -212,7 +213,7 @@ class ConfManager(threading.Thread):
 						vms_configuring[step] = []
 					vms_configuring[step].append(vm)
 					# Force to save the data to store the log data 
-					InfrastructureManager.InfrastructureManager.save_data()
+					ServiceRequests.IMBaseRequest.create_request(ServiceRequests.IMBaseRequest.SAVE_DATA)
 					
 					
 				last_step = step
@@ -539,7 +540,7 @@ class ConfManager(threading.Thread):
 				self.inf.ansible_configured = True
 				self.inf.set_configured(True)
 				# Force to save the data to store the log data 
-				InfrastructureManager.InfrastructureManager.save_data()
+				ServiceRequests.IMBaseRequest.create_request(ServiceRequests.IMBaseRequest.SAVE_DATA)
 			else:
 				self.inf.ansible_configured = False
 				self.inf.set_configured(False)
@@ -603,7 +604,7 @@ class ConfManager(threading.Thread):
 				self.change_master_credentials(ssh)
 				
 				# Force to save the data to store the log data 
-				InfrastructureManager.InfrastructureManager.save_data()
+				ServiceRequests.IMBaseRequest.create_request(ServiceRequests.IMBaseRequest.SAVE_DATA)
 				
 				self.inf.set_configured(True)
 			except:
@@ -1046,7 +1047,7 @@ class ConfManager(threading.Thread):
 		conf_data['conf_dir'] = Config.REMOTE_CONF_DIR
 		
 		conf_out = open(conf_file, 'w')
-		ConfManager.logger.debug("Ctxt agent configuration file: " + json.dumps(conf_data))
+		ConfManager.logger.debug("Ctxt agent general configuration file: " + json.dumps(conf_data))
 		json.dump(conf_data, conf_out, indent=2)
 		conf_out.close()
 
@@ -1061,7 +1062,7 @@ class ConfManager(threading.Thread):
 		conf_data['remote_dir'] = remote_dir
 		
 		conf_out = open(conf_file, 'w')
-		ConfManager.logger.debug("Ctxt agent configuration file: " + json.dumps(conf_data))
+		ConfManager.logger.debug("Ctxt agent vm configuration file: " + json.dumps(conf_data))
 		json.dump(conf_data, conf_out, indent=2)
 		conf_out.close()
 
