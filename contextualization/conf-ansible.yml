@@ -2,7 +2,6 @@
 - hosts: all
   sudo: yes
   vars:
-#    ANSIBLE_VERSION: 1.7.2
     ANSIBLE_VERSION: 1.8.4
   tasks:
     - name: Install libselinux-python in RH
