@@ -36,8 +36,10 @@ class VirtualMachine:
 	FAILED = "failed"
 	CONFIGURED = "configured"
 	UNCONFIGURED = "unconfigured"
+	
+	WAIT_TO_PID = "WAIT"
 
-	def __init__(self, inf, cloud_id, cloud, info, requested_radl):
+	def __init__(self, inf, cloud_id, cloud, info, requested_radl, cloud_connector = None):
 		self._lock = threading.Lock()
 		"""Threading Lock to avoid concurrency problems."""
 		self.last_update = 0
@@ -66,6 +68,8 @@ class VirtualMachine:
 		"""Number of the PID of the contextualization process being executed in this VM"""
 		self.ssh_connect_errors = 0
 		"""Number of errors in the ssh connection trying to get the state of the ctxt pid """
+		self.cloud_connector = cloud_connector
+		"""CloudConnector object to connect with the IaaS platform"""
 
 	def __getstate__(self):
 		"""
@@ -75,6 +79,7 @@ class VirtualMachine:
 			odict = self.__dict__.copy()
 		# Quit the lock to the data to be store by pickle
 		del odict['_lock']
+		del odict['cloud_connector']
 		return odict
 	
 	def __setstate__(self, dic):
@@ -84,6 +89,7 @@ class VirtualMachine:
 		self._lock = threading.Lock()
 		with self._lock:
 			self.__dict__.update(dic)
+			self.cloud_connector = None
 			# If we load a VM that is not configured, set it to False
 			# because the configuration process will be lost
 			if self.configured is None:
@@ -94,8 +100,9 @@ class VirtualMachine:
 		Finalize the VM
 		"""
 		if not self.destroy:
-			cl = self.cloud.getCloudConnector()
-			(success, msg) = cl.finalize(self, auth)
+			if not self.cloud_connector:
+				self.cloud_connector = self.cloud.getCloudConnector()
+			(success, msg) = self.cloud_connector.finalize(self, auth)
 			if success:
 				self.destroy = True
 			# force the update of the information
@@ -108,8 +115,9 @@ class VirtualMachine:
 		"""
 		Modify the features of the the VM
 		"""
-		cl = self.cloud.getCloudConnector()
-		(success, alter_res) = cl.alterVM(self, radl, auth)
+		if not self.cloud_connector:
+			self.cloud_connector = self.cloud.getCloudConnector()
+		(success, alter_res) = self.cloud_connector.alterVM(self, radl, auth)
 		# force the update of the information
 		self.last_update = 0
 		return (success, alter_res)
@@ -118,8 +126,9 @@ class VirtualMachine:
 		"""
 		Stop the VM
 		"""
-		cl = self.cloud.getCloudConnector()
-		(success, msg) = cl.stop(self, auth)
+		if not self.cloud_connector:
+			self.cloud_connector = self.cloud.getCloudConnector()
+		(success, msg) = self.cloud_connector.stop(self, auth)
 		# force the update of the information
 		self.last_update = 0
 		return (success, msg)
@@ -128,8 +137,9 @@ class VirtualMachine:
 		"""
 		Start the VM
 		"""
-		cl = self.cloud.getCloudConnector()
-		(success, msg) = cl.start(self, auth)
+		if not self.cloud_connector:
+			self.cloud_connector = self.cloud.getCloudConnector()
+		(success, msg) = self.cloud_connector.start(self, auth)
 		# force the update of the information
 		self.last_update = 0
 		return (success, msg)
@@ -370,8 +380,9 @@ class VirtualMachine:
 		updated = False
 		# To avoid to refresh the information too quickly
 		if now - self.last_update > Config.VM_INFO_UPDATE_FREQUENCY:
-			cl = self.cloud.getCloudConnector()
-			(success, new_vm) = cl.updateVMInfo(self, auth)
+			if not self.cloud_connector:
+				self.cloud_connector = self.cloud.getCloudConnector()
+			(success, new_vm) = self.cloud_connector.updateVMInfo(self, auth)
 			if success:
 				state = new_vm.state
 				updated = True
@@ -474,28 +485,59 @@ class VirtualMachine:
 			return None
 		return SSH(ip, user, passwd, private_key, self.getSSHPort())
 	
+	def is_ctxt_process_running(self):
+		""" Return the PID of the running process or None if it is not running """
+		return self.ctxt_pid
+	
+	def launch_check_ctxt_process(self):
+		"""
+		Launch the check_ctxt_process as a thread
+		"""
+		t = threading.Thread(target=eval("self.check_ctxt_process"))
+		t.daemon = True
+		t.start()
 	
 	def check_ctxt_process(self):
-		if self.ctxt_pid:
-			ssh = self.inf.vm_master.get_ssh()
-			try:
-				(_, _, exit_status) = ssh.execute("ps " + str(self.ctxt_pid))
-			except:
-				exit_status = 0
-				self.ssh_connect_errors += 1
-				if self.ssh_connect_errors > Config.MAX_SSH_ERRORS:
-					self.ssh_connect_errors = 0
+		"""
+		Periodically checks if the PID of the ctxt process is running 
+		"""
+		if self.ctxt_pid == self.WAIT_TO_PID:
+			self.ctxt_pid = None
+			self.configured = False
+
+		while self.ctxt_pid:
+			if self.ctxt_pid != self.WAIT_TO_PID:
+				ssh = self.inf.vm_master.get_ssh()
+
+				if self.state in [VirtualMachine.OFF, VirtualMachine.FAILED]:
+					try:
+						ssh.execute("kill -9 " + str(self.ctxt_pid))
+					except:
+						pass
+
 					self.ctxt_pid = None
 					self.configured = False
-				
-			if exit_status != 0:
-				self.ctxt_pid = None
-				# The process has finished, get the outputs
-				ip = self.getPublicIP()
-				if not ip:
-					ip = ip = self.getPrivateIP()
-				remote_dir = Config.REMOTE_CONF_DIR + "/" + ip + "_" + str(self.getSSHPort())
-				self.get_ctxt_output(remote_dir)
+				else:
+					try:
+						(_, _, exit_status) = ssh.execute("ps " + str(self.ctxt_pid))
+					except:
+						exit_status = 0
+						self.ssh_connect_errors += 1
+						if self.ssh_connect_errors > Config.MAX_SSH_ERRORS:
+							self.ssh_connect_errors = 0
+							self.ctxt_pid = None
+							self.configured = False
+						
+					if exit_status != 0:
+						self.ctxt_pid = None
+						# The process has finished, get the outputs
+						ip = self.getPublicIP()
+						if not ip:
+							ip = ip = self.getPrivateIP()
+						remote_dir = Config.REMOTE_CONF_DIR + "/" + ip + "_" + str(self.getSSHPort())
+						self.get_ctxt_output(remote_dir)
+			else:
+				time.sleep(Config.CHECK_CTXT_PROCESS_INTERVAL)
 
 		return self.ctxt_pid
 	

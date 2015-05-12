@@ -1,6 +1,9 @@
  IM - Infrastructure Manager
 ============================
 
+* Version [![PyPI](https://img.shields.io/pypi/v/im.svg)](https://img.shields.io/pypi/v/im.svg)
+* PyPI [![PypI](https://img.shields.io/pypi/dm/IM.svg)](https://img.shields.io/pypi/dm/IM.svg)
+
 IM is a tool that deploys complex and customized virtual infrastructures on IaaS
 Cloud deployments (such as AWS, OpenStack, etc.). It eases the access and the
 usability of IaaS clouds by automating the VMI (Virtual Machine Image)
@@ -44,10 +47,19 @@ However, if you install IM from sources you should install:
    To ensure the functionality the following values must be set in the ansible.cfg file:
 
 ```
-[defaults]
+[default]
 host_key_checking = False
-transport = paramiko
+transport = smart
+
+[paramiko_connection]
 record_host_keys = False
+   
+[ssh_connection]
+pipelining=True
+# Only in systems with OpenSSH support to ControlPersist 
+ssh_args = -o ControlMaster=auto -o ControlPersist=900s
+# In systems with older versions of OpenSSH (RHEL 6, CentOS 6, SLES 10 or SLES 11) 
+ssh_args =
 ```
 
 1.2 OPTIONAL PACKAGES

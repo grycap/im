@@ -86,3 +86,16 @@ IM 1.2.1
     * Minor bugfixed in InfrastructureManager class
     * Improve error messages
     * Bugfixes in OpenNebula connector
+
+IM 1.2.2
+    * Update Fogbow connector to recent changes of the software.
+    * Implement the functions start & stop in GCE plugin
+    * Minor bugfix in GCE connector
+    * Minor bugfix in EC2 connector
+    * Improve performance in contextualization step.
+    * Improve the RADL parser code
+    * Improve the connectors code
+    * Improve the SSH connections in the contextualization step 
+    * Improve contextualization performance
+    * Bugfix in the Ansible installation playbook
+    * Change Ansible version to 1.8.4

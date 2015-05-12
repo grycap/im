@@ -33,6 +33,10 @@ class LibCloudCloudConnector(CloudConnector):
 	type = "LibCloud"
 	"""str with the name of the provider."""
 	
+	def __init__(self, cloud_info):
+		self.driver = None
+		CloudConnector.__init__(self, cloud_info)
+
 	def get_driver(self, auth_data):
 		"""
 		Get the driver from the auth data
@@ -42,39 +46,43 @@ class LibCloudCloudConnector(CloudConnector):
 		
 		Returns: a :py:class:`libcloud.compute.base.NodeDriver` or None in case of error
 		"""
-		auth = auth_data.getAuthInfo(LibCloudCloudConnector.type)
-		if auth and 'driver' in auth[0]:
-			cls = get_driver(eval("Provider."+auth[0]['driver']))
-			
-			MAP = { "username" : "key", "password": "secret"}
-		
-			params = {}
-			for key, value in auth[0].iteritems():
-				if key not in ["type","driver","id"]:
-					params[MAP[key]] = value
-					
-			if auth[0]['driver'] == "OPENSTACK":
-				if 'host' in auth[0]:
-					params["ex_force_auth_url"] = auth[0]['host']
-				else:
-					self.logger.error("Host data is needed in OpenStack")
-					return None
-			else:
-				if 'host' in auth[0]:
-					uri = uriparse(auth[0]['host'])
-					if uri[1].find(":"):
-						parts = uri[1].split(":")
-						params["host"] = parts[0]
-						params["port"] = int(parts[1])  
-					else:
-						params["host"] = uri[1] 
-				
-					
-			driver = cls(**params)
-			return driver
+		if self.driver:
+			return self.driver
 		else:
-			self.logger.error("Incorrect auth data")
-			return None
+			auth = auth_data.getAuthInfo(LibCloudCloudConnector.type)
+			if auth and 'driver' in auth[0]:
+				cls = get_driver(eval("Provider."+auth[0]['driver']))
+				
+				MAP = { "username" : "key", "password": "secret"}
+			
+				params = {}
+				for key, value in auth[0].iteritems():
+					if key not in ["type","driver","id"]:
+						params[MAP[key]] = value
+						
+				if auth[0]['driver'] == "OPENSTACK":
+					if 'host' in auth[0]:
+						params["ex_force_auth_url"] = auth[0]['host']
+					else:
+						self.logger.error("Host data is needed in OpenStack")
+						return None
+				else:
+					if 'host' in auth[0]:
+						uri = uriparse(auth[0]['host'])
+						if uri[1].find(":"):
+							parts = uri[1].split(":")
+							params["host"] = parts[0]
+							params["port"] = int(parts[1])  
+						else:
+							params["host"] = uri[1] 
+					
+						
+				driver = cls(**params)
+				self.driver = driver
+				return driver
+			else:
+				self.logger.error("Incorrect auth data")
+				return None
 	
 	def get_instance_type(self, sizes, radl):
 		"""
@@ -213,7 +221,7 @@ class LibCloudCloudConnector(CloudConnector):
 			node = driver.create_node(**args)
 			
 			if node:
-				vm = VirtualMachine(inf, node.id, self.cloud, radl, requested_radl)
+				vm = VirtualMachine(inf, node.id, self.cloud, radl, requested_radl, self)
 				# Add the keypair name to remove it later
 				vm.keypair = keypair
 				self.logger.debug("Node successfully created.")

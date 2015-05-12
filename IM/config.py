@@ -75,6 +75,8 @@ class Config:
 	REMOTE_CONF_DIR = "/tmp/.im"
 	MAX_SSH_ERRORS = 5
 	PRIVATE_NET_AS_PUBLIC = ''
+	CHECK_CTXT_PROCESS_INTERVAL = 5
+	CONFMAMAGER_CHECK_STATE_INTERVAL = 5
 
 config = ConfigParser.ConfigParser()
 config.read([Config.IM_PATH + '/../im.cfg', Config.IM_PATH + '/../etc/im.cfg', '/etc/im/im.cfg'])

@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
 import json
 import socket
 import httplib
@@ -37,6 +38,12 @@ class DockerCloudConnector(CloudConnector):
 	_port_counter = 0
 	""" Counter to assign SSH port on Docker server host."""
 
+	def __init__(self, cloud_info):
+		self.cert_file = None
+		self.key_file = None
+		self.connection = None
+		CloudConnector.__init__(self, cloud_info)
+
 	def get_http_connection(self, auth_data):
 		"""
 		Get the HTTPConnection object to contact the Docker API
@@ -46,24 +53,28 @@ class DockerCloudConnector(CloudConnector):
 		Returns(HTTPConnection or HTTPSConnection): HTTPConnection connection object
 		"""
 
-		auth = auth_data.getAuthInfo(DockerCloudConnector.type)		
-		url = uriparse(self.cloud.server)
-		
-		if url[0] == 'unix':
-			socket_path = "/" + url[1] + url[2]
-			conn = UnixHTTPConnection.UnixHTTPConnection(socket_path)
-		elif url[0] == 'https':
-			if auth and 'cert' in auth[0] and 'key' in auth[0]:
-				cert = auth[0]['cert']
-				key = auth[0]['cert']
-				conn = httplib.HTTPSConnection(url[1], self.cloud.port, cert_file = cert, key_file = key)
-			else:
-				conn = httplib.HTTPSConnection(url[1], self.cloud.port)
-		elif url[0] == 'http':
-			self.logger.warn("Using a unsecure connection to docker API!")
-			conn = httplib.HTTPConnection(url[1], self.cloud.port)
-
-		return conn
+		if self.connection and (not self.cert_file or os.path.isfile(self.cert_file)) and (not self.key_file or os.path.isfile(self.key_file)):
+			return self.connection
+		else:
+			auth = auth_data.getAuthInfo(DockerCloudConnector.type)		
+			url = uriparse(self.cloud.server)
+			
+			if url[0] == 'unix':
+				socket_path = "/" + url[1] + url[2]
+				conn = UnixHTTPConnection.UnixHTTPConnection(socket_path)
+			elif url[0] == 'https':
+				if auth and 'cert' in auth[0] and 'key' in auth[0]:
+					cert = auth[0]['cert']
+					key = auth[0]['cert']
+					conn = httplib.HTTPSConnection(url[1], self.cloud.port, cert_file = cert, key_file = key)
+				else:
+					conn = httplib.HTTPSConnection(url[1], self.cloud.port)
+			elif url[0] == 'http':
+				self.logger.warn("Using a unsecure connection to docker API!")
+				conn = httplib.HTTPConnection(url[1], self.cloud.port)
+	
+			self.connection = conn
+			return conn
 		
 	def concreteSystem(self, radl_system, auth_data):
 		if radl_system.getValue("disk.0.image.url"):
@@ -183,7 +194,7 @@ class DockerCloudConnector(CloudConnector):
 				i += 1
 
 				# Create the VM to get the nodename
-				vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl)
+				vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self)
 				(nodename, nodedom) = vm.getRequestedName(default_hostname = Config.DEFAULT_VM_NAME, default_domain = Config.DEFAULT_DOMAIN)
 		
 				create_request_json = """ {
