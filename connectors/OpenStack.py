@@ -28,7 +28,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
     
     type = "OpenStack"
     """str with the name of the provider."""
-    
+
     def get_driver(self, auth_data):
         """
         Get the driver from the auth data
@@ -38,36 +38,40 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         
         Returns: a :py:class:`libcloud.compute.base.NodeDriver` or None in case of error
         """
-        auth = auth_data.getAuthInfo(self.type)
-        
-        if auth and 'username' in auth[0] and 'password' in auth[0] and 'tenant' in auth[0]:            
-            parameters = {"auth_version":'2.0_password',
-                          "auth_url":"http://" + self.cloud.server + ":" + str(self.cloud.port),
-                          "auth_token":None,
-                          "service_type":None,
-                          "service_name":None,
-                          "service_region":'regionOne',
-                          "base_url":None}
-            
-            for param in parameters:
-                if param in auth[0]:
-                    parameters[param] = auth[0][param]
+        if self.driver:
+            return self.driver
         else:
-            self.logger.error("No correct auth data has been specified to OpenStack: username, password and tenant")
-            return None
-        
-        cls = get_driver(Provider.OPENSTACK)
-        driver = cls(auth[0]['username'], auth[0]['password'],
-                     ex_tenant_name=auth[0]['tenant'], 
-                     ex_force_auth_url=parameters["auth_url"],
-                     ex_force_auth_version=parameters["auth_version"],
-                     ex_force_service_region=parameters["service_region"],
-                     ex_force_base_url=parameters["base_url"],
-                     ex_force_service_name=parameters["service_name"],
-                     ex_force_service_type=parameters["service_type"],
-                     ex_force_auth_token=parameters["auth_token"])
-        
-        return driver
+            auth = auth_data.getAuthInfo(self.type)
+            
+            if auth and 'username' in auth[0] and 'password' in auth[0] and 'tenant' in auth[0]:            
+                parameters = {"auth_version":'2.0_password',
+                              "auth_url":"http://" + self.cloud.server + ":" + str(self.cloud.port),
+                              "auth_token":None,
+                              "service_type":None,
+                              "service_name":None,
+                              "service_region":'regionOne',
+                              "base_url":None}
+                
+                for param in parameters:
+                    if param in auth[0]:
+                        parameters[param] = auth[0][param]
+            else:
+                self.logger.error("No correct auth data has been specified to OpenStack: username, password and tenant")
+                return None
+            
+            cls = get_driver(Provider.OPENSTACK)
+            driver = cls(auth[0]['username'], auth[0]['password'],
+                         ex_tenant_name=auth[0]['tenant'], 
+                         ex_force_auth_url=parameters["auth_url"],
+                         ex_force_auth_version=parameters["auth_version"],
+                         ex_force_service_region=parameters["service_region"],
+                         ex_force_base_url=parameters["base_url"],
+                         ex_force_service_name=parameters["service_name"],
+                         ex_force_service_type=parameters["service_type"],
+                         ex_force_auth_token=parameters["auth_token"])
+            
+            self.driver = driver
+            return driver
     
     def concreteSystem(self, radl_system, auth_data):
         if radl_system.getValue("disk.0.image.url"):

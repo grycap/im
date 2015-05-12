@@ -999,7 +999,7 @@ class InfrastructureManager:
 		auth = Authentication(auth_data)
 
 		sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
-		str_inf = pickle.dumps(sel_inf, 2)
+		str_inf = pickle.dumps(sel_inf)
 		InfrastructureManager.logger.info("Exporting infrastructure id: " + str(sel_inf.id))
 		if delete:
 			sel_inf.deleted = True
@@ -1042,8 +1042,8 @@ class InfrastructureManager:
 			if not InfrastructureManager._exiting:
 				try:
 					data_file = open(Config.DATA_FILE, 'wb')
-					pickle.dump(InfrastructureManager.global_inf_id, data_file, 2)
-					pickle.dump(InfrastructureManager.infrastructure_list, data_file, 2)
+					pickle.dump(InfrastructureManager.global_inf_id, data_file)
+					pickle.dump(InfrastructureManager.infrastructure_list, data_file)
 					data_file.close()
 				except Exception, ex:
 					InfrastructureManager.logger.exception("ERROR saving data to the file: " + Config.DATA_FILE + ". Changes not stored!!")

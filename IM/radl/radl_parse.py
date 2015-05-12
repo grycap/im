@@ -14,164 +14,298 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import os
+import ply.lex as lex
 import ply.yacc as yacc
-from radl_lex import *
+
+import os
 from radl import Feature, RADL, system, network, configure, contextualize, contextualize_item, \
 				 deploy, SoftFeatures, Features, RADLParseException
 
-#tokens = radl_lex.tokens
+class RADLParser:
 
-def p_radl(t):
-	"""radl : radl radl_sentence
-			| radl_sentence"""
+	def __init__(self, autodefinevars = True, **kwargs):
+		self.lexer = lex.lex(module=self, debug=0, optimize=1, **kwargs)
+		self.yacc = yacc.yacc(module=self, debug=0, optimize=1)
 
-	if len(t) == 2:
-		t[0] = RADL()
-		t[0].add(t[1])
-	else:
+	states = (
+	   ('recipe', 'exclusive'),
+	)
+	
+	tokens = (
+		'LPAREN',
+		'RPAREN',
+		'NUMBER',
+		'AND',
+		'OR',
+		'EQ',
+		'LT',
+		'GT',
+		'GE',
+		'LE',
+		'NETWORK',
+		'SYSTEM',
+		'SOFT',
+		'STRING',
+		'VAR',
+		'CONTAINS',
+		'DEPLOY',
+		'CONFIGURE',
+		'RECIPE_LINE',
+		'RECIPE_BEGIN',
+		'RECIPE_END',
+		'CONTEXTUALIZE',
+		'STEP'
+	)
+	
+	# A string containing ignored characters (spaces and tabs)
+	t_ignore = ' \t\r'
+	
+	t_recipe_ignore = ''
+	
+	# Ignore comments.
+	def t_comment(self, t):
+		r'\#.*'
+		pass
+	
+	def t_LE(self, t):
+		r'<='
+		return t
+	
+	def t_GE(self, t):
+		r'>='
+		return t
+	
+	def t_EQ(self, t):
+		r'='
+		return t
+	
+	def t_GT(self, t):
+		r'>'
+		return t
+	
+	def t_LT(self, t):
+		r'<'
+		return t
+	
+	def t_LPAREN(self, t):
+		r'\('
+		return t
+	
+	def t_RPAREN(self, t):
+		r'\)'
+		return t
+	
+	def t_newline(self, t):
+		r'\n+'
+		t.lexer.lineno += len(t.value)
+	
+	def t_NUMBER(self, t):
+		r'\d+\.?\d*'
+		if t.value.find(".") != -1:
+			t.value = float(t.value)
+		else:
+			t.value = int(t.value)
+		return t
+	
+	def t_STRING(self, t):
+		r"'([^\\']+|\\'|\\\\)*'"  # I think this is right ...
+		t.value = t.value[1:-1].decode("string-escape")  # .swapcase() # for fun
+		return t
+	
+	reserved = {
+		'network' : 'NETWORK',
+		'system' : 'SYSTEM',
+		'soft' : 'SOFT',
+		'and' : 'AND',
+		'or' : 'OR',
+		'contains' : 'CONTAINS',
+		'deploy' : 'DEPLOY',
+		'configure': 'CONFIGURE',
+		'contextualize': 'CONTEXTUALIZE',
+		'step':'STEP'
+	}
+	
+	def t_VAR(self, t):
+		r'[a-zA-Z_.][\w\d_.]*'
+		t.type = self.reserved.get(t.value, 'VAR')  # Check reserved words
+		return t
+	
+	def t_RECIPE_BEGIN(self, t):
+		r'@begin'
+		t.lexer.begin('recipe')
+		return t
+	
+	def t_recipe_RECIPE_END(self, t):
+		r'@end'
+		t.lexer.begin('INITIAL')
+		return t
+	
+	def t_recipe_RECIPE_LINE(self, t):
+		r'.*\n'
+		t.type = 'RECIPE_LINE'
+		t.lexer.lineno += t.value.count("\n")
+		return t
+	
+	# Error handling rule
+	def t_ANY_error(self, t):
+		print "Illegal character '%s' in line %s" % (t.value[0], t.lineno)
+		t.lexer.skip(1)
+
+	def p_radl(self, t):
+		"""radl : radl radl_sentence
+				| radl_sentence"""
+	
+		if len(t) == 2:
+			t[0] = RADL()
+			t[0].add(t[1])
+		else:
+			t[0] = t[1]
+			t[0].add(t[2])
+	
+	def p_radl_sentence(self, t):
+		"""radl_sentence : network_sentence
+						 | system_sentence
+						 | configure_sentence
+						 | contextualize_sentence
+						 | deploy_sentence"""
 		t[0] = t[1]
-		t[0].add(t[2])
-
-def p_radl_sentence(t):
-	"""radl_sentence : network_sentence
-					 | system_sentence
-					 | configure_sentence
-					 | contextualize_sentence
-					 | deploy_sentence"""
-	t[0] = t[1]
-
-def p_configure_sentence(t):
-	"""configure_sentence : CONFIGURE VAR
-						  | CONFIGURE VAR LPAREN RECIPE_BEGIN recipe RECIPE_END RPAREN"""
-
-	if len(t) == 3:
-		t[0] = configure(t[2], reference=True, line=t.lineno(1))
-	else:
-		t[0] = configure(t[2], t[5], line=t.lineno(1))
-
-def p_recipe(t):
-	"""recipe : RECIPE_LINE
-			  | RECIPE_LINE recipe"""
-	if len(t) == 3:
-		t[0] = t[1] + t[2]
-	else:
+	
+	def p_configure_sentence(self, t):
+		"""configure_sentence : CONFIGURE VAR
+							  | CONFIGURE VAR LPAREN RECIPE_BEGIN recipe RECIPE_END RPAREN"""
+	
+		if len(t) == 3:
+			t[0] = configure(t[2], reference=True, line=t.lineno(1))
+		else:
+			t[0] = configure(t[2], t[5], line=t.lineno(1))
+	
+	def p_recipe(self, t):
+		"""recipe : RECIPE_LINE
+				  | RECIPE_LINE recipe"""
+		if len(t) == 3:
+			t[0] = t[1] + t[2]
+		else:
+			t[0] = t[1]
+	
+	def p_deploy_sentence(self, t):
+		"""deploy_sentence : DEPLOY VAR NUMBER
+						   | DEPLOY VAR NUMBER VAR"""
+	
+		if len(t) == 4:
+			t[0] = deploy(t[2], t[3], line=t.lineno(1))
+		else:
+			t[0] = deploy(t[2], t[3], t[4], line=t.lineno(1))
+	
+	def p_contextualize_sentence(self, t):
+		"""contextualize_sentence : CONTEXTUALIZE LPAREN contextualize_items RPAREN
+								  | CONTEXTUALIZE NUMBER  LPAREN contextualize_items RPAREN"""
+	
+		if len(t) == 5:
+			t[0] = contextualize(t[3], line=t.lineno(1))
+		else:
+			t[0] = contextualize(t[4], t[2], line=t.lineno(1))
+	
+	def p_contextualize_items(self, t):
+		"""contextualize_items : contextualize_items contextualize_item 
+							   | contextualize_item"""
+	
+		if len(t) == 2:
+			t[0] = [t[1]]
+		else:
+			t[0] = t[1]
+			t[0].append(t[2])
+	
+	def p_contextualize_item(self, t):
+		"""contextualize_item : SYSTEM VAR CONFIGURE VAR
+							  | SYSTEM VAR CONFIGURE VAR STEP NUMBER"""
+	
+		if len(t) == 5:
+			t[0] = contextualize_item(t[2], t[4], line=t.lineno(1))
+		else:
+			t[0] = contextualize_item(t[2], t[4], t[6], line=t.lineno(1))
+	
+	def p_network_sentence(self, t):
+		"""network_sentence : NETWORK VAR
+							| NETWORK VAR LPAREN features RPAREN"""
+	
+		if len(t) == 3:
+			t[0] = network(t[2], reference=True, line=t.lineno(1))
+		else:
+			t[0] = network(t[2], t[4], line=t.lineno(1))
+	
+	def p_system_sentence(self, t):
+		"""system_sentence : SYSTEM VAR
+						   | SYSTEM VAR LPAREN features RPAREN"""
+	
+		if len(t) == 3:
+			t[0] = system(t[2], reference=True, line=t.lineno(1))
+		else:
+			t[0] = system(t[2], t[4], line=t.lineno(1))
+	
+	
+	def p_features(self, t):
+		"""features : features AND feature
+					| feature
+					| empty"""
+	
+		if len(t) == 4:
+			t[0] = t[1]
+			t[0].append(t[3])
+		elif t[1]:
+			t[0] = [t[1]]
+		else:
+			t[0] = []
+	
+	def p_feature(self, t):
+		"""feature : feature_soft
+				   | feature_simple
+				   | feature_contains"""
+	
 		t[0] = t[1]
-
-def p_deploy_sentence(t):
-	"""deploy_sentence : DEPLOY VAR NUMBER
-					   | DEPLOY VAR NUMBER VAR"""
-
-	if len(t) == 4:
-		t[0] = deploy(t[2], t[3], line=t.lineno(1))
-	else:
-		t[0] = deploy(t[2], t[3], t[4], line=t.lineno(1))
-
-def p_contextualize_sentence(t):
-	"""contextualize_sentence : CONTEXTUALIZE LPAREN contextualize_items RPAREN
-							  | CONTEXTUALIZE NUMBER  LPAREN contextualize_items RPAREN"""
-
-	if len(t) == 5:
-		t[0] = contextualize(t[3], line=t.lineno(1))
-	else:
-		t[0] = contextualize(t[4], t[2], line=t.lineno(1))
-
-def p_contextualize_items(t):
-	"""contextualize_items : contextualize_items contextualize_item 
-						   | contextualize_item"""
-
-	if len(t) == 2:
-		t[0] = [t[1]]
-	else:
+	
+	def p_feature_soft(self, t):
+		"""feature_soft : SOFT NUMBER LPAREN features RPAREN"""
+	
+		t[0] = SoftFeatures(t[2], t[4], line=t.lineno(1))
+	
+	def p_feature_simple(self, t):
+		"""feature_simple : VAR comparator NUMBER VAR
+						  | VAR comparator NUMBER
+						  | VAR comparator STRING"""
+	
+		if len(t) == 5:
+			t[0] = Feature(t[1], t[2], t[3], unit=t[4],
+								 line=t.lineno(1))
+		elif len(t) == 4:
+			t[0] = Feature(t[1], t[2], t[3], line=t.lineno(1))
+	
+	def p_empty(self, t):
+		"""empty :"""
+	
+		t[0] = None
+	
+	def p_comparator(self, t):
+		"""comparator : EQ
+					  | LT
+					  | GT
+					  | GE
+					  | LE"""
+	
 		t[0] = t[1]
-		t[0].append(t[2])
-
-def p_contextualize_item(t):
-	"""contextualize_item : SYSTEM VAR CONFIGURE VAR
-						  | SYSTEM VAR CONFIGURE VAR STEP NUMBER"""
-
-	if len(t) == 5:
-		t[0] = contextualize_item(t[2], t[4], line=t.lineno(1))
-	else:
-		t[0] = contextualize_item(t[2], t[4], t[6], line=t.lineno(1))
-
-def p_network_sentence(t):
-	"""network_sentence : NETWORK VAR
-						| NETWORK VAR LPAREN features RPAREN"""
-
-	if len(t) == 3:
-		t[0] = network(t[2], reference=True, line=t.lineno(1))
-	else:
-		t[0] = network(t[2], t[4], line=t.lineno(1))
-
-def p_system_sentence(t):
-	"""system_sentence : SYSTEM VAR
-					   | SYSTEM VAR LPAREN features RPAREN"""
-
-	if len(t) == 3:
-		t[0] = system(t[2], reference=True, line=t.lineno(1))
-	else:
-		t[0] = system(t[2], t[4], line=t.lineno(1))
-
-
-def p_features(t):
-	"""features : features AND feature
-				| feature
-				| empty"""
-
-	if len(t) == 4:
-		t[0] = t[1]
-		t[0].append(t[3])
-	elif t[1]:
-		t[0] = [t[1]]
-	else:
-		t[0] = []
-
-def p_feature(t):
-	"""feature : feature_soft
-			   | feature_simple
-			   | feature_contains"""
-
-	t[0] = t[1]
-
-def p_feature_soft(t):
-	"""feature_soft : SOFT NUMBER LPAREN features RPAREN"""
-
-	t[0] = SoftFeatures(t[2], t[4], line=t.lineno(1))
-
-def p_feature_simple(t):
-	"""feature_simple : VAR comparator NUMBER VAR
-					  | VAR comparator NUMBER
-					  | VAR comparator STRING"""
-
-	if len(t) == 5:
-		t[0] = Feature(t[1], t[2], t[3], unit=t[4],
-							 line=t.lineno(1))
-	elif len(t) == 4:
-		t[0] = Feature(t[1], t[2], t[3], line=t.lineno(1))
-
-def p_empty(t):
-	"""empty :"""
-
-	t[0] = None
-
-def p_comparator(t):
-	"""comparator : EQ
-				  | LT
-				  | GT
-				  | GE
-				  | LE"""
-
-	t[0] = t[1]
-
-def p_feature_contains(t):
-	"""feature_contains : VAR CONTAINS LPAREN features RPAREN"""
-
-	t[0] = Feature(t[1], t[2], Features(t[4]), line=t.lineno(1))
-
-def p_error(t):
-	raise RADLParseException("Parse error in: " + str(t), line=t.lineno if t else None)
-
+	
+	def p_feature_contains(self, t):
+		"""feature_contains : VAR CONTAINS LPAREN features RPAREN"""
+	
+		t[0] = Feature(t[1], t[2], Features(t[4]), line=t.lineno(1))
+	
+	def p_error(self, t):
+		raise RADLParseException("Parse error in: " + str(t), line=t.lineno if t else None)
+	
+	def parse(self, data):
+		self.lexer.lineno = 1
+		self.lexer.begin('INITIAL')
+		return self.yacc.parse(data, tracking=True, debug=0, lexer=self.lexer)
+	
 def parse_radl(data):
 	"""
 	Parse a RADL document.
@@ -191,6 +325,6 @@ def parse_radl(data):
 	elif data.strip() == "":
 		return RADL()
 	data = data + "\n"
-	lexer.lineno = 1
-	lexer.begin('INITIAL')
-	return yacc.yacc().parse(data, tracking=True, debug=0)
+
+	parser = RADLParser()
+	return parser.parse(data)

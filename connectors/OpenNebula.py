@@ -99,6 +99,11 @@ class OpenNebulaCloudConnector(CloudConnector):
 	type = "OpenNebula"
 	"""str with the name of the provider."""
 	
+	def __init__(self, cloud_info):
+		CloudConnector.__init__(self, cloud_info)
+		self.session_id = None
+		self.server_url = "http://%s:%d/RPC2" % (self.cloud.server, self.cloud.port)
+	
 	def concreteSystem(self, radl_system, auth_data):		
 		if radl_system.getValue("disk.0.image.url"):
 			url = uriparse(radl_system.getValue("disk.0.image.url"))
@@ -141,19 +146,24 @@ class OpenNebulaCloudConnector(CloudConnector):
 		 
 		 Returns: str with the Session ID
 		"""
-		auth = auth_data.getAuthInfo(OpenNebulaCloudConnector.type)
-		if auth and 'username' in auth[0] and 'password' in auth[0]:
-			passwd = auth[0]['password']
-			if hash_password is None:
-				one_ver = self.getONEVersion(auth_data)
-				if one_ver == "2.0.0" or one_ver == "3.0.0":
-					hash_password = True
-			if hash_password:
-				passwd = hashlib.sha1(passwd.strip()).hexdigest()
-			return auth[0]['username'] + ":" + passwd
+		if self.session_id:
+			return self.session_id
 		else:
-			self.logger.error("No correct auth data has been specified to OpenNebula: username and password")
-			return None
+			auth = auth_data.getAuthInfo(OpenNebulaCloudConnector.type)
+			if auth and 'username' in auth[0] and 'password' in auth[0]:
+				passwd = auth[0]['password']
+				if hash_password is None:
+					one_ver = self.getONEVersion(auth_data)
+					if one_ver == "2.0.0" or one_ver == "3.0.0":
+						hash_password = True
+				if hash_password:
+					passwd = hashlib.sha1(passwd.strip()).hexdigest()
+				
+				self.session_id = auth[0]['username'] + ":" + passwd
+				return self.session_id
+			else:
+				self.logger.error("No correct auth data has been specified to OpenNebula: username and password")
+				return None
 
 	def setIPsFromTemplate(self, vm, template):
 		"""
@@ -175,8 +185,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 		vm.setIps(public_ips, private_ips)
 
 	def updateVMInfo(self, vm, auth_data):
-		server_url = "http://%s:%d/RPC2" % (self.cloud.server, self.cloud.port)
-		server = xmlrpclib.ServerProxy(server_url,allow_none=True)
+		server = xmlrpclib.ServerProxy(self.server_url,allow_none=True)
 		
 		session_id = self.getSessionID(auth_data)
 		if session_id == None:
@@ -222,8 +231,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 			return (success, res_info)
 
 	def launch(self, inf, radl, requested_radl, num_vm, auth_data):
-		server_url = "http://%s:%d/RPC2" % (self.cloud.server, self.cloud.port)
-		server = xmlrpclib.ServerProxy(server_url,allow_none=True)
+		server = xmlrpclib.ServerProxy(self.server_url,allow_none=True)
 		session_id = self.getSessionID(auth_data)
 		if session_id == None:
 			return [(False, "Incorrect auth data")]
@@ -247,7 +255,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 				return [(False, "Error in the one.vm.allocate return value")]
 				
 			if success:
-				vm = VirtualMachine(inf, str(res_id), self.cloud, radl, requested_radl)
+				vm = VirtualMachine(inf, str(res_id), self.cloud, radl, requested_radl, self)
 				res.append((success, vm))
 			else:
 				res.append((success, "ERROR: " + str(res_id)))
@@ -255,8 +263,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 		return res
 
 	def finalize(self, vm, auth_data):
-		server_url = "http://%s:%d/RPC2" % (self.cloud.server, self.cloud.port)
-		server = xmlrpclib.ServerProxy(server_url,allow_none=True)
+		server = xmlrpclib.ServerProxy(self.server_url,allow_none=True)
 		session_id = self.getSessionID(auth_data)
 		if session_id == None:
 			return (False, "Incorrect auth data")
@@ -275,8 +282,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 		return (success, err)
 		
 	def stop(self, vm, auth_data):
-		server_url = "http://%s:%d/RPC2" % (self.cloud.server, self.cloud.port)
-		server = xmlrpclib.ServerProxy(server_url,allow_none=True)
+		server = xmlrpclib.ServerProxy(self.server_url,allow_none=True)
 		session_id = self.getSessionID(auth_data)
 		if session_id == None:
 			return (False, "Incorrect auth data")
@@ -295,8 +301,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 		return (success, err)
 		
 	def start(self, vm, auth_data):
-		server_url = "http://%s:%d/RPC2" % (self.cloud.server, self.cloud.port)
-		server = xmlrpclib.ServerProxy(server_url,allow_none=True)
+		server = xmlrpclib.ServerProxy(self.server_url,allow_none=True)
 		session_id = self.getSessionID(auth_data)
 		if session_id == None:
 			return (False, "Incorrect auth data")
@@ -398,8 +403,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 		 
 		 Returns: str with the ONE version (format: X.X.X)
 		"""
-		server_url = "http://%s:%d/RPC2" % (self.cloud.server, self.cloud.port)
-		server = xmlrpclib.ServerProxy(server_url,allow_none=True)
+		server = xmlrpclib.ServerProxy(self.server_url,allow_none=True)
 		
 		version = "2.0.0"
 		methods = server.system.listMethods()
@@ -476,8 +480,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 		 
 		 Returns: a list of tuples (net_name, net_id, is_public) with the name, ID, and boolean specifying if it is a public network of the found network None if not found
 		"""
-		server_url = "http://%s:%d/RPC2" % (self.cloud.server, self.cloud.port)
-		server = xmlrpclib.ServerProxy(server_url,allow_none=True)
+		server = xmlrpclib.ServerProxy(self.server_url,allow_none=True)
 		session_id = self.getSessionID(auth_data)
 		if session_id == None:
 			return None
@@ -663,8 +666,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 		 
 		 Returns: bool, True if the one.vm.resize function appears in the ONE server or false otherwise
 		"""
-		server_url = "http://%s:%d/RPC2" % (self.cloud.server, self.cloud.port)
-		server = xmlrpclib.ServerProxy(server_url,allow_none=True)
+		server = xmlrpclib.ServerProxy(self.server_url,allow_none=True)
 		
 		methods = server.system.listMethods()
 		if "one.vm.resize" in methods:
@@ -676,8 +678,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 		"""
 		Poweroff the VM and waits for it to be in poweredoff state
 		"""
-		server_url = "http://%s:%d/RPC2" % (self.cloud.server, self.cloud.port)
-		server = xmlrpclib.ServerProxy(server_url,allow_none=True)
+		server = xmlrpclib.ServerProxy(self.server_url,allow_none=True)
 		session_id = self.getSessionID(auth_data)
 		if session_id == None:
 			return (False, "Incorrect auth data")
@@ -719,8 +720,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 			return (False, "Error waiting the VM to be powered off")
 
 	def alterVM(self, vm, radl, auth_data):
-		server_url = "http://%s:%d/RPC2" % (self.cloud.server, self.cloud.port)
-		server = xmlrpclib.ServerProxy(server_url,allow_none=True)
+		server = xmlrpclib.ServerProxy(self.server_url,allow_none=True)
 		session_id = self.getSessionID(auth_data)
 		if session_id == None:
 			return (False, "Incorrect auth data")
