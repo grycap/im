@@ -35,7 +35,7 @@ However, if you install IM from sources you should install:
  + The Python Lex & Yacc library (http://www.dabeaz.com/ply/), typically available
    as the 'python-ply' package.
 
- + The paramiko ssh2 protocol library for python
+ + The paramiko ssh2 protocol library for python version 1.14 or later
 (http://www.lag.net/paramiko/), typically available as the 'python-paramiko' package.
 
  + The YAML library for Python, typically available as the 'python-yaml' or 'PyYAML' package.
@@ -47,28 +47,32 @@ However, if you install IM from sources you should install:
    To ensure the functionality the following values must be set in the ansible.cfg file:
 
 ```
-[default]
+[defaults]
+transport  = smart
 host_key_checking = False
-transport = smart
+sudo_user = root
+sudo_exe = sudo
 
 [paramiko_connection]
-record_host_keys = False
-   
+
+record_host_keys=False
+
 [ssh_connection]
-pipelining=True
-# Only in systems with OpenSSH support to ControlPersist 
+
+# Only in systems with OpenSSH support to ControlPersist
 ssh_args = -o ControlMaster=auto -o ControlPersist=900s
 # In systems with older versions of OpenSSH (RHEL 6, CentOS 6, SLES 10 or SLES 11) 
-ssh_args =
+#ssh_args =
+pipelining = True
 ```
 
 1.2 OPTIONAL PACKAGES
 ---------------------
 
-In case of using the Amazon EC2 plugin the boto library version 2.0 or later
+In case of using the Amazon EC2 plugin the boto library version 2.29 or later
 must be installed (http://boto.readthedocs.org/en/latest/).
 
-In case of using the LibCloud plugin the apache-libcloud library version 0.15 or later
+In case of using the LibCloud plugin the apache-libcloud library version 0.17 or later
 must be installed (http://libcloud.apache.org/).
 
 In case of using the SSL secured version of the XMLRPC API the SpringPython
@@ -85,8 +89,11 @@ framework (http://www.cherrypy.org/) must be installed.
 
 ### 1.3.1 FROM PIP
 
+**WARNING: The SOAPpy distributed with pip does not work correctly so you must install
+the packages 'python-soappy' or 'SOAPp'y before installing the IM with pip.**
+
 **WARNING: In some GNU/Linux distributions (RHEL 6 or equivalents) you must uninstall
-the packages python-paramiko and python-crypto before installing the IM with pip.**
+the packages 'python-paramiko' and 'python-crypto' before installing the IM with pip.**
 
 You only have to install the IM package through the pip tool.
 
@@ -95,8 +102,9 @@ pip install IM
 ```
 
 Pip will install all the pre-requisites needed. So Ansible  1.4.2 or later will
- be installed in the system. In some cases it will need to have installed the GCC
- compiler and the python developer libraries ('python-dev' or 'python-devel'
+ be installed in the system. Yo will also need to install the sshpass command
+ ('sshpass' package in main distributions). In some cases it will need to have installed 
+ the GCC compiler and the python developer libraries ('python-dev' or 'python-devel'
  packages in main distributions).
 
 You must also remember to modify the ansible.cfg file setting as specified in the
