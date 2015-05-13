@@ -55,13 +55,11 @@ def launch_playbook(playbook_file, host, passwd, threads, pk_file = None, retrie
     options, _ = parser.parse_args([])
 
     sshpass = None
-    sudopass = None
     options.sudo_user = options.sudo_user or C.DEFAULT_SUDO_USER
     if pk_file:
         options.private_key_file = pk_file
     else:
         sshpass = passwd
-        sudopass = passwd
     
     if user:
         remote_user=user
@@ -107,9 +105,6 @@ def launch_playbook(playbook_file, host, passwd, threads, pk_file = None, retrie
             stats=stats,
             timeout=options.timeout,
             transport=options.connection,
-            sudo=options.sudo,
-            sudo_user=options.sudo_user,
-            sudo_pass=sudopass,
             extra_vars=extra_vars,
             private_key_file=options.private_key_file,
             only_tags=['all'],
