@@ -415,9 +415,8 @@ class VirtualMachine:
 				new_state = VirtualMachine.UNCONFIGURED
 	
 		with self._lock:
-			if self.state != new_state:
-				self.state = new_state
-				self.info.systems[0].setValue("state", new_state)
+			self.state = new_state
+			self.info.systems[0].setValue("state", new_state)
 
 		return updated
 
