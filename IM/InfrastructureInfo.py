@@ -362,6 +362,7 @@ class InfrastructureInfo:
 		
 		for vm in self.get_vm_list():
 			vm.cont_out = "" 
+			vm.configured = None
 			tasks = {}
 
 			tasks[0] = ['basic']
@@ -377,9 +378,6 @@ class InfrastructureInfo:
 			
 			for step in tasks.keys():
 				priority = 0
-				# Set more priority to the new VMs to launch the ctxt process first in them
-				if vm.configured is None:
-					priority = -1
 				ctxt_task.append((step,priority,vm,tasks[step]))
 
 		self.add_ctxt_tasks(ctxt_task)
