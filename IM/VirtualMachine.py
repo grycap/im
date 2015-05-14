@@ -401,7 +401,6 @@ class VirtualMachine:
 				VirtualMachine.logger.exception("Error updating VM status.")
 				updated = False
 
-		new_state = state
 		# If we have problems to update the VM info too much time, set to unknown
 		if now - self.last_update > Config.VM_INFO_UPDATE_ERROR_GRACE_PERIOD:
 			new_state = VirtualMachine.UNKNOWN
