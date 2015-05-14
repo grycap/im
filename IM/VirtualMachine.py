@@ -405,7 +405,7 @@ class VirtualMachine:
 		if now - self.last_update > Config.VM_INFO_UPDATE_ERROR_GRACE_PERIOD:
 			new_state = VirtualMachine.UNKNOWN
 		else:
-			if state != VirtualMachine.RUNNING:
+			if state not in [VirtualMachine.RUNNING, VirtualMachine.CONFIGURED, VirtualMachine.UNCONFIGURED]:
 				new_state = state
 			elif self.is_configured() is None:
 				new_state = VirtualMachine.RUNNING
