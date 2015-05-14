@@ -72,7 +72,7 @@ Form Pip
 ^^^^^^^^
 
 **WARNING: The SOAPpy distributed with pip does not work correctly so you must install
-the packages 'python-soappy' or 'SOAPp'y before installing the IM with pip.**
+the packages 'python-soappy' or 'SOAPpy' before installing the IM with pip.**
 
 **WARNING: In some linux distributions (REL 6 or equivalents) you must unistall
 the packages python-paramiko and python-crypto before installing the IM with pip.**
@@ -191,6 +191,13 @@ Basic Options
 
    Maximum frequency to update the VM info (in secs)
    The default value is 10.
+   
+.. confval:: VM_INFO_UPDATE_ERROR_GRACE_PERIOD
+
+   Maximum time that a VM status maintains the current status in case of connection failure with the 
+   Cloud provider (in secs). If the time is over this value the status is set to 'unknown'. 
+   This value must be always higher than VM_INFO_UPDATE_FREQUENCY.
+   The default value is 120.
 
 .. confval:: WAIT_RUNNING_VM_TIMEOUT
 

@@ -99,3 +99,8 @@ IM 1.2.2
     * Improve contextualization performance
     * Bugfix in the Ansible installation playbook
     * Change Ansible version to 1.8.4
+
+IM 1.2.3
+    * Bugfix in the Ansible launcher with versions 1.9.X
+    * Bugfix in VirtualMachine update_status function
+    * Add the VM_INFO_UPDATE_ERROR_GRACE_PERIOD to manage errors in the conections with Cloud providers
