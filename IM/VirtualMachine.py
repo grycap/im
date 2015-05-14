@@ -405,8 +405,7 @@ class VirtualMachine:
 		# If we have problems to update the VM info too much time, set to unknown
 		if now - self.last_update > Config.VM_INFO_UPDATE_ERROR_GRACE_PERIOD:
 			new_state = VirtualMachine.UNKNOWN
-		
-		if updated:
+		else:
 			if state != VirtualMachine.RUNNING:
 				new_state = state
 			elif self.is_configured() is None:
