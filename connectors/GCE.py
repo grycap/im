@@ -277,27 +277,24 @@ class GCECloudConnector(CloudConnector):
             else:
                 self.set_net_provider_id(radl, "default")
 
-        args['base_name'] = "%s-%s" % (name.lower().replace("_","-"), int(time.time()*100))
-        args['number'] = num_vm
-        try:
-            nodes = driver.ex_create_multiple_nodes(**args)
-            self.logger.debug("%d GCE Nodes successfully created." % num_vm)
-        except:
-            self.logger.exception("Error creating %d GCE nodes." % num_vm)
-            nodes = []
-        
         res = []
-        if nodes:
-            for node in nodes:
-                if isinstance(node, Node):
-                    vm = VirtualMachine(inf, node.extra['name'], self.cloud, radl, requested_radl, self)
-                    res.append((True, vm))
-                else:
-                    # in this case the returned value is GCEFailedDisk or GCEFailedNode
-                    res.append((False, "Error creating node: " + str(node.error)))
-        else:
-            res =  [(False, "Error creating the node") for _ in range(num_vm)]
-        
+        i = 0
+        while i < num_vm:
+            self.logger.debug("Creating node")
+
+            args['name'] = "%s-%s" % (name.lower().replace("_","-"), int(time.time()*100))
+
+            node = driver.create_node(**args)
+
+            if node:
+                vm = VirtualMachine(inf, node.extra['name'], self.cloud, radl, requested_radl, self)
+                self.logger.debug("Node successfully created.")
+                res.append((True, vm))
+            else:
+                res.append((False, "Error creating the node"))
+
+            i += 1
+
         return res
     
     def finalize(self, vm, auth_data):
