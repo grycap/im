@@ -338,6 +338,9 @@ class GCECloudConnector(CloudConnector):
                     success = volume.destroy()
                     if not success:
                         self.logger.error("Error destroying the volume: " + vol_name)
+            except ResourceNotFoundError:
+                self.logger.debug("The volume: " + vol_name + " does not exists. Ignore it.")
+                success = True
             except:
                 self.logger.exception("Error destroying the volume: " + vol_name + " from the node: " + node.id)
                 success = False
