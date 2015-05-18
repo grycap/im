@@ -53,9 +53,13 @@ class GCECloudConnector(CloudConnector):
             auth = auth_data.getAuthInfo(self.type)
             
             if auth and 'username' in auth[0] and 'password' in auth[0] and 'project' in auth[0]:
-                cls = get_driver(Provider.GCE)
+                cls = get_driver(Provider.GCE)                
+                lines = len(auth[0]['password'].replace(" ","").split())
+                if lines < 2:
+                    raise Exception("The certificate provided to the GCE plugin has an incorrect format. Check that it has more than one line.")
+
                 driver = cls(auth[0]['username'], auth[0]['password'], project=auth[0]['project']) 
-        
+
                 self.driver = driver
                 return driver
             else:
@@ -235,8 +239,7 @@ class GCECloudConnector(CloudConnector):
         args = {'size': instance_type,
                 'image': image,
                 'external_ip': 'ephemeral',
-                'location': region,
-                'name': "%s-%s" % (name.lower().replace("_","-"), int(time.time()*100))}
+                'location': region}
 
         if self.request_external_ip(radl):
             fixed_ip = self.request_external_ip(radl)
@@ -275,6 +278,8 @@ class GCECloudConnector(CloudConnector):
         i = 0
         while i < num_vm:
             self.logger.debug("Creating node")
+            
+            args['name'] = "%s-%s" % (name.lower().replace("_","-"), int(time.time()*100))
 
             node = driver.create_node(**args)
             
@@ -316,11 +321,19 @@ class GCECloudConnector(CloudConnector):
             try:
                 vol_name = os.path.basename(uriparse(disk['source'])[2])
                 volume = node.driver.ex_get_volume(vol_name)
-                success = volume.destroy()
-                if not success:
-                    self.logger.error("Error destroying the volume: " + str(disk.id))
+                # First try to detach the volume
+                if volume:
+                    success = volume.detach()
+                    if not success:
+                        self.logger.error("Error detaching the volume: " + vol_name)
+                    else:
+                        # wait a bit to detach the disk
+                        time.sleep(2)
+                    success = volume.destroy()
+                    if not success:
+                        self.logger.error("Error destroying the volume: " + vol_name)
             except:
-                self.logger.exception("Error destroying the volume: " + str(disk.id) + " from the node: " + node.id)
+                self.logger.exception("Error destroying the volume: " + vol_name + " from the node: " + node.id)
                 success = False
 
             if not success:
