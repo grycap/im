@@ -18,6 +18,7 @@ import time
 import os
 
 from CloudConnector import CloudConnector
+from libcloud.compute.base import Node
 from libcloud.compute.types import NodeState, Provider
 from libcloud.compute.providers import get_driver
 from IM.uriparse import uriparse
@@ -242,6 +243,8 @@ class GCECloudConnector(CloudConnector):
                 'location': region}
 
         if self.request_external_ip(radl):
+            if num_vm:
+                raise Exception("A fixed IP cannot be specified to a set of nodes (deploy is higher than 1)")
             fixed_ip = self.request_external_ip(radl)
             args['external_ip'] = driver.ex_create_address(name="im-" + fixed_ip, region=region, address=fixed_ip)
 
@@ -274,24 +277,27 @@ class GCECloudConnector(CloudConnector):
             else:
                 self.set_net_provider_id(radl, "default")
 
+        args['base_name'] = "%s-%s" % (name.lower().replace("_","-"), int(time.time()*100))
+        args['number'] = num_vm
+        try:
+            nodes = driver.ex_create_multiple_nodes(**args)
+            self.logger.debug("%d GCE Nodes successfully created." % num_vm)
+        except:
+            self.logger.exception("Error creating %d GCE nodes." % num_vm)
+            nodes = []
+        
         res = []
-        i = 0
-        while i < num_vm:
-            self.logger.debug("Creating node")
-            
-            args['name'] = "%s-%s" % (name.lower().replace("_","-"), int(time.time()*100))
-
-            node = driver.create_node(**args)
-            
-            if node:
-                vm = VirtualMachine(inf, node.extra['name'], self.cloud, radl, requested_radl, self)
-                self.logger.debug("Node successfully created.")
-                res.append((True, vm))
-            else:
-                res.append((False, "Error creating the node"))
-                
-            i += 1
-
+        if nodes:
+            for node in nodes:
+                if isinstance(node, Node):
+                    vm = VirtualMachine(inf, node.extra['name'], self.cloud, radl, requested_radl, self)
+                    res.append((True, vm))
+                else:
+                    # in this case the returned value is GCEFailedDisk or GCEFailedNode
+                    res.append((False, "Error creating node: " + str(node.error)))
+        else:
+            res =  [(False, "Error creating the node") for _ in range(num_vm)]
+        
         return res
     
     def finalize(self, vm, auth_data):
