@@ -8,7 +8,8 @@ Prerequisites
 IM needs at least Python 2.6 to run, as well as the next libraries:
 
 * `PLY <http://www.dabeaz.com/ply/>`_, Python Lex & Yacc library for python.
-* `paramiko <http://www.lag.net/paramiko/>`_, ssh2 protocol library for python.
+* `paramiko <http://www.lag.net/paramiko/>`_, ssh2 protocol library for python
+  (version 1.14 or later).
 * `PyYAML <http://pyyaml.org/>`_, a YAML parser.
 * `SOAPpy <http://pywebsvcs.sourceforge.net/>`_, a full-featured SOAP library
   (we know it is not actively supported by upstream anymore).
@@ -29,26 +30,30 @@ Fedora, etc.), do::
 Finally, check the next values in the Ansible configuration file
 :file:`ansible.cfg`, (usually found in :file:`/etc/ansible`)::
 
-   [default]
+   [defaults]
+   transport  = smart
    host_key_checking = False
-   transport = smart
-
+   sudo_user = root
+   sudo_exe = sudo
+   
    [paramiko_connection]
-   record_host_keys = False
+   
+   record_host_keys=False
    
    [ssh_connection]
-   pipelining=True
-   # Only in systems with OpenSSH support to ControlPersist 
+   
+   # Only in systems with OpenSSH support to ControlPersist
    ssh_args = -o ControlMaster=auto -o ControlPersist=900s
    # In systems with older versions of OpenSSH (RHEL 6, CentOS 6, SLES 10 or SLES 11) 
-   ssh_args =
+   #ssh_args =
+   pipelining = True
 
 Optional Packages
 -----------------
 
-* `apache-libcloud <http://libcloud.apache.org/>`_ 0.16 or later is used in the
+* `apache-libcloud <http://libcloud.apache.org/>`_ 0.17 or later is used in the
   LibCloud, OpenStack and GCE connectors.
-* `boto <http://boto.readthedocs.org>`_ 2.19.0 or later is used as interface to
+* `boto <http://boto.readthedocs.org>`_ 2.29.0 or later is used as interface to
   Amazon EC2. It is available as package named ``python-boto`` in Debian based
   distributions. It can also be downloaded from `boto GitHub repository <https://github.com/boto/boto>`_.
   Download the file and copy the boto subdirectory into the IM install path.
@@ -66,16 +71,20 @@ Installation
 Form Pip
 ^^^^^^^^
 
-You only have to call the install command of the pip tool with the IM package::
-
-   $ pip install IM
+**WARNING: The SOAPpy distributed with pip does not work correctly so you must install
+the packages 'python-soappy' or 'SOAPpy' before installing the IM with pip.**
 
 **WARNING: In some linux distributions (REL 6 or equivalents) you must unistall
 the packages python-paramiko and python-crypto before installing the IM with pip.**
 
-Pip will install all the pre-requisites needed. So Ansible 1.4.2 or later will be
-installed in the system. In some cases it will need to have installed the GCC 
-compiler and the python developer libraries ('python-dev' or 'python-devel' 
+You only have to call the install command of the pip tool with the IM package::
+
+   $ pip install IM
+
+Pip will install all the pre-requisites needed. So Ansible  1.4.2 or later will 
+be installed in the system. Yo will also need to install the sshpass command 
+('sshpass' package in main distributions). In some cases it will need to have installed  
+the GCC compiler and the python developer libraries ('python-dev' or 'python-devel' 
 packages in main distributions).
 
 You must also remember to modify the ansible.cfg file setting as specified in the 
@@ -182,6 +191,13 @@ Basic Options
 
    Maximum frequency to update the VM info (in secs)
    The default value is 10.
+   
+.. confval:: VM_INFO_UPDATE_ERROR_GRACE_PERIOD
+
+   Maximum time that a VM status maintains the current status in case of connection failure with the 
+   Cloud provider (in secs). If the time is over this value the status is set to 'unknown'. 
+   This value must be always higher than VM_INFO_UPDATE_FREQUENCY.
+   The default value is 120.
 
 .. confval:: WAIT_RUNNING_VM_TIMEOUT
 

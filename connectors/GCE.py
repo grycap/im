@@ -18,6 +18,7 @@ import time
 import os
 
 from CloudConnector import CloudConnector
+from libcloud.compute.base import Node
 from libcloud.compute.types import NodeState, Provider
 from libcloud.compute.providers import get_driver
 from IM.uriparse import uriparse
@@ -53,9 +54,13 @@ class GCECloudConnector(CloudConnector):
             auth = auth_data.getAuthInfo(self.type)
             
             if auth and 'username' in auth[0] and 'password' in auth[0] and 'project' in auth[0]:
-                cls = get_driver(Provider.GCE)
+                cls = get_driver(Provider.GCE)                
+                lines = len(auth[0]['password'].replace(" ","").split())
+                if lines < 2:
+                    raise Exception("The certificate provided to the GCE plugin has an incorrect format. Check that it has more than one line.")
+
                 driver = cls(auth[0]['username'], auth[0]['password'], project=auth[0]['project']) 
-        
+
                 self.driver = driver
                 return driver
             else:
@@ -235,10 +240,11 @@ class GCECloudConnector(CloudConnector):
         args = {'size': instance_type,
                 'image': image,
                 'external_ip': 'ephemeral',
-                'location': region,
-                'name': "%s-%s" % (name.lower().replace("_","-"), int(time.time()*100))}
+                'location': region}
 
         if self.request_external_ip(radl):
+            if num_vm:
+                raise Exception("A fixed IP cannot be specified to a set of nodes (deploy is higher than 1)")
             fixed_ip = self.request_external_ip(radl)
             args['external_ip'] = driver.ex_create_address(name="im-" + fixed_ip, region=region, address=fixed_ip)
 
@@ -276,15 +282,17 @@ class GCECloudConnector(CloudConnector):
         while i < num_vm:
             self.logger.debug("Creating node")
 
+            args['name'] = "%s-%s" % (name.lower().replace("_","-"), int(time.time()*100))
+
             node = driver.create_node(**args)
-            
+
             if node:
                 vm = VirtualMachine(inf, node.extra['name'], self.cloud, radl, requested_radl, self)
                 self.logger.debug("Node successfully created.")
                 res.append((True, vm))
             else:
                 res.append((False, "Error creating the node"))
-                
+
             i += 1
 
         return res
@@ -316,11 +324,22 @@ class GCECloudConnector(CloudConnector):
             try:
                 vol_name = os.path.basename(uriparse(disk['source'])[2])
                 volume = node.driver.ex_get_volume(vol_name)
-                success = volume.destroy()
-                if not success:
-                    self.logger.error("Error destroying the volume: " + str(disk.id))
+                # First try to detach the volume
+                if volume:
+                    success = volume.detach()
+                    if not success:
+                        self.logger.error("Error detaching the volume: " + vol_name)
+                    else:
+                        # wait a bit to detach the disk
+                        time.sleep(2)
+                    success = volume.destroy()
+                    if not success:
+                        self.logger.error("Error destroying the volume: " + vol_name)
+            except ResourceNotFoundError:
+                self.logger.debug("The volume: " + vol_name + " does not exists. Ignore it.")
+                success = True
             except:
-                self.logger.exception("Error destroying the volume: " + str(disk.id) + " from the node: " + node.id)
+                self.logger.exception("Error destroying the volume: " + vol_name + " from the node: " + node.id)
                 success = False
 
             if not success:

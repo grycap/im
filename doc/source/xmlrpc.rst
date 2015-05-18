@@ -162,7 +162,14 @@ This is the list of method names:
    ``infId``. The ``deploy`` instructions in the ``radl`` must refer to
    *systems* already defined. If all the *systems* defined in ``radl`` are
    new, they will be added. Otherwise the new *systems* defined will be
-   ignored.
+   ignored. All the *systems* specified in the ``deploy`` must be specified
+   in the ``radl``. If they has been already defined only a reference is needed.
+   This is a simple example to deploy one new VM from an alreay defined system::
+
+      network public 
+      system node
+      deploy node 1
+
 
 ``RemoveResource``
    :parameter 0: ``infId``: integer
