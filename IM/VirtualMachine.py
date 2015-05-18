@@ -23,6 +23,7 @@ import shutil
 import string
 import json
 import tempfile
+import logging
 
 
 class VirtualMachine:
@@ -38,6 +39,8 @@ class VirtualMachine:
 	UNCONFIGURED = "unconfigured"
 	
 	WAIT_TO_PID = "WAIT"
+	
+	logger = logging.getLogger('InfrastructureManager')
 
 	def __init__(self, inf, cloud_id, cloud, info, requested_radl, cloud_connector = None):
 		self._lock = threading.Lock()
@@ -57,6 +60,9 @@ class VirtualMachine:
 		self.cloud = cloud
 		"""CloudInfo object with the information about the cloud provider"""
 		self.info = info.clone() if info else None
+		# Set the initial state of the VM
+		if info:
+			self.info.systems[0].setValue("state", self.state)
 		"""RADL object with the current information about the VM"""
 		self.requested_radl = requested_radl
 		"""Original RADL requested by the user"""
@@ -382,24 +388,35 @@ class VirtualMachine:
 		if now - self.last_update > Config.VM_INFO_UPDATE_FREQUENCY:
 			if not self.cloud_connector:
 				self.cloud_connector = self.cloud.getCloudConnector()
-			(success, new_vm) = self.cloud_connector.updateVMInfo(self, auth)
-			if success:
-				state = new_vm.state
-				updated = True
+			
+			try:
+				(success, new_vm) = self.cloud_connector.updateVMInfo(self, auth)
+				if success:
+					state = new_vm.state
+					updated = True
 
-			with self._lock:
-				self.last_update = now
-	
-		if state != VirtualMachine.RUNNING:
-			new_state = state
-		elif self.is_configured() is None:
-			new_state = VirtualMachine.RUNNING
-		elif self.is_configured():
-			new_state = VirtualMachine.CONFIGURED
+				with self._lock:
+					self.last_update = now
+			except:
+				VirtualMachine.logger.exception("Error updating VM status.")
+				updated = False
+
+		# If we have problems to update the VM info too much time, set to unknown
+		if now - self.last_update > Config.VM_INFO_UPDATE_ERROR_GRACE_PERIOD:
+			new_state = VirtualMachine.UNKNOWN
+			VirtualMachine.logger.WARN("Grace period to update VM info passed. Set state to 'unknown'")
 		else:
-			new_state = VirtualMachine.UNCONFIGURED
-
+			if state not in [VirtualMachine.RUNNING, VirtualMachine.CONFIGURED, VirtualMachine.UNCONFIGURED]:
+				new_state = state
+			elif self.is_configured() is None:
+				new_state = VirtualMachine.RUNNING
+			elif self.is_configured():
+				new_state = VirtualMachine.CONFIGURED
+			else:
+				new_state = VirtualMachine.UNCONFIGURED
+	
 		with self._lock:
+			self.state = new_state
 			self.info.systems[0].setValue("state", new_state)
 
 		return updated
@@ -513,6 +530,7 @@ class VirtualMachine:
 					try:
 						ssh.execute("kill -9 " + str(self.ctxt_pid))
 					except:
+						VirtualMachine.logger.exception("Error killing ctxt process with pid: " + str(self.ctxt_pid))
 						pass
 
 					self.ctxt_pid = None
@@ -521,9 +539,11 @@ class VirtualMachine:
 					try:
 						(_, _, exit_status) = ssh.execute("ps " + str(self.ctxt_pid))
 					except:
+						VirtualMachine.logger.warn("Error getting status of ctxt process with pid: " + str(self.ctxt_pid))
 						exit_status = 0
 						self.ssh_connect_errors += 1
 						if self.ssh_connect_errors > Config.MAX_SSH_ERRORS:
+							VirtualMachine.logger.error("Too much errors getting status of ctxt process with pid: " + str(self.ctxt_pid) + ". Forget it.")
 							self.ssh_connect_errors = 0
 							self.ctxt_pid = None
 							self.configured = False
@@ -568,6 +588,7 @@ class VirtualMachine:
 			
 			ssh.execute("rm -rf " + remote_dir + '/ctxt_agent.log')
 		except Exception, ex:
+			VirtualMachine.logger.exception("Error getting contextualization process output")
 			self.configured = False
 			self.cont_out += "Error getting contextualization process output: " + str(ex)
 			
@@ -579,6 +600,7 @@ class VirtualMachine:
 			# And process it
 			self.process_ctxt_agent_out(ctxt_agent_out)
 		except Exception, ex:
+			VirtualMachine.logger.exception("Error getting contextualization agent output")
 			self.configured = False
 			self.cont_out += "Error getting contextualization agent output: "  + str(ex)
 		finally:
