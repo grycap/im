@@ -143,6 +143,26 @@ net_interface.0.connection = 'publica'
 		with self.assertRaises(RADLParseException):
 			self.radl_check(r)
 
+	def test_check_password(self):
+
+		radl = """
+network publica ()
+
+system main (
+disk.0.os.credentials.new.password = 'verysimple'
+)		"""
+		r = parse_radl(radl)
+		with self.assertRaises(RADLParseException):
+			r.check()
+			
+		radl = """
+network publica ()
+
+system main (
+disk.0.os.credentials.new.password = 'NotS0simple+'
+)		"""
+		r = parse_radl(radl)
+		r.check()
 
 if __name__ == "__main__":
 	unittest.main()
