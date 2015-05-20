@@ -108,4 +108,5 @@ IM 1.2.3
 
 IM 1.2.4
     * Bugfix in OCCI, Azure and Docker connectors when reusing HTTP connections
+    * Bugfix in OpenNebula, OCCI and OpenStack connectors when using mutiple auth of same type
     * Add a password check in the RADL parser
