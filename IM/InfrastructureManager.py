@@ -710,9 +710,17 @@ class InfrastructureManager:
 			if not deploy.id.startswith("F0000__FAKE_SYSTEM_"):
 				deploys.append(deploy)
 		radl.deploys = deploys
+
+		# remove the F0000__FAKE_SYSTEM__ deploys
+		# TODO: Do in a better way		
+		systems = []
+		for system in radl.systems:
+			if not system.name.startswith("F0000__FAKE_SYSTEM_"):
+				systems.append(system)
+		radl.systems = systems
 		
 		InfrastructureManager.logger.debug(str(radl))
-		return str(sel_inf.radl)
+		return str(radl)
 	
 	@staticmethod
 	def GetInfrastructureInfo(inf_id, auth):
