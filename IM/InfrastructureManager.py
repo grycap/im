@@ -702,7 +702,6 @@ class InfrastructureManager:
 	
 		sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
 
-		InfrastructureManager.logger.info("RADL obtained successfully")
 		# remove the F0000__FAKE_SYSTEM__ deploys
 		# TODO: Do in a better way
 		radl = sel_inf.radl.clone()

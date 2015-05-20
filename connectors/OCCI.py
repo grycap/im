@@ -56,11 +56,11 @@ class OCCICloudConnector(CloudConnector):
 		Get a HTTPS connection with the specified server.
 		It uses a proxy file if it has been specified in the auth credentials 
 		"""
-		if 'proxy' in auth[0]:
+		if 'proxy' in auth:
 			if self.proxy_filename and os.path.isfile(self.proxy_filename):
 				proxy_filename = self.proxy_filename 
 			else:
-				proxy = auth[0]['proxy']
+				proxy = auth['proxy']
 				
 				(fproxy, proxy_filename) = tempfile.mkstemp()
 				os.write(fproxy, proxy)
@@ -75,8 +75,12 @@ class OCCICloudConnector(CloudConnector):
 		"""
 		Get the HTTP connection to contact the OCCI server
 		"""
-		# We check if the proxy file exists
-		auth = auth_data.getAuthInfo(OCCICloudConnector.type)
+		auths = auth_data.getAuthInfo(self.type, self.cloud.server)
+		if not auths:
+			self.logger.error("No correct auth data has been specified to OCCI.")
+		else:
+			auth = auths[0]
+
 		url = uriparse(self.cloud.server)
 		
 		if url[0] == 'https':
@@ -91,8 +95,14 @@ class OCCICloudConnector(CloudConnector):
 		Generate the auth header needed to contact with the OCCI server.
 		I supports Keystone tokens and basic auth.
 		"""
+		auths = auth_data.getAuthInfo(self.type, self.cloud.server)
+		if not auths:
+			self.logger.error("No correct auth data has been specified to OCCI.")
+			return None
+		else:
+			auth = auths[0]
+			
 		auth_header = None
-		auth = auth_data.getAuthInfo(OCCICloudConnector.type) 
 		keystone_uri = KeyStoneAuth.get_keystone_uri(self, auth_data)
 		
 		if keystone_uri:
@@ -100,9 +110,9 @@ class OCCICloudConnector(CloudConnector):
 			keystone_token = KeyStoneAuth.get_keystone_token(self, keystone_uri, auth)
 			auth_header = {'X-Auth-Token' : keystone_token} 		
 		else: 
-			if auth and 'username' in auth[0] and 'password' in auth[0]:
-				passwd = auth[0]['password']
-				user = auth[0]['username'] 
+			if 'username' in auth and 'password' in auth:
+				passwd = auth['password']
+				user = auth['username'] 
 				auth_header = { 'Authorization' : 'Basic ' + string.strip(base64.encodestring(user + ':' + passwd))}
 
 		return auth_header
