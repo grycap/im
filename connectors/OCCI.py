@@ -42,13 +42,13 @@ class OCCICloudConnector(CloudConnector):
 		'waiting': VirtualMachine.PENDING,
 		'active': VirtualMachine.RUNNING,
 		'inactive': VirtualMachine.OFF,
+		'error': VirtualMachine.FAILED,
 		'suspended': VirtualMachine.OFF
 	}
 	"""Dictionary with a map with the OCCI VM states to the IM states."""
 
 	def __init__(self, cloud_info):
 		self.proxy_filename = None
-		self.connection = None
 		CloudConnector.__init__(self, cloud_info)
 
 	def get_https_connection(self, auth, server, port):
@@ -57,12 +57,15 @@ class OCCICloudConnector(CloudConnector):
 		It uses a proxy file if it has been specified in the auth credentials 
 		"""
 		if 'proxy' in auth[0]:
-			proxy = auth[0]['proxy']
-			
-			(fproxy, proxy_filename) = tempfile.mkstemp()
-			os.write(fproxy, proxy)
-			os.close(fproxy)
-			self.proxy_filename = proxy_filename
+			if self.proxy_filename and os.path.isfile(self.proxy_filename):
+				proxy_filename = self.proxy_filename 
+			else:
+				proxy = auth[0]['proxy']
+				
+				(fproxy, proxy_filename) = tempfile.mkstemp()
+				os.write(fproxy, proxy)
+				os.close(fproxy)
+				self.proxy_filename = proxy_filename
 	
 			return httplib.HTTPSConnection(server, port, cert_file = proxy_filename)
 		else:
@@ -73,18 +76,13 @@ class OCCICloudConnector(CloudConnector):
 		Get the HTTP connection to contact the OCCI server
 		"""
 		# We check if the proxy file exists
-		if self.connection and (self.proxy_filename is None or os.path.isfile(self.proxy_filename)):
-			return self.connection
+		auth = auth_data.getAuthInfo(OCCICloudConnector.type)
+		url = uriparse(self.cloud.server)
+		
+		if url[0] == 'https':
+			conn = self.get_https_connection(auth, url[1], self.cloud.port)
 		else:
-			auth = auth_data.getAuthInfo(OCCICloudConnector.type)
-			url = uriparse(self.cloud.server)
-			
-			if url[0] == 'https':
-				conn = self.get_https_connection(auth, url[1], self.cloud.port)
-			else:
-				conn = httplib.HTTPConnection(url[1], self.cloud.port)
-			
-			self.connection = conn
+			conn = httplib.HTTPConnection(url[1], self.cloud.port)
 		
 		return conn
 
