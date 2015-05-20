@@ -15,6 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
+import tempfile
 import json
 import socket
 import httplib
@@ -39,9 +40,8 @@ class DockerCloudConnector(CloudConnector):
 	""" Counter to assign SSH port on Docker server host."""
 
 	def __init__(self, cloud_info):
-		self.cert_file = None
-		self.key_file = None
-		self.connection = None
+		self.cert_file = ''
+		self.key_file = ''
 		CloudConnector.__init__(self, cloud_info)
 
 	def get_http_connection(self, auth_data):
@@ -53,29 +53,52 @@ class DockerCloudConnector(CloudConnector):
 		Returns(HTTPConnection or HTTPSConnection): HTTPConnection connection object
 		"""
 
-		if self.connection and (not self.cert_file or os.path.isfile(self.cert_file)) and (not self.key_file or os.path.isfile(self.key_file)):
-			return self.connection
-		else:
-			auth = auth_data.getAuthInfo(DockerCloudConnector.type)		
-			url = uriparse(self.cloud.server)
+		self.cert_file or os.path.isfile(self.cert_file)
+
 			
-			if url[0] == 'unix':
-				socket_path = "/" + url[1] + url[2]
-				conn = UnixHTTPConnection.UnixHTTPConnection(socket_path)
-			elif url[0] == 'https':
-				if auth and 'cert' in auth[0] and 'key' in auth[0]:
-					cert = auth[0]['cert']
-					key = auth[0]['cert']
-					conn = httplib.HTTPSConnection(url[1], self.cloud.port, cert_file = cert, key_file = key)
-				else:
-					conn = httplib.HTTPSConnection(url[1], self.cloud.port)
-			elif url[0] == 'http':
-				self.logger.warn("Using a unsecure connection to docker API!")
-				conn = httplib.HTTPConnection(url[1], self.cloud.port)
-	
-			self.connection = conn
-			return conn
+		auth = auth_data.getAuthInfo(DockerCloudConnector.type)		
+		url = uriparse(self.cloud.server)
 		
+		if url[0] == 'unix':
+			socket_path = "/" + url[1] + url[2]
+			conn = UnixHTTPConnection.UnixHTTPConnection(socket_path)
+		elif url[0] == 'https':
+			if auth and 'cert' in auth[0] and 'key' in auth[0]:
+				if os.path.isfile(self.cert_file) and os.path.isfile(self.key_file):
+					cert_file = self.cert_file 
+					key_file = self.key_file 
+				else:
+					cert_file, key_file = self.get_user_cert_data(auth)
+					self.cert_file = cert_file
+					self.key_file = key_file
+				conn = httplib.HTTPSConnection(url[1], self.cloud.port, cert_file = cert_file, key_file = key_file)
+			else:
+				conn = httplib.HTTPSConnection(url[1], self.cloud.port)
+		elif url[0] == 'http':
+			self.logger.warn("Using a unsecure connection to docker API!")
+			conn = httplib.HTTPConnection(url[1], self.cloud.port)
+
+		return conn
+
+	def get_user_cert_data(self, auth):
+		"""
+		Get the Docker private_key and public_key files from the auth data 
+		"""
+		certificate = auth[0]['cert']
+		fd, cert_file = tempfile.mkstemp()
+		os.write(fd, certificate)
+		os.close(fd)
+		os.chmod(cert_file,0644)
+		
+		private_key = auth[0]['key']
+		fd, key_file = tempfile.mkstemp()
+		os.write(fd, private_key)
+		os.close(fd)
+		os.chmod(key_file,0600)
+
+		return (cert_file, key_file)
+
+
 	def concreteSystem(self, radl_system, auth_data):
 		if radl_system.getValue("disk.0.image.url"):
 			url = uriparse(radl_system.getValue("disk.0.image.url"))
