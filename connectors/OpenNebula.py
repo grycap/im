@@ -149,9 +149,14 @@ class OpenNebulaCloudConnector(CloudConnector):
 		if self.session_id:
 			return self.session_id
 		else:
-			auth = auth_data.getAuthInfo(OpenNebulaCloudConnector.type)
-			if auth and 'username' in auth[0] and 'password' in auth[0]:
-				passwd = auth[0]['password']
+			auths = auth_data.getAuthInfo(self.type, self.cloud.server)
+			if not auths:
+				self.logger.error("No correct auth data has been specified to OpenNebula.")
+			else:
+				auth = auths[0]
+			
+			if 'username' in auth and 'password' in auth:
+				passwd = auth['password']
 				if hash_password is None:
 					one_ver = self.getONEVersion(auth_data)
 					if one_ver == "2.0.0" or one_ver == "3.0.0":
@@ -159,7 +164,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 				if hash_password:
 					passwd = hashlib.sha1(passwd.strip()).hexdigest()
 				
-				self.session_id = auth[0]['username'] + ":" + passwd
+				self.session_id = auth['username'] + ":" + passwd
 				return self.session_id
 			else:
 				self.logger.error("No correct auth data has been specified to OpenNebula: username and password")
