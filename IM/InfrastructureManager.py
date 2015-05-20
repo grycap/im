@@ -702,25 +702,9 @@ class InfrastructureManager:
 	
 		sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
 
-		# remove the F0000__FAKE_SYSTEM__ deploys
-		# TODO: Do in a better way
-		radl = sel_inf.radl.clone()
-		deploys = []
-		for deploy in radl.deploys:
-			if not deploy.id.startswith("F0000__FAKE_SYSTEM_"):
-				deploys.append(deploy)
-		radl.deploys = deploys
-
-		# remove the F0000__FAKE_SYSTEM__ deploys
-		# TODO: Do in a better way		
-		systems = []
-		for system in radl.systems:
-			if not system.name.startswith("F0000__FAKE_SYSTEM_"):
-				systems.append(system)
-		radl.systems = systems
-		
-		InfrastructureManager.logger.debug(str(radl))
-		return str(radl)
+		radl = str(sel_inf.get_radl())
+		InfrastructureManager.logger.debug(radl)
+		return radl
 	
 	@staticmethod
 	def GetInfrastructureInfo(inf_id, auth):
