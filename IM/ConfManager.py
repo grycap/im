@@ -23,6 +23,7 @@ import logging
 import shutil
 import json
 import copy
+from StringIO import StringIO
 
 from IM.ansible.ansible_launcher import AnsibleThread
 
@@ -894,16 +895,17 @@ class ConfManager(threading.Thread):
 			os.symlink(os.path.abspath(Config.RECIPES_DIR + "/utils"), tmp_dir + "/utils")
 
 		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " + 'Lanzamos ansible.')
-		t = AnsibleThread(tmp_dir + "/" + playbook, None, 2, gen_pk_file, ssh.password, 1, tmp_dir + "/" + inventory, ssh.username)
+		output = StringIO()
+		t = AnsibleThread(output, tmp_dir + "/" + playbook, None, 2, gen_pk_file, ssh.password, 1, tmp_dir + "/" + inventory, ssh.username)
 		t.daemon = True
 		t.start()
 		t.join()
-		(return_code, output, _) = t.results
+		(return_code, _) = t.results
 		
 		if return_code == 0:
-			return (True, output)
+			return (True, output.getvalue())
 		else:
-			return (False, output)
+			return (False, output.getvalue())
 
 	def add_ansible_header(self, host, os):
 		"""
