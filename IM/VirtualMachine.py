@@ -527,6 +527,7 @@ class VirtualMachine:
 			ip = ip = self.getPrivateIP()
 		remote_dir = Config.REMOTE_CONF_DIR + "/" + ip + "_" + str(self.getSSHPort())
 
+		initial_count_out = self.cont_out
 		wait = 0
 		while self.ctxt_pid:
 			if self.ctxt_pid != self.WAIT_TO_PID:
@@ -557,14 +558,19 @@ class VirtualMachine:
 					if exit_status != 0:
 						self.ctxt_pid = None
 						# The process has finished, get the outputs
-						self.get_ctxt_log(remote_dir, True)
+						ctxt_log = self.get_ctxt_log(remote_dir, True)
 						self.get_ctxt_output(remote_dir, True)
+						if ctxt_log:
+							self.cont_out = initial_count_out + ctxt_log
+						else:
+							self.cont_out = initial_count_out + "Error getting contextualization process log."
 					else:
 						# Get the log of the process to update the cont_out dynamically
 						if Config.UPDATE_CTXT_LOG_INTERVAL > 0 and wait > Config.UPDATE_CTXT_LOG_INTERVAL:
 							wait = 0
 							VirtualMachine.logger.debug("Get the log of the ctxt process with pid: "+ str(self.ctxt_pid))
-							self.get_ctxt_log(remote_dir)
+							ctxt_log = self.get_ctxt_log(remote_dir)
+							self.cont_out = initial_count_out + ctxt_log
 						# The process is still running, wait
 						time.sleep(Config.CHECK_CTXT_PROCESS_INTERVAL)
 						wait += Config.CHECK_CTXT_PROCESS_INTERVAL
@@ -588,7 +594,8 @@ class VirtualMachine:
 	def get_ctxt_log(self, remote_dir, delete = False):
 		ssh = self.inf.vm_master.get_ssh()
 		tmp_dir = tempfile.mkdtemp()
-
+		conf_out = ""
+		
 		# Download the contextualization agent log
 		try:
 			# Get the messages of the contextualization process
@@ -596,16 +603,16 @@ class VirtualMachine:
 			with open(tmp_dir + '/ctxt_agent.log') as f: conf_out = f.read()
 			
 			# Remove problematic chars
-			conf_out = filter(lambda x: x in string.printable, conf_out)
-			self.cont_out += conf_out.encode("ascii", "replace")
+			conf_out = filter(lambda x: x in string.printable, conf_out).encode("ascii", "replace")
 			if delete:
 				ssh.sftp_remove(remote_dir + '/ctxt_agent.log')
-		except Exception, ex:
+		except Exception:
 			VirtualMachine.logger.exception("Error getting contextualization process log")
 			self.configured = False
-			self.cont_out += "Error getting contextualization process log: " + str(ex)
 		finally:
 			shutil.rmtree(tmp_dir, ignore_errors=True)
+			
+		return conf_out
 
 	def get_ctxt_output(self, remote_dir, delete = False):
 		ssh = self.inf.vm_master.get_ssh()
