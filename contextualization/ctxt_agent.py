@@ -23,6 +23,7 @@ import sys, subprocess, os
 import getpass
 import json
 import threading
+from StringIO import StringIO
 
 from SSH import SSH, AuthenticationException
 from ansible_launcher import AnsibleThread
@@ -108,21 +109,22 @@ def run_command(command, timeout = None, poll_delay = 5):
 	except Exception, ex:
 		return "ERROR: Exception msg: " + str(ex)
 
-def wait_thread(thread):
+def wait_thread(thread, output = None):
 	"""
 	 Wait for a thread to finish
 	"""
 	thread.join()
-	(return_code, output, hosts_with_errors) = thread.results
+	(return_code, hosts_with_errors) = thread.results
 
-	if return_code==0:
-		logger.debug(output)
-	else:
-		logger.error(output)
+	if output:
+		if return_code==0:
+			logger.debug(output)
+		else:
+			logger.error(output)
 
 	return (return_code==0, hosts_with_errors)
 
-def LaunchAnsiblePlaybook(playbook_file, vm, threads, inventory_file, pk_file, retries, change_pass_ok):
+def LaunchAnsiblePlaybook(output, playbook_file, vm, threads, inventory_file, pk_file, retries, change_pass_ok):
 	logger.debug('Call Ansible')
 	
 	passwd = None
@@ -143,7 +145,7 @@ def LaunchAnsiblePlaybook(playbook_file, vm, threads, inventory_file, pk_file, r
 			if 'new_passwd' in vm and vm['new_passwd'] and change_pass_ok:
 				passwd = vm['new_passwd']
 	
-	t = AnsibleThread(playbook_file, None, threads, gen_pk_file, passwd, retries, inventory_file, None, {'IM_HOST': vm['ip'] + ":" + str(vm['ssh_port'])})
+	t = AnsibleThread(output, playbook_file, None, threads, gen_pk_file, passwd, retries, inventory_file, None, {'IM_HOST': vm['ip'] + ":" + str(vm['ssh_port'])})
 	t.start()
 	return t
 
@@ -249,7 +251,7 @@ def contextualize_vm(general_conf_data, vm_conf_data):
 				pk_file = None
 				if cred_used == "pk_file":
 					pk_file = PK_FILE
-				ansible_thread = LaunchAnsiblePlaybook(playbook, ctxt_vm, 2, inventory_file, pk_file, INTERNAL_PLAYBOOK_RETRIES, change_creds)
+				ansible_thread = LaunchAnsiblePlaybook(logger, playbook, ctxt_vm, 2, inventory_file, pk_file, INTERNAL_PLAYBOOK_RETRIES, change_creds)
 			else:
 				# In some strange cases the pk_file disappears. So test it and remake basic recipe
 				success = False
@@ -262,11 +264,12 @@ def contextualize_vm(general_conf_data, vm_conf_data):
 				if not success:
 					logger.warn("Error connecting with SSH using the ansible key with: " + ctxt_vm['ip'] + ". Call the basic playbook again.")
 					basic_playbook = general_conf_data['conf_dir'] + "/basic_task_all.yml"
-					ansible_thread = LaunchAnsiblePlaybook(basic_playbook, ctxt_vm, 2, inventory_file, None, INTERNAL_PLAYBOOK_RETRIES, True)
+					output_basic = StringIO()
+					ansible_thread = LaunchAnsiblePlaybook(output_basic, basic_playbook, ctxt_vm, 2, inventory_file, None, INTERNAL_PLAYBOOK_RETRIES, True)
 					ansible_thread.join()
 	
 				# in the other tasks pk_file can be used
-				ansible_thread = LaunchAnsiblePlaybook(playbook, ctxt_vm, 2, inventory_file, PK_FILE, INTERNAL_PLAYBOOK_RETRIES, True)
+				ansible_thread = LaunchAnsiblePlaybook(logger, playbook, ctxt_vm, 2, inventory_file, PK_FILE, INTERNAL_PLAYBOOK_RETRIES, True)
 			
 			(task_ok, _) = wait_thread(ansible_thread)
 			if not task_ok:
@@ -298,7 +301,8 @@ if __name__ == "__main__":
 	# Root logger: is used by paramiko
 	logging.basicConfig(filename=vm_conf_data['remote_dir'] +"/ctxt_agent.log",
 			    level=logging.WARNING,
-			    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+			    #format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+			    format='%(message)s',
 			    datefmt='%m-%d-%Y %H:%M:%S')
 	# ctxt_agent logger
 	logger = logging.getLogger('ctxt_agent')

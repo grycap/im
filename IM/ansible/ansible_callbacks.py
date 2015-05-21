@@ -22,11 +22,15 @@ import sys
 import getpass
 import fnmatch
 import datetime
+import logging
 
 def display(msg, color=None, stderr=False, screen_only=False, log_only=False, runner=None, output=sys.stdout):
     if not log_only:
         msg2 = msg
-        print >>output, msg2
+        if isinstance(output, logging.Logger):
+            output.info(msg2)
+        else:
+            print >>output, msg2
 
 class AggregateStats(object):
     ''' holds stats about per-host activity during playbook runs '''
