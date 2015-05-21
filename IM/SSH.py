@@ -394,3 +394,19 @@ class SSH:
                 return res
             
         raise TimeOutException("Error: Timeout")
+
+    def sftp_remove(self, path):
+        """ Delete a file, if possible.
+        
+            Arguments:
+            - path: Name of the file in the remote server to delete.
+            
+            Returns: True if the file is deleted or False if it exists.
+        """
+        client = self.connect()
+        transport = client.get_transport()
+        sftp = paramiko.SFTPClient.from_transport(transport)
+        res = sftp.remove(path)
+        sftp.close()
+        transport.close()
+        return res
