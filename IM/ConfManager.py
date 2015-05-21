@@ -115,6 +115,12 @@ class ConfManager(threading.Thread):
 					# If the IP is not Available try to update the info
 					vm.update_status(self.auth)
 	
+					# If the VM is not in a "running" state, return false
+					if vm.state in [VirtualMachine.OFF, VirtualMachine.FAILED, VirtualMachine.STOPPED]:
+						ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": Error waiting all the VMs to have a correct IP. VM ID: " + str(vm.id) + " is not running.")
+						self.inf.set_configured(False)
+						return False
+	
 					if vm.hasPublicNet():
 						ip = vm.getPublicIP()
 					else:
