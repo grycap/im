@@ -111,4 +111,5 @@ IM 1.2.4
     * Bugfix in OpenNebula, OCCI and OpenStack connectors when using mutiple auth of same type
     * Add a password check in the RADL parser
     * Dynamically refresh the Ctxt output
+    * Minor bugfix in EC2 connector when deleting a non existing instance
 
