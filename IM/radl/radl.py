@@ -596,9 +596,10 @@ class configure(Aspect):
 	"""Store a RADL ``configure``."""
 
 	def __init__(self, name, recipe="", reference=False, line=None):
-		self.recipes = recipe
+		# encode the recipe to enable to set special chars in the recipes
+		self.recipes = str(recipe.encode('utf-8', 'ignore'))
 		"""Recipe content."""
-		self.name = name
+		self.name = str(name.encode('utf-8', 'ignore'))
 		"""Configure id."""
 		self.reference = reference
 		"""True if it is only a reference and it isn't a definition."""
