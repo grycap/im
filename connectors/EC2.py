@@ -930,7 +930,7 @@ class EC2CloudConnector(CloudConnector):
 		self.cancel_spot_requests(conn, vm)
 		
 		# Delete the EBS volumes
-		self.delete_volumes(conn, volumes, instance.id)
+		self.delete_volumes(conn, volumes, instance_id)
 		
 		# Delete the SG if this is the last VM
 		self.delete_security_group(conn, vm.inf)

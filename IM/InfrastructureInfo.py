@@ -47,6 +47,8 @@ class InfrastructureInfo:
 	logger = logging.getLogger('InfrastructureManager')
 	"""Logger object."""
 	
+	FAKE_SYSTEM = "F0000__FAKE_SYSTEM__"
+	
 	def __init__(self):
 		self._lock = threading.Lock()
 		"""Threading Lock to avoid concurrency problems."""
@@ -239,10 +241,10 @@ class InfrastructureInfo:
 					radl.add(aspect.clone(), "replace")
 	
 			# Add fake deploys to indicate the cloud provider associated to a private network.
-			FAKE_SYSTEM, system_counter = "F0000__FAKE_SYSTEM__%s", 0
+			system_counter = 0
 			for n in radl.networks:
 				if n.id in self.private_networks:
-					system_id = FAKE_SYSTEM % system_counter
+					system_id = self.FAKE_SYSTEM + str(system_counter)
 					system_counter += 1
 					radl.add(system(system_id, [Feature("net_interface.0.connection", "=", n.id)]))
 					radl.add(deploy(system_id, 0, self.private_networks[n.id]))
@@ -250,6 +252,28 @@ class InfrastructureInfo:
 		# Check the RADL
 		radl.check();
 		
+	def get_radl(self):
+		"""
+		Get the RADL of this Infrastructure
+		"""
+		# remove the F0000__FAKE_SYSTEM__ deploys
+		# TODO: Do in a better way
+		radl = self.radl.clone()
+		deploys = []
+		for deploy in radl.deploys:
+			if not deploy.id.startswith(self.FAKE_SYSTEM):
+				deploys.append(deploy)
+		radl.deploys = deploys
+
+		# remove the F0000__FAKE_SYSTEM__ deploys
+		# TODO: Do in a better way		
+		systems = []
+		for system in radl.systems:
+			if not system.name.startswith(self.FAKE_SYSTEM):
+				systems.append(system)
+		radl.systems = systems
+		
+		return radl
 	def select_vm_master(self):
 		"""
 		Select the VM master of the infrastructure.

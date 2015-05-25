@@ -22,7 +22,6 @@
 import time
 import os
 import threading
-from StringIO import StringIO
 import ansible.playbook
 import ansible.inventory
 import ansible.constants as C
@@ -38,7 +37,7 @@ def colorize(lead, num, color):
 def hostcolor(host, stats, color=True):
     return "%-26s" % host
 
-def launch_playbook(playbook_file, host, passwd, threads, pk_file = None, retries = 1, inventory_file=None, user=None, extra_vars={}):
+def launch_playbook(output, playbook_file, host, passwd, threads, pk_file = None, retries = 1, inventory_file=None, user=None, extra_vars={}):
     ''' run ansible-playbook operations '''
 
     # create parser for CLI options
@@ -70,7 +69,6 @@ def launch_playbook(playbook_file, host, passwd, threads, pk_file = None, retrie
     if not os.path.isfile(playbook_file):
         raise errors.AnsibleError("the playbook: %s does not appear to be a file" % playbook_file)
 
-    output = StringIO()
     num_retries = 0
     return_code = 4
     hosts_with_errors = []
@@ -161,14 +159,14 @@ def launch_playbook(playbook_file, host, passwd, threads, pk_file = None, retrie
         if return_code != 0:
             display("ERROR executing playbook (%s/%s)" % (num_retries, retries), color='red', output=output)
 
-    return (return_code, output.getvalue(), hosts_with_errors)
+    return (return_code, hosts_with_errors)
 
 
 class AnsibleThread(threading.Thread):
     """
     Class to call the ansible playbooks in a Thread
     """
-    def __init__(self, playbook_file, host = None, threads = 1, pk_file = None, passwd = None, retries = 1, inventory_file=None, user=None, extra_vars={}):
+    def __init__(self, output, playbook_file, host = None, threads = 1, pk_file = None, passwd = None, retries = 1, inventory_file=None, user=None, extra_vars={}):
         threading.Thread.__init__(self)
 
         self.playbook_file = playbook_file
@@ -180,12 +178,12 @@ class AnsibleThread(threading.Thread):
         self.inventory_file = inventory_file
         self.user = user
         self.extra_vars=extra_vars
-        self.results = (None, None, None)
+        self.output = output
+        self.results = (None, None)
         
     def run(self):
         try:
-            self.results = launch_playbook(self.playbook_file, self.host, self.passwd, self.threads, self.pk_file, self.retries, self.inventory_file, self.user, self.extra_vars)
+            self.results = launch_playbook(self.output, self.playbook_file, self.host, self.passwd, self.threads, self.pk_file, self.retries, self.inventory_file, self.user, self.extra_vars)
         except errors.AnsibleError, e:
-            output = StringIO()
-            display("ERROR: %s" % e, color='red', stderr=True, output=output)
-            self.results = (1, output.getvalue(), [])
+            display("ERROR: %s" % e, color='red', stderr=True, output=self.output)
+            self.results = (1, [])

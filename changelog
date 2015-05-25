@@ -105,3 +105,11 @@ IM 1.2.3
     * Bugfix in VirtualMachine update_status function
     * Add the VM_INFO_UPDATE_ERROR_GRACE_PERIOD to manage errors in the conections with Cloud providers
     * Bugfix and code improvements in GCE connector
+
+IM 1.2.4
+    * Bugfix in OCCI, Azure and Docker connectors when reusing HTTP connections
+    * Bugfix in OpenNebula, OCCI and OpenStack connectors when using mutiple auth of same type
+    * Add a password check in the RADL parser
+    * Dynamically refresh the Ctxt output
+    * Minor bugfix in EC2 connector when deleting a non existing instance
+
