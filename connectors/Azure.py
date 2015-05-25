@@ -130,9 +130,8 @@ class AzureCloudConnector(CloudConnector):
 	}
 	
 	def __init__(self, cloud_info):
-		self.cert_file = None
-		self.key_file = None
-		self.connection = None
+		self.cert_file = ''
+		self.key_file = ''
 		CloudConnector.__init__(self, cloud_info)
 	
 	def concreteSystem(self, radl_system, auth_data):
@@ -361,23 +360,24 @@ class AzureCloudConnector(CloudConnector):
 
 	def get_connection(self, auth_data):
 		# We check if the cert and key files exist
-		if self.connection and os.path.isfile(self.cert_file) and os.path.isfile(self.key_file):
-			return self.connection
+		subscription_id = self.get_user_subscription_id(auth_data)
+		if subscription_id is None:
+			return None
+		
+		if os.path.isfile(self.cert_file) and os.path.isfile(self.key_file):
+			cert_file = self.cert_file 
+			key_file = self.key_file 
 		else:
-			subscription_id = self.get_user_subscription_id(auth_data)
 			auth = self.get_user_cert_data(auth_data)
-			
-			if auth is None or subscription_id is None:
+			if auth is None:
 				return None
-			else:
-				cert_file, key_file = auth
-				
-			conn = httplib.HTTPSConnection(self.AZURE_SERVER, self.AZURE_PORT, cert_file=cert_file, key_file=key_file)
+			cert_file, key_file = auth
 			self.cert_file = cert_file
 			self.key_file = key_file
-			self.connection = conn
-			
-			return conn
+
+		conn = httplib.HTTPSConnection(self.AZURE_SERVER, self.AZURE_PORT, cert_file=cert_file, key_file=key_file)
+		
+		return conn
 
 	def get_user_cert_data(self, auth_data):
 		"""

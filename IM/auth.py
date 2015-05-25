@@ -38,7 +38,7 @@ class Authentication:
 		else:
 			self.auth_list = auth_data
 		
-	def getAuthInfo(self, auth_type):
+	def getAuthInfo(self, auth_type, host = None):
 		"""
 		Get the auth data of the specified type
 	
@@ -50,8 +50,12 @@ class Authentication:
 		res = []
 		for auth in self.auth_list:
 			if auth['type'] == auth_type:
-				res.append(auth)
-				break
+				if host:
+					if 'host' in auth and auth['host'].find(host) != -1:
+						res.append(auth)
+				else:
+					res.append(auth)
+
 		return res
 	
 	def getAuthInfoByID(self, auth_id):

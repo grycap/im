@@ -42,13 +42,13 @@ class OCCICloudConnector(CloudConnector):
 		'waiting': VirtualMachine.PENDING,
 		'active': VirtualMachine.RUNNING,
 		'inactive': VirtualMachine.OFF,
+		'error': VirtualMachine.FAILED,
 		'suspended': VirtualMachine.OFF
 	}
 	"""Dictionary with a map with the OCCI VM states to the IM states."""
 
 	def __init__(self, cloud_info):
 		self.proxy_filename = None
-		self.connection = None
 		CloudConnector.__init__(self, cloud_info)
 
 	def get_https_connection(self, auth, server, port):
@@ -56,13 +56,16 @@ class OCCICloudConnector(CloudConnector):
 		Get a HTTPS connection with the specified server.
 		It uses a proxy file if it has been specified in the auth credentials 
 		"""
-		if 'proxy' in auth[0]:
-			proxy = auth[0]['proxy']
-			
-			(fproxy, proxy_filename) = tempfile.mkstemp()
-			os.write(fproxy, proxy)
-			os.close(fproxy)
-			self.proxy_filename = proxy_filename
+		if 'proxy' in auth:
+			if self.proxy_filename and os.path.isfile(self.proxy_filename):
+				proxy_filename = self.proxy_filename 
+			else:
+				proxy = auth['proxy']
+				
+				(fproxy, proxy_filename) = tempfile.mkstemp()
+				os.write(fproxy, proxy)
+				os.close(fproxy)
+				self.proxy_filename = proxy_filename
 	
 			return httplib.HTTPSConnection(server, port, cert_file = proxy_filename)
 		else:
@@ -72,19 +75,18 @@ class OCCICloudConnector(CloudConnector):
 		"""
 		Get the HTTP connection to contact the OCCI server
 		"""
-		# We check if the proxy file exists
-		if self.connection and (self.proxy_filename is None or os.path.isfile(self.proxy_filename)):
-			return self.connection
+		auths = auth_data.getAuthInfo(self.type, self.cloud.server)
+		if not auths:
+			self.logger.error("No correct auth data has been specified to OCCI.")
 		else:
-			auth = auth_data.getAuthInfo(OCCICloudConnector.type)
-			url = uriparse(self.cloud.server)
-			
-			if url[0] == 'https':
-				conn = self.get_https_connection(auth, url[1], self.cloud.port)
-			else:
-				conn = httplib.HTTPConnection(url[1], self.cloud.port)
-			
-			self.connection = conn
+			auth = auths[0]
+
+		url = uriparse(self.cloud.server)
+		
+		if url[0] == 'https':
+			conn = self.get_https_connection(auth, url[1], self.cloud.port)
+		else:
+			conn = httplib.HTTPConnection(url[1], self.cloud.port)
 		
 		return conn
 
@@ -93,8 +95,14 @@ class OCCICloudConnector(CloudConnector):
 		Generate the auth header needed to contact with the OCCI server.
 		I supports Keystone tokens and basic auth.
 		"""
+		auths = auth_data.getAuthInfo(self.type, self.cloud.server)
+		if not auths:
+			self.logger.error("No correct auth data has been specified to OCCI.")
+			return None
+		else:
+			auth = auths[0]
+			
 		auth_header = None
-		auth = auth_data.getAuthInfo(OCCICloudConnector.type) 
 		keystone_uri = KeyStoneAuth.get_keystone_uri(self, auth_data)
 		
 		if keystone_uri:
@@ -102,9 +110,9 @@ class OCCICloudConnector(CloudConnector):
 			keystone_token = KeyStoneAuth.get_keystone_token(self, keystone_uri, auth)
 			auth_header = {'X-Auth-Token' : keystone_token} 		
 		else: 
-			if auth and 'username' in auth[0] and 'password' in auth[0]:
-				passwd = auth[0]['password']
-				user = auth[0]['username'] 
+			if 'username' in auth and 'password' in auth:
+				passwd = auth['password']
+				user = auth['username'] 
 				auth_header = { 'Authorization' : 'Basic ' + string.strip(base64.encodestring(user + ':' + passwd))}
 
 		return auth_header

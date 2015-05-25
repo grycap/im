@@ -49,7 +49,7 @@ class VirtualMachine:
 		"""Last update of the VM info"""
 		self.destroy = False
 		"""Flag to specify that this VM has been destroyed"""
-		self.state = self.UNKNOWN
+		self.state = self.PENDING
 		"""VM State"""
 		self.inf = inf
 		"""Infrastructure which this VM is part of"""
@@ -404,7 +404,7 @@ class VirtualMachine:
 		# If we have problems to update the VM info too much time, set to unknown
 		if now - self.last_update > Config.VM_INFO_UPDATE_ERROR_GRACE_PERIOD:
 			new_state = VirtualMachine.UNKNOWN
-			VirtualMachine.logger.WARN("Grace period to update VM info passed. Set state to 'unknown'")
+			VirtualMachine.logger.warn("Grace period to update VM info passed. Set state to 'unknown'")
 		else:
 			if state not in [VirtualMachine.RUNNING, VirtualMachine.CONFIGURED, VirtualMachine.UNCONFIGURED]:
 				new_state = state
@@ -522,11 +522,18 @@ class VirtualMachine:
 			self.ctxt_pid = None
 			self.configured = False
 
+		ip = self.getPublicIP()
+		if not ip:
+			ip = ip = self.getPrivateIP()
+		remote_dir = Config.REMOTE_CONF_DIR + "/" + ip + "_" + str(self.getSSHPort())
+
+		initial_count_out = self.cont_out
+		wait = 0
 		while self.ctxt_pid:
 			if self.ctxt_pid != self.WAIT_TO_PID:
 				ssh = self.inf.vm_master.get_ssh()
 
-				if self.state in [VirtualMachine.OFF, VirtualMachine.FAILED]:
+				if self.state in [VirtualMachine.OFF, VirtualMachine.FAILED, VirtualMachine.STOPPED]:
 					try:
 						ssh.execute("kill -9 " + str(self.ctxt_pid))
 					except:
@@ -551,12 +558,24 @@ class VirtualMachine:
 					if exit_status != 0:
 						self.ctxt_pid = None
 						# The process has finished, get the outputs
-						ip = self.getPublicIP()
-						if not ip:
-							ip = ip = self.getPrivateIP()
-						remote_dir = Config.REMOTE_CONF_DIR + "/" + ip + "_" + str(self.getSSHPort())
-						self.get_ctxt_output(remote_dir)
+						ctxt_log = self.get_ctxt_log(remote_dir, True)
+						self.get_ctxt_output(remote_dir, True)
+						if ctxt_log:
+							self.cont_out = initial_count_out + ctxt_log
+						else:
+							self.cont_out = initial_count_out + "Error getting contextualization process log."
+					else:
+						# Get the log of the process to update the cont_out dynamically
+						if Config.UPDATE_CTXT_LOG_INTERVAL > 0 and wait > Config.UPDATE_CTXT_LOG_INTERVAL:
+							wait = 0
+							VirtualMachine.logger.debug("Get the log of the ctxt process with pid: "+ str(self.ctxt_pid))
+							ctxt_log = self.get_ctxt_log(remote_dir)
+							self.cont_out = initial_count_out + ctxt_log
+						# The process is still running, wait
+						time.sleep(Config.CHECK_CTXT_PROCESS_INTERVAL)
+						wait += Config.CHECK_CTXT_PROCESS_INTERVAL
 			else:
+				# We are waiting the PID, sleep
 				time.sleep(Config.CHECK_CTXT_PROCESS_INTERVAL)
 
 		return self.ctxt_pid
@@ -572,31 +591,40 @@ class VirtualMachine:
 				# Otherwise return the value of configured
 				return self.configured
 
-	def get_ctxt_output(self, remote_dir):
+	def get_ctxt_log(self, remote_dir, delete = False):
 		ssh = self.inf.vm_master.get_ssh()
 		tmp_dir = tempfile.mkdtemp()
-
-		# Donwload the contextualization agent log
+		conf_out = ""
+		
+		# Download the contextualization agent log
 		try:
 			# Get the messages of the contextualization process
 			ssh.sftp_get(remote_dir + '/ctxt_agent.log', tmp_dir + '/ctxt_agent.log')
 			with open(tmp_dir + '/ctxt_agent.log') as f: conf_out = f.read()
 			
 			# Remove problematic chars
-			conf_out = filter(lambda x: x in string.printable, conf_out)
-			self.cont_out += conf_out.encode("ascii", "replace")
-			
-			ssh.execute("rm -rf " + remote_dir + '/ctxt_agent.log')
-		except Exception, ex:
-			VirtualMachine.logger.exception("Error getting contextualization process output")
+			conf_out = filter(lambda x: x in string.printable, conf_out).encode("ascii", "replace")
+			if delete:
+				ssh.sftp_remove(remote_dir + '/ctxt_agent.log')
+		except Exception:
+			VirtualMachine.logger.exception("Error getting contextualization process log")
 			self.configured = False
-			self.cont_out += "Error getting contextualization process output: " + str(ex)
+		finally:
+			shutil.rmtree(tmp_dir, ignore_errors=True)
 			
-		# Donwload the contextualization agent log
+		return conf_out
+
+	def get_ctxt_output(self, remote_dir, delete = False):
+		ssh = self.inf.vm_master.get_ssh()
+		tmp_dir = tempfile.mkdtemp()
+			
+		# Download the contextualization agent log
 		try:
 			# Get the JSON output of the ctxt_agent
 			ssh.sftp_get(remote_dir + '/ctxt_agent.out', tmp_dir + '/ctxt_agent.out')
 			with open(tmp_dir + '/ctxt_agent.out') as f: ctxt_agent_out = json.load(f)
+			if delete:
+				ssh.sftp_remove(remote_dir + '/ctxt_agent.out')
 			# And process it
 			self.process_ctxt_agent_out(ctxt_agent_out)
 		except Exception, ex:

@@ -287,19 +287,24 @@ Contextualization
    Number of retries of the Ansible playbooks in case of failure.
    The default value is 1.
    
-.. confval:: CHECK_CTXT_PROCESS_INTERVAL = 5
+.. confval:: CHECK_CTXT_PROCESS_INTERVAL
 
    Interval to update the state of the contextualization process in the VMs (in secs).
    Reducing this time the load of the IM service will decrease in contextualization steps,
    but may introduce some overhead time. 
    The default value is 5.
 
-.. confval:: CONFMAMAGER_CHECK_STATE_INTERVAL = 5
+.. confval:: CONFMAMAGER_CHECK_STATE_INTERVAL
    
    Interval to update the state of the processes of the ConfManager (in secs).
    Reducing this time the load of the IM service will decrease in contextualization steps,
    but may introduce some overhead time.
    The default value is 5.
+
+.. confval:: UPDATE_CTXT_LOG_INTERVAL
+
+   Interval to update the log output of the contextualization process in the VMs (in secs).
+   The default value is 20.
 
 .. _options-xmlrpc:
 

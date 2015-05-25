@@ -41,9 +41,13 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         if self.driver:
             return self.driver
         else:
-            auth = auth_data.getAuthInfo(self.type)
-            
-            if auth and 'username' in auth[0] and 'password' in auth[0] and 'tenant' in auth[0]:            
+            auths = auth_data.getAuthInfo(self.type, self.cloud.server)
+            if not auths:
+                self.logger.error("No correct auth data has been specified to OpenStack.")
+            else:
+                auth = auths[0]
+
+            if 'username' in auth and 'password' in auth and 'tenant' in auth:            
                 parameters = {"auth_version":'2.0_password',
                               "auth_url":"http://" + self.cloud.server + ":" + str(self.cloud.port),
                               "auth_token":None,
@@ -53,15 +57,15 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                               "base_url":None}
                 
                 for param in parameters:
-                    if param in auth[0]:
-                        parameters[param] = auth[0][param]
+                    if param in auth:
+                        parameters[param] = auth[param]
             else:
                 self.logger.error("No correct auth data has been specified to OpenStack: username, password and tenant")
                 return None
             
             cls = get_driver(Provider.OPENSTACK)
-            driver = cls(auth[0]['username'], auth[0]['password'],
-                         ex_tenant_name=auth[0]['tenant'], 
+            driver = cls(auth['username'], auth['password'],
+                         ex_tenant_name=auth['tenant'], 
                          ex_force_auth_url=parameters["auth_url"],
                          ex_force_auth_version=parameters["auth_version"],
                          ex_force_service_region=parameters["service_region"],

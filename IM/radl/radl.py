@@ -34,7 +34,26 @@ def UnitToValue(unit):
 	return 1
 
 def is_version(version, _):
-	return all([num.isdigit() for num in version.getValue().split(".")])
+	if version.getValue() == "":
+		return True
+	else:
+		return all([num.isdigit() for num in version.getValue().split(".")])
+
+def check_password(password, _):
+	passwd = password.value
+	# Al least 6 chars
+	if len(passwd) <= 6:
+		return False 
+	# At least one Upper leter
+	if passwd.lower() == passwd:
+		return False
+	# At least one digit
+	if len([x for x in passwd if x.isdigit()]) == 0:
+		return False
+	# At least one special char
+	if len([x for x in passwd if not x.isalnum()]) == 0:
+		return False
+	return True
 
 def check_outports_format(outports, _):
 	"""
@@ -577,9 +596,10 @@ class configure(Aspect):
 	"""Store a RADL ``configure``."""
 
 	def __init__(self, name, recipe="", reference=False, line=None):
-		self.recipes = recipe
+		# encode the recipe to enable to set special chars in the recipes
+		self.recipes = str(recipe.encode('utf-8', 'ignore'))
 		"""Recipe content."""
-		self.name = name
+		self.name = str(name.encode('utf-8', 'ignore'))
 		"""Configure id."""
 		self.reference = reference
 		"""True if it is only a reference and it isn't a definition."""
@@ -1010,6 +1030,7 @@ class system(Features, Aspect):
 			"cpu.arch": (str, ['I386', 'X86_64']),
 			"cpu.performance": ((int,float), positive, ["ECU", "GCEU", "HRZ"]),
 			"memory.size": (int, positive, mem_units),
+			"disk.0.os.credentials.new.password": (str, check_password),
 			SoftFeatures.SOFT: (SoftFeatures, lambda x, r: x.check(r))
 		}
 		self.check_simple(SIMPLE_FEATURES, radl)
