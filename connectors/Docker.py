@@ -54,16 +54,19 @@ class DockerCloudConnector(CloudConnector):
 		"""
 
 		self.cert_file or os.path.isfile(self.cert_file)
-
-			
-		auth = auth_data.getAuthInfo(DockerCloudConnector.type)		
+		
 		url = uriparse(self.cloud.server)
+		auths = auth_data.getAuthInfo(DockerCloudConnector.type, url[1])
+		if not auths:
+			self.logger.error("No correct auth data has been specified to Docker.")
+		else:
+			auth = auths[0]
 		
 		if url[0] == 'unix':
 			socket_path = "/" + url[1] + url[2]
 			conn = UnixHTTPConnection.UnixHTTPConnection(socket_path)
 		elif url[0] == 'https':
-			if auth and 'cert' in auth[0] and 'key' in auth[0]:
+			if 'cert' in auth and 'key' in auth:
 				if os.path.isfile(self.cert_file) and os.path.isfile(self.key_file):
 					cert_file = self.cert_file 
 					key_file = self.key_file 
@@ -84,13 +87,13 @@ class DockerCloudConnector(CloudConnector):
 		"""
 		Get the Docker private_key and public_key files from the auth data 
 		"""
-		certificate = auth[0]['cert']
+		certificate = auth['cert']
 		fd, cert_file = tempfile.mkstemp()
 		os.write(fd, certificate)
 		os.close(fd)
 		os.chmod(cert_file,0644)
 		
-		private_key = auth[0]['key']
+		private_key = auth['key']
 		fd, key_file = tempfile.mkstemp()
 		os.write(fd, private_key)
 		os.close(fd)
