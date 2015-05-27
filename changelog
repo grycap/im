@@ -113,3 +113,8 @@ IM 1.2.4
     * Dynamically refresh the Ctxt output
     * Minor bugfix in EC2 connector when deleting a non existing instance
 
+IM 1.2.5
+    * Bugfix in OCCI, OpenNebula and Docker connectors when using incorrect credentials.
+    * Improve Docker connector code.
+    * Add Kubernetes connector.
+
