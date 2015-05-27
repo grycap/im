@@ -33,11 +33,15 @@ class KubernetesCloudConnector(CloudConnector):
 	type = "Kubernetes"
 	
 	_port_base_num = 35000
-	""" Base number to assign SSH port on Docker server host."""
+	""" Base number to assign SSH port on Kubernetes node."""
 	_port_counter = 0
-	""" Counter to assign SSH port on Docker server host."""
+	""" Counter to assign SSH port on Kubernetes node."""
+	_root_password = "Aspecial+0ne"
+	""" Default password to set to the root in the container"""
 	_namespace = "default"
+	""" Default namespace"""
 	_apiVersion = "v1beta3"
+	""" API version to access"""
 	
 	VM_STATE_MAP = {
 		'Pending': VirtualMachine.PENDING,
@@ -133,6 +137,7 @@ class KubernetesCloudConnector(CloudConnector):
 		containers = [{
 						'name': name,
 						'image': image_name,
+						'command': ["/bin/bash", "-c", "yum install -y openssh-server ;  apt-get update && apt-get install -y openssh-server && sed -i 's/PermitRootLogin without-password/PermitRootLogin yes/g' /etc/ssh/sshd_config && service ssh start && service ssh stop ; echo 'root:" + self._root_password + "' | chpasswd ; /usr/sbin/sshd -D"],
 						'imagePullPolicy': 'IfNotPresent',
 						'restartPolicy': 'Always',
 						'ports': ports,
@@ -169,7 +174,7 @@ class KubernetesCloudConnector(CloudConnector):
 				if auth_header:
 					conn.putheader(auth_header.keys()[0], auth_header.values()[0])
 				
-				ssh_port = KubernetesCloudConnector._port_base_num + KubernetesCloudConnector._port_counter
+				ssh_port = (KubernetesCloudConnector._port_base_num + KubernetesCloudConnector._port_counter) % 65535
 				KubernetesCloudConnector._port_counter += 1
 				pod_data = self._generate_pod_data(outports, system, ssh_port)
 				body = json.dumps(pod_data)
@@ -184,7 +189,11 @@ class KubernetesCloudConnector(CloudConnector):
 					output = json.loads(output)
 					vm = VirtualMachine(inf, output["metadata"]["name"], self.cloud, radl, requested_radl, self)
 					# Set SSH port in the RADL info of the VM
-					vm.setSSHPort(ssh_port)					
+					vm.setSSHPort(ssh_port)
+					# Set the default user and password to access the container
+					vm.info.systems[0].setValue('disk.0.os.credentials.username', 'root')
+					vm.info.systems[0].setValue('disk.0.os.credentials.password', self._root_password)
+					
 					res.append((True, vm))
 
 			except Exception, ex:
@@ -272,4 +281,57 @@ class KubernetesCloudConnector(CloudConnector):
 		return (False, "Not supported")
 			
 	def alterVM(self, vm, radl, auth_data):
+		# This function is correctly implemented
+		# But kubernetes does not permit cpu to be updated yet
+		system = radl.systems[0]
+		
+		auth_header = self.get_auth_header(auth_data)
+		conn = self.get_http_connection()
+
+		try:
+			pod_data = []
+			
+			cpu = vm.info.systems[0].getValue('cpu.count')
+			memory = vm.info.systems[0].getFeature('memory.size').getValue('B')
+			
+			new_cpu = system.getValue('cpu.count')
+			new_memory = system.getFeature('memory.size').getValue('B')
+	
+			changed = False
+			if new_cpu and new_cpu != cpu:
+				pod_data.append({"op": "replace", "path": "/spec/containers/0/resources/limits/cpu", "value": new_cpu})
+				changed = True
+			if new_memory and new_memory != memory:
+				pod_data.append({"op": "replace", "path": "/spec/containers/0/resources/limits/memory", "value": new_memory})
+				changed = True
+			
+			if not changed:
+				self.logger.debug("Nothing changes in the kubernetes pod: " + str(vm.id))
+				return (True, vm)
+			
+			# Create the container
+			conn.putrequest('PATCH', "/api/" + self._apiVersion + "/namespaces/" + self._namespace + "/pods/" + str(vm.id))
+			conn.putheader('Content-Type', 'application/json-patch+json')
+			if auth_header:
+				conn.putheader(auth_header.keys()[0], auth_header.values()[0])
+			body = json.dumps(pod_data)
+			conn.putheader('Content-Length', len(body))
+			conn.endheaders(body)
+
+			resp = conn.getresponse()
+			output = resp.read()
+			if resp.status != 201:
+				return (False, "Error updating the Pod: " + output)
+			else:
+				if new_cpu:
+					vm.info.systems[0].setValue('cpu.count', new_cpu)
+				if new_memory:
+					vm.info.systems[0].addFeature(Feature("memory.size", "=", new_memory, 'B'), conflict="other", missing="other")
+				return (True, self.updateVMInfo(vm, auth_data))
+
+		except Exception, ex:
+			self.logger.exception("Error connecting with Kubernetes API server")
+			return (False, "ERROR: " + str(ex))
+
+
 		return (False, "Not supported")

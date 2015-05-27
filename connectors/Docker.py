@@ -38,6 +38,8 @@ class DockerCloudConnector(CloudConnector):
 	""" Base number to assign SSH port on Docker server host."""
 	_port_counter = 0
 	""" Counter to assign SSH port on Docker server host."""
+	_root_password = "Aspecial+0ne"
+	""" Default password to set to the root in the container"""
 
 	def __init__(self, cloud_info):
 		self.cert_file = ''
@@ -185,7 +187,7 @@ class DockerCloudConnector(CloudConnector):
 		cont_data['Domainname'] = nodedom
 		cont_data['Cpuset'] = "0-%d" % cpu
 		cont_data['Memory'] = memory
-		cont_data['Cmd'] = ["/bin/bash", "-c", "yum install -y openssh-server ;  apt-get update && apt-get install -y openssh-server && sed -i 's/PermitRootLogin without-password/PermitRootLogin yes/g' /etc/ssh/sshd_config && service ssh start && service ssh stop ; echo 'root:yoyoyo' | chpasswd ; /usr/sbin/sshd -D"]
+		cont_data['Cmd'] = ["/bin/bash", "-c", "yum install -y openssh-server ;  apt-get update && apt-get install -y openssh-server && sed -i 's/PermitRootLogin without-password/PermitRootLogin yes/g' /etc/ssh/sshd_config && service ssh start && service ssh stop ; echo 'root:" + self._root_password + "' | chpasswd ; /usr/sbin/sshd -D"]
 		cont_data['Image'] = image_name
 		cont_data['ExposedPorts'] = exposed_ports
 		if volumes:
@@ -275,6 +277,9 @@ class DockerCloudConnector(CloudConnector):
 
 				# Now set the cloud id to the VM
 				vm.id = docker_vm_id
+				# Set the default user and password to access the container
+				vm.info.systems[0].setValue('disk.0.os.credentials.username', 'root')
+				vm.info.systems[0].setValue('disk.0.os.credentials.password', self._root_password)
 				
 				# Set ssh port in the RADL info of the VM
 				vm.setSSHPort(ssh_port)
