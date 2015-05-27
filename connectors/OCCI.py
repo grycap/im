@@ -56,7 +56,7 @@ class OCCICloudConnector(CloudConnector):
 		Get a HTTPS connection with the specified server.
 		It uses a proxy file if it has been specified in the auth credentials 
 		"""
-		if 'proxy' in auth:
+		if auth and 'proxy' in auth:
 			if self.proxy_filename and os.path.isfile(self.proxy_filename):
 				proxy_filename = self.proxy_filename 
 			else:
@@ -78,6 +78,7 @@ class OCCICloudConnector(CloudConnector):
 		auths = auth_data.getAuthInfo(self.type, self.cloud.server)
 		if not auths:
 			self.logger.error("No correct auth data has been specified to OCCI.")
+			auth = None
 		else:
 			auth = auths[0]
 
@@ -345,10 +346,10 @@ users:
 			(public_key, private_key) = self.keygen()
 			system.setValue('disk.0.os.credentials.private_key', private_key)
 		
-		user = system.getValue('disk.os.credentials.username')
+		user = system.getValue('disk.0.os.credentials.username')
 		if not user:
 			user = "cloudadm"
-			system.setValue('disk.os.credentials.username', user)
+			system.setValue('disk.0.os.credentials.username', user)
 
 		cloud_config = self.gen_cloud_config(public_key, user)
 		user_data = base64.b64encode(cloud_config).replace("\n","")

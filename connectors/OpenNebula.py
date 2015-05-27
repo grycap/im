@@ -147,11 +147,15 @@ class OpenNebulaCloudConnector(CloudConnector):
 		 Returns: str with the Session ID
 		"""
 		if self.session_id:
+			# TODO: known issue: If the IM service is restarted, the first attempt to access this VM
+			# will set this session_id. If the credentials are not correct the session_id will be always 
+			# incorrect until the IM service is restarted again ... 
 			return self.session_id
 		else:
 			auths = auth_data.getAuthInfo(self.type, self.cloud.server)
 			if not auths:
 				self.logger.error("No correct auth data has been specified to OpenNebula.")
+				return None
 			else:
 				auth = auths[0]
 			
