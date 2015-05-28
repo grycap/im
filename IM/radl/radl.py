@@ -1055,6 +1055,7 @@ class system(Features, Aspect):
 				"image.name": (str, None),
 				"type": (str, ["SWAP", "ISO", "FILESYSTEM"]),
 				"device": (str, None),
+				"mount_path": (str, None),
 				"size": (float, positive, mem_units),
 				"free_size": (float, positive, mem_units),
 				"os.name": (str, ["LINUX", "WINDOWS", "MAC OS X"]),
