@@ -92,7 +92,6 @@ class KubernetesCloudConnector(CloudConnector):
 
 		return auth_header
 
-
 	def concreteSystem(self, radl_system, auth_data):
 		if radl_system.getValue("disk.0.image.url"):
 			url = uriparse(radl_system.getValue("disk.0.image.url"))
@@ -114,13 +113,101 @@ class KubernetesCloudConnector(CloudConnector):
 				return []
 		else:
 			return [radl_system.clone()]
-		
-	def _generate_pod_data(self, outports, system, ssh_port):
+	
+	def _delete_volume_claim(self, vc_name, auth_data):
+		try:
+			auth = self.get_auth_header(auth_data)
+			headers = {}
+			if auth:
+				headers.update(auth)
+			conn = self.get_http_connection()
+			
+			conn.request('DELETE', "/api/" + self._apiVersion + "/namespaces/" + self._namespace + "/persistentvolumeclaims/" + vc_name, headers = headers) 
+			resp = conn.getresponse()			
+			output = str(resp.read())
+			if resp.status == 404:
+				self.logger.warn("Trying to remove a non existing PersistentVolumeClaim: " + vc_name)
+				return True
+			elif resp.status != 200:
+				self.logger.error("Error deleting the PersistentVolumeClaim: " + output)
+				return False
+			else:
+				return True
+		except Exception:
+			self.logger.exception("Error connecting with Kubernetes API server")
+			return False
+	
+	def _delete_volume_claims(self, pod_data, auth_data):
+		if 'volumes' in pod_data['spec']:
+			for volume in pod_data['spec']['volumes']:
+				if 'persistentVolumeClaim' in volume and 'claimName' in volume['persistentVolumeClaim']:
+					vc_name = volume['persistentVolumeClaim']['claimName'] 
+					success = self._delete_volume_claim(vc_name, auth_data)
+					if not success:
+						self.logger.error("Error deleting PersistentVolumeClaim:" + vc_name)
+	
+	def _create_volume_claim(self, claim_data, auth_data):
+		try:
+			auth_header = self.get_auth_header(auth_data)
+			conn = self.get_http_connection()
+
+			conn.putrequest('POST', "/api/" + self._apiVersion + "/namespaces/" + self._namespace + "/persistentvolumeclaims")
+			conn.putheader('Content-Type', 'application/json')
+			if auth_header:
+				conn.putheader(auth_header.keys()[0], auth_header.values()[0])
+			
+			body = json.dumps(claim_data)
+			conn.putheader('Content-Length', len(body))
+			conn.endheaders(body) 
+			resp = conn.getresponse()		
+				
+			output = str(resp.read())
+			if resp.status != 201:
+				self.logger.error("Error deleting the POD: " + output)
+				return False
+			else:
+				return True
+		except Exception:
+			self.logger.exception("Error connecting with Kubernetes API server")
+			return False
+	
+	def _create_volumes(self, system, pod_name, auth_data, persistent = False):
+		res = []
+		cont = 1
+		while system.getValue("disk." + str(cont) + ".size") and system.getValue("disk." + str(cont) + ".mount_path") and system.getValue("disk." + str(cont) + ".device"):
+			disk_mount_path = system.getValue("disk." + str(cont) + ".mount_path")
+			# Use the device as volume host path to bind
+			disk_device = system.getValue("disk." + str(cont) + ".device")
+			disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('B')
+			if not disk_mount_path.startswith('/'):
+				disk_mount_path = '/' + disk_mount_path
+			if not disk_device.startswith('/'):
+				disk_device = '/' + disk_device
+			self.logger.debug("Binding a volume in %s to %s" % (disk_device, disk_mount_path))
+			name = "%s-%d" % (pod_name, cont)
+			
+			if persistent:
+				claim_data = { 'apiVersion': self._apiVersion, 'kind': 'PersistentVolumeClaim' }
+				claim_data['metadata'] = { 'name': name, 'namespace': self._namespace }
+				claim_data['spec'] = { 'accessModes' : ['ReadWriteOnce'], 'resources' : {'requests' : {'storage' : disk_size} } }
+				
+				success = self._create_volume_claim(claim_data, auth_data)
+				if success:
+					res.append((name, disk_size, disk_mount_path, persistent))
+				else:
+					self.logger.error("Error creating PersistentVolumeClaim:" + name)
+			else:
+				res.append((name, disk_size, disk_mount_path, persistent))
+			
+			cont += 1
+
+		return res
+	
+	def _generate_pod_data(self, name, outports, system, ssh_port, volumes):
 		cpu = str(system.getValue('cpu.count'))
 		memory = "%s" % system.getFeature('memory.size').getValue('B')
 		# The URI has this format: docker://image_name
 		image_name = system.getValue("disk.0.image.url")[9:]
-		name = "im%d" % int(time.time()*100)
 					
 		ports = [{'containerPort': 22, 'protocol': 'TCP', 'hostPort':ssh_port}]
 		if outports:
@@ -144,7 +231,20 @@ class KubernetesCloudConnector(CloudConnector):
 						'resources': {'limits': {'cpu': cpu, 'memory': memory}}
 					}]
 		
+		if volumes:
+			containers[0]['volumeMounts'] = []
+			for (v_name, _, v_mount_path, _) in volumes:
+				containers[0]['volumeMounts'].append({'name':v_name, 'mountPath':v_mount_path})
+
 		pod_data['spec'] = {'containers' : containers}
+		
+		if volumes:
+			pod_data['spec']['volumes'] = []
+			for (v_name, _, _, persistent) in volumes:
+				if persistent:
+					pod_data['spec']['volumes'].append({'name': v_name, 'persistentVolumeClaim': {'claimName': v_name}})
+				else:
+					pod_data['spec']['volumes'].append({'name': v_name, 'emptyDir:': {}})
 		
 		return pod_data
 		
@@ -168,7 +268,11 @@ class KubernetesCloudConnector(CloudConnector):
 		while i < num_vm:
 			try:
 				i += 1
-				# Create the container
+				pod_name = "im%d" % int(time.time()*100)
+				# Do not use the Persistent volumes yet
+				volumes = self._create_volumes(system, pod_name, auth_data)
+				
+				# Create the pod
 				conn.putrequest('POST', "/api/" + self._apiVersion + "/namespaces/" + self._namespace + "/pods")
 				conn.putheader('Content-Type', 'application/json')
 				if auth_header:
@@ -176,7 +280,7 @@ class KubernetesCloudConnector(CloudConnector):
 				
 				ssh_port = (KubernetesCloudConnector._port_base_num + KubernetesCloudConnector._port_counter) % 65535
 				KubernetesCloudConnector._port_counter += 1
-				pod_data = self._generate_pod_data(outports, system, ssh_port)
+				pod_data = self._generate_pod_data(pod_name, outports, system, ssh_port, volumes)
 				body = json.dumps(pod_data)
 				conn.putheader('Content-Length', len(body))
 				conn.endheaders(body)
@@ -202,7 +306,7 @@ class KubernetesCloudConnector(CloudConnector):
 
 		return res
 
-	def updateVMInfo(self, vm, auth_data):	
+	def _get_pod(self, pod_name, auth_data):
 		try:
 			auth = self.get_auth_header(auth_data)
 			headers = {}
@@ -210,16 +314,29 @@ class KubernetesCloudConnector(CloudConnector):
 				headers.update(auth)
 			conn = self.get_http_connection()
 			
-			conn.request('GET', "/api/" + self._apiVersion + "/namespaces/" + self._namespace + "/pods/" + vm.id, headers = headers)
+			conn.request('GET', "/api/" + self._apiVersion + "/namespaces/" + self._namespace + "/pods/" + pod_name, headers = headers)
 			resp = conn.getresponse()
 
 			output = resp.read()
+		
 			if resp.status == 404:
+				return (True, resp.status, output)
+			elif resp.status != 200:
+				return (False, resp.status, output)
+			else:
+				return (True, resp.status, output)
+
+		except Exception, ex:
+			self.logger.exception("Error connecting with Kubernetes API server")
+			return (False, None, "Error connecting with Kubernetes API server: " + str(ex))
+		
+	def updateVMInfo(self, vm, auth_data):
+		success, status, output = self._get_pod(vm.id, auth_data)
+		if success:
+			if status == 404:
 				# If the container does not exist, set state to OFF
 				vm.state = VirtualMachine.OFF
 				return (True, vm)
-			elif resp.status != 200:
-				return (False, "Error getting info about the POD: " + output)
 			else:
 				output = json.loads(output)
 				vm.state = self.VM_STATE_MAP.get(output["status"]["phase"], VirtualMachine.UNKNOWN)
@@ -227,12 +344,9 @@ class KubernetesCloudConnector(CloudConnector):
 				# Update the network info
 				self.setIPs(vm,output)
 				return (True, vm)
-
-		except Exception, ex:
-			self.logger.exception("Error connecting with Kubernetes API server")
-			self.logger.error(ex)
-			return (False, "Error connecting with Kubernetes API server")
-
+		else:
+			self.logger.error("Error getting info about the POD: " + output)
+			return (False, "Error getting info about the POD: " + output)
 
 	def setIPs(self, vm, pod_info):
 		"""
@@ -253,6 +367,18 @@ class KubernetesCloudConnector(CloudConnector):
 		vm.setIps(public_ips, private_ips)
 
 	def finalize(self, vm, auth_data):
+		success, status, output = self._get_pod(vm.id, auth_data)
+		if success:
+			if status == 404:
+				self.logger.warn("Trying to remove a non existing POD id: " + vm.id)
+				return (True, vm.id)
+			else:
+				pod_data = json.loads(output)
+				self._delete_volume_claims(pod_data, auth_data)
+		
+		return self._delete_pod(vm.id, auth_data)
+
+	def _delete_pod(self, pod_name, auth_data):
 		try:
 			auth = self.get_auth_header(auth_data)
 			headers = {}
@@ -260,16 +386,16 @@ class KubernetesCloudConnector(CloudConnector):
 				headers.update(auth)
 			conn = self.get_http_connection()
 			
-			conn.request('DELETE', "/api/" + self._apiVersion + "/namespaces/" + self._namespace + "/pods/" + vm.id, headers = headers) 
+			conn.request('DELETE', "/api/" + self._apiVersion + "/namespaces/" + self._namespace + "/pods/" + pod_name, headers = headers) 
 			resp = conn.getresponse()			
 			output = str(resp.read())
 			if resp.status == 404:
-				self.logger.warn("Trying to remove a non existing POD id: " + vm.id)
-				return (True, vm.id)
+				self.logger.warn("Trying to remove a non existing POD id: " + pod_name)
+				return (True, pod_name)
 			elif resp.status != 200:
 				return (False, "Error deleting the POD: " + output)
 			else:
-				return (True, vm.id)
+				return (True, pod_name)
 		except Exception:
 			self.logger.exception("Error connecting with Kubernetes API server")
 			return (False, "Error connecting with Kubernetes API server")
