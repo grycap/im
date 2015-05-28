@@ -43,7 +43,7 @@ class OCCICloudConnector(CloudConnector):
 		'active': VirtualMachine.RUNNING,
 		'inactive': VirtualMachine.OFF,
 		'error': VirtualMachine.FAILED,
-		'suspended': VirtualMachine.OFF
+		'suspended': VirtualMachine.STOPPED
 	}
 	"""Dictionary with a map with the OCCI VM states to the IM states."""
 
@@ -228,7 +228,15 @@ class OCCICloudConnector(CloudConnector):
 			elif resp.status != 200:
 				return (False, resp.reason + "\n" + output)
 			else:
-				vm.state = self.VM_STATE_MAP.get(self.get_occi_attribute_value(output, 'occi.compute.state'), VirtualMachine.UNKNOWN)
+				old_state = vm.state
+				occi_state = self.get_occi_attribute_value(output, 'occi.compute.state')
+				
+				# I have to do that because OCCI returns 'inactive' when a VM is starting
+				# to distinguish from the OFF state
+				if old_state == VirtualMachine.PENDING and occi_state == 'inactive':
+					vm.state = VirtualMachine.PENDING
+				else:
+					vm.state = self.VM_STATE_MAP.get(occi_state, VirtualMachine.UNKNOWN)
 				
 				cores = self.get_occi_attribute_value(output, 'occi.compute.cores')
 				if cores:
