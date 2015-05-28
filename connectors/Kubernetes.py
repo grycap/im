@@ -193,11 +193,11 @@ class KubernetesCloudConnector(CloudConnector):
 				
 				success = self._create_volume_claim(claim_data, auth_data)
 				if success:
-					res.append((name, disk_size, disk_mount_path, persistent))
+					res.append((name, disk_device, disk_size, disk_mount_path, persistent))
 				else:
 					self.logger.error("Error creating PersistentVolumeClaim:" + name)
 			else:
-				res.append((name, disk_size, disk_mount_path, persistent))
+				res.append((name, disk_device, disk_size, disk_mount_path, persistent))
 			
 			cont += 1
 
@@ -233,18 +233,22 @@ class KubernetesCloudConnector(CloudConnector):
 		
 		if volumes:
 			containers[0]['volumeMounts'] = []
-			for (v_name, _, v_mount_path, _) in volumes:
+			for (v_name, _,  _, v_mount_path, _) in volumes:
 				containers[0]['volumeMounts'].append({'name':v_name, 'mountPath':v_mount_path})
 
 		pod_data['spec'] = {'containers' : containers}
 		
 		if volumes:
 			pod_data['spec']['volumes'] = []
-			for (v_name, _, _, persistent) in volumes:
+			for (v_name, v_device, _, _, persistent) in volumes:
 				if persistent:
 					pod_data['spec']['volumes'].append({'name': v_name, 'persistentVolumeClaim': {'claimName': v_name}})
 				else:
-					pod_data['spec']['volumes'].append({'name': v_name, 'emptyDir:': {}})
+					if v_device:
+						# Use the device as volume host path to bind
+						pod_data['spec']['volumes'].append({'name': v_name, 'hostPath:': {'path': v_device}})
+					else:
+						pod_data['spec']['volumes'].append({'name': v_name, 'emptyDir:': {}})
 		
 		return pod_data
 		
