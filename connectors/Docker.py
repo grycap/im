@@ -117,6 +117,9 @@ class DockerCloudConnector(CloudConnector):
 				res_system.getFeature("cpu.count").operator = "="
 				res_system.getFeature("memory.size").operator = "="
 				
+				res_system.setValue('disk.0.os.credentials.username', 'root')
+				res_system.setValue('disk.0.os.credentials.password', self._root_password)
+				
 				res_system.addFeature(Feature("provider.type", "=", self.type), conflict="other", missing="other")
 				res_system.addFeature(Feature("provider.host", "=", self.cloud.server), conflict="other", missing="other")
 				res_system.addFeature(Feature("provider.port", "=", self.cloud.port), conflict="other", missing="other")
