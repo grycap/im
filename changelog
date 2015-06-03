@@ -117,4 +117,5 @@ IM 1.2.5
     * Bugfix in OCCI, OpenNebula and Docker connectors when using incorrect credentials.
     * Improve Docker connector code.
     * Add Kubernetes connector.
+    * Bugfix in RADL with unicode strings
 
