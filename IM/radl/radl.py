@@ -152,12 +152,16 @@ class Feature:
 			if not isinstance(self.value, int) and not isinstance(self.value, float):
 				raise RADLParseException("Invalid type; expected %s" % check[0],
 									 line=self.line)
+		elif check[0] == str:
+			if not isinstance(self.value, str) and not isinstance(self.value, unicode):
+				raise RADLParseException("Invalid type; expected %s" % check[0],
+									 line=self.line)
 		else:
 			if not isinstance(self.value, check[0]):
 				raise RADLParseException("Invalid type; expected %s" % check[0],
 									 line=self.line)
 		# Check operator
-		if isinstance(self.value, str) and self.prop.find('version') == -1:
+		if (isinstance(self.value, str) or isinstance(self.value, unicode)) and self.prop.find('version') == -1:
 			if self.operator != "=":
 				raise RADLParseException("Invalid operator; expected '='",
 										 line=self.line)
