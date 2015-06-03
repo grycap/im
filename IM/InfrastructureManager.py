@@ -589,7 +589,13 @@ class InfrastructureManager:
 		Return: a str with the property value
 		"""
 		radl_data = InfrastructureManager.GetVMInfo(inf_id, vm_id, auth)
-		radl = radl_parse.parse_radl(radl_data)
+
+		try:
+			radl = radl_parse.parse_radl(radl_data)
+		except Exception, ex:
+			InfrastructureManager.logger.exception("Error parsing the RADL: " + radl_data)
+			raise ex
+
 		res = None
 		if radl.systems:
 			res = radl.systems[0].getValue(property_name)
