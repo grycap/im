@@ -450,7 +450,12 @@ class InfrastructureManager:
 			if len(suggested_cloud_ids) > 1:
 				raise Exception("Two deployments that have to be launched in the same cloud provider are asked to be deployed in different cloud providers: %s" % deploy_group)
 			elif len(suggested_cloud_ids) == 1:
-				cloud_list0 = [ (suggested_cloud_ids[0], cloud_list[suggested_cloud_ids[0]]) ]
+				if suggested_cloud_ids[0] not in cloud_list:
+					InfrastructureManager.logger.debug("Cloud Provider list:")
+					InfrastructureManager.logger.debug(cloud_list)
+					raise Exception("No auth data for cloud with ID: %s" % suggested_cloud_ids[0])
+				else:
+					cloud_list0 = [ (suggested_cloud_ids[0], cloud_list[suggested_cloud_ids[0]]) ]
 			else:
 				cloud_list0 = cloud_list.items()
 			if d.vm_number:
@@ -536,7 +541,7 @@ class InfrastructureManager:
 		Args:
 
 		- inf_id(int): infrastructure id.
-		- vm_list(list of int): list of virtual machine ids.
+		- vm_list(str, int or list of str): list of virtual machine ids.
 		- auth(Authentication): parsed authentication tokens.
 
 		Return(int): number of undeployed virtual machines.
@@ -546,7 +551,14 @@ class InfrastructureManager:
 
 		sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
 
-		vm_ids = vm_list.split(",")
+		if isinstance(vm_list, str):
+			vm_ids = vm_list.split(",")
+		elif isinstance(vm_list, int):
+			vm_ids = [str(vm_list)]
+		elif isinstance(vm_list, list):
+			vm_ids = vm_list
+		else:
+			raise Exception('Incorrect parameter type to RemoveResource function: expected: str, int or list of str.')
 
 		cont = 0
 		exceptions = []
