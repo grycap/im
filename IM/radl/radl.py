@@ -102,7 +102,7 @@ class Feature:
 
 	def __str__(self):
 		return ("{0} {1} ({2})" if self.operator == "contains" else
-		        "{0} {1} '{2}'" if isinstance(self.value, str) else
+		        "{0} {1} '{2}'" if isinstance(self.value, str) or isinstance(self.value, unicode) else
 			"{0} {1} {2}{3}").format(self.prop, self.operator, self.value,
 		                                 self.unit if self.unit else "") 
 
