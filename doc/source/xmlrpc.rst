@@ -175,12 +175,13 @@ This is the list of method names:
    :parameter 0: ``infId``: integer
    :parameter 1: ``vmIds``: string
    :parameter 2: ``auth``: array of structs
-   :ok response: [true, ``infId``: integer]
+   :ok response: [true, integer]
    :fail response: [false, ``error``: string]
 
    Updeploy the virtual machines with IDs in ``vmIds`` associated to the
    infrastructure with ID ``infId``. The different virtual machine IDs in
-   ``vmIds`` are separated by commas.
+   ``vmIds`` are separated by commas. On success it returns the number of
+   VMs that have been undeployed.
 
 .. _StopInfrastructure-xmlrpc:
 
