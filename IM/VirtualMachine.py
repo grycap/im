@@ -462,6 +462,11 @@ class VirtualMachine:
 						private_net_mask = mask
 						break
 				
+				if not private_net_mask:
+					parts = private_ip.split(".")
+					private_net_mask = "%s.0.0.0/8" % parts[0]
+					VirtualMachine.logger.warn("%s is not in known private net groups. Using mask: %s" % (private_ip, private_net_mask))
+				
 				# Search in previous user private ips
 				private_net = None
 				for net_mask, net in private_net_map.iteritems():
