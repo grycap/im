@@ -864,8 +864,8 @@ class EC2CloudConnector(CloudConnector):
 				self.logger.exception("Error updating the instance " + instance_id)
 				return (False, "Error updating the instance " + instance_id + ": " + str(ex))
 			
-			vm.info.systems[0].setValue("virtual_system_type", "'" + instance.virtualization_type + "'")
-			vm.info.systems[0].setValue("availability_zone",  "'" + instance.placement + "'")
+			vm.info.systems[0].setValue("virtual_system_type", instance.virtualization_type)
+			vm.info.systems[0].setValue("availability_zone",  instance.placement)
 			
 			vm.state = self.VM_STATE_MAP.get(instance.state, VirtualMachine.UNKNOWN)
 			
