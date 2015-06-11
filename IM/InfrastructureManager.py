@@ -849,6 +849,66 @@ class InfrastructureManager:
 		return ""
 
 	@staticmethod
+	def StartVM(inf_id, vm_id, auth):
+		"""
+		Start the specified virtual machine in an infrastructure previously stopped.
+
+		Args:
+
+		- inf_id(int): infrastructure id.
+		- vm_id(int): virtual machine id.
+		- auth(Authentication): parsed authentication tokens.
+
+		Return(str): error messages; empty string means all was ok.
+		"""
+
+		InfrastructureManager.logger.info("Starting the VM id %s from the infrastructure id: %s" % (vm_id, inf_id))
+
+		vm = InfrastructureManager.get_vm_from_inf(inf_id, vm_id, auth)
+		success = False
+		try:
+			(success, msg) = vm.start(auth)
+		except Exception, e:
+			msg = str(e)
+		
+		if not success:
+			InfrastructureManager.logger.info("The VM %s cannot be restarted: %s" % (vm_id, msg))
+			raise Exception("Error starting the VM: %s" % msg)
+		else:
+			InfrastructureManager.logger.info("The VM %s successfully restarted" % vm_id)
+			return ""
+
+	@staticmethod
+	def StopVM(inf_id, vm_id, auth):
+		"""
+		Stop the specified virtual machine in an infrastructure
+
+		Args:
+
+		- inf_id(int): infrastructure id.
+		- vm_id(int): virtual machine id.
+		- auth(Authentication): parsed authentication tokens.
+
+		Return(str): error messages; empty string means all was ok.
+		"""
+
+		InfrastructureManager.logger.info("Stopping the VM id %s from the infrastructure id: %s" % (vm_id, inf_id))
+
+		vm = InfrastructureManager.get_vm_from_inf(inf_id, vm_id, auth)
+		success = False
+		try:
+			(success, msg) = vm.stop(auth)
+		except Exception, e:
+			msg = str(e)
+		
+		if not success:
+			InfrastructureManager.logger.info("The VM %s cannot be stopped: %s" % (vm_id, msg))
+			raise Exception("Error stopping the VM: %s" % msg)
+		else:
+			InfrastructureManager.logger.info("The VM %s successfully stopped" % vm_id)
+			return ""
+
+	@staticmethod
 	def remove_old_inf():
 		"""Remove destroyed infrastructure."""
 

@@ -195,6 +195,19 @@ This is the list of method names:
    infrastructure with ID ``infId``. They can resume by
    :ref:`StartInfrastructure <StartInfrastructure-xmlrpc>`.
 
+.. _StopVM-xmlrpc:
+
+``StopVM``
+   :parameter 0: ``infId``: integer
+   :parameter 1: ``vmId``: integer
+   :parameter 2: ``auth``: array of structs
+   :ok response: [true, string of length zero]
+   :fail response: [false, ``error``: string]
+
+   Stop (but do not undeploy) the specified virtual machine with ID ``vmId`` 
+   associated to the infrastructure with ID ``infId``. They can resume by
+   :ref:`StartVM <StartVM-xmlrpc>`.
+
 .. _StartInfrastructure-xmlrpc:
 
 ``StartInfrastructure``
@@ -206,6 +219,20 @@ This is the list of method names:
    Resume all the virtual machines associated to the
    infrastructure with ID ``infId``, previously stopped by
    :ref:`StopInfrastructure <stopinfrastructure-xmlrpc>`.
+
+.. _StartVM-xmlrpc:
+
+``StartVM``
+   :parameter 0: ``infId``: integer
+   :parameter 1: ``vmId``: integer
+   :parameter 2: ``auth``: array of structs
+   :ok response: [true, string of length zero]
+   :fail response: [false, ``error``: string]
+
+   Resume the specified virtual machine with ID ``vmId`` associated to the
+   infrastructure with ID ``infId``, previously stopped by
+   :ref:`StopInfrastructure <stopinfrastructure-xmlrpc>` or
+   :ref:`StopVM <stopvm-xmlrpc>`
 
 .. _Reconfigure-xmlrpc:
 

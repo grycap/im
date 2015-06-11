@@ -46,6 +46,8 @@ class IMBaseRequest(AsyncRequest):
 	START_INFRASTRUCTURE = "StartInfrastructure"
 	STOP_INFRASTRUCTURE = "StopInfrastructure"
 	SAVE_DATA = "SaveData"
+	START_VM = "StartVM"
+	STOP_VM = "StopVM"
 
 	@staticmethod
 	def create_request(function, arguments = (), priority = Request.PRIORITY_NORMAL):
@@ -85,6 +87,10 @@ class IMBaseRequest(AsyncRequest):
 			return Request_StopInfrastructure(arguments)
 		elif function == IMBaseRequest.SAVE_DATA:
 			return Request_SaveData(arguments)
+		elif function == IMBaseRequest.START_VM:
+			return Request_StartVM(arguments)
+		elif function == IMBaseRequest.STOP_VM:
+			return Request_StopVM(arguments)
 		else:
 			raise NotImplementedError("Function not Implemented")
 
@@ -264,9 +270,29 @@ class Request_GetInfrastructureContMsg(IMBaseRequest):
 	
 class Request_SaveData(IMBaseRequest):
 	"""
-	Request class for the GetInfrastructureContMsg function
+	Request class for the save_data function
 	"""
 	def _call_function(self):
 		self._error_mesage = "Error saving IM data"
 		InfrastructureManager.InfrastructureManager.save_data()
+		return ""
+	
+class Request_StartVM(IMBaseRequest):
+	"""
+	Request class for the StartVM function
+	"""
+	def _call_function(self):
+		self._error_mesage = "Error starting VM"
+		(inf_id, vm_id, auth_data) = self.arguments
+		InfrastructureManager.InfrastructureManager.StartVM(inf_id, vm_id, Authentication(auth_data))
+		return ""
+	
+class Request_StopVM(IMBaseRequest):
+	"""
+	Request class for the StopVM function
+	"""
+	def _call_function(self):
+		self._error_mesage = "Error stopping VM"
+		(inf_id, vm_id, auth_data) = self.arguments
+		InfrastructureManager.InfrastructureManager.StopVM(inf_id, vm_id, Authentication(auth_data))
 		return ""

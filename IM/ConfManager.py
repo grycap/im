@@ -115,11 +115,10 @@ class ConfManager(threading.Thread):
 					# If the IP is not Available try to update the info
 					vm.update_status(self.auth)
 	
-					# If the VM is not in a "running" state, return false
-					if vm.state in [VirtualMachine.OFF, VirtualMachine.FAILED, VirtualMachine.STOPPED]:
-						ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": Error waiting all the VMs to have a correct IP. VM ID: " + str(vm.id) + " is not running.")
-						self.inf.set_configured(False)
-						return False
+					# If the VM is not in a "running" state, ignore it
+					if vm.state in VirtualMachine.NOT_RUNNING_STATES:
+						ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": The VM ID: " + str(vm.id) + " is not running, do not wait it to have an IP.")
+						continue
 	
 					if vm.hasPublicNet():
 						ip = vm.getPublicIP()
@@ -306,6 +305,19 @@ class ConfManager(threading.Thread):
 
 			for vm in vm_group[group]:
 				if not vm.destroy:
+					# first try to use the public IP
+					ip = vm.getPublicIP()
+					if not ip:
+						ip = vm.getPrivateIP()
+					
+					if not ip:
+						ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": The VM ID: " + str(vm.id) + " does not have an IP. It will not be included in the inventory file.")
+						continue
+					
+					if vm.state in VirtualMachine.NOT_RUNNING_STATES:
+						ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": The VM ID: " + str(vm.id) + " is not running. It will not be included in the inventory file.")
+						continue
+						
 					ifaces_im_vars = ''
 					for i in range(vm.getNumNetworkIfaces()):
 						iface_ip = vm.getIfaceIP(i)
@@ -317,10 +329,7 @@ class ConfManager(threading.Thread):
 								ifaces_im_vars += ' IM_NODE_NET_' + str(i) + '_DOMAIN=' + nodedom
 								ifaces_im_vars += ' IM_NODE_NET_' + str(i) + '_FQDN=' + nodename + "." + nodedom
 
-					# first try to use the public IP
-					ip = vm.getPublicIP()
-					if not ip:
-						ip = vm.getPrivateIP()
+
 	
 					# the master node
 					# TODO: Known issue: the master VM must set the public network in the iface 0 
@@ -379,6 +388,15 @@ class ConfManager(threading.Thread):
 			vm = vm_group[group][0]
 
 			for vm in vm_group[group]:
+				# first try to use the public IP
+				ip = vm.getPublicIP()
+				if not ip:
+					ip = vm.getPrivateIP()
+				
+				if not ip:
+					ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": The VM ID: " + str(vm.id) + " does not have an IP. It will not be included in the /etc/hosts file.")
+					continue
+					
 				for i in range(vm.getNumNetworkIfaces()):
 					if vm.getRequestedNameIface(i):
 						if vm.getIfaceIP(i):
@@ -386,11 +404,6 @@ class ConfManager(threading.Thread):
 							hosts_out.write(vm.getIfaceIP(i) + " " + nodename + "." + nodedom + " " + nodename + "\r\n")
 						else:
 							ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": Net interface " + str(i) + " request a name, but it does not have an IP.")
-
-					# first try to use the public IP
-					ip = vm.getPublicIP()
-					if not ip:
-						ip = vm.getPrivateIP()
 	
 					# the master node
 					# TODO: Known issue: the master VM must set the public network in the iface 0 
@@ -509,13 +522,10 @@ class ConfManager(threading.Thread):
 				# Activate tty mode to avoid some problems with sudo in REL
 				ssh.tty = True
 				
-				# Get the groups for the different VM types
-				vm_group = self.inf.get_vm_list_by_system_name()
-				
 				# configuration dir os th emaster node to copy all the contextualization files
 				tmp_dir = tempfile.mkdtemp()
 				# Now call the ansible installation process on the master node
-				configured_ok = self.configure_ansible(vm_group, ssh, tmp_dir)
+				configured_ok = self.configure_ansible(ssh, tmp_dir)
 				
 				if not configured_ok:
 					ConfManager.logger.error("Inf ID: " + str(self.inf.id) + ": Error in the ansible installation process")
@@ -951,7 +961,7 @@ class ConfManager(threading.Thread):
 		conf_all_out.close()
 		return all_filename
 
-	def configure_ansible(self, vm_group, ssh, tmp_dir):
+	def configure_ansible(self, ssh, tmp_dir):
 		"""
 		Install ansible in the master node
 	
@@ -960,6 +970,8 @@ class ConfManager(threading.Thread):
 		   - tmp_dir(str): Temp directory where all the playbook files will be stored.
 		Returns: True if the process finished sucessfully, False otherwise.
 		"""
+		# Get the groups for the different VM types
+		vm_group = self.inf.get_vm_list_by_system_name()
 
 		# Create the ansible inventory file
 		with open(tmp_dir + "/inventory.cfg", 'w') as inv_out:
@@ -1031,26 +1043,33 @@ class ConfManager(threading.Thread):
 		conf_data['playbook_retries'] = Config.PLAYBOOK_RETRIES
 		conf_data['vms'] = []
 		for vm in vm_list:
-			vm_conf_data = {}
-			vm_conf_data['id'] = vm.im_id
-			if vm.im_id == self.inf.vm_master.im_id:
-				vm_conf_data['master'] = True
+			if vm.state in VirtualMachine.NOT_RUNNING_STATES:
+				ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": The VM ID: " + str(vm.id) + " is not running, do not include in the general conf file.")
 			else:
-				vm_conf_data['master'] = False
-			# first try to use the public IP
-			vm_conf_data['ip'] = vm.getPublicIP()
-			if not vm_conf_data['ip']:
-				vm_conf_data['ip'] = vm.getPrivateIP()
-			vm_conf_data['ssh_port'] = vm.getSSHPort()
-			creds = vm.getCredentialValues()
-			new_creds = vm.getCredentialValues(new=True)
-			(vm_conf_data['user'], vm_conf_data['passwd'], _, vm_conf_data['private_key']) = creds
-			# If there are new creds to set to the VM
-			if len(list(set(new_creds))) > 1 or list(set(new_creds))[0] != None:
-				if cmp(new_creds,creds) != 0:
-					(_, vm_conf_data['new_passwd'], vm_conf_data['new_public_key'], vm_conf_data['new_private_key']) = new_creds
-			
-			conf_data['vms'].append(vm_conf_data)
+				vm_conf_data = {}
+				vm_conf_data['id'] = vm.im_id
+				if vm.im_id == self.inf.vm_master.im_id:
+					vm_conf_data['master'] = True
+				else:
+					vm_conf_data['master'] = False
+				# first try to use the public IP
+				vm_conf_data['ip'] = vm.getPublicIP()
+				if not vm_conf_data['ip']:
+					vm_conf_data['ip'] = vm.getPrivateIP()
+				vm_conf_data['ssh_port'] = vm.getSSHPort()
+				creds = vm.getCredentialValues()
+				new_creds = vm.getCredentialValues(new=True)
+				(vm_conf_data['user'], vm_conf_data['passwd'], _, vm_conf_data['private_key']) = creds
+				# If there are new creds to set to the VM
+				if len(list(set(new_creds))) > 1 or list(set(new_creds))[0] != None:
+					if cmp(new_creds,creds) != 0:
+						(_, vm_conf_data['new_passwd'], vm_conf_data['new_public_key'], vm_conf_data['new_private_key']) = new_creds
+				
+				if not vm_conf_data['ip']:
+					# if the vm does not have an IP, do not iclude it to avoid errors configurin gother VMs 
+					ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": The VM ID: " + str(vm.id) + " does not have an IP, do not include in the general conf file.")
+				else:
+					conf_data['vms'].append(vm_conf_data)
 
 		conf_data['conf_dir'] = Config.REMOTE_CONF_DIR
 		
