@@ -40,6 +40,8 @@ class VirtualMachine:
 	
 	WAIT_TO_PID = "WAIT"
 	
+	NOT_RUNNING_STATES = [OFF, FAILED, STOPPED]
+	
 	logger = logging.getLogger('InfrastructureManager')
 
 	def __init__(self, inf, cloud_id, cloud, info, requested_radl, cloud_connector = None):
@@ -538,7 +540,7 @@ class VirtualMachine:
 			if self.ctxt_pid != self.WAIT_TO_PID:
 				ssh = self.inf.vm_master.get_ssh()
 
-				if self.state in [VirtualMachine.OFF, VirtualMachine.FAILED, VirtualMachine.STOPPED]:
+				if self.state in VirtualMachine.NOT_RUNNING_STATES:
 					try:
 						ssh.execute("kill -9 " + str(self.ctxt_pid))
 					except:

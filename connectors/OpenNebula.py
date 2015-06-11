@@ -215,6 +215,8 @@ class OpenNebulaCloudConnector(CloudConnector):
 			if res_vm.STATE == 3:
 				if res_vm.LCM_STATE == 3:
 					res_state = VirtualMachine.RUNNING
+				elif res_vm.LCM_STATE == 5 or res_vm.LCM_STATE == 6:
+					res_state = VirtualMachine.STOPPED
 				else:
 					res_state = VirtualMachine.PENDING
 			elif res_vm.STATE < 3 :

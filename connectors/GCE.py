@@ -54,7 +54,9 @@ class GCECloudConnector(CloudConnector):
             auth = auth_data.getAuthInfo(self.type)
             
             if auth and 'username' in auth[0] and 'password' in auth[0] and 'project' in auth[0]:
-                cls = get_driver(Provider.GCE)                
+                cls = get_driver(Provider.GCE)
+                # Patch to solve some client problems with \\n 
+                auth[0]['password'] = auth[0]['password'].replace('\\n','\n')         
                 lines = len(auth[0]['password'].replace(" ","").split())
                 if lines < 2:
                     raise Exception("The certificate provided to the GCE plugin has an incorrect format. Check that it has more than one line.")

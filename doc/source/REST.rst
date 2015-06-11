@@ -12,39 +12,45 @@ password are not valid, it is returned the HTTP error code 401.
 
 Next tables summaries the resources and the HTTP methods available.
 
-+-------------+------------------------+-------------------------------+-----------------------------------------+
-| HTTP method |   /infrastructures     |   /infrastructures/<infId>    |   /infrastructures/<infId>/vms/<vmId>   |
-+=============+========================+===============================+=========================================+
-| **GET**     | **List** the           | **List** the virtual machines | **Get** information associated to the   |
-|             | infrastructure         | in the infrastructure         | virtual machine ``vmId`` in ``infId``.  |
-|             | IDs.                   | ``infId``                     |                                         |
-+-------------+------------------------+-------------------------------+-----------------------------------------+
-| **POST**    | **Create** a new       | **Create** a new virtual      |                                         |
-|             | infrastructure         | machine based on the RADL     |                                         |
-|             | based on the RADL      | posted.                       |                                         |
-|             | posted.                |                               |                                         |
-+-------------+------------------------+-------------------------------+-----------------------------------------+
-| **PUT**     |                        |                               | **Modify** the virtual machine based on |
-|             |                        |                               | the RADL posted.                        |
-+-------------+------------------------+-------------------------------+-----------------------------------------+
-| **DELETE**  |                        | **Undeploy** all the virtual  | **Undeploy** the virtual machine.       |
-|             |                        | machines in the               |                                         |
-|             |                        | infrastructure.               |                                         |
-+-------------+------------------------+-------------------------------+-----------------------------------------+
++-------------+-------------------+-------------------------------+-----------------------------------------+
+| HTTP method | /infrastructures  | /infrastructures/<infId>      | /infrastructures/<infId>/vms/<vmId>     |
++=============+===================+===============================+=========================================+
+| **GET**     | **List** the      | **List** the virtual machines | **Get** information associated to the   |
+|             | infrastructure    | in the infrastructure         | virtual machine ``vmId`` in ``infId``.  |
+|             | IDs.              | ``infId``                     |                                         |
++-------------+-------------------+-------------------------------+-----------------------------------------+
+| **POST**    | **Create** a new  | **Create** a new virtual      |                                         |
+|             | infrastructure    | machine based on the RADL     |                                         |
+|             | based on the RADL | posted.                       |                                         |
+|             | posted.           |                               |                                         |
++-------------+-------------------+-------------------------------+-----------------------------------------+
+| **PUT**     |                   |                               | **Modify** the virtual machine based on |
+|             |                   |                               | the RADL posted.                        |
++-------------+-------------------+-------------------------------+-----------------------------------------+
+| **DELETE**  |                   | **Undeploy** all the virtual  | **Undeploy** the virtual machine.       |
+|             |                   | machines in the               |                                         |
+|             |                   | infrastructure.               |                                         |
++-------------+-------------------+-------------------------------+-----------------------------------------+
  
-+-------------+--------------------------------+---------------------------------+----------------------------------------+
-| HTTP method |  /infrastructures/<infId>/stop |  /infrastructures/<infId>/start |  /infrastructures/<infId>/reconfigure  |
-+=============+================================+=================================+========================================+
-| **PUT**     | **Stop** the infrastructure.   | **Start** the infrastructure.   | **Reconfigure** the infrastructure.    |
-+-------------+--------------------------------+---------------------------------+----------------------------------------+
++-------------+-------------------------------+--------------------------------+--------------------------------------+
+| HTTP method | /infrastructures/<infId>/stop | /infrastructures/<infId>/start | /infrastructures/<infId>/reconfigure |
++=============+===============================+================================+======================================+
+| **PUT**     | **Stop** the infrastructure.  | **Start** the infrastructure.  | **Reconfigure** the infrastructure.  |
++-------------+-------------------------------+--------------------------------+--------------------------------------+
 
-+-------------+--------------------------------------------------------+--------------------------------------------------+
-| HTTP method |   /infrastructures/<infId>/vms/<vmId>/<property_name>  |     /infrastructures/<infId>/<property_name>     | 
-+=============+========================================================+==================================================+
-| **GET**     | **Get** the specified property ``property_name``       | **Get** the specified property ``property_name`` |
-|             | associated to the machine ``vmId`` in ``infId``        | associated to the infrastructure ``infId``.      |
-|             |                                                        | It has two properties: ``contmsg`` and ``radl``  |
-+-------------+--------------------------------------------------------+--------------------------------------------------+
++-------------+-----------------------------------------------------+--------------------------------------------------+
+| HTTP method | /infrastructures/<infId>/vms/<vmId>/<property_name> | /infrastructures/<infId>/<property_name>         |
++=============+=====================================================+==================================================+
+| **GET**     | **Get** the specified property ``property_name``    | **Get** the specified property ``property_name`` |
+|             | associated to the machine ``vmId`` in ``infId``     | associated to the infrastructure ``infId``.      |
+|             |                                                     | It has two properties: ``contmsg`` and ``radl``  |
++-------------+-----------------------------------------------------+--------------------------------------------------+
+
++-------------+--------------------------------------------+---------------------------------------------+
+| HTTP method | /infrastructures/<infId>/vms/<vmId>/stop   | /infrastructures/<infId>/start              |
++=============+============================================+=============================================+
+| **PUT**     | **Stop** the machine ``vmId`` in ``infId`` | **Start** the machine ``vmId`` in ``infId`` |
++-------------+--------------------------------------------+---------------------------------------------+
 
 GET ``http://imserver.com/infrastructures``
    :Content-type: text/uri-list
@@ -160,3 +166,19 @@ DELETE ``http://imserver.com/infrastructures/<infId>/vms/<vmId>``
 
    Undeploy the virtual machine with ID ``vmId`` associated to the
    infrastructure with ID ``infId``.
+
+PUT ``http://imserver.com/infrastructures/<infId>/vms/<vmId>/start``
+   :Content-type: text/plain
+   :ok response: 200 OK
+   :fail response: 401, 404, 400
+
+   Perform the ``start`` action in the virtual machine with ID 
+   ``vmId`` associated to the infrastructure with ID ``infId``.
+
+PUT ``http://imserver.com/infrastructures/<infId>/vms/<vmId>/stop``
+   :Content-type: text/plain
+   :ok response: 200 OK
+   :fail response: 401, 404, 400
+
+   Perform the ``stop`` action in the virtual machine with ID 
+   ``vmId`` associated to the infrastructure with ID ``infId``.
