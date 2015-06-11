@@ -389,7 +389,7 @@ class InfrastructureInfo:
 		
 		for vm in self.get_vm_list():
 			# Assure to update the VM status before running the ctxt process
-			vm.update_status(self.auth)
+			vm.update_status(auth)
 			vm.cont_out = "" 
 			vm.configured = None
 			tasks = {}
