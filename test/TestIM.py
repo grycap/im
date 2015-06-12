@@ -230,6 +230,8 @@ class TestIM(unittest.TestCase):
         """
         Test StartInfrastructure function
         """
+        # Assure the VM to be stopped
+        time.sleep(10)
         (success, res) = self.server.StartInfrastructure(self.inf_id, self.auth_data)
         self.assertTrue(success, msg="ERROR calling StartInfrastructure: " + str(res))
 
@@ -250,6 +252,8 @@ class TestIM(unittest.TestCase):
         """
         Test StartVM function
         """
+        # Assure the VM to be stopped
+        time.sleep(10)
         (success, res) = self.server.StartVM(self.inf_id, 0, self.auth_data)
         self.assertTrue(success, msg="ERROR calling StartVM: " + str(res))
 

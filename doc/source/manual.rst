@@ -61,6 +61,8 @@ Optional Packages
   if the access to XML-RPC API is secured with SSL certificates (see
   :confval:`XMLRCP_SSL`).
   The Debian package is named ``python-springpython``.
+* `Bottle <http://bottlepy.or>`_ is needed if needed to use the REST API
+  (see :confval:`ACTIVATE_REST`). The Debian package is named ``python-bottle``.
 * `CherryPy <http://cherrypy.org>`_ is needed if needed to secure the REST API
   with SSL certificates (see :confval:`REST_SSL`).
   The Debian package is named ``python-cherrypy3``.
