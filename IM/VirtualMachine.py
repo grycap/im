@@ -18,6 +18,7 @@ import time
 import threading
 from IM.radl.radl import network, RADL
 from IM.SSH import SSH
+from IM.SSHRetry import SSHRetry
 from config import Config
 import shutil
 import string
@@ -497,7 +498,7 @@ class VirtualMachine:
 				vm_system.setValue('net_interface.' + str(num_net) + '.ip', str(private_ip))
 				vm_system.setValue('net_interface.' + str(num_net) + '.connection',private_net.id)
 
-	def get_ssh(self):
+	def get_ssh(self, retry = False):
 		"""
 		Get SSH object to connect with this VM
 		"""
@@ -507,7 +508,10 @@ class VirtualMachine:
 			ip = self.getPrivateIP()
 		if ip == None:
 			return None
-		return SSH(ip, user, passwd, private_key, self.getSSHPort())
+		if retry:
+			return SSHRetry(ip, user, passwd, private_key, self.getSSHPort())
+		else:
+			return SSH(ip, user, passwd, private_key, self.getSSHPort())
 	
 	def is_ctxt_process_running(self):
 		""" Return the PID of the running process or None if it is not running """
@@ -599,7 +603,7 @@ class VirtualMachine:
 				return self.configured
 
 	def get_ctxt_log(self, remote_dir, delete = False):
-		ssh = self.inf.vm_master.get_ssh()
+		ssh = self.inf.vm_master.get_ssh(retry=True)
 		tmp_dir = tempfile.mkdtemp()
 		conf_out = ""
 		
@@ -622,7 +626,7 @@ class VirtualMachine:
 		return conf_out
 
 	def get_ctxt_output(self, remote_dir, delete = False):
-		ssh = self.inf.vm_master.get_ssh()
+		ssh = self.inf.vm_master.get_ssh(retry=True)
 		tmp_dir = tempfile.mkdtemp()
 			
 		# Download the contextualization agent log

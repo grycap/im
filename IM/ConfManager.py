@@ -224,55 +224,52 @@ class ConfManager(threading.Thread):
 					
 				last_step = step
 
-	def launch_ctxt_agent(self, vm, tasks, max_retries = 3):
+	def launch_ctxt_agent(self, vm, tasks):
 		"""
 		Launch the ctxt agent to configure the specified tasks in the specified VM
 		"""
 		pid = None
-		retries = 0
-		while not pid and retries < max_retries:
-			retries += 1
-			try:
-				ip = vm.getPublicIP()
-				if not ip:
-					ip = vm.getPrivateIP()
-				remote_dir = Config.REMOTE_CONF_DIR + "/" + ip + "_" + str(vm.getSSHPort())
-				tmp_dir = tempfile.mkdtemp()
-		
-				ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Create the configuration file for the contextualization agent")
-				conf_file = tmp_dir + "/config.cfg"
-				self.create_vm_conf_file(conf_file, vm.im_id, tasks, remote_dir)
-				
-				ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Copy the contextualization agent config file")
-		
-				# Copy the contextualization agent config file
-				ssh = self.inf.vm_master.get_ssh()
-				ssh.sftp_mkdir(remote_dir)
-				ssh.sftp_put(conf_file, remote_dir + "/" + os.path.basename(conf_file))
-				
-				shutil.rmtree(tmp_dir, ignore_errors=True)
-		
-				(pid, _, _) = ssh.execute("nohup python_ansible " + Config.REMOTE_CONF_DIR + "/ctxt_agent.py " 
-						+ Config.REMOTE_CONF_DIR + "/general_info.cfg "
-						+ remote_dir + "/" + os.path.basename(conf_file) 
-						+ " > " + remote_dir + "/stdout" + " 2> " + remote_dir + "/stderr < /dev/null & echo -n $!")
-				
-				ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Ansible process to configure " + str(vm.im_id) + " launched with pid: " + pid)
-				
-				vm.ctxt_pid = pid
-				vm.launch_check_ctxt_process()
-			except:
-				pid = None
-				ConfManager.logger.exception("Inf ID: " + str(self.inf.id) + ": Error (%d/%d) launching the ansible process to configure %s" % (retries, max_retries, str(vm.im_id)))
-				time.sleep(retries*2)
 
-			# If the process is not correctly launched the configuration of this VM fails
-			if pid is None:
-				vm.ctxt_pid = None
-				vm.configured = False
-				vm.cont_out = "Error launching the contextualization agent to configure the VM. Check the SSH connection."
+		try:
+			ip = vm.getPublicIP()
+			if not ip:
+				ip = vm.getPrivateIP()
+			remote_dir = Config.REMOTE_CONF_DIR + "/" + ip + "_" + str(vm.getSSHPort())
+			tmp_dir = tempfile.mkdtemp()
+	
+			ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Create the configuration file for the contextualization agent")
+			conf_file = tmp_dir + "/config.cfg"
+			self.create_vm_conf_file(conf_file, vm.im_id, tasks, remote_dir)
+			
+			ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Copy the contextualization agent config file")
+	
+			# Copy the contextualization agent config file
+			ssh = self.inf.vm_master.get_ssh(retry = True)
+			ssh.sftp_mkdir(remote_dir)
+			ssh.sftp_put(conf_file, remote_dir + "/" + os.path.basename(conf_file))
+			
+			shutil.rmtree(tmp_dir, ignore_errors=True)
+	
+			(pid, _, _) = ssh.execute("nohup python_ansible " + Config.REMOTE_CONF_DIR + "/ctxt_agent.py " 
+					+ Config.REMOTE_CONF_DIR + "/general_info.cfg "
+					+ remote_dir + "/" + os.path.basename(conf_file) 
+					+ " > " + remote_dir + "/stdout" + " 2> " + remote_dir + "/stderr < /dev/null & echo -n $!")
+			
+			ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Ansible process to configure " + str(vm.im_id) + " launched with pid: " + pid)
+			
+			vm.ctxt_pid = pid
+			vm.launch_check_ctxt_process()
+		except:
+			pid = None
+			ConfManager.logger.exception("Inf ID: " + str(self.inf.id) + ": Error launching the ansible process to configure %s" % str(vm.im_id))
 
-			return pid
+		# If the process is not correctly launched the configuration of this VM fails
+		if pid is None:
+			vm.ctxt_pid = None
+			vm.configured = False
+			vm.cont_out = "Error launching the contextualization agent to configure the VM. Check the SSH connection."
+
+		return pid
 
 	def generate_inventory(self, tmp_dir):
 		"""
@@ -518,7 +515,7 @@ class ConfManager(threading.Thread):
 			try:
 				ConfManager.logger.info("Inf ID: " + str(self.inf.id) + ": Start the contextualization process.")
 	
-				ssh = self.inf.vm_master.get_ssh()
+				ssh = self.inf.vm_master.get_ssh(retry=True)
 				# Activate tty mode to avoid some problems with sudo in REL
 				ssh.tty = True
 				
@@ -615,7 +612,7 @@ class ConfManager(threading.Thread):
 				ConfManager.logger.info("Inf ID: " + str(self.inf.id) + ": VMs available.")
 				
 				# Check and change if necessary the credentials of the master vm
-				ssh = self.inf.vm_master.get_ssh()
+				ssh = self.inf.vm_master.get_ssh(retry=True)
 				# Activate tty mode to avoid some problems with sudo in REL
 				ssh.tty = True
 				self.change_master_credentials(ssh)
@@ -688,7 +685,7 @@ class ConfManager(threading.Thread):
 			# TODO: Study why it is needed
 			time.sleep(2)
 			
-			ssh = self.inf.vm_master.get_ssh()
+			ssh = self.inf.vm_master.get_ssh(retry=True)
 			self.inf.add_cont_msg("Copying YAML, hosts and inventory files.")
 			ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Copying YAML files.")
 			ssh.sftp_mkdir(remote_dir)

@@ -121,3 +121,4 @@ IM 1.3.0
     * Bugfix in RADL with unicode strings
     * Add StarVM and StopVM functions to the API
     * Modify contextualziation process to ignore not running VMs enabling to configure the rest of VMs of an Inf. 
+    * Enable SSH with retry in all the ctxt steps
