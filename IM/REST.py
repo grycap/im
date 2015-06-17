@@ -389,3 +389,59 @@ def RESTStopInfrastructure(id=None):
 	except Exception, ex:
 		bottle.abort(400, "Error stopping infrastructure: " + str(ex))
 		return False
+	
+@app.route('/infrastructures/:infid/vms/:vmid/start', method='PUT')
+def RESTStartVM(infid=None, vmid=None, prop=None):
+	try:
+		auth_data = bottle.request.headers['AUTHORIZATION'].split(AUTH_LINE_SEPARATOR)
+		auth = Authentication(Authentication.read_auth_data(auth_data))
+	except:
+		bottle.abort(401, "No authentication data provided")
+	
+	try:
+		info = InfrastructureManager.StartVM(int(infid), vmid, auth)
+		bottle.response.content_type = "text/plain"
+		return info
+	except DeletedInfrastructureException, ex:
+		bottle.abort(404, "Error starting VM: " + str(ex))
+		return False
+	except IncorrectInfrastructureException, ex:
+		bottle.abort(404, "Error starting VM: " + str(ex))
+		return False
+	except DeletedVMException, ex:
+		bottle.abort(404, "Error starting VM: " + str(ex))
+		return False
+	except IncorrectVMException, ex:
+		bottle.abort(404, "Error starting VM: " + str(ex))
+		return False
+	except Exception, ex:
+		bottle.abort(400, "Error starting VM: " + str(ex))
+		return False
+	
+@app.route('/infrastructures/:infid/vms/:vmid/stop', method='PUT')
+def RESTStopVM(infid=None, vmid=None, prop=None):
+	try:
+		auth_data = bottle.request.headers['AUTHORIZATION'].split(AUTH_LINE_SEPARATOR)
+		auth = Authentication(Authentication.read_auth_data(auth_data))
+	except:
+		bottle.abort(401, "No authentication data provided")
+	
+	try:
+		info = InfrastructureManager.StopVM(int(infid), vmid, auth)
+		bottle.response.content_type = "text/plain"
+		return info
+	except DeletedInfrastructureException, ex:
+		bottle.abort(404, "Error stopping VM: " + str(ex))
+		return False
+	except IncorrectInfrastructureException, ex:
+		bottle.abort(404, "Error stopping VM: " + str(ex))
+		return False
+	except DeletedVMException, ex:
+		bottle.abort(404, "Error stopping VM: " + str(ex))
+		return False
+	except IncorrectVMException, ex:
+		bottle.abort(404, "Error stopping VM: " + str(ex))
+		return False
+	except Exception, ex:
+		bottle.abort(400, "Error stopping VM: " + str(ex))
+		return False

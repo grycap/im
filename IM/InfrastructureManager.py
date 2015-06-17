@@ -450,7 +450,12 @@ class InfrastructureManager:
 			if len(suggested_cloud_ids) > 1:
 				raise Exception("Two deployments that have to be launched in the same cloud provider are asked to be deployed in different cloud providers: %s" % deploy_group)
 			elif len(suggested_cloud_ids) == 1:
-				cloud_list0 = [ (suggested_cloud_ids[0], cloud_list[suggested_cloud_ids[0]]) ]
+				if suggested_cloud_ids[0] not in cloud_list:
+					InfrastructureManager.logger.debug("Cloud Provider list:")
+					InfrastructureManager.logger.debug(cloud_list)
+					raise Exception("No auth data for cloud with ID: %s" % suggested_cloud_ids[0])
+				else:
+					cloud_list0 = [ (suggested_cloud_ids[0], cloud_list[suggested_cloud_ids[0]]) ]
 			else:
 				cloud_list0 = cloud_list.items()
 			if d.vm_number:
@@ -536,7 +541,7 @@ class InfrastructureManager:
 		Args:
 
 		- inf_id(int): infrastructure id.
-		- vm_list(list of int): list of virtual machine ids.
+		- vm_list(str, int or list of str): list of virtual machine ids.
 		- auth(Authentication): parsed authentication tokens.
 
 		Return(int): number of undeployed virtual machines.
@@ -546,7 +551,14 @@ class InfrastructureManager:
 
 		sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
 
-		vm_ids = vm_list.split(",")
+		if isinstance(vm_list, str):
+			vm_ids = vm_list.split(",")
+		elif isinstance(vm_list, int):
+			vm_ids = [str(vm_list)]
+		elif isinstance(vm_list, list):
+			vm_ids = vm_list
+		else:
+			raise Exception('Incorrect parameter type to RemoveResource function: expected: str, int or list of str.')
 
 		cont = 0
 		exceptions = []
@@ -589,7 +601,13 @@ class InfrastructureManager:
 		Return: a str with the property value
 		"""
 		radl_data = InfrastructureManager.GetVMInfo(inf_id, vm_id, auth)
-		radl = radl_parse.parse_radl(radl_data)
+
+		try:
+			radl = radl_parse.parse_radl(radl_data)
+		except Exception, ex:
+			InfrastructureManager.logger.exception("Error parsing the RADL: " + radl_data)
+			raise ex
+
 		res = None
 		if radl.systems:
 			res = radl.systems[0].getValue(property_name)
@@ -829,6 +847,66 @@ class InfrastructureManager:
 
 		InfrastructureManager.logger.info("Infrastructure successfully restarted")
 		return ""
+
+	@staticmethod
+	def StartVM(inf_id, vm_id, auth):
+		"""
+		Start the specified virtual machine in an infrastructure previously stopped.
+
+		Args:
+
+		- inf_id(int): infrastructure id.
+		- vm_id(int): virtual machine id.
+		- auth(Authentication): parsed authentication tokens.
+
+		Return(str): error messages; empty string means all was ok.
+		"""
+
+		InfrastructureManager.logger.info("Starting the VM id %s from the infrastructure id: %s" % (vm_id, inf_id))
+
+		vm = InfrastructureManager.get_vm_from_inf(inf_id, vm_id, auth)
+		success = False
+		try:
+			(success, msg) = vm.start(auth)
+		except Exception, e:
+			msg = str(e)
+		
+		if not success:
+			InfrastructureManager.logger.info("The VM %s cannot be restarted: %s" % (vm_id, msg))
+			raise Exception("Error starting the VM: %s" % msg)
+		else:
+			InfrastructureManager.logger.info("The VM %s successfully restarted" % vm_id)
+			return ""
+
+	@staticmethod
+	def StopVM(inf_id, vm_id, auth):
+		"""
+		Stop the specified virtual machine in an infrastructure
+
+		Args:
+
+		- inf_id(int): infrastructure id.
+		- vm_id(int): virtual machine id.
+		- auth(Authentication): parsed authentication tokens.
+
+		Return(str): error messages; empty string means all was ok.
+		"""
+
+		InfrastructureManager.logger.info("Stopping the VM id %s from the infrastructure id: %s" % (vm_id, inf_id))
+
+		vm = InfrastructureManager.get_vm_from_inf(inf_id, vm_id, auth)
+		success = False
+		try:
+			(success, msg) = vm.stop(auth)
+		except Exception, e:
+			msg = str(e)
+		
+		if not success:
+			InfrastructureManager.logger.info("The VM %s cannot be stopped: %s" % (vm_id, msg))
+			raise Exception("Error stopping the VM: %s" % msg)
+		else:
+			InfrastructureManager.logger.info("The VM %s successfully stopped" % vm_id)
+			return ""
 
 	@staticmethod
 	def remove_old_inf():

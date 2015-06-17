@@ -101,7 +101,7 @@ class FogBowCloudConnector(CloudConnector):
 		lines = occi_res.split("\n")
 		for l in lines:
 			if l.find('X-OCCI-Attribute: ' + attr_name + '=') != -1:
-				return l.split('=')[1].strip('"')
+				return str(l.split('=')[1].strip().strip('"'))
 		return None
 	
 	"""

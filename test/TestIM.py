@@ -53,12 +53,13 @@ class TestIM(unittest.TestCase):
         except Exception:
             pass
 
-    def wait_inf_state(self, state, timeout, incorrect_states = []):
+    def wait_inf_state(self, state, timeout, incorrect_states = [], vm_ids = None):
         """
         Wait for an infrastructure to have a specific state
         """
-        (success, vm_ids) = self.server.GetInfrastructureInfo(self.inf_id, self.auth_data)
-        self.assertTrue(success, msg="ERROR calling the GetInfrastructureInfo function:" + str(vm_ids))
+        if not vm_ids:
+            (success, vm_ids) = self.server.GetInfrastructureInfo(self.inf_id, self.auth_data)
+            self.assertTrue(success, msg="ERROR calling the GetInfrastructureInfo function:" + str(vm_ids))
 
         err_states = [VirtualMachine.FAILED, VirtualMachine.OFF, VirtualMachine.UNCONFIGURED]
         err_states.extend(incorrect_states)
@@ -229,11 +230,35 @@ class TestIM(unittest.TestCase):
         """
         Test StartInfrastructure function
         """
+        # Assure the VM to be stopped
+        time.sleep(10)
         (success, res) = self.server.StartInfrastructure(self.inf_id, self.auth_data)
         self.assertTrue(success, msg="ERROR calling StartInfrastructure: " + str(res))
 
-        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 120, [VirtualMachine.RUNNING])
+        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 150, [VirtualMachine.RUNNING])
         self.assertTrue(all_configured, msg="ERROR waiting the infrastructure to be started (timeout).")
+
+    def test_23_stop_vm(self):
+        """
+        Test StopVM function
+        """
+        (success, res) = self.server.StopVM(self.inf_id, 0, self.auth_data)
+        self.assertTrue(success, msg="ERROR calling StopVM: " + str(res))
+
+        all_stopped = self.wait_inf_state(VirtualMachine.STOPPED, 120, [VirtualMachine.RUNNING], [0])
+        self.assertTrue(all_stopped, msg="ERROR waiting the vm to be stopped (timeout).")
+        
+    def test_24_start_vm(self):
+        """
+        Test StartVM function
+        """
+        # Assure the VM to be stopped
+        time.sleep(10)
+        (success, res) = self.server.StartVM(self.inf_id, 0, self.auth_data)
+        self.assertTrue(success, msg="ERROR calling StartVM: " + str(res))
+
+        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 150, [VirtualMachine.RUNNING], [0])
+        self.assertTrue(all_configured, msg="ERROR waiting the vm to be started (timeout).")
 
     def test_50_destroy(self):
         """

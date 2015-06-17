@@ -152,7 +152,7 @@ class InfrastructureInfo:
 		
 	def get_vm_list(self):
 		"""
-		Get the list of not destroyed VMs
+		Get the list of not destroyed VMs.
 		"""
 		with self._lock:
 			res = [vm for vm in self.vm_list if not vm.destroy]
@@ -176,6 +176,9 @@ class InfrastructureInfo:
 			raise IncorrectVMException()
 
 	def get_vm_list_by_system_name(self):
+		"""
+		Get the list of not destroyed VMs grouped by the name of system.
+		"""
 		groups = {}
 		for vm in self.get_vm_list():
 			if vm.getRequestedSystem().name in groups:
@@ -385,6 +388,8 @@ class InfrastructureInfo:
 		ctxt_task.append((-1,0,self,['configure_master', 'generate_playbooks_and_hosts']))
 		
 		for vm in self.get_vm_list():
+			# Assure to update the VM status before running the ctxt process
+			vm.update_status(auth)
 			vm.cont_out = "" 
 			vm.configured = None
 			tasks = {}
