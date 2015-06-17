@@ -43,7 +43,7 @@ class OCCICloudConnector(CloudConnector):
 		'active': VirtualMachine.RUNNING,
 		'inactive': VirtualMachine.OFF,
 		'error': VirtualMachine.FAILED,
-		'suspended': VirtualMachine.OFF
+		'suspended': VirtualMachine.STOPPED
 	}
 	"""Dictionary with a map with the OCCI VM states to the IM states."""
 
@@ -56,7 +56,7 @@ class OCCICloudConnector(CloudConnector):
 		Get a HTTPS connection with the specified server.
 		It uses a proxy file if it has been specified in the auth credentials 
 		"""
-		if 'proxy' in auth:
+		if auth and 'proxy' in auth:
 			if self.proxy_filename and os.path.isfile(self.proxy_filename):
 				proxy_filename = self.proxy_filename 
 			else:
@@ -78,6 +78,7 @@ class OCCICloudConnector(CloudConnector):
 		auths = auth_data.getAuthInfo(self.type, self.cloud.server)
 		if not auths:
 			self.logger.error("No correct auth data has been specified to OCCI.")
+			auth = None
 		else:
 			auth = auths[0]
 
@@ -227,7 +228,15 @@ class OCCICloudConnector(CloudConnector):
 			elif resp.status != 200:
 				return (False, resp.reason + "\n" + output)
 			else:
-				vm.state = self.VM_STATE_MAP.get(self.get_occi_attribute_value(output, 'occi.compute.state'), VirtualMachine.UNKNOWN)
+				old_state = vm.state
+				occi_state = self.get_occi_attribute_value(output, 'occi.compute.state')
+				
+				# I have to do that because OCCI returns 'inactive' when a VM is starting
+				# to distinguish from the OFF state
+				if old_state == VirtualMachine.PENDING and occi_state == 'inactive':
+					vm.state = VirtualMachine.PENDING
+				else:
+					vm.state = self.VM_STATE_MAP.get(occi_state, VirtualMachine.UNKNOWN)
 				
 				cores = self.get_occi_attribute_value(output, 'occi.compute.cores')
 				if cores:
@@ -345,10 +354,10 @@ users:
 			(public_key, private_key) = self.keygen()
 			system.setValue('disk.0.os.credentials.private_key', private_key)
 		
-		user = system.getValue('disk.os.credentials.username')
+		user = system.getValue('disk.0.os.credentials.username')
 		if not user:
 			user = "cloudadm"
-			system.setValue('disk.os.credentials.username', user)
+			system.setValue('disk.0.os.credentials.username', user)
 
 		cloud_config = self.gen_cloud_config(public_key, user)
 		user_data = base64.b64encode(cloud_config).replace("\n","")

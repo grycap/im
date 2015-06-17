@@ -102,7 +102,7 @@ class Feature:
 
 	def __str__(self):
 		return ("{0} {1} ({2})" if self.operator == "contains" else
-		        "{0} {1} '{2}'" if isinstance(self.value, str) else
+		        "{0} {1} '{2}'" if isinstance(self.value, str) or isinstance(self.value, unicode) else
 			"{0} {1} {2}{3}").format(self.prop, self.operator, self.value,
 		                                 self.unit if self.unit else "") 
 
@@ -152,12 +152,16 @@ class Feature:
 			if not isinstance(self.value, int) and not isinstance(self.value, float):
 				raise RADLParseException("Invalid type; expected %s" % check[0],
 									 line=self.line)
+		elif check[0] == str:
+			if not isinstance(self.value, str) and not isinstance(self.value, unicode):
+				raise RADLParseException("Invalid type; expected %s" % check[0],
+									 line=self.line)
 		else:
 			if not isinstance(self.value, check[0]):
 				raise RADLParseException("Invalid type; expected %s" % check[0],
 									 line=self.line)
 		# Check operator
-		if isinstance(self.value, str) and self.prop.find('version') == -1:
+		if (isinstance(self.value, str) or isinstance(self.value, unicode)) and self.prop.find('version') == -1:
 			if self.operator != "=":
 				raise RADLParseException("Invalid operator; expected '='",
 										 line=self.line)
@@ -1055,6 +1059,7 @@ class system(Features, Aspect):
 				"image.name": (str, None),
 				"type": (str, ["SWAP", "ISO", "FILESYSTEM"]),
 				"device": (str, None),
+				"mount_path": (str, None),
 				"size": (float, positive, mem_units),
 				"free_size": (float, positive, mem_units),
 				"os.name": (str, ["LINUX", "WINDOWS", "MAC OS X"]),

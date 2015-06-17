@@ -79,7 +79,8 @@ def StartInfrastructure(inf_id, auth_data):
 	return WaitRequest(request)
 
 def DestroyInfrastructure(inf_id, auth_data):
-	request = IMBaseRequest.create_request(IMBaseRequest.DESTROY_INFRASTRUCTURE,(inf_id, auth_data)) 
+	request = IMBaseRequest.create_request(IMBaseRequest.DESTROY_INFRASTRUCTURE,(inf_id, auth_data))
+	# This function take a lot of time in some connectors. We can make it async: return (True, "") 
 	return WaitRequest(request)
 
 def CreateInfrastructure(radl_data, auth_data):
@@ -112,6 +113,14 @@ def GetVMContMsg(inf_id, vm_id, auth_data):
 
 def GetInfrastructureContMsg(inf_id, auth_data):
 	request = IMBaseRequest.create_request(IMBaseRequest.GET_INFRASTRUCTURE_CONT_MSG,(inf_id, auth_data)) 
+	return WaitRequest(request)
+
+def StopVM(inf_id, vm_id, auth_data):
+	request = IMBaseRequest.create_request(IMBaseRequest.STOP_VM,(inf_id, vm_id, auth_data)) 
+	return WaitRequest(request)
+
+def StartVM(inf_id, vm_id, auth_data):
+	request = IMBaseRequest.create_request(IMBaseRequest.START_VM,(inf_id, vm_id, auth_data)) 
 	return WaitRequest(request)
 
 def launch_daemon():
@@ -150,6 +159,8 @@ def launch_daemon():
 	server.register_function(GetInfrastructureRADL)
 	server.register_function(GetInfrastructureContMsg)
 	server.register_function(GetVMContMsg)
+	server.register_function(StartVM)
+	server.register_function(StopVM)
 	
 	InfrastructureManager.logger.info('************ Start Infrastructure Manager daemon (v.%s) ************' % version)
 

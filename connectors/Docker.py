@@ -38,6 +38,8 @@ class DockerCloudConnector(CloudConnector):
 	""" Base number to assign SSH port on Docker server host."""
 	_port_counter = 0
 	""" Counter to assign SSH port on Docker server host."""
+	_root_password = "Aspecial+0ne"
+	""" Default password to set to the root in the container"""
 
 	def __init__(self, cloud_info):
 		self.cert_file = ''
@@ -54,16 +56,20 @@ class DockerCloudConnector(CloudConnector):
 		"""
 
 		self.cert_file or os.path.isfile(self.cert_file)
-
-			
-		auth = auth_data.getAuthInfo(DockerCloudConnector.type)		
+		
 		url = uriparse(self.cloud.server)
+		auths = auth_data.getAuthInfo(DockerCloudConnector.type, url[1])
+		if not auths:
+			self.logger.error("No correct auth data has been specified to Docker.")
+			return None
+		else:
+			auth = auths[0]
 		
 		if url[0] == 'unix':
 			socket_path = "/" + url[1] + url[2]
 			conn = UnixHTTPConnection.UnixHTTPConnection(socket_path)
 		elif url[0] == 'https':
-			if auth and 'cert' in auth[0] and 'key' in auth[0]:
+			if 'cert' in auth and 'key' in auth:
 				if os.path.isfile(self.cert_file) and os.path.isfile(self.key_file):
 					cert_file = self.cert_file 
 					key_file = self.key_file 
@@ -84,13 +90,13 @@ class DockerCloudConnector(CloudConnector):
 		"""
 		Get the Docker private_key and public_key files from the auth data 
 		"""
-		certificate = auth[0]['cert']
+		certificate = auth['cert']
 		fd, cert_file = tempfile.mkstemp()
 		os.write(fd, certificate)
 		os.close(fd)
 		os.chmod(cert_file,0644)
 		
-		private_key = auth[0]['key']
+		private_key = auth['key']
 		fd, key_file = tempfile.mkstemp()
 		os.write(fd, private_key)
 		os.close(fd)
@@ -110,6 +116,9 @@ class DockerCloudConnector(CloudConnector):
 
 				res_system.getFeature("cpu.count").operator = "="
 				res_system.getFeature("memory.size").operator = "="
+				
+				res_system.setValue('disk.0.os.credentials.username', 'root')
+				res_system.setValue('disk.0.os.credentials.password', self._root_password)
 				
 				res_system.addFeature(Feature("provider.type", "=", self.type), conflict="other", missing="other")
 				res_system.addFeature(Feature("provider.host", "=", self.cloud.server), conflict="other", missing="other")
@@ -143,56 +152,89 @@ class DockerCloudConnector(CloudConnector):
 
 		vm.setIps(public_ips, private_ips)
 
-	def _generate_volumes(self, system):
-		volumes = ',"Volumes":{'
+	def _generate_create_request_data(self, outports, system, vm, ssh_port):
+		cont_data = {}
 		
-		cont = 1
-		while system.getValue("disk." + str(cont) + ".size") and system.getValue("disk." + str(cont) + ".device"):
-			# Use the device as the volume dir
-			disk_device = system.getValue("disk." + str(cont) + ".device")
-			if not disk_device.startswith('/'):
-				disk_device = '/' + disk_device
-			self.logger.debug("Attaching a volume in %s" % disk_device)
-			if cont > 1:
-				volumes += ','
-			volumes += '"' + disk_device + '":{}'
-			cont += 1
-		
-		if cont == 1:
-			volumes = ""
-		else:
-			volumes += "}"
-
-		return volumes
-			
-	def _generate_port_bindings(self, outports, ssh_port):
-		port_bindings = ""
-		ssh_found = False
-		if outports:
-			num = 0
-			for remote_port,_,local_port,local_protocol in outports:
-				if num > 0:
-					port_bindings = port_bindings + ",\n"
-				port_bindings = port_bindings + '"PortBindings":{ "' + str(local_port) + '/' + local_protocol + '": [{ "HostPort": "' + str(remote_port) + '" }] }'
-				num += 1
-	
-		if not ssh_found:
-			if port_bindings:
-				port_bindings += ",\n"
-			port_bindings = port_bindings + '"PortBindings":{ "22/tcp": [{ "HostPort": "' + str(ssh_port) + '" }] }\n'
-
-		return port_bindings
-
-	def launch(self, inf, radl, requested_radl, num_vm, auth_data):
-		system = radl.systems[0]
-		
-		cpu = int(system.getValue('cpu.count'))
+		cpu = int(system.getValue('cpu.count')) - 1
 		memory = system.getFeature('memory.size').getValue('B')
 		#name = system.getValue("disk.0.image.name")
 		# The URI has this format: docker://image_name
 		image_name = system.getValue("disk.0.image.url")[9:]
 		
+		(nodename, nodedom) = vm.getRequestedName(default_hostname = Config.DEFAULT_VM_NAME, default_domain = Config.DEFAULT_DOMAIN)
+		
 		volumes = self._generate_volumes(system)
+		
+		cont_data['Hostname'] = nodename
+		cont_data['Domainname'] = nodedom
+		cont_data['Cmd'] = ["/bin/bash", "-c", "yum install -y openssh-server ;  apt-get update && apt-get install -y openssh-server && sed -i 's/PermitRootLogin without-password/PermitRootLogin yes/g' /etc/ssh/sshd_config && service ssh start && service ssh stop ; echo 'root:" + self._root_password + "' | chpasswd ; /usr/sbin/sshd -D"]
+		cont_data['Image'] = image_name
+		cont_data['ExposedPorts'] = self._generate_exposed_ports(outports)
+		if volumes:
+			cont_data['Volumes'] = volumes
+		
+		HostConfig = {}
+		HostConfig['CpusetCpus'] = "0-%d" % cpu
+		HostConfig['Memory'] = memory
+		HostConfig['PortBindings'] = self._generate_port_bindings(outports, ssh_port)
+		HostConfig['Binds'] = self._generate_volumes_binds(system)
+		cont_data['HostConfig'] = HostConfig
+		
+		return cont_data	
+	
+	def _generate_volumes_binds(self, system):
+		binds = []
+		
+		cont = 1
+		while system.getValue("disk." + str(cont) + ".size") and system.getValue("disk." + str(cont) + ".mount_path") and system.getValue("disk." + str(cont) + ".device"):
+			disk_mount_path = system.getValue("disk." + str(cont) + ".mount_path")
+			# Use the device as volume host path to bind
+			disk_device = system.getValue("disk." + str(cont) + ".device")
+			if not disk_mount_path.startswith('/'):
+				disk_mount_path = '/' + disk_mount_path
+			if not disk_device.startswith('/'):
+				disk_device = '/' + disk_device
+			self.logger.debug("Binding a volume in %s to %s" % (disk_device, disk_mount_path))
+			binds.append(disk_device + ":" + disk_mount_path)
+			cont += 1
+
+		return binds
+	
+	def _generate_volumes(self, system):
+		volumes = {} 
+		
+		cont = 1
+		while system.getValue("disk." + str(cont) + ".size") and system.getValue("disk." + str(cont) + ".mount_path"):
+			# Use the mount_path as the volume dir
+			disk_mount_path = system.getValue("disk." + str(cont) + ".mount_path")
+			if not disk_mount_path.startswith('/'):
+				disk_mount_path = '/' + disk_mount_path
+			self.logger.debug("Attaching a volume in %s" % disk_mount_path)
+			volumes[disk_mount_path] = {}
+			cont += 1
+
+		return volumes
+	
+	def _generate_exposed_ports(self, outports):	
+		exposed_ports = {"22/tcp": {}}
+		if outports:
+			for _,_,local_port,local_protocol in outports:
+				if local_port != 22:
+					exposed_ports[str(local_port) + '/' + local_protocol.lower()] = {}
+		return exposed_ports
+		
+	def _generate_port_bindings(self, outports, ssh_port):	
+		res = {}
+		res["22/tcp"] = [{"HostPort":ssh_port}]
+		if outports:
+			for remote_port,_,local_port,local_protocol in outports:
+				if local_port != 22:
+					res[str(local_port) + '/' + local_protocol] = [{"HostPort":remote_port}]
+
+		return res
+
+	def launch(self, inf, radl, requested_radl, num_vm, auth_data):
+		system = radl.systems[0]
 		
 		public_net = None
 		for net in radl.networks:
@@ -203,12 +245,6 @@ class DockerCloudConnector(CloudConnector):
 		if public_net:
 			outports = public_net.getOutPorts()
 		
-		exposed_ports = '"22/tcp": {}'
-		if outports:
-			for _,_,local_port,local_protocol in outports:
-				if local_port != 22:
-					exposed_ports = exposed_ports + ', "' + str(local_port) + '/' + local_protocol + '": {}'
-		
 		conn = self.get_http_connection(auth_data)
 		res = []
 		i = 0
@@ -216,30 +252,21 @@ class DockerCloudConnector(CloudConnector):
 			try:
 				i += 1
 
+				ssh_port = 22
+				if public_net:
+					ssh_port = (DockerCloudConnector._port_base_num + DockerCloudConnector._port_counter) % 65535
+					DockerCloudConnector._port_counter += 1
+					
 				# Create the VM to get the nodename
 				vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self)
-				(nodename, nodedom) = vm.getRequestedName(default_hostname = Config.DEFAULT_VM_NAME, default_domain = Config.DEFAULT_DOMAIN)
-		
-				create_request_json = """ {
-					 "Hostname":"%s",
-					 "Domainname": "%s",
-					 "Cpuset": "0-%d",
-					 "Memory":%s,
-					 "Cmd":[
-							 "/bin/bash", "-c", "yum install -y openssh-server ;  apt-get update && apt-get install -y openssh-server && sed -i 's/PermitRootLogin without-password/PermitRootLogin yes/g' /etc/ssh/sshd_config && service ssh start && service ssh stop ; echo 'root:yoyoyo' | chpasswd ; /usr/sbin/sshd -D"
-					 ],
-					 "Image":"%s",
-					 "ExposedPorts":{
-							 %s
-					 }
-					 %s
-				}""" % (nodename, nodedom, cpu-1, memory,image_name,exposed_ports,volumes)
 
 				# Create the container
 				conn.putrequest('POST', "/containers/create")
 				conn.putheader('Content-Type', 'application/json')
 				
-				body = create_request_json
+				cont_data = self._generate_create_request_data(outports, system, vm, ssh_port)
+				body = json.dumps(cont_data)
+				
 				conn.putheader('Content-Length', len(body))
 				conn.endheaders(body)
 
@@ -250,41 +277,22 @@ class DockerCloudConnector(CloudConnector):
 					continue
 
 				output = json.loads(output)
-				docker_vm_id = output["Id"]
-				
+				# Set the cloud id to the VM
+				vm.id = output["Id"]
+
 				# Now start it
-				conn.putrequest('POST', "/containers/" + docker_vm_id + "/start")
-				conn.putheader('Content-Type', 'application/json')
-				
-				start_request_json = "{}"
-				# If the user requested a public IP, specify the PortBindings
-				ssh_port = 22
-				if public_net:
-					start_request_json = " { "
-					
-					ssh_port = DockerCloudConnector._port_base_num + DockerCloudConnector._port_counter
-					DockerCloudConnector._port_counter += 1
-
-					start_request_json += self._generate_port_bindings(outports, ssh_port)
-					
-					start_request_json += "}" 
-				
-				body = start_request_json
-				conn.putheader('Content-Length', len(body))
-				conn.endheaders(body)
-
-				resp = conn.getresponse()
-				output = resp.read()
-				if resp.status != 204:
-					res.append((False, "Error staring the Container: " + output))
+				success, _ = self.start(vm, auth_data)
+				if not success:
+					res.append((False, "Error starting the Container: " + output))
 					# Delete the container
-					conn.request('DELETE', "/containers/" + docker_vm_id) 
+					conn.request('DELETE', "/containers/" + vm.id) 
 					resp = conn.getresponse()			
 					resp.read()
 					continue
 
-				# Now set the cloud id to the VM
-				vm.id = docker_vm_id
+				# Set the default user and password to access the container
+				vm.info.systems[0].setValue('disk.0.os.credentials.username', 'root')
+				vm.info.systems[0].setValue('disk.0.os.credentials.password', self._root_password)
 				
 				# Set ssh port in the RADL info of the VM
 				vm.setSSHPort(ssh_port)
@@ -346,7 +354,6 @@ class DockerCloudConnector(CloudConnector):
 		except Exception:
 			self.logger.exception("Error connecting with Docker server")
 			return (False, "Error connecting with Docker server")
-
 
 	def stop(self, vm, auth_data):
 		try:
