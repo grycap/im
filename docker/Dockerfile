@@ -8,4 +8,6 @@ RUN apt-get update && apt-get install -y gcc python-dev python-pip python-soappy
 RUN pip install IM
 RUN pip uninstall -y SOAPpy
 COPY ansible.cfg /etc/ansible/ansible.cfg
+# Solve a bug in gce.py driver in libcloud 0.17
+COPY gce.py /usr/local/lib/python2.7/dist-packages/libcloud/compute/drivers/gce.py
 CMD im_service.py
