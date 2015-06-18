@@ -94,7 +94,7 @@ the packages python-paramiko and python-crypto before installing the IM with pip
 
 You only have to install the IM package through the pip tool.
 
-	pip install IM
+	$ pip install IM
 
 Pip will install all the pre-requisites needed. So Ansible  1.4.2 or later will 
 be installed in the system. Yo will also need to install the sshpass command 
@@ -173,3 +173,13 @@ or
 REST_SSL = True
 
 And then set the variables: XMLRCP_SSL_* or REST_SSL_* to your certificates paths.
+
+2. DOCKER IMAGE
+===============
+
+A Docker image named `grycap/im` has been created to make easier the deployment of an IM service using the 
+default configuration. Information about this image can be found here: https://registry.hub.docker.com/u/grycap/im/.
+
+How to launch the IM service using docker:
+
+	$ sudo docker run -d -p 8899:8899 --name im grycap/im 
