@@ -145,6 +145,18 @@ section. The options are explained next.
 
 .. _options-basic:
 
+2. DOCKER IMAGE
+===============
+
+A Docker image named `grycap/im` has been created to make easier the deployment of an IM service using the 
+default configuration. Information about this image can be found here: https://registry.hub.docker.com/u/grycap/im/.
+
+How to launch the IM service using docker:
+
+```sh
+sudo docker run -d -p 8899:8899 --name im grycap/im
+```````````````````````````````````````````````````
+
 Basic Options
 ^^^^^^^^^^^^^
 
