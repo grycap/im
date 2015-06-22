@@ -243,6 +243,10 @@ class FogBowCloudConnector(CloudConnector):
 		else:
 			os_tpl = url[1]
 		
+		# set the credentials the FogBow default username: fogbow
+		system.delValue('disk.0.os.credentials.username')
+		system.setValue('disk.0.os.credentials.username','fogbow')
+		
 		public_key = system.getValue('disk.0.os.credentials.public_key')
 		
 		if not public_key:
