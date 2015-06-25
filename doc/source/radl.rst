@@ -217,6 +217,8 @@ machine.  The supported features are:
    * ``gce://<region>/<image-id>``, for Google Cloud;
    * ``azr://<image-id>``, for Microsoft Azure; and
    * ``<fedcloud_endpoint_url>/<image_id>``, for FedCloud OCCI connector.
+   * ``docker://<docker_image>``, for Docker images.
+   * ``fbw://<fogbow_image>``, for FogBow images.
 
    Either ``disk.0.image.url`` or ``disk.0.image.name`` must be set.
 
@@ -273,6 +275,21 @@ machine.  The supported features are:
    the application must have already installed; and if ``no``, the application
    can be installed during the contextualization of the virtual machine if it
    is not installed.
+   
+   There are a **special** type of application that starts with ``ansible.modules.``.
+   These applications installs `ansible roles <https://docs.ansible.com/playbooks_roles.html>`_
+   that can be used in the ``configure`` sections of the RADL.
+   There are three type of ansible modules:
+   
+   * `Ansible Galaxy <https://galaxy.ansible.com/>`_ roles: ``ansible.modules.micafer.hadoop``: The user
+     specifies the name of the galaxy role afther the string ``ansible.modules.``
+   * HTTP URL: ``ansible.modules.http://server.com/hadoop.tgz``: The user specifies an HTTP URL afther the
+     the string ``ansible.modules.``. The file must be compressed. it must contain only one directory 
+     with the same name of the compressed file (without extension) with the ansible role content.
+   * Git Repo: ``ansible.modules.git://github.com/micafer/ansible-role-hadoop|hadoop``: The user specifies a Git repo
+     (using the git scheme in the URL) afther the string ``ansible.modules.``. Furthermore the 
+     user must specify the rolname using a | afther the url, ash shown in the example.
+
 
 Parametric Values
 -----------------

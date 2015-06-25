@@ -709,7 +709,7 @@ class ConfManager(threading.Thread):
 		
 		new_radl = ""
 		for net in vm.info.networks:
-			new_radl = "network " + net.id + "\n"								
+			new_radl += "network " + net.id + "\n"								
 		new_radl += "system " + vm.getRequestedSystem().name + "\n"
 		new_radl += "deploy " + vm.getRequestedSystem().name + " 1"
 		
@@ -1002,10 +1002,41 @@ class ConfManager(threading.Thread):
 		for galaxy_name in modules:
 			if galaxy_name:
 				recipe_out = open(tmp_dir + "/" + ConfManager.MASTER_YAML, 'a')
-				self.inf.add_cont_msg("Galaxy role " + galaxy_name + " detected setting to install.")
-				ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Install " + galaxy_name + " with ansible-galaxy.")
-				recipe_out.write("    - name: Install the " + galaxy_name + " role with ansible-galaxy\n")
-				recipe_out.write("      command: ansible-galaxy --force install " + galaxy_name + "\n")
+				
+				if galaxy_name.startswith("http"):
+					# in case of http url, the file must be compressed 
+					# it must contain only one directory with the same name of the compressed file
+					# (without extension) with the ansible role content 
+					filename = os.path.basename(galaxy_name)
+					self.inf.add_cont_msg("Remote file " + galaxy_name + " detected, setting to install.")
+					ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Install " + galaxy_name + " with ansible-galaxy.")
+					recipe_out.write("    - get_url: url=" + galaxy_name + " dest=/tmp/" + filename + "\n")
+					recipe_out.write("    - unarchive: src=/tmp/" + filename  + " dest=/tmp copy=no\n")
+					recipe_out.write("    - file: path=/etc/ansible/roles state=directory recurse=yes\n")
+					recipe_out.write("    - shell: mv -f /tmp/" + os.path.splitext(filename)[0] + " /etc/ansible/roles\n")
+				if galaxy_name.startswith("git"):
+					# in case of git repo, the user must specify the rolname using a | afther the url
+					parts = galaxy_name.split("|")
+					if len(parts) > 1:
+						url = parts[0]
+						rolename = parts[1]
+						self.inf.add_cont_msg("Git Repo " + url + " detected, setting to install.")
+						ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Clone " + url + " with git.")
+						recipe_out.write("    - file: path=/etc/ansible/roles state=directory\n")
+						recipe_out.write("    - yum: name=git\n")
+						recipe_out.write('      when: ansible_os_family == "RedHat"\n')
+						recipe_out.write("    - apt: name=git\n")
+						recipe_out.write('      when: ansible_os_family == "Debian"\n')
+						recipe_out.write("    - git: repo=" + url + " dest=/etc/ansible/roles/" + rolename + " accept_hostkey=yes\n")
+					else:
+						self.inf.add_cont_msg("Not specified the rolename. Ignoring git repo.")
+						ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": Not specified the rolename. Ignoring git repo.")
+				else:
+					self.inf.add_cont_msg("Galaxy role " + galaxy_name + " detected setting to install.")
+					ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Install " + galaxy_name + " with ansible-galaxy.")
+					recipe_out.write("    - name: Install the " + galaxy_name + " role with ansible-galaxy\n")
+					recipe_out.write("      command: ansible-galaxy --force install " + galaxy_name + "\n")
+				
 				recipe_out.close()
 				
 		self.inf.add_cont_msg("Performing preliminary steps to configure Ansible.")

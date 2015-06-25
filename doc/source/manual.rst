@@ -101,7 +101,7 @@ content and move the extracted directory to the installation path (for instance
 :file:`/usr/local` or :file:`/opt`)::
 
    $ tar xvzf IM-0.1.tar.gz
-   $ sudo chown -R root:root IM-0.1.tar.gz
+   $ sudo chown -R r```````````````````````````````````````````````oot:root IM-0.1.tar.gz
    $ sudo mv IM-0.1 /usr/local
 
 Finally you must copy (or link) $IM_PATH//scripts/im file to /etc/init.d directory::
@@ -144,18 +144,6 @@ at the directory :file:`etc` on the tarball. The IM reads the values of the ``im
 section. The options are explained next.
 
 .. _options-basic:
-
-2. DOCKER IMAGE
-===============
-
-A Docker image named `grycap/im` has been created to make easier the deployment of an IM service using the 
-default configuration. Information about this image can be found here: https://registry.hub.docker.com/u/grycap/im/.
-
-How to launch the IM service using docker:
-
-```sh
-sudo docker run -d -p 8899:8899 --name im grycap/im
-```````````````````````````````````````````````````
 
 Basic Options
 ^^^^^^^^^^^^^
@@ -440,3 +428,13 @@ The configuration values under the ``OpenNebula`` section:
    Text to add to the ONE Template different to NAME, CPU, VCPU, MEMORY, OS, DISK and CONTEXT
    The default value is ``GRAPHICS = [type="vnc",listen="0.0.0.0"]``. 
 
+
+Docker Image
+============
+
+A Docker image named `grycap/im` has been created to make easier the deployment of an IM service using the 
+default configuration. Information about this image can be found here: https://registry.hub.docker.com/u/grycap/im/.
+
+How to launch the IM service using docker::
+
+  $ sudo docker run -d -p 8899:8899 --name im grycap/im
