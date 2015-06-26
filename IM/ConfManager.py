@@ -427,6 +427,40 @@ class ConfManager(threading.Thread):
 		recipe_files.append("basic_task_all.yml")
 		return recipe_files
 	
+	def generate_mount_disks_tasks(self, system):
+		"""
+		Generate a set of tasks to format and mount the specified disks
+		"""
+		res = ""
+		cont = 1
+		
+		while system.getValue("disk." + str(cont) + ".size") and system.getValue("disk." + str(cont) + ".device"):
+			disk_device = system.getValue("disk." + str(cont) + ".device")
+			disk_mount_path = system.getValue("disk." + str(cont) + ".mount_path")
+			disk_fstype = system.getValue("disk." + str(cont) + ".fstype")
+			
+			# Only add the tasks if the user has specified a moun_path and a filesystem
+			if disk_mount_path and disk_fstype:
+				# This recipe works with EC2 and OpenNebula. It must be tested/completed with other providers
+				with_first_found = '    with_first_found: \n'
+				with_first_found += '     - "/dev/sd' + disk_device[-1] + '"\n'
+				with_first_found += '     - "/dev/hd' + disk_device[-1] + '"\n'
+				with_first_found += '     - "/dev/xvd' + disk_device[-1] + '"\n'
+				
+				res += '  # Tasks to format and mount disk%d from device %s in %s\n' % (cont, disk_device, disk_mount_path)
+				res += '  - shell: (echo n; echo p; echo 1; echo ; echo; echo w) | fdisk {{item}} creates={{item}}1\n'
+				res += with_first_found
+				res += '  - filesystem: fstype=' + disk_fstype + ' dev={{item}}1\n'
+				res += with_first_found
+				res += '  - file: path=' + disk_mount_path + ' state=directory recurse=yes\n'
+				res += '  - mount: name=' + disk_mount_path + ' src={{item}}1 state=mounted fstype=' + disk_fstype +'\n'
+				res += with_first_found
+				res += '\n'
+			
+			cont +=1
+
+		return res
+	
 	def generate_main_playbook(self, vm, group, tmp_dir):
 		"""
 		Generate the main playbook to be launched in all the VMs.
@@ -446,6 +480,9 @@ class ConfManager(threading.Thread):
 
 		conf_content += "  tasks: \n"
 		conf_content += "  - debug: msg='Install user requested apps'\n"
+		
+		# Generate a set of tasks to format and mount the specified disks
+		conf_content += self.generate_mount_disks_tasks(vm.info.systems[0])
 		
 		for app_name, recipe in recipes:
 			self.inf.add_cont_msg("App: " + app_name + " set to be installed.")
