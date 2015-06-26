@@ -705,7 +705,15 @@ class ConfManager(threading.Thread):
 		"""
 		Remove and launch again the specified VM
 		"""
-		InfrastructureManager.InfrastructureManager.RemoveResource(self.inf.id, vm.id, self.auth)
+		try:
+			removed = InfrastructureManager.InfrastructureManager.RemoveResource(self.inf.id, vm.im_id, self.auth)
+		except:
+			ConfManager.logger.exception("Inf ID: " + str(self.inf.id) + ": Error removing a failed VM.")
+			removed = 0
+		
+		if removed != 1:
+			ConfManager.logger.error("Inf ID: " + str(self.inf.id) + ": Error removing a failed VM. Not launching a new one.")
+			return
 		
 		new_radl = ""
 		for net in vm.info.networks:
@@ -1010,10 +1018,9 @@ class ConfManager(threading.Thread):
 					filename = os.path.basename(galaxy_name)
 					self.inf.add_cont_msg("Remote file " + galaxy_name + " detected, setting to install.")
 					ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Install " + galaxy_name + " with ansible-galaxy.")
-					recipe_out.write("    - get_url: url=" + galaxy_name + " dest=/tmp/" + filename + "\n")
-					recipe_out.write("    - unarchive: src=/tmp/" + filename  + " dest=/tmp copy=no\n")
 					recipe_out.write("    - file: path=/etc/ansible/roles state=directory recurse=yes\n")
-					recipe_out.write("    - shell: mv -f /tmp/" + os.path.splitext(filename)[0] + " /etc/ansible/roles\n")
+					recipe_out.write("    - get_url: url=" + galaxy_name + " dest=/tmp/" + filename + "\n")
+					recipe_out.write("    - unarchive: src=/tmp/" + filename  + " dest=/etc/ansible/roles copy=no\n")
 				if galaxy_name.startswith("git"):
 					# in case of git repo, the user must specify the rolname using a | afther the url
 					parts = galaxy_name.split("|")
