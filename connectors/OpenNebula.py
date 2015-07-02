@@ -176,7 +176,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 
 	def setIPsFromTemplate(self, vm, template):
 		"""
-		Set the IPs if the VM from the info obtained in the ONE template object
+		Set the IPs of the VM from the info obtained in the ONE template object
 
 		Arguments:
 		   - vm(:py:class:`IM.VirtualMachine`): VM information.
