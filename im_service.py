@@ -127,7 +127,7 @@ def launch_daemon():
 	"""
 	Launch the IM daemon
 	"""
-	if os.path.isfile(Config.DATA_FILE):
+	if os.path.isfile(Config.DATA_FILE) or Config.DATA_DB:
 		InfrastructureManager.load_data()
 	
 	if Config.XMLRCP_SSL:

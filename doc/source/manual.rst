@@ -153,6 +153,12 @@ Basic Options
    Full path to the data file.
    The default value is :file:`/etc/im/inf.dat`.
    
+.. confval:: DATA_DB
+
+   Save IM data into a MySQL DB instead of a file.
+   Using this format: 'mysql://username:password@server/db_name'
+   The default value is None.
+   
 .. confval:: USER_DB
 
    Full path to the IM user DB json file.
