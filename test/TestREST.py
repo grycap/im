@@ -239,6 +239,8 @@ class TestIM(unittest.TestCase):
         self.assertTrue(all_stopped, msg="ERROR waiting the infrastructure to be stopped (timeout).")
 
     def test_70_start(self):
+        # To assure the VM is stopped 
+        time.sleep(10)
         self.server.request('PUT', "/infrastructures/" + self.inf_id + "/start", headers = {"Content-type": "application/x-www-form-urlencoded", 'AUTHORIZATION' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
@@ -257,6 +259,8 @@ class TestIM(unittest.TestCase):
         self.assertTrue(all_stopped, msg="ERROR waiting the infrastructure to be stopped (timeout).")
         
     def test_90_start_vm(self):
+        # To assure the VM is stopped 
+        time.sleep(10)
         self.server.request('PUT', "/infrastructures/" + self.inf_id + "/0/start", headers = {"Content-type": "application/x-www-form-urlencoded", 'AUTHORIZATION' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
@@ -265,7 +269,7 @@ class TestIM(unittest.TestCase):
         all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 120, [VirtualMachine.RUNNING], [0])
         self.assertTrue(all_configured, msg="ERROR waiting the vm to be started (timeout).")
 
-    def test_100_destroy(self):
+    def test_95_destroy(self):
         self.server.request('DELETE', "/infrastructures/" + self.inf_id, headers = {'Authorization' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())

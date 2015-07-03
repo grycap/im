@@ -260,6 +260,18 @@ class TestIM(unittest.TestCase):
         all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 150, [VirtualMachine.RUNNING], [0])
         self.assertTrue(all_configured, msg="ERROR waiting the vm to be started (timeout).")
 
+    def test_25_export_import(self):
+        """
+        Test ExportInfrastructure and ImportInfrastructure functions
+        """
+        (success, res) = self.server.ExportInfrastructure(self.inf_id, False, self.auth_data)
+        self.assertTrue(success, msg="ERROR calling ExportInfrastructure: " + str(res))
+        
+        (success, res) = self.server.ImportInfrastructure(res, self.auth_data)
+        self.assertTrue(success, msg="ERROR calling ImportInfrastructure: " + str(res))
+
+        self.assertEqual(res, self.inf_id+1, msg="ERROR importing the inf.")
+
     def test_50_destroy(self):
         """
         Test DestroyInfrastructure function
