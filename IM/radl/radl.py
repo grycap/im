@@ -707,7 +707,8 @@ class network(Features, Aspect):
 
 		SIMPLE_FEATURES = {
 			"outbound": (str, ["YES", "NO"]),
-			"outports": (str, check_outports_format)
+			"outports": (str, check_outports_format),
+			"provider_id": (str, None)
 		}
 		self.check_simple(SIMPLE_FEATURES, radl)
 
@@ -1053,6 +1054,7 @@ class system(Features, Aspect):
 		NUM_FEATURES = {
 			"net_interface": {
 				"connection": (str, check_net_interface_connection),
+				"ip": (str, None),
 				"dns_name": (str, None) },
 			"disk": {
 				"image.url": (str, system._check_disk_image_url),
