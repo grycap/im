@@ -46,12 +46,12 @@ def WaitRequest(request):
 API functions.
 They create the specified request and wait for it.
 """
-def AddResource(inf_id, radl_data, auth_data):
-	request = IMBaseRequest.create_request(IMBaseRequest.ADD_RESOURCE, (inf_id, radl_data, auth_data))
+def AddResource(inf_id, radl_data, auth_data, context = True):
+	request = IMBaseRequest.create_request(IMBaseRequest.ADD_RESOURCE, (inf_id, radl_data, auth_data, context))
 	return WaitRequest(request)
 
-def RemoveResource(inf_id, vm_list, auth_data):
-	request = IMBaseRequest.create_request(IMBaseRequest.REMOVE_RESOURCE, (inf_id, vm_list, auth_data))
+def RemoveResource(inf_id, vm_list, auth_data, context = True):
+	request = IMBaseRequest.create_request(IMBaseRequest.REMOVE_RESOURCE, (inf_id, vm_list, auth_data, context))
 	return WaitRequest(request)
 
 def GetVMInfo(inf_id, vm_id, auth_data):
@@ -91,8 +91,8 @@ def GetInfrastructureList(auth_data):
 	request = IMBaseRequest.create_request(IMBaseRequest.GET_INFRASTRUCTURE_LIST,(auth_data)) 
 	return WaitRequest(request)
 
-def Reconfigure(inf_id, radl_data, auth_data):
-	request = IMBaseRequest.create_request(IMBaseRequest.RECONFIGURE,(inf_id, radl_data, auth_data)) 
+def Reconfigure(inf_id, radl_data, auth_data, vm_list = None):
+	request = IMBaseRequest.create_request(IMBaseRequest.RECONFIGURE,(inf_id, radl_data, auth_data, vm_list)) 
 	return WaitRequest(request)
 
 def ImportInfrastructure(str_inf, auth_data):

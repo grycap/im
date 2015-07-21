@@ -249,8 +249,18 @@ def RESTAddResource(id=None):
 		bottle.abort(401, "No authentication data provided")
 
 	try:
+		context = True
+		if "context" in bottle.request.params.keys():
+			str_ctxt = bottle.request.params.get("context").lower()
+			if str_ctxt in ['yes', 'true', '1']:
+				context = True 
+			elif str_ctxt in ['no', 'false', '0']:
+				context = False
+			else:
+				bottle.abort(400, "Incorrect value in context parameter")
+				
 		radl_data = bottle.request.body.read()
-		vm_ids = InfrastructureManager.AddResource(int(id), radl_data, auth)
+		vm_ids = InfrastructureManager.AddResource(int(id), radl_data, auth, context)
 
 		server_ip = bottle.request.environ['SERVER_NAME']
 		server_port = bottle.request.environ['SERVER_PORT']
@@ -282,7 +292,17 @@ def RESTRemoveResource(infid=None, vmid=None):
 		bottle.abort(401, "No authentication data provided")
 	
 	try:
-		InfrastructureManager.RemoveResource(int(infid), vmid, auth)
+		context = True
+		if "context" in bottle.request.params.keys():
+			str_ctxt = bottle.request.params.get("context").lower()
+			if str_ctxt in ['yes', 'true', '1']:
+				context = True 
+			elif str_ctxt in ['no', 'false', '0']:
+				context = False
+			else:
+				bottle.abort(400, "Incorrect value in context parameter")
+
+		InfrastructureManager.RemoveResource(int(infid), vmid, auth, context)
 		return ""
 	except DeletedInfrastructureException, ex:
 		bottle.abort(404, "Error Removing resources: " + str(ex))
@@ -338,8 +358,19 @@ def RESTReconfigureInfrastructure(id=None):
 		bottle.abort(401, "No authentication data provided")
 
 	try:
-		radl_data = bottle.request.forms.get('radl')
-		return InfrastructureManager.Reconfigure(int(id), radl_data, auth)
+		vm_list = None
+		if "vm_list" in bottle.request.params.keys():
+			str_vm_list = bottle.request.params.get("vm_list")
+			try:
+				vm_list = [int(vm_id) for vm_id in str_vm_list.split(",")]
+			except:
+				bottle.abort(400, "Incorrect vm_list format.")
+		
+		if 'radl' in bottle.request.forms.keys():
+			radl_data = bottle.request.forms.get('radl')
+		else:
+			radl_data = ""
+		return InfrastructureManager.Reconfigure(int(id), radl_data, auth, vm_list)
 	except DeletedInfrastructureException, ex:
 		bottle.abort(404, "Error reconfiguring infrastructure: " + str(ex))
 		return False

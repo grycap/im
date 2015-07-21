@@ -35,7 +35,6 @@ from IM.recipe import Recipe
 from IM.db import DataBase
 
 from config import Config
-from IM.uriparse import uriparse
 
 if Config.MAX_SIMULTANEOUS_LAUNCHES > 1:
 	from multiprocessing.pool import ThreadPool
@@ -248,7 +247,7 @@ class InfrastructureManager:
 		return sel_inf.get_vm(vm_id)
 
 	@staticmethod
-	def Reconfigure(inf_id, radl_data, auth):
+	def Reconfigure(inf_id, radl_data, auth, vm_list = None):
 		"""
 		Add and update RADL definitions and reconfigure the infrastructure.
 
@@ -257,6 +256,7 @@ class InfrastructureManager:
 		- inf_id(int): infrastructure id.
 		- radl_data(str): RADL description, it can be empty.
 		- auth(Authentication): parsed authentication tokens.
+		- vm_list(list of int): List of VM ids to reconfigure. If None all VMs will be reconfigured.
 
 		Return: "" if success.
 		"""
@@ -293,7 +293,7 @@ class InfrastructureManager:
 
 		# Stick all virtual machines to be reconfigured
 		InfrastructureManager.logger.info("Contextualize the inf.")
-		sel_inf.Contextualize(auth)
+		sel_inf.Contextualize(auth, vm_list)
 
 		return ""
 
@@ -536,7 +536,7 @@ class InfrastructureManager:
 		return [vm.im_id for vm in new_vms]
 		
 	@staticmethod
-	def RemoveResource(inf_id, vm_list, auth):
+	def RemoveResource(inf_id, vm_list, auth, context = True):
 		"""
 		Remove a list of resources from the infrastructure.
 
@@ -578,7 +578,7 @@ class InfrastructureManager:
 		InfrastructureManager.save_data()
 		InfrastructureManager.logger.info(str(cont) + " VMs successfully removed")
 
-		if cont > 0:
+		if context and cont > 0:
 			# Now test again if the infrastructure is contextualizing 
 			sel_inf.Contextualize(auth)
 
@@ -1101,33 +1101,38 @@ class InfrastructureManager:
 	@staticmethod
 	def get_data_from_db(db_url):
 		db = DataBase(db_url)
-		db.connect()
-		
-		if not db.table_exists("im_data"):
-			db.execute("CREATE TABLE im_data(id int PRIMARY KEY, date TIMESTAMP, inf_id int, data LONGBLOB)")
-			db.close()
-			return None
-		else:
-			res = db.select("select * from im_data order by id desc")
-		
-			if len(res) > 0:
-				#id = res[0][0]
-				#date = res[0][1]
-				inf_id = res[0][2]
-				str_inf_list = res[0][3]
-
-				return inf_id, str_inf_list
-			else:
+		if db.connect():
+			if not db.table_exists("im_data"):
+				db.execute("CREATE TABLE im_data(id int PRIMARY KEY, date TIMESTAMP, inf_id int, data LONGBLOB)")
+				db.close()
 				return None
+			else:
+				res = db.select("select * from im_data order by id desc")
+			
+				if len(res) > 0:
+					#id = res[0][0]
+					#date = res[0][1]
+					inf_id = res[0][2]
+					str_inf_list = res[0][3]
+	
+					return inf_id, str_inf_list
+				else:
+					return None
+		else:
+			InfrastructureManager.logger.error("ERROR connecting with the database!.")
+			return None
 
 	@staticmethod
 	def save_data_to_db(db_url, inf_id, str_inf_list):
 		db = DataBase(db_url)
-		db.connect()
-		# At this moment only use id = 0
-		res = db.execute("replace into im_data set inf_id = %s, data = %s, date = now(), id = 0", (inf_id, str_inf_list))
-		db.close()
-		return res
+		if db.connect():
+			# At this moment only use id = 0
+			res = db.execute("replace into im_data set inf_id = %s, data = %s, date = now(), id = 0", (inf_id, str_inf_list))
+			db.close()
+			return res
+		else:
+			InfrastructureManager.logger.error("ERROR connecting with the database!.")
+			return None
 
 	@staticmethod
 	def load_data():

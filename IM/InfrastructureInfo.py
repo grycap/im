@@ -371,7 +371,15 @@ class InfrastructureInfo:
 			self.conf_threads = []
 		return not all_finished
 	
-	def Contextualize(self, auth):
+	def Contextualize(self, auth, vm_list = None):
+		"""
+		Launch the contextualization process of this Inf
+
+		Args:
+
+		- auth(Authentication): parsed authentication tokens.
+		- vm_list(list of int): List of VM ids to reconfigure. If None all VMs will be reconfigured.
+		"""
 		self.cont_out = ""
 		self.configured = None
 		# get the default ctxts in case of the RADL has not specified them 
@@ -394,17 +402,20 @@ class InfrastructureInfo:
 			vm.configured = None
 			tasks = {}
 
+			# Add basic tasks for all VMs
 			tasks[0] = ['basic']
 			tasks[1] = ['main_' + vm.info.systems[0].name]
-
-			# Then add the configure sections
-			for ctxt_num in contextualizes.keys():
-				for ctxt_elem in contextualizes[ctxt_num]:
-					if ctxt_elem.system == vm.info.systems[0].name:
-						if ctxt_num not in tasks:
-							tasks[ctxt_num] = []
-						tasks[ctxt_num].append(ctxt_elem.configure + "_" + ctxt_elem.system)
-			
+	
+			# And the specific tasks only for the specified ones
+			if not vm_list or vm.im_id in vm_list:
+				# Then add the configure sections
+				for ctxt_num in contextualizes.keys():
+					for ctxt_elem in contextualizes[ctxt_num]:
+						if ctxt_elem.system == vm.info.systems[0].name:
+							if ctxt_num not in tasks:
+								tasks[ctxt_num] = []
+							tasks[ctxt_num].append(ctxt_elem.configure + "_" + ctxt_elem.system)
+				
 			for step in tasks.keys():
 				priority = 0
 				ctxt_task.append((step,priority,vm,tasks[step]))

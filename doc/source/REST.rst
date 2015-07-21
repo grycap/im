@@ -90,6 +90,7 @@ GET ``http://imserver.com/infrastructures/<infId>/<property_name>``
 
 POST ``http://imserver.com/infrastructures/<infId>``
    :body: ``RADL document``
+   :input fields: ``context`` (optional)
    :Content-type: text/uri-list
    :ok response: 200 OK
    :fail response: 401, 404, 400
@@ -97,7 +98,9 @@ POST ``http://imserver.com/infrastructures/<infId>``
    Add the resources specified in the body contents to the infrastructure with ID
    ``infId``. The RADL restrictions are the same as in
    :ref:`RPC-XML AddResource <addresource-xmlrpc>`. If success, it is returned
-   a list of URIs of the new virtual machines.
+   a list of URIs of the new virtual machines. The ``context`` parameter is optional and 
+   is a flag to specify if the contextualization step will be launched just after the VM
+   addition. Accetable values: yes, no, true, false, 1 or 0. If not specified the flag is set to True. 
 
 PUT ``http://imserver.com/infrastructures/<infId>/stop``
    :Content-type: text/uri-list
@@ -116,7 +119,7 @@ PUT ``http://imserver.com/infrastructures/<infId>/start``
    the infrastructure with ID ``infID``:
    
 PUT ``http://imserver.com/infrastructures/<infId>/reconfigure``
-   :input fields: ``radl`` (compulsory)
+   :input fields: ``radl`` (compulsory), ``vm_list`` (optional)
    :Content-type: text/uri-list
    :ok response: 200 OK
    :fail response: 401, 404, 400
@@ -126,6 +129,9 @@ PUT ``http://imserver.com/infrastructures/<infId>/reconfigure``
    of the infrastructure as indicated in ``radl``. The RADL restrictions 
    are the same as in :ref:`RPC-XML Reconfigure <reconfigure-xmlrpc>`. If no
    RADL are specified, the contextualization process is stated again.
+   The last  ``vm_list`` parameter is optional
+   and is a coma separated list of IDs of the VMs to reconfigure. If not
+   specified all the VMs will be reconfigured. 
 
 DELETE ``http://imserver.com/infrastructures/<infId>``
    :ok response: 200 OK
@@ -161,11 +167,14 @@ PUT ``http://imserver.com/infrastructures/<infId>/vms/<vmId>``
    in the body contents.
 
 DELETE ``http://imserver.com/infrastructures/<infId>/vms/<vmId>``
+   :input fields: ``context`` (optional)
    :ok response: 200 OK
    :fail response: 401, 404, 400
 
    Undeploy the virtual machine with ID ``vmId`` associated to the
-   infrastructure with ID ``infId``.
+   infrastructure with ID ``infId``. The ``context`` parameter is optional and 
+   is a flag to specify if the contextualization step will be launched just after the VM
+   addition. Accetable values: yes, no, true, false, 1 or 0. If not specified the flag is set to True. 
 
 PUT ``http://imserver.com/infrastructures/<infId>/vms/<vmId>/start``
    :Content-type: text/plain
