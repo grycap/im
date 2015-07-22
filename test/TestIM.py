@@ -273,8 +273,8 @@ class TestIM(unittest.TestCase):
         (success, res) = self.server.Reconfigure(self.inf_id, radl, self.auth_data)
         self.assertTrue(success, msg="ERROR calling Reconfigure: " + str(res))
 
-        all_stopped = self.wait_inf_state(VirtualMachine.CONFIGURED, 600)
-        self.assertTrue(all_stopped, msg="ERROR waiting the infrastructure to be configured (timeout).")
+        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 600)
+        self.assertTrue(all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
         
         (success, cont_out) = self.server.GetInfrastructureContMsg(self.inf_id, self.auth_data)
         self.assertTrue(success, msg="ERROR calling GetInfrastructureContMsg: " + str(cont_out))
