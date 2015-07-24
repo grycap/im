@@ -22,7 +22,7 @@ from libcloud.compute.base import NodeImage, NodeAuthSSHKey
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 
-from IM.radl.radl import Feature, network
+from IM.radl.radl import Feature
 
 class OpenStackCloudConnector(LibCloudCloudConnector):
 	"""
@@ -64,7 +64,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 						parameters[param] = auth[param]
 			else:
 				self.logger.error("No correct auth data has been specified to OpenStack: username, password and tenant")
-				return None
+				raise Exception("No correct auth data has been specified to OpenStack: username, password and tenant")
 			
 			cls = get_driver(Provider.OPENSTACK)
 			driver = cls(auth['username'], auth['password'],
@@ -157,9 +157,12 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 		
 		nets = self.get_networks(driver, radl)
 		
+		sgs = self.create_security_group(driver, inf, radl)
+		
 		args = {'size': instance_type,
 				'image': image,
 				'networks': nets,
+				'ex_security_groups': sgs,
 				'name': "%s-%s" % (name, int(time.time()*100))}
 		
 		keypair = None
@@ -185,6 +188,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
 		res = []
 		i = 0
+		all_failed = True
 		while i < num_vm:
 			self.logger.debug("Creating node")
 
@@ -195,15 +199,22 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 				# Add the keypair name to remove it later
 				vm.keypair = keypair_name
 				self.logger.debug("Node successfully created.")
+				all_failed = False
 				res.append((True, vm))
 			else:
 				res.append((False, "Error creating the node"))
 			
-				if public_key is None or len(public_key) == 0 or (len(public_key) >= 1 and public_key.find('-----BEGIN CERTIFICATE-----') != -1):
-					# only delete in case of the user do not specify the keypair name
-					driver.delete_key_pair(keypair)
+
 				
 			i += 1
+
+		# if all the VMs have failed, remove the sg and keypair
+		if all_failed:
+			if public_key is None or len(public_key) == 0 or (len(public_key) >= 1 and public_key.find('-----BEGIN CERTIFICATE-----') != -1):
+				# only delete in case of the user do not specify the keypair name
+				driver.delete_key_pair(keypair)
+			if sgs:
+				driver.ex_delete_security_group(sgs[0])
 
 		return res
 	
@@ -256,3 +267,102 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 		else:
 			self.logger.debug("The VM is not running, not adding an Elastic/Floating IP.")
 			return None
+		
+	@staticmethod
+	def _get_security_group(driver, sg_name):
+		try:
+			sg = None
+			for elem in driver.ex_list_security_groups():
+				if elem.name == sg_name:
+					sg = elem
+					break
+			return sg
+		except Exception:
+			return None
+
+	def create_security_group(self, driver, inf, radl):
+		res = None
+		try:
+			sg_name = "im-" + str(inf.uuid)
+			sg = self._get_security_group(driver, sg_name)
+
+			if not sg: 
+				self.logger.debug("Creating security group: " + sg_name)
+				try:
+					sg = driver.ex_create_security_group(sg_name, "Security group created by the IM")
+				except Exception, crex:
+					# First check if the SG does exist
+					sg = self._get_security_group(driver, sg_name)
+					if not sg:
+						# if not raise the exception
+						raise crex
+					else:
+						self.logger.debug("Security group: " + sg_name + " already created.")
+			
+			res = [sg]
+			
+			public_net = None
+			for net in radl.networks:
+				if net.isPublic():
+					public_net = net
+
+			if public_net:
+				outports = public_net.getOutPorts()
+				if outports:
+					for remote_port,remote_protocol,local_port,local_protocol in outports:
+						if local_port != 22 and local_port != 5099:						
+							protocol = remote_protocol
+							if remote_protocol != local_protocol:
+								self.logger.warn("Different protocols used in outports ignoring local port protocol!")								
+
+							driver.ex_create_security_group_rule(sg,protocol,remote_port, remote_port, '0.0.0.0/0')
+			
+			try:
+				driver.ex_create_security_group_rule(sg,'tcp',22, 22, '0.0.0.0/0')
+				driver.ex_create_security_group_rule(sg,'tcp',5099, 5099, '0.0.0.0/0')
+				
+				# open all the ports for the VMs in the security group
+				driver.ex_create_security_group_rule(sg,'tcp',1, 65535, source_security_group=sg)
+				driver.ex_create_security_group_rule(sg,'udp',1, 65535, source_security_group=sg)
+			except Exception, addex:
+				self.logger.warn("Exception adding SG rules. Probably the rules exists:" + str(addex))
+				pass
+			
+		except Exception:
+			self.logger.exception("Error Creating the Security group")
+		
+		return res
+	
+	
+	def finalize(self, vm, auth_data):
+		node = self.get_node_with_id(vm.id, auth_data)
+		
+		if node:
+			sgs = node.driver.ex_get_node_security_groups(node)
+
+			success = node.destroy()
+			
+			public_key = vm.getRequestedSystem().getValue('disk.0.os.credentials.public_key')
+			if vm.keypair and public_key is None or len(public_key) == 0 or (len(public_key) >= 1 and public_key.find('-----BEGIN CERTIFICATE-----') != -1):
+				# only delete in case of the user do not specify the keypair name
+				keypair = node.driver.get_key_pair(vm.keypair)
+				if keypair:
+					node.driver.delete_key_pair(keypair)
+			
+			self.delete_elastic_ips(node, vm)
+			
+			# Delete the EBS volumes
+			self.delete_volumes(vm)
+			
+			# Delete the SG if this is the last VM
+			for sg in sgs:
+				node.driver.ex_delete_security_group(sg)
+			
+			if not success:
+				return (False, "Error destroying node: " + vm.id)
+
+			self.logger.debug("VM " + str(vm.id) + " successfully destroyed")
+		else:
+			self.logger.warn("VM " + str(vm.id) + " not found.")
+		
+		return (True, "")
