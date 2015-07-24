@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from netaddr import IPNetwork, IPAddress
 import time
 import threading
 from IM.radl.radl import network, RADL
@@ -461,7 +462,7 @@ class VirtualMachine:
 
 				# Get the private network mask
 				for mask in network.private_net_masks:
-					if network.addressInNetwork(private_ip,mask):
+					if IPAddress(private_ip) in IPNetwork(mask):
 						private_net_mask = mask
 						break
 				
@@ -472,8 +473,8 @@ class VirtualMachine:
 				
 				# Search in previous user private ips
 				private_net = None
-				for net_mask, net in private_net_map.iteritems():
-					if network.addressInNetwork(private_ip, net_mask): 	
+				for net_mask, net in private_net_map.iteritems(): 	
+					if IPAddress(private_ip) in IPNetwork(net_mask):
 						private_net = net								
 
 				# Search in the RADL nets

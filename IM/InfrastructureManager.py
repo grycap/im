@@ -351,6 +351,8 @@ class InfrastructureManager:
 		- inf_id(int): infrastructure id.
 		- radl(str): RADL description.
 		- auth(Authentication): parsed authentication tokens.
+		- context(bool): Flag to specify if the ctxt step will be made
+		- failed_clouds(list of CloudInfo): A list of failed Cloud providers to avoid launching the VMs in them.
 
 		Return(list of int): ids of the new virtual machine created.
 		"""
@@ -545,6 +547,7 @@ class InfrastructureManager:
 		- inf_id(int): infrastructure id.
 		- vm_list(str, int or list of str): list of virtual machine ids.
 		- auth(Authentication): parsed authentication tokens.
+		- context(bool): Flag to specify if the ctxt step will be made
 
 		Return(int): number of undeployed virtual machines.
 		"""
