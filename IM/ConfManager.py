@@ -549,43 +549,47 @@ class ConfManager(threading.Thread):
 		"""
 		success = True
 		if not self.inf.ansible_configured:
-			try:
-				ConfManager.logger.info("Inf ID: " + str(self.inf.id) + ": Start the contextualization process.")
-	
-				ssh = self.inf.vm_master.get_ssh(retry=True)
-				# Activate tty mode to avoid some problems with sudo in REL
-				ssh.tty = True
-				
-				# configuration dir os th emaster node to copy all the contextualization files
-				tmp_dir = tempfile.mkdtemp()
-				# Now call the ansible installation process on the master node
-				configured_ok = self.configure_ansible(ssh, tmp_dir)
-				
-				if not configured_ok:
-					ConfManager.logger.error("Inf ID: " + str(self.inf.id) + ": Error in the ansible installation process")
+			success = False
+			cont = 0
+			while not success and cont < Config.PLAYBOOK_RETRIES:
+				cont += 1
+				try:
+					ConfManager.logger.info("Inf ID: " + str(self.inf.id) + ": Start the contextualization process.")
+		
+					ssh = self.inf.vm_master.get_ssh(retry=True)
+					# Activate tty mode to avoid some problems with sudo in REL
+					ssh.tty = True
+					
+					# configuration dir os th emaster node to copy all the contextualization files
+					tmp_dir = tempfile.mkdtemp()
+					# Now call the ansible installation process on the master node
+					configured_ok = self.configure_ansible(ssh, tmp_dir)
+					
+					if not configured_ok:
+						ConfManager.logger.error("Inf ID: " + str(self.inf.id) + ": Error in the ansible installation process")
+						if not self.inf.ansible_configured: self.inf.ansible_configured = False
+					else:
+						ConfManager.logger.info("Inf ID: " + str(self.inf.id) + ": Ansible installation finished successfully")
+		
+					remote_dir = Config.REMOTE_CONF_DIR
+					ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Copy the contextualization agent files")  
+					ssh.sftp_mkdir(remote_dir)
+					files = []
+					files.append((Config.IM_PATH + "/SSH.py",remote_dir + "/SSH.py"))
+					files.append((Config.IM_PATH + "/ansible/ansible_callbacks.py", remote_dir + "/ansible_callbacks.py")) 
+					files.append((Config.IM_PATH + "/ansible/ansible_launcher.py", remote_dir + "/ansible_launcher.py"))
+					files.append((Config.CONTEXTUALIZATION_DIR + "/ctxt_agent.py", remote_dir + "/ctxt_agent.py")) 
+					ssh.sftp_put_files(files)
+		
+					success = configured_ok
+					
+				except Exception, ex:
+					ConfManager.logger.exception("Inf ID: " + str(self.inf.id) + ": Error in the ansible installation process")
+					self.inf.add_cont_msg("Error in the ansible installation process: " + str(ex))
 					if not self.inf.ansible_configured: self.inf.ansible_configured = False
-				else:
-					ConfManager.logger.info("Inf ID: " + str(self.inf.id) + ": Ansible installation finished successfully")
-	
-				remote_dir = Config.REMOTE_CONF_DIR
-				ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Copy the contextualization agent files")  
-				ssh.sftp_mkdir(remote_dir)
-				files = []
-				files.append((Config.IM_PATH + "/SSH.py",remote_dir + "/SSH.py"))
-				files.append((Config.IM_PATH + "/ansible/ansible_callbacks.py", remote_dir + "/ansible_callbacks.py")) 
-				files.append((Config.IM_PATH + "/ansible/ansible_launcher.py", remote_dir + "/ansible_launcher.py"))
-				files.append((Config.CONTEXTUALIZATION_DIR + "/ctxt_agent.py", remote_dir + "/ctxt_agent.py")) 
-				ssh.sftp_put_files(files)
-	
-				success = configured_ok
-				
-			except Exception, ex:
-				ConfManager.logger.exception("Inf ID: " + str(self.inf.id) + ": Error in the ansible installation process")
-				self.inf.add_cont_msg("Error in the ansible installation process: " + str(ex))
-				if not self.inf.ansible_configured: self.inf.ansible_configured = False
-				success = False
-			finally:
-				shutil.rmtree(tmp_dir, ignore_errors=True)
+					success = False
+				finally:
+					shutil.rmtree(tmp_dir, ignore_errors=True)
 
 			if success:
 				self.inf.ansible_configured = True

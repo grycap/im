@@ -203,9 +203,6 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 				res.append((True, vm))
 			else:
 				res.append((False, "Error creating the node"))
-			
-
-				
 			i += 1
 
 		# if all the VMs have failed, remove the sg and keypair
@@ -355,8 +352,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 			self.delete_volumes(vm)
 			
 			# Delete the SG if this is the last VM
-			for sg in sgs:
-				node.driver.ex_delete_security_group(sg)
+			self.delete_security_group(node, sgs, vm.inf, vm.id)
 			
 			if not success:
 				return (False, "Error destroying node: " + vm.id)
@@ -366,3 +362,40 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 			self.logger.warn("VM " + str(vm.id) + " not found.")
 		
 		return (True, "")
+	
+	def delete_security_group(self, node, sgs, inf, vm_id, timeout = 60):
+		"""
+		Delete the SG of this infrastructure if this is the last VM
+		"""
+		if sgs:
+			# There will be only one
+			sg = sgs[0]
+
+			some_vm = False
+			for vm in inf.get_vm_list():
+				if vm.id != vm_id:
+					some_vm = True
+			
+			if not some_vm:
+				# wait it to terminate and then remove the SG
+				cont = 0				
+				deleted = False
+				while not deleted and cont < timeout:
+					time.sleep(5)
+					cont += 5
+					try:
+						node.driver.ex_delete_security_group(sg)
+						deleted = True
+					except Exception, ex:
+						# Check if it has been deleted yet
+						sg = self._get_security_group(node.driver, sg.name)
+						if not sg:
+							self.logger.debug("Error deleting the SG. But it does not exist. Ignore. " + str(ex))
+							deleted = True								
+						else:
+								self.logger.exception("Error deleting the SG.")
+			else:
+				# If there are more than 1, we skip this step
+				self.logger.debug("There are active instances. Not removing the SG")
+		else:
+			self.logger.warn("No Security Group with name: " + sg.name)
