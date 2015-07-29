@@ -46,7 +46,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 		else:
 			auths = auth_data.getAuthInfo(self.type, self.cloud.server)
 			if not auths:
-				self.logger.error("No correct auth data has been specified to OpenStack.")
+				raise Exception("No correct auth data has been specified to OpenStack.")
 			else:
 				auth = auths[0]
 
