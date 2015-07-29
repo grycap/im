@@ -525,6 +525,22 @@ class VirtualMachine:
 		t = threading.Thread(target=eval("self.check_ctxt_process"))
 		t.daemon = True
 		t.start()
+		
+	def kill_check_ctxt_process(self):
+		"""
+		Kill the check_ctxt_process thread
+		"""
+		if self.ctxt_pid:
+			if self.ctxt_pid != self.WAIT_TO_PID:
+				ssh = self.inf.vm_master.get_ssh(retry = True)
+				try:
+					ssh.execute("kill -9 " + str(self.ctxt_pid))
+				except:
+					VirtualMachine.logger.exception("Error killing ctxt process with pid: " + str(self.ctxt_pid))
+					pass
+		
+			self.ctxt_pid = None
+			self.configured = False
 	
 	def check_ctxt_process(self):
 		"""
@@ -543,7 +559,7 @@ class VirtualMachine:
 		wait = 0
 		while self.ctxt_pid:
 			if self.ctxt_pid != self.WAIT_TO_PID:
-				ssh = self.inf.vm_master.get_ssh()
+				ssh = self.inf.vm_master.get_ssh(retry = True)
 
 				if self.state in VirtualMachine.NOT_RUNNING_STATES:
 					try:
