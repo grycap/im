@@ -568,8 +568,8 @@ class VirtualMachine:
 						VirtualMachine.logger.exception("Error killing ctxt process with pid: " + str(self.ctxt_pid))
 						pass
 
-					self.ctxt_pid = None
 					self.configured = False
+					self.ctxt_pid = None
 				else:
 					try:
 						(_, _, exit_status) = ssh.execute("ps " + str(self.ctxt_pid))
@@ -580,11 +580,11 @@ class VirtualMachine:
 						if self.ssh_connect_errors > Config.MAX_SSH_ERRORS:
 							VirtualMachine.logger.error("Too much errors getting status of ctxt process with pid: " + str(self.ctxt_pid) + ". Forget it.")
 							self.ssh_connect_errors = 0
-							self.ctxt_pid = None
 							self.configured = False
+							self.ctxt_pid = None
+							return None
 						
 					if exit_status != 0:
-						self.ctxt_pid = None
 						# The process has finished, get the outputs
 						ctxt_log = self.get_ctxt_log(remote_dir, True)
 						self.get_ctxt_output(remote_dir, True)
@@ -592,6 +592,7 @@ class VirtualMachine:
 							self.cont_out = initial_count_out + ctxt_log
 						else:
 							self.cont_out = initial_count_out + "Error getting contextualization process log."
+						self.ctxt_pid = None
 					else:
 						# Get the log of the process to update the cont_out dynamically
 						if Config.UPDATE_CTXT_LOG_INTERVAL > 0 and wait > Config.UPDATE_CTXT_LOG_INTERVAL:
@@ -636,10 +637,10 @@ class VirtualMachine:
 				if delete:
 					ssh.sftp_remove(remote_dir + '/ctxt_agent.log')
 			except:
-				VirtualMachine.logger.exception("Error deleting remote contextualization process log")
+				VirtualMachine.logger.exception("Error deleting remote contextualization process log: " + remote_dir + '/ctxt_agent.log')
 				pass
 		except:
-			VirtualMachine.logger.exception("Error getting contextualization process log")
+			VirtualMachine.logger.exception("Error getting contextualization process log: " + remote_dir + '/ctxt_agent.log')
 			self.configured = False
 		finally:
 			shutil.rmtree(tmp_dir, ignore_errors=True)
@@ -659,12 +660,12 @@ class VirtualMachine:
 				if delete:
 					ssh.sftp_remove(remote_dir + '/ctxt_agent.out')
 			except:
-				VirtualMachine.logger.exception("Error deleting remote contextualization process output")
+				VirtualMachine.logger.exception("Error deleting remote contextualization process output: " + remote_dir + '/ctxt_agent.out')
 				pass
 			# And process it
 			self.process_ctxt_agent_out(ctxt_agent_out)
 		except Exception, ex:
-			VirtualMachine.logger.exception("Error getting contextualization agent output")
+			VirtualMachine.logger.exception("Error getting contextualization agent output: " + remote_dir + '/ctxt_agent.out')
 			self.configured = False
 			self.cont_out += "Error getting contextualization agent output: "  + str(ex)
 		finally:
