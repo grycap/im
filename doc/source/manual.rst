@@ -13,6 +13,8 @@ IM needs at least Python 2.6 to run, as well as the next libraries:
 * `PyYAML <http://pyyaml.org/>`_, a YAML parser.
 * `SOAPpy <http://pywebsvcs.sourceforge.net/>`_, a full-featured SOAP library
   (we know it is not actively supported by upstream anymore).
+* `Netaddr <http://pythonhosted.org/netaddr//>`_, A Python library for representing 
+  and manipulating network addresses.
 
 Also, IM uses `Ansible <http://www.ansible.com>`_ (1.4.2 or later) to configure the
 infrastructure nodes.
@@ -20,12 +22,15 @@ infrastructure nodes.
 These components are usually available from the distribution repositories. To
 install them in Debian and Ubuntu based distributions, do::
 
-   $ apt-get install python-ply python-paramiko python-yaml python-soappy ansible
+   $ apt-get install python-ply python-paramiko python-yaml python-soappy python-netaddr ansible
 
 In Red Hat based distributions (RHEL, CentOS, Amazon Linux, Oracle Linux,
 Fedora, etc.), do::
 
-   $ yum install python-ply python-paramiko PyYAML SOAPpy ansible
+   $ yum install python-ply python-paramiko python-netaddr PyYAML SOAPpy ansible
+   
+**WARNING: In some GNU/Linux distributions (RHEL 6 or equivalents) you must NOT install
+the packages 'python-paramiko' and 'python-crypto' with yum. You MUST use pip to install them**
 
 Finally, check the next values in the Ansible configuration file
 :file:`ansible.cfg`, (usually found in :file:`/etc/ansible`)::
