@@ -632,9 +632,13 @@ class VirtualMachine:
 			
 			# Remove problematic chars
 			conf_out = filter(lambda x: x in string.printable, conf_out).encode("ascii", "replace")
-			if delete:
-				ssh.sftp_remove(remote_dir + '/ctxt_agent.log')
-		except Exception:
+			try:
+				if delete:
+					ssh.sftp_remove(remote_dir + '/ctxt_agent.log')
+			except:
+				VirtualMachine.logger.exception("Error deleting remote contextualization process log")
+				pass
+		except:
 			VirtualMachine.logger.exception("Error getting contextualization process log")
 			self.configured = False
 		finally:
@@ -651,8 +655,12 @@ class VirtualMachine:
 			# Get the JSON output of the ctxt_agent
 			ssh.sftp_get(remote_dir + '/ctxt_agent.out', tmp_dir + '/ctxt_agent.out')
 			with open(tmp_dir + '/ctxt_agent.out') as f: ctxt_agent_out = json.load(f)
-			if delete:
-				ssh.sftp_remove(remote_dir + '/ctxt_agent.out')
+			try:
+				if delete:
+					ssh.sftp_remove(remote_dir + '/ctxt_agent.out')
+			except:
+				VirtualMachine.logger.exception("Error deleting remote contextualization process output")
+				pass
 			# And process it
 			self.process_ctxt_agent_out(ctxt_agent_out)
 		except Exception, ex:
