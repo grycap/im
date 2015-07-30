@@ -13,6 +13,8 @@ IM needs at least Python 2.6 to run, as well as the next libraries:
 * `PyYAML <http://pyyaml.org/>`_, a YAML parser.
 * `SOAPpy <http://pywebsvcs.sourceforge.net/>`_, a full-featured SOAP library
   (we know it is not actively supported by upstream anymore).
+* `Netaddr <http://pythonhosted.org/netaddr//>`_, A Python library for representing 
+  and manipulating network addresses.
 
 Also, IM uses `Ansible <http://www.ansible.com>`_ (1.4.2 or later) to configure the
 infrastructure nodes.
@@ -20,12 +22,15 @@ infrastructure nodes.
 These components are usually available from the distribution repositories. To
 install them in Debian and Ubuntu based distributions, do::
 
-   $ apt-get install python-ply python-paramiko python-yaml python-soappy ansible
+   $ apt-get install python-ply python-paramiko python-yaml python-soappy python-netaddr ansible
 
 In Red Hat based distributions (RHEL, CentOS, Amazon Linux, Oracle Linux,
 Fedora, etc.), do::
 
-   $ yum install python-ply python-paramiko PyYAML SOAPpy ansible
+   $ yum install python-ply python-paramiko python-netaddr PyYAML SOAPpy ansible
+   
+**WARNING: In some GNU/Linux distributions (RHEL 6 or equivalents) you must NOT install
+the packages 'python-paramiko' and 'python-crypto' with yum. You MUST use pip to install them**
 
 Finally, check the next values in the Ansible configuration file
 :file:`ansible.cfg`, (usually found in :file:`/etc/ansible`)::
@@ -101,7 +106,7 @@ content and move the extracted directory to the installation path (for instance
 :file:`/usr/local` or :file:`/opt`)::
 
    $ tar xvzf IM-0.1.tar.gz
-   $ sudo chown -R root:root IM-0.1.tar.gz
+   $ sudo chown -R r```````````````````````````````````````````````oot:root IM-0.1.tar.gz
    $ sudo mv IM-0.1 /usr/local
 
 Finally you must copy (or link) $IM_PATH/scripts/im file to /etc/init.d directory::
@@ -152,6 +157,12 @@ Basic Options
 
    Full path to the data file.
    The default value is :file:`/etc/im/inf.dat`.
+   
+.. confval:: DATA_DB
+
+   Save IM data into a MySQL DB instead of a file.
+   Using this format: 'mysql://username:password@server/db_name'
+   The default value is None.
    
 .. confval:: USER_DB
 
@@ -428,3 +439,13 @@ The configuration values under the ``OpenNebula`` section:
    Text to add to the ONE Template different to NAME, CPU, VCPU, MEMORY, OS, DISK and CONTEXT
    The default value is ``GRAPHICS = [type="vnc",listen="0.0.0.0"]``. 
 
+
+Docker Image
+============
+
+A Docker image named `grycap/im` has been created to make easier the deployment of an IM service using the 
+default configuration. Information about this image can be found here: https://registry.hub.docker.com/u/grycap/im/.
+
+How to launch the IM service using docker::
+
+  $ sudo docker run -d -p 8899:8899 --name im grycap/im

@@ -120,8 +120,8 @@ class Request_AddResource(IMBaseRequest):
 	"""	
 	def _call_function(self):
 		self._error_mesage = "Error Adding resources."
-		(inf_id, radl_data, auth_data) = self.arguments
-		return InfrastructureManager.InfrastructureManager.AddResource(inf_id, radl_data, Authentication(auth_data))
+		(inf_id, radl_data, auth_data, context) = self.arguments
+		return InfrastructureManager.InfrastructureManager.AddResource(inf_id, radl_data, Authentication(auth_data), context)
 	
 class Request_RemoveResource(IMBaseRequest):
 	"""
@@ -129,8 +129,8 @@ class Request_RemoveResource(IMBaseRequest):
 	"""
 	def _call_function(self):
 		self._error_mesage = "Error Removing resources."
-		(inf_id, vm_list, auth_data) = self.arguments
-		return InfrastructureManager.InfrastructureManager.RemoveResource(inf_id, vm_list, Authentication(auth_data))
+		(inf_id, vm_list, auth_data, context) = self.arguments
+		return InfrastructureManager.InfrastructureManager.RemoveResource(inf_id, vm_list, Authentication(auth_data), context)
 
 class Request_GetInfrastructureInfo(IMBaseRequest):
 	"""
@@ -220,8 +220,8 @@ class Request_Reconfigure(IMBaseRequest):
 	"""
 	def _call_function(self):
 		self._error_mesage = "Error Reconfiguring Inf."
-		(inf_id, radl_data, auth_data) = self.arguments
-		return InfrastructureManager.InfrastructureManager.Reconfigure(inf_id, radl_data, Authentication(auth_data))
+		(inf_id, radl_data, auth_data, vm_list) = self.arguments
+		return InfrastructureManager.InfrastructureManager.Reconfigure(inf_id, radl_data, Authentication(auth_data), vm_list)
 
 class Request_ImportInfrastructure(IMBaseRequest):
 	"""

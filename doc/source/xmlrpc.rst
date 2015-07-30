@@ -155,11 +155,15 @@ This is the list of method names:
    :parameter 0: ``infId``: integer
    :parameter 1: ``radl``: string
    :parameter 2: ``auth``: array of structs
+   :parameter 3: ``context``: (optional, default value True) boolean
    :ok response: [true, ``infId``: integer]
    :fail response: [false, ``error``: string]
 
    Add the resources specified in ``radl`` to the infrastructure with ID
-   ``infId``. The ``deploy`` instructions in the ``radl`` must refer to
+   ``infId``. The last  ``context`` parameter is optional and is a flag to
+   specify if the contextualization step will be launched just after the VM
+   addition. The default value is True. 
+   The ``deploy`` instructions in the ``radl`` must refer to
    *systems* already defined. If all the *systems* defined in ``radl`` are
    new, they will be added. Otherwise the new *systems* defined will be
    ignored. All the *systems* specified in the ``deploy`` must be specified
@@ -175,13 +179,16 @@ This is the list of method names:
    :parameter 0: ``infId``: integer
    :parameter 1: ``vmIds``: string
    :parameter 2: ``auth``: array of structs
+   :parameter 3: ``context``: (optional, default value True) boolean
    :ok response: [true, integer]
    :fail response: [false, ``error``: string]
 
    Updeploy the virtual machines with IDs in ``vmIds`` associated to the
    infrastructure with ID ``infId``. The different virtual machine IDs in
    ``vmIds`` are separated by commas. On success it returns the number of
-   VMs that have been undeployed.
+   VMs that have been undeployed. The last  ``context`` parameter is optional
+   and is a flag to specify if the contextualization step will be launched
+   just after the VM addition. The default value is True. 
 
 .. _StopInfrastructure-xmlrpc:
 
@@ -240,12 +247,15 @@ This is the list of method names:
    :parameter 0: ``infId``: integer
    :parameter 1: ``radl``: string
    :parameter 2: ``auth``: array of structs
+   :parameter 3: ``vm_list``: (optional, default value None) array of integers
    :ok response: [true, string of length zero]
    :fail response: [false, ``error``: string]
 
    Update the infrastructure with ID ``infId`` using the *configuration
    sections* in the RADL ``radl``. Some virtual machines associated to the
-   infrastructure may be reconfigured.
+   infrastructure may be reconfigured. The last  ``vm_list`` parameter is optional
+   and is a list integers specifying the IDs of the VMs to reconfigure. The default
+   value is None that means that all the VMs will be reconfigured. 
 
 .. _ExportInfrastructure-xmlrpc:
 

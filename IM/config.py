@@ -59,6 +59,7 @@ class Config:
 	MAX_CONTEXTUALIZATION_TIME = 7200
 	MAX_SIMULTANEOUS_LAUNCHES = 1
 	DATA_FILE = '/etc/im/inf.dat'
+	DATA_DB = None
 	MAX_INF_STORED = 20
 	XMLRCP_SSL = False
 	XMLRCP_SSL_KEYFILE =  "/etc/im/pki/server-key.pem"
