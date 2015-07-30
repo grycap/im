@@ -147,6 +147,9 @@ class ConfManager(threading.Thread):
 		while not self._stop:
 			if self.init_time + self.max_ctxt_time < time.time():
 				ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Max contextualization time passed. Exit thread.")
+				# Kill the ansible processes
+				for vm in self.inf.get_vm_list():
+					vm.kill_check_ctxt_process()
 				return
 
 			vms_configuring = self.check_running_pids(vms_configuring)
@@ -427,6 +430,40 @@ class ConfManager(threading.Thread):
 		recipe_files.append("basic_task_all.yml")
 		return recipe_files
 	
+	def generate_mount_disks_tasks(self, system):
+		"""
+		Generate a set of tasks to format and mount the specified disks
+		"""
+		res = ""
+		cont = 1
+		
+		while system.getValue("disk." + str(cont) + ".size") and system.getValue("disk." + str(cont) + ".device"):
+			disk_device = system.getValue("disk." + str(cont) + ".device")
+			disk_mount_path = system.getValue("disk." + str(cont) + ".mount_path")
+			disk_fstype = system.getValue("disk." + str(cont) + ".fstype")
+			
+			# Only add the tasks if the user has specified a moun_path and a filesystem
+			if disk_mount_path and disk_fstype:
+				# This recipe works with EC2 and OpenNebula. It must be tested/completed with other providers
+				with_first_found = '    with_first_found: \n'
+				with_first_found += '     - "/dev/sd' + disk_device[-1] + '"\n'
+				with_first_found += '     - "/dev/hd' + disk_device[-1] + '"\n'
+				with_first_found += '     - "/dev/xvd' + disk_device[-1] + '"\n'
+				
+				res += '  # Tasks to format and mount disk%d from device %s in %s\n' % (cont, disk_device, disk_mount_path)
+				res += '  - shell: (echo n; echo p; echo 1; echo ; echo; echo w) | fdisk {{item}} creates={{item}}1\n'
+				res += with_first_found
+				res += '  - filesystem: fstype=' + disk_fstype + ' dev={{item}}1\n'
+				res += with_first_found
+				res += '  - file: path=' + disk_mount_path + ' state=directory recurse=yes\n'
+				res += '  - mount: name=' + disk_mount_path + ' src={{item}}1 state=mounted fstype=' + disk_fstype +'\n'
+				res += with_first_found
+				res += '\n'
+			
+			cont +=1
+
+		return res
+	
 	def generate_main_playbook(self, vm, group, tmp_dir):
 		"""
 		Generate the main playbook to be launched in all the VMs.
@@ -446,6 +483,9 @@ class ConfManager(threading.Thread):
 
 		conf_content += "  tasks: \n"
 		conf_content += "  - debug: msg='Install user requested apps'\n"
+		
+		# Generate a set of tasks to format and mount the specified disks
+		conf_content += self.generate_mount_disks_tasks(vm.info.systems[0])
 		
 		for app_name, recipe in recipes:
 			self.inf.add_cont_msg("App: " + app_name + " set to be installed.")
@@ -512,43 +552,47 @@ class ConfManager(threading.Thread):
 		"""
 		success = True
 		if not self.inf.ansible_configured:
-			try:
-				ConfManager.logger.info("Inf ID: " + str(self.inf.id) + ": Start the contextualization process.")
-	
-				ssh = self.inf.vm_master.get_ssh(retry=True)
-				# Activate tty mode to avoid some problems with sudo in REL
-				ssh.tty = True
-				
-				# configuration dir os th emaster node to copy all the contextualization files
-				tmp_dir = tempfile.mkdtemp()
-				# Now call the ansible installation process on the master node
-				configured_ok = self.configure_ansible(ssh, tmp_dir)
-				
-				if not configured_ok:
-					ConfManager.logger.error("Inf ID: " + str(self.inf.id) + ": Error in the ansible installation process")
+			success = False
+			cont = 0
+			while not success and cont < Config.PLAYBOOK_RETRIES:
+				cont += 1
+				try:
+					ConfManager.logger.info("Inf ID: " + str(self.inf.id) + ": Start the contextualization process.")
+		
+					ssh = self.inf.vm_master.get_ssh(retry=True)
+					# Activate tty mode to avoid some problems with sudo in REL
+					ssh.tty = True
+					
+					# configuration dir os th emaster node to copy all the contextualization files
+					tmp_dir = tempfile.mkdtemp()
+					# Now call the ansible installation process on the master node
+					configured_ok = self.configure_ansible(ssh, tmp_dir)
+					
+					if not configured_ok:
+						ConfManager.logger.error("Inf ID: " + str(self.inf.id) + ": Error in the ansible installation process")
+						if not self.inf.ansible_configured: self.inf.ansible_configured = False
+					else:
+						ConfManager.logger.info("Inf ID: " + str(self.inf.id) + ": Ansible installation finished successfully")
+		
+					remote_dir = Config.REMOTE_CONF_DIR
+					ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Copy the contextualization agent files")  
+					ssh.sftp_mkdir(remote_dir)
+					files = []
+					files.append((Config.IM_PATH + "/SSH.py",remote_dir + "/SSH.py"))
+					files.append((Config.IM_PATH + "/ansible/ansible_callbacks.py", remote_dir + "/ansible_callbacks.py")) 
+					files.append((Config.IM_PATH + "/ansible/ansible_launcher.py", remote_dir + "/ansible_launcher.py"))
+					files.append((Config.CONTEXTUALIZATION_DIR + "/ctxt_agent.py", remote_dir + "/ctxt_agent.py")) 
+					ssh.sftp_put_files(files)
+		
+					success = configured_ok
+					
+				except Exception, ex:
+					ConfManager.logger.exception("Inf ID: " + str(self.inf.id) + ": Error in the ansible installation process")
+					self.inf.add_cont_msg("Error in the ansible installation process: " + str(ex))
 					if not self.inf.ansible_configured: self.inf.ansible_configured = False
-				else:
-					ConfManager.logger.info("Inf ID: " + str(self.inf.id) + ": Ansible installation finished successfully")
-	
-				remote_dir = Config.REMOTE_CONF_DIR
-				ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Copy the contextualization agent files")  
-				ssh.sftp_mkdir(remote_dir)
-				files = []
-				files.append((Config.IM_PATH + "/SSH.py",remote_dir + "/SSH.py"))
-				files.append((Config.IM_PATH + "/ansible/ansible_callbacks.py", remote_dir + "/ansible_callbacks.py")) 
-				files.append((Config.IM_PATH + "/ansible/ansible_launcher.py", remote_dir + "/ansible_launcher.py"))
-				files.append((Config.CONTEXTUALIZATION_DIR + "/ctxt_agent.py", remote_dir + "/ctxt_agent.py")) 
-				ssh.sftp_put_files(files)
-	
-				success = configured_ok
-				
-			except Exception, ex:
-				ConfManager.logger.exception("Inf ID: " + str(self.inf.id) + ": Error in the ansible installation process")
-				self.inf.add_cont_msg("Error in the ansible installation process: " + str(ex))
-				if not self.inf.ansible_configured: self.inf.ansible_configured = False
-				success = False
-			finally:
-				shutil.rmtree(tmp_dir, ignore_errors=True)
+					success = False
+				finally:
+					shutil.rmtree(tmp_dir, ignore_errors=True)
 
 			if success:
 				self.inf.ansible_configured = True
@@ -705,11 +749,19 @@ class ConfManager(threading.Thread):
 		"""
 		Remove and launch again the specified VM
 		"""
-		InfrastructureManager.InfrastructureManager.RemoveResource(self.inf.id, vm.id, self.auth)
+		try:
+			removed = InfrastructureManager.InfrastructureManager.RemoveResource(self.inf.id, vm.im_id, self.auth)
+		except:
+			ConfManager.logger.exception("Inf ID: " + str(self.inf.id) + ": Error removing a failed VM.")
+			removed = 0
+		
+		if removed != 1:
+			ConfManager.logger.error("Inf ID: " + str(self.inf.id) + ": Error removing a failed VM. Not launching a new one.")
+			return
 		
 		new_radl = ""
 		for net in vm.info.networks:
-			new_radl = "network " + net.id + "\n"								
+			new_radl += "network " + net.id + "\n"								
 		new_radl += "system " + vm.getRequestedSystem().name + "\n"
 		new_radl += "deploy " + vm.getRequestedSystem().name + " 1"
 		
@@ -1002,10 +1054,40 @@ class ConfManager(threading.Thread):
 		for galaxy_name in modules:
 			if galaxy_name:
 				recipe_out = open(tmp_dir + "/" + ConfManager.MASTER_YAML, 'a')
-				self.inf.add_cont_msg("Galaxy role " + galaxy_name + " detected setting to install.")
-				ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Install " + galaxy_name + " with ansible-galaxy.")
-				recipe_out.write("    - name: Install the " + galaxy_name + " role with ansible-galaxy\n")
-				recipe_out.write("      command: ansible-galaxy --force install " + galaxy_name + "\n")
+				
+				if galaxy_name.startswith("http"):
+					# in case of http url, the file must be compressed 
+					# it must contain only one directory with the same name of the compressed file
+					# (without extension) with the ansible role content 
+					filename = os.path.basename(galaxy_name)
+					self.inf.add_cont_msg("Remote file " + galaxy_name + " detected, setting to install.")
+					ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Install " + galaxy_name + " with ansible-galaxy.")
+					recipe_out.write("    - file: path=/etc/ansible/roles state=directory recurse=yes\n")
+					recipe_out.write("    - get_url: url=" + galaxy_name + " dest=/tmp/" + filename + "\n")
+					recipe_out.write("    - unarchive: src=/tmp/" + filename  + " dest=/etc/ansible/roles copy=no\n")
+				if galaxy_name.startswith("git"):
+					# in case of git repo, the user must specify the rolname using a | afther the url
+					parts = galaxy_name.split("|")
+					if len(parts) > 1:
+						url = parts[0]
+						rolename = parts[1]
+						self.inf.add_cont_msg("Git Repo " + url + " detected, setting to install.")
+						ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Clone " + url + " with git.")
+						recipe_out.write("    - file: path=/etc/ansible/roles state=directory\n")
+						recipe_out.write("    - yum: name=git\n")
+						recipe_out.write('      when: ansible_os_family == "RedHat"\n')
+						recipe_out.write("    - apt: name=git\n")
+						recipe_out.write('      when: ansible_os_family == "Debian"\n')
+						recipe_out.write("    - git: repo=" + url + " dest=/etc/ansible/roles/" + rolename + " accept_hostkey=yes\n")
+					else:
+						self.inf.add_cont_msg("Not specified the rolename. Ignoring git repo.")
+						ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": Not specified the rolename. Ignoring git repo.")
+				else:
+					self.inf.add_cont_msg("Galaxy role " + galaxy_name + " detected setting to install.")
+					ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Install " + galaxy_name + " with ansible-galaxy.")
+					recipe_out.write("    - name: Install the " + galaxy_name + " role with ansible-galaxy\n")
+					recipe_out.write("      command: ansible-galaxy --force install " + galaxy_name + "\n")
+				
 				recipe_out.close()
 				
 		self.inf.add_cont_msg("Performing preliminary steps to configure Ansible.")

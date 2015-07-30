@@ -20,7 +20,7 @@ from IM.VirtualMachine import VirtualMachine
 from CloudConnector import CloudConnector
 
 from libcloud.compute.base import NodeImage, NodeAuthSSHKey
-from libcloud.compute.types import NodeState, Provider
+from libcloud.compute.types import NodeState
 from libcloud.compute.providers import get_driver
 
 from IM.radl.radl import Feature
@@ -223,7 +223,7 @@ class LibCloudCloudConnector(CloudConnector):
 			if node:
 				vm = VirtualMachine(inf, node.id, self.cloud, radl, requested_radl, self)
 				# Add the keypair name to remove it later
-				vm.keypair = keypair
+				vm.keypair = keypair_name
 				self.logger.debug("Node successfully created.")
 				res.append((True, vm))
 			else:
@@ -260,7 +260,9 @@ class LibCloudCloudConnector(CloudConnector):
 			public_key = vm.getRequestedSystem().getValue('disk.0.os.credentials.public_key')
 			if vm.keypair and public_key is None or len(public_key) == 0 or (len(public_key) >= 1 and public_key.find('-----BEGIN CERTIFICATE-----') != -1):
 				# only delete in case of the user do not specify the keypair name
-				node.driver.delete_key_pair(vm.keypair)
+				keypair = node.driver.get_key_pair(vm.keypair)
+				if keypair:
+					node.driver.delete_key_pair(keypair)
 			
 			self.delete_elastic_ips(node, vm)
 			
@@ -289,6 +291,8 @@ class LibCloudCloudConnector(CloudConnector):
 				res_state = VirtualMachine.OFF
 			elif node.state == NodeState.STOPPED:
 				res_state = VirtualMachine.STOPPED
+			elif node.state == NodeState.ERROR:
+				res_state = VirtualMachine.FAILED
 			else:
 				res_state = VirtualMachine.UNKNOWN
 				

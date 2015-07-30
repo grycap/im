@@ -42,7 +42,7 @@ class TestConnectors(unittest.TestCase):
     """ List of VMs launched in the test """
     
     #connectors_to_test = "all"
-    connectors_to_test = ["docker"]
+    connectors_to_test = ["kub"]
     """ Specify the connectors to test: "all": All the connectors specified in the auth file or a list with the IDs"""
 
     @classmethod
@@ -115,10 +115,12 @@ class TestConnectors(unittest.TestCase):
             net_interface.0.dns_name = 'test' and
             disk.0.os.flavour='ubuntu' and
             disk.0.os.version>='12.04' and
+            disk.0.os.credentials.new.password = 'Passtest+01' and
             #disk.0.os.flavour='centos' and
             #disk.0.os.version>='6' and
             disk.1.size=1GB and
-            disk.1.device='hdb'
+            disk.1.device='hdb' and
+            disk.1.mount_path='/mnt/path'
             )"""
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
@@ -148,7 +150,7 @@ class TestConnectors(unittest.TestCase):
     def wait_vm_state(self, cl, vm, state, timeout):
         # wait the VM to be stopped
         wait = 0
-        err_states = [VirtualMachine.FAILED, VirtualMachine.OFF, VirtualMachine.UNKNOWN]
+        err_states = [VirtualMachine.FAILED, VirtualMachine.OFF, VirtualMachine.UNCONFIGURED]
         while vm.state != state and vm.state not in err_states and wait < timeout:
             try: 
                 (success, new_vm) = cl.updateVMInfo(vm, auth)
@@ -159,6 +161,8 @@ class TestConnectors(unittest.TestCase):
                 vm = new_vm
                 wait += 5
                 time.sleep(5)
+            else:
+                return False
 
         return vm.state == state
     
@@ -188,6 +192,24 @@ class TestConnectors(unittest.TestCase):
             # wait the VM to be running again
             wait_ok = self.wait_vm_state(cl,vm,VirtualMachine.RUNNING,90)
             self.assertTrue(wait_ok, msg="ERROR: waiting start op VM for cloud: " + vm.cloud.id)
+            
+    def test_55_alter(self):
+        radl_data = """
+            system test (
+            cpu.count>=2 and
+            memory.size>=1024m
+            )"""
+        radl = radl_parse.parse_radl(radl_data)
+        for vm in self.vm_list:
+            cl = vm.cloud.getCloudConnector()
+            (success, msg) = cl.alterVM(vm, radl, auth)
+            self.assertTrue(success, msg="ERROR: updating VM for cloud: " + vm.cloud.id + ": " + str(msg))
+            # get the updated vm
+            (success, new_vm) = cl.updateVMInfo(vm, auth)
+            new_cpu = new_vm.info.systems[0].getValue('cpu.count')
+            new_memory = new_vm.info.systems[0].getFeature('memory.size').getValue('M')
+            self.assertEqual(new_cpu, 2, msg="ERROR: updating VM for cloud: " + vm.cloud.id + ". CPU num must be 2.")
+            self.assertEqual(new_memory, 1024, msg="ERROR: updating VM for cloud: " + vm.cloud.id + ". Memory must be 1024.")
             
     def test_60_finalize(self):
         for vm in self.vm_list:

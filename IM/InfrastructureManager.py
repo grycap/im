@@ -32,6 +32,7 @@ import InfrastructureInfo
 from IM.radl import radl_parse
 from IM.radl.radl import Feature
 from IM.recipe import Recipe
+from IM.db import DataBase
 
 from config import Config
 
@@ -246,7 +247,7 @@ class InfrastructureManager:
 		return sel_inf.get_vm(vm_id)
 
 	@staticmethod
-	def Reconfigure(inf_id, radl_data, auth):
+	def Reconfigure(inf_id, radl_data, auth, vm_list = None):
 		"""
 		Add and update RADL definitions and reconfigure the infrastructure.
 
@@ -255,6 +256,7 @@ class InfrastructureManager:
 		- inf_id(int): infrastructure id.
 		- radl_data(str): RADL description, it can be empty.
 		- auth(Authentication): parsed authentication tokens.
+		- vm_list(list of int): List of VM ids to reconfigure. If None all VMs will be reconfigured.
 
 		Return: "" if success.
 		"""
@@ -291,7 +293,7 @@ class InfrastructureManager:
 
 		# Stick all virtual machines to be reconfigured
 		InfrastructureManager.logger.info("Contextualize the inf.")
-		sel_inf.Contextualize(auth)
+		sel_inf.Contextualize(auth, vm_list)
 
 		return ""
 
@@ -349,6 +351,8 @@ class InfrastructureManager:
 		- inf_id(int): infrastructure id.
 		- radl(str): RADL description.
 		- auth(Authentication): parsed authentication tokens.
+		- context(bool): Flag to specify if the ctxt step will be made
+		- failed_clouds(list of CloudInfo): A list of failed Cloud providers to avoid launching the VMs in them.
 
 		Return(list of int): ids of the new virtual machine created.
 		"""
@@ -534,7 +538,7 @@ class InfrastructureManager:
 		return [vm.im_id for vm in new_vms]
 		
 	@staticmethod
-	def RemoveResource(inf_id, vm_list, auth):
+	def RemoveResource(inf_id, vm_list, auth, context = True):
 		"""
 		Remove a list of resources from the infrastructure.
 
@@ -543,6 +547,7 @@ class InfrastructureManager:
 		- inf_id(int): infrastructure id.
 		- vm_list(str, int or list of str): list of virtual machine ids.
 		- auth(Authentication): parsed authentication tokens.
+		- context(bool): Flag to specify if the ctxt step will be made
 
 		Return(int): number of undeployed virtual machines.
 		"""
@@ -576,7 +581,7 @@ class InfrastructureManager:
 		InfrastructureManager.save_data()
 		InfrastructureManager.logger.info(str(cont) + " VMs successfully removed")
 
-		if cont > 0:
+		if context and cont > 0:
 			# Now test again if the infrastructure is contextualizing 
 			sel_inf.Contextualize(auth)
 
@@ -1097,16 +1102,59 @@ class InfrastructureManager:
 		return new_inf.id
 
 	@staticmethod
+	def get_data_from_db(db_url):
+		db = DataBase(db_url)
+		if db.connect():
+			if not db.table_exists("im_data"):
+				db.execute("CREATE TABLE im_data(id int PRIMARY KEY, date TIMESTAMP, inf_id int, data LONGBLOB)")
+				db.close()
+				return None
+			else:
+				res = db.select("select * from im_data order by id desc")
+			
+				if len(res) > 0:
+					#id = res[0][0]
+					#date = res[0][1]
+					inf_id = res[0][2]
+					str_inf_list = res[0][3]
+	
+					return inf_id, str_inf_list
+				else:
+					return None
+		else:
+			InfrastructureManager.logger.error("ERROR connecting with the database!.")
+			return None
+
+	@staticmethod
+	def save_data_to_db(db_url, inf_id, str_inf_list):
+		db = DataBase(db_url)
+		if db.connect():
+			# At this moment only use id = 0
+			res = db.execute("replace into im_data set inf_id = %s, data = %s, date = now(), id = 0", (inf_id, str_inf_list))
+			db.close()
+			return res
+		else:
+			InfrastructureManager.logger.error("ERROR connecting with the database!.")
+			return None
+
+	@staticmethod
 	def load_data():
 		with InfrastructureManager._lock:
 			try:
-				data_file = open(Config.DATA_FILE, 'rb')
-				InfrastructureManager.global_inf_id = pickle.load(data_file)
-				InfrastructureManager.infrastructure_list = pickle.load(data_file)
-				data_file.close()
+				if Config.DATA_DB:
+					data = InfrastructureManager.get_data_from_db(Config.DATA_DB)
+					if data:
+						inf_id, str_inf_list = data
+						InfrastructureManager.global_inf_id = inf_id
+						InfrastructureManager.infrastructure_list = pickle.loads(str_inf_list)
+				else:
+					data_file = open(Config.DATA_FILE, 'rb')
+					InfrastructureManager.global_inf_id = pickle.load(data_file)
+					InfrastructureManager.infrastructure_list = pickle.load(data_file)
+					data_file.close()
 			except Exception, ex:
-				InfrastructureManager.logger.exception("ERROR loading data from file: " + Config.DATA_FILE + ". Correct or delete it!!")
-				sys.stderr.write("ERROR loading data from file: " + Config.DATA_FILE + ": " + str(ex) + ".\nCorrect or delete it!! ")
+				InfrastructureManager.logger.exception("ERROR loading data. Correct or delete it!!")
+				sys.stderr.write("ERROR loading data: " + str(ex) + ".\nCorrect or delete it!! ")
 				sys.exit(-1)
 
 	@staticmethod
@@ -1115,13 +1163,21 @@ class InfrastructureManager:
 			# to avoid writing data to the file if the IM is exiting
 			if not InfrastructureManager._exiting:
 				try:
-					data_file = open(Config.DATA_FILE, 'wb')
-					pickle.dump(InfrastructureManager.global_inf_id, data_file)
-					pickle.dump(InfrastructureManager.infrastructure_list, data_file)
-					data_file.close()
+					if Config.DATA_DB:
+						str_inf_list = pickle.dumps(InfrastructureManager.infrastructure_list) 
+						res = InfrastructureManager.save_data_to_db(Config.DATA_DB, 
+															InfrastructureManager.global_inf_id, str_inf_list)
+						if not res:
+							InfrastructureManager.logger.error("ERROR saving data.\nChanges not stored!!")
+							sys.stderr.write("ERROR saving data.\nChanges not stored!!")
+					else:
+						data_file = open(Config.DATA_FILE, 'wb')
+						pickle.dump(InfrastructureManager.global_inf_id, data_file)
+						pickle.dump(InfrastructureManager.infrastructure_list, data_file)
+						data_file.close()
 				except Exception, ex:
-					InfrastructureManager.logger.exception("ERROR saving data to the file: " + Config.DATA_FILE + ". Changes not stored!!")
-					sys.stderr.write("ERROR saving data to the file: " + Config.DATA_FILE  + ": " + str(ex) + ".\nChanges not stored!!")
+					InfrastructureManager.logger.exception("ERROR saving data. Changes not stored!!")
+					sys.stderr.write("ERROR saving data: " + str(ex) + ".\nChanges not stored!!")
 
 	@staticmethod
 	def stop():

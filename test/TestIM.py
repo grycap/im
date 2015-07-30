@@ -195,7 +195,18 @@ class TestIM(unittest.TestCase):
         all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 900)
         self.assertTrue(all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
-    def test_20_removeresource(self):
+    def test_20_addresource_noconfig(self):
+        """
+        Test AddResource function with the contex option to False
+        """
+        (success, res) = self.server.AddResource(self.inf_id, RADL_ADD, self.auth_data, False)
+        self.assertTrue(success, msg="ERROR calling AddResource: " + str(res))
+
+        (success, vm_ids) = self.server.GetInfrastructureInfo(self.inf_id, self.auth_data)
+        self.assertTrue(success, msg="ERROR calling GetInfrastructureInfo:" + str(vm_ids))
+        self.assertEqual(len(vm_ids), 4, msg="ERROR getting infrastructure info: Incorrect number of VMs(" + str(len(vm_ids)) + "). It must be 3")
+
+    def test_21_removeresource(self):
         """
         Test RemoveResource function
         """
@@ -207,7 +218,7 @@ class TestIM(unittest.TestCase):
 
         (success, vm_ids) = self.server.GetInfrastructureInfo(self.inf_id, self.auth_data)
         self.assertTrue(success, msg="ERROR calling GetInfrastructureInfo:" + str(vm_ids))
-        self.assertEqual(len(vm_ids), 2, msg="ERROR getting infrastructure info: Incorrect number of VMs(" + str(len(vm_ids)) + "). It must be 2")
+        self.assertEqual(len(vm_ids), 3, msg="ERROR getting infrastructure info: Incorrect number of VMs(" + str(len(vm_ids)) + "). It must be 2")
 
         (success, vm_state)  = self.server.GetVMProperty(self.inf_id, vm_ids[0], "state", self.auth_data)
         self.assertTrue(success, msg="ERROR getting VM state:" + str(res))
@@ -216,7 +227,60 @@ class TestIM(unittest.TestCase):
         all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 600)
         self.assertTrue(all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
-    def test_21_stop(self):
+    def test_22_removeresource_noconfig(self):
+        """
+        Test RemoveResource function with the context option to False
+        """
+        (success, vm_ids) = self.server.GetInfrastructureInfo(self.inf_id, self.auth_data)
+        self.assertTrue(success, msg="ERROR calling GetInfrastructureInfo: " + str(vm_ids))
+
+        (success, res) = self.server.RemoveResource(self.inf_id, vm_ids[2], self.auth_data, False)
+        self.assertTrue(success, msg="ERROR calling RemoveResource: " + str(res))
+
+        (success, vm_ids) = self.server.GetInfrastructureInfo(self.inf_id, self.auth_data)
+        self.assertTrue(success, msg="ERROR calling GetInfrastructureInfo:" + str(vm_ids))
+        self.assertEqual(len(vm_ids), 2, msg="ERROR getting infrastructure info: Incorrect number of VMs(" + str(len(vm_ids)) + "). It must be 2")
+
+        (success, vm_state)  = self.server.GetVMProperty(self.inf_id, vm_ids[0], "state", self.auth_data)
+        self.assertTrue(success, msg="ERROR getting VM state:" + str(res))
+        self.assertEqual(vm_state, VirtualMachine.CONFIGURED, msg="ERROR unexpected state. Expected 'running' and obtained " + vm_state)
+
+    def test_23_reconfigure(self):
+        """
+        Test Reconfigure function
+        """
+        (success, res) = self.server.Reconfigure(self.inf_id, "", self.auth_data)
+        self.assertTrue(success, msg="ERROR calling Reconfigure: " + str(res))
+
+        all_stopped = self.wait_inf_state(VirtualMachine.CONFIGURED, 600)
+        self.assertTrue(all_stopped, msg="ERROR waiting the infrastructure to be configured (timeout).")
+        
+    def test_24_reconfigure_vmlist(self):
+        """
+        Test Reconfigure function specifying a list of VMs
+        """
+        (success, res) = self.server.Reconfigure(self.inf_id, "", self.auth_data, [0])
+        self.assertTrue(success, msg="ERROR calling Reconfigure: " + str(res))
+
+        all_stopped = self.wait_inf_state(VirtualMachine.CONFIGURED, 600)
+        self.assertTrue(all_stopped, msg="ERROR waiting the infrastructure to be configured (timeout).")
+        
+    def test_25_reconfigure_radl(self):
+        """
+        Test Reconfigure function specifying a new RADL
+        """
+        radl = """configure test (\n@begin\n---\n  - tasks:\n      - debug: msg="RECONFIGURERADL"\n@end\n)"""
+        (success, res) = self.server.Reconfigure(self.inf_id, radl, self.auth_data)
+        self.assertTrue(success, msg="ERROR calling Reconfigure: " + str(res))
+
+        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 600)
+        self.assertTrue(all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
+        
+        (success, cont_out) = self.server.GetInfrastructureContMsg(self.inf_id, self.auth_data)
+        self.assertTrue(success, msg="ERROR calling GetInfrastructureContMsg: " + str(cont_out))
+        self.assertIn("RECONFIGURERADL", cont_out, msg="Incorrect contextualization message: " + cont_out)
+
+    def test_30_stop(self):
         """
         Test StopInfrastructure function
         """
@@ -226,7 +290,7 @@ class TestIM(unittest.TestCase):
         all_stopped = self.wait_inf_state(VirtualMachine.STOPPED, 120, [VirtualMachine.RUNNING])
         self.assertTrue(all_stopped, msg="ERROR waiting the infrastructure to be stopped (timeout).")
 
-    def test_22_start(self):
+    def test_31_start(self):
         """
         Test StartInfrastructure function
         """
@@ -238,7 +302,7 @@ class TestIM(unittest.TestCase):
         all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 150, [VirtualMachine.RUNNING])
         self.assertTrue(all_configured, msg="ERROR waiting the infrastructure to be started (timeout).")
 
-    def test_23_stop_vm(self):
+    def test_32_stop_vm(self):
         """
         Test StopVM function
         """
@@ -248,7 +312,7 @@ class TestIM(unittest.TestCase):
         all_stopped = self.wait_inf_state(VirtualMachine.STOPPED, 120, [VirtualMachine.RUNNING], [0])
         self.assertTrue(all_stopped, msg="ERROR waiting the vm to be stopped (timeout).")
         
-    def test_24_start_vm(self):
+    def test_33_start_vm(self):
         """
         Test StartVM function
         """
@@ -259,6 +323,18 @@ class TestIM(unittest.TestCase):
 
         all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 150, [VirtualMachine.RUNNING], [0])
         self.assertTrue(all_configured, msg="ERROR waiting the vm to be started (timeout).")
+
+    def test_40_export_import(self):
+        """
+        Test ExportInfrastructure and ImportInfrastructure functions
+        """
+        (success, res) = self.server.ExportInfrastructure(self.inf_id, False, self.auth_data)
+        self.assertTrue(success, msg="ERROR calling ExportInfrastructure: " + str(res))
+        
+        (success, res) = self.server.ImportInfrastructure(res, self.auth_data)
+        self.assertTrue(success, msg="ERROR calling ImportInfrastructure: " + str(res))
+
+        self.assertEqual(res, self.inf_id+1, msg="ERROR importing the inf.")
 
     def test_50_destroy(self):
         """

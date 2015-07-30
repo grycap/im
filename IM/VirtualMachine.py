@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from netaddr import IPNetwork, IPAddress
 import time
 import threading
 from IM.radl.radl import network, RADL
@@ -461,7 +462,7 @@ class VirtualMachine:
 
 				# Get the private network mask
 				for mask in network.private_net_masks:
-					if network.addressInNetwork(private_ip,mask):
+					if IPAddress(private_ip) in IPNetwork(mask):
 						private_net_mask = mask
 						break
 				
@@ -472,8 +473,8 @@ class VirtualMachine:
 				
 				# Search in previous user private ips
 				private_net = None
-				for net_mask, net in private_net_map.iteritems():
-					if network.addressInNetwork(private_ip, net_mask): 	
+				for net_mask, net in private_net_map.iteritems(): 	
+					if IPAddress(private_ip) in IPNetwork(net_mask):
 						private_net = net								
 
 				# Search in the RADL nets
@@ -524,6 +525,22 @@ class VirtualMachine:
 		t = threading.Thread(target=eval("self.check_ctxt_process"))
 		t.daemon = True
 		t.start()
+		
+	def kill_check_ctxt_process(self):
+		"""
+		Kill the check_ctxt_process thread
+		"""
+		if self.ctxt_pid:
+			if self.ctxt_pid != self.WAIT_TO_PID:
+				ssh = self.inf.vm_master.get_ssh(retry = True)
+				try:
+					ssh.execute("kill -9 " + str(self.ctxt_pid))
+				except:
+					VirtualMachine.logger.exception("Error killing ctxt process with pid: " + str(self.ctxt_pid))
+					pass
+		
+			self.ctxt_pid = None
+			self.configured = False
 	
 	def check_ctxt_process(self):
 		"""
@@ -542,7 +559,7 @@ class VirtualMachine:
 		wait = 0
 		while self.ctxt_pid:
 			if self.ctxt_pid != self.WAIT_TO_PID:
-				ssh = self.inf.vm_master.get_ssh()
+				ssh = self.inf.vm_master.get_ssh(retry = True)
 
 				if self.state in VirtualMachine.NOT_RUNNING_STATES:
 					try:
@@ -551,8 +568,8 @@ class VirtualMachine:
 						VirtualMachine.logger.exception("Error killing ctxt process with pid: " + str(self.ctxt_pid))
 						pass
 
-					self.ctxt_pid = None
 					self.configured = False
+					self.ctxt_pid = None
 				else:
 					try:
 						(_, _, exit_status) = ssh.execute("ps " + str(self.ctxt_pid))
@@ -563,11 +580,11 @@ class VirtualMachine:
 						if self.ssh_connect_errors > Config.MAX_SSH_ERRORS:
 							VirtualMachine.logger.error("Too much errors getting status of ctxt process with pid: " + str(self.ctxt_pid) + ". Forget it.")
 							self.ssh_connect_errors = 0
-							self.ctxt_pid = None
 							self.configured = False
+							self.ctxt_pid = None
+							return None
 						
 					if exit_status != 0:
-						self.ctxt_pid = None
 						# The process has finished, get the outputs
 						ctxt_log = self.get_ctxt_log(remote_dir, True)
 						self.get_ctxt_output(remote_dir, True)
@@ -575,6 +592,7 @@ class VirtualMachine:
 							self.cont_out = initial_count_out + ctxt_log
 						else:
 							self.cont_out = initial_count_out + "Error getting contextualization process log."
+						self.ctxt_pid = None
 					else:
 						# Get the log of the process to update the cont_out dynamically
 						if Config.UPDATE_CTXT_LOG_INTERVAL > 0 and wait > Config.UPDATE_CTXT_LOG_INTERVAL:
@@ -615,10 +633,14 @@ class VirtualMachine:
 			
 			# Remove problematic chars
 			conf_out = filter(lambda x: x in string.printable, conf_out).encode("ascii", "replace")
-			if delete:
-				ssh.sftp_remove(remote_dir + '/ctxt_agent.log')
-		except Exception:
-			VirtualMachine.logger.exception("Error getting contextualization process log")
+			try:
+				if delete:
+					ssh.sftp_remove(remote_dir + '/ctxt_agent.log')
+			except:
+				VirtualMachine.logger.exception("Error deleting remote contextualization process log: " + remote_dir + '/ctxt_agent.log')
+				pass
+		except:
+			VirtualMachine.logger.exception("Error getting contextualization process log: " + remote_dir + '/ctxt_agent.log')
 			self.configured = False
 		finally:
 			shutil.rmtree(tmp_dir, ignore_errors=True)
@@ -634,12 +656,16 @@ class VirtualMachine:
 			# Get the JSON output of the ctxt_agent
 			ssh.sftp_get(remote_dir + '/ctxt_agent.out', tmp_dir + '/ctxt_agent.out')
 			with open(tmp_dir + '/ctxt_agent.out') as f: ctxt_agent_out = json.load(f)
-			if delete:
-				ssh.sftp_remove(remote_dir + '/ctxt_agent.out')
+			try:
+				if delete:
+					ssh.sftp_remove(remote_dir + '/ctxt_agent.out')
+			except:
+				VirtualMachine.logger.exception("Error deleting remote contextualization process output: " + remote_dir + '/ctxt_agent.out')
+				pass
 			# And process it
 			self.process_ctxt_agent_out(ctxt_agent_out)
 		except Exception, ex:
-			VirtualMachine.logger.exception("Error getting contextualization agent output")
+			VirtualMachine.logger.exception("Error getting contextualization agent output: " + remote_dir + '/ctxt_agent.out')
 			self.configured = False
 			self.cont_out += "Error getting contextualization agent output: "  + str(ex)
 		finally:

@@ -14,8 +14,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from netaddr import IPNetwork, IPAddress
 import copy
-import socket,struct
 from distutils.version import LooseVersion
 from IM.config import Config
 
@@ -678,23 +678,11 @@ class network(Features, Aspect):
 		"""
 		Check if an IP address is private
 		"""
+		
 		for mask in network.private_net_masks: 
-			if network.addressInNetwork(ip,mask):
+			if IPAddress(ip) in IPNetwork(mask):
 				return True
 		return False
-
-	@staticmethod
-	def addressInNetwork(ip,net):
-		"""Is an address in a network (format: 10.0.0.0/24)"""
-		ipaddr = struct.unpack('>L',socket.inet_aton(ip))[0]
-		netaddr,bits = net.split('/')
-		netmask = struct.unpack('>L',socket.inet_aton(netaddr))[0]
-		ipaddr_masked = ipaddr & (4294967295<<(32-int(bits)))   # Logical AND of IP address and mask will equal the network address if it matches
-		if netmask == netmask & (4294967295<<(32-int(bits))):   # Validate network address is valid for mask
-			return ipaddr_masked == netmask
-		else:
-			# print "***WARNING*** Network",netaddr,"not valid with mask /"+bits
-			return False
 
 	def getId(self):
 		return self.id
@@ -707,7 +695,8 @@ class network(Features, Aspect):
 
 		SIMPLE_FEATURES = {
 			"outbound": (str, ["YES", "NO"]),
-			"outports": (str, check_outports_format)
+			"outports": (str, check_outports_format),
+			"provider_id": (str, None)
 		}
 		self.check_simple(SIMPLE_FEATURES, radl)
 
@@ -1053,6 +1042,7 @@ class system(Features, Aspect):
 		NUM_FEATURES = {
 			"net_interface": {
 				"connection": (str, check_net_interface_connection),
+				"ip": (str, None),
 				"dns_name": (str, None) },
 			"disk": {
 				"image.url": (str, system._check_disk_image_url),
@@ -1060,6 +1050,7 @@ class system(Features, Aspect):
 				"type": (str, ["SWAP", "ISO", "FILESYSTEM"]),
 				"device": (str, None),
 				"mount_path": (str, None),
+				"fstype": (str, None),
 				"size": (float, positive, mem_units),
 				"free_size": (float, positive, mem_units),
 				"os.name": (str, ["LINUX", "WINDOWS", "MAC OS X"]),

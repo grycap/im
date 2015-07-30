@@ -41,6 +41,8 @@ However, if you install IM from sources you should install:
  + The YAML library for Python, typically available as the 'python-yaml' or 'PyYAML' package.
 
  + The SOAPpy library for Python, typically available as the 'python-soappy' or 'SOAPpy' package.
+ 
+ + The Netaddr library for Python, typically available as the 'python-netaddr' package.
 
  + Ansible (http://www.ansibleworks.com/) to configure nodes in the infrastructures.
    In particular, Ansible 1.4.2+ must be installed.
@@ -186,3 +188,15 @@ or
 REST_SSL = True
 
 And then set the variables: XMLRCP_SSL_* or REST_SSL_* to your certificates paths.
+
+2. DOCKER IMAGE
+===============
+
+A Docker image named `grycap/im` has been created to make easier the deployment of an IM service using the 
+default configuration. Information about this image can be found here: https://registry.hub.docker.com/u/grycap/im/.
+
+How to launch the IM service using docker:
+
+```sh
+sudo docker run -d -p 8899:8899 --name im grycap/im 
+```

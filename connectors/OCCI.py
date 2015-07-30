@@ -47,25 +47,17 @@ class OCCICloudConnector(CloudConnector):
 	}
 	"""Dictionary with a map with the OCCI VM states to the IM states."""
 
-	def __init__(self, cloud_info):
-		self.proxy_filename = None
-		CloudConnector.__init__(self, cloud_info)
-
 	def get_https_connection(self, auth, server, port):
 		"""
 		Get a HTTPS connection with the specified server.
 		It uses a proxy file if it has been specified in the auth credentials 
 		"""
 		if auth and 'proxy' in auth:
-			if self.proxy_filename and os.path.isfile(self.proxy_filename):
-				proxy_filename = self.proxy_filename 
-			else:
-				proxy = auth['proxy']
-				
-				(fproxy, proxy_filename) = tempfile.mkstemp()
-				os.write(fproxy, proxy)
-				os.close(fproxy)
-				self.proxy_filename = proxy_filename
+			proxy = auth['proxy']
+			
+			(fproxy, proxy_filename) = tempfile.mkstemp()
+			os.write(fproxy, proxy)
+			os.close(fproxy)
 	
 			return httplib.HTTPSConnection(server, port, cert_file = proxy_filename)
 		else:
