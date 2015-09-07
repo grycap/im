@@ -163,6 +163,16 @@ disk.0.os.credentials.new.password = 'NotS0simple+'
 )		"""
 		r = parse_radl(radl)
 		r.check()
+		
+	def test_check_newline(self):
+		radl = """
+system test (
+auth = 'asd asd asd asd asd asd asd as dasd asd as das dasd as das d                            asd \n' and
+otra = 1
+)
+		"""
+		r = parse_radl(radl)
+		r.check()
 
 if __name__ == "__main__":
 	unittest.main()
