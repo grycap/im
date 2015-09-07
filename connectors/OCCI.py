@@ -83,6 +83,15 @@ class OCCICloudConnector(CloudConnector):
 		
 		return conn
 
+	@staticmethod
+	def delete_proxy(conn):
+		"""
+		Delete the proxy file created to contact with the HTTPS server.
+		(Created in the get_https_connection function)
+		"""
+		if isinstance(conn, httplib.HTTPSConnection) and conn.cert_file and os.path.isfile(conn.cert_file):
+			os.unlink(conn.cert_file)
+
 	def get_auth_header(self, auth_data):
 		"""
 		Generate the auth header needed to contact with the OCCI server.
@@ -212,6 +221,7 @@ class OCCICloudConnector(CloudConnector):
 			conn = self.get_http_connection(auth_data)
 			conn.request('GET', "/compute/" + vm.id, headers = headers) 
 			resp = conn.getresponse()
+			self.delete_proxy(conn)
 			
 			output = resp.read()
 			if resp.status == 404:
@@ -278,6 +288,7 @@ users:
 			conn = self.get_http_connection(auth_data)
 			conn.request('GET', "/-/", headers = headers) 
 			resp = conn.getresponse()
+			self.delete_proxy(conn)
 			
 			output = resp.read()
 			#self.logger.debug(output)
@@ -441,6 +452,8 @@ users:
 
 			i += 1
 		
+		self.delete_proxy(conn)
+		
 		return res
 
 	def finalize(self, vm, auth_data):
@@ -452,7 +465,8 @@ users:
 		try:
 			conn = self.get_http_connection(auth_data)
 			conn.request('DELETE', "/compute/" + vm.id, headers = headers) 
-			resp = conn.getresponse()	
+			resp = conn.getresponse()
+			self.delete_proxy(conn)
 			output = str(resp.read())
 			if resp.status == 404:
 				return (True, vm.id)
@@ -481,6 +495,7 @@ users:
 			conn.endheaders(body)
 
 			resp = conn.getresponse()
+			self.delete_proxy(conn)
 			output = str(resp.read())
 			if resp.status != 200:
 				return (False, "Error stopping the VM: " + resp.reason + "\n" + output)
@@ -506,6 +521,7 @@ users:
 			conn.endheaders(body)
 
 			resp = conn.getresponse()
+			self.delete_proxy(conn)
 			output = str(resp.read())
 			if resp.status != 200:
 				return (False, "Error starting the VM: " + resp.reason + "\n" + output)
@@ -534,6 +550,7 @@ class KeyStoneAuth:
 			conn = occi.get_http_connection(auth_data)
 			conn.request('HEAD', "/-/", headers = headers) 
 			resp = conn.getresponse()
+			occi.delete_proxy(conn)
 			www_auth_head = resp.getheader('Www-Authenticate')
 			if www_auth_head and www_auth_head.startswith('Keystone uri'):
 				return www_auth_head.split('=')[1].replace("'","")
@@ -568,6 +585,7 @@ class KeyStoneAuth:
 			conn.endheaders(body)
 	
 			resp = conn.getresponse()
+			occi.delete_proxy(conn)
 			
 			# format: -> "{\"access\": {\"token\": {\"issued_at\": \"2014-12-29T17:10:49.609894\", \"expires\": \"2014-12-30T17:10:49Z\", \"id\": \"c861ab413e844d12a61d09b23dc4fb9c\"}, \"serviceCatalog\": [], \"user\": {\"username\": \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\", \"roles_links\": [], \"id\": \"475ce4978fb042e49ce0391de9bab49b\", \"roles\": [], \"name\": \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\"}, \"metadata\": {\"is_admin\": 0, \"roles\": []}}}"
 			output = json.loads(resp.read())
@@ -577,6 +595,7 @@ class KeyStoneAuth:
 			headers = {'Accept': 'application/json', 'Content-Type' : 'application/json', 'X-Auth-Token' : token_id, 'Connection':'close'}
 			conn.request('GET', "/v2.0/tenants", headers = headers)
 			resp = conn.getresponse()
+			occi.delete_proxy(conn)
 			
 			# format: -> "{\"tenants_links\": [], \"tenants\": [{\"description\": \"egi fedcloud\", \"enabled\": true, \"id\": \"fffd98393bae4bf0acf66237c8f292ad\", \"name\": \"egi\"}]}"
 			output = json.loads(resp.read())
@@ -596,6 +615,7 @@ class KeyStoneAuth:
 			conn.endheaders(body)
 	
 			resp = conn.getresponse()
+			occi.delete_proxy(conn)
 			
 			# format: -> "{\"access\": {\"token\": {\"issued_at\": \"2014-12-29T17:10:49.609894\", \"expires\": \"2014-12-30T17:10:49Z\", \"id\": \"c861ab413e844d12a61d09b23dc4fb9c\"}, \"serviceCatalog\": [], \"user\": {\"username\": \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\", \"roles_links\": [], \"id\": \"475ce4978fb042e49ce0391de9bab49b\", \"roles\": [], \"name\": \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\"}, \"metadata\": {\"is_admin\": 0, \"roles\": []}}}"
 			output = json.loads(resp.read())
