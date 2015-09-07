@@ -342,6 +342,8 @@ class KubernetesCloudConnector(CloudConnector):
 					# Set the default user and password to access the container
 					vm.info.systems[0].setValue('disk.0.os.credentials.username', 'root')
 					vm.info.systems[0].setValue('disk.0.os.credentials.password', self._root_password)
+					vm.info.systems[0].setValue('instance_id', str(vm.id))
+					vm.info.systems[0].setValue('instance_name', str(vm.id))
 					
 					res.append((True, vm))
 

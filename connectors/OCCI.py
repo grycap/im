@@ -223,6 +223,10 @@ class OCCICloudConnector(CloudConnector):
 				old_state = vm.state
 				occi_state = self.get_occi_attribute_value(output, 'occi.compute.state')
 				
+				occi_name = self.get_occi_attribute_value(output, 'occi.core.title')
+				if occi_name:
+					vm.info.systems[0].setValue('instance_name', occi_name)
+				
 				# I have to do that because OCCI returns 'inactive' when a VM is starting
 				# to distinguish from the OFF state
 				if old_state == VirtualMachine.PENDING and occi_state == 'inactive':
@@ -325,7 +329,9 @@ users:
 		
 		cpu = system.getValue('cpu.count')
 		memory = system.getFeature('memory.size').getValue('G')
-		name = system.getValue("disk.0.image.name")
+		name = system.getValue("instance_name")
+		if not name:
+			name = system.getValue("disk.0.image.name")
 		if not name:
 			name = "im_userimage"
 		arch = system.getValue('cpu.arch')
@@ -400,6 +406,7 @@ users:
 						body += 'X-OCCI-Attribute: occi.compute.memory=' + str(memory) + '\n'
 
 				body += 'X-OCCI-Attribute: occi.core.title="' + name + '"\n'
+				# TODO: evaluate to set the hostname defined in the RADL
 				body += 'X-OCCI-Attribute: occi.compute.hostname="' + name + '"\n'				
 				# See: https://wiki.egi.eu/wiki/HOWTO10
 				#body += 'X-OCCI-Attribute: org.openstack.credentials.publickey.name="my_key"' 
@@ -421,8 +428,9 @@ users:
 						occi_vm_id = os.path.basename(resp.msg.dict['location'])
 					else:
 						occi_vm_id = os.path.basename(output)
-					if occi_vm_id:				
+					if occi_vm_id:
 						vm = VirtualMachine(inf, occi_vm_id, self.cloud, radl, requested_radl, self)
+						vm.info.systems[0].setValue('instance_id', str(occi_vm_id))
 						res.append((True, vm))
 					else:
 						res.append((False, 'Unknown Error launching the VM.'))

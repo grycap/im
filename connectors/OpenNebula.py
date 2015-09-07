@@ -210,6 +210,8 @@ class OpenNebulaCloudConnector(CloudConnector):
 		
 		if success:
 			res_vm = VM(res_info)
+			
+			vm.info.systems[0].setValue('instance_name', res_vm.NAME)
 
 			# update the state of the VM
 			if res_vm.STATE == 3:
@@ -248,7 +250,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 			return [(False, "Incorrect auth data")]
 		
 		system = radl.systems[0]
-		# Currently ONE plugin only uses user-password credentials
+		# Currently ONE plugin prioritizes user-password credentials
 		if system.getValue('disk.0.os.credentials.password'):
 			system.delValue('disk.0.os.credentials.private_key')
 			system.delValue('disk.0.os.credentials.public_key')
@@ -267,6 +269,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 				
 			if success:
 				vm = VirtualMachine(inf, str(res_id), self.cloud, radl, requested_radl, self)
+				vm.info.systems[0].setValue('instance_id', str(res_id))
 				res.append((success, vm))
 			else:
 				res.append((success, "ERROR: " + str(res_id)))
@@ -347,7 +350,9 @@ class OpenNebulaCloudConnector(CloudConnector):
 		cpu = system.getValue('cpu.count')
 		arch = system.getValue('cpu.arch')
 		memory = system.getFeature('memory.size').getValue('M')
-		name = system.getValue("disk.0.image.name")
+		name = system.getValue("instance_name")
+		if not name:
+			name = system.getValue("disk.0.image.name")
 		if not name:
 			name = "userimage"
 		url = uriparse(system.getValue("disk.0.image.url"))
@@ -560,7 +565,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 						self.logger.warn("The network with IPs like: " + net.RANGE.IP_START + " does not have free leases")
 				else:
 					self.logger.error("Unknown type of network")
-					return (None, None)
+					continue
 			
 			is_public = not (network.isPrivateIP(ip)) 
 
