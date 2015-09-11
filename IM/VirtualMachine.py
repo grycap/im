@@ -461,7 +461,7 @@ class VirtualMachine:
 				private_net_mask = None
 
 				# Get the private network mask
-				for mask in network.private_net_masks:
+				for mask in Config.PRIVATE_NET_MASKS:
 					if IPAddress(private_ip) in IPNetwork(mask):
 						private_net_mask = mask
 						break
