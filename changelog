@@ -138,4 +138,6 @@ IM 1.3.2
     * Add instance_id and instance_name fields
     * Bugfix in RADL parser
     * Bugfix in ConfManager formatting volumes
+    * Change Ansible version to 1.9.2
+    * Improve documentation
 
