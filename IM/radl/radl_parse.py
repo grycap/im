@@ -24,32 +24,33 @@ from radl import Feature, RADL, system, network, configure, contextualize, conte
 class RADLParser:
 
 	def __init__(self, autodefinevars = True, **kwargs):
-		self.lexer = lex.lex(module=self, debug=0, optimize=1, **kwargs)
-		self.yacc = yacc.yacc(module=self, debug=0, optimize=1)
+		self.lexer = lex.lex(module=self, debug=0, optimize=0, **kwargs)
+		self.yacc = yacc.yacc(module=self, debug=0, optimize=0)
 
 	states = (
 	   ('recipe', 'exclusive'),
+	   ('body', 'inclusive'),
 	)
 	
+	# Lista de nombres de Token. Esto es obligatorio.
 	tokens = (
 		'LPAREN',
 		'RPAREN',
 		'NUMBER',
 		'AND',
-#		'OR',
 		'EQ',
 		'LT',
 		'GT',
 		'GE',
 		'LE',
-		'NETWORK',
-		'SYSTEM',
 		'SOFT',
 		'STRING',
 		'VAR',
 		'CONTAINS',
 		'DEPLOY',
 		'CONFIGURE',
+		'SYSTEM',
+		'NETWORK',
 		'RECIPE_LINE',
 		'RECIPE_BEGIN',
 		'RECIPE_END',
@@ -58,48 +59,54 @@ class RADLParser:
 	)
 	
 	# A string containing ignored characters (spaces and tabs)
-	t_ignore = ' \t\r'
-	
+	t_ignore = ' \t'
 	t_recipe_ignore = ''
+	t_body_ignore = ' \t'
 	
 	# Ignore comments.
-	def t_comment(self, t):
+	def t_comment(self,t):
 		r'\#.*'
 		pass
 	
-	def t_LE(self, t):
+	def t_body_LE(self,t):
 		r'<='
 		return t
 	
-	def t_GE(self, t):
+	def t_body_GE(self,t):
 		r'>='
 		return t
 	
-	def t_EQ(self, t):
+	def t_body_EQ(self,t):
 		r'='
 		return t
 	
-	def t_GT(self, t):
+	def t_body_GT(self,t):
 		r'>'
 		return t
 	
-	def t_LT(self, t):
+	def t_body_LT(self,t):
 		r'<'
 		return t
 	
-	def t_LPAREN(self, t):
+	def t_LPAREN(self,t):
 		r'\('
+		t.lexer.push_state('body')
 		return t
 	
-	def t_RPAREN(self, t):
+	def t_RPAREN(self,t):
 		r'\)'
+		t.lexer.pop_state()
 		return t
 	
-	def t_newline(self, t):
-		r'\n+'
+	def t_newline(self,t):
+		r'\n'
 		t.lexer.lineno += len(t.value)
 	
-	def t_NUMBER(self, t):
+	def t_body_newline(self,t):
+		r'\n'
+		t.lexer.lineno += len(t.value)
+	
+	def t_NUMBER(self,t):
 		r'\d+\.?\d*'
 		if t.value.find(".") != -1:
 			t.value = float(t.value)
@@ -107,9 +114,9 @@ class RADLParser:
 			t.value = int(t.value)
 		return t
 	
-	def t_STRING(self, t):
-		r"'([^\\']+|\\'|\\\\)*'"  # I think this is right ...
-		t.value = t.value[1:-1].decode("string-escape")  # .swapcase() # for fun
+	def t_STRING(self,t):
+		r"'([^\\']|\\.)*'"
+		t.value = t.value[1:-1].replace("\\'", "'")
 		return t
 	
 	reserved = {
@@ -117,7 +124,6 @@ class RADLParser:
 		'system' : 'SYSTEM',
 		'soft' : 'SOFT',
 		'and' : 'AND',
-#		'or' : 'OR',
 		'contains' : 'CONTAINS',
 		'deploy' : 'DEPLOY',
 		'configure': 'CONFIGURE',
@@ -132,12 +138,12 @@ class RADLParser:
 	
 	def t_RECIPE_BEGIN(self, t):
 		r'@begin'
-		t.lexer.begin('recipe')
+		t.lexer.push_state('recipe')
 		return t
 	
 	def t_recipe_RECIPE_END(self, t):
 		r'@end'
-		t.lexer.begin('INITIAL')
+		t.lexer.pop_state()
 		return t
 	
 	def t_recipe_RECIPE_LINE(self, t):
@@ -148,7 +154,7 @@ class RADLParser:
 	
 	# Error handling rule
 	def t_ANY_error(self, t):
-		print "Illegal character '%s' in line %s" % (t.value[0], t.lineno)
+		#print "Illegal character '%s'" % t.value[0]
 		t.lexer.skip(1)
 
 	def p_radl(self, t):
@@ -326,5 +332,5 @@ def parse_radl(data):
 		return RADL()
 	data = data + "\n"
 
-	parser = RADLParser()
+	parser = RADLParser(lextab = 'radl')
 	return parser.parse(data)

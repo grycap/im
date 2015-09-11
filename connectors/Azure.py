@@ -296,7 +296,9 @@ class AzureCloudConnector(CloudConnector):
 		Generate the XML to create the VM
 		"""
 		system = radl.systems[0]
-		name = system.getValue("disk.0.image.name")
+		name = system.getValue("instance_name")
+		if not name:
+			name = system.getValue("disk.0.image.name")
 		if not name:
 			name = "userimage" + str(num)
 		url = uriparse(system.getValue("disk.0.image.url"))
@@ -626,6 +628,7 @@ class AzureCloudConnector(CloudConnector):
 				
 				# Create the VM to get the nodename
 				vm = VirtualMachine(inf, service_name, self.cloud, radl, requested_radl, self)
+				vm.info.systems[0].setValue('instance_id', str(vm.id))
 				
 				# Generate the XML to create the VM
 				vm_create_xml = self.get_azure_vm_create_xml(vm, storage_account_name, radl, i)

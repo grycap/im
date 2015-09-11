@@ -413,19 +413,18 @@ GANGLIA INTEGRATION
    Maximum frequency to update the Ganglia info (in secs).
    The default value is ``30``.
 
-IM IN LOCAL INSTALLATIONS
-^^^^^^^^^^^^^^^^^^^^^^^^^
+NETWORK OPTIONS
+^^^^^^^^^^^^^^^
 
-.. confval:: PRIVATE_NET_AS_PUBLIC 
+.. confval:: PRIVATE_NET_MASKS 
 
-   Private network that IM will detect as public enabling to use
-   the IM service in installations of only one private Cloud provider.
-   It must be one of this values: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16
-   If this feature is not needed undefine or use an empty string.
-   The default value is ``''``.
+   List of networks assumed as private. The IM use it to distinguish private from public networks.
+   IM considers IPs not in these subnets as Public IPs.
+   It must be a coma separated string of the network definitions (using CIDR) (without spaces).
+   The default value is ``'10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,192.0.0.0/24,169.254.0.0/16,100.64.0.0/10,198.18.0.0/15'``.
    
-OpenNebula Options
-^^^^^^^^^^^^^^^^^^
+OpenNebula connector Options
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The configuration values under the ``OpenNebula`` section:
 

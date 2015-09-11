@@ -27,6 +27,9 @@ def parse_options(config, section_name, config_class):
 				config_class.__dict__[option] = config.getboolean(section_name, option)
 			elif isinstance(config_class.__dict__[option], int):
 				config_class.__dict__[option] = config.getint(section_name, option)
+			elif isinstance(config_class.__dict__[option], list):
+				str_value = config.get(section_name, option)
+				config_class.__dict__[option] = str_value.split(',')
 			else:
 				config_class.__dict__[option] = config.get(section_name, option)
 		else:
@@ -76,7 +79,7 @@ class Config:
 	VM_INFO_UPDATE_ERROR_GRACE_PERIOD = 120 # This value must be always higher than VM_INFO_UPDATE_FREQUENCY 
 	REMOTE_CONF_DIR = "/tmp/.im"
 	MAX_SSH_ERRORS = 5
-	PRIVATE_NET_AS_PUBLIC = ''
+	PRIVATE_NET_MASKS = ["10.0.0.0/8","172.16.0.0/12","192.168.0.0/16","169.254.0.0/16","100.64.0.0/10","192.0.0.0/24","198.18.0.0/15"]
 	CHECK_CTXT_PROCESS_INTERVAL = 5
 	CONFMAMAGER_CHECK_STATE_INTERVAL = 5
 	UPDATE_CTXT_LOG_INTERVAL = 20

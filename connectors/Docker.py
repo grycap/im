@@ -279,6 +279,7 @@ class DockerCloudConnector(CloudConnector):
 				output = json.loads(output)
 				# Set the cloud id to the VM
 				vm.id = output["Id"]
+				vm.info.systems[0].setValue('instance_id', str(vm.id))
 
 				# Now start it
 				success, _ = self.start(vm, auth_data)

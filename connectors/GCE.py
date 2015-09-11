@@ -235,7 +235,9 @@ class GCECloudConnector(CloudConnector):
 
         instance_type = self.get_instance_type(driver.list_sizes(region), system)
         
-        name = system.getValue("disk.0.image.name")
+        name = system.getValue("instance_name")
+        if not name:
+            name = system.getValue("disk.0.image.name")
         if not name:
             name = "userimage"
         
@@ -290,6 +292,8 @@ class GCECloudConnector(CloudConnector):
 
             if node:
                 vm = VirtualMachine(inf, node.extra['name'], self.cloud, radl, requested_radl, self)
+                vm.info.systems[0].setValue('instance_id', str(vm.id))
+                vm.info.systems[0].setValue('instance_name', str(vm.id))
                 self.logger.debug("Node successfully created.")
                 res.append((True, vm))
             else:

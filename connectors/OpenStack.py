@@ -151,7 +151,9 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
 		instance_type = self.get_instance_type(driver.list_sizes(), system)
 		
-		name = system.getValue("disk.0.image.name")
+		name = system.getValue("instance_name")
+		if not name:
+			name = system.getValue("disk.0.image.name")
 		if not name:
 			name = "userimage"
 		
@@ -196,6 +198,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 			
 			if node:
 				vm = VirtualMachine(inf, node.id, self.cloud, radl, requested_radl, self)
+				vm.info.systems[0].setValue('instance_id', str(node.id))
+				vm.info.systems[0].setValue('instance_name', str(node.name))
 				# Add the keypair name to remove it later
 				vm.keypair = keypair_name
 				self.logger.debug("Node successfully created.")
