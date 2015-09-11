@@ -201,6 +201,12 @@ machine.  The supported features are:
 ``availability_zone``
    Set the availability zone or region where this VM will be launched.
 
+``instance_id``
+   Get the instance ID assigned by the Cloud provider for this VM. 
+   
+``instance_name``
+   Set the instance name for this VM. 
+
 ``instance_type``
    Set the instance type name of this VM. 
 
@@ -276,10 +282,13 @@ machine.  The supported features are:
    ``7.1.2``.
 
 ``disk.0.os.credentials.username = <string>`` and ``disk.0.os.credentials.password = <string>``
-   Set a valid username and password to access the operating system.
+   Set a valid username and password to access the operating system with sudo privileges.
 
 ``disk.0.os.credentials.public_key = <string>`` and ``disk.0.os.credentials.private_key = <string>``
-   Set a valid public-private keypair to access the operating system.
+   Set a valid public-private keypair to access the operating system with sudo privileges.
+
+``disk.0.os.credentials.new.password = <string>`` and ``disk.0.os.credentials.new.private_key = <string>``
+   Changes the credentials of the user with admin privileges.
 
 ``disk.<diskId>.applications contains (name=<string>, version=<string>, preinstalled=yes|no)``
    Set that the disk must have installed the application with name ``name``.
@@ -307,7 +316,8 @@ Parametric Values
 -----------------
 RADL documents can use parametric values to be requested to the user in launch time.
 It make easy to launch different infrastructures without modifying the RADL document,
-only changing a set of values in launch time.
+only changing a set of values in launch time. This parametric values are requested to
+the user in the launch time by the client application (CLI or Web). 
 
 This values are specified with the following syntax::
   
@@ -368,6 +378,12 @@ can be accessed by the recipes and have information about the virtual machine.
 ``IM_<application name>_PATH``
    The path to an installed application required by the virtual machine.
 
+``IM_NODE_VMID``
+   The identifier asigned by the Cloud provider to the virtual machine.
+   
+``IM_NODE_NET_<iface num>_IP``
+   The IP assigned to the network interface num ``iface num``.
+
 
 Including roles of Ansible Galaxy
 ---------------------------------
@@ -398,6 +414,61 @@ documentation. In the particular case of the "micafer.hadoop" role is the follow
    
    @end
    )
+
+Advanced Contextualization
+--------------------------
+
+By default the IM will apply the ``configure`` section to the nodes with the same name of the ``system`` 
+defined. Furthermore all ``configure`` sections will be executed at the same time, in parallel.   
+
+But RADL also enables to specify the order in which the ``configure`` sections will be performed and which 
+configure sections will be executed to a specific type of node.  
+
+The contextualize section has the next structure::
+
+   contextualize <max_context_time> (
+      system <system_id> configure <configure_id> [step <num>]
+      ...
+   )
+
+The ``max_context_time`` value enables to set a timeout for the contextualization step to enable to
+kill the process if some of the steps takes more time than expected.
+
+Each line inside the contextualize section enables to specify which configure section ``configure_id``
+will be applied in the nodes of type ``system_id``. Optionally a step number can be specified to set
+the execution order. For example::
+
+   system nodeA (
+      ...
+   )
+   
+   system nodeB (
+      ...
+   )
+   
+   configure conf_server (
+      ...
+   )
+   
+   configure conf_client (
+      ...
+   )
+   
+   configure launch_client (
+      ...
+   )
+   
+   contextualize 1200 (
+      system nodeA configure conf_server step 1
+      system nodeB configure conf_client step 1
+      system nodeB configure launch_client step 2
+   )
+
+This RADL specifies that the configure section ``conf_server`` will be applied to the ``nodeA``
+type nodes in the first step. In parallel the the configure section ``conf_client`` will be applied to the ``nodeB``
+type nodes. Finally the configure section ``launch_client`` will be applied to the ``nodeB``
+type nodes. This is a tipical example of a client-server application where the client must be launched 
+afther the server has fully configured. 
 
 Examples
 --------
