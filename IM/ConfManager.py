@@ -445,19 +445,17 @@ class ConfManager(threading.Thread):
 			# Only add the tasks if the user has specified a moun_path and a filesystem
 			if disk_mount_path and disk_fstype:
 				# This recipe works with EC2 and OpenNebula. It must be tested/completed with other providers
-				with_first_found = '    with_first_found: \n'
-				with_first_found += '     - "/dev/sd' + disk_device[-1] + '"\n'
-				with_first_found += '     - "/dev/hd' + disk_device[-1] + '"\n'
-				with_first_found += '     - "/dev/xvd' + disk_device[-1] + '"\n'
+				condition = "    when: item.key.endswith('" + disk_device[-1] + "')\n"
+				condition += "    with_dict: ansible_devices\n"
 				
-				res += '  # Tasks to format and mount disk%d from device %s in %s\n' % (cont, disk_device, disk_mount_path)
-				res += '  - shell: (echo n; echo p; echo 1; echo ; echo; echo w) | fdisk {{item}} creates={{item}}1\n'
-				res += with_first_found
-				res += '  - filesystem: fstype=' + disk_fstype + ' dev={{item}}1\n'
-				res += with_first_found
+				res += '  # Tasks to format and mount disk %d from device %s in %s\n' % (cont, disk_device, disk_mount_path)
+				res += '  - shell: (echo n; echo p; echo 1; echo ; echo; echo w) | fdisk /dev/{{item.key}} creates=/dev/{{item.key}}1\n'
+				res += condition
+				res += '  - filesystem: fstype=' + disk_fstype + ' dev=/dev/{{item.key}}1\n'
+				res += condition
 				res += '  - file: path=' + disk_mount_path + ' state=directory recurse=yes\n'
-				res += '  - mount: name=' + disk_mount_path + ' src={{item}}1 state=mounted fstype=' + disk_fstype +'\n'
-				res += with_first_found
+				res += '  - mount: name=' + disk_mount_path + ' src=/dev/{{item.key}}1 state=mounted fstype=' + disk_fstype +'\n'
+				res += condition
 				res += '\n'
 			
 			cont +=1

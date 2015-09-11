@@ -287,6 +287,7 @@ class FogBowCloudConnector(CloudConnector):
 					occi_vm_id = os.path.basename(resp.msg.dict['location'])
 					#occi_vm_id = os.path.basename(output)				
 					vm = VirtualMachine(inf, occi_vm_id, self.cloud, radl, requested_radl)
+					vm.info.systems[0].setValue('instance_id', str(vm.id))
 					res.append((True, vm))
 
 			except Exception, ex:

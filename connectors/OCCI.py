@@ -83,6 +83,15 @@ class OCCICloudConnector(CloudConnector):
 		
 		return conn
 
+	@staticmethod
+	def delete_proxy(conn):
+		"""
+		Delete the proxy file created to contact with the HTTPS server.
+		(Created in the get_https_connection function)
+		"""
+		if isinstance(conn, httplib.HTTPSConnection) and conn.cert_file and os.path.isfile(conn.cert_file):
+			os.unlink(conn.cert_file)
+
 	def get_auth_header(self, auth_data):
 		"""
 		Generate the auth header needed to contact with the OCCI server.
@@ -212,6 +221,7 @@ class OCCICloudConnector(CloudConnector):
 			conn = self.get_http_connection(auth_data)
 			conn.request('GET', "/compute/" + vm.id, headers = headers) 
 			resp = conn.getresponse()
+			self.delete_proxy(conn)
 			
 			output = resp.read()
 			if resp.status == 404:
@@ -222,6 +232,10 @@ class OCCICloudConnector(CloudConnector):
 			else:
 				old_state = vm.state
 				occi_state = self.get_occi_attribute_value(output, 'occi.compute.state')
+				
+				occi_name = self.get_occi_attribute_value(output, 'occi.core.title')
+				if occi_name:
+					vm.info.systems[0].setValue('instance_name', occi_name)
 				
 				# I have to do that because OCCI returns 'inactive' when a VM is starting
 				# to distinguish from the OFF state
@@ -274,6 +288,7 @@ users:
 			conn = self.get_http_connection(auth_data)
 			conn.request('GET', "/-/", headers = headers) 
 			resp = conn.getresponse()
+			self.delete_proxy(conn)
 			
 			output = resp.read()
 			#self.logger.debug(output)
@@ -325,7 +340,9 @@ users:
 		
 		cpu = system.getValue('cpu.count')
 		memory = system.getFeature('memory.size').getValue('G')
-		name = system.getValue("disk.0.image.name")
+		name = system.getValue("instance_name")
+		if not name:
+			name = system.getValue("disk.0.image.name")
 		if not name:
 			name = "im_userimage"
 		arch = system.getValue('cpu.arch')
@@ -400,6 +417,7 @@ users:
 						body += 'X-OCCI-Attribute: occi.compute.memory=' + str(memory) + '\n'
 
 				body += 'X-OCCI-Attribute: occi.core.title="' + name + '"\n'
+				# TODO: evaluate to set the hostname defined in the RADL
 				body += 'X-OCCI-Attribute: occi.compute.hostname="' + name + '"\n'				
 				# See: https://wiki.egi.eu/wiki/HOWTO10
 				#body += 'X-OCCI-Attribute: org.openstack.credentials.publickey.name="my_key"' 
@@ -421,8 +439,9 @@ users:
 						occi_vm_id = os.path.basename(resp.msg.dict['location'])
 					else:
 						occi_vm_id = os.path.basename(output)
-					if occi_vm_id:				
+					if occi_vm_id:
 						vm = VirtualMachine(inf, occi_vm_id, self.cloud, radl, requested_radl, self)
+						vm.info.systems[0].setValue('instance_id', str(occi_vm_id))
 						res.append((True, vm))
 					else:
 						res.append((False, 'Unknown Error launching the VM.'))
@@ -432,6 +451,8 @@ users:
 				res.append((False, "ERROR: " + str(ex)))
 
 			i += 1
+		
+		self.delete_proxy(conn)
 		
 		return res
 
@@ -444,7 +465,8 @@ users:
 		try:
 			conn = self.get_http_connection(auth_data)
 			conn.request('DELETE', "/compute/" + vm.id, headers = headers) 
-			resp = conn.getresponse()	
+			resp = conn.getresponse()
+			self.delete_proxy(conn)
 			output = str(resp.read())
 			if resp.status == 404:
 				return (True, vm.id)
@@ -473,6 +495,7 @@ users:
 			conn.endheaders(body)
 
 			resp = conn.getresponse()
+			self.delete_proxy(conn)
 			output = str(resp.read())
 			if resp.status != 200:
 				return (False, "Error stopping the VM: " + resp.reason + "\n" + output)
@@ -498,6 +521,7 @@ users:
 			conn.endheaders(body)
 
 			resp = conn.getresponse()
+			self.delete_proxy(conn)
 			output = str(resp.read())
 			if resp.status != 200:
 				return (False, "Error starting the VM: " + resp.reason + "\n" + output)
@@ -526,6 +550,7 @@ class KeyStoneAuth:
 			conn = occi.get_http_connection(auth_data)
 			conn.request('HEAD', "/-/", headers = headers) 
 			resp = conn.getresponse()
+			occi.delete_proxy(conn)
 			www_auth_head = resp.getheader('Www-Authenticate')
 			if www_auth_head and www_auth_head.startswith('Keystone uri'):
 				return www_auth_head.split('=')[1].replace("'","")
@@ -560,6 +585,7 @@ class KeyStoneAuth:
 			conn.endheaders(body)
 	
 			resp = conn.getresponse()
+			occi.delete_proxy(conn)
 			
 			# format: -> "{\"access\": {\"token\": {\"issued_at\": \"2014-12-29T17:10:49.609894\", \"expires\": \"2014-12-30T17:10:49Z\", \"id\": \"c861ab413e844d12a61d09b23dc4fb9c\"}, \"serviceCatalog\": [], \"user\": {\"username\": \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\", \"roles_links\": [], \"id\": \"475ce4978fb042e49ce0391de9bab49b\", \"roles\": [], \"name\": \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\"}, \"metadata\": {\"is_admin\": 0, \"roles\": []}}}"
 			output = json.loads(resp.read())
@@ -569,6 +595,7 @@ class KeyStoneAuth:
 			headers = {'Accept': 'application/json', 'Content-Type' : 'application/json', 'X-Auth-Token' : token_id, 'Connection':'close'}
 			conn.request('GET', "/v2.0/tenants", headers = headers)
 			resp = conn.getresponse()
+			occi.delete_proxy(conn)
 			
 			# format: -> "{\"tenants_links\": [], \"tenants\": [{\"description\": \"egi fedcloud\", \"enabled\": true, \"id\": \"fffd98393bae4bf0acf66237c8f292ad\", \"name\": \"egi\"}]}"
 			output = json.loads(resp.read())
@@ -588,6 +615,7 @@ class KeyStoneAuth:
 			conn.endheaders(body)
 	
 			resp = conn.getresponse()
+			occi.delete_proxy(conn)
 			
 			# format: -> "{\"access\": {\"token\": {\"issued_at\": \"2014-12-29T17:10:49.609894\", \"expires\": \"2014-12-30T17:10:49Z\", \"id\": \"c861ab413e844d12a61d09b23dc4fb9c\"}, \"serviceCatalog\": [], \"user\": {\"username\": \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\", \"roles_links\": [], \"id\": \"475ce4978fb042e49ce0391de9bab49b\", \"roles\": [], \"name\": \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\"}, \"metadata\": {\"is_admin\": 0, \"roles\": []}}}"
 			output = json.loads(resp.read())

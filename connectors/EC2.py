@@ -86,6 +86,8 @@ class EC2CloudConnector(CloudConnector):
 				if res_system.getValue('disk.0.os.credentials.private_key'):
 					res_system.delValue('disk.0.os.credentials.password')
 				
+				res_system.addFeature(Feature("provider.type", "=", self.type), conflict="other", missing="other")
+				
 				instance_type = self.get_instance_type(res_system)
 				if not instance_type:
 					self.logger.error("Error launching the VM, no instance type available for the requirements.")
@@ -502,6 +504,7 @@ class EC2CloudConnector(CloudConnector):
 								self.logger.debug(system)
 							
 								vm = VirtualMachine(inf, ec2_vm_id, self.cloud, radl, requested_radl, self)
+								vm.info.systems[0].setValue('instance_id', str(vm.id))
 								# Add the keypair name to remove it later 
 								vm.keypair_name = keypair_name
 								self.logger.debug("Instance successfully launched.")
@@ -533,6 +536,7 @@ class EC2CloudConnector(CloudConnector):
 								self.logger.debug(system)
 								
 								vm = VirtualMachine(inf, ec2_vm_id, self.cloud, radl, requested_radl, self)
+								vm.info.systems[0].setValue('instance_id', str(vm.id))
 								# Add the keypair name to remove it later 
 								vm.keypair_name = keypair_name
 								self.logger.debug("Instance successfully launched.")
