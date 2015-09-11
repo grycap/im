@@ -447,9 +447,8 @@ class ConfManager(threading.Thread):
 				# This recipe works with EC2 and OpenNebula. It must be tested/completed with other providers
 				condition = "    when: item.key.endswith('" + disk_device[-1] + "')\n"
 				condition += "    with_dict: ansible_devices\n"
-
 				
-				res += '  # Tasks to format and mount disk%d from device %s in %s\n' % (cont, disk_device, disk_mount_path)
+				res += '  # Tasks to format and mount disk %d from device %s in %s\n' % (cont, disk_device, disk_mount_path)
 				res += '  - shell: (echo n; echo p; echo 1; echo ; echo; echo w) | fdisk /dev/{{item.key}} creates=/dev/{{item.key}}1\n'
 				res += condition
 				res += '  - filesystem: fstype=' + disk_fstype + ' dev=/dev/{{item.key}}1\n'
