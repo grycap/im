@@ -587,11 +587,11 @@ class VirtualMachine:
 					if exit_status != 0:
 						# The process has finished, get the outputs
 						ctxt_log = self.get_ctxt_log(remote_dir, True)
-						self.get_ctxt_output(remote_dir, True)
+						msg = self.get_ctxt_output(remote_dir, True)
 						if ctxt_log:
-							self.cont_out = initial_count_out + ctxt_log
+							self.cont_out = initial_count_out + msg + ctxt_log
 						else:
-							self.cont_out = initial_count_out + "Error getting contextualization process log."
+							self.cont_out = initial_count_out + msg + "Error getting contextualization process log."
 						self.ctxt_pid = None
 					else:
 						# Get the log of the process to update the cont_out dynamically
@@ -650,6 +650,7 @@ class VirtualMachine:
 	def get_ctxt_output(self, remote_dir, delete = False):
 		ssh = self.inf.vm_master.get_ssh(retry=True)
 		tmp_dir = tempfile.mkdtemp()
+		msg = ""
 			
 		# Download the contextualization agent log
 		try:
@@ -664,12 +665,15 @@ class VirtualMachine:
 				pass
 			# And process it
 			self.process_ctxt_agent_out(ctxt_agent_out)
+			msg = "Contextualization agent output processed successfully"
 		except Exception, ex:
 			VirtualMachine.logger.exception("Error getting contextualization agent output: " + remote_dir + '/ctxt_agent.out')
 			self.configured = False
-			self.cont_out += "Error getting contextualization agent output: "  + str(ex)
+			msg = "Error getting contextualization agent output: "  + str(ex)
 		finally:
 			shutil.rmtree(tmp_dir, ignore_errors=True)
+		
+		return msg
 		
 	def process_ctxt_agent_out(self, ctxt_agent_out):
 		"""
