@@ -149,12 +149,15 @@ def LaunchAnsiblePlaybook(output, playbook_file, vm, threads, inventory_file, pk
 	t.start()
 	return t
 
-def changeVMCredentials(vm):
+def changeVMCredentials(vm, pk_file):
 	# Check if we must change user credentials in the VM
 	if 'passwd' in vm and vm['passwd'] and 'new_passwd' in vm and vm['new_passwd']:
 		logger.info("Changing password to VM: " + vm['ip'])
+		private_key = vm['private_key']
+		if pk_file:
+			private_key = pk_file
 		try:
-			ssh_client = SSH(vm['ip'], vm['user'], vm['passwd'], vm['private_key'], vm['ssh_port'])
+			ssh_client = SSH(vm['ip'], vm['user'], vm['passwd'], private_key, vm['ssh_port'])
 			(out, err, code) = ssh_client.execute('sudo bash -c \'echo "' + vm['user'] + ':' + vm['new_passwd'] + '" | /usr/sbin/chpasswd && echo "OK"\' 2> /dev/null')
 		except:
 			logger.exception("Error changing password to VM: " + vm['ip'] + ".")
@@ -169,8 +172,11 @@ def changeVMCredentials(vm):
 
 	if 'new_public_key' in vm and vm['new_public_key'] and 'new_private_key' in vm and vm['new_private_key']:
 		logger.info("Changing public key to VM: " + vm['ip'])
+		private_key = vm['private_key']
+		if pk_file:
+			private_key = pk_file
 		try:
-			ssh_client = SSH(vm['ip'], vm['user'], vm['passwd'], vm['private_key'], vm['ssh_port'])
+			ssh_client = SSH(vm['ip'], vm['user'], vm['passwd'], private_key, vm['ssh_port'])
 			(out, err, code) = ssh_client.execute('echo ' + vm['new_public_key'] + ' >> .ssh/authorized_keys')
 		except:
 			logger.exception("Error changing public key to VM: " + vm['ip'] + ".")
@@ -185,11 +191,14 @@ def changeVMCredentials(vm):
 
 	return False
 
-def removeRequiretty(vm):
+def removeRequiretty(vm, pk_file):
 	if not vm['master']:
 		logger.info("Removing requiretty to VM: " + vm['ip'])
 		try:
-			ssh_client = SSH(vm['ip'], vm['user'], vm['passwd'], vm['private_key'], vm['ssh_port'])
+			private_key = vm['private_key']
+			if pk_file:
+				private_key = pk_file
+			ssh_client = SSH(vm['ip'], vm['user'], vm['passwd'], private_key, vm['ssh_port'])
 			# Activate tty mode to avoid some problems with sudo in REL
 			ssh_client.tty = True
 			(stdout, stderr, code) = ssh_client.execute("sudo sed -i 's/.*requiretty$/#Defaults requiretty/' /etc/sudoers")
@@ -247,8 +256,13 @@ def contextualize_vm(general_conf_data, vm_conf_data):
 						res_data['SSH_WAIT'] = True
 						logger.info("SSH access to VM: " + vm['ip']+ " Open!")
 				
+				# The basic task uses the credentials of VM stored in ctxt_vm
+				pk_file = None
+				if cred_used == "pk_file":
+					pk_file = PK_FILE
+				
 				# First remove requiretty in the node
-				success = removeRequiretty(ctxt_vm)
+				success = removeRequiretty(ctxt_vm, pk_file)
 				if success:
 					logger.info("Requiretty successfully removed")
 				else:
@@ -257,13 +271,9 @@ def contextualize_vm(general_conf_data, vm_conf_data):
 				# Do not change it on the master. It must be changed only by the ConfManager
 				change_creds = False
 				if not ctxt_vm['master']:
-					change_creds = changeVMCredentials(ctxt_vm)
+					change_creds = changeVMCredentials(ctxt_vm, pk_file)
 					res_data['CHANGE_CREDS'] = change_creds
 				
-				# The basic task uses the credentials of VM stored in ctxt_vm
-				pk_file = None
-				if cred_used == "pk_file":
-					pk_file = PK_FILE
 				ansible_thread = LaunchAnsiblePlaybook(logger, playbook, ctxt_vm, 2, inventory_file, pk_file, INTERNAL_PLAYBOOK_RETRIES, change_creds)
 			else:
 				# In some strange cases the pk_file disappears. So test it and remake basic recipe
