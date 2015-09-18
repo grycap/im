@@ -153,8 +153,12 @@ def changeVMCredentials(vm):
 	# Check if we must change user credentials in the VM
 	if 'passwd' in vm and vm['passwd'] and 'new_passwd' in vm and vm['new_passwd']:
 		logger.info("Changing password to VM: " + vm['ip'])
-		ssh_client = SSH(vm['ip'], vm['user'], vm['passwd'], vm['private_key'], vm['ssh_port'])
-		(out, err, code) = ssh_client.execute('sudo bash -c \'echo "' + vm['user'] + ':' + vm['new_passwd'] + '" | /usr/sbin/chpasswd && echo "OK"\' 2> /dev/null')
+		try:
+			ssh_client = SSH(vm['ip'], vm['user'], vm['passwd'], vm['private_key'], vm['ssh_port'])
+			(out, err, code) = ssh_client.execute('sudo bash -c \'echo "' + vm['user'] + ':' + vm['new_passwd'] + '" | /usr/sbin/chpasswd && echo "OK"\' 2> /dev/null')
+		except:
+			logger.exception("Error changing password to VM: " + vm['ip'] + ".")
+			return False
 		
 		if code == 0:
 			vm['passwd'] = vm['new_passwd']
@@ -165,8 +169,13 @@ def changeVMCredentials(vm):
 
 	if 'new_public_key' in vm and vm['new_public_key'] and 'new_private_key' in vm and vm['new_private_key']:
 		logger.info("Changing public key to VM: " + vm['ip'])
-		ssh_client = SSH(vm['ip'], vm['user'], vm['passwd'], vm['private_key'], vm['ssh_port'])
-		(out, err, code) = ssh_client.execute('echo ' + vm['new_public_key'] + ' >> .ssh/authorized_keys')
+		try:
+			ssh_client = SSH(vm['ip'], vm['user'], vm['passwd'], vm['private_key'], vm['ssh_port'])
+			(out, err, code) = ssh_client.execute('echo ' + vm['new_public_key'] + ' >> .ssh/authorized_keys')
+		except:
+			logger.exception("Error changing public key to VM: " + vm['ip'] + ".")
+			return False
+			
 		if code != 0:
 			logger.error("Error changing public key to VM:: " + vm['ip'] + ". " + out + err)
 			return False
@@ -179,12 +188,16 @@ def changeVMCredentials(vm):
 def removeRequiretty(vm):
 	if not vm['master']:
 		logger.info("Removing requiretty to VM: " + vm['ip'])
-		ssh_client = SSH(vm['ip'], vm['user'], vm['passwd'], vm['private_key'], vm['ssh_port'])
-		# Activate tty mode to avoid some problems with sudo in REL
-		ssh_client.tty = True
-		(stdout, stderr, code) = ssh_client.execute("sudo sed -i 's/.*requiretty$/#Defaults requiretty/' /etc/sudoers")
-		logger.debug("OUT: " + stdout + stderr)
-		return code == 0
+		try:
+			ssh_client = SSH(vm['ip'], vm['user'], vm['passwd'], vm['private_key'], vm['ssh_port'])
+			# Activate tty mode to avoid some problems with sudo in REL
+			ssh_client.tty = True
+			(stdout, stderr, code) = ssh_client.execute("sudo sed -i 's/.*requiretty$/#Defaults requiretty/' /etc/sudoers")
+			logger.debug("OUT: " + stdout + stderr)
+			return code == 0
+		except:
+			logger.exception("Error removing requiretty to VM: " + vm['ip'])
+			return False
 	else:
 		return True
 
