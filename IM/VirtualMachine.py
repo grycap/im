@@ -666,6 +666,18 @@ class VirtualMachine:
 			# And process it
 			self.process_ctxt_agent_out(ctxt_agent_out)
 			msg = "Contextualization agent output processed successfully"
+		except IOError, ex:
+			msg = "Error getting contextualization agent output " + remote_dir + "/ctxt_agent.out:  No such file."	
+			try:
+				src = [remote_dir + '/stdout', remote_dir + '/stderr']
+				dst = [tmp_dir + '/stdout', tmp_dir + '/stderr']
+				ssh.sftp_get_files(src,dst)
+				with open(tmp_dir + '/stdout') as f: msg += "\n" + f.read() + "\n"
+				with open(tmp_dir + '/stderr') as f: msg += f.read() + "\n"
+				VirtualMachine.logger.error(msg)
+			except:
+				VirtualMachine.logger.exception("Error getting stdout and stderr to guess why the agent output is not there.")
+				pass
 		except Exception, ex:
 			VirtualMachine.logger.exception("Error getting contextualization agent output: " + remote_dir + '/ctxt_agent.out')
 			self.configured = False
