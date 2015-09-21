@@ -141,3 +141,8 @@ IM 1.3.2
     * Change Ansible version to 1.9.2
     * Improve documentation
     * Remove PRIVATE_NET_AS_PUBLIC configuration variable and add PRIVATE_NET_MASKS
+
+IM 1.3.3
+    * Bugfixes to ctxt_agent.py
+    * Minor bugfixes and code improvements in VirtualMachine.py
+    * Bugfixes and improvements in connectors

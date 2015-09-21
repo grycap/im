@@ -91,12 +91,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 				
 				res_system = radl_system.clone()
 				instance_type = self.get_instance_type(driver.list_sizes(), res_system)
-				
-				res_system.addFeature(Feature("memory.size", "=", instance_type.ram, 'M'), conflict="other", missing="other")
-				res_system.addFeature(Feature("disk.0.free_size", "=", instance_type.disk , 'G'), conflict="other", missing="other")
-				res_system.addFeature(Feature("price", "=", instance_type.price), conflict="me", missing="other")
-				
-				res_system.addFeature(Feature("instance_type", "=", instance_type.name), conflict="other", missing="other")
+				self.update_system_info_from_instance(res_system, instance_type)
 				
 				res_system.addFeature(Feature("provider.type", "=", self.type), conflict="other", missing="other")
 				res_system.addFeature(Feature("provider.host", "=", self.cloud.server), conflict="other", missing="other")
@@ -107,6 +102,14 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 				return []
 		else:
 			return [radl_system.clone()]
+
+	def update_system_info_from_instance(self, system, instance_type):
+		"""
+		Update the features of the system with the information of the instance_type
+		"""
+		super(OpenStackCloudConnector, self).update_system_info_from_instance(system, instance_type)
+		if instance_type.vcpus:
+			system.addFeature(Feature("cpu.count", "=", instance_type.vcpus), conflict="me", missing="other")
 
 	def get_networks(self, driver, radl):
 		"""
