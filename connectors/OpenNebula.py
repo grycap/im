@@ -235,6 +235,9 @@ class OpenNebulaCloudConnector(CloudConnector):
 
 			# Update network data
 			self.setIPsFromTemplate(vm,res_vm.TEMPLATE)
+			
+			vm.info.systems[0].addFeature(Feature("cpu.count", "=", res_vm.TEMPLATE.CPU), conflict="other", missing="other")
+			vm.info.systems[0].addFeature(Feature("memory.size", "=", res_vm.TEMPLATE.MEMORY, 'M'), conflict="other", missing="other")
 
 			if res_vm.STIME > 0:
 				vm.info.systems[0].setValue('launch_time', res_vm.STIME)

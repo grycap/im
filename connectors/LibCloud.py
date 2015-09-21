@@ -95,8 +95,11 @@ class LibCloudCloudConnector(CloudConnector):
 		"""
 		instance_type_name = radl.getValue('instance_type')
 		
-		memory = radl.getFeature('memory.size').getValue('M')
-		memory_op = radl.getFeature('memory.size').getLogOperator()
+		memory = 1
+		memory_op = ">="
+		if radl.getFeature('memory.size'):
+			memory = radl.getFeature('memory.size').getValue('M')
+			memory_op = radl.getFeature('memory.size').getLogOperator()
 		disk_free = 0
 		disk_free_op = ">="
 		if radl.getValue('disk.0.free_size'):
@@ -133,14 +136,7 @@ class LibCloudCloudConnector(CloudConnector):
 			else:
 				res_system = radl_system.clone()
 				instance_type = self.get_instance_type(driver.list_sizes(), res_system)
-				
-				res_system.addFeature(Feature("memory.size", "=", instance_type.ram, 'M'), conflict="other", missing="other")
-				if instance_type.disk:
-					res_system.addFeature(Feature("disk.0.free_size", "=", instance_type.disk , 'G'), conflict="other", missing="other")
-				if instance_type.price:
-					res_system.addFeature(Feature("price", "=", instance_type.price), conflict="me", missing="other")
-				
-				res_system.addFeature(Feature("instance_type", "=", instance_type.name), conflict="other", missing="other")
+				self.update_system_info_from_instance(res_system, instance_type)
 				
 				res_system.addFeature(Feature("provider.type", "=", self.type), conflict="other", missing="other")
 				if self.cloud.server:
@@ -151,6 +147,18 @@ class LibCloudCloudConnector(CloudConnector):
 				return [res_system]
 		else:
 			return [radl_system.clone()]
+
+	def update_system_info_from_instance(self, system, instance_type):
+		"""
+		Update the features of the system with the information of the instance_type
+		"""
+		system.addFeature(Feature("memory.size", "=", instance_type.ram, 'M'), conflict="other", missing="other")
+		if instance_type.disk:
+			system.addFeature(Feature("disk.0.free_size", "=", instance_type.disk , 'G'), conflict="other", missing="other")
+		if instance_type.price:
+			system.addFeature(Feature("price", "=", instance_type.price), conflict="me", missing="other")
+		
+		system.addFeature(Feature("instance_type", "=", instance_type.name), conflict="other", missing="other")
 
 	def get_image_id(self, path):
 		"""
@@ -301,6 +309,8 @@ class LibCloudCloudConnector(CloudConnector):
 				res_state = VirtualMachine.UNKNOWN
 				
 			vm.state = res_state
+			
+			self.update_system_info_from_instance(vm.info.systems[0], node.size)
 			
 			self.setIPsFromInstance(vm,node)
 			self.attach_volumes(vm,node)

@@ -89,17 +89,12 @@ class GCECloudConnector(CloudConnector):
                 
                 if not instance_type:
                     return []
+
+                self.update_system_info_from_instance(res_system, instance_type)
                 
                 username = res_system.getValue('disk.0.os.credentials.username')
                 if not username:
                     res_system.setValue('disk.0.os.credentials.username','gceuser')
-                res_system.addFeature(Feature("memory.size", "=", instance_type.ram, 'M'), conflict="other", missing="other")
-                if instance_type.disk:
-                    res_system.addFeature(Feature("disk.0.free_size", "=", instance_type.disk , 'G'), conflict="other", missing="other")
-                if instance_type.price:
-                    res_system.addFeature(Feature("price", "=", instance_type.price), conflict="me", missing="other")
-                
-                res_system.addFeature(Feature("instance_type", "=", instance_type.name), conflict="other", missing="other")
                 res_system.addFeature(Feature("provider.type", "=", self.type), conflict="other", missing="other")                
 
                 return [res_system]
@@ -107,6 +102,18 @@ class GCECloudConnector(CloudConnector):
                 return []
         else:
             return [radl_system.clone()]
+
+    def update_system_info_from_instance(self, system, instance_type):
+        """
+        Update the features of the system with the information of the instance_type
+        """
+        system.addFeature(Feature("memory.size", "=", instance_type.ram, 'M'), conflict="other", missing="other")
+        if instance_type.disk:
+            system.addFeature(Feature("disk.0.free_size", "=", instance_type.disk , 'G'), conflict="other", missing="other")
+        if instance_type.price:
+            system.addFeature(Feature("price", "=", instance_type.price), conflict="me", missing="other")
+        
+        system.addFeature(Feature("instance_type", "=", instance_type.name), conflict="other", missing="other")
 
     @staticmethod
     def set_net_provider_id(radl, net_name):
@@ -150,8 +157,11 @@ class GCECloudConnector(CloudConnector):
         """
         instance_type_name = radl.getValue('instance_type')
         
-        memory = radl.getFeature('memory.size').getValue('M')
-        memory_op = radl.getFeature('memory.size').getLogOperator()
+        memory = 1
+        memory_op = ">1"
+        if radl.getFeature('memory.size'):
+            memory = radl.getFeature('memory.size').getValue('M')
+            memory_op = radl.getFeature('memory.size').getLogOperator()
 
         res = None
         for size in sizes:
@@ -471,6 +481,8 @@ class GCECloudConnector(CloudConnector):
             
             if 'zone' in node.extra:
                 vm.info.systems[0].setValue('availability_zone', node.extra['zone'].name)
+            
+            self.update_system_info_from_instance(vm.info.systems[0], node.size)
             
             vm.setIps(node.public_ips, node.private_ips)
             self.attach_volumes(vm,node)

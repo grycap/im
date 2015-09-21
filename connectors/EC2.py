@@ -173,11 +173,20 @@ class EC2CloudConnector(CloudConnector):
 		"""
 		instance_type_name = radl.getValue('instance_type')
 		
-		cpu = radl.getValue('cpu.count')
-		cpu_op = radl.getFeature('cpu.count').getLogOperator()
-		arch = radl.getValue('cpu.arch')
-		memory = radl.getFeature('memory.size').getValue('M')
-		memory_op = radl.getFeature('memory.size').getLogOperator()
+		cpu = 1
+		cpu_op = ">="
+		if radl.getFeature('cpu.count'):
+			cpu = radl.getValue('cpu.count')
+			cpu_op = radl.getFeature('cpu.count').getLogOperator()
+
+		arch = radl.getValue('cpu.arch', 'x86_64')
+		
+		memory = 1
+		memory_op = ">="
+		if radl.getFeature('memory.size'):
+			memory = radl.getFeature('memory.size').getValue('M')
+			memory_op = radl.getFeature('memory.size').getLogOperator()
+
 		disk_free = 0
 		disk_free_op = ">="
 		if radl.getValue('disks.free_size'):
@@ -873,6 +882,9 @@ class EC2CloudConnector(CloudConnector):
 			
 			vm.state = self.VM_STATE_MAP.get(instance.state, VirtualMachine.UNKNOWN)
 			
+			instance_type = self.get_instance_type_by_name(instance.instance_type)
+			self.update_system_info_from_instance(vm.info.systems[0], instance_type)
+			
 			self.setIPsFromInstance(vm, instance)
 			self.attach_volumes(instance, vm)
 			
@@ -1025,7 +1037,7 @@ class EC2CloudConnector(CloudConnector):
 		
 		return (True, "")
 	
-	def waitStop(self, instance, timeout = 60):
+	def waitStop(self, instance, timeout = 120):
 		"""
 		Wait a instance to be stopped
 		"""
@@ -1055,15 +1067,17 @@ class EC2CloudConnector(CloudConnector):
 		
 		success = True
 		if radl.systems:
-			radl.systems[0].applyFeatures(vm.requested_radl.systems[0],conflict="me", missing="me")
 			instance_type = self.get_instance_type(radl.systems[0])
 			
-			if instance.instance_type != instance_type.name:
-				self.waitStop(instance)
-				success = instance.modify_attribute('instanceType', instance_type.name)
-				if success:
-					self.update_system_info_from_instance(vm.info.systems[0], instance_type)
-				instance.start()
+			if instance_type and instance.instance_type != instance_type.name:
+				stopped = self.waitStop(instance)
+				if stopped:
+					success = instance.modify_attribute('instanceType', instance_type.name)
+					if success:
+						self.update_system_info_from_instance(vm.info.systems[0], instance_type)
+						instance.start()
+				else:
+					return (False, "Error stopping instance: " + instance_id)
 		
 		if success:
 			return (success, self.updateVMInfo(vm, auth_data))
