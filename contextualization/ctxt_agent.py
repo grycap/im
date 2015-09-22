@@ -244,7 +244,6 @@ def contextualize_vm(general_conf_data, vm_conf_data):
 				for vm in general_conf_data['vms']:
 					logger.info("Waiting SSH access to VM: " + vm['ip'])
 					ssh_res = wait_ssh_access(vm)
-					logger.debug("SSH test result: " + ssh_res)
 					if vm['id'] == vm_conf_data['id']:
 						cred_used = ssh_res
 					if not ssh_res:
