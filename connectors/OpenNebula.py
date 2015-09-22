@@ -36,7 +36,8 @@ class GRAPHICS(XMLObject):
 		values = ['LISTEN', 'TYPE']
 
 class DISK(XMLObject):
-		values = ['CLONE','READONLY','SAVE','SOURCE','TARGET' ]
+		values = ['CLONE','READONLY','SAVE','SOURCE','TARGET', 'SIZE', 'DISK_ID', 'IMAGE_ID', 'IMAGE' , 'FORMAT']
+		numeric = [ 'SIZE', 'DISK_ID' ]
 
 class TEMPLATE(XMLObject):
 		values = [ 'CPU', 'MEMORY', 'NAME', 'RANK', 'REQUIREMENTS', 'VMID', 'VCPU' ]
@@ -174,6 +175,22 @@ class OpenNebulaCloudConnector(CloudConnector):
 				self.logger.error("No correct auth data has been specified to OpenNebula: username and password")
 				return None
 
+	def setDisksFromTemplate(self, vm, template):
+		"""
+		Set the Disks of the VM from the info obtained in the ONE template object
+
+		Arguments:
+		   - vm(:py:class:`IM.VirtualMachine`): VM information.
+		   - template(:py:class:`TEMPLATE`): ONE Template information. 
+		"""
+		for disk in template.DISK:
+			vm.info.systems[0].setValue("disk." + str(disk.DISK_ID) + ".size", disk.SIZE, "M")
+			if disk.TARGET:
+				vm.info.systems[0].setValue("disk." + str(disk.DISK_ID) + ".device", disk.TARGET)
+			if disk.FORMAT:
+				vm.info.systems[0].setValue("disk." + str(disk.DISK_ID) + ".fstype", disk.FORMAT)
+
+
 	def setIPsFromTemplate(self, vm, template):
 		"""
 		Set the IPs of the VM from the info obtained in the ONE template object
@@ -235,6 +252,9 @@ class OpenNebulaCloudConnector(CloudConnector):
 
 			# Update network data
 			self.setIPsFromTemplate(vm,res_vm.TEMPLATE)
+			
+			# Update disks data
+			self.setDisksFromTemplate(vm,res_vm.TEMPLATE)
 			
 			vm.info.systems[0].addFeature(Feature("cpu.count", "=", res_vm.TEMPLATE.CPU), conflict="other", missing="other")
 			vm.info.systems[0].addFeature(Feature("memory.size", "=", res_vm.TEMPLATE.MEMORY, 'M'), conflict="other", missing="other")
@@ -363,19 +383,26 @@ class OpenNebulaCloudConnector(CloudConnector):
 
 		disks = 'DISK = [ IMAGE_ID = "%s" ]' % path[1:]
 		cont = 1
-		while system.getValue("disk." + str(cont) + ".size") and system.getValue("disk." + str(cont) + ".device"):
-			disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('M')
-			disk_device = system.getValue("disk." + str(cont) + ".device")
-			
-			disks += '''
-				DISK = [
-					TYPE = fs ,
-					FORMAT = ext3,
-					SIZE = %d,
-					TARGET = %s,
-					SAVE = no
-					]
-			''' % (int(disk_size), disk_device)
+		while system.getValue("disk." + str(cont) + ".image.url") or (system.getValue("disk." + str(cont) + ".size") and system.getValue("disk." + str(cont) + ".device")):
+			disk_image = system.getValue("disk." + str(cont) + ".image.url")
+			if disk_image:
+				disks += '\nDISK = [ IMAGE_ID = "%s" ]\n' % uriparse(disk_image)[2][1:]
+			else:
+				disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('M')
+				disk_device = system.getValue("disk." + str(cont) + ".device")
+				disk_fstype = system.getValue("disk." + str(cont) + ".fstype")
+				if not disk_fstype:
+					disk_fstype = 'ext3'
+				
+				disks += '''
+					DISK = [
+						TYPE = fs ,
+						FORMAT = %s,
+						SIZE = %d,
+						TARGET = %s,
+						SAVE = no
+						]
+				''' % (disk_fstype, int(disk_size), disk_device)
 
 			cont +=1 
 		
@@ -693,7 +720,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 		else:
 			return False
 
-	def poweroff(self, vm, auth_data, timeout = 30):
+	def poweroff(self, vm, auth_data, timeout = 60):
 		"""
 		Poweroff the VM and waits for it to be in poweredoff state
 		"""
