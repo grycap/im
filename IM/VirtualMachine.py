@@ -534,6 +534,7 @@ class VirtualMachine:
 			if self.ctxt_pid != self.WAIT_TO_PID:
 				ssh = self.inf.vm_master.get_ssh(retry = True)
 				try:
+					VirtualMachine.logger.debug("Killing ctxt process with pid: " + str(self.ctxt_pid))
 					ssh.execute("kill -9 " + str(self.ctxt_pid))
 				except:
 					VirtualMachine.logger.exception("Error killing ctxt process with pid: " + str(self.ctxt_pid))
