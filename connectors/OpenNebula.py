@@ -25,7 +25,7 @@ from CloudConnector import CloudConnector
 from IM.radl.radl import network, Feature
 from IM.config import ConfigOpenNebula
 
-# clases para parsear el resultado de las llamadas a la API de ONE
+# Set of classes to parse the XML results of the ONE API
 class NIC(XMLObject):
 		values = ['BRIDGE', 'IP', 'MAC', 'NETWORK', 'VNID']
 
@@ -102,7 +102,6 @@ class OpenNebulaCloudConnector(CloudConnector):
 	
 	def __init__(self, cloud_info):
 		CloudConnector.__init__(self, cloud_info)
-		self.session_id = None
 		self.server_url = "http://%s:%d/RPC2" % (self.cloud.server, self.cloud.port)
 	
 	def concreteSystem(self, radl_system, auth_data):		
@@ -147,33 +146,26 @@ class OpenNebulaCloudConnector(CloudConnector):
 		 
 		 Returns: str with the Session ID
 		"""
-		if self.session_id:
-			# TODO: known issue: If the IM service is restarted, the first attempt to access this VM
-			# will set this session_id. If the credentials are not correct the session_id will be always 
-			# incorrect until the IM service is restarted again ... 
-			return self.session_id
+		auths = auth_data.getAuthInfo(self.type, self.cloud.server)
+		if not auths:
+			self.logger.error("No correct auth data has been specified to OpenNebula.")
+			return None
 		else:
-			auths = auth_data.getAuthInfo(self.type, self.cloud.server)
-			if not auths:
-				self.logger.error("No correct auth data has been specified to OpenNebula.")
-				return None
-			else:
-				auth = auths[0]
+			auth = auths[0]
+		
+		if 'username' in auth and 'password' in auth:
+			passwd = auth['password']
+			if hash_password is None:
+				one_ver = self.getONEVersion(auth_data)
+				if one_ver == "2.0.0" or one_ver == "3.0.0":
+					hash_password = True
+			if hash_password:
+				passwd = hashlib.sha1(passwd.strip()).hexdigest()
 			
-			if 'username' in auth and 'password' in auth:
-				passwd = auth['password']
-				if hash_password is None:
-					one_ver = self.getONEVersion(auth_data)
-					if one_ver == "2.0.0" or one_ver == "3.0.0":
-						hash_password = True
-				if hash_password:
-					passwd = hashlib.sha1(passwd.strip()).hexdigest()
-				
-				self.session_id = auth['username'] + ":" + passwd
-				return self.session_id
-			else:
-				self.logger.error("No correct auth data has been specified to OpenNebula: username and password")
-				return None
+			return  auth['username'] + ":" + passwd
+		else:
+			self.logger.error("No correct auth data has been specified to OpenNebula: username and password")
+			return None
 
 	def setDisksFromTemplate(self, vm, template):
 		"""
@@ -221,7 +213,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 		if len(func_res) == 2:
 			(success, res_info) = func_res
 		elif len(func_res) == 3:
-			(success, res_info, err_code) = func_res
+			(success, res_info, _) = func_res
 		else:
 			return [(False, "Error in the one.vm.info return value")]
 		
@@ -286,7 +278,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 			if len(func_res) == 2:
 				(success, res_id) = func_res
 			elif len(func_res) == 3:
-				(success, res_id, err_code) = func_res
+				(success, res_id, _) = func_res
 			else:
 				return [(False, "Error in the one.vm.allocate return value")]
 				
@@ -312,7 +304,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 		elif len(func_res) == 2:
 			(success, err) = func_res
 		elif len(func_res) == 3:
-			(success, err, err_code) = func_res
+			(success, err, _) = func_res
 		else:
 			return (False, "Error in the one.vm.action return value")
 
@@ -331,7 +323,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 		elif len(func_res) == 2:
 			(success, err) = func_res
 		elif len(func_res) == 3:
-			(success, err, err_code) = func_res
+			(success, err, _) = func_res
 		else:
 			return (False, "Error in the one.vm.action return value")
 
@@ -350,7 +342,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 		elif len(func_res) == 2:
 			(success, err) = func_res
 		elif len(func_res) == 3:
-			(success, err, err_code) = func_res
+			(success, err, _) = func_res
 		else:
 			return (False, "Error in the one.vm.action return value")
 
@@ -455,7 +447,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 		methods = server.system.listMethods()
 		if "one.system.version" in methods: 
 			session_id = self.getSessionID(auth_data, False)
-			(success, res_info, err_code) = server.one.system.version(session_id)
+			(success, res_info, _) = server.one.system.version(session_id)
 			if success:
 				version = res_info
 			else:
@@ -469,18 +461,18 @@ class OpenNebulaCloudConnector(CloudConnector):
 		self.logger.debug("OpenNebula version: " + version)
 		return version
 
-	def free_range(self, range, total_leases):
+	def free_range(self, ar_range, total_leases):
 		"""
 		Check if there are at least one address free
 
 		Arguments:
-		   - range(:py:class:`AR_POOL`): a Range of a ONE network.
+		   - ar_range(:py:class:`AR_POOL`): a Range of a ONE network.
 		   - total_leases(str): Number of used leases
 		 
 		 Returns: bool, True if there are at least one lease free or False otherwise
 		"""
-		start = long(''.join(["%02X" % long(i) for i in range.IP_START.split('.')]), 16)
-		end = long(''.join(["%02X" % long(i) for i in range.IP_END.split('.')]), 16)
+		start = long(''.join(["%02X" % long(i) for i in ar_range.IP_START.split('.')]), 16)
+		end = long(''.join(["%02X" % long(i) for i in ar_range.IP_END.split('.')]), 16)
 		if end - start > int(total_leases):
 			return True
 		return False
@@ -535,7 +527,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 		if len(func_res) == 2:
 			(success, info) = func_res
 		elif len(func_res) == 3:
-			(success, info, err_code) = func_res
+			(success, info, _) = func_res
 		else:
 			self.logger.error("Error in the  one.vnpool.info return value")
 			return None
@@ -571,7 +563,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 				if len(info_res) == 2:
 					(success, info) = info_res
 				elif len(func_res) == 3:
-					(success, info, err_code) = info_res
+					(success, info, _) = info_res
 				else:
 					self.logger.warn("Error in the one.vn.info return value. Ignoring network: " + net.NAME)
 					continue
@@ -736,7 +728,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 		elif len(func_res) == 2:
 			(success, err) = func_res
 		elif len(func_res) == 3:
-			(success, err, err_code) = func_res
+			(success, err, _) = func_res
 		else:
 			return (False, "Error in the one.vm.action return value")
 		
@@ -750,7 +742,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 			if len(func_res) == 2:
 				(success, res_info) = func_res
 			elif len(func_res) == 3:
-				(success, res_info, err_code) = func_res
+				(success, res_info, _) = func_res
 			else:
 				return (False, "Error in the one.vm.info return value")
 			
@@ -791,11 +783,11 @@ class OpenNebulaCloudConnector(CloudConnector):
 	
 			self.logger.debug("New Template: " + new_temp)
 			if new_temp:
-				# First we must poweroff the VM
+				# First we must power off the VM
 				(success, info) = self.poweroff(vm, auth_data)
 				if not success:
 					return (success, info)
-				(success, info, err_code) = server.one.vm.resize(session_id, int(vm.id), new_temp, False)
+				(success, info, _) = server.one.vm.resize(session_id, int(vm.id), new_temp, False)
 				self.start(vm, auth_data)
 			else:
 				return (True, self.updateVMInfo(vm, auth_data))
