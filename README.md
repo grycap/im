@@ -46,7 +46,7 @@ However, if you install IM from sources you should install:
 
  + Ansible (http://www.ansibleworks.com/) to configure nodes in the infrastructures.
    In particular, Ansible 1.4.2+ must be installed.
-   To ensure the functionality the following values must be set in the ansible.cfg file:
+   To ensure the functionality the following values must be set in the ansible.cfg file (usually found in /etc/ansible/):
 
 ```
 [defaults]
@@ -139,6 +139,12 @@ On Debian Systems:
 
 ```
 $ chkconfig im on
+```
+
+Or for newer systems like ubuntu 14.04:
+
+```
+$ sysv-rc-conf im on
 ```
 
 On RedHat Systems:
