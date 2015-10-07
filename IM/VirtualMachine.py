@@ -112,6 +112,7 @@ class VirtualMachine:
 		if not self.destroy:
 			if not self.cloud_connector:
 				self.cloud_connector = self.cloud.getCloudConnector()
+			self.kill_check_ctxt_process()
 			(success, msg) = self.cloud_connector.finalize(self, auth)
 			if success:
 				self.destroy = True
@@ -558,7 +559,7 @@ class VirtualMachine:
 
 		initial_count_out = self.cont_out
 		wait = 0
-		while self.ctxt_pid:
+		while self.ctxt_pid and not self.destroy:
 			if self.ctxt_pid != self.WAIT_TO_PID:
 				ssh = self.inf.vm_master.get_ssh(retry = True)
 

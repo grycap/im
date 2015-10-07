@@ -1031,98 +1031,103 @@ class ConfManager(threading.Thread):
 		   - tmp_dir(str): Temp directory where all the playbook files will be stored.
 		Returns: True if the process finished sucessfully, False otherwise.
 		"""
-		# Get the groups for the different VM types
-		vm_group = self.inf.get_vm_list_by_system_name()
-
-		# Create the ansible inventory file
-		with open(tmp_dir + "/inventory.cfg", 'w') as inv_out:
-			inv_out.write(ssh.host + ":" + str(ssh.port) + "\n\n")
-		
-		shutil.copy(Config.CONTEXTUALIZATION_DIR + "/" + ConfManager.MASTER_YAML, tmp_dir + "/" + ConfManager.MASTER_YAML)
-		
-		# Add all the modules needed in the RADL
-		modules = []
-		for group in vm_group:
-			# Use the first VM as the info used is the same for all the VMs in the group
-			vm = vm_group[group][0]
+		try:
+			# Get the groups for the different VM types
+			vm_group = self.inf.get_vm_list_by_system_name()
+	
+			# Create the ansible inventory file
+			with open(tmp_dir + "/inventory.cfg", 'w') as inv_out:
+				inv_out.write(ssh.host + ":" + str(ssh.port) + "\n\n")
 			
-			# Get the modules specified by the user in the RADL
-			modules.extend(vm.getModulesToInstall())
-			# Get the info about the apps from the recipes DB
-			vm_modules, _ = Recipe.getInfoApps(vm.getAppsToInstall())
-			modules.extend(vm_modules)
-
-		# avoid duplicates
-		modules = set(modules)
-
-		self.inf.add_cont_msg("Creating and copying Ansible playbook files")
-		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Preparing Ansible playbook to copy Ansible modules: " + str(modules))
-
-		ssh.sftp_mkdir(Config.REMOTE_CONF_DIR)
-		# Copy the utils helper files
-		ssh.sftp_mkdir(Config.REMOTE_CONF_DIR + "/utils")
-		ssh.sftp_put_dir(Config.RECIPES_DIR + "/utils", Config.REMOTE_CONF_DIR + "/utils")
-		
-		for galaxy_name in modules:
-			if galaxy_name:
-				recipe_out = open(tmp_dir + "/" + ConfManager.MASTER_YAML, 'a')
+			shutil.copy(Config.CONTEXTUALIZATION_DIR + "/" + ConfManager.MASTER_YAML, tmp_dir + "/" + ConfManager.MASTER_YAML)
+			
+			# Add all the modules needed in the RADL
+			modules = []
+			for group in vm_group:
+				# Use the first VM as the info used is the same for all the VMs in the group
+				vm = vm_group[group][0]
 				
-				if galaxy_name.startswith("http"):
-					# in case of http url, the file must be compressed 
-					# it must contain only one directory with the same name of the compressed file
-					# (without extension) with the ansible role content 
-					filename = os.path.basename(galaxy_name)
-					self.inf.add_cont_msg("Remote file " + galaxy_name + " detected, setting to install.")
-					ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Install " + galaxy_name + " with ansible-galaxy.")
-					recipe_out.write("    - file: path=/etc/ansible/roles state=directory recurse=yes\n")
-					recipe_out.write("    - get_url: url=" + galaxy_name + " dest=/tmp/" + filename + "\n")
-					recipe_out.write("    - unarchive: src=/tmp/" + filename  + " dest=/etc/ansible/roles copy=no\n")
-				if galaxy_name.startswith("git"):
-					# in case of git repo, the user must specify the rolname using a | afther the url
-					parts = galaxy_name.split("|")
-					if len(parts) > 1:
-						url = parts[0]
-						rolename = parts[1]
-						self.inf.add_cont_msg("Git Repo " + url + " detected, setting to install.")
-						ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Clone " + url + " with git.")
-						recipe_out.write("    - file: path=/etc/ansible/roles state=directory\n")
-						recipe_out.write("    - yum: name=git\n")
-						recipe_out.write('      when: ansible_os_family == "RedHat"\n')
-						recipe_out.write("    - apt: name=git\n")
-						recipe_out.write('      when: ansible_os_family == "Debian"\n')
-						recipe_out.write("    - git: repo=" + url + " dest=/etc/ansible/roles/" + rolename + " accept_hostkey=yes\n")
+				# Get the modules specified by the user in the RADL
+				modules.extend(vm.getModulesToInstall())
+				# Get the info about the apps from the recipes DB
+				vm_modules, _ = Recipe.getInfoApps(vm.getAppsToInstall())
+				modules.extend(vm_modules)
+	
+			# avoid duplicates
+			modules = set(modules)
+	
+			self.inf.add_cont_msg("Creating and copying Ansible playbook files")
+			ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Preparing Ansible playbook to copy Ansible modules: " + str(modules))
+	
+			ssh.sftp_mkdir(Config.REMOTE_CONF_DIR)
+			# Copy the utils helper files
+			ssh.sftp_mkdir(Config.REMOTE_CONF_DIR + "/utils")
+			ssh.sftp_put_dir(Config.RECIPES_DIR + "/utils", Config.REMOTE_CONF_DIR + "/utils")
+			
+			for galaxy_name in modules:
+				if galaxy_name:
+					recipe_out = open(tmp_dir + "/" + ConfManager.MASTER_YAML, 'a')
+					
+					if galaxy_name.startswith("http"):
+						# in case of http url, the file must be compressed 
+						# it must contain only one directory with the same name of the compressed file
+						# (without extension) with the ansible role content 
+						filename = os.path.basename(galaxy_name)
+						self.inf.add_cont_msg("Remote file " + galaxy_name + " detected, setting to install.")
+						ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Install " + galaxy_name + " with ansible-galaxy.")
+						recipe_out.write("    - file: path=/etc/ansible/roles state=directory recurse=yes\n")
+						recipe_out.write("    - get_url: url=" + galaxy_name + " dest=/tmp/" + filename + "\n")
+						recipe_out.write("    - unarchive: src=/tmp/" + filename  + " dest=/etc/ansible/roles copy=no\n")
+					if galaxy_name.startswith("git"):
+						# in case of git repo, the user must specify the rolname using a | afther the url
+						parts = galaxy_name.split("|")
+						if len(parts) > 1:
+							url = parts[0]
+							rolename = parts[1]
+							self.inf.add_cont_msg("Git Repo " + url + " detected, setting to install.")
+							ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Clone " + url + " with git.")
+							recipe_out.write("    - file: path=/etc/ansible/roles state=directory\n")
+							recipe_out.write("    - yum: name=git\n")
+							recipe_out.write('      when: ansible_os_family == "RedHat"\n')
+							recipe_out.write("    - apt: name=git\n")
+							recipe_out.write('      when: ansible_os_family == "Debian"\n')
+							recipe_out.write("    - git: repo=" + url + " dest=/etc/ansible/roles/" + rolename + " accept_hostkey=yes\n")
+						else:
+							self.inf.add_cont_msg("Not specified the rolename. Ignoring git repo.")
+							ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": Not specified the rolename. Ignoring git repo.")
 					else:
-						self.inf.add_cont_msg("Not specified the rolename. Ignoring git repo.")
-						ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": Not specified the rolename. Ignoring git repo.")
-				else:
-					self.inf.add_cont_msg("Galaxy role " + galaxy_name + " detected setting to install.")
-					ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Install " + galaxy_name + " with ansible-galaxy.")
-					recipe_out.write("    - name: Install the " + galaxy_name + " role with ansible-galaxy\n")
-					recipe_out.write("      command: ansible-galaxy --force install " + galaxy_name + "\n")
-				
-				recipe_out.close()
-				
-		self.inf.add_cont_msg("Performing preliminary steps to configure Ansible.")
-		# TODO: check to do it with ansible
-		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Check if python-simplejson is installed in REL 5 systems")
-		(stdout, stderr, _) = ssh.execute("cat /etc/redhat-release | grep \"release 5\" &&  sudo yum -y install python-simplejson", 120)
-		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " + stdout + stderr)
+						self.inf.add_cont_msg("Galaxy role " + galaxy_name + " detected setting to install.")
+						ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Install " + galaxy_name + " with ansible-galaxy.")
+						recipe_out.write("    - name: Install the " + galaxy_name + " role with ansible-galaxy\n")
+						recipe_out.write("      command: ansible-galaxy --force install " + galaxy_name + "\n")
+					
+					recipe_out.close()
+					
+			self.inf.add_cont_msg("Performing preliminary steps to configure Ansible.")
+			# TODO: check to do it with ansible
+			ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Check if python-simplejson is installed in REL 5 systems")
+			(stdout, stderr, _) = ssh.execute("cat /etc/redhat-release | grep \"release 5\" &&  sudo yum -y install python-simplejson", 120)
+			ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " + stdout + stderr)
+	
+			ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Remove requiretty in sshd config")
+			(stdout, stderr, _) = ssh.execute("sudo sed -i 's/.*requiretty$/#Defaults requiretty/' /etc/sudoers", 120)
+			ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " + stdout + stderr)
+			
+			self.inf.add_cont_msg("Configure Ansible in the master VM.")
+			ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Call Ansible to (re)configure in the master node")
+			(success, msg) = self.call_ansible(tmp_dir, "inventory.cfg", ConfManager.MASTER_YAML, ssh)
+	
+			if not success:
+				ConfManager.logger.error("Inf ID: " + str(self.inf.id) + ": Error configuring master node: " + msg + "\n\n")
+				self.inf.add_cont_msg("Error configuring the master VM: " + msg + " " + tmp_dir)
+			else:
+				ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Ansible successfully configured in the master VM:\n" + msg + "\n\n")
+				self.inf.add_cont_msg("Ansible successfully configured in the master VM.")
+		except Exception, ex:
+			ConfManager.logger.error("Inf ID: " + str(self.inf.id) + ": Error configuring master node.")
+			self.inf.add_cont_msg("Error configuring master node: " + str(ex))
+			success = False
 
-		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Remove requiretty in sshd config")
-		(stdout, stderr, _) = ssh.execute("sudo sed -i 's/.*requiretty$/#Defaults requiretty/' /etc/sudoers", 120)
-		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " + stdout + stderr)
-		
-		self.inf.add_cont_msg("Configure Ansible in the master VM.")
-		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Call Ansible to (re)configure in the master node")
-		(success, msg) = self.call_ansible(tmp_dir, "inventory.cfg", ConfManager.MASTER_YAML, ssh)
-
-		if not success:
-			ConfManager.logger.error("Inf ID: " + str(self.inf.id) + ": Error configuring in master node: " + msg + "\n\n")
-			self.inf.add_cont_msg("Error configuring the master VM: " + msg + " " + tmp_dir)
-		else:
-			ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Ansible successfully configured in the master VM:\n" + msg + "\n\n")
-			self.inf.add_cont_msg("Ansible successfully configured in the master VM.")
-		
 		return success		
 
 	def create_general_conf_file(self, conf_file, vm_list):
