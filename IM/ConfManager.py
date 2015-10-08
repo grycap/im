@@ -253,7 +253,7 @@ class ConfManager(threading.Thread):
 		
 				ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Create the configuration file for the contextualization agent")
 				conf_file = tmp_dir + "/config.cfg"
-				self.create_vm_conf_file(conf_file, vm.im_id, tasks, remote_dir)
+				self.create_vm_conf_file(conf_file, vm, tasks, remote_dir)
 				
 				ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Copy the contextualization agent config file")
 		
@@ -300,7 +300,7 @@ class ConfManager(threading.Thread):
 		# get the master node name
 		(master_name, masterdom) = self.inf.vm_master.getRequestedName(default_hostname = Config.DEFAULT_VM_NAME, default_domain = Config.DEFAULT_DOMAIN)
 
-		all_nodes = "[all]\n"
+		windows = ""
 		all_vars = ""
 		vm_group = self.inf.get_vm_list_by_system_name()
 		for group in vm_group:
@@ -310,79 +310,81 @@ class ConfManager(threading.Thread):
 			out.write('IM_NODE_USER=' + user + '\n\n')
 			out.write('IM_MASTER_HOSTNAME=' + master_name + '\n')
 			out.write('IM_MASTER_FQDN=' + master_name + "." + masterdom + '\n')
-			out.write('IM_MASTER_DOMAIN=' + masterdom + '\n\n')                     
-			
+			out.write('IM_MASTER_DOMAIN=' + masterdom + '\n\n')			
 			out.write('[' + group + ']\n')
 
 			# Set the vars with the number of nodes of each type
 			all_vars += 'IM_' + group.upper() + '_NUM_VMS=' + str(len(vm_group[group])) + '\n'
 
 			for vm in vm_group[group]:
-				if not vm.destroy:
-					# first try to use the public IP
-					ip = vm.getPublicIP()
-					if not ip:
-						ip = vm.getPrivateIP()
+				# first try to use the public IP
+				ip = vm.getPublicIP()
+				if not ip:
+					ip = vm.getPrivateIP()
+
+				if not ip:
+					ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": The VM ID: " + str(vm.id) + " does not have an IP. It will not be included in the inventory file.")
+					continue
+				
+				if vm.state in VirtualMachine.NOT_RUNNING_STATES:
+					ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": The VM ID: " + str(vm.id) + " is not running. It will not be included in the inventory file.")
+					continue
 					
-					if not ip:
-						ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": The VM ID: " + str(vm.id) + " does not have an IP. It will not be included in the inventory file.")
-						continue
+				if vm.getOS().lower() == "windows":
+					windows += ip + "\n"
 					
-					if vm.state in VirtualMachine.NOT_RUNNING_STATES:
-						ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": The VM ID: " + str(vm.id) + " is not running. It will not be included in the inventory file.")
-						continue
-						
-					ifaces_im_vars = ''
-					for i in range(vm.getNumNetworkIfaces()):
-						iface_ip = vm.getIfaceIP(i)
-						if iface_ip:
-							ifaces_im_vars += ' IM_NODE_NET_' + str(i) + '_IP=' + iface_ip
-							if vm.getRequestedNameIface(i):
-								(nodename, nodedom) = vm.getRequestedNameIface(i, default_domain = Config.DEFAULT_DOMAIN)
-								ifaces_im_vars += ' IM_NODE_NET_' + str(i) + '_HOSTNAME=' + nodename
-								ifaces_im_vars += ' IM_NODE_NET_' + str(i) + '_DOMAIN=' + nodedom
-								ifaces_im_vars += ' IM_NODE_NET_' + str(i) + '_FQDN=' + nodename + "." + nodedom
+				ifaces_im_vars = ''
+				for i in range(vm.getNumNetworkIfaces()):
+					iface_ip = vm.getIfaceIP(i)
+					if iface_ip:
+						ifaces_im_vars += ' IM_NODE_NET_' + str(i) + '_IP=' + iface_ip
+						if vm.getRequestedNameIface(i):
+							(nodename, nodedom) = vm.getRequestedNameIface(i, default_domain = Config.DEFAULT_DOMAIN)
+							ifaces_im_vars += ' IM_NODE_NET_' + str(i) + '_HOSTNAME=' + nodename
+							ifaces_im_vars += ' IM_NODE_NET_' + str(i) + '_DOMAIN=' + nodedom
+							ifaces_im_vars += ' IM_NODE_NET_' + str(i) + '_FQDN=' + nodename + "." + nodedom
 
+				# the master node
+				# TODO: Known issue: the master VM must set the public network in the iface 0 
+				(nodename ,nodedom) = system.replaceTemplateName(Config.DEFAULT_VM_NAME + "." + Config.DEFAULT_DOMAIN, str(vm.im_id))
+				if vm.getRequestedName():
+					(nodename, nodedom) = vm.getRequestedName(default_domain = Config.DEFAULT_DOMAIN)
 
-	
-					# the master node
-					# TODO: Known issue: the master VM must set the public network in the iface 0 
-					(nodename ,nodedom) = system.replaceTemplateName(Config.DEFAULT_VM_NAME + "." + Config.DEFAULT_DOMAIN, str(vm.im_id))
-					if vm.getRequestedName():
-						(nodename, nodedom) = vm.getRequestedName(default_domain = Config.DEFAULT_DOMAIN)
+				node_line = ip
+				if vm.getOS().lower() != "windows":
+					node_line += ":" + str(vm.getSSHPort())
+				
+				if vm.id == self.inf.vm_master.id:
+					node_line += ' ansible_connection=local'
+				
+				node_line += ' IM_NODE_HOSTNAME=' + nodename
+				node_line += ' IM_NODE_FQDN=' + nodename + "." + nodedom
+				node_line += ' IM_NODE_DOMAIN=' + nodedom
+				node_line += ' IM_NODE_NUM=' + str(vm.im_id)
+				node_line += ' IM_NODE_VMID=' + str(vm.id)
+				node_line += ' IM_NODE_ANSIBLE_IP=' + ip
+				node_line += ifaces_im_vars
 
-					node_line = ip + ":" + str(vm.getSSHPort())
-					
-					if vm.id == self.inf.vm_master.id:
-						node_line += ' ansible_connection=local'
-					
-					node_line += ' IM_NODE_HOSTNAME=' + nodename
-					node_line += ' IM_NODE_FQDN=' + nodename + "." + nodedom
-					node_line += ' IM_NODE_DOMAIN=' + nodedom
-					node_line += ' IM_NODE_NUM=' + str(vm.im_id)
-					node_line += ' IM_NODE_VMID=' + str(vm.id)
-					node_line += ' IM_NODE_ANSIBLE_IP=' + ip
-					node_line += ifaces_im_vars
+				for app in vm.getInstalledApplications():
+					if app.getValue("path"):
+						node_line += ' IM_APP_' + app.getValue("name").upper() + '_PATH=' + app.getValue("path")
+					if app.getValue("version"):
+						node_line += ' IM_APP_' + app.getValue("name").upper() + '_VERSION=' + app.getValue("version")
 
-					for app in vm.getInstalledApplications():
-						if app.getValue("path"):
-							node_line += ' IM_APP_' + app.getValue("name").upper() + '_PATH=' + app.getValue("path")
-						if app.getValue("version"):
-							node_line += ' IM_APP_' + app.getValue("name").upper() + '_VERSION=' + app.getValue("version")
-
-					node_line += "\n"
-					out.write(node_line)
-					all_nodes += node_line
+				node_line += "\n"
+				out.write(node_line)
 				
 			out.write("\n")
 
-		out.write(all_nodes)
 		# set the IM global variables
 		out.write('[all:vars]\n')
 		out.write(all_vars)
 		out.write('IM_MASTER_HOSTNAME=' + master_name + '\n')
 		out.write('IM_MASTER_FQDN=' + master_name + "." + masterdom + '\n')
 		out.write('IM_MASTER_DOMAIN=' + masterdom + '\n\n')
+
+		if windows:
+			out.write('[windows]\n' + windows + "\n")
 
 		out.close()
 		
@@ -1144,6 +1146,8 @@ class ConfManager(threading.Thread):
 			else:
 				vm_conf_data = {}
 				vm_conf_data['id'] = vm.im_id
+				if vm.getOS():
+					vm_conf_data['os'] = vm.getOS().lower()
 				if vm.im_id == self.inf.vm_master.im_id:
 					vm_conf_data['master'] = True
 				else:
@@ -1174,15 +1178,22 @@ class ConfManager(threading.Thread):
 		json.dump(conf_data, conf_out, indent=2)
 		conf_out.close()
 
-	def create_vm_conf_file(self, conf_file, vm_id, tasks, remote_dir):
+	def create_vm_conf_file(self, conf_file, vm, tasks, remote_dir):
 		"""
 		Create the configuration file needed by the contextualization agent
 		"""
 		conf_data = {}
 		
-		conf_data['id'] = vm_id	
+		conf_data['id'] = vm.im_id
 		conf_data['tasks'] = tasks
 		conf_data['remote_dir'] = remote_dir
+		
+		new_creds = vm.getCredentialValues(new=True)
+		if len(list(set(new_creds))) > 1 or list(set(new_creds))[0] != None:
+			# If there are data in the new credentials, they has not been changed
+			conf_data['changed_pass'] = False
+		else:
+			conf_data['changed_pass'] = True
 		
 		conf_out = open(conf_file, 'w')
 		ConfManager.logger.debug("Ctxt agent vm configuration file: " + json.dumps(conf_data))
