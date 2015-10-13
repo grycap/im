@@ -105,36 +105,44 @@ class OpenNebulaCloudConnector(CloudConnector):
 		self.server_url = "http://%s:%d/RPC2" % (self.cloud.server, self.cloud.port)
 	
 	def concreteSystem(self, radl_system, auth_data):		
-		if radl_system.getValue("disk.0.image.url"):
-			url = uriparse(radl_system.getValue("disk.0.image.url"))
-			protocol = url[0]
-			src_host = url[1].split(':')[0]
-			# TODO: check the port
-			if (protocol == "one") and self.cloud.server == src_host:
-				# Check the space in image and compare with disks.free_size
-				if radl_system.getValue('disks.free_size'):
-					disk_free = int(radl_system.getFeature('disks.free_size').getValue('M'))
-					# The VMRC specified the value in MB
-					disk_size = int(radl_system.getValue("disk.0.size"))
-				
-					if disk_size < disk_free:
-						# if the image do not have enough space, discard it
-						return []
-
-				res_system = radl_system.clone()
-
-				res_system.getFeature("cpu.count").operator = "="
-				res_system.getFeature("memory.size").operator = "="
-
-				res_system.addFeature(Feature("provider.type", "=", self.type), conflict="other", missing="other")
-				res_system.addFeature(Feature("provider.host", "=", self.cloud.server), conflict="other", missing="other")
-				res_system.addFeature(Feature("provider.port", "=", self.cloud.port), conflict="other", missing="other")
-	
-				return [res_system]
-			else:
-				return []
-		else:
+		image_urls = radl_system.getValue("disk.0.image.url")
+		if not image_urls:
 			return [radl_system.clone()]
+		else:
+			if not isinstance(image_urls, list):
+				image_urls = [image_urls]
+		
+			res = []
+			for str_url in image_urls:
+				url = uriparse(str_url)
+				protocol = url[0]
+				src_host = url[1].split(':')[0]
+				# TODO: check the port
+				if (protocol == "one") and self.cloud.server == src_host:
+					# Check the space in image and compare with disks.free_size
+					if radl_system.getValue('disks.free_size'):
+						disk_free = int(radl_system.getFeature('disks.free_size').getValue('M'))
+						# The VMRC specified the value in MB
+						disk_size = int(radl_system.getValue("disk.0.size"))
+					
+						if disk_size < disk_free:
+							# if the image do not have enough space, discard it
+							return []
+	
+					res_system = radl_system.clone()
+	
+					res_system.getFeature("cpu.count").operator = "="
+					res_system.getFeature("memory.size").operator = "="
+
+					res_system.addFeature(Feature("disk.0.image.url", "=", str_url), conflict="other", missing="other")
+	
+					res_system.addFeature(Feature("provider.type", "=", self.type), conflict="other", missing="other")
+					res_system.addFeature(Feature("provider.host", "=", self.cloud.server), conflict="other", missing="other")
+					res_system.addFeature(Feature("provider.port", "=", self.cloud.port), conflict="other", missing="other")
+		
+					res.append(res_system)
+			
+			return res
 	
 	def getSessionID(self, auth_data, hash_password = None):
 		"""

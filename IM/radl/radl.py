@@ -101,9 +101,12 @@ class Feature:
 		self.line = line
 
 	def __str__(self):
-		return ("{0} {1} ({2})" if self.operator == "contains" else
-		        "{0} {1} '{2}'" if isinstance(self.value, str) or isinstance(self.value, unicode) else
-			"{0} {1} {2}{3}").format(self.prop, self.operator, self.value,
+		if isinstance(self.value, list):
+			return "{0} {1} ['{2}']".format(self.prop, self.operator, "','".join(self.value)) 
+		else:
+			return ("{0} {1} ({2})" if self.operator == "contains" else
+		        	"{0} {1} '{2}'" if isinstance(self.value, str) or isinstance(self.value, unicode) else
+		        	"{0} {1} {2}{3}").format(self.prop, self.operator, self.value,
 		                                 self.unit if self.unit else "") 
 
 	def clone(self):
@@ -291,7 +294,7 @@ class Features(object):
 			if not value0 or (conflict == "other"):
 				self.props[f.prop] = f
 			elif value0.value != f.value and conflict == "error":
-				raise RADLParseException("Conflict adding `%s` because `%s` is already set." % (f, value0), line=f.line)
+				raise RADLParseException("Conflict adding `%s` because `%s` is already set and conflict is %s" % (f, value0, conflict), line=f.line)
 
 	def hasFeature(self, prop, check_softs=False):
 		"""Return if there is a property with that name."""
@@ -1040,7 +1043,7 @@ class system(Features, Aspect):
 				"ip": (str, None),
 				"dns_name": (str, None) },
 			"disk": {
-				"image.url": (str, system._check_disk_image_url),
+				"image.url": ((str,list), system._check_disk_image_url),
 				"image.name": (str, None),
 				"type": (str, ["SWAP", "ISO", "FILESYSTEM"]),
 				"device": (str, None),
