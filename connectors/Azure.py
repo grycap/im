@@ -142,31 +142,38 @@ class AzureCloudConnector(CloudConnector):
 		CloudConnector.__init__(self, cloud_info)
 	
 	def concreteSystem(self, radl_system, auth_data):
-		if radl_system.getValue("disk.0.image.url"):
-			url = uriparse(radl_system.getValue("disk.0.image.url"))
-			protocol = url[0]
-			if protocol == "azr":
-				res_system = radl_system.clone()
-				instance_type = self.get_instance_type(res_system)
-				if not instance_type:
-					self.logger.error("Error launching the VM, no instance type available for the requirements.")
-					self.logger.debug(res_system)
-					return []
-				else:
-					self.update_system_info_from_instance(res_system, instance_type)					
-					res_system.addFeature(Feature("provider.type", "=", self.type), conflict="other", missing="other")
-					
-					username = res_system.getValue('disk.0.os.credentials.username')
-					if not username:
-						res_system.setValue('disk.0.os.credentials.username','azureuser')
-					
-					res_system.updateNewCredentialValues()
-
-					return [res_system]
-			else:
-				return []
-		else:
+		image_urls = radl_system.getValue("disk.0.image.url")
+		if not image_urls:
 			return [radl_system.clone()]
+		else:
+			if not isinstance(image_urls, list):
+				image_urls = [image_urls]
+		
+			res = []
+			for str_url in image_urls:
+				url = uriparse(str_url)
+				protocol = url[0]
+
+				protocol = url[0]
+				if protocol == "azr":
+					res_system = radl_system.clone()
+					instance_type = self.get_instance_type(res_system)
+					if not instance_type:
+						self.logger.error("Error generating the RADL of the VM, no instance type available for the requirements.")
+						self.logger.debug(res_system)
+					else:
+						res_system.addFeature(Feature("disk.0.image.url", "=", str_url), conflict="other", missing="other")
+						self.update_system_info_from_instance(res_system, instance_type)					
+						res_system.addFeature(Feature("provider.type", "=", self.type), conflict="other", missing="other")
+						
+						username = res_system.getValue('disk.0.os.credentials.username')
+						if not username:
+							res_system.setValue('disk.0.os.credentials.username','azureuser')
+						
+						res_system.updateNewCredentialValues()
+	
+						res.append(res_system)
+			return res
 	
 	def gen_input_endpoints(self, radl):
 		"""

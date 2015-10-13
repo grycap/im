@@ -124,29 +124,37 @@ class KubernetesCloudConnector(CloudConnector):
 	
 
 	def concreteSystem(self, radl_system, auth_data):
-		if radl_system.getValue("disk.0.image.url"):
-			url = uriparse(radl_system.getValue("disk.0.image.url"))
-			protocol = url[0]
-			if protocol == 'docker' and url[1]:
-				res_system = radl_system.clone()
-
-				res_system.addFeature(Feature("virtual_system_type", "=", "docker"), conflict="other", missing="other")
-
-				res_system.getFeature("cpu.count").operator = "="
-				res_system.getFeature("memory.size").operator = "="
-				
-				res_system.setValue('disk.0.os.credentials.username', 'root')
-				res_system.setValue('disk.0.os.credentials.password', self._root_password)
-				
-				res_system.addFeature(Feature("provider.type", "=", self.type), conflict="other", missing="other")
-				res_system.addFeature(Feature("provider.host", "=", self.cloud.server), conflict="other", missing="other")
-				res_system.addFeature(Feature("provider.port", "=", self.cloud.port), conflict="other", missing="other")
-					
-				return [res_system]
-			else:
-				return []
-		else:
+		image_urls = radl_system.getValue("disk.0.image.url")
+		if not image_urls:
 			return [radl_system.clone()]
+		else:
+			if not isinstance(image_urls, list):
+				image_urls = [image_urls]
+		
+			res = []
+			for str_url in image_urls:
+				url = uriparse(str_url)
+				protocol = url[0]
+				if protocol == 'docker' and url[1]:
+					res_system = radl_system.clone()
+	
+					res_system.addFeature(Feature("virtual_system_type", "=", "docker"), conflict="other", missing="other")
+	
+					res_system.getFeature("cpu.count").operator = "="
+					res_system.getFeature("memory.size").operator = "="
+					
+					res_system.setValue('disk.0.os.credentials.username', 'root')
+					res_system.setValue('disk.0.os.credentials.password', self._root_password)
+					
+					res_system.addFeature(Feature("disk.0.image.url", "=", str_url), conflict="other", missing="other")
+					
+					res_system.addFeature(Feature("provider.type", "=", self.type), conflict="other", missing="other")
+					res_system.addFeature(Feature("provider.host", "=", self.cloud.server), conflict="other", missing="other")
+					res_system.addFeature(Feature("provider.port", "=", self.cloud.port), conflict="other", missing="other")
+						
+					res.append(res_system)
+			
+			return res
 	
 	def _delete_volume_claim(self, namespace, vc_name, auth_data):
 		try:

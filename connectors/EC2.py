@@ -77,29 +77,38 @@ class EC2CloudConnector(CloudConnector):
 		CloudConnector.__init__(self, cloud_info)
 		
 	def concreteSystem(self, radl_system, auth_data):
-		if radl_system.getValue("disk.0.image.url"):
-			url = uriparse(radl_system.getValue("disk.0.image.url"))
-			protocol = url[0]
-			if protocol == "aws":
-				# Currently EC2 plugin only uses private_key credentials
-				res_system = radl_system.clone()
-				if res_system.getValue('disk.0.os.credentials.private_key'):
-					res_system.delValue('disk.0.os.credentials.password')
-				
-				res_system.addFeature(Feature("provider.type", "=", self.type), conflict="other", missing="other")
-				
-				instance_type = self.get_instance_type(res_system)
-				if not instance_type:
-					self.logger.error("Error launching the VM, no instance type available for the requirements.")
-					self.logger.debug(res_system)
-					return []
-				else:
-					self.update_system_info_from_instance(res_system, instance_type)						
-					return [res_system]
-			else:
-				return []
-		else:
+		image_urls = radl_system.getValue("disk.0.image.url")
+		if not image_urls:
 			return [radl_system.clone()]
+		else:
+			if not isinstance(image_urls, list):
+				image_urls = [image_urls]
+		
+			res = []
+			for str_url in image_urls:
+				url = uriparse(str_url)
+				protocol = url[0]
+
+				protocol = url[0]
+				if protocol == "aws":
+					# Currently EC2 plugin only uses private_key credentials
+					res_system = radl_system.clone()
+					if res_system.getValue('disk.0.os.credentials.private_key'):
+						res_system.delValue('disk.0.os.credentials.password')
+					
+					res_system.addFeature(Feature("disk.0.image.url", "=", str_url), conflict="other", missing="other")
+					res_system.addFeature(Feature("provider.type", "=", self.type), conflict="other", missing="other")
+					
+					instance_type = self.get_instance_type(res_system)
+					if not instance_type:
+						self.logger.error("Error launching the VM, no instance type available for the requirements.")
+						self.logger.debug(res_system)
+						return []
+					else:
+						self.update_system_info_from_instance(res_system, instance_type)						
+						res.append(res_system)
+					
+			return res
 
 	def update_system_info_from_instance(self, system, instance_type):
 		"""

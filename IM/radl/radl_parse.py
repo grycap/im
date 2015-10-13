@@ -36,6 +36,9 @@ class RADLParser:
 	tokens = (
 		'LPAREN',
 		'RPAREN',
+		'LBRACK',
+		'RBRACK',
+		'COMMA',
 		'NUMBER',
 		'AND',
 		'EQ',
@@ -96,6 +99,18 @@ class RADLParser:
 	def t_RPAREN(self,t):
 		r'\)'
 		t.lexer.pop_state()
+		return t
+	
+	def t_body_LBRACK(self,t):
+		r'\['
+		return t
+	
+	def t_body_RBRACK(self,t):
+		r'\]'
+		return t
+	
+	def t_body_COMMA(self,t):
+		r'\,'
 		return t
 	
 	def t_newline(self,t):
@@ -278,9 +293,12 @@ class RADLParser:
 	def p_feature_simple(self, t):
 		"""feature_simple : VAR comparator NUMBER VAR
 						  | VAR comparator NUMBER
+						  | VAR comparator LBRACK string_list RBRACK
 						  | VAR comparator STRING"""
 	
-		if len(t) == 5:
+		if len(t) == 6:
+			t[0] = Feature(t[1], t[2], t[4], line=t.lineno(1)) 
+		elif len(t) == 5:
 			t[0] = Feature(t[1], t[2], t[3], unit=t[4],
 								 line=t.lineno(1))
 		elif len(t) == 4:
@@ -304,6 +322,19 @@ class RADLParser:
 		"""feature_contains : VAR CONTAINS LPAREN features RPAREN"""
 	
 		t[0] = Feature(t[1], t[2], Features(t[4]), line=t.lineno(1))
+		
+	def p_string_list(self, t):
+		"""string_list : string_list COMMA STRING
+					   | STRING
+					   | empty"""
+
+		if len(t) == 4:
+			t[0] = t[1]
+			t[0].append(t[3])
+		elif t[1]:
+			t[0] = [t[1]]
+		else:
+			t[0] = []
 	
 	def p_error(self, t):
 		raise RADLParseException("Parse error in: " + str(t), line=t.lineno if t else None)

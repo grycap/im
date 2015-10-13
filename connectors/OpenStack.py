@@ -81,27 +81,36 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 			return driver
 	
 	def concreteSystem(self, radl_system, auth_data):
-		if radl_system.getValue("disk.0.image.url"):
-			url = uriparse(radl_system.getValue("disk.0.image.url"))
-			protocol = url[0]
-			src_host = url[1].split(':')[0]
-			# TODO: check the port
-			if protocol == "ost" and self.cloud.server == src_host:
-				driver = self.get_driver(auth_data)
-				
-				res_system = radl_system.clone()
-				instance_type = self.get_instance_type(driver.list_sizes(), res_system)
-				self.update_system_info_from_instance(res_system, instance_type)
-				
-				res_system.addFeature(Feature("provider.type", "=", self.type), conflict="other", missing="other")
-				res_system.addFeature(Feature("provider.host", "=", self.cloud.server), conflict="other", missing="other")
-				res_system.addFeature(Feature("provider.port", "=", self.cloud.port), conflict="other", missing="other")				
-					
-				return [res_system]
-			else:
-				return []
-		else:
+		image_urls = radl_system.getValue("disk.0.image.url")
+		if not image_urls:
 			return [radl_system.clone()]
+		else:
+			if not isinstance(image_urls, list):
+				image_urls = [image_urls]
+		
+			res = []
+			for str_url in image_urls:
+				url = uriparse(str_url)
+				protocol = url[0]
+
+				src_host = url[1].split(':')[0]
+				# TODO: check the port
+				if protocol == "ost" and self.cloud.server == src_host:
+					driver = self.get_driver(auth_data)
+					
+					res_system = radl_system.clone()
+					instance_type = self.get_instance_type(driver.list_sizes(), res_system)
+					self.update_system_info_from_instance(res_system, instance_type)
+					
+					res_system.addFeature(Feature("disk.0.image.url", "=", str_url), conflict="other", missing="other")
+					
+					res_system.addFeature(Feature("provider.type", "=", self.type), conflict="other", missing="other")
+					res_system.addFeature(Feature("provider.host", "=", self.cloud.server), conflict="other", missing="other")
+					res_system.addFeature(Feature("provider.port", "=", self.cloud.port), conflict="other", missing="other")				
+						
+					res.append(res_system)
+				
+			return res
 
 	def update_system_info_from_instance(self, system, instance_type):
 		"""

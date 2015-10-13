@@ -435,7 +435,7 @@ class InfrastructureManager:
 		concrete_systems = {}
 		for cloud_id, cloud in cloud_list.items():
 			for system_id, systems in systems_with_vmrc.items():				
-				s1 = [InfrastructureManager._compute_score(s.clone().applyFeatures(s0, missing="other").concrete(), radl.get_system_by_name(system_id))
+				s1 = [InfrastructureManager._compute_score(s.clone().applyFeatures(s0, conflict="other", missing="other").concrete(), radl.get_system_by_name(system_id))
 				                for s in systems for s0 in cloud.concreteSystem(s, auth)]
 				# Store the concrete system with largest score
 				concrete_systems.setdefault(cloud_id, {})[system_id] = (

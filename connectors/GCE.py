@@ -72,36 +72,43 @@ class GCECloudConnector(CloudConnector):
 
     
     def concreteSystem(self, radl_system, auth_data):
-        if radl_system.getValue("disk.0.image.url"):
-            url = uriparse(radl_system.getValue("disk.0.image.url"))
-            protocol = url[0]
-            if protocol == "gce":
-                driver = self.get_driver(auth_data)
-                
-                res_system = radl_system.clone()
-                
-                if res_system.getValue('availability_zone'):
-                    region = res_system.getValue('availability_zone')
-                else:
-                    region, _ = self.get_image_data(res_system.getValue("disk.0.image.url"))
-                
-                instance_type = self.get_instance_type(driver.list_sizes(region), res_system)
-                
-                if not instance_type:
-                    return []
-
-                self.update_system_info_from_instance(res_system, instance_type)
-                
-                username = res_system.getValue('disk.0.os.credentials.username')
-                if not username:
-                    res_system.setValue('disk.0.os.credentials.username','gceuser')
-                res_system.addFeature(Feature("provider.type", "=", self.type), conflict="other", missing="other")                
-
-                return [res_system]
-            else:
-                return []
-        else:
+        image_urls = radl_system.getValue("disk.0.image.url")
+        if not image_urls:
             return [radl_system.clone()]
+        else:
+            if not isinstance(image_urls, list):
+                image_urls = [image_urls]
+        
+            res = []
+            for str_url in image_urls:
+                url = uriparse(str_url)
+                protocol = url[0]
+                if protocol == "gce":
+                    driver = self.get_driver(auth_data)
+                    
+                    res_system = radl_system.clone()
+                    res_system.addFeature(Feature("disk.0.image.url", "=", str_url), conflict="other", missing="other")
+                    
+                    if res_system.getValue('availability_zone'):
+                        region = res_system.getValue('availability_zone')
+                    else:
+                        region, _ = self.get_image_data(str_url)
+                    
+                    instance_type = self.get_instance_type(driver.list_sizes(region), res_system)
+                    
+                    if not instance_type:
+                        return []
+    
+                    self.update_system_info_from_instance(res_system, instance_type)
+                    
+                    username = res_system.getValue('disk.0.os.credentials.username')
+                    if not username:
+                        res_system.setValue('disk.0.os.credentials.username','gceuser')
+                    res_system.addFeature(Feature("provider.type", "=", self.type), conflict="other", missing="other")                
+    
+                    res.append(res_system)
+                   
+            return res
 
     def update_system_info_from_instance(self, system, instance_type):
         """

@@ -75,23 +75,32 @@ class FogBowCloudConnector(CloudConnector):
 		
 		
 	def concreteSystem(self, radl_system, auth_data):
-		if radl_system.getValue("disk.0.image.url"):
-			url = uriparse(radl_system.getValue("disk.0.image.url"))
-			protocol = url[0]
-			if protocol in ['fbw']:
-				res_system = radl_system.clone()
-
-				if not res_system.hasFeature('instance_type'):
-					res_system.addFeature(Feature("instance_type", "=", self.INSTANCE_TYPE), conflict="me", missing="other")
-				res_system.addFeature(Feature("provider.type", "=", self.type), conflict="other", missing="other")
-				res_system.addFeature(Feature("provider.host", "=", self.cloud.server), conflict="other", missing="other")
-				res_system.addFeature(Feature("provider.port", "=", self.cloud.port), conflict="other", missing="other")				
-					
-				return [res_system]
-			else:
-				return []
-		else:
+		image_urls = radl_system.getValue("disk.0.image.url")
+		if not image_urls:
 			return [radl_system.clone()]
+		else:
+			if not isinstance(image_urls, list):
+				image_urls = [image_urls]
+		
+			res = []
+			for str_url in image_urls:
+				url = uriparse(str_url)
+				protocol = url[0]
+				if protocol in ['fbw']:
+					res_system = radl_system.clone()
+	
+					if not res_system.hasFeature('instance_type'):
+						res_system.addFeature(Feature("instance_type", "=", self.INSTANCE_TYPE), conflict="me", missing="other")
+					
+					res_system.addFeature(Feature("disk.0.image.url", "=", str_url), conflict="other", missing="other")
+						
+					res_system.addFeature(Feature("provider.type", "=", self.type), conflict="other", missing="other")
+					res_system.addFeature(Feature("provider.host", "=", self.cloud.server), conflict="other", missing="other")
+					res_system.addFeature(Feature("provider.port", "=", self.cloud.port), conflict="other", missing="other")				
+						
+					res.append(res_system)
+				
+			return res
 
 			
 	def get_occi_attribute_value(self, occi_res, attr_name):

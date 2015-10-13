@@ -122,31 +122,42 @@ class LibCloudCloudConnector(CloudConnector):
 		return res
 	
 	def concreteSystem(self, radl_system, auth_data):
-		if radl_system.getValue("disk.0.image.url"):
-			url = uriparse(radl_system.getValue("disk.0.image.url"))
-			protocol = url[0]
-			driver = self.get_driver(auth_data)
-			
-			PROTOCOL_MAP = { "Amazon EC2" : "aws", "OpenNebula": "one", "OpenStack": "ost", "LibVirt": "file"}
-			
-			req_protocol = PROTOCOL_MAP.get(driver.name,None)
-			
-			if req_protocol is not None and protocol != req_protocol:
-				return []
-			else:
-				res_system = radl_system.clone()
-				instance_type = self.get_instance_type(driver.list_sizes(), res_system)
-				self.update_system_info_from_instance(res_system, instance_type)
-				
-				res_system.addFeature(Feature("provider.type", "=", self.type), conflict="other", missing="other")
-				if self.cloud.server:
-					res_system.addFeature(Feature("provider.host", "=", self.cloud.server), conflict="other", missing="other")
-				if self.cloud.port != -1:
-					res_system.addFeature(Feature("provider.port", "=", self.cloud.port), conflict="other", missing="other")				
-					
-				return [res_system]
-		else:
+		image_urls = radl_system.getValue("disk.0.image.url")
+		if not image_urls:
 			return [radl_system.clone()]
+		else:
+			if not isinstance(image_urls, list):
+				image_urls = [image_urls]
+		
+			res = []
+			for str_url in image_urls:
+				url = uriparse(str_url)
+				protocol = url[0]
+	
+				protocol = url[0]
+				driver = self.get_driver(auth_data)
+				
+				PROTOCOL_MAP = { "Amazon EC2" : "aws", "OpenNebula": "one", "OpenStack": "ost", "LibVirt": "file"}
+				
+				req_protocol = PROTOCOL_MAP.get(driver.name,None)
+				
+				if req_protocol is not None and protocol != req_protocol:
+					pass
+				else:
+					res_system = radl_system.clone()
+					instance_type = self.get_instance_type(driver.list_sizes(), res_system)
+					self.update_system_info_from_instance(res_system, instance_type)
+					
+					res_system.addFeature(Feature("disk.0.image.url", "=", str_url), conflict="other", missing="other")
+
+					res_system.addFeature(Feature("provider.type", "=", self.type), conflict="other", missing="other")
+					if self.cloud.server:
+						res_system.addFeature(Feature("provider.host", "=", self.cloud.server), conflict="other", missing="other")
+					if self.cloud.port != -1:
+						res_system.addFeature(Feature("provider.port", "=", self.cloud.port), conflict="other", missing="other")				
+					
+						res.append(res_system)
+			return res
 
 	def update_system_info_from_instance(self, system, instance_type):
 		"""
