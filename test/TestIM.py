@@ -24,6 +24,7 @@ from IM.auth import Authentication
 from IM.VirtualMachine import VirtualMachine
 from IM.radl import radl_parse
 
+RADL_ADD_WIN = "network publica\nnetwork privada\nsystem windows\ndeploy windows 1 one"
 RADL_ADD = "network publica\nnetwork privada\nsystem wn\ndeploy wn 1 one"
 RADL_ADD_ERROR = "system wnno deploy wnno 1"
 TESTS_PATH = '/home/micafer/codigo/git_im/im/test'
@@ -71,6 +72,9 @@ class TestIM(unittest.TestCase):
             for vm_id in vm_ids:
                 (success, vm_state)  = self.server.GetVMProperty(self.inf_id, vm_id, "state", self.auth_data)
                 self.assertTrue(success, msg="ERROR getting VM info:" + str(vm_state))
+
+                if vm_state == VirtualMachine.UNCONFIGURED:
+                    self.server.GetVMContMsg(self.inf_id, vm_id, self.auth_data)
 
                 self.assertFalse(vm_state in err_states, msg="ERROR waiting for a state. '" + vm_state + "' was obtained in the VM: " + str(vm_id) + " err_states = " + str(err_states))
                 
@@ -160,17 +164,17 @@ class TestIM(unittest.TestCase):
         self.assertNotEqual(info, None, msg="ERROR in the value returned by GetVMProperty: " + info)
         self.assertNotEqual(info, "", msg="ERROR in the value returned by GetVMPropert: " + info)    
 
-    def test_17_get_ganglia_info(self):
-        """
-        Test the Ganglia IM information integration
-        """
-        (success, vm_ids) = self.server.GetInfrastructureInfo(self.inf_id, self.auth_data)
-        self.assertTrue(success, msg="ERROR calling GetInfrastructureInfo: " + str(vm_ids))
-        (success, info)  = self.server.GetVMInfo(self.inf_id, vm_ids[1], self.auth_data)
-        self.assertTrue(success, msg="ERROR calling GetVMInfo: " + str(info))
-        info_radl = radl_parse.parse_radl(info)
-        prop_usage = info_radl.systems[0].getValue("cpu.usage")
-        self.assertIsNotNone(prop_usage, msg="ERROR getting ganglia VM info (cpu.usage = None) of VM " + str(vm_ids[1]))
+#     def test_17_get_ganglia_info(self):
+#         """
+#         Test the Ganglia IM information integration
+#         """
+#         (success, vm_ids) = self.server.GetInfrastructureInfo(self.inf_id, self.auth_data)
+#         self.assertTrue(success, msg="ERROR calling GetInfrastructureInfo: " + str(vm_ids))
+#         (success, info)  = self.server.GetVMInfo(self.inf_id, vm_ids[1], self.auth_data)
+#         self.assertTrue(success, msg="ERROR calling GetVMInfo: " + str(info))
+#         info_radl = radl_parse.parse_radl(info)
+#         prop_usage = info_radl.systems[0].getValue("cpu.usage")
+#         self.assertIsNotNone(prop_usage, msg="ERROR getting ganglia VM info (cpu.usage = None) of VM " + str(vm_ids[1]))
 
     def test_18_error_addresource(self):
         """
@@ -185,12 +189,12 @@ class TestIM(unittest.TestCase):
         """
         Test AddResource function
         """
-        (success, res) = self.server.AddResource(self.inf_id, RADL_ADD, self.auth_data)
+        (success, res) = self.server.AddResource(self.inf_id, RADL_ADD_WIN, self.auth_data)
         self.assertTrue(success, msg="ERROR calling AddResource: " + str(res))
 
         (success, vm_ids) = self.server.GetInfrastructureInfo(self.inf_id, self.auth_data)
         self.assertTrue(success, msg="ERROR calling GetInfrastructureInfo:" + str(vm_ids))
-        self.assertEqual(len(vm_ids), 3, msg="ERROR getting infrastructure info: Incorrect number of VMs(" + str(len(vm_ids)) + "). It must be 3")
+        self.assertEqual(len(vm_ids), 4, msg="ERROR getting infrastructure info: Incorrect number of VMs(" + str(len(vm_ids)) + "). It must be 3")
 
         all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 900)
         self.assertTrue(all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
@@ -204,7 +208,7 @@ class TestIM(unittest.TestCase):
 
         (success, vm_ids) = self.server.GetInfrastructureInfo(self.inf_id, self.auth_data)
         self.assertTrue(success, msg="ERROR calling GetInfrastructureInfo:" + str(vm_ids))
-        self.assertEqual(len(vm_ids), 4, msg="ERROR getting infrastructure info: Incorrect number of VMs(" + str(len(vm_ids)) + "). It must be 3")
+        self.assertEqual(len(vm_ids), 5, msg="ERROR getting infrastructure info: Incorrect number of VMs(" + str(len(vm_ids)) + "). It must be 3")
 
     def test_21_removeresource(self):
         """
@@ -218,7 +222,7 @@ class TestIM(unittest.TestCase):
 
         (success, vm_ids) = self.server.GetInfrastructureInfo(self.inf_id, self.auth_data)
         self.assertTrue(success, msg="ERROR calling GetInfrastructureInfo:" + str(vm_ids))
-        self.assertEqual(len(vm_ids), 3, msg="ERROR getting infrastructure info: Incorrect number of VMs(" + str(len(vm_ids)) + "). It must be 2")
+        self.assertEqual(len(vm_ids), 4, msg="ERROR getting infrastructure info: Incorrect number of VMs(" + str(len(vm_ids)) + "). It must be 2")
 
         (success, vm_state)  = self.server.GetVMProperty(self.inf_id, vm_ids[0], "state", self.auth_data)
         self.assertTrue(success, msg="ERROR getting VM state:" + str(res))
@@ -239,7 +243,7 @@ class TestIM(unittest.TestCase):
 
         (success, vm_ids) = self.server.GetInfrastructureInfo(self.inf_id, self.auth_data)
         self.assertTrue(success, msg="ERROR calling GetInfrastructureInfo:" + str(vm_ids))
-        self.assertEqual(len(vm_ids), 2, msg="ERROR getting infrastructure info: Incorrect number of VMs(" + str(len(vm_ids)) + "). It must be 2")
+        self.assertEqual(len(vm_ids), 3, msg="ERROR getting infrastructure info: Incorrect number of VMs(" + str(len(vm_ids)) + "). It must be 2")
 
         (success, vm_state)  = self.server.GetVMProperty(self.inf_id, vm_ids[0], "state", self.auth_data)
         self.assertTrue(success, msg="ERROR getting VM state:" + str(res))

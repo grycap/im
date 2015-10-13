@@ -158,11 +158,7 @@ def LaunchAnsiblePlaybook(output, playbook_file, vm, threads, inventory_file, pk
 		if 'new_passwd' in vm and vm['new_passwd'] and change_pass_ok:
 			passwd = vm['new_passwd']
 
-		user = vm['user']
 		extra_vars['IM_HOST'] = vm['ip']
-		extra_vars['ansible_ssh_port'] = 5986
-		extra_vars['ansible_connection'] = 'winrm'
-		extra_vars['ansible_ssh_pass'] = passwd 
 	else:
 		extra_vars['IM_HOST'] = vm['ip'] + ":" + str(vm['ssh_port'])
 		passwd = None
@@ -189,6 +185,7 @@ def LaunchAnsiblePlaybook(output, playbook_file, vm, threads, inventory_file, pk
 
 def changeVMCredentials(vm, pk_file):
 	if vm['os'] == "windows":
+		#ansible -i hosts -m win_user -a "name=bob password=Password12345 groups=Users" all
 		return False
 
 	# Check if we must change user credentials in the VM
@@ -277,9 +274,8 @@ def contextualize_vm(general_conf_data, vm_conf_data):
 		while not task_ok and num_retries < PLAYBOOK_RETRIES: 
 			num_retries += 1
 			logger.debug('Launch task: ' + task)
-			if vm['os'] == "windows":
-				# In the windows case we cannot execute the "all" tasks
-				playbook = general_conf_data['conf_dir'] + "/" + task + "_task.yml"
+			if ctxt_vm['os'] == "windows":
+				playbook = general_conf_data['conf_dir'] + "/" + task + "_task_all_win.yml"
 			else:
 				playbook = general_conf_data['conf_dir'] + "/" + task + "_task_all.yml"
 			inventory_file  = general_conf_data['conf_dir'] + "/hosts"
@@ -312,7 +308,7 @@ def contextualize_vm(general_conf_data, vm_conf_data):
 					pk_file = PK_FILE
 				
 				# First remove requiretty in the node
-				if vm['os'] != "windows":
+				if ctxt_vm['os'] != "windows":
 					success = removeRequiretty(ctxt_vm, pk_file)
 					if success:
 						logger.info("Requiretty successfully removed")
@@ -326,12 +322,12 @@ def contextualize_vm(general_conf_data, vm_conf_data):
 					change_creds = changeVMCredentials(ctxt_vm, pk_file)
 					res_data['CHANGE_CREDS'] = change_creds
 				
-				if vm['os'] != "windows":
+				if ctxt_vm['os'] != "windows":
 					# this step is not needed in windows systems
 					ansible_thread = LaunchAnsiblePlaybook(logger, playbook, ctxt_vm, 2, inventory_file, pk_file, INTERNAL_PLAYBOOK_RETRIES, change_creds)
 			else:
 				# In some strange cases the pk_file disappears. So test it and remake basic recipe
-				if vm['os'] != "windows":
+				if ctxt_vm['os'] != "windows":
 					success = False
 					try:
 						ssh_client = SSH(ctxt_vm['ip'], ctxt_vm['user'], None, PK_FILE, ctxt_vm['ssh_port'])
