@@ -147,3 +147,4 @@ IM 1.4.0
     * Minor bugfixes and code improvements in VirtualMachine.py
     * Bugfixes and improvements in connectors
     * Enable to configure Windows nodes using native WinRM protocol supported by Ansible
+    * Enable multiple image URLs
