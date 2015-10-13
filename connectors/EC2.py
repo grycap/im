@@ -941,16 +941,28 @@ class EC2CloudConnector(CloudConnector):
 			conn.delete_key_pair(vm.keypair_name)
 
 		# Delete the elastic IPs
-		self.delete_elastic_ips(conn, vm)
-		
+		try:
+			self.delete_elastic_ips(conn, vm)
+		except:
+			self.logger.exception("Error deleting elastic IPs.")
+			
 		# Delete the  spot instance requests
-		self.cancel_spot_requests(conn, vm)
+		try:
+			self.cancel_spot_requests(conn, vm)
+		except:
+			self.logger.exception("Error canceling spot requests.")
 		
 		# Delete the EBS volumes
-		self.delete_volumes(conn, volumes, instance_id)
+		try:
+			self.delete_volumes(conn, volumes, instance_id)
+		except:
+			self.logger.exception("Error deleting EBS volumess")
 		
 		# Delete the SG if this is the last VM
-		self.delete_security_group(conn, vm.inf)
+		try:
+			self.delete_security_group(conn, vm.inf)
+		except:
+			self.logger.exception("Error deleting security group.")
 		
 		return (True, "")
 	
