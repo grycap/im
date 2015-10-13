@@ -668,6 +668,8 @@ class InfrastructureManager:
 	
 		vm = InfrastructureManager.get_vm_from_inf(inf_id, vm_id, auth)
 
+		InfrastructureManager.logger.debug(vm.cont_out)
+
 		return vm.cont_out
 
 	@staticmethod

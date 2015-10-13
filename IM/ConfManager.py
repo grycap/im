@@ -300,6 +300,7 @@ class ConfManager(threading.Thread):
 		# get the master node name
 		(master_name, masterdom) = self.inf.vm_master.getRequestedName(default_hostname = Config.DEFAULT_VM_NAME, default_domain = Config.DEFAULT_DOMAIN)
 
+		no_windows = ""
 		windows = ""
 		all_vars = ""
 		vm_group = self.inf.get_vm_list_by_system_name()
@@ -307,10 +308,13 @@ class ConfManager(threading.Thread):
 			vm = vm_group[group][0]
 			user = vm.getCredentialValues()[0]
 			out.write('[' + group + ':vars]\n')
-			out.write('IM_NODE_USER=' + user + '\n\n')
-			out.write('IM_MASTER_HOSTNAME=' + master_name + '\n')
-			out.write('IM_MASTER_FQDN=' + master_name + "." + masterdom + '\n')
-			out.write('IM_MASTER_DOMAIN=' + masterdom + '\n\n')			
+			out.write('IM_NODE_USER=' + user + '\n')
+
+			if vm.getOS().lower() == "windows":
+				out.write('ansible_port=5986\n')
+				out.write('ansible_user=' + user + '\n')
+				out.write('ansible_connection=winrm\n')	
+				
 			out.write('[' + group + ']\n')
 
 			# Set the vars with the number of nodes of each type
@@ -332,6 +336,8 @@ class ConfManager(threading.Thread):
 					
 				if vm.getOS().lower() == "windows":
 					windows += ip + "\n"
+				else:
+					no_windows += ip + "\n" 
 					
 				ifaces_im_vars = ''
 				for i in range(vm.getNumNetworkIfaces()):
@@ -385,6 +391,10 @@ class ConfManager(threading.Thread):
 
 		if windows:
 			out.write('[windows]\n' + windows + "\n")
+			
+		# create the allnowindows group to launch the "all" tasks
+		if no_windows:
+			out.write('[allnowindows]\n' + no_windows + "\n")
 
 		out.close()
 		
@@ -461,7 +471,7 @@ class ConfManager(threading.Thread):
 			# Only add the tasks if the user has specified a moun_path and a filesystem
 			if disk_mount_path and disk_fstype:
 				# This recipe works with EC2 and OpenNebula. It must be tested/completed with other providers
-				condition = "    when: item.key.endswith('" + disk_device[-1] + "')\n"
+				condition = "    when: ansible_os_family != 'Windows' and item.key.endswith('" + disk_device[-1] + "')\n"
 				condition += "    with_dict: ansible_devices\n"
 				
 				res += '  # Tasks to format and mount disk %d from device %s in %s\n' % (cont, disk_device, disk_mount_path)
@@ -531,6 +541,8 @@ class ConfManager(threading.Thread):
 		# create the "all" to enable this playbook to see the facts of all the nodes
 		all_filename = self.create_all_recipe(tmp_dir, "main_" + group + "_task")
 		recipe_files.append(all_filename)
+		all_windows_filename =  self.create_all_recipe(tmp_dir, "main_" + group + "_task", "windows", "_all_win.yml")
+		recipe_files.append(all_windows_filename)
 		
 		return recipe_files
 	
@@ -554,6 +566,8 @@ class ConfManager(threading.Thread):
 			# create the "all" to enable this playbook to see the facts of all the nodes
 			all_filename = self.create_all_recipe(tmp_dir, ctxt_elem.configure + "_" + ctxt_elem.system + "_task")
 			recipe_files.append(all_filename)
+			all_windows_filename =  self.create_all_recipe(tmp_dir, ctxt_elem.configure + "_" + ctxt_elem.system + "_task", "windows", "_all_win.yml")
+			recipe_files.append(all_windows_filename)
 		
 		return recipe_files
 
@@ -726,8 +740,9 @@ class ConfManager(threading.Thread):
 			# and add the ansible information and modules
 			for ctxt_num in contextualizes.keys():
 				for ctxt_elem in contextualizes[ctxt_num]:
-					vm = vm_group[ctxt_elem.system][0] 
-					filenames.extend(self.generate_playbook(vm, ctxt_elem, tmp_dir))
+					if ctxt_elem.system in vm_group: 
+						vm = vm_group[ctxt_elem.system][0] 
+						filenames.extend(self.generate_playbook(vm, ctxt_elem, tmp_dir))
 			
 			filenames.append(self.generate_etc_hosts(tmp_dir))
 			filenames.append(self.generate_inventory(tmp_dir))
@@ -1007,17 +1022,17 @@ class ConfManager(threading.Thread):
 
 		return conf_content 
 
-	def create_all_recipe(self, tmp_dir, filename):
+	def create_all_recipe(self, tmp_dir, filename, group="allnowindows", suffix = "_all.yml"):
 		"""
 		Create the recipe "all" enabling to access all the ansible variables from all hosts
 		Arguments:
 		   - tmp_dir(str): Temp directory where all the playbook files will be stored.
 		   - filename(str): name of he yaml to include (without the extension)
 		"""
-		all_filename = filename + "_all.yml"
+		all_filename = filename + suffix
 		conf_all_out = open(tmp_dir + "/" + all_filename, 'w')
 		conf_all_out.write("---\n")
-		conf_all_out.write("- hosts: all\n")
+		conf_all_out.write("- hosts: " + group + "\n")
 		conf_all_out.write("  user: \"{{ IM_NODE_USER }}\"\n")
 		conf_all_out.write("- include: " + filename + ".yml\n")
 		conf_all_out.write("\n\n")

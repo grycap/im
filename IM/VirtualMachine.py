@@ -560,12 +560,13 @@ class VirtualMachine:
 		initial_count_out = self.cont_out
 		wait = 0
 		while self.ctxt_pid and not self.destroy:
-			if self.ctxt_pid != self.WAIT_TO_PID:
+			ctxt_pid = self.ctxt_pid
+			if ctxt_pid != self.WAIT_TO_PID:
 				ssh = self.inf.vm_master.get_ssh(retry = True)
 
 				if self.state in VirtualMachine.NOT_RUNNING_STATES:
 					try:
-						ssh.execute("kill -9 " + str(self.ctxt_pid))
+						ssh.execute("kill -9 " + str(ctxt_pid))
 					except:
 						VirtualMachine.logger.exception("Error killing ctxt process with pid: " + str(self.ctxt_pid))
 						pass
@@ -574,13 +575,13 @@ class VirtualMachine:
 					self.ctxt_pid = None
 				else:
 					try:
-						(_, _, exit_status) = ssh.execute("ps " + str(self.ctxt_pid))
+						(_, _, exit_status) = ssh.execute("ps " + str(ctxt_pid))
 					except:
-						VirtualMachine.logger.warn("Error getting status of ctxt process with pid: " + str(self.ctxt_pid))
+						VirtualMachine.logger.warn("Error getting status of ctxt process with pid: " + str(ctxt_pid))
 						exit_status = 0
 						self.ssh_connect_errors += 1
 						if self.ssh_connect_errors > Config.MAX_SSH_ERRORS:
-							VirtualMachine.logger.error("Too much errors getting status of ctxt process with pid: " + str(self.ctxt_pid) + ". Forget it.")
+							VirtualMachine.logger.error("Too much errors getting status of ctxt process with pid: " + str(ctxt_pid) + ". Forget it.")
 							self.ssh_connect_errors = 0
 							self.configured = False
 							self.ctxt_pid = None
@@ -599,7 +600,7 @@ class VirtualMachine:
 						# Get the log of the process to update the cont_out dynamically
 						if Config.UPDATE_CTXT_LOG_INTERVAL > 0 and wait > Config.UPDATE_CTXT_LOG_INTERVAL:
 							wait = 0
-							VirtualMachine.logger.debug("Get the log of the ctxt process with pid: "+ str(self.ctxt_pid))
+							VirtualMachine.logger.debug("Get the log of the ctxt process with pid: "+ str(ctxt_pid))
 							ctxt_log = self.get_ctxt_log(remote_dir)
 							self.cont_out = initial_count_out + ctxt_log
 						# The process is still running, wait
