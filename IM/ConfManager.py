@@ -740,7 +740,7 @@ class ConfManager(threading.Thread):
 			# and add the ansible information and modules
 			for ctxt_num in contextualizes.keys():
 				for ctxt_elem in contextualizes[ctxt_num]:
-					if ctxt_elem.system in vm_group: 
+					if ctxt_elem.system in vm_group and ctxt_elem.get_ctxt_tool() == "Ansible": 
 						vm = vm_group[ctxt_elem.system][0] 
 						filenames.extend(self.generate_playbook(vm, ctxt_elem, tmp_dir))
 			

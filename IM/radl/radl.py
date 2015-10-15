@@ -516,23 +516,31 @@ class Aspect:
 
 class contextualize_item:
 	"""Store a line under ``contextualize`` RADL keyword."""
-	def __init__(self, system_id, configure_id, num=0, line=None):
+	def __init__(self, system_id, configure_id, num=0, ctxt_tool=None ,line=None):
 		self.system = system_id
 		"""System id."""
 		self.configure = configure_id
 		"""Configure id."""
 		self.num = num
 		"""Num of steps (optional)."""
+		self.ctxt_tool = ctxt_tool
+		"""Name of the Ctxt. tool (optional). Currently supported: 'Ansible' and 'cloud-init'. Default 'Ansible'."""
 		self.line = line
 		
 	def __str__(self):
-		return "system %s configure %s %s" % (self.system, self.configure,
-															  "step " + str(self.num) if self.num else "")
+		return "system %s configure %s %s %s" % (self.system, self.configure,
+															  "step " + str(self.num) if self.num else "",
+															  "with " + self.ctxt_tool if self.ctxt_tool else "")
 
 	def getId(self):
 		"""Return an unique key for this element."""
 
 		return (self.system, self.configure)
+	
+	def get_ctxt_tool(self):
+		"""Return the name of the Ctxt. tool."""
+
+		return self.ctxt_tool if self.ctxt_tool else "Ansible"
 
 	def check(self, radl):
 		"""Check a line under a contextualize."""
@@ -548,32 +556,40 @@ class contextualize(Aspect, object):
 	def __init__(self, items=None, max_time=0, line=None):
 		self.max_time = max_time
 		"""Maximum time."""
-		self.items = {}
+		self.items = None
 		"""List of contextualize_item."""
-		if not items:
-			pass
-		elif isinstance(items, list):
+		if isinstance(items, list):
 			self.items = dict([(c.getId(), c) for c in items])
 		elif isinstance(items, dict):
 			self.items = items
-		else:
+		elif items is not None:
 			raise ValueError("Unexpected type for 'items'.")
 		self.line = line
 		
 	def __str__(self):
-		if not self.items:
+		if self.items is None:
 			return ""
-		return "contextualize %s (\n%s\n)" % (self.max_time if self.max_time else "",
+		elif not self.items:
+			return "contextualize ()"
+		else:
+			return "contextualize %s (\n%s\n)" % (self.max_time if self.max_time else "",
 											  "\n".join([str(i) for i in self.items.values()]))
 
 	def __len__(self):
-		return len(self.items)
+		if self.items is None:
+			return 0
+		else:
+			return len(self.items)
 
 	def update(self, cont):
 		"""Update this instance with the contextualize passed."""
 
 		self.max_time = max(self.max_time, cont.max_time)
-		self.items.update(cont.items)
+		if cont.items is not None:
+			if self.items is None:
+				self.items = cont.items
+			else:
+				self.items.update(cont.items)
 
 	def check(self, radl):
 		"""Check a contextualize."""
@@ -581,13 +597,13 @@ class contextualize(Aspect, object):
 		if not isinstance(self.max_time, int) or self.max_time < 0:
 			raise RADLParseException("Invalid 'max time' in 'contextualize'",
 									 line=self.line)
-		for i in self.items.values():
-			i.check(radl)
+		if self.items is not None:
+			for i in self.items.values():
+				i.check(radl)
 			
 	def get_contextualize_items_by_step(self, default=None):
 		"""Get a dictionary of the contextualize_items grouped by the step or the default value"""
-
-		if self.items.values():
+		if self.items:
 			res = {}
 			for elem in self.items.values():
 				if elem.num in res:

@@ -153,6 +153,22 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
 		return nets
 
+	def get_cloud_init_data(self, radl):
+		"""
+		Get the cloud init data specified by the user in the RADL
+		"""
+		configure_name = None
+		if radl.contextualize.items:
+			system_name = radl.systems[0].name
+			
+			for item in radl.contextualize.items.values():
+				if item.system == system_name and item.get_ctxt_tool() == "cloud_init":
+					configure_name = item.configure 
+		
+		if configure_name:
+			return radl.get_configure_by_name(configure_name).recipes
+		else:
+			return None
 
 	def launch(self, inf, radl, requested_radl, num_vm, auth_data):
 		driver = self.get_driver(auth_data)
@@ -178,6 +194,10 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 				'networks': nets,
 				'ex_security_groups': sgs,
 				'name': "%s-%s" % (name, int(time.time()*100))}
+		
+		cloud_init = self.get_cloud_init_data(radl)
+		if cloud_init:
+			args['ex_userdata'] = cloud_init  
 		
 		keypair = None
 		public_key = system.getValue("disk.0.os.credentials.public_key")

@@ -332,12 +332,18 @@ variables (in the CLI and in the Web Interface)::
    )
    deploy node @input.NumNodes@
 
-Configure Recipes
+Contextualization
 -----------------
 
+RADL documents also enable to specify contextualization, extra steps to set up an
+ adequate environment for the application. 
+
+Configure Recipes
+^^^^^^^^^^^^^^^^^
+
 Contextualization recipes are specified under the keyword ``configure``.
-Only Ansible recipes are supported currently. They are enclosed between the
-tags ``@begin`` and ``@end``, like that::
+Only Ansible and Cloud-Init recipes are supported currently. They are 
+enclosed between the tags ``@begin`` and ``@end``, like that::
 
    configure add_user1 (
    @begin
@@ -347,8 +353,9 @@ tags ``@begin`` and ``@end``, like that::
    @end
    )
 
-To easy some contextualization tasks, IM publishes a set of variables that 
-can be accessed by the recipes and have information about the virtual machine.
+In the Ansible case, to easy some contextualization tasks, IM publishes a set 
+of variables that can be accessed by the recipes and have information about 
+the virtual machine.
 
 ``IM_NODE_HOSTNAME``
    Hostname of the virtual machine (without the domain).
@@ -415,6 +422,14 @@ documentation. In the particular case of the "micafer.hadoop" role is the follow
    @end
    )
 
+Disable Contextualization
+-------------------------
+
+By default the contextualize is performed in all the infrastructures. If the user wants to disable 
+this step he must add an empty contextualize section::
+
+   contextualize ()
+
 Advanced Contextualization
 --------------------------
 
@@ -422,12 +437,13 @@ By default the IM will apply the ``configure`` section to the nodes with the sam
 defined. Furthermore all ``configure`` sections will be executed at the same time, in parallel.   
 
 But RADL also enables to specify the order in which the ``configure`` sections will be performed and which 
-configure sections will be executed to a specific type of node.  
+configure sections will be executed to a specific type of node. It can also be specified the contextualization
+tool to use en each case.
 
 The contextualize section has the next structure::
 
    contextualize <max_context_time> (
-      system <system_id> configure <configure_id> [step <num>]
+      system <system_id> configure <configure_id> [step <num>] [with (Ansible|cloud_init)]
       ...
    )
 
@@ -533,3 +549,31 @@ the other (``add_torque``)::
    @end
    )
 
+Using Cloud-Init contextualization
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The next RADL deploys a single node that will be configured using Cloud-Init instead of Ansible::
+
+   network privada ()
+   
+   system node (
+      cpu.count>=1 and
+      ...
+   )
+   
+   configure node (
+   @begin
+     runcmd:
+       - [ wget, "http://slashdot.org", -O, /tmp/index.html ]
+   @end
+   )
+   
+   deploy node 1
+   
+   contextualize (
+      system node configure node with cloud_init
+   )
+
+It depends on the Cloud provider to process correctly the cloud-init recipes of the configure section.
+In some cases (EGI FedCloud) it uses the cloud-init language (see `Cloud-Init documentation <http://cloudinit.readthedocs.org/>`_).
+In other cases as Amazon EC2 or OpenStack it must be a script to be executed in the instance.   

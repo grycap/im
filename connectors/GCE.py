@@ -237,6 +237,23 @@ class GCECloudConnector(CloudConnector):
         else:
             return None
 
+    def get_cloud_init_data(self, radl):
+        """
+        Get the cloud init data specified by the user in the RADL
+        """
+        configure_name = None
+        if radl.contextualize.items:
+            system_name = radl.systems[0].name
+            
+            for item in radl.contextualize.items.values():
+                if item.system == system_name and item.get_ctxt_tool() == "cloud_init":
+                    configure_name = item.configure 
+        
+        if configure_name:
+            return radl.get_configure_by_name(configure_name).recipes
+        else:
+            return None
+
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         driver = self.get_driver(auth_data)
 
@@ -280,12 +297,19 @@ class GCECloudConnector(CloudConnector):
             (public, private) = self.keygen()
             system.setValue('disk.0.os.credentials.private_key', private)
         
+        metadata = {}
         if private and public:
             #metadata = {"sshKeys": "root:ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC9i2KyVMk3Cz/rm9pCoIioFm/gMT0EvhobP5PFZnva+WxFeiH41j4shAim/+reyyUgC+hDpo9Pf6ZzvbOOCaWoGzgdEYtItixKmxE3wWoTUXZW4Lwks69+aKS2BXnOPm5z7BV6F72GVc9r7mlq/Xpd9e2EcDa5WyA6ilnBTVnMgWHOgEjQ+AEChswDELF3DSkXmLtQsWup+kVQmktwmC6+4sPztALwhUJiK1jJ+wshPCuJw0nY7t4Keybm2b/A3nLxDlLbJZay0kV70nlwAYSmTa+HcUkbPqgL0UNVlgW2/rdSNo8RSmoF1pFdXb+zii3YCFUnAC2l2FDmxUhRp0bT root@host"}
             metadata = {"sshKeys": username + ":" + public}
-            args['ex_metadata'] = metadata
             self.logger.debug("Setting ssh for user: " + username)
             self.logger.debug(metadata)
+
+        startup_script = self.get_cloud_init_data(radl)
+        if startup_script:
+            metadata['startup-script'] = startup_script
+
+        if metadata:
+            args['ex_metadata'] = metadata
 
         net_provider_id = self.get_net_provider_id(radl) 
         if net_provider_id:

@@ -288,8 +288,10 @@ class TestIM(unittest.TestCase):
         """
         Test StopInfrastructure function
         """
+        time.sleep(10)
         (success, res) = self.server.StopInfrastructure(self.inf_id, self.auth_data)
         self.assertTrue(success, msg="ERROR calling StopInfrastructure: " + str(res))
+        time.sleep(10)
 
         all_stopped = self.wait_inf_state(VirtualMachine.STOPPED, 120, [VirtualMachine.RUNNING])
         self.assertTrue(all_stopped, msg="ERROR waiting the infrastructure to be stopped (timeout).")
@@ -302,6 +304,7 @@ class TestIM(unittest.TestCase):
         time.sleep(10)
         (success, res) = self.server.StartInfrastructure(self.inf_id, self.auth_data)
         self.assertTrue(success, msg="ERROR calling StartInfrastructure: " + str(res))
+        time.sleep(10)
 
         all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 150, [VirtualMachine.RUNNING])
         self.assertTrue(all_configured, msg="ERROR waiting the infrastructure to be started (timeout).")
@@ -310,8 +313,10 @@ class TestIM(unittest.TestCase):
         """
         Test StopVM function
         """
+        time.sleep(10)
         (success, res) = self.server.StopVM(self.inf_id, 0, self.auth_data)
         self.assertTrue(success, msg="ERROR calling StopVM: " + str(res))
+        time.sleep(10)
 
         all_stopped = self.wait_inf_state(VirtualMachine.STOPPED, 120, [VirtualMachine.RUNNING], [0])
         self.assertTrue(all_stopped, msg="ERROR waiting the vm to be stopped (timeout).")
@@ -324,6 +329,7 @@ class TestIM(unittest.TestCase):
         time.sleep(10)
         (success, res) = self.server.StartVM(self.inf_id, 0, self.auth_data)
         self.assertTrue(success, msg="ERROR calling StartVM: " + str(res))
+        time.sleep(10)
 
         all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 150, [VirtualMachine.RUNNING], [0])
         self.assertTrue(all_configured, msg="ERROR waiting the vm to be started (timeout).")
@@ -341,6 +347,85 @@ class TestIM(unittest.TestCase):
         self.assertEqual(res, self.inf_id+1, msg="ERROR importing the inf.")
 
     def test_50_destroy(self):
+        """
+        Test DestroyInfrastructure function
+        """
+        (success, res) = self.server.DestroyInfrastructure(self.inf_id, self.auth_data)
+        self.assertTrue(success, msg="ERROR calling DestroyInfrastructure: " + str(res))
+        
+    def test_60_create_no_context(self):
+        """
+        Test the CreateInfrastructure IM function
+        """
+        radl = """
+            network net ()
+            system test (
+            cpu.arch='x86_64' and
+            cpu.count>=1 and
+            memory.size>=512m and
+            net_interface.0.connection = 'net' and
+            disk.0.os.flavour='ubuntu' and
+            disk.0.os.version>='12.04'
+            )
+            
+            deploy test 1
+            
+            contextualize ()
+            """
+
+        (success, inf_id) = self.server.CreateInfrastructure(radl, self.auth_data)
+        self.assertTrue(success, msg="ERROR calling CreateInfrastructure: " + str(inf_id))
+        self.__class__.inf_id = inf_id
+
+        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 300)
+        self.assertTrue(all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
+        
+    def test_65_destroy(self):
+        """
+        Test DestroyInfrastructure function
+        """
+        (success, res) = self.server.DestroyInfrastructure(self.inf_id, self.auth_data)
+        self.assertTrue(success, msg="ERROR calling DestroyInfrastructure: " + str(res))
+        
+    def test_70_create_cloud_init(self):
+        """
+        Test the CreateInfrastructure IM function
+        """
+        radl = """
+			network net ()
+
+			system node (
+             cpu.arch='x86_64' and
+             cpu.count>=1 and
+             memory.size>=512m and
+             net_interface.0.connection = 'net' and
+             disk.0.os.flavour='ubuntu' and
+             disk.0.os.version>='12.04'
+            )
+
+            deploy node 1
+
+			configure node (
+@begin
+#!/bin/bash
+echo "Hello World" >> /tmp/data.txt
+@end
+			)
+
+			contextualize (
+              system node configure node with cloud_init
+            )
+            """
+
+        a = radl_parse.parse_radl(radl)
+        (success, inf_id) = self.server.CreateInfrastructure(radl, self.auth_data)
+        self.assertTrue(success, msg="ERROR calling CreateInfrastructure: " + str(inf_id))
+        self.__class__.inf_id = inf_id
+
+        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 300)
+        self.assertTrue(all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
+
+    def test_75_destroy(self):
         """
         Test DestroyInfrastructure function
         """

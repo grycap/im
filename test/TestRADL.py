@@ -174,6 +174,32 @@ otra = 1
 		r = parse_radl(radl)
 		r.check()
 
+
+	def test_empty_contextualize(self):
+		radl = """
+			system test (
+			cpu.count>=1
+			)
+			
+			deploy test 1
+			
+			contextualize ()
+			"""
+		r = parse_radl(radl)
+		r.check()
+		self.assertEqual(r.contextualize.items, {})
+		
+		radl = """
+			system test (
+			cpu.count>=1
+			)
+			
+			deploy test 1
+			"""
+		r = parse_radl(radl)
+		r.check()
+		self.assertEqual(r.contextualize.items, None)
+
 if __name__ == "__main__":
 	unittest.main()
 
