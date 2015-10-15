@@ -78,7 +78,7 @@ deploy wn 1 one
 deploy windows 1
 
 contextualize (
-	system front configure hadoop step 1
+    system front configure hadoop step 1
     system front configure test step 1
     system wn configure test step 1
     system windows configure win step 1

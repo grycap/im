@@ -148,3 +148,6 @@ IM 1.4.0
     * Bugfixes and improvements in connectors
     * Enable to configure Windows nodes using native WinRM protocol supported by Ansible
     * Enable multiple image URLs
+    * Enable to disable the contextualization step by RADL
+    * Enable to use cloud-init contextualization
+    * Add IM-USER tag to EC2 instances

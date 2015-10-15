@@ -397,9 +397,32 @@ class EC2CloudConnector(CloudConnector):
 		
 		return vpc_id, subnet_id
 
+	def get_cloud_init_data(self, radl):
+		"""
+		Get the cloud init data specified by the user in the RADL
+		"""
+		configure_name = None
+		if radl.contextualize.items:
+			system_name = radl.systems[0].name
+			
+			for item in radl.contextualize.items.values():
+				if item.system == system_name and item.get_ctxt_tool() == "cloud_init":
+					configure_name = item.configure 
+		
+		if configure_name:
+			return radl.get_configure_by_name(configure_name).recipes
+		else:
+			return None
+
 	def launch(self, inf, radl, requested_radl, num_vm, auth_data):
 		
+		im_username = "im_user"
+		if auth_data.getAuthInfo('InfrastructureManager'):
+			im_username = auth_data.getAuthInfo('InfrastructureManager')[0]['username']
+
 		system = radl.systems[0]
+		
+		user_data = self.get_cloud_init_data(radl)
 		
 		# Currently EC2 plugin uses first private_key credentials
 		if system.getValue('disk.0.os.credentials.private_key'):
@@ -513,7 +536,7 @@ class EC2CloudConnector(CloudConnector):
 							# Force to use magnetic volumes
 							bdm = boto.ec2.blockdevicemapping.BlockDeviceMapping(conn)
 							bdm[block_device_name] = boto.ec2.blockdevicemapping.BlockDeviceType(volume_type="standard")
-							request = conn.request_spot_instances(price=price, image_id=image.id, count=1, type='one-time', instance_type=instance_type.name, placement=availability_zone, key_name=keypair_name, security_groups=sg_names, security_group_ids=sg_ids, block_device_map=bdm, subnet_id=subnet)
+							request = conn.request_spot_instances(price=price, image_id=image.id, count=1, type='one-time', instance_type=instance_type.name, placement=availability_zone, key_name=keypair_name, security_groups=sg_names, security_group_ids=sg_ids, block_device_map=bdm, subnet_id=subnet, user_data=user_data)
 							
 							if request:
 								ec2_vm_id = region_name + ";" + request[0].id
@@ -544,10 +567,11 @@ class EC2CloudConnector(CloudConnector):
 							bdm = boto.ec2.blockdevicemapping.BlockDeviceMapping(conn)
 							bdm[block_device_name] = boto.ec2.blockdevicemapping.BlockDeviceType(volume_type="standard")
 							# Check if the user has specified the net provider id 
-							reservation = image.run(min_count=1,max_count=1,key_name=keypair_name,instance_type=instance_type.name,security_groups=sg_names,security_group_ids=sg_ids,placement=placement,block_device_map=bdm,subnet_id=subnet)
+							reservation = image.run(min_count=1,max_count=1,key_name=keypair_name,instance_type=instance_type.name,security_groups=sg_names,security_group_ids=sg_ids,placement=placement,block_device_map=bdm,subnet_id=subnet,user_data=user_data)
 		
 							if len(reservation.instances) == 1:
 								instance = reservation.instances[0]
+								instance.add_tag("IM-USER", im_username)
 								ec2_vm_id = region_name + ";" + instance.id
 
 								self.logger.debug("RADL:")
@@ -881,8 +905,13 @@ class EC2CloudConnector(CloudConnector):
 		instance = self.get_instance_by_id(instance_id, region, auth_data)
 		if (instance != None):
 			try:
-				# simetime if you try to update a recently created instance this operation fails
+				# sometime if you try to update a recently created instance this operation fails
 				instance.update()
+				if "IM-USER" not in instance.tags:
+					im_username = "im_user"
+					if auth_data.getAuthInfo('InfrastructureManager'):
+						im_username = auth_data.getAuthInfo('InfrastructureManager')[0]['username']
+					instance.add_tag("IM-USER", im_username)
 			except Exception, ex:
 				self.logger.exception("Error updating the instance " + instance_id)
 				return (False, "Error updating the instance " + instance_id + ": " + str(ex))

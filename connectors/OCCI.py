@@ -269,7 +269,7 @@ class OCCICloudConnector(CloudConnector):
 			return (False, "Error connecting with OCCI server: " + str(ex))
 
 		
-	def gen_cloud_config(self, public_key, user = 'cloudadm'):
+	def gen_cloud_config(self, public_key, user = 'cloudadm', cloud_config_str = None):
 		"""
 		Generate the cloud-config file to be used in the user_data of the OCCI VM
 		"""
@@ -282,6 +282,8 @@ users:
     ssh-authorized-keys:
       - %s
 """ % (user , user, public_key)
+		if cloud_config_str:
+			config += "\n%s\n\n" % cloud_config_str.replace("\\n","\n")
 		return config
 
 	def query_occi(self, auth_data):
@@ -342,7 +344,24 @@ users:
 		Get the whole URI of an OCCI os template from the OCCI info
 		"""
 		return self.get_scheme(occi_info, os_tpl,'os_tpl')
+
+	def get_cloud_init_data(self, radl):
+		"""
+		Get the cloud init data specified by the user in the RADL
+		"""
+		configure_name = None
+		if radl.contextualize.items:
+			system_name = radl.systems[0].name
 			
+			for item in radl.contextualize.items.values():
+				if item.system == system_name and item.get_ctxt_tool() == "cloud_init":
+					configure_name = item.configure 
+		
+		if configure_name:
+			return radl.get_configure_by_name(configure_name).recipes
+		else:
+			return None
+
 	def launch(self, inf, radl, requested_radl, num_vm, auth_data):
 		system = radl.systems[0]
 		auth_header = self.get_auth_header(auth_data)
@@ -377,8 +396,12 @@ users:
 			user = "cloudadm"
 			system.setValue('disk.0.os.credentials.username', user)
 
-		cloud_config = self.gen_cloud_config(public_key, user)
+		# Add user cloud init data
+		cloud_config_str = self.get_cloud_init_data(radl)
+		cloud_config = self.gen_cloud_config(public_key, user, cloud_config_str)
 		user_data = base64.b64encode(cloud_config).replace("\n","")
+
+		self.logger.debug("Cloud init: " + cloud_config)
 		
 		# Get the info about the OCCI server (GET /-/)
 		occi_info = self.query_occi(auth_data)
