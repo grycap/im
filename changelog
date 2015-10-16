@@ -151,3 +151,4 @@ IM 1.4.0
     * Enable to disable the contextualization step by RADL
     * Enable to use cloud-init contextualization
     * Add IM-USER tag to EC2 instances
+    * Improve the DB serialization

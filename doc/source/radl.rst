@@ -214,7 +214,7 @@ machine.  The supported features are:
    Features under this prefix refer to virtual storage devices attached to
    the virtual machine. ``disk.0`` refers to system boot device.
 
-``disk.<diskId>.image.url = <url>``
+``disk.<diskId>.image.url = <url> or [comma separated list of urls]``
    Set the source of the disk image. The URI designates the cloud provider:
 
    * ``one://<server>:<port>/<image-id>``, for OpenNebula;
@@ -226,11 +226,11 @@ machine.  The supported features are:
    * ``docker://<docker_image>``, for Docker images.
    * ``fbw://<fogbow_image>``, for FogBow images.
 
-   Either ``disk.0.image.url`` or ``disk.0.image.name`` must be set.
+   In case of using a list of URLs, the IM will select the final image based on
+   the credentials provided by the user. 
 
 ``disk.<diskId>.image.name = <string>``
    Set the source of the disk image by its name in the VMRC server.
-   Either ``disk.0.image.url`` or ``disk.0.image.name`` must be set.
 
 ``disk.<diskId>.type = swap|iso|filesystem``
    Set the type of the image.

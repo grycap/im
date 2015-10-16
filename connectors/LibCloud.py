@@ -168,7 +168,7 @@ class LibCloudCloudConnector(CloudConnector):
 			system.addFeature(Feature("disk.0.free_size", "=", instance_type.disk , 'G'), conflict="other", missing="other")
 		if instance_type.price:
 			system.addFeature(Feature("price", "=", instance_type.price), conflict="me", missing="other")
-		
+			
 		system.addFeature(Feature("instance_type", "=", instance_type.name), conflict="other", missing="other")
 
 	def get_image_id(self, path):
@@ -321,7 +321,10 @@ class LibCloudCloudConnector(CloudConnector):
 				
 			vm.state = res_state
 			
-			self.update_system_info_from_instance(vm.info.systems[0], node.size)
+			if node.size:
+				self.update_system_info_from_instance(vm.info.systems[0], node.size)
+			else:
+				self.logger.debug("VM " + str(vm.id) + " has no node.size info. Not updating system info.")
 			
 			self.setIPsFromInstance(vm,node)
 			self.attach_volumes(vm,node)
