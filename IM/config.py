@@ -63,7 +63,6 @@ class Config:
 	MAX_SIMULTANEOUS_LAUNCHES = 1
 	DATA_FILE = '/etc/im/inf.dat'
 	DATA_DB = None
-	MAX_INF_STORED = 20
 	XMLRCP_SSL = False
 	XMLRCP_SSL_KEYFILE =  "/etc/im/pki/server-key.pem"
 	XMLRCP_SSL_CERTFILE = "/etc/im/pki/server-cert.pem"

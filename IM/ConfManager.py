@@ -74,7 +74,7 @@ class ConfManager(threading.Thread):
 					else:						
 						ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Configuration process in VM: " + str(vm.im_id) + " finished.")
 						# Force to save the data to store the log data ()
-						ServiceRequests.IMBaseRequest.create_request(ServiceRequests.IMBaseRequest.SAVE_DATA)
+						ServiceRequests.IMBaseRequest.create_request(ServiceRequests.IMBaseRequest.SAVE_DATA, (self.inf.id))
 				else:
 					# General Infrastructure tasks
 					if vm.is_ctxt_process_running():
@@ -88,7 +88,7 @@ class ConfManager(threading.Thread):
 						else:
 							ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Configuration process of master node failed.")
 						# Force to save the data to store the log data 
-						ServiceRequests.IMBaseRequest.create_request(ServiceRequests.IMBaseRequest.SAVE_DATA)
+						ServiceRequests.IMBaseRequest.create_request(ServiceRequests.IMBaseRequest.SAVE_DATA, (self.inf.id))
 				
 		return res
 
@@ -216,7 +216,7 @@ class ConfManager(threading.Thread):
 						# Set the "special pid" to wait untill the real pid is assigned
 						vm.ctxt_pid = VirtualMachine.WAIT_TO_PID
 						# Force to save the data to store the log data 
-						ServiceRequests.IMBaseRequest.create_request(ServiceRequests.IMBaseRequest.SAVE_DATA)
+						ServiceRequests.IMBaseRequest.create_request(ServiceRequests.IMBaseRequest.SAVE_DATA, (self.inf.id))
 				else:
 					# Launch the Infrastructure tasks
 					vm.configured = None
@@ -229,7 +229,7 @@ class ConfManager(threading.Thread):
 						vms_configuring[step] = []
 					vms_configuring[step].append(vm)
 					# Force to save the data to store the log data 
-					ServiceRequests.IMBaseRequest.create_request(ServiceRequests.IMBaseRequest.SAVE_DATA)
+					ServiceRequests.IMBaseRequest.create_request(ServiceRequests.IMBaseRequest.SAVE_DATA, (self.inf.id))
 					
 					
 				last_step = step
@@ -626,7 +626,7 @@ class ConfManager(threading.Thread):
 				self.inf.ansible_configured = True
 				self.inf.set_configured(True)
 				# Force to save the data to store the log data 
-				ServiceRequests.IMBaseRequest.create_request(ServiceRequests.IMBaseRequest.SAVE_DATA)
+				ServiceRequests.IMBaseRequest.create_request(ServiceRequests.IMBaseRequest.SAVE_DATA, (self.inf.id))
 			else:
 				self.inf.ansible_configured = False
 				self.inf.set_configured(False)
@@ -690,7 +690,7 @@ class ConfManager(threading.Thread):
 				self.change_master_credentials(ssh)
 				
 				# Force to save the data to store the log data 
-				ServiceRequests.IMBaseRequest.create_request(ServiceRequests.IMBaseRequest.SAVE_DATA)
+				ServiceRequests.IMBaseRequest.create_request(ServiceRequests.IMBaseRequest.SAVE_DATA, (self.inf.id))
 				
 				self.inf.set_configured(True)
 			except:
