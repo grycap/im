@@ -52,10 +52,8 @@ class InfrastructureInfo:
 	def __init__(self):
 		self._lock = threading.Lock()
 		"""Threading Lock to avoid concurrency problems."""
-		self.uuid = str(uuid1())
+		self.id = str(uuid1())
 		"""Infrastructure unique ID. """
-		self.id = 0
-		"""Infrastructure internal ID."""
 		self.vm_list = []
 		"""Map of int to VirtualMachine."""
 		self.auth = None

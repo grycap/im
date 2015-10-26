@@ -348,7 +348,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 	def create_security_group(self, driver, inf, radl):
 		res = None
 		try:
-			sg_name = "im-" + str(inf.uuid)
+			sg_name = "im-" + str(inf.id)
 			sg = self._get_security_group(driver, sg_name)
 
 			if not sg: 

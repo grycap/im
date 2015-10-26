@@ -555,7 +555,7 @@ class VirtualMachine:
 		ip = self.getPublicIP()
 		if not ip:
 			ip = ip = self.getPrivateIP()
-		remote_dir = Config.REMOTE_CONF_DIR + "/" + ip + "_" + str(self.getSSHPort())
+		remote_dir = Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/" + ip + "_" + str(self.getSSHPort())
 
 		initial_count_out = self.cont_out
 		wait = 0

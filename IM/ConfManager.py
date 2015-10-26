@@ -248,7 +248,7 @@ class ConfManager(threading.Thread):
 			if not ip:
 				ConfManager.logger.error("Inf ID: " + str(self.inf.id) + ": VM with ID %s (%s) does not have an IP!!. We cannot launch the ansible process!!" % (str(vm.im_id), vm.id))
 			else:
-				remote_dir = Config.REMOTE_CONF_DIR + "/" + ip + "_" + str(vm.getSSHPort())
+				remote_dir = Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/" + ip + "_" + str(vm.getSSHPort())
 				tmp_dir = tempfile.mkdtemp()
 		
 				ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Create the configuration file for the contextualization agent")
@@ -265,8 +265,8 @@ class ConfManager(threading.Thread):
 				shutil.rmtree(tmp_dir, ignore_errors=True)
 		
 				if vm.configured is None:
-					(pid, _, _) = ssh.execute("nohup python_ansible " + Config.REMOTE_CONF_DIR + "/ctxt_agent.py " 
-							+ Config.REMOTE_CONF_DIR + "/general_info.cfg "
+					(pid, _, _) = ssh.execute("nohup python_ansible " + Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/" + "/ctxt_agent.py " 
+							+ Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/" + "/general_info.cfg "
 							+ remote_dir + "/" + os.path.basename(conf_file) 
 							+ " > " + remote_dir + "/stdout" + " 2> " + remote_dir + "/stderr < /dev/null & echo -n $!")
 				
@@ -602,7 +602,8 @@ class ConfManager(threading.Thread):
 					else:
 						ConfManager.logger.info("Inf ID: " + str(self.inf.id) + ": Ansible installation finished successfully")
 		
-					remote_dir = Config.REMOTE_CONF_DIR
+					ssh.sftp_mkdir(Config.REMOTE_CONF_DIR)
+					remote_dir = Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/"
 					ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Copy the contextualization agent files")  
 					ssh.sftp_mkdir(remote_dir)
 					files = []
@@ -707,7 +708,7 @@ class ConfManager(threading.Thread):
 		"""
 		try:
 			tmp_dir = tempfile.mkdtemp()
-			remote_dir = Config.REMOTE_CONF_DIR
+			remote_dir = Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/"
 			# Get the groups for the different VM types
 			vm_group = self.inf.get_vm_list_by_system_name()
 				
@@ -1076,10 +1077,10 @@ class ConfManager(threading.Thread):
 			self.inf.add_cont_msg("Creating and copying Ansible playbook files")
 			ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Preparing Ansible playbook to copy Ansible modules: " + str(modules))
 	
-			ssh.sftp_mkdir(Config.REMOTE_CONF_DIR)
+			ssh.sftp_mkdir(Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/")
 			# Copy the utils helper files
-			ssh.sftp_mkdir(Config.REMOTE_CONF_DIR + "/utils")
-			ssh.sftp_put_dir(Config.RECIPES_DIR + "/utils", Config.REMOTE_CONF_DIR + "/utils")
+			ssh.sftp_mkdir(Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/" + "/utils")
+			ssh.sftp_put_dir(Config.RECIPES_DIR + "/utils", Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/" + "/utils")
 			
 			for galaxy_name in modules:
 				if galaxy_name:
@@ -1186,7 +1187,7 @@ class ConfManager(threading.Thread):
 				else:
 					conf_data['vms'].append(vm_conf_data)
 
-		conf_data['conf_dir'] = Config.REMOTE_CONF_DIR
+		conf_data['conf_dir'] = Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/"
 		
 		conf_out = open(conf_file, 'w')
 		ConfManager.logger.debug("Ctxt agent general configuration file: " + json.dumps(conf_data))
