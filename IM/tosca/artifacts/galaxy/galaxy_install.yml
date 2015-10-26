@@ -1,0 +1,9 @@
+---
+- tasks:
+    # Install requisites
+    - apt: name=git update_cache=yes cache_valid_time=3600
+      when: ansible_os_family == "Debian"
+    - yum: name=git
+      when: ansible_os_family == "RedHat"
+    # Download Galaxy
+    - git: repo=https://github.com/galaxyproject/galaxy/ dest={{galaxy_install_path}} version=master

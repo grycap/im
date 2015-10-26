@@ -1,0 +1,34 @@
+---
+- vars:
+      tool_content: |
+        tools:
+        - name: '{{galaxy_tool_name}}'
+          owner: '{{galaxy_tool_owner}}'
+          tool_panel_section_id: '{{galaxy_tool_panel_section_id}}'
+  tasks:
+    # Install galaxy tools
+    - name: Uninstall old version of python-requests in Ubuntu
+      shell: dpkg --force-all -r python-requests
+      when: ansible_os_family == "Debian"
+      ignore_errors: yes
+
+    - name: Install script dependencies
+      pip: name={{item}} state=latest
+      with_items:
+        - bioblend
+        - requests
+
+    - name: Place the tool management script
+      get_url: url=https://raw.githubusercontent.com/galaxyproject/ansible-galaxy-tools/master/files/install_tool_shed_tools.py dest={{galaxy_install_path}}/install_tool_shed_tools.py
+
+    - name: Copy tool list files
+      copy:
+        content: "{{tool_content}}"
+        dest: "{{galaxy_install_path}}/my_tool_list.yml"
+
+    - name: Wait for Galaxy to start
+      wait_for: port=8080 delay=5 state=started timeout=150
+
+    - name: Install Tool Shed tools
+      shell: chdir={{galaxy_install_path}} python install_tool_shed_tools.py -t my_tool_list.yml -a {{galaxy_admin_api_key}} -g 127.0.0.1:8080 
+      #creates={{galaxy_install_path}}//tool_dependency_dir/bowtie2

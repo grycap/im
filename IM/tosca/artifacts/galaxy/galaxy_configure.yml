@@ -1,0 +1,25 @@
+---
+- vars:
+      GALAXY_USER_ID: 4001
+      GALAXY_USER_PASSWORD: $6$Ehg4GHQT5y$6ZCTLffp.epiNEhS1M3ZB.P6Kii1wELySe/DCwUInGt8r7zgdAHfHw66DuPwpS6pfOiZ9PS/KaTiBKjoCn23t0
+
+  tasks:
+    # General configuration
+    - copy: src={{galaxy_install_path}}/config/galaxy.ini.sample dest={{galaxy_install_path}}/config/galaxy.ini force=no
+    - ini_file: dest={{galaxy_install_path}}/config/galaxy.ini section={{ item.section }} option={{ item.option }} value="{{ item.value }}"
+      with_items:
+        - { section: 'server:main', option: 'host', value: '0.0.0.0' }
+        - { section: 'app:main', option: 'admin_users', value: "{{galaxy_admin}}" }
+        - { section: 'app:main', option: 'master_api_key', value: "{{galaxy_admin_api_key}}" }
+        - { section: 'app:main', option: 'tool_dependency_dir', value: "{{galaxy_install_path}}/tool_dependency_dir" }
+
+    # Create galaxy user to launch the daemon
+    - user: name={{galaxy_user}} password={{GALAXY_USER_PASSWORD}} generate_ssh_key=yes shell=/bin/bash uid={{GALAXY_USER_ID}}
+    - local_action: command cp /home/{{galaxy_user}}/.ssh/id_rsa.pub /tmp/{{galaxy_user}}_id_rsa.pub creates=/tmp/{{galaxy_user}}_id_rsa.pub
+    - name: Add the authorized_key to the user {{galaxy_user}}
+      authorized_key: user={{galaxy_user}} key="{{ lookup('file', '/tmp/' + galaxy_user + '_id_rsa.pub') }}"
+
+    - file: path=/home/{{galaxy_user}} state=directory owner={{galaxy_user}} group={{galaxy_user}}
+    - file: path={{galaxy_install_path}} state=directory recurse=yes owner={{galaxy_user}}
+
+    - copy: dest="{{galaxy_install_path}}/config/local_env.sh" content="PYTHON_EGG_CACHE={{galaxy_install_path}}/egg\nGALAXY_RUN_ALL=1\nexport PYTHON_EGG_CACHE GALAXY_RUN_ALL"

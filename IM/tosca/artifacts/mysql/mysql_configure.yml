@@ -1,0 +1,4 @@
+- tasks:
+  - name: update mysql root password for all root accounts
+    mysql_user: name=root password={{root_password}}
+    ignore_errors: yes
