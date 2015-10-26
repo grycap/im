@@ -1,3 +1,4 @@
+
 # IM - Infrastructure Manager
 # Copyright (C) 2011 - GRyCAP - Universitat Politecnica de Valencia
 # 
@@ -69,9 +70,6 @@ class InfrastructureManager:
 	Front-end to the functionality of the service.
 	"""
 
-	global_inf_id = 0
-	"""Next infrastructure id available."""
-
 	infrastructure_list = {}
 	"""Map from int to :py:class:`InfrastructureInfo`."""
 
@@ -88,7 +86,6 @@ class InfrastructureManager:
 	def _reinit():
 		"""Restart the class attributes to initial values."""
 
-		InfrastructureManager.global_inf_id = 0
 		InfrastructureManager.infrastructure_list = {}
 		InfrastructureManager._lock = threading.Lock()
 
@@ -97,16 +94,7 @@ class InfrastructureManager:
 		"""Add a new Infrastructure and set the ID."""
 
 		with InfrastructureManager._lock:
-			inf.id = InfrastructureManager.global_inf_id
-			InfrastructureManager.global_inf_id += 1
 			InfrastructureManager.infrastructure_list[inf.id] = inf
-			if Config.DATA_DB:
-				try:
-					InfrastructureManager.save_max_inf_id_to_db(Config.DATA_DB, 
-												InfrastructureManager.global_inf_id)
-				except Exception, ex:
-					InfrastructureManager.logger.exception("ERROR saving data. Changes not stored!!")
-					sys.stderr.write("ERROR saving data: " + str(ex) + ".\nChanges not stored!!")
 
 	@staticmethod
 	def _compute_deploy_groups(radl):
@@ -260,7 +248,7 @@ class InfrastructureManager:
 
 		Args:
 
-		- inf_id(int): infrastructure id.
+		- inf_id(str): infrastructure id.
 		- radl_data(str): RADL description, it can be empty.
 		- auth(Authentication): parsed authentication tokens.
 		- vm_list(list of int): List of VM ids to reconfigure. If None all VMs will be reconfigured.
@@ -355,7 +343,7 @@ class InfrastructureManager:
 
 		Args:
 
-		- inf_id(int): infrastructure id.
+		- inf_id(str): infrastructure id.
 		- radl(str): RADL description.
 		- auth(Authentication): parsed authentication tokens.
 		- context(bool): Flag to specify if the ctxt step will be made
@@ -551,7 +539,7 @@ class InfrastructureManager:
 
 		Args:
 
-		- inf_id(int): infrastructure id.
+		- inf_id(str): infrastructure id.
 		- vm_list(str, int or list of str): list of virtual machine ids.
 		- auth(Authentication): parsed authentication tokens.
 		- context(bool): Flag to specify if the ctxt step will be made
@@ -605,7 +593,7 @@ class InfrastructureManager:
 
 		Args:
 
-		- inf_id(int): infrastructure id.
+		- inf_id(str): infrastructure id.
 		- vm_id(str): virtual machine id.
 		- property(str): RADL property to get.
 		- auth(Authentication): parsed authentication tokens.
@@ -632,7 +620,7 @@ class InfrastructureManager:
 
 		Args:
 
-		- inf_id(int): infrastructure id.
+		- inf_id(str): infrastructure id.
 		- vm_id(str): virtual machine id.
 		- auth(Authentication): parsed authentication tokens.
 
@@ -661,7 +649,7 @@ class InfrastructureManager:
 
 		Args:
 
-		- inf_id(int): infrastructure id.
+		- inf_id(str): infrastructure id.
 		- vm_id(str): virtual machine id.
 		- auth(Authentication): parsed authentication tokens.
 
@@ -683,8 +671,8 @@ class InfrastructureManager:
 
 		Args:
 
-		- inf_id(int): infrastructure id.
-		- vm_id(int): virtual machine id.
+		- inf_id(str): infrastructure id.
+		- vm_id(str): virtual machine id.
 		- radl(str): RADL description.
 		- auth(Authentication): parsed authentication tokens.
 
@@ -723,7 +711,7 @@ class InfrastructureManager:
 
 		Args:
 
-		- inf_id(int): infrastructure id.
+		- inf_id(str): infrastructure id.
 		- auth(Authentication): parsed authentication tokens.
 
 		Return: str with the RADL
@@ -744,7 +732,7 @@ class InfrastructureManager:
 
 		Args:
 
-		- inf_id(int): infrastructure id.
+		- inf_id(str): infrastructure id.
 		- auth(Authentication): parsed authentication tokens.
 
 		Return: a list of str: list of virtual machine ids.
@@ -768,7 +756,7 @@ class InfrastructureManager:
 
 		Args:
 
-		- inf_id(int): infrastructure id.
+		- inf_id(str): infrastructure id.
 		- auth(Authentication): parsed authentication tokens.
 
 		Return: a str with the cont msg
@@ -794,7 +782,7 @@ class InfrastructureManager:
 
 		Args:
 
-		- inf_id(int): infrastructure id.
+		- inf_id(str): infrastructure id.
 		- auth(Authentication): parsed authentication tokens.
 
 		Return(str): error messages; empty string means all was ok.
@@ -831,7 +819,7 @@ class InfrastructureManager:
 
 		Args:
 
-		- inf_id(int): infrastructure id.
+		- inf_id(str): infrastructure id.
 		- auth(Authentication): parsed authentication tokens.
 
 		Return(str): error messages; empty string means all was ok.
@@ -868,8 +856,8 @@ class InfrastructureManager:
 
 		Args:
 
-		- inf_id(int): infrastructure id.
-		- vm_id(int): virtual machine id.
+		- inf_id(str): infrastructure id.
+		- vm_id(str): virtual machine id.
 		- auth(Authentication): parsed authentication tokens.
 
 		Return(str): error messages; empty string means all was ok.
@@ -898,8 +886,8 @@ class InfrastructureManager:
 
 		Args:
 
-		- inf_id(int): infrastructure id.
-		- vm_id(int): virtual machine id.
+		- inf_id(str): infrastructure id.
+		- vm_id(str): virtual machine id.
 		- auth(Authentication): parsed authentication tokens.
 
 		Return(str): error messages; empty string means all was ok.
@@ -940,7 +928,7 @@ class InfrastructureManager:
 
 		Args:
 
-		- inf_id(int): infrastructure id.
+		- inf_id(str): infrastructure id.
 		- auth(Authentication): parsed authentication tokens.
 
 		Return: None.
@@ -1069,6 +1057,11 @@ class InfrastructureManager:
 
 		InfrastructureManager.logger.info("Listing the user infrastructures")
 	
+		auths = auth.getAuthInfo('InfrastructureManager')
+		if not auths:
+			InfrastructureManager.logger.error("No correct auth data has been specified.")
+			raise UnauthorizedUserException()
+	
 		res = []	
 		for elem in InfrastructureManager.infrastructure_list.values():
 			if elem.auth != None and elem.auth.compare(auth, 'InfrastructureManager') and not elem.deleted:
@@ -1110,64 +1103,43 @@ class InfrastructureManager:
 	def get_data_from_db(db_url):
 		db = DataBase(db_url)
 		if db.connect():
-			if not db.table_exists("im_data"):
-				db.execute("CREATE TABLE inf_list(id int PRIMARY KEY, date TIMESTAMP, data LONGBLOB)")
-				db.execute("CREATE TABLE im_data(id int PRIMARY KEY, date TIMESTAMP, max_inf_id int)")
+			if not db.table_exists("inf_list"):
+				db.execute("CREATE TABLE inf_list(id VARCHAR(255) PRIMARY KEY, date TIMESTAMP, data LONGBLOB)")
 				db.close()
-				return 0, {}
+				return {}
 			else:
-				res = db.select("select * from im_data order by id desc")
-				max_inf_id = 0
-				if len(res) > 0:
-					#id = res[0][0]
-					#date = res[0][1]
-					max_inf_id = int(res[0][2])
-				else:
-					InfrastructureManager.logger.error("ERROR getting max_inf_id from database!.")
-				
 				inf_list = {}
 				res = db.select("select * from inf_list order by id desc")
 				if len(res) > 0:
 					for elem in res:
-						inf_id = int(elem[0])
+						#inf_id = elem[0]
 						#date = elem[1]
 						try:
 							inf = pickle.loads(elem[2])
 							if not inf.deleted:
-								inf_list[inf_id] = inf
+								inf_list[inf.id] = inf
 						except:
-							InfrastructureManager.logger.exception("ERROR reading infrastructure %d from database, ignoring it!." % inf_id) 
+							InfrastructureManager.logger.exception("ERROR reading infrastructure %d from database, ignoring it!." % inf.id) 
 				else:
 					InfrastructureManager.logger.error("ERROR getting inf_list from database!.")
 				
 				db.close()
-				return max_inf_id, inf_list
+				return inf_list
 		else:
 			InfrastructureManager.logger.error("ERROR connecting with the database!.")
-			return 0, {}
+			return {}
 
 	@staticmethod
-	def save_inf_list_to_db(db_url, inf_list, inf_id = None):
+	def save_data_to_db(db_url, inf_list, inf_id = None):
 		db = DataBase(db_url)
 		if db.connect():
 			infs_to_save = inf_list
 			if inf_id:
 				infs_to_save = {inf_id: inf_list[inf_id]}
 			
-			for id, inf in infs_to_save.iteritems():
-				res = db.execute("replace into inf_list set id = %s, data = %s, date = now()", (id, pickle.dumps(inf)))
+			for inf in infs_to_save.values():
+				res = db.execute("replace into inf_list set id = %s, data = %s, date = now()", (inf.id, pickle.dumps(inf)))
 
-			db.close()
-			return res
-		else:
-			InfrastructureManager.logger.error("ERROR connecting with the database!.")
-			return None
-		
-	@staticmethod
-	def save_max_inf_id_to_db(db_url, max_inf_id):
-		db = DataBase(db_url)
-		if db.connect():
-			res = db.execute("replace into im_data set max_inf_id = %s, date = now(), id = 0", (max_inf_id))
 			db.close()
 			return res
 		else:
@@ -1179,12 +1151,10 @@ class InfrastructureManager:
 		with InfrastructureManager._lock:
 			try:
 				if Config.DATA_DB:
-					max_inf_id, inf_list = InfrastructureManager.get_data_from_db(Config.DATA_DB)
-					InfrastructureManager.global_inf_id = max_inf_id
+					inf_list = InfrastructureManager.get_data_from_db(Config.DATA_DB)
 					InfrastructureManager.infrastructure_list = inf_list
 				else:
 					data_file = open(Config.DATA_FILE, 'rb')
-					InfrastructureManager.global_inf_id = pickle.load(data_file)
 					InfrastructureManager.infrastructure_list = pickle.load(data_file)
 					data_file.close()
 			except Exception, ex:
@@ -1199,14 +1169,13 @@ class InfrastructureManager:
 			if not InfrastructureManager._exiting:
 				try:
 					if Config.DATA_DB: 
-						res = InfrastructureManager.save_inf_list_to_db(Config.DATA_DB, 
+						res = InfrastructureManager.save_data_to_db(Config.DATA_DB, 
 															InfrastructureManager.infrastructure_list, inf_id)
 						if not res:
 							InfrastructureManager.logger.error("ERROR saving data.\nChanges not stored!!")
 							sys.stderr.write("ERROR saving data.\nChanges not stored!!")
 					else:
 						data_file = open(Config.DATA_FILE, 'wb')
-						pickle.dump(InfrastructureManager.global_inf_id, data_file)
 						pickle.dump(InfrastructureManager.infrastructure_list, data_file)
 						data_file.close()
 				except Exception, ex:

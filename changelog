@@ -152,3 +152,4 @@ IM 1.4.0
     * Enable to use cloud-init contextualization
     * Add IM-USER tag to EC2 instances
     * Improve the DB serialization
+    * Change Infrastructure ID from int to string: The API changes and the stored data is not compatible with old versions

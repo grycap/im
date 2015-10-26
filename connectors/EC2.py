@@ -288,7 +288,7 @@ class EC2CloudConnector(CloudConnector):
 	def create_security_group(self, conn, inf, radl, vpc = None):
 		res = None
 		try:
-			sg_name = "im-" + str(inf.uuid)
+			sg_name = "im-" + str(inf.id)
 			sg = self._get_security_group(conn, sg_name)
 
 			if not sg: 
@@ -1012,7 +1012,7 @@ class EC2CloudConnector(CloudConnector):
 		   - conn(:py:class:`boto.ec2.connection`): object to connect to EC2 API.
 		   - inf(:py:class:`IM.InfrastructureInfo`): Infrastructure information.	
 		"""
-		sg_name = "im-" + str(inf.uuid)
+		sg_name = "im-" + str(inf.id)
 		sg  = self._get_security_group(conn, sg_name)
 
 		if sg:

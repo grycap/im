@@ -152,6 +152,9 @@ def RESTGetInfrastructureList():
 		
 		bottle.response.content_type = "text/uri-list"
 		return res
+	except UnauthorizedUserException, ex:
+		bottle.abort(401, "Error Getting Inf. List: " + str(ex))
+		return False
 	except Exception, ex:
 		bottle.abort(400, "Error Getting Inf. List: " + str(ex))
 		return False
@@ -175,7 +178,7 @@ def RESTCreateInfrastructure():
 		bottle.response.content_type = "text/uri-list"
 		return "http://" + server_ip + ":" + server_port + "/infrastructures/" + str(inf_id)
 	except UnauthorizedUserException, ex:
-		bottle.abort(403, "Error Getting Inf. info: " + str(ex))
+		bottle.abort(401, "Error Getting Inf. info: " + str(ex))
 		return False
 	except Exception, ex:
 		bottle.abort(400, "Error Creating Inf.: " + str(ex))
