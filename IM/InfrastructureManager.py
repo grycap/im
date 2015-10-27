@@ -567,11 +567,13 @@ class InfrastructureManager:
 				if str(vm.im_id) == str(vmid):
 					InfrastructureManager.logger.debug("Removing the VM ID: '" + vmid + "'")
 					try:
-						vm.finalize(auth)
+						success, msg = vm.finalize(auth)
+						if success:
+							cont += 1
+						else:
+							exceptions.append(msg)
 					except Exception, e:
 						exceptions.append(e)
-					else:
-						cont += 1
 
 		InfrastructureManager.save_data(inf_id)
 		InfrastructureManager.logger.info(str(cont) + " VMs successfully removed")
