@@ -189,7 +189,9 @@ class ConfManager(threading.Thread):
 						last_step = step
 			else:
 				if isinstance(vm,VirtualMachine):
-					if vm.is_configured() is False:
+					if vm.destroy:
+						ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": VM ID " + str(vm.im_id) + " has been destroyed. Not launching new tasks for it.")
+					elif vm.is_configured() is False:
 						ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Configuration process of step " + str(last_step) + " failed, ignoring tasks of later steps.")
 						# Check that the VM has no other ansible process running
 					elif vm.ctxt_pid:
