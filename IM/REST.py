@@ -63,7 +63,7 @@ def RESTDestroyInfrastructure(id=None):
 		bottle.abort(401, "No authentication data provided")
 	
 	try:
-		InfrastructureManager.DestroyInfrastructure(int(id), auth)
+		InfrastructureManager.DestroyInfrastructure(id, auth)
 		return ""
 	except DeletedInfrastructureException, ex:
 		bottle.abort(404, "Error Destroying Inf: " + str(ex))
@@ -84,7 +84,7 @@ def RESTGetInfrastructureInfo(id=None):
 		bottle.abort(401, "No authentication data provided")
 	
 	try:
-		vm_ids = InfrastructureManager.GetInfrastructureInfo(int(id), auth)
+		vm_ids = InfrastructureManager.GetInfrastructureInfo(id, auth)
 		res = ""
 		
 		server_ip = bottle.request.environ['SERVER_NAME']
@@ -116,9 +116,9 @@ def RESTGetInfrastructureProperty(id=None, prop=None):
 	
 	try:
 		if prop == "contmsg":
-			res = InfrastructureManager.GetInfrastructureContMsg(int(id), auth)
+			res = InfrastructureManager.GetInfrastructureContMsg(id, auth)
 		elif prop == "radl":
-			res = InfrastructureManager.GetInfrastructureRADL(int(id), auth)
+			res = InfrastructureManager.GetInfrastructureRADL(id, auth)
 		else:
 			bottle.abort(403, "Incorrect infrastructure property")
 		bottle.response.content_type = "text/plain"
@@ -193,7 +193,7 @@ def RESTGetVMInfo(infid=None, vmid=None):
 		bottle.abort(401, "No authentication data provided")
 	
 	try:
-		info = InfrastructureManager.GetVMInfo(int(infid), vmid, auth)
+		info = InfrastructureManager.GetVMInfo(infid, vmid, auth)
 		bottle.response.content_type = "text/plain"
 		return info
 	except DeletedInfrastructureException, ex:
@@ -222,9 +222,9 @@ def RESTGetVMProperty(infid=None, vmid=None, prop=None):
 	
 	try:
 		if prop == 'contmsg':
-			info = InfrastructureManager.GetVMContMsg(int(infid), vmid, auth)
+			info = InfrastructureManager.GetVMContMsg(infid, vmid, auth)
 		else:
-			info = InfrastructureManager.GetVMProperty(int(infid), vmid, prop, auth)
+			info = InfrastructureManager.GetVMProperty(infid, vmid, prop, auth)
 		bottle.response.content_type = "text/plain"
 		return info
 	except DeletedInfrastructureException, ex:
@@ -263,7 +263,7 @@ def RESTAddResource(id=None):
 				bottle.abort(400, "Incorrect value in context parameter")
 				
 		radl_data = bottle.request.body.read()
-		vm_ids = InfrastructureManager.AddResource(int(id), radl_data, auth, context)
+		vm_ids = InfrastructureManager.AddResource(id, radl_data, auth, context)
 
 		server_ip = bottle.request.environ['SERVER_NAME']
 		server_port = bottle.request.environ['SERVER_PORT']
@@ -305,7 +305,7 @@ def RESTRemoveResource(infid=None, vmid=None):
 			else:
 				bottle.abort(400, "Incorrect value in context parameter")
 
-		InfrastructureManager.RemoveResource(int(infid), vmid, auth, context)
+		InfrastructureManager.RemoveResource(infid, vmid, auth, context)
 		return ""
 	except DeletedInfrastructureException, ex:
 		bottle.abort(404, "Error Removing resources: " + str(ex))
@@ -335,7 +335,7 @@ def RESTAlterVM(infid=None, vmid=None):
 		radl_data = bottle.request.body.read()
 		
 		bottle.response.content_type = "text/plain"
-		return InfrastructureManager.AlterVM(int(infid), vmid, radl_data, auth)
+		return InfrastructureManager.AlterVM(infid, vmid, radl_data, auth)
 	except DeletedInfrastructureException, ex:
 		bottle.abort(404, "Error modifying resources: " + str(ex))
 		return False
@@ -373,7 +373,7 @@ def RESTReconfigureInfrastructure(id=None):
 			radl_data = bottle.request.forms.get('radl')
 		else:
 			radl_data = ""
-		return InfrastructureManager.Reconfigure(int(id), radl_data, auth, vm_list)
+		return InfrastructureManager.Reconfigure(id, radl_data, auth, vm_list)
 	except DeletedInfrastructureException, ex:
 		bottle.abort(404, "Error reconfiguring infrastructure: " + str(ex))
 		return False
@@ -393,7 +393,7 @@ def RESTStartInfrastructure(id=None):
 		bottle.abort(401, "No authentication data provided")
 
 	try:
-		return InfrastructureManager.StartInfrastructure(int(id), auth)	
+		return InfrastructureManager.StartInfrastructure(id, auth)	
 	except DeletedInfrastructureException, ex:
 		bottle.abort(404, "Error starting infrastructure: " + str(ex))
 		return False
@@ -413,7 +413,7 @@ def RESTStopInfrastructure(id=None):
 		bottle.abort(401, "No authentication data provided")
 
 	try:
-		return InfrastructureManager.StopInfrastructure(int(id), auth)	
+		return InfrastructureManager.StopInfrastructure(id, auth)	
 	except DeletedInfrastructureException, ex:
 		bottle.abort(404, "Error stopping infrastructure: " + str(ex))
 		return False
@@ -433,7 +433,7 @@ def RESTStartVM(infid=None, vmid=None, prop=None):
 		bottle.abort(401, "No authentication data provided")
 	
 	try:
-		info = InfrastructureManager.StartVM(int(infid), vmid, auth)
+		info = InfrastructureManager.StartVM(infid, vmid, auth)
 		bottle.response.content_type = "text/plain"
 		return info
 	except DeletedInfrastructureException, ex:
@@ -461,7 +461,7 @@ def RESTStopVM(infid=None, vmid=None, prop=None):
 		bottle.abort(401, "No authentication data provided")
 	
 	try:
-		info = InfrastructureManager.StopVM(int(infid), vmid, auth)
+		info = InfrastructureManager.StopVM(infid, vmid, auth)
 		bottle.response.content_type = "text/plain"
 		return info
 	except DeletedInfrastructureException, ex:
