@@ -2,13 +2,15 @@ import os
 import logging
 import yaml
 import copy
+import tempfile
 
-from IM.tosca.toscaparser.tosca_template import ToscaTemplate
-from IM.tosca.toscaparser.elements.interfaces import InterfacesDef
-from IM.tosca.toscaparser.functions import Function, is_function, get_function, GetAttribute
+from toscaparser.tosca_template import ToscaTemplate
+from toscaparser.elements.interfaces import InterfacesDef
+from toscaparser.functions import Function, is_function, get_function, GetAttribute
 from IM.radl.radl import system, deploy, network, Feature, configure, contextualize_item, RADL, contextualize
 from pylint.pyreverse.diagrams import Relationship
 from compiler.ast import Node
+
 
 class Tosca:
 	"""
@@ -23,10 +25,13 @@ class Tosca:
 	
 	logger = logging.getLogger('InfrastructureManager')
 	
-	def __init__(self, path):
-		self.path = path
+	def __init__(self, yaml_str):
 		self.tosca = None
-		self.tosca = ToscaTemplate(path)
+		# write the contents to a file as ToscaTemplate needs 
+		with tempfile.NamedTemporaryFile(suffix=".yaml") as f:
+			f.write(yaml_str)
+			f.flush()
+			self.tosca = ToscaTemplate(f.name)
 
 	@staticmethod
 	def is_tosca(yaml_string):
