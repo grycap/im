@@ -226,7 +226,7 @@ def RESTGetVMProperty(infid=None, vmid=None, prop=None):
 		else:
 			info = InfrastructureManager.GetVMProperty(infid, vmid, prop, auth)
 		bottle.response.content_type = "text/plain"
-		return info
+		return str(info)
 	except DeletedInfrastructureException, ex:
 		bottle.abort(404, "Error Getting VM. property: " + str(ex))
 		return False
