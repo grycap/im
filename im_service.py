@@ -216,10 +216,17 @@ def im_stop():
 	"""
 	try:
 		# Assure that the IM data are correctly saved
-		InfrastructureManager.logger.info('************ Stop Infrastructure Manager daemon ************')
+		InfrastructureManager.logger.info('Stopping Infrastructure Manager daemon...')
 		InfrastructureManager.stop()
+		
+		if Config.ACTIVATE_REST:
+			# we have to stop the REST server
+			import IM.REST
+			IM.REST.stop()
 	except:
 		InfrastructureManager.logger.exception("Error stopping Infrastructure Manager daemon")
+	
+	InfrastructureManager.logger.info('************ Infrastructure Manager daemon stopped ************')
 	sys.exit(0)
 	
 def signal_term_handler(signal, frame):
