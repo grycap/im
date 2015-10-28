@@ -1189,6 +1189,6 @@ class InfrastructureManager:
 		# Acquire the lock to avoid writing data to the DATA_FILE
 		with InfrastructureManager._lock:
 			InfrastructureManager._exiting = True
-			# Stop all the Ctxt threads of the 
+			# Stop all the Ctxt threads of the Infrastructures
 			for inf in InfrastructureManager.infrastructure_list.values():
-				inf.stop_cm_thread()
+				inf.stop()
