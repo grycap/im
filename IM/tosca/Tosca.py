@@ -8,8 +8,6 @@ from toscaparser.tosca_template import ToscaTemplate
 from toscaparser.elements.interfaces import InterfacesDef
 from toscaparser.functions import Function, is_function, get_function, GetAttribute
 from IM.radl.radl import system, deploy, network, Feature, configure, contextualize_item, RADL, contextualize
-from pylint.pyreverse.diagrams import Relationship
-from compiler.ast import Node
 
 
 class Tosca:
