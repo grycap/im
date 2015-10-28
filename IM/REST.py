@@ -23,6 +23,9 @@ from config import Config
 
 AUTH_LINE_SEPARATOR = '\\n'
 
+app = bottle.Bottle()  
+bottle_server = None
+
 # Declaration of new class that inherits from ServerAdapter  
 # It's almost equal to the supported cherrypy class CherryPyServer  
 class MySSLCherryPy(bottle.ServerAdapter):  
@@ -30,6 +33,7 @@ class MySSLCherryPy(bottle.ServerAdapter):
 		from cherrypy.wsgiserver.ssl_builtin import BuiltinSSLAdapter
 		from cherrypy import wsgiserver
 		server = wsgiserver.CherryPyWSGIServer((self.host, self.port), handler)  
+		self.srv = server
 
 		# If cert variable is has a valid path, SSL will be used  
 		# You can set it to None to disable SSL
@@ -38,21 +42,56 @@ class MySSLCherryPy(bottle.ServerAdapter):
 			server.start()  
 		finally:  
 			server.stop()  
+			
+	def shutdown(self):
+		self.srv.stop()
 
-app = bottle.Bottle()  
+class StoppableWSGIRefServer(bottle.ServerAdapter):
+	def run(self, app): # pragma: no cover
+		from wsgiref.simple_server import WSGIRequestHandler, WSGIServer
+		from wsgiref.simple_server import make_server
+		import socket
+
+		class FixedHandler(WSGIRequestHandler):
+			def address_string(self): # Prevent reverse DNS lookups please.
+				return self.client_address[0]
+			def log_request(*args, **kw):
+				if not self.quiet:
+					return WSGIRequestHandler.log_request(*args, **kw)
+
+		handler_cls = self.options.get('handler_class', FixedHandler)
+		server_cls  = self.options.get('server_class', WSGIServer)
+
+		if ':' in self.host: # Fix wsgiref for IPv6 addresses.
+			if getattr(server_cls, 'address_family') == socket.AF_INET:
+				class server_cls(server_cls):
+					address_family = socket.AF_INET6
+
+		srv = make_server(self.host, self.port, app, server_cls, handler_cls)
+		self.srv = srv ### THIS IS THE ONLY CHANGE TO THE ORIGINAL CLASS METHOD!
+		srv.serve_forever()
+
+	def shutdown(self): ### ADD SHUTDOWN METHOD.
+		self.srv.shutdown()
+		# self.server.server_close()
 
 def run_in_thread(host, port):
 	bottle_thr = threading.Thread(target=run, args=(host, port))
 	bottle_thr.start()
 
 def run(host, port):
+	global bottle_server
 	if Config.REST_SSL:
 		# Add our new MySSLCherryPy class to the supported servers  
 		# under the key 'mysslcherrypy'
-		bottle.server_names['mysslcherrypy'] = MySSLCherryPy
-		bottle.run(app, host=host, port=port, server='mysslcherrypy', quiet=True)
+		bottle_server = MySSLCherryPy(host=host, port=port)
+		bottle.run(app, host=host, port=port, server=bottle_server, quiet=True)
 	else:
-		bottle.run(app, host=host, port=port, quiet=True)
+		bottle_server = StoppableWSGIRefServer(host=host, port=port)
+		bottle.run(app, server=bottle_server, quiet=True)
+
+def stop():
+	bottle_server.shutdown()
 
 @app.route('/infrastructures/:id', method='DELETE')
 def RESTDestroyInfrastructure(id=None):
