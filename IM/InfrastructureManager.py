@@ -1052,7 +1052,7 @@ class InfrastructureManager:
 			InfrastructureManager.logger.exception("Error Creating Inf id " + str(inf.id))
 			inf.delete()
 			InfrastructureManager.save_data(inf.id)
-			InfrastructureManager.remove_inf(inf.id)
+			InfrastructureManager.remove_inf(inf)
 			raise e
 		InfrastructureManager.logger.info("Infrastructure id " + str(inf.id) + " successfully created")	
 	
@@ -1094,7 +1094,7 @@ class InfrastructureManager:
 		if delete:
 			sel_inf.delete()
 			InfrastructureManager.save_data(sel_inf.id)
-			InfrastructureManager.remove_inf(sel_inf.id)
+			InfrastructureManager.remove_inf(sel_inf)
 		return str_inf
 
 	@staticmethod
@@ -1202,6 +1202,6 @@ class InfrastructureManager:
 		# Acquire the lock to avoid writing data to the DATA_FILE
 		with InfrastructureManager._lock:
 			InfrastructureManager._exiting = True
-			# Stop all the Ctxt threads of the 
+			# Stop all the Ctxt threads of the Infrastructure
 			for inf in InfrastructureManager.infrastructure_list.values():
-				inf.stop_cm_thread()
+				inf.stop()

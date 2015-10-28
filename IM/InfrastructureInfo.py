@@ -119,15 +119,20 @@ class InfrastructureInfo:
 		"""
 		Set this Inf as deleted
 		"""
-		self.stop_cm_thread()
+		self.stop()
 		self.deleted = True
 		
-	def stop_cm_thread(self):	
+	def stop(self):	
 		"""
-		Stop the Ctxt thread if is is alive.
+		Stop all the Ctxt threads
 		"""
+		# Stop the Ctxt thread if it is alive.
 		if self.cm and self.cm.isAlive():
 			self.cm.stop()
+		
+		# kill all the ctxt processes in the VMs
+		for vm in self.get_vm_list():
+			vm.kill_check_ctxt_process()
 		
 	def get_cont_out(self):
 		"""
