@@ -6,9 +6,10 @@ import tempfile
 
 from toscaparser.tosca_template import ToscaTemplate
 from toscaparser.elements.interfaces import InterfacesDef
+from toscaparser.elements.entity_type import EntityType
 from toscaparser.functions import Function, is_function, get_function, GetAttribute
 from IM.radl.radl import system, deploy, network, Feature, configure, contextualize_item, RADL, contextualize
-
+from  toscaparser.utils.yamlparser import load_yaml
 
 class Tosca:
 	"""
@@ -18,12 +19,17 @@ class Tosca:
 	
 	"""
 	
-	ARTIFACTS_PATH = "/home/micafer/codigo/git_im/im.tosca/IM/tosca/artifacts"
-	CUSTOM_TYPES_FILE = "/home/micafer/codigo/git_im/im.tosca/IM/tosca/custon_types.yaml"
+	ARTIFACTS_PATH = os.path.dirname(os.path.realpath(__file__)) + "/artifacts"
+	CUSTOM_TYPES_FILE = os.path.dirname(os.path.realpath(__file__)) + "/custom_types.yaml"
 	
 	logger = logging.getLogger('InfrastructureManager')
 	
 	def __init__(self, yaml_str):
+		# Load custom data
+		custom_def = load_yaml(Tosca.CUSTOM_TYPES_FILE)
+		# and update tosca_def with the data
+		EntityType.TOSCA_DEF.update(custom_def)
+		
 		self.tosca = None
 		# write the contents to a file as ToscaTemplate needs 
 		with tempfile.NamedTemporaryFile(suffix=".yaml") as f:
