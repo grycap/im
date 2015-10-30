@@ -434,21 +434,28 @@ class VirtualMachine:
 		vm_system = self.info.systems[0]
 
 		if public_ips and not set(public_ips).issubset(set(private_ips)):
-			public_net = None
+			public_nets = []
 			for net in self.info.networks:
 				if net.isPublic():
-					public_net = net
-					
-			if public_net is None:
+					public_nets.append(net)
+
+			if public_nets:
+				public_net = None
+				for net in public_nets:
+					num_net = self.getNumNetworkWithConnection(net.id)
+					if num_net is not None:
+						public_net = net
+						break
+
+				if not public_net:
+					# There are a public net but it has not been used in this VM
+					public_net = public_nets[0]
+					num_net = self.getNumNetworkIfaces()
+			else:
+				# There no public net, create one
 				public_net = network.createNetwork("public." + now, True)
 				self.info.networks.append(public_net)
 				num_net = self.getNumNetworkIfaces()
-			else:
-				# If there are are public net, get the ID
-				num_net = self.getNumNetworkWithConnection(public_net.id)
-				if num_net is None:
-					# There are a public net but it has not been used in this VM
-					num_net = self.getNumNetworkIfaces()
 
 			for public_ip in public_ips:
 				if public_ip not in private_ips:
