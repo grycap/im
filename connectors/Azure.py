@@ -64,6 +64,13 @@ class StorageService(XMLObject):
 	values = ['Url', 'ServiceName']
 	tuples = { 'StorageServiceProperties': StorageServiceProperties }
 
+class Error(XMLObject):
+	values = ['Code', 'Message']
+	
+class Operation(XMLObject):
+	values = ['ID', 'Status', 'HttpStatusCode']
+	tuples = { 'Error': Error }
+
 class InstanceTypeInfo:
 	"""
 	Information about the instance type
@@ -105,7 +112,7 @@ class AzureCloudConnector(CloudConnector):
 	"""Port of the server with the Service Management REST API."""
 	STORAGE_NAME = "infmanager"
 	"""Name of the storage account the IM will create"""
-	DEFAULT_LOCATION = "West Europe"
+	DEFAULT_LOCATION = "North Europe"
 	"""Default location to use"""
 	ROLE_NAME= "IMVMRole"
 	"""Name of the Role"""
@@ -135,40 +142,38 @@ class AzureCloudConnector(CloudConnector):
 		CloudConnector.__init__(self, cloud_info)
 	
 	def concreteSystem(self, radl_system, auth_data):
-		if radl_system.getValue("disk.0.image.url"):
-			url = uriparse(radl_system.getValue("disk.0.image.url"))
-			protocol = url[0]
-			if protocol == "azr":
-				res_system = radl_system.clone()
-				instance_type = self.get_instance_type(res_system)
-				if not instance_type:
-					self.logger.error("Error launching the VM, no instance type available for the requirements.")
-					self.logger.debug(res_system)
-					return []
-				else:
-					res_system.addFeature(Feature("cpu.count", "=", instance_type.num_cpu * instance_type.cores_per_cpu), conflict="other", missing="other")
-					res_system.addFeature(Feature("memory.size", "=", instance_type.mem, 'M'), conflict="other", missing="other")
-					if instance_type.disks > 0:
-						res_system.addFeature(Feature("disks.free_size", "=", instance_type.disks * instance_type.disk_space, 'G'), conflict="other", missing="other")
-						for i in range(1,instance_type.disks+1):
-							res_system.addFeature(Feature("disk.%d.free_size" % i, "=", instance_type.disk_space, 'G'), conflict="other", missing="other")						
-					res_system.addFeature(Feature("price", "=", instance_type.price), conflict="me", missing="other")
-					
-					res_system.addFeature(Feature("instance_type", "=", instance_type.name), conflict="other", missing="other")
-					
-					res_system.addFeature(Feature("provider.type", "=", self.type), conflict="other", missing="other")
-					
-					username = res_system.getValue('disk.0.os.credentials.username')
-					if not username:
-						res_system.setValue('disk.0.os.credentials.username','azureuser')
-					
-					res_system.updateNewCredentialValues()
-
-					return [res_system]
-			else:
-				return []
-		else:
+		image_urls = radl_system.getValue("disk.0.image.url")
+		if not image_urls:
 			return [radl_system.clone()]
+		else:
+			if not isinstance(image_urls, list):
+				image_urls = [image_urls]
+		
+			res = []
+			for str_url in image_urls:
+				url = uriparse(str_url)
+				protocol = url[0]
+
+				protocol = url[0]
+				if protocol == "azr":
+					res_system = radl_system.clone()
+					instance_type = self.get_instance_type(res_system)
+					if not instance_type:
+						self.logger.error("Error generating the RADL of the VM, no instance type available for the requirements.")
+						self.logger.debug(res_system)
+					else:
+						res_system.addFeature(Feature("disk.0.image.url", "=", str_url), conflict="other", missing="other")
+						self.update_system_info_from_instance(res_system, instance_type)					
+						res_system.addFeature(Feature("provider.type", "=", self.type), conflict="other", missing="other")
+						
+						username = res_system.getValue('disk.0.os.credentials.username')
+						if not username:
+							res_system.setValue('disk.0.os.credentials.username','azureuser')
+						
+						res_system.updateNewCredentialValues()
+	
+						res.append(res_system)
+			return res
 	
 	def gen_input_endpoints(self, radl):
 		"""
@@ -360,11 +365,9 @@ class AzureCloudConnector(CloudConnector):
 		else:
 			return None
 
-	def get_connection(self, auth_data):
+	def get_connection_and_subscription_id(self, auth_data):
 		# We check if the cert and key files exist
 		subscription_id = self.get_user_subscription_id(auth_data)
-		if subscription_id is None:
-			return None
 		
 		if os.path.isfile(self.cert_file) and os.path.isfile(self.key_file):
 			cert_file = self.cert_file 
@@ -372,14 +375,14 @@ class AzureCloudConnector(CloudConnector):
 		else:
 			auth = self.get_user_cert_data(auth_data)
 			if auth is None:
-				return None
+				return None, subscription_id
 			cert_file, key_file = auth
 			self.cert_file = cert_file
 			self.key_file = key_file
 
 		conn = httplib.HTTPSConnection(self.AZURE_SERVER, self.AZURE_PORT, cert_file=cert_file, key_file=key_file)
 		
-		return conn
+		return conn, subscription_id
 
 	def get_user_cert_data(self, auth_data):
 		"""
@@ -403,7 +406,7 @@ class AzureCloudConnector(CloudConnector):
 		else:
 			return None
 
-	def create_service(self, subscription_id, conn, region):
+	def create_service(self, auth_data, region):
 		"""
 		Create a Azure Cloud Service and return the name
 		"""
@@ -411,6 +414,10 @@ class AzureCloudConnector(CloudConnector):
 		self.logger.info("Create the service " + service_name + " in region: " + region)
 		
 		try:
+			conn, subscription_id = self.get_connection_and_subscription_id(auth_data)
+			if conn is None or subscription_id is None:
+				self.logger.exception("Incorrect auth data.")
+				return None
 			uri = "https://%s/%s/services/hostedservices" % (self.AZURE_SERVER,subscription_id)
 			service_create_xml = '''
 	<CreateHostedService xmlns="http://schemas.microsoft.com/windowsazure">
@@ -433,11 +440,14 @@ class AzureCloudConnector(CloudConnector):
 		
 		return service_name
 	
-	def delete_service(self, service_name, subscription_id, conn):
+	def delete_service(self, service_name, auth_data):
 		"""
 		Delete the Azure Cloud Service with name "service_name"
 		"""
 		try:
+			conn, subscription_id = self.get_connection_and_subscription_id(auth_data)
+			if conn is None or subscription_id is None:
+				return (False, "Incorrect auth data")
 			uri = "/%s/services/hostedservices/%s?comp=media" % (subscription_id, service_name)
 			conn.request('DELETE', uri, headers = {'x-ms-version' : '2013-08-01'}) 
 			resp = conn.getresponse()
@@ -452,8 +462,8 @@ class AzureCloudConnector(CloudConnector):
 		
 		request_id = resp.getheader('x-ms-request-id')
 		
-		# Call to GET OPERATION STATUS until 200 (OK)
-		success = self.wait_operation_status(request_id, subscription_id, conn)
+		# Call to GET OPERATION STATUS until "Succeeded"
+		success = self.wait_operation_status(request_id, auth_data)
 		
 		if success:
 			return (True, "")
@@ -461,37 +471,50 @@ class AzureCloudConnector(CloudConnector):
 			return (False, "Error waiting the VM termination")
 
 
-	def wait_operation_status(self, request_id, subscription_id, conn, req_status = 200, delay = 2, timeout = 60):
+	def wait_operation_status(self, request_id, auth_data, delay = 2, timeout = 90):
 		"""
 		Wait for the operation "request_id" to finish in the specified state
 		"""
-		self.logger.info("Wait the operation: " + request_id + " reach the state " + str(req_status))
-		status = 0
+		self.logger.info("Wait the operation: " + request_id + " to finish.")
 		wait = 0
-		while status != req_status and wait < timeout:
+		status_str = "InProgress"
+		while status_str == "InProgress" and wait < timeout:
 			time.sleep(delay)
 			wait += delay
 			try:
+				conn, subscription_id = self.get_connection_and_subscription_id(auth_data)
+				if conn is None or subscription_id is None:
+					self.logger.exception("Incorrect auth data.")
+					return False
 				uri = "/%s/operations/%s" % (subscription_id, request_id)
 				conn.request('GET', uri, headers = {'x-ms-version' : '2013-03-01'}) 
 				resp = conn.getresponse()
-				status = resp.status
-				self.logger.debug("Operation state: " + str(status))
+				output = resp.read()
+				
+				if resp.status == 200:
+					output = Operation(output)
+					status_str = output.Status
+					# InProgress|Succeeded|Failed
+					self.logger.debug("Operation string state: " + status_str)
+				else:
+					self.logger.error("Error waiting operation to finish: Code %d. Msg: %s." % (resp.status, output))
+					return False
 			except Exception:
 				self.logger.exception("Error getting the operation state: " + request_id)
 		
-		if status == req_status:
+		if status_str == "Succeeded":
 			return True
 		else:
 			self.logger.exception("Error waiting the operation")
 			return False
 	
-	def create_storage_account(self, storage_account, conn, subscription_id, region, timeout = 120):
+	def create_storage_account(self, storage_account, auth_data, region, timeout = 120):
 		"""
 		Create an storage account with the name specified in "storage_account"
 		"""
 		self.logger.info("Creating the storage account " + storage_account)
 		try:
+			conn, subscription_id = self.get_connection_and_subscription_id(auth_data)
 			uri = "/%s/services/storageservices" % subscription_id
 			storage_create_xml = '''
 <CreateStorageServiceInput xmlns="http://schemas.microsoft.com/windowsazure">
@@ -522,14 +545,14 @@ class AzureCloudConnector(CloudConnector):
 		request_id = resp.getheader('x-ms-request-id')
 		
 		# Call to GET OPERATION STATUS until 200 (OK)
-		success = self.wait_operation_status(request_id, subscription_id, conn)
+		success = self.wait_operation_status(request_id, auth_data)
 		
 		# Wait the storage to be "Created"
 		status = None
 		delay = 2
 		wait = 0
 		while status != "Created" and wait < timeout:
-			storage = self.get_storage_account(storage_account, conn, subscription_id)
+			storage = self.get_storage_account(storage_account, auth_data)
 			if storage:
 				status = storage.Status 
 			if status != "Created":
@@ -562,11 +585,15 @@ class AzureCloudConnector(CloudConnector):
 
 		return True
 	
-	def get_storage_account(self, storage_account, conn, subscription_id):
+	def get_storage_account(self, storage_account, auth_data):
 		"""
 		Get the information about the Storage Account named "storage_account" or None if it does not exist
 		"""
 		try:
+			conn, subscription_id = self.get_connection_and_subscription_id(auth_data)
+			if conn is None or subscription_id is None:
+				self.logger.exception("Incorrect auth data.")
+				return None
 			uri = "/%s/services/storageservices/%s" % (subscription_id, storage_account)
 			conn.request('GET', uri, headers = {'x-ms-version' : '2013-03-01'}) 
 			resp = conn.getresponse()
@@ -585,12 +612,6 @@ class AzureCloudConnector(CloudConnector):
 			return None
 
 	def launch(self, inf, radl, requested_radl, num_vm, auth_data):
-		subscription_id = self.get_user_subscription_id(auth_data)
-		conn = self.get_connection(auth_data)
-		
-		if conn is None or subscription_id is None:
-			return [(False, "Incorrect auth data")]
-
 		region = self.DEFAULT_LOCATION
 		if radl.systems[0].getValue('availability_zone'):
 			region = radl.systems[0].getValue('availability_zone')
@@ -602,9 +623,9 @@ class AzureCloudConnector(CloudConnector):
 		while i < num_vm:
 			try:
 				# Create storage account
-				storage_account = self.get_storage_account(self.STORAGE_NAME, conn, subscription_id)
+				storage_account = self.get_storage_account(self.STORAGE_NAME, auth_data)
 				if not storage_account:
-					storage_account_name = self.create_storage_account(self.STORAGE_NAME, conn, subscription_id, region)
+					storage_account_name = self.create_storage_account(self.STORAGE_NAME, auth_data, region)
 					if storage_account_name is None:
 						res.append((False, "Error creating the storage account"))
 				else:
@@ -619,7 +640,7 @@ class AzureCloudConnector(CloudConnector):
 						region = storage_account.GeoPrimaryRegion
 
 				# and the service
-				service_name = self.create_service(subscription_id, conn, region)
+				service_name = self.create_service(auth_data, region)
 				if service_name is None:
 					res.append((False, "Error creating the service"))
 					break
@@ -634,22 +655,25 @@ class AzureCloudConnector(CloudConnector):
 				vm_create_xml = self.get_azure_vm_create_xml(vm, storage_account_name, radl, i)
 				
 				if vm_create_xml == None:
-					self.delete_service(service_name, subscription_id, conn)
+					self.delete_service(service_name, auth_data)
 					res.append((False, "Incorrect image or auth data"))
 
+				conn, subscription_id = self.get_connection_and_subscription_id(auth_data)
+				if conn is None or subscription_id is None:
+					res.append((False, "Incorrect auth data"))
 				uri = "/%s/services/hostedservices/%s/deployments" % (subscription_id, service_name)
 				conn.request('POST', uri, body = vm_create_xml, headers = {'x-ms-version' : '2013-03-01', 'Content-Type' : 'application/xml'}) 
 				resp = conn.getresponse()
 				output = resp.read()
 				
 				if resp.status != 202:
-					self.delete_service(service_name, subscription_id, conn)
+					self.delete_service(service_name, auth_data)
 					self.logger.error("Error creating the VM: Error Code " + str(resp.status) + ". Msg: " + output)
 					res.append((False, "Error creating the VM: Error Code " + str(resp.status) + ". Msg: " + output))
 				else:
 					#Call the GET OPERATION STATUS until sea 200 (OK)
 					request_id = resp.getheader('x-ms-request-id')
-					success = self.wait_operation_status(request_id, subscription_id, conn)
+					success = self.wait_operation_status(request_id, auth_data)
 					if success:
 						res.append((True, vm))
 					else:
@@ -672,12 +696,21 @@ class AzureCloudConnector(CloudConnector):
 		Returns: a str with the name of the instance type to launch to EC2	
 		"""
 		instance_type_name = system.getValue('instance_type')
+
+		cpu = 1
+		cpu_op = ">="
+		if system.getFeature('cpu.count'):
+			cpu = system.getValue('cpu.count')
+			cpu_op = system.getFeature('cpu.count').getLogOperator()
+
+		arch = system.getValue('cpu.arch', 'x86_64')
 		
-		cpu = system.getValue('cpu.count')
-		cpu_op = system.getFeature('cpu.count').getLogOperator()
-		arch = system.getValue('cpu.arch')
-		memory = system.getFeature('memory.size').getValue('M')
-		memory_op = system.getFeature('memory.size').getLogOperator()
+		memory = 1
+		memory_op = ">="
+		if system.getFeature('memory.size'):
+			memory = system.getFeature('memory.size').getValue('M')
+			memory_op = system.getFeature('memory.size').getLogOperator()
+
 		disk_free = 0
 		disk_free_op = ">="
 		if system.getValue('disks.free_size'):
@@ -707,23 +740,24 @@ class AzureCloudConnector(CloudConnector):
 		
 	def updateVMInfo(self, vm, auth_data):
 		self.logger.debug("Get the VM info with the id: " + vm.id)
-		subscription_id = self.get_user_subscription_id(auth_data)
-		conn = self.get_connection(auth_data)
-		
+		conn, subscription_id = self.get_connection_and_subscription_id(auth_data)
 		if conn is None or subscription_id is None:
-			return [(False, "Incorrect auth data")]
-
+			return (False, "Incorrect auth data")
 		service_name = vm.id
 	
 		try:
 			uri = "/%s/services/hostedservices/%s/deployments/%s" % (subscription_id, service_name, service_name)
-			conn.request('GET', uri, headers = {'x-ms-version' : '2013-03-01'}) 
+			conn.request('GET', uri, headers = {'x-ms-version' : '2014-02-01'}) 
 			resp = conn.getresponse()
 			output = resp.read()			
 		except Exception, ex:
 			self.logger.exception("Error getting the VM info: " + vm.id)
 			return (False, "Error getting the VM info: " + vm.id + ". " + str(ex))
 		
+		if resp.status == 404:
+			self.logger.warn("VM with ID: " + vm.id + ". Not found!.")
+			vm.state = VirtualMachine.OFF
+			return (True, vm)
 		if resp.status != 200:
 			self.logger.error("Error getting the VM info: " + vm.id + ". Error Code: " + str(resp.status) + ". Msg: " + output)
 			return (False, "Error getting the VM info: " + vm.id + ". Error Code: " + str(resp.status) + ". Msg: " + output)
@@ -731,10 +765,13 @@ class AzureCloudConnector(CloudConnector):
 			self.logger.debug("VM info: " + vm.id + " obtained.")
 			self.logger.debug(output)
 			vm_info = Deployment(output)
-			
-			self.logger.debug("The VM state is: " + vm_info.Status)
 				
 			vm.state = self.get_vm_state(vm_info)
+			
+			self.logger.debug("The VM state is: " + vm.state)
+			
+			instance_type = self.get_instance_type_by_name(vm_info.RoleInstanceList.RoleInstance[0].InstanceSize)
+			self.update_system_info_from_instance(vm.info.systems[0], instance_type)
 			
 			# Update IP info
 			self.setIPs(vm,vm_info)
@@ -777,16 +814,10 @@ class AzureCloudConnector(CloudConnector):
 
 	def finalize(self, vm, auth_data):
 		self.logger.debug("Terminate VM: " + vm.id)
-		subscription_id = self.get_user_subscription_id(auth_data)
-		conn = self.get_connection(auth_data)
-		
-		if conn is None or subscription_id is None:
-			return (False, "Incorrect auth data")
-
 		service_name = vm.id
 
 		# Delete the service
-		res = self.delete_service(service_name, subscription_id, conn)
+		res = self.delete_service(service_name, auth_data)
 		
 		return res
 	
@@ -794,9 +825,7 @@ class AzureCloudConnector(CloudConnector):
 		"""
 		Call to the specified operation "op" to a Role
 		"""
-		subscription_id = self.get_user_subscription_id(auth_data)
-		conn = self.get_connection(auth_data)
-		
+		conn, subscription_id = self.get_connection_and_subscription_id(auth_data)
 		if conn is None or subscription_id is None:
 			return (False, "Incorrect auth data")
 
@@ -818,8 +847,8 @@ class AzureCloudConnector(CloudConnector):
 
 		request_id = resp.getheader('x-ms-request-id')
 		
-		# Call to GET OPERATION STATUS until 200 (OK)
-		success = self.wait_operation_status(request_id, subscription_id, conn)
+		# Call to GET OPERATION STATUS until "Succeded"
+		success = self.wait_operation_status(request_id, auth_data,  delay = 4, timeout = 240)
 		
 		if success:
 			return (True, "")
@@ -849,23 +878,49 @@ class AzureCloudConnector(CloudConnector):
 	def get_all_instance_types():
 		list = []
 		
-		xsmall = InstanceTypeInfo("ExtraSmall", ["x86_64"], 1, 1, 768, 0.0135, 1, 20)
+		xsmall = InstanceTypeInfo("ExtraSmall", ["x86_64"], 1, 1, 768, 0.0152, 1, 20)
 		list.append(xsmall)
-		small = InstanceTypeInfo("Small", ["x86_64"], 1, 1, 1792, 0.0574, 1, 40)
+		small = InstanceTypeInfo("Small", ["x86_64"], 1, 1, 1792, 0.0633, 1, 40)
 		list.append(small)
-		medium = InstanceTypeInfo("Medium", ["x86_64"], 1, 2, 3584, 0.1147, 1, 60)
+		medium = InstanceTypeInfo("Medium", ["x86_64"], 1, 2, 3584, 0.1265, 1, 60)
 		list.append(medium)
-		large = InstanceTypeInfo("Large", ["x86_64"], 1, 4, 7168, 0.229, 1, 120)
+		large = InstanceTypeInfo("Large", ["x86_64"], 1, 4, 7168, 0.253, 1, 120)
 		list.append(large)
-		xlarge = InstanceTypeInfo("Extra Large", ["x86_64"], 1, 8, 14336, 0.4588, 1, 240)
+		xlarge = InstanceTypeInfo("Extra Large", ["x86_64"], 1, 8, 14336, 0.506, 1, 240)
 		list.append(xlarge)
-		a5 = InstanceTypeInfo("A5", ["x86_64"], 1, 2, 14336, 0.2458, 1, 135)
-		list.append(a5)
-		a6 = InstanceTypeInfo("A6", ["x86_64"], 1, 4, 28672, 0.4916, 1, 285)
-		list.append(a6)
-		a7 = InstanceTypeInfo("A7", ["x86_64"], 1, 8, 57344, 0.9831, 1, 605)
-		list.append(a7)
 		
+		a5 = InstanceTypeInfo("A5", ["x86_64"], 1, 2, 14336, 0.253, 1, 135)
+		list.append(a5)
+		a6 = InstanceTypeInfo("A6", ["x86_64"], 1, 4, 28672, 0.506, 1, 285)
+		list.append(a6)
+		a7 = InstanceTypeInfo("A7", ["x86_64"], 1, 8, 57344, 1.012, 1, 605)
+		list.append(a7)
+		a8 = InstanceTypeInfo("A8", ["x86_64"], 1, 8, 57344, 2.0661, 1, 382)
+		list.append(a8)
+		a9 = InstanceTypeInfo("A9", ["x86_64"], 1, 16, 114688, 4.1322, 1, 382)
+		list.append(a9)
+		a10 = InstanceTypeInfo("A10", ["x86_64"], 1, 8, 57344, 1.5939, 1, 382)
+		list.append(a10)
+		a11 = InstanceTypeInfo("A11", ["x86_64"], 1, 16, 114688, 2.9516, 1, 382)
+		list.append(a11)
+		
+		d1 = InstanceTypeInfo("D1", ["x86_64"], 1, 1, 3584, 0.1341, 1, 50)
+		list.append(d1)
+		d2 = InstanceTypeInfo("D2", ["x86_64"], 1, 2, 7168, 0.2682, 1, 100)
+		list.append(d2)
+		d3 = InstanceTypeInfo("D3", ["x86_64"], 1, 4, 14336, 0.5364, 1, 200)
+		list.append(d3)
+		d4 = InstanceTypeInfo("D4", ["x86_64"], 1, 8, 28672, 1.0727, 1, 400)
+		list.append(d4)
+		
+		d11 = InstanceTypeInfo("D11", ["x86_64"], 1, 2, 14336, 0.3087, 1, 100)
+		list.append(d11)
+		d12 = InstanceTypeInfo("D12", ["x86_64"], 1, 4, 28672, 0.6173, 1, 200)
+		list.append(d12)
+		d13 = InstanceTypeInfo("D13", ["x86_64"], 1, 8, 57344, 1.1115, 1, 400)
+		list.append(d13)
+		d14 = InstanceTypeInfo("D14", ["x86_64"], 1, 16, 114688, 2.0004, 1, 800)
+		list.append(d14)
 		
 		return list
 
@@ -879,3 +934,65 @@ class AzureCloudConnector(CloudConnector):
 			if inst_type.name == name:
 				return inst_type
 		return None
+
+	def alterVM(self, vm, radl, auth_data):
+		# https://msdn.microsoft.com/en-us/library/azure/jj157187.aspx
+		conn, subscription_id = self.get_connection_and_subscription_id(auth_data)
+		
+		if conn is None or subscription_id is None:
+			return (False, "Incorrect auth data")
+
+		service_name = vm.id
+		system = radl.systems[0]
+		
+		instance_type = self.get_instance_type(system)
+		
+		if not instance_type:
+			return (False, "Error calling update operation: No instance type found for radl: " + str(radl))
+
+		try:
+			uri = "/%s/services/hostedservices/%s/deployments/%s/roles/%s" % (subscription_id, service_name, service_name, self.ROLE_NAME)
+			
+			body = '''
+			<PersistentVMRole xmlns="http://schemas.microsoft.com/windowsazure" xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+				<RoleSize>%s</RoleSize>
+			</PersistentVMRole>
+			''' % (instance_type.name)
+			
+			conn.request('PUT', uri, body = body, headers = {'x-ms-version' : '2013-11-01', 'Content-Type' : 'application/xml'})
+			resp = conn.getresponse()
+			output = resp.read()
+		except Exception, ex:
+			self.logger.exception("Error calling update operation")
+			return (False, "Error calling update operation: " + str(ex))
+
+		if resp.status != 202:
+			self.logger.error("Error update role operation: Error Code " + str(resp.status) + ". Msg: " + output)
+			return (False, "Error update role operation: Error Code " + str(resp.status) + ". Msg: " + output)
+
+		request_id = resp.getheader('x-ms-request-id')
+		
+		# Call to GET OPERATION STATUS until 200 (OK)
+		success = self.wait_operation_status(request_id, auth_data)
+
+		if success:
+			self.update_system_info_from_instance(vm.info.systems[0], instance_type)
+			return (True, "")
+		else:
+			return (False, "Error waiting the VM update operation")
+
+		return (True, "")
+	
+	def update_system_info_from_instance(self, system, instance_type):
+		"""
+		Update the features of the system with the information of the instance_type
+		"""
+		system.addFeature(Feature("cpu.count", "=", instance_type.num_cpu * instance_type.cores_per_cpu), conflict="other", missing="other")
+		system.addFeature(Feature("memory.size", "=", instance_type.mem, 'M'), conflict="other", missing="other")
+		if instance_type.disks > 0:
+			system.addFeature(Feature("disks.free_size", "=", instance_type.disks * instance_type.disk_space, 'G'), conflict="other", missing="other")
+			for i in range(1,instance_type.disks+1):
+				system.addFeature(Feature("disk.%d.free_size" % i, "=", instance_type.disk_space, 'G'), conflict="other", missing="other")						
+		system.addFeature(Feature("price", "=", instance_type.price), conflict="me", missing="other")
+		
+		system.addFeature(Feature("instance_type", "=", instance_type.name), conflict="other", missing="other")

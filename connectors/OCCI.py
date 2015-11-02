@@ -121,24 +121,33 @@ class OCCICloudConnector(CloudConnector):
 		
 		
 	def concreteSystem(self, radl_system, auth_data):
-		if radl_system.getValue("disk.0.image.url"):
-			url = uriparse(radl_system.getValue("disk.0.image.url"))
-			protocol = url[0]
-			if protocol in ['https', 'http'] and url[2] and (url[0] + "://" + url[1]) == (self.cloud.server + ":" + str(self.cloud.port)):
-				res_system = radl_system.clone()
-
-				res_system.getFeature("cpu.count").operator = "="
-				res_system.getFeature("memory.size").operator = "="
-				
-				res_system.addFeature(Feature("provider.type", "=", self.type), conflict="other", missing="other")
-				res_system.addFeature(Feature("provider.host", "=", self.cloud.server), conflict="other", missing="other")
-				res_system.addFeature(Feature("provider.port", "=", self.cloud.port), conflict="other", missing="other")				
-					
-				return [res_system]
-			else:
-				return []
-		else:
+		image_urls = radl_system.getValue("disk.0.image.url")
+		if not image_urls:
 			return [radl_system.clone()]
+		else:
+			if not isinstance(image_urls, list):
+				image_urls = [image_urls]
+		
+			res = []
+			for str_url in image_urls:
+				url = uriparse(str_url)
+				protocol = url[0]
+				if protocol in ['https', 'http'] and url[2] and (url[0] + "://" + url[1]) == (self.cloud.server + ":" + str(self.cloud.port)):
+					res_system = radl_system.clone()
+	
+					res_system.getFeature("cpu.count").operator = "="
+					res_system.getFeature("memory.size").operator = "="
+					
+					res_system.addFeature(Feature("disk.0.image.url", "=", str_url), conflict="other", missing="other")
+					
+					res_system.addFeature(Feature("provider.type", "=", self.type), conflict="other", missing="other")
+					res_system.addFeature(Feature("provider.host", "=", self.cloud.server), conflict="other", missing="other")
+					res_system.addFeature(Feature("provider.port", "=", self.cloud.port), conflict="other", missing="other")				
+						
+					res.append(res_system)
+			
+			return res
+
 
 	def get_net_info(self, occi_res):
 		"""
@@ -260,7 +269,7 @@ class OCCICloudConnector(CloudConnector):
 			return (False, "Error connecting with OCCI server: " + str(ex))
 
 		
-	def gen_cloud_config(self, public_key, user = 'cloudadm'):
+	def gen_cloud_config(self, public_key, user = 'cloudadm', cloud_config_str = None):
 		"""
 		Generate the cloud-config file to be used in the user_data of the OCCI VM
 		"""
@@ -273,6 +282,8 @@ users:
     ssh-authorized-keys:
       - %s
 """ % (user , user, public_key)
+		if cloud_config_str:
+			config += "\n%s\n\n" % cloud_config_str.replace("\\n","\n")
 		return config
 
 	def query_occi(self, auth_data):
@@ -333,7 +344,24 @@ users:
 		Get the whole URI of an OCCI os template from the OCCI info
 		"""
 		return self.get_scheme(occi_info, os_tpl,'os_tpl')
+
+	def get_cloud_init_data(self, radl):
+		"""
+		Get the cloud init data specified by the user in the RADL
+		"""
+		configure_name = None
+		if radl.contextualize.items:
+			system_name = radl.systems[0].name
 			
+			for item in radl.contextualize.items.values():
+				if item.system == system_name and item.get_ctxt_tool() == "cloud_init":
+					configure_name = item.configure 
+		
+		if configure_name:
+			return radl.get_configure_by_name(configure_name).recipes
+		else:
+			return None
+
 	def launch(self, inf, radl, requested_radl, num_vm, auth_data):
 		system = radl.systems[0]
 		auth_header = self.get_auth_header(auth_data)
@@ -368,8 +396,12 @@ users:
 			user = "cloudadm"
 			system.setValue('disk.0.os.credentials.username', user)
 
-		cloud_config = self.gen_cloud_config(public_key, user)
+		# Add user cloud init data
+		cloud_config_str = self.get_cloud_init_data(radl)
+		cloud_config = self.gen_cloud_config(public_key, user, cloud_config_str)
 		user_data = base64.b64encode(cloud_config).replace("\n","")
+
+		self.logger.debug("Cloud init: " + cloud_config)
 		
 		# Get the info about the OCCI server (GET /-/)
 		occi_info = self.query_occi(auth_data)

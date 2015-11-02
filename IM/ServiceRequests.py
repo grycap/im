@@ -274,7 +274,8 @@ class Request_SaveData(IMBaseRequest):
 	"""
 	def _call_function(self):
 		self._error_mesage = "Error saving IM data"
-		InfrastructureManager.InfrastructureManager.save_data()
+		(inf_id) = self.arguments
+		InfrastructureManager.InfrastructureManager.save_data(inf_id)
 		return ""
 	
 class Request_StartVM(IMBaseRequest):

@@ -85,8 +85,8 @@ This is the list of method names:
 
    .. digraph:: stategraph
    
-      layout=fdp;
-      node [shape=circle, fontsize=8, fixedsize=true, height=.9, weight=.9];
+      layout=dot;
+      node [shape=circle, fontsize=10, fixedsize=true, height=.9, weight=.9];
       "pending" -> "running" -> "configured" -> "off" ;
       "pending" -> "failed";
       "running" -> "unconfigured";

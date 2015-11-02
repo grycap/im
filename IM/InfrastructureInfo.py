@@ -52,10 +52,8 @@ class InfrastructureInfo:
 	def __init__(self):
 		self._lock = threading.Lock()
 		"""Threading Lock to avoid concurrency problems."""
-		self.uuid = str(uuid1())
+		self.id = str(uuid1())
 		"""Infrastructure unique ID. """
-		self.id = 0
-		"""Infrastructure internal ID."""
 		self.vm_list = []
 		"""Map of int to VirtualMachine."""
 		self.auth = None
@@ -121,15 +119,20 @@ class InfrastructureInfo:
 		"""
 		Set this Inf as deleted
 		"""
-		self.stop_cm_thread()
+		self.stop()
 		self.deleted = True
 		
-	def stop_cm_thread(self):	
+	def stop(self):	
 		"""
-		Stop the Ctxt thread if is is alive.
+		Stop all the Ctxt threads
 		"""
+		# Stop the Ctxt thread if it is alive.
 		if self.cm and self.cm.isAlive():
 			self.cm.stop()
+		
+		# kill all the ctxt processes in the VMs
+		for vm in self.get_vm_list():
+			vm.kill_check_ctxt_process()
 		
 	def get_cont_out(self):
 		"""
@@ -380,50 +383,73 @@ class InfrastructureInfo:
 		- auth(Authentication): parsed authentication tokens.
 		- vm_list(list of int): List of VM ids to reconfigure. If None all VMs will be reconfigured.
 		"""
-		self.cont_out = ""
-		self.configured = None
-		# get the default ctxts in case of the RADL has not specified them 
-		ctxts = [contextualize_item(group, group, 1) for group in self.get_vm_list_by_system_name() if self.radl.get_configure_by_name(group)]
-		# get the contextualize steps specified in the RADL, or use the default value
-		contextualizes = self.radl.contextualize.get_contextualize_items_by_step({1:ctxts})
-		
-		max_ctxt_time = self.radl.contextualize.max_time
-		if not max_ctxt_time:
-			max_ctxt_time = Config.MAX_CONTEXTUALIZATION_TIME
-		
-		ctxt_task = []
-		ctxt_task.append((-2,0,self,['wait_master', 'check_vm_ips']))
-		ctxt_task.append((-1,0,self,['configure_master', 'generate_playbooks_and_hosts']))
-		
-		for vm in self.get_vm_list():
-			# Assure to update the VM status before running the ctxt process
-			vm.update_status(auth)
-			vm.cont_out = "" 
-			vm.configured = None
-			tasks = {}
+		ctxt = True
 
-			# Add basic tasks for all VMs
-			tasks[0] = ['basic']
-			tasks[1] = ['main_' + vm.info.systems[0].name]
+		# If the user has specified an empty contextualize it means that he does not want to avoid it		
+		if self.radl.contextualize.items == {}:
+			ctxt = False
+		else:
+			# check if there are any contextualize_item that needs "Ansible"
+			if self.radl.contextualize.items:
+				ctxt = False
+				for item in self.radl.contextualize.items.values():
+					if item.get_ctxt_tool() == "Ansible":
+						ctxt = True
+						break
+
+		if not ctxt:
+			InfrastructureInfo.logger.debug("Inf ID: " + str(self.id) + ": Contextualization disabled by the RADL.")
+			self.cont_out = "Contextualization disabled by the RADL."
+			self.configured = True 
+			for vm in self.get_vm_list():
+				vm.cont_out = ""
+				vm.configured = True
+		else:
+			self.cont_out = ""
+			self.configured = None
+			# get the default ctxts in case of the RADL has not specified them 
+			ctxts = [contextualize_item(group, group, 1) for group in self.get_vm_list_by_system_name() if self.radl.get_configure_by_name(group)]
+			# get the contextualize steps specified in the RADL, or use the default value
+			contextualizes = self.radl.contextualize.get_contextualize_items_by_step({1:ctxts})
+			
+			max_ctxt_time = self.radl.contextualize.max_time
+			if not max_ctxt_time:
+				max_ctxt_time = Config.MAX_CONTEXTUALIZATION_TIME
+			
+			ctxt_task = []
+			ctxt_task.append((-3,0,self,['kill_ctxt_processes']))
+			ctxt_task.append((-2,0,self,['wait_master', 'check_vm_ips']))
+			ctxt_task.append((-1,0,self,['configure_master', 'generate_playbooks_and_hosts']))
+			
+			for vm in self.get_vm_list():
+				# Assure to update the VM status before running the ctxt process
+				vm.update_status(auth)
+				vm.cont_out = "" 
+				vm.configured = None
+				tasks = {}
 	
-			# And the specific tasks only for the specified ones
-			if not vm_list or vm.im_id in vm_list:
-				# Then add the configure sections
-				for ctxt_num in contextualizes.keys():
-					for ctxt_elem in contextualizes[ctxt_num]:
-						if ctxt_elem.system == vm.info.systems[0].name:
-							if ctxt_num not in tasks:
-								tasks[ctxt_num] = []
-							tasks[ctxt_num].append(ctxt_elem.configure + "_" + ctxt_elem.system)
-				
-			for step in tasks.keys():
-				priority = 0
-				ctxt_task.append((step,priority,vm,tasks[step]))
-
-		self.add_ctxt_tasks(ctxt_task)
+				# Add basic tasks for all VMs
+				tasks[0] = ['basic']
+				tasks[1] = ['main_' + vm.info.systems[0].name]
 		
-		if self.cm is None or not self.cm.isAlive():
-			self.cm = ConfManager.ConfManager(self,auth,max_ctxt_time)
-			self.cm.start()
-		else:		
-			self.cm.init_time = time.time()
+				# And the specific tasks only for the specified ones
+				if not vm_list or vm.im_id in vm_list:
+					# Then add the configure sections
+					for ctxt_num in contextualizes.keys():
+						for ctxt_elem in contextualizes[ctxt_num]:
+							if ctxt_elem.system == vm.info.systems[0].name and ctxt_elem.get_ctxt_tool() == "Ansible":
+								if ctxt_num not in tasks:
+									tasks[ctxt_num] = []
+								tasks[ctxt_num].append(ctxt_elem.configure + "_" + ctxt_elem.system)
+					
+				for step in tasks.keys():
+					priority = 0
+					ctxt_task.append((step,priority,vm,tasks[step]))
+	
+			self.add_ctxt_tasks(ctxt_task)
+			
+			if self.cm is None or not self.cm.isAlive():
+				self.cm = ConfManager.ConfManager(self,auth,max_ctxt_time)
+				self.cm.start()
+			else:		
+				self.cm.init_time = time.time()
