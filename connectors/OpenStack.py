@@ -16,7 +16,7 @@
 
 import time
 from connectors.LibCloud import LibCloudCloudConnector
-from libcloud.compute.types import Provider
+from libcloud.compute.types import Provider, NodeState
 from libcloud.compute.providers import get_driver
 from libcloud.compute.base import NodeImage, NodeAuthSSHKey
 from IM.uriparse import uriparse
@@ -81,32 +81,76 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 			return driver
 	
 	def concreteSystem(self, radl_system, auth_data):
-		if radl_system.getValue("disk.0.image.url"):
-			url = uriparse(radl_system.getValue("disk.0.image.url"))
-			protocol = url[0]
-			src_host = url[1].split(':')[0]
-			# TODO: check the port
-			if protocol == "ost" and self.cloud.server == src_host:
-				driver = self.get_driver(auth_data)
-				
-				res_system = radl_system.clone()
-				instance_type = self.get_instance_type(driver.list_sizes(), res_system)
-				
-				res_system.addFeature(Feature("memory.size", "=", instance_type.ram, 'M'), conflict="other", missing="other")
-				res_system.addFeature(Feature("disk.0.free_size", "=", instance_type.disk , 'G'), conflict="other", missing="other")
-				res_system.addFeature(Feature("price", "=", instance_type.price), conflict="me", missing="other")
-				
-				res_system.addFeature(Feature("instance_type", "=", instance_type.name), conflict="other", missing="other")
-				
-				res_system.addFeature(Feature("provider.type", "=", self.type), conflict="other", missing="other")
-				res_system.addFeature(Feature("provider.host", "=", self.cloud.server), conflict="other", missing="other")
-				res_system.addFeature(Feature("provider.port", "=", self.cloud.port), conflict="other", missing="other")				
-					
-				return [res_system]
-			else:
-				return []
-		else:
+		image_urls = radl_system.getValue("disk.0.image.url")
+		if not image_urls:
 			return [radl_system.clone()]
+		else:
+			if not isinstance(image_urls, list):
+				image_urls = [image_urls]
+		
+			res = []
+			for str_url in image_urls:
+				url = uriparse(str_url)
+				protocol = url[0]
+
+				src_host = url[1].split(':')[0]
+				# TODO: check the port
+				if protocol == "ost" and self.cloud.server == src_host:
+					driver = self.get_driver(auth_data)
+					
+					res_system = radl_system.clone()
+					instance_type = self.get_instance_type(driver.list_sizes(), res_system)
+					self.update_system_info_from_instance(res_system, instance_type)
+					
+					res_system.addFeature(Feature("disk.0.image.url", "=", str_url), conflict="other", missing="other")
+					
+					res_system.addFeature(Feature("provider.type", "=", self.type), conflict="other", missing="other")
+					res_system.addFeature(Feature("provider.host", "=", self.cloud.server), conflict="other", missing="other")
+					res_system.addFeature(Feature("provider.port", "=", self.cloud.port), conflict="other", missing="other")				
+						
+					res.append(res_system)
+				
+			return res
+
+	def updateVMInfo(self, vm, auth_data):
+		node = self.get_node_with_id(vm.id, auth_data)
+		if node:
+			if node.state == NodeState.RUNNING:
+				res_state = VirtualMachine.RUNNING
+			elif node.state == NodeState.REBOOTING:
+				res_state = VirtualMachine.RUNNING
+			elif node.state == NodeState.PENDING:
+				res_state = VirtualMachine.PENDING
+			elif node.state == NodeState.TERMINATED:
+				res_state = VirtualMachine.OFF
+			elif node.state == NodeState.STOPPED:
+				res_state = VirtualMachine.STOPPED
+			elif node.state == NodeState.ERROR:
+				res_state = VirtualMachine.FAILED
+			else:
+				res_state = VirtualMachine.UNKNOWN
+				
+			vm.state = res_state
+			
+			flavorId = node.extra['flavorId']
+			instance_type = node.driver.ex_get_size(flavorId)
+			self.update_system_info_from_instance(vm.info.systems[0], instance_type)
+			
+			self.setIPsFromInstance(vm,node)
+			self.attach_volumes(vm,node)
+		else:
+			vm.state = VirtualMachine.OFF
+		
+		return (True, vm)
+
+	def update_system_info_from_instance(self, system, instance_type):
+		"""
+		Update the features of the system with the information of the instance_type
+		"""
+		if instance_type:
+			LibCloudCloudConnector.update_system_info_from_instance(self, system, instance_type)
+			if instance_type.vcpus:
+				system.addFeature(Feature("cpu.count", "=", instance_type.vcpus), conflict="me", missing="other")
 
 	def get_networks(self, driver, radl):
 		"""
@@ -141,6 +185,22 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
 		return nets
 
+	def get_cloud_init_data(self, radl):
+		"""
+		Get the cloud init data specified by the user in the RADL
+		"""
+		configure_name = None
+		if radl.contextualize.items:
+			system_name = radl.systems[0].name
+			
+			for item in radl.contextualize.items.values():
+				if item.system == system_name and item.get_ctxt_tool() == "cloud_init":
+					configure_name = item.configure 
+		
+		if configure_name:
+			return radl.get_configure_by_name(configure_name).recipes
+		else:
+			return None
 
 	def launch(self, inf, radl, requested_radl, num_vm, auth_data):
 		driver = self.get_driver(auth_data)
@@ -166,6 +226,10 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 				'networks': nets,
 				'ex_security_groups': sgs,
 				'name': "%s-%s" % (name, int(time.time()*100))}
+		
+		cloud_init = self.get_cloud_init_data(radl)
+		if cloud_init:
+			args['ex_userdata'] = cloud_init  
 		
 		keypair = None
 		public_key = system.getValue("disk.0.os.credentials.public_key")
@@ -284,7 +348,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 	def create_security_group(self, driver, inf, radl):
 		res = None
 		try:
-			sg_name = "im-" + str(inf.uuid)
+			sg_name = "im-" + str(inf.id)
 			sg = self._get_security_group(driver, sg_name)
 
 			if not sg: 

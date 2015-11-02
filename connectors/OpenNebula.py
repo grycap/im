@@ -25,7 +25,7 @@ from CloudConnector import CloudConnector
 from IM.radl.radl import network, Feature
 from IM.config import ConfigOpenNebula
 
-# clases para parsear el resultado de las llamadas a la API de ONE
+# Set of classes to parse the XML results of the ONE API
 class NIC(XMLObject):
 		values = ['BRIDGE', 'IP', 'MAC', 'NETWORK', 'VNID']
 
@@ -36,7 +36,8 @@ class GRAPHICS(XMLObject):
 		values = ['LISTEN', 'TYPE']
 
 class DISK(XMLObject):
-		values = ['CLONE','READONLY','SAVE','SOURCE','TARGET' ]
+		values = ['CLONE','READONLY','SAVE','SOURCE','TARGET', 'SIZE', 'DISK_ID', 'IMAGE_ID', 'IMAGE' , 'FORMAT']
+		numeric = [ 'SIZE', 'DISK_ID' ]
 
 class TEMPLATE(XMLObject):
 		values = [ 'CPU', 'MEMORY', 'NAME', 'RANK', 'REQUIREMENTS', 'VMID', 'VCPU' ]
@@ -101,40 +102,47 @@ class OpenNebulaCloudConnector(CloudConnector):
 	
 	def __init__(self, cloud_info):
 		CloudConnector.__init__(self, cloud_info)
-		self.session_id = None
 		self.server_url = "http://%s:%d/RPC2" % (self.cloud.server, self.cloud.port)
 	
 	def concreteSystem(self, radl_system, auth_data):		
-		if radl_system.getValue("disk.0.image.url"):
-			url = uriparse(radl_system.getValue("disk.0.image.url"))
-			protocol = url[0]
-			src_host = url[1].split(':')[0]
-			# TODO: check the port
-			if (protocol == "one") and self.cloud.server == src_host:
-				# Check the space in image and compare with disks.free_size
-				if radl_system.getValue('disks.free_size'):
-					disk_free = int(radl_system.getFeature('disks.free_size').getValue('M'))
-					# The VMRC specified the value in MB
-					disk_size = int(radl_system.getValue("disk.0.size"))
-				
-					if disk_size < disk_free:
-						# if the image do not have enough space, discard it
-						return []
-
-				res_system = radl_system.clone()
-
-				res_system.getFeature("cpu.count").operator = "="
-				res_system.getFeature("memory.size").operator = "="
-
-				res_system.addFeature(Feature("provider.type", "=", self.type), conflict="other", missing="other")
-				res_system.addFeature(Feature("provider.host", "=", self.cloud.server), conflict="other", missing="other")
-				res_system.addFeature(Feature("provider.port", "=", self.cloud.port), conflict="other", missing="other")
-	
-				return [res_system]
-			else:
-				return []
-		else:
+		image_urls = radl_system.getValue("disk.0.image.url")
+		if not image_urls:
 			return [radl_system.clone()]
+		else:
+			if not isinstance(image_urls, list):
+				image_urls = [image_urls]
+		
+			res = []
+			for str_url in image_urls:
+				url = uriparse(str_url)
+				protocol = url[0]
+				src_host = url[1].split(':')[0]
+				# TODO: check the port
+				if (protocol == "one") and self.cloud.server == src_host:
+					# Check the space in image and compare with disks.free_size
+					if radl_system.getValue('disks.free_size'):
+						disk_free = int(radl_system.getFeature('disks.free_size').getValue('M'))
+						# The VMRC specified the value in MB
+						disk_size = int(radl_system.getValue("disk.0.size"))
+					
+						if disk_size < disk_free:
+							# if the image do not have enough space, discard it
+							return []
+	
+					res_system = radl_system.clone()
+	
+					res_system.getFeature("cpu.count").operator = "="
+					res_system.getFeature("memory.size").operator = "="
+
+					res_system.addFeature(Feature("disk.0.image.url", "=", str_url), conflict="other", missing="other")
+	
+					res_system.addFeature(Feature("provider.type", "=", self.type), conflict="other", missing="other")
+					res_system.addFeature(Feature("provider.host", "=", self.cloud.server), conflict="other", missing="other")
+					res_system.addFeature(Feature("provider.port", "=", self.cloud.port), conflict="other", missing="other")
+		
+					res.append(res_system)
+			
+			return res
 	
 	def getSessionID(self, auth_data, hash_password = None):
 		"""
@@ -146,33 +154,42 @@ class OpenNebulaCloudConnector(CloudConnector):
 		 
 		 Returns: str with the Session ID
 		"""
-		if self.session_id:
-			# TODO: known issue: If the IM service is restarted, the first attempt to access this VM
-			# will set this session_id. If the credentials are not correct the session_id will be always 
-			# incorrect until the IM service is restarted again ... 
-			return self.session_id
+		auths = auth_data.getAuthInfo(self.type, self.cloud.server)
+		if not auths:
+			self.logger.error("No correct auth data has been specified to OpenNebula.")
+			return None
 		else:
-			auths = auth_data.getAuthInfo(self.type, self.cloud.server)
-			if not auths:
-				self.logger.error("No correct auth data has been specified to OpenNebula.")
-				return None
-			else:
-				auth = auths[0]
+			auth = auths[0]
+		
+		if 'username' in auth and 'password' in auth:
+			passwd = auth['password']
+			if hash_password is None:
+				one_ver = self.getONEVersion(auth_data)
+				if one_ver == "2.0.0" or one_ver == "3.0.0":
+					hash_password = True
+			if hash_password:
+				passwd = hashlib.sha1(passwd.strip()).hexdigest()
 			
-			if 'username' in auth and 'password' in auth:
-				passwd = auth['password']
-				if hash_password is None:
-					one_ver = self.getONEVersion(auth_data)
-					if one_ver == "2.0.0" or one_ver == "3.0.0":
-						hash_password = True
-				if hash_password:
-					passwd = hashlib.sha1(passwd.strip()).hexdigest()
-				
-				self.session_id = auth['username'] + ":" + passwd
-				return self.session_id
-			else:
-				self.logger.error("No correct auth data has been specified to OpenNebula: username and password")
-				return None
+			return  auth['username'] + ":" + passwd
+		else:
+			self.logger.error("No correct auth data has been specified to OpenNebula: username and password")
+			return None
+
+	def setDisksFromTemplate(self, vm, template):
+		"""
+		Set the Disks of the VM from the info obtained in the ONE template object
+
+		Arguments:
+		   - vm(:py:class:`IM.VirtualMachine`): VM information.
+		   - template(:py:class:`TEMPLATE`): ONE Template information. 
+		"""
+		for disk in template.DISK:
+			vm.info.systems[0].setValue("disk." + str(disk.DISK_ID) + ".size", disk.SIZE, "M")
+			if disk.TARGET:
+				vm.info.systems[0].setValue("disk." + str(disk.DISK_ID) + ".device", disk.TARGET)
+			if disk.FORMAT:
+				vm.info.systems[0].setValue("disk." + str(disk.DISK_ID) + ".fstype", disk.FORMAT)
+
 
 	def setIPsFromTemplate(self, vm, template):
 		"""
@@ -204,7 +221,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 		if len(func_res) == 2:
 			(success, res_info) = func_res
 		elif len(func_res) == 3:
-			(success, res_info, err_code) = func_res
+			(success, res_info, _) = func_res
 		else:
 			return [(False, "Error in the one.vm.info return value")]
 		
@@ -235,6 +252,12 @@ class OpenNebulaCloudConnector(CloudConnector):
 
 			# Update network data
 			self.setIPsFromTemplate(vm,res_vm.TEMPLATE)
+			
+			# Update disks data
+			self.setDisksFromTemplate(vm,res_vm.TEMPLATE)
+			
+			vm.info.systems[0].addFeature(Feature("cpu.count", "=", res_vm.TEMPLATE.CPU), conflict="other", missing="other")
+			vm.info.systems[0].addFeature(Feature("memory.size", "=", res_vm.TEMPLATE.MEMORY, 'M'), conflict="other", missing="other")
 
 			if res_vm.STIME > 0:
 				vm.info.systems[0].setValue('launch_time', res_vm.STIME)
@@ -263,7 +286,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 			if len(func_res) == 2:
 				(success, res_id) = func_res
 			elif len(func_res) == 3:
-				(success, res_id, err_code) = func_res
+				(success, res_id, _) = func_res
 			else:
 				return [(False, "Error in the one.vm.allocate return value")]
 				
@@ -289,7 +312,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 		elif len(func_res) == 2:
 			(success, err) = func_res
 		elif len(func_res) == 3:
-			(success, err, err_code) = func_res
+			(success, err, _) = func_res
 		else:
 			return (False, "Error in the one.vm.action return value")
 
@@ -308,7 +331,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 		elif len(func_res) == 2:
 			(success, err) = func_res
 		elif len(func_res) == 3:
-			(success, err, err_code) = func_res
+			(success, err, _) = func_res
 		else:
 			return (False, "Error in the one.vm.action return value")
 
@@ -327,7 +350,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 		elif len(func_res) == 2:
 			(success, err) = func_res
 		elif len(func_res) == 3:
-			(success, err, err_code) = func_res
+			(success, err, _) = func_res
 		else:
 			return (False, "Error in the one.vm.action return value")
 
@@ -360,19 +383,26 @@ class OpenNebulaCloudConnector(CloudConnector):
 
 		disks = 'DISK = [ IMAGE_ID = "%s" ]' % path[1:]
 		cont = 1
-		while system.getValue("disk." + str(cont) + ".size") and system.getValue("disk." + str(cont) + ".device"):
-			disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('M')
-			disk_device = system.getValue("disk." + str(cont) + ".device")
-			
-			disks += '''
-				DISK = [
-					TYPE = fs ,
-					FORMAT = ext3,
-					SIZE = %d,
-					TARGET = %s,
-					SAVE = no
-					]
-			''' % (int(disk_size), disk_device)
+		while system.getValue("disk." + str(cont) + ".image.url") or (system.getValue("disk." + str(cont) + ".size") and system.getValue("disk." + str(cont) + ".device")):
+			disk_image = system.getValue("disk." + str(cont) + ".image.url")
+			if disk_image:
+				disks += '\nDISK = [ IMAGE_ID = "%s" ]\n' % uriparse(disk_image)[2][1:]
+			else:
+				disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('M')
+				disk_device = system.getValue("disk." + str(cont) + ".device")
+				disk_fstype = system.getValue("disk." + str(cont) + ".fstype")
+				if not disk_fstype:
+					disk_fstype = 'ext3'
+				
+				disks += '''
+					DISK = [
+						TYPE = fs ,
+						FORMAT = %s,
+						SIZE = %d,
+						TARGET = %s,
+						SAVE = no
+						]
+				''' % (disk_fstype, int(disk_size), disk_device)
 
 			cont +=1 
 		
@@ -425,7 +455,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 		methods = server.system.listMethods()
 		if "one.system.version" in methods: 
 			session_id = self.getSessionID(auth_data, False)
-			(success, res_info, err_code) = server.one.system.version(session_id)
+			(success, res_info, _) = server.one.system.version(session_id)
 			if success:
 				version = res_info
 			else:
@@ -439,18 +469,18 @@ class OpenNebulaCloudConnector(CloudConnector):
 		self.logger.debug("OpenNebula version: " + version)
 		return version
 
-	def free_range(self, range, total_leases):
+	def free_range(self, ar_range, total_leases):
 		"""
 		Check if there are at least one address free
 
 		Arguments:
-		   - range(:py:class:`AR_POOL`): a Range of a ONE network.
+		   - ar_range(:py:class:`AR_POOL`): a Range of a ONE network.
 		   - total_leases(str): Number of used leases
 		 
 		 Returns: bool, True if there are at least one lease free or False otherwise
 		"""
-		start = long(''.join(["%02X" % long(i) for i in range.IP_START.split('.')]), 16)
-		end = long(''.join(["%02X" % long(i) for i in range.IP_END.split('.')]), 16)
+		start = long(''.join(["%02X" % long(i) for i in ar_range.IP_START.split('.')]), 16)
+		end = long(''.join(["%02X" % long(i) for i in ar_range.IP_END.split('.')]), 16)
 		if end - start > int(total_leases):
 			return True
 		return False
@@ -505,7 +535,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 		if len(func_res) == 2:
 			(success, info) = func_res
 		elif len(func_res) == 3:
-			(success, info, err_code) = func_res
+			(success, info, _) = func_res
 		else:
 			self.logger.error("Error in the  one.vnpool.info return value")
 			return None
@@ -541,7 +571,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 				if len(info_res) == 2:
 					(success, info) = info_res
 				elif len(func_res) == 3:
-					(success, info, err_code) = info_res
+					(success, info, _) = info_res
 				else:
 					self.logger.warn("Error in the one.vn.info return value. Ignoring network: " + net.NAME)
 					continue
@@ -690,7 +720,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 		else:
 			return False
 
-	def poweroff(self, vm, auth_data, timeout = 30):
+	def poweroff(self, vm, auth_data, timeout = 60):
 		"""
 		Poweroff the VM and waits for it to be in poweredoff state
 		"""
@@ -706,7 +736,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 		elif len(func_res) == 2:
 			(success, err) = func_res
 		elif len(func_res) == 3:
-			(success, err, err_code) = func_res
+			(success, err, _) = func_res
 		else:
 			return (False, "Error in the one.vm.action return value")
 		
@@ -720,7 +750,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 			if len(func_res) == 2:
 				(success, res_info) = func_res
 			elif len(func_res) == 3:
-				(success, res_info, err_code) = func_res
+				(success, res_info, _) = func_res
 			else:
 				return (False, "Error in the one.vm.info return value")
 			
@@ -743,7 +773,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 		
 		if self.checkResize():
 			if not radl.systems:
-				return ""
+				return (True, "")
 			system = radl.systems[0]
 
 			cpu = vm.info.systems[0].getValue('cpu.count')
@@ -761,11 +791,11 @@ class OpenNebulaCloudConnector(CloudConnector):
 	
 			self.logger.debug("New Template: " + new_temp)
 			if new_temp:
-				# First we must poweroff the VM
+				# First we must power off the VM
 				(success, info) = self.poweroff(vm, auth_data)
 				if not success:
 					return (success, info)
-				(success, info, err_code) = server.one.vm.resize(session_id, int(vm.id), new_temp, False)
+				(success, info, _) = server.one.vm.resize(session_id, int(vm.id), new_temp, False)
 				self.start(vm, auth_data)
 			else:
 				return (True, self.updateVMInfo(vm, auth_data))

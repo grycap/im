@@ -95,8 +95,11 @@ class LibCloudCloudConnector(CloudConnector):
 		"""
 		instance_type_name = radl.getValue('instance_type')
 		
-		memory = radl.getFeature('memory.size').getValue('M')
-		memory_op = radl.getFeature('memory.size').getLogOperator()
+		memory = 1
+		memory_op = ">="
+		if radl.getFeature('memory.size'):
+			memory = radl.getFeature('memory.size').getValue('M')
+			memory_op = radl.getFeature('memory.size').getLogOperator()
 		disk_free = 0
 		disk_free_op = ">="
 		if radl.getValue('disk.0.free_size'):
@@ -119,38 +122,54 @@ class LibCloudCloudConnector(CloudConnector):
 		return res
 	
 	def concreteSystem(self, radl_system, auth_data):
-		if radl_system.getValue("disk.0.image.url"):
-			url = uriparse(radl_system.getValue("disk.0.image.url"))
-			protocol = url[0]
-			driver = self.get_driver(auth_data)
-			
-			PROTOCOL_MAP = { "Amazon EC2" : "aws", "OpenNebula": "one", "OpenStack": "ost", "LibVirt": "file"}
-			
-			req_protocol = PROTOCOL_MAP.get(driver.name,None)
-			
-			if req_protocol is not None and protocol != req_protocol:
-				return []
-			else:
-				res_system = radl_system.clone()
-				instance_type = self.get_instance_type(driver.list_sizes(), res_system)
-				
-				res_system.addFeature(Feature("memory.size", "=", instance_type.ram, 'M'), conflict="other", missing="other")
-				if instance_type.disk:
-					res_system.addFeature(Feature("disk.0.free_size", "=", instance_type.disk , 'G'), conflict="other", missing="other")
-				if instance_type.price:
-					res_system.addFeature(Feature("price", "=", instance_type.price), conflict="me", missing="other")
-				
-				res_system.addFeature(Feature("instance_type", "=", instance_type.name), conflict="other", missing="other")
-				
-				res_system.addFeature(Feature("provider.type", "=", self.type), conflict="other", missing="other")
-				if self.cloud.server:
-					res_system.addFeature(Feature("provider.host", "=", self.cloud.server), conflict="other", missing="other")
-				if self.cloud.port != -1:
-					res_system.addFeature(Feature("provider.port", "=", self.cloud.port), conflict="other", missing="other")				
-					
-				return [res_system]
-		else:
+		image_urls = radl_system.getValue("disk.0.image.url")
+		if not image_urls:
 			return [radl_system.clone()]
+		else:
+			if not isinstance(image_urls, list):
+				image_urls = [image_urls]
+		
+			res = []
+			for str_url in image_urls:
+				url = uriparse(str_url)
+				protocol = url[0]
+	
+				protocol = url[0]
+				driver = self.get_driver(auth_data)
+				
+				PROTOCOL_MAP = { "Amazon EC2" : "aws", "OpenNebula": "one", "OpenStack": "ost", "LibVirt": "file"}
+				
+				req_protocol = PROTOCOL_MAP.get(driver.name,None)
+				
+				if req_protocol is not None and protocol != req_protocol:
+					pass
+				else:
+					res_system = radl_system.clone()
+					instance_type = self.get_instance_type(driver.list_sizes(), res_system)
+					self.update_system_info_from_instance(res_system, instance_type)
+					
+					res_system.addFeature(Feature("disk.0.image.url", "=", str_url), conflict="other", missing="other")
+
+					res_system.addFeature(Feature("provider.type", "=", self.type), conflict="other", missing="other")
+					if self.cloud.server:
+						res_system.addFeature(Feature("provider.host", "=", self.cloud.server), conflict="other", missing="other")
+					if self.cloud.port != -1:
+						res_system.addFeature(Feature("provider.port", "=", self.cloud.port), conflict="other", missing="other")				
+					
+						res.append(res_system)
+			return res
+
+	def update_system_info_from_instance(self, system, instance_type):
+		"""
+		Update the features of the system with the information of the instance_type
+		"""
+		system.addFeature(Feature("memory.size", "=", instance_type.ram, 'M'), conflict="other", missing="other")
+		if instance_type.disk:
+			system.addFeature(Feature("disk.0.free_size", "=", instance_type.disk , 'G'), conflict="other", missing="other")
+		if instance_type.price:
+			system.addFeature(Feature("price", "=", instance_type.price), conflict="me", missing="other")
+			
+		system.addFeature(Feature("instance_type", "=", instance_type.name), conflict="other", missing="other")
 
 	def get_image_id(self, path):
 		"""
@@ -301,6 +320,11 @@ class LibCloudCloudConnector(CloudConnector):
 				res_state = VirtualMachine.UNKNOWN
 				
 			vm.state = res_state
+			
+			if node.size:
+				self.update_system_info_from_instance(vm.info.systems[0], node.size)
+			else:
+				self.logger.debug("VM " + str(vm.id) + " has no node.size info. Not updating system info.")
 			
 			self.setIPsFromInstance(vm,node)
 			self.attach_volumes(vm,node)
@@ -467,7 +491,26 @@ class LibCloudCloudConnector(CloudConnector):
 			return (False, "VM not found with id: " + vm.id)
 
 	def alterVM(self, vm, radl, auth_data):
-		return (False, "Not supported")
+		node = self.get_node_with_id(vm.id, auth_data)
+		if node:
+			resize_func = getattr(node.driver, "ex_resize", None)
+			if resize_func:
+				instance_type = self.get_instance_type(node.driver.list_sizes(), radl.systems[0])
+				
+				try:
+					success = resize_func(node, instance_type)
+				except Exception, ex:
+					self.logger.exception("Error resizing VM.")
+					return (False, "Error resizing VM: " + str(ex))
+
+				if success:
+					return (True, "")
+				else:
+					return (False, "Error in stop operation")
+			else:
+				return (False, "Not supported")
+		else:
+			return (False, "VM not found with id: " + vm.id)
 	
 	def wait_volume(self, volume, state = 'available', timeout=60):
 		"""

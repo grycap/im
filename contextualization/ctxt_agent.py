@@ -24,6 +24,7 @@ import getpass
 import json
 import threading
 from StringIO import StringIO
+import socket
 
 from SSH import SSH, AuthenticationException
 from ansible_launcher import AnsibleThread
@@ -36,6 +37,28 @@ PLAYBOOK_RETRIES = 1
 INTERNAL_PLAYBOOK_RETRIES = 1
 
 PK_FILE = "/tmp/ansible_key"
+
+def wait_winrm_access(vm):
+	"""
+	 Test the WinRM access to the VM
+	"""
+	delay = 10
+	wait = 0
+	while wait < SSH_WAIT_TIMEOUT:
+		try:
+			logger.debug("Testing WinRM access to VM: " + vm['ip'])
+			sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+			result = sock.connect_ex((vm['ip'],5986))
+		except:
+			logger.exception("Error connecting with WinRM with: " + vm['ip'])
+			result = -1
+
+		if result == 0:
+			return True
+		else:
+			wait += delay
+			time.sleep(delay)
+			
 
 def wait_ssh_access(vm):
 	"""
@@ -126,35 +149,57 @@ def wait_thread(thread, output = None):
 
 def LaunchAnsiblePlaybook(output, playbook_file, vm, threads, inventory_file, pk_file, retries, change_pass_ok):
 	logger.debug('Call Ansible')
-	
-	passwd = None
-	if pk_file:
-		gen_pk_file = pk_file
+
+	extra_vars = {}
+	user = None
+	if vm['os'] == "windows":
+		gen_pk_file = None
+		passwd = vm['passwd']
+		if 'new_passwd' in vm and vm['new_passwd'] and change_pass_ok:
+			passwd = vm['new_passwd']
+
+		extra_vars['IM_HOST'] = vm['ip']
 	else:
-		if vm['private_key'] and not vm['passwd']:
-			gen_pk_file = "/tmp/pk_" + vm['ip'] + ".pem"
-			# If the file exists do not create it again
-			if not os.path.isfile(gen_pk_file):
-				pk_out = open(gen_pk_file, 'w')
-				pk_out.write(vm['private_key'])
-				pk_out.close()
-				os.chmod(gen_pk_file,0400)
+		extra_vars['IM_HOST'] = vm['ip'] + ":" + str(vm['ssh_port'])
+		passwd = None
+		if pk_file:
+			gen_pk_file = pk_file
 		else:
-			gen_pk_file = None
-			passwd = vm['passwd']
-			if 'new_passwd' in vm and vm['new_passwd'] and change_pass_ok:
-				passwd = vm['new_passwd']
+			if vm['private_key'] and not vm['passwd']:
+				gen_pk_file = "/tmp/pk_" + vm['ip'] + ".pem"
+				# If the file exists do not create it again
+				if not os.path.isfile(gen_pk_file):
+					pk_out = open(gen_pk_file, 'w')
+					pk_out.write(vm['private_key'])
+					pk_out.close()
+					os.chmod(gen_pk_file,0400)
+			else:
+				gen_pk_file = None
+				passwd = vm['passwd']
+				if 'new_passwd' in vm and vm['new_passwd'] and change_pass_ok:
+					passwd = vm['new_passwd']
 	
-	t = AnsibleThread(output, playbook_file, None, threads, gen_pk_file, passwd, retries, inventory_file, None, {'IM_HOST': vm['ip'] + ":" + str(vm['ssh_port'])})
+	t = AnsibleThread(output, playbook_file, None, threads, gen_pk_file, passwd, retries, inventory_file, user, extra_vars)
 	t.start()
 	return t
 
-def changeVMCredentials(vm):
+def changeVMCredentials(vm, pk_file):
+	if vm['os'] == "windows":
+		#ansible -i hosts -m win_user -a "name=bob password=Password12345 groups=Users" all
+		return False
+
 	# Check if we must change user credentials in the VM
 	if 'passwd' in vm and vm['passwd'] and 'new_passwd' in vm and vm['new_passwd']:
 		logger.info("Changing password to VM: " + vm['ip'])
-		ssh_client = SSH(vm['ip'], vm['user'], vm['passwd'], vm['private_key'], vm['ssh_port'])
-		(out, err, code) = ssh_client.execute('sudo bash -c \'echo "' + vm['user'] + ':' + vm['new_passwd'] + '" | /usr/sbin/chpasswd && echo "OK"\' 2> /dev/null')
+		private_key = vm['private_key']
+		if pk_file:
+			private_key = pk_file
+		try:
+			ssh_client = SSH(vm['ip'], vm['user'], vm['passwd'], private_key, vm['ssh_port'])
+			(out, err, code) = ssh_client.execute('sudo bash -c \'echo "' + vm['user'] + ':' + vm['new_passwd'] + '" | /usr/sbin/chpasswd && echo "OK"\' 2> /dev/null')
+		except:
+			logger.exception("Error changing password to VM: " + vm['ip'] + ".")
+			return False
 		
 		if code == 0:
 			vm['passwd'] = vm['new_passwd']
@@ -165,8 +210,16 @@ def changeVMCredentials(vm):
 
 	if 'new_public_key' in vm and vm['new_public_key'] and 'new_private_key' in vm and vm['new_private_key']:
 		logger.info("Changing public key to VM: " + vm['ip'])
-		ssh_client = SSH(vm['ip'], vm['user'], vm['passwd'], vm['private_key'], vm['ssh_port'])
-		(out, err, code) = ssh_client.execute('echo ' + vm['new_public_key'] + ' >> .ssh/authorized_keys')
+		private_key = vm['private_key']
+		if pk_file:
+			private_key = pk_file
+		try:
+			ssh_client = SSH(vm['ip'], vm['user'], vm['passwd'], private_key, vm['ssh_port'])
+			(out, err, code) = ssh_client.execute('echo ' + vm['new_public_key'] + ' >> .ssh/authorized_keys')
+		except:
+			logger.exception("Error changing public key to VM: " + vm['ip'] + ".")
+			return False
+			
 		if code != 0:
 			logger.error("Error changing public key to VM:: " + vm['ip'] + ". " + out + err)
 			return False
@@ -176,15 +229,22 @@ def changeVMCredentials(vm):
 
 	return False
 
-def removeRequiretty(vm):
+def removeRequiretty(vm, pk_file):
 	if not vm['master']:
 		logger.info("Removing requiretty to VM: " + vm['ip'])
-		ssh_client = SSH(vm['ip'], vm['user'], vm['passwd'], vm['private_key'], vm['ssh_port'])
-		# Activate tty mode to avoid some problems with sudo in REL
-		ssh_client.tty = True
-		(stdout, stderr, code) = ssh_client.execute("sudo sed -i 's/.*requiretty$/#Defaults requiretty/' /etc/sudoers")
-		logger.debug("OUT: " + stdout + stderr)
-		return code == 0
+		try:
+			private_key = vm['private_key']
+			if pk_file:
+				private_key = pk_file
+			ssh_client = SSH(vm['ip'], vm['user'], vm['passwd'], private_key, vm['ssh_port'])
+			# Activate tty mode to avoid some problems with sudo in REL
+			ssh_client.tty = True
+			(stdout, stderr, code) = ssh_client.execute("sudo sed -i 's/.*requiretty$/#Defaults requiretty/' /etc/sudoers")
+			logger.debug("OUT: " + stdout + stderr)
+			return code == 0
+		except:
+			logger.exception("Error removing requiretty to VM: " + vm['ip'])
+			return False
 	else:
 		return True
 
@@ -214,64 +274,81 @@ def contextualize_vm(general_conf_data, vm_conf_data):
 		while not task_ok and num_retries < PLAYBOOK_RETRIES: 
 			num_retries += 1
 			logger.debug('Launch task: ' + task)
-			playbook = general_conf_data['conf_dir'] + "/" + task + "_task_all.yml"
+			if ctxt_vm['os'] == "windows":
+				playbook = general_conf_data['conf_dir'] + "/" + task + "_task_all_win.yml"
+			else:
+				playbook = general_conf_data['conf_dir'] + "/" + task + "_task_all.yml"
 			inventory_file  = general_conf_data['conf_dir'] + "/hosts"
 			
+			ansible_thread = None
 			if task == "basic":
 				# This is always the fist step, so put the SSH test, the requiretty removal and change password here
 				for vm in general_conf_data['vms']:
-					logger.info("Waiting SSH access to VM: " + vm['ip'])
-					ssh_res = wait_ssh_access(vm)
-					logger.debug("SSH test result: " + ssh_res)
+					if vm['os'] == "windows":
+						logger.info("Waiting WinRM access to VM: " + vm['ip'])
+						ssh_res = wait_winrm_access(vm)
+					else:
+						logger.info("Waiting SSH access to VM: " + vm['ip'])
+						ssh_res = wait_ssh_access(vm)
+
 					if vm['id'] == vm_conf_data['id']:
 						cred_used = ssh_res
 					if not ssh_res:
-						logger.error("Error Waiting SSH access to VM: " + vm['ip'])
+						logger.error("Error Waiting access to VM: " + vm['ip'])
 						res_data['SSH_WAIT'] = False
 						res_data['OK'] = False
 						return res_data
 					else:
 						res_data['SSH_WAIT'] = True
-						logger.info("SSH access to VM: " + vm['ip']+ " Open!")
-				
-				# First remove requiretty in the node
-				success = removeRequiretty(ctxt_vm)
-				if success:
-					logger.info("Requiretty successfully removed")
-				else:
-					logger.error("Error removing Requiretty")
-				# Check if we must chage user credentials
-				# Do not change it on the master. It must be changed only by the ConfManager
-				change_creds = False
-				if not ctxt_vm['master']:
-					change_creds = changeVMCredentials(ctxt_vm)
-					res_data['CHANGE_CREDS'] = change_creds
+						logger.info("Remote access to VM: " + vm['ip']+ " Open!")
 				
 				# The basic task uses the credentials of VM stored in ctxt_vm
 				pk_file = None
 				if cred_used == "pk_file":
 					pk_file = PK_FILE
-				ansible_thread = LaunchAnsiblePlaybook(logger, playbook, ctxt_vm, 2, inventory_file, pk_file, INTERNAL_PLAYBOOK_RETRIES, change_creds)
+				
+				# First remove requiretty in the node
+				if ctxt_vm['os'] != "windows":
+					success = removeRequiretty(ctxt_vm, pk_file)
+					if success:
+						logger.info("Requiretty successfully removed")
+					else:
+						logger.error("Error removing Requiretty")
+
+				# Check if we must chage user credentials
+				# Do not change it on the master. It must be changed only by the ConfManager
+				change_creds = False
+				if not ctxt_vm['master']:
+					change_creds = changeVMCredentials(ctxt_vm, pk_file)
+					res_data['CHANGE_CREDS'] = change_creds
+				
+				if ctxt_vm['os'] != "windows":
+					# this step is not needed in windows systems
+					ansible_thread = LaunchAnsiblePlaybook(logger, playbook, ctxt_vm, 2, inventory_file, pk_file, INTERNAL_PLAYBOOK_RETRIES, change_creds)
 			else:
 				# In some strange cases the pk_file disappears. So test it and remake basic recipe
-				success = False
-				try:
-					ssh_client = SSH(ctxt_vm['ip'], ctxt_vm['user'], None, PK_FILE, ctxt_vm['ssh_port'])
-					success = ssh_client.test_connectivity()
-				except:
+				if ctxt_vm['os'] != "windows":
 					success = False
-	
-				if not success:
-					logger.warn("Error connecting with SSH using the ansible key with: " + ctxt_vm['ip'] + ". Call the basic playbook again.")
-					basic_playbook = general_conf_data['conf_dir'] + "/basic_task_all.yml"
-					output_basic = StringIO()
-					ansible_thread = LaunchAnsiblePlaybook(output_basic, basic_playbook, ctxt_vm, 2, inventory_file, None, INTERNAL_PLAYBOOK_RETRIES, True)
-					ansible_thread.join()
+					try:
+						ssh_client = SSH(ctxt_vm['ip'], ctxt_vm['user'], None, PK_FILE, ctxt_vm['ssh_port'])
+						success = ssh_client.test_connectivity()
+					except:
+						success = False
+		
+					if not success:
+						logger.warn("Error connecting with SSH using the ansible key with: " + ctxt_vm['ip'] + ". Call the basic playbook again.")
+						basic_playbook = general_conf_data['conf_dir'] + "/basic_task_all.yml"
+						output_basic = StringIO()
+						ansible_thread = LaunchAnsiblePlaybook(output_basic, basic_playbook, ctxt_vm, 2, inventory_file, None, INTERNAL_PLAYBOOK_RETRIES, True)
+						ansible_thread.join()
 	
 				# in the other tasks pk_file can be used
-				ansible_thread = LaunchAnsiblePlaybook(logger, playbook, ctxt_vm, 2, inventory_file, PK_FILE, INTERNAL_PLAYBOOK_RETRIES, True)
+				ansible_thread = LaunchAnsiblePlaybook(logger, playbook, ctxt_vm, 2, inventory_file, PK_FILE, INTERNAL_PLAYBOOK_RETRIES, vm_conf_data['changed_pass'])
 			
-			(task_ok, _) = wait_thread(ansible_thread)
+			if ansible_thread:
+				(task_ok, _) = wait_thread(ansible_thread)
+			else:
+				task_ok = True
 			if not task_ok:
 				logger.warn("ERROR executing task %s: (%s/%s)" % (task, num_retries, PLAYBOOK_RETRIES))
 			else:
@@ -295,8 +372,11 @@ if __name__ == "__main__":
 		parser.error("Error: Incorrect parameters")
 	
 	# load json conf data
-	general_conf_data = json.load(open(args[0]))
-	vm_conf_data = json.load(open(args[1]))
+	conf_data_filename = args[0]
+	with open(conf_data_filename) as f:
+		general_conf_data = json.load(f)
+	with open(args[1]) as f:
+		vm_conf_data = json.load(f)
 	
 	# Root logger: is used by paramiko
 	logging.basicConfig(filename=vm_conf_data['remote_dir'] +"/ctxt_agent.log",

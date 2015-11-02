@@ -74,7 +74,7 @@ class ConfManager(threading.Thread):
 					else:						
 						ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Configuration process in VM: " + str(vm.im_id) + " finished.")
 						# Force to save the data to store the log data ()
-						ServiceRequests.IMBaseRequest.create_request(ServiceRequests.IMBaseRequest.SAVE_DATA)
+						ServiceRequests.IMBaseRequest.create_request(ServiceRequests.IMBaseRequest.SAVE_DATA, (self.inf.id))
 				else:
 					# General Infrastructure tasks
 					if vm.is_ctxt_process_running():
@@ -88,14 +88,14 @@ class ConfManager(threading.Thread):
 						else:
 							ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Configuration process of master node failed.")
 						# Force to save the data to store the log data 
-						ServiceRequests.IMBaseRequest.create_request(ServiceRequests.IMBaseRequest.SAVE_DATA)
+						ServiceRequests.IMBaseRequest.create_request(ServiceRequests.IMBaseRequest.SAVE_DATA, (self.inf.id))
 				
 		return res
 
 	def stop(self):
 		self._stop = True
 		# put a task to assure to wake up the thread 
-		self.inf.ctxt_tasks.put((-3, 0,None,None))
+		self.inf.ctxt_tasks.put((-10, 0,None,None))
 		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Stop Configuration thread.")
 
 	def check_vm_ips(self, timeout = Config.WAIT_RUNNING_VM_TIMEOUT):
@@ -138,6 +138,14 @@ class ConfManager(threading.Thread):
 				
 		return success
 
+	def kill_ctxt_processes(self):
+		"""
+			Kill all the ctxt processes 
+		"""
+		for vm in self.inf.get_vm_list():
+			ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Killing ctxt processes.")
+			vm.kill_check_ctxt_process()
+
 	def run(self):
 		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Starting the ConfManager Thread")
 
@@ -148,8 +156,7 @@ class ConfManager(threading.Thread):
 			if self.init_time + self.max_ctxt_time < time.time():
 				ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Max contextualization time passed. Exit thread.")
 				# Kill the ansible processes
-				for vm in self.inf.get_vm_list():
-					vm.kill_check_ctxt_process()
+				self.kill_ctxt_processes()
 				return
 
 			vms_configuring = self.check_running_pids(vms_configuring)
@@ -182,7 +189,9 @@ class ConfManager(threading.Thread):
 						last_step = step
 			else:
 				if isinstance(vm,VirtualMachine):
-					if vm.is_configured() is False:
+					if vm.destroy:
+						ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": VM ID " + str(vm.im_id) + " has been destroyed. Not launching new tasks for it.")
+					elif vm.is_configured() is False:
 						ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Configuration process of step " + str(last_step) + " failed, ignoring tasks of later steps.")
 						# Check that the VM has no other ansible process running
 					elif vm.ctxt_pid:
@@ -209,7 +218,7 @@ class ConfManager(threading.Thread):
 						# Set the "special pid" to wait untill the real pid is assigned
 						vm.ctxt_pid = VirtualMachine.WAIT_TO_PID
 						# Force to save the data to store the log data 
-						ServiceRequests.IMBaseRequest.create_request(ServiceRequests.IMBaseRequest.SAVE_DATA)
+						ServiceRequests.IMBaseRequest.create_request(ServiceRequests.IMBaseRequest.SAVE_DATA, (self.inf.id))
 				else:
 					# Launch the Infrastructure tasks
 					vm.configured = None
@@ -222,7 +231,7 @@ class ConfManager(threading.Thread):
 						vms_configuring[step] = []
 					vms_configuring[step].append(vm)
 					# Force to save the data to store the log data 
-					ServiceRequests.IMBaseRequest.create_request(ServiceRequests.IMBaseRequest.SAVE_DATA)
+					ServiceRequests.IMBaseRequest.create_request(ServiceRequests.IMBaseRequest.SAVE_DATA, (self.inf.id))
 					
 					
 				last_step = step
@@ -237,34 +246,41 @@ class ConfManager(threading.Thread):
 			ip = vm.getPublicIP()
 			if not ip:
 				ip = vm.getPrivateIP()
-			remote_dir = Config.REMOTE_CONF_DIR + "/" + ip + "_" + str(vm.getSSHPort())
-			tmp_dir = tempfile.mkdtemp()
-	
-			ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Create the configuration file for the contextualization agent")
-			conf_file = tmp_dir + "/config.cfg"
-			self.create_vm_conf_file(conf_file, vm.im_id, tasks, remote_dir)
-			
-			ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Copy the contextualization agent config file")
-	
-			# Copy the contextualization agent config file
-			ssh = self.inf.vm_master.get_ssh(retry = True)
-			ssh.sftp_mkdir(remote_dir)
-			ssh.sftp_put(conf_file, remote_dir + "/" + os.path.basename(conf_file))
-			
-			shutil.rmtree(tmp_dir, ignore_errors=True)
-	
-			(pid, _, _) = ssh.execute("nohup python_ansible " + Config.REMOTE_CONF_DIR + "/ctxt_agent.py " 
-					+ Config.REMOTE_CONF_DIR + "/general_info.cfg "
-					+ remote_dir + "/" + os.path.basename(conf_file) 
-					+ " > " + remote_dir + "/stdout" + " 2> " + remote_dir + "/stderr < /dev/null & echo -n $!")
-			
-			ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Ansible process to configure " + str(vm.im_id) + " launched with pid: " + pid)
-			
-			vm.ctxt_pid = pid
-			vm.launch_check_ctxt_process()
+
+			if not ip:
+				ConfManager.logger.error("Inf ID: " + str(self.inf.id) + ": VM with ID %s (%s) does not have an IP!!. We cannot launch the ansible process!!" % (str(vm.im_id), vm.id))
+			else:
+				remote_dir = Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/" + ip + "_" + str(vm.getSSHPort())
+				tmp_dir = tempfile.mkdtemp()
+		
+				ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Create the configuration file for the contextualization agent")
+				conf_file = tmp_dir + "/config.cfg"
+				self.create_vm_conf_file(conf_file, vm, tasks, remote_dir)
+				
+				ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Copy the contextualization agent config file")
+		
+				# Copy the contextualization agent config file
+				ssh = self.inf.vm_master.get_ssh(retry = True)
+				ssh.sftp_mkdir(remote_dir)
+				ssh.sftp_put(conf_file, remote_dir + "/" + os.path.basename(conf_file))
+				
+				shutil.rmtree(tmp_dir, ignore_errors=True)
+		
+				if vm.configured is None:
+					(pid, _, _) = ssh.execute("nohup python_ansible " + Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/" + "/ctxt_agent.py " 
+							+ Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/" + "/general_info.cfg "
+							+ remote_dir + "/" + os.path.basename(conf_file) 
+							+ " > " + remote_dir + "/stdout" + " 2> " + remote_dir + "/stderr < /dev/null & echo -n $!")
+				
+					ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Ansible process to configure " + str(vm.im_id) + " launched with pid: " + pid)
+					
+					vm.ctxt_pid = pid
+					vm.launch_check_ctxt_process()
+				else:
+					ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": Ansible process to configure " + str(vm.im_id) + " NOT launched")
 		except:
 			pid = None
-			ConfManager.logger.exception("Inf ID: " + str(self.inf.id) + ": Error launching the ansible process to configure %s" % str(vm.im_id))
+			ConfManager.logger.exception("Inf ID: " + str(self.inf.id) + ": Error launching the ansible process to configure VM with ID %s" % str(vm.im_id))
 
 		# If the process is not correctly launched the configuration of this VM fails
 		if pid is None:
@@ -286,89 +302,101 @@ class ConfManager(threading.Thread):
 		# get the master node name
 		(master_name, masterdom) = self.inf.vm_master.getRequestedName(default_hostname = Config.DEFAULT_VM_NAME, default_domain = Config.DEFAULT_DOMAIN)
 
-		all_nodes = "[all]\n"
+		no_windows = ""
+		windows = ""
 		all_vars = ""
 		vm_group = self.inf.get_vm_list_by_system_name()
 		for group in vm_group:
 			vm = vm_group[group][0]
 			user = vm.getCredentialValues()[0]
 			out.write('[' + group + ':vars]\n')
-			out.write('IM_NODE_USER=' + user + '\n\n')
-			out.write('IM_MASTER_HOSTNAME=' + master_name + '\n')
-			out.write('IM_MASTER_FQDN=' + master_name + "." + masterdom + '\n')
-			out.write('IM_MASTER_DOMAIN=' + masterdom + '\n\n')                     
-			
+			out.write('IM_NODE_USER=' + user + '\n')
+
+			if vm.getOS().lower() == "windows":
+				out.write('ansible_port=5986\n')
+				out.write('ansible_user=' + user + '\n')
+				out.write('ansible_connection=winrm\n')	
+				
 			out.write('[' + group + ']\n')
 
 			# Set the vars with the number of nodes of each type
 			all_vars += 'IM_' + group.upper() + '_NUM_VMS=' + str(len(vm_group[group])) + '\n'
 
 			for vm in vm_group[group]:
-				if not vm.destroy:
-					# first try to use the public IP
-					ip = vm.getPublicIP()
-					if not ip:
-						ip = vm.getPrivateIP()
+				# first try to use the public IP
+				ip = vm.getPublicIP()
+				if not ip:
+					ip = vm.getPrivateIP()
+
+				if not ip:
+					ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": The VM ID: " + str(vm.id) + " does not have an IP. It will not be included in the inventory file.")
+					continue
+				
+				if vm.state in VirtualMachine.NOT_RUNNING_STATES:
+					ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": The VM ID: " + str(vm.id) + " is not running. It will not be included in the inventory file.")
+					continue
 					
-					if not ip:
-						ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": The VM ID: " + str(vm.id) + " does not have an IP. It will not be included in the inventory file.")
-						continue
+				if vm.getOS().lower() == "windows":
+					windows += ip + "\n"
+				else:
+					no_windows += ip + "\n" 
 					
-					if vm.state in VirtualMachine.NOT_RUNNING_STATES:
-						ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": The VM ID: " + str(vm.id) + " is not running. It will not be included in the inventory file.")
-						continue
-						
-					ifaces_im_vars = ''
-					for i in range(vm.getNumNetworkIfaces()):
-						iface_ip = vm.getIfaceIP(i)
-						if iface_ip:
-							ifaces_im_vars += ' IM_NODE_NET_' + str(i) + '_IP=' + iface_ip
-							if vm.getRequestedNameIface(i):
-								(nodename, nodedom) = vm.getRequestedNameIface(i, default_domain = Config.DEFAULT_DOMAIN)
-								ifaces_im_vars += ' IM_NODE_NET_' + str(i) + '_HOSTNAME=' + nodename
-								ifaces_im_vars += ' IM_NODE_NET_' + str(i) + '_DOMAIN=' + nodedom
-								ifaces_im_vars += ' IM_NODE_NET_' + str(i) + '_FQDN=' + nodename + "." + nodedom
+				ifaces_im_vars = ''
+				for i in range(vm.getNumNetworkIfaces()):
+					iface_ip = vm.getIfaceIP(i)
+					if iface_ip:
+						ifaces_im_vars += ' IM_NODE_NET_' + str(i) + '_IP=' + iface_ip
+						if vm.getRequestedNameIface(i):
+							(nodename, nodedom) = vm.getRequestedNameIface(i, default_domain = Config.DEFAULT_DOMAIN)
+							ifaces_im_vars += ' IM_NODE_NET_' + str(i) + '_HOSTNAME=' + nodename
+							ifaces_im_vars += ' IM_NODE_NET_' + str(i) + '_DOMAIN=' + nodedom
+							ifaces_im_vars += ' IM_NODE_NET_' + str(i) + '_FQDN=' + nodename + "." + nodedom
 
+				# the master node
+				# TODO: Known issue: the master VM must set the public network in the iface 0 
+				(nodename ,nodedom) = system.replaceTemplateName(Config.DEFAULT_VM_NAME + "." + Config.DEFAULT_DOMAIN, str(vm.im_id))
+				if vm.getRequestedName():
+					(nodename, nodedom) = vm.getRequestedName(default_domain = Config.DEFAULT_DOMAIN)
 
-	
-					# the master node
-					# TODO: Known issue: the master VM must set the public network in the iface 0 
-					(nodename ,nodedom) = system.replaceTemplateName(Config.DEFAULT_VM_NAME + "." + Config.DEFAULT_DOMAIN, str(vm.im_id))
-					if vm.getRequestedName():
-						(nodename, nodedom) = vm.getRequestedName(default_domain = Config.DEFAULT_DOMAIN)
+				node_line = ip
+				if vm.getOS().lower() != "windows":
+					node_line += ":" + str(vm.getSSHPort())
+				
+				if vm.id == self.inf.vm_master.id:
+					node_line += ' ansible_connection=local'
+				
+				node_line += ' IM_NODE_HOSTNAME=' + nodename
+				node_line += ' IM_NODE_FQDN=' + nodename + "." + nodedom
+				node_line += ' IM_NODE_DOMAIN=' + nodedom
+				node_line += ' IM_NODE_NUM=' + str(vm.im_id)
+				node_line += ' IM_NODE_VMID=' + str(vm.id)
+				node_line += ' IM_NODE_ANSIBLE_IP=' + ip
+				node_line += ifaces_im_vars
 
-					node_line = ip + ":" + str(vm.getSSHPort())
-					
-					if vm.id == self.inf.vm_master.id:
-						node_line += ' ansible_connection=local'
-					
-					node_line += ' IM_NODE_HOSTNAME=' + nodename
-					node_line += ' IM_NODE_FQDN=' + nodename + "." + nodedom
-					node_line += ' IM_NODE_DOMAIN=' + nodedom
-					node_line += ' IM_NODE_NUM=' + str(vm.im_id)
-					node_line += ' IM_NODE_VMID=' + str(vm.id)
-					node_line += ' IM_NODE_ANSIBLE_IP=' + ip
-					node_line += ifaces_im_vars
+				for app in vm.getInstalledApplications():
+					if app.getValue("path"):
+						node_line += ' IM_APP_' + app.getValue("name").upper() + '_PATH=' + app.getValue("path")
+					if app.getValue("version"):
+						node_line += ' IM_APP_' + app.getValue("name").upper() + '_VERSION=' + app.getValue("version")
 
-					for app in vm.getInstalledApplications():
-						if app.getValue("path"):
-							node_line += ' IM_APP_' + app.getValue("name").upper() + '_PATH=' + app.getValue("path")
-						if app.getValue("version"):
-							node_line += ' IM_APP_' + app.getValue("name").upper() + '_VERSION=' + app.getValue("version")
-
-					node_line += "\n"
-					out.write(node_line)
-					all_nodes += node_line
+				node_line += "\n"
+				out.write(node_line)
 				
 			out.write("\n")
 
-		out.write(all_nodes)
 		# set the IM global variables
 		out.write('[all:vars]\n')
 		out.write(all_vars)
 		out.write('IM_MASTER_HOSTNAME=' + master_name + '\n')
 		out.write('IM_MASTER_FQDN=' + master_name + "." + masterdom + '\n')
 		out.write('IM_MASTER_DOMAIN=' + masterdom + '\n\n')
+
+		if windows:
+			out.write('[windows]\n' + windows + "\n")
+			
+		# create the allnowindows group to launch the "all" tasks
+		if no_windows:
+			out.write('[allnowindows]\n' + no_windows + "\n")
 
 		out.close()
 		
@@ -445,7 +473,7 @@ class ConfManager(threading.Thread):
 			# Only add the tasks if the user has specified a moun_path and a filesystem
 			if disk_mount_path and disk_fstype:
 				# This recipe works with EC2 and OpenNebula. It must be tested/completed with other providers
-				condition = "    when: item.key.endswith('" + disk_device[-1] + "')\n"
+				condition = "    when: ansible_os_family != 'Windows' and item.key.endswith('" + disk_device[-1] + "')\n"
 				condition += "    with_dict: ansible_devices\n"
 				
 				res += '  # Tasks to format and mount disk %d from device %s in %s\n' % (cont, disk_device, disk_mount_path)
@@ -515,6 +543,8 @@ class ConfManager(threading.Thread):
 		# create the "all" to enable this playbook to see the facts of all the nodes
 		all_filename = self.create_all_recipe(tmp_dir, "main_" + group + "_task")
 		recipe_files.append(all_filename)
+		all_windows_filename =  self.create_all_recipe(tmp_dir, "main_" + group + "_task", "windows", "_all_win.yml")
+		recipe_files.append(all_windows_filename)
 		
 		return recipe_files
 	
@@ -538,6 +568,8 @@ class ConfManager(threading.Thread):
 			# create the "all" to enable this playbook to see the facts of all the nodes
 			all_filename = self.create_all_recipe(tmp_dir, ctxt_elem.configure + "_" + ctxt_elem.system + "_task")
 			recipe_files.append(all_filename)
+			all_windows_filename =  self.create_all_recipe(tmp_dir, ctxt_elem.configure + "_" + ctxt_elem.system + "_task", "windows", "_all_win.yml")
+			recipe_files.append(all_windows_filename)
 		
 		return recipe_files
 
@@ -572,7 +604,8 @@ class ConfManager(threading.Thread):
 					else:
 						ConfManager.logger.info("Inf ID: " + str(self.inf.id) + ": Ansible installation finished successfully")
 		
-					remote_dir = Config.REMOTE_CONF_DIR
+					ssh.sftp_mkdir(Config.REMOTE_CONF_DIR)
+					remote_dir = Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/"
 					ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Copy the contextualization agent files")  
 					ssh.sftp_mkdir(remote_dir)
 					files = []
@@ -596,7 +629,7 @@ class ConfManager(threading.Thread):
 				self.inf.ansible_configured = True
 				self.inf.set_configured(True)
 				# Force to save the data to store the log data 
-				ServiceRequests.IMBaseRequest.create_request(ServiceRequests.IMBaseRequest.SAVE_DATA)
+				ServiceRequests.IMBaseRequest.create_request(ServiceRequests.IMBaseRequest.SAVE_DATA, (self.inf.id))
 			else:
 				self.inf.ansible_configured = False
 				self.inf.set_configured(False)
@@ -660,7 +693,7 @@ class ConfManager(threading.Thread):
 				self.change_master_credentials(ssh)
 				
 				# Force to save the data to store the log data 
-				ServiceRequests.IMBaseRequest.create_request(ServiceRequests.IMBaseRequest.SAVE_DATA)
+				ServiceRequests.IMBaseRequest.create_request(ServiceRequests.IMBaseRequest.SAVE_DATA, (self.inf.id))
 				
 				self.inf.set_configured(True)
 			except:
@@ -677,7 +710,7 @@ class ConfManager(threading.Thread):
 		"""
 		try:
 			tmp_dir = tempfile.mkdtemp()
-			remote_dir = Config.REMOTE_CONF_DIR
+			remote_dir = Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/"
 			# Get the groups for the different VM types
 			vm_group = self.inf.get_vm_list_by_system_name()
 				
@@ -710,8 +743,9 @@ class ConfManager(threading.Thread):
 			# and add the ansible information and modules
 			for ctxt_num in contextualizes.keys():
 				for ctxt_elem in contextualizes[ctxt_num]:
-					vm = vm_group[ctxt_elem.system][0] 
-					filenames.extend(self.generate_playbook(vm, ctxt_elem, tmp_dir))
+					if ctxt_elem.system in vm_group and ctxt_elem.get_ctxt_tool() == "Ansible": 
+						vm = vm_group[ctxt_elem.system][0] 
+						filenames.extend(self.generate_playbook(vm, ctxt_elem, tmp_dir))
 			
 			filenames.append(self.generate_etc_hosts(tmp_dir))
 			filenames.append(self.generate_inventory(tmp_dir))
@@ -991,17 +1025,17 @@ class ConfManager(threading.Thread):
 
 		return conf_content 
 
-	def create_all_recipe(self, tmp_dir, filename):
+	def create_all_recipe(self, tmp_dir, filename, group="allnowindows", suffix = "_all.yml"):
 		"""
 		Create the recipe "all" enabling to access all the ansible variables from all hosts
 		Arguments:
 		   - tmp_dir(str): Temp directory where all the playbook files will be stored.
 		   - filename(str): name of he yaml to include (without the extension)
 		"""
-		all_filename = filename + "_all.yml"
+		all_filename = filename + suffix
 		conf_all_out = open(tmp_dir + "/" + all_filename, 'w')
 		conf_all_out.write("---\n")
-		conf_all_out.write("- hosts: all\n")
+		conf_all_out.write("- hosts: " + group + "\n")
 		conf_all_out.write("  user: \"{{ IM_NODE_USER }}\"\n")
 		conf_all_out.write("- include: " + filename + ".yml\n")
 		conf_all_out.write("\n\n")
@@ -1017,98 +1051,103 @@ class ConfManager(threading.Thread):
 		   - tmp_dir(str): Temp directory where all the playbook files will be stored.
 		Returns: True if the process finished sucessfully, False otherwise.
 		"""
-		# Get the groups for the different VM types
-		vm_group = self.inf.get_vm_list_by_system_name()
-
-		# Create the ansible inventory file
-		with open(tmp_dir + "/inventory.cfg", 'w') as inv_out:
-			inv_out.write(ssh.host + ":" + str(ssh.port) + "\n\n")
-		
-		shutil.copy(Config.CONTEXTUALIZATION_DIR + "/" + ConfManager.MASTER_YAML, tmp_dir + "/" + ConfManager.MASTER_YAML)
-		
-		# Add all the modules needed in the RADL
-		modules = []
-		for group in vm_group:
-			# Use the first VM as the info used is the same for all the VMs in the group
-			vm = vm_group[group][0]
+		try:
+			# Get the groups for the different VM types
+			vm_group = self.inf.get_vm_list_by_system_name()
+	
+			# Create the ansible inventory file
+			with open(tmp_dir + "/inventory.cfg", 'w') as inv_out:
+				inv_out.write(ssh.host + ":" + str(ssh.port) + "\n\n")
 			
-			# Get the modules specified by the user in the RADL
-			modules.extend(vm.getModulesToInstall())
-			# Get the info about the apps from the recipes DB
-			vm_modules, _ = Recipe.getInfoApps(vm.getAppsToInstall())
-			modules.extend(vm_modules)
-
-		# avoid duplicates
-		modules = set(modules)
-
-		self.inf.add_cont_msg("Creating and copying Ansible playbook files")
-		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Preparing Ansible playbook to copy Ansible modules: " + str(modules))
-
-		ssh.sftp_mkdir(Config.REMOTE_CONF_DIR)
-		# Copy the utils helper files
-		ssh.sftp_mkdir(Config.REMOTE_CONF_DIR + "/utils")
-		ssh.sftp_put_dir(Config.RECIPES_DIR + "/utils", Config.REMOTE_CONF_DIR + "/utils")
-		
-		for galaxy_name in modules:
-			if galaxy_name:
-				recipe_out = open(tmp_dir + "/" + ConfManager.MASTER_YAML, 'a')
+			shutil.copy(Config.CONTEXTUALIZATION_DIR + "/" + ConfManager.MASTER_YAML, tmp_dir + "/" + ConfManager.MASTER_YAML)
+			
+			# Add all the modules needed in the RADL
+			modules = []
+			for group in vm_group:
+				# Use the first VM as the info used is the same for all the VMs in the group
+				vm = vm_group[group][0]
 				
-				if galaxy_name.startswith("http"):
-					# in case of http url, the file must be compressed 
-					# it must contain only one directory with the same name of the compressed file
-					# (without extension) with the ansible role content 
-					filename = os.path.basename(galaxy_name)
-					self.inf.add_cont_msg("Remote file " + galaxy_name + " detected, setting to install.")
-					ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Install " + galaxy_name + " with ansible-galaxy.")
-					recipe_out.write("    - file: path=/etc/ansible/roles state=directory recurse=yes\n")
-					recipe_out.write("    - get_url: url=" + galaxy_name + " dest=/tmp/" + filename + "\n")
-					recipe_out.write("    - unarchive: src=/tmp/" + filename  + " dest=/etc/ansible/roles copy=no\n")
-				if galaxy_name.startswith("git"):
-					# in case of git repo, the user must specify the rolname using a | afther the url
-					parts = galaxy_name.split("|")
-					if len(parts) > 1:
-						url = parts[0]
-						rolename = parts[1]
-						self.inf.add_cont_msg("Git Repo " + url + " detected, setting to install.")
-						ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Clone " + url + " with git.")
-						recipe_out.write("    - file: path=/etc/ansible/roles state=directory\n")
-						recipe_out.write("    - yum: name=git\n")
-						recipe_out.write('      when: ansible_os_family == "RedHat"\n')
-						recipe_out.write("    - apt: name=git\n")
-						recipe_out.write('      when: ansible_os_family == "Debian"\n')
-						recipe_out.write("    - git: repo=" + url + " dest=/etc/ansible/roles/" + rolename + " accept_hostkey=yes\n")
+				# Get the modules specified by the user in the RADL
+				modules.extend(vm.getModulesToInstall())
+				# Get the info about the apps from the recipes DB
+				vm_modules, _ = Recipe.getInfoApps(vm.getAppsToInstall())
+				modules.extend(vm_modules)
+	
+			# avoid duplicates
+			modules = set(modules)
+	
+			self.inf.add_cont_msg("Creating and copying Ansible playbook files")
+			ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Preparing Ansible playbook to copy Ansible modules: " + str(modules))
+	
+			ssh.sftp_mkdir(Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/")
+			# Copy the utils helper files
+			ssh.sftp_mkdir(Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/" + "/utils")
+			ssh.sftp_put_dir(Config.RECIPES_DIR + "/utils", Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/" + "/utils")
+			
+			for galaxy_name in modules:
+				if galaxy_name:
+					recipe_out = open(tmp_dir + "/" + ConfManager.MASTER_YAML, 'a')
+					
+					if galaxy_name.startswith("http"):
+						# in case of http url, the file must be compressed 
+						# it must contain only one directory with the same name of the compressed file
+						# (without extension) with the ansible role content 
+						filename = os.path.basename(galaxy_name)
+						self.inf.add_cont_msg("Remote file " + galaxy_name + " detected, setting to install.")
+						ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Install " + galaxy_name + " with ansible-galaxy.")
+						recipe_out.write("    - file: path=/etc/ansible/roles state=directory recurse=yes\n")
+						recipe_out.write("    - get_url: url=" + galaxy_name + " dest=/tmp/" + filename + "\n")
+						recipe_out.write("    - unarchive: src=/tmp/" + filename  + " dest=/etc/ansible/roles copy=no\n")
+					if galaxy_name.startswith("git"):
+						# in case of git repo, the user must specify the rolname using a | afther the url
+						parts = galaxy_name.split("|")
+						if len(parts) > 1:
+							url = parts[0]
+							rolename = parts[1]
+							self.inf.add_cont_msg("Git Repo " + url + " detected, setting to install.")
+							ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Clone " + url + " with git.")
+							recipe_out.write("    - file: path=/etc/ansible/roles state=directory\n")
+							recipe_out.write("    - yum: name=git\n")
+							recipe_out.write('      when: ansible_os_family == "RedHat"\n')
+							recipe_out.write("    - apt: name=git\n")
+							recipe_out.write('      when: ansible_os_family == "Debian"\n')
+							recipe_out.write("    - git: repo=" + url + " dest=/etc/ansible/roles/" + rolename + " accept_hostkey=yes\n")
+						else:
+							self.inf.add_cont_msg("Not specified the rolename. Ignoring git repo.")
+							ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": Not specified the rolename. Ignoring git repo.")
 					else:
-						self.inf.add_cont_msg("Not specified the rolename. Ignoring git repo.")
-						ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": Not specified the rolename. Ignoring git repo.")
-				else:
-					self.inf.add_cont_msg("Galaxy role " + galaxy_name + " detected setting to install.")
-					ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Install " + galaxy_name + " with ansible-galaxy.")
-					recipe_out.write("    - name: Install the " + galaxy_name + " role with ansible-galaxy\n")
-					recipe_out.write("      command: ansible-galaxy --force install " + galaxy_name + "\n")
-				
-				recipe_out.close()
-				
-		self.inf.add_cont_msg("Performing preliminary steps to configure Ansible.")
-		# TODO: check to do it with ansible
-		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Check if python-simplejson is installed in REL 5 systems")
-		(stdout, stderr, _) = ssh.execute("cat /etc/redhat-release | grep \"release 5\" &&  sudo yum -y install python-simplejson", 120)
-		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " + stdout + stderr)
+						self.inf.add_cont_msg("Galaxy role " + galaxy_name + " detected setting to install.")
+						ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Install " + galaxy_name + " with ansible-galaxy.")
+						recipe_out.write("    - name: Install the " + galaxy_name + " role with ansible-galaxy\n")
+						recipe_out.write("      command: ansible-galaxy --force install " + galaxy_name + "\n")
+					
+					recipe_out.close()
+					
+			self.inf.add_cont_msg("Performing preliminary steps to configure Ansible.")
+			# TODO: check to do it with ansible
+			ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Check if python-simplejson is installed in REL 5 systems")
+			(stdout, stderr, _) = ssh.execute("cat /etc/redhat-release | grep \"release 5\" &&  sudo yum -y install python-simplejson", 120)
+			ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " + stdout + stderr)
+	
+			ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Remove requiretty in sshd config")
+			(stdout, stderr, _) = ssh.execute("sudo sed -i 's/.*requiretty$/#Defaults requiretty/' /etc/sudoers", 120)
+			ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " + stdout + stderr)
+			
+			self.inf.add_cont_msg("Configure Ansible in the master VM.")
+			ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Call Ansible to (re)configure in the master node")
+			(success, msg) = self.call_ansible(tmp_dir, "inventory.cfg", ConfManager.MASTER_YAML, ssh)
+	
+			if not success:
+				ConfManager.logger.error("Inf ID: " + str(self.inf.id) + ": Error configuring master node: " + msg + "\n\n")
+				self.inf.add_cont_msg("Error configuring the master VM: " + msg + " " + tmp_dir)
+			else:
+				ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Ansible successfully configured in the master VM:\n" + msg + "\n\n")
+				self.inf.add_cont_msg("Ansible successfully configured in the master VM.")
+		except Exception, ex:
+			ConfManager.logger.error("Inf ID: " + str(self.inf.id) + ": Error configuring master node.")
+			self.inf.add_cont_msg("Error configuring master node: " + str(ex))
+			success = False
 
-		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Remove requiretty in sshd config")
-		(stdout, stderr, _) = ssh.execute("sudo sed -i 's/.*requiretty$/#Defaults requiretty/' /etc/sudoers", 120)
-		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " + stdout + stderr)
-		
-		self.inf.add_cont_msg("Configure Ansible in the master VM.")
-		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Call Ansible to (re)configure in the master node")
-		(success, msg) = self.call_ansible(tmp_dir, "inventory.cfg", ConfManager.MASTER_YAML, ssh)
-
-		if not success:
-			ConfManager.logger.error("Inf ID: " + str(self.inf.id) + ": Error configuring in master node: " + msg + "\n\n")
-			self.inf.add_cont_msg("Error configuring the master VM: " + msg + " " + tmp_dir)
-		else:
-			ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Ansible successfully configured in the master VM:\n" + msg + "\n\n")
-			self.inf.add_cont_msg("Ansible successfully configured in the master VM.")
-		
 		return success		
 
 	def create_general_conf_file(self, conf_file, vm_list):
@@ -1125,6 +1164,8 @@ class ConfManager(threading.Thread):
 			else:
 				vm_conf_data = {}
 				vm_conf_data['id'] = vm.im_id
+				if vm.getOS():
+					vm_conf_data['os'] = vm.getOS().lower()
 				if vm.im_id == self.inf.vm_master.im_id:
 					vm_conf_data['master'] = True
 				else:
@@ -1148,22 +1189,29 @@ class ConfManager(threading.Thread):
 				else:
 					conf_data['vms'].append(vm_conf_data)
 
-		conf_data['conf_dir'] = Config.REMOTE_CONF_DIR
+		conf_data['conf_dir'] = Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/"
 		
 		conf_out = open(conf_file, 'w')
 		ConfManager.logger.debug("Ctxt agent general configuration file: " + json.dumps(conf_data))
 		json.dump(conf_data, conf_out, indent=2)
 		conf_out.close()
 
-	def create_vm_conf_file(self, conf_file, vm_id, tasks, remote_dir):
+	def create_vm_conf_file(self, conf_file, vm, tasks, remote_dir):
 		"""
 		Create the configuration file needed by the contextualization agent
 		"""
 		conf_data = {}
 		
-		conf_data['id'] = vm_id	
+		conf_data['id'] = vm.im_id
 		conf_data['tasks'] = tasks
 		conf_data['remote_dir'] = remote_dir
+		
+		new_creds = vm.getCredentialValues(new=True)
+		if len(list(set(new_creds))) > 1 or list(set(new_creds))[0] != None:
+			# If there are data in the new credentials, they has not been changed
+			conf_data['changed_pass'] = False
+		else:
+			conf_data['changed_pass'] = True
 		
 		conf_out = open(conf_file, 'w')
 		ConfManager.logger.debug("Ctxt agent vm configuration file: " + json.dumps(conf_data))

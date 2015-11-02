@@ -23,6 +23,9 @@ from config import Config
 
 AUTH_LINE_SEPARATOR = '\\n'
 
+app = bottle.Bottle()  
+bottle_server = None
+
 # Declaration of new class that inherits from ServerAdapter  
 # It's almost equal to the supported cherrypy class CherryPyServer  
 class MySSLCherryPy(bottle.ServerAdapter):  
@@ -30,6 +33,7 @@ class MySSLCherryPy(bottle.ServerAdapter):
 		from cherrypy.wsgiserver.ssl_builtin import BuiltinSSLAdapter
 		from cherrypy import wsgiserver
 		server = wsgiserver.CherryPyWSGIServer((self.host, self.port), handler)  
+		self.srv = server
 
 		# If cert variable is has a valid path, SSL will be used  
 		# You can set it to None to disable SSL
@@ -38,21 +42,56 @@ class MySSLCherryPy(bottle.ServerAdapter):
 			server.start()  
 		finally:  
 			server.stop()  
+			
+	def shutdown(self):
+		self.srv.stop()
 
-app = bottle.Bottle()  
+class StoppableWSGIRefServer(bottle.ServerAdapter):
+	def run(self, app): # pragma: no cover
+		from wsgiref.simple_server import WSGIRequestHandler, WSGIServer
+		from wsgiref.simple_server import make_server
+		import socket
+
+		class FixedHandler(WSGIRequestHandler):
+			def address_string(self): # Prevent reverse DNS lookups please.
+				return self.client_address[0]
+			def log_request(*args, **kw):
+				if not self.quiet:
+					return WSGIRequestHandler.log_request(*args, **kw)
+
+		handler_cls = self.options.get('handler_class', FixedHandler)
+		server_cls  = self.options.get('server_class', WSGIServer)
+
+		if ':' in self.host: # Fix wsgiref for IPv6 addresses.
+			if getattr(server_cls, 'address_family') == socket.AF_INET:
+				class server_cls(server_cls):
+					address_family = socket.AF_INET6
+
+		srv = make_server(self.host, self.port, app, server_cls, handler_cls)
+		self.srv = srv ### THIS IS THE ONLY CHANGE TO THE ORIGINAL CLASS METHOD!
+		srv.serve_forever()
+
+	def shutdown(self): ### ADD SHUTDOWN METHOD.
+		self.srv.shutdown()
+		# self.server.server_close()
 
 def run_in_thread(host, port):
 	bottle_thr = threading.Thread(target=run, args=(host, port))
 	bottle_thr.start()
 
 def run(host, port):
+	global bottle_server
 	if Config.REST_SSL:
 		# Add our new MySSLCherryPy class to the supported servers  
 		# under the key 'mysslcherrypy'
-		bottle.server_names['mysslcherrypy'] = MySSLCherryPy
-		bottle.run(app, host=host, port=port, server='mysslcherrypy', quiet=True)
+		bottle_server = MySSLCherryPy(host=host, port=port)
+		bottle.run(app, host=host, port=port, server=bottle_server, quiet=True)
 	else:
-		bottle.run(app, host=host, port=port, quiet=True)
+		bottle_server = StoppableWSGIRefServer(host=host, port=port)
+		bottle.run(app, server=bottle_server, quiet=True)
+
+def stop():
+	bottle_server.shutdown()
 
 @app.route('/infrastructures/:id', method='DELETE')
 def RESTDestroyInfrastructure(id=None):
@@ -63,7 +102,7 @@ def RESTDestroyInfrastructure(id=None):
 		bottle.abort(401, "No authentication data provided")
 	
 	try:
-		InfrastructureManager.DestroyInfrastructure(int(id), auth)
+		InfrastructureManager.DestroyInfrastructure(id, auth)
 		return ""
 	except DeletedInfrastructureException, ex:
 		bottle.abort(404, "Error Destroying Inf: " + str(ex))
@@ -84,7 +123,7 @@ def RESTGetInfrastructureInfo(id=None):
 		bottle.abort(401, "No authentication data provided")
 	
 	try:
-		vm_ids = InfrastructureManager.GetInfrastructureInfo(int(id), auth)
+		vm_ids = InfrastructureManager.GetInfrastructureInfo(id, auth)
 		res = ""
 		
 		server_ip = bottle.request.environ['SERVER_NAME']
@@ -116,9 +155,9 @@ def RESTGetInfrastructureProperty(id=None, prop=None):
 	
 	try:
 		if prop == "contmsg":
-			res = InfrastructureManager.GetInfrastructureContMsg(int(id), auth)
+			res = InfrastructureManager.GetInfrastructureContMsg(id, auth)
 		elif prop == "radl":
-			res = InfrastructureManager.GetInfrastructureRADL(int(id), auth)
+			res = InfrastructureManager.GetInfrastructureRADL(id, auth)
 		else:
 			bottle.abort(403, "Incorrect infrastructure property")
 		bottle.response.content_type = "text/plain"
@@ -152,6 +191,9 @@ def RESTGetInfrastructureList():
 		
 		bottle.response.content_type = "text/uri-list"
 		return res
+	except UnauthorizedUserException, ex:
+		bottle.abort(401, "Error Getting Inf. List: " + str(ex))
+		return False
 	except Exception, ex:
 		bottle.abort(400, "Error Getting Inf. List: " + str(ex))
 		return False
@@ -175,7 +217,7 @@ def RESTCreateInfrastructure():
 		bottle.response.content_type = "text/uri-list"
 		return "http://" + server_ip + ":" + server_port + "/infrastructures/" + str(inf_id)
 	except UnauthorizedUserException, ex:
-		bottle.abort(403, "Error Getting Inf. info: " + str(ex))
+		bottle.abort(401, "Error Getting Inf. info: " + str(ex))
 		return False
 	except Exception, ex:
 		bottle.abort(400, "Error Creating Inf.: " + str(ex))
@@ -190,7 +232,7 @@ def RESTGetVMInfo(infid=None, vmid=None):
 		bottle.abort(401, "No authentication data provided")
 	
 	try:
-		info = InfrastructureManager.GetVMInfo(int(infid), vmid, auth)
+		info = InfrastructureManager.GetVMInfo(infid, vmid, auth)
 		bottle.response.content_type = "text/plain"
 		return info
 	except DeletedInfrastructureException, ex:
@@ -219,11 +261,11 @@ def RESTGetVMProperty(infid=None, vmid=None, prop=None):
 	
 	try:
 		if prop == 'contmsg':
-			info = InfrastructureManager.GetVMContMsg(int(infid), vmid, auth)
+			info = InfrastructureManager.GetVMContMsg(infid, vmid, auth)
 		else:
-			info = InfrastructureManager.GetVMProperty(int(infid), vmid, prop, auth)
+			info = InfrastructureManager.GetVMProperty(infid, vmid, prop, auth)
 		bottle.response.content_type = "text/plain"
-		return info
+		return str(info)
 	except DeletedInfrastructureException, ex:
 		bottle.abort(404, "Error Getting VM. property: " + str(ex))
 		return False
@@ -260,7 +302,7 @@ def RESTAddResource(id=None):
 				bottle.abort(400, "Incorrect value in context parameter")
 				
 		radl_data = bottle.request.body.read()
-		vm_ids = InfrastructureManager.AddResource(int(id), radl_data, auth, context)
+		vm_ids = InfrastructureManager.AddResource(id, radl_data, auth, context)
 
 		server_ip = bottle.request.environ['SERVER_NAME']
 		server_port = bottle.request.environ['SERVER_PORT']
@@ -302,7 +344,7 @@ def RESTRemoveResource(infid=None, vmid=None):
 			else:
 				bottle.abort(400, "Incorrect value in context parameter")
 
-		InfrastructureManager.RemoveResource(int(infid), vmid, auth, context)
+		InfrastructureManager.RemoveResource(infid, vmid, auth, context)
 		return ""
 	except DeletedInfrastructureException, ex:
 		bottle.abort(404, "Error Removing resources: " + str(ex))
@@ -332,7 +374,7 @@ def RESTAlterVM(infid=None, vmid=None):
 		radl_data = bottle.request.body.read()
 		
 		bottle.response.content_type = "text/plain"
-		return InfrastructureManager.AlterVM(int(infid), vmid, radl_data, auth)
+		return InfrastructureManager.AlterVM(infid, vmid, radl_data, auth)
 	except DeletedInfrastructureException, ex:
 		bottle.abort(404, "Error modifying resources: " + str(ex))
 		return False
@@ -370,7 +412,7 @@ def RESTReconfigureInfrastructure(id=None):
 			radl_data = bottle.request.forms.get('radl')
 		else:
 			radl_data = ""
-		return InfrastructureManager.Reconfigure(int(id), radl_data, auth, vm_list)
+		return InfrastructureManager.Reconfigure(id, radl_data, auth, vm_list)
 	except DeletedInfrastructureException, ex:
 		bottle.abort(404, "Error reconfiguring infrastructure: " + str(ex))
 		return False
@@ -390,7 +432,7 @@ def RESTStartInfrastructure(id=None):
 		bottle.abort(401, "No authentication data provided")
 
 	try:
-		return InfrastructureManager.StartInfrastructure(int(id), auth)	
+		return InfrastructureManager.StartInfrastructure(id, auth)	
 	except DeletedInfrastructureException, ex:
 		bottle.abort(404, "Error starting infrastructure: " + str(ex))
 		return False
@@ -410,7 +452,7 @@ def RESTStopInfrastructure(id=None):
 		bottle.abort(401, "No authentication data provided")
 
 	try:
-		return InfrastructureManager.StopInfrastructure(int(id), auth)	
+		return InfrastructureManager.StopInfrastructure(id, auth)	
 	except DeletedInfrastructureException, ex:
 		bottle.abort(404, "Error stopping infrastructure: " + str(ex))
 		return False
@@ -430,7 +472,7 @@ def RESTStartVM(infid=None, vmid=None, prop=None):
 		bottle.abort(401, "No authentication data provided")
 	
 	try:
-		info = InfrastructureManager.StartVM(int(infid), vmid, auth)
+		info = InfrastructureManager.StartVM(infid, vmid, auth)
 		bottle.response.content_type = "text/plain"
 		return info
 	except DeletedInfrastructureException, ex:
@@ -458,7 +500,7 @@ def RESTStopVM(infid=None, vmid=None, prop=None):
 		bottle.abort(401, "No authentication data provided")
 	
 	try:
-		info = InfrastructureManager.StopVM(int(infid), vmid, auth)
+		info = InfrastructureManager.StopVM(infid, vmid, auth)
 		bottle.response.content_type = "text/plain"
 		return info
 	except DeletedInfrastructureException, ex:

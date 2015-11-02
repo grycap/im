@@ -7,7 +7,7 @@ and the security settings are controlled by the options listed in
 
 Every HTTP request must be companied by the header ``AUTHORIZATION`` with
 the content of the :ref:`auth-file`, but the lines separated with
-"\\n" instead. If the content cannot be parsed successfully, or the user and
+"\\\\n" instead. If the content cannot be parsed successfully, or the user and
 password are not valid, it is returned the HTTP error code 401.
 
 Next tables summaries the resources and the HTTP methods available.

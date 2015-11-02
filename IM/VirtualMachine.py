@@ -112,6 +112,7 @@ class VirtualMachine:
 		if not self.destroy:
 			if not self.cloud_connector:
 				self.cloud_connector = self.cloud.getCloudConnector()
+			self.kill_check_ctxt_process()
 			(success, msg) = self.cloud_connector.finalize(self, auth)
 			if success:
 				self.destroy = True
@@ -433,21 +434,28 @@ class VirtualMachine:
 		vm_system = self.info.systems[0]
 
 		if public_ips and not set(public_ips).issubset(set(private_ips)):
-			public_net = None
+			public_nets = []
 			for net in self.info.networks:
 				if net.isPublic():
-					public_net = net
-					
-			if public_net is None:
+					public_nets.append(net)
+
+			if public_nets:
+				public_net = None
+				for net in public_nets:
+					num_net = self.getNumNetworkWithConnection(net.id)
+					if num_net is not None:
+						public_net = net
+						break
+
+				if not public_net:
+					# There are a public net but it has not been used in this VM
+					public_net = public_nets[0]
+					num_net = self.getNumNetworkIfaces()
+			else:
+				# There no public net, create one
 				public_net = network.createNetwork("public." + now, True)
 				self.info.networks.append(public_net)
 				num_net = self.getNumNetworkIfaces()
-			else:
-				# If there are are public net, get the ID
-				num_net = self.getNumNetworkWithConnection(public_net.id)
-				if num_net is None:
-					# There are a public net but it has not been used in this VM
-					num_net = self.getNumNetworkIfaces()
 
 			for public_ip in public_ips:
 				if public_ip not in private_ips:
@@ -534,6 +542,7 @@ class VirtualMachine:
 			if self.ctxt_pid != self.WAIT_TO_PID:
 				ssh = self.inf.vm_master.get_ssh(retry = True)
 				try:
+					VirtualMachine.logger.debug("Killing ctxt process with pid: " + str(self.ctxt_pid))
 					ssh.execute("kill -9 " + str(self.ctxt_pid))
 				except:
 					VirtualMachine.logger.exception("Error killing ctxt process with pid: " + str(self.ctxt_pid))
@@ -553,17 +562,18 @@ class VirtualMachine:
 		ip = self.getPublicIP()
 		if not ip:
 			ip = ip = self.getPrivateIP()
-		remote_dir = Config.REMOTE_CONF_DIR + "/" + ip + "_" + str(self.getSSHPort())
+		remote_dir = Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/" + ip + "_" + str(self.getSSHPort())
 
 		initial_count_out = self.cont_out
 		wait = 0
-		while self.ctxt_pid:
-			if self.ctxt_pid != self.WAIT_TO_PID:
+		while self.ctxt_pid and not self.destroy:
+			ctxt_pid = self.ctxt_pid
+			if ctxt_pid != self.WAIT_TO_PID:
 				ssh = self.inf.vm_master.get_ssh(retry = True)
 
 				if self.state in VirtualMachine.NOT_RUNNING_STATES:
 					try:
-						ssh.execute("kill -9 " + str(self.ctxt_pid))
+						ssh.execute("kill -9 " + str(ctxt_pid))
 					except:
 						VirtualMachine.logger.exception("Error killing ctxt process with pid: " + str(self.ctxt_pid))
 						pass
@@ -572,13 +582,13 @@ class VirtualMachine:
 					self.ctxt_pid = None
 				else:
 					try:
-						(_, _, exit_status) = ssh.execute("ps " + str(self.ctxt_pid))
+						(_, _, exit_status) = ssh.execute("ps " + str(ctxt_pid))
 					except:
-						VirtualMachine.logger.warn("Error getting status of ctxt process with pid: " + str(self.ctxt_pid))
+						VirtualMachine.logger.warn("Error getting status of ctxt process with pid: " + str(ctxt_pid))
 						exit_status = 0
 						self.ssh_connect_errors += 1
 						if self.ssh_connect_errors > Config.MAX_SSH_ERRORS:
-							VirtualMachine.logger.error("Too much errors getting status of ctxt process with pid: " + str(self.ctxt_pid) + ". Forget it.")
+							VirtualMachine.logger.error("Too much errors getting status of ctxt process with pid: " + str(ctxt_pid) + ". Forget it.")
 							self.ssh_connect_errors = 0
 							self.configured = False
 							self.ctxt_pid = None
@@ -587,17 +597,17 @@ class VirtualMachine:
 					if exit_status != 0:
 						# The process has finished, get the outputs
 						ctxt_log = self.get_ctxt_log(remote_dir, True)
-						self.get_ctxt_output(remote_dir, True)
+						msg = self.get_ctxt_output(remote_dir, True)
 						if ctxt_log:
-							self.cont_out = initial_count_out + ctxt_log
+							self.cont_out = initial_count_out + msg + ctxt_log
 						else:
-							self.cont_out = initial_count_out + "Error getting contextualization process log."
+							self.cont_out = initial_count_out + msg + "Error getting contextualization process log."
 						self.ctxt_pid = None
 					else:
 						# Get the log of the process to update the cont_out dynamically
 						if Config.UPDATE_CTXT_LOG_INTERVAL > 0 and wait > Config.UPDATE_CTXT_LOG_INTERVAL:
 							wait = 0
-							VirtualMachine.logger.debug("Get the log of the ctxt process with pid: "+ str(self.ctxt_pid))
+							VirtualMachine.logger.debug("Get the log of the ctxt process with pid: "+ str(ctxt_pid))
 							ctxt_log = self.get_ctxt_log(remote_dir)
 							self.cont_out = initial_count_out + ctxt_log
 						# The process is still running, wait
@@ -650,6 +660,7 @@ class VirtualMachine:
 	def get_ctxt_output(self, remote_dir, delete = False):
 		ssh = self.inf.vm_master.get_ssh(retry=True)
 		tmp_dir = tempfile.mkdtemp()
+		msg = ""
 			
 		# Download the contextualization agent log
 		try:
@@ -664,12 +675,31 @@ class VirtualMachine:
 				pass
 			# And process it
 			self.process_ctxt_agent_out(ctxt_agent_out)
+			msg = "Contextualization agent output processed successfully"
+		except IOError, ex:
+			msg = "Error getting contextualization agent output " + remote_dir + "/ctxt_agent.out:  No such file."
+			VirtualMachine.logger.error(msg)	
+			try:
+				# Get the output of the ctxt_agent to guess why the agent output is not there. 
+				src = [remote_dir + '/stdout', remote_dir + '/stderr']
+				dst = [tmp_dir + '/stdout', tmp_dir + '/stderr']
+				ssh.sftp_get_files(src,dst)
+				stdout = ""
+				with open(tmp_dir + '/stdout') as f: stdout += "\n" + f.read() + "\n"
+				with open(tmp_dir + '/stderr') as f: stdout += f.read() + "\n"
+				VirtualMachine.logger.error(stdout)
+				msg += stdout
+			except:
+				VirtualMachine.logger.exception("Error getting stdout and stderr to guess why the agent output is not there.")
+				pass
 		except Exception, ex:
 			VirtualMachine.logger.exception("Error getting contextualization agent output: " + remote_dir + '/ctxt_agent.out')
 			self.configured = False
-			self.cont_out += "Error getting contextualization agent output: "  + str(ex)
+			msg = "Error getting contextualization agent output: "  + str(ex)
 		finally:
 			shutil.rmtree(tmp_dir, ignore_errors=True)
+		
+		return msg
 		
 	def process_ctxt_agent_out(self, ctxt_agent_out):
 		"""
