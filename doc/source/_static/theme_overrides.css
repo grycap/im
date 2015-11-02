@@ -242,3 +242,10 @@ a:visited, ul:visited, li:visited {
 .wy-menu-vertical li.current ul {
     display: inline;
 }
+
+.rst-versions .rst-other-versions dd a {
+    display: inline-block;
+    padding: 6px;
+    color: gray;
+}
+
