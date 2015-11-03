@@ -93,6 +93,8 @@ class Tosca:
 				else:
 					# Select the host to host this element
 					compute = Tosca._find_host_compute(node, self.tosca.nodetemplates)
+					if not compute:
+						Tosca.logger.warn("Node %s has not compute node to host in." % node.name)
 
 				interfaces = Tosca._get_interfaces(node)
 				interfaces.update(Tosca._get_relationships_interfaces(relationships, node))
