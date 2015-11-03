@@ -87,6 +87,11 @@ tosca.nodes.indigo.GalaxyPortal:
       description: path to install the galaxy tool
       default: /home/galaxy/galaxy
       required: false
+  requirements:
+    - host:
+        capability: tosca.capabilities.Container
+        node: tosca.nodes.Compute
+        relationship: tosca.relationships.HostedOn
   interfaces:
     Standard:
       create: 
@@ -137,3 +142,60 @@ tosca.nodes.indigo.GalaxyTool:
           galaxy_tool_name: { get_property: [ SELF, name ] }
           galaxy_tool_owner: { get_property: [ SELF, owner ] }
           galaxy_tool_panel_section_id: { get_property: [ SELF, tool_panel_section_id ] }
+
+
+tosca.capabilities.LRMS:
+  derived_from: tosca.capabilities.Root
+  properties:
+    lrms_type:
+      type: string
+      required: true
+  
+tosca.capabilities.LRMS.Torque:
+  derived_from: tosca.capabilities.LRMS
+  properties:
+    lrms_type: torque
+
+
+tosca.nodes.indigo.LRMS:
+  derived_from: tosca.nodes.SoftwareComponent
+  
+tosca.nodes.indigo.LRMS.FrontEnd:
+  derived_from: tosca.nodes.indigo.LRMS
+  capabilities:
+    cluster_endpoint:
+      type: tosca.capabilities.Endpoint
+
+tosca.nodes.indigo.LRMS.FrontEnd.Torque:
+  derived_from: tosca.nodes.indigo.LRMS.FrontEnd
+  capabilities:
+    lrms_front_end:
+      type: tosca.capabilities.LRMS.Torque
+  interfaces:
+    Standard:
+      create: lrms/torque_install.yml
+      configure: lrms/torque_configure.yml
+      start: lrms/torque_start.yml
+          
+tosca.nodes.indigo.CLUES:
+  derived_from: tosca.nodes.SoftwareComponent
+  properties:
+    secret_token:
+      type: string
+      description: Token to access the web interface
+      default: not_very_secret_token
+      required: false
+  requirements:
+    - lrms_front_end:
+        capability: tosca.capabilities.LRMS
+        node: tosca.nodes.indigo.LRMS.FrontEnd
+        relationship: tosca.relationships.HostedOn
+  interfaces:
+    Standard:
+      create: clues/clues_install.yml
+      configure:
+        implementation: clues/clues_configure.yml
+        inputs:
+          clues_secret_token: { get_property: [ SELF, secret_token ] }
+          clues_queue_system: { get_property: [ SELF, lrms_front_end, lrms_type ] }
+      start: clues/clues_start.yml
