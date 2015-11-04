@@ -108,7 +108,7 @@ pygments_style = 'sphinx'
 # -- Options for HTML output ----------------------------------------------
 
 # Add any paths that contain custom themes here, relative to this directory.
-html_theme_path = ["../.."]
+html_theme_path = ["../..","."]
 
 html_theme = 'sphinx_rtd_theme'
 
