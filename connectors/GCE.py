@@ -148,7 +148,8 @@ class GCECloudConnector(CloudConnector):
             
             if net:
                 provider_id = net.getValue('provider_id')
-                break;
+                if provider_id:
+                    break;
         
         # TODO: check that the net exist in GCE
         return provider_id

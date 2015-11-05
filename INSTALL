@@ -77,7 +77,7 @@ $ mv IM-X.XX /usr/local
 
 Finally you must copy (or link) $IM_PATH/scripts/im file to /etc/init.d directory.
 
-$ ln -s /usr/local/im/scripts/im /etc/init.d
+$ ln -s /usr/local/im/scripts/im /etc/init.d/im
 
 1.4 CONFIGURATION
 

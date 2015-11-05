@@ -773,7 +773,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 		
 		if self.checkResize():
 			if not radl.systems:
-				return ""
+				return (True, "")
 			system = radl.systems[0]
 
 			cpu = vm.info.systems[0].getValue('cpu.count')
