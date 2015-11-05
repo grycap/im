@@ -158,6 +158,8 @@ def RESTGetInfrastructureProperty(id=None, prop=None):
 			res = InfrastructureManager.GetInfrastructureContMsg(id, auth)
 		elif prop == "radl":
 			res = InfrastructureManager.GetInfrastructureRADL(id, auth)
+		elif prop == "state":
+			res = InfrastructureManager.GetInfrastructureState(id, auth)
 		else:
 			bottle.abort(403, "Incorrect infrastructure property")
 		bottle.response.content_type = "text/plain"

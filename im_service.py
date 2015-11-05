@@ -123,6 +123,10 @@ def StartVM(inf_id, vm_id, auth_data):
 	request = IMBaseRequest.create_request(IMBaseRequest.START_VM,(inf_id, vm_id, auth_data)) 
 	return WaitRequest(request)
 
+def GetInfrastructureState(inf_id, auth_data):
+	request = IMBaseRequest.create_request(IMBaseRequest.GET_INFRASTRUCTURE_STATE,(inf_id, auth_data)) 
+	return WaitRequest(request)
+
 def launch_daemon():
 	"""
 	Launch the IM daemon
@@ -161,6 +165,7 @@ def launch_daemon():
 	server.register_function(GetVMContMsg)
 	server.register_function(StartVM)
 	server.register_function(StopVM)
+	server.register_function(GetInfrastructureState)
 	
 	InfrastructureManager.logger.info('************ Start Infrastructure Manager daemon (v.%s) ************' % version)
 
