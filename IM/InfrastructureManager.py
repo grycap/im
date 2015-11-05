@@ -37,6 +37,7 @@ from IM.db import DataBase
 from IM.tosca.Tosca import Tosca
 
 from config import Config
+from IM.VirtualMachine import VirtualMachine
 
 if Config.MAX_SIMULTANEOUS_LAUNCHES > 1:
 	from multiprocessing.pool import ThreadPool
