@@ -217,6 +217,13 @@ class TestIM(unittest.TestCase):
         resp = self.server.getresponse()
         output = str(resp.read())
         self.assertEqual(resp.status, 200, msg="ERROR adding resources:" + output)
+        
+    def test_46_getstate(self):
+        self.server.request('GET', "/infrastructures/" + self.inf_id + "/state", headers = {'AUTHORIZATION' : self.auth_data})
+        resp = self.server.getresponse()
+        output = str(resp.read())
+        self.assertEqual(resp.status, 200, msg="ERROR getting the infrastructure state:" + output)
+        self.assertEqual(output, "configured", msg="Unexpected inf state: " + output + ". It must be 'configured'.")
 
     def test_47_removeresource_noconfig(self):
         self.server.request('GET', "/infrastructures/" + self.inf_id + "?context=0", headers = {'AUTHORIZATION' : self.auth_data})
