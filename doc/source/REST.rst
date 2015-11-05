@@ -84,9 +84,10 @@ GET ``http://imserver.com/infrastructures/<infId>/<property_name>``
    :fail response: 401, 404, 400, 403
 
    Return property ``property_name`` associated to the infrastructure with ID ``infId``.
-   It has two properties:
+   It has three properties:
    	:``contmsg``: a string with the contextualization message.
    	:``radl``: a string with the original specified RADL of the infrastructure.
+      :``state``: a string with the aggregated state of the infrastructure.
 
 POST ``http://imserver.com/infrastructures/<infId>``
    :body: ``RADL document``

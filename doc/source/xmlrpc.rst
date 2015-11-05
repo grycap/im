@@ -49,6 +49,15 @@ This is the list of method names:
    Return the contextualization log associated to the 
    infrastructure with ID ``infId``. 
    
+``GetInfrastructureState``
+   :parameter 0: ``infId``: integer
+   :parameter 1: ``auth``: array of structs
+   :ok response: [true, ``state``: string]
+   :fail response: [false, ``error``: string]
+
+   Return the aggregated state associated to the 
+   infrastructure with ID ``infId``. 
+   
 ``GetInfrastructureRADL``
    :parameter 0: ``infId``: integer
    :parameter 1: ``auth``: array of structs
