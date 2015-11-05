@@ -19,6 +19,11 @@
 import unittest
 import xmlrpclib
 import time
+import sys
+import os
+
+sys.path.append("..")
+sys.path.append(".")
 
 from IM.auth import Authentication
 from IM.VirtualMachine import VirtualMachine
@@ -27,7 +32,7 @@ from IM.radl import radl_parse
 RADL_ADD_WIN = "network publica\nnetwork privada\nsystem windows\ndeploy windows 1 one"
 RADL_ADD = "network publica\nnetwork privada\nsystem wn\ndeploy wn 1 one"
 RADL_ADD_ERROR = "system wnno deploy wnno 1"
-TESTS_PATH = '/home/micafer/codigo/git_im/im/test'
+TESTS_PATH = os.path.dirname(os.path.realpath(__file__))
 RADL_FILE = TESTS_PATH + '/test.radl'
 #RADL_FILE =  TESTS_PATH + '/test_ec2.radl'
 AUTH_FILE = TESTS_PATH + '/auth.dat'
@@ -343,8 +348,6 @@ class TestIM(unittest.TestCase):
         
         (success, res) = self.server.ImportInfrastructure(res, self.auth_data)
         self.assertTrue(success, msg="ERROR calling ImportInfrastructure: " + str(res))
-
-        self.assertEqual(res, self.inf_id+1, msg="ERROR importing the inf.")
 
     def test_50_destroy(self):
         """
