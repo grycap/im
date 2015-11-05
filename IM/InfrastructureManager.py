@@ -791,6 +791,55 @@ class InfrastructureManager:
 		return res
 
 	@staticmethod
+	def GetInfrastructureState(inf_id, auth):
+		"""
+		Get the aggregated state of an infrastructure.
+
+		Args:
+
+		- inf_id(str): infrastructure id.
+		- auth(Authentication): parsed authentication tokens.
+
+		Return: a str with the state
+		"""
+
+		InfrastructureManager.logger.info("Getting state of the inf: " + str(inf_id))
+	
+		sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
+
+		state = None
+		for vm in sel_inf.get_vm_list():
+			if vm.state == VirtualMachine.FAILED:
+				state = VirtualMachine.FAILED
+				break
+			if vm.state == VirtualMachine.UNKNOWN:
+				state = VirtualMachine.UNKNOWN
+				break
+			elif vm.state == VirtualMachine.PENDING:
+				state = VirtualMachine.PENDING
+			elif vm.state == VirtualMachine.RUNNING:
+				if state != VirtualMachine.PENDING:
+					state = VirtualMachine.RUNNING
+			elif vm.state == VirtualMachine.STOPPED:
+				if state is None:
+					state = VirtualMachine.STOPPED
+			elif vm.state == VirtualMachine.OFF:
+				if state is None:
+					state = VirtualMachine.OFF
+			elif vm.state == VirtualMachine.CONFIGURED:
+				if state is None:
+					state = VirtualMachine.CONFIGURED
+			elif vm.state == VirtualMachine.UNCONFIGURED:
+				if state is None:
+					state = VirtualMachine.UNCONFIGURED
+
+		if state is None:
+			state = VirtualMachine.UNKNOWN
+
+		InfrastructureManager.logger.debug("inf: " + str(inf_id) + " is in state: " + state)
+		return state
+
+	@staticmethod
 	def StopInfrastructure(inf_id, auth):
 		"""
 		Stop all virtual machines in an infrastructure.

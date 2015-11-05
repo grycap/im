@@ -19,6 +19,11 @@
 import unittest
 import xmlrpclib
 import time
+import sys
+import os
+
+sys.path.append("..")
+sys.path.append(".")
 
 from IM.auth import Authentication
 from IM.VirtualMachine import VirtualMachine
@@ -27,7 +32,7 @@ from IM.radl import radl_parse
 RADL_ADD_WIN = "network publica\nnetwork privada\nsystem windows\ndeploy windows 1 one"
 RADL_ADD = "network publica\nnetwork privada\nsystem wn\ndeploy wn 1 one"
 RADL_ADD_ERROR = "system wnno deploy wnno 1"
-TESTS_PATH = '/home/micafer/codigo/git_im/im/test'
+TESTS_PATH = os.path.dirname(os.path.realpath(__file__))
 RADL_FILE = TESTS_PATH + '/test.radl'
 #RADL_FILE =  TESTS_PATH + '/test_ec2.radl'
 AUTH_FILE = TESTS_PATH + '/auth.dat'
@@ -199,7 +204,15 @@ class TestIM(unittest.TestCase):
         all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 900)
         self.assertTrue(all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
-    def test_20_addresource_noconfig(self):
+    def test_20_getstate(self):
+        """
+        Test the GetInfrastructureState IM function
+        """
+        (success, state) = self.server.GetInfrastructureState(self.inf_id, self.auth_data)
+        self.assertTrue(success, msg="ERROR calling GetInfrastructureState: " + str(state))
+        self.assertEqual(state, "configured", msg="Unexpected inf state: " + state + ". It must be 'configured'.")
+
+    def test_21_addresource_noconfig(self):
         """
         Test AddResource function with the contex option to False
         """
@@ -210,7 +223,7 @@ class TestIM(unittest.TestCase):
         self.assertTrue(success, msg="ERROR calling GetInfrastructureInfo:" + str(vm_ids))
         self.assertEqual(len(vm_ids), 5, msg="ERROR getting infrastructure info: Incorrect number of VMs(" + str(len(vm_ids)) + "). It must be 3")
 
-    def test_21_removeresource(self):
+    def test_22_removeresource(self):
         """
         Test RemoveResource function
         """
@@ -231,7 +244,7 @@ class TestIM(unittest.TestCase):
         all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 600)
         self.assertTrue(all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
-    def test_22_removeresource_noconfig(self):
+    def test_23_removeresource_noconfig(self):
         """
         Test RemoveResource function with the context option to False
         """
@@ -249,7 +262,7 @@ class TestIM(unittest.TestCase):
         self.assertTrue(success, msg="ERROR getting VM state:" + str(res))
         self.assertEqual(vm_state, VirtualMachine.CONFIGURED, msg="ERROR unexpected state. Expected 'running' and obtained " + vm_state)
 
-    def test_23_reconfigure(self):
+    def test_24_reconfigure(self):
         """
         Test Reconfigure function
         """
@@ -259,7 +272,7 @@ class TestIM(unittest.TestCase):
         all_stopped = self.wait_inf_state(VirtualMachine.CONFIGURED, 600)
         self.assertTrue(all_stopped, msg="ERROR waiting the infrastructure to be configured (timeout).")
         
-    def test_24_reconfigure_vmlist(self):
+    def test_25_reconfigure_vmlist(self):
         """
         Test Reconfigure function specifying a list of VMs
         """
@@ -269,7 +282,7 @@ class TestIM(unittest.TestCase):
         all_stopped = self.wait_inf_state(VirtualMachine.CONFIGURED, 600)
         self.assertTrue(all_stopped, msg="ERROR waiting the infrastructure to be configured (timeout).")
         
-    def test_25_reconfigure_radl(self):
+    def test_26_reconfigure_radl(self):
         """
         Test Reconfigure function specifying a new RADL
         """
@@ -343,8 +356,6 @@ class TestIM(unittest.TestCase):
         
         (success, res) = self.server.ImportInfrastructure(res, self.auth_data)
         self.assertTrue(success, msg="ERROR calling ImportInfrastructure: " + str(res))
-
-        self.assertEqual(res, self.inf_id+1, msg="ERROR importing the inf.")
 
     def test_50_destroy(self):
         """

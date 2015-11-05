@@ -21,6 +21,9 @@ import unittest
 import sys
 from mock import Mock
 
+sys.path.append("..")
+sys.path.append(".")
+
 from IM.config import Config
 # To load the ThreadPool class
 Config.MAX_SIMULTANEOUS_LAUNCHES = 2
@@ -40,7 +43,7 @@ class TestIM(unittest.TestCase):
 
 		IM._reinit()
 		# Patch save_data
-		IM.save_data = staticmethod(lambda: None)
+		IM.save_data = staticmethod(lambda *args: None)
 	
 	def tearDown(self):
 		IM.stop()

@@ -20,6 +20,10 @@ import unittest
 import os
 import httplib
 import time
+import sys
+
+sys.path.append("..")
+sys.path.append(".")
 
 from IM.VirtualMachine import VirtualMachine
 from IM.uriparse import uriparse
@@ -28,11 +32,11 @@ from IM.radl import radl_parse
 PID = None
 RADL_ADD = "network publica\nsystem front\ndeploy front 1"
 RADL_ADD_ERROR = "system wnno deploy wnno 1"
-TESTS_PATH = '/home/micafer/codigo/git_im/im/test'
+TESTS_PATH = os.path.dirname(os.path.realpath(__file__))
 RADL_FILE = TESTS_PATH + '/test_simple.radl'
 AUTH_FILE = TESTS_PATH + '/auth.dat'
 
-HOSTNAME = "jonsu.i3m.upv.es"
+HOSTNAME = "localhost"
 TEST_PORT = 8800
 
 class TestIM(unittest.TestCase):
@@ -72,7 +76,7 @@ class TestIM(unittest.TestCase):
             
             vm_ids = output.split("\n")
         else:
-        	pass
+            pass
 
         err_states = [VirtualMachine.FAILED, VirtualMachine.OFF, VirtualMachine.UNCONFIGURED]
         err_states.extend(incorrect_states)
@@ -213,6 +217,13 @@ class TestIM(unittest.TestCase):
         resp = self.server.getresponse()
         output = str(resp.read())
         self.assertEqual(resp.status, 200, msg="ERROR adding resources:" + output)
+        
+    def test_46_getstate(self):
+        self.server.request('GET', "/infrastructures/" + self.inf_id + "/state", headers = {'AUTHORIZATION' : self.auth_data})
+        resp = self.server.getresponse()
+        output = str(resp.read())
+        self.assertEqual(resp.status, 200, msg="ERROR getting the infrastructure state:" + output)
+        self.assertEqual(output, "configured", msg="Unexpected inf state: " + output + ". It must be 'configured'.")
 
     def test_47_removeresource_noconfig(self):
         self.server.request('GET', "/infrastructures/" + self.inf_id + "?context=0", headers = {'AUTHORIZATION' : self.auth_data})

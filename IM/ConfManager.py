@@ -585,6 +585,7 @@ class ConfManager(threading.Thread):
 			success = False
 			cont = 0
 			while not success and cont < Config.PLAYBOOK_RETRIES:
+				time.sleep(cont*5)
 				cont += 1
 				try:
 					ConfManager.logger.info("Inf ID: " + str(self.inf.id) + ": Start the contextualization process.")

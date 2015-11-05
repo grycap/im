@@ -16,8 +16,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-TESTS_PATH = '/home/micafer/codigo/git_im/im/test'
+import sys
+import os
 
+TESTS_PATH = os.path.dirname(os.path.realpath(__file__)) 
+
+sys.path.append("..")
+sys.path.append(".")
 
 from IM.radl.radl_parse import parse_radl
 from IM.radl.radl import RADL, Features, Feature, RADLParseException, system
