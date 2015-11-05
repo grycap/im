@@ -37,6 +37,7 @@ class IMBaseRequest(AsyncRequest):
 	GET_INFRASTRUCTURE_INFO = "GetInfrastructureInfo"
 	GET_INFRASTRUCTURE_LIST = "GetInfrastructureList"
 	GET_INFRASTRUCTURE_RADL = "GetInfrastructureRADL"
+	GET_INFRASTRUCTURE_STATE = "GetInfrastructureState"
 	GET_VM_CONT_MSG = "GetVMContMsg"
 	GET_VM_INFO = "GetVMInfo"
 	GET_VM_PROPERTY = "GetVMProperty"
@@ -91,6 +92,9 @@ class IMBaseRequest(AsyncRequest):
 			return Request_StartVM(arguments)
 		elif function == IMBaseRequest.STOP_VM:
 			return Request_StopVM(arguments)
+		elif function == IMBaseRequest.GET_INFRASTRUCTURE_STATE:
+			return Request_GetInfrastructureState(arguments)
+		
 		else:
 			raise NotImplementedError("Function not Implemented")
 
@@ -297,3 +301,14 @@ class Request_StopVM(IMBaseRequest):
 		(inf_id, vm_id, auth_data) = self.arguments
 		InfrastructureManager.InfrastructureManager.StopVM(inf_id, vm_id, Authentication(auth_data))
 		return ""
+
+class Request_GetInfrastructureState(IMBaseRequest):
+	"""
+	Request class for the GetInfrastructureState function
+	"""
+	def _call_function(self):
+		self._error_mesage = "Error gettinf the Inf. state"
+		(inf_id, auth_data) = self.arguments
+		return InfrastructureManager.InfrastructureManager.GetInfrastructureState(inf_id, Authentication(auth_data))
+	
+	
