@@ -106,10 +106,10 @@ content and move the extracted directory to the installation path (for instance
 :file:`/usr/local` or :file:`/opt`)::
 
    $ tar xvzf IM-0.1.tar.gz
-   $ sudo chown -R r```````````````````````````````````````````````oot:root IM-0.1.tar.gz
+   $ sudo chown -R root:root IM-0.1.tar.gz
    $ sudo mv IM-0.1 /usr/local
 
-Finally you must copy (or link) $IM_PATH//scripts/im file to /etc/init.d directory::
+Finally you must copy (or link) $IM_PATH/scripts/im file to /etc/init.d directory::
 
    $ sudo ln -s /usr/local/IM-0.1/scripts/im /etc/init.d
 
@@ -129,9 +129,13 @@ If you want the IM Service to be started at boot time, do
 
 To do the last step on a Debian based distributions, execute::
 
+   $ sudo sysv-rc-conf im on
+
+if the package 'sysv-rc-conf' is not available in your distribution, execute::
+
    $ sudo update-rc.d im start 99 2 3 4 5 . stop 05 0 1 6 .
 
-or the next command on Red Hat based::
+For Red Hat based distributions::
 
    $ sudo chkconfig im on
 

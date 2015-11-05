@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import time
 from ssl import SSLError
 import json
 import os
@@ -148,11 +149,36 @@ class OCCICloudConnector(CloudConnector):
 			
 			return res
 
+	def get_attached_volumes(self, occi_res):
+		"""
+		Get the attached volumes in VM from the OCCI information returned by the server 
+		"""
+		# Link: </storage/0>;rel="http://schemas.ogf.org/occi/infrastructure#storage";self="/link/storagelink/compute_10_disk_0";category="http://schemas.ogf.org/occi/infrastructure#storagelink http://opennebula.org/occi/infrastructure#storagelink";occi.core.id="compute_10_disk_0";occi.core.title="ttylinux - kvm_file0";occi.core.target="/storage/0";occi.core.source="/compute/10";occi.storagelink.deviceid="/dev/hda";occi.storagelink.state="active"
+		lines = occi_res.split("\n")
+		res = []
+		for l in lines:
+			if l.find('Link:') != -1 and l.find('/storage/') != -1:
+				num_link = None
+				num_storage = None
+				device = None
+				parts = l.split(';')
+				for part in parts:
+					kv = part.split('=')
+					if kv[0].strip() == "self":
+						num_link = kv[1].strip('"')
+					elif kv[0].strip() == "occi.storagelink.deviceid":
+						device = kv[1].strip('"') 
+					elif kv[0].strip() == "occi.core.target":
+						num_storage = kv[1].strip('"')
+				if num_link and num_storage:
+					res.append((num_link, num_storage, device))
+		return res
 
 	def get_net_info(self, occi_res):
 		"""
 		Get the net related information about a VM from the OCCI information returned by the server 
 		"""
+		# Link: </network/1>;rel="http://schemas.ogf.org/occi/infrastructure#network";self="/link/networkinterface/compute_10_nic_0";category="http://schemas.ogf.org/occi/infrastructure#networkinterface http://schemas.ogf.org/occi/infrastructure/networkinterface#ipnetworkinterface http://opennebula.org/occi/infrastructure#networkinterface";occi.core.id="compute_10_nic_0";occi.core.title="private";occi.core.target="/network/1";occi.core.source="/compute/10";occi.networkinterface.interface="eth0";occi.networkinterface.mac="10:00:00:00:00:05";occi.networkinterface.state="active";occi.networkinterface.address="10.100.1.5";org.opennebula.networkinterface.bridge="br1"
 		lines = occi_res.split("\n")
 		res = []
 		for l in lines:
@@ -362,6 +388,100 @@ users:
 		else:
 			return None
 
+	def create_volumes(self, system, auth_data):
+		"""
+		Attach a the required volumes (in the RADL) to the launched instance
+
+		Arguments:
+		   - instance(:py:class:`boto.ec2.instance`): object to connect to EC2 instance.
+		   - vm(:py:class:`IM.VirtualMachine`): VM information.	
+		"""
+		volumes = {}
+		cont = 1
+		while system.getValue("disk." + str(cont) + ".size") and system.getValue("disk." + str(cont) + ".device"):
+			disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('G')
+			disk_device = system.getValue("disk." + str(cont) + ".device")
+			# get the last letter and use vd
+			disk_device = "vd" + disk_device[-1]
+			system.setValue("disk." + str(cont) + ".device", disk_device)
+			self.logger.debug("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
+			success, volume_id = self.create_volume(int(disk_size), "im-disk-%d" % cont, auth_data)
+			if success:
+				volumes[disk_device] = volume_id
+				system.setValue("disk." + str(cont) + ".provider_id", volume_id)
+			cont += 1
+		
+		return volumes
+
+	def create_volume(self, size, name, auth_data):
+		"""
+		Creates a volume of the specified data (in GB)
+		
+		returns the OCCI ID of the storage object
+		"""
+		try:
+			auth_header = self.get_auth_header(auth_data)
+			
+			conn = self.get_http_connection(auth_data)
+			
+			conn.putrequest('POST', "/storage/")
+			if auth_header:
+				conn.putheader(auth_header.keys()[0], auth_header.values()[0])
+			conn.putheader('Accept', 'text/plain')
+			conn.putheader('Content-Type', 'text/plain')
+			conn.putheader('Connection', 'close')
+			
+			body = 'Category: storage; scheme="http://schemas.ogf.org/occi/infrastructure#"; class="kind"\n'
+			body += 'X-OCCI-Attribute: occi.core.title="%s"\n' % name
+			body += 'X-OCCI-Attribute: occi.storage.size=%f\n' % float(size)
+			
+			conn.putheader('Content-Length', len(body))
+			conn.endheaders(body)
+	
+			resp = conn.getresponse()
+	
+			output = resp.read()
+			
+			self.delete_proxy(conn)
+			
+			if resp.status != 201:
+				return False, resp.reason + "\n" + output
+			else:
+				if 'location' in resp.msg.dict:
+					occi_id = os.path.basename(resp.msg.dict['location'])
+				else:
+					occi_id = os.path.basename(output)
+				return True, occi_id
+		except Exception, ex:
+			self.logger.exception("Error creating volume")
+			return False, str(ex)
+		
+	def delete_volume(self, storage_id, auth_data): 
+		auth = self.get_auth_header(auth_data)
+		headers = {'Accept': 'text/plain', 'Connection':'close'}
+		if auth:
+			headers.update(auth)
+		
+		self.logger.debug("Delete storage: %s" % storage_id)
+		
+		try:
+			conn = self.get_http_connection(auth_data)
+			conn.request('DELETE', "/storage/" + storage_id, headers = headers) 
+			resp = conn.getresponse()
+			self.delete_proxy(conn)
+			output = str(resp.read())
+			if resp.status == 404:
+				self.logger.debug("It does not exist.")
+				return (True, "")
+			elif resp.status != 200:
+				return (False, "Error deleting the Volume: " + resp.reason + "\n" + output)
+			else:
+				self.logger.debug("Successfully deleted")
+				return (True, "")
+		except Exception:
+			self.logger.exception("Error connecting with OCCI server")
+			return (False, "Error connecting with OCCI server")
+
 	def launch(self, inf, radl, requested_radl, num_vm, auth_data):
 		system = radl.systems[0]
 		auth_header = self.get_auth_header(auth_data)
@@ -425,7 +545,11 @@ users:
 				instance_scheme =  instance_type_uri[0] + "://" + instance_type_uri[1] + instance_type_uri[2] + "#"
 		
 		while i < num_vm:
+			volumes = {}
 			try:
+				# First create the volumes
+				volumes = self.create_volumes(system, auth_data)
+
 				conn.putrequest('POST', "/compute/")
 				if auth_header:
 					conn.putheader(auth_header.keys()[0], auth_header.values()[0])
@@ -436,7 +560,7 @@ users:
 				body = 'Category: compute; scheme="http://schemas.ogf.org/occi/infrastructure#"; class="kind"\n'
 				body += 'Category: ' + os_tpl + '; scheme="' + os_tpl_scheme + '"; class="mixin"\n'
 				body += 'Category: user_data; scheme="http://schemas.openstack.org/compute/instance#"; class="mixin"\n'
-				#body += 'Category: public_key; scheme="http://schemas.openstack.org/instance/credentials#"; class="mixin"\n' 				
+				#body += 'Category: public_key; scheme="http://schemas.openstack.org/instance/credentials#"; class="mixin"\n'
 				
 				if instance_type_uri:
 					body += 'Category: ' + instance_name + '; scheme="' + instance_scheme + '"; class="mixin"\n'
@@ -448,6 +572,8 @@ users:
 					if memory:
 						body += 'X-OCCI-Attribute: occi.compute.memory=' + str(memory) + '\n'
 
+				compute_id = "im." + str(int(time.time()*100))
+				body += 'X-OCCI-Attribute: occi.core.id="' + compute_id + '"\n' 
 				body += 'X-OCCI-Attribute: occi.core.title="' + name + '"\n'
 				# TODO: evaluate to set the hostname defined in the RADL
 				body += 'X-OCCI-Attribute: occi.compute.hostname="' + name + '"\n'				
@@ -455,6 +581,12 @@ users:
 				#body += 'X-OCCI-Attribute: org.openstack.credentials.publickey.name="my_key"' 
 				#body += 'X-OCCI-Attribute: org.openstack.credentials.publickey.data="ssh-rsa BAA...zxe ==user@host"'
 				body += 'X-OCCI-Attribute: org.openstack.compute.user_data="' + user_data + '"\n'
+				
+				# Add volume links
+				for device, volume_id in volumes.iteritems():
+					body += 'Link: </storage/%s>;rel="http://schemas.ogf.org/occi/infrastructure#storage";category="http://schemas.ogf.org/occi/infrastructure#storagelink http://opennebula.org/occi/infrastructure#storagelink";occi.core.target="/storage/%s";occi.core.source="/compute/%s";occi.storagelink.deviceid="/dev/%s"\n' % (volume_id, volume_id, compute_id, device) 
+				
+				self.logger.debug(body)
 				
 				conn.putheader('Content-Length', len(body))
 				conn.endheaders(body)
@@ -466,6 +598,8 @@ users:
 				
 				if resp.status != 201:
 					res.append((False, resp.reason + "\n" + output))
+					for volume_id in volumes.values():
+						self.delete_volume(volume_id, auth_data)
 				else:
 					if 'location' in resp.msg.dict:
 						occi_vm_id = os.path.basename(resp.msg.dict['location'])
@@ -481,12 +615,58 @@ users:
 			except Exception, ex:
 				self.logger.exception("Error connecting with OCCI server")
 				res.append((False, "ERROR: " + str(ex)))
+				for volume_id in volumes.values():
+					self.delete_volume(volume_id, auth_data)
 
 			i += 1
 		
 		self.delete_proxy(conn)
 		
 		return res
+
+	def get_volume_ids_from_radl(self, system):
+		volumes = []
+		cont = 1
+		while system.getValue("disk." + str(cont) + ".size") and system.getValue("disk." + str(cont) + ".device"):
+			provider_id = system.getValue("disk." + str(cont) + ".provider_id")
+			if provider_id:
+				volumes.append(provider_id)
+			cont += 1
+		
+		return volumes
+
+	def delete_volumes(self, vm, auth_data):
+		auth = self.get_auth_header(auth_data)
+		headers = {'Accept': 'text/plain', 'Connection':'close'}
+		if auth:
+			headers.update(auth)
+		
+		try:
+			conn = self.get_http_connection(auth_data)
+			conn.request('GET', "/compute/" + vm.id, headers = headers) 
+			resp = conn.getresponse()
+			
+			output = resp.read()
+			if resp.status == 404:
+				return (True, "")
+			elif resp.status != 200:
+				return (False, resp.reason + "\n" + output)
+			else:
+				occi_volumes = self.get_attached_volumes(output)
+				deleted_vols = []
+				for _, num_storage, device in occi_volumes:
+					if not device.endswith("vda"):
+						deleted_vols.append(num_storage)
+						self.delete_volume(num_storage, auth_data)
+
+				# sometime we have created a volume that is not correctly attached to the vm
+				# check the RADL of the VM to get them
+				radl_volumes = self.get_volume_ids_from_radl(vm.info.systems[0])						
+				for num_storage in radl_volumes:
+					self.delete_volume(num_storage, auth_data)
+		except Exception, ex:
+			self.logger.exception("Error deleting volumes")
+			return (False, "Error deleting volumes " + str(ex))
 
 	def finalize(self, vm, auth_data):
 		auth = self.get_auth_header(auth_data)
@@ -498,17 +678,18 @@ users:
 			conn = self.get_http_connection(auth_data)
 			conn.request('DELETE', "/compute/" + vm.id, headers = headers) 
 			resp = conn.getresponse()
-			self.delete_proxy(conn)
 			output = str(resp.read())
-			if resp.status == 404:
-				return (True, vm.id)
-			elif resp.status != 200:
+			if resp.status != 200 and resp.status != 404:
 				return (False, "Error removing the VM: " + resp.reason + "\n" + output)
-			else:
-				return (True, vm.id)
 		except Exception:
 			self.logger.exception("Error connecting with OCCI server")
 			return (False, "Error connecting with OCCI server")
+		
+		# now try to delete the volumes
+		self.delete_volumes(vm, auth_data)
+		
+		self.delete_proxy(conn)
+		return (True, vm.id)
 
 
 	def stop(self, vm, auth_data):
