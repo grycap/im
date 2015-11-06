@@ -6,34 +6,6 @@ topology_template:
  
   node_templates:
 
-    private:
-      type: tosca.nodes.network.Network
-      properties:
-        network_type: private 
-   
-    public:
-      type: tosca.nodes.network.Network
-      properties:
-        network_type: public
-
-    fe_public_net_port:
-      type: tosca.nodes.indigo.network.Port
-      properties:
-        order: 0
-        dns_name: publicname
-      requirements:
-        - link: public
-        - binding: torque_server 
-        
-    fe_private_net_port:
-      type: tosca.nodes.indigo.network.Port
-      properties:
-        order: 1
-        dns_name: torqueserver
-      requirements:
-        - link: private
-        - binding: torque_server 
-
     elastic_cluster:
       type: tosca.nodes.indigo.ElasticCluster
       capabilities:
@@ -50,7 +22,9 @@ topology_template:
         - wn: wn_node
 
     torque_server:
-      type: tosca.nodes.Compute
+      type: tosca.nodes.indigo.Compute
+      properties:
+        public_ip: yes
       capabilities:
         host:
          properties:

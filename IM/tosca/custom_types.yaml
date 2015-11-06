@@ -1,13 +1,12 @@
 tosca_definitions_version: tosca_simple_yaml_1_0
 
-tosca.nodes.indigo.network.Port:
-  derived_from: tosca.nodes.network.Port
+tosca.nodes.indigo.Compute:
+  derived_from: tosca.nodes.Compute
   properties:
-    dns_name:
-      type: string
+    public_ip:
+      type: boolean
       required: no
-      description: >
-        Allow the user to set a specific dns name.
+      default: no
 
 tosca.nodes.Database.MySQL:
   derived_from: tosca.nodes.Database
