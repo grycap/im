@@ -26,6 +26,13 @@
         set tcp_timeout = 600
         
   tasks:
+    # /etc/hosts configuration
+    - lineinfile: dest=/etc/hosts regexp='torqueserver' line='{{IM_NODE_NET_1_IP}} torqueserver'
+      when: IM_NODE_NET_1_IP is defined
+      
+    - lineinfile: dest=/etc/hosts regexp='torqueserver' line='{{ansible_default_ipv4.address}} torqueserver'
+      when: IM_NODE_NET_1_IP is undefined
+
     # PBS configuration
     - file: src=/var/lib/torque dest=/var/spool/torque state=link
       when: ansible_os_family == "RedHat" and clues_queue_system == 'torque'
@@ -78,6 +85,7 @@
       
       # CLUES IM configuration
     - file: path=/usr/local/ec3 state=directory mode=755
+    # TODO: check this
     - copy: dest=/usr/local/ec3/auth.dat content="type = InfrastructureManager; username = user; password = pass"
     - copy: dest=/usr/local/ec3/wn_info.yml content={{wn_host_info}}\n-\n{{wn_os_info}}\n-\n{{wn_name}}\n-\n{{wn_node_type}}
 

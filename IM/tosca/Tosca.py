@@ -126,9 +126,11 @@ class Tosca:
 				net = Tosca._gen_network(node)
 				radl.networks.append(net)
 			else:
-				if root_type == "tosca.nodes.Compute":
+				if root_type == "tosca.nodes.Compute":					
 					# Add the system RADL element
 					sys = Tosca._gen_system(node, self.tosca.nodetemplates)
+					# add networks using the simple method with the public_ip property
+					Tosca._add_node_nets(node, radl, sys)
 					radl.systems.append(sys)
 					# Add the deploy element for this system
 					min_instances, _, default_instances = Tosca._get_scalable_properties(node)
@@ -162,6 +164,70 @@ class Tosca:
 			radl.contextualize = contextualize(cont_intems)
 	
 		return self._complete_radl_networks(radl)
+
+	@staticmethod
+	def _add_node_nets(node, radl, system): 
+		public_ip = False
+		node_props = node.get_properties_objects()
+		if node_props:
+			for prop in node_props:
+				if prop.name == "public_ip":
+					public_ip = prop.value
+					break
+		
+		# If the node needs a public IP
+		if public_ip:				
+			public_nets = []
+			for net in radl.networks:
+				if net.isPublic():
+					public_nets.append(net)
+
+			if public_nets:
+				public_net = None
+				for net in public_nets:
+					num_net = system.getNumNetworkWithConnection(net.id)
+					if num_net is not None:
+						public_net = net
+						break
+
+				if not public_net:
+					# There are a public net but it has not been used in this VM
+					public_net = public_nets[0]
+					num_net = system.getNumNetworkIfaces()
+			else:
+				# There no public net, create one
+				public_net = network.createNetwork("public_net.", True)
+				radl.networks.append(public_net)
+				num_net = system.getNumNetworkIfaces()
+			
+			system.setValue('net_interface.' + str(num_net) + '.connection',public_net.id)
+
+		# The private net is allways added
+		private_nets = []
+		for net in radl.networks:
+			if not net.isPublic():
+				private_nets.append(net)
+
+		if private_nets:
+			private_net = None
+			for net in private_nets:
+				num_net = system.getNumNetworkWithConnection(net.id)
+				if num_net is not None:
+					private_net = net
+					break
+
+			if not private_net:
+				# There are a public net but it has not been used in this VM
+				private_net = private_nets[0]
+				num_net = system.getNumNetworkIfaces()
+		else:
+			# There no public net, create one
+			private_net = network.createNetwork("private_net.", False)
+			radl.networks.append(private_net)
+			num_net = system.getNumNetworkIfaces()
+
+		system.setValue('net_interface.' + str(num_net) + '.connection',private_net.id)
+
 
 	@staticmethod
 	def _get_scalable_properties(node):
