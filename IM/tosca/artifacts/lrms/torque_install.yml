@@ -1,0 +1,13 @@
+---
+ - tasks:
+    - name: create epel.repo
+      template: src=utils/templates/epel-es.repo dest=/etc/yum.repos.d/epel.repo
+      when: ansible_os_family == "RedHat"
+
+    - name: Apt install Torque in Deb system
+      apt: name=torque-server,torque-client,g++,libtorque2-dev,make update_cache=yes cache_valid_time=3600
+      when: ansible_os_family == "Debian"
+      
+    - name: Yum install Torque in REL system
+      yum: name=torque-server,torque-scheduler,torque-client,openssh-clients,gcc-c++,torque-devel,make
+      when: ansible_os_family == "RedHat"

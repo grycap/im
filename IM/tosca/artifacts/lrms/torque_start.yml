@@ -1,0 +1,11 @@
+---
+ - tasks:
+    - service: name=torque-scheduler state=started pattern=/usr/sbin/pbs_sched
+      when: ansible_os_family == "Debian"
+    - service: name=torque-server state=started pattern=/usr/sbin/pbs_server
+      when: ansible_os_family == "Debian"
+      
+    - service: name=pbs_server state=started pattern=/usr/sbin/pbs_sched
+      when: ansible_os_family == "RedHat"
+    - service: name=pbs_server state=started pattern=/usr/sbin/pbs_server
+      when: ansible_os_family == "RedHat"

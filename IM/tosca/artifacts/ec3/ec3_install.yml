@@ -1,0 +1,57 @@
+---
+- tasks:
+    # General task
+    - name: create epel.repo
+      template: src=utils/templates/epel-es.repo dest=/etc/yum.repos.d/epel.repo
+      when: ansible_os_family == "RedHat"
+      
+    # CLUES2 requirements
+    - name: Apt install CLUES2 requirements in Deb system
+      apt: pkg=python-sqlite,unzip
+      when: ansible_os_family == "Debian"
+
+    - name: Yum install CLUES2 requirements in REL system
+      yum: pkg=python-sqlite2,unzip
+      when: ansible_os_family == "RedHat"
+
+    - name: Install CLUES pip requirements
+      pip: name={{item}}
+      with_items:
+      - web.py
+      - ply
+      
+    - get_url: url=https://github.com/grycap/{{item}}/archive/master.zip dest=/tmp/{{item}}.zip
+      register: result
+      until: result|success
+      retries: 5
+      delay: 1
+      with_items:
+      - clues
+      - cpyutils
+
+    # CLUES2 installation
+    - unarchive: src=/tmp/{{item}}.zip dest=/tmp copy=no
+      with_items:
+      - clues
+      - cpyutils
+
+    - command: python setup.py install chdir=/tmp/clues-master creates=/usr/local/bin/cluesserver
+    - command: python setup.py install chdir=/tmp/cpyutils-master
+    
+    # IM installation
+    - apt: name=python-soappy update_cache=yes cache_valid_time=3600
+      when: ansible_os_family == "Debian"
+    - yum: name=SOAPpy
+      when: ansible_os_family == "RedHat"
+    - pip: name=IM    
+    - file: path=/etc/init.d/im mode=0755
+
+    
+      # PBS installation
+    - name: Apt install Torque in Deb system
+      apt: name=torque-server,torque-client,g++,libtorque2-dev,make update_cache=yes cache_valid_time=3600
+      when: ansible_os_family == "Debian" and clues_queue_system == 'torque'
+      
+    - name: Yum install Torque in REL system
+      yum: name=torque-server,torque-scheduler,torque-client,openssh-clients,gcc-c++,torque-devel,make
+      when: ansible_os_family == "RedHat" and clues_queue_system == 'torque'

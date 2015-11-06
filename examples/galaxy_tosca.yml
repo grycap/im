@@ -7,7 +7,7 @@ topology_template:
   node_templates:
 
     bowtie2_galaxy_tool:
-      type: tosca.nodes.indigo.GalaxyTool
+      type: tosca.nodes.indigo.GalaxyShedTool
       properties:
          name: bowtie2
          owner: devteam

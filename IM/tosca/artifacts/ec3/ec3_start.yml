@@ -1,0 +1,33 @@
+---
+- tasks:
+    # Launch CLUES
+    - service: name=cluesd state=started
+    # Launch IM
+    - service: name=im state=started
+    
+    # Launch PBS
+    - service: name=torque-scheduler state=started pattern=/usr/sbin/pbs_sched
+      when: ansible_os_family == "Debian" and clues_queue_system == 'torque'
+    - service: name=torque-server state=restarted pattern=/usr/sbin/pbs_server
+      when: ansible_os_family == "Debian" and clues_queue_system == 'torque'
+    - service: name=torque-server state=started pattern=/usr/sbin/pbs_server
+      when: ansible_os_family == "Debian" and clues_queue_system == 'torque'
+      
+    - service: name=pbs_server state=started pattern=/usr/sbin/pbs_sched
+      when: ansible_os_family == "RedHat" and clues_queue_system == 'torque'
+    - service: name=pbs_server state=restarted pattern=/usr/sbin/pbs_server
+      when: ansible_os_family == "RedHat" and clues_queue_system == 'torque'
+    - service: name=pbs_server state=started pattern=/usr/sbin/pbs_server
+      when: ansible_os_family == "RedHat" and clues_queue_system == 'torque'
+      
+    - command: sleep 5
+      when: clues_queue_system == 'torque'
+      
+    - service: name=pbs_server state=started pattern=/usr/sbin/pbs_sched
+      when: ansible_os_family == "RedHat" and clues_queue_system == 'torque'
+    - service: name=pbs_server state=started pattern=/usr/sbin/pbs_server
+      when: ansible_os_family == "RedHat" and clues_queue_system == 'torque'
+    - service: name=torque-scheduler state=started pattern=/usr/sbin/pbs_sched
+      when: ansible_os_family == "Debian" and clues_queue_system == 'torque'
+    - service: name=torque-server state=started pattern=/usr/sbin/pbs_server
+      when: ansible_os_family == "Debian" and clues_queue_system == 'torque'

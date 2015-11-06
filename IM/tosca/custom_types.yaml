@@ -1,5 +1,14 @@
 tosca_definitions_version: tosca_simple_yaml_1_0
 
+tosca.nodes.indigo.network.Port:
+  derived_from: tosca.nodes.network.Port
+  properties:
+    dns_name:
+      type: string
+      required: no
+      description: >
+        Allow the user to set a specific dns name.
+
 tosca.nodes.Database.MySQL:
   derived_from: tosca.nodes.Database
   properties:
@@ -112,7 +121,7 @@ tosca.nodes.indigo.GalaxyPortal:
           galaxy_install_path: { get_property: [ SELF, install_path ] }
 
           
-tosca.nodes.indigo.GalaxyTool:
+tosca.nodes.indigo.GalaxyShedTool:
   derived_from: tosca.nodes.WebApplication
   properties:
     name:    
@@ -144,58 +153,92 @@ tosca.nodes.indigo.GalaxyTool:
           galaxy_tool_panel_section_id: { get_property: [ SELF, tool_panel_section_id ] }
 
 
-tosca.capabilities.LRMS:
+
+
+
+
+
+tosca.capabilities.indigo.LRMS:
   derived_from: tosca.capabilities.Root
   properties:
-    lrms_type:
+    type:
       type: string
       required: true
-  
-tosca.capabilities.LRMS.Torque:
-  derived_from: tosca.capabilities.LRMS
-  properties:
-    lrms_type: torque
+      constraints:
+      - valid_values: [ torque, slurm, sge ]
 
-
-tosca.nodes.indigo.LRMS:
-  derived_from: tosca.nodes.SoftwareComponent
-  
-tosca.nodes.indigo.LRMS.FrontEnd:
-  derived_from: tosca.nodes.indigo.LRMS
-  capabilities:
-    cluster_endpoint:
-      type: tosca.capabilities.Endpoint
-
-tosca.nodes.indigo.LRMS.FrontEnd.Torque:
-  derived_from: tosca.nodes.indigo.LRMS.FrontEnd
-  capabilities:
-    lrms_front_end:
-      type: tosca.capabilities.LRMS.Torque
-  interfaces:
-    Standard:
-      create: lrms/torque_install.yml
-      configure: lrms/torque_configure.yml
-      start: lrms/torque_start.yml
-          
-tosca.nodes.indigo.CLUES:
-  derived_from: tosca.nodes.SoftwareComponent
+ 
+tosca.nodes.indigo.ElasticCluster:
+  derived_from: tosca.nodes.Root
   properties:
     secret_token:
       type: string
-      description: Token to access the web interface
+      description: Token to access CLUES web interface
       default: not_very_secret_token
       required: false
-  requirements:
-    - lrms_front_end:
-        capability: tosca.capabilities.LRMS
-        node: tosca.nodes.indigo.LRMS.FrontEnd
-        relationship: tosca.relationships.HostedOn
   interfaces:
     Standard:
-      create: clues/clues_install.yml
+      create: ec3/ec3_install.yml
       configure:
-        implementation: clues/clues_configure.yml
+        implementation: ec3/ec3_configure.yml
         inputs:
           clues_secret_token: { get_property: [ SELF, secret_token ] }
-          clues_queue_system: { get_property: [ SELF, lrms_front_end, lrms_type ] }
-      start: clues/clues_start.yml
+          clues_queue_system: { get_property: [ SELF, lrms, type ] }
+          max_instances: { get_property: [ SELF, scalable, max_instances] }
+          wn_host_info: { get_property: [ SELF, wn, host ] }
+          wn_os_info: { get_property: [ SELF, wn, os ] }
+          wn_name: { get_property: [ SELF, wn, name ] }
+          wn_node_type: { get_property: [ SELF, wn, type ] }
+      start: ec3/ec3_start.yml
+  capabilities:
+      scalable:
+        type: tosca.capabilities.Scalable
+      lrms:
+        type: tosca.capabilities.indigo.LRMS
+  requirements:
+    - wn:
+        capability: tosca.capabilities.indigo.WorkerNode
+        node: tosca.nodes.indigo.ElasticCluster.WorkerNode
+        relationship: tosca.relationships.indigo.Manages
+    - host:
+        capability: tosca.capabilities.Container
+        node: tosca.nodes.Compute
+        relationship: tosca.relationships.HostedOn
+
+
+tosca.nodes.indigo.ElasticCluster.WorkerNode:
+  derived_from: tosca.nodes.Root
+  capabilities:
+      wn:
+        type: tosca.capabilities.indigo.WorkerNode
+        valid_source_types: [tosca.nodes.indigo.ElasticCluster.FrontEnd]
+        
+        
+tosca.nodes.indigo.LRMS.WorkerNode.Torque:
+  derived_from: tosca.nodes.Compute
+  interfaces:
+    Standard:
+      create: lrms/torque_wn_install.yml
+      configure: lrms/torque_wn_configure.yml
+      start: lrms/torque_wn_start.yml
+        
+
+tosca.capabilities.indigo.WorkerNode:
+  derived_from: tosca.capabilities.Root
+  properties:
+    name:
+      required: yes
+      type: string
+    type:
+      required: yes
+      type: string
+    host:
+      required: no
+      type: HostInfo
+    os:
+      required: no
+      type: OSInfo
+
+ 
+tosca.relationships.indigo.Manages:
+  derived_from: tosca.relationships.Root

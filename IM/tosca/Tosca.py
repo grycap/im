@@ -4,12 +4,62 @@ import yaml
 import copy
 import tempfile
 
-from toscaparser.tosca_template import ToscaTemplate
+import toscaparser.imports
+from toscaparser.tosca_template import ToscaTemplate as toscaparser_ToscaTemplate 
 from toscaparser.elements.interfaces import InterfacesDef
 from toscaparser.elements.entity_type import EntityType
 from toscaparser.functions import Function, is_function, get_function, GetAttribute
 from IM.radl.radl import system, deploy, network, Feature, configure, contextualize_item, RADL, contextualize
 from  toscaparser.utils.yamlparser import load_yaml
+
+class ToscaTemplate(toscaparser_ToscaTemplate):
+
+	CUSTOM_TYPES_FILE = os.path.dirname(os.path.realpath(__file__)) + "/custom_types.yaml"
+	CUSTOM_IMPORT_FILE = os.path.dirname(os.path.realpath(__file__)) + "/custom_import_types.yaml"
+
+	def __init__(self, path, parsed_params=None, a_file=True):
+		# Load custom data
+		custom_def = load_yaml(self.CUSTOM_TYPES_FILE)
+		# and update tosca_def with the data
+		EntityType.TOSCA_DEF.update(custom_def)
+		
+		super(ToscaTemplate, self).__init__(path, parsed_params, a_file)
+		
+	def _get_custom_types(self, type_definitions, imports=None):
+		"""Handle custom types defined in imported template files
+
+		This method loads the custom type definitions referenced in "imports"
+		section of the TOSCA YAML template.
+		"""
+
+		custom_defs = {}
+		type_defs = []
+		if not isinstance(type_definitions, list):
+			type_defs.append(type_definitions)
+		else:
+			type_defs = type_definitions
+
+		if not imports:
+			imports = self._tpl_imports()
+		
+		# Enable to add INDIGO custom definitions
+		if not imports:
+			imports = [{"indigo_defs": self.CUSTOM_IMPORT_FILE}]
+		else:
+			imports.append({"indigo_defs": self.CUSTOM_IMPORT_FILE})
+
+		if imports:
+			custom_defs = toscaparser.imports.\
+				ImportsLoader(imports, self.path,
+							  type_defs).get_custom_defs()
+
+		# Handle custom types defined in current template file
+		for type_def in type_defs:
+			if type_def != "imports":
+				inner_custom_types = self.tpl.get(type_def) or {}
+				if inner_custom_types:
+					custom_defs.update(inner_custom_types)
+		return custom_defs
 
 class Tosca:
 	"""
@@ -20,16 +70,10 @@ class Tosca:
 	"""
 	
 	ARTIFACTS_PATH = os.path.dirname(os.path.realpath(__file__)) + "/artifacts"
-	CUSTOM_TYPES_FILE = os.path.dirname(os.path.realpath(__file__)) + "/custom_types.yaml"
 	
 	logger = logging.getLogger('InfrastructureManager')
 	
 	def __init__(self, yaml_str):
-		# Load custom data
-		custom_def = load_yaml(Tosca.CUSTOM_TYPES_FILE)
-		# and update tosca_def with the data
-		EntityType.TOSCA_DEF.update(custom_def)
-		
 		self.tosca = None
 		# write the contents to a file as ToscaTemplate needs 
 		with tempfile.NamedTemporaryFile(suffix=".yaml") as f:
@@ -87,8 +131,16 @@ class Tosca:
 					sys = Tosca._gen_system(node, self.tosca.nodetemplates)
 					radl.systems.append(sys)
 					# Add the deploy element for this system
-					dep = deploy(sys.name, 1)
-					radl.deploys.append(dep)
+					min_instances, _, default_instances = Tosca._get_scalable_properties(node)
+					if default_instances is not None:
+						num_instances = default_instances
+					elif min_instances is not None:
+						num_instances = min_instances
+					else:
+						num_instances = 1
+					if num_instances > 0:
+						dep = deploy(sys.name, num_instances)
+						radl.deploys.append(dep)
 					compute = node
 				else:
 					# Select the host to host this element
@@ -103,12 +155,29 @@ class Tosca:
 				if conf:
 					level = Tosca._get_dependency_level(node)
 					radl.configures.append(conf)
-					cont_intems.append(contextualize_item(compute.name, conf.name, level))
+					if compute:
+						cont_intems.append(contextualize_item(compute.name, conf.name, level))
 
 		if cont_intems:
 			radl.contextualize = contextualize(cont_intems)
 	
 		return self._complete_radl_networks(radl)
+
+	@staticmethod
+	def _get_scalable_properties(node):
+		min_instances = max_instances = default_instances = None
+		scalable = node.get_capability("scalable")
+		if scalable:
+			for prop in scalable.get_properties_objects():
+				if prop.value is not None:
+					if prop.name == "max_instances":
+						max_instances = prop.value
+					elif prop.name == "min_instances":
+						min_instances = prop.value
+					elif prop.name == "default_instances":
+						default_instances = prop.value
+
+		return min_instances, max_instances, default_instances
 
 	@staticmethod
 	def _get_relationship_template(rel, src, trgt):
@@ -464,7 +533,7 @@ class Tosca:
 		for cap_type in ['os', 'host']:
 			if node.get_capability(cap_type):
 				for prop in node.get_capability(cap_type).get_properties_objects():
-					if prop.value:
+					if prop.value is not None:
 						unit = None
 						value = prop.value
 						if prop.name in ['disk_size', 'mem_size']:
@@ -690,35 +759,7 @@ class Tosca:
 	@staticmethod
 	def _get_bind_networks(node, nodetemplates):
 		nets = []
-		count = 0
-		for requires in node.requirements:
-			for value in requires.values():
-				name = None
-				ip = None
-				dns_name = None
-				if isinstance(value, dict):
-					if 'relationship' in value:
-						rel = value.get('relationship')
-						
-						rel_type = None
-						if isinstance(rel, dict) and 'type' in rel:
-							rel_type = rel.get('type')
-						else:
-							rel_type = rel
-						
-						if rel_type and rel_type.endswith("BindsTo"):
-							if isinstance(rel, dict) and 'properties' in rel:
-								prop = rel.get('properties')
-								if isinstance(prop, dict):
-									ip = prop.get('ip', None)
-									dns_name = prop.get('dns_name', None)
-							
-							name = value.values()[0]
-							nets.append((name, ip, dns_name, count))
-							count += 1
-				else:
-					Tosca.logger.error("ERROR: expected dict in requires values.")
-			
+
 		for port in nodetemplates:
 			root_type = Tosca._get_root_parent_type(port).type
 			if root_type == "tosca.nodes.network.Port":
@@ -731,7 +772,7 @@ class Tosca:
 				if binding == node.name:
 					ip = port.get_property_value('ip_address')
 					order = port.get_property_value('order')
-					dns_name = None
+					dns_name = port.get_property_value('dns_name')
 					nets.append((link, ip, dns_name, order))
 		
 		return nets
