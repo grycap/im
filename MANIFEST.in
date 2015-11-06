@@ -1,5 +1,8 @@
 recursive-exclude test *
 recursive-include contextualization *
+recursive-include IM/tosca/artifacts *
+include  IM/tosca/custom_types.yaml
+include  IM/tosca/custom_import_types.yaml
 include scripts/im
 include etc/im.cfg
 include LICENSE
