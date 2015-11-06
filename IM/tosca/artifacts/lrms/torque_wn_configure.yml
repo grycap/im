@@ -1,0 +1,21 @@
+---
+  - vars:
+      PBS_SERVER_CONF: |
+        create queue batch
+        set queue batch queue_type = Execution
+        set queue batch resources_default.nodes = 1
+        set queue batch enabled = True
+        set queue batch started = True
+        set server default_queue = batch
+        set server scheduling = True
+        set server scheduler_iteration = 20
+        set server node_check_rate = 40
+        set server resources_default.neednodes = 1
+        set server resources_default.nodect = 1
+        set server resources_default.nodes = 1
+        set server query_other_jobs = True
+        set server node_pack = False
+        set server job_stat_rate = 30
+        set server mom_job_sync = True
+        set server poll_jobs = True
+        set tcp_timeout = 600

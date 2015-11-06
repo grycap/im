@@ -6,25 +6,56 @@ topology_template:
  
   node_templates:
 
-    clues:
-      type: tosca.nodes.indigo.CLUES
-      requirements:
-        - lrms_front_end: front_end_torque
+    private:
+      type: tosca.nodes.network.Network
+      properties:
+        network_type: private 
+   
+    public:
+      type: tosca.nodes.network.Network
+      properties:
+        network_type: public
 
-    front_end_torque:
-      type: tosca.nodes.indigo.LRMS.FrontEnd.Torque
+    fe_public_net_port:
+      type: tosca.nodes.indigo.network.Port
+      properties:
+        order: 0
+        dns_name: publicname
       requirements:
-        - host: front_end_server
- 
-    front_end_server:
+        - link: public
+        - binding: torque_server 
+        
+    fe_private_net_port:
+      type: tosca.nodes.indigo.network.Port
+      properties:
+        order: 1
+        dns_name: torqueserver
+      requirements:
+        - link: private
+        - binding: torque_server 
+
+    elastic_cluster:
+      type: tosca.nodes.indigo.ElasticCluster
+      capabilities:
+        lrms:
+          properties:
+            type: torque
+        scalable:
+          properties:
+            max_instances: 5
+            min_instances: 0
+            default_instances: 0
+      requirements:
+        - host: torque_server
+        - wn: wn_node
+
+    torque_server:
       type: tosca.nodes.Compute
       capabilities:
-        # Host container properties
         host:
          properties:
            num_cpus: 1
            mem_size: 1 GB
-        # Guest Operating System properties
         os:
           properties:
             # host Operating System image properties
@@ -32,3 +63,14 @@ topology_template:
             #distribution: scientific 
             #version: 6.6
 
+    wn_node:
+      type: tosca.nodes.indigo.ElasticCluster.WorkerNode
+      capabilities:
+        wn:
+         properties:
+           name: vnode
+           type: tosca.nodes.indigo.LRMS.WorkerNode.Torque
+           host:
+             num_cpus: 1
+           os:
+             type: linux

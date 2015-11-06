@@ -810,6 +810,8 @@ class InfrastructureManager:
 
 		state = None
 		for vm in sel_inf.get_vm_list():
+			# First try yo update the status of the VM
+			vm.update_status(auth)
 			if vm.state == VirtualMachine.FAILED:
 				state = VirtualMachine.FAILED
 				break
