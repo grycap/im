@@ -23,7 +23,6 @@ RUN cd tmp \
  && python setup.py install
 
 RUN cd tmp \
-# && git clone https://github.com/grycap/im.git \
  && git clone -b tosca https://github.com/grycap/im.git \
  && cd im \
  && python setup.py install
