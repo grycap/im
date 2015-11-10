@@ -154,7 +154,7 @@ div.version{
     margin-bottom: 0.809em;
 }
 
-a:hover, ul:hover, li:hover {
+a:hover {
     background: #FFFFFF;
     color: #9B59B6;
 }
