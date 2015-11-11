@@ -28,6 +28,7 @@ RUN cd tmp \
  && cd im \
  && python setup.py install
 COPY ansible.cfg /etc/ansible/ansible.cfg
+
 # Turn on the REST services
 RUN sed -i "/ACTIVATE_REST =.*/c\ACTIVATE_REST=True" /etc/im/im.cfg
 CMD im_service.py
