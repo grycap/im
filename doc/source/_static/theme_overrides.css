@@ -1,0 +1,252 @@
+@import url("theme.css");
+
+body {
+    font-family: "Lato","proxima-nova","Helvetica Neue",Arial,sans-serif;
+    font-weight: normal;
+    color: #505050;
+    min-height: 100%;
+    overflow-x: hidden;
+    background: #FFFFFF;
+}
+
+.wy-nav-content {
+    padding: 1.618em 3.236em;
+    height: 100%;
+    max-width: 100%;
+    margin: auto;
+}
+
+.wy-nav-side {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    padding-bottom: 2em;
+    width: 300px;
+    overflow-x: hidden;
+    overflow-y: hidden;
+    min-height: 100%;
+    background: #FFFFFF;
+    z-index: 200;
+}
+
+.wy-nav-content-wrap {
+    margin-left: 300px;
+    background: #FFFFFF;
+    min-height: 100%;
+}
+
+.wy-nav-top {
+    display: none;
+    background: #FFFFFF;
+    color: #505050;
+    padding: 0.4045em 0.809em;
+    position: relative;
+    line-height: 50px;
+    text-align: center;
+    font-size: 100%;
+}
+
+.wy-menu-vertical {
+    line-height: 18px;
+    padding: 0.4045em 1.618em;
+    position: relative;
+    font-size: 100%;
+    color: #505050;
+    background: #FFFFFF;
+}
+
+.wy-side-nav-search {
+    width: 300px;
+    margin-bottom: 10px;
+    z-index: 200;
+    background: #FFFFFF;
+    text-align: center;
+    padding: 25px 0;
+    color: #505050;
+}
+
+.wy-menu-vertical a {
+    line-height: 30px;
+    padding: 0.4045em 1.618em;
+    position: relative;
+    font-size: 100%;
+    font-weight: bold;
+    color: #505050;
+    background: #FFFFFF;
+}
+
+.wy-dropdown-menu a:hover{
+    background:#FFFFFF; 
+    color:#505050
+}
+
+.wy-menu-vertical li.current {
+    background: #FFFFFF;
+}
+
+.wy-menu-vertical li.hover {
+    background: #FFFFFF;
+    text-decoration: none;
+}
+
+.wy-menu-vertical li.on a, .wy-menu-vertical li.current>a {
+    color: #505050;
+    padding: 0.4045em 1.618em;
+    font-weight: bold;
+    position: relative;
+    background: #FFFFFF;
+    border: none;
+    border-bottom: solid 1px #c9c9c9;
+    border-top: solid 1px #c9c9c9;
+    padding-left: 1.618em -4px;
+}
+
+.wy-menu-vertical li.current a {
+    color: #505050;
+    background: #FFFFFF;
+    border-right: none;
+    padding: 0.4045em 2.427em;
+}
+
+form {
+    margin: 5px;
+}
+
+.wy-body-for-nav {
+    background: #FFFFFF;
+    background-size: 300px 1px;
+}
+
+div.version{ 
+    margin-top:-0.4045em; 
+    margin-bottom:0.809em; 
+    font-weight: bold; 
+    color: #505050; 
+    background: #FFFFFF; 
+}
+
+.wy-side-nav-search>div.version {
+    margin-top: -0.4045em;
+    margin-bottom: 0.809em;
+    font-weight: bold;
+    color: #505050;
+    background: #FFFFFF;
+}
+
+.wy-side-nav-search>a:hover, .wy-side-nav-search .wy-dropdown>a:hover {
+    background:  #FFFFFF;
+}
+
+.wy-side-nav-search>a, .wy-side-nav-search .wy-dropdown>a {
+    color: #505050;
+    font-size: 100%;
+    font-weight: bold;
+    padding: 4px 6px;
+    margin-bottom: 0.809em;
+}
+
+.wy-side-nav-search>a, .wy-side-nav-search .wy-dropdown>a {
+    color: #505050;
+    font-size: 100%;
+    font-weight: bold;
+    padding: 4px 6px;
+    margin-bottom: 0.809em;
+}
+
+a:hover {
+    background: #FFFFFF;
+    color: #9B59B6;
+}
+
+a:active, ul:active, li:active {
+    color: #428BCB;
+}
+
+a:current, ul:current, li:current {
+    background: #FFFFFF;
+}
+
+.toctree-l1, .toctree-l1:hover  {
+    background: #FFFFFF;
+    text-decoration: none;
+}
+
+.toctree-l2, .toctree-l2:hover {
+    background: #FFFFFF;
+    text-decoration: none;
+}
+
+.wy-menu-vertical li.current {
+    background: #FFFFFF;
+} 
+
+a {
+    color: #9B59B6;
+    background: #FFFFFF;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+ul {
+    color: #505050;
+    background: #FFFFFF;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+li {
+    color: #505050;
+    background: #FFFFFF;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.reference.internal {
+    color: #505050;
+    background: #FFFFFF;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.reference.internal:hover {
+    color: #000000;
+    background: #428BCB;
+    font-weight: bold; 
+    cursor: pointer;
+}
+
+a:visited, ul:visited, li:visited {
+    color: #9B59B6;
+    background: #FFFFFF;
+}
+
+.wy-menu-vertical li.current a {
+    color: #428BCB;
+    border: none; 
+    padding: 0.4045em 2.427em;
+}
+
+.wy-menu-vertical li.toctree-l2.current>a {
+    color: #428BCB;
+    background: #FFFFFF;
+    padding: 0.4045em 2.427em;
+}
+
+.wy-menu-vertical li.toctree-l2.current li.toctree-l3>a {
+    color: #428BCB;
+    background: #FFFFFF;
+    padding: 0.4045em 4.045em;
+}
+
+.wy-menu-vertical li.current ul {
+    display: inline;
+}
+
+.rst-versions .rst-other-versions dd a {
+    display: inline-block;
+    padding: 6px;
+    font-weight: bold;
+    color: gray;
+}
+
