@@ -198,7 +198,7 @@ class OCCICloudConnector(CloudConnector):
 					res.append((num_interface, ip_address, not is_private))
 		return res
 
-	def setIPs(self, vm, occi_res):
+	def setIPs(self, vm, occi_res, auth_data):
 		"""
 		Set to the VM info the IPs obtained from the OCCI info  
 		"""
@@ -212,7 +212,44 @@ class OCCICloudConnector(CloudConnector):
 			else:
 				private_ips.append(ip_address)
 		
+		if not public_ips and vm.requested_radl.hasPublicNet(vm.info.systems[0].name):
+				self.logger.debug("The VM does not have public IP trying to add one.")
+				success, _ = self.add_public_ip(vm, auth_data)
+				if success:
+					self.logger.debug("Public IP already added.")
+		
 		vm.setIps(public_ips, private_ips)
+		
+	def add_public_ip(self, vm, auth_data):
+		auth_header = self.get_auth_header(auth_data)
+		try:
+			conn = self.get_http_connection(auth_data)
+			conn.putrequest('POST', "/link/networkinterface/")
+			if auth_header:
+				conn.putheader(auth_header.keys()[0], auth_header.values()[0])
+			conn.putheader('Accept', 'text/plain')
+			conn.putheader('Content-Type', 'text/plain,text/occi')
+			conn.putheader('Connection', 'close')
+			
+			net_id = "imnet." + str(int(time.time()*100))
+			
+			body = 'Category: networkinterface;scheme="http://schemas.ogf.org/occi/infrastructure#";class="kind";location="/link/networkinterface/";title="networkinterface link"\n'
+			body += 'X-OCCI-Attribute: occi.core.id="%s"\n' % net_id
+			body += 'X-OCCI-Attribute: occi.core.target="/network/public"\n'
+			body += 'X-OCCI-Attribute: occi.core.source="/compute/%s"' % vm.id
+			conn.putheader('Content-Length', len(body))
+			conn.endheaders(body)
+
+			resp = conn.getresponse()
+			self.delete_proxy(conn)
+			output = str(resp.read())
+			if resp.status != 201:
+				return (False, "Error adding public IP the VM: " + resp.reason + "\n" + output)
+			else:
+				return (True, vm.id)
+		except Exception:
+			self.logger.exception("Error connecting with OCCI server")
+			return (False, "Error connecting with OCCI server")
 			
 	def get_occi_attribute_value(self, occi_res, attr_name):
 		"""
@@ -287,7 +324,7 @@ class OCCICloudConnector(CloudConnector):
 					vm.info.systems[0].setValue("memory.size", float(memory), 'G')
 				
 				# Update the network data
-				self.setIPs(vm,output)
+				self.setIPs(vm,output,auth_data)
 				return (True, vm)
 
 		except Exception, ex:
@@ -584,8 +621,8 @@ users:
 				
 				# Add volume links
 				for device, volume_id in volumes.iteritems():
-					body += 'Link: </storage/%s>;rel="http://schemas.ogf.org/occi/infrastructure#storage";category="http://schemas.ogf.org/occi/infrastructure#storagelink http://opennebula.org/occi/infrastructure#storagelink";occi.core.target="/storage/%s";occi.core.source="/compute/%s";occi.storagelink.deviceid="/dev/%s"\n' % (volume_id, volume_id, compute_id, device) 
-				
+					body += 'Link: </storage/%s>;rel="http://schemas.ogf.org/occi/infrastructure#storage";category="http://schemas.ogf.org/occi/infrastructure#storagelink http://opennebula.org/occi/infrastructure#storagelink";occi.core.target="/storage/%s";occi.core.source="/compute/%s";occi.storagelink.deviceid="/dev/%s"\n' % (volume_id, volume_id, compute_id, device)
+
 				self.logger.debug(body)
 				
 				conn.putheader('Content-Length', len(body))
