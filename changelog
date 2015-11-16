@@ -154,3 +154,4 @@ IM 1.4.0
     * Improve the DB serialization
     * Change Infrastructure ID from int to string: The API changes and the stored data is not compatible with old versions
     * Add GetInfrastructureState function
+    * Bugfix managing public IPs in OCCI
