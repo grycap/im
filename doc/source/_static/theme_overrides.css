@@ -154,9 +154,9 @@ div.version{
     margin-bottom: 0.809em;
 }
 
-a:hover, ul:hover, li:hover {
+a:hover {
     background: #FFFFFF;
-    color: #505050;
+    color: #9B59B6;
 }
 
 a:active, ul:active, li:active {
@@ -182,7 +182,7 @@ a:current, ul:current, li:current {
 } 
 
 a {
-    color: #505050;
+    color: #9B59B6;
     background: #FFFFFF;
     text-decoration: none;
     cursor: pointer;
@@ -217,7 +217,7 @@ li {
 }
 
 a:visited, ul:visited, li:visited {
-    color: #505050;
+    color: #9B59B6;
     background: #FFFFFF;
 }
 
@@ -249,4 +249,3 @@ a:visited, ul:visited, li:visited {
     font-weight: bold;
     color: gray;
 }
-
