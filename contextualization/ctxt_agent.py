@@ -68,19 +68,11 @@ def wait_ssh_access(vm):
 	wait = 0
 	success = False
 	res = None
-	last_tested_private = False
 	while wait < SSH_WAIT_TIMEOUT:
-		if 'private_ip' in vm and not last_tested_private:
-			# First test the private one
-			vm_ip = vm['private_ip']
-			last_tested_private = True
-		else:
-			vm_ip = vm['ip']
-			last_tested_private = False
-		logger.debug("Testing SSH access to VM: " + vm_ip)
+		logger.debug("Testing SSH access to VM: " + vm['ip'])
 		wait += delay
 		try:
-			ssh_client = SSH(vm_ip, vm['user'], vm['passwd'], vm['private_key'], vm['ssh_port'])
+			ssh_client = SSH(vm['ip'], vm['user'], vm['passwd'], vm['private_key'], vm['ssh_port'])
 			success = ssh_client.test_connectivity()
 			res = 'init'
 		except AuthenticationException:
@@ -88,9 +80,9 @@ def wait_ssh_access(vm):
 			if 'new_passwd' in vm:
 				try_ansible_key = False
 				# If the process of changing credentials has finished in the VM, we must use the new ones
-				logger.warn("Error connecting with SSH with initial credentials with: " + vm_ip + ". Try to use new ones.")
+				logger.warn("Error connecting with SSH with initial credentials with: " + vm['ip'] + ". Try to use new ones.")
 				try:
-					ssh_client = SSH(vm_ip, vm['user'], vm['new_passwd'], vm['private_key'], vm['ssh_port'])
+					ssh_client = SSH(vm['ip'], vm['user'], vm['new_passwd'], vm['private_key'], vm['ssh_port'])
 					success = ssh_client.test_connectivity()
 					res = "new"
 				except AuthenticationException:
@@ -98,17 +90,16 @@ def wait_ssh_access(vm):
 			
 			if try_ansible_key:
 				# In some very special cases the last two cases fail, so check if the ansible key works 
-				logger.warn("Error connecting with SSH with initial credentials with: " + vm_ip + ". Try to ansible_key.")
+				logger.warn("Error connecting with SSH with initial credentials with: " + vm['ip'] + ". Try to ansible_key.")
 				try:
-					ssh_client = SSH(vm_ip, vm['user'], None, PK_FILE, vm['ssh_port'])
+					ssh_client = SSH(vm['ip'], vm['user'], None, PK_FILE, vm['ssh_port'])
 					success = ssh_client.test_connectivity()
 					res = 'pk_file'
 				except:
-					logger.exception("Error connecting with SSH with: " + vm_ip)
+					logger.exception("Error connecting with SSH with: " + vm['ip'])
 					success = False
 			
 		if success:
-			vm['ip'] = vm_ip
 			return res
 		else:
 			time.sleep(delay)
@@ -339,13 +330,8 @@ def contextualize_vm(general_conf_data, vm_conf_data):
 				if ctxt_vm['os'] != "windows":
 					success = False
 					try:
-						if 'private_ip' in vm:
-							ssh_client = SSH(ctxt_vm['private_ip'], ctxt_vm['user'], None, PK_FILE, ctxt_vm['ssh_port'])
-							success = ssh_client.test_connectivity()
-						
-						if not success:
-							ssh_client = SSH(ctxt_vm['ip'], ctxt_vm['user'], None, PK_FILE, ctxt_vm['ssh_port'])
-							success = ssh_client.test_connectivity()
+						ssh_client = SSH(ctxt_vm['ip'], ctxt_vm['user'], None, PK_FILE, ctxt_vm['ssh_port'])
+						success = ssh_client.test_connectivity()
 					except:
 						success = False
 		
