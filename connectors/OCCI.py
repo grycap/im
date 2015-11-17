@@ -216,7 +216,7 @@ class OCCICloudConnector(CloudConnector):
 				self.logger.debug("The VM does not have public IP trying to add one.")
 				success, _ = self.add_public_ip(vm, auth_data)
 				if success:
-					self.logger.debug("Public IP already added.")
+					self.logger.debug("Public IP successfully added.")
 		
 		vm.setIps(public_ips, private_ips)
 		

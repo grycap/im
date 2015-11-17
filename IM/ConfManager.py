@@ -1171,10 +1171,12 @@ class ConfManager(threading.Thread):
 					vm_conf_data['master'] = True
 				else:
 					vm_conf_data['master'] = False
-				# first try to use the public IP
+				# first try to use the public IP as the default IP
 				vm_conf_data['ip'] = vm.getPublicIP()
 				if not vm_conf_data['ip']:
 					vm_conf_data['ip'] = vm.getPrivateIP()
+				if vm.getPublicIP() and vm.getPrivateIP():
+					vm_conf_data['private_ip'] = vm.getPrivateIP()
 				vm_conf_data['ssh_port'] = vm.getSSHPort()
 				creds = vm.getCredentialValues()
 				new_creds = vm.getCredentialValues(new=True)
