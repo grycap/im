@@ -101,7 +101,7 @@ Form Source
 ^^^^^^^^^^^
 
 Once the dependences are installed, just download the tarball of *IM Service*
-from `Download <http://www.grycap.upv.es/im/download.php>`_, extract the
+from `Download <https://github.com/grycap/im>`_, extract the 
 content and move the extracted directory to the installation path (for instance
 :file:`/usr/local` or :file:`/opt`)::
 
