@@ -2,7 +2,7 @@
 - hosts: all
   sudo: yes
   vars:
-    ANSIBLE_VERSION: 1.9.2
+    ANSIBLE_VERSION: 1.9.4
   tasks:
     - name: Install libselinux-python in RH
       action: yum pkg=libselinux-python state=installed

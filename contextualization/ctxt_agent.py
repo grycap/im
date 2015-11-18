@@ -44,16 +44,25 @@ def wait_winrm_access(vm):
 	"""
 	delay = 10
 	wait = 0
+	last_tested_private = False
 	while wait < SSH_WAIT_TIMEOUT:
+		if 'private_ip' in vm and not last_tested_private:
+			# First test the private one
+			vm_ip = vm['private_ip']
+			last_tested_private = True
+		else:
+			vm_ip = vm['ip']
+			last_tested_private = False
 		try:
-			logger.debug("Testing WinRM access to VM: " + vm['ip'])
+			logger.debug("Testing WinRM access to VM: " + vm_ip)
 			sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-			result = sock.connect_ex((vm['ip'],5986))
+			result = sock.connect_ex((vm_ip,5986))
 		except:
-			logger.exception("Error connecting with WinRM with: " + vm['ip'])
+			logger.exception("Error connecting with WinRM with: " + vm_ip)
 			result = -1
 
 		if result == 0:
+			vm['ip'] = vm_ip
 			return True
 		else:
 			wait += delay
@@ -68,11 +77,19 @@ def wait_ssh_access(vm):
 	wait = 0
 	success = False
 	res = None
+	last_tested_private = False
 	while wait < SSH_WAIT_TIMEOUT:
-		logger.debug("Testing SSH access to VM: " + vm['ip'])
+		if 'private_ip' in vm and not last_tested_private:
+			# First test the private one
+			vm_ip = vm['private_ip']
+			last_tested_private = True
+		else:
+			vm_ip = vm['ip']
+			last_tested_private = False
+		logger.debug("Testing SSH access to VM: " + vm_ip)
 		wait += delay
 		try:
-			ssh_client = SSH(vm['ip'], vm['user'], vm['passwd'], vm['private_key'], vm['ssh_port'])
+			ssh_client = SSH(vm_ip, vm['user'], vm['passwd'], vm['private_key'], vm['ssh_port'])
 			success = ssh_client.test_connectivity()
 			res = 'init'
 		except AuthenticationException:
@@ -80,9 +97,9 @@ def wait_ssh_access(vm):
 			if 'new_passwd' in vm:
 				try_ansible_key = False
 				# If the process of changing credentials has finished in the VM, we must use the new ones
-				logger.warn("Error connecting with SSH with initial credentials with: " + vm['ip'] + ". Try to use new ones.")
+				logger.warn("Error connecting with SSH with initial credentials with: " + vm_ip + ". Try to use new ones.")
 				try:
-					ssh_client = SSH(vm['ip'], vm['user'], vm['new_passwd'], vm['private_key'], vm['ssh_port'])
+					ssh_client = SSH(vm_ip, vm['user'], vm['new_passwd'], vm['private_key'], vm['ssh_port'])
 					success = ssh_client.test_connectivity()
 					res = "new"
 				except AuthenticationException:
@@ -90,16 +107,17 @@ def wait_ssh_access(vm):
 			
 			if try_ansible_key:
 				# In some very special cases the last two cases fail, so check if the ansible key works 
-				logger.warn("Error connecting with SSH with initial credentials with: " + vm['ip'] + ". Try to ansible_key.")
+				logger.warn("Error connecting with SSH with initial credentials with: " + vm_ip + ". Try to ansible_key.")
 				try:
-					ssh_client = SSH(vm['ip'], vm['user'], None, PK_FILE, vm['ssh_port'])
+					ssh_client = SSH(vm_ip, vm['user'], None, PK_FILE, vm['ssh_port'])
 					success = ssh_client.test_connectivity()
 					res = 'pk_file'
 				except:
-					logger.exception("Error connecting with SSH with: " + vm['ip'])
+					logger.exception("Error connecting with SSH with: " + vm_ip)
 					success = False
 			
 		if success:
+			vm['ip'] = vm_ip
 			return res
 		else:
 			time.sleep(delay)
@@ -248,6 +266,23 @@ def removeRequiretty(vm, pk_file):
 	else:
 		return True
 
+def replace_vm_ip(old_ip, new_ip):
+	# Replace the IP with the one that is actually working
+	# in the inventory and in the general info file
+	filename  = general_conf_data['conf_dir'] + "/hosts"
+	with open(filename) as f:
+		inventoy_data = f.read().replace(old_ip, new_ip)
+
+	with open(filename, 'w+') as f:
+		f.write(inventoy_data)
+	
+	filename = conf_data_filename
+	with open(filename) as f:
+		inventoy_data = f.read().replace(old_ip, new_ip)
+
+	with open(filename, 'w+') as f:
+		f.write(inventoy_data)
+
 def contextualize_vm(general_conf_data, vm_conf_data):
 	res_data = {}
 	logger.info('Generate and copy the ssh key')
@@ -284,12 +319,19 @@ def contextualize_vm(general_conf_data, vm_conf_data):
 			if task == "basic":
 				# This is always the fist step, so put the SSH test, the requiretty removal and change password here
 				for vm in general_conf_data['vms']:
+					orig_vm_ip = vm['ip']
 					if vm['os'] == "windows":
 						logger.info("Waiting WinRM access to VM: " + vm['ip'])
 						ssh_res = wait_winrm_access(vm)
 					else:
 						logger.info("Waiting SSH access to VM: " + vm['ip'])
 						ssh_res = wait_ssh_access(vm)
+					
+					# the IP has changed public for private and we are the master VM
+					if orig_vm_ip != vm['ip'] and ctxt_vm['master']:
+						# update the ansible inventory  
+						logger.info("Changing the IP %s for %s in config files." % (orig_vm_ip, vm['ip']))
+						replace_vm_ip(orig_vm_ip, vm['ip'])
 
 					if vm['id'] == vm_conf_data['id']:
 						cred_used = ssh_res
