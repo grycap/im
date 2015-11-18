@@ -323,10 +323,17 @@ class ConfManager(threading.Thread):
 			all_vars += 'IM_' + group.upper() + '_NUM_VMS=' + str(len(vm_group[group])) + '\n'
 
 			for vm in vm_group[group]:
-				# first try to use the public IP
-				ip = vm.getPublicIP()
-				if not ip:
+				# is the master node
+				if vm.id == self.inf.vm_master.id:
+					# first try to use the private IP
 					ip = vm.getPrivateIP()
+					if not ip:
+						ip = vm.getPublicIP()
+				else:
+					# first try to use the public IP
+					ip = vm.getPublicIP()
+					if not ip:
+						ip = vm.getPrivateIP()
 
 				if not ip:
 					ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": The VM ID: " + str(vm.id) + " does not have an IP. It will not be included in the inventory file.")
@@ -605,7 +612,6 @@ class ConfManager(threading.Thread):
 					else:
 						ConfManager.logger.info("Inf ID: " + str(self.inf.id) + ": Ansible installation finished successfully")
 		
-					ssh.sftp_mkdir(Config.REMOTE_CONF_DIR)
 					remote_dir = Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/"
 					ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Copy the contextualization agent files")  
 					ssh.sftp_mkdir(remote_dir)
@@ -1080,6 +1086,7 @@ class ConfManager(threading.Thread):
 			self.inf.add_cont_msg("Creating and copying Ansible playbook files")
 			ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Preparing Ansible playbook to copy Ansible modules: " + str(modules))
 	
+			ssh.sftp_mkdir(Config.REMOTE_CONF_DIR)
 			ssh.sftp_mkdir(Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/")
 			# Copy the utils helper files
 			ssh.sftp_mkdir(Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/" + "/utils")
@@ -1145,7 +1152,7 @@ class ConfManager(threading.Thread):
 				ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Ansible successfully configured in the master VM:\n" + msg + "\n\n")
 				self.inf.add_cont_msg("Ansible successfully configured in the master VM.")
 		except Exception, ex:
-			ConfManager.logger.error("Inf ID: " + str(self.inf.id) + ": Error configuring master node.")
+			ConfManager.logger.exception("Inf ID: " + str(self.inf.id) + ": Error configuring master node.")
 			self.inf.add_cont_msg("Error configuring master node: " + str(ex))
 			success = False
 
