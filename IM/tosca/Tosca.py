@@ -14,8 +14,7 @@ from  toscaparser.utils.yamlparser import load_yaml
 
 class ToscaTemplate(toscaparser_ToscaTemplate):
 
-	CUSTOM_TYPES_FILE = os.path.dirname(os.path.realpath(__file__)) + "/custom_types.yaml"
-	CUSTOM_IMPORT_FILE = os.path.dirname(os.path.realpath(__file__)) + "/custom_import_types.yaml"
+	CUSTOM_TYPES_FILE = os.path.dirname(os.path.realpath(__file__)) + "/tosca-types/custom_types.yaml"
 
 	def __init__(self, path, parsed_params=None, a_file=True):
 		# Load custom data
@@ -41,12 +40,6 @@ class ToscaTemplate(toscaparser_ToscaTemplate):
 
 		if not imports:
 			imports = self._tpl_imports()
-		
-		# Enable to add INDIGO custom definitions
-		if not imports:
-			imports = [{"indigo_defs": self.CUSTOM_IMPORT_FILE}]
-		else:
-			imports.append({"indigo_defs": self.CUSTOM_IMPORT_FILE})
 
 		if imports:
 			custom_defs = toscaparser.imports.\
