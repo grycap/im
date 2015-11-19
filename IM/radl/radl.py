@@ -1229,7 +1229,11 @@ class RADL:
 				if not value:
 					break
 				if value in nets_id:
-					return s.getValue("net_interface.%d.ip" % i)
+					ip = s.getValue("net_interface.%d.ip" % i)
+					if ip:
+						return ip
+					else:
+						break
 				i += 1
 		return None
 
