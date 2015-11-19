@@ -75,18 +75,17 @@ GET ``http://imserver.com/infrastructures/<infId>``
    :ok response: 200 OK
    :fail response: 401, 404, 400
 
-   Return a list of URIs referencing the virtual machines associated to the
-   infrastructure with ID ``infId``.
+   Return a list of URIs referencing the virtual machines associated to the infrastructure with ID ``infId``.
     
 GET ``http://imserver.com/infrastructures/<infId>/<property_name>``
    :Content-type: application/json
    :ok response: 200 OK
    :fail response: 401, 404, 400, 403
 
-   Return property ``property_name`` associated to the infrastructure with ID ``infId``.
-   It has two properties:
-   	:``contmsg``: a string with the contextualization message.
-   	:``radl``: a string with the original specified RADL of the infrastructure.
+   Return property ``property_name`` associated to the infrastructure with ID ``infId``. It has three properties:
+      :``contmsg``: a string with the contextualization message. 
+      :``radl``: a string with the original specified RADL of the infrastructure. 
+      :``state``: a string with the aggregated state of the infrastructure.
 
 POST ``http://imserver.com/infrastructures/<infId>``
    :body: ``RADL document``
