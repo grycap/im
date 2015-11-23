@@ -199,7 +199,7 @@ class TestIM(unittest.TestCase):
 
         (success, vm_ids) = self.server.GetInfrastructureInfo(self.inf_id, self.auth_data)
         self.assertTrue(success, msg="ERROR calling GetInfrastructureInfo:" + str(vm_ids))
-        self.assertEqual(len(vm_ids), 4, msg="ERROR getting infrastructure info: Incorrect number of VMs(" + str(len(vm_ids)) + "). It must be 3")
+        self.assertEqual(len(vm_ids), 4, msg="ERROR getting infrastructure info: Incorrect number of VMs(" + str(len(vm_ids)) + "). It must be 4")
 
         all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 900)
         self.assertTrue(all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
@@ -208,9 +208,14 @@ class TestIM(unittest.TestCase):
         """
         Test the GetInfrastructureState IM function
         """
-        (success, state) = self.server.GetInfrastructureState(self.inf_id, self.auth_data)
-        self.assertTrue(success, msg="ERROR calling GetInfrastructureState: " + str(state))
+        (success, res) = self.server.GetInfrastructureState(self.inf_id, self.auth_data)
+        self.assertTrue(success, msg="ERROR calling GetInfrastructureState: " + str(res))
+        state = res['state']
         self.assertEqual(state, "configured", msg="Unexpected inf state: " + state + ". It must be 'configured'.")
+        vm_states = res['vm_states']
+        self.assertEqual(len(vm_states), 4, msg="ERROR getting infrastructure state: Incorrect number of VMs(" + str(len(vm_states)) + "). It must be 4")
+        for vm_id, vm_state in vm_states.iteritems():
+            self.assertEqual(vm_state, "configured", msg="Unexpected vm state: " + vm_state + " in VM ID " + str(vm_id) + ". It must be 'configured'.")
 
     def test_21_addresource_noconfig(self):
         """
@@ -221,7 +226,7 @@ class TestIM(unittest.TestCase):
 
         (success, vm_ids) = self.server.GetInfrastructureInfo(self.inf_id, self.auth_data)
         self.assertTrue(success, msg="ERROR calling GetInfrastructureInfo:" + str(vm_ids))
-        self.assertEqual(len(vm_ids), 5, msg="ERROR getting infrastructure info: Incorrect number of VMs(" + str(len(vm_ids)) + "). It must be 3")
+        self.assertEqual(len(vm_ids), 5, msg="ERROR getting infrastructure info: Incorrect number of VMs(" + str(len(vm_ids)) + "). It must be 5")
 
     def test_22_removeresource(self):
         """
@@ -235,7 +240,7 @@ class TestIM(unittest.TestCase):
 
         (success, vm_ids) = self.server.GetInfrastructureInfo(self.inf_id, self.auth_data)
         self.assertTrue(success, msg="ERROR calling GetInfrastructureInfo:" + str(vm_ids))
-        self.assertEqual(len(vm_ids), 4, msg="ERROR getting infrastructure info: Incorrect number of VMs(" + str(len(vm_ids)) + "). It must be 2")
+        self.assertEqual(len(vm_ids), 4, msg="ERROR getting infrastructure info: Incorrect number of VMs(" + str(len(vm_ids)) + "). It must be 4")
 
         (success, vm_state)  = self.server.GetVMProperty(self.inf_id, vm_ids[0], "state", self.auth_data)
         self.assertTrue(success, msg="ERROR getting VM state:" + str(res))
@@ -256,7 +261,7 @@ class TestIM(unittest.TestCase):
 
         (success, vm_ids) = self.server.GetInfrastructureInfo(self.inf_id, self.auth_data)
         self.assertTrue(success, msg="ERROR calling GetInfrastructureInfo:" + str(vm_ids))
-        self.assertEqual(len(vm_ids), 3, msg="ERROR getting infrastructure info: Incorrect number of VMs(" + str(len(vm_ids)) + "). It must be 2")
+        self.assertEqual(len(vm_ids), 3, msg="ERROR getting infrastructure info: Incorrect number of VMs(" + str(len(vm_ids)) + "). It must be 3")
 
         (success, vm_state)  = self.server.GetVMProperty(self.inf_id, vm_ids[0], "state", self.auth_data)
         self.assertTrue(success, msg="ERROR getting VM state:" + str(res))

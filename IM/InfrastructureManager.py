@@ -788,7 +788,9 @@ class InfrastructureManager:
 		- inf_id(str): infrastructure id.
 		- auth(Authentication): parsed authentication tokens.
 
-		Return: a str with the state
+		Return: a dict with two elements:
+			- 'state': str with the aggregated state of the infrastructure
+			- 'vm_states': a dict indexed with the id of the VM and its state as value
 		"""
 
 		InfrastructureManager.logger.info("Getting state of the inf: " + str(inf_id))
@@ -796,9 +798,11 @@ class InfrastructureManager:
 		sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
 
 		state = None
+		vm_states = {}
 		for vm in sel_inf.get_vm_list():
 			# First try yo update the status of the VM
 			vm.update_status(auth)
+			vm_states[vm.id] = vm.state
 			if vm.state == VirtualMachine.FAILED:
 				state = VirtualMachine.FAILED
 				break
@@ -827,7 +831,7 @@ class InfrastructureManager:
 			state = VirtualMachine.UNKNOWN
 
 		InfrastructureManager.logger.debug("inf: " + str(inf_id) + " is in state: " + state)
-		return state
+		return {'state':state, 'vm_states': vm_states}
 
 	@staticmethod
 	def StopInfrastructure(inf_id, auth):

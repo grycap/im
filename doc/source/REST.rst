@@ -85,7 +85,10 @@ GET ``http://imserver.com/infrastructures/<infId>/<property_name>``
    Return property ``property_name`` associated to the infrastructure with ID ``infId``. It has three properties:
       :``contmsg``: a string with the contextualization message. 
       :``radl``: a string with the original specified RADL of the infrastructure. 
-      :``state``: a string with the aggregated state of the infrastructure.
+      :``state``: a JSON object with two elements:
+      
+         :``state``: a string with the aggregated state of the infrastructure. 
+         :``vm_states``: a dict indexed with the VM ID and the value the VM state.
 
 POST ``http://imserver.com/infrastructures/<infId>``
    :body: ``RADL document``
