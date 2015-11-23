@@ -21,6 +21,7 @@ import os
 import httplib
 import time
 import sys
+import json
 
 sys.path.append("..")
 sys.path.append(".")
@@ -223,7 +224,12 @@ class TestIM(unittest.TestCase):
         resp = self.server.getresponse()
         output = str(resp.read())
         self.assertEqual(resp.status, 200, msg="ERROR getting the infrastructure state:" + output)
-        self.assertEqual(output, "configured", msg="Unexpected inf state: " + output + ". It must be 'configured'.")
+        res = json.loads(output)
+        state = res['state']
+        vm_states = res['vm_states']
+        self.assertEqual(state, "configured", msg="Unexpected inf state: " + state + ". It must be 'configured'.")
+        for vm_id, vm_state in vm_states.iteritems():
+            self.assertEqual(vm_state, "configured", msg="Unexpected vm state: " + vm_state + " in VM ID " + str(vm_id) + ". It must be 'configured'.")
 
     def test_47_removeresource_noconfig(self):
         self.server.request('GET', "/infrastructures/" + self.inf_id + "?context=0", headers = {'AUTHORIZATION' : self.auth_data})

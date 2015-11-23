@@ -19,6 +19,7 @@ from InfrastructureManager import InfrastructureManager, DeletedInfrastructureEx
 from auth import Authentication
 import threading
 import bottle
+import json
 from config import Config
 
 AUTH_LINE_SEPARATOR = '\\n'
@@ -156,14 +157,17 @@ def RESTGetInfrastructureProperty(id=None, prop=None):
 	try:
 		if prop == "contmsg":
 			res = InfrastructureManager.GetInfrastructureContMsg(id, auth)
+			bottle.response.content_type = "text/plain"
 		elif prop == "radl":
 			res = InfrastructureManager.GetInfrastructureRADL(id, auth)
+			bottle.response.content_type = "text/plain"
 		elif prop == "state":
+			bottle.response.content_type = "application/json"
 			res = InfrastructureManager.GetInfrastructureState(id, auth)
+			res = json.dumps(res)
 		else:
 			bottle.abort(403, "Incorrect infrastructure property")
-		bottle.response.content_type = "text/plain"
-		return res
+		return str(res)
 	except DeletedInfrastructureException, ex:
 		bottle.abort(404, "Error Getting Inf. info: " + str(ex))
 		return False
