@@ -77,6 +77,14 @@
       action: command pip-2.6 install ansible=={{ ANSIBLE_VERSION }}
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version < 6
       
+    - name: Install scp with Pip
+      pip: name=scp
+      when: ansible_os_family == "Suse" or ansible_os_family == "Debian" or (ansible_os_family == "RedHat" and ansible_distribution_major_version >= 6)
+      
+    - name: Install scp with Pip 2.6
+      action: command pip-2.6 install scp
+      when: ansible_os_family == "RedHat" and ansible_distribution_major_version < 6
+      
     - name: Install pywinrm for windows support in ansible with Pip
       pip: name=http://github.com/diyan/pywinrm/archive/master.zip#egg=pywinrm
       when: ansible_os_family == "Suse" or ansible_os_family == "Debian" or (ansible_os_family == "RedHat" and ansible_distribution_major_version >= 6)

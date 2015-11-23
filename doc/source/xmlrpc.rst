@@ -52,7 +52,7 @@ This is the list of method names:
 ``GetInfrastructureState``
    :parameter 0: ``infId``: integer
    :parameter 1: ``auth``: array of structs
-   :ok response: [true, ``state``: string]
+   :ok response: [true, struct(``state``: string, ``vm_states``: dict of integer (VM ID) to string (VM state)]
    :fail response: [false, ``error``: string]
 
    Return the aggregated state associated to the 
