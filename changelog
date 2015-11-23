@@ -155,3 +155,4 @@ IM 1.4.0
     * Change Infrastructure ID from int to string: The API changes and the stored data is not compatible with old versions
     * Add GetInfrastructureState function
     * Bugfix managing public IPs in OCCI
+    * Add suport for scp in SSH module in case that sftp is not available

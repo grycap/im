@@ -766,17 +766,13 @@ class ConfManager(threading.Thread):
 				recipe_files.append((tmp_dir + "/" + f, remote_dir + "/" + f ))
 
 			# TODO: Study why it is needed
-			time.sleep(2)
+			#time.sleep(2)
 			
 			ssh = self.inf.vm_master.get_ssh(retry=True)
 			self.inf.add_cont_msg("Copying YAML, hosts and inventory files.")
 			ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Copying YAML files.")
 			ssh.sftp_mkdir(remote_dir)
 			ssh.sftp_put_files(recipe_files)
-			
-			# Copy the utils helper files
-			ssh.sftp_mkdir(remote_dir + "/utils")
-			ssh.sftp_put_dir(Config.RECIPES_DIR + "/utils", remote_dir + "/utils")
 			
 			self.inf.set_configured(True)
 		except Exception, ex:

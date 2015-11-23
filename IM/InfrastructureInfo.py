@@ -363,7 +363,7 @@ class InfrastructureInfo:
 				self.ctxt_tasks.put(elem)
 	
 	def get_ctxt_process_names(self):
-		return [t.name for t in self.conf_threads]
+		return [t.name for t in self.conf_threads if t.isAlive()]
 		
 	def is_ctxt_process_running(self):
 		all_finished = True
