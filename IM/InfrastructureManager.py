@@ -165,7 +165,7 @@ class InfrastructureManager:
 		all_ok = False
 		exceptions = []
 		for cloud_id in deploys_group_cloud_list:
-			cloud = cloud_list[cloud_id]
+			cloud = cloud_list[cloud_id].cloud.getCloudConnector()
 			all_ok = True
 			for deploy in deploy_group:
 				remain_vm, fail_cont = deploy.vm_number, 0
