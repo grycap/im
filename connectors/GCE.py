@@ -18,7 +18,7 @@ import time
 import os
 
 from CloudConnector import CloudConnector
-from libcloud.compute.base import Node
+from libcloud.compute.base import Node, NodeSize
 from libcloud.compute.types import NodeState, Provider
 from libcloud.compute.providers import get_driver
 from IM.uriparse import uriparse
@@ -100,7 +100,7 @@ class GCECloudConnector(CloudConnector):
                         return []
     
                     self.update_system_info_from_instance(res_system, instance_type)
-                    
+
                     username = res_system.getValue('disk.0.os.credentials.username')
                     if not username:
                         res_system.setValue('disk.0.os.credentials.username','gceuser')
@@ -114,13 +114,14 @@ class GCECloudConnector(CloudConnector):
         """
         Update the features of the system with the information of the instance_type
         """
-        system.addFeature(Feature("memory.size", "=", instance_type.ram, 'M'), conflict="other", missing="other")
-        if instance_type.disk:
-            system.addFeature(Feature("disk.0.free_size", "=", instance_type.disk , 'G'), conflict="other", missing="other")
-        if instance_type.price:
-            system.addFeature(Feature("price", "=", instance_type.price), conflict="me", missing="other")
+	if isinstance(instance_type, NodeSize):
+            system.addFeature(Feature("memory.size", "=", instance_type.ram, 'M'), conflict="other", missing="other")
+            if instance_type.disk:
+                system.addFeature(Feature("disk.0.free_size", "=", instance_type.disk , 'G'), conflict="other", missing="other")
+            if instance_type.price:
+                system.addFeature(Feature("price", "=", instance_type.price), conflict="me", missing="other")
         
-        system.addFeature(Feature("instance_type", "=", instance_type.name), conflict="other", missing="other")
+            system.addFeature(Feature("instance_type", "=", instance_type.name), conflict="other", missing="other")
 
     @staticmethod
     def set_net_provider_id(radl, net_name):
@@ -234,6 +235,9 @@ class GCECloudConnector(CloudConnector):
     	"""
         nets = driver.ex_list_networks()
         if nets:
+            for net in nets:
+                if net.name == "default":
+                    return "default"
             return nets[0].name
         else:
             return None
@@ -346,7 +350,11 @@ class GCECloudConnector(CloudConnector):
         return res
     
     def finalize(self, vm, auth_data):
-        node = self.get_node_with_id(vm.id, auth_data)
+        try:
+            node = self.get_node_with_id(vm.id, auth_data)
+        except:
+            self.logger.exception("Error getting VM info: %s" % node_id)
+            return (False, "Error getting VM info: %s" % node_id)
         
         if node:
             success = node.destroy()
@@ -412,8 +420,6 @@ class GCECloudConnector(CloudConnector):
             node = driver.ex_get_node(node_id)
         except ResourceNotFoundError:
             self.logger.warn("VM " + str(node_id) + " does not exist.")
-        except:
-            self.logger.exception("Error getting VM info: %s" % node_id)
 
         return node
 
