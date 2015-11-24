@@ -329,23 +329,23 @@ class GCECloudConnector(CloudConnector):
 
         res = []
         i = 0
-        while i < num_vm:
-            self.logger.debug("Creating node")
-
+        if i > 1:
+            args['number'] = i
+            args['base_name'] = "%s-%s" % (name.lower().replace("_","-"), int(time.time()*100))
+            nodes = driver.ex_create_multiple_nodes(**args)
+        else:
             args['name'] = "%s-%s" % (name.lower().replace("_","-"), int(time.time()*100))
-
-            node = driver.create_node(**args)
-
-            if node:
-                vm = VirtualMachine(inf, node.extra['name'], self.cloud, radl, requested_radl, self)
-                vm.info.systems[0].setValue('instance_id', str(vm.id))
-                vm.info.systems[0].setValue('instance_name', str(vm.id))
-                self.logger.debug("Node successfully created.")
-                res.append((True, vm))
-            else:
-                res.append((False, "Error creating the node"))
-
-            i += 1
+            nodes = [driver.create_node(**args)]
+        
+        for node in nodes:
+            vm = VirtualMachine(inf, node.extra['name'], self.cloud, radl, requested_radl, self)
+            vm.info.systems[0].setValue('instance_id', str(vm.id))
+            vm.info.systems[0].setValue('instance_name', str(vm.id))
+            self.logger.debug("Node successfully created.")
+            res.append((True, vm))
+        
+        for _ in range(len(nodes), i):
+            res.append((False, "Error launching VM."))
 
         return res
     
@@ -353,8 +353,8 @@ class GCECloudConnector(CloudConnector):
         try:
             node = self.get_node_with_id(vm.id, auth_data)
         except:
-            self.logger.exception("Error getting VM info: %s" % node_id)
-            return (False, "Error getting VM info: %s" % node_id)
+            self.logger.exception("Error getting VM: %s" % vm.id)
+            return (False, "Error getting VM: %s" % vm.id)
         
         if node:
             success = node.destroy()
