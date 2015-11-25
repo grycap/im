@@ -165,7 +165,7 @@ class InfrastructureManager:
 		all_ok = False
 		exceptions = []
 		for cloud_id in deploys_group_cloud_list:
-			cloud = cloud_list[cloud_id].cloud.getCloudConnector()
+			cloud = cloud_list[cloud_id]
 			all_ok = True
 			for deploy in deploy_group:
 				remain_vm, fail_cont = deploy.vm_number, 0
@@ -186,7 +186,8 @@ class InfrastructureManager:
 					requested_radl = radl.clone()
 					requested_radl.systems = [radl.get_system_by_name(concrete_system.name)]
 					try:
-						launched_vms = cloud.launch(sel_inf, launch_radl, requested_radl, remain_vm, auth)
+						InfrastructureManager.logger.debug("Launching %d VMs of type %s" % (remain_vm, concrete_system.name))
+						launched_vms = cloud.cloud.getCloudConnector().launch(sel_inf, launch_radl, requested_radl, remain_vm, auth)
 					except Exception, e:
 						InfrastructureManager.logger.exception("Error launching some of the VMs: %s" % e)
 						exceptions.append(e)
