@@ -81,7 +81,9 @@ class InfrastructureInfo:
 		self.ansible_configured = None
 		"""Flag to specify that ansible is configured successfully in the master node of this inf."""
 		self.configured = None
+		"""Flag to specify that the configuration threads of this inf has finished successfully or with errors."""
 		self.conf_threads = []
+		""" List of configuration threads."""
 	
 	def __getstate__(self):
 		"""

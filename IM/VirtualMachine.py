@@ -678,7 +678,8 @@ class VirtualMachine:
 			msg = "Contextualization agent output processed successfully"
 		except IOError, ex:
 			msg = "Error getting contextualization agent output " + remote_dir + "/ctxt_agent.out:  No such file."
-			VirtualMachine.logger.error(msg)	
+			VirtualMachine.logger.error(msg)
+			self.configured = False
 			try:
 				# Get the output of the ctxt_agent to guess why the agent output is not there. 
 				src = [remote_dir + '/stdout', remote_dir + '/stderr']
