@@ -328,23 +328,22 @@ class GCECloudConnector(CloudConnector):
                 self.set_net_provider_id(radl, "default")
 
         res = []
-        i = 0
-        if i > 1:
-            args['number'] = i
+        if num_vm > 1:
+            args['number'] = num_vm
             args['base_name'] = "%s-%s" % (name.lower().replace("_","-"), int(time.time()*100))
             nodes = driver.ex_create_multiple_nodes(**args)
         else:
             args['name'] = "%s-%s" % (name.lower().replace("_","-"), int(time.time()*100))
             nodes = [driver.create_node(**args)]
-        
+
         for node in nodes:
-            vm = VirtualMachine(inf, node.extra['name'], self.cloud, radl, requested_radl, self)
+            vm = VirtualMachine(inf, node.extra['name'], self.cloud, radl, requested_radl, self.cloud.getCloudConnector())
             vm.info.systems[0].setValue('instance_id', str(vm.id))
             vm.info.systems[0].setValue('instance_name', str(vm.id))
             self.logger.debug("Node successfully created.")
             res.append((True, vm))
         
-        for _ in range(len(nodes), i):
+        for _ in range(len(nodes), num_vm):
             res.append((False, "Error launching VM."))
 
         return res

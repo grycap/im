@@ -242,7 +242,7 @@ class LibCloudCloudConnector(CloudConnector):
 			node = driver.create_node(**args)
 			
 			if node:
-				vm = VirtualMachine(inf, node.id, self.cloud, radl, requested_radl, self)
+				vm = VirtualMachine(inf, node.id, self.cloud, radl, requested_radl, self.cloud.getCloudConnector())
 				vm.info.systems[0].setValue('instance_id', str(node.id))
 				vm.info.systems[0].setValue('instance_name', str(node.name))
 				# Add the keypair name to remove it later
