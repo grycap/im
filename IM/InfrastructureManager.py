@@ -835,6 +835,18 @@ class InfrastructureManager:
 		return {'state':state, 'vm_states': vm_states}
 
 	@staticmethod
+	def _stop_vm(vm, auth, exceptions):
+		try:
+			success = False
+			InfrastructureManager.logger.debug("Stopping the VM id: " + vm.id)
+			(success, msg) = vm.stop(auth)
+		except Exception, e:
+			msg = str(e)
+		if not success:
+			InfrastructureManager.logger.info("The VM cannot be stopped")
+			exceptions.append(msg)
+
+	@staticmethod
 	def StopInfrastructure(inf_id, auth):
 		"""
 		Stop all virtual machines in an infrastructure.
@@ -851,16 +863,15 @@ class InfrastructureManager:
 
 		sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
 		exceptions = []
-		for vm in sel_inf.get_vm_list():
-			try:
-				success = False
-				InfrastructureManager.logger.debug("Stopping the VM id: " + vm.id)
-				(success, msg) = vm.stop(auth)
-			except Exception, e:
-				msg = str(e)
-			if not success:
-				InfrastructureManager.logger.info("The VM cannot be stopped")
-				exceptions.append(msg)
+		if Config.MAX_SIMULTANEOUS_LAUNCHES > 1:
+			pool = ThreadPool(processes=Config.MAX_SIMULTANEOUS_LAUNCHES)
+			pool.map(
+				lambda vm: InfrastructureManager._stop_vm(vm, auth, exceptions), 
+				reversed(sel_inf.get_vm_list())
+				)
+		else:
+			for vm in sel_inf.get_vm_list():
+				InfrastructureManager._stop_vm(vm, auth, exceptions)
 
 		if exceptions:
 			msg = ""
@@ -871,6 +882,18 @@ class InfrastructureManager:
 		InfrastructureManager.logger.info("Infrastructure successfully stopped")
 		return ""
 
+	@staticmethod
+	def _start_vm(vm, auth, exceptions):
+		try:
+			success = False
+			InfrastructureManager.logger.debug("Starting the VM id: " + vm.id)
+			(success, msg) = vm.start(auth)
+		except Exception, e:
+			msg = str(e)
+		if not success:
+			InfrastructureManager.logger.info("The VM cannot be restarted")
+			exceptions.append(msg)
+			
 	@staticmethod
 	def StartInfrastructure(inf_id, auth):
 		"""
@@ -888,16 +911,15 @@ class InfrastructureManager:
 
 		sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
 		exceptions = []
-		for vm in sel_inf.get_vm_list():
-			try:
-				success = False
-				InfrastructureManager.logger.debug("Stating the VM id: " + vm.id)
-				(success, msg) = vm.start(auth)
-			except Exception, e:
-				msg = str(e)
-			if not success:
-				InfrastructureManager.logger.info("The VM cannot be restarted")
-				exceptions.append(msg)
+		if Config.MAX_SIMULTANEOUS_LAUNCHES > 1:
+			pool = ThreadPool(processes=Config.MAX_SIMULTANEOUS_LAUNCHES)
+			pool.map(
+				lambda vm: InfrastructureManager._start_vm(vm, auth, exceptions), 
+				reversed(sel_inf.get_vm_list())
+				)
+		else:
+			for vm in sel_inf.get_vm_list():
+				InfrastructureManager._start_vm(vm, auth, exceptions)
 
 		if exceptions:
 			msg = ""
