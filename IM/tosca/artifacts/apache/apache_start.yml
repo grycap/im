@@ -1,0 +1,8 @@
+- tasks:
+  - name: Start Apache service
+    service: name=apache2 state=started
+    when: ansible_os_family == "Debian"
+
+  - name: Start Apache service
+    service: name=httpd state=started
+    when: ansible_os_family == "RedHat"

@@ -189,7 +189,7 @@ class Tosca:
 					num_net = system.getNumNetworkIfaces()
 			else:
 				# There no public net, create one
-				public_net = network.createNetwork("public_net.", True)
+				public_net = network.createNetwork("public_net", True)
 				radl.networks.append(public_net)
 				num_net = system.getNumNetworkIfaces()
 			
@@ -215,7 +215,7 @@ class Tosca:
 				num_net = system.getNumNetworkIfaces()
 		else:
 			# There no public net, create one
-			private_net = network.createNetwork("private_net.", False)
+			private_net = network.createNetwork("private_net", False)
 			radl.networks.append(private_net)
 			num_net = system.getNumNetworkIfaces()
 
@@ -284,8 +284,9 @@ class Tosca:
 						
 						if self._is_artifact(param_value):
 							artifact_uri = self._get_artifact_uri(param_value, node)
-							val = remote_artifacts_path + "/" + os.path.basename(artifact_uri)
-							artifacts.append(artifact_uri)
+							if artifact_uri:
+								val = remote_artifacts_path + "/" + os.path.basename(artifact_uri)
+								artifacts.append(artifact_uri)
 						else:
 							val = self._final_function_result(param_value, node)
 							
@@ -381,7 +382,8 @@ class Tosca:
 			if isinstance(artifacts, dict):
 				for artifact_name, value in artifacts.iteritems():
 					if artifact_name == name:
-						return value['implementation']
+						#return value['implementation']
+						return value['file']
 
 		return None 
 
