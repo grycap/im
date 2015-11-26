@@ -1,3 +1,4 @@
+- tasks:
   # Disable IPv6  
   - lineinfile: dest=/etc/sysctl.conf regexp="{{ item }}" line="{{ item }} = 1"
     with_items:
@@ -13,14 +14,6 @@
     apt: pkg=apache2 update_cache=yes
     when: ansible_os_family == "Debian"
     
-  - name: Start Apache service
-    service: name=apache2 state=started
-    when: ansible_os_family == "Debian"
-    
   - name: Apache | Make sure the Apache packages are installed
     apt: yum=httpd
-    when: ansible_os_family == "RedHat"
-    
-  - name: Start Apache service
-    service: name=httpd state=started
     when: ansible_os_family == "RedHat"
