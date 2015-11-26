@@ -156,3 +156,5 @@ IM 1.4.0
     * Add GetInfrastructureState function
     * Bugfix managing public IPs in OCCI
     * Add suport for scp in SSH module in case that sftp is not available
+    * Bugfixes to GCE connector
+    * Make StartInfrastructure and StopInfrastructure operations in parallel
