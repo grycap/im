@@ -801,9 +801,9 @@ class InfrastructureManager:
 		state = None
 		vm_states = {}
 		for vm in sel_inf.get_vm_list():
-			# First try yo update the status of the VM
+			# First try to update the status of the VM
 			vm.update_status(auth)
-			vm_states[vm.id] = vm.state
+			vm_states[str(vm.im_id)] = vm.state
 			if vm.state == VirtualMachine.FAILED:
 				state = VirtualMachine.FAILED
 				break
