@@ -400,8 +400,10 @@ class VirtualMachine:
 					state = new_vm.state
 					updated = True
 
-				with self._lock:
-					self.last_update = now
+					with self._lock:
+						self.last_update = now
+				else:
+					VirtualMachine.logger.error("Error updating VM status: %s" % new_vm)
 			except:
 				VirtualMachine.logger.exception("Error updating VM status.")
 				updated = False
