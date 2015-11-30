@@ -594,6 +594,7 @@ class VirtualMachine:
 							self.ssh_connect_errors = 0
 							self.configured = False
 							self.ctxt_pid = None
+							self.cont_out = initial_count_out + "Too much errors getting the status of ctxt process. Check some network connection problems or if user credentials has been changed."
 							return None
 						
 					if exit_status != 0:

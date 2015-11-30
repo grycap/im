@@ -73,7 +73,7 @@ class CloudInfo:
 					#We need an ID, so generate one
 					cloud_item.id = cloud_item.type + str(i)
 				try:
-					if (auth['host'] != None):
+					if 'host' in auth and auth['host']:
 						pos = auth['host'].find('://')
 						pos = auth['host'].find(':', pos+1)
 						if pos != -1:
