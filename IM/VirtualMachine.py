@@ -400,8 +400,10 @@ class VirtualMachine:
 					state = new_vm.state
 					updated = True
 
-				with self._lock:
-					self.last_update = now
+					with self._lock:
+						self.last_update = now
+				else:
+					VirtualMachine.logger.error("Error updating VM status: %s" % new_vm)
 			except:
 				VirtualMachine.logger.exception("Error updating VM status.")
 				updated = False
@@ -429,7 +431,7 @@ class VirtualMachine:
 	def setIps(self,public_ips,private_ips):
 		"""
 		Set the specified IPs in the VM RADL info 
-		"""
+		"""		
 		now = str(int(time.time()*100))
 		vm_system = self.info.systems[0]
 
@@ -479,18 +481,27 @@ class VirtualMachine:
 					private_net_mask = "%s.0.0.0/8" % parts[0]
 					VirtualMachine.logger.warn("%s is not in known private net groups. Using mask: %s" % (private_ip, private_net_mask))
 				
-				# Search in previous user private ips
+				# Search in previous used private ips
 				private_net = None
 				for net_mask, net in private_net_map.iteritems(): 	
 					if IPAddress(private_ip) in IPNetwork(net_mask):
 						private_net = net								
 
-				# Search in the RADL nets
+				# Search in the RADL nets, first in the nets this VM is connected to
+				if private_net is None:
+					for net in self.info.networks:
+						if not net.isPublic() and net not in private_net_map.values() and self.getNumNetworkWithConnection(net.id) is not None:
+							private_net = net
+							private_net_map[private_net_mask] = net
+							break
+
+				# Search in the rest of RADL nets
 				if private_net is None:
 					for net in self.info.networks:
 						if not net.isPublic() and net not in private_net_map.values():
 							private_net = net
 							private_net_map[private_net_mask] = net
+							break
 			
 				# if it is still None, then create a new one
 				if private_net is None:
@@ -592,6 +603,7 @@ class VirtualMachine:
 							self.ssh_connect_errors = 0
 							self.configured = False
 							self.ctxt_pid = None
+							self.cont_out = initial_count_out + "Too much errors getting the status of ctxt process. Check some network connection problems or if user credentials has been changed."
 							return None
 						
 					if exit_status != 0:

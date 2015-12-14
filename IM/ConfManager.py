@@ -241,7 +241,7 @@ class ConfManager(threading.Thread):
 		Launch the ctxt agent to configure the specified tasks in the specified VM
 		"""
 		pid = None
-
+		tmp_dir = None
 		try:
 			ip = vm.getPublicIP()
 			if not ip:
@@ -263,8 +263,6 @@ class ConfManager(threading.Thread):
 				ssh = self.inf.vm_master.get_ssh(retry = True)
 				ssh.sftp_mkdir(remote_dir)
 				ssh.sftp_put(conf_file, remote_dir + "/" + os.path.basename(conf_file))
-				
-				shutil.rmtree(tmp_dir, ignore_errors=True)
 		
 				if vm.configured is None:
 					(pid, _, _) = ssh.execute("nohup python_ansible " + Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/" + "/ctxt_agent.py " 
@@ -281,6 +279,9 @@ class ConfManager(threading.Thread):
 		except:
 			pid = None
 			ConfManager.logger.exception("Inf ID: " + str(self.inf.id) + ": Error launching the ansible process to configure VM with ID %s" % str(vm.im_id))
+		finally:
+			if tmp_dir:
+				shutil.rmtree(tmp_dir, ignore_errors=True)
 
 		# If the process is not correctly launched the configuration of this VM fails
 		if pid is None:
@@ -588,6 +589,7 @@ class ConfManager(threading.Thread):
 		  * Copy the contextualization agent files
 		"""
 		success = True
+		tmp_dir = None
 		if not self.inf.ansible_configured:
 			success = False
 			cont = 0
@@ -630,7 +632,8 @@ class ConfManager(threading.Thread):
 					if not self.inf.ansible_configured: self.inf.ansible_configured = False
 					success = False
 				finally:
-					shutil.rmtree(tmp_dir, ignore_errors=True)
+					if tmp_dir:
+						shutil.rmtree(tmp_dir, ignore_errors=True)
 
 			if success:
 				self.inf.ansible_configured = True

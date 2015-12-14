@@ -811,16 +811,19 @@ class InfrastructureManager:
 	
 		sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
 
-		state = None
 		vm_states = {}
 		for vm in sel_inf.get_vm_list():
-			# First try yo update the status of the VM
+			# First try to update the status of the VM
 			vm.update_status(auth)
-			vm_states[vm.id] = vm.state
+			vm_states[str(vm.im_id)] = vm.state
+
+		state = None
+		for vm in sel_inf.get_vm_list():
+			# First try to update the status of the VM
 			if vm.state == VirtualMachine.FAILED:
 				state = VirtualMachine.FAILED
 				break
-			if vm.state == VirtualMachine.UNKNOWN:
+			elif vm.state == VirtualMachine.UNKNOWN:
 				state = VirtualMachine.UNKNOWN
 				break
 			elif vm.state == VirtualMachine.PENDING:
@@ -838,7 +841,7 @@ class InfrastructureManager:
 				if state is None:
 					state = VirtualMachine.CONFIGURED
 			elif vm.state == VirtualMachine.UNCONFIGURED:
-				if state is None:
+				if state is None or state == VirtualMachine.CONFIGURED:
 					state = VirtualMachine.UNCONFIGURED
 
 		if state is None:

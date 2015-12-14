@@ -453,5 +453,7 @@ class InfrastructureInfo:
 			if self.cm is None or not self.cm.isAlive():
 				self.cm = ConfManager.ConfManager(self,auth,max_ctxt_time)
 				self.cm.start()
-			else:		
+			else:
+				# update the ConfManager auth
+				self.cm.auth = auth	
 				self.cm.init_time = time.time()
