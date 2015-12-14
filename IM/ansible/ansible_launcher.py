@@ -145,8 +145,6 @@ def launch_playbook(output, playbook_file, host, passwd, threads, pk_file = None
                     log_only=True, output=output
                 )
 
-
-            print ""
             if len(failed_hosts) > 0:
                 return_code = 2
             if len(unreachable_hosts) > 0:
