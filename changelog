@@ -163,3 +163,4 @@ IM 1.4.1
     * Minor bugfixes to OCCI and GCE connectors
     * Minor bugfixes in Contextualization step
     * Set as setup requirement ansible version <= 1.9.4
+    * Bugfix in VM IP management
