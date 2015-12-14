@@ -490,7 +490,7 @@ class VirtualMachine:
 				# Search in the RADL nets, first in the nets this VM is connected to
 				if private_net is None:
 					for net in self.info.networks:
-						if not net.isPublic() and net not in private_net_map.values() and self.getNumNetworkWithConnection(net.id):
+						if not net.isPublic() and net not in private_net_map.values() and self.getNumNetworkWithConnection(net.id) is not None:
 							private_net = net
 							private_net_map[private_net_mask] = net
 							break
