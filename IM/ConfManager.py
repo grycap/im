@@ -619,7 +619,8 @@ class ConfManager(threading.Thread):
 					ssh.sftp_mkdir(remote_dir)
 					files = []
 					files.append((Config.IM_PATH + "/SSH.py",remote_dir + "/SSH.py"))
-					files.append((Config.IM_PATH + "/ansible/ansible_callbacks.py", remote_dir + "/ansible_callbacks.py")) 
+					files.append((Config.IM_PATH + "/ansible/ansible_callbacks.py", remote_dir + "/ansible_callbacks.py"))
+					files.append((Config.IM_PATH + "/ansible/ansible_executor_v2.py", remote_dir + "/ansible_executor_v2.py")) 
 					files.append((Config.IM_PATH + "/ansible/ansible_launcher.py", remote_dir + "/ansible_launcher.py"))
 					files.append((Config.CONTEXTUALIZATION_DIR + "/ctxt_agent.py", remote_dir + "/ctxt_agent.py")) 
 					ssh.sftp_put_files(files)
