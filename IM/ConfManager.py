@@ -30,6 +30,7 @@ from IM.ansible.ansible_launcher import AnsibleThread
 import InfrastructureManager
 from VirtualMachine import VirtualMachine
 from SSH import AuthenticationException
+from SSHRetry import SSHRetry
 from recipe import Recipe
 from radl.radl import system, contextualize_item
 import ServiceRequests
@@ -260,7 +261,7 @@ class ConfManager(threading.Thread):
 				ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Copy the contextualization agent config file")
 		
 				# Copy the contextualization agent config file
-				ssh = self.inf.vm_master.get_ssh(retry = True)
+				ssh = vm.get_ssh_ansible_master()
 				ssh.sftp_mkdir(remote_dir)
 				ssh.sftp_put(conf_file, remote_dir + "/" + os.path.basename(conf_file))
 		
@@ -301,7 +302,10 @@ class ConfManager(threading.Thread):
 		out = open(ansible_file, 'w')
 
 		# get the master node name
-		(master_name, masterdom) = self.inf.vm_master.getRequestedName(default_hostname = Config.DEFAULT_VM_NAME, default_domain = Config.DEFAULT_DOMAIN)
+		if self.inf.radl.ansible_hosts:
+			(master_name, masterdom) = (self.inf.radl.ansible_hosts[0].getHost(), "") 
+		else:
+			(master_name, masterdom) = self.inf.vm_master.getRequestedName(default_hostname = Config.DEFAULT_VM_NAME, default_domain = Config.DEFAULT_DOMAIN)
 
 		no_windows = ""
 		windows = ""
@@ -325,7 +329,7 @@ class ConfManager(threading.Thread):
 
 			for vm in vm_group[group]:
 				# is the master node
-				if vm.id == self.inf.vm_master.id:
+				if self.inf.vm_master and vm.id == self.inf.vm_master.id:
 					# first try to use the private IP
 					ip = vm.getPrivateIP()
 					if not ip:
@@ -370,7 +374,7 @@ class ConfManager(threading.Thread):
 				if vm.getOS().lower() != "windows":
 					node_line += ":" + str(vm.getSSHPort())
 				
-				if vm.id == self.inf.vm_master.id:
+				if self.inf.vm_master and vm.id == self.inf.vm_master.id:
 					node_line += ' ansible_connection=local'
 				
 				node_line += ' IM_NODE_HOSTNAME=' + nodename
@@ -599,31 +603,48 @@ class ConfManager(threading.Thread):
 				try:
 					ConfManager.logger.info("Inf ID: " + str(self.inf.id) + ": Start the contextualization process.")
 		
-					ssh = self.inf.vm_master.get_ssh(retry=True)
-					# Activate tty mode to avoid some problems with sudo in REL
-					ssh.tty = True
-					
-					# configuration dir os th emaster node to copy all the contextualization files
-					tmp_dir = tempfile.mkdtemp()
-					# Now call the ansible installation process on the master node
-					configured_ok = self.configure_ansible(ssh, tmp_dir)
-					
-					if not configured_ok:
-						ConfManager.logger.error("Inf ID: " + str(self.inf.id) + ": Error in the ansible installation process")
-						if not self.inf.ansible_configured: self.inf.ansible_configured = False
+					if self.inf.radl.ansible_hosts:
+						configured_ok = True
 					else:
-						ConfManager.logger.info("Inf ID: " + str(self.inf.id) + ": Ansible installation finished successfully")
+						ssh = self.inf.vm_master.get_ssh(retry=True)
+						# Activate tty mode to avoid some problems with sudo in REL
+						ssh.tty = True
+						
+						# configuration dir os th emaster node to copy all the contextualization files
+						tmp_dir = tempfile.mkdtemp()
+						# Now call the ansible installation process on the master node
+						configured_ok = self.configure_ansible(ssh, tmp_dir)
+						
+						if not configured_ok:
+							ConfManager.logger.error("Inf ID: " + str(self.inf.id) + ": Error in the ansible installation process")
+							if not self.inf.ansible_configured: self.inf.ansible_configured = False
+						else:
+							ConfManager.logger.info("Inf ID: " + str(self.inf.id) + ": Ansible installation finished successfully")
 		
 					remote_dir = Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/"
 					ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Copy the contextualization agent files")  
-					ssh.sftp_mkdir(remote_dir)
 					files = []
 					files.append((Config.IM_PATH + "/SSH.py",remote_dir + "/SSH.py"))
 					files.append((Config.IM_PATH + "/ansible/ansible_callbacks.py", remote_dir + "/ansible_callbacks.py"))
 					files.append((Config.IM_PATH + "/ansible/ansible_executor_v2.py", remote_dir + "/ansible_executor_v2.py")) 
 					files.append((Config.IM_PATH + "/ansible/ansible_launcher.py", remote_dir + "/ansible_launcher.py"))
-					files.append((Config.CONTEXTUALIZATION_DIR + "/ctxt_agent.py", remote_dir + "/ctxt_agent.py")) 
-					ssh.sftp_put_files(files)
+					files.append((Config.CONTEXTUALIZATION_DIR + "/ctxt_agent.py", remote_dir + "/ctxt_agent.py"))
+
+					if self.inf.radl.ansible_hosts:
+						for ansible_host in self.inf.radl.ansible_hosts:
+							(user, passwd, private_key) = ansible_host.getCredentialValues()
+							ssh = SSHRetry(ansible_host.getHost(), user, passwd, private_key)
+							ssh.sftp_mkdir(remote_dir) 
+							ssh.sftp_put_files(files)
+							# Copy the utils helper files
+							ssh.sftp_mkdir(remote_dir + "/" + "/utils")
+							ssh.sftp_put_dir(Config.RECIPES_DIR + "/utils", remote_dir + "/" + "/utils")
+					else:
+						ssh.sftp_mkdir(remote_dir) 
+						ssh.sftp_put_files(files)
+						# Copy the utils helper files
+						ssh.sftp_mkdir(remote_dir + "/" + "/utils")
+						ssh.sftp_put_dir(Config.RECIPES_DIR + "/utils", remote_dir + "/" + "/utils")
 		
 					success = configured_ok
 					
@@ -652,6 +673,11 @@ class ConfManager(threading.Thread):
 			- Select the master VM
 			- Wait it to boot and has the SSH port open 
 		"""
+		if self.inf.radl.ansible_hosts:
+			ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Usign ansible host: " + self.inf.radl.ansible_hosts[0].getHost())
+			self.inf.set_configured(True)
+			return True
+
 		# First assure that ansible is installed in the master
 		if not self.inf.vm_master or self.inf.vm_master.destroy:
 			# If the user has deleted the master vm, it must be configured again
@@ -772,11 +798,18 @@ class ConfManager(threading.Thread):
 			# TODO: Study why it is needed
 			#time.sleep(2)
 			
-			ssh = self.inf.vm_master.get_ssh(retry=True)
 			self.inf.add_cont_msg("Copying YAML, hosts and inventory files.")
 			ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Copying YAML files.")
-			ssh.sftp_mkdir(remote_dir)
-			ssh.sftp_put_files(recipe_files)
+			if self.inf.radl.ansible_hosts:
+				for ansible_host in self.inf.radl.ansible_hosts:
+					(user, passwd, private_key) = ansible_host.getCredentialValues()
+					ssh = SSHRetry(ansible_host.getHost(), user, passwd, private_key)
+					ssh.sftp_mkdir(remote_dir)
+					ssh.sftp_put_files(recipe_files)
+			else:
+				ssh = self.inf.vm_master.get_ssh(retry=True)
+				ssh.sftp_mkdir(remote_dir)
+				ssh.sftp_put_files(recipe_files)
 			
 			self.inf.set_configured(True)
 		except Exception, ex:
@@ -1088,9 +1121,6 @@ class ConfManager(threading.Thread):
 	
 			ssh.sftp_mkdir(Config.REMOTE_CONF_DIR)
 			ssh.sftp_mkdir(Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/")
-			# Copy the utils helper files
-			ssh.sftp_mkdir(Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/" + "/utils")
-			ssh.sftp_put_dir(Config.RECIPES_DIR + "/utils", Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/" + "/utils")
 			
 			for galaxy_name in modules:
 				if galaxy_name:
@@ -1174,7 +1204,7 @@ class ConfManager(threading.Thread):
 				vm_conf_data['id'] = vm.im_id
 				if vm.getOS():
 					vm_conf_data['os'] = vm.getOS().lower()
-				if vm.im_id == self.inf.vm_master.im_id:
+				if self.inf.vm_master and vm.im_id == self.inf.vm_master.im_id:
 					vm_conf_data['master'] = True
 				else:
 					vm_conf_data['master'] = False

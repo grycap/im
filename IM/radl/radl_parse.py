@@ -18,7 +18,7 @@ import ply.lex as lex
 import ply.yacc as yacc
 
 import os
-from radl import Feature, RADL, system, network, configure, contextualize, contextualize_item, \
+from radl import Feature, RADL, system, network, ansible, configure, contextualize, contextualize_item, \
 				 deploy, SoftFeatures, Features, RADLParseException
 
 class RADLParser:
@@ -54,6 +54,7 @@ class RADLParser:
 		'CONFIGURE',
 		'SYSTEM',
 		'NETWORK',
+		'ANSIBLE',
 		'RECIPE_LINE',
 		'RECIPE_BEGIN',
 		'RECIPE_END',
@@ -138,6 +139,7 @@ class RADLParser:
 	
 	reserved = {
 		'network' : 'NETWORK',
+		'ansible' : 'ANSIBLE',
 		'system' : 'SYSTEM',
 		'soft' : 'SOFT',
 		'and' : 'AND',
@@ -188,6 +190,7 @@ class RADLParser:
 	
 	def p_radl_sentence(self, t):
 		"""radl_sentence : network_sentence
+						 | ansible_sentence
 						 | system_sentence
 						 | configure_sentence
 						 | contextualize_sentence
@@ -261,6 +264,11 @@ class RADLParser:
 			t[0] = network(t[2], reference=True, line=t.lineno(1))
 		else:
 			t[0] = network(t[2], t[4], line=t.lineno(1))
+			
+	def p_ansible_sentence(self, t):
+		"""ansible_sentence : ANSIBLE VAR LPAREN features RPAREN"""
+	
+		t[0] = ansible(t[2], t[4], line=t.lineno(1))
 	
 	def p_system_sentence(self, t):
 		"""system_sentence : SYSTEM VAR
