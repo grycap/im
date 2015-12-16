@@ -459,7 +459,8 @@ class ConfManager(threading.Thread):
 		Generate the basic playbook to be launched in all the VMs
 		"""
 		recipe_files = []
-		pk_file = "/tmp/ansible_key"
+		#pk_file = "/tmp/ansible_key"
+		pk_file = Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/ansible_key"
 		shutil.copy(Config.CONTEXTUALIZATION_DIR + "/basic.yml", tmp_dir + "/basic_task_all.yml")
 		f = open(tmp_dir + '/basic_task_all.yml', 'a')
 		f.write("\n  vars:\n") 
