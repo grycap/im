@@ -434,6 +434,8 @@ if __name__ == "__main__":
 
 	if 'playbook_retries' in general_conf_data:
 		PLAYBOOK_RETRIES = general_conf_data['playbook_retries']
+		
+	PK_FILE = general_conf_data['conf_dir'] + "/" + "ansible_key"
 
 	success = False
 	res_data = contextualize_vm(general_conf_data, vm_conf_data)
