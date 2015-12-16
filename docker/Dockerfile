@@ -20,7 +20,7 @@ RUN apt-get update && apt-get install -y \
 
 # Install tosca-parser
 RUN cd tmp \
- && git clone https://github.com/indigo-dc/tosca-parser.git \
+ && git clone --recursive https://github.com/indigo-dc/tosca-parser.git \
  && cd tosca-parser \
  && python setup.py install
 
