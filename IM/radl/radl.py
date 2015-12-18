@@ -14,10 +14,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from netaddr import IPNetwork, IPAddress
 import copy
 from distutils.version import LooseVersion
-from IM.config import Config
 
 def UnitToValue(unit):
 	"""Return the value of an unit."""
@@ -502,7 +500,7 @@ class Features(object):
 		return prefixes
 
 class Aspect:
-	"""A network, system, deploy, configure or contextualize element in a RADL."""
+	"""A network, ansible, system, deploy, configure or contextualize element in a RADL."""
 
 	def getId(self):
 		"""Return the id of the aspect."""
@@ -686,17 +684,7 @@ class network(Features, Aspect):
 		self.reference = reference
 		"""True if it is only a reference and it isn't a definition."""
 		Features.__init__(self, features)
-		self.line = line
-
-	@staticmethod
-	def isPrivateIP(ip):
-		"""
-		Check if an IP address is private
-		"""
-		for mask in Config.PRIVATE_NET_MASKS: 
-			if IPAddress(ip) in IPNetwork(mask):
-				return True
-		return False
+		self.line = line 
 
 	def getId(self):
 		return self.id

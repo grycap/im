@@ -352,8 +352,6 @@ class RADLParser:
 			t[0] = []
 	
 	def p_error(self, t):
-		if t is None:
-			a = 1
 		raise RADLParseException("Parse error in: " + str(t), line=t.lineno if t else None)
 	
 	def parse(self, data):

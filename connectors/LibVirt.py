@@ -23,7 +23,8 @@ from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from CloudConnector import CloudConnector
 from IM.radl.radl import Feature
-from IM.radl.radl import network as radl_network
+from netaddr import IPNetwork, IPAddress
+from IM.config import Config
 
 # clases para parsear el resultado de las llamadas a virsh
 class forward(XMLObject):
@@ -167,7 +168,7 @@ class LibVirtCloudConnector(CloudConnector):
 		net_priv = None
 		net_pub = None
 		for net in res:
-			if radl_network.isPrivateIP(net.ip.address):
+			if any([IPAddress(net.ip.address) in IPNetwork(mask) for mask in Config.PRIVATE_NET_MASKS]):
 				# Red privada
 				net_priv = net
 			else:
@@ -359,7 +360,7 @@ class LibVirtCloudConnector(CloudConnector):
 		# Tenemos que hacer esto https://rwmj.wordpress.com/2010/10/26/tip-find-the-ip-address-of-a-virtual-machine/
 		for interface in domain.devices.interface:
 			ip = self.getIPfromMAC(interface.mac.address, auth_data)
-			if network.isPrivateIP(ip):
+			if any([IPAddress(ip) in IPNetwork(mask) for mask in Config.PRIVATE_NET_MASKS]):
 				private_ips.append(ip)
 			else:
 				public_ips.append(ip)
