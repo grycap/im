@@ -270,14 +270,14 @@ def removeRequiretty(vm, pk_file):
 def replace_vm_ip(old_ip, new_ip):
 	# Replace the IP with the one that is actually working
 	# in the inventory and in the general info file
-	filename  = general_conf_data['conf_dir'] + "/hosts"
+	filename = conf_data_filename
 	with open(filename) as f:
 		inventoy_data = f.read().replace(old_ip, new_ip)
 
 	with open(filename, 'w+') as f:
 		f.write(inventoy_data)
 	
-	filename = conf_data_filename
+	filename  = general_conf_data['conf_dir'] + "/hosts"
 	with open(filename) as f:
 		inventoy_data = ""
 		for line in f:
