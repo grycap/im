@@ -16,6 +16,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from optparse import OptionParser
+import re
 import time
 import logging
 import logging.config
@@ -278,7 +279,9 @@ def replace_vm_ip(old_ip, new_ip):
 	
 	filename = conf_data_filename
 	with open(filename) as f:
-		inventoy_data = f.read().replace(old_ip, new_ip)
+		inventoy_data = ""
+		for line in f:
+			inventoy_data += re.sub("^%s" % old_ip, new_ip, line)
 
 	with open(filename, 'w+') as f:
 		f.write(inventoy_data)
