@@ -382,7 +382,6 @@ class ConfManager(threading.Thread):
 				node_line += ' IM_NODE_DOMAIN=' + nodedom
 				node_line += ' IM_NODE_NUM=' + str(vm.im_id)
 				node_line += ' IM_NODE_VMID=' + str(vm.id)
-				node_line += ' IM_NODE_ANSIBLE_IP=' + ip
 				node_line += ifaces_im_vars
 
 				for app in vm.getInstalledApplications():
@@ -746,6 +745,7 @@ class ConfManager(threading.Thread):
 		"""
 		Generate all the files needed in the contextualization, playbooks, /etc/hosts, inventory
 		"""
+		tmp_dir = None
 		try:
 			tmp_dir = tempfile.mkdtemp()
 			remote_dir = Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/"
@@ -795,9 +795,6 @@ class ConfManager(threading.Thread):
 			recipe_files = []
 			for f in filenames:
 				recipe_files.append((tmp_dir + "/" + f, remote_dir + "/" + f ))
-
-			# TODO: Study why it is needed
-			#time.sleep(2)
 			
 			self.inf.add_cont_msg("Copying YAML, hosts and inventory files.")
 			ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Copying YAML files.")
@@ -817,6 +814,9 @@ class ConfManager(threading.Thread):
 			self.inf.set_configured(False)
 			ConfManager.logger.exception("Inf ID: " + str(self.inf.id) + ": Error generating playbooks.")
 			self.inf.add_cont_msg("Error generating playbooks: " + str(ex))
+		finally:
+			if tmp_dir:
+				shutil.rmtree(tmp_dir, ignore_errors=True)
 
 	def relaunch_vm(self, vm, failed_cloud = False):
 		"""
