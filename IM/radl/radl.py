@@ -500,7 +500,7 @@ class Features(object):
 		return prefixes
 
 class Aspect:
-	"""A network, ansible, system, deploy, configure or contextualize element in a RADL."""
+	"""A network, ansible_host, system, deploy, configure or contextualize element in a RADL."""
 
 	def getId(self):
 		"""Return the id of the aspect."""
@@ -1015,6 +1015,11 @@ class system(Features, Aspect):
 		def positive(f, _):
 			return f.value >= 0
 
+		def check_ansible_host(f, radl0):
+			if radl0.get_ansible_by_id(f.value) == None:
+				return False
+			return True
+
 		mem_units = ["", "B", "K", "M", "G", "KB", "MB", "GB"]
 		SIMPLE_FEATURES = {
 			"spot": (str, ["YES", "NO"]),
@@ -1026,6 +1031,7 @@ class system(Features, Aspect):
 			"cpu.performance": ((int,float), positive, ["ECU", "GCEU", "HRZ"]),
 			"memory.size": (int, positive, mem_units),
 			"disk.0.os.credentials.new.password": (str, check_password),
+			"ansible_host": (str, check_ansible_host),
 			SoftFeatures.SOFT: (SoftFeatures, lambda x, r: x.check(r))
 		}
 		self.check_simple(SIMPLE_FEATURES, radl)
@@ -1145,12 +1151,12 @@ class RADL:
 		"""List of contextualize."""
 
 	def __str__(self):
-		return "\n".join([ str(f) for fs in [self.networks, self.systems, self.configures,
+		return "\n".join([ str(f) for fs in [self.ansible_hosts, self.networks, self.systems, self.configures,
 									  [self.contextualize], self.deploys] for f in fs ])
 
 	def add(self, aspect, ifpresent="error"):
 		"""
-		Add a network, ansible, system, deploy, configure or contextualize.
+		Add a network, ansible_host, system, deploy, configure or contextualize.
 
 		Args:
 		- aspect(network, system, deploy, configure or contextualize): thing to add.
@@ -1258,7 +1264,7 @@ class RADL:
 	def check(self):
 		"""Check if it is a valid RADL document."""
 
-		for i in [ f for fs in [self.networks, self.systems, self.deploys,
+		for i in [ f for fs in [self.networks, self.ansible_hosts, self.systems, self.deploys,
 									self.configures, [self.contextualize]] for f in fs ]:
 			i.check(self)
 		return True
