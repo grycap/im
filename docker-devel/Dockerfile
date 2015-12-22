@@ -1,7 +1,7 @@
 # Dockerfile to create a container with the IM service
 FROM ubuntu:14.04
 MAINTAINER Miguel Caballer <micafer1@upv.es>
-LABEL version="1.3.2"
+LABEL version="1.4.1"
 LABEL description="Container image to run the IM service. (http://www.grycap.upv.es/im)"
 
 EXPOSE 8899

@@ -1,21 +1,22 @@
-# (C) 2012-2013, Michael DeHaan, <michael.dehaan@gmail.com>
-
-# This file is part of Ansible
-#
-# Ansible is free software: you can redistribute it and/or modify
+# IM - Infrastructure Manager
+# Copyright (C) 2015 - GRyCAP - Universitat Politecnica de Valencia
+# 
+# This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
-# Ansible is distributed in the hope that it will be useful,
+# This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# GNU General Public License for more/etc/sudoers details.
 #
 # You should have received a copy of the GNU General Public License
-# along with Ansible.  If not, see <http://www.gnu.org/licenses/>.
-
-# Miguel: Version simplificada, eliminado el lock "sospechoso"
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Some parts of this code are taken from the Ansible code
+# (c) 2012-2014, Michael DeHaan <michael.dehaan@gmail.com>
+#
 
 import ansible.utils
 import sys
@@ -85,15 +86,6 @@ class AggregateStats(object):
 
 ########################################################################
 
-def regular_generic_msg(hostname, result, oneline, caption):
-    ''' output on the result of a module run that is not command '''
-
-    if not oneline:
-        return "%s | %s >> %s\n" % (hostname, caption, ansible.utils.jsonify(result,format=True))
-    else:
-        return "%s | %s >> %s\n" % (hostname, caption, ansible.utils.jsonify(result))
-
-
 def banner(msg):
     str_date =  str(datetime.datetime.now())
     width = 78 - len(str_date + " - " + msg)
@@ -101,49 +93,6 @@ def banner(msg):
         width = 3
     filler = "*" * width
     return "\n%s %s " % (str_date + " - " + msg, filler)
-
-def command_generic_msg(hostname, result, oneline, caption):
-    ''' output the result of a command run '''
-
-    rc     = result.get('rc', '0')
-    stdout = result.get('stdout','')
-    stderr = result.get('stderr', '')
-    msg    = result.get('msg', '')
-
-    hostname = hostname.encode('utf-8')
-    caption  = caption.encode('utf-8')
-
-    if not oneline:
-        buf = "%s | %s | rc=%s >>\n" % (hostname, caption, result.get('rc',0))
-        if stdout:
-            buf += stdout
-        if stderr:
-            buf += stderr
-        if msg:
-            buf += msg
-        return buf + "\n"
-    else:
-        if stderr:
-            return "%s | %s | rc=%s | (stdout) %s (stderr) %s" % (hostname, caption, rc, stdout, stderr)
-        else:
-            return "%s | %s | rc=%s | (stdout) %s" % (hostname, caption, rc, stdout)
-
-def host_report_msg(hostname, module_name, result, oneline):
-    ''' summarize the JSON results for a particular host '''
-
-    failed = ansible.utils.is_failed(result)
-    msg = ('', None)
-    if module_name in [ 'command', 'shell', 'raw' ] and 'ansible_job_id' not in result and result.get('parsed',True) != False:
-        if not failed:
-            msg = (command_generic_msg(hostname, result, oneline, 'success'), 'green')
-        else:
-            msg = (command_generic_msg(hostname, result, oneline, 'FAILED'), 'red')
-    else:
-        if not failed:
-            msg = (regular_generic_msg(hostname, result, oneline, 'success'), 'green')
-        else:
-            msg = (regular_generic_msg(hostname, result, oneline, 'FAILED'), 'red')
-    return msg
 
 ########################################################################
 
@@ -167,8 +116,6 @@ class PlaybookRunnerCallbacks(object):
         display(msg, color='red', runner=self.runner, output=self.output)
 
     def on_failed(self, host, results, ignore_errors=False):
-
-
         results2 = results.copy()
         results2.pop('invocation', None)
 
@@ -361,6 +308,7 @@ class PlaybookCallbacks(object):
 
     def on_setup(self):
         display(banner("GATHERING FACTS"), output=self.output)
+
     def on_import_for_host(self, host, imported_file):
         msg = "%s: importing %s" % (host, imported_file)
         display(msg, color='cyan', output=self.output)
