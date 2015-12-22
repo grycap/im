@@ -205,9 +205,55 @@ otra = 1
 		r.check()
 		self.assertEqual(r.contextualize.items, None)
 
+	def test_ansible_host(self):
+
+		radl = """
+ansible ansible_master (host = 'host' and credentials.username = 'user' and credentials.password = 'pass')
+network net ()
+
+system main (
+ansible_host = 'ansible_master' and
+net_interface.0.connection = 'net'
+)		"""
+		r = parse_radl(radl)
+		self.radl_check(r)
+
+		radl = """
+ansible ansible_master (host = 'host' and credentials.username = 'user' and credentials.password = 'pass')
+network net ()
+
+system main (
+ansible_host = 'ansible_master1' and
+net_interface.0.connection = 'net'
+)		"""
+		r = parse_radl(radl)
+		
+		with self.assertRaises(RADLParseException):
+			self.radl_check(r)
+			
+		radl = """
+ansible ansible_master (credentials.username = 'user' and credentials.password = 'pass')
+network net ()
+
+system main (
+net_interface.0.connection = 'net'
+)		"""
+		r = parse_radl(radl)
+		
+		with self.assertRaises(RADLParseException):
+			self.radl_check(r)
+			
+		radl = """
+ansible ansible_master (host = 'host' and credentials.username = 'user')
+network net ()
+
+system main (
+net_interface.0.connection = 'net'
+)		"""
+		r = parse_radl(radl)
+		
+		with self.assertRaises(RADLParseException):
+			self.radl_check(r)
+
 if __name__ == "__main__":
 	unittest.main()
-
-
-
-

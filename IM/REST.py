@@ -78,6 +78,7 @@ class StoppableWSGIRefServer(bottle.ServerAdapter):
 
 def run_in_thread(host, port):
 	bottle_thr = threading.Thread(target=run, args=(host, port))
+	bottle_thr.daemon = True  
 	bottle_thr.start()
 
 def run(host, port):

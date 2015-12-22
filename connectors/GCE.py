@@ -120,7 +120,9 @@ class GCECloudConnector(CloudConnector):
                 system.addFeature(Feature("disk.0.free_size", "=", instance_type.disk , 'G'), conflict="other", missing="other")
             if instance_type.price:
                 system.addFeature(Feature("price", "=", instance_type.price), conflict="me", missing="other")
-        
+            if 'guestCpus' in instance_type.extra:
+                system.addFeature(Feature("cpu.count", "=", instance_type.extra['guestCpus']), conflict="other", missing="other") 
+
             system.addFeature(Feature("instance_type", "=", instance_type.name), conflict="other", missing="other")
 
     @staticmethod

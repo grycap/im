@@ -17,6 +17,8 @@ Contents:
    radl
    xmlrpc
    REST
+   client
+   web
 
 ..   mods
 
