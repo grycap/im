@@ -206,7 +206,7 @@ class InfrastructureInfo:
 
 		with self._lock:
 			# Add new systems and networks only
-			for s in radl.systems + radl.networks:
+			for s in radl.systems + radl.networks+ radl.ansible_hosts:
 				if not self.radl.add(s.clone(), "ignore"):
 					InfrastructureInfo.logger.warn("Ignoring the redefinition of %s %s" % (type(s), s.getId()))
 	
@@ -241,7 +241,7 @@ class InfrastructureInfo:
 
 		with self._lock:
 			# Replace references of systems, networks and configures by its definitions
-			for s in radl.networks + radl.systems + radl.configures:
+			for s in radl.networks + radl.systems + radl.configures + radl.ansible_hosts:
 				if s.reference:
 					aspect = self.radl.get(s)
 					if aspect == None:
