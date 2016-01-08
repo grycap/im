@@ -23,6 +23,8 @@ Basic structure
 
 An RADL document has the next general structure::
 
+   ansible <ansible_host_id> (<features>)
+   
    network <network_id> (<features>)
 
    system <system_id> (<features>)
@@ -36,7 +38,7 @@ An RADL document has the next general structure::
 
    deploy <system_id> <num> [<cloud_id>] 
 
-The keywords ``network``, ``system`` and ``configure`` assign some *features*
+The keywords ``ansible``, ``network``, ``system`` and ``configure`` assign some *features*
 or *recipes* to an identity ``<id>``. The features are a list of constrains
 separated by ``and``, and a constrain is form by
 ``<feature name> <operator> <value>``. For instance::
@@ -49,6 +51,13 @@ separated by ``and``, and a constrain is form by
 this RADL defines a *system* with the feature ``memory.size`` greater or equal
 than ``1024M`` and with the feature ``disk.0.applications`` containing an
 element with ``name`` ``tomcat``.
+
+The ``network`` keyword enables to represent different networks so that the 
+VMs can be attached to them.
+
+The ``ansible`` keyword enables to specify external nodes that will act as the
+ansible master node to configure the VMs. These nodes must be connected in a
+network connected will all the VMs of the infrastructure.
 
 The sentences under the keyword ``contextualize`` indicate the recipes that
 will be executed during the deployment of the virtual machine.
@@ -122,6 +131,24 @@ For instance, this example deploys one ``small_node`` and other ``big_node``::
    deploy small_node 1
    deploy big_node 1
 
+Ansible Features
+----------------
+
+Under the keyword ``ansible`` there are the features needed to access the ansible
+master node with SSH.
+The supported features are:
+
+``host = '<ip or hostname>'``
+   Indicate the hostname or IP to of the ansible node. 
+   
+``credentials.username = '<username>'``
+   Indicate the SSH username. 
+   
+``credentials.password = '<password>'``
+   Indicate the SSH password. 
+   
+``credentials.private_key = '<private_key>'``
+   Indicate the SSH private key.
 
 Network Features
 ----------------
@@ -158,6 +185,9 @@ System Features
 
 Under the keyword ``system`` there are the features describing a virtual
 machine.  The supported features are:
+
+``ansible_host = '<ansible_host id>'``
+   Set the ansible master node that will contextualize the virtual machine.
 
 ``image_type = vmdk|qcow|qcow2|raw``
    Constrain the virtual machine image disk format.
