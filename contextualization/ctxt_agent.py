@@ -16,6 +16,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from optparse import OptionParser
+import re
 import time
 import logging
 import logging.config
@@ -269,16 +270,18 @@ def removeRequiretty(vm, pk_file):
 def replace_vm_ip(old_ip, new_ip):
 	# Replace the IP with the one that is actually working
 	# in the inventory and in the general info file
-	filename  = general_conf_data['conf_dir'] + "/hosts"
+	filename = conf_data_filename
 	with open(filename) as f:
 		inventoy_data = f.read().replace(old_ip, new_ip)
 
 	with open(filename, 'w+') as f:
 		f.write(inventoy_data)
 	
-	filename = conf_data_filename
+	filename  = general_conf_data['conf_dir'] + "/hosts"
 	with open(filename) as f:
-		inventoy_data = f.read().replace(old_ip, new_ip)
+		inventoy_data = ""
+		for line in f:
+			inventoy_data += re.sub("^%s" % old_ip, new_ip, line)
 
 	with open(filename, 'w+') as f:
 		f.write(inventoy_data)
@@ -434,6 +437,8 @@ if __name__ == "__main__":
 
 	if 'playbook_retries' in general_conf_data:
 		PLAYBOOK_RETRIES = general_conf_data['playbook_retries']
+		
+	PK_FILE = general_conf_data['conf_dir'] + "/" + "ansible_key"
 
 	success = False
 	res_data = contextualize_vm(general_conf_data, vm_conf_data)

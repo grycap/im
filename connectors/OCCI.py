@@ -26,8 +26,9 @@ import tempfile
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from CloudConnector import CloudConnector
-from IM.radl.radl import Feature, network
-
+from IM.radl.radl import Feature
+from netaddr import IPNetwork, IPAddress
+from IM.config import Config
 
 class OCCICloudConnector(CloudConnector):
 	"""
@@ -189,8 +190,8 @@ class OCCICloudConnector(CloudConnector):
 				for part in parts:
 					kv = part.split('=')
 					if kv[0].strip() == "occi.networkinterface.address":
-						ip_address = kv[1].strip('"')
-						is_private = network.isPrivateIP(ip_address) 
+						ip_address = kv[1].strip('"') 
+						is_private = any([IPAddress(ip_address) in IPNetwork(mask) for mask in Config.PRIVATE_NET_MASKS])
 					elif kv[0].strip() == "occi.networkinterface.interface":
 						net_interface = kv[1].strip('"')
 						num_interface = re.findall('\d+', net_interface)[0]
