@@ -127,9 +127,9 @@ def RESTGetInfrastructureInfo(id=None):
 	try:
 		vm_ids = InfrastructureManager.GetInfrastructureInfo(id, auth)
 		res = ""
-		
-		server_ip = bottle.request.environ['SERVER_NAME']
-		server_port = bottle.request.environ['SERVER_PORT']
+
+		server_ip = bottle.request.environ['HTTP_HOST'].split(":")[0]
+		server_port = bottle.request.environ['HTTP_HOST'].split(":")[1]
 		
 		for vm_id in vm_ids:
 			if res:
@@ -189,8 +189,8 @@ def RESTGetInfrastructureList():
 	try:
 		inf_ids = InfrastructureManager.GetInfrastructureList(auth)
 		
-		server_ip = bottle.request.environ['SERVER_NAME']
-		server_port = bottle.request.environ['SERVER_PORT']
+		server_ip = bottle.request.environ['HTTP_HOST'].split(":")[0]
+		server_port = bottle.request.environ['HTTP_HOST'].split(":")[1]
 		
 		res = ""
 		for inf_id in inf_ids:
@@ -218,8 +218,8 @@ def RESTCreateInfrastructure():
 		radl_data = bottle.request.body.read()
 		inf_id = InfrastructureManager.CreateInfrastructure(radl_data, auth)
 
-		server_ip = bottle.request.environ['SERVER_NAME']
-		server_port = bottle.request.environ['SERVER_PORT']
+		server_ip = bottle.request.environ['HTTP_HOST'].split(":")[0]
+		server_port = bottle.request.environ['HTTP_HOST'].split(":")[1]
 		
 		bottle.response.content_type = "text/uri-list"
 		return "http://" + server_ip + ":" + server_port + "/infrastructures/" + str(inf_id)
@@ -311,8 +311,8 @@ def RESTAddResource(id=None):
 		radl_data = bottle.request.body.read()
 		vm_ids = InfrastructureManager.AddResource(id, radl_data, auth, context)
 
-		server_ip = bottle.request.environ['SERVER_NAME']
-		server_port = bottle.request.environ['SERVER_PORT']
+		server_ip = bottle.request.environ['HTTP_HOST'].split(":")[0]
+		server_port = bottle.request.environ['HTTP_HOST'].split(":")[1]
 		
 		res = ""
 		for vm_id in vm_ids:
