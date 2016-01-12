@@ -127,14 +127,11 @@ def RESTGetInfrastructureInfo(id=None):
 	try:
 		vm_ids = InfrastructureManager.GetInfrastructureInfo(id, auth)
 		res = ""
-
-		server_ip = bottle.request.environ['HTTP_HOST'].split(":")[0]
-		server_port = bottle.request.environ['HTTP_HOST'].split(":")[1]
 		
 		for vm_id in vm_ids:
 			if res:
 				res += "\n"
-			res += 'http://' + server_ip + ':' + server_port + '/infrastructures/' + str(id) + '/vms/' + str(vm_id)
+			res += 'http://' + bottle.request.environ['HTTP_HOST'] + '/infrastructures/' + str(id) + '/vms/' + str(vm_id)
 		
 		bottle.response.content_type = "text/uri-list"
 		return res
@@ -189,12 +186,9 @@ def RESTGetInfrastructureList():
 	try:
 		inf_ids = InfrastructureManager.GetInfrastructureList(auth)
 		
-		server_ip = bottle.request.environ['HTTP_HOST'].split(":")[0]
-		server_port = bottle.request.environ['HTTP_HOST'].split(":")[1]
-		
 		res = ""
 		for inf_id in inf_ids:
-			res += "http://" + server_ip + ":" + server_port + "/infrastructures/" + str(inf_id) + "\n"
+			res += "http://" + bottle.request.environ['HTTP_HOST'] + "/infrastructures/" + str(inf_id) + "\n"
 		
 		bottle.response.content_type = "text/uri-list"
 		return res
@@ -217,12 +211,9 @@ def RESTCreateInfrastructure():
 	try:
 		radl_data = bottle.request.body.read()
 		inf_id = InfrastructureManager.CreateInfrastructure(radl_data, auth)
-
-		server_ip = bottle.request.environ['HTTP_HOST'].split(":")[0]
-		server_port = bottle.request.environ['HTTP_HOST'].split(":")[1]
 		
 		bottle.response.content_type = "text/uri-list"
-		return "http://" + server_ip + ":" + server_port + "/infrastructures/" + str(inf_id)
+		return "http://" + bottle.request.environ['HTTP_HOST'] + "/infrastructures/" + str(inf_id)
 	except UnauthorizedUserException, ex:
 		bottle.abort(401, "Error Getting Inf. info: " + str(ex))
 		return False
@@ -310,15 +301,12 @@ def RESTAddResource(id=None):
 				
 		radl_data = bottle.request.body.read()
 		vm_ids = InfrastructureManager.AddResource(id, radl_data, auth, context)
-
-		server_ip = bottle.request.environ['HTTP_HOST'].split(":")[0]
-		server_port = bottle.request.environ['HTTP_HOST'].split(":")[1]
 		
 		res = ""
 		for vm_id in vm_ids:
 			if res:
 				res += "\n"
-			res += "http://" + server_ip + ":" + server_port + "/infrastructures/" + str(id) + "/vms/" + str(vm_id)
+			res += "http://" + bottle.request.environ['HTTP_HOST'] + "/infrastructures/" + str(id) + "/vms/" + str(vm_id)
 		
 		bottle.response.content_type = "text/uri-list"
 		return res
