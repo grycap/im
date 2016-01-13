@@ -14,10 +14,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from netaddr import IPNetwork, IPAddress
 import copy
 from distutils.version import LooseVersion
-from IM.config import Config
 
 def UnitToValue(unit):
 	"""Return the value of an unit."""
@@ -502,7 +500,7 @@ class Features(object):
 		return prefixes
 
 class Aspect:
-	"""A network, system, deploy, configure or contextualize element in a RADL."""
+	"""A network, ansible_host, system, deploy, configure or contextualize element in a RADL."""
 
 	def getId(self):
 		"""Return the id of the aspect."""
@@ -686,17 +684,7 @@ class network(Features, Aspect):
 		self.reference = reference
 		"""True if it is only a reference and it isn't a definition."""
 		Features.__init__(self, features)
-		self.line = line
-
-	@staticmethod
-	def isPrivateIP(ip):
-		"""
-		Check if an IP address is private
-		"""
-		for mask in Config.PRIVATE_NET_MASKS: 
-			if IPAddress(ip) in IPNetwork(mask):
-				return True
-		return False
+		self.line = line 
 
 	def getId(self):
 		return self.id
@@ -1027,6 +1015,11 @@ class system(Features, Aspect):
 		def positive(f, _):
 			return f.value >= 0
 
+		def check_ansible_host(f, radl0):
+			if radl0.get_ansible_by_id(f.value) == None:
+				return False
+			return True
+
 		mem_units = ["", "B", "K", "M", "G", "KB", "MB", "GB"]
 		SIMPLE_FEATURES = {
 			"spot": (str, ["YES", "NO"]),
@@ -1038,6 +1031,7 @@ class system(Features, Aspect):
 			"cpu.performance": ((int,float), positive, ["ECU", "GCEU", "HRZ"]),
 			"memory.size": (int, positive, mem_units),
 			"disk.0.os.credentials.new.password": (str, check_password),
+			"ansible_host": (str, check_ansible_host),
 			SoftFeatures.SOFT: (SoftFeatures, lambda x, r: x.check(r))
 		}
 		self.check_simple(SIMPLE_FEATURES, radl)
@@ -1145,6 +1139,8 @@ class RADL:
 	def __init__(self):
 		self.networks = []
 		"""List of network."""
+		self.ansible_hosts = []
+		"""List of ansible_hosts."""
 		self.systems = []
 		"""List of system."""
 		self.deploys = []
@@ -1155,12 +1151,12 @@ class RADL:
 		"""List of contextualize."""
 
 	def __str__(self):
-		return "\n".join([ str(f) for fs in [self.networks, self.systems, self.configures,
+		return "\n".join([ str(f) for fs in [self.ansible_hosts, self.networks, self.systems, self.configures,
 									  [self.contextualize], self.deploys] for f in fs ])
 
 	def add(self, aspect, ifpresent="error"):
 		"""
-		Add a network, system, deploy, configure or contextualize.
+		Add a network, ansible_host, system, deploy, configure or contextualize.
 
 		Args:
 		- aspect(network, system, deploy, configure or contextualize): thing to add.
@@ -1178,7 +1174,7 @@ class RADL:
 			self.contextualize.update(aspect)
 			return True
 
-		classification = [(network, self.networks), (system, self.systems),
+		classification = [(network, self.networks), (system, self.systems), (ansible, self.ansible_hosts),
 						  (deploy, self.deploys), (configure, self.configures)]
 		aspect_list = [l for t, l in classification if isinstance(aspect, t)]
 		assert len(aspect_list) == 1, "Unexpected aspect for RADL."
@@ -1268,7 +1264,7 @@ class RADL:
 	def check(self):
 		"""Check if it is a valid RADL document."""
 
-		for i in [ f for fs in [self.networks, self.systems, self.deploys,
+		for i in [ f for fs in [self.networks, self.ansible_hosts, self.systems, self.deploys,
 									self.configures, [self.contextualize]] for f in fs ]:
 			i.check(self)
 		return True
@@ -1304,3 +1300,67 @@ class RADL:
 			if elem.id == net_id:
 				return elem
 		return None
+
+	def get_ansible_by_id(self, ansible_id):
+		"""Return a ansible with that id or None."""
+
+		for elem in self.ansible_hosts:
+			if elem.id == ansible_id:
+				return elem
+		return None
+
+class ansible(Features, Aspect):
+	"""Store a RADL ``ansible``."""
+
+	def __init__(self, name, features, line=None):
+		self.id = name
+		"""Ansible host id."""
+		Features.__init__(self, features)
+		self.line = line
+		self.reference = False
+
+	def __str__(self):
+		return "ansible %s (%s)" % (self.id, Features.__str__(self))
+
+	def check(self, radl):
+		"""Check the features in this network."""
+
+		SIMPLE_FEATURES = {
+			"host": (str, None),
+			"credentials.username": (str, None),
+			"credentials.password": (str, None),
+			"credentials.private_key": (str, None)
+		}
+		self.check_simple(SIMPLE_FEATURES, radl)
+		
+		if not self.getHost():
+			raise RADLParseException("Ansible host must have a host", line=self.line)
+		(username, password, private_key) = self.getCredentialValues()
+		if not username:
+			raise RADLParseException("Ansible host must have a credentials.username", line=self.line)
+		if not password and not private_key:
+			raise RADLParseException("Ansible host must have a credentials.password or credentials.private_key", line=self.line)
+	
+	def getHost(self):
+		return self.getValue("host")
+		
+	def getCredentials(self):
+		"""Return UserKeyCredential or UserPassCredential.""" 
+
+		(username, password, private_key) = self.getCredentialValues()
+		
+		if private_key:
+			return UserKeyCredential(username, None, private_key)
+
+		if username or password:
+			return UserPassCredential(username, password)
+
+		return None
+	
+	def getCredentialValues(self, new = False):
+		"""Return the values in credentials.*."""
+
+		credentials_base = "credentials."
+		return tuple([ self.getValue(credentials_base + p) for p in [
+						 "username", "password", "private_key"]
+					 ])
