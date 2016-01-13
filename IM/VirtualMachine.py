@@ -551,7 +551,7 @@ class VirtualMachine:
 		"""
 		if self.ctxt_pid:
 			if self.ctxt_pid != self.WAIT_TO_PID:
-				ssh = self.inf.vm_master.get_ssh(retry = True)
+				ssh = self.get_ssh_ansible_master()
 				try:
 					VirtualMachine.logger.debug("Killing ctxt process with pid: " + str(self.ctxt_pid))
 					ssh.execute("kill -9 " + str(self.ctxt_pid))
@@ -580,7 +580,7 @@ class VirtualMachine:
 		while self.ctxt_pid and not self.destroy:
 			ctxt_pid = self.ctxt_pid
 			if ctxt_pid != self.WAIT_TO_PID:
-				ssh = self.inf.vm_master.get_ssh(retry = True)
+				ssh = self.get_ssh_ansible_master()
 
 				if self.state in VirtualMachine.NOT_RUNNING_STATES:
 					try:
@@ -643,7 +643,7 @@ class VirtualMachine:
 				return self.configured
 
 	def get_ctxt_log(self, remote_dir, delete = False):
-		ssh = self.inf.vm_master.get_ssh(retry=True)
+		ssh = self.get_ssh_ansible_master()
 		tmp_dir = tempfile.mkdtemp()
 		conf_out = ""
 		
@@ -670,7 +670,7 @@ class VirtualMachine:
 		return conf_out
 
 	def get_ctxt_output(self, remote_dir, delete = False):
-		ssh = self.inf.vm_master.get_ssh(retry=True)
+		ssh = self.get_ssh_ansible_master()
 		tmp_dir = tempfile.mkdtemp()
 		msg = ""
 			
@@ -731,3 +731,16 @@ class VirtualMachine:
 		res.networks = self.info.networks 
 		res.systems = self.info.systems
 		return str(res)
+	
+	def get_ssh_ansible_master(self):
+		ansible_host = None
+		if self.requested_radl.ansible_hosts:
+			ansible_host = self.requested_radl.ansible_hosts[0]
+			if self.requested_radl.systems[0].getValue("ansible_host"):
+				ansible_host = self.requested_radl.get_ansible_by_id(self.getValue("ansible_host"))
+
+		if ansible_host:
+			(user, passwd, private_key) = ansible_host.getCredentialValues()
+			return SSHRetry(ansible_host.getHost(), user, passwd, private_key)
+		else:
+			return self.inf.vm_master.get_ssh(retry = True)

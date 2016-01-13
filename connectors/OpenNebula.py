@@ -24,6 +24,8 @@ from IM.VirtualMachine import VirtualMachine
 from CloudConnector import CloudConnector
 from IM.radl.radl import network, Feature
 from IM.config import ConfigOpenNebula
+from netaddr import IPNetwork, IPAddress
+from IM.config import Config
 
 # Set of classes to parse the XML results of the ONE API
 class NIC(XMLObject):
@@ -203,7 +205,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 		private_ips = []
 		for nic in template.NIC:
 			ip = str(nic.IP)
-			if network.isPrivateIP(ip):
+			if any([IPAddress(ip) in IPNetwork(mask) for mask in Config.PRIVATE_NET_MASKS]):
 				private_ips.append(ip)
 			else:
 				public_ips.append(ip)
@@ -596,8 +598,8 @@ class OpenNebulaCloudConnector(CloudConnector):
 				else:
 					self.logger.error("Unknown type of network")
 					continue
-			
-			is_public = not (network.isPrivateIP(ip)) 
+
+			is_public = not (any([IPAddress(ip) in IPNetwork(mask) for mask in Config.PRIVATE_NET_MASKS])) 
 
 			res.append((net.NAME, net.ID, is_public))
 				
