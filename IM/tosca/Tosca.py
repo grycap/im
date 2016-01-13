@@ -5,14 +5,14 @@ import copy
 import tempfile
 
 import toscaparser.imports
-from toscaparser.tosca_template import ToscaTemplate as toscaparser_ToscaTemplate 
+from toscaparser.tosca_template import ToscaTemplate 
 from toscaparser.elements.interfaces import InterfacesDef
 from toscaparser.elements.entity_type import EntityType
 from toscaparser.functions import Function, is_function, get_function, GetAttribute
 from IM.radl.radl import system, deploy, network, Feature, configure, contextualize_item, RADL, contextualize
-from  toscaparser.utils.yamlparser import load_yaml
+from toscaparser.utils.yamlparser import load_yaml
 
-class ToscaTemplate(toscaparser_ToscaTemplate):
+class IndigoToscaTemplate(ToscaTemplate):
 
 	CUSTOM_TYPES_FILE = os.path.dirname(os.path.realpath(__file__)) + "/tosca-types/custom_types.yaml"
 
@@ -22,7 +22,7 @@ class ToscaTemplate(toscaparser_ToscaTemplate):
 		# and update tosca_def with the data
 		EntityType.TOSCA_DEF.update(custom_def)
 		
-		super(ToscaTemplate, self).__init__(path, parsed_params, a_file)
+		super(IndigoToscaTemplate, self).__init__(path, parsed_params, a_file)
 		
 	def _get_custom_types(self, type_definitions, imports=None):
 		"""Handle custom types defined in imported template files
@@ -72,28 +72,24 @@ class Tosca:
 		with tempfile.NamedTemporaryFile(suffix=".yaml") as f:
 			f.write(yaml_str)
 			f.flush()
-			self.tosca = ToscaTemplate(f.name)
+			self.tosca = IndigoToscaTemplate(f.name)
 
 	@staticmethod
 	def is_tosca(yaml_string):
 		"""
 		Check if a string seems to be a tosca document
-		Check if it is a correct YAML document and has the item 'tosca_definitions_version'
+		Check if it has the strings 'tosca_definitions_version' and 'tosca_simple_yaml'
 		"""
-		try:
-			yamlo = yaml.load(yaml_string)
-			if isinstance(yamlo, dict) and 'tosca_definitions_version' in yamlo.keys():
-				return True 
-			else:
-				return False
-		except:
+		if yaml_string.find("tosca_definitions_version") != -1 and yaml_string.find("tosca_simple_yaml") != -1:
+			return True
+		else:
 			return False
 
 	def to_radl(self):
 		"""
 		Converts the current ToscaTemplate object in a RADL object 
 		"""
-		
+
 		relationships = []
 		for node in self.tosca.nodetemplates:
 			# Store relationships to check later
@@ -126,8 +122,10 @@ class Tosca:
 					Tosca._add_node_nets(node, radl, sys)
 					radl.systems.append(sys)
 					# Add the deploy element for this system
-					min_instances, _, default_instances = Tosca._get_scalable_properties(node)
-					if default_instances is not None:
+					count, min_instances, _, default_instances = Tosca._get_scalable_properties(node)
+					if count is not None:
+						num_instances = count
+					elif default_instances is not None:
 						num_instances = default_instances
 					elif min_instances is not None:
 						num_instances = min_instances
@@ -224,11 +222,13 @@ class Tosca:
 
 	@staticmethod
 	def _get_scalable_properties(node):
-		min_instances = max_instances = default_instances = None
+		count = min_instances = max_instances = default_instances = None
 		scalable = node.get_capability("scalable")
 		if scalable:
 			for prop in scalable.get_properties_objects():
 				if prop.value is not None:
+					if prop.name == "count":
+						count = prop.value
 					if prop.name == "max_instances":
 						max_instances = prop.value
 					elif prop.name == "min_instances":
@@ -236,7 +236,7 @@ class Tosca:
 					elif prop.name == "default_instances":
 						default_instances = prop.value
 
-		return min_instances, max_instances, default_instances
+		return min_instances, max_instances, default_instances, count
 
 	@staticmethod
 	def _get_relationship_template(rel, src, trgt):
