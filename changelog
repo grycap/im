@@ -165,3 +165,4 @@ IM 1.4.1
     * Bugfix in VM IP management
     * Add support for Ansible v2.X
     * Add supoort for using an external ansible master node
+    * Bugfix in incorrects links inside containers

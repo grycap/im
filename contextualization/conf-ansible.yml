@@ -1,6 +1,8 @@
 ---
 - hosts: all
-  sudo: yes
+#  sudo: yes
+  become: yes
+  become_method: sudo
   vars:
     ANSIBLE_VERSION: 1.9.4
   tasks:
@@ -23,8 +25,8 @@
       when: ansible_os_family == "Debian"
 
     - name: EPEL
-      #template: src=utils/templates/epel.repo dest=/etc/yum.repos.d/epel.repo
-      template: src=utils/templates/epel-es.repo dest=/etc/yum.repos.d/epel.repo
+      template: src=utils/templates/epel.repo dest=/etc/yum.repos.d/epel.repo
+      #template: src=utils/templates/epel-es.repo dest=/etc/yum.repos.d/epel.repo
       when: ansible_os_family == "RedHat" and ansible_distribution != "Fedora"
     
     - name: Apt install requirements
@@ -94,7 +96,7 @@
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version < 6
 
     - name: Disable SELinux
-      command: /usr/sbin/setenforce 0
+      selinux: state=disabled
       when: ansible_os_family == "RedHat"
       ignore_errors: yes
       
