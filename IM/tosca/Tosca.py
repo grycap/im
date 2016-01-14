@@ -64,10 +64,8 @@ class Tosca:
 	
 	"""
 	
-	#ARTIFACTS_PATH = os.path.dirname(os.path.realpath(__file__)) + "/artifacts"
-	ARTIFACTS_PATH = "/tmp"
-	#ARTIFACTS_REMOTE_REPO = "https://raw.githubusercontent.com/indigo-dc/tosca-types/master/artifacts/"
-	ARTIFACTS_REMOTE_REPO = "https://raw.githubusercontent.com/indigo-dc/im/master/IM/tosca/artifacts/"
+	ARTIFACTS_PATH = os.path.dirname(os.path.realpath(__file__)) + "/artifacts"
+	ARTIFACTS_REMOTE_REPO = "https://raw.githubusercontent.com/indigo-dc/tosca-types/master/artifacts/"
 	
 	logger = logging.getLogger('InfrastructureManager')
 	
