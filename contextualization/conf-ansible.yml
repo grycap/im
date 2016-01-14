@@ -9,6 +9,10 @@
     - name: Install libselinux-python in RH
       action: yum pkg=libselinux-python state=installed
       when: ansible_os_family == "RedHat"
+  
+    - name: Apt-get update
+      apt: update_cache=yes
+      when: ansible_os_family == "Debian"
 
     - name: EPEL
       template: src=utils/templates/epel.repo dest=/etc/yum.repos.d/epel.repo
@@ -82,7 +86,7 @@
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version < 6
 
     - name: Disable SELinux
-      command: /usr/sbin/setenforce 0
+      selinux: state=disabled
       when: ansible_os_family == "RedHat"
       ignore_errors: yes
       
