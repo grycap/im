@@ -212,14 +212,8 @@ class TestIM(unittest.TestCase):
         self.assertEqual(len(vm_ids), 2, msg="ERROR getting infrastructure info: Incorrect number of VMs(" + str(len(vm_ids)) + "). It must be 2")
         all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 600)
         self.assertTrue(all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
-
-    def test_45_addresource_noconfig(self):
-        self.server.request('POST', "/infrastructures/" + self.inf_id + "?context=0", body = RADL_ADD, headers = {'AUTHORIZATION' : self.auth_data})
-        resp = self.server.getresponse()
-        output = str(resp.read())
-        self.assertEqual(resp.status, 200, msg="ERROR adding resources:" + output)
         
-    def test_46_getstate(self):
+    def test_45_getstate(self):
         self.server.request('GET', "/infrastructures/" + self.inf_id + "/state", headers = {'AUTHORIZATION' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
@@ -230,6 +224,12 @@ class TestIM(unittest.TestCase):
         self.assertEqual(state, "configured", msg="Unexpected inf state: " + state + ". It must be 'configured'.")
         for vm_id, vm_state in vm_states.iteritems():
             self.assertEqual(vm_state, "configured", msg="Unexpected vm state: " + vm_state + " in VM ID " + str(vm_id) + ". It must be 'configured'.")
+
+    def test_46_addresource_noconfig(self):
+        self.server.request('POST', "/infrastructures/" + self.inf_id + "?context=0", body = RADL_ADD, headers = {'AUTHORIZATION' : self.auth_data})
+        resp = self.server.getresponse()
+        output = str(resp.read())
+        self.assertEqual(resp.status, 200, msg="ERROR adding resources:" + output)
 
     def test_47_removeresource_noconfig(self):
         self.server.request('GET', "/infrastructures/" + self.inf_id + "?context=0", headers = {'AUTHORIZATION' : self.auth_data})
