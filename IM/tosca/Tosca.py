@@ -3,16 +3,18 @@ import logging
 import yaml
 import copy
 import tempfile
+import urllib
 
+from IM.uriparse import uriparse
 import toscaparser.imports
-from toscaparser.tosca_template import ToscaTemplate as toscaparser_ToscaTemplate 
+from toscaparser.tosca_template import ToscaTemplate 
 from toscaparser.elements.interfaces import InterfacesDef
 from toscaparser.elements.entity_type import EntityType
 from toscaparser.functions import Function, is_function, get_function, GetAttribute
 from IM.radl.radl import system, deploy, network, Feature, configure, contextualize_item, RADL, contextualize
-from  toscaparser.utils.yamlparser import load_yaml
+from toscaparser.utils.yamlparser import load_yaml
 
-class ToscaTemplate(toscaparser_ToscaTemplate):
+class IndigoToscaTemplate(ToscaTemplate):
 
 	CUSTOM_TYPES_FILE = os.path.dirname(os.path.realpath(__file__)) + "/tosca-types/custom_types.yaml"
 
@@ -22,7 +24,7 @@ class ToscaTemplate(toscaparser_ToscaTemplate):
 		# and update tosca_def with the data
 		EntityType.TOSCA_DEF.update(custom_def)
 		
-		super(ToscaTemplate, self).__init__(path, parsed_params, a_file)
+		super(IndigoToscaTemplate, self).__init__(path, parsed_params, a_file)
 		
 	def _get_custom_types(self, type_definitions, imports=None):
 		"""Handle custom types defined in imported template files
@@ -72,28 +74,24 @@ class Tosca:
 		with tempfile.NamedTemporaryFile(suffix=".yaml") as f:
 			f.write(yaml_str)
 			f.flush()
-			self.tosca = ToscaTemplate(f.name)
+			self.tosca = IndigoToscaTemplate(f.name)
 
 	@staticmethod
 	def is_tosca(yaml_string):
 		"""
 		Check if a string seems to be a tosca document
-		Check if it is a correct YAML document and has the item 'tosca_definitions_version'
+		Check if it has the strings 'tosca_definitions_version' and 'tosca_simple_yaml'
 		"""
-		try:
-			yamlo = yaml.load(yaml_string)
-			if isinstance(yamlo, dict) and 'tosca_definitions_version' in yamlo.keys():
-				return True 
-			else:
-				return False
-		except:
+		if yaml_string.find("tosca_definitions_version") != -1 and yaml_string.find("tosca_simple_yaml") != -1:
+			return True
+		else:
 			return False
 
 	def to_radl(self):
 		"""
 		Converts the current ToscaTemplate object in a RADL object 
 		"""
-		
+
 		relationships = []
 		for node in self.tosca.nodetemplates:
 			# Store relationships to check later
@@ -126,8 +124,10 @@ class Tosca:
 					Tosca._add_node_nets(node, radl, sys)
 					radl.systems.append(sys)
 					# Add the deploy element for this system
-					min_instances, _, default_instances = Tosca._get_scalable_properties(node)
-					if default_instances is not None:
+					count, min_instances, _, default_instances = Tosca._get_scalable_properties(node)
+					if count is not None:
+						num_instances = count
+					elif default_instances is not None:
 						num_instances = default_instances
 					elif min_instances is not None:
 						num_instances = min_instances
@@ -224,11 +224,13 @@ class Tosca:
 
 	@staticmethod
 	def _get_scalable_properties(node):
-		min_instances = max_instances = default_instances = None
+		count = min_instances = max_instances = default_instances = None
 		scalable = node.get_capability("scalable")
 		if scalable:
 			for prop in scalable.get_properties_objects():
 				if prop.value is not None:
+					if prop.name == "count":
+						count = prop.value
 					if prop.name == "max_instances":
 						max_instances = prop.value
 					elif prop.name == "min_instances":
@@ -236,7 +238,7 @@ class Tosca:
 					elif prop.name == "default_instances":
 						default_instances = prop.value
 
-		return min_instances, max_instances, default_instances
+		return min_instances, max_instances, default_instances, count
 
 	@staticmethod
 	def _get_relationship_template(rel, src, trgt):
@@ -296,7 +298,6 @@ class Tosca:
 							raise Exception("input value for %s in interface %s of node %s not valid" % (param_name, name, node.name))
 
 				name = node.name + "_" + interface.name
-				script_path = os.path.join(Tosca.ARTIFACTS_PATH, interface.implementation)
 				
 				# if there are artifacts to download
 				if artifacts:
@@ -304,40 +305,44 @@ class Tosca:
 						tasks += "  - name: Download artifact " + artifact + "\n"
 						tasks += "    get_url: dest=" + remote_artifacts_path + "/" + os.path.basename(artifact) + " url='" + artifact + "'\n"
 				
-				if interface.implementation.endswith(".yaml") or interface.implementation.endswith(".yml"):
+				implementation_url = uriparse(interface.implementation)
+				
+				if implementation_url[0] in ['http', 'https', 'ftp']:
+					script_path = implementation_url[2]
+					try:
+						response = urllib.urlopen(interface.implementation)
+						script_content = response.read()
+					except Exception, ex:
+						raise Exception("Error downloading the implementation script '%s': %s" % (interface.implementation, str(ex)))
+				else:
+					script_path = os.path.join(Tosca.ARTIFACTS_PATH, interface.implementation)
 					if os.path.isfile(script_path):
 						f = open(script_path)
 						script_content = f.read()
 						f.close()
-
-						if env:
-							for var_name, var_value in env.iteritems():
-								variables += "    %s: %s " % (var_name, var_value) + "\n"
-							variables += "\n"
-
-						recipe_list.append(script_content)
 					else:
-						raise Exception(script_path + " is not located in the artifacts folder.")
+						raise Exception("Implementation file: '%s' is not located in the artifacts folder '%s'." % (interface.implementation, Tosca.ARTIFACTS_PATH))
+					
+				if script_path.endswith(".yaml") or script_path.endswith(".yml"):
+					if env:
+						for var_name, var_value in env.iteritems():
+							variables += "    %s: %s " % (var_name, var_value) + "\n"
+						variables += "\n"
+
+					recipe_list.append(script_content)
 				else:
-					if os.path.isfile(script_path):
-						f = open(script_path)
-						script_content = f.read().replace("\n","\\n")
-						f.close()
-						
-						recipe = "- tasks:\n"
-						recipe += "  - name: Copy contents of script of interface " + name + "\n"
-						recipe += "    copy: dest=/tmp/" +  os.path.basename(script_path) + " content='" + script_content + "' mode=0755\n"
-						
-						recipe += "  - name: " + name + "\n"
-						recipe += "    shell: /tmp/" +  os.path.basename(script_path) + "\n"
-						if env:
-							recipe += "    environment:\n"
-							for var_name, var_value in env.iteritems():
-								recipe += "      %s: %s\n" % (var_name, var_value)
-						
-						recipe_list.append(recipe)
-					else:
-						raise Exception(script_path + " is not located in the artifacts folder.")							
+					recipe = "- tasks:\n"
+					recipe += "  - name: Copy contents of script of interface " + name + "\n"
+					recipe += "    copy: dest=/tmp/" +  os.path.basename(script_path) + " content='" + script_content + "' mode=0755\n"
+					
+					recipe += "  - name: " + name + "\n"
+					recipe += "    shell: /tmp/" +  os.path.basename(script_path) + "\n"
+					if env:
+						recipe += "    environment:\n"
+						for var_name, var_value in env.iteritems():
+							recipe += "      %s: %s\n" % (var_name, var_value)
+					
+					recipe_list.append(recipe)						
 
 		if tasks or recipe_list:
 			name = node.name + "_conf"

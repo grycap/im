@@ -34,8 +34,8 @@ COPY ansible.cfg /etc/ansible/ansible.cfg
 # Turn on the REST services
 RUN sed -i "/ACTIVATE_REST =.*/c\ACTIVATE_REST=True" /etc/im/im.cfg
 
-# Expose the IM port
-EXPOSE 8899
+# Expose the IM ports
+EXPOSE 8899 8800
 
 # Launch the service at the beginning of the container
 CMD im_service.py
