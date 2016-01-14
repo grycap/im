@@ -479,7 +479,7 @@ echo "Hello World" >> /tmp/data.txt
         self.__class__.inf_id = [inf_id]
 
         all_configured = self.wait_inf_state(inf_id, VirtualMachine.CONFIGURED, 600)
-        self.assertTrue(all_configured, msg="ERROR waiting the  ansible maste to be configured (timeout).")
+        self.assertTrue(all_configured, msg="ERROR waiting the ansible master to be configured (timeout).")
         
         (success, info)  = self.server.GetVMInfo(inf_id, "0", self.auth_data)
         self.assertTrue(success, msg="ERROR getting ansible master info: " + str(info))

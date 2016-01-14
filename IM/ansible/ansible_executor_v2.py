@@ -47,7 +47,7 @@ class IMDisplay(Display):
             if isinstance(self.output, logging.Logger):
                 self.output.info(msg)
             else:
-                print >>self.output, msg
+                self.output.write("%s\n" % msg)
         else:
             sys.stdout.write(msg)
             sys.stdout.flush()
@@ -272,8 +272,8 @@ class IMPlaybookExecutor(PlaybookExecutor):
                                     loader=loader, options=options, 
                                     passwords=self.passwords)
         
-        callback = AnsibleCallbacks(output)
-        self._tqm._callback_plugins.append(callback)
+        # Set out Callback as the stdout one to avoid stdout messages
+        self._tqm._stdout_callback = AnsibleCallbacks(output)
 
 
     def run(self):

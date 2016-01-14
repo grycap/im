@@ -38,8 +38,14 @@ Finally, check the next values in the Ansible configuration file
    [defaults]
    transport  = smart
    host_key_checking = False
+   
+   # For old versions 1.X
    sudo_user = root
    sudo_exe = sudo
+   
+   # For new versions 2.X
+   become_user      = root
+   become_method    = sudo
    
    [paramiko_connection]
    
