@@ -51,6 +51,7 @@ class ConfManager(threading.Thread):
 	
 	def __init__(self, inf, auth, max_ctxt_time = 1e9):
 		threading.Thread.__init__(self)
+		self.daemon = True
 		self.inf = inf
 		self.auth = auth
 		self.init_time = time.time()
