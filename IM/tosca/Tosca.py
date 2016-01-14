@@ -3,7 +3,9 @@ import logging
 import yaml
 import copy
 import tempfile
+import urllib
 
+from IM.uriparse import uriparse
 import toscaparser.imports
 from toscaparser.tosca_template import ToscaTemplate 
 from toscaparser.elements.interfaces import InterfacesDef
@@ -296,7 +298,6 @@ class Tosca:
 							raise Exception("input value for %s in interface %s of node %s not valid" % (param_name, name, node.name))
 
 				name = node.name + "_" + interface.name
-				script_path = os.path.join(Tosca.ARTIFACTS_PATH, interface.implementation)
 				
 				# if there are artifacts to download
 				if artifacts:
@@ -304,40 +305,44 @@ class Tosca:
 						tasks += "  - name: Download artifact " + artifact + "\n"
 						tasks += "    get_url: dest=" + remote_artifacts_path + "/" + os.path.basename(artifact) + " url='" + artifact + "'\n"
 				
-				if interface.implementation.endswith(".yaml") or interface.implementation.endswith(".yml"):
+				implementation_url = uriparse(interface.implementation)
+				
+				if implementation_url[0] in ['http', 'https', 'ftp']:
+					script_path = implementation_url[2]
+					try:
+						response = urllib.urlopen(interface.implementation)
+						script_content = response.read()
+					except Exception, ex:
+						raise Exception("Error downloading the implementation script '%s': %s" % (interface.implementation, str(ex)))
+				else:
+					script_path = os.path.join(Tosca.ARTIFACTS_PATH, interface.implementation)
 					if os.path.isfile(script_path):
 						f = open(script_path)
 						script_content = f.read()
 						f.close()
-
-						if env:
-							for var_name, var_value in env.iteritems():
-								variables += "    %s: %s " % (var_name, var_value) + "\n"
-							variables += "\n"
-
-						recipe_list.append(script_content)
 					else:
-						raise Exception(script_path + " is not located in the artifacts folder.")
+						raise Exception("Implementation file: '%s' is not located in the artifacts folder '%s'." % (interface.implementation, Tosca.ARTIFACTS_PATH))
+					
+				if script_path.endswith(".yaml") or script_path.endswith(".yml"):
+					if env:
+						for var_name, var_value in env.iteritems():
+							variables += "    %s: %s " % (var_name, var_value) + "\n"
+						variables += "\n"
+
+					recipe_list.append(script_content)
 				else:
-					if os.path.isfile(script_path):
-						f = open(script_path)
-						script_content = f.read().replace("\n","\\n")
-						f.close()
-						
-						recipe = "- tasks:\n"
-						recipe += "  - name: Copy contents of script of interface " + name + "\n"
-						recipe += "    copy: dest=/tmp/" +  os.path.basename(script_path) + " content='" + script_content + "' mode=0755\n"
-						
-						recipe += "  - name: " + name + "\n"
-						recipe += "    shell: /tmp/" +  os.path.basename(script_path) + "\n"
-						if env:
-							recipe += "    environment:\n"
-							for var_name, var_value in env.iteritems():
-								recipe += "      %s: %s\n" % (var_name, var_value)
-						
-						recipe_list.append(recipe)
-					else:
-						raise Exception(script_path + " is not located in the artifacts folder.")							
+					recipe = "- tasks:\n"
+					recipe += "  - name: Copy contents of script of interface " + name + "\n"
+					recipe += "    copy: dest=/tmp/" +  os.path.basename(script_path) + " content='" + script_content + "' mode=0755\n"
+					
+					recipe += "  - name: " + name + "\n"
+					recipe += "    shell: /tmp/" +  os.path.basename(script_path) + "\n"
+					if env:
+						recipe += "    environment:\n"
+						for var_name, var_value in env.iteritems():
+							recipe += "      %s: %s\n" % (var_name, var_value)
+					
+					recipe_list.append(recipe)						
 
 		if tasks or recipe_list:
 			name = node.name + "_conf"
