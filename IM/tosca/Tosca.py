@@ -64,7 +64,10 @@ class Tosca:
 	
 	"""
 	
-	ARTIFACTS_PATH = os.path.dirname(os.path.realpath(__file__)) + "/artifacts"
+	#ARTIFACTS_PATH = os.path.dirname(os.path.realpath(__file__)) + "/artifacts"
+	ARTIFACTS_PATH = "/tmp"
+	#ARTIFACTS_REMOTE_REPO = "https://raw.githubusercontent.com/indigo-dc/tosca-types/master/artifacts/"
+	ARTIFACTS_REMOTE_REPO = "https://raw.githubusercontent.com/indigo-dc/im/master/IM/tosca/artifacts/"
 	
 	logger = logging.getLogger('InfrastructureManager')
 	
@@ -321,7 +324,11 @@ class Tosca:
 						script_content = f.read()
 						f.close()
 					else:
-						raise Exception("Implementation file: '%s' is not located in the artifacts folder '%s'." % (interface.implementation, Tosca.ARTIFACTS_PATH))
+						try:
+							response = urllib.urlopen(Tosca.ARTIFACTS_REMOTE_REPO + interface.implementation)
+							script_content = response.read()
+						except Exception, ex:
+							raise Exception("Implementation file: '%s' is not located in the artifacts folder '%s' or in the artifacts remote url '%s'." % (interface.implementation, Tosca.ARTIFACTS_PATH, Tosca.ARTIFACTS_REMOTE_REPO))
 					
 				if script_path.endswith(".yaml") or script_path.endswith(".yml"):
 					if env:
