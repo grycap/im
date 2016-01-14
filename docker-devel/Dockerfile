@@ -1,7 +1,7 @@
 # Dockerfile to create a container with the IM service and TOSCA support
 FROM ubuntu:14.04
 MAINTAINER Miguel Caballer <micafer1@upv.es>
-LABEL version="1.4.0"
+LABEL version="1.4.1"
 LABEL description="Container image to run the IM service with TOSCA support. (http://www.grycap.upv.es/im)"
 
 # Update and install all the neccesary packages
@@ -12,6 +12,8 @@ RUN apt-get update && apt-get install -y \
     python-soappy \
     python-pbr \
     python-dateutil \
+    python-mock \
+    python-nose \
     openssh-client \
     sshpass \
     git \
