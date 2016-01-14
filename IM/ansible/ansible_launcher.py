@@ -9,7 +9,7 @@
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more/etc/sudoers details.
+# GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
@@ -47,7 +47,7 @@ def display(msg, color=None, stderr=False, screen_only=False, log_only=False, ou
         if isinstance(output, logging.Logger):
             output.info(msg)
         else:
-            print >>output, msg
+            output.write("%s\n" % msg)
     else:
         sys.stdout.write(msg)
         sys.stdout.flush()
@@ -110,6 +110,8 @@ class AnsibleThread(threading.Thread):
         options, _ = parser.parse_args([])
     
         sshpass    = None
+        if not options.become_user:
+            options.become_user = "root"
     
         if self.pk_file:
             options.private_key_file = self.pk_file
