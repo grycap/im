@@ -1,7 +1,0 @@
----
-- tasks:
-  - name: Create DB {{db_name}}
-    mysql_db: name={{db_name}} state=present login_user=root login_password={{db_root_password}}
-  
-  - name: Create user {{db_user}} for the DB {{db_name}}
-    mysql_user: name={{db_user}} password={{db_password}} login_user=root login_password={{db_root_password}} priv={{db_name}}.*:ALL,GRANT state=present
