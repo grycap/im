@@ -621,7 +621,7 @@ topology_template:
         self.assertTrue(success, msg="ERROR calling CreateInfrastructure to create the VM: " + str(inf_id))
         self.__class__.inf_id = inf_id
 
-        all_configured = self.wait_inf_state(inf_id, VirtualMachine.CONFIGURED, 1200)
+        all_configured = self.wait_inf_state(inf_id, VirtualMachine.CONFIGURED, 900)
         self.assertTrue(all_configured, msg="ERROR waiting the VM to be configured (timeout).")
 
     def test_95_destroy(self):
