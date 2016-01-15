@@ -14,9 +14,8 @@ infrastructure.
 
 Read the documentation and more at http://www.grycap.upv.es/im.
 
-There is also an Infrastructure Manager youtube channel with a set of videos with demos
-of the functionality of the platform: https://www.youtube.com/channel/UCF16QmMHlRNtsC-0Cb2d8fg.
-
+There is also an Infrastructure Manager YouTube reproduction list with a set of videos with demos
+of the functionality of the platform: https://www.youtube.com/playlist?list=PLgPH186Qwh_37AMhEruhVKZSfoYpHkrUp.
 
 1. INSTALLATION
 ===============
@@ -41,6 +40,10 @@ However, if you install IM from sources you should install:
  * The SOAPpy library for Python, typically available as the 'python-soappy' or 'SOAPpy' package.
  
  * The Netaddr library for Python, typically available as the 'python-netaddr' package.
+ 
+ * The boto library version 2.29 or later must be installed (http://boto.readthedocs.org/en/latest/).
+
+ * The apache-libcloud library version 0.18 or later must be installed (http://libcloud.apache.org/).
 
  * Ansible (http://www.ansibleworks.com/) to configure nodes in the infrastructures.
    In particular, Ansible 1.4.2+ must be installed.
@@ -66,12 +69,6 @@ However, if you install IM from sources you should install:
 
 1.2 OPTIONAL PACKAGES
 ---------------------
-
-In case of using the Amazon EC2 plugin the boto library version 2.29 or later
-must be installed (http://boto.readthedocs.org/en/latest/).
-
-In case of using the LibCloud plugin the apache-libcloud library version 0.17 or later
-must be installed (http://libcloud.apache.org/).
 
 In case of using the SSL secured version of the XMLRPC API the SpringPython
 framework (http://springpython.webfactional.com/) must be installed.
