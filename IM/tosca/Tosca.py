@@ -65,6 +65,7 @@ class Tosca:
 	"""
 	
 	ARTIFACTS_PATH = os.path.dirname(os.path.realpath(__file__)) + "/artifacts"
+	ARTIFACTS_REMOTE_REPO = "https://raw.githubusercontent.com/indigo-dc/tosca-types/master/artifacts/"
 	
 	logger = logging.getLogger('InfrastructureManager')
 	
@@ -121,7 +122,7 @@ class Tosca:
 					# Add the system RADL element
 					sys = Tosca._gen_system(node, self.tosca.nodetemplates)
 					# add networks using the simple method with the public_ip property
-					Tosca._add_node_nets(node, radl, sys)
+					Tosca._add_node_nets(node, radl, sys, self.tosca.nodetemplates)
 					radl.systems.append(sys)
 					# Add the deploy element for this system
 					count, min_instances, _, default_instances = Tosca._get_scalable_properties(node)
@@ -159,67 +160,80 @@ class Tosca:
 		return self._complete_radl_networks(radl)
 
 	@staticmethod
-	def _add_node_nets(node, radl, system): 
-		public_ip = False
-		node_props = node.get_properties_objects()
-		if node_props:
-			for prop in node_props:
-				if prop.name == "public_ip":
-					public_ip = prop.value
-					break
+	def _add_node_nets(node, radl, system, nodetemplates): 
 		
-		# If the node needs a public IP
-		if public_ip:				
-			public_nets = []
+		# Find associated Networks		
+		nets = Tosca._get_bind_networks(node, nodetemplates)
+		if nets:
+			# If there are network nodes, use it to define system network properties
+			for net_name, ip, dns_name, num in nets:
+				system.setValue('net_interface.%d.connection' % num, net_name)
+				# This is not a normative property
+				if dns_name:
+					system.setValue('net_interface.%d.dns_name' % num, dns_name)
+				if ip:
+					system.setValue('net_interface.%d.ip' % num, ip)
+		else:
+			public_ip = False
+			node_props = node.get_properties_objects()
+			if node_props:
+				for prop in node_props:
+					if prop.name == "public_ip":
+						public_ip = prop.value
+						break
+			
+			# If the node needs a public IP
+			if public_ip:				
+				public_nets = []
+				for net in radl.networks:
+					if net.isPublic():
+						public_nets.append(net)
+	
+				if public_nets:
+					public_net = None
+					for net in public_nets:
+						num_net = system.getNumNetworkWithConnection(net.id)
+						if num_net is not None:
+							public_net = net
+							break
+	
+					if not public_net:
+						# There are a public net but it has not been used in this VM
+						public_net = public_nets[0]
+						num_net = system.getNumNetworkIfaces()
+				else:
+					# There no public net, create one
+					public_net = network.createNetwork("public_net", True)
+					radl.networks.append(public_net)
+					num_net = system.getNumNetworkIfaces()
+				
+				system.setValue('net_interface.' + str(num_net) + '.connection',public_net.id)
+	
+			# The private net is always added
+			private_nets = []
 			for net in radl.networks:
-				if net.isPublic():
-					public_nets.append(net)
-
-			if public_nets:
-				public_net = None
-				for net in public_nets:
+				if not net.isPublic():
+					private_nets.append(net)
+	
+			if private_nets:
+				private_net = None
+				for net in private_nets:
 					num_net = system.getNumNetworkWithConnection(net.id)
 					if num_net is not None:
-						public_net = net
+						private_net = net
 						break
-
-				if not public_net:
+	
+				if not private_net:
 					# There are a public net but it has not been used in this VM
-					public_net = public_nets[0]
+					private_net = private_nets[0]
 					num_net = system.getNumNetworkIfaces()
 			else:
 				# There no public net, create one
-				public_net = network.createNetwork("public_net", True)
-				radl.networks.append(public_net)
+				private_net = network.createNetwork("private_net", False)
+				radl.networks.append(private_net)
 				num_net = system.getNumNetworkIfaces()
-			
-			system.setValue('net_interface.' + str(num_net) + '.connection',public_net.id)
-
-		# The private net is allways added
-		private_nets = []
-		for net in radl.networks:
-			if not net.isPublic():
-				private_nets.append(net)
-
-		if private_nets:
-			private_net = None
-			for net in private_nets:
-				num_net = system.getNumNetworkWithConnection(net.id)
-				if num_net is not None:
-					private_net = net
-					break
-
-			if not private_net:
-				# There are a public net but it has not been used in this VM
-				private_net = private_nets[0]
-				num_net = system.getNumNetworkIfaces()
-		else:
-			# There no public net, create one
-			private_net = network.createNetwork("private_net", False)
-			radl.networks.append(private_net)
-			num_net = system.getNumNetworkIfaces()
-
-		system.setValue('net_interface.' + str(num_net) + '.connection',private_net.id)
+	
+			system.setValue('net_interface.' + str(num_net) + '.connection',private_net.id)
 
 
 	@staticmethod
@@ -321,7 +335,11 @@ class Tosca:
 						script_content = f.read()
 						f.close()
 					else:
-						raise Exception("Implementation file: '%s' is not located in the artifacts folder '%s'." % (interface.implementation, Tosca.ARTIFACTS_PATH))
+						try:
+							response = urllib.urlopen(Tosca.ARTIFACTS_REMOTE_REPO + interface.implementation)
+							script_content = response.read()
+						except Exception, ex:
+							raise Exception("Implementation file: '%s' is not located in the artifacts folder '%s' or in the artifacts remote url '%s'." % (interface.implementation, Tosca.ARTIFACTS_PATH, Tosca.ARTIFACTS_REMOTE_REPO))
 					
 				if script_path.endswith(".yaml") or script_path.endswith(".yml"):
 					if env:
@@ -810,16 +828,7 @@ class Tosca:
 			if location:
 				res.setValue('disk.%d.mount_path' % num, location)
 				res.setValue('disk.%d.fstype' % num, "ext4")
-		
-		# Find associated Networks		
-		nets = Tosca._get_bind_networks(node, nodetemplates)
-		for net_name, ip, dns_name, num in nets:
-			res.setValue('net_interface.%d.connection' % num, net_name)
-			if dns_name:
-				res.setValue('net_interface.%d.dns_name' % num, dns_name)
-			if ip:
-				res.setValue('net_interface.%d.ip' % num, ip)
-		
+
 		return res
 	
 	@staticmethod

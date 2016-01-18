@@ -1,5 +1,5 @@
- IM - Infrastructure Manager
-============================
+ IM - Infrastructure Manager (With TOSCA Support)
+=================================================
 
 * Version ![PyPI](https://img.shields.io/pypi/v/im.svg)
 * PyPI ![PypI](https://img.shields.io/pypi/dm/IM.svg)
@@ -16,8 +16,8 @@ infrastructure.
 
 Read the documentation and more at http://www.grycap.upv.es/im.
 
-There is also an Infrastructure Manager youtube channel with a set of videos with demos
-of the functionality of the platform: [YouTube IM channel](https://www.youtube.com/channel/UCF16QmMHlRNtsC-0Cb2d8fg)
+There is also an Infrastructure Manager YouTube reproduction list with a set of videos with demos
+of the functionality of the platform: https://www.youtube.com/playlist?list=PLgPH186Qwh_37AMhEruhVKZSfoYpHkrUp.
 
 
 1. INSTALLATION
@@ -28,9 +28,6 @@ of the functionality of the platform: [YouTube IM channel](https://www.youtube.c
 
 IM is based on Python, so Python 2.6 or higher runtime and standard library must
 be installed in the system.
-
-If you use pip to install the IM, all the requisites will be installed.
-However, if you install IM from sources you should install:
 
  + The Python Lex & Yacc library (http://www.dabeaz.com/ply/), typically available
    as the 'python-ply' package.
@@ -43,6 +40,16 @@ However, if you install IM from sources you should install:
  + The SOAPpy library for Python, typically available as the 'python-soappy' or 'SOAPpy' package.
  
  + The Netaddr library for Python, typically available as the 'python-netaddr' package.
+ 
+ + The boto library version 2.29 or later
+   must be installed (http://boto.readthedocs.org/en/latest/).
+
+ + The apache-libcloud library version 0.18 or later
+   must be installed (http://libcloud.apache.org/).
+ 
+ + The TOSCA-Parser library for Python. Currently it must be used the INDIGO version located at
+   https://github.com/indigo-dc/tosca-parser but we are working to improve the mainstream version
+   to enable to use it with the IM. 
 
  + Ansible (http://www.ansibleworks.com/) to configure nodes in the infrastructures.
    In particular, Ansible 1.4.2+ must be installed.
@@ -71,12 +78,6 @@ pipelining = True
 1.2 OPTIONAL PACKAGES
 ---------------------
 
-In case of using the Amazon EC2 plugin the boto library version 2.29 or later
-must be installed (http://boto.readthedocs.org/en/latest/).
-
-In case of using the LibCloud plugin the apache-libcloud library version 0.17 or later
-must be installed (http://libcloud.apache.org/).
-
 In case of using the SSL secured version of the XMLRPC API the SpringPython
 framework (http://springpython.webfactional.com/) must be installed.
 
@@ -89,45 +90,39 @@ framework (http://www.cherrypy.org/) must be installed.
 1.3 INSTALLING
 --------------
 
-### 1.3.1 FROM PIP
+First install the requirements:
 
-**WARNING: The SOAPpy distributed with pip does not work correctly so you must install
-the packages 'python-soappy' or 'SOAPp'y before installing the IM with pip.**
-
-**WARNING: In some GNU/Linux distributions (RHEL 6 or equivalents) you must uninstall
-the packages 'python-paramiko' and 'python-crypto' before installing the IM with pip.**
-
-You only have to install the IM package through the pip tool.
-
+On Debian Systems:
 ```
-pip install IM
+$ apt-get -y install git python-setuptools python-dev gcc python-soappy python-pip python-pbr python-dateutil
 ```
 
-Pip will install all the pre-requisites needed. So Ansible  1.4.2 or later will
- be installed in the system. Yo will also need to install the sshpass command
- ('sshpass' package in main distributions). In some cases it will need to have installed 
- the GCC compiler and the python developer libraries ('python-dev' or 'python-devel'
- packages in main distributions).
-
-You must also remember to modify the ansible.cfg file setting as specified in the
-REQUISITES section.
-
-### 1.3.2 FROM SOURCE
-
-Select a proper path where the IM service will be installed (i.e. /usr/local/im,
-/opt/im or other). This path will be called IM_PATH
-
+On RedHat Systems:
 ```
-$ tar xvzf IM-X.XX.tar.gz
-$ chown -R root:root IM-X.XX
-$ mv IM-X.XX /usr/local
+$ yum remove python-paramiko python-crypto
+$ yum -y install git python-setuptools python-devel gcc SOAPpy python-dateutil python-six python-requests
+$ easy_install pip
+$ pip install  pbr 
 ```
 
-Finally you must copy (or link) $IM_PATH/scripts/im file to /etc/init.d directory.
+Then install the TOSCA parser:
 
 ```
-$ ln -s /usr/local/im/scripts/im /etc/init.d/im
+$ cd /tmp
+$ git clone --recursive https://github.com/indigo-dc/tosca-parser.git
+$ cd tosca-parser
+$ python setup.py install
 ```
+
+Finally install the IM service:
+
+```
+$ cd /tmp
+$ git clone --recursive https://github.com/indigo-dc/im.git
+$ cd im
+$ python setup.py install
+```
+
 
 1.4 CONFIGURATION
 -----------------
@@ -198,11 +193,11 @@ And then set the variables: XMLRCP_SSL_* or REST_SSL_* to your certificates path
 2. DOCKER IMAGE
 ===============
 
-A Docker image named `grycap/im` has been created to make easier the deployment of an IM service using the 
-default configuration. Information about this image can be found here: https://registry.hub.docker.com/u/grycap/im/.
+A Docker image named `indigodatacloud/im` has been created to make easier the deployment of an IM service using the 
+default configuration. Information about this image can be found here: https://hub.docker.com/r/indigodatacloud/im/.
 
 How to launch the IM service using docker:
 
 ```sh
-sudo docker run -d -p 8899:8899 --name im grycap/im 
+sudo docker run -d -p 8899:8899 --name im indigodatacloud/im 
 ```

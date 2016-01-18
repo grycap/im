@@ -168,18 +168,6 @@ class QuickTestIM(unittest.TestCase):
         self.assertNotEqual(info, None, msg="ERROR in the value returned by GetVMProperty: " + info)
         self.assertNotEqual(info, "", msg="ERROR in the value returned by GetVMPropert: " + info)    
 
-#     def test_17_get_ganglia_info(self):
-#         """
-#         Test the Ganglia IM information integration
-#         """
-#         (success, vm_ids) = self.server.GetInfrastructureInfo(self.inf_id, self.auth_data)
-#         self.assertTrue(success, msg="ERROR calling GetInfrastructureInfo: " + str(vm_ids))
-#         (success, info)  = self.server.GetVMInfo(self.inf_id, vm_ids[1], self.auth_data)
-#         self.assertTrue(success, msg="ERROR calling GetVMInfo: " + str(info))
-#         info_radl = radl_parse.parse_radl(info)
-#         prop_usage = info_radl.systems[0].getValue("cpu.usage")
-#         self.assertIsNotNone(prop_usage, msg="ERROR getting ganglia VM info (cpu.usage = None) of VM " + str(vm_ids[1]))
-
     def test_18_error_addresource(self):
         """
         Test to get error when adding a resource with an incorrect RADL
@@ -446,6 +434,117 @@ echo "Hello World" >> /tmp/data.txt
         """
         (success, res) = self.server.DestroyInfrastructure(self.inf_id, self.auth_data)
         self.assertTrue(success, msg="ERROR calling DestroyInfrastructure: " + str(res))
+
+    def test_90_create_tosca(self):
+        """
+        Test the CreateInfrastructure IM function with a TOSCA document
+        """
+        tosca = """
+tosca_definitions_version: tosca_simple_yaml_1_0
+ 
+description: TOSCA test for the IM
+
+
+topology_template:
+  inputs:
+    db_name:
+      type: string
+      default: world
+    db_user:
+      type: string
+      default: dbuser
+    db_password:
+      type: string
+      default: pass
+    mysql_root_password:
+      type: string
+      default: mypass
+
+  node_templates:
+  
+    apache:
+      type: tosca.nodes.WebServer.Apache
+      requirements:
+        - host: web_server
+ 
+    web_server:
+      type: tosca.nodes.indigo.Compute
+      properties:
+        public_ip: yes
+      capabilities:
+        # Host container properties
+        host:
+         properties:
+           num_cpus: 1
+           mem_size: 1 GB
+        # Guest Operating System properties
+        os:
+          properties:
+            # host Operating System image properties
+            type: linux 
+            distribution: ubuntu 
+ 
+    test_db:
+      type: tosca.nodes.Database.MySQL
+      properties:
+        name: { get_input: db_name }
+        user: { get_input: db_user }
+        password: { get_input: db_password }
+        root_password: { get_input: mysql_root_password }
+      artifacts:
+        db_content:
+          file: http://downloads.mysql.com/docs/world.sql.gz
+          type: tosca.artifacts.File
+      requirements:
+        - host:
+            node: mysql
+      interfaces:
+        Standard:
+          configure:
+            implementation: mysql/mysql_db_import.yml
+            inputs:
+              db_name: { get_property: [ SELF, name ] }
+              db_data: { get_artifact: [ SELF, db_content ] }
+              db_password: { get_property: [ SELF, password ] }
+              db_user: { get_property: [ SELF, user ] }
+ 
+    mysql:
+      type: tosca.nodes.DBMS.MySQL
+      properties:
+        root_password: { get_input: mysql_root_password }
+      requirements:
+        - host:
+            node: db_server
+ 
+    db_server:
+      type: tosca.nodes.Compute
+      capabilities:
+        # Host container properties
+        host:
+         properties:
+           num_cpus: 1
+           mem_size: 1 GB
+        os:
+         properties:
+           architecture: x86_64
+           type: linux
+           distribution: ubuntu
+            """
+            
+        (success, inf_id) = self.server.CreateInfrastructure(tosca, self.auth_data)
+        self.assertTrue(success, msg="ERROR calling CreateInfrastructure: " + str(inf_id))
+        self.__class__.inf_id = inf_id
+
+        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 900)
+        self.assertTrue(all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
+
+    def test_95_destroy(self):
+        """
+        Test DestroyInfrastructure function
+        """
+        (success, res) = self.server.DestroyInfrastructure(self.inf_id, self.auth_data)
+        self.assertTrue(success, msg="ERROR calling DestroyInfrastructure: " + str(res))
+
 
 if __name__ == '__main__':
     unittest.main()
