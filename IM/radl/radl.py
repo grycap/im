@@ -1322,6 +1322,11 @@ class ansible(Features, Aspect):
 	def __str__(self):
 		return "ansible %s (%s)" % (self.id, Features.__str__(self))
 
+	def getId(self):
+		"""Return the id of the aspect."""
+
+		return self.id
+
 	def check(self, radl):
 		"""Check the features in this network."""
 
