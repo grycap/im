@@ -363,9 +363,9 @@ class InfrastructureManager:
 			radl = radl_data
 		else:
 			radl = radl_parse.parse_radl(radl_data)
-			radl.check()
 		
 		InfrastructureManager.logger.debug(radl)
+		radl.check()
 		
 		sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
 		
