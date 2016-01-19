@@ -16,6 +16,6 @@
 
 
 __all__ = ['auth','bottle','CloudManager','config','ConfManager','db','ganglia','HTTPHeaderTransport','ImageManager','InfrastructureInfo','InfrastructureManager','parsetab','radl','recipe','request','REST', 'ServiceRequests','SSH','timedcall','uriparse','VMRC','xmlobject']
-__version__ = '1.4.1'
+__version__ = '1.4.2'
 __author__ = 'Miguel Caballer'
 
