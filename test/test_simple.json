@@ -1,0 +1,24 @@
+[
+  {
+    "class": "network",
+    "id": "publica",
+    "outbound": "yes"
+  },
+  {
+    "class": "system",
+    "cpu.arch": "x86_64",
+    "cpu.count_min": 1,
+    "disk.0.image.url": "one://ramses.i3m.upv.es/95",
+    "disk.0.os.credentials.password": "yoyoyo",
+    "disk.0.os.credentials.username": "ubuntu",
+    "disk.0.os.name": "linux",
+    "id": "front",
+    "memory.size_min": 536870912,
+    "net_interface.0.connection": "publica"
+  },
+  {
+    "class": "deploy",
+    "system": "front",
+    "vm_number": 1
+  }
+]

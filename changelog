@@ -166,3 +166,6 @@ IM 1.4.1
     * Add support for Ansible v2.X
     * Add supoort for using an external ansible master node
     * Bugfix in incorrects links inside containers
+
+IM 1.4.2
+    * Add support for new RADL JSON format

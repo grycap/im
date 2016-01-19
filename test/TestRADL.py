@@ -26,6 +26,7 @@ sys.path.append(".")
 
 from IM.radl.radl_parse import parse_radl
 from IM.radl.radl import RADL, Features, Feature, RADLParseException, system
+from IM.radl.radl_json import parse_radl as parse_radl_json, dump_radl as dump_radl_json
 import unittest
 
 class TestRADL(unittest.TestCase):
@@ -49,6 +50,13 @@ class TestRADL(unittest.TestCase):
 		self.assertIsInstance(s, system)
 		self.assertEqual(len(s.features), 17)
 		self.assertEqual(s.getValue("disk.0.os.name"), "linux")
+		
+		radl_json = dump_radl_json(r)
+		r = parse_radl_json(radl_json)
+		s = r.get_system_by_name("cursoaws")
+		self.assertIsInstance(s, system)
+		self.assertEqual(len(s.features), 17)
+		self.assertEqual(s.getValue("disk.0.os.name"), "linux")
 
 	def test_basic0(self):
 
@@ -57,10 +65,21 @@ class TestRADL(unittest.TestCase):
 		s = r.get_system_by_name("main")
 		self.assertEqual(s.getValue("cpu.arch"), "x86_64")
 		self.assertEqual(s.getValue("net_interface.0.connection"), "publica")
+		
+		radl_json = dump_radl_json(r)
+		r = parse_radl_json(radl_json)
+		self.radl_check(r, [2, 2, 0, 0, 0])
+		s = r.get_system_by_name("main")
+		self.assertEqual(s.getValue("cpu.arch"), "x86_64")
+		self.assertEqual(s.getValue("net_interface.0.connection"), "publica")
 
 	def test_references(self):
 
 		r = parse_radl(TESTS_PATH + "/test_radl_ref.radl")
+		self.radl_check(r, [2, 2, 0, 2, 2])
+		
+		radl_json = dump_radl_json(r)
+		r = parse_radl_json(radl_json)
 		self.radl_check(r, [2, 2, 0, 2, 2])
 
 	def test_logic0(self):
@@ -135,6 +154,15 @@ cpu.count<=5
 		self.assertIsInstance(concrete_s, system)
 		self.assertEqual(score, 201)
 		
+		radl_json = dump_radl_json(r)
+		r = parse_radl_json(radl_json)
+		self.radl_check(r)
+		s = r.get_system_by_name("main")
+		self.assertIsInstance(s, system)
+		concrete_s, score = s.concrete()
+		self.assertIsInstance(concrete_s, system)
+		self.assertEqual(score, 201)
+		
 		
 	def test_outports(self):
 
@@ -194,6 +222,11 @@ otra = 1
 		r.check()
 		self.assertEqual(r.contextualize.items, {})
 		
+		radl_json = dump_radl_json(r)
+		r = parse_radl_json(radl_json)
+		r.check()
+		self.assertEqual(r.contextualize.items, {})
+		
 		radl = """
 			system test (
 			cpu.count>=1
@@ -202,6 +235,11 @@ otra = 1
 			deploy test 1
 			"""
 		r = parse_radl(radl)
+		r.check()
+		self.assertEqual(r.contextualize.items, None)
+		
+		radl_json = dump_radl_json(r)
+		r = parse_radl_json(radl_json)
 		r.check()
 		self.assertEqual(r.contextualize.items, None)
 
@@ -216,6 +254,10 @@ ansible_host = 'ansible_master' and
 net_interface.0.connection = 'net'
 )		"""
 		r = parse_radl(radl)
+		self.radl_check(r)
+		
+		radl_json = dump_radl_json(r)
+		r = parse_radl_json(radl_json)
 		self.radl_check(r)
 
 		radl = """

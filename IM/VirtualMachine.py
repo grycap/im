@@ -730,7 +730,7 @@ class VirtualMachine:
 		res = RADL()
 		res.networks = self.info.networks 
 		res.systems = self.info.systems
-		return str(res)
+		return res
 	
 	def get_ssh_ansible_master(self):
 		ansible_host = None
