@@ -31,7 +31,7 @@ import logging
 
 import InfrastructureInfo
 from IM.radl import radl_parse
-from IM.radl.radl import Feature
+from IM.radl.radl import Feature, RADL
 from IM.recipe import Recipe
 from IM.db import DataBase
 
@@ -259,7 +259,10 @@ class InfrastructureManager:
 		"""
 
 		InfrastructureManager.logger.info("Reconfiguring the inf: " + str(inf_id))
-		radl = radl_parse.parse_radl(radl_data)
+		if isinstance(radl_data, RADL):
+			radl = radl_data
+		else:
+			radl = radl_parse.parse_radl(radl_data)
 		InfrastructureManager.logger.debug(radl)
 
 		sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
@@ -356,8 +359,11 @@ class InfrastructureManager:
 
 		InfrastructureManager.logger.info("Adding resources to inf: " + str(inf_id))
 		
-		radl = radl_parse.parse_radl(radl_data)
-		radl.check()
+		if isinstance(radl_data, RADL):
+			radl = radl_data
+		else:
+			radl = radl_parse.parse_radl(radl_data)
+			radl.check()
 		
 		InfrastructureManager.logger.debug(radl)
 		
@@ -604,13 +610,7 @@ class InfrastructureManager:
 
 		Return: a str with the property value
 		"""
-		radl_data = InfrastructureManager.GetVMInfo(inf_id, vm_id, auth)
-
-		try:
-			radl = radl_parse.parse_radl(radl_data)
-		except Exception, ex:
-			InfrastructureManager.logger.exception("Error parsing the RADL: " + radl_data)
-			raise ex
+		radl = InfrastructureManager.GetVMInfo(inf_id, vm_id, auth)
 
 		res = None
 		if radl.systems:
@@ -689,7 +689,10 @@ class InfrastructureManager:
 			InfrastructureManager.logger.info("VM does not exist or Access Error")
 			raise Exception("VM does not exist or Access Error")
 		
-		radl = radl_parse.parse_radl(radl_data)
+		if isinstance(radl_data, RADL):
+			radl = radl_data
+		else:
+			radl = radl_parse.parse_radl(radl_data)
 
 		exception = None
 		try:
@@ -706,7 +709,7 @@ class InfrastructureManager:
 		vm.update_status(auth)
 		InfrastructureManager.save_data(inf_id)
 
-		return str(vm.info)
+		return vm.info
 	
 	@staticmethod
 	def GetInfrastructureRADL(inf_id, auth):
