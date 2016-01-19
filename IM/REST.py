@@ -23,6 +23,7 @@ import json
 from config import Config
 from radl.radl_json import parse_radl as parse_radl_json, dump_radl as dump_radl_json
 from radl.radl_parse import parse_radl 
+from IM.tosca.Tosca import Tosca
 
 AUTH_LINE_SEPARATOR = '\\n'
 
@@ -218,6 +219,8 @@ def RESTCreateInfrastructure():
 		if content_type:
 			if content_type == "application/json":
 				radl_data = parse_radl_json(radl_data)
+			elif content_type == "text/yaml":
+				radl_data = Tosca(radl_data).to_radl()
 			elif content_type != "text/plain":
 				bottle.abort(415, "Unsupported Media Type %s" % content_type)
 				return False
@@ -333,6 +336,8 @@ def RESTAddResource(id=None):
 		if content_type:
 			if content_type == "application/json":
 				radl_data = parse_radl_json(radl_data)
+			elif content_type == "text/yaml":
+				radl_data = Tosca(radl_data).to_radl()
 			elif content_type != "text/plain":
 				bottle.abort(415, "Unsupported Media Type %s" % content_type)
 				return False

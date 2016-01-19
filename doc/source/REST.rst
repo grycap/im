@@ -62,7 +62,7 @@ GET ``http://imserver.com/infrastructures``
 
 POST ``http://imserver.com/infrastructures``
    :body: ``RADL document``
-   :body Content-type: text/plain or application/json
+   :body Content-type: text/plain or application/json or text/yaml
    :Response Content-type: text/uri-list
    :ok response: 200 OK
    :fail response: 401, 400, 415
@@ -93,7 +93,7 @@ GET ``http://imserver.com/infrastructures/<infId>/<property_name>``
 
 POST ``http://imserver.com/infrastructures/<infId>``
    :body: ``RADL document``
-   :body Content-type: text/plain or application/json
+   :body Content-type: text/plain or application/json or text/yaml
    :input fields: ``context`` (optional)
    :Response Content-type: text/uri-list
    :ok response: 200 OK
