@@ -337,6 +337,119 @@ class TestIM(unittest.TestCase):
         resp = self.server.getresponse()
         output = str(resp.read())
         self.assertEqual(resp.status, 200, msg="ERROR destroying the infrastructure:" + output)
+        
+    def test_96_create_tosca(self):
+        """
+        Test the CreateInfrastructure IM function with a TOSCA document
+        """
+        tosca = """
+tosca_definitions_version: tosca_simple_yaml_1_0
+ 
+description: TOSCA test for the IM
+
+
+topology_template:
+  inputs:
+    db_name:
+      type: string
+      default: world
+    db_user:
+      type: string
+      default: dbuser
+    db_password:
+      type: string
+      default: pass
+    mysql_root_password:
+      type: string
+      default: mypass
+
+  node_templates:
+  
+    apache:
+      type: tosca.nodes.WebServer.Apache
+      requirements:
+        - host: web_server
+ 
+    web_server:
+      type: tosca.nodes.indigo.Compute
+      properties:
+        public_ip: yes
+      capabilities:
+        # Host container properties
+        host:
+         properties:
+           num_cpus: 1
+           mem_size: 1 GB
+        # Guest Operating System properties
+        os:
+          properties:
+            # host Operating System image properties
+            type: linux 
+            distribution: ubuntu 
+ 
+    test_db:
+      type: tosca.nodes.Database.MySQL
+      properties:
+        name: { get_input: db_name }
+        user: { get_input: db_user }
+        password: { get_input: db_password }
+        root_password: { get_input: mysql_root_password }
+      artifacts:
+        db_content:
+          file: http://downloads.mysql.com/docs/world.sql.gz
+          type: tosca.artifacts.File
+      requirements:
+        - host:
+            node: mysql
+      interfaces:
+        Standard:
+          configure:
+            implementation: mysql/mysql_db_import.yml
+            inputs:
+              db_name: { get_property: [ SELF, name ] }
+              db_data: { get_artifact: [ SELF, db_content ] }
+              db_name: { get_property: [ SELF, name ] }
+              db_user: { get_property: [ SELF, user ] }
+ 
+    mysql:
+      type: tosca.nodes.DBMS.MySQL
+      properties:
+        root_password: { get_input: mysql_root_password }
+      requirements:
+        - host:
+            node: db_server
+ 
+    db_server:
+      type: tosca.nodes.Compute
+      capabilities:
+        # Host container properties
+        host:
+         properties:
+           num_cpus: 1
+           disk_size: 10 GB
+           mem_size: 4 GB
+        os:
+         properties:
+           architecture: x86_64
+           type: linux
+           distribution: ubuntu
+            """
+
+        self.server.request('POST', "/infrastructures", body = tosca, headers = {'AUTHORIZATION' : self.auth_data, 'Content-Type':'text/yaml'})
+        resp = self.server.getresponse()
+        output = str(resp.read())
+        self.assertEqual(resp.status, 200, msg="ERROR creating the infrastructure:" + output)
+
+        self.__class__.inf_id = str(os.path.basename(output))
+        
+        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 600)
+        self.assertTrue(all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
+
+    def test_97_destroy(self):
+        self.server.request('DELETE', "/infrastructures/" + self.inf_id, headers = {'Authorization' : self.auth_data})
+        resp = self.server.getresponse()
+        output = str(resp.read())
+        self.assertEqual(resp.status, 200, msg="ERROR destroying the infrastructure:" + output)
 
 if __name__ == '__main__':
     unittest.main()
