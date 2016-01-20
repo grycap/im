@@ -19,12 +19,6 @@ RUN apt-get update && apt-get install -y \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
 
-# Install tosca-parser
-RUN cd tmp \
- && git clone https://github.com/indigo-dc/tosca-parser.git \
- && cd tosca-parser \
- && python setup.py install
-
 # Install im - 'devel' branch
 RUN cd tmp \
  && git clone -b devel https://github.com/grycap/im.git \
