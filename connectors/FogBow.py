@@ -54,6 +54,12 @@ class FogBowCloudConnector(CloudConnector):
 	}
 	"""Dictionary with a map with the FogBow Request states to the IM states."""
 
+	def __init__(self, cloud_info):
+		# check if the user has specified the http protocol in the host and remove it
+		pos = cloud_info.server.find('://')
+		cloud_info.server = cloud_info.server[pos+3:]
+		CloudConnector.__init__(self, cloud_info)
+
 	def get_auth_headers(self, auth_data):
 		"""
 		Generate the auth header needed to contact with the FogBow server.

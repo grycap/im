@@ -103,6 +103,9 @@ class OpenNebulaCloudConnector(CloudConnector):
 	"""str with the name of the provider."""
 	
 	def __init__(self, cloud_info):
+		# check if the user has specified the http protocol in the host and remove it
+		pos = cloud_info.server.find('://')
+		cloud_info.server = cloud_info.server[pos+3:]
 		CloudConnector.__init__(self, cloud_info)
 		self.server_url = "http://%s:%d/RPC2" % (self.cloud.server, self.cloud.port)
 	
