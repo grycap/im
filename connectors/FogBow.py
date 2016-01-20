@@ -71,8 +71,7 @@ class FogBowCloudConnector(CloudConnector):
 			plugin = IdentityPlugin.getIdentityPlugin(token_type)
 			token = plugin.create_token(auth[0]).replace("\n", "").replace("\r", "")
 			
-			auth_headers = {'X-Federation-Auth-Token' : token}
-			#auth_headers = {'X-Auth-Token' : token, 'X-Local-Auth-Token' : token, 'Authorization' : token}
+			auth_headers = {'X-Auth-Token' : token}
 
 			return auth_headers
 		else:
