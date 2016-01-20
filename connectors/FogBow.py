@@ -207,6 +207,10 @@ class FogBowCloudConnector(CloudConnector):
 							if len(parts) > 1:
 								vm.setSSHPort(int(parts[1]))
 						
+						ssh_user = self.get_occi_attribute_value(output, 'org.fogbowcloud.request.ssh-username')
+						if ssh_user:
+							vm.info.systems[0].selValue('disk.0.os.credentials.username',ssh_user)
+						
 						return (True, vm)
 
 		except Exception, ex:
