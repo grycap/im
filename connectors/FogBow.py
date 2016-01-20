@@ -68,16 +68,16 @@ class FogBowCloudConnector(CloudConnector):
 		
 		if auth and 'token_type' in auth[0]:
 			token_type = auth[0]['token_type']
-			plugin = IdentityPlugin.getIdentityPlugin(token_type)
-			token = plugin.create_token(auth[0]).replace("\n", "").replace("\r", "")
-			
-			auth_headers = {'X-Auth-Token' : token}
-
-			return auth_headers
 		else:
-			raise Exception("Incorrect auth data")
-			self.logger.error("Incorrect auth data")
+			# If not token_type supplied, we assume that is VOMS one
+			token_type = 'VOMS'
 		
+		plugin = IdentityPlugin.getIdentityPlugin(token_type)
+		token = plugin.create_token(auth[0]).replace("\n", "").replace("\r", "")
+		
+		auth_headers = {'X-Auth-Token' : token}
+
+		return auth_headers
 		
 	def concreteSystem(self, radl_system, auth_data):
 		image_urls = radl_system.getValue("disk.0.image.url")
@@ -394,19 +394,28 @@ class OpenNebulaIdentityPlugin(IdentityPlugin):
 	
 	@staticmethod
 	def create_token(params):
-		return params['username'] + ":" + params['password']
+		if 'username' in params and 'password' in params:
+			return params['username'] + ":" + params['password']
+		else:
+			raise Exception("Incorrect auth data, username and password must be specified")
 
 class X509IdentityPlugin(IdentityPlugin):
 	
 	@staticmethod
 	def create_token(params):
-		return params['proxy']
+		if 'proxy' in params:
+			return params['proxy']
+		else:
+			raise Exception("Incorrect auth data, proxy must be specified")
 	
 class VOMSIdentityPlugin(IdentityPlugin):
 	
 	@staticmethod
 	def create_token(params):
-		return params['proxy']
+		if 'proxy' in params:
+			return params['proxy']
+		else:
+			raise Exception("Incorrect auth data, no proxy has been specified")
 
 class KeyStoneIdentityPlugin(IdentityPlugin):
 	"""
@@ -418,32 +427,35 @@ class KeyStoneIdentityPlugin(IdentityPlugin):
 		"""
 		Contact the specified keystone server to return the token
 		"""
-		try:
-			keystone_uri = params['auth_url']
-			uri = uriparse(keystone_uri)
-			server = uri[1].split(":")[0]
-			port = int(uri[1].split(":")[1])
-
-			conn = httplib.HTTPSConnection(server, port)
-			conn.putrequest('POST', "/v2.0/tokens")
-			conn.putheader('Accept', 'application/json')
-			conn.putheader('Content-Type', 'application/json')
-			conn.putheader('Connection', 'close')
-			
-			body = '{"auth":{"passwordCredentials":{"username": "' + params['username'] + '","password": "' + params['password'] + '"},"tenantName": "' + params['tenant'] + '"}}'
-			
-			conn.putheader('Content-Length', len(body))
-			conn.endheaders(body)
+		if 'username' in params and 'password' in params and 'auth_url' in params and 'tenant' in params:
+			try:
+				keystone_uri = params['auth_url']
+				uri = uriparse(keystone_uri)
+				server = uri[1].split(":")[0]
+				port = int(uri[1].split(":")[1])
 	
-			resp = conn.getresponse()
-			
-			# format: -> "{\"access\": {\"token\": {\"issued_at\": \"2014-12-29T17:10:49.609894\", \"expires\": \"2014-12-30T17:10:49Z\", \"id\": \"c861ab413e844d12a61d09b23dc4fb9c\"}, \"serviceCatalog\": [], \"user\": {\"username\": \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\", \"roles_links\": [], \"id\": \"475ce4978fb042e49ce0391de9bab49b\", \"roles\": [], \"name\": \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\"}, \"metadata\": {\"is_admin\": 0, \"roles\": []}}}"
-			output = json.loads(resp.read())
-			token_id = output['access']['token']['id']
-			
-			if conn.cert_file and os.path.isfile(conn.cert_file):
-				os.unlink(conn.cert_file)
+				conn = httplib.HTTPSConnection(server, port)
+				conn.putrequest('POST', "/v2.0/tokens")
+				conn.putheader('Accept', 'application/json')
+				conn.putheader('Content-Type', 'application/json')
+				conn.putheader('Connection', 'close')
+				
+				body = '{"auth":{"passwordCredentials":{"username": "' + params['username'] + '","password": "' + params['password'] + '"},"tenantName": "' + params['tenant'] + '"}}'
+				
+				conn.putheader('Content-Length', len(body))
+				conn.endheaders(body)
 		
-			return token_id
-		except:
-			return None
+				resp = conn.getresponse()
+				
+				# format: -> "{\"access\": {\"token\": {\"issued_at\": \"2014-12-29T17:10:49.609894\", \"expires\": \"2014-12-30T17:10:49Z\", \"id\": \"c861ab413e844d12a61d09b23dc4fb9c\"}, \"serviceCatalog\": [], \"user\": {\"username\": \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\", \"roles_links\": [], \"id\": \"475ce4978fb042e49ce0391de9bab49b\", \"roles\": [], \"name\": \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\"}, \"metadata\": {\"is_admin\": 0, \"roles\": []}}}"
+				output = json.loads(resp.read())
+				token_id = output['access']['token']['id']
+				
+				if conn.cert_file and os.path.isfile(conn.cert_file):
+					os.unlink(conn.cert_file)
+			
+				return token_id
+			except:
+				return None
+		else:
+			raise Exception("Incorrect auth data, auth_url, username, password and tenant must be specified")
