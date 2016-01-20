@@ -166,14 +166,14 @@ class TestIM(unittest.TestCase):
         resp = self.server.getresponse()
         output = str(resp.read())
         self.assertEqual(resp.status, 200, msg="ERROR getting VM contmsg:" + output)
-        self.assertGreater(len(output), 100, msg="Incorrect VM contextualization message: " + output)
+        self.assertEqual(len(output), 0, msg="Incorrect VM contextualization message: " + output)
         
     def test_33_get_contmsg(self):
         self.server.request('GET', "/infrastructures/" + self.inf_id + "/contmsg", headers = {'AUTHORIZATION' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
         self.assertEqual(resp.status, 200, msg="ERROR getting the infrastructure info:" + output)
-        self.assertGreater(len(output), 100, msg="Incorrect contextualization message: " + output)
+        self.assertGreater(len(output), 30, msg="Incorrect contextualization message: " + output)
         
     def test_34_get_radl(self):
         self.server.request('GET', "/infrastructures/" + self.inf_id + "/radl", headers = {'AUTHORIZATION' : self.auth_data})
