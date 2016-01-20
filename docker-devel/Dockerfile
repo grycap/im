@@ -4,7 +4,7 @@ MAINTAINER Miguel Caballer <micafer1@upv.es>
 LABEL version="1.4.2"
 LABEL description="Container image to run the IM service. (http://www.grycap.upv.es/im)"
 
-EXPOSE 8899
+EXPOSE 8899 8800
 
 RUN apt-get update && apt-get install -y \
     gcc \
