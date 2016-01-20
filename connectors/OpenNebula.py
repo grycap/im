@@ -220,7 +220,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 		
 		session_id = self.getSessionID(auth_data)
 		if session_id == None:
-			return (False, "Incorrect auth data")
+			return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
 		
 		func_res = server.one.vm.info(session_id, int(vm.id))
 		if len(func_res) == 2:
@@ -275,7 +275,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 		server = xmlrpclib.ServerProxy(self.server_url,allow_none=True)
 		session_id = self.getSessionID(auth_data)
 		if session_id == None:
-			return [(False, "Incorrect auth data")]
+			return [(False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")]
 		
 		system = radl.systems[0]
 		# Currently ONE plugin prioritizes user-password credentials
@@ -308,7 +308,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 		server = xmlrpclib.ServerProxy(self.server_url,allow_none=True)
 		session_id = self.getSessionID(auth_data)
 		if session_id == None:
-			return (False, "Incorrect auth data")
+			return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
 		func_res = server.one.vm.action(session_id, 'finalize', int(vm.id))
 		
 		if len(func_res) == 1:
@@ -327,7 +327,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 		server = xmlrpclib.ServerProxy(self.server_url,allow_none=True)
 		session_id = self.getSessionID(auth_data)
 		if session_id == None:
-			return (False, "Incorrect auth data")
+			return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
 		func_res = server.one.vm.action(session_id, 'suspend', int(vm.id))
 		
 		if len(func_res) == 1:
@@ -346,7 +346,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 		server = xmlrpclib.ServerProxy(self.server_url,allow_none=True)
 		session_id = self.getSessionID(auth_data)
 		if session_id == None:
-			return (False, "Incorrect auth data")
+			return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
 		func_res = server.one.vm.action(session_id, 'resume', int(vm.id))
 		
 		if len(func_res) == 1:
@@ -732,7 +732,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 		server = xmlrpclib.ServerProxy(self.server_url,allow_none=True)
 		session_id = self.getSessionID(auth_data)
 		if session_id == None:
-			return (False, "Incorrect auth data")
+			return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
 		func_res = server.one.vm.action(session_id, 'poweroff', int(vm.id))
 		
 		if len(func_res) == 1:
@@ -774,7 +774,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 		server = xmlrpclib.ServerProxy(self.server_url,allow_none=True)
 		session_id = self.getSessionID(auth_data)
 		if session_id == None:
-			return (False, "Incorrect auth data")
+			return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
 		
 		if self.checkResize():
 			if not radl.systems:
