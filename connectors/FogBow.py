@@ -57,7 +57,8 @@ class FogBowCloudConnector(CloudConnector):
 	def __init__(self, cloud_info):
 		# check if the user has specified the http protocol in the host and remove it
 		pos = cloud_info.server.find('://')
-		cloud_info.server = cloud_info.server[pos+3:]
+		if pos != -1:
+			cloud_info.server = cloud_info.server[pos+3:]
 		CloudConnector.__init__(self, cloud_info)
 
 	def get_auth_headers(self, auth_data):
