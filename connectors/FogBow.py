@@ -15,12 +15,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import json
-import subprocess
-import shutil
 import os
 import sys
 import httplib
-import tempfile
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from CloudConnector import CloudConnector
@@ -34,7 +31,7 @@ class FogBowCloudConnector(CloudConnector):
 	
 	type = "FogBow"
 	"""str with the name of the provider."""
-	INSTANCE_TYPE = 'small'
+	INSTANCE_TYPE = 'fogbow_small'
 	"""str with the name of the default instance type to launch."""
 	
 	VM_STATE_MAP = {
@@ -54,25 +51,33 @@ class FogBowCloudConnector(CloudConnector):
 	}
 	"""Dictionary with a map with the FogBow Request states to the IM states."""
 
+	def __init__(self, cloud_info):
+		# check if the user has specified the http protocol in the host and remove it
+		pos = cloud_info.server.find('://')
+		if pos != -1:
+			cloud_info.server = cloud_info.server[pos+3:]
+		CloudConnector.__init__(self, cloud_info)
+
 	def get_auth_headers(self, auth_data):
 		"""
 		Generate the auth header needed to contact with the FogBow server.
 		"""
 		auth = auth_data.getAuthInfo(FogBowCloudConnector.type) 
+		if not auth:
+			raise Exception("No correct auth data has been specified to FogBow.")
 		
-		if auth and 'token_type' in auth[0]:
+		if 'token_type' in auth[0]:
 			token_type = auth[0]['token_type']
-			plugin = IdentityPlugin.getIdentityPlugin(token_type)
-			token = plugin.create_token(auth[0]).replace("\n", "").replace("\r", "")
-			
-			auth_headers = {'X-Federation-Auth-Token' : token}
-			#auth_headers = {'X-Auth-Token' : token, 'X-Local-Auth-Token' : token, 'Authorization' : token}
-
-			return auth_headers
 		else:
-			raise Exception("Incorrect auth data")
-			self.logger.error("Incorrect auth data")
+			# If not token_type supplied, we assume that is VOMS one
+			token_type = 'VOMS'
 		
+		plugin = IdentityPlugin.getIdentityPlugin(token_type)
+		token = plugin.create_token(auth[0]).replace("\n", "").replace("\r", "")
+		
+		auth_headers = {'X-Auth-Token' : token}
+
+		return auth_headers
 		
 	def concreteSystem(self, radl_system, auth_data):
 		image_urls = radl_system.getValue("disk.0.image.url")
@@ -88,9 +93,6 @@ class FogBowCloudConnector(CloudConnector):
 				protocol = url[0]
 				if protocol in ['fbw']:
 					res_system = radl_system.clone()
-	
-					if not res_system.hasFeature('instance_type'):
-						res_system.addFeature(Feature("instance_type", "=", self.INSTANCE_TYPE), conflict="me", missing="other")
 					
 					res_system.addFeature(Feature("disk.0.image.url", "=", str_url), conflict="other", missing="other")
 						
@@ -164,12 +166,15 @@ class FogBowCloudConnector(CloudConnector):
 			elif resp.status != 200:
 				return (False, resp.reason + "\n" + output)
 			else:
+				providing_member = self.get_occi_attribute_value(output,'org.fogbowcloud.request.providing-member')
+				if providing_member == "null":
+					providing_member = None
 				instance_id = self.get_occi_attribute_value(output,'org.fogbowcloud.request.instance-id')
 				if instance_id == "null":
 					instance_id = None
 
 				if not instance_id:
-					vm.state = self.VM_REQ_STATE_MAP.get(self.get_occi_attribute_value(output, 'org.fogbowcloud.request.state'), VirtualMachine.UNKNOWN)
+					vm.state = VirtualMachine.PENDING
 					return (True, vm)
 				else:
 					# Now get the instance info
@@ -201,40 +206,18 @@ class FogBowCloudConnector(CloudConnector):
 							if len(parts) > 1:
 								vm.setSSHPort(int(parts[1]))
 						
+						ssh_user = self.get_occi_attribute_value(output, 'org.fogbowcloud.request.ssh-username')
+						if ssh_user:
+							vm.info.systems[0].addFeature(Feature("disk.0.os.credentials.username", "=", ssh_user), conflict="other", missing="other")
+						
+						vm.info.systems[0].setValue('instance_id', instance_id)
+						vm.info.systems[0].setValue('availability_zone', providing_member)
+						
 						return (True, vm)
 
 		except Exception, ex:
 			self.logger.exception("Error connecting with FogBow Manager")
 			return (False, "Error connecting with FogBow Manager: " + str(ex))
-
-	def keygen(self):
-		"""
-		Generates a keypair using the ssh-keygen command and returns a tuple (public, private)
-		"""
-		tmp_dir = tempfile.mkdtemp()
-		pk_file = tmp_dir + "/occi-key"
-		command = 'ssh-keygen -t rsa -b 2048 -q -N "" -f ' + pk_file
-		p=subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-		(out, err) = p.communicate()
-		if p.returncode!=0:
-			shutil.rmtree(tmp_dir, ignore_errors=True)
-			self.logger.error("Error executing ssh-keygen: " + out + err)
-			return (None, None)
-		else:
-			public = None
-			private = None
-			try:
-				with open(pk_file) as f: private = f.read()
-			except:
-				self.logger.exception("Error reading private_key file.")
-				
-			try:
-				with open(pk_file + ".pub") as f: public = f.read()
-			except:
-				self.logger.exception("Error reading public_key file.")
-			
-			shutil.rmtree(tmp_dir, ignore_errors=True)
-			return (public, private)
 
 	def launch(self, inf, radl, requested_radl, num_vm, auth_data):
 		system = radl.systems[0]
@@ -273,15 +256,34 @@ class FogBowCloudConnector(CloudConnector):
 						conn.putheader(k, v)
 				
 				conn.putheader('Category', 'fogbow_request; scheme="http://schemas.fogbowcloud.org/request#"; class="kind"')
-				
+
 				conn.putheader('X-OCCI-Attribute', 'org.fogbowcloud.request.instance-count=1')
 				conn.putheader('X-OCCI-Attribute', 'org.fogbowcloud.request.type="one-time"')
 				
-				conn.putheader('Category', 'fogbow_' + system.getValue('instance_type') + '; scheme="http://schemas.fogbowcloud.org/template/resource#"; class="mixin"')
+				requirements = ""
+				if system.getValue('instance_type'):
+					conn.putheader('Category', system.getValue('instance_type') + '; scheme="http://schemas.fogbowcloud.org/template/resource#"; class="mixin"')
+				else:
+					cpu = system.getValue('cpu.count')
+					memory = system.getFeature('memory.size').getValue('M')
+					if cpu:
+						requirements += "Glue2vCPU >= %d" % cpu
+					if memory:
+						if requirements:
+							requirements += " && "
+						requirements += "Glue2RAM >= %d" % memory
+
 				conn.putheader('Category', os_tpl + '; scheme="http://schemas.fogbowcloud.org/template/os#"; class="mixin"')
 				conn.putheader('Category', 'fogbow_public_key; scheme="http://schemas.fogbowcloud/credentials#"; class="mixin"')
-
 				conn.putheader('X-OCCI-Attribute', 'org.fogbowcloud.credentials.publickey.data="' + public_key.strip() + '"')
+
+				if system.getValue('availability_zone'):
+					if requirements:
+						requirements += ' && '
+						requirements += 'Glue2CloudComputeManagerID == "%s"' % system.getValue('availability_zone')
+
+				if requirements:
+					conn.putheader('X-OCCI-Attribute', 'org.fogbowcloud.request.requirements=' + requirements)
 
 				conn.endheaders()
 
@@ -389,19 +391,28 @@ class OpenNebulaIdentityPlugin(IdentityPlugin):
 	
 	@staticmethod
 	def create_token(params):
-		return params['username'] + ":" + params['password']
+		if 'username' in params and 'password' in params:
+			return params['username'] + ":" + params['password']
+		else:
+			raise Exception("Incorrect auth data, username and password must be specified")
 
 class X509IdentityPlugin(IdentityPlugin):
 	
 	@staticmethod
 	def create_token(params):
-		return params['proxy']
+		if 'proxy' in params:
+			return params['proxy']
+		else:
+			raise Exception("Incorrect auth data, proxy must be specified")
 	
 class VOMSIdentityPlugin(IdentityPlugin):
 	
 	@staticmethod
 	def create_token(params):
-		return params['proxy']
+		if 'proxy' in params:
+			return params['proxy']
+		else:
+			raise Exception("Incorrect auth data, no proxy has been specified")
 
 class KeyStoneIdentityPlugin(IdentityPlugin):
 	"""
@@ -413,32 +424,35 @@ class KeyStoneIdentityPlugin(IdentityPlugin):
 		"""
 		Contact the specified keystone server to return the token
 		"""
-		try:
-			keystone_uri = params['auth_url']
-			uri = uriparse(keystone_uri)
-			server = uri[1].split(":")[0]
-			port = int(uri[1].split(":")[1])
-
-			conn = httplib.HTTPSConnection(server, port)
-			conn.putrequest('POST', "/v2.0/tokens")
-			conn.putheader('Accept', 'application/json')
-			conn.putheader('Content-Type', 'application/json')
-			conn.putheader('Connection', 'close')
-			
-			body = '{"auth":{"passwordCredentials":{"username": "' + params['username'] + '","password": "' + params['password'] + '"},"tenantName": "' + params['tenant'] + '"}}'
-			
-			conn.putheader('Content-Length', len(body))
-			conn.endheaders(body)
+		if 'username' in params and 'password' in params and 'auth_url' in params and 'tenant' in params:
+			try:
+				keystone_uri = params['auth_url']
+				uri = uriparse(keystone_uri)
+				server = uri[1].split(":")[0]
+				port = int(uri[1].split(":")[1])
 	
-			resp = conn.getresponse()
-			
-			# format: -> "{\"access\": {\"token\": {\"issued_at\": \"2014-12-29T17:10:49.609894\", \"expires\": \"2014-12-30T17:10:49Z\", \"id\": \"c861ab413e844d12a61d09b23dc4fb9c\"}, \"serviceCatalog\": [], \"user\": {\"username\": \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\", \"roles_links\": [], \"id\": \"475ce4978fb042e49ce0391de9bab49b\", \"roles\": [], \"name\": \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\"}, \"metadata\": {\"is_admin\": 0, \"roles\": []}}}"
-			output = json.loads(resp.read())
-			token_id = output['access']['token']['id']
-			
-			if conn.cert_file and os.path.isfile(conn.cert_file):
-				os.unlink(conn.cert_file)
+				conn = httplib.HTTPSConnection(server, port)
+				conn.putrequest('POST', "/v2.0/tokens")
+				conn.putheader('Accept', 'application/json')
+				conn.putheader('Content-Type', 'application/json')
+				conn.putheader('Connection', 'close')
+				
+				body = '{"auth":{"passwordCredentials":{"username": "' + params['username'] + '","password": "' + params['password'] + '"},"tenantName": "' + params['tenant'] + '"}}'
+				
+				conn.putheader('Content-Length', len(body))
+				conn.endheaders(body)
 		
-			return token_id
-		except:
-			return None
+				resp = conn.getresponse()
+				
+				# format: -> "{\"access\": {\"token\": {\"issued_at\": \"2014-12-29T17:10:49.609894\", \"expires\": \"2014-12-30T17:10:49Z\", \"id\": \"c861ab413e844d12a61d09b23dc4fb9c\"}, \"serviceCatalog\": [], \"user\": {\"username\": \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\", \"roles_links\": [], \"id\": \"475ce4978fb042e49ce0391de9bab49b\", \"roles\": [], \"name\": \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\"}, \"metadata\": {\"is_admin\": 0, \"roles\": []}}}"
+				output = json.loads(resp.read())
+				token_id = output['access']['token']['id']
+				
+				if conn.cert_file and os.path.isfile(conn.cert_file):
+					os.unlink(conn.cert_file)
+			
+				return token_id
+			except:
+				return None
+		else:
+			raise Exception("Incorrect auth data, auth_url, username, password and tenant must be specified")
