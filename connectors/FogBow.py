@@ -63,8 +63,10 @@ class FogBowCloudConnector(CloudConnector):
 		Generate the auth header needed to contact with the FogBow server.
 		"""
 		auth = auth_data.getAuthInfo(FogBowCloudConnector.type) 
+		if not auth:
+			raise Exception("No correct auth data has been specified to FogBow.")
 		
-		if auth and 'token_type' in auth[0]:
+		if 'token_type' in auth[0]:
 			token_type = auth[0]['token_type']
 		else:
 			# If not token_type supplied, we assume that is VOMS one
@@ -164,12 +166,15 @@ class FogBowCloudConnector(CloudConnector):
 			elif resp.status != 200:
 				return (False, resp.reason + "\n" + output)
 			else:
+				providing_member = self.get_occi_attribute_value(output,'org.fogbowcloud.request.providing-member')
+				if providing_member == "null":
+					providing_member = None
 				instance_id = self.get_occi_attribute_value(output,'org.fogbowcloud.request.instance-id')
 				if instance_id == "null":
 					instance_id = None
 
 				if not instance_id:
-					vm.state = self.VM_REQ_STATE_MAP.get(self.get_occi_attribute_value(output, 'org.fogbowcloud.request.state'), VirtualMachine.UNKNOWN)
+					vm.state = VirtualMachine.PENDING
 					return (True, vm)
 				else:
 					# Now get the instance info
@@ -204,6 +209,9 @@ class FogBowCloudConnector(CloudConnector):
 						ssh_user = self.get_occi_attribute_value(output, 'org.fogbowcloud.request.ssh-username')
 						if ssh_user:
 							vm.info.systems[0].addFeature(Feature("disk.0.os.credentials.username", "=", ssh_user), conflict="other", missing="other")
+						
+						vm.info.systems[0].setValue('instance_id', instance_id)
+						vm.info.systems[0].setValue('availability_zone', providing_member)
 						
 						return (True, vm)
 
