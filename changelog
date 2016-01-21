@@ -169,5 +169,5 @@ IM 1.4.1
 
 IM 1.4.2
     * Add support for new RADL JSON format
-    * Change in Auth Header in new version of FogBow
+    * Change in Auth Header in new version of FogBow and support for requirements
     * Code improvements in OpenStack, OpenNebula and FogBow connectors

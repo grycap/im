@@ -15,12 +15,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import json
-import subprocess
-import shutil
 import os
 import sys
 import httplib
-import tempfile
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from CloudConnector import CloudConnector
@@ -34,7 +31,7 @@ class FogBowCloudConnector(CloudConnector):
 	
 	type = "FogBow"
 	"""str with the name of the provider."""
-	INSTANCE_TYPE = 'small'
+	INSTANCE_TYPE = 'fogbow_small'
 	"""str with the name of the default instance type to launch."""
 	
 	VM_STATE_MAP = {
@@ -94,9 +91,6 @@ class FogBowCloudConnector(CloudConnector):
 				protocol = url[0]
 				if protocol in ['fbw']:
 					res_system = radl_system.clone()
-	
-					if not res_system.hasFeature('instance_type'):
-						res_system.addFeature(Feature("instance_type", "=", self.INSTANCE_TYPE), conflict="me", missing="other")
 					
 					res_system.addFeature(Feature("disk.0.image.url", "=", str_url), conflict="other", missing="other")
 						
@@ -209,42 +203,13 @@ class FogBowCloudConnector(CloudConnector):
 						
 						ssh_user = self.get_occi_attribute_value(output, 'org.fogbowcloud.request.ssh-username')
 						if ssh_user:
-							vm.info.systems[0].selValue('disk.0.os.credentials.username',ssh_user)
+							vm.info.systems[0].addFeature(Feature("disk.0.os.credentials.username", "=", ssh_user), conflict="other", missing="other")
 						
 						return (True, vm)
 
 		except Exception, ex:
 			self.logger.exception("Error connecting with FogBow Manager")
 			return (False, "Error connecting with FogBow Manager: " + str(ex))
-
-	def keygen(self):
-		"""
-		Generates a keypair using the ssh-keygen command and returns a tuple (public, private)
-		"""
-		tmp_dir = tempfile.mkdtemp()
-		pk_file = tmp_dir + "/occi-key"
-		command = 'ssh-keygen -t rsa -b 2048 -q -N "" -f ' + pk_file
-		p=subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-		(out, err) = p.communicate()
-		if p.returncode!=0:
-			shutil.rmtree(tmp_dir, ignore_errors=True)
-			self.logger.error("Error executing ssh-keygen: " + out + err)
-			return (None, None)
-		else:
-			public = None
-			private = None
-			try:
-				with open(pk_file) as f: private = f.read()
-			except:
-				self.logger.exception("Error reading private_key file.")
-				
-			try:
-				with open(pk_file + ".pub") as f: public = f.read()
-			except:
-				self.logger.exception("Error reading public_key file.")
-			
-			shutil.rmtree(tmp_dir, ignore_errors=True)
-			return (public, private)
 
 	def launch(self, inf, radl, requested_radl, num_vm, auth_data):
 		system = radl.systems[0]
@@ -283,15 +248,34 @@ class FogBowCloudConnector(CloudConnector):
 						conn.putheader(k, v)
 				
 				conn.putheader('Category', 'fogbow_request; scheme="http://schemas.fogbowcloud.org/request#"; class="kind"')
-				
+
 				conn.putheader('X-OCCI-Attribute', 'org.fogbowcloud.request.instance-count=1')
 				conn.putheader('X-OCCI-Attribute', 'org.fogbowcloud.request.type="one-time"')
 				
-				conn.putheader('Category', 'fogbow_' + system.getValue('instance_type') + '; scheme="http://schemas.fogbowcloud.org/template/resource#"; class="mixin"')
+				requirements = ""
+				if system.getValue('instance_type'):
+					conn.putheader('Category', system.getValue('instance_type') + '; scheme="http://schemas.fogbowcloud.org/template/resource#"; class="mixin"')
+				else:
+					cpu = system.getValue('cpu.count')
+					memory = system.getFeature('memory.size').getValue('M')
+					if cpu:
+						requirements += "Glue2vCPU >= %d" % cpu
+					if memory:
+						if requirements:
+							requirements += " && "
+						requirements += "Glue2RAM >= %d" % memory
+
 				conn.putheader('Category', os_tpl + '; scheme="http://schemas.fogbowcloud.org/template/os#"; class="mixin"')
 				conn.putheader('Category', 'fogbow_public_key; scheme="http://schemas.fogbowcloud/credentials#"; class="mixin"')
-
 				conn.putheader('X-OCCI-Attribute', 'org.fogbowcloud.credentials.publickey.data="' + public_key.strip() + '"')
+
+				if system.getValue('availability_zone'):
+					if requirements:
+						requirements += ' && '
+						requirements += 'Glue2CloudComputeManagerID == "%s"' % system.getValue('availability_zone')
+
+				if requirements:
+					conn.putheader('X-OCCI-Attribute', 'org.fogbowcloud.request.requirements=' + requirements)
 
 				conn.endheaders()
 
