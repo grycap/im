@@ -607,3 +607,64 @@ The next RADL deploys a single node that will be configured using Cloud-Init ins
 It depends on the Cloud provider to process correctly the cloud-init recipes of the configure section.
 In some cases (EGI FedCloud) it uses the cloud-init language (see `Cloud-Init documentation <http://cloudinit.readthedocs.org/>`_).
 In other cases as Amazon EC2 or OpenStack it must be a script to be executed in the instance.   
+
+JSON Version
+------------
+
+There is a JSON version of the RADL language. It has the same semantics that the original RADL but 
+using JSON syntax to describe the objects. This is a complete example of the JSON format::
+
+   [
+     {
+       "class": "ansible",
+       "id": "ansible_jost",
+       "credentials.username": "user",
+       "credentials.password": "pass",
+       "host": "server"
+     },
+     {
+       "class": "network",
+       "id": "publica",
+       "outbound": "yes"
+     },
+     {
+       "class": "system",
+       "cpu.arch": "x86_64",
+       "cpu.count_min": 1,
+       "disk.0.os.name": "linux",
+       "id": "front",
+       "memory.size_min": 536870912,
+       "net_interface.0.connection": "publica"
+     },
+     {
+       "class": "configure",
+       "id": "front",
+       "recipes": "\\n---\\n- roles:\\n- { role: 'micafer.hadoop', hadoop_master: 'hadoopmaster', hadoop_type_of_node: 'master' }"
+     },
+     {
+       "class": "deploy",
+       "system": "front",
+       "vm_number": 1,
+       "cloud": "cloud_id"
+     },
+     {
+       "class": "contextualize",
+       "items": [
+         {
+           "configure": "front",
+           "system": "front",
+           "ctxt_tool": "Ansible"
+         }
+       ]
+     }
+   ]
+
+The RADL JSON document is described as a list of objects. Each main object has a field named ``class`` that
+described the type of RADL object (ansible, network, system, configure, contextualize or deploy). In case of
+ansible, network, system and configure, the must also have and ``id`` field. Then the other fields correspond
+to the features described in the RADL object. A particularity of the JSON format is that it does not uses
+the comparators (``<=`` or ``>=``) so it is expressed using the ``_min`` and ``_max`` suffixes as show in the
+example in ``cpu.count_min`` and ``memory.size_min``. Also the JSON format does not use units in the amount of
+memory or disk size, so all these quantities are expresed in bytes.
+
+Currently this format is only supported in the REST API (not in the native XML-RPC one).
