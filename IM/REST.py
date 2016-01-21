@@ -293,7 +293,21 @@ def RESTGetVMProperty(infid=None, vmid=None, prop=None):
 			info = InfrastructureManager.GetVMContMsg(infid, vmid, auth)
 		else:
 			info = InfrastructureManager.GetVMProperty(infid, vmid, prop, auth)
-		bottle.response.content_type = "text/plain"
+		
+		accept = bottle.request.headers.get('Accept')
+		if accept:
+			if accept == "application/json":
+				bottle.response.content_type = accept
+				if isinstance(info, str) or isinstance(info, unicode):
+					info = '"' + info + '"'
+			elif accept == "text/plain":
+				bottle.response.content_type = accept
+			else:
+				bottle.abort(404, "Unsupported Accept Media Type: %s" % accept)
+				return False
+		else:
+			bottle.response.content_type = "text/plain"
+		
 		return str(info)
 	except DeletedInfrastructureException, ex:
 		bottle.abort(404, "Error Getting VM. property: " + str(ex))
