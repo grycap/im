@@ -53,7 +53,7 @@ Next tables summaries the resources and the HTTP methods available.
 +-------------+--------------------------------------------+---------------------------------------------+
 
 GET ``http://imserver.com/infrastructures``
-   :Content-type: text/uri-list
+   :Response Content-type: text/uri-list
    :ok response: 200 OK
    :fail response: 401, 400
 
@@ -62,23 +62,24 @@ GET ``http://imserver.com/infrastructures``
 
 POST ``http://imserver.com/infrastructures``
    :body: ``RADL document``
-   :Content-type: text/uri-list
+   :body Content-type: text/plain or application/json or text/yaml
+   :Response Content-type: text/uri-list
    :ok response: 200 OK
-   :fail response: 401, 400
+   :fail response: 401, 400, 415
 
    Create and configure an infrastructure with the requirements specified in
-   the RADL document of the body contents. If success, it is returned the
-   URI of the new infrastructure.  
+   the RADL document of the body contents (in plain RADL or in JSON formats).
+   If success, it is returned the URI of the new infrastructure.  
 
 GET ``http://imserver.com/infrastructures/<infId>``
-   :Content-type: text/uri-list
+   :Response Content-type: text/uri-list
    :ok response: 200 OK
    :fail response: 401, 404, 400
 
    Return a list of URIs referencing the virtual machines associated to the infrastructure with ID ``infId``.
     
 GET ``http://imserver.com/infrastructures/<infId>/<property_name>``
-   :Content-type: application/json
+   :Response Content-type: text/plain or application/json
    :ok response: 200 OK
    :fail response: 401, 404, 400, 403
 
@@ -92,67 +93,75 @@ GET ``http://imserver.com/infrastructures/<infId>/<property_name>``
 
 POST ``http://imserver.com/infrastructures/<infId>``
    :body: ``RADL document``
+   :body Content-type: text/plain or application/json or text/yaml
    :input fields: ``context`` (optional)
-   :Content-type: text/uri-list
+   :Response Content-type: text/uri-list
    :ok response: 200 OK
-   :fail response: 401, 404, 400
+   :fail response: 401, 404, 400, 415
 
-   Add the resources specified in the body contents to the infrastructure with ID
-   ``infId``. The RADL restrictions are the same as in
+   Add the resources specified in the body contents (in plain RADL or in JSON formats)
+   to the infrastructure with ID ``infId``. The RADL restrictions are the same as in
    :ref:`RPC-XML AddResource <addresource-xmlrpc>`. If success, it is returned
    a list of URIs of the new virtual machines. The ``context`` parameter is optional and 
    is a flag to specify if the contextualization step will be launched just after the VM
    addition. Accetable values: yes, no, true, false, 1 or 0. If not specified the flag is set to True. 
 
 PUT ``http://imserver.com/infrastructures/<infId>/stop``
-   :Content-type: text/uri-list
+   :Response Content-type: text/plain
    :ok response: 200 OK
    :fail response: 401, 404, 400
 
    Perform the ``stop`` action in all the virtual machines in the
-   the infrastructure with ID ``infID``:
+   the infrastructure with ID ``infID``. If the operation has been performed 
+   successfully the return value is an empty string.
    
 PUT ``http://imserver.com/infrastructures/<infId>/start``
-   :Content-type: text/uri-list
+   :Response Content-type: text/plain
    :ok response: 200 OK
    :fail response: 401, 404, 400
 
    Perform the ``start`` action in all the virtual machines in the
-   the infrastructure with ID ``infID``:
+   the infrastructure with ID ``infID``. If the operation has been performed 
+   successfully the return value is an empty string.
    
 PUT ``http://imserver.com/infrastructures/<infId>/reconfigure``
-   :input fields: ``radl`` (compulsory), ``vm_list`` (optional)
-   :Content-type: text/uri-list
+   :body: ``RADL document``
+   :body Content-type: text/plain or application/json
+   :input fields: ``vm_list`` (optional)
+   :Response Content-type: text/plain
    :ok response: 200 OK
-   :fail response: 401, 404, 400
+   :fail response: 401, 404, 400, 415
 
    Perform the ``reconfigure`` action in all the virtual machines in the
    the infrastructure with ID ``infID``. It updates the configuration 
-   of the infrastructure as indicated in ``radl``. The RADL restrictions 
-   are the same as in :ref:`RPC-XML Reconfigure <reconfigure-xmlrpc>`. If no
+   of the infrastructure as indicated in the body contents (in plain RADL or in JSON formats). 
+   The RADL restrictions are the same as in :ref:`RPC-XML Reconfigure <reconfigure-xmlrpc>`. If no
    RADL are specified, the contextualization process is stated again.
-   The last  ``vm_list`` parameter is optional
-   and is a coma separated list of IDs of the VMs to reconfigure. If not
-   specified all the VMs will be reconfigured. 
+   The ``vm_list`` parameter is optional and is a coma separated list of
+   IDs of the VMs to reconfigure. If not specified all the VMs will be reconfigured. 
+   If the operation has been performed successfully the return value is an empty string.
 
 DELETE ``http://imserver.com/infrastructures/<infId>``
+   :Response Content-type: text/plain
    :ok response: 200 OK
    :fail response: 401, 404, 400
 
    Undeploy the virtual machines associated to the infrastructure with ID
-   ``infId``.
+   ``infId``. If the operation has been performed successfully 
+   the return value is an empty string.
 
 GET ``http://imserver.com/infrastructures/<infId>/vms/<vmId>``
-   :Content-type: text/plain
+   :Response Content-type: text/plain or application/json
    :ok response: 200 OK
    :fail response: 401, 404, 400
 
    Return information about the virtual machine with ID ``vmId`` associated to
-   the infrastructure with ID ``infId``. The returned string is in RADL format. 
+   the infrastructure with ID ``infId``. The returned string is in RADL format,
+   either in plain RADL or in JSON formats.
    See more the details of the output in :ref:`GetVMInfo <GetVMInfo-xmlrpc>`.
    
 GET ``http://imserver.com/infrastructures/<infId>/vms/<vmId>/<property_name>``
-   :Content-type: text/plain
+   :Response Content-type: text/plain
    :ok response: 200 OK
    :fail response: 401, 404, 400
 
@@ -161,35 +170,43 @@ GET ``http://imserver.com/infrastructures/<infId>/vms/<vmId>/<property_name>``
 
 PUT ``http://imserver.com/infrastructures/<infId>/vms/<vmId>``
    :body: ``RADL document``
+   :body Content-type: text/plain or application/json
+   :Response Content-type: text/plain or application/json
    :ok response: 200 OK
-   :fail response: 401, 404, 400
+   :fail response: 401, 404, 400, 415
 
    Change the features of the virtual machine with ID ``vmId`` in the
    infrastructure with with ID ``infId``, specified by the RADL document specified
-   in the body contents.
+   in the body contents (in plain RADL or in JSON formats). If the operation has 
+   been performed successfully the return value the return value is an RADL document 
+   with the VM properties modified (also in plain RADL or in JSON formats).
 
 DELETE ``http://imserver.com/infrastructures/<infId>/vms/<vmId>``
    :input fields: ``context`` (optional)
+   :Response Content-type: text/plain
    :ok response: 200 OK
    :fail response: 401, 404, 400
 
    Undeploy the virtual machine with ID ``vmId`` associated to the
    infrastructure with ID ``infId``. The ``context`` parameter is optional and 
    is a flag to specify if the contextualization step will be launched just after the VM
-   addition. Accetable values: yes, no, true, false, 1 or 0. If not specified the flag is set to True. 
+   addition. Accetable values: yes, no, true, false, 1 or 0. If not specified the flag is set to True.
+   If the operation has been performed successfully the return value is an empty string.
 
 PUT ``http://imserver.com/infrastructures/<infId>/vms/<vmId>/start``
-   :Content-type: text/plain
+   :Response Content-type: text/plain
    :ok response: 200 OK
    :fail response: 401, 404, 400
 
    Perform the ``start`` action in the virtual machine with ID 
    ``vmId`` associated to the infrastructure with ID ``infId``.
+   If the operation has been performed successfully the return value is an empty string.
 
 PUT ``http://imserver.com/infrastructures/<infId>/vms/<vmId>/stop``
-   :Content-type: text/plain
+   :Response Content-type: text/plain
    :ok response: 200 OK
    :fail response: 401, 404, 400
 
    Perform the ``stop`` action in the virtual machine with ID 
    ``vmId`` associated to the infrastructure with ID ``infId``.
+   If the operation has been performed successfully the return value is an empty string.

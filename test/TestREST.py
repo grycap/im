@@ -166,14 +166,14 @@ class TestIM(unittest.TestCase):
         resp = self.server.getresponse()
         output = str(resp.read())
         self.assertEqual(resp.status, 200, msg="ERROR getting VM contmsg:" + output)
-        self.assertGreater(len(output), 100, msg="Incorrect VM contextualization message: " + output)
+        self.assertEqual(len(output), 0, msg="Incorrect VM contextualization message: " + output)
         
     def test_33_get_contmsg(self):
         self.server.request('GET', "/infrastructures/" + self.inf_id + "/contmsg", headers = {'AUTHORIZATION' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
         self.assertEqual(resp.status, 200, msg="ERROR getting the infrastructure info:" + output)
-        self.assertGreater(len(output), 100, msg="Incorrect contextualization message: " + output)
+        self.assertGreater(len(output), 30, msg="Incorrect contextualization message: " + output)
         
     def test_34_get_radl(self):
         self.server.request('GET', "/infrastructures/" + self.inf_id + "/radl", headers = {'AUTHORIZATION' : self.auth_data})
@@ -225,33 +225,7 @@ class TestIM(unittest.TestCase):
         for vm_id, vm_state in vm_states.iteritems():
             self.assertEqual(vm_state, "configured", msg="Unexpected vm state: " + vm_state + " in VM ID " + str(vm_id) + ". It must be 'configured'.")
 
-    def test_46_addresource_noconfig(self):
-        self.server.request('POST', "/infrastructures/" + self.inf_id + "?context=0", body = RADL_ADD, headers = {'AUTHORIZATION' : self.auth_data})
-        resp = self.server.getresponse()
-        output = str(resp.read())
-        self.assertEqual(resp.status, 200, msg="ERROR adding resources:" + output)
-
-    def test_47_removeresource_noconfig(self):
-        self.server.request('GET', "/infrastructures/" + self.inf_id + "?context=0", headers = {'AUTHORIZATION' : self.auth_data})
-        resp = self.server.getresponse()
-        output = str(resp.read())
-        self.assertEqual(resp.status, 200, msg="ERROR getting the infrastructure info:" + output)
-        vm_ids = output.split("\n")
-        
-        vm_uri = uriparse(vm_ids[1])
-        self.server.request('DELETE', vm_uri[2], headers = {'AUTHORIZATION' : self.auth_data})
-        resp = self.server.getresponse()
-        output = str(resp.read())
-        self.assertEqual(resp.status, 200, msg="ERROR removing resources:" + output)
-
-        self.server.request('GET', "/infrastructures/" + self.inf_id, headers = {'AUTHORIZATION' : self.auth_data})
-        resp = self.server.getresponse()
-        output = str(resp.read())
-        self.assertEqual(resp.status, 200, msg="ERROR getting the infrastructure info:" + output)
-        vm_ids = output.split("\n")
-        self.assertEqual(len(vm_ids), 2, msg="ERROR getting infrastructure info: Incorrect number of VMs(" + str(len(vm_ids)) + "). It must be 1")
-
-    def test_50_removeresource(self):
+    def test_46_removeresource(self):
         self.server.request('GET', "/infrastructures/" + self.inf_id, headers = {'AUTHORIZATION' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
@@ -273,6 +247,32 @@ class TestIM(unittest.TestCase):
 
         all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 300)
         self.assertTrue(all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
+
+    def test_47_addresource_noconfig(self):
+        self.server.request('POST', "/infrastructures/" + self.inf_id + "?context=0", body = RADL_ADD, headers = {'AUTHORIZATION' : self.auth_data})
+        resp = self.server.getresponse()
+        output = str(resp.read())
+        self.assertEqual(resp.status, 200, msg="ERROR adding resources:" + output)
+
+    def test_50_removeresource_noconfig(self):
+        self.server.request('GET', "/infrastructures/" + self.inf_id + "?context=0", headers = {'AUTHORIZATION' : self.auth_data})
+        resp = self.server.getresponse()
+        output = str(resp.read())
+        self.assertEqual(resp.status, 200, msg="ERROR getting the infrastructure info:" + output)
+        vm_ids = output.split("\n")
+        
+        vm_uri = uriparse(vm_ids[1])
+        self.server.request('DELETE', vm_uri[2], headers = {'AUTHORIZATION' : self.auth_data})
+        resp = self.server.getresponse()
+        output = str(resp.read())
+        self.assertEqual(resp.status, 200, msg="ERROR removing resources:" + output)
+
+        self.server.request('GET', "/infrastructures/" + self.inf_id, headers = {'AUTHORIZATION' : self.auth_data})
+        resp = self.server.getresponse()
+        output = str(resp.read())
+        self.assertEqual(resp.status, 200, msg="ERROR getting the infrastructure info:" + output)
+        vm_ids = output.split("\n")
+        self.assertEqual(len(vm_ids), 1, msg="ERROR getting infrastructure info: Incorrect number of VMs(" + str(len(vm_ids)) + "). It must be 1")
 
     def test_55_reconfigure(self):
         self.server.request('PUT', "/infrastructures/" + self.inf_id + "/reconfigure", headers = {'AUTHORIZATION' : self.auth_data})
@@ -333,6 +333,119 @@ class TestIM(unittest.TestCase):
         self.assertTrue(all_configured, msg="ERROR waiting the vm to be started (timeout).")
 
     def test_95_destroy(self):
+        self.server.request('DELETE', "/infrastructures/" + self.inf_id, headers = {'Authorization' : self.auth_data})
+        resp = self.server.getresponse()
+        output = str(resp.read())
+        self.assertEqual(resp.status, 200, msg="ERROR destroying the infrastructure:" + output)
+        
+    def test_96_create_tosca(self):
+        """
+        Test the CreateInfrastructure IM function with a TOSCA document
+        """
+        tosca = """
+tosca_definitions_version: tosca_simple_yaml_1_0
+ 
+description: TOSCA test for the IM
+
+
+topology_template:
+  inputs:
+    db_name:
+      type: string
+      default: world
+    db_user:
+      type: string
+      default: dbuser
+    db_password:
+      type: string
+      default: pass
+    mysql_root_password:
+      type: string
+      default: mypass
+
+  node_templates:
+  
+    apache:
+      type: tosca.nodes.WebServer.Apache
+      requirements:
+        - host: web_server
+ 
+    web_server:
+      type: tosca.nodes.indigo.Compute
+      properties:
+        public_ip: yes
+      capabilities:
+        # Host container properties
+        host:
+         properties:
+           num_cpus: 1
+           mem_size: 1 GB
+        # Guest Operating System properties
+        os:
+          properties:
+            # host Operating System image properties
+            type: linux 
+            distribution: ubuntu 
+ 
+    test_db:
+      type: tosca.nodes.Database.MySQL
+      properties:
+        name: { get_input: db_name }
+        user: { get_input: db_user }
+        password: { get_input: db_password }
+        root_password: { get_input: mysql_root_password }
+      artifacts:
+        db_content:
+          file: http://downloads.mysql.com/docs/world.sql.gz
+          type: tosca.artifacts.File
+      requirements:
+        - host:
+            node: mysql
+      interfaces:
+        Standard:
+          configure:
+            implementation: mysql/mysql_db_import.yml
+            inputs:
+              db_name: { get_property: [ SELF, name ] }
+              db_data: { get_artifact: [ SELF, db_content ] }
+              db_name: { get_property: [ SELF, name ] }
+              db_user: { get_property: [ SELF, user ] }
+ 
+    mysql:
+      type: tosca.nodes.DBMS.MySQL
+      properties:
+        root_password: { get_input: mysql_root_password }
+      requirements:
+        - host:
+            node: db_server
+ 
+    db_server:
+      type: tosca.nodes.Compute
+      capabilities:
+        # Host container properties
+        host:
+         properties:
+           num_cpus: 1
+           disk_size: 10 GB
+           mem_size: 4 GB
+        os:
+         properties:
+           architecture: x86_64
+           type: linux
+           distribution: ubuntu
+            """
+
+        self.server.request('POST', "/infrastructures", body = tosca, headers = {'AUTHORIZATION' : self.auth_data, 'Content-Type':'text/yaml'})
+        resp = self.server.getresponse()
+        output = str(resp.read())
+        self.assertEqual(resp.status, 200, msg="ERROR creating the infrastructure:" + output)
+
+        self.__class__.inf_id = str(os.path.basename(output))
+        
+        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 600)
+        self.assertTrue(all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
+
+    def test_97_destroy(self):
         self.server.request('DELETE', "/infrastructures/" + self.inf_id, headers = {'Authorization' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())

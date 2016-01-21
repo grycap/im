@@ -21,6 +21,9 @@ import threading
 import bottle
 import json
 from config import Config
+from radl.radl_json import parse_radl as parse_radl_json, dump_radl as dump_radl_json
+from radl.radl_parse import parse_radl 
+from IM.tosca.Tosca import Tosca
 
 AUTH_LINE_SEPARATOR = '\\n'
 
@@ -105,6 +108,7 @@ def RESTDestroyInfrastructure(id=None):
 	
 	try:
 		InfrastructureManager.DestroyInfrastructure(id, auth)
+		bottle.response.content_type = "text/plain"
 		return ""
 	except DeletedInfrastructureException, ex:
 		bottle.abort(404, "Error Destroying Inf: " + str(ex))
@@ -209,7 +213,18 @@ def RESTCreateInfrastructure():
 		bottle.abort(401, "No authentication data provided")
 
 	try:
+		content_type = bottle.request.headers.get('Content-Type')
 		radl_data = bottle.request.body.read()
+		
+		if content_type:
+			if content_type == "application/json":
+				radl_data = parse_radl_json(radl_data)
+			elif content_type == "text/yaml":
+				radl_data = Tosca(radl_data).to_radl()
+			elif content_type != "text/plain":
+				bottle.abort(415, "Unsupported Media Type %s" % content_type)
+				return False
+
 		inf_id = InfrastructureManager.CreateInfrastructure(radl_data, auth)
 		
 		bottle.response.content_type = "text/uri-list"
@@ -230,8 +245,24 @@ def RESTGetVMInfo(infid=None, vmid=None):
 		bottle.abort(401, "No authentication data provided")
 	
 	try:
-		info = InfrastructureManager.GetVMInfo(infid, vmid, auth)
-		bottle.response.content_type = "text/plain"
+		accept = bottle.request.headers.get('Accept')
+		
+		radl = InfrastructureManager.GetVMInfo(infid, vmid, auth)
+		
+		if accept:
+			if accept == "application/json":
+				bottle.response.content_type = accept
+				info = dump_radl_json(radl, enter="", indent="")
+			elif accept == "text/plain":
+				info = str(radl)
+				bottle.response.content_type = accept
+			else:
+				bottle.abort(404, "Unsupported Accept Media Type: %s" % accept)
+				return False
+		else:
+			info = str(radl)
+			bottle.response.content_type = "text/plain"
+			
 		return info
 	except DeletedInfrastructureException, ex:
 		bottle.abort(404, "Error Getting VM. info: " + str(ex))
@@ -262,7 +293,21 @@ def RESTGetVMProperty(infid=None, vmid=None, prop=None):
 			info = InfrastructureManager.GetVMContMsg(infid, vmid, auth)
 		else:
 			info = InfrastructureManager.GetVMProperty(infid, vmid, prop, auth)
-		bottle.response.content_type = "text/plain"
+		
+		accept = bottle.request.headers.get('Accept')
+		if accept:
+			if accept == "application/json":
+				bottle.response.content_type = accept
+				if isinstance(info, str) or isinstance(info, unicode):
+					info = '"' + info + '"'
+			elif accept == "text/plain":
+				bottle.response.content_type = accept
+			else:
+				bottle.abort(404, "Unsupported Accept Media Type: %s" % accept)
+				return False
+		else:
+			bottle.response.content_type = "text/plain"
+		
 		return str(info)
 	except DeletedInfrastructureException, ex:
 		bottle.abort(404, "Error Getting VM. property: " + str(ex))
@@ -298,8 +343,19 @@ def RESTAddResource(id=None):
 				context = False
 			else:
 				bottle.abort(400, "Incorrect value in context parameter")
-				
+
+		content_type = bottle.request.headers.get('Content-Type')
 		radl_data = bottle.request.body.read()
+		
+		if content_type:
+			if content_type == "application/json":
+				radl_data = parse_radl_json(radl_data)
+			elif content_type == "text/yaml":
+				radl_data = Tosca(radl_data).to_radl()
+			elif content_type != "text/plain":
+				bottle.abort(415, "Unsupported Media Type %s" % content_type)
+				return False
+
 		vm_ids = InfrastructureManager.AddResource(id, radl_data, auth, context)
 		
 		res = ""
@@ -340,6 +396,7 @@ def RESTRemoveResource(infid=None, vmid=None):
 				bottle.abort(400, "Incorrect value in context parameter")
 
 		InfrastructureManager.RemoveResource(infid, vmid, auth, context)
+		bottle.response.content_type = "text/plain"
 		return ""
 	except DeletedInfrastructureException, ex:
 		bottle.abort(404, "Error Removing resources: " + str(ex))
@@ -366,10 +423,33 @@ def RESTAlterVM(infid=None, vmid=None):
 		bottle.abort(401, "No authentication data provided")
 	
 	try:
+		content_type = bottle.request.headers.get('Content-Type')
+		accept = bottle.request.headers.get('Accept')
 		radl_data = bottle.request.body.read()
 		
-		bottle.response.content_type = "text/plain"
-		return InfrastructureManager.AlterVM(infid, vmid, radl_data, auth)
+		if content_type:
+			if content_type == "application/json":
+				radl_data = parse_radl_json(radl_data)
+			elif content_type != "text/plain":
+				bottle.abort(415, "Unsupported Media Type %s" % content_type)
+				return False
+		
+		vm_info = InfrastructureManager.AlterVM(infid, vmid, radl_data, auth)
+
+		if accept:
+			if accept == "application/json":
+				bottle.response.content_type = accept
+				res = dump_radl_json(vm_info, enter="", indent="")
+			elif accept == "text/plain":
+				res = str(vm_info)
+				bottle.response.content_type = accept
+			else:
+				bottle.abort(404, "Unsupported Accept Media Type: %s" % accept)
+				return False
+		else:
+			bottle.response.content_type = "text/plain"
+
+		return res
 	except DeletedInfrastructureException, ex:
 		bottle.abort(404, "Error modifying resources: " + str(ex))
 		return False
@@ -403,8 +483,16 @@ def RESTReconfigureInfrastructure(id=None):
 			except:
 				bottle.abort(400, "Incorrect vm_list format.")
 		
-		if 'radl' in bottle.request.forms.keys():
-			radl_data = bottle.request.forms.get('radl')
+		content_type = bottle.request.headers.get('Content-Type')
+		radl_data = bottle.request.body.read()
+		
+		if radl_data:
+			if content_type:
+				if content_type == "application/json":
+					radl_data = parse_radl_json(radl_data)
+				elif content_type != "text/plain":
+					bottle.abort(415, "Unsupported Media Type %s" % content_type)
+					return False
 		else:
 			radl_data = ""
 		return InfrastructureManager.Reconfigure(id, radl_data, auth, vm_list)

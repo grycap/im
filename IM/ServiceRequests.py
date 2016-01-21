@@ -152,7 +152,7 @@ class Request_GetVMInfo(IMBaseRequest):
 	def _call_function(self):
 		self._error_mesage = "Error Getting VM Info."
 		(inf_id, vm_id, auth_data) = self.arguments
-		return InfrastructureManager.InfrastructureManager.GetVMInfo(inf_id, vm_id, Authentication(auth_data))
+		return str(InfrastructureManager.InfrastructureManager.GetVMInfo(inf_id, vm_id, Authentication(auth_data)))
 	
 class Request_GetVMProperty(IMBaseRequest):
 	"""
@@ -170,7 +170,7 @@ class Request_AlterVM(IMBaseRequest):
 	def _call_function(self):
 		self._error_mesage = "Error Changing VM Info."
 		(inf_id, vm_id, radl, auth_data) = self.arguments
-		return InfrastructureManager.InfrastructureManager.AlterVM(inf_id, vm_id, radl, Authentication(auth_data))
+		return str(InfrastructureManager.InfrastructureManager.AlterVM(inf_id, vm_id, radl, Authentication(auth_data)))
 
 class Request_DestroyInfrastructure(IMBaseRequest):
 	"""
