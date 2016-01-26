@@ -13,6 +13,8 @@ RUN apt-get update && apt-get install -y \
     python-soappy \
     python-dateutil \
     python-pbr \
+    python-mock \
+    python-nose \
     openssh-client \
     sshpass \
     git \
