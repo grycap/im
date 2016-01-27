@@ -22,8 +22,8 @@ import bottle
 import json
 from config import Config
 from radl.radl_json import parse_radl as parse_radl_json, dump_radl as dump_radl_json
-from radl.radl_parse import parse_radl 
 from IM.tosca.Tosca import Tosca
+from bottle import HTTPError
 
 AUTH_LINE_SEPARATOR = '\\n'
 
@@ -98,6 +98,16 @@ def run(host, port):
 def stop():
 	bottle_server.shutdown()
 
+def get_media_type(header):
+	"""
+	Function to get only the header media type
+	"""
+	accept = bottle.request.headers.get(header)
+	pos = accept.find(";")
+	if pos != 1:
+		accept = accept[:pos]
+	return accept.strip()
+
 @app.route('/infrastructures/:id', method='DELETE')
 def RESTDestroyInfrastructure(id=None):
 	try:
@@ -170,6 +180,8 @@ def RESTGetInfrastructureProperty(id=None, prop=None):
 		else:
 			bottle.abort(403, "Incorrect infrastructure property")
 		return str(res)
+	except HTTPError, ex:
+		raise ex
 	except DeletedInfrastructureException, ex:
 		bottle.abort(404, "Error Getting Inf. info: " + str(ex))
 		return False
@@ -213,7 +225,7 @@ def RESTCreateInfrastructure():
 		bottle.abort(401, "No authentication data provided")
 
 	try:
-		content_type = bottle.request.headers.get('Content-Type')
+		content_type = get_media_type('Content-Type')
 		radl_data = bottle.request.body.read()
 		
 		if content_type:
@@ -229,6 +241,8 @@ def RESTCreateInfrastructure():
 		
 		bottle.response.content_type = "text/uri-list"
 		return "http://" + bottle.request.environ['HTTP_HOST'] + "/infrastructures/" + str(inf_id)
+	except HTTPError, ex:
+		raise ex
 	except UnauthorizedUserException, ex:
 		bottle.abort(401, "Error Getting Inf. info: " + str(ex))
 		return False
@@ -245,7 +259,7 @@ def RESTGetVMInfo(infid=None, vmid=None):
 		bottle.abort(401, "No authentication data provided")
 	
 	try:
-		accept = bottle.request.headers.get('Accept')
+		accept = get_media_type('Accept')
 		
 		radl = InfrastructureManager.GetVMInfo(infid, vmid, auth)
 		
@@ -264,6 +278,8 @@ def RESTGetVMInfo(infid=None, vmid=None):
 			bottle.response.content_type = "text/plain"
 			
 		return info
+	except HTTPError, ex:
+		raise ex
 	except DeletedInfrastructureException, ex:
 		bottle.abort(404, "Error Getting VM. info: " + str(ex))
 		return False
@@ -294,7 +310,8 @@ def RESTGetVMProperty(infid=None, vmid=None, prop=None):
 		else:
 			info = InfrastructureManager.GetVMProperty(infid, vmid, prop, auth)
 		
-		accept = bottle.request.headers.get('Accept')
+		accept = get_media_type('Accept')
+
 		if accept:
 			if accept == "application/json":
 				bottle.response.content_type = accept
@@ -309,6 +326,8 @@ def RESTGetVMProperty(infid=None, vmid=None, prop=None):
 			bottle.response.content_type = "text/plain"
 		
 		return str(info)
+	except HTTPError, ex:
+		raise ex
 	except DeletedInfrastructureException, ex:
 		bottle.abort(404, "Error Getting VM. property: " + str(ex))
 		return False
@@ -344,7 +363,7 @@ def RESTAddResource(id=None):
 			else:
 				bottle.abort(400, "Incorrect value in context parameter")
 
-		content_type = bottle.request.headers.get('Content-Type')
+		content_type = get_media_type('Content-Type')
 		radl_data = bottle.request.body.read()
 		
 		if content_type:
@@ -366,6 +385,8 @@ def RESTAddResource(id=None):
 		
 		bottle.response.content_type = "text/uri-list"
 		return res
+	except HTTPError, ex:
+		raise ex
 	except DeletedInfrastructureException, ex:
 		bottle.abort(404, "Error Adding resources: " + str(ex))
 		return False
@@ -398,6 +419,8 @@ def RESTRemoveResource(infid=None, vmid=None):
 		InfrastructureManager.RemoveResource(infid, vmid, auth, context)
 		bottle.response.content_type = "text/plain"
 		return ""
+	except HTTPError, ex:
+		raise ex
 	except DeletedInfrastructureException, ex:
 		bottle.abort(404, "Error Removing resources: " + str(ex))
 		return False
@@ -423,8 +446,8 @@ def RESTAlterVM(infid=None, vmid=None):
 		bottle.abort(401, "No authentication data provided")
 	
 	try:
-		content_type = bottle.request.headers.get('Content-Type')
-		accept = bottle.request.headers.get('Accept')
+		content_type = get_media_type('Content-Type')
+		accept = get_media_type('Accept')
 		radl_data = bottle.request.body.read()
 		
 		if content_type:
@@ -450,6 +473,8 @@ def RESTAlterVM(infid=None, vmid=None):
 			bottle.response.content_type = "text/plain"
 
 		return res
+	except HTTPError, ex:
+		raise ex
 	except DeletedInfrastructureException, ex:
 		bottle.abort(404, "Error modifying resources: " + str(ex))
 		return False
@@ -483,7 +508,7 @@ def RESTReconfigureInfrastructure(id=None):
 			except:
 				bottle.abort(400, "Incorrect vm_list format.")
 		
-		content_type = bottle.request.headers.get('Content-Type')
+		content_type = get_media_type('Content-Type')
 		radl_data = bottle.request.body.read()
 		
 		if radl_data:
@@ -496,6 +521,8 @@ def RESTReconfigureInfrastructure(id=None):
 		else:
 			radl_data = ""
 		return InfrastructureManager.Reconfigure(id, radl_data, auth, vm_list)
+	except HTTPError, ex:
+		raise ex
 	except DeletedInfrastructureException, ex:
 		bottle.abort(404, "Error reconfiguring infrastructure: " + str(ex))
 		return False
