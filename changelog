@@ -172,3 +172,4 @@ IM 1.4.2
     * Change in Auth Header in new version of FogBow and support for requirements
     * Code improvements in OpenStack, OpenNebula and FogBow connectors
     * Added workaround to problems in ansible_launcher with HOSTS_PATTERNS_CACHE
+    * Bugfixes in REST API

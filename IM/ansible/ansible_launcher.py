@@ -138,7 +138,7 @@ class AnsibleThread(threading.Thread):
     
         loader = DataLoader()
         # Add this to avoid the Ansible bug:  no host vars as host is not in inventory
-        # Hope to remove this if this problem is solved in Ansible
+        # In version 2.0.1 it must be fixed
         ansible.inventory.HOSTS_PATTERNS_CACHE = {}
 
         inventory = ansible.inventory.Inventory(loader=loader, variable_manager=variable_manager, host_list=options.inventory)
