@@ -326,6 +326,8 @@ class Tosca:
 					try:
 						response = urllib.urlopen(interface.implementation)
 						script_content = response.read()
+						if response.code != 200:
+							raise Exception("")
 					except Exception, ex:
 						raise Exception("Error downloading the implementation script '%s': %s" % (interface.implementation, str(ex)))
 				else:
@@ -338,6 +340,8 @@ class Tosca:
 						try:
 							response = urllib.urlopen(Tosca.ARTIFACTS_REMOTE_REPO + interface.implementation)
 							script_content = response.read()
+							if response.code != 200:
+								raise Exception("")
 						except Exception, ex:
 							raise Exception("Implementation file: '%s' is not located in the artifacts folder '%s' or in the artifacts remote url '%s'." % (interface.implementation, Tosca.ARTIFACTS_PATH, Tosca.ARTIFACTS_REMOTE_REPO))
 					
