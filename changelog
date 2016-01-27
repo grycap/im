@@ -171,4 +171,4 @@ IM 1.4.2
     * Add support for new RADL JSON format
     * Change in Auth Header in new version of FogBow and support for requirements
     * Code improvements in OpenStack, OpenNebula and FogBow connectors
-    * Bugfix in ansible_launcher with host = None
+    * Added workaround to problems in ansible_launcher with HOSTS_PATTERNS_CACHE

@@ -37,7 +37,7 @@ else:
     from ansible.cli import CLI
     from ansible.parsing.dataloader import DataLoader
     from ansible.vars import VariableManager
-    from ansible.inventory import Inventory
+    import ansible.inventory
     
     from ansible_executor_v2 import IMPlaybookExecutor
  
@@ -137,7 +137,11 @@ class AnsibleThread(threading.Thread):
         options.forks = self.threads
     
         loader = DataLoader()
-        inventory = Inventory(loader=loader, variable_manager=variable_manager, host_list=options.inventory)
+        # Add this to avoid the Ansible bug:  no host vars as host is not in inventory
+        # Hope to remove this if this problem is solved in Ansible
+        ansible.inventory.HOSTS_PATTERNS_CACHE = {}
+
+        inventory = ansible.inventory.Inventory(loader=loader, variable_manager=variable_manager, host_list=options.inventory)
         variable_manager.set_inventory(inventory)
         
         if self.host:
