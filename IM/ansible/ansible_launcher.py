@@ -140,7 +140,8 @@ class AnsibleThread(threading.Thread):
         inventory = Inventory(loader=loader, variable_manager=variable_manager, host_list=options.inventory)
         variable_manager.set_inventory(inventory)
         
-        inventory.subset(self.host)
+        if self.host:
+            inventory.subset(self.host)
         # let inventory know which playbooks are using so it can know the basedirs
         inventory.set_playbook_basedir(os.path.dirname(self.playbook_file))
     
@@ -217,8 +218,9 @@ class AnsibleThread(threading.Thread):
                 inventory = ansible.inventory.Inventory(self.inventory_file)
             else:
                 inventory = ansible.inventory.Inventory(options.inventory)
-                
-            inventory.subset(self.host)
+            
+            if self.host:    
+                inventory.subset(self.host)
             # let inventory know which playbooks are using so it can know the basedirs
             inventory.set_playbook_basedir(os.path.dirname(self.playbook_file))
     
