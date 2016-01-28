@@ -58,8 +58,13 @@ However, if you install IM from sources you should install:
 [defaults]
 transport  = smart
 host_key_checking = False
+# For old versions 1.X
 sudo_user = root
 sudo_exe = sudo
+
+# For new versions 2.X
+become_user      = root
+become_method    = sudo
 
 [paramiko_connection]
 
@@ -204,5 +209,5 @@ default configuration. Information about this image can be found here: https://r
 How to launch the IM service using docker:
 
 ```sh
-sudo docker run -d -p 8899:8899 --name im grycap/im 
+sudo docker run -d -p 8899:8899 -p 8800:8800 --name im grycap/im 
 ```
