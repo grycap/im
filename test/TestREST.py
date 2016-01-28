@@ -293,10 +293,12 @@ class TestIM(unittest.TestCase):
         self.assertTrue(all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
     def test_60_stop(self):
+        time.sleep(10)
         self.server.request('PUT', "/infrastructures/" + self.inf_id + "/stop", headers = {"Content-type": "application/x-www-form-urlencoded", 'AUTHORIZATION' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
         self.assertEqual(resp.status, 200, msg="ERROR stopping the infrastructure:" + output)
+        time.sleep(10)
 
         all_stopped = self.wait_inf_state(VirtualMachine.STOPPED, 120, [VirtualMachine.RUNNING])
         self.assertTrue(all_stopped, msg="ERROR waiting the infrastructure to be stopped (timeout).")
@@ -308,15 +310,18 @@ class TestIM(unittest.TestCase):
         resp = self.server.getresponse()
         output = str(resp.read())
         self.assertEqual(resp.status, 200, msg="ERROR starting the infrastructure:" + output)
+        time.sleep(10)
 
         all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 120, [VirtualMachine.RUNNING])
         self.assertTrue(all_configured, msg="ERROR waiting the infrastructure to be started (timeout).")
         
     def test_80_stop_vm(self):
+        time.sleep(10)
         self.server.request('PUT', "/infrastructures/" + self.inf_id + "/vms/0/stop", headers = {"Content-type": "application/x-www-form-urlencoded", 'AUTHORIZATION' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
         self.assertEqual(resp.status, 200, msg="ERROR stopping the vm:" + output)
+        time.sleep(10)
 
         all_stopped = self.wait_inf_state(VirtualMachine.STOPPED, 120, [VirtualMachine.RUNNING], ["/infrastructures/" + self.inf_id + "/vms/0"])
         self.assertTrue(all_stopped, msg="ERROR waiting the infrastructure to be stopped (timeout).")
@@ -328,6 +333,7 @@ class TestIM(unittest.TestCase):
         resp = self.server.getresponse()
         output = str(resp.read())
         self.assertEqual(resp.status, 200, msg="ERROR starting the vm:" + output)
+        time.sleep(10)
 
         all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 120, [VirtualMachine.RUNNING], ["/infrastructures/" + self.inf_id + "/vms/0"])
         self.assertTrue(all_configured, msg="ERROR waiting the vm to be started (timeout).")
