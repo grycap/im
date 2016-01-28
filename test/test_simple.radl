@@ -11,4 +11,6 @@ disk.0.os.credentials.password = 'yoyoyo' and
 disk.0.os.name = 'linux'
 )
 
+contextualize ()
+
 deploy front 1 
