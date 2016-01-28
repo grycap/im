@@ -43,7 +43,7 @@ Next tables summaries the resources and the HTTP methods available.
 +=============+=====================================================+==================================================+
 | **GET**     | **Get** the specified property ``property_name``    | **Get** the specified property ``property_name`` |
 |             | associated to the machine ``vmId`` in ``infId``     | associated to the infrastructure ``infId``.      |
-|             |                                                     | It has two properties: ``contmsg`` and ``radl``  |
+|             | It has one special property: ``contmsg``            | It has two properties: ``contmsg`` and ``radl``  |
 +-------------+-----------------------------------------------------+--------------------------------------------------+
 
 +-------------+--------------------------------------------+---------------------------------------------+
@@ -166,7 +166,9 @@ GET ``http://imserver.com/infrastructures/<infId>/vms/<vmId>/<property_name>``
    :fail response: 401, 404, 400
 
    Return property ``property_name`` from to the virtual machine with ID 
-   ``vmId`` associated to the infrastructure with ID ``infId``.
+   ``vmId`` associated to the infrastructure with ID ``infId``. It also has one
+   special property ``contmsg`` that provides a string with the contextualization message
+   of this VM. 
 
 PUT ``http://imserver.com/infrastructures/<infId>/vms/<vmId>``
    :body: ``RADL document``
