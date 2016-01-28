@@ -103,10 +103,13 @@ def get_media_type(header):
 	Function to get only the header media type
 	"""
 	accept = bottle.request.headers.get(header)
-	pos = accept.find(";")
-	if pos != -1:
-		accept = accept[:pos]
-	return accept.strip()
+	if accept:
+		pos = accept.find(";")
+		if pos != -1:
+			accept = accept[:pos]
+		return accept.strip()
+	else:
+		return accept
 
 @app.route('/infrastructures/:id', method='DELETE')
 def RESTDestroyInfrastructure(id=None):
