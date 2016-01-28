@@ -103,7 +103,7 @@ def get_media_type(header):
 	"""
 	accept = bottle.request.headers.get(header)
 	pos = accept.find(";")
-	if pos != 1:
+	if pos != -1:
 		accept = accept[:pos]
 	return accept.strip()
 
