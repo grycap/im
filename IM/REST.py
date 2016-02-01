@@ -180,13 +180,13 @@ def RESTGetInfrastructureProperty(id=None, prop=None):
 			bottle.response.content_type = "application/json"
 			res = InfrastructureManager.GetInfrastructureState(id, auth)
 			res = json.dumps(res)
-		elif prop == "otputs":
+		elif prop == "outputs":
 			bottle.response.content_type = "application/json"
 			sel_inf = InfrastructureManager.get_infrastructure(id, auth)
 			if "TOSCA" in sel_inf.extra_info:
 				res = Tosca(sel_inf.extra_info["TOSCA"]).get_outputs(sel_inf)
 			else:
-				bottle.abort(403, "'otputs' infrastructure property is not valid in this infrastructure")
+				bottle.abort(403, "'outputs' infrastructure property is not valid in this infrastructure")
 			res = json.dumps(res)
 		else:
 			bottle.abort(403, "Incorrect infrastructure property")
@@ -257,7 +257,7 @@ def RESTCreateInfrastructure():
 		# Store the TOSCA document
 		if tosca_data:
 			sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
-			sel_inf.extra_info['TOSCA'] = radl_data
+			sel_inf.extra_info['TOSCA'] = tosca_data
 		
 		bottle.response.content_type = "text/uri-list"
 		return "http://" + bottle.request.environ['HTTP_HOST'] + "/infrastructures/" + str(inf_id)
@@ -404,7 +404,7 @@ def RESTAddResource(id=None):
 		# Replace the TOSCA document
 		if tosca_data:
 			sel_inf = InfrastructureManager.get_infrastructure(id, auth)
-			sel_inf.extra_info['TOSCA'] = radl_data
+			sel_inf.extra_info['TOSCA'] = tosca_data
 		
 		res = ""
 		for vm_id in vm_ids:

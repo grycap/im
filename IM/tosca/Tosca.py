@@ -77,17 +77,6 @@ class Tosca:
 			f.flush()
 			self.tosca = IndigoToscaTemplate(f.name)
 
-	@staticmethod
-	def is_tosca(yaml_string):
-		"""
-		Check if a string seems to be a tosca document
-		Check if it has the strings 'tosca_definitions_version' and 'tosca_simple_yaml'
-		"""
-		if yaml_string.find("tosca_definitions_version") != -1 and yaml_string.find("tosca_simple_yaml") != -1:
-			return True
-		else:
-			return False
-
 	def to_radl(self):
 		"""
 		Converts the current ToscaTemplate object in a RADL object 
@@ -348,7 +337,7 @@ class Tosca:
 				if script_path.endswith(".yaml") or script_path.endswith(".yml"):
 					if env:
 						for var_name, var_value in env.iteritems():
-							variables += "    %s: %s " % (var_name, var_value) + "\n"
+							variables += '    %s: "%s" ' % (var_name, var_value) + "\n"
 						variables += "\n"
 
 					recipe_list.append(script_content)
@@ -452,7 +441,7 @@ class Tosca:
 			return func_name in ["concat", "token"]
 		return False 
 
-	def _get_intrinsic_value(self, func, node):
+	def _get_intrinsic_value(self, func, node, inf_info):
 		if isinstance(func, dict) and len(func) == 1:
 			func_name = list(func.keys())[0]
 			if func_name == "concat":
@@ -460,7 +449,7 @@ class Tosca:
 				res = ""
 				for item in items:
 					if is_function(item):
-						res += str(self._final_function_result(item, node))
+						res += str(self._final_function_result(item, node, inf_info))
 					else:
 						res += str(item)
 				return res
@@ -483,7 +472,7 @@ class Tosca:
 				Tosca.logger.warn("Intrinsic function %s not supported." % func_name)
 				return None
 
-	def _get_attribute_result(self, func, node):
+	def _get_attribute_result(self, func, node, inf_info):
 		"""Get an attribute value of an entity defined in the service template
 	
 		Node template attributes values are set in runtime and therefore its the
@@ -516,43 +505,78 @@ class Tosca:
 					node = n
 					break
 
-		if attribute_name == "tosca_id":
-			if node_name in ["HOST", "SELF"]: 
-				return "{{ IM_NODE_VMID }}"
+		if inf_info:
+			vm_list = inf_info.get_vm_list_by_system_name()
+			
+			if node.name not in vm_list:
+				Tosca.logger.warn("There are no VM associated with the name %s." % node.name)
+				return None
 			else:
-				return "{{ hostvars[groups['%s'][0]]['IM_NODE_VMID'] }}" % node.name
-		elif attribute_name == "tosca_name":
-			return node.name
-		elif attribute_name == "private_address":
-			# TODO: we suppose that iface 1 is the private one 
-			if node_name in ["HOST", "SELF"]: 
-				return "{{ IM_NODE_NET_1_IP }}"
-			else:
-				return "{{ hostvars[groups['%s'][0]]['IM_NODE_NET_1_IP'] }}" % node.name
-		elif attribute_name == "public_address":
-			if node_name in ["HOST", "SELF"]: 
-				return "{{ IM_NODE_ANSIBLE_IP }}"
-			else:
-				return "{{ hostvars[groups['%s'][0]]['IM_NODE_ANSIBLE_IP'] }}" % node.name
-		elif attribute_name == "ip_address": 
-			root_type = Tosca._get_root_parent_type(node).type
-			if root_type == "tosca.nodes.network.Port":
-				order = node.get_property_value('order')
-				return "{{ hostvars[groups['%s'][0]]['IM_NODE_NET_%s_IP'] }}" % (node.name, order)
-			elif root_type == "tosca.capabilities.Endpoint":
-				# TODO: check this
-				if node_name in ["HOST", "SELF"]: 
-					return "{{ IM_NODE_ANSIBLE_IP }}"
+				# Always assume that there will be only one VM per group
+				vm = vm_list[node.name][0]
+			
+			if attribute_name == "tosca_id":
+				return vm.id
+			elif attribute_name == "tosca_name":
+				return node.name
+			elif attribute_name == "private_address":
+				return vm.getPrivateIP()
+			elif attribute_name == "public_address":
+				return vm.getPublicIP()
+			elif attribute_name == "ip_address": 
+				root_type = Tosca._get_root_parent_type(node).type
+				if root_type == "tosca.nodes.network.Port":
+					order = node.get_property_value('order')
+					return vm.getNumNetworkWithConnection(order)
+				elif root_type == "tosca.capabilities.Endpoint":
+					if vm.getPublicIP():
+						return vm.getPublicIP()
+					else:
+						return vm.getPrivateIP()
 				else:
-					return "{{ hostvars[groups['%s'][0]]['IM_NODE_ANSIBLE_IP'] }}" % node.name
+					Tosca.logger.warn("Attribute ip_address only supported in tosca.nodes.network.Port and tosca.capabilities.Endpoint nodes.")
+					return None
 			else:
-				Tosca.logger.warn("Attribute ip_address only supported in tosca.nodes.network.Port and tosca.capabilities.Endpoint nodes.")
+				Tosca.logger.warn("Attribute %s not supported." % attribute_name)
 				return None
 		else:
-			Tosca.logger.warn("Attribute %s not supported." % attribute_name)
-			return None
+			if attribute_name == "tosca_id":
+				if node_name in ["HOST", "SELF"]: 
+					return "{{ IM_NODE_VMID }}"
+				else:
+					return "{{ hostvars[groups['%s'][0]]['IM_NODE_VMID'] }}" % node.name
+			elif attribute_name == "tosca_name":
+				return node.name
+			elif attribute_name == "private_address":
+				# TODO: we suppose that iface 1 is the private one 
+				if node_name in ["HOST", "SELF"]: 
+					return "{{ IM_NODE_PRIVATE_IP }}"
+				else:
+					return "{{ hostvars[groups['%s'][0]]['IM_NODE_PRIVATE_IP'] }}" % node.name
+			elif attribute_name == "public_address":
+				if node_name in ["HOST", "SELF"]: 
+					return "{{ IM_NODE_PUBLIC_IP }}"
+				else:
+					return "{{ hostvars[groups['%s'][0]]['IM_NODE_PUBLIC_IP'] }}" % node.name
+			elif attribute_name == "ip_address": 
+				root_type = Tosca._get_root_parent_type(node).type
+				if root_type == "tosca.nodes.network.Port":
+					order = node.get_property_value('order')
+					return "{{ hostvars[groups['%s'][0]]['IM_NODE_NET_%s_IP'] }}" % (node.name, order)
+				elif root_type == "tosca.capabilities.Endpoint":
+					# TODO: check this
+					if node_name in ["HOST", "SELF"]: 
+						return "{{ IM_NODE_PUBLIC_IP }}"
+					else:
+						return "{{ hostvars[groups['%s'][0]]['IM_NODE_PUBLIC_IP'] }}" % node.name
+				else:
+					Tosca.logger.warn("Attribute ip_address only supported in tosca.nodes.network.Port and tosca.capabilities.Endpoint nodes.")
+					return None
+			else:
+				Tosca.logger.warn("Attribute %s not supported." % attribute_name)
+				return None
 		
-	def _final_function_result(self, func, node):
+	def _final_function_result(self, func, node, inf_info=None):
 		"""
 		Take a translator.toscalib.functions.Function and return the final result
 		(in some cases the result of a function is another function)
@@ -563,13 +587,13 @@ class Tosca:
 
 		if isinstance(func, Function):
 			if isinstance(func, GetAttribute):
-				func = self._get_attribute_result(func, node)
+				func = self._get_attribute_result(func, node, inf_info)
 			while isinstance(func, Function):
 				func = func.result()
 
 		if isinstance(func, dict):
 			if self._is_intrinsic(func):
-				func = self._get_intrinsic_value(func, node)				
+				func = self._get_intrinsic_value(func, node, inf_info)				
 		
 		if func is None:
 			# TODO: resolve function values related with run-time values as IM or ansible variables 
@@ -1009,3 +1033,16 @@ class Tosca:
 			result.append(yamlo1)
 
 		return yaml.dump(result, default_flow_style=False, explicit_start=True, width=256)
+	
+	def get_outputs(self, inf_info):
+		"""
+		Get the outputs of the TOSCA document using the InfrastructureInfo 
+		object 'inf_info' to get the data of the VMs
+		"""
+		res = {}
+
+		for output in self.tosca.outputs:
+			val = self._final_function_result(output.attrs.get(output.VALUE), None, inf_info)
+			res[output.name] = val
+			
+		return res
