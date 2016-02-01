@@ -173,3 +173,7 @@ IM 1.4.2
     * Code improvements in OpenStack, OpenNebula and FogBow connectors
     * Added workaround to problems in ansible_launcher with HOSTS_PATTERNS_CACHE
     * Bugfixes in REST API
+
+IM 1.4.3
+    * Add IM_NODE_PUBLIC_IP and IM_NODE_PRIVATE_IP ansible variables
+    * Bugfixes in REST API
