@@ -39,7 +39,8 @@ Next tables summaries the resources and the HTTP methods available.
 +=============+=====================================================+====================================================+
 | **GET**     | | **Get** the specified property ``property_name``  | | **Get** the specified property ``property_name`` |
 |             | | associated to the machine ``vmId`` in ``infId``.  | | associated to the infrastructure ``infId``.      |
-|             | | It has one special property: ``contmsg``.         | | It has two properties: ``contmsg`` and ``radl``. |
+|             | | It has one special property: ``contmsg``.         | | It has four properties: ``contmsg``, ``radl``,   |
+|             |                                                     | | ``state`` and ``outputs``.                       |
 +-------------+-----------------------------------------------------+----------------------------------------------------+
 
 +-------------+-----------------------------------------------+------------------------------------------------+
@@ -80,6 +81,7 @@ GET ``http://imserver.com/infrastructures/<infId>/<property_name>``
    :fail response: 401, 404, 400, 403
 
    Return property ``property_name`` associated to the infrastructure with ID ``infId``. It has three properties:
+      :``outputs``: in case of TOSCA documents it will return a JSON object with the outputs of the TOSCA document. 
       :``contmsg``: a string with the contextualization message. 
       :``radl``: a string with the original specified RADL of the infrastructure. 
       :``state``: a JSON object with two elements:
