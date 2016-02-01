@@ -180,6 +180,14 @@ def RESTGetInfrastructureProperty(id=None, prop=None):
 			bottle.response.content_type = "application/json"
 			res = InfrastructureManager.GetInfrastructureState(id, auth)
 			res = json.dumps(res)
+		elif prop == "otputs":
+			bottle.response.content_type = "application/json"
+			sel_inf = InfrastructureManager.get_infrastructure(id, auth)
+			if "TOSCA" in sel_inf.extra_info:
+				res = Tosca(sel_inf.extra_info["TOSCA"]).get_outputs(sel_inf)
+			else:
+				bottle.abort(403, "'otputs' infrastructure property is not valid in this infrastructure")
+			res = json.dumps(res)
 		else:
 			bottle.abort(403, "Incorrect infrastructure property")
 		return str(res)
@@ -230,17 +238,26 @@ def RESTCreateInfrastructure():
 	try:
 		content_type = get_media_type('Content-Type')
 		radl_data = bottle.request.body.read()
+		tosca_data = None
 		
 		if content_type:
 			if content_type == "application/json":
 				radl_data = parse_radl_json(radl_data)
 			elif content_type == "text/yaml":
+				tosca_data = radl_data
 				radl_data = Tosca(radl_data).to_radl()
-			elif content_type != "text/plain":
+			elif content_type in ["text/plain","*/*","text/*"]:
+				content_type = "text/plain"
+			else:
 				bottle.abort(415, "Unsupported Media Type %s" % content_type)
 				return False
 
 		inf_id = InfrastructureManager.CreateInfrastructure(radl_data, auth)
+		
+		# Store the TOSCA document
+		if tosca_data:
+			sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
+			sel_inf.extra_info['TOSCA'] = radl_data
 		
 		bottle.response.content_type = "text/uri-list"
 		return "http://" + bottle.request.environ['HTTP_HOST'] + "/infrastructures/" + str(inf_id)
@@ -270,9 +287,9 @@ def RESTGetVMInfo(infid=None, vmid=None):
 			if accept == "application/json":
 				bottle.response.content_type = accept
 				info = dump_radl_json(radl, enter="", indent="")
-			elif accept == "text/plain":
+			elif accept in ["text/plain","*/*","text/*"]:
 				info = str(radl)
-				bottle.response.content_type = accept
+				bottle.response.content_type = "text/plain"
 			else:
 				bottle.abort(404, "Unsupported Accept Media Type: %s" % accept)
 				return False
@@ -320,8 +337,8 @@ def RESTGetVMProperty(infid=None, vmid=None, prop=None):
 				bottle.response.content_type = accept
 				if isinstance(info, str) or isinstance(info, unicode):
 					info = '"' + info + '"'
-			elif accept == "text/plain":
-				bottle.response.content_type = accept
+			elif accept in ["text/plain","*/*","text/*"]:
+				bottle.response.content_type = "text/plain"
 			else:
 				bottle.abort(404, "Unsupported Accept Media Type: %s" % accept)
 				return False
@@ -368,17 +385,26 @@ def RESTAddResource(id=None):
 
 		content_type = get_media_type('Content-Type')
 		radl_data = bottle.request.body.read()
+		tosca_data = None
 		
 		if content_type:
 			if content_type == "application/json":
 				radl_data = parse_radl_json(radl_data)
 			elif content_type == "text/yaml":
+				tosca_data  = radl_data
 				radl_data = Tosca(radl_data).to_radl()
-			elif content_type != "text/plain":
+			elif content_type in ["text/plain","*/*","text/*"]:
+				content_type = "text/plain"
+			else:
 				bottle.abort(415, "Unsupported Media Type %s" % content_type)
 				return False
 
 		vm_ids = InfrastructureManager.AddResource(id, radl_data, auth, context)
+
+		# Replace the TOSCA document
+		if tosca_data:
+			sel_inf = InfrastructureManager.get_infrastructure(id, auth)
+			sel_inf.extra_info['TOSCA'] = radl_data
 		
 		res = ""
 		for vm_id in vm_ids:
@@ -456,7 +482,9 @@ def RESTAlterVM(infid=None, vmid=None):
 		if content_type:
 			if content_type == "application/json":
 				radl_data = parse_radl_json(radl_data)
-			elif content_type != "text/plain":
+			elif content_type in ["text/plain","*/*","text/*"]:
+				content_type = "text/plain"
+			else:
 				bottle.abort(415, "Unsupported Media Type %s" % content_type)
 				return False
 		
@@ -518,7 +546,9 @@ def RESTReconfigureInfrastructure(id=None):
 			if content_type:
 				if content_type == "application/json":
 					radl_data = parse_radl_json(radl_data)
-				elif content_type != "text/plain":
+				elif content_type in ["text/plain","*/*","text/*"]:
+					content_type = "text/plain"
+				else:
 					bottle.abort(415, "Unsupported Media Type %s" % content_type)
 					return False
 		else:
