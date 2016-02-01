@@ -377,7 +377,11 @@ class ConfManager(threading.Thread):
 				
 				if self.inf.vm_master and vm.id == self.inf.vm_master.id:
 					node_line += ' ansible_connection=local'
-				
+
+				if vm.getPublicIP():
+					node_line += ' IM_NODE_PUBLIC_IP=' + vm.getPublicIP()
+				if vm.getPrivateIP():
+					node_line += ' IM_NODE_PRIVATE_IP=' + vm.getPrivateIP()				
 				node_line += ' IM_NODE_HOSTNAME=' + nodename
 				node_line += ' IM_NODE_FQDN=' + nodename + "." + nodedom
 				node_line += ' IM_NODE_DOMAIN=' + nodedom
