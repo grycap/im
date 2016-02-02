@@ -394,7 +394,7 @@ topology_template:
             distribution: ubuntu 
  
     test_db:
-      type: tosca.nodes.Database.MySQL
+      type: tosca.nodes.indigo.Database.MySQL
       properties:
         name: { get_input: db_name }
         user: { get_input: db_user }
@@ -439,6 +439,11 @@ topology_template:
            architecture: x86_64
            type: linux
            distribution: ubuntu
+           
+
+  outputs:
+    server_url:
+      value: { concat: [ 'http://', get_attribute: [ web_server, public_address ], '/' ] }
             """
 
         self.server.request('POST', "/infrastructures", body = tosca, headers = {'AUTHORIZATION' : self.auth_data, 'Content-Type':'text/yaml'})
@@ -451,7 +456,16 @@ topology_template:
         all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 600)
         self.assertTrue(all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
-    def test_97_destroy(self):
+    def test_96_get_outputs(self):
+        self.server.request('GET', "/infrastructures/" + self.inf_id + "/outputs", headers = {'Authorization' : self.auth_data})
+        resp = self.server.getresponse()
+        output = str(resp.read())
+        self.assertEqual(resp.status, 200, msg="ERROR getting TOSCA outputs:" + output)
+        res = json.loads(output)
+        server_url = res['server_url']
+        self.assertRegexpMatches(server_url, 'http://\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/', msg="Unexpected outputs: " + output)
+
+    def test_98_destroy(self):
         self.server.request('DELETE', "/infrastructures/" + self.inf_id, headers = {'Authorization' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
