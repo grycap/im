@@ -14,6 +14,9 @@ contextualization system to enable the installation and configuration of all the
 user required applications providing the user with a fully functional
 infrastructure.
 
+This version evolved in the INDIGO-Datacloud project (https://www.indigo-datacloud.eu/) has
+added support to TOSCA documents as input for the infrastructure creation.
+
 Read the documentation and more at http://www.grycap.upv.es/im.
 
 There is also an Infrastructure Manager YouTube reproduction list with a set of videos with demos

@@ -84,6 +84,8 @@ class InfrastructureInfo:
 		"""Flag to specify that the configuration threads of this inf has finished successfully or with errors."""
 		self.conf_threads = []
 		""" List of configuration threads."""
+		self.extra_info = {}
+		""" Extra information about the Infrastructure."""
 	
 	def __getstate__(self):
 		"""
