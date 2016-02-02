@@ -40,7 +40,7 @@ Next tables summaries the resources and the HTTP methods available.
 | **GET**     | | **Get** the specified property ``property_name``  | | **Get** the specified property ``property_name`` |
 |             | | associated to the machine ``vmId`` in ``infId``.  | | associated to the infrastructure ``infId``.      |
 |             | | It has one special property: ``contmsg``.         | | It has three properties: ``contmsg``, ``radl``,  |
-|             | | It has one special property: ``contmsg``.         | | and ``state``.                                   |
+|             |                                                     | | and ``state``.                                   |
 +-------------+-----------------------------------------------------+----------------------------------------------------+
 
 +-------------+-----------------------------------------------+------------------------------------------------+
