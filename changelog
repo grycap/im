@@ -177,3 +177,4 @@ IM 1.4.2
 IM 1.4.3
     * Add IM_NODE_PUBLIC_IP and IM_NODE_PRIVATE_IP ansible variables
     * Bugfixes in REST API
+    * Modify Docker connector using CpuShares as defined in swarm
