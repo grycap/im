@@ -392,7 +392,8 @@ def RESTAddResource(id=None):
 				radl_data = parse_radl_json(radl_data)
 			elif content_type == "text/yaml":
 				tosca_data  = radl_data
-				radl_data = Tosca(radl_data).to_radl()
+				sel_inf = InfrastructureManager.get_infrastructure(id, auth)
+				radl_data = Tosca(radl_data).to_radl(sel_inf)
 			elif content_type in ["text/plain","*/*","text/*"]:
 				content_type = "text/plain"
 			else:
