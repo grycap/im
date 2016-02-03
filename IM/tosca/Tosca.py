@@ -77,9 +77,12 @@ class Tosca:
 			f.flush()
 			self.tosca = IndigoToscaTemplate(f.name)
 
-	def to_radl(self):
+	def to_radl(self, inf_info = None):
 		"""
-		Converts the current ToscaTemplate object in a RADL object 
+		Converts the current ToscaTemplate object in a RADL object
+		If the inf_info parameter is not None, it is an AddResource and
+		we must check the number of resources to correctly compute the
+		number of nodes to deploy  
 		"""
 
 		relationships = []
@@ -114,8 +117,9 @@ class Tosca:
 					Tosca._add_node_nets(node, radl, sys, self.tosca.nodetemplates)
 					radl.systems.append(sys)
 					# Add the deploy element for this system
-					count, min_instances, _, default_instances = Tosca._get_scalable_properties(node)
+					min_instances, _, default_instances, count = Tosca._get_scalable_properties(node)
 					if count is not None:
+						# we must check the correct number of instances to deploy 
 						num_instances = count
 					elif default_instances is not None:
 						num_instances = default_instances
@@ -123,6 +127,9 @@ class Tosca:
 						num_instances = min_instances
 					else:
 						num_instances = 1
+					
+					num_instances = num_instances - self._get_num_instances(sys.name, inf_info)
+					
 					if num_instances > 0:
 						dep = deploy(sys.name, num_instances)
 						radl.deploys.append(dep)
@@ -147,6 +154,19 @@ class Tosca:
 			radl.contextualize = contextualize(cont_intems)
 	
 		return self._complete_radl_networks(radl)
+
+	def _get_num_instances(self, sys_name, inf_info):
+		"""
+		Get the current number of instances of system type name sys_name
+		"""
+		current_num = 0
+
+		if inf_info:
+			vm_list = inf_info.get_vm_list_by_system_name()
+			if sys_name in vm_list:
+				current_num = len(vm_list[sys_name])
+		
+		return current_num
 
 	@staticmethod
 	def _add_node_nets(node, radl, system, nodetemplates): 

@@ -338,13 +338,13 @@ class TestIM(unittest.TestCase):
         all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 120, [VirtualMachine.RUNNING], ["/infrastructures/" + self.inf_id + "/vms/0"])
         self.assertTrue(all_configured, msg="ERROR waiting the vm to be started (timeout).")
 
-    def test_95_destroy(self):
+    def test_92_destroy(self):
         self.server.request('DELETE', "/infrastructures/" + self.inf_id, headers = {'Authorization' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
         self.assertEqual(resp.status, 200, msg="ERROR destroying the infrastructure:" + output)
         
-    def test_96_create_tosca(self):
+    def test_93_create_tosca(self):
         """
         Test the CreateInfrastructure IM function with a TOSCA document
         """
@@ -456,7 +456,7 @@ topology_template:
         all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 600)
         self.assertTrue(all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
-    def test_96_get_outputs(self):
+    def test_94_get_outputs(self):
         self.server.request('GET', "/infrastructures/" + self.inf_id + "/outputs", headers = {'Authorization' : self.auth_data})
         resp = self.server.getresponse()
         output = str(resp.read())
@@ -464,6 +464,125 @@ topology_template:
         res = json.loads(output)
         server_url = res['server_url']
         self.assertRegexpMatches(server_url, 'http://\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/', msg="Unexpected outputs: " + output)
+
+    def test_95_add_tosca(self):
+        """
+        Test the AddResource IM function with a TOSCA document
+        """
+        tosca = """
+tosca_definitions_version: tosca_simple_yaml_1_0
+ 
+description: TOSCA test for the IM
+
+
+topology_template:
+  inputs:
+    db_name:
+      type: string
+      default: world
+    db_user:
+      type: string
+      default: dbuser
+    db_password:
+      type: string
+      default: pass
+    mysql_root_password:
+      type: string
+      default: mypass
+
+  node_templates:
+  
+    apache:
+      type: tosca.nodes.WebServer.Apache
+      requirements:
+        - host: web_server
+ 
+    web_server:
+      type: tosca.nodes.indigo.Compute
+      properties:
+        public_ip: yes
+      capabilities:
+        scalable:
+          properties:
+           count: 2
+        # Host container properties
+        host:
+         properties:
+           num_cpus: 1
+           mem_size: 1 GB
+        # Guest Operating System properties
+        os:
+          properties:
+            # host Operating System image properties
+            type: linux 
+            distribution: ubuntu 
+ 
+    test_db:
+      type: tosca.nodes.indigo.Database.MySQL
+      properties:
+        name: { get_input: db_name }
+        user: { get_input: db_user }
+        password: { get_input: db_password }
+        root_password: { get_input: mysql_root_password }
+      artifacts:
+        db_content:
+          file: http://downloads.mysql.com/docs/world.sql.gz
+          type: tosca.artifacts.File
+      requirements:
+        - host:
+            node: mysql
+      interfaces:
+        Standard:
+          configure:
+            implementation: mysql/mysql_db_import.yml
+            inputs:
+              db_name: { get_property: [ SELF, name ] }
+              db_data: { get_artifact: [ SELF, db_content ] }
+              db_name: { get_property: [ SELF, name ] }
+              db_user: { get_property: [ SELF, user ] }
+ 
+    mysql:
+      type: tosca.nodes.DBMS.MySQL
+      properties:
+        root_password: { get_input: mysql_root_password }
+      requirements:
+        - host:
+            node: db_server
+ 
+    db_server:
+      type: tosca.nodes.Compute
+      capabilities:
+        # Host container properties
+        host:
+         properties:
+           num_cpus: 1
+           disk_size: 10 GB
+           mem_size: 4 GB
+        os:
+         properties:
+           architecture: x86_64
+           type: linux
+           distribution: ubuntu
+           
+
+  outputs:
+    server_url:
+      value: { concat: [ 'http://', get_attribute: [ web_server, public_address ], '/' ] }
+            """
+
+        self.server.request('POST', "/infrastructures/" + self.inf_id, body = tosca, headers = {'AUTHORIZATION' : self.auth_data, 'Content-Type':'text/yaml'})
+        resp = self.server.getresponse()
+        output = str(resp.read())
+        self.assertEqual(resp.status, 200, msg="ERROR adding resources:" + output)
+
+        self.server.request('GET', "/infrastructures/" + self.inf_id, headers = {'AUTHORIZATION' : self.auth_data})
+        resp = self.server.getresponse()
+        output = str(resp.read())
+        self.assertEqual(resp.status, 200, msg="ERROR getting the infrastructure info:" + output)
+        vm_ids = output.split("\n")
+        self.assertEqual(len(vm_ids), 3, msg="ERROR getting infrastructure info: Incorrect number of VMs(" + str(len(vm_ids)) + "). It must be 2")
+        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 600)
+        self.assertTrue(all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
     def test_98_destroy(self):
         self.server.request('DELETE', "/infrastructures/" + self.inf_id, headers = {'Authorization' : self.auth_data})
