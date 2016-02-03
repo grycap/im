@@ -181,7 +181,7 @@ class DockerCloudConnector(CloudConnector):
 			cont_data['Volumes'] = volumes
 		
 		HostConfig = {}
-		HostConfig['CpusetCpus'] = "0-%d" % cpu
+		HostConfig['CpuShares'] = "%d" % cpu
 		HostConfig['Memory'] = memory
 		HostConfig['PortBindings'] = self._generate_port_bindings(outports, ssh_port)
 		HostConfig['Binds'] = self._generate_volumes_binds(system)
