@@ -34,9 +34,11 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
 	def __init__(self, cloud_info):
 		# check if the user has specified the http protocol in the host and remove it
+		self.protocol = "http"
 		pos = cloud_info.server.find('://')
 		if pos != -1:
 			cloud_info.server = cloud_info.server[pos+3:]
+			self.protocol = cloud_info.server[:pos]
 		LibCloudCloudConnector.__init__(self, cloud_info)
 
 	def get_driver(self, auth_data):
@@ -59,7 +61,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
 			if 'username' in auth and 'password' in auth and 'tenant' in auth:			
 				parameters = {"auth_version":'3.x_password',
-							  "auth_url":"https://" + self.cloud.server + ":" + str(self.cloud.port),
+							  "auth_url":self.protocol + "://" + self.cloud.server + ":" + str(self.cloud.port),
 							  "auth_token":None,
 							  "service_type":None,
 							  "service_name":None,
