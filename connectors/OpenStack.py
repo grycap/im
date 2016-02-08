@@ -58,8 +58,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 				auth = auths[0]
 
 			if 'username' in auth and 'password' in auth and 'tenant' in auth:			
-				parameters = {"auth_version":'2.0_password',
-							  "auth_url":"http://" + self.cloud.server + ":" + str(self.cloud.port),
+				parameters = {"auth_version":'3.x_password',
+							  "auth_url":"https://" + self.cloud.server + ":" + str(self.cloud.port),
 							  "auth_token":None,
 							  "service_type":None,
 							  "service_name":None,
@@ -72,6 +72,12 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 			else:
 				self.logger.error("No correct auth data has been specified to OpenStack: username, password and tenant")
 				raise Exception("No correct auth data has been specified to OpenStack: username, password and tenant")
+
+			# To avoid errors with host certificates
+			# if you want to do it in a more secure way check this:
+			# http://libcloud.readthedocs.org/en/latest/other/ssl-certificate-validation.html
+			import libcloud.security
+			libcloud.security.VERIFY_SSL_CERT = False
 			
 			cls = get_driver(Provider.OPENSTACK)
 			driver = cls(auth['username'], auth['password'],
@@ -414,20 +420,23 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
 			success = node.destroy()
 			
-			public_key = vm.getRequestedSystem().getValue('disk.0.os.credentials.public_key')
-			if vm.keypair and public_key is None or len(public_key) == 0 or (len(public_key) >= 1 and public_key.find('-----BEGIN CERTIFICATE-----') != -1):
-				# only delete in case of the user do not specify the keypair name
-				keypair = node.driver.get_key_pair(vm.keypair)
-				if keypair:
-					node.driver.delete_key_pair(keypair)
-			
-			self.delete_elastic_ips(node, vm)
-			
-			# Delete the EBS volumes
-			self.delete_volumes(vm)
-			
-			# Delete the SG if this is the last VM
-			self.delete_security_group(node, sgs, vm.inf, vm.id)
+			try:
+				public_key = vm.getRequestedSystem().getValue('disk.0.os.credentials.public_key')
+				if vm.keypair and public_key is None or len(public_key) == 0 or (len(public_key) >= 1 and public_key.find('-----BEGIN CERTIFICATE-----') != -1):
+					# only delete in case of the user do not specify the keypair name
+					keypair = node.driver.get_key_pair(vm.keypair)
+					if keypair:
+						node.driver.delete_key_pair(keypair)
+				
+				self.delete_elastic_ips(node, vm)
+				
+				# Delete the EBS volumes
+				self.delete_volumes(vm)
+				
+				# Delete the SG if this is the last VM
+				self.delete_security_group(node, sgs, vm.inf, vm.id)
+			except:
+				self.logger.exception("VM " + str(vm.id) + " successfully destroyed. But some errors in deleting other elements, Ignoring it.")
 			
 			if not success:
 				return (False, "Error destroying node: " + vm.id)
@@ -473,4 +482,4 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 				# If there are more than 1, we skip this step
 				self.logger.debug("There are active instances. Not removing the SG")
 		else:
-			self.logger.warn("No Security Group with name: " + sg.name)
+			self.logger.warn("No Security Groups to delete")
