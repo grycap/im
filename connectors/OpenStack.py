@@ -289,24 +289,61 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
 		return res
 	
-	def get_ip_pool(self, driver, fixed_ip):
+	def get_ip_pool(self, driver, fixed_ip = None, pool_name = None):
 		"""
 		Return the most suitable IP pool 
 		"""
 		pools = driver.ex_list_floating_ip_pools()
 		
-		if fixed_ip:
-			for pool in pools:
+		for pool in pools:
+			if pool_name:
+				if pool.name == pool_name:
+					return pool
+			else:
 				ips = pool.list_floating_ips()
-				
-				for ip in ips:
-					if ip.ip_address == fixed_ip:
+
+				if fixed_ip:	
+					for ip in ips:
+						if ip.ip_address == fixed_ip:
+							return pool
+				else:
+					if len(ips) > 0:
 						return pool
 	
-		#otherwise return the first pool
-		return pools[0]
+		#otherwise return None
+		return None
 	
-	def add_elastic_ip(self, vm, node, fixed_ip = None):
+	def manage_elastic_ips(self, vm, node):
+		"""
+		Manage the elastic IPs in case of EC2 and OpenStack
+
+		Arguments:
+		   - vm(:py:class:`IM.VirtualMachine`): VM information.
+		   - node(:py:class:`libcloud.compute.base.Node`): node object.		
+		"""
+		n = 0
+		requested_ips = []
+		while vm.getRequestedSystem().getValue("net_interface." + str(n) + ".connection"):
+			net_conn = vm.getRequestedSystem().getValue('net_interface.' + str(n) + '.connection')
+			net = vm.info.get_network_by_id(net_conn)
+			if net.isPublic():
+				fixed_ip = vm.getRequestedSystem().getValue("net_interface." + str(n) + ".ip")
+				pool_name = net.getValue("pool_name")
+				requested_ips.append((fixed_ip, pool_name))
+			n += 1
+		
+		for num, elem in enumerate(sorted(requested_ips, reverse=True)):
+			ip, pool_name = elem
+			if ip:
+				# It is a fixed IP
+				if ip not in node.public_ips:
+					# It has not been created yet, do it
+					self.add_elastic_ip(vm, node, ip, pool_name)
+			else:
+				if num >= len(node.public_ips):
+					self.add_elastic_ip(vm, node, None, pool_name)
+	
+	def add_elastic_ip(self, vm, node, fixed_ip = None, pool_name = None):
 		"""
 		Add an elastic IP to an instance
 
@@ -321,11 +358,17 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 				self.logger.debug("Add an Elastic/Floating IP")
 
 				if node.driver.ex_list_floating_ip_pools():
-					pool = self.get_ip_pool(node.driver, fixed_ip)
 					if fixed_ip:
 						floating_ip = node.driver.ex_get_floating_ip(fixed_ip)
 					else:
-						floating_ip = pool.create_floating_ip()
+						if pool_name:
+							self.logger.debug("Asking for pool name: %s." % pool_name)
+						pool = self.get_ip_pool(node.driver, fixed_ip, pool_name)
+						if pool:
+							floating_ip = pool.create_floating_ip()
+						else:
+							self.logger.error("Error adding a Floating IP: No pools available.")
+							return None
 					node.driver.ex_attach_floating_ip_to_node(node, floating_ip)
 					return floating_ip
 				else:
