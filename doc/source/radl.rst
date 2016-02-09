@@ -179,6 +179,10 @@ The supported features are:
 ``provider_id = <string>``
    Indicate the name of the network in a specific Cloud provider.
    The default value is ``''``.
+   
+``pool_name = <string>``
+   Indicate the name of floating ip pool to get the external IP (**Only for OpenStack**).
+   The default value is ``''``.
 
 System Features
 ---------------
