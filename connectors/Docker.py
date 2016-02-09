@@ -56,19 +56,18 @@ class DockerCloudConnector(CloudConnector):
 		"""
 
 		self.cert_file or os.path.isfile(self.cert_file)
-		
-		url = uriparse(self.cloud.server)
-		auths = auth_data.getAuthInfo(DockerCloudConnector.type, url[1])
+
+		auths = auth_data.getAuthInfo(DockerCloudConnector.type, self.cloud.server)
 		if not auths:
 			self.logger.error("No correct auth data has been specified to Docker.")
 			return None
 		else:
 			auth = auths[0]
 		
-		if url[0] == 'unix':
-			socket_path = "/" + url[1] + url[2]
+		if self.cloud.protocol == 'unix':
+			socket_path = "/" + self.cloud.server
 			conn = UnixHTTPConnection.UnixHTTPConnection(socket_path)
-		elif url[0] == 'https':
+		elif self.cloud.protocol == 'https':
 			if 'cert' in auth and 'key' in auth:
 				if os.path.isfile(self.cert_file) and os.path.isfile(self.key_file):
 					cert_file = self.cert_file 
@@ -77,12 +76,12 @@ class DockerCloudConnector(CloudConnector):
 					cert_file, key_file = self.get_user_cert_data(auth)
 					self.cert_file = cert_file
 					self.key_file = key_file
-				conn = httplib.HTTPSConnection(url[1], self.cloud.port, cert_file = cert_file, key_file = key_file)
+				conn = httplib.HTTPSConnection(self.cloud.server, self.cloud.port, cert_file = cert_file, key_file = key_file)
 			else:
-				conn = httplib.HTTPSConnection(url[1], self.cloud.port)
-		elif url[0] == 'http':
+				conn = httplib.HTTPSConnection(self.cloud.server, self.cloud.port)
+		elif self.cloud.protocol == 'http':
 			self.logger.warn("Using a unsecure connection to docker API!")
-			conn = httplib.HTTPConnection(url[1], self.cloud.port)
+			conn = httplib.HTTPConnection(self.cloud.server, self.cloud.port)
 
 		return conn
 
@@ -147,12 +146,11 @@ class DockerCloudConnector(CloudConnector):
 		   - cont_info(dict): JSON information about the container
 		"""
 
-		url = uriparse(self.cloud.server)
-		if url[0] == 'unix':
+		if self.cloud.protocol == 'unix':
 			# TODO: This will not get the correct IP if the hostname of the machine is not correctly set
 			public_ips = [socket.gethostbyname(socket.getfqdn())]
 		else:
-			public_ips = [socket.gethostbyname(url[1])]
+			public_ips = [socket.gethostbyname(self.cloud.server)]
 		private_ips = []
 		if str(cont_info["NetworkSettings"]["IPAddress"]):
 			private_ips.append(str(cont_info["NetworkSettings"]["IPAddress"]))

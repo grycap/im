@@ -32,15 +32,6 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 	type = "OpenStack"
 	"""str with the name of the provider."""
 
-	def __init__(self, cloud_info):
-		# check if the user has specified the http protocol in the host and remove it
-		self.protocol = "http"
-		pos = cloud_info.server.find('://')
-		if pos != -1:
-			cloud_info.server = cloud_info.server[pos+3:]
-			self.protocol = cloud_info.server[:pos]
-		LibCloudCloudConnector.__init__(self, cloud_info)
-
 	def get_driver(self, auth_data):
 		"""
 		Get the driver from the auth data
@@ -60,8 +51,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 				auth = auths[0]
 
 			if 'username' in auth and 'password' in auth and 'tenant' in auth:			
-				parameters = {"auth_version":'3.x_password',
-							  "auth_url":self.protocol + "://" + self.cloud.server + ":" + str(self.cloud.port),
+				parameters = {"auth_version":'2.0_password',
+							  "auth_url":self.cloud.protocol + "://" + self.cloud.server + ":" + str(self.cloud.port),
 							  "auth_token":None,
 							  "service_type":None,
 							  "service_name":None,
