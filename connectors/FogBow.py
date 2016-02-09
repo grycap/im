@@ -51,12 +51,19 @@ class FogBowCloudConnector(CloudConnector):
 	}
 	"""Dictionary with a map with the FogBow Request states to the IM states."""
 
-	def __init__(self, cloud_info):
-		# check if the user has specified the http protocol in the host and remove it
-		pos = cloud_info.server.find('://')
-		if pos != -1:
-			cloud_info.server = cloud_info.server[pos+3:]
-		CloudConnector.__init__(self, cloud_info)
+	def get_http_connection(self):
+		"""
+		Get the HTTPConnection object to contact the FogBow API
+
+		Returns(HTTPConnection or HTTPSConnection): HTTPConnection connection object
+		"""
+
+		if self.cloud.protocol == 'https':
+			conn = httplib.HTTPSConnection(self.cloud.server, self.cloud.port)
+		else:
+			conn = httplib.HTTPConnection(self.cloud.server, self.cloud.port)
+
+		return conn
 
 	def get_auth_headers(self, auth_data):
 		"""
@@ -155,7 +162,7 @@ class FogBowCloudConnector(CloudConnector):
 		
 		try:			
 			# First get the request info
-			conn = httplib.HTTPConnection(self.cloud.server, self.cloud.port)
+			conn = self.get_http_connection()
 			conn.request('GET', "/fogbow_request/" + vm.id, headers = headers) 
 			resp = conn.getresponse()
 			
@@ -178,7 +185,7 @@ class FogBowCloudConnector(CloudConnector):
 					return (True, vm)
 				else:
 					# Now get the instance info
-					conn = httplib.HTTPConnection(self.cloud.server, self.cloud.port)
+					conn = self.get_http_connection()
 					conn.request('GET', "/compute/" + instance_id, headers = headers) 
 					resp = conn.getresponse()
 					
@@ -227,7 +234,7 @@ class FogBowCloudConnector(CloudConnector):
 		
 		res = []
 		i = 0
-		conn = httplib.HTTPConnection(self.cloud.server, self.cloud.port)
+		conn = self.get_http_connection()
 
 		url = uriparse(system.getValue("disk.0.image.url"))
 		if url[1].startswith('http'):
@@ -317,7 +324,7 @@ class FogBowCloudConnector(CloudConnector):
 		
 		try:
 			# First get the request info
-			conn = httplib.HTTPConnection(self.cloud.server, self.cloud.port)
+			conn = self.get_http_connection()
 			conn.request('GET', "/fogbow_request/" + vm.id, headers = headers) 
 			resp = conn.getresponse()
 			
@@ -333,7 +340,7 @@ class FogBowCloudConnector(CloudConnector):
 					instance_id = None
 				
 				if instance_id:
-					conn = httplib.HTTPConnection(self.cloud.server, self.cloud.port)
+					conn = self.get_http_connection()
 					conn.request('DELETE', "/compute/" + instance_id, headers = headers) 
 					resp = conn.getresponse()	
 				
@@ -341,7 +348,7 @@ class FogBowCloudConnector(CloudConnector):
 					if resp.status != 404 and resp.status != 200:
 						return (False, "Error removing the VM: " + resp.reason + "\n" + output)
 
-			conn = httplib.HTTPConnection(self.cloud.server, self.cloud.port)
+			conn = self.get_http_connection()
 			conn.request('DELETE', "/fogbow_request/" + vm.id, headers = headers) 
 			resp = conn.getresponse()	
 		
