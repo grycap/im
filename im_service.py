@@ -184,36 +184,41 @@ def config_logging():
 	"""
 	Init the logging info
 	"""
-	log_dir = os.path.dirname(Config.LOG_FILE)
-	if not os.path.isdir(log_dir):
-		os.makedirs(log_dir)
-	
-	fileh = logging.handlers.RotatingFileHandler(filename=Config.LOG_FILE, maxBytes=Config.LOG_FILE_MAX_SIZE, backupCount=3)
-	formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-	fileh.setFormatter(formatter)
-	
 	try:
-		log_level = eval("logging." + Config.LOG_LEVEL)
-	except:
-		log_level = logging.DEBUG
-
-	logging.RootLogger.propagate = 0
-	logging.root.setLevel(logging.ERROR)
+		# First look at /etc/im/logging.conf file 
+		logging.config.fileConfig('/etc/im/logging.conf')
+	except Exception, ex:
+		print ex
+		log_dir = os.path.dirname(Config.LOG_FILE)
+		if not os.path.isdir(log_dir):
+			os.makedirs(log_dir)
+		
+		fileh = logging.handlers.RotatingFileHandler(filename=Config.LOG_FILE, maxBytes=Config.LOG_FILE_MAX_SIZE, backupCount=3)
+		formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+		fileh.setFormatter(formatter)
+		
+		try:
+			log_level = eval("logging." + Config.LOG_LEVEL)
+		except:
+			log_level = logging.DEBUG
 	
-	log = logging.getLogger('ConfManager')
-	log.setLevel(log_level)
-	log.propagate = 0
-	log.addHandler(fileh)
-	
-	log = logging.getLogger('CloudConnector')
-	log.setLevel(log_level)
-	log.propagate = 0
-	log.addHandler(fileh)
-	
-	log = logging.getLogger('InfrastructureManager')
-	log.setLevel(log_level)
-	log.propagate = 0
-	log.addHandler(fileh)
+		logging.RootLogger.propagate = 0
+		logging.root.setLevel(logging.ERROR)
+		
+		log = logging.getLogger('ConfManager')
+		log.setLevel(log_level)
+		log.propagate = 0
+		log.addHandler(fileh)
+		
+		log = logging.getLogger('CloudConnector')
+		log.setLevel(log_level)
+		log.propagate = 0
+		log.addHandler(fileh)
+		
+		log = logging.getLogger('InfrastructureManager')
+		log.setLevel(log_level)
+		log.propagate = 0
+		log.addHandler(fileh)
 
 def im_stop():
 	"""

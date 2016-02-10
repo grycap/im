@@ -31,6 +31,8 @@ class CloudInfo:
 		"""Server of the cloud provider"""
 		self.port = -1
 		"""Port of the cloud provider"""
+		self.protocol = ""
+		"""Protocol to connect to the cloud provider"""
 
 	def getCloudConnector(self):
 		"""
@@ -51,6 +53,8 @@ class CloudInfo:
 		res += "type = " + self.type + ", "
 		if self.server:
 			res += "server = " + self.server + ", "
+		if self.protocol:
+			res += "protocol = " + self.protocol + ", "
 		if self.port != -1:
 			res += "port = " + str(self.port) + ", "
 
@@ -74,10 +78,13 @@ class CloudInfo:
 					cloud_item.id = cloud_item.type + str(i)
 				try:
 					if 'host' in auth and auth['host']:
-						pos = auth['host'].find('://')
-						pos = auth['host'].find(':', pos+1)
+						pos_pr = auth['host'].find('://')
+						if pos_pr != -1:
+							cloud_item.protocol = auth['host'][:pos_pr]
+							pos_pr += 2
+						pos = auth['host'].find(':', pos_pr+1)
 						if pos != -1:
-							cloud_item.server = auth['host'][:pos]
+							cloud_item.server = auth['host'][pos_pr+1:pos]
 							cloud_item.port = int(auth['host'][pos+1:])
 						else:
 							cloud_item.server = auth['host']
