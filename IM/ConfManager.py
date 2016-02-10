@@ -859,7 +859,7 @@ class ConfManager(threading.Thread):
 		Returns: True if all the VMs are running or false otherwise
 		"""
 		timeout_retries = 0
-		retries = 0
+		retries = 1
 		delay = 10
 		wait = 0
 		while wait < timeout:

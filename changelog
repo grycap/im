@@ -177,3 +177,6 @@ IM 1.4.2
 IM 1.4.3
     * Add IM_NODE_PUBLIC_IP and IM_NODE_PRIVATE_IP ansible variables
     * Bugfixes in REST API
+    * Modify Docker connector using CpuShares as defined in swarm
+    * Enable to use a /etc/im/logging.conf file to config logging properties
+    * Bugfixes to OpenStack connector. Set default values to new versions.
