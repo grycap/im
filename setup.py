@@ -30,6 +30,7 @@ datafiles = [(os.path.join(install_path, root), [os.path.join(root, f) for f in 
 # Add other special files
 datafiles.append(('/etc/init.d', ['scripts/im']))
 datafiles.append(('/etc/im', ['etc/im.cfg']))
+datafiles.append(('/etc/im', ['etc/logging.conf']))
 
 setup(  name="IM", version=version, 
         author='GRyCAP - Universitat Politecnica de Valencia',
