@@ -3,6 +3,7 @@ recursive-include contextualization *
 include IM/tosca/tosca-types/custom_types.yaml
 include scripts/im
 include etc/im.cfg
+include etc/logging.conf
 include LICENSE
 include INSTALL
 include NOTICE

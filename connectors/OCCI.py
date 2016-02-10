@@ -76,12 +76,10 @@ class OCCICloudConnector(CloudConnector):
 		else:
 			auth = auths[0]
 
-		url = uriparse(self.cloud.server)
-		
-		if url[0] == 'https':
-			conn = self.get_https_connection(auth, url[1], self.cloud.port)
+		if self.cloud.protocol == 'https':
+			conn = self.get_https_connection(auth, self.cloud.server, self.cloud.port)
 		else:
-			conn = httplib.HTTPConnection(url[1], self.cloud.port)
+			conn = httplib.HTTPConnection(self.cloud.server, self.cloud.port)
 		
 		return conn
 
@@ -134,7 +132,7 @@ class OCCICloudConnector(CloudConnector):
 			for str_url in image_urls:
 				url = uriparse(str_url)
 				protocol = url[0]
-				if protocol in ['https', 'http'] and url[2] and (url[0] + "://" + url[1]) == (self.cloud.server + ":" + str(self.cloud.port)):
+				if protocol in ['https', 'http'] and url[2] and (url[0] + "://" + url[1]) == (self.cloud.protocol + "://" + self.cloud.server + ":" + str(self.cloud.port)):
 					res_system = radl_system.clone()
 	
 					res_system.getFeature("cpu.count").operator = "="

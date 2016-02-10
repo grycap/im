@@ -57,13 +57,11 @@ class KubernetesCloudConnector(CloudConnector):
 		Returns(HTTPConnection or HTTPSConnection): HTTPConnection connection object
 		"""
 
-		url = uriparse(self.cloud.server)
-		
-		if url[0] == 'https':
-			conn = httplib.HTTPSConnection(url[1], self.cloud.port)
-		elif url[0] == 'http':
+		if self.cloud.protocol == 'https':
+			conn = httplib.HTTPSConnection(self.cloud.server, self.cloud.port)
+		elif self.cloud.protocol == 'http':
 			self.logger.warn("Using a unsecure connection to Kubernetes API!")
-			conn = httplib.HTTPConnection(url[1], self.cloud.port)
+			conn = httplib.HTTPConnection(self.cloud.server, self.cloud.port)
 
 		return conn
 
