@@ -15,6 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import time
+import random
 from connectors.LibCloud import LibCloudCloudConnector
 from libcloud.compute.types import Provider, NodeState
 from libcloud.compute.providers import get_driver
@@ -369,7 +370,12 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 						else:
 							self.logger.error("Error adding a Floating IP: No pools available.")
 							return None
-					node.driver.ex_attach_floating_ip_to_node(node, floating_ip)
+					try:
+						node.driver.ex_attach_floating_ip_to_node(node, floating_ip)
+					except:
+						self.logger.exception("Error attaching a Floating IP to the node. Release it.")
+						floating_ip.delete()
+						return None
 					return floating_ip
 				else:
 					self.logger.error("Error adding a Floating IP: No pools available.")
@@ -396,54 +402,51 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
 	def create_security_group(self, driver, inf, radl):
 		res = None
-		try:
-			sg_name = "im-" + str(inf.id)
-			sg = self._get_security_group(driver, sg_name)
-
-			if not sg: 
-				self.logger.debug("Creating security group: " + sg_name)
-				try:
-					sg = driver.ex_create_security_group(sg_name, "Security group created by the IM")
-				except Exception, crex:
-					# First check if the SG does exist
-					sg = self._get_security_group(driver, sg_name)
-					if not sg:
-						# if not raise the exception
-						raise crex
-					else:
-						self.logger.debug("Security group: " + sg_name + " already created.")
-			
-			res = [sg]
-			
-			public_net = None
-			for net in radl.networks:
-				if net.isPublic():
-					public_net = net
-
-			if public_net:
-				outports = public_net.getOutPorts()
-				if outports:
-					for remote_port,remote_protocol,local_port,local_protocol in outports:
-						if local_port != 22 and local_port != 5099:						
-							protocol = remote_protocol
-							if remote_protocol != local_protocol:
-								self.logger.warn("Different protocols used in outports ignoring local port protocol!")								
-
-							driver.ex_create_security_group_rule(sg,protocol,remote_port, remote_port, '0.0.0.0/0')
-			
+		# Use the InfrastructureInfo lock to assure that only one VM create the SG
+		with inf._lock:
 			try:
-				driver.ex_create_security_group_rule(sg,'tcp',22, 22, '0.0.0.0/0')
-				driver.ex_create_security_group_rule(sg,'tcp',5099, 5099, '0.0.0.0/0')
+				sg_name = "im-" + str(inf.id)
+				sg = self._get_security_group(driver, sg_name)
+	
+				if not sg: 
+					self.logger.debug("Creating security group: " + sg_name)
+					sg = driver.ex_create_security_group(sg_name, "Security group created by the IM")
+				else:
+					return [sg]
 				
-				# open all the ports for the VMs in the security group
-				driver.ex_create_security_group_rule(sg,'tcp',1, 65535, source_security_group=sg)
-				driver.ex_create_security_group_rule(sg,'udp',1, 65535, source_security_group=sg)
-			except Exception, addex:
-				self.logger.warn("Exception adding SG rules. Probably the rules exists:" + str(addex))
-				pass
+				res = [sg]
+			except Exception:
+				self.logger.exception("Error Creating the Security group")
 			
-		except Exception:
-			self.logger.exception("Error Creating the Security group")
+		public_net = None
+		for net in radl.networks:
+			if net.isPublic():
+				public_net = net
+
+		if public_net:
+			outports = public_net.getOutPorts()
+			if outports:
+				for remote_port,remote_protocol,local_port,local_protocol in outports:
+					if local_port != 22 and local_port != 5099:						
+						protocol = remote_protocol
+						if remote_protocol != local_protocol:
+							self.logger.warn("Different protocols used in outports ignoring local port protocol!")								
+
+						try:
+							driver.ex_create_security_group_rule(sg,protocol,remote_port, remote_port, '0.0.0.0/0')
+						except Exception, ex:
+							self.logger.warn("Exception adding SG rules: " + str(ex))
+		
+		try:
+			driver.ex_create_security_group_rule(sg,'tcp',22, 22, '0.0.0.0/0')
+			driver.ex_create_security_group_rule(sg,'tcp',5099, 5099, '0.0.0.0/0')
+			
+			# open all the ports for the VMs in the security group
+			driver.ex_create_security_group_rule(sg,'tcp',1, 65535, source_security_group=sg)
+			driver.ex_create_security_group_rule(sg,'udp',1, 65535, source_security_group=sg)
+		except Exception, addex:
+			self.logger.warn("Exception adding SG rules. Probably the rules exists:" + str(addex))
+			pass
 		
 		return res
 	
