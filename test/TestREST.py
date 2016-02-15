@@ -353,6 +353,15 @@ tosca_definitions_version: tosca_simple_yaml_1_0
  
 description: TOSCA test for the IM
 
+repositories:
+  indigo_repository:
+    description: INDIGO Custom types repository
+    url: https://raw.githubusercontent.com/indigo-dc/tosca-types/master/
+
+imports:
+  - indigo_custom_types:
+      file: custom_types.yaml
+      repository: indigo_repository
 
 topology_template:
   inputs:
@@ -474,6 +483,15 @@ tosca_definitions_version: tosca_simple_yaml_1_0
  
 description: TOSCA test for the IM
 
+repositories:
+  indigo_repository:
+    description: INDIGO Custom types repository
+    url: https://raw.githubusercontent.com/indigo-dc/tosca-types/master/
+
+imports:
+  - indigo_custom_types:
+      file: custom_types.yaml
+      repository: indigo_repository
 
 topology_template:
   inputs:
