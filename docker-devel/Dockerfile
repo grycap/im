@@ -1,7 +1,7 @@
 # Dockerfile to create a container with the IM service and TOSCA support
 FROM ubuntu:14.04
 MAINTAINER Miguel Caballer <micafer1@upv.es>
-LABEL version="1.4.2"
+LABEL version="1.4.3"
 LABEL description="Container image to run the IM service with TOSCA support. (http://www.grycap.upv.es/im)"
 
 # Update and install all the neccesary packages
