@@ -535,7 +535,7 @@ class InfrastructureManager:
 		InfrastructureManager.logger.info("VMs %s successfully added to Inf id %s" % (new_vms, sel_inf.id))
 
 		# Let's contextualize!
-		if context:
+		if context and new_vms:
 			sel_inf.Contextualize(auth)
 
 		return [vm.im_id for vm in new_vms]
