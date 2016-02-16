@@ -243,6 +243,37 @@ class Tosca:
 							res[name] = iface
 		return res
 
+	def _get_artifact_full_uri(self, node, artifact_name):
+		res = None
+		artifacts = node.type_definition.get_value('artifacts',node.entity_tpl,True)
+		if artifacts:
+			for name, artifact in artifacts.items():
+				if name == artifact_name:
+					if isinstance(artifact, dict):
+						res = artifact['file']
+						if 'repository' in artifact:
+							repo = artifact['repository']
+							repositories = self.tosca.tpl.get('repositories')
+
+							if repositories:
+								for repo_name, repo_def in repositories.items():
+									if repo_name == repo:
+										repo_url = ((repo_def['url']).strip()).rstrip("//")
+										res = repo_url + "/" + artifact['file']
+					else:
+						res = artifact
+
+		return res
+
+	def _get_implementation_url(self, node, implementation):
+		res = implementation
+		if implementation:
+			artifact_url = self._get_artifact_full_uri(node, implementation)
+			if artifact_url:
+				res = artifact_url
+
+		return res 
+
 	def _gen_configure_from_interfaces(self, radl, node, interfaces, compute):
 		if not interfaces:
 			return None
@@ -283,7 +314,7 @@ class Tosca:
 						tasks += "  - name: Download artifact " + artifact + "\n"
 						tasks += "    get_url: dest=" + remote_artifacts_path + "/" + os.path.basename(artifact) + " url='" + artifact + "'\n"
 				
-				implementation_url = uriparse(interface.implementation)
+				implementation_url = uriparse(self._get_implementation_url(node, interface.implementation))
 				
 				if implementation_url[0] in ['http', 'https', 'ftp']:
 					script_path = implementation_url[2]
@@ -365,16 +396,10 @@ class Tosca:
 			return func_name == "get_artifact"
 		return False 
 	
-	@staticmethod
-	def _get_artifact_uri(function, node):
+	def _get_artifact_uri(self, function, node):
 		if isinstance(function, dict) and len(function) == 1:
 			name = function["get_artifact"][1]
-			artifacts = node.entity_tpl.get("artifacts")
-			if isinstance(artifacts, dict):
-				for artifact_name, value in artifacts.iteritems():
-					if artifact_name == name:
-						#return value['implementation']
-						return value['file']
+			return self._get_artifact_full_uri(node, name)
 
 		return None 
 
