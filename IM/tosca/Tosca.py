@@ -302,7 +302,7 @@ class Tosca:
 							val = self._final_function_result(param_value, node)
 							
 						if val:
-							env[param_name] = val
+							env[param_name] = str(val)
 						else:
 							raise Exception("input value for %s in interface %s of node %s not valid" % (param_name, name, node.name))
 
