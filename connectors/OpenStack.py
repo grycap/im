@@ -51,9 +51,13 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 			else:
 				auth = auths[0]
 
+			protocol = self.cloud.protocol
+			if not protocol:
+				protocol = "http"
+
 			if 'username' in auth and 'password' in auth and 'tenant' in auth:			
 				parameters = {"auth_version":'2.0_password',
-							  "auth_url":self.cloud.protocol + "://" + self.cloud.server + ":" + str(self.cloud.port),
+							  "auth_url":protocol + "://" + self.cloud.server + ":" + str(self.cloud.port),
 							  "auth_token":None,
 							  "service_type":None,
 							  "service_name":None,
@@ -301,6 +305,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 				if pool.name == pool_name:
 					return pool
 		else:
+			# Currently returns the first one
+			# until I see what metric use to select one
 			return pools[0]
 	
 		#otherwise return None
@@ -308,7 +314,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 	
 	def manage_elastic_ips(self, vm, node):
 		"""
-		Manage the elastic IPs in case of EC2 and OpenStack
+		Manage the elastic IPs
 
 		Arguments:
 		   - vm(:py:class:`IM.VirtualMachine`): VM information.
@@ -337,6 +343,9 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 					self.add_elastic_ip(vm, node, None, pool_name)
 	
 	def get_floating_ip(self, driver, pool_name = None):
+		"""
+		Get a floating IP
+		"""
 		if pool_name:
 			self.logger.debug("Asking for pool name: %s." % pool_name)
 		pool = self.get_ip_pool(driver, pool_name)
