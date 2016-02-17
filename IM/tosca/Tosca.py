@@ -343,7 +343,10 @@ class Tosca:
 				if script_path.endswith(".yaml") or script_path.endswith(".yml"):
 					if env:
 						for var_name, var_value in env.iteritems():
-							variables += '    %s: "%s" ' % (var_name, var_value) + "\n"
+							if var_value.startswith("|"):
+								variables += '    %s: %s ' % (var_name, var_value) + "\n"
+							else:
+								variables += '    %s: "%s" ' % (var_name, var_value) + "\n"
 						variables += "\n"
 
 					recipe_list.append(script_content)
@@ -499,11 +502,17 @@ class Tosca:
 
 		if node_name == "HOST":
 			node = self._find_host_compute(node, self.tosca.nodetemplates)
-		else:
+		elif node_name != "SELF":
+			node = None
 			for n in self.tosca.nodetemplates:
 				if n.name == node_name:
 					node = n
 					break
+			if not node:
+				Tosca.logger.error("Calling get_attribute function for non existing node: %s" % node_name)
+				return None
+
+		root_type = Tosca._get_root_parent_type(node).type
 
 		if inf_info:
 			vm_list = inf_info.get_vm_list_by_system_name()
@@ -513,6 +522,7 @@ class Tosca:
 				return None
 			else:
 				# Always assume that there will be only one VM per group
+				# TODO: this is not true!!
 				vm = vm_list[node.name][0]
 			
 			if attribute_name == "tosca_id":
@@ -520,11 +530,16 @@ class Tosca:
 			elif attribute_name == "tosca_name":
 				return node.name
 			elif attribute_name == "private_address":
-				return vm.getPrivateIP()
+				if node.type == "tosca.nodes.indigo.Compute":
+					return [vm.getPrivateIP() for vm in vm_list[node.name]]
+				else:
+					return vm.getPrivateIP()
 			elif attribute_name == "public_address":
-				return vm.getPublicIP()
+				if node.type == "tosca.nodes.indigo.Compute":
+					return [vm.getPublicIP() for vm in vm_list[node.name]]
+				else:
+					return vm.getPublicIP()
 			elif attribute_name == "ip_address": 
-				root_type = Tosca._get_root_parent_type(node).type
 				if root_type == "tosca.nodes.network.Port":
 					order = node.get_property_value('order')
 					return vm.getNumNetworkWithConnection(order)
@@ -548,18 +563,26 @@ class Tosca:
 			elif attribute_name == "tosca_name":
 				return node.name
 			elif attribute_name == "private_address":
-				# TODO: we suppose that iface 1 is the private one 
-				if node_name in ["HOST", "SELF"]: 
-					return "{{ IM_NODE_PRIVATE_IP }}"
+				if node.type == "tosca.nodes.indigo.Compute":
+					# This only works with Ansible 2.1, wait for it to be released
+					#return "{{ groups['%s']|map('extract', hostvars, 'IM_NODE_PRIVATE_IP')|list }}" % node.name 
+					return """|\n       {%% set comma = joiner(",") %%}\n       [ {%% for host in groups['%s'] %%}\n            {{ comma() }}"{{ hostvars[host]['IM_NODE_PRIVATE_IP'] }}"\n       {%% endfor %%} ]""" % node.name
 				else:
-					return "{{ hostvars[groups['%s'][0]]['IM_NODE_PRIVATE_IP'] }}" % node.name
+					if node_name in ["HOST", "SELF"]: 
+						return "{{ IM_NODE_PRIVATE_IP }}"
+					else:
+						return "{{ hostvars[groups['%s'][0]]['IM_NODE_PRIVATE_IP'] }}" % node.name
 			elif attribute_name == "public_address":
-				if node_name in ["HOST", "SELF"]: 
-					return "{{ IM_NODE_PUBLIC_IP }}"
+				if node.type == "tosca.nodes.indigo.Compute":
+					# This only works with Ansible 2.1, wait for it to be released
+					#return "{{ groups['%s']|map('extract', hostvars, 'IM_NODE_PUBLIC_IP')|list }}" % node.name
+					return """|\n       {%% set comma = joiner(",") %%}\n       [ {%% for host in groups['%s'] %%}\n            {{ comma() }}"{{ hostvars[host]['IM_NODE_PUBLIC_IP'] }}"\n       {%% endfor %%} ]""" % node.name
 				else:
-					return "{{ hostvars[groups['%s'][0]]['IM_NODE_PUBLIC_IP'] }}" % node.name
+					if node_name in ["HOST", "SELF"]: 
+						return "{{ IM_NODE_PUBLIC_IP }}"
+					else:
+						return "{{ hostvars[groups['%s'][0]]['IM_NODE_PUBLIC_IP'] }}" % node.name
 			elif attribute_name == "ip_address": 
-				root_type = Tosca._get_root_parent_type(node).type
 				if root_type == "tosca.nodes.network.Port":
 					order = node.get_property_value('order')
 					return "{{ hostvars[groups['%s'][0]]['IM_NODE_NET_%s_IP'] }}" % (node.name, order)
@@ -585,10 +608,10 @@ class Tosca:
 			if is_function(func):
 				func = get_function(self.tosca, node, func)
 
-		if isinstance(func, Function):
+		while isinstance(func, Function):
 			if isinstance(func, GetAttribute):
 				func = self._get_attribute_result(func, node, inf_info)
-			while isinstance(func, Function):
+			else:
 				func = func.result()
 
 		if isinstance(func, dict):
