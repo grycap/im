@@ -29,7 +29,7 @@ from IM.auth import Authentication
 from IM.VirtualMachine import VirtualMachine
 from IM.radl import radl_parse
 
-RADL_ADD = "network publica\nnetwork privada\nsystem wn\ndeploy wn 1 one"
+RADL_ADD = "network publica\nnetwork privada\nsystem wn\ndeploy wn 1"
 RADL_ADD_ERROR = "system wnno deploy wnno 1"
 TESTS_PATH = os.path.dirname(os.path.realpath(__file__))
 RADL_FILE = TESTS_PATH + '/quick-test.radl'
