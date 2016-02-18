@@ -73,8 +73,8 @@ configure win (
 @end
 )
 
-deploy front 1
-deploy wn 1 one
+deploy front 1 one
+deploy wn 1
 deploy windows 1
 
 contextualize (

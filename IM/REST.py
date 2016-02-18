@@ -245,7 +245,7 @@ def RESTCreateInfrastructure():
 				radl_data = parse_radl_json(radl_data)
 			elif content_type == "text/yaml":
 				tosca_data = radl_data
-				radl_data = Tosca(radl_data).to_radl()
+				_, radl_data = Tosca(radl_data).to_radl()
 			elif content_type in ["text/plain","*/*","text/*"]:
 				content_type = "text/plain"
 			else:
@@ -386,6 +386,7 @@ def RESTAddResource(id=None):
 		content_type = get_media_type('Content-Type')
 		radl_data = bottle.request.body.read()
 		tosca_data = None
+		remove_list = []
 		
 		if content_type:
 			if content_type == "application/json":
@@ -393,13 +394,16 @@ def RESTAddResource(id=None):
 			elif content_type == "text/yaml":
 				tosca_data  = radl_data
 				sel_inf = InfrastructureManager.get_infrastructure(id, auth)
-				radl_data = Tosca(radl_data).to_radl(sel_inf)
+				remove_list, radl_data = Tosca(radl_data).to_radl(sel_inf)
 			elif content_type in ["text/plain","*/*","text/*"]:
 				content_type = "text/plain"
 			else:
 				bottle.abort(415, "Unsupported Media Type %s" % content_type)
 				return False
 
+		if remove_list:
+			InfrastructureManager.RemoveResource(id, remove_list, auth, context)
+		
 		vm_ids = InfrastructureManager.AddResource(id, radl_data, auth, context)
 
 		# Replace the TOSCA document
@@ -661,4 +665,14 @@ def RESTStopVM(infid=None, vmid=None, prop=None):
 		return False
 	except Exception, ex:
 		bottle.abort(400, "Error stopping VM: " + str(ex))
+		return False
+
+@app.route('/version', method='GET')
+def RESTGeVersion():
+	try:
+		from IM import __version__ as version
+		bottle.response.content_type = "text/plain"
+		return version 
+	except Exception, ex:
+		bottle.abort(400, "Error getting IM state: " + str(ex))
 		return False
