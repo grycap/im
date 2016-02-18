@@ -18,7 +18,7 @@ class Tosca:
 	TODO: What about CSAR files?
 	
 	"""
-	
+
 	ARTIFACTS_PATH = os.path.dirname(os.path.realpath(__file__)) + "/tosca-types/artifacts"
 	ARTIFACTS_REMOTE_REPO = "https://raw.githubusercontent.com/indigo-dc/tosca-types/master/artifacts/"
 	
@@ -40,6 +40,7 @@ class Tosca:
 		number of nodes to deploy  
 		"""
 
+		all_removal_list = []
 		relationships = []
 		for node in self.tosca.nodetemplates:
 			# Store relationships to check later
@@ -72,7 +73,7 @@ class Tosca:
 					Tosca._add_node_nets(node, radl, sys, self.tosca.nodetemplates)
 					radl.systems.append(sys)
 					# Add the deploy element for this system
-					min_instances, _, default_instances, count = Tosca._get_scalable_properties(node)
+					min_instances, _, default_instances, count, removal_list = Tosca._get_scalable_properties(node)
 					if count is not None:
 						# we must check the correct number of instances to deploy 
 						num_instances = count
@@ -84,6 +85,10 @@ class Tosca:
 						num_instances = 1
 					
 					num_instances = num_instances - self._get_num_instances(sys.name, inf_info)
+					
+					# TODO: Think about to check the IDs of the VMs
+					if num_instances < 0:
+						all_removal_list.extend(removal_list[0:-num_instances])
 					
 					if num_instances > 0:
 						dep = deploy(sys.name, num_instances)
@@ -108,7 +113,7 @@ class Tosca:
 		if cont_intems:
 			radl.contextualize = contextualize(cont_intems)
 	
-		return self._complete_radl_networks(radl)
+		return all_removal_list, self._complete_radl_networks(radl)
 
 	def _get_num_instances(self, sys_name, inf_info):
 		"""
@@ -203,20 +208,23 @@ class Tosca:
 	@staticmethod
 	def _get_scalable_properties(node):
 		count = min_instances = max_instances = default_instances = None
+		removal_list = []
 		scalable = node.get_capability("scalable")
 		if scalable:
 			for prop in scalable.get_properties_objects():
 				if prop.value is not None:
 					if prop.name == "count":
 						count = prop.value
-					if prop.name == "max_instances":
+					elif prop.name == "max_instances":
 						max_instances = prop.value
 					elif prop.name == "min_instances":
 						min_instances = prop.value
 					elif prop.name == "default_instances":
 						default_instances = prop.value
+					elif prop.name == "removal_list":
+						removal_list = prop.value
 
-		return min_instances, max_instances, default_instances, count
+		return min_instances, max_instances, default_instances, count, removal_list
 
 	@staticmethod
 	def _get_relationship_template(rel, src, trgt):
@@ -499,6 +507,14 @@ class Tosca:
 		"""
 		node_name = func.args[0]
 		attribute_name = func.args[1]
+		# TODO: Currently only supports indexes
+		index = None
+		if len(func.args) > 2:
+			try:
+				index = int(func.args[2])
+			except:
+				Tosca.logger.exception("Error getting get_attribute index.")
+				pass
 
 		if node_name == "HOST":
 			node = self._find_host_compute(node, self.tosca.nodetemplates)
@@ -522,8 +538,9 @@ class Tosca:
 				return None
 			else:
 				# Always assume that there will be only one VM per group
-				# TODO: this is not true!!
 				vm = vm_list[node.name][0]
+				if len(vm_list[node.name])<index:
+					index = len(vm_list[node.name]) - 1
 			
 			if attribute_name == "tosca_id":
 				return vm.id
@@ -531,12 +548,18 @@ class Tosca:
 				return node.name
 			elif attribute_name == "private_address":
 				if node.type == "tosca.nodes.indigo.Compute":
-					return [vm.getPrivateIP() for vm in vm_list[node.name]]
+					res = [vm.getPrivateIP() for vm in vm_list[node.name]]
+					if index:
+						res = res[index]
+					return res
 				else:
 					return vm.getPrivateIP()
 			elif attribute_name == "public_address":
 				if node.type == "tosca.nodes.indigo.Compute":
-					return [vm.getPublicIP() for vm in vm_list[node.name]]
+					res = [vm.getPublicIP() for vm in vm_list[node.name]]
+					if index:
+						res = res[index]
+					return res
 				else:
 					return vm.getPublicIP()
 			elif attribute_name == "ip_address": 
