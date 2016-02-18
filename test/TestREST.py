@@ -452,7 +452,7 @@ topology_template:
 
   outputs:
     server_url:
-      value: { concat: [ 'http://', get_attribute: [ web_server, public_address ], '/' ] }
+      value: { get_attribute: [ web_server, public_address ] }
             """
 
         self.server.request('POST', "/infrastructures", body = tosca, headers = {'AUTHORIZATION' : self.auth_data, 'Content-Type':'text/yaml'})
@@ -471,8 +471,8 @@ topology_template:
         output = str(resp.read())
         self.assertEqual(resp.status, 200, msg="ERROR getting TOSCA outputs:" + output)
         res = json.loads(output)
-        server_url = res['server_url']
-        self.assertRegexpMatches(server_url, 'http://\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/', msg="Unexpected outputs: " + output)
+        server_url = str(res['server_url'][0])
+        self.assertRegexpMatches(server_url, '\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}', msg="Unexpected outputs: " + output)
 
     def test_95_add_tosca(self):
         """
@@ -585,7 +585,7 @@ topology_template:
 
   outputs:
     server_url:
-      value: { concat: [ 'http://', get_attribute: [ web_server, public_address ], '/' ] }
+      value: { get_attribute: [ web_server, public_address ] }
             """
 
         self.server.request('POST', "/infrastructures/" + self.inf_id, body = tosca, headers = {'AUTHORIZATION' : self.auth_data, 'Content-Type':'text/yaml'})
