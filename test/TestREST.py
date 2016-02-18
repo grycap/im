@@ -471,7 +471,7 @@ topology_template:
         output = str(resp.read())
         self.assertEqual(resp.status, 200, msg="ERROR getting TOSCA outputs:" + output)
         res = json.loads(output)
-        server_url = res['server_url']
+        server_url = str(res['server_url'])
         self.assertRegexpMatches(server_url, '\[\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\]', msg="Unexpected outputs: " + output)
 
     def test_95_add_tosca(self):
