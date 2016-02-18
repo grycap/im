@@ -360,9 +360,11 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 				# It is a fixed IP
 				if ip not in public_ips:
 					# It has not been created yet, do it
+					self.logger.debug("Asking for a fixed ip: %s." % ip)
 					self.add_elastic_ip(vm, node, ip, pool_name)
 			else:
 				if num >= len(public_ips):
+					self.logger.debug("Asking for public IP %d and there are %d" % (num+1, len(public_ips)))
 					self.add_elastic_ip(vm, node, None, pool_name)
 	
 	def get_floating_ip(self, driver, pool_name = None):
