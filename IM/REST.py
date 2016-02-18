@@ -666,3 +666,13 @@ def RESTStopVM(infid=None, vmid=None, prop=None):
 	except Exception, ex:
 		bottle.abort(400, "Error stopping VM: " + str(ex))
 		return False
+
+@app.route('/version', method='GET')
+def RESTGeVersion():
+	try:
+		from IM import __version__ as version
+		bottle.response.content_type = "text/plain"
+		return version 
+	except Exception, ex:
+		bottle.abort(400, "Error getting IM state: " + str(ex))
+		return False
