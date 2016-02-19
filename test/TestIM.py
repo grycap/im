@@ -28,6 +28,7 @@ sys.path.append(".")
 from IM.auth import Authentication
 from IM.VirtualMachine import VirtualMachine
 from IM.radl import radl_parse
+from IM import __version__ as version
 
 RADL_ADD_WIN = "network publica\nnetwork privada\nsystem windows\ndeploy windows 1 one"
 RADL_ADD = "network publica\nnetwork privada\nsystem wn\ndeploy wn 1 one"
@@ -98,6 +99,14 @@ class TestIM(unittest.TestCase):
                 time.sleep(5)
 
         return all_ok
+
+    def test_05_list(self):
+        """
+        Test the GetVersion IM function
+        """
+        (success, res) = self.server.GetVersion()
+        self.assertTrue(success, msg="ERROR calling GetVersion: " + str(res))
+        self.assertEqual(res, version, msg="Incorrect version. Expected %s, obtained: %s" % (version, res))
 
     def test_10_list(self):
         """
