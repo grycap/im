@@ -20,6 +20,8 @@ from connectors.LibCloud import LibCloudCloudConnector
 from libcloud.compute.types import Provider, NodeState
 from libcloud.compute.providers import get_driver
 from libcloud.compute.base import NodeImage, NodeAuthSSHKey
+from netaddr import IPNetwork, IPAddress
+from IM.config import Config
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 
@@ -51,9 +53,13 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 			else:
 				auth = auths[0]
 
+			protocol = self.cloud.protocol
+			if not protocol:
+				protocol = "http"
+
 			if 'username' in auth and 'password' in auth and 'tenant' in auth:			
 				parameters = {"auth_version":'2.0_password',
-							  "auth_url":self.cloud.protocol + "://" + self.cloud.server + ":" + str(self.cloud.port),
+							  "auth_url":protocol + "://" + self.cloud.server + ":" + str(self.cloud.port),
 							  "auth_token":None,
 							  "service_type":None,
 							  "service_name":None,
@@ -149,6 +155,27 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 			vm.state = VirtualMachine.OFF
 		
 		return (True, vm)
+
+	def setIPsFromInstance(self, vm, node):
+		"""
+		Adapt the RADL information of the VM to the real IPs assigned by the cloud provider
+
+		Arguments:
+		   - vm(:py:class:`IM.VirtualMachine`): VM information.	
+		   - node(:py:class:`libcloud.compute.base.Node`): object to connect to EC2 instance.
+		"""
+		
+		# It seems that sometimes OpenStack does not return correctly the IPs as public or private
+		public_ips = []
+		private_ips = []
+		for ip in node.public_ips + node.private_ips:
+			if any([IPAddress(ip) in IPNetwork(mask) for mask in Config.PRIVATE_NET_MASKS]):
+				private_ips.append(ip)
+			else:
+				public_ips.append(ip)
+
+		vm.setIps(public_ips, private_ips)
+		self.manage_elastic_ips(vm, node, public_ips)
 
 	def update_system_info_from_instance(self, system, instance_type):
 		"""
@@ -301,14 +328,16 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 				if pool.name == pool_name:
 					return pool
 		else:
+			# Currently returns the first one
+			# until I see what metric use to select one
 			return pools[0]
 	
 		#otherwise return None
 		return None
 	
-	def manage_elastic_ips(self, vm, node):
+	def manage_elastic_ips(self, vm, node, public_ips):
 		"""
-		Manage the elastic IPs in case of EC2 and OpenStack
+		Manage the elastic IPs
 
 		Arguments:
 		   - vm(:py:class:`IM.VirtualMachine`): VM information.
@@ -329,14 +358,19 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 			ip, pool_name = elem
 			if ip:
 				# It is a fixed IP
-				if ip not in node.public_ips:
+				if ip not in public_ips:
 					# It has not been created yet, do it
+					self.logger.debug("Asking for a fixed ip: %s." % ip)
 					self.add_elastic_ip(vm, node, ip, pool_name)
 			else:
-				if num >= len(node.public_ips):
+				if num >= len(public_ips):
+					self.logger.debug("Asking for public IP %d and there are %d" % (num+1, len(public_ips)))
 					self.add_elastic_ip(vm, node, None, pool_name)
 	
 	def get_floating_ip(self, driver, pool_name = None):
+		"""
+		Get a floating IP
+		"""
 		if pool_name:
 			self.logger.debug("Asking for pool name: %s." % pool_name)
 		pool = self.get_ip_pool(driver, pool_name)

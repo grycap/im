@@ -180,3 +180,4 @@ IM 1.4.3
     * Modify Docker connector using CpuShares as defined in swarm
     * Enable to use a /etc/im/logging.conf file to config logging properties
     * Bugfixes to OpenStack connector. Set default values to new versions.
+    * Add GetVersion function
