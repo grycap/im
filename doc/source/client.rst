@@ -127,7 +127,7 @@ Values can contain "=", and "\\n" is replaced by carriage return. The available
 keys are:
 
 * ``type`` indicates the service that refers the credential. The services
-  supported are ``InfrastructureManager``, ``VMRC``, ``OpenNebula``, ``EC2``,
+  supported are ``InfrastructureManager``, ``VMRC``, ``OpenNebula``, ``EC2``,, ``FogBow``, 
   ``OpenStack``, ``OCCI``, ``LibCloud``, ``Docker``, ``GCE``, ``Azure``, ``Kubernetes`` and ``LibVirt``.
 
 * ``username`` indicates the user name associated to the credential. In EC2
@@ -164,15 +164,36 @@ keys are:
 
 * ``id`` associates an identifier to the credential. The identifier should be
   used as the label in the *deploy* section in the RADL.
+  
+OpenStack addicional fields
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+OpenStack has a set of addicional fields to access a cloud site:
+
+* ``auth_version`` the auth version used to connect with the Keystone server.
+  The possible values are: ``2.0_password`` or ``3.X_password``. The default value is ``2.0_password``.
+
+* ``base_url`` base URL to the OpenStack API endpoint. By default, the connector obtains API endpoint URL from the 
+  server catalog, but if this argument is provided, this step is skipped and the provided value is used directly.
+  The value is: http://cloud_server.com:8774/v2/<tenant_id>.
+  
+* ``service_region`` the region of the cloud site (case sensitive). It is used to obtain  the API 
+  endpoint URL. The default value is: ``RegionOne``.
+
+* ``service_name`` the service name used to obtain the API endpoint URL. The default value is: ``Compute``.
+
+* ``auth_token`` token which is used for authentication. If this argument is provided, normal authentication 
+  flow is skipped and the OpenStack API endpoint is directly hit with the provided token. Normal authentication 
+  flow involves hitting the auth service (Keystone) with the provided username and password and requesting an
+  authentication token.
 
 An example of the auth file::
 
    id = one; type = OpenNebula; host = osenserver:2633; username = user; password = pass
-   id = ost; type = OpenStack; host = ostserver:5000; username = user; password = pass; tenant = tenant
-   type = InfrastructureManager; username = user; password = pass
-   type = VMRC; host = http://server:8080/vmrc; username = user; password = pass
+   id = ost; type = OpenStack; host = https://ostserver:5000; username = user; password = pass; tenant = tenant
+   id = im; type = InfrastructureManager; username = user; password = pass
+   id = vmrc; type = VMRC; host = http://server:8080/vmrc; username = user; password = pass
    id = ec2; type = EC2; username = ACCESS_KEY; password = SECRET_KEY
-   id = oshost; type = OpenStack; host = oshost:8773; username = ACCESS_KEY; key = SECRET_KEY
    id = gce; type = GCE; username = username.apps.googleusercontent.com; password = pass; project = projectname
    id = docker; type = Docker; host = http://host:2375
    id = occi; type = OCCI; proxy = file(/tmp/proxy.pem); host = https://fc-one.i3m.upv.es:11443
