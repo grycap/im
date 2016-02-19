@@ -21,6 +21,7 @@ import logging
 from request import Request, AsyncRequest
 import InfrastructureManager
 from auth import Authentication
+from IM import __version__ as version
 
 logger = logging.getLogger('InfrastructureManager')
 
@@ -49,6 +50,7 @@ class IMBaseRequest(AsyncRequest):
 	SAVE_DATA = "SaveData"
 	START_VM = "StartVM"
 	STOP_VM = "StopVM"
+	GET_VERSION = "GetVersion"
 
 	@staticmethod
 	def create_request(function, arguments = (), priority = Request.PRIORITY_NORMAL):
@@ -94,6 +96,8 @@ class IMBaseRequest(AsyncRequest):
 			return Request_StopVM(arguments)
 		elif function == IMBaseRequest.GET_INFRASTRUCTURE_STATE:
 			return Request_GetInfrastructureState(arguments)
+		elif function == IMBaseRequest.GET_VERSION:
+			return Request_GetVersion(arguments)
 		
 		else:
 			raise NotImplementedError("Function not Implemented")
@@ -307,8 +311,14 @@ class Request_GetInfrastructureState(IMBaseRequest):
 	Request class for the GetInfrastructureState function
 	"""
 	def _call_function(self):
-		self._error_mesage = "Error gettinf the Inf. state"
+		self._error_mesage = "Error getting the Inf. state"
 		(inf_id, auth_data) = self.arguments
 		return InfrastructureManager.InfrastructureManager.GetInfrastructureState(inf_id, Authentication(auth_data))
-	
-	
+
+class Request_GetVersion(IMBaseRequest):
+	"""
+	Request class for the GetVersion function
+	"""
+	def _call_function(self):
+		self._error_mesage = "Error getting IM service version"
+		return version
