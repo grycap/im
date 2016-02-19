@@ -29,6 +29,7 @@ sys.path.append(".")
 from IM.VirtualMachine import VirtualMachine
 from IM.uriparse import uriparse
 from IM.radl import radl_parse
+from IM import __version__ as version
 
 PID = None
 RADL_ADD = "network publica\nsystem front\ndeploy front 1"
@@ -105,6 +106,13 @@ class TestIM(unittest.TestCase):
                 time.sleep(5)
 
         return all_ok
+
+    def test_05_version(self):
+        self.server.request('GET', "/version")
+        resp = self.server.getresponse()
+        output = str(resp.read())
+        self.assertEqual(resp.status, 200, msg="ERROR getting IM version:" + output)
+        self.assertEqual(output, version, msg="Incorrect version. Expected %s, obtained: %s" % (version, output))
 
     def test_10_list(self):
         self.server.request('GET', "/infrastructures", headers = {'AUTHORIZATION' : self.auth_data})
