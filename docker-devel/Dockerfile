@@ -18,8 +18,13 @@ RUN apt-get update && apt-get install -y \
     openssh-client \
     sshpass \
     git \
+    libssl-dev \
+    libffi-dev \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
+
+# Install CherryPy to enable HTTPS in REST API
+RUN pip install CherryPy pyOpenSSL
 
 # Install im - 'devel' branch
 RUN cd tmp \
