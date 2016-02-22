@@ -145,10 +145,13 @@ def RESTGetInfrastructureInfo(id=None):
 		vm_ids = InfrastructureManager.GetInfrastructureInfo(id, auth)
 		res = ""
 		
+		protocol = "http://"
+		if Config.REST_SSL:
+			protocol = "https://"
 		for vm_id in vm_ids:
 			if res:
 				res += "\n"
-			res += 'http://' + bottle.request.environ['HTTP_HOST'] + '/infrastructures/' + str(id) + '/vms/' + str(vm_id)
+			res += protocol + bottle.request.environ['HTTP_HOST'] + '/infrastructures/' + str(id) + '/vms/' + str(vm_id)
 		
 		bottle.response.content_type = "text/uri-list"
 		return res
@@ -213,9 +216,12 @@ def RESTGetInfrastructureList():
 	try:
 		inf_ids = InfrastructureManager.GetInfrastructureList(auth)
 		
+		protocol = "http://"
+		if Config.REST_SSL:
+			protocol = "https://"
 		res = ""
 		for inf_id in inf_ids:
-			res += "http://" + bottle.request.environ['HTTP_HOST'] + "/infrastructures/" + str(inf_id) + "\n"
+			res += protocol + bottle.request.environ['HTTP_HOST'] + "/infrastructures/" + str(inf_id) + "\n"
 		
 		bottle.response.content_type = "text/uri-list"
 		return res
@@ -260,7 +266,10 @@ def RESTCreateInfrastructure():
 			sel_inf.extra_info['TOSCA'] = tosca_data
 		
 		bottle.response.content_type = "text/uri-list"
-		return "http://" + bottle.request.environ['HTTP_HOST'] + "/infrastructures/" + str(inf_id)
+		protocol = "http://"
+		if Config.REST_SSL:
+			protocol = "https://"
+		return protocol + bottle.request.environ['HTTP_HOST'] + "/infrastructures/" + str(inf_id)
 	except HTTPError, ex:
 		raise ex
 	except UnauthorizedUserException, ex:
@@ -411,11 +420,14 @@ def RESTAddResource(id=None):
 			sel_inf = InfrastructureManager.get_infrastructure(id, auth)
 			sel_inf.extra_info['TOSCA'] = tosca_data
 		
+		protocol = "http://"
+		if Config.REST_SSL:
+			protocol = "https://"
 		res = ""
 		for vm_id in vm_ids:
 			if res:
 				res += "\n"
-			res += "http://" + bottle.request.environ['HTTP_HOST'] + "/infrastructures/" + str(id) + "/vms/" + str(vm_id)
+			res += protocol + bottle.request.environ['HTTP_HOST'] + "/infrastructures/" + str(id) + "/vms/" + str(vm_id)
 		
 		bottle.response.content_type = "text/uri-list"
 		return res
