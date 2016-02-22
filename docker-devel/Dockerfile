@@ -20,6 +20,9 @@ RUN apt-get update && apt-get install -y \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
 
+# Install CherryPy to enable HTTPS in REST API
+RUN pip install CherryPy
+
 # Install tosca-parser
 RUN cd tmp \
  && git clone --recursive https://github.com/indigo-dc/tosca-parser.git \
