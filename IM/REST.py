@@ -34,14 +34,14 @@ bottle_server = None
 # It's almost equal to the supported cherrypy class CherryPyServer  
 class MySSLCherryPy(bottle.ServerAdapter):  
 	def run(self, handler):
-		from cherrypy.wsgiserver.ssl_builtin import BuiltinSSLAdapter
+		from cherrypy.wsgiserver.ssl_pyopenssl import pyOpenSSLAdapter
 		from cherrypy import wsgiserver
 		server = wsgiserver.CherryPyWSGIServer((self.host, self.port), handler)  
 		self.srv = server
 
 		# If cert variable is has a valid path, SSL will be used  
 		# You can set it to None to disable SSL
-		server.ssl_adapter = BuiltinSSLAdapter(Config.REST_SSL_CERTFILE, Config.REST_SSL_KEYFILE, Config.REST_SSL_CA_CERTS)
+		server.ssl_adapter = pyOpenSSLAdapter(Config.REST_SSL_CERTFILE, Config.REST_SSL_KEYFILE, Config.REST_SSL_CA_CERTS)
 		try:  
 			server.start()  
 		finally:  
