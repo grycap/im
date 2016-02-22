@@ -74,9 +74,10 @@ Optional Packages
   The Debian package is named ``python-springpython``.
 * `Bottle <http://bottlepy.or>`_ is needed if needed to use the REST API
   (see :confval:`ACTIVATE_REST`). The Debian package is named ``python-bottle``.
-* `CherryPy <http://cherrypy.org>`_ is needed if needed to secure the REST API
+* `CherryPy <http://cherrypy.org>`_ and pyOpenSSL are needed if needed to secure the REST API
   with SSL certificates (see :confval:`REST_SSL`).
-  The Debian package is named ``python-cherrypy3``.
+  The Debian package for CherryPy is named ``python-cherrypy3``.
+  pyOpenSSL can be installed using pip.
 
 Installation
 ------------
