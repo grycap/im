@@ -100,7 +100,7 @@ class TestIM(unittest.TestCase):
 
         return all_ok
 
-    def test_05_list(self):
+    def test_05_getversion(self):
         """
         Test the GetVersion IM function
         """
