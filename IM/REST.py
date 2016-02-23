@@ -33,14 +33,14 @@ bottle_server = None
 # It's almost equal to the supported cherrypy class CherryPyServer  
 class MySSLCherryPy(bottle.ServerAdapter):  
 	def run(self, handler):
-		from cherrypy.wsgiserver.ssl_builtin import BuiltinSSLAdapter
+		from cherrypy.wsgiserver.ssl_pyopenssl import pyOpenSSLAdapter
 		from cherrypy import wsgiserver
 		server = wsgiserver.CherryPyWSGIServer((self.host, self.port), handler)  
 		self.srv = server
 
 		# If cert variable is has a valid path, SSL will be used  
 		# You can set it to None to disable SSL
-		server.ssl_adapter = BuiltinSSLAdapter(Config.REST_SSL_CERTFILE, Config.REST_SSL_KEYFILE, Config.REST_SSL_CA_CERTS)
+		server.ssl_adapter = pyOpenSSLAdapter(Config.REST_SSL_CERTFILE, Config.REST_SSL_KEYFILE, Config.REST_SSL_CA_CERTS)
 		try:  
 			server.start()  
 		finally:  
@@ -144,10 +144,13 @@ def RESTGetInfrastructureInfo(id=None):
 		vm_ids = InfrastructureManager.GetInfrastructureInfo(id, auth)
 		res = ""
 		
+		protocol = "http://"
+		if Config.REST_SSL:
+			protocol = "https://"
 		for vm_id in vm_ids:
 			if res:
 				res += "\n"
-			res += 'http://' + bottle.request.environ['HTTP_HOST'] + '/infrastructures/' + str(id) + '/vms/' + str(vm_id)
+			res += protocol + bottle.request.environ['HTTP_HOST'] + '/infrastructures/' + str(id) + '/vms/' + str(vm_id)
 		
 		bottle.response.content_type = "text/uri-list"
 		return res
@@ -204,9 +207,12 @@ def RESTGetInfrastructureList():
 	try:
 		inf_ids = InfrastructureManager.GetInfrastructureList(auth)
 		
+		protocol = "http://"
+		if Config.REST_SSL:
+			protocol = "https://"
 		res = ""
 		for inf_id in inf_ids:
-			res += "http://" + bottle.request.environ['HTTP_HOST'] + "/infrastructures/" + str(inf_id) + "\n"
+			res += protocol + bottle.request.environ['HTTP_HOST'] + "/infrastructures/" + str(inf_id) + "\n"
 		
 		bottle.response.content_type = "text/uri-list"
 		return res
@@ -242,7 +248,10 @@ def RESTCreateInfrastructure():
 		inf_id = InfrastructureManager.CreateInfrastructure(radl_data, auth)
 		
 		bottle.response.content_type = "text/uri-list"
-		return "http://" + bottle.request.environ['HTTP_HOST'] + "/infrastructures/" + str(inf_id)
+		protocol = "http://"
+		if Config.REST_SSL:
+			protocol = "https://"
+		return protocol + bottle.request.environ['HTTP_HOST'] + "/infrastructures/" + str(inf_id)
 	except HTTPError, ex:
 		raise ex
 	except UnauthorizedUserException, ex:
@@ -378,11 +387,14 @@ def RESTAddResource(id=None):
 
 		vm_ids = InfrastructureManager.AddResource(id, radl_data, auth, context)
 		
+		protocol = "http://"
+		if Config.REST_SSL:
+			protocol = "https://"
 		res = ""
 		for vm_id in vm_ids:
 			if res:
 				res += "\n"
-			res += "http://" + bottle.request.environ['HTTP_HOST'] + "/infrastructures/" + str(id) + "/vms/" + str(vm_id)
+			res += protocol + bottle.request.environ['HTTP_HOST'] + "/infrastructures/" + str(id) + "/vms/" + str(vm_id)
 		
 		bottle.response.content_type = "text/uri-list"
 		return res

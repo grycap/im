@@ -181,3 +181,4 @@ IM 1.4.3
     * Enable to use a /etc/im/logging.conf file to config logging properties
     * Bugfixes to OpenStack connector. Set default values to new versions.
     * Add GetVersion function
+    * Bugfix returning protocol https in REST calls
