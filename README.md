@@ -89,7 +89,7 @@ In case of using the REST API the Bottle framework
 (http://bottlepy.org/) must be installed.
 
 In case of using the SSL secured version of the REST API the CherryPy Web
-framework (http://www.cherrypy.org/) must be installed.
+framework (http://www.cherrypy.org/) and pyOpenSSL must be installed.
 
 1.3 INSTALLING
 --------------

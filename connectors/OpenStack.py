@@ -15,7 +15,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import time
-import random
 from connectors.LibCloud import LibCloudCloudConnector
 from libcloud.compute.types import Provider, NodeState
 from libcloud.compute.providers import get_driver
