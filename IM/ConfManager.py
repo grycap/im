@@ -602,7 +602,7 @@ class ConfManager(threading.Thread):
 		if not self.inf.ansible_configured:
 			success = False
 			cont = 0
-			while not success and cont < Config.PLAYBOOK_RETRIES:
+			while not self._stop and not success and cont < Config.PLAYBOOK_RETRIES:
 				time.sleep(cont*5)
 				cont += 1
 				try:
@@ -862,7 +862,7 @@ class ConfManager(threading.Thread):
 		retries = 1
 		delay = 10
 		wait = 0
-		while wait < timeout:
+		while not self._stop and wait < timeout:
 			if not vm.destroy:
 				vm.update_status(self.auth)
 
@@ -929,7 +929,7 @@ class ConfManager(threading.Thread):
 		auth_errors = 0
 		auth_error_retries = 3
 		connected = False
-		while wait < timeout:
+		while not self._stop and wait < timeout:
 			if vm.destroy:
 				# in this case ignore it
 				return False
