@@ -55,7 +55,7 @@ be installed in the system.
    to enable to use it with the IM. 
 
  + Ansible (http://www.ansibleworks.com/) to configure nodes in the infrastructures.
-   In particular, Ansible 1.4.2+ must be installed.
+   In particular, Ansible 1.4.2+ must be installed. The current recommended version is 1.9.4 untill the 2.X versions become stable.
    To ensure the functionality the following values must be set in the ansible.cfg file (usually found in /etc/ansible/):
 
 ```
