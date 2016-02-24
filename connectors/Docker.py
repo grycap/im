@@ -230,11 +230,11 @@ class DockerCloudConnector(CloudConnector):
 		
 	def _generate_port_bindings(self, outports, ssh_port):	
 		res = {}
-		res["22/tcp"] = [{"HostPort":ssh_port}]
+		res["22/tcp"] = [{"HostPort":str(ssh_port)}]
 		if outports:
 			for remote_port,_,local_port,local_protocol in outports:
 				if local_port != 22:
-					res[str(local_port) + '/' + local_protocol] = [{"HostPort":remote_port}]
+					res[str(local_port) + '/' + local_protocol] = [{"HostPort":str(remote_port)}]
 
 		return res
 

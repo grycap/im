@@ -17,7 +17,7 @@ IM needs at least Python 2.6 to run, as well as the next libraries:
   and manipulating network addresses.
 
 Also, IM uses `Ansible <http://www.ansible.com>`_ (1.4.2 or later) to configure the
-infrastructure nodes.
+infrastructure nodes. The current recommended version is 1.9.4 untill the 2.X versions become stable.
  
 These components are usually available from the distribution repositories. To
 install them in Debian and Ubuntu based distributions, do::
