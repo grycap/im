@@ -25,7 +25,10 @@ from radl.radl_json import parse_radl as parse_radl_json, dump_radl as dump_radl
 from IM.tosca.Tosca import Tosca
 from bottle import HTTPError
 
+# Combination of chars used to separate the lines in the AUTH header
 AUTH_LINE_SEPARATOR = '\\n'
+# Combination of chars used to separate the lines inside the auth data (i.e. in a certificate)
+AUTH_NEW_LINE_SEPARATOR = '\\\\n'
 
 app = bottle.Bottle()  
 bottle_server = None
@@ -111,11 +114,15 @@ def get_media_type(header):
 	else:
 		return accept
 
+def get_auth_header():
+	auth_data = bottle.request.headers['AUTHORIZATION'].replace(AUTH_NEW_LINE_SEPARATOR,"\n")
+	auth_data = auth_data.split(AUTH_LINE_SEPARATOR)
+	return Authentication(Authentication.read_auth_data(auth_data))
+
 @app.route('/infrastructures/:id', method='DELETE')
 def RESTDestroyInfrastructure(id=None):
 	try:
-		auth_data = bottle.request.headers['AUTHORIZATION'].split(AUTH_LINE_SEPARATOR)
-		auth = Authentication(Authentication.read_auth_data(auth_data))
+		auth = get_auth_header()
 	except:
 		bottle.abort(401, "No authentication data provided")
 	
@@ -136,8 +143,7 @@ def RESTDestroyInfrastructure(id=None):
 @app.route('/infrastructures/:id', method='GET')
 def RESTGetInfrastructureInfo(id=None):
 	try:
-		auth_data = bottle.request.headers['AUTHORIZATION'].split(AUTH_LINE_SEPARATOR)
-		auth = Authentication(Authentication.read_auth_data(auth_data))
+		auth = get_auth_header()
 	except:
 		bottle.abort(401, "No authentication data provided")
 	
@@ -167,8 +173,7 @@ def RESTGetInfrastructureInfo(id=None):
 @app.route('/infrastructures/:id/:prop', method='GET')
 def RESTGetInfrastructureProperty(id=None, prop=None):
 	try:
-		auth_data = bottle.request.headers['AUTHORIZATION'].split(AUTH_LINE_SEPARATOR)
-		auth = Authentication(Authentication.read_auth_data(auth_data))
+		auth = get_auth_header()
 	except:
 		bottle.abort(401, "No authentication data provided")
 	
@@ -208,8 +213,7 @@ def RESTGetInfrastructureProperty(id=None, prop=None):
 @app.route('/infrastructures', method='GET')
 def RESTGetInfrastructureList():
 	try:
-		auth_data = bottle.request.headers['AUTHORIZATION'].split(AUTH_LINE_SEPARATOR)
-		auth = Authentication(Authentication.read_auth_data(auth_data))
+		auth = get_auth_header()
 	except:
 		bottle.abort(401, "No authentication data provided")
 	
@@ -236,8 +240,7 @@ def RESTGetInfrastructureList():
 @app.route('/infrastructures', method='POST')
 def RESTCreateInfrastructure():
 	try:
-		auth_data = bottle.request.headers['AUTHORIZATION'].split(AUTH_LINE_SEPARATOR)
-		auth = Authentication(Authentication.read_auth_data(auth_data))
+		auth = get_auth_header()
 	except:
 		bottle.abort(401, "No authentication data provided")
 
@@ -282,8 +285,7 @@ def RESTCreateInfrastructure():
 @app.route('/infrastructures/:infid/vms/:vmid', method='GET')
 def RESTGetVMInfo(infid=None, vmid=None):
 	try:
-		auth_data = bottle.request.headers['AUTHORIZATION'].split(AUTH_LINE_SEPARATOR)
-		auth = Authentication(Authentication.read_auth_data(auth_data))
+		auth = get_auth_header()
 	except:
 		bottle.abort(401, "No authentication data provided")
 	
@@ -328,8 +330,7 @@ def RESTGetVMInfo(infid=None, vmid=None):
 @app.route('/infrastructures/:infid/vms/:vmid/:prop', method='GET')
 def RESTGetVMProperty(infid=None, vmid=None, prop=None):
 	try:
-		auth_data = bottle.request.headers['AUTHORIZATION'].split(AUTH_LINE_SEPARATOR)
-		auth = Authentication(Authentication.read_auth_data(auth_data))
+		auth = get_auth_header()
 	except:
 		bottle.abort(401, "No authentication data provided")
 	
@@ -376,8 +377,7 @@ def RESTGetVMProperty(infid=None, vmid=None, prop=None):
 @app.route('/infrastructures/:id', method='POST')
 def RESTAddResource(id=None):
 	try:
-		auth_data = bottle.request.headers['AUTHORIZATION'].split(AUTH_LINE_SEPARATOR)
-		auth = Authentication(Authentication.read_auth_data(auth_data))
+		auth = get_auth_header()
 	except:
 		bottle.abort(401, "No authentication data provided")
 
@@ -446,8 +446,7 @@ def RESTAddResource(id=None):
 @app.route('/infrastructures/:infid/vms/:vmid', method='DELETE')
 def RESTRemoveResource(infid=None, vmid=None):
 	try:
-		auth_data = bottle.request.headers['AUTHORIZATION'].split(AUTH_LINE_SEPARATOR)
-		auth = Authentication(Authentication.read_auth_data(auth_data))
+		auth = get_auth_header()
 	except:
 		bottle.abort(401, "No authentication data provided")
 	
@@ -486,8 +485,7 @@ def RESTRemoveResource(infid=None, vmid=None):
 @app.route('/infrastructures/:infid/vms/:vmid', method='PUT')
 def RESTAlterVM(infid=None, vmid=None):
 	try:
-		auth_data = bottle.request.headers['AUTHORIZATION'].split(AUTH_LINE_SEPARATOR)
-		auth = Authentication(Authentication.read_auth_data(auth_data))
+		auth = get_auth_header()
 	except:
 		bottle.abort(401, "No authentication data provided")
 	
@@ -542,8 +540,7 @@ def RESTAlterVM(infid=None, vmid=None):
 @app.route('/infrastructures/:id/reconfigure', method='PUT')
 def RESTReconfigureInfrastructure(id=None):
 	try:
-		auth_data = bottle.request.headers['AUTHORIZATION'].split(AUTH_LINE_SEPARATOR)
-		auth = Authentication(Authentication.read_auth_data(auth_data))
+		auth = get_auth_header()
 	except:
 		bottle.abort(401, "No authentication data provided")
 
@@ -586,8 +583,7 @@ def RESTReconfigureInfrastructure(id=None):
 @app.route('/infrastructures/:id/start', method='PUT')
 def RESTStartInfrastructure(id=None):
 	try:
-		auth_data = bottle.request.headers['AUTHORIZATION'].split(AUTH_LINE_SEPARATOR)
-		auth = Authentication(Authentication.read_auth_data(auth_data))
+		auth = get_auth_header()
 	except:
 		bottle.abort(401, "No authentication data provided")
 
@@ -606,8 +602,7 @@ def RESTStartInfrastructure(id=None):
 @app.route('/infrastructures/:id/stop', method='PUT')
 def RESTStopInfrastructure(id=None):
 	try:
-		auth_data = bottle.request.headers['AUTHORIZATION'].split(AUTH_LINE_SEPARATOR)
-		auth = Authentication(Authentication.read_auth_data(auth_data))
+		auth = get_auth_header()
 	except:
 		bottle.abort(401, "No authentication data provided")
 
@@ -626,8 +621,7 @@ def RESTStopInfrastructure(id=None):
 @app.route('/infrastructures/:infid/vms/:vmid/start', method='PUT')
 def RESTStartVM(infid=None, vmid=None, prop=None):
 	try:
-		auth_data = bottle.request.headers['AUTHORIZATION'].split(AUTH_LINE_SEPARATOR)
-		auth = Authentication(Authentication.read_auth_data(auth_data))
+		auth = get_auth_header()
 	except:
 		bottle.abort(401, "No authentication data provided")
 	
@@ -654,8 +648,7 @@ def RESTStartVM(infid=None, vmid=None, prop=None):
 @app.route('/infrastructures/:infid/vms/:vmid/stop', method='PUT')
 def RESTStopVM(infid=None, vmid=None, prop=None):
 	try:
-		auth_data = bottle.request.headers['AUTHORIZATION'].split(AUTH_LINE_SEPARATOR)
-		auth = Authentication(Authentication.read_auth_data(auth_data))
+		auth = get_auth_header()
 	except:
 		bottle.abort(401, "No authentication data provided")
 	
