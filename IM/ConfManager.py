@@ -405,7 +405,8 @@ class ConfManager(threading.Thread):
 		out.write(all_vars)
 		out.write('IM_MASTER_HOSTNAME=' + master_name + '\n')
 		out.write('IM_MASTER_FQDN=' + master_name + "." + masterdom + '\n')
-		out.write('IM_MASTER_DOMAIN=' + masterdom + '\n\n')
+		out.write('IM_MASTER_DOMAIN=' + masterdom + '\n')
+		out.write('IM_INFRASTRUCTURE_ID=' + self.inf.id + '\n\n')
 
 		if windows:
 			out.write('[windows]\n' + windows + "\n")
