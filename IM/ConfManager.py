@@ -373,7 +373,7 @@ class ConfManager(threading.Thread):
 
 				node_line = ip
 				if vm.getOS().lower() != "windows":
-					node_line += ":" + str(vm.getSSHPort())
+					node_line += ' ansible_port=%d' % vm.getSSHPort()
 				
 				if self.inf.vm_master and vm.id == self.inf.vm_master.id:
 					node_line += ' ansible_connection=local'
