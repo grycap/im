@@ -316,11 +316,10 @@ class ConfManager(threading.Thread):
 			vm = vm_group[group][0]
 			user = vm.getCredentialValues()[0]
 			out.write('[' + group + ':vars]\n')
-			out.write('IM_NODE_USER=' + user + '\n')
+			out.write('ansible_user=' + user + '\n')
 
 			if vm.getOS().lower() == "windows":
 				out.write('ansible_port=5986\n')
-				out.write('ansible_user=' + user + '\n')
 				out.write('ansible_connection=winrm\n')	
 				
 			out.write('[' + group + ']\n')
@@ -471,7 +470,6 @@ class ConfManager(threading.Thread):
 		f.write("\n  vars:\n") 
 		f.write("    - pk_file: " + pk_file + ".pub\n")
 		f.write("  hosts: '{{IM_HOST}}'\n") 
-		f.write("  user: \"{{ IM_NODE_USER }}\"\n") 
 		f.close()
 		recipe_files.append("basic_task_all.yml")
 		return recipe_files
@@ -1064,7 +1062,6 @@ class ConfManager(threading.Thread):
 		conf_content += "- hosts: \"{{IM_HOST}}\"\n"
 		if os != 'windows':
 			conf_content += "  sudo: yes\n"
-		conf_content += "  user: \"{{ IM_NODE_USER }}\"\n"
 
 		return conf_content 
 
@@ -1079,7 +1076,6 @@ class ConfManager(threading.Thread):
 		conf_all_out = open(tmp_dir + "/" + all_filename, 'w')
 		conf_all_out.write("---\n")
 		conf_all_out.write("- hosts: " + group + "\n")
-		conf_all_out.write("  user: \"{{ IM_NODE_USER }}\"\n")
 		conf_all_out.write("- include: " + filename + ".yml\n")
 		conf_all_out.write("\n\n")
 		conf_all_out.close()
