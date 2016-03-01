@@ -27,4 +27,4 @@
     # Add the authorized_key to the nodes to enable accessing without password
     # pk_file var must be added by the ctxt agent
     - name: Add the authorized_key to the nodes
-      action: authorized_key user={{IM_NODE_USER}} key="{{ lookup('file', pk_file) }}"
+      action: authorized_key user={{ansible_user}} key="{{ lookup('file', pk_file) }}"
