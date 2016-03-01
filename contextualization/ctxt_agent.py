@@ -98,7 +98,7 @@ def wait_ssh_access(vm):
 			if 'new_passwd' in vm:
 				try_ansible_key = False
 				# If the process of changing credentials has finished in the VM, we must use the new ones
-				logger.warn("Error connecting with SSH with initial credentials with: " + vm_ip + ". Try to use new ones.")
+				logger.debug("Error connecting with SSH with initial credentials with: " + vm_ip + ". Try to use new ones.")
 				try:
 					ssh_client = SSH(vm_ip, vm['user'], vm['new_passwd'], vm['private_key'], vm['ssh_port'])
 					success = ssh_client.test_connectivity()
@@ -108,7 +108,7 @@ def wait_ssh_access(vm):
 			
 			if try_ansible_key:
 				# In some very special cases the last two cases fail, so check if the ansible key works 
-				logger.warn("Error connecting with SSH with initial credentials with: " + vm_ip + ". Try to ansible_key.")
+				logger.debug("Error connecting with SSH with initial credentials with: " + vm_ip + ". Try to ansible_key.")
 				try:
 					ssh_client = SSH(vm_ip, vm['user'], None, PK_FILE, vm['ssh_port'])
 					success = ssh_client.test_connectivity()
@@ -160,7 +160,7 @@ def wait_thread(thread, output = None):
 
 	if output:
 		if return_code==0:
-			logger.debug(output)
+			logger.info(output)
 		else:
 			logger.error(output)
 
@@ -179,7 +179,7 @@ def LaunchAnsiblePlaybook(output, playbook_file, vm, threads, inventory_file, pk
 
 		extra_vars['IM_HOST'] = vm['ip']
 	else:
-		extra_vars['IM_HOST'] = vm['ip'] + ":" + str(vm['ssh_port'])
+		extra_vars['IM_HOST'] = vm['ip']
 		passwd = None
 		if pk_file:
 			gen_pk_file = pk_file
@@ -277,6 +277,7 @@ def replace_vm_ip(old_ip, new_ip):
 	with open(filename, 'w+') as f:
 		f.write(inventoy_data)
 	
+	# in inventory only replace the first item of the line
 	filename  = general_conf_data['conf_dir'] + "/hosts"
 	with open(filename) as f:
 		inventoy_data = ""
@@ -311,7 +312,7 @@ def contextualize_vm(general_conf_data, vm_conf_data):
 		num_retries = 0
 		while not task_ok and num_retries < PLAYBOOK_RETRIES: 
 			num_retries += 1
-			logger.debug('Launch task: ' + task)
+			logger.info('Launch task: ' + task)
 			if ctxt_vm['os'] == "windows":
 				playbook = general_conf_data['conf_dir'] + "/" + task + "_task_all_win.yml"
 			else:
