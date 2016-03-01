@@ -356,6 +356,6 @@ class IMPlaybookExecutor(PlaybookExecutor):
 
         finally:
             if self._tqm is not None:
-                self._cleanup()
+                self._tqm.cleanup()
 
         return result
