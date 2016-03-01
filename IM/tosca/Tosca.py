@@ -238,17 +238,18 @@ class Tosca:
 	def _get_relationships_interfaces(relationships, node):
 		res = {}
 		for src, trgt, rel in relationships:
-			rel_tpl = Tosca._get_relationship_template(rel, src, trgt)			
-			if src.name == node.name:
-				for name in ['pre_configure_source', 'post_configure_source', 'add_source']:
-					for iface in rel_tpl.interfaces:
-						if iface.name == name:
-							res[name] = iface
-			elif trgt.name == node.name:
-				for name in ['pre_configure_target', 'post_configure_target', 'add_target','target_changed','remove_target']:
-					for iface in rel_tpl.interfaces:
-						if iface.name == name:
-							res[name] = iface
+			rel_tpl = Tosca._get_relationship_template(rel, src, trgt)
+			if rel_tpl.interfaces:
+				if src.name == node.name:
+					for name in ['pre_configure_source', 'post_configure_source', 'add_source']:
+						for iface in rel_tpl.interfaces:
+							if iface.name == name:
+								res[name] = iface
+				elif trgt.name == node.name:
+					for name in ['pre_configure_target', 'post_configure_target', 'add_target','target_changed','remove_target']:
+						for iface in rel_tpl.interfaces:
+							if iface.name == name:
+								res[name] = iface
 		return res
 
 	def _get_artifact_full_uri(self, node, artifact_name):
