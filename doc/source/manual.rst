@@ -17,7 +17,7 @@ IM needs at least Python 2.6 to run, as well as the next libraries:
   and manipulating network addresses.
 
 Also, IM uses `Ansible <http://www.ansible.com>`_ (1.4.2 or later) to configure the
-infrastructure nodes.
+infrastructure nodes. The current recommended version is 1.9.4 untill the 2.X versions become stable.
  
 These components are usually available from the distribution repositories. To
 install them in Debian and Ubuntu based distributions, do::
@@ -74,9 +74,10 @@ Optional Packages
   The Debian package is named ``python-springpython``.
 * `Bottle <http://bottlepy.or>`_ is needed if needed to use the REST API
   (see :confval:`ACTIVATE_REST`). The Debian package is named ``python-bottle``.
-* `CherryPy <http://cherrypy.org>`_ is needed if needed to secure the REST API
+* `CherryPy <http://cherrypy.org>`_ and pyOpenSSL are needed if needed to secure the REST API
   with SSL certificates (see :confval:`REST_SSL`).
-  The Debian package is named ``python-cherrypy3``.
+  The Debian package for CherryPy is named ``python-cherrypy3``.
+  pyOpenSSL can be installed using pip.
 
 Installation
 ------------
