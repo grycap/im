@@ -32,10 +32,6 @@
   when: result_copy_etc_hosts|failed and ansible_os_family != "Windows"
   ignore_errors: yes
 
-- name: Copy the /etc/hosts in windows with cygwin
-  copy: src=etc_hosts dest=/cygdrive/c/WINDOWS/system32/drivers/etc mode=0777
-  when: windows
-
 - name: Copy the /etc/hosts in windows native
   win_copy: src=etc_hosts dest=c:\Windows\System32\Drivers\etc\hosts
   when: ansible_os_family == "Windows"

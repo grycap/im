@@ -1066,10 +1066,6 @@ class ConfManager(threading.Thread):
 			conf_content += "  sudo: yes\n"
 		conf_content += "  user: \"{{ IM_NODE_USER }}\"\n"
 
-		# Add the utils helper vars 
-		conf_content += "  vars_files: \n"
-		conf_content += '    - [ "utils/vars/{{ ansible_distribution }}.yml", "utils/vars/os_defaults.yml" ]\n\n'
-
 		return conf_content 
 
 	def create_all_recipe(self, tmp_dir, filename, group="allnowindows", suffix = "_all.yml"):
