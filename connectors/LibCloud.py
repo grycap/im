@@ -23,7 +23,7 @@ from libcloud.compute.base import NodeImage, NodeAuthSSHKey
 from libcloud.compute.types import NodeState
 from libcloud.compute.providers import get_driver
 
-from IM.radl.radl import Feature
+from radl.radl import Feature
 
 class LibCloudCloudConnector(CloudConnector):
 	"""

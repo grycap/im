@@ -24,7 +24,7 @@ from IM.config import Config
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 
-from IM.radl.radl import Feature
+from radl.radl import Feature
 
 class OpenStackCloudConnector(LibCloudCloudConnector):
 	"""
@@ -203,8 +203,9 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 				if net_provider_id:
 					for net in ost_nets:
 						if net.name == net_provider_id:
-							nets.append(net)
-							used_nets.append(net.name)
+							if net.name not in used_nets:
+								nets.append(net)
+								used_nets.append(net.name)
 							break
 				else:
 					# if not select the first not used net
