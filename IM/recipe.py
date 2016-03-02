@@ -17,7 +17,7 @@
 from db import DataBase
 
 from config import Config
-from IM.radl.radl import FeaturesApp
+from radl.radl import FeaturesApp
 
 class Recipe:
 	""" Class to access the recipes stored in the DB """

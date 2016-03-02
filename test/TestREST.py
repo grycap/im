@@ -28,7 +28,7 @@ sys.path.append(".")
 
 from IM.VirtualMachine import VirtualMachine
 from IM.uriparse import uriparse
-from IM.radl import radl_parse
+from radl import radl_parse
 from IM import __version__ as version
 
 PID = None

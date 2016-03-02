@@ -24,7 +24,7 @@ from IM.config import Config
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 
-from IM.radl.radl import Feature
+from radl.radl import Feature
 
 class OpenStackCloudConnector(LibCloudCloudConnector):
 	"""

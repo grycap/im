@@ -23,7 +23,7 @@ from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from IM.config import Config
 from CloudConnector import CloudConnector
-from IM.radl.radl import Feature
+from radl.radl import Feature
 from IM import UnixHTTPConnection
 	
 
