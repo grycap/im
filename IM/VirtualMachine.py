@@ -17,7 +17,7 @@
 from netaddr import IPNetwork, IPAddress
 import time
 import threading
-from IM.radl.radl import network, RADL
+from radl.radl import network, RADL
 from IM.SSH import SSH
 from IM.SSHRetry import SSHRetry
 from config import Config
@@ -282,7 +282,7 @@ class VirtualMachine:
 		"""
 		Get a list of applications to install in the VM 
 	
-		Returns: list of :py:class:`IM.radl.radl.Application` with the applications
+		Returns: list of :py:class:`radl.radl.Application` with the applications
 		"""
 		# check apps requested
 		requested = self.getRequestedApplications()

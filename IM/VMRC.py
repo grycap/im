@@ -16,7 +16,7 @@
 """ Class to connect with the VMRC server """
 from SOAPpy import SOAPProxy
 from HTTPHeaderTransport import HTTPHeaderTransport
-from IM.radl.radl import Feature, system, FeaturesApp, SoftFeatures
+from radl.radl import Feature, system, FeaturesApp, SoftFeatures
 
 class VMRC:
 	""" Class to connect with the VMRC server """

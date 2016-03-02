@@ -28,7 +28,7 @@ sys.path.append(".")
 
 from IM.VirtualMachine import VirtualMachine
 from IM.uriparse import uriparse
-from IM.radl.radl_json import parse_radl as parse_radl_json
+from radl.radl_json import parse_radl as parse_radl_json
 
 PID = None
 RADL_ADD = '[{"class":"network","reference":true,"id":"publica"},{"class":"system","reference":true,"id":"front"},{"vm_number":1,"class":"deploy","system":"front"}]'

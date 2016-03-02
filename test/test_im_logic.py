@@ -31,7 +31,7 @@ Config.MAX_SIMULTANEOUS_LAUNCHES = 2
 from IM.VirtualMachine import VirtualMachine
 from IM.InfrastructureManager import InfrastructureManager as IM
 from IM.auth import Authentication
-from IM.radl.radl import RADL, system, deploy, Feature, SoftFeatures
+from radl.radl import RADL, system, deploy, Feature, SoftFeatures
 from IM.CloudInfo import CloudInfo
 from connectors.CloudConnector import CloudConnector
 
