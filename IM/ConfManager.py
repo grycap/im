@@ -469,7 +469,8 @@ class ConfManager(threading.Thread):
 		f = open(tmp_dir + '/basic_task_all.yml', 'a')
 		f.write("\n  vars:\n") 
 		f.write("    - pk_file: " + pk_file + ".pub\n")
-		f.write("  hosts: '{{IM_HOST}}'\n") 
+		f.write("  hosts: '{{IM_HOST}}'\n")
+		f.write("  user: \"{{ ansible_user }}\"\n")
 		f.close()
 		recipe_files.append("basic_task_all.yml")
 		return recipe_files
@@ -1062,6 +1063,7 @@ class ConfManager(threading.Thread):
 		conf_content += "- hosts: \"{{IM_HOST}}\"\n"
 		if os != 'windows':
 			conf_content += "  sudo: yes\n"
+		conf_content += "  user: \"{{ ansible_user }}\"\n"
 
 		return conf_content 
 
@@ -1076,6 +1078,7 @@ class ConfManager(threading.Thread):
 		conf_all_out = open(tmp_dir + "/" + all_filename, 'w')
 		conf_all_out.write("---\n")
 		conf_all_out.write("- hosts: " + group + "\n")
+		conf_all_out.write("  user: \"{{ ansible_user }}\"\n")
 		conf_all_out.write("- include: " + filename + ".yml\n")
 		conf_all_out.write("\n\n")
 		conf_all_out.close()
