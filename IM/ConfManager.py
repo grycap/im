@@ -316,11 +316,10 @@ class ConfManager(threading.Thread):
 			vm = vm_group[group][0]
 			user = vm.getCredentialValues()[0]
 			out.write('[' + group + ':vars]\n')
-			out.write('IM_NODE_USER=' + user + '\n')
+			out.write('ansible_user=' + user + '\n')
 
 			if vm.getOS().lower() == "windows":
 				out.write('ansible_port=5986\n')
-				out.write('ansible_user=' + user + '\n')
 				out.write('ansible_connection=winrm\n')	
 				
 			out.write('[' + group + ']\n')
@@ -373,7 +372,7 @@ class ConfManager(threading.Thread):
 
 				node_line = ip
 				if vm.getOS().lower() != "windows":
-					node_line += ":" + str(vm.getSSHPort())
+					node_line += ' ansible_port=%d' % vm.getSSHPort()
 				
 				if self.inf.vm_master and vm.id == self.inf.vm_master.id:
 					node_line += ' ansible_connection=local'
@@ -470,8 +469,8 @@ class ConfManager(threading.Thread):
 		f = open(tmp_dir + '/basic_task_all.yml', 'a')
 		f.write("\n  vars:\n") 
 		f.write("    - pk_file: " + pk_file + ".pub\n")
-		f.write("  hosts: '{{IM_HOST}}'\n") 
-		f.write("  user: \"{{ IM_NODE_USER }}\"\n") 
+		f.write("  hosts: '{{IM_HOST}}'\n")
+		f.write("  user: \"{{ ansible_user }}\"\n")
 		f.close()
 		recipe_files.append("basic_task_all.yml")
 		return recipe_files
@@ -603,7 +602,7 @@ class ConfManager(threading.Thread):
 		if not self.inf.ansible_configured:
 			success = False
 			cont = 0
-			while not success and cont < Config.PLAYBOOK_RETRIES:
+			while not self._stop and not success and cont < Config.PLAYBOOK_RETRIES:
 				time.sleep(cont*5)
 				cont += 1
 				try:
@@ -863,7 +862,7 @@ class ConfManager(threading.Thread):
 		retries = 1
 		delay = 10
 		wait = 0
-		while wait < timeout:
+		while not self._stop and wait < timeout:
 			if not vm.destroy:
 				vm.update_status(self.auth)
 
@@ -930,7 +929,7 @@ class ConfManager(threading.Thread):
 		auth_errors = 0
 		auth_error_retries = 3
 		connected = False
-		while wait < timeout:
+		while not self._stop and wait < timeout:
 			if vm.destroy:
 				# in this case ignore it
 				return False
@@ -1064,11 +1063,7 @@ class ConfManager(threading.Thread):
 		conf_content += "- hosts: \"{{IM_HOST}}\"\n"
 		if os != 'windows':
 			conf_content += "  sudo: yes\n"
-		conf_content += "  user: \"{{ IM_NODE_USER }}\"\n"
-
-		# Add the utils helper vars 
-		conf_content += "  vars_files: \n"
-		conf_content += '    - [ "utils/vars/{{ ansible_distribution }}.yml", "utils/vars/os_defaults.yml" ]\n\n'
+		conf_content += "  user: \"{{ ansible_user }}\"\n"
 
 		return conf_content 
 
@@ -1083,7 +1078,7 @@ class ConfManager(threading.Thread):
 		conf_all_out = open(tmp_dir + "/" + all_filename, 'w')
 		conf_all_out.write("---\n")
 		conf_all_out.write("- hosts: " + group + "\n")
-		conf_all_out.write("  user: \"{{ IM_NODE_USER }}\"\n")
+		conf_all_out.write("  user: \"{{ ansible_user }}\"\n")
 		conf_all_out.write("- include: " + filename + ".yml\n")
 		conf_all_out.write("\n\n")
 		conf_all_out.close()
