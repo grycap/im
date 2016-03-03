@@ -15,7 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import sys
-from connectors import *
+from IM.connectors import *
 	
 class CloudInfo:
 	"""
@@ -41,7 +41,7 @@ class CloudInfo:
 		if len(self.type) > 15 or "." in self.type:
 			raise Exception("Not valid cloud provider.")
 		try:
-			return getattr(sys.modules['connectors.' + self.type], self.type + "CloudConnector")(self)
+			return getattr(sys.modules['IM.connectors.' + self.type], self.type + "CloudConnector")(self)
 		except Exception, ex:
 			raise Exception("Cloud provider not supported: %s (error: %s)" % (self.type, str(ex)))
 
