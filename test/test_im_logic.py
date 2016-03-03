@@ -59,7 +59,7 @@ class TestIM(unittest.TestCase):
 			 'password': 'pass%s'%i} for c, i in clouds ])
 		
 	def register_cloudconnector(self, name, cloud_connector):
-		sys.modules['connectors.' + name] = type('MyConnector', (object,),
+		sys.modules['IM.connectors.' + name] = type('MyConnector', (object,),
 		                                         {name + 'CloudConnector': cloud_connector})
 	
 	def gen_launch_res(self, inf, radl, requested_radl, num_vm, auth_data):
