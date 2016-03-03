@@ -539,7 +539,7 @@ class Tosca:
 				Tosca.logger.warn("There are no VM associated with the name %s." % node.name)
 				return None
 			else:
-				# Always assume that there will be only one VM per group
+				# As default assume that there will be only one VM per group
 				vm = vm_list[node.name][0]
 				if len(vm_list[node.name])<index:
 					index = len(vm_list[node.name]) - 1
@@ -551,7 +551,7 @@ class Tosca:
 			elif attribute_name == "private_address":
 				if node.type == "tosca.nodes.indigo.Compute":
 					res = [vm.getPrivateIP() for vm in vm_list[node.name]]
-					if index:
+					if index is not None:
 						res = res[index]
 					return res
 				else:
@@ -559,7 +559,7 @@ class Tosca:
 			elif attribute_name == "public_address":
 				if node.type == "tosca.nodes.indigo.Compute":
 					res = [vm.getPublicIP() for vm in vm_list[node.name]]
-					if index:
+					if index is not None:
 						res = res[index]
 					return res
 				else:
