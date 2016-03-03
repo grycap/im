@@ -27,7 +27,7 @@ sys.path.append(".")
 
 from IM.auth import Authentication
 from IM.VirtualMachine import VirtualMachine
-from IM.radl import radl_parse
+from radl import radl_parse
 from IM import __version__ as version
 
 RADL_ADD_WIN = "network publica\nnetwork privada\nsystem windows\ndeploy windows 1 one"

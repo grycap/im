@@ -22,7 +22,7 @@ from IM.xmlobject import XMLObject
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from CloudConnector import CloudConnector
-from IM.radl.radl import Feature
+from radl.radl import Feature
 from netaddr import IPNetwork, IPAddress
 from IM.config import Config
 

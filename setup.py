@@ -36,13 +36,13 @@ setup(  name="IM", version=version,
         author='GRyCAP - Universitat Politecnica de Valencia',
         author_email='micafer1@upv.es',
         url='http://www.grycap.upv.es/im',
-        packages=['IM','IM.tosca', 'IM.radl', 'IM.ansible','connectors'],
         include_package_data = True,
+        packages=['IM', 'IM.ansible','IM.connectors','IM.tosca'],
         scripts=["im_service.py"],
         data_files=datafiles,
         license="GPL version 3, http://www.gnu.org/licenses/gpl-3.0.txt",
         long_description="IM is a tool that ease the access and the usability of IaaS clouds by automating the VMI selection, deployment, configuration, software installation, monitoring and update of Virtual Appliances. It supports APIs from a large number of virtual platforms, making user applications cloud-agnostic. In addition it integrates a contextualization system to enable the installation and configuration of all the user required applications providing the user with a fully functional infrastructure.",
         description="IM is a tool to manage virtual infrastructures on Cloud deployments",
         platforms=["any"],
-        install_requires=["ansible == 1.9.4","paramiko >= 1.14","PyYAML","SOAPpy","boto >= 2.29","apache-libcloud >= 0.17","ply", "bottle", "netaddr", "scp"]
+        install_requires=["ansible == 1.9.4","paramiko >= 1.14","PyYAML","SOAPpy","boto >= 2.29","apache-libcloud >= 0.17","RADL", "bottle", "netaddr", "scp"]
 )

@@ -7,7 +7,7 @@ Prerequisites
 
 IM needs at least Python 2.6 to run, as well as the next libraries:
 
-* `PLY <http://www.dabeaz.com/ply/>`_, Python Lex & Yacc library for python.
+* `The RADL parser <https://github.com/grycap/radl>`_.
 * `paramiko <http://www.lag.net/paramiko/>`_, ssh2 protocol library for python
   (version 1.14 or later).
 * `PyYAML <http://pyyaml.org/>`_, a YAML parser.
