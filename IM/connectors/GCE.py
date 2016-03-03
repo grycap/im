@@ -23,7 +23,7 @@ from libcloud.compute.types import NodeState, Provider
 from libcloud.compute.providers import get_driver
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
-from IM.radl.radl import Feature
+from radl.radl import Feature
 from libcloud.common.google import ResourceNotFoundError
 
 class GCECloudConnector(CloudConnector):

@@ -185,3 +185,4 @@ IM 1.4.3
     * Add IM_INFRASTRUCTURE_ID variable
     * Bugfix in REST API with auth data with new lines
     * Bugfix in ansible_executor_v2 with version ansible 2.0.1
+    * Extract RADL as an external package

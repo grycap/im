@@ -16,13 +16,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
+import sys
 import unittest, time
 import logging, logging.config
 
+sys.path.append("..")
 from IM.CloudInfo import CloudInfo
 from IM.auth import Authentication
-from IM.radl import radl_parse
+from radl import radl_parse
 from IM.VirtualMachine import VirtualMachine
 from IM.VMRC import VMRC
 from IM.InfrastructureInfo import InfrastructureInfo
@@ -42,7 +43,7 @@ class TestConnectors(unittest.TestCase):
     """ List of VMs launched in the test """
     
     #connectors_to_test = "all"
-    connectors_to_test = ["kub"]
+    connectors_to_test = ["fogbow"]
     """ Specify the connectors to test: "all": All the connectors specified in the auth file or a list with the IDs"""
 
     @classmethod
@@ -110,6 +111,7 @@ class TestConnectors(unittest.TestCase):
             cpu.arch='x86_64' and
             cpu.count>=1 and
             memory.size>=512m and
+            #memory.size>=1024m and
             #disks.free_size>=2g and
             net_interface.0.connection = 'net' and
             net_interface.0.dns_name = 'test' and
@@ -149,9 +151,14 @@ class TestConnectors(unittest.TestCase):
             
     def wait_vm_state(self, cl, vm, state, timeout):
         # wait the VM to be stopped
+        errors = 0
+        max_errors = 3
         wait = 0
         err_states = [VirtualMachine.FAILED, VirtualMachine.OFF, VirtualMachine.UNCONFIGURED]
-        while vm.state != state and vm.state not in err_states and wait < timeout:
+        while vm.state != state and wait < timeout:
+
+            self.assertFalse(vm.state in err_states, msg="ERROR waiting for a state. '" + vm.state + "' was obtained in the VM: " + str(vm.id) + " err_states = " + str(err_states))
+
             try: 
                 (success, new_vm) = cl.updateVMInfo(vm, auth)
             except:
@@ -161,11 +168,15 @@ class TestConnectors(unittest.TestCase):
                 vm = new_vm
                 wait += 5
                 time.sleep(5)
+            elif errors < max_errors:
+                errors += 1
+                wait += 5
+                time.sleep(5)
             else:
                 return False
 
         return vm.state == state
-    
+
     def test_40_stop(self):
         for vm in self.vm_list:
             cl = vm.cloud.getCloudConnector()
@@ -179,7 +190,7 @@ class TestConnectors(unittest.TestCase):
             self.assertTrue(success, msg="ERROR: stopping VM for cloud: " + vm.cloud.id + ": " + str(msg))
             
             # wait the VM to be stopped
-            wait_ok = self.wait_vm_state(cl,vm,VirtualMachine.STOPPED,120)
+            wait_ok = self.wait_vm_state(cl,vm,VirtualMachine.STOPPED,240)
             
             self.assertTrue(wait_ok, msg="ERROR: waiting stop op VM for cloud: " + vm.cloud.id)
             
@@ -190,26 +201,28 @@ class TestConnectors(unittest.TestCase):
             (success, msg) = cl.start(vm, auth)
             self.assertTrue(success, msg="ERROR: starting VM for cloud: " + vm.cloud.id + ": " + str(msg))
             # wait the VM to be running again
-            wait_ok = self.wait_vm_state(cl,vm,VirtualMachine.RUNNING,90)
+            wait_ok = self.wait_vm_state(cl,vm,VirtualMachine.RUNNING,180)
             self.assertTrue(wait_ok, msg="ERROR: waiting start op VM for cloud: " + vm.cloud.id)
-            
+                
     def test_55_alter(self):
         radl_data = """
             system test (
             cpu.count>=2 and
-            memory.size>=1024m
+            memory.size>=2048m
             )"""
         radl = radl_parse.parse_radl(radl_data)
         for vm in self.vm_list:
             cl = vm.cloud.getCloudConnector()
             (success, msg) = cl.alterVM(vm, radl, auth)
             self.assertTrue(success, msg="ERROR: updating VM for cloud: " + vm.cloud.id + ": " + str(msg))
+            # wait the VM to resize
+            time.sleep(30)
             # get the updated vm
             (success, new_vm) = cl.updateVMInfo(vm, auth)
             new_cpu = new_vm.info.systems[0].getValue('cpu.count')
             new_memory = new_vm.info.systems[0].getFeature('memory.size').getValue('M')
-            self.assertEqual(new_cpu, 2, msg="ERROR: updating VM for cloud: " + vm.cloud.id + ". CPU num must be 2.")
-            self.assertEqual(new_memory, 1024, msg="ERROR: updating VM for cloud: " + vm.cloud.id + ". Memory must be 1024.")
+            self.assertGreaterEqual(new_cpu, 2, msg="ERROR: updating VM for cloud: " + vm.cloud.id + ". CPU num must at least 2.")
+            self.assertGreaterEqual(new_memory, 1024, msg="ERROR: updating VM for cloud: " + vm.cloud.id + ". Memory must be at least 1024M.")
             
     def test_60_finalize(self):
         for vm in self.vm_list:

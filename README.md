@@ -32,8 +32,8 @@ of the functionality of the platform: https://www.youtube.com/playlist?list=PLgP
 IM is based on Python, so Python 2.6 or higher runtime and standard library must
 be installed in the system.
 
- + The Python Lex & Yacc library (http://www.dabeaz.com/ply/), typically available
-   as the 'python-ply' package.
+ + The RADL parser (https://github.com/grycap/radl), available in pip
+   as the 'RADL' package.
 
  + The paramiko ssh2 protocol library for python version 1.14 or later
 (http://www.lag.net/paramiko/), typically available as the 'python-paramiko' package.

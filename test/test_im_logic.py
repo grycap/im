@@ -31,9 +31,9 @@ Config.MAX_SIMULTANEOUS_LAUNCHES = 2
 from IM.VirtualMachine import VirtualMachine
 from IM.InfrastructureManager import InfrastructureManager as IM
 from IM.auth import Authentication
-from IM.radl.radl import RADL, system, deploy, Feature, SoftFeatures
+from radl.radl import RADL, system, deploy, Feature, SoftFeatures
 from IM.CloudInfo import CloudInfo
-from connectors.CloudConnector import CloudConnector
+from IM.connectors.CloudConnector import CloudConnector
 
 class TestIM(unittest.TestCase):
 	def __init__(self, *args):
@@ -59,7 +59,7 @@ class TestIM(unittest.TestCase):
 			 'password': 'pass%s'%i} for c, i in clouds ])
 		
 	def register_cloudconnector(self, name, cloud_connector):
-		sys.modules['connectors.' + name] = type('MyConnector', (object,),
+		sys.modules['IM.connectors.' + name] = type('MyConnector', (object,),
 		                                         {name + 'CloudConnector': cloud_connector})
 	
 	def gen_launch_res(self, inf, radl, requested_radl, num_vm, auth_data):
