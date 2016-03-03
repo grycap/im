@@ -9,7 +9,7 @@ from IM.uriparse import uriparse
 from toscaparser.tosca_template import ToscaTemplate 
 from toscaparser.elements.interfaces import InterfacesDef
 from toscaparser.functions import Function, is_function, get_function, GetAttribute
-from IM.radl.radl import system, deploy, network, Feature, configure, contextualize_item, RADL, contextualize
+from radl.radl import system, deploy, network, Feature, configure, contextualize_item, RADL, contextualize
 
 class Tosca:
 	"""
@@ -505,6 +505,7 @@ class Tosca:
 		* { get_attribute: [ server, private_address ] }
 		* { get_attribute: [ HOST, private_address ] }
 		* { get_attribute: [ SELF, private_address ] }
+		* { get_attribute: [ HOST, private_address, 0 ] }
 		"""
 		node_name = func.args[0]
 		attribute_name = func.args[1]
