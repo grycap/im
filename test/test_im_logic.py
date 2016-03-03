@@ -33,7 +33,7 @@ from IM.InfrastructureManager import InfrastructureManager as IM
 from IM.auth import Authentication
 from radl.radl import RADL, system, deploy, Feature, SoftFeatures
 from IM.CloudInfo import CloudInfo
-from connectors.CloudConnector import CloudConnector
+from IM.connectors.CloudConnector import CloudConnector
 
 class TestIM(unittest.TestCase):
 	def __init__(self, *args):
