@@ -30,8 +30,8 @@ from auth import Authentication
 import logging
 
 import InfrastructureInfo
-from IM.radl import radl_parse
-from IM.radl.radl import Feature, RADL
+from radl import radl_parse
+from radl.radl import Feature, RADL
 from IM.recipe import Recipe
 from IM.db import DataBase
 
@@ -1206,7 +1206,7 @@ class InfrastructureManager:
 							if not inf.deleted:
 								inf_list[inf.id] = inf
 						except:
-							InfrastructureManager.logger.exception("ERROR reading infrastructure %d from database, ignoring it!." % inf.id) 
+							InfrastructureManager.logger.exception("ERROR reading infrastructure from database, ignoring it!.") 
 				else:
 					InfrastructureManager.logger.error("ERROR getting inf_list from database!.")
 				

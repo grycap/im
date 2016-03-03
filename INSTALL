@@ -8,8 +8,7 @@ be installed in the system.
 If you will use pip to install the IM, all the requisites will be installed.
 You must install them if you will install IM from sources.
 
-It is also required to install the Python Lex & Yacc library (http://www.dabeaz.com/ply/).
-It is available in all of the main distributions as 'python-ply' package.
+The RADL parser (https://github.com/grycap/radl), available in pip as the 'RADL' package.
 
 It is also required to install the paramiko ssh2 protocol library for python
 (http://www.lag.net/paramiko/). It is available in all of the main distributions

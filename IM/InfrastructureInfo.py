@@ -22,7 +22,7 @@ from uuid import uuid1
 from ganglia import ganglia_info
 import ConfManager
 from datetime import datetime
-from IM.radl.radl import RADL, Feature, deploy, system, contextualize_item
+from radl.radl import RADL, Feature, deploy, system, contextualize_item
 from config import Config
 from Queue import PriorityQueue
 

@@ -23,7 +23,7 @@ from IM.xmlobject import XMLObject
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from CloudConnector import CloudConnector
-from IM.radl.radl import UserPassCredential, Feature
+from radl.radl import UserPassCredential, Feature
 from IM.config import Config
 
 # Set of classes to parse the output of the REST API
