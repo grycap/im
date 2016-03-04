@@ -15,7 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import time
-from connectors.LibCloud import LibCloudCloudConnector
+from IM.connectors.LibCloud import LibCloudCloudConnector
 from libcloud.compute.types import Provider, NodeState
 from libcloud.compute.providers import get_driver
 from libcloud.compute.base import NodeImage, NodeAuthSSHKey
