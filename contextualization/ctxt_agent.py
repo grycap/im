@@ -272,7 +272,7 @@ def replace_vm_ip(old_ip, new_ip):
 	# in the inventory and in the general info file
 	filename = conf_data_filename
 	with open(filename) as f:
-		inventoy_data = f.read().replace(old_ip, new_ip)
+		inventoy_data = f.read().replace('"' + old_ip + '"', '"' + new_ip + '"')
 
 	with open(filename, 'w+') as f:
 		f.write(inventoy_data)
@@ -282,7 +282,7 @@ def replace_vm_ip(old_ip, new_ip):
 	with open(filename) as f:
 		inventoy_data = ""
 		for line in f:
-			inventoy_data += re.sub("^%s" % old_ip, new_ip, line)
+			inventoy_data += re.sub("^%s " % old_ip, new_ip + " ", line)
 
 	with open(filename, 'w+') as f:
 		f.write(inventoy_data)
