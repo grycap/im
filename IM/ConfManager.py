@@ -351,10 +351,11 @@ class ConfManager(threading.Thread):
 					ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": The VM ID: " + str(vm.id) + " is not running. It will not be included in the inventory file.")
 					continue
 					
+				# Do not remove the whitespace afther the IP
 				if vm.getOS().lower() == "windows":
-					windows += ip + "\n"
+					windows += ip + " \n"
 				else:
-					no_windows += ip + "\n" 
+					no_windows += ip + " \n" 
 					
 				ifaces_im_vars = ''
 				for i in range(vm.getNumNetworkIfaces()):
