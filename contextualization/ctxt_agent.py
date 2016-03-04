@@ -282,7 +282,7 @@ def replace_vm_ip(old_ip, new_ip):
 	with open(filename) as f:
 		inventoy_data = ""
 		for line in f:
-			inventoy_data += re.sub("^%s " % old_ip, new_ip, line)
+			inventoy_data += re.sub("^%s " % old_ip, new_ip + " ", line)
 
 	with open(filename, 'w+') as f:
 		f.write(inventoy_data)
