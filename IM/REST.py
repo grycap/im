@@ -14,15 +14,21 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from InfrastructureInfo import IncorrectVMException, DeletedVMException
-from InfrastructureManager import InfrastructureManager, DeletedInfrastructureException, IncorrectInfrastructureException, UnauthorizedUserException
-from auth import Authentication
+
+import logging
 import threading
 import bottle
 import json
+
+from bottle import HTTPError
+
+from InfrastructureInfo import IncorrectVMException, DeletedVMException
+from InfrastructureManager import InfrastructureManager, DeletedInfrastructureException, IncorrectInfrastructureException, UnauthorizedUserException
+from auth import Authentication
 from config import Config
 from radl.radl_json import parse_radl as parse_radl_json, dump_radl as dump_radl_json
-from bottle import HTTPError
+
+logger = logging.getLogger('InfrastructureManager')
 
 # Combination of chars used to separate the lines in the AUTH header
 AUTH_LINE_SEPARATOR = '\\n'
@@ -131,13 +137,11 @@ def RESTDestroyInfrastructure(id=None):
 		return ""
 	except DeletedInfrastructureException, ex:
 		bottle.abort(404, "Error Destroying Inf: " + str(ex))
-		return False
 	except IncorrectInfrastructureException, ex:
 		bottle.abort(404, "Error Destroying Inf: " + str(ex))
-		return False
 	except Exception, ex:
+		logger.exception("Error Destroying Inf")
 		bottle.abort(400, "Error Destroying Inf: " + str(ex))
-		return False
 
 @app.route('/infrastructures/:id', method='GET')
 def RESTGetInfrastructureInfo(id=None):
@@ -162,11 +166,10 @@ def RESTGetInfrastructureInfo(id=None):
 		return res
 	except DeletedInfrastructureException, ex:
 		bottle.abort(404, "Error Getting Inf. info: " + str(ex))
-		return False
 	except IncorrectInfrastructureException, ex:
 		bottle.abort(404, "Error Getting Inf. info: " + str(ex))
-		return False
 	except Exception, ex:
+		logger.exception("Error Getting Inf. info")
 		bottle.abort(400, "Error Getting Inf. info: " + str(ex))
 
 @app.route('/infrastructures/:id/:prop', method='GET')
@@ -193,13 +196,12 @@ def RESTGetInfrastructureProperty(id=None, prop=None):
 	except HTTPError, ex:
 		raise ex
 	except DeletedInfrastructureException, ex:
-		bottle.abort(404, "Error Getting Inf. info: " + str(ex))
-		return False
+		bottle.abort(404, "Error Getting Inf. prop: " + str(ex))
 	except IncorrectInfrastructureException, ex:
-		bottle.abort(404, "Error Getting Inf. info: " + str(ex))
-		return False
+		bottle.abort(404, "Error Getting Inf. prop: " + str(ex))
 	except Exception, ex:
-		bottle.abort(400, "Error Getting Inf. info: " + str(ex))
+		logger.exception("Error Getting Inf. prop")
+		bottle.abort(400, "Error Getting Inf. prop: " + str(ex))
 
 @app.route('/infrastructures', method='GET')
 def RESTGetInfrastructureList():
@@ -222,10 +224,9 @@ def RESTGetInfrastructureList():
 		return res
 	except UnauthorizedUserException, ex:
 		bottle.abort(401, "Error Getting Inf. List: " + str(ex))
-		return False
 	except Exception, ex:
+		logger.exception("Error Getting Inf. List")
 		bottle.abort(400, "Error Getting Inf. List: " + str(ex))
-		return False
 
 
 @app.route('/infrastructures', method='POST')
@@ -259,10 +260,9 @@ def RESTCreateInfrastructure():
 		raise ex
 	except UnauthorizedUserException, ex:
 		bottle.abort(401, "Error Getting Inf. info: " + str(ex))
-		return False
 	except Exception, ex:
+		logger.exception("Error Creating Inf.")
 		bottle.abort(400, "Error Creating Inf.: " + str(ex))
-		return False
 
 @app.route('/infrastructures/:infid/vms/:vmid', method='GET')
 def RESTGetVMInfo(infid=None, vmid=None):
@@ -295,19 +295,15 @@ def RESTGetVMInfo(infid=None, vmid=None):
 		raise ex
 	except DeletedInfrastructureException, ex:
 		bottle.abort(404, "Error Getting VM. info: " + str(ex))
-		return False
 	except IncorrectInfrastructureException, ex:
 		bottle.abort(404, "Error Getting VM. info: " + str(ex))
-		return False
 	except DeletedVMException, ex:
 		bottle.abort(404, "Error Getting VM. info: " + str(ex))
-		return False
 	except IncorrectVMException, ex:
 		bottle.abort(404, "Error Getting VM. info: " + str(ex))
-		return False
 	except Exception, ex:
+		logger.exception("Error Getting VM info")
 		bottle.abort(400, "Error Getting VM info: " + str(ex))
-		return False
 
 @app.route('/infrastructures/:infid/vms/:vmid/:prop', method='GET')
 def RESTGetVMProperty(infid=None, vmid=None, prop=None):
@@ -341,19 +337,15 @@ def RESTGetVMProperty(infid=None, vmid=None, prop=None):
 		raise ex
 	except DeletedInfrastructureException, ex:
 		bottle.abort(404, "Error Getting VM. property: " + str(ex))
-		return False
 	except IncorrectInfrastructureException, ex:
 		bottle.abort(404, "Error Getting VM. property: " + str(ex))
-		return False
 	except DeletedVMException, ex:
 		bottle.abort(404, "Error Getting VM. property: " + str(ex))
-		return False
 	except IncorrectVMException, ex:
 		bottle.abort(404, "Error Getting VM. property: " + str(ex))
-		return False
 	except Exception, ex:
+		logger.exception("Error Getting VM property")
 		bottle.abort(400, "Error Getting VM property: " + str(ex))
-		return False
 
 @app.route('/infrastructures/:id', method='POST')
 def RESTAddResource(id=None):
@@ -402,13 +394,11 @@ def RESTAddResource(id=None):
 		raise ex
 	except DeletedInfrastructureException, ex:
 		bottle.abort(404, "Error Adding resources: " + str(ex))
-		return False
 	except IncorrectInfrastructureException, ex:
 		bottle.abort(404, "Error Adding resources: " + str(ex))
-		return False
 	except Exception, ex:
+		logger.exception("Error Adding resources")
 		bottle.abort(400, "Error Adding resources: " + str(ex))
-		return False
 				
 @app.route('/infrastructures/:infid/vms/:vmid', method='DELETE')
 def RESTRemoveResource(infid=None, vmid=None):
@@ -438,16 +428,13 @@ def RESTRemoveResource(infid=None, vmid=None):
 		return False
 	except IncorrectInfrastructureException, ex:
 		bottle.abort(404, "Error Removing resources: " + str(ex))
-		return False
 	except DeletedVMException, ex:
 		bottle.abort(404, "Error Removing resources: " + str(ex))
-		return False
 	except IncorrectVMException, ex:
 		bottle.abort(404, "Error Removing resources: " + str(ex))
-		return False
 	except Exception, ex:
+		logger.exception("Error Removing resources")
 		bottle.abort(400, "Error Removing resources: " + str(ex))
-		return False
 
 @app.route('/infrastructures/:infid/vms/:vmid', method='PUT')
 def RESTAlterVM(infid=None, vmid=None):
@@ -490,19 +477,15 @@ def RESTAlterVM(infid=None, vmid=None):
 		raise ex
 	except DeletedInfrastructureException, ex:
 		bottle.abort(404, "Error modifying resources: " + str(ex))
-		return False
 	except IncorrectInfrastructureException, ex:
 		bottle.abort(404, "Error modifying resources: " + str(ex))
-		return False
 	except DeletedVMException, ex:
 		bottle.abort(404, "Error modifying resources: " + str(ex))
-		return False
 	except IncorrectVMException, ex:
 		bottle.abort(404, "Error modifying resources: " + str(ex))
-		return False
 	except Exception, ex:
+		logger.exception("Error modifying resources")
 		bottle.abort(400, "Error modifying resources: " + str(ex))
-		return False
 
 @app.route('/infrastructures/:id/reconfigure', method='PUT')
 def RESTReconfigureInfrastructure(id=None):
@@ -539,13 +522,11 @@ def RESTReconfigureInfrastructure(id=None):
 		raise ex
 	except DeletedInfrastructureException, ex:
 		bottle.abort(404, "Error reconfiguring infrastructure: " + str(ex))
-		return False
 	except IncorrectInfrastructureException, ex:
 		bottle.abort(404, "Error reconfiguring infrastructure: " + str(ex))
-		return False
 	except Exception, ex:
+		logger.exception("Error reconfiguring infrastructure")
 		bottle.abort(400, "Error reconfiguring infrastructure: " + str(ex))
-		return False
 
 @app.route('/infrastructures/:id/start', method='PUT')
 def RESTStartInfrastructure(id=None):
@@ -558,13 +539,11 @@ def RESTStartInfrastructure(id=None):
 		return InfrastructureManager.StartInfrastructure(id, auth)	
 	except DeletedInfrastructureException, ex:
 		bottle.abort(404, "Error starting infrastructure: " + str(ex))
-		return False
 	except IncorrectInfrastructureException, ex:
 		bottle.abort(404, "Error starting infrastructure: " + str(ex))
-		return False
 	except Exception, ex:
+		logger.exception("Error starting infrastructure")
 		bottle.abort(400, "Error starting infrastructure: " + str(ex))
-		return False
 
 @app.route('/infrastructures/:id/stop', method='PUT')
 def RESTStopInfrastructure(id=None):
@@ -577,13 +556,11 @@ def RESTStopInfrastructure(id=None):
 		return InfrastructureManager.StopInfrastructure(id, auth)	
 	except DeletedInfrastructureException, ex:
 		bottle.abort(404, "Error stopping infrastructure: " + str(ex))
-		return False
 	except IncorrectInfrastructureException, ex:
 		bottle.abort(404, "Error stopping infrastructure: " + str(ex))
-		return False
 	except Exception, ex:
+		logger.exception("Error stopping infrastructure")
 		bottle.abort(400, "Error stopping infrastructure: " + str(ex))
-		return False
 	
 @app.route('/infrastructures/:infid/vms/:vmid/start', method='PUT')
 def RESTStartVM(infid=None, vmid=None, prop=None):
@@ -598,19 +575,15 @@ def RESTStartVM(infid=None, vmid=None, prop=None):
 		return info
 	except DeletedInfrastructureException, ex:
 		bottle.abort(404, "Error starting VM: " + str(ex))
-		return False
 	except IncorrectInfrastructureException, ex:
 		bottle.abort(404, "Error starting VM: " + str(ex))
-		return False
 	except DeletedVMException, ex:
 		bottle.abort(404, "Error starting VM: " + str(ex))
-		return False
 	except IncorrectVMException, ex:
 		bottle.abort(404, "Error starting VM: " + str(ex))
-		return False
 	except Exception, ex:
+		logger.exception("Error starting VM")
 		bottle.abort(400, "Error starting VM: " + str(ex))
-		return False
 	
 @app.route('/infrastructures/:infid/vms/:vmid/stop', method='PUT')
 def RESTStopVM(infid=None, vmid=None, prop=None):
@@ -625,19 +598,15 @@ def RESTStopVM(infid=None, vmid=None, prop=None):
 		return info
 	except DeletedInfrastructureException, ex:
 		bottle.abort(404, "Error stopping VM: " + str(ex))
-		return False
 	except IncorrectInfrastructureException, ex:
 		bottle.abort(404, "Error stopping VM: " + str(ex))
-		return False
 	except DeletedVMException, ex:
 		bottle.abort(404, "Error stopping VM: " + str(ex))
-		return False
 	except IncorrectVMException, ex:
 		bottle.abort(404, "Error stopping VM: " + str(ex))
-		return False
 	except Exception, ex:
+		logger.exception("Error stopping VM")
 		bottle.abort(400, "Error stopping VM: " + str(ex))
-		return False
 
 @app.route('/version', method='GET')
 def RESTGeVersion():
@@ -647,4 +616,3 @@ def RESTGeVersion():
 		return version 
 	except Exception, ex:
 		bottle.abort(400, "Error getting IM state: " + str(ex))
-		return False
