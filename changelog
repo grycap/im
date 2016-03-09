@@ -187,3 +187,4 @@ IM 1.4.3
     * Bugfix in ansible_executor_v2 with version ansible 2.0.1
     * Extract RADL as an external package
     * Bugfix in the ctxt_agent
+    * Add logger messages to REST API
