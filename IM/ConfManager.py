@@ -1102,7 +1102,7 @@ class ConfManager(threading.Thread):
 	
 			# Create the ansible inventory file
 			with open(tmp_dir + "/inventory.cfg", 'w') as inv_out:
-				inv_out.write(ssh.host + ":" + str(ssh.port) + "\n\n")
+				inv_out.write("%s  ansible_port=%d  ansible_ssh_port=%d" % (ssh.host, ssh.port, ssh.port))
 			
 			shutil.copy(Config.CONTEXTUALIZATION_DIR + "/" + ConfManager.MASTER_YAML, tmp_dir + "/" + ConfManager.MASTER_YAML)
 			
