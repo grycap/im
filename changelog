@@ -188,3 +188,4 @@ IM 1.4.3
     * Extract RADL as an external package
     * Bugfix in the ctxt_agent
     * Add logger messages to REST API
+    * Add extra-ports to FogBow connector
