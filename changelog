@@ -182,7 +182,7 @@ IM 1.4.3
     * Bugfixes to OpenStack connector. Set default values to new versions.
     * Add GetVersion function
     * Bugfix returning protocol https in REST calls
-    * Add IM_INFRASTRUCTURE_ID variable
+    * Add IM_INFRASTRUCTURE_ID and IM_NODE_CLOUD_TYPE variables
     * Bugfix in REST API with auth data with new lines
     * Bugfix in ansible_executor_v2 with version ansible 2.0.1
     * Extract RADL as an external package
