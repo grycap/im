@@ -270,6 +270,7 @@ class FogBowCloudConnector(CloudConnector):
 
 				conn.putheader('X-OCCI-Attribute', 'org.fogbowcloud.request.instance-count=1')
 				conn.putheader('X-OCCI-Attribute', 'org.fogbowcloud.request.type="one-time"')
+				conn.putheader('X-OCCI-Attribute', 'org.fogbowcloud.order.resource-kind="compute"')
 				
 				requirements = ""
 				if system.getValue('instance_type'):
