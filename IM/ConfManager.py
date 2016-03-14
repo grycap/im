@@ -392,6 +392,7 @@ class ConfManager(threading.Thread):
 				node_line += ' IM_NODE_DOMAIN=' + nodedom
 				node_line += ' IM_NODE_NUM=' + str(vm.im_id)
 				node_line += ' IM_NODE_VMID=' + str(vm.id)
+				node_line += ' IM_NODE_CLOUD_TYPE=' + vm.cloud.type
 				node_line += ifaces_im_vars
 
 				for app in vm.getInstalledApplications():

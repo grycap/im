@@ -233,23 +233,29 @@ class OpenNebulaCloudConnector(CloudConnector):
 			vm.info.systems[0].setValue('instance_name', res_vm.NAME)
 
 			# update the state of the VM
-			if res_vm.STATE == 3:
-				if res_vm.LCM_STATE == 3:
-					res_state = VirtualMachine.RUNNING
+			if res_vm.STATE < 3 :
+				res_state = VirtualMachine.PENDING
+			elif res_vm.STATE == 3:
+				if res_vm.LCM_STATE < 3:
+					res_state = VirtualMachine.PENDING
 				elif res_vm.LCM_STATE == 5 or res_vm.LCM_STATE == 6:
 					res_state = VirtualMachine.STOPPED
+				elif res_vm.LCM_STATE == 14:
+					res_state = VirtualMachine.FAILED
+				elif res_vm.LCM_STATE == 16:
+					res_state = VirtualMachine.UNKNOWN
+				elif res_vm.LCM_STATE == 12 or res_vm.LCM_STATE == 13 or res_vm.LCM_STATE == 18:
+					res_state = VirtualMachine.OFF
 				else:
-					res_state = VirtualMachine.PENDING
-			elif res_vm.STATE < 3 :
-				res_state = VirtualMachine.PENDING
-			elif res_vm.LCM_STATE == 15:
-				res_state = VirtualMachine.UNKNOWN
-			elif res_vm.STATE == 7:
-				res_state = VirtualMachine.FAILED
+					res_state = VirtualMachine.RUNNING
 			elif res_vm.STATE == 4 or res_vm.STATE == 5:
 				res_state = VirtualMachine.STOPPED
-			else:
+			elif res_vm.STATE == 7:
+				res_state = VirtualMachine.FAILED
+			elif res_vm.STATE == 6 or res_vm.STATE == 8 or res_vm.STATE == 9:
 				res_state = VirtualMachine.OFF
+			else:
+				res_state = VirtualMachine.UNKNOWN
 			vm.state = res_state
 
 			# Update network data

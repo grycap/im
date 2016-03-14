@@ -44,9 +44,9 @@ class Tosca:
 		relationships = []
 		for node in self.tosca.nodetemplates:
 			# Store relationships to check later
-			for relationship, target in node.relationships.iteritems():
-				source = node
-				relationships.append((source, target, relationship))
+			for relationship, trgt in node.relationships.iteritems():
+				src = node
+				relationships.append((src, trgt, relationship))
 		
 		radl = RADL()
 		interfaces = {}
@@ -897,13 +897,14 @@ class Tosca:
 		# Find associated BlockStorages
 		disks = Tosca._get_attached_disks(node, nodetemplates)
 		
-		for size, unit, location, device, num in disks:
-			res.setValue('disk.%d.size' % num, size, unit)
+		for size, unit, location, device, num, fstype in disks:
+			if size:
+				res.setValue('disk.%d.size' % num, size, unit)
 			if device:
 				res.setValue('disk.%d.device' % num, device)
 			if location:
 				res.setValue('disk.%d.mount_path' % num, location)
-				res.setValue('disk.%d.fstype' % num, "ext4")
+				res.setValue('disk.%d.fstype' % num, fstype)
 
 		return res
 	
@@ -936,43 +937,33 @@ class Tosca:
 		"""
 		disks = []
 		count = 1
-		for requires in node.requirements:
-			for value in requires.values():
+
+		for rel, trgt in node.relationships.iteritems():
+			src = node
+			rel_tpl = Tosca._get_relationship_template(rel, src, trgt)
+			# TODO: ver root_type
+			if rel.type.endswith("AttachesTo"):
+				rel_tpl.entity_tpl
+				props = rel_tpl.get_properties_objects()
+
 				size = None
 				location = None
-				device = None
-				if isinstance(value, dict):
-					if 'relationship' in value:
-						rel = value.get('relationship')
-						
-						rel_type = None
-						if isinstance(rel, dict) and 'type' in rel:
-							rel_type = rel.get('type')
-						else:
-							rel_type = rel
-						
-						if rel_type and rel_type.endswith("AttachesTo"):
-							if isinstance(rel, dict) and 'properties' in rel:
-								prop = rel.get('properties')
-								if isinstance(prop, dict):
-									location = prop.get('location', None)
-									device = prop.get('device', None)
+				# set a default device
+				device = "hdb"
+				
+				for prop in props:
+					if prop.name == "location":
+						location = prop.value
+					elif prop.name == "device":
+						device = prop.value
 
-							# seet a default device	
-							if not device:
-								device = "hdb"
-
-							for node_name in value.values():
-								for n in nodetemplates:
-									if n.name == node_name:
-										size, unit = Tosca._get_size_and_unit(n.get_property_value('size'))						
-										break
-									
-							disks.append((size, unit, location, device, count))
-							count += 1
+				if trgt.type_definition.type == "tosca.nodes.BlockStorage":
+					size, unit = Tosca._get_size_and_unit(trgt.get_property_value('size'))
+					disks.append((size, unit, location, device, count, "ext4"))
+					count += 1
 				else:
-					Tosca.logger.error("ERROR: expected dict in requires values.")
-			
+					Tosca.logger.debug("Attached item of type %s ignored." % trgt.type_definition.type)
+
 		return disks
 	
 	@staticmethod
