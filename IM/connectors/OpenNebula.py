@@ -389,7 +389,14 @@ class OpenNebulaCloudConnector(CloudConnector):
 		url = uriparse(system.getValue("disk.0.image.url"))
 		path = url[2]
 
-		disks = 'DISK = [ IMAGE_ID = "%s" ]' % path[1:]
+		if path[1:].isdigit():
+			disks = 'DISK = [ IMAGE_ID = "%s" ]' % path[1:]
+		else:
+			if ConfigOpenNebula.IMAGE_UNAME:
+				# This only works if the user owns the image
+				disks = 'DISK = [ IMAGE = "%s" ]' % path[1:]
+			else:
+				disks = 'DISK = [ IMAGE = "%s", IMAGE_UNAME = "%s" ]' % (path[1:], ConfigOpenNebula.IMAGE_UNAME)
 		cont = 1
 		while system.getValue("disk." + str(cont) + ".image.url") or (system.getValue("disk." + str(cont) + ".size") and system.getValue("disk." + str(cont) + ".device")):
 			disk_image = system.getValue("disk." + str(cont) + ".image.url")
