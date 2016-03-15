@@ -93,6 +93,7 @@ if config.has_section(section_name):
 class ConfigOpenNebula:
 	TEMPLATE_CONTEXT = ''
 	TEMPLATE_OTHER = 'GRAPHICS = [type="vnc",listen="0.0.0.0"]'
+	IMAGE_UNAME = ''
 
 if config.has_section("OpenNebula"):
 	parse_options(config, 'OpenNebula', ConfigOpenNebula)
