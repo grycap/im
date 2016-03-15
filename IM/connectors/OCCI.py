@@ -546,23 +546,30 @@ users:
 		i = 0
 		
 		public_key = system.getValue('disk.0.os.credentials.public_key')
+		password = system.getValue('disk.0.os.credentials.password')
 		
-		if not public_key:
-			# We must generate them
-			(public_key, private_key) = self.keygen()
-			system.setValue('disk.0.os.credentials.private_key', private_key)
+		if public_key:
+			if password:
+				system.delValue('disk.0.os.credentials.password')
+			password = None
+		else:
+			if not password:
+				# We must generate them
+				(public_key, private_key) = self.keygen()
+				system.setValue('disk.0.os.credentials.private_key', private_key)
 		
 		user = system.getValue('disk.0.os.credentials.username')
 		if not user:
 			user = "cloudadm"
 			system.setValue('disk.0.os.credentials.username', user)
 
+		user_data = ""
+		if public_key:
 		# Add user cloud init data
-		cloud_config_str = self.get_cloud_init_data(radl)
-		cloud_config = self.gen_cloud_config(public_key, user, cloud_config_str)
-		user_data = base64.b64encode(cloud_config).replace("\n","")
-
-		self.logger.debug("Cloud init: " + cloud_config)
+			cloud_config_str = self.get_cloud_init_data(radl)
+			cloud_config = self.gen_cloud_config(public_key, user, cloud_config_str)
+			user_data = base64.b64encode(cloud_config).replace("\n","")
+			self.logger.debug("Cloud init: " + cloud_config)
 		
 		# Get the info about the OCCI server (GET /-/)
 		occi_info = self.query_occi(auth_data)
@@ -623,7 +630,8 @@ users:
 				# See: https://wiki.egi.eu/wiki/HOWTO10
 				#body += 'X-OCCI-Attribute: org.openstack.credentials.publickey.name="my_key"' 
 				#body += 'X-OCCI-Attribute: org.openstack.credentials.publickey.data="ssh-rsa BAA...zxe ==user@host"'
-				body += 'X-OCCI-Attribute: org.openstack.compute.user_data="' + user_data + '"\n'
+				if user_data:
+					body += 'X-OCCI-Attribute: org.openstack.compute.user_data="' + user_data + '"\n'
 				
 				# Add volume links
 				for device, volume_id in volumes.iteritems():
@@ -819,9 +827,9 @@ class KeyStoneAuth:
 				return www_auth_head.split('=')[1].replace("'","")
 			else:
 				return None
-		except SSLError:
+		except SSLError, ex:
 			occi.logger.exception("Error with the credentials when contacting with the OCCI server.")
-			raise Exception("Error with the credentials when contacting with the OCCI server. Check your proxy file.")
+			raise Exception("Error with the credentials when contacting with the OCCI server: %s. Check your proxy file." % str(ex))
 		except:
 			occi.logger.exception("Error contacting with the OCCI server.")
 			return None
