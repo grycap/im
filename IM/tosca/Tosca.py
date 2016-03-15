@@ -548,6 +548,22 @@ class Tosca:
 				return vm.id
 			elif attribute_name == "tosca_name":
 				return node.name
+			elif attribute_name == "credential":
+				if node.type == "tosca.nodes.indigo.Compute":
+					res = []
+					for vm in vm_list[node.name]:
+						user, password, _, private_key = vm.getCredentialValues()
+						val = {"user" : user}
+						if password:
+							val["password"] = password
+						if private_key:
+							val["private_key"] = private_key
+						res.append(val)
+					if index is not None:
+						res = res[index]
+					return res
+				else:
+					return vm.getPrivateIP()
 			elif attribute_name == "private_address":
 				if node.type == "tosca.nodes.indigo.Compute":
 					res = [vm.getPrivateIP() for vm in vm_list[node.name]]
