@@ -867,6 +867,8 @@ class Tosca:
 			'type':'disk.0.os.name',
 			'distribution':'disk.0.os.flavour',
 			'version': 'disk.0.os.version',
+			'image': 'disk.0.image.url',
+			'credential': 'disk.0.os.credentials',
 			'num_cpus': 'cpu.count',
 			'disk_size': 'disk.0.size',
 			'mem_size': 'memory.size',
@@ -882,9 +884,20 @@ class Tosca:
 						value = prop.value
 						if prop.name in ['disk_size', 'mem_size']:
 							value, unit = Tosca._get_size_and_unit(prop.value)
-						
-						if prop.name == "version":
-							value= str(value)
+						elif prop.name == "version":
+							value = str(value)
+						elif prop.name == "image":
+							if value.find("://") == -1:
+								value = "docker://%s" % value
+						elif prop.name == "credential":
+							# Currently oly supports user/pass credentials
+							if 'token' in value and value['token']:
+								feature = Feature("disk.0.os.credentials.password", "=", value['token'])
+								res.addFeature(feature)
+							if not 'user' in value or not value['user']:
+								raise Exception("User must be specified in the image credentials.")
+							name = "disk.0.os.credentials.username"
+							value = value['user'] 
 	
 						if isinstance(value, float) or isinstance(value, int):
 							operator = ">="
