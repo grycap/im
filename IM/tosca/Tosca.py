@@ -112,6 +112,9 @@ class Tosca:
 
 		if cont_intems:
 			radl.contextualize = contextualize(cont_intems)
+		else:
+			# If there are no configures, disable contextualization
+			radl.contextualize = contextualize({})
 	
 		return all_removal_list, self._complete_radl_networks(radl)
 
@@ -548,6 +551,22 @@ class Tosca:
 				return vm.id
 			elif attribute_name == "tosca_name":
 				return node.name
+			elif attribute_name == "credential":
+				if node.type == "tosca.nodes.indigo.Compute":
+					res = []
+					for vm in vm_list[node.name]:
+						user, password, _, private_key = vm.getCredentialValues()
+						val = {"user" : user}
+						if password:
+							val["password"] = password
+						if private_key:
+							val["private_key"] = private_key
+						res.append(val)
+					if index is not None:
+						res = res[index]
+					return res
+				else:
+					return vm.getPrivateIP()
 			elif attribute_name == "private_address":
 				if node.type == "tosca.nodes.indigo.Compute":
 					res = [vm.getPrivateIP() for vm in vm_list[node.name]]
@@ -867,6 +886,8 @@ class Tosca:
 			'type':'disk.0.os.name',
 			'distribution':'disk.0.os.flavour',
 			'version': 'disk.0.os.version',
+			'image': 'disk.0.image.url',
+			'credential': 'disk.0.os.credentials',
 			'num_cpus': 'cpu.count',
 			'disk_size': 'disk.0.size',
 			'mem_size': 'memory.size',
@@ -882,9 +903,20 @@ class Tosca:
 						value = prop.value
 						if prop.name in ['disk_size', 'mem_size']:
 							value, unit = Tosca._get_size_and_unit(prop.value)
-						
-						if prop.name == "version":
-							value= str(value)
+						elif prop.name == "version":
+							value = str(value)
+						elif prop.name == "image":
+							if value.find("://") == -1:
+								value = "docker://%s" % value
+						elif prop.name == "credential":
+							# Currently oly supports user/pass credentials
+							if 'token' in value and value['token']:
+								feature = Feature("disk.0.os.credentials.password", "=", value['token'])
+								res.addFeature(feature)
+							if not 'user' in value or not value['user']:
+								raise Exception("User must be specified in the image credentials.")
+							name = "disk.0.os.credentials.username"
+							value = value['user'] 
 	
 						if isinstance(value, float) or isinstance(value, int):
 							operator = ">="
