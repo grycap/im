@@ -112,6 +112,9 @@ class Tosca:
 
 		if cont_intems:
 			radl.contextualize = contextualize(cont_intems)
+		else:
+			# If there are no configures, disable contextualization
+			radl.contextualize = contextualize({})
 	
 		return all_removal_list, self._complete_radl_networks(radl)
 
