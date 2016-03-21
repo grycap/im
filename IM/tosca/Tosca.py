@@ -558,9 +558,10 @@ class Tosca:
 						user, password, _, private_key = vm.getCredentialValues()
 						val = {"user" : user}
 						if password:
-							val["password"] = password
+							val["token"] = password
 						if private_key:
-							val["private_key"] = private_key
+							val["token_type"] = "private_key"
+							val["token"] = private_key
 						res.append(val)
 					if index is not None:
 						res = res[index]
