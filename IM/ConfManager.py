@@ -350,12 +350,11 @@ class ConfManager(threading.Thread):
 				if vm.state in VirtualMachine.NOT_RUNNING_STATES:
 					ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": The VM ID: " + str(vm.id) + " is not running. It will not be included in the inventory file.")
 					continue
-					
-				# Do not remove the whitespace afther the IP
+
 				if vm.getOS().lower() == "windows":
-					windows += ip + " \n"
+					windows += "%s_%d\n" % (ip, vm.getSSHPort())
 				else:
-					no_windows += ip + " \n" 
+					no_windows += "%s_%d\n" % (ip, vm.getSSHPort()) 
 					
 				ifaces_im_vars = ''
 				for i in range(vm.getNumNetworkIfaces()):
@@ -374,7 +373,10 @@ class ConfManager(threading.Thread):
 				if vm.getRequestedName():
 					(nodename, nodedom) = vm.getRequestedName(default_domain = Config.DEFAULT_DOMAIN)
 
-				node_line = ip
+				node_line = "%s_%d" % (ip, vm.getSSHPort())
+				node_line += ' ansible_host=%s ' % ip
+				# For compatibility with Ansible 1.X versions
+				node_line += ' ansible_ssh_host=%s ' % ip
 				if vm.getOS().lower() != "windows":
 					node_line += ' ansible_port=%d' % vm.getSSHPort()
 					# For compatibility with Ansible 1.X versions

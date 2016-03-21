@@ -177,9 +177,9 @@ def LaunchAnsiblePlaybook(output, playbook_file, vm, threads, inventory_file, pk
 		if 'new_passwd' in vm and vm['new_passwd'] and change_pass_ok:
 			passwd = vm['new_passwd']
 
-		extra_vars['IM_HOST'] = vm['ip']
+		extra_vars['IM_HOST'] = vm['ip'] + "_" + str(vm['ssh_port'])
 	else:
-		extra_vars['IM_HOST'] = vm['ip']
+		extra_vars['IM_HOST'] = vm['ip'] + "_" + str(vm['ssh_port'])
 		passwd = None
 		if pk_file:
 			gen_pk_file = pk_file
@@ -282,7 +282,7 @@ def replace_vm_ip(old_ip, new_ip):
 	with open(filename) as f:
 		inventoy_data = ""
 		for line in f:
-			inventoy_data += re.sub("^%s " % old_ip, new_ip + " ", line)
+			inventoy_data += re.sub("^%s_" % old_ip, new_ip + "_", line)
 
 	with open(filename, 'w+') as f:
 		f.write(inventoy_data)
