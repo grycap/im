@@ -282,6 +282,7 @@ class InfrastructureInfo:
 		radl.systems = systems
 		
 		return radl
+
 	def select_vm_master(self):
 		"""
 		Select the VM master of the infrastructure.
