@@ -283,6 +283,8 @@ def replace_vm_ip(old_ip, new_ip):
 		inventoy_data = ""
 		for line in f:
 			inventoy_data += re.sub("^%s_" % old_ip, new_ip + "_", line)
+			inventoy_data += re.sub("ansible_host=%s" % old_ip, "ansible_host=%s" % new_ip + "_", line)
+			inventoy_data += re.sub("ansible_ssh_host=%s" % old_ip, "ansible_ssh_host=%s" % new_ip + "_", line)
 
 	with open(filename, 'w+') as f:
 		f.write(inventoy_data)
