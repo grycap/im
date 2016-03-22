@@ -374,9 +374,9 @@ class ConfManager(threading.Thread):
 					(nodename, nodedom) = vm.getRequestedName(default_domain = Config.DEFAULT_DOMAIN)
 
 				node_line = "%s_%d" % (ip, vm.getSSHPort())
-				node_line += ' ansible_host=%s ' % ip
+				node_line += ' ansible_host=%s' % ip
 				# For compatibility with Ansible 1.X versions
-				node_line += ' ansible_ssh_host=%s ' % ip
+				node_line += ' ansible_ssh_host=%s' % ip
 				if vm.getOS().lower() != "windows":
 					node_line += ' ansible_port=%d' % vm.getSSHPort()
 					# For compatibility with Ansible 1.X versions
