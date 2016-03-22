@@ -267,24 +267,28 @@ def removeRequiretty(vm, pk_file):
 	else:
 		return True
 
-def replace_vm_ip(old_ip, new_ip):
+def replace_vm_ip(old_ip, new_ip, vm_id):
 	# Replace the IP with the one that is actually working
 	# in the inventory and in the general info file
-	filename = conf_data_filename
-	with open(filename) as f:
-		inventoy_data = f.read().replace('"' + old_ip + '"', '"' + new_ip + '"')
+	with open(conf_data_filename) as f:
+		general_conf_data = json.load(f)
+		
+	for vm in general_conf_data['vms']:
+		if vm['ip'] == old_ip and vm['id'] == vm_id:
+			vm['ip'] = new_ip
 
-	with open(filename, 'w+') as f:
-		f.write(inventoy_data)
+	with open(conf_data_filename, 'w+') as f:
+		json.dump(general_conf_data, f, indent=2)
 	
-	# in inventory only replace the first item of the line
+	# Now in the ansible inventory
 	filename  = general_conf_data['conf_dir'] + "/hosts"
 	with open(filename) as f:
 		inventoy_data = ""
 		for line in f:
-			inventoy_data += re.sub("^%s_" % old_ip, new_ip + "_", line)
-			inventoy_data += re.sub("ansible_host=%s" % old_ip, "ansible_host=%s" % new_ip + "_", line)
-			inventoy_data += re.sub("ansible_ssh_host=%s" % old_ip, "ansible_ssh_host=%s" % new_ip + "_", line)
+			line = re.sub("^%s_" % old_ip, new_ip + "_", line)
+			line = re.sub("ansible_host=%s" % old_ip, "ansible_host=%s" % new_ip + "_", line)
+			line = re.sub("ansible_ssh_host=%s" % old_ip, "ansible_ssh_host=%s" % new_ip + "_", line)
+			inventoy_data += line
 
 	with open(filename, 'w+') as f:
 		f.write(inventoy_data)
@@ -337,7 +341,7 @@ def contextualize_vm(general_conf_data, vm_conf_data):
 					if orig_vm_ip != vm['ip'] and ctxt_vm['master']:
 						# update the ansible inventory  
 						logger.info("Changing the IP %s for %s in config files." % (orig_vm_ip, vm['ip']))
-						replace_vm_ip(orig_vm_ip, vm['ip'])
+						replace_vm_ip(orig_vm_ip, vm['ip'], vm['id'])
 
 					if vm['id'] == vm_conf_data['id']:
 						cred_used = ssh_res
