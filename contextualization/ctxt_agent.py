@@ -47,7 +47,9 @@ def wait_winrm_access(vm):
 	wait = 0
 	last_tested_private = False
 	while wait < SSH_WAIT_TIMEOUT:
-		if 'private_ip' in vm and not last_tested_private:
+		if 'ctxt_ip' in vm:
+			vm_ip = vm['ctxt_ip']
+		elif 'private_ip' in vm and not last_tested_private:
 			# First test the private one
 			vm_ip = vm['private_ip']
 			last_tested_private = True
@@ -63,7 +65,7 @@ def wait_winrm_access(vm):
 			result = -1
 
 		if result == 0:
-			vm['ip'] = vm_ip
+			vm['ctxt_ip'] = vm_ip
 			return True
 		else:
 			wait += delay
@@ -80,7 +82,9 @@ def wait_ssh_access(vm):
 	res = None
 	last_tested_private = False
 	while wait < SSH_WAIT_TIMEOUT:
-		if 'private_ip' in vm and not last_tested_private:
+		if 'ctxt_ip' in vm:
+			vm_ip = vm['ctxt_ip']
+		elif 'private_ip' in vm and not last_tested_private:
 			# First test the private one
 			vm_ip = vm['private_ip']
 			last_tested_private = True
@@ -118,7 +122,7 @@ def wait_ssh_access(vm):
 					success = False
 			
 		if success:
-			vm['ip'] = vm_ip
+			vm['ctxt_ip'] = vm_ip
 			return res
 		else:
 			time.sleep(delay)
@@ -177,9 +181,9 @@ def LaunchAnsiblePlaybook(output, playbook_file, vm, threads, inventory_file, pk
 		if 'new_passwd' in vm and vm['new_passwd'] and change_pass_ok:
 			passwd = vm['new_passwd']
 
-		extra_vars['IM_HOST'] = vm['ip']
+		extra_vars['IM_HOST'] = vm['ip'] + "_" + str(vm['ssh_port'])
 	else:
-		extra_vars['IM_HOST'] = vm['ip']
+		extra_vars['IM_HOST'] = vm['ip'] + "_" + str(vm['ssh_port'])
 		passwd = None
 		if pk_file:
 			gen_pk_file = pk_file
@@ -267,22 +271,27 @@ def removeRequiretty(vm, pk_file):
 	else:
 		return True
 
-def replace_vm_ip(old_ip, new_ip):
-	# Replace the IP with the one that is actually working
+def replace_vm_ip(vm_data):
+	# Add the Ctxt IP with the one that is actually working
 	# in the inventory and in the general info file
-	filename = conf_data_filename
-	with open(filename) as f:
-		inventoy_data = f.read().replace('"' + old_ip + '"', '"' + new_ip + '"')
+	with open(conf_data_filename) as f:
+		general_conf_data = json.load(f)
+		
+	for vm in general_conf_data['vms']:
+		if vm['id'] == vm_data['id']:
+			vm['ctxt_ip'] = vm_data['ctxt_ip']
 
-	with open(filename, 'w+') as f:
-		f.write(inventoy_data)
+	with open(conf_data_filename, 'w+') as f:
+		json.dump(general_conf_data, f, indent=2)
 	
-	# in inventory only replace the first item of the line
+	# Now in the ansible inventory
 	filename  = general_conf_data['conf_dir'] + "/hosts"
 	with open(filename) as f:
 		inventoy_data = ""
 		for line in f:
-			inventoy_data += re.sub("^%s " % old_ip, new_ip + " ", line)
+			line = re.sub(" ansible_host=%s" % vm_data['ip'], " ansible_host=%s" % vm_data['ctxt_ip'] + "_", line)
+			line = re.sub(" ansible_ssh_host=%s" % vm_data['ip'], " ansible_ssh_host=%s" % vm_data['ctxt_ip'] + "_", line)
+			inventoy_data += line
 
 	with open(filename, 'w+') as f:
 		f.write(inventoy_data)
@@ -323,7 +332,6 @@ def contextualize_vm(general_conf_data, vm_conf_data):
 			if task == "basic":
 				# This is always the fist step, so put the SSH test, the requiretty removal and change password here
 				for vm in general_conf_data['vms']:
-					orig_vm_ip = vm['ip']
 					if vm['os'] == "windows":
 						logger.info("Waiting WinRM access to VM: " + vm['ip'])
 						ssh_res = wait_winrm_access(vm)
@@ -332,10 +340,10 @@ def contextualize_vm(general_conf_data, vm_conf_data):
 						ssh_res = wait_ssh_access(vm)
 					
 					# the IP has changed public for private and we are the master VM
-					if orig_vm_ip != vm['ip'] and ctxt_vm['master']:
+					if 'ctxt_ip' in vm and vm['ctxt_ip'] != vm['ip'] and ctxt_vm['master']:
 						# update the ansible inventory  
-						logger.info("Changing the IP %s for %s in config files." % (orig_vm_ip, vm['ip']))
-						replace_vm_ip(orig_vm_ip, vm['ip'])
+						logger.info("Changing the IP %s for %s in config files." % (vm['ctxt_ip'], vm['ip']))
+						replace_vm_ip(vm)
 
 					if vm['id'] == vm_conf_data['id']:
 						cred_used = ssh_res
