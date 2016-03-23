@@ -331,17 +331,10 @@ class ConfManager(threading.Thread):
 			all_vars += 'IM_' + group.upper() + '_NUM_VMS=' + str(len(vm_group[group])) + '\n'
 
 			for vm in vm_group[group]:
-				# is the master node
-				if self.inf.vm_master and vm.id == self.inf.vm_master.id:
-					# first try to use the private IP
+				# first try to use the public IP
+				ip = vm.getPublicIP()
+				if not ip:
 					ip = vm.getPrivateIP()
-					if not ip:
-						ip = vm.getPublicIP()
-				else:
-					# first try to use the public IP
-					ip = vm.getPublicIP()
-					if not ip:
-						ip = vm.getPrivateIP()
 
 				if not ip:
 					ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": The VM ID: " + str(vm.id) + " does not have an IP. It will not be included in the inventory file.")
