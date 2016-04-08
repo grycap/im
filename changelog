@@ -195,3 +195,4 @@ IM 1.4.4
     * Enable to user image name and add IMAGE_UNAME config variable for OpenNebula connector
     * Bugfix in ctxt when different VMs has the same external ip
     * Improve the management of ansible galaxy roles
+    * Bugfix in OCCI connector with endpoints with path
