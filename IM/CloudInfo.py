@@ -16,6 +16,7 @@
 
 import sys
 from IM.connectors import *
+from IM.uriparse import uriparse
 	
 class CloudInfo:
 	"""
@@ -33,6 +34,8 @@ class CloudInfo:
 		"""Port of the cloud provider"""
 		self.protocol = ""
 		"""Protocol to connect to the cloud provider"""
+		self.path = ""
+		"""Path to connect to the cloud provider"""
 
 	def getCloudConnector(self):
 		"""
@@ -78,16 +81,27 @@ class CloudInfo:
 					cloud_item.id = cloud_item.type + str(i)
 				try:
 					if 'host' in auth and auth['host']:
-						pos_pr = auth['host'].find('://')
-						if pos_pr != -1:
-							cloud_item.protocol = auth['host'][:pos_pr]
-							pos_pr += 2
-						pos = auth['host'].find(':', pos_pr+1)
-						if pos != -1:
-							cloud_item.server = auth['host'][pos_pr+1:pos]
-							cloud_item.port = int(auth['host'][pos+1:])
+						if auth['host'].find('://') == -1:
+							uri = uriparse("NONE://" + auth['host'])
 						else:
-							cloud_item.server = auth['host']
+							uri = uriparse(auth['host'])
+							if uri[0]:
+								cloud_item.protocol = uri[0]
+						
+						if not uri[1]:
+							raise Exception("Incorrect format of host in auth line: %s" % str(auth))
+						
+						parts = uri[1].split(":")
+						cloud_item.server = parts[0]
+						if len(parts) > 1:
+							if parts[1].isdigit():
+								cloud_item.port = int(parts[1])
+							else:
+								raise Exception("Incorrect value for port '%s'. It must be an integer." % parts[1])
+						
+						# If there is a path
+						if uri[2]:
+							cloud_item.path = uri[2] 
 				except:
 					pass
 
