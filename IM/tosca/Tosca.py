@@ -398,7 +398,7 @@ class Tosca:
 
 	def _remove_recipe_header(self, script_content):
 		"""
-		Removes the "host" and "connection" elements from the recipe
+		Removes the "hosts" and "connection" elements from the recipe
 		to make it "RADL" compatible
 		"""
 		
@@ -412,8 +412,8 @@ class Tosca:
 			return script_content
 
 		for elem in yamlo:
-			if 'host' in elem:
-				del elem['host']
+			if 'hosts' in elem:
+				del elem['hosts']
 			if 'connection' in elem:
 				del elem['connection']
 			
@@ -900,6 +900,11 @@ class Tosca:
 
 	@staticmethod
 	def _add_ansible_roles(node, nodetemplates, system):
+		"""
+		Find all the roles to be applied to this node and 
+		add them to the system as ansible.modules.* in 'disk.0.applications' 
+		"""
+
 		for other_node in nodetemplates:
 			root_type = Tosca._get_root_parent_type(other_node).type
 			if root_type == "tosca.nodes.Compute":					
