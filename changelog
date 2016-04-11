@@ -189,3 +189,9 @@ IM 1.4.3
     * Bugfix in the ctxt_agent
     * Add logger messages to REST API
     * Add extra-ports to FogBow connector
+
+IM 1.4.4
+    * Add new org.fogbowcloud.order.resource-kind occi attribute
+    * Enable to user image name and add IMAGE_UNAME config variable for OpenNebula connector
+    * Bugfix in ctxt when different VMs has the same external ip
+    * Improve the management of ansible galaxy roles
