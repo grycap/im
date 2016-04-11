@@ -196,3 +196,4 @@ IM 1.4.4
     * Bugfix in ctxt when different VMs has the same external ip
     * Improve the management of ansible galaxy roles
     * Bugfix in OCCI connector with endpoints with path
+    * Enable to return REST error messages in JSON, HTML and plain text
