@@ -71,3 +71,7 @@ class SSHRetry(SSH):
     @retry(Exception, tries=TRIES, delay=DELAY, backoff=BACKOFF)
     def sftp_remove(self, path):
         return SSH.sftp_remove(self, path)
+       
+    @retry(Exception, tries=TRIES, delay=DELAY, backoff=BACKOFF)
+    def sftp_chmod(self, path, mode):
+        return SSH.sftp_chmod(self, path, mode)
