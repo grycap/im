@@ -197,3 +197,4 @@ IM 1.4.4
     * Improve the management of ansible galaxy roles
     * Bugfix in OCCI connector with endpoints with path
     * Enable to return REST error messages in JSON, HTML and plain text
+    * Set correct permissions in some configuration files

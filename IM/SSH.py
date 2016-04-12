@@ -476,3 +476,31 @@ class SSH:
             res = status == 0
             
         return res
+       
+    def sftp_chmod(self, path, mode):
+        """
+		Change the mode (permissions) of a file.  The permissions are
+		unix-style and identical to those used by python's C{os.chmod}
+		function.
+        
+            Arguments:
+            - path: String with the path of the file to change the permissions of
+            - mode: Int with the new permissions
+        """
+        try:
+            transport, sftp = self._get_sftp()
+            sftp_avail = transport.active
+        except:
+            sftp_avail = False 
+        
+        if sftp_avail:
+            sftp.chmod(path, mode)
+            res = True
+            sftp.close()
+            transport.close()
+        else:
+            # use chmod over ssh to change permissions 
+            _, _, status = self.execute("chmod %s %s" % (oct(mode), path))
+            res = status == 0
+
+        return res
