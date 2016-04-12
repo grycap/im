@@ -354,29 +354,25 @@ class AzureCloudConnector(CloudConnector):
 		self.logger.debug("Azure VM Create XML: " + res)
 
 		return res
-		
-	def get_user_subscription_id(self, auth_data):
-		"""
-		Get the Azure subscription ID from the auth data 
-		"""
-		auth = auth_data.getAuthInfo(AzureCloudConnector.type)
-		if auth and 'username' in auth[0]:
-			return auth[0]['username']
-		else:
-			return None
 
 	def get_connection_and_subscription_id(self, auth_data):
-		# We check if the cert and key files exist
-		subscription_id = self.get_user_subscription_id(auth_data)
+		auths = auth_data.getAuthInfo(self.type)
+		if not auths:
+			raise Exception("No auth data has been specified to Azure.")
+		else:
+			auth = auths[0]
 		
+		if 'username' in auth:
+			subscription_id = auth['username']
+		else:
+			raise Exception("No correct auth data has been specified to Azure: username, public_key and private_key.")
+		
+		# We check if the cert and key files exist		
 		if os.path.isfile(self.cert_file) and os.path.isfile(self.key_file):
 			cert_file = self.cert_file 
 			key_file = self.key_file 
 		else:
-			auth = self.get_user_cert_data(auth_data)
-			if auth is None:
-				return None, subscription_id
-			cert_file, key_file = auth
+			cert_file, key_file = self.get_user_cert_data(auth)
 			self.cert_file = cert_file
 			self.key_file = key_file
 
@@ -384,19 +380,18 @@ class AzureCloudConnector(CloudConnector):
 		
 		return conn, subscription_id
 
-	def get_user_cert_data(self, auth_data):
+	def get_user_cert_data(self, auth):
 		"""
 		Get the Azure private_key and public_key files from the auth data 
 		"""
-		auth = auth_data.getAuthInfo(AzureCloudConnector.type)
-		if auth and 'public_key' in auth[0] and 'private_key' in auth[0]:
-			certificate = auth[0]['public_key']
+		if 'public_key' in auth and 'private_key' in auth:
+			certificate = auth['public_key']
 			fd, cert_file = tempfile.mkstemp()
 			os.write(fd, certificate)
 			os.close(fd)
 			os.chmod(cert_file,0644)
 			
-			private_key = auth[0]['private_key']
+			private_key = auth['private_key']
 			fd, key_file = tempfile.mkstemp()
 			os.write(fd, private_key)
 			os.close(fd)
@@ -404,7 +399,8 @@ class AzureCloudConnector(CloudConnector):
 
 			return (cert_file, key_file)
 		else:
-			return None
+			self.logger.error("No correct auth data has been specified to Azure: username, public_key and private_key.")
+			raise Exception("No correct auth data has been specified to Azure: username, public_key and private_key.")
 
 	def create_service(self, auth_data, region):
 		"""
@@ -634,7 +630,7 @@ class AzureCloudConnector(CloudConnector):
 					if radl.systems[0].getValue('availability_zone'):
 						# Check that the region of the storage account is the same of the service
 						if region != storage_account.GeoPrimaryRegion:
-							res.append((False, "Error creating the service. The specified region"))
+							res.append((False, "Error creating the service. The specified region is not the same of the service."))
 					else:
 						# Otherwise use the storage account region
 						region = storage_account.GeoPrimaryRegion
