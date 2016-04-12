@@ -116,7 +116,7 @@ def run(host, port):
 		bottle.run(app, server=bottle_server, quiet=True)
 
 def return_error(code, msg):
-	content_type = get_media_type('Content-Type')
+	content_type = get_media_type('Accept')
 
 	if content_type == "application/json":
 		bottle.response.status = code
