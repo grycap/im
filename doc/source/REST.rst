@@ -53,10 +53,12 @@ The error message returned by the service will depend on the ``Accept`` header o
 
 * text/plain: (default option).
 * application/json: The request has a "Accept" header with value "application/json". In this case the format will be::
+
     {
       "message": "Error message text",
       "code" : 400
      }
+     
 * text/html: The request has a "Accept" with value to "text/html". 
 
 GET ``http://imserver.com/infrastructures``
