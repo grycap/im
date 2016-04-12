@@ -224,7 +224,7 @@ class OCCICloudConnector(CloudConnector):
 		conn = None
 		try:
 			conn = self.get_http_connection(auth_data)
-			conn.putrequest('POST', "/link/networkinterface/")
+			conn.putrequest('POST', self.cloud.path + "/link/networkinterface/")
 			if auth_header:
 				conn.putheader(auth_header.keys()[0], auth_header.values()[0])
 			conn.putheader('Accept', 'text/plain')
@@ -242,7 +242,7 @@ class OCCICloudConnector(CloudConnector):
 
 			resp = conn.getresponse()
 			output = str(resp.read())
-			if resp.status != 201:
+			if resp.status != 201 and resp.status != 200:
 				return (False, "Error adding public IP the VM: " + resp.reason + "\n" + output)
 			else:
 				return (True, vm.id)
@@ -292,11 +292,11 @@ class OCCICloudConnector(CloudConnector):
 		conn = None
 		try:
 			conn = self.get_http_connection(auth_data)
-			conn.request('GET', "/compute/" + vm.id, headers = headers) 
+			conn.request('GET', self.cloud.path + "/compute/" + vm.id, headers = headers) 
 			resp = conn.getresponse()
 			
 			output = resp.read()
-			if resp.status == 404:
+			if resp.status == 404 or resp.status == 204:
 				vm.state = VirtualMachine.OFF
 				return (True, vm)
 			elif resp.status != 200:
@@ -362,7 +362,7 @@ users:
 		conn = None
 		try:
 			conn = self.get_http_connection(auth_data)
-			conn.request('GET', "/-/", headers = headers) 
+			conn.request('GET', self.cloud.path + "/-/", headers = headers) 
 			resp = conn.getresponse()
 			
 			output = resp.read()
@@ -465,7 +465,7 @@ users:
 			
 			conn = self.get_http_connection(auth_data)
 			
-			conn.putrequest('POST', "/storage/")
+			conn.putrequest('POST', self.cloud.path + "/storage/")
 			if auth_header:
 				conn.putheader(auth_header.keys()[0], auth_header.values()[0])
 			conn.putheader('Accept', 'text/plain')
@@ -483,7 +483,7 @@ users:
 	
 			output = resp.read()
 			
-			if resp.status != 201:
+			if resp.status != 201 and resp.status != 200:
 				return False, resp.reason + "\n" + output
 			else:
 				if 'location' in resp.msg.dict:
@@ -507,10 +507,10 @@ users:
 		conn = None
 		try:
 			conn = self.get_http_connection(auth_data)
-			conn.request('DELETE', "/storage/" + storage_id, headers = headers) 
+			conn.request('DELETE', self.cloud.path + "/storage/" + storage_id, headers = headers) 
 			resp = conn.getresponse()
 			output = str(resp.read())
-			if resp.status == 404:
+			if resp.status == 404 or resp.status == 204:
 				self.logger.debug("It does not exist.")
 				return (True, "")
 			elif resp.status != 200:
@@ -576,7 +576,8 @@ users:
 		
 		# Parse the info to get the os_tpl scheme
 		url = uriparse(system.getValue("disk.0.image.url"))
-		os_tpl =  url[2][1:]
+		# Get the Image ID from the last part of the path
+		os_tpl =  os.path.basename(url[2])
 		os_tpl_scheme = self.get_os_tpl_scheme(occi_info, os_tpl)
 		if not os_tpl_scheme:
 			raise Exception("Error getting os_tpl scheme. Check that the image specified is supported in the OCCI server.")
@@ -600,7 +601,7 @@ users:
 				volumes = self.create_volumes(system, auth_data)
 
 				conn = self.get_http_connection(auth_data)
-				conn.putrequest('POST', "/compute/")
+				conn.putrequest('POST', self.cloud.path + "/compute/")
 				if auth_header:
 					conn.putheader(auth_header.keys()[0], auth_header.values()[0])
 				conn.putheader('Accept', 'text/plain')
@@ -647,7 +648,8 @@ users:
 				# With this format: X-OCCI-Location: http://fc-one.i3m.upv.es:11080/compute/8
 				output = resp.read()
 				
-				if resp.status != 201:
+				# some servers return 201 and other 200
+				if resp.status != 201 and resp.status != 200:
 					res.append((False, resp.reason + "\n" + output))
 					for volume_id in volumes.values():
 						self.delete_volume(volume_id, auth_data)
@@ -694,11 +696,11 @@ users:
 		conn = None
 		try:
 			conn = self.get_http_connection(auth_data)
-			conn.request('GET', "/compute/" + vm.id, headers = headers) 
+			conn.request('GET', self.cloud.path + "/compute/" + vm.id, headers = headers) 
 			resp = conn.getresponse()
 			
 			output = resp.read()
-			if resp.status == 404:
+			if resp.status == 404 or resp.status == 204:
 				return (True, "")
 			elif resp.status != 200:
 				return (False, resp.reason + "\n" + output)
@@ -729,10 +731,10 @@ users:
 		conn = None
 		try:
 			conn = self.get_http_connection(auth_data)
-			conn.request('DELETE', "/compute/" + vm.id, headers = headers) 
+			conn.request('DELETE', self.cloud.path + "/compute/" + vm.id, headers = headers) 
 			resp = conn.getresponse()
 			output = str(resp.read())
-			if resp.status != 200 and resp.status != 404:
+			if resp.status != 200 and resp.status != 404 and resp.status != 204:
 				return (False, "Error removing the VM: " + resp.reason + "\n" + output)
 		except Exception:
 			self.logger.exception("Error connecting with OCCI server")
@@ -751,7 +753,7 @@ users:
 		conn = None
 		try:
 			conn = self.get_http_connection(auth_data)
-			conn.putrequest('POST', "/compute/" + vm.id + "?action=suspend")
+			conn.putrequest('POST', self.cloud.path + "/compute/" + vm.id + "?action=suspend")
 			if auth_header:
 				conn.putheader(auth_header.keys()[0], auth_header.values()[0])
 			conn.putheader('Accept', 'text/plain')
@@ -779,7 +781,7 @@ users:
 		conn = None
 		try:
 			conn = self.get_http_connection(auth_data)
-			conn.putrequest('POST', "/compute/" + vm.id + "?action=start")
+			conn.putrequest('POST', self.cloud.path + "/compute/" + vm.id + "?action=start")
 			if auth_header:
 				conn.putheader(auth_header.keys()[0], auth_header.values()[0])
 			conn.putheader('Accept', 'text/plain')
@@ -803,6 +805,7 @@ users:
 			self.delete_proxy(conn)
 			
 	def alterVM(self, vm, radl, auth_data):
+		# TODO: in OCCI 1.2 it is supported
 		return (False, "Not supported")
 
 class KeyStoneAuth:
@@ -820,7 +823,7 @@ class KeyStoneAuth:
 		try:
 			headers = {'Accept': 'text/plain', 'Connection':'close'}
 			conn = occi.get_http_connection(auth_data)
-			conn.request('HEAD', "/-/", headers = headers) 
+			conn.request('HEAD', occi.cloud.path + "/-/", headers = headers) 
 			resp = conn.getresponse()
 			www_auth_head = resp.getheader('Www-Authenticate')
 			if www_auth_head and www_auth_head.startswith('Keystone uri'):

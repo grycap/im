@@ -331,17 +331,10 @@ class ConfManager(threading.Thread):
 			all_vars += 'IM_' + group.upper() + '_NUM_VMS=' + str(len(vm_group[group])) + '\n'
 
 			for vm in vm_group[group]:
-				# is the master node
-				if self.inf.vm_master and vm.id == self.inf.vm_master.id:
-					# first try to use the private IP
+				# first try to use the public IP
+				ip = vm.getPublicIP()
+				if not ip:
 					ip = vm.getPrivateIP()
-					if not ip:
-						ip = vm.getPublicIP()
-				else:
-					# first try to use the public IP
-					ip = vm.getPublicIP()
-					if not ip:
-						ip = vm.getPrivateIP()
 
 				if not ip:
 					ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": The VM ID: " + str(vm.id) + " does not have an IP. It will not be included in the inventory file.")
@@ -350,12 +343,11 @@ class ConfManager(threading.Thread):
 				if vm.state in VirtualMachine.NOT_RUNNING_STATES:
 					ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": The VM ID: " + str(vm.id) + " is not running. It will not be included in the inventory file.")
 					continue
-					
-				# Do not remove the whitespace afther the IP
+
 				if vm.getOS().lower() == "windows":
-					windows += ip + " \n"
+					windows += "%s_%d\n" % (ip, vm.getSSHPort())
 				else:
-					no_windows += ip + " \n" 
+					no_windows += "%s_%d\n" % (ip, vm.getSSHPort()) 
 					
 				ifaces_im_vars = ''
 				for i in range(vm.getNumNetworkIfaces()):
@@ -374,7 +366,10 @@ class ConfManager(threading.Thread):
 				if vm.getRequestedName():
 					(nodename, nodedom) = vm.getRequestedName(default_domain = Config.DEFAULT_DOMAIN)
 
-				node_line = ip
+				node_line = "%s_%d" % (ip, vm.getSSHPort())
+				node_line += ' ansible_host=%s' % ip
+				# For compatibility with Ansible 1.X versions
+				node_line += ' ansible_ssh_host=%s' % ip
 				if vm.getOS().lower() != "windows":
 					node_line += ' ansible_port=%d' % vm.getSSHPort()
 					# For compatibility with Ansible 1.X versions
@@ -1103,7 +1098,7 @@ class ConfManager(threading.Thread):
 	
 			# Create the ansible inventory file
 			with open(tmp_dir + "/inventory.cfg", 'w') as inv_out:
-				inv_out.write(ssh.host + ":" + str(ssh.port) + "\n\n")
+				inv_out.write("%s  ansible_port=%d  ansible_ssh_port=%d" % (ssh.host, ssh.port, ssh.port))
 			
 			shutil.copy(Config.CONTEXTUALIZATION_DIR + "/" + ConfManager.MASTER_YAML, tmp_dir + "/" + ConfManager.MASTER_YAML)
 			
@@ -1130,40 +1125,32 @@ class ConfManager(threading.Thread):
 			
 			for galaxy_name in modules:
 				if galaxy_name:
-					recipe_out = open(tmp_dir + "/" + ConfManager.MASTER_YAML, 'a')
+					ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Install " + galaxy_name + " with ansible-galaxy.")
+					self.inf.add_cont_msg("Galaxy role " + galaxy_name + " detected setting to install.")
 					
-					if galaxy_name.startswith("http"):
-						# in case of http url, the file must be compressed 
-						# it must contain only one directory with the same name of the compressed file
-						# (without extension) with the ansible role content 
-						filename = os.path.basename(galaxy_name)
-						self.inf.add_cont_msg("Remote file " + galaxy_name + " detected, setting to install.")
-						ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Install " + galaxy_name + " with ansible-galaxy.")
-						recipe_out.write("    - file: path=/etc/ansible/roles state=directory recurse=yes\n")
-						recipe_out.write("    - get_url: url=" + galaxy_name + " dest=/tmp/" + filename + "\n")
-						recipe_out.write("    - unarchive: src=/tmp/" + filename  + " dest=/etc/ansible/roles copy=no\n")
-					if galaxy_name.startswith("git"):
-						# in case of git repo, the user must specify the rolname using a | afther the url
-						parts = galaxy_name.split("|")
-						if len(parts) > 1:
-							url = parts[0]
-							rolename = parts[1]
-							self.inf.add_cont_msg("Git Repo " + url + " detected, setting to install.")
-							ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Clone " + url + " with git.")
-							recipe_out.write("    - file: path=/etc/ansible/roles state=directory\n")
-							recipe_out.write("    - yum: name=git\n")
-							recipe_out.write('      when: ansible_os_family == "RedHat"\n')
-							recipe_out.write("    - apt: name=git\n")
-							recipe_out.write('      when: ansible_os_family == "Debian"\n')
-							recipe_out.write("    - git: repo=" + url + " dest=/etc/ansible/roles/" + rolename + " accept_hostkey=yes\n")
-						else:
-							self.inf.add_cont_msg("Not specified the rolename. Ignoring git repo.")
-							ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": Not specified the rolename. Ignoring git repo.")
+					recipe_out = open(tmp_dir + "/" + ConfManager.MASTER_YAML, 'a')
+
+					parts = galaxy_name.split("|")
+					if len(parts) > 1:
+						url = parts[0]
+						rolename = parts[1]
+
+						recipe_out.write('    - name: Create YAML file to install the %s role with ansible-galaxy\n' % rolename)
+						recipe_out.write('      copy:\n')
+						recipe_out.write('        dest: "/tmp/%s.yml"\n' % rolename)
+						recipe_out.write('        content: "- src: %s\\n  name: %s"\n' % (url, rolename))
+						url = "-r /tmp/%s.yml" % rolename
 					else:
-						self.inf.add_cont_msg("Galaxy role " + galaxy_name + " detected setting to install.")
-						ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Install " + galaxy_name + " with ansible-galaxy.")
-						recipe_out.write("    - name: Install the " + galaxy_name + " role with ansible-galaxy\n")
-						recipe_out.write("      command: ansible-galaxy --force install " + galaxy_name + "\n")
+						url = rolename = galaxy_name
+					
+					if galaxy_name.startswith("git"):
+						recipe_out.write("    - yum: name=git\n")
+						recipe_out.write('      when: ansible_os_family == "RedHat"\n')
+						recipe_out.write("    - apt: name=git\n")
+						recipe_out.write('      when: ansible_os_family == "Debian"\n')
+					
+					recipe_out.write("    - name: Install the % role with ansible-galaxy\n" % rolename)
+					recipe_out.write("      command: ansible-galaxy install %s\n" % url)
 					
 					recipe_out.close()
 					

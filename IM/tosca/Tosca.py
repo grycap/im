@@ -9,7 +9,7 @@ from IM.uriparse import uriparse
 from toscaparser.tosca_template import ToscaTemplate 
 from toscaparser.elements.interfaces import InterfacesDef
 from toscaparser.functions import Function, is_function, get_function, GetAttribute
-from radl.radl import system, deploy, network, Feature, configure, contextualize_item, RADL, contextualize
+from radl.radl import system, deploy, network, Feature, Features, configure, contextualize_item, RADL, contextualize
 
 class Tosca:
 	"""
@@ -361,6 +361,7 @@ class Tosca:
 								variables += '    %s: "%s" ' % (var_name, var_value) + "\n"
 						variables += "\n"
 
+					script_content = self._remove_recipe_header(script_content)
 					recipe_list.append(script_content)
 				else:
 					recipe = "- tasks:\n"
@@ -394,6 +395,29 @@ class Tosca:
 			return configure(name, recipes)
 		else:
 			return None
+
+	def _remove_recipe_header(self, script_content):
+		"""
+		Removes the "hosts" and "connection" elements from the recipe
+		to make it "RADL" compatible
+		"""
+		
+		try:
+			yamlo = yaml.load(script_content)
+			if not isinstance(yamlo, list):
+				Tosca.logger.warn("Error parsing YAML: " + script_content + "\n.Do not remove header.")
+				return script_content
+		except Exception:
+			Tosca.logger.exception("Error parsing YAML: " + script_content + "\n.Do not remove header.")
+			return script_content
+
+		for elem in yamlo:
+			if 'hosts' in elem:
+				del elem['hosts']
+			if 'connection' in elem:
+				del elem['connection']
+			
+		return yaml.dump(yamlo, default_flow_style=False, explicit_start=True, width=256)
 
 	@staticmethod
 	def _is_artifact(function):
@@ -873,7 +897,35 @@ class Tosca:
 			res.setValue("provider_id", network_name)
 		
 		return res		
-		
+
+	@staticmethod
+	def _add_ansible_roles(node, nodetemplates, system):
+		"""
+		Find all the roles to be applied to this node and 
+		add them to the system as ansible.modules.* in 'disk.0.applications' 
+		"""
+
+		for other_node in nodetemplates:
+			root_type = Tosca._get_root_parent_type(other_node).type
+			if root_type == "tosca.nodes.Compute":					
+				compute = other_node
+			else:
+				# Select the host to host this element
+				compute = Tosca._find_host_compute(other_node, nodetemplates)
+			
+			if compute and compute.name == node.name:		
+				# Get the artifacts to see if there is a ansible galaxy role
+				# and add it as an "ansible.modules" app requirement in RADL
+				artifacts = other_node.type_definition.get_value('artifacts',other_node.entity_tpl,True)
+				if artifacts:
+					for name, artifact in artifacts.items():
+						name
+						if ('type' in artifact and artifact['type'] == 'tosca.artifacts.AnsibleGalaxy.role' and
+						        'file' in artifact and artifact['file']):
+							app_features = Features()
+							app_features.addFeature(Feature('name', '=', 'ansible.modules.' + artifact['file']))					
+							feature = Feature('disk.0.applications', 'contains', app_features)
+							system.addFeature(feature)
 		
 	@staticmethod
 	def _gen_system(node, nodetemplates):
@@ -938,6 +990,8 @@ class Tosca:
 			if location:
 				res.setValue('disk.%d.mount_path' % num, location)
 				res.setValue('disk.%d.fstype' % num, fstype)
+
+		Tosca._add_ansible_roles(node, nodetemplates, res)
 
 		return res
 	

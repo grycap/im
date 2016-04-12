@@ -212,11 +212,11 @@ class FogBowCloudConnector(CloudConnector):
 							vm.setIps([parts[0]], [])
 							if len(parts) > 1:
 								vm.setSSHPort(int(parts[1]))
-
+						
 						extra_ports = self.get_occi_attribute_value(output, 'org.fogbowcloud.request.extra-ports')
 						if extra_ports:
 							vm.info.systems[0].addFeature(Feature("fogbow.extra-ports", "=", extra_ports), conflict="other", missing="other")
-
+						
 						ssh_user = self.get_occi_attribute_value(output, 'org.fogbowcloud.request.ssh-username')
 						if ssh_user:
 							vm.info.systems[0].addFeature(Feature("disk.0.os.credentials.username", "=", ssh_user), conflict="other", missing="other")

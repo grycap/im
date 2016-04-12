@@ -35,6 +35,18 @@ AUTH_LINE_SEPARATOR = '\\n'
 # Combination of chars used to separate the lines inside the auth data (i.e. in a certificate)
 AUTH_NEW_LINE_SEPARATOR = '\\\\n'
 
+HTML_ERROR_TEMPLATE = """<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<html>
+	<head>
+		<title>Error %d.</title>
+	</head>
+	<body>
+		<h1>Code: %d.</h1>
+		<h1>Message: %s</h1>
+	</body>
+</html>
+"""
+
 app = bottle.Bottle()  
 bottle_server = None
 
@@ -103,6 +115,22 @@ def run(host, port):
 		bottle_server = StoppableWSGIRefServer(host=host, port=port)
 		bottle.run(app, server=bottle_server, quiet=True)
 
+def return_error(code, msg):
+	content_type = get_media_type('Accept')
+
+	if content_type == "application/json":
+		bottle.response.status = code
+		bottle.response.content_type = content_type
+		return json.dumps({'message': msg, 'code' : code})
+	elif content_type == "text/html":
+		bottle.response.status = code
+		bottle.response.content_type = content_type
+		return HTML_ERROR_TEMPLATE % (code, code, msg)
+	else:
+		bottle.response.status = code
+		bottle.response.content_type = 'text/plain'
+		return msg
+
 def stop():
 	bottle_server.shutdown()
 
@@ -129,26 +157,26 @@ def RESTDestroyInfrastructure(id=None):
 	try:
 		auth = get_auth_header()
 	except:
-		bottle.abort(401, "No authentication data provided")
+		return return_error(401, "No authentication data provided")
 	
 	try:
 		InfrastructureManager.DestroyInfrastructure(id, auth)
 		bottle.response.content_type = "text/plain"
 		return ""
 	except DeletedInfrastructureException, ex:
-		bottle.abort(404, "Error Destroying Inf: " + str(ex))
+		return return_error(404, "Error Destroying Inf: " + str(ex))
 	except IncorrectInfrastructureException, ex:
-		bottle.abort(404, "Error Destroying Inf: " + str(ex))
+		return return_error(404, "Error Destroying Inf: " + str(ex))
 	except Exception, ex:
 		logger.exception("Error Destroying Inf")
-		bottle.abort(400, "Error Destroying Inf: " + str(ex))
+		return return_error(400, "Error Destroying Inf: " + str(ex))
 
 @app.route('/infrastructures/:id', method='GET')
 def RESTGetInfrastructureInfo(id=None):
 	try:
 		auth = get_auth_header()
 	except:
-		bottle.abort(401, "No authentication data provided")
+		return return_error(401, "No authentication data provided")
 	
 	try:
 		vm_ids = InfrastructureManager.GetInfrastructureInfo(id, auth)
@@ -165,19 +193,19 @@ def RESTGetInfrastructureInfo(id=None):
 		bottle.response.content_type = "text/uri-list"
 		return res
 	except DeletedInfrastructureException, ex:
-		bottle.abort(404, "Error Getting Inf. info: " + str(ex))
+		return return_error(404, "Error Getting Inf. info: " + str(ex))
 	except IncorrectInfrastructureException, ex:
-		bottle.abort(404, "Error Getting Inf. info: " + str(ex))
+		return return_error(404, "Error Getting Inf. info: " + str(ex))
 	except Exception, ex:
 		logger.exception("Error Getting Inf. info")
-		bottle.abort(400, "Error Getting Inf. info: " + str(ex))
+		return return_error(400, "Error Getting Inf. info: " + str(ex))
 
 @app.route('/infrastructures/:id/:prop', method='GET')
 def RESTGetInfrastructureProperty(id=None, prop=None):
 	try:
 		auth = get_auth_header()
 	except:
-		bottle.abort(401, "No authentication data provided")
+		return return_error(401, "No authentication data provided")
 	
 	try:
 		if prop == "contmsg":
@@ -199,24 +227,24 @@ def RESTGetInfrastructureProperty(id=None, prop=None):
 				bottle.abort(403, "'outputs' infrastructure property is not valid in this infrastructure")
 			res = json.dumps(res)
 		else:
-			bottle.abort(403, "Incorrect infrastructure property")
+			return return_error(403, "Incorrect infrastructure property")
 		return str(res)
 	except HTTPError, ex:
 		raise ex
 	except DeletedInfrastructureException, ex:
-		bottle.abort(404, "Error Getting Inf. prop: " + str(ex))
+		return return_error(404, "Error Getting Inf. prop: " + str(ex))
 	except IncorrectInfrastructureException, ex:
-		bottle.abort(404, "Error Getting Inf. prop: " + str(ex))
+		return return_error(404, "Error Getting Inf. prop: " + str(ex))
 	except Exception, ex:
 		logger.exception("Error Getting Inf. prop")
-		bottle.abort(400, "Error Getting Inf. prop: " + str(ex))
+		return return_error(400, "Error Getting Inf. prop: " + str(ex))
 
 @app.route('/infrastructures', method='GET')
 def RESTGetInfrastructureList():
 	try:
 		auth = get_auth_header()
 	except:
-		bottle.abort(401, "No authentication data provided")
+		return return_error(401, "No authentication data provided")
 	
 	try:
 		inf_ids = InfrastructureManager.GetInfrastructureList(auth)
@@ -231,10 +259,10 @@ def RESTGetInfrastructureList():
 		bottle.response.content_type = "text/uri-list"
 		return res
 	except UnauthorizedUserException, ex:
-		bottle.abort(401, "Error Getting Inf. List: " + str(ex))
+		return return_error(401, "Error Getting Inf. List: " + str(ex))
 	except Exception, ex:
 		logger.exception("Error Getting Inf. List")
-		bottle.abort(400, "Error Getting Inf. List: " + str(ex))
+		return return_error(400, "Error Getting Inf. List: " + str(ex))
 
 
 @app.route('/infrastructures', method='POST')
@@ -242,7 +270,7 @@ def RESTCreateInfrastructure():
 	try:
 		auth = get_auth_header()
 	except:
-		bottle.abort(401, "No authentication data provided")
+		return return_error(401, "No authentication data provided")
 
 	try:
 		content_type = get_media_type('Content-Type')
@@ -258,8 +286,7 @@ def RESTCreateInfrastructure():
 			elif content_type in ["text/plain","*/*","text/*"]:
 				content_type = "text/plain"
 			else:
-				bottle.abort(415, "Unsupported Media Type %s" % content_type)
-				return False
+				return return_error(415, "Unsupported Media Type %s" % content_type)
 
 		inf_id = InfrastructureManager.CreateInfrastructure(radl_data, auth)
 		
@@ -276,17 +303,17 @@ def RESTCreateInfrastructure():
 	except HTTPError, ex:
 		raise ex
 	except UnauthorizedUserException, ex:
-		bottle.abort(401, "Error Getting Inf. info: " + str(ex))
+		return return_error(401, "Error Getting Inf. info: " + str(ex))
 	except Exception, ex:
 		logger.exception("Error Creating Inf.")
-		bottle.abort(400, "Error Creating Inf.: " + str(ex))
+		return return_error(400, "Error Creating Inf.: " + str(ex))
 
 @app.route('/infrastructures/:infid/vms/:vmid', method='GET')
 def RESTGetVMInfo(infid=None, vmid=None):
 	try:
 		auth = get_auth_header()
 	except:
-		bottle.abort(401, "No authentication data provided")
+		return return_error(401, "No authentication data provided")
 	
 	try:
 		accept = get_media_type('Accept')
@@ -301,8 +328,7 @@ def RESTGetVMInfo(infid=None, vmid=None):
 				info = str(radl)
 				bottle.response.content_type = "text/plain"
 			else:
-				bottle.abort(404, "Unsupported Accept Media Type: %s" % accept)
-				return False
+				return return_error(404, "Unsupported Accept Media Type: %s" % accept)
 		else:
 			info = str(radl)
 			bottle.response.content_type = "text/plain"
@@ -311,23 +337,23 @@ def RESTGetVMInfo(infid=None, vmid=None):
 	except HTTPError, ex:
 		raise ex
 	except DeletedInfrastructureException, ex:
-		bottle.abort(404, "Error Getting VM. info: " + str(ex))
+		return return_error(404, "Error Getting VM. info: " + str(ex))
 	except IncorrectInfrastructureException, ex:
-		bottle.abort(404, "Error Getting VM. info: " + str(ex))
+		return return_error(404, "Error Getting VM. info: " + str(ex))
 	except DeletedVMException, ex:
-		bottle.abort(404, "Error Getting VM. info: " + str(ex))
+		return return_error(404, "Error Getting VM. info: " + str(ex))
 	except IncorrectVMException, ex:
-		bottle.abort(404, "Error Getting VM. info: " + str(ex))
+		return return_error(404, "Error Getting VM. info: " + str(ex))
 	except Exception, ex:
 		logger.exception("Error Getting VM info")
-		bottle.abort(400, "Error Getting VM info: " + str(ex))
+		return return_error(400, "Error Getting VM info: " + str(ex))
 
 @app.route('/infrastructures/:infid/vms/:vmid/:prop', method='GET')
 def RESTGetVMProperty(infid=None, vmid=None, prop=None):
 	try:
 		auth = get_auth_header()
 	except:
-		bottle.abort(401, "No authentication data provided")
+		return return_error(401, "No authentication data provided")
 	
 	try:
 		if prop == 'contmsg':
@@ -345,8 +371,7 @@ def RESTGetVMProperty(infid=None, vmid=None, prop=None):
 			elif accept in ["text/plain","*/*","text/*"]:
 				bottle.response.content_type = "text/plain"
 			else:
-				bottle.abort(404, "Unsupported Accept Media Type: %s" % accept)
-				return False
+				return return_error(404, "Unsupported Accept Media Type: %s" % accept)
 		else:
 			bottle.response.content_type = "text/plain"
 		
@@ -354,23 +379,23 @@ def RESTGetVMProperty(infid=None, vmid=None, prop=None):
 	except HTTPError, ex:
 		raise ex
 	except DeletedInfrastructureException, ex:
-		bottle.abort(404, "Error Getting VM. property: " + str(ex))
+		return return_error(404, "Error Getting VM. property: " + str(ex))
 	except IncorrectInfrastructureException, ex:
-		bottle.abort(404, "Error Getting VM. property: " + str(ex))
+		return return_error(404, "Error Getting VM. property: " + str(ex))
 	except DeletedVMException, ex:
-		bottle.abort(404, "Error Getting VM. property: " + str(ex))
+		return return_error(404, "Error Getting VM. property: " + str(ex))
 	except IncorrectVMException, ex:
-		bottle.abort(404, "Error Getting VM. property: " + str(ex))
+		return return_error(404, "Error Getting VM. property: " + str(ex))
 	except Exception, ex:
 		logger.exception("Error Getting VM property")
-		bottle.abort(400, "Error Getting VM property: " + str(ex))
+		return return_error(400, "Error Getting VM property: " + str(ex))
 
 @app.route('/infrastructures/:id', method='POST')
 def RESTAddResource(id=None):
 	try:
 		auth = get_auth_header()
 	except:
-		bottle.abort(401, "No authentication data provided")
+		return return_error(401, "No authentication data provided")
 
 	try:
 		context = True
@@ -381,7 +406,7 @@ def RESTAddResource(id=None):
 			elif str_ctxt in ['no', 'false', '0']:
 				context = False
 			else:
-				bottle.abort(400, "Incorrect value in context parameter")
+				return return_error(400, "Incorrect value in context parameter")
 
 		content_type = get_media_type('Content-Type')
 		radl_data = bottle.request.body.read()
@@ -398,8 +423,7 @@ def RESTAddResource(id=None):
 			elif content_type in ["text/plain","*/*","text/*"]:
 				content_type = "text/plain"
 			else:
-				bottle.abort(415, "Unsupported Media Type %s" % content_type)
-				return False
+				return return_error(415, "Unsupported Media Type %s" % content_type)
 
 		if remove_list:
 			InfrastructureManager.RemoveResource(id, remove_list, auth, context)
@@ -425,19 +449,19 @@ def RESTAddResource(id=None):
 	except HTTPError, ex:
 		raise ex
 	except DeletedInfrastructureException, ex:
-		bottle.abort(404, "Error Adding resources: " + str(ex))
+		return return_error(404, "Error Adding resources: " + str(ex))
 	except IncorrectInfrastructureException, ex:
-		bottle.abort(404, "Error Adding resources: " + str(ex))
+		return return_error(404, "Error Adding resources: " + str(ex))
 	except Exception, ex:
 		logger.exception("Error Adding resources")
-		bottle.abort(400, "Error Adding resources: " + str(ex))
+		return return_error(400, "Error Adding resources: " + str(ex))
 				
 @app.route('/infrastructures/:infid/vms/:vmid', method='DELETE')
 def RESTRemoveResource(infid=None, vmid=None):
 	try:
 		auth = get_auth_header()
 	except:
-		bottle.abort(401, "No authentication data provided")
+		return return_error(401, "No authentication data provided")
 	
 	try:
 		context = True
@@ -448,7 +472,7 @@ def RESTRemoveResource(infid=None, vmid=None):
 			elif str_ctxt in ['no', 'false', '0']:
 				context = False
 			else:
-				bottle.abort(400, "Incorrect value in context parameter")
+				return return_error(400, "Incorrect value in context parameter")
 
 		InfrastructureManager.RemoveResource(infid, vmid, auth, context)
 		bottle.response.content_type = "text/plain"
@@ -456,23 +480,23 @@ def RESTRemoveResource(infid=None, vmid=None):
 	except HTTPError, ex:
 		raise ex
 	except DeletedInfrastructureException, ex:
-		bottle.abort(404, "Error Removing resources: " + str(ex))
+		return return_error(404, "Error Removing resources: " + str(ex))
 	except IncorrectInfrastructureException, ex:
-		bottle.abort(404, "Error Removing resources: " + str(ex))
+		return return_error(404, "Error Removing resources: " + str(ex))
 	except DeletedVMException, ex:
-		bottle.abort(404, "Error Removing resources: " + str(ex))
+		return return_error(404, "Error Removing resources: " + str(ex))
 	except IncorrectVMException, ex:
-		bottle.abort(404, "Error Removing resources: " + str(ex))
+		return return_error(404, "Error Removing resources: " + str(ex))
 	except Exception, ex:
 		logger.exception("Error Removing resources")
-		bottle.abort(400, "Error Removing resources: " + str(ex))
+		return return_error(400, "Error Removing resources: " + str(ex))
 
 @app.route('/infrastructures/:infid/vms/:vmid', method='PUT')
 def RESTAlterVM(infid=None, vmid=None):
 	try:
 		auth = get_auth_header()
 	except:
-		bottle.abort(401, "No authentication data provided")
+		return return_error(401, "No authentication data provided")
 	
 	try:
 		content_type = get_media_type('Content-Type')
@@ -485,8 +509,7 @@ def RESTAlterVM(infid=None, vmid=None):
 			elif content_type in ["text/plain","*/*","text/*"]:
 				content_type = "text/plain"
 			else:
-				bottle.abort(415, "Unsupported Media Type %s" % content_type)
-				return False
+				return return_error(415, "Unsupported Media Type %s" % content_type)
 		
 		vm_info = InfrastructureManager.AlterVM(infid, vmid, radl_data, auth)
 
@@ -498,8 +521,7 @@ def RESTAlterVM(infid=None, vmid=None):
 				res = str(vm_info)
 				bottle.response.content_type = accept
 			else:
-				bottle.abort(404, "Unsupported Accept Media Type: %s" % accept)
-				return False
+				return return_error(404, "Unsupported Accept Media Type: %s" % accept)
 		else:
 			bottle.response.content_type = "text/plain"
 
@@ -507,23 +529,23 @@ def RESTAlterVM(infid=None, vmid=None):
 	except HTTPError, ex:
 		raise ex
 	except DeletedInfrastructureException, ex:
-		bottle.abort(404, "Error modifying resources: " + str(ex))
+		return return_error(404, "Error modifying resources: " + str(ex))
 	except IncorrectInfrastructureException, ex:
-		bottle.abort(404, "Error modifying resources: " + str(ex))
+		return return_error(404, "Error modifying resources: " + str(ex))
 	except DeletedVMException, ex:
-		bottle.abort(404, "Error modifying resources: " + str(ex))
+		return return_error(404, "Error modifying resources: " + str(ex))
 	except IncorrectVMException, ex:
-		bottle.abort(404, "Error modifying resources: " + str(ex))
+		return return_error(404, "Error modifying resources: " + str(ex))
 	except Exception, ex:
 		logger.exception("Error modifying resources")
-		bottle.abort(400, "Error modifying resources: " + str(ex))
+		return return_error(400, "Error modifying resources: " + str(ex))
 
 @app.route('/infrastructures/:id/reconfigure', method='PUT')
 def RESTReconfigureInfrastructure(id=None):
 	try:
 		auth = get_auth_header()
 	except:
-		bottle.abort(401, "No authentication data provided")
+		return return_error(401, "No authentication data provided")
 
 	try:
 		vm_list = None
@@ -532,7 +554,7 @@ def RESTReconfigureInfrastructure(id=None):
 			try:
 				vm_list = [int(vm_id) for vm_id in str_vm_list.split(",")]
 			except:
-				bottle.abort(400, "Incorrect vm_list format.")
+				return return_error(400, "Incorrect vm_list format.")
 		
 		content_type = get_media_type('Content-Type')
 		radl_data = bottle.request.body.read()
@@ -544,100 +566,99 @@ def RESTReconfigureInfrastructure(id=None):
 				elif content_type in ["text/plain","*/*","text/*"]:
 					content_type = "text/plain"
 				else:
-					bottle.abort(415, "Unsupported Media Type %s" % content_type)
-					return False
+					return return_error(415, "Unsupported Media Type %s" % content_type)
 		else:
 			radl_data = ""
 		return InfrastructureManager.Reconfigure(id, radl_data, auth, vm_list)
 	except HTTPError, ex:
 		raise ex
 	except DeletedInfrastructureException, ex:
-		bottle.abort(404, "Error reconfiguring infrastructure: " + str(ex))
+		return return_error(404, "Error reconfiguring infrastructure: " + str(ex))
 	except IncorrectInfrastructureException, ex:
-		bottle.abort(404, "Error reconfiguring infrastructure: " + str(ex))
+		return return_error(404, "Error reconfiguring infrastructure: " + str(ex))
 	except Exception, ex:
 		logger.exception("Error reconfiguring infrastructure")
-		bottle.abort(400, "Error reconfiguring infrastructure: " + str(ex))
+		return return_error(400, "Error reconfiguring infrastructure: " + str(ex))
 
 @app.route('/infrastructures/:id/start', method='PUT')
 def RESTStartInfrastructure(id=None):
 	try:
 		auth = get_auth_header()
 	except:
-		bottle.abort(401, "No authentication data provided")
+		return return_error(401, "No authentication data provided")
 
 	try:
 		return InfrastructureManager.StartInfrastructure(id, auth)	
 	except DeletedInfrastructureException, ex:
-		bottle.abort(404, "Error starting infrastructure: " + str(ex))
+		return return_error(404, "Error starting infrastructure: " + str(ex))
 	except IncorrectInfrastructureException, ex:
-		bottle.abort(404, "Error starting infrastructure: " + str(ex))
+		return return_error(404, "Error starting infrastructure: " + str(ex))
 	except Exception, ex:
 		logger.exception("Error starting infrastructure")
-		bottle.abort(400, "Error starting infrastructure: " + str(ex))
+		return return_error(400, "Error starting infrastructure: " + str(ex))
 
 @app.route('/infrastructures/:id/stop', method='PUT')
 def RESTStopInfrastructure(id=None):
 	try:
 		auth = get_auth_header()
 	except:
-		bottle.abort(401, "No authentication data provided")
+		return return_error(401, "No authentication data provided")
 
 	try:
 		return InfrastructureManager.StopInfrastructure(id, auth)	
 	except DeletedInfrastructureException, ex:
-		bottle.abort(404, "Error stopping infrastructure: " + str(ex))
+		return return_error(404, "Error stopping infrastructure: " + str(ex))
 	except IncorrectInfrastructureException, ex:
-		bottle.abort(404, "Error stopping infrastructure: " + str(ex))
+		return return_error(404, "Error stopping infrastructure: " + str(ex))
 	except Exception, ex:
 		logger.exception("Error stopping infrastructure")
-		bottle.abort(400, "Error stopping infrastructure: " + str(ex))
+		return return_error(400, "Error stopping infrastructure: " + str(ex))
 	
 @app.route('/infrastructures/:infid/vms/:vmid/start', method='PUT')
 def RESTStartVM(infid=None, vmid=None, prop=None):
 	try:
 		auth = get_auth_header()
 	except:
-		bottle.abort(401, "No authentication data provided")
+		return return_error(401, "No authentication data provided")
 	
 	try:
 		info = InfrastructureManager.StartVM(infid, vmid, auth)
 		bottle.response.content_type = "text/plain"
 		return info
 	except DeletedInfrastructureException, ex:
-		bottle.abort(404, "Error starting VM: " + str(ex))
+		return return_error(404, "Error starting VM: " + str(ex))
 	except IncorrectInfrastructureException, ex:
-		bottle.abort(404, "Error starting VM: " + str(ex))
+		return return_error(404, "Error starting VM: " + str(ex))
 	except DeletedVMException, ex:
-		bottle.abort(404, "Error starting VM: " + str(ex))
+		return return_error(404, "Error starting VM: " + str(ex))
 	except IncorrectVMException, ex:
-		bottle.abort(404, "Error starting VM: " + str(ex))
+		return return_error(404, "Error starting VM: " + str(ex))
 	except Exception, ex:
 		logger.exception("Error starting VM")
-		bottle.abort(400, "Error starting VM: " + str(ex))
+		return return_error(400, "Error starting VM: " + str(ex))
 	
 @app.route('/infrastructures/:infid/vms/:vmid/stop', method='PUT')
 def RESTStopVM(infid=None, vmid=None, prop=None):
 	try:
 		auth = get_auth_header()
 	except:
-		bottle.abort(401, "No authentication data provided")
+		return return_error(401, "No authentication data provided")
 	
 	try:
 		info = InfrastructureManager.StopVM(infid, vmid, auth)
 		bottle.response.content_type = "text/plain"
 		return info
 	except DeletedInfrastructureException, ex:
-		bottle.abort(404, "Error stopping VM: " + str(ex))
+		return return_error(404, "Error stopping VM: " + str(ex))
 	except IncorrectInfrastructureException, ex:
-		bottle.abort(404, "Error stopping VM: " + str(ex))
+		return return_error(404, "Error stopping VM: " + str(ex))
 	except DeletedVMException, ex:
-		bottle.abort(404, "Error stopping VM: " + str(ex))
+		return return_error(404, "Error stopping VM: " + str(ex))
 	except IncorrectVMException, ex:
-		bottle.abort(404, "Error stopping VM: " + str(ex))
+		return return_error(404, "Error stopping VM: " + str(ex))
 	except Exception, ex:
 		logger.exception("Error stopping VM")
-		bottle.abort(400, "Error stopping VM: " + str(ex))
+		return return_error(400, "Error stopping VM: " + str(ex))
 
 @app.route('/version', method='GET')
 def RESTGeVersion():
@@ -647,4 +668,4 @@ def RESTGeVersion():
 		return version 
 	except Exception, ex:
 		logger.exception("Error getting IM state")
-		bottle.abort(400, "Error getting IM state: " + str(ex))
+		return return_error(400, "Error getting IM state: " + str(ex))
