@@ -74,6 +74,7 @@ class EC2CloudConnector(CloudConnector):
 
 	def __init__(self, cloud_info):
 		self.connection = None
+		self.auth = None
 		CloudConnector.__init__(self, cloud_info)
 		
 	def concreteSystem(self, radl_system, auth_data):
@@ -135,25 +136,31 @@ class EC2CloudConnector(CloudConnector):
 		   - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
 		Returns: a :py:class:`boto.ec2.connection` or None in case of error		
 		"""
-		if self.connection:
+		auths = auth_data.getAuthInfo(self.type)
+		if not auths:
+			raise Exception("No auth data has been specified to EC2.")
+		else:
+			auth = auths[0]
+		
+		if self.connection and self.auth.compare(auth_data, self.type):
 			return self.connection
 		else:
+			self.auth = auth_data
 			conn = None
 			try:
-				auth = auth_data.getAuthInfo(EC2CloudConnector.type)
-				if auth and 'username' in auth[0] and 'password' in auth[0]:
+				if 'username' in auth and 'password' in auth:
 					region = boto.ec2.get_region(region_name)
 					if region:
-						conn = boto.vpc.VPCConnection(aws_access_key_id=auth[0]['username'], aws_secret_access_key=auth[0]['password'], region=region)
+						conn = boto.vpc.VPCConnection(aws_access_key_id=auth['username'], aws_secret_access_key=auth['password'], region=region)
 					else:
 						raise Exception("Incorrect region name: " + region_name)
 				else:
-					self.logger.error("Incorrect auth data")
-					return None
+					self.logger.error("No correct auth data has been specified to EC2: username (Access Key) and password (Secret Key)")
+					raise Exception("No correct auth data has been specified to EC2: username (Access Key) and password (Secret Key)")
 	
-			except Exception:
-				self.logger.exception("Error getting the region " + region_name + ": ")
-				return None
+			except Exception, ex:
+				self.logger.exception("Error getting the region " + region_name)
+				raise Exception("Error getting the region " + region_name + ": " + str(ex))
 		
 			self.connection = conn
 			return conn

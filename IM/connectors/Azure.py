@@ -354,29 +354,25 @@ class AzureCloudConnector(CloudConnector):
 		self.logger.debug("Azure VM Create XML: " + res)
 
 		return res
-		
-	def get_user_subscription_id(self, auth_data):
-		"""
-		Get the Azure subscription ID from the auth data 
-		"""
-		auth = auth_data.getAuthInfo(AzureCloudConnector.type)
-		if auth and 'username' in auth[0]:
-			return auth[0]['username']
-		else:
-			return None
 
 	def get_connection_and_subscription_id(self, auth_data):
-		# We check if the cert and key files exist
-		subscription_id = self.get_user_subscription_id(auth_data)
+		auths = auth_data.getAuthInfo(self.type)
+		if not auths:
+			raise Exception("No auth data has been specified to Azure.")
+		else:
+			auth = auths[0]
 		
+		if 'username' in auth:
+			subscription_id = auth['username']
+		else:
+			raise Exception("No correct auth data has been specified to Azure: username, public_key and private_key.")
+		
+		# We check if the cert and key files exist		
 		if os.path.isfile(self.cert_file) and os.path.isfile(self.key_file):
 			cert_file = self.cert_file 
 			key_file = self.key_file 
 		else:
-			auth = self.get_user_cert_data(auth_data)
-			if auth is None:
-				return None, subscription_id
-			cert_file, key_file = auth
+			cert_file, key_file = self.get_user_cert_data(auth)
 			self.cert_file = cert_file
 			self.key_file = key_file
 
@@ -384,19 +380,18 @@ class AzureCloudConnector(CloudConnector):
 		
 		return conn, subscription_id
 
-	def get_user_cert_data(self, auth_data):
+	def get_user_cert_data(self, auth):
 		"""
 		Get the Azure private_key and public_key files from the auth data 
 		"""
-		auth = auth_data.getAuthInfo(AzureCloudConnector.type)
-		if auth and 'public_key' in auth[0] and 'private_key' in auth[0]:
-			certificate = auth[0]['public_key']
+		if 'public_key' in auth and 'private_key' in auth:
+			certificate = auth['public_key']
 			fd, cert_file = tempfile.mkstemp()
 			os.write(fd, certificate)
 			os.close(fd)
 			os.chmod(cert_file,0644)
 			
-			private_key = auth[0]['private_key']
+			private_key = auth['private_key']
 			fd, key_file = tempfile.mkstemp()
 			os.write(fd, private_key)
 			os.close(fd)
@@ -404,7 +399,8 @@ class AzureCloudConnector(CloudConnector):
 
 			return (cert_file, key_file)
 		else:
-			return None
+			self.logger.error("No correct auth data has been specified to Azure: username, public_key and private_key.")
+			raise Exception("No correct auth data has been specified to Azure: username, public_key and private_key.")
 
 	def create_service(self, auth_data, region):
 		"""
@@ -415,9 +411,6 @@ class AzureCloudConnector(CloudConnector):
 		
 		try:
 			conn, subscription_id = self.get_connection_and_subscription_id(auth_data)
-			if conn is None or subscription_id is None:
-				self.logger.exception("Incorrect auth data.")
-				return None
 			uri = "https://%s/%s/services/hostedservices" % (self.AZURE_SERVER,subscription_id)
 			service_create_xml = '''
 	<CreateHostedService xmlns="http://schemas.microsoft.com/windowsazure">
@@ -430,15 +423,15 @@ class AzureCloudConnector(CloudConnector):
 			conn.request('POST', uri, body = service_create_xml, headers = {'x-ms-version' : '2013-03-01', 'Content-Type' : 'application/xml'}) 
 			resp = conn.getresponse()
 			output = resp.read()
-		except Exception:
+		except Exception, ex:
 			self.logger.exception("Error creating the service")
-			return None
+			return None, "Error creating the service" + str(ex)
 		
 		if resp.status != 201:
 			self.logger.error("Error creating the service: Error code: " + str(resp.status) + ". Msg: " + output)
-			return None
+			return None, "Error creating the service: Error code: " + str(resp.status) + ". Msg: " + output
 		
-		return service_name
+		return service_name, None
 	
 	def delete_service(self, service_name, auth_data):
 		"""
@@ -446,8 +439,6 @@ class AzureCloudConnector(CloudConnector):
 		"""
 		try:
 			conn, subscription_id = self.get_connection_and_subscription_id(auth_data)
-			if conn is None or subscription_id is None:
-				return (False, "Incorrect auth data")
 			uri = "/%s/services/hostedservices/%s?comp=media" % (subscription_id, service_name)
 			conn.request('DELETE', uri, headers = {'x-ms-version' : '2013-08-01'}) 
 			resp = conn.getresponse()
@@ -483,9 +474,6 @@ class AzureCloudConnector(CloudConnector):
 			wait += delay
 			try:
 				conn, subscription_id = self.get_connection_and_subscription_id(auth_data)
-				if conn is None or subscription_id is None:
-					self.logger.exception("Incorrect auth data.")
-					return False
 				uri = "/%s/operations/%s" % (subscription_id, request_id)
 				conn.request('GET', uri, headers = {'x-ms-version' : '2013-03-01'}) 
 				resp = conn.getresponse()
@@ -534,13 +522,13 @@ class AzureCloudConnector(CloudConnector):
 			conn.request('POST', uri, body = storage_create_xml, headers = {'x-ms-version' : '2013-03-01', 'Content-Type' : 'application/xml'}) 
 			resp = conn.getresponse()
 			output = resp.read()
-		except Exception:
+		except Exception, ex:
 			self.logger.exception("Error creating the storage account")
-			return None
+			return None, "Error creating the storage account" + str(ex)
 		
 		if resp.status != 202:
 			self.logger.error("Error creating the storage account: Error code " + str(resp.status) + ". Msg: " + output)
-			return None
+			return None, "Error code " + str(resp.status) + ". Msg: " + output
 
 		request_id = resp.getheader('x-ms-request-id')
 		
@@ -560,11 +548,11 @@ class AzureCloudConnector(CloudConnector):
 				wait += delay
 
 		if success:
-			return storage_account
+			return storage_account, None
 		else:
-			self.logger.exception("Error creating the storage account")
+			self.logger.error("Error waiting the creation of the storage account")
 			self.delete_storage_account(storage_account, subscription_id, conn)
-			return None
+			return None, "Error waiting the creation of the storage account"
 	
 	def delete_storage_account(self, storage_account, subscription_id, conn):
 		"""
@@ -591,9 +579,6 @@ class AzureCloudConnector(CloudConnector):
 		"""
 		try:
 			conn, subscription_id = self.get_connection_and_subscription_id(auth_data)
-			if conn is None or subscription_id is None:
-				self.logger.exception("Incorrect auth data.")
-				return None
 			uri = "/%s/services/storageservices/%s" % (subscription_id, storage_account)
 			conn.request('GET', uri, headers = {'x-ms-version' : '2013-03-01'}) 
 			resp = conn.getresponse()
@@ -625,24 +610,24 @@ class AzureCloudConnector(CloudConnector):
 				# Create storage account
 				storage_account = self.get_storage_account(self.STORAGE_NAME, auth_data)
 				if not storage_account:
-					storage_account_name = self.create_storage_account(self.STORAGE_NAME, auth_data, region)
+					storage_account_name, error_msg = self.create_storage_account(self.STORAGE_NAME, auth_data, region)
 					if storage_account_name is None:
-						res.append((False, "Error creating the storage account"))
+						res.append((False, error_msg))
 				else:
 					storage_account_name = self.STORAGE_NAME
 					# if the user has specified the region
 					if radl.systems[0].getValue('availability_zone'):
 						# Check that the region of the storage account is the same of the service
 						if region != storage_account.GeoPrimaryRegion:
-							res.append((False, "Error creating the service. The specified region"))
+							res.append((False, "Error creating the service. The specified region is not the same of the service."))
 					else:
 						# Otherwise use the storage account region
 						region = storage_account.GeoPrimaryRegion
 
 				# and the service
-				service_name = self.create_service(auth_data, region)
+				service_name, error_msg = self.create_service(auth_data, region)
 				if service_name is None:
-					res.append((False, "Error creating the service"))
+					res.append((False, error_msg))
 					break
 				
 				self.logger.debug("Creating the VM with id: " + service_name)
@@ -659,8 +644,6 @@ class AzureCloudConnector(CloudConnector):
 					res.append((False, "Incorrect image or auth data"))
 
 				conn, subscription_id = self.get_connection_and_subscription_id(auth_data)
-				if conn is None or subscription_id is None:
-					res.append((False, "Incorrect auth data"))
 				uri = "/%s/services/hostedservices/%s/deployments" % (subscription_id, service_name)
 				conn.request('POST', uri, body = vm_create_xml, headers = {'x-ms-version' : '2013-03-01', 'Content-Type' : 'application/xml'}) 
 				resp = conn.getresponse()
@@ -740,12 +723,10 @@ class AzureCloudConnector(CloudConnector):
 		
 	def updateVMInfo(self, vm, auth_data):
 		self.logger.debug("Get the VM info with the id: " + vm.id)
-		conn, subscription_id = self.get_connection_and_subscription_id(auth_data)
-		if conn is None or subscription_id is None:
-			return (False, "Incorrect auth data")
 		service_name = vm.id
 	
 		try:
+			conn, subscription_id = self.get_connection_and_subscription_id(auth_data)
 			uri = "/%s/services/hostedservices/%s/deployments/%s" % (subscription_id, service_name, service_name)
 			conn.request('GET', uri, headers = {'x-ms-version' : '2014-02-01'}) 
 			resp = conn.getresponse()
@@ -825,13 +806,10 @@ class AzureCloudConnector(CloudConnector):
 		"""
 		Call to the specified operation "op" to a Role
 		"""
-		conn, subscription_id = self.get_connection_and_subscription_id(auth_data)
-		if conn is None or subscription_id is None:
-			return (False, "Incorrect auth data")
-
 		service_name = vm.id
 
 		try:
+			conn, subscription_id = self.get_connection_and_subscription_id(auth_data)
 			uri = "/%s/services/hostedservices/%s/deployments/%s/roleinstances/%s/Operations" % (subscription_id, service_name, service_name, self.ROLE_NAME)
 			
 			conn.request('POST', uri, body = op, headers = {'x-ms-version' : '2013-06-01', 'Content-Type' : 'application/xml'})
@@ -937,11 +915,6 @@ class AzureCloudConnector(CloudConnector):
 
 	def alterVM(self, vm, radl, auth_data):
 		# https://msdn.microsoft.com/en-us/library/azure/jj157187.aspx
-		conn, subscription_id = self.get_connection_and_subscription_id(auth_data)
-		
-		if conn is None or subscription_id is None:
-			return (False, "Incorrect auth data")
-
 		service_name = vm.id
 		system = radl.systems[0]
 		
@@ -951,6 +924,8 @@ class AzureCloudConnector(CloudConnector):
 			return (False, "Error calling update operation: No instance type found for radl: " + str(radl))
 
 		try:
+			conn, subscription_id = self.get_connection_and_subscription_id(auth_data)
+			
 			uri = "/%s/services/hostedservices/%s/deployments/%s/roles/%s" % (subscription_id, service_name, service_name, self.ROLE_NAME)
 			
 			body = '''

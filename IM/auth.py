@@ -82,7 +82,7 @@ class Authentication:
 		   - other_auth(:py:class:`Authentication`): The Authentication object to compare
 		   - auth_type(str): The auth type
 				
-		Returns: a list with all the auth data for the specified id
+		Returns: True if the auth are equal or False otherwise
 		"""
 		try:
 			auth_with_type = None
