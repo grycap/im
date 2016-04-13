@@ -198,3 +198,4 @@ IM 1.4.4
     * Bugfix in OCCI connector with endpoints with path
     * Enable to return REST error messages in JSON, HTML and plain text
     * Set correct permissions in some configuration files
+    * Enable accept type in all REST API calls
