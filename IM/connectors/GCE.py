@@ -36,6 +36,7 @@ class GCECloudConnector(CloudConnector):
     DEFAULT_ZONE = "us-central1"
     
     def __init__(self, cloud_info):
+        self.auth = None
         self.driver = None
         CloudConnector.__init__(self, cloud_info)
     
@@ -48,20 +49,26 @@ class GCECloudConnector(CloudConnector):
         
         Returns: a :py:class:`libcloud.compute.base.NodeDriver` or None in case of error
         """
-        if self.driver:
+        auths = auth_data.getAuthInfo(self.type)
+        if not auths:
+            raise Exception("No auth data has been specified to GCE.")
+        else:
+            auth = auths[0]
+        
+        if self.driver and self.auth.compare(auth_data, self.type):
             return self.driver
         else:
-            auth = auth_data.getAuthInfo(self.type)
+            self.auth = auth_data
             
-            if auth and 'username' in auth[0] and 'password' in auth[0] and 'project' in auth[0]:
+            if 'username' in auth and 'password' in auth and 'project' in auth:
                 cls = get_driver(Provider.GCE)
                 # Patch to solve some client problems with \\n 
-                auth[0]['password'] = auth[0]['password'].replace('\\n','\n')         
-                lines = len(auth[0]['password'].replace(" ","").split())
+                auth['password'] = auth['password'].replace('\\n','\n')         
+                lines = len(auth['password'].replace(" ","").split())
                 if lines < 2:
                     raise Exception("The certificate provided to the GCE plugin has an incorrect format. Check that it has more than one line.")
 
-                driver = cls(auth[0]['username'], auth[0]['password'], project=auth[0]['project']) 
+                driver = cls(auth['username'], auth['password'], project=auth['project']) 
 
                 self.driver = driver
                 return driver
