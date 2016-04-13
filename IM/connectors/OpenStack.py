@@ -33,6 +33,10 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 	
 	type = "OpenStack"
 	"""str with the name of the provider."""
+	
+	def __init__(self, cloud_info):
+		self.auth = None
+		LibCloudCloudConnector.__init__(self, cloud_info)
 
 	def get_driver(self, auth_data):
 		"""
@@ -43,14 +47,16 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 		
 		Returns: a :py:class:`libcloud.compute.base.NodeDriver` or None in case of error
 		"""
-		if self.driver:
+		auths = auth_data.getAuthInfo(self.type, self.cloud.server)
+		if not auths:
+			raise Exception("No auth data has been specified to OpenStack.")
+		else:
+			auth = auths[0]
+
+		if self.driver and self.auth.compare(auth_data, self.type):
 			return self.driver
 		else:
-			auths = auth_data.getAuthInfo(self.type, self.cloud.server)
-			if not auths:
-				raise Exception("No correct auth data has been specified to OpenStack.")
-			else:
-				auth = auths[0]
+			self.auth = auth_data
 
 			protocol = self.cloud.protocol
 			if not protocol:

@@ -49,6 +49,20 @@ Next tables summaries the resources and the HTTP methods available.
 | **PUT**     | | **Stop** the machine ``vmId`` in ``infId``. | | **Start** the machine ``vmId`` in ``infId``. |
 +-------------+-----------------------------------------------+------------------------------------------------+
 
+
+The error message returned by the service will depend on the ``Accept`` header of the request:
+
+* text/plain: (default option).
+* application/json: The request has a "Accept" header with value "application/json". In this case the format will be::
+
+    {
+      "message": "Error message text",
+      "code" : 400
+     }
+     
+* text/html: The request has a "Accept" with value to "text/html". 
+>>>>>>> upstream/devel
+
 GET ``http://imserver.com/infrastructures``
    :Response Content-type: text/uri-list
    :ok response: 200 OK
