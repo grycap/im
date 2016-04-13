@@ -126,6 +126,14 @@ class TestIM(unittest.TestCase):
         resp.read()
         self.assertEqual(resp.status, 404, msg="Incorrect error message: " + str(resp.status))
 
+    def test_16_get_incorrect_info_json(self):
+        self.server.request('GET', "/infrastructures/999999", headers = {'AUTHORIZATION' : self.auth_data, 'Accept' : 'application/json'})
+        resp = self.server.getresponse()
+        output = resp.read()
+        self.assertEqual(resp.status, 404, msg="Incorrect error message: " + str(resp.status))
+        res = json.loads(output)
+        self.assertEqual(res['code'], 404, msg="Incorrect error message: " + output)
+
     def test_18_get_info_without_auth_data(self):
         self.server.request('GET', "/infrastructures/0")
         resp = self.server.getresponse()
