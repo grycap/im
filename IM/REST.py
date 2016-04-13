@@ -159,7 +159,7 @@ def format_resutl(res, default_type = "text/plain"):
 	accept = get_media_type('Accept')
 	
 	if accept:
-		if "application/json" in accept:
+		if "application/json" in accept or "application/*" in accept:
 			bottle.response.content_type = "application/json"
 			if isinstance(res, RADL):
 				info = dump_radl_json(res, enter="", indent="")
@@ -241,7 +241,7 @@ def RESTGetInfrastructureProperty(id=None, prop=None):
 			res = InfrastructureManager.GetInfrastructureRADL(id, auth)
 		elif prop == "state":
 			accept = get_media_type('Accept')
-			if accept and "application/json" not in accept:
+			if accept and "application/json" not in accept and "*/*" not in accept and "application/*" not in accept :
 				return return_error(415, "Unsupported Accept Media Types: %s" % accept)
 			bottle.response.content_type = "application/json"
 			res = InfrastructureManager.GetInfrastructureState(id, auth)
