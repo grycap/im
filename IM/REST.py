@@ -456,7 +456,6 @@ def RESTAlterVM(infid=None, vmid=None):
 	
 	try:
 		content_type = get_media_type('Content-Type')
-		accept = get_media_type('Accept')
 		radl_data = bottle.request.body.read()
 		
 		if content_type:
