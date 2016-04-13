@@ -20,13 +20,12 @@ import threading
 import bottle
 import json
 
-from bottle import HTTPError
-
 from InfrastructureInfo import IncorrectVMException, DeletedVMException
 from InfrastructureManager import InfrastructureManager, DeletedInfrastructureException, IncorrectInfrastructureException, UnauthorizedUserException
 from auth import Authentication
 from config import Config
 from radl.radl_json import parse_radl as parse_radl_json, dump_radl as dump_radl_json
+from radl.radl import RADL
 
 logger = logging.getLogger('InfrastructureManager')
 
@@ -118,13 +117,13 @@ def run(host, port):
 def return_error(code, msg):
 	content_type = get_media_type('Accept')
 
-	if content_type == "application/json":
+	if "application/json" in content_type:
 		bottle.response.status = code
-		bottle.response.content_type = content_type
+		bottle.response.content_type = "application/json"
 		return json.dumps({'message': msg, 'code' : code})
-	elif content_type == "text/html":
+	elif "text/html" in content_type:
 		bottle.response.status = code
-		bottle.response.content_type = content_type
+		bottle.response.content_type = "text/html"
 		return HTML_ERROR_TEMPLATE % (code, code, msg)
 	else:
 		bottle.response.status = code
@@ -136,22 +135,53 @@ def stop():
 
 def get_media_type(header):
 	"""
-	Function to get only the header media type
+	Function to get specified the header media type.
+	Returns a List of strings.
 	"""
+	res = []
 	accept = bottle.request.headers.get(header)
 	if accept:
-		pos = accept.find(";")
-		if pos != -1:
-			accept = accept[:pos]
-		return accept.strip()
-	else:
-		return accept
+		media_types = accept.split(",")
+		for media_type in media_types:
+			pos = media_type.find(";")
+			if pos != -1:
+				media_type = media_type[:pos]
+			res.append(media_type.strip())
+
+	return res
 
 def get_auth_header():
 	auth_data = bottle.request.headers['AUTHORIZATION'].replace(AUTH_NEW_LINE_SEPARATOR,"\n")
 	auth_data = auth_data.split(AUTH_LINE_SEPARATOR)
 	return Authentication(Authentication.read_auth_data(auth_data))
+
+def format_resutl(res, default_type = "text/plain"):
+	accept = get_media_type('Accept')
+	
+	if accept:
+		if "application/json" in accept:
+			bottle.response.content_type = "application/json"
+			if isinstance(res, RADL):
+				info = dump_radl_json(res, enter="", indent="")
+			else:
+				info = json.dumps(res)
+		elif default_type in accept or "*/*" in accept or "text/*" in accept:
+			if isinstance(res, list):
+				info = "\n".join(res)
+			else:
+				info = str(res)
+			bottle.response.content_type = default_type
+		else:
+			return return_error(415, "Unsupported Accept Media Types: %s" % accept)
+	else:
+		if isinstance(res, list):
+			info = "\n".join(res)
+		else:
+			info = str(res)
+		bottle.response.content_type = default_type
 		
+	return info
+
 @app.route('/infrastructures/:id', method='DELETE')
 def RESTDestroyInfrastructure(id=None):
 	try:
@@ -180,18 +210,15 @@ def RESTGetInfrastructureInfo(id=None):
 	
 	try:
 		vm_ids = InfrastructureManager.GetInfrastructureInfo(id, auth)
-		res = ""
+		res = []
 		
 		protocol = "http://"
 		if Config.REST_SSL:
 			protocol = "https://"
 		for vm_id in vm_ids:
-			if res:
-				res += "\n"
-			res += protocol + bottle.request.environ['HTTP_HOST'] + '/infrastructures/' + str(id) + '/vms/' + str(vm_id)
+			res.append(protocol + bottle.request.environ['HTTP_HOST'] + '/infrastructures/' + str(id) + '/vms/' + str(vm_id))
 		
-		bottle.response.content_type = "text/uri-list"
-		return res
+		return format_resutl(res, "text/uri-list")
 	except DeletedInfrastructureException, ex:
 		return return_error(404, "Error Getting Inf. info: " + str(ex))
 	except IncorrectInfrastructureException, ex:
@@ -210,19 +237,20 @@ def RESTGetInfrastructureProperty(id=None, prop=None):
 	try:
 		if prop == "contmsg":
 			res = InfrastructureManager.GetInfrastructureContMsg(id, auth)
-			bottle.response.content_type = "text/plain"
 		elif prop == "radl":
 			res = InfrastructureManager.GetInfrastructureRADL(id, auth)
-			bottle.response.content_type = "text/plain"
 		elif prop == "state":
+			accept = get_media_type('Accept')
+			if accept and "application/json" not in accept:
+				return return_error(415, "Unsupported Accept Media Types: %s" % accept)
 			bottle.response.content_type = "application/json"
 			res = InfrastructureManager.GetInfrastructureState(id, auth)
 			res = json.dumps(res)
+			return res
 		else:
 			return return_error(403, "Incorrect infrastructure property")
-		return str(res)
-	except HTTPError, ex:
-		raise ex
+
+		return format_resutl(res)
 	except DeletedInfrastructureException, ex:
 		return return_error(404, "Error Getting Inf. prop: " + str(ex))
 	except IncorrectInfrastructureException, ex:
@@ -240,16 +268,15 @@ def RESTGetInfrastructureList():
 	
 	try:
 		inf_ids = InfrastructureManager.GetInfrastructureList(auth)
+		res = []
 		
 		protocol = "http://"
 		if Config.REST_SSL:
 			protocol = "https://"
-		res = ""
 		for inf_id in inf_ids:
-			res += protocol + bottle.request.environ['HTTP_HOST'] + "/infrastructures/" + str(inf_id) + "\n"
+			res.append(protocol + bottle.request.environ['HTTP_HOST'] + "/infrastructures/" + str(inf_id))
 		
-		bottle.response.content_type = "text/uri-list"
-		return res
+		return format_resutl(res, "text/uri-list")
 	except UnauthorizedUserException, ex:
 		return return_error(401, "Error Getting Inf. List: " + str(ex))
 	except Exception, ex:
@@ -269,9 +296,9 @@ def RESTCreateInfrastructure():
 		radl_data = bottle.request.body.read()
 		
 		if content_type:
-			if content_type == "application/json":
+			if "application/json" in content_type:
 				radl_data = parse_radl_json(radl_data)
-			elif content_type in ["text/plain","*/*","text/*"]:
+			elif "text/plain" in content_type or "*/*" in content_type or "text/*" in content_type:
 				content_type = "text/plain"
 			else:
 				return return_error(415, "Unsupported Media Type %s" % content_type)
@@ -282,9 +309,10 @@ def RESTCreateInfrastructure():
 		protocol = "http://"
 		if Config.REST_SSL:
 			protocol = "https://"
-		return protocol + bottle.request.environ['HTTP_HOST'] + "/infrastructures/" + str(inf_id)
-	except HTTPError, ex:
-		raise ex
+		
+		res = protocol + bottle.request.environ['HTTP_HOST'] + "/infrastructures/" + str(inf_id)
+		
+		return format_resutl(res, "text/uri-list")
 	except UnauthorizedUserException, ex:
 		return return_error(401, "Error Getting Inf. info: " + str(ex))
 	except Exception, ex:
@@ -299,26 +327,8 @@ def RESTGetVMInfo(infid=None, vmid=None):
 		return return_error(401, "No authentication data provided")
 	
 	try:
-		accept = get_media_type('Accept')
-		
 		radl = InfrastructureManager.GetVMInfo(infid, vmid, auth)
-		
-		if accept:
-			if accept == "application/json":
-				bottle.response.content_type = accept
-				info = dump_radl_json(radl, enter="", indent="")
-			elif accept in ["text/plain","*/*","text/*"]:
-				info = str(radl)
-				bottle.response.content_type = "text/plain"
-			else:
-				return return_error(404, "Unsupported Accept Media Type: %s" % accept)
-		else:
-			info = str(radl)
-			bottle.response.content_type = "text/plain"
-			
-		return info
-	except HTTPError, ex:
-		raise ex
+		return format_resutl(radl)
 	except DeletedInfrastructureException, ex:
 		return return_error(404, "Error Getting VM. info: " + str(ex))
 	except IncorrectInfrastructureException, ex:
@@ -344,22 +354,7 @@ def RESTGetVMProperty(infid=None, vmid=None, prop=None):
 		else:
 			info = InfrastructureManager.GetVMProperty(infid, vmid, prop, auth)
 		
-		accept = get_media_type('Accept')
-		if accept:
-			if accept == "application/json":
-				bottle.response.content_type = accept
-				if isinstance(info, str) or isinstance(info, unicode):
-					info = '"' + info + '"'
-			elif accept in ["text/plain","*/*","text/*"]:
-				bottle.response.content_type = "text/plain"
-			else:
-				return return_error(404, "Unsupported Accept Media Type: %s" % accept)
-		else:
-			bottle.response.content_type = "text/plain"
-		
-		return str(info)
-	except HTTPError, ex:
-		raise ex
+		return format_resutl(info)
 	except DeletedInfrastructureException, ex:
 		return return_error(404, "Error Getting VM. property: " + str(ex))
 	except IncorrectInfrastructureException, ex:
@@ -394,9 +389,9 @@ def RESTAddResource(id=None):
 		radl_data = bottle.request.body.read()
 		
 		if content_type:
-			if content_type == "application/json":
+			if "application/json" in content_type:
 				radl_data = parse_radl_json(radl_data)
-			elif content_type in ["text/plain","*/*","text/*"]:
+			elif "text/plain" in content_type or "*/*" in content_type or "text/*" in content_type:
 				content_type = "text/plain"
 			else:
 				return return_error(415, "Unsupported Media Type %s" % content_type)
@@ -406,16 +401,11 @@ def RESTAddResource(id=None):
 		protocol = "http://"
 		if Config.REST_SSL:
 			protocol = "https://"
-		res = ""
+		res = []
 		for vm_id in vm_ids:
-			if res:
-				res += "\n"
-			res += protocol + bottle.request.environ['HTTP_HOST'] + "/infrastructures/" + str(id) + "/vms/" + str(vm_id)
+			res.append(protocol + bottle.request.environ['HTTP_HOST'] + "/infrastructures/" + str(id) + "/vms/" + str(vm_id))
 		
-		bottle.response.content_type = "text/uri-list"
-		return res
-	except HTTPError, ex:
-		raise ex
+		return format_resutl(res, "text/uri-list")
 	except DeletedInfrastructureException, ex:
 		return return_error(404, "Error Adding resources: " + str(ex))
 	except IncorrectInfrastructureException, ex:
@@ -445,8 +435,6 @@ def RESTRemoveResource(infid=None, vmid=None):
 		InfrastructureManager.RemoveResource(infid, vmid, auth, context)
 		bottle.response.content_type = "text/plain"
 		return ""
-	except HTTPError, ex:
-		raise ex
 	except DeletedInfrastructureException, ex:
 		return return_error(404, "Error Removing resources: " + str(ex))
 	except IncorrectInfrastructureException, ex:
@@ -472,30 +460,16 @@ def RESTAlterVM(infid=None, vmid=None):
 		radl_data = bottle.request.body.read()
 		
 		if content_type:
-			if content_type == "application/json":
+			if "application/json" in content_type:
 				radl_data = parse_radl_json(radl_data)
-			elif content_type in ["text/plain","*/*","text/*"]:
+			elif "text/plain" in content_type or "*/*" in content_type or "text/*" in content_type:
 				content_type = "text/plain"
 			else:
 				return return_error(415, "Unsupported Media Type %s" % content_type)
 		
 		vm_info = InfrastructureManager.AlterVM(infid, vmid, radl_data, auth)
 
-		if accept:
-			if accept == "application/json":
-				bottle.response.content_type = accept
-				res = dump_radl_json(vm_info, enter="", indent="")
-			elif accept == "text/plain":
-				res = str(vm_info)
-				bottle.response.content_type = accept
-			else:
-				return return_error(404, "Unsupported Accept Media Type: %s" % accept)
-		else:
-			bottle.response.content_type = "text/plain"
-
-		return res
-	except HTTPError, ex:
-		raise ex
+		return format_resutl(vm_info)
 	except DeletedInfrastructureException, ex:
 		return return_error(404, "Error modifying resources: " + str(ex))
 	except IncorrectInfrastructureException, ex:
@@ -529,17 +503,16 @@ def RESTReconfigureInfrastructure(id=None):
 		
 		if radl_data:
 			if content_type:
-				if content_type == "application/json":
+				if "application/json" in content_type:
 					radl_data = parse_radl_json(radl_data)
-				elif content_type in ["text/plain","*/*","text/*"]:
+				elif "text/plain" in content_type or "*/*" in content_type or "text/*" in content_type:
 					content_type = "text/plain"
 				else:
 					return return_error(415, "Unsupported Media Type %s" % content_type)
 		else:
 			radl_data = ""
+		bottle.response.content_type = "text/plain"
 		return InfrastructureManager.Reconfigure(id, radl_data, auth, vm_list)
-	except HTTPError, ex:
-		raise ex
 	except DeletedInfrastructureException, ex:
 		return return_error(404, "Error reconfiguring infrastructure: " + str(ex))
 	except IncorrectInfrastructureException, ex:
@@ -556,6 +529,7 @@ def RESTStartInfrastructure(id=None):
 		return return_error(401, "No authentication data provided")
 
 	try:
+		bottle.response.content_type = "text/plain"
 		return InfrastructureManager.StartInfrastructure(id, auth)	
 	except DeletedInfrastructureException, ex:
 		return return_error(404, "Error starting infrastructure: " + str(ex))
@@ -573,6 +547,7 @@ def RESTStopInfrastructure(id=None):
 		return return_error(401, "No authentication data provided")
 
 	try:
+		bottle.response.content_type = "text/plain"
 		return InfrastructureManager.StopInfrastructure(id, auth)	
 	except DeletedInfrastructureException, ex:
 		return return_error(404, "Error stopping infrastructure: " + str(ex))
@@ -590,9 +565,8 @@ def RESTStartVM(infid=None, vmid=None, prop=None):
 		return return_error(401, "No authentication data provided")
 	
 	try:
-		info = InfrastructureManager.StartVM(infid, vmid, auth)
 		bottle.response.content_type = "text/plain"
-		return info
+		return InfrastructureManager.StartVM(infid, vmid, auth)
 	except DeletedInfrastructureException, ex:
 		return return_error(404, "Error starting VM: " + str(ex))
 	except IncorrectInfrastructureException, ex:
@@ -613,9 +587,8 @@ def RESTStopVM(infid=None, vmid=None, prop=None):
 		return return_error(401, "No authentication data provided")
 	
 	try:
-		info = InfrastructureManager.StopVM(infid, vmid, auth)
 		bottle.response.content_type = "text/plain"
-		return info
+		return InfrastructureManager.StopVM(infid, vmid, auth)
 	except DeletedInfrastructureException, ex:
 		return return_error(404, "Error stopping VM: " + str(ex))
 	except IncorrectInfrastructureException, ex:
@@ -632,7 +605,6 @@ def RESTStopVM(infid=None, vmid=None, prop=None):
 def RESTGeVersion():
 	try:
 		from IM import __version__ as version
-		bottle.response.content_type = "text/plain"
-		return version 
+		return format_resutl(version)
 	except Exception, ex:
-		return return_error(400, "Error getting IM state: " + str(ex))
+		return return_error(400, "Error getting IM version: " + str(ex))
