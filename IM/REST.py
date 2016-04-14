@@ -186,7 +186,7 @@ def format_output(res, default_type = "text/plain"):
 		if content_type:
 			bottle.response.content_type = content_type
 		else:
-			return return_error(415, "Unsupported Accept Media Types: %s" % accept)
+			return return_error(415, "Unsupported Accept Media Types: %s" % ",".join(accept))
 	else:
 		if isinstance(res, list):
 			info = "\n".join(res)
