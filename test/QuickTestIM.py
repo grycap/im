@@ -273,7 +273,7 @@ class QuickTestIM(unittest.TestCase):
 
         (success, vm_state)  = self.server.GetVMProperty(self.inf_id, vm_ids[0], "state", self.auth_data)
         self.assertTrue(success, msg="ERROR getting VM state:" + str(res))
-        self.assertEqual(vm_state, VirtualMachine.CONFIGURED, msg="ERROR unexpected state. Expected 'running' and obtained " + vm_state)
+        self.assertEqual(vm_state, VirtualMachine.CONFIGURED, msg="ERROR unexpected state. Expected 'configured' and obtained " + vm_state)
 
     def test_24_reconfigure(self):
         """
