@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import sys
 import logging
 import threading
 import time
@@ -423,6 +424,8 @@ class InfrastructureInfo:
 			ctxt_task.append((-3,0,self,['kill_ctxt_processes']))
 			ctxt_task.append((-2,0,self,['wait_master', 'check_vm_ips']))
 			ctxt_task.append((-1,0,self,['configure_master', 'generate_playbooks_and_hosts']))
+			# Add a task with the minimum priority to stop the ConfManager thread at the end
+			ctxt_task.append((sys.maxint,0,self,[]))
 			
 			for vm in self.get_vm_list():
 				# Assure to update the VM status before running the ctxt process
