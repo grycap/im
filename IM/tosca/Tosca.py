@@ -8,7 +8,7 @@ import urllib
 from IM.uriparse import uriparse
 from toscaparser.tosca_template import ToscaTemplate 
 from toscaparser.elements.interfaces import InterfacesDef
-from toscaparser.functions import Function, is_function, get_function, GetAttribute
+from toscaparser.functions import Function, is_function, get_function, GetAttribute, Concat
 from radl.radl import system, deploy, network, Feature, Features, configure, contextualize_item, RADL, contextualize
 
 class Tosca:
@@ -680,6 +680,8 @@ class Tosca:
 		while isinstance(func, Function):
 			if isinstance(func, GetAttribute):
 				func = self._get_attribute_result(func, node, inf_info)
+			elif isinstance(func, Concat):
+				func = self._get_intrinsic_value({"concat": func.args}, node, inf_info)
 			else:
 				func = func.result()
 
