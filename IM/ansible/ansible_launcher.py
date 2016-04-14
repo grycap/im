@@ -67,7 +67,7 @@ class AnsibleThread(threading.Thread):
     """
     def __init__(self, output, playbook_file, host = None, threads = 1, pk_file = None, passwd = None, retries = 1, inventory_file=None, user=None, extra_vars={}):
         threading.Thread.__init__(self)
-
+        self.daemon = True
         self.playbook_file = playbook_file
         self.host = host
         self.passwd = passwd
