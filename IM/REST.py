@@ -151,26 +151,40 @@ def get_media_type(header):
 	return res
 
 def get_auth_header():
+	"""
+	Get the Authentication object from the AUTHORIZATION header
+	replacing the new line chars.
+	"""
 	auth_data = bottle.request.headers['AUTHORIZATION'].replace(AUTH_NEW_LINE_SEPARATOR,"\n")
 	auth_data = auth_data.split(AUTH_LINE_SEPARATOR)
 	return Authentication(Authentication.read_auth_data(auth_data))
 
-def format_resutl(res, default_type = "text/plain"):
+def format_output(res, default_type = "text/plain"):
+	"""
+	Format the output of the API responses
+	"""
 	accept = get_media_type('Accept')
 	
 	if accept:
-		if "application/json" in accept or "application/*" in accept:
-			bottle.response.content_type = "application/json"
-			if isinstance(res, RADL):
-				info = dump_radl_json(res, enter="", indent="")
-			else:
-				info = json.dumps(res)
-		elif default_type in accept or "*/*" in accept or "text/*" in accept:
-			if isinstance(res, list):
-				info = "\n".join(res)
-			else:
-				info = str(res)
-			bottle.response.content_type = default_type
+		content_type = None
+		for accept_item in accept:
+			if accept_item in ["application/json", "application/*"]:
+				if isinstance(res, RADL):
+					info = dump_radl_json(res, enter="", indent="")
+				else:
+					info = json.dumps(res)
+				content_type = "application/json"
+				break
+			elif accept_item in [default_type, "*/*", "text/*"]:
+				if isinstance(res, list):
+					info = "\n".join(res)
+				else:
+					info = str(res)
+				content_type = default_type
+				break
+			
+		if content_type:
+			bottle.response.content_type = content_type
 		else:
 			return return_error(415, "Unsupported Accept Media Types: %s" % accept)
 	else:
@@ -218,7 +232,7 @@ def RESTGetInfrastructureInfo(id=None):
 		for vm_id in vm_ids:
 			res.append(protocol + bottle.request.environ['HTTP_HOST'] + '/infrastructures/' + str(id) + '/vms/' + str(vm_id))
 		
-		return format_resutl(res, "text/uri-list")
+		return format_output(res, "text/uri-list")
 	except DeletedInfrastructureException, ex:
 		return return_error(404, "Error Getting Inf. info: " + str(ex))
 	except IncorrectInfrastructureException, ex:
@@ -250,7 +264,7 @@ def RESTGetInfrastructureProperty(id=None, prop=None):
 		else:
 			return return_error(403, "Incorrect infrastructure property")
 
-		return format_resutl(res)
+		return format_output(res)
 	except DeletedInfrastructureException, ex:
 		return return_error(404, "Error Getting Inf. prop: " + str(ex))
 	except IncorrectInfrastructureException, ex:
@@ -276,7 +290,7 @@ def RESTGetInfrastructureList():
 		for inf_id in inf_ids:
 			res.append(protocol + bottle.request.environ['HTTP_HOST'] + "/infrastructures/" + str(inf_id))
 		
-		return format_resutl(res, "text/uri-list")
+		return format_output(res, "text/uri-list")
 	except UnauthorizedUserException, ex:
 		return return_error(401, "Error Getting Inf. List: " + str(ex))
 	except Exception, ex:
@@ -312,7 +326,7 @@ def RESTCreateInfrastructure():
 		
 		res = protocol + bottle.request.environ['HTTP_HOST'] + "/infrastructures/" + str(inf_id)
 		
-		return format_resutl(res, "text/uri-list")
+		return format_output(res, "text/uri-list")
 	except UnauthorizedUserException, ex:
 		return return_error(401, "Error Getting Inf. info: " + str(ex))
 	except Exception, ex:
@@ -328,7 +342,7 @@ def RESTGetVMInfo(infid=None, vmid=None):
 	
 	try:
 		radl = InfrastructureManager.GetVMInfo(infid, vmid, auth)
-		return format_resutl(radl)
+		return format_output(radl)
 	except DeletedInfrastructureException, ex:
 		return return_error(404, "Error Getting VM. info: " + str(ex))
 	except IncorrectInfrastructureException, ex:
@@ -354,7 +368,7 @@ def RESTGetVMProperty(infid=None, vmid=None, prop=None):
 		else:
 			info = InfrastructureManager.GetVMProperty(infid, vmid, prop, auth)
 		
-		return format_resutl(info)
+		return format_output(info)
 	except DeletedInfrastructureException, ex:
 		return return_error(404, "Error Getting VM. property: " + str(ex))
 	except IncorrectInfrastructureException, ex:
@@ -405,7 +419,7 @@ def RESTAddResource(id=None):
 		for vm_id in vm_ids:
 			res.append(protocol + bottle.request.environ['HTTP_HOST'] + "/infrastructures/" + str(id) + "/vms/" + str(vm_id))
 		
-		return format_resutl(res, "text/uri-list")
+		return format_output(res, "text/uri-list")
 	except DeletedInfrastructureException, ex:
 		return return_error(404, "Error Adding resources: " + str(ex))
 	except IncorrectInfrastructureException, ex:
@@ -468,7 +482,7 @@ def RESTAlterVM(infid=None, vmid=None):
 		
 		vm_info = InfrastructureManager.AlterVM(infid, vmid, radl_data, auth)
 
-		return format_resutl(vm_info)
+		return format_output(vm_info)
 	except DeletedInfrastructureException, ex:
 		return return_error(404, "Error modifying resources: " + str(ex))
 	except IncorrectInfrastructureException, ex:
@@ -604,6 +618,6 @@ def RESTStopVM(infid=None, vmid=None, prop=None):
 def RESTGeVersion():
 	try:
 		from IM import __version__ as version
-		return format_resutl(version)
+		return format_output(version)
 	except Exception, ex:
 		return return_error(400, "Error getting IM version: " + str(ex))
