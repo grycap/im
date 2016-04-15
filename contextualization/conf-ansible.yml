@@ -1,6 +1,5 @@
 ---
 - hosts: all
-#  sudo: yes
   become: yes
   become_method: sudo
   vars:
@@ -15,8 +14,8 @@
       when: ansible_os_family == "Debian"
 
     - name: EPEL
-      template: src=utils/templates/epel.repo dest=/etc/yum.repos.d/epel.repo
-      #template: src=utils/templates/epel-es.repo dest=/etc/yum.repos.d/epel.repo
+      #template: src=utils/templates/epel.repo dest=/etc/yum.repos.d/epel.repo
+      template: src=utils/templates/epel-es.repo dest=/etc/yum.repos.d/epel.repo
       when: ansible_os_family == "RedHat" and ansible_distribution != "Fedora"
     
     - name: Apt install requirements
@@ -78,11 +77,11 @@
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version < 6
       
     - name: Install pywinrm for windows support in ansible with Pip
-      pip: name=http://github.com/diyan/pywinrm/archive/master.zip#egg=pywinrm
+      pip: name=pywinrm
       when: ansible_os_family == "Suse" or ansible_os_family == "Debian" or (ansible_os_family == "RedHat" and ansible_distribution_major_version >= 6)
       
     - name: Install pywinrm for windows support in ansible with Pip 2.6
-      action: command pip-2.6 install http://github.com/diyan/pywinrm/archive/master.zip#egg=pywinrm
+      action: command pip-2.6 install pywinrm
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version < 6
 
     - name: Disable SELinux
