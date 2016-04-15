@@ -174,6 +174,7 @@ class ConfManager(threading.Thread):
 			# stop the thread if the stop method has been called
 			# or if it is the step with the minimum priority
 			if self._stop or step == sys.maxint:
+				ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Exit Configuration thread.")
 				return
 
 			# if this task is from a next step
