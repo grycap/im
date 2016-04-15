@@ -488,6 +488,7 @@ class InfrastructureManager:
 					lambda ds: InfrastructureManager._launch_group(sel_inf,
 						ds, deploys_group_cloud_list[id(ds)], cloud_list, concrete_systems,
 						radl, auth, deployed_vm, cancel_deployment), deploy_groups)
+				pool.close()
 			else:
 				for ds in deploy_groups:
 					InfrastructureManager._launch_group(sel_inf,
@@ -875,6 +876,7 @@ class InfrastructureManager:
 				lambda vm: InfrastructureManager._stop_vm(vm, auth, exceptions), 
 				reversed(sel_inf.get_vm_list())
 				)
+			pool.close()
 		else:
 			for vm in sel_inf.get_vm_list():
 				InfrastructureManager._stop_vm(vm, auth, exceptions)
@@ -923,6 +925,7 @@ class InfrastructureManager:
 				lambda vm: InfrastructureManager._start_vm(vm, auth, exceptions), 
 				reversed(sel_inf.get_vm_list())
 				)
+			pool.close()
 		else:
 			for vm in sel_inf.get_vm_list():
 				InfrastructureManager._start_vm(vm, auth, exceptions)
@@ -1032,6 +1035,7 @@ class InfrastructureManager:
 				lambda vm: InfrastructureManager._delete_vm(vm, auth, exceptions), 
 				reversed(sel_inf.get_vm_list())
 				)
+			pool.close()
 		else:
 			# If IM server is the first VM, then it will be the last destroyed
 			for vm in reversed(sel_inf.get_vm_list()):
