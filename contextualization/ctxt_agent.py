@@ -209,7 +209,36 @@ def LaunchAnsiblePlaybook(output, playbook_file, vm, threads, inventory_file, pk
 def changeVMCredentials(vm, pk_file):
 	if vm['os'] == "windows":
 		#ansible -i hosts -m win_user -a "name=bob password=Password12345 groups=Users" all
-		return False
+		try:
+			import winrm
+			url = "https://" + vm['ip'] + ":5986"
+			s = winrm.Session(url, auth=(vm['user'], vm['passwd']))
+			r = s.run_cmd('net', ['user',vm['user'],vm['new_passwd']])
+			
+			# this part of the code is never reached ...
+			if r.status_code == 0:
+				vm['passwd'] = vm['new_passwd']
+				return True
+			else:
+				logger.error("Error changing password to Windows VM: " + r.std_out)
+				return False
+		except winrm.exceptions.UnauthorizedError:
+			# if the password is correctly changed the command returns this error
+			try:
+				s = winrm.Session(url, auth=(vm['user'], vm['new_passwd']))
+				r = s.run_cmd('echo', ['OK'])
+				if r.status_code == 0:
+					vm['passwd'] = vm['new_passwd']
+					return True
+				else:
+					logger.error("Error changing password to Windows VM: " + r.std_out)
+					return False
+			except:
+				logger.exception("Error changing password to Windows VM: " + vm['ip'] + ".")
+				return False
+		except:
+			logger.exception("Error changing password to Windows VM: " + vm['ip'] + ".")
+			return False
 
 	# Check if we must change user credentials in the VM
 	if 'passwd' in vm and vm['passwd'] and 'new_passwd' in vm and vm['new_passwd']:
