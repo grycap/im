@@ -1,9 +1,17 @@
-id = one; type = OpenNebula; host = server:2633; username = user; password = pass
-type = InfrastructureManager; username = user; password = pass
-type = VMRC; host = http://server:8080/vmrc; username = user; password = pass
-id = ec2; type = EC2; username = ACESS_KEY; password = SECRET_KEY
-id = gce; type = GCE; username = CLIENT_ID; password = CLIENT_SECRET; project = project-name
-id = gce2; type = GCE; username = SERVICE_ACC_EMAIL; password = file(path_to_pem_file); project = project-name
-id = docker; type = Docker; host = server:2375
-id = occi; type = OCCI; host = server:8443; proxy = file(/tmp/proxy.pem)
-id = libcloud; type = LibCloud; driver = EC2; username = ACESS_KEY; password = SECRET_KEY
+type = InfrastructureManager; username = imuser01; password = invitado
+type = VMRC; host = http://servproject.i3m.upv.es:8080/vmrc/vmrc; username = demo; password = demo
+id = one2; type = OpenNebula; host = onecloud.i3m.upv.es:2633; username = demo; password = ddd444! 
+#id = one; type = OpenNebula; host = ramses.i3m.upv.es:2633; username = demo; password = ddd444! 
+#
+# Esta es la cuenta de German
+#id = ec2; type = EC2; username = AKIAI4DAJ75TZ2FB3BHA; password = eO52roJ8DyDQ2dDJ/I9OyII0OmbZW7dU1b63t/JN
+#id = libcloud; type = LibCloud; driver = EC2; username = AKIAI4DAJ75TZ2FB3BHA; password = eO52roJ8DyDQ2dDJ/I9OyII0OmbZW7dU1b63t/JN
+#id = docker; type = Docker; host = http://jonsu.i3m.upv.es:2375
+#id = gce; type = GCE; username = 479139084257-6r3pjk9cihm6i31mij38sv9k6qfg5eur.apps.googleusercontent.com; password = 7-sZBbTuMYam-hW_A8Bt7bsS; project = micafer-1977
+#id = fogbow; type = FogBow; host = fbgrycap.i3m.upv.es:8182; proxy = file(/tmp/proxy.pem); token_type = VOMS
+#id = azure; type = Azure; username = 39eb2835-d97c-4257-8686-3c91544df261; public_key = file(/home/micafer/codigo/git_im/im/test/auth_cert.pem); private_key = file(/home/micafer/codigo/git_im/im/test/auth_key.pem)
+#id = kub; type = Kubernetes; host = http://158.42.105.44:8080
+#id = kub; type = Kubernetes; host = https://158.42.105.44:6443; username = micafer; password = grycap01
+#id = ost; type = OpenStack; host = oscloud.i3m.upv.es:5000; username = demo; password = demo; tenant = demo
+#id = dummy; type = Dummy; 
+#id = docker; type = Docker; host = http://jonsu.i3m.upv.es:2375

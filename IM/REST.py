@@ -24,8 +24,8 @@ from InfrastructureInfo import IncorrectVMException, DeletedVMException
 from InfrastructureManager import InfrastructureManager, DeletedInfrastructureException, IncorrectInfrastructureException, UnauthorizedUserException
 from auth import Authentication
 from config import Config
-from radl.radl_json import parse_radl as parse_radl_json, dump_radl as dump_radl_json
-from radl.radl import RADL
+from radl.radl_json import parse_radl as parse_radl_json, dump_radl as dump_radl_json, featuresToSimple
+from radl.radl import RADL, Features, Feature
 
 logger = logging.getLogger('InfrastructureManager')
 
@@ -171,6 +171,11 @@ def format_output(res, default_type = "text/plain"):
 			if accept_item in ["application/json", "application/*"]:
 				if isinstance(res, RADL):
 					info = dump_radl_json(res, enter="", indent="")
+				# This is the case of the "contains" properties
+				elif isinstance(res, dict) and all(isinstance(x, Feature) for x in res.values()):
+					features = Features()
+					features.props = res
+					info = featuresToSimple(features)
 				else:
 					info = json.dumps(res)
 				content_type = "application/json"
