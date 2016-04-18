@@ -17,7 +17,7 @@
       apt: name=unzip,gcc,python-dev,openssh-client,sshpass
       when: ansible_os_family == "Debian"
 
-    - name: Yum install requirements RH6 or Fedora
+    - name: Yum install requirements RH or Fedora
       yum: name=python-distribute,gcc,python-devel,wget,openssh-clients,sshpass
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version >= 6
     
@@ -25,8 +25,8 @@
       yum: name=python26,python26-simplejson,python26-distribute,gcc,python26-devel,openssh-clients,sshpass
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version < 6
 
-    - name: Zypper install requirements Suse
-      action: command zypper -n install python python-pip gcc python-devel wget   
+    - name: Zypper install requirements Suse   
+      zypper: name=python,python-pip,gcc,python-devel,wget state=present
       when: ansible_os_family == "Suse"
 
     - name: Install Pip from distribution repositories
