@@ -14,7 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import sys
 import yaml
 import threading
 import os
@@ -172,8 +171,7 @@ class ConfManager(threading.Thread):
 			(step, prio, vm, tasks) = self.inf.ctxt_tasks.get()
 			
 			# stop the thread if the stop method has been called
-			# or if it is the step with the minimum priority
-			if self._stop or step == sys.maxint:
+			if self._stop:
 				ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Exit Configuration thread.")
 				return
 
