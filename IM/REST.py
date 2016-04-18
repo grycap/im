@@ -24,8 +24,8 @@ from InfrastructureInfo import IncorrectVMException, DeletedVMException
 from InfrastructureManager import InfrastructureManager, DeletedInfrastructureException, IncorrectInfrastructureException, UnauthorizedUserException
 from auth import Authentication
 from config import Config
-from radl.radl_json import parse_radl as parse_radl_json, dump_radl as dump_radl_json
-from radl.radl import RADL
+from radl.radl_json import parse_radl as parse_radl_json, dump_radl as dump_radl_json, featuresToSimple
+from radl.radl import RADL, Features, Feature
 
 logger = logging.getLogger('InfrastructureManager')
 
@@ -171,6 +171,11 @@ def format_output(res, default_type = "text/plain"):
 			if accept_item in ["application/json", "application/*"]:
 				if isinstance(res, RADL):
 					info = dump_radl_json(res, enter="", indent="")
+				# This is the case of the "contains" properties
+				elif isinstance(res, dict) and all(isinstance(x, Feature) for x in res.values()):
+					features = Features()
+					features.props = res
+					info = featuresToSimple(features)
 				else:
 					info = json.dumps(res)
 				content_type = "application/json"
@@ -262,7 +267,7 @@ def RESTGetInfrastructureProperty(id=None, prop=None):
 			res = json.dumps(res)
 			return res
 		else:
-			return return_error(403, "Incorrect infrastructure property")
+			return return_error(404, "Incorrect infrastructure property")
 
 		return format_output(res)
 	except DeletedInfrastructureException, ex:
@@ -368,7 +373,10 @@ def RESTGetVMProperty(infid=None, vmid=None, prop=None):
 		else:
 			info = InfrastructureManager.GetVMProperty(infid, vmid, prop, auth)
 		
-		return format_output(info)
+		if info == None:
+			return return_error(404, "Incorrect property %s for VM ID %s" % (prop, vmid))
+		else:
+			return format_output(info)
 	except DeletedInfrastructureException, ex:
 		return return_error(404, "Error Getting VM. property: " + str(ex))
 	except IncorrectInfrastructureException, ex:
