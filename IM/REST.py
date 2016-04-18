@@ -267,7 +267,7 @@ def RESTGetInfrastructureProperty(id=None, prop=None):
 			res = json.dumps(res)
 			return res
 		else:
-			return return_error(403, "Incorrect infrastructure property")
+			return return_error(404, "Incorrect infrastructure property")
 
 		return format_output(res)
 	except DeletedInfrastructureException, ex:
@@ -373,7 +373,10 @@ def RESTGetVMProperty(infid=None, vmid=None, prop=None):
 		else:
 			info = InfrastructureManager.GetVMProperty(infid, vmid, prop, auth)
 		
-		return format_output(info)
+		if info == None:
+			return return_error(404, "Incorrect property %s for VM ID %s" % (prop, vmid))
+		else:
+			return format_output(info)
 	except DeletedInfrastructureException, ex:
 		return return_error(404, "Error Getting VM. property: " + str(ex))
 	except IncorrectInfrastructureException, ex:
