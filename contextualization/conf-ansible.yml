@@ -10,8 +10,7 @@
       when: ansible_os_family == "RedHat"
 
     - name: EPEL
-      #template: src=utils/templates/epel.repo dest=/etc/yum.repos.d/epel.repo
-      template: src=utils/templates/epel-es.repo dest=/etc/yum.repos.d/epel.repo
+      template: src=utils/templates/epel.repo dest=/etc/yum.repos.d/epel.repo
       when: ansible_os_family == "RedHat" and ansible_distribution != "Fedora"
     
     - name: Apt install requirements
