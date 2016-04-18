@@ -8,10 +8,6 @@
     - name: Install libselinux-python in RH
       action: yum pkg=libselinux-python state=installed
       when: ansible_os_family == "RedHat"
-  
-    - name: Apt-get update
-      apt: update_cache=yes
-      when: ansible_os_family == "Debian"
 
     - name: EPEL
       #template: src=utils/templates/epel.repo dest=/etc/yum.repos.d/epel.repo
@@ -39,7 +35,7 @@
       when: ansible_os_family == "Debian" and not (ansible_distribution == "Ubuntu" and ansible_distribution_major_version < 14)
 
     - name: Install Pip 2.6
-      action: command easy_install-2.6 pip==1.4.1
+      easy_install: name=pip executable=easy_install-2.6
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version < 6
       
     - name: Install Pip
@@ -49,7 +45,7 @@
       ignore_errors: True
 
     - name: Install Pip (alternative)
-      shell: wget https://raw.github.com/pypa/pip/master/contrib/get-pip.py && python get-pip.py
+      shell: wget https://bootstrap.pypa.io/get-pip.py && python get-pip.py
       when: result_install_pip|failed
 
     - name: Link python 
@@ -65,23 +61,15 @@
       when: ansible_os_family == "Suse" or ansible_os_family == "Debian" or (ansible_os_family == "RedHat" and ansible_distribution_major_version >= 6)
       
     - name: Install ansible with Pip 2.6
-      action: command pip-2.6 install ansible=={{ ANSIBLE_VERSION }}
+      pip: name=ansible version={{ ANSIBLE_VERSION }} executable=pip-2.6
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version < 6
       
-    - name: Install scp with Pip
-      pip: name=scp
+    - name: Install scp and pywinrm with Pip
+      pip: name="scp pywinrm"
       when: ansible_os_family == "Suse" or ansible_os_family == "Debian" or (ansible_os_family == "RedHat" and ansible_distribution_major_version >= 6)
       
-    - name: Install scp with Pip 2.6
-      action: command pip-2.6 install scp
-      when: ansible_os_family == "RedHat" and ansible_distribution_major_version < 6
-      
-    - name: Install pywinrm for windows support in ansible with Pip
-      pip: name=pywinrm
-      when: ansible_os_family == "Suse" or ansible_os_family == "Debian" or (ansible_os_family == "RedHat" and ansible_distribution_major_version >= 6)
-      
-    - name: Install pywinrm for windows support in ansible with Pip 2.6
-      action: command pip-2.6 install pywinrm
+    - name: Install scp and pywinrm with Pip 2.6
+      pip: name="scp pywinrm" executable=pip-2.6
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version < 6
 
     - name: Disable SELinux
