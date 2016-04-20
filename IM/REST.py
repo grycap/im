@@ -159,7 +159,7 @@ def get_auth_header():
 	auth_data = auth_data.split(AUTH_LINE_SEPARATOR)
 	return Authentication(Authentication.read_auth_data(auth_data))
 
-def format_output(res, default_type = "text/plain", field_name = None):
+def format_output(res, default_type = "text/plain", field_name = None, list_field_name = None):
 	"""
 	Format the output of the API responses
 	"""
@@ -179,7 +179,12 @@ def format_output(res, default_type = "text/plain", field_name = None):
 				else:
 					# Always return a complex object to make easier parsing steps
 					if field_name: 
-						res_dict = {field_name: res}
+						if list_field_name and isinstance(res, list):
+							res_dict = {field_name: []} 
+							for elem in res:
+								res_dict[field_name].append({list_field_name : elem})
+						else:
+							res_dict = {field_name: res}
 					else:
 						res_dict = res
 					info = json.dumps(res_dict)
@@ -242,7 +247,7 @@ def RESTGetInfrastructureInfo(id=None):
 		for vm_id in vm_ids:
 			res.append(protocol + bottle.request.environ['HTTP_HOST'] + '/infrastructures/' + str(id) + '/vms/' + str(vm_id))
 		
-		return format_output(res, "text/uri-list", "uri-list")
+		return format_output(res, "text/uri-list", "uri-list", "uri")
 	except DeletedInfrastructureException, ex:
 		return return_error(404, "Error Getting Inf. info: " + str(ex))
 	except IncorrectInfrastructureException, ex:
@@ -269,7 +274,6 @@ def RESTGetInfrastructureProperty(id=None, prop=None):
 				return return_error(415, "Unsupported Accept Media Types: %s" % accept)
 			bottle.response.content_type = "application/json"
 			res = InfrastructureManager.GetInfrastructureState(id, auth)
-			res = json.dumps(res)
 		else:
 			return return_error(404, "Incorrect infrastructure property")
 
@@ -299,7 +303,7 @@ def RESTGetInfrastructureList():
 		for inf_id in inf_ids:
 			res.append(protocol + bottle.request.environ['HTTP_HOST'] + "/infrastructures/" + str(inf_id))
 		
-		return format_output(res, "text/uri-list", "uri-list")
+		return format_output(res, "text/uri-list", "uri-list", "uri")
 	except UnauthorizedUserException, ex:
 		return return_error(401, "Error Getting Inf. List: " + str(ex))
 	except Exception, ex:
@@ -431,7 +435,7 @@ def RESTAddResource(id=None):
 		for vm_id in vm_ids:
 			res.append(protocol + bottle.request.environ['HTTP_HOST'] + "/infrastructures/" + str(id) + "/vms/" + str(vm_id))
 		
-		return format_output(res, "text/uri-list", "uri-list")
+		return format_output(res, "text/uri-list", "uri-list", "uri")
 	except DeletedInfrastructureException, ex:
 		return return_error(404, "Error Adding resources: " + str(ex))
 	except IncorrectInfrastructureException, ex:
@@ -633,4 +637,3 @@ def RESTGeVersion():
 		return format_output(version, field_name  = "version")
 	except Exception, ex:
 		return return_error(400, "Error getting IM version: " + str(ex))
-
