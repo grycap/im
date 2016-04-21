@@ -170,12 +170,19 @@ def format_output(res, default_type = "text/plain", field_name = None, list_fiel
 		for accept_item in accept:
 			if accept_item in ["application/json", "application/*"]:
 				if isinstance(res, RADL):
-					info = dump_radl_json(res, enter="", indent="")
+					if field_name:
+						res_dict = {field_name: radlToSimple(res)}
+						info = json.dumps(res_dict)
+					else:
+						info = dump_radl_json(res, enter="", indent="")
 				# This is the case of the "contains" properties
 				elif isinstance(res, dict) and all(isinstance(x, Feature) for x in res.values()):
 					features = Features()
 					features.props = res
-					info = featuresToSimple(features)
+					res_dict = featuresToSimple(features)
+					if field_name:
+						res_dict = {field_name: res_dict}
+					info = json.dumps(res_dict)
 				else:
 					# Always return a complex object to make easier parsing steps
 					if field_name: 
