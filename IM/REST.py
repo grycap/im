@@ -24,7 +24,7 @@ from InfrastructureInfo import IncorrectVMException, DeletedVMException
 from InfrastructureManager import InfrastructureManager, DeletedInfrastructureException, IncorrectInfrastructureException, UnauthorizedUserException
 from auth import Authentication
 from config import Config
-from radl.radl_json import parse_radl as parse_radl_json, dump_radl as dump_radl_json, featuresToSimple
+from radl.radl_json import parse_radl as parse_radl_json, dump_radl as dump_radl_json, featuresToSimple, radlToSimple
 from radl.radl import RADL, Features, Feature
 
 logger = logging.getLogger('InfrastructureManager')
