@@ -254,7 +254,7 @@ class ConfManager(threading.Thread):
 			if not ip:
 				ConfManager.logger.error("Inf ID: " + str(self.inf.id) + ": VM with ID %s (%s) does not have an IP!!. We cannot launch the ansible process!!" % (str(vm.im_id), vm.id))
 			else:
-				remote_dir = Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/" + ip + "_" + str(vm.getSSHPort())
+				remote_dir = Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/" + ip + "_" + str(vm.getRemoteAccessPort())
 				tmp_dir = tempfile.mkdtemp()
 		
 				ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Create the configuration file for the contextualization agent")
@@ -323,7 +323,6 @@ class ConfManager(threading.Thread):
 			out.write('ansible_ssh_user=' + user + '\n')
 
 			if vm.getOS().lower() == "windows":
-				out.write('ansible_port=5986\n')
 				out.write('ansible_connection=winrm\n')
 				out.write('ansible_winrm_server_cert_validation=ignore\n')	
 				
@@ -347,9 +346,9 @@ class ConfManager(threading.Thread):
 					continue
 
 				if vm.getOS().lower() == "windows":
-					windows += "%s_%d\n" % (ip, vm.getSSHPort())
+					windows += "%s_%d\n" % (ip, vm.getRemoteAccessPort())
 				else:
-					no_windows += "%s_%d\n" % (ip, vm.getSSHPort()) 
+					no_windows += "%s_%d\n" % (ip, vm.getRemoteAccessPort()) 
 					
 				ifaces_im_vars = ''
 				for i in range(vm.getNumNetworkIfaces()):
@@ -368,14 +367,14 @@ class ConfManager(threading.Thread):
 				if vm.getRequestedName():
 					(nodename, nodedom) = vm.getRequestedName(default_domain = Config.DEFAULT_DOMAIN)
 
-				node_line = "%s_%d" % (ip, vm.getSSHPort())
+				node_line = "%s_%d" % (ip, vm.getRemoteAccessPort())
 				node_line += ' ansible_host=%s' % ip
 				# For compatibility with Ansible 1.X versions
 				node_line += ' ansible_ssh_host=%s' % ip
-				if vm.getOS().lower() != "windows":
-					node_line += ' ansible_port=%d' % vm.getSSHPort()
-					# For compatibility with Ansible 1.X versions
-					node_line += ' ansible_ssh_port=%d' % vm.getSSHPort()
+
+				node_line += ' ansible_port=%d' % vm.getRemoteAccessPort()
+				# For compatibility with Ansible 1.X versions
+				node_line += ' ansible_ssh_port=%d' % vm.getRemoteAccessPort()
 				
 				if self.inf.vm_master and vm.id == self.inf.vm_master.id:
 					node_line += ' ansible_connection=local'
@@ -563,8 +562,8 @@ class ConfManager(threading.Thread):
 		# create the "all" to enable this playbook to see the facts of all the nodes
 		all_filename = self.create_all_recipe(tmp_dir, "main_" + group + "_task")
 		recipe_files.append(all_filename)
-		all_windows_filename =  self.create_all_recipe(tmp_dir, "main_" + group + "_task", "windows", "_all_win.yml")
-		recipe_files.append(all_windows_filename)
+		#all_windows_filename =  self.create_all_recipe(tmp_dir, "main_" + group + "_task", "windows", "_all_win.yml")
+		#recipe_files.append(all_windows_filename)
 		
 		return recipe_files
 	
@@ -588,8 +587,8 @@ class ConfManager(threading.Thread):
 			# create the "all" to enable this playbook to see the facts of all the nodes
 			all_filename = self.create_all_recipe(tmp_dir, ctxt_elem.configure + "_" + ctxt_elem.system + "_task")
 			recipe_files.append(all_filename)
-			all_windows_filename =  self.create_all_recipe(tmp_dir, ctxt_elem.configure + "_" + ctxt_elem.system + "_task", "windows", "_all_win.yml")
-			recipe_files.append(all_windows_filename)
+			#all_windows_filename =  self.create_all_recipe(tmp_dir, ctxt_elem.configure + "_" + ctxt_elem.system + "_task", "windows", "_all_win.yml")
+			#recipe_files.append(all_windows_filename)
 		
 		return recipe_files
 
@@ -1214,7 +1213,7 @@ class ConfManager(threading.Thread):
 					vm_conf_data['ip'] = vm.getPrivateIP()
 				if vm.getPublicIP() and vm.getPrivateIP():
 					vm_conf_data['private_ip'] = vm.getPrivateIP()
-				vm_conf_data['ssh_port'] = vm.getSSHPort()
+				vm_conf_data['remote_port'] = vm.getRemoteAccessPort()
 				creds = vm.getCredentialValues()
 				new_creds = vm.getCredentialValues(new=True)
 				(vm_conf_data['user'], vm_conf_data['passwd'], _, vm_conf_data['private_key']) = creds
