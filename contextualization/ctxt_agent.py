@@ -23,7 +23,6 @@ import logging.config
 import sys, subprocess, os
 import getpass
 import json
-import threading
 from StringIO import StringIO
 import socket
 
@@ -59,7 +58,7 @@ def wait_winrm_access(vm):
 		try:
 			logger.debug("Testing WinRM access to VM: " + vm_ip)
 			sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-			result = sock.connect_ex((vm_ip,5986))
+			result = sock.connect_ex((vm_ip,vm['remote_port']))
 		except:
 			logger.exception("Error connecting with WinRM with: " + vm_ip)
 			result = -1
@@ -94,7 +93,7 @@ def wait_ssh_access(vm):
 		logger.debug("Testing SSH access to VM: " + vm_ip)
 		wait += delay
 		try:
-			ssh_client = SSH(vm_ip, vm['user'], vm['passwd'], vm['private_key'], vm['ssh_port'])
+			ssh_client = SSH(vm_ip, vm['user'], vm['passwd'], vm['private_key'], vm['remote_port'])
 			success = ssh_client.test_connectivity()
 			res = 'init'
 		except AuthenticationException:
@@ -104,7 +103,7 @@ def wait_ssh_access(vm):
 				# If the process of changing credentials has finished in the VM, we must use the new ones
 				logger.debug("Error connecting with SSH with initial credentials with: " + vm_ip + ". Try to use new ones.")
 				try:
-					ssh_client = SSH(vm_ip, vm['user'], vm['new_passwd'], vm['private_key'], vm['ssh_port'])
+					ssh_client = SSH(vm_ip, vm['user'], vm['new_passwd'], vm['private_key'], vm['remote_port'])
 					success = ssh_client.test_connectivity()
 					res = "new"
 				except AuthenticationException:
@@ -114,7 +113,7 @@ def wait_ssh_access(vm):
 				# In some very special cases the last two cases fail, so check if the ansible key works 
 				logger.debug("Error connecting with SSH with initial credentials with: " + vm_ip + ". Try to ansible_key.")
 				try:
-					ssh_client = SSH(vm_ip, vm['user'], None, PK_FILE, vm['ssh_port'])
+					ssh_client = SSH(vm_ip, vm['user'], None, PK_FILE, vm['remote_port'])
 					success = ssh_client.test_connectivity()
 					res = 'pk_file'
 				except:
@@ -173,17 +172,14 @@ def wait_thread(thread, output = None):
 def LaunchAnsiblePlaybook(output, playbook_file, vm, threads, inventory_file, pk_file, retries, change_pass_ok):
 	logger.debug('Call Ansible')
 
-	extra_vars = {}
+	extra_vars = {'IM_HOST': vm['ip'] + "_" + str(vm['remote_port'])}
 	user = None
 	if vm['os'] == "windows":
 		gen_pk_file = None
 		passwd = vm['passwd']
 		if 'new_passwd' in vm and vm['new_passwd'] and change_pass_ok:
 			passwd = vm['new_passwd']
-
-		extra_vars['IM_HOST'] = vm['ip'] + "_" + str(vm['ssh_port'])
 	else:
-		extra_vars['IM_HOST'] = vm['ip'] + "_" + str(vm['ssh_port'])
 		passwd = None
 		if pk_file:
 			gen_pk_file = pk_file
@@ -248,7 +244,7 @@ def changeVMCredentials(vm, pk_file):
 			if pk_file:
 				private_key = pk_file
 			try:
-				ssh_client = SSH(vm['ip'], vm['user'], vm['passwd'], private_key, vm['ssh_port'])
+				ssh_client = SSH(vm['ip'], vm['user'], vm['passwd'], private_key, vm['remote_port'])
 				(out, err, code) = ssh_client.execute('sudo bash -c \'echo "' + vm['user'] + ':' + vm['new_passwd'] + '" | /usr/sbin/chpasswd && echo "OK"\' 2> /dev/null')
 			except:
 				logger.exception("Error changing password to VM: " + vm['ip'] + ".")
@@ -267,7 +263,7 @@ def changeVMCredentials(vm, pk_file):
 			if pk_file:
 				private_key = pk_file
 			try:
-				ssh_client = SSH(vm['ip'], vm['user'], vm['passwd'], private_key, vm['ssh_port'])
+				ssh_client = SSH(vm['ip'], vm['user'], vm['passwd'], private_key, vm['remote_port'])
 				(out, err, code) = ssh_client.execute('echo ' + vm['new_public_key'] + ' >> .ssh/authorized_keys')
 			except:
 				logger.exception("Error changing public key to VM: " + vm['ip'] + ".")
@@ -289,7 +285,7 @@ def removeRequiretty(vm, pk_file):
 			private_key = vm['private_key']
 			if pk_file:
 				private_key = pk_file
-			ssh_client = SSH(vm['ip'], vm['user'], vm['passwd'], private_key, vm['ssh_port'])
+			ssh_client = SSH(vm['ip'], vm['user'], vm['passwd'], private_key, vm['remote_port'])
 			# Activate tty mode to avoid some problems with sudo in REL
 			ssh_client.tty = True
 			(stdout, stderr, code) = ssh_client.execute("sudo sed -i 's/.*requiretty$/#Defaults requiretty/' /etc/sudoers")
@@ -353,7 +349,8 @@ def contextualize_vm(general_conf_data, vm_conf_data):
 			num_retries += 1
 			logger.info('Launch task: ' + task)
 			if ctxt_vm['os'] == "windows":
-				playbook = general_conf_data['conf_dir'] + "/" + task + "_task_all_win.yml"
+				#playbook = general_conf_data['conf_dir'] + "/" + task + "_task_all_win.yml"
+				playbook = general_conf_data['conf_dir'] + "/" + task + "_task.yml"
 			else:
 				playbook = general_conf_data['conf_dir'] + "/" + task + "_task_all.yml"
 			inventory_file  = general_conf_data['conf_dir'] + "/hosts"
@@ -414,7 +411,7 @@ def contextualize_vm(general_conf_data, vm_conf_data):
 				if ctxt_vm['os'] != "windows":
 					success = False
 					try:
-						ssh_client = SSH(ctxt_vm['ip'], ctxt_vm['user'], None, PK_FILE, ctxt_vm['ssh_port'])
+						ssh_client = SSH(ctxt_vm['ip'], ctxt_vm['user'], None, PK_FILE, ctxt_vm['remote_port'])
 						success = ssh_client.test_connectivity()
 					except:
 						success = False
