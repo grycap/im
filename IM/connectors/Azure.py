@@ -71,29 +71,13 @@ class Operation(XMLObject):
 	values = ['ID', 'Status', 'HttpStatusCode']
 	tuples = { 'Error': Error }
 
-class InstanceTypeInfo:
-	"""
-	Information about the instance type
+class RoleSize(XMLObject):
+	values = ['Name', 'Label', 'Cores', 'MemoryInMb', 'SupportedByVirtualMachines', 'MaxDataDiskCount', 'VirtualMachineResourceDiskSizeInMb']
+	numeric = ['Cores', 'MemoryInMb', 'MaxDataDiskCount', 'VirtualMachineResourceDiskSizeInMb']
 
-	Args:
-		- name(str, optional): name of the type of the instance
-		- cpu_arch(list of str, optional): cpu architectures supported
-		- num_cpu(int, optional): number of cpus
-		- cores_per_cpu(int, optional): number of cores per cpu
-		- mem(int, optional): amount of memory
-		- price(int, optional): price per hour
-		- disks(int, optional): number of disks
-		- disk_space(int, optional): size of the disks
-	"""
-	def __init__(self, name = "", cpu_arch = ["i386"], num_cpu = 1, cores_per_cpu = 1, mem = 0, price = 0, disks = 0, disk_space = 0):
-		self.name = name
-		self.num_cpu = num_cpu
-		self.cores_per_cpu = cores_per_cpu
-		self.mem = mem
-		self.cpu_arch = cpu_arch
-		self.price = price
-		self.disks = disks
-		self.disk_space = disk_space
+class RoleSizes(XMLObject):
+	tuples_lists = { 'RoleSize': RoleSize }
+
 
 class AzureCloudConnector(CloudConnector):
 	"""
@@ -110,8 +94,6 @@ class AzureCloudConnector(CloudConnector):
 	"""Address of the server with the Service Management REST API."""
 	AZURE_PORT = 443
 	"""Port of the server with the Service Management REST API."""
-	STORAGE_NAME = "infmanager"
-	"""Name of the storage account the IM will create"""
 	DEFAULT_LOCATION = "North Europe"
 	"""Default location to use"""
 	ROLE_NAME= "IMVMRole"
@@ -157,7 +139,7 @@ class AzureCloudConnector(CloudConnector):
 				protocol = url[0]
 				if protocol == "azr":
 					res_system = radl_system.clone()
-					instance_type = self.get_instance_type(res_system)
+					instance_type = self.get_instance_type(res_system, auth_data)
 					if not instance_type:
 						self.logger.error("Error generating the RADL of the VM, no instance type available for the requirements.")
 						self.logger.debug(res_system)
@@ -184,6 +166,12 @@ class AzureCloudConnector(CloudConnector):
 		res = """
 		  <InputEndpoints>
 			<InputEndpoint>
+			  <LocalPort>5986</LocalPort>
+			  <Name>WinRM</Name>
+			  <Port>5986</Port>
+			  <Protocol>TCP</Protocol>
+			</InputEndpoint>
+			<InputEndpoint>
 			  <LocalPort>22</LocalPort>
 			  <Name>SSH</Name>
 			  <Port>22</Port>
@@ -199,7 +187,7 @@ class AzureCloudConnector(CloudConnector):
 			outports = public_net.getOutPorts()
 			if outports:
 				for remote_port,remote_protocol,local_port,local_protocol in outports:
-					if local_port != 22:						
+					if local_port != 22 and local_port != 5986:						
 						protocol = remote_protocol
 						if remote_protocol != local_protocol:
 							self.logger.warn("Diferent protocols used in outports ignoring local port protocol!")								
@@ -296,7 +284,7 @@ class AzureCloudConnector(CloudConnector):
 			
 		return disks
 	
-	def get_azure_vm_create_xml(self, vm, storage_account, radl, num):
+	def get_azure_vm_create_xml(self, vm, storage_account, radl, num, auth_data):
 		"""
 		Generate the XML to create the VM
 		"""
@@ -316,7 +304,7 @@ class AzureCloudConnector(CloudConnector):
 
 		SourceImageName = url[1]
 		MediaLink = "https://%s.blob.core.windows.net/vhds/%s.vhd" % (storage_account, SourceImageName)
-		instance_type = self.get_instance_type(system)
+		instance_type = self.get_instance_type(system, auth_data)
 		
 		DataVirtualHardDisks = self.gen_data_disks(system, storage_account) 		
 		ConfigurationSet = self.gen_configuration_set(hostname, system)
@@ -349,7 +337,7 @@ class AzureCloudConnector(CloudConnector):
   </RoleList>
 </Deployment>
 		''' % (vm.id, label, self.ROLE_NAME, ConfigurationSet, InputEndpoints, 
-			DataVirtualHardDisks, MediaLink, SourceImageName, instance_type.name)
+			DataVirtualHardDisks, MediaLink, SourceImageName, instance_type.Name)
 		
 		self.logger.debug("Azure VM Create XML: " + res)
 
@@ -496,6 +484,10 @@ class AzureCloudConnector(CloudConnector):
 			self.logger.exception("Error waiting the operation")
 			return False
 	
+	def get_storage_name(self, subscription_id):
+		res = subscription_id.replace("-","")[:24]
+		return res
+	
 	def create_storage_account(self, storage_account, auth_data, region, timeout = 120):
 		"""
 		Create an storage account with the name specified in "storage_account"
@@ -607,19 +599,23 @@ class AzureCloudConnector(CloudConnector):
 		i = 0
 		while i < num_vm:
 			try:
+				conn, subscription_id = self.get_connection_and_subscription_id(auth_data)
+
 				# Create storage account
-				storage_account = self.get_storage_account(self.STORAGE_NAME, auth_data)
+				storage_account_name = self.get_storage_name(subscription_id)
+				storage_account = self.get_storage_account(storage_account_name, auth_data)
 				if not storage_account:
-					storage_account_name, error_msg = self.create_storage_account(self.STORAGE_NAME, auth_data, region)
-					if storage_account_name is None:
+					storage_account_name, error_msg = self.create_storage_account(self.get_storage_name(subscription_id), auth_data, region)
+					if not storage_account_name:
 						res.append((False, error_msg))
+						break
 				else:
-					storage_account_name = self.STORAGE_NAME
 					# if the user has specified the region
 					if radl.systems[0].getValue('availability_zone'):
 						# Check that the region of the storage account is the same of the service
 						if region != storage_account.GeoPrimaryRegion:
 							res.append((False, "Error creating the service. The specified region is not the same of the service."))
+							break
 					else:
 						# Otherwise use the storage account region
 						region = storage_account.GeoPrimaryRegion
@@ -637,13 +633,13 @@ class AzureCloudConnector(CloudConnector):
 				vm.info.systems[0].setValue('instance_id', str(vm.id))
 				
 				# Generate the XML to create the VM
-				vm_create_xml = self.get_azure_vm_create_xml(vm, storage_account_name, radl, i)
+				vm_create_xml = self.get_azure_vm_create_xml(vm, storage_account_name, radl, i, auth_data)
 				
 				if vm_create_xml == None:
 					self.delete_service(service_name, auth_data)
 					res.append((False, "Incorrect image or auth data"))
+					break
 
-				conn, subscription_id = self.get_connection_and_subscription_id(auth_data)
 				uri = "/%s/services/hostedservices/%s/deployments" % (subscription_id, service_name)
 				conn.request('POST', uri, body = vm_create_xml, headers = {'x-ms-version' : '2013-03-01', 'Content-Type' : 'application/xml'}) 
 				resp = conn.getresponse()
@@ -670,7 +666,7 @@ class AzureCloudConnector(CloudConnector):
 			i += 1
 		return res
 
-	def get_instance_type(self, system):
+	def get_instance_type(self, system, auth_data):
 		"""
 		Get the name of the instance type to launch to EC2
 
@@ -685,8 +681,6 @@ class AzureCloudConnector(CloudConnector):
 		if system.getFeature('cpu.count'):
 			cpu = system.getValue('cpu.count')
 			cpu_op = system.getFeature('cpu.count').getLogOperator()
-
-		arch = system.getValue('cpu.arch', 'x86_64')
 		
 		memory = 1
 		memory_op = ">="
@@ -697,23 +691,22 @@ class AzureCloudConnector(CloudConnector):
 		disk_free = 0
 		disk_free_op = ">="
 		if system.getValue('disks.free_size'):
-			disk_free = system.getFeature('disks.free_size').getValue('G')
+			disk_free = system.getFeature('disks.free_size').getValue('M')
 			disk_free_op = system.getFeature('memory.size').getLogOperator()
 		
-		instace_types = self.get_all_instance_types()
+		instace_types = self.get_all_instance_types(auth_data)
 
 		res = None
 		for instace_type in instace_types:
-			# get the instance type with the lowest price
-			if res is None or (instace_type.price <= res.price):
-				str_compare = "arch in instace_type.cpu_arch "
-				str_compare += " and instace_type.cores_per_cpu * instace_type.num_cpu " + cpu_op + " cpu "
-				str_compare += " and instace_type.mem " + memory_op + " memory "
-				str_compare += " and instace_type.disks * instace_type.disk_space " + disk_free_op + " disk_free"
+			# get the instance type with the lowest Memory
+			if res is None or (instace_type.MemoryInMb <= res.MemoryInMb):
+				str_compare = "instace_type.Cores " + cpu_op + " cpu "
+				str_compare += " and instace_type.MemoryInMb " + memory_op + " memory "
+				str_compare += " and instace_type.VirtualMachineResourceDiskSizeInMb " + disk_free_op + " disk_free"
 				
 				#if arch in instace_type.cpu_arch and instace_type.cores_per_cpu * instace_type.num_cpu >= cpu and instace_type.mem >= memory and instace_type.cpu_perf >= performance and instace_type.disks * instace_type.disk_space >= disk_free:
 				if eval(str_compare):
-					if not instance_type_name or instace_type.name == instance_type_name:
+					if not instance_type_name or instace_type.Name == instance_type_name:
 						res = instace_type
 		
 		if res is None:
@@ -751,7 +744,7 @@ class AzureCloudConnector(CloudConnector):
 			
 			self.logger.debug("The VM state is: " + vm.state)
 			
-			instance_type = self.get_instance_type_by_name(vm_info.RoleInstanceList.RoleInstance[0].InstanceSize)
+			instance_type = self.get_instance_type_by_name(vm_info.RoleInstanceList.RoleInstance[0].InstanceSize, auth_data)
 			self.update_system_info_from_instance(vm.info.systems[0], instance_type)
 			
 			# Update IP info
@@ -852,64 +845,37 @@ class AzureCloudConnector(CloudConnector):
 </StartRoleOperation>"""
 		return self.call_role_operation(op, vm, auth_data)
 	
-	@staticmethod
-	def get_all_instance_types():
-		list = []
+	def get_all_instance_types(self, auth_data):
+		try:
+			conn, subscription_id = self.get_connection_and_subscription_id(auth_data)
+			uri = "/%s/rolesizes" % subscription_id
+			conn.request('GET', uri, headers = {'x-ms-version' : '2013-08-01'}) 
+			resp = conn.getresponse()
+			output = resp.read()			
+		except Exception:
+			self.logger.exception("Error getting Role Sizes")
+			return []
 		
-		xsmall = InstanceTypeInfo("ExtraSmall", ["x86_64"], 1, 1, 768, 0.0152, 1, 20)
-		list.append(xsmall)
-		small = InstanceTypeInfo("Small", ["x86_64"], 1, 1, 1792, 0.0633, 1, 40)
-		list.append(small)
-		medium = InstanceTypeInfo("Medium", ["x86_64"], 1, 2, 3584, 0.1265, 1, 60)
-		list.append(medium)
-		large = InstanceTypeInfo("Large", ["x86_64"], 1, 4, 7168, 0.253, 1, 120)
-		list.append(large)
-		xlarge = InstanceTypeInfo("Extra Large", ["x86_64"], 1, 8, 14336, 0.506, 1, 240)
-		list.append(xlarge)
-		
-		a5 = InstanceTypeInfo("A5", ["x86_64"], 1, 2, 14336, 0.253, 1, 135)
-		list.append(a5)
-		a6 = InstanceTypeInfo("A6", ["x86_64"], 1, 4, 28672, 0.506, 1, 285)
-		list.append(a6)
-		a7 = InstanceTypeInfo("A7", ["x86_64"], 1, 8, 57344, 1.012, 1, 605)
-		list.append(a7)
-		a8 = InstanceTypeInfo("A8", ["x86_64"], 1, 8, 57344, 2.0661, 1, 382)
-		list.append(a8)
-		a9 = InstanceTypeInfo("A9", ["x86_64"], 1, 16, 114688, 4.1322, 1, 382)
-		list.append(a9)
-		a10 = InstanceTypeInfo("A10", ["x86_64"], 1, 8, 57344, 1.5939, 1, 382)
-		list.append(a10)
-		a11 = InstanceTypeInfo("A11", ["x86_64"], 1, 16, 114688, 2.9516, 1, 382)
-		list.append(a11)
-		
-		d1 = InstanceTypeInfo("D1", ["x86_64"], 1, 1, 3584, 0.1341, 1, 50)
-		list.append(d1)
-		d2 = InstanceTypeInfo("D2", ["x86_64"], 1, 2, 7168, 0.2682, 1, 100)
-		list.append(d2)
-		d3 = InstanceTypeInfo("D3", ["x86_64"], 1, 4, 14336, 0.5364, 1, 200)
-		list.append(d3)
-		d4 = InstanceTypeInfo("D4", ["x86_64"], 1, 8, 28672, 1.0727, 1, 400)
-		list.append(d4)
-		
-		d11 = InstanceTypeInfo("D11", ["x86_64"], 1, 2, 14336, 0.3087, 1, 100)
-		list.append(d11)
-		d12 = InstanceTypeInfo("D12", ["x86_64"], 1, 4, 28672, 0.6173, 1, 200)
-		list.append(d12)
-		d13 = InstanceTypeInfo("D13", ["x86_64"], 1, 8, 57344, 1.1115, 1, 400)
-		list.append(d13)
-		d14 = InstanceTypeInfo("D14", ["x86_64"], 1, 16, 114688, 2.0004, 1, 800)
-		list.append(d14)
-		
-		return list
+		if resp.status != 200:
+			self.logger.error("Error getting Role Sizes. Error Code: " + str(resp.status) + ". Msg: " + output)
+			return []
+		else:
+			self.logger.debug("Role List obtained.")
+			role_sizes = RoleSizes(output)
+			res = []
+			for role_size in role_sizes.RoleSize:
+				if role_size.SupportedByVirtualMachines == "true":
+					res.append(role_size)
+			return res
 
-	def get_instance_type_by_name(self, name):
+	def get_instance_type_by_name(self, name, auth_data):
 		"""
 		Get the Azure instance type with the specified name
 		
 		Returns: an :py:class:`InstanceTypeInfo` or None if the type is not found
 		"""
-		for inst_type in self.get_all_instance_types():
-			if inst_type.name == name:
+		for inst_type in self.get_all_instance_types(auth_data):
+			if inst_type.Name == name:
 				return inst_type
 		return None
 
@@ -918,7 +884,7 @@ class AzureCloudConnector(CloudConnector):
 		service_name = vm.id
 		system = radl.systems[0]
 		
-		instance_type = self.get_instance_type(system)
+		instance_type = self.get_instance_type(system, auth_data)
 		
 		if not instance_type:
 			return (False, "Error calling update operation: No instance type found for radl: " + str(radl))
@@ -932,7 +898,7 @@ class AzureCloudConnector(CloudConnector):
 			<PersistentVMRole xmlns="http://schemas.microsoft.com/windowsazure" xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
 				<RoleSize>%s</RoleSize>
 			</PersistentVMRole>
-			''' % (instance_type.name)
+			''' % (instance_type.Name)
 			
 			conn.request('PUT', uri, body = body, headers = {'x-ms-version' : '2013-11-01', 'Content-Type' : 'application/xml'})
 			resp = conn.getresponse()
@@ -962,12 +928,8 @@ class AzureCloudConnector(CloudConnector):
 		"""
 		Update the features of the system with the information of the instance_type
 		"""
-		system.addFeature(Feature("cpu.count", "=", instance_type.num_cpu * instance_type.cores_per_cpu), conflict="other", missing="other")
-		system.addFeature(Feature("memory.size", "=", instance_type.mem, 'M'), conflict="other", missing="other")
-		if instance_type.disks > 0:
-			system.addFeature(Feature("disks.free_size", "=", instance_type.disks * instance_type.disk_space, 'G'), conflict="other", missing="other")
-			for i in range(1,instance_type.disks+1):
-				system.addFeature(Feature("disk.%d.free_size" % i, "=", instance_type.disk_space, 'G'), conflict="other", missing="other")						
-		system.addFeature(Feature("price", "=", instance_type.price), conflict="me", missing="other")
+		system.addFeature(Feature("cpu.count", "=", instance_type.Cores), conflict="other", missing="other")
+		system.addFeature(Feature("memory.size", "=", instance_type.MemoryInMb, 'M'), conflict="other", missing="other")
+		system.addFeature(Feature("disks.free_size", "=", instance_type.VirtualMachineResourceDiskSizeInMb, 'M'), conflict="other", missing="other")
 		
-		system.addFeature(Feature("instance_type", "=", instance_type.name), conflict="other", missing="other")
+		system.addFeature(Feature("instance_type", "=", instance_type.Name), conflict="other", missing="other")
