@@ -317,7 +317,40 @@ class VirtualMachine:
 			if req_app.getValue("name").startswith("ansible.modules."):
 				to_install.append(req_app.getValue("name")[16:])
 		return to_install
-	
+
+	def getRemoteAccessPort(self):
+		"""
+		Get the remote access port from the RADL 
+
+		Returns: int with the port
+		"""
+		if self.getOS().lower() == "windows":
+			return self.getWinRMPort()
+		else:
+			return self.getSSHPort()
+
+	def getWinRMPort(self):
+		"""
+		Get the WinRM port from the RADL 
+
+		Returns: int with the port
+		"""
+		winrm_port = 5986
+
+		public_net = None
+		for net in self.info.networks:
+			if net.isPublic():
+				public_net = net
+				
+		if public_net:
+			outports = public_net.getOutPorts()
+			if outports:
+				for (remote_port,_,local_port,local_protocol) in outports:
+					if local_port == 5986 and local_protocol == "tcp":
+						winrm_port = remote_port
+		
+		return winrm_port
+
 	def getSSHPort(self):
 		"""
 		Get the SSH port from the RADL 
@@ -573,7 +606,7 @@ class VirtualMachine:
 		ip = self.getPublicIP()
 		if not ip:
 			ip = ip = self.getPrivateIP()
-		remote_dir = Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/" + ip + "_" + str(self.getSSHPort())
+		remote_dir = Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/" + ip + "_" + str(self.getRemoteAccessPort())
 
 		initial_count_out = self.cont_out
 		wait = 0
