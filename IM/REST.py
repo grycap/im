@@ -637,3 +637,15 @@ def RESTGeVersion():
 		return format_output(version, field_name  = "version")
 	except Exception, ex:
 		return return_error(400, "Error getting IM version: " + str(ex))
+
+@app.error(404)
+def error_mesage_404(error):
+	return return_error(404, error.body)
+
+@app.error(405)
+def error_mesage_405(error):
+	return return_error(405, error.body)
+
+@app.error(500)
+def error_mesage_500(error):
+	return return_error(500, error.body)
