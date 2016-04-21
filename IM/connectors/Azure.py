@@ -121,6 +121,7 @@ class AzureCloudConnector(CloudConnector):
 	def __init__(self, cloud_info):
 		self.cert_file = ''
 		self.key_file = ''
+		self.instance_type_list = None
 		CloudConnector.__init__(self, cloud_info)
 	
 	def concreteSystem(self, radl_system, auth_data):
@@ -846,27 +847,32 @@ class AzureCloudConnector(CloudConnector):
 		return self.call_role_operation(op, vm, auth_data)
 	
 	def get_all_instance_types(self, auth_data):
-		try:
-			conn, subscription_id = self.get_connection_and_subscription_id(auth_data)
-			uri = "/%s/rolesizes" % subscription_id
-			conn.request('GET', uri, headers = {'x-ms-version' : '2013-08-01'}) 
-			resp = conn.getresponse()
-			output = resp.read()			
-		except Exception:
-			self.logger.exception("Error getting Role Sizes")
-			return []
-		
-		if resp.status != 200:
-			self.logger.error("Error getting Role Sizes. Error Code: " + str(resp.status) + ". Msg: " + output)
-			return []
+		if self.instance_type_list:
+			return self.instance_type_list
 		else:
-			self.logger.debug("Role List obtained.")
-			role_sizes = RoleSizes(output)
-			res = []
-			for role_size in role_sizes.RoleSize:
-				if role_size.SupportedByVirtualMachines == "true":
-					res.append(role_size)
-			return res
+			try:
+				conn, subscription_id = self.get_connection_and_subscription_id(auth_data)
+				uri = "/%s/rolesizes" % subscription_id
+				conn.request('GET', uri, headers = {'x-ms-version' : '2013-08-01'}) 
+				resp = conn.getresponse()
+				output = resp.read()
+			except Exception:
+				self.logger.exception("Error getting Role Sizes")
+				return []
+
+			if resp.status != 200:
+				self.logger.error("Error getting Role Sizes. Error Code: " + str(resp.status) + ". Msg: " + output)
+				return []
+			else:
+				self.logger.debug("Role List obtained.")
+				role_sizes = RoleSizes(output)
+				res = []
+				for role_size in role_sizes.RoleSize:
+					if role_size.SupportedByVirtualMachines == "true":
+						res.append(role_size)
+
+				self.instance_type_list = res
+				return res
 
 	def get_instance_type_by_name(self, name, auth_data):
 		"""

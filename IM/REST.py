@@ -23,7 +23,7 @@ from InfrastructureInfo import IncorrectVMException, DeletedVMException
 from InfrastructureManager import InfrastructureManager, DeletedInfrastructureException, IncorrectInfrastructureException, UnauthorizedUserException
 from auth import Authentication
 from config import Config
-from radl.radl_json import parse_radl as parse_radl_json, dump_radl as dump_radl_json, featuresToSimple
+from radl.radl_json import parse_radl as parse_radl_json, dump_radl as dump_radl_json, featuresToSimple, radlToSimple
 from radl.radl import RADL, Features, Feature
 from IM.tosca.Tosca import Tosca
 
@@ -159,7 +159,7 @@ def get_auth_header():
 	auth_data = auth_data.split(AUTH_LINE_SEPARATOR)
 	return Authentication(Authentication.read_auth_data(auth_data))
 
-def format_output(res, default_type = "text/plain"):
+def format_output(res, default_type = "text/plain", field_name = None, list_field_name = None):
 	"""
 	Format the output of the API responses
 	"""
@@ -170,14 +170,31 @@ def format_output(res, default_type = "text/plain"):
 		for accept_item in accept:
 			if accept_item in ["application/json", "application/*"]:
 				if isinstance(res, RADL):
-					info = dump_radl_json(res, enter="", indent="")
+					if field_name:
+						res_dict = {field_name: radlToSimple(res)}
+						info = json.dumps(res_dict)
+					else:
+						info = dump_radl_json(res, enter="", indent="")
 				# This is the case of the "contains" properties
 				elif isinstance(res, dict) and all(isinstance(x, Feature) for x in res.values()):
 					features = Features()
 					features.props = res
-					info = featuresToSimple(features)
+					res_dict = featuresToSimple(features)
+					if field_name:
+						res_dict = {field_name: res_dict}
+					info = json.dumps(res_dict)
 				else:
-					info = json.dumps(res)
+					# Always return a complex object to make easier parsing steps
+					if field_name: 
+						if list_field_name and isinstance(res, list):
+							res_dict = {field_name: []} 
+							for elem in res:
+								res_dict[field_name].append({list_field_name : elem})
+						else:
+							res_dict = {field_name: res}
+					else:
+						res_dict = res
+					info = json.dumps(res_dict)
 				content_type = "application/json"
 				break
 			elif accept_item in [default_type, "*/*", "text/*"]:
@@ -237,7 +254,7 @@ def RESTGetInfrastructureInfo(id=None):
 		for vm_id in vm_ids:
 			res.append(protocol + bottle.request.environ['HTTP_HOST'] + '/infrastructures/' + str(id) + '/vms/' + str(vm_id))
 		
-		return format_output(res, "text/uri-list")
+		return format_output(res, "text/uri-list", "uri-list", "uri")
 	except DeletedInfrastructureException, ex:
 		return return_error(404, "Error Getting Inf. info: " + str(ex))
 	except IncorrectInfrastructureException, ex:
@@ -264,8 +281,6 @@ def RESTGetInfrastructureProperty(id=None, prop=None):
 				return return_error(415, "Unsupported Accept Media Types: %s" % accept)
 			bottle.response.content_type = "application/json"
 			res = InfrastructureManager.GetInfrastructureState(id, auth)
-			res = json.dumps(res)
-			return res
 		elif prop == "outputs":
 			accept = get_media_type('Accept')
 			if accept and "application/json" not in accept and "*/*" not in accept and "application/*" not in accept :
@@ -276,11 +291,10 @@ def RESTGetInfrastructureProperty(id=None, prop=None):
 				res = Tosca(sel_inf.extra_info["TOSCA"]).get_outputs(sel_inf)
 			else:
 				bottle.abort(403, "'outputs' infrastructure property is not valid in this infrastructure")
-			return json.dumps(res)
 		else:
 			return return_error(404, "Incorrect infrastructure property")
 
-		return format_output(res)
+		return format_output(res, field_name = prop)
 	except DeletedInfrastructureException, ex:
 		return return_error(404, "Error Getting Inf. prop: " + str(ex))
 	except IncorrectInfrastructureException, ex:
@@ -306,7 +320,7 @@ def RESTGetInfrastructureList():
 		for inf_id in inf_ids:
 			res.append(protocol + bottle.request.environ['HTTP_HOST'] + "/infrastructures/" + str(inf_id))
 		
-		return format_output(res, "text/uri-list")
+		return format_output(res, "text/uri-list", "uri-list", "uri")
 	except UnauthorizedUserException, ex:
 		return return_error(401, "Error Getting Inf. List: " + str(ex))
 	except Exception, ex:
@@ -351,7 +365,7 @@ def RESTCreateInfrastructure():
 		
 		res = protocol + bottle.request.environ['HTTP_HOST'] + "/infrastructures/" + str(inf_id)
 		
-		return format_output(res, "text/uri-list")
+		return format_output(res, "text/uri-list", "uri")
 	except UnauthorizedUserException, ex:
 		return return_error(401, "Error Getting Inf. info: " + str(ex))
 	except Exception, ex:
@@ -367,7 +381,7 @@ def RESTGetVMInfo(infid=None, vmid=None):
 	
 	try:
 		radl = InfrastructureManager.GetVMInfo(infid, vmid, auth)
-		return format_output(radl)
+		return format_output(radl, field_name = "radl")
 	except DeletedInfrastructureException, ex:
 		return return_error(404, "Error Getting VM. info: " + str(ex))
 	except IncorrectInfrastructureException, ex:
@@ -396,7 +410,7 @@ def RESTGetVMProperty(infid=None, vmid=None, prop=None):
 		if info == None:
 			return return_error(404, "Incorrect property %s for VM ID %s" % (prop, vmid))
 		else:
-			return format_output(info)
+			return format_output(info, field_name = prop)
 	except DeletedInfrastructureException, ex:
 		return return_error(404, "Error Getting VM. property: " + str(ex))
 	except IncorrectInfrastructureException, ex:
@@ -461,7 +475,7 @@ def RESTAddResource(id=None):
 		for vm_id in vm_ids:
 			res.append(protocol + bottle.request.environ['HTTP_HOST'] + "/infrastructures/" + str(id) + "/vms/" + str(vm_id))
 		
-		return format_output(res, "text/uri-list")
+		return format_output(res, "text/uri-list", "uri-list", "uri")
 	except DeletedInfrastructureException, ex:
 		return return_error(404, "Error Adding resources: " + str(ex))
 	except IncorrectInfrastructureException, ex:
@@ -524,7 +538,7 @@ def RESTAlterVM(infid=None, vmid=None):
 		
 		vm_info = InfrastructureManager.AlterVM(infid, vmid, radl_data, auth)
 
-		return format_output(vm_info)
+		return format_output(vm_info, field_name = "radl")
 	except DeletedInfrastructureException, ex:
 		return return_error(404, "Error modifying resources: " + str(ex))
 	except IncorrectInfrastructureException, ex:
@@ -660,6 +674,18 @@ def RESTStopVM(infid=None, vmid=None, prop=None):
 def RESTGeVersion():
 	try:
 		from IM import __version__ as version
-		return format_output(version)
+		return format_output(version, field_name  = "version")
 	except Exception, ex:
 		return return_error(400, "Error getting IM version: " + str(ex))
+
+@app.error(404)
+def error_mesage_404(error):
+	return return_error(404, error.body)
+
+@app.error(405)
+def error_mesage_405(error):
+	return return_error(405, error.body)
+	
+@app.error(500)
+def error_mesage_500(error):
+	return return_error(500, error.body)
