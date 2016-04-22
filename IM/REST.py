@@ -159,6 +159,18 @@ def get_auth_header():
 	auth_data = auth_data.split(AUTH_LINE_SEPARATOR)
 	return Authentication(Authentication.read_auth_data(auth_data))
 
+def format_output_json(res, field_name = None, list_field_name = None):
+	res_dict = res
+	if field_name:
+		if list_field_name and isinstance(res, list):
+			res_dict = {field_name: []}
+			for elem in res:
+				res_dict[field_name].append({list_field_name : elem})
+		else:
+			res_dict = {field_name: res}
+	
+	return json.dumps(res_dict)
+
 def format_output(res, default_type = "text/plain", field_name = None, list_field_name = None):
 	"""
 	Format the output of the API responses
@@ -185,23 +197,17 @@ def format_output(res, default_type = "text/plain", field_name = None, list_fiel
 					info = json.dumps(res_dict)
 				else:
 					# Always return a complex object to make easier parsing steps
-					if field_name:
-						if list_field_name and isinstance(res, list):
-							res_dict = {field_name: []}
-							for elem in res:
-								res_dict[field_name].append({list_field_name : elem})
-						else:
-							res_dict = {field_name: res}
-					else:
-						res_dict = res
-					info = json.dumps(res_dict)
+					info = format_output_json(res, field_name, list_field_name)
 				content_type = "application/json"
 				break
 			elif accept_item in [default_type, "*/*", "text/*"]:
-				if isinstance(res, list):
-					info = "\n".join(res)
+				if default_type == "application/json":
+					info = format_output_json(res, field_name, list_field_name)
 				else:
-					info = str(res)
+					if isinstance(res, list):
+						info = "\n".join(res)
+					else:
+						info = str(res)
 				content_type = default_type
 				break
 			
@@ -211,16 +217,7 @@ def format_output(res, default_type = "text/plain", field_name = None, list_fiel
 			return return_error(415, "Unsupported Accept Media Types: %s" % ",".join(accept))
 	else:
 		if default_type == "application/json":
-			if field_name:
-				if list_field_name and isinstance(res, list):
-					res_dict = {field_name: []}
-					for elem in res:
-						res_dict[field_name].append({list_field_name : elem})
-				else:
-					res_dict = {field_name: res}
-			else:
-				res_dict = res
-			info = json.dumps(res_dict)
+			info = format_output_json(res, field_name, list_field_name)
 		else:
 			if isinstance(res, list):
 				info = "\n".join(res)
