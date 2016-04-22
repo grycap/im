@@ -243,8 +243,8 @@ class TestIM(unittest.TestCase):
         output = str(resp.read())
         self.assertEqual(resp.status, 200, msg="ERROR getting the infrastructure state:" + output)
         res = json.loads(output)
-        state = res['state']
-        vm_states = res['vm_states']
+        state = res['state']['state']
+        vm_states = res['state']['vm_states']
         self.assertEqual(state, "configured", msg="Unexpected inf state: " + state + ". It must be 'configured'.")
         for vm_id, vm_state in vm_states.iteritems():
             self.assertEqual(vm_state, "configured", msg="Unexpected vm state: " + vm_state + " in VM ID " + str(vm_id) + ". It must be 'configured'.")
@@ -495,7 +495,7 @@ topology_template:
         output = str(resp.read())
         self.assertEqual(resp.status, 200, msg="ERROR getting TOSCA outputs:" + output)
         res = json.loads(output)
-        server_url = str(res['server_url'][0])
+        server_url = str(res['outputs']['server_url'][0])
         self.assertRegexpMatches(server_url, '\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}', msg="Unexpected outputs: " + output)
 
     def test_95_add_tosca(self):
