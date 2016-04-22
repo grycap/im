@@ -185,9 +185,9 @@ def format_output(res, default_type = "text/plain", field_name = None, list_fiel
 					info = json.dumps(res_dict)
 				else:
 					# Always return a complex object to make easier parsing steps
-					if field_name: 
+					if field_name:
 						if list_field_name and isinstance(res, list):
-							res_dict = {field_name: []} 
+							res_dict = {field_name: []}
 							for elem in res:
 								res_dict[field_name].append({list_field_name : elem})
 						else:
@@ -210,10 +210,22 @@ def format_output(res, default_type = "text/plain", field_name = None, list_fiel
 		else:
 			return return_error(415, "Unsupported Accept Media Types: %s" % ",".join(accept))
 	else:
-		if isinstance(res, list):
-			info = "\n".join(res)
+		if default_type == "application/json":
+			if field_name:
+				if list_field_name and isinstance(res, list):
+					res_dict = {field_name: []}
+					for elem in res:
+						res_dict[field_name].append({list_field_name : elem})
+				else:
+					res_dict = {field_name: res}
+			else:
+				res_dict = res
+			info = json.dumps(res_dict)
 		else:
-			info = str(res)
+			if isinstance(res, list):
+				info = "\n".join(res)
+			else:
+				info = str(res)
 		bottle.response.content_type = default_type
 		
 	return info
@@ -281,6 +293,7 @@ def RESTGetInfrastructureProperty(id=None, prop=None):
 				return return_error(415, "Unsupported Accept Media Types: %s" % accept)
 			bottle.response.content_type = "application/json"
 			res = InfrastructureManager.GetInfrastructureState(id, auth)
+			return format_output(res, default_type = "application/json", field_name = "state")
 		else:
 			return return_error(404, "Incorrect infrastructure property")
 
