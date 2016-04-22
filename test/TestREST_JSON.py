@@ -136,7 +136,9 @@ class TestIM(unittest.TestCase):
         output = str(resp.read())
         self.assertEqual(resp.status, 200, msg="ERROR getting VM info:" + output)
         self.assertEqual(ct, "application/json", msg="ERROR getting VM info: Incorrect Content-type: %s" % ct)
-        parse_radl_json(output)
+        res = json.loads(output)
+        radl = res["radl"]
+        parse_radl_json(radl)
 
     def test_40_addresource(self):
         self.server.request('POST', "/infrastructures/" + self.inf_id, body = RADL_ADD, headers = {'AUTHORIZATION' : self.auth_data, 'Content-Type':'application/json'})
