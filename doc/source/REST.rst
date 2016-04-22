@@ -39,7 +39,7 @@ Next tables summaries the resources and the HTTP methods available.
 +=============+=====================================================+====================================================+
 | **GET**     | | **Get** the specified property ``property_name``  | | **Get** the specified property ``property_name`` |
 |             | | associated to the machine ``vmId`` in ``infId``.  | | associated to the infrastructure ``infId``.      |
-|             | | It has one special property: ``contmsg``.         | | It has four properties: ``contmsg``, ``radl``,   |
+|             | | It has one special property: ``contmsg``.         | | It has three properties: ``contmsg``, ``radl``,  |
 |             |                                                     | | ``state`` and ``outputs``.                       |
 +-------------+-----------------------------------------------------+----------------------------------------------------+
 
@@ -48,7 +48,6 @@ Next tables summaries the resources and the HTTP methods available.
 +=============+===============================================+================================================+
 | **PUT**     | | **Stop** the machine ``vmId`` in ``infId``. | | **Start** the machine ``vmId`` in ``infId``. |
 +-------------+-----------------------------------------------+------------------------------------------------+
-
 
 The error message returned by the service will depend on the ``Accept`` header of the request:
 
@@ -61,7 +60,6 @@ The error message returned by the service will depend on the ``Accept`` header o
      }
      
 * text/html: The request has a "Accept" with value to "text/html". 
->>>>>>> upstream/devel
 
 GET ``http://imserver.com/infrastructures``
    :Response Content-type: text/uri-list or application/json
@@ -80,7 +78,7 @@ GET ``http://imserver.com/infrastructures``
 
 POST ``http://imserver.com/infrastructures``
    :body: ``RADL document``
-   :body Content-type: text/plain or application/json or text/yaml
+   :body Content-type: text/plain or application/json
    :Response Content-type: text/uri-list
    :ok response: 200 OK
    :fail response: 401, 400, 415
@@ -126,12 +124,12 @@ GET ``http://imserver.com/infrastructures/<infId>/<property_name>``
    The result is JSON format has the following format::
    
     {
-      ["radl"|"state"|"contmsg"]: <property_value>
+      ["radl"|"state"|"contmsg"|"outputs"]: <property_value>
     }
 
 POST ``http://imserver.com/infrastructures/<infId>``
    :body: ``RADL document``
-   :body Content-type: text/plain or application/json or text/yaml
+   :body Content-type: text/plain or application/json
    :input fields: ``context`` (optional)
    :Response Content-type: text/uri-list
    :ok response: 200 OK
@@ -250,7 +248,8 @@ DELETE ``http://imserver.com/infrastructures/<infId>/vms/<vmId>``
    :fail response: 401, 404, 400
 
    Undeploy the virtual machine with ID ``vmId`` associated to the
-   infrastructure with ID ``infId``. The ``context`` parameter is optional and 
+   infrastructure with ID ``infId``. If  ``vmId`` is a comma separated list of 
+   VM IDs, all the VMs of this list will be undeployed.  The ``context`` parameter is optional and 
    is a flag to specify if the contextualization step will be launched just after the VM
    addition. Accetable values: yes, no, true, false, 1 or 0. If not specified the flag is set to True.
    If the operation has been performed successfully the return value is an empty string.
