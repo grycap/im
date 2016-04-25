@@ -711,7 +711,7 @@ class AzureCloudConnector(CloudConnector):
 						res = instace_type
 		
 		if res is None:
-			self.get_instance_type_by_name(self.INSTANCE_TYPE)
+			self.get_instance_type_by_name(self.INSTANCE_TYPE, auth_data)
 		else:
 			return res
 		
