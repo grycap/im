@@ -522,6 +522,7 @@ class Tosca:
 	
 		* Node template name | HOST.
 		* Attribute name.
+		* Index (optional)
 	
 		If the HOST keyword is passed as the node template name argument the
 		function will search each node template along the HostedOn relationship
@@ -583,6 +584,7 @@ class Tosca:
 						val = {"user" : user}
 						if password:
 							val["token"] = password
+							val["token_type"] = "password"
 						if private_key:
 							val["token_type"] = "private_key"
 							val["token"] = private_key
