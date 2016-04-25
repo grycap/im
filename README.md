@@ -102,33 +102,25 @@ First install the requirements:
 
 On Debian Systems:
 ```
-$ apt-get -y install git python-setuptools python-dev gcc python-soappy python-pip python-pbr python-dateutil
+$ apt-get -y install git python-pip python-dev python-soappy
 ```
 
 On RedHat Systems:
 ```
-$ yum remove python-paramiko python-crypto
-$ yum -y install git python-setuptools python-devel gcc SOAPpy python-dateutil python-six python-requests
-$ easy_install pip
-$ pip install  pbr 
+$ yum -y install epel-release
+$ yum -y install git gcc python-devel python-pip SOAPpy python-importlib python-requests
 ```
 
 Then install the TOSCA parser:
 
 ```
-$ cd /tmp
-$ git clone --recursive https://github.com/indigo-dc/tosca-parser.git
-$ cd tosca-parser
-$ python setup.py install
+$ pip install git+http://github.com/indigo-dc/tosca-parser
 ```
 
 Finally install the IM service:
 
 ```
-$ cd /tmp
-$ git clone --recursive https://github.com/indigo-dc/im.git
-$ cd im
-$ python setup.py install
+$ pip install git+http://github.com/indigo-dc/im
 ```
 
 
