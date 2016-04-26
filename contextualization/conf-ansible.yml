@@ -3,7 +3,7 @@
   become: yes
   become_method: sudo
   vars:
-    ANSIBLE_VERSION: 1.9.4
+    ANSIBLE_VERSION: 2.0.2
   tasks:
     - name: Install libselinux-python in RH
       action: yum pkg=libselinux-python state=installed
@@ -18,11 +18,11 @@
       when: ansible_os_family == "RedHat" and ansible_distribution != "Fedora"
     
     - name: Apt install requirements
-      apt: name=unzip,gcc,python-dev,openssh-client,sshpass
+      apt: name=unzip,gcc,python-dev,openssh-client,sshpass,python-pip
       when: ansible_os_family == "Debian"
 
     - name: Yum install requirements RH or Fedora
-      yum: name=python-distribute,gcc,python-devel,wget,openssh-clients,sshpass
+      yum: name=python-distribute,gcc,python-devel,wget,openssh-clients,sshpass,python-pip
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version >= 6
     
     - name: Yum install requirements RH5
@@ -33,23 +33,12 @@
       zypper: name=python,python-pip,gcc,python-devel,wget state=present
       when: ansible_os_family == "Suse"
 
-    - name: Install Pip from distribution repositories
-      apt: name=python-pip
-      when: ansible_os_family == "Debian" and not (ansible_distribution == "Ubuntu" and ansible_distribution_major_version < 14)
-
     - name: Install Pip 2.6
       easy_install: name=pip executable=easy_install-2.6
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version < 6
       
-    - name: Install Pip
-      easy_install: name=pip
-      when: ansible_os_family == "Debian" or (ansible_os_family == "RedHat" and ansible_distribution_major_version >= 6)
-      register: result_install_pip
-      ignore_errors: True
-
-    - name: Install Pip (alternative)
-      shell: wget https://bootstrap.pypa.io/get-pip.py && python get-pip.py
-      when: result_install_pip|failed
+#    - name: Install Pip (alternative)
+#      shell: wget https://bootstrap.pypa.io/get-pip.py && python get-pip.py
 
     - name: Link python 
       file: src=/usr/bin/python dest=/usr/bin/python_ansible state=link

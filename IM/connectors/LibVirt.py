@@ -252,22 +252,27 @@ class LibVirtCloudConnector(CloudConnector):
 			
 		return res
 
-	def getTemplate(self, vmi, vm, radl, timestamp, auth_data):
+	def getTemplate(self, vm, radl, timestamp, auth_data):
 		system = radl.systems[0]
 		
 		cpu = system.getValue('cpu.count')
 		arch = system.getValue('cpu.arch')	
-		name = vmi.name + "-" + timestamp
-		url = uriparse(vmi.location)
+		name = system.getValue("instance_name")
+		if not name:
+			name = system.getValue("disk.0.image.name") + "-" + timestamp
+		if not name:
+			name = "userimage" + "-" + timestamp
+		url = uriparse(system.getValue("disk.0.image.url"))
 		path = url[2]
 		template = ""
+		hypervisor = system.getValue("virtual_system_type")
 		
 		memory = system.getFeature('memory.size').getValue('K')
 		
 		# esto hay que definirlo mejor, pero de momento es una solucion sencilla
-		if vmi.hypervisor == 'vmware':
-			raise Exception('Tipo de VM ' + vmi.hypervisor + ' aun no soportado.')
-		elif vmi.hypervisor == 'kvm':
+		if hypervisor == 'vmware':
+			raise Exception('Tipo de VM ' + hypervisor + ' aun no soportado.')
+		elif hypervisor == 'kvm':
 			
 			disks = '''
 					<disk type='file' device='disk'>
