@@ -1046,8 +1046,7 @@ class ConfManager(threading.Thread):
 
 		ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " + 'Lanzamos ansible.')
 		output = StringIO()
-		t = AnsibleThread(output, tmp_dir + "/" + playbook, None, 2, gen_pk_file, ssh.password, 1, tmp_dir + "/" + inventory, ssh.username)
-		t.daemon = True
+		t = AnsibleThread(output, tmp_dir + "/" + playbook, None, 1, gen_pk_file, ssh.password, 1, tmp_dir + "/" + inventory, ssh.username)
 		t.start()
 		t.join()
 		(return_code, _) = t.results
