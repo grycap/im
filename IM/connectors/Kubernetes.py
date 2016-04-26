@@ -117,7 +117,7 @@ class KubernetesCloudConnector(CloudConnector):
 			self.logger.exception("Error connecting with Kubernetes API server")
 
 		self.logger.warn("Error getting a compatible API version. Setting the default one.")
-		self.logger.debug("Using %2 API version." % version)		
+		self.logger.debug("Using %s API version." % version)
 		return version
 	
 
