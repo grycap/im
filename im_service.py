@@ -244,13 +244,13 @@ def im_stop():
 	InfrastructureManager.logger.info('************ Infrastructure Manager daemon stopped ************')
 	sys.exit(0)
 	
-def signal_term_handler(signal, frame):
+def signal_int_handler(signal, frame):
 	"""
 	Callback function to catch the system signals
 	"""
 	im_stop()
 
 if __name__ == "__main__":
-	signal.signal(signal.SIGTERM, signal_term_handler)
+	signal.signal(signal.SIGINT, signal_int_handler)
 	config_logging()
 	launch_daemon()
