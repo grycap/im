@@ -1,30 +1,10 @@
 # Dockerfile to create a container with the IM service
-FROM ubuntu:14.04
+FROM grycapjenkins/im-base
 MAINTAINER Miguel Caballer <micafer1@upv.es>
 LABEL version="1.4.3"
 LABEL description="Container image to run the IM service. (http://www.grycap.upv.es/im)"
 
 EXPOSE 8899 8800
-
-RUN apt-get update && apt-get install -y \
-    gcc \
-    python-dev \
-    python-pip \
-    python-soappy \
-    python-dateutil \
-    python-pbr \
-    python-mock \
-    python-nose \
-    openssh-client \
-    sshpass \
-    git \
-    libssl-dev \
-    libffi-dev \
- && apt-get clean \
- && rm -rf /var/lib/apt/lists/*
-
-# Install CherryPy to enable HTTPS in REST API
-RUN pip install CherryPy pyOpenSSL
 
 # Install im - 'devel' branch
 RUN cd tmp \
