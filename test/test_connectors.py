@@ -17,8 +17,10 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import sys
-import unittest, time
-import logging, logging.config
+import unittest
+import time
+import logging
+import logging.config
 
 sys.path.append("..")
 from IM.CloudInfo import CloudInfo
@@ -32,29 +34,32 @@ TESTS_PATH = '/home/micafer/codigo/git_im/im/test'
 AUTH_FILE = TESTS_PATH + '/auth.dat'
 
 auth = Authentication(Authentication.read_auth_data(AUTH_FILE))
-cloud_list = dict([ (c.id, c.getCloudConnector()) for c in CloudInfo.get_cloud_list(auth) ])
+cloud_list = dict([(c.id, c.getCloudConnector())
+                   for c in CloudInfo.get_cloud_list(auth)])
+
 
 class TestConnectors(unittest.TestCase):
     """
     Class to test the IM connectors
     """
-    
+
     vm_list = []
     """ List of VMs launched in the test """
-    
-    #connectors_to_test = "all"
+
+    # connectors_to_test = "all"
     connectors_to_test = ["fogbow"]
     """ Specify the connectors to test: "all": All the connectors specified in the auth file or a list with the IDs"""
 
     @classmethod
     def setUpClass(cls):
         ch = logging.StreamHandler()
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        formatter = logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         ch.setFormatter(formatter)
-        
+
         logging.RootLogger.propagate = 0
         logging.root.setLevel(logging.ERROR)
-        
+
         logger = logging.getLogger('CloudConnector')
         logger.setLevel(logging.DEBUG)
         logger.propagate = 0
@@ -65,7 +70,7 @@ class TestConnectors(unittest.TestCase):
         vmrc_list = []
         for vmrc_elem in auth.getAuthInfo('VMRC'):
             if ('host' in vmrc_elem and 'username' in vmrc_elem and
-                'password' in vmrc_elem):
+                    'password' in vmrc_elem):
                 vmrc_list.append(VMRC(vmrc_elem['host'], vmrc_elem['username'],
                                       vmrc_elem['password']))
 
@@ -73,11 +78,11 @@ class TestConnectors(unittest.TestCase):
         res = []
         for vmrc in vmrc_list:
             vmrc_res = vmrc.search_vm(radl)
-            res.extend([ radl.clone().applyFeatures(s0, conflict="other", missing="other")
-                                     for s0 in vmrc_res ])
+            res.extend([radl.clone().applyFeatures(s0, conflict="other", missing="other")
+                        for s0 in vmrc_res])
 
-        return  res
-            
+        return res
+
     def test_10_concrete(self):
         radl_data = """
             network net ()
@@ -102,8 +107,9 @@ class TestConnectors(unittest.TestCase):
                 concrete_systems = []
                 for s in systems:
                     concrete_systems.extend(cloud.concreteSystem(s, auth))
-                self.assertTrue(len(concrete_systems) > 0, msg="ERROR: no system returned by concreteSystems for cloud: " + cloud_id)
-            
+                self.assertTrue(len(
+                    concrete_systems) > 0, msg="ERROR: no system returned by concreteSystems for cloud: " + cloud_id)
+
     def test_20_launch(self):
         radl_data = """
             network net (outbound='yes' and outports='8899/tcp,22/tcp-22/tcp')
@@ -134,32 +140,38 @@ class TestConnectors(unittest.TestCase):
                 concrete_systems = []
                 for s in systems:
                     concrete_systems.extend(cloud.concreteSystem(s, auth))
-                self.assertTrue(len(concrete_systems) > 0, msg="ERROR: no system returned by concreteSystems for cloud: " + cloud_id)
-    
+                self.assertTrue(len(
+                    concrete_systems) > 0, msg="ERROR: no system returned by concreteSystems for cloud: " + cloud_id)
+
                 launch_radl = radl.clone()
                 launch_radl.systems = [concrete_systems[0]]
-                res = cloud.launch(InfrastructureInfo(), launch_radl, launch_radl, 1, auth)
+                res = cloud.launch(InfrastructureInfo(),
+                                   launch_radl, launch_radl, 1, auth)
                 for success, vm in res:
-                    self.assertTrue(success, msg="ERROR: launching a VM for cloud: " + cloud_id)
-                    self.__class__.vm_list.append(vm) 
-            
+                    self.assertTrue(
+                        success, msg="ERROR: launching a VM for cloud: " + cloud_id)
+                    self.__class__.vm_list.append(vm)
+
     def test_30_updateVMInfo(self):
         for vm in self.vm_list:
             cl = vm.cloud.getCloudConnector()
             (success, new_vm) = cl.updateVMInfo(vm, auth)
-            self.assertTrue(success, msg="ERROR: getting VM info for cloud: " + vm.cloud.id + ": " + str(new_vm))
-            
+            self.assertTrue(
+                success, msg="ERROR: getting VM info for cloud: " + vm.cloud.id + ": " + str(new_vm))
+
     def wait_vm_state(self, cl, vm, state, timeout):
         # wait the VM to be stopped
         errors = 0
         max_errors = 3
         wait = 0
-        err_states = [VirtualMachine.FAILED, VirtualMachine.OFF, VirtualMachine.UNCONFIGURED]
+        err_states = [VirtualMachine.FAILED,
+                      VirtualMachine.OFF, VirtualMachine.UNCONFIGURED]
         while vm.state != state and wait < timeout:
 
-            self.assertFalse(vm.state in err_states, msg="ERROR waiting for a state. '" + vm.state + "' was obtained in the VM: " + str(vm.id) + " err_states = " + str(err_states))
+            self.assertFalse(vm.state in err_states, msg="ERROR waiting for a state. '" + vm.state +
+                             "' was obtained in the VM: " + str(vm.id) + " err_states = " + str(err_states))
 
-            try: 
+            try:
                 (success, new_vm) = cl.updateVMInfo(vm, auth)
             except:
                 success = False
@@ -180,30 +192,34 @@ class TestConnectors(unittest.TestCase):
     def test_40_stop(self):
         for vm in self.vm_list:
             cl = vm.cloud.getCloudConnector()
-            
+
             # wait the VM to be running
-            wait_ok = self.wait_vm_state(cl,vm,VirtualMachine.RUNNING,240)
-            
-            self.assertTrue(wait_ok, msg="ERROR: waiting stop op VM for cloud: " + vm.cloud.id)
-            
+            wait_ok = self.wait_vm_state(cl, vm, VirtualMachine.RUNNING, 240)
+
+            self.assertTrue(
+                wait_ok, msg="ERROR: waiting stop op VM for cloud: " + vm.cloud.id)
+
             (success, msg) = cl.stop(vm, auth)
-            self.assertTrue(success, msg="ERROR: stopping VM for cloud: " + vm.cloud.id + ": " + str(msg))
-            
+            self.assertTrue(
+                success, msg="ERROR: stopping VM for cloud: " + vm.cloud.id + ": " + str(msg))
+
             # wait the VM to be stopped
-            wait_ok = self.wait_vm_state(cl,vm,VirtualMachine.STOPPED,240)
-            
-            self.assertTrue(wait_ok, msg="ERROR: waiting stop op VM for cloud: " + vm.cloud.id)
-            
-            
+            wait_ok = self.wait_vm_state(cl, vm, VirtualMachine.STOPPED, 240)
+
+            self.assertTrue(
+                wait_ok, msg="ERROR: waiting stop op VM for cloud: " + vm.cloud.id)
+
     def test_50_start(self):
         for vm in self.vm_list:
             cl = vm.cloud.getCloudConnector()
             (success, msg) = cl.start(vm, auth)
-            self.assertTrue(success, msg="ERROR: starting VM for cloud: " + vm.cloud.id + ": " + str(msg))
+            self.assertTrue(
+                success, msg="ERROR: starting VM for cloud: " + vm.cloud.id + ": " + str(msg))
             # wait the VM to be running again
-            wait_ok = self.wait_vm_state(cl,vm,VirtualMachine.RUNNING,180)
-            self.assertTrue(wait_ok, msg="ERROR: waiting start op VM for cloud: " + vm.cloud.id)
-                
+            wait_ok = self.wait_vm_state(cl, vm, VirtualMachine.RUNNING, 180)
+            self.assertTrue(
+                wait_ok, msg="ERROR: waiting start op VM for cloud: " + vm.cloud.id)
+
     def test_55_alter(self):
         radl_data = """
             system test (
@@ -214,21 +230,26 @@ class TestConnectors(unittest.TestCase):
         for vm in self.vm_list:
             cl = vm.cloud.getCloudConnector()
             (success, msg) = cl.alterVM(vm, radl, auth)
-            self.assertTrue(success, msg="ERROR: updating VM for cloud: " + vm.cloud.id + ": " + str(msg))
+            self.assertTrue(
+                success, msg="ERROR: updating VM for cloud: " + vm.cloud.id + ": " + str(msg))
             # wait the VM to resize
             time.sleep(30)
             # get the updated vm
             (success, new_vm) = cl.updateVMInfo(vm, auth)
             new_cpu = new_vm.info.systems[0].getValue('cpu.count')
-            new_memory = new_vm.info.systems[0].getFeature('memory.size').getValue('M')
-            self.assertGreaterEqual(new_cpu, 2, msg="ERROR: updating VM for cloud: " + vm.cloud.id + ". CPU num must at least 2.")
-            self.assertGreaterEqual(new_memory, 1024, msg="ERROR: updating VM for cloud: " + vm.cloud.id + ". Memory must be at least 1024M.")
-            
+            new_memory = new_vm.info.systems[
+                0].getFeature('memory.size').getValue('M')
+            self.assertGreaterEqual(
+                new_cpu, 2, msg="ERROR: updating VM for cloud: " + vm.cloud.id + ". CPU num must at least 2.")
+            self.assertGreaterEqual(new_memory, 1024, msg="ERROR: updating VM for cloud: " +
+                                    vm.cloud.id + ". Memory must be at least 1024M.")
+
     def test_60_finalize(self):
         for vm in self.vm_list:
             cl = vm.cloud.getCloudConnector()
             (success, msg) = cl.finalize(vm, auth)
-            self.assertTrue(success, msg="ERROR: finalizing VM for cloud: " + vm.cloud.id + ": " + str(msg))
+            self.assertTrue(
+                success, msg="ERROR: finalizing VM for cloud: " + vm.cloud.id + ": " + str(msg))
 
 
 if __name__ == '__main__':

@@ -906,7 +906,7 @@ class AzureCloudConnector(CloudConnector):
 
         # Call to GET OPERATION STATUS until "Succeded"
         success = self.wait_operation_status(
-            request_id, auth_data,  delay=4, timeout=240)
+            request_id, auth_data, delay=4, timeout=240)
 
         if success:
             return (True, "")

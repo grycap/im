@@ -15,7 +15,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-__all__ = ['auth','CloudInfo','config','ConfManager','db','ganglia','HTTPHeaderTransport','InfrastructureInfo','InfrastructureManager','recipe','request','REST', 'retry', 'ServiceRequests','SSH','SSHRetry','timedcall','UnixHTTPConnection','uriparse', 'VirtualMachine','VMRC','xmlobject']
+__all__ = ['auth', 'CloudInfo', 'config', 'ConfManager', 'db', 'ganglia', 'HTTPHeaderTransport',
+           'InfrastructureInfo', 'InfrastructureManager', 'recipe', 'request', 'REST', 'retry',
+           'ServiceRequests', 'SSH', 'SSHRetry', 'timedcall', 'UnixHTTPConnection', 'uriparse',
+           'VirtualMachine', 'VMRC', 'xmlobject']
 __version__ = '1.4.4'
 __author__ = 'Miguel Caballer'
-

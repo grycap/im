@@ -307,7 +307,7 @@ class KubernetesCloudConnector(CloudConnector):
 
         if volumes:
             containers[0]['volumeMounts'] = []
-            for (v_name, _,  _, v_mount_path, _) in volumes:
+            for (v_name, _, _, v_mount_path, _) in volumes:
                 containers[0]['volumeMounts'].append(
                     {'name': v_name, 'mountPath': v_mount_path})
 

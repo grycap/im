@@ -1046,7 +1046,7 @@ class EC2CloudConnector(CloudConnector):
             vm.info.systems[0].setValue(
                 "virtual_system_type", instance.virtualization_type)
             vm.info.systems[0].setValue(
-                "availability_zone",  instance.placement)
+                "availability_zone", instance.placement)
 
             vm.state = self.VM_STATE_MAP.get(
                 instance.state, VirtualMachine.UNKNOWN)

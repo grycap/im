@@ -1,6 +1,6 @@
 # IM - Infrastructure Manager
 # Copyright (C) 2011 - GRyCAP - Universitat Politecnica de Valencia
-# 
+#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
@@ -49,15 +49,15 @@ class DataBase:
     RETRY_SLEEP = 2
     MAX_RETRIES = 15
     DB_TYPES = ["SQLite", "MySQL"]
-    
-    def __init__(self, db_url): 
+
+    def __init__(self, db_url):
         self.db_url = db_url
         self.connection = None
         self.db_type = None
-        
+
     def connect(self):
         """ Function to connect to the DB
-        
+
             Returns: True if the connection is established correctly
                      of False in case of errors.
         """
@@ -71,7 +71,7 @@ class DataBase:
             return self._connect_sqlite(uri[2])
 
         return False
-    
+
     def _get_user_pass_host_port(self, url):
         username = password = server = port = None
         if "@" in url:
@@ -84,20 +84,21 @@ class DataBase:
                 password = user_pass[1]
         else:
             server_port = url
-        
+
         server_port = server_port.split(':')
         server = server_port[0]
         if len(server_port) > 1:
             port = int(server_port[1])
-        
+
         return username, password, server, port
 
     def _connect_mysql(self, url, db):
         if MYSQL_AVAILABLE:
-            username, password, server, port = self._get_user_pass_host_port(url)
+            username, password, server, port = self._get_user_pass_host_port(
+                url)
             if not port:
                 port = 3306
-            self.connection = mdb.connect(server, username, password, db, port);
+            self.connection = mdb.connect(server, username, password, db, port)
             self.db_type = "MySQL"
             return True
         else:
@@ -110,16 +111,16 @@ class DataBase:
             return True
         else:
             return False
-    
-    def _execute_retry(self, sql, args, fetch = False):
+
+    def _execute_retry(self, sql, args, fetch=False):
         """ Function to execute a SQL function, retrying in case of locked DB
-        
+
             Arguments:
             - sql: The SQL sentence
             - args: A List of arguments to substitute in the SQL sentence
             - fetch: If the function must fetch the results.
                     (Optional, default False)
-                    
+
             Returns: True if fetch is False and the operation is performed
                      correctly or a list with the "Fetch" of the results
         """
@@ -133,13 +134,13 @@ class DataBase:
                     cursor = self.connection.cursor()
                     if args is not None:
                         if not SQLITE3_AVAILABLE:
-                            new_sql = sql.replace("?","%s")
+                            new_sql = sql.replace("?", "%s")
                         else:
                             new_sql = sql
                         cursor.execute(new_sql, args)
                     else:
                         cursor.execute(sql)
-                    
+
                     if fetch:
                         res = cursor.fetchall()
                     else:
@@ -159,31 +160,31 @@ class DataBase:
                         raise ex
                 except sqlite.IntegrityError, ex:
                     raise IntegrityError()
-    
-    def execute(self, sql, args = None):
+
+    def execute(self, sql, args=None):
         """ Executes a SQL sentence without returning results
-        
+
             Arguments:
             - sql: The SQL sentence
             - args: A List of arguments to substitute in the SQL sentence
                     (Optional, default None)
-                    
-            Returns: True if the operation is performed correctly 
+
+            Returns: True if the operation is performed correctly
         """
         return self._execute_retry(sql, args)
-    
-    def select(self, sql, args = None):
+
+    def select(self, sql, args=None):
         """ Executes a SQL sentence that returns results
-        
+
             Arguments:
             - sql: The SQL sentence
             - args: A List of arguments to substitute in the SQL sentence
                     (Optional, default None)
-                    
+
             Returns: A list with the "Fetch" of the results
         """
-        return self._execute_retry(sql, args, fetch = True) 
-    
+        return self._execute_retry(sql, args, fetch=True)
+
     def close(self):
         """ Closes the DB connection """
         if self.connection is None:
@@ -194,22 +195,24 @@ class DataBase:
                 return True
             except Exception:
                 return False
-            
+
     def table_exists(self, table_name):
         """ Checks if a table exists in the DB
-        
+
             Arguments:
             - table_name: The name of the table
-            
+
             Returns: True if the table exists or False otherwise
         """
         if self.db_type == "SQLite":
-            res = self.select('select name from sqlite_master where type="table" and name="' + table_name + '"')
+            res = self.select(
+                'select name from sqlite_master where type="table" and name="' + table_name + '"')
         elif self.db_type == "MySQL":
-            res = self.select('SELECT * FROM information_schema.tables WHERE table_name ="' + table_name + '"')
+            res = self.select(
+                'SELECT * FROM information_schema.tables WHERE table_name ="' + table_name + '"')
         else:
             return False
-        
+
         if (len(res) == 0):
             return False
         else:
