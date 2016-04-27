@@ -17,6 +17,10 @@
 # Some parts of this code are taken from the Ansible code
 # (c) 2012-2014, Michael DeHaan <michael.dehaan@gmail.com>
 #
+# Make coding more python3-ish
+from __future__ import (absolute_import, division, print_function)
+__metaclass__ = type
+
 import logging
 
 import sys
@@ -32,10 +36,6 @@ from ansible.executor.playbook_executor import PlaybookExecutor
 from ansible.playbook import Playbook
 from ansible.template import Templar
 from ansible.executor.task_queue_manager import TaskQueueManager
-
-# Make coding more python3-ish
-from __future__ import (absolute_import, division, print_function)
-__metaclass__ = type
 
 
 class IMDisplay(Display):
