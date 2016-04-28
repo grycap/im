@@ -1,6 +1,6 @@
 # IM - Infrastructure Manager
 # Copyright (C) 2011 - GRyCAP - Universitat Politecnica de Valencia
-# 
+#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
@@ -13,6 +13,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 
 def uriparse(url, scheme='', allow_fragments=1):
     """Parse a URL into 6 components:
@@ -28,14 +29,15 @@ def uriparse(url, scheme='', allow_fragments=1):
         params = ''
     return scheme, netloc, url, params, query, fragment
 
+
 def _splitparams(url):
-    if '/'  in url:
+    if '/' in url:
         i = url.find(';', url.rfind('/'))
         if i < 0:
             return url, ''
     else:
         i = url.find(';')
-    return url[:i], url[i+1:]
+    return url[:i], url[i + 1:]
 
 
 def urisplit(url, scheme='', allow_fragments=1):
@@ -46,9 +48,9 @@ def urisplit(url, scheme='', allow_fragments=1):
     (e.g. netloc is a single string) and we don't expand % escapes."""
     netloc = query = fragment = ''
     i = url.find(':')
-    if i > 0:          
+    if i > 0:
         scheme = url[:i].lower()
-        url = url[i+1:]
+        url = url[i + 1:]
         if url[:2] == '//':
             netloc, url = _splitnetloc(url, 2)
         if allow_fragments and '#' in url:
@@ -57,7 +59,7 @@ def urisplit(url, scheme='', allow_fragments=1):
             url, query = url.split('?', 1)
         tuple = scheme, netloc, url, query, fragment
         return tuple
-    
+
     if url[:2] == '//':
         netloc, url = _splitnetloc(url, 2)
     if allow_fragments and '#' in url:
@@ -70,11 +72,10 @@ def urisplit(url, scheme='', allow_fragments=1):
 
 
 def _splitnetloc(url, start=0):
-    for char in '/?#': # the order is important!
+    for char in '/?#':  # the order is important!
         delim = url.find(char, start)
         if delim >= 0:
             break
     else:
         delim = len(url)
     return url[start:delim], url[delim:]
-

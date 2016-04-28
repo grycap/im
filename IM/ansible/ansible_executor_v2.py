@@ -1,6 +1,6 @@
 # IM - Infrastructure Manager
 # Copyright (C) 2015 - GRyCAP - Universitat Politecnica de Valencia
-# 
+#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
@@ -23,7 +23,8 @@ __metaclass__ = type
 
 import logging
 
-import sys, os
+import sys
+import os
 
 from ansible import constants as C
 from ansible.plugins.callback import CallbackBase
@@ -38,11 +39,13 @@ from ansible.executor.task_queue_manager import TaskQueueManager
 
 
 class IMDisplay(Display):
+
     def __init__(self, verbosity=0, output=None):
         self.output = output
         super(IMDisplay, self).__init__(verbosity)
-        
-    def display(self, msg, color=None, stderr=False, screen_only=False, log_only=False):
+
+    def display(self, msg, color=None, stderr=False,
+                screen_only=False, log_only=False):
         if self.output:
             if isinstance(self.output, logging.Logger):
                 self.output.info(msg)
@@ -51,6 +54,7 @@ class IMDisplay(Display):
         else:
             sys.stdout.write(msg)
             sys.stdout.flush()
+
 
 class AnsibleCallbacks(CallbackBase):
 
@@ -62,7 +66,7 @@ class AnsibleCallbacks(CallbackBase):
     CALLBACK_VERSION = 2.0
     CALLBACK_TYPE = 'stdout'
     CALLBACK_NAME = 'ansible_callbacks_v2'
-    
+
     def __init__(self, output=None):
         super(AnsibleCallbacks, self).__init__()
         self._display = IMDisplay(output=output)
@@ -73,22 +77,27 @@ class AnsibleCallbacks(CallbackBase):
             if self._display.verbosity < 3:
                 # extract just the actual error message from the exception text
                 error = result._result['exception'].strip().split('\n')[-1]
-                msg = "An exception occurred during task execution. To see the full traceback, use -vvv. The error was: %s" % error
+                msg = ("An exception occurred during task execution. To see "
+                       "the full traceback, use -vvv. The error was: %s" % error)
             else:
-                msg = "An exception occurred during task execution. The full traceback is:\n" + result._result['exception']
+                msg = ("An exception occurred during task execution. The full "
+                       "traceback is:\n" + result._result['exception'])
 
             self._display.display(msg, color='red')
 
-            # finally, remove the exception from the result so it's not shown every time
+            # finally, remove the exception from the result so it's not shown
+            # every time
             del result._result['exception']
 
         if result._task.loop and 'results' in result._result:
             self._process_items(result)
         else:
             if delegated_vars:
-                self._display.display("fatal: [%s -> %s]: FAILED! => %s" % (result._host.get_name(), delegated_vars['ansible_host'], self._dump_results(result._result)), color='red')
+                self._display.display("fatal: [%s -> %s]: FAILED! => %s" % (result._host.get_name(
+                ), delegated_vars['ansible_host'], self._dump_results(result._result)), color='red')
             else:
-                self._display.display("fatal: [%s]: FAILED! => %s" % (result._host.get_name(), self._dump_results(result._result)), color='red')
+                self._display.display("fatal: [%s]: FAILED! => %s" % (
+                    result._host.get_name(), self._dump_results(result._result)), color='red')
 
         if result._task.ignore_errors:
             self._display.display("...ignoring", color='cyan')
@@ -100,13 +109,15 @@ class AnsibleCallbacks(CallbackBase):
             return
         elif result._result.get('changed', False):
             if delegated_vars:
-                msg = "changed: [%s -> %s]" % (result._host.get_name(), delegated_vars['ansible_host'])
+                msg = "changed: [%s -> %s]" % (result._host.get_name(),
+                                               delegated_vars['ansible_host'])
             else:
                 msg = "changed: [%s]" % result._host.get_name()
             color = 'yellow'
         else:
             if delegated_vars:
-                msg = "ok: [%s -> %s]" % (result._host.get_name(), delegated_vars['ansible_host'])
+                msg = "ok: [%s -> %s]" % (result._host.get_name(),
+                                          delegated_vars['ansible_host'])
             else:
                 msg = "ok: [%s]" % result._host.get_name()
             color = 'green'
@@ -115,7 +126,8 @@ class AnsibleCallbacks(CallbackBase):
             self._process_items(result)
         else:
 
-            if (self._display.verbosity > 0 or '_ansible_verbose_always' in result._result) and not '_ansible_verbose_override' in result._result:
+            if ((self._display.verbosity > 0 or '_ansible_verbose_always' in result._result) and
+                    '_ansible_verbose_override' not in result._result):
                 msg += " => %s" % (self._dump_results(result._result),)
             self._display.display(msg, color=color)
 
@@ -127,16 +139,19 @@ class AnsibleCallbacks(CallbackBase):
                 self._process_items(result)
             else:
                 msg = "skipping: [%s]" % result._host.get_name()
-                if (self._display.verbosity > 0 or '_ansible_verbose_always' in result._result) and not '_ansible_verbose_override' in result._result:
+                if ((self._display.verbosity > 0 or '_ansible_verbose_always' in result._result) and
+                        '_ansible_verbose_override' not in result._result):
                     msg += " => %s" % self._dump_results(result._result)
                 self._display.display(msg, color='cyan')
 
     def v2_runner_on_unreachable(self, result):
         delegated_vars = result._result.get('_ansible_delegated_vars', None)
         if delegated_vars:
-            self._display.display("fatal: [%s -> %s]: UNREACHABLE! => %s" % (result._host.get_name(), delegated_vars['ansible_host'], self._dump_results(result._result)), color='red')
+            self._display.display("fatal: [%s -> %s]: UNREACHABLE! => %s" % (result._host.get_name(
+            ), delegated_vars['ansible_host'], self._dump_results(result._result)), color='red')
         else:
-            self._display.display("fatal: [%s]: UNREACHABLE! => %s" % (result._host.get_name(), self._dump_results(result._result)), color='red')
+            self._display.display("fatal: [%s]: UNREACHABLE! => %s" % (
+                result._host.get_name(), self._dump_results(result._result)), color='red')
 
     def v2_playbook_on_no_hosts_matched(self):
         self._display.display("skipping: no hosts matched", color='cyan')
@@ -149,7 +164,8 @@ class AnsibleCallbacks(CallbackBase):
         if self._display.verbosity > 2:
             path = task.get_path()
             if path:
-                self._display.display("task path: %s" % path, color='dark gray')
+                self._display.display("task path: %s" %
+                                      path, color='dark gray')
 
     def v2_playbook_on_cleanup_task_start(self, task):
         self._display.banner("CLEANUP TASK [%s]" % task.get_name().strip())
@@ -177,20 +193,23 @@ class AnsibleCallbacks(CallbackBase):
             return
         elif result._result.get('changed', False):
             if delegated_vars:
-                msg = "changed: [%s -> %s]" % (result._host.get_name(), delegated_vars['ansible_host'])
+                msg = "changed: [%s -> %s]" % (result._host.get_name(),
+                                               delegated_vars['ansible_host'])
             else:
                 msg = "changed: [%s]" % result._host.get_name()
             color = 'yellow'
         else:
             if delegated_vars:
-                msg = "ok: [%s -> %s]" % (result._host.get_name(), delegated_vars['ansible_host'])
+                msg = "ok: [%s -> %s]" % (result._host.get_name(),
+                                          delegated_vars['ansible_host'])
             else:
                 msg = "ok: [%s]" % result._host.get_name()
             color = 'green'
 
         msg += " => (item=%s)" % (result._result['item'],)
 
-        if (self._display.verbosity > 0 or '_ansible_verbose_always' in result._result) and not '_ansible_verbose_override' in result._result:
+        if ((self._display.verbosity > 0 or '_ansible_verbose_always' in result._result) and
+                '_ansible_verbose_override' not in result._result):
             msg += " => %s" % self._dump_results(result._result)
         self._display.display(msg, color=color)
 
@@ -200,30 +219,39 @@ class AnsibleCallbacks(CallbackBase):
             if self._display.verbosity < 3:
                 # extract just the actual error message from the exception text
                 error = result._result['exception'].strip().split('\n')[-1]
-                msg = "An exception occurred during task execution. To see the full traceback, use -vvv. The error was: %s" % error
+                msg = ("An exception occurred during task execution. To see the full "
+                       "traceback, use -vvv. The error was: %s" % error)
             else:
-                msg = "An exception occurred during task execution. The full traceback is:\n" + result._result['exception']
+                msg = "An exception occurred during task execution. The full traceback is:\n" + \
+                    result._result['exception']
 
             self._display.display(msg, color='red')
 
-            # finally, remove the exception from the result so it's not shown every time
+            # finally, remove the exception from the result so it's not shown
+            # every time
             del result._result['exception']
 
         if delegated_vars:
-            self._display.display("failed: [%s -> %s] => (item=%s) => %s" % (result._host.get_name(), delegated_vars['ansible_host'], result._result['item'], self._dump_results(result._result)), color='red')
+            self._display.display("failed: [%s -> %s] => (item=%s) => %s" % (result._host.get_name(), delegated_vars[
+                                  'ansible_host'], result._result['item'], self._dump_results(result._result)),
+                                  color='red')
         else:
-            self._display.display("failed: [%s] => (item=%s) => %s" % (result._host.get_name(), result._result['item'], self._dump_results(result._result)), color='red')
+            self._display.display("failed: [%s] => (item=%s) => %s" % (result._host.get_name(
+            ), result._result['item'], self._dump_results(result._result)), color='red')
 
         self._handle_warnings(result._result)
 
     def v2_playbook_item_on_skipped(self, result):
-        msg = "skipping: [%s] => (item=%s) " % (result._host.get_name(), result._result['item'])
-        if (self._display.verbosity > 0 or '_ansible_verbose_always' in result._result) and not '_ansible_verbose_override' in result._result:
+        msg = "skipping: [%s] => (item=%s) " % (
+            result._host.get_name(), result._result['item'])
+        if (self._display.verbosity >
+                0 or '_ansible_verbose_always' in result._result) and '_ansible_verbose_override' not in result._result:
             msg += " => %s" % self._dump_results(result._result)
         self._display.display(msg, color='cyan')
 
     def v2_playbook_on_include(self, included_file):
-        msg = 'included: %s for %s' % (included_file._filename, ", ".join([h.name for h in included_file._hosts]))
+        msg = 'included: %s for %s' % (included_file._filename, ", ".join(
+            [h.name for h in included_file._hosts]))
         self._display.display(msg, color='cyan')
 
     def v2_playbook_on_stats(self, stats):
@@ -253,31 +281,31 @@ class AnsibleCallbacks(CallbackBase):
 
         self._display.display("", screen_only=True)
 
+
 class IMPlaybookExecutor(PlaybookExecutor):
     '''
     Simplified version of the PlaybookExecutor
     '''
-    
-    def __init__(self, playbooks, inventory, variable_manager, loader, options, passwords, output):
-        self._playbooks        = playbooks
-        self._inventory        = inventory
+
+    def __init__(self, playbooks, inventory, variable_manager,
+                 loader, options, passwords, output):
+        self._playbooks = playbooks
+        self._inventory = inventory
         self._variable_manager = variable_manager
-        self._loader           = loader
-        self._options          = options
-        self.passwords         = passwords
+        self._loader = loader
+        self._options = options
+        self.passwords = passwords
         self._unreachable_hosts = dict()
 
-        self._tqm = TaskQueueManager(inventory=inventory, 
-                                    variable_manager=variable_manager, 
-                                    loader=loader, options=options, 
-                                    passwords=self.passwords)
-        
+        self._tqm = TaskQueueManager(inventory=inventory,
+                                     variable_manager=variable_manager,
+                                     loader=loader, options=options,
+                                     passwords=self.passwords)
+
         # Set out Callback as the stdout one to avoid stdout messages
         self._tqm._stdout_callback = AnsibleCallbacks(output)
 
-
     def run(self):
-
         '''
         Run the given playbook, based on the settings in the play which
         may limit the runs to serialized groups, etc.
@@ -285,8 +313,10 @@ class IMPlaybookExecutor(PlaybookExecutor):
         result = 0
         try:
             for playbook_path in self._playbooks:
-                pb = Playbook.load(playbook_path, variable_manager=self._variable_manager, loader=self._loader)
-                self._inventory.set_playbook_basedir(os.path.dirname(playbook_path))
+                pb = Playbook.load(
+                    playbook_path, variable_manager=self._variable_manager, loader=self._loader)
+                self._inventory.set_playbook_basedir(
+                    os.path.dirname(playbook_path))
 
                 i = 1
 
@@ -300,26 +330,32 @@ class IMPlaybookExecutor(PlaybookExecutor):
                     else:
                         self._loader.set_basedir(pb._basedir)
 
-                    # clear any filters which may have been applied to the inventory
+                    # clear any filters which may have been applied to the
+                    # inventory
                     self._inventory.remove_restriction()
 
                     # Create a temporary copy of the play here, so we can run post_validate
-                    # on it without the templating changes affecting the original object.
-                    all_vars = self._variable_manager.get_vars(loader=self._loader, play=play)
+                    # on it without the templating changes affecting the
+                    # original object.
+                    all_vars = self._variable_manager.get_vars(
+                        loader=self._loader, play=play)
                     templar = Templar(loader=self._loader, variables=all_vars)
                     new_play = play.copy()
                     new_play.post_validate(templar)
 
-
-                    self._tqm._unreachable_hosts.update(self._unreachable_hosts)
+                    self._tqm._unreachable_hosts.update(
+                        self._unreachable_hosts)
 
                     # we are actually running plays
                     for batch in self._get_serialized_batches(new_play):
                         if len(batch) == 0:
-                            self._tqm.send_callback('v2_playbook_on_play_start', new_play)
-                            self._tqm.send_callback('v2_playbook_on_no_hosts_matched')
+                            self._tqm.send_callback(
+                                'v2_playbook_on_play_start', new_play)
+                            self._tqm.send_callback(
+                                'v2_playbook_on_no_hosts_matched')
                             break
-                        # restrict the inventory to the hosts in the serialized batch
+                        # restrict the inventory to the hosts in the serialized
+                        # batch
                         self._inventory.restrict_to_hosts(batch)
                         # and run it...
                         result = self._tqm.run(play=play)
@@ -328,17 +364,21 @@ class IMPlaybookExecutor(PlaybookExecutor):
                         # failure percentage allowed, or if any errors are fatal. If either of those
                         # conditions are met, we break out, otherwise we only break out if the entire
                         # batch failed
-                        failed_hosts_count = len(self._tqm._failed_hosts) + len(self._tqm._unreachable_hosts)
+                        failed_hosts_count = len(
+                            self._tqm._failed_hosts) + len(self._tqm._unreachable_hosts)
                         if new_play.any_errors_fatal and failed_hosts_count > 0:
                             break
                         elif new_play.max_fail_percentage is not None and \
-                           int((new_play.max_fail_percentage)/100.0 * len(batch)) > int((len(batch) - failed_hosts_count) / len(batch) * 100.0):
+                                (int((new_play.max_fail_percentage) / 100.0 * len(batch)) >
+                                 int((len(batch) - failed_hosts_count) / len(batch) * 100.0)):
                             break
                         elif len(batch) == failed_hosts_count:
                             break
 
-                        # clear the failed hosts dictionaires in the TQM for the next batch
-                        self._unreachable_hosts.update(self._tqm._unreachable_hosts)
+                        # clear the failed hosts dictionaires in the TQM for
+                        # the next batch
+                        self._unreachable_hosts.update(
+                            self._tqm._unreachable_hosts)
                         self._tqm.clear_failed_hosts()
 
                     # if the last result wasn't zero or 3 (some hosts were unreachable),
@@ -346,11 +386,13 @@ class IMPlaybookExecutor(PlaybookExecutor):
                     if result not in (0, 3):
                         break
 
-                    i = i + 1 # per play
+                    i = i + 1  # per play
 
-                self._tqm.send_callback('v2_playbook_on_stats', self._tqm._stats)
+                self._tqm.send_callback(
+                    'v2_playbook_on_stats', self._tqm._stats)
 
-                # if the last result wasn't zero, break out of the playbook file name loop
+                # if the last result wasn't zero, break out of the playbook
+                # file name loop
                 if result != 0:
                     break
 

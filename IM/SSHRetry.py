@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # IM - Infrastructure Manager
 # Copyright (C) 2011 - GRyCAP - Universitat Politecnica de Valencia
-# 
+#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
@@ -18,6 +18,7 @@
 from IM.retry import retry
 from IM.SSH import SSH
 
+
 class SSHRetry(SSH):
     """ SSH class decorated to perform a number of retries """
     TRIES = 3
@@ -25,7 +26,7 @@ class SSHRetry(SSH):
     BACKOFF = 2
 
     @retry(Exception, tries=TRIES, delay=DELAY, backoff=BACKOFF)
-    def execute(self, command, timeout = None):
+    def execute(self, command, timeout=None):
         return SSH.execute(self, command, timeout)
 
     @retry(Exception, tries=TRIES, delay=DELAY, backoff=BACKOFF)
@@ -71,7 +72,7 @@ class SSHRetry(SSH):
     @retry(Exception, tries=TRIES, delay=DELAY, backoff=BACKOFF)
     def sftp_remove(self, path):
         return SSH.sftp_remove(self, path)
-       
+
     @retry(Exception, tries=TRIES, delay=DELAY, backoff=BACKOFF)
     def sftp_chmod(self, path, mode):
         return SSH.sftp_chmod(self, path, mode)
