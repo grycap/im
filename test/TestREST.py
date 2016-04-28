@@ -160,17 +160,6 @@ class TestIM(unittest.TestCase):
         self.assertEqual(res['code'], 404,
                          msg="Incorrect error message: " + output)
 
-    def test_16_get_incorrect_info_json(self):
-        self.server.request('GET', "/infrastructures/999999", headers={
-                            'AUTHORIZATION': self.auth_data, 'Accept': 'application/json'})
-        resp = self.server.getresponse()
-        output = resp.read()
-        self.assertEqual(resp.status, 404,
-                         msg="Incorrect error message: " + str(resp.status))
-        res = json.loads(output)
-        self.assertEqual(res['code'], 404,
-                         msg="Incorrect error message: " + output)
-
     def test_18_get_info_without_auth_data(self):
         self.server.request('GET', "/infrastructures/0")
         resp = self.server.getresponse()
@@ -179,11 +168,8 @@ class TestIM(unittest.TestCase):
                          msg="Incorrect error message: " + str(resp.status))
 
     def test_20_create(self):
-        f = open(RADL_FILE)
-        radl = ""
-        for line in f.readlines():
-            radl += line
-        f.close()
+        with open(RADL_FILE) as f:
+            radl = f.read()
 
         self.server.request('POST', "/infrastructures", body=radl,
                             headers={'AUTHORIZATION': self.auth_data})
@@ -473,111 +459,8 @@ class TestIM(unittest.TestCase):
         """
         Test the CreateInfrastructure IM function with a TOSCA document
         """
-        tosca = """
-tosca_definitions_version: tosca_simple_yaml_1_0
-
-description: TOSCA test for the IM
-
-repositories:
-  indigo_repository:
-    description: INDIGO Custom types repository
-    url: https://raw.githubusercontent.com/indigo-dc/tosca-types/master/
-
-imports:
-  - indigo_custom_types:
-      file: custom_types.yaml
-      repository: indigo_repository
-
-topology_template:
-  inputs:
-    db_name:
-      type: string
-      default: world
-    db_user:
-      type: string
-      default: dbuser
-    db_password:
-      type: string
-      default: pass
-    mysql_root_password:
-      type: string
-      default: mypass
-
-  node_templates:
-
-    apache:
-      type: tosca.nodes.WebServer.Apache
-      requirements:
-        - host: web_server
-
-    web_server:
-      type: tosca.nodes.indigo.Compute
-      properties:
-        public_ip: yes
-      capabilities:
-        # Host container properties
-        host:
-         properties:
-           num_cpus: 1
-           mem_size: 1 GB
-        # Guest Operating System properties
-        os:
-          properties:
-            # host Operating System image properties
-            type: linux
-            distribution: ubuntu
-
-    test_db:
-      type: tosca.nodes.indigo.Database.MySQL
-      properties:
-        name: { get_input: db_name }
-        user: { get_input: db_user }
-        password: { get_input: db_password }
-        root_password: { get_input: mysql_root_password }
-      artifacts:
-        db_content:
-          file: http://downloads.mysql.com/docs/world.sql.gz
-          type: tosca.artifacts.File
-      requirements:
-        - host:
-            node: mysql
-      interfaces:
-        Standard:
-          configure:
-            implementation: mysql/mysql_db_import.yml
-            inputs:
-              db_name: { get_property: [ SELF, name ] }
-              db_data: { get_artifact: [ SELF, db_content ] }
-              db_name: { get_property: [ SELF, name ] }
-              db_user: { get_property: [ SELF, user ] }
-
-    mysql:
-      type: tosca.nodes.DBMS.MySQL
-      properties:
-        root_password: { get_input: mysql_root_password }
-      requirements:
-        - host:
-            node: db_server
-
-    db_server:
-      type: tosca.nodes.Compute
-      capabilities:
-        # Host container properties
-        host:
-         properties:
-           num_cpus: 1
-           disk_size: 10 GB
-           mem_size: 4 GB
-        os:
-         properties:
-           architecture: x86_64
-           type: linux
-           distribution: ubuntu
-
-  outputs:
-    server_url:
-      value: { get_attribute: [ web_server, public_address ] }
-            """
+        with open(TESTS_PATH + '/test_create.yml') as f:
+            tosca = f.read()
 
         self.server.request('POST', "/infrastructures", body=tosca,
                             headers={'AUTHORIZATION': self.auth_data, 'Content-Type': 'text/yaml'})
@@ -608,113 +491,8 @@ topology_template:
         """
         Test the AddResource IM function with a TOSCA document
         """
-        tosca = """
-tosca_definitions_version: tosca_simple_yaml_1_0
-
-description: TOSCA test for the IM
-
-repositories:
-  indigo_repository:
-    description: INDIGO Custom types repository
-    url: https://raw.githubusercontent.com/indigo-dc/tosca-types/master/
-
-imports:
-  - indigo_custom_types:
-      file: custom_types.yaml
-      repository: indigo_repository
-
-topology_template:
-  inputs:
-    db_name:
-      type: string
-      default: world
-    db_user:
-      type: string
-      default: dbuser
-    db_password:
-      type: string
-      default: pass
-    mysql_root_password:
-      type: string
-      default: mypass
-
-  node_templates:
-      apache:
-      type: tosca.nodes.WebServer.Apache
-      requirements:
-        - host: web_server
-
-    web_server:
-      type: tosca.nodes.indigo.Compute
-      properties:
-        public_ip: yes
-      capabilities:
-        scalable:
-          properties:
-           count: 2
-        # Host container properties
-        host:
-         properties:
-           num_cpus: 1
-           mem_size: 1 GB
-        # Guest Operating System properties
-        os:
-          properties:
-            # host Operating System image properties
-            type: linux
-            distribution: ubuntu
-
-    test_db:
-      type: tosca.nodes.indigo.Database.MySQL
-      properties:
-        name: { get_input: db_name }
-        user: { get_input: db_user }
-        password: { get_input: db_password }
-        root_password: { get_input: mysql_root_password }
-      artifacts:
-        db_content:
-          file: http://downloads.mysql.com/docs/world.sql.gz
-          type: tosca.artifacts.File
-      requirements:
-        - host:
-            node: mysql
-      interfaces:
-        Standard:
-          configure:
-            implementation: mysql/mysql_db_import.yml
-            inputs:
-              db_name: { get_property: [ SELF, name ] }
-              db_data: { get_artifact: [ SELF, db_content ] }
-              db_name: { get_property: [ SELF, name ] }
-              db_user: { get_property: [ SELF, user ] }
-
-    mysql:
-      type: tosca.nodes.DBMS.MySQL
-      properties:
-        root_password: { get_input: mysql_root_password }
-      requirements:
-        - host:
-            node: db_server
-
-    db_server:
-      type: tosca.nodes.Compute
-      capabilities:
-        # Host container properties
-        host:
-         properties:
-           num_cpus: 1
-           disk_size: 10 GB
-           mem_size: 4 GB
-        os:
-         properties:
-           architecture: x86_64
-           type: linux
-           distribution: ubuntu
-
-  outputs:
-    server_url:
-      value: { get_attribute: [ web_server, public_address ] }
-            """
+        with open(TESTS_PATH + '/test_add.yml') as f:
+            tosca = f.read()
 
         self.server.request('POST', "/infrastructures/" + self.inf_id, body=tosca,
                             headers={'AUTHORIZATION': self.auth_data, 'Content-Type': 'text/yaml'})
@@ -738,117 +516,10 @@ topology_template:
 
     def test_96_remove_tosca(self):
         """
-        Test the AddResource IM function with a TOSCA document
+        Test the RemoveResource IM function with a TOSCA document
         """
-        tosca = """
-tosca_definitions_version: tosca_simple_yaml_1_0
-
-description: TOSCA test for the IM
-
-repositories:
-  indigo_repository:
-    description: INDIGO Custom types repository
-    url: https://raw.githubusercontent.com/indigo-dc/tosca-types/master/
-
-imports:
-  - indigo_custom_types:
-      file: custom_types.yaml
-      repository: indigo_repository
-
-topology_template:
-  inputs:
-    db_name:
-      type: string
-      default: world
-    db_user:
-      type: string
-      default: dbuser
-    db_password:
-      type: string
-      default: pass
-    mysql_root_password:
-      type: string
-      default: mypass
-
-  node_templates:
-
-    apache:
-      type: tosca.nodes.WebServer.Apache
-      requirements:
-        - host: web_server
-
-    web_server:
-      type: tosca.nodes.indigo.Compute
-      properties:
-        public_ip: yes
-      capabilities:
-        scalable:
-          properties:
-           count: 1
-           removal_list: ['2']
-        # Host container properties
-        host:
-         properties:
-           num_cpus: 1
-           mem_size: 1 GB
-        # Guest Operating System properties
-        os:
-          properties:
-            # host Operating System image properties
-            type: linux
-            distribution: ubuntu
-
-    test_db:
-      type: tosca.nodes.indigo.Database.MySQL
-      properties:
-        name: { get_input: db_name }
-        user: { get_input: db_user }
-        password: { get_input: db_password }
-        root_password: { get_input: mysql_root_password }
-      artifacts:
-        db_content:
-          file: http://downloads.mysql.com/docs/world.sql.gz
-          type: tosca.artifacts.File
-      requirements:
-        - host:
-            node: mysql
-      interfaces:
-        Standard:
-          configure:
-            implementation: mysql/mysql_db_import.yml
-            inputs:
-              db_name: { get_property: [ SELF, name ] }
-              db_data: { get_artifact: [ SELF, db_content ] }
-              db_name: { get_property: [ SELF, name ] }
-              db_user: { get_property: [ SELF, user ] }
-
-    mysql:
-      type: tosca.nodes.DBMS.MySQL
-      properties:
-        root_password: { get_input: mysql_root_password }
-      requirements:
-        - host:
-            node: db_server
-
-    db_server:
-      type: tosca.nodes.Compute
-      capabilities:
-        # Host container properties
-        host:
-         properties:
-           num_cpus: 1
-           disk_size: 10 GB
-           mem_size: 4 GB
-        os:
-         properties:
-           architecture: x86_64
-           type: linux
-           distribution: ubuntu
-
-  outputs:
-    server_url:
-      value: { get_attribute: [ web_server, public_address ] }
-            """
+        with open(TESTS_PATH + '/test_remove.yml') as f:
+            tosca = f.read()
 
         self.server.request('POST', "/infrastructures/" + self.inf_id, body=tosca,
                             headers={'AUTHORIZATION': self.auth_data, 'Content-Type': 'text/yaml'})
