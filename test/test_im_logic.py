@@ -35,236 +35,253 @@ from radl.radl import RADL, system, deploy, Feature, SoftFeatures
 from IM.CloudInfo import CloudInfo
 from IM.connectors.CloudConnector import CloudConnector
 
+
 class TestIM(unittest.TestCase):
-	def __init__(self, *args):
-		unittest.TestCase.__init__(self, *args)
 
-	def setUp(self):
+    def __init__(self, *args):
+        unittest.TestCase.__init__(self, *args)
 
-		IM._reinit()
-		# Patch save_data
-		IM.save_data = staticmethod(lambda *args: None)
-	
-	def tearDown(self):
-		IM.stop()
+    def setUp(self):
 
-	@staticmethod
-	def getAuth(im_users=[], vmrc_users=[], clouds=[]):
-		return Authentication([
-			{'id': 'im%s'%i, 'type': 'InfrastructureManager', 'username': 'user%s'%i,
-			 'password': 'pass%s'%i} for i in im_users ] + [
-			{'id': 'vmrc%s'%i, 'type': 'VMRC', 'username': 'vmrcuser%s'%i,
-			 'password': 'pass%s'%i, 'host':'hostname'} for i in vmrc_users ] + [
-			{'id': 'cloud%s'%i, 'type': c, 'username': 'user%s'%i,
-			 'password': 'pass%s'%i} for c, i in clouds ])
-		
-	def register_cloudconnector(self, name, cloud_connector):
-		sys.modules['IM.connectors.' + name] = type('MyConnector', (object,),
-		                                         {name + 'CloudConnector': cloud_connector})
-	
-	def gen_launch_res(self, inf, radl, requested_radl, num_vm, auth_data):
-		res = []
-		for i in range(num_vm):
-			cloud = CloudInfo()
-			cloud.type = "DeployedNode"
-			vm = VirtualMachine(inf, "1234", cloud, radl, requested_radl)
-			# create the mock for the vm finalize function
-			vm.finalize = Mock(return_value=(True, vm))
-			res.append((True, vm))
-		return res
-		
-	def test_inf_creation0(self):
-		"""Create infrastructure with empty RADL."""
+        IM._reinit()
+        # Patch save_data
+        IM.save_data = staticmethod(lambda *args: None)
 
-		auth0 = self.getAuth([0])
-		infId = IM.CreateInfrastructure("", auth0)
-		IM.DestroyInfrastructure(infId, auth0)
+    def tearDown(self):
+        IM.stop()
 
-	def test_inf_auth(self):
-		"""Create infrastructure with empty RADL."""
+    @staticmethod
+    def getAuth(im_users=[], vmrc_users=[], clouds=[]):
+        return Authentication([
+            {'id': 'im%s' % i, 'type': 'InfrastructureManager', 'username': 'user%s' % i,
+             'password': 'pass%s' % i} for i in im_users] + [
+            {'id': 'vmrc%s' % i, 'type': 'VMRC', 'username': 'vmrcuser%s' % i,
+             'password': 'pass%s' % i, 'host': 'hostname'} for i in vmrc_users] + [
+            {'id': 'cloud%s' % i, 'type': c, 'username': 'user%s' % i,
+             'password': 'pass%s' % i} for c, i in clouds])
 
-		auth0, auth1 = self.getAuth([0]), self.getAuth([1])
-		infId0 = IM.CreateInfrastructure("", auth0)
-		infId1 = IM.CreateInfrastructure("", auth1)
-		with self.assertRaises(Exception) as ex:
-			IM.DestroyInfrastructure(infId0, auth1)
-		self.assertEqual(str(ex.exception), "Invalid infrastructure ID or access not granted.")
-		with self.assertRaises(Exception) as ex:
-			IM.DestroyInfrastructure(infId1, auth0)
-		self.assertEqual(str(ex.exception), "Invalid infrastructure ID or access not granted.")
-		IM.DestroyInfrastructure(infId0, auth0)
-		IM.DestroyInfrastructure(infId1, auth1)
+    def register_cloudconnector(self, name, cloud_connector):
+        sys.modules['IM.connectors.' + name] = type('MyConnector', (object,),
+                                                    {name + 'CloudConnector': cloud_connector})
 
-	def test_inf_addresources_without_credentials(self):
-		"""Deploy single virtual machine without credentials to check that it raises the correct exception."""
+    def gen_launch_res(self, inf, radl, requested_radl, num_vm, auth_data):
+        res = []
+        for i in range(num_vm):
+            cloud = CloudInfo()
+            cloud.type = "DeployedNode"
+            vm = VirtualMachine(inf, "1234", cloud, radl, requested_radl)
+            # create the mock for the vm finalize function
+            vm.finalize = Mock(return_value=(True, vm))
+            res.append((True, vm))
+        return res
 
-		cloud = CloudConnector
-		
-		radl = RADL()
-		radl.add(system("s0", [ Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er") ]))
-		radl.add(deploy("s0", 1))
-		
-		cloud.launch = Mock(side_effect=self.gen_launch_res)
-		self.register_cloudconnector("Mock", cloud)
-		auth0 = self.getAuth([0], [], [("Mock", 0)])
-		infId = IM.CreateInfrastructure("", auth0)
+    def test_inf_creation0(self):
+        """Create infrastructure with empty RADL."""
 
-		with self.assertRaises(Exception) as ex:
-			IM.AddResource(infId, str(radl), auth0)
-		
-		self.assertIn("No username", ex.exception.message)
+        auth0 = self.getAuth([0])
+        infId = IM.CreateInfrastructure("", auth0)
+        IM.DestroyInfrastructure(infId, auth0)
 
-		IM.DestroyInfrastructure(infId, auth0)
+    def test_inf_auth(self):
+        """Create infrastructure with empty RADL."""
 
-	def test_inf_addresources0(self):
-		"""Deploy single virtual machines and test reference."""
+        auth0, auth1 = self.getAuth([0]), self.getAuth([1])
+        infId0 = IM.CreateInfrastructure("", auth0)
+        infId1 = IM.CreateInfrastructure("", auth1)
+        with self.assertRaises(Exception) as ex:
+            IM.DestroyInfrastructure(infId0, auth1)
+        self.assertEqual(str(ex.exception),
+                         "Invalid infrastructure ID or access not granted.")
+        with self.assertRaises(Exception) as ex:
+            IM.DestroyInfrastructure(infId1, auth0)
+        self.assertEqual(str(ex.exception),
+                         "Invalid infrastructure ID or access not granted.")
+        IM.DestroyInfrastructure(infId0, auth0)
+        IM.DestroyInfrastructure(infId1, auth1)
 
-		cloud = CloudConnector
-		
-		radl = RADL()
-		radl.add(system("s0", [ Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
-								Feature("disk.0.os.credentials.username", "=", "user"),
-								Feature("disk.0.os.credentials.password", "=", "pass") ]))
-		radl.add(deploy("s0", 1))
-		
-		cloud.launch = Mock(side_effect=self.gen_launch_res)
-		self.register_cloudconnector("Mock", cloud)
-		auth0 = self.getAuth([0], [], [("Mock", 0)])
-		infId = IM.CreateInfrastructure("", auth0)
+    def test_inf_addresources_without_credentials(self):
+        """Deploy single virtual machine without credentials to check that it raises the correct exception."""
 
-		vms = IM.AddResource(infId, str(radl), auth0)
-		self.assertEqual(vms, [0])
+        cloud = CloudConnector
 
-		# Test references
-		radl = RADL()
-		radl.add(system("s0", reference=True))
-		radl.add(deploy("s0", 1))
-		vms = IM.AddResource(infId, str(radl), auth0)
-		self.assertEqual(vms, [1])
+        radl = RADL()
+        radl.add(
+            system("s0", [Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er")]))
+        radl.add(deploy("s0", 1))
 
-		IM.DestroyInfrastructure(infId, auth0)
+        cloud.launch = Mock(side_effect=self.gen_launch_res)
+        self.register_cloudconnector("Mock", cloud)
+        auth0 = self.getAuth([0], [], [("Mock", 0)])
+        infId = IM.CreateInfrastructure("", auth0)
 
-	def test_inf_addresources1(self):
-		"""Deploy n independent virtual machines."""
+        with self.assertRaises(Exception) as ex:
+            IM.AddResource(infId, str(radl), auth0)
 
-		n = 100 # Machines to deploy
-		Config.MAX_SIMULTANEOUS_LAUNCHES = n/2  # Test the pool
-		cloud = CloudConnector
-		radl = RADL()
-		radl.add(system("s0", [ Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
-								Feature("disk.0.os.credentials.username", "=", "user"),
-								Feature("disk.0.os.credentials.password", "=", "pass") ]))		
-		radl.add(deploy("s0", n))
-		cloud.launch = Mock(side_effect=self.gen_launch_res)
-		self.register_cloudconnector("Mock", cloud)
-		auth0 = self.getAuth([0], [], [("Mock", 0)])
-		infId = IM.CreateInfrastructure("", auth0)
-		vms = IM.AddResource(infId, str(radl), auth0)
-		self.assertEqual(len(vms), n)
-		self.assertEqual(cloud.launch.call_count, n)
-		for call, _ in cloud.launch.call_args_list:
-			self.assertEqual(call[3], 1)
-		IM.DestroyInfrastructure(infId, auth0)
+        self.assertIn("No username", ex.exception.message)
 
-	def test_inf_addresources2(self):
-		"""Deploy independent virtual machines in two cloud providers."""
+        IM.DestroyInfrastructure(infId, auth0)
 
-		n0, n1 = 2, 5 # Machines to deploy
-		radl = RADL()
-		radl.add(system("s0", [ Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
-								Feature("disk.0.os.credentials.username", "=", "user"),
-								Feature("disk.0.os.credentials.password", "=", "pass") ]))
-		radl.add(system("s1", [ Feature("disk.0.image.url", "=", "mock1://wind.ows.suc.kz"),
-								Feature("disk.0.os.credentials.username", "=", "user"),
-								Feature("disk.0.os.credentials.private_key", "=", "private_key") ]))		
-		radl.add(deploy("s0", n0))
-		radl.add(deploy("s1", n1))
-		
-		Config.MAX_SIMULTANEOUS_LAUNCHES = 10
-		def concreteSystem(s, cloud_id):
-			url = s.getValue("disk.0.image.url")
-			return [s.clone()] if url.partition(":")[0] == cloud_id else []
-		cloud0 = type("MyMock0", (CloudConnector,object), {})
-		cloud0.launch = Mock(side_effect=self.gen_launch_res)
-		cloud0.concreteSystem = lambda _0, s, _1: concreteSystem(s, "mock0")
-		self.register_cloudconnector("Mock0", cloud0)
-		cloud1 = type("MyMock1", (CloudConnector,object), {})
-		cloud1.launch = Mock(side_effect=self.gen_launch_res)
-		cloud1.concreteSystem = lambda _0, s, _1: concreteSystem(s, "mock1")
-		self.register_cloudconnector("Mock1", cloud1)
-		auth0 = self.getAuth([0], [], [("Mock0", 0), ("Mock1", 1)])
-		infId = IM.CreateInfrastructure("", auth0)
-		vms = IM.AddResource(infId, str(radl), auth0)
-		self.assertEqual(len(vms), n0+n1)
-		self.assertEqual(cloud0.launch.call_count, n0)
-		self.assertEqual(cloud1.launch.call_count, n1)
-		for call, _ in cloud0.launch.call_args_list + cloud1.launch.call_args_list:
-			self.assertEqual(call[3], 1)
-		IM.DestroyInfrastructure(infId, auth0)
+    def test_inf_addresources0(self):
+        """Deploy single virtual machines and test reference."""
 
-	def test_inf_addresources3(self):
-		"""Test cloud selection."""
+        cloud = CloudConnector
 
-		n0, n1 = 2, 5 # Machines to deploy
-		radl = RADL()
-		radl.add(system("s0", [ Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
-								SoftFeatures(10, [ Feature("memory.size", "<=", 500) ]),
-								Feature("disk.0.os.credentials.username", "=", "user"),
-								Feature("disk.0.os.credentials.password", "=", "pass") ]))
-		radl.add(system("s1", [ Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
-								SoftFeatures(10, [ Feature("memory.size", ">=", 800) ]),
-								Feature("disk.0.os.credentials.username", "=", "user"),
-								Feature("disk.0.os.credentials.password", "=", "pass") ]))
-		radl.add(deploy("s0", n0))
-		radl.add(deploy("s1", n1))
-		
-		Config.MAX_SIMULTANEOUS_LAUNCHES = 10
-		def concreteSystem(s, mem):
-			return [ system(s.name, [ Feature("memory.size", "=", mem) ]) ]
-		cloud0 = type("MyMock0", (CloudConnector,object), {})
-		cloud0.launch = Mock(side_effect=self.gen_launch_res)
-		cloud0.concreteSystem = lambda _0, s, _1: concreteSystem(s, 500)
-		self.register_cloudconnector("Mock0", cloud0)
-		cloud1 = type("MyMock1", (CloudConnector,object), {})
-		cloud1.launch = Mock(side_effect=self.gen_launch_res)
-		cloud1.concreteSystem = lambda _0, s, _1: concreteSystem(s, 1000)
-		self.register_cloudconnector("Mock1", cloud1)
-		auth0 = self.getAuth([0], [0], [("Mock0", 0), ("Mock1", 1)])
-		infId = IM.CreateInfrastructure("", auth0)
-		vms = IM.AddResource(infId, str(radl), auth0)
-		self.assertEqual(len(vms), n0+n1)
-		self.assertEqual(cloud0.launch.call_count, n0)
-		self.assertEqual(cloud1.launch.call_count, n1)
-		for call, _ in cloud0.launch.call_args_list + cloud1.launch.call_args_list:
-			self.assertEqual(call[3], 1)
-		IM.DestroyInfrastructure(infId, auth0)
+        radl = RADL()
+        radl.add(system("s0", [Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
+                               Feature(
+            "disk.0.os.credentials.username", "=", "user"),
+            Feature("disk.0.os.credentials.password", "=", "pass")]))
+        radl.add(deploy("s0", 1))
 
-	def test_inf_cloud_order(self):
-		"""Test cloud selection in base of the auth data order."""
+        cloud.launch = Mock(side_effect=self.gen_launch_res)
+        self.register_cloudconnector("Mock", cloud)
+        auth0 = self.getAuth([0], [], [("Mock", 0)])
+        infId = IM.CreateInfrastructure("", auth0)
 
-		n0, n1 = 1, 1 # Machines to deploy
-		radl = RADL()
-		radl.add(system("s0", [ Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
-								Feature("cpu.count", "=", 1),
-								Feature("disk.0.os.credentials.username", "=", "user"),
-								Feature("disk.0.os.credentials.password", "=", "pass") ]))
-		radl.add(deploy("s0", n0))
-		radl.add(system("s1", [ Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
-								Feature("cpu.count", "=", 1),
-								Feature("disk.0.os.credentials.username", "=", "user"),
-								Feature("disk.0.os.credentials.password", "=", "pass") ]))
-		radl.add(deploy("s1", n1))
-		
-		cloud0 = type("MyMock0", (CloudConnector,object), {})
-		cloud0.launch = Mock(side_effect=self.gen_launch_res)
-		self.register_cloudconnector("Mock0", cloud0)
-		cloud1 = type("MyMock1", (CloudConnector,object), {})
-		cloud1.launch = Mock(side_effect=self.gen_launch_res)
-		self.register_cloudconnector("Mock1", cloud1)
-		auth0 = self.getAuth([0], [0], [("Mock0", 0), ("Mock1", 1)])
-		infId = IM.CreateInfrastructure(str(radl), auth0)
-		self.assertEqual(cloud0.launch.call_count, n0 + n1)
-		IM.DestroyInfrastructure(infId, auth0)
+        vms = IM.AddResource(infId, str(radl), auth0)
+        self.assertEqual(vms, [0])
+
+        # Test references
+        radl = RADL()
+        radl.add(system("s0", reference=True))
+        radl.add(deploy("s0", 1))
+        vms = IM.AddResource(infId, str(radl), auth0)
+        self.assertEqual(vms, [1])
+
+        IM.DestroyInfrastructure(infId, auth0)
+
+    def test_inf_addresources1(self):
+        """Deploy n independent virtual machines."""
+
+        n = 80  # Machines to deploy
+        Config.MAX_SIMULTANEOUS_LAUNCHES = n / 2  # Test the pool
+        cloud = CloudConnector
+        radl = RADL()
+        radl.add(system("s0", [Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
+                               Feature(
+            "disk.0.os.credentials.username", "=", "user"),
+            Feature("disk.0.os.credentials.password", "=", "pass")]))
+        radl.add(deploy("s0", n))
+        cloud.launch = Mock(side_effect=self.gen_launch_res)
+        self.register_cloudconnector("Mock", cloud)
+        auth0 = self.getAuth([0], [], [("Mock", 0)])
+        infId = IM.CreateInfrastructure("", auth0)
+        vms = IM.AddResource(infId, str(radl), auth0)
+        self.assertEqual(len(vms), n)
+        self.assertEqual(cloud.launch.call_count, n)
+        for call, _ in cloud.launch.call_args_list:
+            self.assertEqual(call[3], 1)
+        IM.DestroyInfrastructure(infId, auth0)
+
+    def test_inf_addresources2(self):
+        """Deploy independent virtual machines in two cloud providers."""
+
+        n0, n1 = 2, 5  # Machines to deploy
+        radl = RADL()
+        radl.add(system("s0", [Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
+                               Feature(
+            "disk.0.os.credentials.username", "=", "user"),
+            Feature("disk.0.os.credentials.password", "=", "pass")]))
+        radl.add(system("s1", [Feature("disk.0.image.url", "=", "mock1://wind.ows.suc.kz"),
+                               Feature(
+            "disk.0.os.credentials.username", "=", "user"),
+            Feature("disk.0.os.credentials.private_key", "=", "private_key")]))
+        radl.add(deploy("s0", n0))
+        radl.add(deploy("s1", n1))
+
+        Config.MAX_SIMULTANEOUS_LAUNCHES = 10
+
+        def concreteSystem(s, cloud_id):
+            url = s.getValue("disk.0.image.url")
+            return [s.clone()] if url.partition(":")[0] == cloud_id else []
+        cloud0 = type("MyMock0", (CloudConnector, object), {})
+        cloud0.launch = Mock(side_effect=self.gen_launch_res)
+        cloud0.concreteSystem = lambda _0, s, _1: concreteSystem(s, "mock0")
+        self.register_cloudconnector("Mock0", cloud0)
+        cloud1 = type("MyMock1", (CloudConnector, object), {})
+        cloud1.launch = Mock(side_effect=self.gen_launch_res)
+        cloud1.concreteSystem = lambda _0, s, _1: concreteSystem(s, "mock1")
+        self.register_cloudconnector("Mock1", cloud1)
+        auth0 = self.getAuth([0], [], [("Mock0", 0), ("Mock1", 1)])
+        infId = IM.CreateInfrastructure("", auth0)
+        vms = IM.AddResource(infId, str(radl), auth0)
+        self.assertEqual(len(vms), n0 + n1)
+        self.assertEqual(cloud0.launch.call_count, n0)
+        self.assertEqual(cloud1.launch.call_count, n1)
+        for call, _ in cloud0.launch.call_args_list + cloud1.launch.call_args_list:
+            self.assertEqual(call[3], 1)
+        IM.DestroyInfrastructure(infId, auth0)
+
+    def test_inf_addresources3(self):
+        """Test cloud selection."""
+
+        n0, n1 = 2, 5  # Machines to deploy
+        radl = RADL()
+        radl.add(system("s0", [Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
+                               SoftFeatures(
+                                   10, [Feature("memory.size", "<=", 500)]),
+                               Feature(
+            "disk.0.os.credentials.username", "=", "user"),
+            Feature("disk.0.os.credentials.password", "=", "pass")]))
+        radl.add(system("s1", [Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
+                               SoftFeatures(
+                                   10, [Feature("memory.size", ">=", 800)]),
+                               Feature(
+            "disk.0.os.credentials.username", "=", "user"),
+            Feature("disk.0.os.credentials.password", "=", "pass")]))
+        radl.add(deploy("s0", n0))
+        radl.add(deploy("s1", n1))
+
+        Config.MAX_SIMULTANEOUS_LAUNCHES = 10
+
+        def concreteSystem(s, mem):
+            return [system(s.name, [Feature("memory.size", "=", mem)])]
+        cloud0 = type("MyMock0", (CloudConnector, object), {})
+        cloud0.launch = Mock(side_effect=self.gen_launch_res)
+        cloud0.concreteSystem = lambda _0, s, _1: concreteSystem(s, 500)
+        self.register_cloudconnector("Mock0", cloud0)
+        cloud1 = type("MyMock1", (CloudConnector, object), {})
+        cloud1.launch = Mock(side_effect=self.gen_launch_res)
+        cloud1.concreteSystem = lambda _0, s, _1: concreteSystem(s, 1000)
+        self.register_cloudconnector("Mock1", cloud1)
+        auth0 = self.getAuth([0], [0], [("Mock0", 0), ("Mock1", 1)])
+        infId = IM.CreateInfrastructure("", auth0)
+        vms = IM.AddResource(infId, str(radl), auth0)
+        self.assertEqual(len(vms), n0 + n1)
+        self.assertEqual(cloud0.launch.call_count, n0)
+        self.assertEqual(cloud1.launch.call_count, n1)
+        for call, _ in cloud0.launch.call_args_list + cloud1.launch.call_args_list:
+            self.assertEqual(call[3], 1)
+        IM.DestroyInfrastructure(infId, auth0)
+
+    def test_inf_cloud_order(self):
+        """Test cloud selection in base of the auth data order."""
+
+        n0, n1 = 1, 1  # Machines to deploy
+        radl = RADL()
+        radl.add(system("s0", [Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
+                               Feature("cpu.count", "=", 1),
+                               Feature(
+            "disk.0.os.credentials.username", "=", "user"),
+            Feature("disk.0.os.credentials.password", "=", "pass")]))
+        radl.add(deploy("s0", n0))
+        radl.add(system("s1", [Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
+                               Feature("cpu.count", "=", 1),
+                               Feature(
+            "disk.0.os.credentials.username", "=", "user"),
+            Feature("disk.0.os.credentials.password", "=", "pass")]))
+        radl.add(deploy("s1", n1))
+
+        cloud0 = type("MyMock0", (CloudConnector, object), {})
+        cloud0.launch = Mock(side_effect=self.gen_launch_res)
+        self.register_cloudconnector("Mock0", cloud0)
+        cloud1 = type("MyMock1", (CloudConnector, object), {})
+        cloud1.launch = Mock(side_effect=self.gen_launch_res)
+        self.register_cloudconnector("Mock1", cloud1)
+        auth0 = self.getAuth([0], [0], [("Mock0", 0), ("Mock1", 1)])
+        infId = IM.CreateInfrastructure(str(radl), auth0)
+        self.assertEqual(cloud0.launch.call_count, n0 + n1)
+        IM.DestroyInfrastructure(infId, auth0)
 
 if __name__ == "__main__":
-	unittest.main()
+    unittest.main()
