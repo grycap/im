@@ -201,3 +201,4 @@ IM 1.4.4
     * Enable accept type in all REST API calls
     * Bugfix in threads management with ThreadPool
     * Bugfixes in Azure connector
+    * Inprove conf-ansible recipe and set Ansible version to 2.0.2

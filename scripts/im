@@ -73,7 +73,7 @@ function stop() {
         echo -n "Stopping IM Daemon: "
         if [ -f ${PIDFILE} ]
         then
-                kill `cat ${PIDFILE}`
+                kill -s SIGINT `cat ${PIDFILE}`
                 rm -f ${PIDFILE}
         fi
         echo "[OK]"

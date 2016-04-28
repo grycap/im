@@ -1,6 +1,6 @@
 # IM - Infrastructure Manager
 # Copyright (C) 2015 - GRyCAP - Universitat Politecnica de Valencia
-# 
+#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
@@ -25,6 +25,7 @@ import fnmatch
 import datetime
 import logging
 
+
 def display(msg, color=None, stderr=False, screen_only=False, log_only=False, runner=None, output=sys.stdout):
     if not log_only:
         msg2 = msg
@@ -33,31 +34,32 @@ def display(msg, color=None, stderr=False, screen_only=False, log_only=False, ru
         else:
             print >>output, msg2
 
+
 class AggregateStats(object):
     ''' holds stats about per-host activity during playbook runs '''
 
     def __init__(self):
 
-        self.processed   = {}
-        self.failures    = {}
-        self.ok          = {}
-        self.dark        = {}
-        self.changed     = {}
-        self.skipped     = {}
+        self.processed = {}
+        self.failures = {}
+        self.ok = {}
+        self.dark = {}
+        self.changed = {}
+        self.skipped = {}
 
     def _increment(self, what, host):
         ''' helper function to bump a statistic '''
 
         self.processed[host] = 1
         prev = (getattr(self, what)).get(host, 0)
-        getattr(self, what)[host] = prev+1
+        getattr(self, what)[host] = prev + 1
 
     def compute(self, runner_results, setup=False, poll=False, ignore_errors=False):
         ''' walk through all results and increment stats '''
 
         for (host, value) in runner_results.get('contacted', {}).iteritems():
             if not ignore_errors and (('failed' in value and bool(value['failed'])) or
-                ('rc' in value and value['rc'] != 0)):
+                                      ('rc' in value and value['rc'] != 0)):
                 self._increment('failures', host)
             elif 'skipped' in value and bool(value['skipped']):
                 self._increment('skipped', host)
@@ -72,22 +74,22 @@ class AggregateStats(object):
         for (host, value) in runner_results.get('dark', {}).iteritems():
             self._increment('dark', host)
 
-
     def summarize(self, host):
         ''' return information about a particular host '''
 
         return dict(
-            ok          = self.ok.get(host, 0),
-            failures    = self.failures.get(host, 0),
-            unreachable = self.dark.get(host,0),
-            changed     = self.changed.get(host, 0),
-            skipped     = self.skipped.get(host, 0)
+            ok=self.ok.get(host, 0),
+            failures=self.failures.get(host, 0),
+            unreachable=self.dark.get(host, 0),
+            changed=self.changed.get(host, 0),
+            skipped=self.skipped.get(host, 0)
         )
 
 ########################################################################
 
+
 def banner(msg):
-    str_date =  str(datetime.datetime.now())
+    str_date = str(datetime.datetime.now())
     width = 78 - len(str_date + " - " + msg)
     if width < 3:
         width = 3
@@ -95,6 +97,7 @@ def banner(msg):
     return "\n%s %s " % (str_date + " - " + msg, filler)
 
 ########################################################################
+
 
 class PlaybookRunnerCallbacks(object):
     ''' callbacks used for Runner() from /usr/bin/ansible-playbook '''
@@ -123,30 +126,37 @@ class PlaybookRunnerCallbacks(object):
         parsed = results2.get('parsed', True)
         module_msg = ''
         if not parsed:
-            module_msg  = results2.pop('msg', None)
+            module_msg = results2.pop('msg', None)
         stderr = results2.pop('stderr', None)
         stdout = results2.pop('stdout', None)
         returned_msg = results2.pop('msg', None)
 
         if item:
-            msg = "failed: [%s] => (item=%s) => %s" % (host, item, ansible.utils.jsonify(results2))
+            msg = "failed: [%s] => (item=%s) => %s" % (
+                host, item, ansible.utils.jsonify(results2))
         else:
-            msg = "failed: [%s] => %s" % (host, ansible.utils.jsonify(results2))
+            msg = "failed: [%s] => %s" % (
+                host, ansible.utils.jsonify(results2))
         display(msg, color='red', runner=self.runner, output=self.output)
 
         if stderr:
-            display("stderr: %s" % stderr, color='red', runner=self.runner, output=self.output)
+            display("stderr: %s" % stderr, color='red',
+                    runner=self.runner, output=self.output)
         if stdout:
-            display("stdout: %s" % stdout, color='red', runner=self.runner, output=self.output)
+            display("stdout: %s" % stdout, color='red',
+                    runner=self.runner, output=self.output)
         if returned_msg:
-            display("msg: %s" % returned_msg, color='red', runner=self.runner, output=self.output)
+            display("msg: %s" % returned_msg, color='red',
+                    runner=self.runner, output=self.output)
         if not parsed and module_msg:
-            display("invalid output was: %s" % module_msg, color='red', runner=self.runner, output=self.output)
+            display("invalid output was: %s" % module_msg, color='red',
+                    runner=self.runner, output=self.output)
         if ignore_errors:
-            display("...ignoring", color='cyan', runner=self.runner, output=self.output)
+            display("...ignoring", color='cyan',
+                    runner=self.runner, output=self.output)
 
     def on_ok(self, host, host_result):
-        
+
         item = host_result.get('item', None)
 
         host_result2 = host_result.copy()
@@ -159,7 +169,7 @@ class PlaybookRunnerCallbacks(object):
 
         # show verbose output for non-setup module results if --verbose is used
         msg = ''
-        if (not self.verbose or host_result2.get("verbose_override",None) is not
+        if (not self.verbose or host_result2.get("verbose_override", None) is not
                 None) and verbose_always is None:
             if item:
                 msg = "%s: [%s] => (item=%s)" % (ok_or_changed, host, item)
@@ -169,16 +179,20 @@ class PlaybookRunnerCallbacks(object):
         else:
             # verbose ...
             if item:
-                msg = "%s: [%s] => (item=%s) => %s" % (ok_or_changed, host, item, ansible.utils.jsonify(host_result2))
+                msg = "%s: [%s] => (item=%s) => %s" % (
+                    ok_or_changed, host, item, ansible.utils.jsonify(host_result2))
             else:
                 if 'ansible_job_id' not in host_result or 'finished' in host_result2:
-                    msg = "%s: [%s] => %s" % (ok_or_changed, host, ansible.utils.jsonify(host_result2))
+                    msg = "%s: [%s] => %s" % (
+                        ok_or_changed, host, ansible.utils.jsonify(host_result2))
 
         if msg != '':
             if not changed:
-                display(msg, color='green', runner=self.runner, output=self.output)
+                display(msg, color='green',
+                        runner=self.runner, output=self.output)
             else:
-                display(msg, color='yellow', runner=self.runner, output=self.output)
+                display(msg, color='yellow',
+                        runner=self.runner, output=self.output)
 
     def on_error(self, host, err):
 
@@ -189,7 +203,8 @@ class PlaybookRunnerCallbacks(object):
         else:
             msg = "err: [%s] => %s" % (host, err)
 
-        display(msg, color='red', stderr=True, runner=self.runner, output=self.output)
+        display(msg, color='red', stderr=True,
+                runner=self.runner, output=self.output)
 
     def on_skipped(self, host, item=None):
         msg = ''
@@ -200,28 +215,32 @@ class PlaybookRunnerCallbacks(object):
         display(msg, color='cyan', runner=self.runner, output=self.output)
 
     def on_no_hosts(self):
-        display("FATAL: no hosts matched or all hosts have already failed -- aborting\n", color='red', runner=self.runner, output=self.output)
+        display("FATAL: no hosts matched or all hosts have already failed -- aborting\n",
+                color='red', runner=self.runner, output=self.output)
 
     def on_async_poll(self, host, res, jid, clock):
         if jid not in self._async_notified:
             self._async_notified[jid] = clock + 1
         if self._async_notified[jid] > clock:
             self._async_notified[jid] = clock
-            msg = "<job %s> polling, %ss remaining"%(jid, clock)
+            msg = "<job %s> polling, %ss remaining" % (jid, clock)
             display(msg, color='cyan', runner=self.runner, output=self.output)
 
     def on_async_ok(self, host, res, jid):
-        msg = "<job %s> finished on %s"%(jid, host)
+        msg = "<job %s> finished on %s" % (jid, host)
         display(msg, color='cyan', runner=self.runner, output=self.output)
 
     def on_async_failed(self, host, res, jid):
         msg = "<job %s> FAILED on %s" % (jid, host)
-        display(msg, color='red', stderr=True, runner=self.runner, output=self.output)
+        display(msg, color='red', stderr=True,
+                runner=self.runner, output=self.output)
 
     def on_file_diff(self, host, diff):
-        display(ansible.utils.get_diff(diff), runner=self.runner, output=self.output)
+        display(ansible.utils.get_diff(diff),
+                runner=self.runner, output=self.output)
 
 ########################################################################
+
 
 class PlaybookCallbacks(object):
     ''' playbook.py callbacks used by /usr/bin/ansible-playbook '''
@@ -229,7 +248,7 @@ class PlaybookCallbacks(object):
     def __init__(self, verbose=False, output=sys.stdout):
 
         self.verbose = verbose
-        self.output=output
+        self.output = output
 
     def on_start(self):
         pass
@@ -241,24 +260,26 @@ class PlaybookCallbacks(object):
         display("skipping: no hosts matched", color='cyan', output=self.output)
 
     def on_no_hosts_remaining(self):
-        display("\nFATAL: all hosts have already failed -- aborting", color='red', output=self.output)
+        display("\nFATAL: all hosts have already failed -- aborting",
+                color='red', output=self.output)
 
     def on_task_start(self, name, is_conditional):
         msg = "TASK: [%s]" % name
         if is_conditional:
             msg = "NOTIFIED: [%s]" % name
-        
+
         if hasattr(self, 'start_at'):
             if name == self.start_at or fnmatch.fnmatch(name, self.start_at):
                 # we found out match, we can get rid of this now
                 del self.start_at
 
-        if hasattr(self, 'start_at'): # we still have start_at so skip the task
+        if hasattr(self, 'start_at'):  # we still have start_at so skip the task
             self.skip_task = True
         elif hasattr(self, 'step') and self.step:
-            msg = ('Perform task: %s (y/n/c): ' % name).encode(sys.stdout.encoding)
+            msg = ('Perform task: %s (y/n/c): ' %
+                   name).encode(sys.stdout.encoding)
             resp = raw_input(msg)
-            if resp.lower() in ['y','yes']:
+            if resp.lower() in ['y', 'yes']:
                 self.skip_task = False
                 display(banner(msg), output=self.output)
             elif resp.lower() in ['c', 'continue']:
@@ -271,7 +292,8 @@ class PlaybookCallbacks(object):
             self.skip_task = False
             display(banner(msg), output=self.output)
 
-    def on_vars_prompt(self, varname, private=True, prompt=None, encrypt=None, confirm=False, salt_size=None, salt=None, default=None):
+    def on_vars_prompt(self, varname, private=True, prompt=None, encrypt=None, confirm=False,
+                       salt_size=None, salt=None, default=None):
 
         if prompt and default:
             msg = "%s [%s]: " % (prompt, default)
@@ -285,14 +307,14 @@ class PlaybookCallbacks(object):
                 return getpass.getpass(prompt)
             return raw_input(prompt)
 
-
         if confirm:
             while True:
                 result = prompt(msg, private)
                 second = prompt("confirm " + msg, private)
                 if result == second:
                     break
-                display("***** VALUES ENTERED DO NOT MATCH ****", output=self.output)
+                display("***** VALUES ENTERED DO NOT MATCH ****",
+                        output=self.output)
         else:
             result = prompt(msg, private)
 
@@ -300,9 +322,8 @@ class PlaybookCallbacks(object):
         if not result and default:
             result = default
 
-
         if encrypt:
-            result = ansible.utils.do_encrypt(result,encrypt,salt_size,salt)
+            result = ansible.utils.do_encrypt(result, encrypt, salt_size, salt)
 
         return result
 
@@ -322,5 +343,3 @@ class PlaybookCallbacks(object):
 
     def on_stats(self, stats):
         pass
-
-

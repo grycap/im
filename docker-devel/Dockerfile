@@ -1,29 +1,8 @@
-# Dockerfile to create a container with the IM service and TOSCA support
-FROM ubuntu:14.04
+# Dockerfile to create a container with the IM service
+FROM grycapjenkins/im-base:latest
 MAINTAINER Miguel Caballer <micafer1@upv.es>
-LABEL version="1.4.3"
+LABEL version="1.4.4"
 LABEL description="Container image to run the IM service with TOSCA support. (http://www.grycap.upv.es/im)"
-
-# Update and install all the neccesary packages
-RUN apt-get update && apt-get install -y \
-    gcc \
-    python-dev \
-    python-pip \
-    python-soappy \
-    python-pbr \
-    python-dateutil \
-    python-mock \
-    python-nose \
-    openssh-client \
-    sshpass \
-    git \
-    libssl-dev \
-    libffi-dev \
- && apt-get clean \
- && rm -rf /var/lib/apt/lists/*
-
-# Install CherryPy to enable HTTPS in REST API
-RUN pip install CherryPy pyOpenSSL
 
 # Install tosca-parser
 RUN cd tmp \

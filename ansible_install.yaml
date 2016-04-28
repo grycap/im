@@ -1,0 +1,20 @@
+- hosts: localhost
+  connection: local
+  tasks:
+    - name: Yum install epel-release
+      action: yum pkg=epel-release state=installed
+      when: ansible_os_family == "RedHat"
+
+    - name: Yum install requisites
+      action: yum pkg=git,gcc,python-devel,python-pip,SOAPpy,python-requests state=installed
+      when: ansible_os_family == "RedHat"
+
+    - name: Apt-get install requisites
+      apt: pkg=git,python-pip,python-dev,python-soappy state=installed update_cache=yes cache_valid_time=3600
+      when: ansible_os_family == "Debian"
+
+    - name: pip install tosca-parser
+      pip: name=git+http://github.com/indigo-dc/tosca-parser editable=false
+
+    - name: pip install IM
+      pip: name=git+http://github.com/indigo-dc/im editable=false
