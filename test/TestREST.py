@@ -103,7 +103,7 @@ class TestIM(unittest.TestCase):
 
                 if vm_state == VirtualMachine.UNCONFIGURED:
                     self.server.request('GET', "/infrastructures/" + self.inf_id + "/contmsg",
-                                        headers = {'AUTHORIZATION' : self.auth_data})
+                                        headers={'AUTHORIZATION': self.auth_data})
                     resp = self.server.getresponse()
                     output = str(resp.read())
                     print output
