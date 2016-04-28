@@ -101,6 +101,13 @@ class TestIM(unittest.TestCase):
                 self.assertEqual(resp.status, 200,
                                  msg="ERROR getting VM info:" + vm_state)
 
+                if vm_state == VirtualMachine.UNCONFIGURED:
+                    self.server.request('GET', "/infrastructures/" + self.inf_id + "/contmsg",
+                                        headers = {'AUTHORIZATION' : self.auth_data})
+                    resp = self.server.getresponse()
+                    output = str(resp.read())
+                    print output
+
                 self.assertFalse(vm_state in err_states, msg=("ERROR waiting for a state. '%s' state was expected "
                                                               "and '%s' was obtained in the VM %s" % (state,
                                                                                                       vm_state,
