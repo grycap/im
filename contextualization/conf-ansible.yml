@@ -14,23 +14,23 @@
       when: ansible_os_family == "Debian"
 
     - name: EPEL
-      template: src=utils/templates/epel.repo dest=/etc/yum.repos.d/epel.repo
+      yum: name=epel-release
       when: ansible_os_family == "RedHat" and ansible_distribution != "Fedora"
     
     - name: Apt install requirements
-      apt: name=unzip,gcc,python-dev,openssh-client,sshpass,python-pip
+      apt: name=unzip,gcc,python-dev,openssh-client,sshpass,python-pip,libffi-dev,libssl-dev
       when: ansible_os_family == "Debian"
 
     - name: Yum install requirements RH or Fedora
-      yum: name=python-distribute,gcc,python-devel,wget,openssh-clients,sshpass,python-pip
+      yum: name=python-distribute,gcc,python-devel,wget,openssh-clients,sshpass,python-pip,libffi-devel,openssl-devel
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version >= 6
     
     - name: Yum install requirements RH5
-      yum: name=python26,python26-simplejson,python26-distribute,gcc,python26-devel,openssh-clients,sshpass
+      yum: name=python26,python26-simplejson,python26-distribute,gcc,python26-devel,openssh-clients,sshpass,libffi-devel,openssl-devel
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version < 6
 
     - name: Zypper install requirements Suse   
-      zypper: name=python,python-pip,gcc,python-devel,wget state=present
+      zypper: name=python,python-pip,gcc,python-devel,wget,libffi-devel,openssl-devel state=present
       when: ansible_os_family == "Suse"
 
     - name: Install Pip 2.6
@@ -49,7 +49,7 @@
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version < 6
 
     - name: Install ansible with Pip
-      pip: name=ansible version={{ ANSIBLE_VERSION }}
+      pip: name=ansible version={{ ANSIBLE_VERSION }} extra_args="-I"
       when: ansible_os_family == "Suse" or ansible_os_family == "Debian" or (ansible_os_family == "RedHat" and ansible_distribution_major_version >= 6)
       
     - name: Install ansible with Pip 2.6
