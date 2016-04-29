@@ -322,7 +322,7 @@ def RESTGetInfrastructureProperty(id=None, prop=None):
             bottle.response.content_type = "application/json"
             sel_inf = InfrastructureManager.get_infrastructure(id, auth)
             if "TOSCA" in sel_inf.extra_info:
-                res = Tosca(sel_inf.extra_info["TOSCA"]).get_outputs(sel_inf)
+                res = sel_inf.extra_info["TOSCA"].get_outputs(sel_inf)
             else:
                 bottle.abort(
                     403, "'outputs' infrastructure property is not valid in this infrastructure")
@@ -382,8 +382,8 @@ def RESTCreateInfrastructure():
             if "application/json" in content_type:
                 radl_data = parse_radl_json(radl_data)
             elif "text/yaml" in content_type:
-                tosca_data = radl_data
-                _, radl_data = Tosca(radl_data).to_radl()
+                tosca_data = Tosca(radl_data)
+                _, radl_data = tosca_data.to_radl()
             elif "text/plain" in content_type or "*/*" in content_type or "text/*" in content_type:
                 content_type = "text/plain"
             else:
@@ -493,9 +493,9 @@ def RESTAddResource(id=None):
             if "application/json" in content_type:
                 radl_data = parse_radl_json(radl_data)
             elif "text/yaml" in content_type:
-                tosca_data = radl_data
+                tosca_data = Tosca(radl_data)
                 sel_inf = InfrastructureManager.get_infrastructure(id, auth)
-                remove_list, radl_data = Tosca(radl_data).to_radl(sel_inf)
+                remove_list, radl_data = tosca_data.to_radl(sel_inf)
             elif "text/plain" in content_type or "*/*" in content_type or "text/*" in content_type:
                 content_type = "text/plain"
             else:
