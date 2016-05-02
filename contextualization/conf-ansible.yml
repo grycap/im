@@ -4,8 +4,8 @@
   become_method: sudo
   vars:
     # Use different variables because not allways theses three repos has the same last version
-    PIP_ANSIBLE_VERSION: 2.0.2.0
-    APT_ANSIBLE_VERSION: 2.0.2
+    PIP_ANSIBLE_VERSION: 2.0.2
+    APT_ANSIBLE_VERSION: 2.0.2.*
     YUM_ANSIBLE_VERSION: 2.0.1.0
   tasks:
     - name: Install libselinux-python in RH
