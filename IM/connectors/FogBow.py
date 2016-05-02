@@ -113,6 +113,9 @@ class FogBowCloudConnector(CloudConnector):
                     res_system.addFeature(Feature(
                         "provider.port", "=", self.cloud.port), conflict="other", missing="other")
 
+                    res_system.delValue('disk.0.os.credentials.username')
+                    res_system.setValue('disk.0.os.credentials.username', 'fogbow')
+
                     res.append(res_system)
 
             return res

@@ -40,6 +40,8 @@ class OCCICloudConnector(CloudConnector):
     """str with the name of the provider."""
     INSTANCE_TYPE = 'small'
     """str with the name of the default instance type to launch."""
+    DEFAULT_USER = 'cloudadm'
+    """ default user to SSH access the VM """
 
     VM_STATE_MAP = {
         'waiting': VirtualMachine.PENDING,
@@ -153,6 +155,12 @@ class OCCICloudConnector(CloudConnector):
                         "provider.host", "=", self.cloud.server), conflict="other", missing="other")
                     res_system.addFeature(Feature(
                         "provider.port", "=", self.cloud.port), conflict="other", missing="other")
+
+                    username = res_system.getValue(
+                        'disk.0.os.credentials.username')
+                    if not username:
+                        res_system.setValue(
+                            'disk.0.os.credentials.username', self.DEFAULT_USER)
 
                     res.append(res_system)
 
@@ -381,10 +389,12 @@ class OCCICloudConnector(CloudConnector):
         finally:
             self.delete_proxy(conn)
 
-    def gen_cloud_config(self, public_key, user='cloudadm', cloud_config_str=None):
+    def gen_cloud_config(self, public_key, user=None, cloud_config_str=None):
         """
         Generate the cloud-config file to be used in the user_data of the OCCI VM
         """
+        if not user:
+            user = self.DEFAULT_USER
         config = """#cloud-config
 users:
   - name: %s
@@ -613,7 +623,7 @@ users:
 
         user = system.getValue('disk.0.os.credentials.username')
         if not user:
-            user = "cloudadm"
+            user = self.DEFAULT_USER
             system.setValue('disk.0.os.credentials.username', user)
 
         user_data = ""
