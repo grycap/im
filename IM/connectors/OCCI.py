@@ -29,7 +29,6 @@ from CloudConnector import CloudConnector
 from radl.radl import Feature
 from netaddr import IPNetwork, IPAddress
 from IM.config import Config
-from mock import DEFAULT
 
 
 class OCCICloudConnector(CloudConnector):
