@@ -21,7 +21,7 @@
       when: ansible_os_family == "RedHat" and ansible_distribution != "Fedora"
 
 ####################### Install Ansible in Ubuntu and RHEL systems with apt and yum ###################################
-######################### because they have recent version in system repositories #####################################
+################### because they have recent versions of ansible in system repositories ###############################
 
     - name: Ubuntu install requirements
       apt: name=software-properties-common
