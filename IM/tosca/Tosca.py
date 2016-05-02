@@ -199,10 +199,10 @@ class Tosca:
                     if cap_props and "network_name" in cap_props:
                         if cap_props["network_name"].value == "PUBLIC":
                             public_ip = True
-                if "dns_name" in cap_props:
-                    dns_name = cap_props["dns_name"].value
-                if "ports" in cap_props:
-                    ports = cap_props["ports"].value
+                    if cap_props and "dns_name" in cap_props:
+                        dns_name = cap_props["dns_name"].value
+                    if cap_props and "ports" in cap_props:
+                        ports = cap_props["ports"].value
 
             # If the node needs a public IP
             if public_ip:
