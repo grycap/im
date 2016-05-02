@@ -145,6 +145,27 @@ class Tosca:
         return current_num
 
     @staticmethod
+    def _format_outports(ports_dict):
+        res = ""
+        for port in ports_dict.values():
+            # TODO: format ranges
+            protocol = "tcp"
+            if "protocol" in port:
+                protocol = port["protocol"]
+            if "source" in port:
+                remote_port = port["source"]
+            if "target" in port:
+                local_port = port["target"]
+            else:
+                local_port = remote_port
+
+            if res:
+                res += ","
+            res += "%s/%s-%s/%s" % (remote_port, protocol, local_port, protocol)
+
+        return res
+
+    @staticmethod
     def _add_node_nets(node, radl, system, nodetemplates):
 
         # Find associated Networks
@@ -162,12 +183,26 @@ class Tosca:
                     system.setValue('net_interface.%d.ip' % num, ip)
         else:
             public_ip = False
-            node_props = node.get_properties_objects()
-            if node_props:
-                for prop in node_props:
-                    if prop.name == "public_ip":
-                        public_ip = prop.value
-                        break
+
+            # This is the solution using the public_ip property
+            node_props = node.get_properties()
+            if node_props and "public_ip" in node_props:
+                public_ip = node_props["public_ip"].value
+
+            # This is the solution using endpoints
+            dns_name = None
+            ports = {}
+            node_caps = node.get_capabilities()
+            if node_caps:
+                if "endpoint" in node_caps:
+                    cap_props = node_caps["endpoint"].get_properties()
+                    if cap_props and "network_name" in cap_props:
+                        if cap_props["network_name"].value == "PUBLIC":
+                            public_ip = True
+                    if cap_props and "dns_name" in cap_props:
+                        dns_name = cap_props["dns_name"].value
+                    if cap_props and "ports" in cap_props:
+                        ports = cap_props["ports"].value
 
             # If the node needs a public IP
             if public_ip:
@@ -195,8 +230,12 @@ class Tosca:
                     radl.networks.append(public_net)
                     num_net = system.getNumNetworkIfaces()
 
-                system.setValue('net_interface.' + str(num_net) +
-                                '.connection', public_net.id)
+                if ports:
+                    public_net.setValue("outports", Tosca._format_outports(ports))
+
+                system.setValue('net_interface.%d.connection' % num_net, public_net.id)
+                if dns_name:
+                    system.setValue('net_interface.%d.dns_name' % num_net, dns_name)
 
             # The private net is always added
             private_nets = []

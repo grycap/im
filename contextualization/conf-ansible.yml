@@ -3,7 +3,10 @@
   become: yes
   become_method: sudo
   vars:
-    ANSIBLE_VERSION: 2.0.2
+    # Use different variables because not allways theses three repos has the same last version
+    PIP_ANSIBLE_VERSION: 2.0.2
+    APT_ANSIBLE_VERSION: 2.0.2.*
+    YUM_ANSIBLE_VERSION: 2.0.1.0
   tasks:
     - name: Install libselinux-python in RH
       action: yum pkg=libselinux-python state=installed
@@ -14,23 +17,44 @@
       when: ansible_os_family == "Debian"
 
     - name: EPEL
-      template: src=utils/templates/epel.repo dest=/etc/yum.repos.d/epel.repo
+      yum: name=epel-release
       when: ansible_os_family == "RedHat" and ansible_distribution != "Fedora"
-    
-    - name: Apt install requirements
-      apt: name=unzip,gcc,python-dev,openssh-client,sshpass,python-pip
-      when: ansible_os_family == "Debian"
 
-    - name: Yum install requirements RH or Fedora
+####################### Install Ansible in Ubuntu and RHEL systems with apt and yum ###################################
+################### because they have recent versions of ansible in system repositories ###############################
+
+    - name: Ubuntu install requirements
+      apt: name=software-properties-common
+      when: ansible_distribution == "Ubuntu"
+    
+    - name: Ubuntu install Ansible PPA repo  
+      apt_repository: repo='ppa:ansible/ansible'
+      when: ansible_distribution == "Ubuntu"
+      
+    - name: Ubuntu install Ansible with apt
+      apt: name="ansible={{ APT_ANSIBLE_VERSION }},python-pip,python-jinja2,sshpass,openssh-client,unzip"
+      when: ansible_distribution == "Ubuntu"
+      
+    - name: Yum install Ansible RH
+      yum: name=ansible-{{ YUM_ANSIBLE_VERSION }},python-pip,python-jinja2,sshpass,openssh-clients,wget
+      when: ansible_os_family == "RedHat" and ansible_distribution_major_version >= 6 and ansible_distribution != "Fedora"
+    
+############################################ In other systems use pip #################################################
+
+    - name: Apt install requirements
+      apt: name=unzip,gcc,python-dev,openssh-client,sshpass,python-pip,libffi-dev,libssl-dev
+      when: ansible_os_family == "Debian" and ansible_distribution != "Ubuntu"
+    
+    - name: Yum install requirements Fedora
       yum: name=python-distribute,gcc,python-devel,wget,openssh-clients,sshpass,python-pip
-      when: ansible_os_family == "RedHat" and ansible_distribution_major_version >= 6
+      when: ansible_distribution == "Fedora"
     
     - name: Yum install requirements RH5
-      yum: name=python26,python26-simplejson,python26-distribute,gcc,python26-devel,openssh-clients,sshpass
+      yum: name=python26,python26-simplejson,python26-distribute,gcc,python26-devel,openssh-clients,sshpass,libffi-devel,openssl-devel
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version < 6
 
     - name: Zypper install requirements Suse   
-      zypper: name=python,python-pip,gcc,python-devel,wget state=present
+      zypper: name=python,python-pip,gcc,python-devel,wget,libffi-devel,openssl-devel state=present
       when: ansible_os_family == "Suse"
 
     - name: Install Pip 2.6
@@ -49,16 +73,18 @@
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version < 6
 
     - name: Install ansible with Pip
-      pip: name=ansible version={{ ANSIBLE_VERSION }}
-      when: ansible_os_family == "Suse" or ansible_os_family == "Debian" or (ansible_os_family == "RedHat" and ansible_distribution_major_version >= 6)
+      pip: name=ansible version={{ PIP_ANSIBLE_VERSION }} extra_args="-I"
+      when: ansible_os_family == "Suse" or (ansible_os_family == "Debian" and ansible_distribution != "Ubuntu") or ansible_distribution == "Fedora"
       
     - name: Install ansible with Pip 2.6
-      pip: name=ansible version={{ ANSIBLE_VERSION }} executable=pip-2.6
+      pip: name=ansible version={{ PIP_ANSIBLE_VERSION }} executable=pip-2.6
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version < 6
+      
+#################################### Now install and scp and pywinrm with pip  ########################################
       
     - name: Install scp and pywinrm with Pip
       pip: name="scp pywinrm"
-      when: ansible_os_family == "Suse" or ansible_os_family == "Debian" or (ansible_os_family == "RedHat" and ansible_distribution_major_version >= 6)
+      when: ansible_os_family != "RedHat" or (ansible_os_family == "RedHat" and ansible_distribution_major_version >= 6)
       
     - name: Install scp and pywinrm with Pip 2.6
       pip: name="scp pywinrm" executable=pip-2.6
@@ -69,6 +95,8 @@
       when: ansible_os_family == "RedHat"
       ignore_errors: yes
       
+################################################ Configure Ansible  ###################################################
+
     - name: Create /etc/ansible
       file: path=/etc/ansible state=directory
       
