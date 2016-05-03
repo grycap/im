@@ -351,10 +351,10 @@ def replace_vm_ip(vm_data):
     with open(filename) as f:
         inventoy_data = ""
         for line in f:
-            line = re.sub(" ansible_host=%s" % vm_data[
-                          'ip'], " ansible_host=%s" % vm_data['ctxt_ip'] + "_", line)
-            line = re.sub(" ansible_ssh_host=%s" % vm_data[
-                          'ip'], " ansible_ssh_host=%s" % vm_data['ctxt_ip'] + "_", line)
+            line = re.sub(" ansible_host=%s " % vm_data['ip'],
+                          " ansible_host=%s " % vm_data['ctxt_ip'], line)
+            line = re.sub(" ansible_ssh_host=%s " % vm_data['ip'],
+                          " ansible_ssh_host=%s " % vm_data['ctxt_ip'], line)
             inventoy_data += line
 
     with open(filename, 'w+') as f:
