@@ -49,6 +49,6 @@ setup(name="IM", version=version,
                         "the user with a fully functional infrastructure."),
       description="IM is a tool to manage virtual infrastructures on Cloud deployments",
       platforms=["any"],
-      install_requires=["ansible >= 1.8, < 2", "paramiko >= 1.14", "PyYAML", "SOAPpy",
+      install_requires=["ansible >= 1.8", "paramiko >= 1.14", "PyYAML", "SOAPpy",
                         "boto >= 2.29", "apache-libcloud >= 0.17", "RADL", "bottle", "netaddr", "scp"]
       )
