@@ -30,8 +30,6 @@ from IM.VirtualMachine import VirtualMachine
 from radl import radl_parse
 from IM import __version__ as version
 
-RADL_ADD = "network publica\nnetwork privada\nsystem wn\ndeploy wn 1"
-RADL_ADD_ERROR = "system wnno deploy wnno 1"
 TESTS_PATH = os.path.dirname(os.path.realpath(__file__))
 RADL_FILE = TESTS_PATH + '/quick-test.radl'
 AUTH_FILE = TESTS_PATH + '/auth.dat'
@@ -211,8 +209,9 @@ class QuickTestIM(unittest.TestCase):
         """
         Test to get error when adding a resource with an incorrect RADL
         """
+        radl_add_error = "system wnno deploy wnno 1"
         (success, res) = self.server.AddResource(
-            self.inf_id, RADL_ADD_ERROR, self.auth_data)
+            self.inf_id, radl_add_error, self.auth_data)
         self.assertFalse(
             success, msg="Incorrect RADL in AddResource not returned error")
         pos = res.find("Unknown reference in RADL")
@@ -223,8 +222,9 @@ class QuickTestIM(unittest.TestCase):
         """
         Test AddResource function
         """
+        radl_add = "network publica\nnetwork privada\nsystem front\ndeploy front 1"
         (success, res) = self.server.AddResource(
-            self.inf_id, RADL_ADD, self.auth_data)
+            self.inf_id, radl_add, self.auth_data)
         self.assertTrue(success, msg="ERROR calling AddResource: " + str(res))
 
         (success, vm_ids) = self.server.GetInfrastructureInfo(
@@ -260,8 +260,9 @@ class QuickTestIM(unittest.TestCase):
         """
         Test AddResource function with the contex option to False
         """
+        radl_add = "network publica\nnetwork privada\nsystem wn\ndeploy wn 1"
         (success, res) = self.server.AddResource(
-            self.inf_id, RADL_ADD, self.auth_data, False)
+            self.inf_id, radl_add, self.auth_data, False)
         self.assertTrue(success, msg="ERROR calling AddResource: " + str(res))
 
         (success, vm_ids) = self.server.GetInfrastructureInfo(
