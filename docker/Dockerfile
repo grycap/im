@@ -7,7 +7,7 @@ EXPOSE 8899
 RUN apt-get update && apt-get install -y gcc python-dev python-pip python-soappy openssh-client sshpass libssl-dev libffi-dev
 # Install CherryPy to enable HTTPS in REST API
 RUN pip install setuptools --upgrade -I
-RUN pip install CherryPy pyOpenSSL
+RUN pip install CherryPy pyOpenSSL --upgrade -I
 RUN pip install IM
 RUN pip uninstall -y SOAPpy
 COPY ansible.cfg /etc/ansible/ansible.cfg
