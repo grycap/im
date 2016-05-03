@@ -21,7 +21,7 @@ RUN apt-get update && apt-get install -y \
 
 # Install CherryPy to enable HTTPS in REST API
 RUN pip install setuptools --upgrade -I
-RUN pip install pbr CherryPy pyOpenSSL
+RUN pip install pbr CherryPy pyOpenSSL --upgrade -I
 
 # Install tosca-parser
 RUN cd tmp \
