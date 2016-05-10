@@ -489,16 +489,16 @@ class InfrastructureInfo:
         if self.auth is not None:
             self_im_auth = self.auth.getAuthInfo("InfrastructureManager")[0]
             other_im_auth = auth.getAuthInfo("InfrastructureManager")[0]
-            
-            for elem in ['username','password']:
+
+            for elem in ['username', 'password']:
                 if elem not in other_im_auth:
                     return False
                 if self_im_auth[elem] != other_im_auth[elem]:
                     return False
-            
+
             if 'token' in self_im_auth:
                 if 'token' not in other_im_auth:
-                    return False 
+                    return False
                 decoded_token = json.loads(JWT().unpack(other_im_auth['token']).part[1])
                 password = str(decoded_token['iss']) + str(decoded_token['sub'])
                 # check that the token provided is associated with the current owner of the inf.

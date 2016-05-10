@@ -140,7 +140,7 @@ class TestIM(unittest.TestCase):
         output = str(resp.read())
         self.assertEqual(resp.status, 200,
                          msg="ERROR listing user infrastructures:" + output)
-        
+
     def test_12_list_with_incorrect_token(self):
         f = open(AUTH_FILE)
         token = ("eyJraWQiOiJyc2ExIiwiYWxnIjoiUlMyNTYifQ.eyJzdWIiOiJkYzVkNWFiNy02ZGI5LTQwNzktOTg1Yy04MGFjMDUwMTcwNjYi"
@@ -153,7 +153,7 @@ class TestIM(unittest.TestCase):
             if line.find("type = InfrastructureManager") == -1:
                 auth_data += line.strip() + "\\n"
         f.close()
-        
+
         self.server.request('GET', "/infrastructures",
                             headers={'AUTHORIZATION': auth_data})
         resp = self.server.getresponse()
