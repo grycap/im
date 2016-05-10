@@ -37,6 +37,8 @@ from IM.db import DataBase
 
 from config import Config
 from IM.VirtualMachine import VirtualMachine
+from IM.openid.JWT import JWT
+from IM.openid.OpenIDClient import OpenIDClient
 
 if Config.MAX_SIMULTANEOUS_LAUNCHES > 1:
     from multiprocessing.pool import ThreadPool
@@ -250,7 +252,7 @@ class InfrastructureManager:
                 "Error, incorrect infrastructure ID")
             raise IncorrectInfrastructureException()
         sel_inf = InfrastructureManager.infrastructure_list[inf_id]
-        if sel_inf.auth is not None and not sel_inf.auth.compare(auth, 'InfrastructureManager'):
+        if not sel_inf.is_authorized(auth):
             InfrastructureManager.logger.error("Access Error")
             raise IncorrectInfrastructureException()
         if sel_inf.deleted:
@@ -280,6 +282,7 @@ class InfrastructureManager:
 
         Return: "" if success.
         """
+        auth = InfrastructureManager.check_auth_data(auth)
 
         InfrastructureManager.logger.info(
             "Reconfiguring the inf: " + str(inf_id))
@@ -382,6 +385,7 @@ class InfrastructureManager:
 
         Return(list of int): ids of the new virtual machine created.
         """
+        auth = InfrastructureManager.check_auth_data(auth)
 
         InfrastructureManager.logger.info(
             "Adding resources to inf: " + str(inf_id))
@@ -605,6 +609,7 @@ class InfrastructureManager:
 
         Return(int): number of undeployed virtual machines.
         """
+        auth = InfrastructureManager.check_auth_data(auth)
 
         InfrastructureManager.logger.info(
             "Removing the VMs: " + str(vm_list) + " from inf ID: '" + str(inf_id) + "'")
@@ -665,6 +670,8 @@ class InfrastructureManager:
 
         Return: a str with the property value
         """
+        auth = InfrastructureManager.check_auth_data(auth)
+
         radl = InfrastructureManager.GetVMInfo(inf_id, vm_id, auth)
 
         res = None
@@ -685,6 +692,7 @@ class InfrastructureManager:
 
         Return: a str with the information about the VM
         """
+        auth = InfrastructureManager.check_auth_data(auth)
 
         InfrastructureManager.logger.info(
             "Get information about the vm: '" + str(vm_id) + "' from inf: " + str(inf_id))
@@ -716,6 +724,7 @@ class InfrastructureManager:
 
         Return: a str with the contextualization log of the VM
         """
+        auth = InfrastructureManager.check_auth_data(auth)
 
         InfrastructureManager.logger.info(
             "Get contextualization log of the vm: '" + str(vm_id) + "' from inf: " + str(inf_id))
@@ -740,6 +749,7 @@ class InfrastructureManager:
 
         Return: a str with the information about the VM
         """
+        auth = InfrastructureManager.check_auth_data(auth)
 
         InfrastructureManager.logger.info(
             "Modifying the VM: '" + str(vm_id) + "' from inf: " + str(inf_id))
@@ -785,6 +795,7 @@ class InfrastructureManager:
 
         Return: str with the RADL
         """
+        auth = InfrastructureManager.check_auth_data(auth)
 
         InfrastructureManager.logger.info(
             "Getting RADL of the inf: " + str(inf_id))
@@ -807,6 +818,8 @@ class InfrastructureManager:
 
         Return: a list of str: list of virtual machine ids.
         """
+        auth = InfrastructureManager.check_auth_data(auth)
+
         InfrastructureManager.logger.info(
             "Getting information about the inf: " + str(inf_id))
 
@@ -831,6 +844,7 @@ class InfrastructureManager:
 
         Return: a str with the cont msg
         """
+        auth = InfrastructureManager.check_auth_data(auth)
 
         InfrastructureManager.logger.info(
             "Getting cont msg of the inf: " + str(inf_id))
@@ -860,6 +874,7 @@ class InfrastructureManager:
             - 'state': str with the aggregated state of the infrastructure
             - 'vm_states': a dict indexed with the id of the VM and its state as value
         """
+        auth = InfrastructureManager.check_auth_data(auth)
 
         InfrastructureManager.logger.info(
             "Getting state of the inf: " + str(inf_id))
@@ -930,6 +945,7 @@ class InfrastructureManager:
 
         Return(str): error messages; empty string means all was ok.
         """
+        auth = InfrastructureManager.check_auth_data(auth)
 
         InfrastructureManager.logger.info(
             "Stopping the infrastructure id: " + str(inf_id))
@@ -982,6 +998,7 @@ class InfrastructureManager:
 
         Return(str): error messages; empty string means all was ok.
         """
+        auth = InfrastructureManager.check_auth_data(auth)
 
         InfrastructureManager.logger.info(
             "Starting the infrastructure id: " + str(inf_id))
@@ -1023,6 +1040,7 @@ class InfrastructureManager:
 
         Return(str): error messages; empty string means all was ok.
         """
+        auth = InfrastructureManager.check_auth_data(auth)
 
         InfrastructureManager.logger.info(
             "Starting the VM id %s from the infrastructure id: %s" % (vm_id, inf_id))
@@ -1056,6 +1074,8 @@ class InfrastructureManager:
 
         Return(str): error messages; empty string means all was ok.
         """
+        # First check the auth data
+        auth = InfrastructureManager.check_auth_data(auth)
 
         InfrastructureManager.logger.info(
             "Stopping the VM id %s from the infrastructure id: %s" % (vm_id, inf_id))
@@ -1101,6 +1121,8 @@ class InfrastructureManager:
 
         Return: None.
         """
+        # First check the auth data
+        auth = InfrastructureManager.check_auth_data(auth)
 
         InfrastructureManager.logger.info(
             "Destroying the infrastructure id: " + str(inf_id))
@@ -1175,6 +1197,44 @@ class InfrastructureManager:
             return True
 
     @staticmethod
+    def check_iam_token(im_auth):
+        token = im_auth["token"]
+        success = False
+        try:
+            # decode the token to get the issuer
+            decoded_token = JWT().get_info(token)
+            success, userinfo = OpenIDClient.get_user_info_request(token)
+            if success:
+                # convert to username to use it in the rest of the IM
+                im_auth['username'] = str(userinfo.get("preferred_username"))
+                im_auth['password'] = str(decoded_token['iss']) + str(userinfo.get("sub"))
+        except Exception, ex:
+            InfrastructureManager.logger.exception(
+                "Error trying to validate auth token: %s" % str(ex))
+            raise Exception("Error trying to validate auth token: %s" % str(ex))
+
+        if not success:
+            InfrastructureManager.logger.error(
+                "Incorrect auth token: %s" % userinfo)
+            raise UnauthorizedUserException("Invalid InfrastructureManager credentials %s" % userinfo)
+
+    @staticmethod
+    def check_auth_data(auth):
+        # First check if it is configured to check the users from a list
+        im_auth = auth.getAuthInfo("InfrastructureManager")[0]
+
+        # First check if the IAM token is included
+        if "token" in im_auth:
+            InfrastructureManager.check_iam_token(im_auth)
+        else:
+            # if not assume the basic user/password auth data
+            if not InfrastructureManager.check_im_user(im_auth):
+                raise UnauthorizedUserException()
+
+        # We have to check if TTS is needed for other auth item
+        return auth
+
+    @staticmethod
     def CreateInfrastructure(radl, auth):
         """
         Create a new infrastructure.
@@ -1190,9 +1250,8 @@ class InfrastructureManager:
         Return(int): the new infrastructure ID if successful.
         """
 
-        # First check if it is configured to check the users from a list
-        if not InfrastructureManager.check_im_user(auth.getAuthInfo("InfrastructureManager")):
-            raise UnauthorizedUserException()
+        # First check the auth data
+        auth = InfrastructureManager.check_auth_data(auth)
 
         if not auth.getAuthInfo("InfrastructureManager"):
             raise Exception(
@@ -1232,6 +1291,7 @@ class InfrastructureManager:
 
         Return(list of int): list of infrastructure ids.
         """
+        auth = InfrastructureManager.check_auth_data(auth)
 
         InfrastructureManager.logger.info("Listing the user infrastructures")
 
@@ -1243,7 +1303,7 @@ class InfrastructureManager:
 
         res = []
         for elem in InfrastructureManager.infrastructure_list.values():
-            if elem.auth is not None and elem.auth.compare(auth, 'InfrastructureManager') and not elem.deleted:
+            if elem.is_authorized(auth) and not elem.deleted:
                 res.append(elem.id)
 
         return res
@@ -1251,6 +1311,7 @@ class InfrastructureManager:
     @staticmethod
     def ExportInfrastructure(inf_id, delete, auth_data):
         auth = Authentication(auth_data)
+        auth = InfrastructureManager.check_auth_data(auth)
 
         sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
         str_inf = pickle.dumps(sel_inf)
@@ -1265,6 +1326,8 @@ class InfrastructureManager:
     @staticmethod
     def ImportInfrastructure(str_inf, auth_data):
         auth = Authentication(auth_data)
+        auth = InfrastructureManager.check_auth_data(auth)
+
         try:
             new_inf = pickle.loads(str_inf)
         except Exception, ex:

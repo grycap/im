@@ -14,7 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import sys
 import logging
 import threading
 import time
@@ -26,6 +25,7 @@ from datetime import datetime
 from radl.radl import RADL, Feature, deploy, system, contextualize_item
 from config import Config
 from Queue import PriorityQueue
+from IM.openid.JWT import JWT
 
 
 class IncorrectVMException(Exception):
@@ -480,3 +480,30 @@ class InfrastructureInfo:
                 # update the ConfManager auth
                 self.cm.auth = auth
                 self.cm.init_time = time.time()
+
+    def is_authorized(self, auth):
+        """
+        Checks if the auth data provided is authorized to access this infrastructure
+        """
+        if self.auth is not None:
+            self_im_auth = self.auth.getAuthInfo("InfrastructureManager")[0]
+            other_im_auth = auth.getAuthInfo("InfrastructureManager")[0]
+
+            for elem in ['username', 'password']:
+                if elem not in other_im_auth:
+                    return False
+                if self_im_auth[elem] != other_im_auth[elem]:
+                    return False
+
+            if 'token' in self_im_auth:
+                if 'token' not in other_im_auth:
+                    return False
+                decoded_token = JWT().get_info(other_im_auth['token'])
+                password = str(decoded_token['iss']) + str(decoded_token['sub'])
+                # check that the token provided is associated with the current owner of the inf.
+                if self_im_auth['password'] != password:
+                    return False
+
+            return True
+        else:
+            return False

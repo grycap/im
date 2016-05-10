@@ -141,6 +141,26 @@ class TestIM(unittest.TestCase):
         self.assertEqual(resp.status, 200,
                          msg="ERROR listing user infrastructures:" + output)
 
+    def test_12_list_with_incorrect_token(self):
+        f = open(AUTH_FILE)
+        token = ("eyJraWQiOiJyc2ExIiwiYWxnIjoiUlMyNTYifQ.eyJzdWIiOiJkYzVkNWFiNy02ZGI5LTQwNzktOTg1Yy04MGFjMDUwMTcwNjYi"
+                 "LCJpc3MiOiJodHRwczpcL1wvaWFtLXRlc3QuaW5kaWdvLWRhdGFjbG91ZC5ldVwvIiwiZXhwIjoxNDYyODY5MjgxLCJpYXQiOjE"
+                 "0NjI4NjU2ODEsImp0aSI6Ijc1M2M4ZTI1LWU3MGMtNGI5MS05YWJhLTcxNDI5NTg3MzUzOSJ9.iA9nv7QdkmfgJPSQ_77_eKrvh"
+                 "P1xwZ1Z91xzrZ0Bzue0ark4qRMlHCdZvad1tunURaSsHHMsFYQ3H7oQj-ZSYWOfr1KxMaIo4pWaVHrW8qsCMLmqdNfubR54GmTh"
+                 "M4cA2ZdNZa8neVT8jUvzR1YX-5cz7sp2gWbW9LAwejoXDtk")
+        auth_data = "type = InfrastructureManager; token = %s\\n" % token
+        for line in f.readlines():
+            if line.find("type = InfrastructureManager") == -1:
+                auth_data += line.strip() + "\\n"
+        f.close()
+
+        self.server.request('GET', "/infrastructures",
+                            headers={'AUTHORIZATION': auth_data})
+        resp = self.server.getresponse()
+        output = str(resp.read())
+        self.assertEqual(resp.status, 401,
+                         msg="ERROR using an invalid token. A 401 error is expected:" + output)
+
     def test_15_get_incorrect_info(self):
         self.server.request('GET', "/infrastructures/999999",
                             headers={'AUTHORIZATION': self.auth_data})
