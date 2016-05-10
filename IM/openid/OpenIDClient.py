@@ -23,9 +23,6 @@ from JWT import JWT
 
 
 class OpenIDClient(object):
-    def __init__(self):
-        self.a = 1
-
     @staticmethod
     def get_connection(url):
         """
@@ -45,6 +42,9 @@ class OpenIDClient(object):
 
     @staticmethod
     def get_user_info_request(token):
+        """
+        Get a the user info from a token
+        """
         try:
             decoded_token = JWT().get_info(token)
             headers = {'Authorization': 'Bearer %s' % token}

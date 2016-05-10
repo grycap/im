@@ -26,23 +26,23 @@ class JWT(object):
     @staticmethod
     def b64d(b):
         """Decode some base64-encoded bytes.
-    
+
         Raises Exception if the string contains invalid characters or padding.
-    
+
         :param b: bytes
         """
-    
+
         cb = b.rstrip(b"=")  # shouldn't but there you are
-    
+
         # Python's base64 functions ignore invalid characters, so we need to
         # check for them explicitly.
         b64_re = re.compile(b"^[A-Za-z0-9_-]*$")
         if not b64_re.match(cb):
             raise Exception(cb, "base64-encoded data contains illegal characters")
-    
+
         if cb == b:
             b = JWT.add_padding(b)
-    
+
         return base64.urlsafe_b64decode(b)
 
     @staticmethod
