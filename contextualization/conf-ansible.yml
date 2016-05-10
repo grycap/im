@@ -2,11 +2,6 @@
 - hosts: all
   become: yes
   become_method: sudo
-  vars:
-    # Use different variables because not allways theses three repos has the same last version
-    PIP_ANSIBLE_VERSION: 2.0.2
-    APT_ANSIBLE_VERSION: 2.0.2.*
-    YUM_ANSIBLE_VERSION: 2.0.1.0
   tasks:
     - name: Install libselinux-python in RH
       action: yum pkg=libselinux-python state=installed
@@ -32,11 +27,11 @@
       when: ansible_distribution == "Ubuntu"
       
     - name: Ubuntu install Ansible with apt
-      apt: name="ansible={{ APT_ANSIBLE_VERSION }},python-pip,python-jinja2,sshpass,openssh-client,unzip"
+      apt: name=ansible,python-pip,python-jinja2,sshpass,openssh-client,unzip
       when: ansible_distribution == "Ubuntu"
       
     - name: Yum install Ansible RH
-      yum: name=ansible-{{ YUM_ANSIBLE_VERSION }},python-pip,python-jinja2,sshpass,openssh-clients,wget
+      yum: name=ansible,python-pip,python-jinja2,sshpass,openssh-clients,wget
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version >= 6 and ansible_distribution != "Fedora"
     
 ############################################ In other systems use pip #################################################
@@ -73,11 +68,11 @@
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version < 6
 
     - name: Install ansible with Pip
-      pip: name=ansible version={{ PIP_ANSIBLE_VERSION }} extra_args="-I"
+      pip: name=ansible extra_args="-I"
       when: ansible_os_family == "Suse" or (ansible_os_family == "Debian" and ansible_distribution != "Ubuntu") or ansible_distribution == "Fedora"
       
     - name: Install ansible with Pip 2.6
-      pip: name=ansible version={{ PIP_ANSIBLE_VERSION }} executable=pip-2.6
+      pip: name=ansible executable=pip-2.6
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version < 6
       
 #################################### Now install and scp and pywinrm with pip  ########################################
