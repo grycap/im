@@ -25,8 +25,7 @@ from datetime import datetime
 from radl.radl import RADL, Feature, deploy, system, contextualize_item
 from config import Config
 from Queue import PriorityQueue
-from jwkest.jwt import JWT
-import json
+from IM.openid.JWT import JWT
 
 
 class IncorrectVMException(Exception):
@@ -499,7 +498,7 @@ class InfrastructureInfo:
             if 'token' in self_im_auth:
                 if 'token' not in other_im_auth:
                     return False
-                decoded_token = json.loads(JWT().unpack(other_im_auth['token']).part[1])
+                decoded_token = JWT().get_info(other_im_auth['token'])
                 password = str(decoded_token['iss']) + str(decoded_token['sub'])
                 # check that the token provided is associated with the current owner of the inf.
                 if self_im_auth['password'] != password:

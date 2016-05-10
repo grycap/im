@@ -17,9 +17,6 @@ RUN cd tmp \
  && python setup.py install
 COPY ansible.cfg /etc/ansible/ansible.cfg
 
-# Remove and install again pycrypto to avoid problems with pycryptodome  
-RUN echo y | pip uninstall pycrypto && pip install pycrypto
-
 # Turn on the REST services
 RUN sed -i "/ACTIVATE_REST =.*/c\ACTIVATE_REST=True" /etc/im/im.cfg
 

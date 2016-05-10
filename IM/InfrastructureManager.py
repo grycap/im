@@ -37,11 +37,8 @@ from IM.db import DataBase
 
 from config import Config
 from IM.VirtualMachine import VirtualMachine
-
-from oic.oic import Client
-from oic.exception import PyoidcError
-from oic.utils.authn.client import CLIENT_AUTHN_METHOD
-from jwkest.jwt import JWT
+from IM.openid.JWT import JWT
+from IM.openid.OpenIDClient import OpenIDClient
 
 if Config.MAX_SIMULTANEOUS_LAUNCHES > 1:
     from multiprocessing.pool import ThreadPool
@@ -1204,19 +1201,16 @@ class InfrastructureManager:
         token = im_auth["token"]
         try:
             # decode the token to get the issuer
-            decoded_token = json.loads(JWT().unpack(token).part[1])
-            # create the client using the iss url
-            client = Client(client_authn_method=CLIENT_AUTHN_METHOD)
-            client.userinfo_endpoint = "%s/userinfo" % decoded_token['iss']
-
-            userinfo = client.do_user_info_request(token=token)
-            # convert to username to use it in the rest of the IM
-            im_auth['username'] = str(userinfo.get("preferred_username"))
-            im_auth['password'] = str(decoded_token['iss']) + str(userinfo.get("sub"))
-        except PyoidcError, oiex:
-            InfrastructureManager.logger.debug(
-                "Incorrect auth token: %s" % str(oiex))
-            raise UnauthorizedUserException()
+            decoded_token = JWT().get_info(token)
+            success, userinfo = OpenIDClient.get_user_info_request(token)
+            if success:
+                # convert to username to use it in the rest of the IM
+                im_auth['username'] = str(userinfo.get("preferred_username"))
+                im_auth['password'] = str(decoded_token['iss']) + str(userinfo.get("sub"))
+            else:
+                InfrastructureManager.logger.error(
+                    "Incorrect auth token: %s" % userinfo)
+                raise UnauthorizedUserException("Invalid InfrastructureManager credentials %s" % userinfo)
         except Exception, ex:
             InfrastructureManager.logger.exception(
                 "Error trying to validate auth token: %s" % str(ex))
