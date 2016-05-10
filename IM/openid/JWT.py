@@ -4,6 +4,7 @@ import re
 
 _b64_re = re.compile(b"^[A-Za-z0-9_-]*$")
 
+
 def add_padding(b):
     # add padding chars
     m = len(b) % 4
@@ -16,6 +17,7 @@ def add_padding(b):
     elif m == 3:
         b += b"="
     return b
+
 
 def b64d(b):
     """Decode some base64-encoded bytes.
@@ -36,6 +38,7 @@ def b64d(b):
         b = add_padding(b)
 
     return base64.urlsafe_b64decode(b)
+
 
 class JWT(object):
     def __init__(self):
