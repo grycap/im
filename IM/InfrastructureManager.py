@@ -1199,6 +1199,7 @@ class InfrastructureManager:
     @staticmethod
     def check_iam_token(im_auth):
         token = im_auth["token"]
+        success = False
         try:
             # decode the token to get the issuer
             decoded_token = JWT().get_info(token)
@@ -1207,14 +1208,15 @@ class InfrastructureManager:
                 # convert to username to use it in the rest of the IM
                 im_auth['username'] = str(userinfo.get("preferred_username"))
                 im_auth['password'] = str(decoded_token['iss']) + str(userinfo.get("sub"))
-            else:
-                InfrastructureManager.logger.error(
-                    "Incorrect auth token: %s" % userinfo)
-                raise UnauthorizedUserException("Invalid InfrastructureManager credentials %s" % userinfo)
         except Exception, ex:
             InfrastructureManager.logger.exception(
                 "Error trying to validate auth token: %s" % str(ex))
             raise Exception("Error trying to validate auth token: %s" % str(ex))
+
+        if not success:
+            InfrastructureManager.logger.error(
+                "Incorrect auth token: %s" % userinfo)
+            raise UnauthorizedUserException("Invalid InfrastructureManager credentials %s" % userinfo)
 
     @staticmethod
     def check_auth_data(auth):
