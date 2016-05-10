@@ -60,24 +60,14 @@ class JWT(object):
         return b
 
     @staticmethod
-    def unpack(token):
-        """
-        Unpacks a JWT into its parts and base64 decodes the parts
-        individually
-
-        :param token: The JWT
-        """
-        part = tuple(token.split(b"."))
-        part = [JWT.b64d(p) for p in part]
-        return part
-
-    @staticmethod
     def get_info(token):
         """
         Unpacks a JWT into its parts and base64 decodes the parts
-        individually, returning the part 1 json decoded.
+        individually, returning the part 1 json decoded, where the
+        token info is stored.
 
-        :param token: The JWT
+        :param token: The JWT token
         """
-        part = JWT.unpack(token)
+        part = tuple(token.split(b"."))
+        part = [JWT.b64d(p) for p in part]
         return json.loads(part[1])
