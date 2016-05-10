@@ -1,75 +1,83 @@
+# IM - Infrastructure Manager
+# Copyright (C) 2011 - GRyCAP - Universitat Politecnica de Valencia
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public Licenslast_updatee for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+Class to unpack the JWT IAM tokens
+"""
 import json
 import base64
 import re
 
-_b64_re = re.compile(b"^[A-Za-z0-9_-]*$")
-
-
-def add_padding(b):
-    # add padding chars
-    m = len(b) % 4
-    if m == 1:
-        # NOTE: for some reason b64decode raises *TypeError* if the
-        # padding is incorrect.
-        raise Exception(b, "incorrect padding")
-    elif m == 2:
-        b += b"=="
-    elif m == 3:
-        b += b"="
-    return b
-
-
-def b64d(b):
-    """Decode some base64-encoded bytes.
-
-    Raises BadSyntax if the string contains invalid characters or padding.
-
-    :param b: bytes
-    """
-
-    cb = b.rstrip(b"=")  # shouldn't but there you are
-
-    # Python's base64 functions ignore invalid characters, so we need to
-    # check for them explicitly.
-    if not _b64_re.match(cb):
-        raise Exception(cb, "base64-encoded data contains illegal characters")
-
-    if cb == b:
-        b = add_padding(b)
-
-    return base64.urlsafe_b64decode(b)
-
 
 class JWT(object):
-    def __init__(self):
-        self.headers = {'alg': None}
-        self.b64part = ['eyJhbGciOm51bGx9']
-        self.part = ['{"alg":null}']
 
-    def unpack(self, token):
+    @staticmethod
+    def b64d(b):
+        """Decode some base64-encoded bytes.
+    
+        Raises Exception if the string contains invalid characters or padding.
+    
+        :param b: bytes
+        """
+    
+        cb = b.rstrip(b"=")  # shouldn't but there you are
+    
+        # Python's base64 functions ignore invalid characters, so we need to
+        # check for them explicitly.
+        b64_re = re.compile(b"^[A-Za-z0-9_-]*$")
+        if not b64_re.match(cb):
+            raise Exception(cb, "base64-encoded data contains illegal characters")
+    
+        if cb == b:
+            b = JWT.add_padding(b)
+    
+        return base64.urlsafe_b64decode(b)
+
+    @staticmethod
+    def add_padding(b):
+        # add padding chars
+        m = len(b) % 4
+        if m == 1:
+            # NOTE: for some reason b64decode raises *TypeError* if the
+            # padding is incorrect.
+            raise Exception(b, "incorrect padding")
+        elif m == 2:
+            b += b"=="
+        elif m == 3:
+            b += b"="
+        return b
+
+    @staticmethod
+    def unpack(token):
         """
         Unpacks a JWT into its parts and base64 decodes the parts
         individually
 
         :param token: The JWT
         """
-        try:
-            token = token.encode("utf-8")
-        except UnicodeDecodeError:
-            pass
-
         part = tuple(token.split(b"."))
-        self.b64part = part
-        self.part = [b64d(p) for p in part]
-        self.headers = json.loads(self.part[0].decode())
-        return self
+        part = [JWT.b64d(p) for p in part]
+        return part
 
-    def get_info(self, token):
+    @staticmethod
+    def get_info(token):
         """
         Unpacks a JWT into its parts and base64 decodes the parts
         individually, returning the part 1 json decoded.
 
         :param token: The JWT
         """
-        self.unpack(token)
-        return json.loads(self.part[1])
+        part = JWT.unpack(token)
+        return json.loads(part[1])
