@@ -255,7 +255,7 @@ class InfrastructureManager:
                 "Error, incorrect infrastructure ID")
             raise IncorrectInfrastructureException()
         sel_inf = InfrastructureManager.infrastructure_list[inf_id]
-        if sel_inf.auth is not None and not sel_inf.auth.compare(auth, 'InfrastructureManager'):
+        if not sel_inf.is_authorized(auth):
             InfrastructureManager.logger.error("Access Error")
             raise IncorrectInfrastructureException()
         if sel_inf.deleted:
@@ -1204,17 +1204,15 @@ class InfrastructureManager:
         token = im_auth["token"]
         try:
             # decode the token to get the issuer
-            decoded_token = JWT().unpack(token)
-            iss = json.loads(decoded_token.part[1])['iss']
+            decoded_token = json.loads(JWT().unpack(token).part[1])
             # create the client using the iss url
             client = Client(client_authn_method=CLIENT_AUTHN_METHOD)
-            client.userinfo_endpoint = "%s/userinfo" % iss
+            client.userinfo_endpoint = "%s/userinfo" % decoded_token['iss']
 
             userinfo = client.do_user_info_request(token=token)
             # convert to username to use it in the rest of the IM
-            del im_auth['token']
             im_auth['username'] = str(userinfo.get("preferred_username"))
-            im_auth['password'] = str(userinfo.get("sub"))
+            im_auth['password'] = str(decoded_token['iss']) + str(userinfo.get("sub"))
         except PyoidcError, oiex:
             InfrastructureManager.logger.debug(
                 "Incorrect auth token: %s" % str(oiex))
@@ -1309,7 +1307,7 @@ class InfrastructureManager:
 
         res = []
         for elem in InfrastructureManager.infrastructure_list.values():
-            if elem.auth is not None and elem.auth.compare(auth, 'InfrastructureManager') and not elem.deleted:
+            if elem.is_authorized(auth) and not elem.deleted:
                 res.append(elem.id)
 
         return res
