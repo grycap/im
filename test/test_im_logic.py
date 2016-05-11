@@ -36,7 +36,8 @@ from radl.radl import RADL, system, deploy, Feature, SoftFeatures
 from radl.radl_parse import parse_radl
 from IM.CloudInfo import CloudInfo
 from IM.connectors.CloudConnector import CloudConnector
-from IM.tosca.Tosca import Tosca 
+from IM.tosca.Tosca import Tosca
+
 
 class TestIM(unittest.TestCase):
 
@@ -393,7 +394,7 @@ class TestIM(unittest.TestCase):
         self.assertEqual(res, "")
 
         IM.DestroyInfrastructure(infId, auth0)
-        
+
     def test_export_import(self):
         """Test ExportInfrastructure and ImportInfrastructure operations"""
         radl = RADL()
@@ -409,7 +410,7 @@ class TestIM(unittest.TestCase):
         new_inf_id = IM.ImportInfrastructure(res, auth0)
 
         IM.DestroyInfrastructure(new_inf_id, auth0)
-        
+
     def test_tosca_to_radl(self):
         """Test TOSCA RADL translation"""
         TESTS_PATH = os.path.dirname(os.path.realpath(__file__))
