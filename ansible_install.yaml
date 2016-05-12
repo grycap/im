@@ -17,7 +17,7 @@
       pip: name=setuptools extra_args="-I" state=latest
       
     - name: pip install pbr,CherryPy and pyOpenSSL to enable HTTPS in REST API
-      pip: name=pbr,CherryPy,pyOpenSSL extra_args="-I" state=latest
+      pip: name="pbr CherryPy pyOpenSSL" extra_args="-I" state=latest
 
     - name: pip install tosca-parser
       pip: name=git+http://github.com/indigo-dc/tosca-parser editable=false
