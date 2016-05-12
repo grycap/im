@@ -27,13 +27,13 @@ RUN pip install pbr CherryPy pyOpenSSL --upgrade -I
 RUN cd tmp \
  && git clone --recursive https://github.com/indigo-dc/tosca-parser.git \
  && cd tosca-parser \
- && python setup.py install
+ && pip install /tmp/tosca-parser
 
 # Install im indigo tosca fork 
 RUN cd tmp \
  && git clone --recursive https://github.com/indigo-dc/im.git \
  && cd im \
- && python setup.py install
+ && pip install /tmp/im
 COPY ansible.cfg /etc/ansible/ansible.cfg
 
 # Turn on the REST services
