@@ -10,7 +10,7 @@ EXPOSE 8899 8800
 RUN cd tmp \
  && git clone -b devel https://github.com/grycap/im.git \
  && cd im \
- && python setup.py install
+ && pip install /tmp/im
 
 # Turn on the REST services
 RUN sed -i "/ACTIVATE_REST =.*/c\ACTIVATE_REST=True" /etc/im/im.cfg
