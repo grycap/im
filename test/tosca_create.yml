@@ -36,9 +36,17 @@ topology_template:
 
     web_server:
       type: tosca.nodes.indigo.Compute
-      properties:
-        public_ip: yes
       capabilities:
+        endpoint:
+          properties:
+            network_name: PUBLIC
+            ports:
+              ssh_port:
+                protocol: tcp
+                source: 22
+              http_port:
+                protocol: tcp
+                source: 80
         # Host container properties
         host:
          properties:
