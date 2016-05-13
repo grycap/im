@@ -620,14 +620,25 @@ class Tosca:
         * { get_attribute: [ HOST, private_address ] }
         * { get_attribute: [ SELF, private_address ] }
         * { get_attribute: [ HOST, private_address, 0 ] }
+        * { get_attribute: [ server, endpoint, credential, 0 ] }
         """
         node_name = func.args[0]
+        capability_name = None
         attribute_name = func.args[1]
-        # TODO: Currently only supports indexes
+
         index = None
-        if len(func.args) > 2:
+        # Currently only support 2,3 or 4 parameters
+        if len(func.args) == 3:
             try:
                 index = int(func.args[2])
+            except:
+                Tosca.logger.exception("Error getting get_attribute index.")
+                pass
+        elif len(func.args) == 4:
+            capability_name = func.args[1]
+            attribute_name = func.args[2]
+            try:
+                index = int(func.args[3])
             except:
                 Tosca.logger.exception("Error getting get_attribute index.")
                 pass
@@ -664,7 +675,7 @@ class Tosca:
                 return vm.id
             elif attribute_name == "tosca_name":
                 return node.name
-            elif attribute_name == "credential":
+            elif attribute_name == "credential" and capability_name == "endpoint":
                 if node.type == "tosca.nodes.indigo.Compute":
                     res = []
                     for vm in vm_list[node.name]:
