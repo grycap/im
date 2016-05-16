@@ -393,7 +393,7 @@ class TestIM(unittest.TestCase):
         self.assertEqual(res, "")
 
         IM.DestroyInfrastructure(infId, auth0)
-        
+
     def test_export_import(self):
         """Test ExportInfrastructure and ImportInfrastructure operations"""
         radl = RADL()
