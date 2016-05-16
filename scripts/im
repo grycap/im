@@ -58,9 +58,7 @@ function start() {
                 # if there is some error msg en the err file
                 if [ -s ${IM_LOG_PATH}/im.err ]
                 then
-                        # kill the daemon and return error
-                        kill ${pid}
-                        echo "[Error] (see im.err file for details)"
+                        echo "[Warn] (see im.err file for details)"
                 else
                         echo "[OK]"
                 fi
