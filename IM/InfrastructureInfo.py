@@ -212,14 +212,14 @@ class InfrastructureInfo:
         """
 
         with self._lock:
-            # Add new systems and networks only
+            # Add new networks only
             for s in radl.systems + radl.networks + radl.ansible_hosts:
                 if not self.radl.add(s.clone(), "ignore"):
                     InfrastructureInfo.logger.warn(
                         "Ignoring the redefinition of %s %s" % (type(s), s.getId()))
 
             # Add or update configures
-            for s in radl.configures:
+            for s in radl.configures + radl.systems:
                 self.radl.add(s.clone(), "replace")
                 InfrastructureInfo.logger.warn(
                     "(Re)definition of %s %s" % (type(s), s.getId()))
