@@ -148,7 +148,7 @@ class TestIM(unittest.TestCase):
     def test_inf_addresources1(self):
         """Deploy n independent virtual machines."""
 
-        n = 80  # Machines to deploy
+        n = 60  # Machines to deploy
         Config.MAX_SIMULTANEOUS_LAUNCHES = n / 2  # Test the pool
         radl = RADL()
         radl.add(system("s0", [Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
@@ -393,7 +393,7 @@ class TestIM(unittest.TestCase):
         self.assertEqual(res, "")
 
         IM.DestroyInfrastructure(infId, auth0)
-        
+
     def test_export_import(self):
         """Test ExportInfrastructure and ImportInfrastructure operations"""
         radl = RADL()
