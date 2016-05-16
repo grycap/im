@@ -234,8 +234,6 @@ class Tosca:
                     public_net.setValue("outports", Tosca._format_outports(ports))
 
                 system.setValue('net_interface.%d.connection' % num_net, public_net.id)
-                if dns_name:
-                    system.setValue('net_interface.%d.dns_name' % num_net, dns_name)
 
             # The private net is always added
             private_nets = []
@@ -264,6 +262,9 @@ class Tosca:
 
             system.setValue('net_interface.' + str(num_net) +
                             '.connection', private_net.id)
+
+            if dns_name:
+                system.setValue('net_interface.0.dns_name', dns_name)
 
     @staticmethod
     def _get_scalable_properties(node):
