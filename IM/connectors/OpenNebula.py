@@ -485,7 +485,7 @@ class OpenNebulaCloudConnector(CloudConnector):
         password = system.getValue('disk.0.os.credentials.password')
         private = system.getValue('disk.0.os.credentials.private_key')
         public = system.getValue('disk.0.os.credentials.public_key')
-        
+
         if not password and (not private or not public):
             (public, private) = self.keygen()
             system.setValue('disk.0.os.credentials.private_key', private)
