@@ -605,7 +605,7 @@ class VirtualMachine:
                 try:
                     VirtualMachine.logger.debug(
                         "Killing ctxt process with pid: " + str(self.ctxt_pid))
-                    
+
                     # Try to get PGID to kill all child processes
                     pgkill_success = False
                     (stdout, stderr, code) = ssh.execute('ps -o "%r" ' + str(int(self.ctxt_pid)))
@@ -617,15 +617,15 @@ class VirtualMachine:
                             if code == 0:
                                 pgkill_success = True
                             else:
-                                VirtualMachine.logger.error("Error getting PGID of pid: " + str(self.ctxt_pid) + ": " + stderr +
-                                                            ". Using only PID.")
+                                VirtualMachine.logger.error("Error getting PGID of pid: " + str(self.ctxt_pid) +
+                                                            ": " + stderr + ". Using only PID.")
                         else:
-                            VirtualMachine.logger.error("Error getting PGID of pid: " + str(self.ctxt_pid) + ": " + stdout +
-                                                        ". Using only PID.")
+                            VirtualMachine.logger.error("Error getting PGID of pid: " + str(self.ctxt_pid) + ": " +
+                                                        stdout + ". Using only PID.")
                     else:
-                        VirtualMachine.logger.error("Error getting PGID of pid: " + str(self.ctxt_pid) + ": " + stderr +
-                                                    ". Using only PID.")
-                    
+                        VirtualMachine.logger.error("Error getting PGID of pid: " + str(self.ctxt_pid) + ": " +
+                                                    stderr + ". Using only PID.")
+
                     if not pgkill_success:
                         ssh.execute("kill -9 " + str(int(self.ctxt_pid)))
                 except:
