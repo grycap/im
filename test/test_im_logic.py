@@ -49,7 +49,7 @@ class TestIM(unittest.TestCase):
         IM._reinit()
         # Patch save_data
         IM.save_data = staticmethod(lambda *args: None)
-        
+
         ch = logging.StreamHandler(sys.stdout)
         log = logging.getLogger('InfrastructureManager')
         log.setLevel(logging.ERROR)
@@ -78,7 +78,7 @@ class TestIM(unittest.TestCase):
                                                     {name + 'CloudConnector': cloud_connector})
 
     def get_dummy_ssh(self, retry=False):
-        ssh = SSH("","","")
+        ssh = SSH("", "", "")
         ssh.test_connectivity = Mock(return_value=True)
         ssh.execute = Mock(return_value=("10", "", 0))
         ssh.sftp_put_files = Mock(return_value=True)
@@ -432,12 +432,12 @@ class TestIM(unittest.TestCase):
         new_inf_id = IM.ImportInfrastructure(res, auth0)
 
         IM.DestroyInfrastructure(new_inf_id, auth0)
-        
+
     def test_contextualize(self):
         """Test Contextualization process"""
         radl = """"
             network publica (outbound = 'yes')
-            
+
             system front (
             cpu.arch='x86_64' and
             cpu.count>=1 and
@@ -456,8 +456,8 @@ class TestIM(unittest.TestCase):
             disk.0.applications contains (name='gmetad') and
             disk.0.applications contains (name='wget')
             )
-            
-            deploy front 1 
+
+            deploy front 1
         """
 
         auth0 = self.getAuth([0], [], [("Mock", 0)])
@@ -471,16 +471,16 @@ class TestIM(unittest.TestCase):
 
         state = IM.GetInfrastructureState(infId, auth0)
         self.assertEqual(state["state"], "unconfigured")
-        
+
         IM.infrastructure_list[infId].ansible_configured = True
-        
+
         IM.Reconfigure(infId, "", auth0)
-        
+
         time.sleep(20)
-        
+
         state = IM.GetInfrastructureState(infId, auth0)
         self.assertEqual(state["state"], "running")
-        
+
         IM.DestroyInfrastructure(infId, auth0)
 
 
