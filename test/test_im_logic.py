@@ -16,7 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
+import time
 import os
 import unittest
 import sys
@@ -36,6 +36,7 @@ from radl.radl import RADL, system, deploy, Feature, SoftFeatures
 from radl.radl_parse import parse_radl
 from IM.CloudInfo import CloudInfo
 from IM.connectors.CloudConnector import CloudConnector
+from IM.SSH import SSH
 from IM.tosca.Tosca import Tosca
 
 
@@ -67,12 +68,24 @@ class TestIM(unittest.TestCase):
         sys.modules['IM.connectors.' + name] = type('MyConnector', (object,),
                                                     {name + 'CloudConnector': cloud_connector})
 
+    def get_dummy_ssh(self, retry=False):
+        ssh = SSH("", "", "")
+        ssh.test_connectivity = Mock(return_value=True)
+        ssh.execute = Mock(return_value=("10", "", 0))
+        ssh.sftp_put_files = Mock(return_value=True)
+        ssh.sftp_mkdir = Mock(return_value=True)
+        ssh.sftp_put_dir = Mock(return_value=True)
+        ssh.sftp_put = Mock(return_value=True)
+        return ssh
+
     def gen_launch_res(self, inf, radl, requested_radl, num_vm, auth_data):
         res = []
         for _ in range(num_vm):
             cloud = CloudInfo()
             cloud.type = "Dummy"
             vm = VirtualMachine(inf, "1234", cloud, radl, requested_radl)
+            vm.get_ssh = Mock(side_effect=self.get_dummy_ssh)
+            vm.state = VirtualMachine.RUNNING
             res.append((True, vm))
         return res
 
@@ -410,6 +423,56 @@ class TestIM(unittest.TestCase):
         new_inf_id = IM.ImportInfrastructure(res, auth0)
 
         IM.DestroyInfrastructure(new_inf_id, auth0)
+
+    def test_contextualize(self):
+        """Test Contextualization process"""
+        radl = """"
+            network publica (outbound = 'yes')
+
+            system front (
+            cpu.arch='x86_64' and
+            cpu.count>=1 and
+            memory.size>=512m and
+            net_interface.0.connection = 'publica' and
+            net_interface.0.ip = '10.0.0.1' and
+            disk.0.image.url = 'mock0://linux.for.ev.er' and
+            disk.0.os.credentials.username = 'ubuntu' and
+            disk.0.os.credentials.password = 'yoyoyo' and
+            disk.0.os.name = 'linux' and
+            disk.1.size=1GB and
+            disk.1.device='hdb' and
+            disk.1.fstype='ext4' and
+            disk.1.mount_path='/mnt/disk' and
+            disk.0.applications contains (name = 'ansible.modules.micafer.hadoop') and
+            disk.0.applications contains (name='gmetad') and
+            disk.0.applications contains (name='wget')
+            )
+
+            deploy front 1
+        """
+
+        auth0 = self.getAuth([0], [], [("Mock", 0)])
+        IM._reinit()
+        Config.PLAYBOOK_RETRIES = 1
+        cloud0 = self.get_cloud_connector_mock("MyMock")
+        self.register_cloudconnector("Mock", cloud0)
+        infId = IM.CreateInfrastructure(str(radl), auth0)
+
+        time.sleep(20)
+
+        state = IM.GetInfrastructureState(infId, auth0)
+        self.assertEqual(state["state"], "unconfigured")
+
+        IM.infrastructure_list[infId].ansible_configured = True
+
+        IM.Reconfigure(infId, "", auth0)
+
+        time.sleep(20)
+
+        state = IM.GetInfrastructureState(infId, auth0)
+        self.assertEqual(state["state"], "running")
+
+        IM.DestroyInfrastructure(infId, auth0)
 
     def test_tosca_to_radl(self):
         """Test TOSCA RADL translation"""
