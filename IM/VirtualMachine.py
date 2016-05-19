@@ -605,7 +605,29 @@ class VirtualMachine:
                 try:
                     VirtualMachine.logger.debug(
                         "Killing ctxt process with pid: " + str(self.ctxt_pid))
-                    ssh.execute("kill -9 " + str(self.ctxt_pid))
+                    
+                    # Try to get PGID to kill all child processes
+                    pgkill_success = False
+                    (stdout, stderr, code) = ssh.execute('ps -o "%r" ' + str(int(self.ctxt_pid)))
+                    if code == 0:
+                        out_parts = stdout.split("\n")
+                        if len(out_parts) == 3:
+                            pgid = int(out_parts[1])
+                            (stdout, stderr, code) = ssh.execute("kill -9 -" + str(pgid))
+                            if code == 0:
+                                pgkill_success = True
+                            else:
+                                VirtualMachine.logger.error("Error getting PGID of pid: " + str(self.ctxt_pid) + ": " + stderr +
+                                                            ". Using only PID.")
+                        else:
+                            VirtualMachine.logger.error("Error getting PGID of pid: " + str(self.ctxt_pid) + ": " + stdout +
+                                                        ". Using only PID.")
+                    else:
+                        VirtualMachine.logger.error("Error getting PGID of pid: " + str(self.ctxt_pid) + ": " + stderr +
+                                                    ". Using only PID.")
+                    
+                    if not pgkill_success:
+                        ssh.execute("kill -9 " + str(int(self.ctxt_pid)))
                 except:
                     VirtualMachine.logger.exception(
                         "Error killing ctxt process with pid: " + str(self.ctxt_pid))
@@ -636,15 +658,7 @@ class VirtualMachine:
                 ssh = self.get_ssh_ansible_master()
 
                 if self.state in VirtualMachine.NOT_RUNNING_STATES:
-                    try:
-                        ssh.execute("kill -9 " + str(ctxt_pid))
-                    except:
-                        VirtualMachine.logger.exception(
-                            "Error killing ctxt process with pid: " + str(self.ctxt_pid))
-                        pass
-
-                    self.configured = False
-                    self.ctxt_pid = None
+                    self.kill_check_ctxt_process()
                 else:
                     try:
                         (_, _, exit_status) = ssh.execute("ps " + str(ctxt_pid))
