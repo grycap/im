@@ -454,6 +454,7 @@ class TestIM(unittest.TestCase):
         auth0 = self.getAuth([0], [], [("Mock", 0)])
         IM._reinit()
         Config.PLAYBOOK_RETRIES = 1
+        Config.CONTEXTUALIZATION_DIR = os.path.dirname(os.path.realpath(__file__)) + "/../contextualization"
         cloud0 = self.get_cloud_connector_mock("MyMock")
         self.register_cloudconnector("Mock", cloud0)
         infId = IM.CreateInfrastructure(str(radl), auth0)
