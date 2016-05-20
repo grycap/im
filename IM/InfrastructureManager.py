@@ -76,7 +76,7 @@ class InfrastructureManager:
     """
 
     infrastructure_list = {}
-    """Map from int to :py:class:`InfrastructureInfo`."""
+    """Map from string to :py:class:`InfrastructureInfo`."""
 
     logger = logging.getLogger('InfrastructureManager')
     """Logger object."""
