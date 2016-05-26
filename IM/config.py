@@ -100,8 +100,8 @@ if config.has_section(section_name):
     parse_options(config, section_name, Config)
 
 # Get some vars from environment variables to make easy docker container configuration
-if 'DATA_DB' in os.environ:
-    Config.DATA_DB = os.environ['DATA_DB']
+if 'IM_DATA_DB' in os.environ:
+    Config.DATA_DB = os.environ['IM_DATA_DB']
 
 
 class ConfigOpenNebula:
