@@ -202,3 +202,7 @@ IM 1.4.4
     * Bugfix in threads management with ThreadPool
     * Bugfixes in Azure connector
     * Inprove conf-ansible recipe and set Ansible version to 2.0.2
+
+IM 1.4.5
+    * Bugfix killing ansible proceses
+    * Enable to keygen in OpenNebula connector
