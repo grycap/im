@@ -4,7 +4,7 @@ MAINTAINER Miguel Caballer <micafer1@upv.es>
 LABEL version="1.4.4"
 LABEL description="Container image to run the IM service. (http://www.grycap.upv.es/im)"
 EXPOSE 8899
-RUN apt-get update && apt-get install -y gcc python-dev python-pip python-soappy openssh-client sshpass libssl-dev libffi-dev
+RUN apt-get update && apt-get install -y gcc python-dev python-pip python-soappy python-mysqldb openssh-client sshpass libssl-dev libffi-dev
 # Install CherryPy to enable HTTPS in REST API
 RUN pip install setuptools --upgrade -I
 RUN pip install CherryPy pyOpenSSL --upgrade -I
