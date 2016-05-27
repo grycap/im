@@ -23,7 +23,7 @@ class HTTPHeaderTransport(HTTPTransport):
 
     # Need a Timeout someday?
     def call(self, addr, data, namespace, soapaction=None, encoding=None,
-             http_proxy=None, config=Config):
+             http_proxy=None, config=Config, timeout=None):
 
         import httplib
 
