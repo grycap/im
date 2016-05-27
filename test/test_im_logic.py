@@ -470,7 +470,7 @@ class TestIM(unittest.TestCase):
         self.register_cloudconnector("Mock", cloud0)
         infId = IM.CreateInfrastructure(str(radl), auth0)
 
-        time.sleep(20)
+        time.sleep(25)
 
         state = IM.GetInfrastructureState(infId, auth0)
         self.assertEqual(state["state"], "unconfigured")
