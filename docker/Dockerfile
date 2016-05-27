@@ -4,7 +4,7 @@ MAINTAINER Miguel Caballer <micafer1@upv.es>
 LABEL version="1.4.4"
 LABEL description="Container image to run the IM service with TOSCA support. (http://www.grycap.upv.es/im)"
 
-# Update and install all the neccesary packages
+# Update and install all the necessary packages
 RUN apt-get update && apt-get install -y \
     gcc \
     python-dev \
@@ -16,6 +16,7 @@ RUN apt-get update && apt-get install -y \
     git \
     libssl-dev \
     libffi-dev \
+    python-mysqldb \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
 
