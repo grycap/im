@@ -459,3 +459,7 @@ default configuration. Information about this image can be found here: https://r
 How to launch the IM service using docker::
 
   $ sudo docker run -d -p 8899:8899 --name im grycap/im
+
+You can also specify an external MySQL server to store IM data using the IM_DATA_DB environment variable::
+  
+  $ sudo docker run -d -p 8899:8899 -e IM_DATA_DB=mysql://username:password@server/db_name --name im grycap/im 

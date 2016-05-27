@@ -160,7 +160,7 @@ class InfrastructureInfo:
         """
         Add a line to the contextualization message
         """
-        self.cont_out += str(datetime.now()) + ": " + str(msg) + "\n"
+        self.cont_out += str(datetime.now()) + ": " + str(msg.decode('utf8', 'ignore')) + "\n"
 
     def get_vm_list(self):
         """
