@@ -110,8 +110,7 @@ class VMRC:
         vmi_desc_str_val = VMRC._generateVMRC(radl_system.features).strip()
         try:
             vmrc_res = self.server.search(vmiDescStr=vmi_desc_str_val)
-        except Exception, ex:
-            print ex
+        except Exception:
             return []
 
         if len(vmrc_res) > 0:
