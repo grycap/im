@@ -16,8 +16,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import time
 import os
+import time
+import logging
 import unittest
 import sys
 from mock import Mock
@@ -51,6 +52,16 @@ class TestIM(unittest.TestCase):
         # Patch save_data
         IM.save_data = staticmethod(lambda *args: None)
 
+        ch = logging.StreamHandler(sys.stdout)
+        log = logging.getLogger('InfrastructureManager')
+        log.setLevel(logging.ERROR)
+        log.propagate = 0
+        log.addHandler(ch)
+        log = logging.getLogger('ConfManager')
+        log.setLevel(logging.DEBUG)
+        log.propagate = 0
+        log.addHandler(ch)
+
     def tearDown(self):
         IM.stop()
 
@@ -62,7 +73,7 @@ class TestIM(unittest.TestCase):
             {'id': 'vmrc%s' % i, 'type': 'VMRC', 'username': 'vmrcuser%s' % i,
              'password': 'pass%s' % i, 'host': 'hostname'} for i in vmrc_users] + [
             {'id': 'cloud%s' % i, 'type': c, 'username': 'user%s' % i,
-             'password': 'pass%s' % i} for c, i in clouds])
+             'password': 'pass%s' % i, 'host': 'http://server.com:80/path'} for c, i in clouds])
 
     def register_cloudconnector(self, name, cloud_connector):
         sys.modules['IM.connectors.' + name] = type('MyConnector', (object,),
