@@ -87,6 +87,9 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             import libcloud.security
             libcloud.security.VERIFY_SSL_CERT = False
 
+            import ssl
+            ssl._create_default_https_context = ssl._create_unverified_context
+
             cls = get_driver(Provider.OPENSTACK)
             driver = cls(auth['username'], auth['password'],
                          ex_tenant_name=auth['tenant'],
@@ -120,10 +123,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     driver = self.get_driver(auth_data)
 
                     res_system = radl_system.clone()
-                    instance_type = self.get_instance_type(
-                        driver.list_sizes(), res_system)
-                    self.update_system_info_from_instance(
-                        res_system, instance_type)
+                    instance_type = self.get_instance_type(driver.list_sizes(), res_system)
+                    self.update_system_info_from_instance(res_system, instance_type)
 
                     res_system.addFeature(
                         Feature("disk.0.image.url", "=", str_url), conflict="other", missing="other")
