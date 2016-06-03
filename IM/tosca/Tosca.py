@@ -738,11 +738,17 @@ class Tosca:
             elif attribute_name == "private_address":
                 if node.type == "tosca.nodes.indigo.Compute":
                     # This only works with Ansible 2.1, wait for it to be released
-                    # return "{{ groups['%s']|map('extract', hostvars,
-                    # 'IM_NODE_PRIVATE_IP')|list }}" % node.name
-                    return ("""|\n       {%% set comma = joiner(",") %%}\n       [ {%% for host in groups['%s'] %%}"""
-                            """\n            {{ comma() }}"{{ hostvars[host]['IM_NODE_PRIVATE_IP'] }}"\n       """
-                            """{%% endfor %%} ]""" % node.name)
+                    # return "{{ groups['%s']|map('extract', hostvars,'IM_NODE_PRIVATE_IP')|list }}" % node.name
+                    if index is not None:
+                        return "{{ hostvars[groups['%s'][%d]]['IM_NODE_PRIVATE_IP'] }}" % (node.name, index)
+                    else:
+                        return ("""|\n"""
+                                """     {%% if '%s' in groups %%}"""
+                                """{%% set comma = joiner(",") %%}"""
+                                """[{%% for host in groups['%s'] %%}"""
+                                """{{ comma() }}"{{ hostvars[host]['IM_NODE_PRIVATE_IP'] }}" """
+                                """{%% endfor %%} ]"""
+                                """{%% else %%}[]{%% endif %%}""" % (node.name, node.name))
                 else:
                     if node_name in ["HOST", "SELF"]:
                         return "{{ IM_NODE_PRIVATE_IP }}"
@@ -751,11 +757,17 @@ class Tosca:
             elif attribute_name == "public_address":
                 if node.type == "tosca.nodes.indigo.Compute":
                     # This only works with Ansible 2.1, wait for it to be released
-                    # return "{{ groups['%s']|map('extract', hostvars,
-                    # 'IM_NODE_PUBLIC_IP')|list }}" % node.name
-                    return ("""|\n       {%% set comma = joiner(",") %%}\n       [ {%% for host in groups['%s'] %%}"""
-                            """\n            {{ comma() }}"{{ hostvars[host]['IM_NODE_PUBLIC_IP'] }}"\n       """
-                            """{%% endfor %%} ]""" % node.name)
+                    # return "{{ groups['%s']|map('extract', hostvars,'IM_NODE_PUBLIC_IP')|list }}" % node.name
+                    if index is not None:
+                        return "{{ hostvars[groups['%s'][%d]]['IM_NODE_PUBLIC_IP'] }}" % (node.name, index)
+                    else:
+                        return ("""|\n"""
+                                """     {%% if '%s' in groups %%}"""
+                                """{%% set comma = joiner(",") %%}"""
+                                """[{%% for host in groups['%s'] %%}"""
+                                """{{ comma() }}"{{ hostvars[host]['IM_NODE_PUBLIC_IP'] }}" """
+                                """{%% endfor %%} ]"""
+                                """{%% else %%}[]{%% endif %%}""" % (node.name, node.name))
                 else:
                     if node_name in ["HOST", "SELF"]:
                         return "{{ IM_NODE_PUBLIC_IP }}"
@@ -1024,7 +1036,7 @@ class Tosca:
         Find all the roles to be applied to this node and
         add them to the system as ansible.modules.* in 'disk.0.applications'
         """
-
+        roles = []
         for other_node in nodetemplates:
             root_type = Tosca._get_root_parent_type(other_node).type
             if root_type == "tosca.nodes.Compute":
@@ -1043,12 +1055,16 @@ class Tosca:
                         name
                         if ('type' in artifact and artifact['type'] == 'tosca.artifacts.AnsibleGalaxy.role' and
                                 'file' in artifact and artifact['file']):
-                            app_features = Features()
-                            app_features.addFeature(
-                                Feature('name', '=', 'ansible.modules.' + artifact['file']))
-                            feature = Feature(
-                                'disk.0.applications', 'contains', app_features)
-                            system.addFeature(feature)
+                            if artifact['file'] not in roles:
+                                roles.append(artifact['file'])
+
+        for role in roles:
+            app_features = Features()
+            app_features.addFeature(
+                Feature('name', '=', 'ansible.modules.' + role))
+            feature = Feature(
+                'disk.0.applications', 'contains', app_features)
+            system.addFeature(feature)
 
     @staticmethod
     def _gen_system(node, nodetemplates):
@@ -1252,6 +1268,7 @@ class Tosca:
             Tosca.logger.exception(
                 "Error parsing YAML: " + yaml1 + "\n Ignore it")
 
+        yamlo2s = {}
         try:
             yamlo2s = yaml.load(yaml2)
             if not isinstance(yamlo2s, list) or any([not isinstance(d, dict) for d in yamlo2s]):
@@ -1259,7 +1276,6 @@ class Tosca:
         except Exception:
             Tosca.logger.exception(
                 "Error parsing YAML: " + yaml2 + "\n Ignore it")
-            yamlo2s = {}
 
         if not yamlo2s and not yamlo1o:
             return ""
