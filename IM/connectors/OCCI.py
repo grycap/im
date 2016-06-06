@@ -1010,8 +1010,8 @@ class KeyStoneAuth:
             tenant_token_id = output['access']['token']['id']
 
             return tenant_token_id
-        except:
+        except Exception, ex:
             occi.logger.exception("Error obtaining Keystone Token.")
-            return None
+            raise Exception("Error obtaining Keystone Token: %s" % str(ex))
         finally:
             occi.delete_proxy(conn)
