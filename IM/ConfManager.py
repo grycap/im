@@ -1342,7 +1342,7 @@ class ConfManager(threading.Thread):
                     recipe_out.write(
                         "    - name: Install the % role with ansible-galaxy\n" % rolename)
                     recipe_out.write(
-                        "      command: ansible-galaxy install %s\n" % url)
+                        "      command: ansible-galaxy -f install %s\n" % url)
 
                     recipe_out.close()
 
