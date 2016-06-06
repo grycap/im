@@ -87,6 +87,9 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             import libcloud.security
             libcloud.security.VERIFY_SSL_CERT = False
 
+            import ssl
+            ssl._create_default_https_context = ssl._create_unverified_context
+
             cls = get_driver(Provider.OPENSTACK)
             driver = cls(auth['username'], auth['password'],
                          ex_tenant_name=auth['tenant'],
@@ -478,23 +481,19 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
     def create_security_group(self, driver, inf, radl):
         res = None
-        # Use the InfrastructureInfo lock to assure that only one VM create the
-        # SG
+        # Use the InfrastructureInfo lock to assure that only one VM create the SG
         with inf._lock:
-            try:
-                sg_name = "im-" + str(inf.id)
-                sg = self._get_security_group(driver, sg_name)
+            sg_name = "im-" + str(inf.id)
+            sg = self._get_security_group(driver, sg_name)
 
-                if not sg:
-                    self.logger.debug("Creating security group: " + sg_name)
-                    sg = driver.ex_create_security_group(
-                        sg_name, "Security group created by the IM")
-                else:
-                    return [sg]
+            if not sg:
+                self.logger.debug("Creating security group: " + sg_name)
+                sg = driver.ex_create_security_group(
+                    sg_name, "Security group created by the IM")
+            else:
+                return [sg]
 
-                res = [sg]
-            except Exception:
-                self.logger.exception("Error Creating the Security group")
+            res = [sg]
 
         public_net = None
         for net in radl.networks:
