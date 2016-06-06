@@ -85,9 +85,6 @@ Installation
 Form Pip
 ^^^^^^^^
 
-**WARNING: The SOAPpy distributed with pip does not work correctly so you must install
-the packages 'python-soappy' or 'SOAPpy' before installing the IM with pip.**
-
 **WARNING: In some linux distributions (REL 6 or equivalents) you must unistall
 the packages python-paramiko and python-crypto before installing the IM with pip.**
 

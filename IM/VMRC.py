@@ -29,7 +29,7 @@ class VMRC:
         if user is None:
             self.server = SOAPProxy(url)
         else:
-            self.server = SOAPProxy(url, transport=HTTPHeaderTransport)
+            self.server = SOAPProxy(url, transport=HTTPHeaderTransport, namespace=self.namespace)
             self.server.transport.headers = {'Username': user,
                                              'Password': passwd}
 
@@ -79,7 +79,7 @@ class VMRC:
         """Get a list of all the VM registered in the catalog."""
 
         try:
-            vmrc_res = self.server._ns(self.namespace).list()
+            vmrc_res = self.server.list()
         except Exception:
             return None
 
@@ -109,8 +109,7 @@ class VMRC:
 
         vmi_desc_str_val = VMRC._generateVMRC(radl_system.features).strip()
         try:
-            vmrc_res = self.server._ns(self.namespace).search(
-                vmiDescStr=vmi_desc_str_val)
+            vmrc_res = self.server.search(vmiDescStr=vmi_desc_str_val)
         except Exception:
             return []
 
