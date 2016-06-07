@@ -224,11 +224,11 @@ class TestOSTConnector(unittest.TestCase):
         volume.id = "vol1"
         volume.attach.return_value = True
         driver.create_volume.return_value = volume
-        
+
         pool = MagicMock()
         pool.name = "pool1"
         pool.list_floating_ips.return_value = []
-        pool.create_floating_ip.return_value = True        
+        pool.create_floating_ip.return_value = True
         driver.ex_list_floating_ip_pools.return_value = [pool]
 
         success, vm = ost_cloud.updateVMInfo(vm, auth)
