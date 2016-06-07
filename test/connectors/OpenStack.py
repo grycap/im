@@ -177,7 +177,7 @@ class TestOSTConnector(unittest.TestCase):
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
     def test_30_updateVMInfo(self, get_driver):
         radl_data = """
-            network net ()
+            network net (outbound = 'yes')
             system test (
             cpu.arch='x86_64' and
             cpu.count=1 and
@@ -207,7 +207,7 @@ class TestOSTConnector(unittest.TestCase):
         node.id = "1"
         node.state = "running"
         node.extra = {'flavorId': 'small'}
-        node.public_ips = ['158.42.1.1']
+        node.public_ips = []
         node.private_ips = ['10.0.0.1']
         node.driver = driver
         driver.list_nodes.return_value = [node]
@@ -224,6 +224,12 @@ class TestOSTConnector(unittest.TestCase):
         volume.id = "vol1"
         volume.attach.return_value = True
         driver.create_volume.return_value = volume
+        
+        pool = MagicMock()
+        pool.name = "pool1"
+        pool.list_floating_ips.return_value = []
+        pool.create_floating_ip.return_value = True        
+        driver.ex_list_floating_ip_pools.return_value = [pool]
 
         success, vm = ost_cloud.updateVMInfo(vm, auth)
 
