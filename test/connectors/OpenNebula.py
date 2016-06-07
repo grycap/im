@@ -18,7 +18,6 @@
 
 import sys
 import unittest
-import time
 import os
 import logging
 import logging.config
@@ -83,7 +82,7 @@ class TestONEConnector(unittest.TestCase):
         radl = radl_parse.parse_radl(radl_data)
         radl_system = radl.systems[0]
 
-        auth = Authentication([{'id': 'one', 'type': 'OpenNebula', 'username': 'user', 'password': 'pass', 'host': 'one://server.com:2633'}])
+        auth = Authentication([{'id': 'one', 'type': 'OpenNebula', 'username': 'user', 'password': 'pass', 'host': 'server.com:2633'}])
         one_cloud = self.get_one_cloud()
         concrete = one_cloud.concreteSystem(radl_system, auth)
         self.assertEqual(len(concrete), 1)
@@ -111,7 +110,7 @@ class TestONEConnector(unittest.TestCase):
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
         
-        auth = Authentication([{'id': 'one', 'type': 'OpenNebula', 'username': 'user', 'password': 'pass', 'host': 'one://server.com:2633'}])
+        auth = Authentication([{'id': 'one', 'type': 'OpenNebula', 'username': 'user', 'password': 'pass', 'host': 'server.com:2633'}])
         one_cloud = self.get_one_cloud()
         
         getONEVersion.return_value = "4.12"
@@ -143,7 +142,7 @@ class TestONEConnector(unittest.TestCase):
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
 
-        auth = Authentication([{'id': 'one', 'type': 'OpenNebula', 'username': 'user', 'password': 'pass', 'host': 'one://server.com:2633'}])
+        auth = Authentication([{'id': 'one', 'type': 'OpenNebula', 'username': 'user', 'password': 'pass', 'host': 'server.com:2633'}])
         one_cloud = self.get_one_cloud()        
 
         inf = MagicMock()
@@ -160,7 +159,7 @@ class TestONEConnector(unittest.TestCase):
 
     @patch('xmlrpclib.ServerProxy')
     def test_40_stop(self, server_proxy):
-        auth = Authentication([{'id': 'one', 'type': 'OpenNebula', 'username': 'user', 'password': 'pass', 'host': 'one://server.com:2633'}])
+        auth = Authentication([{'id': 'one', 'type': 'OpenNebula', 'username': 'user', 'password': 'pass', 'host': 'server.com:2633'}])
         one_cloud = self.get_one_cloud()
         
         inf = MagicMock()
@@ -177,7 +176,7 @@ class TestONEConnector(unittest.TestCase):
 
     @patch('xmlrpclib.ServerProxy')
     def test_50_start(self, server_proxy):
-        auth = Authentication([{'id': 'one', 'type': 'OpenNebula', 'username': 'user', 'password': 'pass', 'host': 'one://server.com:2633'}])
+        auth = Authentication([{'id': 'one', 'type': 'OpenNebula', 'username': 'user', 'password': 'pass', 'host': 'server.com:2633'}])
         one_cloud = self.get_one_cloud()
         
         inf = MagicMock()
@@ -217,7 +216,7 @@ class TestONEConnector(unittest.TestCase):
             )"""
         new_radl = radl_parse.parse_radl(new_radl_data)
         
-        auth = Authentication([{'id': 'one', 'type': 'OpenNebula', 'username': 'user', 'password': 'pass', 'host': 'one://server.com:2633'}])
+        auth = Authentication([{'id': 'one', 'type': 'OpenNebula', 'username': 'user', 'password': 'pass', 'host': 'server.com:2633'}])
         one_cloud = self.get_one_cloud()
         
         inf = MagicMock()
@@ -238,7 +237,7 @@ class TestONEConnector(unittest.TestCase):
 
     @patch('xmlrpclib.ServerProxy')
     def test_60_finalize(self, server_proxy):
-        auth = Authentication([{'id': 'one', 'type': 'OpenNebula', 'username': 'user', 'password': 'pass', 'host': 'one://server.com:2633'}])
+        auth = Authentication([{'id': 'one', 'type': 'OpenNebula', 'username': 'user', 'password': 'pass', 'host': 'server.com:2633'}])
         one_cloud = self.get_one_cloud()
         
         inf = MagicMock()
