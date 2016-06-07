@@ -92,17 +92,21 @@ class TestONEConnector(unittest.TestCase):
     @patch('IM.connectors.OpenNebula.OpenNebulaCloudConnector.getONEVersion')
     def test_20_launch(self, getONEVersion, server_proxy):
         radl_data = """
-            network net ()
+            network net1 (provider_id = 'publica' and outbound = 'yes')
+            network net2 ()
             system test (
             cpu.arch='x86_64' and
             cpu.count=1 and
             memory.size=512m and
-            net_interface.0.connection = 'net' and
+            net_interface.0.connection = 'net1' and
             net_interface.0.dns_name = 'test' and
+            net_interface.1.connection = 'net2' and
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'one://server.com/1' and
             disk.0.os.credentials.username = 'user' and
-            disk.0.os.credentials.password = 'pass'
+            disk.1.size=1GB and
+            disk.1.device='hdb' and
+            disk.1.mount_path='/mnt/path'
             )"""
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
@@ -224,12 +228,12 @@ class TestONEConnector(unittest.TestCase):
         one_server = MagicMock()
         one_server.one.vm.action.return_value = (True, "", 0)
         one_server.one.vm.resize.return_value = (True, "", 0)
-        one_server.one.vm.info.return_value = (True, read_file_as_string("files/vm_info.xml"), 0)
+        one_server.one.vm.info.return_value = (True, read_file_as_string("files/vm_info_off.xml"), 0)
         server_proxy.return_value = one_server
         
-        success, new_vm = one_cloud.alterVM(vm, new_radl, auth)
+        success, _ = one_cloud.alterVM(vm, new_radl, auth)
         
-        self.assertTrue(success, msg="ERROR: modifying VM info: " + new_vm)
+        self.assertTrue(success, msg="ERROR: modifying VM info.")
 
 
     @patch('xmlrpclib.ServerProxy')
