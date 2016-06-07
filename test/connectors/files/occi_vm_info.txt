@@ -1,0 +1,18 @@
+Category: compute;scheme="http://schemas.ogf.org/occi/infrastructure#";class="kind";location="/compute/";title="compute resource"
+Category: compute;scheme="http://opennebula.org/occi/infrastructure#";class="mixin";location="/mixin/compute/";title="OpenNebula specific Compute attributes"
+Category: small;scheme="http://fedcloud.egi.eu/occi/infrastructure/resource_tpl#";class="mixin";location="/mixin/resource_tpl/small/";title="Small Instance - 1 core and 1.7 GB of RAM"
+Category: uuid_test_0;scheme="http://occi.fc-one.i3m.upv.es/occi/infrastructure/os_tpl#";class="mixin";location="/mixin/os_tpl/uuid_test_0/";title="test"
+X-OCCI-Attribute: occi.core.id="10"
+X-OCCI-Attribute: occi.core.title="one-10"
+X-OCCI-Attribute: occi.compute.architecture="x64"
+X-OCCI-Attribute: occi.compute.cores=1
+X-OCCI-Attribute: occi.compute.memory=1.69921875
+X-OCCI-Attribute: occi.compute.speed=1.0
+X-OCCI-Attribute: occi.compute.state="active"
+X-OCCI-Attribute: org.opennebula.compute.id="10"
+X-OCCI-Attribute: org.opennebula.compute.cpu=1.0
+Link: </compute/10?action=stop>;rel="http://schemas.ogf.org/occi/infrastructure/compute/action#stop"
+Link: </compute/10?action=restart>;rel="http://schemas.ogf.org/occi/infrastructure/compute/action#restart"
+Link: </compute/10?action=suspend>;rel="http://schemas.ogf.org/occi/infrastructure/compute/action#suspend"
+Link: </storage/0>;rel="http://schemas.ogf.org/occi/infrastructure#storage";self="/link/storagelink/compute_10_disk_0";category="http://schemas.ogf.org/occi/infrastructure#storagelinkhttp://opennebula.org/occi/infrastructure#storagelink";occi.core.id="compute_10_disk_0";occi.core.title="ttylinux - kvm_file0";occi.core.target="/storage/0";occi.core.source="/compute/10";occi.storagelink.deviceid="/dev/hda";occi.storagelink.state="active"
+Link: </network/1>;rel="http://schemas.ogf.org/occi/infrastructure#network";self="/link/networkinterface/compute_10_nic_0";category="http://schemas.ogf.org/occi/infrastructure#networkinterfacehttp://schemas.ogf.org/occi/infrastructure/networkinterface#ipnetworkinterfacehttp://opennebula.org/occi/infrastructure#networkinterface";occi.core.id="compute_10_nic_0";occi.core.title="private";occi.core.target="/network/1";occi.core.source="/compute/10";occi.networkinterface.interface="eth0";occi.networkinterface.mac="10:00:00:00:00:05";occi.networkinterface.state="active";occi.networkinterface.address="10.100.1.5";org.opennebula.networkinterface.bridge="br1"
