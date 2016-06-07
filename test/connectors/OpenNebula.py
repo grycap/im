@@ -21,6 +21,7 @@ import unittest
 import os
 import logging
 import logging.config
+from StringIO import StringIO
 
 sys.path.append("..")
 from IM.CloudInfo import CloudInfo
@@ -43,7 +44,8 @@ class TestONEConnector(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        ch = logging.StreamHandler()
+        cls.log = StringIO()
+        ch = logging.StreamHandler(cls.log)
         formatter = logging.Formatter(
             '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         ch.setFormatter(formatter)
@@ -55,6 +57,10 @@ class TestONEConnector(unittest.TestCase):
         logger.setLevel(logging.DEBUG)
         logger.propagate = 0
         logger.addHandler(ch)
+
+    @classmethod
+    def clean_log(cls):
+        cls.log = StringIO()
 
     @staticmethod
     def get_one_cloud():
@@ -86,6 +92,8 @@ class TestONEConnector(unittest.TestCase):
         one_cloud = self.get_one_cloud()
         concrete = one_cloud.concreteSystem(radl_system, auth)
         self.assertEqual(len(concrete), 1)
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+        self.clean_log()
 
     @patch('xmlrpclib.ServerProxy')
     @patch('IM.connectors.OpenNebula.OpenNebulaCloudConnector.getONEVersion')
@@ -123,6 +131,8 @@ class TestONEConnector(unittest.TestCase):
         res = one_cloud.launch(InfrastructureInfo(),radl, radl, 1, auth)
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+        self.clean_log()
 
     @patch('xmlrpclib.ServerProxy')
     def test_30_updateVMInfo(self, server_proxy):
@@ -156,6 +166,8 @@ class TestONEConnector(unittest.TestCase):
         success, vm = one_cloud.updateVMInfo(vm, auth)
         
         self.assertTrue(success, msg="ERROR: updating VM info.")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+        self.clean_log()
 
     @patch('xmlrpclib.ServerProxy')
     def test_40_stop(self, server_proxy):
@@ -173,6 +185,8 @@ class TestONEConnector(unittest.TestCase):
         success, _ = one_cloud.stop(vm, auth)
         
         self.assertTrue(success, msg="ERROR: stopping VM info.")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+        self.clean_log()
 
     @patch('xmlrpclib.ServerProxy')
     def test_50_start(self, server_proxy):
@@ -190,6 +204,8 @@ class TestONEConnector(unittest.TestCase):
         success, _ = one_cloud.start(vm, auth)
         
         self.assertTrue(success, msg="ERROR: stopping VM info.")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+        self.clean_log()
 
     @patch('xmlrpclib.ServerProxy')
     @patch('IM.connectors.OpenNebula.OpenNebulaCloudConnector.checkResize')
@@ -233,6 +249,8 @@ class TestONEConnector(unittest.TestCase):
         success, _ = one_cloud.alterVM(vm, new_radl, auth)
         
         self.assertTrue(success, msg="ERROR: modifying VM info.")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+        self.clean_log()
 
 
     @patch('xmlrpclib.ServerProxy')
@@ -251,6 +269,8 @@ class TestONEConnector(unittest.TestCase):
         success, _ = one_cloud.finalize(vm, auth)
         
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+        self.clean_log()
 
 
 if __name__ == '__main__':
