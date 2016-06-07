@@ -32,10 +32,12 @@ from IM.InfrastructureInfo import InfrastructureInfo
 from IM.connectors.OpenStack import OpenStackCloudConnector
 from mock import patch, MagicMock
 
+
 def read_file_as_string(file_name):
     tests_path = os.path.dirname(os.path.abspath(__file__))
     abs_file_path = os.path.join(tests_path, file_name)
     return open(abs_file_path, 'r').read()
+
 
 class TestOSTConnector(unittest.TestCase):
     """
@@ -57,7 +59,7 @@ class TestOSTConnector(unittest.TestCase):
         logger.setLevel(logging.DEBUG)
         logger.propagate = 0
         logger.addHandler(ch)
-        
+
     @classmethod
     def clean_log(cls):
         cls.log = StringIO()
@@ -89,12 +91,13 @@ class TestOSTConnector(unittest.TestCase):
         radl = radl_parse.parse_radl(radl_data)
         radl_system = radl.systems[0]
 
-        auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'username': 'user', 'password': 'pass', 'tenant': 'tenant', 'host': 'https://server.com:5000'}])
+        auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'username': 'user',
+                                'password': 'pass', 'tenant': 'tenant', 'host': 'https://server.com:5000'}])
         ost_cloud = self.get_ost_cloud()
-        
+
         driver = MagicMock()
         get_driver.return_value = driver
-        
+
         node_size = MagicMock()
         node_size.ram = 512
         node_size.price = 1
@@ -102,7 +105,7 @@ class TestOSTConnector(unittest.TestCase):
         node_size.vcpus = 1
         node_size.name = "small"
         driver.list_sizes.return_value = [node_size]
-        
+
         concrete = ost_cloud.concreteSystem(radl_system, auth)
         self.assertEqual(len(concrete), 1)
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
@@ -129,10 +132,11 @@ class TestOSTConnector(unittest.TestCase):
             )"""
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
-        
-        auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'username': 'user', 'password': 'pass', 'tenant': 'tenant', 'host': 'https://server.com:5000'}])
+
+        auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'username': 'user',
+                                'password': 'pass', 'tenant': 'tenant', 'host': 'https://server.com:5000'}])
         ost_cloud = self.get_ost_cloud()
-               
+
         driver = MagicMock()
         get_driver.return_value = driver
 
@@ -143,28 +147,28 @@ class TestOSTConnector(unittest.TestCase):
         node_size.vcpus = 1
         node_size.name = "small"
         driver.list_sizes.return_value = [node_size]
-        
+
         net = MagicMock()
         net.name = "public"
         driver.ex_list_networks.return_value = [net]
-        
+
         sg = MagicMock()
         sg.name = "sg"
-        driver.ex_create_security_group.return_value = sg 
+        driver.ex_create_security_group.return_value = sg
         driver.ex_list_security_groups.return_value = []
         driver.ex_create_security_group_rule.return_value = True
-        
+
         keypair = MagicMock()
         keypair.public_key = "public"
         driver.create_key_pair.return_value = keypair
         driver.features = {'create_node': ['ssh_key']}
-        
+
         node = MagicMock()
         node.id = "ost1"
         node.name = "ost1name"
         driver.create_node.return_value = node
-        
-        res = ost_cloud.launch(InfrastructureInfo(),radl, radl, 1, auth)
+
+        res = ost_cloud.launch(InfrastructureInfo(), radl, radl, 1, auth)
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
@@ -188,13 +192,14 @@ class TestOSTConnector(unittest.TestCase):
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
 
-        auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'username': 'user', 'password': 'pass', 'tenant': 'tenant', 'host': 'https://server.com:5000'}])
+        auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'username': 'user',
+                                'password': 'pass', 'tenant': 'tenant', 'host': 'https://server.com:5000'}])
         ost_cloud = self.get_ost_cloud()
 
         inf = MagicMock()
         inf.get_next_vm_id.return_value = 1
         vm = VirtualMachine(inf, "1", ost_cloud.cloud, radl, radl, ost_cloud)
-               
+
         driver = MagicMock()
         get_driver.return_value = driver
 
@@ -206,7 +211,7 @@ class TestOSTConnector(unittest.TestCase):
         node.private_ips = ['10.0.0.1']
         node.driver = driver
         driver.list_nodes.return_value = [node]
-        
+
         node_size = MagicMock()
         node_size.ram = 512
         node_size.price = 1
@@ -214,30 +219,31 @@ class TestOSTConnector(unittest.TestCase):
         node_size.vcpus = 1
         node_size.name = "small"
         driver.ex_get_size.return_value = node_size
-        
+
         volume = MagicMock()
         volume.id = "vol1"
         volume.attach.return_value = True
         driver.create_volume.return_value = volume
-        
+
         success, vm = ost_cloud.updateVMInfo(vm, auth)
-        
+
         self.assertTrue(success, msg="ERROR: updating VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         self.clean_log()
 
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
     def test_40_stop(self, get_driver):
-        auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'username': 'user', 'password': 'pass', 'tenant': 'tenant', 'host': 'https://server.com:5000'}])
+        auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'username': 'user',
+                                'password': 'pass', 'tenant': 'tenant', 'host': 'https://server.com:5000'}])
         ost_cloud = self.get_ost_cloud()
-        
+
         inf = MagicMock()
         inf.get_next_vm_id.return_value = 1
         vm = VirtualMachine(inf, "1", ost_cloud.cloud, "", "", ost_cloud)
-        
+
         driver = MagicMock()
         get_driver.return_value = driver
-        
+
         node = MagicMock()
         node.id = "1"
         node.state = "running"
@@ -246,27 +252,28 @@ class TestOSTConnector(unittest.TestCase):
         node.private_ips = ['10.0.0.1']
         node.driver = driver
         driver.list_nodes.return_value = [node]
-        
+
         driver.ex_stop_node.return_value = True
-        
+
         success, _ = ost_cloud.stop(vm, auth)
-        
+
         self.assertTrue(success, msg="ERROR: stopping VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         self.clean_log()
 
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
     def test_50_start(self, get_driver):
-        auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'username': 'user', 'password': 'pass', 'tenant': 'tenant', 'host': 'https://server.com:5000'}])
+        auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'username': 'user',
+                                'password': 'pass', 'tenant': 'tenant', 'host': 'https://server.com:5000'}])
         ost_cloud = self.get_ost_cloud()
-        
+
         inf = MagicMock()
         inf.get_next_vm_id.return_value = 1
         vm = VirtualMachine(inf, "1", ost_cloud.cloud, "", "", ost_cloud)
-        
+
         driver = MagicMock()
         get_driver.return_value = driver
-        
+
         node = MagicMock()
         node.id = "1"
         node.state = "running"
@@ -275,11 +282,11 @@ class TestOSTConnector(unittest.TestCase):
         node.private_ips = ['10.0.0.1']
         node.driver = driver
         driver.list_nodes.return_value = [node]
-        
+
         driver.ex_start_node.return_value = True
-        
+
         success, _ = ost_cloud.start(vm, auth)
-        
+
         self.assertTrue(success, msg="ERROR: stopping VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         self.clean_log()
@@ -300,24 +307,25 @@ class TestOSTConnector(unittest.TestCase):
             disk.0.os.credentials.password = 'pass'
             )"""
         radl = radl_parse.parse_radl(radl_data)
-        
+
         new_radl_data = """
             system test (
             cpu.count>=2 and
             memory.size>=2048m
             )"""
         new_radl = radl_parse.parse_radl(new_radl_data)
-        
-        auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'username': 'user', 'password': 'pass', 'tenant': 'tenant', 'host': 'https://server.com:5000'}])
+
+        auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'username': 'user',
+                                'password': 'pass', 'tenant': 'tenant', 'host': 'https://server.com:5000'}])
         ost_cloud = self.get_ost_cloud()
-        
+
         inf = MagicMock()
         inf.get_next_vm_id.return_value = 1
         vm = VirtualMachine(inf, "1", ost_cloud.cloud, radl, radl, ost_cloud)
-        
+
         driver = MagicMock()
         get_driver.return_value = driver
-        
+
         node = MagicMock()
         node.id = "1"
         node.state = "running"
@@ -326,7 +334,7 @@ class TestOSTConnector(unittest.TestCase):
         node.private_ips = ['10.0.0.1']
         node.driver = driver
         driver.list_nodes.return_value = [node]
-        
+
         node_size = MagicMock()
         node_size.ram = 2048
         node_size.price = 1
@@ -334,36 +342,36 @@ class TestOSTConnector(unittest.TestCase):
         node_size.vcpus = 2
         node_size.name = "small"
         driver.list_sizes.return_value = [node_size]
-        
+
         driver.ex_resize.return_value = True
-        
+
         success, _ = ost_cloud.alterVM(vm, new_radl, auth)
-        
+
         self.assertTrue(success, msg="ERROR: modifying VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         self.clean_log()
 
-
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
     def test_60_finalize(self, get_driver):
-        auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'username': 'user', 'password': 'pass', 'tenant': 'tenant', 'host': 'https://server.com:5000'}])
+        auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'username': 'user',
+                                'password': 'pass', 'tenant': 'tenant', 'host': 'https://server.com:5000'}])
         ost_cloud = self.get_ost_cloud()
-        
+
         radl_data = """
             system test (
             cpu.count>=2 and
             memory.size>=2048m
             )"""
         radl = radl_parse.parse_radl(radl_data)
-        
+
         inf = MagicMock()
         inf.get_next_vm_id.return_value = 1
         vm = VirtualMachine(inf, "1", ost_cloud.cloud, radl, radl, ost_cloud)
-        
+
         driver = MagicMock()
         driver.name = "OpenStack"
         get_driver.return_value = driver
-        
+
         node = MagicMock()
         node.id = "1"
         node.state = "running"
@@ -373,23 +381,23 @@ class TestOSTConnector(unittest.TestCase):
         node.driver = driver
         node.destroy.return_value = True
         driver.list_nodes.return_value = [node]
-        
+
         sg = MagicMock()
         sg.id = sg.name = "sg1"
         driver.ex_get_node_security_groups.return_value = [sg]
-        
+
         keypair = MagicMock()
         driver.get_key_pair.return_value = keypair
         vm.keypair = keypair
-        
+
         driver.delete_key_pair.return_value = True
-        
+
         driver.delete_security_group.return_value = True
-        
+
         driver.ex_list_floating_ips.return_value = []
-        
+
         success, _ = ost_cloud.finalize(vm, auth)
-        
+
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         self.clean_log()

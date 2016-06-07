@@ -32,10 +32,12 @@ from IM.InfrastructureInfo import InfrastructureInfo
 from IM.connectors.OpenNebula import OpenNebulaCloudConnector
 from mock import patch, MagicMock
 
+
 def read_file_as_string(file_name):
     tests_path = os.path.dirname(os.path.abspath(__file__))
     abs_file_path = os.path.join(tests_path, file_name)
     return open(abs_file_path, 'r').read()
+
 
 class TestONEConnector(unittest.TestCase):
     """
@@ -88,7 +90,8 @@ class TestONEConnector(unittest.TestCase):
         radl = radl_parse.parse_radl(radl_data)
         radl_system = radl.systems[0]
 
-        auth = Authentication([{'id': 'one', 'type': 'OpenNebula', 'username': 'user', 'password': 'pass', 'host': 'server.com:2633'}])
+        auth = Authentication([{'id': 'one', 'type': 'OpenNebula', 'username': 'user',
+                                'password': 'pass', 'host': 'server.com:2633'}])
         one_cloud = self.get_one_cloud()
         concrete = one_cloud.concreteSystem(radl_system, auth)
         self.assertEqual(len(concrete), 1)
@@ -117,18 +120,19 @@ class TestONEConnector(unittest.TestCase):
             )"""
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
-        
-        auth = Authentication([{'id': 'one', 'type': 'OpenNebula', 'username': 'user', 'password': 'pass', 'host': 'server.com:2633'}])
+
+        auth = Authentication([{'id': 'one', 'type': 'OpenNebula', 'username': 'user',
+                                'password': 'pass', 'host': 'server.com:2633'}])
         one_cloud = self.get_one_cloud()
-        
+
         getONEVersion.return_value = "4.12"
-        
+
         one_server = MagicMock()
         one_server.one.vm.allocate.return_value = (True, "1", 0)
         one_server.one.vnpool.info.return_value = (True, read_file_as_string("files/nets.xml"), 0)
         server_proxy.return_value = one_server
-        
-        res = one_cloud.launch(InfrastructureInfo(),radl, radl, 1, auth)
+
+        res = one_cloud.launch(InfrastructureInfo(), radl, radl, 1, auth)
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
@@ -152,57 +156,60 @@ class TestONEConnector(unittest.TestCase):
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
 
-        auth = Authentication([{'id': 'one', 'type': 'OpenNebula', 'username': 'user', 'password': 'pass', 'host': 'server.com:2633'}])
-        one_cloud = self.get_one_cloud()        
+        auth = Authentication([{'id': 'one', 'type': 'OpenNebula', 'username': 'user',
+                                'password': 'pass', 'host': 'server.com:2633'}])
+        one_cloud = self.get_one_cloud()
 
         inf = MagicMock()
         inf.get_next_vm_id.return_value = 1
         vm = VirtualMachine(inf, "1", one_cloud.cloud, radl, radl, one_cloud)
-        
+
         one_server = MagicMock()
         one_server.one.vm.info.return_value = (True, read_file_as_string("files/vm_info.xml"), 0)
         server_proxy.return_value = one_server
-        
+
         success, vm = one_cloud.updateVMInfo(vm, auth)
-        
+
         self.assertTrue(success, msg="ERROR: updating VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         self.clean_log()
 
     @patch('xmlrpclib.ServerProxy')
     def test_40_stop(self, server_proxy):
-        auth = Authentication([{'id': 'one', 'type': 'OpenNebula', 'username': 'user', 'password': 'pass', 'host': 'server.com:2633'}])
+        auth = Authentication([{'id': 'one', 'type': 'OpenNebula', 'username': 'user',
+                                'password': 'pass', 'host': 'server.com:2633'}])
         one_cloud = self.get_one_cloud()
-        
+
         inf = MagicMock()
         inf.get_next_vm_id.return_value = 1
         vm = VirtualMachine(inf, "1", one_cloud.cloud, "", "", one_cloud)
-        
+
         one_server = MagicMock()
         one_server.one.vm.action.return_value = (True, "", 0)
         server_proxy.return_value = one_server
-        
+
         success, _ = one_cloud.stop(vm, auth)
-        
+
         self.assertTrue(success, msg="ERROR: stopping VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         self.clean_log()
 
     @patch('xmlrpclib.ServerProxy')
     def test_50_start(self, server_proxy):
-        auth = Authentication([{'id': 'one', 'type': 'OpenNebula', 'username': 'user', 'password': 'pass', 'host': 'server.com:2633'}])
+        auth = Authentication([{'id': 'one', 'type': 'OpenNebula', 'username': 'user',
+                                'password': 'pass', 'host': 'server.com:2633'}])
         one_cloud = self.get_one_cloud()
-        
+
         inf = MagicMock()
         inf.get_next_vm_id.return_value = 1
         vm = VirtualMachine(inf, "1", one_cloud.cloud, "", "", one_cloud)
-        
+
         one_server = MagicMock()
         one_server.one.vm.action.return_value = (True, "", 0)
         server_proxy.return_value = one_server
-        
+
         success, _ = one_cloud.start(vm, auth)
-        
+
         self.assertTrue(success, msg="ERROR: stopping VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         self.clean_log()
@@ -224,40 +231,41 @@ class TestONEConnector(unittest.TestCase):
             disk.0.os.credentials.password = 'pass'
             )"""
         radl = radl_parse.parse_radl(radl_data)
-        
+
         new_radl_data = """
             system test (
             cpu.count>=2 and
             memory.size>=2048m
             )"""
         new_radl = radl_parse.parse_radl(new_radl_data)
-        
-        auth = Authentication([{'id': 'one', 'type': 'OpenNebula', 'username': 'user', 'password': 'pass', 'host': 'server.com:2633'}])
+
+        auth = Authentication([{'id': 'one', 'type': 'OpenNebula', 'username': 'user',
+                                'password': 'pass', 'host': 'server.com:2633'}])
         one_cloud = self.get_one_cloud()
-        
+
         inf = MagicMock()
         inf.get_next_vm_id.return_value = 1
         vm = VirtualMachine(inf, "1", one_cloud.cloud, radl, radl, one_cloud)
-        
+
         checkResize.return_value = True
         one_server = MagicMock()
         one_server.one.vm.action.return_value = (True, "", 0)
         one_server.one.vm.resize.return_value = (True, "", 0)
         one_server.one.vm.info.return_value = (True, read_file_as_string("files/vm_info_off.xml"), 0)
         server_proxy.return_value = one_server
-        
+
         success, _ = one_cloud.alterVM(vm, new_radl, auth)
-        
+
         self.assertTrue(success, msg="ERROR: modifying VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         self.clean_log()
 
-
     @patch('xmlrpclib.ServerProxy')
     def test_60_finalize(self, server_proxy):
-        auth = Authentication([{'id': 'one', 'type': 'OpenNebula', 'username': 'user', 'password': 'pass', 'host': 'server.com:2633'}])
+        auth = Authentication([{'id': 'one', 'type': 'OpenNebula', 'username': 'user',
+                                'password': 'pass', 'host': 'server.com:2633'}])
         one_cloud = self.get_one_cloud()
-        
+
         inf = MagicMock()
         inf.get_next_vm_id.return_value = 1
         vm = VirtualMachine(inf, "1", one_cloud.cloud, "", "", one_cloud)
@@ -265,9 +273,9 @@ class TestONEConnector(unittest.TestCase):
         one_server = MagicMock()
         one_server.one.vm.action.return_value = (True, "", 0)
         server_proxy.return_value = one_server
-        
+
         success, _ = one_cloud.finalize(vm, auth)
-        
+
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         self.clean_log()
