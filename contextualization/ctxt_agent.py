@@ -237,7 +237,7 @@ def changeVMCredentials(vm, pk_file):
                     logger.error(
                         "Error changing password to Windows VM: " + r.std_out)
                     return False
-            except winrm.exceptions.UnauthorizedError:
+            except winrm.exceptions.AuthenticationError:
                 # if the password is correctly changed the command returns this
                 # error
                 try:
