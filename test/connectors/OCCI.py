@@ -241,6 +241,7 @@ class TestOCCIConnector(unittest.TestCase):
         conn = MagicMock()
         resp = MagicMock()
         resp.status = 200
+        resp.read.return_value = read_file_as_string("files/occi_vm_info.txt")
         conn.getresponse.return_value = resp
         get_http_connection.return_value = conn
         get_keystone_uri.return_value = None
