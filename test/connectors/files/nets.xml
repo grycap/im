@@ -1,0 +1,112 @@
+<VNET_POOL>
+	<VNET>
+		<ID>0</ID>
+		<UID>0</UID>
+		<GID>0</GID>
+		<UNAME>oneadmin</UNAME>
+		<GNAME>oneadmin</GNAME>
+		<NAME>privada</NAME>
+		<PERMISSIONS>
+			<OWNER_U>1</OWNER_U>
+			<OWNER_M>1</OWNER_M>
+			<OWNER_A>0</OWNER_A>
+			<GROUP_U>1</GROUP_U>
+			<GROUP_M>0</GROUP_M>
+			<GROUP_A>0</GROUP_A>
+			<OTHER_U>1</OTHER_U>
+			<OTHER_M>0</OTHER_M>
+			<OTHER_A>0</OTHER_A>
+		</PERMISSIONS>
+		<CLUSTER_ID>-1</CLUSTER_ID>
+		<CLUSTER></CLUSTER>
+		<BRIDGE>br1</BRIDGE>
+		<VLAN>0</VLAN>
+		<PARENT_NETWORK_ID />
+		<PHYDEV />
+		<VLAN_ID />
+		<USED_LEASES>84</USED_LEASES>
+		<TEMPLATE>
+			<BRIDGE><![CDATA[br1]]></BRIDGE>
+			<PHYDEV><![CDATA[]]>
+			</PHYDEV>
+			<PUBLIC><![CDATA[YES]]></PUBLIC>
+			<TYPE><![CDATA[FIXED]]></TYPE>
+			<VLAN><![CDATA[NO]]></VLAN>
+			<VLAN_ID><![CDATA[]]>
+			</VLAN_ID>
+		</TEMPLATE>
+		<AR_POOL>
+			<AR>
+				<ALLOCATED><![CDATA[ 0 73014444031]]></ALLOCATED>
+				<AR_ID><![CDATA[0]]></AR_ID>
+				<IP><![CDATA[10.0.0.1]]></IP>
+				<MAC><![CDATA[10:00:00:00:00:1]]></MAC>
+				<SIZE><![CDATA[1]]></SIZE>
+				<TYPE><![CDATA[IP4]]></TYPE>
+			</AR>
+			<AR>
+				<ALLOCATED><![CDATA[ 0 73014444031]]></ALLOCATED>
+				<AR_ID><![CDATA[1]]></AR_ID>
+				<IP><![CDATA[10.0.0.2]]></IP>
+				<MAC><![CDATA[10:00:00:00:00:02]]></MAC>
+				<SIZE><![CDATA[1]]></SIZE>
+				<TYPE><![CDATA[IP4]]></TYPE>
+			</AR>
+		</AR_POOL>
+	</VNET>
+	<VNET>
+		<ID>1</ID>
+		<UID>0</UID>
+		<GID>0</GID>
+		<UNAME>oneadmin</UNAME>
+		<GNAME>oneadmin</GNAME>
+		<NAME>publica</NAME>
+		<PERMISSIONS>
+			<OWNER_U>1</OWNER_U>
+			<OWNER_M>1</OWNER_M>
+			<OWNER_A>0</OWNER_A>
+			<GROUP_U>1</GROUP_U>
+			<GROUP_M>0</GROUP_M>
+			<GROUP_A>0</GROUP_A>
+			<OTHER_U>1</OTHER_U>
+			<OTHER_M>0</OTHER_M>
+			<OTHER_A>0</OTHER_A>
+		</PERMISSIONS>
+		<CLUSTER_ID>-1</CLUSTER_ID>
+		<CLUSTER></CLUSTER>
+		<BRIDGE>br0</BRIDGE>
+		<VLAN>0</VLAN>
+		<PARENT_NETWORK_ID />
+		<PHYDEV />
+		<VLAN_ID />
+		<USED_LEASES>13</USED_LEASES>
+		<TEMPLATE>
+			<BRIDGE><![CDATA[br0]]></BRIDGE>
+			<PHYDEV><![CDATA[]]>
+			</PHYDEV>
+			<PUBLIC><![CDATA[YES]]></PUBLIC>
+			<TYPE><![CDATA[FIXED]]></TYPE>
+			<VLAN><![CDATA[NO]]></VLAN>
+			<VLAN_ID><![CDATA[]]>
+			</VLAN_ID>
+		</TEMPLATE>
+		<AR_POOL>
+			<AR>
+				<ALLOCATED><![CDATA[ 0 68719486537]]></ALLOCATED>
+				<AR_ID><![CDATA[0]]></AR_ID>
+				<IP><![CDATA[158.42.1.1]]></IP>
+				<MAC><![CDATA[00:00:00:00:00:01]]></MAC>
+				<SIZE><![CDATA[1]]></SIZE>
+				<TYPE><![CDATA[IP4]]></TYPE>
+			</AR>
+			<AR>
+				<ALLOCATED><![CDATA[ 0 68719485969]]></ALLOCATED>
+				<AR_ID><![CDATA[1]]></AR_ID>
+				<IP><![CDATA[158.42.1.2]]></IP>
+				<MAC><![CDATA[00:00:00:00:00:02]]></MAC>
+				<SIZE><![CDATA[1]]></SIZE>
+				<TYPE><![CDATA[IP4]]></TYPE>
+			</AR>
+		</AR_POOL>
+	</VNET>
+</VNET_POOL>
