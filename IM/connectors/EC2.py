@@ -414,10 +414,9 @@ class EC2CloudConnector(CloudConnector):
                 created = True
                 keypair.save(self.KEYPAIR_DIR)
                 os.chmod(keypair_file, 0400)
-                fkeypair = open(keypair_file, "r")
-                system.setUserKeyCredentials(
-                    system.getCredentials().username, None, fkeypair.read())
-                fkeypair.close()
+                with open(keypair_file, "r") as fkeypair:
+                    system.setUserKeyCredentials(system.getCredentials().username,
+                                                 None, fkeypair.read())
                 os.unlink(keypair_file)
         except:
             self.logger.exception(
@@ -641,10 +640,8 @@ class EC2CloudConnector(CloudConnector):
                         else:
                             placement = system.getValue('availability_zone')
                             # Force to use magnetic volumes
-                            bdm = boto.ec2.blockdevicemapping.BlockDeviceMapping(
-                                conn)
-                            bdm[block_device_name] = boto.ec2.blockdevicemapping.BlockDeviceType(
-                                volume_type="standard")
+                            bdm = boto.ec2.blockdevicemapping.BlockDeviceMapping(conn)
+                            bdm[block_device_name] = boto.ec2.blockdevicemapping.BlockDeviceType(volume_type="standard")
                             # Check if the user has specified the net provider
                             # id
                             reservation = image.run(min_count=1, max_count=1, key_name=keypair_name,
@@ -897,8 +894,7 @@ class EC2CloudConnector(CloudConnector):
                     n = 0
                     found = False
                     while vm.getRequestedSystem().getValue("net_interface." + str(n) + ".connection"):
-                        net_conn = vm.getRequestedSystem().getValue(
-                            'net_interface.' + str(n) + '.connection')
+                        net_conn = vm.getRequestedSystem().getValue('net_interface.' + str(n) + '.connection')
                         if vm.info.get_network_by_id(net_conn).isPublic():
                             if vm.getRequestedSystem().getValue("net_interface." + str(n) + ".ip"):
                                 fixed_ip = vm.getRequestedSystem().getValue("net_interface." + str(n) + ".ip")
@@ -1107,8 +1103,7 @@ class EC2CloudConnector(CloudConnector):
                 volumes.append(volume.volume_id)
             instance.terminate()
 
-        public_key = vm.getRequestedSystem().getValue(
-            'disk.0.os.credentials.public_key')
+        public_key = vm.getRequestedSystem().getValue('disk.0.os.credentials.public_key')
         if public_key is None or len(public_key) == 0 or (len(public_key) >= 1 and
                                                           public_key.find('-----BEGIN CERTIFICATE-----') != -1):
             # only delete in case of the user do not specify the keypair name

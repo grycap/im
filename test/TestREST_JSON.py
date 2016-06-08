@@ -34,7 +34,7 @@ PID = None
 RADL_ADD = """[{"class":"network","reference":true,"id":"publica"},
 {"class":"system","reference":true,"id":"front"},{"vm_number":1,"class":"deploy","system":"front"}]"""
 TESTS_PATH = os.path.dirname(os.path.realpath(__file__))
-RADL_FILE = TESTS_PATH + '/test_simple.json'
+RADL_FILE = TESTS_PATH + '/files/test_simple.json'
 AUTH_FILE = TESTS_PATH + '/auth.dat'
 
 HOSTNAME = "localhost"

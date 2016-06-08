@@ -387,8 +387,7 @@ class KubernetesCloudConnector(CloudConnector):
                         (False, "Error creating the Container: " + output))
                 else:
                     output = json.loads(output)
-                    vm.id = output["metadata"]["namespace"] + \
-                        "/" + output["metadata"]["name"]
+                    vm.id = output["metadata"]["namespace"] + "/" + output["metadata"]["name"]
                     # Set SSH port in the RADL info of the VM
                     vm.setSSHPort(ssh_port)
                     # Set the default user and password to access the container
