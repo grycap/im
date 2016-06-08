@@ -591,7 +591,9 @@ users:
         auth_header = self.get_auth_header(auth_data)
 
         cpu = system.getValue('cpu.count')
-        memory = system.getFeature('memory.size').getValue('G')
+        memory = None
+        if system.getFeature('memory.size'):
+            memory = system.getFeature('memory.size').getValue('G')
         name = system.getValue("instance_name")
         if not name:
             name = system.getValue("disk.0.image.name")
@@ -1010,8 +1012,8 @@ class KeyStoneAuth:
             tenant_token_id = output['access']['token']['id']
 
             return tenant_token_id
-        except:
+        except Exception, ex:
             occi.logger.exception("Error obtaining Keystone Token.")
-            return None
+            raise Exception("Error obtaining Keystone Token: %s" % str(ex))
         finally:
             occi.delete_proxy(conn)

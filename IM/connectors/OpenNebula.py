@@ -154,7 +154,10 @@ class OpenNebulaCloudConnector(CloudConnector):
                         disk_free = int(radl_system.getFeature(
                             'disks.free_size').getValue('M'))
                         # The VMRC specified the value in MB
-                        disk_size = int(radl_system.getValue("disk.0.size"))
+                        if radl_system.getValue("disk.0.size"):
+                            disk_size = int(radl_system.getValue("disk.0.size"))
+                        else:
+                            disk_size = 0
 
                         if disk_size < disk_free:
                             # if the image do not have enough space, discard it
