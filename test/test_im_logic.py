@@ -466,11 +466,13 @@ class TestIM(unittest.TestCase):
         IM._reinit()
         Config.PLAYBOOK_RETRIES = 1
         Config.CONTEXTUALIZATION_DIR = os.path.dirname(os.path.realpath(__file__)) + "/../contextualization"
+        Config.CONFMAMAGER_CHECK_STATE_INTERVAL = 0.001
         cloud0 = self.get_cloud_connector_mock("MyMock")
         self.register_cloudconnector("Mock", cloud0)
+
         infId = IM.CreateInfrastructure(str(radl), auth0)
 
-        time.sleep(25)
+        time.sleep(2)
 
         state = IM.GetInfrastructureState(infId, auth0)
         self.assertEqual(state["state"], "unconfigured")
@@ -479,7 +481,7 @@ class TestIM(unittest.TestCase):
 
         IM.Reconfigure(infId, "", auth0)
 
-        time.sleep(20)
+        time.sleep(2)
 
         state = IM.GetInfrastructureState(infId, auth0)
         self.assertEqual(state["state"], "running")

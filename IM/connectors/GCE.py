@@ -315,7 +315,7 @@ class GCECloudConnector(CloudConnector):
                 'location': region}
 
         if self.request_external_ip(radl):
-            if num_vm:
+            if num_vm > 1:
                 raise Exception(
                     "A fixed IP cannot be specified to a set of nodes (deploy is higher than 1)")
             fixed_ip = self.request_external_ip(radl)
