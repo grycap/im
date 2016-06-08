@@ -469,7 +469,7 @@ class TestIM(unittest.TestCase):
         Config.CONFMAMAGER_CHECK_STATE_INTERVAL = 0.001
         cloud0 = self.get_cloud_connector_mock("MyMock")
         self.register_cloudconnector("Mock", cloud0)
-        
+
         infId = IM.CreateInfrastructure(str(radl), auth0)
 
         time.sleep(2)
