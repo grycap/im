@@ -21,7 +21,7 @@ import time
 import logging
 import unittest
 import sys
-from mock import Mock, patch, MagicMock
+from mock import Mock
 
 sys.path.append("..")
 sys.path.append(".")
@@ -434,8 +434,7 @@ class TestIM(unittest.TestCase):
 
         IM.DestroyInfrastructure(new_inf_id, auth0)
 
-    @patch('IM.ansible.ansible_launcher.AnsibleThread')
-    def test_contextualize(self, ansible_thread):
+    def test_contextualize(self):
         """Test Contextualization process"""
         radl = """"
             network publica (outbound = 'yes')
