@@ -36,7 +36,7 @@ RADL_ADD = "network publica\nsystem front\ndeploy front 1"
 RADL_ADD_ERROR = "system wnno deploy wnno 1"
 TESTS_PATH = os.path.dirname(os.path.realpath(__file__))
 RADL_FILE = TESTS_PATH + '/files/test_simple.radl'
-AUTH_FILE = TESTS_PATH + '/files/auth.dat'
+AUTH_FILE = TESTS_PATH + '/auth.dat'
 
 HOSTNAME = "localhost"
 TEST_PORT = 8800
