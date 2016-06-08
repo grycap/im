@@ -87,8 +87,11 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             import libcloud.security
             libcloud.security.VERIFY_SSL_CERT = False
 
-            import ssl
-            ssl._create_default_https_context = ssl._create_unverified_context
+            try:
+                import ssl
+                ssl._create_default_https_context = ssl._create_unverified_context
+            except:
+                pass
 
             cls = get_driver(Provider.OPENSTACK)
             driver = cls(auth['username'], auth['password'],

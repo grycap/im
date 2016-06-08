@@ -208,3 +208,4 @@ IM 1.4.5
     * Enable to keygen in OpenNebula connector
     * Add env variable IM_DATA_DB to enable to change the DB in a container
     * Bugfox with VMRC lib and SOAPPy
+    * Change winrm UnauthorizedError exception for new class Authentication
