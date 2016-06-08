@@ -263,7 +263,8 @@ class TestGCEConnector(unittest.TestCase):
         self.clean_log()
 
     @patch('libcloud.compute.drivers.gce.GCENodeDriver')
-    def test_60_finalize(self, get_driver):
+    @patch('time.sleep')
+    def test_60_finalize(self, sleep, get_driver):
         auth = Authentication([{'id': 'one', 'type': 'GCE', 'username': 'user',
                                 'password': 'pass\npass', 'project': 'proj'}])
         gce_cloud = self.get_gce_cloud()

@@ -462,7 +462,8 @@ class TestEC2Connector(unittest.TestCase):
         self.clean_log()
 
     @patch('IM.connectors.EC2.EC2CloudConnector.get_connection')
-    def test_60_finalize(self, get_connection):
+    @patch('time.sleep')
+    def test_60_finalize(self, sleep, get_connection):
         radl_data = """
             network net (outbound = 'yes')
             system test (
