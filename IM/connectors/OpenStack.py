@@ -70,7 +70,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                               "service_type": None,
                               "service_name": None,
                               "service_region": 'RegionOne',
-                              "base_url": None}
+                              "base_url": None,
+                              "domain": None}
 
                 for param in parameters:
                     if param in auth:
@@ -96,6 +97,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             cls = get_driver(Provider.OPENSTACK)
             driver = cls(auth['username'], auth['password'],
                          ex_tenant_name=auth['tenant'],
+                         ex_domain_name=parameters['domain'],
                          ex_force_auth_url=parameters["auth_url"],
                          ex_force_auth_version=parameters["auth_version"],
                          ex_force_service_region=parameters["service_region"],
