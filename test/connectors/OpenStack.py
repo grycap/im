@@ -358,7 +358,8 @@ class TestOSTConnector(unittest.TestCase):
         self.clean_log()
 
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
-    def test_60_finalize(self, get_driver):
+    @patch('time.sleep')
+    def test_60_finalize(self, sleep, get_driver):
         auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'username': 'user',
                                 'password': 'pass', 'tenant': 'tenant', 'host': 'https://server.com:5000'}])
         ost_cloud = self.get_ost_cloud()
