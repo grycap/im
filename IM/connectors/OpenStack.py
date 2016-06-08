@@ -70,7 +70,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                               "service_type": None,
                               "service_name": None,
                               "service_region": 'RegionOne',
-                              "base_url": None}
+                              "base_url": None,
+                              "domain": None}
 
                 for param in parameters:
                     if param in auth:
