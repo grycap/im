@@ -21,7 +21,8 @@ import time
 import logging
 import unittest
 import sys
-from mock import Mock
+
+from mock import Mock, patch, MagicMock
 
 sys.path.append("..")
 sys.path.append(".")
@@ -38,6 +39,8 @@ from radl.radl_parse import parse_radl
 from IM.CloudInfo import CloudInfo
 from IM.connectors.CloudConnector import CloudConnector
 from IM.SSH import SSH
+from IM.InfrastructureInfo import InfrastructureInfo
+
 from IM.tosca.Tosca import Tosca
 
 
@@ -147,6 +150,22 @@ class TestIM(unittest.TestCase):
 
         IM.DestroyInfrastructure(infId, auth0)
 
+    def test_inf_auth_with_userdb(self):
+        """Test access im with user db"""
+
+        Config.USER_DB = os.path.dirname(os.path.realpath(__file__)) + '/files/users.txt'
+
+        auth0 = self.getAuth([0])
+        infId0 = IM.CreateInfrastructure("", auth0)
+        IM.DestroyInfrastructure(infId0, auth0)
+
+        auth1 = self.getAuth([1])
+        with self.assertRaises(Exception) as ex:
+            IM.CreateInfrastructure("", auth1)
+        self.assertEqual(str(ex.exception),
+                         "Invalid InfrastructureManager credentials")
+        Config.USER_DB = None
+
     def test_inf_addresources0(self):
         """Deploy single virtual machines and test reference."""
         radl = RADL()
@@ -173,7 +192,7 @@ class TestIM(unittest.TestCase):
     def test_inf_addresources1(self):
         """Deploy n independent virtual machines."""
 
-        n = 60  # Machines to deploy
+        n = 40  # Machines to deploy
         Config.MAX_SIMULTANEOUS_LAUNCHES = n / 2  # Test the pool
         radl = RADL()
         radl.add(system("s0", [Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
@@ -491,11 +510,38 @@ class TestIM(unittest.TestCase):
     def test_tosca_to_radl(self):
         """Test TOSCA RADL translation"""
         TESTS_PATH = os.path.dirname(os.path.realpath(__file__))
-        with open(TESTS_PATH + '/tosca_create.yml') as f:
+        with open(TESTS_PATH + '/files/tosca_create.yml') as f:
             tosca_data = f.read()
         tosca = Tosca(tosca_data)
         _, radl = tosca.to_radl()
         parse_radl(str(radl))
+
+    @patch('httplib.HTTPSConnection')
+    def test_0check_iam_token(self, connection):
+        im_auth = {"token": ("eyJraWQiOiJyc2ExIiwiYWxnIjoiUlMyNTYifQ.eyJzdWIiOiJkYzVkNWFiNy02ZGI5LTQwNzktOTg1Yy04MGF"
+                             "jMDUwMTcwNjYiLCJpc3MiOiJodHRwczpcL1wvaWFtLXRlc3QuaW5kaWdvLWRhdGFjbG91ZC5ldVwvIiwiZXhwI"
+                             "joxNDY1NDcxMzU0LCJpYXQiOjE0NjU0Njc3NTUsImp0aSI6IjA3YjlkYmE4LTc3NWMtNGI5OS1iN2QzLTk4Njg"
+                             "5ODM1N2FiYSJ9.DwpZizVaYtvIj7fagQqDFpDh96szFupf6BNMIVLcopqQtZ9dBvwN9lgZ_w7Htvb3r-erho_hc"
+                             "me5mqDMVbSKwsA2GiHfiXSnh9jmNNVaVjcvSPNVGF8jkKNxeSSgoT3wED8xt4oU4s5MYiR075-RAkt6AcWqVbXU"
+                             "z5BzxBvANko")}
+
+        TESTS_PATH = os.path.dirname(os.path.realpath(__file__))
+        with open(TESTS_PATH + '/files/iam_user_info.json') as f:
+            user_info = f.read()
+
+        conn = MagicMock()
+        connection.return_value = conn
+
+        resp = MagicMock()
+        resp.status = 200
+        resp.read.return_value = user_info
+        conn.getresponse.return_value = resp
+
+        IM.check_iam_token(im_auth)
+
+        self.assertEqual(im_auth['username'], "micafer")
+        self.assertEqual(im_auth['password'], "https://iam-test.indigo-datacloud.eu/sub")
+
 
 if __name__ == "__main__":
     unittest.main()

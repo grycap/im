@@ -31,7 +31,7 @@ from radl import radl_parse
 from IM import __version__ as version
 
 TESTS_PATH = os.path.dirname(os.path.realpath(__file__))
-RADL_FILE = TESTS_PATH + '/quick-test.radl'
+RADL_FILE = TESTS_PATH + '/files/quick-test.radl'
 AUTH_FILE = TESTS_PATH + '/auth.dat'
 HOSTNAME = "localhost"
 TEST_PORT = 8899

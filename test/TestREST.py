@@ -35,7 +35,7 @@ PID = None
 RADL_ADD = "network publica\nsystem front\ndeploy front 1"
 RADL_ADD_ERROR = "system wnno deploy wnno 1"
 TESTS_PATH = os.path.dirname(os.path.realpath(__file__))
-RADL_FILE = TESTS_PATH + '/test_simple.radl'
+RADL_FILE = TESTS_PATH + '/files/test_simple.radl'
 AUTH_FILE = TESTS_PATH + '/auth.dat'
 
 HOSTNAME = "localhost"
@@ -479,7 +479,7 @@ class TestIM(unittest.TestCase):
         """
         Test the CreateInfrastructure IM function with a TOSCA document
         """
-        with open(TESTS_PATH + '/tosca_create.yml') as f:
+        with open(TESTS_PATH + '/files/tosca_create.yml') as f:
             tosca = f.read()
 
         self.server.request('POST', "/infrastructures", body=tosca,
@@ -511,7 +511,7 @@ class TestIM(unittest.TestCase):
         """
         Test the AddResource IM function with a TOSCA document
         """
-        with open(TESTS_PATH + '/tosca_add.yml') as f:
+        with open(TESTS_PATH + '/files/tosca_add.yml') as f:
             tosca = f.read()
 
         self.server.request('POST', "/infrastructures/" + self.inf_id, body=tosca,
@@ -538,7 +538,7 @@ class TestIM(unittest.TestCase):
         """
         Test the RemoveResource IM function with a TOSCA document
         """
-        with open(TESTS_PATH + '/tosca_remove.yml') as f:
+        with open(TESTS_PATH + '/files/tosca_remove.yml') as f:
             tosca = f.read()
 
         self.server.request('POST', "/infrastructures/" + self.inf_id, body=tosca,
