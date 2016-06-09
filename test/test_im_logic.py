@@ -192,7 +192,7 @@ class TestIM(unittest.TestCase):
     def test_inf_addresources1(self):
         """Deploy n independent virtual machines."""
 
-        n = 60  # Machines to deploy
+        n = 40  # Machines to deploy
         Config.MAX_SIMULTANEOUS_LAUNCHES = n / 2  # Test the pool
         radl = RADL()
         radl.add(system("s0", [Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
