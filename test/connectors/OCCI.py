@@ -122,6 +122,8 @@ class TestOCCIConnector(unittest.TestCase):
         elif method == "DELETE":
             if url.endswith("/compute/1"):
                 resp.status = 200
+            elif url.endswith("/storage/1"):
+                resp.status = 200
 
         return resp
 
