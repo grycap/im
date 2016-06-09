@@ -509,7 +509,7 @@ class TestIM(unittest.TestCase):
     def test_tosca_to_radl(self):
         """Test TOSCA RADL translation"""
         TESTS_PATH = os.path.dirname(os.path.realpath(__file__))
-        with open(TESTS_PATH + '/tosca_create.yml') as f:
+        with open(TESTS_PATH + '/files/tosca_create.yml') as f:
             tosca_data = f.read()
         tosca = Tosca(tosca_data)
         _, radl = tosca.to_radl()
@@ -531,6 +531,27 @@ class TestIM(unittest.TestCase):
         inf.id = "1"
         success = IM.save_data_to_db("mysql://username:password@server/db_name", {"1": inf})
         self.assertTrue(success)
+
+    @patch('httplib.HTTPSConnection')
+    def test_0check_iam_token(self, connection):
+        im_auth = {"token": "eyJraWQiOiJyc2ExIiwiYWxnIjoiUlMyNTYifQ.eyJzdWIiOiJkYzVkNWFiNy02ZGI5LTQwNzktOTg1Yy04MGFjMDUwMTcwNjYiLCJpc3MiOiJodHRwczpcL1wvaWFtLXRlc3QuaW5kaWdvLWRhdGFjbG91ZC5ldVwvIiwiZXhwIjoxNDY1NDcxMzU0LCJpYXQiOjE0NjU0Njc3NTUsImp0aSI6IjA3YjlkYmE4LTc3NWMtNGI5OS1iN2QzLTk4Njg5ODM1N2FiYSJ9.DwpZizVaYtvIj7fagQqDFpDh96szFupf6BNMIVLcopqQtZ9dBvwN9lgZ_w7Htvb3r-erho_hcme5mqDMVbSKwsA2GiHfiXSnh9jmNNVaVjcvSPNVGF8jkKNxeSSgoT3wED8xt4oU4s5MYiR075-RAkt6AcWqVbXUz5BzxBvANko"}
+
+        TESTS_PATH = os.path.dirname(os.path.realpath(__file__))
+        with open(TESTS_PATH + '/files/iam_user_info.json') as f:
+            user_info = f.read()
+        
+        conn = MagicMock()
+        connection.return_value = conn
+
+        resp = MagicMock()
+        resp.status = 200
+        resp.read.return_value = user_info 
+        conn.getresponse.return_value = resp
+
+        IM.check_iam_token(im_auth)
+
+        self.assertEqual(im_auth['username'], "micafer")
+        self.assertEqual(im_auth['password'], "https://iam-test.indigo-datacloud.eu/sub")
 
 
 if __name__ == "__main__":
