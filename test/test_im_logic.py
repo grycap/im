@@ -22,7 +22,6 @@ import logging
 import unittest
 import sys
 from mock import Mock, patch, MagicMock
-from gi.overrides.Gdk import Cursor
 
 sys.path.append("..")
 sys.path.append(".")
