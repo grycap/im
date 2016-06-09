@@ -1,0 +1,12 @@
+{
+        "users": [
+                {
+                        "username": "user0",
+                        "password": "pass0"
+                },
+                {
+                        "username": "user2",
+                        "password": "pass2"
+                }
+        ]
+}

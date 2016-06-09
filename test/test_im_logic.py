@@ -21,7 +21,7 @@ import time
 import logging
 import unittest
 import sys
-from mock import Mock
+from mock import Mock, patch, MagicMock
 
 sys.path.append("..")
 sys.path.append(".")
@@ -38,6 +38,7 @@ from radl.radl_parse import parse_radl
 from IM.CloudInfo import CloudInfo
 from IM.connectors.CloudConnector import CloudConnector
 from IM.SSH import SSH
+from IM.InfrastructureInfo import InfrastructureInfo
 
 
 class TestIM(unittest.TestCase):
@@ -146,6 +147,22 @@ class TestIM(unittest.TestCase):
 
         IM.DestroyInfrastructure(infId, auth0)
 
+    def test_inf_auth_with_userdb(self):
+        """Test access im with user db"""
+
+        Config.USER_DB = os.path.dirname(os.path.realpath(__file__)) + '/files/users.txt'
+
+        auth0 = self.getAuth([0])
+        infId0 = IM.CreateInfrastructure("", auth0)
+        IM.DestroyInfrastructure(infId0, auth0)
+
+        auth1 = self.getAuth([1])
+        with self.assertRaises(Exception) as ex:
+            IM.CreateInfrastructure("", auth1)
+        self.assertEqual(str(ex.exception),
+                         "Invalid InfrastructureManager credentials")
+        Config.USER_DB = None
+
     def test_inf_addresources0(self):
         """Deploy single virtual machines and test reference."""
         radl = RADL()
@@ -172,7 +189,7 @@ class TestIM(unittest.TestCase):
     def test_inf_addresources1(self):
         """Deploy n independent virtual machines."""
 
-        n = 60  # Machines to deploy
+        n = 40  # Machines to deploy
         Config.MAX_SIMULTANEOUS_LAUNCHES = n / 2  # Test the pool
         radl = RADL()
         radl.add(system("s0", [Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),

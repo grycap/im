@@ -20,7 +20,7 @@ from IM.VirtualMachine import VirtualMachine
 from CloudConnector import CloudConnector
 
 from libcloud.compute.base import NodeImage, NodeAuthSSHKey
-from libcloud.compute.types import NodeState
+from libcloud.compute.types import Provider, NodeState
 from libcloud.compute.providers import get_driver
 
 from radl.radl import Feature
@@ -164,7 +164,7 @@ class LibCloudCloudConnector(CloudConnector):
                         res_system.addFeature(Feature(
                             "provider.port", "=", self.cloud.port), conflict="other", missing="other")
 
-                        res.append(res_system)
+                    res.append(res_system)
             return res
 
     def update_system_info_from_instance(self, system, instance_type):
@@ -410,8 +410,7 @@ class LibCloudCloudConnector(CloudConnector):
                 if node.driver.name == "Amazon EC2":
                     elastic_ip = None
                     if fixed_ip:
-                        elastic_ips = node.driver.ex_describe_addresses_for_node(
-                            node)
+                        elastic_ips = node.driver.ex_describe_addresses_for_node(node)
                         for ip in elastic_ips:
                             if str(ip.ip) == ip:
                                 elastic_ip = ip
