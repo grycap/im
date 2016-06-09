@@ -1221,11 +1221,11 @@ class InfrastructureManager:
     @staticmethod
     def check_auth_data(auth):
         # First check if it is configured to check the users from a list
-        im_auth = auth.getAuthInfo("InfrastructureManager")[0]
+        im_auth = auth.getAuthInfo("InfrastructureManager")
 
         # First check if the IAM token is included
         if "token" in im_auth:
-            InfrastructureManager.check_iam_token(im_auth)
+            InfrastructureManager.check_iam_token(im_auth[0])
         else:
             # if not assume the basic user/password auth data
             if not InfrastructureManager.check_im_user(im_auth):
