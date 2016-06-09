@@ -504,23 +504,6 @@ class TestIM(unittest.TestCase):
 
         IM.DestroyInfrastructure(infId, auth0)
 
-    @patch('IM.db.mdb')
-    def test_db(self, db):
-        conn = MagicMock()
-        db.connect.return_value = conn
-
-        cursor = MagicMock()
-        conn.cursor.return_value = cursor
-        cursor.fetchall.return_value = [("1", "S'a'\np0\n.")]
-
-        res = IM.get_data_from_db("mysql://username:password@server/db_name")
-        self.assertEqual(res, {})
-
-        inf = InfrastructureInfo()
-        inf.id = "1"
-        success = IM.save_data_to_db("mysql://username:password@server/db_name", {"1": inf})
-        self.assertTrue(success)
-
 
 if __name__ == "__main__":
     unittest.main()
