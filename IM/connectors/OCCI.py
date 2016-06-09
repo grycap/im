@@ -568,8 +568,7 @@ users:
         conn = None
         try:
             conn = self.get_http_connection(auth_data)
-            conn.request('DELETE', self.cloud.path +
-                         "/storage/" + storage_id, headers=headers)
+            conn.request('DELETE', self.cloud.path + storage_id, headers=headers)
             resp = conn.getresponse()
             output = str(resp.read())
             if resp.status == 404 or resp.status == 204:
@@ -795,7 +794,7 @@ users:
                 occi_volumes = self.get_attached_volumes(output)
                 deleted_vols = []
                 for _, num_storage, device in occi_volumes:
-                    if not device.endswith("vda"):
+                    if not device.endswith("vda") and not device.endswith("hda"):
                         deleted_vols.append(num_storage)
                         self.delete_volume(num_storage, auth_data)
 

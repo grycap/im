@@ -21,7 +21,8 @@ import time
 import logging
 import unittest
 import sys
-from mock import Mock
+
+from mock import Mock, patch, MagicMock
 
 sys.path.append("..")
 sys.path.append(".")
@@ -38,8 +39,9 @@ from radl.radl_parse import parse_radl
 from IM.CloudInfo import CloudInfo
 from IM.connectors.CloudConnector import CloudConnector
 from IM.SSH import SSH
-from IM.tosca.Tosca import Tosca
+from IM.InfrastructureInfo import InfrastructureInfo
 
+from IM.tosca.Tosca import Tosca
 
 class TestIM(unittest.TestCase):
 
@@ -146,6 +148,22 @@ class TestIM(unittest.TestCase):
         self.assertIn("No username", ex.exception.message)
 
         IM.DestroyInfrastructure(infId, auth0)
+
+    def test_inf_auth_with_userdb(self):
+        """Test access im with user db"""
+
+        Config.USER_DB = os.path.dirname(os.path.realpath(__file__)) + '/files/users.txt'
+
+        auth0 = self.getAuth([0])
+        infId0 = IM.CreateInfrastructure("", auth0)
+        IM.DestroyInfrastructure(infId0, auth0)
+
+        auth1 = self.getAuth([1])
+        with self.assertRaises(Exception) as ex:
+            IM.CreateInfrastructure("", auth1)
+        self.assertEqual(str(ex.exception),
+                         "Invalid InfrastructureManager credentials")
+        Config.USER_DB = None
 
     def test_inf_addresources0(self):
         """Deploy single virtual machines and test reference."""
@@ -496,6 +514,24 @@ class TestIM(unittest.TestCase):
         tosca = Tosca(tosca_data)
         _, radl = tosca.to_radl()
         parse_radl(str(radl))
+
+    @patch('IM.db.mdb')
+    def test_db(self, db):
+        conn = MagicMock()
+        db.connect.return_value = conn
+
+        cursor = MagicMock()
+        conn.cursor.return_value = cursor
+        cursor.fetchall.return_value = [("1", "S'a'\np0\n.")]
+
+        res = IM.get_data_from_db("mysql://username:password@server/db_name")
+        self.assertEqual(res, {})
+
+        inf = InfrastructureInfo()
+        inf.id = "1"
+        success = IM.save_data_to_db("mysql://username:password@server/db_name", {"1": inf})
+        self.assertTrue(success)
+
 
 if __name__ == "__main__":
     unittest.main()
