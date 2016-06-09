@@ -43,6 +43,7 @@ from IM.InfrastructureInfo import InfrastructureInfo
 
 from IM.tosca.Tosca import Tosca
 
+
 class TestIM(unittest.TestCase):
 
     def __init__(self, *args):
@@ -534,18 +535,23 @@ class TestIM(unittest.TestCase):
 
     @patch('httplib.HTTPSConnection')
     def test_0check_iam_token(self, connection):
-        im_auth = {"token": "eyJraWQiOiJyc2ExIiwiYWxnIjoiUlMyNTYifQ.eyJzdWIiOiJkYzVkNWFiNy02ZGI5LTQwNzktOTg1Yy04MGFjMDUwMTcwNjYiLCJpc3MiOiJodHRwczpcL1wvaWFtLXRlc3QuaW5kaWdvLWRhdGFjbG91ZC5ldVwvIiwiZXhwIjoxNDY1NDcxMzU0LCJpYXQiOjE0NjU0Njc3NTUsImp0aSI6IjA3YjlkYmE4LTc3NWMtNGI5OS1iN2QzLTk4Njg5ODM1N2FiYSJ9.DwpZizVaYtvIj7fagQqDFpDh96szFupf6BNMIVLcopqQtZ9dBvwN9lgZ_w7Htvb3r-erho_hcme5mqDMVbSKwsA2GiHfiXSnh9jmNNVaVjcvSPNVGF8jkKNxeSSgoT3wED8xt4oU4s5MYiR075-RAkt6AcWqVbXUz5BzxBvANko"}
+        im_auth = {"token": ("eyJraWQiOiJyc2ExIiwiYWxnIjoiUlMyNTYifQ.eyJzdWIiOiJkYzVkNWFiNy02ZGI5LTQwNzktOTg1Yy04MGF"
+                             "jMDUwMTcwNjYiLCJpc3MiOiJodHRwczpcL1wvaWFtLXRlc3QuaW5kaWdvLWRhdGFjbG91ZC5ldVwvIiwiZXhwI"
+                             "joxNDY1NDcxMzU0LCJpYXQiOjE0NjU0Njc3NTUsImp0aSI6IjA3YjlkYmE4LTc3NWMtNGI5OS1iN2QzLTk4Njg"
+                             "5ODM1N2FiYSJ9.DwpZizVaYtvIj7fagQqDFpDh96szFupf6BNMIVLcopqQtZ9dBvwN9lgZ_w7Htvb3r-erho_hc"
+                             "me5mqDMVbSKwsA2GiHfiXSnh9jmNNVaVjcvSPNVGF8jkKNxeSSgoT3wED8xt4oU4s5MYiR075-RAkt6AcWqVbXU"
+                             "z5BzxBvANko")}
 
         TESTS_PATH = os.path.dirname(os.path.realpath(__file__))
         with open(TESTS_PATH + '/files/iam_user_info.json') as f:
             user_info = f.read()
-        
+
         conn = MagicMock()
         connection.return_value = conn
 
         resp = MagicMock()
         resp.status = 200
-        resp.read.return_value = user_info 
+        resp.read.return_value = user_info
         conn.getresponse.return_value = resp
 
         IM.check_iam_token(im_auth)
