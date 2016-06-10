@@ -510,7 +510,7 @@ class TestIM(unittest.TestCase):
     def test_tosca_to_radl(self):
         """Test TOSCA RADL translation"""
         TESTS_PATH = os.path.dirname(os.path.realpath(__file__))
-        with open(TESTS_PATH + '/files/tosca_create.yml') as f:
+        with open(TESTS_PATH + '/files/tosca_long.yml') as f:
             tosca_data = f.read()
         tosca = Tosca(tosca_data)
         _, radl = tosca.to_radl()
