@@ -8,7 +8,7 @@ import urllib
 from IM.uriparse import uriparse
 from toscaparser.tosca_template import ToscaTemplate
 from toscaparser.elements.interfaces import InterfacesDef
-from toscaparser.functions import Function, is_function, get_function, GetAttribute, Concat
+from toscaparser.functions import Function, is_function, get_function, GetAttribute, Concat, Token
 from radl.radl import system, deploy, network, Feature, Features, configure, contextualize_item, RADL, contextualize
 
 
@@ -111,8 +111,7 @@ class Tosca:
                             "Node %s has not compute node to host in." % node.name)
 
                 interfaces = Tosca._get_interfaces(node)
-                interfaces.update(
-                    Tosca._get_relationships_interfaces(relationships, node))
+                interfaces.update(Tosca._get_relationships_interfaces(relationships, node))
 
                 conf = self._gen_configure_from_interfaces(
                     radl, node, interfaces, compute)
@@ -571,19 +570,22 @@ class Tosca:
                 res = ""
                 for item in items:
                     if is_function(item):
-                        res += str(self._final_function_result(item,
-                                                               node, inf_info))
+                        res += str(self._final_function_result(item, node, inf_info))
                     else:
                         res += str(item)
                 return res
             elif func_name == "token":
+                items = func["token"]
                 if len(items) == 3:
                     string_with_tokens = items[0]
                     string_of_token_chars = items[1]
                     substring_index = int(items[2])
 
+                    if is_function(string_with_tokens):
+                        string_with_tokens = str(self._final_function_result(string_with_tokens, node, inf_info))
+
                     parts = string_with_tokens.split(string_of_token_chars)
-                    if len(parts) >= substring_index:
+                    if len(parts) > substring_index:
                         return parts[substring_index]
                     else:
                         Tosca.logger.error(
@@ -807,6 +809,9 @@ class Tosca:
             elif isinstance(func, Concat):
                 func = self._get_intrinsic_value(
                     {"concat": func.args}, node, inf_info)
+            elif isinstance(func, Token):
+                func = self._get_intrinsic_value(
+                    {"token": func.args}, node, inf_info)
             else:
                 func = func.result()
 
