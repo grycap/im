@@ -516,6 +516,21 @@ class TestIM(unittest.TestCase):
         _, radl = tosca.to_radl()
         parse_radl(str(radl))
 
+    def test_tosca_get_outputs(self):
+        """Test TOSCA get_outputs function"""
+        TESTS_PATH = os.path.dirname(os.path.realpath(__file__))
+        with open(TESTS_PATH + '/files/tosca_create.yml') as f:
+            tosca_data = f.read()
+        tosca = Tosca(tosca_data)
+        _, radl = tosca.to_radl()
+        radl.systems[0].setValue("net_interface.0.ip", "158.42.1.1")
+        inf = InfrastructureInfo()
+        vm = VirtualMachine(inf, "1", None, radl, radl, None)
+        vm.requested_radl = radl
+        inf.vm_list = [vm]
+        outputs = tosca.get_outputs(inf)
+        print outputs
+
     @patch('httplib.HTTPSConnection')
     def test_check_iam_token(self, connection):
         im_auth = {"token": ("eyJraWQiOiJyc2ExIiwiYWxnIjoiUlMyNTYifQ.eyJzdWIiOiJkYzVkNWFiNy02ZGI5LTQwNzktOTg1Yy04MGF"
