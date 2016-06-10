@@ -126,7 +126,7 @@ class TestEC2Connector(unittest.TestCase):
 
         region = MagicMock()
         get_region.return_value = region
-        
+
         conn = MagicMock()
         VPCConnection.return_value = conn
 
@@ -142,11 +142,11 @@ class TestEC2Connector(unittest.TestCase):
         reservation.instances = [instance]
         image.run.return_value = reservation
         conn.get_image.return_value = image
-        
+
         subnet = MagicMock()
         subnet.id = "subnet-id"
         conn.get_all_subnets.return_value = [subnet]
-        
+
         vpc = MagicMock()
         vpc.id = "vpc-id"
         conn.get_all_vpcs.return_value = [vpc]
@@ -199,7 +199,7 @@ class TestEC2Connector(unittest.TestCase):
 
         region = MagicMock()
         get_region.return_value = region
-        
+
         conn = MagicMock()
         VPCConnection.return_value = conn
 
