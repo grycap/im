@@ -132,7 +132,14 @@ class TestAzureConnector(unittest.TestCase):
                                           "<MemoryInMb>512</MemoryInMb><Cores>1</Cores>"
                                           "<VirtualMachineResourceDiskSizeInMb>2014"
                                           "</VirtualMachineResourceDiskSizeInMb>"
-                                          "</RoleSize></RoleSizes>")
+                                          "</RoleSize>"
+                                          "<RoleSize><SupportedByVirtualMachines>true"
+                                          "</SupportedByVirtualMachines><Name>RoleSizeName</Name>"
+                                          "<MemoryInMb>2048</MemoryInMb><Cores>2</Cores>"
+                                          "<VirtualMachineResourceDiskSizeInMb>2014"
+                                          "</VirtualMachineResourceDiskSizeInMb>"
+                                          "</RoleSize>"
+                                          "</RoleSizes>")
 
         elif method == "POST":
             if url.endswith("/Operations"):
@@ -146,6 +153,10 @@ class TestAzureConnector(unittest.TestCase):
                 resp.getheader.return_value = "id"
         elif method == "DELETE":
             if url.endswith("comp=media"):
+                resp.status = 202
+                resp.getheader.return_value = "id"
+        elif method == "PUT":
+            if "roles" in url:
                 resp.status = 202
                 resp.getheader.return_value = "id"
 
@@ -274,6 +285,51 @@ class TestAzureConnector(unittest.TestCase):
         success, _ = azure_cloud.start(vm, auth)
 
         self.assertTrue(success, msg="ERROR: stopping VM info.")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+        self.clean_log()
+
+    @patch('httplib.HTTPSConnection')
+    @patch('time.sleep')
+    def test_55_alter(self, sleep, connection):
+        radl_data = """
+            network net (outbound = 'yes')
+            system test (
+            cpu.arch='x86_64' and
+            cpu.count=1 and
+            memory.size=512m and
+            net_interface.0.connection = 'net' and
+            net_interface.0.dns_name = 'test' and
+            disk.0.os.name = 'linux' and
+            disk.0.image.url = 'azr://image-id' and
+            disk.0.os.credentials.username = 'user' and
+            disk.0.os.credentials.password = 'pass'
+            )"""
+        radl = radl_parse.parse_radl(radl_data)
+
+        new_radl_data = """
+            system test (
+            cpu.count>=2 and
+            memory.size>=2048m
+            )"""
+        new_radl = radl_parse.parse_radl(new_radl_data)
+
+        auth = Authentication([{'id': 'azure', 'type': 'Azure', 'username': 'user',
+                                'public_key': 'public_key', 'private_key': 'private_key'}])
+        azure_cloud = self.get_azure_cloud()
+
+        inf = MagicMock()
+        inf.get_next_vm_id.return_value = 1
+        vm = VirtualMachine(inf, "1", azure_cloud.cloud, radl, radl, azure_cloud)
+
+        conn = MagicMock()
+        connection.return_value = conn
+
+        conn.request.side_effect = self.request
+        conn.getresponse.side_effect = self.get_response
+
+        success, _ = azure_cloud.alterVM(vm, new_radl, auth)
+
+        self.assertTrue(success, msg="ERROR: modifying VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         self.clean_log()
 
