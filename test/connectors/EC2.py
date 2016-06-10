@@ -95,13 +95,12 @@ class TestEC2Connector(unittest.TestCase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         self.clean_log()
 
-    @patch('IM.connectors.EC2.EC2CloudConnector.get_connection')
+    @patch('boto.ec2.get_region')
+    @patch('boto.vpc.VPCConnection')
     @patch('boto.ec2.blockdevicemapping.BlockDeviceMapping')
-    @patch('IM.connectors.EC2.EC2CloudConnector.get_default_subnet')
-    @patch('IM.connectors.EC2.EC2CloudConnector.create_keypair')
-    def test_20_launch(self, create_keypair, get_default_subnet, blockdevicemapping, get_connection):
+    def test_20_launch(self, blockdevicemapping, VPCConnection, get_region):
         radl_data = """
-            network net1 (outbound = 'yes')
+            network net1 (outbound = 'yes' and outports='8080')
             network net2 ()
             system test (
             cpu.arch='x86_64' and
@@ -113,6 +112,8 @@ class TestEC2Connector(unittest.TestCase):
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'aws://us-east-one/ami-id' and
             disk.0.os.credentials.username = 'user' and
+            disk.0.os.credentials.private_key = 'private' and
+            disk.0.os.credentials.public_key = 'public' and
             disk.1.size=1GB and
             disk.1.device='hdb' and
             disk.1.mount_path='/mnt/path'
@@ -123,8 +124,11 @@ class TestEC2Connector(unittest.TestCase):
         auth = Authentication([{'id': 'ec2', 'type': 'EC2', 'username': 'user', 'password': 'pass'}])
         ec2_cloud = self.get_ec2_cloud()
 
+        region = MagicMock()
+        get_region.return_value = region
+        
         conn = MagicMock()
-        get_connection.return_value = conn
+        VPCConnection.return_value = conn
 
         image = MagicMock()
         device = MagicMock()
@@ -138,6 +142,14 @@ class TestEC2Connector(unittest.TestCase):
         reservation.instances = [instance]
         image.run.return_value = reservation
         conn.get_image.return_value = image
+        
+        subnet = MagicMock()
+        subnet.id = "subnet-id"
+        conn.get_all_subnets.return_value = [subnet]
+        
+        vpc = MagicMock()
+        vpc.id = "vpc-id"
+        conn.get_all_vpcs.return_value = [vpc]
 
         sg = MagicMock()
         sg.id = "sgid"
@@ -147,10 +159,6 @@ class TestEC2Connector(unittest.TestCase):
 
         conn.get_all_security_groups.return_value = []
 
-        get_default_subnet.return_value = "vpcid", "subnetid"
-
-        create_keypair.return_value = True, "keypair"
-
         blockdevicemapping.return_value = {'device': ''}
 
         res = ec2_cloud.launch(InfrastructureInfo(), radl, radl, 1, auth)
@@ -159,11 +167,10 @@ class TestEC2Connector(unittest.TestCase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         self.clean_log()
 
-    @patch('IM.connectors.EC2.EC2CloudConnector.get_connection')
+    @patch('boto.ec2.get_region')
+    @patch('boto.vpc.VPCConnection')
     @patch('boto.ec2.blockdevicemapping.BlockDeviceMapping')
-    @patch('IM.connectors.EC2.EC2CloudConnector.get_default_subnet')
-    @patch('IM.connectors.EC2.EC2CloudConnector.create_keypair')
-    def test_20_launch_spot(self, create_keypair, get_default_subnet, blockdevicemapping, get_connection):
+    def test_25_launch_spot(self, blockdevicemapping, VPCConnection, get_region):
         radl_data = """
             network net1 (outbound = 'yes' and provider_id = 'vpc-id.subnet-id')
             network net2 ()
@@ -178,6 +185,8 @@ class TestEC2Connector(unittest.TestCase):
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'aws://us-east-one/ami-id' and
             disk.0.os.credentials.username = 'user' and
+            disk.0.os.credentials.private_key = 'private' and
+            disk.0.os.credentials.public_key = 'public' and
             disk.1.size=1GB and
             disk.1.device='hdb' and
             disk.1.mount_path='/mnt/path'
@@ -188,8 +197,11 @@ class TestEC2Connector(unittest.TestCase):
         auth = Authentication([{'id': 'ec2', 'type': 'EC2', 'username': 'user', 'password': 'pass'}])
         ec2_cloud = self.get_ec2_cloud()
 
+        region = MagicMock()
+        get_region.return_value = region
+        
         conn = MagicMock()
-        get_connection.return_value = conn
+        VPCConnection.return_value = conn
 
         image = MagicMock()
         device = MagicMock()
@@ -211,10 +223,6 @@ class TestEC2Connector(unittest.TestCase):
         conn.create_security_group.return_value = sg
 
         conn.get_all_security_groups.return_value = []
-
-        get_default_subnet.return_value = "vpcid", "subnetid"
-
-        create_keypair.return_value = True, "keypair"
 
         blockdevicemapping.return_value = {'device': ''}
 
