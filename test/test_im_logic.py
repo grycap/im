@@ -510,14 +510,29 @@ class TestIM(unittest.TestCase):
     def test_tosca_to_radl(self):
         """Test TOSCA RADL translation"""
         TESTS_PATH = os.path.dirname(os.path.realpath(__file__))
-        with open(TESTS_PATH + '/files/tosca_create.yml') as f:
+        with open(TESTS_PATH + '/files/tosca_long.yml') as f:
             tosca_data = f.read()
         tosca = Tosca(tosca_data)
         _, radl = tosca.to_radl()
         parse_radl(str(radl))
 
+    def test_tosca_get_outputs(self):
+        """Test TOSCA get_outputs function"""
+        TESTS_PATH = os.path.dirname(os.path.realpath(__file__))
+        with open(TESTS_PATH + '/files/tosca_create.yml') as f:
+            tosca_data = f.read()
+        tosca = Tosca(tosca_data)
+        _, radl = tosca.to_radl()
+        radl.systems[0].setValue("net_interface.0.ip", "158.42.1.1")
+        inf = InfrastructureInfo()
+        vm = VirtualMachine(inf, "1", None, radl, radl, None)
+        vm.requested_radl = radl
+        inf.vm_list = [vm]
+        outputs = tosca.get_outputs(inf)
+        self.assertEqual(outputs, {'server_url': ['158.42.1.1']})
+
     @patch('httplib.HTTPSConnection')
-    def test_0check_iam_token(self, connection):
+    def test_check_iam_token(self, connection):
         im_auth = {"token": ("eyJraWQiOiJyc2ExIiwiYWxnIjoiUlMyNTYifQ.eyJzdWIiOiJkYzVkNWFiNy02ZGI5LTQwNzktOTg1Yy04MGF"
                              "jMDUwMTcwNjYiLCJpc3MiOiJodHRwczpcL1wvaWFtLXRlc3QuaW5kaWdvLWRhdGFjbG91ZC5ldVwvIiwiZXhwI"
                              "joxNDY1NDcxMzU0LCJpYXQiOjE0NjU0Njc3NTUsImp0aSI6IjA3YjlkYmE4LTc3NWMtNGI5OS1iN2QzLTk4Njg"

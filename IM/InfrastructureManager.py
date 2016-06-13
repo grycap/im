@@ -1224,7 +1224,7 @@ class InfrastructureManager:
         im_auth = auth.getAuthInfo("InfrastructureManager")
 
         # First check if the IAM token is included
-        if "token" in im_auth:
+        if "token" in im_auth[0]:
             InfrastructureManager.check_iam_token(im_auth[0])
         else:
             # if not assume the basic user/password auth data
