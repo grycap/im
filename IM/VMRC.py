@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """ Class to connect with the VMRC server """
-from SOAPpy import SOAPProxy
+import SOAPpy
 from HTTPHeaderTransport import HTTPHeaderTransport
 from radl.radl import Feature, system, FeaturesApp, SoftFeatures
 
@@ -27,9 +27,9 @@ class VMRC:
 
     def __init__(self, url, user=None, passwd=None):
         if user is None:
-            self.server = SOAPProxy(url)
+            self.server = SOAPpy.SOAPProxy(url)
         else:
-            self.server = SOAPProxy(url, transport=HTTPHeaderTransport, namespace=self.namespace)
+            self.server = SOAPpy.SOAPProxy(url, transport=HTTPHeaderTransport, namespace=self.namespace)
             self.server.transport.headers = {'Username': user,
                                              'Password': passwd}
 
