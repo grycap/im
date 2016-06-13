@@ -65,7 +65,7 @@ class DataBase:
         protocol = uri[0]
         if protocol == "mysql":
             return self._connect_mysql(uri[1], uri[2][1:])
-        elif protocol == "file" or not protocol: # sqlite is the default one
+        elif protocol == "file" or not protocol:  # sqlite is the default one
             return self._connect_sqlite(uri[2])
 
         return False

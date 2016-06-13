@@ -40,10 +40,12 @@ from IM.connectors.CloudConnector import CloudConnector
 from IM.SSH import SSH
 from IM.InfrastructureInfo import InfrastructureInfo
 
+
 def read_file_as_string(file_name):
     tests_path = os.path.dirname(os.path.abspath(__file__))
     abs_file_path = os.path.join(tests_path, file_name)
     return open(abs_file_path, 'r').read()
+
 
 class TestIM(unittest.TestCase):
 
@@ -514,13 +516,13 @@ class TestIM(unittest.TestCase):
     @patch('IM.InfrastructureManager.DataBase.execute')
     def test_db(self, execute, select, table_exists, connect):
 
-        table_exists.return_value = True        
+        table_exists.return_value = True
         select.return_value = [["1", "", read_file_as_string("files/data.pkl")]]
         execute.return_value = True
 
         res = IM.get_data_from_db("mysql://username:password@server/db_name")
         self.assertEqual(len(res), 1)
- 
+
         inf = InfrastructureInfo()
         inf.id = "1"
         success = IM.save_data_to_db("mysql://username:password@server/db_name", {"1": inf})
