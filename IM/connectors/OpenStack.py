@@ -148,9 +148,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
     def updateVMInfo(self, vm, auth_data):
         node = self.get_node_with_id(vm.id, auth_data)
         if node:
-            if node.state == NodeState.RUNNING:
-                res_state = VirtualMachine.RUNNING
-            elif node.state == NodeState.REBOOTING:
+            if node.state == NodeState.RUNNING or node.state == NodeState.REBOOTING:
                 res_state = VirtualMachine.RUNNING
             elif node.state == NodeState.PENDING:
                 res_state = VirtualMachine.PENDING
