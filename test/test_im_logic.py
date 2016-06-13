@@ -530,12 +530,17 @@ class TestIM(unittest.TestCase):
         tosca = Tosca(tosca_data)
         _, radl = tosca.to_radl()
         radl.systems[0].setValue("net_interface.0.ip", "158.42.1.1")
+        radl.systems[0].setValue("disk.0.os.credentials.username", "ubuntu")
+        radl.systems[0].setValue("disk.0.os.credentials.password", "pass")
         inf = InfrastructureInfo()
         vm = VirtualMachine(inf, "1", None, radl, radl, None)
         vm.requested_radl = radl
         inf.vm_list = [vm]
         outputs = tosca.get_outputs(inf)
-        self.assertEqual(outputs, {'server_url': ['158.42.1.1']})
+        self.assertEqual(outputs, {'server_url': ['158.42.1.1'],
+                                   'server_creds': {'token_type': 'password',
+                                                    'token': 'pass',
+                                                    'user': 'ubuntu'}})
 
     @patch('httplib.HTTPSConnection')
     def test_check_iam_token(self, connection):
