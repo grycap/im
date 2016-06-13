@@ -674,6 +674,10 @@ class OpenNebulaCloudConnector(CloudConnector):
                     self.logger.error("Unknown type of network")
                     continue
 
+            if not ip:
+                self.logger.error("No IP found for network: %s. Ignoring network." % net.NAME)
+                continue
+
             is_public = not (any([IPAddress(ip) in IPNetwork(mask)
                                   for mask in Config.PRIVATE_NET_MASKS]))
 
