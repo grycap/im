@@ -44,9 +44,9 @@ class TestVMRC(unittest.TestCase):
         vmrc_res.location = "one://server.com/1"
         proxy.search.return_value = [vmrc_res]
         soapproxy.return_value = proxy
-        
+
         vmrc = VMRC("http://host:8080/vmrc/vmrc", "user", "pass")
-        
+
         radl_data = """
             network net ()
             system test (
@@ -55,8 +55,9 @@ class TestVMRC(unittest.TestCase):
             memory.size>=512m and
             net_interface.0.connection = 'net' and
             disk.0.os.flavour='ubuntu' and
-            disk.0.os.version>='12.04' and 
-            disk.applications contains (name = 'app' and version = '1.0')
+            disk.0.os.version>='12.04' and
+            disk.applications contains (name = 'app' and version = '1.0') and
+            soft 10 (disk.applications contains (name = 'otherapp' and version = '2.0'))
             )
 
             deploy test 1
@@ -84,24 +85,8 @@ class TestVMRC(unittest.TestCase):
         vmrc_res.location = "one://server.com/1"
         proxy.list.return_value = [vmrc_res]
         soapproxy.return_value = proxy
-        
-        vmrc = VMRC("http://host:8080/vmrc/vmrc", "user", "pass")
-        
-        radl_data = """
-            network net ()
-            system test (
-            cpu.arch='x86_64' and
-            cpu.count>=1 and
-            memory.size>=512m and
-            net_interface.0.connection = 'net' and
-            disk.0.os.flavour='ubuntu' and
-            disk.0.os.version>='12.04' and 
-            disk.applications contains (name = 'app' and version = '1.0')
-            )
 
-            deploy test 1
-            """
-        radl = radl_parse.parse_radl(radl_data)
+        vmrc = VMRC("http://host:8080/vmrc/vmrc", "user", "pass")
 
         res_radl = vmrc.list_vm()
         self.assertEqual(len(res_radl), 1)
