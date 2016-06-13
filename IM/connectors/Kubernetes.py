@@ -425,12 +425,10 @@ class KubernetesCloudConnector(CloudConnector):
 
             output = resp.read()
 
-            if resp.status == 404:
+            if resp.status == 404 or resp.status == 200:
                 return (True, resp.status, output)
-            elif resp.status != 200:
-                return (False, resp.status, output)
             else:
-                return (True, resp.status, output)
+                return (False, resp.status, output)
 
         except Exception, ex:
             self.logger.exception(

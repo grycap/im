@@ -546,9 +546,7 @@ class GCECloudConnector(CloudConnector):
             return (False, "Error getting VM info: %s. %s" % (vm.id, str(ex)))
 
         if node:
-            if node.state == NodeState.RUNNING:
-                res_state = VirtualMachine.RUNNING
-            elif node.state == NodeState.REBOOTING:
+            if node.state == NodeState.RUNNING or node.state == NodeState.REBOOTING:
                 res_state = VirtualMachine.RUNNING
             elif node.state == NodeState.PENDING:
                 res_state = VirtualMachine.PENDING

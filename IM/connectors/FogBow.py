@@ -410,12 +410,10 @@ class FogBowCloudConnector(CloudConnector):
             resp = conn.getresponse()
 
             output = str(resp.read())
-            if resp.status == 404:
+            if resp.status == 404 or resp.status == 200:
                 return (True, vm.id)
-            elif resp.status != 200:
-                return (False, "Error removing the VM: " + resp.reason + "\n" + output)
             else:
-                return (True, vm.id)
+                return (False, "Error removing the VM: " + resp.reason + "\n" + output)
         except Exception:
             self.logger.exception("Error connecting with OCCI server")
             return (False, "Error connecting with OCCI server")
