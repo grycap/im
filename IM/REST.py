@@ -320,6 +320,7 @@ def RESTGetInfrastructureProperty(id=None, prop=None):
             if accept and "application/json" not in accept and "*/*" not in accept and "application/*" not in accept:
                 return return_error(415, "Unsupported Accept Media Types: %s" % accept)
             bottle.response.content_type = "application/json"
+            auth = InfrastructureManager.check_auth_data(auth)
             sel_inf = InfrastructureManager.get_infrastructure(id, auth)
             if "TOSCA" in sel_inf.extra_info:
                 res = sel_inf.extra_info["TOSCA"].get_outputs(sel_inf)
@@ -494,6 +495,7 @@ def RESTAddResource(id=None):
                 radl_data = parse_radl_json(radl_data)
             elif "text/yaml" in content_type:
                 tosca_data = Tosca(radl_data)
+                auth = InfrastructureManager.check_auth_data(auth)
                 sel_inf = InfrastructureManager.get_infrastructure(id, auth)
                 remove_list, radl_data = tosca_data.to_radl(sel_inf)
             elif "text/plain" in content_type or "*/*" in content_type or "text/*" in content_type:
