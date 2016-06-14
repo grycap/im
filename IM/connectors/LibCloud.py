@@ -143,9 +143,7 @@ class LibCloudCloudConnector(CloudConnector):
 
                 req_protocol = PROTOCOL_MAP.get(driver.name, None)
 
-                if req_protocol is not None and protocol != req_protocol:
-                    pass
-                else:
+                if req_protocol is None or protocol == req_protocol:
                     res_system = radl_system.clone()
                     instance_type = self.get_instance_type(
                         driver.list_sizes(), res_system)
@@ -322,9 +320,7 @@ class LibCloudCloudConnector(CloudConnector):
     def updateVMInfo(self, vm, auth_data):
         node = self.get_node_with_id(vm.id, auth_data)
         if node:
-            if node.state == NodeState.RUNNING:
-                res_state = VirtualMachine.RUNNING
-            elif node.state == NodeState.REBOOTING:
+            if node.state == NodeState.RUNNING or node.state == NodeState.REBOOTING:
                 res_state = VirtualMachine.RUNNING
             elif node.state == NodeState.PENDING:
                 res_state = VirtualMachine.PENDING

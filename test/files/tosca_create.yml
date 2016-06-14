@@ -109,3 +109,5 @@ topology_template:
   outputs:
     server_url:
       value: { get_attribute: [ web_server, public_address ] }
+    server_creds:
+      value: { get_attribute: [ web_server, endpoint, credential, 0 ] }

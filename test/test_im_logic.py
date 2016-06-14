@@ -40,8 +40,13 @@ from IM.CloudInfo import CloudInfo
 from IM.connectors.CloudConnector import CloudConnector
 from IM.SSH import SSH
 from IM.InfrastructureInfo import InfrastructureInfo
-
 from IM.tosca.Tosca import Tosca
+
+
+def read_file_as_string(file_name):
+    tests_path = os.path.dirname(os.path.abspath(__file__))
+    abs_file_path = os.path.join(tests_path, file_name)
+    return open(abs_file_path, 'r').read()
 
 
 class TestIM(unittest.TestCase):
@@ -524,12 +529,17 @@ class TestIM(unittest.TestCase):
         tosca = Tosca(tosca_data)
         _, radl = tosca.to_radl()
         radl.systems[0].setValue("net_interface.0.ip", "158.42.1.1")
+        radl.systems[0].setValue("disk.0.os.credentials.username", "ubuntu")
+        radl.systems[0].setValue("disk.0.os.credentials.password", "pass")
         inf = InfrastructureInfo()
         vm = VirtualMachine(inf, "1", None, radl, radl, None)
         vm.requested_radl = radl
         inf.vm_list = [vm]
         outputs = tosca.get_outputs(inf)
-        self.assertEqual(outputs, {'server_url': ['158.42.1.1']})
+        self.assertEqual(outputs, {'server_url': ['158.42.1.1'],
+                                   'server_creds': {'token_type': 'password',
+                                                    'token': 'pass',
+                                                    'user': 'ubuntu'}})
 
     @patch('httplib.HTTPSConnection')
     def test_check_iam_token(self, connection):
@@ -557,6 +567,23 @@ class TestIM(unittest.TestCase):
         self.assertEqual(im_auth['username'], "micafer")
         self.assertEqual(im_auth['password'], "https://iam-test.indigo-datacloud.eu/sub")
 
+    @patch('IM.InfrastructureManager.DataBase.connect')
+    @patch('IM.InfrastructureManager.DataBase.table_exists')
+    @patch('IM.InfrastructureManager.DataBase.select')
+    @patch('IM.InfrastructureManager.DataBase.execute')
+    def test_db(self, execute, select, table_exists, connect):
+
+        table_exists.return_value = True
+        select.return_value = [["1", "", read_file_as_string("files/data.pkl")]]
+        execute.return_value = True
+
+        res = IM.get_data_from_db("mysql://username:password@server/db_name")
+        self.assertEqual(len(res), 1)
+
+        inf = InfrastructureInfo()
+        inf.id = "1"
+        success = IM.save_data_to_db("mysql://username:password@server/db_name", {"1": inf})
+        self.assertTrue(success)
 
 if __name__ == "__main__":
     unittest.main()
