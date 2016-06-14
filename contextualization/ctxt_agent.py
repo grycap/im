@@ -29,8 +29,6 @@ from StringIO import StringIO
 import socket
 
 from SSH import SSH, AuthenticationException
-from ansible_launcher import AnsibleThread
-
 
 SSH_WAIT_TIMEOUT = 600
 # This value enables to retry the playbooks to avoid some SSH connectivity problems
@@ -213,6 +211,11 @@ def LaunchAnsiblePlaybook(output, playbook_file, vm, threads, inventory_file, pk
                 passwd = vm['passwd']
                 if 'new_passwd' in vm and vm['new_passwd'] and change_pass_ok:
                     passwd = vm['new_passwd']
+
+    # Set local_tmp dir different for any VM
+    os.environ['DEFAULT_LOCAL_TMP'] = vm_conf_data['remote_dir'] + "/.ansible_tmp"
+    # it must be set before doing the import
+    from ansible_launcher import AnsibleThread
 
     t = AnsibleThread(output, playbook_file, None, threads, gen_pk_file,
                       passwd, retries, inventory_file, user, extra_vars)
