@@ -43,7 +43,6 @@ from IM.InfrastructureInfo import InfrastructureInfo
 from IM.tosca.Tosca import Tosca
 
 
-
 def read_file_as_string(file_name):
     tests_path = os.path.dirname(os.path.abspath(__file__))
     abs_file_path = os.path.join(tests_path, file_name)
