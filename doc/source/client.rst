@@ -128,7 +128,7 @@ keys are:
 
 * ``type`` indicates the service that refers the credential. The services
   supported are ``InfrastructureManager``, ``VMRC``, ``OpenNebula``, ``EC2``,, ``FogBow``, 
-  ``OpenStack``, ``OCCI``, ``LibCloud``, ``Docker``, ``GCE``, ``Azure``, ``Kubernetes`` and ``LibVirt``.
+  ``OpenStack``, ``OCCI``, ``LibCloud``, ``Docker``, ``GCE``, ``Azure`` and ``Kubernetes``.
 
 * ``username`` indicates the user name associated to the credential. In EC2
   it refers to the *Access Key ID*. In Azure it refers to the user 
@@ -168,16 +168,17 @@ keys are:
 OpenStack addicional fields
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-OpenStack has a set of addicional fields to access a cloud site:
+OpenStack has a set of additional fields to access a cloud site:
 
 * ``auth_version`` the auth version used to connect with the Keystone server.
-  The possible values are: ``2.0_password`` or ``3.X_password``. The default value is ``2.0_password``.
+  The possible values are: ``2.0_password``, ``3.X_password`` or ``3.x_oidc_access_token``.
+  The default value is ``2.0_password``.
 
 * ``base_url`` base URL to the OpenStack API endpoint. By default, the connector obtains API endpoint URL from the 
   server catalog, but if this argument is provided, this step is skipped and the provided value is used directly.
   The value is: http://cloud_server.com:8774/v2/<tenant_id>.
   
-* ``service_region`` the region of the cloud site (case sensitive). It is used to obtain  the API 
+* ``service_region`` the region of the cloud site (case sensitive). It is used to obtain the API 
   endpoint URL. The default value is: ``RegionOne``.
 
 * ``service_name`` the service name used to obtain the API endpoint URL. The default value is: ``Compute``.
@@ -199,6 +200,7 @@ An example of the auth file::
    id = occi; type = OCCI; proxy = file(/tmp/proxy.pem); host = https://fc-one.i3m.upv.es:11443
    id = azure; type = Azure; username = subscription-id; public_key = file(cert.pem); private_key = file(key.pem)
    id = kub; type = Kubernetes; host = http://server:8080; username = user; password = pass
+   id = fog; type = FogBow; host = http://server:8182; proxy = file(/tmp/proxy.pem)
    
 
 IM Server does not store the credentials used in the creation of
