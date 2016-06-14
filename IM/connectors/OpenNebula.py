@@ -178,6 +178,10 @@ class OpenNebulaCloudConnector(CloudConnector):
                     res_system.addFeature(Feature(
                         "provider.port", "=", self.cloud.port), conflict="other", missing="other")
 
+                    username = res_system.getValue('disk.0.os.credentials.username')
+                    if not username:
+                        res_system.setValue('disk.0.os.credentials.username', 'root')
+
                     res.append(res_system)
 
             return res
@@ -673,6 +677,10 @@ class OpenNebulaCloudConnector(CloudConnector):
                 else:
                     self.logger.error("Unknown type of network")
                     continue
+
+            if not ip:
+                self.logger.error("No IP found for network: %s. Ignoring network." % net.NAME)
+                continue
 
             is_public = not (any([IPAddress(ip) in IPNetwork(mask)
                                   for mask in Config.PRIVATE_NET_MASKS]))

@@ -359,9 +359,9 @@ class InfrastructureManager:
                     for req_app in req_apps:
                         if req_app.isNewerThan(inst_app):
                             score -= 1
-                elif not inst_app.getValue("version"):
-                    pass
-                else:
+                elif inst_app.getValue("version"):
+                    # Only set score to -1 when the user requests a version
+                    # to avoid score -1 if the user wants to install some packages
                     # if is not requested -1
                     score -= 1
 
