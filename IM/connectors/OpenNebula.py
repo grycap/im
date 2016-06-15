@@ -359,7 +359,7 @@ class OpenNebulaCloudConnector(CloudConnector):
         session_id = self.getSessionID(auth_data)
         if session_id is None:
             return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
-        func_res = server.one.vm.action(session_id, 'finalize', int(vm.id))
+        func_res = server.one.vm.action(session_id, 'delete', int(vm.id))
 
         if len(func_res) == 1:
             success = True
