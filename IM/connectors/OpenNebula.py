@@ -189,6 +189,9 @@ class OpenNebulaCloudConnector(CloudConnector):
             return res
 
     def get_auth_from_tts(self, token):
+        """
+        Get username and password from the TTS service
+        """
         tts_uri = uriparse(ConfigOpenNebula.TTS_URL)
         scheme = tts_uri[0]
         host = tts_uri[1]
@@ -197,11 +200,11 @@ class OpenNebulaCloudConnector(CloudConnector):
             parts = host.split(":")
             host = parts[0]
             port = int(parts[1])
-            
+
         decoded_token = JWT.get_info(token)
         ttsc = TTSClient(token, decoded_token['iss'], host, port, scheme)
-        
-        svc = ttsc.find_service_id("opennebula", self.cloud.server)
+
+        svc = ttsc.find_service("opennebula", self.cloud.server)
         succes, cred = ttsc.request_credential(svc["id"])
         if succes:
             username = password = None

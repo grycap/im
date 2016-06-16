@@ -9,6 +9,10 @@ import httplib
 
 
 class TTSClient:
+    """
+    Class to interact with the TTS
+    https://github.com/indigo-dc/tts
+    """
 
     def __init__(self, token, iss, host, port=None, uri_scheme=None):
         self.host = host
@@ -33,10 +37,12 @@ class TTSClient:
         return conn
 
     def _perform_get(self, url):
+        """
+        Perform the GET operation on the TTS with the specified URL
+        """
         headers = {}
         headers['Authorization'] = 'Bearer %s' % self.token
         headers['Content-Type'] = 'application/json'
-        #headers['Connection'] = 'close'
         headers['X-OpenId-Connect-Issuer'] = self.iss
         conn = self._get_http_connection()
         conn.request('GET', url, headers=headers)
@@ -49,6 +55,10 @@ class TTSClient:
             return False, "Error code %d. Msg: %s" % (resp.status, output)
 
     def _perform_post(self, url, body):
+        """
+        Perform the POR operation on the TTS with the specified URL
+        and using the body specified
+        """
         conn = self._get_http_connection()
 
         conn.putrequest('POST', url)
@@ -56,7 +66,6 @@ class TTSClient:
         conn.putheader('Authorization', 'Bearer %s' % self.token)
         conn.putheader('Content-Type', 'application/json')
         conn.putheader('X-OpenId-Connect-Issuer', self.iss)
-        #conn.putheader('Connection', 'close')
 
         conn.putheader('Content-Length', len(body))
         conn.endheaders(body)
@@ -65,6 +74,7 @@ class TTSClient:
         output = str(resp.read())
 
         if resp.status == 303:
+            # in case of redirection get the response from the new URL
             return self._perform_get(resp.msg['location'])
         elif resp.status >= 200 and resp.status <= 299:
             return True, output
@@ -72,6 +82,9 @@ class TTSClient:
             return False, "Error code %d. Msg: %s" % (resp.status, output)
 
     def request_credential(self, sid):
+        """
+        Request a credential for the specified service
+        """
         body = '{"service_id":"%s"}' % sid
         url = "/api/credential/"
         success, res = self._perform_post(url, body)
@@ -81,6 +94,9 @@ class TTSClient:
             return False, res
 
     def list_endservices(self):
+        """
+        Get the list of services
+        """
         url = "/api/service"
         success, output = self._perform_get(url)
         if not success:
@@ -88,7 +104,10 @@ class TTSClient:
         else:
             return True, json.loads(output)
 
-    def find_service_id(self, stype, host):
+    def find_service(self, stype, host):
+        """
+        Find a service with the specified type and host values
+        """
         success, services = self.list_endservices()
         if success:
             for service in services["service_list"]:
