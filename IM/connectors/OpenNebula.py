@@ -198,9 +198,7 @@ class OpenNebulaCloudConnector(CloudConnector):
         """
         auths = auth_data.getAuthInfo(self.type, self.cloud.server)
         if not auths:
-            self.logger.error(
-                "No correct auth data has been specified to OpenNebula.")
-            return None
+            raise Exception("No auth data has been specified to OpenNebula.")
         else:
             auth = auths[0]
 
@@ -215,9 +213,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 
             return auth['username'] + ":" + passwd
         else:
-            self.logger.error(
-                "No correct auth data has been specified to OpenNebula: username and password")
-            return None
+            raise Exception("No correct auth data has been specified to OpenNebula: username and password")
 
     def setDisksFromTemplate(self, vm, template):
         """
