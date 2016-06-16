@@ -108,6 +108,7 @@ class ConfigOpenNebula:
     TEMPLATE_CONTEXT = ''
     TEMPLATE_OTHER = 'GRAPHICS = [type="vnc",listen="0.0.0.0"]'
     IMAGE_UNAME = ''
+    TTS_URL = 'http://localhost:8080'
 
 if config.has_section("OpenNebula"):
     parse_options(config, 'OpenNebula', ConfigOpenNebula)
