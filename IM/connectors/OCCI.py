@@ -74,9 +74,7 @@ class OCCICloudConnector(CloudConnector):
         """
         auths = auth_data.getAuthInfo(self.type, self.cloud.server)
         if not auths:
-            self.logger.error(
-                "No correct auth data has been specified to OCCI.")
-            auth = None
+            raise Exception("No correct auth data has been specified to OCCI.")
         else:
             auth = auths[0]
 
