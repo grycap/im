@@ -51,7 +51,7 @@ class QuickTestIM(unittest.TestCase):
         cls.server = xmlrpclib.ServerProxy(
             "http://" + HOSTNAME + ":" + str(TEST_PORT), allow_none=True)
         tests_path = os.path.dirname(os.path.realpath(__file__))
-        auth_file = tests_path + '/../files/auth.dat'
+        auth_file = tests_path + '/../../files/auth.dat'
         cls.auth_data = Authentication.read_auth_data(auth_file)
         cls.inf_id = 0
 
