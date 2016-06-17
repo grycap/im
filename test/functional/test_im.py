@@ -40,7 +40,6 @@ from IM.CloudInfo import CloudInfo
 from IM.connectors.CloudConnector import CloudConnector
 from IM.SSH import SSH
 from IM.InfrastructureInfo import InfrastructureInfo
-from IM.tosca.Tosca import Tosca
 
 
 def read_file_as_string(file_name):
