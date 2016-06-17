@@ -30,41 +30,53 @@ from IM.VirtualMachine import VirtualMachine
 from radl import radl_parse
 from IM import __version__ as version
 
-TESTS_PATH = os.path.dirname(os.path.realpath(__file__))
-RADL_FILE = TESTS_PATH + '/files/quick-test.radl'
-AUTH_FILE = TESTS_PATH + '/auth.dat'
+RADL_ADD_WIN = "network publica\nnetwork privada\nsystem windows\ndeploy windows 1 one"
+RADL_ADD = "network publica\nnetwork privada\nsystem wn\ndeploy wn 1 one"
+RADL_ADD_ERROR = "system wnno deploy wnno 1"
 HOSTNAME = "localhost"
 TEST_PORT = 8899
 
 
-class QuickTestIM(unittest.TestCase):
+def read_file_as_string(file_name):
+    tests_path = os.path.dirname(os.path.abspath(__file__))
+    abs_file_path = os.path.join(tests_path, file_name)
+    return open(abs_file_path, 'r').read()
+
+
+class TestIM(unittest.TestCase):
 
     server = None
     auth_data = None
-    inf_id = 0
+    inf_id = None
 
     @classmethod
     def setUpClass(cls):
         cls.server = xmlrpclib.ServerProxy(
             "http://" + HOSTNAME + ":" + str(TEST_PORT), allow_none=True)
-        cls.auth_data = Authentication.read_auth_data(AUTH_FILE)
-        cls.inf_id = 0
+        tests_path = os.path.dirname(os.path.realpath(__file__))
+        auth_file = tests_path + '/../files/auth.dat'
+        cls.auth_data = Authentication.read_auth_data(auth_file)
 
     @classmethod
     def tearDownClass(cls):
         # Assure that the infrastructure is destroyed
         try:
-            cls.server.DestroyInfrastructure(cls.inf_id, cls.auth_data)
+            if cls.inf_id:
+                if isinstance(cls.inf_id, list):
+                    for inf_id in cls.inf_id:
+                        cls.server.DestroyInfrastructure(inf_id, cls.auth_data)
+                else:
+                    cls.server.DestroyInfrastructure(cls.inf_id, cls.auth_data)
         except Exception:
             pass
 
-    def wait_inf_state(self, state, timeout, incorrect_states=[], vm_ids=None):
+    def wait_inf_state(self, inf_id, state, timeout, incorrect_states=[], vm_ids=None):
         """
         Wait for an infrastructure to have a specific state
         """
         if not vm_ids:
             (success, vm_ids) = self.server.GetInfrastructureInfo(
-                self.inf_id, self.auth_data)
+                inf_id, self.auth_data)
             self.assertTrue(
                 success, msg="ERROR calling the GetInfrastructureInfo function:" + str(vm_ids))
 
@@ -78,13 +90,13 @@ class QuickTestIM(unittest.TestCase):
             all_ok = True
             for vm_id in vm_ids:
                 (success, vm_state) = self.server.GetVMProperty(
-                    self.inf_id, vm_id, "state", self.auth_data)
+                    inf_id, vm_id, "state", self.auth_data)
                 self.assertTrue(
                     success, msg="ERROR getting VM info:" + str(vm_state))
 
                 if vm_state == VirtualMachine.UNCONFIGURED:
                     (success, cont_msg) = self.server.GetVMContMsg(
-                        self.inf_id, vm_id, self.auth_data)
+                        inf_id, vm_id, self.auth_data)
                     print cont_msg
 
                 self.assertFalse(vm_state in err_states, msg="ERROR waiting for a state. '" + vm_state +
@@ -122,18 +134,15 @@ class QuickTestIM(unittest.TestCase):
         """
         Test the CreateInfrastructure IM function
         """
-        f = open(RADL_FILE)
-        radl = ""
-        for line in f.readlines():
-            radl += line
-        f.close()
+        radl = read_file_as_string("../files/test.radl")
 
         (success, inf_id) = self.server.CreateInfrastructure(radl, self.auth_data)
         self.assertTrue(
             success, msg="ERROR calling CreateInfrastructure: " + str(inf_id))
         self.__class__.inf_id = inf_id
 
-        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 900)
+        all_configured = self.wait_inf_state(
+            inf_id, VirtualMachine.CONFIGURED, 900)
         self.assertTrue(
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
@@ -210,9 +219,8 @@ class QuickTestIM(unittest.TestCase):
         """
         Test to get error when adding a resource with an incorrect RADL
         """
-        radl_add_error = "system wnno deploy wnno 1"
         (success, res) = self.server.AddResource(
-            self.inf_id, radl_add_error, self.auth_data)
+            self.inf_id, RADL_ADD_ERROR, self.auth_data)
         self.assertFalse(
             success, msg="Incorrect RADL in AddResource not returned error")
         pos = res.find("Unknown reference in RADL")
@@ -223,19 +231,19 @@ class QuickTestIM(unittest.TestCase):
         """
         Test AddResource function
         """
-        radl_add = "network publica\nnetwork privada\nsystem front\ndeploy front 1"
         (success, res) = self.server.AddResource(
-            self.inf_id, radl_add, self.auth_data)
+            self.inf_id, RADL_ADD_WIN, self.auth_data)
         self.assertTrue(success, msg="ERROR calling AddResource: " + str(res))
 
         (success, vm_ids) = self.server.GetInfrastructureInfo(
             self.inf_id, self.auth_data)
         self.assertTrue(
             success, msg="ERROR calling GetInfrastructureInfo:" + str(vm_ids))
-        self.assertEqual(len(vm_ids), 3, msg=("ERROR getting infrastructure info: Incorrect number of VMs(" +
-                                              str(len(vm_ids)) + "). It must be 3"))
+        self.assertEqual(len(vm_ids), 4, msg=("ERROR getting infrastructure info: Incorrect number of VMs(" +
+                                              str(len(vm_ids)) + "). It must be 4"))
 
-        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 900)
+        all_configured = self.wait_inf_state(
+            self.inf_id, VirtualMachine.CONFIGURED, 900)
         self.assertTrue(
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
@@ -251,8 +259,8 @@ class QuickTestIM(unittest.TestCase):
         self.assertEqual(state, "configured", msg="Unexpected inf state: " +
                          state + ". It must be 'configured'.")
         vm_states = res['vm_states']
-        self.assertEqual(len(vm_states), 3, msg="ERROR getting infrastructure state: Incorrect number of VMs(" +
-                         str(len(vm_states)) + "). It must be 3")
+        self.assertEqual(len(vm_states), 4, msg="ERROR getting infrastructure state: Incorrect number of VMs(" +
+                         str(len(vm_states)) + "). It must be 4")
         for vm_id, vm_state in vm_states.iteritems():
             self.assertEqual(vm_state, "configured", msg="Unexpected vm state: " +
                              vm_state + " in VM ID " + str(vm_id) + ". It must be 'configured'.")
@@ -261,17 +269,16 @@ class QuickTestIM(unittest.TestCase):
         """
         Test AddResource function with the contex option to False
         """
-        radl_add = "network publica\nnetwork privada\nsystem wn\ndeploy wn 1"
         (success, res) = self.server.AddResource(
-            self.inf_id, radl_add, self.auth_data, False)
+            self.inf_id, RADL_ADD, self.auth_data, False)
         self.assertTrue(success, msg="ERROR calling AddResource: " + str(res))
 
         (success, vm_ids) = self.server.GetInfrastructureInfo(
             self.inf_id, self.auth_data)
         self.assertTrue(
             success, msg="ERROR calling GetInfrastructureInfo:" + str(vm_ids))
-        self.assertEqual(len(vm_ids), 4, msg=("ERROR getting infrastructure info: Incorrect number of VMs(" +
-                                              str(len(vm_ids)) + "). It must be 4"))
+        self.assertEqual(len(vm_ids), 5, msg=("ERROR getting infrastructure info: Incorrect number of VMs(" +
+                                              str(len(vm_ids)) + "). It must be 5"))
 
     def test_22_removeresource(self):
         """
@@ -291,8 +298,8 @@ class QuickTestIM(unittest.TestCase):
             self.inf_id, self.auth_data)
         self.assertTrue(
             success, msg="ERROR calling GetInfrastructureInfo:" + str(vm_ids))
-        self.assertEqual(len(vm_ids), 3, msg=("ERROR getting infrastructure info: Incorrect number of VMs(" +
-                                              str(len(vm_ids)) + "). It must be 3"))
+        self.assertEqual(len(vm_ids), 4, msg=("ERROR getting infrastructure info: Incorrect number of VMs(" +
+                                              str(len(vm_ids)) + "). It must be 4"))
 
         (success, vm_state) = self.server.GetVMProperty(
             self.inf_id, vm_ids[0], "state", self.auth_data)
@@ -300,7 +307,8 @@ class QuickTestIM(unittest.TestCase):
         self.assertEqual(vm_state, VirtualMachine.RUNNING,
                          msg="ERROR unexpected state. Expected 'running' and obtained " + vm_state)
 
-        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 600)
+        all_configured = self.wait_inf_state(
+            self.inf_id, VirtualMachine.CONFIGURED, 600)
         self.assertTrue(
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
@@ -322,15 +330,14 @@ class QuickTestIM(unittest.TestCase):
             self.inf_id, self.auth_data)
         self.assertTrue(
             success, msg="ERROR calling GetInfrastructureInfo:" + str(vm_ids))
-        self.assertEqual(len(
-            vm_ids), 2, msg=("ERROR getting infrastructure info: Incorrect number of VMs(" +
-                             str(len(vm_ids)) + "). It must be 2"))
+        self.assertEqual(len(vm_ids), 3, msg=("ERROR getting infrastructure info: Incorrect number of VMs(" +
+                                              str(len(vm_ids)) + "). It must be 3"))
 
         (success, vm_state) = self.server.GetVMProperty(
             self.inf_id, vm_ids[0], "state", self.auth_data)
         self.assertTrue(success, msg="ERROR getting VM state:" + str(res))
         self.assertEqual(vm_state, VirtualMachine.CONFIGURED,
-                         msg="ERROR unexpected state. Expected 'configured' and obtained " + vm_state)
+                         msg="ERROR unexpected state. Expected 'running' and obtained " + vm_state)
 
     def test_24_reconfigure(self):
         """
@@ -340,7 +347,8 @@ class QuickTestIM(unittest.TestCase):
             self.inf_id, "", self.auth_data)
         self.assertTrue(success, msg="ERROR calling Reconfigure: " + str(res))
 
-        all_stopped = self.wait_inf_state(VirtualMachine.CONFIGURED, 600)
+        all_stopped = self.wait_inf_state(
+            self.inf_id, VirtualMachine.CONFIGURED, 600)
         self.assertTrue(
             all_stopped, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
@@ -352,7 +360,8 @@ class QuickTestIM(unittest.TestCase):
             self.inf_id, "", self.auth_data, [0])
         self.assertTrue(success, msg="ERROR calling Reconfigure: " + str(res))
 
-        all_stopped = self.wait_inf_state(VirtualMachine.CONFIGURED, 600)
+        all_stopped = self.wait_inf_state(
+            self.inf_id, VirtualMachine.CONFIGURED, 600)
         self.assertTrue(
             all_stopped, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
@@ -365,7 +374,8 @@ class QuickTestIM(unittest.TestCase):
             self.inf_id, radl, self.auth_data)
         self.assertTrue(success, msg="ERROR calling Reconfigure: " + str(res))
 
-        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 600)
+        all_configured = self.wait_inf_state(
+            self.inf_id, VirtualMachine.CONFIGURED, 600)
         self.assertTrue(
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
@@ -388,7 +398,7 @@ class QuickTestIM(unittest.TestCase):
         time.sleep(10)
 
         all_stopped = self.wait_inf_state(
-            VirtualMachine.STOPPED, 120, [VirtualMachine.RUNNING])
+            self.inf_id, VirtualMachine.STOPPED, 120, [VirtualMachine.RUNNING])
         self.assertTrue(
             all_stopped, msg="ERROR waiting the infrastructure to be stopped (timeout).")
 
@@ -405,7 +415,7 @@ class QuickTestIM(unittest.TestCase):
         time.sleep(10)
 
         all_configured = self.wait_inf_state(
-            VirtualMachine.CONFIGURED, 150, [VirtualMachine.RUNNING])
+            self.inf_id, VirtualMachine.CONFIGURED, 150, [VirtualMachine.RUNNING])
         self.assertTrue(
             all_configured, msg="ERROR waiting the infrastructure to be started (timeout).")
 
@@ -418,7 +428,7 @@ class QuickTestIM(unittest.TestCase):
         self.assertTrue(success, msg="ERROR calling StopVM: " + str(res))
         time.sleep(10)
 
-        all_stopped = self.wait_inf_state(VirtualMachine.STOPPED, 120, [
+        all_stopped = self.wait_inf_state(self.inf_id, VirtualMachine.STOPPED, 120, [
                                           VirtualMachine.RUNNING], [0])
         self.assertTrue(
             all_stopped, msg="ERROR waiting the vm to be stopped (timeout).")
@@ -433,8 +443,8 @@ class QuickTestIM(unittest.TestCase):
         self.assertTrue(success, msg="ERROR calling StartVM: " + str(res))
         time.sleep(10)
 
-        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 150, [
-                                             VirtualMachine.RUNNING], [0])
+        all_configured = self.wait_inf_state(
+            self.inf_id, VirtualMachine.CONFIGURED, 150, [VirtualMachine.RUNNING], [0])
         self.assertTrue(
             all_configured, msg="ERROR waiting the vm to be started (timeout).")
 
@@ -485,7 +495,8 @@ class QuickTestIM(unittest.TestCase):
             success, msg="ERROR calling CreateInfrastructure: " + str(inf_id))
         self.__class__.inf_id = inf_id
 
-        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 300)
+        all_configured = self.wait_inf_state(
+            self.inf_id, VirtualMachine.CONFIGURED, 300)
         self.assertTrue(
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
@@ -534,7 +545,8 @@ echo "Hello World" >> /tmp/data.txt
             success, msg="ERROR calling CreateInfrastructure: " + str(inf_id))
         self.__class__.inf_id = inf_id
 
-        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 300)
+        all_configured = self.wait_inf_state(
+            self.inf_id, VirtualMachine.CONFIGURED, 300)
         self.assertTrue(
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
@@ -546,6 +558,85 @@ echo "Hello World" >> /tmp/data.txt
             self.inf_id, self.auth_data)
         self.assertTrue(
             success, msg="ERROR calling DestroyInfrastructure: " + str(res))
+
+    def test_80_create_ansible_host(self):
+        """
+        Test the CreateInfrastructure IM function
+        """
+        ansible_radl = """
+            network publicnet (outbound = 'yes')
+            network net ()
+
+            system node (
+             cpu.arch='x86_64' and
+             cpu.count>=1 and
+             memory.size>=512m and
+             net_interface.0.connection = 'publicnet' and
+             net_interface.1.connection = 'net' and
+             disk.0.os.flavour='ubuntu' and
+             disk.0.os.version>='12.04'
+            )
+
+            deploy node 1
+            """
+
+        (success, inf_id) = self.server.CreateInfrastructure(
+            ansible_radl, self.auth_data)
+        self.assertTrue(
+            success, msg="ERROR calling CreateInfrastructure to create ansible master: " + str(inf_id))
+        self.__class__.inf_id = [inf_id]
+
+        all_configured = self.wait_inf_state(
+            inf_id, VirtualMachine.CONFIGURED, 600)
+        self.assertTrue(
+            all_configured, msg="ERROR waiting the ansible master to be configured (timeout).")
+
+        (success, info) = self.server.GetVMInfo(inf_id, "0", self.auth_data)
+        self.assertTrue(
+            success, msg="ERROR getting ansible master info: " + str(info))
+        master_radl = radl_parse.parse_radl(info)
+
+        host = master_radl.systems[0].getValue("net_interface.0.ip")
+        username = master_radl.systems[0].getValue(
+            "disk.0.os.credentials.username")
+        password = master_radl.systems[0].getValue(
+            "disk.0.os.credentials.password")
+
+        radl = """
+            ansible ansible_master (host = '%s' and credentials.username='%s' and credentials.password='%s')
+            network net ()
+
+            system node (
+             cpu.arch='x86_64' and
+             cpu.count>=1 and
+             memory.size>=512m and
+             net_interface.0.connection = 'net' and
+             disk.0.os.flavour='ubuntu' and
+             disk.0.os.version>='12.04'
+            )
+
+            deploy node 1
+            """ % (host, username, password)
+
+        (success, inf_id) = self.server.CreateInfrastructure(radl, self.auth_data)
+        self.assertTrue(
+            success, msg="ERROR calling CreateInfrastructure: " + str(inf_id))
+        self.__class__.inf_id.append(inf_id)
+
+        all_configured = self.wait_inf_state(
+            inf_id, VirtualMachine.CONFIGURED, 300)
+        self.assertTrue(
+            all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
+
+    def test_85_destroy(self):
+        """
+        Test DestroyInfrastructure function
+        """
+        for inf_id in self.inf_id:
+            (success, res) = self.server.DestroyInfrastructure(
+                inf_id, self.auth_data)
+            self.assertTrue(
+                success, msg="ERROR calling DestroyInfrastructure: " + str(res))
 
 if __name__ == '__main__':
     unittest.main()
