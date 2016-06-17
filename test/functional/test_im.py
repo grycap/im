@@ -22,7 +22,7 @@ import logging
 import unittest
 import sys
 
-from mock import Mock, patch, MagicMock
+from mock import Mock
 
 sys.path.append("..")
 sys.path.append(".")
@@ -34,13 +34,10 @@ Config.MAX_SIMULTANEOUS_LAUNCHES = 2
 from IM.VirtualMachine import VirtualMachine
 from IM.InfrastructureManager import InfrastructureManager as IM
 from IM.auth import Authentication
-from radl.radl import RADL, system, deploy, Feature, SoftFeatures
-from radl.radl_parse import parse_radl
+from radl.radl import RADL, system, deploy, Feature
 from IM.CloudInfo import CloudInfo
 from IM.connectors.CloudConnector import CloudConnector
 from IM.SSH import SSH
-from IM.InfrastructureInfo import InfrastructureInfo
-from IM.tosca.Tosca import Tosca
 
 
 def read_file_as_string(file_name):
