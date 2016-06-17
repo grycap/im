@@ -34,12 +34,14 @@ from IM import __version__ as version
 PID = None
 RADL_ADD = "network publica\nsystem front\ndeploy front 1"
 RADL_ADD_ERROR = "system wnno deploy wnno 1"
-TESTS_PATH = os.path.dirname(os.path.realpath(__file__))
-RADL_FILE = TESTS_PATH + '/files/test_simple.radl'
-AUTH_FILE = TESTS_PATH + '/auth.dat'
-
 HOSTNAME = "localhost"
-TEST_PORT = 8800
+TEST_PORT = 8811
+
+
+def read_file_as_string(file_name):
+    tests_path = os.path.dirname(os.path.abspath(__file__))
+    abs_file_path = os.path.join(tests_path, file_name)
+    return open(abs_file_path, 'r').read()
 
 
 class TestIM(unittest.TestCase):
@@ -51,11 +53,7 @@ class TestIM(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
-        f = open(AUTH_FILE)
-        cls.auth_data = ""
-        for line in f.readlines():
-            cls.auth_data += line.strip() + "\\n"
-        f.close()
+        cls.auth_data = read_file_as_string('../files/auth.dat').replace("\n","\\n")
         cls.inf_id = "0"
 
     @classmethod
@@ -142,17 +140,16 @@ class TestIM(unittest.TestCase):
                          msg="ERROR listing user infrastructures:" + output)
 
     def test_12_list_with_incorrect_token(self):
-        f = open(AUTH_FILE)
+        auth_data_lines = read_file_as_string('../files/auth.dat').split("\n")
         token = ("eyJraWQiOiJyc2ExIiwiYWxnIjoiUlMyNTYifQ.eyJzdWIiOiJkYzVkNWFiNy02ZGI5LTQwNzktOTg1Yy04MGFjMDUwMTcwNjYi"
                  "LCJpc3MiOiJodHRwczpcL1wvaWFtLXRlc3QuaW5kaWdvLWRhdGFjbG91ZC5ldVwvIiwiZXhwIjoxNDYyODY5MjgxLCJpYXQiOjE"
                  "0NjI4NjU2ODEsImp0aSI6Ijc1M2M4ZTI1LWU3MGMtNGI5MS05YWJhLTcxNDI5NTg3MzUzOSJ9.iA9nv7QdkmfgJPSQ_77_eKrvh"
                  "P1xwZ1Z91xzrZ0Bzue0ark4qRMlHCdZvad1tunURaSsHHMsFYQ3H7oQj-ZSYWOfr1KxMaIo4pWaVHrW8qsCMLmqdNfubR54GmTh"
                  "M4cA2ZdNZa8neVT8jUvzR1YX-5cz7sp2gWbW9LAwejoXDtk")
         auth_data = "type = InfrastructureManager; token = %s\\n" % token
-        for line in f.readlines():
+        for line in auth_data_lines:
             if line.find("type = InfrastructureManager") == -1:
                 auth_data += line.strip() + "\\n"
-        f.close()
 
         self.server.request('GET', "/infrastructures",
                             headers={'AUTHORIZATION': auth_data})
@@ -188,8 +185,7 @@ class TestIM(unittest.TestCase):
                          msg="Incorrect error message: " + str(resp.status))
 
     def test_20_create(self):
-        with open(RADL_FILE) as f:
-            radl = f.read()
+        radl = read_file_as_string('../files/test_simple.radl')
 
         self.server.request('POST', "/infrastructures", body=radl,
                             headers={'AUTHORIZATION': self.auth_data})

@@ -36,13 +36,13 @@ class TestSSH(unittest.TestCase):
 
     @patch('paramiko.SSHClient')
     def test_test_connectivity(self, ssh_client):
-        ssh = SSHRetry("host", "user", "passwd", read_file_as_string("files/privatekey.pem"))
+        ssh = SSHRetry("host", "user", "passwd", read_file_as_string("../files/privatekey.pem"))
         success = ssh.test_connectivity(5)
         self.assertTrue(success)
 
     @patch('paramiko.SSHClient')
     def test_execute(self, ssh_client):
-        ssh = SSHRetry("host", "user", "passwd", read_file_as_string("files/privatekey.pem"))
+        ssh = SSHRetry("host", "user", "passwd", read_file_as_string("../files/privatekey.pem"))
 
         client = MagicMock()
         ssh_client.return_value = client
@@ -62,56 +62,56 @@ class TestSSH(unittest.TestCase):
     @patch('paramiko.SSHClient')
     @patch('paramiko.SFTPClient')
     def test_sftp_get(self, sftp_client, ssh_client):
-        ssh = SSHRetry("host", "user", "passwd", read_file_as_string("files/privatekey.pem"))
+        ssh = SSHRetry("host", "user", "passwd", read_file_as_string("../files/privatekey.pem"))
 
         ssh.sftp_get("some_file", "some_file")
 
     @patch('paramiko.SSHClient')
     @patch('paramiko.SFTPClient')
     def test_sftp_get_files(self, sftp_client, ssh_client):
-        ssh = SSHRetry("host", "user", "passwd", read_file_as_string("files/privatekey.pem"))
+        ssh = SSHRetry("host", "user", "passwd", read_file_as_string("../files/privatekey.pem"))
 
         ssh.sftp_get(["some_file"], ["some_file"])
 
     @patch('paramiko.SSHClient')
     @patch('paramiko.SFTPClient')
     def test_sftp_put(self, sftp_client, ssh_client):
-        ssh = SSHRetry("host", "user", "passwd", read_file_as_string("files/privatekey.pem"))
+        ssh = SSHRetry("host", "user", "passwd", read_file_as_string("../files/privatekey.pem"))
 
         ssh.sftp_put("some_file", "some_file")
 
     @patch('paramiko.SSHClient')
     @patch('paramiko.SFTPClient')
     def test_sftp_put_files(self, sftp_client, ssh_client):
-        ssh = SSHRetry("host", "user", "passwd", read_file_as_string("files/privatekey.pem"))
+        ssh = SSHRetry("host", "user", "passwd", read_file_as_string("../files/privatekey.pem"))
 
         ssh.sftp_put_files([("some_file", "some_file")])
 
     @patch('paramiko.SSHClient')
     @patch('paramiko.SFTPClient')
     def test_sftp_put_dir(self, sftp_client, ssh_client):
-        ssh = SSHRetry("host", "user", "passwd", read_file_as_string("files/privatekey.pem"))
+        ssh = SSHRetry("host", "user", "passwd", read_file_as_string("../files/privatekey.pem"))
 
         ssh.sftp_put_dir("/tmp", "/tmp")
 
     @patch('paramiko.SSHClient')
     @patch('paramiko.SFTPClient')
     def test_sftp_put_content(self, sftp_client, ssh_client):
-        ssh = SSHRetry("host", "user", "passwd", read_file_as_string("files/privatekey.pem"))
+        ssh = SSHRetry("host", "user", "passwd", read_file_as_string("../files/privatekey.pem"))
 
         ssh.sftp_put_content("some_file", "some_content")
 
     @patch('paramiko.SSHClient')
     @patch('paramiko.SFTPClient')
     def test_sftp_mkdir(self, sftp_client, ssh_client):
-        ssh = SSHRetry("host", "user", "passwd", read_file_as_string("files/privatekey.pem"))
+        ssh = SSHRetry("host", "user", "passwd", read_file_as_string("../files/privatekey.pem"))
 
         ssh.sftp_mkdir("/some_dir")
 
     @patch('paramiko.SSHClient')
     @patch('paramiko.SFTPClient.from_transport')
     def test_sftp_list(self, from_transport, ssh_client):
-        ssh = SSHRetry("host", "user", "passwd", read_file_as_string("files/privatekey.pem"))
+        ssh = SSHRetry("host", "user", "passwd", read_file_as_string("../files/privatekey.pem"))
 
         client = MagicMock()
         from_transport.return_value = client
@@ -123,7 +123,7 @@ class TestSSH(unittest.TestCase):
     @patch('paramiko.SSHClient')
     @patch('paramiko.SFTPClient.from_transport')
     def test_sftp_list_attr(self, from_transport, ssh_client):
-        ssh = SSHRetry("host", "user", "passwd", read_file_as_string("files/privatekey.pem"))
+        ssh = SSHRetry("host", "user", "passwd", read_file_as_string("../files/privatekey.pem"))
 
         client = MagicMock()
         from_transport.return_value = client
@@ -135,7 +135,7 @@ class TestSSH(unittest.TestCase):
     @patch('paramiko.SSHClient')
     @patch('paramiko.SFTPClient.from_transport')
     def test_getcwd(self, from_transport, ssh_client):
-        ssh = SSHRetry("host", "user", "passwd", read_file_as_string("files/privatekey.pem"))
+        ssh = SSHRetry("host", "user", "passwd", read_file_as_string("../files/privatekey.pem"))
 
         client = MagicMock()
         from_transport.return_value = client
@@ -146,7 +146,7 @@ class TestSSH(unittest.TestCase):
 
     @patch('paramiko.SSHClient')
     def test_execute_timeout(self, ssh_client):
-        ssh = SSHRetry("host", "user", "passwd", read_file_as_string("files/privatekey.pem"))
+        ssh = SSHRetry("host", "user", "passwd", read_file_as_string("../files/privatekey.pem"))
 
         client = MagicMock()
         ssh_client.return_value = client
@@ -159,7 +159,7 @@ class TestSSH(unittest.TestCase):
     @patch('paramiko.SSHClient')
     @patch('paramiko.SFTPClient.from_transport')
     def test_sftp_remove(self, from_transport, ssh_client):
-        ssh = SSHRetry("host", "user", "passwd", read_file_as_string("files/privatekey.pem"))
+        ssh = SSHRetry("host", "user", "passwd", read_file_as_string("../files/privatekey.pem"))
 
         client = MagicMock()
         from_transport.return_value = client
@@ -171,7 +171,7 @@ class TestSSH(unittest.TestCase):
     @patch('paramiko.SSHClient')
     @patch('paramiko.SFTPClient.from_transport')
     def test_sftp_chmod(self, from_transport, ssh_client):
-        ssh = SSHRetry("host", "user", "passwd", read_file_as_string("files/privatekey.pem"))
+        ssh = SSHRetry("host", "user", "passwd", read_file_as_string("../files/privatekey.pem"))
 
         client = MagicMock()
         from_transport.return_value = client

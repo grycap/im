@@ -30,11 +30,14 @@ from IM.VirtualMachine import VirtualMachine
 from radl import radl_parse
 from IM import __version__ as version
 
-TESTS_PATH = os.path.dirname(os.path.realpath(__file__))
-RADL_FILE = TESTS_PATH + '/files/quick-test.radl'
-AUTH_FILE = TESTS_PATH + '/auth.dat'
 HOSTNAME = "localhost"
 TEST_PORT = 8899
+
+
+def read_file_as_string(file_name):
+    tests_path = os.path.dirname(os.path.abspath(__file__))
+    abs_file_path = os.path.join(tests_path, file_name)
+    return open(abs_file_path, 'r').read()
 
 
 class QuickTestIM(unittest.TestCase):
@@ -47,7 +50,9 @@ class QuickTestIM(unittest.TestCase):
     def setUpClass(cls):
         cls.server = xmlrpclib.ServerProxy(
             "http://" + HOSTNAME + ":" + str(TEST_PORT), allow_none=True)
-        cls.auth_data = Authentication.read_auth_data(AUTH_FILE)
+        tests_path = os.path.dirname(os.path.realpath(__file__))
+        auth_file = tests_path + '/../files/auth.dat'
+        cls.auth_data = Authentication.read_auth_data(auth_file)
         cls.inf_id = 0
 
     @classmethod
@@ -122,11 +127,7 @@ class QuickTestIM(unittest.TestCase):
         """
         Test the CreateInfrastructure IM function
         """
-        f = open(RADL_FILE)
-        radl = ""
-        for line in f.readlines():
-            radl += line
-        f.close()
+        radl = read_file_as_string("../files/quick-test.radl")
 
         (success, inf_id) = self.server.CreateInfrastructure(radl, self.auth_data)
         self.assertTrue(
