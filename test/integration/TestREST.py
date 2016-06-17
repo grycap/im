@@ -53,7 +53,7 @@ class TestIM(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
-        cls.auth_data = read_file_as_string('../../files/auth.dat').replace("\n","\\n")
+        cls.auth_data = read_file_as_string('../auth.dat').replace("\n","\\n")
         cls.inf_id = "0"
 
     @classmethod
@@ -140,7 +140,7 @@ class TestIM(unittest.TestCase):
                          msg="ERROR listing user infrastructures:" + output)
 
     def test_12_list_with_incorrect_token(self):
-        auth_data_lines = read_file_as_string('../../files/auth.dat').split("\n")
+        auth_data_lines = read_file_as_string('../auth.dat').split("\n")
         token = ("eyJraWQiOiJyc2ExIiwiYWxnIjoiUlMyNTYifQ.eyJzdWIiOiJkYzVkNWFiNy02ZGI5LTQwNzktOTg1Yy04MGFjMDUwMTcwNjYi"
                  "LCJpc3MiOiJodHRwczpcL1wvaWFtLXRlc3QuaW5kaWdvLWRhdGFjbG91ZC5ldVwvIiwiZXhwIjoxNDYyODY5MjgxLCJpYXQiOjE"
                  "0NjI4NjU2ODEsImp0aSI6Ijc1M2M4ZTI1LWU3MGMtNGI5MS05YWJhLTcxNDI5NTg3MzUzOSJ9.iA9nv7QdkmfgJPSQ_77_eKrvh"
