@@ -52,7 +52,7 @@ class TestIM(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
-        cls.auth_data = read_file_as_string('../../files/auth.dat').replace("\n", "\\n")
+        cls.auth_data = read_file_as_string('../auth.dat').replace("\n", "\\n")
         cls.inf_id = "0"
 
     @classmethod
