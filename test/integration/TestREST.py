@@ -35,7 +35,7 @@ PID = None
 RADL_ADD = "network publica\nsystem front\ndeploy front 1"
 RADL_ADD_ERROR = "system wnno deploy wnno 1"
 HOSTNAME = "localhost"
-TEST_PORT = 8811
+TEST_PORT = 8800
 
 
 def read_file_as_string(file_name):
@@ -475,8 +475,7 @@ class TestIM(unittest.TestCase):
         """
         Test the CreateInfrastructure IM function with a TOSCA document
         """
-        with open(TESTS_PATH + '/files/tosca_create.yml') as f:
-            tosca = f.read()
+        tosca = read_file_as_string('../files/tosca_create.radl')
 
         self.server.request('POST', "/infrastructures", body=tosca,
                             headers={'AUTHORIZATION': self.auth_data, 'Content-Type': 'text/yaml'})
@@ -507,8 +506,7 @@ class TestIM(unittest.TestCase):
         """
         Test the AddResource IM function with a TOSCA document
         """
-        with open(TESTS_PATH + '/files/tosca_add.yml') as f:
-            tosca = f.read()
+        tosca = read_file_as_string('../files/tosca_add.radl')
 
         self.server.request('POST', "/infrastructures/" + self.inf_id, body=tosca,
                             headers={'AUTHORIZATION': self.auth_data, 'Content-Type': 'text/yaml'})
@@ -534,8 +532,7 @@ class TestIM(unittest.TestCase):
         """
         Test the RemoveResource IM function with a TOSCA document
         """
-        with open(TESTS_PATH + '/files/tosca_remove.yml') as f:
-            tosca = f.read()
+        tosca = read_file_as_string('../files/tosca_remove.radl')
 
         self.server.request('POST', "/infrastructures/" + self.inf_id, body=tosca,
                             headers={'AUTHORIZATION': self.auth_data, 'Content-Type': 'text/yaml'})
