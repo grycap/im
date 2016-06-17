@@ -156,7 +156,7 @@ class TestIM(unittest.TestCase):
     def test_inf_auth_with_userdb(self):
         """Test access im with user db"""
 
-        Config.USER_DB = os.path.dirname(os.path.realpath(__file__)) + '/files/users.txt'
+        Config.USER_DB = os.path.dirname(os.path.realpath(__file__)) + '/../files/users.txt'
 
         auth0 = self.getAuth([0])
         infId0 = IM.CreateInfrastructure("", auth0)
@@ -487,14 +487,14 @@ class TestIM(unittest.TestCase):
         auth0 = self.getAuth([0], [], [("Mock", 0)])
         IM._reinit()
         Config.PLAYBOOK_RETRIES = 1
-        Config.CONTEXTUALIZATION_DIR = os.path.dirname(os.path.realpath(__file__)) + "/../contextualization"
+        Config.CONTEXTUALIZATION_DIR = os.path.dirname(os.path.realpath(__file__)) + "/../../contextualization"
         Config.CONFMAMAGER_CHECK_STATE_INTERVAL = 0.001
         cloud0 = self.get_cloud_connector_mock("MyMock")
         self.register_cloudconnector("Mock", cloud0)
 
         infId = IM.CreateInfrastructure(str(radl), auth0)
 
-        time.sleep(2)
+        time.sleep(5)
 
         state = IM.GetInfrastructureState(infId, auth0)
         self.assertEqual(state["state"], "unconfigured")
@@ -517,7 +517,7 @@ class TestIM(unittest.TestCase):
     def test_db(self, execute, select, table_exists, connect):
 
         table_exists.return_value = True
-        select.return_value = [["1", "", read_file_as_string("files/data.pkl")]]
+        select.return_value = [["1", "", read_file_as_string("../files/data.pkl")]]
         execute.return_value = True
 
         res = IM.get_data_from_db("mysql://username:password@server/db_name")

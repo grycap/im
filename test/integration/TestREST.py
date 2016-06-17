@@ -34,12 +34,14 @@ from IM import __version__ as version
 PID = None
 RADL_ADD = "network publica\nsystem front\ndeploy front 1"
 RADL_ADD_ERROR = "system wnno deploy wnno 1"
-TESTS_PATH = os.path.dirname(os.path.realpath(__file__))
-RADL_FILE = TESTS_PATH + '/files/test_simple.radl'
-AUTH_FILE = TESTS_PATH + '/auth.dat'
-
 HOSTNAME = "localhost"
 TEST_PORT = 8800
+
+
+def read_file_as_string(file_name):
+    tests_path = os.path.dirname(os.path.abspath(__file__))
+    abs_file_path = os.path.join(tests_path, file_name)
+    return open(abs_file_path, 'r').read()
 
 
 class TestIM(unittest.TestCase):
@@ -51,11 +53,7 @@ class TestIM(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
-        f = open(AUTH_FILE)
-        cls.auth_data = ""
-        for line in f.readlines():
-            cls.auth_data += line.strip() + "\\n"
-        f.close()
+        cls.auth_data = read_file_as_string('../auth.dat').replace("\n", "\\n")
         cls.inf_id = "0"
 
     @classmethod
@@ -161,11 +159,7 @@ class TestIM(unittest.TestCase):
                          msg="Incorrect error message: " + str(resp.status))
 
     def test_20_create(self):
-        f = open(RADL_FILE)
-        radl = ""
-        for line in f.readlines():
-            radl += line
-        f.close()
+        radl = read_file_as_string('../files/test_simple.radl')
 
         self.server.request('POST', "/infrastructures", body=radl,
                             headers={'AUTHORIZATION': self.auth_data})
