@@ -23,6 +23,7 @@ import logging
 import logging.config
 from StringIO import StringIO
 
+sys.path.append(".")
 sys.path.append("..")
 from IM.CloudInfo import CloudInfo
 from IM.auth import Authentication
