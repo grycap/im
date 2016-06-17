@@ -31,6 +31,13 @@ class TestTTSClient(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.last_op = None, None
+        token = ("eyJraWQiOiJyc2ExIiwiYWxnIjoiUlMyNTYifQ.eyJzdWIiOiJkYzVkNWFiNy02ZGI5LTQwNzktOTg1Yy04MGFjMDUwMTcwNjYi"
+                 "LCJpc3MiOiJodHRwczpcL1wvaWFtLXRlc3QuaW5kaWdvLWRhdGFjbG91ZC5ldVwvIiwiZXhwIjoxNDY2MDkzOTE3LCJpYXQiOjE"
+                 "0NjYwOTAzMTcsImp0aSI6IjE1OTU2N2U2LTdiYzItNDUzOC1hYzNhLWJjNGU5MmE1NjlhMCJ9.eINKxJa2J--xdGAZWIOKtx9Wi"
+                 "0Vz3xHzaSJWWY-UHWy044TQ5xYtt0VTvmY5Af-ngwAMGfyaqAAvNn1VEP-_fMYQZdwMqcXLsND4KkDi1ygiCIwQ3JBz9azBT1o_"
+                 "oAHE5BsPsE2BjfDoVRasZxxW5UoXCmBslonYd8HK2tUVjz0")
+        iss = "https://iam-test.indigo-datacloud.eu/"
+        cls.ttsc = TTSClient(token, iss, "localhost")
 
     def get_response(self):
         method, url = self.__class__.last_op
@@ -51,7 +58,7 @@ class TestTTSClient(unittest.TestCase):
                 resp.msg = {'location': "/api/credential/somecred"}
 
         return resp
-    
+
     def request(self, method, url, body=None, headers={}):
         self.__class__.last_op = method, url
 
@@ -64,12 +71,9 @@ class TestTTSClient(unittest.TestCase):
         conn.putrequest.side_effect = self.request
         conn.getresponse.side_effect = self.get_response
 
-        token = "eyJraWQiOiJyc2ExIiwiYWxnIjoiUlMyNTYifQ.eyJzdWIiOiJkYzVkNWFiNy02ZGI5LTQwNzktOTg1Yy04MGFjMDUwMTcwNjYiLCJpc3MiOiJodHRwczpcL1wvaWFtLXRlc3QuaW5kaWdvLWRhdGFjbG91ZC5ldVwvIiwiZXhwIjoxNDY2MDkzOTE3LCJpYXQiOjE0NjYwOTAzMTcsImp0aSI6IjE1OTU2N2U2LTdiYzItNDUzOC1hYzNhLWJjNGU5MmE1NjlhMCJ9.eINKxJa2J--xdGAZWIOKtx9Wi0Vz3xHzaSJWWY-UHWy044TQ5xYtt0VTvmY5Af-ngwAMGfyaqAAvNn1VEP-_fMYQZdwMqcXLsND4KkDi1ygiCIwQ3JBz9azBT1o_oAHE5BsPsE2BjfDoVRasZxxW5UoXCmBslonYd8HK2tUVjz0"
-        iss = "https://iam-test.indigo-datacloud.eu/"
-        ttsc = TTSClient(token, iss, "localhost")
-        success, services = ttsc.list_endservices()
+        success, services = self.ttsc.list_endservices()
 
-        expected_services = {"service_list": [{"id":"sid", "type":"stype", "host": "shost"}]}
+        expected_services = {"service_list": [{"id": "sid", "type": "stype", "host": "shost"}]}
 
         self.assertTrue(success, msg="ERROR: getting services: %s." % services)
         self.assertEqual(services, expected_services, msg="ERROR: getting services: Unexpected services.")
@@ -83,12 +87,9 @@ class TestTTSClient(unittest.TestCase):
         conn.putrequest.side_effect = self.request
         conn.getresponse.side_effect = self.get_response
 
-        token = "eyJraWQiOiJyc2ExIiwiYWxnIjoiUlMyNTYifQ.eyJzdWIiOiJkYzVkNWFiNy02ZGI5LTQwNzktOTg1Yy04MGFjMDUwMTcwNjYiLCJpc3MiOiJodHRwczpcL1wvaWFtLXRlc3QuaW5kaWdvLWRhdGFjbG91ZC5ldVwvIiwiZXhwIjoxNDY2MDkzOTE3LCJpYXQiOjE0NjYwOTAzMTcsImp0aSI6IjE1OTU2N2U2LTdiYzItNDUzOC1hYzNhLWJjNGU5MmE1NjlhMCJ9.eINKxJa2J--xdGAZWIOKtx9Wi0Vz3xHzaSJWWY-UHWy044TQ5xYtt0VTvmY5Af-ngwAMGfyaqAAvNn1VEP-_fMYQZdwMqcXLsND4KkDi1ygiCIwQ3JBz9azBT1o_oAHE5BsPsE2BjfDoVRasZxxW5UoXCmBslonYd8HK2tUVjz0"
-        iss = "https://iam-test.indigo-datacloud.eu/"
-        ttsc = TTSClient(token, iss, "localhost")
-        service = ttsc.find_service("stype", "shost")
+        service = self.ttsc.find_service("stype", "shost")
 
-        expected_service = {"id":"sid", "type":"stype", "host": "shost"}
+        expected_service = {"id": "sid", "type": "stype", "host": "shost"}
 
         self.assertEqual(service, expected_service, msg="ERROR: finding service: Unexpected service.")
 
@@ -101,11 +102,8 @@ class TestTTSClient(unittest.TestCase):
         conn.putrequest.side_effect = self.request
         conn.getresponse.side_effect = self.get_response
 
-        token = "eyJraWQiOiJyc2ExIiwiYWxnIjoiUlMyNTYifQ.eyJzdWIiOiJkYzVkNWFiNy02ZGI5LTQwNzktOTg1Yy04MGFjMDUwMTcwNjYiLCJpc3MiOiJodHRwczpcL1wvaWFtLXRlc3QuaW5kaWdvLWRhdGFjbG91ZC5ldVwvIiwiZXhwIjoxNDY2MDkzOTE3LCJpYXQiOjE0NjYwOTAzMTcsImp0aSI6IjE1OTU2N2U2LTdiYzItNDUzOC1hYzNhLWJjNGU5MmE1NjlhMCJ9.eINKxJa2J--xdGAZWIOKtx9Wi0Vz3xHzaSJWWY-UHWy044TQ5xYtt0VTvmY5Af-ngwAMGfyaqAAvNn1VEP-_fMYQZdwMqcXLsND4KkDi1ygiCIwQ3JBz9azBT1o_oAHE5BsPsE2BjfDoVRasZxxW5UoXCmBslonYd8HK2tUVjz0"
-        iss = "https://iam-test.indigo-datacloud.eu/"
-        ttsc = TTSClient(token, iss, "localhost")
-        success, cred = ttsc.request_credential("sid")
-        
+        success, cred = self.ttsc.request_credential("sid")
+
         expected_cred = [{'name': 'Username', 'type': 'text', 'value': 'username'},
                          {'name': 'Password', 'type': 'text', 'value': 'password'}]
 
