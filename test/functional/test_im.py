@@ -22,7 +22,7 @@ import logging
 import unittest
 import sys
 
-from mock import Mock, patch, MagicMock
+from mock import Mock
 
 sys.path.append("..")
 sys.path.append(".")
@@ -34,12 +34,10 @@ Config.MAX_SIMULTANEOUS_LAUNCHES = 2
 from IM.VirtualMachine import VirtualMachine
 from IM.InfrastructureManager import InfrastructureManager as IM
 from IM.auth import Authentication
-from radl.radl import RADL, system, deploy, Feature, SoftFeatures
-from radl.radl_parse import parse_radl
+from radl.radl import RADL, system, deploy, Feature
 from IM.CloudInfo import CloudInfo
 from IM.connectors.CloudConnector import CloudConnector
 from IM.SSH import SSH
-from IM.InfrastructureInfo import InfrastructureInfo
 
 
 def read_file_as_string(file_name):
@@ -112,7 +110,6 @@ class TestIM(unittest.TestCase):
         cloud.launch = Mock(side_effect=self.gen_launch_res)
         return cloud
 
-
     def test_inf_lifecycle(self):
         """Test Infrastructure lifecycle"""
         radl = """"
@@ -163,22 +160,22 @@ class TestIM(unittest.TestCase):
 
         state = IM.GetInfrastructureState(infId, auth0)
         self.assertEqual(state["state"], "running")
-        
+
         add_radl = RADL()
         add_radl.add(system("s0", [Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
-                               Feature("disk.0.os.credentials.username", "=", "user"),
-                               Feature("disk.0.os.credentials.password", "=", "pass")]))
+                                   Feature("disk.0.os.credentials.username", "=", "user"),
+                                   Feature("disk.0.os.credentials.password", "=", "pass")]))
         add_radl.add(deploy("s0", 1))
-        
+
         vms = IM.AddResource(infId, str(add_radl), auth0)
         self.assertEqual(vms, [1])
-        
+
         state = IM.GetVMProperty(infId, "1", "state", auth0)
         self.assertEqual(state, "running")
 
         contmsg = IM.GetVMContMsg(infId, "1", auth0)
         self.assertEqual(contmsg, "")
-        
+
         cont = IM.RemoveResource(infId, ['1'], auth0)
         self.assertEqual(cont, 1)
 
