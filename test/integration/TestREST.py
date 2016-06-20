@@ -475,7 +475,7 @@ class TestIM(unittest.TestCase):
         """
         Test the CreateInfrastructure IM function with a TOSCA document
         """
-        tosca = read_file_as_string('../files/tosca_create.radl')
+        tosca = read_file_as_string('../files/tosca_create.yml')
 
         self.server.request('POST', "/infrastructures", body=tosca,
                             headers={'AUTHORIZATION': self.auth_data, 'Content-Type': 'text/yaml'})
@@ -506,7 +506,7 @@ class TestIM(unittest.TestCase):
         """
         Test the AddResource IM function with a TOSCA document
         """
-        tosca = read_file_as_string('../files/tosca_add.radl')
+        tosca = read_file_as_string('../files/tosca_add.yml')
 
         self.server.request('POST', "/infrastructures/" + self.inf_id, body=tosca,
                             headers={'AUTHORIZATION': self.auth_data, 'Content-Type': 'text/yaml'})
@@ -532,7 +532,7 @@ class TestIM(unittest.TestCase):
         """
         Test the RemoveResource IM function with a TOSCA document
         """
-        tosca = read_file_as_string('../files/tosca_remove.radl')
+        tosca = read_file_as_string('../files/tosca_remove.yml')
 
         self.server.request('POST', "/infrastructures/" + self.inf_id, body=tosca,
                             headers={'AUTHORIZATION': self.auth_data, 'Content-Type': 'text/yaml'})
