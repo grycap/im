@@ -26,6 +26,8 @@ from radl.radl import network, Feature
 from IM.config import ConfigOpenNebula
 from netaddr import IPNetwork, IPAddress
 from IM.config import Config
+from IM.tts.tts import TTSClient
+from IM.openid.JWT import JWT
 
 # Set of classes to parse the XML results of the ONE API
 
@@ -186,6 +188,35 @@ class OpenNebulaCloudConnector(CloudConnector):
 
             return res
 
+    def get_auth_from_tts(self, token):
+        """
+        Get username and password from the TTS service
+        """
+        tts_uri = uriparse(ConfigOpenNebula.TTS_URL)
+        scheme = tts_uri[0]
+        host = tts_uri[1]
+        port = None
+        if host.find(":") != -1:
+            parts = host.split(":")
+            host = parts[0]
+            port = int(parts[1])
+
+        decoded_token = JWT.get_info(token)
+        ttsc = TTSClient(token, decoded_token['iss'], host, port, scheme)
+
+        svc = ttsc.find_service("opennebula", self.cloud.server)
+        succes, cred = ttsc.request_credential(svc["id"])
+        if succes:
+            username = password = None
+            for elem in cred:
+                if elem['name'] == 'Username':
+                    username = elem['value']
+                elif elem['name'] == 'Password':
+                    password = elem['value']
+            return username, password
+        else:
+            return None, None
+
     def getSessionID(self, auth_data, hash_password=None):
         """
         Get the ONE Session ID from the auth data
@@ -198,9 +229,7 @@ class OpenNebulaCloudConnector(CloudConnector):
         """
         auths = auth_data.getAuthInfo(self.type, self.cloud.server)
         if not auths:
-            self.logger.error(
-                "No correct auth data has been specified to OpenNebula.")
-            return None
+            raise Exception("No auth data has been specified to OpenNebula.")
         else:
             auth = auths[0]
 
@@ -214,10 +243,15 @@ class OpenNebulaCloudConnector(CloudConnector):
                 passwd = hashlib.sha1(passwd.strip()).hexdigest()
 
             return auth['username'] + ":" + passwd
+        elif 'token' in auth:
+            username, passwd = self.get_auth_from_tts(auth['token'])
+            if not username or not passwd:
+                raise Exception("Error getting ONE credentials using TTS.")
+            auth["username"] = username
+            auth["password"] = passwd
+            return username + ":" + passwd
         else:
-            self.logger.error(
-                "No correct auth data has been specified to OpenNebula: username and password")
-            return None
+            raise Exception("No correct auth data has been specified to OpenNebula: username and password")
 
     def setDisksFromTemplate(self, vm, template):
         """
@@ -359,7 +393,7 @@ class OpenNebulaCloudConnector(CloudConnector):
         session_id = self.getSessionID(auth_data)
         if session_id is None:
             return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
-        func_res = server.one.vm.action(session_id, 'finalize', int(vm.id))
+        func_res = server.one.vm.action(session_id, 'delete', int(vm.id))
 
         if len(func_res) == 1:
             success = True

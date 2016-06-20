@@ -26,7 +26,7 @@ from mock import patch, MagicMock
 
 class TestVMRC(unittest.TestCase):
     """
-    Class to test the SSH class
+    Class to test the VMRC class
     """
 
     @patch('SOAPpy.SOAPProxy')

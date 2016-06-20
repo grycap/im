@@ -23,13 +23,14 @@ import logging
 import logging.config
 from StringIO import StringIO
 
+sys.path.append(".")
 sys.path.append("..")
 from IM.CloudInfo import CloudInfo
 from IM.auth import Authentication
 from radl import radl_parse
 from IM.VirtualMachine import VirtualMachine
 from IM.InfrastructureInfo import InfrastructureInfo
-from IM.connectors.GCE import GCECloudConnector
+from IM.connectors.LibCloud import LibCloudCloudConnector
 from mock import patch, MagicMock
 
 
@@ -39,7 +40,7 @@ def read_file_as_string(file_name):
     return open(abs_file_path, 'r').read()
 
 
-class TestGCEConnector(unittest.TestCase):
+class TestOSTConnector(unittest.TestCase):
     """
     Class to test the IM connectors
     """
@@ -65,13 +66,13 @@ class TestGCEConnector(unittest.TestCase):
         cls.log = StringIO()
 
     @staticmethod
-    def get_gce_cloud():
+    def get_lib_cloud():
         cloud_info = CloudInfo()
-        cloud_info.type = "GCE"
-        one_cloud = GCECloudConnector(cloud_info)
-        return one_cloud
+        cloud_info.type = "LibCloud"
+        cloud = LibCloudCloudConnector(cloud_info)
+        return cloud
 
-    @patch('libcloud.compute.drivers.gce.GCENodeDriver')
+    @patch('libcloud.compute.drivers.ec2.EC2NodeDriver')
     def test_10_concrete(self, get_driver):
         radl_data = """
             network net ()
@@ -82,59 +83,18 @@ class TestGCEConnector(unittest.TestCase):
             net_interface.0.connection = 'net' and
             net_interface.0.dns_name = 'test' and
             disk.0.os.name = 'linux' and
-            disk.0.image.url = 'gce://us-central1-a/centos-6' and
+            disk.0.image.url = 'aws://ami-id' and
             disk.0.os.credentials.username = 'user'
             )"""
         radl = radl_parse.parse_radl(radl_data)
         radl_system = radl.systems[0]
 
-        auth = Authentication([{'id': 'one', 'type': 'GCE', 'username': 'user',
-                                'password': 'pass\npass', 'project': 'proj'}])
+        auth = Authentication([{'id': 'libcloud', 'type': 'LibCloud', 'username': 'user',
+                                'password': 'pass', 'driver': 'EC2'}])
+        lib_cloud = self.get_lib_cloud()
 
         driver = MagicMock()
-        get_driver.return_value = driver
-
-        node_size = MagicMock()
-        node_size.ram = 512
-        node_size.price = 1
-        node_size.disk = 1
-        node_size.name = "small"
-        driver.list_sizes.return_value = [node_size]
-
-        gce_cloud = self.get_gce_cloud()
-        concrete = gce_cloud.concreteSystem(radl_system, auth)
-        self.assertEqual(len(concrete), 1)
-        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.clean_log()
-
-    @patch('libcloud.compute.drivers.gce.GCENodeDriver')
-    def test_20_launch(self, get_driver):
-        radl_data = """
-            network net1 (outbound = 'yes')
-            network net2 ()
-            system test (
-            cpu.arch='x86_64' and
-            cpu.count=1 and
-            memory.size=512m and
-            net_interface.0.connection = 'net1' and
-            net_interface.0.ip = '10.0.0.1' and
-            net_interface.0.dns_name = 'test' and
-            net_interface.1.connection = 'net2' and
-            disk.0.os.name = 'linux' and
-            disk.0.image.url = 'gce://us-central1-a/centos-6' and
-            disk.0.os.credentials.username = 'user' and
-            disk.1.size=1GB and
-            disk.1.device='hdb' and
-            disk.1.mount_path='/mnt/path'
-            )"""
-        radl = radl_parse.parse_radl(radl_data)
-        radl.check()
-
-        auth = Authentication([{'id': 'one', 'type': 'GCE', 'username': 'user',
-                                'password': 'pass\npass', 'project': 'proj'}])
-        gce_cloud = self.get_gce_cloud()
-
-        driver = MagicMock()
+        driver.name = "Amazon EC2"
         get_driver.return_value = driver
 
         node_size = MagicMock()
@@ -145,35 +105,25 @@ class TestGCEConnector(unittest.TestCase):
         node_size.name = "small"
         driver.list_sizes.return_value = [node_size]
 
-        driver.ex_get_image.return_value = "image"
-        driver.ex_create_address.return_value = "ip"
-        net = MagicMock()
-        net.name = "default"
-        driver.ex_list_networks.return_value = [net]
-
-        node = MagicMock()
-        node.id = "gce1"
-        node.name = "gce1name"
-        driver.create_node.return_value = node
-
-        res = gce_cloud.launch(InfrastructureInfo(), radl, radl, 1, auth)
-        success, _ = res[0]
-        self.assertTrue(success, msg="ERROR: launching a VM.")
+        concrete = lib_cloud.concreteSystem(radl_system, auth)
+        self.assertEqual(len(concrete), 1)
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         self.clean_log()
 
-    @patch('libcloud.compute.drivers.gce.GCENodeDriver')
-    def test_30_updateVMInfo(self, get_driver):
+    @patch('libcloud.compute.drivers.ec2.EC2NodeDriver')
+    def test_20_launch(self, get_driver):
         radl_data = """
-            network net (outbound = 'yes')
+            network net1 (outbound = 'yes')
+            network net2 ()
             system test (
             cpu.arch='x86_64' and
             cpu.count=1 and
             memory.size=512m and
-            net_interface.0.connection = 'net' and
+            net_interface.0.connection = 'net1' and
             net_interface.0.dns_name = 'test' and
+            net_interface.1.connection = 'net2' and
             disk.0.os.name = 'linux' and
-            disk.0.image.url = 'gce://us-central1-a/centos-6' and
+            disk.0.image.url = 'aws://ami-id' and
             disk.0.os.credentials.username = 'user' and
             disk.1.size=1GB and
             disk.1.device='hdb' and
@@ -182,92 +132,208 @@ class TestGCEConnector(unittest.TestCase):
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
 
-        auth = Authentication([{'id': 'one', 'type': 'GCE', 'username': 'user',
-                                'password': 'pass\npass', 'project': 'proj'}])
-        gce_cloud = self.get_gce_cloud()
+        auth = Authentication([{'id': 'libcloud', 'type': 'LibCloud', 'username': 'user',
+                                'password': 'pass', 'driver': 'EC2'}])
+        lib_cloud = self.get_lib_cloud()
+
+        driver = MagicMock()
+        driver.name = "Amazon EC2"
+        driver.features = {"create_node": ["ssh_key"]}
+        get_driver.return_value = driver
+
+        node_size = MagicMock()
+        node_size.ram = 512
+        node_size.price = 1
+        node_size.disk = 1
+        node_size.vcpus = 1
+        node_size.name = "small"
+        driver.list_sizes.return_value = [node_size]
+
+        driver.get_key_pair.return_value = ""
+
+        keypair = MagicMock()
+        keypair.public_key = "public"
+        driver.create_key_pair.return_value = keypair
+        driver.features = {'create_node': ['ssh_key']}
+
+        node = MagicMock()
+        node.id = "1"
+        node.name = "name"
+        driver.create_node.return_value = node
+
+        res = lib_cloud.launch(InfrastructureInfo(), radl, radl, 1, auth)
+        success, _ = res[0]
+        self.assertTrue(success, msg="ERROR: launching a VM.")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+        self.clean_log()
+
+    @patch('libcloud.compute.drivers.ec2.EC2NodeDriver')
+    def test_30_updateVMInfo(self, get_driver):
+        radl_data = """
+            network net (outbound = 'yes')
+            system test (
+            cpu.arch='x86_64' and
+            cpu.count=1 and
+            memory.size=512m and
+            net_interface.0.connection = 'net' and
+            net_interface.0.ip = '158.42.1.1' and
+            net_interface.0.dns_name = 'test' and
+            disk.0.os.name = 'linux' and
+            disk.0.image.url = 'aws://ami-id' and
+            disk.0.os.credentials.username = 'user' and
+            disk.0.os.credentials.password = 'pass'
+            )"""
+        radl = radl_parse.parse_radl(radl_data)
+        radl.check()
+
+        auth = Authentication([{'id': 'libcloud', 'type': 'LibCloud', 'username': 'user',
+                                'password': 'pass', 'driver': 'EC2'}])
+        lib_cloud = self.get_lib_cloud()
 
         inf = MagicMock()
         inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "1", gce_cloud.cloud, radl, radl, gce_cloud)
+        vm = VirtualMachine(inf, "1", lib_cloud.cloud, radl, radl, lib_cloud)
 
         driver = MagicMock()
+        driver.name = "Amazon EC2"
         get_driver.return_value = driver
 
         node = MagicMock()
-        zone = MagicMock()
         node.id = "1"
         node.state = "running"
-        node.extra = {'flavorId': 'small'}
+        node.extra = {'availability': 'use-east-1'}
         node.public_ips = []
-        node.public_ips = ['158.42.1.1']
         node.private_ips = ['10.0.0.1']
         node.driver = driver
-        zone.name = 'us-central1-a'
-        node.extra = {'zone': zone}
-        driver.ex_get_node.return_value = node
+        node.size = MagicMock()
+        node.size.ram = 512
+        node.size.price = 1
+        node.size.disk = 1
+        node.size.vcpus = 1
+        node.size.name = "small"
+        driver.list_nodes.return_value = [node]
 
         volume = MagicMock()
         volume.id = "vol1"
+        volume.extra = {"state": "available"}
         volume.attach.return_value = True
-        volume.extra = {'status': 'READY'}
         driver.create_volume.return_value = volume
 
-        success, vm = gce_cloud.updateVMInfo(vm, auth)
+        driver.ex_allocate_address.return_value = "10.0.0.1"
+
+        success, vm = lib_cloud.updateVMInfo(vm, auth)
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         self.clean_log()
 
-    @patch('libcloud.compute.drivers.gce.GCENodeDriver')
+    @patch('libcloud.compute.drivers.ec2.EC2NodeDriver')
     def test_40_stop(self, get_driver):
-        auth = Authentication([{'id': 'one', 'type': 'GCE', 'username': 'user',
-                                'password': 'pass\npass', 'project': 'proj'}])
-        gce_cloud = self.get_gce_cloud()
+        auth = Authentication([{'id': 'libcloud', 'type': 'LibCloud', 'username': 'user',
+                                'password': 'pass', 'driver': 'EC2'}])
+        lib_cloud = self.get_lib_cloud()
 
         inf = MagicMock()
         inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "1", gce_cloud.cloud, "", "", gce_cloud)
+        vm = VirtualMachine(inf, "1", lib_cloud.cloud, "", "", lib_cloud)
 
         driver = MagicMock()
         get_driver.return_value = driver
 
-        driver.ex_get_node.return_value = MagicMock()
+        node = MagicMock()
+        node.id = "1"
+        node.state = "running"
+        node.driver = driver
+        driver.list_nodes.return_value = [node]
+
         driver.ex_stop_node.return_value = True
 
-        success, _ = gce_cloud.stop(vm, auth)
+        success, _ = lib_cloud.stop(vm, auth)
 
         self.assertTrue(success, msg="ERROR: stopping VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         self.clean_log()
 
-    @patch('libcloud.compute.drivers.gce.GCENodeDriver')
+    @patch('libcloud.compute.drivers.ec2.EC2NodeDriver')
     def test_50_start(self, get_driver):
-        auth = Authentication([{'id': 'one', 'type': 'GCE', 'username': 'user',
-                                'password': 'pass\npass', 'project': 'proj'}])
-        gce_cloud = self.get_gce_cloud()
+        auth = Authentication([{'id': 'libcloud', 'type': 'LibCloud', 'username': 'user',
+                                'password': 'pass', 'driver': 'EC2'}])
+        lib_cloud = self.get_lib_cloud()
 
         inf = MagicMock()
         inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "1", gce_cloud.cloud, "", "", gce_cloud)
+        vm = VirtualMachine(inf, "1", lib_cloud.cloud, "", "", lib_cloud)
 
         driver = MagicMock()
         get_driver.return_value = driver
 
-        driver.ex_get_node.return_value = MagicMock()
-        driver.ex_start_node.return_value = True
+        node = MagicMock()
+        node.id = "1"
+        node.state = "running"
+        node.driver = driver
+        driver.list_nodes.return_value = [node]
 
-        success, _ = gce_cloud.start(vm, auth)
+        driver.ex_stop_node.return_value = True
+
+        success, _ = lib_cloud.start(vm, auth)
 
         self.assertTrue(success, msg="ERROR: stopping VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         self.clean_log()
 
-    @patch('libcloud.compute.drivers.gce.GCENodeDriver')
-    @patch('time.sleep')
-    def test_60_finalize(self, sleep, get_driver):
-        auth = Authentication([{'id': 'one', 'type': 'GCE', 'username': 'user',
-                                'password': 'pass\npass', 'project': 'proj'}])
-        gce_cloud = self.get_gce_cloud()
+    @patch('libcloud.compute.drivers.ec2.EC2NodeDriver')
+    def test_55_alter(self, get_driver):
+        radl_data = """
+            network net ()
+            system test (
+            cpu.arch='x86_64' and
+            cpu.count=1 and
+            memory.size=512m and
+            net_interface.0.connection = 'net' and
+            net_interface.0.dns_name = 'test' and
+            disk.0.os.name = 'linux' and
+            disk.0.image.url = 'one://server.com/1' and
+            disk.0.os.credentials.username = 'user' and
+            disk.0.os.credentials.password = 'pass'
+            )"""
+        radl = radl_parse.parse_radl(radl_data)
+
+        new_radl_data = """
+            system test (
+            cpu.count>=2 and
+            memory.size>=2048m
+            )"""
+        new_radl = radl_parse.parse_radl(new_radl_data)
+
+        auth = Authentication([{'id': 'libcloud', 'type': 'LibCloud', 'username': 'user',
+                                'password': 'pass', 'driver': 'EC2'}])
+        lib_cloud = self.get_lib_cloud()
+
+        inf = MagicMock()
+        inf.get_next_vm_id.return_value = 1
+        vm = VirtualMachine(inf, "1", lib_cloud.cloud, radl, radl, lib_cloud)
+
+        driver = MagicMock()
+        get_driver.return_value = driver
+
+        node = MagicMock()
+        node.id = "1"
+        node.driver = driver
+        driver.list_nodes.return_value = [node]
+
+        driver.ex_resize.return_value = True
+
+        success, _ = lib_cloud.alterVM(vm, new_radl, auth)
+
+        self.assertTrue(success, msg="ERROR: modifying VM info.")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+        self.clean_log()
+
+    @patch('libcloud.compute.drivers.ec2.EC2NodeDriver')
+    def test_60_finalize(self, get_driver):
+        auth = Authentication([{'id': 'libcloud', 'type': 'LibCloud', 'username': 'user',
+                                'password': 'pass', 'driver': 'EC2'}])
+        lib_cloud = self.get_lib_cloud()
 
         radl_data = """
             system test (
@@ -278,24 +344,37 @@ class TestGCEConnector(unittest.TestCase):
 
         inf = MagicMock()
         inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "1", gce_cloud.cloud, radl, radl, gce_cloud)
+        vm = VirtualMachine(inf, "1", lib_cloud.cloud, radl, radl, lib_cloud)
+        vm.keypair = ""
 
         driver = MagicMock()
-        driver.name = "OpenStack"
+        driver.name = "Amazon EC2"
         get_driver.return_value = driver
 
         node = MagicMock()
-        node.destroy.return_value = True
-        node.extra = {'disks': [{'source': 'vol'}]}
+        node.id = "1"
+        node.state = "running"
         node.driver = driver
-        driver.ex_get_node.return_value = node
+        node.destroy.return_value = True
+        driver.list_nodes.return_value = [node]
 
+        sg = MagicMock()
+        sg.id = sg.name = "sg1"
+        driver.ex_get_node_security_groups.return_value = [sg]
+
+        keypair = MagicMock()
+        driver.get_key_pair.return_value = keypair
+        vm.keypair = keypair
         volume = MagicMock()
-        volume.detach.return_value = True
-        volume.destroy.return_value = True
-        driver.ex_get_volume.return_value = volume
+        volume.id = "id"
+        vm.volumes = [volume]
 
-        success, _ = gce_cloud.finalize(vm, auth)
+        driver.delete_key_pair.return_value = True
+
+        driver.ex_describe_addresses_for_node.return_value = ["ip"]
+        driver.ex_disassociate_address.return_value = True
+
+        success, _ = lib_cloud.finalize(vm, auth)
 
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
