@@ -163,7 +163,7 @@ class TestREST(unittest.TestCase):
         GetVMInfo.return_value = parse_radl("system test (cpu.count = 1)")
 
         res = RESTGetVMInfo("1", "1")
-        self.assertEqual(res, '{"radl": [{"cpu.count": 1, "class": "system", "id": "test"}]}')
+        self.assertEqual(json.loads(res), json.loads('{"radl": [{"cpu.count": 1, "class": "system", "id": "test"}]}'))
 
         bottle_request.headers["Accept"] = "text/*"
         res = RESTGetVMInfo("1", "1")
