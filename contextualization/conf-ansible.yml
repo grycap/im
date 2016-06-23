@@ -6,29 +6,40 @@
     - name: Install libselinux-python in RH
       action: yum pkg=libselinux-python state=installed
       when: ansible_os_family == "RedHat"
-  
-    - name: Apt-get update
-      apt: update_cache=yes
-      when: ansible_os_family == "Debian"
 
     - name: EPEL
-      yum: name=epel-release
+      yum: name=epel-release,yum-priorities
       when: ansible_os_family == "RedHat" and ansible_distribution != "Fedora"
 
 ####################### Install Ansible in Ubuntu and RHEL systems with apt and yum ###################################
 ################### because they have recent versions of ansible in system repositories ###############################
 
+    - name: Ubuntu install indigo list
+      get_url: url=http://repo.indigo-datacloud.eu/repos/1/indigo1-ubuntu14_04.list dest=/etc/apt/sources.list.d/indigo1-ubuntu14_04.list
+      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version == "14"
+      
     - name: Ubuntu install requirements
       apt: name=software-properties-common
       when: ansible_distribution == "Ubuntu"
-    
+      
     - name: Ubuntu install Ansible PPA repo  
       apt_repository: repo='ppa:ansible/ansible'
-      when: ansible_distribution == "Ubuntu"
+      when: ansible_os_family == "Debian" and (ansible_distribution != "Ubuntu" or ansible_distribution_major_version != "14")
+      
+    - name: Apt-get update
+      apt: update_cache=yes
+      when: ansible_os_family == "Debian"
       
     - name: Ubuntu install Ansible with apt
       apt: name=ansible,python-pip,python-jinja2,sshpass,openssh-client,unzip
       when: ansible_distribution == "Ubuntu"
+      
+    - name: RH indigo repos
+      get_url: url=http://repo.indigo-datacloud.eu/repos/1/{{item}} dest=/etc/yum.repos.d/{{item}}
+      with_items:
+       - indigo1-testing-updates.repo
+       - indigo1-testing-base.repo
+      when: ansible_os_family == "RedHat" and ansible_distribution_major_version >= 7 and ansible_distribution != "Fedora"
       
     - name: Yum install Ansible RH
       yum: name=ansible,python-pip,python-jinja2,sshpass,openssh-clients,wget
