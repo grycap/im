@@ -528,7 +528,7 @@ class ConfManager(threading.Thread):
                                 if vm.getIfaceIP(j):
                                     ConfManager.logger.warn("Setting the IP of the iface %d." % j)
                                     hosts_out.write(vm.getIfaceIP(
-                                        i) + " " + nodename + "." + nodedom + " " + nodename + "\r\n")
+                                        j) + " " + nodename + "." + nodedom + " " + nodename + "\r\n")
                                     break
 
                     # the master node
