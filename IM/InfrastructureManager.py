@@ -280,6 +280,9 @@ class InfrastructureManager:
 
         Return: "" if success.
         """
+        # First check if it is configured to check the users from a list
+        if not InfrastructureManager.check_im_user(auth.getAuthInfo("InfrastructureManager")):
+            raise UnauthorizedUserException()
 
         InfrastructureManager.logger.info(
             "Reconfiguring the inf: " + str(inf_id))
@@ -382,6 +385,9 @@ class InfrastructureManager:
 
         Return(list of int): ids of the new virtual machine created.
         """
+        # First check if it is configured to check the users from a list
+        if not InfrastructureManager.check_im_user(auth.getAuthInfo("InfrastructureManager")):
+            raise UnauthorizedUserException()
 
         InfrastructureManager.logger.info(
             "Adding resources to inf: " + str(inf_id))
@@ -605,6 +611,9 @@ class InfrastructureManager:
 
         Return(int): number of undeployed virtual machines.
         """
+        # First check if it is configured to check the users from a list
+        if not InfrastructureManager.check_im_user(auth.getAuthInfo("InfrastructureManager")):
+            raise UnauthorizedUserException()
 
         InfrastructureManager.logger.info(
             "Removing the VMs: " + str(vm_list) + " from inf ID: '" + str(inf_id) + "'")
@@ -685,6 +694,9 @@ class InfrastructureManager:
 
         Return: a str with the information about the VM
         """
+        # First check if it is configured to check the users from a list
+        if not InfrastructureManager.check_im_user(auth.getAuthInfo("InfrastructureManager")):
+            raise UnauthorizedUserException()
 
         InfrastructureManager.logger.info(
             "Get information about the vm: '" + str(vm_id) + "' from inf: " + str(inf_id))
@@ -716,6 +728,9 @@ class InfrastructureManager:
 
         Return: a str with the contextualization log of the VM
         """
+        # First check if it is configured to check the users from a list
+        if not InfrastructureManager.check_im_user(auth.getAuthInfo("InfrastructureManager")):
+            raise UnauthorizedUserException()
 
         InfrastructureManager.logger.info(
             "Get contextualization log of the vm: '" + str(vm_id) + "' from inf: " + str(inf_id))
@@ -740,6 +755,9 @@ class InfrastructureManager:
 
         Return: a str with the information about the VM
         """
+        # First check if it is configured to check the users from a list
+        if not InfrastructureManager.check_im_user(auth.getAuthInfo("InfrastructureManager")):
+            raise UnauthorizedUserException()
 
         InfrastructureManager.logger.info(
             "Modifying the VM: '" + str(vm_id) + "' from inf: " + str(inf_id))
@@ -785,6 +803,9 @@ class InfrastructureManager:
 
         Return: str with the RADL
         """
+        # First check if it is configured to check the users from a list
+        if not InfrastructureManager.check_im_user(auth.getAuthInfo("InfrastructureManager")):
+            raise UnauthorizedUserException()
 
         InfrastructureManager.logger.info(
             "Getting RADL of the inf: " + str(inf_id))
@@ -807,6 +828,9 @@ class InfrastructureManager:
 
         Return: a list of str: list of virtual machine ids.
         """
+        # First check if it is configured to check the users from a list
+        if not InfrastructureManager.check_im_user(auth.getAuthInfo("InfrastructureManager")):
+            raise UnauthorizedUserException()
 
         InfrastructureManager.logger.info(
             "Getting information about the inf: " + str(inf_id))
@@ -832,6 +856,9 @@ class InfrastructureManager:
 
         Return: a str with the cont msg
         """
+        # First check if it is configured to check the users from a list
+        if not InfrastructureManager.check_im_user(auth.getAuthInfo("InfrastructureManager")):
+            raise UnauthorizedUserException()
 
         InfrastructureManager.logger.info(
             "Getting cont msg of the inf: " + str(inf_id))
@@ -861,6 +888,9 @@ class InfrastructureManager:
             - 'state': str with the aggregated state of the infrastructure
             - 'vm_states': a dict indexed with the id of the VM and its state as value
         """
+        # First check if it is configured to check the users from a list
+        if not InfrastructureManager.check_im_user(auth.getAuthInfo("InfrastructureManager")):
+            raise UnauthorizedUserException()
 
         InfrastructureManager.logger.info(
             "Getting state of the inf: " + str(inf_id))
@@ -931,6 +961,9 @@ class InfrastructureManager:
 
         Return(str): error messages; empty string means all was ok.
         """
+        # First check if it is configured to check the users from a list
+        if not InfrastructureManager.check_im_user(auth.getAuthInfo("InfrastructureManager")):
+            raise UnauthorizedUserException()
 
         InfrastructureManager.logger.info(
             "Stopping the infrastructure id: " + str(inf_id))
@@ -983,6 +1016,9 @@ class InfrastructureManager:
 
         Return(str): error messages; empty string means all was ok.
         """
+        # First check if it is configured to check the users from a list
+        if not InfrastructureManager.check_im_user(auth.getAuthInfo("InfrastructureManager")):
+            raise UnauthorizedUserException()
 
         InfrastructureManager.logger.info(
             "Starting the infrastructure id: " + str(inf_id))
@@ -1024,6 +1060,9 @@ class InfrastructureManager:
 
         Return(str): error messages; empty string means all was ok.
         """
+        # First check if it is configured to check the users from a list
+        if not InfrastructureManager.check_im_user(auth.getAuthInfo("InfrastructureManager")):
+            raise UnauthorizedUserException()
 
         InfrastructureManager.logger.info(
             "Starting the VM id %s from the infrastructure id: %s" % (vm_id, inf_id))
@@ -1057,6 +1096,9 @@ class InfrastructureManager:
 
         Return(str): error messages; empty string means all was ok.
         """
+        # First check if it is configured to check the users from a list
+        if not InfrastructureManager.check_im_user(auth.getAuthInfo("InfrastructureManager")):
+            raise UnauthorizedUserException()
 
         InfrastructureManager.logger.info(
             "Stopping the VM id %s from the infrastructure id: %s" % (vm_id, inf_id))
@@ -1102,6 +1144,9 @@ class InfrastructureManager:
 
         Return: None.
         """
+        # First check if it is configured to check the users from a list
+        if not InfrastructureManager.check_im_user(auth.getAuthInfo("InfrastructureManager")):
+            raise UnauthorizedUserException()
 
         InfrastructureManager.logger.info(
             "Destroying the infrastructure id: " + str(inf_id))
@@ -1233,6 +1278,9 @@ class InfrastructureManager:
 
         Return(list of int): list of infrastructure ids.
         """
+        # First check if it is configured to check the users from a list
+        if not InfrastructureManager.check_im_user(auth.getAuthInfo("InfrastructureManager")):
+            raise UnauthorizedUserException()
 
         InfrastructureManager.logger.info("Listing the user infrastructures")
 
@@ -1253,6 +1301,10 @@ class InfrastructureManager:
     def ExportInfrastructure(inf_id, delete, auth_data):
         auth = Authentication(auth_data)
 
+        # First check if it is configured to check the users from a list
+        if not InfrastructureManager.check_im_user(auth.getAuthInfo("InfrastructureManager")):
+            raise UnauthorizedUserException()
+
         sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
         str_inf = pickle.dumps(sel_inf)
         InfrastructureManager.logger.info(
@@ -1266,6 +1318,11 @@ class InfrastructureManager:
     @staticmethod
     def ImportInfrastructure(str_inf, auth_data):
         auth = Authentication(auth_data)
+        
+        # First check if it is configured to check the users from a list
+        if not InfrastructureManager.check_im_user(auth.getAuthInfo("InfrastructureManager")):
+            raise UnauthorizedUserException()
+
         try:
             new_inf = pickle.loads(str_inf)
         except Exception, ex:
