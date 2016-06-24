@@ -443,6 +443,9 @@ class ConfManager(threading.Thread):
 
                 if vm.getPublicIP():
                     node_line += ' IM_NODE_PUBLIC_IP=' + vm.getPublicIP()
+                    if not vm.getPrivateIP():
+                        # If the node only has a public IP set this variable to the public one
+                        node_line += ' IM_NODE_PRIVATE_IP=' + vm.getPublicIP()
                 if vm.getPrivateIP():
                     node_line += ' IM_NODE_PRIVATE_IP=' + vm.getPrivateIP()
                 node_line += ' IM_NODE_HOSTNAME=' + nodename
@@ -513,14 +516,20 @@ class ConfManager(threading.Thread):
 
                 for i in range(vm.getNumNetworkIfaces()):
                     if vm.getRequestedNameIface(i):
+                        (nodename, nodedom) = vm.getRequestedNameIface(i, default_domain=Config.DEFAULT_DOMAIN)
                         if vm.getIfaceIP(i):
-                            (nodename, nodedom) = vm.getRequestedNameIface(
-                                i, default_domain=Config.DEFAULT_DOMAIN)
                             hosts_out.write(vm.getIfaceIP(
                                 i) + " " + nodename + "." + nodedom + " " + nodename + "\r\n")
                         else:
-                            ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": Net interface " + str(
-                                i) + " request a name, but it does not have an IP.")
+                            ConfManager.logger.warn("Inf ID: %s: Net interface %d"
+                                " request a name, but it does not have an IP." % (self.inf.id, i))
+                            
+                            for j in range(vm.getNumNetworkIfaces()):
+                                if vm.getIfaceIP(j):
+                                    ConfManager.logger.warn("Setting the IP of the iface %d." % j)
+                                    hosts_out.write(vm.getIfaceIP(
+                                        i) + " " + nodename + "." + nodedom + " " + nodename + "\r\n")
+                                    break
 
                     # the master node
                     # TODO: Known issue: the master VM must set the public
