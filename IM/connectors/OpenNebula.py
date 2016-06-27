@@ -205,6 +205,8 @@ class OpenNebulaCloudConnector(CloudConnector):
         ttsc = TTSClient(token, decoded_token['iss'], host, port, scheme)
 
         svc = ttsc.find_service("opennebula", self.cloud.server)
+        if not svc:
+            raise Exception("Cloud site %s nto found in TTS." % self.cloud.server)
         succes, cred = ttsc.request_credential(svc["id"])
         if succes:
             username = password = None
