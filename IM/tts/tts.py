@@ -87,7 +87,11 @@ class TTSClient:
         """
         body = '{"service_id":"%s"}' % sid
         url = "/api/credential/"
-        success, res = self._perform_post(url, body)
+        try:
+            success, res = self._perform_post(url, body)
+        except Exception, ex:
+            success = False
+            res = str(ex)
         if success:
             return True, json.loads(res)
         else:
@@ -98,7 +102,11 @@ class TTSClient:
         Get the list of services
         """
         url = "/api/service"
-        success, output = self._perform_get(url)
+        try:
+            success, output = self._perform_get(url)
+        except Exception, ex:
+            success = False
+            output = str(ex)
         if not success:
             return False, output
         else:
@@ -112,6 +120,8 @@ class TTSClient:
         if success:
             for service in services["service_list"]:
                 if service["type"] == stype and service["host"] == host:
-                    return service
+                    return True, service
+        else:
+            return False, services
 
-        return None
+        return False, "Cloud site %s not found in TTS" % host

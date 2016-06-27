@@ -204,9 +204,9 @@ class OpenNebulaCloudConnector(CloudConnector):
         decoded_token = JWT.get_info(token)
         ttsc = TTSClient(token, decoded_token['iss'], host, port, scheme)
 
-        svc = ttsc.find_service("opennebula", self.cloud.server)
-        if not svc:
-            raise Exception("Cloud site %s nto found in TTS." % self.cloud.server)
+        success, svc = ttsc.find_service("opennebula", self.cloud.server)
+        if not success:
+            raise Exception("Error getting credentials from TTS: %s" % svc)
         succes, cred = ttsc.request_credential(svc["id"])
         if succes:
             username = password = None
@@ -217,7 +217,7 @@ class OpenNebulaCloudConnector(CloudConnector):
                     password = elem['value']
             return username, password
         else:
-            return None, None
+            raise Exception("Error getting credentials from TTS: %s" % cred)
 
     def getSessionID(self, auth_data, hash_password=None):
         """
