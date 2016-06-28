@@ -87,11 +87,12 @@ class TestTTSClient(unittest.TestCase):
         conn.putrequest.side_effect = self.request
         conn.getresponse.side_effect = self.get_response
 
-        service = self.ttsc.find_service("stype", "shost")
+        success, service = self.ttsc.find_service("stype", "shost")
 
         expected_service = {"id": "sid", "type": "stype", "host": "shost"}
 
-        self.assertEqual(service, expected_service, msg="ERROR: finding service: Unexpected service.")
+        self.assertTrue(success)
+        self.assertEqual(service, expected_service)
 
     @patch('httplib.HTTPConnection')
     def test_request_credential(self, connection):
