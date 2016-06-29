@@ -430,11 +430,12 @@ class Tosca:
                 if script_path.endswith(".yaml") or script_path.endswith(".yml"):
                     if env:
                         for var_name, var_value in env.iteritems():
-                            if var_value.startswith("|"):
-                                variables += '    %s: %s ' % (
+                            # use " with ansible vars to avoid errors
+                            if var_value.startswith("{{"):
+                                variables += '    %s: "%s" ' % (
                                     var_name, var_value) + "\n"
                             else:
-                                variables += '    %s: "%s" ' % (
+                                variables += '    %s: %s ' % (
                                     var_name, var_value) + "\n"
                         variables += "\n"
 
