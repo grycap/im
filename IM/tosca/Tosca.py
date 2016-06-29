@@ -1269,18 +1269,16 @@ class Tosca:
             yamlo1o = yaml.load(yaml1)[0]
             if not isinstance(yamlo1o, dict):
                 yamlo1o = {}
-        except Exception:
-            Tosca.logger.exception(
-                "Error parsing YAML: " + yaml1 + "\n Ignore it")
+        except Exception, ex:
+            raise Exception("Error parsing YAML: " + yaml1 + "\n. Error: %s" % str(ex))
 
         yamlo2s = {}
         try:
             yamlo2s = yaml.load(yaml2)
             if not isinstance(yamlo2s, list) or any([not isinstance(d, dict) for d in yamlo2s]):
                 yamlo2s = {}
-        except Exception:
-            Tosca.logger.exception(
-                "Error parsing YAML: " + yaml2 + "\n Ignore it")
+        except Exception, ex:
+            raise Exception("Error parsing YAML: " + yaml2 + "\n. Error: %s" % str(ex))
 
         if not yamlo2s and not yamlo1o:
             return ""
