@@ -1,0 +1,7 @@
+*.pyc
+.vscode/
+parsetab.py
+test/auth.dat
+.coverage
+dist
+cover

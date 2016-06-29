@@ -379,7 +379,7 @@ class Tosca:
                                 param_value, node)
 
                         if val:
-                            env[param_name] = str(val)
+                            env[param_name] = val
                         else:
                             raise Exception("input value for %s in interface %s of node %s not valid" % (
                                 param_name, name, node.name))
@@ -430,12 +430,11 @@ class Tosca:
                 if script_path.endswith(".yaml") or script_path.endswith(".yml"):
                     if env:
                         for var_name, var_value in env.iteritems():
-                            if var_value.startswith("|"):
-                                variables += '    %s: %s ' % (
-                                    var_name, var_value) + "\n"
+                            if isinstance(var_value, str) and not var_value.startswith("|"):
+                                var_value = '"%s"' % var_value
                             else:
-                                variables += '    %s: "%s" ' % (
-                                    var_name, var_value) + "\n"
+                                var_value = str(var_value)
+                            variables += '    %s: %s ' % (var_name, var_value) + "\n"
                         variables += "\n"
 
                     script_content = self._remove_recipe_header(script_content)
@@ -1269,18 +1268,16 @@ class Tosca:
             yamlo1o = yaml.load(yaml1)[0]
             if not isinstance(yamlo1o, dict):
                 yamlo1o = {}
-        except Exception:
-            Tosca.logger.exception(
-                "Error parsing YAML: " + yaml1 + "\n Ignore it")
+        except Exception, ex:
+            raise Exception("Error parsing YAML: " + yaml1 + "\n. Error: %s" % str(ex))
 
         yamlo2s = {}
         try:
             yamlo2s = yaml.load(yaml2)
             if not isinstance(yamlo2s, list) or any([not isinstance(d, dict) for d in yamlo2s]):
                 yamlo2s = {}
-        except Exception:
-            Tosca.logger.exception(
-                "Error parsing YAML: " + yaml2 + "\n Ignore it")
+        except Exception, ex:
+            raise Exception("Error parsing YAML: " + yaml2 + "\n. Error: %s" % str(ex))
 
         if not yamlo2s and not yamlo1o:
             return ""
