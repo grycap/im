@@ -379,7 +379,7 @@ class Tosca:
                                 param_value, node)
 
                         if val:
-                            env[param_name] = str(val)
+                            env[param_name] = val
                         else:
                             raise Exception("input value for %s in interface %s of node %s not valid" % (
                                 param_name, name, node.name))
@@ -430,13 +430,12 @@ class Tosca:
                 if script_path.endswith(".yaml") or script_path.endswith(".yml"):
                     if env:
                         for var_name, var_value in env.iteritems():
-                            # use " with ansible vars to avoid errors
-                            if var_value.startswith("{{"):
+                            if isinstance(var_value, str):
                                 variables += '    %s: "%s" ' % (
                                     var_name, var_value) + "\n"
                             else:
                                 variables += '    %s: %s ' % (
-                                    var_name, var_value) + "\n"
+                                    var_name, str(var_value)) + "\n"
                         variables += "\n"
 
                     script_content = self._remove_recipe_header(script_content)
