@@ -430,12 +430,11 @@ class Tosca:
                 if script_path.endswith(".yaml") or script_path.endswith(".yml"):
                     if env:
                         for var_name, var_value in env.iteritems():
-                            if isinstance(var_value, str):
-                                variables += '    %s: "%s" ' % (
-                                    var_name, var_value) + "\n"
+                            if isinstance(var_value, str) and not var_value.startswith("|"):
+                                var_value = '"%s"' % var_value
                             else:
-                                variables += '    %s: %s ' % (
-                                    var_name, str(var_value)) + "\n"
+                                var_value = str(var_value)
+                            variables += '    %s: %s ' % (var_name, var_value) + "\n"
                         variables += "\n"
 
                     script_content = self._remove_recipe_header(script_content)
