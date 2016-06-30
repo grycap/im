@@ -356,7 +356,7 @@ class EC2CloudConnector(CloudConnector):
                 outports = public_net.getOutPorts()
                 if outports:
                     for remote_port, remote_protocol, local_port, local_protocol in outports:
-                        if local_port != 22 and local_port != 5099:
+                        if local_port != 22:
                             protocol = remote_protocol
                             if remote_protocol != local_protocol:
                                 self.logger.warn(
@@ -367,7 +367,6 @@ class EC2CloudConnector(CloudConnector):
 
             try:
                 sg.authorize('tcp', 22, 22, '0.0.0.0/0')
-                sg.authorize('tcp', 5099, 5099, '0.0.0.0/0')
 
                 # open all the ports for the VMs in the security group
                 sg.authorize('tcp', 0, 65535, src_group=sg)
