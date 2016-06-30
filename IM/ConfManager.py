@@ -521,14 +521,14 @@ class ConfManager(threading.Thread):
                             hosts_out.write(vm.getIfaceIP(
                                 i) + " " + nodename + "." + nodedom + " " + nodename + "\r\n")
                         else:
-                            ConfManager.logger.warn("Inf ID: %s: Net interface %d"
-                                " request a name, but it does not have an IP." % (self.inf.id, i))
-                            
+                            ConfManager.logger.warn("Inf ID: %s: Net interface %d request a name, "
+                                                    "but it does not have an IP." % (self.inf.id, i))
+
                             for j in range(vm.getNumNetworkIfaces()):
                                 if vm.getIfaceIP(j):
                                     ConfManager.logger.warn("Setting the IP of the iface %d." % j)
                                     hosts_out.write(vm.getIfaceIP(
-                                        i) + " " + nodename + "." + nodedom + " " + nodename + "\r\n")
+                                        j) + " " + nodename + "." + nodedom + " " + nodename + "\r\n")
                                     break
 
                     # the master node
