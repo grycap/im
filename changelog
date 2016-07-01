@@ -209,3 +209,8 @@ IM 1.4.5
     * Add env variable IM_DATA_DB to enable to change the DB in a container
     * Bugfox with VMRC lib and SOAPPy
     * Change winrm UnauthorizedError exception for new class Authentication
+
+IM 1.4.6
+    * Change conf-ansible recipe to use pip in case of CentOS 6
+    * Improvements for VMs that reqs a priv IP but gets a public one
+    * Put check_im_user in all api functions

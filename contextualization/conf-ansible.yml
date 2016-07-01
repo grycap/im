@@ -32,21 +32,21 @@
       
     - name: Yum install Ansible RH
       yum: name=ansible,python-pip,python-jinja2,sshpass,openssh-clients,wget
-      when: ansible_os_family == "RedHat" and ansible_distribution_major_version >= 6 and ansible_distribution != "Fedora"
+      when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 7 and ansible_distribution != "Fedora"
     
 ############################################ In other systems use pip #################################################
 
     - name: Apt install requirements
       apt: name=unzip,gcc,python-dev,openssh-client,sshpass,python-pip,libffi-dev,libssl-dev
       when: ansible_os_family == "Debian" and ansible_distribution != "Ubuntu"
-    
-    - name: Yum install requirements Fedora
-      yum: name=python-distribute,gcc,python-devel,wget,openssh-clients,sshpass,python-pip
-      when: ansible_distribution == "Fedora"
+      
+    - name: Yum install requirements RH or Fedora
+      yum: name=python-distribute,gcc,python-devel,wget,openssh-clients,sshpass,python-pip,libffi-devel,openssl-devel
+      when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 6
     
     - name: Yum install requirements RH5
       yum: name=python26,python26-simplejson,python26-distribute,gcc,python26-devel,openssh-clients,sshpass,libffi-devel,openssl-devel
-      when: ansible_os_family == "RedHat" and ansible_distribution_major_version < 6
+      when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int < 6
 
     - name: Zypper install requirements Suse   
       zypper: name=python,python-pip,gcc,python-devel,wget,libffi-devel,openssl-devel state=present
@@ -54,36 +54,36 @@
 
     - name: Install Pip 2.6
       easy_install: name=pip executable=easy_install-2.6
-      when: ansible_os_family == "RedHat" and ansible_distribution_major_version < 6
+      when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int < 6
       
 #    - name: Install Pip (alternative)
 #      shell: wget https://bootstrap.pypa.io/get-pip.py && python get-pip.py
 
     - name: Link python 
       file: src=/usr/bin/python dest=/usr/bin/python_ansible state=link
-      when: ansible_os_family == "Suse" or ansible_os_family == "Debian" or (ansible_os_family == "RedHat" and ansible_distribution_major_version >= 6)
+      when: ansible_os_family == "Suse" or ansible_os_family == "Debian" or (ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 6)
 
     - name: Link python 2.6
       file: src=/usr/bin/python2.6 dest=/usr/bin/python_ansible state=link
-      when: ansible_os_family == "RedHat" and ansible_distribution_major_version < 6
+      when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int < 6
 
     - name: Install ansible with Pip
       pip: name=ansible extra_args="-I"
-      when: ansible_os_family == "Suse" or (ansible_os_family == "Debian" and ansible_distribution != "Ubuntu") or ansible_distribution == "Fedora"
+      when: ansible_os_family == "Suse" or (ansible_os_family == "Debian" and ansible_distribution != "Ubuntu") or ansible_distribution == "Fedora" or (ansible_os_family == "RedHat" and ansible_distribution_major_version|int < 7)
       
     - name: Install ansible with Pip 2.6
       pip: name=ansible executable=pip-2.6
-      when: ansible_os_family == "RedHat" and ansible_distribution_major_version < 6
+      when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int < 6
       
 #################################### Now install and scp and pywinrm with pip  ########################################
       
     - name: Install scp and pywinrm with Pip
       pip: name="scp pywinrm"
-      when: ansible_os_family != "RedHat" or (ansible_os_family == "RedHat" and ansible_distribution_major_version >= 6)
+      when: ansible_os_family != "RedHat" or (ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 6)
       
     - name: Install scp and pywinrm with Pip 2.6
       pip: name="scp pywinrm" executable=pip-2.6
-      when: ansible_os_family == "RedHat" and ansible_distribution_major_version < 6
+      when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int < 6
 
     - name: Disable SELinux
       selinux: state=disabled
@@ -100,19 +100,19 @@
 
     - name: Set transport to ssh in ansible.cfg
       ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=transport value=ssh
-      when: ansible_os_family == "Debian" or (ansible_os_family == "RedHat" and ansible_distribution_major_version >= 6)  or (ansible_os_family == "Suse" and ansible_distribution_major_version >= 10)
+      when: ansible_os_family == "Debian" or (ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 6)  or (ansible_os_family == "Suse" and ansible_distribution_major_version|int >= 10)
       
     - name: Set transport to smart in ansible.cfg
       ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=transport value=smart
-      when: (ansible_os_family == "RedHat" and ansible_distribution_major_version < 6) or (ansible_os_family == "Suse" and ansible_distribution_major_version < 10)
+      when: (ansible_os_family == "RedHat" and ansible_distribution_major_version|int < 6) or (ansible_os_family == "Suse" and ansible_distribution_major_version|int < 10)
 
     - name: Change ssh_args to set ControlPersist to 15 min in ansible.cfg
       ini_file: dest=/etc/ansible/ansible.cfg section=ssh_connection option=ssh_args value="-o ControlMaster=auto -o ControlPersist=900s"
-      when: ansible_os_family == "Debian" or (ansible_os_family == "RedHat" and ansible_distribution_major_version >= 7) or (ansible_os_family == "Suse" and ansible_distribution_major_version >= 12)
+      when: ansible_os_family == "Debian" or (ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 7) or (ansible_os_family == "Suse" and ansible_distribution_major_version|int >= 12)
       
     - name: Change ssh_args to remove ControlPersist in REL 6 and older in ansible.cfg
       ini_file: dest=/etc/ansible/ansible.cfg section=ssh_connection option=ssh_args value=""
-      when: (ansible_os_family == "RedHat" and ansible_distribution_major_version < 7) or (ansible_os_family == "Suse" and ansible_distribution_major_version < 12)
+      when: (ansible_os_family == "RedHat" and ansible_distribution_major_version|int < 7) or (ansible_os_family == "Suse" and ansible_distribution_major_version|int < 12)
       
     - name: Activate SSH pipelining in ansible.cfg
       ini_file: dest=/etc/ansible/ansible.cfg section=ssh_connection option=pipelining value=True
