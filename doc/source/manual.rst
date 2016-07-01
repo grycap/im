@@ -100,7 +100,7 @@ Download the Deb package from `GitHub <https://github.com/grycap/im/releases/lat
 Also remember to download the Deb of the RADL package also from `GitHub <https://github.com/grycap/radl/releases/latest>`_.
 
 In Ubuntu 14.04 there are some requisites not available for the "trusty" version or are too old, so you have to manually install them manually.
-You can download it from their corresponding PPAs. But here you have some links::
+You can download it from their corresponding PPAs. But here you have some links:
  
  * python-backports.ssl-match-hostname: `download <https://launchpad.net/ubuntu/+source/backports.ssl-match-hostname/3.4.0.2-1/+build/6206773/+files/python-backports.ssl-match-hostname_3.4.0.2-1_all.deb>`_
  * python-scp: `download <http://launchpadlibrarian.net/210648810/python-scp_0.10.2-1_all.deb>`_
