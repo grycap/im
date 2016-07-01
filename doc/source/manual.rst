@@ -82,7 +82,42 @@ Optional Packages
 Installation
 ------------
 
-Form Pip
+From RPM packages (RH6 and RH7)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Download the RPM package from `GitHub <https://github.com/grycap/im/releases/latest>`_. 
+Also remember to download the RPM of the RADL package also from `GitHub <https://github.com/grycap/radl/releases/latest>`_. 
+You must have the epel repository enabled:: 
+
+   $ yum install epel-release
+   
+Then install the downloaded RPMs:: 
+
+   $ yum localinstall IM-*.rpm RADL-*.rpm
+
+From Deb package
+^^^^^^^^^^^^^^^^
+Download the Deb package from `GitHub <https://github.com/grycap/im/releases/latest>`_
+Also remember to download the Deb of the RADL package also from `GitHub <https://github.com/grycap/radl/releases/latest>`_.
+
+In Ubuntu 14.04 there are some requisites not available for the "trusty" version or are too old, so you have to manually install them manually.
+You can download it from their corresponding PPAs. But here you have some links::
+ 
+ * python-backports.ssl-match-hostname: `download <https://launchpad.net/ubuntu/+source/backports.ssl-match-hostname/3.4.0.2-1/+build/6206773/+files/python-backports.ssl-match-hostname_3.4.0.2-1_all.deb>`_
+ * python-scp: `download <http://launchpadlibrarian.net/210648810/python-scp_0.10.2-1_all.deb>`_
+ * python-libcloud: `download <https://launchpad.net/ubuntu/+source/libcloud/0.20.0-1/+build/8869143/+files/python-libcloud_0.20.0-1_all.deb>`_
+
+It is also recommended to configure the Ansible PPA to install the newest versions of Ansible (see `Ansible installation <http://docs.ansible.com/ansible/intro_installation.html#latest-releases-via-apt-ubuntu>`_)::
+
+	$ sudo apt-get install software-properties-common
+	$ sudo apt-add-repository ppa:ansible/ansible
+	$ sudo apt-get update
+
+Put all the .deb files in the same directory and do::
+
+	$ sudo dpkg -i *.deb
+	$ sudo apt install -f -f
+
+From Pip
 ^^^^^^^^
 
 **WARNING: In some linux distributions (REL 6 or equivalents) you must unistall
@@ -101,7 +136,7 @@ packages in main distributions).
 You must also remember to modify the ansible.cfg file setting as specified in the 
 REQUISITES section.
 
-Form Source
+From Source
 ^^^^^^^^^^^
 
 Once the dependences are installed, just download the tarball of *IM Service*
