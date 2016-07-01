@@ -115,7 +115,7 @@ It is also recommended to configure the Ansible PPA to install the newest versio
 Put all the .deb files in the same directory and do::
 
 	$ sudo dpkg -i *.deb
-	$ sudo apt install -f -f
+	$ sudo apt install -f -y
 
 From Pip
 ^^^^^^^^
