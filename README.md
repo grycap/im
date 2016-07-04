@@ -98,31 +98,78 @@ framework (http://www.cherrypy.org/) and pyOpenSSL must be installed.
 1.3 INSTALLING
 --------------
 
+### 1.3.1 FROM SOURCE
+
+**WARNING: In some GNU/Linux distributions (RHEL 6 or equivalents) you must uninstall
+the packages 'python-paramiko' and 'python-crypto' before installing the IM with pip.**
+
 First install the requirements:
 
 On Debian Systems:
-```
+```sh
 $ apt-get -y install git python-pip python-dev python-soappy
 ```
 
 On RedHat Systems:
-```
+```sh
 $ yum -y install epel-release
 $ yum -y install git gcc python-devel python-pip SOAPpy python-importlib python-requests
 ```
 
 Then install the TOSCA parser:
 
-```
+```sh
 $ pip install git+http://github.com/indigo-dc/tosca-parser
 ```
 
 Finally install the IM service:
 
-```
+```sh
 $ pip install git+http://github.com/indigo-dc/im
 ```
 
+### 1.3.2 FROM RPM
+
+Download the RPM package from [GitHub](https://github.com/indigo-dc/im/releases/latest). 
+Also remember to download the RPM of the RADL package also from [GitHub](https://github.com/grycap/radl/releases/latest) and the tosca-parser RPM file from [GitHub](https://github.com/indigo-dc/tosca-parser/releases/latest). 
+You must have the epel repository enabled:
+
+```sh
+$ yum install epel-release
+```
+   
+Then install the downloaded RPMs: 
+
+```sh
+$ yum localinstall IM-*.rpm RADL-*.rpm tosca-parser-*.rpm
+```
+
+### 1.3.3 FROM DEB
+
+Download the Deb package from [GitHub](https://github.com/indigo-dc/im/releases/latest)
+Also remember to download the Deb of the RADL package also from [GitHub](https://github.com/grycap/radl/releases/latest) and the tosca-parser Deb file from [GitHub](https://github.com/indigo-dc/tosca-parser/releases/latest).
+
+In Ubuntu 14.04 there are some requisites not available for the "trusty" version or are too old, so you have to manually install them manually.
+You can download it from their corresponding PPAs. But here you have some links:
+ 
+  * python-backports.ssl-match-hostname: [download](https://launchpad.net/ubuntu/+source/backports.ssl-match-hostname/3.4.0.2-1/+build/6206773/+files/python-backports.ssl-match-hostname_3.4.0.2-1_all.deb)
+ * python-scp: [download](http://launchpadlibrarian.net/210648810/python-scp_0.10.2-1_all.deb>)
+ * python-libcloud: [download](https://launchpad.net/ubuntu/+source/libcloud/0.20.0-1/+build/8869143/+files/python-libcloud_0.20.0-1_all.deb)
+
+It is also recommended to configure the Ansible PPA to install the newest versions of Ansible (see [Ansible installation](http://docs.ansible.com/ansible/intro_installation.html#latest-releases-via-apt-ubuntu)):
+
+```sh
+$ sudo apt-get install software-properties-common
+$ sudo apt-add-repository ppa:ansible/ansible
+$ sudo apt-get update
+```
+
+Put all the .deb files in the same directory and do:
+
+```sh
+$ sudo dpkg -i *.deb
+$ sudo apt install -f -y
+```
 
 1.4 CONFIGURATION
 -----------------
@@ -132,25 +179,25 @@ execute the next set of commands:
 
 On Debian Systems:
 
-```
+```sh
 $ chkconfig im on
 ```
 
 Or for newer systems like ubuntu 14.04:
 
-```
+```sh
 $ sysv-rc-conf im on
 ```
 
 On RedHat Systems:
 
-```
+```sh
 $ update-rc.d im start 99 2 3 4 5 . stop 05 0 1 6 .
 ```
 
 Or you can do it manually:
 
-```
+```sh
 $ ln -s /etc/init.d/im /etc/rc2.d/S99im
 $ ln -s /etc/init.d/im /etc/rc3.d/S99im
 $ ln -s /etc/init.d/im /etc/rc5.d/S99im
@@ -196,8 +243,13 @@ And then set the variables: XMLRCP_SSL_* or REST_SSL_* to your certificates path
 A Docker image named `indigodatacloud/im` has been created to make easier the deployment of an IM service using the 
 default configuration. Information about this image can be found here: https://hub.docker.com/r/indigodatacloud/im/.
 
-How to launch the IM service using docker:
+How to launch the IM service using docker::
 
 ```sh
-sudo docker run -d -p 8899:8899 -p 8800:8800 --name im indigodatacloud/im 
+$ sudo docker run -d -p 8899:8899 -p 8800:8800 --name im indigodatacloud/im 
+```
+You can also specify an external MySQL server to store IM data using the IM_DATA_DB environment variable::
+  
+```sh
+$ sudo docker run -d -p 8899:8899 -p 8800:8800 -e IM_DATA_DB=mysql://username:password@server/db_name --name im indigodatacloud/im 
 ```
