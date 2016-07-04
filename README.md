@@ -51,7 +51,7 @@ However, if you install IM from sources you should install:
    must be installed (http://libcloud.apache.org/).
 
  + Ansible (http://www.ansibleworks.com/) to configure nodes in the infrastructures.
-   In particular, Ansible 1.4.2+ must be installed. The current recommended version is 1.9.4 untill the 2.X versions become stable.
+   In particular, Ansible 1.4.2+ must be installed.
    To ensure the functionality the following values must be set in the ansible.cfg file (usually found in /etc/ansible/):
 
 ```
@@ -96,9 +96,6 @@ framework (http://www.cherrypy.org/) and pyOpenSSL must be installed.
 
 ### 1.3.1 FROM PIP
 
-**WARNING: The SOAPpy distributed with pip does not work correctly so you must install
-the packages 'python-soappy' or 'SOAPp'y before installing the IM with pip.**
-
 **WARNING: In some GNU/Linux distributions (RHEL 6 or equivalents) you must uninstall
 the packages 'python-paramiko' and 'python-crypto' before installing the IM with pip.**
 
@@ -117,7 +114,42 @@ Pip will install all the pre-requisites needed. So Ansible  1.4.2 or later will
 You must also remember to modify the ansible.cfg file setting as specified in the
 REQUISITES section.
 
-### 1.3.2 FROM SOURCE
+### 1.3.2 From RPM packages (RH6 and RH7)
+
+Download the RPM package from [GitHub](https://github.com/grycap/im/releases/latest). 
+Also remember to download the RPM of the RADL package also from [GitHub](https://github.com/grycap/radl/releases/latest). 
+You must have the epel repository enabled:: 
+
+   $ yum install epel-release
+   
+Then install the downloaded RPMs:: 
+
+   $ yum localinstall IM-*.rpm RADL-*.rpm
+
+### 1.3.3 From Deb package (Tested with Ubuntu 14.04 and 16.04)
+
+Download the Deb package from [GitHub](https://github.com/grycap/im/releases/latest).
+Also remember to download the Deb of the RADL package also from [GitHub](https://github.com/grycap/radl/releases/latest).
+
+In Ubuntu 14.04 there are some requisites not available for the "trusty" version or are too old, so you have to manually install them manually.
+You can download it from their corresponding PPAs. But here you have some links:
+ 
+ * python-backports.ssl-match-hostname: [download](https://launchpad.net/ubuntu/+source/backports.ssl-match-hostname/3.4.0.2-1/+build/6206773/+files/python-backports.ssl-match-hostname_3.4.0.2-1_all.deb)
+ * python-scp: [download](http://launchpadlibrarian.net/210648810/python-scp_0.10.2-1_all.deb>)
+ * python-libcloud: [download](https://launchpad.net/ubuntu/+source/libcloud/0.20.0-1/+build/8869143/+files/python-libcloud_0.20.0-1_all.deb)
+
+It is also recommended to configure the Ansible PPA to install the newest versions of Ansible (see [Ansible installation](http://docs.ansible.com/ansible/intro_installation.html#latest-releases-via-apt-ubuntu))::
+
+	$ sudo apt-get install software-properties-common
+	$ sudo apt-add-repository ppa:ansible/ansible
+	$ sudo apt-get update
+
+Put all the .deb files in the same directory and do::
+
+	$ sudo dpkg -i *.deb
+	$ sudo apt install -f -y
+
+### 1.3.4 FROM SOURCE
 
 Select a proper path where the IM service will be installed (i.e. /usr/local/im,
 /opt/im or other). This path will be called IM_PATH

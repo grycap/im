@@ -15,6 +15,12 @@ IM needs at least Python 2.6 to run, as well as the next libraries:
   (we know it is not actively supported by upstream anymore).
 * `Netaddr <http://pythonhosted.org/netaddr//>`_, A Python library for representing 
   and manipulating network addresses.
+* `apache-libcloud <http://libcloud.apache.org/>`_ 0.17 or later is used in the
+  LibCloud, OpenStack and GCE connectors.
+* `boto <http://boto.readthedocs.org>`_ 2.29.0 or later is used as interface to
+  Amazon EC2. It is available as package named ``python-boto`` in Debian based
+  distributions. It can also be downloaded from `boto GitHub repository <https://github.com/boto/boto>`_.
+  Download the file and copy the boto subdirectory into the IM install path.
 
 Also, IM uses `Ansible <http://www.ansible.com>`_ (1.4.2 or later) to configure the
 infrastructure nodes. The current recommended version is 1.9.4 untill the 2.X versions become stable.
@@ -22,12 +28,12 @@ infrastructure nodes. The current recommended version is 1.9.4 untill the 2.X ve
 These components are usually available from the distribution repositories. To
 install them in Debian and Ubuntu based distributions, do::
 
-   $ apt-get install python-ply python-paramiko python-yaml python-soappy python-netaddr ansible
+   $ apt-get install python-ply python-paramiko python-yaml python-soappy python-netaddr python-boto python-libcloud ansible
 
 In Red Hat based distributions (RHEL, CentOS, Amazon Linux, Oracle Linux,
 Fedora, etc.), do::
 
-   $ yum install python-ply python-paramiko python-netaddr PyYAML SOAPpy ansible
+   $ yum install python-ply python-paramiko python-netaddr PyYAML SOAPpy python-boto python-libcloud ansible
    
 **WARNING: In some GNU/Linux distributions (RHEL 6 or equivalents) you must NOT install
 the packages 'python-paramiko' and 'python-crypto' with yum. You MUST use pip to install them**
@@ -62,12 +68,6 @@ Finally, check the next values in the Ansible configuration file
 Optional Packages
 -----------------
 
-* `apache-libcloud <http://libcloud.apache.org/>`_ 0.17 or later is used in the
-  LibCloud, OpenStack and GCE connectors.
-* `boto <http://boto.readthedocs.org>`_ 2.29.0 or later is used as interface to
-  Amazon EC2. It is available as package named ``python-boto`` in Debian based
-  distributions. It can also be downloaded from `boto GitHub repository <https://github.com/boto/boto>`_.
-  Download the file and copy the boto subdirectory into the IM install path.
 * `Spring Python <http://springpython.webfactional.com/>`_ framework is needed
   if the access to XML-RPC API is secured with SSL certificates (see
   :confval:`XMLRCP_SSL`).
@@ -94,13 +94,13 @@ Then install the downloaded RPMs::
 
    $ yum localinstall IM-*.rpm RADL-*.rpm
 
-From Deb package
-^^^^^^^^^^^^^^^^
+From Deb package (Tested with Ubuntu 14.04 and 16.04)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Download the Deb package from `GitHub <https://github.com/grycap/im/releases/latest>`_
 Also remember to download the Deb of the RADL package also from `GitHub <https://github.com/grycap/radl/releases/latest>`_.
 
 In Ubuntu 14.04 there are some requisites not available for the "trusty" version or are too old, so you have to manually install them manually.
-You can download it from their corresponding PPAs. But here you have some links::
+You can download it from their corresponding PPAs. But here you have some links:
  
  * python-backports.ssl-match-hostname: `download <https://launchpad.net/ubuntu/+source/backports.ssl-match-hostname/3.4.0.2-1/+build/6206773/+files/python-backports.ssl-match-hostname_3.4.0.2-1_all.deb>`_
  * python-scp: `download <http://launchpadlibrarian.net/210648810/python-scp_0.10.2-1_all.deb>`_
@@ -115,7 +115,7 @@ It is also recommended to configure the Ansible PPA to install the newest versio
 Put all the .deb files in the same directory and do::
 
 	$ sudo dpkg -i *.deb
-	$ sudo apt install -f -f
+	$ sudo apt install -f -y
 
 From Pip
 ^^^^^^^^
