@@ -116,8 +116,8 @@ REQUISITES section.
 
 ### 1.3.2 From RPM packages (RH6 and RH7)
 
-Download the RPM package from `GitHub <https://github.com/grycap/im/releases/latest>`_. 
-Also remember to download the RPM of the RADL package also from `GitHub <https://github.com/grycap/radl/releases/latest>`_. 
+Download the RPM package from [GitHub](https://github.com/grycap/im/releases/latest). 
+Also remember to download the RPM of the RADL package also from [GitHub](https://github.com/grycap/radl/releases/latest). 
 You must have the epel repository enabled:: 
 
    $ yum install epel-release
@@ -128,17 +128,17 @@ Then install the downloaded RPMs::
 
 ### 1.3.3 From Deb package (Tested with Ubuntu 14.04 and 16.04)
 
-Download the Deb package from `GitHub <https://github.com/grycap/im/releases/latest>`_
-Also remember to download the Deb of the RADL package also from `GitHub <https://github.com/grycap/radl/releases/latest>`_.
+Download the Deb package from [GitHub](https://github.com/grycap/im/releases/latest).
+Also remember to download the Deb of the RADL package also from [GitHub](https://github.com/grycap/radl/releases/latest).
 
 In Ubuntu 14.04 there are some requisites not available for the "trusty" version or are too old, so you have to manually install them manually.
 You can download it from their corresponding PPAs. But here you have some links:
  
- * python-backports.ssl-match-hostname: `download <https://launchpad.net/ubuntu/+source/backports.ssl-match-hostname/3.4.0.2-1/+build/6206773/+files/python-backports.ssl-match-hostname_3.4.0.2-1_all.deb>`_
- * python-scp: `download <http://launchpadlibrarian.net/210648810/python-scp_0.10.2-1_all.deb>`_
- * python-libcloud: `download <https://launchpad.net/ubuntu/+source/libcloud/0.20.0-1/+build/8869143/+files/python-libcloud_0.20.0-1_all.deb>`_
+ * python-backports.ssl-match-hostname: [download](https://launchpad.net/ubuntu/+source/backports.ssl-match-hostname/3.4.0.2-1/+build/6206773/+files/python-backports.ssl-match-hostname_3.4.0.2-1_all.deb)
+ * python-scp: [download](http://launchpadlibrarian.net/210648810/python-scp_0.10.2-1_all.deb>)
+ * python-libcloud: [download])https://launchpad.net/ubuntu/+source/libcloud/0.20.0-1/+build/8869143/+files/python-libcloud_0.20.0-1_all.deb)
 
-It is also recommended to configure the Ansible PPA to install the newest versions of Ansible (see `Ansible installation <http://docs.ansible.com/ansible/intro_installation.html#latest-releases-via-apt-ubuntu>`_)::
+It is also recommended to configure the Ansible PPA to install the newest versions of Ansible (see [Ansible installation](http://docs.ansible.com/ansible/intro_installation.html#latest-releases-via-apt-ubuntu))::
 
 	$ sudo apt-get install software-properties-common
 	$ sudo apt-add-repository ppa:ansible/ansible
