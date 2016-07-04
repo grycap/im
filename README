@@ -113,8 +113,8 @@ REQUISITES section.
 1.3.2 From RPM packages (RH6 and RH7)
 -------------------------------------
 
-Download the RPM package from `GitHub <https://github.com/grycap/im/releases/latest>`_. 
-Also remember to download the RPM of the RADL package also from `GitHub <https://github.com/grycap/radl/releases/latest>`_. 
+Download the RPM package from GitHub (https://github.com/grycap/im/releases/latest). 
+Also remember to download the RPM of the RADL package also from GitHub (https://github.com/grycap/radl/releases/latest). 
 You must have the epel repository enabled:: 
 
    $ yum install epel-release

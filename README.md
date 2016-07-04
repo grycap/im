@@ -101,7 +101,7 @@ the packages 'python-paramiko' and 'python-crypto' before installing the IM with
 
 You only have to install the IM package through the pip tool.
 
-```
+```sh
 $ pip install IM
 ```
 
@@ -120,13 +120,13 @@ Download the RPM package from [GitHub](https://github.com/grycap/im/releases/lat
 Also remember to download the RPM of the RADL package also from [GitHub](https://github.com/grycap/radl/releases/latest). 
 You must have the epel repository enabled:
 
-```
+```sh
 $ yum install epel-release
 ```
 
 Then install the downloaded RPMs:
 
-```
+```sh
 $ yum localinstall IM-*.rpm RADL-*.rpm
 ```
 
@@ -144,7 +144,7 @@ You can download it from their corresponding PPAs. But here you have some links:
 
 It is also recommended to configure the Ansible PPA to install the newest versions of Ansible (see [Ansible installation](http://docs.ansible.com/ansible/intro_installation.html#latest-releases-via-apt-ubuntu)):
 
-```
+```sh
 $ sudo apt-get install software-properties-common
 $ sudo apt-add-repository ppa:ansible/ansible
 $ sudo apt-get update
@@ -152,7 +152,7 @@ $ sudo apt-get update
 
 Put all the .deb files in the same directory and do::
 
-```
+```sh
 $ sudo dpkg -i *.deb
 $ sudo apt install -f -y
 ```
@@ -162,7 +162,7 @@ $ sudo apt install -f -y
 Select a proper path where the IM service will be installed (i.e. /usr/local/im,
 /opt/im or other). This path will be called IM_PATH
 
-```
+```sh
 $ tar xvzf IM-X.XX.tar.gz
 $ chown -R root:root IM-X.XX
 $ mv IM-X.XX /usr/local
@@ -170,7 +170,7 @@ $ mv IM-X.XX /usr/local
 
 Finally you must copy (or link) $IM_PATH/scripts/im file to /etc/init.d directory.
 
-```
+```sh
 $ ln -s /usr/local/im/scripts/im /etc/init.d/im
 ```
 
@@ -182,25 +182,25 @@ execute the next set of commands:
 
 On Debian Systems:
 
-```
+```sh
 $ chkconfig im on
 ```
 
 Or for newer systems like ubuntu 14.04:
 
-```
+```sh
 $ sysv-rc-conf im on
 ```
 
 On RedHat Systems:
 
-```
+```sh
 $ update-rc.d im start 99 2 3 4 5 . stop 05 0 1 6 .
 ```
 
 Or you can do it manually:
 
-```
+```sh
 $ ln -s /etc/init.d/im /etc/rc2.d/S99im
 $ ln -s /etc/init.d/im /etc/rc3.d/S99im
 $ ln -s /etc/init.d/im /etc/rc5.d/S99im
@@ -246,8 +246,13 @@ And then set the variables: XMLRCP_SSL_* or REST_SSL_* to your certificates path
 A Docker image named `grycap/im` has been created to make easier the deployment of an IM service using the 
 default configuration. Information about this image can be found here: https://registry.hub.docker.com/u/grycap/im/.
 
-How to launch the IM service using docker:
+How to launch the IM service using docker::
 
 ```sh
-sudo docker run -d -p 8899:8899 -p 8800:8800 --name im grycap/im 
+$ sudo docker run -d -p 8899:8899 -p 8800:8800 --name im grycap/im
+```
+You can also specify an external MySQL server to store IM data using the IM_DATA_DB environment variable::
+  
+```sh
+$ sudo docker run -d -p 8899:8899 -p 8800:8800 -e IM_DATA_DB=mysql://username:password@server/db_name --name im grycap/im 
 ```
