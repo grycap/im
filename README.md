@@ -102,7 +102,7 @@ the packages 'python-paramiko' and 'python-crypto' before installing the IM with
 You only have to install the IM package through the pip tool.
 
 ```
-pip install IM
+$ pip install IM
 ```
 
 Pip will install all the pre-requisites needed. So Ansible  1.4.2 or later will
@@ -118,13 +118,17 @@ REQUISITES section.
 
 Download the RPM package from [GitHub](https://github.com/grycap/im/releases/latest). 
 Also remember to download the RPM of the RADL package also from [GitHub](https://github.com/grycap/radl/releases/latest). 
-You must have the epel repository enabled:: 
+You must have the epel repository enabled:
 
-   $ yum install epel-release
-   
-Then install the downloaded RPMs:: 
+```
+$ yum install epel-release
+```
 
-   $ yum localinstall IM-*.rpm RADL-*.rpm
+Then install the downloaded RPMs:
+
+```
+$ yum localinstall IM-*.rpm RADL-*.rpm
+```
 
 ### 1.3.3 From Deb package (Tested with Ubuntu 14.04 and 16.04)
 
@@ -138,16 +142,20 @@ You can download it from their corresponding PPAs. But here you have some links:
  * python-scp: [download](http://launchpadlibrarian.net/210648810/python-scp_0.10.2-1_all.deb>)
  * python-libcloud: [download](https://launchpad.net/ubuntu/+source/libcloud/0.20.0-1/+build/8869143/+files/python-libcloud_0.20.0-1_all.deb)
 
-It is also recommended to configure the Ansible PPA to install the newest versions of Ansible (see [Ansible installation](http://docs.ansible.com/ansible/intro_installation.html#latest-releases-via-apt-ubuntu))::
+It is also recommended to configure the Ansible PPA to install the newest versions of Ansible (see [Ansible installation](http://docs.ansible.com/ansible/intro_installation.html#latest-releases-via-apt-ubuntu)):
 
-	$ sudo apt-get install software-properties-common
-	$ sudo apt-add-repository ppa:ansible/ansible
-	$ sudo apt-get update
+```
+$ sudo apt-get install software-properties-common
+$ sudo apt-add-repository ppa:ansible/ansible
+$ sudo apt-get update
+```
 
 Put all the .deb files in the same directory and do::
 
-	$ sudo dpkg -i *.deb
-	$ sudo apt install -f -y
+```
+$ sudo dpkg -i *.deb
+$ sudo apt install -f -y
+```
 
 ### 1.3.4 FROM SOURCE
 
