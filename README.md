@@ -136,7 +136,7 @@ You can download it from their corresponding PPAs. But here you have some links:
  
  * python-backports.ssl-match-hostname: [download](https://launchpad.net/ubuntu/+source/backports.ssl-match-hostname/3.4.0.2-1/+build/6206773/+files/python-backports.ssl-match-hostname_3.4.0.2-1_all.deb)
  * python-scp: [download](http://launchpadlibrarian.net/210648810/python-scp_0.10.2-1_all.deb>)
- * python-libcloud: [download])https://launchpad.net/ubuntu/+source/libcloud/0.20.0-1/+build/8869143/+files/python-libcloud_0.20.0-1_all.deb)
+ * python-libcloud: [download](https://launchpad.net/ubuntu/+source/libcloud/0.20.0-1/+build/8869143/+files/python-libcloud_0.20.0-1_all.deb)
 
 It is also recommended to configure the Ansible PPA to install the newest versions of Ansible (see [Ansible installation](http://docs.ansible.com/ansible/intro_installation.html#latest-releases-via-apt-ubuntu))::
 
