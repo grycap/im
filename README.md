@@ -94,7 +94,7 @@ framework (http://www.cherrypy.org/) and pyOpenSSL must be installed.
 1.3 INSTALLING
 --------------
 
-### 1.3.1 FROM PIP
+### 1.3.1 FROM SOURCE
 
 **WARNING: In some GNU/Linux distributions (RHEL 6 or equivalents) you must uninstall
 the packages 'python-paramiko' and 'python-crypto' before installing the IM with pip.**
