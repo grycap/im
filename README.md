@@ -47,7 +47,7 @@ be installed in the system.
  + The boto library version 2.29 or later
    must be installed (http://boto.readthedocs.org/en/latest/).
 
- + The apache-libcloud library version 1.0.0 or later
+ + The apache-libcloud library version 0.18 or later
    must be installed (http://libcloud.apache.org/). To support OpenStack sites with IAM authentication,
    version 1.0.0 or later must be installed.
  
