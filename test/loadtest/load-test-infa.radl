@@ -1,0 +1,98 @@
+network publica (outbound = 'yes')
+network privada ()
+
+system im (
+cpu.count>=1 and
+memory.size>=2G and
+net_interface.0.connection = 'publica' and
+net_interface.1.connection = 'privada' and
+net_interface.1.dns_name = 'imservice' and
+disk.0.os.name='linux' and
+disk.0.os.flavour='ubuntu' and
+disk.0.os.credentials.new.password = 'Tututu+01'
+)
+
+system imclient (
+cpu.count>=1 and
+memory.size>=1G and
+net_interface.0.connection = 'privada' and
+net_interface.0.dns_name = 'imclient' and
+disk.0.os.name='linux' and
+disk.0.os.flavour='ubuntu' and
+disk.0.os.credentials.new.password = 'Tututu+01'
+)
+
+system infra (
+cpu.count>=1 and
+memory.size>=1G and
+net_interface.0.connection = 'privada' and
+net_interface.0.dns_name = 'infra' and
+disk.0.os.name='linux' and
+disk.0.os.flavour='ubuntu' and
+disk.0.os.credentials.new.password = 'Tututu+01'
+)
+
+
+configure im (
+@begin
+---
+  - tasks:
+    - name: Install Pip
+      apt: name=python-pip update_cache=yes cache_valid_time=3600
+
+    - name: Install IM with Pip
+      pip: name=IM
+
+    - name: Start IM
+      service: name=im state=started
+@end
+)
+
+configure imclient (
+@begin
+---
+  - vars:
+    - INFRA_NODE_IP: "{{ hostvars[groups['infra'][0]]['IM_NODE_NET_0_IP'] }}"
+    tasks:
+    - name: Install Pip
+      apt: name=python-pip update_cache=yes cache_valid_time=3600
+
+    - name: Install IM with Pip
+      pip: name=IM
+
+    - name: Download LoadTest files
+      get_url: url=https://raw.githubusercontent.com/grycap/im/master/test/loadtest/{{item}} dest=/tmp/{{item}}
+      with_items:
+       - LoadTest.py
+       - load-test.radl
+
+    - name: Configure LoadTest.py
+      lineinfile: dest=/tmp/LoadTest.py regexp="^HOSTNAME =" line='HOSTNAME = "imservice"'
+
+    - name: Configure load-test.radl
+      replace: dest=/tmp/load-test.radl regexp='(\s+)INFRA_NODE_IP(\s+.*)?$' replace='\1{{INFRA_NODE_IP}}\2' 
+
+    - name: Create auth.dat file
+      copy:
+        dest: /tmp/auth.dat
+        content: |
+            type = InfrastructureManager; username = imuser01; password = invitado
+            type = VMRC; host = http://servproject.i3m.upv.es:8080/vmrc/vmrc; username = demo; password = demo|n
+            id = dep; type = DeployedNode
+        mode: 0644
+
+@end
+)
+
+configure infra (
+@begin
+  - tasks:
+    - name: Install Pip
+      apt: name=python-pip update_cache=yes cache_valid_time=3600
+
+@end
+)
+
+deploy im 1
+deploy imclient 1
+#deploy infra 1

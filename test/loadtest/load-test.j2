@@ -1,0 +1,49 @@
+network publica (outbound = 'yes')
+network privada ( )
+
+system front (
+cpu.arch='x86_64' and
+cpu.count>=1 and
+memory.size>=512m and
+net_interface.1.connection = 'privada' and
+net_interface.0.connection = 'publica' and
+net_interface.0.dns_name = 'front' and
+net_interface.0.ip = 'INFRA_NODE_IP' and
+disk.0.os.name='linux' and
+disk.0.os.flavour='ubuntu' and
+disk.0.os.version>='12.04' and
+disk.0.os.credentials.username = 'ubuntu' and
+disk.0.os.credentials.password = 'Tututu+01' and
+disk.0.os.credentials.new.password = 'Tututu+01'
+)
+
+system wn (
+cpu.arch='x86_64' and
+cpu.count>=1 and
+memory.size>=512m and
+net_interface.0.connection = 'privada' and
+net_interface.0.ip = 'INFRA_NODE_IP' and
+disk.0.os.name='linux' and
+disk.0.os.flavour='ubuntu' and
+disk.0.os.version>='12.04' and
+disk.0.os.credentials.username = 'ubuntu' and
+disk.0.os.credentials.password = 'Tututu+01' and
+disk.0.os.credentials.new.password = 'Tututu+01'
+)
+
+configure test (
+@begin
+---
+  - tasks:
+      - shell:  echo "hola"
+
+@end
+)
+
+deploy front 1
+deploy wn 1
+
+contextualize (
+    system front configure test step 1
+    system wn configure test step 1
+)

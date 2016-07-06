@@ -132,9 +132,9 @@ Also remember to download the Deb of the RADL package also from GitHub (https://
 In Ubuntu 14.04 there are some requisites not available for the "trusty" version or are too old, so you have to manually install them manually.
 You can download it from their corresponding PPAs. But here you have some links:
  
- * python-backports.ssl-match-hostname: https://launchpad.net/ubuntu/+source/backports.ssl-match-hostname/3.4.0.2-1/+build/6206773/+files/python-backports.ssl-match-hostname_3.4.0.2-1_all.deb
- * python-scp: http://launchpadlibrarian.net/210648810/python-scp_0.10.2-1_all.deb
- * python-libcloud: https://launchpad.net/ubuntu/+source/libcloud/0.20.0-1/+build/8869143/+files/python-libcloud_0.20.0-1_all.deb
+ * python-backports.ssl-match-hostname: http://archive.ubuntu.com/ubuntu/pool/universe/b/backports.ssl-match-hostname/python-backports.ssl-match-hostname_3.4.0.2-1_all.deb
+ * python-scp: http://archive.ubuntu.com/pool/universe/p/python-scp/python-scp_0.10.2-1_all.deb
+ * python-libcloud: http://archive.ubuntu.com/ubuntu/pool/universe/libc/libcloud/python-libcloud_0.20.0-1_all.deb
 
 It is also recommended to configure the Ansible PPA to install the newest versions of Ansible (see Ansible installation - http://docs.ansible.com/ansible/intro_installation.html#latest-releases-via-apt-ubuntu):
 
