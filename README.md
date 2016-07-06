@@ -48,7 +48,8 @@ be installed in the system.
    must be installed (http://boto.readthedocs.org/en/latest/).
 
  + The apache-libcloud library version 1.0.0 or later
-   must be installed (http://libcloud.apache.org/).
+   must be installed (http://libcloud.apache.org/). To support OpenStack sites with IAM authentication,
+   version 1.0.0 or later must be installed.
  
  + The TOSCA-Parser library for Python. Currently it must be used the INDIGO version located at
    https://github.com/indigo-dc/tosca-parser but we are working to improve the mainstream version
