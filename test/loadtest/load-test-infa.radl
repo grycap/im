@@ -37,14 +37,34 @@ configure im (
 @begin
 ---
   - tasks:
-    - name: Install Pip
-      apt: name=python-pip update_cache=yes cache_valid_time=3600
 
+    - name: Install Reqs
+      apt: name=sysstat,gcc,python-dev,python-pip,python-mysqldb,openssh-client,sshpass,libssl-dev,libffi-dev update_cache=yes cache_valid_time=3600
+
+    - name: Install backports.ssl_match_hostname with Pip
+      pip: name=backports.ssl_match_hostname
+      
     - name: Install IM with Pip
       pip: name=IM
 
+    - name: Download LoadTest files
+      #get_url: url=https://raw.githubusercontent.com/grycap/im/master/test/loadtest/conf-ansible.yml dest=/usr/share/im/contextualization/conf-ansible.yml  force=yes
+      get_url: url=http://servproject.i3m.upv.es/test/conf-ansible.yml dest=/usr/share/im/contextualization/conf-ansible.yml force=yes
+
     - name: Start IM
       service: name=im state=started
+      
+    - name: Configure sysstat
+      lineinfile: dest=/etc/default/sysstat regexp="^ENABLED=" line='ENABLED="true"'
+
+    - name: Configure cron sysstat
+      copy: dest=/etc/cron.d/sysstat content="*/1 * * * * root /usr/lib/sysstat/debian-sa1 1 1"
+
+    - name: Restart sysstat
+      service: name=sysstat state=restarted
+      
+    - name: Start sysstat
+      command: /usr/lib/sysstat/debian-sa1 1 1
 @end
 )
 
@@ -54,30 +74,32 @@ configure imclient (
   - vars:
     - INFRA_NODE_IP: "{{ hostvars[groups['infra'][0]]['IM_NODE_NET_0_IP'] }}"
     tasks:
-    - name: Install Pip
-      apt: name=python-pip update_cache=yes cache_valid_time=3600
+    - name: Install Reqs
+      apt: name=gcc,python-dev,python-pip,python-mysqldb,openssh-client,sshpass,libssl-dev,libffi-dev update_cache=yes cache_valid_time=3600
 
     - name: Install IM with Pip
       pip: name=IM
 
-    - name: Download LoadTest files
-      get_url: url=https://raw.githubusercontent.com/grycap/im/master/test/loadtest/{{item}} dest=/tmp/{{item}}
-      with_items:
-       - LoadTest.py
-       - load-test.radl
+    - name: Download LoadTest.py
+      #get_url: url=https://raw.githubusercontent.com/grycap/im/master/test/loadtest/LoadTest.py dest=/tmp/LoadTest.py
+      get_url: url=http://servproject.i3m.upv.es/test/LoadTest.py dest=/tmp/LoadTest.py
+       
+    - name: Download load-test.j2
+      #local_action: get_url url=https://raw.githubusercontent.com/grycap/im/master/test/loadtest/load-test.j2 dest=/tmp/load-test.j2
+      local_action: get_url url=http://servproject.i3m.upv.es/test/load-test.j2 dest=/tmp/load-test.j2
 
     - name: Configure LoadTest.py
       lineinfile: dest=/tmp/LoadTest.py regexp="^HOSTNAME =" line='HOSTNAME = "imservice"'
 
     - name: Configure load-test.radl
-      replace: dest=/tmp/load-test.radl regexp='(\s+)INFRA_NODE_IP(\s+.*)?$' replace='\1{{INFRA_NODE_IP}}\2' 
+      template: src=/tmp/load-test.j2 dest=/tmp/load-test.radl
 
     - name: Create auth.dat file
       copy:
         dest: /tmp/auth.dat
         content: |
             type = InfrastructureManager; username = imuser01; password = invitado
-            type = VMRC; host = http://servproject.i3m.upv.es:8080/vmrc/vmrc; username = demo; password = demo|n
+            type = VMRC; host = http://servproject.i3m.upv.es:8080/vmrc/vmrc; username = demo; password = demo
             id = dep; type = DeployedNode
         mode: 0644
 
@@ -87,12 +109,27 @@ configure imclient (
 configure infra (
 @begin
   - tasks:
-    - name: Install Pip
-      apt: name=python-pip update_cache=yes cache_valid_time=3600
+    - name: Ubuntu install requirements
+      apt: name=software-properties-common
+      when: ansible_distribution == "Ubuntu"
+    
+    - name: Ubuntu install Ansible PPA repo  
+      apt_repository: repo='ppa:ansible/ansible'
+      when: ansible_distribution == "Ubuntu"
+
+    - name: Ubuntu install Ansible with apt
+      apt: name=ansible,python-pip,python-jinja2,sshpass,openssh-client,unzip
+      when: ansible_distribution == "Ubuntu"
+      
+    - name: Link python 
+      file: src=/usr/bin/python dest=/usr/bin/python_ansible state=link
+
+    - name: Install scp and pywinrm with Pip
+      pip: name="scp"
 
 @end
 )
 
 deploy im 1
 deploy imclient 1
-#deploy infra 1
+deploy infra 1
