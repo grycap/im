@@ -30,12 +30,6 @@ RUN cd tmp \
  && cd tosca-parser \
  && pip install /tmp/tosca-parser
 
-# Install libcloud from git untill the updates are released
-RUN cd tmp \
- && git clone https://github.com/apache/libcloud.git \
- && cd libcloud \
- && pip install /tmp/libcloud
-
 # Install im indigo tosca fork 
 RUN cd tmp \
  && git clone --recursive https://github.com/indigo-dc/im.git \
