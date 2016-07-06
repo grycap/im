@@ -4,6 +4,9 @@ MAINTAINER Miguel Caballer <micafer1@upv.es>
 LABEL version="1.4.5"
 LABEL description="Container image to run the IM service with TOSCA support. (http://www.grycap.upv.es/im)"
 
+# Add unresolved LibCloud dependency
+RUN pip install backports.ssl_match_hostname
+
 # Install tosca-parser
 RUN cd tmp \
  && git clone --recursive https://github.com/indigo-dc/tosca-parser.git \
