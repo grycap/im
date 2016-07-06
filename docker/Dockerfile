@@ -19,6 +19,9 @@ RUN apt-get update && apt-get install -y \
     python-mysqldb \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
+ 
+# Add unresolved LibCloud dependency
+RUN pip install backports.ssl_match_hostname
 
 # Install CherryPy to enable HTTPS in REST API
 RUN pip install setuptools --upgrade -I
