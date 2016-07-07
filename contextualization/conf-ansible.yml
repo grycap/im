@@ -6,44 +6,43 @@
     - name: Install libselinux-python in RH
       action: yum pkg=libselinux-python state=installed
       when: ansible_os_family == "RedHat"
+  
+      # Disable IPv6
+    - lineinfile: dest=/etc/sysctl.conf regexp="{{ item }}" line="{{ item }} = 1"
+      with_items:
+       - 'net.ipv6.conf.all.disable_ipv6'
+       - 'net.ipv6.conf.default.disable_ipv6'
+       - 'net.ipv6.conf.lo.disable_ipv6'
+      ignore_errors: yes
+    - shell: sysctl -p
+      ignore_errors: yes
+
+  
+    - name: Apt-get update
+      apt: update_cache=yes
+      when: ansible_os_family == "Debian"
 
     - name: EPEL
-      yum: name=epel-release,yum-priorities
+      yum: name=epel-release
       when: ansible_os_family == "RedHat" and ansible_distribution != "Fedora"
 
 ####################### Install Ansible in Ubuntu and RHEL systems with apt and yum ###################################
 ################### because they have recent versions of ansible in system repositories ###############################
-################# Use INDIGO repos from Ubuntu 14 and CentOS 7 to assure a stable version  ############################
 
-    - name: Ubuntu install indigo list
-      get_url: url=http://repo.indigo-datacloud.eu/repos/1/indigo1-ubuntu14_04.list dest=/etc/apt/sources.list.d/indigo1-ubuntu14_04.list
-      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version == "14"
-      
     - name: Ubuntu install requirements
       apt: name=software-properties-common
-      when: ansible_os_family == "Debian" and (ansible_distribution != "Ubuntu" or ansible_distribution_major_version != "14")
-      
+      when: ansible_distribution == "Ubuntu"
+    
     - name: Ubuntu install Ansible PPA repo  
       apt_repository: repo='ppa:ansible/ansible'
-      when: ansible_os_family == "Debian" and (ansible_distribution != "Ubuntu" or ansible_distribution_major_version != "14")
-      
-    - name: Apt-get update
-      apt: update_cache=yes
-      when: ansible_os_family == "Debian"
-      
-    - name: Ubuntu install Ansible with apt
-      apt: name=ansible,python-dev,python-pip,python-jinja2,sshpass,openssh-client,unzip,libffi-dev,libssl-dev
       when: ansible_distribution == "Ubuntu"
       
-    - name: RH7 indigo repos
-      get_url: url=http://repo.indigo-datacloud.eu/repos/1/{{item}} dest=/etc/yum.repos.d/{{item}}
-      with_items:
-       - indigo1-testing-updates.repo
-       - indigo1-testing-base.repo
-      when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 7 and ansible_distribution != "Fedora"
-
-    - name: RH7 install ansible with yum
-      yum: name=ansible,python-devel,wget,openssh-clients,sshpass,python-pip,libffi-devel,openssl-devel
+    - name: Ubuntu install Ansible with apt
+      apt: name=ansible,python-pip,python-jinja2,sshpass,openssh-client,unzip
+      when: ansible_distribution == "Ubuntu"
+      
+    - name: Yum install Ansible RH
+      yum: name=ansible,python-pip,python-jinja2,sshpass,openssh-clients,wget
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 7 and ansible_distribution != "Fedora"
     
 ############################################ In other systems use pip #################################################
@@ -51,10 +50,10 @@
     - name: Apt install requirements
       apt: name=unzip,gcc,python-dev,openssh-client,sshpass,python-pip,libffi-dev,libssl-dev
       when: ansible_os_family == "Debian" and ansible_distribution != "Ubuntu"
-    
-    - name: Yum install requirements RH6 or Fedora
+      
+    - name: Yum install requirements RH or Fedora
       yum: name=python-distribute,gcc,python-devel,wget,openssh-clients,sshpass,python-pip,libffi-devel,openssl-devel
-      when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 6 and ansible_distribution_major_version|int < 7
+      when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 6
     
     - name: Yum install requirements RH5
       yum: name=python26,python26-simplejson,python26-distribute,gcc,python26-devel,openssh-clients,sshpass,libffi-devel,openssl-devel
