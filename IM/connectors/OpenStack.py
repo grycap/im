@@ -290,7 +290,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             args['ex_userdata'] = cloud_init
 
         keypair = None
-        keypair_name  = None
+        keypair_name = None
         public_key = system.getValue("disk.0.os.credentials.public_key")
         if public_key:
             keypair = driver.get_key_pair(public_key)

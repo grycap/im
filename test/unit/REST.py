@@ -114,7 +114,7 @@ class TestREST(unittest.TestCase):
         GetInfrastructureState.return_value = {'state': "running", 'vm_states': {"vm1": "running", "vm2": "running"}}
         GetInfrastructureRADL.return_value = "radl"
         GetInfrastructureContMsg.return_value = "contmsg"
-        
+
         inf = MagicMock()
         get_infrastructure.return_value = inf
         tosca = MagicMock()
@@ -126,7 +126,7 @@ class TestREST(unittest.TestCase):
 
         res = RESTGetInfrastructureProperty("1", "contmsg")
         self.assertEqual(res, "contmsg")
-        
+
         res = RESTGetInfrastructureProperty("1", "outputs")
         self.assertEqual(res, '{"outputs": "outputs"}')
 
@@ -161,7 +161,7 @@ class TestREST(unittest.TestCase):
 
         res = RESTCreateInfrastructure()
         self.assertEqual(res, "http://imserver.com/infrastructures/1")
-        
+
         bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass"),
@@ -172,7 +172,7 @@ class TestREST(unittest.TestCase):
 
         res = RESTCreateInfrastructure()
         self.assertEqual(res, "http://imserver.com/infrastructures/1")
-        
+
         bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass"),
@@ -239,16 +239,16 @@ class TestREST(unittest.TestCase):
 
         res = RESTAddResource("1")
         self.assertEqual(res, "http://imserver.com/infrastructures/1/vms/1")
-        
+
         bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass"),
                                   "Content-Type": "application/json"}
         bottle_request.body.read.return_value = read_file_as_string("../files/test_simple.json")
-        
+
         res = RESTAddResource("1")
         self.assertEqual(res, "http://imserver.com/infrastructures/1/vms/1")
-        
+
         bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass"),
@@ -288,13 +288,13 @@ class TestREST(unittest.TestCase):
 
         res = RESTAlterVM("1", "1")
         self.assertEqual(res, "vm_info")
-        
+
         bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass"),
                                   "Content-Type": "application/json"}
         bottle_request.body.read.return_value = read_file_as_string("../files/test_simple.json")
-        
+
         res = RESTAlterVM("1", "1")
         self.assertEqual(res, "vm_info")
 
@@ -313,13 +313,13 @@ class TestREST(unittest.TestCase):
 
         res = RESTReconfigureInfrastructure("1")
         self.assertEqual(res, "")
-        
+
         bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass"),
                                   "Content-Type": "application/json"}
         bottle_request.body.read.return_value = read_file_as_string("../files/test_simple.json")
-        
+
         res = RESTReconfigureInfrastructure("1")
         self.assertEqual(res, "")
 
