@@ -290,6 +290,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             args['ex_userdata'] = cloud_init
 
         keypair = None
+        keypair_name  = None
         public_key = system.getValue("disk.0.os.credentials.public_key")
         if public_key:
             keypair = driver.get_key_pair(public_key)
@@ -299,8 +300,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             else:
                 if "ssh_key" in driver.features.get("create_node", []):
                     args["auth"] = NodeAuthSSHKey(public_key)
-                else:
-                    args["ex_keyname"] = keypair.name
+
         elif not system.getValue("disk.0.os.credentials.password"):
             keypair_name = "im-%d" % int(time.time() * 100.0)
             keypair = driver.create_key_pair(keypair_name)
@@ -326,7 +326,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 vm.info.systems[0].setValue('instance_id', str(node.id))
                 vm.info.systems[0].setValue('instance_name', str(node.name))
                 # Add the keypair name to remove it later
-                vm.keypair = keypair_name
+                if keypair_name:
+                    vm.keypair = keypair_name
                 self.logger.debug("Node successfully created.")
                 all_failed = False
                 res.append((True, vm))
