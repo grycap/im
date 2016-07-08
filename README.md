@@ -48,7 +48,8 @@ be installed in the system.
    must be installed (http://boto.readthedocs.org/en/latest/).
 
  + The apache-libcloud library version 0.18 or later
-   must be installed (http://libcloud.apache.org/).
+   must be installed (http://libcloud.apache.org/). To support OpenStack sites with IAM authentication,
+   version 1.0.0 or later must be installed.
  
  + The TOSCA-Parser library for Python. Currently it must be used the INDIGO version located at
    https://github.com/indigo-dc/tosca-parser but we are working to improve the mainstream version
@@ -152,9 +153,9 @@ Also remember to download the Deb of the RADL package also from [GitHub](https:/
 In Ubuntu 14.04 there are some requisites not available for the "trusty" version or are too old, so you have to manually install them manually.
 You can download it from their corresponding PPAs. But here you have some links:
  
-  * python-backports.ssl-match-hostname: [download](https://launchpad.net/ubuntu/+source/backports.ssl-match-hostname/3.4.0.2-1/+build/6206773/+files/python-backports.ssl-match-hostname_3.4.0.2-1_all.deb)
- * python-scp: [download](http://launchpadlibrarian.net/210648810/python-scp_0.10.2-1_all.deb>)
- * python-libcloud: [download](https://launchpad.net/ubuntu/+source/libcloud/0.20.0-1/+build/8869143/+files/python-libcloud_0.20.0-1_all.deb)
+ * python-backports.ssl-match-hostname: [download](http://archive.ubuntu.com/ubuntu/pool/universe/b/backports.ssl-match-hostname/python-backports.ssl-match-hostname_3.4.0.2-1_all.deb)
+ * python-scp: [download](http://archive.ubuntu.com/pool/universe/p/python-scp/python-scp_0.10.2-1_all.deb)
+ * python-libcloud: [download](http://archive.ubuntu.com/ubuntu/pool/universe/libc/libcloud/python-libcloud_0.20.0-1_all.deb)
 
 It is also recommended to configure the Ansible PPA to install the newest versions of Ansible (see [Ansible installation](http://docs.ansible.com/ansible/intro_installation.html#latest-releases-via-apt-ubuntu)):
 

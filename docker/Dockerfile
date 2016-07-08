@@ -19,6 +19,9 @@ RUN apt-get update && apt-get install -y \
     python-mysqldb \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
+ 
+# Add unresolved LibCloud dependency
+RUN pip install backports.ssl_match_hostname
 
 # Install CherryPy to enable HTTPS in REST API
 RUN pip install setuptools --upgrade -I
@@ -29,12 +32,6 @@ RUN cd tmp \
  && git clone --recursive https://github.com/indigo-dc/tosca-parser.git \
  && cd tosca-parser \
  && pip install /tmp/tosca-parser
-
-# Install libcloud from git untill the updates are released
-RUN cd tmp \
- && git clone https://github.com/apache/libcloud.git \
- && cd libcloud \
- && pip install /tmp/libcloud
 
 # Install im indigo tosca fork 
 RUN cd tmp \
