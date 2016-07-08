@@ -83,7 +83,7 @@ class DockerCloudConnector(CloudConnector):
             else:
                 conn = httplib.HTTPSConnection(
                     self.cloud.server, self.cloud.port)
-        elif self.cloud.protocol == 'http':
+        elif self.cloud.protocol == 'http' or not self.cloud.protocol:
             self.logger.warn("Using a unsecure connection to docker API!")
             conn = httplib.HTTPConnection(self.cloud.server, self.cloud.port)
 
