@@ -1318,7 +1318,7 @@ class InfrastructureManager:
     @staticmethod
     def ImportInfrastructure(str_inf, auth_data):
         auth = Authentication(auth_data)
-        
+
         # First check if it is configured to check the users from a list
         if not InfrastructureManager.check_im_user(auth.getAuthInfo("InfrastructureManager")):
             raise UnauthorizedUserException()

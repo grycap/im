@@ -292,7 +292,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             args['ex_userdata'] = cloud_init
 
         keypair = None
-        keypair_name  = None
+        keypair_name = None
         public_key = system.getValue("disk.0.os.credentials.public_key")
         if public_key:
             keypair = driver.get_key_pair(public_key)
@@ -302,7 +302,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             else:
                 if "ssh_key" in driver.features.get("create_node", []):
                     args["auth"] = NodeAuthSSHKey(public_key)
-            
+
         elif not system.getValue("disk.0.os.credentials.password"):
             keypair_name = "im-%d" % int(time.time() * 100.0)
             keypair = driver.create_key_pair(keypair_name)
