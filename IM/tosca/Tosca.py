@@ -1105,14 +1105,28 @@ class Tosca:
                             if value.find("://") == -1:
                                 value = "docker://%s" % value
                         elif prop.name == "credential":
-                            # Currently oly supports user/pass credentials
+                            token_type = "password"
+                            if 'token_type' in value and value['token_type']:
+                                token_type = value['token_type']
+
+                            token = None
                             if 'token' in value and value['token']:
-                                feature = Feature(
-                                    "disk.0.os.credentials.password", "=", value['token'])
-                                res.addFeature(feature)
+                                token = value['token']
+
+                            if token:
+                                if token_type == "password":
+                                    feature = Feature("disk.0.os.credentials.password", "=", token)
+                                    res.addFeature(feature)
+                                elif token_type == "private_key":
+                                    feature = Feature("disk.0.os.credentials.private_key", "=", token)
+                                    res.addFeature(feature)
+                                elif token_type == "public_key":
+                                    feature = Feature("disk.0.os.credentials.public_key", "=", token)
+                                    res.addFeature(feature)
+                                else:
+                                    Tosca.logger.warn("Unknown tyoe of token %s. Ignoring." % token_type)
                             if 'user' not in value or not value['user']:
-                                raise Exception(
-                                    "User must be specified in the image credentials.")
+                                raise Exception("User must be specified in the image credentials.")
                             name = "disk.0.os.credentials.username"
                             value = value['user']
 
