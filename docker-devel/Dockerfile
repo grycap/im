@@ -1,7 +1,7 @@
 # Dockerfile to create a container with the IM service
 FROM grycap/jenkins:ubuntu14.04-im-base
 MAINTAINER Miguel Caballer <micafer1@upv.es>
-LABEL version="1.4.5"
+LABEL version="1.4.6"
 LABEL description="Container image to run the IM service with TOSCA support. (http://www.grycap.upv.es/im)"
 
 # Add unresolved LibCloud dependency

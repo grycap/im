@@ -20,6 +20,7 @@ import sys
 import logging
 import os
 import signal
+import subprocess
 
 from IM.request import Request, AsyncXMLRPCServer, get_system_queue
 from IM.config import Config
@@ -292,9 +293,21 @@ def im_stop():
         InfrastructureManager.logger.exception(
             "Error stopping Infrastructure Manager daemon")
 
+    # Assure that there are no Ansible process pending
+    kill_childs()
+
     InfrastructureManager.logger.info(
         '************ Infrastructure Manager daemon stopped ************')
     sys.exit(0)
+
+
+def kill_childs():
+    parent_id = os.getpid()
+    ps_command = subprocess.Popen("ps -o pid --ppid %d --noheaders" % parent_id, shell=True, stdout=subprocess.PIPE)
+    ps_output = ps_command.stdout.read()
+    ps_command.wait()
+    for pid_str in ps_output.strip().split("\n")[:-1]:
+        os.kill(int(pid_str), signal.SIGTERM)
 
 
 def signal_int_handler(signal, frame):

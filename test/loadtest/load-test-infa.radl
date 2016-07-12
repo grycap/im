@@ -1,0 +1,128 @@
+network publica (outbound = 'yes')
+network privada ()
+
+system im (
+cpu.count>=1 and
+memory.size>=2G and
+net_interface.0.connection = 'publica' and
+net_interface.1.connection = 'privada' and
+net_interface.1.dns_name = 'imservice' and
+disk.0.os.name='linux' and
+disk.0.os.flavour='ubuntu' and
+disk.0.os.credentials.new.password = 'Tututu+01'
+)
+
+system imclient (
+cpu.count>=1 and
+memory.size>=1G and
+net_interface.0.connection = 'privada' and
+net_interface.0.dns_name = 'imclient' and
+disk.0.os.name='linux' and
+disk.0.os.flavour='ubuntu' and
+disk.0.os.credentials.new.password = 'Tututu+01'
+)
+
+system infra (
+cpu.count>=8 and
+memory.size>=8G and
+net_interface.0.connection = 'privada' and
+net_interface.0.dns_name = 'infra' and
+disk.0.os.name='linux' and
+disk.0.os.flavour='ubuntu' and
+disk.0.os.credentials.new.password = 'Tututu+01'
+)
+
+
+configure im (
+@begin
+---
+  - tasks:
+
+    - name: Install Reqs
+      apt: name=sysstat,gcc,python-dev,python-pip,python-mysqldb,openssh-client,sshpass,libssl-dev,libffi-dev update_cache=yes cache_valid_time=3600
+
+    - name: Install backports.ssl_match_hostname with Pip
+      pip: name=backports.ssl_match_hostname
+      
+    - name: Install IM with Pip
+      pip: name=IM
+
+    - name: Start IM
+      service: name=im state=started
+      
+    - name: Configure sysstat
+      lineinfile: dest=/etc/default/sysstat regexp="^ENABLED=" line='ENABLED="true"'
+
+    - name: Configure cron sysstat
+      #copy: dest=/etc/cron.d/sysstat content="*/1 * * * * root date >> /tmp/dates && /usr/lib/sysstat/debian-sa1 1 1\n"
+      copy: dest=/etc/cron.d/sysstat content="*/1 * * * * root command -v /usr/lib/sysstat/debian-sa1 > /dev/null && /usr/lib/sysstat/debian-sa1 1 1\n"
+
+    - name: Restart sysstat
+      service: name=sysstat state=restarted
+      
+    - name: Start sysstat
+      shell: /usr/lib/sysstat/debian-sa1 1 1
+@end
+)
+
+configure imclient (
+@begin
+---
+  - vars:
+    - INFRA_NODE_IP: "{{ hostvars[groups['infra'][0]]['IM_NODE_NET_0_IP'] }}"
+    tasks:
+    - name: Install Reqs
+      apt: name=gcc,python-dev,python-pip,python-mysqldb,openssh-client,sshpass,libssl-dev,libffi-dev update_cache=yes cache_valid_time=3600
+
+    - name: Install IM with Pip
+      pip: name=IM
+
+    - name: Download LoadTest.py
+      #get_url: url=https://raw.githubusercontent.com/grycap/im/master/test/loadtest/{{item}} dest=/tmp/{{item}}
+      get_url: url=http://servproject.i3m.upv.es/test/{{item}} dest=/tmp/{{item}}
+      with_items:
+       - LoadTest.py
+       - load-test.radl
+
+    - name: Create auth.dat file
+      copy:
+        dest: /tmp/auth.dat
+        content: |
+            type = InfrastructureManager; username = imuser01; password = invitado
+            type = VMRC; host = http://servproject.i3m.upv.es:8080/vmrc/vmrc; username = demo; password = demo
+            id = docker; type = Docker; host = {{INFRA_NODE_IP}}:2375
+        mode: 0644
+
+@end
+)
+
+configure infra (
+@begin
+  - tasks:
+    - name: Ubuntu install requirements
+      apt: name=apt-transport-https,ca-certificates
+    
+    - name: Ubuntu add key
+      command: apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 58118E89F3A912897C070ADBF76221572C52609D
+
+    - name: Create docker.list 
+      copy: dest=/etc/apt/sources.list.d/docker.list content="deb https://apt.dockerproject.org/repo ubuntu-trusty main"
+      
+    - apt: update_cache=yes
+      
+    - name: Ubuntu install requirements
+      apt: name=docker-engine
+      
+    - lineinfile: dest=/etc/default/docker regexp="DOCKER_OPTS=" line='DOCKER_OPTS="-H tcp://0.0.0.0:2375"'
+    
+    - service: name=docker state=restarted
+    
+    - command: docker -H tcp://localhost:2375 pull ubuntu:14.04
+    
+
+@end
+)
+
+deploy im 1
+deploy imclient 1
+deploy infra 1
