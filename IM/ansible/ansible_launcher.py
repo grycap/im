@@ -71,7 +71,7 @@ class AnsibleThread(Process):
 
     def __init__(self, result, output, playbook_file, host=None, threads=1, pk_file=None, passwd=None, retries=1,
                  inventory_file=None, user=None, extra_vars={}):
-        super(AnsibleThread, self).Process.__init__()
+        super(AnsibleThread, self).__init__()
         self.playbook_file = playbook_file
         self.host = host
         self.passwd = passwd
