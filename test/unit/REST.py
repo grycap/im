@@ -150,6 +150,17 @@ class TestREST(unittest.TestCase):
         res = RESTCreateInfrastructure()
         self.assertEqual(res, "http://imserver.com/infrastructures/1")
 
+        res = RESTCreateInfrastructure()
+        self.assertEqual(res, "http://imserver.com/infrastructures/1")
+
+        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
+                                                    "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
+                                                    "username = user; password = pass"),
+                                  "Content-Type": "application/json"}
+        bottle_request.body.read.return_value = read_file_as_string("../files/test_simple.json")
+
+        CreateInfrastructure.return_value = "1"
+
     @patch("IM.InfrastructureManager.InfrastructureManager.GetVMInfo")
     @patch("bottle.request")
     def test_GetVMInfo(self, bottle_request, GetVMInfo):
@@ -205,6 +216,15 @@ class TestREST(unittest.TestCase):
         res = RESTAddResource("1")
         self.assertEqual(res, "http://imserver.com/infrastructures/1/vms/1")
 
+        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
+                                                    "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
+                                                    "username = user; password = pass"),
+                                  "Content-Type": "application/json"}
+        bottle_request.body.read.return_value = read_file_as_string("../files/test_simple.json")
+
+        res = RESTAddResource("1")
+        self.assertEqual(res, "http://imserver.com/infrastructures/1/vms/1")
+
     @patch("IM.InfrastructureManager.InfrastructureManager.RemoveResource")
     @patch("bottle.request")
     def test_RemoveResource(self, bottle_request, RemoveResource):
@@ -236,6 +256,15 @@ class TestREST(unittest.TestCase):
         res = RESTAlterVM("1", "1")
         self.assertEqual(res, "vm_info")
 
+        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
+                                                    "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
+                                                    "username = user; password = pass"),
+                                  "Content-Type": "application/json"}
+        bottle_request.body.read.return_value = read_file_as_string("../files/test_simple.json")
+
+        res = RESTAlterVM("1", "1")
+        self.assertEqual(res, "vm_info")
+
     @patch("IM.InfrastructureManager.InfrastructureManager.Reconfigure")
     @patch("bottle.request")
     def test_Reconfigure(self, bottle_request, Reconfigure):
@@ -248,6 +277,15 @@ class TestREST(unittest.TestCase):
         bottle_request.params = {'vm_list': '1,2'}
 
         Reconfigure.return_value = ""
+
+        res = RESTReconfigureInfrastructure("1")
+        self.assertEqual(res, "")
+
+        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
+                                                    "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
+                                                    "username = user; password = pass"),
+                                  "Content-Type": "application/json"}
+        bottle_request.body.read.return_value = read_file_as_string("../files/test_simple.json")
 
         res = RESTReconfigureInfrastructure("1")
         self.assertEqual(res, "")
