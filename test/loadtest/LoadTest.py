@@ -37,7 +37,7 @@ RADL_ADD = "network publica\nnetwork privada\nsystem wn\ndeploy wn 1"
 TESTS_PATH = os.path.dirname(os.path.realpath(__file__))
 RADL_FILE = TESTS_PATH + '/load-test.radl'
 AUTH_FILE = TESTS_PATH + '/auth.dat'
-HOSTNAME = "localhost"
+HOSTNAME = "imservice"
 TEST_PORT = 8899
 MIN_SLEEP = 1
 MAX_SLEEP = 10
@@ -161,8 +161,7 @@ class LoadTest(unittest.TestCase):
             success, msg="ERROR calling CreateInfrastructure: " + str(inf_id))
         self.__class__.inf_id = inf_id
 
-        self.wait_inf_state(
-            [VirtualMachine.CONFIGURED, VirtualMachine.UNCONFIGURED], 120)
+        self.wait_inf_state([VirtualMachine.CONFIGURED], 900)
 
     def test_12_getradl(self):
         """
@@ -284,11 +283,10 @@ class LoadTest(unittest.TestCase):
 
         self.assertTrue(
             success, msg="ERROR calling GetInfrastructureInfo:" + str(vm_ids))
-        self.assertEqual(len(vm_ids), 3, msg=("ERROR getting infrastructure info: Incorrect number of VMs(" +
-                                              str(len(vm_ids)) + "). It must be 3"))
+        self.assertEqual(len(vm_ids), 2, msg=("ERROR getting infrastructure info: Incorrect number of VMs(" +
+                                              str(len(vm_ids)) + "). It must be 2"))
 
-        self.wait_inf_state(
-            [VirtualMachine.CONFIGURED, VirtualMachine.UNCONFIGURED], 120)
+        self.wait_inf_state([VirtualMachine.CONFIGURED], 300)
 
     def test_20_getstate(self):
         """
@@ -304,34 +302,9 @@ class LoadTest(unittest.TestCase):
             success, msg="ERROR calling GetInfrastructureState: " + str(res))
         self.wait()
 
-    def test_21_addresource_noconfig(self):
+    def test_23_removeresource(self):
         """
-        Test AddResource function with the contex option to False
-        """
-        before = time.time()
-        (success, res) = self.server.AddResource(
-            self.inf_id, RADL_ADD, self.auth_data, False)
-        resp_time = time.time() - before
-        self.__class__.response_times.append(resp_time)
-
-        self.assertTrue(success, msg="ERROR calling AddResource: " + str(res))
-
-        before = time.time()
-        (success, vm_ids) = self.server.GetInfrastructureInfo(
-            self.inf_id, self.auth_data)
-        resp_time = time.time() - before
-        self.__class__.response_times.append(resp_time)
-
-        self.assertTrue(
-            success, msg="ERROR calling GetInfrastructureInfo:" + str(vm_ids))
-        self.assertEqual(len(vm_ids), 4, msg=("ERROR getting infrastructure info: Incorrect number of VMs(" +
-                                              str(len(vm_ids)) + "). It must be 4"))
-
-        self.wait(30, 60)
-
-    def test_23_removeresource_noconfig(self):
-        """
-        Test RemoveResource function with the context option to False
+        Test RemoveResource function
         """
         before = time.time()
         (success, vm_ids) = self.server.GetInfrastructureInfo(
@@ -344,7 +317,7 @@ class LoadTest(unittest.TestCase):
 
         before = time.time()
         (success, res) = self.server.RemoveResource(
-            self.inf_id, vm_ids[2], self.auth_data, False)
+            self.inf_id, vm_ids[-1], self.auth_data, False)
         resp_time = time.time() - before
         self.__class__.response_times.append(resp_time)
 
@@ -359,10 +332,10 @@ class LoadTest(unittest.TestCase):
 
         self.assertTrue(
             success, msg="ERROR calling GetInfrastructureInfo:" + str(vm_ids))
-        self.assertEqual(len(vm_ids), 3, msg=("ERROR getting infrastructure info: Incorrect number of VMs(" +
-                                              str(len(vm_ids)) + "). It must be 3"))
+        self.assertEqual(len(vm_ids), 1, msg=("ERROR getting infrastructure info: Incorrect number of VMs(" +
+                                              str(len(vm_ids)) + "). It must be 1"))
 
-        self.wait(30, 60)
+        self.wait_inf_state([VirtualMachine.CONFIGURED], 300)
 
     def print_response_times(self):
         total = 0.0
@@ -398,6 +371,11 @@ def test(num_client):
 if __name__ == '__main__':
     MAX_THREADS = 1
     MAX_CLIENTS = 1
+    DELAY = 1
+
+    if len(sys.argv) > 3:
+        DELAY = int(sys.argv[3])
+        del sys.argv[3]
 
     if len(sys.argv) > 2:
         MAX_CLIENTS = int(sys.argv[1])
@@ -412,11 +390,15 @@ if __name__ == '__main__':
     while cont < MAX_CLIENTS:
         num_treads = min(MAX_CLIENTS - cont, MAX_THREADS)
         processes = []
-        print "Launch %d threads. " % num_treads
+        now = datetime.datetime.now()
+        print now, ": Launch %d threads. " % num_treads
         for num in range(num_treads):
             p = Process(target=test, args=(cont + num,))
             p.start()
             processes.append(p)
+            time.sleep(DELAY)
         for p in processes:
             p.join()
         cont += num_treads
+        now = datetime.datetime.now()
+        print now, ": End %d threads. " % num_treads

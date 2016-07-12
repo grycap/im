@@ -23,8 +23,8 @@ disk.0.os.credentials.new.password = 'Tututu+01'
 )
 
 system infra (
-cpu.count>=1 and
-memory.size>=1G and
+cpu.count>=8 and
+memory.size>=8G and
 net_interface.0.connection = 'privada' and
 net_interface.0.dns_name = 'infra' and
 disk.0.os.name='linux' and
@@ -47,10 +47,6 @@ configure im (
     - name: Install IM with Pip
       pip: name=IM
 
-    - name: Download LoadTest files
-      #get_url: url=https://raw.githubusercontent.com/grycap/im/master/test/loadtest/conf-ansible.yml dest=/usr/share/im/contextualization/conf-ansible.yml  force=yes
-      get_url: url=http://servproject.i3m.upv.es/test/conf-ansible.yml dest=/usr/share/im/contextualization/conf-ansible.yml force=yes
-
     - name: Start IM
       service: name=im state=started
       
@@ -58,13 +54,14 @@ configure im (
       lineinfile: dest=/etc/default/sysstat regexp="^ENABLED=" line='ENABLED="true"'
 
     - name: Configure cron sysstat
-      copy: dest=/etc/cron.d/sysstat content="*/1 * * * * root /usr/lib/sysstat/debian-sa1 1 1"
+      #copy: dest=/etc/cron.d/sysstat content="*/1 * * * * root date >> /tmp/dates && /usr/lib/sysstat/debian-sa1 1 1\n"
+      copy: dest=/etc/cron.d/sysstat content="*/1 * * * * root command -v /usr/lib/sysstat/debian-sa1 > /dev/null && /usr/lib/sysstat/debian-sa1 1 1\n"
 
     - name: Restart sysstat
       service: name=sysstat state=restarted
       
     - name: Start sysstat
-      command: /usr/lib/sysstat/debian-sa1 1 1
+      shell: /usr/lib/sysstat/debian-sa1 1 1
 @end
 )
 
@@ -81,18 +78,11 @@ configure imclient (
       pip: name=IM
 
     - name: Download LoadTest.py
-      #get_url: url=https://raw.githubusercontent.com/grycap/im/master/test/loadtest/LoadTest.py dest=/tmp/LoadTest.py
-      get_url: url=http://servproject.i3m.upv.es/test/LoadTest.py dest=/tmp/LoadTest.py
-       
-    - name: Download load-test.j2
-      #local_action: get_url url=https://raw.githubusercontent.com/grycap/im/master/test/loadtest/load-test.j2 dest=/tmp/load-test.j2
-      local_action: get_url url=http://servproject.i3m.upv.es/test/load-test.j2 dest=/tmp/load-test.j2
-
-    - name: Configure LoadTest.py
-      lineinfile: dest=/tmp/LoadTest.py regexp="^HOSTNAME =" line='HOSTNAME = "imservice"'
-
-    - name: Configure load-test.radl
-      template: src=/tmp/load-test.j2 dest=/tmp/load-test.radl
+      #get_url: url=https://raw.githubusercontent.com/grycap/im/master/test/loadtest/{{item}} dest=/tmp/{{item}}
+      get_url: url=http://servproject.i3m.upv.es/test/{{item}} dest=/tmp/{{item}}
+      with_items:
+       - LoadTest.py
+       - load-test.radl
 
     - name: Create auth.dat file
       copy:
@@ -100,7 +90,7 @@ configure imclient (
         content: |
             type = InfrastructureManager; username = imuser01; password = invitado
             type = VMRC; host = http://servproject.i3m.upv.es:8080/vmrc/vmrc; username = demo; password = demo
-            id = dep; type = DeployedNode
+            id = docker; type = Docker; host = {{INFRA_NODE_IP}}:2375
         mode: 0644
 
 @end
@@ -110,22 +100,25 @@ configure infra (
 @begin
   - tasks:
     - name: Ubuntu install requirements
-      apt: name=software-properties-common
-      when: ansible_distribution == "Ubuntu"
+      apt: name=apt-transport-https,ca-certificates
     
-    - name: Ubuntu install Ansible PPA repo  
-      apt_repository: repo='ppa:ansible/ansible'
-      when: ansible_distribution == "Ubuntu"
+    - name: Ubuntu add key
+      command: apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 58118E89F3A912897C070ADBF76221572C52609D
 
-    - name: Ubuntu install Ansible with apt
-      apt: name=ansible,python-pip,python-jinja2,sshpass,openssh-client,unzip
-      when: ansible_distribution == "Ubuntu"
+    - name: Create docker.list 
+      copy: dest=/etc/apt/sources.list.d/docker.list content="deb https://apt.dockerproject.org/repo ubuntu-trusty main"
       
-    - name: Link python 
-      file: src=/usr/bin/python dest=/usr/bin/python_ansible state=link
-
-    - name: Install scp and pywinrm with Pip
-      pip: name="scp"
+    - apt: update_cache=yes
+      
+    - name: Ubuntu install requirements
+      apt: name=docker-engine
+      
+    - lineinfile: dest=/etc/default/docker regexp="DOCKER_OPTS=" line='DOCKER_OPTS="-H tcp://0.0.0.0:2375"'
+    
+    - service: name=docker state=restarted
+    
+    - command: docker -H tcp://localhost:2375 pull ubuntu:14.04
+    
 
 @end
 )
