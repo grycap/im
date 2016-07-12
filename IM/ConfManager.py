@@ -24,6 +24,7 @@ import shutil
 import json
 import copy
 from StringIO import StringIO
+from multiprocessing import Queue
 
 from IM.ansible.ansible_launcher import AnsibleThread
 
@@ -58,6 +59,7 @@ class ConfManager(threading.Thread):
         self.init_time = time.time()
         self.max_ctxt_time = max_ctxt_time
         self._stop = False
+        self.ansible_process = None
 
     def check_running_pids(self, vms_configuring):
         """
@@ -112,6 +114,10 @@ class ConfManager(threading.Thread):
         self.inf.ctxt_tasks.put((-10, 0, None, None))
         ConfManager.logger.debug(
             "Inf ID: " + str(self.inf.id) + ": Stop Configuration thread.")
+        if self.ansible_process and self.ansible_process.is_alive():
+            ConfManager.logger.debug(
+                "Inf ID: " + str(self.inf.id) + ": Stopping pending Ansible process.")
+            self.ansible_process.terminate()
 
     def check_vm_ips(self, timeout=Config.WAIT_RUNNING_VM_TIMEOUT):
 
@@ -1224,12 +1230,23 @@ class ConfManager(threading.Thread):
 
         ConfManager.logger.debug(
             "Inf ID: " + str(self.inf.id) + ": " + 'Lanzamos ansible.')
-        output = StringIO()
-        t = AnsibleThread(output, tmp_dir + "/" + playbook, None, 1, gen_pk_file,
-                          ssh.password, 1, tmp_dir + "/" + inventory, ssh.username)
-        t.start()
-        t.join()
-        (return_code, _) = t.results
+        result = Queue()
+        # store the process to terminate it later is Ansible does not finish correctly
+        self.ansible_process = AnsibleThread(result, StringIO(), tmp_dir + "/" + playbook, None, 1, gen_pk_file,
+                                             ssh.password, 1, tmp_dir + "/" + inventory, ssh.username)
+        self.ansible_process.start()
+
+        wait = 0
+        while self.ansible_process.is_alive():
+            if wait >= Config.ANSIBLE_INSTALL_TIMEOUT:
+                self.ansible_process.terminate()
+                self.ansible_process = None
+                return (False, "Timeout. Ansible process terminated.")
+            time.sleep(Config.CHECK_CTXT_PROCESS_INTERVAL)
+            wait += Config.CHECK_CTXT_PROCESS_INTERVAL
+        self.ansible_process = None
+
+        _, (return_code, _), output = result.get()
 
         if return_code == 0:
             return (True, output.getvalue())

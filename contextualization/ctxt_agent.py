@@ -27,6 +27,7 @@ import getpass
 import json
 from StringIO import StringIO
 import socket
+from multiprocessing import Queue
 
 from SSH import SSH, AuthenticationException
 
@@ -167,12 +168,13 @@ def run_command(command, timeout=None, poll_delay=5):
         return "ERROR: Exception msg: " + str(ex)
 
 
-def wait_thread(thread, output=None):
+def wait_thread(thread_data, output=None):
     """
      Wait for a thread to finish
     """
+    thread, result = thread_data
     thread.join()
-    (return_code, hosts_with_errors) = thread.results
+    _, (return_code, hosts_with_errors), _ = result.get()
 
     if output:
         if return_code == 0:
@@ -217,10 +219,11 @@ def LaunchAnsiblePlaybook(output, playbook_file, vm, threads, inventory_file, pk
     # it must be set before doing the import
     from ansible_launcher import AnsibleThread
 
-    t = AnsibleThread(output, playbook_file, None, threads, gen_pk_file,
+    result = Queue()
+    t = AnsibleThread(result, output, playbook_file, None, threads, gen_pk_file,
                       passwd, retries, inventory_file, user, extra_vars)
     t.start()
-    return t
+    return (t, result)
 
 
 def changeVMCredentials(vm, pk_file):
