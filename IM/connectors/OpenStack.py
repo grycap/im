@@ -34,6 +34,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
     type = "OpenStack"
     """str with the name of the provider."""
+    DEFAULT_USER = 'cloudadm'
+    """ default user to SSH access the VM """
 
     def __init__(self, cloud_info):
         self.auth = None
@@ -140,6 +142,10 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                         "provider.host", "=", self.cloud.server), conflict="other", missing="other")
                     res_system.addFeature(Feature(
                         "provider.port", "=", self.cloud.port), conflict="other", missing="other")
+
+                    username = res_system.getValue('disk.0.os.credentials.username')
+                    if not username:
+                        res_system.setValue('disk.0.os.credentials.username', self.DEFAULT_USER)
 
                     res.append(res_system)
 
@@ -268,6 +274,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         image = NodeImage(id=image_id, name=None, driver=driver)
 
         instance_type = self.get_instance_type(driver.list_sizes(), system)
+        if not instance_type:
+            raise Exception("No flavor found for the specified VM requirements.")
 
         name = system.getValue("instance_name")
         if not name:
@@ -285,10 +293,6 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 'ex_security_groups': sgs,
                 'name': "%s-%s" % (name, int(time.time() * 100))}
 
-        cloud_init = self.get_cloud_init_data(radl)
-        if cloud_init:
-            args['ex_userdata'] = cloud_init
-
         keypair = None
         keypair_name = None
         public_key = system.getValue("disk.0.os.credentials.public_key")
@@ -304,6 +308,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         elif not system.getValue("disk.0.os.credentials.password"):
             keypair_name = "im-%d" % int(time.time() * 100.0)
             keypair = driver.create_key_pair(keypair_name)
+            public_key = keypair.public_key
             system.setUserKeyCredentials(
                 system.getCredentials().username, None, keypair.private_key)
 
@@ -311,6 +316,18 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 args["auth"] = NodeAuthSSHKey(keypair.public_key)
             else:
                 args["ex_keyname"] = keypair_name
+
+        user = system.getValue('disk.0.os.credentials.username')
+        if not user:
+            user = self.DEFAULT_USER
+            system.setValue('disk.0.os.credentials.username', user)
+
+        cloud_init = self.get_cloud_init_data(radl)
+        if public_key:
+            cloud_init = self.gen_cloud_config(public_key, user, cloud_init)
+
+        if cloud_init:
+            args['ex_userdata'] = cloud_init
 
         res = []
         i = 0
@@ -614,3 +631,22 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     "There are active instances. Not removing the SG")
         else:
             self.logger.warn("No Security Groups to delete")
+
+    def gen_cloud_config(self, public_key, user=None, cloud_config_str=None):
+        """
+        Generate the cloud-config file to be used in the user_data of the OCCI VM
+        """
+        if not user:
+            user = self.DEFAULT_USER
+        config = """#cloud-config
+users:
+  - name: %s
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    lock-passwd: true
+    ssh-import-id: %s
+    ssh-authorized-keys:
+      - %s
+""" % (user, user, public_key)
+        if cloud_config_str:
+            config += "\n%s\n\n" % cloud_config_str.replace("\\n", "\n")
+        return config
