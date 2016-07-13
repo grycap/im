@@ -21,7 +21,9 @@
 import sys
 import time
 import os
-import threading
+from multiprocessing import Process
+import subprocess
+import signal
 import logging
 from ansible import errors
 from ansible import __version__ as ansible_version
@@ -62,15 +64,14 @@ def hostcolor(host, stats, color=True):
     return "%-26s" % host
 
 
-class AnsibleThread(threading.Thread):
+class AnsibleThread(Process):
     """
     Class to call the ansible playbooks in a Thread
     """
 
-    def __init__(self, output, playbook_file, host=None, threads=1, pk_file=None, passwd=None, retries=1,
+    def __init__(self, result, output, playbook_file, host=None, threads=1, pk_file=None, passwd=None, retries=1,
                  inventory_file=None, user=None, extra_vars={}):
-        threading.Thread.__init__(self)
-        self.daemon = True
+        super(AnsibleThread, self).__init__()
         self.playbook_file = playbook_file
         self.host = host
         self.passwd = passwd
@@ -81,17 +82,39 @@ class AnsibleThread(threading.Thread):
         self.user = user
         self.extra_vars = extra_vars
         self.output = output
-        self.results = (None, None)
+        self.result = result
+
+    def teminate(self):
+        try:
+            self._kill_childs()
+        except:
+            pass
+        super(AnsibleThread, self).teminate()
+
+    def _kill_childs(self):
+        parent_id = os.getpid()
+        ps_command = subprocess.Popen("ps -o pid --ppid %d --noheaders" % parent_id, shell=True, stdout=subprocess.PIPE)
+        ps_output = ps_command.stdout.read()
+        ps_command.wait()
+        child_pids = ps_output.strip().split("\n")[:-1]
+        for pid_str in child_pids:
+            os.kill(int(pid_str), signal.SIGTERM)
 
     def run(self):
         try:
+            output = self.output
+            if isinstance(output, logging.Logger):
+                output = None
             if ansible_version.startswith("1."):
-                self.results = self.launch_playbook_v1()
+                self.result.put((0, self.launch_playbook_v1(), output))
+            elif ansible_version.startswith("2."):
+                self.result.put((0, self.launch_playbook_v2(), output))
             else:
-                self.results = self.launch_playbook_v2()
+                display("ERROR: Unknown Ansible version.", output=self.output)
+                self.result.put((0, (1, []), output))
         except errors.AnsibleError, e:
             display("ERROR: %s" % e, output=self.output)
-            self.results = (1, [])
+            self.result.put((0, (1, []), output))
 
     def launch_playbook_v2(self):
         ''' run ansible-playbook operations v2.X'''
