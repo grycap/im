@@ -39,13 +39,16 @@ configure im (
   - tasks:
 
     - name: Install Reqs
-      apt: name=sysstat,gcc,python-dev,python-pip,python-mysqldb,openssh-client,sshpass,libssl-dev,libffi-dev update_cache=yes cache_valid_time=3600
+      apt: name=git,sysstat,gcc,python-dev,python-pip,python-mysqldb,openssh-client,sshpass,libssl-dev,libffi-dev update_cache=yes cache_valid_time=3600
 
     - name: Install backports.ssl_match_hostname with Pip
       pip: name=backports.ssl_match_hostname
       
-    - name: Install IM with Pip
-      pip: name=IM
+    - name: Download IM
+      git: repo=https://github.com/grycap/im dest=/tmp/im
+
+    - name: pip install IM
+      pip: name=/tmp/im
 
     - name: Start IM
       service: name=im state=started

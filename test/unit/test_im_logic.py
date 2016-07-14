@@ -120,8 +120,49 @@ class TestIM(unittest.TestCase):
         infId = IM.CreateInfrastructure("", auth0)
         IM.DestroyInfrastructure(infId, auth0)
 
-    def test_inf_auth(self):
+    def test_inf_creation1(self):
         """Create infrastructure with empty RADL."""
+
+        radl = """"
+            network publica (outbound = 'yes')
+            network privada ()
+
+            system front (
+            cpu.arch='x86_64' and
+            cpu.count>=1 and
+            memory.size>=512m and
+            net_interface.0.connection = 'publica' and
+            net_interface.1.connection = 'privada' and
+            disk.0.image.url = 'mock0://linux.for.ev.er' and
+            disk.0.os.credentials.username = 'ubuntu' and
+            disk.0.os.credentials.password = 'yoyoyo' and
+            disk.0.os.name = 'linux'
+            )
+            
+            system wn (
+            cpu.arch='x86_64' and
+            cpu.count>=1 and
+            memory.size>=512m and
+            net_interface.0.connection = 'privada' and
+            disk.0.image.url = 'mock0://linux.for.ev.er' and
+            disk.0.os.credentials.username = 'ubuntu' and
+            disk.0.os.credentials.password = 'yoyoyo' and
+            disk.0.os.name = 'linux'
+            )
+
+            deploy front 1 cloud0
+            deploy wn 1 cloud1
+        """
+        
+        auth0 = self.getAuth([0])
+        with self.assertRaises(Exception) as ex:
+            _ = IM.CreateInfrastructure(radl, auth0)
+        self.assertIn("Two deployments that have to be launched in the same cloud provider"
+                      " are asked to be deployed in different cloud providers",
+                      str(ex.exception))
+
+    def test_inf_auth(self):
+        """Try to access not owned Infs."""
 
         auth0, auth1 = self.getAuth([0]), self.getAuth([1])
         infId0 = IM.CreateInfrastructure("", auth0)
@@ -392,6 +433,66 @@ class TestIM(unittest.TestCase):
 
         IM.DestroyInfrastructure(infId, auth0)
 
+    def test_get_inf_state(self):
+        """
+        Test GetInfrastructureState.
+        """
+        auth0 = self.getAuth([0], [], [("Dummy", 0)])
+        
+        inf = MagicMock()
+        IM.infrastructure_list = {"1": inf}
+        inf.id = "1"
+        inf.auth = auth0 
+        inf.deleted = False
+        vm1 = MagicMock()
+        vm1.im_id = 0
+        vm1.state = VirtualMachine.RUNNING
+        vm2 = MagicMock()
+        vm2.im_id = 1
+        vm2.state = VirtualMachine.RUNNING
+        vm3 = MagicMock()
+        vm3.im_id = 2
+        vm3.state = VirtualMachine.RUNNING
+        inf.get_vm_list.return_value = [vm1, vm2, vm3]
+
+        state = IM.GetInfrastructureState("1", auth0)
+        self.assertEqual(state["state"], "running")
+        
+        vm1.state = VirtualMachine.FAILED
+        vm2.state = VirtualMachine.RUNNING
+        vm3.state = VirtualMachine.UNKNOWN
+        
+        state = IM.GetInfrastructureState("1", auth0)
+        self.assertEqual(state["state"], "failed")
+        
+        vm1.state = VirtualMachine.PENDING
+        vm2.state = VirtualMachine.RUNNING
+        vm3.state = VirtualMachine.CONFIGURED
+        
+        state = IM.GetInfrastructureState("1", auth0)
+        self.assertEqual(state["state"], "pending")
+        
+        vm1.state = VirtualMachine.PENDING
+        vm2.state = VirtualMachine.CONFIGURED
+        vm3.state = VirtualMachine.UNCONFIGURED
+        
+        state = IM.GetInfrastructureState("1", auth0)
+        self.assertEqual(state["state"], "pending")
+
+        vm1.state = VirtualMachine.RUNNING
+        vm2.state = VirtualMachine.CONFIGURED
+        vm3.state = VirtualMachine.UNCONFIGURED
+        
+        state = IM.GetInfrastructureState("1", auth0)
+        self.assertEqual(state["state"], "running")
+        
+        vm1.state = VirtualMachine.RUNNING
+        vm2.state = VirtualMachine.CONFIGURED
+        vm3.state = VirtualMachine.STOPPED
+        
+        state = IM.GetInfrastructureState("1", auth0)
+        self.assertEqual(state["state"], "running")
+
     def test_altervm(self):
         """Test AlterVM"""
         radl = RADL()
@@ -509,6 +610,9 @@ class TestIM(unittest.TestCase):
 
         state = IM.GetInfrastructureState(infId, auth0)
         self.assertEqual(state["state"], "running")
+
+        contmsg = IM.GetInfrastructureContMsg(infId, auth0)
+        self.assertGreater(len(contmsg), 150)
 
         IM.DestroyInfrastructure(infId, auth0)
 
