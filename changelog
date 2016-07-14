@@ -214,3 +214,6 @@ IM 1.4.6
     * Change conf-ansible recipe to use pip in case of CentOS 6
     * Improvements for VMs that reqs a priv IP but gets a public one
     * Put check_im_user in all api functions
+    * Bugfix in Docker connector with CpuShares
+    * Add ANSIBLE_INSTALL_TIMEOUT var
+    * Create user with cloudinit in OpenStack connector
