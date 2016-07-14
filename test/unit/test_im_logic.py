@@ -138,7 +138,7 @@ class TestIM(unittest.TestCase):
             disk.0.os.credentials.password = 'yoyoyo' and
             disk.0.os.name = 'linux'
             )
-            
+
             system wn (
             cpu.arch='x86_64' and
             cpu.count>=1 and
@@ -153,7 +153,7 @@ class TestIM(unittest.TestCase):
             deploy front 1 cloud0
             deploy wn 1 cloud1
         """
-        
+
         auth0 = self.getAuth([0])
         with self.assertRaises(Exception) as ex:
             _ = IM.CreateInfrastructure(radl, auth0)
@@ -438,11 +438,11 @@ class TestIM(unittest.TestCase):
         Test GetInfrastructureState.
         """
         auth0 = self.getAuth([0], [], [("Dummy", 0)])
-        
+
         inf = MagicMock()
         IM.infrastructure_list = {"1": inf}
         inf.id = "1"
-        inf.auth = auth0 
+        inf.auth = auth0
         inf.deleted = False
         vm1 = MagicMock()
         vm1.im_id = 0
@@ -457,39 +457,39 @@ class TestIM(unittest.TestCase):
 
         state = IM.GetInfrastructureState("1", auth0)
         self.assertEqual(state["state"], "running")
-        
+
         vm1.state = VirtualMachine.FAILED
         vm2.state = VirtualMachine.RUNNING
         vm3.state = VirtualMachine.UNKNOWN
-        
+
         state = IM.GetInfrastructureState("1", auth0)
         self.assertEqual(state["state"], "failed")
-        
+
         vm1.state = VirtualMachine.PENDING
         vm2.state = VirtualMachine.RUNNING
         vm3.state = VirtualMachine.CONFIGURED
-        
+
         state = IM.GetInfrastructureState("1", auth0)
         self.assertEqual(state["state"], "pending")
-        
+
         vm1.state = VirtualMachine.PENDING
         vm2.state = VirtualMachine.CONFIGURED
         vm3.state = VirtualMachine.UNCONFIGURED
-        
+
         state = IM.GetInfrastructureState("1", auth0)
         self.assertEqual(state["state"], "pending")
 
         vm1.state = VirtualMachine.RUNNING
         vm2.state = VirtualMachine.CONFIGURED
         vm3.state = VirtualMachine.UNCONFIGURED
-        
+
         state = IM.GetInfrastructureState("1", auth0)
         self.assertEqual(state["state"], "running")
-        
+
         vm1.state = VirtualMachine.RUNNING
         vm2.state = VirtualMachine.CONFIGURED
         vm3.state = VirtualMachine.STOPPED
-        
+
         state = IM.GetInfrastructureState("1", auth0)
         self.assertEqual(state["state"], "running")
 
