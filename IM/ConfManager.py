@@ -1249,7 +1249,8 @@ class ConfManager(threading.Thread):
             # Try to assure that the are no ansible process running
             self.ansible_process.teminate()
         except:
-            ConfManager.logger.exception("Inf ID: " + str(self.inf.id) + ": " + 'Problems terminating Ansible processes.')
+            ConfManager.logger.exception("Inf ID: " + str(self.inf.id) + ": " +
+                                         'Problems terminating Ansible processes.')
             pass
         self.ansible_process = None
 

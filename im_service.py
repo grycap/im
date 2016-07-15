@@ -303,7 +303,7 @@ def im_stop():
 
 
 def get_childs(parent_id=None):
-    if parent_id == None:
+    if parent_id is None:
         parent_id = os.getpid()
     ps_command = subprocess.Popen("ps -o pid --ppid %d --noheaders" % parent_id, shell=True, stdout=subprocess.PIPE)
     ps_output = ps_command.stdout.read()
