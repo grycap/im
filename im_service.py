@@ -21,6 +21,7 @@ import logging
 import os
 import signal
 import subprocess
+import time
 
 from IM.request import Request, AsyncXMLRPCServer, get_system_queue
 from IM.config import Config
@@ -301,13 +302,28 @@ def im_stop():
     sys.exit(0)
 
 
-def kill_childs():
-    parent_id = os.getpid()
+def get_childs(parent_id=None):
+    if parent_id is None:
+        parent_id = os.getpid()
     ps_command = subprocess.Popen("ps -o pid --ppid %d --noheaders" % parent_id, shell=True, stdout=subprocess.PIPE)
     ps_output = ps_command.stdout.read()
     ps_command.wait()
-    for pid_str in ps_output.strip().split("\n")[:-1]:
+    childs = ps_output.strip().split("\n")[:-1]
+    if childs:
+        res = []
+        for child in childs:
+            res.extend(get_childs(int(child)))
+        return res
+    else:
+        return childs
+
+
+def kill_childs():
+    for pid_str in get_childs():
         os.kill(int(pid_str), signal.SIGTERM)
+    time.sleep(1)
+    for pid_str in get_childs():
+        os.kill(int(pid_str), signal.SIGKILL)
 
 
 def signal_int_handler(signal, frame):

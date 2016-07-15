@@ -81,8 +81,7 @@ configure imclient (
       pip: name=IM
 
     - name: Download LoadTest.py
-      #get_url: url=https://raw.githubusercontent.com/grycap/im/master/test/loadtest/{{item}} dest=/tmp/{{item}}
-      get_url: url=http://servproject.i3m.upv.es/test/{{item}} dest=/tmp/{{item}}
+      get_url: url=https://raw.githubusercontent.com/grycap/im/master/test/loadtest/{{item}} dest=/tmp/{{item}}
       with_items:
        - LoadTest.py
        - load-test.radl
