@@ -138,7 +138,6 @@ class TestIM(unittest.TestCase):
             disk.0.os.credentials.password = 'yoyoyo' and
             disk.0.os.name = 'linux'
             )
-
             system wn (
             cpu.arch='x86_64' and
             cpu.count>=1 and
@@ -149,7 +148,6 @@ class TestIM(unittest.TestCase):
             disk.0.os.credentials.password = 'yoyoyo' and
             disk.0.os.name = 'linux'
             )
-
             deploy front 1 cloud0
             deploy wn 1 cloud1
         """
