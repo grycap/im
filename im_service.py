@@ -321,6 +321,7 @@ def get_childs(parent_id=None):
 def kill_childs():
     for pid_str in get_childs():
         os.kill(int(pid_str), signal.SIGTERM)
+    # assure to kill all the processes using KILL signal
     time.sleep(1)
     for pid_str in get_childs():
         os.kill(int(pid_str), signal.SIGKILL)
