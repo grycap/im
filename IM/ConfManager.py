@@ -1245,6 +1245,13 @@ class ConfManager(threading.Thread):
                 return (False, "Timeout. Ansible process terminated.")
             time.sleep(Config.CHECK_CTXT_PROCESS_INTERVAL)
             wait += Config.CHECK_CTXT_PROCESS_INTERVAL
+        try:
+            # Try to assure that the are no ansible process running
+            self.ansible_process.teminate()
+        except:
+            ConfManager.logger.exception("Inf ID: " + str(self.inf.id) + ": " +
+                                         'Problems terminating Ansible processes.')
+            pass
         self.ansible_process = None
 
         _, (return_code, _), output = result.get()

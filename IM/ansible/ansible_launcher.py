@@ -89,16 +89,30 @@ class AnsibleThread(Process):
             self._kill_childs()
         except:
             pass
-        super(AnsibleThread, self).teminate()
+        Process.terminate(self)
 
-    def _kill_childs(self):
-        parent_id = os.getpid()
+    def _get_childs(self, parent_id=None):
+        if parent_id is None:
+            parent_id = os.getpid()
         ps_command = subprocess.Popen("ps -o pid --ppid %d --noheaders" % parent_id, shell=True, stdout=subprocess.PIPE)
         ps_output = ps_command.stdout.read()
         ps_command.wait()
-        child_pids = ps_output.strip().split("\n")[:-1]
-        for pid_str in child_pids:
+        childs = ps_output.strip().split("\n")[:-1]
+        if childs:
+            res = []
+            for child in childs:
+                res.extend(self._get_childs(int(child)))
+            return res
+        else:
+            return childs
+
+    def _kill_childs(self):
+        for pid_str in self._get_childs():
             os.kill(int(pid_str), signal.SIGTERM)
+        # assure to kill all the processes using KILL signal
+        time.sleep(1)
+        for pid_str in self._get_childs():
+            os.kill(int(pid_str), signal.SIGKILL)
 
     def run(self):
         try:
