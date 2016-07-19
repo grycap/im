@@ -597,7 +597,7 @@ class TestIM(unittest.TestCase):
 
         infId = IM.CreateInfrastructure(str(radl), auth0)
 
-        time.sleep(10)
+        time.sleep(15)
 
         state = IM.GetInfrastructureState(infId, auth0)
         self.assertEqual(state["state"], "unconfigured")
