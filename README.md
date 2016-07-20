@@ -116,7 +116,7 @@ Fedora, etc.), do:
 
 ```sh
 $ yum install epel-release
-$ yum install gcc python-devel libffi-devel openssl-devel python-pip sshpass
+$ yum install which gcc python-devel libffi-devel openssl-devel python-pip sshpass
 ```
 
 For some problems with the dependencies of the apache-libcloud package in some systems (as ubuntu 14.04 or CentOS 6)

@@ -105,7 +105,7 @@ In Red Hat based distributions (RHEL, CentOS, Amazon Linux, Oracle Linux,
 Fedora, etc.), do:
 
 	$ yum install epel-release
-	$ yum install gcc python-devel libffi-devel openssl-devel python-pip sshpass
+	$ yum install which gcc python-devel libffi-devel openssl-devel python-pip sshpass
 
 For some problems with the dependencies of the apache-libcloud package in some systems (as ubuntu 14.04 or CentOS 6)
 this package has to be installed manually:
