@@ -87,26 +87,39 @@ framework (http://www.cherrypy.org/) and pyOpenSSL must be installed.
 1.3 INSTALLING
 --------------
 
-1.3.1 FROM PIP
---------------
-
-**WARNING**: The SOAPpy distributed with pip does not work correctly so you must install
-the packages 'python-soappy' or 'SOAPp'y before installing the IM with pip.
+1.3.1 FROM PIP (Recommended option)
+-----------------------------------
 
 **WARNING**: In some GNU/Linux distributions (RHEL 6 or equivalents) you must uninstall
 the packages python-paramiko and python-crypto before installing the IM with pip.
 
-You only have to install the IM package through the pip tool.
+	$ rpm -e python-crypto --nodeps
+
+First you need to install pip tool and some packages needed to compile some of the IM requirements.
+To install them in Debian and Ubuntu based distributions, do::
+
+	$ apt update
+	$ apt install gcc python-dev libffi-dev libssl-dev python-pip sshpass
+
+In Red Hat based distributions (RHEL, CentOS, Amazon Linux, Oracle Linux,
+Fedora, etc.), do:
+
+	$ yum install epel-release
+	$ yum install which gcc python-devel libffi-devel openssl-devel python-pip sshpass
+
+For some problems with the dependencies of the apache-libcloud package in some systems (as ubuntu 14.04 or CentOS 6)
+this package has to be installed manually:
+
+	$ pip install backports-ssl_match_hostname
+
+Then you only have to call the install command of the pip tool with the IM package:
 
 	$ pip install IM
 
-Pip will install all the pre-requisites needed. So Ansible  1.4.2 or later will 
-be installed in the system. Yo will also need to install the sshpass command 
-('sshpass' package in main distributions). In some cases it will need to have installed  
-the GCC compiler and the python developer libraries ('python-dev' or 'python-devel' 
-packages in main distributions).
+Pip will also install the, non installed, pre-requisites needed. So Ansible  1.4.2 or later will 
+be installed in the system.
 
-You must also remember to modify the ansible.cfg file setting as specified in the
+You must also remember to modify the ansible.cfg file setting as specified in the 
 REQUISITES section.
 
 
