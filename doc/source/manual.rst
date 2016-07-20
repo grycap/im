@@ -74,9 +74,9 @@ Installation
 From Pip (Recommended option)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 **WARNING: In some linux old distributions (REL 6 or equivalents) you must unistall
-the package python-crypto before installing the IM with pip.**::
+the package python-crypto and python-paramiko before installing the IM with pip.**::
 
-	$ rpm -e python-crypto --nodeps
+	$ rpm -e python-crypto python-paramiko --nodeps
 
 First you need to install pip tool and some packages needed to compile some of the IM requirements.
 To install them in Debian and Ubuntu based distributions, do::
