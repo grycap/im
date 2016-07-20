@@ -82,7 +82,7 @@ First you need to install pip tool and some packages needed to compile some of t
 To install them in Debian and Ubuntu based distributions, do::
 
     $ apt update
-	$ apt install gcc python-dev libffi-dev libssl-dev python-pip sshpass
+    $ apt install gcc python-dev libffi-dev libssl-dev python-pip sshpass
 
 In Red Hat based distributions (RHEL, CentOS, Amazon Linux, Oracle Linux,
 Fedora, etc.), do::
