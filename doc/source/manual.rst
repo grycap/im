@@ -25,19 +25,8 @@ IM needs at least Python 2.6 to run, as well as the next libraries:
 Also, IM uses `Ansible <http://www.ansible.com>`_ (1.4.2 or later) to configure the
 infrastructure nodes. The current recommended version is 1.9.4 untill the 2.X versions become stable.
  
-These components are usually available from the distribution repositories. To
-install them in Debian and Ubuntu based distributions, do::
-
-   $ apt-get install python-ply python-paramiko python-yaml python-soappy python-netaddr python-boto python-libcloud ansible
-
-In Red Hat based distributions (RHEL, CentOS, Amazon Linux, Oracle Linux,
-Fedora, etc.), do::
-
-   $ yum install python-ply python-paramiko python-netaddr PyYAML SOAPpy python-boto python-libcloud ansible
+These components are usually available from the distribution repositories.
    
-**WARNING: In some GNU/Linux distributions (RHEL 6 or equivalents) you must NOT install
-the packages 'python-paramiko' and 'python-crypto' with yum. You MUST use pip to install them**
-
 Finally, check the next values in the Ansible configuration file
 :file:`ansible.cfg`, (usually found in :file:`/etc/ansible`)::
 
@@ -82,8 +71,42 @@ Optional Packages
 Installation
 ------------
 
-From RPM packages (RH6 and RH7)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+From Pip (Recommended option)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+**WARNING: In some linux old distributions (REL 6 or equivalents) you must unistall
+the package python-crypto before installing the IM with pip.**::
+
+	$ rpm -e python-crypto --nodeps
+
+First you need to install pip tool and some packages needed to compile some of the IM requirements.
+To install them in Debian and Ubuntu based distributions, do::
+
+    $ apt update
+	$ apt install gcc python-dev libffi-dev libssl-dev python-pip sshpass
+
+In Red Hat based distributions (RHEL, CentOS, Amazon Linux, Oracle Linux,
+Fedora, etc.), do::
+
+	$ yum install epel-release
+	$ yum install gcc python-devel libffi-devel openssl-devel python-pip sshpass
+
+For some problems with the dependencies of the apache-libcloud package in some systems (as ubuntu 14.04 or CentOS 6)
+this package has to be installed manually::
+
+	$ pip install backports-ssl_match_hostname
+
+Then you only have to call the install command of the pip tool with the IM package::
+
+	$ pip install IM
+
+Pip will also install the, non installed, pre-requisites needed. So Ansible  1.4.2 or later will 
+be installed in the system.
+
+You must also remember to modify the ansible.cfg file setting as specified in the 
+REQUISITES section.
+
+From RPM packages (RH7)
+^^^^^^^^^^^^^^^^^^^^^^^
 Download the RPM package from `GitHub <https://github.com/grycap/im/releases/latest>`_. 
 Also remember to download the RPM of the RADL package also from `GitHub <https://github.com/grycap/radl/releases/latest>`_. 
 You must have the epel repository enabled:: 
@@ -116,25 +139,6 @@ Put all the .deb files in the same directory and do::
 
 	$ sudo dpkg -i *.deb
 	$ sudo apt install -f -y
-
-From Pip
-^^^^^^^^
-
-**WARNING: In some linux distributions (REL 6 or equivalents) you must unistall
-the packages python-paramiko and python-crypto before installing the IM with pip.**
-
-You only have to call the install command of the pip tool with the IM package::
-
-   $ pip install IM
-
-Pip will install all the pre-requisites needed. So Ansible  1.4.2 or later will 
-be installed in the system. Yo will also need to install the sshpass command 
-('sshpass' package in main distributions). In some cases it will need to have installed  
-the GCC compiler and the python developer libraries ('python-dev' or 'python-devel' 
-packages in main distributions).
-
-You must also remember to modify the ansible.cfg file setting as specified in the 
-REQUISITES section.
 
 From Source
 ^^^^^^^^^^^
