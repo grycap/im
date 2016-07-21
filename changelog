@@ -218,3 +218,4 @@ IM 1.4.6
     * Add ANSIBLE_INSTALL_TIMEOUT var
     * Create user with cloudinit in OpenStack connector
     * Improve error msg in ssh wait
+    * Bugfixes in Azure connector
