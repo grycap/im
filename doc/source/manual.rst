@@ -67,6 +67,8 @@ Optional Packages
   with SSL certificates (see :confval:`REST_SSL`).
   The Debian package for CherryPy is named ``python-cherrypy3``.
   pyOpenSSL can be installed using pip.
+* `MySQL <https://www.mysql.com/>`_ is needed if the IM data is going to be stored in DB.
+  (see DATA_DB configuration variable.
 
 Installation
 ------------
