@@ -42,7 +42,9 @@ class TestAnsible(unittest.TestCase):
 
         _, (return_code, _), output = result.get()
         self.assertEqual(return_code, 0)
-        self.assertIn("ok=2", output.getvalue())
+        self.assertIn("ok=7", output.getvalue())
+        self.assertIn("changed=2", output.getvalue())
+        print output.getvalue()
 
 if __name__ == '__main__':
     unittest.main()
