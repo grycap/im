@@ -725,6 +725,7 @@ class AzureCloudConnector(CloudConnector):
                     if success:
                         res.append((True, vm))
                     else:
+                        self.delete_service(service_name, auth_data)
                         self.logger.exception("Error waiting the VM creation")
                         res.append((False, "Error waiting the VM creation"))
 
