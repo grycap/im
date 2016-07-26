@@ -99,7 +99,7 @@ framework (http://www.cherrypy.org/) and pyOpenSSL must be installed.
 1.3 INSTALLING
 --------------
 
-### 1.3.1 FROM SOURCE
+### 1.3.1 FROM PIP
 
 **WARNING: In some GNU/Linux distributions (RHEL 6 or equivalents) you must uninstall
 the packages 'python-paramiko' and 'python-crypto' before installing the IM with pip.**
@@ -108,19 +108,26 @@ First install the requirements:
 
 On Debian Systems:
 ```sh
-$ apt-get -y install git python-pip python-dev python-soappy
+$ apt -y install git gcc python-dev libffi-dev libssl-dev python-pip sshpass
 ```
 
 On RedHat Systems:
 ```sh
 $ yum -y install epel-release
-$ yum -y install git gcc python-devel python-pip SOAPpy python-importlib python-requests
+$ yum -y install git which gcc python-devel libffi-devel openssl-devel python-pip sshpass
 ```
 
 Then install the TOSCA parser:
 
 ```sh
 $ pip install git+http://github.com/indigo-dc/tosca-parser
+```
+
+For some problems with the dependencies of the apache-libcloud package in some systems (as ubuntu 14.04 or CentOS 6)
+this package has to be installed manually:
+
+```sh
+$ pip install backports-ssl_match_hostname
 ```
 
 Finally install the IM service:

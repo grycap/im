@@ -561,7 +561,7 @@ echo "Hello World" >> /tmp/data.txt
 
     def test_80_create_ansible_host(self):
         """
-        Test the CreateInfrastructure IM function
+        Test the CreateInfrastructure IM function using an external ansible host
         """
         ansible_radl = """
             network publicnet (outbound = 'yes')
