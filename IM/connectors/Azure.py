@@ -194,6 +194,12 @@ class AzureCloudConnector(CloudConnector):
         res = """
           <InputEndpoints>
             <InputEndpoint>
+              <LocalPort>3389</LocalPort>
+              <Name>RDP</Name>
+              <Port>3389</Port>
+              <Protocol>TCP</Protocol>
+            </InputEndpoint>
+            <InputEndpoint>
               <LocalPort>5986</LocalPort>
               <Name>WinRM</Name>
               <Port>5986</Port>
@@ -215,7 +221,7 @@ class AzureCloudConnector(CloudConnector):
             outports = public_net.getOutPorts()
             if outports:
                 for remote_port, remote_protocol, local_port, local_protocol in outports:
-                    if local_port != 22 and local_port != 5986:
+                    if local_port != 22 and local_port != 5986 and local_port != 3389:
                         protocol = remote_protocol
                         if remote_protocol != local_protocol:
                             self.logger.warn(
@@ -334,8 +340,9 @@ class AzureCloudConnector(CloudConnector):
             hostname = "AzureNode" + str(num)
 
         SourceImageName = url[1]
-        MediaLink = "https://%s.blob.core.windows.net/vhds/%s.vhd" % (
-            storage_account, SourceImageName)
+        MediaLink = "https://%s.blob.core.windows.net/vhds/%s" % (storage_account, SourceImageName)
+        if not MediaLink.endswith('.vhd'):
+            MediaLink = MediaLink + '.vhd'
         instance_type = self.get_instance_type(system, auth_data)
 
         DataVirtualHardDisks = self.gen_data_disks(system, storage_account)
@@ -531,9 +538,11 @@ class AzureCloudConnector(CloudConnector):
             self.logger.exception("Error waiting the operation")
             return False
 
-    def get_storage_name(self, subscription_id):
-        res = subscription_id.replace("-", "")[:24]
-        return res
+    def get_storage_name(self, subscription_id, region=None):
+        if not region:
+            region = self.DEFAULT_LOCATION
+        res = region.replace(" ", "").lower() + subscription_id.replace("-", "")
+        return res[:24]
 
     def create_storage_account(self, storage_account, auth_data, region, timeout=120):
         """
@@ -656,16 +665,14 @@ class AzureCloudConnector(CloudConnector):
         i = 0
         while i < num_vm:
             try:
-                conn, subscription_id = self.get_connection_and_subscription_id(
-                    auth_data)
+                conn, subscription_id = self.get_connection_and_subscription_id(auth_data)
 
                 # Create storage account
-                storage_account_name = self.get_storage_name(subscription_id)
-                storage_account = self.get_storage_account(
-                    storage_account_name, auth_data)
+                storage_account_name = self.get_storage_name(subscription_id, region)
+                storage_account = self.get_storage_account(storage_account_name, auth_data)
                 if not storage_account:
-                    storage_account_name, error_msg = self.create_storage_account(
-                        self.get_storage_name(subscription_id), auth_data, region)
+                    storage_account_name, error_msg = self.create_storage_account(storage_account_name,
+                                                                                  auth_data, region)
                     if not storage_account_name:
                         res.append((False, error_msg))
                         break
@@ -683,8 +690,7 @@ class AzureCloudConnector(CloudConnector):
                         region = storage_account.GeoPrimaryRegion
 
                 # and the service
-                service_name, error_msg = self.create_service(
-                    auth_data, region)
+                service_name, error_msg = self.create_service(auth_data, region)
                 if service_name is None:
                     res.append((False, error_msg))
                     break
@@ -692,8 +698,7 @@ class AzureCloudConnector(CloudConnector):
                 self.logger.debug("Creating the VM with id: " + service_name)
 
                 # Create the VM to get the nodename
-                vm = VirtualMachine(inf, service_name,
-                                    self.cloud, radl, requested_radl, self)
+                vm = VirtualMachine(inf, service_name, self.cloud, radl, requested_radl, self)
                 vm.info.systems[0].setValue('instance_id', str(vm.id))
 
                 # Generate the XML to create the VM
