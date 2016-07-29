@@ -589,7 +589,9 @@ class TestIM(unittest.TestCase):
         IM._reinit()
         Config.PLAYBOOK_RETRIES = 1
         Config.CONTEXTUALIZATION_DIR = os.path.dirname(os.path.realpath(__file__)) + "/../../contextualization"
-        Config.CONFMAMAGER_CHECK_STATE_INTERVAL = 0.001
+        Config.CONFMAMAGER_CHECK_STATE_INTERVAL = 0.01
+        Config.UPDATE_CTXT_LOG_INTERVAL = 1
+        Config.CHECK_CTXT_PROCESS_INTERVAL = 1
         cloud0 = self.get_cloud_connector_mock("MyMock")
         self.register_cloudconnector("Mock", cloud0)
 
@@ -601,10 +603,12 @@ class TestIM(unittest.TestCase):
         self.assertEqual(state["state"], "unconfigured")
 
         IM.infrastructure_list[infId].ansible_configured = True
+        IM.infrastructure_list[infId].vm_list[0].get_ctxt_log = MagicMock()
+        IM.infrastructure_list[infId].vm_list[0].get_ctxt_log.return_value = "OK"
 
         IM.Reconfigure(infId, "", auth0)
 
-        time.sleep(2)
+        time.sleep(5)
 
         state = IM.GetInfrastructureState(infId, auth0)
         self.assertEqual(state["state"], "running")
