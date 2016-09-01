@@ -14,8 +14,14 @@ contextualization system to enable the installation and configuration of all the
 user required applications providing the user with a fully functional
 infrastructure.
 
-This version evolved in the INDIGO-Datacloud project (https://www.indigo-datacloud.eu/) has
-added support to TOSCA documents as input for the infrastructure creation.
+This version evolved in the INDIGO-Datacloud project (https://www.indigo-datacloud.eu/). It is used by the [INDIGO Orchestrator](https://github.com/indigo-dc/orchestrator) to contact Cloud sites to finally deploy the VMs/containers. 
+
+New features added:
+
++ Support for TOSCA 1.0 YAML specification with the custom node types described in https://github.com/indigo-dc/tosca-types/blob/master/custom_types.yaml
++ Support for the Identity and Access Management Service (IAM).
++ Support for the Token Translation Service (TTS) to support IAM authetication on OpenNebula Clouds.
++ Improvements to access OpenStack Clouds that support IAM.
 
 Read the documentation and more at http://www.grycap.upv.es/im.
 
@@ -99,84 +105,55 @@ framework (http://www.cherrypy.org/) and pyOpenSSL must be installed.
 1.3 INSTALLING
 --------------
 
-### 1.3.1 FROM PIP
+### 1.3.1 FROM RPM
 
-**WARNING: In some GNU/Linux distributions (RHEL 6 or equivalents) you must uninstall
-the packages 'python-paramiko' and 'python-crypto' before installing the IM with pip.**
-
-First install the requirements:
-
-On Debian Systems:
-```sh
-$ apt -y install git gcc python-dev libffi-dev libssl-dev python-pip sshpass
-```
-
-On RedHat Systems:
-```sh
-$ yum -y install epel-release
-$ yum -y install git which gcc python-devel libffi-devel openssl-devel python-pip sshpass
-```
-
-Then install the TOSCA parser:
-
-```sh
-$ pip install git+http://github.com/indigo-dc/tosca-parser
-```
-
-For some problems with the dependencies of the apache-libcloud package in some systems (as ubuntu 14.04 or CentOS 6)
-this package has to be installed manually:
-
-```sh
-$ pip install backports-ssl_match_hostname
-```
-
-Finally install the IM service:
-
-```sh
-$ pip install git+http://github.com/indigo-dc/im
-```
-
-### 1.3.2 FROM RPM
-
-Download the RPM package from [GitHub](https://github.com/indigo-dc/im/releases/latest). 
-Also remember to download the RPM of the RADL package also from [GitHub](https://github.com/grycap/radl/releases/latest) and the tosca-parser RPM file from [GitHub](https://github.com/indigo-dc/tosca-parser/releases/latest). 
 You must have the epel repository enabled:
 
 ```sh
 $ yum install epel-release
 ```
-   
-Then install the downloaded RPMs: 
+
+Then you have to enable the INDIGO - DataCloud packages repositories. See full instructions 
+[here](https://indigo-dc.gitbooks.io/indigo-datacloud-releases/content/generic_installation_and_configuration_guide_1.html#id4). Briefly you have to download the repo file from [INDIGO SW Repository](http://repo.indigo-datacloud.eu/repos/1/indigo1.repo) in your /etc/yum.repos.d folder.
 
 ```sh
-$ yum localinstall IM-*.rpm RADL-*.rpm tosca-parser-*.rpm
+$ cd /etc/yum.repos.d
+$ wget http://repo.indigo-datacloud.eu/repos/1/indigo1.repo
 ```
 
-### 1.3.3 FROM DEB
-
-Download the Deb package from [GitHub](https://github.com/indigo-dc/im/releases/latest)
-Also remember to download the Deb of the RADL package also from [GitHub](https://github.com/grycap/radl/releases/latest) and the tosca-parser Deb file from [GitHub](https://github.com/indigo-dc/tosca-parser/releases/latest).
-
-In Ubuntu 14.04 there are some requisites not available for the "trusty" version or are too old, so you have to manually install them manually.
-You can download it from their corresponding PPAs. But here you have some links:
- 
- * python-backports.ssl-match-hostname: [download](http://archive.ubuntu.com/ubuntu/pool/universe/b/backports.ssl-match-hostname/python-backports.ssl-match-hostname_3.4.0.2-1_all.deb)
- * python-scp: [download](http://archive.ubuntu.com/ubuntu/pool/universe/p/python-scp/python-scp_0.10.2-1_all.deb)
- * python-libcloud: [download](http://archive.ubuntu.com/ubuntu/pool/universe/libc/libcloud/python-libcloud_0.20.0-1_all.deb)
-
-It is also recommended to configure the Ansible PPA to install the newest versions of Ansible (see [Ansible installation](http://docs.ansible.com/ansible/intro_installation.html#latest-releases-via-apt-ubuntu)):
+And then install the GPG key for the INDIGO repository:
 
 ```sh
-$ sudo apt-get install software-properties-common
-$ sudo apt-add-repository ppa:ansible/ansible
-$ sudo apt-get update
+$ rpm --import http://repo.indigo-datacloud.eu/repository/RPM-GPG-KEY-indigodc
 ```
 
-Put all the .deb files in the same directory and do:
+Finally install the IM package.
 
 ```sh
-$ sudo dpkg -i *.deb
-$ sudo apt install -f -y
+$ yum install IM
+```
+
+### 1.3.2 FROM DEB
+
+You have to enable the INDIGO - DataCloud packages repositories. See full instructions 
+[here](https://indigo-dc.gitbooks.io/indigo-datacloud-releases/content/generic_installation_and_configuration_guide_1.html#id4). Briefly you have to download the list file from [INDIGO SW Repository](http://repo.indigo-datacloud.eu/repos/1/indigo1-ubuntu14_04.list) in your /etc/apt/sources.list.d folder.
+
+```sh
+$ cd /etc/apt/sources.list.d
+$ wget http://repo.indigo-datacloud.eu/repos/1/indigo1-ubuntu14_04.list
+```
+
+And then install the GPG key for INDIGO the repository:
+
+```sh
+$ wget -q -O - http://repo.indigo-datacloud.eu/repository/RPM-GPG-KEY-indigodc | sudo apt-key add -
+```
+
+Finally install the IM package.
+
+```sh
+$ apt update
+$ apt install python-im
 ```
 
 1.4 CONFIGURATION
