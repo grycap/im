@@ -480,7 +480,7 @@ def contextualize_vm(general_conf_data, vm_conf_data):
                         output_basic = StringIO()
                         ansible_thread = LaunchAnsiblePlaybook(output_basic, basic_playbook, ctxt_vm, 2,
                                                                inventory_file, None, INTERNAL_PLAYBOOK_RETRIES, True)
-                        ansible_thread.join()
+                        (task_ok, _) = wait_thread(ansible_thread)
 
                 # in the other tasks pk_file can be used
                 ansible_thread = LaunchAnsiblePlaybook(logger, playbook, ctxt_vm, 2, inventory_file, PK_FILE,

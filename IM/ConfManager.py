@@ -183,6 +183,10 @@ class ConfManager(threading.Thread):
                     "Inf ID: " + str(self.inf.id) + ": Max contextualization time passed. Exit thread.")
                 # Kill the ansible processes
                 self.kill_ctxt_processes()
+                if self.ansible_process and self.ansible_process.is_alive():
+                    ConfManager.logger.debug(
+                        "Inf ID: " + str(self.inf.id) + ": Stopping pending Ansible process.")
+                    self.ansible_process.terminate()
                 return
 
             vms_configuring = self.check_running_pids(vms_configuring)
