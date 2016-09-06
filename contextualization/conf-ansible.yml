@@ -41,9 +41,8 @@
     - name: RH indigo repos
       get_url: url=http://repo.indigo-datacloud.eu/repos/1/{{item}} dest=/etc/yum.repos.d/{{item}}
       with_items:
-       - indigo1-testing-updates.repo
-       - indigo1-testing-base.repo
-       - indigo1-testing-third-party.repo
+       - indigo1.repo
+       - indigo1-testing.repo
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 7 and ansible_distribution != "Fedora"
       
     - name: RH7 install Ansible with yum
