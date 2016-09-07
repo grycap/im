@@ -211,7 +211,7 @@ INDIGO IAM specific parameters
 ...............................
 
 To use the INDIGO IAM to authenticate with a Keystone server properly configured following this 
-`guidelines <https://indigo-dc.gitbooks.io/openid-keystone/content/indigo-configuration.html>`_ some of 
+`guidelines <https://indigo-dc.gitbooks.io/openid-keystone/content/indigo-configuration.html>`_, some of 
 the previous parameters has a diferent meaning::
 
 	* username: Specifies the identity provider. It must be: ``indigo-dc``.
