@@ -120,5 +120,9 @@ class ConfigOpenNebula:
     IMAGE_UNAME = ''
     TTS_URL = 'http://localhost:8080'
 
+# In this case set assume that the TTS server is in the same server
+if 'IM_SINGLE_SITE_ONE_HOST' in os.environ:
+    ConfigOpenNebula.TTS_URL = 'http://%s:8080' % os.environ['IM_SINGLE_SITE_ONE_HOST']
+
 if config.has_section("OpenNebula"):
     parse_options(config, 'OpenNebula', ConfigOpenNebula)
