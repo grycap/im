@@ -91,6 +91,10 @@ class Config:
     CONFMAMAGER_CHECK_STATE_INTERVAL = 5
     UPDATE_CTXT_LOG_INTERVAL = 20
     ANSIBLE_INSTALL_TIMEOUT = 900
+    SINGLE_SITE = False
+    SINGLE_SITE_TYPE = ''
+    SINGLE_SITE_AUTH_HOST = ''
+    SINGLE_SITE_IMAGE_URL_PREFIX = ''
 
 config = ConfigParser.ConfigParser()
 config.read([Config.IM_PATH + '/../im.cfg', Config.IM_PATH +
