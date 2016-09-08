@@ -108,6 +108,11 @@ if config.has_section(section_name):
 if 'IM_DATA_DB' in os.environ:
     Config.DATA_DB = os.environ['IM_DATA_DB']
 
+if 'IM_SINGLE_SITE_ONE_HOST' in os.environ:
+    Config.SINGLE_SITE = True
+    Config.SINGLE_SITE_TYPE = 'OpenNebula'
+    Config.SINGLE_SITE_AUTH_HOST = 'http://%s:2633' % os.environ['IM_SINGLE_SITE_ONE_HOST']
+    Config.SINGLE_SITE_IMAGE_URL_PREFIX = 'one://%s/' % os.environ['IM_SINGLE_SITE_ONE_HOST']
 
 class ConfigOpenNebula:
     TEMPLATE_CONTEXT = ''
