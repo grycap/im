@@ -44,6 +44,13 @@ if Config.MAX_SIMULTANEOUS_LAUNCHES > 1:
     from multiprocessing.pool import ThreadPool
 
 
+class UnauthorizedUserException(Exception):
+    """ Invalid InfrastructureManager credentials to access an infrastructure"""
+
+    def __init__(self, msg="Access to this infrastructure not granted."):
+        Exception.__init__(self, msg)
+
+
 class IncorrectInfrastructureException(Exception):
     """ Invalid infrastructure ID or access not granted. """
 
@@ -58,7 +65,7 @@ class DeletedInfrastructureException(Exception):
         Exception.__init__(self, msg)
 
 
-class UnauthorizedUserException(Exception):
+class InvaliddUserException(Exception):
     """ Invalid InfrastructureManager credentials """
 
     def __init__(self, msg="Invalid InfrastructureManager credentials"):
@@ -248,16 +255,14 @@ class InfrastructureManager:
         """Return infrastructure info with some id if valid authorization provided."""
 
         if inf_id not in InfrastructureManager.infrastructure_list:
-            InfrastructureManager.logger.error(
-                "Error, incorrect infrastructure ID")
+            InfrastructureManager.logger.error("Error, incorrect infrastructure ID")
             raise IncorrectInfrastructureException()
         sel_inf = InfrastructureManager.infrastructure_list[inf_id]
         if not sel_inf.is_authorized(auth):
             InfrastructureManager.logger.error("Access Error")
-            raise IncorrectInfrastructureException()
+            raise UnauthorizedUserException()
         if sel_inf.deleted:
-            InfrastructureManager.logger.error(
-                "Access to a deleted infrastructure.")
+            InfrastructureManager.logger.error("Access to a deleted infrastructure.")
             raise DeletedInfrastructureException()
 
         return sel_inf
@@ -1216,7 +1221,7 @@ class InfrastructureManager:
         if not success:
             InfrastructureManager.logger.error(
                 "Incorrect auth token: %s" % userinfo)
-            raise UnauthorizedUserException("Invalid InfrastructureManager credentials %s" % userinfo)
+            raise InvaliddUserException("Invalid InfrastructureManager credentials %s" % userinfo)
 
     @staticmethod
     def check_auth_data(auth):
@@ -1229,7 +1234,7 @@ class InfrastructureManager:
         else:
             # if not assume the basic user/password auth data
             if not InfrastructureManager.check_im_user(im_auth):
-                raise UnauthorizedUserException()
+                raise InvaliddUserException()
 
         # We have to check if TTS is needed for other auth item
         return auth
@@ -1299,7 +1304,7 @@ class InfrastructureManager:
         if not auths:
             InfrastructureManager.logger.error(
                 "No correct auth data has been specified.")
-            raise UnauthorizedUserException()
+            raise InvaliddUserException()
 
         res = []
         for elem in InfrastructureManager.infrastructure_list.values():
