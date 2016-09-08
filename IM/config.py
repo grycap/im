@@ -114,6 +114,7 @@ if 'IM_SINGLE_SITE_ONE_HOST' in os.environ:
     Config.SINGLE_SITE_AUTH_HOST = 'http://%s:2633' % os.environ['IM_SINGLE_SITE_ONE_HOST']
     Config.SINGLE_SITE_IMAGE_URL_PREFIX = 'one://%s/' % os.environ['IM_SINGLE_SITE_ONE_HOST']
 
+
 class ConfigOpenNebula:
     TEMPLATE_CONTEXT = ''
     TEMPLATE_OTHER = 'GRAPHICS = [type="vnc",listen="0.0.0.0"]'
@@ -122,6 +123,7 @@ class ConfigOpenNebula:
 
 if config.has_section("OpenNebula"):
     parse_options(config, 'OpenNebula', ConfigOpenNebula)
+
 
 # In this case set assume that the TTS server is in the same server
 if 'IM_SINGLE_SITE_ONE_HOST' in os.environ:

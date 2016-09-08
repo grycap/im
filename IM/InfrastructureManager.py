@@ -444,10 +444,10 @@ class InfrastructureManager:
         systems_with_vmrc = {}
         for system_id in set([d.id for d in radl.deploys if d.vm_number > 0]):
             s = radl.get_system_by_name(system_id)
-            
+
             if Config.SINGLE_SITE:
                 image_id = os.path.basename(s.getValue("disk.0.image.url"))
-                s.setValue("disk.0.image.url",Config.SINGLE_SITE_IMAGE_URL_PREFIX + image_id)
+                s.setValue("disk.0.image.url", Config.SINGLE_SITE_IMAGE_URL_PREFIX + image_id)
 
             if not s.getValue("disk.0.image.url") and len(vmrc_list) == 0:
                 raise Exception(
@@ -1238,9 +1238,9 @@ class InfrastructureManager:
         if Config.SINGLE_SITE:
             vmrc_auth = auth.getAuthInfo("VMRC")
             single_site_auth = auth.getAuthInfo(Config.SINGLE_SITE_TYPE)
-            
+
             single_site_auth[0]["host"] = Config.SINGLE_SITE_AUTH_HOST
-            
+
             auth_list = []
             auth_list.extend(im_auth)
             auth_list.extend(vmrc_auth)
