@@ -168,11 +168,11 @@ class TestIM(unittest.TestCase):
         with self.assertRaises(Exception) as ex:
             IM.DestroyInfrastructure(infId0, auth1)
         self.assertEqual(str(ex.exception),
-                         "Invalid infrastructure ID or access not granted.")
+                         "Access to this infrastructure not granted.")
         with self.assertRaises(Exception) as ex:
             IM.DestroyInfrastructure(infId1, auth0)
         self.assertEqual(str(ex.exception),
-                         "Invalid infrastructure ID or access not granted.")
+                         "Access to this infrastructure not granted.")
         IM.DestroyInfrastructure(infId0, auth0)
         IM.DestroyInfrastructure(infId1, auth1)
 
@@ -236,7 +236,7 @@ class TestIM(unittest.TestCase):
     def test_inf_addresources1(self):
         """Deploy n independent virtual machines."""
 
-        n = 40  # Machines to deploy
+        n = 20  # Machines to deploy
         Config.MAX_SIMULTANEOUS_LAUNCHES = n / 2  # Test the pool
         radl = RADL()
         radl.add(system("s0", [Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
