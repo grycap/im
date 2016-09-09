@@ -164,7 +164,7 @@ keys are:
 
 * ``id`` associates an identifier to the credential. The identifier should be
   used as the label in the *deploy* section in the RADL.
-  
+
 OpenStack addicional fields
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -206,3 +206,18 @@ An example of the auth file::
 IM Server does not store the credentials used in the creation of
 infrastructures. Then the user has to provide them in every call of
 :program:`im_client`.
+
+INDIGO IAM specific parameters
+...............................
+
+To use the INDIGO IAM to authenticate with a Keystone server properly configured following this 
+`guidelines <https://indigo-dc.gitbooks.io/openid-keystone/content/indigo-configuration.html>`_, some of 
+the previous parameters has a diferent meaning:
+
+* username: Specifies the identity provider. It must be: ``indigo-dc``.
+* tenant: Specifies the authentication protocol to use. It must be: ``oidc``.
+* password: Specifies the INDIGO IAM token.
+
+So the auth line will be like that::
+
+   id = ost; type = OpenStack; host = https://ostserver:5000; username = indigo-dc; tenant = oidc; password = iam_token_value;
