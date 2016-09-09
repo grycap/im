@@ -477,3 +477,21 @@ class InfrastructureInfo:
                 # update the ConfManager auth
                 self.cm.auth = auth
                 self.cm.init_time = time.time()
+
+    def is_authorized(self, auth):
+        """
+        Checks if the auth data provided is authorized to access this infrastructure
+        """
+        if self.auth is not None:
+            self_im_auth = self.auth.getAuthInfo("InfrastructureManager")[0]
+            other_im_auth = auth.getAuthInfo("InfrastructureManager")[0]
+
+            for elem in ['username', 'password']:
+                if elem not in other_im_auth:
+                    return False
+                if self_im_auth[elem] != other_im_auth[elem]:
+                    return False
+
+            return True
+        else:
+            return False

@@ -14,7 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
 import logging
 import threading
 import bottle
@@ -22,7 +21,8 @@ import json
 
 from InfrastructureInfo import IncorrectVMException, DeletedVMException
 from InfrastructureManager import (InfrastructureManager, DeletedInfrastructureException,
-                                   IncorrectInfrastructureException, UnauthorizedUserException)
+                                   IncorrectInfrastructureException, UnauthorizedUserException,
+                                   InvaliddUserException)
 from auth import Authentication
 from config import Config
 from radl.radl_json import parse_radl as parse_radl_json, dump_radl as dump_radl_json, featuresToSimple, radlToSimple
@@ -263,6 +263,8 @@ def RESTDestroyInfrastructure(id=None):
         return return_error(404, "Error Destroying Inf: " + str(ex))
     except IncorrectInfrastructureException, ex:
         return return_error(404, "Error Destroying Inf: " + str(ex))
+    except UnauthorizedUserException, ex:
+        return return_error(403, "Error Destroying Inf: " + str(ex))
     except Exception, ex:
         logger.exception("Error Destroying Inf")
         return return_error(400, "Error Destroying Inf: " + str(ex))
@@ -291,6 +293,8 @@ def RESTGetInfrastructureInfo(id=None):
         return return_error(404, "Error Getting Inf. info: " + str(ex))
     except IncorrectInfrastructureException, ex:
         return return_error(404, "Error Getting Inf. info: " + str(ex))
+    except UnauthorizedUserException, ex:
+        return return_error(403, "Error Getting Inf. info: " + str(ex))
     except Exception, ex:
         logger.exception("Error Getting Inf. info")
         return return_error(400, "Error Getting Inf. info: " + str(ex))
@@ -323,6 +327,8 @@ def RESTGetInfrastructureProperty(id=None, prop=None):
         return return_error(404, "Error Getting Inf. prop: " + str(ex))
     except IncorrectInfrastructureException, ex:
         return return_error(404, "Error Getting Inf. prop: " + str(ex))
+    except UnauthorizedUserException, ex:
+        return return_error(403, "Error Getting Inf. prop: " + str(ex))
     except Exception, ex:
         logger.exception("Error Getting Inf. prop")
         return return_error(400, "Error Getting Inf. prop: " + str(ex))
@@ -347,7 +353,7 @@ def RESTGetInfrastructureList():
                 protocol + bottle.request.environ['HTTP_HOST'] + "/infrastructures/" + str(inf_id))
 
         return format_output(res, "text/uri-list", "uri-list", "uri")
-    except UnauthorizedUserException, ex:
+    except InvaliddUserException, ex:
         return return_error(401, "Error Getting Inf. List: " + str(ex))
     except Exception, ex:
         logger.exception("Error Getting Inf. List")
@@ -385,7 +391,7 @@ def RESTCreateInfrastructure():
             "/infrastructures/" + str(inf_id)
 
         return format_output(res, "text/uri-list", "uri")
-    except UnauthorizedUserException, ex:
+    except InvaliddUserException, ex:
         return return_error(401, "Error Getting Inf. info: " + str(ex))
     except Exception, ex:
         logger.exception("Error Creating Inf.")
@@ -406,6 +412,8 @@ def RESTGetVMInfo(infid=None, vmid=None):
         return return_error(404, "Error Getting VM. info: " + str(ex))
     except IncorrectInfrastructureException, ex:
         return return_error(404, "Error Getting VM. info: " + str(ex))
+    except UnauthorizedUserException, ex:
+        return return_error(403, "Error Getting VM. info: " + str(ex))
     except DeletedVMException, ex:
         return return_error(404, "Error Getting VM. info: " + str(ex))
     except IncorrectVMException, ex:
@@ -436,6 +444,8 @@ def RESTGetVMProperty(infid=None, vmid=None, prop=None):
         return return_error(404, "Error Getting VM. property: " + str(ex))
     except IncorrectInfrastructureException, ex:
         return return_error(404, "Error Getting VM. property: " + str(ex))
+    except UnauthorizedUserException, ex:
+        return return_error(403, "Error Getting VM. property: " + str(ex))
     except DeletedVMException, ex:
         return return_error(404, "Error Getting VM. property: " + str(ex))
     except IncorrectVMException, ex:
@@ -490,6 +500,8 @@ def RESTAddResource(id=None):
         return return_error(404, "Error Adding resources: " + str(ex))
     except IncorrectInfrastructureException, ex:
         return return_error(404, "Error Adding resources: " + str(ex))
+    except UnauthorizedUserException, ex:
+        return return_error(403, "Error Adding resources: " + str(ex))
     except Exception, ex:
         logger.exception("Error Adding resources")
         return return_error(400, "Error Adding resources: " + str(ex))
@@ -520,6 +532,8 @@ def RESTRemoveResource(infid=None, vmid=None):
         return return_error(404, "Error Removing resources: " + str(ex))
     except IncorrectInfrastructureException, ex:
         return return_error(404, "Error Removing resources: " + str(ex))
+    except UnauthorizedUserException, ex:
+        return return_error(403, "Error Removing resources: " + str(ex))
     except DeletedVMException, ex:
         return return_error(404, "Error Removing resources: " + str(ex))
     except IncorrectVMException, ex:
@@ -555,6 +569,8 @@ def RESTAlterVM(infid=None, vmid=None):
         return return_error(404, "Error modifying resources: " + str(ex))
     except IncorrectInfrastructureException, ex:
         return return_error(404, "Error modifying resources: " + str(ex))
+    except UnauthorizedUserException, ex:
+        return return_error(403, "Error modifying resources: " + str(ex))
     except DeletedVMException, ex:
         return return_error(404, "Error modifying resources: " + str(ex))
     except IncorrectVMException, ex:
@@ -599,6 +615,8 @@ def RESTReconfigureInfrastructure(id=None):
         return return_error(404, "Error reconfiguring infrastructure: " + str(ex))
     except IncorrectInfrastructureException, ex:
         return return_error(404, "Error reconfiguring infrastructure: " + str(ex))
+    except UnauthorizedUserException, ex:
+        return return_error(403, "Error reconfiguring infrastructure: " + str(ex))
     except Exception, ex:
         logger.exception("Error reconfiguring infrastructure")
         return return_error(400, "Error reconfiguring infrastructure: " + str(ex))
@@ -618,6 +636,8 @@ def RESTStartInfrastructure(id=None):
         return return_error(404, "Error starting infrastructure: " + str(ex))
     except IncorrectInfrastructureException, ex:
         return return_error(404, "Error starting infrastructure: " + str(ex))
+    except UnauthorizedUserException, ex:
+        return return_error(403, "Error starting infrastructure: " + str(ex))
     except Exception, ex:
         logger.exception("Error starting infrastructure")
         return return_error(400, "Error starting infrastructure: " + str(ex))
@@ -637,6 +657,8 @@ def RESTStopInfrastructure(id=None):
         return return_error(404, "Error stopping infrastructure: " + str(ex))
     except IncorrectInfrastructureException, ex:
         return return_error(404, "Error stopping infrastructure: " + str(ex))
+    except UnauthorizedUserException, ex:
+        return return_error(403, "Error stopping infrastructure: " + str(ex))
     except Exception, ex:
         logger.exception("Error stopping infrastructure")
         return return_error(400, "Error stopping infrastructure: " + str(ex))
@@ -656,6 +678,8 @@ def RESTStartVM(infid=None, vmid=None, prop=None):
         return return_error(404, "Error starting VM: " + str(ex))
     except IncorrectInfrastructureException, ex:
         return return_error(404, "Error starting VM: " + str(ex))
+    except UnauthorizedUserException, ex:
+        return return_error(403, "Error starting VM: " + str(ex))
     except DeletedVMException, ex:
         return return_error(404, "Error starting VM: " + str(ex))
     except IncorrectVMException, ex:
@@ -679,6 +703,8 @@ def RESTStopVM(infid=None, vmid=None, prop=None):
         return return_error(404, "Error stopping VM: " + str(ex))
     except IncorrectInfrastructureException, ex:
         return return_error(404, "Error stopping VM: " + str(ex))
+    except UnauthorizedUserException, ex:
+        return return_error(403, "Error stopping VM: " + str(ex))
     except DeletedVMException, ex:
         return return_error(404, "Error stopping VM: " + str(ex))
     except IncorrectVMException, ex:
@@ -695,6 +721,11 @@ def RESTGeVersion():
         return format_output(version, field_name="version")
     except Exception, ex:
         return return_error(400, "Error getting IM version: " + str(ex))
+
+
+@app.error(403)
+def error_mesage_403(error):
+    return return_error(403, error.body)
 
 
 @app.error(404)
