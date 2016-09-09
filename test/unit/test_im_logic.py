@@ -170,11 +170,11 @@ class TestIM(unittest.TestCase):
         with self.assertRaises(Exception) as ex:
             IM.DestroyInfrastructure(infId0, auth1)
         self.assertEqual(str(ex.exception),
-                         "Invalid infrastructure ID or access not granted.")
+                         "Access to this infrastructure not granted.")
         with self.assertRaises(Exception) as ex:
             IM.DestroyInfrastructure(infId1, auth0)
         self.assertEqual(str(ex.exception),
-                         "Invalid infrastructure ID or access not granted.")
+                         "Access to this infrastructure not granted.")
         IM.DestroyInfrastructure(infId0, auth0)
         IM.DestroyInfrastructure(infId1, auth1)
 
