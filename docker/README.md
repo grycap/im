@@ -36,3 +36,10 @@ You can also specify an external MySQL server to store IM data using the IM_DATA
 ```sh
 sudo docker run -d -p 8899:8899 -p 8800:8800 -e IM_DATA_DB=mysql://username:password@server/db_name --name im indigodatacloud/im 
 ```
+
+You can use the IM as an entry point of an OpenNebula cloud provider as a TOSCA compliant endpoint for your site::
+
+```sh
+$ sudo docker run -d -p 8899:8899 -p 8800:8800 -e IM_SINGLE_SITE_ONE_HOST=oneserver.com --name im indigodatacloud/im 
+```
+ 

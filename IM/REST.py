@@ -172,8 +172,17 @@ def get_auth_header():
     Get the Authentication object from the AUTHORIZATION header
     replacing the new line chars.
     """
-    auth_data = bottle.request.headers[
-        'AUTHORIZATION'].replace(AUTH_NEW_LINE_SEPARATOR, "\n")
+    auth_header = bottle.request.headers['AUTHORIZATION']
+    if Config.SINGLE_SITE and auth_header.startswith("Bearer "):
+            token = auth_header[7:]
+            im_auth = {"type": "InfrastructureManager",
+                       "username": "user",
+                       "token": token}
+            single_site_auth = {"type": Config.SINGLE_SITE_TYPE,
+                                "host": Config.SINGLE_SITE_AUTH_HOST,
+                                "token": token}
+            return Authentication([im_auth, single_site_auth])
+    auth_data = auth_header.replace(AUTH_NEW_LINE_SEPARATOR, "\n")
     auth_data = auth_data.split(AUTH_LINE_SEPARATOR)
     return Authentication(Authentication.read_auth_data(auth_data))
 
