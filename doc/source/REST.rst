@@ -95,7 +95,7 @@ POST ``http://imserver.com/infrastructures``
 GET ``http://imserver.com/infrastructures/<infId>``
    :Response Content-type: text/uri-list or application/json
    :ok response: 200 OK
-   :fail response: 401, 404, 400
+   :fail response: 401, 403, 404, 400
 
    Return a list of URIs referencing the virtual machines associated to the infrastructure with ID ``infId``.
    The result is JSON format has the following format::
@@ -133,7 +133,7 @@ POST ``http://imserver.com/infrastructures/<infId>``
    :input fields: ``context`` (optional)
    :Response Content-type: text/uri-list
    :ok response: 200 OK
-   :fail response: 401, 404, 400, 415
+   :fail response: 401, 403, 404, 400, 415
 
    Add the resources specified in the body contents (in plain RADL or in JSON formats)
    to the infrastructure with ID ``infId``. The RADL restrictions are the same as in
@@ -153,7 +153,7 @@ POST ``http://imserver.com/infrastructures/<infId>``
 PUT ``http://imserver.com/infrastructures/<infId>/stop``
    :Response Content-type: text/plain or application/json
    :ok response: 200 OK
-   :fail response: 401, 404, 400
+   :fail response: 401, 403, 404, 400
 
    Perform the ``stop`` action in all the virtual machines in the
    the infrastructure with ID ``infID``. If the operation has been performed 
@@ -162,7 +162,7 @@ PUT ``http://imserver.com/infrastructures/<infId>/stop``
 PUT ``http://imserver.com/infrastructures/<infId>/start``
    :Response Content-type: text/plain or application/json
    :ok response: 200 OK
-   :fail response: 401, 404, 400
+   :fail response: 401, 403, 404, 400
 
    Perform the ``start`` action in all the virtual machines in the
    the infrastructure with ID ``infID``. If the operation has been performed 
@@ -174,7 +174,7 @@ PUT ``http://imserver.com/infrastructures/<infId>/reconfigure``
    :input fields: ``vm_list`` (optional)
    :Response Content-type: text/plain
    :ok response: 200 OK
-   :fail response: 401, 404, 400, 415
+   :fail response: 401, 403, 404, 400, 415
 
    Perform the ``reconfigure`` action in all the virtual machines in the
    the infrastructure with ID ``infID``. It updates the configuration 
@@ -188,7 +188,7 @@ PUT ``http://imserver.com/infrastructures/<infId>/reconfigure``
 DELETE ``http://imserver.com/infrastructures/<infId>``
    :Response Content-type: text/plain or application/json
    :ok response: 200 OK
-   :fail response: 401, 404, 400
+   :fail response: 401, 403, 404, 400
 
    Undeploy the virtual machines associated to the infrastructure with ID
    ``infId``. If the operation has been performed successfully 
@@ -197,7 +197,7 @@ DELETE ``http://imserver.com/infrastructures/<infId>``
 GET ``http://imserver.com/infrastructures/<infId>/vms/<vmId>``
    :Response Content-type: text/plain or application/json
    :ok response: 200 OK
-   :fail response: 401, 404, 400
+   :fail response: 401, 403, 404, 400
 
    Return information about the virtual machine with ID ``vmId`` associated to
    the infrastructure with ID ``infId``. The returned string is in RADL format,
@@ -212,7 +212,7 @@ GET ``http://imserver.com/infrastructures/<infId>/vms/<vmId>``
 GET ``http://imserver.com/infrastructures/<infId>/vms/<vmId>/<property_name>``
    :Response Content-type: text/plain or application/json
    :ok response: 200 OK
-   :fail response: 401, 404, 400
+   :fail response: 401, 403, 404, 400
 
    Return property ``property_name`` from to the virtual machine with ID 
    ``vmId`` associated to the infrastructure with ID ``infId``. It also has one
@@ -228,7 +228,7 @@ PUT ``http://imserver.com/infrastructures/<infId>/vms/<vmId>``
    :body Content-type: text/plain or application/json
    :Response Content-type: text/plain or application/json
    :ok response: 200 OK
-   :fail response: 401, 404, 400, 415
+   :fail response: 401, 403, 404, 400, 415
 
    Change the features of the virtual machine with ID ``vmId`` in the
    infrastructure with with ID ``infId``, specified by the RADL document specified
@@ -245,7 +245,7 @@ DELETE ``http://imserver.com/infrastructures/<infId>/vms/<vmId>``
    :input fields: ``context`` (optional)
    :Response Content-type: text/plain
    :ok response: 200 OK
-   :fail response: 401, 404, 400
+   :fail response: 401, 403, 404, 400
 
    Undeploy the virtual machine with ID ``vmId`` associated to the
    infrastructure with ID ``infId``. If  ``vmId`` is a comma separated list of 
@@ -257,7 +257,7 @@ DELETE ``http://imserver.com/infrastructures/<infId>/vms/<vmId>``
 PUT ``http://imserver.com/infrastructures/<infId>/vms/<vmId>/start``
    :Response Content-type: text/plain or application/json
    :ok response: 200 OK
-   :fail response: 401, 404, 400
+   :fail response: 401, 403, 404, 400
 
    Perform the ``start`` action in the virtual machine with ID 
    ``vmId`` associated to the infrastructure with ID ``infId``.
@@ -266,7 +266,7 @@ PUT ``http://imserver.com/infrastructures/<infId>/vms/<vmId>/start``
 PUT ``http://imserver.com/infrastructures/<infId>/vms/<vmId>/stop``
    :Response Content-type: text/plain or application/json
    :ok response: 200 OK
-   :fail response: 401, 404, 400
+   :fail response: 401, 403, 404, 400
 
    Perform the ``stop`` action in the virtual machine with ID 
    ``vmId`` associated to the infrastructure with ID ``infId``.

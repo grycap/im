@@ -200,6 +200,15 @@ class TestIM(unittest.TestCase):
         self.assertTrue(
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
+    def test_22_get_forbidden_info(self):
+        self.server.request('GET', "/infrastructures/" + self.inf_id,
+                            headers={'AUTHORIZATION': ("type = InfrastructureManager; "
+                                                       "username = some; password = other")})
+        resp = self.server.getresponse()
+        resp.read()
+        self.assertEqual(resp.status, 403,
+                         msg="Incorrect error message: " + str(resp.status))
+
     def test_30_get_vm_info(self):
         self.server.request('GET', "/infrastructures/" + self.inf_id,
                             headers={'AUTHORIZATION': self.auth_data})
