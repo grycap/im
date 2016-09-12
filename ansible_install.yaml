@@ -5,31 +5,35 @@
       action: yum pkg=epel-release state=installed
       when: ansible_os_family == "RedHat"
 
-    - name: Yum install requisites
-      action: yum pkg=git,gcc,python-devel,python-pip,SOAPpy,python-requests,MySQL-python,libffi-devel,openssl-devel,unzip state=installed
+    - name: Install libselinux-python in RH
+      action: yum pkg=libselinux-python state=installed
       when: ansible_os_family == "RedHat"
 
-    - name: Apt-get install requisites
-      apt: pkg=git,python-pip,python-dev,python-soappy,python-mysqldb,libssl-dev,libffi-dev,unzip state=installed update_cache=yes cache_valid_time=3600
+    - name: Ubuntu install indigo list
+      get_url: url=http://repo.indigo-datacloud.eu/repos/1/indigo1-ubuntu14_04.list dest=/etc/apt/sources.list.d/indigo1-ubuntu14_04.list
+      when: ansible_distribution == "Ubuntu"
+
+    - apt_key: url=http://repo.indigo-datacloud.eu/repository/RPM-GPG-KEY-indigodc state=present
+      when: ansible_distribution == "Ubuntu"
+      
+    - name: Apt-get update
+      apt: update_cache=yes
       when: ansible_os_family == "Debian"
 
-    - name: pip upgrade setuptools
-      pip: name=setuptools extra_args="-I" state=latest
+    - name: Ubuntu install Ansible with apt
+      apt: name=python-im,ansible,python-pip,python-jinja2,sshpass,openssh-client,unzip force=yes
+      when: ansible_distribution == "Ubuntu"
+      
+    - name: RH indigo repos
+      get_url: url=http://repo.indigo-datacloud.eu/repos/1/indigo1.repo dest=/etc/yum.repos.d/indigo1.repo
+      when: ansible_os_family == "RedHat"
 
-    - name: pip install pbr,CherryPy and pyOpenSSL to enable HTTPS in REST API
-      pip: name="pbr CherryPy pyOpenSSL" extra_args="-I" state=latest
+    - rpm_key: state=present key=http://repo.indigo-datacloud.eu/repository/RPM-GPG-KEY-indigodc
+      when: ansible_os_family == "RedHat"
 
-    - name: Download tosca-parser
-      git: repo=https://github.com/indigo-dc/tosca-parser dest=/tmp/tosca-parser
-
-    - name: pip install tosca-parser
-      pip: name=/tmp/tosca-parser
-
-    - name: Download IM
-      git: repo=https://github.com/indigo-dc/im dest=/tmp/im
-
-    - name: pip install IM
-      pip: name=/tmp/im
+    - name: RH7 install Ansible with yum
+      yum: name=IM,ansible,python-pip,python-jinja2,sshpass,openssh-clients,unzip
+      when: ansible_os_family == "RedHat"
 
 ################################################ Configure Ansible  ###################################################
 

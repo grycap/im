@@ -16,12 +16,12 @@
 ################# Use INDIGO repos from Ubuntu 14 and CentOS 7 to assure a stable version  ############################
 
     - name: Ubuntu install indigo list
-      get_url: url=http://repo.indigo-datacloud.eu/repos/1/{{item}} dest=/etc/apt/sources.list.d/{{item}}
+      get_url: url=http://repo.indigo-datacloud.eu/repos/1/indigo1-ubuntu14_04.list dest=/etc/apt/sources.list.d/indigo1-ubuntu14_04.list
       when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version == "14"
-      with_items:
-       - indigo1-testing-ubuntu14_04.list
-       - indigo1-ubuntu14_04.list
-      
+
+    - apt_key: url=http://repo.indigo-datacloud.eu/repository/RPM-GPG-KEY-indigodc state=present
+      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version == "14"
+
     - name: Ubuntu install requirements
       apt: name=software-properties-common
       when: ansible_os_family == "Debian" and (ansible_distribution != "Ubuntu" or ansible_distribution_major_version != "14")
@@ -39,10 +39,10 @@
       when: ansible_distribution == "Ubuntu"
       
     - name: RH indigo repos
-      get_url: url=http://repo.indigo-datacloud.eu/repos/1/{{item}} dest=/etc/yum.repos.d/{{item}}
-      with_items:
-       - indigo1.repo
-       - indigo1-testing.repo
+      get_url: url=http://repo.indigo-datacloud.eu/repos/1/indigo1.repo dest=/etc/yum.repos.d/indigo1.repo
+      when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 7 and ansible_distribution != "Fedora"
+      
+    - rpm_key: state=present key=http://repo.indigo-datacloud.eu/repository/RPM-GPG-KEY-indigodc
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 7 and ansible_distribution != "Fedora"
       
     - name: RH7 install Ansible with yum
