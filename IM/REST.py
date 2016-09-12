@@ -18,6 +18,7 @@ import logging
 import threading
 import bottle
 import json
+import base64
 
 from InfrastructureInfo import IncorrectVMException, DeletedVMException
 from InfrastructureManager import (InfrastructureManager, DeletedInfrastructureException,
@@ -173,7 +174,19 @@ def get_auth_header():
     replacing the new line chars.
     """
     auth_header = bottle.request.headers['AUTHORIZATION']
-    if Config.SINGLE_SITE and auth_header.startswith("Bearer "):
+    if Config.SINGLE_SITE:
+        if auth_header.startswith("Basic "):
+            auth_data = base64.b64decode(auth_header[6:])
+            user_pass = auth_data.split(":")
+            im_auth = {"type": "InfrastructureManager",
+                       "username": user_pass[0],
+                       "password": user_pass[1]}
+            single_site_auth = {"type": Config.SINGLE_SITE_TYPE,
+                                "host": Config.SINGLE_SITE_AUTH_HOST,
+                                "username": user_pass[0],
+                                "password": user_pass[1]}
+            return Authentication([im_auth, single_site_auth])
+        elif auth_header.startswith("Bearer "):
             token = auth_header[7:]
             im_auth = {"type": "InfrastructureManager",
                        "username": "user",
