@@ -49,7 +49,7 @@ class Authentication:
         """
         res = []
         for auth in self.auth_list:
-            if auth['type'] == auth_type:
+            if 'type' in auth and auth['type'] == auth_type:
                 if host:
                     if 'host' in auth and auth['host'].find(host) != -1:
                         res.append(auth)

@@ -19,6 +19,7 @@ topology_template:
         deployment_id: { token: [ get_attribute: [ lrms_server, public_address, 0 ], ':', 0 ] }
         # fake value to test concat intrinsic functions
         orchestrator_url: { concat: [ 'http://', get_attribute: [ lrms_server, public_address, 0 ], ':8080' ] }
+        iam_access_token: iam_access_token
       requirements:
         - lrms: lrms_front_end
         - wn: wn_node
