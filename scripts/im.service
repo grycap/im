@@ -1,0 +1,12 @@
+[Unit]
+Description=Infrastrucure Manager
+After=network.target remote-fs.target nss-lookup.target network.service
+
+[Service]
+ExecStart=im_service.py
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=process
+
+[Install]
+WantedBy=multi-user.target
+

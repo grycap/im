@@ -30,6 +30,7 @@ datafiles = [(os.path.join(install_path, root), [os.path.join(root, f) for f in 
              for root, dirs, files in os.walk("contextualization")]
 # Add other special files
 datafiles.append(('/etc/init.d', ['scripts/im']))
+datafiles.append(('/etc/systemd/system', ['scripts/im.service']))
 datafiles.append(('/etc/im', ['etc/im.cfg']))
 datafiles.append(('/etc/im', ['etc/logging.conf']))
 
