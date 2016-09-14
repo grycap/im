@@ -33,6 +33,8 @@ datafiles.append(('/etc/init.d', ['scripts/im']))
 datafiles.append(('/etc/systemd/system', ['scripts/im.service']))
 datafiles.append(('/etc/im', ['etc/im.cfg']))
 datafiles.append(('/etc/im', ['etc/logging.conf']))
+# force the im_service.py file to be allways in this path
+datafiles.append(('/usr/bin', ['im_service.py']))
 
 setup(name="IM", version=version,
       author='GRyCAP - Universitat Politecnica de Valencia',
