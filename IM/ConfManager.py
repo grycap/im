@@ -1320,11 +1320,7 @@ class ConfManager(threading.Thread):
 
             # Add all the modules needed in the RADL
             modules = []
-            for group in vm_group:
-                # Use the first VM as the info used is the same for all the VMs
-                # in the group
-                vm = vm_group[group][0]
-
+            for vm in self.inf.get_vm_list():
                 # Get the modules specified by the user in the RADL
                 modules.extend(vm.getModulesToInstall())
                 # Get the info about the apps from the recipes DB
