@@ -224,4 +224,5 @@ IM 1.4.7
     * Return 403 error in REST API when the user cannot access the infrastructure
     * Assure to kill ansible processes is case of ctxt timeout
     * Bugfix in some configuration cases
-    
+    * Bugfix not installing ansible roles defined in not master vm
+    * Add im.service file add support to systemd
