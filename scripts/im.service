@@ -1,0 +1,13 @@
+[Unit]
+Description=Infrastrucure Manager
+After=network.target remote-fs.target nss-lookup.target network.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/im_service.py
+KillMode=process
+PIDFile=/var/run/im.pid
+Restart=on-abort
+
+[Install]
+WantedBy=multi-user.target
