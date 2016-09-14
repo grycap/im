@@ -6,6 +6,7 @@ After=network.target remote-fs.target nss-lookup.target network.service
 ExecStart=im_service.py
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=process
+PIDFile=/var/run/im.pid
 
 [Install]
 WantedBy=multi-user.target
