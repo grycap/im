@@ -3,10 +3,11 @@ Description=Infrastrucure Manager
 After=network.target remote-fs.target nss-lookup.target network.service
 
 [Service]
+Type=simple
 ExecStart=im_service.py
-ExecReload=/bin/kill -HUP $MAINPID
 KillMode=process
 PIDFile=/var/run/im.pid
+Restart=on-abort
 
 [Install]
 WantedBy=multi-user.target
