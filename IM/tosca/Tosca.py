@@ -1333,7 +1333,7 @@ class Tosca:
         return res
 
     def merge(self, other_tosca):
-        Tosca._merge_yaml(self.yaml,other_tosca.yaml)
+        Tosca._merge_yaml(self.yaml, other_tosca.yaml)
         self.tosca = ToscaTemplate(yaml_dict_tpl=copy.deepcopy(self.yaml))
         return self
 
@@ -1342,7 +1342,7 @@ class Tosca:
         if yaml2 is None:
             return yaml1
         elif isinstance(yaml1, dict) and isinstance(yaml2, dict):
-            for k,v in yaml2.iteritems():
+            for k, v in yaml2.iteritems():
                 if k not in yaml1:
                     yaml1[k] = v
                 else:
