@@ -1335,6 +1335,7 @@ class Tosca:
     def merge(self, other_tosca):
         Tosca._merge_yaml(self.yaml,other_tosca.yaml)
         self.tosca = ToscaTemplate(yaml_dict_tpl=copy.deepcopy(self.yaml))
+        return self
 
     @staticmethod
     def _merge_yaml(yaml1, yaml2):
