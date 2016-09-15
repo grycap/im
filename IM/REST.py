@@ -531,6 +531,8 @@ def RESTAddResource(id=None):
                 auth = InfrastructureManager.check_auth_data(auth)
                 sel_inf = InfrastructureManager.get_infrastructure(id, auth)
                 remove_list, radl_data = tosca_data.to_radl(sel_inf)
+                if sel_inf.extra_info['TOSCA']:
+                    tosca_data = sel_inf.extra_info['TOSCA'].merge(tosca_data)
             elif "text/plain" in content_type or "*/*" in content_type or "text/*" in content_type:
                 content_type = "text/plain"
             else:
