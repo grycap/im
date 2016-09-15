@@ -57,6 +57,11 @@ class OCCICloudConnector(CloudConnector):
         Get a HTTPS connection with the specified server.
         It uses a proxy file if it has been specified in the auth credentials
         """
+        # disable SSL certificate validation
+        import ssl
+        if hasattr(ssl, '_create_unverified_context'):
+            ssl._create_default_https_context = ssl._create_unverified_context
+
         if auth and 'proxy' in auth:
             proxy = auth['proxy']
 
@@ -979,34 +984,38 @@ class KeyStoneAuth:
             # [{\"description\": \"egi fedcloud\", \"enabled\": true, \"id\":
             # \"fffd98393bae4bf0acf66237c8f292ad\", \"name\": \"egi\"}]}"
             output = json.loads(resp.read())
-            tenant = str(output['tenants'][0]['name'])
 
-            conn = occi.get_https_connection(auth, server, port)
-            conn.putrequest('POST', "/v2.0/tokens")
-            conn.putheader('Accept', 'application/json')
-            conn.putheader('Content-Type', 'application/json')
-            conn.putheader('X-Auth-Token', token_id)
-            conn.putheader('Connection', 'close')
+            tenant_token_id = None
+            # retry for each available tenant (usually only one)
+            for tenant in output['tenants']:
+                conn = occi.get_https_connection(auth, server, port)
+                conn.putrequest('POST', "/v2.0/tokens")
+                conn.putheader('Accept', 'application/json')
+                conn.putheader('Content-Type', 'application/json')
+                conn.putheader('X-Auth-Token', token_id)
+                conn.putheader('Connection', 'close')
 
-            body = '{"auth":{"voms":true,"tenantName":"' + tenant + '"}}'
+                body = '{"auth":{"voms":true,"tenantName":"' + str(tenant['name']) + '"}}'
 
-            conn.putheader('Content-Length', len(body))
-            conn.endheaders(body)
+                conn.putheader('Content-Length', len(body))
+                conn.endheaders(body)
 
-            resp = conn.getresponse()
-            occi.delete_proxy(conn)
+                resp = conn.getresponse()
+                occi.delete_proxy(conn)
 
-            # format: -> "{\"access\": {\"token\": {\"issued_at\":
-            # \"2014-12-29T17:10:49.609894\", \"expires\":
-            # \"2014-12-30T17:10:49Z\", \"id\":
-            # \"c861ab413e844d12a61d09b23dc4fb9c\"}, \"serviceCatalog\": [],
-            # \"user\": {\"username\":
-            # \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\", \"roles_links\":
-            # [], \"id\": \"475ce4978fb042e49ce0391de9bab49b\", \"roles\": [],
-            # \"name\": \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\"},
-            # \"metadata\": {\"is_admin\": 0, \"roles\": []}}}"
-            output = json.loads(resp.read())
-            tenant_token_id = output['access']['token']['id']
+                # format: -> "{\"access\": {\"token\": {\"issued_at\":
+                # \"2014-12-29T17:10:49.609894\", \"expires\":
+                # \"2014-12-30T17:10:49Z\", \"id\":
+                # \"c861ab413e844d12a61d09b23dc4fb9c\"}, \"serviceCatalog\": [],
+                # \"user\": {\"username\":
+                # \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\", \"roles_links\":
+                # [], \"id\": \"475ce4978fb042e49ce0391de9bab49b\", \"roles\": [],
+                # \"name\": \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\"},
+                # \"metadata\": {\"is_admin\": 0, \"roles\": []}}}"
+                output = json.loads(resp.read())
+                if 'access' in output:
+                    tenant_token_id = output['access']['token']['id']
+                    break
 
             return tenant_token_id
         except Exception, ex:
