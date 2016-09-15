@@ -27,12 +27,8 @@ class Tosca:
     logger = logging.getLogger('InfrastructureManager')
 
     def __init__(self, yaml_str):
-        self.tosca = None
-        # write the contents to a file as ToscaTemplate needs
-        with tempfile.NamedTemporaryFile(suffix=".yaml") as f:
-            f.write(yaml_str)
-            f.flush()
-            self.tosca = ToscaTemplate(f.name)
+        self.yaml = yaml.load(yaml_str)
+        self.tosca = ToscaTemplate(yaml_dict_tpl=copy.deepcopy(self.yaml))
 
     def to_radl(self, inf_info=None):
         """
@@ -469,7 +465,7 @@ class Tosca:
 
             # Merge the main recipe with the other yaml files
             for recipe in recipe_list:
-                recipes = Tosca._merge_yaml(recipes, recipe)
+                recipes = Tosca._merge_recipes(recipes, recipe)
 
             return configure(name, recipes)
         else:
@@ -1268,9 +1264,9 @@ class Tosca:
                 return interfaces
 
     @staticmethod
-    def _merge_yaml(yaml1, yaml2):
+    def _merge_recipes(yaml1, yaml2):
         """
-        Merge two ansible yaml docs
+        Merge two ansible recipes yaml docs
 
         Arguments:
            - yaml1(str): string with the first YAML
@@ -1335,3 +1331,27 @@ class Tosca:
             res[output.name] = val
 
         return res
+
+    def merge(self, other_tosca):
+        Tosca._merge_yaml(self.yaml, other_tosca.yaml)
+        self.tosca = ToscaTemplate(yaml_dict_tpl=copy.deepcopy(self.yaml))
+        return self
+
+    @staticmethod
+    def _merge_yaml(yaml1, yaml2):
+        if yaml2 is None:
+            return yaml1
+        elif isinstance(yaml1, dict) and isinstance(yaml2, dict):
+            for k, v in yaml2.iteritems():
+                if k not in yaml1:
+                    yaml1[k] = v
+                else:
+                    yaml1[k] = Tosca._merge_yaml(yaml1[k], v)
+        elif isinstance(yaml1, list) and isinstance(yaml2, (list, tuple)):
+            for v in yaml2:
+                if v not in yaml1:
+                    yaml1.append(v)
+        else:
+            yaml1 = yaml2
+
+        return yaml1

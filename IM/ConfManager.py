@@ -1318,14 +1318,17 @@ class ConfManager(threading.Thread):
             shutil.copy(Config.CONTEXTUALIZATION_DIR + "/" +
                         ConfManager.MASTER_YAML, tmp_dir + "/" + ConfManager.MASTER_YAML)
 
-            # Add all the modules needed in the RADL
+            # Add all the modules specified in the RADL
             modules = []
-            for vm in self.inf.get_vm_list():
-                # Get the modules specified by the user in the RADL
-                modules.extend(vm.getModulesToInstall())
-                # Get the info about the apps from the recipes DB
-                vm_modules, _ = Recipe.getInfoApps(vm.getAppsToInstall())
-                modules.extend(vm_modules)
+            for s in self.inf.radl.systems:
+                for req_app in s.getApplications():
+                    if req_app.getValue("name").startswith("ansible.modules."):
+                        # Get the modules specified by the user in the RADL
+                        modules.append(req_app.getValue("name")[16:])
+                    else:
+                        # Get the info about the apps from the recipes DB
+                        vm_modules, _ = Recipe.getInfoApps([req_app])
+                        modules.extend(vm_modules)
 
             # avoid duplicates
             modules = set(modules)
