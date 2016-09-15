@@ -971,7 +971,11 @@ class KeyStoneAuth:
             # \"name\": \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\"},
             # \"metadata\": {\"is_admin\": 0, \"roles\": []}}}"
             output = json.loads(resp.read())
-            token_id = output['access']['token']['id']
+            if 'access' in output:
+                token_id = output['access']['token']['id']
+            else:
+                occi.logger.exception("Error obtaining Keystone Token.")
+                raise Exception("Error obtaining Keystone Token: %s" % str(output))
 
             conn = occi.get_https_connection(auth, server, port)
             headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
