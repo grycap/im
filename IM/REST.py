@@ -531,7 +531,7 @@ def RESTAddResource(id=None):
                 auth = InfrastructureManager.check_auth_data(auth)
                 sel_inf = InfrastructureManager.get_infrastructure(id, auth)
                 # merge the current TOSCA with the new one
-                if sel_inf.extra_info['TOSCA']:
+                if isinstance(sel_inf.extra_info['TOSCA'], Tosca):
                     tosca_data = sel_inf.extra_info['TOSCA'].merge(tosca_data)
                 remove_list, radl_data = tosca_data.to_radl(sel_inf)
             elif "text/plain" in content_type or "*/*" in content_type or "text/*" in content_type:
