@@ -378,7 +378,7 @@ class OCCICloudConnector(CloudConnector):
                 memory = self.get_occi_attribute_value(output, 'occi.compute.memory')
                 if memory:
                     vm.info.systems[0].setValue("memory.size", float(memory), 'G')
-                    
+
                 console_vnc = self.get_occi_attribute_value(output, 'org.openstack.compute.console.vnc')
                 if console_vnc:
                     vm.info.systems[0].setValue("console_vnc", console_vnc)
