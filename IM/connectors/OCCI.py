@@ -208,7 +208,10 @@ class OCCICloudConnector(CloudConnector):
         # http://opennebula.org/occi/infrastructure#networkinterface";occi.core.id="compute_10_nic_0";occi.core.title="private";occi.core.target="/network/1";occi.core.source="/compute/10";occi.networkinterface.interface="eth0";occi.networkinterface.mac="10:00:00:00:00:05";occi.networkinterface.state="active";occi.networkinterface.address="10.100.1.5";org.opennebula.networkinterface.bridge="br1"
         lines = occi_res.split("\n")
         res = []
+        link_to_public = False
         for l in lines:
+            if l.find('Link:') != -1 and l.find('/network/public') != -1:
+                link_to_public = True
             if l.find('Link:') != -1 and l.find('/network/') != -1:
                 num_interface = None
                 ip_address = None
@@ -224,7 +227,7 @@ class OCCICloudConnector(CloudConnector):
                         num_interface = re.findall('\d+', net_interface)[0]
                 if num_interface and ip_address:
                     res.append((num_interface, ip_address, not is_private))
-        return res
+        return link_to_public, res
 
     def setIPs(self, vm, occi_res, auth_data):
         """
@@ -233,16 +236,16 @@ class OCCICloudConnector(CloudConnector):
         public_ips = []
         private_ips = []
 
-        addresses = self.get_net_info(occi_res)
+        link_to_public, addresses = self.get_net_info(occi_res)
         for _, ip_address, is_public in addresses:
             if is_public:
                 public_ips.append(ip_address)
             else:
                 private_ips.append(ip_address)
 
-        if not public_ips and vm.requested_radl.hasPublicNet(vm.info.systems[0].name):
-            self.logger.debug(
-                "The VM does not have public IP trying to add one.")
+        if (vm.state == VirtualMachine.RUNNING and not link_to_public and
+                not public_ips and vm.requested_radl.hasPublicNet(vm.info.systems[0].name)):
+            self.logger.debug("The VM does not have public IP trying to add one.")
             success, _ = self.add_public_ip(vm, auth_data)
             if success:
                 self.logger.debug("Public IP successfully added.")
@@ -356,11 +359,9 @@ class OCCICloudConnector(CloudConnector):
                 return (False, resp.reason + "\n" + output)
             else:
                 old_state = vm.state
-                occi_state = self.get_occi_attribute_value(
-                    output, 'occi.compute.state')
+                occi_state = self.get_occi_attribute_value(output, 'occi.compute.state')
 
-                occi_name = self.get_occi_attribute_value(
-                    output, 'occi.core.title')
+                occi_name = self.get_occi_attribute_value(output, 'occi.core.title')
                 if occi_name:
                     vm.info.systems[0].setValue('instance_name', occi_name)
 
@@ -369,18 +370,18 @@ class OCCICloudConnector(CloudConnector):
                 if old_state == VirtualMachine.PENDING and occi_state == 'inactive':
                     vm.state = VirtualMachine.PENDING
                 else:
-                    vm.state = self.VM_STATE_MAP.get(
-                        occi_state, VirtualMachine.UNKNOWN)
+                    vm.state = self.VM_STATE_MAP.get(occi_state, VirtualMachine.UNKNOWN)
 
-                cores = self.get_occi_attribute_value(
-                    output, 'occi.compute.cores')
+                cores = self.get_occi_attribute_value(output, 'occi.compute.cores')
                 if cores:
                     vm.info.systems[0].setValue("cpu.count", int(cores))
-                memory = self.get_occi_attribute_value(
-                    output, 'occi.compute.memory')
+                memory = self.get_occi_attribute_value(output, 'occi.compute.memory')
                 if memory:
-                    vm.info.systems[0].setValue(
-                        "memory.size", float(memory), 'G')
+                    vm.info.systems[0].setValue("memory.size", float(memory), 'G')
+                    
+                console_vnc = self.get_occi_attribute_value(output, 'org.openstack.compute.console.vnc')
+                if console_vnc:
+                    vm.info.systems[0].setValue("console_vnc", console_vnc)
 
                 # Update the network data
                 self.setIPs(vm, output, auth_data)
@@ -706,8 +707,14 @@ users:
                 compute_id = "im." + str(int(time.time() * 100))
                 body += 'X-OCCI-Attribute: occi.core.id="' + compute_id + '"\n'
                 body += 'X-OCCI-Attribute: occi.core.title="' + name + '"\n'
-                # TODO: evaluate to set the hostname defined in the RADL
-                body += 'X-OCCI-Attribute: occi.compute.hostname="' + name + '"\n'
+
+                # Set the hostname defined in the RADL
+                # Create the VM to get the nodename
+                vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self)
+                (nodename, nodedom) = vm.getRequestedName(default_hostname=Config.DEFAULT_VM_NAME,
+                                                          default_domain=Config.DEFAULT_DOMAIN)
+
+                body += 'X-OCCI-Attribute: occi.compute.hostname="' + nodename + '"\n'
                 # See: https://wiki.egi.eu/wiki/HOWTO10
                 # body += 'X-OCCI-Attribute: org.openstack.credentials.publickey.name="my_key"'
                 # body += 'X-OCCI-Attribute: org.openstack.credentials.publickey.data="ssh-rsa BAA...zxe ==user@host"'
@@ -745,10 +752,8 @@ users:
                     else:
                         occi_vm_id = os.path.basename(output)
                     if occi_vm_id:
-                        vm = VirtualMachine(
-                            inf, occi_vm_id, self.cloud, radl, requested_radl, self)
-                        vm.info.systems[0].setValue(
-                            'instance_id', str(occi_vm_id))
+                        vm.id = occi_vm_id
+                        vm.info.systems[0].setValue('instance_id', str(occi_vm_id))
                         res.append((True, vm))
                     else:
                         res.append((False, 'Unknown Error launching the VM.'))
