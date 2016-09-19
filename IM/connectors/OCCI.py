@@ -506,17 +506,70 @@ users:
             # get the last letter and use vd
             disk_device = "vd" + disk_device[-1]
             system.setValue("disk." + str(cont) + ".device", disk_device)
-            self.logger.debug(
-                "Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
-            success, volume_id = self.create_volume(
-                int(disk_size), "im-disk-%d" % cont, auth_data)
+            self.logger.debug("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
+            storage_name = "im-disk-" + str(int(time.time() * 100))
+            success, volume_id = self.create_volume(int(disk_size), storage_name, auth_data)
             if success:
                 volumes[disk_device] = volume_id
-                system.setValue("disk." + str(cont) +
-                                ".provider_id", volume_id)
+                system.setValue("disk." + str(cont) + ".provider_id", volume_id)
+
+                # let's wait the storage to be ready "online"
+                wait_ok = self.wait_volume_state(volume_id, auth_data)
+                if not wait_ok:
+                    self.logger.debug("Error waiting volume %s. Deleting it." % volume_id)
+                    self.delete_volume(volume_id, auth_data)
+
             cont += 1
 
         return volumes
+
+    def wait_volume_state(self, volume_id, auth_data, wait_state="online", timeout=60, delay=5):
+        """
+        Wait a storage to be in the specified state (by default "online")
+        """
+        wait = 0
+        online = False
+        while not online and wait < timeout:
+            success, storage_info = self.get_volume_info(volume_id, auth_data)
+            state = self.get_occi_attribute_value(storage_info, 'occi.storage.state')
+            if success and state == wait_state:
+                online = True
+            elif not success:
+                self.logger.error("Error waiting volume %d to be ready: %s" % (volume_id, state))
+                return False
+            if not state == wait_state:
+                time.sleep(delay)
+                wait += delay
+
+        return state == wait_state
+
+    def get_volume_info(self, storage_id, auth_data):
+        """
+        Get the OCCI info about the storage
+        """
+        auth = self.get_auth_header(auth_data)
+        headers = {'Accept': 'text/plain', 'Connection': 'close'}
+        if auth:
+            headers.update(auth)
+        conn = None
+        try:
+            conn = self.get_http_connection(auth_data)
+            conn.request('GET', self.cloud.path +
+                         "/storage/" + storage_id, headers=headers)
+            resp = conn.getresponse()
+
+            output = resp.read()
+            if resp.status == 404 or resp.status == 204:
+                return (False, "Volume not found.")
+            elif resp.status != 200:
+                return (False, resp.reason + "\n" + output)
+            else:
+                return (True, output)
+        except Exception, ex:
+            self.logger.exception("Error getting volume info")
+            return False, str(ex)
+        finally:
+            self.delete_proxy(conn)
 
     def create_volume(self, size, name, auth_data):
         """
@@ -928,7 +981,16 @@ users:
                 system.setValue("disk." + str(cont) + ".device", disk_device)
                 self.logger.debug("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
                 success, volume_id = self.create_volume(int(disk_size), "im-disk-%d" % cont, auth_data)
+
                 if success:
+                    # let's wait the storage to be ready "online"
+                    wait_ok = self.wait_volume_state(volume_id, auth_data)
+                    if not wait_ok:
+                        self.logger.debug("Error waiting volume %s. Deleting it." % volume_id)
+                        self.delete_volume(volume_id, auth_data)
+                        return (False, "Error waiting volume %s. Deleting it." % volume_id)
+
+                if wait_ok:
                     self.logger.debug("Attaching to the instance")
                     attached = self.attach_volume(vm, volume_id, disk_device, mount_path, auth_data)
                     if attached:
