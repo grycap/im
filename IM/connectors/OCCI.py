@@ -491,7 +491,7 @@ users:
 
     def create_volumes(self, system, auth_data):
         """
-        Attach a the required volumes (in the RADL) to the launched instance
+        Attach the required volumes (in the RADL) to the launched instance
 
         Arguments:
            - instance(:py:class:`boto.ec2.instance`): object to connect to EC2 instance.
@@ -904,8 +904,92 @@ users:
             self.delete_proxy(conn)
 
     def alterVM(self, vm, radl, auth_data):
-        # TODO: in OCCI 1.2 it is supported
-        return (False, "Not supported")
+        """
+        In the OCCI case it only enable to attach new disks
+        """
+        if not radl.systems:
+            return (True, "")
+
+        try:
+            orig_system = vm.info.systems[0]
+
+            cont = 1
+            while (orig_system.getValue("disk." + str(cont) + ".size") and
+                   orig_system.getValue("disk." + str(cont) + ".device")):
+                cont += 1
+
+            system = radl.systems[0]
+            while system.getValue("disk." + str(cont) + ".size") and system.getValue("disk." + str(cont) + ".device"):
+                disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('G')
+                disk_device = system.getValue("disk." + str(cont) + ".device")
+                mount_path = system.getValue("disk." + str(cont) + ".mount_path")
+                # get the last letter and use vd
+                disk_device = "vd" + disk_device[-1]
+                system.setValue("disk." + str(cont) + ".device", disk_device)
+                self.logger.debug("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
+                success, volume_id = self.create_volume(int(disk_size), "im-disk-%d" % cont, auth_data)
+                if success:
+                    self.logger.debug("Attaching to the instance")
+                    attached = self.attach_volume(vm, volume_id, disk_device, mount_path, auth_data)
+                    if attached:
+                        orig_system.setValue("disk." + str(cont) + ".size", disk_size, "G")
+                        orig_system.setValue("disk." + str(cont) + ".device", disk_device)
+                        orig_system.setValue("disk." + str(cont) + ".provider_id", volume_id)
+                        orig_system.setValue("disk." + str(cont) + ".mount_path", mount_path)
+                    else:
+                        self.logger.error("Error attaching a %d GB volume for the disk %d."
+                                          " Deleting it." % (int(disk_size), cont))
+                        self.delete_volume(volume_id, auth_data)
+                        return (False, "Error attaching the new volume")
+                else:
+                    return (False, "Error creating the new volume: " + volume_id)
+                cont += 1
+        except Exception, ex:
+            self.logger.exception("Error connecting with OCCI server")
+            return (False, "Error connecting with OCCI server: " + str(ex))
+
+        return (True, "")
+
+    def attach_volume(self, vm, volume_id, device, mount_path, auth_data):
+        """
+        Attach a volume to a running VM
+        """
+        auth_header = self.get_auth_header(auth_data)
+        conn = None
+        try:
+            conn = self.get_http_connection(auth_data)
+            conn.putrequest('POST', self.cloud.path +
+                            "/link/storagelink/")
+            if auth_header:
+                conn.putheader(auth_header.keys()[0], auth_header.values()[0])
+            conn.putheader('Accept', 'text/plain')
+            conn.putheader('Content-Type', 'text/plain,text/occi')
+            conn.putheader('Connection', 'close')
+
+            disk_id = "imdisk." + str(int(time.time() * 100))
+
+            body = ('Category: storagelink;scheme="http://schemas.ogf.org/occi/infrastructure#";class="kind";'
+                    'location="/link/storagelink/";title="storagelink"\n')
+            body += 'X-OCCI-Attribute: occi.core.id="%s"\n' % disk_id
+            body += 'X-OCCI-Attribute: occi.core.target="/storage/%s"\n' % volume_id
+            body += 'X-OCCI-Attribute: occi.core.source="/compute/%s"' % vm.id
+            body += 'X-OCCI-Attribute: occi.storagelink.deviceid="/dev/%s"' % device
+            # body += 'X-OCCI-Attribute: occi.storagelink.mountpoint="%s"' % mount_path
+            conn.putheader('Content-Length', len(body))
+            conn.endheaders(body)
+
+            resp = conn.getresponse()
+            output = str(resp.read())
+            if resp.status != 201 and resp.status != 200:
+                self.logger.error("Error attaching disk to the VM: " + resp.reason + "\n" + output)
+                return False
+            else:
+                return True
+        except Exception:
+            self.logger.exception("Error connecting with OCCI server")
+            return False
+        finally:
+            self.delete_proxy(conn)
 
 
 class KeyStoneAuth:

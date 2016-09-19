@@ -226,3 +226,4 @@ IM 1.4.7
     * Bugfix in some configuration cases
     * Bugfix not installing ansible roles defined in not master vm
     * Add im.service file add support to systemd
+    * Enable to add a Storage to a runnin VM in the OCCI connector
