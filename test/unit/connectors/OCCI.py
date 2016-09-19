@@ -112,6 +112,9 @@ class TestOCCIConnector(unittest.TestCase):
             elif url == "/compute/1":
                 resp.status = 200
                 resp.read.return_value = read_file_as_string("files/occi_vm_info.txt")
+            elif url.startswith("/storage"):
+                resp.status = 200
+                resp.read.return_value = 'X-OCCI-Attribute: occi.storage.state="online"'
         elif method == "POST":
             if url == "/compute/":
                 resp.status = 201
