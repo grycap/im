@@ -523,7 +523,7 @@ users:
 
         return volumes
 
-    def wait_volume_state(self, volume_id, auth_data, wait_state="online", timeout=60, delay=5):
+    def wait_volume_state(self, volume_id, auth_data, wait_state="online", timeout=180, delay=5):
         """
         Wait a storage to be in the specified state (by default "online")
         """
