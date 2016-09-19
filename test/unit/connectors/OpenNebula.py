@@ -236,7 +236,11 @@ class TestONEConnector(unittest.TestCase):
         new_radl_data = """
             system test (
             cpu.count>=2 and
-            memory.size>=2048m
+            memory.size>=2048m and
+            disk.1.size=1GB and
+            disk.1.device='hdc' and
+            disk.1.fstype='ext4' and
+            disk.1.mount_path='/mnt/disk'
             )"""
         new_radl = radl_parse.parse_radl(new_radl_data)
 
@@ -253,6 +257,7 @@ class TestONEConnector(unittest.TestCase):
         one_server.one.vm.action.return_value = (True, "", 0)
         one_server.one.vm.resize.return_value = (True, "", 0)
         one_server.one.vm.info.return_value = (True, read_file_as_string("files/vm_info_off.xml"), 0)
+        one_server.one.vm.attach.return_value = (True, "", 0)
         server_proxy.return_value = one_server
 
         success, _ = one_cloud.alterVM(vm, new_radl, auth)

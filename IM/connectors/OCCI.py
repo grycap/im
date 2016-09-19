@@ -208,7 +208,10 @@ class OCCICloudConnector(CloudConnector):
         # http://opennebula.org/occi/infrastructure#networkinterface";occi.core.id="compute_10_nic_0";occi.core.title="private";occi.core.target="/network/1";occi.core.source="/compute/10";occi.networkinterface.interface="eth0";occi.networkinterface.mac="10:00:00:00:00:05";occi.networkinterface.state="active";occi.networkinterface.address="10.100.1.5";org.opennebula.networkinterface.bridge="br1"
         lines = occi_res.split("\n")
         res = []
+        link_to_public = False
         for l in lines:
+            if l.find('Link:') != -1 and l.find('/network/public') != -1:
+                link_to_public = True
             if l.find('Link:') != -1 and l.find('/network/') != -1:
                 num_interface = None
                 ip_address = None
@@ -224,7 +227,7 @@ class OCCICloudConnector(CloudConnector):
                         num_interface = re.findall('\d+', net_interface)[0]
                 if num_interface and ip_address:
                     res.append((num_interface, ip_address, not is_private))
-        return res
+        return link_to_public, res
 
     def setIPs(self, vm, occi_res, auth_data):
         """
@@ -233,16 +236,16 @@ class OCCICloudConnector(CloudConnector):
         public_ips = []
         private_ips = []
 
-        addresses = self.get_net_info(occi_res)
+        link_to_public, addresses = self.get_net_info(occi_res)
         for _, ip_address, is_public in addresses:
             if is_public:
                 public_ips.append(ip_address)
             else:
                 private_ips.append(ip_address)
 
-        if not public_ips and vm.requested_radl.hasPublicNet(vm.info.systems[0].name):
-            self.logger.debug(
-                "The VM does not have public IP trying to add one.")
+        if (vm.state == VirtualMachine.RUNNING and not link_to_public and
+                not public_ips and vm.requested_radl.hasPublicNet(vm.info.systems[0].name)):
+            self.logger.debug("The VM does not have public IP trying to add one.")
             success, _ = self.add_public_ip(vm, auth_data)
             if success:
                 self.logger.debug("Public IP successfully added.")
@@ -356,11 +359,9 @@ class OCCICloudConnector(CloudConnector):
                 return (False, resp.reason + "\n" + output)
             else:
                 old_state = vm.state
-                occi_state = self.get_occi_attribute_value(
-                    output, 'occi.compute.state')
+                occi_state = self.get_occi_attribute_value(output, 'occi.compute.state')
 
-                occi_name = self.get_occi_attribute_value(
-                    output, 'occi.core.title')
+                occi_name = self.get_occi_attribute_value(output, 'occi.core.title')
                 if occi_name:
                     vm.info.systems[0].setValue('instance_name', occi_name)
 
@@ -369,18 +370,18 @@ class OCCICloudConnector(CloudConnector):
                 if old_state == VirtualMachine.PENDING and occi_state == 'inactive':
                     vm.state = VirtualMachine.PENDING
                 else:
-                    vm.state = self.VM_STATE_MAP.get(
-                        occi_state, VirtualMachine.UNKNOWN)
+                    vm.state = self.VM_STATE_MAP.get(occi_state, VirtualMachine.UNKNOWN)
 
-                cores = self.get_occi_attribute_value(
-                    output, 'occi.compute.cores')
+                cores = self.get_occi_attribute_value(output, 'occi.compute.cores')
                 if cores:
                     vm.info.systems[0].setValue("cpu.count", int(cores))
-                memory = self.get_occi_attribute_value(
-                    output, 'occi.compute.memory')
+                memory = self.get_occi_attribute_value(output, 'occi.compute.memory')
                 if memory:
-                    vm.info.systems[0].setValue(
-                        "memory.size", float(memory), 'G')
+                    vm.info.systems[0].setValue("memory.size", float(memory), 'G')
+
+                console_vnc = self.get_occi_attribute_value(output, 'org.openstack.compute.console.vnc')
+                if console_vnc:
+                    vm.info.systems[0].setValue("console_vnc", console_vnc)
 
                 # Update the network data
                 self.setIPs(vm, output, auth_data)
@@ -490,7 +491,7 @@ users:
 
     def create_volumes(self, system, auth_data):
         """
-        Attach a the required volumes (in the RADL) to the launched instance
+        Attach the required volumes (in the RADL) to the launched instance
 
         Arguments:
            - instance(:py:class:`boto.ec2.instance`): object to connect to EC2 instance.
@@ -706,8 +707,14 @@ users:
                 compute_id = "im." + str(int(time.time() * 100))
                 body += 'X-OCCI-Attribute: occi.core.id="' + compute_id + '"\n'
                 body += 'X-OCCI-Attribute: occi.core.title="' + name + '"\n'
-                # TODO: evaluate to set the hostname defined in the RADL
-                body += 'X-OCCI-Attribute: occi.compute.hostname="' + name + '"\n'
+
+                # Set the hostname defined in the RADL
+                # Create the VM to get the nodename
+                vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self)
+                (nodename, nodedom) = vm.getRequestedName(default_hostname=Config.DEFAULT_VM_NAME,
+                                                          default_domain=Config.DEFAULT_DOMAIN)
+
+                body += 'X-OCCI-Attribute: occi.compute.hostname="' + nodename + '"\n'
                 # See: https://wiki.egi.eu/wiki/HOWTO10
                 # body += 'X-OCCI-Attribute: org.openstack.credentials.publickey.name="my_key"'
                 # body += 'X-OCCI-Attribute: org.openstack.credentials.publickey.data="ssh-rsa BAA...zxe ==user@host"'
@@ -745,10 +752,8 @@ users:
                     else:
                         occi_vm_id = os.path.basename(output)
                     if occi_vm_id:
-                        vm = VirtualMachine(
-                            inf, occi_vm_id, self.cloud, radl, requested_radl, self)
-                        vm.info.systems[0].setValue(
-                            'instance_id', str(occi_vm_id))
+                        vm.id = occi_vm_id
+                        vm.info.systems[0].setValue('instance_id', str(occi_vm_id))
                         res.append((True, vm))
                     else:
                         res.append((False, 'Unknown Error launching the VM.'))
@@ -899,8 +904,92 @@ users:
             self.delete_proxy(conn)
 
     def alterVM(self, vm, radl, auth_data):
-        # TODO: in OCCI 1.2 it is supported
-        return (False, "Not supported")
+        """
+        In the OCCI case it only enable to attach new disks
+        """
+        if not radl.systems:
+            return (True, "")
+
+        try:
+            orig_system = vm.info.systems[0]
+
+            cont = 1
+            while (orig_system.getValue("disk." + str(cont) + ".size") and
+                   orig_system.getValue("disk." + str(cont) + ".device")):
+                cont += 1
+
+            system = radl.systems[0]
+            while system.getValue("disk." + str(cont) + ".size") and system.getValue("disk." + str(cont) + ".device"):
+                disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('G')
+                disk_device = system.getValue("disk." + str(cont) + ".device")
+                mount_path = system.getValue("disk." + str(cont) + ".mount_path")
+                # get the last letter and use vd
+                disk_device = "vd" + disk_device[-1]
+                system.setValue("disk." + str(cont) + ".device", disk_device)
+                self.logger.debug("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
+                success, volume_id = self.create_volume(int(disk_size), "im-disk-%d" % cont, auth_data)
+                if success:
+                    self.logger.debug("Attaching to the instance")
+                    attached = self.attach_volume(vm, volume_id, disk_device, mount_path, auth_data)
+                    if attached:
+                        orig_system.setValue("disk." + str(cont) + ".size", disk_size, "G")
+                        orig_system.setValue("disk." + str(cont) + ".device", disk_device)
+                        orig_system.setValue("disk." + str(cont) + ".provider_id", volume_id)
+                        orig_system.setValue("disk." + str(cont) + ".mount_path", mount_path)
+                    else:
+                        self.logger.error("Error attaching a %d GB volume for the disk %d."
+                                          " Deleting it." % (int(disk_size), cont))
+                        self.delete_volume(volume_id, auth_data)
+                        return (False, "Error attaching the new volume")
+                else:
+                    return (False, "Error creating the new volume: " + volume_id)
+                cont += 1
+        except Exception, ex:
+            self.logger.exception("Error connecting with OCCI server")
+            return (False, "Error connecting with OCCI server: " + str(ex))
+
+        return (True, "")
+
+    def attach_volume(self, vm, volume_id, device, mount_path, auth_data):
+        """
+        Attach a volume to a running VM
+        """
+        auth_header = self.get_auth_header(auth_data)
+        conn = None
+        try:
+            conn = self.get_http_connection(auth_data)
+            conn.putrequest('POST', self.cloud.path +
+                            "/link/storagelink/")
+            if auth_header:
+                conn.putheader(auth_header.keys()[0], auth_header.values()[0])
+            conn.putheader('Accept', 'text/plain')
+            conn.putheader('Content-Type', 'text/plain,text/occi')
+            conn.putheader('Connection', 'close')
+
+            disk_id = "imdisk." + str(int(time.time() * 100))
+
+            body = ('Category: storagelink;scheme="http://schemas.ogf.org/occi/infrastructure#";class="kind";'
+                    'location="/link/storagelink/";title="storagelink"\n')
+            body += 'X-OCCI-Attribute: occi.core.id="%s"\n' % disk_id
+            body += 'X-OCCI-Attribute: occi.core.target="/storage/%s"\n' % volume_id
+            body += 'X-OCCI-Attribute: occi.core.source="/compute/%s"' % vm.id
+            body += 'X-OCCI-Attribute: occi.storagelink.deviceid="/dev/%s"' % device
+            # body += 'X-OCCI-Attribute: occi.storagelink.mountpoint="%s"' % mount_path
+            conn.putheader('Content-Length', len(body))
+            conn.endheaders(body)
+
+            resp = conn.getresponse()
+            output = str(resp.read())
+            if resp.status != 201 and resp.status != 200:
+                self.logger.error("Error attaching disk to the VM: " + resp.reason + "\n" + output)
+                return False
+            else:
+                return True
+        except Exception:
+            self.logger.exception("Error connecting with OCCI server")
+            return False
+        finally:
+            self.delete_proxy(conn)
 
 
 class KeyStoneAuth:
