@@ -855,31 +855,105 @@ class OpenNebulaCloudConnector(CloudConnector):
             return (False, "Error waiting the VM to be powered off")
 
     def alterVM(self, vm, radl, auth_data):
-        server = xmlrpclib.ServerProxy(self.server_url, allow_none=True)
         session_id = self.getSessionID(auth_data)
         if session_id is None:
             return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
 
-        if self.checkResize():
-            if not radl.systems:
-                return (True, "")
-            system = radl.systems[0]
+        if not radl.systems:
+            return (True, "")
 
-            cpu = vm.info.systems[0].getValue('cpu.count')
-            memory = vm.info.systems[0].getFeature('memory.size').getValue('M')
+        system = radl.systems[0]
 
-            new_cpu = system.getValue('cpu.count')
-            new_memory = system.getFeature('memory.size').getValue('M')
+        success, info = self.alter_mem_cpu(vm, system, session_id, auth_data)
 
-            new_temp = ""
-            if new_cpu and new_cpu != cpu:
-                new_temp += "CPU = %s\n" % new_cpu
-                new_temp += "VCPU = %s\n" % new_cpu
-            if new_memory and new_memory != memory:
-                new_temp += "MEMORY = %s\n" % new_memory
+        if not success:
+            return (False, info)
 
-            self.logger.debug("New Template: " + new_temp)
-            if new_temp:
+        success, info = self.attach_new_disks(vm, system, session_id)
+
+        if not success:
+            return (False, info)
+        else:
+            return (True, "")
+
+    def attach_volume(self, vm, disk_size, disk_device, disk_fstype, session_id):
+        server = xmlrpclib.ServerProxy(self.server_url, allow_none=True)
+
+        disk_temp = '''
+            DISK = [
+                TYPE = fs ,
+                FORMAT = %s,
+                SIZE = %d,
+                TARGET = %s,
+                SAVE = no
+                ]
+        ''' % (disk_fstype, disk_size, disk_device)
+
+        func_res = server.one.vm.attach(session_id, int(vm.id), disk_temp, False)
+        if len(func_res) == 2:
+            (success, res_info) = func_res
+        elif len(func_res) == 3:
+            (success, res_info, _) = func_res
+        else:
+            return (False, "Error in the one.vm.info return value")
+
+        if success:
+            return (True, "")
+        else:
+            return (False, res_info)
+
+    def attach_new_disks(self, vm, system, session_id):
+        orig_system = vm.info.systems[0]
+
+        cont = 1
+        while (orig_system.getValue("disk." + str(cont) + ".size") and
+               orig_system.getValue("disk." + str(cont) + ".device")):
+            cont += 1
+
+        while system.getValue("disk." + str(cont) + ".size") and system.getValue("disk." + str(cont) + ".device"):
+            disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('M')
+            disk_device = system.getValue("disk." + str(cont) + ".device")
+            mount_path = system.getValue("disk." + str(cont) + ".mount_path")
+            disk_fstype = system.getValue("disk." + str(cont) + ".fstype")
+            # get the last letter and use vd
+            disk_device = "vd" + disk_device[-1]
+            system.setValue("disk." + str(cont) + ".device", disk_device)
+            self.logger.debug("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
+            success, volume_id = self.attach_volume(vm, int(disk_size), disk_device, disk_fstype, session_id)
+            if success:
+                orig_system.setValue("disk." + str(cont) + ".size", disk_size, "M")
+                orig_system.setValue("disk." + str(cont) + ".device", disk_device)
+                orig_system.setValue("disk." + str(cont) + ".provider_id", volume_id)
+                orig_system.setValue("disk." + str(cont) + ".mount_path", mount_path)
+            else:
+                self.logger.error("Error creating a %d GB volume for the disk %d: %s." % (int(disk_size),
+                                                                                          cont, volume_id))
+                return (False, "Error creating a %d GB volume for the disk %d: %s." % (int(disk_size),
+                                                                                       cont, volume_id))
+            cont += 1
+
+        return (True, "")
+
+    def alter_mem_cpu(self, vm, system, session_id, auth_data):
+        server = xmlrpclib.ServerProxy(self.server_url, allow_none=True)
+
+        cpu = vm.info.systems[0].getValue('cpu.count')
+        memory = vm.info.systems[0].getFeature('memory.size').getValue('M')
+
+        new_cpu = system.getValue('cpu.count')
+        new_memory = system.getFeature('memory.size').getValue('M')
+
+        new_temp = ""
+        if new_cpu and new_cpu != cpu:
+            new_temp += "CPU = %s\n" % new_cpu
+            new_temp += "VCPU = %s\n" % new_cpu
+        if new_memory and new_memory != memory:
+            new_temp += "MEMORY = %s\n" % new_memory
+
+        self.logger.debug("New Template: " + new_temp)
+
+        if new_temp:
+            if self.checkResize():
                 # First we must power off the VM
                 (success, info) = self.poweroff(vm, auth_data)
                 if not success:
@@ -887,17 +961,18 @@ class OpenNebulaCloudConnector(CloudConnector):
                 (success, info, _) = server.one.vm.resize(
                     session_id, int(vm.id), new_temp, False)
                 self.start(vm, auth_data)
-            else:
-                return (True, self.updateVMInfo(vm, auth_data))
 
-            if success:
-                if new_cpu:
-                    vm.info.systems[0].setValue('cpu.count', new_cpu)
-                if new_memory:
-                    vm.info.systems[0].addFeature(
-                        Feature("memory.size", "=", new_memory, 'M'), conflict="other", missing="other")
-                return (success, self.updateVMInfo(vm, auth_data))
+                if success:
+                    if new_cpu:
+                        vm.info.systems[0].setValue('cpu.count', new_cpu)
+                    if new_memory:
+                        vm.info.systems[0].addFeature(
+                            Feature("memory.size", "=", new_memory, 'M'), conflict="other", missing="other")
+                    return (True, self.updateVMInfo(vm, auth_data))
+                else:
+                    return (False, info)
             else:
-                return (success, info)
+                return (False, "Not supported")
         else:
-            return (False, "Not supported")
+            # Nothing to do
+            return (True, "")
