@@ -227,3 +227,4 @@ IM 1.4.7
     * Bugfix not installing ansible roles defined in not master vm
     * Add im.service file add support to systemd
     * Enable to add a Storage to a running VM in the OCCI and OpenNebula connectors
+    * Bugfix in OCCI not waiting the volumes on creation
