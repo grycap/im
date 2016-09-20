@@ -268,10 +268,10 @@ class OCCICloudConnector(CloudConnector):
             net_id = "imnet." + str(int(time.time() * 100))
 
             body = ('Category: networkinterface;scheme="http://schemas.ogf.org/occi/infrastructure#";class="kind";'
-                    'location="/link/networkinterface/";title="networkinterface link"\n')
+                    'location="%s/link/networkinterface/";title="networkinterface link"\n' % self.cloud.path)
             body += 'X-OCCI-Attribute: occi.core.id="%s"\n' % net_id
-            body += 'X-OCCI-Attribute: occi.core.target="/network/public"\n'
-            body += 'X-OCCI-Attribute: occi.core.source="/compute/%s"' % vm.id
+            body += 'X-OCCI-Attribute: occi.core.target="%s/network/public"\n' % self.cloud.path
+            body += 'X-OCCI-Attribute: occi.core.source="%s/compute/%s"' % (self.cloud.path, vm.id)
             conn.putheader('Content-Length', len(body))
             conn.endheaders(body)
 
@@ -593,7 +593,7 @@ users:
 
             body = 'Category: storage; scheme="http://schemas.ogf.org/occi/infrastructure#"; class="kind"\n'
             body += 'X-OCCI-Attribute: occi.core.title="%s"\n' % name
-            body += 'X-OCCI-Attribute: occi.storage.size=%f\n' % float(size)
+            body += 'X-OCCI-Attribute: occi.storage.size=%d\n' % int(size)
 
             conn.putheader('Content-Length', len(body))
             conn.endheaders(body)
@@ -616,32 +616,44 @@ users:
         finally:
             self.delete_proxy(conn)
 
-    def delete_volume(self, storage_id, auth_data):
-        auth = self.get_auth_header(auth_data)
-        headers = {'Accept': 'text/plain', 'Connection': 'close'}
-        if auth:
-            headers.update(auth)
+    def delete_volume(self, storage_id, auth_data, timeout=180, delay=5):
+        if not storage_id.startswith("/storage"):
+            storage_id = "/storage/%s" % storage_id
+        wait = 0
+        while wait < timeout:
+            auth = self.get_auth_header(auth_data)
+            headers = {'Accept': 'text/plain', 'Connection': 'close'}
+            if auth:
+                headers.update(auth)
 
-        self.logger.debug("Delete storage: %s" % storage_id)
-        conn = None
-        try:
-            conn = self.get_http_connection(auth_data)
-            conn.request('DELETE', self.cloud.path + storage_id, headers=headers)
-            resp = conn.getresponse()
-            output = str(resp.read())
-            if resp.status == 404 or resp.status == 204:
-                self.logger.debug("It does not exist.")
-                return (True, "")
-            elif resp.status != 200:
-                return (False, "Error deleting the Volume: " + resp.reason + "\n" + output)
-            else:
-                self.logger.debug("Successfully deleted")
-                return (True, "")
-        except Exception:
-            self.logger.exception("Error connecting with OCCI server")
-            return (False, "Error connecting with OCCI server")
-        finally:
-            self.delete_proxy(conn)
+            self.logger.debug("Delete storage: %s" % storage_id)
+            conn = None
+            try:
+                conn = self.get_http_connection(auth_data)
+                conn.request('DELETE', self.cloud.path + storage_id, headers=headers)
+                resp = conn.getresponse()
+                output = str(resp.read())
+                if resp.status == 404 or resp.status == 204:
+                    self.logger.debug("It does not exist.")
+                    return (True, "")
+                elif resp.status == 409:
+                    self.logger.debug("Error deleting the Volume. It seems that it is still "
+                                      "attached to a VM: %s" % output)
+                    time.sleep(delay)
+                    wait += delay
+                elif resp.status != 200:
+                    self.logger.error("Error deleting the Volume: " + resp.reason + "\n" + output)
+                    return (False, "Error deleting the Volume: " + resp.reason + "\n" + output)
+                else:
+                    self.logger.debug("Successfully deleted")
+                    return (True, "")
+            except Exception:
+                self.logger.exception("Error connecting with OCCI server")
+                return (False, "Error connecting with OCCI server")
+            finally:
+                self.delete_proxy(conn)
+
+        return (False, "Error deleting the Volume: Timeout.")
 
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         system = radl.systems[0]
@@ -777,11 +789,13 @@ users:
 
                 # Add volume links
                 for device, volume_id in volumes.iteritems():
-                    body += ('Link: </storage/%s>;rel="http://schemas.ogf.org/occi/infrastructure#storage";'
+                    body += ('Link: <%s/storage/%s>;rel="http://schemas.ogf.org/occi/infrastructure#storage";'
                              'category="http://schemas.ogf.org/occi/infrastructure#storagelink '
                              'http://opennebula.org/occi/infrastructure#storagelink";'
-                             'occi.core.target="/storage/%s";occi.core.source="/compute/%s";'
-                             'occi.storagelink.deviceid="/dev/%s"\n' % (volume_id, volume_id, compute_id, device))
+                             'occi.core.target="%s/storage/%s";occi.core.source="%s/compute/%s";'
+                             'occi.storagelink.deviceid="/dev/%s"\n' % (self.cloud.path, volume_id,
+                                                                        self.cloud.path, volume_id,
+                                                                        self.cloud.path, compute_id, device))
 
                 self.logger.debug(body)
 
@@ -862,8 +876,7 @@ users:
 
                 # sometime we have created a volume that is not correctly attached to the vm
                 # check the RADL of the VM to get them
-                radl_volumes = self.get_volume_ids_from_radl(
-                    vm.info.systems[0])
+                radl_volumes = self.get_volume_ids_from_radl(vm.info.systems[0])
                 for num_storage in radl_volumes:
                     self.delete_volume(num_storage, auth_data)
         except Exception, ex:
@@ -990,6 +1003,8 @@ users:
                         self.logger.debug("Error waiting volume %s. Deleting it." % volume_id)
                         self.delete_volume(volume_id, auth_data)
                         return (False, "Error waiting volume %s. Deleting it." % volume_id)
+                else:
+                    self.logger.error("Error creating volume: %s" % volume_id)
 
                 if wait_ok:
                     self.logger.debug("Attaching to the instance")
@@ -1032,10 +1047,10 @@ users:
             disk_id = "imdisk." + str(int(time.time() * 100))
 
             body = ('Category: storagelink;scheme="http://schemas.ogf.org/occi/infrastructure#";class="kind";'
-                    'location="/link/storagelink/";title="storagelink"\n')
+                    'location="%s/link/storagelink/";title="storagelink"\n' % self.cloud.path)
             body += 'X-OCCI-Attribute: occi.core.id="%s"\n' % disk_id
-            body += 'X-OCCI-Attribute: occi.core.target="/storage/%s"\n' % volume_id
-            body += 'X-OCCI-Attribute: occi.core.source="/compute/%s"' % vm.id
+            body += 'X-OCCI-Attribute: occi.core.target="%s/storage/%s"\n' % (self.cloud.path, volume_id)
+            body += 'X-OCCI-Attribute: occi.core.source="%s/compute/%s"' % (self.cloud.path, vm.id)
             body += 'X-OCCI-Attribute: occi.storagelink.deviceid="/dev/%s"' % device
             # body += 'X-OCCI-Attribute: occi.storagelink.mountpoint="%s"' % mount_path
             conn.putheader('Content-Length', len(body))
