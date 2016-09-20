@@ -57,6 +57,11 @@ class OCCICloudConnector(CloudConnector):
         Get a HTTPS connection with the specified server.
         It uses a proxy file if it has been specified in the auth credentials
         """
+        # disable SSL certificate validation
+        import ssl
+        if hasattr(ssl, '_create_unverified_context'):
+            ssl._create_default_https_context = ssl._create_unverified_context
+
         if auth and 'proxy' in auth:
             proxy = auth['proxy']
 
@@ -203,7 +208,10 @@ class OCCICloudConnector(CloudConnector):
         # http://opennebula.org/occi/infrastructure#networkinterface";occi.core.id="compute_10_nic_0";occi.core.title="private";occi.core.target="/network/1";occi.core.source="/compute/10";occi.networkinterface.interface="eth0";occi.networkinterface.mac="10:00:00:00:00:05";occi.networkinterface.state="active";occi.networkinterface.address="10.100.1.5";org.opennebula.networkinterface.bridge="br1"
         lines = occi_res.split("\n")
         res = []
+        link_to_public = False
         for l in lines:
+            if l.find('Link:') != -1 and l.find('/network/public') != -1:
+                link_to_public = True
             if l.find('Link:') != -1 and l.find('/network/') != -1:
                 num_interface = None
                 ip_address = None
@@ -219,7 +227,7 @@ class OCCICloudConnector(CloudConnector):
                         num_interface = re.findall('\d+', net_interface)[0]
                 if num_interface and ip_address:
                     res.append((num_interface, ip_address, not is_private))
-        return res
+        return link_to_public, res
 
     def setIPs(self, vm, occi_res, auth_data):
         """
@@ -228,16 +236,16 @@ class OCCICloudConnector(CloudConnector):
         public_ips = []
         private_ips = []
 
-        addresses = self.get_net_info(occi_res)
+        link_to_public, addresses = self.get_net_info(occi_res)
         for _, ip_address, is_public in addresses:
             if is_public:
                 public_ips.append(ip_address)
             else:
                 private_ips.append(ip_address)
 
-        if not public_ips and vm.requested_radl.hasPublicNet(vm.info.systems[0].name):
-            self.logger.debug(
-                "The VM does not have public IP trying to add one.")
+        if (vm.state == VirtualMachine.RUNNING and not link_to_public and
+                not public_ips and vm.requested_radl.hasPublicNet(vm.info.systems[0].name)):
+            self.logger.debug("The VM does not have public IP trying to add one.")
             success, _ = self.add_public_ip(vm, auth_data)
             if success:
                 self.logger.debug("Public IP successfully added.")
@@ -351,11 +359,9 @@ class OCCICloudConnector(CloudConnector):
                 return (False, resp.reason + "\n" + output)
             else:
                 old_state = vm.state
-                occi_state = self.get_occi_attribute_value(
-                    output, 'occi.compute.state')
+                occi_state = self.get_occi_attribute_value(output, 'occi.compute.state')
 
-                occi_name = self.get_occi_attribute_value(
-                    output, 'occi.core.title')
+                occi_name = self.get_occi_attribute_value(output, 'occi.core.title')
                 if occi_name:
                     vm.info.systems[0].setValue('instance_name', occi_name)
 
@@ -364,18 +370,18 @@ class OCCICloudConnector(CloudConnector):
                 if old_state == VirtualMachine.PENDING and occi_state == 'inactive':
                     vm.state = VirtualMachine.PENDING
                 else:
-                    vm.state = self.VM_STATE_MAP.get(
-                        occi_state, VirtualMachine.UNKNOWN)
+                    vm.state = self.VM_STATE_MAP.get(occi_state, VirtualMachine.UNKNOWN)
 
-                cores = self.get_occi_attribute_value(
-                    output, 'occi.compute.cores')
+                cores = self.get_occi_attribute_value(output, 'occi.compute.cores')
                 if cores:
                     vm.info.systems[0].setValue("cpu.count", int(cores))
-                memory = self.get_occi_attribute_value(
-                    output, 'occi.compute.memory')
+                memory = self.get_occi_attribute_value(output, 'occi.compute.memory')
                 if memory:
-                    vm.info.systems[0].setValue(
-                        "memory.size", float(memory), 'G')
+                    vm.info.systems[0].setValue("memory.size", float(memory), 'G')
+
+                console_vnc = self.get_occi_attribute_value(output, 'org.openstack.compute.console.vnc')
+                if console_vnc:
+                    vm.info.systems[0].setValue("console_vnc", console_vnc)
 
                 # Update the network data
                 self.setIPs(vm, output, auth_data)
@@ -485,7 +491,7 @@ users:
 
     def create_volumes(self, system, auth_data):
         """
-        Attach a the required volumes (in the RADL) to the launched instance
+        Attach the required volumes (in the RADL) to the launched instance
 
         Arguments:
            - instance(:py:class:`boto.ec2.instance`): object to connect to EC2 instance.
@@ -500,17 +506,71 @@ users:
             # get the last letter and use vd
             disk_device = "vd" + disk_device[-1]
             system.setValue("disk." + str(cont) + ".device", disk_device)
-            self.logger.debug(
-                "Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
-            success, volume_id = self.create_volume(
-                int(disk_size), "im-disk-%d" % cont, auth_data)
+            self.logger.debug("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
+            storage_name = "im-disk-" + str(int(time.time() * 100))
+            success, volume_id = self.create_volume(int(disk_size), storage_name, auth_data)
             if success:
                 volumes[disk_device] = volume_id
-                system.setValue("disk." + str(cont) +
-                                ".provider_id", volume_id)
+                system.setValue("disk." + str(cont) + ".provider_id", volume_id)
+
+                # let's wait the storage to be ready "online"
+                wait_ok = self.wait_volume_state(volume_id, auth_data)
+                if not wait_ok:
+                    self.logger.debug("Error waiting volume %s. Deleting it." % volume_id)
+                    self.delete_volume(volume_id, auth_data)
+
             cont += 1
 
         return volumes
+
+    def wait_volume_state(self, volume_id, auth_data, wait_state="online", timeout=180, delay=5):
+        """
+        Wait a storage to be in the specified state (by default "online")
+        """
+        wait = 0
+        online = False
+        while not online and wait < timeout:
+            success, storage_info = self.get_volume_info(volume_id, auth_data)
+            state = self.get_occi_attribute_value(storage_info, 'occi.storage.state')
+            self.logger.debug("Waiting volume %s to be %s. Current state: %s" % (volume_id, wait_state, state))
+            if success and state == wait_state:
+                online = True
+            elif not success:
+                self.logger.error("Error waiting volume %s to be ready: %s" % (volume_id, state))
+                return False
+            if not state == wait_state:
+                time.sleep(delay)
+                wait += delay
+
+        return state == wait_state
+
+    def get_volume_info(self, storage_id, auth_data):
+        """
+        Get the OCCI info about the storage
+        """
+        auth = self.get_auth_header(auth_data)
+        headers = {'Accept': 'text/plain', 'Connection': 'close'}
+        if auth:
+            headers.update(auth)
+        conn = None
+        try:
+            conn = self.get_http_connection(auth_data)
+            conn.request('GET', self.cloud.path +
+                         "/storage/" + storage_id, headers=headers)
+            resp = conn.getresponse()
+
+            output = resp.read()
+            if resp.status == 404 or resp.status == 204:
+                return (False, "Volume not found.")
+            elif resp.status != 200:
+                return (False, resp.reason + "\n" + output)
+            else:
+                return (True, output)
+        except Exception, ex:
+            self.logger.exception("Error getting volume info")
+            return False, str(ex)
+        finally:
+            self.delete_proxy(conn)
 
     def create_volume(self, size, name, auth_data):
         """
@@ -701,8 +761,14 @@ users:
                 compute_id = "im." + str(int(time.time() * 100))
                 body += 'X-OCCI-Attribute: occi.core.id="' + compute_id + '"\n'
                 body += 'X-OCCI-Attribute: occi.core.title="' + name + '"\n'
-                # TODO: evaluate to set the hostname defined in the RADL
-                body += 'X-OCCI-Attribute: occi.compute.hostname="' + name + '"\n'
+
+                # Set the hostname defined in the RADL
+                # Create the VM to get the nodename
+                vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self)
+                (nodename, nodedom) = vm.getRequestedName(default_hostname=Config.DEFAULT_VM_NAME,
+                                                          default_domain=Config.DEFAULT_DOMAIN)
+
+                body += 'X-OCCI-Attribute: occi.compute.hostname="' + nodename + '"\n'
                 # See: https://wiki.egi.eu/wiki/HOWTO10
                 # body += 'X-OCCI-Attribute: org.openstack.credentials.publickey.name="my_key"'
                 # body += 'X-OCCI-Attribute: org.openstack.credentials.publickey.data="ssh-rsa BAA...zxe ==user@host"'
@@ -740,10 +806,8 @@ users:
                     else:
                         occi_vm_id = os.path.basename(output)
                     if occi_vm_id:
-                        vm = VirtualMachine(
-                            inf, occi_vm_id, self.cloud, radl, requested_radl, self)
-                        vm.info.systems[0].setValue(
-                            'instance_id', str(occi_vm_id))
+                        vm.id = occi_vm_id
+                        vm.info.systems[0].setValue('instance_id', str(occi_vm_id))
                         res.append((True, vm))
                     else:
                         res.append((False, 'Unknown Error launching the VM.'))
@@ -894,8 +958,101 @@ users:
             self.delete_proxy(conn)
 
     def alterVM(self, vm, radl, auth_data):
-        # TODO: in OCCI 1.2 it is supported
-        return (False, "Not supported")
+        """
+        In the OCCI case it only enable to attach new disks
+        """
+        if not radl.systems:
+            return (True, "")
+
+        try:
+            orig_system = vm.info.systems[0]
+
+            cont = 1
+            while (orig_system.getValue("disk." + str(cont) + ".size") and
+                   orig_system.getValue("disk." + str(cont) + ".device")):
+                cont += 1
+
+            system = radl.systems[0]
+            while system.getValue("disk." + str(cont) + ".size") and system.getValue("disk." + str(cont) + ".device"):
+                disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('G')
+                disk_device = system.getValue("disk." + str(cont) + ".device")
+                mount_path = system.getValue("disk." + str(cont) + ".mount_path")
+                # get the last letter and use vd
+                disk_device = "vd" + disk_device[-1]
+                system.setValue("disk." + str(cont) + ".device", disk_device)
+                self.logger.debug("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
+                success, volume_id = self.create_volume(int(disk_size), "im-disk-%d" % cont, auth_data)
+
+                if success:
+                    # let's wait the storage to be ready "online"
+                    wait_ok = self.wait_volume_state(volume_id, auth_data)
+                    if not wait_ok:
+                        self.logger.debug("Error waiting volume %s. Deleting it." % volume_id)
+                        self.delete_volume(volume_id, auth_data)
+                        return (False, "Error waiting volume %s. Deleting it." % volume_id)
+
+                if wait_ok:
+                    self.logger.debug("Attaching to the instance")
+                    attached = self.attach_volume(vm, volume_id, disk_device, mount_path, auth_data)
+                    if attached:
+                        orig_system.setValue("disk." + str(cont) + ".size", disk_size, "G")
+                        orig_system.setValue("disk." + str(cont) + ".device", disk_device)
+                        orig_system.setValue("disk." + str(cont) + ".provider_id", volume_id)
+                        orig_system.setValue("disk." + str(cont) + ".mount_path", mount_path)
+                    else:
+                        self.logger.error("Error attaching a %d GB volume for the disk %d."
+                                          " Deleting it." % (int(disk_size), cont))
+                        self.delete_volume(volume_id, auth_data)
+                        return (False, "Error attaching the new volume")
+                else:
+                    return (False, "Error creating the new volume: " + volume_id)
+                cont += 1
+        except Exception, ex:
+            self.logger.exception("Error connecting with OCCI server")
+            return (False, "Error connecting with OCCI server: " + str(ex))
+
+        return (True, "")
+
+    def attach_volume(self, vm, volume_id, device, mount_path, auth_data):
+        """
+        Attach a volume to a running VM
+        """
+        auth_header = self.get_auth_header(auth_data)
+        conn = None
+        try:
+            conn = self.get_http_connection(auth_data)
+            conn.putrequest('POST', self.cloud.path +
+                            "/link/storagelink/")
+            if auth_header:
+                conn.putheader(auth_header.keys()[0], auth_header.values()[0])
+            conn.putheader('Accept', 'text/plain')
+            conn.putheader('Content-Type', 'text/plain,text/occi')
+            conn.putheader('Connection', 'close')
+
+            disk_id = "imdisk." + str(int(time.time() * 100))
+
+            body = ('Category: storagelink;scheme="http://schemas.ogf.org/occi/infrastructure#";class="kind";'
+                    'location="/link/storagelink/";title="storagelink"\n')
+            body += 'X-OCCI-Attribute: occi.core.id="%s"\n' % disk_id
+            body += 'X-OCCI-Attribute: occi.core.target="/storage/%s"\n' % volume_id
+            body += 'X-OCCI-Attribute: occi.core.source="/compute/%s"' % vm.id
+            body += 'X-OCCI-Attribute: occi.storagelink.deviceid="/dev/%s"' % device
+            # body += 'X-OCCI-Attribute: occi.storagelink.mountpoint="%s"' % mount_path
+            conn.putheader('Content-Length', len(body))
+            conn.endheaders(body)
+
+            resp = conn.getresponse()
+            output = str(resp.read())
+            if resp.status != 201 and resp.status != 200:
+                self.logger.error("Error attaching disk to the VM: " + resp.reason + "\n" + output)
+                return False
+            else:
+                return True
+        except Exception:
+            self.logger.exception("Error connecting with OCCI server")
+            return False
+        finally:
+            self.delete_proxy(conn)
 
 
 class KeyStoneAuth:
@@ -966,7 +1123,11 @@ class KeyStoneAuth:
             # \"name\": \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\"},
             # \"metadata\": {\"is_admin\": 0, \"roles\": []}}}"
             output = json.loads(resp.read())
-            token_id = output['access']['token']['id']
+            if 'access' in output:
+                token_id = output['access']['token']['id']
+            else:
+                occi.logger.exception("Error obtaining Keystone Token.")
+                raise Exception("Error obtaining Keystone Token: %s" % str(output))
 
             conn = occi.get_https_connection(auth, server, port)
             headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
@@ -979,34 +1140,38 @@ class KeyStoneAuth:
             # [{\"description\": \"egi fedcloud\", \"enabled\": true, \"id\":
             # \"fffd98393bae4bf0acf66237c8f292ad\", \"name\": \"egi\"}]}"
             output = json.loads(resp.read())
-            tenant = str(output['tenants'][0]['name'])
 
-            conn = occi.get_https_connection(auth, server, port)
-            conn.putrequest('POST', "/v2.0/tokens")
-            conn.putheader('Accept', 'application/json')
-            conn.putheader('Content-Type', 'application/json')
-            conn.putheader('X-Auth-Token', token_id)
-            conn.putheader('Connection', 'close')
+            tenant_token_id = None
+            # retry for each available tenant (usually only one)
+            for tenant in output['tenants']:
+                conn = occi.get_https_connection(auth, server, port)
+                conn.putrequest('POST', "/v2.0/tokens")
+                conn.putheader('Accept', 'application/json')
+                conn.putheader('Content-Type', 'application/json')
+                conn.putheader('X-Auth-Token', token_id)
+                conn.putheader('Connection', 'close')
 
-            body = '{"auth":{"voms":true,"tenantName":"' + tenant + '"}}'
+                body = '{"auth":{"voms":true,"tenantName":"' + str(tenant['name']) + '"}}'
 
-            conn.putheader('Content-Length', len(body))
-            conn.endheaders(body)
+                conn.putheader('Content-Length', len(body))
+                conn.endheaders(body)
 
-            resp = conn.getresponse()
-            occi.delete_proxy(conn)
+                resp = conn.getresponse()
+                occi.delete_proxy(conn)
 
-            # format: -> "{\"access\": {\"token\": {\"issued_at\":
-            # \"2014-12-29T17:10:49.609894\", \"expires\":
-            # \"2014-12-30T17:10:49Z\", \"id\":
-            # \"c861ab413e844d12a61d09b23dc4fb9c\"}, \"serviceCatalog\": [],
-            # \"user\": {\"username\":
-            # \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\", \"roles_links\":
-            # [], \"id\": \"475ce4978fb042e49ce0391de9bab49b\", \"roles\": [],
-            # \"name\": \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\"},
-            # \"metadata\": {\"is_admin\": 0, \"roles\": []}}}"
-            output = json.loads(resp.read())
-            tenant_token_id = output['access']['token']['id']
+                # format: -> "{\"access\": {\"token\": {\"issued_at\":
+                # \"2014-12-29T17:10:49.609894\", \"expires\":
+                # \"2014-12-30T17:10:49Z\", \"id\":
+                # \"c861ab413e844d12a61d09b23dc4fb9c\"}, \"serviceCatalog\": [],
+                # \"user\": {\"username\":
+                # \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\", \"roles_links\":
+                # [], \"id\": \"475ce4978fb042e49ce0391de9bab49b\", \"roles\": [],
+                # \"name\": \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\"},
+                # \"metadata\": {\"is_admin\": 0, \"roles\": []}}}"
+                output = json.loads(resp.read())
+                if 'access' in output:
+                    tenant_token_id = output['access']['token']['id']
+                    break
 
             return tenant_token_id
         except Exception, ex:

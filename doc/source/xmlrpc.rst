@@ -136,7 +136,7 @@ This is the list of method names:
 
    Change the features of the virtual machine with ID ``vmId`` in the
    infrastructure with with ID ``infId``, specified by the RADL ``radl``.
-   Return a struct with information about the virtual machine, like 
+   Return a struct with information about the nodified virtual machine, like 
    :ref:`GetVMInfo <GetVMInfo-xmlrpc>`.
 
    .. todo::
