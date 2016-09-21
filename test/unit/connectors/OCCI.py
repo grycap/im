@@ -31,6 +31,7 @@ from radl import radl_parse
 from IM.VirtualMachine import VirtualMachine
 from IM.InfrastructureInfo import InfrastructureInfo
 from IM.connectors.OCCI import OCCICloudConnector
+from radl.radl import RADL, system
 from mock import patch, MagicMock
 
 
@@ -327,7 +328,9 @@ class TestOCCIConnector(unittest.TestCase):
 
         inf = MagicMock()
         inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "1", occi_cloud.cloud, "", "", occi_cloud)
+        radl = RADL()
+        radl.systems.append(system("test"))
+        vm = VirtualMachine(inf, "1", occi_cloud.cloud, radl, radl, occi_cloud)
 
         conn = MagicMock()
         connection.return_value = conn
