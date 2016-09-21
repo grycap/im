@@ -431,7 +431,7 @@ class VirtualMachine:
             if now - self.last_update > Config.VM_INFO_UPDATE_FREQUENCY:
                 if not self.cloud_connector:
                     self.cloud_connector = self.cloud.getCloudConnector()
-    
+
                 try:
                     (success, new_vm) = self.cloud_connector.updateVMInfo(self, auth)
                     if success:
@@ -443,7 +443,7 @@ class VirtualMachine:
                 except:
                     VirtualMachine.logger.exception("Error updating VM status.")
                     updated = False
-    
+
             # If we have problems to update the VM info too much time, set to
             # unknown
             if now - self.last_update > Config.VM_INFO_UPDATE_ERROR_GRACE_PERIOD:
