@@ -247,18 +247,43 @@ class OCCICloudConnector(CloudConnector):
                 not public_ips and vm.requested_radl.hasPublicNet(vm.info.systems[0].name)):
             self.logger.debug("The VM does not have public IP trying to add one.")
             success, _ = self.add_public_ip(vm, auth_data)
+            if not success:
+                # in some sites the network is called floating instead of public
+                success, _ = self.add_public_ip(vm, auth_data, network_name="floating")
+
             if success:
                 self.logger.debug("Public IP successfully added.")
 
         vm.setIps(public_ips, private_ips)
 
-    def add_public_ip(self, vm, auth_data):
+    def get_property_from_category(self, occi_res, category, prop_name):
+        """
+        Get a property of an OCCI category returned by an OCCI server
+        """
+        lines = occi_res.split("\n")
+        for l in lines:
+            if l.find('Category: ' + category + ';') != -1:
+                for elem in l.split(';'):
+                    kv = elem.split('=')
+                    if len(kv) == 2:
+                        key = kv[0].strip()
+                        value = kv[1].strip('"')
+                        if key == prop_name:
+                            return value
+        return None
+
+    def add_public_ip(self, vm, auth_data, network_name="public"):
+        occi_info = self.query_occi(auth_data)
+        url = self.get_property_from_category(occi_info, "networkinterface", "location")
+        if not url:
+            self.logger.error("No location for networkinterface category.")
+            return (False, "No location for networkinterface category.")
+
         auth_header = self.get_auth_header(auth_data)
         conn = None
         try:
             conn = self.get_http_connection(auth_data)
-            conn.putrequest('POST', self.cloud.path +
-                            "/link/networkinterface/")
+            conn.putrequest('POST', url)
             if auth_header:
                 conn.putheader(auth_header.keys()[0], auth_header.values()[0])
             conn.putheader('Accept', 'text/plain')
@@ -270,7 +295,7 @@ class OCCICloudConnector(CloudConnector):
             body = ('Category: networkinterface;scheme="http://schemas.ogf.org/occi/infrastructure#";class="kind";'
                     'location="%s/link/networkinterface/";title="networkinterface link"\n' % self.cloud.path)
             body += 'X-OCCI-Attribute: occi.core.id="%s"\n' % net_id
-            body += 'X-OCCI-Attribute: occi.core.target="%s/network/public"\n' % self.cloud.path
+            body += 'X-OCCI-Attribute: occi.core.target="%s/network/%s"\n' % (self.cloud.path, network_name)
             body += 'X-OCCI-Attribute: occi.core.source="%s/compute/%s"' % (self.cloud.path, vm.id)
             conn.putheader('Content-Length', len(body))
             conn.endheaders(body)
@@ -278,6 +303,7 @@ class OCCICloudConnector(CloudConnector):
             resp = conn.getresponse()
             output = str(resp.read())
             if resp.status != 201 and resp.status != 200:
+                self.logger.warn("Error adding public IP the VM: " + resp.reason + "\n" + output)
                 return (False, "Error adding public IP the VM: " + resp.reason + "\n" + output)
             else:
                 return (True, vm.id)
@@ -471,14 +497,13 @@ users:
                 self.logger.debug("Volume id %s sucessfully created." % volume_id)
                 volumes[disk_device] = volume_id
                 system.setValue("disk." + str(cont) + ".provider_id", volume_id)
+                # TODO: get the actual device_id from OCCI
 
                 # let's wait the storage to be ready "online"
                 wait_ok = self.wait_volume_state(volume_id, auth_data)
                 if not wait_ok:
-                    self.logger.debug("Error waiting volume %s. Deleting it." % volume_id)
+                    self.logger.error("Error waiting volume %s. Deleting it." % volume_id)
                     self.delete_volume(volume_id, auth_data)
-                else:
-                    self.logger.error("Error waiting volume: %s" % volume_id)
             else:
                 self.logger.error("Error creating volume: %s" % volume_id)
 
@@ -505,7 +530,7 @@ users:
                 time.sleep(delay)
                 wait += delay
 
-        return state == wait_state
+        return online
 
     def get_volume_info(self, storage_id, auth_data):
         """
@@ -1010,12 +1035,17 @@ users:
         """
         Attach a volume to a running VM
         """
+        occi_info = self.query_occi(auth_data)
+        url = self.get_property_from_category(occi_info, "storagelink", "location")
+        if not url:
+            self.logger.error("No location for storagelink category.")
+            return (False, "No location for storagelink category.")
+
         auth_header = self.get_auth_header(auth_data)
         conn = None
         try:
             conn = self.get_http_connection(auth_data)
-            conn.putrequest('POST', self.cloud.path +
-                            "/link/storagelink/")
+            conn.putrequest('POST', url)
             if auth_header:
                 conn.putheader(auth_header.keys()[0], auth_header.values()[0])
             conn.putheader('Accept', 'text/plain')
