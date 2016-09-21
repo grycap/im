@@ -869,8 +869,7 @@ class ConfManager(threading.Thread):
                     self.inf.set_configured(False)
                     return
 
-                ConfManager.logger.info(
-                    "Inf ID: " + str(self.inf.id) + ": VMs available.")
+                ConfManager.logger.info("Inf ID: " + str(self.inf.id) + ": VMs available.")
 
                 # Check and change if necessary the credentials of the master
                 # vm
@@ -934,8 +933,7 @@ class ConfManager(threading.Thread):
                 group, group, 1) for group in vm_group if self.inf.radl.get_configure_by_name(group)]
             # get the contextualize steps specified in the RADL, or use the
             # default value
-            contextualizes = self.inf.radl.contextualize.get_contextualize_items_by_step({
-                                                                                         1: ctxts})
+            contextualizes = self.inf.radl.contextualize.get_contextualize_items_by_step({1: ctxts})
 
             # create the files for the configure sections that appears in the contextualization steps
             # and add the ansible information and modules
