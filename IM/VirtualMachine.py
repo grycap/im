@@ -423,46 +423,43 @@ class VirtualMachine:
         Return:
         - boolean: True if the information has been updated, false otherwise
         """
-        now = int(time.time())
-        state = self.state
-        updated = False
-        # To avoid to refresh the information too quickly
-        if now - self.last_update > Config.VM_INFO_UPDATE_FREQUENCY:
-            if not self.cloud_connector:
-                self.cloud_connector = self.cloud.getCloudConnector()
-
-            try:
-                (success, new_vm) = self.cloud_connector.updateVMInfo(self, auth)
-                if success:
-                    state = new_vm.state
-                    updated = True
-
-                    with self._lock:
-                        self.last_update = now
-                else:
-                    VirtualMachine.logger.error(
-                        "Error updating VM status: %s" % new_vm)
-            except:
-                VirtualMachine.logger.exception("Error updating VM status.")
-                updated = False
-
-        # If we have problems to update the VM info too much time, set to
-        # unknown
-        if now - self.last_update > Config.VM_INFO_UPDATE_ERROR_GRACE_PERIOD:
-            new_state = VirtualMachine.UNKNOWN
-            VirtualMachine.logger.warn(
-                "Grace period to update VM info passed. Set state to 'unknown'")
-        else:
-            if state not in [VirtualMachine.RUNNING, VirtualMachine.CONFIGURED, VirtualMachine.UNCONFIGURED]:
-                new_state = state
-            elif self.is_configured() is None:
-                new_state = VirtualMachine.RUNNING
-            elif self.is_configured():
-                new_state = VirtualMachine.CONFIGURED
-            else:
-                new_state = VirtualMachine.UNCONFIGURED
-
         with self._lock:
+            now = int(time.time())
+            state = self.state
+            updated = False
+            # To avoid to refresh the information too quickly
+            if now - self.last_update > Config.VM_INFO_UPDATE_FREQUENCY:
+                if not self.cloud_connector:
+                    self.cloud_connector = self.cloud.getCloudConnector()
+    
+                try:
+                    (success, new_vm) = self.cloud_connector.updateVMInfo(self, auth)
+                    if success:
+                        state = new_vm.state
+                        updated = True
+                        self.last_update = now
+                    else:
+                        VirtualMachine.logger.error("Error updating VM status: %s" % new_vm)
+                except:
+                    VirtualMachine.logger.exception("Error updating VM status.")
+                    updated = False
+    
+            # If we have problems to update the VM info too much time, set to
+            # unknown
+            if now - self.last_update > Config.VM_INFO_UPDATE_ERROR_GRACE_PERIOD:
+                new_state = VirtualMachine.UNKNOWN
+                VirtualMachine.logger.warn(
+                    "Grace period to update VM info passed. Set state to 'unknown'")
+            else:
+                if state not in [VirtualMachine.RUNNING, VirtualMachine.CONFIGURED, VirtualMachine.UNCONFIGURED]:
+                    new_state = state
+                elif self.is_configured() is None:
+                    new_state = VirtualMachine.RUNNING
+                elif self.is_configured():
+                    new_state = VirtualMachine.CONFIGURED
+                else:
+                    new_state = VirtualMachine.UNCONFIGURED
+
             self.state = new_state
             self.info.systems[0].setValue("state", new_state)
 
