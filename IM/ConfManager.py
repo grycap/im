@@ -948,8 +948,7 @@ class ConfManager(threading.Thread):
             filenames.append(self.generate_inventory(tmp_dir))
 
             conf_file = "general_info.cfg"
-            self.create_general_conf_file(
-                tmp_dir + "/" + conf_file, self.inf.get_vm_list())
+            self.create_general_conf_file(tmp_dir + "/" + conf_file, self.inf.get_vm_list())
             filenames.append(conf_file)
 
             recipe_files = []
