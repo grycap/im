@@ -506,7 +506,7 @@ users:
             if disk_device:
                 # get the last letter and use vd
                 disk_device = "vd" + disk_device[-1]
-            system.setValue("disk." + str(cont) + ".device", disk_device)
+                system.setValue("disk." + str(cont) + ".device", disk_device)
             self.logger.debug("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
             storage_name = "im-disk-" + str(int(time.time() * 100))
             success, volume_id = self.create_volume(int(disk_size), storage_name, auth_data)
