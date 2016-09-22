@@ -201,7 +201,7 @@ class InfrastructureManager:
                             "No username for deploy: " + deploy.id)
 
                     launch_radl = radl.clone()
-                    launch_radl.systems = [concrete_system]
+                    launch_radl.systems = [concrete_system.clone()]
                     requested_radl = radl.clone()
                     requested_radl.systems = [
                         radl.get_system_by_name(concrete_system.name)]
