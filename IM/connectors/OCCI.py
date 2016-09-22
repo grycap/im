@@ -701,8 +701,7 @@ users:
             if not password:
                 # We must generate them
                 (public_key, private_key) = self.keygen()
-                system.setValue(
-                    'disk.0.os.credentials.private_key', private_key)
+                system.setValue('disk.0.os.credentials.private_key', private_key)
 
         user = system.getValue('disk.0.os.credentials.username')
         if not user:
@@ -713,8 +712,7 @@ users:
         if public_key:
             # Add user cloud init data
             cloud_config_str = self.get_cloud_init_data(radl)
-            cloud_config = self.gen_cloud_config(
-                public_key, user, cloud_config_str)
+            cloud_config = self.gen_cloud_config(public_key, user, cloud_config_str)
             user_data = base64.b64encode(cloud_config).replace("\n", "")
             self.logger.debug("Cloud init: " + cloud_config)
 
