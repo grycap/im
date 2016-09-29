@@ -253,7 +253,6 @@ class OpenNebulaCloudConnector(CloudConnector):
                     break
                 i += 1
 
-
     def updateVMInfo(self, vm, auth_data):
         server = xmlrpclib.ServerProxy(self.server_url, allow_none=True)
 
