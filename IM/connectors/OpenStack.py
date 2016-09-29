@@ -183,6 +183,40 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         return (True, vm)
 
+    def map_radl_ost_networks(self, radl_nets, ost_nets):
+        """
+        Generate a mapping between the RADL networks and the OST networks
+
+        Arguments:
+           - radl_nets(list of :py:class:`radl.network` objects): RADL networks.
+           - ost_nets(a list of tuples (net_name, is_public)): OST networks.
+
+         Returns: a dict with key the RADL network id and value a tuple (ost_net_name, is_public)
+        """
+
+        res = {}
+        for ip, (net_name, is_public) in ost_nets.items():
+            if net_name:
+                for radl_net in radl_nets:
+                    net_provider_id = radl_net.getValue('provider_id')
+                    if net_provider_id:
+                        if net_name == net_provider_id:
+                            res[radl_net.id] = ip
+                            break
+                    else:
+                        if radl_net.id not in res and radl_net.isPublic() == is_public:
+                            res[radl_net.id] = ip
+                            radl_net.setValue('provider_id', net_name)
+                            break
+            else:
+                # It seems to be a floating IP
+                for radl_net in radl_nets:
+                    if radl_net.id not in res and radl_net.isPublic() == is_public:
+                        res[radl_net.id] = ip
+                        break
+
+        return res
+
     def setIPsFromInstance(self, vm, node):
         """
         Adapt the RADL information of the VM to the real IPs assigned by the cloud provider
@@ -192,17 +226,32 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
            - node(:py:class:`libcloud.compute.base.Node`): object to connect to EC2 instance.
         """
 
-        # It seems that sometimes OpenStack does not return correctly the IPs
-        # as public or private
         public_ips = []
-        private_ips = []
-        for ip in node.public_ips + node.private_ips:
-            if any([IPAddress(ip) in IPNetwork(mask) for mask in Config.PRIVATE_NET_MASKS]):
-                private_ips.append(ip)
-            else:
-                public_ips.append(ip)
+        ip_net_map = {}
+        for net_name, ips in node.extra['addresses'].items():
+            for ipo in ips:
+                ip = ipo['addr']
+                is_private = any([IPAddress(ip) in IPNetwork(mask) for mask in Config.PRIVATE_NET_MASKS])
 
-        vm.setIps(public_ips, private_ips)
+                if ipo['OS-EXT-IPS:type'] == 'floating':
+                    # in this case it always has to be public
+                    ip_net_map[ip] = (None, not is_private)
+                else:
+                    ip_net_map[ip] = (net_name, not is_private)
+                if not is_private:
+                    public_ips.append(ip)
+
+        map_nets = self.map_radl_ost_networks(vm.info.networks, ip_net_map)
+
+        system = vm.info.systems[0]
+        i = 0
+        while system.getValue("net_interface." + str(i) + ".connection"):
+            net_name = system.getValue("net_interface." + str(i) + ".connection")
+            if net_name in map_nets:
+                ip = map_nets[net_name]
+                system.setValue("net_interface." + str(i) + ".ip", ip)
+            i += 1
+
         self.manage_elastic_ips(vm, node, public_ips)
 
     def update_system_info_from_instance(self, system, instance_type):
@@ -574,12 +623,21 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     keypair = node.driver.get_key_pair(vm.keypair)
                     if keypair:
                         node.driver.delete_key_pair(keypair)
+            except:
+                self.logger.exception("Error deleting keypair.")
 
+            try:
                 self.delete_elastic_ips(node, vm)
+            except:
+                self.logger.exception("Error deleting elastic ips.")
 
+            try:
                 # Delete the EBS volumes
                 self.delete_volumes(vm)
+            except:
+                self.logger.exception("Error deleting volumes.")
 
+            try:
                 # Delete the SG if this is the last VM
                 self.delete_security_group(node, sgs, vm.inf, vm.id)
             except:

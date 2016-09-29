@@ -207,7 +207,8 @@ class TestOSTConnector(unittest.TestCase):
         node = MagicMock()
         node.id = "1"
         node.state = "running"
-        node.extra = {'flavorId': 'small'}
+        node.extra = {'flavorId': 'small', 'addresses': {'os-lan': [{'addr': '10.0.0.1',
+                                                                     'OS-EXT-IPS:type': 'fixed'}]}}
         node.public_ips = []
         node.private_ips = ['10.0.0.1']
         node.driver = driver

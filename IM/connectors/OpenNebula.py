@@ -241,16 +241,17 @@ class OpenNebulaCloudConnector(CloudConnector):
            - vm(:py:class:`IM.VirtualMachine`): VM information.
            - template(:py:class:`TEMPLATE`): ONE Template information.
         """
-        public_ips = []
-        private_ips = []
+        system = vm.info.systems[0]
         for nic in template.NIC:
-            ip = str(nic.IP)
-            if any([IPAddress(ip) in IPNetwork(mask) for mask in Config.PRIVATE_NET_MASKS]):
-                private_ips.append(ip)
-            else:
-                public_ips.append(ip)
-
-        vm.setIps(public_ips, private_ips)
+            i = 0
+            while system.getValue("net_interface." + str(i) + ".connection"):
+                net_name = system.getValue("net_interface." + str(i) + ".connection")
+                net = vm.info.get_network_by_id(net_name)
+                provider_id = net.getValue("provider_id")
+                if provider_id == nic.NETWORK:
+                    system.setValue("net_interface." + str(i) + ".ip", str(nic.IP))
+                    break
+                i += 1
 
     def updateVMInfo(self, vm, auth_data):
         server = xmlrpclib.ServerProxy(self.server_url, allow_none=True)
@@ -768,8 +769,7 @@ class OpenNebulaCloudConnector(CloudConnector):
                 # get the one network info
                 if nets[network]:
                     (net_name, net_id, is_public) = nets[network]
-                    radl.get_network_by_id(network).setValue(
-                        'provider_id', str(net_name))
+                    radl.get_network_by_id(network).setValue('provider_id', str(net_name))
                 else:
                     self.logger.error(
                         "No ONE network found for network: " + network)
@@ -868,6 +868,9 @@ class OpenNebulaCloudConnector(CloudConnector):
 
         if not success:
             return (False, info)
+
+        # TODO: wait the VM to be running
+        time.sleep(5)
 
         success, info = self.attach_new_disks(vm, system, session_id)
 
