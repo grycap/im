@@ -226,22 +226,20 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
            - node(:py:class:`libcloud.compute.base.Node`): object to connect to EC2 instance.
         """
 
+        public_ips = []
         ip_net_map = {}
         for net_name, ips in node.extra['addresses'].items():
-            ip = ips[0]['addr']
-            is_private = any([IPAddress(ip) in IPNetwork(mask) for mask in Config.PRIVATE_NET_MASKS])
-            ip_net_map[ip] = (net_name, not is_private)
+            for ipo in ips:
+                ip = ipo['addr']
+                is_private = any([IPAddress(ip) in IPNetwork(mask) for mask in Config.PRIVATE_NET_MASKS])
 
-        # It seems that sometimes OpenStack does not return correctly the IPs
-        # as public or private
-        public_ips = []
-        for ip in node.public_ips + node.private_ips:
-            is_private = any([IPAddress(ip) in IPNetwork(mask) for mask in Config.PRIVATE_NET_MASKS])
-            if not is_private:
-                public_ips.append(ip)
-            if ip not in ip_net_map:
-                # in this case it always has to be public
-                ip_net_map[ip] = (None, not is_private)
+                if ipo['OS-EXT-IPS:type'] == 'floating':
+                    # in this case it always has to be public
+                    ip_net_map[ip] = (None, not is_private)
+                else:
+                    ip_net_map[ip] = (net_name, not is_private)
+                if not is_private:
+                    public_ips.append(ip)
 
         map_nets = self.map_radl_ost_networks(vm.info.networks, ip_net_map)
 
