@@ -623,12 +623,21 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     keypair = node.driver.get_key_pair(vm.keypair)
                     if keypair:
                         node.driver.delete_key_pair(keypair)
+            except:
+                self.logger.exception("Error deleting keypair.")
 
+            try:
                 self.delete_elastic_ips(node, vm)
+            except:
+                self.logger.exception("Error deleting elastic ips.")
 
+            try:
                 # Delete the EBS volumes
                 self.delete_volumes(vm)
+            except:
+                self.logger.exception("Error deleting volumes.")
 
+            try:
                 # Delete the SG if this is the last VM
                 self.delete_security_group(node, sgs, vm.inf, vm.id)
             except:
