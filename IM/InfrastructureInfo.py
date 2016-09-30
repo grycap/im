@@ -461,11 +461,11 @@ class InfrastructureInfo:
                     # Then add the configure sections
                     for ctxt_num in contextualizes.keys():
                         for ctxt_elem in contextualizes[ctxt_num]:
+                            step = ctxt_num + 2
                             if ctxt_elem.system == vm.info.systems[0].name and ctxt_elem.get_ctxt_tool() == "Ansible":
-                                if ctxt_num not in tasks:
-                                    tasks[ctxt_num] = []
-                                tasks[ctxt_num].append(
-                                    ctxt_elem.configure + "_" + ctxt_elem.system)
+                                if step not in tasks:
+                                    tasks[step] = []
+                                tasks[step].append(ctxt_elem.configure + "_" + ctxt_elem.system)
 
                 for step in tasks.keys():
                     priority = 0
