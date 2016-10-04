@@ -1,7 +1,7 @@
 # Dockerfile to create a container with the IM service
 FROM grycap/jenkins:ubuntu14.04-im
 MAINTAINER Miguel Caballer <micafer1@upv.es>
-LABEL version="1.4.6"
+LABEL version="1.4.8"
 LABEL description="Container image to run the IM service. (http://www.grycap.upv.es/im)"
 
 EXPOSE 8899 8800
