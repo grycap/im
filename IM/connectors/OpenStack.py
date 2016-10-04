@@ -346,6 +346,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         keypair = None
         keypair_name = None
+        keypair_created = False
         public_key = system.getValue("disk.0.os.credentials.public_key")
         if public_key:
             keypair = driver.get_key_pair(public_key)
@@ -358,7 +359,9 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         elif not system.getValue("disk.0.os.credentials.password"):
             keypair_name = "im-%d" % int(time.time() * 100.0)
+            self.logger.debug("Create keypair: %s" % keypair_name)
             keypair = driver.create_key_pair(keypair_name)
+            keypair_created = True
             public_key = keypair.public_key
             system.setUserKeyCredentials(
                 system.getCredentials().username, None, keypair.private_key)
@@ -386,11 +389,15 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         while i < num_vm:
             self.logger.debug("Creating node")
 
-            node = driver.create_node(**args)
+            node = None
+            msg = "Error creating the node. "
+            try:
+                node = driver.create_node(**args)
+            except Exception, ex:
+                msg += str(ex)
 
             if node:
-                vm = VirtualMachine(
-                    inf, node.id, self.cloud, radl, requested_radl, self.cloud.getCloudConnector())
+                vm = VirtualMachine(inf, node.id, self.cloud, radl, requested_radl, self.cloud.getCloudConnector())
                 vm.info.systems[0].setValue('instance_id', str(node.id))
                 vm.info.systems[0].setValue('instance_name', str(node.name))
                 # Add the keypair name to remove it later
@@ -400,17 +407,18 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 all_failed = False
                 res.append((True, vm))
             else:
-                res.append((False, "Error creating the node"))
+                res.append((False, msg))
             i += 1
 
         # if all the VMs have failed, remove the sg and keypair
         if all_failed:
-            if (public_key is None or len(public_key) == 0 or
-                    (len(public_key) >= 1 and public_key.find('-----BEGIN CERTIFICATE-----') != -1)):
+            if keypair_created == True:
                 # only delete in case of the user do not specify the keypair
                 # name
+                self.logger.debug("Deleting keypair: %s." % keypair_name)
                 driver.delete_key_pair(keypair)
             if sgs:
+                self.logger.debug("Deleting security group: %s." % sgs[0].id)
                 driver.ex_delete_security_group(sgs[0])
 
         return res
