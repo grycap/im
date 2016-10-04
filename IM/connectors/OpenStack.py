@@ -272,8 +272,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         nets = []
         ost_nets = driver.ex_list_networks()
         used_nets = []
-        # I use this "patch" as used in the LibCloud OpenStack driver
-        public_networks_labels = ['public', 'internet', 'publica']
+
+        pool_names = [pool.name for pool in driver.ex_list_floating_ip_pools()]
 
         for radl_net in radl.networks:
             # check if this net is connected with the current VM
@@ -290,9 +290,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 else:
                     # if not select the first not used net
                     for net in ost_nets:
-                        # I use this "patch" as used in the LibCloud OpenStack
-                        # driver
-                        if net.name not in public_networks_labels:
+                        # do not use nets that are IP pools
+                        if net.name not in pool_names:
                             if net.name not in used_nets:
                                 nets.append(net)
                                 used_nets.append(net.name)
@@ -412,7 +411,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         # if all the VMs have failed, remove the sg and keypair
         if all_failed:
-            if keypair_created == True:
+            if keypair_created:
                 # only delete in case of the user do not specify the keypair
                 # name
                 self.logger.debug("Deleting keypair: %s." % keypair_name)
