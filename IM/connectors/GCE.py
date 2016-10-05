@@ -384,9 +384,9 @@ class GCECloudConnector(CloudConnector):
     def finalize(self, vm, auth_data):
         try:
             node = self.get_node_with_id(vm.id, auth_data)
-        except:
-            self.logger.exception("Error getting VM: %s" % vm.id)
-            return (False, "Error getting VM: %s" % vm.id)
+        except Exception, ex:
+            self.logger.exception("Error getting VM: %s. Err: %s." % (vm.id, str(ex)))
+            return (False, "Error getting VM: %s. Err: %s." % (vm.id, str(ex)))
 
         if node:
             success = node.destroy()
