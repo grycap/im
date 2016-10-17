@@ -21,6 +21,10 @@ IM needs at least Python 2.6 to run, as well as the next libraries:
   Amazon EC2. It is available as package named ``python-boto`` in Debian based
   distributions. It can also be downloaded from `boto GitHub repository <https://github.com/boto/boto>`_.
   Download the file and copy the boto subdirectory into the IM install path.
+* `The Bottle framework<http://bottlepy.org/>`_ , typically available
+  as the 'python-bottle' package.
+* `The CherryPy Web framework <http://www.cherrypy.org/>`_, typically available as the 'python-cherrypy' 
+   or 'python-cherrypy3' package.
 
 Also, IM uses `Ansible <http://www.ansible.com>`_ (1.4.2 or later) to configure the
 infrastructure nodes. The current recommended version is 1.9.4 untill the 2.X versions become stable.
@@ -61,11 +65,8 @@ Optional Packages
   if the access to XML-RPC API is secured with SSL certificates (see
   :confval:`XMLRCP_SSL`).
   The Debian package is named ``python-springpython``.
-* `Bottle <http://bottlepy.or>`_ is needed if needed to use the REST API
-  (see :confval:`ACTIVATE_REST`). The Debian package is named ``python-bottle``.
-* `CherryPy <http://cherrypy.org>`_ and pyOpenSSL are needed if needed to secure the REST API
+* pyOpenSSL are needed if needed to secure the REST API
   with SSL certificates (see :confval:`REST_SSL`).
-  The Debian package for CherryPy is named ``python-cherrypy3``.
   pyOpenSSL can be installed using pip.
 * `MySQL <https://www.mysql.com/>`_ is needed if the IM data is going to be stored in DB.
   (see DATA_DB configuration variable.
