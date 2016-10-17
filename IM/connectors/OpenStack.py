@@ -234,7 +234,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 for ipo in ips:
                     ip = ipo['addr']
                     is_private = any([IPAddress(ip) in IPNetwork(mask) for mask in Config.PRIVATE_NET_MASKS])
-    
+
                     if ipo['OS-EXT-IPS:type'] == 'floating':
                         # in this case it always has to be public
                         ip_net_map[ip] = (None, not is_private)
