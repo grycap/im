@@ -226,31 +226,43 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
            - node(:py:class:`libcloud.compute.base.Node`): object to connect to EC2 instance.
         """
 
-        public_ips = []
-        ip_net_map = {}
-        for net_name, ips in node.extra['addresses'].items():
-            for ipo in ips:
-                ip = ipo['addr']
-                is_private = any([IPAddress(ip) in IPNetwork(mask) for mask in Config.PRIVATE_NET_MASKS])
+        if 'addresses' in node.extra:
+            public_ips = []
+            ip_net_map = {}
 
-                if ipo['OS-EXT-IPS:type'] == 'floating':
-                    # in this case it always has to be public
-                    ip_net_map[ip] = (None, not is_private)
+            for net_name, ips in node.extra['addresses'].items():
+                for ipo in ips:
+                    ip = ipo['addr']
+                    is_private = any([IPAddress(ip) in IPNetwork(mask) for mask in Config.PRIVATE_NET_MASKS])
+    
+                    if ipo['OS-EXT-IPS:type'] == 'floating':
+                        # in this case it always has to be public
+                        ip_net_map[ip] = (None, not is_private)
+                    else:
+                        ip_net_map[ip] = (net_name, not is_private)
+                    if not is_private:
+                        public_ips.append(ip)
+
+            map_nets = self.map_radl_ost_networks(vm.info.networks, ip_net_map)
+
+            system = vm.info.systems[0]
+            i = 0
+            while system.getValue("net_interface." + str(i) + ".connection"):
+                net_name = system.getValue("net_interface." + str(i) + ".connection")
+                if net_name in map_nets:
+                    ip = map_nets[net_name]
+                    system.setValue("net_interface." + str(i) + ".ip", ip)
+                i += 1
+        else:
+            # if addresses are not available use the old method
+            public_ips = []
+            private_ips = []
+            for ip in node.public_ips + node.private_ips:
+                if any([IPAddress(ip) in IPNetwork(mask) for mask in Config.PRIVATE_NET_MASKS]):
+                    private_ips.append(ip)
                 else:
-                    ip_net_map[ip] = (net_name, not is_private)
-                if not is_private:
                     public_ips.append(ip)
-
-        map_nets = self.map_radl_ost_networks(vm.info.networks, ip_net_map)
-
-        system = vm.info.systems[0]
-        i = 0
-        while system.getValue("net_interface." + str(i) + ".connection"):
-            net_name = system.getValue("net_interface." + str(i) + ".connection")
-            if net_name in map_nets:
-                ip = map_nets[net_name]
-                system.setValue("net_interface." + str(i) + ".ip", ip)
-            i += 1
+            vm.setIps(public_ips, private_ips)
 
         self.manage_elastic_ips(vm, node, public_ips)
 
