@@ -164,7 +164,7 @@ class TestIM(unittest.TestCase):
 
         server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
         server.request('GET', "/infrastructures",
-                            headers={'AUTHORIZATION': auth_data})
+                       headers={'AUTHORIZATION': auth_data})
         resp = server.getresponse()
         output = str(resp.read())
         server.close()
