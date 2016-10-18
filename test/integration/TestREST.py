@@ -162,10 +162,12 @@ class TestIM(unittest.TestCase):
             if line.find("type = InfrastructureManager") == -1:
                 auth_data += line.strip() + "\\n"
 
-        self.server.request('GET', "/infrastructures",
+        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
+        server.request('GET', "/infrastructures",
                             headers={'AUTHORIZATION': auth_data})
-        resp = self.server.getresponse()
+        resp = server.getresponse()
         output = str(resp.read())
+        server.close()
         self.assertEqual(resp.status, 401,
                          msg="ERROR using an invalid token. A 401 error is expected:" + output)
 
