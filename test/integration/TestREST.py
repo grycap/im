@@ -52,7 +52,6 @@ class TestIM(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
         cls.auth_data = read_file_as_string('../auth.dat').replace("\n", "\\n")
         cls.inf_id = "0"
 
@@ -60,9 +59,11 @@ class TestIM(unittest.TestCase):
     def tearDownClass(cls):
         # Assure that the infrastructure is destroyed
         try:
-            cls.server.request('DELETE', "/infrastructures/" +
-                               cls.inf_id, headers={'Authorization': cls.auth_data})
-            cls.server.getresponse()
+            server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
+            server.request('DELETE', "/infrastructures/" + cls.inf_id,
+                           headers={'Authorization': cls.auth_data})
+            server.getresponse()
+            server.close()
         except Exception:
             pass
 
@@ -71,10 +72,12 @@ class TestIM(unittest.TestCase):
         Wait for an infrastructure to have a specific state
         """
         if not vm_ids:
-            self.server.request('GET', "/infrastructures/" + self.inf_id,
-                                headers={'AUTHORIZATION': self.auth_data})
-            resp = self.server.getresponse()
+            server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
+            server.request('GET', "/infrastructures/" + self.inf_id,
+                           headers={'AUTHORIZATION': self.auth_data})
+            resp = server.getresponse()
             output = str(resp.read())
+            server.close()
             self.assertEqual(resp.status, 200,
                              msg="ERROR getting infrastructure info:" + output)
 
@@ -92,18 +95,22 @@ class TestIM(unittest.TestCase):
             all_ok = True
             for vm_id in vm_ids:
                 vm_uri = uriparse(vm_id)
-                self.server.request(
+                server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
+                server.request(
                     'GET', vm_uri[2] + "/state", headers={'AUTHORIZATION': self.auth_data})
-                resp = self.server.getresponse()
+                resp = server.getresponse()
                 vm_state = str(resp.read())
+                server.close()
                 self.assertEqual(resp.status, 200,
                                  msg="ERROR getting VM info:" + vm_state)
 
                 if vm_state == VirtualMachine.UNCONFIGURED:
-                    self.server.request('GET', "/infrastructures/" + self.inf_id + "/contmsg",
-                                        headers={'AUTHORIZATION': self.auth_data})
-                    resp = self.server.getresponse()
+                    server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
+                    server.request('GET', "/infrastructures/" + self.inf_id + "/contmsg",
+                                   headers={'AUTHORIZATION': self.auth_data})
+                    resp = server.getresponse()
                     output = str(resp.read())
+                    server.close()
                     print output
 
                 self.assertFalse(vm_state in err_states, msg=("ERROR waiting for a state. '%s' state was expected "
@@ -123,19 +130,23 @@ class TestIM(unittest.TestCase):
         return all_ok
 
     def test_05_version(self):
-        self.server.request('GET', "/version")
-        resp = self.server.getresponse()
+        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
+        server.request('GET', "/version")
+        resp = server.getresponse()
         output = str(resp.read())
+        server.close()
         self.assertEqual(resp.status, 200,
                          msg="ERROR getting IM version:" + output)
         self.assertEqual(
             output, version, msg="Incorrect version. Expected %s, obtained: %s" % (version, output))
 
     def test_10_list(self):
-        self.server.request('GET', "/infrastructures",
-                            headers={'AUTHORIZATION': self.auth_data})
-        resp = self.server.getresponse()
+        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
+        server.request('GET', "/infrastructures",
+                       headers={'AUTHORIZATION': self.auth_data})
+        resp = server.getresponse()
         output = str(resp.read())
+        server.close()
         self.assertEqual(resp.status, 200,
                          msg="ERROR listing user infrastructures:" + output)
 
@@ -151,26 +162,32 @@ class TestIM(unittest.TestCase):
             if line.find("type = InfrastructureManager") == -1:
                 auth_data += line.strip() + "\\n"
 
-        self.server.request('GET', "/infrastructures",
-                            headers={'AUTHORIZATION': auth_data})
-        resp = self.server.getresponse()
+        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
+        server.request('GET', "/infrastructures",
+                       headers={'AUTHORIZATION': auth_data})
+        resp = server.getresponse()
         output = str(resp.read())
+        server.close()
         self.assertEqual(resp.status, 401,
                          msg="ERROR using an invalid token. A 401 error is expected:" + output)
 
     def test_15_get_incorrect_info(self):
-        self.server.request('GET', "/infrastructures/999999",
-                            headers={'AUTHORIZATION': self.auth_data})
-        resp = self.server.getresponse()
+        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
+        server.request('GET', "/infrastructures/999999",
+                       headers={'AUTHORIZATION': self.auth_data})
+        resp = server.getresponse()
         resp.read()
+        server.close()
         self.assertEqual(resp.status, 404,
                          msg="Incorrect error message: " + str(resp.status))
 
     def test_16_get_incorrect_info_json(self):
-        self.server.request('GET', "/infrastructures/999999", headers={
-                            'AUTHORIZATION': self.auth_data, 'Accept': 'application/json'})
-        resp = self.server.getresponse()
+        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
+        server.request('GET', "/infrastructures/999999",
+                       headers={'AUTHORIZATION': self.auth_data, 'Accept': 'application/json'})
+        resp = server.getresponse()
         output = resp.read()
+        server.close()
         self.assertEqual(resp.status, 404,
                          msg="Incorrect error message: " + str(resp.status))
         res = json.loads(output)
@@ -178,19 +195,23 @@ class TestIM(unittest.TestCase):
                          msg="Incorrect error message: " + output)
 
     def test_18_get_info_without_auth_data(self):
-        self.server.request('GET', "/infrastructures/0")
-        resp = self.server.getresponse()
+        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
+        server.request('GET', "/infrastructures/0")
+        resp = server.getresponse()
         resp.read()
+        server.close()
         self.assertEqual(resp.status, 401,
                          msg="Incorrect error message: " + str(resp.status))
 
     def test_20_create(self):
+        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
         radl = read_file_as_string('../files/test_simple.radl')
 
-        self.server.request('POST', "/infrastructures", body=radl,
-                            headers={'AUTHORIZATION': self.auth_data})
-        resp = self.server.getresponse()
+        server.request('POST', "/infrastructures", body=radl,
+                       headers={'AUTHORIZATION': self.auth_data})
+        resp = server.getresponse()
         output = str(resp.read())
+        server.close()
         self.assertEqual(resp.status, 200,
                          msg="ERROR creating the infrastructure:" + output)
 
@@ -201,65 +222,79 @@ class TestIM(unittest.TestCase):
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
     def test_22_get_forbidden_info(self):
-        self.server.request('GET', "/infrastructures/" + self.inf_id,
-                            headers={'AUTHORIZATION': ("type = InfrastructureManager; "
-                                                       "username = some; password = other")})
-        resp = self.server.getresponse()
+        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
+        server.request('GET', "/infrastructures/" + self.inf_id,
+                       headers={'AUTHORIZATION': ("type = InfrastructureManager; "
+                                                  "username = some; password = other")})
+        resp = server.getresponse()
         resp.read()
+        server.close()
         self.assertEqual(resp.status, 403,
                          msg="Incorrect error message: " + str(resp.status))
 
     def test_30_get_vm_info(self):
-        self.server.request('GET', "/infrastructures/" + self.inf_id,
-                            headers={'AUTHORIZATION': self.auth_data})
-        resp = self.server.getresponse()
+        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
+        server.request('GET', "/infrastructures/" + self.inf_id,
+                       headers={'AUTHORIZATION': self.auth_data})
+        resp = server.getresponse()
         output = str(resp.read())
+        server.close()
         self.assertEqual(resp.status, 200,
                          msg="ERROR getting the infrastructure info:" + output)
         vm_ids = output.split("\n")
 
         vm_uri = uriparse(vm_ids[0])
-        self.server.request('GET', vm_uri[2], headers={
-                            'AUTHORIZATION': self.auth_data})
-        resp = self.server.getresponse()
+        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
+        server.request('GET', vm_uri[2],
+                       headers={'AUTHORIZATION': self.auth_data})
+        resp = server.getresponse()
         output = str(resp.read())
+        server.close()
         self.assertEqual(resp.status, 200,
                          msg="ERROR getting VM info:" + output)
 
     def test_32_get_vm_contmsg(self):
-        self.server.request('GET', "/infrastructures/" + self.inf_id,
-                            headers={'AUTHORIZATION': self.auth_data})
-        resp = self.server.getresponse()
+        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
+        server.request('GET', "/infrastructures/" + self.inf_id,
+                       headers={'AUTHORIZATION': self.auth_data})
+        resp = server.getresponse()
         output = str(resp.read())
+        server.close()
         self.assertEqual(resp.status, 200,
                          msg="ERROR getting the infrastructure info:" + output)
         vm_ids = output.split("\n")
 
         vm_uri = uriparse(vm_ids[0])
-        self.server.request(
+        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
+        server.request(
             'GET', vm_uri[2] + "/contmsg", headers={'AUTHORIZATION': self.auth_data})
-        resp = self.server.getresponse()
+        resp = server.getresponse()
         output = str(resp.read())
+        server.close()
         self.assertEqual(resp.status, 200,
                          msg="ERROR getting VM contmsg:" + output)
         self.assertEqual(
             len(output), 0, msg="Incorrect VM contextualization message: " + output)
 
     def test_33_get_contmsg(self):
-        self.server.request('GET', "/infrastructures/" + self.inf_id +
-                            "/contmsg", headers={'AUTHORIZATION': self.auth_data})
-        resp = self.server.getresponse()
+        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
+        server.request('GET', "/infrastructures/" + self.inf_id + "/contmsg",
+                       headers={'AUTHORIZATION': self.auth_data})
+        resp = server.getresponse()
         output = str(resp.read())
+        server.close()
         self.assertEqual(resp.status, 200,
                          msg="ERROR getting the infrastructure info:" + output)
         self.assertGreater(
             len(output), 30, msg="Incorrect contextualization message: " + output)
 
     def test_34_get_radl(self):
-        self.server.request('GET', "/infrastructures/" + self.inf_id +
-                            "/radl", headers={'AUTHORIZATION': self.auth_data})
-        resp = self.server.getresponse()
+        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
+        server.request('GET', "/infrastructures/" + self.inf_id + "/radl",
+                       headers={'AUTHORIZATION': self.auth_data})
+        resp = server.getresponse()
         output = str(resp.read())
+        server.close()
         self.assertEqual(resp.status, 200,
                          msg="ERROR getting the infrastructure RADL:" + output)
         try:
@@ -269,34 +304,42 @@ class TestIM(unittest.TestCase):
                 False, msg="ERROR parsing the RADL returned by GetInfrastructureRADL: " + str(ex))
 
     def test_35_get_vm_property(self):
-        self.server.request('GET', "/infrastructures/" + self.inf_id,
-                            headers={'AUTHORIZATION': self.auth_data})
-        resp = self.server.getresponse()
+        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
+        server.request('GET', "/infrastructures/" + self.inf_id,
+                       headers={'AUTHORIZATION': self.auth_data})
+        resp = server.getresponse()
         output = str(resp.read())
+        server.close()
         self.assertEqual(resp.status, 200,
                          msg="ERROR getting the infrastructure info:" + output)
         vm_ids = output.split("\n")
 
         vm_uri = uriparse(vm_ids[0])
-        self.server.request(
+        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
+        server.request(
             'GET', vm_uri[2] + "/state", headers={'AUTHORIZATION': self.auth_data})
-        resp = self.server.getresponse()
+        resp = server.getresponse()
         output = str(resp.read())
+        server.close()
         self.assertEqual(resp.status, 200,
                          msg="ERROR getting VM property:" + output)
 
     def test_40_addresource(self):
-        self.server.request('POST', "/infrastructures/" + self.inf_id,
-                            body=RADL_ADD, headers={'AUTHORIZATION': self.auth_data})
-        resp = self.server.getresponse()
+        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
+        server.request('POST', "/infrastructures/" + self.inf_id,
+                       body=RADL_ADD, headers={'AUTHORIZATION': self.auth_data})
+        resp = server.getresponse()
         output = str(resp.read())
+        server.close()
         self.assertEqual(resp.status, 200,
                          msg="ERROR adding resources:" + output)
 
-        self.server.request('GET', "/infrastructures/" + self.inf_id,
-                            headers={'AUTHORIZATION': self.auth_data})
-        resp = self.server.getresponse()
+        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
+        server.request('GET', "/infrastructures/" + self.inf_id,
+                       headers={'AUTHORIZATION': self.auth_data})
+        resp = server.getresponse()
         output = str(resp.read())
+        server.close()
         self.assertEqual(resp.status, 200,
                          msg="ERROR getting the infrastructure info:" + output)
         vm_ids = output.split("\n")
@@ -307,10 +350,12 @@ class TestIM(unittest.TestCase):
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
     def test_45_getstate(self):
-        self.server.request('GET', "/infrastructures/" + self.inf_id +
-                            "/state", headers={'AUTHORIZATION': self.auth_data})
-        resp = self.server.getresponse()
+        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
+        server.request('GET', "/infrastructures/" + self.inf_id + "/state",
+                       headers={'AUTHORIZATION': self.auth_data})
+        resp = server.getresponse()
         output = str(resp.read())
+        server.close()
         self.assertEqual(
             resp.status, 200, msg="ERROR getting the infrastructure state:" + output)
         res = json.loads(output)
@@ -323,26 +368,32 @@ class TestIM(unittest.TestCase):
                              vm_state + " in VM ID " + str(vm_id) + ". It must be 'configured'.")
 
     def test_46_removeresource(self):
-        self.server.request('GET', "/infrastructures/" + self.inf_id,
-                            headers={'AUTHORIZATION': self.auth_data})
-        resp = self.server.getresponse()
+        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
+        server.request('GET', "/infrastructures/" + self.inf_id,
+                       headers={'AUTHORIZATION': self.auth_data})
+        resp = server.getresponse()
         output = str(resp.read())
+        server.close()
         self.assertEqual(resp.status, 200,
                          msg="ERROR getting the infrastructure info:" + output)
         vm_ids = output.split("\n")
 
         vm_uri = uriparse(vm_ids[1])
-        self.server.request('DELETE', vm_uri[2], headers={
-                            'AUTHORIZATION': self.auth_data})
-        resp = self.server.getresponse()
+        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
+        server.request('DELETE', vm_uri[2],
+                       headers={'AUTHORIZATION': self.auth_data})
+        resp = server.getresponse()
         output = str(resp.read())
+        server.close()
         self.assertEqual(resp.status, 200,
                          msg="ERROR removing resources:" + output)
 
-        self.server.request('GET', "/infrastructures/" + self.inf_id,
-                            headers={'AUTHORIZATION': self.auth_data})
-        resp = self.server.getresponse()
+        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
+        server.request('GET', "/infrastructures/" + self.inf_id,
+                       headers={'AUTHORIZATION': self.auth_data})
+        resp = server.getresponse()
         output = str(resp.read())
+        server.close()
         self.assertEqual(resp.status, 200,
                          msg="ERROR getting the infrastructure info:" + output)
         vm_ids = output.split("\n")
@@ -354,34 +405,42 @@ class TestIM(unittest.TestCase):
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
     def test_47_addresource_noconfig(self):
-        self.server.request('POST', "/infrastructures/" + self.inf_id + "?context=0",
-                            body=RADL_ADD, headers={'AUTHORIZATION': self.auth_data})
-        resp = self.server.getresponse()
+        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
+        server.request('POST', "/infrastructures/" + self.inf_id + "?context=0",
+                       body=RADL_ADD, headers={'AUTHORIZATION': self.auth_data})
+        resp = server.getresponse()
         output = str(resp.read())
+        server.close()
         self.assertEqual(resp.status, 200,
                          msg="ERROR adding resources:" + output)
 
     def test_50_removeresource_noconfig(self):
-        self.server.request('GET', "/infrastructures/" + self.inf_id +
-                            "?context=0", headers={'AUTHORIZATION': self.auth_data})
-        resp = self.server.getresponse()
+        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
+        server.request('GET', "/infrastructures/" + self.inf_id + "?context=0",
+                       headers={'AUTHORIZATION': self.auth_data})
+        resp = server.getresponse()
         output = str(resp.read())
+        server.close()
         self.assertEqual(resp.status, 200,
                          msg="ERROR getting the infrastructure info:" + output)
         vm_ids = output.split("\n")
 
         vm_uri = uriparse(vm_ids[1])
-        self.server.request('DELETE', vm_uri[2], headers={
-                            'AUTHORIZATION': self.auth_data})
-        resp = self.server.getresponse()
+        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
+        server.request('DELETE', vm_uri[2],
+                       headers={'AUTHORIZATION': self.auth_data})
+        resp = server.getresponse()
         output = str(resp.read())
+        server.close()
         self.assertEqual(resp.status, 200,
                          msg="ERROR removing resources:" + output)
 
-        self.server.request('GET', "/infrastructures/" + self.inf_id,
-                            headers={'AUTHORIZATION': self.auth_data})
-        resp = self.server.getresponse()
+        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
+        server.request('GET', "/infrastructures/" + self.inf_id,
+                       headers={'AUTHORIZATION': self.auth_data})
+        resp = server.getresponse()
         output = str(resp.read())
+        server.close()
         self.assertEqual(resp.status, 200,
                          msg="ERROR getting the infrastructure info:" + output)
         vm_ids = output.split("\n")
@@ -389,10 +448,12 @@ class TestIM(unittest.TestCase):
                                               str(len(vm_ids)) + "). It must be 1"))
 
     def test_55_reconfigure(self):
-        self.server.request('PUT', "/infrastructures/" + self.inf_id +
-                            "/reconfigure", headers={'AUTHORIZATION': self.auth_data})
-        resp = self.server.getresponse()
+        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
+        server.request('PUT', "/infrastructures/" + self.inf_id + "/reconfigure",
+                       headers={'AUTHORIZATION': self.auth_data})
+        resp = server.getresponse()
         output = str(resp.read())
+        server.close()
         self.assertEqual(resp.status, 200, msg="ERROR reconfiguring:" + output)
 
         all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 300)
@@ -400,10 +461,12 @@ class TestIM(unittest.TestCase):
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
     def test_57_reconfigure_list(self):
-        self.server.request('PUT', "/infrastructures/" + self.inf_id +
-                            "/reconfigure?vm_list=0", headers={'AUTHORIZATION': self.auth_data})
-        resp = self.server.getresponse()
+        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
+        server.request('PUT', "/infrastructures/" + self.inf_id + "/reconfigure?vm_list=0",
+                       headers={'AUTHORIZATION': self.auth_data})
+        resp = server.getresponse()
         output = str(resp.read())
+        server.close()
         self.assertEqual(resp.status, 200, msg="ERROR reconfiguring:" + output)
 
         all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 300)
@@ -412,10 +475,12 @@ class TestIM(unittest.TestCase):
 
     def test_60_stop(self):
         time.sleep(10)
-        self.server.request('PUT', "/infrastructures/" + self.inf_id + "/stop", headers={
-                            "Content-type": "application/x-www-form-urlencoded", 'AUTHORIZATION': self.auth_data})
-        resp = self.server.getresponse()
+        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
+        server.request('PUT', "/infrastructures/" + self.inf_id + "/stop",
+                       headers={'AUTHORIZATION': self.auth_data})
+        resp = server.getresponse()
         output = str(resp.read())
+        server.close()
         self.assertEqual(resp.status, 200,
                          msg="ERROR stopping the infrastructure:" + output)
         time.sleep(10)
@@ -428,10 +493,12 @@ class TestIM(unittest.TestCase):
     def test_70_start(self):
         # To assure the VM is stopped
         time.sleep(10)
-        self.server.request('PUT', "/infrastructures/" + self.inf_id + "/start", headers={
-                            "Content-type": "application/x-www-form-urlencoded", 'AUTHORIZATION': self.auth_data})
-        resp = self.server.getresponse()
+        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
+        server.request('PUT', "/infrastructures/" + self.inf_id + "/start",
+                       headers={'AUTHORIZATION': self.auth_data})
+        resp = server.getresponse()
         output = str(resp.read())
+        server.close()
         self.assertEqual(resp.status, 200,
                          msg="ERROR starting the infrastructure:" + output)
         time.sleep(10)
@@ -443,10 +510,12 @@ class TestIM(unittest.TestCase):
 
     def test_80_stop_vm(self):
         time.sleep(10)
-        self.server.request('PUT', "/infrastructures/" + self.inf_id + "/vms/0/stop", headers={
-                            "Content-type": "application/x-www-form-urlencoded", 'AUTHORIZATION': self.auth_data})
-        resp = self.server.getresponse()
+        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
+        server.request('PUT', "/infrastructures/" + self.inf_id + "/vms/0/stop",
+                       headers={'AUTHORIZATION': self.auth_data})
+        resp = server.getresponse()
         output = str(resp.read())
+        server.close()
         self.assertEqual(resp.status, 200,
                          msg="ERROR stopping the vm:" + output)
         time.sleep(10)
@@ -459,10 +528,12 @@ class TestIM(unittest.TestCase):
     def test_90_start_vm(self):
         # To assure the VM is stopped
         time.sleep(10)
-        self.server.request('PUT', "/infrastructures/" + self.inf_id + "/vms/0/start", headers={
-                            "Content-type": "application/x-www-form-urlencoded", 'AUTHORIZATION': self.auth_data})
-        resp = self.server.getresponse()
+        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
+        server.request('PUT', "/infrastructures/" + self.inf_id + "/vms/0/start",
+                       headers={'AUTHORIZATION': self.auth_data})
+        resp = server.getresponse()
         output = str(resp.read())
+        server.close()
         self.assertEqual(resp.status, 200,
                          msg="ERROR starting the vm:" + output)
         time.sleep(10)
@@ -473,10 +544,12 @@ class TestIM(unittest.TestCase):
             all_configured, msg="ERROR waiting the vm to be started (timeout).")
 
     def test_92_destroy(self):
-        self.server.request('DELETE', "/infrastructures/" +
-                            self.inf_id, headers={'Authorization': self.auth_data})
-        resp = self.server.getresponse()
+        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
+        server.request('DELETE', "/infrastructures/" + self.inf_id,
+                       headers={'Authorization': self.auth_data})
+        resp = server.getresponse()
         output = str(resp.read())
+        server.close()
         self.assertEqual(resp.status, 200,
                          msg="ERROR destroying the infrastructure:" + output)
 
@@ -486,10 +559,12 @@ class TestIM(unittest.TestCase):
         """
         tosca = read_file_as_string('../files/tosca_create.yml')
 
-        self.server.request('POST', "/infrastructures", body=tosca,
-                            headers={'AUTHORIZATION': self.auth_data, 'Content-Type': 'text/yaml'})
-        resp = self.server.getresponse()
+        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
+        server.request('POST', "/infrastructures", body=tosca,
+                       headers={'AUTHORIZATION': self.auth_data, 'Content-Type': 'text/yaml'})
+        resp = server.getresponse()
         output = str(resp.read())
+        server.close()
         self.assertEqual(resp.status, 200,
                          msg="ERROR creating the infrastructure:" + output)
 
@@ -500,10 +575,12 @@ class TestIM(unittest.TestCase):
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
     def test_94_get_outputs(self):
-        self.server.request('GET', "/infrastructures/" + self.inf_id +
-                            "/outputs", headers={'Authorization': self.auth_data})
-        resp = self.server.getresponse()
+        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
+        server.request('GET', "/infrastructures/" + self.inf_id + "/outputs",
+                       headers={'Authorization': self.auth_data})
+        resp = server.getresponse()
         output = str(resp.read())
+        server.close()
         self.assertEqual(resp.status, 200,
                          msg="ERROR getting TOSCA outputs:" + output)
         res = json.loads(output)
@@ -517,17 +594,21 @@ class TestIM(unittest.TestCase):
         """
         tosca = read_file_as_string('../files/tosca_add.yml')
 
-        self.server.request('POST', "/infrastructures/" + self.inf_id, body=tosca,
-                            headers={'AUTHORIZATION': self.auth_data, 'Content-Type': 'text/yaml'})
-        resp = self.server.getresponse()
+        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
+        server.request('POST', "/infrastructures/" + self.inf_id, body=tosca,
+                       headers={'AUTHORIZATION': self.auth_data, 'Content-Type': 'text/yaml'})
+        resp = server.getresponse()
         output = str(resp.read())
+        server.close()
         self.assertEqual(resp.status, 200,
                          msg="ERROR adding resources:" + output)
 
-        self.server.request('GET', "/infrastructures/" + self.inf_id,
-                            headers={'AUTHORIZATION': self.auth_data})
-        resp = self.server.getresponse()
+        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
+        server.request('GET', "/infrastructures/" + self.inf_id,
+                       headers={'AUTHORIZATION': self.auth_data})
+        resp = server.getresponse()
         output = str(resp.read())
+        server.close()
         self.assertEqual(resp.status, 200,
                          msg="ERROR getting the infrastructure info:" + output)
         vm_ids = output.split("\n")
@@ -543,17 +624,21 @@ class TestIM(unittest.TestCase):
         """
         tosca = read_file_as_string('../files/tosca_remove.yml')
 
-        self.server.request('POST', "/infrastructures/" + self.inf_id, body=tosca,
-                            headers={'AUTHORIZATION': self.auth_data, 'Content-Type': 'text/yaml'})
-        resp = self.server.getresponse()
+        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
+        server.request('POST', "/infrastructures/" + self.inf_id, body=tosca,
+                       headers={'AUTHORIZATION': self.auth_data, 'Content-Type': 'text/yaml'})
+        resp = server.getresponse()
         output = str(resp.read())
+        server.close()
         self.assertEqual(resp.status, 200,
                          msg="ERROR removing resources:" + output)
 
-        self.server.request('GET', "/infrastructures/" + self.inf_id,
-                            headers={'AUTHORIZATION': self.auth_data})
-        resp = self.server.getresponse()
+        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
+        server.request('GET', "/infrastructures/" + self.inf_id,
+                       headers={'AUTHORIZATION': self.auth_data})
+        resp = server.getresponse()
         output = str(resp.read())
+        server.close()
         self.assertEqual(resp.status, 200,
                          msg="ERROR getting the infrastructure info:" + output)
         vm_ids = output.split("\n")
@@ -564,10 +649,12 @@ class TestIM(unittest.TestCase):
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
     def test_98_destroy(self):
-        self.server.request('DELETE', "/infrastructures/" +
-                            self.inf_id, headers={'Authorization': self.auth_data})
-        resp = self.server.getresponse()
+        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
+        server.request('DELETE', "/infrastructures/" + self.inf_id,
+                       headers={'Authorization': self.auth_data})
+        resp = server.getresponse()
         output = str(resp.read())
+        server.close()
         self.assertEqual(resp.status, 200,
                          msg="ERROR destroying the infrastructure:" + output)
 

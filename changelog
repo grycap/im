@@ -233,4 +233,4 @@ IM 1.4.8
     * Bugfix setting step num in case if using contextualizes
     * Bugfix mapping ips to RADL networks in OpenStack and OpenNebula connectors
     * Bugfixes in OpenStack connector
-
+    * Bugfixes in REST API not multithreaded

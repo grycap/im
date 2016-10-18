@@ -61,6 +61,11 @@ be installed in the system.
    https://github.com/indigo-dc/tosca-parser but we are working to improve the mainstream version
    to enable to use it with the IM. 
 
+ + The Bottle framework (http://bottlepy.org/) must be installed, typically available as the 'python-bottle' package.
+
+ + The CherryPy Web framework (http://www.cherrypy.org/) must be installed, typically available as the 'python-cherrypy' 
+   or 'python-cherrypy3' package.
+
  + Ansible (http://www.ansibleworks.com/) to configure nodes in the infrastructures.
    In particular, Ansible 1.4.2+ must be installed. The current recommended version is 1.9.4 untill the 2.X versions become stable.
    To ensure the functionality the following values must be set in the ansible.cfg file (usually found in /etc/ansible/):
@@ -96,11 +101,7 @@ pipelining = True
 In case of using the SSL secured version of the XMLRPC API the SpringPython
 framework (http://springpython.webfactional.com/) must be installed.
 
-In case of using the REST API the Bottle framework
-(http://bottlepy.org/) must be installed.
-
-In case of using the SSL secured version of the REST API the CherryPy Web
-framework (http://www.cherrypy.org/) and pyOpenSSL must be installed.
+In case of using the SSL secured version of the REST API pyOpenSSL must be installed.
 
 1.3 INSTALLING
 --------------
