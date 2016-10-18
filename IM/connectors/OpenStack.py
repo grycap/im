@@ -288,6 +288,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         pool_names = [pool.name for pool in driver.ex_list_floating_ip_pools()]
 
         for radl_net in radl.networks:
+            if pool_names and radl_net.isPublic():
+                continue
             # check if this net is connected with the current VM
             if radl.systems[0].getNumNetworkWithConnection(radl_net.id) is not None:
                 # First check if the user has specified a provider ID
@@ -593,7 +595,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             outports = public_net.getOutPorts()
             if outports:
                 for remote_port, remote_protocol, local_port, local_protocol in outports:
-                    if local_port != 22 and local_port != 5099:
+                    if local_port != 22:
                         protocol = remote_protocol
                         if remote_protocol != local_protocol:
                             self.logger.warn(
@@ -607,10 +609,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                                 "Exception adding SG rules: " + str(ex))
 
         try:
-            driver.ex_create_security_group_rule(
-                sg, 'tcp', 22, 22, '0.0.0.0/0')
-            driver.ex_create_security_group_rule(
-                sg, 'tcp', 5099, 5099, '0.0.0.0/0')
+            driver.ex_create_security_group_rule(sg, 'tcp', 22, 22, '0.0.0.0/0')
 
             # open all the ports for the VMs in the security group
             driver.ex_create_security_group_rule(
