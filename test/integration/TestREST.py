@@ -245,8 +245,7 @@ class TestIM(unittest.TestCase):
 
         vm_uri = uriparse(vm_ids[0])
         server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
-        server.request('GET', vm_uri[2],
-                       headers={'AUTHORIZATION': self.auth_data})
+        server.request('GET', vm_uri[2], headers={'AUTHORIZATION': self.auth_data})
         resp = server.getresponse()
         output = str(resp.read())
         server.close()
@@ -266,8 +265,7 @@ class TestIM(unittest.TestCase):
 
         vm_uri = uriparse(vm_ids[0])
         server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
-        server.request(
-            'GET', vm_uri[2] + "/contmsg", headers={'AUTHORIZATION': self.auth_data})
+        server.request('GET', vm_uri[2] + "/contmsg", headers={'AUTHORIZATION': self.auth_data})
         resp = server.getresponse()
         output = str(resp.read())
         server.close()
@@ -380,8 +378,7 @@ class TestIM(unittest.TestCase):
 
         vm_uri = uriparse(vm_ids[1])
         server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
-        server.request('DELETE', vm_uri[2],
-                       headers={'AUTHORIZATION': self.auth_data})
+        server.request('DELETE', vm_uri[2], headers={'AUTHORIZATION': self.auth_data})
         resp = server.getresponse()
         output = str(resp.read())
         server.close()
@@ -427,8 +424,7 @@ class TestIM(unittest.TestCase):
 
         vm_uri = uriparse(vm_ids[1])
         server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
-        server.request('DELETE', vm_uri[2],
-                       headers={'AUTHORIZATION': self.auth_data})
+        server.request('DELETE', vm_uri[2], headers={'AUTHORIZATION': self.auth_data})
         resp = server.getresponse()
         output = str(resp.read())
         server.close()
