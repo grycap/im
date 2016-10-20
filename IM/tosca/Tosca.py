@@ -143,20 +143,30 @@ class Tosca:
     def _format_outports(ports_dict):
         res = ""
         for port in ports_dict.values():
-            # TODO: format ranges
             protocol = "tcp"
+            source_range = None
             if "protocol" in port:
                 protocol = port["protocol"]
-            if "source" in port:
-                remote_port = port["source"]
-            if "target" in port:
-                local_port = port["target"]
+            if "source_range" in port:
+                source_range = port["source_range"]
             else:
-                local_port = remote_port
+                if "source" in port:
+                    remote_port = port["source"]
+                if "target" in port:
+                    local_port = port["target"]
+                else:
+                    local_port = remote_port
 
-            if res:
-                res += ","
-            res += "%s/%s-%s/%s" % (remote_port, protocol, local_port, protocol)
+            # In case of source_range do not use port mapping only direct ports
+            if source_range:
+                for port_in_range in range(source_range[0], source_range[1]):
+                    if res:
+                        res += ","
+                    res += "%s" % (port_in_range)
+            else:
+                if res:
+                    res += ","
+                res += "%s/%s-%s/%s" % (remote_port, protocol, local_port, protocol)
 
         return res
 
