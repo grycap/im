@@ -227,46 +227,6 @@ class TestIM(unittest.TestCase):
         self.assertGreater(
             pos, -1, msg="Incorrect RADL in AddResource not returned the expected error: " + res)
 
-    def test_18_altervm(self):
-        """
-        Test AlterVM function
-        """
-
-        alter_radl = """
-        system wn (
-            cpu.count>=2 and
-            memory.size>=1024m and
-            disk.1.size=1GB and
-            disk.1.device='hdb' and
-            disk.1.fstype='ext4' and
-            disk.1.mount_path='/mnt/disk' and
-            disk.2.size=1GB and
-            disk.2.device='hdb' and
-            disk.2.fstype='ext4' and
-            disk.2.mount_path='/mnt/disk2'
-        )
-        """
-        (success, res) = self.server.AlterVM(
-            self.inf_id, 1, alter_radl, self.auth_data)
-        self.assertTrue(success, msg="ERROR calling AlterVM: " + str(res))
-
-        (success, info) = self.server.GetVMInfo(
-            self.inf_id, 1, self.auth_data)
-        self.assertTrue(success, msg="ERROR calling GetVMInfo: " + str(info))
-        try:
-            radl_res = radl_parse.parse_radl(info)
-        except Exception, ex:
-            self.assertTrue(
-                False, msg="ERROR parsing the RADL returned by GetVMInfo: " + str(ex))
-
-        new_cpu = radl_res.systems[0].getValue('cpu.count')
-        new_mem = radl_res.systems[0].getValue('memory.size')
-        new_disk = radl_res.systems[0].getValue('disk.2.provider_id')
-
-        self.assertEqual(new_cpu, 2, msg="Incorrect number of CPUs (%d) it must be 2." % new_cpu)
-        self.assertEqual(new_mem, 1073741824, msg="Incorrect ammount of memory (%d) it must be 1024." % new_mem)
-        self.assertNotEqual(new_disk, None, msg="Disk 2 without provider id")
-
     def test_19_addresource(self):
         """
         Test AddResource function
