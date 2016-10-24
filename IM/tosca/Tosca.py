@@ -124,7 +124,25 @@ class Tosca:
             # If there are no configures, disable contextualization
             radl.contextualize = contextualize({})
 
+        self._order_deploys(radl)
+
         return all_removal_list, self._complete_radl_networks(radl)
+
+    def _order_deploys(self, radl):
+        """
+        Order the RADL deploys to assure VMs with Public IPs a set a the beginning
+        (to avoid problems with cluster configuration)
+        """
+        pub = []
+        priv = []
+        for d in radl.deploys:
+            if radl.hasPublicNet(d.id):
+                pub.append(d)
+            else:
+                priv.append(d)
+        
+        radl.deploys = pub + priv
+            
 
     def _get_num_instances(self, sys_name, inf_info):
         """
