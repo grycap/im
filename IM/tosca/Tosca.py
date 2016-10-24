@@ -27,6 +27,7 @@ class Tosca:
     logger = logging.getLogger('InfrastructureManager')
 
     def __init__(self, yaml_str):
+        Tosca.logger.debug("TOSCA: %s" % yaml_str)
         self.yaml = yaml.load(yaml_str)
         self.tosca = ToscaTemplate(yaml_dict_tpl=copy.deepcopy(self.yaml))
 
