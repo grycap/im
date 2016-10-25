@@ -741,7 +741,7 @@ users:
             return node.extra['availability_zone']
 
         locations = node.driver.list_locations()
-        
+
         # If there is only 1 location return it
         if len(locations) == 1 and locations[0].name:
             return locations[0].name
