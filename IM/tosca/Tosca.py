@@ -718,7 +718,9 @@ class Tosca:
                         res = res[index]
                     return res
                 else:
-                    return vm.getPrivateIP()
+                    Tosca.logger.warn("Attribute credential of capability endpoint only"
+                                      " supported in tosca.nodes.indigo.Compute nodes.")
+                    return None
             elif attribute_name == "private_address":
                 if node.type == "tosca.nodes.indigo.Compute":
                     res = [vm.getPrivateIP() for vm in vm_list[node.name]]
@@ -1204,7 +1206,7 @@ class Tosca:
                 size = None
                 location = None
                 # set a default device
-                device = "hdb"
+                device = None
 
                 for prop in props:
                     if prop.name == "location":
