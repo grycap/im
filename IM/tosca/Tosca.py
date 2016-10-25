@@ -141,9 +141,8 @@ class Tosca:
                 pub.append(d)
             else:
                 priv.append(d)
-        
+
         radl.deploys = pub + priv
-            
 
     def _get_num_instances(self, sys_name, inf_info):
         """
