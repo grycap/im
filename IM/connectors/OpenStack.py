@@ -649,7 +649,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
             try:
                 # Delete the EBS volumes
-                self.delete_volumes(vm)
+                self.delete_volumes(node, vm)
             except:
                 self.logger.exception("Error deleting volumes.")
 
@@ -726,3 +726,22 @@ users:
         if cloud_config_str:
             config += "\n%s\n\n" % cloud_config_str.replace("\\n", "\n")
         return config
+
+    def get_node_location(self, node):
+        """
+        Get the location of a node
+
+        Arguments:
+           - node(:py:class:`libcloud.compute.base.Node`): node object.
+        Returns: a String
+        """
+        if 'availability_zone' in node.extra:
+            return node.extra['availability_zone']
+
+        locations = node.driver.list_locations()
+
+        # If there is only 1 location return it
+        if len(locations) == 1 and locations[0].name:
+            return locations[0].name
+
+        return None

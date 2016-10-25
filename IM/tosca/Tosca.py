@@ -27,6 +27,7 @@ class Tosca:
     logger = logging.getLogger('InfrastructureManager')
 
     def __init__(self, yaml_str):
+        Tosca.logger.debug("TOSCA: %s" % yaml_str)
         self.yaml = yaml.load(yaml_str)
         self.tosca = ToscaTemplate(yaml_dict_tpl=copy.deepcopy(self.yaml))
 
@@ -124,7 +125,24 @@ class Tosca:
             # If there are no configures, disable contextualization
             radl.contextualize = contextualize({})
 
+        self._order_deploys(radl)
+
         return all_removal_list, self._complete_radl_networks(radl)
+
+    def _order_deploys(self, radl):
+        """
+        Order the RADL deploys to assure VMs with Public IPs a set a the beginning
+        (to avoid problems with cluster configuration)
+        """
+        pub = []
+        priv = []
+        for d in radl.deploys:
+            if radl.hasPublicNet(d.id):
+                pub.append(d)
+            else:
+                priv.append(d)
+
+        radl.deploys = pub + priv
 
     def _get_num_instances(self, sys_name, inf_info):
         """
@@ -745,17 +763,10 @@ class Tosca:
             elif attribute_name == "private_address":
                 if node.type == "tosca.nodes.indigo.Compute":
                     # This only works with Ansible 2.1, wait for it to be released
-                    # return "{{ groups['%s']|map('extract', hostvars,'IM_NODE_PRIVATE_IP')|list }}" % node.name
                     if index is not None:
                         return "{{ hostvars[groups['%s'][%d]]['IM_NODE_PRIVATE_IP'] }}" % (node.name, index)
                     else:
-                        return ("""|\n"""
-                                """     {%% if '%s' in groups %%}"""
-                                """{%% set comma = joiner(",") %%}"""
-                                """[{%% for host in groups['%s'] %%}"""
-                                """{{ comma() }}"{{ hostvars[host]['IM_NODE_PRIVATE_IP'] }}" """
-                                """{%% endfor %%} ]"""
-                                """{%% else %%}[]{%% endif %%}""" % (node.name, node.name))
+                        return "{{ groups['%s']|map('extract', hostvars,'IM_NODE_PRIVATE_IP')|list }}" % node.name
                 else:
                     if node_name in ["HOST", "SELF"]:
                         return "{{ IM_NODE_PRIVATE_IP }}"
@@ -764,17 +775,10 @@ class Tosca:
             elif attribute_name == "public_address":
                 if node.type == "tosca.nodes.indigo.Compute":
                     # This only works with Ansible 2.1, wait for it to be released
-                    # return "{{ groups['%s']|map('extract', hostvars,'IM_NODE_PUBLIC_IP')|list }}" % node.name
                     if index is not None:
                         return "{{ hostvars[groups['%s'][%d]]['IM_NODE_PUBLIC_IP'] }}" % (node.name, index)
                     else:
-                        return ("""|\n"""
-                                """     {%% if '%s' in groups %%}"""
-                                """{%% set comma = joiner(",") %%}"""
-                                """[{%% for host in groups['%s'] %%}"""
-                                """{{ comma() }}"{{ hostvars[host]['IM_NODE_PUBLIC_IP'] }}" """
-                                """{%% endfor %%} ]"""
-                                """{%% else %%}[]{%% endif %%}""" % (node.name, node.name))
+                        return "{{ groups['%s']|map('extract', hostvars,'IM_NODE_PUBLIC_IP')|list }}" % node.name
                 else:
                     if node_name in ["HOST", "SELF"]:
                         return "{{ IM_NODE_PUBLIC_IP }}"
