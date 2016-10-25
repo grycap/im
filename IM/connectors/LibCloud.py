@@ -306,7 +306,7 @@ class LibCloudCloudConnector(CloudConnector):
             self.delete_elastic_ips(node, vm)
 
             # Delete the EBS volumes
-            self.delete_volumes(vm)
+            self.delete_volumes(node, vm)
 
             if not success:
                 return (False, "Error destroying node: " + vm.id)
@@ -555,10 +555,7 @@ class LibCloudCloudConnector(CloudConnector):
                 while volume.extra['state'] != state and volume.extra['state'] not in err_states and cont < timeout:
                     cont += 2
                     time.sleep(2)
-                    for vol in volume.driver.list_volumes():
-                        if vol.id == volume.id:
-                            volume = vol
-                            break
+                    volume = volume.driver.ex_get_volume(volume.id)
                 return volume.extra['state'] == state
 
             return True
@@ -588,14 +585,12 @@ class LibCloudCloudConnector(CloudConnector):
                     volume_name = "im-%d" % int(time.time() * 100.0)
 
                     location = self.get_node_location(node)
-                    volume = node.driver.create_volume(
-                        int(disk_size), volume_name, location=location)
+                    volume = node.driver.create_volume(int(disk_size), volume_name, location=location)
                     success = self.wait_volume(volume)
                     if success:
                         # Add the volume to the VM to remove it later
-                        vm.volumes.append(volume)
-                        self.logger.debug(
-                            "Attach the volume ID " + str(volume.id))
+                        vm.volumes.append(volume.id)
+                        self.logger.debug("Attach the volume ID " + str(volume.id))
                         volume.attach(node, "/dev/" + disk_device)
                     else:
                         self.logger.error("Error waiting the volume ID " + str(
@@ -624,7 +619,7 @@ class LibCloudCloudConnector(CloudConnector):
                     return location
         return None
 
-    def delete_volumes(self, vm, timeout=300):
+    def delete_volumes(self, node, vm, timeout=300):
         """
         Delete the volumes of a VM
 
@@ -634,8 +629,9 @@ class LibCloudCloudConnector(CloudConnector):
         """
         all_ok = True
         if "volumes" in vm.__dict__.keys() and vm.volumes:
-            for volume in vm.volumes:
+            for volumeid in vm.volumes:
                 try:
+                    volume = node.driver.ex_get_volume(volumeid)
                     success = self.wait_volume(volume, timeout=timeout)
                     if not success:
                         self.logger.error(
