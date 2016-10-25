@@ -90,9 +90,6 @@ class VirtualMachine:
         # Quit the lock to the data to be store by pickle
         del odict['_lock']
         del odict['cloud_connector']
-        # To avoid some problems with openstack volumes
-        if 'volumes' in odict:
-            del odict['volumes']
         return odict
 
     def __setstate__(self, dic):
