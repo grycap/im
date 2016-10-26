@@ -256,7 +256,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
             # For IPs not correctly mapped
             # e.g. If you request a private IP and you get a public one it is
-            # not correctly mapped 
+            # not correctly mapped
             for net_name, ip in map_nets.items():
                 if ip not in ips_assigned:
                     num_net = system.getNumNetworkIfaces()
