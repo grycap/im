@@ -590,6 +590,13 @@ class LibCloudCloudConnector(CloudConnector):
                         vm.volumes.append(volume.id)
                         self.logger.debug("Attach the volume ID " + str(volume.id))
                         volume.attach(node, disk_device)
+                        # wait the volume to be attached
+                        self.wait_volume(volume, state='in-use')
+                        
+                        volume = volume.driver.ex_get_volume(volume.id)
+                        if 'attachments' in volume.extra and volume.extra['attachments']:
+                            disk_device = volume.extra['attachments'][0]['device']
+                            vm.info.systems[0].setValue("disk." + str(cont) + ".device", disk_device)
                     else:
                         self.logger.error("Error waiting the volume ID " + str(
                             volume.id) + " not attaching to the VM and destroying it.")
