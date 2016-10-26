@@ -574,14 +574,12 @@ class LibCloudCloudConnector(CloudConnector):
             if node.state == NodeState.RUNNING and "volumes" not in vm.__dict__.keys():
                 vm.volumes = []
                 cont = 1
-                while (vm.info.systems[0].getValue("disk." + str(cont) + ".size") and
-                        vm.info.systems[0].getValue("disk." + str(cont) + ".device")):
-                    disk_size = vm.info.systems[0].getFeature(
-                        "disk." + str(cont) + ".size").getValue('G')
-                    disk_device = vm.info.systems[0].getValue(
-                        "disk." + str(cont) + ".device")
-                    self.logger.debug(
-                        "Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
+                while vm.info.systems[0].getValue("disk." + str(cont) + ".size"):
+                    disk_size = vm.info.systems[0].getFeature("disk." + str(cont) + ".size").getValue('G')
+                    disk_device = vm.info.systems[0].getValue("disk." + str(cont) + ".device")
+                    if disk_device:
+                        disk_device = "/dev/" + disk_device
+                    self.logger.debug("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
                     volume_name = "im-%d" % int(time.time() * 100.0)
 
                     location = self.get_node_location(node)
@@ -591,7 +589,7 @@ class LibCloudCloudConnector(CloudConnector):
                         # Add the volume to the VM to remove it later
                         vm.volumes.append(volume.id)
                         self.logger.debug("Attach the volume ID " + str(volume.id))
-                        volume.attach(node, "/dev/" + disk_device)
+                        volume.attach(node, disk_device)
                     else:
                         self.logger.error("Error waiting the volume ID " + str(
                             volume.id) + " not attaching to the VM and destroying it.")
