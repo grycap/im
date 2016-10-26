@@ -473,20 +473,19 @@ class OpenNebulaCloudConnector(CloudConnector):
         path = url[2]
 
         if path[1:].isdigit():
-            disks = 'DISK = [ IMAGE_ID = "%s" ]' % path[1:]
+            disks = 'DISK = [ IMAGE_ID = "%s" ]\n' % path[1:]
         else:
             if ConfigOpenNebula.IMAGE_UNAME:
                 # This only works if the user owns the image
-                disks = 'DISK = [ IMAGE = "%s" ]' % path[1:]
+                disks = 'DISK = [ IMAGE = "%s" ]\n' % path[1:]
             else:
-                disks = 'DISK = [ IMAGE = "%s", IMAGE_UNAME = "%s" ]' % (
+                disks = 'DISK = [ IMAGE = "%s", IMAGE_UNAME = "%s" ]\n' % (
                     path[1:], ConfigOpenNebula.IMAGE_UNAME)
         cont = 1
-        while (system.getValue("disk." + str(cont) + ".image.url") or
-               (system.getValue("disk." + str(cont) + ".size") and system.getValue("disk." + str(cont) + ".device"))):
+        while system.getValue("disk." + str(cont) + ".image.url") or system.getValue("disk." + str(cont) + ".size"):
             disk_image = system.getValue("disk." + str(cont) + ".image.url")
             if disk_image:
-                disks += '\nDISK = [ IMAGE_ID = "%s" ]\n' % uriparse(disk_image)[
+                disks += 'DISK = [ IMAGE_ID = "%s" ]\n' % uriparse(disk_image)[
                     2][1:]
             else:
                 disk_size = system.getFeature(
@@ -496,15 +495,10 @@ class OpenNebulaCloudConnector(CloudConnector):
                 if not disk_fstype:
                     disk_fstype = 'ext3'
 
-                disks += '''
-                    DISK = [
-                        TYPE = fs ,
-                        FORMAT = %s,
-                        SIZE = %d,
-                        TARGET = %s,
-                        SAVE = no
-                        ]
-                ''' % (disk_fstype, int(disk_size), disk_device)
+                disks += ' DISK = [ TYPE = fs , FORMAT = %s, SIZE = %d,' % (disk_fstype, int(disk_size))
+                if disk_device:
+                    disks += 'TARGET = %s,' % disk_device
+                disks += 'SAVE = no ]\n'
 
             cont += 1
 

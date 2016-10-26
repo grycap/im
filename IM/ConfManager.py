@@ -131,6 +131,8 @@ class ConfManager(threading.Thread):
                     ip = vm.getPublicIP()
                 else:
                     ip = vm.getPrivateIP()
+                    if not ip:
+                        ip = vm.getPublicIP()
 
                 if not ip:
                     # If the IP is not Available try to update the info
@@ -146,6 +148,8 @@ class ConfManager(threading.Thread):
                         ip = vm.getPublicIP()
                     else:
                         ip = vm.getPrivateIP()
+                        if not ip:
+                            ip = vm.getPublicIP()
 
                     if not ip:
                         success = False
