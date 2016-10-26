@@ -130,10 +130,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     driver = self.get_driver(auth_data)
 
                     res_system = radl_system.clone()
-                    instance_type = self.get_instance_type(
-                        driver.list_sizes(), res_system)
-                    self.update_system_info_from_instance(
-                        res_system, instance_type)
+                    instance_type = self.get_instance_type(driver.list_sizes(), res_system)
+                    self.update_system_info_from_instance(res_system, instance_type)
 
                     res_system.addFeature(
                         Feature("disk.0.image.url", "=", str_url), conflict="other", missing="other")
@@ -247,12 +245,23 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
             system = vm.info.systems[0]
             i = 0
+            ips_assigned = []
             while system.getValue("net_interface." + str(i) + ".connection"):
                 net_name = system.getValue("net_interface." + str(i) + ".connection")
                 if net_name in map_nets:
                     ip = map_nets[net_name]
                     system.setValue("net_interface." + str(i) + ".ip", ip)
+                    ips_assigned.append(ip)
                 i += 1
+
+            # For IPs not correctly mapped
+            # e.g. If you request a private IP and you get a public one it is
+            # not correctly mapped 
+            for net_name, ip in map_nets.items():
+                if ip not in ips_assigned:
+                    num_net = system.getNumNetworkIfaces()
+                    system.setValue('net_interface.' + str(num_net) + '.ip', ip)
+                    system.setValue('net_interface.' + str(num_net) + '.connection', net_name)
         else:
             # if addresses are not available use the old method
             public_ips = []
