@@ -768,7 +768,8 @@ class Tosca:
                     if index is not None:
                         return "{{ hostvars[groups['%s'][%d]]['IM_NODE_PRIVATE_IP'] }}" % (node.name, index)
                     else:
-                        return "{{ groups['%s']|map('extract', hostvars,'IM_NODE_PRIVATE_IP')|list }}" % node.name
+                        return ("{{ groups['%s']|map('extract', hostvars,'IM_NODE_PRIVATE_IP')|list"
+                                " if '%s' in groups else []}}" % (node.name, node.name))
                 else:
                     if node_name in ["HOST", "SELF"]:
                         return "{{ IM_NODE_PRIVATE_IP }}"
@@ -780,7 +781,8 @@ class Tosca:
                     if index is not None:
                         return "{{ hostvars[groups['%s'][%d]]['IM_NODE_PUBLIC_IP'] }}" % (node.name, index)
                     else:
-                        return "{{ groups['%s']|map('extract', hostvars,'IM_NODE_PUBLIC_IP')|list }}" % node.name
+                        return ("{{ groups['%s']|map('extract', hostvars,'IM_NODE_PUBLIC_IP')|list"
+                                " if '%s' in groups else []}}" % (node.name, node.name))
                 else:
                     if node_name in ["HOST", "SELF"]:
                         return "{{ IM_NODE_PUBLIC_IP }}"
@@ -976,10 +978,14 @@ class Tosca:
         """
         Check the relations to get the contextualization level
         """
-        if node.related_nodes:
+        if node.requirements:
             maxl = 0
-            for node_depend in node.related_nodes:
-                level = Tosca._get_dependency_level(node_depend)
+            for r, n in node.relationships.iteritems():
+                if Tosca._is_derived_from(r, r.HOSTEDON):
+                    level = Tosca._get_dependency_level(n)
+                else:
+                    level = 0
+
                 if level > maxl:
                     maxl = level
             return maxl + 1
