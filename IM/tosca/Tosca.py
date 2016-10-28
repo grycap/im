@@ -978,10 +978,14 @@ class Tosca:
         """
         Check the relations to get the contextualization level
         """
-        if node.related_nodes:
+        if node.requirements:
             maxl = 0
-            for node_depend in node.related_nodes:
-                level = Tosca._get_dependency_level(node_depend)
+            for r, n in node.relationships.iteritems():
+                if Tosca._is_derived_from(r, r.HOSTEDON):
+                    level = Tosca._get_dependency_level(n)
+                else:
+                    level = 0
+
                 if level > maxl:
                     maxl = level
             return maxl + 1
