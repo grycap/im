@@ -36,6 +36,17 @@ if sys.version_info <= (2, 6):
 logger = logging.getLogger('InfrastructureManager')
 
 
+class ExtraInfoFilter(logging.Filter):
+    """
+    This is a filter which injects extra attributes into the log.
+      * hostname
+    """
+    def filter(self, record):
+        import socket
+        record.hostname = socket.gethostname()
+        return True
+
+
 def WaitRequest(request):
     """
     Wait for the specified request
@@ -248,8 +259,7 @@ def config_logging():
 
         fileh = logging.handlers.RotatingFileHandler(
             filename=Config.LOG_FILE, maxBytes=Config.LOG_FILE_MAX_SIZE, backupCount=3)
-        formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         fileh.setFormatter(formatter)
 
         try:
@@ -274,6 +284,10 @@ def config_logging():
         log.setLevel(log_level)
         log.propagate = 0
         log.addHandler(fileh)
+
+    # Add the filter to add extra fields
+    filt = ExtraInfoFilter()
+    logger.addFilter(filt)
 
 
 def im_stop():

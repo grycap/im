@@ -1473,8 +1473,6 @@ class ConfManager(threading.Thread):
             "/" + str(self.inf.id) + "/"
 
         conf_out = open(conf_file, 'w')
-        ConfManager.logger.debug(
-            "Ctxt agent general configuration file: " + json.dumps(conf_data))
         json.dump(conf_data, conf_out, indent=2)
         conf_out.close()
 
