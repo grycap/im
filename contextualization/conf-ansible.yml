@@ -106,6 +106,9 @@
     - name: Create /etc/ansible
       file: path=/etc/ansible state=directory
       
+    - name: Create /etc/ansible/ansible.cfg
+      file: path=/etc/ansible/ansible.cfg state=touch owner=root group=root mode=0644
+
     - name: Set host_key_checking to false in ansible.cfg
       ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=host_key_checking value=False
 
