@@ -594,7 +594,7 @@ class ConfManager(threading.Thread):
                 # tested/completed with other providers
                 condition = "    when: ansible_os_family != 'Windows' and item.key.endswith('" + disk_device[
                     -1] + "')\n"
-                condition += "    with_dict: ansible_devices\n"
+                condition += "    with_dict: '{{ ansible_devices }}'\n"
 
                 res += '  # Tasks to format and mount disk %d from device %s in %s\n' % (
                     cont, disk_device, disk_mount_path)
