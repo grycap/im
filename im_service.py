@@ -286,8 +286,16 @@ def config_logging():
         log.addHandler(fileh)
 
     # Add the filter to add extra fields
-    filt = ExtraInfoFilter()
-    logger.addFilter(filt)
+    try:
+        filt = ExtraInfoFilter()
+        log = logging.getLogger('ConfManager')
+        log.addFilter(filt)
+        log = logging.getLogger('CloudConnector')
+        log.addFilter(filt)
+        log = logging.getLogger('InfrastructureManager')
+        log.addFilter(filt)
+    except Exception, ex:
+        print ex
 
 
 def im_stop():
