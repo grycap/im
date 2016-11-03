@@ -594,7 +594,7 @@ class ConfManager(threading.Thread):
                 # tested/completed with other providers
                 condition = "    when: ansible_os_family != 'Windows' and item.key.endswith('" + disk_device[
                     -1] + "')\n"
-                condition += "    with_dict: ansible_devices\n"
+                condition += "    with_dict: '{{ ansible_devices }}'\n"
 
                 res += '  # Tasks to format and mount disk %d from device %s in %s\n' % (
                     cont, disk_device, disk_mount_path)
@@ -1473,8 +1473,6 @@ class ConfManager(threading.Thread):
             "/" + str(self.inf.id) + "/"
 
         conf_out = open(conf_file, 'w')
-        ConfManager.logger.debug(
-            "Ctxt agent general configuration file: " + json.dumps(conf_data))
         json.dump(conf_data, conf_out, indent=2)
         conf_out.close()
 
