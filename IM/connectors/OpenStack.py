@@ -296,13 +296,21 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         pool_names = [pool.name for pool in driver.ex_list_floating_ip_pools()]
 
-        for radl_net in radl.networks:
-            if pool_names and radl_net.isPublic():
-                continue
-            # check if this net is connected with the current VM
-            if radl.systems[0].getNumNetworkWithConnection(radl_net.id) is not None:
+        num_nets = radl.systems[0].getNumNetworkIfaces()
+
+        i = 0
+        while radl.systems[0].getValue("net_interface." + str(i) + ".connection"):
+            net_name = radl.systems[0].getValue("net_interface." + str(i) + ".connection")
+            network = radl.get_network_by_id(net_name)
+            net_provider_id = network.getValue('provider_id')
+
+            # if the network is public, and the VM has another interface and the
+            # site has IP pools, we do not need to assing a network to this interface
+            # it will be assigned with a floating IP
+            if network.isPublic() and num_nets > 1 and pool_names:
+                self.logger.debug("Public IP to be assingned with a floating IP. Do not set a net.")
+            else:
                 # First check if the user has specified a provider ID
-                net_provider_id = radl_net.getValue('provider_id')
                 if net_provider_id:
                     for net in ost_nets:
                         if net.name == net_provider_id:
@@ -319,6 +327,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                                 nets.append(net)
                                 used_nets.append(net.name)
                                 break
+
+            i += 1
 
         return nets
 
