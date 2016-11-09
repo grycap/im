@@ -773,6 +773,7 @@ class ConfManager(threading.Thread):
                             ssh = SSHRetry(ansible_host.getHost(),
                                            user, passwd, private_key)
                             ssh.sftp_mkdir(remote_dir)
+                            ssh.sftp_chmod(remote_dir, 448)
                             ssh.sftp_put_files(files)
                             # Copy the utils helper files
                             ssh.sftp_mkdir(remote_dir + "/" + "/utils")
@@ -973,13 +974,6 @@ class ConfManager(threading.Thread):
                 ssh = self.inf.vm_master.get_ssh(retry=True)
                 ssh.sftp_mkdir(remote_dir)
                 ssh.sftp_put_files(recipe_files)
-
-                # Change the permissions of the conf_file because inside is the
-                # password of the sudo user
-                success = ssh.sftp_chmod(remote_dir + "/" + conf_file, 384)
-                if not success:
-                    ConfManager.logger.warn(
-                        "Inf ID: " + str(self.inf.id) + ": Error setting conf file permissions.")
 
             self.inf.set_configured(True)
         except Exception, ex:
