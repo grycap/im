@@ -32,14 +32,59 @@ disk.0.os.flavour='ubuntu' and
 disk.0.os.credentials.new.password = 'Tututu+01'
 )
 
+configure docker (
+@begin
+    - name: add docker apt key
+      apt_key: keyserver=hkp://pgp.mit.edu:80 id=58118E89F3A912897C070ADBF76221572C52609D state=present 
 
-configure im (
+    - name: add docker repository
+      apt_repository: repo="deb https://apt.dockerproject.org/repo ubuntu-trusty main" state=present update_cache=yes 
+      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version == "14"  
+
+    - name: add docker repository
+      apt_repository: repo="deb https://apt.dockerproject.org/repo ubuntu-xenial main" state=present update_cache=yes 
+      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version == "16"  
+
+    - name: install docker
+      apt: pkg=docker-engine,python-pip state=present update_cache=yes
+
+    - name: start docker
+      service: name=docker state=started enabled=yes
+
+    - name: Upgrade pip version
+      pip: name=pip extra_args='-I' state=latest
+
+    - name: install docker-py
+    # user 1.9 version as ansible fails in case of 1.10 or higher 
+      pip: name=docker-py version=1.9.0
+
+@end
+)
+
+configure imdocker (
 @begin
 ---
-  - tasks:
+    - include: docker.yml
 
+    - name: im container
+      docker:
+        name: im
+        image: "grycap/im"
+        state: started
+        ports:
+        - "8800:8800"
+        - "8899:8899"
+        expose:
+        - 8899
+        - 8800
+@end
+)
+
+configure iminstall (
+@begin
+---
     - name: Install Reqs
-      apt: name=git,sysstat,gcc,python-dev,python-pip,python-mysqldb,openssh-client,sshpass,libssl-dev,libffi-dev update_cache=yes cache_valid_time=3600
+      apt: name=git,gcc,python-dev,python-pip,python-mysqldb,openssh-client,sshpass,libssl-dev,libffi-dev update_cache=yes cache_valid_time=3600
 
     - name: Install backports.ssl_match_hostname with Pip
       pip: name=backports.ssl_match_hostname
@@ -52,7 +97,21 @@ configure im (
 
     - name: Start IM
       service: name=im state=started
-      
+@end
+)
+
+configure im (
+@begin
+---
+  - tasks:
+# To test the im directly installed at the VM
+    - include: iminstall.yml
+# To test the im from a docker container
+#    - include: imdocker.yml
+
+    - name: Install Reqs
+      apt: name=sysstat update_cache=yes cache_valid_time=3600
+
     - name: Configure sysstat
       lineinfile: dest=/etc/default/sysstat regexp="^ENABLED=" line='ENABLED="true"'
 
