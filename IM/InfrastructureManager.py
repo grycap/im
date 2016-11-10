@@ -1206,35 +1206,37 @@ class InfrastructureManager:
             return True
 
     @staticmethod
-    def check_iam_token(im_auth):
+    def check_oidc_token(im_auth):
         token = im_auth["token"]
         success = False
         try:
             # decode the token to get the issuer
             decoded_token = JWT().get_info(token)
-            success, userinfo = OpenIDClient.get_user_info_request(token)
-            if success:
-                # convert to username to use it in the rest of the IM
-                im_auth['username'] = str(userinfo.get("preferred_username"))
-                im_auth['password'] = str(decoded_token['iss']) + str(userinfo.get("sub"))
+            if decoded_token['iss'] in Config.OIDC_ISSUERS:
+                success, userinfo = OpenIDClient.get_user_info_request(token)
+                if success:
+                    # convert to username to use it in the rest of the IM
+                    im_auth['username'] = str(userinfo.get("preferred_username"))
+                    im_auth['password'] = str(decoded_token['iss']) + str(userinfo.get("sub"))
+            else:
+                InfrastructureManager.logger.error("Incorrect OIDC issuer: %s" % decoded_token['iss'])
+                raise InvaliddUserException("Invalid InfrastructureManager credentials. Issuer not accepted.")
         except Exception, ex:
-            InfrastructureManager.logger.exception(
-                "Error trying to validate auth token: %s" % str(ex))
-            raise Exception("Error trying to validate auth token: %s" % str(ex))
+            InfrastructureManager.logger.exception("Error trying to validate OIDC auth token: %s" % str(ex))
+            raise Exception("Error trying to validate OIDC auth token: %s" % str(ex))
 
         if not success:
-            InfrastructureManager.logger.error(
-                "Incorrect auth token: %s" % userinfo)
-            raise InvaliddUserException("Invalid InfrastructureManager credentials %s" % userinfo)
+            InfrastructureManager.logger.error("Incorrect OIDC auth token: %s" % userinfo)
+            raise InvaliddUserException("Invalid InfrastructureManager credentials. %s." % userinfo)
 
     @staticmethod
     def check_auth_data(auth):
         # First check if it is configured to check the users from a list
         im_auth = auth.getAuthInfo("InfrastructureManager")
 
-        # First check if the IAM token is included
+        # First check if an OIDC token is included
         if "token" in im_auth[0]:
-            InfrastructureManager.check_iam_token(im_auth[0])
+            InfrastructureManager.check_oidc_token(im_auth[0])
         else:
             # if not assume the basic user/password auth data
             if not InfrastructureManager.check_im_user(im_auth):
