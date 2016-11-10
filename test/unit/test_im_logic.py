@@ -646,7 +646,7 @@ class TestIM(unittest.TestCase):
                                                     'user': 'ubuntu'}})
 
     @patch('httplib.HTTPSConnection')
-    def test_check_iam_token(self, connection):
+    def test_check_oidc_token(self, connection):
         im_auth = {"token": ("eyJraWQiOiJyc2ExIiwiYWxnIjoiUlMyNTYifQ.eyJzdWIiOiJkYzVkNWFiNy02ZGI5LTQwNzktOTg1Yy04MGF"
                              "jMDUwMTcwNjYiLCJpc3MiOiJodHRwczpcL1wvaWFtLXRlc3QuaW5kaWdvLWRhdGFjbG91ZC5ldVwvIiwiZXhwI"
                              "joxNDY1NDcxMzU0LCJpYXQiOjE0NjU0Njc3NTUsImp0aSI6IjA3YjlkYmE4LTc3NWMtNGI5OS1iN2QzLTk4Njg"
@@ -664,10 +664,18 @@ class TestIM(unittest.TestCase):
         resp.read.return_value = user_info
         conn.getresponse.return_value = resp
 
-        IM.check_iam_token(im_auth)
+        IM.check_oidc_token(im_auth)
 
         self.assertEqual(im_auth['username'], "micafer")
         self.assertEqual(im_auth['password'], "https://iam-test.indigo-datacloud.eu/sub")
+
+        Config.OIDC_ISSUERS = ["https://other_issuer"]
+
+        with self.assertRaises(Exception) as ex:
+            IM.check_oidc_token(im_auth)
+        self.assertEqual(str(ex.exception),
+                         ("Error trying to validate OIDC auth token: Invalid "
+                          "InfrastructureManager credentials. Issuer not accepted."))
 
     @patch('IM.InfrastructureManager.DataBase.connect')
     @patch('IM.InfrastructureManager.DataBase.table_exists')
