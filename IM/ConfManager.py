@@ -781,6 +781,7 @@ class ConfManager(threading.Thread):
                                 Config.RECIPES_DIR + "/utils", remote_dir + "/" + "/utils")
                     else:
                         ssh.sftp_mkdir(remote_dir)
+                        ssh.sftp_chmod(remote_dir, 448)
                         ssh.sftp_put_files(files)
                         # Copy the utils helper files
                         ssh.sftp_mkdir(remote_dir + "/" + "/utils")
@@ -1334,8 +1335,8 @@ class ConfManager(threading.Thread):
                                      ": Preparing Ansible playbook to copy Ansible modules: " + str(modules))
 
             ssh.sftp_mkdir(Config.REMOTE_CONF_DIR)
-            ssh.sftp_mkdir(Config.REMOTE_CONF_DIR +
-                           "/" + str(self.inf.id) + "/")
+            ssh.sftp_mkdir(Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/")
+            ssh.sftp_chmod(Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/", 448)
 
             for galaxy_name in modules:
                 if galaxy_name:
