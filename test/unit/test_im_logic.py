@@ -668,9 +668,9 @@ class TestIM(unittest.TestCase):
 
         self.assertEqual(im_auth['username'], "micafer")
         self.assertEqual(im_auth['password'], "https://iam-test.indigo-datacloud.eu/sub")
-        
+
         Config.OIDC_ISSUERS = ["https://other_issuer"]
-        
+
         with self.assertRaises(Exception) as ex:
             IM.check_oidc_token(im_auth)
         self.assertEqual(str(ex.exception),
