@@ -70,7 +70,7 @@ class AnsibleThread(Process):
     """
 
     def __init__(self, result, output, playbook_file, host=None, threads=1, pk_file=None, passwd=None, retries=1,
-                 inventory_file=None, user=None, extra_vars={}):
+                 inventory_file=None, user=None, vault_pass=None, extra_vars={}):
         super(AnsibleThread, self).__init__()
         self.playbook_file = playbook_file
         self.host = host
@@ -83,6 +83,7 @@ class AnsibleThread(Process):
         self.extra_vars = extra_vars
         self.output = output
         self.result = result
+        self.vault_pass = vault_pass
 
     def teminate(self):
         try:
@@ -182,6 +183,9 @@ class AnsibleThread(Process):
         # Add this to avoid the Ansible bug:  no host vars as host is not in inventory
         # In version 2.0.1 it must be fixed
         ansible.inventory.HOSTS_PATTERNS_CACHE = {}
+
+        if self.vault_pass:
+            loader.set_vault_password(self.vault_pass)
 
         inventory = ansible.inventory.Inventory(
             loader=loader, variable_manager=variable_manager, host_list=options.inventory)

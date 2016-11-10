@@ -185,7 +185,7 @@ def wait_thread(thread_data, output=None):
     return (return_code == 0, hosts_with_errors)
 
 
-def LaunchAnsiblePlaybook(output, playbook_file, vm, threads, inventory_file, pk_file, retries, change_pass_ok):
+def LaunchAnsiblePlaybook(output, playbook_file, vm, threads, inventory_file, pk_file, retries, change_pass_ok, vault_pass):
     logger.debug('Call Ansible')
 
     extra_vars = {'IM_HOST': vm['ip'] + "_" + str(vm['remote_port'])}
@@ -221,7 +221,7 @@ def LaunchAnsiblePlaybook(output, playbook_file, vm, threads, inventory_file, pk
 
     result = Queue()
     t = AnsibleThread(result, output, playbook_file, None, threads, gen_pk_file,
-                      passwd, retries, inventory_file, user, extra_vars)
+                      passwd, retries, inventory_file, user, None, extra_vars)
     t.start()
     return (t, result)
 
@@ -368,6 +368,7 @@ def replace_vm_ip(vm_data):
 
 
 def contextualize_vm(general_conf_data, vm_conf_data):
+    vault_pass = None
     res_data = {}
     logger.info('Generate and copy the ssh key')
 
@@ -458,8 +459,8 @@ def contextualize_vm(general_conf_data, vm_conf_data):
 
                 if ctxt_vm['os'] != "windows":
                     # this step is not needed in windows systems
-                    ansible_thread = LaunchAnsiblePlaybook(
-                        logger, playbook, ctxt_vm, 2, inventory_file, pk_file, INTERNAL_PLAYBOOK_RETRIES, change_creds)
+                    ansible_thread = LaunchAnsiblePlaybook(logger, playbook, ctxt_vm, 2, inventory_file, pk_file,
+                                                           INTERNAL_PLAYBOOK_RETRIES, change_creds, vault_pass)
             else:
                 # In some strange cases the pk_file disappears. So test it and
                 # remake basic recipe
@@ -478,13 +479,13 @@ def contextualize_vm(general_conf_data, vm_conf_data):
                         basic_playbook = general_conf_data[
                             'conf_dir'] + "/basic_task_all.yml"
                         output_basic = StringIO()
-                        ansible_thread = LaunchAnsiblePlaybook(output_basic, basic_playbook, ctxt_vm, 2,
-                                                               inventory_file, None, INTERNAL_PLAYBOOK_RETRIES, True)
+                        ansible_thread = LaunchAnsiblePlaybook(output_basic, basic_playbook, ctxt_vm, 2, inventory_file,
+                                                               None, INTERNAL_PLAYBOOK_RETRIES, True, vault_pass)
                         (task_ok, _) = wait_thread(ansible_thread)
 
                 # in the other tasks pk_file can be used
                 ansible_thread = LaunchAnsiblePlaybook(logger, playbook, ctxt_vm, 2, inventory_file, PK_FILE,
-                                                       INTERNAL_PLAYBOOK_RETRIES, vm_conf_data['changed_pass'])
+                                                       INTERNAL_PLAYBOOK_RETRIES, vm_conf_data['changed_pass'], vault_pass)
 
             if ansible_thread:
                 (task_ok, _) = wait_thread(ansible_thread)
