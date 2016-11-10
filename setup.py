@@ -24,6 +24,9 @@ import sys
 if not hasattr(sys, 'version_info') or sys.version_info < (2, 6):
     raise SystemExit("IM requires Python version 2.6 or above.")
 
+if 'bdist_wheel' in sys.argv:
+    raise RuntimeError("This setup.py does not support wheels")
+
 # Add contextualization dir files
 install_path = '/usr/share/im'
 datafiles = [(os.path.join(install_path, root), [os.path.join(root, f) for f in files])
