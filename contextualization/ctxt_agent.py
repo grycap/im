@@ -185,7 +185,8 @@ def wait_thread(thread_data, output=None):
     return (return_code == 0, hosts_with_errors)
 
 
-def LaunchAnsiblePlaybook(output, playbook_file, vm, threads, inventory_file, pk_file, retries, change_pass_ok, vault_pass):
+def LaunchAnsiblePlaybook(output, playbook_file, vm, threads, inventory_file, pk_file,
+                          retries, change_pass_ok, vault_pass):
     logger.debug('Call Ansible')
 
     extra_vars = {'IM_HOST': vm['ip'] + "_" + str(vm['remote_port'])}
@@ -221,7 +222,7 @@ def LaunchAnsiblePlaybook(output, playbook_file, vm, threads, inventory_file, pk
 
     result = Queue()
     t = AnsibleThread(result, output, playbook_file, None, threads, gen_pk_file,
-                      passwd, retries, inventory_file, user, None, extra_vars)
+                      passwd, retries, inventory_file, user, vault_pass, extra_vars)
     t.start()
     return (t, result)
 
@@ -369,6 +370,9 @@ def replace_vm_ip(vm_data):
 
 def contextualize_vm(general_conf_data, vm_conf_data):
     vault_pass = None
+    if 'VAULT_PASS' in os.environ:
+        vault_pass = os.environ['VAULT_PASS']
+
     res_data = {}
     logger.info('Generate and copy the ssh key')
 
@@ -485,7 +489,8 @@ def contextualize_vm(general_conf_data, vm_conf_data):
 
                 # in the other tasks pk_file can be used
                 ansible_thread = LaunchAnsiblePlaybook(logger, playbook, ctxt_vm, 2, inventory_file, PK_FILE,
-                                                       INTERNAL_PLAYBOOK_RETRIES, vm_conf_data['changed_pass'], vault_pass)
+                                                       INTERNAL_PLAYBOOK_RETRIES, vm_conf_data['changed_pass'],
+                                                       vault_pass)
 
             if ansible_thread:
                 (task_ok, _) = wait_thread(ansible_thread)

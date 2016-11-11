@@ -26,7 +26,9 @@ import copy
 from StringIO import StringIO
 from multiprocessing import Queue
 
-from IM.ansible.ansible_launcher import AnsibleThread
+from ansible.parsing.vault import VaultEditor
+
+from IM.ansible_utils.ansible_launcher import AnsibleThread
 
 import InfrastructureManager
 from VirtualMachine import VirtualMachine
@@ -325,7 +327,11 @@ class ConfManager(threading.Thread):
                              os.path.basename(conf_file))
 
                 if vm.configured is None:
-                    (pid, _, _) = ssh.execute("nohup python_ansible " + Config.REMOTE_CONF_DIR + "/" +
+                    vault_export = ""
+                    vault_password = vm.info.systems[0].getValue("vault.password")
+                    if vault_password:
+                        vault_export = "export VAULT_PASS='%s' && " % vault_password
+                    (pid, _, _) = ssh.execute(vault_export + "nohup python_ansible " + Config.REMOTE_CONF_DIR + "/" +
                                               str(self.inf.id) + "/" + "/ctxt_agent.py " +
                                               Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/" +
                                               "/general_info.cfg " + remote_dir + "/" + os.path.basename(conf_file) +
@@ -685,17 +691,24 @@ class ConfManager(threading.Thread):
         conf_filename = tmp_dir + "/" + ctxt_elem.configure + \
             "_" + ctxt_elem.system + "_task.yml"
         if not os.path.isfile(conf_filename):
-            configure = self.inf.radl.get_configure_by_name(
-                ctxt_elem.configure)
-            conf_content = self.add_ansible_header(
-                ctxt_elem.system, vm.getOS().lower())
-            conf_content = self.mergeYAML(conf_content, configure.recipes)
+            configure = self.inf.radl.get_configure_by_name(ctxt_elem.configure)
+            conf_content = self.add_ansible_header(ctxt_elem.system, vm.getOS().lower())
+            vault_password = vm.info.systems[0].getValue("vault.password")
+            if vault_password:
+                vault_edit = VaultEditor(vault_password)
+                if configure.recipes.strip().startswith("$ANSIBLE_VAULT"):
+                    recipes = vault_edit.vault.decrypt(configure.recipes.strip())
+                else:
+                    recipes = configure.recipes
+                conf_content = self.mergeYAML(conf_content, recipes)
+                conf_content = vault_edit.vault.encrypt(conf_content)
+            else:
+                conf_content = self.mergeYAML(conf_content, configure.recipes)
 
             conf_out = open(conf_filename, 'w')
-            conf_out.write(conf_content + "\n\n")
+            conf_out.write(conf_content)
             conf_out.close()
-            recipe_files.append(ctxt_elem.configure + "_" +
-                                ctxt_elem.system + "_task.yml")
+            recipe_files.append(ctxt_elem.configure + "_" + ctxt_elem.system + "_task.yml")
 
             # create the "all" to enable this playbook to see the facts of all
             # the nodes
@@ -759,11 +772,11 @@ class ConfManager(threading.Thread):
                     files.append(
                         (Config.IM_PATH + "/SSH.py", remote_dir + "/SSH.py"))
                     files.append(
-                        (Config.IM_PATH + "/ansible/ansible_callbacks.py", remote_dir + "/ansible_callbacks.py"))
-                    files.append((Config.IM_PATH + "/ansible/ansible_executor_v2.py",
+                        (Config.IM_PATH + "/ansible_utils/ansible_callbacks.py", remote_dir + "/ansible_callbacks.py"))
+                    files.append((Config.IM_PATH + "/ansible_utils/ansible_executor_v2.py",
                                   remote_dir + "/ansible_executor_v2.py"))
                     files.append(
-                        (Config.IM_PATH + "/ansible/ansible_launcher.py", remote_dir + "/ansible_launcher.py"))
+                        (Config.IM_PATH + "/ansible_utils/ansible_launcher.py", remote_dir + "/ansible_launcher.py"))
                     files.append((Config.CONTEXTUALIZATION_DIR +
                                   "/ctxt_agent.py", remote_dir + "/ctxt_agent.py"))
 
@@ -1361,31 +1374,24 @@ class ConfManager(threading.Thread):
                         recipe_out.write(
                             '    - name: Create YAML file to install the %s role with ansible-galaxy\n' % rolename)
                         recipe_out.write('      copy:\n')
-                        recipe_out.write(
-                            '        dest: "/tmp/%s.yml"\n' % rolename)
-                        recipe_out.write(
-                            '        content: "- src: %s\\n  name: %s"\n' % (url, rolename))
+                        recipe_out.write('        dest: "/tmp/%s.yml"\n' % rolename)
+                        recipe_out.write('        content: "- src: %s\\n  name: %s"\n' % (url, rolename))
                         url = "-r /tmp/%s.yml" % rolename
                     else:
                         url = rolename = galaxy_name
 
                     if galaxy_name.startswith("git"):
                         recipe_out.write("    - yum: name=git\n")
-                        recipe_out.write(
-                            '      when: ansible_os_family == "RedHat"\n')
+                        recipe_out.write('      when: ansible_os_family == "RedHat"\n')
                         recipe_out.write("    - apt: name=git\n")
-                        recipe_out.write(
-                            '      when: ansible_os_family == "Debian"\n')
+                        recipe_out.write('      when: ansible_os_family == "Debian"\n')
 
-                    recipe_out.write(
-                        "    - name: Install the % role with ansible-galaxy\n" % rolename)
-                    recipe_out.write(
-                        "      command: ansible-galaxy -f install %s\n" % url)
+                    recipe_out.write("    - name: Install the % role with ansible-galaxy\n" % rolename)
+                    recipe_out.write("      command: ansible-galaxy -f install %s\n" % url)
 
                     recipe_out.close()
 
-            self.inf.add_cont_msg(
-                "Performing preliminary steps to configure Ansible.")
+            self.inf.add_cont_msg("Performing preliminary steps to configure Ansible.")
             # TODO: check to do it with ansible
             ConfManager.logger.debug("Inf ID: " + str(self.inf.id) +
                                      ": Check if python-simplejson is installed in REL 5 systems")
