@@ -773,6 +773,7 @@ class ConfManager(threading.Thread):
                             ssh = SSHRetry(ansible_host.getHost(),
                                            user, passwd, private_key)
                             ssh.sftp_mkdir(remote_dir)
+                            ssh.sftp_chmod(remote_dir, 448)
                             ssh.sftp_put_files(files)
                             # Copy the utils helper files
                             ssh.sftp_mkdir(remote_dir + "/" + "/utils")
@@ -780,6 +781,7 @@ class ConfManager(threading.Thread):
                                 Config.RECIPES_DIR + "/utils", remote_dir + "/" + "/utils")
                     else:
                         ssh.sftp_mkdir(remote_dir)
+                        ssh.sftp_chmod(remote_dir, 448)
                         ssh.sftp_put_files(files)
                         # Copy the utils helper files
                         ssh.sftp_mkdir(remote_dir + "/" + "/utils")
@@ -973,13 +975,6 @@ class ConfManager(threading.Thread):
                 ssh = self.inf.vm_master.get_ssh(retry=True)
                 ssh.sftp_mkdir(remote_dir)
                 ssh.sftp_put_files(recipe_files)
-
-                # Change the permissions of the conf_file because inside is the
-                # password of the sudo user
-                success = ssh.sftp_chmod(remote_dir + "/" + conf_file, 384)
-                if not success:
-                    ConfManager.logger.warn(
-                        "Inf ID: " + str(self.inf.id) + ": Error setting conf file permissions.")
 
             self.inf.set_configured(True)
         except Exception, ex:
@@ -1340,8 +1335,8 @@ class ConfManager(threading.Thread):
                                      ": Preparing Ansible playbook to copy Ansible modules: " + str(modules))
 
             ssh.sftp_mkdir(Config.REMOTE_CONF_DIR)
-            ssh.sftp_mkdir(Config.REMOTE_CONF_DIR +
-                           "/" + str(self.inf.id) + "/")
+            ssh.sftp_mkdir(Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/")
+            ssh.sftp_chmod(Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/", 448)
 
             for galaxy_name in modules:
                 if galaxy_name:
@@ -1378,7 +1373,7 @@ class ConfManager(threading.Thread):
                             '      when: ansible_os_family == "Debian"\n')
 
                     recipe_out.write(
-                        "    - name: Install the % role with ansible-galaxy\n" % rolename)
+                        "    - name: Install the %s role with ansible-galaxy\n" % rolename)
                     recipe_out.write(
                         "      command: ansible-galaxy -f install %s\n" % url)
 
