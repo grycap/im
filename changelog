@@ -234,3 +234,5 @@ IM 1.4.8
     * Bugfix mapping ips to RADL networks in OpenStack and OpenNebula connectors
     * Bugfixes in OpenStack connector
     * Bugfixes in REST API not multithreaded
+    * Bugfixes Error installing IM using pip in Ubuntu 16
+    * Set restrictive permissions in the master VM data dir
