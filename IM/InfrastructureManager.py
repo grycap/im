@@ -100,6 +100,7 @@ class InfrastructureManager:
 
         InfrastructureManager.infrastructure_list = {}
         InfrastructureManager._lock = threading.Lock()
+        InfrastructureManager._exiting = False
 
     @staticmethod
     def add_infrastructure(inf):
@@ -1330,7 +1331,7 @@ class InfrastructureManager:
             return InfrastructureManager.get_inf_ids_from_db(Config.DATA_DB)
         else:
             # in the case of using DATA file get in memory data
-            return InfrastructureManager.infrastructure_list.values()
+            return InfrastructureManager.infrastructure_list.keys()
 
     @staticmethod
     def get_inf_data(inf_id):
