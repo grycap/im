@@ -8,7 +8,8 @@ net_interface.0.connection = 'publica' and
 net_interface.1.connection = 'privada' and
 net_interface.1.dns_name = 'imservice' and
 disk.0.os.name='linux' and
-disk.0.os.flavour='ubuntu' and
+disk.0.os.flavour='centos' and
+disk.0.os.version >= '7' and
 disk.0.os.credentials.new.password = 'Tututu+01'
 )
 
@@ -36,6 +37,7 @@ configure docker (
 @begin
     - name: add docker apt key
       apt_key: keyserver=hkp://pgp.mit.edu:80 id=58118E89F3A912897C070ADBF76221572C52609D state=present 
+      when: ansible_os_family == "Debian"
 
     - name: add docker repository
       apt_repository: repo="deb https://apt.dockerproject.org/repo ubuntu-trusty main" state=present update_cache=yes 
@@ -45,8 +47,31 @@ configure docker (
       apt_repository: repo="deb https://apt.dockerproject.org/repo ubuntu-xenial main" state=present update_cache=yes 
       when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version == "16"  
 
-    - name: install docker
+    - name: install docker Deb
       apt: pkg=docker-engine,python-pip state=present update_cache=yes
+      when: ansible_os_family == "Debian"
+      
+    - name: Create the /etc/yum.repos.d/docker.repo file
+      copy:
+        dest: /etc/yum.repos.d/docker.repo
+        content: |
+            [dockerrepo]
+            name=Docker Repository
+            baseurl=https://yum.dockerproject.org/repo/main/centos/7/
+            enabled=1
+            gpgcheck=1
+            gpgkey=https://yum.dockerproject.org/gpg
+        mode: 0644
+        owner: root
+        group: root
+
+    - name: install EPEL
+      yum: pkg=epel-release state=present
+      when: ansible_os_family == "RedHat"
+
+    - name: install docker RH
+      yum: pkg=docker-engine,python-pip state=present
+      when: ansible_os_family == "RedHat"
 
     - name: start docker
       service: name=docker state=started enabled=yes
@@ -85,6 +110,11 @@ configure iminstall (
 ---
     - name: Install Reqs
       apt: name=git,gcc,python-dev,python-pip,python-mysqldb,openssh-client,sshpass,libssl-dev,libffi-dev update_cache=yes cache_valid_time=3600
+      when: ansible_os_family == "Debian"
+      
+    - name: Yum install requirements RH or Fedora
+      yum: name=git,gcc,python-distribute,gcc,python-devel,wget,openssh-clients,sshpass,python-pip,libffi-devel,openssl-devel
+      when: ansible_os_family == "RedHat"
 
     - name: Install backports.ssl_match_hostname with Pip
       pip: name=backports.ssl_match_hostname
@@ -105,32 +135,42 @@ configure im (
 ---
   - tasks:
 # To test the im directly installed at the VM
-    - include: iminstall.yml
+#    - include: iminstall.yml
 # To test the im from a docker container
-#    - include: imdocker.yml
+    - include: imdocker.yml
 
     - name: Install Reqs
       apt: name=sysstat update_cache=yes cache_valid_time=3600
+      when: ansible_os_family == "Debian"
+      
+    - name: Install Reqs
+      yum: name=sysstat
+      when: ansible_os_family == "RedHat"
 
     - name: Configure sysstat
       lineinfile: dest=/etc/default/sysstat regexp="^ENABLED=" line='ENABLED="true"'
+      when: ansible_os_family == "Debian"
 
     - name: Configure cron sysstat
       #copy: dest=/etc/cron.d/sysstat content="*/1 * * * * root date >> /tmp/dates && /usr/lib/sysstat/debian-sa1 1 1\n"
       copy: dest=/etc/cron.d/sysstat content="*/1 * * * * root command -v /usr/lib/sysstat/debian-sa1 > /dev/null && /usr/lib/sysstat/debian-sa1 1 1\n"
+      when: ansible_os_family == "Debian"
 
     - name: Restart sysstat
       service: name=sysstat state=restarted
       
     - name: Start sysstat
       shell: /usr/lib/sysstat/debian-sa1 1 1
+      when: ansible_os_family == "Debian"
 @end
 )
 
 configure imclient (
 @begin
 ---
-  - tasks:
+  - vars:
+    - INFRA_NODE_IP: "{{ hostvars[groups['infra'][0]]['IM_NODE_NET_0_IP'] }}"
+    tasks:
     - name: Install Reqs
       apt: name=gcc,python-dev,python-pip,python-mysqldb,openssh-client,sshpass,libssl-dev,libffi-dev update_cache=yes cache_valid_time=3600
 
@@ -143,7 +183,7 @@ configure imclient (
         content: |
             type = InfrastructureManager; username = imuser01; password = invitado
             type = VMRC; host = http://servproject.i3m.upv.es:8080/vmrc/vmrc; username = demo; password = demo
-            id = docker; type = Docker; host = infra:2375
+            id = docker; type = Docker; host = {{INFRA_NODE_IP}}:2375
         mode: 0644
 
     - name: Download LoadTest.py
