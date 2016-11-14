@@ -78,7 +78,7 @@ class LoadTest(unittest.TestCase):
         Wait for an infrastructure to have a specific state
         """
         if not vm_ids:
-            before = time.time()            
+            before = time.time()
             server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
             server.request('GET', "/infrastructures/" + self.inf_id,
                            headers={'AUTHORIZATION': self.auth_data})
