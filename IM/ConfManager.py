@@ -1373,7 +1373,7 @@ class ConfManager(threading.Thread):
                             '      when: ansible_os_family == "Debian"\n')
 
                     recipe_out.write(
-                        "    - name: Install the % role with ansible-galaxy\n" % rolename)
+                        "    - name: Install the %s role with ansible-galaxy\n" % rolename)
                     recipe_out.write(
                         "      command: ansible-galaxy -f install %s\n" % url)
 
