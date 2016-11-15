@@ -22,7 +22,7 @@ from multiprocessing import Queue
 from StringIO import StringIO
 import time
 
-from IM.ansible.ansible_launcher import AnsibleThread
+from IM.ansible_utils.ansible_launcher import AnsibleThread
 from mock import patch, MagicMock
 
 
@@ -38,6 +38,21 @@ class TestAnsible(unittest.TestCase):
         inventory = os.path.join(tests_path, "../files/inventory")
         ansible_process = AnsibleThread(result, StringIO(), play_file_path, None, 1, None,
                                         "password", 1, inventory, "username")
+        ansible_process.run()
+
+        _, (return_code, _), output = result.get()
+        self.assertEqual(return_code, 0)
+        self.assertIn("failed=0", output.getvalue())
+        self.assertIn("changed=2", output.getvalue())
+        print output.getvalue()
+
+    def test_ansible_thread_with_vault(self):
+        result = Queue()
+        tests_path = os.path.dirname(os.path.abspath(__file__))
+        play_file_path = os.path.join(tests_path, "../files/play_vault.yaml")
+        inventory = os.path.join(tests_path, "../files/inventory")
+        ansible_process = AnsibleThread(result, StringIO(), play_file_path, None, 1, None,
+                                        "password", 1, inventory, "username", "ansible")
         ansible_process.run()
 
         _, (return_code, _), output = result.get()
