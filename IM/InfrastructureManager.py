@@ -100,10 +100,11 @@ class InfrastructureManager:
 
         InfrastructureManager.infrastructure_list = {}
         InfrastructureManager._lock = threading.Lock()
+        InfrastructureManager._exiting = False
 
     @staticmethod
     def add_infrastructure(inf):
-        """Add a new Infrastructure and set the ID."""
+        """Add a new Infrastructure."""
 
         with InfrastructureManager._lock:
             InfrastructureManager.infrastructure_list[inf.id] = inf
@@ -252,10 +253,10 @@ class InfrastructureManager:
     def get_infrastructure(inf_id, auth):
         """Return infrastructure info with some id if valid authorization provided."""
 
-        if inf_id not in InfrastructureManager.infrastructure_list:
+        if inf_id not in InfrastructureManager.get_inf_ids():
             InfrastructureManager.logger.error("Error, incorrect infrastructure ID")
             raise IncorrectInfrastructureException()
-        sel_inf = InfrastructureManager.infrastructure_list[inf_id]
+        sel_inf = InfrastructureManager.get_inf_data(inf_id)
         if not sel_inf.is_authorized(auth):
             InfrastructureManager.logger.error("Access Error")
             raise UnauthorizedUserException()
@@ -1279,7 +1280,8 @@ class InfrastructureManager:
             raise InvaliddUserException()
 
         res = []
-        for elem in InfrastructureManager.infrastructure_list.values():
+        for inf_id in InfrastructureManager.get_inf_ids():
+            elem = InfrastructureManager.get_inf_data(inf_id)
             if elem.is_authorized(auth) and not elem.deleted:
                 res.append(elem.id)
 
@@ -1324,23 +1326,42 @@ class InfrastructureManager:
         return new_inf.id
 
     @staticmethod
-    def get_data_from_db(db_url):
+    def get_inf_ids():
+        if Config.DATA_DB:
+            return InfrastructureManager.get_inf_ids_from_db(Config.DATA_DB)
+        else:
+            # in the case of using DATA file get in memory data
+            return InfrastructureManager.infrastructure_list.keys()
+
+    @staticmethod
+    def get_inf_data(inf_id):
+        if Config.DATA_DB:
+            InfrastructureManager.load_data(inf_id)
+        # in the case of using DATA file get in memory data
+        return InfrastructureManager.infrastructure_list[inf_id]
+
+    @staticmethod
+    def get_data_from_db(db_url, inf_id=None):
         db = DataBase(db_url)
         if db.connect():
             if not db.table_exists("inf_list"):
-                db.execute(
-                    "CREATE TABLE inf_list(id VARCHAR(255) PRIMARY KEY, date TIMESTAMP, data LONGBLOB)")
+                db.execute("CREATE TABLE inf_list(id VARCHAR(255) PRIMARY KEY, deleted INTEGER,"
+                           " date TIMESTAMP, data LONGBLOB)")
                 db.close()
                 return {}
             else:
                 inf_list = {}
-                res = db.select("select * from inf_list order by id desc")
+                if inf_id:
+                    res = db.select("select * from inf_list where id = '%s'" % inf_id)
+                else:
+                    res = db.select("select * from inf_list where deleted = 0 order by id desc")
                 if len(res) > 0:
                     for elem in res:
                         # inf_id = elem[0]
                         # date = elem[1]
+                        # deleted = elem[2]
                         try:
-                            inf = pickle.loads(elem[2])
+                            inf = pickle.loads(elem[3])
                             if not inf.deleted:
                                 inf_list[inf.id] = inf
                         except:
@@ -1358,6 +1379,25 @@ class InfrastructureManager:
             return {}
 
     @staticmethod
+    def get_inf_ids_from_db(db_url):
+        try:
+            db = DataBase(db_url)
+            if db.connect():
+                inf_list = []
+                res = db.select("select id from inf_list where deleted = 0 order by id desc")
+                for elem in res:
+                    inf_list.append(elem[0])
+
+                db.close()
+                return inf_list
+            else:
+                InfrastructureManager.logger.error("ERROR connecting with the database!.")
+                return []
+        except Exception, ex:
+            InfrastructureManager.logger.exception(
+                "ERROR loading data. Correct or delete it!!")
+
+    @staticmethod
     def save_data_to_db(db_url, inf_list, inf_id=None):
         db = DataBase(db_url)
         if db.connect():
@@ -1366,8 +1406,8 @@ class InfrastructureManager:
                 infs_to_save = {inf_id: inf_list[inf_id]}
 
             for inf in infs_to_save.values():
-                res = db.execute(
-                    "replace into inf_list set id = %s, data = %s, date = now()", (inf.id, pickle.dumps(inf)))
+                res = db.execute("replace into inf_list set id = %s, deleted = %s, data = %s, date = now()",
+                                 (inf.id, int(inf.deleted), pickle.dumps(inf)))
 
             db.close()
             return res
@@ -1377,18 +1417,21 @@ class InfrastructureManager:
             return None
 
     @staticmethod
-    def load_data():
+    def load_data(inf_id=None):
         with InfrastructureManager._lock:
             try:
                 if Config.DATA_DB:
-                    inf_list = InfrastructureManager.get_data_from_db(
-                        Config.DATA_DB)
-                    InfrastructureManager.infrastructure_list = inf_list
+                    inf_list = InfrastructureManager.get_data_from_db(Config.DATA_DB, inf_id)
+                    if inf_id:
+                        InfrastructureManager.infrastructure_list[inf_id] = inf_list[inf_id]
+                    else:
+                        InfrastructureManager.infrastructure_list = inf_list
                 else:
-                    data_file = open(Config.DATA_FILE, 'rb')
-                    InfrastructureManager.infrastructure_list = pickle.load(
-                        data_file)
-                    data_file.close()
+                    # in the case of using DATA file do not load data if inf_id is provided
+                    if inf_id is None:
+                        data_file = open(Config.DATA_FILE, 'rb')
+                        InfrastructureManager.infrastructure_list = pickle.load(data_file)
+                        data_file.close()
             except Exception, ex:
                 InfrastructureManager.logger.exception(
                     "ERROR loading data. Correct or delete it!!")
@@ -1427,5 +1470,6 @@ class InfrastructureManager:
         with InfrastructureManager._lock:
             InfrastructureManager._exiting = True
             # Stop all the Ctxt threads of the Infrastructures
-            for inf in InfrastructureManager.infrastructure_list.values():
+            for inf_id in InfrastructureManager.get_inf_ids():
+                inf = InfrastructureManager.get_inf_data(inf_id)
                 inf.stop()

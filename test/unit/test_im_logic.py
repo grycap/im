@@ -625,7 +625,7 @@ class TestIM(unittest.TestCase):
     def test_db(self, execute, select, table_exists, connect):
 
         table_exists.return_value = True
-        select.return_value = [["1", "", read_file_as_string("../files/data.pkl")]]
+        select.return_value = [["1", 0, "", read_file_as_string("../files/data.pkl")]]
         execute.return_value = True
 
         res = IM.get_data_from_db("mysql://username:password@server/db_name")
