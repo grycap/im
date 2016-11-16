@@ -64,6 +64,7 @@ configure docker (
         mode: 0644
         owner: root
         group: root
+      when: ansible_os_family == "RedHat"
 
     - name: install EPEL
       yum: pkg=epel-release state=present
