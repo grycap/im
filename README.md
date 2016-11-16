@@ -92,6 +92,8 @@ framework (http://springpython.webfactional.com/) must be installed.
 
 In case of using the SSL secured version of the REST API pyOpenSSL must be installed.
 
+In case of using DB as the data back-end the package Python MySQLDB must be installed.
+
 1.3 INSTALLING
 --------------
 
@@ -109,7 +111,7 @@ To install them in Debian and Ubuntu based distributions, do::
 
 ```sh
 $ apt update
-$ apt install gcc python-dev libffi-dev libssl-dev python-pip sshpass
+$ apt install gcc python-dev libffi-dev libssl-dev python-pip sshpass python-mysqldb
 ```
 
 In Red Hat based distributions (RHEL, CentOS, Amazon Linux, Oracle Linux,
@@ -117,7 +119,7 @@ Fedora, etc.), do:
 
 ```sh
 $ yum install epel-release
-$ yum install which gcc python-devel libffi-devel openssl-devel python-pip sshpass
+$ yum install which gcc python-devel libffi-devel openssl-devel python-pip sshpass MySQL-python
 ```
 
 For some problems with the dependencies of the apache-libcloud package in some systems (as ubuntu 14.04 or CentOS 6)
