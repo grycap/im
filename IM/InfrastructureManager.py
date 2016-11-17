@@ -1,4 +1,3 @@
-
 # IM - Infrastructure Manager
 # Copyright (C) 2011 - GRyCAP - Universitat Politecnica de Valencia
 #
@@ -20,19 +19,19 @@ import os
 import string
 import random
 
-from VMRC import VMRC
-from CloudInfo import CloudInfo
-from auth import Authentication
+from IM.VMRC import VMRC
+from IM.CloudInfo import CloudInfo
+from IM.auth import Authentication
 
 import logging
 
-import InfrastructureInfo
-from InfrastructureList import InfrastructureList
+import IM.InfrastructureInfo
+from IM.InfrastructureList import InfrastructureList
 from radl import radl_parse
 from radl.radl import Feature, RADL
 from IM.recipe import Recipe
 
-from config import Config
+from IM.config import Config
 from IM.VirtualMachine import VirtualMachine
 
 if Config.MAX_SIMULTANEOUS_LAUNCHES > 1:
@@ -1207,7 +1206,7 @@ class InfrastructureManager:
                 "No credentials provided for the InfrastructureManager")
 
         # Create a new infrastructure
-        inf = InfrastructureInfo.InfrastructureInfo()
+        inf = IM.InfrastructureInfo.InfrastructureInfo()
         inf.auth = Authentication(auth.getAuthInfo("InfrastructureManager"))
         InfrastructureList.add_infrastructure(inf)
         InfrastructureList.save_data(inf.id)

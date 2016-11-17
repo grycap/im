@@ -20,7 +20,7 @@ import threading
 from radl.radl import network, RADL
 from IM.SSH import SSH
 from IM.SSHRetry import SSHRetry
-from config import Config
+from IM.config import Config
 import shutil
 import string
 import json

@@ -19,8 +19,8 @@
 import logging
 
 from request import Request, AsyncRequest
-import InfrastructureManager
-import InfrastructureList
+import IM.InfrastructureManager as InfrastructureManager
+import IM.InfrastructureList as InfrastructureList
 from auth import Authentication
 from IM import __version__ as version
 

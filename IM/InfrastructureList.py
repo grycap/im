@@ -21,7 +21,7 @@ import logging
 import threading
 
 from IM.db import DataBase
-from config import Config
+from IM.config import Config
 
 '''
 Created on 17 nov. 2016
