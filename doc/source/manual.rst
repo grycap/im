@@ -502,3 +502,7 @@ How to launch the IM service using docker::
 You can also specify an external MySQL server to store IM data using the IM_DATA_DB environment variable::
   
   $ sudo docker run -d -p 8899:8899 -e IM_DATA_DB=mysql://username:password@server/db_name --name im grycap/im 
+
+Or you can also add a volume with all the IM configuration::
+
+  $ sudo docker run -d -p 8899:8899 -p 8800:8800 -v "/some_local_path/im.cfg:/etc/im/im.cfg" --name im grycap/im
