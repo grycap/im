@@ -19,7 +19,7 @@
 import logging
 
 from request import Request, AsyncRequest
-import IM.InfrastructureManager as InfrastructureManager
+import InfrastructureManager
 import IM.InfrastructureList as InfrastructureList
 from auth import Authentication
 from IM import __version__ as version

@@ -30,7 +30,7 @@ from ansible.parsing.vault import VaultEditor
 
 from IM.ansible_utils.ansible_launcher import AnsibleThread
 
-import IM.InfrastructureManager as InfrastructureManager
+import InfrastructureManager
 from IM.VirtualMachine import VirtualMachine
 from IM.SSH import AuthenticationException
 from IM.SSHRetry import SSHRetry

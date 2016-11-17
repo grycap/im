@@ -17,16 +17,18 @@
 from netaddr import IPNetwork, IPAddress
 import time
 import threading
-from radl.radl import network, RADL
-from IM.SSH import SSH
-from IM.SSHRetry import SSHRetry
-from IM.config import Config
 import shutil
 import string
 import json
 import tempfile
 import logging
 
+from radl.radl import network, RADL
+from IM.SSH import SSH
+from IM.SSHRetry import SSHRetry
+from IM.config import Config
+from radl.radl_json import parse_radl as parse_radl_json, dump_radl as dump_radl_json
+import IM.CloudInfo
 
 class VirtualMachine:
 
@@ -46,7 +48,7 @@ class VirtualMachine:
 
     logger = logging.getLogger('InfrastructureManager')
 
-    def __init__(self, inf, cloud_id, cloud, info, requested_radl, cloud_connector=None):
+    def __init__(self, inf, cloud_id, cloud, info, requested_radl, cloud_connector=None, im_id=None):
         self._lock = threading.Lock()
         """Threading Lock to avoid concurrency problems."""
         self.last_update = 0
@@ -59,7 +61,10 @@ class VirtualMachine:
         """Infrastructure which this VM is part of"""
         self.id = cloud_id
         """The ID of the VM assigned by the cloud provider"""
-        self.im_id = inf.get_next_vm_id()
+        if im_id is None:
+            self.im_id = inf.get_next_vm_id()
+        else:
+            self.im_id = im_id
         """The internal ID of the VM assigned by the IM"""
         self.cloud = cloud
         """CloudInfo object with the information about the cloud provider"""
@@ -104,6 +109,33 @@ class VirtualMachine:
             # because the configuration process will be lost
             if self.configured is None:
                 self.configured = False
+
+    def serialize(self):
+        with self._lock:
+            odict = self.__dict__.copy()
+        # Quit the lock to the data to be store by pickle
+        del odict['_lock']
+        del odict['cloud_connector']
+        del odict['inf']
+        odict['info'] = dump_radl_json(odict['info'])
+        odict['requested_radl'] = dump_radl_json(odict['requested_radl'])
+        odict['cloud'] = odict['cloud'].serialize()  
+        return json.dumps(odict)
+    
+    @staticmethod
+    def deserialize(str_data):
+        dic = json.loads(str_data)
+        dic['cloud'] = IM.CloudInfo.CloudInfo.deserialize(dic['cloud'])
+        dic['info'] = parse_radl_json(dic['info'])
+        dic['requested_radl'] = parse_radl_json(dic['requested_radl'])
+        
+        newvm = VirtualMachine(None, None, None, None, None, None, dic['im_id'])
+        newvm.__dict__.update(dic)
+        # If we load a VM that is not configured, set it to False
+        # because the configuration process will be lost
+        if newvm.configured is None:
+            newvm.configured = False
+        return newvm
 
     def finalize(self, auth):
         """

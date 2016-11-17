@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import json
 
 class Authentication:
     """
@@ -165,3 +166,11 @@ class Authentication:
                 res.append(auth)
 
         return res
+
+
+    def serialize(self):
+        return json.dumps(self.auth_list)
+    
+    @staticmethod
+    def deserialize(str_data):
+        return Authentication(json.loads(str_data))

@@ -18,6 +18,7 @@
 
 import sys
 import logging
+import logging.handlers
 import os
 import signal
 import subprocess

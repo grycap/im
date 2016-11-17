@@ -14,10 +14,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import sys
-from IM.connectors import *
+import json
 from IM.uriparse import uriparse
-
 
 class CloudInfo:
     """
@@ -45,7 +43,8 @@ class CloudInfo:
         if len(self.type) > 15 or "." in self.type:
             raise Exception("Not valid cloud provider.")
         try:
-            return getattr(sys.modules['IM.connectors.' + self.type], self.type + "CloudConnector")(self)
+            module = __import__('IM.connectors.' + self.type, fromlist=[self.type + "CloudConnector"])
+            return getattr(module, self.type + "CloudConnector")(self)
         except Exception, ex:
             raise Exception("Cloud provider not supported: %s (error: %s)" % (self.type, str(ex)))
 
@@ -109,3 +108,13 @@ class CloudInfo:
                 res.append(cloud_item)
 
         return res
+
+    def serialize(self):
+        return json.dumps(self.__dict__)
+    
+    @staticmethod
+    def deserialize(str_data):
+        dic = json.loads(str_data)
+        nwecloud = CloudInfo()
+        nwecloud.__dict__.update(dic)
+        return nwecloud

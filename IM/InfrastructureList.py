@@ -19,9 +19,11 @@ import sys
 import cPickle as pickle
 import logging
 import threading
+import json
 
 from IM.db import DataBase
 from IM.config import Config
+import IM.InfrastructureInfo
 
 '''
 Created on 17 nov. 2016
@@ -73,20 +75,6 @@ class InfrastructureList():
             return InfrastructureList.infrastructure_list[inf_id]
         else:
             return None
-
-    @staticmethod
-    def deserialize_infrastructure(str_inf):
-        """ Get the infrastructure object from serialized data """
-        try:
-            return pickle.loads(str_inf)
-        except Exception, ex:
-            InfrastructureList.logger.exception("Error importing the infrastructure, incorrect data")
-            raise Exception("Error importing the infrastructure, incorrect data: " + str(ex))
-
-    @staticmethod
-    def serialize_infrastructure(inf_data):
-        """ Serialize an infrastructure into a string """
-        return pickle.dumps(inf_data)
 
     @staticmethod
     def stop():

@@ -1263,7 +1263,7 @@ class InfrastructureManager:
         auth = InfrastructureManager.check_auth_data(auth)
 
         sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
-        str_inf = InfrastructureList.serialize_infrastructure(sel_inf)
+        str_inf = sel_inf.serialize()
         InfrastructureManager.logger.info("Exporting infrastructure id: " + str(sel_inf.id))
         if delete:
             sel_inf.delete()
@@ -1276,7 +1276,11 @@ class InfrastructureManager:
         auth = Authentication(auth_data)
         auth = InfrastructureManager.check_auth_data(auth)
 
-        new_inf = InfrastructureList.deserialize_infrastructure(str_inf)
+        try:
+            new_inf = IM.InfrastructureInfo.InfrastructureInfo.deserialize(str_inf)
+        except Exception, ex:
+            InfrastructureList.logger.exception("Error importing the infrastructure, incorrect data")
+            raise Exception("Error importing the infrastructure, incorrect data: " + str(ex))
 
         new_inf.auth = Authentication(auth.getAuthInfo("InfrastructureManager"))
 
