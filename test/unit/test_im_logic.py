@@ -619,10 +619,10 @@ class TestIM(unittest.TestCase):
 
         IM.DestroyInfrastructure(infId, auth0)
 
-    @patch('IM.InfrastructureManager.DataBase.connect')
-    @patch('IM.InfrastructureManager.DataBase.table_exists')
-    @patch('IM.InfrastructureManager.DataBase.select')
-    @patch('IM.InfrastructureManager.DataBase.execute')
+    @patch('IM.InfrastructureList.DataBase.connect')
+    @patch('IM.InfrastructureList.DataBase.table_exists')
+    @patch('IM.InfrastructureList.DataBase.select')
+    @patch('IM.InfrastructureList.DataBase.execute')
     def test_db(self, execute, select, table_exists, connect):
 
         table_exists.return_value = True

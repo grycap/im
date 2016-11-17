@@ -15,11 +15,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import sys
 import json
 import os
-import cPickle as pickle
-import threading
 import string
 import random
 
@@ -34,7 +31,6 @@ from InfrastructureList import InfrastructureList
 from radl import radl_parse
 from radl.radl import Feature, RADL
 from IM.recipe import Recipe
-from IM.db import DataBase
 
 from config import Config
 from IM.VirtualMachine import VirtualMachine
@@ -1268,9 +1264,8 @@ class InfrastructureManager:
         auth = InfrastructureManager.check_auth_data(auth)
 
         sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
-        str_inf = pickle.dumps(sel_inf)
-        InfrastructureManager.logger.info(
-            "Exporting infrastructure id: " + str(sel_inf.id))
+        str_inf = InfrastructureList.serialize_infrastructure(sel_inf)
+        InfrastructureManager.logger.info("Exporting infrastructure id: " + str(sel_inf.id))
         if delete:
             sel_inf.delete()
             InfrastructureList.save_data(sel_inf.id)
@@ -1282,16 +1277,9 @@ class InfrastructureManager:
         auth = Authentication(auth_data)
         auth = InfrastructureManager.check_auth_data(auth)
 
-        try:
-            new_inf = pickle.loads(str_inf)
-        except Exception, ex:
-            InfrastructureManager.logger.exception(
-                "Error importing the infrastructure, incorrect data")
-            raise Exception(
-                "Error importing the infrastructure, incorrect data: " + str(ex))
+        new_inf = InfrastructureList.deserialize_infrastructure(str_inf)
 
-        new_inf.auth = Authentication(
-            auth.getAuthInfo("InfrastructureManager"))
+        new_inf.auth = Authentication(auth.getAuthInfo("InfrastructureManager"))
 
         InfrastructureList.add_infrastructure(new_inf)
         InfrastructureManager.logger.info(

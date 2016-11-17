@@ -32,7 +32,7 @@ Created on 17 nov. 2016
 
 class InfrastructureList():
     """
-    Class to manage the list of infrastructures
+    Class to manage the list of infrastructures and the serialization of the data
     """
 
     infrastructure_list = {}
@@ -73,6 +73,20 @@ class InfrastructureList():
             return InfrastructureList.infrastructure_list[inf_id]
         else:
             return None
+
+    @staticmethod
+    def deserialize_infrastructure(str_inf):
+        """ Get the infrastructure object from serialized data """
+        try:
+            return pickle.loads(str_inf)
+        except Exception, ex:
+            InfrastructureList.logger.exception("Error importing the infrastructure, incorrect data")
+            raise Exception("Error importing the infrastructure, incorrect data: " + str(ex))
+
+    @staticmethod
+    def serialize_infrastructure(inf_data):
+        """ Serialize an infrastructure into a string """
+        return pickle.dumps(inf_data)
 
     @staticmethod
     def stop():
