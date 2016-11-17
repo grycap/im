@@ -48,7 +48,9 @@ class DataBase:
     db_available = SQLITE_AVAILABLE or MYSQL_AVAILABLE
     RETRY_SLEEP = 2
     MAX_RETRIES = 15
-    DB_TYPES = ["SQLite", "MySQL"]
+    MYSQL = "MySQL"
+    SQLITE = "SQLite"
+    DB_TYPES = [MYSQL, SQLITE]
 
     def __init__(self, db_url):
         self.db_url = db_url
@@ -65,7 +67,7 @@ class DataBase:
         protocol = uri[0]
         if protocol == "mysql":
             return self._connect_mysql(uri[1], uri[2][1:])
-        elif protocol == "file" or not protocol:  # sqlite is the default one
+        elif protocol == "file" or protocol == "sqlite" or not protocol:  # sqlite is the default one
             return self._connect_sqlite(uri[2])
 
         return False
@@ -97,7 +99,7 @@ class DataBase:
             if not port:
                 port = 3306
             self.connection = mdb.connect(server, username, password, db, port)
-            self.db_type = "MySQL"
+            self.db_type = DataBase.MYSQL
             return True
         else:
             return False
@@ -105,7 +107,7 @@ class DataBase:
     def _connect_sqlite(self, db_filename):
         if SQLITE_AVAILABLE:
             self.connection = sqlite.connect(db_filename)
-            self.db_type = "SQLite"
+            self.db_type = DataBase.SQLITE
             return True
         else:
             return False
@@ -131,10 +133,10 @@ class DataBase:
                 try:
                     cursor = self.connection.cursor()
                     if args is not None:
-                        if not SQLITE3_AVAILABLE:
+                        if self.db_type == DataBase.SQLITE:
+                            new_sql = sql.replace("%s", "?").replace("now()", "date('now')")
+                        elif self.db_type == DataBase.MYSQL:
                             new_sql = sql.replace("?", "%s")
-                        else:
-                            new_sql = sql
                         cursor.execute(new_sql, args)
                     else:
                         cursor.execute(sql)
