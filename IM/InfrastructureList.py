@@ -16,10 +16,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import sys
-import cPickle as pickle
 import logging
 import threading
-import json
 
 from IM.db import DataBase
 from IM.config import Config
@@ -92,13 +90,11 @@ class InfrastructureList():
         with InfrastructureList._lock:
             try:
                 if Config.DATA_DB:
-                    inf_list = InfrastructureList._get_data_from_db(
-                        Config.DATA_DB)
+                    inf_list = InfrastructureList._get_data_from_db(Config.DATA_DB)
                     InfrastructureList.infrastructure_list = inf_list
                 else:
                     data_file = open(Config.DATA_FILE, 'rb')
-                    InfrastructureList.infrastructure_list = pickle.load(
-                        data_file)
+                    InfrastructureList.infrastructure_list = pickle.load(data_file)
                     data_file.close()
             except Exception, ex:
                 InfrastructureList.logger.exception("ERROR loading data. Correct or delete it!!")
@@ -127,8 +123,7 @@ class InfrastructureList():
                             sys.stderr.write("ERROR saving data.\nChanges not stored!!")
                     else:
                         data_file = open(Config.DATA_FILE, 'wb')
-                        pickle.dump(
-                            InfrastructureList.infrastructure_list, data_file)
+                        pickle.dump(InfrastructureList.infrastructure_list, data_file)
                         data_file.close()
                 except Exception, ex:
                     InfrastructureList.logger.exception("ERROR saving data. Changes not stored!!")
@@ -151,7 +146,7 @@ class InfrastructureList():
                         # inf_id = elem[0]
                         # date = elem[1]
                         try:
-                            inf = pickle.loads(elem[2])
+                            inf = IM.InfrastructureInfo.InfrastructureInfo.deserialize(elem[2])
                             if not inf.deleted:
                                 inf_list[inf.id] = inf
                         except:
@@ -175,8 +170,8 @@ class InfrastructureList():
                 infs_to_save = {inf_id: inf_list[inf_id]}
 
             for inf in infs_to_save.values():
-                res = db.execute(
-                    "replace into inf_list set id = %s, data = %s, date = now()", (inf.id, pickle.dumps(inf)))
+                res = db.execute("replace into inf_list (id, data, date) values (%s, %s, now())",
+                                 (inf.id, inf.serialize()))
 
             db.close()
             return res
