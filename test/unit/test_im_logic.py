@@ -32,6 +32,7 @@ Config.MAX_SIMULTANEOUS_LAUNCHES = 2
 
 from IM.VirtualMachine import VirtualMachine
 from IM.InfrastructureManager import InfrastructureManager as IM
+from IM.InfrastructureList import InfrastructureList
 from IM.auth import Authentication
 from radl.radl import RADL, system, deploy, Feature, SoftFeatures
 from radl.radl_parse import parse_radl
@@ -438,7 +439,7 @@ class TestIM(unittest.TestCase):
         auth0 = self.getAuth([0], [], [("Dummy", 0)])
 
         inf = MagicMock()
-        IM.infrastructure_list = {"1": inf}
+        InfrastructureList.infrastructure_list = {"1": inf}
         inf.id = "1"
         inf.auth = auth0
         inf.deleted = False
@@ -602,9 +603,9 @@ class TestIM(unittest.TestCase):
         state = IM.GetInfrastructureState(infId, auth0)
         self.assertEqual(state["state"], "unconfigured")
 
-        IM.infrastructure_list[infId].ansible_configured = True
-        IM.infrastructure_list[infId].vm_list[0].get_ctxt_log = MagicMock()
-        IM.infrastructure_list[infId].vm_list[0].get_ctxt_log.return_value = "OK"
+        InfrastructureList.infrastructure_list[infId].ansible_configured = True
+        InfrastructureList.infrastructure_list[infId].vm_list[0].get_ctxt_log = MagicMock()
+        InfrastructureList.infrastructure_list[infId].vm_list[0].get_ctxt_log.return_value = "OK"
 
         IM.Reconfigure(infId, "", auth0)
 
@@ -628,12 +629,12 @@ class TestIM(unittest.TestCase):
         select.return_value = [["1", "", read_file_as_string("../files/data.pkl")]]
         execute.return_value = True
 
-        res = IM.get_data_from_db("mysql://username:password@server/db_name")
+        res = InfrastructureList._get_data_from_db("mysql://username:password@server/db_name")
         self.assertEqual(len(res), 1)
 
         inf = InfrastructureInfo()
         inf.id = "1"
-        success = IM.save_data_to_db("mysql://username:password@server/db_name", {"1": inf})
+        success = InfrastructureList._save_data_to_db("mysql://username:password@server/db_name", {"1": inf})
         self.assertTrue(success)
 
 if __name__ == "__main__":

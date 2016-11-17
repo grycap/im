@@ -20,6 +20,7 @@ import logging
 
 from request import Request, AsyncRequest
 import InfrastructureManager
+import InfrastructureList
 from auth import Authentication
 from IM import __version__ as version
 
@@ -326,7 +327,7 @@ class Request_SaveData(IMBaseRequest):
     def _call_function(self):
         self._error_mesage = "Error saving IM data"
         (inf_id) = self.arguments
-        InfrastructureManager.InfrastructureManager.save_data(inf_id)
+        InfrastructureList.InfrastructureList.save_data(inf_id)
         return ""
 
 
