@@ -67,8 +67,7 @@ class Config:
     RECIPES_DB_FILE = CONTEXTUALIZATION_DIR + '/recipes_ansible.db'
     MAX_CONTEXTUALIZATION_TIME = 7200
     MAX_SIMULTANEOUS_LAUNCHES = 1
-    DATA_FILE = '/etc/im/inf.dat'
-    DATA_DB = None
+    DATA_DB = '/etc/im/inf.dat'
     XMLRCP_SSL = False
     XMLRCP_SSL_KEYFILE = "/etc/im/pki/server-key.pem"
     XMLRCP_SSL_CERTFILE = "/etc/im/pki/server-cert.pem"

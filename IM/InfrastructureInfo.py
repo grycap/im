@@ -91,33 +91,6 @@ class InfrastructureInfo:
         self.conf_threads = []
         """ List of configuration threads."""
 
-    def __getstate__(self):
-        """
-        Function to save the information to pickle
-        """
-        with self._lock:
-            odict = self.__dict__.copy()
-        # Quit the ConfManager object and the lock to the data to be store by
-        # pickle
-        del odict['cm']
-        del odict['_lock']
-        del odict['ctxt_tasks']
-        del odict['conf_threads']
-        return odict
-
-    def __setstate__(self, dic):
-        """
-        Function to load the information to pickle
-        """
-        self._lock = threading.Lock()
-        with self._lock:
-            self.__dict__.update(dic)
-            # Set the ConfManager object and the lock to the data loaded by
-            # pickle
-            self.cm = None
-            self.ctxt_tasks = PriorityQueue()
-            self.conf_threads = []
-
     def serialize(self):
         with self._lock:
             odict = self.__dict__.copy()
@@ -132,8 +105,10 @@ class InfrastructureInfo:
         for vm in odict['vm_list']:
             vm_list.append(vm.serialize())
         odict['vm_list'] = vm_list
-        odict['auth'] = odict['auth'].serialize()
-        odict['radl'] = dump_radl_json(odict['radl'])
+        if odict['auth']:
+            odict['auth'] = odict['auth'].serialize()
+        if odict['radl']:
+            odict['radl'] = dump_radl_json(odict['radl'])
         return json.dumps(odict)
 
     @staticmethod
@@ -145,8 +120,10 @@ class InfrastructureInfo:
         vm_master_id = dic['vm_master']
         dic['vm_master'] = None
         dic['vm_list'] = []
-        dic['auth'] = Authentication.deserialize(dic['auth'])
-        dic['radl'] = parse_radl_json(dic['radl'])
+        if dic['auth']:
+            dic['auth'] = Authentication.deserialize(dic['auth'])
+        if dic['radl']:
+            dic['radl'] = parse_radl_json(dic['radl'])
         newinf.__dict__.update(dic)
         newinf.cloud_connector = None
         # Set the ConfManager object and the lock to the data loaded

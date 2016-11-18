@@ -86,30 +86,6 @@ class VirtualMachine:
         self.cloud_connector = cloud_connector
         """CloudConnector object to connect with the IaaS platform"""
 
-    def __getstate__(self):
-        """
-        Function to save the information to pickle
-        """
-        with self._lock:
-            odict = self.__dict__.copy()
-        # Quit the lock to the data to be store by pickle
-        del odict['_lock']
-        del odict['cloud_connector']
-        return odict
-
-    def __setstate__(self, dic):
-        """
-        Function to load the information to pickle
-        """
-        self._lock = threading.Lock()
-        with self._lock:
-            self.__dict__.update(dic)
-            self.cloud_connector = None
-            # If we load a VM that is not configured, set it to False
-            # because the configuration process will be lost
-            if self.configured is None:
-                self.configured = False
-
     def serialize(self):
         with self._lock:
             odict = self.__dict__.copy()
@@ -117,17 +93,23 @@ class VirtualMachine:
         del odict['_lock']
         del odict['cloud_connector']
         del odict['inf']
-        odict['info'] = dump_radl_json(odict['info'])
-        odict['requested_radl'] = dump_radl_json(odict['requested_radl'])
-        odict['cloud'] = odict['cloud'].serialize()  
+        if odict['info']:
+            odict['info'] = dump_radl_json(odict['info'])
+        if odict['requested_radl']:
+            odict['requested_radl'] = dump_radl_json(odict['requested_radl'])
+        if odict['cloud']:
+            odict['cloud'] = odict['cloud'].serialize()  
         return json.dumps(odict)
     
     @staticmethod
     def deserialize(str_data):
         dic = json.loads(str_data)
-        dic['cloud'] = IM.CloudInfo.CloudInfo.deserialize(dic['cloud'])
-        dic['info'] = parse_radl_json(dic['info'])
-        dic['requested_radl'] = parse_radl_json(dic['requested_radl'])
+        if dic['cloud']:
+            dic['cloud'] = IM.CloudInfo.CloudInfo.deserialize(dic['cloud'])
+        if dic['info']:
+            dic['info'] = parse_radl_json(dic['info'])
+        if dic['requested_radl']:
+            dic['requested_radl'] = parse_radl_json(dic['requested_radl'])
         
         newvm = VirtualMachine(None, None, None, None, None, None, dic['im_id'])
         newvm.__dict__.update(dic)

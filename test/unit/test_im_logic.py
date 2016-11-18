@@ -56,6 +56,7 @@ class TestIM(unittest.TestCase):
     def setUp(self):
 
         IM._reinit()
+        InfrastructureList.load_data()
         # Patch save_data
         IM.save_data = staticmethod(lambda *args: None)
 
@@ -626,7 +627,7 @@ class TestIM(unittest.TestCase):
     def test_db(self, execute, select, table_exists, connect):
 
         table_exists.return_value = True
-        select.return_value = [["1", "", read_file_as_string("../files/data.pkl")]]
+        select.return_value = [["1", "", read_file_as_string("../files/data.json")]]
         execute.return_value = True
 
         res = InfrastructureList._get_data_from_db("mysql://username:password@server/db_name")
