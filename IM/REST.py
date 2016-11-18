@@ -21,8 +21,8 @@ import json
 
 from IM.InfrastructureInfo import IncorrectVMException, DeletedVMException
 from IM.InfrastructureManager import (InfrastructureManager, DeletedInfrastructureException,
-                                   IncorrectInfrastructureException, UnauthorizedUserException,
-                                   InvaliddUserException)
+                                      IncorrectInfrastructureException, UnauthorizedUserException,
+                                      InvaliddUserException)
 from IM.auth import Authentication
 from IM.config import Config
 from radl.radl_json import parse_radl as parse_radl_json, dump_radl as dump_radl_json, featuresToSimple, radlToSimple

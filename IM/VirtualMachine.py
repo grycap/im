@@ -30,6 +30,7 @@ from IM.config import Config
 from radl.radl_json import parse_radl as parse_radl_json, dump_radl as dump_radl_json
 import IM.CloudInfo
 
+
 class VirtualMachine:
 
     # VM states
@@ -98,9 +99,9 @@ class VirtualMachine:
         if odict['requested_radl']:
             odict['requested_radl'] = dump_radl_json(odict['requested_radl'])
         if odict['cloud']:
-            odict['cloud'] = odict['cloud'].serialize()  
+            odict['cloud'] = odict['cloud'].serialize()
         return json.dumps(odict)
-    
+
     @staticmethod
     def deserialize(str_data):
         dic = json.loads(str_data)
@@ -110,7 +111,7 @@ class VirtualMachine:
             dic['info'] = parse_radl_json(dic['info'])
         if dic['requested_radl']:
             dic['requested_radl'] = parse_radl_json(dic['requested_radl'])
-        
+
         newvm = VirtualMachine(None, None, None, None, None, None, dic['im_id'])
         newvm.__dict__.update(dic)
         # If we load a VM that is not configured, set it to False

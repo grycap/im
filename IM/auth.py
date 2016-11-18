@@ -16,6 +16,7 @@
 
 import json
 
+
 class Authentication:
     """
     Class to manage the Authentication in the IM to all the components
@@ -167,10 +168,9 @@ class Authentication:
 
         return res
 
-
     def serialize(self):
         return json.dumps(self.auth_list)
-    
+
     @staticmethod
     def deserialize(str_data):
         return Authentication(json.loads(str_data))

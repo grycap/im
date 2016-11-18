@@ -17,6 +17,7 @@
 import json
 from IM.uriparse import uriparse
 
+
 class CloudInfo:
     """
     Class to represent the information of a cloud provider
@@ -111,7 +112,7 @@ class CloudInfo:
 
     def serialize(self):
         return json.dumps(self.__dict__)
-    
+
     @staticmethod
     def deserialize(str_data):
         dic = json.loads(str_data)
