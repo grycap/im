@@ -240,5 +240,6 @@ IM 1.4.8
 IM 1.5.0
     * Remove DATA_FILE from configuration. Only DB now.
     * Change DB format. Old 1.4.X data must be updated.
+    * Remove use of insecure Pickle data.
     * Add Vault support.
     * Bugfix with sqlite databases.

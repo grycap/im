@@ -56,7 +56,6 @@ class TestIM(unittest.TestCase):
     def setUp(self):
 
         IM._reinit()
-        InfrastructureList.load_data()
         # Patch save_data
         IM.save_data = staticmethod(lambda *args: None)
 
