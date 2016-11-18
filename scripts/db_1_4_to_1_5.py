@@ -21,6 +21,7 @@ import sys
 import time
 import threading
 
+
 class DB14to15():
     @staticmethod
     def load_data(data_file):
@@ -60,7 +61,7 @@ class DB14to15():
                 else:
                     sys.stderr.write("ERROR getting inf_list from database!.")
                     sys.exit(-1)
-    
+
                 db.close()
                 return inf_list
         else:

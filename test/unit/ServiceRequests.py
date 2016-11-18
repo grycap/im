@@ -17,7 +17,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
-from mock import Mock, patch, MagicMock
+from mock import patch
+
 
 class TestServiceRequests(unittest.TestCase):
     """
@@ -33,140 +34,141 @@ class TestServiceRequests(unittest.TestCase):
     @patch('IM.InfrastructureManager.InfrastructureManager')
     def test_add_resource(self, inflist):
         import IM.ServiceRequests
-        req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.ADD_RESOURCE, 
+        req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.ADD_RESOURCE,
                                                               ("", "", "", ""))
         req._call_function()
 
     @patch('IM.InfrastructureManager.InfrastructureManager')
     def test_alter_vm(self, inflist):
         import IM.ServiceRequests
-        req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.ALTER_VM, 
+        req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.ALTER_VM,
                                                               ("", "", "", ""))
         req._call_function()
 
     @patch('IM.InfrastructureManager.InfrastructureManager')
     def test_create(self, inflist):
         import IM.ServiceRequests
-        req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.CREATE_INFRASTRUCTURE, 
+        req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.CREATE_INFRASTRUCTURE,
                                                               ("", ""))
         req._call_function()
 
     @patch('IM.InfrastructureManager.InfrastructureManager')
     def test_destroy(self, inflist):
         import IM.ServiceRequests
-        req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.DESTROY_INFRASTRUCTURE, 
+        req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.DESTROY_INFRASTRUCTURE,
                                                               ("", ""))
         req._call_function()
 
     @patch('IM.InfrastructureManager.InfrastructureManager')
     def test_export(self, inflist):
         import IM.ServiceRequests
-        req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.EXPORT_INFRASTRUCTURE, 
+        req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.EXPORT_INFRASTRUCTURE,
                                                               ("", "", ""))
         req._call_function()
 
     @patch('IM.InfrastructureManager.InfrastructureManager')
     def test_cont_msg(self, inflist):
         import IM.ServiceRequests
-        req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.GET_INFRASTRUCTURE_CONT_MSG, 
+        req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.
+                                                              IMBaseRequest.GET_INFRASTRUCTURE_CONT_MSG,
                                                               ("", ""))
         req._call_function()
 
     @patch('IM.InfrastructureManager.InfrastructureManager')
     def test_getinfo(self, inflist):
         import IM.ServiceRequests
-        req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.GET_INFRASTRUCTURE_INFO, 
+        req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.GET_INFRASTRUCTURE_INFO,
                                                               ("", ""))
         req._call_function()
 
     @patch('IM.InfrastructureManager.InfrastructureManager')
     def test_list(self, inflist):
         import IM.ServiceRequests
-        req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.GET_INFRASTRUCTURE_LIST, 
+        req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.GET_INFRASTRUCTURE_LIST,
                                                               (""))
         req._call_function()
 
     @patch('IM.InfrastructureManager.InfrastructureManager')
     def test_getradl(self, inflist):
         import IM.ServiceRequests
-        req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.GET_INFRASTRUCTURE_RADL, 
+        req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.GET_INFRASTRUCTURE_RADL,
                                                               ("", ""))
         req._call_function()
 
     @patch('IM.InfrastructureManager.InfrastructureManager')
     def test_getstate(self, inflist):
         import IM.ServiceRequests
-        req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.GET_INFRASTRUCTURE_STATE, 
+        req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.GET_INFRASTRUCTURE_STATE,
                                                               ("", ""))
         req._call_function()
 
     @patch('IM.InfrastructureManager.InfrastructureManager')
     def test_vm_contmsg(self, inflist):
         import IM.ServiceRequests
-        req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.GET_VM_CONT_MSG, 
+        req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.GET_VM_CONT_MSG,
                                                               ("", "", ""))
         req._call_function()
 
     @patch('IM.InfrastructureManager.InfrastructureManager')
     def test_vm_info(self, inflist):
         import IM.ServiceRequests
-        req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.GET_VM_INFO, 
+        req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.GET_VM_INFO,
                                                               ("", "", ""))
         req._call_function()
 
     @patch('IM.InfrastructureManager.InfrastructureManager')
     def test_vm_prop(self, inflist):
         import IM.ServiceRequests
-        req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.GET_VM_PROPERTY, 
+        req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.GET_VM_PROPERTY,
                                                               ("", "", "", ""))
         req._call_function()
 
     @patch('IM.InfrastructureManager.InfrastructureManager')
     def test_import(self, inflist):
         import IM.ServiceRequests
-        req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.IMPORT_INFRASTRUCTURE, 
+        req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.IMPORT_INFRASTRUCTURE,
                                                               ("", ""))
         req._call_function()
 
     @patch('IM.InfrastructureManager.InfrastructureManager')
     def test_reconfigure(self, inflist):
         import IM.ServiceRequests
-        req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.RECONFIGURE, 
+        req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.RECONFIGURE,
                                                               ("", "", "", ""))
         req._call_function()
 
     @patch('IM.InfrastructureManager.InfrastructureManager')
     def test_remove(self, inflist):
         import IM.ServiceRequests
-        req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.REMOVE_RESOURCE, 
+        req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.REMOVE_RESOURCE,
                                                               ("", "", "", ""))
         req._call_function()
 
     @patch('IM.InfrastructureManager.InfrastructureManager')
     def test_start(self, inflist):
         import IM.ServiceRequests
-        req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.START_INFRASTRUCTURE, 
+        req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.START_INFRASTRUCTURE,
                                                               ("", ""))
         req._call_function()
 
     @patch('IM.InfrastructureManager.InfrastructureManager')
     def test_stop(self, inflist):
         import IM.ServiceRequests
-        req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.STOP_INFRASTRUCTURE, 
+        req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.STOP_INFRASTRUCTURE,
                                                               ("", ""))
         req._call_function()
 
     @patch('IM.InfrastructureManager.InfrastructureManager')
     def test_vm_start(self, inflist):
         import IM.ServiceRequests
-        req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.START_VM, 
+        req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.START_VM,
                                                               ("", "", ""))
         req._call_function()
 
     @patch('IM.InfrastructureManager.InfrastructureManager')
     def test_vm_stop(self, inflist):
         import IM.ServiceRequests
-        req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.STOP_VM, 
+        req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.STOP_VM,
                                                               ("", "", ""))
         req._call_function()
 
