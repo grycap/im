@@ -26,7 +26,7 @@ from IM.auth import Authentication
 import logging
 
 import IM.InfrastructureInfo
-from IM.InfrastructureList import InfrastructureList
+import IM.InfrastructureList
 from radl import radl_parse
 from radl.radl import Feature, RADL
 from IM.recipe import Recipe
@@ -84,7 +84,7 @@ class InfrastructureManager:
     @staticmethod
     def _reinit():
         """Restart the class attributes to initial values."""
-        InfrastructureList._reinit()
+        IM.InfrastructureList.InfrastructureList._reinit()
 
     @staticmethod
     def _compute_deploy_groups(radl):
@@ -230,10 +230,10 @@ class InfrastructureManager:
     def get_infrastructure(inf_id, auth):
         """Return infrastructure info with some id if valid authorization provided."""
 
-        if inf_id not in InfrastructureList.get_inf_ids():
+        if inf_id not in IM.InfrastructureList.InfrastructureList.get_inf_ids():
             InfrastructureManager.logger.error("Error, incorrect infrastructure ID")
             raise IncorrectInfrastructureException()
-        sel_inf = InfrastructureList.get_infrastructure(inf_id)
+        sel_inf = IM.InfrastructureList.InfrastructureList.get_infrastructure(inf_id)
         if not sel_inf.is_authorized(auth):
             InfrastructureManager.logger.error("Access Error")
             raise UnauthorizedUserException()
@@ -299,7 +299,7 @@ class InfrastructureManager:
                         system.setCredentialValues(
                             password=password, public_key=public_key, private_key=private_key, new=True)
 
-        InfrastructureList.save_data(inf_id)
+        IM.InfrastructureList.InfrastructureList.save_data(inf_id)
 
         # Stick all virtual machines to be reconfigured
         InfrastructureManager.logger.info("Contextualize the inf.")
@@ -566,7 +566,7 @@ class InfrastructureManager:
         # Add the new virtual machines to the infrastructure
         sel_inf.update_radl(radl, [(d, deployed_vm[d], concrete_systems[d.cloud_id][d.id][0])
                                    for d in deployed_vm])
-        InfrastructureList.save_data(inf_id)
+        IM.InfrastructureList.InfrastructureList.save_data(inf_id)
         InfrastructureManager.logger.info(
             "VMs %s successfully added to Inf id %s" % (new_vms, sel_inf.id))
 
@@ -623,7 +623,7 @@ class InfrastructureManager:
                     except Exception, e:
                         exceptions.append(e)
 
-        InfrastructureList.save_data(inf_id)
+        IM.InfrastructureList.InfrastructureList.save_data(inf_id)
         InfrastructureManager.logger.info(
             str(cont) + " VMs successfully removed")
 
@@ -760,7 +760,7 @@ class InfrastructureManager:
                 "Using last information retrieved")
 
         vm.update_status(auth)
-        InfrastructureList.save_data(inf_id)
+        IM.InfrastructureList.InfrastructureList.save_data(inf_id)
 
         return vm.info
 
@@ -1125,7 +1125,7 @@ class InfrastructureManager:
                 InfrastructureManager._delete_vm(vm, auth, exceptions)
 
         if exceptions:
-            InfrastructureList.save_data(inf_id)
+            IM.InfrastructureList.InfrastructureList.save_data(inf_id)
             msg = ""
             for e in exceptions:
                 msg += str(e) + "\n"
@@ -1133,8 +1133,8 @@ class InfrastructureManager:
 
         # Set the Infrastructure as deleted
         sel_inf.delete()
-        InfrastructureList.save_data(inf_id)
-        InfrastructureList.remove_inf(sel_inf)
+        IM.InfrastructureList.InfrastructureList.save_data(inf_id)
+        IM.InfrastructureList.InfrastructureList.remove_inf(sel_inf)
         InfrastructureManager.logger.info(
             "Infrastructure successfully destroyed")
         return ""
@@ -1208,8 +1208,8 @@ class InfrastructureManager:
         # Create a new infrastructure
         inf = IM.InfrastructureInfo.InfrastructureInfo()
         inf.auth = Authentication(auth.getAuthInfo("InfrastructureManager"))
-        InfrastructureList.add_infrastructure(inf)
-        InfrastructureList.save_data(inf.id)
+        IM.InfrastructureList.InfrastructureList.add_infrastructure(inf)
+        IM.InfrastructureList.InfrastructureList.save_data(inf.id)
         InfrastructureManager.logger.info(
             "Creating new infrastructure with id: " + str(inf.id))
 
@@ -1220,8 +1220,8 @@ class InfrastructureManager:
             InfrastructureManager.logger.exception(
                 "Error Creating Inf id " + str(inf.id))
             inf.delete()
-            InfrastructureList.save_data(inf.id)
-            InfrastructureList.remove_inf(inf)
+            IM.InfrastructureList.InfrastructureList.save_data(inf.id)
+            IM.InfrastructureList.InfrastructureList.remove_inf(inf)
             raise e
         InfrastructureManager.logger.info(
             "Infrastructure id " + str(inf.id) + " successfully created")
@@ -1250,8 +1250,8 @@ class InfrastructureManager:
             raise InvaliddUserException()
 
         res = []
-        for inf_id in InfrastructureList.get_inf_ids():
-            elem = InfrastructureList.get_infrastructure(inf_id)
+        for inf_id in IM.InfrastructureList.InfrastructureList.get_inf_ids():
+            elem = IM.InfrastructureList.InfrastructureList.get_infrastructure(inf_id)
             if elem.is_authorized(auth) and not elem.deleted:
                 res.append(elem.id)
 
@@ -1267,8 +1267,8 @@ class InfrastructureManager:
         InfrastructureManager.logger.info("Exporting infrastructure id: " + str(sel_inf.id))
         if delete:
             sel_inf.delete()
-            InfrastructureList.save_data(sel_inf.id)
-            InfrastructureList.remove_inf(sel_inf)
+            IM.InfrastructureList.InfrastructureList.save_data(sel_inf.id)
+            IM.InfrastructureList.InfrastructureList.remove_inf(sel_inf)
         return str_inf
 
     @staticmethod
@@ -1279,18 +1279,18 @@ class InfrastructureManager:
         try:
             new_inf = IM.InfrastructureInfo.InfrastructureInfo.deserialize(str_inf)
         except Exception, ex:
-            InfrastructureList.logger.exception("Error importing the infrastructure, incorrect data")
+            InfrastructureManager.logger.exception("Error importing the infrastructure, incorrect data")
             raise Exception("Error importing the infrastructure, incorrect data: " + str(ex))
 
         new_inf.auth = Authentication(auth.getAuthInfo("InfrastructureManager"))
 
-        InfrastructureList.add_infrastructure(new_inf)
+        IM.InfrastructureList.InfrastructureList.add_infrastructure(new_inf)
         InfrastructureManager.logger.info(
             "Importing new infrastructure with id: " + str(new_inf.id))
         # Save the state
-        InfrastructureList.save_data(new_inf.id)
+        IM.InfrastructureList.InfrastructureList.save_data(new_inf.id)
         return new_inf.id
 
     @staticmethod
     def stop():
-        InfrastructureList.stop()
+        IM.InfrastructureList.InfrastructureList.stop()
