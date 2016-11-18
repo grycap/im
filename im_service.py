@@ -18,6 +18,8 @@
 
 import sys
 import logging
+import logging.handlers
+import logging.config
 import os
 import signal
 import subprocess
@@ -193,8 +195,7 @@ def launch_daemon():
     """
     Launch the IM daemon
     """
-    if os.path.isfile(Config.DATA_FILE) or Config.DATA_DB:
-        InfrastructureList.load_data()
+    InfrastructureList.load_data()
 
     if Config.XMLRCP_SSL:
         # if specified launch the secure version

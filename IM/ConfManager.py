@@ -31,14 +31,14 @@ from ansible.parsing.vault import VaultEditor
 from IM.ansible_utils.ansible_launcher import AnsibleThread
 
 import InfrastructureManager
-from VirtualMachine import VirtualMachine
-from SSH import AuthenticationException
-from SSHRetry import SSHRetry
-from recipe import Recipe
+from IM.VirtualMachine import VirtualMachine
+from IM.SSH import AuthenticationException
+from IM.SSHRetry import SSHRetry
+from IM.recipe import Recipe
 from radl.radl import system, contextualize_item
-import ServiceRequests
+import IM.ServiceRequests as ServiceRequests
 
-from config import Config
+from IM.config import Config
 
 
 class ConfManager(threading.Thread):
@@ -1316,9 +1316,6 @@ class ConfManager(threading.Thread):
         Returns: True if the process finished sucessfully, False otherwise.
         """
         try:
-            # Get the groups for the different VM types
-            vm_group = self.inf.get_vm_list_by_system_name()
-
             # Create the ansible inventory file
             with open(tmp_dir + "/inventory.cfg", 'w') as inv_out:
                 inv_out.write("%s  ansible_port=%d  ansible_ssh_port=%d" % (

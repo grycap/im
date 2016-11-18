@@ -16,12 +16,12 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import sys
-import cPickle as pickle
 import logging
 import threading
 
 from IM.db import DataBase
-from config import Config
+from IM.config import Config
+import IM.InfrastructureInfo
 
 '''
 Created on 17 nov. 2016
@@ -75,20 +75,6 @@ class InfrastructureList():
             return None
 
     @staticmethod
-    def deserialize_infrastructure(str_inf):
-        """ Get the infrastructure object from serialized data """
-        try:
-            return pickle.loads(str_inf)
-        except Exception, ex:
-            InfrastructureList.logger.exception("Error importing the infrastructure, incorrect data")
-            raise Exception("Error importing the infrastructure, incorrect data: " + str(ex))
-
-    @staticmethod
-    def serialize_infrastructure(inf_data):
-        """ Serialize an infrastructure into a string """
-        return pickle.dumps(inf_data)
-
-    @staticmethod
     def stop():
         """ Stop securely the IM service """
         # Acquire the lock to avoid writing data to the DATA_FILE
@@ -100,18 +86,11 @@ class InfrastructureList():
 
     @staticmethod
     def load_data():
-        """ Load Data from DB or file """
+        """ Load Data from DB """
         with InfrastructureList._lock:
             try:
-                if Config.DATA_DB:
-                    inf_list = InfrastructureList._get_data_from_db(
-                        Config.DATA_DB)
-                    InfrastructureList.infrastructure_list = inf_list
-                else:
-                    data_file = open(Config.DATA_FILE, 'rb')
-                    InfrastructureList.infrastructure_list = pickle.load(
-                        data_file)
-                    data_file.close()
+                inf_list = InfrastructureList._get_data_from_db(Config.DATA_DB)
+                InfrastructureList.infrastructure_list = inf_list
             except Exception, ex:
                 InfrastructureList.logger.exception("ERROR loading data. Correct or delete it!!")
                 sys.stderr.write("ERROR loading data: " + str(ex) + ".\nCorrect or delete it!! ")
@@ -120,7 +99,7 @@ class InfrastructureList():
     @staticmethod
     def save_data(inf_id=None):
         """
-        Save data to DB or file
+        Save data to DB
 
         Args:
 
@@ -130,18 +109,12 @@ class InfrastructureList():
             # to avoid writing data to the file if the IM is exiting
             if not InfrastructureList._exiting:
                 try:
-                    if Config.DATA_DB:
-                        res = InfrastructureList._save_data_to_db(Config.DATA_DB,
-                                                                  InfrastructureList.infrastructure_list,
-                                                                  inf_id)
-                        if not res:
-                            InfrastructureList.logger.error("ERROR saving data.\nChanges not stored!!")
-                            sys.stderr.write("ERROR saving data.\nChanges not stored!!")
-                    else:
-                        data_file = open(Config.DATA_FILE, 'wb')
-                        pickle.dump(
-                            InfrastructureList.infrastructure_list, data_file)
-                        data_file.close()
+                    res = InfrastructureList._save_data_to_db(Config.DATA_DB,
+                                                              InfrastructureList.infrastructure_list,
+                                                              inf_id)
+                    if not res:
+                        InfrastructureList.logger.error("ERROR saving data.\nChanges not stored!!")
+                        sys.stderr.write("ERROR saving data.\nChanges not stored!!")
                 except Exception, ex:
                     InfrastructureList.logger.exception("ERROR saving data. Changes not stored!!")
                     sys.stderr.write("ERROR saving data: " + str(ex) + ".\nChanges not stored!!")
@@ -151,21 +124,20 @@ class InfrastructureList():
         db = DataBase(db_url)
         if db.connect():
             if not db.table_exists("inf_list"):
-                db.execute(
-                    "CREATE TABLE inf_list(id VARCHAR(255) PRIMARY KEY, date TIMESTAMP, data LONGBLOB)")
+                db.execute("CREATE TABLE inf_list(id VARCHAR(255) PRIMARY KEY, deleted INTEGER,"
+                           " date TIMESTAMP, data LONGBLOB)")
                 db.close()
                 return {}
             else:
                 inf_list = {}
-                res = db.select("select * from inf_list order by id desc")
+                res = db.select("select * from inf_list where deleted = 0 order by id desc")
                 if len(res) > 0:
                     for elem in res:
                         # inf_id = elem[0]
                         # date = elem[1]
                         try:
-                            inf = pickle.loads(elem[2])
-                            if not inf.deleted:
-                                inf_list[inf.id] = inf
+                            inf = IM.InfrastructureInfo.InfrastructureInfo.deserialize(elem[2])
+                            inf_list[inf.id] = inf
                         except:
                             InfrastructureList.logger.exception(
                                 "ERROR reading infrastructure from database, ignoring it!.")
@@ -187,8 +159,8 @@ class InfrastructureList():
                 infs_to_save = {inf_id: inf_list[inf_id]}
 
             for inf in infs_to_save.values():
-                res = db.execute(
-                    "replace into inf_list set id = %s, data = %s, date = now()", (inf.id, pickle.dumps(inf)))
+                res = db.execute("replace into inf_list (id, deleted, data, date) values (%s, %s, %s, now())",
+                                 (inf.id, int(inf.deleted), inf.serialize()))
 
             db.close()
             return res

@@ -236,3 +236,10 @@ IM 1.4.8
     * Bugfixes in REST API not multithreaded
     * Bugfixes Error installing IM using pip in Ubuntu 16
     * Set restrictive permissions in the master VM data dir
+
+IM 1.5.0
+    * Remove DATA_FILE from configuration. Only DB now.
+    * Change DB format. Old 1.4.X data must be updated.
+    * Remove use of insecure Pickle data.
+    * Add Vault support.
+    * Bugfix with sqlite databases.

@@ -1,4 +1,3 @@
-
 # IM - Infrastructure Manager
 # Copyright (C) 2011 - GRyCAP - Universitat Politecnica de Valencia
 #
@@ -20,19 +19,19 @@ import os
 import string
 import random
 
-from VMRC import VMRC
-from CloudInfo import CloudInfo
-from auth import Authentication
+from IM.VMRC import VMRC
+from IM.CloudInfo import CloudInfo
+from IM.auth import Authentication
 
 import logging
 
-import InfrastructureInfo
-from InfrastructureList import InfrastructureList
+import IM.InfrastructureInfo
+from IM.InfrastructureList import InfrastructureList
 from radl import radl_parse
 from radl.radl import Feature, RADL
 from IM.recipe import Recipe
 
-from config import Config
+from IM.config import Config
 from IM.VirtualMachine import VirtualMachine
 
 if Config.MAX_SIMULTANEOUS_LAUNCHES > 1:
@@ -1207,7 +1206,7 @@ class InfrastructureManager:
                 "No credentials provided for the InfrastructureManager")
 
         # Create a new infrastructure
-        inf = InfrastructureInfo.InfrastructureInfo()
+        inf = IM.InfrastructureInfo.InfrastructureInfo()
         inf.auth = Authentication(auth.getAuthInfo("InfrastructureManager"))
         InfrastructureList.add_infrastructure(inf)
         InfrastructureList.save_data(inf.id)
@@ -1264,7 +1263,7 @@ class InfrastructureManager:
         auth = InfrastructureManager.check_auth_data(auth)
 
         sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
-        str_inf = InfrastructureList.serialize_infrastructure(sel_inf)
+        str_inf = sel_inf.serialize()
         InfrastructureManager.logger.info("Exporting infrastructure id: " + str(sel_inf.id))
         if delete:
             sel_inf.delete()
@@ -1277,7 +1276,11 @@ class InfrastructureManager:
         auth = Authentication(auth_data)
         auth = InfrastructureManager.check_auth_data(auth)
 
-        new_inf = InfrastructureList.deserialize_infrastructure(str_inf)
+        try:
+            new_inf = IM.InfrastructureInfo.InfrastructureInfo.deserialize(str_inf)
+        except Exception, ex:
+            InfrastructureList.logger.exception("Error importing the infrastructure, incorrect data")
+            raise Exception("Error importing the infrastructure, incorrect data: " + str(ex))
 
         new_inf.auth = Authentication(auth.getAuthInfo("InfrastructureManager"))
 
