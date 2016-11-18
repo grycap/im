@@ -19,6 +19,7 @@
 import sys
 import logging
 import logging.handlers
+import logging.config
 import os
 import signal
 import subprocess
