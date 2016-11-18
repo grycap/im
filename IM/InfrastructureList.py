@@ -135,8 +135,9 @@ class InfrastructureList():
                     for elem in res:
                         # inf_id = elem[0]
                         # date = elem[1]
+                        # deleted = elem[2]
                         try:
-                            inf = IM.InfrastructureInfo.InfrastructureInfo.deserialize(elem[2])
+                            inf = IM.InfrastructureInfo.InfrastructureInfo.deserialize(elem[3])
                             inf_list[inf.id] = inf
                         except:
                             InfrastructureList.logger.exception(
