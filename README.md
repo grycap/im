@@ -54,6 +54,9 @@ However, if you install IM from sources you should install:
 
  + The CherryPy Web framework (http://www.cherrypy.org/) must be installed, typically available as the 'python-cherrypy' 
    or 'python-cherrypy3' package.
+   
+ + The Python interface to MySQL must be installed,  typically available as the package 'python-mysqldb'  or 
+   'MySQL-python' package.
 
  + Ansible (http://www.ansibleworks.com/) to configure nodes in the infrastructures.
    In particular, Ansible 1.4.2+ must be installed.
@@ -91,8 +94,6 @@ In case of using the SSL secured version of the XMLRPC API the SpringPython
 framework (http://springpython.webfactional.com/) must be installed.
 
 In case of using the SSL secured version of the REST API pyOpenSSL must be installed.
-
-In case of using DB as the data back-end the package Python MySQLDB must be installed.
 
 1.3 INSTALLING
 --------------
