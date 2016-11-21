@@ -171,9 +171,10 @@ or set the name of the script file (im_service.py) if the file is in the PATH
 Check the parameters in $IM_PATH/etc/im.cfg or /etc/im/im.cfg. Please pay attention
 to the next configuration variables, as they are the most important
 
-DATA_FILE - must be set to the full path where the IM data file will be created
-         (e.g. /usr/local/im/inf.dat). Be careful if you have two different instances
-         of the IM service running in the same machine!!.
+DATA_DB - must be set to the URL to access the database to store the IM data. 
+         Be careful if you have two different instances of the IM service running in the same machine!!.
+         It can be a MySQL DB: 'mysql://username:password@server/db_name' or 
+         a SQLite one: 'sqlite:///etc/im/inf.dat'.
 
 CONTEXTUALIZATION_DIR - must be set to the full path where the IM contextualization files
 		are located. In case of using pip installation the default value is correct
