@@ -57,7 +57,7 @@ class TestIM(unittest.TestCase):
 
         IM._reinit()
         # Patch save_data
-        IM.save_data = staticmethod(lambda *args: None)
+        InfrastructureList.save_data = staticmethod(lambda *args: None)
 
         ch = logging.StreamHandler(sys.stdout)
         log = logging.getLogger('InfrastructureManager')
