@@ -513,6 +513,9 @@ class InfrastructureInfo:
             for elem in ['username', 'password']:
                 if elem not in other_im_auth:
                     return False
+                if elem not in self_im_auth:
+                    InfrastructureInfo.logger.error("Inf ID %s has not elem %s in the auth data" % (self.id, elem))
+                    return True
                 if self_im_auth[elem] != other_im_auth[elem]:
                     return False
 
