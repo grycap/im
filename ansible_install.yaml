@@ -21,7 +21,7 @@
       when: ansible_os_family == "Debian"
 
     - name: Ubuntu install Ansible with apt
-      apt: name=python-im,ansible,python-pip,python-jinja2,sshpass,openssh-client,unzip force=yes
+      apt: name=python-im,ansible,python-pip,python-jinja2,sshpass,openssh-client,unzip,python-mysqldb,python-sqlite force=yes
       when: ansible_distribution == "Ubuntu"
       
     - name: RH indigo repos
@@ -32,7 +32,7 @@
       when: ansible_os_family == "RedHat"
 
     - name: RH7 install Ansible with yum
-      yum: name=IM,ansible,python-pip,python-jinja2,sshpass,openssh-clients,unzip
+      yum: name=IM,ansible,python-pip,python-jinja2,sshpass,openssh-clients,unzip,MySQL-python,python-sqlite3dbm
       when: ansible_os_family == "RedHat"
 
 ################################################ Configure Ansible  ###################################################
