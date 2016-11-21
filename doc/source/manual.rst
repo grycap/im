@@ -206,7 +206,7 @@ Basic Options
 .. confval:: DATA_FILE
 
    Full path to the data file.
-   **Removed in version IM version 1.5.0** 
+   (**Removed in version IM version 1.5.0. Use only DATA_DB.**) 
    The default value is :file:`/etc/im/inf.dat`.
 
 .. confval:: DATA_DB
