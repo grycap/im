@@ -30,6 +30,7 @@ from Queue import PriorityQueue
 from IM.openid.JWT import JWT
 from IM.VirtualMachine import VirtualMachine
 from IM.auth import Authentication
+from IM.tosca import Tosca
 
 
 class IncorrectVMException(Exception):
@@ -112,6 +113,8 @@ class InfrastructureInfo:
             odict['auth'] = odict['auth'].serialize()
         if odict['radl']:
             odict['radl'] = dump_radl_json(odict['radl'])
+        if odict['extra_info'] and "TOSCA" in odict['extra_info']:
+            odict['extra_info'] = odict['extra_info'].serialize()
         return json.dumps(odict)
 
     @staticmethod
@@ -127,6 +130,8 @@ class InfrastructureInfo:
             dic['auth'] = Authentication.deserialize(dic['auth'])
         if dic['radl']:
             dic['radl'] = parse_radl_json(dic['radl'])
+        if dic['extra_info'] and "TOSCA" in dic['extra_info']:
+            dic['extra_info'] = Tosca.deserialize(dic['extra_info'])
         newinf.__dict__.update(dic)
         newinf.cloud_connector = None
         # Set the ConfManager object and the lock to the data loaded
