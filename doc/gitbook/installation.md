@@ -35,6 +35,9 @@ be installed in the system.
  + The CherryPy Web framework (http://www.cherrypy.org/) must be installed, typically available as the 'python-cherrypy'
    or 'python-cherrypy3' package.
 
+ + The Python interface to MySQL must be installed,  typically available as the package 'python-mysqldb'  or 
+   'MySQL-python' package.
+
  + Ansible (http://www.ansibleworks.com/) to configure nodes in the infrastructures.
    In particular, Ansible 1.4.2+ must be installed. The current recommended version is 1.9.4 untill the 2.X versions become stable.
    To ensure the functionality the following values must be set in the ansible.cfg file (usually found in /etc/ansible/):

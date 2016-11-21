@@ -18,14 +18,18 @@ import logging
 import threading
 import time
 from uuid import uuid1
+import json
 
 from ganglia import ganglia_info
 import ConfManager
 from datetime import datetime
 from radl.radl import RADL, Feature, deploy, system, contextualize_item
+from radl.radl_json import parse_radl as parse_radl_json, dump_radl as dump_radl_json
 from config import Config
 from Queue import PriorityQueue
 from IM.openid.JWT import JWT
+from IM.VirtualMachine import VirtualMachine
+from IM.auth import Authentication
 
 
 class IncorrectVMException(Exception):
@@ -90,32 +94,52 @@ class InfrastructureInfo:
         self.extra_info = {}
         """ Extra information about the Infrastructure."""
 
-    def __getstate__(self):
-        """
-        Function to save the information to pickle
-        """
+    def serialize(self):
         with self._lock:
             odict = self.__dict__.copy()
-        # Quit the ConfManager object and the lock to the data to be store by
-        # pickle
+        # Quit the ConfManager object and the lock to the data to be stored
         del odict['cm']
         del odict['_lock']
         del odict['ctxt_tasks']
         del odict['conf_threads']
-        return odict
+        if odict['vm_master']:
+            odict['vm_master'] = odict['vm_master'].im_id
+        vm_list = []
+        for vm in odict['vm_list']:
+            vm_list.append(vm.serialize())
+        odict['vm_list'] = vm_list
+        if odict['auth']:
+            odict['auth'] = odict['auth'].serialize()
+        if odict['radl']:
+            odict['radl'] = dump_radl_json(odict['radl'])
+        return json.dumps(odict)
 
-    def __setstate__(self, dic):
-        """
-        Function to load the information to pickle
-        """
-        self._lock = threading.Lock()
-        with self._lock:
-            self.__dict__.update(dic)
-            # Set the ConfManager object and the lock to the data loaded by
-            # pickle
-            self.cm = None
-            self.ctxt_tasks = PriorityQueue()
-            self.conf_threads = []
+    @staticmethod
+    def deserialize(str_data):
+        newinf = InfrastructureInfo()
+        newinf._lock = threading.Lock()
+        dic = json.loads(str_data)
+        vm_list = dic['vm_list']
+        vm_master_id = dic['vm_master']
+        dic['vm_master'] = None
+        dic['vm_list'] = []
+        if dic['auth']:
+            dic['auth'] = Authentication.deserialize(dic['auth'])
+        if dic['radl']:
+            dic['radl'] = parse_radl_json(dic['radl'])
+        newinf.__dict__.update(dic)
+        newinf.cloud_connector = None
+        # Set the ConfManager object and the lock to the data loaded
+        newinf.cm = None
+        newinf.ctxt_tasks = PriorityQueue()
+        newinf.conf_threads = []
+        for vm_data in vm_list:
+            vm = VirtualMachine.deserialize(vm_data)
+            vm.inf = newinf
+            if vm.im_id == vm_master_id:
+                newinf.vm_master = vm
+            newinf.vm_list.append(vm)
+        return newinf
 
     def get_next_vm_id(self):
         """Get the next vm id available."""

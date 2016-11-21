@@ -33,6 +33,7 @@ Config.MAX_SIMULTANEOUS_LAUNCHES = 2
 
 from IM.VirtualMachine import VirtualMachine
 from IM.InfrastructureManager import InfrastructureManager as IM
+from IM.InfrastructureList import InfrastructureList
 from IM.auth import Authentication
 from radl.radl import RADL, system, deploy, Feature
 from IM.CloudInfo import CloudInfo
@@ -152,7 +153,7 @@ class TestIM(unittest.TestCase):
         state = IM.GetInfrastructureState(infId, auth0)
         self.assertEqual(state["state"], "unconfigured")
 
-        IM.infrastructure_list[infId].ansible_configured = True
+        InfrastructureList.infrastructure_list[infId].ansible_configured = True
 
         IM.Reconfigure(infId, "", auth0)
 

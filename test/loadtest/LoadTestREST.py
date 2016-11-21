@@ -31,7 +31,6 @@ sys.path.append("..")
 sys.path.append(".")
 
 from IM.uriparse import uriparse
-from IM.auth import Authentication
 from IM.VirtualMachine import VirtualMachine
 from radl import radl_parse
 from IM import __version__ as version
