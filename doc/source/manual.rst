@@ -25,6 +25,8 @@ IM needs at least Python 2.6 to run, as well as the next libraries:
   as the 'python-bottle' package.
 * `The CherryPy Web framework <http://www.cherrypy.org/>`_, typically available as the 'python-cherrypy' 
    or 'python-cherrypy3' package.
+* `The Python interface to MySQL <https://www.mysql.com/>`_, typically available as the package 'python-mysqldb'  or 
+   'MySQL-python' package.
 
 Also, IM uses `Ansible <http://www.ansible.com>`_ (1.4.2 or later) to configure the
 infrastructure nodes. The current recommended version is 1.9.4 untill the 2.X versions become stable.
@@ -68,8 +70,6 @@ Optional Packages
 * pyOpenSSL are needed if needed to secure the REST API
   with SSL certificates (see :confval:`REST_SSL`).
   pyOpenSSL can be installed using pip.
-* `MySQL <https://www.mysql.com/>`_ is needed if the IM data is going to be stored in DB.
-  (see DATA_DB configuration variable.
 
 Installation
 ------------
