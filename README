@@ -64,6 +64,9 @@ However, if you install IM from sources you should install:
  * The CherryPy Web framework (http://www.cherrypy.org/) must be installed, typically available as the 'python-cherrypy' 
    or 'python-cherrypy3' package.
 
+ * The Python interface to MySQL must be installed,  typically available as the package 'python-mysqldb'  or 
+   'MySQL-python' package.
+
  * Ansible (http://www.ansibleworks.com/) to configure nodes in the infrastructures.
    In particular, Ansible 1.4.2+ must be installed. The current recommended version is 1.9.4 untill the 2.X versions become stable.
    To ensure the functionality the following values must be set in the ansible.cfg file:
@@ -174,9 +177,10 @@ or set the name of the script file (im_service.py) if the file is in the PATH
 Check the parameters in $IM_PATH/etc/im.cfg or /etc/im/im.cfg. Please pay attention
 to the next configuration variables, as they are the most important
 
-DATA_FILE - must be set to the full path where the IM data file will be created
-         (e.g. /usr/local/im/inf.dat). Be careful if you have two different instances
-         of the IM service running in the same machine!!.
+DATA_DB - must be set to the URL to access the database to store the IM data. 
+         Be careful if you have two different instances of the IM service running in the same machine!!.
+         It can be a MySQL DB: 'mysql://username:password@server/db_name' or 
+         a SQLite one: 'sqlite:///etc/im/inf.dat'.
 
 CONTEXTUALIZATION_DIR - must be set to the full path where the IM contextualization files
 		are located. In case of using pip installation the default value is correct

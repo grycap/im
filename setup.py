@@ -44,7 +44,7 @@ setup(name="IM", version=version,
       author_email='micafer1@upv.es',
       url='http://www.grycap.upv.es/im',
       include_package_data=True,
-      packages=['IM', 'IM.ansible', 'IM.connectors', 'IM.tosca', 'IM.openid', 'IM.tts'],
+      packages=['IM', 'IM.ansible_utils', 'IM.connectors', 'IM.tosca', 'IM.openid', 'IM.tts'],
       scripts=["im_service.py"],
       data_files=datafiles,
       license="GPL version 3, http://www.gnu.org/licenses/gpl-3.0.txt",
@@ -57,5 +57,6 @@ setup(name="IM", version=version,
       description="IM is a tool to manage virtual infrastructures on Cloud deployments",
       platforms=["any"],
       install_requires=["ansible >= 1.8", "paramiko >= 1.14", "PyYAML", "SOAPpy",
-                        "boto >= 2.29", "apache-libcloud >= 0.17", "RADL", "bottle", "netaddr", "scp", "cherrypy"]
+                        "boto >= 2.29", "apache-libcloud >= 0.17", "RADL", "bottle", "netaddr",
+                        "scp", "cherrypy", "MySQL-python", "pysqlite"]
       )

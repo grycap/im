@@ -22,7 +22,7 @@ from multiprocessing import Queue
 from StringIO import StringIO
 import time
 
-from IM.ansible.ansible_launcher import AnsibleThread
+from IM.ansible_utils.ansible_launcher import AnsibleThread
 from mock import patch, MagicMock
 
 

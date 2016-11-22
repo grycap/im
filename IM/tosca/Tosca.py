@@ -31,6 +31,13 @@ class Tosca:
         self.yaml = yaml.load(yaml_str)
         self.tosca = ToscaTemplate(yaml_dict_tpl=copy.deepcopy(self.yaml))
 
+    def serialize(self):
+        return yaml.dump(self.yaml)
+
+    @staticmethod
+    def deserialize(str_data):
+        return Tosca(str_data)
+
     def to_radl(self, inf_info=None):
         """
         Converts the current ToscaTemplate object in a RADL object

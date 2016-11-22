@@ -1,4 +1,3 @@
-
 # IM - Infrastructure Manager
 # Copyright (C) 2011 - GRyCAP - Universitat Politecnica de Valencia
 #
@@ -15,27 +14,24 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import sys
 import json
 import os
-import cPickle as pickle
-import threading
 import string
 import random
 
-from VMRC import VMRC
-from CloudInfo import CloudInfo
-from auth import Authentication
+from IM.VMRC import VMRC
+from IM.CloudInfo import CloudInfo
+from IM.auth import Authentication
 
 import logging
 
-import InfrastructureInfo
+import IM.InfrastructureInfo
+import IM.InfrastructureList
 from radl import radl_parse
 from radl.radl import Feature, RADL
 from IM.recipe import Recipe
-from IM.db import DataBase
 
-from config import Config
+from IM.config import Config
 from IM.VirtualMachine import VirtualMachine
 from IM.openid.JWT import JWT
 from IM.openid.OpenIDClient import OpenIDClient
@@ -84,31 +80,13 @@ class InfrastructureManager:
     Front-end to the functionality of the service.
     """
 
-    infrastructure_list = {}
-    """Map from string to :py:class:`InfrastructureInfo`."""
-
     logger = logging.getLogger('InfrastructureManager')
     """Logger object."""
-
-    _lock = threading.Lock()
-    """Threading Lock to avoid concurrency problems."""
-
-    _exiting = False
-    """Flag to notice that the IM is going to exit."""
 
     @staticmethod
     def _reinit():
         """Restart the class attributes to initial values."""
-
-        InfrastructureManager.infrastructure_list = {}
-        InfrastructureManager._lock = threading.Lock()
-
-    @staticmethod
-    def add_infrastructure(inf):
-        """Add a new Infrastructure and set the ID."""
-
-        with InfrastructureManager._lock:
-            InfrastructureManager.infrastructure_list[inf.id] = inf
+        IM.InfrastructureList.InfrastructureList._reinit()
 
     @staticmethod
     def _compute_deploy_groups(radl):
@@ -254,10 +232,10 @@ class InfrastructureManager:
     def get_infrastructure(inf_id, auth):
         """Return infrastructure info with some id if valid authorization provided."""
 
-        if inf_id not in InfrastructureManager.infrastructure_list:
+        if inf_id not in IM.InfrastructureList.InfrastructureList.get_inf_ids():
             InfrastructureManager.logger.error("Error, incorrect infrastructure ID")
             raise IncorrectInfrastructureException()
-        sel_inf = InfrastructureManager.infrastructure_list[inf_id]
+        sel_inf = IM.InfrastructureList.InfrastructureList.get_infrastructure(inf_id)
         if not sel_inf.is_authorized(auth):
             InfrastructureManager.logger.error("Access Error")
             raise UnauthorizedUserException()
@@ -323,7 +301,7 @@ class InfrastructureManager:
                         system.setCredentialValues(
                             password=password, public_key=public_key, private_key=private_key, new=True)
 
-        InfrastructureManager.save_data(inf_id)
+        IM.InfrastructureList.InfrastructureList.save_data(inf_id)
 
         # Stick all virtual machines to be reconfigured
         InfrastructureManager.logger.info("Contextualize the inf.")
@@ -594,7 +572,7 @@ class InfrastructureManager:
         # Add the new virtual machines to the infrastructure
         sel_inf.update_radl(radl, [(d, deployed_vm[d], concrete_systems[d.cloud_id][d.id][0])
                                    for d in deployed_vm])
-        InfrastructureManager.save_data(inf_id)
+        IM.InfrastructureList.InfrastructureList.save_data(inf_id)
         InfrastructureManager.logger.info(
             "VMs %s successfully added to Inf id %s" % (new_vms, sel_inf.id))
 
@@ -651,7 +629,7 @@ class InfrastructureManager:
                     except Exception, e:
                         exceptions.append(e)
 
-        InfrastructureManager.save_data(inf_id)
+        IM.InfrastructureList.InfrastructureList.save_data(inf_id)
         InfrastructureManager.logger.info(
             str(cont) + " VMs successfully removed")
 
@@ -788,7 +766,7 @@ class InfrastructureManager:
                 "Using last information retrieved")
 
         vm.update_status(auth)
-        InfrastructureManager.save_data(inf_id)
+        IM.InfrastructureList.InfrastructureList.save_data(inf_id)
 
         return vm.info
 
@@ -1153,7 +1131,7 @@ class InfrastructureManager:
                 InfrastructureManager._delete_vm(vm, auth, exceptions)
 
         if exceptions:
-            InfrastructureManager.save_data(inf_id)
+            IM.InfrastructureList.InfrastructureList.save_data(inf_id)
             msg = ""
             for e in exceptions:
                 msg += str(e) + "\n"
@@ -1161,18 +1139,11 @@ class InfrastructureManager:
 
         # Set the Infrastructure as deleted
         sel_inf.delete()
-        InfrastructureManager.save_data(inf_id)
-        InfrastructureManager.remove_inf(sel_inf)
+        IM.InfrastructureList.InfrastructureList.save_data(inf_id)
+        IM.InfrastructureList.InfrastructureList.remove_inf(sel_inf)
         InfrastructureManager.logger.info(
             "Infrastructure successfully destroyed")
         return ""
-
-    @staticmethod
-    def remove_inf(del_inf):
-        """Remove destroyed infrastructure."""
-
-        with InfrastructureManager._lock:
-            del InfrastructureManager.infrastructure_list[del_inf.id]
 
     @staticmethod
     def check_im_user(auth):
@@ -1281,10 +1252,10 @@ class InfrastructureManager:
                 "No credentials provided for the InfrastructureManager")
 
         # Create a new infrastructure
-        inf = InfrastructureInfo.InfrastructureInfo()
+        inf = IM.InfrastructureInfo.InfrastructureInfo()
         inf.auth = Authentication(auth.getAuthInfo("InfrastructureManager"))
-        InfrastructureManager.add_infrastructure(inf)
-        InfrastructureManager.save_data(inf.id)
+        IM.InfrastructureList.InfrastructureList.add_infrastructure(inf)
+        IM.InfrastructureList.InfrastructureList.save_data(inf.id)
         InfrastructureManager.logger.info(
             "Creating new infrastructure with id: " + str(inf.id))
 
@@ -1295,8 +1266,8 @@ class InfrastructureManager:
             InfrastructureManager.logger.exception(
                 "Error Creating Inf id " + str(inf.id))
             inf.delete()
-            InfrastructureManager.save_data(inf.id)
-            InfrastructureManager.remove_inf(inf)
+            IM.InfrastructureList.InfrastructureList.save_data(inf.id)
+            IM.InfrastructureList.InfrastructureList.remove_inf(inf)
             raise e
         InfrastructureManager.logger.info(
             "Infrastructure id " + str(inf.id) + " successfully created")
@@ -1325,7 +1296,8 @@ class InfrastructureManager:
             raise InvaliddUserException()
 
         res = []
-        for elem in InfrastructureManager.infrastructure_list.values():
+        for inf_id in IM.InfrastructureList.InfrastructureList.get_inf_ids():
+            elem = IM.InfrastructureList.InfrastructureList.get_infrastructure(inf_id)
             if elem.is_authorized(auth) and not elem.deleted:
                 res.append(elem.id)
 
@@ -1337,13 +1309,12 @@ class InfrastructureManager:
         auth = InfrastructureManager.check_auth_data(auth)
 
         sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
-        str_inf = pickle.dumps(sel_inf)
-        InfrastructureManager.logger.info(
-            "Exporting infrastructure id: " + str(sel_inf.id))
+        str_inf = sel_inf.serialize()
+        InfrastructureManager.logger.info("Exporting infrastructure id: " + str(sel_inf.id))
         if delete:
             sel_inf.delete()
-            InfrastructureManager.save_data(sel_inf.id)
-            InfrastructureManager.remove_inf(sel_inf)
+            IM.InfrastructureList.InfrastructureList.save_data(sel_inf.id)
+            IM.InfrastructureList.InfrastructureList.remove_inf(sel_inf)
         return str_inf
 
     @staticmethod
@@ -1352,126 +1323,20 @@ class InfrastructureManager:
         auth = InfrastructureManager.check_auth_data(auth)
 
         try:
-            new_inf = pickle.loads(str_inf)
+            new_inf = IM.InfrastructureInfo.InfrastructureInfo.deserialize(str_inf)
         except Exception, ex:
-            InfrastructureManager.logger.exception(
-                "Error importing the infrastructure, incorrect data")
-            raise Exception(
-                "Error importing the infrastructure, incorrect data: " + str(ex))
+            InfrastructureManager.logger.exception("Error importing the infrastructure, incorrect data")
+            raise Exception("Error importing the infrastructure, incorrect data: " + str(ex))
 
-        new_inf.auth = Authentication(
-            auth.getAuthInfo("InfrastructureManager"))
+        new_inf.auth = Authentication(auth.getAuthInfo("InfrastructureManager"))
 
-        InfrastructureManager.add_infrastructure(new_inf)
+        IM.InfrastructureList.InfrastructureList.add_infrastructure(new_inf)
         InfrastructureManager.logger.info(
             "Importing new infrastructure with id: " + str(new_inf.id))
         # Save the state
-        InfrastructureManager.save_data(new_inf.id)
+        IM.InfrastructureList.InfrastructureList.save_data(new_inf.id)
         return new_inf.id
 
     @staticmethod
-    def get_data_from_db(db_url):
-        db = DataBase(db_url)
-        if db.connect():
-            if not db.table_exists("inf_list"):
-                db.execute(
-                    "CREATE TABLE inf_list(id VARCHAR(255) PRIMARY KEY, date TIMESTAMP, data LONGBLOB)")
-                db.close()
-                return {}
-            else:
-                inf_list = {}
-                res = db.select("select * from inf_list order by id desc")
-                if len(res) > 0:
-                    for elem in res:
-                        # inf_id = elem[0]
-                        # date = elem[1]
-                        try:
-                            inf = pickle.loads(elem[2])
-                            if not inf.deleted:
-                                inf_list[inf.id] = inf
-                        except:
-                            InfrastructureManager.logger.exception(
-                                "ERROR reading infrastructure from database, ignoring it!.")
-                else:
-                    InfrastructureManager.logger.error(
-                        "ERROR getting inf_list from database!.")
-
-                db.close()
-                return inf_list
-        else:
-            InfrastructureManager.logger.error(
-                "ERROR connecting with the database!.")
-            return {}
-
-    @staticmethod
-    def save_data_to_db(db_url, inf_list, inf_id=None):
-        db = DataBase(db_url)
-        if db.connect():
-            infs_to_save = inf_list
-            if inf_id:
-                infs_to_save = {inf_id: inf_list[inf_id]}
-
-            for inf in infs_to_save.values():
-                res = db.execute(
-                    "replace into inf_list set id = %s, data = %s, date = now()", (inf.id, pickle.dumps(inf)))
-
-            db.close()
-            return res
-        else:
-            InfrastructureManager.logger.error(
-                "ERROR connecting with the database!.")
-            return None
-
-    @staticmethod
-    def load_data():
-        with InfrastructureManager._lock:
-            try:
-                if Config.DATA_DB:
-                    inf_list = InfrastructureManager.get_data_from_db(
-                        Config.DATA_DB)
-                    InfrastructureManager.infrastructure_list = inf_list
-                else:
-                    data_file = open(Config.DATA_FILE, 'rb')
-                    InfrastructureManager.infrastructure_list = pickle.load(
-                        data_file)
-                    data_file.close()
-            except Exception, ex:
-                InfrastructureManager.logger.exception(
-                    "ERROR loading data. Correct or delete it!!")
-                sys.stderr.write("ERROR loading data: " +
-                                 str(ex) + ".\nCorrect or delete it!! ")
-                sys.exit(-1)
-
-    @staticmethod
-    def save_data(inf_id=None):
-        with InfrastructureManager._lock:
-            # to avoid writing data to the file if the IM is exiting
-            if not InfrastructureManager._exiting:
-                try:
-                    if Config.DATA_DB:
-                        res = InfrastructureManager.save_data_to_db(Config.DATA_DB,
-                                                                    InfrastructureManager.infrastructure_list, inf_id)
-                        if not res:
-                            InfrastructureManager.logger.error(
-                                "ERROR saving data.\nChanges not stored!!")
-                            sys.stderr.write(
-                                "ERROR saving data.\nChanges not stored!!")
-                    else:
-                        data_file = open(Config.DATA_FILE, 'wb')
-                        pickle.dump(
-                            InfrastructureManager.infrastructure_list, data_file)
-                        data_file.close()
-                except Exception, ex:
-                    InfrastructureManager.logger.exception(
-                        "ERROR saving data. Changes not stored!!")
-                    sys.stderr.write("ERROR saving data: " +
-                                     str(ex) + ".\nChanges not stored!!")
-
-    @staticmethod
     def stop():
-        # Acquire the lock to avoid writing data to the DATA_FILE
-        with InfrastructureManager._lock:
-            InfrastructureManager._exiting = True
-            # Stop all the Ctxt threads of the Infrastructures
-            for inf in InfrastructureManager.infrastructure_list.values():
-                inf.stop()
+        IM.InfrastructureList.InfrastructureList.stop()

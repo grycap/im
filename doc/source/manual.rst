@@ -85,13 +85,13 @@ First you need to install pip tool and some packages needed to compile some of t
 To install them in Debian and Ubuntu based distributions, do::
 
     $ apt update
-    $ apt install gcc python-dev libffi-dev libssl-dev python-pip sshpass
+    $ apt install gcc python-dev libffi-dev libssl-dev python-pip sshpass python-mysqldb
 
 In Red Hat based distributions (RHEL, CentOS, Amazon Linux, Oracle Linux,
 Fedora, etc.), do::
 
 	$ yum install epel-release
-	$ yum install which gcc python-devel libffi-devel openssl-devel python-pip sshpass
+	$ yum install which gcc python-devel libffi-devel openssl-devel python-pip sshpass MySQL-python
 
 For some problems with the dependencies of the apache-libcloud package in some systems (as ubuntu 14.04 or CentOS 6)
 this package has to be installed manually::
@@ -502,3 +502,7 @@ How to launch the IM service using docker::
 You can also specify an external MySQL server to store IM data using the IM_DATA_DB environment variable::
   
   $ sudo docker run -d -p 8899:8899 -e IM_DATA_DB=mysql://username:password@server/db_name --name im grycap/im 
+
+Or you can also add a volume with all the IM configuration::
+
+  $ sudo docker run -d -p 8899:8899 -p 8800:8800 -v "/some_local_path/im.cfg:/etc/im/im.cfg" --name im grycap/im

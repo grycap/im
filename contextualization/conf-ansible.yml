@@ -137,3 +137,6 @@
 
     - name: Set jinja2.ext.do to jinja2_extensions in ansible.cfg
       ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=jinja2_extensions value=jinja2.ext.do
+
+    - name: Set allow_world_readable_tmpfiles to True ansible.cfg
+      ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=allow_world_readable_tmpfiles value=True
