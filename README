@@ -47,7 +47,7 @@ However, if you install IM from sources you should install:
 
  * The YAML library for Python, typically available as the 'python-yaml' or 'PyYAML' package.
 
- * The SOAPpy library for Python, typically available as the 'python-soappy' or 'SOAPpy' package.
+ * The suds library for Python, typically available as the 'python-suds' package.
  
  * The Netaddr library for Python, typically available as the 'python-netaddr' package.
  
@@ -175,7 +175,7 @@ or set the name of the script file (im_service.py) if the file is in the PATH
 (pip puts the im_service.py file in the PATH as default).
 
 Check the parameters in $IM_PATH/etc/im.cfg or /etc/im/im.cfg. Please pay attention
-to the next configuration variables, as they are the most important
+to the next configuration variables, as they are the most important:
 
 DATA_DB - must be set to the URL to access the database to store the IM data. 
          Be careful if you have two different instances of the IM service running in the same machine!!.

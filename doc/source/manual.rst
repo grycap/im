@@ -11,8 +11,7 @@ IM needs at least Python 2.6 to run, as well as the next libraries:
 * `paramiko <http://www.lag.net/paramiko/>`_, ssh2 protocol library for python
   (version 1.14 or later).
 * `PyYAML <http://pyyaml.org/>`_, a YAML parser.
-* `SOAPpy <http://pywebsvcs.sourceforge.net/>`_, a full-featured SOAP library
-  (we know it is not actively supported by upstream anymore).
+* `suds <https://fedorahosted.org/suds/>`_, a full-featured SOAP library.
 * `Netaddr <http://pythonhosted.org/netaddr//>`_, A Python library for representing 
   and manipulating network addresses.
 * `apache-libcloud <http://libcloud.apache.org/>`_ 0.17 or later is used in the
@@ -25,6 +24,8 @@ IM needs at least Python 2.6 to run, as well as the next libraries:
   as the 'python-bottle' package.
 * `The CherryPy Web framework <http://www.cherrypy.org/>`_, typically available as the 'python-cherrypy' 
    or 'python-cherrypy3' package.
+* `The Python interface to MySQL <https://www.mysql.com/>`_, typically available as the package 'python-mysqldb'  or 
+   'MySQL-python' package.
 
 Also, IM uses `Ansible <http://www.ansible.com>`_ (1.4.2 or later) to configure the
 infrastructure nodes. The current recommended version is 1.9.4 untill the 2.X versions become stable.
@@ -68,8 +69,6 @@ Optional Packages
 * pyOpenSSL are needed if needed to secure the REST API
   with SSL certificates (see :confval:`REST_SSL`).
   pyOpenSSL can be installed using pip.
-* `MySQL <https://www.mysql.com/>`_ is needed if the IM data is going to be stored in DB.
-  (see DATA_DB configuration variable.
 
 Installation
 ------------
@@ -206,13 +205,15 @@ Basic Options
 .. confval:: DATA_FILE
 
    Full path to the data file.
+   (**Removed in version IM version 1.5.0. Use only DATA_DB.**) 
    The default value is :file:`/etc/im/inf.dat`.
-   
+
 .. confval:: DATA_DB
 
-   Save IM data into a MySQL DB instead of a file.
-   Using this format: 'mysql://username:password@server/db_name'
-   The default value is None.
+   The URL to access the database to store the IM data.
+   It can be a MySQL DB: 'mysql://username:password@server/db_name' or 
+   a SQLite one: 'sqlite:///etc/im/inf.dat'.
+   The default value is ``sqlite:///etc/im/inf.dat``.
    
 .. confval:: USER_DB
 
