@@ -625,6 +625,7 @@ class TestIM(unittest.TestCase):
         """ Test DB data access """
         inf = InfrastructureInfo()
         inf.id = "1"
+        inf.auth = self.getAuth([0], [], [("Dummy", 0)])
         cloud = CloudInfo()
         cloud.type = "Dummy"
         radl = RADL()
@@ -646,6 +647,7 @@ class TestIM(unittest.TestCase):
         self.assertEqual(len(res['1'].vm_list), 2)
         self.assertEqual(res['1'].vm_list[0], res['1'].vm_master)
         self.assertEqual(res['1'].vm_master.info.systems[0].getValue("disk.0.image.url"), "mock0://linux.for.ev.er")
+        self.assertTrue(res['1'].auth.compare(inf.auth, "InfrastructureManager"))
 
 if __name__ == "__main__":
     unittest.main()
