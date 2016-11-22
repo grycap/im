@@ -290,7 +290,8 @@ class TestIM(unittest.TestCase):
             self.assertEqual(call[3], 1)
         IM.DestroyInfrastructure(infId, auth0)
 
-    def test_inf_addresources3(self):
+    @patch('IM.VMRC.Client')
+    def test_inf_addresources3(self, suds_cli):
         """Test cloud selection."""
 
         n0, n1 = 2, 5  # Machines to deploy
@@ -328,7 +329,8 @@ class TestIM(unittest.TestCase):
             self.assertEqual(call[3], 1)
         IM.DestroyInfrastructure(infId, auth0)
 
-    def test_inf_cloud_order(self):
+    @patch('IM.VMRC.Client')
+    def test_inf_cloud_order(self, suds_cli):
         """Test cloud selection in base of the auth data order."""
 
         n0, n1 = 1, 1  # Machines to deploy
