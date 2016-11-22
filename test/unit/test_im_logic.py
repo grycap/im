@@ -619,23 +619,31 @@ class TestIM(unittest.TestCase):
 
         IM.DestroyInfrastructure(infId, auth0)
 
-    @patch('IM.InfrastructureList.DataBase.connect')
-    @patch('IM.InfrastructureList.DataBase.table_exists')
-    @patch('IM.InfrastructureList.DataBase.select')
-    @patch('IM.InfrastructureList.DataBase.execute')
-    def test_db(self, execute, select, table_exists, connect):
-
-        table_exists.return_value = True
-        select.return_value = [["1", "", 0, read_file_as_string("../files/data.json")]]
-        execute.return_value = True
-
-        res = InfrastructureList._get_data_from_db("mysql://username:password@server/db_name")
-        self.assertEqual(len(res), 1)
-
+    def test_db(self):
+        """ Test DB data access """
         inf = InfrastructureInfo()
         inf.id = "1"
-        success = InfrastructureList._save_data_to_db("mysql://username:password@server/db_name", {"1": inf})
+        cloud = CloudInfo()
+        cloud.type = "Dummy"
+        radl = RADL()
+        radl.add(system("s0", [Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er")]))
+        radl.add(deploy("s0", 1))
+        vm1 = VirtualMachine(inf, "1", cloud, radl, radl)
+        vm2 = VirtualMachine(inf, "2", cloud, radl, radl)
+        inf.vm_list = [vm1, vm2]
+        inf.vm_master = vm1
+        # first create the DB table
+        Config.DATA_DB = "sqlite:///tmp/ind.dat"
+        InfrastructureList.load_data()
+
+        success = InfrastructureList._save_data_to_db(Config.DATA_DB, {"1": inf})
         self.assertTrue(success)
+
+        res = InfrastructureList._get_data_from_db(Config.DATA_DB)
+        self.assertEqual(len(res), 1)
+        self.assertEqual(len(res['1'].vm_list), 2)
+        self.assertEqual(res['1'].vm_list[0], res['1'].vm_master)
+        self.assertEqual(res['1'].vm_master.info.systems[0].getValue("disk.0.image.url"), "mock0://linux.for.ev.er")
 
 if __name__ == "__main__":
     unittest.main()
