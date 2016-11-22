@@ -11,8 +11,7 @@ IM needs at least Python 2.6 to run, as well as the next libraries:
 * `paramiko <http://www.lag.net/paramiko/>`_, ssh2 protocol library for python
   (version 1.14 or later).
 * `PyYAML <http://pyyaml.org/>`_, a YAML parser.
-* `SOAPpy <http://pywebsvcs.sourceforge.net/>`_, a full-featured SOAP library
-  (we know it is not actively supported by upstream anymore).
+* `suds <https://fedorahosted.org/suds/>`_, a full-featured SOAP library.
 * `Netaddr <http://pythonhosted.org/netaddr//>`_, A Python library for representing 
   and manipulating network addresses.
 * `apache-libcloud <http://libcloud.apache.org/>`_ 0.17 or later is used in the

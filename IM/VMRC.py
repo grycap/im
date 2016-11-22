@@ -14,8 +14,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """ Class to connect with the VMRC server """
-import SOAPpy
-from HTTPHeaderTransport import HTTPHeaderTransport
+
+from suds.client import Client
 from radl.radl import Feature, system, FeaturesApp, SoftFeatures
 
 
@@ -27,17 +27,9 @@ class VMRC:
 
     def __init__(self, url, user=None, passwd=None):
         if user is None:
-            self.server = SOAPpy.SOAPProxy(url)
+            self.server = Client(url + "?wsdl")
         else:
-            self.server = SOAPpy.SOAPProxy(url, transport=HTTPHeaderTransport, namespace=self.namespace)
-            self.server.transport.headers = {'Username': user,
-                                             'Password': passwd}
-
-        # if you want to see the SOAP message exchanged
-        # uncomment the two following lines
-        # self.server.config.dumpSOAPOut = 1
-        # self.server.config.dumpSOAPIn = 1
-        # self.server.config.dumpHeadersOut = 1
+            self.server = Client(url=url + "?wsdl", headers={'Username': user, 'Password': passwd})
 
     @staticmethod
     def _toRADLSystem(vmi):
@@ -79,7 +71,7 @@ class VMRC:
         """Get a list of all the VM registered in the catalog."""
 
         try:
-            vmrc_res = self.server.list()
+            vmrc_res = self.server.service.list()
         except Exception:
             return None
 
@@ -109,7 +101,7 @@ class VMRC:
 
         vmi_desc_str_val = VMRC._generateVMRC(radl_system.features).strip()
         try:
-            vmrc_res = self.server.search(vmiDescStr=vmi_desc_str_val)
+            vmrc_res = self.server.service.search(vmiDescStr=vmi_desc_str_val)
         except Exception:
             return []
 
