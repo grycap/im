@@ -292,7 +292,8 @@ class TestIM(unittest.TestCase):
             self.assertEqual(call[3], 1)
         IM.DestroyInfrastructure(infId, auth0)
 
-    def test_inf_addresources3(self):
+    @patch('IM.VMRC.Client')
+    def test_inf_addresources3(self, suds_cli):
         """Test cloud selection."""
 
         n0, n1 = 2, 5  # Machines to deploy
@@ -330,7 +331,8 @@ class TestIM(unittest.TestCase):
             self.assertEqual(call[3], 1)
         IM.DestroyInfrastructure(infId, auth0)
 
-    def test_inf_cloud_order(self):
+    @patch('IM.VMRC.Client')
+    def test_inf_cloud_order(self, suds_cli):
         """Test cloud selection in base of the auth data order."""
 
         n0, n1 = 1, 1  # Machines to deploy
@@ -678,23 +680,33 @@ class TestIM(unittest.TestCase):
                          ("Error trying to validate OIDC auth token: Invalid "
                           "InfrastructureManager credentials. Issuer not accepted."))
 
-    @patch('IM.InfrastructureList.DataBase.connect')
-    @patch('IM.InfrastructureList.DataBase.table_exists')
-    @patch('IM.InfrastructureList.DataBase.select')
-    @patch('IM.InfrastructureList.DataBase.execute')
-    def test_db(self, execute, select, table_exists, connect):
-
-        table_exists.return_value = True
-        select.return_value = [["1", "", 0, read_file_as_string("../files/data.json")]]
-        execute.return_value = True
-
-        res = InfrastructureList._get_data_from_db("mysql://username:password@server/db_name")
-        self.assertEqual(len(res), 1)
-
+    def test_db(self):
+        """ Test DB data access """
         inf = InfrastructureInfo()
         inf.id = "1"
-        success = InfrastructureList._save_data_to_db("mysql://username:password@server/db_name", {"1": inf})
+        inf.auth = self.getAuth([0], [], [("Dummy", 0)])
+        cloud = CloudInfo()
+        cloud.type = "Dummy"
+        radl = RADL()
+        radl.add(system("s0", [Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er")]))
+        radl.add(deploy("s0", 1))
+        vm1 = VirtualMachine(inf, "1", cloud, radl, radl)
+        vm2 = VirtualMachine(inf, "2", cloud, radl, radl)
+        inf.vm_list = [vm1, vm2]
+        inf.vm_master = vm1
+        # first create the DB table
+        Config.DATA_DB = "sqlite:///tmp/ind.dat"
+        InfrastructureList.load_data()
+
+        success = InfrastructureList._save_data_to_db(Config.DATA_DB, {"1": inf})
         self.assertTrue(success)
+
+        res = InfrastructureList._get_data_from_db(Config.DATA_DB)
+        self.assertEqual(len(res), 1)
+        self.assertEqual(len(res['1'].vm_list), 2)
+        self.assertEqual(res['1'].vm_list[0], res['1'].vm_master)
+        self.assertEqual(res['1'].vm_master.info.systems[0].getValue("disk.0.image.url"), "mock0://linux.for.ev.er")
+        self.assertTrue(res['1'].auth.compare(inf.auth, "InfrastructureManager"))
 
 if __name__ == "__main__":
     unittest.main()

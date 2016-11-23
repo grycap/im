@@ -15,7 +15,7 @@ be installed in the system.
 
  + The YAML library for Python, typically available as the 'python-yaml' or 'PyYAML' package.
 
- + The SOAPpy library for Python, typically available as the 'python-soappy' or 'SOAPpy' package.
+  + The suds library for Python, typically available as the 'python-suds' package.
 
  + The Netaddr library for Python, typically available as the 'python-netaddr' package.
 

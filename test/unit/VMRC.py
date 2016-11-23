@@ -29,9 +29,10 @@ class TestVMRC(unittest.TestCase):
     Class to test the VMRC class
     """
 
-    @patch('SOAPpy.SOAPProxy')
-    def test_search_vm(self, soapproxy):
-        proxy = MagicMock()
+    @patch('IM.VMRC.Client')
+    def test_search_vm(self, suds_cli):
+        client = MagicMock()
+        service = MagicMock()
         vmrc_res = MagicMock()
         vmrc_res.name = "Image"
         vmrc_res.hypervisor = "qemu"
@@ -42,8 +43,9 @@ class TestVMRC(unittest.TestCase):
         vmrc_res.os.flavour = "ubuntu"
         vmrc_res.os.version = "14.04"
         vmrc_res.location = "one://server.com/1"
-        proxy.search.return_value = [vmrc_res]
-        soapproxy.return_value = proxy
+        service.search.return_value = [vmrc_res]
+        client.service = service
+        suds_cli.return_value = client
 
         vmrc = VMRC("http://host:8080/vmrc/vmrc", "user", "pass")
 
@@ -70,9 +72,10 @@ class TestVMRC(unittest.TestCase):
         self.assertEqual(res_radl[0].getValue("disk.0.os.credentials.password"), "pass")
         self.assertEqual(res_radl[0].getValue("disk.0.os.credentials.username"), "user")
 
-    @patch('SOAPpy.SOAPProxy')
-    def test_list_vm(self, soapproxy):
-        proxy = MagicMock()
+    @patch('IM.VMRC.Client')
+    def test_list_vm(self, suds_cli):
+        client = MagicMock()
+        service = MagicMock()
         vmrc_res = MagicMock()
         vmrc_res.name = "Image"
         vmrc_res.hypervisor = "qemu"
@@ -83,8 +86,9 @@ class TestVMRC(unittest.TestCase):
         vmrc_res.os.flavour = "ubuntu"
         vmrc_res.os.version = "14.04"
         vmrc_res.location = "one://server.com/1"
-        proxy.list.return_value = [vmrc_res]
-        soapproxy.return_value = proxy
+        service.list.return_value = [vmrc_res]
+        client.service = service
+        suds_cli.return_value = client
 
         vmrc = VMRC("http://host:8080/vmrc/vmrc", "user", "pass")
 
