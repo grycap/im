@@ -152,13 +152,26 @@ configure im (
       copy:
         dest: /etc/haproxy_tomcat.cfg.j2
         content: |
+            defaults
+                timeout connect      5000
+                timeout client       50000
+                timeout server       50000
+                mode http
+
             frontend http-frontend
                 bind *:8800
                 default_backend imbackend
 
             backend imbackend
-                balance hdr(InfID)
-                hash-type consistent
+                balance roundrobin
+                stick-table type string len 32 size 30k expire 120m
+                stick store-response hdr(InfID)
+                #stick on hdr(InfID)
+                acl inf_id path -m beg /infrastructures/
+                #acl inf_id path_len gt 40
+                stick on path,field(3,/) if inf_id
+
+
             {% raw %}
             {% for port in IM_PORTS %}
                 server im-{{port.rest}} {{IM_SERVICE_IP}}:{{port.rest}} check
@@ -227,7 +240,7 @@ configure imclient (
         mode: 0644
 
     - name: Download LoadTest.py
-      get_url: url=https://raw.githubusercontent.com/grycap/im/master/test/loadtest/{{item}} dest=/tmp/{{item}}
+      get_url: url=https://raw.githubusercontent.com/grycap/im/database/test/loadtest/{{item}} dest=/tmp/{{item}}
       with_items:
        - LoadTest.py
        - load-test.radl

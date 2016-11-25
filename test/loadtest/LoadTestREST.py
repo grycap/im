@@ -80,8 +80,7 @@ class LoadTest(unittest.TestCase):
             before = time.time()
             server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
             server.request('GET', "/infrastructures/" + self.inf_id,
-                           headers={'AUTHORIZATION': self.auth_data,
-                                    'InfID': self.inf_id})
+                           headers={'AUTHORIZATION': self.auth_data})
             resp = server.getresponse()
             output = str(resp.read())
             server.close()
@@ -107,7 +106,7 @@ class LoadTest(unittest.TestCase):
                 server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
                 before = time.time()
                 server.request(
-                    'GET', vm_uri[2] + "/state", headers={'AUTHORIZATION': self.auth_data, 'InfID': self.inf_id})
+                    'GET', vm_uri[2] + "/state", headers={'AUTHORIZATION': self.auth_data})
                 resp = server.getresponse()
                 vm_state = str(resp.read())
                 server.close()
@@ -119,8 +118,7 @@ class LoadTest(unittest.TestCase):
                 if vm_state == VirtualMachine.UNCONFIGURED:
                     server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
                     server.request('GET', "/infrastructures/" + self.inf_id + "/contmsg",
-                                   headers={'AUTHORIZATION': self.auth_data,
-                                            'InfID': self.inf_id})
+                                   headers={'AUTHORIZATION': self.auth_data})
                     resp = server.getresponse()
                     output = str(resp.read())
                     server.close()
@@ -186,8 +184,7 @@ class LoadTest(unittest.TestCase):
         before = time.time()
         server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
         server.request('GET', "/infrastructures/999999",
-                       headers={'AUTHORIZATION': self.auth_data,
-                                'Accept': 'application/json'})
+                       headers={'AUTHORIZATION': self.auth_data, 'Accept': 'application/json'})
         resp = server.getresponse()
         output = resp.read()
         server.close()
@@ -202,7 +199,7 @@ class LoadTest(unittest.TestCase):
     def test_18_get_info_without_auth_data(self):
         before = time.time()
         server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
-        server.request('GET', "/infrastructures/0", headers={'InfID': self.inf_id})
+        server.request('GET', "/infrastructures/0")
         resp = server.getresponse()
         resp.read()
         server.close()
@@ -237,8 +234,7 @@ class LoadTest(unittest.TestCase):
         server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
         server.request('GET', "/infrastructures/" + self.inf_id,
                        headers={'AUTHORIZATION': ("type = InfrastructureManager; "
-                                                  "username = some; password = other"),
-                                'InfID': self.inf_id})
+                                                  "username = some; password = other")})
         resp = server.getresponse()
         resp.read()
         server.close()
@@ -251,7 +247,7 @@ class LoadTest(unittest.TestCase):
         before = time.time()
         server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
         server.request('GET', "/infrastructures/" + self.inf_id,
-                       headers={'AUTHORIZATION': self.auth_data, 'InfID': self.inf_id})
+                       headers={'AUTHORIZATION': self.auth_data})
         resp = server.getresponse()
         output = str(resp.read())
         server.close()
@@ -264,8 +260,7 @@ class LoadTest(unittest.TestCase):
         vm_uri = uriparse(vm_ids[0])
         before = time.time()
         server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
-        server.request('GET', vm_uri[2], headers={'AUTHORIZATION': self.auth_data,
-                                                  'InfID': self.inf_id})
+        server.request('GET', vm_uri[2], headers={'AUTHORIZATION': self.auth_data})
         resp = server.getresponse()
         output = str(resp.read())
         server.close()
@@ -278,8 +273,7 @@ class LoadTest(unittest.TestCase):
         before = time.time()
         server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
         server.request('GET', "/infrastructures/" + self.inf_id,
-                       headers={'AUTHORIZATION': self.auth_data,
-                                'InfID': self.inf_id})
+                       headers={'AUTHORIZATION': self.auth_data})
         resp = server.getresponse()
         output = str(resp.read())
         server.close()
@@ -292,8 +286,7 @@ class LoadTest(unittest.TestCase):
         vm_uri = uriparse(vm_ids[0])
         before = time.time()
         server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
-        server.request('GET', vm_uri[2] + "/contmsg", headers={'AUTHORIZATION': self.auth_data,
-                                                               'InfID': self.inf_id})
+        server.request('GET', vm_uri[2] + "/contmsg", headers={'AUTHORIZATION': self.auth_data})
         resp = server.getresponse()
         output = str(resp.read())
         server.close()
@@ -306,8 +299,7 @@ class LoadTest(unittest.TestCase):
         before = time.time()
         server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
         server.request('GET', "/infrastructures/" + self.inf_id + "/contmsg",
-                       headers={'AUTHORIZATION': self.auth_data,
-                                'InfID': self.inf_id})
+                       headers={'AUTHORIZATION': self.auth_data})
         resp = server.getresponse()
         output = str(resp.read())
         server.close()
@@ -322,8 +314,7 @@ class LoadTest(unittest.TestCase):
         before = time.time()
         server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
         server.request('GET', "/infrastructures/" + self.inf_id + "/radl",
-                       headers={'AUTHORIZATION': self.auth_data,
-                                'InfID': self.inf_id})
+                       headers={'AUTHORIZATION': self.auth_data})
         resp = server.getresponse()
         output = str(resp.read())
         server.close()
@@ -341,8 +332,7 @@ class LoadTest(unittest.TestCase):
         before = time.time()
         server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
         server.request('GET', "/infrastructures/" + self.inf_id,
-                       headers={'AUTHORIZATION': self.auth_data,
-                                'InfID': self.inf_id})
+                       headers={'AUTHORIZATION': self.auth_data})
         resp = server.getresponse()
         output = str(resp.read())
         server.close()
@@ -356,8 +346,7 @@ class LoadTest(unittest.TestCase):
         before = time.time()
         server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
         server.request(
-            'GET', vm_uri[2] + "/state", headers={'AUTHORIZATION': self.auth_data,
-                                                  'InfID': self.inf_id})
+            'GET', vm_uri[2] + "/state", headers={'AUTHORIZATION': self.auth_data})
         resp = server.getresponse()
         output = str(resp.read())
         server.close()
@@ -370,8 +359,7 @@ class LoadTest(unittest.TestCase):
         before = time.time()
         server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
         server.request('POST', "/infrastructures/" + self.inf_id,
-                       body=RADL_ADD, headers={'AUTHORIZATION': self.auth_data,
-                                               'InfID': self.inf_id})
+                       body=RADL_ADD, headers={'AUTHORIZATION': self.auth_data})
         resp = server.getresponse()
         output = str(resp.read())
         server.close()
@@ -383,8 +371,7 @@ class LoadTest(unittest.TestCase):
         before = time.time()
         server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
         server.request('GET', "/infrastructures/" + self.inf_id,
-                       headers={'AUTHORIZATION': self.auth_data,
-                                'InfID': self.inf_id})
+                       headers={'AUTHORIZATION': self.auth_data})
         resp = server.getresponse()
         output = str(resp.read())
         server.close()
@@ -403,8 +390,7 @@ class LoadTest(unittest.TestCase):
         before = time.time()
         server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
         server.request('GET', "/infrastructures/" + self.inf_id + "/state",
-                       headers={'AUTHORIZATION': self.auth_data,
-                                'InfID': self.inf_id})
+                       headers={'AUTHORIZATION': self.auth_data})
         resp = server.getresponse()
         output = str(resp.read())
         server.close()
@@ -425,8 +411,7 @@ class LoadTest(unittest.TestCase):
         before = time.time()
         server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
         server.request('GET', "/infrastructures/" + self.inf_id,
-                       headers={'AUTHORIZATION': self.auth_data,
-                                'InfID': self.inf_id})
+                       headers={'AUTHORIZATION': self.auth_data})
         resp = server.getresponse()
         output = str(resp.read())
         server.close()
@@ -439,8 +424,7 @@ class LoadTest(unittest.TestCase):
         vm_uri = uriparse(vm_ids[1])
         before = time.time()
         server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
-        server.request('DELETE', vm_uri[2], headers={'AUTHORIZATION': self.auth_data,
-                                                     'InfID': self.inf_id})
+        server.request('DELETE', vm_uri[2], headers={'AUTHORIZATION': self.auth_data})
         resp = server.getresponse()
         output = str(resp.read())
         server.close()
@@ -452,8 +436,7 @@ class LoadTest(unittest.TestCase):
         before = time.time()
         server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
         server.request('GET', "/infrastructures/" + self.inf_id,
-                       headers={'AUTHORIZATION': self.auth_data,
-                                'InfID': self.inf_id})
+                       headers={'AUTHORIZATION': self.auth_data})
         resp = server.getresponse()
         output = str(resp.read())
         server.close()
@@ -473,8 +456,7 @@ class LoadTest(unittest.TestCase):
         before = time.time()
         server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
         server.request('POST', "/infrastructures/" + self.inf_id + "?context=0",
-                       body=RADL_ADD, headers={'AUTHORIZATION': self.auth_data,
-                                               'InfID': self.inf_id})
+                       body=RADL_ADD, headers={'AUTHORIZATION': self.auth_data})
         resp = server.getresponse()
         output = str(resp.read())
         server.close()
@@ -487,8 +469,7 @@ class LoadTest(unittest.TestCase):
         before = time.time()
         server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
         server.request('GET', "/infrastructures/" + self.inf_id + "?context=0",
-                       headers={'AUTHORIZATION': self.auth_data,
-                                'InfID': self.inf_id})
+                       headers={'AUTHORIZATION': self.auth_data})
         resp = server.getresponse()
         output = str(resp.read())
         server.close()
@@ -501,8 +482,7 @@ class LoadTest(unittest.TestCase):
         vm_uri = uriparse(vm_ids[1])
         before = time.time()
         server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
-        server.request('DELETE', vm_uri[2], headers={'AUTHORIZATION': self.auth_data,
-                                                     'InfID': self.inf_id})
+        server.request('DELETE', vm_uri[2], headers={'AUTHORIZATION': self.auth_data})
         resp = server.getresponse()
         output = str(resp.read())
         server.close()
@@ -514,8 +494,7 @@ class LoadTest(unittest.TestCase):
         before = time.time()
         server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
         server.request('GET', "/infrastructures/" + self.inf_id,
-                       headers={'AUTHORIZATION': self.auth_data,
-                                'InfID': self.inf_id})
+                       headers={'AUTHORIZATION': self.auth_data})
         resp = server.getresponse()
         output = str(resp.read())
         server.close()
@@ -531,8 +510,7 @@ class LoadTest(unittest.TestCase):
         before = time.time()
         server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
         server.request('DELETE', "/infrastructures/" + self.inf_id,
-                       headers={'Authorization': self.auth_data,
-                                'InfID': self.inf_id})
+                       headers={'Authorization': self.auth_data})
         resp = server.getresponse()
         output = str(resp.read())
         server.close()
