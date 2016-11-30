@@ -16,12 +16,11 @@
 
 import time
 from ssl import SSLError
-import json
 import os
 import re
 import base64
 import string
-import httplib
+import requests
 import tempfile
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
@@ -52,53 +51,38 @@ class OCCICloudConnector(CloudConnector):
     }
     """Dictionary with a map with the OCCI VM states to the IM states."""
 
-    def get_https_connection(self, auth, server, port):
-        """
-        Get a HTTPS connection with the specified server.
-        It uses a proxy file if it has been specified in the auth credentials
-        """
-        # disable SSL certificate validation
-        import ssl
-        if hasattr(ssl, '_create_unverified_context'):
-            ssl._create_default_https_context = ssl._create_unverified_context
-
+    @staticmethod
+    def create_request_static(method, url, auth, headers, body=None):
         if auth and 'proxy' in auth:
             proxy = auth['proxy']
 
             (fproxy, proxy_filename) = tempfile.mkstemp()
             os.write(fproxy, proxy)
             os.close(fproxy)
-
-            return httplib.HTTPSConnection(server, port, cert_file=proxy_filename)
+            cert = proxy_filename
         else:
-            return httplib.HTTPSConnection(server, port)
+            cert = None
+        return cert, requests.request(method, url, verify=False, cert=cert, headers=headers, data=body)
 
-    def get_http_connection(self, auth_data):
-        """
-        Get the HTTP connection to contact the OCCI server
-        """
+    def create_request(self, method, url, auth_data, headers, body=None):
+        url = "%s://%s:%d%s" % (self.cloud.protocol, self.cloud.server, self.cloud.port, url)
+
         auths = auth_data.getAuthInfo(self.type, self.cloud.server)
         if not auths:
             raise Exception("No correct auth data has been specified to OCCI.")
         else:
             auth = auths[0]
 
-        if self.cloud.protocol == 'https':
-            conn = self.get_https_connection(
-                auth, self.cloud.server, self.cloud.port)
-        else:
-            conn = httplib.HTTPConnection(self.cloud.server, self.cloud.port)
-
-        return conn
+        return self.create_request_static(method, url, auth, headers, body)
 
     @staticmethod
-    def delete_proxy(conn):
+    def delete_proxy(cert):
         """
         Delete the proxy file created to contact with the HTTPS server.
-        (Created in the get_https_connection function)
+        (Created in the create_request function)
         """
-        if isinstance(conn, httplib.HTTPSConnection) and conn.cert_file and os.path.isfile(conn.cert_file):
-            os.unlink(conn.cert_file)
+        if cert and os.path.isfile(cert):
+            os.unlink(cert)
 
     def get_auth_header(self, auth_data):
         """
@@ -280,16 +264,8 @@ class OCCICloudConnector(CloudConnector):
             return (False, "No location for networkinterface category.")
 
         auth_header = self.get_auth_header(auth_data)
-        conn = None
+        cert = None
         try:
-            conn = self.get_http_connection(auth_data)
-            conn.putrequest('POST', url)
-            if auth_header:
-                conn.putheader(auth_header.keys()[0], auth_header.values()[0])
-            conn.putheader('Accept', 'text/plain')
-            conn.putheader('Content-Type', 'text/plain,text/occi')
-            conn.putheader('Connection', 'close')
-
             net_id = "imnet." + str(int(time.time() * 100))
 
             body = ('Category: networkinterface;scheme="http://schemas.ogf.org/occi/infrastructure#";class="kind";'
@@ -297,12 +273,14 @@ class OCCICloudConnector(CloudConnector):
             body += 'X-OCCI-Attribute: occi.core.id="%s"\n' % net_id
             body += 'X-OCCI-Attribute: occi.core.target="%s/network/%s"\n' % (self.cloud.path, network_name)
             body += 'X-OCCI-Attribute: occi.core.source="%s/compute/%s"' % (self.cloud.path, vm.id)
-            conn.putheader('Content-Length', len(body))
-            conn.endheaders(body)
 
-            resp = conn.getresponse()
-            output = str(resp.read())
-            if resp.status != 201 and resp.status != 200:
+            headers = {'Accept': 'text/plain', 'Connection': 'close', 'Content-Type': 'text/plain,text/occi'}
+            if auth_header:
+                headers.update(auth_header)
+            cert, resp = self.create_request('POST', url, auth_data, headers, body)
+
+            output = str(resp.text)
+            if resp.status_code != 201 and resp.status_code != 200:
                 self.logger.warn("Error adding public IP the VM: " + resp.reason + "\n" + output)
                 return (False, "Error adding public IP the VM: " + resp.reason + "\n" + output)
             else:
@@ -311,7 +289,7 @@ class OCCICloudConnector(CloudConnector):
             self.logger.exception("Error connecting with OCCI server")
             return (False, "Error connecting with OCCI server")
         finally:
-            self.delete_proxy(conn)
+            self.delete_proxy(cert)
 
     def get_occi_attribute_value(self, occi_res, attr_name):
         """
@@ -328,24 +306,20 @@ class OCCICloudConnector(CloudConnector):
         headers = {'Accept': 'text/plain', 'Connection': 'close'}
         if auth:
             headers.update(auth)
-        conn = None
+        cert = None
         try:
-            conn = self.get_http_connection(auth_data)
-            conn.request('GET', self.cloud.path +
-                         "/compute/" + vm.id, headers=headers)
-            resp = conn.getresponse()
+            cert, resp = self.create_request('get', self.cloud.path + "/compute/", auth_data, headers)
 
-            output = resp.read()
-            if resp.status == 404 or resp.status == 204:
+            if resp.status_code == 404 or resp.status_code == 204:
                 vm.state = VirtualMachine.OFF
                 return (True, vm)
-            elif resp.status != 200:
-                return (False, resp.reason + "\n" + output)
+            elif resp.status_code != 200:
+                return (False, resp.reason + "\n" + resp.text)
             else:
                 old_state = vm.state
-                occi_state = self.get_occi_attribute_value(output, 'occi.compute.state')
+                occi_state = self.get_occi_attribute_value(resp.text, 'occi.compute.state')
 
-                occi_name = self.get_occi_attribute_value(output, 'occi.core.title')
+                occi_name = self.get_occi_attribute_value(resp.text, 'occi.core.title')
                 if occi_name:
                     vm.info.systems[0].setValue('instance_name', occi_name)
 
@@ -356,29 +330,29 @@ class OCCICloudConnector(CloudConnector):
                 else:
                     vm.state = self.VM_STATE_MAP.get(occi_state, VirtualMachine.UNKNOWN)
 
-                cores = self.get_occi_attribute_value(output, 'occi.compute.cores')
+                cores = self.get_occi_attribute_value(resp.text, 'occi.compute.cores')
                 if cores:
                     vm.info.systems[0].setValue("cpu.count", int(cores))
-                memory = self.get_occi_attribute_value(output, 'occi.compute.memory')
+                memory = self.get_occi_attribute_value(resp.text, 'occi.compute.memory')
                 if memory:
                     vm.info.systems[0].setValue("memory.size", float(memory), 'G')
 
-                console_vnc = self.get_occi_attribute_value(output, 'org.openstack.compute.console.vnc')
+                console_vnc = self.get_occi_attribute_value(resp.text, 'org.openstack.compute.console.vnc')
                 if console_vnc:
                     vm.info.systems[0].setValue("console_vnc", console_vnc)
 
                 # Update the network data
-                self.setIPs(vm, output, auth_data)
+                self.setIPs(vm, resp.text, auth_data)
 
                 # Update disks data
-                self.set_disk_info(vm, output, auth_data)
+                self.set_disk_info(vm, resp.text, auth_data)
                 return (True, vm)
 
         except Exception, ex:
             self.logger.exception("Error connecting with OCCI server")
             return (False, "Error connecting with OCCI server: " + str(ex))
         finally:
-            self.delete_proxy(conn)
+            self.delete_proxy(cert)
 
     def set_disk_info(self, vm, occi_res, auth_data):
         """
@@ -420,25 +394,20 @@ users:
         headers = {'Accept': 'text/plain', 'Connection': 'close'}
         if auth:
             headers.update(auth)
-        conn = None
+        cert = None
         try:
-            conn = self.get_http_connection(auth_data)
-            conn.request('GET', self.cloud.path + "/-/", headers=headers)
-            resp = conn.getresponse()
+            cert, resp = self.create_request('get', self.cloud.path + "/-/", auth_data, headers)
 
-            output = resp.read()
-            # self.logger.debug(output)
-
-            if resp.status != 200:
-                self.logger.error("Error querying the OCCI server")
+            if resp.status_code != 200:
+                self.logger.error("Error querying the OCCI server: %s" % resp.reason)
                 return ""
             else:
-                return output
+                return resp.text
         except:
             self.logger.exception("Error querying the OCCI server")
             return ""
         finally:
-            self.delete_proxy(conn)
+            self.delete_proxy(cert)
 
     def get_scheme(self, occi_info, category, ctype):
         """
@@ -557,25 +526,21 @@ users:
         headers = {'Accept': 'text/plain', 'Connection': 'close'}
         if auth:
             headers.update(auth)
-        conn = None
+        cert = None
         try:
-            conn = self.get_http_connection(auth_data)
-            conn.request('GET', self.cloud.path +
-                         "/storage/" + storage_id, headers=headers)
-            resp = conn.getresponse()
+            cert, resp = self.create_request('get', self.cloud.path + "/storage/" + storage_id, auth_data, headers)
 
-            output = resp.read()
-            if resp.status == 404 or resp.status == 204:
+            if resp.status_code == 404 or resp.status_code == 204:
                 return (False, "Volume not found.")
-            elif resp.status != 200:
-                return (False, resp.reason + "\n" + output)
+            elif resp.status_code != 200:
+                return (False, resp.reason + "\n" + resp.text)
             else:
-                return (True, output)
+                return (True, resp.text)
         except Exception, ex:
             self.logger.exception("Error getting volume info")
             return False, str(ex)
         finally:
-            self.delete_proxy(conn)
+            self.delete_proxy(cert)
 
     def create_volume(self, size, name, auth_data):
         """
@@ -583,43 +548,29 @@ users:
 
         returns the OCCI ID of the storage object
         """
-        conn = None
+        cert = None
         try:
             auth_header = self.get_auth_header(auth_data)
-
-            conn = self.get_http_connection(auth_data)
-
-            conn.putrequest('POST', self.cloud.path + "/storage/")
-            if auth_header:
-                conn.putheader(auth_header.keys()[0], auth_header.values()[0])
-            conn.putheader('Accept', 'text/plain')
-            conn.putheader('Content-Type', 'text/plain')
-            conn.putheader('Connection', 'close')
 
             body = 'Category: storage; scheme="http://schemas.ogf.org/occi/infrastructure#"; class="kind"\n'
             body += 'X-OCCI-Attribute: occi.core.title="%s"\n' % name
             body += 'X-OCCI-Attribute: occi.storage.size=%d\n' % int(size)
 
-            conn.putheader('Content-Length', len(body))
-            conn.endheaders(body)
+            headers = {'Accept': 'text/plain', 'Connection': 'close', 'Content-Type': 'text/plain,text/occi'}
+            if auth_header:
+                headers.update(auth_header)
+            cert, resp = self.create_request('POST', self.cloud.path + "/storage/", auth_data, headers, body)
 
-            resp = conn.getresponse()
-
-            output = resp.read()
-
-            if resp.status != 201 and resp.status != 200:
-                return False, resp.reason + "\n" + output
+            if resp.status_code != 201 and resp.status_code != 200:
+                return False, resp.reason + "\n" + resp.text
             else:
-                if 'location' in resp.msg.dict:
-                    occi_id = os.path.basename(resp.msg.dict['location'])
-                else:
-                    occi_id = os.path.basename(output)
+                occi_id = os.path.basename(resp.text)
                 return True, occi_id
         except Exception, ex:
             self.logger.exception("Error creating volume")
             return False, str(ex)
         finally:
-            self.delete_proxy(conn)
+            self.delete_proxy(cert)
 
     def delete_volume(self, storage_id, auth_data, timeout=180, delay=5):
         """
@@ -639,23 +590,21 @@ users:
                 headers.update(auth)
 
             self.logger.debug("Delete storage: %s" % storage_id)
-            conn = None
+            cert = None
             try:
-                conn = self.get_http_connection(auth_data)
-                conn.request('DELETE', storage_id, headers=headers)
-                resp = conn.getresponse()
-                output = str(resp.read())
-                if resp.status == 404:
+                cert, resp = self.create_request('delete', storage_id, auth_data, headers)
+
+                if resp.status_code == 404:
                     self.logger.debug("It does not exist.")
                     return (True, "")
-                elif resp.status == 409:
+                elif resp.status_code == 409:
                     self.logger.debug("Error deleting the Volume. It seems that it is still "
-                                      "attached to a VM: %s" % output)
+                                      "attached to a VM: %s" % resp.text)
                     time.sleep(delay)
                     wait += delay
-                elif resp.status != 200 and resp.status != 204:
-                    self.logger.error("Error deleting the Volume: " + resp.reason + "\n" + output)
-                    return (False, "Error deleting the Volume: " + resp.reason + "\n" + output)
+                elif resp.status_code != 200 and resp.status_code != 204:
+                    self.logger.error("Error deleting the Volume: " + resp.reason + "\n" + resp.text)
+                    return (False, "Error deleting the Volume: " + resp.reason + "\n" + resp.text)
                 else:
                     self.logger.debug("Successfully deleted")
                     return (True, "")
@@ -663,7 +612,7 @@ users:
                 self.logger.exception("Error connecting with OCCI server")
                 return (False, "Error connecting with OCCI server")
             finally:
-                self.delete_proxy(conn)
+                self.delete_proxy(cert)
 
         return (False, "Error deleting the Volume: Timeout.")
 
@@ -744,19 +693,10 @@ users:
 
         while i < num_vm:
             volumes = []
-            conn = None
+            cert = None
             try:
                 # First create the volumes
                 volumes = self.create_volumes(system, auth_data)
-
-                conn = self.get_http_connection(auth_data)
-                conn.putrequest('POST', self.cloud.path + "/compute/")
-                if auth_header:
-                    conn.putheader(auth_header.keys()[
-                                   0], auth_header.values()[0])
-                conn.putheader('Accept', 'text/plain')
-                conn.putheader('Content-Type', 'text/plain')
-                conn.putheader('Connection', 'close')
 
                 body = 'Category: compute; scheme="http://schemas.ogf.org/occi/infrastructure#"; class="kind"\n'
                 body += 'Category: ' + os_tpl + '; scheme="' + \
@@ -787,7 +727,7 @@ users:
                 # Set the hostname defined in the RADL
                 # Create the VM to get the nodename
                 vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self)
-                (nodename, nodedom) = vm.getRequestedName(default_hostname=Config.DEFAULT_VM_NAME,
+                (nodename, _) = vm.getRequestedName(default_hostname=Config.DEFAULT_VM_NAME,
                                                           default_domain=Config.DEFAULT_DOMAIN)
 
                 body += 'X-OCCI-Attribute: occi.compute.hostname="' + nodename + '"\n'
@@ -810,27 +750,19 @@ users:
                     body += '\n'
 
                 self.logger.debug(body)
-
-                conn.putheader('Content-Length', len(body))
-                conn.endheaders(body)
-
-                resp = conn.getresponse()
-
-                # With this format: X-OCCI-Location:
-                # http://fc-one.i3m.upv.es:11080/compute/8
-                output = resp.read()
+                
+                headers = {'Accept': 'text/plain', 'Connection': 'close', 'Content-Type': 'text/plain,text/occi'}
+                if auth_header:
+                    headers.update(auth_header)
+                cert, resp = self.create_request('POST', self.cloud.path + "/compute/", auth_data, headers, body)
 
                 # some servers return 201 and other 200
-                if resp.status != 201 and resp.status != 200:
-                    res.append((False, resp.reason + "\n" + output))
+                if resp.status_code != 201 and resp.status_code != 200:
+                    res.append((False, resp.reason + "\n" + resp.text))
                     for _, volume_id in volumes:
                         self.delete_volume(volume_id, auth_data)
                 else:
-                    if 'location' in resp.msg.dict:
-                        occi_vm_id = os.path.basename(
-                            resp.msg.dict['location'])
-                    else:
-                        occi_vm_id = os.path.basename(output)
+                    occi_vm_id = os.path.basename(resp.text)
                     if occi_vm_id:
                         vm.id = occi_vm_id
                         vm.info.systems[0].setValue('instance_id', str(occi_vm_id))
@@ -844,7 +776,7 @@ users:
                 for _, volume_id in volumes:
                     self.delete_volume(volume_id, auth_data)
             finally:
-                self.delete_proxy(conn)
+                self.delete_proxy(cert)
 
             i += 1
 
@@ -866,20 +798,16 @@ users:
         headers = {'Accept': 'text/plain', 'Connection': 'close'}
         if auth:
             headers.update(auth)
-        conn = None
+        cert = None
         try:
-            conn = self.get_http_connection(auth_data)
-            conn.request('GET', self.cloud.path +
-                         "/compute/" + vm.id, headers=headers)
-            resp = conn.getresponse()
+            cert, resp = self.create_request('GET', self.cloud.path + "/compute/" + vm.id, auth_data, headers)
 
-            output = resp.read()
-            if resp.status == 404 or resp.status == 204:
+            if resp.status_code == 404 or resp.status_code == 204:
                 return (True, "")
-            elif resp.status != 200:
-                return (False, resp.reason + "\n" + output)
+            elif resp.status_code != 200:
+                return (False, resp.reason + "\n" + resp.text)
             else:
-                occi_volumes = self.get_attached_volumes_from_info(output)
+                occi_volumes = self.get_attached_volumes_from_info(resp.text)
                 deleted_vols = []
                 for link, num_storage, device in occi_volumes:
                     if not device.endswith("vda") and not device.endswith("hda"):
@@ -889,7 +817,7 @@ users:
             self.logger.exception("Error deleting volumes")
             return (False, "Error deleting volumes " + str(ex))
         finally:
-            self.delete_proxy(conn)
+            self.delete_proxy(cert)
 
     def finalize(self, vm, auth_data):
         # First try to get the volumes
@@ -901,20 +829,17 @@ users:
         headers = {'Accept': 'text/plain', 'Connection': 'close'}
         if auth:
             headers.update(auth)
-        conn = None
+        cert = None
         try:
-            conn = self.get_http_connection(auth_data)
-            conn.request('DELETE', self.cloud.path +
-                         "/compute/" + vm.id, headers=headers)
-            resp = conn.getresponse()
-            output = str(resp.read())
-            if resp.status != 200 and resp.status != 404 and resp.status != 204:
-                return (False, "Error removing the VM: " + resp.reason + "\n" + output)
+            cert, resp = self.create_request('DELETE', self.cloud.path + "/compute/" + vm.id, auth_data, headers)
+
+            if resp.status_code != 200 and resp.status_code != 404 and resp.status_code != 204:
+                return (False, "Error removing the VM: " + resp.reason + "\n" + resp.text)
         except Exception:
             self.logger.exception("Error connecting with OCCI server")
             return (False, "Error connecting with OCCI server")
         finally:
-            self.delete_proxy(conn)
+            self.delete_proxy(cert)
 
         # now delete the volumes
         if get_vols_ok:
@@ -931,63 +856,49 @@ users:
 
     def stop(self, vm, auth_data):
         auth_header = self.get_auth_header(auth_data)
-        conn = None
+        cert = None
         try:
-            conn = self.get_http_connection(auth_data)
-            conn.putrequest('POST', self.cloud.path +
-                            "/compute/" + vm.id + "?action=suspend")
+            headers = {'Accept': 'text/plain', 'Connection': 'close', 'Content-Type': 'text/plain,text/occi'}
             if auth_header:
-                conn.putheader(auth_header.keys()[0], auth_header.values()[0])
-            conn.putheader('Accept', 'text/plain')
-            conn.putheader('Content-Type', 'text/plain,text/occi')
-            conn.putheader('Connection', 'close')
+                headers.update(auth_header)
 
             body = ('Category: suspend;scheme="http://schemas.ogf.org/occi/infrastructure/compute/action#"'
                     ';class="action";\n')
-            conn.putheader('Content-Length', len(body))
-            conn.endheaders(body)
+            cert, resp = self.create_request('POST', self.cloud.path + "/compute/" + vm.id + "?action=suspend",
+                                       auth_data, headers, body)
 
-            resp = conn.getresponse()
-            output = str(resp.read())
-            if resp.status != 200:
-                return (False, "Error stopping the VM: " + resp.reason + "\n" + output)
+            if resp.status_code != 200:
+                return (False, "Error stopping the VM: " + resp.reason + "\n" + resp.text)
             else:
                 return (True, vm.id)
         except Exception:
             self.logger.exception("Error connecting with OCCI server")
             return (False, "Error connecting with OCCI server")
         finally:
-            self.delete_proxy(conn)
+            self.delete_proxy(cert)
 
     def start(self, vm, auth_data):
         auth_header = self.get_auth_header(auth_data)
-        conn = None
+        cert = None
         try:
-            conn = self.get_http_connection(auth_data)
-            conn.putrequest('POST', self.cloud.path +
-                            "/compute/" + vm.id + "?action=start")
+            headers = {'Accept': 'text/plain', 'Connection': 'close', 'Content-Type': 'text/plain,text/occi'}
             if auth_header:
-                conn.putheader(auth_header.keys()[0], auth_header.values()[0])
-            conn.putheader('Accept', 'text/plain')
-            conn.putheader('Content-Type', 'text/plain,text/occi')
-            conn.putheader('Connection', 'close')
+                headers.update(auth_header)
 
             body = ('Category: start;scheme="http://schemas.ogf.org/occi/infrastructure/compute/action#"'
                     ';class="action";\n')
-            conn.putheader('Content-Length', len(body))
-            conn.endheaders(body)
+            cert, resp = self.create_request('POST', self.cloud.path + "/compute/" + vm.id + "?action=start",
+                                       auth_data, headers, body)
 
-            resp = conn.getresponse()
-            output = str(resp.read())
-            if resp.status != 200:
-                return (False, "Error starting the VM: " + resp.reason + "\n" + output)
+            if resp.status_code != 200:
+                return (False, "Error starting the VM: " + resp.reason + "\n" + resp.text)
             else:
                 return (True, vm.id)
         except Exception:
             self.logger.exception("Error connecting with OCCI server")
             return (False, "Error connecting with OCCI server")
         finally:
-            self.delete_proxy(conn)
+            self.delete_proxy(cert)
 
     def alterVM(self, vm, radl, auth_data):
         """
@@ -1061,15 +972,11 @@ users:
             return (False, "No location for storagelink category.")
 
         auth_header = self.get_auth_header(auth_data)
-        conn = None
+        cert = None
         try:
-            conn = self.get_http_connection(auth_data)
-            conn.putrequest('POST', url)
+            headers = {'Accept': 'text/plain', 'Connection': 'close', 'Content-Type': 'text/plain,text/occi'}
             if auth_header:
-                conn.putheader(auth_header.keys()[0], auth_header.values()[0])
-            conn.putheader('Accept', 'text/plain')
-            conn.putheader('Content-Type', 'text/plain,text/occi')
-            conn.putheader('Connection', 'close')
+                headers.update(auth_header)
 
             disk_id = "imdisk." + str(int(time.time() * 100))
 
@@ -1080,13 +987,10 @@ users:
             body += 'X-OCCI-Attribute: occi.core.source="%s/compute/%s"' % (self.cloud.path, vm.id)
             body += 'X-OCCI-Attribute: occi.storagelink.deviceid="/dev/%s"' % device
             # body += 'X-OCCI-Attribute: occi.storagelink.mountpoint="%s"' % mount_path
-            conn.putheader('Content-Length', len(body))
-            conn.endheaders(body)
+            cert, resp = self.create_request('POST', url, auth_data, headers, body)
 
-            resp = conn.getresponse()
-            output = str(resp.read())
-            if resp.status != 201 and resp.status != 200:
-                self.logger.error("Error attaching disk to the VM: " + resp.reason + "\n" + output)
+            if resp.status_code != 201 and resp.status_code != 200:
+                self.logger.error("Error attaching disk to the VM: " + resp.reason + "\n" + resp.text)
                 return False
             else:
                 return True
@@ -1094,7 +998,7 @@ users:
             self.logger.exception("Error connecting with OCCI server")
             return False
         finally:
-            self.delete_proxy(conn)
+            self.delete_proxy(cert)
 
 
 class KeyStoneAuth:
@@ -1108,13 +1012,16 @@ class KeyStoneAuth:
         Contact the OCCI server to check if it needs to contact a keystone server.
         It returns the keystone server URI or None.
         """
-        conn = None
+        cert = None
         try:
             headers = {'Accept': 'text/plain', 'Connection': 'close'}
-            conn = occi.get_http_connection(auth_data)
-            conn.request('HEAD', occi.cloud.path + "/-/", headers=headers)
-            resp = conn.getresponse()
-            www_auth_head = resp.getheader('Www-Authenticate')
+            
+            cert, resp = occi.create_request('HEAD', occi.cloud.path + "/-/", auth_data, headers)
+
+            www_auth_head = None
+            if 'Www-Authenticate' in resp.headers:
+                www_auth_head = resp.headers['Www-Authenticate']
+
             if www_auth_head and www_auth_head.startswith('Keystone uri'):
                 return www_auth_head.split('=')[1].replace("'", "")
             else:
@@ -1128,32 +1035,25 @@ class KeyStoneAuth:
             occi.logger.exception("Error contacting with the OCCI server.")
             return None
         finally:
-            occi.delete_proxy(conn)
+            occi.delete_proxy(cert)
 
     @staticmethod
     def get_keystone_token(occi, keystone_uri, auth):
         """
         Contact the specified keystone server to return the token
         """
-        conn = None
+        resp = None
         try:
             uri = uriparse(keystone_uri)
             server = uri[1].split(":")[0]
             port = int(uri[1].split(":")[1])
 
-            conn = occi.get_https_connection(auth, server, port)
-            conn.putrequest('POST', "/v2.0/tokens")
-            conn.putheader('Accept', 'application/json')
-            conn.putheader('Content-Type', 'application/json')
-            conn.putheader('Connection', 'close')
-
             body = '{"auth":{"voms":true}}'
+            headers = {'Accept': 'application/json', 'Connection': 'close', 'Content-Type': 'application/json'}
+            url = "https://%s:%s/v2.0/tokens" % (server, port)
+            cert, resp = occi.create_request_static('POST', url, auth, headers, body)
 
-            conn.putheader('Content-Length', len(body))
-            conn.endheaders(body)
-
-            resp = conn.getresponse()
-            occi.delete_proxy(conn)
+            occi.delete_proxy(cert)
 
             # format: -> "{\"access\": {\"token\": {\"issued_at\":
             # \"2014-12-29T17:10:49.609894\", \"expires\":
@@ -1164,42 +1064,36 @@ class KeyStoneAuth:
             # [], \"id\": \"475ce4978fb042e49ce0391de9bab49b\", \"roles\": [],
             # \"name\": \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\"},
             # \"metadata\": {\"is_admin\": 0, \"roles\": []}}}"
-            output = json.loads(resp.read())
+            output = resp.json()
             if 'access' in output:
                 token_id = output['access']['token']['id']
             else:
                 occi.logger.exception("Error obtaining Keystone Token.")
                 raise Exception("Error obtaining Keystone Token: %s" % str(output))
 
-            conn = occi.get_https_connection(auth, server, port)
             headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
                        'X-Auth-Token': token_id, 'Connection': 'close'}
-            conn.request('GET', "/v2.0/tenants", headers=headers)
-            resp = conn.getresponse()
-            occi.delete_proxy(conn)
+            url = "https://%s:%s/v2.0/tenants" % (server, port)
+            cert, resp = occi.create_request_static('GET', url, auth, headers)            
+
+            occi.delete_proxy(cert)
 
             # format: -> "{\"tenants_links\": [], \"tenants\":
             # [{\"description\": \"egi fedcloud\", \"enabled\": true, \"id\":
             # \"fffd98393bae4bf0acf66237c8f292ad\", \"name\": \"egi\"}]}"
-            output = json.loads(resp.read())
+            output = resp.json()
 
             tenant_token_id = None
             # retry for each available tenant (usually only one)
             for tenant in output['tenants']:
-                conn = occi.get_https_connection(auth, server, port)
-                conn.putrequest('POST', "/v2.0/tokens")
-                conn.putheader('Accept', 'application/json')
-                conn.putheader('Content-Type', 'application/json')
-                conn.putheader('X-Auth-Token', token_id)
-                conn.putheader('Connection', 'close')
-
                 body = '{"auth":{"voms":true,"tenantName":"' + str(tenant['name']) + '"}}'
+                
+                headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
+                           'X-Auth-Token': token_id, 'Connection': 'close'}
+                url = "https://%s:%s/v2.0/tokens" % (server, port)
+                cert, resp = occi.create_request_static('POST', url, auth, headers, body)     
 
-                conn.putheader('Content-Length', len(body))
-                conn.endheaders(body)
-
-                resp = conn.getresponse()
-                occi.delete_proxy(conn)
+                occi.delete_proxy(cert)
 
                 # format: -> "{\"access\": {\"token\": {\"issued_at\":
                 # \"2014-12-29T17:10:49.609894\", \"expires\":
@@ -1210,9 +1104,9 @@ class KeyStoneAuth:
                 # [], \"id\": \"475ce4978fb042e49ce0391de9bab49b\", \"roles\": [],
                 # \"name\": \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\"},
                 # \"metadata\": {\"is_admin\": 0, \"roles\": []}}}"
-                output = json.loads(resp.read())
+                output = resp.json()
                 if 'access' in output:
-                    tenant_token_id = output['access']['token']['id']
+                    tenant_token_id = str(output['access']['token']['id'])
                     break
 
             return tenant_token_id
@@ -1220,4 +1114,4 @@ class KeyStoneAuth:
             occi.logger.exception("Error obtaining Keystone Token.")
             raise Exception("Error obtaining Keystone Token: %s" % str(ex))
         finally:
-            occi.delete_proxy(conn)
+            occi.delete_proxy(cert)
