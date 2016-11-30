@@ -308,7 +308,7 @@ class OCCICloudConnector(CloudConnector):
             headers.update(auth)
         cert = None
         try:
-            cert, resp = self.create_request('get', self.cloud.path + "/compute/", auth_data, headers)
+            cert, resp = self.create_request('GET', self.cloud.path + "/compute/" + vm.id, auth_data, headers)
 
             if resp.status_code == 404 or resp.status_code == 204:
                 vm.state = VirtualMachine.OFF
@@ -396,7 +396,7 @@ users:
             headers.update(auth)
         cert = None
         try:
-            cert, resp = self.create_request('get', self.cloud.path + "/-/", auth_data, headers)
+            cert, resp = self.create_request('GET', self.cloud.path + "/-/", auth_data, headers)
 
             if resp.status_code != 200:
                 self.logger.error("Error querying the OCCI server: %s" % resp.reason)
@@ -528,7 +528,7 @@ users:
             headers.update(auth)
         cert = None
         try:
-            cert, resp = self.create_request('get', self.cloud.path + "/storage/" + storage_id, auth_data, headers)
+            cert, resp = self.create_request('GET', self.cloud.path + "/storage/" + storage_id, auth_data, headers)
 
             if resp.status_code == 404 or resp.status_code == 204:
                 return (False, "Volume not found.")
@@ -592,7 +592,7 @@ users:
             self.logger.debug("Delete storage: %s" % storage_id)
             cert = None
             try:
-                cert, resp = self.create_request('delete', storage_id, auth_data, headers)
+                cert, resp = self.create_request('DELETE', storage_id, auth_data, headers)
 
                 if resp.status_code == 404:
                     self.logger.debug("It does not exist.")
@@ -728,7 +728,7 @@ users:
                 # Create the VM to get the nodename
                 vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self)
                 (nodename, _) = vm.getRequestedName(default_hostname=Config.DEFAULT_VM_NAME,
-                                                          default_domain=Config.DEFAULT_DOMAIN)
+                                                    default_domain=Config.DEFAULT_DOMAIN)
 
                 body += 'X-OCCI-Attribute: occi.compute.hostname="' + nodename + '"\n'
                 # See: https://wiki.egi.eu/wiki/HOWTO10
@@ -750,7 +750,7 @@ users:
                     body += '\n'
 
                 self.logger.debug(body)
-                
+
                 headers = {'Accept': 'text/plain', 'Connection': 'close', 'Content-Type': 'text/plain,text/occi'}
                 if auth_header:
                     headers.update(auth_header)
@@ -865,7 +865,7 @@ users:
             body = ('Category: suspend;scheme="http://schemas.ogf.org/occi/infrastructure/compute/action#"'
                     ';class="action";\n')
             cert, resp = self.create_request('POST', self.cloud.path + "/compute/" + vm.id + "?action=suspend",
-                                       auth_data, headers, body)
+                                             auth_data, headers, body)
 
             if resp.status_code != 200:
                 return (False, "Error stopping the VM: " + resp.reason + "\n" + resp.text)
@@ -888,7 +888,7 @@ users:
             body = ('Category: start;scheme="http://schemas.ogf.org/occi/infrastructure/compute/action#"'
                     ';class="action";\n')
             cert, resp = self.create_request('POST', self.cloud.path + "/compute/" + vm.id + "?action=start",
-                                       auth_data, headers, body)
+                                             auth_data, headers, body)
 
             if resp.status_code != 200:
                 return (False, "Error starting the VM: " + resp.reason + "\n" + resp.text)
@@ -1015,7 +1015,7 @@ class KeyStoneAuth:
         cert = None
         try:
             headers = {'Accept': 'text/plain', 'Connection': 'close'}
-            
+
             cert, resp = occi.create_request('HEAD', occi.cloud.path + "/-/", auth_data, headers)
 
             www_auth_head = None
@@ -1074,7 +1074,7 @@ class KeyStoneAuth:
             headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
                        'X-Auth-Token': token_id, 'Connection': 'close'}
             url = "https://%s:%s/v2.0/tenants" % (server, port)
-            cert, resp = occi.create_request_static('GET', url, auth, headers)            
+            cert, resp = occi.create_request_static('GET', url, auth, headers)
 
             occi.delete_proxy(cert)
 
@@ -1087,11 +1087,11 @@ class KeyStoneAuth:
             # retry for each available tenant (usually only one)
             for tenant in output['tenants']:
                 body = '{"auth":{"voms":true,"tenantName":"' + str(tenant['name']) + '"}}'
-                
+
                 headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
                            'X-Auth-Token': token_id, 'Connection': 'close'}
                 url = "https://%s:%s/v2.0/tokens" % (server, port)
-                cert, resp = occi.create_request_static('POST', url, auth, headers, body)     
+                cert, resp = occi.create_request_static('POST', url, auth, headers, body)
 
                 occi.delete_proxy(cert)
 
