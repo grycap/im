@@ -141,8 +141,7 @@ class TestOCCIConnector(unittest.TestCase):
 
     @patch('requests.request')
     @patch('IM.connectors.OCCI.KeyStoneAuth.get_keystone_uri')
-    @patch('IM.connectors.OCCI.OCCICloudConnector.delete_proxy')
-    def test_20_launch(self, delete_proxy, get_keystone_uri, requests):
+    def test_20_launch(self, get_keystone_uri, requests):
         radl_data = """
             network net1 (outbound = 'yes' and outports = '8080')
             network net2 ()
@@ -177,8 +176,7 @@ class TestOCCIConnector(unittest.TestCase):
 
     @patch('requests.request')
     @patch('IM.connectors.OCCI.KeyStoneAuth.get_keystone_uri')
-    @patch('IM.connectors.OCCI.OCCICloudConnector.delete_proxy')
-    def test_30_updateVMInfo(self, delete_proxy, get_keystone_uri, requests):
+    def test_30_updateVMInfo(self, get_keystone_uri, requests):
         radl_data = """
             network net (outbound = 'yes')
             system test (
@@ -214,8 +212,7 @@ class TestOCCIConnector(unittest.TestCase):
 
     @patch('requests.request')
     @patch('IM.connectors.OCCI.KeyStoneAuth.get_keystone_uri')
-    @patch('IM.connectors.OCCI.OCCICloudConnector.delete_proxy')
-    def test_40_stop(self, delete_proxy, get_keystone_uri, requests):
+    def test_40_stop(self, get_keystone_uri, requests):
         auth = Authentication([{'id': 'occi', 'type': 'OCCI', 'proxy': 'proxy', 'host': 'https://server.com:11443'}])
         occi_cloud = self.get_occi_cloud()
 
@@ -235,8 +232,7 @@ class TestOCCIConnector(unittest.TestCase):
 
     @patch('requests.request')
     @patch('IM.connectors.OCCI.KeyStoneAuth.get_keystone_uri')
-    @patch('IM.connectors.OCCI.OCCICloudConnector.delete_proxy')
-    def test_50_start(self, delete_proxy, get_keystone_uri, requests):
+    def test_50_start(self, get_keystone_uri, requests):
         auth = Authentication([{'id': 'occi', 'type': 'OCCI', 'proxy': 'proxy', 'host': 'https://server.com:11443'}])
         occi_cloud = self.get_occi_cloud()
 
@@ -256,8 +252,7 @@ class TestOCCIConnector(unittest.TestCase):
 
     @patch('requests.request')
     @patch('IM.connectors.OCCI.KeyStoneAuth.get_keystone_uri')
-    @patch('IM.connectors.OCCI.OCCICloudConnector.delete_proxy')
-    def test_55_alter(self, delete_proxy, get_keystone_uri, requests):
+    def test_55_alter(self, get_keystone_uri, requests):
         radl_data = """
             network net (outbound = 'yes')
             system test (
@@ -301,8 +296,7 @@ class TestOCCIConnector(unittest.TestCase):
 
     @patch('requests.request')
     @patch('IM.connectors.OCCI.KeyStoneAuth.get_keystone_uri')
-    @patch('IM.connectors.OCCI.OCCICloudConnector.delete_proxy')
-    def test_60_finalize(self, delete_proxy, get_keystone_uri, requests):
+    def test_60_finalize(self, get_keystone_uri, requests):
         auth = Authentication([{'id': 'occi', 'type': 'OCCI', 'proxy': 'proxy', 'host': 'https://server.com:11443'}])
         occi_cloud = self.get_occi_cloud()
 
