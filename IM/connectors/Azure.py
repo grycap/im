@@ -26,6 +26,7 @@ from azure.mgmt.compute import ComputeManagementClient
 from azure.mgmt.network import NetworkManagementClient
 from azure.common.credentials import UserPassCredentials
 
+
 class AzureCloudConnector(CloudConnector):
     """
     Cloud Launcher to the Azure platform
@@ -43,26 +44,26 @@ class AzureCloudConnector(CloudConnector):
     """Default location to use"""
 
     PROVISION_STATE_MAP = {
-        'ProvisioningState/accepted': VirtualMachine.PENDING,
-        'ProvisioningState/canceled': VirtualMachine.OFF,
-        'ProvisioningState/created': VirtualMachine.PENDING,
-        'ProvisioningState/creating': VirtualMachine.PENDING,
-        'ProvisioningState/deleted': VirtualMachine.OFF,
-        'ProvisioningState/deleting': VirtualMachine.OFF,
-        'ProvisioningState/failed': VirtualMachine.FAILED,
-        'ProvisioningState/notspecified': VirtualMachine.UNKNOWN,
-        'ProvisioningState/registering': VirtualMachine.PENDING,
-        'ProvisioningState/running': VirtualMachine.PENDING,
-        'ProvisioningState/succeeded': VirtualMachine.RUNNING
+        'Accepted': VirtualMachine.PENDING,
+        'Canceled': VirtualMachine.OFF,
+        'Created': VirtualMachine.PENDING,
+        'Creating': VirtualMachine.PENDING,
+        'Deleted': VirtualMachine.OFF,
+        'Deleting': VirtualMachine.OFF,
+        'Failed': VirtualMachine.FAILED,
+        'Notspecified': VirtualMachine.UNKNOWN,
+        'Registering': VirtualMachine.PENDING,
+        'Running': VirtualMachine.PENDING,
+        'Succeeded': VirtualMachine.RUNNING
     }
 
     POWER_STATE_MAP = {
-        'PowerState/deallocated': VirtualMachine.OFF,
-        'PowerState/deallocating': VirtualMachine.OFF,
-        'PowerState/running': VirtualMachine.RUNNING,
-        'PowerState/starting': VirtualMachine.PENDING,
-        'PowerState/started': VirtualMachine.PENDING,
-        'PowerState/stopped': VirtualMachine.STOPPED
+        'Deallocated': VirtualMachine.OFF,
+        'Deallocating': VirtualMachine.OFF,
+        'Running': VirtualMachine.RUNNING,
+        'Starting': VirtualMachine.PENDING,
+        'Started': VirtualMachine.PENDING,
+        'Stopped': VirtualMachine.STOPPED
     }
 
     def __init__(self, cloud_info):
@@ -89,8 +90,18 @@ class AzureCloudConnector(CloudConnector):
         else:
             self.auth = auth_data
             self.credentials = UserPassCredentials(username, password)
-        
+
         return self.credentials, subscription_id
+
+    def get_instance_type_by_name(self, instance_name, location, credentials, subscription_id):
+        compute_client = ComputeManagementClient(credentials, subscription_id)
+        instace_types = compute_client.virtual_machine_sizes.list(location)
+
+        for instace_type in list(instace_types):
+            if instace_type.name == instance_name:
+                return instace_type
+
+        return None
 
     def get_instance_type(self, system, credentials, subscription_id):
         """
@@ -101,7 +112,7 @@ class AzureCloudConnector(CloudConnector):
         Returns: a str with the name of the instance type to launch to Azure
         """
         instance_type_name = system.getValue('instance_type')
-        
+
         location = self.DEFAULT_LOCATION
         if system.getValue('availability_zone'):
             location = system.getValue('availability_zone')
@@ -126,7 +137,7 @@ class AzureCloudConnector(CloudConnector):
 
         compute_client = ComputeManagementClient(credentials, subscription_id)
         instace_types = compute_client.virtual_machine_sizes.list(location)
-        
+
         res = None
         default = None
         for instace_type in list(instace_types):
@@ -205,12 +216,10 @@ class AzureCloudConnector(CloudConnector):
         """
         system = radl.systems[0]
         network_client = NetworkManagementClient(credentials, subscription_id)
-        
+
         location = self.DEFAULT_LOCATION
         if radl.systems[0].getValue('availability_zone'):
             location = radl.systems[0].getValue('availability_zone')
-        else:
-            radl.systems[0].setValue('availability_zone', location)
 
         # Create VNet
         async_vnet_creation = network_client.virtual_networks.create_or_update(
@@ -234,16 +243,32 @@ class AzureCloudConnector(CloudConnector):
             network = radl.get_network_by_id(network_name)
             nic_name = "nic-%d" % i
             ip_config_name = "ip-config-%d" % i
-            
+
+            subnet_name = "private-%d" % i
+            # Create Subnet
+            async_subnet_creation = network_client.subnets.create_or_update(
+                group_name,
+                "privates",
+                subnet_name,
+                {'address_prefix': '10.0.%d.0/24' % i}
+            )
+            subnet_info = async_subnet_creation.result()
+
+            # Create NIC
+            nic_params = {
+                'location': location,
+                'ip_configurations': [{
+                    'name': ip_config_name,
+                    'subnet': {'id': subnet_info.id}
+                }]
+            }
+
             if network.isPublic():
                 # Create PublicIP
                 public_ip_name = "public-ip-%d" % i
                 public_ip_parameters = {
                     'location': location,
                     'public_ip_allocation_method': 'static',
-                    'dns_settings': {
-                        'domain_name_label': "testdns-%d" % i
-                    },
                     'idle_timeout_in_minutes': 4
                 }
                 async_publicip_creation = network_client.public_ip_addresses.create_or_update(
@@ -252,87 +277,40 @@ class AzureCloudConnector(CloudConnector):
                     public_ip_parameters
                 )
                 public_ip_info = async_publicip_creation.result()
+                nic_params['ip_configurations'][0]['public_ip_address'] = {'id': public_ip_info.id}
 
-                # Create NIC
-                async_nic_creation = network_client.network_interfaces.create_or_update(
-                    group_name,
-                    nic_name,
-                    {
-                        'location': location,
-                        'ip_configurations': [{
-                            'name': ip_config_name,
-                            'private_ip_allocation_method': 'Dynamic',
-                            'public_ip_address': {
-                                'id': public_ip_info.id
-                            }
-                        }]
-                    }
-                )
-                nic = async_nic_creation.result()
-                res.append(nic)
-            else:
-                subnet_name = "private-%d" % i
-                # Create Subnet
-                async_subnet_creation = network_client.subnets.create_or_update(
-                    group_name,
-                    "privates",
-                    subnet_name,
-                    {'address_prefix': '10.0.%d.0/24' % i}
-                )
-                subnet_info = async_subnet_creation.result()
-
-                # Create NIC
-                async_nic_creation = network_client.network_interfaces.create_or_update(
-                    group_name,
-                    nic_name,
-                    {
-                        'location': location,
-                        'ip_configurations': [{
-                            'name': ip_config_name,
-                            'subnet': {
-                                'id': subnet_info.id
-                            }
-                        }]
-                    }
-                )
-                nic = async_nic_creation.result()
-                res.append(nic)
+            async_nic_creation = network_client.network_interfaces.create_or_update(
+                group_name, nic_name, nic_params)
+            nic = async_nic_creation.result()
+            res.append(nic)
 
             i += 1
-    
+
         return res
 
-    def get_azure_vm_create_json(self, storage_account, nics, radl, num, instance_type):
-        """Create the VM parameters structure.
-        """
+    def get_azure_vm_create_json(self, storage_account, vm_name, nics, radl, instance_type):
+        """ Create the VM parameters structure. """
         system = radl.systems[0]
-        name = system.getValue("instance_name")
-        if not name:
-            name = system.getValue("disk.0.image.name")
-        if not name:
-            name = "userimage" + str(num)
         url = uriparse(system.getValue("disk.0.image.url"))
-        # the url has to have the format: azr://publisher/offer/sku/version 
+        # the url has to have the format: azr://publisher/offer/sku/version
         # azr://Canonical/UbuntuServer/16.04.0-LTS/latest
         # azr://MicrosoftWindowsServerEssentials/WindowsServerEssentials/WindowsServerEssentials/latest
-        image_values = (url[1] + url[2]).split("/") 
-            
+        image_values = (url[1] + url[2]).split("/")
+
         location = self.DEFAULT_LOCATION
-        if radl.systems[0].getValue('availability_zone'):
-            location = radl.systems[0].getValue('availability_zone')
-        else:
-            radl.systems[0].setValue('availability_zone', location)
+        if system.getValue('availability_zone'):
+            location = system.getValue('availability_zone')
 
         # Allways use the new credentials
         system.updateNewCredentialValues()
         user_credentials = system.getCredentials()
-        
+
         os_disk_name = "osdisk-" + str(int(time.time() * 100))
 
         return {
             'location': location,
             'os_profile': {
-                'computer_name': name,
+                'computer_name': vm_name,
                 'admin_username': user_credentials.username,
                 'admin_password': user_credentials.password
             },
@@ -352,7 +330,7 @@ class AzureCloudConnector(CloudConnector):
                     'create_option': 'fromImage',
                     'vhd': {
                         'uri': 'https://{}.blob.core.windows.net/vhds/{}.vhd'.format(
-                            storage_account, name+os_disk_name)
+                            storage_account, vm_name + os_disk_name)
                     }
                 },
             },
@@ -378,18 +356,16 @@ class AzureCloudConnector(CloudConnector):
         """
         try:
             storage_client = StorageManagementClient(credentials, subscription_id)
-            storage_async_operation = storage_client.storage_accounts.create(group_name, storage_account,
-                {
-                    'sku': {'name': 'standard_lrs'},
-                    'kind': 'storage',
-                    'location': location
-                }
-            )
+            storage_async_operation = storage_client.storage_accounts.create(group_name,
+                                                                             storage_account,
+                                                                             {'sku': {'name': 'standard_lrs'},
+                                                                              'kind': 'storage',
+                                                                              'location': location}
+                                                                             )
             return storage_async_operation.result(), ""
         except Exception, ex:
             self.logger.exception("Error creating the storage account")
             return None, str(ex)
-
 
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         location = self.DEFAULT_LOCATION
@@ -399,7 +375,7 @@ class AzureCloudConnector(CloudConnector):
             radl.systems[0].setValue('availability_zone', location)
 
         credentials, subscription_id = self.get_credentials(auth_data)
-        
+
         resource_client = ResourceManagementClient(credentials, subscription_id)
 
         res = []
@@ -407,24 +383,25 @@ class AzureCloudConnector(CloudConnector):
         while i < num_vm:
             try:
                 # Create the VM to get the nodename
+                now = int(time.time() * 100)
                 vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self)
                 group_name = "rg-%s-%d" % (inf.id, vm.im_id)
-                storage_account_name = "vmstorage"
+                storage_account_name = "st%d%d" % (now, vm.im_id)
 
                 vm_name = radl.systems[0].getValue("instance_name")
-                if not vm_name:
-                    vm_name = radl.systems[0].getValue("disk.0.image.name")
-                if not vm_name:
-                    vm_name = "userimage" + str(vm.im_id)
+                if vm_name:
+                    vm_name = "%s%d" % (vm_name, now)
+                else:
+                    vm_name = "userimage%d" % now
 
                 # Create resource group
-                resource_client.resource_groups.create_or_update(group_name, {'location':location})
+                resource_client.resource_groups.create_or_update(group_name, {'location': location})
 
                 # Create storage account
                 storage_account, error_msg = self.create_storage_account(group_name, storage_account_name,
                                                                          credentials, subscription_id, location)
 
-                if not storage_account_name:
+                if not storage_account:
                     res.append((False, error_msg))
                     resource_client.resource_groups.delete(group_name)
                     break
@@ -432,23 +409,23 @@ class AzureCloudConnector(CloudConnector):
                 nics = self.create_nics(radl, credentials, subscription_id, group_name)
 
                 instance_type = self.get_instance_type(radl.systems[0], credentials, subscription_id)
-                vm_parameters = self.get_azure_vm_create_json(storage_account, nics, radl, i, instance_type)
+                vm_parameters = self.get_azure_vm_create_json(storage_account_name, vm_name, nics, radl, instance_type)
 
                 compute_client = ComputeManagementClient(credentials, subscription_id)
                 async_vm_creation = compute_client.virtual_machines.create_or_update(group_name, vm_name, vm_parameters)
-                async_vm_creation.result()
+                azure_vm = async_vm_creation.result()
 
                 # Set the cloud id to the VM
                 vm.id = group_name + '/' + vm_name
                 vm.info.systems[0].setValue('instance_id', group_name + '/' + vm_name)
-                
-                self.attach_data_disks(vm, group_name, storage_account_name, credentials, subscription_id, location)
-                
+
+                self.attach_data_disks(vm, storage_account_name, credentials, subscription_id, location)
+
                 res.append((True, vm))
             except Exception, ex:
                 self.logger.exception("Error creating the VM")
                 res.append((False, "Error creating the VM: " + str(ex)))
-                
+
                 # Delete Resource group and everything in it
                 resource_client.resource_groups.delete(group_name)
 
@@ -465,7 +442,7 @@ class AzureCloudConnector(CloudConnector):
         group_name = vm.id.split('/')[0]
         vm_name = vm.id.split('/')[1]
         compute_client = ComputeManagementClient(credentials, subscription_id)
-        
+
         while system.getValue("disk." + str(cont) + ".size"):
             disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('G')
 
@@ -482,7 +459,7 @@ class AzureCloudConnector(CloudConnector):
                                 'disk_size_gb': disk_size,
                                 'lun': 0,
                                 'vhd': {
-                                    'uri' : "http://{}.blob.core.windows.net/vhds/mydatadisk1.vhd".format(
+                                    'uri': "http://{}.blob.core.windows.net/vhds/mydatadisk1.vhd".format(
                                         storage_account_name)
                                 },
                                 'create_option': 'Empty'
@@ -516,7 +493,9 @@ class AzureCloudConnector(CloudConnector):
         vm.state = self.PROVISION_STATE_MAP.get(virtual_machine.provisioning_state, VirtualMachine.UNKNOWN)
         self.logger.debug("The VM state is: " + vm.state)
 
-        self.update_system_info_from_instance(vm.info.systems[0], virtual_machine.hardware_profile.vm_size)
+        instance_type = self.get_instance_type_by_name(virtual_machine.hardware_profile.vm_size,
+                                                       virtual_machine.location, credentials, subscription_id)
+        self.update_system_info_from_instance(vm.info.systems[0], instance_type)
 
         # Update IP info
         self.setIPs(vm, virtual_machine.network_profile, credentials, subscription_id)
@@ -526,21 +505,24 @@ class AzureCloudConnector(CloudConnector):
         """
         Set the information about the IPs of the VM
         """
-        
+
         private_ips = []
         public_ips = []
-        
+
         network_client = NetworkManagementClient(credentials, subscription_id)
 
         for ni in network_profile.network_interfaces:
-            name=" ".join(ni.id.split('/')[-1:])
-            sub="".join(ni.id.split('/')[4])
+            name = " ".join(ni.id.split('/')[-1:])
+            sub = "".join(ni.id.split('/')[4])
 
-            ip_conf=network_client.network_interfaces.get(sub, name).ip_configurations
+            ip_conf = network_client.network_interfaces.get(sub, name).ip_configurations
 
             for ip in ip_conf:
                 private_ips.append(ip.private_ip_address)
-                public_ips.append(ip.public_ip_address.ip_address)
+                name = " ".join(ip.public_ip_address.id.split('/')[-1:])
+                sub = "".join(ip.public_ip_address.id.split('/')[4])
+                public_ip_info = network_client.public_ip_addresses.get(sub, name)
+                public_ips.append(public_ip_info.ip_address)
 
         vm.setIps(public_ips, private_ips)
 
@@ -549,14 +531,15 @@ class AzureCloudConnector(CloudConnector):
             self.logger.debug("Terminate VM: " + vm.id)
             group_name = vm.id.split('/')[0]
             credentials, subscription_id = self.get_credentials(auth_data)
-            
+
             # Delete Resource group and everything in it
             resource_client = ResourceManagementClient(credentials, subscription_id)
-            async_grp_delete = resource_client.resource_groups.delete(group_name)
-            async_grp_delete.wait()
+            resource_client.resource_groups.delete(group_name)
         except Exception, ex:
             self.logger.exception("Error terminating the VM")
             return False, "Error terminating the VM: " + str(ex)
+
+        return True, ""
 
     def stop(self, vm, auth_data):
         try:
@@ -564,11 +547,12 @@ class AzureCloudConnector(CloudConnector):
             vm_name = vm.id.split('/')[1]
             credentials, subscription_id = self.get_credentials(auth_data)
             compute_client = ComputeManagementClient(credentials, subscription_id)
-            async_vm_start = compute_client.virtual_machines.power_off(group_name, vm_name)
-            async_vm_start.wait()
+            compute_client.virtual_machines.power_off(group_name, vm_name)
         except Exception, ex:
             self.logger.exception("Error stopping the VM")
             return False, "Error stopping the VM: " + str(ex)
+
+        return True, ""
 
     def start(self, vm, auth_data):
         try:
@@ -576,11 +560,12 @@ class AzureCloudConnector(CloudConnector):
             vm_name = vm.id.split('/')[1]
             credentials, subscription_id = self.get_credentials(auth_data)
             compute_client = ComputeManagementClient(credentials, subscription_id)
-            async_vm_start = compute_client.virtual_machines.start(group_name, vm_name)
-            async_vm_start.wait()
+            compute_client.virtual_machines.start(group_name, vm_name)
         except Exception, ex:
             self.logger.exception("Error starting the VM")
             return False, "Error starting the VM: " + str(ex)
+
+        return True, ""
 
     def alterVM(self, vm, radl, auth_data):
         try:
@@ -588,14 +573,14 @@ class AzureCloudConnector(CloudConnector):
             vm_name = vm.id.split('/')[1]
             credentials, subscription_id = self.get_credentials(auth_data)
             compute_client = ComputeManagementClient(credentials, subscription_id)
-            
+
             # Deallocating the VM (resize prepare)
             async_vm_deallocate = compute_client.virtual_machines.deallocate(group_name, vm_name)
             async_vm_deallocate.wait()
-            
+
             instance_type = self.get_instance_type(radl.systems[0], credentials, subscription_id)
             vm_parameters = " { 'hardware_profile': { 'vm_size': %s } } " % instance_type.name
-            
+
             async_vm_update = compute_client.virtual_machines.create_or_update(group_name,
                                                                                vm_name,
                                                                                vm_parameters)
@@ -606,5 +591,3 @@ class AzureCloudConnector(CloudConnector):
             return False, "Error altering the VM: " + str(ex)
 
         return (True, "")
-
-
