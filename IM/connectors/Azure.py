@@ -15,13 +15,10 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import time
-import os
-import tempfile
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from CloudConnector import CloudConnector
-from radl.radl import UserPassCredential, Feature
-from IM.config import Config
+from radl.radl import Feature
 
 from azure.mgmt.resource import ResourceManagementClient
 from azure.mgmt.storage import StorageManagementClient
@@ -42,7 +39,7 @@ class AzureCloudConnector(CloudConnector):
     INSTANCE_TYPE = 'ExtraSmall'
     """Default instance type."""
     """Port of the server with the Service Management REST API."""
-    DEFAULT_LOCATION = "North Europe"
+    DEFAULT_LOCATION = "northeurope"
     """Default location to use"""
 
     PROVISION_STATE_MAP = {
@@ -104,6 +101,10 @@ class AzureCloudConnector(CloudConnector):
         Returns: a str with the name of the instance type to launch to Azure
         """
         instance_type_name = system.getValue('instance_type')
+        
+        location = self.DEFAULT_LOCATION
+        if system.getValue('availability_zone'):
+            location = system.getValue('availability_zone')
 
         cpu = 1
         cpu_op = ">="
@@ -124,11 +125,11 @@ class AzureCloudConnector(CloudConnector):
             disk_free_op = system.getFeature('memory.size').getLogOperator()
 
         compute_client = ComputeManagementClient(credentials, subscription_id)
-        instace_types = compute_client.virtual_machine_sizes.list()
+        instace_types = compute_client.virtual_machine_sizes.list(location)
         
         res = None
         default = None
-        for instace_type in instace_types:
+        for instace_type in list(instace_types):
             if instace_type.name == self.INSTANCE_TYPE:
                 default = instace_type
             # get the instance type with the lowest Memory
@@ -157,7 +158,7 @@ class AzureCloudConnector(CloudConnector):
                           conflict="other", missing="other")
         system.addFeature(Feature("disks.free_size", "=", instance_type.resource_disk_size_in_mb, 'M'),
                           conflict="other", missing="other")
-        system.addFeature(Feature("instance_type", "=", instance_type.Name),
+        system.addFeature(Feature("instance_type", "=", instance_type.name),
                           conflict="other", missing="other")
 
     def concreteSystem(self, radl_system, auth_data):
@@ -168,7 +169,7 @@ class AzureCloudConnector(CloudConnector):
             if not isinstance(image_urls, list):
                 image_urls = [image_urls]
 
-            credentials, subscription_id = self.get_credentials()
+            credentials, subscription_id = self.get_credentials(auth_data)
 
             res = []
             for str_url in image_urls:
@@ -311,6 +312,9 @@ class AzureCloudConnector(CloudConnector):
         if not name:
             name = "userimage" + str(num)
         url = uriparse(system.getValue("disk.0.image.url"))
+        # the url has to have the format: azr://publisher/offer/sku/version 
+        # azr://Canonical/UbuntuServer/16.04.0-LTS/latest
+        # azr://MicrosoftWindowsServerEssentials/WindowsServerEssentials/WindowsServerEssentials/latest
         image_values = (url[1] + url[2]).split("/") 
             
         location = self.DEFAULT_LOCATION
@@ -395,47 +399,35 @@ class AzureCloudConnector(CloudConnector):
             radl.systems[0].setValue('availability_zone', location)
 
         credentials, subscription_id = self.get_credentials(auth_data)
-        group_name = "rg-%s" % inf.id
-        storage_account_name = "st-%s" % inf.id
         
         resource_client = ResourceManagementClient(credentials, subscription_id)
 
         res = []
         i = 0
-        all_error = True
         while i < num_vm:
             try:
+                # Create the VM to get the nodename
+                vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self)
+                group_name = "rg-%s-%d" % (inf.id, vm.im_id)
+                storage_account_name = "vmstorage"
+
                 vm_name = radl.systems[0].getValue("instance_name")
                 if not vm_name:
                     vm_name = radl.systems[0].getValue("disk.0.image.name")
                 if not vm_name:
-                    vm_name = "userimage" + str(i)
+                    vm_name = "userimage" + str(vm.im_id)
 
                 # Create resource group
-                if not resource_client.resource_groups.check_existence(group_name):
-                    resource_client.resource_groups.create_or_update(group_name, {'location':location})
-                
+                resource_client.resource_groups.create_or_update(group_name, {'location':location})
+
                 # Create storage account
-                storage_account = self.get_storage_account(self, group_name, storage_account_name,
-                                                           credentials, subscription_id)
-                if not storage_account:
-                    storage_account, error_msg = self.create_storage_account(group_name, storage_account_name,
-                                                                             credentials, subscription_id, location)
-                    if not storage_account_name:
-                        res.append((False, error_msg))
-                        break
-                else:
-                    # if the user has specified the region
-                    if radl.systems[0].getValue('availability_zone'):
-                        # Check that the region of the storage account is the
-                        # same of the service
-                        if location != storage_account.location:
-                            res.append((False, ("Error creating the service. The specified "
-                                                "region is not the same of the service.")))
-                            break
-                    else:
-                        # Otherwise use the storage account region
-                        location = storage_account.location
+                storage_account, error_msg = self.create_storage_account(group_name, storage_account_name,
+                                                                         credentials, subscription_id, location)
+
+                if not storage_account_name:
+                    res.append((False, error_msg))
+                    resource_client.resource_groups.delete(group_name)
+                    break
 
                 nics = self.create_nics(radl, credentials, subscription_id, group_name)
 
@@ -444,10 +436,10 @@ class AzureCloudConnector(CloudConnector):
 
                 compute_client = ComputeManagementClient(credentials, subscription_id)
                 async_vm_creation = compute_client.virtual_machines.create_or_update(group_name, vm_name, vm_parameters)
-                azure_vm = async_vm_creation.result()
+                async_vm_creation.result()
 
-                all_error = False
-                vm = VirtualMachine(inf, group_name + '/' + vm_name, self.cloud, radl, requested_radl, self)
+                # Set the cloud id to the VM
+                vm.id = group_name + '/' + vm_name
                 vm.info.systems[0].setValue('instance_id', group_name + '/' + vm_name)
                 
                 self.attach_data_disks(vm, group_name, storage_account_name, credentials, subscription_id, location)
@@ -456,13 +448,11 @@ class AzureCloudConnector(CloudConnector):
             except Exception, ex:
                 self.logger.exception("Error creating the VM")
                 res.append((False, "Error creating the VM: " + str(ex)))
-                # TODO: Borrar nics
+                
+                # Delete Resource group and everything in it
+                resource_client.resource_groups.delete(group_name)
 
             i += 1
-            
-            if all_error:
-                # Borrar storage account y resource group
-                pass
 
         return res
 
