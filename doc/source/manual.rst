@@ -84,13 +84,13 @@ First you need to install pip tool and some packages needed to compile some of t
 To install them in Debian and Ubuntu based distributions, do::
 
     $ apt update
-    $ apt install gcc python-dev libffi-dev libssl-dev python-pip sshpass python-mysqldb
+    $ apt install gcc python-dev libffi-dev libssl-dev python-pip sshpass python-mysqldb python-pysqlite2
 
 In Red Hat based distributions (RHEL, CentOS, Amazon Linux, Oracle Linux,
 Fedora, etc.), do::
 
 	$ yum install epel-release
-	$ yum install which gcc python-devel libffi-devel openssl-devel python-pip sshpass MySQL-python
+	$ yum install which gcc python-devel libffi-devel openssl-devel python-pip sshpass MySQL-python python-sqlite3dbm
 
 For some problems with the dependencies of the apache-libcloud package in some systems (as ubuntu 14.04 or CentOS 6)
 this package has to be installed manually::
