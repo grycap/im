@@ -44,9 +44,6 @@ class InfrastructureList():
     _lock = threading.Lock()
     """Threading Lock to avoid concurrency problems."""
 
-    _exiting = False
-    """Flag to notice that the IM is going to exit."""
-
     @staticmethod
     def add_infrastructure(inf):
         """Add a new Infrastructure."""
@@ -79,7 +76,6 @@ class InfrastructureList():
         """ Stop securely the IM service """
         # Acquire the lock to avoid writing data to the DATA_FILE
         with InfrastructureList._lock:
-            InfrastructureList._exiting = True
             # Stop all the Ctxt threads of the Infrastructures
             for inf in InfrastructureList.infrastructure_list.values():
                 inf.stop()
@@ -106,18 +102,16 @@ class InfrastructureList():
         - inf_id(str): ID of the infrastructure to save. If None all will be saved.
         """
         with InfrastructureList._lock:
-            # to avoid writing data to the file if the IM is exiting
-            if not InfrastructureList._exiting:
-                try:
-                    res = InfrastructureList._save_data_to_db(Config.DATA_DB,
-                                                              InfrastructureList.infrastructure_list,
-                                                              inf_id)
-                    if not res:
-                        InfrastructureList.logger.error("ERROR saving data.\nChanges not stored!!")
-                        sys.stderr.write("ERROR saving data.\nChanges not stored!!")
-                except Exception, ex:
-                    InfrastructureList.logger.exception("ERROR saving data. Changes not stored!!")
-                    sys.stderr.write("ERROR saving data: " + str(ex) + ".\nChanges not stored!!")
+            try:
+                res = InfrastructureList._save_data_to_db(Config.DATA_DB,
+                                                          InfrastructureList.infrastructure_list,
+                                                          inf_id)
+                if not res:
+                    InfrastructureList.logger.error("ERROR saving data.\nChanges not stored!!")
+                    sys.stderr.write("ERROR saving data.\nChanges not stored!!")
+            except Exception, ex:
+                InfrastructureList.logger.exception("ERROR saving data. Changes not stored!!")
+                sys.stderr.write("ERROR saving data: " + str(ex) + ".\nChanges not stored!!")
 
     @staticmethod
     def _get_data_from_db(db_url):
