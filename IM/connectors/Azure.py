@@ -296,6 +296,8 @@ class AzureCloudConnector(CloudConnector):
         # azr://Canonical/UbuntuServer/16.04.0-LTS/latest
         # azr://MicrosoftWindowsServerEssentials/WindowsServerEssentials/WindowsServerEssentials/latest
         image_values = (url[1] + url[2]).split("/")
+        if len(image_values) != 4:
+            raise Exception("The Azure image has to have the format: azr://publisher/offer/sku/version")
 
         location = self.DEFAULT_LOCATION
         if system.getValue('availability_zone'):
@@ -585,6 +587,11 @@ class AzureCloudConnector(CloudConnector):
                                                                                vm_name,
                                                                                vm_parameters)
             async_vm_update.wait()
+
+            # Start the VM
+            async_vm_start = compute_client.virtual_machines.start(group_name, vm_name)
+            async_vm_start.wait()
+
             return self.updateVMInfo(vm, auth_data)
         except Exception, ex:
             self.logger.exception("Error altering the VM")
