@@ -698,12 +698,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             # There will be only one
             sg = sgs[0]
 
-            some_vm = False
-            for vm in inf.get_vm_list():
-                if vm.id != vm_id:
-                    some_vm = True
-
-            if not some_vm:
+            if inf.is_last_vm(vm_id):
                 # wait it to terminate and then remove the SG
                 cont = 0
                 deleted = False

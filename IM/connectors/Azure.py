@@ -211,7 +211,7 @@ class AzureCloudConnector(CloudConnector):
                         res.append(res_system)
             return res
 
-    def create_nics(self, radl, credentials, subscription_id, group_name):
+    def create_nics(self, inf, radl, credentials, subscription_id, group_name, subnets):
         """Create a Network Interface for a VM.
         """
         system = radl.systems[0]
@@ -220,19 +220,6 @@ class AzureCloudConnector(CloudConnector):
         location = self.DEFAULT_LOCATION
         if radl.systems[0].getValue('availability_zone'):
             location = radl.systems[0].getValue('availability_zone')
-
-        # Create VNet
-        async_vnet_creation = network_client.virtual_networks.create_or_update(
-            group_name,
-            "privates",
-            {
-                'location': location,
-                'address_space': {
-                    'address_prefixes': ['10.0.0.0/16']
-                }
-            }
-        )
-        async_vnet_creation.wait()
 
         i = 0
         res = []
@@ -244,22 +231,12 @@ class AzureCloudConnector(CloudConnector):
             nic_name = "nic-%d" % i
             ip_config_name = "ip-config-%d" % i
 
-            subnet_name = "private-%d" % i
-            # Create Subnet
-            async_subnet_creation = network_client.subnets.create_or_update(
-                group_name,
-                "privates",
-                subnet_name,
-                {'address_prefix': '10.0.%d.0/24' % i}
-            )
-            subnet_info = async_subnet_creation.result()
-
             # Create NIC
             nic_params = {
                 'location': location,
                 'ip_configurations': [{
                     'name': ip_config_name,
-                    'subnet': {'id': subnet_info.id}
+                    'subnet': {'id': subnets[network_name].id}
                 }]
             }
 
@@ -369,6 +346,50 @@ class AzureCloudConnector(CloudConnector):
             self.logger.exception("Error creating the storage account")
             return None, str(ex)
 
+    def create_nets(self, inf, radl, credentials, subscription_id, group_name):
+        network_client = NetworkManagementClient(credentials, subscription_id)
+        location = self.DEFAULT_LOCATION
+        if radl.systems[0].getValue('availability_zone'):
+            location = radl.systems[0].getValue('availability_zone')
+        # check if the vnet exists 
+        vnet = None
+        try:
+            vnet = network_client.virtual_networks.get(self, group_name, "privates")
+        except Exception:
+            pass
+
+        if not vnet:
+            # Create VNet in the RG of the Inf
+            async_vnet_creation = network_client.virtual_networks.create_or_update(
+                group_name,
+                "privates",
+                {
+                    'location': location,
+                    'address_space': {
+                        'address_prefixes': ['10.0.0.0/16']
+                    }
+                }
+            )
+            async_vnet_creation.wait()
+            
+            subnets = {}
+            for i, net in enumerate(radl.networks):
+                subnet_name = net.id
+                # Create Subnet in the RG of the Inf
+                async_subnet_creation = network_client.subnets.create_or_update(
+                    group_name,
+                    "privates",
+                    subnet_name,
+                    {'address_prefix': '10.0.%d.0/24' % i}
+                )
+                subnets[net.id] = async_subnet_creation.result()
+        else:
+            subnets = {}
+            for i, net in enumerate(radl.networks):
+                subnets[net.id] = network_client.subnets.get(group_name, net.id)
+        
+        return subnets
+
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         location = self.DEFAULT_LOCATION
         if radl.systems[0].getValue('availability_zone'):
@@ -379,6 +400,18 @@ class AzureCloudConnector(CloudConnector):
         credentials, subscription_id = self.get_credentials(auth_data)
 
         resource_client = ResourceManagementClient(credentials, subscription_id)
+
+        with inf._lock:
+            # Create resource group for the Infrastructure
+            inf_rg = None
+            try:
+                inf_rg = resource_client.resource_groups.get("rg-%s" % inf.id)
+            except Exception:
+                pass
+            if not inf_rg:
+                resource_client.resource_groups.create_or_update("rg-%s" % inf.id, {'location': location})
+                
+            subnets = self.create_nets(inf, radl, credentials, subscription_id, "rg-%s" % inf.id)
 
         res = []
         i = 0
@@ -396,7 +429,7 @@ class AzureCloudConnector(CloudConnector):
                 else:
                     vm_name = "userimage%d" % now
 
-                # Create resource group
+                # Create resource group for the VM
                 resource_client.resource_groups.create_or_update(group_name, {'location': location})
 
                 # Create storage account
@@ -408,7 +441,7 @@ class AzureCloudConnector(CloudConnector):
                     resource_client.resource_groups.delete(group_name)
                     break
 
-                nics = self.create_nics(radl, credentials, subscription_id, group_name)
+                nics = self.create_nics(inf, radl, credentials, subscription_id, group_name, subnets)
 
                 instance_type = self.get_instance_type(radl.systems[0], credentials, subscription_id)
                 vm_parameters = self.get_azure_vm_create_json(storage_account_name, vm_name, nics, radl, instance_type)
@@ -536,7 +569,14 @@ class AzureCloudConnector(CloudConnector):
 
             # Delete Resource group and everything in it
             resource_client = ResourceManagementClient(credentials, subscription_id)
-            resource_client.resource_groups.delete(group_name)
+            self.logger.exception("Removing RG: %s" % group_name)
+            resource_client.resource_groups.delete(group_name).wait()
+
+            # if it is the last VM delete the RG of the Inf
+            if vm.inf.is_last_vm(vm.id):
+                self.logger.exception("Removing RG: %s" % "rg-%s" % vm.inf.id)
+                resource_client.resource_groups.delete("rg-%s" % vm.inf.id)
+            
         except Exception, ex:
             self.logger.exception("Error terminating the VM")
             return False, "Error terminating the VM: " + str(ex)
