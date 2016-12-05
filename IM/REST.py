@@ -15,7 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import logging
-import threading
+from multiprocessing import Process
 import bottle
 import json
 
@@ -93,8 +93,7 @@ class MyCherryPy(bottle.ServerAdapter):
 
 
 def run_in_thread(host, port):
-    bottle_thr = threading.Thread(target=run, args=(host, port))
-    bottle_thr.daemon = True
+    bottle_thr = Process(target=run, args=(host, port))
     bottle_thr.start()
 
 
