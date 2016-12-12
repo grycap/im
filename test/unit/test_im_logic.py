@@ -56,8 +56,6 @@ class TestIM(unittest.TestCase):
     def setUp(self):
 
         IM._reinit()
-        # Patch save_data
-        InfrastructureList.save_data = staticmethod(lambda *args: None)
 
         ch = logging.StreamHandler(sys.stdout)
         log = logging.getLogger('InfrastructureManager')
@@ -68,6 +66,8 @@ class TestIM(unittest.TestCase):
         log.setLevel(logging.DEBUG)
         log.propagate = 0
         log.addHandler(ch)
+        Config.DATA_DB = "/tmp/inf.dat"
+        InfrastructureList.load_data()
 
     def tearDown(self):
         IM.stop()
@@ -434,13 +434,15 @@ class TestIM(unittest.TestCase):
 
         IM.DestroyInfrastructure(infId, auth0)
 
-    def test_get_inf_state(self):
+    @patch('IM.InfrastructureList.InfrastructureList.get_inf_ids')
+    def test_get_inf_state(self, get_inf_ids):
         """
         Test GetInfrastructureState.
         """
         auth0 = self.getAuth([0], [], [("Dummy", 0)])
 
         inf = MagicMock()
+        get_inf_ids.return_value = ["1"]
         InfrastructureList.infrastructure_list = {"1": inf}
         inf.id = "1"
         inf.auth = auth0
@@ -504,7 +506,6 @@ class TestIM(unittest.TestCase):
                                Feature("disk.0.os.credentials.password", "=", "pass")]))
         radl.add(deploy("s0", 1))
 
-        Config.DATA_DB = "/tmp/inf.dat"
         auth0 = self.getAuth([0], [], [("Dummy", 0)])
         infId = IM.CreateInfrastructure(str(radl), auth0)
 
