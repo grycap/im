@@ -66,7 +66,7 @@ class TestIM(unittest.TestCase):
         log.setLevel(logging.DEBUG)
         log.propagate = 0
         log.addHandler(ch)
-        Config.DATA_DB = "/tmp/inf.dat"
+        Config.DATA_DB = "/home/jenkins/inf.dat"
         InfrastructureList.load_data()
 
     def tearDown(self):
