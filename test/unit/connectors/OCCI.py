@@ -28,6 +28,7 @@ sys.path.append("..")
 from IM.CloudInfo import CloudInfo
 from IM.auth import Authentication
 from radl import radl_parse
+from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from IM.InfrastructureInfo import InfrastructureInfo
 from IM.connectors.OCCI import OCCICloudConnector
@@ -101,46 +102,46 @@ class TestOCCIConnector(unittest.TestCase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         self.clean_log()
 
-    def get_response(self):
-        method, url = self.__class__.last_op
-
+    def get_response(self, method, url, verify, cert, headers, data):
         resp = MagicMock()
+        parts = uriparse(url)
+        url = parts[2]
+        params = parts[4]
 
         if method == "GET":
             if url == "/-/":
-                resp.status = 200
-                resp.read.return_value = read_file_as_string("files/occi.txt")
+                resp.status_code = 200
+                resp.text = read_file_as_string("files/occi.txt")
             elif url == "/compute/1":
-                resp.status = 200
-                resp.read.return_value = read_file_as_string("files/occi_vm_info.txt")
+                resp.status_code = 200
+                resp.text = read_file_as_string("files/occi_vm_info.txt")
             elif url.startswith("/storage"):
-                resp.status = 200
-                resp.read.return_value = 'X-OCCI-Attribute: occi.storage.state="online"'
+                resp.status_code = 200
+                resp.text = 'X-OCCI-Attribute: occi.storage.state="online"'
         elif method == "POST":
             if url == "/compute/":
-                resp.status = 201
-                resp.read.return_value = 'https://server.com/compute/1'
-            elif url.endswith("action=suspend"):
-                resp.status = 200
-            elif url.endswith("action=start"):
-                resp.status = 200
+                resp.status_code = 201
+                resp.text = 'https://server.com/compute/1'
+            elif params == "action=suspend":
+                resp.status_code = 200
+            elif params == "action=start":
+                resp.status_code = 200
             elif url == "/link/storagelink":
-                resp.status = 200
+                resp.status_code = 200
+            elif url == "/storage/":
+                resp.status_code = 201
+                resp.text = 'https://server.com/storage/1'
         elif method == "DELETE":
             if url.endswith("/compute/1"):
-                resp.status = 200
+                resp.status_code = 200
             elif url.endswith("/storage/1"):
-                resp.status = 200
+                resp.status_code = 200
 
         return resp
 
-    def request(self, method, url, body=None, headers={}):
-        self.__class__.last_op = method, url
-
-    @patch('httplib.HTTPSConnection')
+    @patch('requests.request')
     @patch('IM.connectors.OCCI.KeyStoneAuth.get_keystone_uri')
-    @patch('IM.connectors.OCCI.OCCICloudConnector.delete_proxy')
-    def test_20_launch(self, delete_proxy, get_keystone_uri, connection):
+    def test_20_launch(self, get_keystone_uri, requests):
         radl_data = """
             network net1 (outbound = 'yes' and outports = '8080')
             network net2 ()
@@ -164,13 +165,7 @@ class TestOCCIConnector(unittest.TestCase):
         auth = Authentication([{'id': 'occi', 'type': 'OCCI', 'proxy': 'proxy', 'host': 'https://server.com:11443'}])
         occi_cloud = self.get_occi_cloud()
 
-        conn = MagicMock()
-        connection.return_value = conn
-
-        conn.request.side_effect = self.request
-        conn.putrequest.side_effect = self.request
-        conn.getresponse.side_effect = self.get_response
-
+        requests.side_effect = self.get_response
         get_keystone_uri.return_value = None
 
         res = occi_cloud.launch(InfrastructureInfo(), radl, radl, 1, auth)
@@ -179,10 +174,9 @@ class TestOCCIConnector(unittest.TestCase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         self.clean_log()
 
-    @patch('httplib.HTTPSConnection')
+    @patch('requests.request')
     @patch('IM.connectors.OCCI.KeyStoneAuth.get_keystone_uri')
-    @patch('IM.connectors.OCCI.OCCICloudConnector.delete_proxy')
-    def test_30_updateVMInfo(self, delete_proxy, get_keystone_uri, connection):
+    def test_30_updateVMInfo(self, get_keystone_uri, requests):
         radl_data = """
             network net (outbound = 'yes')
             system test (
@@ -206,11 +200,7 @@ class TestOCCIConnector(unittest.TestCase):
         inf.get_next_vm_id.return_value = 1
         vm = VirtualMachine(inf, "1", occi_cloud.cloud, radl, radl, occi_cloud)
 
-        conn = MagicMock()
-        connection.return_value = conn
-
-        conn.request.side_effect = self.request
-        conn.getresponse.side_effect = self.get_response
+        requests.side_effect = self.get_response
 
         get_keystone_uri.return_value = None
 
@@ -220,10 +210,9 @@ class TestOCCIConnector(unittest.TestCase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         self.clean_log()
 
-    @patch('httplib.HTTPSConnection')
+    @patch('requests.request')
     @patch('IM.connectors.OCCI.KeyStoneAuth.get_keystone_uri')
-    @patch('IM.connectors.OCCI.OCCICloudConnector.delete_proxy')
-    def test_40_stop(self, delete_proxy, get_keystone_uri, connection):
+    def test_40_stop(self, get_keystone_uri, requests):
         auth = Authentication([{'id': 'occi', 'type': 'OCCI', 'proxy': 'proxy', 'host': 'https://server.com:11443'}])
         occi_cloud = self.get_occi_cloud()
 
@@ -231,11 +220,7 @@ class TestOCCIConnector(unittest.TestCase):
         inf.get_next_vm_id.return_value = 1
         vm = VirtualMachine(inf, "1", occi_cloud.cloud, "", "", occi_cloud)
 
-        conn = MagicMock()
-        connection.return_value = conn
-
-        conn.request.side_effect = self.request
-        conn.getresponse.side_effect = self.get_response
+        requests.side_effect = self.get_response
 
         get_keystone_uri.return_value = None
 
@@ -245,10 +230,9 @@ class TestOCCIConnector(unittest.TestCase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         self.clean_log()
 
-    @patch('httplib.HTTPSConnection')
+    @patch('requests.request')
     @patch('IM.connectors.OCCI.KeyStoneAuth.get_keystone_uri')
-    @patch('IM.connectors.OCCI.OCCICloudConnector.delete_proxy')
-    def test_50_start(self, delete_proxy, get_keystone_uri, connection):
+    def test_50_start(self, get_keystone_uri, requests):
         auth = Authentication([{'id': 'occi', 'type': 'OCCI', 'proxy': 'proxy', 'host': 'https://server.com:11443'}])
         occi_cloud = self.get_occi_cloud()
 
@@ -256,11 +240,7 @@ class TestOCCIConnector(unittest.TestCase):
         inf.get_next_vm_id.return_value = 1
         vm = VirtualMachine(inf, "1", occi_cloud.cloud, "", "", occi_cloud)
 
-        conn = MagicMock()
-        connection.return_value = conn
-
-        conn.request.side_effect = self.request
-        conn.getresponse.side_effect = self.get_response
+        requests.side_effect = self.get_response
 
         get_keystone_uri.return_value = None
 
@@ -270,10 +250,9 @@ class TestOCCIConnector(unittest.TestCase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         self.clean_log()
 
-    @patch('httplib.HTTPSConnection')
+    @patch('requests.request')
     @patch('IM.connectors.OCCI.KeyStoneAuth.get_keystone_uri')
-    @patch('IM.connectors.OCCI.OCCICloudConnector.delete_proxy')
-    def test_55_alter(self, delete_proxy, get_keystone_uri, connection):
+    def test_55_alter(self, get_keystone_uri, requests):
         radl_data = """
             network net (outbound = 'yes')
             system test (
@@ -305,11 +284,7 @@ class TestOCCIConnector(unittest.TestCase):
         inf.get_next_vm_id.return_value = 1
         vm = VirtualMachine(inf, "1", occi_cloud.cloud, radl, radl, occi_cloud)
 
-        conn = MagicMock()
-        connection.return_value = conn
-
-        conn.request.side_effect = self.request
-        conn.getresponse.side_effect = self.get_response
+        requests.side_effect = self.get_response
 
         get_keystone_uri.return_value = None
 
@@ -319,10 +294,9 @@ class TestOCCIConnector(unittest.TestCase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         self.clean_log()
 
-    @patch('httplib.HTTPSConnection')
+    @patch('requests.request')
     @patch('IM.connectors.OCCI.KeyStoneAuth.get_keystone_uri')
-    @patch('IM.connectors.OCCI.OCCICloudConnector.delete_proxy')
-    def test_60_finalize(self, delete_proxy, get_keystone_uri, connection):
+    def test_60_finalize(self, get_keystone_uri, requests):
         auth = Authentication([{'id': 'occi', 'type': 'OCCI', 'proxy': 'proxy', 'host': 'https://server.com:11443'}])
         occi_cloud = self.get_occi_cloud()
 
@@ -332,11 +306,7 @@ class TestOCCIConnector(unittest.TestCase):
         radl.systems.append(system("test"))
         vm = VirtualMachine(inf, "1", occi_cloud.cloud, radl, radl, occi_cloud)
 
-        conn = MagicMock()
-        connection.return_value = conn
-
-        conn.request.side_effect = self.request
-        conn.getresponse.side_effect = self.get_response
+        requests.side_effect = self.get_response
 
         get_keystone_uri.return_value = None
 
