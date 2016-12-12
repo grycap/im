@@ -23,7 +23,7 @@ from libcloud.compute.types import NodeState, Provider
 from libcloud.compute.providers import get_driver
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
-from radl.radl import Feature
+from radl.radl import Feature, network
 from libcloud.common.google import ResourceNotFoundError
 
 
@@ -286,6 +286,56 @@ class GCECloudConnector(CloudConnector):
         else:
             return None
 
+    def create_firewall(self, inf, net_name, radl, driver):
+        """
+        Create a firewall for the net using the outports param
+        """
+        with inf._lock:
+            firewall_name = "fw-im-%s" % net_name
+
+            public_net = None
+            for net in radl.networks:
+                if net.isPublic():
+                    public_net = net
+
+            ports = {"tcp", ["22"]}
+            if public_net:
+                outports = public_net.getOutPorts()
+                if outports:
+                    for remote_port, remote_protocol, local_port, local_protocol in outports:
+                        if local_port != 22:
+                            protocol = remote_protocol
+                            if remote_protocol != local_protocol:
+                                self.logger.warn("Different protocols used in outports ignoring local port protocol!")
+
+                            if protocol not in ports:
+                                ports[protocol] = []
+                            ports[protocol].append(str(remote_port))
+
+                    allowed = [{'IPProtocol': 'tcp', 'ports': ports['tcp']},
+                               {'IPProtocol': 'upd', 'ports': ports['upd']}]
+
+                    firewall = None
+                    try:
+                        firewall = driver.ex_get_firewall(firewall_name)
+                    except:
+                        self.logger.exception("Error getting the firewall %s." % firewall_name)
+
+                    if firewall:
+                        try:
+                            firewall.allowed = allowed
+                            firewall.update()
+                            self.logger.debug("Firewall %s existing. Rules updated." % firewall_name)
+                        except:
+                            self.logger.exception("Error updating the firewall %s." % firewall_name)
+                        return
+
+                    try:
+                        driver.ex_create_firewall(firewall_name, allowed, network=net_name)
+                    except Exception, addex:
+                        self.logger.warn("Exception creating FW: " + str(addex))
+                        pass
+
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         driver = self.get_driver(auth_data)
 
@@ -349,13 +399,15 @@ class GCECloudConnector(CloudConnector):
         net_provider_id = self.get_net_provider_id(radl)
         if net_provider_id:
             args['ex_network'] = net_provider_id
+            self.create_firewall(inf, net_provider_id, radl, driver)
         else:
             net_name = self.get_default_net(driver)
             if net_name:
                 args['ex_network'] = net_name
-                self.set_net_provider_id(radl, net_name)
             else:
-                self.set_net_provider_id(radl, "default")
+                net_name = "default"
+            self.set_net_provider_id(radl, net_name)
+            self.create_firewall(inf, net_name, radl, driver)
 
         res = []
         if num_vm > 1:
@@ -392,6 +444,9 @@ class GCECloudConnector(CloudConnector):
             success = node.destroy()
             self.delete_disks(node)
 
+            if vm.inf.is_last_vm(vm.id):
+                self.delete_firewall(vm, node.driver)
+
             if not success:
                 return (False, "Error destroying node: " + vm.id)
 
@@ -399,6 +454,20 @@ class GCECloudConnector(CloudConnector):
         else:
             self.logger.warn("VM " + str(vm.id) + " not found.")
         return (True, "")
+
+    def delete_firewall(self, vm, driver):
+        """
+        Delete the FW
+        """
+        net_provider_id = self.get_net_provider_id(vm.info)
+        firewall_name = "fw-im-%s" % net_provider_id
+
+        try:
+            firewall = driver.ex_get_firewall(firewall_name)
+            if firewall:
+                firewall.destroy()
+        except:
+            self.logger.exception("Error trying to delete FW.")
 
     def delete_disks(self, node):
         """
