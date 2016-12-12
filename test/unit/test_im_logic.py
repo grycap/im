@@ -504,6 +504,7 @@ class TestIM(unittest.TestCase):
                                Feature("disk.0.os.credentials.password", "=", "pass")]))
         radl.add(deploy("s0", 1))
 
+        Config.DATA_DB = "/tmp/inf.dat"
         auth0 = self.getAuth([0], [], [("Dummy", 0)])
         infId = IM.CreateInfrastructure(str(radl), auth0)
 
