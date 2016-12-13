@@ -14,20 +14,8 @@ IM needs at least Python 2.6 to run, as well as the next libraries:
 * `suds <https://fedorahosted.org/suds/>`_, a full-featured SOAP library.
 * `Netaddr <http://pythonhosted.org/netaddr//>`_, A Python library for representing 
   and manipulating network addresses.
-* `apache-libcloud <http://libcloud.apache.org/>`_ 0.17 or later is used in the
-  LibCloud, OpenStack and GCE connectors.
-* `boto <http://boto.readthedocs.org>`_ 2.29.0 or later is used as interface to
-  Amazon EC2. It is available as package named ``python-boto`` in Debian based
-  distributions. It can also be downloaded from `boto GitHub repository <https://github.com/boto/boto>`_.
-  Download the file and copy the boto subdirectory into the IM install path.
-* `The Bottle framework<http://bottlepy.org/>`_ , typically available
-  as the 'python-bottle' package.
-* `The CherryPy Web framework <http://www.cherrypy.org/>`_, typically available as the 'python-cherrypy' 
-   or 'python-cherrypy3' package.
 * `The Python interface to MySQL <https://www.mysql.com/>`_, typically available as the package 'python-mysqldb'  or 
    'MySQL-python' package.
-* `The Azure Python SDK <https://docs.microsoft.com/es-es/azure/python-how-to-install/>`_, available as the package
-   'azure' at the pip repository.  
     
 Also, IM uses `Ansible <http://www.ansible.com>`_ (1.4.2 or later) to configure the
 infrastructure nodes. The current recommended version is 1.9.4 untill the 2.X versions become stable.
@@ -64,6 +52,16 @@ Finally, check the next values in the Ansible configuration file
 Optional Packages
 -----------------
 
+* `The Bottle framework<http://bottlepy.org/>`_ is used for the REST API. 
+   It is typically available as the 'python-bottle' package.
+* `The CherryPy Web framework <http://www.cherrypy.org/>`_, is needed for the REST API. 
+   It is typically available as the 'python-cherrypy' or 'python-cherrypy3' package.
+* `apache-libcloud <http://libcloud.apache.org/>`_ 0.17 or later is used in the
+  LibCloud, OpenStack and GCE connectors.
+* `boto <http://boto.readthedocs.org>`_ 2.29.0 or later is used as interface to
+  Amazon EC2. It is available as package named ``python-boto`` in Debian based
+  distributions. It can also be downloaded from `boto GitHub repository <https://github.com/boto/boto>`_.
+  Download the file and copy the boto subdirectory into the IM install path.
 * `Spring Python <http://springpython.webfactional.com/>`_ framework is needed
   if the access to XML-RPC API is secured with SSL certificates (see
   :confval:`XMLRCP_SSL`).
@@ -71,6 +69,8 @@ Optional Packages
 * pyOpenSSL are needed if needed to secure the REST API
   with SSL certificates (see :confval:`REST_SSL`).
   pyOpenSSL can be installed using pip.
+* `The Azure Python SDK <https://docs.microsoft.com/es-es/azure/python-how-to-install/>`_, is needed by the Azure
+  connector. It is available as the package 'azure' at the pip repository.  
 
 Installation
 ------------
@@ -103,7 +103,7 @@ Then you only have to call the install command of the pip tool with the IM packa
 
 	$ pip install IM
 
-Pip will also install the, non installed, pre-requisites needed. So Ansible  1.4.2 or later will 
+Pip will also install the, non installed, pre-requisites needed. So Ansible 1.4.2 or later will 
 be installed in the system.
 
 You must also remember to modify the ansible.cfg file setting as specified in the 
@@ -120,10 +120,10 @@ You must have the epel repository enabled::
 Then install the downloaded RPMs:: 
 
    $ yum localinstall IM-*.rpm RADL-*.rpm
+   
+Azure python SDK is not available in CentOS. So if you need the Azure plugin you have to manually install them using pip::
 
-Currently the Azure python SDK is not available in RPM format so it has to be installed using pip::
-
-   $ pip install azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource
+	$ pip install azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource
 
 From Deb package (Tested with Ubuntu 14.04 and 16.04)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -137,7 +137,7 @@ You can download it from their corresponding PPAs. But here you have some links:
  * python-scp: `download <http://archive.ubuntu.com/ubuntu/pool/universe/p/python-scp/python-scp_0.10.2-1_all.deb>`_
  * python-libcloud: `download <http://archive.ubuntu.com/ubuntu/pool/universe/libc/libcloud/python-libcloud_0.20.0-1_all.deb>`_
 
-Also Azure python SDK is not available in Ubuntu 16.04, so you have to manually install them manually.
+Also Azure python SDK is not available in Ubuntu 16.04. So if you need the Azure plugin you have to manually install them.
 You can download it from their corresponding PPAs. But here you have some links:
 
  * python-msrestazure: `download <https://launchpad.net/ubuntu/+archive/primary/+files/python-msrestazure_0.4.3-1_all.deb>`_

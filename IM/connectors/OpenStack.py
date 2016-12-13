@@ -15,15 +15,20 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import time
-from IM.connectors.LibCloud import LibCloudCloudConnector
-from libcloud.compute.types import Provider, NodeState
-from libcloud.compute.providers import get_driver
-from libcloud.compute.base import NodeImage, NodeAuthSSHKey
 from netaddr import IPNetwork, IPAddress
+
+try:
+    from libcloud.compute.types import Provider, NodeState
+    from libcloud.compute.providers import get_driver
+    from libcloud.compute.base import NodeImage, NodeAuthSSHKey
+except Exception, ex:
+    print "WARN: libcloud library not correctly installed. OpenStackCloudConnector will not work!."
+    print ex
+
+from IM.connectors.LibCloud import LibCloudCloudConnector
 from IM.config import Config
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
-
 from radl.radl import Feature
 
 

@@ -20,12 +20,15 @@ from IM.VirtualMachine import VirtualMachine
 from CloudConnector import CloudConnector
 from radl.radl import Feature
 
-from azure.mgmt.resource import ResourceManagementClient
-from azure.mgmt.storage import StorageManagementClient
-from azure.mgmt.compute import ComputeManagementClient
-from azure.mgmt.network import NetworkManagementClient
-from azure.common.credentials import UserPassCredentials
-
+try:
+    from azure.mgmt.resource import ResourceManagementClient
+    from azure.mgmt.storage import StorageManagementClient
+    from azure.mgmt.compute import ComputeManagementClient
+    from azure.mgmt.network import NetworkManagementClient
+    from azure.common.credentials import UserPassCredentials
+except Exception, ex:
+    print "WARN: Python Azure SDK not correctly installed. AzureCloudConnector will not work!."
+    print ex
 
 class AzureCloudConnector(CloudConnector):
     """
