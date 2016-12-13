@@ -1,0 +1,281 @@
+network publica (outbound = 'yes')
+network privada ()
+
+system im (
+cpu.count>=1 and
+memory.size>=2G and
+net_interface.0.connection = 'publica' and
+net_interface.1.connection = 'privada' and
+net_interface.1.dns_name = 'imservice' and
+disk.0.os.name='linux' and
+disk.0.os.flavour='ubuntu' and
+disk.0.os.credentials.new.password = 'Tututu+01'
+)
+
+system imclient (
+cpu.count>=1 and
+memory.size>=1G and
+net_interface.0.connection = 'privada' and
+net_interface.0.dns_name = 'imclient' and
+disk.0.os.name='linux' and
+disk.0.os.flavour='ubuntu' and
+disk.0.os.credentials.new.password = 'Tututu+01'
+)
+
+system infra (
+cpu.count>=8 and
+memory.size>=8G and
+net_interface.0.connection = 'privada' and
+net_interface.0.dns_name = 'infra' and
+disk.0.os.name='linux' and
+disk.0.os.flavour='ubuntu' and
+disk.0.os.credentials.new.password = 'Tututu+01'
+)
+
+configure docker (
+@begin
+    - name: add docker apt key
+      apt_key: keyserver=hkp://pgp.mit.edu:80 id=58118E89F3A912897C070ADBF76221572C52609D state=present 
+      when: ansible_os_family == "Debian"
+
+    - name: add docker repository
+      apt_repository: repo="deb https://apt.dockerproject.org/repo ubuntu-trusty main" state=present update_cache=yes 
+      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version == "14"  
+
+    - name: add docker repository
+      apt_repository: repo="deb https://apt.dockerproject.org/repo ubuntu-xenial main" state=present update_cache=yes 
+      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version == "16"  
+
+    - name: install docker Deb
+      apt: pkg=docker-engine,python-pip state=present update_cache=yes
+      when: ansible_os_family == "Debian"
+      
+    - name: Create the /etc/yum.repos.d/docker.repo file
+      copy:
+        dest: /etc/yum.repos.d/docker.repo
+        content: |
+            [dockerrepo]
+            name=Docker Repository
+            baseurl=https://yum.dockerproject.org/repo/main/centos/7/
+            enabled=1
+            gpgcheck=1
+            gpgkey=https://yum.dockerproject.org/gpg
+        mode: 0644
+        owner: root
+        group: root
+      when: ansible_os_family == "RedHat"
+
+    - name: install EPEL
+      yum: pkg=epel-release state=present
+      when: ansible_os_family == "RedHat"
+
+    - name: install docker RH
+      yum: pkg=docker-engine,python-pip state=present
+      when: ansible_os_family == "RedHat"
+
+    - name: start docker
+      service: name=docker state=started enabled=yes
+
+    - name: Upgrade pip version
+      pip: name=pip extra_args='-I' state=latest
+
+    - name: install docker-py
+    # user 1.9 version as ansible fails in case of 1.10 or higher 
+      pip: name=docker-py version=1.9.0
+
+@end
+)
+
+configure iminstall (
+@begin
+---
+    - name: Install Reqs
+      apt: name=git,gcc,python-dev,python-pip,python-mysqldb,openssh-client,sshpass,libssl-dev,libffi-dev update_cache=yes cache_valid_time=3600
+      when: ansible_os_family == "Debian"
+      
+    - name: Yum install requirements RH or Fedora
+      yum: name=git,gcc,python-distribute,gcc,python-devel,wget,openssh-clients,sshpass,python-pip,libffi-devel,openssl-devel
+      when: ansible_os_family == "RedHat"
+
+    - name: Install backports.ssl_match_hostname with Pip
+      pip: name=backports.ssl_match_hostname
+      
+    - name: Download IM
+      git: repo=https://github.com/grycap/im dest=/tmp/im
+
+    - name: pip install IM
+      pip: name=/tmp/im
+
+    - name: Start IM
+      service: name=im state=started
+@end
+)
+
+configure im (
+@begin
+---
+  - vars:
+     IM_SERVICE_IP: "{{ hostvars[groups['im'][0]]['IM_NODE_PRIVATE_IP'] }}"
+     IM_PORTS: 
+         - {xmlrpc: 7799, rest: 8801}
+         - {xmlrpc: 6699, rest: 8802}
+    tasks:
+    - include: docker.yml
+
+    - name: mysql container
+      docker:
+        name: immysql
+        image: "mysql:5.7"
+        state: started
+        env:
+            MYSQL_ROOT_PASSWORD: impass
+            MYSQL_DATABASE: imdb 
+
+    - name: im container
+      docker:
+        name: im-{{item.xmlrpc}}
+        image: "grycap/im"
+        state: started
+        ports:
+        - "{{item.rest}}:8800"
+        - "{{item.xmlrpc}}:8899"
+        expose:
+        - 8899
+        - 8800
+        links:
+        - "immysql:immysql"
+        env:
+            IM_DATA_DB: "mysql://root:impass@immysql/imdb"
+      with_items: "{{IM_PORTS}}"
+      
+    - name: Create HAProxy template
+      copy:
+        dest: /etc/haproxy_tomcat.cfg.j2
+        content: |
+            defaults
+                timeout connect      5000
+                timeout client       50000
+                timeout server       50000
+                mode http
+
+            frontend http-frontend
+                bind *:8800
+                default_backend imbackend
+
+            backend imbackend
+                balance roundrobin
+                stick-table type string len 32 size 30k expire 120m
+                stick store-response hdr(InfID)
+                #stick on hdr(InfID)
+                acl inf_id path -m beg /infrastructures/
+                #acl inf_id path_len gt 40
+                stick on path,field(3,/) if inf_id
+
+
+            {% raw %}
+            {% for port in IM_PORTS %}
+                server im-{{port.rest}} {{IM_SERVICE_IP}}:{{port.rest}} check
+            {% endfor %}{% endraw %}
+
+    - name: Configure HAProxy
+      template: src=/etc/haproxy_tomcat.cfg.j2 dest=/etc/haproxy.cfg mode=0644
+
+    - name: start haproxy container
+      docker:
+        name: haproxy
+        image: "haproxy:latest"
+        state: started
+        ports:
+        - "8800:8800"
+        expose:
+        - 8800
+        volumes:
+        - "/etc/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg"
+
+    - name: Install Reqs
+      apt: name=sysstat update_cache=yes cache_valid_time=3600
+      when: ansible_os_family == "Debian"
+      
+    - name: Install Reqs
+      yum: name=sysstat
+      when: ansible_os_family == "RedHat"
+
+    - name: Configure sysstat
+      lineinfile: dest=/etc/default/sysstat regexp="^ENABLED=" line='ENABLED="true"'
+      when: ansible_os_family == "Debian"
+
+    - name: Configure cron sysstat
+      #copy: dest=/etc/cron.d/sysstat content="*/1 * * * * root date >> /tmp/dates && /usr/lib/sysstat/debian-sa1 1 1\n"
+      copy: dest=/etc/cron.d/sysstat content="*/1 * * * * root command -v /usr/lib/sysstat/debian-sa1 > /dev/null && /usr/lib/sysstat/debian-sa1 1 1\n"
+      when: ansible_os_family == "Debian"
+
+    - name: Restart sysstat
+      service: name=sysstat state=restarted
+      
+    - name: Start sysstat
+      shell: /usr/lib/sysstat/debian-sa1 1 1
+      when: ansible_os_family == "Debian"
+@end
+)
+
+configure imclient (
+@begin
+---
+  - vars:
+    - INFRA_NODE_IP: "{{ hostvars[groups['infra'][0]]['IM_NODE_NET_0_IP'] }}"
+    tasks:
+    - name: Install Reqs
+      apt: name=gcc,python-dev,python-pip,python-mysqldb,openssh-client,sshpass,libssl-dev,libffi-dev update_cache=yes cache_valid_time=3600
+
+    - name: Install IM with Pip
+      pip: name=IM
+
+    - name: Create auth.dat file
+      copy:
+        dest: /tmp/auth.dat
+        content: |
+            type = InfrastructureManager; username = imuser01; password = invitado
+            type = VMRC; host = http://servproject.i3m.upv.es:8080/vmrc/vmrc; username = demo; password = demo
+            id = docker; type = Docker; host = {{INFRA_NODE_IP}}:2375
+        mode: 0644
+
+    - name: Download LoadTest.py
+      get_url: url=https://raw.githubusercontent.com/grycap/im/database/test/loadtest/{{item}} dest=/tmp/{{item}}
+      with_items:
+       - LoadTest.py
+       - load-test.radl
+       - LoadTestREST.py
+
+@end
+)
+
+configure infra (
+@begin
+  - tasks:
+    - name: Ubuntu install requirements
+      apt: name=apt-transport-https,ca-certificates
+    
+    - name: Ubuntu add key
+      command: apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 58118E89F3A912897C070ADBF76221572C52609D
+
+    - name: Create docker.list 
+      copy: dest=/etc/apt/sources.list.d/docker.list content="deb https://apt.dockerproject.org/repo ubuntu-trusty main"
+      
+    - apt: update_cache=yes
+      
+    - name: Ubuntu install requirements
+      apt: name=docker-engine
+      
+    - lineinfile: dest=/etc/default/docker regexp="DOCKER_OPTS=" line='DOCKER_OPTS="-H tcp://0.0.0.0:2375"'
+    
+    - service: name=docker state=restarted
+    
+    - command: docker -H tcp://localhost:2375 pull ubuntu:14.04
+    
+
+@end
+)
+
+deploy im 1
+deploy imclient 1
+deploy infra 1

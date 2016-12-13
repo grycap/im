@@ -61,13 +61,18 @@ class InfrastructureList():
     @staticmethod
     def get_inf_ids():
         """ Get the IDs of the Infrastructures """
-        return InfrastructureList.infrastructure_list.keys()
+        return InfrastructureList._get_data_from_db(Config.DATA_DB)
 
     @staticmethod
     def get_infrastructure(inf_id):
         """ Get the infrastructure object """
         if inf_id in InfrastructureList.infrastructure_list:
             return InfrastructureList.infrastructure_list[inf_id]
+        elif inf_id in InfrastructureList.get_inf_ids():
+            # Load the data from DB:
+            inf = InfrastructureList._get_data_from_db(Config.DATA_DB, inf_id)[inf_id]
+            InfrastructureList.infrastructure_list[inf_id] = inf
+            return inf
         else:
             return None
 
@@ -114,7 +119,7 @@ class InfrastructureList():
                 sys.stderr.write("ERROR saving data: " + str(ex) + ".\nChanges not stored!!")
 
     @staticmethod
-    def _get_data_from_db(db_url):
+    def _get_data_from_db(db_url, inf_id=None):
         db = DataBase(db_url)
         if db.connect():
             if not db.table_exists("inf_list"):
@@ -124,7 +129,10 @@ class InfrastructureList():
                 return {}
             else:
                 inf_list = {}
-                res = db.select("select * from inf_list where deleted = 0 order by id desc")
+                if inf_id:
+                    res = db.select("select * from inf_list where id = '%s'" % inf_id)
+                else:
+                    res = db.select("select * from inf_list where deleted = 0 order by id desc")
                 if len(res) > 0:
                     for elem in res:
                         # inf_id = elem[0]
@@ -164,7 +172,29 @@ class InfrastructureList():
             return None
 
     @staticmethod
+    def _get_inf_ids_from_db():
+        try:
+            db = DataBase(Config.DATA_DB)
+            if db.connect():
+                inf_list = []
+                res = db.select("select id from inf_list where deleted = 0 order by id desc")
+                for elem in res:
+                    inf_list.append(elem[0])
+
+                db.close()
+                return inf_list
+            else:
+                InfrastructureList.logger.error("ERROR connecting with the database!.")
+                return []
+        except Exception:
+            InfrastructureList.logger.exception("ERROR loading data. Correct or delete it!!")
+
+    @staticmethod
     def _reinit():
         """Restart the class attributes to initial values."""
         InfrastructureList.infrastructure_list = {}
         InfrastructureList._lock = threading.Lock()
+        db = DataBase(Config.DATA_DB)
+        if db.connect():
+            db.execute("delete from inf_list")
+            db.close()
