@@ -30,6 +30,7 @@ except Exception, ex:
     print "WARN: Python Azure SDK not correctly installed. AzureCloudConnector will not work!."
     print ex
 
+
 class AzureCloudConnector(CloudConnector):
     """
     Cloud Launcher to the Azure platform

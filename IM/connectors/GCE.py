@@ -31,6 +31,7 @@ from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from radl.radl import Feature
 
+
 class GCECloudConnector(CloudConnector):
     """
     Cloud Launcher to GCE using LibCloud
