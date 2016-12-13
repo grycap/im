@@ -57,5 +57,6 @@ setup(name="IM", version=version,
       platforms=["any"],
       install_requires=["ansible >= 1.8", "paramiko >= 1.14", "PyYAML", "suds",
                         "boto >= 2.29", "apache-libcloud >= 0.17", "RADL", "bottle", "netaddr",
-                        "scp", "cherrypy", "MySQL-python", "pysqlite"]
+                        "scp", "cherrypy", "MySQL-python", "pysqlite", 
+                        "azure-mgmt-storage", "azure-mgmt-compute", "azure-mgmt-network", "azure-mgmt-resource"]
       )

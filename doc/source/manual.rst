@@ -26,7 +26,9 @@ IM needs at least Python 2.6 to run, as well as the next libraries:
    or 'python-cherrypy3' package.
 * `The Python interface to MySQL <https://www.mysql.com/>`_, typically available as the package 'python-mysqldb'  or 
    'MySQL-python' package.
-
+* `The Azure Python SDK <https://docs.microsoft.com/es-es/azure/python-how-to-install/>`_, available as the package
+   'azure' at the pip repository.  
+    
 Also, IM uses `Ansible <http://www.ansible.com>`_ (1.4.2 or later) to configure the
 infrastructure nodes. The current recommended version is 1.9.4 untill the 2.X versions become stable.
  
@@ -119,6 +121,10 @@ Then install the downloaded RPMs::
 
    $ yum localinstall IM-*.rpm RADL-*.rpm
 
+Currently the Azure python SDK is not available in RPM format so it has to be installed using pip::
+
+   $ pip install azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource
+
 From Deb package (Tested with Ubuntu 14.04 and 16.04)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Download the Deb package from `GitHub <https://github.com/grycap/im/releases/latest>`_
@@ -130,6 +136,13 @@ You can download it from their corresponding PPAs. But here you have some links:
  * python-backports.ssl-match-hostname: `download <http://archive.ubuntu.com/ubuntu/pool/universe/b/backports.ssl-match-hostname/python-backports.ssl-match-hostname_3.4.0.2-1_all.deb>`_
  * python-scp: `download <http://archive.ubuntu.com/ubuntu/pool/universe/p/python-scp/python-scp_0.10.2-1_all.deb>`_
  * python-libcloud: `download <http://archive.ubuntu.com/ubuntu/pool/universe/libc/libcloud/python-libcloud_0.20.0-1_all.deb>`_
+
+Also Azure python SDK is not available in Ubuntu 16.04, so you have to manually install them manually.
+You can download it from their corresponding PPAs. But here you have some links:
+
+ * python-msrestazure: `download <https://launchpad.net/ubuntu/+archive/primary/+files/python-msrestazure_0.4.3-1_all.deb>`_
+ * python-msrest: `download <https://launchpad.net/ubuntu/+archive/primary/+files/python-msrest_0.4.4-1_all.deb>`_
+ * python-azure: `download <https://launchpad.net/ubuntu/+archive/primary/+files/python-azure_2.0.0~rc6+dfsg-2_all.deb>`_
 
 It is also recommended to configure the Ansible PPA to install the newest versions of Ansible (see `Ansible installation <http://docs.ansible.com/ansible/intro_installation.html#latest-releases-via-apt-ubuntu>`_)::
 
