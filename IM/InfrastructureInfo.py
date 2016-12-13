@@ -114,7 +114,6 @@ class InfrastructureInfo:
     @staticmethod
     def deserialize(str_data):
         newinf = InfrastructureInfo()
-        newinf._lock = threading.Lock()
         dic = json.loads(str_data)
         vm_list = dic['vm_list']
         vm_master_id = dic['vm_master']
@@ -509,6 +508,8 @@ class InfrastructureInfo:
                 self.cm = ConfManager.ConfManager(self, auth, max_ctxt_time)
                 self.cm.start()
             else:
+                # update the ConfManager reference to the inf object
+                self.cm.inf = self
                 # update the ConfManager auth
                 self.cm.auth = auth
                 self.cm.init_time = time.time()
