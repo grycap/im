@@ -55,6 +55,8 @@ class TestIM(unittest.TestCase):
 
     def setUp(self):
 
+        Config.DATA_DB = "/tmp/inf.dat"
+        InfrastructureList.load_data()
         IM._reinit()
 
         ch = logging.StreamHandler(sys.stdout)
@@ -66,8 +68,6 @@ class TestIM(unittest.TestCase):
         log.setLevel(logging.DEBUG)
         log.propagate = 0
         log.addHandler(ch)
-        Config.DATA_DB = "/home/jenkins/workspace/grycap/im-unit/test/inf.dat"
-        InfrastructureList.load_data()
 
     def tearDown(self):
         IM.stop()
