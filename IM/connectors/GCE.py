@@ -17,14 +17,19 @@
 import time
 import os
 
+try:
+    from libcloud.compute.base import Node, NodeSize
+    from libcloud.compute.types import NodeState, Provider
+    from libcloud.compute.providers import get_driver
+    from libcloud.common.google import ResourceNotFoundError
+except Exception, ex:
+    print "WARN: libcloud library not correctly installed. GCECloudConnector will not work!."
+    print ex
+
 from CloudConnector import CloudConnector
-from libcloud.compute.base import Node, NodeSize
-from libcloud.compute.types import NodeState, Provider
-from libcloud.compute.providers import get_driver
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from radl.radl import Feature
-from libcloud.common.google import ResourceNotFoundError
 
 
 class GCECloudConnector(CloudConnector):

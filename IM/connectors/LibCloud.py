@@ -15,14 +15,18 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import time
+
+try:
+    from libcloud.compute.base import NodeImage, NodeAuthSSHKey
+    from libcloud.compute.types import Provider, NodeState
+    from libcloud.compute.providers import get_driver
+except Exception, ex:
+    print "WARN: libcloud library not correctly installed. LibCloudCloudConnector will not work!."
+    print ex
+
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from CloudConnector import CloudConnector
-
-from libcloud.compute.base import NodeImage, NodeAuthSSHKey
-from libcloud.compute.types import Provider, NodeState
-from libcloud.compute.providers import get_driver
-
 from radl.radl import Feature
 
 

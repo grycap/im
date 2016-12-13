@@ -16,4 +16,4 @@
 
 
 __all__ = ['CloudConnector', 'EC2', 'OCCI', 'OpenNebula', 'OpenStack',
-           'LibCloud', 'Docker', 'GCE', 'FogBow', 'Azure', 'DeployedNode', 'Kubernetes', 'Dummy']
+           'Docker', 'GCE', 'FogBow', 'Azure', 'DeployedNode', 'Kubernetes', 'Dummy']
