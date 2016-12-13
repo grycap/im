@@ -211,6 +211,52 @@ class AzureCloudConnector(CloudConnector):
                         res.append(res_system)
             return res
 
+    def create_ngs(self, location, group_name, nsg_name, outports, network_client):
+        """
+        Create a Network Security Group
+        """
+        # Always add SSH port
+        security_rules = [{'name': 'sr-Tcp-22-22',
+                           'access': 'Allow',
+                           'protocol': 'Tcp',
+                           'destination_address_prefix': '*',
+                           'source_address_prefix': '*',
+                           'direction': 'Inbound',
+                           'destination_port_range': '22',
+                           'source_port_range': '*',
+                           'priority': 100
+                           }]
+        for remote_port, remote_protocol, local_port, local_protocol in outports:
+            if local_port != 22:
+                protocol = remote_protocol
+                if remote_protocol != local_protocol:
+                    self.logger.warn("Different protocols used in outports ignoring local port protocol!")
+
+                sr = {'name': 'sr-%s-%d-%d' % (protocol, remote_port, local_port),
+                      'access': 'Allow',
+                      'protocol': protocol,
+                      'destination_address_prefix': '*',
+                      'source_address_prefix': '*',
+                      'direction': 'Inbound',
+                      'destination_port_range': str(local_port),
+                      'source_port_range': '*',
+                      'priority': 100
+                      }
+                security_rules.append(sr)
+
+        params = {
+            'location': location,
+            'security_rules': security_rules
+        }
+
+        ngs = None
+        try:
+            ngs = network_client.network_security_groups.create_or_update(group_name, nsg_name, params).result()
+        except:
+            self.logger.exception("Error creating NGS")
+
+        return ngs
+
     def create_nics(self, inf, radl, credentials, subscription_id, group_name, subnets):
         """Create a Network Interface for a VM.
         """
@@ -255,6 +301,14 @@ class AzureCloudConnector(CloudConnector):
                 )
                 public_ip_info = async_publicip_creation.result()
                 nic_params['ip_configurations'][0]['public_ip_address'] = {'id': public_ip_info.id}
+
+                # Create a NSG
+                outports = network.getOutPorts()
+                if outports:
+                    nsg_name = "nsg-%d" % i
+                    nsg = self.create_ngs(location, group_name, nsg_name, outports, network_client)
+                    if nsg:
+                        nic_params['network_security_group'] = {'id': nsg.id}
 
             async_nic_creation = network_client.network_interfaces.create_or_update(
                 group_name, nic_name, nic_params)
@@ -351,7 +405,7 @@ class AzureCloudConnector(CloudConnector):
         location = self.DEFAULT_LOCATION
         if radl.systems[0].getValue('availability_zone'):
             location = radl.systems[0].getValue('availability_zone')
-        # check if the vnet exists 
+        # check if the vnet exists
         vnet = None
         try:
             vnet = network_client.virtual_networks.get(self, group_name, "privates")
@@ -371,7 +425,7 @@ class AzureCloudConnector(CloudConnector):
                 }
             )
             async_vnet_creation.wait()
-            
+
             subnets = {}
             for i, net in enumerate(radl.networks):
                 subnet_name = net.id
@@ -387,7 +441,7 @@ class AzureCloudConnector(CloudConnector):
             subnets = {}
             for i, net in enumerate(radl.networks):
                 subnets[net.id] = network_client.subnets.get(group_name, net.id)
-        
+
         return subnets
 
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
@@ -410,7 +464,7 @@ class AzureCloudConnector(CloudConnector):
                 pass
             if not inf_rg:
                 resource_client.resource_groups.create_or_update("rg-%s" % inf.id, {'location': location})
-                
+
             subnets = self.create_nets(inf, radl, credentials, subscription_id, "rg-%s" % inf.id)
 
         res = []
@@ -521,8 +575,12 @@ class AzureCloudConnector(CloudConnector):
             # Get one the virtual machine by name
             virtual_machine = compute_client.virtual_machines.get(group_name, vm_name)
         except Exception, ex:
-            self.logger.exception("Error getting the VM info: " + vm.id)
-            return (False, "Error getting the VM info: " + vm.id + ". " + str(ex))
+            if "NotFound" in str(ex):
+                vm.state = VirtualMachine.OFF
+                return (True, vm)
+            else:
+                self.logger.exception("Error getting the VM info: " + vm.id)
+                return (False, "Error getting the VM info: " + vm.id + ". " + str(ex))
 
         self.logger.debug("VM info: " + vm.id + " obtained.")
         vm.state = self.PROVISION_STATE_MAP.get(virtual_machine.provisioning_state, VirtualMachine.UNKNOWN)
@@ -576,7 +634,7 @@ class AzureCloudConnector(CloudConnector):
             if vm.inf.is_last_vm(vm.id):
                 self.logger.exception("Removing RG: %s" % "rg-%s" % vm.inf.id)
                 resource_client.resource_groups.delete("rg-%s" % vm.inf.id)
-            
+
         except Exception, ex:
             self.logger.exception("Error terminating the VM")
             return False, "Error terminating the VM: " + str(ex)
