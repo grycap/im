@@ -60,7 +60,7 @@ class MySSLCherryPy(bottle.ServerAdapter):
     def run(self, handler):
         from cherrypy.wsgiserver.ssl_pyopenssl import pyOpenSSLAdapter
         from cherrypy import wsgiserver
-        server = wsgiserver.CherryPyWSGIServer((self.host, self.port), handler)
+        server = wsgiserver.CherryPyWSGIServer((self.host, self.port), handler, request_queue_size=32)
         self.srv = server
 
         # If cert variable is has a valid path, SSL will be used
@@ -81,7 +81,7 @@ class MyCherryPy(bottle.ServerAdapter):
 
     def run(self, handler):
         from cherrypy import wsgiserver
-        server = wsgiserver.CherryPyWSGIServer((self.host, self.port), handler)
+        server = wsgiserver.CherryPyWSGIServer((self.host, self.port), handler, request_queue_size=32)
         self.srv = server
         try:
             server.start()
