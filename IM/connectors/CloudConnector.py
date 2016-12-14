@@ -132,7 +132,7 @@ class CloudConnector:
 
     def create_snapshot(self, vm, disk_num, auth_data):
         """ 
-        Create a snapshot of the specified num disk in a  virtual machine. 
+        Create a snapshot of the specified num disk in a virtual machine. 
 
         Arguments:
           - vm(:py:class:`IM.VirtualMachine`): VM to stop.
