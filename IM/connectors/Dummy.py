@@ -80,3 +80,6 @@ class DummyCloudConnector(CloudConnector):
             Feature("memory.size", "=", new_memory, 'M'), conflict="other", missing="other")
 
         return (True, "")
+
+    def create_snapshot(self, vm, disk_num, auth_data):
+        return (True, "mock0://linux.for.ev.er/snapshot")

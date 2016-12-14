@@ -563,6 +563,22 @@ class TestIM(unittest.TestCase):
 
         IM.DestroyInfrastructure(new_inf_id, auth0)
 
+    def test_create_disk_snapshot(self):
+        """Test CreateDiskSnapshot process"""
+        radl = RADL()
+        radl.add(system("s0", [Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
+                               Feature("disk.0.os.credentials.username", "=", "user"),
+                               Feature("disk.0.os.credentials.password", "=", "pass")]))
+        radl.add(deploy("s0", 1))
+
+        auth0 = self.getAuth([0], [], [("Dummy", 0)])
+        infId = IM.CreateInfrastructure(str(radl), auth0)
+
+        image_url = IM.CreateDiskSnapshot(infId, "0", 0, auth0)
+        self.assertEquals(image_url, "mock0://linux.for.ev.er/snapshot")
+
+        IM.DestroyInfrastructure(infId, auth0)
+
     def test_contextualize(self):
         """Test Contextualization process"""
         radl = """"

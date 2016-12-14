@@ -130,6 +130,23 @@ class CloudConnector:
 
         raise NotImplementedError("Should have implemented this")
 
+    def create_snapshot(self, vm, disk_num, auth_data):
+        """ 
+        Create a snapshot of the specified num disk in a  virtual machine. 
+
+        Arguments:
+          - vm(:py:class:`IM.VirtualMachine`): VM to stop.
+          - disk_num(int): Number of the disk.
+          - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
+
+        Returns: a tuple (success, vm).
+          - The first value is True if the operation finished successfully or false otherwise.
+          - The second value is a str with the url of the new image if the operation finished successfully
+             or an error message otherwise.
+        """
+
+        raise NotImplementedError("Should have implemented this")
+
     def keygen(self):
         """
         Generates a keypair using the ssh-keygen command and returns a tuple (public, private)

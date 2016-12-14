@@ -190,6 +190,11 @@ def GetVersion():
     request = IMBaseRequest.create_request(IMBaseRequest.GET_VERSION, None)
     return WaitRequest(request)
 
+def CreateDiskSnapshot(inf_id, vm_id, disk_num, auth_data):
+    request = IMBaseRequest.create_request(
+        IMBaseRequest.CREATE_DISK_SNAPSHOT, (inf_id, vm_id, disk_num, auth_data))
+    return WaitRequest(request)
+
 
 def launch_daemon():
     """
@@ -230,6 +235,7 @@ def launch_daemon():
     server.register_function(StopVM)
     server.register_function(GetInfrastructureState)
     server.register_function(GetVersion)
+    server.register_function(CreateDiskSnapshot)
 
     InfrastructureManager.logger.info(
         '************ Start Infrastructure Manager daemon (v.%s) ************' % version)

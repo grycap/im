@@ -1292,5 +1292,31 @@ class InfrastructureManager:
         return new_inf.id
 
     @staticmethod
+    def CreateDiskSnapshot(inf_id, vm_id, disk_num, auth):
+        """
+        Create a snapshot of the specified num disk in a 
+        virtual machine in an infrastructure. 
+
+        Args:
+
+        - inf_id(str): infrastructure id.
+        - vm_id(str): virtual machine id.
+        - disk_num(int): Number of the disk.
+        - auth(Authentication): parsed authentication tokens.
+
+        Return: a str with url of the saved snapshot.
+        """
+        auth = InfrastructureManager.check_auth_data(auth)
+
+        vm = InfrastructureManager.get_vm_from_inf(inf_id, vm_id, auth)
+
+        success, image_url = vm.create_snapshot(disk_num, auth)
+        if not success:
+            InfrastructureManager.logger.error("Error creating snapshot: %s" % image_url)
+            raise Exception("Error creating snapshot: %s" % image_url)
+        else:
+            return image_url
+
+    @staticmethod
     def stop():
         IM.InfrastructureList.InfrastructureList.stop()
