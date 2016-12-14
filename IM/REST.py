@@ -363,6 +363,7 @@ def RESTCreateInfrastructure():
 
         inf_id = InfrastructureManager.CreateInfrastructure(radl_data, auth)
 
+        bottle.response.headers['InfID'] = inf_id
         bottle.response.content_type = "text/uri-list"
         protocol = "http://"
         if Config.REST_SSL:

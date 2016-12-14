@@ -165,6 +165,9 @@ keys are:
 * ``id`` associates an identifier to the credential. The identifier should be
   used as the label in the *deploy* section in the RADL.
 
+* ``subscription_id`` indicates the subscription_id name associated to the credential.
+  This field is only used in the Azure plugin.
+
 OpenStack addicional fields
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -198,7 +201,7 @@ An example of the auth file::
    id = gce; type = GCE; username = username.apps.googleusercontent.com; password = pass; project = projectname
    id = docker; type = Docker; host = http://host:2375
    id = occi; type = OCCI; proxy = file(/tmp/proxy.pem); host = https://fc-one.i3m.upv.es:11443
-   id = azure; type = Azure; username = subscription-id; public_key = file(cert.pem); private_key = file(key.pem)
+   id = azure; type = Azure; subscription_id = subscription-id; username = user@domain.com; password = pass
    id = kub; type = Kubernetes; host = http://server:8080; username = user; password = pass
    id = fog; type = FogBow; host = http://server:8182; proxy = file(/tmp/proxy.pem)
    
