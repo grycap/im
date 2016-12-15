@@ -160,11 +160,25 @@ class DockerCloudConnector(CloudConnector):
 
         cont_data['Hostname'] = nodename
         cont_data['Domainname'] = nodedom
-        cont_data['Cmd'] = ["/bin/bash", "-c", ("yum install -y openssh-server ;  apt-get update && apt-get install"
-                                                " -y openssh-server && sed -i 's/PermitRootLogin without-password/"
-                                                "PermitRootLogin yes/g' /etc/ssh/sshd_config && service ssh start "
-                                                "&& service ssh stop ; echo 'root:" + self._root_password +
-                                                "' | chpasswd ; /usr/sbin/sshd -D")]
+        command = "yum install -y openssh-server python"
+        command += " ; "
+        command += "apt-get update && apt-get install -y openssh-server python"
+        command += " ; "
+        command += "mkdir /var/run/sshd"
+        command += " ; "
+        command += "sed -i 's/PermitRootLogin without-password/PermitRootLogin yes/g' /etc/ssh/sshd_config"
+        command += " ; "
+        command += "sed -i 's/PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config"
+        command += " ; "
+        command += "ssh-keygen -t rsa -f /etc/ssh/ssh_host_rsa_key -N ''"
+        command += " ; "
+        command += "echo 'root:" + self._root_password + "' | chpasswd"
+        command += " ; "
+        command += "sed 's@session\s*required\s*pam_loginuid.so@session optional pam_loginuid.so@g' -i /etc/pam.d/sshd"
+        command += " ; "
+        command += " /usr/sbin/sshd -D"
+
+        cont_data['Cmd'] = ["/bin/bash", "-c", command]
         cont_data['Image'] = image_name
         cont_data['ExposedPorts'] = self._generate_exposed_ports(outports)
         if volumes:
