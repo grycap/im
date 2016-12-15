@@ -30,9 +30,7 @@ sys.path.append(".")
 
 from IM.auth import Authentication
 
-RADL_ADD = "network publica\nnetwork privada\nsystem wn\ndeploy wn 1"
 TESTS_PATH = os.path.dirname(os.path.realpath(__file__))
-RADL_FILE = TESTS_PATH + '/load-test.radl'
 AUTH_FILE = TESTS_PATH + '/auth.dat'
 HOSTNAME = "imservice"
 TEST_PORT = 8899
@@ -72,6 +70,8 @@ class LoadTest(unittest.TestCase):
         for inf_id in res:
             self.getinfo(inf_id)
             self.getstate(inf_id)
+        
+        self.print_response_times()
 
     def getinfo(self, inf_id):
         """

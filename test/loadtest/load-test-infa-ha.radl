@@ -8,7 +8,8 @@ net_interface.0.connection = 'publica' and
 net_interface.1.connection = 'privada' and
 net_interface.1.dns_name = 'imservice' and
 disk.0.os.name='linux' and
-disk.0.os.flavour='ubuntu' and
+disk.0.os.flavour='centos' and
+disk.0.os.version>='7' and
 disk.0.os.credentials.new.password = 'Tututu+01'
 )
 
@@ -35,7 +36,7 @@ disk.0.os.credentials.new.password = 'Tututu+01'
 configure docker (
 @begin
     - name: add docker apt key
-      apt_key: keyserver=hkp://pgp.mit.edu:80 id=58118E89F3A912897C070ADBF76221572C52609D state=present 
+      apt_key: keyserver=hkp://ha.pool.sks-keyservers.net:80 id=58118E89F3A912897C070ADBF76221572C52609D state=present 
       when: ansible_os_family == "Debian"
 
     - name: add docker repository
@@ -240,9 +241,10 @@ configure imclient (
         mode: 0644
 
     - name: Download LoadTest.py
-      get_url: url=https://raw.githubusercontent.com/grycap/im/database/test/loadtest/{{item}} dest=/tmp/{{item}}
+      get_url: url=https://raw.githubusercontent.com/grycap/im/devel/test/loadtest/{{item}} dest=/tmp/{{item}}
       with_items:
        - LoadTest.py
+       - LoadTestR.py
        - load-test.radl
        - LoadTestREST.py
 
