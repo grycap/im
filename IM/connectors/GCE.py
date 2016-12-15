@@ -303,7 +303,7 @@ class GCECloudConnector(CloudConnector):
                 if net.isPublic():
                     public_net = net
 
-            ports = {"tcp", ["22"]}
+            ports = {"tcp": ["22"]}
             if public_net:
                 outports = public_net.getOutPorts()
                 if outports:
