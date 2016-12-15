@@ -15,7 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 # The following file has been taken from requests-unixsocket
-#https://github.com/msabramo/requests-unixsocket/blob/master/requests_unixsocket/adapters.py
+# https://github.com/msabramo/requests-unixsocket/blob/master/requests_unixsocket/adapters.py
 
 import socket
 

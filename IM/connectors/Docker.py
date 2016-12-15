@@ -52,8 +52,8 @@ class DockerCloudConnector(CloudConnector):
 
         if self.cloud.protocol == 'unix':
             url = "http+unix://%%2F%s%s%s" % (self.cloud.server.replace("/", "%2F"),
-                                             self.cloud.path.replace("/", "%2F"),
-                                             url)
+                                              self.cloud.path.replace("/", "%2F"),
+                                              url)
             session = requests.Session()
             session.mount('http+unix://', UnixHTTPAdapter.UnixHTTPAdapter())
             resp = session.request(method, url, verify=False, headers=headers, data=body)
@@ -63,7 +63,7 @@ class DockerCloudConnector(CloudConnector):
                 cert = self.get_user_cert_data(auth)
             else:
                 cert = None
-            
+
             resp = requests.request(method, url, verify=False, cert=cert, headers=headers, data=body)
 
         return resp
@@ -267,7 +267,7 @@ class DockerCloudConnector(CloudConnector):
 
                 # The URI has this format: docker://image_name
                 full_image_name = system.getValue("disk.0.image.url")[9:]
-                
+
                 # First we have to pull the image
                 headers = {'Content-Type': 'application/json'}
                 image_parts = full_image_name.split(":")
@@ -324,7 +324,7 @@ class DockerCloudConnector(CloudConnector):
     def updateVMInfo(self, vm, auth_data):
         try:
             resp = self.create_request('GET', "/containers/" + vm.id + "/json", auth_data)
-            
+
             if resp.status_code == 404:
                 # If the container does not exist, set state to OFF
                 vm.state = VirtualMachine.OFF
@@ -352,9 +352,9 @@ class DockerCloudConnector(CloudConnector):
             # First Stop it
             self.stop(vm, auth_data)
 
-            # Now delete it            
+            # Now delete it
             resp = self.create_request('DELETE', "/containers/" + vm.id, auth_data)
-            
+
             if resp.status_code == 404:
                 self.logger.warn(
                     "Trying to remove a non existing container id: " + vm.id)
@@ -368,9 +368,9 @@ class DockerCloudConnector(CloudConnector):
             return (False, "Error connecting with Docker server")
 
     def stop(self, vm, auth_data):
-        try:            
+        try:
             resp = self.create_request('POST', "/containers/" + vm.id + "/stop", auth_data)
-            
+
             if resp.status_code != 204:
                 return (False, "Error stopping the Container: " + resp.text)
             else:
