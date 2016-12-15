@@ -18,13 +18,13 @@ import os
 import tempfile
 import json
 import socket
-import httplib
+import requests
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from IM.config import Config
 from CloudConnector import CloudConnector
 from radl.radl import Feature
-from IM import UnixHTTPConnection
+from IM import UnixHTTPAdapter
 
 
 class DockerCloudConnector(CloudConnector):
@@ -41,53 +41,30 @@ class DockerCloudConnector(CloudConnector):
     _root_password = "Aspecial+0ne"
     """ Default password to set to the root in the container"""
 
-    def __init__(self, cloud_info):
-        self.cert_file = ''
-        self.key_file = ''
-        CloudConnector.__init__(self, cloud_info)
+    def create_request(self, method, url, auth_data, headers=None, body=None):
 
-    def get_http_connection(self, auth_data):
-        """
-        Get the HTTPConnection object to contact the Docker API
-
-        Arguments:
-           - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
-        Returns(HTTPConnection or HTTPSConnection): HTTPConnection connection object
-        """
-
-        self.cert_file or os.path.isfile(self.cert_file)
-
-        auths = auth_data.getAuthInfo(
-            DockerCloudConnector.type, self.cloud.server)
+        auths = auth_data.getAuthInfo(DockerCloudConnector.type, self.cloud.server)
         if not auths:
-            self.logger.error(
-                "No correct auth data has been specified to Docker.")
+            self.logger.error("No correct auth data has been specified to Docker.")
             return None
         else:
             auth = auths[0]
 
         if self.cloud.protocol == 'unix':
-            socket_path = "/" + self.cloud.server
-            conn = UnixHTTPConnection.UnixHTTPConnection(socket_path)
-        elif self.cloud.protocol == 'https':
+            url = "http+unix://" + self.cloud.server + url
+            session = requests.Session()
+            session.mount('http+unix://', UnixHTTPAdapter.UnixHTTPAdapter())
+            resp = session.request(method, url, verify=False, headers=headers, data=body)
+        else:
+            url = "%s://%s:%d%s" % (self.cloud.protocol, self.cloud.server, self.cloud.port, url)
             if 'cert' in auth and 'key' in auth:
-                if os.path.isfile(self.cert_file) and os.path.isfile(self.key_file):
-                    cert_file = self.cert_file
-                    key_file = self.key_file
-                else:
-                    cert_file, key_file = self.get_user_cert_data(auth)
-                    self.cert_file = cert_file
-                    self.key_file = key_file
-                conn = httplib.HTTPSConnection(
-                    self.cloud.server, self.cloud.port, cert_file=cert_file, key_file=key_file)
+                cert = self.get_user_cert_data(auth)
             else:
-                conn = httplib.HTTPSConnection(
-                    self.cloud.server, self.cloud.port)
-        elif self.cloud.protocol == 'http' or not self.cloud.protocol:
-            self.logger.warn("Using a unsecure connection to docker API!")
-            conn = httplib.HTTPConnection(self.cloud.server, self.cloud.port)
+                cert = None
+            
+            resp = requests.request(method, url, verify=False, cert=cert, headers=headers, data=body)
 
-        return conn
+        return resp
 
     def get_user_cert_data(self, auth):
         """
@@ -273,7 +250,6 @@ class DockerCloudConnector(CloudConnector):
         if public_net:
             outports = public_net.getOutPorts()
 
-        conn = self.get_http_connection(auth_data)
         res = []
         i = 0
         while i < num_vm:
@@ -287,28 +263,20 @@ class DockerCloudConnector(CloudConnector):
                     DockerCloudConnector._port_counter += 1
 
                 # Create the VM to get the nodename
-                vm = VirtualMachine(inf, None, self.cloud,
-                                    radl, requested_radl, self)
+                vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self)
 
                 # Create the container
-                conn.putrequest('POST', "/containers/create")
-                conn.putheader('Content-Type', 'application/json')
-
-                cont_data = self._generate_create_request_data(
-                    outports, system, vm, ssh_port)
+                cont_data = self._generate_create_request_data(outports, system, vm, ssh_port)
                 body = json.dumps(cont_data)
+                
+                headers = {'Accept': 'application/json'}
+                resp = self.create_request('POST', self.cloud.path + "/containers/create", auth_data, headers, body)
 
-                conn.putheader('Content-Length', len(body))
-                conn.endheaders(body)
-
-                resp = conn.getresponse()
-                output = resp.read()
-                if resp.status != 201:
-                    res.append(
-                        (False, "Error creating the Container: " + output))
+                if resp.status_code != 201:
+                    res.append((False, "Error creating the Container: " + resp.text))
                     continue
 
-                output = json.loads(output)
+                output = json.loads(resp.text)
                 # Set the cloud id to the VM
                 vm.id = output["Id"]
                 vm.info.systems[0].setValue('instance_id', str(vm.id))
@@ -316,19 +284,14 @@ class DockerCloudConnector(CloudConnector):
                 # Now start it
                 success, _ = self.start(vm, auth_data)
                 if not success:
-                    res.append(
-                        (False, "Error starting the Container: " + str(output)))
+                    res.append((False, "Error starting the Container: " + str(output)))
                     # Delete the container
-                    conn.request('DELETE', "/containers/" + vm.id)
-                    resp = conn.getresponse()
-                    resp.read()
+                    resp = self.create_request('DELETE', self.cloud.path + "/containers/" + vm.id, auth_data)
                     continue
 
                 # Set the default user and password to access the container
-                vm.info.systems[0].setValue(
-                    'disk.0.os.credentials.username', 'root')
-                vm.info.systems[0].setValue(
-                    'disk.0.os.credentials.password', self._root_password)
+                vm.info.systems[0].setValue('disk.0.os.credentials.username', 'root')
+                vm.info.systems[0].setValue('disk.0.os.credentials.password', self._root_password)
 
                 # Set ssh port in the RADL info of the VM
                 vm.setSSHPort(ssh_port)
@@ -343,18 +306,16 @@ class DockerCloudConnector(CloudConnector):
 
     def updateVMInfo(self, vm, auth_data):
         try:
-            conn = self.get_http_connection(auth_data)
-            conn.request('GET', "/containers/" + vm.id + "/json")
-            resp = conn.getresponse()
-            output = resp.read()
-            if resp.status == 404:
+            resp = self.create_request('GET', "/containers/" + vm.id + "/json", auth_data)
+            
+            if resp.status_code == 404:
                 # If the container does not exist, set state to OFF
                 vm.state = VirtualMachine.OFF
                 return (True, vm)
-            elif resp.status != 200:
-                return (False, "Error getting info about the Container: " + output)
+            elif resp.status_code != 200:
+                return (False, "Error getting info about the Container: " + resp.text)
 
-            output = json.loads(output)
+            output = json.loads(resp.text)
             if output["State"]["Running"]:
                 vm.state = VirtualMachine.RUNNING
             else:
@@ -374,17 +335,15 @@ class DockerCloudConnector(CloudConnector):
             # First Stop it
             self.stop(vm, auth_data)
 
-            # Now delete it
-            conn = self.get_http_connection(auth_data)
-            conn.request('DELETE', "/containers/" + vm.id)
-            resp = conn.getresponse()
-            output = str(resp.read())
-            if resp.status == 404:
+            # Now delete it            
+            resp = self.create_request('DELETE', "/containers/" + vm.id, auth_data)
+            
+            if resp.status_code == 404:
                 self.logger.warn(
                     "Trying to remove a non existing container id: " + vm.id)
                 return (True, vm.id)
             elif resp.status != 204:
-                return (False, "Error deleting the Container: " + output)
+                return (False, "Error deleting the Container: " + resp.text)
             else:
                 return (True, vm.id)
         except Exception:
@@ -392,13 +351,11 @@ class DockerCloudConnector(CloudConnector):
             return (False, "Error connecting with Docker server")
 
     def stop(self, vm, auth_data):
-        try:
-            conn = self.get_http_connection(auth_data)
-            conn.request('POST', "/containers/" + vm.id + "/stop")
-            resp = conn.getresponse()
-            output = str(resp.read())
-            if resp.status != 204:
-                return (False, "Error stopping the Container: " + output)
+        try:            
+            resp = self.create_request('POST', "/containers/" + vm.id + "/stop", auth_data)
+            
+            if resp.status_code != 204:
+                return (False, "Error stopping the Container: " + resp.text)
             else:
                 return (True, vm.id)
         except Exception:
@@ -407,12 +364,10 @@ class DockerCloudConnector(CloudConnector):
 
     def start(self, vm, auth_data):
         try:
-            conn = self.get_http_connection(auth_data)
-            conn.request('POST', "/containers/" + vm.id + "/start")
-            resp = conn.getresponse()
-            output = str(resp.read())
-            if resp.status != 204:
-                return (False, "Error starting the Container: " + output)
+            resp = self.create_request('POST', "/containers/" + vm.id + "/start", auth_data)
+
+            if resp.status_code != 204:
+                return (False, "Error starting the Container: " + resp.text)
             else:
                 return (True, vm.id)
         except Exception:
