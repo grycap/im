@@ -146,14 +146,12 @@ class DockerCloudConnector(CloudConnector):
 
         vm.setIps(public_ips, private_ips)
 
-    def _generate_create_request_data(self, outports, system, vm, ssh_port):
+    def _generate_create_request_data(self, image_name, outports, system, vm, ssh_port):
         cont_data = {}
 
         cpu = int(system.getValue('cpu.count')) - 1
         memory = system.getFeature('memory.size').getValue('B')
         # name = system.getValue("disk.0.image.name")
-        # The URI has this format: docker://image_name
-        image_name = system.getValue("disk.0.image.url")[9:]
 
         (nodename, nodedom) = vm.getRequestedName(
             default_hostname=Config.DEFAULT_VM_NAME, default_domain=Config.DEFAULT_DOMAIN)
@@ -173,7 +171,7 @@ class DockerCloudConnector(CloudConnector):
             cont_data['Volumes'] = volumes
 
         HostConfig = {}
-        HostConfig['CpuShares'] = "%d" % cpu
+        HostConfig['CpuShares'] = cpu
         HostConfig['Memory'] = memory
         HostConfig['PortBindings'] = self._generate_port_bindings(
             outports, ssh_port)
@@ -267,11 +265,28 @@ class DockerCloudConnector(CloudConnector):
                 # Create the VM to get the nodename
                 vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self)
 
-                # Create the container
-                cont_data = self._generate_create_request_data(outports, system, vm, ssh_port)
-                body = json.dumps(cont_data)
+                # The URI has this format: docker://image_name
+                full_image_name = system.getValue("disk.0.image.url")[9:]
                 
+                # First we have to pull the image
                 headers = {'Content-Type': 'application/json'}
+                image_parts = full_image_name.split(":")
+                image_name = image_parts[0]
+                if len(image_parts) < 2:
+                    tag = "latest"
+                else:
+                    tag = image_parts[1]
+                resp = self.create_request('POST', "/images/create?fromImage=%s&tag=%s" % (image_name, tag),
+                                           auth_data, headers)
+
+                if resp.status_code not in [201, 200]:
+                    res.append((False, "Error pulling the image: " + resp.text))
+                    continue
+
+                # Create the container
+                cont_data = self._generate_create_request_data(full_image_name, outports, system, vm, ssh_port)
+                body = json.dumps(cont_data)
+
                 resp = self.create_request('POST', "/containers/create", auth_data, headers, body)
 
                 if resp.status_code != 201:
