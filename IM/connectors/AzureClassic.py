@@ -657,6 +657,7 @@ class AzureClassicCloudConnector(CloudConnector):
             return None
 
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
+        service_name = None
         region = self.DEFAULT_LOCATION
         if radl.systems[0].getValue('availability_zone'):
             region = radl.systems[0].getValue('availability_zone')
@@ -738,7 +739,8 @@ class AzureClassicCloudConnector(CloudConnector):
 
             except Exception, ex:
                 self.logger.exception("Error creating the VM")
-                self.delete_service(service_name, auth_data)
+                if service_name:
+                    self.delete_service(service_name, auth_data)
                 res.append((False, "Error creating the VM: " + str(ex)))
 
             i += 1
