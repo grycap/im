@@ -58,7 +58,7 @@ class DockerCloudConnector(CloudConnector):
             session.mount('http+unix://', UnixHTTPAdapter.UnixHTTPAdapter())
             resp = session.request(method, url, verify=False, headers=headers, data=body)
         else:
-            url = "%s://%s:%d%s" % (self.cloud.protocol, self.cloud.server, self.cloud.port, url)
+            url = "%s://%s:%d%s%s" % (self.cloud.protocol, self.cloud.server, self.cloud.port, self.cloud.path, url)
             if 'cert' in auth and 'key' in auth:
                 cert = self.get_user_cert_data(auth)
             else:
