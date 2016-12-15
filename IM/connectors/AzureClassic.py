@@ -389,11 +389,11 @@ class AzureClassicCloudConnector(CloudConnector):
         else:
             auth = auths[0]
 
-        if 'username' in auth:
-            subscription_id = auth['username']
+        if 'subscription_id' in auth:
+            subscription_id = auth['subscription_id']
         else:
             raise Exception(
-                "No correct auth data has been specified to Azure: username, public_key and private_key.")
+                "No correct auth data has been specified to Azure: subscription_id, public_key and private_key.")
 
         # We check if the cert and key files exist
         if os.path.isfile(self.cert_file) and os.path.isfile(self.key_file):
@@ -429,9 +429,9 @@ class AzureClassicCloudConnector(CloudConnector):
             return (cert_file, key_file)
         else:
             self.logger.error(
-                "No correct auth data has been specified to Azure: username, public_key and private_key.")
+                "No correct auth data has been specified to Azure: subscription_id, public_key and private_key.")
             raise Exception(
-                "No correct auth data has been specified to Azure: username, public_key and private_key.")
+                "No correct auth data has been specified to Azure: subscription_id, public_key and private_key.")
 
     def create_service(self, auth_data, region):
         """
