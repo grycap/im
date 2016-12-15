@@ -31,6 +31,7 @@ from radl import radl_parse
 from IM.VirtualMachine import VirtualMachine
 from IM.InfrastructureInfo import InfrastructureInfo
 from IM.connectors.Docker import DockerCloudConnector
+from IM.uriparse import uriparse
 from mock import patch, MagicMock
 
 
@@ -47,7 +48,6 @@ class TestDockerConnector(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.last_op = None, None
         cls.log = StringIO()
         ch = logging.StreamHandler(cls.log)
         formatter = logging.Formatter(
@@ -100,37 +100,37 @@ class TestDockerConnector(unittest.TestCase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         self.clean_log()
 
-    def get_response(self):
-        method, url = self.__class__.last_op
-
+    def get_response(self, method, url, verify, cert, headers, data):
         resp = MagicMock()
+        parts = uriparse(url)
+        url = parts[2]
+        params = parts[4]
 
         if method == "GET":
             if url == "/api/":
-                resp.status = 200
-                resp.read.return_value = '{"versions": "v1"}'
+                resp.status_code = 200
+                resp.text = '{"versions": "v1"}'
             if url == "/containers/1/json":
-                resp.status = 200
-                resp.read.return_value = '{"State": {"Running": 1}, "NetworkSettings": {"IPAddress": "10.0.0.1"}}'
+                resp.status_code = 200
+                resp.text = '{"State": {"Running": 1}, "NetworkSettings": {"IPAddress": "10.0.0.1"}}'
         elif method == "POST":
             if url == "/containers/create":
-                resp.status = 201
-                resp.read.return_value = '{"Id": "id"}'
+                resp.status_code = 201
+                resp.text = '{"Id": "id"}'
+            elif url == "/images/create":
+                resp.status_code = 200
             elif url.endswith("/start"):
-                resp.status = 204
+                resp.status_code = 204
             elif url.endswith("/stop"):
-                resp.status = 204
+                resp.status_code = 204
         elif method == "DELETE":
             if url.endswith("/containers/1"):
-                resp.status = 204
+                resp.status_code = 204
 
         return resp
 
-    def request(self, method, url, body=None, headers={}):
-        self.__class__.last_op = method, url
-
-    @patch('httplib.HTTPConnection')
-    def test_20_launch(self, connection):
+    @patch('requests.request')
+    def test_20_launch(self, requests):
         radl_data = """
             network net1 (outbound = 'yes' and outports = '8080')
             network net2 ()
@@ -154,12 +154,7 @@ class TestDockerConnector(unittest.TestCase):
         auth = Authentication([{'id': 'docker', 'type': 'Docker', 'host': 'http://server.com:2375'}])
         docker_cloud = self.get_docker_cloud()
 
-        conn = MagicMock()
-        connection.return_value = conn
-
-        conn.request.side_effect = self.request
-        conn.putrequest.side_effect = self.request
-        conn.getresponse.side_effect = self.get_response
+        requests.side_effect = self.get_response
 
         res = docker_cloud.launch(InfrastructureInfo(), radl, radl, 1, auth)
         success, _ = res[0]
@@ -167,8 +162,8 @@ class TestDockerConnector(unittest.TestCase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         self.clean_log()
 
-    @patch('httplib.HTTPConnection')
-    def test_30_updateVMInfo(self, connection):
+    @patch('requests.request')
+    def test_30_updateVMInfo(self, requests):
         radl_data = """
             network net (outbound = 'yes')
             system test (
@@ -192,11 +187,7 @@ class TestDockerConnector(unittest.TestCase):
         inf.get_next_vm_id.return_value = 1
         vm = VirtualMachine(inf, "1", docker_cloud.cloud, radl, radl, docker_cloud)
 
-        conn = MagicMock()
-        connection.return_value = conn
-
-        conn.request.side_effect = self.request
-        conn.getresponse.side_effect = self.get_response
+        requests.side_effect = self.get_response
 
         success, vm = docker_cloud.updateVMInfo(vm, auth)
 
@@ -204,8 +195,8 @@ class TestDockerConnector(unittest.TestCase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         self.clean_log()
 
-    @patch('httplib.HTTPConnection')
-    def test_40_stop(self, connection):
+    @patch('requests.request')
+    def test_40_stop(self, requests):
         auth = Authentication([{'id': 'docker', 'type': 'Docker', 'host': 'http://server.com:2375'}])
         docker_cloud = self.get_docker_cloud()
 
@@ -213,11 +204,7 @@ class TestDockerConnector(unittest.TestCase):
         inf.get_next_vm_id.return_value = 1
         vm = VirtualMachine(inf, "1", docker_cloud.cloud, "", "", docker_cloud)
 
-        conn = MagicMock()
-        connection.return_value = conn
-
-        conn.request.side_effect = self.request
-        conn.getresponse.side_effect = self.get_response
+        requests.side_effect = self.get_response
 
         success, _ = docker_cloud.stop(vm, auth)
 
@@ -225,8 +212,8 @@ class TestDockerConnector(unittest.TestCase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         self.clean_log()
 
-    @patch('httplib.HTTPConnection')
-    def test_50_start(self, connection):
+    @patch('requests.request')
+    def test_50_start(self, requests):
         auth = Authentication([{'id': 'docker', 'type': 'Docker', 'host': 'http://server.com:2375'}])
         docker_cloud = self.get_docker_cloud()
 
@@ -234,11 +221,7 @@ class TestDockerConnector(unittest.TestCase):
         inf.get_next_vm_id.return_value = 1
         vm = VirtualMachine(inf, "1", docker_cloud.cloud, "", "", docker_cloud)
 
-        conn = MagicMock()
-        connection.return_value = conn
-
-        conn.request.side_effect = self.request
-        conn.getresponse.side_effect = self.get_response
+        requests.side_effect = self.get_response
 
         success, _ = docker_cloud.start(vm, auth)
 
@@ -246,8 +229,8 @@ class TestDockerConnector(unittest.TestCase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         self.clean_log()
 
-    @patch('httplib.HTTPConnection')
-    def test_60_finalize(self, connection):
+    @patch('requests.request')
+    def test_60_finalize(self, requests):
         auth = Authentication([{'id': 'docker', 'type': 'Docker', 'host': 'http://server.com:2375'}])
         docker_cloud = self.get_docker_cloud()
 
@@ -255,11 +238,7 @@ class TestDockerConnector(unittest.TestCase):
         inf.get_next_vm_id.return_value = 1
         vm = VirtualMachine(inf, "1", docker_cloud.cloud, "", "", docker_cloud)
 
-        conn = MagicMock()
-        connection.return_value = conn
-
-        conn.request.side_effect = self.request
-        conn.getresponse.side_effect = self.get_response
+        requests.side_effect = self.get_response
 
         success, _ = docker_cloud.finalize(vm, auth)
 
