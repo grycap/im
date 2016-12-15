@@ -71,7 +71,7 @@ class OCCICloudConnector(CloudConnector):
                 except:
                     pass
 
-        return resp 
+        return resp
 
     def create_request(self, method, url, auth_data, headers, body=None):
         url = "%s://%s:%d%s" % (self.cloud.protocol, self.cloud.server, self.cloud.port, url)
@@ -837,7 +837,7 @@ users:
             body = ('Category: suspend;scheme="http://schemas.ogf.org/occi/infrastructure/compute/action#"'
                     ';class="action";\n')
             resp = self.create_request('POST', self.cloud.path + "/compute/" + vm.id + "?action=suspend",
-                                             auth_data, headers, body)
+                                       auth_data, headers, body)
 
             if resp.status_code != 200:
                 return (False, "Error stopping the VM: " + resp.reason + "\n" + resp.text)
@@ -857,7 +857,7 @@ users:
             body = ('Category: start;scheme="http://schemas.ogf.org/occi/infrastructure/compute/action#"'
                     ';class="action";\n')
             resp = self.create_request('POST', self.cloud.path + "/compute/" + vm.id + "?action=start",
-                                             auth_data, headers, body)
+                                       auth_data, headers, body)
 
             if resp.status_code != 200:
                 return (False, "Error starting the VM: " + resp.reason + "\n" + resp.text)
