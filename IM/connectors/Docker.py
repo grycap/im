@@ -51,7 +51,9 @@ class DockerCloudConnector(CloudConnector):
             auth = auths[0]
 
         if self.cloud.protocol == 'unix':
-            url = "http+unix://" + self.cloud.server + url
+            url = "http+unix://%%2F%s%s%s" % (self.cloud.server.replace("/", "%2F"),
+                                             self.cloud.path.replace("/", "%2F"),
+                                             url)
             session = requests.Session()
             session.mount('http+unix://', UnixHTTPAdapter.UnixHTTPAdapter())
             resp = session.request(method, url, verify=False, headers=headers, data=body)
@@ -269,8 +271,8 @@ class DockerCloudConnector(CloudConnector):
                 cont_data = self._generate_create_request_data(outports, system, vm, ssh_port)
                 body = json.dumps(cont_data)
                 
-                headers = {'Accept': 'application/json'}
-                resp = self.create_request('POST', self.cloud.path + "/containers/create", auth_data, headers, body)
+                headers = {'Content-Type': 'application/json'}
+                resp = self.create_request('POST', "/containers/create", auth_data, headers, body)
 
                 if resp.status_code != 201:
                     res.append((False, "Error creating the Container: " + resp.text))
@@ -286,7 +288,7 @@ class DockerCloudConnector(CloudConnector):
                 if not success:
                     res.append((False, "Error starting the Container: " + str(output)))
                     # Delete the container
-                    resp = self.create_request('DELETE', self.cloud.path + "/containers/" + vm.id, auth_data)
+                    resp = self.create_request('DELETE', "/containers/" + vm.id, auth_data)
                     continue
 
                 # Set the default user and password to access the container
@@ -342,7 +344,7 @@ class DockerCloudConnector(CloudConnector):
                 self.logger.warn(
                     "Trying to remove a non existing container id: " + vm.id)
                 return (True, vm.id)
-            elif resp.status != 204:
+            elif resp.status_code != 204:
                 return (False, "Error deleting the Container: " + resp.text)
             else:
                 return (True, vm.id)
