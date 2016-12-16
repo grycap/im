@@ -1,0 +1,163 @@
+#! /usr/bin/env python
+#
+# IM - Infrastructure Manager
+# Copyright (C) 2011 - GRyCAP - Universitat Politecnica de Valencia
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+from multiprocessing import Process
+import unittest
+import xmlrpclib
+import time
+import sys
+import os
+import random
+import datetime
+import httplib
+import json
+
+sys.path.append("..")
+sys.path.append(".")
+
+from IM.uriparse import uriparse
+from IM.VirtualMachine import VirtualMachine
+from radl import radl_parse
+from IM import __version__ as version
+
+RADL_ADD = "network publica\nnetwork privada\nsystem wn\ndeploy wn 1"
+TESTS_PATH = os.path.dirname(os.path.realpath(__file__))
+RADL_FILE = TESTS_PATH + '/load-test.radl'
+AUTH_FILE = TESTS_PATH + '/auth.dat'
+HOSTNAME = "imservice"
+TEST_PORT = 8800
+MIN_SLEEP = 1
+MAX_SLEEP = 10
+
+
+class LoadTest(unittest.TestCase):
+
+    server = None
+    auth_data = None
+    inf_id = 0
+    response_times = []
+
+    @classmethod
+    def setUpClass(cls):
+        cls.server = xmlrpclib.ServerProxy(
+            "http://" + HOSTNAME + ":" + str(TEST_PORT), allow_none=True)
+        cls.auth_data = open(AUTH_FILE, 'r').read().replace("\n", "\\n")
+        cls.inf_id = 0
+
+    @classmethod
+    def tearDownClass(cls):
+        # Assure that the infrastructure is destroyed
+        try:
+            cls.server.DestroyInfrastructure(cls.inf_id, cls.auth_data)
+        except Exception:
+            pass
+
+    @staticmethod
+    def wait(mint=MIN_SLEEP, maxt=MAX_SLEEP):
+        delay = random.uniform(mint, maxt)
+        time.sleep(delay)
+
+    def test_10_list(self):
+        before = time.time()
+        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
+        server.request('GET', "/infrastructures",
+                       headers={'AUTHORIZATION': self.auth_data})
+        resp = server.getresponse()
+        output = str(resp.read())
+        server.close()
+        resp_time = time.time() - before
+        self.__class__.response_times.append(resp_time)
+        self.assertEqual(resp.status, 200,
+                         msg="ERROR listing user infrastructures:" + output)
+
+        for inf_id in output.split("\n"):
+            inf_id = os.path.basename(inf_id)
+            self.getinfo(inf_id)
+            self.getstate(inf_id)
+
+
+    def getinfo(self, inf_id):
+        before = time.time()
+        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
+        server.request('GET', "/infrastructures/" + inf_id,
+                       headers={'AUTHORIZATION': self.auth_data})
+        resp = server.getresponse()
+        output = str(resp.read())
+        server.close()
+        resp_time = time.time() - before
+        self.__class__.response_times.append(resp_time)
+        self.assertEqual(resp.status, 200,
+                         msg="ERROR getting the infrastructure info:" + output)
+
+    def getstate(self, inf_id):
+        before = time.time()
+        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
+        server.request('GET', "/infrastructures/" + inf_id + "/state",
+                       headers={'AUTHORIZATION': self.auth_data})
+        resp = server.getresponse()
+        output = str(resp.read())
+        server.close()
+        resp_time = time.time() - before
+        self.__class__.response_times.append(resp_time)
+        self.assertEqual(
+            resp.status, 200, msg="ERROR getting the infrastructure state:" + output)
+        res = json.loads(output)
+        state = res['state']['state']
+        vm_states = res['state']['vm_states']
+
+def test(num_client):
+    now = datetime.datetime.now()
+    print now, ": Launch client num: %d" % num_client
+    unittest.main()
+    now = datetime.datetime.now()
+    print now, ": End client num: %d" % num_client
+
+if __name__ == '__main__':
+    MAX_THREADS = 1
+    MAX_CLIENTS = 1
+    DELAY = 1
+
+    if len(sys.argv) > 3:
+        DELAY = int(sys.argv[3])
+        del sys.argv[3]
+
+    if len(sys.argv) > 2:
+        MAX_CLIENTS = int(sys.argv[1])
+        MAX_THREADS = int(sys.argv[2])
+        del sys.argv[1]
+        del sys.argv[1]
+    elif len(sys.argv) > 1:
+        MAX_CLIENTS = MAX_THREADS = int(sys.argv[1])
+        del sys.argv[1]
+
+    cont = 0
+    while cont < MAX_CLIENTS:
+        num_treads = min(MAX_CLIENTS - cont, MAX_THREADS)
+        processes = []
+        now = datetime.datetime.now()
+        print now, ": Launch %d threads. " % num_treads
+        for num in range(num_treads):
+            p = Process(target=test, args=(cont + num,))
+            p.start()
+            processes.append(p)
+            time.sleep(DELAY)
+        for p in processes:
+            p.join()
+        cont += num_treads
+        now = datetime.datetime.now()
+        print now, ": End %d threads. " % num_treads
