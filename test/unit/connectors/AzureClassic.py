@@ -31,6 +31,7 @@ from radl import radl_parse
 from IM.VirtualMachine import VirtualMachine
 from IM.InfrastructureInfo import InfrastructureInfo
 from IM.connectors.AzureClassic import AzureClassicCloudConnector
+from IM.uriparse import uriparse
 from mock import patch, MagicMock
 
 
@@ -47,7 +48,6 @@ class TestAzureClassicConnector(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.last_op = None, None
         cls.log = StringIO()
         ch = logging.StreamHandler(cls.log)
         formatter = logging.Formatter(
@@ -73,8 +73,8 @@ class TestAzureClassicConnector(unittest.TestCase):
         cloud = AzureClassicCloudConnector(cloud_info)
         return cloud
 
-    @patch('httplib.HTTPSConnection')
-    def test_10_concrete(self, connection):
+    @patch('requests.request')
+    def test_10_concrete(self, requests):
         radl_data = """
             network net ()
             system test (
@@ -94,81 +94,77 @@ class TestAzureClassicConnector(unittest.TestCase):
                                 'public_key': 'public_key', 'private_key': 'private_key'}])
         azure_cloud = self.get_azure_cloud()
 
-        conn = MagicMock()
-        connection.return_value = conn
-
-        conn.request.side_effect = self.request
-        conn.getresponse.side_effect = self.get_response
+        requests.side_effect = self.get_response
 
         concrete = azure_cloud.concreteSystem(radl_system, auth)
         self.assertEqual(len(concrete), 1)
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         self.clean_log()
 
-    def get_response(self):
-        method, url = self.__class__.last_op
+    def get_response(self, method, url, verify, cert, headers, data):
+        resp = MagicMock()
+        parts = uriparse(url)
+        url = parts[2]
+        params = parts[4]
 
         resp = MagicMock()
 
         if method == "GET":
             if "/deployments/" in url:
-                resp.status = 200
-                resp.read.return_value = ("<Deployment><Status>Running</Status><RoleInstanceList><RoleInstance>"
-                                          "<InstanceSize>RoleSizeName</InstanceSize><PowerState>Started</PowerState>"
-                                          "<IpAddress>10.0.0.1</IpAddress><InstanceEndpoints><InstanceEndpoint>"
-                                          "<Vip>158.42.1.1</Vip></InstanceEndpoint></InstanceEndpoints></RoleInstance>"
-                                          "</RoleInstanceList></Deployment>")
+                resp.status_code = 200
+                resp.text = ("<Deployment><Status>Running</Status><RoleInstanceList><RoleInstance>"
+                             "<InstanceSize>RoleSizeName</InstanceSize><PowerState>Started</PowerState>"
+                             "<IpAddress>10.0.0.1</IpAddress><InstanceEndpoints><InstanceEndpoint>"
+                             "<Vip>158.42.1.1</Vip></InstanceEndpoint></InstanceEndpoints></RoleInstance>"
+                             "</RoleInstanceList></Deployment>")
             if "/operations/" in url:
-                resp.status = 200
-                resp.read.return_value = ("<Operation><Status>Succeeded"
-                                          "</Status></Operation>")
+                resp.status_code = 200
+                resp.text = ("<Operation><Status>Succeeded"
+                             "</Status></Operation>")
             elif "/storageservices/" in url:
-                resp.status = 200
-                resp.read.return_value = ("<StorageService><StorageServiceProperties><GeoPrimaryRegion>North Europe"
-                                          "</GeoPrimaryRegion></StorageServiceProperties></StorageService>")
+                resp.status_code = 200
+                resp.text = ("<StorageService><StorageServiceProperties><GeoPrimaryRegion>North Europe"
+                             "</GeoPrimaryRegion></StorageServiceProperties></StorageService>")
             elif url.endswith("/rolesizes"):
-                resp.status = 200
-                resp.read.return_value = ("<RoleSizes><RoleSize><SupportedByVirtualMachines>true"
-                                          "</SupportedByVirtualMachines><Name>RoleSizeName</Name>"
-                                          "<MemoryInMb>512</MemoryInMb><Cores>1</Cores>"
-                                          "<VirtualMachineResourceDiskSizeInMb>2014"
-                                          "</VirtualMachineResourceDiskSizeInMb>"
-                                          "</RoleSize>"
-                                          "<RoleSize><SupportedByVirtualMachines>true"
-                                          "</SupportedByVirtualMachines><Name>RoleSizeName</Name>"
-                                          "<MemoryInMb>2048</MemoryInMb><Cores>2</Cores>"
-                                          "<VirtualMachineResourceDiskSizeInMb>2014"
-                                          "</VirtualMachineResourceDiskSizeInMb>"
-                                          "</RoleSize>"
-                                          "</RoleSizes>")
+                resp.status_code = 200
+                resp.text = ("<RoleSizes><RoleSize><SupportedByVirtualMachines>true"
+                             "</SupportedByVirtualMachines><Name>RoleSizeName</Name>"
+                             "<MemoryInMb>512</MemoryInMb><Cores>1</Cores>"
+                             "<VirtualMachineResourceDiskSizeInMb>2014"
+                             "</VirtualMachineResourceDiskSizeInMb>"
+                             "</RoleSize>"
+                             "<RoleSize><SupportedByVirtualMachines>true"
+                             "</SupportedByVirtualMachines><Name>RoleSizeName</Name>"
+                             "<MemoryInMb>2048</MemoryInMb><Cores>2</Cores>"
+                             "<VirtualMachineResourceDiskSizeInMb>2014"
+                             "</VirtualMachineResourceDiskSizeInMb>"
+                             "</RoleSize>"
+                             "</RoleSizes>")
 
         elif method == "POST":
             if url.endswith("/Operations"):
-                resp.status = 202
-                resp.getheader.return_value = "id"
+                resp.status_code = 202
+                resp.headers = {'x-ms-request-id': 'id'}
             elif url.endswith("/services/hostedservices"):
-                resp.status = 201
-                resp.read.return_value = ""
+                resp.status_code = 201
+                resp.text = ""
             elif url.endswith("/deployments"):
-                resp.status = 202
-                resp.getheader.return_value = "id"
+                resp.status_code = 202
+                resp.headers = {'x-ms-request-id': 'id'}
         elif method == "DELETE":
-            if url.endswith("comp=media"):
-                resp.status = 202
-                resp.getheader.return_value = "id"
+            if params == "comp=media":
+                resp.status_code = 202
+                resp.headers = {'x-ms-request-id': 'id'}
         elif method == "PUT":
             if "roles" in url:
-                resp.status = 202
-                resp.getheader.return_value = "id"
+                resp.status_code = 202
+                resp.headers = {'x-ms-request-id': 'id'}
 
         return resp
 
-    def request(self, method, url, body=None, headers={}):
-        self.__class__.last_op = method, url
-
-    @patch('httplib.HTTPSConnection')
+    @patch('requests.request')
     @patch('time.sleep')
-    def test_20_launch(self, sleep, connection):
+    def test_20_launch(self, sleep, requests):
         radl_data = """
             network net1 (outbound = 'yes' and outports = '8080')
             network net2 ()
@@ -193,11 +189,7 @@ class TestAzureClassicConnector(unittest.TestCase):
                                 'public_key': 'public_key', 'private_key': 'private_key'}])
         azure_cloud = self.get_azure_cloud()
 
-        conn = MagicMock()
-        connection.return_value = conn
-
-        conn.request.side_effect = self.request
-        conn.getresponse.side_effect = self.get_response
+        requests.side_effect = self.get_response
 
         res = azure_cloud.launch(InfrastructureInfo(), radl, radl, 1, auth)
         success, _ = res[0]
@@ -205,8 +197,8 @@ class TestAzureClassicConnector(unittest.TestCase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         self.clean_log()
 
-    @patch('httplib.HTTPSConnection')
-    def test_30_updateVMInfo(self, connection):
+    @patch('requests.request')
+    def test_30_updateVMInfo(self, requests):
         radl_data = """
             network net (outbound = 'yes')
             system test (
@@ -231,11 +223,7 @@ class TestAzureClassicConnector(unittest.TestCase):
         inf.get_next_vm_id.return_value = 1
         vm = VirtualMachine(inf, "1", azure_cloud.cloud, radl, radl, azure_cloud)
 
-        conn = MagicMock()
-        connection.return_value = conn
-
-        conn.request.side_effect = self.request
-        conn.getresponse.side_effect = self.get_response
+        requests.side_effect = self.get_response
 
         success, vm = azure_cloud.updateVMInfo(vm, auth)
 
@@ -243,9 +231,9 @@ class TestAzureClassicConnector(unittest.TestCase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         self.clean_log()
 
-    @patch('httplib.HTTPSConnection')
+    @patch('requests.request')
     @patch('time.sleep')
-    def test_40_stop(self, sleep, connection):
+    def test_40_stop(self, sleep, requests):
         auth = Authentication([{'id': 'azure', 'type': 'AzureClassic', 'subscription_id': 'user',
                                 'public_key': 'public_key', 'private_key': 'private_key'}])
         azure_cloud = self.get_azure_cloud()
@@ -254,11 +242,7 @@ class TestAzureClassicConnector(unittest.TestCase):
         inf.get_next_vm_id.return_value = 1
         vm = VirtualMachine(inf, "1", azure_cloud.cloud, "", "", azure_cloud)
 
-        conn = MagicMock()
-        connection.return_value = conn
-
-        conn.request.side_effect = self.request
-        conn.getresponse.side_effect = self.get_response
+        requests.side_effect = self.get_response
 
         success, _ = azure_cloud.stop(vm, auth)
 
@@ -266,9 +250,9 @@ class TestAzureClassicConnector(unittest.TestCase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         self.clean_log()
 
-    @patch('httplib.HTTPSConnection')
+    @patch('requests.request')
     @patch('time.sleep')
-    def test_50_start(self, sleep, connection):
+    def test_50_start(self, sleep, requests):
         auth = Authentication([{'id': 'azure', 'type': 'AzureClassic', 'subscription_id': 'user',
                                 'public_key': 'public_key', 'private_key': 'private_key'}])
         azure_cloud = self.get_azure_cloud()
@@ -277,11 +261,7 @@ class TestAzureClassicConnector(unittest.TestCase):
         inf.get_next_vm_id.return_value = 1
         vm = VirtualMachine(inf, "1", azure_cloud.cloud, "", "", azure_cloud)
 
-        conn = MagicMock()
-        connection.return_value = conn
-
-        conn.request.side_effect = self.request
-        conn.getresponse.side_effect = self.get_response
+        requests.side_effect = self.get_response
 
         success, _ = azure_cloud.start(vm, auth)
 
@@ -289,9 +269,9 @@ class TestAzureClassicConnector(unittest.TestCase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         self.clean_log()
 
-    @patch('httplib.HTTPSConnection')
+    @patch('requests.request')
     @patch('time.sleep')
-    def test_55_alter(self, sleep, connection):
+    def test_55_alter(self, sleep, requests):
         radl_data = """
             network net (outbound = 'yes')
             system test (
@@ -322,11 +302,7 @@ class TestAzureClassicConnector(unittest.TestCase):
         inf.get_next_vm_id.return_value = 1
         vm = VirtualMachine(inf, "1", azure_cloud.cloud, radl, radl, azure_cloud)
 
-        conn = MagicMock()
-        connection.return_value = conn
-
-        conn.request.side_effect = self.request
-        conn.getresponse.side_effect = self.get_response
+        requests.side_effect = self.get_response
 
         success, _ = azure_cloud.alterVM(vm, new_radl, auth)
 
@@ -334,9 +310,9 @@ class TestAzureClassicConnector(unittest.TestCase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         self.clean_log()
 
-    @patch('httplib.HTTPSConnection')
+    @patch('requests.request')
     @patch('time.sleep')
-    def test_60_finalize(self, sleep, connection):
+    def test_60_finalize(self, sleep, requests):
         auth = Authentication([{'id': 'azure', 'type': 'AzureClassic', 'subscription_id': 'user',
                                 'public_key': 'public_key', 'private_key': 'private_key'}])
         azure_cloud = self.get_azure_cloud()
@@ -346,11 +322,7 @@ class TestAzureClassicConnector(unittest.TestCase):
         vm = VirtualMachine(inf, "1", azure_cloud.cloud, "", "", azure_cloud)
 
         sleep.return_value = True
-        conn = MagicMock()
-        connection.return_value = conn
-
-        conn.request.side_effect = self.request
-        conn.getresponse.side_effect = self.get_response
+        requests.side_effect = self.get_response
 
         success, _ = azure_cloud.finalize(vm, auth)
 
