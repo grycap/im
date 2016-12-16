@@ -151,7 +151,7 @@ class AzureClassicCloudConnector(CloudConnector):
         else:
             auth = auths[0]
 
-        url = "%s://%s:%d%s" % (self.cloud.protocol, self.AZURE_SERVER, self.AZURE_PORT, url)
+        url = "https://%s:%d%s" % (self.AZURE_SERVER, self.AZURE_PORT, url)
         cert = self.get_user_cert_data(auth)
         resp = requests.request(method, url, verify=False, cert=cert, headers=headers, data=body)
 
