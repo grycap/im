@@ -90,7 +90,6 @@ class LoadTest(unittest.TestCase):
             self.getinfo(inf_id)
             self.getstate(inf_id)
 
-
     def getinfo(self, inf_id):
         before = time.time()
         server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
@@ -119,6 +118,7 @@ class LoadTest(unittest.TestCase):
         res = json.loads(output)
         state = res['state']['state']
         vm_states = res['state']['vm_states']
+
 
 def test(num_client):
     now = datetime.datetime.now()

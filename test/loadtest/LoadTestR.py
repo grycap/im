@@ -66,11 +66,11 @@ class LoadTest(unittest.TestCase):
 
         self.assertTrue(
             success, msg="ERROR calling GetInfrastructureList: " + str(res))
-        
+
         for inf_id in res:
             self.getinfo(inf_id)
             self.getstate(inf_id)
-        
+
         self.print_response_times()
 
     def getinfo(self, inf_id):
