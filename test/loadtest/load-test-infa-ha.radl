@@ -159,6 +159,14 @@ configure im (
                 timeout server       50000
                 mode http
 
+            listen statistics
+                bind *:9000
+                mode http
+                stats enable
+                stats realm Haproxy\ Statistics
+                stats uri /haproxy_stats
+                stats auth micafer:grycap01
+
             frontend http-frontend
                 bind *:8800
                 default_backend imbackend
@@ -188,8 +196,10 @@ configure im (
         state: started
         ports:
         - "8800:8800"
+        - "9000:9000"
         expose:
         - 8800
+        - 9000
         volumes:
         - "/etc/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg"
 
@@ -240,13 +250,14 @@ configure imclient (
             id = docker; type = Docker; host = {{INFRA_NODE_IP}}:2375
         mode: 0644
 
-    - name: Download LoadTest.py
+    - name: Download LoadTest files
       get_url: url=https://raw.githubusercontent.com/grycap/im/devel/test/loadtest/{{item}} dest=/tmp/{{item}}
       with_items:
        - LoadTest.py
        - LoadTestR.py
        - load-test.radl
        - LoadTestREST.py
+       - LoadTestRESTR.py
 
 @end
 )
