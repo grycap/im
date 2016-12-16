@@ -15,7 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import logging
-import threading
+from multiprocessing import Process
 import bottle
 import json
 
@@ -60,7 +60,7 @@ class MySSLCherryPy(bottle.ServerAdapter):
     def run(self, handler):
         from cherrypy.wsgiserver.ssl_pyopenssl import pyOpenSSLAdapter
         from cherrypy import wsgiserver
-        server = wsgiserver.CherryPyWSGIServer((self.host, self.port), handler)
+        server = wsgiserver.CherryPyWSGIServer((self.host, self.port), handler, request_queue_size=32)
         self.srv = server
 
         # If cert variable is has a valid path, SSL will be used
@@ -81,7 +81,7 @@ class MyCherryPy(bottle.ServerAdapter):
 
     def run(self, handler):
         from cherrypy import wsgiserver
-        server = wsgiserver.CherryPyWSGIServer((self.host, self.port), handler)
+        server = wsgiserver.CherryPyWSGIServer((self.host, self.port), handler, request_queue_size=32)
         self.srv = server
         try:
             server.start()
@@ -93,8 +93,7 @@ class MyCherryPy(bottle.ServerAdapter):
 
 
 def run_in_thread(host, port):
-    bottle_thr = threading.Thread(target=run, args=(host, port))
-    bottle_thr.daemon = True
+    bottle_thr = Process(target=run, args=(host, port))
     bottle_thr.start()
 
 
@@ -364,6 +363,7 @@ def RESTCreateInfrastructure():
 
         inf_id = InfrastructureManager.CreateInfrastructure(radl_data, auth)
 
+        bottle.response.headers['InfID'] = inf_id
         bottle.response.content_type = "text/uri-list"
         protocol = "http://"
         if Config.REST_SSL:

@@ -43,17 +43,6 @@ However, if you install IM from sources you should install:
  + The suds library for Python, typically available as the 'python-suds' package.
  
  + The Netaddr library for Python, typically available as the 'python-netaddr' package.
- 
- + The boto library version 2.29 or later
-   must be installed (http://boto.readthedocs.org/en/latest/).
-
- + The apache-libcloud library version 0.18 or later
-   must be installed (http://libcloud.apache.org/).
-
- + The Bottle framework (http://bottlepy.org/) must be installed, typically available as the 'python-bottle' package.
-
- + The CherryPy Web framework (http://www.cherrypy.org/) must be installed, typically available as the 'python-cherrypy' 
-   or 'python-cherrypy3' package.
    
  + The Python interface to MySQL must be installed,  typically available as the package 'python-mysqldb'  or 
    'MySQL-python' package.
@@ -90,6 +79,20 @@ pipelining = True
 1.2 OPTIONAL PACKAGES
 ---------------------
 
+The Bottle framework (http://bottlepy.org/) is used for the REST API. 
+It is typically available as the 'python-bottle' package.
+
+The CherryPy Web framework (http://www.cherrypy.org/), is needed for the REST API. 
+It is typically available as the 'python-cherrypy' or 'python-cherrypy3' package.
+
+Apache-libcloud (http://libcloud.apache.org/) 0.17 or later is used in the
+LibCloud, OpenStack and GCE connectors.
+
+Boto (http://boto.readthedocs.org) 2.29.0 or later is used as interface to
+Amazon EC2. It is available as package named ``python-boto`` in Debian based
+distributions. It can also be downloaded from `boto GitHub repository (https://github.com/boto/boto).
+Download the file and copy the boto subdirectory into the IM install path.
+
 In case of using the SSL secured version of the XMLRPC API the SpringPython
 framework (http://springpython.webfactional.com/) must be installed.
 
@@ -112,7 +115,7 @@ To install them in Debian and Ubuntu based distributions, do::
 
 ```sh
 $ apt update
-$ apt install gcc python-dev libffi-dev libssl-dev python-pip sshpass python-mysqldb
+$ apt install gcc python-dev libffi-dev libssl-dev python-pip sshpass python-mysqldb python-pysqlite2
 ```
 
 In Red Hat based distributions (RHEL, CentOS, Amazon Linux, Oracle Linux,
@@ -120,7 +123,7 @@ Fedora, etc.), do:
 
 ```sh
 $ yum install epel-release
-$ yum install which gcc python-devel libffi-devel openssl-devel python-pip sshpass MySQL-python
+$ yum install which gcc python-devel libffi-devel openssl-devel python-pip sshpass MySQL-python python-sqlite3dbm
 ```
 
 For some problems with the dependencies of the apache-libcloud package in some systems (as ubuntu 14.04 or CentOS 6)
@@ -158,6 +161,12 @@ Then install the downloaded RPMs:
 $ yum localinstall IM-*.rpm RADL-*.rpm
 ```
 
+Azure python SDK is not available in CentOS. So if you need the Azure plugin you have to manually install them using pip:
+
+```sh
+$ pip install azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource
+```
+
 ### 1.3.3 From Deb package (Tested with Ubuntu 14.04 and 16.04)
 
 Download the Deb package from [GitHub](https://github.com/grycap/im/releases/latest).
@@ -169,6 +178,13 @@ You can download it from their corresponding PPAs. But here you have some links:
  * python-backports.ssl-match-hostname: [download](http://archive.ubuntu.com/ubuntu/pool/universe/b/backports.ssl-match-hostname/python-backports.ssl-match-hostname_3.4.0.2-1_all.deb)
  * python-scp: [download](http://archive.ubuntu.com/ubuntu/pool/universe/p/python-scp/python-scp_0.10.2-1_all.deb)
  * python-libcloud: [download](http://archive.ubuntu.com/ubuntu/pool/universe/libc/libcloud/python-libcloud_0.20.0-1_all.deb)
+
+Also Azure python SDK is not available in Ubuntu 16.04. So if you need the Azure plugin you have to manually install them.
+You can download it from their corresponding PPAs. But here you have some links:
+
+ * python-msrestazure: [download](https://launchpad.net/ubuntu/+archive/primary/+files/python-msrestazure_0.4.3-1_all.deb)
+ * python-msrest: [download](https://launchpad.net/ubuntu/+archive/primary/+files/python-msrest_0.4.4-1_all.deb)
+ * python-azure: [download](https://launchpad.net/ubuntu/+archive/primary/+files/python-azure_2.0.0~rc6+dfsg-2_all.deb)
 
 It is also recommended to configure the Ansible PPA to install the newest versions of Ansible (see [Ansible installation](http://docs.ansible.com/ansible/intro_installation.html#latest-releases-via-apt-ubuntu)):
 
