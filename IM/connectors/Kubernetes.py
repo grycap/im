@@ -18,7 +18,7 @@ import time
 import string
 import base64
 import json
-import httplib
+import requests
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from CloudConnector import CloudConnector
@@ -50,20 +50,17 @@ class KubernetesCloudConnector(CloudConnector):
     }
     """Dictionary with a map with the Kubernetes POD states to the IM states."""
 
-    def get_http_connection(self):
-        """
-        Get the HTTPConnection object to contact the Kubernetes API
+    def create_request(self, method, url, auth_data, headers=None, body=None):
+        auth_header = self.get_auth_header(auth_data)
+        if auth_header:
+            if headers is None:
+                headers = {}
+            headers.update(auth_header)
 
-        Returns(HTTPConnection or HTTPSConnection): HTTPConnection connection object
-        """
+        url = "%s://%s:%d%s%s" % (self.cloud.protocol, self.cloud.server, self.cloud.port, self.cloud.path, url)
+        resp = requests.request(method, url, verify=False, headers=headers, data=body)
 
-        if self.cloud.protocol == 'https':
-            conn = httplib.HTTPSConnection(self.cloud.server, self.cloud.port)
-        elif self.cloud.protocol == 'http':
-            self.logger.warn("Using a unsecure connection to Kubernetes API!")
-            conn = httplib.HTTPConnection(self.cloud.server, self.cloud.port)
-
-        return conn
+        return resp
 
     def get_auth_header(self, auth_data):
         """
@@ -98,19 +95,10 @@ class KubernetesCloudConnector(CloudConnector):
         version = self._apiVersions[0]
 
         try:
-            auth = self.get_auth_header(auth_data)
-            headers = {}
-            if auth:
-                headers.update(auth)
-            conn = self.get_http_connection()
+            resp = self.create_request('GET', "/api/", auth_data)
 
-            conn.request('GET', "/api/", headers=headers)
-            resp = conn.getresponse()
-
-            output = resp.read()
-
-            if resp.status == 200:
-                output = json.loads(output)
+            if resp.status_code == 200:
+                output = json.loads(resp.text)
                 for v in self._apiVersions:
                     if v in output["versions"]:
                         return v
@@ -166,24 +154,18 @@ class KubernetesCloudConnector(CloudConnector):
 
     def _delete_volume_claim(self, namespace, vc_name, auth_data):
         try:
-            auth = self.get_auth_header(auth_data)
-            headers = {}
-            if auth:
-                headers.update(auth)
-            conn = self.get_http_connection()
             apiVersion = self.get_api_version(auth_data)
 
-            conn.request('DELETE', "/api/" + apiVersion + "/namespaces/" +
-                         namespace + "/persistentvolumeclaims/" + vc_name, headers=headers)
-            resp = conn.getresponse()
-            output = str(resp.read())
-            if resp.status == 404:
+            uri = "/api/" + apiVersion + "/namespaces/" + namespace + "/persistentvolumeclaims/" + vc_name
+            resp = self.create_request('DELETE', uri, auth_data)
+
+            if resp.status_code == 404:
                 self.logger.warn(
                     "Trying to remove a non existing PersistentVolumeClaim: " + vc_name)
                 return True
-            elif resp.status != 200:
+            elif resp.status_code != 200:
                 self.logger.error(
-                    "Error deleting the PersistentVolumeClaim: " + output)
+                    "Error deleting the PersistentVolumeClaim: " + resp.txt)
                 return False
             else:
                 return True
@@ -205,23 +187,17 @@ class KubernetesCloudConnector(CloudConnector):
 
     def _create_volume_claim(self, claim_data, auth_data):
         try:
-            auth_header = self.get_auth_header(auth_data)
-            conn = self.get_http_connection()
             apiVersion = self.get_api_version(auth_data)
 
-            conn.putrequest('POST', "/api/" + apiVersion + "/namespaces/" +
-                            claim_data['metadata']['namespace'] + "/persistentvolumeclaims")
-            conn.putheader('Content-Type', 'application/json')
-            if auth_header:
-                conn.putheader(auth_header.keys()[0], auth_header.values()[0])
-
+            headers = {'Content-Type': 'application/json'}
+            uri = ("/api/" + apiVersion + "/namespaces/" +
+                   claim_data['metadata']['namespace'] +
+                   "/persistentvolumeclaims")
             body = json.dumps(claim_data)
-            conn.putheader('Content-Length', len(body))
-            conn.endheaders(body)
-            resp = conn.getresponse()
+            resp = self.create_request('POST', uri, auth_data, headers, body)
 
-            output = str(resp.read())
-            if resp.status != 201:
+            output = str(resp.text)
+            if resp.status_code != 201:
                 self.logger.error("Error deleting the POD: " + output)
                 return False
             else:
@@ -342,8 +318,6 @@ class KubernetesCloudConnector(CloudConnector):
         if public_net:
             outports = public_net.getOutPorts()
 
-        auth_header = self.get_auth_header(auth_data)
-        conn = self.get_http_connection()
         apiVersion = self.get_api_version(auth_data)
 
         res = []
@@ -363,30 +337,22 @@ class KubernetesCloudConnector(CloudConnector):
                 volumes = self._create_volumes(
                     apiVersion, namespace, system, pod_name, auth_data)
 
-                # Create the pod
-                conn.putrequest('POST', "/api/" + apiVersion +
-                                "/namespaces/" + namespace + "/pods")
-                conn.putheader('Content-Type', 'application/json')
-                if auth_header:
-                    conn.putheader(auth_header.keys()[
-                                   0], auth_header.values()[0])
-
                 ssh_port = (KubernetesCloudConnector._port_base_num +
                             KubernetesCloudConnector._port_counter) % 65535
                 KubernetesCloudConnector._port_counter += 1
                 pod_data = self._generate_pod_data(
                     apiVersion, namespace, pod_name, outports, system, ssh_port, volumes)
                 body = json.dumps(pod_data)
-                conn.putheader('Content-Length', len(body))
-                conn.endheaders(body)
 
-                resp = conn.getresponse()
-                output = resp.read()
-                if resp.status != 201:
+                headers = {'Content-Type': 'application/json'}
+                uri = "/api/" + apiVersion + "/namespaces/" + namespace + "/pods"
+                resp = self.create_request('POST', uri, auth_data, headers, body)
+
+                if resp.status_code != 201:
                     res.append(
-                        (False, "Error creating the Container: " + output))
+                        (False, "Error creating the Container: " + resp.text))
                 else:
-                    output = json.loads(output)
+                    output = json.loads(resp.text)
                     vm.id = output["metadata"]["namespace"] + "/" + output["metadata"]["name"]
                     # Set SSH port in the RADL info of the VM
                     vm.setSSHPort(ssh_port)
@@ -412,23 +378,15 @@ class KubernetesCloudConnector(CloudConnector):
             namespace = vm_id.split("/")[0]
             pod_name = vm_id.split("/")[1]
 
-            auth = self.get_auth_header(auth_data)
-            headers = {}
-            if auth:
-                headers.update(auth)
-            conn = self.get_http_connection()
             apiVersion = self.get_api_version(auth_data)
 
-            conn.request('GET', "/api/" + apiVersion + "/namespaces/" +
-                         namespace + "/pods/" + pod_name, headers=headers)
-            resp = conn.getresponse()
+            uri = "/api/" + apiVersion + "/namespaces/" + namespace + "/pods/" + pod_name
+            resp = self.create_request('GET', uri, auth_data)
 
-            output = resp.read()
-
-            if resp.status == 404 or resp.status == 200:
-                return (True, resp.status, output)
+            if resp.status_code == 404 or resp.status_code == 200:
+                return (True, resp.status, resp.text)
             else:
-                return (False, resp.status, output)
+                return (False, resp.status, resp.text)
 
         except Exception, ex:
             self.logger.exception(
@@ -490,23 +448,16 @@ class KubernetesCloudConnector(CloudConnector):
             namespace = vm_id.split("/")[0]
             pod_name = vm_id.split("/")[1]
 
-            auth = self.get_auth_header(auth_data)
-            headers = {}
-            if auth:
-                headers.update(auth)
-            conn = self.get_http_connection()
             apiVersion = self.get_api_version(auth_data)
+            uri = "/api/" + apiVersion + "/namespaces/" + namespace + "/pods/" + pod_name
+            resp = self.create_request('DELETE', uri, auth_data)
 
-            conn.request('DELETE', "/api/" + apiVersion + "/namespaces/" +
-                         namespace + "/pods/" + pod_name, headers=headers)
-            resp = conn.getresponse()
-            output = str(resp.read())
-            if resp.status == 404:
+            if resp.status_code == 404:
                 self.logger.warn(
                     "Trying to remove a non existing POD id: " + pod_name)
                 return (True, pod_name)
             elif resp.status != 200:
-                return (False, "Error deleting the POD: " + output)
+                return (False, "Error deleting the POD: " + resp.text)
             else:
                 return (True, pod_name)
         except Exception:
@@ -525,8 +476,6 @@ class KubernetesCloudConnector(CloudConnector):
         # But kubernetes does not permit cpu to be updated yet
         system = radl.systems[0]
 
-        auth_header = self.get_auth_header(auth_data)
-        conn = self.get_http_connection()
         apiVersion = self.get_api_version(auth_data)
 
         try:
@@ -556,19 +505,14 @@ class KubernetesCloudConnector(CloudConnector):
             # Create the container
             namespace = vm.id.split("/")[0]
             pod_name = vm.id.split("/")[1]
-            conn.putrequest('PATCH', "/api/" + apiVersion +
-                            "/namespaces/" + namespace + "/pods/" + pod_name)
-            conn.putheader('Content-Type', 'application/json-patch+json')
-            if auth_header:
-                conn.putheader(auth_header.keys()[0], auth_header.values()[0])
-            body = json.dumps(pod_data)
-            conn.putheader('Content-Length', len(body))
-            conn.endheaders(body)
 
-            resp = conn.getresponse()
-            output = resp.read()
-            if resp.status != 201:
-                return (False, "Error updating the Pod: " + output)
+            headers = {'Content-Type': 'application/json-patch+json'}
+            uri = "/api/" + apiVersion + "/namespaces/" + namespace + "/pods/" + pod_name
+            body = json.dumps(pod_data)
+            resp = self.create_request('PATCH', uri, auth_data, headers, body)
+
+            if resp.status_code != 201:
+                return (False, "Error updating the Pod: " + resp.text)
             else:
                 if new_cpu:
                     vm.info.systems[0].setValue('cpu.count', new_cpu)
