@@ -151,7 +151,8 @@ class AzureClassicCloudConnector(CloudConnector):
         else:
             auth = auths[0]
 
-        url = "%s://%s:%d%s" % (self.cloud.protocol, self.AZURE_SERVER, self.AZURE_PORT, url)
+        subscription_id = self.get_subscription_id(auth_data)
+        url = "https://%s:%d/%s%s" % (self.AZURE_SERVER, self.AZURE_PORT, subscription_id, url)
         cert = self.get_user_cert_data(auth)
         resp = requests.request(method, url, verify=False, cert=cert, headers=headers, data=body)
 
@@ -173,8 +174,7 @@ class AzureClassicCloudConnector(CloudConnector):
                 protocol = url[0]
                 if protocol == "azr":
                     res_system = radl_system.clone()
-                    instance_type = self.get_instance_type(
-                        res_system, auth_data)
+                    instance_type = self.get_instance_type(res_system, auth_data)
                     if not instance_type:
                         self.logger.error(
                             "Error generating the RADL of the VM, no instance type available for the requirements.")
@@ -353,9 +353,7 @@ class AzureClassicCloudConnector(CloudConnector):
             hostname = "AzureNode" + str(num)
 
         SourceImageName = url[1]
-        MediaLink = "https://%s.blob.core.windows.net/vhds/%s" % (storage_account, vm.id)
-        if not MediaLink.endswith('.vhd'):
-            MediaLink = MediaLink + '.vhd'
+        MediaLink = "https://%s.blob.core.windows.net/vhds/%s.vhd" % (storage_account, vm.id)
         instance_type = self.get_instance_type(system, auth_data)
 
         DataVirtualHardDisks = self.gen_data_disks(system, storage_account)
@@ -443,9 +441,7 @@ class AzureClassicCloudConnector(CloudConnector):
                          service_name + " in region: " + region)
 
         try:
-            subscription_id = self.get_subscription_id(auth_data)
-            uri = "https://%s/%s/services/hostedservices" % (
-                self.AZURE_SERVER, subscription_id)
+            uri = "/services/hostedservices"
             service_create_xml = '''
     <CreateHostedService xmlns="http://schemas.microsoft.com/windowsazure">
       <ServiceName>%s</ServiceName>
@@ -472,8 +468,7 @@ class AzureClassicCloudConnector(CloudConnector):
         Delete the Azure Cloud Service with name "service_name"
         """
         try:
-            subscription_id = self.get_subscription_id(auth_data)
-            uri = "/%s/services/hostedservices/%s?comp=media" % (subscription_id, service_name)
+            uri = "/services/hostedservices/%s?comp=media" % service_name
             headers = {'x-ms-version': '2013-08-01'}
             resp = self.create_request('DELETE', uri, auth_data, headers)
         except Exception, ex:
@@ -506,8 +501,7 @@ class AzureClassicCloudConnector(CloudConnector):
             time.sleep(delay)
             wait += delay
             try:
-                subscription_id = self.get_subscription_id(auth_data)
-                uri = "/%s/operations/%s" % (subscription_id, request_id)
+                uri = "/operations/%s" % request_id
                 headers = {'x-ms-version': '2013-03-01'}
                 resp = self.create_request('GET', uri, auth_data, headers)
 
@@ -544,8 +538,7 @@ class AzureClassicCloudConnector(CloudConnector):
         """
         self.logger.info("Creating the storage account " + storage_account)
         try:
-            subscription_id = self.get_subscription_id(auth_data)
-            uri = "/%s/services/storageservices" % subscription_id
+            uri = "/services/storageservices"
             storage_create_xml = '''
 <CreateStorageServiceInput xmlns="http://schemas.microsoft.com/windowsazure">
   <ServiceName>%s</ServiceName>
@@ -594,15 +587,15 @@ class AzureClassicCloudConnector(CloudConnector):
         else:
             self.logger.error(
                 "Error waiting the creation of the storage account")
-            self.delete_storage_account(storage_account, subscription_id, auth_data)
+            self.delete_storage_account(storage_account, auth_data)
             return None, "Error waiting the creation of the storage account"
 
-    def delete_storage_account(self, storage_account, subscription_id, auth_data):
+    def delete_storage_account(self, storage_account, auth_data):
         """
         Delete an storage account with the name specified in "storage_account"
         """
         try:
-            uri = "/%s/services/storageservices/%s" % (subscription_id, storage_account)
+            uri = "/services/storageservices/%s" % storage_account
             headers = {'x-ms-version': '2013-03-01'}
             resp = self.create_request('DELETE', uri, auth_data, headers)
         except Exception:
@@ -621,9 +614,7 @@ class AzureClassicCloudConnector(CloudConnector):
         Get the information about the Storage Account named "storage_account" or None if it does not exist
         """
         try:
-            subscription_id = self.get_subscription_id(auth_data)
-            uri = "/%s/services/storageservices/%s" % (
-                subscription_id, storage_account)
+            uri = "/services/storageservices/%s" % storage_account
             headers = {'x-ms-version': '2013-03-01'}
             resp = self.create_request('GET', uri, auth_data, headers)
             if resp.status_code == 200:
@@ -698,8 +689,7 @@ class AzureClassicCloudConnector(CloudConnector):
                     res.append((False, "Incorrect image or auth data"))
                     break
 
-                uri = "/%s/services/hostedservices/%s/deployments" % (
-                    subscription_id, service_name)
+                uri = "/services/hostedservices/%s/deployments" % service_name
                 headers = {'x-ms-version': '2013-03-01', 'Content-Type': 'application/xml'}
                 resp = self.create_request('POST', uri, auth_data, headers, vm_create_xml)
 
@@ -787,9 +777,7 @@ class AzureClassicCloudConnector(CloudConnector):
         service_name = vm.id
 
         try:
-            subscription_id = self.get_subscription_id(auth_data)
-            uri = "/%s/services/hostedservices/%s/deployments/%s" % (
-                subscription_id, service_name, service_name)
+            uri = "/services/hostedservices/%s/deployments/%s" % (service_name, service_name)
             headers = {'x-ms-version': '2014-02-01'}
             resp = self.create_request('GET', uri, auth_data, headers)
         except Exception, ex:
@@ -876,9 +864,8 @@ class AzureClassicCloudConnector(CloudConnector):
         service_name = vm.id
 
         try:
-            subscription_id = self.get_subscription_id(auth_data)
-            uri = "/%s/services/hostedservices/%s/deployments/%s/roleinstances/%s/Operations" % (
-                subscription_id, service_name, service_name, self.ROLE_NAME)
+            uri = "/services/hostedservices/%s/deployments/%s/roleinstances/%s/Operations" % (
+                service_name, service_name, self.ROLE_NAME)
 
             headers = {'x-ms-version': '2013-06-01', 'Content-Type': 'application/xml'}
             resp = self.create_request('POST', uri, auth_data, headers)
@@ -928,8 +915,7 @@ class AzureClassicCloudConnector(CloudConnector):
             return self.instance_type_list
         else:
             try:
-                subscription_id = self.get_subscription_id(auth_data)
-                uri = "/%s/rolesizes" % subscription_id
+                uri = "/rolesizes"
                 headers = {'x-ms-version': '2013-08-01'}
                 resp = self.create_request('GET', uri, auth_data, headers)
             except Exception:
@@ -973,10 +959,8 @@ class AzureClassicCloudConnector(CloudConnector):
             return (False, "Error calling update operation: No instance type found for radl: " + str(radl))
 
         try:
-            subscription_id = self.get_subscription_id(auth_data)
-
-            uri = "/%s/services/hostedservices/%s/deployments/%s/roles/%s" % (
-                subscription_id, service_name, service_name, self.ROLE_NAME)
+            uri = "/services/hostedservices/%s/deployments/%s/roles/%s" % (
+                service_name, service_name, self.ROLE_NAME)
 
             body = '''
             <PersistentVMRole xmlns="http://schemas.microsoft.com/windowsazure"
