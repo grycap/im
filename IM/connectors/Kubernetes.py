@@ -456,7 +456,7 @@ class KubernetesCloudConnector(CloudConnector):
                 self.logger.warn(
                     "Trying to remove a non existing POD id: " + pod_name)
                 return (True, pod_name)
-            elif resp.status != 200:
+            elif resp.status_code != 200:
                 return (False, "Error deleting the POD: " + resp.text)
             else:
                 return (True, pod_name)
