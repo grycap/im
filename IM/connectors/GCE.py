@@ -39,7 +39,7 @@ class GCECloudConnector(CloudConnector):
 
     type = "GCE"
     """str with the name of the provider."""
-    DEFAULT_ZONE = "us-central1"
+    DEFAULT_ZONE = "us-central1-a"
 
     def __init__(self, cloud_info):
         self.auth = None
@@ -76,7 +76,7 @@ class GCECloudConnector(CloudConnector):
                                     " Check that it has more than one line.")
 
                 driver = cls(auth['username'], auth[
-                             'password'], project=auth['project'])
+                             'password'], project=auth['project'], datastore=self.DEFAULT_ZONE)
 
                 self.driver = driver
                 return driver
