@@ -317,8 +317,9 @@ class GCECloudConnector(CloudConnector):
                                 ports[protocol] = []
                             ports[protocol].append(str(remote_port))
 
-                    allowed = [{'IPProtocol': 'tcp', 'ports': ports['tcp']},
-                               {'IPProtocol': 'upd', 'ports': ports['upd']}]
+                    allowed = [{'IPProtocol': 'tcp', 'ports': ports['tcp']}]
+                    if 'udp' in ports:
+                        allowed.append({'IPProtocol': 'udp', 'ports': ports['udp']})
 
                     firewall = None
                     try:
@@ -357,6 +358,9 @@ class GCECloudConnector(CloudConnector):
 
         instance_type = self.get_instance_type(
             driver.list_sizes(region), system)
+
+        if not instance_type:
+            raise Exception("No compatible size found")
 
         name = system.getValue("instance_name")
         if not name:
