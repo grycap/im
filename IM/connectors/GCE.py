@@ -303,7 +303,7 @@ class GCECloudConnector(CloudConnector):
                 if net.isPublic():
                     public_net = net
 
-            ports = {"tcp": ["22"], "udp": []}
+            ports = {"tcp": ["22"]}
             if public_net:
                 outports = public_net.getOutPorts()
                 if outports:
@@ -317,8 +317,9 @@ class GCECloudConnector(CloudConnector):
                                 ports[protocol] = []
                             ports[protocol].append(str(remote_port))
 
-                    allowed = [{'IPProtocol': 'tcp', 'ports': ports['tcp']},
-                               {'IPProtocol': 'udp', 'ports': ports['udp']}]
+                    allowed = [{'IPProtocol': 'tcp', 'ports': ports['tcp']}]
+                    if 'udp' in ports:
+                        allowed.append({'IPProtocol': 'udp', 'ports': ports['udp']})
 
                     firewall = None
                     try:

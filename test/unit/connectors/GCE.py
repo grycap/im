@@ -111,7 +111,7 @@ class TestGCEConnector(unittest.TestCase):
     @patch('libcloud.compute.drivers.gce.GCENodeDriver')
     def test_20_launch(self, get_driver):
         radl_data = """
-            network net1 (outbound = 'yes')
+            network net1 (outbound = 'yes' and outports = '8080')
             network net2 ()
             system test (
             cpu.arch='x86_64' and
