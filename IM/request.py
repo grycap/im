@@ -15,13 +15,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import sys
-from Queue import Queue, Empty
+from queue import Queue, Empty
 import threading
-from SimpleXMLRPCServer import SimpleXMLRPCServer
-import SocketServer
+from xmlrpc.server import SimpleXMLRPCServer
+import socketserver
 import time
-from timedcall import TimedCall
-from config import Config
+from IM.timedcall import TimedCall
+from IM.config import Config
 
 
 class RequestQueue(Queue):
@@ -248,7 +248,7 @@ class AsyncRequest(Request):
         self.__thread.start()
 
 
-class AsyncXMLRPCServer(SocketServer.ThreadingMixIn, SimpleXMLRPCServer):
+class AsyncXMLRPCServer(socketserver.ThreadingMixIn, SimpleXMLRPCServer):
 
     def serve_forever_in_thread(self):
         """
@@ -266,7 +266,7 @@ class AsyncXMLRPCServer(SocketServer.ThreadingMixIn, SimpleXMLRPCServer):
 if Config.XMLRCP_SSL:
     from springpython.remoting.xmlrpc import SSLServer
 
-    class AsyncSSLXMLRPCServer(SocketServer.ThreadingMixIn, SSLServer):
+    class AsyncSSLXMLRPCServer(socketserver.ThreadingMixIn, SSLServer):
 
         def __init__(self, *args, **kwargs):
             super(AsyncSSLXMLRPCServer, self).__init__(*args, **kwargs)
