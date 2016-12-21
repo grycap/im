@@ -15,7 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import base64
-import httplib
+import requests
 import time
 import os
 import tempfile
@@ -139,10 +139,24 @@ class AzureClassicCloudConnector(CloudConnector):
     }
 
     def __init__(self, cloud_info):
-        self.cert_file = ''
-        self.key_file = ''
         self.instance_type_list = None
         CloudConnector.__init__(self, cloud_info)
+
+    def create_request(self, method, url, auth_data, headers=None, body=None):
+
+        auths = auth_data.getAuthInfo(AzureClassicCloudConnector.type, self.cloud.server)
+        if not auths:
+            self.logger.error("No correct auth data has been specified to Azure.")
+            return None
+        else:
+            auth = auths[0]
+
+        subscription_id = self.get_subscription_id(auth_data)
+        url = "https://%s:%d/%s%s" % (self.AZURE_SERVER, self.AZURE_PORT, subscription_id, url)
+        cert = self.get_user_cert_data(auth)
+        resp = requests.request(method, url, verify=False, cert=cert, headers=headers, data=body)
+
+        return resp
 
     def concreteSystem(self, radl_system, auth_data):
         image_urls = radl_system.getValue("disk.0.image.url")
@@ -160,8 +174,7 @@ class AzureClassicCloudConnector(CloudConnector):
                 protocol = url[0]
                 if protocol == "azr":
                     res_system = radl_system.clone()
-                    instance_type = self.get_instance_type(
-                        res_system, auth_data)
+                    instance_type = self.get_instance_type(res_system, auth_data)
                     if not instance_type:
                         self.logger.error(
                             "Error generating the RADL of the VM, no instance type available for the requirements.")
@@ -340,9 +353,7 @@ class AzureClassicCloudConnector(CloudConnector):
             hostname = "AzureNode" + str(num)
 
         SourceImageName = url[1]
-        MediaLink = "https://%s.blob.core.windows.net/vhds/%s" % (storage_account, vm.id)
-        if not MediaLink.endswith('.vhd'):
-            MediaLink = MediaLink + '.vhd'
+        MediaLink = "https://%s.blob.core.windows.net/vhds/%s.vhd" % (storage_account, vm.id)
         instance_type = self.get_instance_type(system, auth_data)
 
         DataVirtualHardDisks = self.gen_data_disks(system, storage_account)
@@ -382,7 +393,7 @@ class AzureClassicCloudConnector(CloudConnector):
 
         return res
 
-    def get_connection_and_subscription_id(self, auth_data):
+    def get_subscription_id(self, auth_data):
         auths = auth_data.getAuthInfo(self.type)
         if not auths:
             raise Exception("No auth data has been specified to Azure.")
@@ -395,19 +406,7 @@ class AzureClassicCloudConnector(CloudConnector):
             raise Exception(
                 "No correct auth data has been specified to Azure: subscription_id, public_key and private_key.")
 
-        # We check if the cert and key files exist
-        if os.path.isfile(self.cert_file) and os.path.isfile(self.key_file):
-            cert_file = self.cert_file
-            key_file = self.key_file
-        else:
-            cert_file, key_file = self.get_user_cert_data(auth)
-            self.cert_file = cert_file
-            self.key_file = key_file
-
-        conn = httplib.HTTPSConnection(
-            self.AZURE_SERVER, self.AZURE_PORT, cert_file=cert_file, key_file=key_file)
-
-        return conn, subscription_id
+        return subscription_id
 
     def get_user_cert_data(self, auth):
         """
@@ -442,10 +441,7 @@ class AzureClassicCloudConnector(CloudConnector):
                          service_name + " in region: " + region)
 
         try:
-            conn, subscription_id = self.get_connection_and_subscription_id(
-                auth_data)
-            uri = "https://%s/%s/services/hostedservices" % (
-                self.AZURE_SERVER, subscription_id)
+            uri = "/services/hostedservices"
             service_create_xml = '''
     <CreateHostedService xmlns="http://schemas.microsoft.com/windowsazure">
       <ServiceName>%s</ServiceName>
@@ -454,18 +450,16 @@ class AzureClassicCloudConnector(CloudConnector):
       <Location>%s</Location>
     </CreateHostedService>
             ''' % (service_name, base64.b64encode(service_name), service_name, region)
-            conn.request('POST', uri, body=service_create_xml, headers={
-                         'x-ms-version': '2013-03-01', 'Content-Type': 'application/xml'})
-            resp = conn.getresponse()
-            output = resp.read()
+            headers = {'x-ms-version': '2013-03-01', 'Content-Type': 'application/xml'}
+            resp = self.create_request('POST', uri, auth_data, headers, service_create_xml)
         except Exception, ex:
             self.logger.exception("Error creating the service")
             return None, "Error creating the service" + str(ex)
 
-        if resp.status != 201:
+        if resp.status_code != 201:
             self.logger.error(
-                "Error creating the service: Error code: " + str(resp.status) + ". Msg: " + output)
-            return None, "Error creating the service: Error code: " + str(resp.status) + ". Msg: " + output
+                "Error creating the service: Error code: " + str(resp.status_code) + ". Msg: " + resp.text)
+            return None, "Error creating the service: Error code: " + str(resp.status_code) + ". Msg: " + resp.text
 
         return service_name, None
 
@@ -474,23 +468,19 @@ class AzureClassicCloudConnector(CloudConnector):
         Delete the Azure Cloud Service with name "service_name"
         """
         try:
-            conn, subscription_id = self.get_connection_and_subscription_id(
-                auth_data)
-            uri = "/%s/services/hostedservices/%s?comp=media" % (
-                subscription_id, service_name)
-            conn.request('DELETE', uri, headers={'x-ms-version': '2013-08-01'})
-            resp = conn.getresponse()
-            output = resp.read()
+            uri = "/services/hostedservices/%s?comp=media" % service_name
+            headers = {'x-ms-version': '2013-08-01'}
+            resp = self.create_request('DELETE', uri, auth_data, headers)
         except Exception, ex:
             self.logger.exception("Error deleting the service")
             return (False, "Error deleting the service: " + str(ex))
 
-        if resp.status != 202:
+        if resp.status_code != 202:
             self.logger.error(
-                "Error deleting the service: Error Code " + str(resp.status) + ". Msg: " + output)
-            return (False, "Error deleting the service: Error Code " + str(resp.status) + ". Msg: " + output)
+                "Error deleting the service: Error Code " + str(resp.status_code) + ". Msg: " + resp.text)
+            return (False, "Error deleting the service: Error Code " + str(resp.status_code) + ". Msg: " + resp.text)
 
-        request_id = resp.getheader('x-ms-request-id')
+        request_id = resp.headers['x-ms-request-id']
 
         # Call to GET OPERATION STATUS until "Succeeded"
         success = self.wait_operation_status(request_id, auth_data)
@@ -511,22 +501,18 @@ class AzureClassicCloudConnector(CloudConnector):
             time.sleep(delay)
             wait += delay
             try:
-                conn, subscription_id = self.get_connection_and_subscription_id(
-                    auth_data)
-                uri = "/%s/operations/%s" % (subscription_id, request_id)
-                conn.request('GET', uri, headers={
-                             'x-ms-version': '2013-03-01'})
-                resp = conn.getresponse()
-                output = resp.read()
+                uri = "/operations/%s" % request_id
+                headers = {'x-ms-version': '2013-03-01'}
+                resp = self.create_request('GET', uri, auth_data, headers)
 
-                if resp.status == 200:
-                    output = Operation(output)
+                if resp.status_code == 200:
+                    output = Operation(resp.text)
                     status_str = output.Status
                     # InProgress|Succeeded|Failed
                     self.logger.debug("Operation string state: " + status_str)
                 else:
                     self.logger.error(
-                        "Error waiting operation to finish: Code %d. Msg: %s." % (resp.status, output))
+                        "Error waiting operation to finish: Code %d. Msg: %s." % (resp.status_code, resp.text))
                     return False
             except Exception:
                 self.logger.exception(
@@ -552,9 +538,7 @@ class AzureClassicCloudConnector(CloudConnector):
         """
         self.logger.info("Creating the storage account " + storage_account)
         try:
-            conn, subscription_id = self.get_connection_and_subscription_id(
-                auth_data)
-            uri = "/%s/services/storageservices" % subscription_id
+            uri = "/services/storageservices"
             storage_create_xml = '''
 <CreateStorageServiceInput xmlns="http://schemas.microsoft.com/windowsazure">
   <ServiceName>%s</ServiceName>
@@ -570,20 +554,18 @@ class AzureClassicCloudConnector(CloudConnector):
   </ExtendedProperties>
 </CreateStorageServiceInput>
             ''' % (storage_account, storage_account, base64.b64encode(storage_account), region)
-            conn.request('POST', uri, body=storage_create_xml, headers={
-                         'x-ms-version': '2013-03-01', 'Content-Type': 'application/xml'})
-            resp = conn.getresponse()
-            output = resp.read()
+            headers = {'x-ms-version': '2013-03-01', 'Content-Type': 'application/xml'}
+            resp = self.create_request('POST', uri, auth_data, headers, storage_create_xml)
         except Exception, ex:
             self.logger.exception("Error creating the storage account")
             return None, "Error creating the storage account" + str(ex)
 
-        if resp.status != 202:
+        if resp.status_code != 202:
             self.logger.error(
-                "Error creating the storage account: Error code " + str(resp.status) + ". Msg: " + output)
-            return None, "Error code " + str(resp.status) + ". Msg: " + output
+                "Error creating the storage account: Error code " + str(resp.status_code) + ". Msg: " + resp.text)
+            return None, "Error code " + str(resp.status_code) + ". Msg: " + resp.text
 
-        request_id = resp.getheader('x-ms-request-id')
+        request_id = resp.headers['x-ms-request-id']
 
         # Call to GET OPERATION STATUS until 200 (OK)
         success = self.wait_operation_status(request_id, auth_data)
@@ -605,26 +587,24 @@ class AzureClassicCloudConnector(CloudConnector):
         else:
             self.logger.error(
                 "Error waiting the creation of the storage account")
-            self.delete_storage_account(storage_account, subscription_id, conn)
+            self.delete_storage_account(storage_account, auth_data)
             return None, "Error waiting the creation of the storage account"
 
-    def delete_storage_account(self, storage_account, subscription_id, conn):
+    def delete_storage_account(self, storage_account, auth_data):
         """
         Delete an storage account with the name specified in "storage_account"
         """
         try:
-            uri = "/%s/services/storageservices/%s" % (
-                subscription_id, storage_account)
-            conn.request('DELETE', uri, headers={'x-ms-version': '2013-03-01'})
-            resp = conn.getresponse()
-            output = resp.read()
+            uri = "/services/storageservices/%s" % storage_account
+            headers = {'x-ms-version': '2013-03-01'}
+            resp = self.create_request('DELETE', uri, auth_data, headers)
         except Exception:
             self.logger.exception("Error deleting the storage account")
             return False
 
-        if resp.status != 200:
+        if resp.status_code != 200:
             self.logger.error(
-                "Error deleting the storage account: Error Code " + str(resp.status) + ". Msg: " + output)
+                "Error deleting the storage account: Error Code " + str(resp.status_code) + ". Msg: " + resp.text)
             return False
 
         return True
@@ -634,23 +614,19 @@ class AzureClassicCloudConnector(CloudConnector):
         Get the information about the Storage Account named "storage_account" or None if it does not exist
         """
         try:
-            conn, subscription_id = self.get_connection_and_subscription_id(
-                auth_data)
-            uri = "/%s/services/storageservices/%s" % (
-                subscription_id, storage_account)
-            conn.request('GET', uri, headers={'x-ms-version': '2013-03-01'})
-            resp = conn.getresponse()
-            output = resp.read()
-            if resp.status == 200:
-                storage_info = StorageService(output)
+            uri = "/services/storageservices/%s" % storage_account
+            headers = {'x-ms-version': '2013-03-01'}
+            resp = self.create_request('GET', uri, auth_data, headers)
+            if resp.status_code == 200:
+                storage_info = StorageService(resp.text)
                 return storage_info.StorageServiceProperties
-            elif resp.status == 404:
+            elif resp.status_code == 404:
                 self.logger.debug(
                     "Storage " + storage_account + " does not exist")
                 return None
             else:
                 self.logger.warn(
-                    "Error checking the storage account " + storage_account + ". Msg: " + output)
+                    "Error checking the storage account " + storage_account + ". Msg: " + resp.text)
                 return None
         except Exception:
             self.logger.exception("Error checking the storage account")
@@ -668,7 +644,7 @@ class AzureClassicCloudConnector(CloudConnector):
         i = 0
         while i < num_vm:
             try:
-                conn, subscription_id = self.get_connection_and_subscription_id(auth_data)
+                subscription_id = self.get_subscription_id(auth_data)
 
                 # Create storage account
                 storage_account_name = self.get_storage_name(subscription_id, region)
@@ -713,22 +689,19 @@ class AzureClassicCloudConnector(CloudConnector):
                     res.append((False, "Incorrect image or auth data"))
                     break
 
-                uri = "/%s/services/hostedservices/%s/deployments" % (
-                    subscription_id, service_name)
-                conn.request('POST', uri, body=vm_create_xml, headers={
-                             'x-ms-version': '2013-03-01', 'Content-Type': 'application/xml'})
-                resp = conn.getresponse()
-                output = resp.read()
+                uri = "/services/hostedservices/%s/deployments" % service_name
+                headers = {'x-ms-version': '2013-03-01', 'Content-Type': 'application/xml'}
+                resp = self.create_request('POST', uri, auth_data, headers, vm_create_xml)
 
-                if resp.status != 202:
+                if resp.status_code != 202:
                     self.delete_service(service_name, auth_data)
                     self.logger.error(
-                        "Error creating the VM: Error Code " + str(resp.status) + ". Msg: " + output)
+                        "Error creating the VM: Error Code " + str(resp.status_code) + ". Msg: " + resp.text)
                     res.append((False, "Error creating the VM: Error Code " +
-                                str(resp.status) + ". Msg: " + output))
+                                str(resp.status_code) + ". Msg: " + resp.text))
                 else:
                     # Call the GET OPERATION STATUS until sea 200 (OK)
-                    request_id = resp.getheader('x-ms-request-id')
+                    request_id = resp.headers['x-ms-request-id']
                     success = self.wait_operation_status(request_id, auth_data)
                     if success:
                         res.append((True, vm))
@@ -804,30 +777,26 @@ class AzureClassicCloudConnector(CloudConnector):
         service_name = vm.id
 
         try:
-            conn, subscription_id = self.get_connection_and_subscription_id(
-                auth_data)
-            uri = "/%s/services/hostedservices/%s/deployments/%s" % (
-                subscription_id, service_name, service_name)
-            conn.request('GET', uri, headers={'x-ms-version': '2014-02-01'})
-            resp = conn.getresponse()
-            output = resp.read()
+            uri = "/services/hostedservices/%s/deployments/%s" % (service_name, service_name)
+            headers = {'x-ms-version': '2014-02-01'}
+            resp = self.create_request('GET', uri, auth_data, headers)
         except Exception, ex:
             self.logger.exception("Error getting the VM info: " + vm.id)
             return (False, "Error getting the VM info: " + vm.id + ". " + str(ex))
 
-        if resp.status == 404:
+        if resp.status_code == 404:
             self.logger.warn("VM with ID: " + vm.id + ". Not found!.")
             vm.state = VirtualMachine.OFF
             return (True, vm)
-        if resp.status != 200:
+        if resp.status_code != 200:
             self.logger.error("Error getting the VM info: " + vm.id +
-                              ". Error Code: " + str(resp.status) + ". Msg: " + output)
+                              ". Error Code: " + str(resp.status_code) + ". Msg: " + resp.text)
             return (False, "Error getting the VM info: " + vm.id +
-                    ". Error Code: " + str(resp.status) + ". Msg: " + output)
+                    ". Error Code: " + str(resp.status_code) + ". Msg: " + resp.text)
         else:
             self.logger.debug("VM info: " + vm.id + " obtained.")
-            self.logger.debug(output)
-            vm_info = Deployment(output)
+            self.logger.debug(resp.text)
+            vm_info = Deployment(resp.text)
 
             vm.state = self.get_vm_state(vm_info)
 
@@ -895,25 +864,21 @@ class AzureClassicCloudConnector(CloudConnector):
         service_name = vm.id
 
         try:
-            conn, subscription_id = self.get_connection_and_subscription_id(
-                auth_data)
-            uri = "/%s/services/hostedservices/%s/deployments/%s/roleinstances/%s/Operations" % (
-                subscription_id, service_name, service_name, self.ROLE_NAME)
+            uri = "/services/hostedservices/%s/deployments/%s/roleinstances/%s/Operations" % (
+                service_name, service_name, self.ROLE_NAME)
 
-            conn.request('POST', uri, body=op, headers={
-                         'x-ms-version': '2013-06-01', 'Content-Type': 'application/xml'})
-            resp = conn.getresponse()
-            output = resp.read()
+            headers = {'x-ms-version': '2013-06-01', 'Content-Type': 'application/xml'}
+            resp = self.create_request('POST', uri, auth_data, headers)
         except Exception, ex:
             self.logger.exception("Error calling role operation")
             return (False, "Error calling role operation: " + str(ex))
 
-        if resp.status != 202:
+        if resp.status_code != 202:
             self.logger.error(
-                "Error calling role operation: Error Code " + str(resp.status) + ". Msg: " + output)
-            return (False, "Error calling role operation: Error Code " + str(resp.status) + ". Msg: " + output)
+                "Error calling role operation: Error Code " + str(resp.status_code) + ". Msg: " + resp.text)
+            return (False, "Error calling role operation: Error Code " + str(resp.status_code) + ". Msg: " + resp.text)
 
-        request_id = resp.getheader('x-ms-request-id')
+        request_id = resp.headers['x-ms-request-id']
 
         # Call to GET OPERATION STATUS until "Succeded"
         success = self.wait_operation_status(
@@ -950,24 +915,20 @@ class AzureClassicCloudConnector(CloudConnector):
             return self.instance_type_list
         else:
             try:
-                conn, subscription_id = self.get_connection_and_subscription_id(
-                    auth_data)
-                uri = "/%s/rolesizes" % subscription_id
-                conn.request('GET', uri, headers={
-                             'x-ms-version': '2013-08-01'})
-                resp = conn.getresponse()
-                output = resp.read()
+                uri = "/rolesizes"
+                headers = {'x-ms-version': '2013-08-01'}
+                resp = self.create_request('GET', uri, auth_data, headers)
             except Exception:
                 self.logger.exception("Error getting Role Sizes")
                 return []
 
-            if resp.status != 200:
+            if resp.status_code != 200:
                 self.logger.error(
-                    "Error getting Role Sizes. Error Code: " + str(resp.status) + ". Msg: " + output)
+                    "Error getting Role Sizes. Error Code: " + str(resp.status_code) + ". Msg: " + resp.text)
                 return []
             else:
                 self.logger.debug("Role List obtained.")
-                role_sizes = RoleSizes(output)
+                role_sizes = RoleSizes(resp.text)
                 res = []
                 for role_size in role_sizes.RoleSize:
                     if role_size.SupportedByVirtualMachines == "true":
@@ -998,11 +959,8 @@ class AzureClassicCloudConnector(CloudConnector):
             return (False, "Error calling update operation: No instance type found for radl: " + str(radl))
 
         try:
-            conn, subscription_id = self.get_connection_and_subscription_id(
-                auth_data)
-
-            uri = "/%s/services/hostedservices/%s/deployments/%s/roles/%s" % (
-                subscription_id, service_name, service_name, self.ROLE_NAME)
+            uri = "/services/hostedservices/%s/deployments/%s/roles/%s" % (
+                service_name, service_name, self.ROLE_NAME)
 
             body = '''
             <PersistentVMRole xmlns="http://schemas.microsoft.com/windowsazure"
@@ -1011,20 +969,18 @@ class AzureClassicCloudConnector(CloudConnector):
             </PersistentVMRole>
             ''' % (instance_type.Name)
 
-            conn.request('PUT', uri, body=body, headers={
-                         'x-ms-version': '2013-11-01', 'Content-Type': 'application/xml'})
-            resp = conn.getresponse()
-            output = resp.read()
+            headers = {'x-ms-version': '2013-11-01', 'Content-Type': 'application/xml'}
+            resp = self.create_request('PUT', uri, auth_data, headers, body)
         except Exception, ex:
             self.logger.exception("Error calling update operation")
             return (False, "Error calling update operation: " + str(ex))
 
-        if resp.status != 202:
+        if resp.status_code != 202:
             self.logger.error(
-                "Error update role operation: Error Code " + str(resp.status) + ". Msg: " + output)
-            return (False, "Error update role operation: Error Code " + str(resp.status) + ". Msg: " + output)
+                "Error update role operation: Error Code " + str(resp.status_code) + ". Msg: " + resp.text)
+            return (False, "Error update role operation: Error Code " + str(resp.status_code) + ". Msg: " + resp.text)
 
-        request_id = resp.getheader('x-ms-request-id')
+        request_id = resp.headers['x-ms-request-id']
 
         # Call to GET OPERATION STATUS until 200 (OK)
         success = self.wait_operation_status(request_id, auth_data)
