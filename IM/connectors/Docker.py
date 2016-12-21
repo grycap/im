@@ -19,6 +19,7 @@ import tempfile
 import json
 import socket
 import requests
+import random
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from IM.config import Config
@@ -34,7 +35,7 @@ class DockerCloudConnector(CloudConnector):
 
     type = "Docker"
 
-    _port_base_num = 35000
+    _port_base_num = random.randint(35000, 40000)
     """ Base number to assign SSH port on Docker server host."""
     _port_counter = 0
     """ Counter to assign SSH port on Docker server host."""
@@ -313,9 +314,9 @@ class DockerCloudConnector(CloudConnector):
                 vm.info.systems[0].setValue('instance_id', str(vm.id))
 
                 # Now start it
-                success, _ = self.start(vm, auth_data)
+                success, msg = self.start(vm, auth_data)
                 if not success:
-                    res.append((False, "Error starting the Container: " + str(output)))
+                    res.append((False, "Error starting the Container: " + str(msg)))
                     # Delete the container
                     resp = self.create_request('DELETE', "/containers/" + vm.id, auth_data)
                     continue
