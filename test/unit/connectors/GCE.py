@@ -118,7 +118,6 @@ class TestGCEConnector(unittest.TestCase):
             cpu.count=1 and
             memory.size=512m and
             net_interface.0.connection = 'net1' and
-            net_interface.0.ip = '10.0.0.1' and
             net_interface.0.dns_name = 'test' and
             net_interface.1.connection = 'net2' and
             disk.0.os.name = 'linux' and
@@ -157,9 +156,23 @@ class TestGCEConnector(unittest.TestCase):
         node.name = "gce1name"
         driver.create_node.return_value = node
 
+        node2 = MagicMock()
+        node2.id = "gce2"
+        node2.name = "gce2name"
+        node3 = MagicMock()
+        node3.id = "gce3"
+        node3.name = "gce3name"
+        driver.ex_create_multiple_nodes.return_value = [node, node2, node3]
+
         res = gce_cloud.launch(InfrastructureInfo(), radl, radl, 1, auth)
         success, _ = res[0]
-        self.assertTrue(success, msg="ERROR: launching a VM.")
+        self.assertTrue(success, msg="ERROR: launching a single VM.")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+        self.clean_log()
+
+        res = gce_cloud.launch(InfrastructureInfo(), radl, radl, 3, auth)
+        success, _ = res[0]
+        self.assertTrue(success, msg="ERROR: launching 3 VMs.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         self.clean_log()
 

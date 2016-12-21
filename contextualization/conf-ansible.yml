@@ -42,7 +42,7 @@
       when: ansible_distribution == "Ubuntu"
       
     - name: Yum install Ansible RH
-      yum: name=ansible,python-pip,python-jinja2,sshpass,openssh-clients,wget
+      yum: name=ansible,python-pip,python-jinja2,sshpass,openssh-clients,wget update_cache=yes
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 7 and ansible_distribution != "Fedora"
     
 ############################################ In other systems use pip #################################################
