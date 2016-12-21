@@ -525,8 +525,8 @@ Or you can also add a volume with all the IM configuration::
 IM in high availability mode
 ============================
 
-The IM service can be launched in high availability (HA) mode using a set of IM instances behind a 
-`HAProxy <http://www.haproxy.org/>`_ load balancer. Currently only the REST API can be used in HA mode.
+From version 1.5.0 the IM service can be launched in high availability (HA) mode using a set of IM instances
+behind a `HAProxy <http://www.haproxy.org/>`_ load balancer. Currently only the REST API can be used in HA mode.
 
 This is an example of the HAProxy configuration file::
 
@@ -546,4 +546,3 @@ This is an example of the HAProxy configuration file::
         server im-8801 10.0.0.1:8801 check
         server im-8802 10.0.0.1:8802 check
         ...
-	    
