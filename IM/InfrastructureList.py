@@ -145,7 +145,7 @@ class InfrastructureList():
                             InfrastructureList.logger.exception(
                                 "ERROR reading infrastructure from database, ignoring it!.")
                 else:
-                    InfrastructureList.logger.error("ERROR getting inf_list from database!.")
+                    InfrastructureList.logger.warn("No data in database!.")
 
                 db.close()
                 return inf_list
