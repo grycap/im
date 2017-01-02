@@ -837,7 +837,8 @@ class AzureClassicCloudConnector(CloudConnector):
         except:
             return
         try:
-            private_ips.append(role_instance.IpAddress)
+            if role_instance.IpAddress:
+                private_ips.append(role_instance.IpAddress)
         except:
             pass
         try:
@@ -998,6 +999,10 @@ class AzureClassicCloudConnector(CloudConnector):
         """
         Update the features of the system with the information of the instance_type
         """
+        if not instance_type:
+            self.logger.warn("No instance type provided. Not updating VM info.")
+            return
+
         system.addFeature(Feature("cpu.count", "=", instance_type.Cores),
                           conflict="other", missing="other")
         system.addFeature(Feature("memory.size", "=", instance_type.MemoryInMb, 'M'),
