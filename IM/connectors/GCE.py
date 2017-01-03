@@ -39,7 +39,7 @@ class GCECloudConnector(CloudConnector):
 
     type = "GCE"
     """str with the name of the provider."""
-    DEFAULT_ZONE = "us-central1"
+    DEFAULT_ZONE = "us-central1-a"
 
     def __init__(self, cloud_info):
         self.auth = None
@@ -76,7 +76,7 @@ class GCECloudConnector(CloudConnector):
                                     " Check that it has more than one line.")
 
                 driver = cls(auth['username'], auth[
-                             'password'], project=auth['project'])
+                             'password'], project=auth['project'], datastore=self.DEFAULT_ZONE)
 
                 self.driver = driver
                 return driver
@@ -317,8 +317,9 @@ class GCECloudConnector(CloudConnector):
                                 ports[protocol] = []
                             ports[protocol].append(str(remote_port))
 
-                    allowed = [{'IPProtocol': 'tcp', 'ports': ports['tcp']},
-                               {'IPProtocol': 'upd', 'ports': ports['upd']}]
+                    allowed = [{'IPProtocol': 'tcp', 'ports': ports['tcp']}]
+                    if 'udp' in ports:
+                        allowed.append({'IPProtocol': 'udp', 'ports': ports['udp']})
 
                     firewall = None
                     try:
@@ -357,6 +358,9 @@ class GCECloudConnector(CloudConnector):
 
         instance_type = self.get_instance_type(
             driver.list_sizes(region), system)
+
+        if not instance_type:
+            raise Exception("No compatible size found")
 
         name = system.getValue("instance_name")
         if not name:
@@ -417,17 +421,15 @@ class GCECloudConnector(CloudConnector):
         res = []
         if num_vm > 1:
             args['number'] = num_vm
-            args[
-                'base_name'] = "%s-%s" % (name.lower().replace("_", "-"), int(time.time() * 100))
+            args['base_name'] = "%s-%s" % (name.lower().replace("_", "-"), int(time.time() * 100))
             nodes = driver.ex_create_multiple_nodes(**args)
         else:
-            args[
-                'name'] = "%s-%s" % (name.lower().replace("_", "-"), int(time.time() * 100))
+            args['name'] = "%s-%s" % (name.lower().replace("_", "-"), int(time.time() * 100))
             nodes = [driver.create_node(**args)]
 
         for node in nodes:
-            vm = VirtualMachine(inf, node.extra[
-                                'name'], self.cloud, radl, requested_radl, self.cloud.getCloudConnector())
+            vm = VirtualMachine(inf, node.extra['name'], self.cloud, radl,
+                                requested_radl, self.cloud.getCloudConnector())
             vm.info.systems[0].setValue('instance_id', str(vm.id))
             vm.info.systems[0].setValue('instance_name', str(vm.id))
             self.logger.debug("Node successfully created.")
