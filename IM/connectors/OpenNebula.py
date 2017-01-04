@@ -15,13 +15,17 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import hashlib
-import xmlrpclib
+try:
+    from xmlrpclib import ServerProxy
+except ImportError:
+    from xmlrpc.client import ServerProxy
+
 import time
 
 from IM.xmlobject import XMLObject
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
-from CloudConnector import CloudConnector
+from .CloudConnector import CloudConnector
 from radl.radl import network, Feature
 from IM.config import ConfigOpenNebula
 from netaddr import IPNetwork, IPAddress
@@ -203,7 +207,7 @@ class OpenNebulaCloudConnector(CloudConnector):
             auth = auths[0]
 
         if 'username' in auth and 'password' in auth:
-            passwd = auth['password']
+            passwd = auth['password'].encode('utf-8')
             if hash_password is None:
                 one_ver = self.getONEVersion(auth_data)
                 if one_ver == "2.0.0" or one_ver == "3.0.0":
@@ -211,7 +215,7 @@ class OpenNebulaCloudConnector(CloudConnector):
             if hash_password:
                 passwd = hashlib.sha1(passwd.strip()).hexdigest()
 
-            return auth['username'] + ":" + passwd
+            return auth['username'] + ":" + str(passwd)
         else:
             raise Exception("No correct auth data has been specified to OpenNebula: username and password")
 
@@ -254,7 +258,7 @@ class OpenNebulaCloudConnector(CloudConnector):
                 i += 1
 
     def updateVMInfo(self, vm, auth_data):
-        server = xmlrpclib.ServerProxy(self.server_url, allow_none=True)
+        server = ServerProxy(self.server_url, allow_none=True)
 
         session_id = self.getSessionID(auth_data)
         if session_id is None:
@@ -318,7 +322,7 @@ class OpenNebulaCloudConnector(CloudConnector):
             return (success, res_info)
 
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
-        server = xmlrpclib.ServerProxy(self.server_url, allow_none=True)
+        server = ServerProxy(self.server_url, allow_none=True)
         session_id = self.getSessionID(auth_data)
         if session_id is None:
             return [(False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")]
@@ -352,7 +356,7 @@ class OpenNebulaCloudConnector(CloudConnector):
         return res
 
     def finalize(self, vm, auth_data):
-        server = xmlrpclib.ServerProxy(self.server_url, allow_none=True)
+        server = ServerProxy(self.server_url, allow_none=True)
         session_id = self.getSessionID(auth_data)
         if session_id is None:
             return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
@@ -371,7 +375,7 @@ class OpenNebulaCloudConnector(CloudConnector):
         return (success, err)
 
     def stop(self, vm, auth_data):
-        server = xmlrpclib.ServerProxy(self.server_url, allow_none=True)
+        server = ServerProxy(self.server_url, allow_none=True)
         session_id = self.getSessionID(auth_data)
         if session_id is None:
             return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
@@ -390,7 +394,7 @@ class OpenNebulaCloudConnector(CloudConnector):
         return (success, err)
 
     def start(self, vm, auth_data):
-        server = xmlrpclib.ServerProxy(self.server_url, allow_none=True)
+        server = ServerProxy(self.server_url, allow_none=True)
         session_id = self.getSessionID(auth_data)
         if session_id is None:
             return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
@@ -511,7 +515,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 
          Returns: str with the ONE version (format: X.X.X)
         """
-        server = xmlrpclib.ServerProxy(self.server_url, allow_none=True)
+        server = ServerProxy(self.server_url, allow_none=True)
 
         version = "2.0.0"
         methods = server.system.listMethods()
@@ -591,7 +595,7 @@ class OpenNebulaCloudConnector(CloudConnector):
          Returns: a list of tuples (net_name, net_id, is_public) with the name, ID, and boolean specifying
          if it is a public network of the found network None if not found
         """
-        server = xmlrpclib.ServerProxy(self.server_url, allow_none=True)
+        server = ServerProxy(self.server_url, allow_none=True)
         session_id = self.getSessionID(auth_data)
         if session_id is None:
             return None
@@ -795,7 +799,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 
          Returns: bool, True if the one.vm.resize function appears in the ONE server or false otherwise
         """
-        server = xmlrpclib.ServerProxy(self.server_url, allow_none=True)
+        server = ServerProxy(self.server_url, allow_none=True)
 
         methods = server.system.listMethods()
         if "one.vm.resize" in methods:
@@ -807,7 +811,7 @@ class OpenNebulaCloudConnector(CloudConnector):
         """
         Poweroff the VM and waits for it to be in poweredoff state
         """
-        server = xmlrpclib.ServerProxy(self.server_url, allow_none=True)
+        server = ServerProxy(self.server_url, allow_none=True)
         session_id = self.getSessionID(auth_data)
         if session_id is None:
             return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
@@ -874,7 +878,7 @@ class OpenNebulaCloudConnector(CloudConnector):
             return (True, "")
 
     def attach_volume(self, vm, disk_size, disk_device, disk_fstype, session_id):
-        server = xmlrpclib.ServerProxy(self.server_url, allow_none=True)
+        server = ServerProxy(self.server_url, allow_none=True)
 
         disk_temp = '''
             DISK = [
@@ -932,7 +936,7 @@ class OpenNebulaCloudConnector(CloudConnector):
         return (True, "")
 
     def alter_mem_cpu(self, vm, system, session_id, auth_data):
-        server = xmlrpclib.ServerProxy(self.server_url, allow_none=True)
+        server = ServerProxy(self.server_url, allow_none=True)
 
         cpu = vm.info.systems[0].getValue('cpu.count')
         memory = vm.info.systems[0].getFeature('memory.size').getValue('M')

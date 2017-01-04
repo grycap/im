@@ -21,9 +21,9 @@ try:
     from libcloud.compute.types import Provider, NodeState
     from libcloud.compute.providers import get_driver
     from libcloud.compute.base import NodeImage, NodeAuthSSHKey
-except Exception, ex:
-    print "WARN: libcloud library not correctly installed. OpenStackCloudConnector will not work!."
-    print ex
+except Exception as ex:
+    print("WARN: libcloud library not correctly installed. OpenStackCloudConnector will not work!.")
+    print(ex)
 
 from IM.connectors.LibCloud import LibCloudCloudConnector
 from IM.config import Config
@@ -430,7 +430,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             msg = "Error creating the node. "
             try:
                 node = driver.create_node(**args)
-            except Exception, ex:
+            except Exception as ex:
                 msg += str(ex)
 
             if node:
@@ -628,7 +628,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                         try:
                             driver.ex_create_security_group_rule(
                                 sg, protocol, remote_port, remote_port, '0.0.0.0/0')
-                        except Exception, ex:
+                        except Exception as ex:
                             self.logger.warn(
                                 "Exception adding SG rules: " + str(ex))
 
@@ -640,7 +640,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 sg, 'tcp', 1, 65535, source_security_group=sg)
             driver.ex_create_security_group_rule(
                 sg, 'udp', 1, 65535, source_security_group=sg)
-        except Exception, addex:
+        except Exception as addex:
             self.logger.warn(
                 "Exception adding SG rules. Probably the rules exists:" + str(addex))
             pass
@@ -713,7 +713,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     try:
                         node.driver.ex_delete_security_group(sg)
                         deleted = True
-                    except Exception, ex:
+                    except Exception as ex:
                         # Check if it has been deleted yet
                         sg = self._get_security_group(node.driver, sg.name)
                         if not sg:

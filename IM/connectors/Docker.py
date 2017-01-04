@@ -23,7 +23,7 @@ import random
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from IM.config import Config
-from CloudConnector import CloudConnector
+from .CloudConnector import CloudConnector
 from radl.radl import Feature
 from IM import UnixHTTPAdapter
 
@@ -75,15 +75,15 @@ class DockerCloudConnector(CloudConnector):
         """
         certificate = auth['cert']
         fd, cert_file = tempfile.mkstemp()
-        os.write(fd, certificate)
+        os.write(fd, certificate.encode())
         os.close(fd)
-        os.chmod(cert_file, 0644)
+        os.chmod(cert_file, 0o644)
 
         private_key = auth['key']
         fd, key_file = tempfile.mkstemp()
-        os.write(fd, private_key)
+        os.write(fd, private_key.encode())
         os.close(fd)
-        os.chmod(key_file, 0600)
+        os.chmod(key_file, 0o600)
 
         return (cert_file, key_file)
 
@@ -330,7 +330,7 @@ class DockerCloudConnector(CloudConnector):
 
                 res.append((True, vm))
 
-            except Exception, ex:
+            except Exception as ex:
                 self.logger.exception("Error connecting with Docker server")
                 res.append((False, "ERROR: " + str(ex)))
 
@@ -357,7 +357,7 @@ class DockerCloudConnector(CloudConnector):
             self.setIPs(vm, output)
             return (True, vm)
 
-        except Exception, ex:
+        except Exception as ex:
             self.logger.exception("Error connecting with Docker server")
             self.logger.error(ex)
             return (False, "Error connecting with Docker server")

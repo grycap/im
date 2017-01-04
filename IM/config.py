@@ -14,7 +14,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import configparser
+try:
+    from ConfigParser import ConfigParser
+except ImportError:
+    from configparser import ConfigParser
 import os
 import logging
 
@@ -88,7 +91,7 @@ class Config:
     UPDATE_CTXT_LOG_INTERVAL = 20
     ANSIBLE_INSTALL_TIMEOUT = 900
 
-config = configparser.ConfigParser()
+config = ConfigParser()
 config.read([Config.IM_PATH + '/../im.cfg', Config.IM_PATH +
              '/../etc/im.cfg', '/etc/im/im.cfg'])
 

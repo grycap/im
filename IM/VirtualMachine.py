@@ -538,7 +538,7 @@ class VirtualMachine:
 
                 # Search in previous used private ips
                 private_net = None
-                for net_mask, net in private_net_map.iteritems():
+                for net_mask, net in private_net_map.items():
                     if IPAddress(private_ip) in IPNetwork(net_mask):
                         private_net = net
 
@@ -578,6 +578,7 @@ class VirtualMachine:
                                    str(num_net) + '.ip', str(private_ip))
                 vm_system.setValue(
                     'net_interface.' + str(num_net) + '.connection', private_net.id)
+
 
     def get_ssh(self, retry=False):
         """
@@ -782,7 +783,7 @@ class VirtualMachine:
             # And process it
             self.process_ctxt_agent_out(ctxt_agent_out)
             msg = "Contextualization agent output processed successfully"
-        except IOError, ex:
+        except IOError as ex:
             msg = "Error getting contextualization agent output " + \
                 remote_dir + "/ctxt_agent.out:  No such file."
             VirtualMachine.logger.error(msg)
@@ -804,7 +805,7 @@ class VirtualMachine:
                 VirtualMachine.logger.exception(
                     "Error getting stdout and stderr to guess why the agent output is not there.")
                 pass
-        except Exception, ex:
+        except Exception as ex:
             VirtualMachine.logger.exception(
                 "Error getting contextualization agent output: " + remote_dir + '/ctxt_agent.out')
             self.configured = False
@@ -845,3 +846,6 @@ class VirtualMachine:
             return SSHRetry(ansible_host.getHost(), user, passwd, private_key)
         else:
             return self.inf.vm_master.get_ssh(retry=True)
+
+    def __lt__(self, other):
+        return True

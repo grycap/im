@@ -54,9 +54,9 @@ class TestIM(unittest.TestCase):
 
     def setUp(self):
 
+        Config.DATA_DB = "/tmp/inf.dat"
+        InfrastructureList.load_data()
         IM._reinit()
-        # Patch save_data
-        IM.save_data = staticmethod(lambda *args: None)
 
         ch = logging.StreamHandler(sys.stdout)
         log = logging.getLogger('InfrastructureManager')

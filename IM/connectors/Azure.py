@@ -17,7 +17,7 @@
 import time
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
-from CloudConnector import CloudConnector
+from .CloudConnector import CloudConnector
 from radl.radl import Feature
 
 try:
@@ -26,9 +26,9 @@ try:
     from azure.mgmt.compute import ComputeManagementClient
     from azure.mgmt.network import NetworkManagementClient
     from azure.common.credentials import UserPassCredentials
-except Exception, ex:
-    print "WARN: Python Azure SDK not correctly installed. AzureCloudConnector will not work!."
-    print ex
+except Exception as ex:
+    print("WARN: Python Azure SDK not correctly installed. AzureCloudConnector will not work!.")
+    print(ex)
 
 
 class AzureCloudConnector(CloudConnector):
@@ -400,7 +400,7 @@ class AzureCloudConnector(CloudConnector):
                                                                               'location': location}
                                                                              )
             return storage_async_operation.result(), ""
-        except Exception, ex:
+        except Exception as ex:
             self.logger.exception("Error creating the storage account")
             return None, str(ex)
 
@@ -515,7 +515,7 @@ class AzureCloudConnector(CloudConnector):
                 self.attach_data_disks(vm, storage_account_name, credentials, subscription_id, location)
 
                 res.append((True, vm))
-            except Exception, ex:
+            except Exception as ex:
                 self.logger.exception("Error creating the VM")
                 res.append((False, "Error creating the VM: " + str(ex)))
 
@@ -561,7 +561,7 @@ class AzureCloudConnector(CloudConnector):
                     }
                 )
                 async_vm_update.wait()
-            except Exception, ex:
+            except Exception as ex:
                 self.logger.exception("Error attaching disk %d to VM %s" % (cont, vm_name))
                 return False, "Error attaching disk %d to VM %s: %s" % (cont, vm_name, str(ex))
             cont += 1
@@ -578,7 +578,7 @@ class AzureCloudConnector(CloudConnector):
             compute_client = ComputeManagementClient(credentials, subscription_id)
             # Get one the virtual machine by name
             virtual_machine = compute_client.virtual_machines.get(group_name, vm_name)
-        except Exception, ex:
+        except Exception as ex:
             if "NotFound" in str(ex):
                 vm.state = VirtualMachine.OFF
                 return (True, vm)
@@ -639,7 +639,7 @@ class AzureCloudConnector(CloudConnector):
                 self.logger.exception("Removing RG: %s" % "rg-%s" % vm.inf.id)
                 resource_client.resource_groups.delete("rg-%s" % vm.inf.id)
 
-        except Exception, ex:
+        except Exception as ex:
             self.logger.exception("Error terminating the VM")
             return False, "Error terminating the VM: " + str(ex)
 
@@ -652,7 +652,7 @@ class AzureCloudConnector(CloudConnector):
             credentials, subscription_id = self.get_credentials(auth_data)
             compute_client = ComputeManagementClient(credentials, subscription_id)
             compute_client.virtual_machines.power_off(group_name, vm_name)
-        except Exception, ex:
+        except Exception as ex:
             self.logger.exception("Error stopping the VM")
             return False, "Error stopping the VM: " + str(ex)
 
@@ -665,7 +665,7 @@ class AzureCloudConnector(CloudConnector):
             credentials, subscription_id = self.get_credentials(auth_data)
             compute_client = ComputeManagementClient(credentials, subscription_id)
             compute_client.virtual_machines.start(group_name, vm_name)
-        except Exception, ex:
+        except Exception as ex:
             self.logger.exception("Error starting the VM")
             return False, "Error starting the VM: " + str(ex)
 
@@ -695,7 +695,7 @@ class AzureCloudConnector(CloudConnector):
             async_vm_start.wait()
 
             return self.updateVMInfo(vm, auth_data)
-        except Exception, ex:
+        except Exception as ex:
             self.logger.exception("Error altering the VM")
             return False, "Error altering the VM: " + str(ex)
 

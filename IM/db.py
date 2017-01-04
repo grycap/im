@@ -148,7 +148,7 @@ class DataBase:
                         res = True
                     return res
                 # If the operational error is db lock, retry
-                except sqlite.OperationalError, ex:
+                except sqlite.OperationalError as ex:
                     if str(ex).lower() == 'database is locked':
                         retries_cont += 1
                         # release the connection
@@ -158,7 +158,7 @@ class DataBase:
                         self.connect()
                     else:
                         raise ex
-                except sqlite.IntegrityError, ex:
+                except sqlite.IntegrityError as ex:
                     raise IntegrityError()
 
     def execute(self, sql, args=None):

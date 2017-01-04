@@ -20,13 +20,16 @@ import time
 from uuid import uuid1
 import json
 
-from ganglia import ganglia_info
-import ConfManager
+from IM.ganglia import ganglia_info
+import IM.ConfManager
 from datetime import datetime
 from radl.radl import RADL, Feature, deploy, system, contextualize_item
 from radl.radl_json import parse_radl as parse_radl_json, dump_radl as dump_radl_json
-from config import Config
-from Queue import PriorityQueue
+from IM.config import Config
+try:
+    from Queue import PriorityQueue
+except ImportError:
+    from queue import PriorityQueue
 from IM.VirtualMachine import VirtualMachine
 from IM.auth import Authentication
 
@@ -180,7 +183,11 @@ class InfrastructureInfo:
         """
         Add a line to the contextualization message
         """
-        self.cont_out += str(datetime.now()) + ": " + str(msg.decode('utf8', 'ignore')) + "\n"
+        try:
+            str_msg = str(msg.decode('utf8', 'ignore'))
+        except:
+            str_msg = msg
+        self.cont_out += str(datetime.now()) + ": " + str_msg + "\n"
 
     def get_vm_list(self):
         """
@@ -359,7 +366,7 @@ class InfrastructureInfo:
             if now - self.last_ganglia_update > Config.GANGLIA_INFO_UPDATE_FREQUENCY:
                 try:
                     (success, msg) = ganglia_info.update_ganglia_info(self)
-                except Exception, ex:
+                except Exception as ex:
                     success = False
                     msg = str(ex)
             else:
@@ -505,7 +512,7 @@ class InfrastructureInfo:
             self.add_ctxt_tasks(ctxt_task)
 
             if self.cm is None or not self.cm.isAlive():
-                self.cm = ConfManager.ConfManager(self, auth, max_ctxt_time)
+                self.cm = IM.ConfManager.ConfManager(self, auth, max_ctxt_time)
                 self.cm.start()
             else:
                 # update the ConfManager reference to the inf object

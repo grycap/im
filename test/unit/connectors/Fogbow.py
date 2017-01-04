@@ -21,7 +21,10 @@ import unittest
 import os
 import logging
 import logging.config
-from StringIO import StringIO
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 
 sys.path.append(".")
 sys.path.append("..")
@@ -126,7 +129,7 @@ class TestFogBowConnector(unittest.TestCase):
     def request(self, method, url, body=None, headers={}):
         self.__class__.last_op = method, url
 
-    @patch('httplib.HTTPConnection')
+    @patch('IM.connectors.FogBow.HTTPConnection')
     def test_20_launch(self, connection):
         radl_data = """
             network net1 (outbound = 'yes' and outports = '8080')
@@ -164,7 +167,7 @@ class TestFogBowConnector(unittest.TestCase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         self.clean_log()
 
-    @patch('httplib.HTTPConnection')
+    @patch('IM.connectors.FogBow.HTTPConnection')
     def test_30_updateVMInfo(self, connection):
         radl_data = """
             network net (outbound = 'yes')
@@ -201,7 +204,7 @@ class TestFogBowConnector(unittest.TestCase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         self.clean_log()
 
-    @patch('httplib.HTTPConnection')
+    @patch('IM.connectors.FogBow.HTTPConnection')
     def test_60_finalize(self, connection):
         auth = Authentication([{'id': 'fogbow', 'type': 'FogBow', 'proxy': 'user', 'host': 'server.com:8182'}])
         fogbow_cloud = self.get_fogbow_cloud()

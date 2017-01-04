@@ -46,7 +46,7 @@ class CloudInfo:
         try:
             module = __import__('IM.connectors.' + self.type, fromlist=[self.type + "CloudConnector"])
             return getattr(module, self.type + "CloudConnector")(self)
-        except Exception, ex:
+        except Exception as ex:
             raise Exception("Cloud provider not supported: %s (error: %s)" % (self.type, str(ex)))
 
     def __str__(self):

@@ -478,8 +478,7 @@ class InfrastructureManager:
         # NOTE: consider fake deploys (vm_number == 0)
         deploys_group_cloud_list = {}
         for deploy_group in deploy_groups:
-            suggested_cloud_ids = list(
-                set([d.cloud_id for d in deploy_group if d.cloud_id]))
+            suggested_cloud_ids = list(set([d.cloud_id for d in deploy_group if d.cloud_id]))
             if len(suggested_cloud_ids) > 1:
                 raise Exception("Two deployments that have to be launched in the same cloud provider "
                                 "are asked to be deployed in different cloud providers: %s" % deploy_group)
@@ -493,11 +492,16 @@ class InfrastructureManager:
                         (suggested_cloud_ids[0], cloud_list[suggested_cloud_ids[0]])]
             else:
                 cloud_list0 = cloud_list.items()
-            if d.vm_number:
-                scored_clouds = [(cloud_id, sum([d.vm_number * concrete_systems[cloud_id][d.id][1]
-                                                 for d in deploy_group])) for cloud_id, _ in cloud_list0]
-            else:
-                scored_clouds = [(cloud_id, 1) for cloud_id, _ in cloud_list0]
+
+            scored_clouds = []
+            for cloud_id, _ in cloud_list0:
+                total = 0
+                for d in deploy_group:
+                    if d.vm_number:
+                        total += d.vm_number * concrete_systems[cloud_id][d.id][1]
+                    else:
+                        total += 1
+                scored_clouds.append((cloud_id, total))
 
             ordered_cloud_list = [c.id for c in CloudInfo.get_cloud_list(auth)]
             # reverse the list to use the reverse order in the sort function
@@ -559,7 +563,7 @@ class InfrastructureManager:
             if passwd and not new_passwd:
                 # The VM uses the VMI password, set to change it
                 random_password = ''.join(random.choice(
-                    string.letters + string.digits) for _ in range(8))
+                    string.ascii_letters + string.digits) for _ in range(8))
                 vm.info.systems[0].setCredentialValues(
                     password=random_password, new=True)
 

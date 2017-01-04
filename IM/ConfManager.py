@@ -23,14 +23,18 @@ import logging
 import shutil
 import json
 import copy
-from StringIO import StringIO
+
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 from multiprocessing import Queue
 
 from ansible.parsing.vault import VaultEditor
 
 from IM.ansible_utils.ansible_launcher import AnsibleThread
 
-import InfrastructureManager
+import IM.InfrastructureManager
 from IM.VirtualMachine import VirtualMachine
 from IM.SSH import AuthenticationException
 from IM.SSHRetry import SSHRetry
@@ -68,7 +72,7 @@ class ConfManager(threading.Thread):
         Update the status of the configuration processes
         """
         res = {}
-        for step, vm_list in vms_configuring.iteritems():
+        for step, vm_list in vms_configuring.items():
             for vm in vm_list:
                 if isinstance(vm, VirtualMachine):
                     # Update the info of the VM to check it is in a correct
@@ -113,7 +117,7 @@ class ConfManager(threading.Thread):
     def stop(self):
         self._stop = True
         # put a task to assure to wake up the thread
-        self.inf.ctxt_tasks.put((-10, 0, None, None))
+        self.inf.add_ctxt_tasks([(-10, 0, None, None)])
         ConfManager.logger.debug(
             "Inf ID: " + str(self.inf.id) + ": Stop Configuration thread.")
         if self.ansible_process and self.ansible_process.is_alive():
@@ -803,7 +807,7 @@ class ConfManager(threading.Thread):
 
                     success = configured_ok
 
-                except Exception, ex:
+                except Exception as ex:
                     ConfManager.logger.exception(
                         "Inf ID: " + str(self.inf.id) + ": Error in the ansible installation process")
                     self.inf.add_cont_msg(
@@ -990,7 +994,7 @@ class ConfManager(threading.Thread):
                 ssh.sftp_put_files(recipe_files)
 
             self.inf.set_configured(True)
-        except Exception, ex:
+        except Exception as ex:
             self.inf.set_configured(False)
             ConfManager.logger.exception(
                 "Inf ID: " + str(self.inf.id) + ": Error generating playbooks.")
@@ -1004,7 +1008,7 @@ class ConfManager(threading.Thread):
         Remove and launch again the specified VM
         """
         try:
-            removed = InfrastructureManager.InfrastructureManager.RemoveResource(
+            removed = IM.InfrastructureManager.InfrastructureManager.RemoveResource(
                 self.inf.id, vm.im_id, self.auth)
         except:
             ConfManager.logger.exception(
@@ -1025,7 +1029,7 @@ class ConfManager(threading.Thread):
         failed_clouds = []
         if failed_cloud:
             failed_clouds = [vm.cloud]
-        InfrastructureManager.InfrastructureManager.AddResource(
+        IM.InfrastructureManager.InfrastructureManager.AddResource(
             self.inf.id, new_radl, self.auth, False, failed_clouds)
 
     def wait_vm_running(self, vm, timeout, relaunch=False):
@@ -1161,6 +1165,17 @@ class ConfManager(threading.Thread):
         # Timeout, return False
         return False, "Timeout waiting SSH access."
 
+    @staticmethod
+    def cmp_credentials(creds, other_creds):
+        if len(creds) != len(other_creds):
+            return 1
+        
+        for i in range(len(creds)):
+            if creds[i] != other_creds[i]:
+                return 1
+        
+        return 0
+
     def change_master_credentials(self, ssh):
         """
         Chech the RADL of the VM master to see if we must change the user credentials
@@ -1175,7 +1190,7 @@ class ConfManager(threading.Thread):
             new_creds = self.inf.vm_master.getCredentialValues(new=True)
             if len(list(set(new_creds))) > 1 or list(set(new_creds))[0] is not None:
                 change_creds = False
-                if cmp(new_creds, creds) != 0:
+                if self.cmp_credentials(new_creds, creds) != 0:
                     (_, new_passwd, new_public_key, new_private_key) = new_creds
                     # only change to the new password if there are a previous
                     # passwd value
@@ -1234,7 +1249,7 @@ class ConfManager(threading.Thread):
                 pk_out = open(gen_pk_file, 'w')
                 pk_out.write(ssh.private_key)
                 pk_out.close()
-                os.chmod(gen_pk_file, 0400)
+                os.chmod(gen_pk_file, 0o400)
         else:
             gen_pk_file = None
 
@@ -1414,7 +1429,7 @@ class ConfManager(threading.Thread):
                 ConfManager.logger.debug("Inf ID: " + str(self.inf.id) +
                                          ": Ansible successfully configured in the master VM:\n" + msg + "\n\n")
                 self.inf.add_cont_msg("Ansible successfully configured in the master VM.")
-        except Exception, ex:
+        except Exception as ex:
             ConfManager.logger.exception(
                 "Inf ID: " + str(self.inf.id) + ": Error configuring master node.")
             self.inf.add_cont_msg("Error configuring master node: " + str(ex))
@@ -1456,7 +1471,7 @@ class ConfManager(threading.Thread):
                  _, vm_conf_data['private_key']) = creds
                 # If there are new creds to set to the VM
                 if len(list(set(new_creds))) > 1 or list(set(new_creds))[0] is not None:
-                    if cmp(new_creds, creds) != 0:
+                    if self.cmp_credentials(new_creds, creds) != 0:
                         (_, vm_conf_data['new_passwd'], vm_conf_data[
                          'new_public_key'], vm_conf_data['new_private_key']) = new_creds
 

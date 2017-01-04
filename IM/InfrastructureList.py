@@ -92,7 +92,7 @@ class InfrastructureList():
             try:
                 inf_list = InfrastructureList._get_data_from_db(Config.DATA_DB)
                 InfrastructureList.infrastructure_list = inf_list
-            except Exception, ex:
+            except Exception as ex:
                 InfrastructureList.logger.exception("ERROR loading data. Correct or delete it!!")
                 sys.stderr.write("ERROR loading data: " + str(ex) + ".\nCorrect or delete it!! ")
                 sys.exit(-1)
@@ -114,7 +114,7 @@ class InfrastructureList():
                 if not res:
                     InfrastructureList.logger.error("ERROR saving data.\nChanges not stored!!")
                     sys.stderr.write("ERROR saving data.\nChanges not stored!!")
-            except Exception, ex:
+            except Exception as ex:
                 InfrastructureList.logger.exception("ERROR saving data. Changes not stored!!")
                 sys.stderr.write("ERROR saving data: " + str(ex) + ".\nChanges not stored!!")
 

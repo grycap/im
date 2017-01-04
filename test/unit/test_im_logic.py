@@ -120,7 +120,7 @@ class TestIM(unittest.TestCase):
         IM.DestroyInfrastructure(infId, auth0)
 
     def test_inf_creation1(self):
-        """Create infrastructure with empty RADL."""
+        """Create infrastructure with an incorrect RADL with 2 clouds."""
 
         radl = """"
             network publica (outbound = 'yes')
@@ -160,6 +160,55 @@ class TestIM(unittest.TestCase):
                       " are asked to be deployed in different cloud providers",
                       str(ex.exception))
 
+    def test_inf_creation_addition_clouds(self):
+        """Add resources infrastructure with an incorrect RADL with 2 clouds."""
+
+        radl = """"
+            network publica (outbound = 'yes')
+            network privada ()
+
+            system front (
+            cpu.arch='x86_64' and
+            cpu.count>=1 and
+            memory.size>=512m and
+            net_interface.0.connection = 'publica' and
+            net_interface.1.connection = 'privada' and
+            disk.0.image.url = 'mock0://linux.for.ev.er' and
+            disk.0.os.credentials.username = 'ubuntu' and
+            disk.0.os.credentials.password = 'yoyoyo' and
+            disk.0.os.name = 'linux'
+            )
+
+            system wn (
+            cpu.arch='x86_64' and
+            cpu.count>=1 and
+            memory.size>=512m and
+            net_interface.0.connection = 'privada' and
+            disk.0.image.url = 'mock0://linux.for.ev.er' and
+            disk.0.os.credentials.username = 'ubuntu' and
+            disk.0.os.credentials.password = 'yoyoyo' and
+            disk.0.os.name = 'linux'
+            )
+
+            deploy front 1 cloud0
+            deploy wn 1
+        """
+
+        auth0 = self.getAuth([0], [], [("Dummy", 0), ("Dummy", 1)])
+        infId = IM.CreateInfrastructure(radl, auth0)
+        
+        radl = """
+            network privada
+            system wn
+            deploy wn 1 cloud1
+        """
+        
+        with self.assertRaises(Exception) as ex:
+            _ = IM.AddResource(infId, radl, auth0)
+        self.assertIn("Two deployments that have to be launched in the same cloud provider"
+                      " are asked to be deployed in different cloud providers",
+                      str(ex.exception))
+
     def test_inf_auth(self):
         """Try to access not owned Infs."""
 
@@ -191,7 +240,7 @@ class TestIM(unittest.TestCase):
         with self.assertRaises(Exception) as ex:
             IM.AddResource(infId, str(radl), auth0)
 
-        self.assertIn("No username", ex.exception.message)
+        self.assertIn("No username", str(ex.exception))
 
         IM.DestroyInfrastructure(infId, auth0)
 
@@ -238,7 +287,7 @@ class TestIM(unittest.TestCase):
         """Deploy n independent virtual machines."""
 
         n = 20  # Machines to deploy
-        Config.MAX_SIMULTANEOUS_LAUNCHES = n / 2  # Test the pool
+        Config.MAX_SIMULTANEOUS_LAUNCHES = int(n / 2)  # Test the pool
         radl = RADL()
         radl.add(system("s0", [Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
                                Feature("disk.0.os.credentials.username", "=", "user"),
