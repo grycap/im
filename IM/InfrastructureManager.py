@@ -493,11 +493,16 @@ class InfrastructureManager:
                         (suggested_cloud_ids[0], cloud_list[suggested_cloud_ids[0]])]
             else:
                 cloud_list0 = cloud_list.items()
-            if d.vm_number:
-                scored_clouds = [(cloud_id, sum([d.vm_number * concrete_systems[cloud_id][d.id][1]
-                                                 for d in deploy_group])) for cloud_id, _ in cloud_list0]
-            else:
-                scored_clouds = [(cloud_id, 1) for cloud_id, _ in cloud_list0]
+
+            scored_clouds = []
+            for cloud_id, _ in cloud_list0:
+                total = 0
+                for d in deploy_group:
+                    if d.vm_number:
+                        total += d.vm_number * concrete_systems[cloud_id][d.id][1]
+                    else:
+                        total += 1
+                scored_clouds.append((cloud_id, total))
 
             ordered_cloud_list = [c.id for c in CloudInfo.get_cloud_list(auth)]
             # reverse the list to use the reverse order in the sort function
