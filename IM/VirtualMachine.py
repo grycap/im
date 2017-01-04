@@ -579,7 +579,6 @@ class VirtualMachine:
                 vm_system.setValue(
                     'net_interface.' + str(num_net) + '.connection', private_net.id)
 
-
     def get_ssh(self, retry=False):
         """
         Get SSH object to connect with this VM

@@ -1169,11 +1169,11 @@ class ConfManager(threading.Thread):
     def cmp_credentials(creds, other_creds):
         if len(creds) != len(other_creds):
             return 1
-        
+
         for i in range(len(creds)):
             if creds[i] != other_creds[i]:
                 return 1
-        
+
         return 0
 
     def change_master_credentials(self, ssh):

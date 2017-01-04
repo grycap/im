@@ -196,13 +196,13 @@ class TestIM(unittest.TestCase):
 
         auth0 = self.getAuth([0], [], [("Dummy", 0), ("Dummy", 1)])
         infId = IM.CreateInfrastructure(radl, auth0)
-        
+
         radl = """
             network privada
             system wn
             deploy wn 1 cloud1
         """
-        
+
         with self.assertRaises(Exception) as ex:
             _ = IM.AddResource(infId, radl, auth0)
         self.assertIn("Two deployments that have to be launched in the same cloud provider"

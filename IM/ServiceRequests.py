@@ -134,8 +134,8 @@ class Request_AddResource(IMBaseRequest):
         self._error_mesage = "Error Adding resources."
         (inf_id, radl_data, auth_data, context) = self.arguments
         return IM.InfrastructureManager.InfrastructureManager.AddResource(inf_id, radl_data,
-                                                                       Authentication(auth_data),
-                                                                       context)
+                                                                          Authentication(auth_data),
+                                                                          context)
 
 
 class Request_RemoveResource(IMBaseRequest):
@@ -147,8 +147,8 @@ class Request_RemoveResource(IMBaseRequest):
         self._error_mesage = "Error Removing resources."
         (inf_id, vm_list, auth_data, context) = self.arguments
         return IM.InfrastructureManager.InfrastructureManager.RemoveResource(inf_id, vm_list,
-                                                                          Authentication(auth_data),
-                                                                          context)
+                                                                             Authentication(auth_data),
+                                                                             context)
 
 
 class Request_GetInfrastructureInfo(IMBaseRequest):
@@ -182,7 +182,7 @@ class Request_GetVMProperty(IMBaseRequest):
         self._error_mesage = "Error Getting VM Property."
         (inf_id, vm_id, property_name, auth_data) = self.arguments
         return IM.InfrastructureManager.InfrastructureManager.GetVMProperty(inf_id, vm_id, property_name,
-                                                                         Authentication(auth_data))
+                                                                            Authentication(auth_data))
 
 
 class Request_AlterVM(IMBaseRequest):
@@ -193,7 +193,8 @@ class Request_AlterVM(IMBaseRequest):
     def _call_function(self):
         self._error_mesage = "Error Changing VM Info."
         (inf_id, vm_id, radl, auth_data) = self.arguments
-        return str(IM.InfrastructureManager.InfrastructureManager.AlterVM(inf_id, vm_id, radl, Authentication(auth_data)))
+        return str(IM.InfrastructureManager.InfrastructureManager.AlterVM(inf_id, vm_id, radl,
+                                                                          Authentication(auth_data)))
 
 
 class Request_DestroyInfrastructure(IMBaseRequest):
@@ -260,7 +261,7 @@ class Request_Reconfigure(IMBaseRequest):
         self._error_mesage = "Error Reconfiguring Inf."
         (inf_id, radl_data, auth_data, vm_list) = self.arguments
         return IM.InfrastructureManager.InfrastructureManager.Reconfigure(inf_id, radl_data,
-                                                                       Authentication(auth_data), vm_list)
+                                                                          Authentication(auth_data), vm_list)
 
 
 class Request_ImportInfrastructure(IMBaseRequest):
@@ -283,7 +284,7 @@ class Request_ExportInfrastructure(IMBaseRequest):
         self._error_mesage = "Error Exporting Inf."
         (inf_id, delete, auth_data) = self.arguments
         return IM.InfrastructureManager.InfrastructureManager.ExportInfrastructure(inf_id, delete,
-                                                                                Authentication(auth_data))
+                                                                                   Authentication(auth_data))
 
 
 class Request_GetInfrastructureRADL(IMBaseRequest):
@@ -316,7 +317,8 @@ class Request_GetInfrastructureContMsg(IMBaseRequest):
     def _call_function(self):
         self._error_mesage = "Error gettinf the Inf. cont msg"
         (inf_id, auth_data) = self.arguments
-        return IM.InfrastructureManager.InfrastructureManager.GetInfrastructureContMsg(inf_id, Authentication(auth_data))
+        return IM.InfrastructureManager.InfrastructureManager.GetInfrastructureContMsg(inf_id,
+                                                                                       Authentication(auth_data))
 
 
 class Request_SaveData(IMBaseRequest):
