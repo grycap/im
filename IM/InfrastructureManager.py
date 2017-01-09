@@ -1294,8 +1294,8 @@ class InfrastructureManager:
     @staticmethod
     def CreateDiskSnapshot(inf_id, vm_id, disk_num, auth):
         """
-        Create a snapshot of the specified num disk in a 
-        virtual machine in an infrastructure. 
+        Create a snapshot of the specified num disk in a
+        virtual machine in an infrastructure.
 
         Args:
 

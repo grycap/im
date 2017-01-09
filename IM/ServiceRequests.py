@@ -380,6 +380,7 @@ class Request_GetVersion(IMBaseRequest):
         self._error_mesage = "Error getting IM service version"
         return version
 
+
 class Request_CreateDiskSnapshot(IMBaseRequest):
     """
     Request class for the CreateDiskSnapshot function

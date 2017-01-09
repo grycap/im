@@ -131,8 +131,8 @@ class CloudConnector:
         raise NotImplementedError("Should have implemented this")
 
     def create_snapshot(self, vm, disk_num, auth_data):
-        """ 
-        Create a snapshot of the specified num disk in a virtual machine. 
+        """
+        Create a snapshot of the specified num disk in a virtual machine.
 
         Arguments:
           - vm(:py:class:`IM.VirtualMachine`): VM to stop.
@@ -145,6 +145,21 @@ class CloudConnector:
              or an error message otherwise.
         """
 
+        raise NotImplementedError("Should have implemented this")
+
+    def delete_image(self, image_url, auth_data):
+        """
+        Delete an image on the cloud provider.
+
+        Arguments:
+          - image_url(str): URL of the image to delete.
+          - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
+
+        Returns: a tuple (success, vm).
+          - The first value is True if the operation finished successfully or false otherwise.
+          - The second value is an empty str if the operation finished successfully
+             or an error message otherwise.
+        """
         raise NotImplementedError("Should have implemented this")
 
     def keygen(self):

@@ -973,3 +973,48 @@ class OpenNebulaCloudConnector(CloudConnector):
         else:
             # Nothing to do
             return (True, "")
+
+    def create_snapshot(self, vm, disk_num, auth_data):
+        server = xmlrpclib.ServerProxy(self.server_url, allow_none=True)
+
+        session_id = self.getSessionID(auth_data)
+        if session_id is None:
+            return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
+
+        image_name = "im-snap-%s" % int(time.time() * 100)
+        image_type = ""  # Use the default one
+        func_res = server.one.vm.savedisk(session_id, int(vm.id), disk_num, image_name, image_type, True, False)
+        if len(func_res) == 2:
+            (success, res_info) = func_res
+        elif len(func_res) == 3:
+            (success, res_info, _) = func_res
+        else:
+            return (False, "Error in the one.vm.savedisk return value")
+
+        if success:
+            new_url = "one://%s/%d" % (self.cloud.server, res_info)
+            return (True, new_url)
+        else:
+            return (False, res_info)
+
+    def delete_image(self, image_url, auth_data):
+        server = xmlrpclib.ServerProxy(self.server_url, allow_none=True)
+
+        session_id = self.getSessionID(auth_data)
+        if session_id is None:
+            return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
+
+        url = uriparse(image_url)
+        image_id = int(url[2])
+        func_res = server.one.image.delete(session_id, image_id)
+        if len(func_res) == 2:
+            (success, res_info) = func_res
+        elif len(func_res) == 3:
+            (success, res_info, _) = func_res
+        else:
+            return (False, "Error in the one.image.delete return value")
+
+        if success:
+            return (True, "")
+        else:
+            return (False, res_info)
