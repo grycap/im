@@ -191,9 +191,9 @@ def GetVersion():
     return WaitRequest(request)
 
 
-def CreateDiskSnapshot(inf_id, vm_id, disk_num, auth_data):
+def CreateDiskSnapshot(inf_id, vm_id, disk_num, image_name, auth_data):
     request = IMBaseRequest.create_request(
-        IMBaseRequest.CREATE_DISK_SNAPSHOT, (inf_id, vm_id, disk_num, auth_data))
+        IMBaseRequest.CREATE_DISK_SNAPSHOT, (inf_id, vm_id, disk_num, image_name, auth_data))
     return WaitRequest(request)
 
 

@@ -574,7 +574,7 @@ class TestIM(unittest.TestCase):
         auth0 = self.getAuth([0], [], [("Dummy", 0)])
         infId = IM.CreateInfrastructure(str(radl), auth0)
 
-        image_url = IM.CreateDiskSnapshot(infId, "0", 0, auth0)
+        image_url = IM.CreateDiskSnapshot(infId, "0", 0, "snapshot", auth0)
         self.assertEquals(image_url, "mock0://linux.for.ev.er/snapshot")
 
         IM.DestroyInfrastructure(infId, auth0)

@@ -81,8 +81,8 @@ class DummyCloudConnector(CloudConnector):
 
         return (True, "")
 
-    def create_snapshot(self, vm, disk_num, auth_data):
-        return (True, "mock0://linux.for.ev.er/snapshot")
+    def create_snapshot(self, vm, disk_num, image_name, auth_data):
+        return (True, "mock0://linux.for.ev.er/%s" % image_name)
 
     def delete_image(self, image_url, auth_data):
         return (True, "")

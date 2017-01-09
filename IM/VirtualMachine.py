@@ -170,13 +170,13 @@ class VirtualMachine:
         self.last_update = 0
         return (success, msg)
 
-    def create_snapshot(self, disk_num, auth):
+    def create_snapshot(self, disk_num, image_name, auth):
         """
         Create a snapshot of one disk of the VM
         """
         if not self.cloud_connector:
             self.cloud_connector = self.cloud.getCloudConnector()
-        return self.cloud_connector.create_snapshot(self, disk_num, auth)
+        return self.cloud_connector.create_snapshot(self, disk_num, image_name, auth)
 
     def getRequestedSystem(self):
         """

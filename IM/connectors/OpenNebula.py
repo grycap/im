@@ -974,14 +974,13 @@ class OpenNebulaCloudConnector(CloudConnector):
             # Nothing to do
             return (True, "")
 
-    def create_snapshot(self, vm, disk_num, auth_data):
+    def create_snapshot(self, vm, disk_num, image_name, auth_data):
         server = xmlrpclib.ServerProxy(self.server_url, allow_none=True)
 
         session_id = self.getSessionID(auth_data)
         if session_id is None:
             return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
 
-        image_name = "im-snap-%s" % int(time.time() * 100)
         image_type = ""  # Use the default one
         func_res = server.one.vm.savedisk(session_id, int(vm.id), disk_num, image_name, image_type, True, False)
         if len(func_res) == 2:
@@ -1005,7 +1004,7 @@ class OpenNebulaCloudConnector(CloudConnector):
             return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
 
         url = uriparse(image_url)
-        image_id = int(url[2])
+        image_id = url[2]
         func_res = server.one.image.delete(session_id, image_id)
         if len(func_res) == 2:
             (success, res_info) = func_res
