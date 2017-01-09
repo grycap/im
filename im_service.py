@@ -341,7 +341,7 @@ def get_childs(parent_id=None):
     ps_command.wait()
     childs = ps_output.strip().split("\n")[:-1]
     if childs:
-        res = []
+        res = childs
         for child in childs:
             res.extend(get_childs(int(child)))
         return res

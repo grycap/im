@@ -520,3 +520,29 @@ You can also specify an external MySQL server to store IM data using the IM_DATA
 Or you can also add a volume with all the IM configuration::
 
   $ sudo docker run -d -p 8899:8899 -p 8800:8800 -v "/some_local_path/im.cfg:/etc/im/im.cfg" --name im grycap/im
+
+
+IM in high availability mode
+============================
+
+From version 1.5.0 the IM service can be launched in high availability (HA) mode using a set of IM instances
+behind a `HAProxy <http://www.haproxy.org/>`_ load balancer. Currently only the REST API can be used in HA mode.
+
+This is an example of the HAProxy configuration file::
+
+	frontend http-frontend
+	    mode http
+	    bind *:8800
+	    default_backend imbackend
+	
+	backend imbackend
+	    mode http
+	    balance roundrobin
+	    stick-table type string len 32 size 30k expire 60m
+	    stick store-response hdr(InfID)
+	    acl inf_id path -m beg /infrastructures/
+	    stick on path,field(3,/) if inf_id
+
+        server im-8801 10.0.0.1:8801 check
+        server im-8802 10.0.0.1:8802 check
+        ...
