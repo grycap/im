@@ -128,11 +128,10 @@ keys are:
 
 * ``type`` indicates the service that refers the credential. The services
   supported are ``InfrastructureManager``, ``VMRC``, ``OpenNebula``, ``EC2``,, ``FogBow``, 
-  ``OpenStack``, ``OCCI``, ``LibCloud``, ``Docker``, ``GCE``, ``Azure`` and ``Kubernetes``.
+  ``OpenStack``, ``OCCI``, ``LibCloud``, ``Docker``, ``GCE``, ``Azure``, ``AzureClassic`` and ``Kubernetes``.
 
 * ``username`` indicates the user name associated to the credential. In EC2
-  it refers to the *Access Key ID*. In Azure it refers to the user 
-  Subscription ID. In GCE it refers to *Service Account’s Email Address*. 
+  it refers to the *Access Key ID*. In GCE it refers to *Service Account’s Email Address*. 
 
 * ``password`` indicates the password associated to the credential. In EC2
   it refers to the *Secret Access Key*. In GCE it refers to *Service 
@@ -154,19 +153,19 @@ keys are:
   
 * ``public_key`` indicates the content of the public key file associated to the credential.
   To refer to a file you must use the function "file(cert.pem)" as shown in the example.
-  This field is only used in the Azure plugin. See how to get it
+  This field is only used in the Azure Classic plugin. See how to get it
   `here <https://msdn.microsoft.com/en-us/library/azure/gg551722.aspx>`_
 
 * ``private_key`` indicates the content of the private key file associated to the credential.
   To refer to a file you must use the function "file(key.pem)" as shown in the example.
-  This field is only used in the Azure plugin. See how to get it
+  This field is only used in the Azure Classic plugin. See how to get it
   `here <https://msdn.microsoft.com/en-us/library/azure/gg551722.aspx>`_
 
 * ``id`` associates an identifier to the credential. The identifier should be
   used as the label in the *deploy* section in the RADL.
 
 * ``subscription_id`` indicates the subscription_id name associated to the credential.
-  This field is only used in the Azure plugin.
+  This field is only used in the Azure and Azure Classic plugins.
 
 OpenStack addicional fields
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -204,6 +203,7 @@ An example of the auth file::
    id = azure; type = Azure; subscription_id = subscription-id; username = user@domain.com; password = pass
    id = kub; type = Kubernetes; host = http://server:8080; username = user; password = pass
    id = fog; type = FogBow; host = http://server:8182; proxy = file(/tmp/proxy.pem)
+   id = azurecla; type = AzureClassic; subscription_id = subscription_id; public_key = file(/tmp/cert.pem); private_key = file(/tmp/key.pem)
    
 
 IM Server does not store the credentials used in the creation of

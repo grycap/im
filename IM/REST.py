@@ -127,7 +127,8 @@ def return_error(code, msg):
 
 
 def stop():
-    bottle_server.shutdown()
+    if bottle_server:
+        bottle_server.shutdown()
 
 
 def get_media_type(header):
