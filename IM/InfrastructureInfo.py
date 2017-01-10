@@ -120,7 +120,6 @@ class InfrastructureInfo:
     @staticmethod
     def deserialize(str_data):
         newinf = InfrastructureInfo()
-        newinf._lock = threading.Lock()
         dic = json.loads(str_data)
         vm_list = dic['vm_list']
         vm_master_id = dic['vm_master']
@@ -198,6 +197,17 @@ class InfrastructureInfo:
         with self._lock:
             res = [vm for vm in self.vm_list if not vm.destroy]
         return res
+
+    def is_last_vm(self, vm_id):
+        """
+        Check if the the vm_id specified is the last VM in this Inf.
+        """
+        some_vm = False
+        with self._lock:
+            for vm in [vm for vm in self.vm_list if not vm.destroy]:
+                if vm.id != vm_id:
+                    some_vm = True
+        return not some_vm
 
     def get_vm(self, str_vm_id):
         """
@@ -506,6 +516,8 @@ class InfrastructureInfo:
                 self.cm = ConfManager.ConfManager(self, auth, max_ctxt_time)
                 self.cm.start()
             else:
+                # update the ConfManager reference to the inf object
+                self.cm.inf = self
                 # update the ConfManager auth
                 self.cm.auth = auth
                 self.cm.init_time = time.time()

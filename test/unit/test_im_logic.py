@@ -57,9 +57,9 @@ class TestIM(unittest.TestCase):
 
     def setUp(self):
 
+        Config.DATA_DB = "/tmp/inf.dat"
+        InfrastructureList.load_data()
         IM._reinit()
-        # Patch save_data
-        InfrastructureList.save_data = staticmethod(lambda *args: None)
 
         ch = logging.StreamHandler(sys.stdout)
         log = logging.getLogger('InfrastructureManager')
@@ -436,13 +436,15 @@ class TestIM(unittest.TestCase):
 
         IM.DestroyInfrastructure(infId, auth0)
 
-    def test_get_inf_state(self):
+    @patch('IM.InfrastructureList.InfrastructureList.get_inf_ids')
+    def test_get_inf_state(self, get_inf_ids):
         """
         Test GetInfrastructureState.
         """
         auth0 = self.getAuth([0], [], [("Dummy", 0)])
 
         inf = MagicMock()
+        get_inf_ids.return_value = ["1"]
         InfrastructureList.infrastructure_list = {"1": inf}
         inf.id = "1"
         inf.auth = auth0
