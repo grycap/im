@@ -1159,7 +1159,10 @@ class ConfManager(threading.Thread):
                     time.sleep(delay)
 
         # Timeout, return False
-        return False, "Timeout waiting SSH access."
+        if ip:
+            return False, "Timeout waiting SSH access."
+        else:
+            return False, "Timeout waiting the VM to get a public IP."
 
     def change_master_credentials(self, ssh):
         """
