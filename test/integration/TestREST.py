@@ -68,7 +68,7 @@ class TestIM(unittest.TestCase):
     def create_request(self, method, path, headers=None, body=None):
         if headers is None:
             headers = {'AUTHORIZATION': self.auth_data}
-        elif headers is not {}:
+        elif headers != {}:
             if 'AUTHORIZATION' not in headers:
                 headers['AUTHORIZATION'] = self.auth_data
         url = "http://%s:%d%s" % (HOSTNAME, TEST_PORT, path)
