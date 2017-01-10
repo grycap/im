@@ -147,14 +147,9 @@ class TestIM(unittest.TestCase):
             if line.find("type = InfrastructureManager") == -1:
                 auth_data += line.strip() + "\\n"
 
-        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
-        server.request('GET', "/infrastructures",
-                       headers={'AUTHORIZATION': auth_data})
-        resp = server.getresponse()
-        output = str(resp.read())
-        server.close()
-        self.assertEqual(resp.status, 401,
-                         msg="ERROR using an invalid token. A 401 error is expected:" + output)
+        resp = self.create_request("GET", "/infrastructures/", headers={'AUTHORIZATION': auth_data})
+        self.assertEqual(resp.status_code, 401,
+                         msg="ERROR using an invalid token. A 401 error is expected:" + resp.text)
 
     def test_15_get_incorrect_info(self):
         resp = self.create_request("GET", "/infrastructures/999999")
@@ -407,7 +402,7 @@ class TestIM(unittest.TestCase):
         self.assertEqual(resp.status_code, 200,
                          msg="ERROR creating the infrastructure:" + resp.text)
 
-        self.__class__.inf_id = str(os.path.basename(output))
+        self.__class__.inf_id = str(os.path.basename(resp.text))
 
         all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 600)
         self.assertTrue(
