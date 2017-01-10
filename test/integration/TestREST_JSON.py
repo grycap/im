@@ -18,7 +18,7 @@
 
 import unittest
 import os
-import httplib
+import requests
 import time
 import sys
 import json
@@ -51,7 +51,6 @@ class TestIM(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
         cls.auth_data = read_file_as_string('../auth.dat').replace("\n", "\\n")
         cls.inf_id = "0"
 
@@ -59,25 +58,31 @@ class TestIM(unittest.TestCase):
     def tearDownClass(cls):
         # Assure that the infrastructure is destroyed
         try:
-            cls.server.request('DELETE', "/infrastructures/" +
-                               cls.inf_id, headers={'Authorization': cls.auth_data})
-            cls.server.getresponse()
+            headers = {'AUTHORIZATION': cls.auth_data}
+            url = "http://%s:%d%s" % (HOSTNAME, TEST_PORT, "/infrastructures/" + cls.inf_id)
+            requests.request("DELETE", url, headers=headers)
         except Exception:
             pass
+
+    def create_request(self, method, path, headers=None, body=None):
+        if headers is None:
+            headers = {'AUTHORIZATION': self.auth_data}
+        elif headers is not {}:
+            if 'AUTHORIZATION' not in headers:
+                headers['AUTHORIZATION'] = self.auth_data
+        url = "http://%s:%d%s" % (HOSTNAME, TEST_PORT, path)
+        return requests.request(method, url, headers=headers, data=body)
 
     def wait_inf_state(self, state, timeout, incorrect_states=[], vm_ids=None):
         """
         Wait for an infrastructure to have a specific state
         """
         if not vm_ids:
-            self.server.request('GET', "/infrastructures/" + self.inf_id,
-                                headers={'AUTHORIZATION': self.auth_data})
-            resp = self.server.getresponse()
-            output = str(resp.read())
-            self.assertEqual(resp.status, 200,
-                             msg="ERROR getting infrastructure info:" + output)
+            resp = self.create_request("GET", "/infrastructures/" + self.inf_id)
+            self.assertEqual(resp.status_code, 200,
+                             msg="ERROR getting infrastructure info:" + resp.text)
 
-            vm_ids = output.split("\n")
+            vm_ids = resp.text.split("\n")
         else:
             pass
 
@@ -91,12 +96,15 @@ class TestIM(unittest.TestCase):
             all_ok = True
             for vm_id in vm_ids:
                 vm_uri = uriparse(vm_id)
-                self.server.request(
-                    'GET', vm_uri[2] + "/state", headers={'AUTHORIZATION': self.auth_data})
-                resp = self.server.getresponse()
-                vm_state = str(resp.read())
-                self.assertEqual(resp.status, 200,
+                resp = self.create_request("GET", vm_uri[2] + "/state")
+                vm_state = resp.text
+
+                self.assertEqual(resp.status_code, 200,
                                  msg="ERROR getting VM info:" + vm_state)
+
+                if vm_state == VirtualMachine.UNCONFIGURED:
+                    resp = self.create_request("GET", "/infrastructures/" + self.inf_id + "/contmsg")
+                    print resp.text
 
                 self.assertFalse(vm_state in err_states, msg=("ERROR waiting for a state. '%s' state was expected "
                                                               "and '%s' was obtained in the VM %s" % (state,
@@ -116,58 +124,46 @@ class TestIM(unittest.TestCase):
 
     def test_20_create(self):
         radl = read_file_as_string('../files/test_simple.json')
+        resp = self.create_request("POST", "/infrastructures",
+                                   headers={'Content-type': 'application/json'},
+                                   body=radl)
+        self.assertEqual(resp.status_code, 200,
+                         msg="ERROR creating the infrastructure:" + resp.text)
 
-        self.server.request('POST', "/infrastructures", body=radl, headers={
-                            'AUTHORIZATION': self.auth_data, 'Content-Type': 'application/json'})
-        resp = self.server.getresponse()
-        output = str(resp.read())
-        self.assertEqual(resp.status, 200,
-                         msg="ERROR creating the infrastructure:" + output)
-
-        self.__class__.inf_id = str(os.path.basename(output))
+        self.__class__.inf_id = str(os.path.basename(resp.text))
 
         all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 600)
         self.assertTrue(
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
     def test_30_get_vm_info(self):
-        self.server.request('GET', "/infrastructures/" + self.inf_id,
-                            headers={'AUTHORIZATION': self.auth_data})
-        resp = self.server.getresponse()
-        output = str(resp.read())
-        self.assertEqual(resp.status, 200,
-                         msg="ERROR getting the infrastructure info:" + output)
-        vm_ids = output.split("\n")
+        resp = self.create_request("GET", "/infrastructures/" + self.inf_id)
+        self.assertEqual(resp.status_code, 200,
+                         msg="ERROR getting the infrastructure info:" + resp.text)
+        vm_ids = resp.text.split("\n")
 
         vm_uri = uriparse(vm_ids[0])
-        self.server.request('GET', vm_uri[2], headers={
-                            'AUTHORIZATION': self.auth_data, 'Accept': 'application/json'})
-        resp = self.server.getresponse()
-        ct = resp.getheader('Content-type')
-        output = str(resp.read())
-        self.assertEqual(resp.status, 200,
-                         msg="ERROR getting VM info:" + output)
+        resp = self.create_request("GET", vm_uri[2], headers={'Accept': 'application/json'})
+        ct = resp.headers['Content-type']
+        self.assertEqual(resp.status_code, 200,
+                         msg="ERROR getting VM info:" + resp.text)
         self.assertEqual(ct, "application/json",
                          msg="ERROR getting VM info: Incorrect Content-type: %s" % ct)
-        res = json.loads(output)
+        res = json.loads(resp.text)
         radl = res["radl"]
         parse_radl_json(radl)
 
     def test_40_addresource(self):
-        self.server.request('POST', "/infrastructures/" + self.inf_id, body=RADL_ADD,
-                            headers={'AUTHORIZATION': self.auth_data, 'Content-Type': 'application/json'})
-        resp = self.server.getresponse()
-        output = str(resp.read())
-        self.assertEqual(resp.status, 200,
-                         msg="ERROR adding resources:" + output)
+        resp = self.create_request("POST", "/infrastructures/" + self.inf_id,
+                                   headers={'Content-type': 'application/json'},
+                                   body=RADL_ADD)
+        self.assertEqual(resp.status_code, 200,
+                         msg="ERROR adding resources:" + resp.text)
 
-        self.server.request('GET', "/infrastructures/" + self.inf_id,
-                            headers={'AUTHORIZATION': self.auth_data})
-        resp = self.server.getresponse()
-        output = str(resp.read())
-        self.assertEqual(resp.status, 200,
-                         msg="ERROR getting the infrastructure info:" + output)
-        vm_ids = output.split("\n")
+        resp = self.create_request("GET", "/infrastructures/" + self.inf_id)
+        self.assertEqual(resp.status_code, 200,
+                         msg="ERROR getting the infrastructure info:" + resp.text)
+        vm_ids = resp.text.split("\n")
         self.assertEqual(len(vm_ids), 2, msg=("ERROR getting infrastructure info: Incorrect number of VMs(" +
                                               str(len(vm_ids)) + "). It must be 2"))
         all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 600)
@@ -185,32 +181,25 @@ class TestIM(unittest.TestCase):
 ]
         """
 
-        self.server.request('PUT', "/infrastructures/" + self.inf_id + "/reconfigure", body=new_config,
-                            headers={'AUTHORIZATION': self.auth_data, 'Content-Type': 'application/json'})
-        resp = self.server.getresponse()
-        output = str(resp.read())
-        self.assertEqual(resp.status, 200, msg="ERROR reconfiguring:" + output)
+        resp = self.create_request("PUT", "/infrastructures/" + self.inf_id + "/reconfigure",
+                                   headers={'Content-type': 'application/json'},
+                                   body=new_config)
+        self.assertEqual(resp.status_code, 200, msg="ERROR reconfiguring:" + resp.text)
 
         all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 300)
         self.assertTrue(
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
-        self.server.request('GET', "/infrastructures/" + self.inf_id +
-                            "/contmsg", headers={'AUTHORIZATION': self.auth_data})
-        resp = self.server.getresponse()
-        output = str(resp.read())
-        self.assertEqual(resp.status, 200,
-                         msg="ERROR getting the infrastructure info:" + output)
-        self.assertNotEqual(output.find("RECONTEXTUALIZAMOS"), -1,
-                            msg="Incorrect contextualization message: " + output)
+        resp = self.create_request("GET", "/infrastructures/" + self.inf_id + "/contmsg")
+        self.assertEqual(resp.status_code, 200,
+                         msg="ERROR getting the infrastructure contextualization message:" + resp.text)
+        self.assertNotEqual(resp.text.find("RECONTEXTUALIZAMOS"), -1,
+                            msg="Incorrect contextualization message: " + resp.text)
 
     def test_95_destroy(self):
-        self.server.request('DELETE', "/infrastructures/" +
-                            self.inf_id, headers={'Authorization': self.auth_data})
-        resp = self.server.getresponse()
-        output = str(resp.read())
-        self.assertEqual(resp.status, 200,
-                         msg="ERROR destroying the infrastructure:" + output)
+        resp = self.create_request("DELETE", "/infrastructures/" + self.inf_id)
+        self.assertEqual(resp.status_code, 200,
+                         msg="ERROR destroying the infrastructure:" + resp.text)
 
 if __name__ == '__main__':
     unittest.main()
