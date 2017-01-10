@@ -18,13 +18,12 @@
 
 from multiprocessing import Process
 import unittest
-import xmlrpclib
 import time
 import sys
 import os
 import random
 import datetime
-import httplib
+import requests
 import json
 
 sys.path.append("..")
@@ -54,8 +53,6 @@ class LoadTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.server = xmlrpclib.ServerProxy(
-            "http://" + HOSTNAME + ":" + str(TEST_PORT), allow_none=True)
         cls.auth_data = open(AUTH_FILE, 'r').read().replace("\n", "\\n")
         cls.inf_id = 0
 
@@ -63,7 +60,9 @@ class LoadTest(unittest.TestCase):
     def tearDownClass(cls):
         # Assure that the infrastructure is destroyed
         try:
-            cls.server.DestroyInfrastructure(cls.inf_id, cls.auth_data)
+            headers = {'AUTHORIZATION': cls.auth_data}
+            url = "http://%s:%d%s" % (HOSTNAME, TEST_PORT, "/infrastructures/" + cls.inf_id)
+            requests.request("DELETE", url, headers=headers)
         except Exception:
             pass
 
@@ -72,24 +71,32 @@ class LoadTest(unittest.TestCase):
         delay = random.uniform(mint, maxt)
         time.sleep(delay)
 
+    def create_request(self, method, path, headers=None, body=None):
+        before = time.time()
+
+        if headers is None:
+            headers = {'AUTHORIZATION': self.auth_data}
+        elif headers != {}:
+            if 'AUTHORIZATION' not in headers:
+                headers['AUTHORIZATION'] = self.auth_data
+        url = "http://%s:%d%s" % (HOSTNAME, TEST_PORT, path)
+
+        resp = requests.request(method, url, headers=headers, data=body)
+        resp_time = time.time() - before
+        self.__class__.response_times.append(resp_time)
+
+        return resp
+
     def wait_inf_state(self, state, timeout, incorrect_states=[], vm_ids=None):
         """
         Wait for an infrastructure to have a specific state
         """
         if not vm_ids:
-            before = time.time()
-            server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
-            server.request('GET', "/infrastructures/" + self.inf_id,
-                           headers={'AUTHORIZATION': self.auth_data})
-            resp = server.getresponse()
-            output = str(resp.read())
-            server.close()
-            self.assertEqual(resp.status, 200,
-                             msg="ERROR getting infrastructure info:" + output)
+            resp = self.create_request("GET", "/infrastructures/" + self.inf_id)
+            self.assertEqual(resp.status_code, 200,
+                             msg="ERROR getting infrastructure info:" + resp.text)
 
-            vm_ids = output.split("\n")
-            resp_time = time.time() - before
-            self.__class__.response_times.append(resp_time)
+            vm_ids = resp.text.split("\n")
         else:
             pass
 
@@ -103,26 +110,15 @@ class LoadTest(unittest.TestCase):
             all_ok = True
             for vm_id in vm_ids:
                 vm_uri = uriparse(vm_id)
-                server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
-                before = time.time()
-                server.request(
-                    'GET', vm_uri[2] + "/state", headers={'AUTHORIZATION': self.auth_data})
-                resp = server.getresponse()
-                vm_state = str(resp.read())
-                server.close()
-                resp_time = time.time() - before
-                self.__class__.response_times.append(resp_time)
-                self.assertEqual(resp.status, 200,
+                resp = self.create_request("GET", vm_uri[2] + "/state")
+                vm_state = resp.text
+
+                self.assertEqual(resp.status_code, 200,
                                  msg="ERROR getting VM info:" + vm_state)
 
                 if vm_state == VirtualMachine.UNCONFIGURED:
-                    server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
-                    server.request('GET', "/infrastructures/" + self.inf_id + "/contmsg",
-                                   headers={'AUTHORIZATION': self.auth_data})
-                    resp = server.getresponse()
-                    output = str(resp.read())
-                    server.close()
-                    print output
+                    resp = self.create_request("GET", "/infrastructures/" + self.inf_id + "/contmsg")
+                    print resp.text
 
                 self.assertFalse(vm_state in err_states, msg=("ERROR waiting for a state. '%s' state was expected "
                                                               "and '%s' was obtained in the VM %s" % (state,
@@ -141,245 +137,116 @@ class LoadTest(unittest.TestCase):
         return all_ok
 
     def test_05_version(self):
-        before = time.time()
-        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
-        server.request('GET', "/version")
-        resp = server.getresponse()
-        output = str(resp.read())
-        server.close()
-        resp_time = time.time() - before
-        self.__class__.response_times.append(resp_time)
-        self.assertEqual(resp.status, 200,
-                         msg="ERROR getting IM version:" + output)
+        resp = self.create_request("GET", "/version")
+        self.assertEqual(resp.status_code, 200,
+                         msg="ERROR getting IM version:" + resp.text)
         self.assertEqual(
-            output, version, msg="Incorrect version. Expected %s, obtained: %s" % (version, output))
+            resp.text, version, msg="Incorrect version. Expected %s, obtained: %s" % (version, resp.text))
 
     def test_10_list(self):
-        before = time.time()
-        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
-        server.request('GET', "/infrastructures",
-                       headers={'AUTHORIZATION': self.auth_data})
-        resp = server.getresponse()
-        output = str(resp.read())
-        server.close()
-        resp_time = time.time() - before
-        self.__class__.response_times.append(resp_time)
-        self.assertEqual(resp.status, 200,
-                         msg="ERROR listing user infrastructures:" + output)
+        resp = self.create_request("GET", "/infrastructures")
+        self.assertEqual(resp.status_code, 200,
+                         msg="ERROR listing user infrastructures:" + resp.text)
 
     def test_15_get_incorrect_info(self):
-        before = time.time()
-        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
-        server.request('GET', "/infrastructures/999999",
-                       headers={'AUTHORIZATION': self.auth_data})
-        resp = server.getresponse()
-        resp.read()
-        server.close()
-        resp_time = time.time() - before
-        self.__class__.response_times.append(resp_time)
-        self.assertEqual(resp.status, 404,
-                         msg="Incorrect error message: " + str(resp.status))
+        resp = self.create_request("GET", "/infrastructures/999999")
+        self.assertEqual(resp.status_code, 404,
+                         msg="Incorrect error code: %d" % resp.status_code)
 
     def test_16_get_incorrect_info_json(self):
-        before = time.time()
-        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
-        server.request('GET', "/infrastructures/999999",
-                       headers={'AUTHORIZATION': self.auth_data, 'Accept': 'application/json'})
-        resp = server.getresponse()
-        output = resp.read()
-        server.close()
-        resp_time = time.time() - before
-        self.__class__.response_times.append(resp_time)
-        self.assertEqual(resp.status, 404,
-                         msg="Incorrect error message: " + str(resp.status))
-        res = json.loads(output)
+        resp = self.create_request("GET", "/infrastructures/999999", headers={'Accept': 'application/json'})
+        self.assertEqual(resp.status_code, 404,
+                         msg="Incorrect error code: %d" % resp.status_code)
+        res = json.loads(resp.text)
         self.assertEqual(res['code'], 404,
-                         msg="Incorrect error message: " + output)
+                         msg="Incorrect error message: " + resp.text)
 
     def test_18_get_info_without_auth_data(self):
-        before = time.time()
-        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
-        server.request('GET', "/infrastructures/0")
-        resp = server.getresponse()
-        resp.read()
-        server.close()
-        resp_time = time.time() - before
-        self.__class__.response_times.append(resp_time)
-        self.assertEqual(resp.status, 401,
-                         msg="Incorrect error message: " + str(resp.status))
+        resp = self.create_request("GET", "/infrastructures/0", headers={})
+        self.assertEqual(resp.status_code, 401,
+                         msg="Incorrect error code: %d" % resp.status_code)
 
     def test_20_create(self):
-        before = time.time()
-        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
         radl = open(RADL_FILE, 'r').read()
+        resp = self.create_request("POST", "/infrastructures", body=radl)
+        self.assertEqual(resp.status_code, 200,
+                         msg="ERROR creating the infrastructure:" + resp.text)
 
-        server.request('POST', "/infrastructures", body=radl,
-                       headers={'AUTHORIZATION': self.auth_data})
-        resp = server.getresponse()
-        output = str(resp.read())
-        server.close()
-        resp_time = time.time() - before
-        self.__class__.response_times.append(resp_time)
-        self.assertEqual(resp.status, 200,
-                         msg="ERROR creating the infrastructure:" + output)
-
-        self.__class__.inf_id = str(os.path.basename(output))
+        self.__class__.inf_id = str(os.path.basename(resp.text))
 
         all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 600)
         self.assertTrue(
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
     def test_22_get_forbidden_info(self):
-        before = time.time()
-        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
-        server.request('GET', "/infrastructures/" + self.inf_id,
-                       headers={'AUTHORIZATION': ("type = InfrastructureManager; "
-                                                  "username = some; password = other")})
-        resp = server.getresponse()
-        resp.read()
-        server.close()
-        resp_time = time.time() - before
-        self.__class__.response_times.append(resp_time)
-        self.assertEqual(resp.status, 403,
-                         msg="Incorrect error message: " + str(resp.status))
+        resp = self.create_request("GET", "/infrastructures/" + self.inf_id,
+                                   headers={'AUTHORIZATION': ("type = InfrastructureManager; "
+                                                              "username = some; password = other")})
+
+        self.assertEqual(resp.status_code, 403,
+                         msg="Incorrect error code: %d" % resp.status_code)
 
     def test_30_get_vm_info(self):
-        before = time.time()
-        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
-        server.request('GET', "/infrastructures/" + self.inf_id,
-                       headers={'AUTHORIZATION': self.auth_data})
-        resp = server.getresponse()
-        output = str(resp.read())
-        server.close()
-        resp_time = time.time() - before
-        self.__class__.response_times.append(resp_time)
-        self.assertEqual(resp.status, 200,
-                         msg="ERROR getting the infrastructure info:" + output)
-        vm_ids = output.split("\n")
+        resp = self.create_request("GET", "/infrastructures/" + self.inf_id)
+        self.assertEqual(resp.status_code, 200,
+                         msg="ERROR getting the infrastructure info:" + resp.text)
+        vm_ids = resp.text.split("\n")
 
         vm_uri = uriparse(vm_ids[0])
-        before = time.time()
-        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
-        server.request('GET', vm_uri[2], headers={'AUTHORIZATION': self.auth_data})
-        resp = server.getresponse()
-        output = str(resp.read())
-        server.close()
-        resp_time = time.time() - before
-        self.__class__.response_times.append(resp_time)
-        self.assertEqual(resp.status, 200,
-                         msg="ERROR getting VM info:" + output)
+        resp = self.create_request("GET", vm_uri[2])
+        self.assertEqual(resp.status_code, 200,
+                         msg="ERROR getting VM info:" + resp.text)
 
     def test_32_get_vm_contmsg(self):
-        before = time.time()
-        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
-        server.request('GET', "/infrastructures/" + self.inf_id,
-                       headers={'AUTHORIZATION': self.auth_data})
-        resp = server.getresponse()
-        output = str(resp.read())
-        server.close()
-        resp_time = time.time() - before
-        self.__class__.response_times.append(resp_time)
-        self.assertEqual(resp.status, 200,
-                         msg="ERROR getting the infrastructure info:" + output)
-        vm_ids = output.split("\n")
+        resp = self.create_request("GET", "/infrastructures/" + self.inf_id)
+        self.assertEqual(resp.status_code, 200,
+                         msg="ERROR getting the infrastructure info:" + resp.text)
+        vm_ids = resp.text.split("\n")
 
         vm_uri = uriparse(vm_ids[0])
-        before = time.time()
-        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
-        server.request('GET', vm_uri[2] + "/contmsg", headers={'AUTHORIZATION': self.auth_data})
-        resp = server.getresponse()
-        output = str(resp.read())
-        server.close()
-        resp_time = time.time() - before
-        self.__class__.response_times.append(resp_time)
-        self.assertEqual(resp.status, 200,
-                         msg="ERROR getting VM contmsg:" + output)
+        resp = self.create_request("GET", vm_uri[2] + "/contmsg")
+        self.assertEqual(resp.status_code, 200,
+                         msg="ERROR getting VM contmsg:" + resp.text)
+        self.assertEqual(
+            len(resp.text), 0, msg="Incorrect VM contextualization message: " + resp.text)
 
     def test_33_get_contmsg(self):
-        before = time.time()
-        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
-        server.request('GET', "/infrastructures/" + self.inf_id + "/contmsg",
-                       headers={'AUTHORIZATION': self.auth_data})
-        resp = server.getresponse()
-        output = str(resp.read())
-        server.close()
-        resp_time = time.time() - before
-        self.__class__.response_times.append(resp_time)
-        self.assertEqual(resp.status, 200,
-                         msg="ERROR getting the infrastructure info:" + output)
+        resp = self.create_request("GET", "/infrastructures/" + self.inf_id + "/contmsg")
+        self.assertEqual(resp.status_code, 200,
+                         msg="ERROR getting the infrastructure info:" + resp.text)
         self.assertGreater(
-            len(output), 30, msg="Incorrect contextualization message: " + output)
+            len(resp.text), 30, msg="Incorrect contextualization message: " + resp.text)
 
     def test_34_get_radl(self):
-        before = time.time()
-        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
-        server.request('GET', "/infrastructures/" + self.inf_id + "/radl",
-                       headers={'AUTHORIZATION': self.auth_data})
-        resp = server.getresponse()
-        output = str(resp.read())
-        server.close()
-        resp_time = time.time() - before
-        self.__class__.response_times.append(resp_time)
-        self.assertEqual(resp.status, 200,
-                         msg="ERROR getting the infrastructure RADL:" + output)
+        resp = self.create_request("GET", "/infrastructures/" + self.inf_id + "/radl")
+        self.assertEqual(resp.status_code, 200,
+                         msg="ERROR getting the infrastructure RADL:" + resp.text)
         try:
-            radl_parse.parse_radl(output)
+            radl_parse.parse_radl(resp.text)
         except Exception, ex:
             self.assertTrue(
                 False, msg="ERROR parsing the RADL returned by GetInfrastructureRADL: " + str(ex))
 
     def test_35_get_vm_property(self):
-        before = time.time()
-        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
-        server.request('GET', "/infrastructures/" + self.inf_id,
-                       headers={'AUTHORIZATION': self.auth_data})
-        resp = server.getresponse()
-        output = str(resp.read())
-        server.close()
-        resp_time = time.time() - before
-        self.__class__.response_times.append(resp_time)
-        self.assertEqual(resp.status, 200,
-                         msg="ERROR getting the infrastructure info:" + output)
-        vm_ids = output.split("\n")
+        resp = self.create_request("GET", "/infrastructures/" + self.inf_id)
+        self.assertEqual(resp.status_code, 200,
+                         msg="ERROR getting the infrastructure info:" + resp.text)
+        vm_ids = resp.text.split("\n")
 
         vm_uri = uriparse(vm_ids[0])
-        before = time.time()
-        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
-        server.request(
-            'GET', vm_uri[2] + "/state", headers={'AUTHORIZATION': self.auth_data})
-        resp = server.getresponse()
-        output = str(resp.read())
-        server.close()
-        resp_time = time.time() - before
-        self.__class__.response_times.append(resp_time)
-        self.assertEqual(resp.status, 200,
-                         msg="ERROR getting VM property:" + output)
+        resp = self.create_request("GET", vm_uri[2] + "/state")
+        self.assertEqual(resp.status_code, 200,
+                         msg="ERROR getting VM property:" + resp.text)
 
     def test_40_addresource(self):
-        before = time.time()
-        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
-        server.request('POST', "/infrastructures/" + self.inf_id,
-                       body=RADL_ADD, headers={'AUTHORIZATION': self.auth_data})
-        resp = server.getresponse()
-        output = str(resp.read())
-        server.close()
-        resp_time = time.time() - before
-        self.__class__.response_times.append(resp_time)
-        self.assertEqual(resp.status, 200,
-                         msg="ERROR adding resources:" + output)
+        resp = self.create_request("POST", "/infrastructures/" + self.inf_id, body=RADL_ADD)
+        self.assertEqual(resp.status_code, 200,
+                         msg="ERROR adding resources:" + resp.text)
 
-        before = time.time()
-        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
-        server.request('GET', "/infrastructures/" + self.inf_id,
-                       headers={'AUTHORIZATION': self.auth_data})
-        resp = server.getresponse()
-        output = str(resp.read())
-        server.close()
-        resp_time = time.time() - before
-        self.__class__.response_times.append(resp_time)
-        self.assertEqual(resp.status, 200,
-                         msg="ERROR getting the infrastructure info:" + output)
-        vm_ids = output.split("\n")
+        resp = self.create_request("GET", "/infrastructures/" + self.inf_id)
+        self.assertEqual(resp.status_code, 200,
+                         msg="ERROR getting the infrastructure info:" + resp.text)
+        vm_ids = resp.text.split("\n")
         self.assertEqual(len(vm_ids), 2, msg=("ERROR getting infrastructure info: Incorrect number of VMs(" +
                                               str(len(vm_ids)) + "). It must be 2"))
         all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 600)
@@ -387,18 +254,10 @@ class LoadTest(unittest.TestCase):
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
     def test_45_getstate(self):
-        before = time.time()
-        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
-        server.request('GET', "/infrastructures/" + self.inf_id + "/state",
-                       headers={'AUTHORIZATION': self.auth_data})
-        resp = server.getresponse()
-        output = str(resp.read())
-        server.close()
-        resp_time = time.time() - before
-        self.__class__.response_times.append(resp_time)
+        resp = self.create_request("GET", "/infrastructures/" + self.inf_id + "/state")
         self.assertEqual(
-            resp.status, 200, msg="ERROR getting the infrastructure state:" + output)
-        res = json.loads(output)
+            resp.status_code, 200, msg="ERROR getting the infrastructure state:" + resp.text)
+        res = json.loads(resp.text)
         state = res['state']['state']
         vm_states = res['state']['vm_states']
         self.assertEqual(state, "configured", msg="Unexpected inf state: " +
@@ -408,43 +267,20 @@ class LoadTest(unittest.TestCase):
                              vm_state + " in VM ID " + str(vm_id) + ". It must be 'configured'.")
 
     def test_46_removeresource(self):
-        before = time.time()
-        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
-        server.request('GET', "/infrastructures/" + self.inf_id,
-                       headers={'AUTHORIZATION': self.auth_data})
-        resp = server.getresponse()
-        output = str(resp.read())
-        server.close()
-        resp_time = time.time() - before
-        self.__class__.response_times.append(resp_time)
-        self.assertEqual(resp.status, 200,
-                         msg="ERROR getting the infrastructure info:" + output)
-        vm_ids = output.split("\n")
+        resp = self.create_request("GET", "/infrastructures/" + self.inf_id)
+        self.assertEqual(resp.status_code, 200,
+                         msg="ERROR getting the infrastructure info:" + resp.text)
+        vm_ids = resp.text.split("\n")
 
         vm_uri = uriparse(vm_ids[1])
-        before = time.time()
-        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
-        server.request('DELETE', vm_uri[2], headers={'AUTHORIZATION': self.auth_data})
-        resp = server.getresponse()
-        output = str(resp.read())
-        server.close()
-        resp_time = time.time() - before
-        self.__class__.response_times.append(resp_time)
-        self.assertEqual(resp.status, 200,
-                         msg="ERROR removing resources:" + output)
+        resp = self.create_request("DELETE", vm_uri[2])
+        self.assertEqual(resp.status_code, 200,
+                         msg="ERROR removing resources:" + resp.text)
 
-        before = time.time()
-        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
-        server.request('GET', "/infrastructures/" + self.inf_id,
-                       headers={'AUTHORIZATION': self.auth_data})
-        resp = server.getresponse()
-        output = str(resp.read())
-        server.close()
-        resp_time = time.time() - before
-        self.__class__.response_times.append(resp_time)
-        self.assertEqual(resp.status, 200,
-                         msg="ERROR getting the infrastructure info:" + output)
-        vm_ids = output.split("\n")
+        resp = self.create_request("GET", "/infrastructures/" + self.inf_id)
+        self.assertEqual(resp.status_code, 200,
+                         msg="ERROR getting the infrastructure info:" + resp.text)
+        vm_ids = resp.text.split("\n")
         self.assertEqual(len(vm_ids), 1, msg=("ERROR getting infrastructure info: Incorrect number of VMs(" +
                                               str(len(vm_ids)) + "). It must be 1"))
 
@@ -453,71 +289,39 @@ class LoadTest(unittest.TestCase):
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
     def test_47_addresource_noconfig(self):
-        before = time.time()
-        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
-        server.request('POST', "/infrastructures/" + self.inf_id + "?context=0",
-                       body=RADL_ADD, headers={'AUTHORIZATION': self.auth_data})
-        resp = server.getresponse()
-        output = str(resp.read())
-        server.close()
-        resp_time = time.time() - before
-        self.__class__.response_times.append(resp_time)
-        self.assertEqual(resp.status, 200,
-                         msg="ERROR adding resources:" + output)
+        resp = self.create_request("POST", "/infrastructures/" + self.inf_id + "?context=0", body=RADL_ADD)
+        self.assertEqual(resp.status_code, 200,
+                         msg="ERROR adding resources:" + resp.text)
+
+        resp = self.create_request("GET", "/infrastructures/" + self.inf_id)
+        self.assertEqual(resp.status_code, 200,
+                         msg="ERROR getting the infrastructure info:" + resp.text)
+        vm_ids = resp.text.split("\n")
+        self.assertEqual(len(vm_ids), 2, msg=("ERROR getting infrastructure info: Incorrect number of VMs(" +
+                                              str(len(vm_ids)) + "). It must be 2"))
 
     def test_50_removeresource_noconfig(self):
-        before = time.time()
-        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
-        server.request('GET', "/infrastructures/" + self.inf_id + "?context=0",
-                       headers={'AUTHORIZATION': self.auth_data})
-        resp = server.getresponse()
-        output = str(resp.read())
-        server.close()
-        resp_time = time.time() - before
-        self.__class__.response_times.append(resp_time)
-        self.assertEqual(resp.status, 200,
-                         msg="ERROR getting the infrastructure info:" + output)
-        vm_ids = output.split("\n")
+        resp = self.create_request("GET", "/infrastructures/" + self.inf_id)
+        self.assertEqual(resp.status_code, 200,
+                         msg="ERROR getting the infrastructure info:" + resp.text)
+        vm_ids = resp.text.split("\n")
 
         vm_uri = uriparse(vm_ids[1])
-        before = time.time()
-        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
-        server.request('DELETE', vm_uri[2], headers={'AUTHORIZATION': self.auth_data})
-        resp = server.getresponse()
-        output = str(resp.read())
-        server.close()
-        resp_time = time.time() - before
-        self.__class__.response_times.append(resp_time)
-        self.assertEqual(resp.status, 200,
-                         msg="ERROR removing resources:" + output)
+        resp = self.create_request("DELETE", vm_uri[2] + "?context=0")
+        self.assertEqual(resp.status_code, 200,
+                         msg="ERROR removing resources:" + resp.text)
 
-        before = time.time()
-        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
-        server.request('GET', "/infrastructures/" + self.inf_id,
-                       headers={'AUTHORIZATION': self.auth_data})
-        resp = server.getresponse()
-        output = str(resp.read())
-        server.close()
-        resp_time = time.time() - before
-        self.__class__.response_times.append(resp_time)
-        self.assertEqual(resp.status, 200,
-                         msg="ERROR getting the infrastructure info:" + output)
-        vm_ids = output.split("\n")
+        resp = self.create_request("GET", "/infrastructures/" + self.inf_id)
+        self.assertEqual(resp.status_code, 200,
+                         msg="ERROR getting the infrastructure info:" + resp.text)
+        vm_ids = resp.text.split("\n")
         self.assertEqual(len(vm_ids), 1, msg=("ERROR getting infrastructure info: Incorrect number of VMs(" +
                                               str(len(vm_ids)) + "). It must be 1"))
 
     def test_95_destroy(self):
-        before = time.time()
-        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
-        server.request('DELETE', "/infrastructures/" + self.inf_id,
-                       headers={'Authorization': self.auth_data})
-        resp = server.getresponse()
-        output = str(resp.read())
-        server.close()
-        resp_time = time.time() - before
-        self.__class__.response_times.append(resp_time)
-        self.assertEqual(resp.status, 200,
-                         msg="ERROR destroying the infrastructure:" + output)
+        resp = self.create_request("DELETE", "/infrastructures/" + self.inf_id)
+        self.assertEqual(resp.status_code, 200,
+                         msg="ERROR destroying the infrastructure:" + resp.text)
 
 
 def test(num_client):
