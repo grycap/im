@@ -14,19 +14,9 @@ IM needs at least Python 2.6 to run, as well as the next libraries:
 * `suds <https://fedorahosted.org/suds/>`_, a full-featured SOAP library.
 * `Netaddr <http://pythonhosted.org/netaddr//>`_, A Python library for representing 
   and manipulating network addresses.
-* `apache-libcloud <http://libcloud.apache.org/>`_ 0.17 or later is used in the
-  LibCloud, OpenStack and GCE connectors.
-* `boto <http://boto.readthedocs.org>`_ 2.29.0 or later is used as interface to
-  Amazon EC2. It is available as package named ``python-boto`` in Debian based
-  distributions. It can also be downloaded from `boto GitHub repository <https://github.com/boto/boto>`_.
-  Download the file and copy the boto subdirectory into the IM install path.
-* `The Bottle framework<http://bottlepy.org/>`_ , typically available
-  as the 'python-bottle' package.
-* `The CherryPy Web framework <http://www.cherrypy.org/>`_, typically available as the 'python-cherrypy' 
-   or 'python-cherrypy3' package.
 * `The Python interface to MySQL <https://www.mysql.com/>`_, typically available as the package 'python-mysqldb'  or 
    'MySQL-python' package.
-
+    
 Also, IM uses `Ansible <http://www.ansible.com>`_ (1.4.2 or later) to configure the
 infrastructure nodes. The current recommended version is 1.9.4 untill the 2.X versions become stable.
  
@@ -62,6 +52,16 @@ Finally, check the next values in the Ansible configuration file
 Optional Packages
 -----------------
 
+* `The Bottle framework<http://bottlepy.org/>`_ is used for the REST API. 
+   It is typically available as the 'python-bottle' package.
+* `The CherryPy Web framework <http://www.cherrypy.org/>`_, is needed for the REST API. 
+   It is typically available as the 'python-cherrypy' or 'python-cherrypy3' package.
+* `apache-libcloud <http://libcloud.apache.org/>`_ 0.17 or later is used in the
+  LibCloud, OpenStack and GCE connectors.
+* `boto <http://boto.readthedocs.org>`_ 2.29.0 or later is used as interface to
+  Amazon EC2. It is available as package named ``python-boto`` in Debian based
+  distributions. It can also be downloaded from `boto GitHub repository <https://github.com/boto/boto>`_.
+  Download the file and copy the boto subdirectory into the IM install path.
 * `Spring Python <http://springpython.webfactional.com/>`_ framework is needed
   if the access to XML-RPC API is secured with SSL certificates (see
   :confval:`XMLRCP_SSL`).
@@ -69,6 +69,8 @@ Optional Packages
 * pyOpenSSL are needed if needed to secure the REST API
   with SSL certificates (see :confval:`REST_SSL`).
   pyOpenSSL can be installed using pip.
+* `The Azure Python SDK <https://docs.microsoft.com/es-es/azure/python-how-to-install/>`_, is needed by the Azure
+  connector. It is available as the package 'azure' at the pip repository.  
 
 Installation
 ------------
@@ -84,13 +86,13 @@ First you need to install pip tool and some packages needed to compile some of t
 To install them in Debian and Ubuntu based distributions, do::
 
     $ apt update
-    $ apt install gcc python-dev libffi-dev libssl-dev python-pip sshpass python-mysqldb
+    $ apt install gcc python-dev libffi-dev libssl-dev python-pip sshpass python-mysqldb python-pysqlite2
 
 In Red Hat based distributions (RHEL, CentOS, Amazon Linux, Oracle Linux,
 Fedora, etc.), do::
 
 	$ yum install epel-release
-	$ yum install which gcc python-devel libffi-devel openssl-devel python-pip sshpass MySQL-python
+	$ yum install which gcc python-devel libffi-devel openssl-devel python-pip sshpass MySQL-python python-sqlite3dbm
 
 For some problems with the dependencies of the apache-libcloud package in some systems (as ubuntu 14.04 or CentOS 6)
 this package has to be installed manually::
@@ -101,7 +103,7 @@ Then you only have to call the install command of the pip tool with the IM packa
 
 	$ pip install IM
 
-Pip will also install the, non installed, pre-requisites needed. So Ansible  1.4.2 or later will 
+Pip will also install the, non installed, pre-requisites needed. So Ansible 1.4.2 or later will 
 be installed in the system.
 
 You must also remember to modify the ansible.cfg file setting as specified in the 
@@ -118,6 +120,10 @@ You must have the epel repository enabled::
 Then install the downloaded RPMs:: 
 
    $ yum localinstall IM-*.rpm RADL-*.rpm
+   
+Azure python SDK is not available in CentOS. So if you need the Azure plugin you have to manually install them using pip::
+
+	$ pip install azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource
 
 From Deb package (Tested with Ubuntu 14.04 and 16.04)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -130,6 +136,13 @@ You can download it from their corresponding PPAs. But here you have some links:
  * python-backports.ssl-match-hostname: `download <http://archive.ubuntu.com/ubuntu/pool/universe/b/backports.ssl-match-hostname/python-backports.ssl-match-hostname_3.4.0.2-1_all.deb>`_
  * python-scp: `download <http://archive.ubuntu.com/ubuntu/pool/universe/p/python-scp/python-scp_0.10.2-1_all.deb>`_
  * python-libcloud: `download <http://archive.ubuntu.com/ubuntu/pool/universe/libc/libcloud/python-libcloud_0.20.0-1_all.deb>`_
+
+Also Azure python SDK is not available in Ubuntu 16.04. So if you need the Azure plugin you have to manually install them.
+You can download it from their corresponding PPAs. But here you have some links:
+
+ * python-msrestazure: `download <https://launchpad.net/ubuntu/+archive/primary/+files/python-msrestazure_0.4.3-1_all.deb>`_
+ * python-msrest: `download <https://launchpad.net/ubuntu/+archive/primary/+files/python-msrest_0.4.4-1_all.deb>`_
+ * python-azure: `download <https://launchpad.net/ubuntu/+archive/primary/+files/python-azure_2.0.0~rc6+dfsg-2_all.deb>`_
 
 It is also recommended to configure the Ansible PPA to install the newest versions of Ansible (see `Ansible installation <http://docs.ansible.com/ansible/intro_installation.html#latest-releases-via-apt-ubuntu>`_)::
 
@@ -507,3 +520,29 @@ You can also specify an external MySQL server to store IM data using the IM_DATA
 Or you can also add a volume with all the IM configuration::
 
   $ sudo docker run -d -p 8899:8899 -p 8800:8800 -v "/some_local_path/im.cfg:/etc/im/im.cfg" --name im grycap/im
+
+
+IM in high availability mode
+============================
+
+From version 1.5.0 the IM service can be launched in high availability (HA) mode using a set of IM instances
+behind a `HAProxy <http://www.haproxy.org/>`_ load balancer. Currently only the REST API can be used in HA mode.
+
+This is an example of the HAProxy configuration file::
+
+	frontend http-frontend
+	    mode http
+	    bind *:8800
+	    default_backend imbackend
+	
+	backend imbackend
+	    mode http
+	    balance roundrobin
+	    stick-table type string len 32 size 30k expire 60m
+	    stick store-response hdr(InfID)
+	    acl inf_id path -m beg /infrastructures/
+	    stick on path,field(3,/) if inf_id
+
+        server im-8801 10.0.0.1:8801 check
+        server im-8802 10.0.0.1:8802 check
+        ...
