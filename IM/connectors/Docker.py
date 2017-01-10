@@ -60,12 +60,21 @@ class DockerCloudConnector(CloudConnector):
             resp = session.request(method, url, verify=False, headers=headers, data=body)
         else:
             url = "%s://%s:%d%s%s" % (self.cloud.protocol, self.cloud.server, self.cloud.port, self.cloud.path, url)
-            if 'cert' in auth and 'key' in auth:
+            if 'public_key' in auth and 'private_key' in auth:
                 cert = self.get_user_cert_data(auth)
             else:
                 cert = None
 
-            resp = requests.request(method, url, verify=False, cert=cert, headers=headers, data=body)
+            try:
+                resp = requests.request(method, url, verify=False, cert=cert, headers=headers, data=body)
+            finally:
+                if cert:
+                    try:
+                        cert_file, key_file = cert
+                        os.unlink(cert_file)
+                        os.unlink(key_file)
+                    except:
+                        pass
 
         return resp
 
@@ -73,13 +82,13 @@ class DockerCloudConnector(CloudConnector):
         """
         Get the Docker private_key and public_key files from the auth data
         """
-        certificate = auth['cert']
+        certificate = auth['public_key']
         fd, cert_file = tempfile.mkstemp()
         os.write(fd, certificate)
         os.close(fd)
         os.chmod(cert_file, 0644)
 
-        private_key = auth['key']
+        private_key = auth['private_key']
         fd, key_file = tempfile.mkstemp()
         os.write(fd, private_key)
         os.close(fd)
