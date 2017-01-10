@@ -230,7 +230,8 @@ class OCCICloudConnector(CloudConnector):
         if (vm.state == VirtualMachine.RUNNING and not link_to_public and
                 not public_ips and vm.requested_radl.hasPublicNet(vm.info.systems[0].name)):
             self.logger.debug("The VM does not have public IP trying to add one.")
-            # in some sites the network is called floating, in others PUBLIC ... 
+            # in some sites the network is called floating, in others PUBLIC ...
+            # TODO: Get the pool name for Neutron
             net_names = ["public", "PUBLIC", "floating"]
             for name in net_names:
                 success, _ = self.add_public_ip(vm, auth_data, network_name=name)
