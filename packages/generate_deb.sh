@@ -4,6 +4,10 @@ apt update
 apt install -y python-stdeb
 # remove the ansible requirement as it makes to generate an incorrect dependency python-ansible
 sed -i '/install_requires/c\      install_requires=["paramiko >= 1.14", "PyYAML", "suds",' setup.py
-python setup.py --command-packages=stdeb.command sdist_dsc --depends "python-mysqldb, python-sqlite, python-tosca-parser, python-radl, ansible, python-paramiko, python-yaml, python-suds, python-boto, python-libcloud, python-bottle, python-netaddr, python-scp, python-cherrypy3" bdist_deb
+# also remove the pysqlite requirement as it makes to generate an incorrect dependency python-pysqlite1.1
+sed -i '/pysqlite/c\                        "scp", "cherrypy", "MySQL-python",' setup.py
+python setup.py --command-packages=stdeb.command sdist_dsc --depends "python-radl, python-mysqldb, python-pysqlite2, python-tosca-parser, ansible, python-paramiko, python-yaml, python-suds, python-boto, python-libcloud, python-bottle, python-netaddr, python-scp, python-cherrypy3, python-requests, python-azure" bdist_deb
 mkdir dist_pkg
 cp deb_dist/*.deb dist_pkg
+
+

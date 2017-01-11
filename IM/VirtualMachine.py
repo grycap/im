@@ -433,7 +433,6 @@ class VirtualMachine:
         """
         Update the status of this virtual machine.
         Only performs the update with UPDATE_FREQUENCY secs.
-
         Args:
         - auth(Authentication): parsed authentication tokens.
         Return:

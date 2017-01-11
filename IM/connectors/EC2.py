@@ -16,10 +16,16 @@
 
 import time
 import base64
-from IM.uriparse import uriparse
-import boto.ec2
-import boto.vpc
 import os
+
+try:
+    import boto.ec2
+    import boto.vpc
+except Exception, ex:
+    print "WARN: Boto library not correctly installed. EC2CloudConnector will not work!."
+    print ex
+
+from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from CloudConnector import CloudConnector
 from radl.radl import Feature

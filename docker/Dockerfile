@@ -1,5 +1,5 @@
 # Dockerfile to create a container with the IM service and TOSCA support
-FROM ubuntu:14.04
+FROM ubuntu:16.04
 MAINTAINER Miguel Caballer <micafer1@upv.es>
 LABEL version="1.5.0"
 LABEL description="Container image to run the IM service with TOSCA support. (http://www.grycap.upv.es/im)"
@@ -9,19 +9,16 @@ RUN apt-get update && apt-get install -y \
     gcc \
     python-dev \
     python-pip \
-    python-suds \
     python-dateutil \
     openssh-client \
     sshpass \
     git \
     libssl-dev \
     libffi-dev \
-    python-mysqldb \
+    libmysqld-dev \
+    python-pysqlite2
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
- 
-# Add unresolved LibCloud dependency
-RUN pip install backports.ssl_match_hostname
 
 # Install CherryPy to enable HTTPS in REST API
 RUN pip install setuptools --upgrade -I
