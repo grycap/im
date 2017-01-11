@@ -3,6 +3,7 @@
 
 * Version ![PyPI](https://img.shields.io/pypi/v/im.svg)
 * PyPI ![PypI](https://img.shields.io/pypi/dm/IM.svg)
+* Build Status [![Build Status](http://jenkins.i3m.upv.es/buildStatus/icon?job=grycap/im-unit)](http://jenkins.i3m.upv.es/job/grycap/job/im-unit/)
 
 IM is a tool that deploys complex and customized virtual infrastructures on IaaS
 Cloud deployments (such as AWS, OpenStack, etc.). It eases the access and the
