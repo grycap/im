@@ -18,13 +18,12 @@
 
 from multiprocessing import Process
 import unittest
-import xmlrpclib
 import time
 import sys
 import os
 import random
 import datetime
-import httplib
+import requests
 import json
 
 sys.path.append("..")
@@ -54,8 +53,6 @@ class LoadTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.server = xmlrpclib.ServerProxy(
-            "http://" + HOSTNAME + ":" + str(TEST_PORT), allow_none=True)
         cls.auth_data = open(AUTH_FILE, 'r').read().replace("\n", "\\n")
         cls.inf_id = 0
 
@@ -63,7 +60,9 @@ class LoadTest(unittest.TestCase):
     def tearDownClass(cls):
         # Assure that the infrastructure is destroyed
         try:
-            cls.server.DestroyInfrastructure(cls.inf_id, cls.auth_data)
+            headers = {'AUTHORIZATION': cls.auth_data}
+            url = "http://%s:%d%s" % (HOSTNAME, TEST_PORT, "/infrastructures/" + cls.inf_id)
+            requests.request("DELETE", url, headers=headers)
         except Exception:
             pass
 
@@ -72,50 +71,42 @@ class LoadTest(unittest.TestCase):
         delay = random.uniform(mint, maxt)
         time.sleep(delay)
 
-    def test_10_list(self):
+    def create_request(self, method, path, headers=None, body=None):
         before = time.time()
-        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
-        server.request('GET', "/infrastructures",
-                       headers={'AUTHORIZATION': self.auth_data})
-        resp = server.getresponse()
-        output = str(resp.read())
-        server.close()
+
+        if headers is None:
+            headers = {'AUTHORIZATION': self.auth_data}
+        elif headers != {}:
+            if 'AUTHORIZATION' not in headers:
+                headers['AUTHORIZATION'] = self.auth_data
+        url = "http://%s:%d%s" % (HOSTNAME, TEST_PORT, path)
+
+        resp = requests.request(method, url, headers=headers, data=body)
         resp_time = time.time() - before
         self.__class__.response_times.append(resp_time)
-        self.assertEqual(resp.status, 200,
-                         msg="ERROR listing user infrastructures:" + output)
 
-        for inf_id in output.split("\n"):
+        return resp
+
+    def test_10_list(self):
+        resp = self.create_request("GET", "/infrastructures")
+        self.assertEqual(resp.status_code, 200,
+                         msg="ERROR listing user infrastructures:" + resp.text)
+
+        for inf_id in resp.text.split("\n"):
             inf_id = os.path.basename(inf_id)
             self.getinfo(inf_id)
             self.getstate(inf_id)
 
     def getinfo(self, inf_id):
-        before = time.time()
-        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
-        server.request('GET', "/infrastructures/" + inf_id,
-                       headers={'AUTHORIZATION': self.auth_data})
-        resp = server.getresponse()
-        output = str(resp.read())
-        server.close()
-        resp_time = time.time() - before
-        self.__class__.response_times.append(resp_time)
-        self.assertEqual(resp.status, 200,
-                         msg="ERROR getting the infrastructure info:" + output)
+        resp = self.create_request("GET", "/infrastructures/" + self.inf_id)
+        self.assertEqual(resp.status_code, 200,
+                         msg="ERROR getting the infrastructure info:" + resp.text)
 
     def getstate(self, inf_id):
-        before = time.time()
-        server = httplib.HTTPConnection(HOSTNAME, TEST_PORT)
-        server.request('GET', "/infrastructures/" + inf_id + "/state",
-                       headers={'AUTHORIZATION': self.auth_data})
-        resp = server.getresponse()
-        output = str(resp.read())
-        server.close()
-        resp_time = time.time() - before
-        self.__class__.response_times.append(resp_time)
+        resp = self.create_request("GET", "/infrastructures/" + self.inf_id + "/state")
         self.assertEqual(
-            resp.status, 200, msg="ERROR getting the infrastructure state:" + output)
-        res = json.loads(output)
+            resp.status_code, 200, msg="ERROR getting the infrastructure state:" + resp.text)
+        res = json.loads(resp.text)
         state = res['state']['state']
         vm_states = res['state']['vm_states']
 

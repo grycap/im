@@ -121,6 +121,16 @@ class VNET_POOL(XMLObject):
     tuples_lists = {'VNET': VNET}
 
 
+class IMAGE(XMLObject):
+    values = ['ID', 'UID', 'GID', 'UNAME', 'GNAME', 'NAME', 'SOURCE', 'PATH'
+              'FSTYPE', 'TYPE', 'DISK_TYPE', 'PERSISTENT', 'SIZE', 'STATE']
+    numeric = ['ID', 'UID', 'GID', 'SIZE' ]
+
+
+class IMAGE_POOL(XMLObject):
+    tuples_lists = {'IMAGE': IMAGE}
+
+
 class OpenNebulaCloudConnector(CloudConnector):
     """
     Cloud Launcher to the OpenNebula platform
@@ -1003,8 +1013,9 @@ class OpenNebulaCloudConnector(CloudConnector):
         if session_id is None:
             return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
 
-        url = uriparse(image_url)
-        image_id = url[2]
+        image_id = self.get_image_id(image_url, session_id)
+        if image_id is None:
+            return (False, "Incorrect image name or id specified.")
         func_res = server.one.image.delete(session_id, image_id)
         if len(func_res) == 2:
             (success, res_info) = func_res
@@ -1017,3 +1028,33 @@ class OpenNebulaCloudConnector(CloudConnector):
             return (True, "")
         else:
             return (False, res_info)
+
+    def get_image_id(self, image_url, session_id):
+        url = uriparse(image_url)
+        image_id = url[2]
+        if image_id.isdigit():
+            return int(image_id)
+        else:
+            # We have to find the ID of the image name
+            server = xmlrpclib.ServerProxy(self.server_url, allow_none=True)    
+            image_id = self.get_image_id(image_url)
+            func_res = server.one.imagepool.info(session_id, -2, -1, -1)
+            if len(func_res) == 2:
+                (success, res_info) = func_res
+            elif len(func_res) == 3:
+                (success, res_info, _) = func_res
+            else:
+                self.logger.error("Error in the one.imagepool.info return value")
+                return None
+
+            if success:
+                pool_info = IMAGE_POOL(res_info)
+            else:
+                self.logger.error("Error in the function one.imagepool.info: " + res_info)
+                return None
+
+            for image in pool_info.IMAGE:
+                if image.NAME == image_id:
+                    return image.ID
+
+            return None
