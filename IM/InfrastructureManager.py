@@ -1213,10 +1213,10 @@ class InfrastructureManager:
         # First check if an OIDC token is included
         if "token" in im_auth[0]:
             InfrastructureManager.check_oidc_token(im_auth[0])
-        else:
-            # if not assume the basic user/password auth data
-            if not InfrastructureManager.check_im_user(im_auth):
-                raise InvaliddUserException()
+
+        # Now check if the user is in authorized
+        if not InfrastructureManager.check_im_user(im_auth):
+            raise InvaliddUserException()
 
         if Config.SINGLE_SITE:
             vmrc_auth = auth.getAuthInfo("VMRC")
