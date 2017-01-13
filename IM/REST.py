@@ -174,9 +174,16 @@ def get_auth_header():
             im_auth = {"type": "InfrastructureManager",
                        "username": "user",
                        "token": token}
-            single_site_auth = {"type": Config.SINGLE_SITE_TYPE,
-                                "host": Config.SINGLE_SITE_AUTH_HOST,
-                                "token": token}
+            if Config.SINGLE_SITE_TYPE == "OpenStack":
+                single_site_auth = {"type": Config.SINGLE_SITE_TYPE,
+                                    "host": Config.SINGLE_SITE_AUTH_HOST,
+                                    "username": "indigo-dc",
+                                    "tenant": "oidc",
+                                    "password": token}
+            else:
+                single_site_auth = {"type": Config.SINGLE_SITE_TYPE,
+                                    "host": Config.SINGLE_SITE_AUTH_HOST,
+                                    "token": token}
             return Authentication([im_auth, single_site_auth])
     auth_data = auth_header.replace(AUTH_NEW_LINE_SEPARATOR, "\n")
     auth_data = auth_data.split(AUTH_LINE_SEPARATOR)

@@ -129,7 +129,7 @@ class InfrastructureInfo:
             dic['auth'] = Authentication.deserialize(dic['auth'])
         if dic['radl']:
             dic['radl'] = parse_radl_json(dic['radl'])
-        if dic['extra_info'] and "TOSCA" in dic['extra_info']:
+        if 'extra_info' in dic and dic['extra_info'] and "TOSCA" in dic['extra_info']:
             dic['extra_info'] = Tosca.deserialize(dic['extra_info'])
         newinf.__dict__.update(dic)
         newinf.cloud_connector = None
