@@ -1,0 +1,22 @@
+network publica (outbound = 'yes')
+
+system spark (
+cpu.count>=1 and
+memory.size>=1g and
+net_interface.0.connection = 'publica' and
+disk.0.os.name='linux' and
+disk.0.os.flavour='ubuntu'
+)
+
+configure spark (
+@begin
+ - vars:
+    VERSION: 1.6.3
+   tasks:
+    - unarchive: src=http://apache.rediris.es/spark/spark-{{VERSION}}/spark-{{VERSION}}-bin-hadoop2.6.tgz dest=/opt/ copy=no creates=/opt/spark-{{VERSION}}-bin-hadoop2.6 copy=no
+    - file: src=/opt/spark-{{VERSION}}-bin-hadoop2.6 dest=/opt/spark state=link
+    - copy: dest=/etc/profile.d/spark.sh content="export PATH=$PATH:/opt/spark/bin\nexport SPARK_HOME=/opt/spark"
+@end
+)
+
+deploy spark 1

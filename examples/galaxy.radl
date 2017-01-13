@@ -1,0 +1,62 @@
+network publica (outbound = 'yes')
+network privada ()
+
+system front (
+cpu.count>=1 and
+memory.size>=1g and
+net_interface.1.connection = 'publica' and
+net_interface.0.connection = 'privada' and
+net_interface.0.dns_name = 'slurmserver' and
+disk.0.os.name='linux' and
+disk.0.os.flavour='ubuntu' and
+disk.0.applications contains (name='ansible.modules.indigo-dc.slurm') and
+disk.0.applications contains (name='ansible.modules.indigo-dc.nfs') and
+disk.0.applications contains (name='ansible.modules.grycap.galaxy')
+)
+
+system wn (
+cpu.count>=1 and
+memory.size>=1g and
+net_interface.0.connection = 'privada' and
+net_interface.0.dns_name = 'vnode-#N#' and
+disk.0.os.name='linux' and
+disk.0.os.flavour='ubuntu'
+)
+
+configure wn (
+@begin
+- vars:
+    slurm_front_end_ip: "{{ hostvars[ groups['front'][0]]['IM_NODE_NET_0_IP'] }}"
+  roles:
+  - role: indigo-dc.nfs
+    nfs_mode: 'client'
+    nfs_client_imports: [{ local: "/home", remote: "/home", server_host: "{{ slurm_front_end_ip }}" }]
+  - role: grycap.galaxy
+    galaxy_node_type: 'wn'
+  - role: indigo-dc.slurm
+    slurm_type_of_node: 'wn'
+    slurm_server_ip: "{{ slurm_front_end_ip }}"
+@end
+)
+
+configure front (
+@begin
+- vars:
+    vnode_prefix: vnode-
+  roles:
+  - role: indigo-dc.nfs
+    nfs_mode: 'server'
+    nfs_exports: [{path: "/home", export: "{{ vnode_prefix }}*.localdomain(fsid=0,rw,async,no_root_squash,no_subtree_check,insecure)"}]
+  - role: indigo-dc.slurm
+    slurm_type_of_node: 'front'
+    slurm_wn_ips: '{{ groups["wn"]|map("extract", hostvars, "ansible_default_ipv4.address")|list if "wn" in groups else [] }}'
+    slurm_vnode_prefix: "{{ vnode_prefix }}"
+    slurm_wn_nodenames: '{{ groups["wn"]|map("extract", hostvars, "ansible_hostname")|list if "wn" in groups else [] }}'
+  - role: grycap.galaxy
+    galaxy_install_path: '/home/galaxy/galaxy'
+    galaxy_lrms: slurm
+@end
+)
+
+deploy front 1
+deploy wn 2
