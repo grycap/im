@@ -78,9 +78,9 @@ header of the request:
 
 **POST** `http://imserver.com/infrastructures`:   
 
-  * body: `RADL document`
+  * body: `RADL or TOSCA document`
 
-  * body Content-type: text/plain or application/json
+  * body Content-type: text/yaml, text/plain or application/json
 
   * Response Content-type: text/uri-list
 
@@ -89,7 +89,7 @@ header of the request:
   * fail response: 401, 400, 415
 
   Create and configure an infrastructure with the requirements
-  specified in the RADL document of the body contents (in plain RADL
+  specified in the RADL or TOSCA document of the body contents (RADL in plain text
   or in JSON formats). If success, it is returned the URI of the new
   infrastructure. The result is JSON format has the following format:
 
@@ -153,9 +153,9 @@ header of the request:
 
 **POST** `http://imserver.com/infrastructures/<infId>`:   
 
-  * body: `RADL document`
+  * body: `RADL or TOSCA document`
 
-  * body Content-type: text/plain or application/json
+  * body Content-type: text/yaml or text/plain or application/json
 
   * input fields: `context` (optional)
 
@@ -165,14 +165,20 @@ header of the request:
 
   * fail response: 401, 403, 404, 400, 415
 
-  Add the resources specified in the body contents (in plain RADL or
+  Add the resources specified in the body contents (in TOSCA, plain RADL or
   in JSON formats) to the infrastructure with ID `infId`. The RADL
-  restrictions are the same as
-  in RPC-XML AddResource &lt;addresource-xmlrpc&gt;. If success, it is
-  returned a list of URIs of the new virtual machines. The `context`
-  parameter is optional and is a flag to specify if the
+  restrictions are the same as in RPC-XML AddResource &lt;addresource-xmlrpc&gt;.
+  
+  In case of TOSCA a whole TOSCA document is expected. In case of new template is
+  added to the TOSCA document or the ``count`` of a node is increased new nodes
+  will be added to de infrastructure. In case decreasing the number of the ``count``
+  scalable property of a node a ``removal_list`` property has to be added to specify
+  the ID of the VM to delete (see an example [here](https://github.com/indigo-dc/im/blob/master/test/files/tosca_remove.yml)).
+  
+  If success, it is returned a list of URIs of the new virtual machines.
+  The `context` parameter is optional and is a flag to specify if the
   contextualization step will be launched just after the VM addition.
-  Accetable values: yes, no, true, false, 1 or 0. If not specified the
+  Acceptable values: yes, no, true, false, 1 or 0. If not specified the
   flag is set to True. The result is JSON format has the following
   format:
 
@@ -328,7 +334,7 @@ header of the request:
   of VM IDs, all the VMs of this list will be undeployed. The
   `context` parameter is optional and is a flag to specify if the
   contextualization step will be launched just after the VM addition.
-  Accetable values: yes, no, true, false, 1 or 0. If not specified the
+  Acceptable values: yes, no, true, false, 1 or 0. If not specified the
   flag is set to True. If the operation has been performed
   successfully the return value is an empty string.
 
