@@ -41,4 +41,4 @@ configure wn (
 
 
 deploy front 1
-deploy wn 1
+deploy wn 2
