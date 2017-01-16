@@ -199,17 +199,22 @@ class DockerCloudConnector(CloudConnector):
         cont_data['NetworkingConfig'] = {'EndpointsConfig': {}}
         for net_name in system.getNetworkIDs():
             net = vm.info.get_network_by_id(net_name)
+
             if not net.isPublic():
+                num_conn = system.getNumNetworkWithConnection(net_name)
+                (hostname, default_domain) = vm.getRequestedNameIface(num_conn,
+                                                                      default_hostname=Config.DEFAULT_VM_NAME,
+                                                                      default_domain=Config.DEFAULT_DOMAIN)
                 net_name = "im_%s_%s" % (vm.inf.id, net_name)
-                #net_id = self._get_net_id(net_name, auth_data)
                 cont_data['NetworkingConfig']['EndpointsConfig'][net_name] = {}
+                aliases = [hostname, "%s.%s" % (hostname, default_domain)]
+                cont_data['NetworkingConfig']['EndpointsConfig'][net_name]['Aliases'] = aliases
                 break
 
         HostConfig = {}
         HostConfig['CpuShares'] = cpu
         HostConfig['Memory'] = memory
-        HostConfig['PortBindings'] = self._generate_port_bindings(
-            outports, ssh_port)
+        HostConfig['PortBindings'] = self._generate_port_bindings(outports, ssh_port)
         HostConfig['Binds'] = self._generate_volumes_binds(system)
         cont_data['HostConfig'] = HostConfig
 
@@ -277,16 +282,16 @@ class DockerCloudConnector(CloudConnector):
         for net in radl.networks:
             if not net.isPublic():
                 headers = {'Content-Type': 'application/json'}
-                body = json.dumps({"Name":"im_%s_%s" % (inf.id, net.id),
+                body = json.dumps({"Name": "im_%s_%s" % (inf.id, net.id),
                                    "CheckDuplicate": True})
                 resp = self.create_request('POST', "/networks/create", auth_data, headers, body)
-    
+
                 if resp.status_code not in [201, 200]:
                     self.logger.error("Error creating network %s" % net.id)
                     return False
-        
+
         return True
-    
+
     def _get_net_id(self, net_name, auth_data):
         headers = {'Content-Type': 'application/json'}
         resp = self.create_request('GET', '/networks?filters={"name":{"%s":true}}' % net_name, auth_data, headers)
@@ -299,16 +304,16 @@ class DockerCloudConnector(CloudConnector):
             else:
                 self.logger.error("No data returned for network %s" % net_name)
         return None
-    
+
     def _delete_networks(self, vm, auth_data):
         for net in vm.info.networks:
             if not net.isPublic():
                 headers = {'Content-Type': 'application/json'}
-    
+
                 net_id = self._get_net_id("im_%s_%s" % (vm.inf.id, net.id), auth_data)
                 if net_id:
                     resp = self.create_request('DELETE', "/networks/%s" % net_id, auth_data, headers)
-        
+
                     if resp.status_code not in [204, 404]:
                         self.logger.error("Error deleting network %s" % net.id)
                     else:
@@ -317,19 +322,25 @@ class DockerCloudConnector(CloudConnector):
     def _attach_cont_to_networks(self, vm, auth_data):
         system = vm.info.systems[0]
         first = True
-        all_ok = True       
+        all_ok = True
         for net_name in system.getNetworkIDs():
             net = vm.info.get_network_by_id(net_name)
+
             if not net.isPublic():
                 if first:
                     first = False
                 else:
+                    num_conn = system.getNumNetworkWithConnection(net_name)
+                    (hostname, default_domain) = vm.getRequestedNameIface(num_conn,
+                                                                          default_hostname=Config.DEFAULT_VM_NAME,
+                                                                          default_domain=Config.DEFAULT_DOMAIN)
                     net_name = "im_%s_%s" % (vm.inf.id, net_name)
                     net_id = self._get_net_id(net_name, auth_data)
                     headers = {'Content-Type': 'application/json'}
-                    body = json.dumps({"Container": vm.id})
+                    aliases = [hostname, "%s.%s" % (hostname, default_domain)]
+                    body = json.dumps({"Container": vm.id, "EndpointConfig": {"Aliases": aliases}})
                     resp = self.create_request('POST', "/networks/%s/connect" % net_id, auth_data, headers, body)
-                    
+
                     if resp.status_code != 200:
                         self.logger.error("Error attaching cont %s to network %s" % (vm.id, net_name))
                         all_ok = False
@@ -358,11 +369,9 @@ class DockerCloudConnector(CloudConnector):
             try:
                 i += 1
 
-                ssh_port = 22
-                if public_net:
-                    ssh_port = (DockerCloudConnector._port_base_num +
-                                DockerCloudConnector._port_counter) % 65535
-                    DockerCloudConnector._port_counter += 1
+                ssh_port = (DockerCloudConnector._port_base_num +
+                            DockerCloudConnector._port_counter) % 65535
+                DockerCloudConnector._port_counter += 1
 
                 # Create the VM to get the nodename
                 vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self)
@@ -388,6 +397,7 @@ class DockerCloudConnector(CloudConnector):
                 # Create the container
                 cont_data = self._generate_create_request_data(full_image_name, outports, vm, ssh_port, auth_data)
                 body = json.dumps(cont_data)
+                self.logger.debug(body)
 
                 resp = self.create_request('POST', "/containers/create", auth_data, headers, body)
 
@@ -399,7 +409,7 @@ class DockerCloudConnector(CloudConnector):
                 # Set the cloud id to the VM
                 vm.id = output["Id"]
                 vm.info.systems[0].setValue('instance_id', str(vm.id))
-                
+
                 # In creation a container can only be attached to one one network
                 # so now we must attach to the rest of networks (if any)
                 success = self._attach_cont_to_networks(vm, auth_data)
