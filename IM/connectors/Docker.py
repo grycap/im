@@ -156,8 +156,9 @@ class DockerCloudConnector(CloudConnector):
 
         vm.setIps(public_ips, private_ips)
 
-    def _generate_create_request_data(self, image_name, outports, system, vm, ssh_port):
+    def _generate_create_request_data(self, image_name, outports, vm, ssh_port, auth_data):
         cont_data = {}
+        system = vm.info.systems[0]
 
         cpu = int(system.getValue('cpu.count')) - 1
         memory = system.getFeature('memory.size').getValue('B')
@@ -193,6 +194,16 @@ class DockerCloudConnector(CloudConnector):
         cont_data['ExposedPorts'] = self._generate_exposed_ports(outports)
         if volumes:
             cont_data['Volumes'] = volumes
+
+        # Attach to first private network
+        cont_data['NetworkingConfig'] = {'EndpointsConfig': {}}
+        for net_name in system.getNetworkIDs():
+            net = vm.info.get_network_by_id(net_name)
+            if not net.isPublic():
+                net_name = "im_%s_%s" % (vm.inf.id, net_name)
+                #net_id = self._get_net_id(net_name, auth_data)
+                cont_data['NetworkingConfig']['EndpointsConfig'][net_name] = {}
+                break
 
         HostConfig = {}
         HostConfig['CpuShares'] = cpu
@@ -262,17 +273,84 @@ class DockerCloudConnector(CloudConnector):
 
         return res
 
+    def _create_networks(self, inf, radl, auth_data):
+        for net in radl.networks:
+            if not net.isPublic():
+                headers = {'Content-Type': 'application/json'}
+                body = json.dumps({"Name":"im_%s_%s" % (inf.id, net.id),
+                                   "CheckDuplicate": True})
+                resp = self.create_request('POST', "/networks/create", auth_data, headers, body)
+    
+                if resp.status_code not in [201, 200]:
+                    self.logger.error("Error creating network %s" % net.id)
+                    return False
+        
+        return True
+    
+    def _get_net_id(self, net_name, auth_data):
+        headers = {'Content-Type': 'application/json'}
+        resp = self.create_request('GET', '/networks?filters={"name":{"%s":true}}' % net_name, auth_data, headers)
+        if resp.status_code != 200:
+            self.logger.error("Error searching for network %s" % net_name)
+        else:
+            net_data = json.loads(resp.text)
+            if len(net_data) > 0:
+                return net_data[0]["Id"]
+            else:
+                self.logger.error("No data returned for network %s" % net_name)
+        return None
+    
+    def _delete_networks(self, vm, auth_data):
+        for net in vm.info.networks:
+            if not net.isPublic():
+                headers = {'Content-Type': 'application/json'}
+    
+                net_id = self._get_net_id("im_%s_%s" % (vm.inf.id, net.id), auth_data)
+                if net_id:
+                    resp = self.create_request('DELETE', "/networks/%s" % net_id, auth_data, headers)
+        
+                    if resp.status_code not in [204, 404]:
+                        self.logger.error("Error deleting network %s" % net.id)
+                    else:
+                        self.logger.debug("Network %s deleted successfully" % net.id)
+
+    def _attach_cont_to_networks(self, vm, auth_data):
+        system = vm.info.systems[0]
+        first = True
+        all_ok = True       
+        for net_name in system.getNetworkIDs():
+            net = vm.info.get_network_by_id(net_name)
+            if not net.isPublic():
+                if first:
+                    first = False
+                else:
+                    net_name = "im_%s_%s" % (vm.inf.id, net_name)
+                    net_id = self._get_net_id(net_name, auth_data)
+                    headers = {'Content-Type': 'application/json'}
+                    body = json.dumps({"Container": vm.id})
+                    resp = self.create_request('POST', "/networks/%s/connect" % net_id, auth_data, headers, body)
+                    
+                    if resp.status_code != 200:
+                        self.logger.error("Error attaching cont %s to network %s" % (vm.id, net_name))
+                        all_ok = False
+                    else:
+                        self.logger.debug("Cont %s attached to network %s" % (vm.id, net_name))
+        return all_ok
+
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         system = radl.systems[0]
 
+        # Get the public network connected with this VM
         public_net = None
         for net in radl.networks:
-            if net.isPublic():
+            if net.isPublic() and system.getNumNetworkWithConnection(net.id) is not None:
                 public_net = net
 
         outports = None
         if public_net:
             outports = public_net.getOutPorts()
+
+        self._create_networks(inf, radl, auth_data)
 
         res = []
         i = 0
@@ -308,7 +386,7 @@ class DockerCloudConnector(CloudConnector):
                     continue
 
                 # Create the container
-                cont_data = self._generate_create_request_data(full_image_name, outports, system, vm, ssh_port)
+                cont_data = self._generate_create_request_data(full_image_name, outports, vm, ssh_port, auth_data)
                 body = json.dumps(cont_data)
 
                 resp = self.create_request('POST', "/containers/create", auth_data, headers, body)
@@ -321,6 +399,15 @@ class DockerCloudConnector(CloudConnector):
                 # Set the cloud id to the VM
                 vm.id = output["Id"]
                 vm.info.systems[0].setValue('instance_id', str(vm.id))
+                
+                # In creation a container can only be attached to one one network
+                # so now we must attach to the rest of networks (if any)
+                success = self._attach_cont_to_networks(vm, auth_data)
+                if not success:
+                    res.append((False, "Error attaching to networks the Container"))
+                    # Delete the container
+                    resp = self.create_request('DELETE', "/containers/" + vm.id, auth_data)
+                    continue
 
                 # Now start it
                 success, msg = self.start(vm, auth_data)
@@ -379,14 +466,25 @@ class DockerCloudConnector(CloudConnector):
             # Now delete it
             resp = self.create_request('DELETE', "/containers/" + vm.id, auth_data)
 
+            res = (False, "")
             if resp.status_code == 404:
                 self.logger.warn(
                     "Trying to remove a non existing container id: " + vm.id)
-                return (True, vm.id)
+                res = (True, vm.id)
             elif resp.status_code != 204:
-                return (False, "Error deleting the Container: " + resp.text)
+                res = (False, "Error deleting the Container: " + resp.text)
             else:
-                return (True, vm.id)
+                res = (True, vm.id)
+
+            # if it is the last VM delete the Docker networks
+            if vm.inf.is_last_vm(vm.id):
+                try:
+                    self._delete_networks(vm, auth_data)
+                except Exception:
+                    self.logger.exception("Error deleting networks.")
+                    pass
+
+            return res
         except Exception:
             self.logger.exception("Error connecting with Docker server")
             return (False, "Error connecting with Docker server")
