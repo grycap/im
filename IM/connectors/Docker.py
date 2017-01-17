@@ -136,13 +136,14 @@ class DockerCloudConnector(CloudConnector):
 
             return res
 
-    def setIPs(self, vm, cont_info):
+    def setIPs(self, vm, cont_info, auth_data):
         """
         Adapt the RADL information of the VM to the real IPs assigned by the cloud provider
 
         Arguments:
            - vm(:py:class:`IM.VirtualMachine`): VM information.
            - cont_info(dict): JSON information about the container
+           - auth_data: Athentication data.
         """
 
         if self.cloud.protocol == 'unix':
@@ -152,8 +153,14 @@ class DockerCloudConnector(CloudConnector):
         else:
             public_ips = [socket.gethostbyname(self.cloud.server)]
         private_ips = []
-        if str(cont_info["NetworkSettings"]["IPAddress"]):
-            private_ips.append(str(cont_info["NetworkSettings"]["IPAddress"]))
+        
+        if self._is_swarm(auth_data):
+            if "VirtualIPs" in cont_info["Endpoint"] and cont_info["Endpoint"]['VirtualIPs']: 
+                for vip in cont_info["Endpoint"]['VirtualIPs']:
+                    private_ips.append(vip['Addr'][:-3])
+        else:
+            if str(cont_info["NetworkSettings"]["IPAddress"]):
+                private_ips.append(str(cont_info["NetworkSettings"]["IPAddress"]))
 
         vm.setIps(public_ips, private_ips)
 
@@ -164,6 +171,8 @@ class DockerCloudConnector(CloudConnector):
         cpu = int(system.getValue('cpu.count')) - 1
         memory = int(system.getFeature('memory.size').getValue('B'))
         name = system.getValue("disk.0.image.name")
+        if not name:
+            name = "imsvc"
 
         svc_data['Name'] = "%s-%d" % (name, int(time.time() * 100))
         svc_data['TaskTemplate'] = {}
@@ -515,7 +524,13 @@ class DockerCloudConnector(CloudConnector):
 
                 output = json.loads(resp.text)
                 # Set the cloud id to the VM
-                vm.id = output["Id"]
+                if "Id" in output:
+                    vm.id = output["Id"]
+                elif "ID" in output:
+                    vm.id = output["ID"]
+                else:
+                    res.append((False, "Error: response format not expected."))
+
                 vm.info.systems[0].setValue('instance_id', str(vm.id))
 
                 if not self._is_swarm(auth_data):
@@ -528,13 +543,13 @@ class DockerCloudConnector(CloudConnector):
                         resp = self.create_request('DELETE', "/containers/" + vm.id, auth_data)
                         continue
 
-                # Now start it
-                success, msg = self.start(vm, auth_data)
-                if not success:
-                    res.append((False, "Error starting the Container: " + str(msg)))
-                    # Delete the container
-                    resp = self.create_request('DELETE', "/containers/" + vm.id, auth_data)
-                    continue
+                    # Now start it
+                    success, msg = self.start(vm, auth_data)
+                    if not success:
+                        res.append((False, "Error starting the Container: " + str(msg)))
+                        # Delete the container
+                        resp = self.create_request('DELETE', "/containers/" + vm.id, auth_data)
+                        continue
 
                 # Set the default user and password to access the container
                 vm.info.systems[0].setValue('disk.0.os.credentials.username', 'root')
@@ -553,7 +568,10 @@ class DockerCloudConnector(CloudConnector):
 
     def updateVMInfo(self, vm, auth_data):
         try:
-            resp = self.create_request('GET', "/containers/" + vm.id + "/json", auth_data)
+            if self._is_swarm(auth_data):
+                resp = self.create_request('GET', "/services/" + vm.id, auth_data)
+            else:
+                resp = self.create_request('GET', "/containers/" + vm.id + "/json", auth_data)
 
             if resp.status_code == 404:
                 # If the container does not exist, set state to OFF
@@ -563,13 +581,21 @@ class DockerCloudConnector(CloudConnector):
                 return (False, "Error getting info about the Container: " + resp.text)
 
             output = json.loads(resp.text)
-            if output["State"]["Running"]:
-                vm.state = VirtualMachine.RUNNING
+            if self._is_swarm(auth_data):
+                if "CompletedAt" in output["UpdateStatus"]:
+                    vm.state = VirtualMachine.RUNNING
+                elif "StartedAt" in output["UpdateStatus"]:
+                    vm.state = VirtualMachine.PENDING
+                else:
+                    vm.state = VirtualMachine.UNKNOWN
             else:
-                vm.state = VirtualMachine.STOPPED
+                if output["State"]["Running"]:
+                    vm.state = VirtualMachine.RUNNING
+                else:
+                    vm.state = VirtualMachine.STOPPED
 
-            # Actualizamos los datos de la red
-            self.setIPs(vm, output)
+            # Update network data
+            self.setIPs(vm, output, auth_data)
             return (True, vm)
 
         except Exception, ex:
@@ -579,16 +605,17 @@ class DockerCloudConnector(CloudConnector):
 
     def finalize(self, vm, auth_data):
         try:
-            # First Stop it
-            self.stop(vm, auth_data)
-
-            # Now delete it
-            resp = self.create_request('DELETE', "/containers/" + vm.id, auth_data)
+            if self._is_swarm(auth_data):
+                resp = self.create_request('DELETE', "/services/" + vm.id, auth_data)
+            else:
+                # First Stop it
+                self.stop(vm, auth_data)
+                # Now delete it
+                resp = self.create_request('DELETE', "/containers/" + vm.id, auth_data)
 
             res = (False, "")
             if resp.status_code == 404:
-                self.logger.warn(
-                    "Trying to remove a non existing container id: " + vm.id)
+                self.logger.warn("Trying to remove a non existing container id: " + vm.id)
                 res = (True, vm.id)
             elif resp.status_code != 204:
                 res = (False, "Error deleting the Container: " + resp.text)
@@ -610,6 +637,9 @@ class DockerCloudConnector(CloudConnector):
 
     def stop(self, vm, auth_data):
         try:
+            if self._is_swarm(auth_data):
+                return (False, "Not supported")
+
             resp = self.create_request('POST', "/containers/" + vm.id + "/stop", auth_data)
 
             if resp.status_code != 204:
@@ -622,6 +652,9 @@ class DockerCloudConnector(CloudConnector):
 
     def start(self, vm, auth_data):
         try:
+            if self._is_swarm(auth_data):
+                return (False, "Not supported")
+
             resp = self.create_request('POST', "/containers/" + vm.id + "/start", auth_data)
 
             if resp.status_code != 204:
