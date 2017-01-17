@@ -208,16 +208,17 @@ class DockerCloudConnector(CloudConnector):
 
         svc_data['Mode'] = {"Replicated": {"Replicas": 1}}
 
-        ports = []
-        ports.append({"Protocol": "tcp", "PublishedPort": ssh_port, "TargetPort": 22})
-        if outports:
-            for remote_port, _, local_port, local_protocol in outports:
-                if local_port != 22:
-                    ports.append({"Protocol": local_protocol,
-                                  "PublishedPort": remote_port,
-                                  "TargetPort": local_protocol})
-
-        svc_data['EndpointSpec'] = {'Ports': ports}
+        if vm.hasPublicNet():
+            ports = []
+            ports.append({"Protocol": "tcp", "PublishedPort": ssh_port, "TargetPort": 22})
+            if outports:
+                for remote_port, _, local_port, local_protocol in outports:
+                    if local_port != 22:
+                        ports.append({"Protocol": local_protocol,
+                                      "PublishedPort": remote_port,
+                                      "TargetPort": local_protocol})
+    
+            svc_data['EndpointSpec'] = {'Ports': ports}
 
         mounts = []
         cont = 1
@@ -237,14 +238,18 @@ class DockerCloudConnector(CloudConnector):
         for net_name in system.getNetworkIDs():
             net = vm.info.get_network_by_id(net_name)
             num_conn = system.getNumNetworkWithConnection(net_name)
-            if not net.isPublic() and num_conn:
-                net_name = "im_%s_%s" % (vm.inf.id, net_name)
+            if not net.isPublic() and num_conn is not None:
+                net_name = net.getValue('provider_id')
+                if not net_name:
+                    net_name = "im_%s_%s" % (vm.inf.id, net_name)
                 net_id = self._get_net_id(net_name, auth_data)
                 (hostname, default_domain) = vm.getRequestedNameIface(num_conn,
                                                                       default_hostname=Config.DEFAULT_VM_NAME,
                                                                       default_domain=Config.DEFAULT_DOMAIN)
                 aliases = [hostname, "%s.%s" % (hostname, default_domain)]
                 nets.append({"Target": net_id, "Aliases": aliases})
+
+        svc_data['Networks'] = nets 
 
         self.logger.debug(json.dumps(svc_data))
 
@@ -391,19 +396,22 @@ class DockerCloudConnector(CloudConnector):
         return self._swarm
 
     def _create_networks(self, inf, radl, auth_data):
-        cont = 0
         for net in radl.networks:
             if not net.isPublic() and radl.systems[0].getNumNetworkWithConnection(net.id) is not None:
                 headers = {'Content-Type': 'application/json'}
 
-                data = {"Name": "im_%s_%s" % (inf.id, net.id), "CheckDuplicate": True}
+                net_name = net.getValue('provider_id')
+                if not net_name:
+                    net_name = "im_%s_%s" % (inf.id, net.id)
+                    net.setValue('provider_id', net_name)
+
+                data = {"Name": net_name, "CheckDuplicate": True}
+                # In case of Swarm, create an overlay network
                 if self._is_swarm(auth_data):
                     data["Driver"] = "overlay"
                     data["Scope"] = "swarm"
-                    data["IPAM"] = {"Driver": "default", "Config": []}
-                    data["IPAM"]["Config"].append({"Subnet": "10.200.%d.0/16" % cont})
-
-                    cont += 1
+                    data["IPAM"] = {"Driver": "default"}
+                    data["Options"] = {"secure": ""}
 
                 body = json.dumps(data)
                 resp = self.create_request('POST', "/networks/create", auth_data, headers, body)
@@ -422,7 +430,9 @@ class DockerCloudConnector(CloudConnector):
         else:
             net_data = json.loads(resp.text)
             if len(net_data) > 0:
-                return net_data[0]["Id"]
+                for net in net_data:
+                    if net['Name'] == net_name:
+                        return net['Id']
             else:
                 self.logger.error("No data returned for network %s" % net_name)
         return None
@@ -432,7 +442,12 @@ class DockerCloudConnector(CloudConnector):
             if not net.isPublic():
                 headers = {'Content-Type': 'application/json'}
 
-                net_id = self._get_net_id("im_%s_%s" % (vm.inf.id, net.id), auth_data)
+                net_name = net.getValue('provider_id')
+                if not net_name:
+                    net_name = "im_%s_%s" % (vm.inf.id, net.id)
+                    net.setValue('provider_id', net_name)
+
+                net_id = self._get_net_id(net_name, auth_data)
                 if net_id:
                     resp = self.create_request('DELETE', "/networks/%s" % net_id, auth_data, headers)
 
