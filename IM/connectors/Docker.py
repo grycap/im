@@ -411,7 +411,6 @@ class DockerCloudConnector(CloudConnector):
                     data["Driver"] = "overlay"
                     data["Scope"] = "swarm"
                     data["IPAM"] = {"Driver": "default"}
-                    data["Options"] = {"secure": ""}
 
                 body = json.dumps(data)
                 resp = self.create_request('POST', "/networks/create", auth_data, headers, body)
@@ -506,9 +505,11 @@ class DockerCloudConnector(CloudConnector):
             try:
                 i += 1
 
-                ssh_port = (DockerCloudConnector._port_base_num +
-                            DockerCloudConnector._port_counter) % 65535
-                DockerCloudConnector._port_counter += 1
+                ssh_port = 22
+                if public_net:
+                    ssh_port = (DockerCloudConnector._port_base_num +
+                                DockerCloudConnector._port_counter) % 65535
+                    DockerCloudConnector._port_counter += 1
 
                 # Create the VM to get the nodename
                 vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self)
