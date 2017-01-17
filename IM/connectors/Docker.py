@@ -217,7 +217,7 @@ class DockerCloudConnector(CloudConnector):
                         ports.append({"Protocol": local_protocol,
                                       "PublishedPort": remote_port,
                                       "TargetPort": local_protocol})
-    
+
             svc_data['EndpointSpec'] = {'Ports': ports}
 
         mounts = []
@@ -249,7 +249,7 @@ class DockerCloudConnector(CloudConnector):
                 aliases = [hostname, "%s.%s" % (hostname, default_domain)]
                 nets.append({"Target": net_id, "Aliases": aliases})
 
-        svc_data['Networks'] = nets 
+        svc_data['Networks'] = nets
 
         self.logger.debug(json.dumps(svc_data))
 
