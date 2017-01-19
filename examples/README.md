@@ -19,4 +19,5 @@ This directory has some RADL examples to deploy different types of virtual infra
 * slurm.radl: Installs a SLURM cluster with one front-end node and two working nodes.
 * hadoop.radl: Installs a Hadoop cluster with one front-end node and two working nodes.
 * swarm.radl: Installs a Docker Swarm cluster with one front-end node and two working nodes.
+* kubernetes.radl: Installs a Kubernetes cluster with one front-end node and two working nodes.
 * galaxy.radl: Installs a Galaxy Portal on top of a a SLURM cluster with one front-end node and two working nodes.

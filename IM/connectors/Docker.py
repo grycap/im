@@ -315,6 +315,8 @@ class DockerCloudConnector(CloudConnector):
         HostConfig['Memory'] = memory
         HostConfig['PortBindings'] = self._generate_port_bindings(outports, ssh_port)
         HostConfig['Binds'] = self._generate_volumes_binds(system)
+        if system.getValue("docker.privileged") == 'yes':
+            HostConfig['Privileged'] = True
         cont_data['HostConfig'] = HostConfig
 
         self.logger.debug(json.dumps(cont_data))

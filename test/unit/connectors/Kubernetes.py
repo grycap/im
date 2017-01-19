@@ -118,8 +118,12 @@ class TestKubernetesConnector(unittest.TestCase):
             if url.endswith("/pods"):
                 resp.status_code = 201
                 resp.text = '{"metadata": {"namespace":"namespace", "name": "name"}}'
+            if url.endswith("/namespaces"):
+                resp.status_code = 201
         elif method == "DELETE":
             if url.endswith("/pods/1"):
+                resp.status_code = 200
+            if url.endswith("/namespaces/namespace"):
                 resp.status_code = 200
             elif "persistentvolumeclaims" in url:
                 resp.status_code = 200
@@ -185,7 +189,8 @@ class TestKubernetesConnector(unittest.TestCase):
 
         inf = MagicMock()
         inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "namespace/1", kube_cloud.cloud, radl, radl, kube_cloud)
+        inf.id = "namespace"
+        vm = VirtualMachine(inf, "1", kube_cloud.cloud, radl, radl, kube_cloud)
 
         requests.side_effect = self.get_response
 
@@ -224,7 +229,8 @@ class TestKubernetesConnector(unittest.TestCase):
 
         inf = MagicMock()
         inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "namespace/1", kube_cloud.cloud, radl, radl, kube_cloud)
+        inf.id = "namespace"
+        vm = VirtualMachine(inf, "1", kube_cloud.cloud, radl, radl, kube_cloud)
 
         requests.side_effect = self.get_response
 
@@ -241,7 +247,8 @@ class TestKubernetesConnector(unittest.TestCase):
 
         inf = MagicMock()
         inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "namespace/1", kube_cloud.cloud, "", "", kube_cloud)
+        inf.id = "namespace"
+        vm = VirtualMachine(inf, "1", kube_cloud.cloud, "", "", kube_cloud)
 
         requests.side_effect = self.get_response
 
