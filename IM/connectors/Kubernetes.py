@@ -268,18 +268,34 @@ class KubernetesCloudConnector(CloudConnector):
             'namespace': namespace,
             'labels': {'name': name}
         }
+        command = "yum install -y openssh-server python"
+        command += " ; "
+        command += "apt-get update && apt-get install -y openssh-server python"
+        command += " ; "
+        command += "mkdir /var/run/sshd"
+        command += " ; "
+        command += "sed -i 's/PermitRootLogin without-password/PermitRootLogin yes/g' /etc/ssh/sshd_config"
+        command += " ; "
+        command += "sed -i 's/PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config"
+        command += " ; "
+        command += "ssh-keygen -t rsa -f /etc/ssh/ssh_host_rsa_key -N ''"
+        command += " ; "
+        command += "echo 'root:" + self._root_password + "' | chpasswd"
+        command += " ; "
+        command += "sed 's@session\s*required\s*pam_loginuid.so@session optional pam_loginuid.so@g' -i /etc/pam.d/sshd"
+        command += " ; "
+        command += " /usr/sbin/sshd -D"
         containers = [{
             'name': name,
             'image': image_name,
-            'command': ["/bin/bash", "-c", ("yum install -y openssh-server ;  apt-get update && apt-get install -y "
-                                            "openssh-server && sed -i 's/PermitRootLogin without-password/"
-                                            "PermitRootLogin yes/g' /etc/ssh/sshd_config && service ssh start && "
-                                            "service ssh stop ; echo 'root:" + self._root_password +
-                                            "' | chpasswd ; /usr/sbin/sshd -D")],
+            'command': ["/bin/bash", "-c", command],
             'imagePullPolicy': 'IfNotPresent',
             'ports': ports,
             'resources': {'limits': {'cpu': cpu, 'memory': memory}}
         }]
+
+        if system.getValue("docker.privileged") == 'yes':
+            containers[0]['securityContext'] = {'privileged': True}
 
         if volumes:
             containers[0]['volumeMounts'] = []
