@@ -208,17 +208,16 @@ class DockerCloudConnector(CloudConnector):
 
         svc_data['Mode'] = {"Replicated": {"Replicas": 1}}
 
-        if vm.hasPublicNet():
-            ports = []
-            ports.append({"Protocol": "tcp", "PublishedPort": ssh_port, "TargetPort": 22})
-            if outports:
-                for remote_port, _, local_port, local_protocol in outports:
-                    if local_port != 22:
-                        ports.append({"Protocol": local_protocol,
-                                      "PublishedPort": remote_port,
-                                      "TargetPort": local_protocol})
+        ports = []
+        ports.append({"Protocol": "tcp", "PublishedPort": ssh_port, "TargetPort": 22})
+        if outports:
+            for remote_port, _, local_port, local_protocol in outports:
+                if local_port != 22:
+                    ports.append({"Protocol": local_protocol,
+                                  "PublishedPort": remote_port,
+                                  "TargetPort": local_protocol})
 
-            svc_data['EndpointSpec'] = {'Ports': ports}
+        svc_data['EndpointSpec'] = {'Ports': ports}
 
         mounts = []
         cont = 1
@@ -501,17 +500,16 @@ class DockerCloudConnector(CloudConnector):
 
         self._create_networks(inf, radl, auth_data)
 
+        headers = {'Content-Type': 'application/json'}
         res = []
         i = 0
         while i < num_vm:
             try:
                 i += 1
 
-                ssh_port = 22
-                if public_net:
-                    ssh_port = (DockerCloudConnector._port_base_num +
-                                DockerCloudConnector._port_counter) % 65535
-                    DockerCloudConnector._port_counter += 1
+                ssh_port = (DockerCloudConnector._port_base_num +
+                            DockerCloudConnector._port_counter) % 65535
+                DockerCloudConnector._port_counter += 1
 
                 # Create the VM to get the nodename
                 vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self)
@@ -519,27 +517,26 @@ class DockerCloudConnector(CloudConnector):
                 # The URI has this format: docker://image_name
                 full_image_name = system.getValue("disk.0.image.url")[9:]
 
-                # First we have to pull the image
-                headers = {'Content-Type': 'application/json'}
-                image_parts = full_image_name.split(":")
-                image_name = image_parts[0]
-                if len(image_parts) < 2:
-                    tag = "latest"
-                else:
-                    tag = image_parts[1]
-                resp = self.create_request('POST', "/images/create?fromImage=%s&tag=%s" % (image_name, tag),
-                                           auth_data, headers)
-
-                if resp.status_code not in [201, 200]:
-                    res.append((False, "Error pulling the image: " + resp.text))
-                    continue
-
                 # Create the container
                 if self._is_swarm(auth_data):
                     cont_data = self._generate_create_svc_request_data(full_image_name, outports, vm,
                                                                        ssh_port, auth_data)
                     resp = self.create_request('POST', "/services/create", auth_data, headers, cont_data)
                 else:
+                    # First we have to pull the image
+                    image_parts = full_image_name.split(":")
+                    image_name = image_parts[0]
+                    if len(image_parts) < 2:
+                        tag = "latest"
+                    else:
+                        tag = image_parts[1]
+                    resp = self.create_request('POST', "/images/create?fromImage=%s&tag=%s" % (image_name, tag),
+                                               auth_data, headers)
+
+                    if resp.status_code not in [201, 200]:
+                        res.append((False, "Error pulling the image: " + resp.text))
+                        continue
+
                     cont_data = self._generate_create_cont_request_data(full_image_name, outports, vm,
                                                                         ssh_port, auth_data)
                     resp = self.create_request('POST', "/containers/create", auth_data, headers, cont_data)
