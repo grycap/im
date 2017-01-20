@@ -105,7 +105,7 @@ class DB14to15():
 
 if __name__ == "__main__":
     if not Config.DATA_DB:
-        sys.stderr.write("No DB defined in the im.cfg file!!")
+        sys.stderr.write("No DATA_DB defined in the im.cfg file!!")
         sys.exit(-1)
 
     data_file = None
@@ -115,7 +115,7 @@ if __name__ == "__main__":
         sys.stdout.write("Saving new data to DB: %s.|n" % Config.DATA_DB)
     else:
         sys.stdout.write("No datafile defined. Reading data from DB: %s.\n" % Config.DATA_DB)
-        sys.stdout.write("Previous table inf_list will be renamed to old_inf_list.")
+        sys.stdout.write("Previous table inf_list will be renamed to inf_list_XXXXXX.")
 
     import IM.InfrastructureList
     inf_list = DB14to15.load_data(data_file)
