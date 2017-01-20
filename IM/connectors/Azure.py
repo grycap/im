@@ -636,7 +636,7 @@ class AzureCloudConnector(CloudConnector):
 
             # if it is the last VM delete the RG of the Inf
             if vm.inf.is_last_vm(vm.id):
-                self.logger.exception("Removing RG: %s" % "rg-%s" % vm.inf.id)
+                self.logger.debug("Removing RG: %s" % "rg-%s" % vm.inf.id)
                 resource_client.resource_groups.delete("rg-%s" % vm.inf.id)
 
         except Exception, ex:
