@@ -251,11 +251,12 @@ IM 1.5.0
     * Add Vault support.
     * Bugfix with sqlite databases.
     * Fix some Kubenetes connector errors.
-    * Improve Docker connector
-    * Bugfix killing child processes
-    * Error in GCE connector in case of multiples nodes
-    * Move connectors from httplib to requests lib enhancement
-    * Improve data management in DB to enable HA enhancement
-    * Move Azure connector to Resource Groups API enhancement
-    * Change SOAPpy lib to suds
+    * Improve Docker connector.
+    * Bugfix killing child processes.
+    * Error in GCE connector in case of multiples nodes.
+    * Add FW creation support in GCE connector.
+    * Move connectors from httplib to requests lib enhancement.
+    * Improve data management in DB to enable HA enhancement.
+    * Move Azure connector to Resource Groups API enhancement.
+    * Change SOAPpy lib to suds.
     
