@@ -9,19 +9,19 @@
     # In case of redhat systems libselinux-python is needed
     - name: Install libselinux-python on redhat systems
       action: yum pkg=libselinux-python state=installed
-      sudo: yes
+      become: yes
       ignore_errors: yes
 
     # Set the correct hostname
     - name: Set the hostname of the node
       action: hostname name={{ IM_NODE_FQDN }}
-      sudo: yes
+      become: yes
       ignore_errors: yes
 
     # In case of redhat systems disable SELinux
     - name: Disable SELinux in REL systems
       action: selinux state=disabled
-      sudo: yes
+      become: yes
       ignore_errors: yes
 
     # Add the authorized_key to the nodes to enable accessing without password
