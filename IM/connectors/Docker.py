@@ -15,6 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
+import time
 import tempfile
 import json
 import socket
@@ -41,6 +42,10 @@ class DockerCloudConnector(CloudConnector):
     """ Counter to assign SSH port on Docker server host."""
     _root_password = "Aspecial+0ne"
     """ Default password to set to the root in the container"""
+
+    def __init__(self, cloud_info):
+        self._swarm = None
+        CloudConnector.__init__(self, cloud_info)
 
     def create_request(self, method, url, auth_data, headers=None, body=None):
 
@@ -135,13 +140,14 @@ class DockerCloudConnector(CloudConnector):
 
             return res
 
-    def setIPs(self, vm, cont_info):
+    def setIPs(self, vm, cont_info, auth_data):
         """
         Adapt the RADL information of the VM to the real IPs assigned by the cloud provider
 
         Arguments:
            - vm(:py:class:`IM.VirtualMachine`): VM information.
            - cont_info(dict): JSON information about the container
+           - auth_data: Athentication data.
         """
 
         if self.cloud.protocol == 'unix':
@@ -151,12 +157,105 @@ class DockerCloudConnector(CloudConnector):
         else:
             public_ips = [socket.gethostbyname(self.cloud.server)]
         private_ips = []
-        if str(cont_info["NetworkSettings"]["IPAddress"]):
-            private_ips.append(str(cont_info["NetworkSettings"]["IPAddress"]))
+
+        if self._is_swarm(auth_data):
+            if "VirtualIPs" in cont_info["Endpoint"] and cont_info["Endpoint"]['VirtualIPs']:
+                for vip in cont_info["Endpoint"]['VirtualIPs']:
+                    private_ips.append(vip['Addr'][:-3])
+        else:
+            if str(cont_info["NetworkSettings"]["IPAddress"]):
+                private_ips.append(str(cont_info["NetworkSettings"]["IPAddress"]))
 
         vm.setIps(public_ips, private_ips)
 
-    def _generate_create_request_data(self, image_name, outports, vm, ssh_port, auth_data):
+    def _generate_create_svc_request_data(self, image_name, outports, vm, ssh_port, auth_data):
+        svc_data = {}
+        system = vm.info.systems[0]
+
+        cpu = int(system.getValue('cpu.count')) - 1
+        memory = int(system.getFeature('memory.size').getValue('B'))
+        name = system.getValue("disk.0.image.name")
+        if not name:
+            name = "imsvc"
+
+        svc_data['Name'] = "%s-%d" % (name, int(time.time() * 100))
+        svc_data['TaskTemplate'] = {}
+        svc_data['TaskTemplate']['ContainerSpec'] = {}
+        svc_data['TaskTemplate']['ContainerSpec']['Image'] = image_name
+
+        command = "yum install -y openssh-server python"
+        command += " ; "
+        command += "apt-get update && apt-get install -y openssh-server python"
+        command += " ; "
+        command += "mkdir /var/run/sshd"
+        command += " ; "
+        command += "sed -i 's/PermitRootLogin without-password/PermitRootLogin yes/g' /etc/ssh/sshd_config"
+        command += " ; "
+        command += "sed -i 's/PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config"
+        command += " ; "
+        command += "ssh-keygen -t rsa -f /etc/ssh/ssh_host_rsa_key -N ''"
+        command += " ; "
+        command += "echo 'root:" + self._root_password + "' | chpasswd"
+        command += " ; "
+        command += "sed 's@session\s*required\s*pam_loginuid.so@session optional pam_loginuid.so@g' -i /etc/pam.d/sshd"
+        command += " ; "
+        command += " /usr/sbin/sshd -D"
+
+        svc_data['TaskTemplate']['ContainerSpec']['Args'] = ["/bin/bash", "-c", command]
+        svc_data['TaskTemplate']['ContainerSpec']['User'] = "root"
+        svc_data['TaskTemplate']['Resources'] = {"Limits": {}, "Reservation": {}}
+        svc_data['TaskTemplate']['Resources']['Limits']['MemoryBytes'] = memory
+
+        svc_data['Mode'] = {"Replicated": {"Replicas": 1}}
+
+        if vm.hasPublicNet():
+            ports = []
+            ports.append({"Protocol": "tcp", "PublishedPort": ssh_port, "TargetPort": 22})
+            if outports:
+                for remote_port, _, local_port, local_protocol in outports:
+                    if local_port != 22:
+                        ports.append({"Protocol": local_protocol,
+                                      "PublishedPort": remote_port,
+                                      "TargetPort": local_protocol})
+
+            svc_data['EndpointSpec'] = {'Ports': ports}
+
+        mounts = []
+        cont = 1
+        while system.getValue("disk." + str(cont) + ".size") and system.getValue("disk." + str(cont) + ".mount_path"):
+            disk_mount_path = system.getValue("disk." + str(cont) + ".mount_path")
+            if not disk_mount_path.startswith('/'):
+                disk_mount_path = '/' + disk_mount_path
+            self.logger.debug("Attaching a volume in %s" % disk_mount_path)
+            mounts.append({"Source": "%s-%d" % (svc_data['Name'], cont),
+                           "Target": disk_mount_path,
+                           "Type": "volume"})
+            cont += 1
+
+        svc_data['Mounts'] = mounts
+
+        nets = []
+        for net_name in system.getNetworkIDs():
+            net = vm.info.get_network_by_id(net_name)
+            num_conn = system.getNumNetworkWithConnection(net_name)
+            if not net.isPublic() and num_conn is not None:
+                net_name = net.getValue('provider_id')
+                if not net_name:
+                    net_name = "im_%s_%s" % (vm.inf.id, net_name)
+                net_id = self._get_net_id(net_name, auth_data)
+                (hostname, default_domain) = vm.getRequestedNameIface(num_conn,
+                                                                      default_hostname=Config.DEFAULT_VM_NAME,
+                                                                      default_domain=Config.DEFAULT_DOMAIN)
+                aliases = [hostname, "%s.%s" % (hostname, default_domain)]
+                nets.append({"Target": net_id, "Aliases": aliases})
+
+        svc_data['Networks'] = nets
+
+        self.logger.debug(json.dumps(svc_data))
+
+        return json.dumps(svc_data)
+
+    def _generate_create_cont_request_data(self, image_name, outports, vm, ssh_port, auth_data):
         cont_data = {}
         system = vm.info.systems[0]
 
@@ -220,7 +319,9 @@ class DockerCloudConnector(CloudConnector):
             HostConfig['Privileged'] = True
         cont_data['HostConfig'] = HostConfig
 
-        return cont_data
+        self.logger.debug(json.dumps(cont_data))
+
+        return json.dumps(cont_data)
 
     def _generate_volumes_binds(self, system):
         binds = []
@@ -280,16 +381,44 @@ class DockerCloudConnector(CloudConnector):
 
         return res
 
+    def _is_swarm(self, auth_data):
+        if self._swarm is None:
+            headers = {'Content-Type': 'application/json'}
+            resp = self.create_request('GET', "/info", auth_data, headers)
+            if resp.status_code != 200:
+                self.logger.error("Error getting node info: %s" % resp.text)
+                self._swarm = False
+            else:
+                info = json.loads(resp.text)
+                if ("Swarm" in info and "LocalNodeState" in info["Swarm"] and
+                        info["Swarm"]["LocalNodeState"] == "active"):
+                    self._swarm = True
+                else:
+                    self._swarm = False
+        return self._swarm
+
     def _create_networks(self, inf, radl, auth_data):
         for net in radl.networks:
-            if not net.isPublic():
+            if not net.isPublic() and radl.systems[0].getNumNetworkWithConnection(net.id) is not None:
                 headers = {'Content-Type': 'application/json'}
-                body = json.dumps({"Name": "im_%s_%s" % (inf.id, net.id),
-                                   "CheckDuplicate": True})
+
+                net_name = net.getValue('provider_id')
+                if not net_name:
+                    net_name = "im_%s_%s" % (inf.id, net.id)
+                    net.setValue('provider_id', net_name)
+
+                data = {"Name": net_name, "CheckDuplicate": True}
+                # In case of Swarm, create an overlay network
+                if self._is_swarm(auth_data):
+                    data["Driver"] = "overlay"
+                    data["Scope"] = "swarm"
+                    data["IPAM"] = {"Driver": "default"}
+
+                body = json.dumps(data)
                 resp = self.create_request('POST', "/networks/create", auth_data, headers, body)
 
                 if resp.status_code not in [201, 200]:
-                    self.logger.error("Error creating network %s" % net.id)
+                    self.logger.error("Error creating network %s: %s" % (net.id, resp.text))
                     return False
 
         return True
@@ -298,11 +427,13 @@ class DockerCloudConnector(CloudConnector):
         headers = {'Content-Type': 'application/json'}
         resp = self.create_request('GET', '/networks?filters={"name":{"%s":true}}' % net_name, auth_data, headers)
         if resp.status_code != 200:
-            self.logger.error("Error searching for network %s" % net_name)
+            self.logger.error("Error searching for network %s: %s" % (net_name, resp.text))
         else:
             net_data = json.loads(resp.text)
             if len(net_data) > 0:
-                return net_data[0]["Id"]
+                for net in net_data:
+                    if net['Name'] == net_name:
+                        return net['Id']
             else:
                 self.logger.error("No data returned for network %s" % net_name)
         return None
@@ -312,12 +443,17 @@ class DockerCloudConnector(CloudConnector):
             if not net.isPublic():
                 headers = {'Content-Type': 'application/json'}
 
-                net_id = self._get_net_id("im_%s_%s" % (vm.inf.id, net.id), auth_data)
+                net_name = net.getValue('provider_id')
+                if not net_name:
+                    net_name = "im_%s_%s" % (vm.inf.id, net.id)
+                    net.setValue('provider_id', net_name)
+
+                net_id = self._get_net_id(net_name, auth_data)
                 if net_id:
                     resp = self.create_request('DELETE', "/networks/%s" % net_id, auth_data, headers)
 
                     if resp.status_code not in [204, 404]:
-                        self.logger.error("Error deleting network %s" % net.id)
+                        self.logger.error("Error deleting network %s: %s" % (net.id, resp.text))
                     else:
                         self.logger.debug("Network %s deleted successfully" % net.id)
 
@@ -344,7 +480,7 @@ class DockerCloudConnector(CloudConnector):
                     resp = self.create_request('POST', "/networks/%s/connect" % net_id, auth_data, headers, body)
 
                     if resp.status_code != 200:
-                        self.logger.error("Error attaching cont %s to network %s" % (vm.id, net_name))
+                        self.logger.error("Error attaching cont %s to network %s: %s" % (vm.id, net_name, resp.text))
                         all_ok = False
                     else:
                         self.logger.debug("Cont %s attached to network %s" % (vm.id, net_name))
@@ -371,9 +507,11 @@ class DockerCloudConnector(CloudConnector):
             try:
                 i += 1
 
-                ssh_port = (DockerCloudConnector._port_base_num +
-                            DockerCloudConnector._port_counter) % 65535
-                DockerCloudConnector._port_counter += 1
+                ssh_port = 22
+                if public_net:
+                    ssh_port = (DockerCloudConnector._port_base_num +
+                                DockerCloudConnector._port_counter) % 65535
+                    DockerCloudConnector._port_counter += 1
 
                 # Create the VM to get the nodename
                 vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self)
@@ -397,11 +535,14 @@ class DockerCloudConnector(CloudConnector):
                     continue
 
                 # Create the container
-                cont_data = self._generate_create_request_data(full_image_name, outports, vm, ssh_port, auth_data)
-                body = json.dumps(cont_data)
-                self.logger.debug(body)
-
-                resp = self.create_request('POST', "/containers/create", auth_data, headers, body)
+                if self._is_swarm(auth_data):
+                    cont_data = self._generate_create_svc_request_data(full_image_name, outports, vm,
+                                                                       ssh_port, auth_data)
+                    resp = self.create_request('POST', "/services/create", auth_data, headers, cont_data)
+                else:
+                    cont_data = self._generate_create_cont_request_data(full_image_name, outports, vm,
+                                                                        ssh_port, auth_data)
+                    resp = self.create_request('POST', "/containers/create", auth_data, headers, cont_data)
 
                 if resp.status_code != 201:
                     res.append((False, "Error creating the Container: " + resp.text))
@@ -409,25 +550,32 @@ class DockerCloudConnector(CloudConnector):
 
                 output = json.loads(resp.text)
                 # Set the cloud id to the VM
-                vm.id = output["Id"]
+                if "Id" in output:
+                    vm.id = output["Id"]
+                elif "ID" in output:
+                    vm.id = output["ID"]
+                else:
+                    res.append((False, "Error: response format not expected."))
+
                 vm.info.systems[0].setValue('instance_id', str(vm.id))
 
-                # In creation a container can only be attached to one one network
-                # so now we must attach to the rest of networks (if any)
-                success = self._attach_cont_to_networks(vm, auth_data)
-                if not success:
-                    res.append((False, "Error attaching to networks the Container"))
-                    # Delete the container
-                    resp = self.create_request('DELETE', "/containers/" + vm.id, auth_data)
-                    continue
+                if not self._is_swarm(auth_data):
+                    # In creation a container can only be attached to one one network
+                    # so now we must attach to the rest of networks (if any)
+                    success = self._attach_cont_to_networks(vm, auth_data)
+                    if not success:
+                        res.append((False, "Error attaching to networks the Container"))
+                        # Delete the container
+                        resp = self.create_request('DELETE', "/containers/" + vm.id, auth_data)
+                        continue
 
-                # Now start it
-                success, msg = self.start(vm, auth_data)
-                if not success:
-                    res.append((False, "Error starting the Container: " + str(msg)))
-                    # Delete the container
-                    resp = self.create_request('DELETE', "/containers/" + vm.id, auth_data)
-                    continue
+                    # Now start it
+                    success, msg = self.start(vm, auth_data)
+                    if not success:
+                        res.append((False, "Error starting the Container: " + str(msg)))
+                        # Delete the container
+                        resp = self.create_request('DELETE', "/containers/" + vm.id, auth_data)
+                        continue
 
                 # Set the default user and password to access the container
                 vm.info.systems[0].setValue('disk.0.os.credentials.username', 'root')
@@ -446,7 +594,10 @@ class DockerCloudConnector(CloudConnector):
 
     def updateVMInfo(self, vm, auth_data):
         try:
-            resp = self.create_request('GET', "/containers/" + vm.id + "/json", auth_data)
+            if self._is_swarm(auth_data):
+                resp = self.create_request('GET', "/services/" + vm.id, auth_data)
+            else:
+                resp = self.create_request('GET', "/containers/" + vm.id + "/json", auth_data)
 
             if resp.status_code == 404:
                 # If the container does not exist, set state to OFF
@@ -456,13 +607,21 @@ class DockerCloudConnector(CloudConnector):
                 return (False, "Error getting info about the Container: " + resp.text)
 
             output = json.loads(resp.text)
-            if output["State"]["Running"]:
-                vm.state = VirtualMachine.RUNNING
+            if self._is_swarm(auth_data):
+                if "CompletedAt" in output["UpdateStatus"]:
+                    vm.state = VirtualMachine.RUNNING
+                elif "StartedAt" in output["UpdateStatus"]:
+                    vm.state = VirtualMachine.PENDING
+                else:
+                    vm.state = VirtualMachine.UNKNOWN
             else:
-                vm.state = VirtualMachine.STOPPED
+                if output["State"]["Running"]:
+                    vm.state = VirtualMachine.RUNNING
+                else:
+                    vm.state = VirtualMachine.STOPPED
 
-            # Actualizamos los datos de la red
-            self.setIPs(vm, output)
+            # Update network data
+            self.setIPs(vm, output, auth_data)
             return (True, vm)
 
         except Exception, ex:
@@ -472,18 +631,19 @@ class DockerCloudConnector(CloudConnector):
 
     def finalize(self, vm, auth_data):
         try:
-            # First Stop it
-            self.stop(vm, auth_data)
-
-            # Now delete it
-            resp = self.create_request('DELETE', "/containers/" + vm.id, auth_data)
+            if self._is_swarm(auth_data):
+                resp = self.create_request('DELETE', "/services/" + vm.id, auth_data)
+            else:
+                # First Stop it
+                self.stop(vm, auth_data)
+                # Now delete it
+                resp = self.create_request('DELETE', "/containers/" + vm.id, auth_data)
 
             res = (False, "")
             if resp.status_code == 404:
-                self.logger.warn(
-                    "Trying to remove a non existing container id: " + vm.id)
+                self.logger.warn("Trying to remove a non existing container id: " + vm.id)
                 res = (True, vm.id)
-            elif resp.status_code != 204:
+            elif resp.status_code not in [204, 200]:
                 res = (False, "Error deleting the Container: " + resp.text)
             else:
                 res = (True, vm.id)
@@ -503,6 +663,9 @@ class DockerCloudConnector(CloudConnector):
 
     def stop(self, vm, auth_data):
         try:
+            if self._is_swarm(auth_data):
+                return (False, "Not supported")
+
             resp = self.create_request('POST', "/containers/" + vm.id + "/stop", auth_data)
 
             if resp.status_code != 204:
@@ -515,6 +678,9 @@ class DockerCloudConnector(CloudConnector):
 
     def start(self, vm, auth_data):
         try:
+            if self._is_swarm(auth_data):
+                return (False, "Not supported")
+
             resp = self.create_request('POST', "/containers/" + vm.id + "/start", auth_data)
 
             if resp.status_code != 204:
