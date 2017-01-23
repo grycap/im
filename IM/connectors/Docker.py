@@ -182,6 +182,7 @@ class DockerCloudConnector(CloudConnector):
         svc_data['TaskTemplate'] = {}
         svc_data['TaskTemplate']['ContainerSpec'] = {}
         svc_data['TaskTemplate']['ContainerSpec']['Image'] = image_name
+        svc_data['TaskTemplate']['ContainerSpec']['Mounts'] = self._generate_mounts(system)
 
         command = "yum install -y openssh-server python"
         command += " ; "
@@ -219,20 +220,6 @@ class DockerCloudConnector(CloudConnector):
 
         svc_data['EndpointSpec'] = {'Ports': ports}
 
-        mounts = []
-        cont = 1
-        while system.getValue("disk." + str(cont) + ".size") and system.getValue("disk." + str(cont) + ".mount_path"):
-            disk_mount_path = system.getValue("disk." + str(cont) + ".mount_path")
-            if not disk_mount_path.startswith('/'):
-                disk_mount_path = '/' + disk_mount_path
-            self.logger.debug("Attaching a volume in %s" % disk_mount_path)
-            mounts.append({"Source": "%s-%d" % (svc_data['Name'], cont),
-                           "Target": disk_mount_path,
-                           "Type": "volume"})
-            cont += 1
-
-        svc_data['Mounts'] = mounts
-
         nets = []
         for net_name in system.getNetworkIDs():
             net = vm.info.get_network_by_id(net_name)
@@ -265,8 +252,6 @@ class DockerCloudConnector(CloudConnector):
         (nodename, nodedom) = vm.getRequestedName(
             default_hostname=Config.DEFAULT_VM_NAME, default_domain=Config.DEFAULT_DOMAIN)
 
-        volumes = self._generate_volumes(system)
-
         cont_data['Hostname'] = nodename
         cont_data['Domainname'] = nodedom
         command = "yum install -y openssh-server python"
@@ -289,9 +274,13 @@ class DockerCloudConnector(CloudConnector):
 
         cont_data['Cmd'] = ["/bin/bash", "-c", command]
         cont_data['Image'] = image_name
-        cont_data['ExposedPorts'] = self._generate_exposed_ports(outports)
-        if volumes:
-            cont_data['Volumes'] = volumes
+
+        exposed_ports = {"22/tcp": {}}
+        if outports:
+            for _, _, local_port, local_protocol in outports:
+                if local_port != 22:
+                    exposed_ports[str(local_port) + '/' + local_protocol.lower()] = {}
+        cont_data['ExposedPorts'] = exposed_ports
 
         # Attach to first private network
         cont_data['NetworkingConfig'] = {'EndpointsConfig': {}}
@@ -310,10 +299,17 @@ class DockerCloudConnector(CloudConnector):
                 break
 
         HostConfig = {}
-        HostConfig['CpuShares'] = cpu
+        #HostConfig['CpuShares'] = cpu
         HostConfig['Memory'] = memory
-        HostConfig['PortBindings'] = self._generate_port_bindings(outports, ssh_port)
-        HostConfig['Binds'] = self._generate_volumes_binds(system)
+        HostConfig['Mounts'] = self._generate_mounts(system)
+
+        _port_bindings = {}
+        _port_bindings["22/tcp"] = [{"HostPort": str(ssh_port)}]
+        if outports:
+            for remote_port, _, local_port, local_protocol in outports:
+                if local_port != 22:
+                    _port_bindings[str(local_port) + '/' + local_protocol] = [{"HostPort": str(remote_port)}]
+        HostConfig['PortBindings'] = _port_bindings
         if system.getValue("docker.privileged") == 'yes':
             HostConfig['Privileged'] = True
         cont_data['HostConfig'] = HostConfig
@@ -322,63 +318,23 @@ class DockerCloudConnector(CloudConnector):
 
         return json.dumps(cont_data)
 
-    def _generate_volumes_binds(self, system):
-        binds = []
-
+    def _generate_mounts(self, system):
+        mounts = []
         cont = 1
         while (system.getValue("disk." + str(cont) + ".size") and
                system.getValue("disk." + str(cont) + ".mount_path") and
                system.getValue("disk." + str(cont) + ".device")):
-            disk_mount_path = system.getValue(
-                "disk." + str(cont) + ".mount_path")
-            # Use the device as volume host path to bind
-            disk_device = system.getValue("disk." + str(cont) + ".device")
-            if not disk_mount_path.startswith('/'):
-                disk_mount_path = '/' + disk_mount_path
-            if not disk_device.startswith('/'):
-                disk_device = '/' + disk_device
-            self.logger.debug("Binding a volume in %s to %s" %
-                              (disk_device, disk_mount_path))
-            binds.append(disk_device + ":" + disk_mount_path)
-            cont += 1
-
-        return binds
-
-    def _generate_volumes(self, system):
-        volumes = {}
-
-        cont = 1
-        while system.getValue("disk." + str(cont) + ".size") and system.getValue("disk." + str(cont) + ".mount_path"):
-            # Use the mount_path as the volume dir
-            disk_mount_path = system.getValue(
-                "disk." + str(cont) + ".mount_path")
+            # user device as volume name
+            source = system.getValue("disk." + str(cont) + ".device")
+            disk_mount_path = system.getValue("disk." + str(cont) + ".mount_path")
             if not disk_mount_path.startswith('/'):
                 disk_mount_path = '/' + disk_mount_path
             self.logger.debug("Attaching a volume in %s" % disk_mount_path)
-            volumes[disk_mount_path] = {}
+            mounts.append({"Source": source,
+                           "Target": disk_mount_path,
+                           "Type": "volume"})
             cont += 1
-
-        return volumes
-
-    def _generate_exposed_ports(self, outports):
-        exposed_ports = {"22/tcp": {}}
-        if outports:
-            for _, _, local_port, local_protocol in outports:
-                if local_port != 22:
-                    exposed_ports[str(local_port) + '/' +
-                                  local_protocol.lower()] = {}
-        return exposed_ports
-
-    def _generate_port_bindings(self, outports, ssh_port):
-        res = {}
-        res["22/tcp"] = [{"HostPort": str(ssh_port)}]
-        if outports:
-            for remote_port, _, local_port, local_protocol in outports:
-                if local_port != 22:
-                    res[str(local_port) + '/' +
-                        local_protocol] = [{"HostPort": str(remote_port)}]
-
-        return res
+        return mounts
 
     def _is_swarm(self, auth_data):
         if self._swarm is None:
@@ -437,6 +393,31 @@ class DockerCloudConnector(CloudConnector):
                 self.logger.error("No data returned for network %s" % net_name)
         return None
 
+    def _delete_volumes(self, vm, auth_data):
+        cont = 1
+        headers = {'Content-Type': 'application/json'}
+        system = vm.info.systems[0]
+
+        while system.getValue("disk." + str(cont) + ".size") and system.getValue("disk." + str(cont) + ".mount_path"):
+            # user device as volume name
+            source = system.getValue("disk." + str(cont) + ".device")
+            cont += 1
+            if not source:
+                self.logger.warn("Disk without source, not deleting it.")
+            else:
+                retries = 5
+                delay = 10
+                curr = 0
+                while curr < retries:
+                    curr += 1
+                    resp = self.create_request('DELETE', "/volumes/%s" % source, auth_data, headers)
+                    if resp.status_code not in [204, 404]:
+                        self.logger.warn("Error deleting volume %s: %s." % (source, resp.text))
+                        time.sleep(delay)
+                    else:
+                        self.logger.debug("Volume %s successfully deleted." % source)
+                        break
+
     def _delete_networks(self, vm, auth_data):
         for net in vm.info.networks:
             if not net.isPublic():
@@ -485,6 +466,31 @@ class DockerCloudConnector(CloudConnector):
                         self.logger.debug("Cont %s attached to network %s" % (vm.id, net_name))
         return all_ok
 
+    def _create_volumes(self, system, auth_data):
+        cont = 1
+        headers = {'Content-Type': 'application/json'}
+
+        while system.getValue("disk." + str(cont) + ".size") and system.getValue("disk." + str(cont) + ".mount_path"):
+            # user device as volume name
+            source = system.getValue("disk." + str(cont) + ".device")
+            if not source:
+                source = "d-%d-%d" % (int(time.time() * 100), cont)
+                system.setValue("disk." + str(cont) + ".device", source)
+
+            cont += 1
+            resp = self.create_request('GET', "/volumes/%s" % source, auth_data, headers)
+            if resp.status_code == 200:
+                # the volume already exists
+                self.logger.debug("Volume named %s already exists." % source)
+            else:
+                body = json.dumps({"Name": source})
+                resp = self.create_request('POST', "/volumes/create", auth_data, headers, body)
+
+                if resp.status_code != 201:
+                    self.logger.error("Error creating volume %s: %s." % (source, resp.text))
+                else:
+                    self.logger.debug("Volume %s successfully created." % source)
+
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         system = radl.systems[0]
 
@@ -499,6 +505,9 @@ class DockerCloudConnector(CloudConnector):
             outports = public_net.getOutPorts()
 
         self._create_networks(inf, radl, auth_data)
+
+        with inf._lock:
+            self._create_volumes(system, auth_data)
 
         headers = {'Content-Type': 'application/json'}
         res = []
@@ -644,6 +653,8 @@ class DockerCloudConnector(CloudConnector):
                 res = (False, "Error deleting the Container: " + resp.text)
             else:
                 res = (True, vm.id)
+
+            self._delete_volumes(vm, auth_data)
 
             # if it is the last VM delete the Docker networks
             if vm.inf.is_last_vm(vm.id):
