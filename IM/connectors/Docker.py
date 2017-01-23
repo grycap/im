@@ -299,7 +299,7 @@ class DockerCloudConnector(CloudConnector):
                 break
 
         HostConfig = {}
-        #HostConfig['CpuShares'] = cpu
+        # HostConfig['CpuShares'] = cpu
         HostConfig['Memory'] = memory
         HostConfig['Mounts'] = self._generate_mounts(system)
 
