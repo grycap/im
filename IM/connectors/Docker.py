@@ -400,11 +400,12 @@ class DockerCloudConnector(CloudConnector):
 
         while system.getValue("disk." + str(cont) + ".size") and system.getValue("disk." + str(cont) + ".mount_path"):
             # user device as volume name
+            created = system.getValue("disk." + str(cont) + ".created")
             source = system.getValue("disk." + str(cont) + ".device")
             cont += 1
             if not source:
                 self.logger.warn("Disk without source, not deleting it.")
-            else:
+            elif created == "yes":
                 retries = 5
                 delay = 10
                 curr = 0
@@ -417,6 +418,8 @@ class DockerCloudConnector(CloudConnector):
                     else:
                         self.logger.debug("Volume %s successfully deleted." % source)
                         break
+            else:
+                self.logger.debug("Volume %s not created by the IM, not deleting it." % source)
 
     def _delete_networks(self, vm, auth_data):
         for net in vm.info.networks:
@@ -476,19 +479,22 @@ class DockerCloudConnector(CloudConnector):
             if not source:
                 source = "d-%d-%d" % (int(time.time() * 100), cont)
                 system.setValue("disk." + str(cont) + ".device", source)
-
+            driver = system.getValue("disk." + str(cont) + ".fstype")
+            if not driver:
+                driver = "local"
             cont += 1
             resp = self.create_request('GET', "/volumes/%s" % source, auth_data, headers)
             if resp.status_code == 200:
                 # the volume already exists
                 self.logger.debug("Volume named %s already exists." % source)
             else:
-                body = json.dumps({"Name": source})
+                body = json.dumps({"Name": source, "Driver": driver})
                 resp = self.create_request('POST', "/volumes/create", auth_data, headers, body)
 
                 if resp.status_code != 201:
                     self.logger.error("Error creating volume %s: %s." % (source, resp.text))
                 else:
+                    system.setValue("disk." + str(cont) + ".created", "yes")
                     self.logger.debug("Volume %s successfully created." % source)
 
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
