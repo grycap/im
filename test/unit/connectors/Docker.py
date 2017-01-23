@@ -269,12 +269,19 @@ class TestDockerConnector(unittest.TestCase):
 
     @patch('requests.request')
     def test_60_finalize(self, requests):
+        radl_data = """
+            network net (outbound = 'yes')
+            system test (
+            cpu.count=1 and
+            memory.size=512m
+            )"""
+        radl = radl_parse.parse_radl(radl_data)
         auth = Authentication([{'id': 'docker', 'type': 'Docker', 'host': 'http://server.com:2375'}])
         docker_cloud = self.get_docker_cloud()
 
         inf = MagicMock()
         inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "1", docker_cloud.cloud, "", "", docker_cloud)
+        vm = VirtualMachine(inf, "1", docker_cloud.cloud, radl, radl, docker_cloud)
 
         requests.side_effect = self.get_response
 
