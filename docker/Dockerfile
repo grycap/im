@@ -23,6 +23,8 @@ RUN apt-get update && apt-get install -y \
 # Install CherryPy to enable HTTPS in REST API
 RUN pip install setuptools --upgrade -I
 RUN pip install pbr CherryPy pyOpenSSL --upgrade -I
+# Install pip optional libraries
+RUN pip install MySQL-python msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource
 
 # Install tosca-parser
 RUN cd tmp \
@@ -35,6 +37,7 @@ RUN cd tmp \
  && git clone --recursive https://github.com/indigo-dc/im.git \
  && cd im \
  && pip install /tmp/im
+
 COPY ansible.cfg /etc/ansible/ansible.cfg
 
 # Turn on the REST services

@@ -10,6 +10,8 @@ RUN cd tmp \
  && cd tosca-parser \
  && pip install /tmp/tosca-parser
 
+# Install pip optional libraries
+RUN pip install MySQL-python msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource
 # Install im indigo tosca fork branch 'devel'
 RUN cd tmp \
  && git clone --branch devel --recursive https://github.com/indigo-dc/im.git \
