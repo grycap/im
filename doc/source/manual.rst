@@ -14,8 +14,6 @@ IM needs at least Python 2.6 to run, as well as the next libraries:
 * `suds <https://fedorahosted.org/suds/>`_, a full-featured SOAP library.
 * `Netaddr <http://pythonhosted.org/netaddr//>`_, A Python library for representing 
   and manipulating network addresses.
-* `The Python interface to MySQL <https://www.mysql.com/>`_, typically available as the package 'python-mysqldb'  or 
-   'MySQL-python' package.
     
 Also, IM uses `Ansible <http://www.ansible.com>`_ (1.4.2 or later) to configure the
 infrastructure nodes. The current recommended version is 1.9.4 untill the 2.X versions become stable.
@@ -69,6 +67,8 @@ Optional Packages
 * pyOpenSSL are needed if needed to secure the REST API
   with SSL certificates (see :confval:`REST_SSL`).
   pyOpenSSL can be installed using pip.
+* `The Python interface to MySQL <https://www.mysql.com/>`_, is needed to access MySQL server as IM data 
+  backend. It is typically available as the package 'python-mysqldb' or 'MySQL-python' package.
 * `The Azure Python SDK <https://docs.microsoft.com/es-es/azure/python-how-to-install/>`_, is needed by the Azure
   connector. It is available as the package 'azure' at the pip repository.  
 
@@ -104,10 +104,11 @@ Then you only have to call the install command of the pip tool with the IM packa
 	$ pip install IM
 
 Pip will also install the, non installed, pre-requisites needed. So Ansible 1.4.2 or later will 
-be installed in the system.
+be installed in the system. Some of the optional packages are also installed please check if some
+of IM features that you need requires to install some of the packages of section "Optional Packages". 
 
 You must also remember to modify the ansible.cfg file setting as specified in the 
-REQUISITES section.
+"Prerequisites" section.
 
 From RPM packages (RH7)
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -123,7 +124,7 @@ Then install the downloaded RPMs::
    
 Azure python SDK is not available in CentOS. So if you need the Azure plugin you have to manually install them using pip::
 
-	$ pip install azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource
+	$ pip install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource
 
 From Deb package (Tested with Ubuntu 14.04 and 16.04)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
