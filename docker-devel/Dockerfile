@@ -6,6 +6,8 @@ LABEL description="Container image to run the IM service. (http://www.grycap.upv
 
 EXPOSE 8899 8800
 
+# Install pip optional libraries
+RUN pip install MySQL-python msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource
 # Install im - 'devel' branch
 RUN cd tmp \
  && git clone -b devel https://github.com/grycap/im.git \

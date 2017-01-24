@@ -8,6 +8,8 @@ RUN apt-get update && apt-get install -y gcc python-dbg python-dev python-pip li
 # Install CherryPy to enable REST API
 RUN pip install setuptools --upgrade -I
 RUN pip install CherryPy pyOpenSSL --upgrade -I
+# Install pip optional libraries
+RUN pip install MySQL-python msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource
 RUN pip install IM
 COPY ansible.cfg /etc/ansible/ansible.cfg
 CMD im_service.py

@@ -55,9 +55,7 @@ setup(name="IM", version=version,
                         "the user with a fully functional infrastructure."),
       description="IM is a tool to manage virtual infrastructures on Cloud deployments",
       platforms=["any"],
-      install_requires=["ansible >= 1.8", "paramiko >= 1.14", "PyYAML", "suds",
+      install_requires=["ansible >= 1.8", "paramiko >= 1.14", "PyYAML", "suds", "pysqlite",
                         "boto >= 2.29", "apache-libcloud >= 0.17", "RADL", "bottle", "netaddr", "requests",
-                        "scp", "cherrypy", "MySQL-python", "pysqlite",
-                        "msrest", "msrestazure", "azure-common", "azure-mgmt-storage",
-                        "azure-mgmt-compute", "azure-mgmt-network", "azure-mgmt-resource"]
+                        "scp", "cherrypy"]
       )

@@ -26,7 +26,10 @@ import copy
 from StringIO import StringIO
 from multiprocessing import Queue
 
-from ansible.parsing.vault import VaultEditor
+try:
+    from ansible.parsing.vault import VaultEditor
+except:
+    from ansible.utils.vault import VaultEditor
 
 from IM.ansible_utils.ansible_launcher import AnsibleThread
 
