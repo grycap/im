@@ -216,7 +216,7 @@ class DockerCloudConnector(CloudConnector):
                 if local_port != 22:
                     ports.append({"Protocol": local_protocol,
                                   "PublishedPort": remote_port,
-                                  "TargetPort": local_protocol})
+                                  "TargetPort": local_port})
 
         svc_data['EndpointSpec'] = {'Ports': ports}
 
