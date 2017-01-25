@@ -620,12 +620,7 @@ class DockerCloudConnector(CloudConnector):
 
             output = json.loads(resp.text)
             if self._is_swarm(auth_data):
-                if "CompletedAt" in output["UpdateStatus"]:
-                    vm.state = VirtualMachine.RUNNING
-                elif "StartedAt" in output["UpdateStatus"]:
-                    vm.state = VirtualMachine.PENDING
-                else:
-                    vm.state = VirtualMachine.UNKNOWN
+                vm.state = self._get_svc_state(output['Spec']['Name'], auth_data)
             else:
                 if output["State"]["Running"]:
                     vm.state = VirtualMachine.RUNNING
@@ -640,6 +635,24 @@ class DockerCloudConnector(CloudConnector):
             self.logger.exception("Error connecting with Docker server")
             self.logger.error(ex)
             return (False, "Error connecting with Docker server")
+
+    def _get_svc_state(self, svc_name, auth_data):
+        headers = {'Content-Type': 'application/json'}
+        resp = self.create_request('GET', '/tasks?filters={"service":{"%s":true}}' % svc_name, auth_data, headers)
+        if resp.status_code != 200:
+            self.logger.error("Error searching tasks for service %s: %s" % (svc_name, resp.text))
+        else:
+            task_data = json.loads(resp.text)
+            if len(task_data) > 0:
+                for task in task_data:
+                    if task["Status"]["State"] == "running":
+                        return VirtualMachine.RUNNING
+                    elif task["Status"]["State"] == "rejected":
+                        self.logger.debug("Task %s rejected: %s." % (task["ID"], task["Status"]["Err"]))
+                return VirtualMachine.PENDING
+            else:
+                return VirtualMachine.PENDING
+        return VirtualMachine.UNKNOWN
 
     def finalize(self, vm, auth_data):
         try:
