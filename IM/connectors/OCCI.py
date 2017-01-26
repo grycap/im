@@ -303,7 +303,7 @@ class OCCICloudConnector(CloudConnector):
                 self.logger.warn("Error adding public IP the VM: " + resp.reason + "\n" + output)
                 return (False, "Error adding public IP the VM: " + resp.reason + "\n" + output)
             else:
-                self.logger.debug("Public IP added from pool %s" % network_name)  
+                self.logger.debug("Public IP added from pool %s" % network_name)
                 return (True, vm.id)
         except Exception:
             self.logger.exception("Error connecting with OCCI server")
