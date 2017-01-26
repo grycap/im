@@ -1111,8 +1111,11 @@ class EC2CloudConnector(CloudConnector):
         public_key = vm.getRequestedSystem().getValue('disk.0.os.credentials.public_key')
         if public_key is None or len(public_key) == 0 or (len(public_key) >= 1 and
                                                           public_key.find('-----BEGIN CERTIFICATE-----') != -1):
-            # only delete in case of the user do not specify the keypair name
-            conn.delete_key_pair(vm.keypair_name)
+            try:
+                # only delete in case of the user do not specify the keypair name
+                conn.delete_key_pair(vm.keypair_name)
+            except:
+                self.logger.exception("Error deleting keypair.")
 
         # Delete the elastic IPs
         try:
