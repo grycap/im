@@ -128,6 +128,9 @@ class TestDockerConnector(unittest.TestCase):
                 resp.status_code = 200
                 resp.text = ('{"UpdateStatus": {"CompletedAt": "2016-06-07T21:10:20.269723157Z"},'
                              '"Endpoint": {"VirtualIPs": [{"Addr": "10.0.0.1/16"}]}}')
+            elif url.startswith("/tasks?filters"):
+                resp.status_code = 200
+                resp.text = ('[{"Status": {"State": "rejected", "Err": "Err"}}, {"Status": {"State": "running"}}]')
         elif method == "POST":
             if url == "/containers/create":
                 resp.status_code = 201

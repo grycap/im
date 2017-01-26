@@ -51,8 +51,7 @@ class DockerCloudConnector(CloudConnector):
 
         auths = auth_data.getAuthInfo(DockerCloudConnector.type, self.cloud.server)
         if not auths:
-            self.logger.error("No correct auth data has been specified to Docker.")
-            return None
+            raise Exception("No correct auth data has been specified to Docker.")
         else:
             auth = auths[0]
 
@@ -150,12 +149,14 @@ class DockerCloudConnector(CloudConnector):
            - auth_data: Athentication data.
         """
 
-        if self.cloud.protocol == 'unix':
-            # TODO: This will not get the correct IP if the hostname of the
-            # machine is not correctly set
-            public_ips = [socket.gethostbyname(socket.getfqdn())]
-        else:
-            public_ips = [socket.gethostbyname(self.cloud.server)]
+        public_ips = []
+        if vm.hasPublicNet():
+            if self.cloud.protocol == 'unix':
+                # TODO: This will not get the correct IP if the hostname of the
+                # machine is not correctly set
+                public_ips = [socket.gethostbyname(socket.getfqdn())]
+            else:
+                public_ips = [socket.gethostbyname(self.cloud.server)]
         private_ips = []
 
         if self._is_swarm(auth_data):
@@ -165,6 +166,10 @@ class DockerCloudConnector(CloudConnector):
         else:
             if str(cont_info["NetworkSettings"]["IPAddress"]):
                 private_ips.append(str(cont_info["NetworkSettings"]["IPAddress"]))
+            elif "Networks" in cont_info["NetworkSettings"]:
+                for net_name, net_data in cont_info["NetworkSettings"]["Networks"].items():
+                    if str(net_data["IPAddress"]):
+                        private_ips.append(str(net_data["IPAddress"]))
 
         vm.setIps(public_ips, private_ips)
 
@@ -209,16 +214,17 @@ class DockerCloudConnector(CloudConnector):
 
         svc_data['Mode'] = {"Replicated": {"Replicas": 1}}
 
-        ports = []
-        ports.append({"Protocol": "tcp", "PublishedPort": ssh_port, "TargetPort": 22})
-        if outports:
-            for remote_port, _, local_port, local_protocol in outports:
-                if local_port != 22:
-                    ports.append({"Protocol": local_protocol,
-                                  "PublishedPort": remote_port,
-                                  "TargetPort": local_port})
+        if vm.hasPublicNet():
+            ports = []
+            ports.append({"Protocol": "tcp", "PublishedPort": ssh_port, "TargetPort": 22})
+            if outports:
+                for remote_port, _, local_port, local_protocol in outports:
+                    if local_port != 22:
+                        ports.append({"Protocol": local_protocol,
+                                      "PublishedPort": remote_port,
+                                      "TargetPort": local_port})
 
-        svc_data['EndpointSpec'] = {'Ports': ports}
+            svc_data['EndpointSpec'] = {'Ports': ports}
 
         nets = []
         for net_name in system.getNetworkIDs():
@@ -303,13 +309,14 @@ class DockerCloudConnector(CloudConnector):
         HostConfig['Memory'] = memory
         HostConfig['Mounts'] = self._generate_mounts(system)
 
-        _port_bindings = {}
-        _port_bindings["22/tcp"] = [{"HostPort": str(ssh_port)}]
-        if outports:
-            for remote_port, _, local_port, local_protocol in outports:
-                if local_port != 22:
-                    _port_bindings[str(local_port) + '/' + local_protocol] = [{"HostPort": str(remote_port)}]
-        HostConfig['PortBindings'] = _port_bindings
+        if vm.hasPublicNet():
+            port_bindings = {}
+            port_bindings["22/tcp"] = [{"HostPort": str(ssh_port)}]
+            if outports:
+                for remote_port, _, local_port, local_protocol in outports:
+                    if local_port != 22:
+                        port_bindings[str(local_port) + '/' + local_protocol] = [{"HostPort": str(remote_port)}]
+            HostConfig['PortBindings'] = port_bindings
         if system.getValue("docker.privileged") == 'yes':
             HostConfig['Privileged'] = True
         cont_data['HostConfig'] = HostConfig
@@ -321,8 +328,7 @@ class DockerCloudConnector(CloudConnector):
     def _generate_mounts(self, system):
         mounts = []
         cont = 1
-        while (system.getValue("disk." + str(cont) + ".size") and
-               system.getValue("disk." + str(cont) + ".mount_path") and
+        while (system.getValue("disk." + str(cont) + ".mount_path") and
                system.getValue("disk." + str(cont) + ".device")):
             # user device as volume name
             source = system.getValue("disk." + str(cont) + ".device")
@@ -330,9 +336,13 @@ class DockerCloudConnector(CloudConnector):
             if not disk_mount_path.startswith('/'):
                 disk_mount_path = '/' + disk_mount_path
             self.logger.debug("Attaching a volume in %s" % disk_mount_path)
-            mounts.append({"Source": source,
-                           "Target": disk_mount_path,
-                           "Type": "volume"})
+            mount = {"Source": source, "Target": disk_mount_path}
+            mount["Type"] = "volume"
+            mount["ReadOnly"] = False
+            # if the name of the source starts with / we assume it is a bind
+            if source.startswith("/"):
+                mount["Type"] = "bind"
+            mounts.append(mount)
             cont += 1
         return mounts
 
@@ -398,7 +408,7 @@ class DockerCloudConnector(CloudConnector):
         headers = {'Content-Type': 'application/json'}
         system = vm.info.systems[0]
 
-        while system.getValue("disk." + str(cont) + ".size") and system.getValue("disk." + str(cont) + ".mount_path"):
+        while system.getValue("disk." + str(cont) + ".mount_path"):
             # user device as volume name
             created = system.getValue("disk." + str(cont) + ".created")
             source = system.getValue("disk." + str(cont) + ".device")
@@ -473,29 +483,33 @@ class DockerCloudConnector(CloudConnector):
         cont = 1
         headers = {'Content-Type': 'application/json'}
 
-        while system.getValue("disk." + str(cont) + ".size") and system.getValue("disk." + str(cont) + ".mount_path"):
+        while system.getValue("disk." + str(cont) + ".mount_path"):
             # user device as volume name
             source = system.getValue("disk." + str(cont) + ".device")
             if not source:
                 source = "d-%d-%d" % (int(time.time() * 100), cont)
                 system.setValue("disk." + str(cont) + ".device", source)
-            driver = system.getValue("disk." + str(cont) + ".fstype")
-            if not driver:
-                driver = "local"
-            cont += 1
-            resp = self.create_request('GET', "/volumes/%s" % source, auth_data, headers)
-            if resp.status_code == 200:
-                # the volume already exists
-                self.logger.debug("Volume named %s already exists." % source)
-            else:
-                body = json.dumps({"Name": source, "Driver": driver})
-                resp = self.create_request('POST', "/volumes/create", auth_data, headers, body)
 
-                if resp.status_code != 201:
-                    self.logger.error("Error creating volume %s: %s." % (source, resp.text))
+            # if the name of the source starts with / we assume it is a bind, so do not create a volume
+            if not source.startswith("/"):
+                driver = system.getValue("disk." + str(cont) + ".fstype")
+                if not driver:
+                    driver = "local"
+                resp = self.create_request('GET', "/volumes/%s" % source, auth_data, headers)
+                if resp.status_code == 200:
+                    # the volume already exists
+                    self.logger.debug("Volume named %s already exists." % source)
                 else:
-                    system.setValue("disk." + str(cont) + ".created", "yes")
-                    self.logger.debug("Volume %s successfully created." % source)
+                    body = json.dumps({"Name": source, "Driver": driver})
+                    resp = self.create_request('POST', "/volumes/create", auth_data, headers, body)
+
+                    if resp.status_code != 201:
+                        self.logger.error("Error creating volume %s: %s." % (source, resp.text))
+                    else:
+                        system.setValue("disk." + str(cont) + ".created", "yes")
+                        self.logger.debug("Volume %s successfully created." % source)
+
+            cont += 1
 
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         system = radl.systems[0]
@@ -521,13 +535,14 @@ class DockerCloudConnector(CloudConnector):
         while i < num_vm:
             try:
                 i += 1
-
-                ssh_port = (DockerCloudConnector._port_base_num +
-                            DockerCloudConnector._port_counter) % 65535
-                DockerCloudConnector._port_counter += 1
-
                 # Create the VM to get the nodename
                 vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self)
+
+                ssh_port = 22
+                if vm.hasPublicNet():
+                    ssh_port = (DockerCloudConnector._port_base_num +
+                                DockerCloudConnector._port_counter) % 65535
+                    DockerCloudConnector._port_counter += 1
 
                 # The URI has this format: docker://image_name
                 full_image_name = system.getValue("disk.0.image.url")[9:]
@@ -620,12 +635,7 @@ class DockerCloudConnector(CloudConnector):
 
             output = json.loads(resp.text)
             if self._is_swarm(auth_data):
-                if "CompletedAt" in output["UpdateStatus"]:
-                    vm.state = VirtualMachine.RUNNING
-                elif "StartedAt" in output["UpdateStatus"]:
-                    vm.state = VirtualMachine.PENDING
-                else:
-                    vm.state = VirtualMachine.UNKNOWN
+                vm.state = self._get_svc_state(output['Spec']['Name'], auth_data)
             else:
                 if output["State"]["Running"]:
                     vm.state = VirtualMachine.RUNNING
@@ -640,6 +650,24 @@ class DockerCloudConnector(CloudConnector):
             self.logger.exception("Error connecting with Docker server")
             self.logger.error(ex)
             return (False, "Error connecting with Docker server")
+
+    def _get_svc_state(self, svc_name, auth_data):
+        headers = {'Content-Type': 'application/json'}
+        resp = self.create_request('GET', '/tasks?filters={"service":{"%s":true}}' % svc_name, auth_data, headers)
+        if resp.status_code != 200:
+            self.logger.error("Error searching tasks for service %s: %s" % (svc_name, resp.text))
+        else:
+            task_data = json.loads(resp.text)
+            if len(task_data) > 0:
+                for task in reversed(task_data):
+                    if task["Status"]["State"] == "running":
+                        return VirtualMachine.RUNNING
+                    elif task["Status"]["State"] == "rejected":
+                        self.logger.debug("Task %s rejected: %s." % (task["ID"], task["Status"]["Err"]))
+                return VirtualMachine.PENDING
+            else:
+                return VirtualMachine.PENDING
+        return VirtualMachine.UNKNOWN
 
     def finalize(self, vm, auth_data):
         try:
