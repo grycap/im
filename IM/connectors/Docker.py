@@ -345,7 +345,6 @@ class DockerCloudConnector(CloudConnector):
         return mounts
 
     def _is_swarm(self, auth_data):
-        return False
         if self._swarm is None:
             headers = {'Content-Type': 'application/json'}
             resp = self.create_request('GET', "/info", auth_data, headers)
