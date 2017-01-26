@@ -490,7 +490,7 @@ class DockerCloudConnector(CloudConnector):
                 source = "d-%d-%d" % (int(time.time() * 100), cont)
                 system.setValue("disk." + str(cont) + ".device", source)
 
-            # if the name of the source starts with / we assume it is a bind, so do not create a volume 
+            # if the name of the source starts with / we assume it is a bind, so do not create a volume
             if not source.startswith("/"):
                 driver = system.getValue("disk." + str(cont) + ".fstype")
                 if not driver:
@@ -502,7 +502,7 @@ class DockerCloudConnector(CloudConnector):
                 else:
                     body = json.dumps({"Name": source, "Driver": driver})
                     resp = self.create_request('POST', "/volumes/create", auth_data, headers, body)
-    
+
                     if resp.status_code != 201:
                         self.logger.error("Error creating volume %s: %s." % (source, resp.text))
                     else:
