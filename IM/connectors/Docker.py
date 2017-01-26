@@ -51,8 +51,7 @@ class DockerCloudConnector(CloudConnector):
 
         auths = auth_data.getAuthInfo(DockerCloudConnector.type, self.cloud.server)
         if not auths:
-            self.logger.error("No correct auth data has been specified to Docker.")
-            return None
+            raise Exception("No correct auth data has been specified to Docker.")
         else:
             auth = auths[0]
 
