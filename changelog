@@ -259,4 +259,4 @@ IM 1.5.0
     * Improve data management in DB to enable HA enhancement.
     * Move Azure connector to Resource Groups API enhancement.
     * Change SOAPpy lib to suds.
-    
+    * Add support for OpenStack pool name in OCCI connector.
