@@ -93,7 +93,7 @@ def wait_ssh_access(vm):
         else:
             vm_ip = vm['ip']
             last_tested_private = False
-        logger.debug("Testing SSH access to VM: " + vm_ip)
+        logger.debug("Testing SSH access to VM: %s:%s" % (vm_ip, vm['remote_port']))
         wait += delay
         try:
             ssh_client = SSH(vm_ip, vm['user'], vm['passwd'], vm[
