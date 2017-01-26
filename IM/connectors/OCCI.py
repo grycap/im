@@ -74,7 +74,8 @@ class OCCICloudConnector(CloudConnector):
         return resp
 
     def create_request(self, method, url, auth_data, headers, body=None):
-        url = "%s://%s:%d%s" % (self.cloud.protocol, self.cloud.server, self.cloud.port, url)
+        if not url.startswith("http://") and not url.startswith("https://"):
+            url = "%s://%s:%d%s" % (self.cloud.protocol, self.cloud.server, self.cloud.port, url)
 
         auths = auth_data.getAuthInfo(self.type, self.cloud.server)
         if not auths:
@@ -231,7 +232,6 @@ class OCCICloudConnector(CloudConnector):
                 not public_ips and vm.requested_radl.hasPublicNet(vm.info.systems[0].name)):
             self.logger.debug("The VM does not have public IP trying to add one.")
             # in some sites the network is called floating, in others PUBLIC ...
-            # TODO: Get the pool name for Neutron
             net_names = ["public", "PUBLIC", "floating"]
             for name in net_names:
                 success, _ = self.add_public_ip(vm, auth_data, network_name=name)
@@ -258,6 +258,20 @@ class OCCICloudConnector(CloudConnector):
                             return value
         return None
 
+    def get_floating_pool(self, auth_data):
+        """
+        Get the first floating pool available (For OpenStack sites with Neutron)
+        """
+        occi_data = self.query_occi(auth_data)
+        lines = occi_data.split("\n")
+        for l in lines:
+            if l.find('http://schemas.openstack.org/network/floatingippool#') != -1:
+                for elem in l.split(';'):
+                    if elem.startswith('Category: '):
+                            return elem[10:]
+
+        return None
+
     def add_public_ip(self, vm, auth_data, network_name="public"):
         occi_info = self.query_occi(auth_data)
         url = self.get_property_from_category(occi_info, "networkinterface", "location")
@@ -271,6 +285,10 @@ class OCCICloudConnector(CloudConnector):
 
             body = ('Category: networkinterface;scheme="http://schemas.ogf.org/occi/infrastructure#";class="kind";'
                     'location="%s/link/networkinterface/";title="networkinterface link"\n' % self.cloud.path)
+            pool_name = self.get_floating_pool(auth_data)
+            if pool_name:
+                body += ('Category: %s;scheme="http://schemas.openstack.org/network/floatingippool#";'
+                         'class="mixin";location="/mixin/%s/";title="%s"' % (pool_name, pool_name, pool_name))
             body += 'X-OCCI-Attribute: occi.core.id="%s"\n' % net_id
             body += 'X-OCCI-Attribute: occi.core.target="%s/network/%s"\n' % (self.cloud.path, network_name)
             body += 'X-OCCI-Attribute: occi.core.source="%s/compute/%s"' % (self.cloud.path, vm.id)
