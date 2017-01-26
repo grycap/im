@@ -328,8 +328,7 @@ class DockerCloudConnector(CloudConnector):
     def _generate_mounts(self, system):
         mounts = []
         cont = 1
-        while (system.getValue("disk." + str(cont) + ".size") and
-               system.getValue("disk." + str(cont) + ".mount_path") and
+        while (system.getValue("disk." + str(cont) + ".mount_path") and
                system.getValue("disk." + str(cont) + ".device")):
             # user device as volume name
             source = system.getValue("disk." + str(cont) + ".device")
@@ -337,9 +336,13 @@ class DockerCloudConnector(CloudConnector):
             if not disk_mount_path.startswith('/'):
                 disk_mount_path = '/' + disk_mount_path
             self.logger.debug("Attaching a volume in %s" % disk_mount_path)
-            mounts.append({"Source": source,
-                           "Target": disk_mount_path,
-                           "Type": "volume"})
+            mount = {"Source": source, "Target": disk_mount_path}
+            mount["Type"] = "volume"
+            mount["ReadOnly"] = False
+            # if the name of the source starts with / we assume it is a bind
+            if source.startswith("/"):
+                mount["Type"] = "bind"
+            mounts.append(mount)
             cont += 1
         return mounts
 
@@ -405,7 +408,7 @@ class DockerCloudConnector(CloudConnector):
         headers = {'Content-Type': 'application/json'}
         system = vm.info.systems[0]
 
-        while system.getValue("disk." + str(cont) + ".size") and system.getValue("disk." + str(cont) + ".mount_path"):
+        while system.getValue("disk." + str(cont) + ".mount_path"):
             # user device as volume name
             created = system.getValue("disk." + str(cont) + ".created")
             source = system.getValue("disk." + str(cont) + ".device")
@@ -480,29 +483,33 @@ class DockerCloudConnector(CloudConnector):
         cont = 1
         headers = {'Content-Type': 'application/json'}
 
-        while system.getValue("disk." + str(cont) + ".size") and system.getValue("disk." + str(cont) + ".mount_path"):
+        while system.getValue("disk." + str(cont) + ".mount_path"):
             # user device as volume name
             source = system.getValue("disk." + str(cont) + ".device")
             if not source:
                 source = "d-%d-%d" % (int(time.time() * 100), cont)
                 system.setValue("disk." + str(cont) + ".device", source)
-            driver = system.getValue("disk." + str(cont) + ".fstype")
-            if not driver:
-                driver = "local"
-            cont += 1
-            resp = self.create_request('GET', "/volumes/%s" % source, auth_data, headers)
-            if resp.status_code == 200:
-                # the volume already exists
-                self.logger.debug("Volume named %s already exists." % source)
-            else:
-                body = json.dumps({"Name": source, "Driver": driver})
-                resp = self.create_request('POST', "/volumes/create", auth_data, headers, body)
 
-                if resp.status_code != 201:
-                    self.logger.error("Error creating volume %s: %s." % (source, resp.text))
+            # if the name of the source starts with / we assume it is a bind, so do not create a volume 
+            if not source.startswith("/"):
+                driver = system.getValue("disk." + str(cont) + ".fstype")
+                if not driver:
+                    driver = "local"
+                resp = self.create_request('GET', "/volumes/%s" % source, auth_data, headers)
+                if resp.status_code == 200:
+                    # the volume already exists
+                    self.logger.debug("Volume named %s already exists." % source)
                 else:
-                    system.setValue("disk." + str(cont) + ".created", "yes")
-                    self.logger.debug("Volume %s successfully created." % source)
+                    body = json.dumps({"Name": source, "Driver": driver})
+                    resp = self.create_request('POST', "/volumes/create", auth_data, headers, body)
+    
+                    if resp.status_code != 201:
+                        self.logger.error("Error creating volume %s: %s." % (source, resp.text))
+                    else:
+                        system.setValue("disk." + str(cont) + ".created", "yes")
+                        self.logger.debug("Volume %s successfully created." % source)
+
+            cont += 1
 
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         system = radl.systems[0]
