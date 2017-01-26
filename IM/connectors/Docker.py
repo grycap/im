@@ -167,6 +167,10 @@ class DockerCloudConnector(CloudConnector):
         else:
             if str(cont_info["NetworkSettings"]["IPAddress"]):
                 private_ips.append(str(cont_info["NetworkSettings"]["IPAddress"]))
+            elif "Networks" in cont_info["NetworkSettings"]:
+                for net_name, net_data in cont_info["NetworkSettings"]["Networks"].items():
+                    if str(net_data["IPAddress"]):
+                        private_ips.append(str(net_data["IPAddress"]))
 
         vm.setIps(public_ips, private_ips)
 
@@ -211,7 +215,6 @@ class DockerCloudConnector(CloudConnector):
 
         svc_data['Mode'] = {"Replicated": {"Replicas": 1}}
 
-        # TEST IT!!!!
         if vm.hasPublicNet():
             ports = []
             ports.append({"Protocol": "tcp", "PublishedPort": ssh_port, "TargetPort": 22})
@@ -307,13 +310,14 @@ class DockerCloudConnector(CloudConnector):
         HostConfig['Memory'] = memory
         HostConfig['Mounts'] = self._generate_mounts(system)
 
-        _port_bindings = {}
-        _port_bindings["22/tcp"] = [{"HostPort": str(ssh_port)}]
-        if outports:
-            for remote_port, _, local_port, local_protocol in outports:
-                if local_port != 22:
-                    _port_bindings[str(local_port) + '/' + local_protocol] = [{"HostPort": str(remote_port)}]
-        HostConfig['PortBindings'] = _port_bindings
+        if vm.hasPublicNet():
+            port_bindings = {}
+            port_bindings["22/tcp"] = [{"HostPort": str(ssh_port)}]
+            if outports:
+                for remote_port, _, local_port, local_protocol in outports:
+                    if local_port != 22:
+                        port_bindings[str(local_port) + '/' + local_protocol] = [{"HostPort": str(remote_port)}]
+            HostConfig['PortBindings'] = port_bindings
         if system.getValue("docker.privileged") == 'yes':
             HostConfig['Privileged'] = True
         cont_data['HostConfig'] = HostConfig
@@ -341,6 +345,7 @@ class DockerCloudConnector(CloudConnector):
         return mounts
 
     def _is_swarm(self, auth_data):
+        return False
         if self._swarm is None:
             headers = {'Content-Type': 'application/json'}
             resp = self.create_request('GET', "/info", auth_data, headers)
