@@ -150,12 +150,14 @@ class DockerCloudConnector(CloudConnector):
            - auth_data: Athentication data.
         """
 
-        if self.cloud.protocol == 'unix':
-            # TODO: This will not get the correct IP if the hostname of the
-            # machine is not correctly set
-            public_ips = [socket.gethostbyname(socket.getfqdn())]
-        else:
-            public_ips = [socket.gethostbyname(self.cloud.server)]
+        public_ips = []
+        if vm.hasPublicNet():
+            if self.cloud.protocol == 'unix':
+                # TODO: This will not get the correct IP if the hostname of the
+                # machine is not correctly set
+                public_ips = [socket.gethostbyname(socket.getfqdn())]
+            else:
+                public_ips = [socket.gethostbyname(self.cloud.server)]
         private_ips = []
 
         if self._is_swarm(auth_data):
@@ -209,16 +211,18 @@ class DockerCloudConnector(CloudConnector):
 
         svc_data['Mode'] = {"Replicated": {"Replicas": 1}}
 
-        ports = []
-        ports.append({"Protocol": "tcp", "PublishedPort": ssh_port, "TargetPort": 22})
-        if outports:
-            for remote_port, _, local_port, local_protocol in outports:
-                if local_port != 22:
-                    ports.append({"Protocol": local_protocol,
-                                  "PublishedPort": remote_port,
-                                  "TargetPort": local_port})
+        # TEST IT!!!!
+        if vm.hasPublicNet():
+            ports = []
+            ports.append({"Protocol": "tcp", "PublishedPort": ssh_port, "TargetPort": 22})
+            if outports:
+                for remote_port, _, local_port, local_protocol in outports:
+                    if local_port != 22:
+                        ports.append({"Protocol": local_protocol,
+                                      "PublishedPort": remote_port,
+                                      "TargetPort": local_port})
 
-        svc_data['EndpointSpec'] = {'Ports': ports}
+            svc_data['EndpointSpec'] = {'Ports': ports}
 
         nets = []
         for net_name in system.getNetworkIDs():
@@ -521,13 +525,14 @@ class DockerCloudConnector(CloudConnector):
         while i < num_vm:
             try:
                 i += 1
-
-                ssh_port = (DockerCloudConnector._port_base_num +
-                            DockerCloudConnector._port_counter) % 65535
-                DockerCloudConnector._port_counter += 1
-
                 # Create the VM to get the nodename
                 vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self)
+
+                ssh_port = 22
+                if vm.hasPublicNet():
+                    ssh_port = (DockerCloudConnector._port_base_num +
+                                DockerCloudConnector._port_counter) % 65535
+                    DockerCloudConnector._port_counter += 1
 
                 # The URI has this format: docker://image_name
                 full_image_name = system.getValue("disk.0.image.url")[9:]
@@ -644,7 +649,7 @@ class DockerCloudConnector(CloudConnector):
         else:
             task_data = json.loads(resp.text)
             if len(task_data) > 0:
-                for task in task_data:
+                for task in reversed(task_data):
                     if task["Status"]["State"] == "running":
                         return VirtualMachine.RUNNING
                     elif task["Status"]["State"] == "rejected":
