@@ -235,6 +235,9 @@ class Tosca:
                             public_ip = True
                             parts = cap_props["network_name"].value.split(".")
                             net_provider_id = ".".join(parts[:-1])
+                        elif str(cap_props["network_name"].value).endswith(".PRIVATE"):
+                            parts = cap_props["network_name"].value.split(".")
+                            net_provider_id = ".".join(parts[:-1])
                     if cap_props and "dns_name" in cap_props:
                         dns_name = cap_props["dns_name"].value
                     if cap_props and "ports" in cap_props:
