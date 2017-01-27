@@ -195,6 +195,8 @@ def launch_daemon():
     """
     Launch the IM daemon
     """
+    InfrastructureList.init_table()
+
     if Config.XMLRCP_SSL:
         # if specified launch the secure version
         import ssl
