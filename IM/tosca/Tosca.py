@@ -220,6 +220,7 @@ class Tosca:
                 public_ip = node_props["public_ip"].value
 
             # This is the solution using endpoints
+            net_provider_id = None
             dns_name = None
             ports = {}
             node_caps = node.get_capabilities()
@@ -229,6 +230,11 @@ class Tosca:
                     if cap_props and "network_name" in cap_props:
                         if cap_props["network_name"].value == "PUBLIC":
                             public_ip = True
+                        # In this case the user is specifying the provider_id
+                        elif str(cap_props["network_name"].value).endswith(".PUBLIC"):
+                            public_ip = True
+                            parts = cap_props["network_name"].value.split(".")
+                            net_provider_id = ".".join(parts[:-1])
                     if cap_props and "dns_name" in cap_props:
                         dns_name = cap_props["dns_name"].value
                     if cap_props and "ports" in cap_props:
@@ -262,6 +268,8 @@ class Tosca:
 
                 if ports:
                     public_net.setValue("outports", Tosca._format_outports(ports))
+                if net_provider_id:
+                    public_net.setValue("provider_id", net_provider_id)
 
                 system.setValue('net_interface.%d.connection' % num_net, public_net.id)
 
@@ -290,11 +298,12 @@ class Tosca:
                 radl.networks.append(private_net)
                 num_net = system.getNumNetworkIfaces()
 
-            system.setValue('net_interface.' + str(num_net) +
-                            '.connection', private_net.id)
+            system.setValue('net_interface.' + str(num_net) + '.connection', private_net.id)
 
             if dns_name:
                 system.setValue('net_interface.0.dns_name', dns_name)
+            if not public_ip and net_provider_id:
+                private_net.setValue("provider_id", net_provider_id)
 
     @staticmethod
     def _get_scalable_properties(node):
