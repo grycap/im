@@ -61,7 +61,7 @@ class InfrastructureList():
     @staticmethod
     def get_inf_ids():
         """ Get the IDs of the Infrastructures """
-        return InfrastructureList._get_inf_ids_from_db(Config.DATA_DB)
+        return InfrastructureList._get_inf_ids_from_db()
 
     @staticmethod
     def get_infrastructure(inf_id):
