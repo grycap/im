@@ -14,10 +14,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import sys
+
+sys.path.append("..")
+sys.path.append(".")
+
 from IM.config import Config
 from IM.db import DataBase
 import cPickle as pickle
-import sys
 import time
 import threading
 
