@@ -61,7 +61,7 @@ class InfrastructureList():
     @staticmethod
     def get_inf_ids():
         """ Get the IDs of the Infrastructures """
-        return InfrastructureList._get_data_from_db(Config.DATA_DB)
+        return InfrastructureList._get_inf_ids_from_db()
 
     @staticmethod
     def get_infrastructure(inf_id):
@@ -119,15 +119,27 @@ class InfrastructureList():
                 sys.stderr.write("ERROR saving data: " + str(ex) + ".\nChanges not stored!!")
 
     @staticmethod
-    def _get_data_from_db(db_url, inf_id=None):
-        db = DataBase(db_url)
+    def init_table():
+        """ Creates de database """
+        db = DataBase(Config.DATA_DB)
         if db.connect():
             if not db.table_exists("inf_list"):
                 db.execute("CREATE TABLE inf_list(id VARCHAR(255) PRIMARY KEY, deleted INTEGER,"
                            " date TIMESTAMP, data LONGBLOB)")
                 db.close()
-                return {}
-            else:
+                return True
+        else:
+            InfrastructureList.logger.error("ERROR connecting with the database!.")
+
+        return False
+
+    @staticmethod
+    def _get_data_from_db(db_url, inf_id=None):
+        if InfrastructureList.init_table():
+            return {}
+        else:
+            db = DataBase(db_url)
+            if db.connect():
                 inf_list = {}
                 if inf_id:
                     res = db.select("select * from inf_list where id = '%s'" % inf_id)
@@ -149,9 +161,9 @@ class InfrastructureList():
 
                 db.close()
                 return inf_list
-        else:
-            InfrastructureList.logger.error("ERROR connecting with the database!.")
-            return {}
+            else:
+                InfrastructureList.logger.error("ERROR connecting with the database!.")
+                return {}
 
     @staticmethod
     def _save_data_to_db(db_url, inf_list, inf_id=None):
