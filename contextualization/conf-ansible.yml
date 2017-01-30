@@ -6,7 +6,7 @@
   tasks:
     # Some OSs does not have python by default
     - name: Bootstrap with python
-      raw: apt update; apt install -y python; yum install -y python
+      raw: sudo apt update; sudo apt install -y python; sudo yum install -y python
       ignore_errors: yes
 
     # In case of REL 5 system install python-simplejson
