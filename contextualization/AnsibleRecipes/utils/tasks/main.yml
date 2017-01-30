@@ -15,22 +15,17 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 # General Tasks
-- name: Copy the /etc/hosts
-  copy: src=etc_hosts dest=/etc/hosts
-  ignore_errors: yes
-  register: result_copy_etc_hosts
+- name: Copy the original /etc/hosts
+  command: cp /etc/hosts /etc/hosts.orig creates=/etc/hosts.orig
   when: ansible_os_family != "Windows"
 
-# In case of docker container, because the Ansible copy module does not work with the /etc/hosts file
-- name: Copy the /etc/hosts to /tmp/etc_hosts
-  copy: src=etc_hosts dest=/tmp/etc_hosts
-  when: result_copy_etc_hosts|failed  and ansible_os_family != "Windows"
-  ignore_errors: yes
-  
-- name: Copy /tmp/etc_hosts to /etc/hosts
-  command: cp /tmp/etc_hosts /etc/hosts
-  when: result_copy_etc_hosts|failed and ansible_os_family != "Windows"
-  ignore_errors: yes
+- name: Copy the /etc/hosts
+  copy: src=etc_hosts dest=/etc/hosts.im
+  when: ansible_os_family != "Windows"
+
+- name: Merge /etc/hosts
+  shell: cat /etc/hosts.orig /etc/hosts.im > /etc/hosts
+  when: ansible_os_family != "Windows"
 
 - name: Copy the /etc/hosts in windows native
   win_copy: src=etc_hosts dest=c:\Windows\System32\Drivers\etc\hosts
