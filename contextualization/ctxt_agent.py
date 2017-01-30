@@ -276,9 +276,9 @@ def changeVMCredentials(vm, pk_file):
             try:
                 ssh_client = SSH(vm['ip'], vm['user'], vm[
                                  'passwd'], private_key, vm['remote_port'])
-                (out, err, code) = ssh_client.execute('sudo bash -c \'echo "' +
+                (out, err, code) = ssh_client.execute_timeout('sudo bash -c \'echo "' +
                                                       vm['user'] + ':' + vm['new_passwd'] +
-                                                      '" | /usr/sbin/chpasswd && echo "OK"\' 2> /dev/null')
+                                                      '" | /usr/sbin/chpasswd && echo "OK"\' 2> /dev/null', 5)
             except:
                 logger.exception(
                     "Error changing password to VM: " + vm['ip'] + ".")
@@ -300,8 +300,8 @@ def changeVMCredentials(vm, pk_file):
             try:
                 ssh_client = SSH(vm['ip'], vm['user'], vm[
                                  'passwd'], private_key, vm['remote_port'])
-                (out, err, code) = ssh_client.execute('echo ' +
-                                                      vm['new_public_key'] + ' >> .ssh/authorized_keys')
+                (out, err, code) = ssh_client.execute_timeout('echo ' +
+                                                      vm['new_public_key'] + ' >> .ssh/authorized_keys', 5)
             except:
                 logger.exception(
                     "Error changing public key to VM: " + vm['ip'] + ".")
@@ -329,8 +329,8 @@ def removeRequiretty(vm, pk_file):
                              'passwd'], private_key, vm['remote_port'])
             # Activate tty mode to avoid some problems with sudo in REL
             ssh_client.tty = True
-            (stdout, stderr, code) = ssh_client.execute(
-                "sudo sed -i 's/.*requiretty$/#Defaults requiretty/' /etc/sudoers")
+            (stdout, stderr, code) = ssh_client.execute_timeout(
+                "sudo sed -i 's/.*requiretty$/#Defaults requiretty/' /etc/sudoers", 5)
             logger.debug("OUT: " + stdout + stderr)
             return code == 0
         except:

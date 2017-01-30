@@ -1185,26 +1185,22 @@ class ConfManager(threading.Thread):
                     # only change to the new password if there are a previous
                     # passwd value
                     if passwd and new_passwd:
-                        ConfManager.logger.info(
-                            "Changing password to master VM")
-                        (out, err, code) = ssh.execute('sudo bash -c \'echo "' + user + ':' + new_passwd +
-                                                       '" | /usr/sbin/chpasswd && echo "OK"\' 2> /dev/null')
+                        ConfManager.logger.info("Changing password to master VM")
+                        (out, err, code) = ssh.execute_timeout('sudo bash -c \'echo "' + user + ':' + new_passwd +
+                                                               '" | /usr/sbin/chpasswd && echo "OK"\' 2> /dev/null',
+                                                               5)
 
                         if code == 0:
                             change_creds = True
                             ssh.password = new_passwd
                         else:
-                            ConfManager.logger.error(
-                                "Error changing password to master VM. " + out + err)
+                            ConfManager.logger.error("Error changing password to master VM. " + out + err)
 
                     if new_public_key and new_private_key:
-                        ConfManager.logger.info(
-                            "Changing public key to master VM")
-                        (out, err, code) = ssh.execute('echo ' +
-                                                       new_public_key + ' >> .ssh/authorized_keys')
+                        ConfManager.logger.info("Changing public key to master VM")
+                        (out, err, code) = ssh.execute_timeout('echo ' + new_public_key + ' >> .ssh/authorized_keys', 5)
                         if code != 0:
-                            ConfManager.logger.error(
-                                "Error changing public key to master VM. " + out + err)
+                            ConfManager.logger.error("Error changing public key to master VM. " + out + err)
                         else:
                             change_creds = True
                             ssh.private_key = new_private_key
@@ -1393,10 +1389,14 @@ class ConfManager(threading.Thread):
 
             ConfManager.logger.debug(
                 "Inf ID: " + str(self.inf.id) + ": Remove requiretty in sshd config")
-            (stdout, stderr, _) = ssh.execute(
-                "sudo sed -i 's/.*requiretty$/#Defaults requiretty/' /etc/sudoers", 120)
-            ConfManager.logger.debug(
-                "Inf ID: " + str(self.inf.id) + ": " + stdout + stderr)
+            try:
+                (stdout, stderr, _) = ssh.execute_timeout(
+                    "sudo sed -i 's/.*requiretty$/#Defaults requiretty/' /etc/sudoers", 60)
+                ConfManager.logger.debug(
+                    "Inf ID: " + str(self.inf.id) + ": " + stdout + stderr)
+            except:
+                ConfManager.logger.exception(
+                    "Inf ID: " + str(self.inf.id) + ": Error remove requiretty. Ignoring.")                
 
             self.inf.add_cont_msg("Configure Ansible in the master VM.")
             ConfManager.logger.debug(
