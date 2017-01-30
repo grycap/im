@@ -520,7 +520,6 @@ class ConfManager(threading.Thread):
         res_filename = "etc_hosts"
         hosts_file = tmp_dir + "/" + res_filename
         hosts_out = open(hosts_file, 'w')
-        hosts_out.write("127.0.0.1 localhost localhost.localdomain\r\n")
 
         vm_group = self.inf.get_vm_list_by_system_name()
         for group in vm_group:
