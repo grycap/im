@@ -159,7 +159,7 @@ class AnsibleThread(Process):
         else:
             sshpass = self.passwd
 
-        passwords = {'conn_pass': sshpass, 'become_pass': sshpass}
+        passwords = {'conn_pass': sshpass, 'become_pass': self.passwd}
 
         if self.user:
             options.remote_user = self.user

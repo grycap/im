@@ -35,7 +35,7 @@ from IM.ansible_utils.ansible_launcher import AnsibleThread
 
 import InfrastructureManager
 from IM.VirtualMachine import VirtualMachine
-from IM.SSH import AuthenticationException
+from IM.SSH import AuthenticationException, TimeOutException
 from IM.SSHRetry import SSHRetry
 from IM.recipe import Recipe
 from radl.radl import system, contextualize_item
@@ -1186,9 +1186,9 @@ class ConfManager(threading.Thread):
                     # passwd value
                     if passwd and new_passwd:
                         ConfManager.logger.info("Changing password to master VM")
-                        (out, err, code) = ssh.execute_timeout('sudo bash -c \'echo "' + user + ':' + new_passwd +
-                                                               '" | /usr/sbin/chpasswd && echo "OK"\' 2> /dev/null',
-                                                               5)
+                        (out, err, code) = ssh.execute('echo "' + passwd + '" | sudo -S bash -c \'echo "' +
+                                                       user + ':' + new_passwd +
+                                                       '" | /usr/sbin/chpasswd && echo "OK"\' 2> /dev/null')
 
                         if code == 0:
                             change_creds = True
@@ -1206,11 +1206,9 @@ class ConfManager(threading.Thread):
                             ssh.private_key = new_private_key
 
                 if change_creds:
-                    self.inf.vm_master.info.systems[
-                        0].updateNewCredentialValues()
+                    self.inf.vm_master.info.systems[0].updateNewCredentialValues()
         except:
-            ConfManager.logger.exception(
-                "Error changing credentials to master VM.")
+            ConfManager.logger.exception("Error changing credentials to master VM.")
 
         return change_creds
 
@@ -1390,13 +1388,14 @@ class ConfManager(threading.Thread):
             ConfManager.logger.debug(
                 "Inf ID: " + str(self.inf.id) + ": Remove requiretty in sshd config")
             try:
-                (stdout, stderr, _) = ssh.execute_timeout(
-                    "sudo sed -i 's/.*requiretty$/#Defaults requiretty/' /etc/sudoers", 60)
+                cmd = "sudo -S sed -i 's/.*requiretty$/#Defaults requiretty/' /etc/sudoers"
+                if ssh.password:
+                    cmd = "echo '" + ssh.password + "' | " + cmd
+                (stdout, stderr, _) = ssh.execute(cmd, 120)
                 ConfManager.logger.debug(
                     "Inf ID: " + str(self.inf.id) + ": " + stdout + stderr)
             except:
-                ConfManager.logger.exception(
-                    "Inf ID: " + str(self.inf.id) + ": Error remove requiretty. Ignoring.")                
+                ConfManager.logger.exception("Inf ID: " + str(self.inf.id) + ": Error remove requiretty. Ignoring.")
 
             self.inf.add_cont_msg("Configure Ansible in the master VM.")
             ConfManager.logger.debug(
