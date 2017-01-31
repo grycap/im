@@ -35,7 +35,7 @@ from IM.ansible_utils.ansible_launcher import AnsibleThread
 
 import InfrastructureManager
 from IM.VirtualMachine import VirtualMachine
-from IM.SSH import AuthenticationException
+from IM.SSH import AuthenticationException, TimeOutException
 from IM.SSHRetry import SSHRetry
 from IM.recipe import Recipe
 from radl.radl import system, contextualize_item
@@ -520,7 +520,6 @@ class ConfManager(threading.Thread):
         res_filename = "etc_hosts"
         hosts_file = tmp_dir + "/" + res_filename
         hosts_out = open(hosts_file, 'w')
-        hosts_out.write("127.0.0.1 localhost localhost.localdomain\r\n")
 
         vm_group = self.inf.get_vm_list_by_system_name()
         for group in vm_group:
@@ -1186,36 +1185,30 @@ class ConfManager(threading.Thread):
                     # only change to the new password if there are a previous
                     # passwd value
                     if passwd and new_passwd:
-                        ConfManager.logger.info(
-                            "Changing password to master VM")
-                        (out, err, code) = ssh.execute('sudo bash -c \'echo "' + user + ':' + new_passwd +
+                        ConfManager.logger.info("Changing password to master VM")
+                        (out, err, code) = ssh.execute('echo "' + passwd + '" | sudo -S bash -c \'echo "' +
+                                                       user + ':' + new_passwd +
                                                        '" | /usr/sbin/chpasswd && echo "OK"\' 2> /dev/null')
 
                         if code == 0:
                             change_creds = True
                             ssh.password = new_passwd
                         else:
-                            ConfManager.logger.error(
-                                "Error changing password to master VM. " + out + err)
+                            ConfManager.logger.error("Error changing password to master VM. " + out + err)
 
                     if new_public_key and new_private_key:
-                        ConfManager.logger.info(
-                            "Changing public key to master VM")
-                        (out, err, code) = ssh.execute('echo ' +
-                                                       new_public_key + ' >> .ssh/authorized_keys')
+                        ConfManager.logger.info("Changing public key to master VM")
+                        (out, err, code) = ssh.execute_timeout('echo ' + new_public_key + ' >> .ssh/authorized_keys', 5)
                         if code != 0:
-                            ConfManager.logger.error(
-                                "Error changing public key to master VM. " + out + err)
+                            ConfManager.logger.error("Error changing public key to master VM. " + out + err)
                         else:
                             change_creds = True
                             ssh.private_key = new_private_key
 
                 if change_creds:
-                    self.inf.vm_master.info.systems[
-                        0].updateNewCredentialValues()
+                    self.inf.vm_master.info.systems[0].updateNewCredentialValues()
         except:
-            ConfManager.logger.exception(
-                "Error changing credentials to master VM.")
+            ConfManager.logger.exception("Error changing credentials to master VM.")
 
         return change_creds
 
@@ -1391,20 +1384,18 @@ class ConfManager(threading.Thread):
                     recipe_out.close()
 
             self.inf.add_cont_msg("Performing preliminary steps to configure Ansible.")
-            # TODO: check to do it with ansible
-            ConfManager.logger.debug("Inf ID: " + str(self.inf.id) +
-                                     ": Check if python-simplejson is installed in REL 5 systems")
-            (stdout, stderr, _) = ssh.execute(
-                "cat /etc/redhat-release | grep \"release 5\" &&  sudo yum -y install python-simplejson", 120)
-            ConfManager.logger.debug(
-                "Inf ID: " + str(self.inf.id) + ": " + stdout + stderr)
 
             ConfManager.logger.debug(
                 "Inf ID: " + str(self.inf.id) + ": Remove requiretty in sshd config")
-            (stdout, stderr, _) = ssh.execute(
-                "sudo sed -i 's/.*requiretty$/#Defaults requiretty/' /etc/sudoers", 120)
-            ConfManager.logger.debug(
-                "Inf ID: " + str(self.inf.id) + ": " + stdout + stderr)
+            try:
+                cmd = "sudo -S sed -i 's/.*requiretty$/#Defaults requiretty/' /etc/sudoers"
+                if ssh.password:
+                    cmd = "echo '" + ssh.password + "' | " + cmd
+                (stdout, stderr, _) = ssh.execute(cmd, 120)
+                ConfManager.logger.debug(
+                    "Inf ID: " + str(self.inf.id) + ": " + stdout + stderr)
+            except:
+                ConfManager.logger.exception("Inf ID: " + str(self.inf.id) + ": Error remove requiretty. Ignoring.")
 
             self.inf.add_cont_msg("Configure Ansible in the master VM.")
             ConfManager.logger.debug(

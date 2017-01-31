@@ -367,9 +367,11 @@ class EC2CloudConnector(CloudConnector):
                             if remote_protocol != local_protocol:
                                 self.logger.warn(
                                     "Different protocols used in outports ignoring local port protocol!")
-
-                            sg.authorize(protocol, remote_port,
-                                         local_port, '0.0.0.0/0')
+                            try:
+                                sg.authorize(protocol, remote_port, local_port, '0.0.0.0/0')
+                            except Exception, addex:
+                                self.logger.warn("Exception adding SG rules. Probably the rules exists:" + str(addex))
+                                pass
 
             try:
                 sg.authorize('tcp', 22, 22, '0.0.0.0/0')
@@ -379,8 +381,7 @@ class EC2CloudConnector(CloudConnector):
                 sg.authorize('udp', 0, 65535, src_group=sg)
                 # sg.authorize('icmp', 0, 65535, src_group=sg)
             except Exception, addex:
-                self.logger.warn(
-                    "Exception adding SG rules. Probably the rules exists:" + str(addex))
+                self.logger.warn("Exception adding SG rules. Probably the rules exists:" + str(addex))
                 pass
 
         except Exception, ex:
