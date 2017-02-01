@@ -94,6 +94,12 @@ class VirtualMachine:
         del odict['_lock']
         del odict['cloud_connector']
         del odict['inf']
+        # To avoid errors tests with Mock objects
+        if 'get_ssh' in odict:
+            del odict['get_ssh']
+        if 'get_ctxt_log' in odict:
+            del odict['get_ctxt_log']
+
         if odict['info']:
             odict['info'] = dump_radl_json(odict['info'])
         if odict['requested_radl']:
