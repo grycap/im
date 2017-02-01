@@ -197,7 +197,9 @@ def LaunchAnsiblePlaybook(output, playbook_file, vm, threads, inventory_file, pk
         if 'new_passwd' in vm and vm['new_passwd'] and change_pass_ok:
             passwd = vm['new_passwd']
     else:
-        passwd = None
+        passwd = vm['passwd']
+        if 'new_passwd' in vm and vm['new_passwd'] and change_pass_ok:
+            passwd = vm['new_passwd']
         if pk_file:
             gen_pk_file = pk_file
         else:
@@ -211,9 +213,6 @@ def LaunchAnsiblePlaybook(output, playbook_file, vm, threads, inventory_file, pk
                     os.chmod(gen_pk_file, 0400)
             else:
                 gen_pk_file = None
-                passwd = vm['passwd']
-                if 'new_passwd' in vm and vm['new_passwd'] and change_pass_ok:
-                    passwd = vm['new_passwd']
 
     # Set local_tmp dir different for any VM
     os.environ['DEFAULT_LOCAL_TMP'] = vm_conf_data['remote_dir'] + "/.ansible_tmp"
@@ -274,9 +273,13 @@ def changeVMCredentials(vm, pk_file):
             if pk_file:
                 private_key = pk_file
             try:
-                ssh_client = SSH(vm['ip'], vm['user'], vm[
-                                 'passwd'], private_key, vm['remote_port'])
-                (out, err, code) = ssh_client.execute('sudo bash -c \'echo "' +
+                ssh_client = SSH(vm['ip'], vm['user'], vm['passwd'],
+                                 private_key, vm['remote_port'])
+
+                sudo_pass = ""
+                if ssh_client.password:
+                    sudo_pass = "echo '" + ssh_client.password + "' | "
+                (out, err, code) = ssh_client.execute(sudo_pass + 'sudo -S bash -c \'echo "' +
                                                       vm['user'] + ':' + vm['new_passwd'] +
                                                       '" | /usr/sbin/chpasswd && echo "OK"\' 2> /dev/null')
             except:
@@ -300,8 +303,8 @@ def changeVMCredentials(vm, pk_file):
             try:
                 ssh_client = SSH(vm['ip'], vm['user'], vm[
                                  'passwd'], private_key, vm['remote_port'])
-                (out, err, code) = ssh_client.execute('echo ' +
-                                                      vm['new_public_key'] + ' >> .ssh/authorized_keys')
+                (out, err, code) = ssh_client.execute_timeout('echo ' + vm['new_public_key'] +
+                                                              ' >> .ssh/authorized_keys', 5)
             except:
                 logger.exception(
                     "Error changing public key to VM: " + vm['ip'] + ".")
@@ -325,12 +328,15 @@ def removeRequiretty(vm, pk_file):
             private_key = vm['private_key']
             if pk_file:
                 private_key = pk_file
-            ssh_client = SSH(vm['ip'], vm['user'], vm[
-                             'passwd'], private_key, vm['remote_port'])
+            ssh_client = SSH(vm['ip'], vm['user'], vm['passwd'],
+                             private_key, vm['remote_port'])
             # Activate tty mode to avoid some problems with sudo in REL
             ssh_client.tty = True
-            (stdout, stderr, code) = ssh_client.execute(
-                "sudo sed -i 's/.*requiretty$/#Defaults requiretty/' /etc/sudoers")
+            sudo_pass = ""
+            if ssh_client.password:
+                sudo_pass = "echo '" + ssh_client.password + "' | "
+            (stdout, stderr, code) = ssh_client.execute_timeout(
+                sudo_pass + "sudo -S sed -i 's/.*requiretty$/#Defaults requiretty/' /etc/sudoers", 5)
             logger.debug("OUT: " + stdout + stderr)
             return code == 0
         except:
