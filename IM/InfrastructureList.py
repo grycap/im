@@ -66,22 +66,14 @@ class InfrastructureList():
     @staticmethod
     def get_infrastructure(inf_id):
         """ Get the infrastructure object """
-        if inf_id in InfrastructureList.get_inf_ids():
-            if inf_id in InfrastructureList.infrastructure_list:
-                inf = InfrastructureList._get_data_from_db(Config.DATA_DB, inf_id)[inf_id]
-                InfrastructureList.infrastructure_list[inf_id].update(inf)
-            else:
-                # Load the data from DB:
-                inf = InfrastructureList._get_data_from_db(Config.DATA_DB, inf_id)[inf_id]
-                InfrastructureList.infrastructure_list[inf_id] = inf
+        if inf_id in InfrastructureList.infrastructure_list:
             return InfrastructureList.infrastructure_list[inf_id]
+        elif inf_id in InfrastructureList.get_inf_ids():
+            # Load the data from DB:
+            inf = InfrastructureList._get_data_from_db(Config.DATA_DB, inf_id)[inf_id]
+            InfrastructureList.infrastructure_list[inf_id] = inf
+            return inf
         else:
-            # If Inf is not in the DB but it is in memory
-            # the Inf has been deleted in other IM instance
-            # so remove from memory
-            if inf_id in InfrastructureList.infrastructure_list:
-                InfrastructureList.infrastructure_list[inf_id].deleted = True
-                InfrastructureList.remove_inf(InfrastructureList.infrastructure_list[inf_id])
             return None
 
     @staticmethod
