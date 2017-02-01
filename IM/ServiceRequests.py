@@ -49,7 +49,6 @@ class IMBaseRequest(AsyncRequest):
     REMOVE_RESOURCE = "RemoveResource"
     START_INFRASTRUCTURE = "StartInfrastructure"
     STOP_INFRASTRUCTURE = "StopInfrastructure"
-    SAVE_DATA = "SaveData"
     START_VM = "StartVM"
     STOP_VM = "StopVM"
     GET_VERSION = "GetVersion"
@@ -90,8 +89,6 @@ class IMBaseRequest(AsyncRequest):
             return Request_StartInfrastructure(arguments)
         elif function == IMBaseRequest.STOP_INFRASTRUCTURE:
             return Request_StopInfrastructure(arguments)
-        elif function == IMBaseRequest.SAVE_DATA:
-            return Request_SaveData(arguments)
         elif function == IMBaseRequest.START_VM:
             return Request_StartVM(arguments)
         elif function == IMBaseRequest.STOP_VM:
@@ -317,18 +314,6 @@ class Request_GetInfrastructureContMsg(IMBaseRequest):
         self._error_mesage = "Error gettinf the Inf. cont msg"
         (inf_id, auth_data) = self.arguments
         return InfrastructureManager.InfrastructureManager.GetInfrastructureContMsg(inf_id, Authentication(auth_data))
-
-
-class Request_SaveData(IMBaseRequest):
-    """
-    Request class for the save_data function
-    """
-
-    def _call_function(self):
-        self._error_mesage = "Error saving IM data"
-        (inf_id) = self.arguments
-        IM.InfrastructureList.InfrastructureList.save_data(inf_id)
-        return ""
 
 
 class Request_StartVM(IMBaseRequest):

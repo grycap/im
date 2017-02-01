@@ -33,7 +33,8 @@ except:
 
 from IM.ansible_utils.ansible_launcher import AnsibleThread
 
-import InfrastructureManager
+import IM.InfrastructureManager
+import IM.InfrastructureList
 from IM.VirtualMachine import VirtualMachine
 from IM.SSH import AuthenticationException, TimeOutException
 from IM.SSHRetry import SSHRetry
@@ -89,8 +90,7 @@ class ConfManager(threading.Thread):
                             "Inf ID: " + str(self.inf.id) + ": Configuration process in VM: " +
                             str(vm.im_id) + " finished.")
                         # Force to save the data to store the log data ()
-                        ServiceRequests.IMBaseRequest.create_request(
-                            ServiceRequests.IMBaseRequest.SAVE_DATA, (self.inf.id))
+                        IM.InfrastructureList.InfrastructureList.save_data(self.inf.id)
                 else:
                     # General Infrastructure tasks
                     if vm.is_ctxt_process_running():
@@ -108,8 +108,7 @@ class ConfManager(threading.Thread):
                             ConfManager.logger.debug(
                                 "Inf ID: " + str(self.inf.id) + ": Configuration process of master node failed.")
                         # Force to save the data to store the log data
-                        ServiceRequests.IMBaseRequest.create_request(
-                            ServiceRequests.IMBaseRequest.SAVE_DATA, (self.inf.id))
+                        IM.InfrastructureList.InfrastructureList.save_data(self.inf.id)
 
         return res
 
@@ -274,8 +273,7 @@ class ConfManager(threading.Thread):
                         # assigned
                         vm.ctxt_pid = VirtualMachine.WAIT_TO_PID
                         # Force to save the data to store the log data
-                        ServiceRequests.IMBaseRequest.create_request(
-                            ServiceRequests.IMBaseRequest.SAVE_DATA, (self.inf.id))
+                        IM.InfrastructureList.InfrastructureList.save_data(self.inf.id)
                 else:
                     # Launch the Infrastructure tasks
                     vm.configured = None
@@ -289,8 +287,7 @@ class ConfManager(threading.Thread):
                         vms_configuring[step] = []
                     vms_configuring[step].append(vm)
                     # Force to save the data to store the log data
-                    ServiceRequests.IMBaseRequest.create_request(
-                        ServiceRequests.IMBaseRequest.SAVE_DATA, (self.inf.id))
+                    IM.InfrastructureList.InfrastructureList.save_data(self.inf.id)
 
                 last_step = step
 
@@ -821,8 +818,7 @@ class ConfManager(threading.Thread):
                 self.inf.ansible_configured = True
                 self.inf.set_configured(True)
                 # Force to save the data to store the log data
-                ServiceRequests.IMBaseRequest.create_request(
-                    ServiceRequests.IMBaseRequest.SAVE_DATA, (self.inf.id))
+                IM.InfrastructureList.InfrastructureList.save_data(self.inf.id)
             else:
                 self.inf.ansible_configured = False
                 self.inf.set_configured(False)
@@ -900,8 +896,7 @@ class ConfManager(threading.Thread):
                 self.change_master_credentials(ssh)
 
                 # Force to save the data to store the log data
-                ServiceRequests.IMBaseRequest.create_request(
-                    ServiceRequests.IMBaseRequest.SAVE_DATA, (self.inf.id))
+                IM.InfrastructureList.InfrastructureList.save_data(self.inf.id)
 
                 self.inf.set_configured(True)
             except:
@@ -1006,7 +1001,7 @@ class ConfManager(threading.Thread):
         Remove and launch again the specified VM
         """
         try:
-            removed = InfrastructureManager.InfrastructureManager.RemoveResource(
+            removed = IM.InfrastructureManager.InfrastructureManager.RemoveResource(
                 self.inf.id, vm.im_id, self.auth)
         except:
             ConfManager.logger.exception(
@@ -1027,7 +1022,7 @@ class ConfManager(threading.Thread):
         failed_clouds = []
         if failed_cloud:
             failed_clouds = [vm.cloud]
-        InfrastructureManager.InfrastructureManager.AddResource(
+        IM.InfrastructureManager.InfrastructureManager.AddResource(
             self.inf.id, new_radl, self.auth, False, failed_clouds)
 
     def wait_vm_running(self, vm, timeout, relaunch=False):
