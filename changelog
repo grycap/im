@@ -260,3 +260,11 @@ IM 1.5.0
     * Move Azure connector to Resource Groups API enhancement.
     * Change SOAPpy lib to suds.
     * Add support for OpenStack pool name in OCCI connector.
+
+IM 1.5.1
+    * Bug in IM in HA mode getting old data.
+    * Incorrect error message in case of error deleting a SG in EC2 connector.
+    * Error configuring VMs with sudo with password.
+    * Bootstrap ansible master VM with python if it does not have it installed.
+    * Merge correctly local /etc/hosts with IM generated data.
+    * Incorrect error message in case of error deleting a SG in EC2 connector.

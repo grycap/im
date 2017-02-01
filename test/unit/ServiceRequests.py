@@ -25,12 +25,6 @@ class TestServiceRequests(unittest.TestCase):
     Class to test the ServiceRequests module
     """
 
-    @patch('IM.InfrastructureList.InfrastructureList')
-    def test_save_data(self, inflist):
-        import IM.ServiceRequests
-        req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.SAVE_DATA, (""))
-        req._call_function()
-
     @patch('IM.InfrastructureManager.InfrastructureManager')
     def test_add_resource(self, inflist):
         import IM.ServiceRequests
