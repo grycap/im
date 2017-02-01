@@ -90,6 +90,7 @@ class Config:
     CONFMAMAGER_CHECK_STATE_INTERVAL = 5
     UPDATE_CTXT_LOG_INTERVAL = 20
     ANSIBLE_INSTALL_TIMEOUT = 900
+    INF_CACHE_TIME = 900
 
 config = ConfigParser.ConfigParser()
 config.read([Config.IM_PATH + '/../im.cfg', Config.IM_PATH +
