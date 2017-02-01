@@ -114,10 +114,7 @@ class InfrastructureInfo:
         if odict['radl']:
             odict['radl'] = dump_radl_json(odict['radl'])
         if odict['extra_info'] and "TOSCA" in odict['extra_info']:
-            if isinstance(odict['extra_info']['TOSCA'], Tosca):
-                odict['extra_info']['TOSCA'] = odict['extra_info']['TOSCA'].serialize()
-            else:
-                odict['extra_info']['TOSCA'] = odict['extra_info']['TOSCA']
+            odict['extra_info'] = {'TOSCA': odict['extra_info']['TOSCA'].serialize()}
         return json.dumps(odict)
 
     @staticmethod
@@ -133,8 +130,7 @@ class InfrastructureInfo:
         if dic['radl']:
             dic['radl'] = parse_radl_json(dic['radl'])
         if 'extra_info' in dic and dic['extra_info'] and "TOSCA" in dic['extra_info']:
-            if not isinstance(dic['extra_info']['TOSCA'], str):
-                dic['extra_info']['TOSCA'] = Tosca.deserialize(dic['extra_info']['TOSCA'])
+            dic['extra_info']['TOSCA'] = Tosca.deserialize(dic['extra_info']['TOSCA'])
         newinf.__dict__.update(dic)
         newinf.cloud_connector = None
         # Set the ConfManager object and the lock to the data loaded
