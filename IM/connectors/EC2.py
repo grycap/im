@@ -687,11 +687,20 @@ class EC2CloudConnector(CloudConnector):
         # if all the VMs have failed, remove the sg and keypair
         if all_failed:
             if created_keypair:
-                conn.delete_key_pair(keypair_name)
+                try:
+                    conn.delete_key_pair(keypair_name)
+                except:
+                    self.logger.exception("Error deleting keypair.")
             if sg_ids:
-                conn.delete_security_group(group_id=sg_ids[0])
+                try:
+                    conn.delete_security_group(group_id=sg_ids[0])
+                except:
+                    self.logger.exception("Error deleting SG.")
             if sg_names and sg_names[0] != 'default':
-                conn.delete_security_group(sg_names[0])
+                try:
+                    conn.delete_security_group(sg_names[0])
+                except:
+                    self.logger.exception("Error deleting SG.")
 
         return res
 
