@@ -435,7 +435,8 @@ class TestIM(unittest.TestCase):
         IM.DestroyInfrastructure(infId, auth0)
 
     @patch('IM.InfrastructureList.InfrastructureList.get_inf_ids')
-    def test_get_inf_state(self, get_inf_ids):
+    @patch('IM.InfrastructureList.InfrastructureList._get_data_from_db')
+    def test_get_inf_state(self, get_data_from_db, get_inf_ids):
         """
         Test GetInfrastructureState.
         """
@@ -443,6 +444,7 @@ class TestIM(unittest.TestCase):
 
         inf = MagicMock()
         get_inf_ids.return_value = ["1"]
+        get_data_from_db.return_value = {"1": inf}
         InfrastructureList.infrastructure_list = {"1": inf}
         inf.id = "1"
         inf.auth = auth0
@@ -608,6 +610,7 @@ class TestIM(unittest.TestCase):
         self.assertEqual(state["state"], "unconfigured")
 
         InfrastructureList.infrastructure_list[infId].ansible_configured = True
+        InfrastructureList.save_data(infId)
         InfrastructureList.infrastructure_list[infId].vm_list[0].get_ctxt_log = MagicMock()
         InfrastructureList.infrastructure_list[infId].vm_list[0].get_ctxt_log.return_value = "OK"
 

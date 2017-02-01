@@ -534,3 +534,32 @@ class InfrastructureInfo:
             return True
         else:
             return False
+
+    def update(self, other_inf):
+        """
+        Update info from other InfrastructureInfo instance
+        """
+        with self._lock:
+            # IM never delete items in the vm_list
+            # so any change will imply a VM addition
+            if len(other_inf.vm_list) > len(self.vm_list):
+                self.vm_list.extend(other_inf.vm_list[len(self.vm_list):])
+
+            # Master VM has changed -> update it
+            if other_inf.vm_master is None:
+                self.vm_master = None
+            elif self.vm_master is None or self.vm_master.im_id != other_inf.vm_master.im_id:
+                for vm in self.vm_list:
+                    if vm.im_id == other_inf.vm_master.im_id:
+                        self.vm_master = vm
+                        break
+
+            self.auth = other_inf.auth
+            self.radl = other_inf.radl
+            self.private_networks = other_inf.private_networks
+            self.system_counter = other_inf.system_counter
+            self.vm_id = other_inf.vm_id
+            self.last_ganglia_update = other_inf.last_ganglia_update
+            self.cont_out = other_inf.cont_out
+            self.ansible_configured = other_inf.ansible_configured
+            self.configured = other_inf.configured
