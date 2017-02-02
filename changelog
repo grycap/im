@@ -260,3 +260,6 @@ IM 1.5.0
     * Move Azure connector to Resource Groups API enhancement.
     * Change SOAPpy lib to suds.
     * Add support for OpenStack pool name in OCCI connector.
+
+IM 1.5.1
+    * Fix error configuring VMs with sudo with password.

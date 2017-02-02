@@ -528,6 +528,7 @@ IM in high availability mode
 
 From version 1.5.0 the IM service can be launched in high availability (HA) mode using a set of IM instances
 behind a `HAProxy <http://www.haproxy.org/>`_ load balancer. Currently only the REST API can be used in HA mode.
+It is a experimental issue currently it is not intended to be used in a production installation.
 
 This is an example of the HAProxy configuration file::
 

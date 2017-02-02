@@ -301,11 +301,11 @@ class InfrastructureManager:
                         system.setCredentialValues(
                             password=password, public_key=public_key, private_key=private_key, new=True)
 
-        IM.InfrastructureList.InfrastructureList.save_data(inf_id)
-
         # Stick all virtual machines to be reconfigured
         InfrastructureManager.logger.info("Contextualize the inf.")
         sel_inf.Contextualize(auth, vm_list)
+
+        IM.InfrastructureList.InfrastructureList.save_data(inf_id)
 
         return ""
 
@@ -577,13 +577,14 @@ class InfrastructureManager:
         # Add the new virtual machines to the infrastructure
         sel_inf.update_radl(radl, [(d, deployed_vm[d], concrete_systems[d.cloud_id][d.id][0])
                                    for d in deployed_vm])
-        IM.InfrastructureList.InfrastructureList.save_data(inf_id)
         InfrastructureManager.logger.info(
             "VMs %s successfully added to Inf id %s" % (new_vms, sel_inf.id))
 
         # Let's contextualize!
         if context and new_vms:
             sel_inf.Contextualize(auth)
+
+        IM.InfrastructureList.InfrastructureList.save_data(inf_id)
 
         return [vm.im_id for vm in new_vms]
 
@@ -634,13 +635,14 @@ class InfrastructureManager:
                     except Exception, e:
                         exceptions.append(e)
 
-        IM.InfrastructureList.InfrastructureList.save_data(inf_id)
         InfrastructureManager.logger.info(
             str(cont) + " VMs successfully removed")
 
         if context and cont > 0:
             # Now test again if the infrastructure is contextualizing
             sel_inf.Contextualize(auth)
+
+        IM.InfrastructureList.InfrastructureList.save_data(inf_id)
 
         if exceptions:
             InfrastructureManager.logger.exception("Error removing resources")
@@ -1210,6 +1212,9 @@ class InfrastructureManager:
         # First check if it is configured to check the users from a list
         im_auth = auth.getAuthInfo("InfrastructureManager")
 
+        if not im_auth:
+            raise IncorrectVMCrecentialsException("No credentials provided for the InfrastructureManager.")
+
         # First check if an OIDC token is included
         if "token" in im_auth[0]:
             InfrastructureManager.check_oidc_token(im_auth[0])
@@ -1251,10 +1256,6 @@ class InfrastructureManager:
 
         # First check the auth data
         auth = InfrastructureManager.check_auth_data(auth)
-
-        if not auth.getAuthInfo("InfrastructureManager"):
-            raise Exception(
-                "No credentials provided for the InfrastructureManager")
 
         # Create a new infrastructure
         inf = IM.InfrastructureInfo.InfrastructureInfo()
@@ -1303,7 +1304,7 @@ class InfrastructureManager:
         res = []
         for inf_id in IM.InfrastructureList.InfrastructureList.get_inf_ids():
             elem = IM.InfrastructureList.InfrastructureList.get_infrastructure(inf_id)
-            if elem.is_authorized(auth) and not elem.deleted:
+            if elem and elem.is_authorized(auth) and not elem.deleted:
                 res.append(elem.id)
 
         return res
