@@ -1182,6 +1182,9 @@ class InfrastructureManager:
         # First check if it is configured to check the users from a list
         im_auth = auth.getAuthInfo("InfrastructureManager")
 
+        if not im_auth:
+            raise IncorrectVMCrecentialsException("No credentials provided for the InfrastructureManager.")
+
         # if not assume the basic user/password auth data
         if not InfrastructureManager.check_im_user(im_auth):
             raise InvaliddUserException()
@@ -1207,10 +1210,6 @@ class InfrastructureManager:
 
         # First check the auth data
         auth = InfrastructureManager.check_auth_data(auth)
-
-        if not auth.getAuthInfo("InfrastructureManager"):
-            raise Exception(
-                "No credentials provided for the InfrastructureManager")
 
         # Create a new infrastructure
         inf = IM.InfrastructureInfo.InfrastructureInfo()
@@ -1256,13 +1255,7 @@ class InfrastructureManager:
                 "No correct auth data has been specified.")
             raise InvaliddUserException()
 
-        res = []
-        for inf_id in IM.InfrastructureList.InfrastructureList.get_inf_ids():
-            elem = IM.InfrastructureList.InfrastructureList.get_infrastructure(inf_id)
-            if elem and elem.is_authorized(auth) and not elem.deleted:
-                res.append(elem.id)
-
-        return res
+        return IM.InfrastructureList.InfrastructureList.get_inf_ids(auth)
 
     @staticmethod
     def ExportInfrastructure(inf_id, delete, auth_data):
