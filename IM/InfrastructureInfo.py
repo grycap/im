@@ -24,7 +24,7 @@ from ganglia import ganglia_info
 import ConfManager
 from datetime import datetime
 from radl.radl import RADL, Feature, deploy, system, contextualize_item
-from radl.radl_json import parse_radl as parse_radl_json, dump_radl as dump_radl_json
+from radl.radl_parse import parse_radl
 from config import Config
 from Queue import PriorityQueue
 from IM.VirtualMachine import VirtualMachine
@@ -108,7 +108,7 @@ class InfrastructureInfo:
         if odict['auth']:
             odict['auth'] = odict['auth'].serialize()
         if odict['radl']:
-            odict['radl'] = dump_radl_json(odict['radl'])
+            odict['radl'] = str(odict['radl'])
         return json.dumps(odict)
 
     @staticmethod
@@ -122,7 +122,7 @@ class InfrastructureInfo:
         if dic['auth']:
             dic['auth'] = Authentication.deserialize(dic['auth'])
         if dic['radl']:
-            dic['radl'] = parse_radl_json(dic['radl'])
+            dic['radl'] = parse_radl(dic['radl'])
         newinf.__dict__.update(dic)
         newinf.cloud_connector = None
         # Set the ConfManager object and the lock to the data loaded
