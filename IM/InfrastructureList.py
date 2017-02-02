@@ -39,9 +39,6 @@ class InfrastructureList():
     infrastructure_list = {}
     """Map from string to :py:class:`InfrastructureInfo`."""
 
-    infrastructure_last_access = {}
-    """Map from string to :py:class:`DateTime`."""
-
     logger = logging.getLogger('InfrastructureManager')
     """Logger object."""
 
@@ -54,7 +51,6 @@ class InfrastructureList():
 
         with InfrastructureList._lock:
             InfrastructureList.infrastructure_list[inf.id] = inf
-            InfrastructureList.infrastructure_last_access[inf.id] = datetime.now()
 
     @staticmethod
     def remove_inf(del_inf):
@@ -78,7 +74,7 @@ class InfrastructureList():
             inf_list = {}
             delay = timedelta(seconds=Config.INF_CACHE_TIME)
             for inf_id, inf in InfrastructureList.infrastructure_list.items():
-                if now - InfrastructureList.infrastructure_last_access[inf_id] > delay:
+                if now - inf.last_access > delay:
                     InfrastructureList.save_data(inf_id)
                     InfrastructureList.logger.debug("Infrastructure %s data expired. Remove from memory." % inf_id)
                 else:
@@ -90,7 +86,7 @@ class InfrastructureList():
         """ Get the infrastructure object """
         InfrastructureList.clean_inf_memory_data()
         if inf_id in InfrastructureList.infrastructure_list:
-            InfrastructureList.infrastructure_last_access[inf_id] = datetime.now()
+            InfrastructureList.infrastructure_list[inf_id].touch()
             return InfrastructureList.infrastructure_list[inf_id]
         elif inf_id in InfrastructureList.get_inf_ids():
             # Load the data from DB:
@@ -120,8 +116,6 @@ class InfrastructureList():
             try:
                 inf_list = InfrastructureList._get_data_from_db(Config.DATA_DB)
                 InfrastructureList.infrastructure_list = inf_list
-                for inf_id in inf_list.keys():
-                    InfrastructureList.infrastructure_last_access[inf_id] = datetime.now()
             except Exception, ex:
                 InfrastructureList.logger.exception("ERROR loading data. Correct or delete it!!")
                 sys.stderr.write("ERROR loading data: " + str(ex) + ".\nCorrect or delete it!! ")
@@ -138,11 +132,6 @@ class InfrastructureList():
         """
         with InfrastructureList._lock:
             try:
-                if inf_id:
-                    InfrastructureList.infrastructure_last_access[inf_id] = datetime.now()
-                else:
-                    for inf_id in InfrastructureList.infrastructure_list.keys():
-                        InfrastructureList.infrastructure_last_access[inf_id] = datetime.now()
                 res = InfrastructureList._save_data_to_db(Config.DATA_DB,
                                                           InfrastructureList.infrastructure_list,
                                                           inf_id)

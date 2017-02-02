@@ -90,6 +90,8 @@ class InfrastructureInfo:
         """Flag to specify that the configuration threads of this inf has finished successfully or with errors."""
         self.conf_threads = []
         """ List of configuration threads."""
+        self.last_access = datetime.now()
+        """ Time of the last access to this Inf. """
 
     def serialize(self):
         with self._lock:
@@ -99,6 +101,7 @@ class InfrastructureInfo:
         del odict['_lock']
         del odict['ctxt_tasks']
         del odict['conf_threads']
+        del odict['last_access']
         if odict['vm_master']:
             odict['vm_master'] = odict['vm_master'].im_id
         vm_list = []
@@ -534,3 +537,6 @@ class InfrastructureInfo:
             return True
         else:
             return False
+
+    def touch(self):
+        self.last_access = datetime.now()
