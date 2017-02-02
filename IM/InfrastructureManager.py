@@ -1255,13 +1255,7 @@ class InfrastructureManager:
                 "No correct auth data has been specified.")
             raise InvaliddUserException()
 
-        res = []
-        for inf_id in IM.InfrastructureList.InfrastructureList.get_inf_ids():
-            elem = IM.InfrastructureList.InfrastructureList.get_infrastructure(inf_id)
-            if elem and elem.is_authorized(auth) and not elem.deleted:
-                res.append(elem.id)
-
-        return res
+        return IM.InfrastructureList.InfrastructureList.get_inf_ids(auth)
 
     @staticmethod
     def ExportInfrastructure(inf_id, delete, auth_data):

@@ -137,6 +137,18 @@ class InfrastructureInfo:
             newinf.vm_list.append(vm)
         return newinf
 
+    @staticmethod
+    def deserialize_auth(str_data):
+        """
+        Only Loads auth data
+        """
+        newinf = InfrastructureInfo()
+        dic = json.loads(str_data)
+        newinf.id = dic['id']
+        if dic['auth']:
+            newinf.auth = Authentication.deserialize(dic['auth'])
+        return newinf
+
     def get_next_vm_id(self):
         """Get the next vm id available."""
         with self._lock:
