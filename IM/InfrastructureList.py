@@ -38,7 +38,7 @@ class InfrastructureList():
 
     infrastructure_list = {}
     """Map from string to :py:class:`InfrastructureInfo`."""
-    
+
     infrastructure_last_access = {}
     """Map from string to :py:class:`DateTime`."""
 
@@ -71,7 +71,7 @@ class InfrastructureList():
     @staticmethod
     def clean_inf_memory_data():
         """
-        Clean old memory data to assure HA works correctly 
+        Clean old memory data to assure HA works correctly
         """
         now = datetime.now()
         with InfrastructureList._lock:
