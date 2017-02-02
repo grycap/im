@@ -47,7 +47,7 @@ class DB150to151():
         if newvm.configured is None:
             newvm.configured = False
         return newvm
-    
+
     @staticmethod
     def deserialize_info(str_data):
         newinf = InfrastructureInfo()
@@ -72,7 +72,7 @@ class DB150to151():
                 newinf.vm_master = vm
             newinf.vm_list.append(vm)
         return newinf
-    
+
     @staticmethod
     def get_data_from_db(db_url):
         db = DataBase(db_url)
@@ -135,7 +135,3 @@ if __name__ == "__main__":
     IM.InfrastructureList.InfrastructureList.infrastructure_list = inf_list
     for inf_id in IM.InfrastructureList.InfrastructureList.infrastructure_list.keys():
         IM.InfrastructureList.InfrastructureList.save_data(inf_id)
-
-    res = []
-    for inf_id in IM.InfrastructureList.InfrastructureList.get_inf_ids():
-        elem = IM.InfrastructureList.InfrastructureList.get_infrastructure(inf_id)
