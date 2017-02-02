@@ -27,7 +27,7 @@ from radl.radl import network, RADL
 from IM.SSH import SSH
 from IM.SSHRetry import SSHRetry
 from IM.config import Config
-from radl.radl_json import parse_radl as parse_radl_json, dump_radl as dump_radl_json
+from radl.radl_parse import parse_radl
 import IM.CloudInfo
 
 
@@ -101,9 +101,9 @@ class VirtualMachine:
             del odict['get_ctxt_log']
 
         if odict['info']:
-            odict['info'] = dump_radl_json(odict['info'])
+            odict['info'] = str(odict['info'])
         if odict['requested_radl']:
-            odict['requested_radl'] = dump_radl_json(odict['requested_radl'])
+            odict['requested_radl'] = str(odict['requested_radl'])
         if odict['cloud']:
             odict['cloud'] = odict['cloud'].serialize()
         return json.dumps(odict)
@@ -114,9 +114,9 @@ class VirtualMachine:
         if dic['cloud']:
             dic['cloud'] = IM.CloudInfo.CloudInfo.deserialize(dic['cloud'])
         if dic['info']:
-            dic['info'] = parse_radl_json(dic['info'])
+            dic['info'] = parse_radl(dic['info'])
         if dic['requested_radl']:
-            dic['requested_radl'] = parse_radl_json(dic['requested_radl'])
+            dic['requested_radl'] = parse_radl(dic['requested_radl'])
 
         newvm = VirtualMachine(None, None, None, None, None, None, dic['im_id'])
         newvm.__dict__.update(dic)

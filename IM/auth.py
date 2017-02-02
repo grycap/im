@@ -169,7 +169,7 @@ class Authentication:
         return res
 
     def serialize(self):
-        return json.dumps(self.auth_list)
+        return json.dumps(self.auth_list, sort_keys=True)
 
     @staticmethod
     def deserialize(str_data):
