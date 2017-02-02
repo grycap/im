@@ -1181,6 +1181,10 @@ class InfrastructureManager:
     def check_auth_data(auth):
         # First check if it is configured to check the users from a list
         im_auth = auth.getAuthInfo("InfrastructureManager")
+        
+        if not im_auth:
+            raise IncorrectVMCrecentialsException("No correct authentication data provided"
+                                                  " for the InfrastructureManager.")
 
         # if not assume the basic user/password auth data
         if not InfrastructureManager.check_im_user(im_auth):
