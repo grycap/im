@@ -24,7 +24,7 @@ from ganglia import ganglia_info
 import ConfManager
 from datetime import datetime
 from radl.radl import RADL, Feature, deploy, system, contextualize_item
-from radl.radl_json import parse_radl as parse_radl_json, dump_radl as dump_radl_json
+from radl.radl_parse import parse_radl
 from config import Config
 from Queue import PriorityQueue
 from IM.openid.JWT import JWT
@@ -112,7 +112,7 @@ class InfrastructureInfo:
         if odict['auth']:
             odict['auth'] = odict['auth'].serialize()
         if odict['radl']:
-            odict['radl'] = dump_radl_json(odict['radl'])
+            odict['radl'] = str(odict['radl'])
         if odict['extra_info'] and "TOSCA" in odict['extra_info']:
             odict['extra_info'] = {'TOSCA': odict['extra_info']['TOSCA'].serialize()}
         return json.dumps(odict)
@@ -128,7 +128,7 @@ class InfrastructureInfo:
         if dic['auth']:
             dic['auth'] = Authentication.deserialize(dic['auth'])
         if dic['radl']:
-            dic['radl'] = parse_radl_json(dic['radl'])
+            dic['radl'] = parse_radl(dic['radl'])
         if 'extra_info' in dic and dic['extra_info'] and "TOSCA" in dic['extra_info']:
             dic['extra_info']['TOSCA'] = Tosca.deserialize(dic['extra_info']['TOSCA'])
         newinf.__dict__.update(dic)
