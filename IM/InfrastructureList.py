@@ -60,9 +60,20 @@ class InfrastructureList():
             del InfrastructureList.infrastructure_list[del_inf.id]
 
     @staticmethod
-    def get_inf_ids():
+    def get_inf_ids(auth=None):
         """ Get the IDs of the Infrastructures """
-        return InfrastructureList._get_inf_ids_from_db()
+        if auth:
+            # In this case only loads the auth data to improve performance
+            inf_ids = []
+            for inf_id in InfrastructureList._get_inf_ids_from_db():
+                res = InfrastructureList._get_data_from_db(Config.DATA_DB, inf_id, auth)
+                if res:
+                    inf = res[inf_id]
+                    if inf and inf.is_authorized(auth) and not inf.deleted:
+                        inf_ids.append(inf.id)
+            return inf_ids
+        else:
+            return InfrastructureList._get_inf_ids_from_db()
 
     @staticmethod
     def clean_inf_memory_data():
@@ -158,7 +169,12 @@ class InfrastructureList():
         return False
 
     @staticmethod
-    def _get_data_from_db(db_url, inf_id=None):
+    def _get_data_from_db(db_url, inf_id=None, auth=None):
+        """
+        Get data from DB.
+        If no inf_id specified all Infrastructures are loaded.
+        If auth is specified only auth data will be loaded.
+        """
         if InfrastructureList.init_table():
             return {}
         else:
@@ -175,7 +191,10 @@ class InfrastructureList():
                         # date = elem[1]
                         # deleted = elem[2]
                         try:
-                            inf = IM.InfrastructureInfo.InfrastructureInfo.deserialize(elem[3])
+                            if auth:
+                                inf = IM.InfrastructureInfo.InfrastructureInfo.deserialize_auth(elem[3])
+                            else:
+                                inf = IM.InfrastructureInfo.InfrastructureInfo.deserialize(elem[3])
                             inf_list[inf.id] = inf
                         except:
                             InfrastructureList.logger.exception(
