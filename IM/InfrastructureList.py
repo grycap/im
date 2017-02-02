@@ -70,9 +70,13 @@ class InfrastructureList():
             return InfrastructureList.infrastructure_list[inf_id]
         elif inf_id in InfrastructureList.get_inf_ids():
             # Load the data from DB:
-            inf = InfrastructureList._get_data_from_db(Config.DATA_DB, inf_id)[inf_id]
-            InfrastructureList.infrastructure_list[inf_id] = inf
-            return inf
+            res = InfrastructureList._get_data_from_db(Config.DATA_DB, inf_id)
+            if res:
+                inf = res[inf_id]
+                InfrastructureList.infrastructure_list[inf_id] = inf
+                return inf
+            else:
+                return None
         else:
             return None
 
