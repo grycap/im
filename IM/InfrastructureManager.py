@@ -1259,7 +1259,7 @@ class InfrastructureManager:
         res = []
         for inf_id in IM.InfrastructureList.InfrastructureList.get_inf_ids():
             elem = IM.InfrastructureList.InfrastructureList.get_infrastructure(inf_id)
-            if elem.is_authorized(auth) and not elem.deleted:
+            if elem and elem.is_authorized(auth) and not elem.deleted:
                 res.append(elem.id)
 
         return res
