@@ -78,8 +78,12 @@ class InfrastructureList():
     def get_infrastructure(inf_id):
         """ Get the infrastructure object """
         if inf_id in InfrastructureList.infrastructure_list:
-            return InfrastructureList.infrastructure_list[inf_id]
-        elif inf_id in InfrastructureList.get_inf_ids():
+            inf = InfrastructureList.infrastructure_list[inf_id]
+            if not inf.has_expired():
+                inf.touch()
+                return inf
+
+        if inf_id in InfrastructureList.get_inf_ids():
             # Load the data from DB:
             res = InfrastructureList._get_data_from_db(Config.DATA_DB, inf_id)
             if res:
