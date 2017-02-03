@@ -147,6 +147,7 @@ class InfrastructureInfo:
         """
         newinf = InfrastructureInfo()
         dic = json.loads(str_data)
+        newinf.deleted = dic['deleted']
         newinf.id = dic['id']
         if dic['auth']:
             newinf.auth = Authentication.deserialize(dic['auth'])
