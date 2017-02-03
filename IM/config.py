@@ -95,6 +95,7 @@ class Config:
     SINGLE_SITE_AUTH_HOST = ''
     SINGLE_SITE_IMAGE_URL_PREFIX = ''
     OIDC_ISSUERS = ["https://iam-test.indigo-datacloud.eu/"]
+    INF_CACHE_TIME = None
 
 config = ConfigParser.ConfigParser()
 config.read([Config.IM_PATH + '/../im.cfg', Config.IM_PATH +

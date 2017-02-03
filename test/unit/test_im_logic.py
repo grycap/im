@@ -449,6 +449,7 @@ class TestIM(unittest.TestCase):
         inf.id = "1"
         inf.auth = auth0
         inf.deleted = False
+        inf.has_expired.return_value = False
         vm1 = MagicMock()
         vm1.im_id = 0
         vm1.state = VirtualMachine.RUNNING
