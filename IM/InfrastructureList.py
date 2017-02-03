@@ -18,7 +18,6 @@
 import sys
 import logging
 import threading
-from datetime import datetime, timedelta
 
 from IM.db import DataBase
 from IM.config import Config
@@ -76,30 +75,15 @@ class InfrastructureList():
             return InfrastructureList._get_inf_ids_from_db()
 
     @staticmethod
-    def clean_inf_memory_data():
-        """
-        Clean old memory data to assure HA works correctly
-        """
-        now = datetime.now()
-        with InfrastructureList._lock:
-            inf_list = {}
-            delay = timedelta(seconds=Config.INF_CACHE_TIME)
-            for inf_id, inf in InfrastructureList.infrastructure_list.items():
-                if now - inf.last_access > delay:
-                    InfrastructureList.save_data(inf_id)
-                    InfrastructureList.logger.debug("Infrastructure %s data expired. Remove from memory." % inf_id)
-                else:
-                    inf_list[inf_id] = inf
-            InfrastructureList.infrastructure_list = inf_list
-
-    @staticmethod
     def get_infrastructure(inf_id):
         """ Get the infrastructure object """
-        InfrastructureList.clean_inf_memory_data()
         if inf_id in InfrastructureList.infrastructure_list:
-            InfrastructureList.infrastructure_list[inf_id].touch()
-            return InfrastructureList.infrastructure_list[inf_id]
-        elif inf_id in InfrastructureList.get_inf_ids():
+            inf = InfrastructureList.infrastructure_list[inf_id]
+            if not inf.has_expired():
+                inf.touch()
+                return inf
+
+        if inf_id in InfrastructureList.get_inf_ids():
             # Load the data from DB:
             res = InfrastructureList._get_data_from_db(Config.DATA_DB, inf_id)
             if res:

@@ -22,7 +22,7 @@ import json
 
 from ganglia import ganglia_info
 import ConfManager
-from datetime import datetime
+from datetime import datetime, timedelta, date
 from radl.radl import RADL, Feature, deploy, system, contextualize_item
 from radl.radl_parse import parse_radl
 from config import Config
@@ -551,4 +551,17 @@ class InfrastructureInfo:
             return False
 
     def touch(self):
+        """
+        Set last access of the Inf
+        """
         self.last_access = datetime.now()
+
+    def has_expired(self):
+        """
+        Check if the info of this Inf has expired (for HA mode)
+        """
+        if Config.INF_CACHE_TIME:
+            delay = timedelta(seconds=Config.INF_CACHE_TIME)
+            return (datetime.now() - self.last_access > delay)
+        else:
+            return False
