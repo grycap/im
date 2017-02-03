@@ -44,6 +44,9 @@ class InfrastructureList():
     _lock = threading.Lock()
     """Threading Lock to avoid concurrency problems."""
 
+    infrastructure_auth = {}
+    """Map from string to :py:class:`Authentication`."""
+
     @staticmethod
     def add_infrastructure(inf):
         """Add a new Infrastructure."""
@@ -65,11 +68,19 @@ class InfrastructureList():
             # In this case only loads the auth data to improve performance
             inf_ids = []
             for inf_id in InfrastructureList._get_inf_ids_from_db():
-                res = InfrastructureList._get_data_from_db(Config.DATA_DB, inf_id, auth)
-                if res:
-                    inf = res[inf_id]
-                    if inf and inf.is_authorized(auth) and not inf.deleted:
-                        inf_ids.append(inf.id)
+                # I we have the data in memory, use it
+                if inf_id in InfrastructureList.infrastructure_auth:
+                    inf = InfrastructureList.infrastructure_auth[inf_id]
+                    if inf.is_authorized(auth):
+                        inf_ids.append(inf_id)
+                else:
+                    res = InfrastructureList._get_data_from_db(Config.DATA_DB, inf_id, auth)
+                    if res:
+                        inf = res[inf_id]
+                        # store in memory to improve later requests
+                        InfrastructureList.infrastructure_auth[inf_id] = inf
+                        if inf and inf.is_authorized(auth):
+                            inf_ids.append(inf.id)
             return inf_ids
         else:
             return InfrastructureList._get_inf_ids_from_db()
