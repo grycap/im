@@ -7,7 +7,8 @@ EXPOSE 8899 8800
 RUN apt-get update && apt-get install -y gcc python-dbg python-dev python-pip libmysqld-dev python-pysqlite2 openssh-client sshpass libssl-dev libffi-dev
 # Install CherryPy to enable REST API
 RUN pip install setuptools --upgrade -I
-RUN pip install CherryPy pyOpenSSL --upgrade -I
+RUN pip install CherryPy==8.9.1
+RUN pip install pyOpenSSL --upgrade -I
 # Install pip optional libraries
 RUN pip install MySQL-python msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource
 RUN pip install IM
