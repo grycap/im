@@ -16,7 +16,7 @@ RUN apt-get update && apt-get install -y \
     libssl-dev \
     libffi-dev \
     libmysqld-dev \
-    python-pysqlite2
+    python-pysqlite2 \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
 
