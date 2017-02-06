@@ -57,5 +57,5 @@ setup(name="IM", version=version,
       platforms=["any"],
       install_requires=["ansible >= 1.8", "paramiko >= 1.14", "PyYAML", "suds", "pysqlite",
                         "boto >= 2.29", "apache-libcloud >= 0.17", "RADL", "bottle", "netaddr", "requests",
-                        "scp", "cherrypy"]
+                        "scp", "cherrypy<=8.9.1"]
       )
