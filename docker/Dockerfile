@@ -22,7 +22,8 @@ RUN apt-get update && apt-get install -y \
 
 # Install CherryPy to enable HTTPS in REST API
 RUN pip install setuptools --upgrade -I
-RUN pip install pbr CherryPy pyOpenSSL --upgrade -I
+RUN pip install CherryPy==8.9.1
+RUN pip install pbr pyOpenSSL --upgrade -I
 # Install pip optional libraries
 RUN pip install MySQL-python msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource
 
