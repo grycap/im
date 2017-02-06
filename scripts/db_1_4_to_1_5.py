@@ -59,6 +59,8 @@ class DB14to15():
                             inf = pickle.loads(elem[2])
                             if not inf.deleted:
                                 inf_list[inf.id] = inf
+                            else:
+                                sys.stdout.write("Inf %s deleted, ignoring it!." % inf.id)
                         except:
                             sys.stderr.write("ERROR reading infrastructure from database, ignoring it!.")
                             sys.exit(-1)
