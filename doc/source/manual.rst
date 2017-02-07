@@ -488,6 +488,15 @@ NETWORK OPTIONS
    It must be a coma separated string of the network definitions (using CIDR) (without spaces).
    The default value is ``'10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,192.0.0.0/24,169.254.0.0/16,100.64.0.0/10,198.18.0.0/15'``.
    
+HA MODE OPTIONS
+^^^^^^^^^^^^^^^
+
+.. confval:: INF_CACHE_TIME
+
+   Time (in seconds) the IM service will maintain the information of an infrastructure
+   in memory. Only used in case of IM in HA mode. This value has to be set to a similar value set in the ``expire`` value
+   in the ``stick-table`` in the HAProxy configuration.
+
 OpenNebula connector Options
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -522,6 +531,7 @@ Or you can also add a volume with all the IM configuration::
 
   $ sudo docker run -d -p 8899:8899 -p 8800:8800 -v "/some_local_path/im.cfg:/etc/im/im.cfg" --name im grycap/im
 
+.. _options-ha:
 
 IM in high availability mode
 ============================

@@ -22,7 +22,7 @@ import json
 
 from ganglia import ganglia_info
 import ConfManager
-from datetime import datetime
+from datetime import datetime, timedelta, date
 from radl.radl import RADL, Feature, deploy, system, contextualize_item
 from radl.radl_parse import parse_radl
 from config import Config
@@ -94,6 +94,8 @@ class InfrastructureInfo:
         """ List of configuration threads."""
         self.extra_info = {}
         """ Extra information about the Infrastructure."""
+        self.last_access = datetime.now()
+        """ Time of the last access to this Inf. """
 
     def serialize(self):
         with self._lock:
@@ -103,6 +105,7 @@ class InfrastructureInfo:
         del odict['_lock']
         del odict['ctxt_tasks']
         del odict['conf_threads']
+        del odict['last_access']
         if odict['vm_master']:
             odict['vm_master'] = odict['vm_master'].im_id
         vm_list = []
@@ -143,6 +146,19 @@ class InfrastructureInfo:
             if vm.im_id == vm_master_id:
                 newinf.vm_master = vm
             newinf.vm_list.append(vm)
+        return newinf
+
+    @staticmethod
+    def deserialize_auth(str_data):
+        """
+        Only Loads auth data
+        """
+        newinf = InfrastructureInfo()
+        dic = json.loads(str_data)
+        newinf.deleted = dic['deleted']
+        newinf.id = dic['id']
+        if dic['auth']:
+            newinf.auth = Authentication.deserialize(dic['auth'])
         return newinf
 
     def get_next_vm_id(self):
@@ -549,5 +565,21 @@ class InfrastructureInfo:
                     return False
 
             return True
+        else:
+            return False
+
+    def touch(self):
+        """
+        Set last access of the Inf
+        """
+        self.last_access = datetime.now()
+
+    def has_expired(self):
+        """
+        Check if the info of this Inf has expired (for HA mode)
+        """
+        if Config.INF_CACHE_TIME:
+            delay = timedelta(seconds=Config.INF_CACHE_TIME)
+            return (datetime.now() - self.last_access > delay)
         else:
             return False
