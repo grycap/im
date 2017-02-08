@@ -45,6 +45,8 @@ However, if you install IM from sources you should install:
  
  + The Netaddr library for Python, typically available as the 'python-netaddr' package.
 
+ + The Requests library for Python, typically available as the 'python-requests' package.
+
  + Ansible (http://www.ansibleworks.com/) to configure nodes in the infrastructures.
    In particular, Ansible 1.4.2+ must be installed.
    To ensure the functionality the following values must be set in the ansible.cfg file (usually found in /etc/ansible/):
@@ -120,7 +122,7 @@ To install them in Debian and Ubuntu based distributions, do::
 
 ```sh
 $ apt update
-$ apt install gcc python-dev libffi-dev libssl-dev python-pip sshpass python-mysqldb python-pysqlite2
+$ apt install gcc python-dev libffi-dev libssl-dev python-pip sshpass python-mysqldb python-pysqlite2 python-requests
 ```
 
 In Red Hat based distributions (RHEL, CentOS, Amazon Linux, Oracle Linux,
