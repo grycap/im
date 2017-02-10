@@ -559,3 +559,5 @@ This is an example of the HAProxy configuration file::
         server im-8801 10.0.0.1:8801 check
         server im-8802 10.0.0.1:8802 check
         ...
+
+See more details of HAProxy configuration at `HAProxy Documentation <https://cbonte.github.io/haproxy-dconv/>`_.
