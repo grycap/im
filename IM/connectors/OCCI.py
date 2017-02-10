@@ -860,7 +860,7 @@ users:
             resp = self.create_request('POST', self.cloud.path + "/compute/" + vm.id + "?action=suspend",
                                        auth_data, headers, body)
 
-            if resp.status_code != 200:
+            if resp.status_code not in [200, 204]:
                 return (False, "Error stopping the VM: " + resp.reason + "\n" + resp.text)
             else:
                 return (True, vm.id)
@@ -880,7 +880,7 @@ users:
             resp = self.create_request('POST', self.cloud.path + "/compute/" + vm.id + "?action=start",
                                        auth_data, headers, body)
 
-            if resp.status_code != 200:
+            if resp.status_code not in [200, 204]:
                 return (False, "Error starting the VM: " + resp.reason + "\n" + resp.text)
             else:
                 return (True, vm.id)
