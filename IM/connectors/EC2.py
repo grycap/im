@@ -1456,3 +1456,19 @@ class EC2CloudConnector(CloudConnector):
             return (True, snapshot_id)
         else:
             return (False, "Error generating VM snapshot")
+
+    def delete_image(self, image_url, auth_data):
+        (region_name, ami) = self.getAMIData(system.getValue("disk.0.image.url"))
+
+        self.logger.debug("Connecting with the region: " + region_name)
+        conn = self.get_connection(region_name, auth_data)
+
+        if not conn:
+            return (False, "Error connecting with EC2, check the credentials")
+        
+        sucess = conn.deregister_image(image_url, delete_snapshot=True) #https://github.com/boto/boto/issues/3019
+
+        if success:
+            return (True, "")
+        else:
+            return (False, "Error deregistering AMI image" + image_url)
