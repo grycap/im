@@ -168,6 +168,37 @@ class TestEC2Connector(unittest.TestCase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         self.clean_log()
 
+        # Check the case that we do not use VPC
+        radl_data = """
+            network net1 (outbound = 'yes' and outports='8080')
+            network net2 ()
+            system test (
+            cpu.arch='x86_64' and
+            cpu.count>=1 and
+            memory.size>=1g and
+            net_interface.0.connection = 'net1' and
+            net_interface.0.dns_name = 'test' and
+            net_interface.1.connection = 'net2' and
+            disk.0.os.name = 'linux' and
+            disk.0.image.url = 'aws://us-east-one/ami-id' and
+            disk.0.os.credentials.username = 'user' and
+            disk.0.os.credentials.private_key = 'private' and
+            disk.0.os.credentials.public_key = 'public' and
+            disk.1.size=1GB and
+            disk.1.device='hdb' and
+            disk.1.mount_path='/mnt/path'
+            )"""
+        radl = radl_parse.parse_radl(radl_data)
+        conn.get_all_vpcs.return_value = []
+        res = ec2_cloud.launch(InfrastructureInfo(), radl, radl, 1, auth)
+        success, _ = res[0]
+        self.assertTrue(success, msg="ERROR: launching a VM.")
+        # check the instance_type selected is correct
+        self.assertEquals(image.run.call_args_list[1][1]["instance_type"], "m1.small")
+
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+        self.clean_log()
+
     @patch('boto.ec2.get_region')
     @patch('boto.vpc.VPCConnection')
     @patch('boto.ec2.blockdevicemapping.BlockDeviceMapping')
