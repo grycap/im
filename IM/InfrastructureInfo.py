@@ -105,7 +105,8 @@ class InfrastructureInfo:
         del odict['_lock']
         del odict['ctxt_tasks']
         del odict['conf_threads']
-        del odict['last_access']
+        if 'last_access' in odict:
+            del odict['last_access']
         if odict['vm_master']:
             odict['vm_master'] = odict['vm_master'].im_id
         vm_list = []

@@ -17,6 +17,7 @@ RUN apt-get update && apt-get install -y \
     libffi-dev \
     libmysqld-dev \
     python-pysqlite2 \
+    python-requests \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
 

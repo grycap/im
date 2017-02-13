@@ -720,6 +720,13 @@ class Tosca:
                 return vm.id
             elif attribute_name == "tosca_name":
                 return node.name
+            elif attribute_name == "ctxt_log":
+                if node.type == "tosca.nodes.indigo.Compute":
+                    return vm.cont_out
+                else:
+                    Tosca.logger.warn("Attribute ctxt_log only supported"
+                                      " in tosca.nodes.indigo.Compute nodes.")
+                    return None
             elif attribute_name == "credential" and capability_name == "endpoint":
                 if node.type == "tosca.nodes.indigo.Compute":
                     res = []
