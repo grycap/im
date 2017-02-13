@@ -14,6 +14,7 @@ IM needs at least Python 2.6 to run, as well as the next libraries:
 * `suds <https://fedorahosted.org/suds/>`_, a full-featured SOAP library.
 * `Netaddr <http://pythonhosted.org/netaddr//>`_, A Python library for representing 
   and manipulating network addresses.
+* `Requests <http://docs.python-requests.org>`_, A Python library for access REST APIs.
     
 Also, IM uses `Ansible <http://www.ansible.com>`_ (1.4.2 or later) to configure the
 infrastructure nodes. The current recommended version is 1.9.4 untill the 2.X versions become stable.
@@ -86,7 +87,7 @@ First you need to install pip tool and some packages needed to compile some of t
 To install them in Debian and Ubuntu based distributions, do::
 
     $ apt update
-    $ apt install gcc python-dev libffi-dev libssl-dev python-pip sshpass python-mysqldb python-pysqlite2
+    $ apt install gcc python-dev libffi-dev libssl-dev python-pip sshpass python-mysqldb python-pysqlite2 python-requests
 
 In Red Hat based distributions (RHEL, CentOS, Amazon Linux, Oracle Linux,
 Fedora, etc.), do::
@@ -558,3 +559,5 @@ This is an example of the HAProxy configuration file::
         server im-8801 10.0.0.1:8801 check
         server im-8802 10.0.0.1:8802 check
         ...
+
+See more details of HAProxy configuration at `HAProxy Documentation <https://cbonte.github.io/haproxy-dconv/>`_.

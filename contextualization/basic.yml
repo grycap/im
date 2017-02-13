@@ -33,3 +33,8 @@
     # pk_file var must be added by the ctxt agent
     - name: Add the authorized_key to the nodes
       action: authorized_key user={{ansible_user}} key="{{ lookup('file', pk_file) }}"
+
+    # Added to solve GCE issues removing the key
+    - name: Add the authorized_key to the nodes again
+      lineinfile: dest="/home/{{ansible_user}}/.ssh/authorized_keys" line="{{ lookup('file', pk_file) }}2"
+      ignore_errors: yes
