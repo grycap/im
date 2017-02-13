@@ -55,6 +55,8 @@ Optional Packages
    It is typically available as the 'python-bottle' package.
 * `The CherryPy Web framework <http://www.cherrypy.org/>`_, is needed for the REST API. 
    It is typically available as the 'python-cherrypy' or 'python-cherrypy3' package.
+   In newer versions (9.0 and later) the functionality has been moved `the cheroot
+   library<https://github.com/cherrypy/cheroot>`_ it can be installed using pip.
 * `apache-libcloud <http://libcloud.apache.org/>`_ 0.17 or later is used in the
   LibCloud, OpenStack and GCE connectors.
 * `boto <http://boto.readthedocs.org>`_ 2.29.0 or later is used as interface to
