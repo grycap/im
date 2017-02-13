@@ -555,12 +555,18 @@ class EC2CloudConnector(CloudConnector):
 
             i = 0
             while i < num_vm:
+                err_msg = "Launching in region %s with image: %s" % (region_name, ami)
+                if vpc:
+                    err_msg += " in VPC: %s-%s " % (vpc, subnet)
+                else:
+                    err_msg += " in EC2 classic "
                 try:
                     spot = False
                     if system.getValue("spot") == "yes":
                         spot = True
 
                     if spot:
+                        err_msg += " a spot instance "
                         self.logger.debug("Launching a spot instance")
                         instance_type = self.get_instance_type(system, vpc is not None)
                         if not instance_type:
@@ -570,6 +576,7 @@ class EC2CloudConnector(CloudConnector):
                             res.append(
                                 (False, "Error launching the VM, no instance type available for the requirements."))
                         else:
+                            err_msg += " of type: %s " % instance_type.name
                             price = system.getValue("price")
                             # Realizamos el request de spot instances
                             if system.getValue("disk.0.os.name"):
@@ -636,10 +643,9 @@ class EC2CloudConnector(CloudConnector):
                                 all_failed = False
                                 res.append((True, vm))
                             else:
-                                res.append(
-                                    (False, "Error launching the image"))
-
+                                res.append((False, "Error %s." % err_msg))
                     else:
+                        err_msg += " an ondemand instance "
                         self.logger.debug("Launching ondemand instance")
                         instance_type = self.get_instance_type(system, vpc is not None)
                         if not instance_type:
@@ -649,6 +655,7 @@ class EC2CloudConnector(CloudConnector):
                             res.append(
                                 (False, "Error launching the VM, no instance type available for the requirements."))
                         else:
+                            err_msg += " of type: %s " % instance_type.name
                             placement = system.getValue('availability_zone')
                             # Force to use magnetic volumes
                             bdm = boto.ec2.blockdevicemapping.BlockDeviceMapping(conn)
@@ -679,13 +686,11 @@ class EC2CloudConnector(CloudConnector):
                                 res.append((True, vm))
                                 all_failed = False
                             else:
-                                res.append(
-                                    (False, "Error launching the image"))
+                                res.append((False, "Error %s." % err_msg))
 
                 except Exception, ex:
-                    self.logger.exception("Error launching instance.")
-                    res.append(
-                        (False, "Error launching the instance: " + str(ex)))
+                    self.logger.exception("Error %s." % err_msg)
+                    res.append((False, "Error %s. %s" % (err_msg, str(ex))))
 
                 i += 1
 
