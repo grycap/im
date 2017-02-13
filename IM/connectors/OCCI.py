@@ -764,7 +764,10 @@ users:
                     for _, volume_id in volumes:
                         self.delete_volume(volume_id, auth_data)
                 else:
-                    occi_vm_id = os.path.basename(resp.text)
+                    if 'location' in resp.headers:
+                        occi_vm_id = os.path.basename(resp.headers['location'])
+                    else:
+                        occi_vm_id = os.path.basename(resp.text)
                     if occi_vm_id:
                         vm.id = occi_vm_id
                         vm.info.systems[0].setValue('instance_id', str(occi_vm_id))
