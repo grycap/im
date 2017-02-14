@@ -123,7 +123,7 @@ class TestOCCIConnector(unittest.TestCase):
                 resp.status_code = 201
                 resp.text = 'https://server.com/compute/1'
             elif params == "action=suspend":
-                resp.status_code = 200
+                resp.status_code = 204
             elif params == "action=start":
                 resp.status_code = 200
             elif url == "/link/storagelink":

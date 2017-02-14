@@ -57,8 +57,7 @@ class DB14to15():
                         # date = elem[1]
                         try:
                             inf = pickle.loads(elem[2])
-                            if not inf.deleted:
-                                inf_list[inf.id] = inf
+                            inf_list[inf.id] = inf
                         except:
                             sys.stderr.write("ERROR reading infrastructure from database, ignoring it!.")
                             sys.exit(-1)

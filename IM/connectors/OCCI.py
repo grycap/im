@@ -764,7 +764,10 @@ users:
                     for _, volume_id in volumes:
                         self.delete_volume(volume_id, auth_data)
                 else:
-                    occi_vm_id = os.path.basename(resp.text)
+                    if 'location' in resp.headers:
+                        occi_vm_id = os.path.basename(resp.headers['location'])
+                    else:
+                        occi_vm_id = os.path.basename(resp.text)
                     if occi_vm_id:
                         vm.id = occi_vm_id
                         vm.info.systems[0].setValue('instance_id', str(occi_vm_id))
@@ -860,7 +863,7 @@ users:
             resp = self.create_request('POST', self.cloud.path + "/compute/" + vm.id + "?action=suspend",
                                        auth_data, headers, body)
 
-            if resp.status_code != 200:
+            if resp.status_code not in [200, 204]:
                 return (False, "Error stopping the VM: " + resp.reason + "\n" + resp.text)
             else:
                 return (True, vm.id)
@@ -880,7 +883,7 @@ users:
             resp = self.create_request('POST', self.cloud.path + "/compute/" + vm.id + "?action=start",
                                        auth_data, headers, body)
 
-            if resp.status_code != 200:
+            if resp.status_code not in [200, 204]:
                 return (False, "Error starting the VM: " + resp.reason + "\n" + resp.text)
             else:
                 return (True, vm.id)
