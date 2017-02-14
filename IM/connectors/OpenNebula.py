@@ -26,8 +26,7 @@ from radl.radl import network, Feature
 from IM.config import ConfigOpenNebula
 from netaddr import IPNetwork, IPAddress
 from IM.config import Config
-from IM.tts.tts import TTSClient
-from IM.openid.JWT import JWT
+from IM.tts.onetts import ONETTSClient
 
 # Set of classes to parse the XML results of the ONE API
 
@@ -188,37 +187,6 @@ class OpenNebulaCloudConnector(CloudConnector):
 
             return res
 
-    def get_auth_from_tts(self, token):
-        """
-        Get username and password from the TTS service
-        """
-        tts_uri = uriparse(ConfigOpenNebula.TTS_URL)
-        scheme = tts_uri[0]
-        host = tts_uri[1]
-        port = None
-        if host.find(":") != -1:
-            parts = host.split(":")
-            host = parts[0]
-            port = int(parts[1])
-
-        decoded_token = JWT.get_info(token)
-        ttsc = TTSClient(token, decoded_token['iss'], host, port, scheme)
-
-        success, svc = ttsc.find_service("opennebula", self.cloud.server)
-        if not success:
-            raise Exception("Error getting credentials from TTS: %s" % svc)
-        succes, cred = ttsc.request_credential(svc["id"])
-        if succes:
-            username = password = None
-            for elem in cred:
-                if elem['name'] == 'Username':
-                    username = elem['value']
-                elif elem['name'] == 'Password':
-                    password = elem['value']
-            return username, password
-        else:
-            raise Exception("Error getting credentials from TTS: %s" % cred)
-
     def getSessionID(self, auth_data, hash_password=None):
         """
         Get the ONE Session ID from the auth data
@@ -246,7 +214,8 @@ class OpenNebulaCloudConnector(CloudConnector):
 
             return auth['username'] + ":" + passwd
         elif 'token' in auth:
-            username, passwd = self.get_auth_from_tts(auth['token'])
+            username, passwd = ONETTSClient.get_auth_from_tts(ConfigOpenNebula.TTS_URL,
+                                                              self.cloud.server, auth['token'])
             if not username or not passwd:
                 raise Exception("Error getting ONE credentials using TTS.")
             auth["username"] = username

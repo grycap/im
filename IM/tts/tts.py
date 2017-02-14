@@ -5,90 +5,63 @@ Created on 16 de jun. de 2016
 '''
 
 import json
-import httplib
+import requests
 
 
 class TTSClient:
     """
-    Class to interact with the TTS
+    Class to interact with the TTS using v2 of the REST API
     https://github.com/indigo-dc/tts
     """
 
-    def __init__(self, token, iss, host, port=None, uri_scheme=None):
+    def __init__(self, token, host, port=None, uri_scheme=None, ssl_verify=False):
         self.host = host
         self.port = port
         if not self.port:
             self.port = 8080
         self.token = token
-        self.iss = iss
         self.uri_scheme = uri_scheme
         if not self.uri_scheme:
             self.uri_scheme = "http"
+        self.ssl_verify = ssl_verify
 
-    def _get_http_connection(self):
-        """
-        Get the HTTP connection to contact the TTS server
-        """
-        if self.uri_scheme == 'https':
-            conn = httplib.HTTPSConnection(self.host, self.port)
-        else:
-            conn = httplib.HTTPConnection(self.host, self.port)
-
-        return conn
-
-    def _perform_get(self, url):
+    def _perform_get(self, url, headers={}):
         """
         Perform the GET operation on the TTS with the specified URL
         """
-        headers = {}
-        headers['Authorization'] = 'Bearer %s' % self.token
-        headers['Content-Type'] = 'application/json'
-        headers['X-OpenId-Connect-Issuer'] = self.iss
-        conn = self._get_http_connection()
-        conn.request('GET', url, headers=headers)
-        resp = conn.getresponse()
-        output = resp.read()
+        url = "%s://%s:%s%s" % (self.uri_scheme, self.host, self.port, url)
+        resp = requests.request("GET", url, verify=self.ssl_verify, headers=headers)
 
-        if resp.status >= 200 and resp.status <= 299:
-            return True, output
+        if resp.status_code >= 200 and resp.status_code <= 299:
+            return True, resp.text
         else:
-            return False, "Error code %d. Msg: %s" % (resp.status, output)
+            return False, "Error code %d. Msg: %s" % (resp.status_code, resp.text)
 
-    def _perform_post(self, url, body):
+    def _perform_post(self, url, headers, body):
         """
-        Perform the POR operation on the TTS with the specified URL
+        Perform the POST operation on the TTS with the specified URL
         and using the body specified
         """
-        conn = self._get_http_connection()
-
-        conn.putrequest('POST', url)
-
-        conn.putheader('Authorization', 'Bearer %s' % self.token)
-        conn.putheader('Content-Type', 'application/json')
-        conn.putheader('X-OpenId-Connect-Issuer', self.iss)
-
-        conn.putheader('Content-Length', len(body))
-        conn.endheaders(body)
-
-        resp = conn.getresponse()
-        output = str(resp.read())
-
-        if resp.status == 303:
-            # in case of redirection get the response from the new URL
-            return self._perform_get(resp.msg['location'])
-        elif resp.status >= 200 and resp.status <= 299:
-            return True, output
+        url = "%s://%s:%s%s" % (self.uri_scheme, self.host, self.port, url)
+        resp = requests.request("POST", url, verify=self.ssl_verify, headers=headers, data=body)
+        if resp.status_code >= 200 and resp.status_code <= 299:
+            return True, resp.text
         else:
-            return False, "Error code %d. Msg: %s" % (resp.status, output)
+            return False, "Error code %d. Msg: %s" % (resp.status_code, resp.text)
 
     def request_credential(self, sid):
         """
         Request a credential for the specified service
         """
+        success, provider = self.get_provider()
+        if not success:
+            return False, provider
+
         body = '{"service_id":"%s"}' % sid
-        url = "/api/credential/"
+        url = "/api/v2/%s/credential" % provider["id"]
         try:
-            success, res = self._perform_post(url, body)
+            headers = {'Authorization': 'Bearer %s' % self.token, 'Content-Type': 'application/json'}
+            success, res = self._perform_post(url, headers, body)
         except Exception, ex:
             success = False
             res = str(ex)
@@ -97,11 +70,11 @@ class TTSClient:
         else:
             return False, res
 
-    def list_endservices(self):
+    def list_providers(self):
         """
-        Get the list of services
+        Get the list of providers
         """
-        url = "/api/service"
+        url = "/api/v2/oidcp"
         try:
             success, output = self._perform_get(url)
         except Exception, ex:
@@ -112,14 +85,48 @@ class TTSClient:
         else:
             return True, json.loads(output)
 
-    def find_service(self, stype, host):
+    def list_endservices(self, provider):
         """
-        Find a service with the specified type and host values
+        Get the list of services
         """
-        success, services = self.list_endservices()
+        url = "/api/v2/%s/service" % provider
+        try:
+            headers = {'Authorization': 'Bearer %s' % self.token}
+            success, output = self._perform_get(url, headers)
+        except Exception, ex:
+            success = False
+            output = str(ex)
+        if not success:
+            return False, output
+        else:
+            return True, json.loads(output)
+
+    def get_provider(self):
+        """
+        Get the first provider available
+        """
+        success, providers = self.list_providers()
+        if not success:
+            return False, providers
+        else:
+            if providers['openid_provider_list']:
+                return True, providers['openid_provider_list'][0]
+            else:
+                return False, "No provider found."
+
+    def find_service(self, host):
+        """
+        Find a service for the specified host
+        """
+        success, provider = self.get_provider()
+        if not success:
+            return False, provider
+
+        success, services = self.list_endservices(provider["id"])
         if success:
             for service in services["service_list"]:
-                if service["type"] == stype and service["host"] == host:
+                # we assume that if the host appears in the description it is our service
+                if service["description"].find(host) != -1:
                     return True, service
         else:
             return False, services

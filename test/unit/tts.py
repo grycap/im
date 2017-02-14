@@ -17,10 +17,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
-import os
 
+from IM.uriparse import uriparse
 from IM.tts.tts import TTSClient
-from radl import radl_parse
 from mock import patch, MagicMock
 
 
@@ -30,83 +29,82 @@ class TestTTSClient(unittest.TestCase):
     """
     @classmethod
     def setUpClass(cls):
-        cls.last_op = None, None
         token = ("eyJraWQiOiJyc2ExIiwiYWxnIjoiUlMyNTYifQ.eyJzdWIiOiJkYzVkNWFiNy02ZGI5LTQwNzktOTg1Yy04MGFjMDUwMTcwNjYi"
                  "LCJpc3MiOiJodHRwczpcL1wvaWFtLXRlc3QuaW5kaWdvLWRhdGFjbG91ZC5ldVwvIiwiZXhwIjoxNDY2MDkzOTE3LCJpYXQiOjE"
                  "0NjYwOTAzMTcsImp0aSI6IjE1OTU2N2U2LTdiYzItNDUzOC1hYzNhLWJjNGU5MmE1NjlhMCJ9.eINKxJa2J--xdGAZWIOKtx9Wi"
                  "0Vz3xHzaSJWWY-UHWy044TQ5xYtt0VTvmY5Af-ngwAMGfyaqAAvNn1VEP-_fMYQZdwMqcXLsND4KkDi1ygiCIwQ3JBz9azBT1o_"
                  "oAHE5BsPsE2BjfDoVRasZxxW5UoXCmBslonYd8HK2tUVjz0")
-        iss = "https://iam-test.indigo-datacloud.eu/"
-        cls.ttsc = TTSClient(token, iss, "localhost")
+        cls.ttsc = TTSClient(token, "localhost")
 
-    def get_response(self):
-        method, url = self.__class__.last_op
-
+    def get_response(self, method, url, verify=False, cert=None, headers={}, data=None):
         resp = MagicMock()
+        parts = uriparse(url)
+        url = parts[2]
 
         if method == "GET":
-            if "/api/credential/somecred" == url:
-                resp.status = 200
-                resp.read.return_value = ('[{"name": "Username", "type": "text", "value": "username"},'
-                                          '{"name": "Password", "type": "text", "value": "password"}]')
-            if "/api/service" == url:
-                resp.status = 200
-                resp.read.return_value = ('{"service_list": [{"id":"sid", "type":"stype", "host": "shost"}]}')
+            if "/api/v2/oidcp" == url:
+                resp.status_code = 200
+                resp.text = '{"openid_provider_list": [{"id": "iam"}]}'
+            elif "/api/v2/iam/service" == url:
+                resp.status_code = 200
+                resp.text = ('{"service_list": [{"id":"sid", "description": "shost"}]}')
+            else:
+                resp.status_code = 400
         elif method == "POST":
-            if url == "/api/credential/":
-                resp.status = 303
-                resp.msg = {'location': "/api/credential/somecred"}
+            if url == "/api/v2/iam/credential":
+                resp.status_code = 200
+                resp.text = ('{ "credential": { "entries": [{"name": "Username", "type": "text", "value": "username"},'
+                             '{"name": "Password", "type": "text", "value": "password"}]}}')
+            else:
+                resp.status_code = 401
+        else:
+            resp.status_code = 402
 
         return resp
 
-    def request(self, method, url, body=None, headers={}):
-        self.__class__.last_op = method, url
+    @patch('requests.request')
+    def test_list_providers(self, requests):
+        requests.side_effect = self.get_response
 
-    @patch('httplib.HTTPConnection')
-    def test_list_endservices(self, connection):
-        conn = MagicMock()
-        connection.return_value = conn
+        success, providers = self.ttsc.list_providers()
 
-        conn.request.side_effect = self.request
-        conn.putrequest.side_effect = self.request
-        conn.getresponse.side_effect = self.get_response
+        expected_providers = {"openid_provider_list": [{"id": "iam"}]}
 
-        success, services = self.ttsc.list_endservices()
+        self.assertTrue(success, msg="ERROR: getting providers: %s." % providers)
+        self.assertEqual(providers, expected_providers, msg="ERROR: getting providers: Unexpected providers.")
 
-        expected_services = {"service_list": [{"id": "sid", "type": "stype", "host": "shost"}]}
+    @patch('requests.request')
+    def test_list_endservices(self, requests):
+        requests.side_effect = self.get_response
+
+        _, provider = self.ttsc.get_provider()
+        success, services = self.ttsc.list_endservices(provider["id"])
+
+        expected_services = {"service_list": [{"id": "sid", "description": "shost"}]}
 
         self.assertTrue(success, msg="ERROR: getting services: %s." % services)
         self.assertEqual(services, expected_services, msg="ERROR: getting services: Unexpected services.")
 
-    @patch('httplib.HTTPConnection')
-    def test_find_service(self, connection):
-        conn = MagicMock()
-        connection.return_value = conn
+    @patch('requests.request')
+    def test_find_service(self, requests):
+        requests.side_effect = self.get_response
 
-        conn.request.side_effect = self.request
-        conn.putrequest.side_effect = self.request
-        conn.getresponse.side_effect = self.get_response
+        success, service = self.ttsc.find_service("shost")
 
-        success, service = self.ttsc.find_service("stype", "shost")
-
-        expected_service = {"id": "sid", "type": "stype", "host": "shost"}
+        expected_service = {"id": "sid", "description": "shost"}
 
         self.assertTrue(success)
         self.assertEqual(service, expected_service)
 
-    @patch('httplib.HTTPConnection')
-    def test_request_credential(self, connection):
-        conn = MagicMock()
-        connection.return_value = conn
-
-        conn.request.side_effect = self.request
-        conn.putrequest.side_effect = self.request
-        conn.getresponse.side_effect = self.get_response
+    @patch('requests.request')
+    def test_request_credential(self, requests):
+        requests.side_effect = self.get_response
 
         success, cred = self.ttsc.request_credential("sid")
 
-        expected_cred = [{'name': 'Username', 'type': 'text', 'value': 'username'},
-                         {'name': 'Password', 'type': 'text', 'value': 'password'}]
+        expected_cred = {"credential": {"entries": [
+            {'name': 'Username', 'type': 'text', 'value': 'username'},
+            {'name': 'Password', 'type': 'text', 'value': 'password'}]}}
 
         self.assertTrue(success, msg="ERROR: getting credentials: %s." % cred)
         self.assertEqual(cred, expected_cred, msg="ERROR: getting credentials: Unexpected credetials.")
