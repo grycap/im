@@ -89,8 +89,10 @@ However, if you install IM from sources you should install:
 
 The Bottle framework (http://bottlepy.org/) is used for the REST API. It is typically available as the 'python-bottle' package.
 
-The CherryPy Web framework (http://www.cherrypy.org/), is needed for the REST API.
-It is typically available as the 'python-cherrypy' or 'python-cherrypy3' package.ç
+he CherryPy Web framework (http://www.cherrypy.org/), is needed for the REST API. 
+It is typically available as the 'python-cherrypy' or 'python-cherrypy3' package.
+In newer versions (9.0 and later) the functionality has been moved to the 'cheroot' library
+(https://github.com/cherrypy/cheroot) it can be installed using pip.
 
 Boto (http://boto.readthedocs.org) 2.29.0 or later is used as interface to Amazon EC2.
 It is available as package named python-boto in Debian based distributions.
