@@ -58,9 +58,16 @@ bottle_server = None
 class MySSLCherryPy(bottle.ServerAdapter):
 
     def run(self, handler):
-        from cherrypy.wsgiserver.ssl_pyopenssl import pyOpenSSLAdapter
-        from cherrypy import wsgiserver
-        server = wsgiserver.CherryPyWSGIServer((self.host, self.port), handler, request_queue_size=32)
+        try:
+            # First try to use the new version
+            from cheroot.ssl.pyopenssl import pyOpenSSLAdapter
+            from cheroot import wsgi
+            server = wsgi.Server((self.host, self.port), handler, request_queue_size=32)
+        except:
+            from cherrypy.wsgiserver.ssl_pyopenssl import pyOpenSSLAdapter
+            from cherrypy import wsgiserver
+            server = wsgiserver.CherryPyWSGIServer((self.host, self.port), handler, request_queue_size=32)
+
         self.srv = server
 
         # If cert variable is has a valid path, SSL will be used
@@ -80,8 +87,14 @@ class MySSLCherryPy(bottle.ServerAdapter):
 class MyCherryPy(bottle.ServerAdapter):
 
     def run(self, handler):
-        from cherrypy import wsgiserver
-        server = wsgiserver.CherryPyWSGIServer((self.host, self.port), handler, request_queue_size=32)
+        try:
+            # First try to use the new version
+            from cheroot import wsgi
+            server = wsgi.Server((self.host, self.port), handler, request_queue_size=32)
+        except:
+            from cherrypy import wsgiserver
+            server = wsgiserver.CherryPyWSGIServer((self.host, self.port), handler, request_queue_size=32)
+        
         self.srv = server
         try:
             server.start()
