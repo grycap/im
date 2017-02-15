@@ -1,0 +1,12 @@
+network publica (outbound = 'yes')
+
+system octave (
+cpu.count>=1 and
+memory.size>=1g and
+net_interface.0.connection = 'publica' and
+disk.0.os.name='linux' and
+disk.0.os.flavour='ubuntu' and
+disk.0.applications contains (name='octave')
+)
+
+deploy octave 1

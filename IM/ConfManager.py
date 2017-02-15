@@ -26,13 +26,17 @@ import copy
 from StringIO import StringIO
 from multiprocessing import Queue
 
-from ansible.parsing.vault import VaultEditor
+try:
+    from ansible.parsing.vault import VaultEditor
+except:
+    from ansible.utils.vault import VaultEditor
 
 from IM.ansible_utils.ansible_launcher import AnsibleThread
 
-import InfrastructureManager
+import IM.InfrastructureManager
+import IM.InfrastructureList
 from IM.VirtualMachine import VirtualMachine
-from IM.SSH import AuthenticationException
+from IM.SSH import AuthenticationException, TimeOutException
 from IM.SSHRetry import SSHRetry
 from IM.recipe import Recipe
 from radl.radl import system, contextualize_item
@@ -86,8 +90,7 @@ class ConfManager(threading.Thread):
                             "Inf ID: " + str(self.inf.id) + ": Configuration process in VM: " +
                             str(vm.im_id) + " finished.")
                         # Force to save the data to store the log data ()
-                        ServiceRequests.IMBaseRequest.create_request(
-                            ServiceRequests.IMBaseRequest.SAVE_DATA, (self.inf.id))
+                        IM.InfrastructureList.InfrastructureList.save_data(self.inf.id)
                 else:
                     # General Infrastructure tasks
                     if vm.is_ctxt_process_running():
@@ -105,8 +108,7 @@ class ConfManager(threading.Thread):
                             ConfManager.logger.debug(
                                 "Inf ID: " + str(self.inf.id) + ": Configuration process of master node failed.")
                         # Force to save the data to store the log data
-                        ServiceRequests.IMBaseRequest.create_request(
-                            ServiceRequests.IMBaseRequest.SAVE_DATA, (self.inf.id))
+                        IM.InfrastructureList.InfrastructureList.save_data(self.inf.id)
 
         return res
 
@@ -271,8 +273,7 @@ class ConfManager(threading.Thread):
                         # assigned
                         vm.ctxt_pid = VirtualMachine.WAIT_TO_PID
                         # Force to save the data to store the log data
-                        ServiceRequests.IMBaseRequest.create_request(
-                            ServiceRequests.IMBaseRequest.SAVE_DATA, (self.inf.id))
+                        IM.InfrastructureList.InfrastructureList.save_data(self.inf.id)
                 else:
                     # Launch the Infrastructure tasks
                     vm.configured = None
@@ -286,8 +287,7 @@ class ConfManager(threading.Thread):
                         vms_configuring[step] = []
                     vms_configuring[step].append(vm)
                     # Force to save the data to store the log data
-                    ServiceRequests.IMBaseRequest.create_request(
-                        ServiceRequests.IMBaseRequest.SAVE_DATA, (self.inf.id))
+                    IM.InfrastructureList.InfrastructureList.save_data(self.inf.id)
 
                 last_step = step
 
@@ -517,7 +517,6 @@ class ConfManager(threading.Thread):
         res_filename = "etc_hosts"
         hosts_file = tmp_dir + "/" + res_filename
         hosts_out = open(hosts_file, 'w')
-        hosts_out.write("127.0.0.1 localhost localhost.localdomain\r\n")
 
         vm_group = self.inf.get_vm_list_by_system_name()
         for group in vm_group:
@@ -819,8 +818,7 @@ class ConfManager(threading.Thread):
                 self.inf.ansible_configured = True
                 self.inf.set_configured(True)
                 # Force to save the data to store the log data
-                ServiceRequests.IMBaseRequest.create_request(
-                    ServiceRequests.IMBaseRequest.SAVE_DATA, (self.inf.id))
+                IM.InfrastructureList.InfrastructureList.save_data(self.inf.id)
             else:
                 self.inf.ansible_configured = False
                 self.inf.set_configured(False)
@@ -898,8 +896,7 @@ class ConfManager(threading.Thread):
                 self.change_master_credentials(ssh)
 
                 # Force to save the data to store the log data
-                ServiceRequests.IMBaseRequest.create_request(
-                    ServiceRequests.IMBaseRequest.SAVE_DATA, (self.inf.id))
+                IM.InfrastructureList.InfrastructureList.save_data(self.inf.id)
 
                 self.inf.set_configured(True)
             except:
@@ -1004,7 +1001,7 @@ class ConfManager(threading.Thread):
         Remove and launch again the specified VM
         """
         try:
-            removed = InfrastructureManager.InfrastructureManager.RemoveResource(
+            removed = IM.InfrastructureManager.InfrastructureManager.RemoveResource(
                 self.inf.id, vm.im_id, self.auth)
         except:
             ConfManager.logger.exception(
@@ -1025,7 +1022,7 @@ class ConfManager(threading.Thread):
         failed_clouds = []
         if failed_cloud:
             failed_clouds = [vm.cloud]
-        InfrastructureManager.InfrastructureManager.AddResource(
+        IM.InfrastructureManager.InfrastructureManager.AddResource(
             self.inf.id, new_radl, self.auth, False, failed_clouds)
 
     def wait_vm_running(self, vm, timeout, relaunch=False):
@@ -1159,7 +1156,10 @@ class ConfManager(threading.Thread):
                     time.sleep(delay)
 
         # Timeout, return False
-        return False, "Timeout waiting SSH access."
+        if ip:
+            return False, "Timeout waiting SSH access."
+        else:
+            return False, "Timeout waiting the VM to get a public IP."
 
     def change_master_credentials(self, ssh):
         """
@@ -1180,36 +1180,30 @@ class ConfManager(threading.Thread):
                     # only change to the new password if there are a previous
                     # passwd value
                     if passwd and new_passwd:
-                        ConfManager.logger.info(
-                            "Changing password to master VM")
-                        (out, err, code) = ssh.execute('sudo bash -c \'echo "' + user + ':' + new_passwd +
+                        ConfManager.logger.info("Changing password to master VM")
+                        (out, err, code) = ssh.execute('echo "' + passwd + '" | sudo -S bash -c \'echo "' +
+                                                       user + ':' + new_passwd +
                                                        '" | /usr/sbin/chpasswd && echo "OK"\' 2> /dev/null')
 
                         if code == 0:
                             change_creds = True
                             ssh.password = new_passwd
                         else:
-                            ConfManager.logger.error(
-                                "Error changing password to master VM. " + out + err)
+                            ConfManager.logger.error("Error changing password to master VM. " + out + err)
 
                     if new_public_key and new_private_key:
-                        ConfManager.logger.info(
-                            "Changing public key to master VM")
-                        (out, err, code) = ssh.execute('echo ' +
-                                                       new_public_key + ' >> .ssh/authorized_keys')
+                        ConfManager.logger.info("Changing public key to master VM")
+                        (out, err, code) = ssh.execute_timeout('echo ' + new_public_key + ' >> .ssh/authorized_keys', 5)
                         if code != 0:
-                            ConfManager.logger.error(
-                                "Error changing public key to master VM. " + out + err)
+                            ConfManager.logger.error("Error changing public key to master VM. " + out + err)
                         else:
                             change_creds = True
                             ssh.private_key = new_private_key
 
                 if change_creds:
-                    self.inf.vm_master.info.systems[
-                        0].updateNewCredentialValues()
+                    self.inf.vm_master.info.systems[0].updateNewCredentialValues()
         except:
-            ConfManager.logger.exception(
-                "Error changing credentials to master VM.")
+            ConfManager.logger.exception("Error changing credentials to master VM.")
 
         return change_creds
 
@@ -1385,20 +1379,18 @@ class ConfManager(threading.Thread):
                     recipe_out.close()
 
             self.inf.add_cont_msg("Performing preliminary steps to configure Ansible.")
-            # TODO: check to do it with ansible
-            ConfManager.logger.debug("Inf ID: " + str(self.inf.id) +
-                                     ": Check if python-simplejson is installed in REL 5 systems")
-            (stdout, stderr, _) = ssh.execute(
-                "cat /etc/redhat-release | grep \"release 5\" &&  sudo yum -y install python-simplejson", 120)
-            ConfManager.logger.debug(
-                "Inf ID: " + str(self.inf.id) + ": " + stdout + stderr)
 
             ConfManager.logger.debug(
                 "Inf ID: " + str(self.inf.id) + ": Remove requiretty in sshd config")
-            (stdout, stderr, _) = ssh.execute(
-                "sudo sed -i 's/.*requiretty$/#Defaults requiretty/' /etc/sudoers", 120)
-            ConfManager.logger.debug(
-                "Inf ID: " + str(self.inf.id) + ": " + stdout + stderr)
+            try:
+                cmd = "sudo -S sed -i 's/.*requiretty$/#Defaults requiretty/' /etc/sudoers"
+                if ssh.password:
+                    cmd = "echo '" + ssh.password + "' | " + cmd
+                (stdout, stderr, _) = ssh.execute(cmd, 120)
+                ConfManager.logger.debug(
+                    "Inf ID: " + str(self.inf.id) + ": " + stdout + stderr)
+            except:
+                ConfManager.logger.exception("Inf ID: " + str(self.inf.id) + ": Error remove requiretty. Ignoring.")
 
             self.inf.add_cont_msg("Configure Ansible in the master VM.")
             ConfManager.logger.debug(

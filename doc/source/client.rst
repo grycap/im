@@ -153,12 +153,12 @@ keys are:
   
 * ``public_key`` indicates the content of the public key file associated to the credential.
   To refer to a file you must use the function "file(cert.pem)" as shown in the example.
-  This field is only used in the Azure Classic plugin. See how to get it
+  This field is used in the Azure Classic and Docker plugins. For Azure Classic see how to get it
   `here <https://msdn.microsoft.com/en-us/library/azure/gg551722.aspx>`_
 
 * ``private_key`` indicates the content of the private key file associated to the credential.
   To refer to a file you must use the function "file(key.pem)" as shown in the example.
-  This field is only used in the Azure Classic plugin. See how to get it
+  This field is used in the Azure Classic and Docker plugins. For Azure Classic see how to get it
   `here <https://msdn.microsoft.com/en-us/library/azure/gg551722.aspx>`_
 
 * ``id`` associates an identifier to the credential. The identifier should be
@@ -198,7 +198,7 @@ An example of the auth file::
    id = vmrc; type = VMRC; host = http://server:8080/vmrc; username = user; password = pass
    id = ec2; type = EC2; username = ACCESS_KEY; password = SECRET_KEY
    id = gce; type = GCE; username = username.apps.googleusercontent.com; password = pass; project = projectname
-   id = docker; type = Docker; host = http://host:2375
+   id = docker; type = Docker; host = http://host:2375; public_key = file(/tmp/cert.pem); private_key = file(/tmp/key.pem)
    id = occi; type = OCCI; proxy = file(/tmp/proxy.pem); host = https://fc-one.i3m.upv.es:11443
    id = azure; type = Azure; subscription_id = subscription-id; username = user@domain.com; password = pass
    id = kub; type = Kubernetes; host = http://server:8080; username = user; password = pass

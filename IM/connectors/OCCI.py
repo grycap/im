@@ -74,7 +74,8 @@ class OCCICloudConnector(CloudConnector):
         return resp
 
     def create_request(self, method, url, auth_data, headers, body=None):
-        url = "%s://%s:%d%s" % (self.cloud.protocol, self.cloud.server, self.cloud.port, url)
+        if not url.startswith("http://") and not url.startswith("https://"):
+            url = "%s://%s:%d%s" % (self.cloud.protocol, self.cloud.server, self.cloud.port, url)
 
         auths = auth_data.getAuthInfo(self.type, self.cloud.server)
         if not auths:
@@ -230,11 +231,12 @@ class OCCICloudConnector(CloudConnector):
         if (vm.state == VirtualMachine.RUNNING and not link_to_public and
                 not public_ips and vm.requested_radl.hasPublicNet(vm.info.systems[0].name)):
             self.logger.debug("The VM does not have public IP trying to add one.")
-            success, _ = self.add_public_ip(vm, auth_data)
-            if not success:
-                # in some sites the network is called floating instead of public
-                success, _ = self.add_public_ip(vm, auth_data, network_name="floating")
-
+            # in some sites the network is called floating, in others PUBLIC ...
+            net_names = ["public", "PUBLIC", "floating"]
+            for name in net_names:
+                success, _ = self.add_public_ip(vm, auth_data, network_name=name)
+                if success:
+                    break
             if success:
                 self.logger.debug("Public IP successfully added.")
 
@@ -256,6 +258,20 @@ class OCCICloudConnector(CloudConnector):
                             return value
         return None
 
+    def get_floating_pool(self, auth_data):
+        """
+        Get the first floating pool available (For OpenStack sites with Neutron)
+        """
+        occi_data = self.query_occi(auth_data)
+        lines = occi_data.split("\n")
+        for l in lines:
+            if l.find('http://schemas.openstack.org/network/floatingippool#') != -1:
+                for elem in l.split(';'):
+                    if elem.startswith('Category: '):
+                            return elem[10:]
+
+        return None
+
     def add_public_ip(self, vm, auth_data, network_name="public"):
         occi_info = self.query_occi(auth_data)
         url = self.get_property_from_category(occi_info, "networkinterface", "location")
@@ -269,6 +285,10 @@ class OCCICloudConnector(CloudConnector):
 
             body = ('Category: networkinterface;scheme="http://schemas.ogf.org/occi/infrastructure#";class="kind";'
                     'location="%s/link/networkinterface/";title="networkinterface link"\n' % self.cloud.path)
+            pool_name = self.get_floating_pool(auth_data)
+            if pool_name:
+                body += ('Category: %s;scheme="http://schemas.openstack.org/network/floatingippool#";'
+                         'class="mixin";location="/mixin/%s/";title="%s"' % (pool_name, pool_name, pool_name))
             body += 'X-OCCI-Attribute: occi.core.id="%s"\n' % net_id
             body += 'X-OCCI-Attribute: occi.core.target="%s/network/%s"\n' % (self.cloud.path, network_name)
             body += 'X-OCCI-Attribute: occi.core.source="%s/compute/%s"' % (self.cloud.path, vm.id)
@@ -283,6 +303,7 @@ class OCCICloudConnector(CloudConnector):
                 self.logger.warn("Error adding public IP the VM: " + resp.reason + "\n" + output)
                 return (False, "Error adding public IP the VM: " + resp.reason + "\n" + output)
             else:
+                self.logger.debug("Public IP added from pool %s" % network_name)
                 return (True, vm.id)
         except Exception:
             self.logger.exception("Error connecting with OCCI server")
@@ -331,7 +352,7 @@ class OCCICloudConnector(CloudConnector):
                     vm.info.systems[0].setValue("cpu.count", int(cores))
                 memory = self.get_occi_attribute_value(resp.text, 'occi.compute.memory')
                 if memory:
-                    vm.info.systems[0].setValue("memory.size", float(memory), 'G')
+                    vm.info.systems[0].setValue("memory.size", int(float(memory)), 'G')
 
                 console_vnc = self.get_occi_attribute_value(resp.text, 'org.openstack.compute.console.vnc')
                 if console_vnc:
@@ -743,7 +764,10 @@ users:
                     for _, volume_id in volumes:
                         self.delete_volume(volume_id, auth_data)
                 else:
-                    occi_vm_id = os.path.basename(resp.text)
+                    if 'location' in resp.headers:
+                        occi_vm_id = os.path.basename(resp.headers['location'])
+                    else:
+                        occi_vm_id = os.path.basename(resp.text)
                     if occi_vm_id:
                         vm.id = occi_vm_id
                         vm.info.systems[0].setValue('instance_id', str(occi_vm_id))
@@ -839,7 +863,7 @@ users:
             resp = self.create_request('POST', self.cloud.path + "/compute/" + vm.id + "?action=suspend",
                                        auth_data, headers, body)
 
-            if resp.status_code != 200:
+            if resp.status_code not in [200, 204]:
                 return (False, "Error stopping the VM: " + resp.reason + "\n" + resp.text)
             else:
                 return (True, vm.id)
@@ -859,7 +883,7 @@ users:
             resp = self.create_request('POST', self.cloud.path + "/compute/" + vm.id + "?action=start",
                                        auth_data, headers, body)
 
-            if resp.status_code != 200:
+            if resp.status_code not in [200, 204]:
                 return (False, "Error starting the VM: " + resp.reason + "\n" + resp.text)
             else:
                 return (True, vm.id)
