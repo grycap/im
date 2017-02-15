@@ -14,10 +14,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import sys
+
+sys.path.append("..")
+sys.path.append(".")
+
 from IM.config import Config
 from IM.db import DataBase
 import cPickle as pickle
-import sys
 import time
 import threading
 
@@ -53,8 +57,7 @@ class DB14to15():
                         # date = elem[1]
                         try:
                             inf = pickle.loads(elem[2])
-                            if not inf.deleted:
-                                inf_list[inf.id] = inf
+                            inf_list[inf.id] = inf
                         except:
                             sys.stderr.write("ERROR reading infrastructure from database, ignoring it!.")
                             sys.exit(-1)
@@ -105,7 +108,7 @@ class DB14to15():
 
 if __name__ == "__main__":
     if not Config.DATA_DB:
-        sys.stderr.write("No DB defined in the im.cfg file!!")
+        sys.stderr.write("No DATA_DB defined in the im.cfg file!!")
         sys.exit(-1)
 
     data_file = None
@@ -115,7 +118,7 @@ if __name__ == "__main__":
         sys.stdout.write("Saving new data to DB: %s.|n" % Config.DATA_DB)
     else:
         sys.stdout.write("No datafile defined. Reading data from DB: %s.\n" % Config.DATA_DB)
-        sys.stdout.write("Previous table inf_list will be renamed to old_inf_list.")
+        sys.stdout.write("Previous table inf_list will be renamed to inf_list_XXXXXX.")
 
     import IM.InfrastructureList
     inf_list = DB14to15.load_data(data_file)

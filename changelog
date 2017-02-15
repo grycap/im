@@ -240,6 +240,32 @@ IM 1.4.8
 IM 1.5.0
     * Remove DATA_FILE from configuration. Only DB now.
     * Change DB format. Old 1.4.X data must be updated.
+    	Use the script: db_1_4_to_1_5.py to update the DB format:
+    		* Install new IM 1.5.0 version.
+    		* In case that you were using a DATA_FILE to store the IM data (the default option in old version of IM), define the DATA_DB in the im.cfg file. 
+    		* Execute the script db_1_4_to_1_5.py (https://raw.githubusercontent.com/grycap/im/master/scripts/db_1_4_to_1_5.py).
+    			* In case that you were using a DATA_FILE you have to specify it as the first parameter of the script.
+    			* If you were using a DATA_DB to store your data this parameter is not needed.
+    		* The data will be moved to the new format and old data will be renamed as table inf_list_XXXXXX.
     * Remove use of insecure Pickle data.
     * Add Vault support.
     * Bugfix with sqlite databases.
+    * Fix some Kubenetes connector errors.
+    * Improve Docker connector.
+    * Bugfix killing child processes.
+    * Error in GCE connector in case of multiples nodes.
+    * Add FW creation support in GCE connector.
+    * Move connectors from httplib to requests lib enhancement.
+    * Improve data management in DB to enable HA enhancement.
+    * Move Azure connector to Resource Groups API enhancement.
+    * Change SOAPpy lib to suds.
+    * Add support for OpenStack pool name in OCCI connector.
+
+IM 1.5.1
+    * Fix error configuring VMs with sudo with password.
+    * Improve load data.
+    * Fix Bug in IM in HA mode getting old data.
+    * Merge correctly local /etc/hosts with IM generated data.
+    * Bootstrap ansible master VM with python if it does not have it installed.
+    * Fix Error configuring VMs with sudo with password.
+    * Incorrect error message in case of error deleting a SG in EC2 conn.

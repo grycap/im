@@ -44,9 +44,8 @@ However, if you install IM from sources you should install:
  + The suds library for Python, typically available as the 'python-suds' package.
  
  + The Netaddr library for Python, typically available as the 'python-netaddr' package.
-   
- + The Python interface to MySQL must be installed,  typically available as the package 'python-mysqldb'  or 
-   'MySQL-python' package.
+
+ + The Requests library for Python, typically available as the 'python-requests' package.
 
  + Ansible (http://www.ansibleworks.com/) to configure nodes in the infrastructures.
    In particular, Ansible 1.4.2+ must be installed.
@@ -85,6 +84,8 @@ It is typically available as the 'python-bottle' package.
 
 The CherryPy Web framework (http://www.cherrypy.org/), is needed for the REST API. 
 It is typically available as the 'python-cherrypy' or 'python-cherrypy3' package.
+In newer versions (9.0 and later) the functionality has been moved to the 'cheroot' library
+(https://github.com/cherrypy/cheroot) it can be installed using pip.
 
 Apache-libcloud (http://libcloud.apache.org/) 0.17 or later is used in the
 LibCloud, OpenStack and GCE connectors.
@@ -97,7 +98,14 @@ Download the file and copy the boto subdirectory into the IM install path.
 In case of using the SSL secured version of the XMLRPC API the SpringPython
 framework (http://springpython.webfactional.com/) must be installed.
 
+In case of using the a MySQL DB as the backend to store IM data. The Python interface to MySQL
+must be installed, typically available as the package 'python-mysqldb' or 'MySQL-python' package.
+
 In case of using the SSL secured version of the REST API pyOpenSSL must be installed.
+
+Azure python SDK (https://azure.microsoft.com/es-es/develop/python/) is used to connect with the 
+Microsoft Azure platform.
+
 
 1.3 INSTALLING
 --------------
@@ -116,7 +124,7 @@ To install them in Debian and Ubuntu based distributions, do::
 
 ```sh
 $ apt update
-$ apt install gcc python-dev libffi-dev libssl-dev python-pip sshpass python-mysqldb python-pysqlite2
+$ apt install gcc python-dev libffi-dev libssl-dev python-pip sshpass python-mysqldb python-pysqlite2 python-requests
 ```
 
 In Red Hat based distributions (RHEL, CentOS, Amazon Linux, Oracle Linux,
@@ -141,7 +149,8 @@ $ pip install IM
 ```
 
 Pip will also install the, non installed, pre-requisites needed. So Ansible  1.4.2 or later will 
-be installed in the system.
+be installed in the system. Some of the optional packages are also installed please check if some
+of IM features that you need requires to install some of the packages of section OPTIONAL PACKAGES. 
 
 You must also remember to modify the ansible.cfg file setting as specified in the 
 REQUISITES section.
@@ -165,7 +174,7 @@ $ yum localinstall IM-*.rpm RADL-*.rpm
 Azure python SDK is not available in CentOS. So if you need the Azure plugin you have to manually install them using pip:
 
 ```sh
-$ pip install azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource
+$ pip install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource
 ```
 
 ### 1.3.3 From Deb package (Tested with Ubuntu 14.04 and 16.04)

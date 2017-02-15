@@ -15,7 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import logging
-from multiprocessing import Process
+import threading
 import bottle
 import json
 
@@ -58,9 +58,16 @@ bottle_server = None
 class MySSLCherryPy(bottle.ServerAdapter):
 
     def run(self, handler):
-        from cherrypy.wsgiserver.ssl_pyopenssl import pyOpenSSLAdapter
-        from cherrypy import wsgiserver
-        server = wsgiserver.CherryPyWSGIServer((self.host, self.port), handler, request_queue_size=32)
+        try:
+            # First try to use the new version
+            from cheroot.ssl.pyopenssl import pyOpenSSLAdapter
+            from cheroot import wsgi
+            server = wsgi.Server((self.host, self.port), handler, request_queue_size=32)
+        except:
+            from cherrypy.wsgiserver.ssl_pyopenssl import pyOpenSSLAdapter
+            from cherrypy import wsgiserver
+            server = wsgiserver.CherryPyWSGIServer((self.host, self.port), handler, request_queue_size=32)
+
         self.srv = server
 
         # If cert variable is has a valid path, SSL will be used
@@ -80,8 +87,14 @@ class MySSLCherryPy(bottle.ServerAdapter):
 class MyCherryPy(bottle.ServerAdapter):
 
     def run(self, handler):
-        from cherrypy import wsgiserver
-        server = wsgiserver.CherryPyWSGIServer((self.host, self.port), handler, request_queue_size=32)
+        try:
+            # First try to use the new version
+            from cheroot import wsgi
+            server = wsgi.Server((self.host, self.port), handler, request_queue_size=32)
+        except:
+            from cherrypy import wsgiserver
+            server = wsgiserver.CherryPyWSGIServer((self.host, self.port), handler, request_queue_size=32)
+
         self.srv = server
         try:
             server.start()
@@ -93,7 +106,8 @@ class MyCherryPy(bottle.ServerAdapter):
 
 
 def run_in_thread(host, port):
-    bottle_thr = Process(target=run, args=(host, port))
+    bottle_thr = threading.Thread(target=run, args=(host, port))
+    bottle_thr.daemon = True
     bottle_thr.start()
 
 
