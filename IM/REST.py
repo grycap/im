@@ -94,7 +94,7 @@ class MyCherryPy(bottle.ServerAdapter):
         except:
             from cherrypy import wsgiserver
             server = wsgiserver.CherryPyWSGIServer((self.host, self.port), handler, request_queue_size=32)
-        
+
         self.srv = server
         try:
             server.start()
