@@ -68,6 +68,6 @@ class JWT(object):
 
         :param token: The JWT token
         """
-        part = tuple(token.split(b"."))
+        part = tuple(str(token).split(b"."))
         part = [JWT.b64d(p) for p in part]
         return json.loads(part[1])
