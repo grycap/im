@@ -21,6 +21,7 @@ import time
 import logging
 import unittest
 import sys
+import json
 
 from mock import Mock, patch, MagicMock
 
@@ -651,8 +652,7 @@ class TestIM(unittest.TestCase):
                                                     'token': 'pass',
                                                     'user': 'ubuntu'}})
 
-    @patch('httplib.HTTPSConnection')
-    def test_check_oidc_token(self, connection):
+    def test_check_oidc_invalid_token(self):
         im_auth = {"token": ("eyJraWQiOiJyc2ExIiwiYWxnIjoiUlMyNTYifQ.eyJzdWIiOiJkYzVkNWFiNy02ZGI5LTQwNzktOTg1Yy04MGF"
                              "jMDUwMTcwNjYiLCJpc3MiOiJodHRwczpcL1wvaWFtLXRlc3QuaW5kaWdvLWRhdGFjbG91ZC5ldVwvIiwiZXhwI"
                              "joxNDY1NDcxMzU0LCJpYXQiOjE0NjU0Njc3NTUsImp0aSI6IjA3YjlkYmE4LTc3NWMtNGI5OS1iN2QzLTk4Njg"
@@ -660,20 +660,11 @@ class TestIM(unittest.TestCase):
                              "me5mqDMVbSKwsA2GiHfiXSnh9jmNNVaVjcvSPNVGF8jkKNxeSSgoT3wED8xt4oU4s5MYiR075-RAkt6AcWqVbXU"
                              "z5BzxBvANko")}
 
-        user_info = read_file_as_string('../files/iam_user_info.json')
-
-        conn = MagicMock()
-        connection.return_value = conn
-
-        resp = MagicMock()
-        resp.status = 200
-        resp.read.return_value = user_info
-        conn.getresponse.return_value = resp
-
-        IM.check_oidc_token(im_auth)
-
-        self.assertEqual(im_auth['username'], "micafer")
-        self.assertEqual(im_auth['password'], "https://iam-test.indigo-datacloud.eu/sub")
+        with self.assertRaises(Exception) as ex:
+            IM.check_oidc_token(im_auth)
+        self.assertEqual(str(ex.exception),
+                         ("Error trying to validate OIDC auth token: Invalid "
+                          "InfrastructureManager credentials. OIDC auth Token expired."))
 
         Config.OIDC_ISSUERS = ["https://other_issuer"]
 
@@ -682,6 +673,27 @@ class TestIM(unittest.TestCase):
         self.assertEqual(str(ex.exception),
                          ("Error trying to validate OIDC auth token: Invalid "
                           "InfrastructureManager credentials. Issuer not accepted."))
+
+    @patch('IM.InfrastructureManager.OpenIDClient')
+    def test_check_oidc_valid_token(self, openidclient):
+        im_auth = {"token": ("eyJraWQiOiJyc2ExIiwiYWxnIjoiUlMyNTYifQ.eyJzdWIiOiJkYzVkNWFiNy02ZGI5LTQwNzktOTg1Yy04MGF"
+                             "jMDUwMTcwNjYiLCJpc3MiOiJodHRwczpcL1wvaWFtLXRlc3QuaW5kaWdvLWRhdGFjbG91ZC5ldVwvIiwiZXhwI"
+                             "joxNDY1NDcxMzU0LCJpYXQiOjE0NjU0Njc3NTUsImp0aSI6IjA3YjlkYmE4LTc3NWMtNGI5OS1iN2QzLTk4Njg"
+                             "5ODM1N2FiYSJ9.DwpZizVaYtvIj7fagQqDFpDh96szFupf6BNMIVLcopqQtZ9dBvwN9lgZ_w7Htvb3r-erho_hc"
+                             "me5mqDMVbSKwsA2GiHfiXSnh9jmNNVaVjcvSPNVGF8jkKNxeSSgoT3wED8xt4oU4s5MYiR075-RAkt6AcWqVbXU"
+                             "z5BzxBvANko")}
+
+        user_info = json.loads(read_file_as_string('../files/iam_user_info.json'))
+
+        openidclient.is_access_token_expired.return_value = False, "Valid Token for 100 seconds"
+        openidclient.get_user_info_request.return_value = True, user_info
+
+        Config.OIDC_ISSUERS = ["https://iam-test.indigo-datacloud.eu/"]
+
+        IM.check_oidc_token(im_auth)
+
+        self.assertEqual(im_auth['username'], "micafer")
+        self.assertEqual(im_auth['password'], "https://iam-test.indigo-datacloud.eu/sub")
 
     def test_db(self):
         """ Test DB data access """

@@ -16,29 +16,15 @@
 '''
 Class to contact with an OpenID server
 '''
-import httplib
-import urlparse
+import requests
 import json
+import time
 from JWT import JWT
 
 
 class OpenIDClient(object):
-    @staticmethod
-    def get_connection(url):
-        """
-        Get a HTTP/S connection with the specified server.
-        """
-        parsed_url = urlparse.urlparse(url)
-        port = None
-        server = parsed_url[1]
-        if parsed_url[1].find(":") != -1:
-            parts = parsed_url[1].split(":")
-            server = parts[0]
-            port = int(parts[1])
-        if parsed_url[0] == "https":
-            return httplib.HTTPSConnection(server, port)
-        else:
-            return httplib.HTTPConnection(server, port)
+
+    VERIFY_SSL = False
 
     @staticmethod
     def get_user_info_request(token):
@@ -48,13 +34,46 @@ class OpenIDClient(object):
         try:
             decoded_token = JWT().get_info(token)
             headers = {'Authorization': 'Bearer %s' % token}
-            conn = OpenIDClient.get_connection(decoded_token['iss'])
-            conn.request('GET', "/userinfo", headers=headers)
-            resp = conn.getresponse()
-
-            output = resp.read()
-            if resp.status != 200:
-                return False, resp.reason + "\n" + output
-            return True, json.loads(output)
+            url = "%s%s" % (decoded_token['iss'], "/userinfo")
+            resp = requests.request("GET", url, verify=OpenIDClient.VERIFY_SSL, headers=headers)
+            if resp.status_code != 200:
+                return False, "Code: %d. Message: %s." % (resp.status_code, resp.text)
+            return True, json.loads(resp.text)
         except Exception, ex:
             return False, str(ex)
+
+    @staticmethod
+    def get_token_introspection(token, client_id, client_secret):
+        """
+        Get token introspection
+        """
+        try:
+            decoded_token = JWT().get_info(token)
+            url = "%s%s" % (decoded_token['iss'], "/introspect?token=%s&token_type_hint=access_token" % token)
+            resp = requests.request("GET", url, verify=OpenIDClient.VERIFY_SSL,
+                                    auth=requests.auth.HTTPBasicAuth(client_id, client_secret))
+            if resp.status_code != 200:
+                return False, "Code: %d. Message: %s." % (resp.status_code, resp.text)
+            return True, json.loads(resp.text)
+        except Exception, ex:
+            return False, str(ex)
+
+    @staticmethod
+    def is_access_token_expired(token):
+        """
+        Check if the current access token is expired
+        """
+        if token:
+            try:
+                decoded_token = JWT().get_info(token)
+                now = int(time.time())
+                expires = int(decoded_token['exp'])
+                validity = expires - now
+                if validity < 0:
+                    return True, "Token expired"
+                else:
+                    return False, "Valid Token for %d seconds" % validity
+            except:
+                return True, "Error getting token info"
+        else:
+            return True, "No token specified"

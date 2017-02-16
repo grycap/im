@@ -1188,17 +1188,26 @@ class InfrastructureManager:
         token = im_auth["token"]
         success = False
         try:
-            # decode the token to get the issuer
+            # decode the token to get the info
             decoded_token = JWT().get_info(token)
-            if decoded_token['iss'] in Config.OIDC_ISSUERS:
-                success, userinfo = OpenIDClient.get_user_info_request(token)
-                if success:
-                    # convert to username to use it in the rest of the IM
-                    im_auth['username'] = str(userinfo.get("preferred_username"))
-                    im_auth['password'] = str(decoded_token['iss']) + str(userinfo.get("sub"))
-            else:
+
+            # First check if the issuer is in valid
+            if decoded_token['iss'] not in Config.OIDC_ISSUERS:
                 InfrastructureManager.logger.error("Incorrect OIDC issuer: %s" % decoded_token['iss'])
                 raise InvaliddUserException("Invalid InfrastructureManager credentials. Issuer not accepted.")
+
+            # Now check if the token is not expired
+            expired, msg = OpenIDClient.is_access_token_expired(token)
+            if expired:
+                InfrastructureManager.logger.error("OIDC auth %s." % msg)
+                raise InvaliddUserException("Invalid InfrastructureManager credentials. OIDC auth %s." % msg)
+
+            # Now try to get user info
+            success, userinfo = OpenIDClient.get_user_info_request(token)
+            if success:
+                # convert to username to use it in the rest of the IM
+                im_auth['username'] = str(userinfo.get("preferred_username"))
+                im_auth['password'] = str(decoded_token['iss']) + str(userinfo.get("sub"))
         except Exception, ex:
             InfrastructureManager.logger.exception("Error trying to validate OIDC auth token: %s" % str(ex))
             raise Exception("Error trying to validate OIDC auth token: %s" % str(ex))
