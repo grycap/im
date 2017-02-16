@@ -307,6 +307,7 @@ class EC2CloudConnector(CloudConnector):
 
             if net:
                 provider_id = net.getValue('provider_id')
+            if provider_id:
                 break
 
         if provider_id:
