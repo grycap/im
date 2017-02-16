@@ -71,15 +71,8 @@ class VM(XMLObject):
     STATE_DONE = 6
     STATE_FAILED = 7
     STATE_POWEROFF = 8
-    STATE_STR = {'0': 'init', '1': 'pending', '2': 'hold', '3': 'active',
-                 '4': 'stopped', '5': 'suspended', '6': 'done', '7': 'failed', '8': 'poweroff'}
-    LCM_STATE_STR = {'0': 'init', '1': 'prologing', '2': 'booting', '3': 'running', '4': 'migrating',
-                     '5': 'saving (stop)', '6': 'saving (suspend)', '7': 'saving (migrate)',
-                     '8': 'prologing (migration)', '9': 'prologing (resume)', '10': 'epilog (stop)',
-                     '11': 'epilog', '12': 'cancel', '13': 'failure', '14': 'delete', '15': 'unknown'}
     values = ['ID', 'UID', 'NAME', 'LAST_POLL', 'STATE', 'LCM_STATE',
               'DEPLOY_ID', 'MEMORY', 'CPU', 'NET_TX', 'NET_RX', 'STIME', 'ETIME']
-#        tuples = { 'TEMPLATE': TEMPLATE, 'HISTORY': HISTORY }
     tuples = {'TEMPLATE': TEMPLATE}
     numeric = ['ID', 'UID', 'STATE', 'LCM_STATE', 'STIME', 'ETIME']
 

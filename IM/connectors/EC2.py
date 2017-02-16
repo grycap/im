@@ -430,8 +430,7 @@ class EC2CloudConnector(CloudConnector):
                                                  None, fkeypair.read())
                 os.unlink(keypair_file)
         except:
-            self.logger.exception(
-                "Error launching the VM, no instance type available for the requirements.")
+            self.logger.exception("Error creating the keypair.")
             keypair_name = None
 
         return (created, keypair_name)
@@ -571,10 +570,10 @@ class EC2CloudConnector(CloudConnector):
                         instance_type = self.get_instance_type(system, vpc is not None)
                         if not instance_type:
                             self.logger.error(
-                                "Error launching the VM, no instance type available for the requirements.")
+                                "Error %s, no instance type available for the requirements." % err_msg)
                             self.logger.debug(system)
                             res.append(
-                                (False, "Error launching the VM, no instance type available for the requirements."))
+                                (False, "Error %s, no instance type available for the requirements." % err_msg))
                         else:
                             err_msg += " of type: %s " % instance_type.name
                             price = system.getValue("price")
@@ -650,10 +649,10 @@ class EC2CloudConnector(CloudConnector):
                         instance_type = self.get_instance_type(system, vpc is not None)
                         if not instance_type:
                             self.logger.error(
-                                "Error launching the VM, no instance type available for the requirements.")
+                                "Error %s, no instance type available for the requirements." % err_msg)
                             self.logger.debug(system)
                             res.append(
-                                (False, "Error launching the VM, no instance type available for the requirements."))
+                                (False, "Error %s, no instance type available for the requirements." % err_msg))
                         else:
                             err_msg += " of type: %s " % instance_type.name
                             placement = system.getValue('availability_zone')
