@@ -663,16 +663,14 @@ class TestIM(unittest.TestCase):
         with self.assertRaises(Exception) as ex:
             IM.check_oidc_token(im_auth)
         self.assertEqual(str(ex.exception),
-                         ("Error trying to validate OIDC auth token: Invalid "
-                          "InfrastructureManager credentials. OIDC auth Token expired."))
+                         'Invalid InfrastructureManager credentials. OIDC auth Token expired.')
 
         Config.OIDC_ISSUERS = ["https://other_issuer"]
 
         with self.assertRaises(Exception) as ex:
             IM.check_oidc_token(im_auth)
         self.assertEqual(str(ex.exception),
-                         ("Error trying to validate OIDC auth token: Invalid "
-                          "InfrastructureManager credentials. Issuer not accepted."))
+                         "Invalid InfrastructureManager credentials. Issuer not accepted.")
 
     @patch('IM.InfrastructureManager.OpenIDClient')
     def test_check_oidc_valid_token(self, openidclient):

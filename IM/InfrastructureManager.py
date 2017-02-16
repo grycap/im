@@ -1190,18 +1190,22 @@ class InfrastructureManager:
         try:
             # decode the token to get the info
             decoded_token = JWT().get_info(token)
+        except Exception, ex:
+            InfrastructureManager.logger.exception("Error trying decode OIDC auth token: %s" % str(ex))
+            raise Exception("Error trying to decode OIDC auth token: %s" % str(ex))
 
-            # First check if the issuer is in valid
-            if decoded_token['iss'] not in Config.OIDC_ISSUERS:
-                InfrastructureManager.logger.error("Incorrect OIDC issuer: %s" % decoded_token['iss'])
-                raise InvaliddUserException("Invalid InfrastructureManager credentials. Issuer not accepted.")
+        # First check if the issuer is in valid
+        if decoded_token['iss'] not in Config.OIDC_ISSUERS:
+            InfrastructureManager.logger.error("Incorrect OIDC issuer: %s" % decoded_token['iss'])
+            raise InvaliddUserException("Invalid InfrastructureManager credentials. Issuer not accepted.")
 
-            # Now check if the token is not expired
-            expired, msg = OpenIDClient.is_access_token_expired(token)
-            if expired:
-                InfrastructureManager.logger.error("OIDC auth %s." % msg)
-                raise InvaliddUserException("Invalid InfrastructureManager credentials. OIDC auth %s." % msg)
+        # Now check if the token is not expired
+        expired, msg = OpenIDClient.is_access_token_expired(token)
+        if expired:
+            InfrastructureManager.logger.error("OIDC auth %s." % msg)
+            raise InvaliddUserException("Invalid InfrastructureManager credentials. OIDC auth %s." % msg)
 
+        try:
             # Now try to get user info
             success, userinfo = OpenIDClient.get_user_info_request(token)
             if success:
