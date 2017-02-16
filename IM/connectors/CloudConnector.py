@@ -17,6 +17,8 @@ class CloudConnector:
         """Data about the Cloud Provider."""
         self.logger = logging.getLogger('CloudConnector')
         """Logger object."""
+        self.error_messages = ""
+        """String with error messages to be shown to the user."""
 
     def concreteSystem(self, radl_system, auth_data):
         """

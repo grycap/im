@@ -851,3 +851,9 @@ class VirtualMachine:
             return SSHRetry(ansible_host.getHost(), user, passwd, private_key)
         else:
             return self.inf.vm_master.get_ssh(retry=True)
+
+    def get_cont_msg(self):
+        res = self.cont_out
+        if self.cloud_connector and self.cloud_connector.error_messages:
+            res += self.cloud_connector.error_messages
+        return res

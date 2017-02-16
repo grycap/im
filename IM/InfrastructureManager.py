@@ -719,9 +719,10 @@ class InfrastructureManager:
 
         vm = InfrastructureManager.get_vm_from_inf(inf_id, vm_id, auth)
 
-        InfrastructureManager.logger.debug(vm.cont_out)
+        cont_msg = vm.get_cont_msg()
+        InfrastructureManager.logger.debug(cont_msg)
 
-        return vm.cont_out
+        return cont_msg
 
     @staticmethod
     def AlterVM(inf_id, vm_id, radl_data, auth):
@@ -841,8 +842,8 @@ class InfrastructureManager:
         res = sel_inf.cont_out
 
         for vm in sel_inf.get_vm_list():
-            if vm.cont_out:
-                res += "VM " + str(vm.id) + ":\n" + vm.cont_out + "\n"
+            if vm.get_cont_msg():
+                res += "VM " + str(vm.id) + ":\n" + vm.get_cont_msg() + "\n"
                 res += "***************************************************************************\n"
 
         InfrastructureManager.logger.debug(res)

@@ -180,6 +180,10 @@ class InfrastructureInfo:
         for vm in self.get_vm_list():
             vm.kill_check_ctxt_process()
 
+        # Create a new empty queue
+        with self._lock:
+            self.ctxt_tasks = PriorityQueue()
+
     def get_cont_out(self):
         """
         Returns the contextualization message

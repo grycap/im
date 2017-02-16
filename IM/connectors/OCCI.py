@@ -41,6 +41,8 @@ class OCCICloudConnector(CloudConnector):
     """str with the name of the default instance type to launch."""
     DEFAULT_USER = 'cloudadm'
     """ default user to SSH access the VM """
+    MAX_ADD_IP_COUNT = 5
+    """ Max number of retries to get a public IP """
 
     VM_STATE_MAP = {
         'waiting': VirtualMachine.PENDING,
@@ -50,6 +52,10 @@ class OCCICloudConnector(CloudConnector):
         'suspended': VirtualMachine.STOPPED
     }
     """Dictionary with a map with the OCCI VM states to the IM states."""
+
+    def __init__(self, cloud_info):
+        self.add_public_ip_count = 0
+        CloudConnector.__init__(self, cloud_info)
 
     @staticmethod
     def create_request_static(method, url, auth, headers, body=None):
@@ -92,8 +98,7 @@ class OCCICloudConnector(CloudConnector):
         """
         auths = auth_data.getAuthInfo(self.type, self.cloud.server)
         if not auths:
-            self.logger.error(
-                "No correct auth data has been specified to OCCI.")
+            raise Exception("No correct auth data has been specified to OCCI.")
             return None
         else:
             auth = auths[0]
@@ -231,14 +236,30 @@ class OCCICloudConnector(CloudConnector):
         if (vm.state == VirtualMachine.RUNNING and not link_to_public and
                 not public_ips and vm.requested_radl.hasPublicNet(vm.info.systems[0].name)):
             self.logger.debug("The VM does not have public IP trying to add one.")
-            # in some sites the network is called floating, in others PUBLIC ...
-            net_names = ["public", "PUBLIC", "floating"]
-            for name in net_names:
-                success, _ = self.add_public_ip(vm, auth_data, network_name=name)
+            if self.add_public_ip_count < self.MAX_ADD_IP_COUNT:
+                # in some sites the network is called floating, in others PUBLIC ...
+                net_names = ["public", "PUBLIC", "floating"]
+                for name in net_names:
+                    success, msg = self.add_public_ip(vm, auth_data, network_name=name)
+                    if success:
+                        break
                 if success:
-                    break
-            if success:
-                self.logger.debug("Public IP successfully added.")
+                    self.logger.debug("Public IP successfully added.")
+                else:
+                    self.add_public_ip_count += 1
+                    self.logger.warn("Error adding public IP the VM: %s (%d/%d)\n" % (msg,
+                                                                                      self.add_public_ip_count,
+                                                                                      self.MAX_ADD_IP_COUNT))
+                    self.error_messages += "Error adding public IP the VM: %s (%d/%d)\n" % (msg,
+                                                                                            self.add_public_ip_count,
+                                                                                            self.MAX_ADD_IP_COUNT)
+            else:
+                self.logger.error("Error adding public IP the VM: Max number of retries reached.")
+                self.error_messages += "Error adding public IP the VM: Max number of retries reached.\n"
+                # this is a total fail, stop contextualization
+                vm.configured = False
+                vm.inf.set_configured(False)
+                vm.inf.stop()
 
         vm.setIps(public_ips, private_ips)
 
@@ -276,7 +297,6 @@ class OCCICloudConnector(CloudConnector):
         occi_info = self.query_occi(auth_data)
         url = self.get_property_from_category(occi_info, "networkinterface", "location")
         if not url:
-            self.logger.error("No location for networkinterface category.")
             return (False, "No location for networkinterface category.")
 
         auth_header = self.get_auth_header(auth_data)
@@ -300,8 +320,7 @@ class OCCICloudConnector(CloudConnector):
 
             output = str(resp.text)
             if resp.status_code != 201 and resp.status_code != 200:
-                self.logger.warn("Error adding public IP the VM: " + resp.reason + "\n" + output)
-                return (False, "Error adding public IP the VM: " + resp.reason + "\n" + output)
+                return (False, resp.reason + "\n" + output)
             else:
                 self.logger.debug("Public IP added from pool %s" % network_name)
                 return (True, vm.id)
@@ -502,8 +521,10 @@ users:
                 if not wait_ok:
                     self.logger.error("Error waiting volume %s. Deleting it." % volume_id)
                     self.delete_volume(volume_id, auth_data)
+                    self.error_messages += "Error waiting volume: %s. Deleting it." % volume_id
             else:
                 self.logger.error("Error creating volume: %s" % volume_id)
+                self.error_messages += "Error creating volume: %s. Deleting it." % volume_id
 
             cont += 1
 
