@@ -875,8 +875,7 @@ class ConfManager(threading.Thread):
                     os.remove(os.path.expanduser("~/.ssh/known_hosts"))
 
                 self.inf.add_cont_msg("Wait master VM to have the SSH active.")
-                is_connected, msg = self.wait_vm_ssh_acccess(
-                    self.inf.vm_master, Config.WAIT_RUNNING_VM_TIMEOUT)
+                is_connected, msg = self.wait_vm_ssh_acccess(self.inf.vm_master, Config.WAIT_SSH_ACCCESS_TIMEOUT)
                 if not is_connected:
                     ConfManager.logger.error("Inf ID: " + str(self.inf.id) +
                                              ": Error Waiting the Master VM to have the SSH active, exit: " +

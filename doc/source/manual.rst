@@ -285,6 +285,12 @@ Basic Options
    Timeout in seconds to get a virtual machine in running state.
    The default value is 1800.
 
+.. confval:: WAIT_SSH_ACCCESS_TIMEOUT
+
+   (**New in version IM version 1.5.1.**)
+   Timeout in seconds to wait a virtual machine to get the SSH access active once it is in running state.
+   The default value is 300.
+
 .. confval:: LOG_FILE
 
    Full path to the log file.
