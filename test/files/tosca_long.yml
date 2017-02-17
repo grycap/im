@@ -10,6 +10,20 @@ description: >
 
 topology_template:
 
+  inputs:
+
+    network_name:
+      type: string
+      default: vpc-XX.subnet-XX
+
+    access_key:
+      type: string
+      default: AKXX
+
+    secret_key:
+      type: string
+      default: SKXX
+
   node_templates:
 
     elastic_cluster_front_end:
@@ -37,7 +51,7 @@ topology_template:
         endpoint:
           properties:
             dns_name: slurmserver
-            network_name: PUBLIC
+            network_name: { concat: [ { get_input: network_name }, ".PUBLIC" ] }
             ports:
               http_port:
                 protocol: tcp
@@ -126,3 +140,8 @@ topology_template:
     galaxy_url:
       value: { concat: [ 'http://', get_attribute: [ lrms_server, public_address, 0 ], ':8080' ] }
 
+  policies:
+    - deploy_on_aws:
+       type: tosca.policies.Placement
+       properties: { sla_id: SLA_provider-AWS-us-east-1_indigo-dc,  username: {get_input: access_key}, password: {get_input: secret_key}}
+       targets: [ lrms_wn ]

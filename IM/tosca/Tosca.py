@@ -75,14 +75,14 @@ class Tosca:
             else:
                 if root_type == "tosca.nodes.Compute":
                     # Add the system RADL element
-                    sys = Tosca._gen_system(node, self.tosca.nodetemplates)
+                    sys = self._gen_system(node, self.tosca.nodetemplates)
                     # add networks using the simple method with the public_ip
                     # property
-                    Tosca._add_node_nets(
+                    self._add_node_nets(
                         node, radl, sys, self.tosca.nodetemplates)
                     radl.systems.append(sys)
                     # Add the deploy element for this system
-                    min_instances, _, default_instances, count, removal_list = Tosca._get_scalable_properties(
+                    min_instances, _, default_instances, count, removal_list = self._get_scalable_properties(
                         node)
                     if count is not None:
                         # we must check the correct number of instances to
@@ -108,7 +108,7 @@ class Tosca:
                     compute = node
                 else:
                     # Select the host to host this element
-                    compute = Tosca._find_host_compute(
+                    compute = self._find_host_compute(
                         node, self.tosca.nodetemplates)
                     if not compute:
                         Tosca.logger.warn(
@@ -195,9 +195,7 @@ class Tosca:
 
         return res
 
-    @staticmethod
-    def _add_node_nets(node, radl, system, nodetemplates):
-
+    def _add_node_nets(self, node, radl, system, nodetemplates):
         # Find associated Networks
         nets = Tosca._get_bind_networks(node, nodetemplates)
         if nets:
@@ -217,7 +215,7 @@ class Tosca:
             # This is the solution using the public_ip property
             node_props = node.get_properties()
             if node_props and "public_ip" in node_props:
-                public_ip = node_props["public_ip"].value
+                public_ip = self._final_function_result(node_props["public_ip"].value, node)
 
             # This is the solution using endpoints
             net_provider_id = None
@@ -228,20 +226,48 @@ class Tosca:
                 if "endpoint" in node_caps:
                     cap_props = node_caps["endpoint"].get_properties()
                     if cap_props and "network_name" in cap_props:
-                        if cap_props["network_name"].value == "PUBLIC":
+                        network_name = str(self._final_function_result(cap_props["network_name"].value, node))
+                        if network_name == "PUBLIC":
                             public_ip = True
                         # In this case the user is specifying the provider_id
-                        elif str(cap_props["network_name"].value).endswith(".PUBLIC"):
+                        elif network_name.endswith(".PUBLIC"):
                             public_ip = True
-                            parts = cap_props["network_name"].value.split(".")
+                            parts = network_name.split(".")
                             net_provider_id = ".".join(parts[:-1])
-                        elif str(cap_props["network_name"].value).endswith(".PRIVATE"):
-                            parts = cap_props["network_name"].value.split(".")
+                        elif network_name.endswith(".PRIVATE"):
+                            parts = network_name.split(".")
                             net_provider_id = ".".join(parts[:-1])
                     if cap_props and "dns_name" in cap_props:
-                        dns_name = cap_props["dns_name"].value
+                        dns_name = self._final_function_result(cap_props["dns_name"].value, node)
                     if cap_props and "ports" in cap_props:
-                        ports = cap_props["ports"].value
+                        ports = self._final_function_result(cap_props["ports"].value, node)
+
+            # The private net is always added
+            private_nets = []
+            for net in radl.networks:
+                if not net.isPublic():
+                    private_nets.append(net)
+
+            if private_nets:
+                private_net = None
+                for net in private_nets:
+                    num_net = system.getNumNetworkWithConnection(net.id)
+                    if num_net is not None:
+                        private_net = net
+                        break
+
+                if not private_net:
+                    # There are a public net but it has not been used in this
+                    # VM
+                    private_net = private_nets[0]
+                    num_net = system.getNumNetworkIfaces()
+            else:
+                # There no public net, create one
+                private_net = network.createNetwork("private_net", False)
+                radl.networks.append(private_net)
+                num_net = system.getNumNetworkIfaces()
+
+            system.setValue('net_interface.' + str(num_net) + '.connection', private_net.id)
 
             # If the node needs a public IP
             if public_ip:
@@ -276,56 +302,30 @@ class Tosca:
 
                 system.setValue('net_interface.%d.connection' % num_net, public_net.id)
 
-            # The private net is always added
-            private_nets = []
-            for net in radl.networks:
-                if not net.isPublic():
-                    private_nets.append(net)
-
-            if private_nets:
-                private_net = None
-                for net in private_nets:
-                    num_net = system.getNumNetworkWithConnection(net.id)
-                    if num_net is not None:
-                        private_net = net
-                        break
-
-                if not private_net:
-                    # There are a public net but it has not been used in this
-                    # VM
-                    private_net = private_nets[0]
-                    num_net = system.getNumNetworkIfaces()
-            else:
-                # There no public net, create one
-                private_net = network.createNetwork("private_net", False)
-                radl.networks.append(private_net)
-                num_net = system.getNumNetworkIfaces()
-
-            system.setValue('net_interface.' + str(num_net) + '.connection', private_net.id)
-
-            if dns_name:
-                system.setValue('net_interface.0.dns_name', dns_name)
             if not public_ip and net_provider_id:
                 private_net.setValue("provider_id", net_provider_id)
 
-    @staticmethod
-    def _get_scalable_properties(node):
+            if dns_name:
+                system.setValue('net_interface.0.dns_name', dns_name)
+
+    def _get_scalable_properties(self, node):
         count = min_instances = max_instances = default_instances = None
         removal_list = []
         scalable = node.get_capability("scalable")
         if scalable:
             for prop in scalable.get_properties_objects():
                 if prop.value is not None:
+                    final_value = self._final_function_result(prop.value, node)
                     if prop.name == "count":
-                        count = prop.value
+                        count = final_value
                     elif prop.name == "max_instances":
-                        max_instances = prop.value
+                        max_instances = final_value
                     elif prop.name == "min_instances":
-                        min_instances = prop.value
+                        min_instances = final_value
                     elif prop.name == "default_instances":
-                        default_instances = prop.value
+                        default_instances = final_value
                     elif prop.name == "removal_list":
-                        removal_list = prop.value
+                        removal_list = final_value
 
         return min_instances, max_instances, default_instances, count, removal_list
 
@@ -864,8 +864,7 @@ class Tosca:
             pass
         return func
 
-    @staticmethod
-    def _find_host_compute(node, nodetemplates):
+    def _find_host_compute(self, node, nodetemplates):
         """
         Select the node to host each node, using the node requirements
         In most of the cases the are directly specified, otherwise "node_filter" is used
@@ -883,7 +882,7 @@ class Tosca:
                     if root_type == "tosca.nodes.Compute":
                         return n
                     else:
-                        return Tosca._find_host_compute(n, nodetemplates)
+                        return self._find_host_compute(n, nodetemplates)
 
         # There are no direct HostedOn node
         # check node_filter requirements
@@ -894,12 +893,11 @@ class Tosca:
                     if isinstance(value, dict):
                         if 'node_filter' in value:
                             node_filter = value.get('node_filter')
-                            return Tosca._get_compute_from_node_filter(node_filter, nodetemplates)
+                            return self._get_compute_from_node_filter(node_filter, nodetemplates)
 
         return None
 
-    @staticmethod
-    def _node_fulfill_filter(node, node_filter):
+    def _node_fulfill_filter(self, node, node_filter):
         """
         Check if a node fulfills the features of a node filter
         """
@@ -911,9 +909,9 @@ class Tosca:
                 for prop in node.get_capability(cap_type).get_properties_objects():
                     if prop.value is not None:
                         unit = None
-                        value = prop.value
+                        value = self._final_function_result(prop.value, node)
                         if prop.name in ['disk_size', 'mem_size']:
-                            value, unit = Tosca._get_size_and_unit(prop.value)
+                            value, unit = Tosca._get_size_and_unit(value)
                         node_props[prop.name] = (value, unit)
 
         filter_props = {}
@@ -984,8 +982,7 @@ class Tosca:
 
         return True
 
-    @staticmethod
-    def _get_compute_from_node_filter(node_filter, nodetemplates):
+    def _get_compute_from_node_filter(self, node_filter, nodetemplates):
         """
         Select the first node that fulfills the specified "node_filter"
         """
@@ -994,7 +991,7 @@ class Tosca:
             root_type = Tosca._get_root_parent_type(node).type
 
             if root_type == "tosca.nodes.Compute":
-                if Tosca._node_fulfill_filter(node, node_filter.get('capabilities')):
+                if self._node_fulfill_filter(node, node_filter.get('capabilities')):
                     return node
 
         return None
@@ -1078,8 +1075,7 @@ class Tosca:
 
         return res
 
-    @staticmethod
-    def _add_ansible_roles(node, nodetemplates, system):
+    def _add_ansible_roles(self, node, nodetemplates, system):
         """
         Find all the roles to be applied to this node and
         add them to the system as ansible.modules.* in 'disk.0.applications'
@@ -1091,7 +1087,7 @@ class Tosca:
                 compute = other_node
             else:
                 # Select the host to host this element
-                compute = Tosca._find_host_compute(other_node, nodetemplates)
+                compute = self._find_host_compute(other_node, nodetemplates)
 
             if compute and compute.name == node.name:
                 # Get the artifacts to see if there is a ansible galaxy role
@@ -1114,8 +1110,7 @@ class Tosca:
                 'disk.0.applications', 'contains', app_features)
             system.addFeature(feature)
 
-    @staticmethod
-    def _gen_system(node, nodetemplates):
+    def _gen_system(self, node, nodetemplates):
         """
         Take a node of type "Compute" and get the RADL.system to represent it
         """
@@ -1140,9 +1135,9 @@ class Tosca:
                     name = property_map.get(prop.name, None)
                     if name and prop.value:
                         unit = None
-                        value = prop.value
+                        value = self._final_function_result(prop.value, node)
                         if prop.name in ['disk_size', 'mem_size']:
-                            value, unit = Tosca._get_size_and_unit(prop.value)
+                            value, unit = Tosca._get_size_and_unit(value)
                         elif prop.name == "version":
                             value = str(value)
                         elif prop.name == "image":
@@ -1183,7 +1178,7 @@ class Tosca:
                         res.addFeature(feature)
 
         # Find associated BlockStorages
-        disks = Tosca._get_attached_disks(node, nodetemplates)
+        disks = self._get_attached_disks(node, nodetemplates)
 
         for size, unit, location, device, num, fstype in disks:
             if size:
@@ -1194,7 +1189,7 @@ class Tosca:
                 res.setValue('disk.%d.mount_path' % num, location)
                 res.setValue('disk.%d.fstype' % num, fstype)
 
-        Tosca._add_ansible_roles(node, nodetemplates, res)
+        self._add_ansible_roles(node, nodetemplates, res)
 
         return res
 
@@ -1219,8 +1214,7 @@ class Tosca:
 
         return nets
 
-    @staticmethod
-    def _get_attached_disks(node, nodetemplates):
+    def _get_attached_disks(self, node, nodetemplates):
         """
         Get the disks attached to a node
         """
@@ -1241,10 +1235,11 @@ class Tosca:
                 device = None
 
                 for prop in props:
+                    value = self._final_function_result(prop.value, node)
                     if prop.name == "location":
-                        location = prop.value
+                        location = value
                     elif prop.name == "device":
-                        device = prop.value
+                        device = value
 
                 if trgt.type_definition.type == "tosca.nodes.BlockStorage":
                     size, unit = Tosca._get_size_and_unit(
