@@ -560,7 +560,9 @@ users:
         try:
             auth_header = self.get_auth_header(auth_data)
 
+            volume_id = "im." + str(int(time.time() * 100))
             body = 'Category: storage; scheme="http://schemas.ogf.org/occi/infrastructure#"; class="kind"\n'
+            body += 'X-OCCI-Attribute: occi.core.id="%s"\n'  % volume_id
             body += 'X-OCCI-Attribute: occi.core.title="%s"\n' % name
             body += 'X-OCCI-Attribute: occi.storage.size=%d\n' % int(size)
 
@@ -741,12 +743,13 @@ users:
 
                 # Add volume links
                 for device, volume_id in volumes:
+                    link_id = "im." + str(int(time.time() * 100))
                     body += ('Link: <%s/storage/%s>;rel="http://schemas.ogf.org/occi/infrastructure#storage";'
                              'category="http://schemas.ogf.org/occi/infrastructure#storagelink";'
-                             'occi.core.target="%s/storage/%s";occi.core.source="%s/compute/%s"'
-                             '' % (self.cloud.path, volume_id,
-                                   self.cloud.path, volume_id,
-                                   self.cloud.path, compute_id))
+                             'occi.core.target="%s/storage/%s";occi.core.source="%s/compute/%s";'
+                             'occi.core.id="%s"' % (self.cloud.path, volume_id,
+                                                    self.cloud.path, volume_id,
+                                                    self.cloud.path, compute_id, link_id))
                     if device:
                         body += ';occi.storagelink.deviceid="/dev/%s"\n' % device
                     body += '\n'
