@@ -108,6 +108,7 @@ class EC2CloudConnector(CloudConnector):
                     res_system = radl_system.clone()
                     if res_system.getValue('disk.0.os.credentials.private_key'):
                         res_system.delValue('disk.0.os.credentials.password')
+                        res_system.delValue('disk.0.os.credentials.new.password')
 
                     res_system.addFeature(
                         Feature("disk.0.image.url", "=", str_url), conflict="other", missing="other")
@@ -484,6 +485,7 @@ class EC2CloudConnector(CloudConnector):
         # Currently EC2 plugin uses first private_key credentials
         if system.getValue('disk.0.os.credentials.private_key'):
             system.delValue('disk.0.os.credentials.password')
+            system.delValue('disk.0.os.credentials.new.password')
 
         (region_name, ami) = self.getAMIData(
             system.getValue("disk.0.image.url"))
