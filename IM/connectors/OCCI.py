@@ -746,7 +746,8 @@ users:
                     link_id = "im." + str(int(time.time() * 100))
                     body += ('Link: <%s/storage/%s>;rel="http://schemas.ogf.org/occi/infrastructure#storage";'
                              'category="http://schemas.ogf.org/occi/infrastructure#storagelink";'
-                             'occi.core.target="%s/storage/%s";occi.core.source="%s/compute/%s";'
+                             'occi.core.target="%s/storage/%s";'
+                             'occi.core.source="%s/compute/%s";'
                              'occi.core.id="%s"' % (self.cloud.path, volume_id,
                                                     self.cloud.path, volume_id,
                                                     self.cloud.path, compute_id, link_id))
