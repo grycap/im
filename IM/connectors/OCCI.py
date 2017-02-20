@@ -562,7 +562,7 @@ users:
 
             volume_id = "im." + str(int(time.time() * 100))
             body = 'Category: storage; scheme="http://schemas.ogf.org/occi/infrastructure#"; class="kind"\n'
-            body += 'X-OCCI-Attribute: occi.core.id="%s"\n'  % volume_id
+            body += 'X-OCCI-Attribute: occi.core.id="%s"\n' % volume_id
             body += 'X-OCCI-Attribute: occi.core.title="%s"\n' % name
             body += 'X-OCCI-Attribute: occi.storage.size=%d\n' % int(size)
 
