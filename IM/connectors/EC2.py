@@ -485,6 +485,7 @@ class EC2CloudConnector(CloudConnector):
         # Currently EC2 plugin uses first private_key credentials
         if system.getValue('disk.0.os.credentials.private_key'):
             system.delValue('disk.0.os.credentials.password')
+            system.delValue('disk.0.os.credentials.new.password')
 
         (region_name, ami) = self.getAMIData(
             system.getValue("disk.0.image.url"))
