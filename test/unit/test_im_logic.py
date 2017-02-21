@@ -42,7 +42,6 @@ from IM.CloudInfo import CloudInfo
 from IM.connectors.CloudConnector import CloudConnector
 from IM.SSH import SSH
 from IM.InfrastructureInfo import InfrastructureInfo
-from IM.tosca.Tosca import Tosca
 
 
 def read_file_as_string(file_name):
@@ -626,31 +625,6 @@ class TestIM(unittest.TestCase):
         self.assertGreater(len(contmsg), 150)
 
         IM.DestroyInfrastructure(infId, auth0)
-
-    def test_tosca_to_radl(self):
-        """Test TOSCA RADL translation"""
-        tosca_data = read_file_as_string('../files/tosca_long.yml')
-        tosca = Tosca(tosca_data)
-        _, radl = tosca.to_radl()
-        parse_radl(str(radl))
-
-    def test_tosca_get_outputs(self):
-        """Test TOSCA get_outputs function"""
-        tosca_data = read_file_as_string('../files/tosca_create.yml')
-        tosca = Tosca(tosca_data)
-        _, radl = tosca.to_radl()
-        radl.systems[0].setValue("net_interface.0.ip", "158.42.1.1")
-        radl.systems[0].setValue("disk.0.os.credentials.username", "ubuntu")
-        radl.systems[0].setValue("disk.0.os.credentials.password", "pass")
-        inf = InfrastructureInfo()
-        vm = VirtualMachine(inf, "1", None, radl, radl, None)
-        vm.requested_radl = radl
-        inf.vm_list = [vm]
-        outputs = tosca.get_outputs(inf)
-        self.assertEqual(outputs, {'server_url': ['158.42.1.1'],
-                                   'server_creds': {'token_type': 'password',
-                                                    'token': 'pass',
-                                                    'user': 'ubuntu'}})
 
     def test_check_oidc_invalid_token(self):
         im_auth = {"token": ("eyJraWQiOiJyc2ExIiwiYWxnIjoiUlMyNTYifQ.eyJzdWIiOiJkYzVkNWFiNy02ZGI5LTQwNzktOTg1Yy04MGF"
