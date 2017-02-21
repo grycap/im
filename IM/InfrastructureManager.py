@@ -430,7 +430,7 @@ class InfrastructureManager:
 
             if Config.SINGLE_SITE:
                 image_id = os.path.basename(s.getValue("disk.0.image.url"))
-                s.setValue("disk.0.image.url", Config.SINGLE_SITE_IMAGE_URL_PREFIX + image_id)
+                s.setValue("disk.0.image.url", Config.SINGLE_SITE_IMAGE_URL_PREFIX + '/' + image_id)
 
             if not s.getValue("disk.0.image.url") and len(vmrc_list) == 0:
                 raise Exception(
