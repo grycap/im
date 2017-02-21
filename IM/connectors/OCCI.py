@@ -973,7 +973,7 @@ users:
             if auth_header:
                 headers.update(auth_header)
 
-            disk_id = "imdisk." + str(int(time.time() * 100))
+            disk_id = "imdisk.%s" % str(uuid.uuid1())
 
             body = ('Category: storagelink;scheme="http://schemas.ogf.org/occi/infrastructure#";class="kind";'
                     'location="%s/link/storagelink/";title="storagelink"\n' % self.cloud.path)
