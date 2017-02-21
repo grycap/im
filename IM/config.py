@@ -121,7 +121,7 @@ class ConfigOpenNebula:
     TEMPLATE_CONTEXT = ''
     TEMPLATE_OTHER = 'GRAPHICS = [type="vnc",listen="0.0.0.0"]'
     IMAGE_UNAME = ''
-    TTS_URL = 'http://localhost:8080'
+    TTS_URL = 'https://localhost:8443'
 
 if config.has_section("OpenNebula"):
     parse_options(config, 'OpenNebula', ConfigOpenNebula)
@@ -129,4 +129,4 @@ if config.has_section("OpenNebula"):
 
 # In this case set assume that the TTS server is in the same server
 if 'IM_SINGLE_SITE_ONE_HOST' in os.environ:
-    ConfigOpenNebula.TTS_URL = 'http://%s:8080' % os.environ['IM_SINGLE_SITE_ONE_HOST']
+    ConfigOpenNebula.TTS_URL = 'https://%s:8443' % os.environ['IM_SINGLE_SITE_ONE_HOST']
