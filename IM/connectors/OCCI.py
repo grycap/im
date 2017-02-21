@@ -22,6 +22,7 @@ import base64
 import string
 import requests
 import tempfile
+import uuid
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from CloudConnector import CloudConnector
@@ -281,7 +282,7 @@ class OCCICloudConnector(CloudConnector):
 
         auth_header = self.get_auth_header(auth_data)
         try:
-            net_id = "imnet." + str(int(time.time() * 100))
+            net_id = "imnet.%s" % str(uuid.uuid1())
 
             body = ('Category: networkinterface;scheme="http://schemas.ogf.org/occi/infrastructure#";class="kind";'
                     'location="%s/link/networkinterface/";title="networkinterface link"\n' % self.cloud.path)
@@ -489,7 +490,7 @@ users:
                 disk_device = "vd" + disk_device[-1]
                 system.setValue("disk." + str(cont) + ".device", disk_device)
             self.logger.debug("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
-            storage_name = "im-disk-" + str(int(time.time() * 100))
+            storage_name = "im-disk-%s" % str(uuid.uuid1())
             success, volume_id = self.create_volume(int(disk_size), storage_name, auth_data)
             if success:
                 self.logger.debug("Volume id %s sucessfully created." % volume_id)
@@ -560,7 +561,9 @@ users:
         try:
             auth_header = self.get_auth_header(auth_data)
 
+            volume_id = "im-vol-%s" % str(uuid.uuid1())
             body = 'Category: storage; scheme="http://schemas.ogf.org/occi/infrastructure#"; class="kind"\n'
+            body += 'X-OCCI-Attribute: occi.core.id="%s"\n' % volume_id
             body += 'X-OCCI-Attribute: occi.core.title="%s"\n' % name
             body += 'X-OCCI-Attribute: occi.storage.size=%d\n' % int(size)
 
@@ -722,7 +725,7 @@ users:
                         body += 'X-OCCI-Attribute: occi.compute.memory=' + \
                             str(memory) + '\n'
 
-                compute_id = "im." + str(int(time.time() * 100))
+                compute_id = "im.%s" % str(uuid.uuid1())
                 body += 'X-OCCI-Attribute: occi.core.id="' + compute_id + '"\n'
                 body += 'X-OCCI-Attribute: occi.core.title="' + name + '"\n'
 
@@ -741,12 +744,14 @@ users:
 
                 # Add volume links
                 for device, volume_id in volumes:
+                    link_id = "im.%s" % str(uuid.uuid1())
                     body += ('Link: <%s/storage/%s>;rel="http://schemas.ogf.org/occi/infrastructure#storage";'
                              'category="http://schemas.ogf.org/occi/infrastructure#storagelink";'
-                             'occi.core.target="%s/storage/%s";occi.core.source="%s/compute/%s"'
-                             '' % (self.cloud.path, volume_id,
-                                   self.cloud.path, volume_id,
-                                   self.cloud.path, compute_id))
+                             'occi.core.target="%s/storage/%s";'
+                             'occi.core.source="%s/compute/%s";'
+                             'occi.core.id="%s"' % (self.cloud.path, volume_id,
+                                                    self.cloud.path, volume_id,
+                                                    self.cloud.path, compute_id, link_id))
                     if device:
                         body += ';occi.storagelink.deviceid="/dev/%s"\n' % device
                     body += '\n'
@@ -968,7 +973,7 @@ users:
             if auth_header:
                 headers.update(auth_header)
 
-            disk_id = "imdisk." + str(int(time.time() * 100))
+            disk_id = "imdisk.%s" % str(uuid.uuid1())
 
             body = ('Category: storagelink;scheme="http://schemas.ogf.org/occi/infrastructure#";class="kind";'
                     'location="%s/link/storagelink/";title="storagelink"\n' % self.cloud.path)
