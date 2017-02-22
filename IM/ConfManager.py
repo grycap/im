@@ -1246,11 +1246,22 @@ class ConfManager(threading.Thread):
         wait = 0
         while self.ansible_process.is_alive():
             if wait >= Config.ANSIBLE_INSTALL_TIMEOUT:
-                self.ansible_process.terminate()
+                ConfManager.logger.error("Inf ID: " + str(self.inf.id) + ": " +
+                                         'Timeout waiting Ansible process to finish')
+                try:
+                    # Try to assure that the are no ansible process running
+                    self.ansible_process.teminate()
+                except:
+                    ConfManager.logger.exception("Inf ID: " + str(self.inf.id) + ": " +
+                                                 'Problems terminating Ansible processes.')
                 self.ansible_process = None
                 return (False, "Timeout. Ansible process terminated.")
-            time.sleep(Config.CHECK_CTXT_PROCESS_INTERVAL)
-            wait += Config.CHECK_CTXT_PROCESS_INTERVAL
+            else:
+                ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " +
+                                         'Waiting Ansible process to finish '
+                                         '(%d/%d).' % (wait, Config.ANSIBLE_INSTALL_TIMEOUT))
+                time.sleep(Config.CHECK_CTXT_PROCESS_INTERVAL)
+                wait += Config.CHECK_CTXT_PROCESS_INTERVAL
         try:
             # Try to assure that the are no ansible process running
             self.ansible_process.teminate()

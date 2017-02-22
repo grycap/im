@@ -32,16 +32,6 @@
 ####################### Install Ansible in Ubuntu and RHEL systems with apt and yum ###################################
 ################### because they have recent versions of ansible in system repositories ###############################
 
-    # Patch to solve problem with package 2.6.1-4ubuntu0.1
-    - name: Ubuntu install python-crypto 2.6.1-4build1
-      apt: name="python-crypto=2.6.1-4build1"
-      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version == "14"
-
-    # Patch to solve problem with package 2.6.1-6ubuntu0.1
-    - name: Ubuntu install python-crypto 2.6.1-6build1
-      apt: name="python-crypto=2.6.1-6build1"
-      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version == "16" 
-
     - name: Ubuntu install requirements
       apt: name=software-properties-common
       when: ansible_distribution == "Ubuntu"
