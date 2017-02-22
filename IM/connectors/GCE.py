@@ -578,6 +578,7 @@ class GCECloudConnector(CloudConnector):
         """
         try:
             if node.state == NodeState.RUNNING and "volumes" not in vm.__dict__.keys():
+                vm.volumes = True
                 cont = 1
                 while (vm.info.systems[0].getValue("disk." + str(cont) + ".size") and
                         vm.info.systems[0].getValue("disk." + str(cont) + ".device")):
