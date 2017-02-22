@@ -36,16 +36,6 @@
     - apt_key: url=http://repo.indigo-datacloud.eu/repository/RPM-GPG-KEY-indigodc state=present
       when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version == "14"
 
-    # Patch to solve problem with package 2.6.1-4ubuntu0.1
-    - name: Ubuntu install python-crypto 2.6.1-4build1
-      apt: name="python-crypto=2.6.1-4build1"
-      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version == "14"
-
-    # Patch to solve problem with package 2.6.1-6ubuntu0.1
-    - name: Ubuntu install python-crypto 2.6.1-6build1
-      apt: name="python-crypto=2.6.1-6build1"
-      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version == "16" 
-
     - name: Ubuntu install requirements
       apt: name=software-properties-common
       when: ansible_os_family == "Debian" and (ansible_distribution != "Ubuntu" or ansible_distribution_major_version != "14")

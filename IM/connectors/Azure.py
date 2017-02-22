@@ -184,8 +184,6 @@ class AzureCloudConnector(CloudConnector):
             if not isinstance(image_urls, list):
                 image_urls = [image_urls]
 
-            credentials, subscription_id = self.get_credentials(auth_data)
-
             res = []
             for str_url in image_urls:
                 url = uriparse(str_url)
@@ -193,6 +191,8 @@ class AzureCloudConnector(CloudConnector):
 
                 protocol = url[0]
                 if protocol == "azr":
+                    credentials, subscription_id = self.get_credentials(auth_data)
+
                     res_system = radl_system.clone()
                     instance_type = self.get_instance_type(res_system, credentials, subscription_id)
                     if not instance_type:
