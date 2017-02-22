@@ -578,6 +578,7 @@ class GCECloudConnector(CloudConnector):
         """
         try:
             if node.state == NodeState.RUNNING and "volumes" not in vm.__dict__.keys():
+                vm.volumes = True
                 cont = 1
                 while (vm.info.systems[0].getValue("disk." + str(cont) + ".size") and
                         vm.info.systems[0].getValue("disk." + str(cont) + ".device")):
@@ -594,9 +595,13 @@ class GCECloudConnector(CloudConnector):
                         int(disk_size), volume_name, location=location)
                     success = self.wait_volume(volume)
                     if success:
-                        self.logger.debug(
-                            "Attach the volume ID " + str(volume.id))
-                        volume.attach(node, disk_device)
+                        self.logger.debug("Attach the volume ID " + str(volume.id))
+                        try:
+                            volume.attach(node, disk_device)
+                        except:
+                            self.logger.exception("Error attaching the volume ID " + str(
+                                volume.id) + " destroying it.")
+                            volume.destroy()
                     else:
                         self.logger.error("Error waiting the volume ID " + str(
                             volume.id) + " not attaching to the VM and destroying it.")
