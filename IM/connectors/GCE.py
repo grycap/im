@@ -76,7 +76,7 @@ class GCECloudConnector(CloudConnector):
                                     " Check that it has more than one line.")
 
                 driver = cls(auth['username'], auth[
-                             'password'], project=auth['project'], datastore=self.DEFAULT_ZONE)
+                             'password'], project=auth['project'], datacenter=self.DEFAULT_ZONE)
 
                 self.driver = driver
                 return driver
