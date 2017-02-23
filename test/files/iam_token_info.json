@@ -1,0 +1,17 @@
+{
+  "active": true,
+  "scope": "address phone openid profile offline_access email",
+  "expires_at": "2016-02-16T09:17:46+0000",
+  "exp": 1480000000,
+  "sub": "xxxxxxxx-xxxx-xxxx-xxxxxxxxxxxxxxxxx",
+  "user_id": "username",
+  "client_id": "cid",
+  "token_type": "Bearer",
+  "groups": [
+    "Users",
+    "Developers"
+  ],
+  "preferred_username": "username",
+  "organisation_name": "indigo-d",
+  "email": "me@server.com"
+}
