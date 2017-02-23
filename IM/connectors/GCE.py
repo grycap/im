@@ -327,8 +327,10 @@ class GCECloudConnector(CloudConnector):
                     firewall = None
                     try:
                         firewall = driver.ex_get_firewall(firewall_name)
+                    except ResourceNotFoundError:
+                        self.logger.debug("The firewall %s does not exist." % firewall_name)
                     except:
-                        self.logger.exception("Error getting the firewall %s." % firewall_name)
+                        self.logger.exception("Error trying to get FW %s." % firewall_name)
 
                     if firewall:
                         try:
@@ -341,9 +343,9 @@ class GCECloudConnector(CloudConnector):
 
                     try:
                         driver.ex_create_firewall(firewall_name, allowed, network=net_name)
+                        self.logger.debug("Firewall %s successfully created." % firewall_name)
                     except Exception, addex:
                         self.logger.warn("Exception creating FW: " + str(addex))
-                        pass
 
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         system = radl.systems[0]
@@ -472,12 +474,20 @@ class GCECloudConnector(CloudConnector):
         net_provider_id = self.get_net_provider_id(vm.info)
         firewall_name = "fw-im-%s" % net_provider_id
 
+        firewall = None
         try:
             firewall = driver.ex_get_firewall(firewall_name)
-            if firewall:
-                firewall.destroy()
+        except ResourceNotFoundError:
+            self.logger.debug("Firewall %s does not exist. Do not delete." % firewall_name)
         except:
-            self.logger.exception("Error trying to delete FW.")
+            self.logger.exception("Error trying to get FW %s." % firewall_name)
+
+        if firewall:
+            try:
+                firewall.destroy()
+                self.logger.debug("Firewall %s successfully deleted." % firewall_name)
+            except:
+                self.logger.exception("Error trying to delete FW %s." % firewall_name)
 
     def delete_disks(self, node):
         """
