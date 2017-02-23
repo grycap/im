@@ -43,15 +43,17 @@ class GCECloudConnector(CloudConnector):
 
     def __init__(self, cloud_info):
         self.auth = None
+        self.datacenter = None
         self.driver = None
         CloudConnector.__init__(self, cloud_info)
 
-    def get_driver(self, auth_data):
+    def get_driver(self, auth_data, datacenter=None):
         """
         Get the driver from the auth data
 
         Arguments:
             - auth(Authentication): parsed authentication tokens.
+            - datacenter(str): datacenter to connect.
 
         Returns: a :py:class:`libcloud.compute.base.NodeDriver` or None in case of error
         """
@@ -61,10 +63,11 @@ class GCECloudConnector(CloudConnector):
         else:
             auth = auths[0]
 
-        if self.driver and self.auth.compare(auth_data, self.type):
+        if self.driver and self.auth.compare(auth_data, self.type) and self.datacenter == datacenter:
             return self.driver
         else:
             self.auth = auth_data
+            self.datacenter = datacenter
 
             if 'username' in auth and 'password' in auth and 'project' in auth:
                 cls = get_driver(Provider.GCE)
@@ -75,8 +78,8 @@ class GCECloudConnector(CloudConnector):
                     raise Exception("The certificate provided to the GCE plugin has an incorrect format."
                                     " Check that it has more than one line.")
 
-                driver = cls(auth['username'], auth[
-                             'password'], project=auth['project'], datacenter=self.DEFAULT_ZONE)
+                driver = cls(auth['username'], auth['password'],
+                             project=auth['project'], datacenter=datacenter)
 
                 self.driver = driver
                 return driver
@@ -343,18 +346,18 @@ class GCECloudConnector(CloudConnector):
                         pass
 
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
-        driver = self.get_driver(auth_data)
-
         system = radl.systems[0]
         region, image_id = self.get_image_data(
             system.getValue("disk.0.image.url"))
 
+        if system.getValue('availability_zone'):
+            region = system.getValue('availability_zone')
+
+        driver = self.get_driver(auth_data, region)
+
         image = driver.ex_get_image(image_id)
         if not image:
             return [(False, "Incorrect image name") for _ in range(num_vm)]
-
-        if system.getValue('availability_zone'):
-            region = system.getValue('availability_zone')
 
         instance_type = self.get_instance_type(
             driver.list_sizes(region), system)
