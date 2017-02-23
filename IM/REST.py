@@ -184,7 +184,7 @@ def get_auth_header():
                                 "password": user_pass[1]}
             return Authentication([im_auth, single_site_auth])
         elif auth_header.startswith("Bearer "):
-            token = auth_header[7:]
+            token = auth_header[7:].strip()
             im_auth = {"type": "InfrastructureManager",
                        "username": "user",
                        "token": token}
