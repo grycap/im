@@ -1,5 +1,12 @@
 - hosts: localhost
   connection: local
+  vars:
+      # Set True to activate IM in single site more (OpenNebula sites)
+      SINGLE_SITE: False
+      # Hostname of the OpenNebula API server 
+      SINGLE_SITE_HOST: onserver.domain.com
+      # URL of the IAM TTS server
+      TTS_URL: https://localhost:8443
   tasks:
     - name: Yum install epel-release
       action: yum pkg=epel-release state=installed
@@ -61,3 +68,20 @@
       
     - name: Activate SSH pipelining in ansible.cfg
       ini_file: dest=/etc/ansible/ansible.cfg section=ssh_connection option=pipelining value=True
+
+################################################ Configure IM  ###################################################
+
+    - name: Activate SINGLE_SITE in the IM
+      ini_file: dest=/etc/im/im.cfg section=im option=SINGLE_SITE value=True
+      when: SINGLE_SITE
+
+    - name: Set SINGLE_SITE_AUTH_HOST in the IM
+      ini_file: dest=/etc/im/im.cfg section=im option=SINGLE_SITE_AUTH_HOST value="http://{{SINGLE_SITE_HOST}}:2633"
+      when: SINGLE_SITE
+
+    - name: Set SINGLE_SITE_IMAGE_URL_PREFIX in the IM
+      ini_file: dest=/etc/im/im.cfg section=im option=SINGLE_SITE_IMAGE_URL_PREFIX value="one://{{SINGLE_SITE_HOST}}/"
+      when: SINGLE_SITE
+
+    - name: Set TTS_URL in the IM
+      ini_file: dest=/etc/im/im.cfg section=OpenNebula option=TTS_URL value="{{TTS_URL}}"

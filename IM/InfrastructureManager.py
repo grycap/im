@@ -428,13 +428,13 @@ class InfrastructureManager:
         for system_id in set([d.id for d in radl.deploys if d.vm_number > 0]):
             s = radl.get_system_by_name(system_id)
 
-            if Config.SINGLE_SITE:
-                image_id = os.path.basename(s.getValue("disk.0.image.url"))
-                s.setValue("disk.0.image.url", Config.SINGLE_SITE_IMAGE_URL_PREFIX + '/' + image_id)
-
             if not s.getValue("disk.0.image.url") and len(vmrc_list) == 0:
                 raise Exception(
                     "No correct VMRC auth data provided nor image URL")
+
+            if Config.SINGLE_SITE:
+                image_id = os.path.basename(s.getValue("disk.0.image.url"))
+                s.setValue("disk.0.image.url", Config.SINGLE_SITE_IMAGE_URL_PREFIX + '/' + image_id)
 
             # Remove the requested apps from the system
             s_without_apps = radl.get_system_by_name(system_id).clone()
