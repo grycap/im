@@ -43,6 +43,7 @@ class GCECloudConnector(CloudConnector):
 
     def __init__(self, cloud_info):
         self.auth = None
+        self.datacenter = None
         self.driver = None
         CloudConnector.__init__(self, cloud_info)
 
@@ -62,10 +63,11 @@ class GCECloudConnector(CloudConnector):
         else:
             auth = auths[0]
 
-        if self.driver and self.auth.compare(auth_data, self.type):
+        if self.driver and self.auth.compare(auth_data, self.type) and self.datacenter == datacenter:
             return self.driver
         else:
             self.auth = auth_data
+            self.datacenter = datacenter
 
             if 'username' in auth and 'password' in auth and 'project' in auth:
                 cls = get_driver(Provider.GCE)
