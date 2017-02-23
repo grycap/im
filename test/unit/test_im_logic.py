@@ -576,6 +576,7 @@ class TestIM(unittest.TestCase):
             cpu.count>=1 and
             memory.size>=512m and
             net_interface.0.connection = 'publica' and
+            net_interface.0.dns_name = 'test' and
             net_interface.0.ip = '10.0.0.1' and
             disk.0.image.url = 'mock0://linux.for.ev.er' and
             disk.0.os.credentials.username = 'ubuntu' and
@@ -588,6 +589,29 @@ class TestIM(unittest.TestCase):
             disk.0.applications contains (name = 'ansible.modules.micafer.hadoop') and
             disk.0.applications contains (name='gmetad') and
             disk.0.applications contains (name='wget')
+            )
+
+configure step1 (
+@begin
+---
+  - tasks:
+      - shell:  echo "Hi"
+
+@end
+)
+
+configure step2 (
+@begin
+---
+  - tasks:
+      - shell:  echo "Hi"
+
+@end
+)
+
+            contextualize (
+                system front configure step1 step 1
+                system front configure step2 step 2
             )
 
             deploy front 1
