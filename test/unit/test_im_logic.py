@@ -107,6 +107,18 @@ class TestIM(unittest.TestCase):
             res.append((True, vm))
         return res
 
+    def sleep_and_create_vm(self, inf, radl, requested_radl, num_vm, auth_data):
+        res = []
+        for _ in range(num_vm):
+            time.sleep(5)
+            cloud = CloudInfo()
+            cloud.type = "Dummy"
+            vm = VirtualMachine(inf, "1234", cloud, radl, requested_radl)
+            vm.get_ssh = Mock(side_effect=self.get_dummy_ssh)
+            vm.state = VirtualMachine.RUNNING
+            res.append((True, vm))
+        return res
+
     def get_cloud_connector_mock(self, name="MyMock0"):
         cloud = type(name, (CloudConnector, object), {})
         cloud.launch = Mock(side_effect=self.gen_launch_res)
@@ -327,6 +339,80 @@ class TestIM(unittest.TestCase):
         self.assertEqual(cloud1.launch.call_count, n1)
         for call, _ in cloud0.launch.call_args_list + cloud1.launch.call_args_list:
             self.assertEqual(call[3], 1)
+        IM.DestroyInfrastructure(infId, auth0)
+
+    def test_inf_addresources4(self):
+        """Deploy a virtual machine when the first cloud provider fails."""
+
+        radl = RADL()
+        radl.add(system("s0", [Feature("disk.0.image.url", "=", ["mock0://linux.for.ev.er",
+                                                                 "mock1://linux.for.ev.er"]),
+                               Feature("disk.0.os.credentials.username", "=", "user"),
+                               Feature("disk.0.os.credentials.password", "=", "pass")]))
+        radl.add(deploy("s0", 1))
+        cloud0 = self.get_cloud_connector_mock("MyMock0")
+        self.register_cloudconnector("Mock0", cloud0)
+        cloud1 = type("MyMock1", (CloudConnector, object), {})
+        cloud1.launch = Mock(return_value=[(False, "Error")])
+        self.register_cloudconnector("Mock1", cloud1)
+
+        auth0 = self.getAuth([0], [], [("Mock1", 1), ("Mock0", 0)])
+
+        infId = IM.CreateInfrastructure("", auth0)
+        vms = IM.AddResource(infId, str(radl), auth0)
+        self.assertEqual(len(vms), 1)
+        self.assertEqual(cloud0.launch.call_count, 1)
+        self.assertEqual(cloud1.launch.call_count, 1)
+        for call, _ in cloud0.launch.call_args_list:
+            self.assertEqual(call[3], 1)
+        for call, _ in cloud1.launch.call_args_list:
+            self.assertEqual(call[3], 1)
+        IM.DestroyInfrastructure(infId, auth0)
+
+    def test_0inf_addresources5(self):
+        """Deploy n independent virtual machines."""
+
+        n = 4  # Machines to deploy
+        radl = RADL()
+        radl.add(system("s0", [Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
+                               Feature("disk.0.os.credentials.username", "=", "user"),
+                               Feature("disk.0.os.credentials.password", "=", "pass")]))
+        radl.add(deploy("s0", n))
+        cloud = type("MyMock0", (CloudConnector, object), {})
+        cloud.launch = Mock(side_effect=self.sleep_and_create_vm)
+        self.register_cloudconnector("Mock", cloud)
+        auth0 = self.getAuth([0], [], [("Mock", 0)])
+        infId = IM.CreateInfrastructure("", auth0)
+
+        # in this case it will take aprox 20 secs
+        before = int(time.time())
+        Config.MAX_SIMULTANEOUS_LAUNCHES = 1
+        vms = IM.AddResource(infId, str(radl), auth0)
+        delay = int(time.time()) - before
+        self.assertLess(delay, 25)
+        self.assertGreater(delay, 19)
+
+        self.assertEqual(len(vms), n)
+        self.assertEqual(cloud.launch.call_count, n)
+        for call, _ in cloud.launch.call_args_list:
+            self.assertEqual(call[3], 1)
+
+        cloud = type("MyMock0", (CloudConnector, object), {})
+        cloud.launch = Mock(side_effect=self.sleep_and_create_vm)
+        self.register_cloudconnector("Mock", cloud)
+        # in this case it will take aprox 5 secs
+        before = int(time.time())
+        Config.MAX_SIMULTANEOUS_LAUNCHES = 4  # Test the pool
+        vms = IM.AddResource(infId, str(radl), auth0)
+        delay = int(time.time()) - before
+        self.assertLess(delay, 8)
+        self.assertGreater(delay, 4)
+
+        self.assertEqual(len(vms), n)
+        self.assertEqual(cloud.launch.call_count, n)
+        for call, _ in cloud.launch.call_args_list:
+            self.assertEqual(call[3], 1)
+
         IM.DestroyInfrastructure(infId, auth0)
 
     @patch('IM.VMRC.Client')
