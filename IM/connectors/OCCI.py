@@ -603,7 +603,7 @@ users:
                     return (True, "")
                 elif resp.status_code == 409:
                     self.log_debug("Error deleting the Volume. It seems that it is still "
-                                      "attached to a VM: %s" % resp.text)
+                                   "attached to a VM: %s" % resp.text)
                     time.sleep(delay)
                     wait += delay
                 elif resp.status_code != 200 and resp.status_code != 204:
@@ -939,7 +939,7 @@ users:
                             orig_system.setValue("disk." + str(cont) + ".mount_path", mount_path)
                     else:
                         self.log_error("Error attaching a %d GB volume for the disk %d."
-                                          " Deleting it." % (int(disk_size), cont))
+                                       " Deleting it." % (int(disk_size), cont))
                         self.delete_volume(volume_id, auth_data)
                         return (False, "Error attaching the new volume")
                 else:

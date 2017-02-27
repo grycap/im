@@ -437,8 +437,7 @@ class AzureClassicCloudConnector(CloudConnector):
         Create a Azure Cloud Service and return the name
         """
         service_name = "IM-" + str(int(time.time() * 100))
-        self.log_info("Create the service " +
-                         service_name + " in region: " + region)
+        self.log_info("Create the service " + service_name + " in region: " + region)
 
         try:
             uri = "/services/hostedservices"
@@ -522,8 +521,8 @@ class AzureClassicCloudConnector(CloudConnector):
             return True
         else:
             self.log_error("Error waiting the operation: %s, %s, %s" % (output.HttpStatusCode,
-                                                                           output.Error.Code,
-                                                                           output.Error.Message))
+                                                                        output.Error.Code,
+                                                                        output.Error.Message))
             return False
 
     def get_storage_name(self, subscription_id, region=None):
@@ -790,7 +789,7 @@ class AzureClassicCloudConnector(CloudConnector):
             return (True, vm)
         if resp.status_code != 200:
             self.log_error("Error getting the VM info: " + vm.id +
-                              ". Error Code: " + str(resp.status_code) + ". Msg: " + resp.text)
+                           ". Error Code: " + str(resp.status_code) + ". Msg: " + resp.text)
             return (False, "Error getting the VM info: " + vm.id +
                     ". Error Code: " + str(resp.status_code) + ". Msg: " + resp.text)
         else:

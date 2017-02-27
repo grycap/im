@@ -60,7 +60,7 @@ class TestAzureClassicConnector(unittest.TestCase):
         logger = logging.getLogger('CloudConnector')
         logger.setLevel(logging.DEBUG)
         logger.propagate = 0
-        for handler in logger.handlers: 
+        for handler in logger.handlers:
             logger.removeHandler(handler)
         logger.addHandler(self.handler)
 
