@@ -144,7 +144,7 @@ class CloudConnector:
         (out, err) = p.communicate()
         if p.returncode != 0:
             shutil.rmtree(tmp_dir, ignore_errors=True)
-            self.logger.error("Error executing ssh-keygen: " + out + err)
+            self.log_error("Error executing ssh-keygen: " + out + err)
             return (None, None)
         else:
             public = None
@@ -153,13 +153,13 @@ class CloudConnector:
                 with open(pk_file) as f:
                     private = f.read()
             except:
-                self.logger.exception("Error reading private_key file.")
+                self.log_exception("Error reading private_key file.")
 
             try:
                 with open(pk_file + ".pub") as f:
                     public = f.read()
             except:
-                self.logger.exception("Error reading public_key file.")
+                self.log_exception("Error reading public_key file.")
 
             shutil.rmtree(tmp_dir, ignore_errors=True)
             return (public, private)
