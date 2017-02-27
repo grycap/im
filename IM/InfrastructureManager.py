@@ -146,6 +146,10 @@ class InfrastructureManager:
     @staticmethod
     def _launch_vm(sel_inf, task, cloud_id, deploy_group, auth,
                    deployed_vm, cancel_deployment, exceptions):
+        """
+        Launch a VM in a cloud provider.
+        In case of failure it will try with the next provider defined (if any)
+        """
         fail_cont = 0
         all_ok = False
         for task_cloud in task:
@@ -204,6 +208,7 @@ class InfrastructureManager:
     @staticmethod
     def _launch_groups(sel_inf, deploy_groups, deploys_group_cloud_list_all, cloud_list, concrete_systems,
                        radl, auth, deployed_vm, cancel_deployment):
+        """Launch all groups of deploys together."""
         try:
             tasks = []
             for deploy_group in deploy_groups:
