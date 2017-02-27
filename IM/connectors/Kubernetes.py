@@ -69,7 +69,7 @@ class KubernetesCloudConnector(CloudConnector):
         url = uriparse(self.cloud.server)
         auths = auth_data.getAuthInfo(self.type, url[1])
         if not auths:
-            self.logger.error(
+            self.log_error(
                 "No correct auth data has been specified to Kubernetes.")
             return None
         else:
@@ -104,12 +104,12 @@ class KubernetesCloudConnector(CloudConnector):
                         return v
 
         except Exception:
-            self.logger.exception(
+            self.log_exception(
                 "Error connecting with Kubernetes API server")
 
-        self.logger.warn(
+        self.log_warn(
             "Error getting a compatible API version. Setting the default one.")
-        self.logger.debug("Using %s API version." % version)
+        self.log_debug("Using %s API version." % version)
         return version
 
     def concreteSystem(self, radl_system, auth_data):
@@ -160,17 +160,17 @@ class KubernetesCloudConnector(CloudConnector):
             resp = self.create_request('DELETE', uri, auth_data)
 
             if resp.status_code == 404:
-                self.logger.warn(
+                self.log_warn(
                     "Trying to remove a non existing PersistentVolumeClaim: " + vc_name)
                 return True
             elif resp.status_code != 200:
-                self.logger.error(
+                self.log_error(
                     "Error deleting the PersistentVolumeClaim: " + resp.txt)
                 return False
             else:
                 return True
         except Exception:
-            self.logger.exception(
+            self.log_exception(
                 "Error connecting with Kubernetes API server")
             return False
 
@@ -182,7 +182,7 @@ class KubernetesCloudConnector(CloudConnector):
                     success = self._delete_volume_claim(
                         pod_data["metadata"]["namespace"], vc_name, auth_data)
                     if not success:
-                        self.logger.error(
+                        self.log_error(
                             "Error deleting PersistentVolumeClaim:" + vc_name)
 
     def _create_volume_claim(self, claim_data, auth_data):
@@ -198,12 +198,12 @@ class KubernetesCloudConnector(CloudConnector):
 
             output = str(resp.text)
             if resp.status_code != 201:
-                self.logger.error("Error deleting the POD: " + output)
+                self.log_error("Error deleting the POD: " + output)
                 return False
             else:
                 return True
         except Exception:
-            self.logger.exception(
+            self.log_exception(
                 "Error connecting with Kubernetes API server")
             return False
 
@@ -223,8 +223,7 @@ class KubernetesCloudConnector(CloudConnector):
                 disk_mount_path = '/' + disk_mount_path
             if not disk_device.startswith('/'):
                 disk_device = '/' + disk_device
-            self.logger.debug("Binding a volume in %s to %s" %
-                              (disk_device, disk_mount_path))
+            self.log_debug("Binding a volume in %s to %s" % (disk_device, disk_mount_path))
             name = "%s-%d" % (pod_name, cont)
 
             if persistent:
@@ -239,7 +238,7 @@ class KubernetesCloudConnector(CloudConnector):
                     res.append((name, disk_device, disk_size,
                                 disk_mount_path, persistent))
                 else:
-                    self.logger.error(
+                    self.log_error(
                         "Error creating PersistentVolumeClaim:" + name)
             else:
                 res.append((name, disk_device, disk_size,
@@ -397,7 +396,7 @@ class KubernetesCloudConnector(CloudConnector):
                     res.append((True, vm))
 
             except Exception, ex:
-                self.logger.exception(
+                self.log_exception(
                     "Error connecting with Kubernetes API server")
                 res.append((False, "ERROR: " + str(ex)))
 
@@ -419,7 +418,7 @@ class KubernetesCloudConnector(CloudConnector):
                 return (False, resp.status_code, resp.text)
 
         except Exception, ex:
-            self.logger.exception(
+            self.log_exception(
                 "Error connecting with Kubernetes API server")
             return (False, None, "Error connecting with Kubernetes API server: " + str(ex))
 
@@ -439,7 +438,7 @@ class KubernetesCloudConnector(CloudConnector):
                 self.setIPs(vm, output)
                 return (True, vm)
         else:
-            self.logger.error("Error getting info about the POD: " + output)
+            self.log_error("Error getting info about the POD: " + output)
             return (False, "Error getting info about the POD: " + output)
 
     def setIPs(self, vm, pod_info):
@@ -464,7 +463,7 @@ class KubernetesCloudConnector(CloudConnector):
         success, status, output = self._get_pod(vm, auth_data)
         if success:
             if status == 404:
-                self.logger.warn(
+                self.log_warn(
                     "Trying to remove a non existing POD id: " + vm.id)
                 return (True, vm.id)
             else:
@@ -484,7 +483,7 @@ class KubernetesCloudConnector(CloudConnector):
         uri = "/api/" + apiVersion + "/namespaces/" + vm.inf.id
         resp = self.create_request('DELETE', uri, auth_data, headers)
         if resp.status_code != 200:
-            self.logger.error("Error deleting Namespace")
+            self.log_error("Error deleting Namespace")
             return False
         return True
 
@@ -498,7 +497,7 @@ class KubernetesCloudConnector(CloudConnector):
             resp = self.create_request('DELETE', uri, auth_data)
 
             if resp.status_code == 404:
-                self.logger.warn(
+                self.log_warn(
                     "Trying to remove a non existing POD id: " + pod_name)
                 return (True, pod_name)
             elif resp.status_code != 200:
@@ -506,7 +505,7 @@ class KubernetesCloudConnector(CloudConnector):
             else:
                 return (True, pod_name)
         except Exception:
-            self.logger.exception(
+            self.log_exception(
                 "Error connecting with Kubernetes API server")
             return (False, "Error connecting with Kubernetes API server")
 
@@ -543,7 +542,7 @@ class KubernetesCloudConnector(CloudConnector):
                 changed = True
 
             if not changed:
-                self.logger.debug(
+                self.log_debug(
                     "Nothing changes in the kubernetes pod: " + str(vm.id))
                 return (True, vm)
 
@@ -567,7 +566,7 @@ class KubernetesCloudConnector(CloudConnector):
                 return (True, self.updateVMInfo(vm, auth_data))
 
         except Exception, ex:
-            self.logger.exception(
+            self.log_exception(
                 "Error connecting with Kubernetes API server")
             return (False, "ERROR: " + str(ex))
 
