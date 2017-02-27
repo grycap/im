@@ -415,7 +415,6 @@ users:
                 self.log_error("Error querying the OCCI server: %s" % resp.reason)
                 return ""
             else:
-                print resp.text
                 return resp.text
         except:
             self.log_exception("Error querying the OCCI server")
