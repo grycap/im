@@ -42,9 +42,9 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
     DEFAULT_USER = 'cloudadm'
     """ default user to SSH access the VM """
 
-    def __init__(self, cloud_info):
+    def __init__(self, cloud_info, inf):
         self.auth = None
-        LibCloudCloudConnector.__init__(self, cloud_info)
+        LibCloudCloudConnector.__init__(self, cloud_info, inf)
 
     def get_driver(self, auth_data):
         """
@@ -434,7 +434,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 msg += str(ex)
 
             if node:
-                vm = VirtualMachine(inf, node.id, self.cloud, radl, requested_radl, self.cloud.getCloudConnector())
+                vm = VirtualMachine(inf, node.id, self.cloud, radl, requested_radl, self.cloud.getCloudConnector(inf))
                 vm.info.systems[0].setValue('instance_id', str(node.id))
                 vm.info.systems[0].setValue('instance_name', str(node.name))
                 # Add the keypair name to remove it later

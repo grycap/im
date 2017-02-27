@@ -129,8 +129,8 @@ class OpenNebulaCloudConnector(CloudConnector):
     type = "OpenNebula"
     """str with the name of the provider."""
 
-    def __init__(self, cloud_info):
-        CloudConnector.__init__(self, cloud_info)
+    def __init__(self, cloud_info, inf):
+        CloudConnector.__init__(self, cloud_info, inf)
         self.server_url = "http://%s:%d/RPC2" % (
             self.cloud.server, self.cloud.port)
 

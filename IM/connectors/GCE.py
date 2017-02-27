@@ -41,11 +41,11 @@ class GCECloudConnector(CloudConnector):
     """str with the name of the provider."""
     DEFAULT_ZONE = "us-central1-a"
 
-    def __init__(self, cloud_info):
+    def __init__(self, cloud_info, inf):
         self.auth = None
         self.datacenter = None
         self.driver = None
-        CloudConnector.__init__(self, cloud_info)
+        CloudConnector.__init__(self, cloud_info, inf)
 
     def get_driver(self, auth_data, datacenter=None):
         """
@@ -434,7 +434,7 @@ class GCECloudConnector(CloudConnector):
 
         for node in nodes:
             vm = VirtualMachine(inf, node.extra['name'], self.cloud, radl,
-                                requested_radl, self.cloud.getCloudConnector())
+                                requested_radl, self.cloud.getCloudConnector(inf))
             vm.info.systems[0].setValue('instance_id', str(vm.id))
             vm.info.systems[0].setValue('instance_name', str(vm.id))
             self.logger.debug("Node successfully created.")

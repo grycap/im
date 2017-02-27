@@ -20,7 +20,6 @@ import sys
 import unittest
 import os
 import logging
-import logging.config
 from StringIO import StringIO
 
 sys.path.append(".")
@@ -47,14 +46,13 @@ class TestOCCIConnector(unittest.TestCase):
     Class to test the IM connectors
     """
 
-    @classmethod
-    def setUpClass(cls):
-        cls.last_op = None, None
-        cls.log = StringIO()
-        ch = logging.StreamHandler(cls.log)
+    def setUp(self):
+        self.last_op = None, None
+        self.log = StringIO()
+        self.handler = logging.StreamHandler(self.log)
         formatter = logging.Formatter(
             '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        ch.setFormatter(formatter)
+        self.handler.setFormatter(formatter)
 
         logging.RootLogger.propagate = 0
         logging.root.setLevel(logging.ERROR)
@@ -62,11 +60,15 @@ class TestOCCIConnector(unittest.TestCase):
         logger = logging.getLogger('CloudConnector')
         logger.setLevel(logging.DEBUG)
         logger.propagate = 0
-        logger.addHandler(ch)
+        for handler in logger.handlers: 
+            logger.removeHandler(handler)
+        logger.addHandler(self.handler)
 
-    @classmethod
-    def clean_log(cls):
-        cls.log = StringIO()
+    def tearDown(self):
+        self.handler.flush()
+        self.log.close()
+        self.log = StringIO()
+        self.handler.close()
 
     @staticmethod
     def get_occi_cloud():
@@ -75,7 +77,9 @@ class TestOCCIConnector(unittest.TestCase):
         cloud_info.protocol = "https"
         cloud_info.server = "server.com"
         cloud_info.port = 11443
-        cloud = OCCICloudConnector(cloud_info)
+        inf = MagicMock()
+        inf.id = "1"
+        cloud = OCCICloudConnector(cloud_info, inf)
         return cloud
 
     def test_10_concrete(self):
@@ -100,7 +104,6 @@ class TestOCCIConnector(unittest.TestCase):
         concrete = occi_cloud.concreteSystem(radl_system, auth)
         self.assertEqual(len(concrete), 1)
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.clean_log()
 
     def get_response(self, method, url, verify, cert, headers, data):
         resp = MagicMock()
@@ -126,7 +129,7 @@ class TestOCCIConnector(unittest.TestCase):
                 resp.status_code = 204
             elif params == "action=start":
                 resp.status_code = 200
-            elif url == "/link/storagelink":
+            elif url == "/storagelink/":
                 resp.status_code = 200
             elif url == "/storage/":
                 resp.status_code = 201
@@ -172,7 +175,6 @@ class TestOCCIConnector(unittest.TestCase):
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.clean_log()
 
     @patch('requests.request')
     @patch('IM.connectors.OCCI.KeyStoneAuth.get_keystone_uri')
@@ -208,7 +210,6 @@ class TestOCCIConnector(unittest.TestCase):
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.clean_log()
 
     @patch('requests.request')
     @patch('IM.connectors.OCCI.KeyStoneAuth.get_keystone_uri')
@@ -228,7 +229,6 @@ class TestOCCIConnector(unittest.TestCase):
 
         self.assertTrue(success, msg="ERROR: stopping VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.clean_log()
 
     @patch('requests.request')
     @patch('IM.connectors.OCCI.KeyStoneAuth.get_keystone_uri')
@@ -248,7 +248,6 @@ class TestOCCIConnector(unittest.TestCase):
 
         self.assertTrue(success, msg="ERROR: stopping VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.clean_log()
 
     @patch('requests.request')
     @patch('IM.connectors.OCCI.KeyStoneAuth.get_keystone_uri')
@@ -292,7 +291,6 @@ class TestOCCIConnector(unittest.TestCase):
 
         self.assertTrue(success, msg="ERROR: modifying VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.clean_log()
 
     @patch('requests.request')
     @patch('IM.connectors.OCCI.KeyStoneAuth.get_keystone_uri')
@@ -314,7 +312,6 @@ class TestOCCIConnector(unittest.TestCase):
 
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.clean_log()
 
 
 if __name__ == '__main__':

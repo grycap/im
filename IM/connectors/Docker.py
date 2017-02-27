@@ -43,9 +43,9 @@ class DockerCloudConnector(CloudConnector):
     _root_password = "Aspecial+0ne"
     """ Default password to set to the root in the container"""
 
-    def __init__(self, cloud_info):
+    def __init__(self, cloud_info, inf):
         self._swarm = None
-        CloudConnector.__init__(self, cloud_info)
+        CloudConnector.__init__(self, cloud_info, inf)
 
     def create_request(self, method, url, auth_data, headers=None, body=None):
 

@@ -84,10 +84,10 @@ class EC2CloudConnector(CloudConnector):
     }
     """Dictionary with a map with the EC3 VM states to the IM states."""
 
-    def __init__(self, cloud_info):
+    def __init__(self, cloud_info, inf):
         self.connection = None
         self.auth = None
-        CloudConnector.__init__(self, cloud_info)
+        CloudConnector.__init__(self, cloud_info, inf)
 
     def concreteSystem(self, radl_system, auth_data):
         image_urls = radl_system.getValue("disk.0.image.url")

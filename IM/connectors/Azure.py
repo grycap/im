@@ -70,9 +70,9 @@ class AzureCloudConnector(CloudConnector):
         'Stopped': VirtualMachine.STOPPED
     }
 
-    def __init__(self, cloud_info):
+    def __init__(self, cloud_info, inf):
         self.credentials = None
-        CloudConnector.__init__(self, cloud_info)
+        CloudConnector.__init__(self, cloud_info, inf)
 
     def get_credentials(self, auth_data):
         auths = auth_data.getAuthInfo(self.type)

@@ -12,9 +12,11 @@ class CloudConnector:
             - cloud_info(:py:class:`IM.CloudInfo`): Data about the Cloud Provider
     """
 
-    def __init__(self, cloud_info):
+    def __init__(self, cloud_info, inf):
         self.cloud = cloud_info
         """Data about the Cloud Provider."""
+        self.inf = inf
+        """Infrastructure this CloudConnector is associated with."""
         self.logger = logging.getLogger('CloudConnector')
         """Logger object."""
 
@@ -161,3 +163,22 @@ class CloudConnector:
 
             shutil.rmtree(tmp_dir, ignore_errors=True)
             return (public, private)
+
+    def log_msg(self, level, msg, exc_info=0):
+        msg = "Inf ID: %s: %s" % (self.inf.id, msg)
+        self.logger.log(level, msg, exc_info=exc_info)
+
+    def log_error(self, msg):
+        self.log_msg(logging.ERROR, msg)
+
+    def log_debug(self, msg):
+        self.log_msg(logging.DEBUG, msg)
+
+    def log_warn(self, msg):
+        self.log_msg(logging.WARNING, msg)
+
+    def log_exception(self, msg):
+        self.log_msg(logging.ERROR, msg, exc_info=1)
+
+    def log_info(self, msg):
+        self.log_msg(logging.INFO, msg)

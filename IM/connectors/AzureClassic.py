@@ -138,9 +138,9 @@ class AzureClassicCloudConnector(CloudConnector):
         'Unknown': VirtualMachine.UNKNOWN
     }
 
-    def __init__(self, cloud_info):
+    def __init__(self, cloud_info, inf):
         self.instance_type_list = None
-        CloudConnector.__init__(self, cloud_info)
+        CloudConnector.__init__(self, cloud_info, inf)
 
     def create_request(self, method, url, auth_data, headers=None, body=None):
 

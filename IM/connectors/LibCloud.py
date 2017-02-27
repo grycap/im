@@ -38,9 +38,9 @@ class LibCloudCloudConnector(CloudConnector):
     type = "LibCloud"
     """str with the name of the provider."""
 
-    def __init__(self, cloud_info):
+    def __init__(self, cloud_info, inf):
         self.driver = None
-        CloudConnector.__init__(self, cloud_info)
+        CloudConnector.__init__(self, cloud_info, inf)
 
     def get_driver(self, auth_data):
         """
@@ -259,7 +259,7 @@ class LibCloudCloudConnector(CloudConnector):
 
             if node:
                 vm = VirtualMachine(
-                    inf, node.id, self.cloud, radl, requested_radl, self.cloud.getCloudConnector())
+                    inf, node.id, self.cloud, radl, requested_radl, self.cloud.getCloudConnector(inf))
                 vm.info.systems[0].setValue('instance_id', str(node.id))
                 vm.info.systems[0].setValue('instance_name', str(node.name))
                 # Add the keypair name to remove it later
