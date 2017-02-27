@@ -46,13 +46,13 @@ class TestAzureClassicConnector(unittest.TestCase):
     Class to test the IM connectors
     """
 
-    @classmethod
-    def setUpClass(cls):
-        cls.log = StringIO()
-        ch = logging.StreamHandler(cls.log)
+    def setUp(self):
+        self.last_op = None, None
+        self.log = StringIO()
+        self.handler = logging.StreamHandler(self.log)
         formatter = logging.Formatter(
             '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        ch.setFormatter(formatter)
+        self.handler.setFormatter(formatter)
 
         logging.RootLogger.propagate = 0
         logging.root.setLevel(logging.ERROR)
@@ -60,17 +60,23 @@ class TestAzureClassicConnector(unittest.TestCase):
         logger = logging.getLogger('CloudConnector')
         logger.setLevel(logging.DEBUG)
         logger.propagate = 0
-        logger.addHandler(ch)
+        for handler in logger.handlers: 
+            logger.removeHandler(handler)
+        logger.addHandler(self.handler)
 
-    @classmethod
-    def clean_log(cls):
-        cls.log = StringIO()
+    def tearDown(self):
+        self.handler.flush()
+        self.log.close()
+        self.log = StringIO()
+        self.handler.close()
 
     @staticmethod
     def get_azure_cloud():
         cloud_info = CloudInfo()
         cloud_info.type = "AzureClassic"
-        cloud = AzureClassicCloudConnector(cloud_info)
+        inf = MagicMock()
+        inf.id = "1"
+        cloud = AzureClassicCloudConnector(cloud_info, inf)
         return cloud
 
     @patch('requests.request')
@@ -99,7 +105,6 @@ class TestAzureClassicConnector(unittest.TestCase):
         concrete = azure_cloud.concreteSystem(radl_system, auth)
         self.assertEqual(len(concrete), 1)
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.clean_log()
 
     def get_response(self, method, url, verify, cert, headers, data):
         resp = MagicMock()
@@ -195,7 +200,6 @@ class TestAzureClassicConnector(unittest.TestCase):
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.clean_log()
 
     @patch('requests.request')
     def test_30_updateVMInfo(self, requests):
@@ -229,7 +233,6 @@ class TestAzureClassicConnector(unittest.TestCase):
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.clean_log()
 
     @patch('requests.request')
     @patch('time.sleep')
@@ -248,7 +251,6 @@ class TestAzureClassicConnector(unittest.TestCase):
 
         self.assertTrue(success, msg="ERROR: stopping VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.clean_log()
 
     @patch('requests.request')
     @patch('time.sleep')
@@ -267,7 +269,6 @@ class TestAzureClassicConnector(unittest.TestCase):
 
         self.assertTrue(success, msg="ERROR: stopping VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.clean_log()
 
     @patch('requests.request')
     @patch('time.sleep')
@@ -308,7 +309,6 @@ class TestAzureClassicConnector(unittest.TestCase):
 
         self.assertTrue(success, msg="ERROR: modifying VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.clean_log()
 
     @patch('requests.request')
     @patch('time.sleep')
@@ -328,7 +328,6 @@ class TestAzureClassicConnector(unittest.TestCase):
 
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.clean_log()
 
 
 if __name__ == '__main__':
