@@ -45,14 +45,12 @@ class TestFogBowConnector(unittest.TestCase):
     Class to test the IM connectors
     """
 
-    @classmethod
-    def setUpClass(cls):
-        cls.last_op = None, None
-        cls.log = StringIO()
-        ch = logging.StreamHandler(cls.log)
+    def setUp(self):
+        self.log = StringIO()
+        self.handler = logging.StreamHandler(self.log)
         formatter = logging.Formatter(
             '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        ch.setFormatter(formatter)
+        self.handler.setFormatter(formatter)
 
         logging.RootLogger.propagate = 0
         logging.root.setLevel(logging.ERROR)
@@ -60,11 +58,15 @@ class TestFogBowConnector(unittest.TestCase):
         logger = logging.getLogger('CloudConnector')
         logger.setLevel(logging.DEBUG)
         logger.propagate = 0
-        logger.addHandler(ch)
+        for handler in logger.handlers:
+            logger.removeHandler(handler)
+        logger.addHandler(self.handler)
 
-    @classmethod
-    def clean_log(cls):
-        cls.log = StringIO()
+    def tearDown(self):
+        self.handler.flush()
+        self.log.close()
+        self.log = StringIO()
+        self.handler.close()
 
     @staticmethod
     def get_fogbow_cloud():
@@ -72,7 +74,9 @@ class TestFogBowConnector(unittest.TestCase):
         cloud_info.type = "FogBow"
         cloud_info.server = "server.com"
         cloud_info.port = 8182
-        cloud = FogBowCloudConnector(cloud_info)
+        inf = MagicMock()
+        inf.id = "1"
+        cloud = FogBowCloudConnector(cloud_info, inf)
         return cloud
 
     def test_10_concrete(self):
@@ -97,7 +101,6 @@ class TestFogBowConnector(unittest.TestCase):
         concrete = fogbow_cloud.concreteSystem(radl_system, auth)
         self.assertEqual(len(concrete), 1)
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.clean_log()
 
     def get_response(self):
         method, url = self.__class__.last_op
@@ -162,7 +165,6 @@ class TestFogBowConnector(unittest.TestCase):
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.clean_log()
 
     @patch('httplib.HTTPConnection')
     def test_30_updateVMInfo(self, connection):
@@ -199,7 +201,6 @@ class TestFogBowConnector(unittest.TestCase):
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.clean_log()
 
     @patch('httplib.HTTPConnection')
     def test_60_finalize(self, connection):
@@ -220,7 +221,6 @@ class TestFogBowConnector(unittest.TestCase):
 
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.clean_log()
 
 
 if __name__ == '__main__':
