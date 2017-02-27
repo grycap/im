@@ -117,9 +117,9 @@ class EC2CloudConnector(CloudConnector):
 
                     instance_type = self.get_instance_type(res_system)
                     if not instance_type:
-                        self.logger.error(
+                        self.log_error(
                             "Error launching the VM, no instance type available for the requirements.")
-                        self.logger.debug(res_system)
+                        self.log_debug(res_system)
                         return []
                     else:
                         self.update_system_info_from_instance(
@@ -182,13 +182,13 @@ class EC2CloudConnector(CloudConnector):
                         raise Exception(
                             "Incorrect region name: " + region_name)
                 else:
-                    self.logger.error("No correct auth data has been specified to EC2: "
-                                      "username (Access Key) and password (Secret Key)")
+                    self.log_error("No correct auth data has been specified to EC2: "
+                                   "username (Access Key) and password (Secret Key)")
                     raise Exception("No correct auth data has been specified to EC2: "
                                     "username (Access Key) and password (Secret Key)")
 
             except Exception, ex:
-                self.logger.exception(
+                self.log_exception(
                     "Error getting the region " + region_name)
                 raise Exception("Error getting the region " +
                                 region_name + ": " + str(ex))
@@ -250,8 +250,7 @@ class EC2CloudConnector(CloudConnector):
                 performance = float(cpu_perf.value)
                 performance_op = cpu_perf.getLogOperator()
             else:
-                self.logger.debug("Performance unit unknown: " +
-                                  cpu_perf.unit + ". Ignore it")
+                self.log_debug("Performance unit unknown: " + cpu_perf.unit + ". Ignore it")
 
         instace_types = self.get_all_instance_types()
 
@@ -341,7 +340,7 @@ class EC2CloudConnector(CloudConnector):
             sg = self._get_security_group(conn, sg_name)
 
             if not sg:
-                self.logger.debug("Creating security group: " + sg_name)
+                self.log_debug("Creating security group: " + sg_name)
                 try:
                     sg = conn.create_security_group(
                         sg_name, "Security group created by the IM", vpc_id=vpc)
@@ -352,7 +351,7 @@ class EC2CloudConnector(CloudConnector):
                         # if not raise the exception
                         raise crex
                     else:
-                        self.logger.debug(
+                        self.log_debug(
                             "Security group: " + sg_name + " already created.")
 
             if vpc:
@@ -372,12 +371,12 @@ class EC2CloudConnector(CloudConnector):
                         if local_port != 22:
                             protocol = remote_protocol
                             if remote_protocol != local_protocol:
-                                self.logger.warn(
+                                self.log_warn(
                                     "Different protocols used in outports ignoring local port protocol!")
                             try:
                                 sg.authorize(protocol, remote_port, local_port, '0.0.0.0/0')
                             except Exception, addex:
-                                self.logger.warn("Exception adding SG rules. Probably the rules exists:" + str(addex))
+                                self.log_warn("Exception adding SG rules. Probably the rules exists:" + str(addex))
                                 pass
 
             try:
@@ -388,11 +387,11 @@ class EC2CloudConnector(CloudConnector):
                 sg.authorize('udp', 0, 65535, src_group=sg)
                 # sg.authorize('icmp', 0, 65535, src_group=sg)
             except Exception, addex:
-                self.logger.warn("Exception adding SG rules. Probably the rules exists:" + str(addex))
+                self.log_warn("Exception adding SG rules. Probably the rules exists:" + str(addex))
                 pass
 
         except Exception, ex:
-            self.logger.exception("Error Creating the Security group")
+            self.log_exception("Error Creating the Security group")
             if vpc:
                 raise Exception(
                     "Error Creating the Security group: " + str(ex))
@@ -410,7 +409,7 @@ class EC2CloudConnector(CloudConnector):
             public = system.getValue('disk.0.os.credentials.public_key')
             if private and public:
                 if public.find('-----BEGIN CERTIFICATE-----') != -1:
-                    self.logger.debug(
+                    self.log_debug(
                         "The RADL specifies the PK, upload it to EC2")
                     public_key = base64.b64encode(public)
                     conn.import_key_pair(keypair_name, public_key)
@@ -421,7 +420,7 @@ class EC2CloudConnector(CloudConnector):
                 system.setUserKeyCredentials(
                     system.getCredentials().username, public, private)
             else:
-                self.logger.debug("Creating the Keypair")
+                self.log_debug("Creating the Keypair")
                 keypair_file = self.KEYPAIR_DIR + '/' + keypair_name + '.pem'
                 keypair = conn.create_key_pair(keypair_name)
                 created = True
@@ -432,7 +431,7 @@ class EC2CloudConnector(CloudConnector):
                                                  None, fkeypair.read())
                 os.unlink(keypair_file)
         except:
-            self.logger.exception("Error kreating keypair.")
+            self.log_exception("Error kreating keypair.")
             keypair_name = None
 
         return (created, keypair_name)
@@ -490,7 +489,7 @@ class EC2CloudConnector(CloudConnector):
         (region_name, ami) = self.getAMIData(
             system.getValue("disk.0.image.url"))
 
-        self.logger.debug("Connecting with the region: " + region_name)
+        self.log_debug("Connecting with the region: " + region_name)
         conn = self.get_connection(region_name, auth_data)
 
         res = []
@@ -513,7 +512,7 @@ class EC2CloudConnector(CloudConnector):
                     block_device_name = name
 
             if not block_device_name:
-                self.logger.error(
+                self.log_error(
                     "Error getting correct block_device name from AMI: " + str(ami))
                 for i in range(num_vm):
                     res.append(
@@ -548,7 +547,7 @@ class EC2CloudConnector(CloudConnector):
             # Now create the keypair
             (created_keypair, keypair_name) = self.create_keypair(system, conn)
             if not keypair_name:
-                self.logger.error("Error managing the keypair.")
+                self.log_error("Error managing the keypair.")
                 for i in range(num_vm):
                     res.append((False, "Error managing the keypair."))
                 return res
@@ -569,12 +568,12 @@ class EC2CloudConnector(CloudConnector):
 
                     if spot:
                         err_msg += " a spot instance "
-                        self.logger.debug("Launching a spot instance")
+                        self.log_debug("Launching a spot instance")
                         instance_type = self.get_instance_type(system, vpc is not None)
                         if not instance_type:
-                            self.logger.error(
+                            self.log_error(
                                 "Error %s, no instance type available for the requirements." % err_msg)
-                            self.logger.debug(system)
+                            self.log_debug(system)
                             res.append(
                                 (False, "Error %s, no instance type available for the requirements." % err_msg))
                         else:
@@ -607,13 +606,13 @@ class EC2CloudConnector(CloudConnector):
                                                                           product_description=operative_system,
                                                                           availability_zone=zone.name,
                                                                           max_results=1)
-                                    self.logger.debug(
+                                    self.log_debug(
                                         "Spot price history for the region " + zone.name)
-                                    self.logger.debug(history)
+                                    self.log_debug(history)
                                     if history and history[0].price < historical_price:
                                         historical_price = history[0].price
                                         availability_zone = zone.name
-                            self.logger.debug(
+                            self.log_debug(
                                 "Launching the spot request in the zone " + availability_zone)
 
                             # Force to use magnetic volumes
@@ -631,8 +630,8 @@ class EC2CloudConnector(CloudConnector):
                             if request:
                                 ec2_vm_id = region_name + ";" + request[0].id
 
-                                self.logger.debug("RADL:")
-                                self.logger.debug(system)
+                                self.log_debug("RADL:")
+                                self.log_debug(system)
 
                                 vm = VirtualMachine(
                                     inf, ec2_vm_id, self.cloud, radl, requested_radl, self)
@@ -640,7 +639,7 @@ class EC2CloudConnector(CloudConnector):
                                     'instance_id', str(vm.id))
                                 # Add the keypair name to remove it later
                                 vm.keypair_name = keypair_name
-                                self.logger.debug(
+                                self.log_debug(
                                     "Instance successfully launched.")
                                 all_failed = False
                                 res.append((True, vm))
@@ -648,12 +647,12 @@ class EC2CloudConnector(CloudConnector):
                                 res.append((False, "Error %s." % err_msg))
                     else:
                         err_msg += " an ondemand instance "
-                        self.logger.debug("Launching ondemand instance")
+                        self.log_debug("Launching ondemand instance")
                         instance_type = self.get_instance_type(system, vpc is not None)
                         if not instance_type:
-                            self.logger.error(
+                            self.log_error(
                                 "Error %s, no instance type available for the requirements." % err_msg)
-                            self.logger.debug(system)
+                            self.log_debug(system)
                             res.append(
                                 (False, "Error %s, no instance type available for the requirements." % err_msg))
                         else:
@@ -674,8 +673,8 @@ class EC2CloudConnector(CloudConnector):
                                 instance.add_tag("IM-USER", im_username)
                                 ec2_vm_id = region_name + ";" + instance.id
 
-                                self.logger.debug("RADL:")
-                                self.logger.debug(system)
+                                self.log_debug("RADL:")
+                                self.log_debug(system)
 
                                 vm = VirtualMachine(
                                     inf, ec2_vm_id, self.cloud, radl, requested_radl, self)
@@ -683,7 +682,7 @@ class EC2CloudConnector(CloudConnector):
                                     'instance_id', str(vm.id))
                                 # Add the keypair name to remove it later
                                 vm.keypair_name = keypair_name
-                                self.logger.debug(
+                                self.log_debug(
                                     "Instance successfully launched.")
                                 res.append((True, vm))
                                 all_failed = False
@@ -691,7 +690,7 @@ class EC2CloudConnector(CloudConnector):
                                 res.append((False, "Error %s." % err_msg))
 
                 except Exception, ex:
-                    self.logger.exception("Error %s." % err_msg)
+                    self.log_exception("Error %s." % err_msg)
                     res.append((False, "Error %s. %s" % (err_msg, str(ex))))
 
                 i += 1
@@ -702,17 +701,17 @@ class EC2CloudConnector(CloudConnector):
                 try:
                     conn.delete_key_pair(keypair_name)
                 except:
-                    self.logger.exception("Error deleting keypair.")
+                    self.log_exception("Error deleting keypair.")
             if sg_ids:
                 try:
                     conn.delete_security_group(group_id=sg_ids[0])
                 except:
-                    self.logger.exception("Error deleting SG.")
+                    self.log_exception("Error deleting SG.")
             if sg_names and sg_names[0] != 'default':
                 try:
                     conn.delete_security_group(sg_names[0])
                 except:
-                    self.logger.exception("Error deleting SG.")
+                    self.log_exception("Error deleting SG.")
 
         return res
 
@@ -731,7 +730,7 @@ class EC2CloudConnector(CloudConnector):
         cont = 0
         err_states = ["error"]
         while str(volume.status) != 'available' and str(volume.status) not in err_states and cont < timeout:
-            self.logger.debug("State: " + str(volume.status))
+            self.log_debug("State: " + str(volume.status))
             cont += 2
             time.sleep(2)
             volume = conn.get_all_volumes([volume.id])[0]
@@ -739,7 +738,7 @@ class EC2CloudConnector(CloudConnector):
         if str(volume.status) == 'available':
             return volume
         else:
-            self.logger.error(
+            self.log_error(
                 "Error creating the volume %s, deleting it" % (volume.id))
             conn.delete_volume(volume.id)
             return None
@@ -765,18 +764,18 @@ class EC2CloudConnector(CloudConnector):
                         "disk." + str(cont) + ".size").getValue('G')
                     disk_device = vm.info.systems[0].getValue(
                         "disk." + str(cont) + ".device")
-                    self.logger.debug(
+                    self.log_debug(
                         "Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
                     volume = self.create_volume(
                         conn, int(disk_size), instance.placement)
                     if volume:
-                        self.logger.debug(
+                        self.log_debug(
                             "Attach the volume ID " + str(volume.id))
                         conn.attach_volume(
                             volume.id, instance.id, "/dev/" + disk_device)
                     cont += 1
         except Exception:
-            self.logger.exception(
+            self.log_exception(
                 "Error creating or attaching the volume to the instance")
 
     def delete_volumes(self, conn, volumes, instance_id, timeout=240):
@@ -796,31 +795,31 @@ class EC2CloudConnector(CloudConnector):
                 try:
                     curr_vol = conn.get_all_volumes([volume_id])[0]
                 except:
-                    self.logger.warn(
+                    self.log_warn(
                         "The volume " + volume_id + " does not exist. It cannot be removed. Ignore it.")
                     deleted = True
                     break
                 try:
                     curr_vol = conn.get_all_volumes([volume_id])[0]
                     if str(curr_vol.attachment_state()) == "attached":
-                        self.logger.debug(
+                        self.log_debug(
                             "Detaching the volume " + volume_id + " from the instance " + instance_id)
                         conn.detach_volume(volume_id, instance_id, force=True)
                     elif curr_vol.attachment_state() is None:
-                        self.logger.debug("Removing the volume " + volume_id)
+                        self.log_debug("Removing the volume " + volume_id)
                         conn.delete_volume(volume_id)
                         deleted = True
                     else:
-                        self.logger.debug(
+                        self.log_debug(
                             "State: " + str(curr_vol.attachment_state()))
                 except Exception, ex:
-                    self.logger.warn("Error removing the volume: " + str(ex))
+                    self.log_warn("Error removing the volume: " + str(ex))
 
                 if not deleted:
                     time.sleep(5)
 
             if not deleted:
-                self.logger.error("Error removing the volume " + volume_id)
+                self.log_error("Error removing the volume " + volume_id)
 
     # Get the EC2 instance object with the specified ID
     def get_instance_by_id(self, instance_id, region_name, auth_data):
@@ -861,17 +860,17 @@ class EC2CloudConnector(CloudConnector):
             vm.elastic_ip = True
             try:
                 pub_address = None
-                self.logger.debug("Add an Elastic IP")
+                self.log_debug("Add an Elastic IP")
                 if fixed_ip:
                     for address in instance.connection.get_all_addresses():
                         if str(address.public_ip) == fixed_ip:
                             pub_address = address
 
                     if pub_address:
-                        self.logger.debug(
+                        self.log_debug(
                             "Setting a fixed allocated IP: " + fixed_ip)
                     else:
-                        self.logger.warn(
+                        self.log_warn(
                             "Setting a fixed IP NOT ALLOCATED! (" + fixed_ip + "). Ignore it.")
                         return None
                 else:
@@ -886,18 +885,18 @@ class EC2CloudConnector(CloudConnector):
                         instance.connection.associate_address(
                             instance.id, pub_address.public_ip)
 
-                self.logger.debug(pub_address)
+                self.log_debug(pub_address)
                 return pub_address
             except Exception:
-                self.logger.exception(
+                self.log_exception(
                     "Error adding an Elastic IP to VM ID: " + str(vm.id))
                 if pub_address:
-                    self.logger.exception(
+                    self.log_exception(
                         "The Elastic IP was allocated, release it.")
                     pub_address.release()
                 return None
         else:
-            self.logger.debug(
+            self.log_debug(
                 "The VM is not running, not adding an Elastic IP.")
             return None
 
@@ -914,7 +913,7 @@ class EC2CloudConnector(CloudConnector):
             # Get the elastic IPs
             for address in conn.get_all_addresses():
                 if address.instance_id == instance_id:
-                    self.logger.debug(
+                    self.log_debug(
                         "This VM has a Elastic IP, disassociate it")
                     address.disassociate()
 
@@ -931,13 +930,13 @@ class EC2CloudConnector(CloudConnector):
                         n += 1
 
                     if not found:
-                        self.logger.debug("Now release it")
+                        self.log_debug("Now release it")
                         address.release()
                     else:
-                        self.logger.debug(
+                        self.log_debug(
                             "This is a fixed IP, it is not released")
         except Exception:
-            self.logger.exception(
+            self.log_exception(
                 "Error deleting the Elastic IPs to VM ID: " + str(vm.id))
 
     def setIPsFromInstance(self, vm, instance):
@@ -1026,7 +1025,7 @@ class EC2CloudConnector(CloudConnector):
             # deployed
             job_instance_id = None
 
-            self.logger.debug("Check if the request has been fulfilled and the instance has been deployed")
+            self.log_debug("Check if the request has been fulfilled and the instance has been deployed")
             job_sir_id = instance_id
             request_list = conn.get_all_spot_instance_requests()
             for sir in request_list:
@@ -1039,7 +1038,7 @@ class EC2CloudConnector(CloudConnector):
                     break
 
             if job_instance_id:
-                self.logger.debug("Request fulfilled, instance_id: " + str(job_instance_id))
+                self.log_debug("Request fulfilled, instance_id: " + str(job_instance_id))
                 instance_id = job_instance_id
                 vm.id = region + ";" + instance_id
                 vm.info.systems[0].setValue('instance_id', str(vm.id))
@@ -1059,7 +1058,7 @@ class EC2CloudConnector(CloudConnector):
                         im_username = auth_data.getAuthInfo('InfrastructureManager')[0]['username']
                     instance.add_tag("IM-USER", im_username)
             except Exception, ex:
-                self.logger.exception("Error updating the instance " + instance_id)
+                self.log_exception("Error updating the instance " + instance_id)
                 return (False, "Error updating the instance " + instance_id + ": " + str(ex))
 
             vm.info.systems[0].setValue("virtual_system_type", instance.virtualization_type)
@@ -1077,7 +1076,7 @@ class EC2CloudConnector(CloudConnector):
                 vm.info.systems[0].setValue('launch_time', int(time.mktime(
                     time.strptime(instance.launch_time[:19], '%Y-%m-%dT%H:%M:%S'))))
             except Exception, ex:
-                self.logger.warn(
+                self.log_warn(
                     "Error setting the launch_time of the instance. Probably the instance is not running:" + str(ex))
 
         else:
@@ -1099,11 +1098,11 @@ class EC2CloudConnector(CloudConnector):
             for sir in request_list:
                 if sir.instance_id == instance_id:
                     conn.cancel_spot_instance_requests(sir.id)
-                    self.logger.debug(
+                    self.log_debug(
                         "Spot instance request " + str(sir.id) + " deleted")
                     break
         except Exception:
-            self.logger.exception("Error deleting the spot instance request")
+            self.log_exception("Error deleting the spot instance request")
 
     def finalize(self, vm, auth_data):
         region_name = vm.id.split(";")[0]
@@ -1128,31 +1127,31 @@ class EC2CloudConnector(CloudConnector):
                 # only delete in case of the user do not specify the keypair name
                 conn.delete_key_pair(vm.keypair_name)
             except:
-                self.logger.exception("Error deleting keypair.")
+                self.log_exception("Error deleting keypair.")
 
         # Delete the elastic IPs
         try:
             self.delete_elastic_ips(conn, vm)
         except:
-            self.logger.exception("Error deleting elastic IPs.")
+            self.log_exception("Error deleting elastic IPs.")
 
         # Delete the  spot instance requests
         try:
             self.cancel_spot_requests(conn, vm)
         except:
-            self.logger.exception("Error canceling spot requests.")
+            self.log_exception("Error canceling spot requests.")
 
         # Delete the EBS volumes
         try:
             self.delete_volumes(conn, volumes, instance_id)
         except:
-            self.logger.exception("Error deleting EBS volumess")
+            self.log_exception("Error deleting EBS volumess")
 
         # Delete the SG if this is the last VM
         try:
             self.delete_security_group(conn, vm.inf)
         except:
-            self.logger.exception("Error deleting security group.")
+            self.log_exception("Error deleting security group.")
 
         return (True, "")
 
@@ -1188,13 +1187,13 @@ class EC2CloudConnector(CloudConnector):
                         all_vms_terminated = False
 
                 if all_vms_terminated:
-                    self.logger.debug("Remove the SG: " + sg_name)
+                    self.log_debug("Remove the SG: " + sg_name)
                     try:
                         sg.revoke('tcp', 0, 65535, src_group=sg)
                         sg.revoke('udp', 0, 65535, src_group=sg)
                         time.sleep(2)
                     except Exception, ex:
-                        self.logger.warn(
+                        self.log_warn(
                             "Error revoking self rules: " + str(ex))
 
                     deleted = False
@@ -1208,17 +1207,17 @@ class EC2CloudConnector(CloudConnector):
                             # Check if it has been deleted yet
                             sg = self._get_security_group(conn, sg_name)
                             if not sg:
-                                self.logger.debug(
+                                self.log_debug(
                                     "Error deleting the SG. But it does not exist. Ignore. " + str(ex))
                                 deleted = True
                             else:
-                                self.logger.exception("Error deleting the SG.")
+                                self.log_exception("Error deleting the SG.")
             else:
                 # If there are more than 1, we skip this step
-                self.logger.debug(
+                self.log_debug(
                     "There are active instances. Not removing the SG")
         else:
-            self.logger.warn("No Security Group with name: " + sg_name)
+            self.log_warn("No Security Group with name: " + sg_name)
 
     def stop(self, vm, auth_data):
         region_name = vm.id.split(";")[0]
