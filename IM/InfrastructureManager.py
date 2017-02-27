@@ -33,7 +33,6 @@ from IM.recipe import Recipe
 
 from IM.config import Config
 from IM.VirtualMachine import VirtualMachine
-from IM.InfrastructureInfo import InfrastructureInfo
 
 if Config.MAX_SIMULTANEOUS_LAUNCHES > 1:
     from multiprocessing.pool import ThreadPool
