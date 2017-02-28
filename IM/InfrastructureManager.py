@@ -151,11 +151,12 @@ class InfrastructureManager:
         """
         fail_cont = 0
         all_ok = False
+        # Each task_cloud represents a task to launch the VM in a cloud provider
+        # if some fails we will try to use the next one
         for task_cloud in task:
             cloud, deploy, launch_radl, requested_radl, remain_vm, vm_type = task_cloud
 
-            InfrastructureManager.logger.debug(
-                "Launching %d VMs of type %s" % (remain_vm, vm_type))
+            InfrastructureManager.logger.debug("Launching %d VMs of type %s" % (remain_vm, vm_type))
             try:
                 launched_vms = cloud.cloud.getCloudConnector(sel_inf).launch(
                     sel_inf, launch_radl, requested_radl, remain_vm, auth)
@@ -170,13 +171,13 @@ class InfrastructureManager:
             all_ok = True
             for success, launched_vm in launched_vms:
                 if success:
-                    InfrastructureManager.logger.debug("VM successfully launched: " + str(launched_vm.id))
+                    InfrastructureManager.logger.debug("VM successfully launched: %s" % str(launched_vm.id))
                     deployed_vm.setdefault(deploy, []).append(launched_vm)
                     deploy.cloud_id = cloud_id
                     remain_vm -= 1
                 else:
                     all_ok = False
-                    InfrastructureManager.logger.warn("Error launching some of the VMs: " + str(launched_vm))
+                    InfrastructureManager.logger.warn("Error launching some of the VMs: %s" % str(launched_vm))
                     exceptions.append("Error launching the VMs of type %s to cloud ID %s of type %s. %s" % (
                         vm_type, cloud.cloud.id, cloud.cloud.type, str(launched_vm)))
                     if not isinstance(launched_vm, (str, unicode)):
@@ -200,7 +201,7 @@ class InfrastructureManager:
         if not all_ok and not cancel_deployment:
             msg = ""
             for i, e in enumerate(exceptions):
-                msg += "Attempt " + str(i + 1) + ": " + str(e) + "\n"
+                msg += "Attempt %d: %s\n" & (i + 1, str(e))
             cancel_deployment.append(
                 Exception("All machines could not be launched: \n%s" % msg))
 
