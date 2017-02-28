@@ -854,3 +854,9 @@ class VirtualMachine:
 
     def __lt__(self, other):
         return True
+
+    def get_cont_msg(self):
+        res = self.cont_out
+        if self.cloud_connector and self.cloud_connector.error_messages:
+            res += self.cloud_connector.error_messages
+        return res

@@ -41,9 +41,12 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
     """str with the name of the provider."""
     DEFAULT_USER = 'cloudadm'
     """ default user to SSH access the VM """
+    MAX_ADD_IP_COUNT = 5
+    """ Max number of retries to get a public IP """
 
     def __init__(self, cloud_info, inf):
         self.auth = None
+        self.add_public_ip_count = 0
         LibCloudCloudConnector.__init__(self, cloud_info, inf)
 
     def get_driver(self, auth_data):
@@ -278,15 +281,21 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     public_ips.append(ip)
             vm.setIps(public_ips, private_ips)
 
-        self.manage_elastic_ips(vm, node, public_ips)
+        if vm.state == VirtualMachine.RUNNING:
+            if self.add_public_ip_count < self.MAX_ADD_IP_COUNT:
+                self.manage_elastic_ips(vm, node, public_ips)
+            else:
+                self.logger.error("Error adding a floating IP: Max number of retries reached.")
+                self.error_messages += "Error adding a floating IP: Max number of retries reached.\n"
+        else:
+            self.logger.debug("The VM is not running, not adding Elastic/Floating IPs.")
 
     def update_system_info_from_instance(self, system, instance_type):
         """
         Update the features of the system with the information of the instance_type
         """
         if instance_type:
-            LibCloudCloudConnector.update_system_info_from_instance(
-                self, system, instance_type)
+            LibCloudCloudConnector.update_system_info_from_instance(self, system, instance_type)
             if instance_type.vcpus:
                 system.addFeature(
                     Feature("cpu.count", "=", instance_type.vcpus), conflict="me", missing="other")
@@ -489,8 +498,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         n = 0
         requested_ips = []
         while vm.getRequestedSystem().getValue("net_interface." + str(n) + ".connection"):
-            net_conn = vm.getRequestedSystem().getValue(
-                'net_interface.' + str(n) + '.connection')
+            net_conn = vm.getRequestedSystem().getValue('net_interface.' + str(n) + '.connection')
             net = vm.info.get_network_by_id(net_conn)
             if net.isPublic():
                 fixed_ip = vm.getRequestedSystem().getValue("net_interface." + str(n) + ".ip")
@@ -500,17 +508,26 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         for num, elem in enumerate(sorted(requested_ips, reverse=True)):
             ip, pool_name = elem
+            success = True
             if ip:
                 # It is a fixed IP
                 if ip not in public_ips:
                     # It has not been created yet, do it
                     self.log_debug("Asking for a fixed ip: %s." % ip)
-                    self.add_elastic_ip(vm, node, ip, pool_name)
+                    success, msg = self.add_elastic_ip(vm, node, ip, pool_name)
             else:
                 if num >= len(public_ips):
-                    self.log_debug("Asking for public IP %d and there are %d" % (
-                        num + 1, len(public_ips)))
-                    self.add_elastic_ip(vm, node, None, pool_name)
+                    self.log_debug("Asking for public IP %d and there are %d" % (num + 1, len(public_ips)))
+                    success, msg = self.add_elastic_ip(vm, node, None, pool_name)
+
+            if not success:
+                self.add_public_ip_count += 1
+                self.log_warn("Error adding a floating IP the VM: %s (%d/%d)\n" % (msg,
+                                                                                   self.add_public_ip_count,
+                                                                                   self.MAX_ADD_IP_COUNT))
+                self.error_messages += "Error adding a floating IP: %s (%d/%d)\n" % (msg,
+                                                                                     self.add_public_ip_count,
+                                                                                     self.MAX_ADD_IP_COUNT)
 
     def get_floating_ip(self, driver, pool_name=None):
         """
@@ -529,9 +546,11 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
             return True, pool.create_floating_ip()
         else:
-            self.log_error(
-                "Error adding a Floating IP: No pools available.")
-            return None
+            if pool_name:
+                msg = "Incorrect pool name: %s." % pool_name
+            else:
+                msg = "No pools available."
+            return False, msg
 
     def add_elastic_ip(self, vm, node, fixed_ip=None, pool_name=None):
         """
@@ -543,44 +562,33 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
            - fixed_ip(str, optional): specifies a fixed IP to add to the instance.
         Returns: a :py:class:`OpenStack_1_1_FloatingIpAddress` added or None if some problem occur.
         """
-        if vm.state == VirtualMachine.RUNNING:
-            try:
-                self.log_debug("Add an Elastic/Floating IP")
+        try:
+            self.log_debug("Add an Elastic/Floating IP")
 
-                if node.driver.ex_list_floating_ip_pools():
-                    if fixed_ip:
-                        floating_ip = node.driver.ex_get_floating_ip(fixed_ip)
-                    else:
-                        created, floating_ip = self.get_floating_ip(
-                            node.driver, pool_name)
-                        if not floating_ip:
-                            self.log_error("Error adding a Floating IP.")
-                            return None
-                    try:
-                        node.driver.ex_attach_floating_ip_to_node(
-                            node, floating_ip)
-                    except:
-                        self.log_exception(
-                            "Error attaching a Floating IP to the node.")
-                        if created:
-                            self.log_debug(
-                                "We have created it, so release it.")
-                            floating_ip.delete()
-                        return None
-                    return floating_ip
+            if node.driver.ex_list_floating_ip_pools():
+                if fixed_ip:
+                    floating_ip = node.driver.ex_get_floating_ip(fixed_ip)
                 else:
-                    self.log_error(
-                        "Error adding a Floating IP: No pools available.")
-                    return None
+                    created, floating_ip = self.get_floating_ip(node.driver, pool_name)
+                    if not floating_ip:
+                        self.log_error(floating_ip)
+                        return False, floating_ip
+                try:
+                    node.driver.ex_attach_floating_ip_to_node(node, floating_ip)
+                except:
+                    self.log_exception("Error attaching a Floating IP to the node.")
+                    if created:
+                        self.log_debug("We have created it, so release it.")
+                        floating_ip.delete()
+                    return False, "Error attaching a Floating IP to the node."
+                return True, floating_ip
+            else:
+                self.log_error("No pools available.")
+                return False, "No pools available."
 
-            except Exception:
-                self.log_exception(
-                    "Error adding an Elastic/Floating IP to VM ID: " + str(vm.id))
-                return None
-        else:
-            self.log_debug(
-                "The VM is not running, not adding an Elastic/Floating IP.")
-            return None
+        except Exception, ex:
+            self.log_exception("Error adding an Elastic/Floating IP to VM ID: " + str(vm.id))
+            return False, str(ex)
 
     @staticmethod
     def _get_security_group(driver, sg_name):

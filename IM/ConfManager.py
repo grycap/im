@@ -132,7 +132,7 @@ class ConfManager(threading.Thread):
         wait = 0
         # Assure that all the VMs of the Inf. have one IP
         success = False
-        while not success and wait < timeout:
+        while not success and wait < timeout and not self._stop:
             success = True
             for vm in self.inf.get_vm_list():
                 if vm.hasPublicNet():
@@ -1117,6 +1117,7 @@ class ConfManager(threading.Thread):
         auth_errors = 0
         auth_error_retries = 3
         connected = False
+        ip = None
         while not self._stop and wait < timeout:
             if vm.destroy:
                 # in this case ignore it
