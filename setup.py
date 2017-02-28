@@ -25,8 +25,10 @@ if not hasattr(sys, 'version_info') or sys.version_info < (2, 6):
     raise SystemExit("IM requires Python version 2.6 or above.")
 
 suds_pkg = "suds"
+sqlite_pkg = "pysqlite"
 if sys.version_info > (3, 0):
     suds_pkg = "suds-py3"
+    sqlite_pkg = ""
 
 if 'bdist_wheel' in sys.argv:
     raise RuntimeError("This setup.py does not support wheels")
@@ -59,6 +61,6 @@ setup(name="IM", version=version,
                         "the user with a fully functional infrastructure."),
       description="IM is a tool to manage virtual infrastructures on Cloud deployments",
       platforms=["any"],
-      install_requires=["ansible >= 1.8", "paramiko >= 1.14", "PyYAML", suds_pkg, "pysqlite", "cheroot",
+      install_requires=["ansible >= 1.8", "paramiko >= 1.14", "PyYAML", suds_pkg, sqlite_pkg, "cheroot",
                         "boto >= 2.29", "apache-libcloud >= 0.17", "RADL", "bottle", "netaddr", "requests", "scp"]
       )
