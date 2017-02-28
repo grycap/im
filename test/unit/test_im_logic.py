@@ -341,7 +341,7 @@ class TestIM(unittest.TestCase):
             self.assertEqual(call[3], 1)
         IM.DestroyInfrastructure(infId, auth0)
 
-    def test_0inf_addresources4(self):
+    def test_inf_addresources4(self):
         """Deploy a virtual machine when the first cloud provider fails."""
 
         radl = RADL()
