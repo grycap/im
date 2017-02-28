@@ -149,44 +149,44 @@ class InfrastructureManager:
         Launch a VM in a cloud provider.
         In case of failure it will try with the next provider defined (if any)
         """
-        fail_cont = 0
         all_ok = False
         # Each task_cloud represents a task to launch the VM in a cloud provider
         # if some fails we will try to use the next one
         for task_cloud in task:
             cloud, deploy, launch_radl, requested_radl, remain_vm, vm_type = task_cloud
+            fail_cont = 0
+            while (remain_vm > 0 and fail_cont < Config.MAX_VM_FAILS and not cancel_deployment):
+                InfrastructureManager.logger.debug("Launching %d VMs of type %s" % (remain_vm, vm_type))
+                try:
+                    launched_vms = cloud.cloud.getCloudConnector(sel_inf).launch(
+                        sel_inf, launch_radl, requested_radl, remain_vm, auth)
+                except Exception, e:
+                    InfrastructureManager.logger.exception("Error launching some of the VMs: %s" % e)
+                    exceptions.append("Error launching the VMs of type %s to cloud ID %s"
+                                      " of type %s. Cloud Provider Error: %s" % (vm_type,
+                                                                                 cloud.cloud.id,
+                                                                                 cloud.cloud.type, e))
+                    launched_vms = []
 
-            InfrastructureManager.logger.debug("Launching %d VMs of type %s" % (remain_vm, vm_type))
-            try:
-                launched_vms = cloud.cloud.getCloudConnector(sel_inf).launch(
-                    sel_inf, launch_radl, requested_radl, remain_vm, auth)
-            except Exception, e:
-                InfrastructureManager.logger.exception("Error launching some of the VMs: %s" % e)
-                exceptions.append("Error launching the VMs of type %s to cloud ID %s"
-                                  " of type %s. Cloud Provider Error: %s" % (vm_type,
-                                                                             cloud.cloud.id,
-                                                                             cloud.cloud.type, e))
-                launched_vms = []
+                all_ok = True
+                for success, launched_vm in launched_vms:
+                    if success:
+                        InfrastructureManager.logger.debug("VM successfully launched: %s" % str(launched_vm.id))
+                        deployed_vm.setdefault(deploy, []).append(launched_vm)
+                        deploy.cloud_id = cloud_id
+                        remain_vm -= 1
+                    else:
+                        all_ok = False
+                        InfrastructureManager.logger.warn("Error launching some of the VMs: %s" % str(launched_vm))
+                        exceptions.append("Error launching the VMs of type %s to cloud ID %s of type %s. %s" % (
+                            vm_type, cloud.cloud.id, cloud.cloud.type, str(launched_vm)))
+                        if not isinstance(launched_vm, (str, unicode)):
+                            cloud.finalize(launched_vm, auth)
 
-            all_ok = True
-            for success, launched_vm in launched_vms:
-                if success:
-                    InfrastructureManager.logger.debug("VM successfully launched: %s" % str(launched_vm.id))
-                    deployed_vm.setdefault(deploy, []).append(launched_vm)
-                    deploy.cloud_id = cloud_id
-                    remain_vm -= 1
-                else:
-                    all_ok = False
-                    InfrastructureManager.logger.warn("Error launching some of the VMs: %s" % str(launched_vm))
-                    exceptions.append("Error launching the VMs of type %s to cloud ID %s of type %s. %s" % (
-                        vm_type, cloud.cloud.id, cloud.cloud.type, str(launched_vm)))
-                    if not isinstance(launched_vm, (str, unicode)):
-                        cloud.finalize(launched_vm, auth)
-
-                if remain_vm > 0 or cancel_deployment:
-                    all_ok = False
-                    fail_cont += 1
-                    break
+                fail_cont += 1
+            if cancel_deployment:
+                all_ok = False
+                break
 
             if not all_ok:
                 # Something has failed, finalize the VMs created and try with other cloud provider (if avail)
@@ -201,7 +201,7 @@ class InfrastructureManager:
         if not all_ok and not cancel_deployment:
             msg = ""
             for i, e in enumerate(exceptions):
-                msg += "Attempt %d: %s\n" & (i + 1, str(e))
+                msg += "Attempt %d: %s\n" % (i + 1, str(e))
             cancel_deployment.append(
                 Exception("All machines could not be launched: \n%s" % msg))
 

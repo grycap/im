@@ -341,7 +341,7 @@ class TestIM(unittest.TestCase):
             self.assertEqual(call[3], 1)
         IM.DestroyInfrastructure(infId, auth0)
 
-    def test_inf_addresources4(self):
+    def test_0inf_addresources4(self):
         """Deploy a virtual machine when the first cloud provider fails."""
 
         radl = RADL()
@@ -355,21 +355,23 @@ class TestIM(unittest.TestCase):
         cloud1 = type("MyMock1", (CloudConnector, object), {})
         cloud1.launch = Mock(return_value=[(False, "Error")])
         self.register_cloudconnector("Mock1", cloud1)
-
         auth0 = self.getAuth([0], [], [("Mock1", 1), ("Mock0", 0)])
 
+        n = 3
+        Config.MAX_VM_FAILS = n
         infId = IM.CreateInfrastructure("", auth0)
         vms = IM.AddResource(infId, str(radl), auth0)
+
         self.assertEqual(len(vms), 1)
         self.assertEqual(cloud0.launch.call_count, 1)
-        self.assertEqual(cloud1.launch.call_count, 1)
+        self.assertEqual(cloud1.launch.call_count, n)
         for call, _ in cloud0.launch.call_args_list:
             self.assertEqual(call[3], 1)
         for call, _ in cloud1.launch.call_args_list:
             self.assertEqual(call[3], 1)
         IM.DestroyInfrastructure(infId, auth0)
 
-    def test_0inf_addresources5(self):
+    def test_inf_addresources5(self):
         """Deploy n independent virtual machines."""
 
         n = 4  # Machines to deploy
