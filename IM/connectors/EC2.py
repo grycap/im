@@ -375,7 +375,7 @@ class EC2CloudConnector(CloudConnector):
                                     "Different protocols used in outports ignoring local port protocol!")
                             try:
                                 sg.authorize(protocol, remote_port, local_port, '0.0.0.0/0')
-                            except Exception, addex:
+                            except Exception as addex:
                                 self.log_warn("Exception adding SG rules. Probably the rules exists:" + str(addex))
                                 pass
 

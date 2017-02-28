@@ -586,7 +586,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 self.log_error("No pools available.")
                 return False, "No pools available."
 
-        except Exception, ex:
+        except Exception as ex:
             self.log_exception("Error adding an Elastic/Floating IP to VM ID: " + str(vm.id))
             return False, str(ex)
 
