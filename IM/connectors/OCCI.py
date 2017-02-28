@@ -93,8 +93,7 @@ class OCCICloudConnector(CloudConnector):
         """
         auths = auth_data.getAuthInfo(self.type, self.cloud.server)
         if not auths:
-            self.logger.error(
-                "No correct auth data has been specified to OCCI.")
+            self.log_error("No correct auth data has been specified to OCCI.")
             return None
         else:
             auth = auths[0]
@@ -231,7 +230,7 @@ class OCCICloudConnector(CloudConnector):
 
         if (vm.state == VirtualMachine.RUNNING and not link_to_public and
                 not public_ips and vm.requested_radl.hasPublicNet(vm.info.systems[0].name)):
-            self.logger.debug("The VM does not have public IP trying to add one.")
+            self.log_debug("The VM does not have public IP trying to add one.")
             # in some sites the network is called floating, in others PUBLIC ...
             net_names = ["public", "PUBLIC", "floating"]
             for name in net_names:
@@ -239,7 +238,7 @@ class OCCICloudConnector(CloudConnector):
                 if success:
                     break
             if success:
-                self.logger.debug("Public IP successfully added.")
+                self.log_debug("Public IP successfully added.")
 
         vm.setIps(public_ips, private_ips)
 
@@ -277,7 +276,7 @@ class OCCICloudConnector(CloudConnector):
         occi_info = self.query_occi(auth_data)
         url = self.get_property_from_category(occi_info, "networkinterface", "location")
         if not url:
-            self.logger.error("No location for networkinterface category.")
+            self.log_error("No location for networkinterface category.")
             return (False, "No location for networkinterface category.")
 
         auth_header = self.get_auth_header(auth_data)
@@ -301,13 +300,13 @@ class OCCICloudConnector(CloudConnector):
 
             output = str(resp.text)
             if resp.status_code != 201 and resp.status_code != 200:
-                self.logger.warn("Error adding public IP the VM: " + resp.reason + "\n" + output)
+                self.log_warn("Error adding public IP the VM: " + resp.reason + "\n" + output)
                 return (False, "Error adding public IP the VM: " + resp.reason + "\n" + output)
             else:
-                self.logger.debug("Public IP added from pool %s" % network_name)
+                self.log_debug("Public IP added from pool %s" % network_name)
                 return (True, vm.id)
         except Exception:
-            self.logger.exception("Error connecting with OCCI server")
+            self.log_exception("Error connecting with OCCI server")
             return (False, "Error connecting with OCCI server")
 
     def get_occi_attribute_value(self, occi_res, attr_name):
@@ -367,7 +366,7 @@ class OCCICloudConnector(CloudConnector):
                 return (True, vm)
 
         except Exception, ex:
-            self.logger.exception("Error connecting with OCCI server")
+            self.log_exception("Error connecting with OCCI server")
             return (False, "Error connecting with OCCI server: " + str(ex))
 
     def set_disk_info(self, vm, occi_res, auth_data):
@@ -414,12 +413,12 @@ users:
             resp = self.create_request('GET', self.cloud.path + "/-/", auth_data, headers)
 
             if resp.status_code != 200:
-                self.logger.error("Error querying the OCCI server: %s" % resp.reason)
+                self.log_error("Error querying the OCCI server: %s" % resp.reason)
                 return ""
             else:
                 return resp.text
         except:
-            self.logger.exception("Error querying the OCCI server")
+            self.log_exception("Error querying the OCCI server")
             return ""
 
     def get_scheme(self, occi_info, category, ctype):
@@ -435,7 +434,7 @@ users:
                     if kv[0].strip() == "scheme":
                         return kv[1].replace('"', '').replace("'", '')
 
-        self.logger.error("Error getting scheme for category: " + category)
+        self.log_error("Error getting scheme for category: " + category)
         return ""
 
     def get_instance_type_uri(self, occi_info, instance_type):
@@ -489,11 +488,11 @@ users:
                 # get the last letter and use vd
                 disk_device = "vd" + disk_device[-1]
                 system.setValue("disk." + str(cont) + ".device", disk_device)
-            self.logger.debug("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
+            self.log_debug("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
             storage_name = "im-disk-%s" % str(uuid.uuid1())
             success, volume_id = self.create_volume(int(disk_size), storage_name, auth_data)
             if success:
-                self.logger.debug("Volume id %s sucessfully created." % volume_id)
+                self.log_debug("Volume id %s sucessfully created." % volume_id)
                 volumes.append((disk_device, volume_id))
                 system.setValue("disk." + str(cont) + ".provider_id", volume_id)
                 # TODO: get the actual device_id from OCCI
@@ -501,10 +500,10 @@ users:
                 # let's wait the storage to be ready "online"
                 wait_ok = self.wait_volume_state(volume_id, auth_data)
                 if not wait_ok:
-                    self.logger.error("Error waiting volume %s. Deleting it." % volume_id)
+                    self.log_error("Error waiting volume %s. Deleting it." % volume_id)
                     self.delete_volume(volume_id, auth_data)
             else:
-                self.logger.error("Error creating volume: %s" % volume_id)
+                self.log_error("Error creating volume: %s" % volume_id)
 
             cont += 1
 
@@ -519,11 +518,11 @@ users:
         while not online and wait < timeout:
             success, storage_info = self.get_volume_info(volume_id, auth_data)
             state = self.get_occi_attribute_value(storage_info, 'occi.storage.state')
-            self.logger.debug("Waiting volume %s to be %s. Current state: %s" % (volume_id, wait_state, state))
+            self.log_debug("Waiting volume %s to be %s. Current state: %s" % (volume_id, wait_state, state))
             if success and state == wait_state:
                 online = True
             elif not success:
-                self.logger.error("Error waiting volume %s to be ready: %s" % (volume_id, state))
+                self.log_error("Error waiting volume %s to be ready: %s" % (volume_id, state))
                 return False
             if not state == wait_state:
                 time.sleep(delay)
@@ -549,7 +548,7 @@ users:
             else:
                 return (True, resp.text)
         except Exception, ex:
-            self.logger.exception("Error getting volume info")
+            self.log_exception("Error getting volume info")
             return False, str(ex)
 
     def create_volume(self, size, name, auth_data):
@@ -578,7 +577,7 @@ users:
                 occi_id = os.path.basename(resp.text)
                 return True, occi_id
         except Exception, ex:
-            self.logger.exception("Error creating volume")
+            self.log_exception("Error creating volume")
             return False, str(ex)
 
     def delete_volume(self, storage_id, auth_data, timeout=180, delay=5):
@@ -598,26 +597,26 @@ users:
             if auth:
                 headers.update(auth)
 
-            self.logger.debug("Delete storage: %s" % storage_id)
+            self.log_debug("Delete storage: %s" % storage_id)
             try:
                 resp = self.create_request('DELETE', storage_id, auth_data, headers)
 
                 if resp.status_code == 404:
-                    self.logger.debug("It does not exist.")
+                    self.log_debug("It does not exist.")
                     return (True, "")
                 elif resp.status_code == 409:
-                    self.logger.debug("Error deleting the Volume. It seems that it is still "
-                                      "attached to a VM: %s" % resp.text)
+                    self.log_debug("Error deleting the Volume. It seems that it is still "
+                                   "attached to a VM: %s" % resp.text)
                     time.sleep(delay)
                     wait += delay
                 elif resp.status_code != 200 and resp.status_code != 204:
-                    self.logger.error("Error deleting the Volume: " + resp.reason + "\n" + resp.text)
+                    self.log_error("Error deleting the Volume: " + resp.reason + "\n" + resp.text)
                     return (False, "Error deleting the Volume: " + resp.reason + "\n" + resp.text)
                 else:
-                    self.logger.debug("Successfully deleted")
+                    self.log_debug("Successfully deleted")
                     return (True, "")
             except Exception:
-                self.logger.exception("Error connecting with OCCI server")
+                self.log_exception("Error connecting with OCCI server")
                 return (False, "Error connecting with OCCI server")
 
         return (False, "Error deleting the Volume: Timeout.")
@@ -669,7 +668,7 @@ users:
             cloud_config_str = self.get_cloud_init_data(radl)
             cloud_config = self.gen_cloud_config(public_key, user, cloud_config_str)
             user_data = base64.b64encode(cloud_config).replace("\n", "")
-            self.logger.debug("Cloud init: " + cloud_config)
+            self.log_debug("Cloud init: " + cloud_config)
 
         # Get the info about the OCCI server (GET /-/)
         occi_info = self.query_occi(auth_data)
@@ -756,7 +755,7 @@ users:
                         body += ';occi.storagelink.deviceid="/dev/%s"\n' % device
                     body += '\n'
 
-                self.logger.debug(body)
+                self.log_debug(body)
 
                 headers = {'Accept': 'text/plain', 'Connection': 'close', 'Content-Type': 'text/plain,text/occi'}
                 if auth_header:
@@ -781,7 +780,7 @@ users:
                         res.append((False, 'Unknown Error launching the VM.'))
 
             except Exception, ex:
-                self.logger.exception("Error connecting with OCCI server")
+                self.log_exception("Error connecting with OCCI server")
                 res.append((False, "ERROR: " + str(ex)))
                 for _, volume_id in volumes:
                     self.delete_volume(volume_id, auth_data)
@@ -821,14 +820,14 @@ users:
                         deleted_vols.append((link, num_storage, device))
                 return (True, deleted_vols)
         except Exception, ex:
-            self.logger.exception("Error deleting volumes")
+            self.log_exception("Error deleting volumes")
             return (False, "Error deleting volumes " + str(ex))
 
     def finalize(self, vm, auth_data):
         # First try to get the volumes
         get_vols_ok, volumes = self.get_attached_volumes(vm, auth_data)
         if not get_vols_ok:
-            self.logger.error("Error getting attached volumes: %s" % volumes)
+            self.log_error("Error getting attached volumes: %s" % volumes)
 
         auth = self.get_auth_header(auth_data)
         headers = {'Accept': 'text/plain', 'Connection': 'close'}
@@ -840,7 +839,7 @@ users:
             if resp.status_code != 200 and resp.status_code != 404 and resp.status_code != 204:
                 return (False, "Error removing the VM: " + resp.reason + "\n" + resp.text)
         except Exception:
-            self.logger.exception("Error connecting with OCCI server")
+            self.log_exception("Error connecting with OCCI server")
             return (False, "Error connecting with OCCI server")
 
         # now delete the volumes
@@ -873,7 +872,7 @@ users:
             else:
                 return (True, vm.id)
         except Exception:
-            self.logger.exception("Error connecting with OCCI server")
+            self.log_exception("Error connecting with OCCI server")
             return (False, "Error connecting with OCCI server")
 
     def start(self, vm, auth_data):
@@ -893,7 +892,7 @@ users:
             else:
                 return (True, vm.id)
         except Exception:
-            self.logger.exception("Error connecting with OCCI server")
+            self.log_exception("Error connecting with OCCI server")
             return (False, "Error connecting with OCCI server")
 
     def alterVM(self, vm, radl, auth_data):
@@ -919,22 +918,22 @@ users:
                     # get the last letter and use vd
                     disk_device = "vd" + disk_device[-1]
                     system.setValue("disk." + str(cont) + ".device", disk_device)
-                self.logger.debug("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
+                self.log_debug("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
                 success, volume_id = self.create_volume(int(disk_size), "im-disk-%d" % cont, auth_data)
 
                 if success:
-                    self.logger.debug("Volume id %s successfuly created." % volume_id)
+                    self.log_debug("Volume id %s successfuly created." % volume_id)
                     # let's wait the storage to be ready "online"
                     wait_ok = self.wait_volume_state(volume_id, auth_data)
                     if not wait_ok:
-                        self.logger.debug("Error waiting volume %s. Deleting it." % volume_id)
+                        self.log_debug("Error waiting volume %s. Deleting it." % volume_id)
                         self.delete_volume(volume_id, auth_data)
                         return (False, "Error waiting volume %s. Deleting it." % volume_id)
                 else:
-                    self.logger.error("Error creating volume: %s" % volume_id)
+                    self.log_error("Error creating volume: %s" % volume_id)
 
                 if wait_ok:
-                    self.logger.debug("Attaching to the instance")
+                    self.log_debug("Attaching to the instance")
                     attached = self.attach_volume(vm, volume_id, disk_device, mount_path, auth_data)
                     if attached:
                         orig_system.setValue("disk." + str(cont) + ".size", disk_size, "G")
@@ -944,15 +943,15 @@ users:
                         if mount_path:
                             orig_system.setValue("disk." + str(cont) + ".mount_path", mount_path)
                     else:
-                        self.logger.error("Error attaching a %d GB volume for the disk %d."
-                                          " Deleting it." % (int(disk_size), cont))
+                        self.log_error("Error attaching a %d GB volume for the disk %d."
+                                       " Deleting it." % (int(disk_size), cont))
                         self.delete_volume(volume_id, auth_data)
                         return (False, "Error attaching the new volume")
                 else:
                     return (False, "Error creating the new volume: " + volume_id)
                 cont += 1
         except Exception, ex:
-            self.logger.exception("Error connecting with OCCI server")
+            self.log_exception("Error connecting with OCCI server")
             return (False, "Error connecting with OCCI server: " + str(ex))
 
         return (True, "")
@@ -964,7 +963,7 @@ users:
         occi_info = self.query_occi(auth_data)
         url = self.get_property_from_category(occi_info, "storagelink", "location")
         if not url:
-            self.logger.error("No location for storagelink category.")
+            self.log_error("No location for storagelink category.")
             return (False, "No location for storagelink category.")
 
         auth_header = self.get_auth_header(auth_data)
@@ -985,12 +984,12 @@ users:
             resp = self.create_request('POST', url, auth_data, headers, body)
 
             if resp.status_code != 201 and resp.status_code != 200:
-                self.logger.error("Error attaching disk to the VM: " + resp.reason + "\n" + resp.text)
+                self.log_error("Error attaching disk to the VM: " + resp.reason + "\n" + resp.text)
                 return False
             else:
                 return True
         except Exception:
-            self.logger.exception("Error connecting with OCCI server")
+            self.log_exception("Error connecting with OCCI server")
             return False
 
 

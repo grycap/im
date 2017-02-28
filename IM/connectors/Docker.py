@@ -43,9 +43,9 @@ class DockerCloudConnector(CloudConnector):
     _root_password = "Aspecial+0ne"
     """ Default password to set to the root in the container"""
 
-    def __init__(self, cloud_info):
+    def __init__(self, cloud_info, inf):
         self._swarm = None
-        CloudConnector.__init__(self, cloud_info)
+        CloudConnector.__init__(self, cloud_info, inf)
 
     def create_request(self, method, url, auth_data, headers=None, body=None):
 
@@ -243,7 +243,7 @@ class DockerCloudConnector(CloudConnector):
 
         svc_data['Networks'] = nets
 
-        self.logger.debug(json.dumps(svc_data))
+        self.log_debug(json.dumps(svc_data))
 
         return json.dumps(svc_data)
 
@@ -321,7 +321,7 @@ class DockerCloudConnector(CloudConnector):
             HostConfig['Privileged'] = True
         cont_data['HostConfig'] = HostConfig
 
-        self.logger.debug(json.dumps(cont_data))
+        self.log_debug(json.dumps(cont_data))
 
         return json.dumps(cont_data)
 
@@ -335,7 +335,7 @@ class DockerCloudConnector(CloudConnector):
             disk_mount_path = system.getValue("disk." + str(cont) + ".mount_path")
             if not disk_mount_path.startswith('/'):
                 disk_mount_path = '/' + disk_mount_path
-            self.logger.debug("Attaching a volume in %s" % disk_mount_path)
+            self.log_debug("Attaching a volume in %s" % disk_mount_path)
             mount = {"Source": source, "Target": disk_mount_path}
             mount["Type"] = "volume"
             mount["ReadOnly"] = False
@@ -351,7 +351,7 @@ class DockerCloudConnector(CloudConnector):
             headers = {'Content-Type': 'application/json'}
             resp = self.create_request('GET', "/info", auth_data, headers)
             if resp.status_code != 200:
-                self.logger.error("Error getting node info: %s" % resp.text)
+                self.log_error("Error getting node info: %s" % resp.text)
                 self._swarm = False
             else:
                 info = json.loads(resp.text)
@@ -383,7 +383,7 @@ class DockerCloudConnector(CloudConnector):
                 resp = self.create_request('POST', "/networks/create", auth_data, headers, body)
 
                 if resp.status_code not in [201, 200]:
-                    self.logger.error("Error creating network %s: %s" % (net.id, resp.text))
+                    self.log_error("Error creating network %s: %s" % (net.id, resp.text))
                     return False
 
         return True
@@ -392,7 +392,7 @@ class DockerCloudConnector(CloudConnector):
         headers = {'Content-Type': 'application/json'}
         resp = self.create_request('GET', '/networks?filters={"name":{"%s":true}}' % net_name, auth_data, headers)
         if resp.status_code != 200:
-            self.logger.error("Error searching for network %s: %s" % (net_name, resp.text))
+            self.log_error("Error searching for network %s: %s" % (net_name, resp.text))
         else:
             net_data = json.loads(resp.text)
             if len(net_data) > 0:
@@ -400,7 +400,7 @@ class DockerCloudConnector(CloudConnector):
                     if net['Name'] == net_name:
                         return net['Id']
             else:
-                self.logger.error("No data returned for network %s" % net_name)
+                self.log_error("No data returned for network %s" % net_name)
         return None
 
     def _delete_volumes(self, vm, auth_data):
@@ -414,7 +414,7 @@ class DockerCloudConnector(CloudConnector):
             source = system.getValue("disk." + str(cont) + ".device")
             cont += 1
             if not source:
-                self.logger.warn("Disk without source, not deleting it.")
+                self.log_warn("Disk without source, not deleting it.")
             elif created == "yes":
                 retries = 5
                 delay = 10
@@ -423,13 +423,13 @@ class DockerCloudConnector(CloudConnector):
                     curr += 1
                     resp = self.create_request('DELETE', "/volumes/%s" % source, auth_data, headers)
                     if resp.status_code not in [204, 404]:
-                        self.logger.warn("Error deleting volume %s: %s." % (source, resp.text))
+                        self.log_warn("Error deleting volume %s: %s." % (source, resp.text))
                         time.sleep(delay)
                     else:
-                        self.logger.debug("Volume %s successfully deleted." % source)
+                        self.log_debug("Volume %s successfully deleted." % source)
                         break
             else:
-                self.logger.debug("Volume %s not created by the IM, not deleting it." % source)
+                self.log_debug("Volume %s not created by the IM, not deleting it." % source)
 
     def _delete_networks(self, vm, auth_data):
         for net in vm.info.networks:
@@ -446,9 +446,9 @@ class DockerCloudConnector(CloudConnector):
                     resp = self.create_request('DELETE', "/networks/%s" % net_id, auth_data, headers)
 
                     if resp.status_code not in [204, 404]:
-                        self.logger.error("Error deleting network %s: %s" % (net.id, resp.text))
+                        self.log_error("Error deleting network %s: %s" % (net.id, resp.text))
                     else:
-                        self.logger.debug("Network %s deleted successfully" % net.id)
+                        self.log_debug("Network %s deleted successfully" % net.id)
 
     def _attach_cont_to_networks(self, vm, auth_data):
         system = vm.info.systems[0]
@@ -473,10 +473,10 @@ class DockerCloudConnector(CloudConnector):
                     resp = self.create_request('POST', "/networks/%s/connect" % net_id, auth_data, headers, body)
 
                     if resp.status_code != 200:
-                        self.logger.error("Error attaching cont %s to network %s: %s" % (vm.id, net_name, resp.text))
+                        self.log_error("Error attaching cont %s to network %s: %s" % (vm.id, net_name, resp.text))
                         all_ok = False
                     else:
-                        self.logger.debug("Cont %s attached to network %s" % (vm.id, net_name))
+                        self.log_debug("Cont %s attached to network %s" % (vm.id, net_name))
         return all_ok
 
     def _create_volumes(self, system, auth_data):
@@ -498,16 +498,16 @@ class DockerCloudConnector(CloudConnector):
                 resp = self.create_request('GET', "/volumes/%s" % source, auth_data, headers)
                 if resp.status_code == 200:
                     # the volume already exists
-                    self.logger.debug("Volume named %s already exists." % source)
+                    self.log_debug("Volume named %s already exists." % source)
                 else:
                     body = json.dumps({"Name": source, "Driver": driver})
                     resp = self.create_request('POST', "/volumes/create", auth_data, headers, body)
 
                     if resp.status_code != 201:
-                        self.logger.error("Error creating volume %s: %s." % (source, resp.text))
+                        self.log_error("Error creating volume %s: %s." % (source, resp.text))
                     else:
                         system.setValue("disk." + str(cont) + ".created", "yes")
-                        self.logger.debug("Volume %s successfully created." % source)
+                        self.log_debug("Volume %s successfully created." % source)
 
             cont += 1
 
@@ -614,7 +614,7 @@ class DockerCloudConnector(CloudConnector):
                 res.append((True, vm))
 
             except Exception, ex:
-                self.logger.exception("Error connecting with Docker server")
+                self.log_exception("Error connecting with Docker server")
                 res.append((False, "ERROR: " + str(ex)))
 
         return res
@@ -647,15 +647,15 @@ class DockerCloudConnector(CloudConnector):
             return (True, vm)
 
         except Exception, ex:
-            self.logger.exception("Error connecting with Docker server")
-            self.logger.error(ex)
+            self.log_exception("Error connecting with Docker server")
+            self.log_error(ex)
             return (False, "Error connecting with Docker server")
 
     def _get_svc_state(self, svc_name, auth_data):
         headers = {'Content-Type': 'application/json'}
         resp = self.create_request('GET', '/tasks?filters={"service":{"%s":true}}' % svc_name, auth_data, headers)
         if resp.status_code != 200:
-            self.logger.error("Error searching tasks for service %s: %s" % (svc_name, resp.text))
+            self.log_error("Error searching tasks for service %s: %s" % (svc_name, resp.text))
         else:
             task_data = json.loads(resp.text)
             if len(task_data) > 0:
@@ -663,7 +663,7 @@ class DockerCloudConnector(CloudConnector):
                     if task["Status"]["State"] == "running":
                         return VirtualMachine.RUNNING
                     elif task["Status"]["State"] == "rejected":
-                        self.logger.debug("Task %s rejected: %s." % (task["ID"], task["Status"]["Err"]))
+                        self.log_debug("Task %s rejected: %s." % (task["ID"], task["Status"]["Err"]))
                 return VirtualMachine.PENDING
             else:
                 return VirtualMachine.PENDING
@@ -681,7 +681,7 @@ class DockerCloudConnector(CloudConnector):
 
             res = (False, "")
             if resp.status_code == 404:
-                self.logger.warn("Trying to remove a non existing container id: " + vm.id)
+                self.log_warn("Trying to remove a non existing container id: " + vm.id)
                 res = (True, vm.id)
             elif resp.status_code not in [204, 200]:
                 res = (False, "Error deleting the Container: " + resp.text)
@@ -695,12 +695,12 @@ class DockerCloudConnector(CloudConnector):
                 try:
                     self._delete_networks(vm, auth_data)
                 except Exception:
-                    self.logger.exception("Error deleting networks.")
+                    self.log_exception("Error deleting networks.")
                     pass
 
             return res
         except Exception:
-            self.logger.exception("Error connecting with Docker server")
+            self.log_exception("Error connecting with Docker server")
             return (False, "Error connecting with Docker server")
 
     def stop(self, vm, auth_data):
@@ -715,7 +715,7 @@ class DockerCloudConnector(CloudConnector):
             else:
                 return (True, vm.id)
         except Exception:
-            self.logger.exception("Error connecting with Docker server")
+            self.log_exception("Error connecting with Docker server")
             return (False, "Error connecting with Docker server")
 
     def start(self, vm, auth_data):
@@ -730,7 +730,7 @@ class DockerCloudConnector(CloudConnector):
             else:
                 return (True, vm.id)
         except Exception:
-            self.logger.exception("Error connecting with Docker server")
+            self.log_exception("Error connecting with Docker server")
             return (False, "Error connecting with Docker server")
 
     def alterVM(self, vm, radl, auth_data):

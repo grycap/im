@@ -184,7 +184,7 @@ class InfrastructureManager:
                     try:
                         InfrastructureManager.logger.debug(
                             "Launching %d VMs of type %s" % (remain_vm, concrete_system.name))
-                        launched_vms = cloud.cloud.getCloudConnector().launch(
+                        launched_vms = cloud.cloud.getCloudConnector(sel_inf).launch(
                             sel_inf, launch_radl, requested_radl, remain_vm, auth)
                     except Exception, e:
                         InfrastructureManager.logger.exception("Error launching some of the VMs: %s" % e)
@@ -455,7 +455,7 @@ class InfrastructureManager:
 
         # Concrete systems with cloud providers and select systems with the greatest score
         # in every cloud
-        cloud_list = dict([(c.id, c.getCloudConnector())
+        cloud_list = dict([(c.id, c.getCloudConnector(sel_inf))
                            for c in CloudInfo.get_cloud_list(auth) if c not in failed_clouds])
         concrete_systems = {}
         for cloud_id, cloud in cloud_list.items():

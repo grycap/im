@@ -41,11 +41,11 @@ class GCECloudConnector(CloudConnector):
     """str with the name of the provider."""
     DEFAULT_ZONE = "us-central1-a"
 
-    def __init__(self, cloud_info):
+    def __init__(self, cloud_info, inf):
         self.auth = None
         self.datacenter = None
         self.driver = None
-        CloudConnector.__init__(self, cloud_info)
+        CloudConnector.__init__(self, cloud_info, inf)
 
     def get_driver(self, auth_data, datacenter=None):
         """
@@ -84,9 +84,9 @@ class GCECloudConnector(CloudConnector):
                 self.driver = driver
                 return driver
             else:
-                self.logger.error(
+                self.log_error(
                     "No correct auth data has been specified to GCE: username, password and project")
-                self.logger.debug(auth)
+                self.log_debug(auth)
                 raise Exception(
                     "No correct auth data has been specified to GCE: username, password and project")
 
@@ -215,7 +215,7 @@ class GCECloudConnector(CloudConnector):
                         res = size
 
         if res is None:
-            self.logger.error("No compatible size found")
+            self.log_error("No compatible size found")
 
         return res
 
@@ -236,9 +236,9 @@ class GCECloudConnector(CloudConnector):
             n += 1
 
         if requested_ips:
-            self.logger.debug("The user requested for a fixed IP")
+            self.log_debug("The user requested for a fixed IP")
             if len(requested_ips) > 1:
-                self.logger.warn(
+                self.log_warn(
                     "The user has requested more than one fixed IP. Using only the first one")
             return requested_ips[0]
         else:
@@ -314,7 +314,7 @@ class GCECloudConnector(CloudConnector):
                         if local_port != 22:
                             protocol = remote_protocol
                             if remote_protocol != local_protocol:
-                                self.logger.warn("Different protocols used in outports ignoring local port protocol!")
+                                self.log_warn("Different protocols used in outports ignoring local port protocol!")
 
                             if protocol not in ports:
                                 ports[protocol] = []
@@ -328,24 +328,24 @@ class GCECloudConnector(CloudConnector):
                     try:
                         firewall = driver.ex_get_firewall(firewall_name)
                     except ResourceNotFoundError:
-                        self.logger.debug("The firewall %s does not exist." % firewall_name)
+                        self.log_debug("The firewall %s does not exist." % firewall_name)
                     except:
-                        self.logger.exception("Error trying to get FW %s." % firewall_name)
+                        self.log_exception("Error trying to get FW %s." % firewall_name)
 
                     if firewall:
                         try:
                             firewall.allowed = allowed
                             firewall.update()
-                            self.logger.debug("Firewall %s existing. Rules updated." % firewall_name)
+                            self.log_debug("Firewall %s existing. Rules updated." % firewall_name)
                         except:
-                            self.logger.exception("Error updating the firewall %s." % firewall_name)
+                            self.log_exception("Error updating the firewall %s." % firewall_name)
                         return
 
                     try:
                         driver.ex_create_firewall(firewall_name, allowed, network=net_name)
-                        self.logger.debug("Firewall %s successfully created." % firewall_name)
+                        self.log_debug("Firewall %s successfully created." % firewall_name)
                     except Exception, addex:
-                        self.logger.warn("Exception creating FW: " + str(addex))
+                        self.log_warn("Exception creating FW: " + str(addex))
 
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         system = radl.systems[0]
@@ -393,15 +393,15 @@ class GCECloudConnector(CloudConnector):
 
         if not public or not private:
             # We must generate them
-            self.logger.debug("No keys. Generating key pair.")
+            self.log_debug("No keys. Generating key pair.")
             (public, private) = self.keygen()
             system.setValue('disk.0.os.credentials.private_key', private)
 
         metadata = {}
         if private and public:
             metadata = {"sshKeys": username + ":" + public}
-            self.logger.debug("Setting ssh for user: " + username)
-            self.logger.debug(metadata)
+            self.log_debug("Setting ssh for user: " + username)
+            self.log_debug(metadata)
 
         startup_script = self.get_cloud_init_data(radl)
         if startup_script:
@@ -434,10 +434,10 @@ class GCECloudConnector(CloudConnector):
 
         for node in nodes:
             vm = VirtualMachine(inf, node.extra['name'], self.cloud, radl,
-                                requested_radl, self.cloud.getCloudConnector())
+                                requested_radl, self.cloud.getCloudConnector(inf))
             vm.info.systems[0].setValue('instance_id', str(vm.id))
             vm.info.systems[0].setValue('instance_name', str(vm.id))
-            self.logger.debug("Node successfully created.")
+            self.log_debug("Node successfully created.")
             res.append((True, vm))
 
         for _ in range(len(nodes), num_vm):
@@ -449,7 +449,7 @@ class GCECloudConnector(CloudConnector):
         try:
             node = self.get_node_with_id(vm.id, auth_data)
         except Exception, ex:
-            self.logger.exception("Error getting VM: %s. Err: %s." % (vm.id, str(ex)))
+            self.log_exception("Error getting VM: %s. Err: %s." % (vm.id, str(ex)))
             return (False, "Error getting VM: %s. Err: %s." % (vm.id, str(ex)))
 
         if node:
@@ -462,9 +462,9 @@ class GCECloudConnector(CloudConnector):
             if not success:
                 return (False, "Error destroying node: " + vm.id)
 
-            self.logger.debug("VM " + str(vm.id) + " successfully destroyed")
+            self.log_debug("VM " + str(vm.id) + " successfully destroyed")
         else:
-            self.logger.warn("VM " + str(vm.id) + " not found.")
+            self.log_warn("VM " + str(vm.id) + " not found.")
         return (True, "")
 
     def delete_firewall(self, vm, driver):
@@ -478,16 +478,16 @@ class GCECloudConnector(CloudConnector):
         try:
             firewall = driver.ex_get_firewall(firewall_name)
         except ResourceNotFoundError:
-            self.logger.debug("Firewall %s does not exist. Do not delete." % firewall_name)
+            self.log_debug("Firewall %s does not exist. Do not delete." % firewall_name)
         except:
-            self.logger.exception("Error trying to get FW %s." % firewall_name)
+            self.log_exception("Error trying to get FW %s." % firewall_name)
 
         if firewall:
             try:
                 firewall.destroy()
-                self.logger.debug("Firewall %s successfully deleted." % firewall_name)
+                self.log_debug("Firewall %s successfully deleted." % firewall_name)
             except:
-                self.logger.exception("Error trying to delete FW %s." % firewall_name)
+                self.log_exception("Error trying to delete FW %s." % firewall_name)
 
     def delete_disks(self, node):
         """
@@ -505,21 +505,20 @@ class GCECloudConnector(CloudConnector):
                 if volume:
                     success = volume.detach()
                     if not success:
-                        self.logger.error(
+                        self.log_error(
                             "Error detaching the volume: " + vol_name)
                     else:
                         # wait a bit to detach the disk
                         time.sleep(2)
                     success = volume.destroy()
                     if not success:
-                        self.logger.error(
+                        self.log_error(
                             "Error destroying the volume: " + vol_name)
             except ResourceNotFoundError:
-                self.logger.debug("The volume: " + vol_name +
-                                  " does not exists. Ignore it.")
+                self.log_debug("The volume: " + vol_name + " does not exists. Ignore it.")
                 success = True
             except:
-                self.logger.exception(
+                self.log_exception(
                     "Error destroying the volume: " + vol_name + " from the node: " + node.id)
                 success = False
 
@@ -544,7 +543,7 @@ class GCECloudConnector(CloudConnector):
         try:
             node = driver.ex_get_node(node_id)
         except ResourceNotFoundError:
-            self.logger.warn("VM " + str(node_id) + " does not exist.")
+            self.log_warn("VM " + str(node_id) + " does not exist.")
 
         return node
 
@@ -599,7 +598,7 @@ class GCECloudConnector(CloudConnector):
                         "disk." + str(cont) + ".size").getValue('G')
                     disk_device = vm.info.systems[0].getValue(
                         "disk." + str(cont) + ".device")
-                    self.logger.debug(
+                    self.log_debug(
                         "Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
                     volume_name = "im-%d" % int(time.time() * 100.0)
 
@@ -608,22 +607,22 @@ class GCECloudConnector(CloudConnector):
                         int(disk_size), volume_name, location=location)
                     success = self.wait_volume(volume)
                     if success:
-                        self.logger.debug("Attach the volume ID " + str(volume.id))
+                        self.log_debug("Attach the volume ID " + str(volume.id))
                         try:
                             volume.attach(node, disk_device)
                         except:
-                            self.logger.exception("Error attaching the volume ID " + str(
+                            self.log_exception("Error attaching the volume ID " + str(
                                 volume.id) + " destroying it.")
                             volume.destroy()
                     else:
-                        self.logger.error("Error waiting the volume ID " + str(
+                        self.log_error("Error waiting the volume ID " + str(
                             volume.id) + " not attaching to the VM and destroying it.")
                         volume.destroy()
 
                     cont += 1
             return True
         except Exception:
-            self.logger.exception(
+            self.log_exception(
                 "Error creating or attaching the volume to the node")
             return False
 
@@ -634,9 +633,9 @@ class GCECloudConnector(CloudConnector):
         try:
             node = driver.ex_get_node(vm.id)
         except ResourceNotFoundError:
-            self.logger.warn("VM " + str(vm.id) + " does not exist.")
+            self.log_warn("VM " + str(vm.id) + " does not exist.")
         except Exception, ex:
-            self.logger.exception("Error getting VM info: %s" % vm.id)
+            self.log_exception("Error getting VM info: %s" % vm.id)
             return (False, "Error getting VM info: %s. %s" % (vm.id, str(ex)))
 
         if node:
@@ -675,13 +674,13 @@ class GCECloudConnector(CloudConnector):
         except ResourceNotFoundError:
             return (False, "VM " + str(vm.id) + " does not exist.")
         except Exception, ex:
-            self.logger.exception("Error getting VM %s" % vm.id)
+            self.log_exception("Error getting VM %s" % vm.id)
             return (False, "Error getting VM %s: %s" % (vm.id, str(ex)))
 
         try:
             driver.ex_start_node(node)
         except Exception, ex:
-            self.logger.exception("Error starting VM %s" % vm.id)
+            self.log_exception("Error starting VM %s" % vm.id)
             return (False, "Error starting VM %s: %s" % (vm.id, str(ex)))
 
         return (True, "")
@@ -694,13 +693,13 @@ class GCECloudConnector(CloudConnector):
         except ResourceNotFoundError:
             return (False, "VM " + str(vm.id) + " does not exist.")
         except Exception, ex:
-            self.logger.exception("Error getting VM %s" % vm.id)
+            self.log_exception("Error getting VM %s" % vm.id)
             return (False, "Error getting VM %s: %s" % (vm.id, str(ex)))
 
         try:
             driver.ex_stop_node(node)
         except Exception, ex:
-            self.logger.exception("Error stopping VM %s" % vm.id)
+            self.log_exception("Error stopping VM %s" % vm.id)
             return (False, "Error stopping VM %s: %s" % (vm.id, str(ex)))
 
         return (True, "")
