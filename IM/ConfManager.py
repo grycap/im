@@ -68,7 +68,7 @@ class ConfManager(threading.Thread):
         self.auth = auth
         self.init_time = time.time()
         self.max_ctxt_time = max_ctxt_time
-        self._stop = False
+        self._stop_thread = False
         self.ansible_process = None
 
     def check_running_pids(self, vms_configuring):
@@ -117,7 +117,7 @@ class ConfManager(threading.Thread):
         return res
 
     def stop(self):
-        self._stop = True
+        self._stop_thread = True
         # put a task to assure to wake up the thread
         self.inf.add_ctxt_tasks([(-10, 0, None, None)])
         ConfManager.logger.debug(
@@ -132,7 +132,7 @@ class ConfManager(threading.Thread):
         wait = 0
         # Assure that all the VMs of the Inf. have one IP
         success = False
-        while not success and wait < timeout and not self._stop:
+        while not success and wait < timeout and not self._stop_thread:
             success = True
             for vm in self.inf.get_vm_list():
                 if vm.hasPublicNet():
@@ -189,7 +189,7 @@ class ConfManager(threading.Thread):
         last_step = None
         vms_configuring = {}
 
-        while not self._stop:
+        while not self._stop_thread:
             if self.init_time + self.max_ctxt_time < time.time():
                 ConfManager.logger.debug(
                     "Inf ID: " + str(self.inf.id) + ": Max contextualization time passed. Exit thread.")
@@ -212,7 +212,7 @@ class ConfManager(threading.Thread):
             (step, prio, vm, tasks) = self.inf.ctxt_tasks.get()
 
             # stop the thread if the stop method has been called
-            if self._stop:
+            if self._stop_thread:
                 ConfManager.logger.debug(
                     "Inf ID: " + str(self.inf.id) + ": Exit Configuration thread.")
                 return
@@ -736,7 +736,7 @@ class ConfManager(threading.Thread):
         if not self.inf.ansible_configured:
             success = False
             cont = 0
-            while not self._stop and not success and cont < Config.PLAYBOOK_RETRIES:
+            while not self._stop_thread and not success and cont < Config.PLAYBOOK_RETRIES:
                 time.sleep(cont * 5)
                 cont += 1
                 try:
@@ -1042,7 +1042,7 @@ class ConfManager(threading.Thread):
         retries = 1
         delay = 10
         wait = 0
-        while not self._stop and wait < timeout:
+        while not self._stop_thread and wait < timeout:
             if not vm.destroy:
                 vm.update_status(self.auth)
 
@@ -1118,7 +1118,7 @@ class ConfManager(threading.Thread):
         auth_error_retries = 3
         connected = False
         ip = None
-        while not self._stop and wait < timeout:
+        while not self._stop_thread and wait < timeout:
             if vm.destroy:
                 # in this case ignore it
                 return False, "VM destroyed."
