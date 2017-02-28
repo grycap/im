@@ -415,12 +415,15 @@ class TestIM(unittest.TestCase):
         Config.MAX_VM_FAILS = 1
 
         self.assertEqual(len(vms), 1)
+        # The first attempt in cloud 0 fails
         self.assertEqual(cloud0.launch.call_count, 1)
+        # The rest of attempts are in cloud 1
         self.assertEqual(cloud1.launch.call_count, n)
         for call, _ in cloud0.launch.call_args_list:
             self.assertEqual(call[3], 1)
         for call, _ in cloud1.launch.call_args_list:
             self.assertEqual(call[3], 1)
+
         IM.DestroyInfrastructure(infId, auth0)
 
     def test_inf_addresources5(self):
