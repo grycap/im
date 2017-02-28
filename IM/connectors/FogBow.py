@@ -270,7 +270,7 @@ class FogBowCloudConnector(CloudConnector):
                         return (True, vm)
 
         except Exception as ex:
-            self.logger.exception("Error connecting with FogBow Manager")
+            self.log_exception("Error connecting with FogBow Manager")
             return (False, "Error connecting with FogBow Manager: " + str(ex))
 
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
@@ -369,7 +369,7 @@ class FogBowCloudConnector(CloudConnector):
                     res.append((True, vm))
 
             except Exception as ex:
-                self.logger.exception("Error connecting with FogBow manager")
+                self.log_exception("Error connecting with FogBow manager")
                 res.append((False, "ERROR: " + str(ex)))
 
             i += 1
@@ -420,7 +420,7 @@ class FogBowCloudConnector(CloudConnector):
             else:
                 return (False, "Error removing the VM: " + resp.reason + "\n" + output)
         except Exception:
-            self.logger.exception("Error connecting with OCCI server")
+            self.log_exception("Error connecting with OCCI server")
             return (False, "Error connecting with OCCI server")
 
     def stop(self, vm, auth_data):

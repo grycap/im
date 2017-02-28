@@ -1,6 +1,11 @@
 ---
 - gather_facts: False
   tasks: 
+    # Some OSs does not have python by default
+    - name: Bootstrap with python
+      raw: which python || (sudo apt update; sudo apt install -y python; sudo yum install -y python)
+      ignore_errors: yes
+
     # In case of REL 5 system install python-simplejson
     - name: Install python-simplejson on REL 5
       action: raw cat /etc/redhat-release | grep "release 5" && sudo yum -y install python-simplejson
@@ -9,22 +14,27 @@
     # In case of redhat systems libselinux-python is needed
     - name: Install libselinux-python on redhat systems
       action: yum pkg=libselinux-python state=installed
-      sudo: yes
+      become: yes
       ignore_errors: yes
 
     # Set the correct hostname
     - name: Set the hostname of the node
       action: hostname name={{ IM_NODE_FQDN }}
-      sudo: yes
+      become: yes
       ignore_errors: yes
 
     # In case of redhat systems disable SELinux
     - name: Disable SELinux in REL systems
       action: selinux state=disabled
-      sudo: yes
+      become: yes
       ignore_errors: yes
 
     # Add the authorized_key to the nodes to enable accessing without password
     # pk_file var must be added by the ctxt agent
     - name: Add the authorized_key to the nodes
       action: authorized_key user={{ansible_user}} key="{{ lookup('file', pk_file) }}"
+
+    # Added to solve GCE issues removing the key
+    - name: Add the authorized_key to the nodes again
+      lineinfile: dest="/home/{{ansible_user}}/.ssh/authorized_keys" line="{{ lookup('file', pk_file) }}2"
+      ignore_errors: yes

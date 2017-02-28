@@ -195,7 +195,7 @@ def launch_daemon():
     """
     Launch the IM daemon
     """
-    InfrastructureList.load_data()
+    InfrastructureList.init_table()
 
     if Config.XMLRCP_SSL:
         # if specified launch the secure version
@@ -334,7 +334,7 @@ def get_childs(parent_id=None):
     ps_command.wait()
     childs = ps_output.strip().split("\n")[:-1]
     if childs:
-        res = []
+        res = childs
         for child in childs:
             res.extend(get_childs(int(child)))
         return res

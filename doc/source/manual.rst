@@ -14,8 +14,7 @@ IM needs at least Python 2.6 to run, as well as the next libraries:
 * `suds <https://fedorahosted.org/suds/>`_, a full-featured SOAP library.
 * `Netaddr <http://pythonhosted.org/netaddr//>`_, A Python library for representing 
   and manipulating network addresses.
-* `The Python interface to MySQL <https://www.mysql.com/>`_, typically available as the package 'python-mysqldb'  or 
-   'MySQL-python' package.
+* `Requests <http://docs.python-requests.org>`_, A Python library for access REST APIs.
     
 Also, IM uses `Ansible <http://www.ansible.com>`_ (1.4.2 or later) to configure the
 infrastructure nodes. The current recommended version is 1.9.4 untill the 2.X versions become stable.
@@ -56,6 +55,8 @@ Optional Packages
    It is typically available as the 'python-bottle' package.
 * `The CherryPy Web framework <http://www.cherrypy.org/>`_, is needed for the REST API. 
    It is typically available as the 'python-cherrypy' or 'python-cherrypy3' package.
+   In newer versions (9.0 and later) the functionality has been moved `the cheroot
+   library<https://github.com/cherrypy/cheroot>`_ it can be installed using pip.
 * `apache-libcloud <http://libcloud.apache.org/>`_ 0.17 or later is used in the
   LibCloud, OpenStack and GCE connectors.
 * `boto <http://boto.readthedocs.org>`_ 2.29.0 or later is used as interface to
@@ -69,6 +70,8 @@ Optional Packages
 * pyOpenSSL are needed if needed to secure the REST API
   with SSL certificates (see :confval:`REST_SSL`).
   pyOpenSSL can be installed using pip.
+* `The Python interface to MySQL <https://www.mysql.com/>`_, is needed to access MySQL server as IM data 
+  backend. It is typically available as the package 'python-mysqldb' or 'MySQL-python' package.
 * `The Azure Python SDK <https://docs.microsoft.com/es-es/azure/python-how-to-install/>`_, is needed by the Azure
   connector. It is available as the package 'azure' at the pip repository.  
 
@@ -86,7 +89,7 @@ First you need to install pip tool and some packages needed to compile some of t
 To install them in Debian and Ubuntu based distributions, do::
 
     $ apt update
-    $ apt install gcc python-dev libffi-dev libssl-dev python-pip sshpass python-mysqldb python-pysqlite2
+    $ apt install gcc python-dev libffi-dev libssl-dev python-pip sshpass python-mysqldb python-pysqlite2 python-requests
 
 In Red Hat based distributions (RHEL, CentOS, Amazon Linux, Oracle Linux,
 Fedora, etc.), do::
@@ -104,10 +107,11 @@ Then you only have to call the install command of the pip tool with the IM packa
 	$ pip install IM
 
 Pip will also install the, non installed, pre-requisites needed. So Ansible 1.4.2 or later will 
-be installed in the system.
+be installed in the system. Some of the optional packages are also installed please check if some
+of IM features that you need requires to install some of the packages of section "Optional Packages". 
 
 You must also remember to modify the ansible.cfg file setting as specified in the 
-REQUISITES section.
+"Prerequisites" section.
 
 From RPM packages (RH7)
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -123,7 +127,7 @@ Then install the downloaded RPMs::
    
 Azure python SDK is not available in CentOS. So if you need the Azure plugin you have to manually install them using pip::
 
-	$ pip install azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource
+	$ pip install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource
 
 From Deb package (Tested with Ubuntu 14.04 and 16.04)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -280,6 +284,12 @@ Basic Options
 
    Timeout in seconds to get a virtual machine in running state.
    The default value is 1800.
+
+.. confval:: WAIT_SSH_ACCCESS_TIMEOUT
+
+   (**New in version IM version 1.5.1.**)
+   Timeout in seconds to wait a virtual machine to get the SSH access active once it is in running state.
+   The default value is 300.
 
 .. confval:: LOG_FILE
 
@@ -487,6 +497,15 @@ NETWORK OPTIONS
    It must be a coma separated string of the network definitions (using CIDR) (without spaces).
    The default value is ``'10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,192.0.0.0/24,169.254.0.0/16,100.64.0.0/10,198.18.0.0/15'``.
    
+HA MODE OPTIONS
+^^^^^^^^^^^^^^^
+
+.. confval:: INF_CACHE_TIME
+
+   Time (in seconds) the IM service will maintain the information of an infrastructure
+   in memory. Only used in case of IM in HA mode. This value has to be set to a similar value set in the ``expire`` value
+   in the ``stick-table`` in the HAProxy configuration.
+
 OpenNebula connector Options
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -521,12 +540,14 @@ Or you can also add a volume with all the IM configuration::
 
   $ sudo docker run -d -p 8899:8899 -p 8800:8800 -v "/some_local_path/im.cfg:/etc/im/im.cfg" --name im grycap/im
 
+.. _options-ha:
 
 IM in high availability mode
 ============================
 
 From version 1.5.0 the IM service can be launched in high availability (HA) mode using a set of IM instances
 behind a `HAProxy <http://www.haproxy.org/>`_ load balancer. Currently only the REST API can be used in HA mode.
+It is a experimental issue currently it is not intended to be used in a production installation.
 
 This is an example of the HAProxy configuration file::
 
@@ -546,3 +567,5 @@ This is an example of the HAProxy configuration file::
         server im-8801 10.0.0.1:8801 check
         server im-8802 10.0.0.1:8802 check
         ...
+
+See more details of HAProxy configuration at `HAProxy Documentation <https://cbonte.github.io/haproxy-dconv/>`_.

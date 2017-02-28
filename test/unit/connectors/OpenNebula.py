@@ -48,13 +48,12 @@ class TestONEConnector(unittest.TestCase):
     Class to test the IM connectors
     """
 
-    @classmethod
-    def setUpClass(cls):
-        cls.log = StringIO()
-        ch = logging.StreamHandler(cls.log)
+    def setUp(self):
+        self.log = StringIO()
+        self.handler = logging.StreamHandler(self.log)
         formatter = logging.Formatter(
             '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        ch.setFormatter(formatter)
+        self.handler.setFormatter(formatter)
 
         logging.RootLogger.propagate = 0
         logging.root.setLevel(logging.ERROR)
@@ -62,11 +61,15 @@ class TestONEConnector(unittest.TestCase):
         logger = logging.getLogger('CloudConnector')
         logger.setLevel(logging.DEBUG)
         logger.propagate = 0
-        logger.addHandler(ch)
+        for handler in logger.handlers:
+            logger.removeHandler(handler)
+        logger.addHandler(self.handler)
 
-    @classmethod
-    def clean_log(cls):
-        cls.log = StringIO()
+    def tearDown(self):
+        self.handler.flush()
+        self.log.close()
+        self.log = StringIO()
+        self.handler.close()
 
     @staticmethod
     def get_one_cloud():
@@ -74,7 +77,9 @@ class TestONEConnector(unittest.TestCase):
         cloud_info.type = "OpenNebula"
         cloud_info.server = "server.com"
         cloud_info.port = 2633
-        one_cloud = OpenNebulaCloudConnector(cloud_info)
+        inf = MagicMock()
+        inf.id = "1"
+        one_cloud = OpenNebulaCloudConnector(cloud_info, inf)
         return one_cloud
 
     def test_10_concrete(self):
@@ -100,7 +105,6 @@ class TestONEConnector(unittest.TestCase):
         concrete = one_cloud.concreteSystem(radl_system, auth)
         self.assertEqual(len(concrete), 1)
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.clean_log()
 
     @patch('IM.connectors.OpenNebula.ServerProxy')
     @patch('IM.connectors.OpenNebula.OpenNebulaCloudConnector.getONEVersion')
@@ -140,7 +144,6 @@ class TestONEConnector(unittest.TestCase):
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.clean_log()
 
     @patch('IM.connectors.OpenNebula.ServerProxy')
     def test_30_updateVMInfo(self, server_proxy):
@@ -176,7 +179,6 @@ class TestONEConnector(unittest.TestCase):
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.clean_log()
 
     @patch('IM.connectors.OpenNebula.ServerProxy')
     def test_40_stop(self, server_proxy):
@@ -196,7 +198,6 @@ class TestONEConnector(unittest.TestCase):
 
         self.assertTrue(success, msg="ERROR: stopping VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.clean_log()
 
     @patch('IM.connectors.OpenNebula.ServerProxy')
     def test_50_start(self, server_proxy):
@@ -216,7 +217,6 @@ class TestONEConnector(unittest.TestCase):
 
         self.assertTrue(success, msg="ERROR: stopping VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.clean_log()
 
     @patch('IM.connectors.OpenNebula.ServerProxy')
     @patch('IM.connectors.OpenNebula.OpenNebulaCloudConnector.checkResize')
@@ -267,7 +267,6 @@ class TestONEConnector(unittest.TestCase):
 
         self.assertTrue(success, msg="ERROR: modifying VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.clean_log()
 
     @patch('IM.connectors.OpenNebula.ServerProxy')
     def test_60_finalize(self, server_proxy):
@@ -287,7 +286,6 @@ class TestONEConnector(unittest.TestCase):
 
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.clean_log()
 
 
 if __name__ == '__main__':

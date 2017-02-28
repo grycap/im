@@ -70,9 +70,9 @@ class AzureCloudConnector(CloudConnector):
         'Stopped': VirtualMachine.STOPPED
     }
 
-    def __init__(self, cloud_info):
+    def __init__(self, cloud_info, inf):
         self.credentials = None
-        CloudConnector.__init__(self, cloud_info)
+        CloudConnector.__init__(self, cloud_info, inf)
 
     def get_credentials(self, auth_data):
         auths = auth_data.getAuthInfo(self.type)
@@ -184,8 +184,6 @@ class AzureCloudConnector(CloudConnector):
             if not isinstance(image_urls, list):
                 image_urls = [image_urls]
 
-            credentials, subscription_id = self.get_credentials(auth_data)
-
             res = []
             for str_url in image_urls:
                 url = uriparse(str_url)
@@ -193,12 +191,14 @@ class AzureCloudConnector(CloudConnector):
 
                 protocol = url[0]
                 if protocol == "azr":
+                    credentials, subscription_id = self.get_credentials(auth_data)
+
                     res_system = radl_system.clone()
                     instance_type = self.get_instance_type(res_system, credentials, subscription_id)
                     if not instance_type:
-                        self.logger.error(
+                        self.log_error(
                             "Error generating the RADL of the VM, no instance type available for the requirements.")
-                        self.logger.debug(res_system)
+                        self.log_debug(res_system)
                     else:
                         res_system.addFeature(
                             Feature("disk.0.image.url", "=", str_url), conflict="other", missing="other")
@@ -234,7 +234,7 @@ class AzureCloudConnector(CloudConnector):
             if local_port != 22:
                 protocol = remote_protocol
                 if remote_protocol != local_protocol:
-                    self.logger.warn("Different protocols used in outports ignoring local port protocol!")
+                    self.log_warn("Different protocols used in outports ignoring local port protocol!")
 
                 sr = {'name': 'sr-%s-%d-%d' % (protocol, remote_port, local_port),
                       'access': 'Allow',
@@ -257,7 +257,7 @@ class AzureCloudConnector(CloudConnector):
         try:
             ngs = network_client.network_security_groups.create_or_update(group_name, nsg_name, params).result()
         except:
-            self.logger.exception("Error creating NGS")
+            self.log_exception("Error creating NGS")
 
         return ngs
 
@@ -384,7 +384,7 @@ class AzureCloudConnector(CloudConnector):
             storage_client = StorageManagementClient(credentials, subscription_id)
             return storage_client.storage_accounts.get_properties(group_name, storage_account)
         except Exception:
-            self.logger.exception("Error checking the storage account")
+            self.log_exception("Error checking the storage account")
             return None
 
     def create_storage_account(self, group_name, storage_account, credentials, subscription_id, location):
@@ -401,7 +401,7 @@ class AzureCloudConnector(CloudConnector):
                                                                              )
             return storage_async_operation.result(), ""
         except Exception as ex:
-            self.logger.exception("Error creating the storage account")
+            self.log_exception("Error creating the storage account")
             return None, str(ex)
 
     def create_nets(self, inf, radl, credentials, subscription_id, group_name):
@@ -516,7 +516,7 @@ class AzureCloudConnector(CloudConnector):
 
                 res.append((True, vm))
             except Exception as ex:
-                self.logger.exception("Error creating the VM")
+                self.log_exception("Error creating the VM")
                 res.append((False, "Error creating the VM: " + str(ex)))
 
                 # Delete Resource group and everything in it
@@ -562,14 +562,14 @@ class AzureCloudConnector(CloudConnector):
                 )
                 async_vm_update.wait()
             except Exception as ex:
-                self.logger.exception("Error attaching disk %d to VM %s" % (cont, vm_name))
+                self.log_exception("Error attaching disk %d to VM %s" % (cont, vm_name))
                 return False, "Error attaching disk %d to VM %s: %s" % (cont, vm_name, str(ex))
             cont += 1
 
         return True, ""
 
     def updateVMInfo(self, vm, auth_data):
-        self.logger.debug("Get the VM info with the id: " + vm.id)
+        self.log_debug("Get the VM info with the id: " + vm.id)
         group_name = vm.id.split('/')[0]
         vm_name = vm.id.split('/')[1]
 
@@ -583,12 +583,12 @@ class AzureCloudConnector(CloudConnector):
                 vm.state = VirtualMachine.OFF
                 return (True, vm)
             else:
-                self.logger.exception("Error getting the VM info: " + vm.id)
+                self.log_exception("Error getting the VM info: " + vm.id)
                 return (False, "Error getting the VM info: " + vm.id + ". " + str(ex))
 
-        self.logger.debug("VM info: " + vm.id + " obtained.")
+        self.log_debug("VM info: " + vm.id + " obtained.")
         vm.state = self.PROVISION_STATE_MAP.get(virtual_machine.provisioning_state, VirtualMachine.UNKNOWN)
-        self.logger.debug("The VM state is: " + vm.state)
+        self.log_debug("The VM state is: " + vm.state)
 
         instance_type = self.get_instance_type_by_name(virtual_machine.hardware_profile.vm_size,
                                                        virtual_machine.location, credentials, subscription_id)
@@ -625,22 +625,22 @@ class AzureCloudConnector(CloudConnector):
 
     def finalize(self, vm, auth_data):
         try:
-            self.logger.debug("Terminate VM: " + vm.id)
+            self.log_debug("Terminate VM: " + vm.id)
             group_name = vm.id.split('/')[0]
             credentials, subscription_id = self.get_credentials(auth_data)
 
             # Delete Resource group and everything in it
             resource_client = ResourceManagementClient(credentials, subscription_id)
-            self.logger.exception("Removing RG: %s" % group_name)
+            self.log_debug("Removing RG: %s" % group_name)
             resource_client.resource_groups.delete(group_name).wait()
 
             # if it is the last VM delete the RG of the Inf
             if vm.inf.is_last_vm(vm.id):
-                self.logger.exception("Removing RG: %s" % "rg-%s" % vm.inf.id)
+                self.log_debug("Removing RG: %s" % "rg-%s" % vm.inf.id)
                 resource_client.resource_groups.delete("rg-%s" % vm.inf.id)
 
         except Exception as ex:
-            self.logger.exception("Error terminating the VM")
+            self.log_exception("Error terminating the VM")
             return False, "Error terminating the VM: " + str(ex)
 
         return True, ""
@@ -653,7 +653,7 @@ class AzureCloudConnector(CloudConnector):
             compute_client = ComputeManagementClient(credentials, subscription_id)
             compute_client.virtual_machines.power_off(group_name, vm_name)
         except Exception as ex:
-            self.logger.exception("Error stopping the VM")
+            self.log_exception("Error stopping the VM")
             return False, "Error stopping the VM: " + str(ex)
 
         return True, ""
@@ -666,7 +666,7 @@ class AzureCloudConnector(CloudConnector):
             compute_client = ComputeManagementClient(credentials, subscription_id)
             compute_client.virtual_machines.start(group_name, vm_name)
         except Exception as ex:
-            self.logger.exception("Error starting the VM")
+            self.log_exception("Error starting the VM")
             return False, "Error starting the VM: " + str(ex)
 
         return True, ""
@@ -696,7 +696,7 @@ class AzureCloudConnector(CloudConnector):
 
             return self.updateVMInfo(vm, auth_data)
         except Exception as ex:
-            self.logger.exception("Error altering the VM")
+            self.log_exception("Error altering the VM")
             return False, "Error altering the VM: " + str(ex)
 
         return (True, "")

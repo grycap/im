@@ -278,7 +278,8 @@ machine.  The supported features are:
    It specifies the device where the disk will be located in the system
    (hdb, hdc, etc.). Depending on the Cloud provider the meaning of this
    field may change. In Docker and Kubernetes connectors the device
-   refers to a path to create a bind in the container.
+   refers to a path to create a bind in the container, if it starts with
+   character ``/`` or the name of a volume otherwise.
    
 ``disk.<diskId>.mount_path = <string>``
    Set the mount point, if it is disk with no source set.
@@ -290,7 +291,8 @@ machine.  The supported features are:
    Set the mount point, if it is disk with no source set.
    It specifies the type of the filesystem of this disk. If specified
    the contextualization agent will try to format and mount this disk
-   in the path specified in ``mount_path`` field.
+   in the path specified in ``mount_path`` field. In case of Docker 
+   the fstype refers to the driver to use in case of using a volume.
 
 ``disk.<diskId>.size = <positive integer value>B|K|M|G``
    Set the size of the disk, if it is a disk with no source set.

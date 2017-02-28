@@ -100,7 +100,7 @@ class AnsibleThread(Process):
         ps_command.wait()
         childs = ps_output.strip().split("\n")[:-1]
         if childs:
-            res = []
+            res = childs
             for child in childs:
                 res.extend(self._get_childs(int(child)))
             return res
@@ -159,7 +159,7 @@ class AnsibleThread(Process):
         else:
             sshpass = self.passwd
 
-        passwords = {'conn_pass': sshpass, 'become_pass': sshpass}
+        passwords = {'conn_pass': sshpass, 'become_pass': self.passwd}
 
         if self.user:
             options.remote_user = self.user

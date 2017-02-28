@@ -208,8 +208,10 @@ class DataBase:
             res = self.select(
                 'select name from sqlite_master where type="table" and name="' + table_name + '"')
         elif self.db_type == "MySQL":
-            res = self.select(
-                'SELECT * FROM information_schema.tables WHERE table_name ="' + table_name + '"')
+            uri = uriparse(self.db_url)
+            db = uri[2][1:]
+            res = self.select('SELECT * FROM information_schema.tables WHERE table_name ="' +
+                              table_name + '" and table_schema = "' + db + '"')
         else:
             return False
 

@@ -2,21 +2,24 @@
 - hosts: all
   become: yes
   become_method: sudo
+  gather_facts: false
   tasks:
+    # Some OSs does not have python by default
+    - name: Bootstrap with python
+      raw: which python || (sudo apt update; sudo apt install -y python; sudo yum install -y python)
+      ignore_errors: yes
+
+    # In case of REL 5 system install python-simplejson
+    - name: Install python-simplejson on REL 5
+      raw: cat /etc/redhat-release | grep "release 5" && sudo yum -y install python-simplejson
+      ignore_errors: yes
+
+    - name: Get Facts
+      setup:
+
     - name: Install libselinux-python in RH
       action: yum pkg=libselinux-python state=installed
       when: ansible_os_family == "RedHat"
-  
-      # Disable IPv6
-    - lineinfile: dest=/etc/sysctl.conf regexp="{{ item }}" line="{{ item }} = 1"
-      with_items:
-       - 'net.ipv6.conf.all.disable_ipv6'
-       - 'net.ipv6.conf.default.disable_ipv6'
-       - 'net.ipv6.conf.lo.disable_ipv6'
-      ignore_errors: yes
-    - shell: sysctl -p
-      ignore_errors: yes
-
   
     - name: Apt-get update
       apt: update_cache=yes
