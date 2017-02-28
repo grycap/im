@@ -875,8 +875,7 @@ class ConfManager(threading.Thread):
                     os.remove(os.path.expanduser("~/.ssh/known_hosts"))
 
                 self.inf.add_cont_msg("Wait master VM to have the SSH active.")
-                is_connected, msg = self.wait_vm_ssh_acccess(
-                    self.inf.vm_master, Config.WAIT_RUNNING_VM_TIMEOUT)
+                is_connected, msg = self.wait_vm_ssh_acccess(self.inf.vm_master, Config.WAIT_SSH_ACCCESS_TIMEOUT)
                 if not is_connected:
                     ConfManager.logger.error("Inf ID: " + str(self.inf.id) +
                                              ": Error Waiting the Master VM to have the SSH active, exit: " +
@@ -1248,11 +1247,22 @@ class ConfManager(threading.Thread):
         wait = 0
         while self.ansible_process.is_alive():
             if wait >= Config.ANSIBLE_INSTALL_TIMEOUT:
-                self.ansible_process.terminate()
+                ConfManager.logger.error("Inf ID: " + str(self.inf.id) + ": " +
+                                         'Timeout waiting Ansible process to finish')
+                try:
+                    # Try to assure that the are no ansible process running
+                    self.ansible_process.teminate()
+                except:
+                    ConfManager.logger.exception("Inf ID: " + str(self.inf.id) + ": " +
+                                                 'Problems terminating Ansible processes.')
                 self.ansible_process = None
                 return (False, "Timeout. Ansible process terminated.")
-            time.sleep(Config.CHECK_CTXT_PROCESS_INTERVAL)
-            wait += Config.CHECK_CTXT_PROCESS_INTERVAL
+            else:
+                ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " +
+                                         'Waiting Ansible process to finish '
+                                         '(%d/%d).' % (wait, Config.ANSIBLE_INSTALL_TIMEOUT))
+                time.sleep(Config.CHECK_CTXT_PROCESS_INTERVAL)
+                wait += Config.CHECK_CTXT_PROCESS_INTERVAL
         try:
             # Try to assure that the are no ansible process running
             self.ansible_process.teminate()
