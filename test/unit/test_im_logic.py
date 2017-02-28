@@ -423,7 +423,7 @@ class TestIM(unittest.TestCase):
             self.assertEqual(call[3], 1)
         IM.DestroyInfrastructure(infId, auth0)
 
-    def test_0inf_addresources5(self):
+    def test_inf_addresources5(self):
         """Deploy n independent virtual machines."""
 
         radl = """"
