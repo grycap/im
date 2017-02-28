@@ -455,6 +455,7 @@ class TestIM(unittest.TestCase):
 
             deploy front 1
             deploy wn 3
+            deploy wn 2
         """
         cloud = type("MyMock0", (CloudConnector, object), {})
         cloud.launch = Mock(side_effect=self.sleep_and_create_vm)
@@ -467,13 +468,14 @@ class TestIM(unittest.TestCase):
         Config.MAX_SIMULTANEOUS_LAUNCHES = 1
         vms = IM.AddResource(infId, str(radl), auth0)
         delay = int(time.time()) - before
-        self.assertLess(delay, 12)
-        self.assertGreater(delay, 9)
+        self.assertLess(delay, 17)
+        self.assertGreater(delay, 14)
 
-        self.assertEqual(len(vms), 4)
-        self.assertEqual(cloud.launch.call_count, 2)
+        self.assertEqual(len(vms), 6)
+        self.assertEqual(cloud.launch.call_count, 3)
         self.assertEqual(cloud.launch.call_args_list[0][0][3], 1)
         self.assertEqual(cloud.launch.call_args_list[1][0][3], 3)
+        self.assertEqual(cloud.launch.call_args_list[2][0][3], 2)
 
         cloud = type("MyMock0", (CloudConnector, object), {})
         cloud.launch = Mock(side_effect=self.sleep_and_create_vm)
@@ -481,17 +483,18 @@ class TestIM(unittest.TestCase):
 
         # in this case it will take aprox 5 secs
         before = int(time.time())
-        Config.MAX_SIMULTANEOUS_LAUNCHES = 4  # Test the pool
+        Config.MAX_SIMULTANEOUS_LAUNCHES = 3  # Test the pool
         vms = IM.AddResource(infId, str(radl), auth0)
         delay = int(time.time()) - before
         self.assertLess(delay, 7)
         self.assertGreater(delay, 4)
         Config.MAX_SIMULTANEOUS_LAUNCHES = 1
 
-        self.assertEqual(len(vms), 4)
-        self.assertEqual(cloud.launch.call_count, 2)
+        self.assertEqual(len(vms), 6)
+        self.assertEqual(cloud.launch.call_count, 3)
         self.assertEqual(cloud.launch.call_args_list[0][0][3], 1)
         self.assertEqual(cloud.launch.call_args_list[1][0][3], 3)
+        self.assertEqual(cloud.launch.call_args_list[2][0][3], 2)
 
         IM.DestroyInfrastructure(infId, auth0)
 
