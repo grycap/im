@@ -132,7 +132,7 @@ class TestIM(unittest.TestCase):
         IM.DestroyInfrastructure(infId, auth0)
 
     def test_inf_creation1(self):
-        """Create infrastructure with empty RADL."""
+        """Create infrastructure with an incorrect RADL in two cloud providers."""
 
         radl = """"
             network publica (outbound = 'yes')
