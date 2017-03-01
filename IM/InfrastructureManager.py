@@ -607,7 +607,7 @@ class InfrastructureManager:
             if passwd and not new_passwd:
                 # The VM uses the VMI password, set to change it
                 random_password = ''.join(random.choice(
-                    string.ascii_letters +  + string.digits) for _ in range(8))
+                    string.ascii_letters + string.digits) for _ in range(8))
                 vm.info.systems[0].setCredentialValues(
                     password=random_password, new=True)
 
