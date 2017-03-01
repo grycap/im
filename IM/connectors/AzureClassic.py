@@ -22,7 +22,7 @@ import tempfile
 from IM.xmlobject import XMLObject
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
-from CloudConnector import CloudConnector
+from .CloudConnector import CloudConnector
 from radl.radl import UserPassCredential, Feature
 from IM.config import Config
 
@@ -415,15 +415,15 @@ class AzureClassicCloudConnector(CloudConnector):
         if 'public_key' in auth and 'private_key' in auth:
             certificate = auth['public_key']
             fd, cert_file = tempfile.mkstemp()
-            os.write(fd, certificate)
+            os.write(fd, certificate.encode())
             os.close(fd)
-            os.chmod(cert_file, 0644)
+            os.chmod(cert_file, 0o644)
 
             private_key = auth['private_key']
             fd, key_file = tempfile.mkstemp()
-            os.write(fd, private_key)
+            os.write(fd, private_key.encode())
             os.close(fd)
-            os.chmod(key_file, 0600)
+            os.chmod(key_file, 0o600)
 
             return (cert_file, key_file)
         else:
@@ -448,10 +448,10 @@ class AzureClassicCloudConnector(CloudConnector):
       <Description>Service %s created by the IM</Description>
       <Location>%s</Location>
     </CreateHostedService>
-            ''' % (service_name, base64.b64encode(service_name), service_name, region)
+            ''' % (service_name, base64.b64encode(service_name.encode()), service_name, region)
             headers = {'x-ms-version': '2013-03-01', 'Content-Type': 'application/xml'}
             resp = self.create_request('POST', uri, auth_data, headers, service_create_xml)
-        except Exception, ex:
+        except Exception as ex:
             self.log_exception("Error creating the service")
             return None, "Error creating the service" + str(ex)
 
@@ -470,7 +470,7 @@ class AzureClassicCloudConnector(CloudConnector):
             uri = "/services/hostedservices/%s?comp=media" % service_name
             headers = {'x-ms-version': '2013-08-01'}
             resp = self.create_request('DELETE', uri, auth_data, headers)
-        except Exception, ex:
+        except Exception as ex:
             self.log_exception("Error deleting the service")
             return (False, "Error deleting the service: " + str(ex))
 
@@ -555,7 +555,7 @@ class AzureClassicCloudConnector(CloudConnector):
             ''' % (storage_account, storage_account, base64.b64encode(storage_account), region)
             headers = {'x-ms-version': '2013-03-01', 'Content-Type': 'application/xml'}
             resp = self.create_request('POST', uri, auth_data, headers, storage_create_xml)
-        except Exception, ex:
+        except Exception as ex:
             self.log_exception("Error creating the storage account")
             return None, "Error creating the storage account" + str(ex)
 
@@ -709,7 +709,7 @@ class AzureClassicCloudConnector(CloudConnector):
                         self.delete_service(service_name, auth_data)
                         res.append((False, "Error waiting the VM creation"))
 
-            except Exception, ex:
+            except Exception as ex:
                 self.log_exception("Error creating the VM")
                 if service_name:
                     self.delete_service(service_name, auth_data)
@@ -779,7 +779,7 @@ class AzureClassicCloudConnector(CloudConnector):
             uri = "/services/hostedservices/%s/deployments/%s" % (service_name, service_name)
             headers = {'x-ms-version': '2014-02-01'}
             resp = self.create_request('GET', uri, auth_data, headers)
-        except Exception, ex:
+        except Exception as ex:
             self.log_exception("Error getting the VM info: " + vm.id)
             return (False, "Error getting the VM info: " + vm.id + ". " + str(ex))
 
@@ -869,7 +869,7 @@ class AzureClassicCloudConnector(CloudConnector):
 
             headers = {'x-ms-version': '2013-06-01', 'Content-Type': 'application/xml'}
             resp = self.create_request('POST', uri, auth_data, headers)
-        except Exception, ex:
+        except Exception as ex:
             self.log_exception("Error calling role operation")
             return (False, "Error calling role operation: " + str(ex))
 
@@ -971,7 +971,7 @@ class AzureClassicCloudConnector(CloudConnector):
 
             headers = {'x-ms-version': '2013-11-01', 'Content-Type': 'application/xml'}
             resp = self.create_request('PUT', uri, auth_data, headers, body)
-        except Exception, ex:
+        except Exception as ex:
             self.log_exception("Error calling update operation")
             return (False, "Error calling update operation: " + str(ex))
 

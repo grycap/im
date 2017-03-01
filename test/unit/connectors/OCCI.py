@@ -20,7 +20,11 @@ import sys
 import unittest
 import os
 import logging
-from StringIO import StringIO
+import logging.config
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 
 sys.path.append(".")
 sys.path.append("..")

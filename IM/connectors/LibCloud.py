@@ -20,13 +20,13 @@ try:
     from libcloud.compute.base import NodeImage, NodeAuthSSHKey
     from libcloud.compute.types import Provider, NodeState
     from libcloud.compute.providers import get_driver
-except Exception, ex:
-    print "WARN: libcloud library not correctly installed. LibCloudCloudConnector will not work!."
-    print ex
+except Exception as ex:
+    print("WARN: libcloud library not correctly installed. LibCloudCloudConnector will not work!.")
+    print(ex)
 
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
-from CloudConnector import CloudConnector
+from .CloudConnector import CloudConnector
 from radl.radl import Feature
 
 
@@ -61,7 +61,7 @@ class LibCloudCloudConnector(CloudConnector):
                 MAP = {"username": "key", "password": "secret"}
 
                 params = {}
-                for key, value in auth[0].iteritems():
+                for key, value in auth[0].items():
                     if key not in ["type", "driver", "id"]:
                         params[MAP[key]] = value
 
@@ -530,7 +530,7 @@ class LibCloudCloudConnector(CloudConnector):
 
                 try:
                     success = resize_func(node, instance_type)
-                except Exception, ex:
+                except Exception as ex:
                     self.log_exception("Error resizing VM.")
                     return (False, "Error resizing VM: " + str(ex))
 

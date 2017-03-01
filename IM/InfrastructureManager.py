@@ -19,6 +19,11 @@ import os
 import string
 import random
 
+try:
+    unicode("hola")
+except NameError:
+    unicode = str
+
 from IM.VMRC import VMRC
 from IM.CloudInfo import CloudInfo
 from IM.auth import Authentication
@@ -166,7 +171,7 @@ class InfrastructureManager:
                 try:
                     launched_vms = cloud.cloud.getCloudConnector(sel_inf).launch(
                         sel_inf, launch_radl, requested_radl, remain_vm, auth)
-                except Exception, e:
+                except Exception as e:
                     InfrastructureManager.logger.exception("Error launching some of the VMs: %s" % e)
                     exceptions.append("Error launching the VMs of type %s to cloud ID %s"
                                       " of type %s. Cloud Provider Error: %s" % (vm_type,
@@ -273,7 +278,7 @@ class InfrastructureManager:
                     InfrastructureManager._launch_vm(sel_inf, task, deploy_group, auth,
                                                      deployed_vm, cancel_deployment, exceptions,
                                                      cloud_with_errors)
-        except Exception, e:
+        except Exception as e:
             # Please, avoid exception to arrive to this level, because some virtual
             # machine may lost.
             cancel_deployment.append(e)
@@ -602,7 +607,7 @@ class InfrastructureManager:
             if passwd and not new_passwd:
                 # The VM uses the VMI password, set to change it
                 random_password = ''.join(random.choice(
-                    string.letters + string.digits) for _ in range(8))
+                    string.ascii_letters + string.digits) for _ in range(8))
                 vm.info.systems[0].setCredentialValues(
                     password=random_password, new=True)
 
@@ -664,7 +669,7 @@ class InfrastructureManager:
                             cont += 1
                         else:
                             exceptions.append(msg)
-                    except Exception, e:
+                    except Exception as e:
                         exceptions.append(e)
 
         InfrastructureManager.logger.info(
@@ -794,7 +799,7 @@ class InfrastructureManager:
         exception = None
         try:
             (success, alter_res) = vm.alter(radl, auth)
-        except Exception, e:
+        except Exception as e:
             exception = e
 
         if exception:
@@ -954,7 +959,7 @@ class InfrastructureManager:
             success = False
             InfrastructureManager.logger.debug("Stopping the VM id: " + vm.id)
             (success, msg) = vm.stop(auth)
-        except Exception, e:
+        except Exception as e:
             msg = str(e)
         if not success:
             InfrastructureManager.logger.info("The VM cannot be stopped")
@@ -1007,7 +1012,7 @@ class InfrastructureManager:
             success = False
             InfrastructureManager.logger.debug("Starting the VM id: " + vm.id)
             (success, msg) = vm.start(auth)
-        except Exception, e:
+        except Exception as e:
             msg = str(e)
         if not success:
             InfrastructureManager.logger.info("The VM cannot be restarted")
@@ -1076,7 +1081,7 @@ class InfrastructureManager:
         success = False
         try:
             (success, msg) = vm.start(auth)
-        except Exception, e:
+        except Exception as e:
             msg = str(e)
 
         if not success:
@@ -1111,7 +1116,7 @@ class InfrastructureManager:
         success = False
         try:
             (success, msg) = vm.stop(auth)
-        except Exception, e:
+        except Exception as e:
             msg = str(e)
 
         if not success:
@@ -1130,7 +1135,7 @@ class InfrastructureManager:
             InfrastructureManager.logger.debug(
                 "Finalizing the VM id: " + str(vm.id))
             (success, msg) = vm.finalize(auth)
-        except Exception, e:
+        except Exception as e:
             msg = str(e)
         if not success:
             InfrastructureManager.logger.info("The VM cannot be finalized")
@@ -1261,7 +1266,7 @@ class InfrastructureManager:
         # Add the resources in radl_data
         try:
             InfrastructureManager.AddResource(inf.id, radl, auth)
-        except Exception, e:
+        except Exception as e:
             InfrastructureManager.logger.exception(
                 "Error Creating Inf id " + str(inf.id))
             inf.delete()
@@ -1317,7 +1322,7 @@ class InfrastructureManager:
 
         try:
             new_inf = IM.InfrastructureInfo.InfrastructureInfo.deserialize(str_inf)
-        except Exception, ex:
+        except Exception as ex:
             InfrastructureManager.logger.exception("Error importing the infrastructure, incorrect data")
             raise Exception("Error importing the infrastructure, incorrect data: " + str(ex))
 

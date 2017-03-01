@@ -25,7 +25,7 @@ import tempfile
 import uuid
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
-from CloudConnector import CloudConnector
+from .CloudConnector import CloudConnector
 from radl.radl import Feature
 from netaddr import IPNetwork, IPAddress
 from IM.config import Config
@@ -64,7 +64,7 @@ class OCCICloudConnector(CloudConnector):
             proxy = auth['proxy']
 
             (fproxy, proxy_filename) = tempfile.mkstemp()
-            os.write(fproxy, proxy)
+            os.write(fproxy, proxy.encode())
             os.close(fproxy)
             cert = proxy_filename
         else:
@@ -385,7 +385,7 @@ class OCCICloudConnector(CloudConnector):
                 self.set_disk_info(vm, resp.text, auth_data)
                 return (True, vm)
 
-        except Exception, ex:
+        except Exception as ex:
             self.log_exception("Error connecting with OCCI server")
             return (False, "Error connecting with OCCI server: " + str(ex))
 
@@ -569,7 +569,7 @@ users:
                 return (False, resp.reason + "\n" + resp.text)
             else:
                 return (True, resp.text)
-        except Exception, ex:
+        except Exception as ex:
             self.log_exception("Error getting volume info")
             return False, str(ex)
 
@@ -598,7 +598,7 @@ users:
             else:
                 occi_id = os.path.basename(resp.text)
                 return True, occi_id
-        except Exception, ex:
+        except Exception as ex:
             self.log_exception("Error creating volume")
             return False, str(ex)
 
@@ -688,9 +688,9 @@ users:
         if public_key:
             # Add user cloud init data
             cloud_config_str = self.get_cloud_init_data(radl)
-            cloud_config = self.gen_cloud_config(public_key, user, cloud_config_str)
-            user_data = base64.b64encode(cloud_config).replace("\n", "")
-            self.log_debug("Cloud init: " + cloud_config)
+            cloud_config = self.gen_cloud_config(public_key, user, cloud_config_str).encode()
+            user_data = str(base64.b64encode(cloud_config)).replace("\n", "")
+            self.log_debug("Cloud init: %s" % cloud_config)
 
         # Get the info about the OCCI server (GET /-/)
         occi_info = self.query_occi(auth_data)
@@ -801,7 +801,7 @@ users:
                     else:
                         res.append((False, 'Unknown Error launching the VM.'))
 
-            except Exception, ex:
+            except Exception as ex:
                 self.log_exception("Error connecting with OCCI server")
                 res.append((False, "ERROR: " + str(ex)))
                 for _, volume_id in volumes:
@@ -841,7 +841,7 @@ users:
                     if not device.endswith("vda") and not device.endswith("hda"):
                         deleted_vols.append((link, num_storage, device))
                 return (True, deleted_vols)
-        except Exception, ex:
+        except Exception as ex:
             self.log_exception("Error deleting volumes")
             return (False, "Error deleting volumes " + str(ex))
 
@@ -972,7 +972,7 @@ users:
                 else:
                     return (False, "Error creating the new volume: " + volume_id)
                 cont += 1
-        except Exception, ex:
+        except Exception as ex:
             self.log_exception("Error connecting with OCCI server")
             return (False, "Error connecting with OCCI server: " + str(ex))
 
@@ -1039,7 +1039,7 @@ class KeyStoneAuth:
                 return www_auth_head.split('=')[1].replace("'", "")
             else:
                 return None
-        except SSLError, ex:
+        except SSLError as ex:
             occi.logger.exception(
                 "Error with the credentials when contacting with the OCCI server.")
             raise Exception(
@@ -1114,6 +1114,6 @@ class KeyStoneAuth:
                     break
 
             return tenant_token_id
-        except Exception, ex:
+        except Exception as ex:
             occi.logger.exception("Error obtaining Keystone Token.")
             raise Exception("Error obtaining Keystone Token: %s" % str(ex))

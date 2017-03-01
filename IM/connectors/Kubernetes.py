@@ -21,7 +21,7 @@ import json
 import requests
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
-from CloudConnector import CloudConnector
+from .CloudConnector import CloudConnector
 from radl.radl import Feature
 from IM.config import Config
 
@@ -395,7 +395,7 @@ class KubernetesCloudConnector(CloudConnector):
 
                     res.append((True, vm))
 
-            except Exception, ex:
+            except Exception as ex:
                 self.log_exception(
                     "Error connecting with Kubernetes API server")
                 res.append((False, "ERROR: " + str(ex)))
@@ -417,7 +417,7 @@ class KubernetesCloudConnector(CloudConnector):
             else:
                 return (False, resp.status_code, resp.text)
 
-        except Exception, ex:
+        except Exception as ex:
             self.log_exception(
                 "Error connecting with Kubernetes API server")
             return (False, None, "Error connecting with Kubernetes API server: " + str(ex))
@@ -565,7 +565,7 @@ class KubernetesCloudConnector(CloudConnector):
                         Feature("memory.size", "=", new_memory, 'B'), conflict="other", missing="other")
                 return (True, self.updateVMInfo(vm, auth_data))
 
-        except Exception, ex:
+        except Exception as ex:
             self.log_exception(
                 "Error connecting with Kubernetes API server")
             return (False, "ERROR: " + str(ex))

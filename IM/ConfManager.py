@@ -23,7 +23,11 @@ import logging
 import shutil
 import json
 import copy
-from StringIO import StringIO
+
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 from multiprocessing import Queue
 
 try:
@@ -64,7 +68,7 @@ class ConfManager(threading.Thread):
         self.auth = auth
         self.init_time = time.time()
         self.max_ctxt_time = max_ctxt_time
-        self._stop = False
+        self._stop_thread = False
         self.ansible_process = None
 
     def check_running_pids(self, vms_configuring):
@@ -72,7 +76,7 @@ class ConfManager(threading.Thread):
         Update the status of the configuration processes
         """
         res = {}
-        for step, vm_list in vms_configuring.iteritems():
+        for step, vm_list in vms_configuring.items():
             for vm in vm_list:
                 if isinstance(vm, VirtualMachine):
                     # Update the info of the VM to check it is in a correct
@@ -113,9 +117,9 @@ class ConfManager(threading.Thread):
         return res
 
     def stop(self):
-        self._stop = True
+        self._stop_thread = True
         # put a task to assure to wake up the thread
-        self.inf.ctxt_tasks.put((-10, 0, None, None))
+        self.inf.add_ctxt_tasks([(-10, 0, None, None)])
         ConfManager.logger.debug(
             "Inf ID: " + str(self.inf.id) + ": Stop Configuration thread.")
         if self.ansible_process and self.ansible_process.is_alive():
@@ -128,7 +132,7 @@ class ConfManager(threading.Thread):
         wait = 0
         # Assure that all the VMs of the Inf. have one IP
         success = False
-        while not success and wait < timeout and not self._stop:
+        while not success and wait < timeout and not self._stop_thread:
             success = True
             for vm in self.inf.get_vm_list():
                 if vm.hasPublicNet():
@@ -185,7 +189,7 @@ class ConfManager(threading.Thread):
         last_step = None
         vms_configuring = {}
 
-        while not self._stop:
+        while not self._stop_thread:
             if self.init_time + self.max_ctxt_time < time.time():
                 ConfManager.logger.debug(
                     "Inf ID: " + str(self.inf.id) + ": Max contextualization time passed. Exit thread.")
@@ -208,7 +212,7 @@ class ConfManager(threading.Thread):
             (step, prio, vm, tasks) = self.inf.ctxt_tasks.get()
 
             # stop the thread if the stop method has been called
-            if self._stop:
+            if self._stop_thread:
                 ConfManager.logger.debug(
                     "Inf ID: " + str(self.inf.id) + ": Exit Configuration thread.")
                 return
@@ -732,7 +736,7 @@ class ConfManager(threading.Thread):
         if not self.inf.ansible_configured:
             success = False
             cont = 0
-            while not self._stop and not success and cont < Config.PLAYBOOK_RETRIES:
+            while not self._stop_thread and not success and cont < Config.PLAYBOOK_RETRIES:
                 time.sleep(cont * 5)
                 cont += 1
                 try:
@@ -802,7 +806,7 @@ class ConfManager(threading.Thread):
 
                     success = configured_ok
 
-                except Exception, ex:
+                except Exception as ex:
                     ConfManager.logger.exception(
                         "Inf ID: " + str(self.inf.id) + ": Error in the ansible installation process")
                     self.inf.add_cont_msg(
@@ -986,7 +990,7 @@ class ConfManager(threading.Thread):
                 ssh.sftp_put_files(recipe_files)
 
             self.inf.set_configured(True)
-        except Exception, ex:
+        except Exception as ex:
             self.inf.set_configured(False)
             ConfManager.logger.exception(
                 "Inf ID: " + str(self.inf.id) + ": Error generating playbooks.")
@@ -1038,7 +1042,7 @@ class ConfManager(threading.Thread):
         retries = 1
         delay = 10
         wait = 0
-        while not self._stop and wait < timeout:
+        while not self._stop_thread and wait < timeout:
             if not vm.destroy:
                 vm.update_status(self.auth)
 
@@ -1114,7 +1118,7 @@ class ConfManager(threading.Thread):
         auth_error_retries = 3
         connected = False
         ip = None
-        while not self._stop and wait < timeout:
+        while not self._stop_thread and wait < timeout:
             if vm.destroy:
                 # in this case ignore it
                 return False, "VM destroyed."
@@ -1161,6 +1165,17 @@ class ConfManager(threading.Thread):
         else:
             return False, "Timeout waiting the VM to get a public IP."
 
+    @staticmethod
+    def cmp_credentials(creds, other_creds):
+        if len(creds) != len(other_creds):
+            return 1
+
+        for i in range(len(creds)):
+            if creds[i] != other_creds[i]:
+                return 1
+
+        return 0
+
     def change_master_credentials(self, ssh):
         """
         Chech the RADL of the VM master to see if we must change the user credentials
@@ -1175,7 +1190,7 @@ class ConfManager(threading.Thread):
             new_creds = self.inf.vm_master.getCredentialValues(new=True)
             if len(list(set(new_creds))) > 1 or list(set(new_creds))[0] is not None:
                 change_creds = False
-                if cmp(new_creds, creds) != 0:
+                if self.cmp_credentials(new_creds, creds) != 0:
                     (_, new_passwd, new_public_key, new_private_key) = new_creds
                     # only change to the new password if there are a previous
                     # passwd value
@@ -1228,7 +1243,7 @@ class ConfManager(threading.Thread):
                 pk_out = open(gen_pk_file, 'w')
                 pk_out.write(ssh.private_key)
                 pk_out.close()
-                os.chmod(gen_pk_file, 0400)
+                os.chmod(gen_pk_file, 0o400)
         else:
             gen_pk_file = None
 
@@ -1417,7 +1432,7 @@ class ConfManager(threading.Thread):
                 ConfManager.logger.debug("Inf ID: " + str(self.inf.id) +
                                          ": Ansible successfully configured in the master VM:\n" + msg + "\n\n")
                 self.inf.add_cont_msg("Ansible successfully configured in the master VM.")
-        except Exception, ex:
+        except Exception as ex:
             ConfManager.logger.exception(
                 "Inf ID: " + str(self.inf.id) + ": Error configuring master node.")
             self.inf.add_cont_msg("Error configuring master node: " + str(ex))
@@ -1459,7 +1474,7 @@ class ConfManager(threading.Thread):
                  _, vm_conf_data['private_key']) = creds
                 # If there are new creds to set to the VM
                 if len(list(set(new_creds))) > 1 or list(set(new_creds))[0] is not None:
-                    if cmp(new_creds, creds) != 0:
+                    if self.cmp_credentials(new_creds, creds) != 0:
                         (_, vm_conf_data['new_passwd'], vm_conf_data[
                          'new_public_key'], vm_conf_data['new_private_key']) = new_creds
 

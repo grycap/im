@@ -21,7 +21,10 @@ import unittest
 import os
 import logging
 import logging.config
-from StringIO import StringIO
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 
 sys.path.append(".")
 sys.path.append("..")
@@ -103,7 +106,7 @@ class TestONEConnector(unittest.TestCase):
         self.assertEqual(len(concrete), 1)
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
-    @patch('xmlrpclib.ServerProxy')
+    @patch('IM.connectors.OpenNebula.ServerProxy')
     @patch('IM.connectors.OpenNebula.OpenNebulaCloudConnector.getONEVersion')
     def test_20_launch(self, getONEVersion, server_proxy):
         radl_data = """
@@ -142,7 +145,7 @@ class TestONEConnector(unittest.TestCase):
         self.assertTrue(success, msg="ERROR: launching a VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
-    @patch('xmlrpclib.ServerProxy')
+    @patch('IM.connectors.OpenNebula.ServerProxy')
     def test_30_updateVMInfo(self, server_proxy):
         radl_data = """
             network net ()
@@ -177,7 +180,7 @@ class TestONEConnector(unittest.TestCase):
         self.assertTrue(success, msg="ERROR: updating VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
-    @patch('xmlrpclib.ServerProxy')
+    @patch('IM.connectors.OpenNebula.ServerProxy')
     def test_40_stop(self, server_proxy):
         auth = Authentication([{'id': 'one', 'type': 'OpenNebula', 'username': 'user',
                                 'password': 'pass', 'host': 'server.com:2633'}])
@@ -196,7 +199,7 @@ class TestONEConnector(unittest.TestCase):
         self.assertTrue(success, msg="ERROR: stopping VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
-    @patch('xmlrpclib.ServerProxy')
+    @patch('IM.connectors.OpenNebula.ServerProxy')
     def test_50_start(self, server_proxy):
         auth = Authentication([{'id': 'one', 'type': 'OpenNebula', 'username': 'user',
                                 'password': 'pass', 'host': 'server.com:2633'}])
@@ -215,7 +218,7 @@ class TestONEConnector(unittest.TestCase):
         self.assertTrue(success, msg="ERROR: stopping VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
-    @patch('xmlrpclib.ServerProxy')
+    @patch('IM.connectors.OpenNebula.ServerProxy')
     @patch('IM.connectors.OpenNebula.OpenNebulaCloudConnector.checkResize')
     def test_55_alter(self, checkResize, server_proxy):
         radl_data = """
@@ -265,7 +268,7 @@ class TestONEConnector(unittest.TestCase):
         self.assertTrue(success, msg="ERROR: modifying VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
-    @patch('xmlrpclib.ServerProxy')
+    @patch('IM.connectors.OpenNebula.ServerProxy')
     def test_60_finalize(self, server_proxy):
         auth = Authentication([{'id': 'one', 'type': 'OpenNebula', 'username': 'user',
                                 'password': 'pass', 'host': 'server.com:2633'}])

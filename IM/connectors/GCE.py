@@ -22,11 +22,11 @@ try:
     from libcloud.compute.types import NodeState, Provider
     from libcloud.compute.providers import get_driver
     from libcloud.common.google import ResourceNotFoundError
-except Exception, ex:
-    print "WARN: libcloud library not correctly installed. GCECloudConnector will not work!."
-    print ex
+except Exception as ex:
+    print("WARN: libcloud library not correctly installed. GCECloudConnector will not work!.")
+    print(ex)
 
-from CloudConnector import CloudConnector
+from .CloudConnector import CloudConnector
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from radl.radl import Feature
@@ -344,7 +344,7 @@ class GCECloudConnector(CloudConnector):
                     try:
                         driver.ex_create_firewall(firewall_name, allowed, network=net_name)
                         self.log_debug("Firewall %s successfully created." % firewall_name)
-                    except Exception, addex:
+                    except Exception as addex:
                         self.log_warn("Exception creating FW: " + str(addex))
 
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
@@ -448,7 +448,7 @@ class GCECloudConnector(CloudConnector):
     def finalize(self, vm, auth_data):
         try:
             node = self.get_node_with_id(vm.id, auth_data)
-        except Exception, ex:
+        except Exception as ex:
             self.log_exception("Error getting VM: %s. Err: %s." % (vm.id, str(ex)))
             return (False, "Error getting VM: %s. Err: %s." % (vm.id, str(ex)))
 
@@ -634,7 +634,7 @@ class GCECloudConnector(CloudConnector):
             node = driver.ex_get_node(vm.id)
         except ResourceNotFoundError:
             self.log_warn("VM " + str(vm.id) + " does not exist.")
-        except Exception, ex:
+        except Exception as ex:
             self.log_exception("Error getting VM info: %s" % vm.id)
             return (False, "Error getting VM info: %s. %s" % (vm.id, str(ex)))
 
@@ -673,13 +673,13 @@ class GCECloudConnector(CloudConnector):
             node = driver.ex_get_node(vm.id)
         except ResourceNotFoundError:
             return (False, "VM " + str(vm.id) + " does not exist.")
-        except Exception, ex:
+        except Exception as ex:
             self.log_exception("Error getting VM %s" % vm.id)
             return (False, "Error getting VM %s: %s" % (vm.id, str(ex)))
 
         try:
             driver.ex_start_node(node)
-        except Exception, ex:
+        except Exception as ex:
             self.log_exception("Error starting VM %s" % vm.id)
             return (False, "Error starting VM %s: %s" % (vm.id, str(ex)))
 
@@ -692,13 +692,13 @@ class GCECloudConnector(CloudConnector):
             node = driver.ex_get_node(vm.id)
         except ResourceNotFoundError:
             return (False, "VM " + str(vm.id) + " does not exist.")
-        except Exception, ex:
+        except Exception as ex:
             self.log_exception("Error getting VM %s" % vm.id)
             return (False, "Error getting VM %s: %s" % (vm.id, str(ex)))
 
         try:
             driver.ex_stop_node(node)
-        except Exception, ex:
+        except Exception as ex:
             self.log_exception("Error stopping VM %s" % vm.id)
             return (False, "Error stopping VM %s: %s" % (vm.id, str(ex)))
 

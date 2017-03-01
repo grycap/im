@@ -15,7 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import socket
-from xmlobject import XMLObject
+from IM.xmlobject import XMLObject
 
 
 class EXTRA_ELEMENT(XMLObject):
@@ -70,7 +70,7 @@ class ganglia_info:
                 s.settimeout(2)
                 if(s.connect_ex((master_ip, ganglia_info.ganglia_port)) == 0):
                     port_open = True
-            except Exception, ex:
+            except Exception as ex:
                 return (False, "Error connecting to ganglia: " + str(ex))
         else:
             return (False, "VM master without public IP")
@@ -137,7 +137,7 @@ class ganglia_info:
                                         vm.info.systems[0].setValue(
                                             "swap", float_val, metric.UNITS)
 
-        except Exception, ex:
+        except Exception as ex:
             return (False, "Error getting ganglia information: " + str(ex))
 
         return (True, "")

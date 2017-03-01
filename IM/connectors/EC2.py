@@ -21,13 +21,13 @@ import os
 try:
     import boto.ec2
     import boto.vpc
-except Exception, ex:
-    print "WARN: Boto library not correctly installed. EC2CloudConnector will not work!."
-    print ex
+except Exception as ex:
+    print("WARN: Boto library not correctly installed. EC2CloudConnector will not work!.")
+    print(ex)
 
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
-from CloudConnector import CloudConnector
+from .CloudConnector import CloudConnector
 from radl.radl import Feature
 
 
@@ -187,7 +187,7 @@ class EC2CloudConnector(CloudConnector):
                     raise Exception("No correct auth data has been specified to EC2: "
                                     "username (Access Key) and password (Secret Key)")
 
-            except Exception, ex:
+            except Exception as ex:
                 self.log_exception(
                     "Error getting the region " + region_name)
                 raise Exception("Error getting the region " +
@@ -344,7 +344,7 @@ class EC2CloudConnector(CloudConnector):
                 try:
                     sg = conn.create_security_group(
                         sg_name, "Security group created by the IM", vpc_id=vpc)
-                except Exception, crex:
+                except Exception as crex:
                     # First check if the SG does exist
                     sg = self._get_security_group(conn, sg_name)
                     if not sg:
@@ -375,7 +375,7 @@ class EC2CloudConnector(CloudConnector):
                                     "Different protocols used in outports ignoring local port protocol!")
                             try:
                                 sg.authorize(protocol, remote_port, local_port, '0.0.0.0/0')
-                            except Exception, addex:
+                            except Exception as addex:
                                 self.log_warn("Exception adding SG rules. Probably the rules exists:" + str(addex))
                                 pass
 
@@ -386,11 +386,11 @@ class EC2CloudConnector(CloudConnector):
                 sg.authorize('tcp', 0, 65535, src_group=sg)
                 sg.authorize('udp', 0, 65535, src_group=sg)
                 # sg.authorize('icmp', 0, 65535, src_group=sg)
-            except Exception, addex:
+            except Exception as addex:
                 self.log_warn("Exception adding SG rules. Probably the rules exists:" + str(addex))
                 pass
 
-        except Exception, ex:
+        except Exception as ex:
             self.log_exception("Error Creating the Security group")
             if vpc:
                 raise Exception(
@@ -425,7 +425,7 @@ class EC2CloudConnector(CloudConnector):
                 keypair = conn.create_key_pair(keypair_name)
                 created = True
                 keypair.save(self.KEYPAIR_DIR)
-                os.chmod(keypair_file, 0400)
+                os.chmod(keypair_file, 0o400)
                 with open(keypair_file, "r") as fkeypair:
                     system.setUserKeyCredentials(system.getCredentials().username,
                                                  None, fkeypair.read())
@@ -507,7 +507,7 @@ class EC2CloudConnector(CloudConnector):
             return res
         else:
             block_device_name = None
-            for name, device in image.block_device_mapping.iteritems():
+            for name, device in image.block_device_mapping.items():
                 if device.snapshot_id or device.volume_id:
                     block_device_name = name
 
@@ -689,7 +689,7 @@ class EC2CloudConnector(CloudConnector):
                             else:
                                 res.append((False, "Error %s." % err_msg))
 
-                except Exception, ex:
+                except Exception as ex:
                     self.log_exception("Error %s." % err_msg)
                     res.append((False, "Error %s. %s" % (err_msg, str(ex))))
 
@@ -812,7 +812,7 @@ class EC2CloudConnector(CloudConnector):
                     else:
                         self.log_debug(
                             "State: " + str(curr_vol.attachment_state()))
-                except Exception, ex:
+                except Exception as ex:
                     self.log_warn("Error removing the volume: " + str(ex))
 
                 if not deleted:
@@ -1057,7 +1057,7 @@ class EC2CloudConnector(CloudConnector):
                     if auth_data.getAuthInfo('InfrastructureManager'):
                         im_username = auth_data.getAuthInfo('InfrastructureManager')[0]['username']
                     instance.add_tag("IM-USER", im_username)
-            except Exception, ex:
+            except Exception as ex:
                 self.log_exception("Error updating the instance " + instance_id)
                 return (False, "Error updating the instance " + instance_id + ": " + str(ex))
 
@@ -1075,7 +1075,7 @@ class EC2CloudConnector(CloudConnector):
             try:
                 vm.info.systems[0].setValue('launch_time', int(time.mktime(
                     time.strptime(instance.launch_time[:19], '%Y-%m-%dT%H:%M:%S'))))
-            except Exception, ex:
+            except Exception as ex:
                 self.log_warn(
                     "Error setting the launch_time of the instance. Probably the instance is not running:" + str(ex))
 
@@ -1192,7 +1192,7 @@ class EC2CloudConnector(CloudConnector):
                         sg.revoke('tcp', 0, 65535, src_group=sg)
                         sg.revoke('udp', 0, 65535, src_group=sg)
                         time.sleep(2)
-                    except Exception, ex:
+                    except Exception as ex:
                         self.log_warn(
                             "Error revoking self rules: " + str(ex))
 
@@ -1203,7 +1203,7 @@ class EC2CloudConnector(CloudConnector):
                         try:
                             sg.delete()
                             deleted = True
-                        except Exception, ex:
+                        except Exception as ex:
                             # Check if it has been deleted yet
                             sg = self._get_security_group(conn, sg_name)
                             if not sg:
