@@ -132,7 +132,7 @@ class VirtualMachine:
         """
         if not self.destroy:
             if not self.cloud_connector:
-                self.cloud_connector = self.cloud.getCloudConnector()
+                self.cloud_connector = self.cloud.getCloudConnector(self.inf)
             self.kill_check_ctxt_process()
             (success, msg) = self.cloud_connector.finalize(self, auth)
             if success:
@@ -148,7 +148,7 @@ class VirtualMachine:
         Modify the features of the the VM
         """
         if not self.cloud_connector:
-            self.cloud_connector = self.cloud.getCloudConnector()
+            self.cloud_connector = self.cloud.getCloudConnector(self.inf)
         (success, alter_res) = self.cloud_connector.alterVM(self, radl, auth)
         # force the update of the information
         self.last_update = 0
@@ -159,7 +159,7 @@ class VirtualMachine:
         Stop the VM
         """
         if not self.cloud_connector:
-            self.cloud_connector = self.cloud.getCloudConnector()
+            self.cloud_connector = self.cloud.getCloudConnector(self.inf)
         (success, msg) = self.cloud_connector.stop(self, auth)
         # force the update of the information
         self.last_update = 0
@@ -170,7 +170,7 @@ class VirtualMachine:
         Start the VM
         """
         if not self.cloud_connector:
-            self.cloud_connector = self.cloud.getCloudConnector()
+            self.cloud_connector = self.cloud.getCloudConnector(self.inf)
         (success, msg) = self.cloud_connector.start(self, auth)
         # force the update of the information
         self.last_update = 0
@@ -458,7 +458,7 @@ class VirtualMachine:
             # To avoid to refresh the information too quickly
             if now - self.last_update > Config.VM_INFO_UPDATE_FREQUENCY:
                 if not self.cloud_connector:
-                    self.cloud_connector = self.cloud.getCloudConnector()
+                    self.cloud_connector = self.cloud.getCloudConnector(self.inf)
 
                 try:
                     (success, new_vm) = self.cloud_connector.updateVMInfo(self, auth)
@@ -552,7 +552,7 @@ class VirtualMachine:
 
                 # Search in previous used private ips
                 private_net = None
-                for net_mask, net in private_net_map.iteritems():
+                for net_mask, net in private_net_map.items():
                     if IPAddress(private_ip) in IPNetwork(net_mask):
                         private_net = net
 
@@ -796,7 +796,7 @@ class VirtualMachine:
             # And process it
             self.process_ctxt_agent_out(ctxt_agent_out)
             msg = "Contextualization agent output processed successfully"
-        except IOError, ex:
+        except IOError as ex:
             msg = "Error getting contextualization agent output " + \
                 remote_dir + "/ctxt_agent.out:  No such file."
             VirtualMachine.logger.error(msg)
@@ -818,7 +818,7 @@ class VirtualMachine:
                 VirtualMachine.logger.exception(
                     "Error getting stdout and stderr to guess why the agent output is not there.")
                 pass
-        except Exception, ex:
+        except Exception as ex:
             VirtualMachine.logger.exception(
                 "Error getting contextualization agent output: " + remote_dir + '/ctxt_agent.out')
             self.configured = False
@@ -859,3 +859,12 @@ class VirtualMachine:
             return SSHRetry(ansible_host.getHost(), user, passwd, private_key)
         else:
             return self.inf.vm_master.get_ssh(retry=True)
+
+    def __lt__(self, other):
+        return True
+
+    def get_cont_msg(self):
+        res = self.cont_out
+        if self.cloud_connector and self.cloud_connector.error_messages:
+            res += self.cloud_connector.error_messages
+        return res

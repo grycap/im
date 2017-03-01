@@ -12,11 +12,15 @@ class CloudConnector:
             - cloud_info(:py:class:`IM.CloudInfo`): Data about the Cloud Provider
     """
 
-    def __init__(self, cloud_info):
+    def __init__(self, cloud_info, inf):
         self.cloud = cloud_info
         """Data about the Cloud Provider."""
+        self.inf = inf
+        """Infrastructure this CloudConnector is associated with."""
         self.logger = logging.getLogger('CloudConnector')
         """Logger object."""
+        self.error_messages = ""
+        """String with error messages to be shown to the user."""
 
     def concreteSystem(self, radl_system, auth_data):
         """
@@ -174,7 +178,7 @@ class CloudConnector:
         (out, err) = p.communicate()
         if p.returncode != 0:
             shutil.rmtree(tmp_dir, ignore_errors=True)
-            self.logger.error("Error executing ssh-keygen: " + out + err)
+            self.log_error("Error executing ssh-keygen: " + out + err)
             return (None, None)
         else:
             public = None
@@ -183,13 +187,32 @@ class CloudConnector:
                 with open(pk_file) as f:
                     private = f.read()
             except:
-                self.logger.exception("Error reading private_key file.")
+                self.log_exception("Error reading private_key file.")
 
             try:
                 with open(pk_file + ".pub") as f:
                     public = f.read()
             except:
-                self.logger.exception("Error reading public_key file.")
+                self.log_exception("Error reading public_key file.")
 
             shutil.rmtree(tmp_dir, ignore_errors=True)
             return (public, private)
+
+    def log_msg(self, level, msg, exc_info=0):
+        msg = "Inf ID: %s: %s" % (self.inf.id, msg)
+        self.logger.log(level, msg, exc_info=exc_info)
+
+    def log_error(self, msg):
+        self.log_msg(logging.ERROR, msg)
+
+    def log_debug(self, msg):
+        self.log_msg(logging.DEBUG, msg)
+
+    def log_warn(self, msg):
+        self.log_msg(logging.WARNING, msg)
+
+    def log_exception(self, msg):
+        self.log_msg(logging.ERROR, msg, exc_info=1)
+
+    def log_info(self, msg):
+        self.log_msg(logging.INFO, msg)

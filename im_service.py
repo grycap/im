@@ -33,7 +33,7 @@ from IM.ServiceRequests import IMBaseRequest
 from IM import __version__ as version
 
 if sys.version_info <= (2, 6):
-    print "Must use python 2.6 or greater"
+    print("Must use python 2.6 or greater")
     sys.exit(1)
 
 logger = logging.getLogger('InfrastructureManager')
@@ -260,8 +260,8 @@ def config_logging():
     try:
         # First look at /etc/im/logging.conf file
         logging.config.fileConfig('/etc/im/logging.conf')
-    except Exception, ex:
-        print ex
+    except Exception as ex:
+        print(ex)
         log_dir = os.path.dirname(Config.LOG_FILE)
         if not os.path.isdir(log_dir):
             os.makedirs(log_dir)
@@ -303,8 +303,8 @@ def config_logging():
         log.addFilter(filt)
         log = logging.getLogger('InfrastructureManager')
         log.addFilter(filt)
-    except Exception, ex:
-        print ex
+    except Exception as ex:
+        print(ex)
 
 
 def im_stop():

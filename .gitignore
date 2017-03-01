@@ -5,3 +5,7 @@ test/auth.dat
 .coverage
 dist
 cover
+*.pem
+*.cer
+inf.dat
+radl

@@ -60,7 +60,6 @@ class DB14to15():
                             inf_list[inf.id] = inf
                         except:
                             sys.stderr.write("ERROR reading infrastructure from database, ignoring it!.")
-                            sys.exit(-1)
                 else:
                     sys.stderr.write("ERROR getting inf_list from database!.")
                     sys.exit(-1)

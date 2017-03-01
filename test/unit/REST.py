@@ -83,6 +83,19 @@ class TestREST(unittest.TestCase):
         self.assertEqual(res, ('{"uri-list": [{"uri": "http://imserver.com/infrastructures/1"},'
                                ' {"uri": "http://imserver.com/infrastructures/2"}]}'))
 
+    @patch("IM.InfrastructureManager.InfrastructureManager.GetInfrastructureList")
+    @patch("bottle.request")
+    def test_GetInfrastructureListWithErrors(self, bottle_request, GetInfrastructureList):
+        """Test REST GetInfrastructureList without auth data."""
+        bottle_request.environ = {'HTTP_HOST': 'imserver.com'}
+        bottle_request.return_value = MagicMock()
+        bottle_request.headers = {"Accept": "application/json"}
+
+        GetInfrastructureList.return_value = ["1", "2"]
+        res = RESTGetInfrastructureList()
+        res_json = json.loads(res)
+        self.assertEqual(res_json['code'], 401)
+
     @patch("IM.InfrastructureManager.InfrastructureManager.GetInfrastructureInfo")
     @patch("bottle.request")
     def test_GetInfrastructureInfo(self, bottle_request, GetInfrastructureInfo):
@@ -160,6 +173,24 @@ class TestREST(unittest.TestCase):
         bottle_request.body.read.return_value = read_file_as_string("../files/test_simple.json")
 
         CreateInfrastructure.return_value = "1"
+
+    @patch("IM.InfrastructureManager.InfrastructureManager.CreateInfrastructure")
+    @patch("bottle.request")
+    def test_CreateInfrastructureWithErrors(self, bottle_request, CreateInfrastructure):
+        """Test REST CreateInfrastructure."""
+        bottle_request.environ = {'HTTP_HOST': 'imserver.com'}
+        bottle_request.return_value = MagicMock()
+        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
+                                                    "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
+                                                    "username = user; password = pass"),
+                                  "Content-Type": "application/pdf", "Accept": "application/json"}
+        bottle_request.body.read.return_value = "radl"
+
+        CreateInfrastructure.return_value = "1"
+
+        res = RESTCreateInfrastructure()
+        res_json = json.loads(res)
+        self.assertEqual(res_json['code'], 415)
 
     @patch("IM.InfrastructureManager.InfrastructureManager.GetVMInfo")
     @patch("bottle.request")

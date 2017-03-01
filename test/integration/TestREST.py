@@ -210,7 +210,7 @@ class TestIM(unittest.TestCase):
                          msg="ERROR getting the infrastructure RADL:" + resp.text)
         try:
             radl_parse.parse_radl(resp.text)
-        except Exception, ex:
+        except Exception as ex:
             self.assertTrue(
                 False, msg="ERROR parsing the RADL returned by GetInfrastructureRADL: " + str(ex))
 
@@ -249,7 +249,7 @@ class TestIM(unittest.TestCase):
         vm_states = res['state']['vm_states']
         self.assertEqual(state, "configured", msg="Unexpected inf state: " +
                          state + ". It must be 'configured'.")
-        for vm_id, vm_state in vm_states.iteritems():
+        for vm_id, vm_state in vm_states.items():
             self.assertEqual(vm_state, "configured", msg="Unexpected vm state: " +
                              vm_state + " in VM ID " + str(vm_id) + ". It must be 'configured'.")
 
