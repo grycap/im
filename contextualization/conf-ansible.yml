@@ -44,7 +44,7 @@
       apt: name=ansible,python-pip,python-jinja2,sshpass,openssh-client,unzip
       when: ansible_distribution == "Ubuntu"
       
-    - name: Yum install Ansible RH
+    - name: Yum install Ansible RH 7
       yum: name=ansible,python-pip,python-jinja2,sshpass,openssh-clients,wget update_cache=yes
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 7 and ansible_distribution != "Fedora"
     
@@ -56,7 +56,7 @@
       
     - name: Yum install requirements RH or Fedora
       yum: name=python-distribute,gcc,python-devel,wget,openssh-clients,sshpass,python-pip,libffi-devel,openssl-devel
-      when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 6
+      when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int <= 6
     
     - name: Yum install requirements RH5
       yum: name=python26,python26-simplejson,python26-distribute,gcc,python26-devel,openssh-clients,sshpass,libffi-devel,openssl-devel
