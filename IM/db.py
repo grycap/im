@@ -35,11 +35,10 @@ if not SQLITE_AVAILABLE:
         SQLITE_AVAILABLE = False
 
 try:
-    import MySQLdb as mdb
+    import pymysql
     MYSQL_AVAILABLE = True
 except:
     MYSQL_AVAILABLE = False
-
 
 # Class to manage DB operations
 class DataBase:
@@ -98,7 +97,12 @@ class DataBase:
                 url)
             if not port:
                 port = 3306
-            self.connection = mdb.connect(server, username, password, db, port)
+            self.connection = pymysql.connect(host=server,
+                             user=username,
+                             password=password,
+                             db=db,
+                             port=port)
+
             self.db_type = DataBase.MYSQL
             return True
         else:
@@ -142,7 +146,7 @@ class DataBase:
                         cursor.execute(sql)
 
                     if fetch:
-                        res = cursor.fetchall()
+                        res = list(cursor.fetchall())
                     else:
                         self.connection.commit()
                         res = True

@@ -28,7 +28,7 @@ class TestDataBase(unittest.TestCase):
     Class to test the DataBase class
     """
 
-    @patch('MySQLdb.connect')
+    @patch('pymysql.connect')
     def test_db(self, mdb_conn):
         filename = "/tmp/inf.dat"
         if os.path.exists(filename):

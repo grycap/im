@@ -99,7 +99,8 @@ In case of using the SSL secured version of the XMLRPC API the SpringPython
 framework (http://springpython.webfactional.com/) must be installed.
 
 In case of using the a MySQL DB as the backend to store IM data. The Python interface to MySQL
-must be installed, typically available as the package 'python-mysqldb' or 'MySQL-python' package.
+must be installed, typically available as the package 'python-pymysql' on debian systems or
+pip 'PyMySQL' package.
 
 In case of using the SSL secured version of the REST API pyOpenSSL must be installed.
 
@@ -124,7 +125,7 @@ To install them in Debian and Ubuntu based distributions, do::
 
 ```sh
 $ apt update
-$ apt install gcc python-dev libffi-dev libssl-dev python-pip sshpass python-mysqldb python-pysqlite2 python-requests
+$ apt install gcc python-dev libffi-dev libssl-dev python-pip sshpass python-pysqlite2 python-requests
 ```
 
 In Red Hat based distributions (RHEL, CentOS, Amazon Linux, Oracle Linux,
@@ -132,7 +133,7 @@ Fedora, etc.), do:
 
 ```sh
 $ yum install epel-release
-$ yum install which gcc python-devel libffi-devel openssl-devel python-pip sshpass MySQL-python python-sqlite3dbm
+$ yum install which gcc python-devel libffi-devel openssl-devel python-pip sshpass python-sqlite3dbm
 ```
 
 For some problems with the dependencies of the apache-libcloud package in some systems (as ubuntu 14.04 or CentOS 6)
