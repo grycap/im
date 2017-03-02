@@ -767,42 +767,40 @@ class ConfManager(threading.Thread):
                             ConfManager.logger.info(
                                 "Inf ID: " + str(self.inf.id) + ": Ansible installation finished successfully")
 
-                    remote_dir = Config.REMOTE_CONF_DIR + \
-                        "/" + str(self.inf.id) + "/"
+                    remote_dir = Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/"
                     ConfManager.logger.debug(
                         "Inf ID: " + str(self.inf.id) + ": Copy the contextualization agent files")
                     files = []
-                    files.append(
-                        (Config.IM_PATH + "/SSH.py", remote_dir + "/SSH.py"))
-                    files.append(
-                        (Config.IM_PATH + "/ansible_utils/ansible_callbacks.py", remote_dir + "/ansible_callbacks.py"))
-                    files.append((Config.IM_PATH + "/ansible_utils/ansible_executor_v2.py",
-                                  remote_dir + "/ansible_executor_v2.py"))
-                    files.append(
-                        (Config.IM_PATH + "/ansible_utils/ansible_launcher.py", remote_dir + "/ansible_launcher.py"))
-                    files.append((Config.CONTEXTUALIZATION_DIR +
-                                  "/ctxt_agent.py", remote_dir + "/ctxt_agent.py"))
+                    files.append((Config.IM_PATH + "/SSH.py", remote_dir + "/IM/SSH.py"))
+                    files.append((Config.CONTEXTUALIZATION_DIR + "/ctxt_agent.py", remote_dir + "/ctxt_agent.py"))
+                    # copy an empty init to make IM as package
+                    files.append((Config.CONTEXTUALIZATION_DIR + "/__init__.py", remote_dir + "/IM/__init__.py"))
 
                     if self.inf.radl.ansible_hosts:
                         for ansible_host in self.inf.radl.ansible_hosts:
                             (user, passwd, private_key) = ansible_host.getCredentialValues()
-                            ssh = SSHRetry(ansible_host.getHost(),
-                                           user, passwd, private_key)
+                            ssh = SSHRetry(ansible_host.getHost(), user, passwd, private_key)
                             ssh.sftp_mkdir(remote_dir)
                             ssh.sftp_chmod(remote_dir, 448)
+                            ssh.sftp_mkdir(remote_dir + "/IM")
                             ssh.sftp_put_files(files)
                             # Copy the utils helper files
-                            ssh.sftp_mkdir(remote_dir + "/" + "/utils")
-                            ssh.sftp_put_dir(
-                                Config.RECIPES_DIR + "/utils", remote_dir + "/" + "/utils")
+                            ssh.sftp_mkdir(remote_dir + "/utils")
+                            ssh.sftp_put_dir(Config.RECIPES_DIR + "/utils", remote_dir + "//utils")
+                            # Copy the ansible_utils files
+                            ssh.sftp_mkdir(remote_dir + "/IM/ansible_utils")
+                            ssh.sftp_put_dir(Config.IM_PATH + "/ansible_utils", remote_dir + "/IM/ansible_utils")
                     else:
                         ssh.sftp_mkdir(remote_dir)
                         ssh.sftp_chmod(remote_dir, 448)
+                        ssh.sftp_mkdir(remote_dir + "/IM")
                         ssh.sftp_put_files(files)
                         # Copy the utils helper files
-                        ssh.sftp_mkdir(remote_dir + "/" + "/utils")
-                        ssh.sftp_put_dir(Config.RECIPES_DIR +
-                                         "/utils", remote_dir + "/" + "/utils")
+                        ssh.sftp_mkdir(remote_dir + "/utils")
+                        ssh.sftp_put_dir(Config.RECIPES_DIR + "/utils", remote_dir + "//utils")
+                        # Copy the ansible_utils files
+                        ssh.sftp_mkdir(remote_dir + "/IM/ansible_utils")
+                        ssh.sftp_put_dir(Config.IM_PATH + "/ansible_utils", remote_dir + "/IM/ansible_utils")
 
                     success = configured_ok
 

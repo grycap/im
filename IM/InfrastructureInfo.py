@@ -22,7 +22,7 @@ import json
 
 from IM.ganglia import ganglia_info
 import IM.ConfManager
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta
 from radl.radl import RADL, Feature, deploy, system, contextualize_item
 from radl.radl_parse import parse_radl
 from IM.config import Config
