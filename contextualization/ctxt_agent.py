@@ -217,7 +217,7 @@ def LaunchAnsiblePlaybook(output, playbook_file, vm, threads, inventory_file, pk
     # Set local_tmp dir different for any VM
     os.environ['DEFAULT_LOCAL_TMP'] = vm_conf_data['remote_dir'] + "/.ansible_tmp"
     # it must be set before doing the import
-    from ansible_launcher import AnsibleThread
+    from ansible_utils.ansible_launcher import AnsibleThread
 
     result = Queue()
     t = AnsibleThread(result, output, playbook_file, None, threads, gen_pk_file,
