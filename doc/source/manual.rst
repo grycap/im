@@ -71,7 +71,9 @@ Optional Packages
   with SSL certificates (see :confval:`REST_SSL`).
   pyOpenSSL can be installed using pip.
 * `The Python interface to MySQL <https://www.mysql.com/>`_, is needed to access MySQL server as IM data 
-  backend. It is typically available as the package 'python-pymysql' on debian systems or pip 'PyMySQL' package.
+  backend. It is typically available as the package 'python-mysqldb' or 'MySQL-python' package. In case of
+  using Python 3 use the PyMySQL package, available as the package 'python3-pymysql' on debian systems or PyMySQL
+  package in pip.  
 * `The Azure Python SDK <https://docs.microsoft.com/es-es/azure/python-how-to-install/>`_, is needed by the Azure
   connector. It is available as the package 'azure' at the pip repository.  
 
