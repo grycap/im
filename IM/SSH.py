@@ -19,7 +19,10 @@
 import paramiko
 import scp
 import os
-import StringIO
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 from threading import Thread
 
 
@@ -85,7 +88,7 @@ class SSH:
         self.private_key = private_key
         self.private_key_obj = None
         if (private_key is not None and private_key.strip() != ""):
-            private_key_obj = StringIO.StringIO()
+            private_key_obj = StringIO()
             if os.path.isfile(private_key):
                 pkfile = open(private_key)
                 for line in pkfile.readlines():
@@ -152,7 +155,7 @@ class SSH:
             return True
         except paramiko.AuthenticationException:
             raise AuthenticationException("Authentication Error!!")
-        except paramiko.SSHException, e:
+        except paramiko.SSHException as e:
             if str(e) == "No authentication methods available":
                 raise AuthenticationException("Authentication Error!!")
             return False
@@ -314,9 +317,7 @@ class SSH:
                         except:
                             sftp.mkdir(dest_path)
                     else:
-                        out, err, code = self.execute(
-                            "mkdir -p %s" % dest_path)
-                        print out, err
+                        out, err, code = self.execute("mkdir -p %s" % dest_path)
                 for filename in filenames:
                     src_file = os.path.join(dirname, filename)
                     dest_file = os.path.join(dest, dirname[len(src) + 1:],

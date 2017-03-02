@@ -21,7 +21,10 @@ import unittest
 import os
 import logging
 import logging.config
-from StringIO import StringIO
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 
 sys.path.append(".")
 sys.path.append("..")
@@ -46,13 +49,12 @@ class TestKubernetesConnector(unittest.TestCase):
     Class to test the IM connectors
     """
 
-    @classmethod
-    def setUpClass(cls):
-        cls.log = StringIO()
-        ch = logging.StreamHandler(cls.log)
+    def setUp(self):
+        self.log = StringIO()
+        self.handler = logging.StreamHandler(self.log)
         formatter = logging.Formatter(
             '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        ch.setFormatter(formatter)
+        self.handler.setFormatter(formatter)
 
         logging.RootLogger.propagate = 0
         logging.root.setLevel(logging.ERROR)
@@ -60,11 +62,15 @@ class TestKubernetesConnector(unittest.TestCase):
         logger = logging.getLogger('CloudConnector')
         logger.setLevel(logging.DEBUG)
         logger.propagate = 0
-        logger.addHandler(ch)
+        for handler in logger.handlers:
+            logger.removeHandler(handler)
+        logger.addHandler(self.handler)
 
-    @classmethod
-    def clean_log(cls):
-        cls.log = StringIO()
+    def tearDown(self):
+        self.handler.flush()
+        self.log.close()
+        self.log = StringIO()
+        self.handler.close()
 
     @staticmethod
     def get_kube_cloud():
@@ -73,7 +79,9 @@ class TestKubernetesConnector(unittest.TestCase):
         cloud_info.protocol = "http"
         cloud_info.server = "server.com"
         cloud_info.port = 8080
-        cloud = KubernetesCloudConnector(cloud_info)
+        inf = MagicMock()
+        inf.id = "1"
+        cloud = KubernetesCloudConnector(cloud_info, inf)
         return cloud
 
     def test_10_concrete(self):
@@ -98,7 +106,6 @@ class TestKubernetesConnector(unittest.TestCase):
         concrete = kube_cloud.concreteSystem(radl_system, auth)
         self.assertEqual(len(concrete), 1)
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.clean_log()
 
     def get_response(self, method, url, verify, headers, data):
         resp = MagicMock()
@@ -164,7 +171,6 @@ class TestKubernetesConnector(unittest.TestCase):
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.clean_log()
 
     @patch('requests.request')
     def test_30_updateVMInfo(self, requests):
@@ -198,7 +204,6 @@ class TestKubernetesConnector(unittest.TestCase):
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.clean_log()
 
     @patch('requests.request')
     def test_55_alter(self, requests):
@@ -238,7 +243,6 @@ class TestKubernetesConnector(unittest.TestCase):
 
         self.assertTrue(success, msg="ERROR: modifying VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.clean_log()
 
     @patch('requests.request')
     def test_60_finalize(self, requests):
@@ -256,7 +260,6 @@ class TestKubernetesConnector(unittest.TestCase):
 
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.clean_log()
 
 
 if __name__ == '__main__':

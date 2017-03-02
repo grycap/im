@@ -107,6 +107,18 @@ class TestIM(unittest.TestCase):
             res.append((True, vm))
         return res
 
+    def sleep_and_create_vm(self, inf, radl, requested_radl, num_vm, auth_data):
+        res = []
+        time.sleep(5)
+        for _ in range(num_vm):
+            cloud = CloudInfo()
+            cloud.type = "Dummy"
+            vm = VirtualMachine(inf, "1234", cloud, radl, requested_radl)
+            vm.get_ssh = Mock(side_effect=self.get_dummy_ssh)
+            vm.state = VirtualMachine.RUNNING
+            res.append((True, vm))
+        return res
+
     def get_cloud_connector_mock(self, name="MyMock0"):
         cloud = type(name, (CloudConnector, object), {})
         cloud.launch = Mock(side_effect=self.gen_launch_res)
@@ -120,7 +132,7 @@ class TestIM(unittest.TestCase):
         IM.DestroyInfrastructure(infId, auth0)
 
     def test_inf_creation1(self):
-        """Create infrastructure with empty RADL."""
+        """Create infrastructure with an incorrect RADL in two cloud providers."""
 
         radl = """"
             network publica (outbound = 'yes')
@@ -160,6 +172,100 @@ class TestIM(unittest.TestCase):
                       " are asked to be deployed in different cloud providers",
                       str(ex.exception))
 
+    def test_inf_creation_addition_clouds(self):
+        """Add resources infrastructure with an incorrect RADL with 2 clouds."""
+
+        radl = """"
+            network publica (outbound = 'yes')
+            network privada ()
+            system front (
+            cpu.arch='x86_64' and
+            cpu.count>=1 and
+            memory.size>=512m and
+            net_interface.0.connection = 'publica' and
+            net_interface.1.connection = 'privada' and
+            disk.0.image.url = 'mock0://linux.for.ev.er' and
+            disk.0.os.credentials.username = 'ubuntu' and
+            disk.0.os.credentials.password = 'yoyoyo' and
+            disk.0.os.name = 'linux'
+            )
+            system wn (
+            cpu.arch='x86_64' and
+            cpu.count>=1 and
+            memory.size>=512m and
+            net_interface.0.connection = 'privada' and
+            disk.0.image.url = 'mock0://linux.for.ev.er' and
+            disk.0.os.credentials.username = 'ubuntu' and
+            disk.0.os.credentials.password = 'yoyoyo' and
+            disk.0.os.name = 'linux'
+            )
+            deploy front 1 cloud0
+            deploy wn 1
+        """
+
+        auth0 = self.getAuth([0], [], [("Dummy", 0), ("Dummy", 1)])
+        infId = IM.CreateInfrastructure(radl, auth0)
+
+        radl = """
+            network privada
+            system wn
+            deploy wn 1 cloud1
+        """
+
+        with self.assertRaises(Exception) as ex:
+            _ = IM.AddResource(infId, radl, auth0)
+        self.assertIn("Two deployments that have to be launched in the same cloud provider"
+                      " are asked to be deployed in different cloud providers",
+                      str(ex.exception))
+
+    def test_inf_creation2(self):
+        """Create infrastructure with an incorrect RADL in two cloud providers and the first fails."""
+
+        radl = """"
+            network publica (outbound = 'yes')
+            network privada ()
+            system front (
+            cpu.arch='x86_64' and
+            cpu.count>=1 and
+            memory.size>=512m and
+            net_interface.0.connection = 'publica' and
+            net_interface.1.connection = 'privada' and
+            disk.0.image.url = 'mock0://linux.for.ev.er' and
+            disk.0.os.credentials.username = 'ubuntu' and
+            disk.0.os.credentials.password = 'yoyoyo' and
+            disk.0.os.name = 'linux'
+            )
+            system wn (
+            cpu.arch='x86_64' and
+            cpu.count>=1 and
+            memory.size>=512m and
+            net_interface.0.connection = 'privada' and
+            disk.0.image.url = 'mock0://linux.for.ev.er' and
+            disk.0.os.credentials.username = 'ubuntu' and
+            disk.0.os.credentials.password = 'yoyoyo' and
+            disk.0.os.name = 'linux'
+            )
+            deploy front 1
+            deploy wn 1
+        """
+
+        cloud0 = self.get_cloud_connector_mock("MyMock0")
+        self.register_cloudconnector("Mock0", cloud0)
+        cloud1 = type("MyMock1", (CloudConnector, object), {})
+        cloud1.launch = Mock(return_value=[(False, "Error")])
+        self.register_cloudconnector("Mock1", cloud1)
+        auth0 = self.getAuth([0], [], [("Mock1", 1), ("Mock0", 0)])
+
+        infId = IM.CreateInfrastructure(radl, auth0)
+
+        self.assertEqual(cloud0.launch.call_count, 2)
+        self.assertEqual(cloud1.launch.call_count, 1)
+        for call, _ in cloud0.launch.call_args_list:
+            self.assertEqual(call[3], 1)
+        for call, _ in cloud1.launch.call_args_list:
+            self.assertEqual(call[3], 1)
+        IM.DestroyInfrastructure(infId, auth0)
+
     def test_inf_auth(self):
         """Try to access not owned Infs."""
 
@@ -191,7 +297,7 @@ class TestIM(unittest.TestCase):
         with self.assertRaises(Exception) as ex:
             IM.AddResource(infId, str(radl), auth0)
 
-        self.assertIn("No username", ex.exception.message)
+        self.assertIn("No username", str(ex.exception))
 
         IM.DestroyInfrastructure(infId, auth0)
 
@@ -238,7 +344,7 @@ class TestIM(unittest.TestCase):
         """Deploy n independent virtual machines."""
 
         n = 20  # Machines to deploy
-        Config.MAX_SIMULTANEOUS_LAUNCHES = n / 2  # Test the pool
+        Config.MAX_SIMULTANEOUS_LAUNCHES = int(n / 2)  # Test the pool
         radl = RADL()
         radl.add(system("s0", [Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
                                Feature("disk.0.os.credentials.username", "=", "user"),
@@ -327,6 +433,115 @@ class TestIM(unittest.TestCase):
         self.assertEqual(cloud1.launch.call_count, n1)
         for call, _ in cloud0.launch.call_args_list + cloud1.launch.call_args_list:
             self.assertEqual(call[3], 1)
+        IM.DestroyInfrastructure(infId, auth0)
+
+    def test_inf_addresources4(self):
+        """Deploy a virtual machine when the first cloud provider fails."""
+
+        radl = RADL()
+        radl.add(system("s0", [Feature("disk.0.image.url", "=", ["mock0://linux.for.ev.er",
+                                                                 "mock1://linux.for.ev.er"]),
+                               Feature("disk.0.os.credentials.username", "=", "user"),
+                               Feature("disk.0.os.credentials.password", "=", "pass")]))
+        radl.add(deploy("s0", 1))
+        cloud0 = self.get_cloud_connector_mock("MyMock0")
+        self.register_cloudconnector("Mock0", cloud0)
+        cloud1 = type("MyMock1", (CloudConnector, object), {})
+        cloud1.launch = Mock(return_value=[(False, "Error")])
+        self.register_cloudconnector("Mock1", cloud1)
+        auth0 = self.getAuth([0], [], [("Mock1", 1), ("Mock0", 0)])
+
+        n = 3
+        Config.MAX_VM_FAILS = n
+        infId = IM.CreateInfrastructure("", auth0)
+        vms = IM.AddResource(infId, str(radl), auth0)
+        Config.MAX_VM_FAILS = 1
+
+        self.assertEqual(len(vms), 1)
+        # The first attempt in cloud 0 fails
+        self.assertEqual(cloud0.launch.call_count, 1)
+        # The rest of attempts are in cloud 1
+        self.assertEqual(cloud1.launch.call_count, n)
+        for call, _ in cloud0.launch.call_args_list:
+            self.assertEqual(call[3], 1)
+        for call, _ in cloud1.launch.call_args_list:
+            self.assertEqual(call[3], 1)
+
+        IM.DestroyInfrastructure(infId, auth0)
+
+    def test_inf_addresources5(self):
+        """Deploy n independent virtual machines."""
+
+        radl = """"
+            network publica (outbound = 'yes')
+            network privada ()
+
+            system front (
+            cpu.arch='x86_64' and
+            cpu.count>=1 and
+            memory.size>=512m and
+            net_interface.0.connection = 'publica' and
+            net_interface.1.connection = 'privada' and
+            disk.0.image.url = 'mock0://linux.for.ev.er' and
+            disk.0.os.credentials.username = 'ubuntu' and
+            disk.0.os.credentials.password = 'yoyoyo' and
+            disk.0.os.name = 'linux'
+            )
+
+            system wn (
+            cpu.arch='x86_64' and
+            cpu.count>=1 and
+            memory.size>=512m and
+            net_interface.0.connection = 'privada' and
+            disk.0.image.url = 'mock0://linux.for.ev.er' and
+            disk.0.os.credentials.username = 'ubuntu' and
+            disk.0.os.credentials.password = 'yoyoyo' and
+            disk.0.os.name = 'linux'
+            )
+
+            deploy front 1
+            deploy wn 3
+            deploy wn 2
+        """
+        cloud = type("MyMock0", (CloudConnector, object), {})
+        cloud.launch = Mock(side_effect=self.sleep_and_create_vm)
+        self.register_cloudconnector("Mock", cloud)
+        auth0 = self.getAuth([0], [], [("Mock", 0)])
+        infId = IM.CreateInfrastructure("", auth0)
+
+        # in this case it will take aprox 20 secs
+        before = int(time.time())
+        Config.MAX_SIMULTANEOUS_LAUNCHES = 1
+        vms = IM.AddResource(infId, str(radl), auth0)
+        delay = int(time.time()) - before
+        self.assertLess(delay, 17)
+        self.assertGreater(delay, 14)
+
+        self.assertEqual(len(vms), 6)
+        self.assertEqual(cloud.launch.call_count, 3)
+        self.assertEqual(cloud.launch.call_args_list[0][0][3], 1)
+        self.assertEqual(cloud.launch.call_args_list[1][0][3], 3)
+        self.assertEqual(cloud.launch.call_args_list[2][0][3], 2)
+
+        cloud = type("MyMock0", (CloudConnector, object), {})
+        cloud.launch = Mock(side_effect=self.sleep_and_create_vm)
+        self.register_cloudconnector("Mock", cloud)
+
+        # in this case it will take aprox 5 secs
+        before = int(time.time())
+        Config.MAX_SIMULTANEOUS_LAUNCHES = 3  # Test the pool
+        vms = IM.AddResource(infId, str(radl), auth0)
+        delay = int(time.time()) - before
+        self.assertLess(delay, 7)
+        self.assertGreater(delay, 4)
+        Config.MAX_SIMULTANEOUS_LAUNCHES = 1
+
+        self.assertEqual(len(vms), 6)
+        self.assertEqual(cloud.launch.call_count, 3)
+        self.assertEqual(cloud.launch.call_args_list[0][0][3], 1)
+        self.assertEqual(cloud.launch.call_args_list[1][0][3], 3)
+        self.assertEqual(cloud.launch.call_args_list[2][0][3], 2)
+
         IM.DestroyInfrastructure(infId, auth0)
 
     @patch('IM.VMRC.Client')
@@ -422,7 +637,11 @@ class TestIM(unittest.TestCase):
         contmsg = IM.GetVMContMsg(infId, "0", auth0)
         self.assertEqual(contmsg, "")
 
+        InfrastructureList.infrastructure_list[infId].vm_list[0].cloud_connector.error_messages = "TESTMSG"
         contmsg = IM.GetInfrastructureContMsg(infId, auth0)
+
+        self.assertIn("No correct Master VM found", contmsg)
+        self.assertIn("TESTMSG", contmsg)
 
         state = IM.GetInfrastructureState(infId, auth0)
         self.assertEqual(state["state"], "running")
@@ -590,6 +809,7 @@ class TestIM(unittest.TestCase):
             cpu.count>=1 and
             memory.size>=512m and
             net_interface.0.connection = 'publica' and
+            net_interface.0.dns_name = 'test' and
             net_interface.0.ip = '10.0.0.1' and
             disk.0.image.url = 'mock0://linux.for.ev.er' and
             disk.0.os.credentials.username = 'ubuntu' and
@@ -602,6 +822,29 @@ class TestIM(unittest.TestCase):
             disk.0.applications contains (name = 'ansible.modules.micafer.hadoop') and
             disk.0.applications contains (name='gmetad') and
             disk.0.applications contains (name='wget')
+            )
+
+configure step1 (
+@begin
+---
+  - tasks:
+      - shell:  echo "Hi"
+
+@end
+)
+
+configure step2 (
+@begin
+---
+  - tasks:
+      - shell:  echo "Hi"
+
+@end
+)
+
+            contextualize (
+                system front configure step1 step 1
+                system front configure step2 step 2
             )
 
             deploy front 1
