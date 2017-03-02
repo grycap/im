@@ -121,7 +121,7 @@ class VNET_POOL(XMLObject):
 class IMAGE(XMLObject):
     values = ['ID', 'UID', 'GID', 'UNAME', 'GNAME', 'NAME', 'SOURCE', 'PATH'
               'FSTYPE', 'TYPE', 'DISK_TYPE', 'PERSISTENT', 'SIZE', 'STATE']
-    numeric = ['ID', 'UID', 'GID', 'SIZE' ]
+    numeric = ['ID', 'UID', 'GID', 'SIZE']
 
 
 class IMAGE_POOL(XMLObject):
@@ -982,7 +982,7 @@ class OpenNebulaCloudConnector(CloudConnector):
             return (True, "")
 
     def create_snapshot(self, vm, disk_num, image_name, auth_data):
-        server = xmlrpclib.ServerProxy(self.server_url, allow_none=True)
+        server = ServerProxy(self.server_url, allow_none=True)
 
         session_id = self.getSessionID(auth_data)
         if session_id is None:
@@ -1004,7 +1004,7 @@ class OpenNebulaCloudConnector(CloudConnector):
             return (False, res_info)
 
     def delete_image(self, image_url, auth_data):
-        server = xmlrpclib.ServerProxy(self.server_url, allow_none=True)
+        server = ServerProxy(self.server_url, allow_none=True)
 
         session_id = self.getSessionID(auth_data)
         if session_id is None:
@@ -1033,7 +1033,7 @@ class OpenNebulaCloudConnector(CloudConnector):
             return int(image_id)
         else:
             # We have to find the ID of the image name
-            server = xmlrpclib.ServerProxy(self.server_url, allow_none=True)    
+            server = ServerProxy(self.server_url, allow_none=True)
             image_id = self.get_image_id(image_url)
             func_res = server.one.imagepool.info(session_id, -2, -1, -1)
             if len(func_res) == 2:
