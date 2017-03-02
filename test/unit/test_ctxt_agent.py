@@ -21,7 +21,6 @@ import sys
 import os
 import logging
 import logging.config
-import tempfile
 import json
 try:
     from StringIO import StringIO
@@ -138,7 +137,7 @@ class TestCtxtAgent(unittest.TestCase):
     def test_40_run_command(self):
         CtxtAgent.logger = self.logger
         res = CtxtAgent.run_command("ls -l", 2, 0.1)
-        self.assertIn("../", res)
+        self.assertIn("total", str(res))
 
     @patch('IM.ansible_utils.ansible_launcher.AnsibleThread')
     @patch("contextualization.ctxt_agent.Queue")
@@ -201,13 +200,12 @@ class TestCtxtAgent(unittest.TestCase):
         CtxtAgent.contextualize_vm = MagicMock()
         CtxtAgent.contextualize_vm.return_value = {'SSH_WAIT': True, 'OK': True, 'CHANGE_CREDS': True, 'basic': True}
 
-        (fgen, gen_filename) = tempfile.mkstemp()
-        os.write(fgen, json.dumps(self.gen_general_conf()))
-        os.close(fgen)
-        (fvm, vm_filename) = tempfile.mkstemp()
-        os.write(fvm, json.dumps(self.gen_vm_conf(["basic"])))
-        os.close(fvm)
-        res = CtxtAgent.run(gen_filename, vm_filename)
+        with open("/tmp/gen_data.json", "w+") as f:
+            json.dump(self.gen_general_conf(), f)
+        with open("/tmp/vm_data.json", "w+") as f:
+            json.dump(self.gen_vm_conf(["basic"]), f)
+
+        res = CtxtAgent.run("/tmp/gen_data.json", "/tmp/vm_data.json")
         self.assertTrue(res)
 
 if __name__ == '__main__':

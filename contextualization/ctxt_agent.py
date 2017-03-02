@@ -25,7 +25,10 @@ import subprocess
 import os
 import getpass
 import json
-from StringIO import StringIO
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 import socket
 from multiprocessing import Queue
 
@@ -171,7 +174,7 @@ class CtxtAgent():
                 return "ERROR: " + err + out
             else:
                 return out
-        except Exception, ex:
+        except Exception as ex:
             return "ERROR: Exception msg: " + str(ex)
 
     @staticmethod
@@ -217,7 +220,7 @@ class CtxtAgent():
                         pk_out = open(gen_pk_file, 'w')
                         pk_out.write(vm['private_key'])
                         pk_out.close()
-                        os.chmod(gen_pk_file, 0400)
+                        os.chmod(gen_pk_file, 0o400)
                 else:
                     gen_pk_file = None
 
