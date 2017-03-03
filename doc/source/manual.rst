@@ -71,7 +71,9 @@ Optional Packages
   with SSL certificates (see :confval:`REST_SSL`).
   pyOpenSSL can be installed using pip.
 * `The Python interface to MySQL <https://www.mysql.com/>`_, is needed to access MySQL server as IM data 
-  backend. It is typically available as the package 'python-mysqldb' or 'MySQL-python' package.
+  backend. It is typically available as the package 'python-mysqldb' or 'MySQL-python' package. In case of
+  using Python 3 use the PyMySQL package, available as the package 'python3-pymysql' on debian systems or PyMySQL
+  package in pip.  
 * `The Azure Python SDK <https://docs.microsoft.com/es-es/azure/python-how-to-install/>`_, is needed by the Azure
   connector. It is available as the package 'azure' at the pip repository.  
 
@@ -89,13 +91,13 @@ First you need to install pip tool and some packages needed to compile some of t
 To install them in Debian and Ubuntu based distributions, do::
 
     $ apt update
-    $ apt install gcc python-dev libffi-dev libssl-dev python-pip sshpass python-mysqldb python-pysqlite2 python-requests
+    $ apt install gcc python-dev libffi-dev libssl-dev python-pip sshpass python-pysqlite2 python-requests
 
 In Red Hat based distributions (RHEL, CentOS, Amazon Linux, Oracle Linux,
 Fedora, etc.), do::
 
 	$ yum install epel-release
-	$ yum install which gcc python-devel libffi-devel openssl-devel python-pip sshpass MySQL-python python-sqlite3dbm
+	$ yum install which gcc python-devel libffi-devel openssl-devel python-pip sshpass python-sqlite3dbm
 
 For some problems with the dependencies of the apache-libcloud package in some systems (as ubuntu 14.04 or CentOS 6)
 this package has to be installed manually::

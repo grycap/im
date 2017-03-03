@@ -34,14 +34,14 @@ if ansible_version.startswith("1."):
     import ansible.constants as C
     from ansible import utils
 
-    from ansible_callbacks import banner, AggregateStats, PlaybookCallbacks, PlaybookRunnerCallbacks
+    from .ansible_callbacks import banner, AggregateStats, PlaybookCallbacks, PlaybookRunnerCallbacks
 else:
     from ansible.cli import CLI
     from ansible.parsing.dataloader import DataLoader
     from ansible.vars import VariableManager
     import ansible.inventory
 
-    from ansible_executor_v2 import IMPlaybookExecutor
+    from .ansible_executor_v2 import IMPlaybookExecutor
 
 
 def display(msg, color=None, stderr=False, screen_only=False, log_only=False, output=None):
@@ -127,7 +127,7 @@ class AnsibleThread(Process):
             else:
                 display("ERROR: Unknown Ansible version.", output=self.output)
                 self.result.put((0, (1, []), output))
-        except errors.AnsibleError, e:
+        except errors.AnsibleError as e:
             display("ERROR: %s" % e, output=self.output)
             self.result.put((0, (1, []), output))
 
@@ -219,7 +219,7 @@ class AnsibleThread(Process):
 
                 return_code = pbex.run()
 
-            except errors.AnsibleError, e:
+            except errors.AnsibleError as e:
                 display("ERROR: %s" % e, output=self.output)
                 return_code = 1
 
@@ -347,7 +347,7 @@ class AnsibleThread(Process):
                 if len(unreachable_hosts) > 0:
                     return_code = 3
 
-            except errors.AnsibleError, e:
+            except errors.AnsibleError as e:
                 display("ERROR: %s" % e, color='red', output=self.output)
                 return_code = 1
 

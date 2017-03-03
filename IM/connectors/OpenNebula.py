@@ -15,13 +15,17 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import hashlib
-import xmlrpclib
+try:
+    from xmlrpclib import ServerProxy
+except ImportError:
+    from xmlrpc.client import ServerProxy
+
 import time
 
 from IM.xmlobject import XMLObject
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
-from CloudConnector import CloudConnector
+from .CloudConnector import CloudConnector
 from radl.radl import network, Feature
 from IM.config import ConfigOpenNebula
 from netaddr import IPNetwork, IPAddress
@@ -130,8 +134,8 @@ class OpenNebulaCloudConnector(CloudConnector):
     type = "OpenNebula"
     """str with the name of the provider."""
 
-    def __init__(self, cloud_info):
-        CloudConnector.__init__(self, cloud_info)
+    def __init__(self, cloud_info, inf):
+        CloudConnector.__init__(self, cloud_info, inf)
         self.server_url = "http://%s:%d/RPC2" % (
             self.cloud.server, self.cloud.port)
 
@@ -204,14 +208,13 @@ class OpenNebulaCloudConnector(CloudConnector):
             auth = auths[0]
 
         if 'username' in auth and 'password' in auth:
-            passwd = auth['password']
+            passwd = auth['password'].encode('utf-8')
             if hash_password is None:
                 one_ver = self.getONEVersion(auth_data)
                 if one_ver == "2.0.0" or one_ver == "3.0.0":
                     hash_password = True
             if hash_password:
                 passwd = hashlib.sha1(passwd.strip()).hexdigest()
-
             return auth['username'] + ":" + passwd
         elif 'token' in auth:
             username, passwd = ONETTSClient.get_auth_from_tts(ConfigOpenNebula.TTS_URL,
@@ -263,7 +266,7 @@ class OpenNebulaCloudConnector(CloudConnector):
                 i += 1
 
     def updateVMInfo(self, vm, auth_data):
-        server = xmlrpclib.ServerProxy(self.server_url, allow_none=True)
+        server = ServerProxy(self.server_url, allow_none=True)
 
         session_id = self.getSessionID(auth_data)
         if session_id is None:
@@ -327,7 +330,7 @@ class OpenNebulaCloudConnector(CloudConnector):
             return (success, res_info)
 
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
-        server = xmlrpclib.ServerProxy(self.server_url, allow_none=True)
+        server = ServerProxy(self.server_url, allow_none=True)
         session_id = self.getSessionID(auth_data)
         if session_id is None:
             return [(False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")]
@@ -361,7 +364,7 @@ class OpenNebulaCloudConnector(CloudConnector):
         return res
 
     def finalize(self, vm, auth_data):
-        server = xmlrpclib.ServerProxy(self.server_url, allow_none=True)
+        server = ServerProxy(self.server_url, allow_none=True)
         session_id = self.getSessionID(auth_data)
         if session_id is None:
             return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
@@ -380,7 +383,7 @@ class OpenNebulaCloudConnector(CloudConnector):
         return (success, err)
 
     def stop(self, vm, auth_data):
-        server = xmlrpclib.ServerProxy(self.server_url, allow_none=True)
+        server = ServerProxy(self.server_url, allow_none=True)
         session_id = self.getSessionID(auth_data)
         if session_id is None:
             return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
@@ -399,7 +402,7 @@ class OpenNebulaCloudConnector(CloudConnector):
         return (success, err)
 
     def start(self, vm, auth_data):
-        server = xmlrpclib.ServerProxy(self.server_url, allow_none=True)
+        server = ServerProxy(self.server_url, allow_none=True)
         session_id = self.getSessionID(auth_data)
         if session_id is None:
             return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
@@ -507,7 +510,7 @@ class OpenNebulaCloudConnector(CloudConnector):
                 res += ConfigOpenNebula.TEMPLATE_CONTEXT
             res += ']'
 
-        self.logger.debug("Template: " + res)
+        self.log_debug("Template: " + res)
 
         return res
 
@@ -520,7 +523,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 
          Returns: str with the ONE version (format: X.X.X)
         """
-        server = xmlrpclib.ServerProxy(self.server_url, allow_none=True)
+        server = ServerProxy(self.server_url, allow_none=True)
 
         version = "2.0.0"
         methods = server.system.listMethods()
@@ -537,7 +540,7 @@ class OpenNebulaCloudConnector(CloudConnector):
                 if "one.vm.chmod" in methods:
                     version = "3.2.0 to 3.6.0"
 
-        self.logger.debug("OpenNebula version: " + version)
+        self.log_debug("OpenNebula version: " + version)
         return version
 
     def free_range(self, ar_range, total_leases):
@@ -600,7 +603,7 @@ class OpenNebulaCloudConnector(CloudConnector):
          Returns: a list of tuples (net_name, net_id, is_public) with the name, ID, and boolean specifying
          if it is a public network of the found network None if not found
         """
-        server = xmlrpclib.ServerProxy(self.server_url, allow_none=True)
+        server = ServerProxy(self.server_url, allow_none=True)
         session_id = self.getSessionID(auth_data)
         if session_id is None:
             return None
@@ -611,13 +614,13 @@ class OpenNebulaCloudConnector(CloudConnector):
         elif len(func_res) == 3:
             (success, info, _) = func_res
         else:
-            self.logger.error("Error in the  one.vnpool.info return value")
+            self.log_error("Error in the  one.vnpool.info return value")
             return None
 
         if success:
             pool_info = VNET_POOL(info)
         else:
-            self.logger.error("Error in the function one.vnpool.info: " + info)
+            self.log_error("Error in the function one.vnpool.info: " + info)
             return None
 
         res = []
@@ -631,17 +634,17 @@ class OpenNebulaCloudConnector(CloudConnector):
                 if self.free_address(net.AR_POOL, net.USED_LEASES):
                     ip = net.AR_POOL.AR[0].IP
                 else:
-                    self.logger.warn("The network with IPs like: " +
-                                     net.AR_POOL.AR[0].IP + " does not have free leases")
+                    self.log_warn("The network with IPs like: " +
+                                  net.AR_POOL.AR[0].IP + " does not have free leases")
                     continue
             elif net.RANGE and net.RANGE.IP_START:
                 if self.free_range(net.RANGE, net.TOTAL_LEASES):
                     ip = net.RANGE.IP_START
                 else:
-                    self.logger.warn("The network with IPs like: " +
-                                     net.RANGE.IP_START + " does not have free leases")
+                    self.log_warn("The network with IPs like: " +
+                                  net.RANGE.IP_START + " does not have free leases")
             else:
-                self.logger.warn(
+                self.log_warn(
                     "IP information is not in the VNET POOL. Use the vn.info")
                 info_res = server.one.vn.info(session_id, int(net.ID))
 
@@ -650,12 +653,12 @@ class OpenNebulaCloudConnector(CloudConnector):
                 elif len(func_res) == 3:
                     (success, info, _) = info_res
                 else:
-                    self.logger.warn(
+                    self.log_warn(
                         "Error in the one.vn.info return value. Ignoring network: " + net.NAME)
                     continue
 
                 if not success:
-                    self.logger.warn(
+                    self.log_warn(
                         "Error in the one.vn.info function: " + info + ". Ignoring network: " + net.NAME)
                     continue
 
@@ -665,21 +668,21 @@ class OpenNebulaCloudConnector(CloudConnector):
                     if self.free_leases(net.LEASES):
                         ip = net.LEASES.LEASE[0].IP
                     else:
-                        self.logger.warn(
+                        self.log_warn(
                             "The network with IPs like: " + net.LEASES.LEASE[0].IP + " does not have free leases")
                         break
                 elif net.RANGE and net.RANGE.IP_START:
                     if self.free_range(net.RANGE, net.TOTAL_LEASES):
                         ip = net.RANGE.IP_START
                     else:
-                        self.logger.warn(
+                        self.log_warn(
                             "The network with IPs like: " + net.RANGE.IP_START + " does not have free leases")
                 else:
-                    self.logger.error("Unknown type of network")
+                    self.log_error("Unknown type of network")
                     continue
 
             if not ip:
-                self.logger.error("No IP found for network: %s. Ignoring network." % net.NAME)
+                self.log_error("No IP found for network: %s. Ignoring network." % net.NAME)
                 continue
 
             is_public = not (any([IPAddress(ip) in IPNetwork(mask)
@@ -756,7 +759,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 
         one_nets = self.getONENetworks(auth_data)
         if not one_nets:
-            self.logger.error("No ONE network found")
+            self.log_error("No ONE network found")
             return res
         nets = self.map_radl_one_networks(radl.networks, one_nets)
 
@@ -774,7 +777,7 @@ class OpenNebulaCloudConnector(CloudConnector):
                     (net_name, net_id, is_public) = nets[network]
                     radl.get_network_by_id(network).setValue('provider_id', str(net_name))
                 else:
-                    self.logger.error(
+                    self.log_error(
                         "No ONE network found for network: " + network)
                     raise Exception(
                         "No ONE network found for network: " + network)
@@ -791,7 +794,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 
                         res += ']\n'
                     else:
-                        self.logger.error(
+                        self.log_error(
                             "The net: " + network + " cannot be defined in ONE")
 
                 i += 1
@@ -804,7 +807,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 
          Returns: bool, True if the one.vm.resize function appears in the ONE server or false otherwise
         """
-        server = xmlrpclib.ServerProxy(self.server_url, allow_none=True)
+        server = ServerProxy(self.server_url, allow_none=True)
 
         methods = server.system.listMethods()
         if "one.vm.resize" in methods:
@@ -816,7 +819,7 @@ class OpenNebulaCloudConnector(CloudConnector):
         """
         Poweroff the VM and waits for it to be in poweredoff state
         """
-        server = xmlrpclib.ServerProxy(self.server_url, allow_none=True)
+        server = ServerProxy(self.server_url, allow_none=True)
         session_id = self.getSessionID(auth_data)
         if session_id is None:
             return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
@@ -883,7 +886,7 @@ class OpenNebulaCloudConnector(CloudConnector):
             return (True, "")
 
     def attach_volume(self, vm, disk_size, disk_device, disk_fstype, session_id):
-        server = xmlrpclib.ServerProxy(self.server_url, allow_none=True)
+        server = ServerProxy(self.server_url, allow_none=True)
 
         disk_temp = '''
             DISK = [
@@ -924,7 +927,7 @@ class OpenNebulaCloudConnector(CloudConnector):
             # get the last letter and use vd
             disk_device = "vd" + disk_device[-1]
             system.setValue("disk." + str(cont) + ".device", disk_device)
-            self.logger.debug("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
+            self.log_debug("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
             success, volume_id = self.attach_volume(vm, int(disk_size), disk_device, disk_fstype, session_id)
             if success:
                 orig_system.setValue("disk." + str(cont) + ".size", disk_size, "M")
@@ -932,8 +935,8 @@ class OpenNebulaCloudConnector(CloudConnector):
                 orig_system.setValue("disk." + str(cont) + ".provider_id", volume_id)
                 orig_system.setValue("disk." + str(cont) + ".mount_path", mount_path)
             else:
-                self.logger.error("Error creating a %d GB volume for the disk %d: %s." % (int(disk_size),
-                                                                                          cont, volume_id))
+                self.log_error("Error creating a %d GB volume for the disk %d: %s." % (int(disk_size),
+                                                                                       cont, volume_id))
                 return (False, "Error creating a %d GB volume for the disk %d: %s." % (int(disk_size),
                                                                                        cont, volume_id))
             cont += 1
@@ -941,7 +944,7 @@ class OpenNebulaCloudConnector(CloudConnector):
         return (True, "")
 
     def alter_mem_cpu(self, vm, system, session_id, auth_data):
-        server = xmlrpclib.ServerProxy(self.server_url, allow_none=True)
+        server = ServerProxy(self.server_url, allow_none=True)
 
         cpu = vm.info.systems[0].getValue('cpu.count')
         memory = vm.info.systems[0].getFeature('memory.size').getValue('M')
@@ -956,7 +959,7 @@ class OpenNebulaCloudConnector(CloudConnector):
         if new_memory and new_memory != memory:
             new_temp += "MEMORY = %s\n" % new_memory
 
-        self.logger.debug("New Template: " + new_temp)
+        self.log_debug("New Template: " + new_temp)
 
         if new_temp:
             if self.checkResize():

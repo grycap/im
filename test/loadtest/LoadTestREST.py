@@ -262,7 +262,7 @@ class LoadTest(unittest.TestCase):
         vm_states = res['state']['vm_states']
         self.assertEqual(state, "configured", msg="Unexpected inf state: " +
                          state + ". It must be 'configured'.")
-        for vm_id, vm_state in vm_states.iteritems():
+        for vm_id, vm_state in vm_states.items():
             self.assertEqual(vm_state, "configured", msg="Unexpected vm state: " +
                              vm_state + " in VM ID " + str(vm_id) + ". It must be 'configured'.")
 

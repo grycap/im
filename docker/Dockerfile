@@ -1,7 +1,7 @@
 # Dockerfile to create a container with the IM service and TOSCA support
 FROM ubuntu:16.04
 MAINTAINER Miguel Caballer <micafer1@upv.es>
-LABEL version="1.5.1"
+LABEL version="1.5.2"
 LABEL description="Container image to run the IM service with TOSCA support. (http://www.grycap.upv.es/im)"
 
 # Update and install all the necessary packages
@@ -21,9 +21,9 @@ RUN apt-get update && apt-get install -y \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
 
-# Install CherryPy to enable HTTPS in REST API
+# Install cheroot to enable REST API
 RUN pip install setuptools --upgrade -I
-RUN pip install CherryPy==8.9.1
+RUN pip install cheroot
 RUN pip install pbr pyOpenSSL --upgrade -I
 # Install pip optional libraries
 RUN pip install MySQL-python msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource
