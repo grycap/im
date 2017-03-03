@@ -247,7 +247,6 @@ class InfrastructureInfo:
                         raise DeletedVMException()
         raise IncorrectVMException()
 
-
     def get_vm_list_by_system_name(self):
         """
         Get the list of not destroyed VMs grouped by the name of system.
