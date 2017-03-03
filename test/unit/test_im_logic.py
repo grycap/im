@@ -22,6 +22,7 @@ import logging
 import unittest
 import sys
 import json
+import base64
 
 from mock import Mock, patch, MagicMock
 
@@ -113,6 +114,20 @@ class TestIM(unittest.TestCase):
         cloud = type(name, (CloudConnector, object), {})
         cloud.launch = Mock(side_effect=self.gen_launch_res)
         return cloud
+
+    def gen_token(self, aud=None, exp=None):
+        data = {
+            "sub": "user_sub",
+            "iss": "https://iam-test.indigo-datacloud.eu/",
+            "exp": 1465471354,
+            "iat": 1465467755,
+            "jti": "jti",
+        }
+        if aud:
+            data["aud"] = aud
+        if exp:
+            data["exp"] = int(time.time()) + exp
+        return "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.%s.ignored" % base64.urlsafe_b64encode(json.dumps(data))
 
     def test_inf_creation0(self):
         """Create infrastructure with empty RADL."""
@@ -651,17 +666,27 @@ configure step2 (
         IM.DestroyInfrastructure(infId, auth0)
 
     def test_check_oidc_invalid_token(self):
-        im_auth = {"token": ("eyJraWQiOiJyc2ExIiwiYWxnIjoiUlMyNTYifQ.eyJzdWIiOiJkYzVkNWFiNy02ZGI5LTQwNzktOTg1Yy04MGF"
-                             "jMDUwMTcwNjYiLCJpc3MiOiJodHRwczpcL1wvaWFtLXRlc3QuaW5kaWdvLWRhdGFjbG91ZC5ldVwvIiwiZXhwI"
-                             "joxNDY1NDcxMzU0LCJpYXQiOjE0NjU0Njc3NTUsImp0aSI6IjA3YjlkYmE4LTc3NWMtNGI5OS1iN2QzLTk4Njg"
-                             "5ODM1N2FiYSJ9.DwpZizVaYtvIj7fagQqDFpDh96szFupf6BNMIVLcopqQtZ9dBvwN9lgZ_w7Htvb3r-erho_hc"
-                             "me5mqDMVbSKwsA2GiHfiXSnh9jmNNVaVjcvSPNVGF8jkKNxeSSgoT3wED8xt4oU4s5MYiR075-RAkt6AcWqVbXU"
-                             "z5BzxBvANko")}
+        im_auth = {"token": self.gen_token()}
 
         with self.assertRaises(Exception) as ex:
             IM.check_oidc_token(im_auth)
         self.assertEqual(str(ex.exception),
                          'Invalid InfrastructureManager credentials. OIDC auth Token expired.')
+
+        im_auth_aud = {"token": self.gen_token(aud="test1,test2")}
+
+        Config.OIDC_AUDIENCE = "test"
+        with self.assertRaises(Exception) as ex:
+            IM.check_oidc_token(im_auth_aud)
+        self.assertEqual(str(ex.exception),
+                         'Invalid InfrastructureManager credentials. Audience not accepted.')
+
+        Config.OIDC_AUDIENCE = "test2"
+        with self.assertRaises(Exception) as ex:
+            IM.check_oidc_token(im_auth_aud)
+        self.assertEqual(str(ex.exception),
+                         'Invalid InfrastructureManager credentials. OIDC auth Token expired.')
+        Config.OIDC_AUDIENCE = None
 
         Config.OIDC_ISSUERS = ["https://other_issuer"]
 
@@ -672,12 +697,7 @@ configure step2 (
 
     @patch('IM.InfrastructureManager.OpenIDClient')
     def test_check_oidc_valid_token(self, openidclient):
-        im_auth = {"token": ("eyJraWQiOiJyc2ExIiwiYWxnIjoiUlMyNTYifQ.eyJzdWIiOiJkYzVkNWFiNy02ZGI5LTQwNzktOTg1Yy04MGF"
-                             "jMDUwMTcwNjYiLCJpc3MiOiJodHRwczpcL1wvaWFtLXRlc3QuaW5kaWdvLWRhdGFjbG91ZC5ldVwvIiwiZXhwI"
-                             "joxNDY1NDcxMzU0LCJpYXQiOjE0NjU0Njc3NTUsImp0aSI6IjA3YjlkYmE4LTc3NWMtNGI5OS1iN2QzLTk4Njg"
-                             "5ODM1N2FiYSJ9.DwpZizVaYtvIj7fagQqDFpDh96szFupf6BNMIVLcopqQtZ9dBvwN9lgZ_w7Htvb3r-erho_hc"
-                             "me5mqDMVbSKwsA2GiHfiXSnh9jmNNVaVjcvSPNVGF8jkKNxeSSgoT3wED8xt4oU4s5MYiR075-RAkt6AcWqVbXU"
-                             "z5BzxBvANko")}
+        im_auth = {"token": (self.gen_token())}
 
         user_info = json.loads(read_file_as_string('../files/iam_user_info.json'))
 
@@ -685,6 +705,7 @@ configure step2 (
         openidclient.get_user_info_request.return_value = True, user_info
 
         Config.OIDC_ISSUERS = ["https://iam-test.indigo-datacloud.eu/"]
+        Config.OIDC_AUDIENCE = None
 
         IM.check_oidc_token(im_auth)
 

@@ -1199,6 +1199,23 @@ class InfrastructureManager:
             InfrastructureManager.logger.error("Incorrect OIDC issuer: %s" % decoded_token['iss'])
             raise InvaliddUserException("Invalid InfrastructureManager credentials. Issuer not accepted.")
 
+        # Now check the audience
+        if Config.OIDC_AUDIENCE:
+            if 'aud' in decoded_token and decoded_token['aud']:
+                found = False
+                for aud in decoded_token['aud'].split(","):
+                    if aud == Config.OIDC_AUDIENCE:
+                        found = True
+                        break
+                if found:
+                    InfrastructureManager.logger.debug("Audience %s successfully checked." % Config.OIDC_AUDIENCE)
+                else:
+                    InfrastructureManager.logger.error("Audience %s not found in access token." % Config.OIDC_AUDIENCE)
+                    raise InvaliddUserException("Invalid InfrastructureManager credentials. Audience not accepted.")
+            else:
+                InfrastructureManager.logger.error("Audience %s not found in access token." % Config.OIDC_AUDIENCE)
+                raise InvaliddUserException("Invalid InfrastructureManager credentials. Audience not accepted.")
+
         # Now check if the token is not expired
         expired, msg = OpenIDClient.is_access_token_expired(token)
         if expired:
