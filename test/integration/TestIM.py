@@ -431,7 +431,7 @@ class TestIM(unittest.TestCase):
         time.sleep(10)
 
         all_stopped = self.wait_inf_state(self.inf_id, VirtualMachine.STOPPED, 120, [
-                                          VirtualMachine.RUNNING], [0])
+                                          VirtualMachine.RUNNING], [vm_ids[0]])
         self.assertTrue(
             all_stopped, msg="ERROR waiting the vm to be stopped (timeout).")
 
@@ -448,7 +448,7 @@ class TestIM(unittest.TestCase):
         time.sleep(10)
 
         all_configured = self.wait_inf_state(
-            self.inf_id, VirtualMachine.CONFIGURED, 150, [VirtualMachine.RUNNING], [0])
+            self.inf_id, VirtualMachine.CONFIGURED, 150, [VirtualMachine.RUNNING], [vm_ids[0]])
         self.assertTrue(
             all_configured, msg="ERROR waiting the vm to be started (timeout).")
 
