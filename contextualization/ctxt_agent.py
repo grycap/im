@@ -488,30 +488,6 @@ class CtxtAgent():
                                                                          pk_file, CtxtAgent.INTERNAL_PLAYBOOK_RETRIES,
                                                                          change_creds, vault_pass)
                 else:
-                    # In some strange cases the pk_file disappears. So test it and
-                    # remake basic recipe
-                    if ctxt_vm['os'] != "windows":
-                        success = False
-                        try:
-                            ssh_client = SSH(ctxt_vm['ip'], ctxt_vm['user'], None,
-                                             CtxtAgent.PK_FILE, ctxt_vm['remote_port'])
-                            success = ssh_client.test_connectivity()
-                        except:
-                            success = False
-
-                        if not success:
-                            CtxtAgent.logger.warn("Error connecting with SSH using the ansible key with: " +
-                                                  ctxt_vm['ip'] + ". Call the basic playbook again.")
-                            basic_playbook = general_conf_data[
-                                'conf_dir'] + "/basic_task_all.yml"
-                            output_basic = StringIO()
-                            ansible_thread = CtxtAgent.LaunchAnsiblePlaybook(output_basic, vm_conf_data['remote_dir'],
-                                                                             basic_playbook, ctxt_vm, 2,
-                                                                             inventory_file, None,
-                                                                             CtxtAgent.INTERNAL_PLAYBOOK_RETRIES, True,
-                                                                             vault_pass)
-                            (task_ok, _) = CtxtAgent.wait_thread(ansible_thread)
-
                     # in the other tasks pk_file can be used
                     ansible_thread = CtxtAgent.LaunchAnsiblePlaybook(CtxtAgent.logger, vm_conf_data['remote_dir'],
                                                                      playbook, ctxt_vm, 2,
