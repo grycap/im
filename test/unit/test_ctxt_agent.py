@@ -153,12 +153,21 @@ class TestCtxtAgent(unittest.TestCase):
         res = CtxtAgent.wait_thread(ansible_thread)
         self.assertEqual(res, (True, []))
 
+    @patch("contextualization.ctxt_agent.SSH.execute_timeout")
     @patch("contextualization.ctxt_agent.SSH.execute")
     @patch("winrm.Session")
-    def test_60_changeVMCredentials(self, winrm_session, execute):
+    def test_60_changeVMCredentials(self, winrm_session, execute, execute_timeout):
         CtxtAgent.logger = self.logger
         execute.return_value = "", "", 0
+        execute_timeout.return_value = "", "", 0
         vm = self.gen_vm_data()
+        res = CtxtAgent.changeVMCredentials(vm, None)
+        self.assertTrue(res)
+
+        vm = self.gen_vm_data()
+        del vm['new_passwd']
+        vm['new_public_key'] = "new_public_key"
+        vm['new_private_key'] = "new_private_key"
         res = CtxtAgent.changeVMCredentials(vm, None)
         self.assertTrue(res)
 
@@ -207,6 +216,30 @@ class TestCtxtAgent(unittest.TestCase):
 
         res = CtxtAgent.run("/tmp/gen_data.json", "/tmp/vm_data.json")
         self.assertTrue(res)
+
+    def test_90_replace_vm_ip(self):
+        CtxtAgent.logger = self.logger
+        vm_data = self.gen_vm_data()
+        CtxtAgent.CONF_DATA_FILENAME = "/tmp/gen_data.json"
+        with open("/tmp/gen_data.json", "w+") as f:
+            json.dump(self.gen_general_conf(), f)
+        with open("/tmp/hosts", "w+") as f:
+            f.write(" ansible_host=%s \n" % vm_data['ip'])
+            f.write(" ansible_ssh_host=%s \n" % vm_data['ip'])
+
+        vm_data['ctxt_ip'] = "10.0.0.2"
+        CtxtAgent.replace_vm_ip(vm_data)
+
+        with open("/tmp/gen_data.json", "r") as f:
+            general_conf_data = json.load(f)
+        for vm in general_conf_data['vms']:
+            if vm['id'] == vm_data['id']:
+                self.assertEqual(vm['ctxt_ip'], vm_data['ctxt_ip'])
+
+        with open("/tmp/hosts", "r") as f:
+            data = f.read()
+        self.assertIn(" ansible_host=%s \n" % vm_data['ctxt_ip'], data)
+        self.assertIn(" ansible_ssh_host=%s \n" % vm_data['ctxt_ip'], data)
 
 if __name__ == '__main__':
     unittest.main()
