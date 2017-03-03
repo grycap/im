@@ -150,7 +150,7 @@ class TestCtxtAgent(unittest.TestCase):
         ansible_thread = CtxtAgent.LaunchAnsiblePlaybook(self.logger, "/tmp", "play.yml",
                                                          vm, 1, "/tmp/inv", "/tmp/pk.pem",
                                                          3, True, None)
-        res = CtxtAgent.wait_thread(ansible_thread)
+        res = CtxtAgent.wait_thread(ansible_thread, "All was OK.")
         self.assertEqual(res, (True, []))
 
     @patch("contextualization.ctxt_agent.SSH.execute_timeout")
