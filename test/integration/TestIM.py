@@ -423,13 +423,15 @@ class TestIM(unittest.TestCase):
         """
         Test StopVM function
         """
+        (success, vm_ids) = self.server.GetInfrastructureInfo(
+            self.inf_id, self.auth_data)
         time.sleep(10)
-        (success, res) = self.server.StopVM(self.inf_id, 0, self.auth_data)
+        (success, res) = self.server.StopVM(self.inf_id, vm_ids[0], self.auth_data)
         self.assertTrue(success, msg="ERROR calling StopVM: " + str(res))
         time.sleep(10)
 
         all_stopped = self.wait_inf_state(self.inf_id, VirtualMachine.STOPPED, 120, [
-                                          VirtualMachine.RUNNING], [0])
+                                          VirtualMachine.RUNNING], [vm_ids[0]])
         self.assertTrue(
             all_stopped, msg="ERROR waiting the vm to be stopped (timeout).")
 
@@ -437,14 +439,16 @@ class TestIM(unittest.TestCase):
         """
         Test StartVM function
         """
+        (success, vm_ids) = self.server.GetInfrastructureInfo(
+            self.inf_id, self.auth_data)
         # Assure the VM to be stopped
         time.sleep(10)
-        (success, res) = self.server.StartVM(self.inf_id, 0, self.auth_data)
+        (success, res) = self.server.StartVM(self.inf_id, vm_ids[0], self.auth_data)
         self.assertTrue(success, msg="ERROR calling StartVM: " + str(res))
         time.sleep(10)
 
         all_configured = self.wait_inf_state(
-            self.inf_id, VirtualMachine.CONFIGURED, 150, [VirtualMachine.RUNNING], [0])
+            self.inf_id, VirtualMachine.CONFIGURED, 150, [VirtualMachine.RUNNING], [vm_ids[0]])
         self.assertTrue(
             all_configured, msg="ERROR waiting the vm to be started (timeout).")
 
@@ -539,7 +543,7 @@ echo "Hello World" >> /tmp/data.txt
             )
             """
 
-        a = radl_parse.parse_radl(radl)
+        radl_parse.parse_radl(radl)
         (success, inf_id) = self.server.CreateInfrastructure(radl, self.auth_data)
         self.assertTrue(
             success, msg="ERROR calling CreateInfrastructure: " + str(inf_id))
