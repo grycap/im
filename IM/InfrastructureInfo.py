@@ -20,14 +20,17 @@ import time
 from uuid import uuid1
 import json
 
-from ganglia import ganglia_info
-import ConfManager
-from datetime import datetime, timedelta, date
+from IM.ganglia import ganglia_info
+import IM.ConfManager
+from datetime import datetime, timedelta
 from radl.radl import RADL, Feature, deploy, system, contextualize_item
 from radl.radl_parse import parse_radl
-from config import Config
-from Queue import PriorityQueue
 from IM.openid.JWT import JWT
+from IM.config import Config
+try:
+    from Queue import PriorityQueue
+except ImportError:
+    from queue import PriorityQueue
 from IM.VirtualMachine import VirtualMachine
 from IM.auth import Authentication
 from IM.tosca.Tosca import Tosca
@@ -188,6 +191,10 @@ class InfrastructureInfo:
         for vm in self.get_vm_list():
             vm.kill_check_ctxt_process()
 
+        # Create a new empty queue
+        with self._lock:
+            self.ctxt_tasks = PriorityQueue()
+
     def get_cont_out(self):
         """
         Returns the contextualization message
@@ -205,7 +212,11 @@ class InfrastructureInfo:
         """
         Add a line to the contextualization message
         """
-        self.cont_out += str(datetime.now()) + ": " + str(msg.decode('utf8', 'ignore')) + "\n"
+        try:
+            str_msg = str(msg.decode('utf8', 'ignore'))
+        except:
+            str_msg = msg
+        self.cont_out += str(datetime.now()) + ": " + str_msg + "\n"
 
     def get_vm_list(self):
         """
@@ -234,14 +245,15 @@ class InfrastructureInfo:
             vm_id = int(str_vm_id)
         except:
             raise IncorrectVMException()
-        if vm_id >= 0 and vm_id < len(self.vm_list):
-            vm = self.vm_list[vm_id]
-            if not vm.destroy:
-                return vm
-            else:
-                raise DeletedVMException()
-        else:
-            raise IncorrectVMException()
+
+        with self._lock:
+            for vm in self.vm_list:
+                if vm.im_id == vm_id:
+                    if not vm.destroy:
+                        return vm
+                    else:
+                        raise DeletedVMException()
+        raise IncorrectVMException()
 
     def get_vm_list_by_system_name(self):
         """
@@ -384,7 +396,7 @@ class InfrastructureInfo:
             if now - self.last_ganglia_update > Config.GANGLIA_INFO_UPDATE_FREQUENCY:
                 try:
                     (success, msg) = ganglia_info.update_ganglia_info(self)
-                except Exception, ex:
+                except Exception as ex:
                     success = False
                     msg = str(ex)
             else:
@@ -530,7 +542,7 @@ class InfrastructureInfo:
             self.add_ctxt_tasks(ctxt_task)
 
             if self.cm is None or not self.cm.isAlive():
-                self.cm = ConfManager.ConfManager(self, auth, max_ctxt_time)
+                self.cm = IM.ConfManager.ConfManager(self, auth, max_ctxt_time)
                 self.cm.start()
             else:
                 # update the ConfManager reference to the inf object

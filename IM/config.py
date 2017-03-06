@@ -14,7 +14,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import ConfigParser
+try:
+    from ConfigParser import ConfigParser
+except ImportError:
+    from configparser import ConfigParser
 import os
 import logging
 
@@ -25,17 +28,14 @@ def parse_options(config, section_name, config_class):
         option = option.upper()
         if option in config_class.__dict__ and not option.startswith("__"):
             if isinstance(config_class.__dict__[option], bool):
-                config_class.__dict__[option] = config.getboolean(
-                    section_name, option)
+                setattr(config_class, option, config.getboolean(section_name, option))
             elif isinstance(config_class.__dict__[option], int):
-                config_class.__dict__[option] = config.getint(
-                    section_name, option)
+                setattr(config_class, option, config.getint(section_name, option))
             elif isinstance(config_class.__dict__[option], list):
                 str_value = config.get(section_name, option)
-                config_class.__dict__[option] = str_value.split(',')
+                setattr(config_class, option, str_value.split(','))
             else:
-                config_class.__dict__[option] = config.get(
-                    section_name, option)
+                setattr(config_class, option, config.get(section_name, option))
         else:
             logger = logging.getLogger('InfrastructureManager')
             logger.warn(
@@ -99,7 +99,7 @@ class Config:
     OIDC_AUDIENCE = None
     INF_CACHE_TIME = None
 
-config = ConfigParser.ConfigParser()
+config = ConfigParser()
 config.read([Config.IM_PATH + '/../im.cfg', Config.IM_PATH +
              '/../etc/im.cfg', '/etc/im/im.cfg'])
 

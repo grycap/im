@@ -19,7 +19,7 @@ Class to contact with an OpenID server
 import requests
 import json
 import time
-from JWT import JWT
+from .JWT import JWT
 
 
 class OpenIDClient(object):
@@ -39,7 +39,7 @@ class OpenIDClient(object):
             if resp.status_code != 200:
                 return False, "Code: %d. Message: %s." % (resp.status_code, resp.text)
             return True, json.loads(resp.text)
-        except Exception, ex:
+        except Exception as ex:
             return False, str(ex)
 
     @staticmethod
@@ -55,7 +55,7 @@ class OpenIDClient(object):
             if resp.status_code != 200:
                 return False, "Code: %d. Message: %s." % (resp.status_code, resp.text)
             return True, json.loads(resp.text)
-        except Exception, ex:
+        except Exception as ex:
             return False, str(ex)
 
     @staticmethod
