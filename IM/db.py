@@ -40,6 +40,13 @@ try:
 except:
     MYSQL_AVAILABLE = False
 
+if not MYSQL_AVAILABLE:
+    try:
+        import pymysql as mdb
+        MYSQL_AVAILABLE = True
+    except:
+        MYSQL_AVAILABLE = False
+
 
 # Class to manage DB operations
 class DataBase:
@@ -142,7 +149,7 @@ class DataBase:
                         cursor.execute(sql)
 
                     if fetch:
-                        res = cursor.fetchall()
+                        res = list(cursor.fetchall())
                     else:
                         self.connection.commit()
                         res = True

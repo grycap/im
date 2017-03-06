@@ -538,6 +538,9 @@ users:
         wait = 0
         online = False
         while not online and wait < timeout:
+            # sleep a bit at the beginning to assure a correct state of the vol
+            time.sleep(delay)
+            wait += delay
             success, storage_info = self.get_volume_info(volume_id, auth_data)
             state = self.get_occi_attribute_value(storage_info, 'occi.storage.state')
             self.log_debug("Waiting volume %s to be %s. Current state: %s" % (volume_id, wait_state, state))
@@ -546,9 +549,6 @@ users:
             elif not success:
                 self.log_error("Error waiting volume %s to be ready: %s" % (volume_id, state))
                 return False
-            if not state == wait_state:
-                time.sleep(delay)
-                wait += delay
 
         return online
 

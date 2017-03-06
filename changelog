@@ -271,3 +271,10 @@ IM 1.5.1
     * Fix errors in EC2, GCE and OCCI connectors.
     * Add new timeout config value for SSH access.
     * Add support for cheroot library.
+
+IM 1.5.2
+    * Improve error messages in case of internal connector errors.
+    * Add Python 3 compatibility.
+    * Improve VM launch paralelism.
+    * Enrich the logging entries + stack trace with the infra id.
+

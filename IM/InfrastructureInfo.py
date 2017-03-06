@@ -22,7 +22,7 @@ import json
 
 from IM.ganglia import ganglia_info
 import IM.ConfManager
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta
 from radl.radl import RADL, Feature, deploy, system, contextualize_item
 from radl.radl_parse import parse_radl
 from IM.config import Config
@@ -237,14 +237,15 @@ class InfrastructureInfo:
             vm_id = int(str_vm_id)
         except:
             raise IncorrectVMException()
-        if vm_id >= 0 and vm_id < len(self.vm_list):
-            vm = self.vm_list[vm_id]
-            if not vm.destroy:
-                return vm
-            else:
-                raise DeletedVMException()
-        else:
-            raise IncorrectVMException()
+
+        with self._lock:
+            for vm in self.vm_list:
+                if vm.im_id == vm_id:
+                    if not vm.destroy:
+                        return vm
+                    else:
+                        raise DeletedVMException()
+        raise IncorrectVMException()
 
     def get_vm_list_by_system_name(self):
         """
