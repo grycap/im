@@ -61,12 +61,14 @@ class TestTosca(unittest.TestCase):
         tosca_data = read_file_as_string('../files/tosca_create.yml')
         tosca = Tosca(tosca_data)
         _, radl = tosca.to_radl()
-        radl.systems[0].setValue("net_interface.1.ip", "158.42.1.1")
-        radl.systems[0].setValue("disk.0.os.credentials.username", "ubuntu")
-        radl.systems[0].setValue("disk.0.os.credentials.password", "pass")
+        radl1 = radl.clone()
+        radl1.systems = [radl.get_system_by_name('web_server')]
+        radl1.systems[0].setValue("net_interface.1.ip", "158.42.1.1")
+        radl1.systems[0].setValue("disk.0.os.credentials.username", "ubuntu")
+        radl1.systems[0].setValue("disk.0.os.credentials.password", "pass")
         inf = InfrastructureInfo()
-        vm = VirtualMachine(inf, "1", None, radl, radl, None)
-        vm.requested_radl = radl
+        vm = VirtualMachine(inf, "1", None, radl1, radl1, None)
+        vm.requested_radl = radl1
         inf.vm_list = [vm]
         outputs = tosca.get_outputs(inf)
         self.assertEqual(outputs, {'server_url': ['158.42.1.1'],
