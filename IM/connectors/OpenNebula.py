@@ -208,13 +208,13 @@ class OpenNebulaCloudConnector(CloudConnector):
             auth = auths[0]
 
         if 'username' in auth and 'password' in auth:
-            passwd = auth['password'].encode('utf-8')
+            passwd = auth['password']
             if hash_password is None:
                 one_ver = self.getONEVersion(auth_data)
                 if one_ver == "2.0.0" or one_ver == "3.0.0":
                     hash_password = True
             if hash_password:
-                passwd = hashlib.sha1(passwd.strip()).hexdigest()
+                passwd = hashlib.sha1(passwd.strip().encode('utf-8')).hexdigest()
             return auth['username'] + ":" + passwd
         elif 'token' in auth:
             username, passwd = ONETTSClient.get_auth_from_tts(ConfigOpenNebula.TTS_URL,
