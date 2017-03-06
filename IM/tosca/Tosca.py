@@ -12,8 +12,6 @@ try:
 except NameError:
     unicode = str
 
-
-
 from IM.uriparse import uriparse
 from toscaparser.tosca_template import ToscaTemplate
 from toscaparser.elements.interfaces import InterfacesDef
