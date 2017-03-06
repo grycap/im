@@ -1336,7 +1336,7 @@ class InfrastructureManager:
         return new_inf.id
 
     @staticmethod
-    def CreateDiskSnapshot(inf_id, vm_id, disk_num, image_name, auth):
+    def CreateDiskSnapshot(inf_id, vm_id, disk_num, image_name, auto_delete, auth):
         """
         Create a snapshot of the specified num disk in a
         virtual machine in an infrastructure.
@@ -1345,7 +1345,10 @@ class InfrastructureManager:
 
         - inf_id(str): infrastructure id.
         - vm_id(str): virtual machine id.
+        - image_name(str): A name to set to the image
         - disk_num(int): Number of the disk.
+        - auto_delete(bool): A flag to specify that the snapshot will be deleted when the
+          infrastructure is destroyed.
         - auth(Authentication): parsed authentication tokens.
 
         Return: a str with url of the saved snapshot.
