@@ -37,7 +37,7 @@ class CloudInfo:
         self.path = ""
         """Path to connect to the cloud provider"""
 
-    def getCloudConnector(self):
+    def getCloudConnector(self, inf):
         """
         Returns the appropriate object to contact the cloud provider
         """
@@ -45,8 +45,8 @@ class CloudInfo:
             raise Exception("Not valid cloud provider.")
         try:
             module = __import__('IM.connectors.' + self.type, fromlist=[self.type + "CloudConnector"])
-            return getattr(module, self.type + "CloudConnector")(self)
-        except Exception, ex:
+            return getattr(module, self.type + "CloudConnector")(self, inf)
+        except Exception as ex:
             raise Exception("Cloud provider not supported: %s (error: %s)" % (self.type, str(ex)))
 
     def __str__(self):

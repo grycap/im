@@ -148,7 +148,7 @@ class QuickTestIM(unittest.TestCase):
             success, msg="ERROR calling GetInfrastructureRADL: " + str(res))
         try:
             radl_parse.parse_radl(res)
-        except Exception, ex:
+        except Exception as ex:
             self.assertTrue(
                 False, msg="ERROR parsing the RADL returned by GetInfrastructureRADL: " + str(ex))
 
@@ -186,7 +186,7 @@ class QuickTestIM(unittest.TestCase):
         self.assertTrue(success, msg="ERROR calling GetVMInfo: " + str(info))
         try:
             radl_parse.parse_radl(info)
-        except Exception, ex:
+        except Exception as ex:
             self.assertTrue(
                 False, msg="ERROR parsing the RADL returned by GetVMInfo: " + str(ex))
 
@@ -248,7 +248,7 @@ class QuickTestIM(unittest.TestCase):
         vm_states = res['vm_states']
         self.assertEqual(len(vm_states), 3, msg="ERROR getting infrastructure state: Incorrect number of VMs(" +
                          str(len(vm_states)) + "). It must be 3")
-        for vm_id, vm_state in vm_states.iteritems():
+        for vm_id, vm_state in vm_states.items():
             self.assertEqual(vm_state, "configured", msg="Unexpected vm state: " +
                              vm_state + " in VM ID " + str(vm_id) + ". It must be 'configured'.")
 

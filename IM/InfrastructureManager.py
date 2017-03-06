@@ -19,6 +19,11 @@ import os
 import string
 import random
 
+try:
+    unicode("hola")
+except NameError:
+    unicode = str
+
 from IM.VMRC import VMRC
 from IM.CloudInfo import CloudInfo
 from IM.auth import Authentication
@@ -145,88 +150,140 @@ class InfrastructureManager:
         return deploy_groups
 
     @staticmethod
-    def _launch_group(sel_inf, deploy_group, deploys_group_cloud_list, cloud_list, concrete_systems,
-                      radl, auth, deployed_vm, cancel_deployment):
-        """Launch a group of deploys together."""
-
-        if not deploy_group:
-            InfrastructureManager.logger.warning("No VMs to deploy!")
-            return
-        if not deploys_group_cloud_list:
-            cancel_deployment.append(Exception("No cloud provider available"))
-            return
+    def _launch_vm(sel_inf, task, deploy_group, auth, deployed_vm,
+                   cancel_deployment, exceptions, cloud_with_errors):
+        """
+        Launch a VM in a cloud provider.
+        In case of failure it will try with the next provider defined (if any)
+        """
         all_ok = False
-        exceptions = []
-        for cloud_id in deploys_group_cloud_list:
-            cloud = cloud_list[cloud_id]
-            all_ok = True
-            for deploy in deploy_group:
-                remain_vm, fail_cont = deploy.vm_number, 0
-                while (remain_vm > 0 and fail_cont < Config.MAX_VM_FAILS and
-                       not cancel_deployment):
-                    concrete_system = concrete_systems[cloud_id][deploy.id][0]
-                    if not concrete_system:
-                        InfrastructureManager.logger.error(
-                            "Error, no concrete system to deploy: " + deploy.id + " in cloud: " +
-                            cloud_id + ". Check if a correct image is being used")
-                        exceptions.append("Error, no concrete system to deploy: " +
-                                          deploy.id + ". Check if a correct image is being used.")
-                        break
+        # Each task_cloud represents a task to launch the VM in a cloud provider
+        # if some fails we will try to use the next one
+        for task_cloud in task:
+            cloud, deploy, launch_radl, requested_radl, remain_vm, vm_type = task_cloud
 
-                    (username, _, _, _) = concrete_system.getCredentialValues()
-                    if not username:
-                        raise IncorrectVMCrecentialsException(
-                            "No username for deploy: " + deploy.id)
+            if id(deploy_group) in cloud_with_errors and cloud.cloud.id in cloud_with_errors[id(deploy_group)]:
+                InfrastructureManager.logger.debug("Cloud %s has failed for this deployment group. "
+                                                   "Do not use it to launch other VMs of the same group")
+                continue
 
-                    launch_radl = radl.clone()
-                    launch_radl.systems = [concrete_system.clone()]
-                    requested_radl = radl.clone()
-                    requested_radl.systems = [
-                        radl.get_system_by_name(concrete_system.name)]
-                    try:
-                        InfrastructureManager.logger.debug(
-                            "Launching %d VMs of type %s" % (remain_vm, concrete_system.name))
-                        launched_vms = cloud.cloud.getCloudConnector().launch(
-                            sel_inf, launch_radl, requested_radl, remain_vm, auth)
-                    except Exception, e:
-                        InfrastructureManager.logger.exception("Error launching some of the VMs: %s" % e)
-                        exceptions.append("Error launching the VMs of type %s to cloud ID %s"
-                                          " of type %s. Cloud Provider Error: %s" % (concrete_system.name,
-                                                                                     cloud.cloud.id,
-                                                                                     cloud.cloud.type, e))
-                        launched_vms = []
-                    for success, launched_vm in launched_vms:
-                        if success:
-                            InfrastructureManager.logger.debug(
-                                "VM successfully launched: " + str(launched_vm.id))
-                            deployed_vm.setdefault(
-                                deploy, []).append(launched_vm)
-                            deploy.cloud_id = cloud_id
-                            remain_vm -= 1
-                        else:
-                            InfrastructureManager.logger.warn(
-                                "Error launching some of the VMs: " + str(launched_vm))
-                            exceptions.append("Error launching the VMs of type %s to cloud ID %s of type %s. %s" % (
-                                concrete_system.name, cloud.cloud.id, cloud.cloud.type, str(launched_vm)))
-                            if not isinstance(launched_vm, (str, unicode)):
-                                cloud.finalize(launched_vm, auth)
-                    fail_cont += 1
-                if remain_vm > 0 or cancel_deployment:
-                    all_ok = False
-                    break
+            fail_cont = 0
+            while (remain_vm > 0 and fail_cont < Config.MAX_VM_FAILS and not cancel_deployment):
+                InfrastructureManager.logger.debug("Launching %d VMs of type %s" % (remain_vm, vm_type))
+                try:
+                    launched_vms = cloud.cloud.getCloudConnector(sel_inf).launch(
+                        sel_inf, launch_radl, requested_radl, remain_vm, auth)
+                except Exception as e:
+                    InfrastructureManager.logger.exception("Error launching some of the VMs: %s" % e)
+                    exceptions.append("Error launching the VMs of type %s to cloud ID %s"
+                                      " of type %s. Cloud Provider Error: %s" % (vm_type,
+                                                                                 cloud.cloud.id,
+                                                                                 cloud.cloud.type, e))
+                    launched_vms = []
+
+                all_ok = True
+                for success, launched_vm in launched_vms:
+                    if success:
+                        InfrastructureManager.logger.debug("VM successfully launched: %s" % str(launched_vm.id))
+                        deployed_vm.setdefault(deploy, []).append(launched_vm)
+                        deploy.cloud_id = cloud.cloud.id
+                        remain_vm -= 1
+                    else:
+                        all_ok = False
+                        InfrastructureManager.logger.warn("Error launching some of the VMs: %s" % str(launched_vm))
+                        exceptions.append("Error launching the VMs of type %s to cloud ID %s of type %s. %s" % (
+                            vm_type, cloud.cloud.id, cloud.cloud.type, str(launched_vm)))
+                        if not isinstance(launched_vm, (str, unicode)):
+                            cloud.finalize(launched_vm, auth)
+
+                fail_cont += 1
+                if remain_vm > 0 and fail_cont >= Config.MAX_VM_FAILS:
+                    if id(deploy_group) not in cloud_with_errors:
+                        cloud_with_errors[id(deploy_group)] = []
+                    cloud_with_errors[id(deploy_group)].append(cloud.cloud.id)
+            if cancel_deployment:
+                all_ok = False
+                break
+
             if not all_ok:
+                # Something has failed, finalize the VMs created and try with other cloud provider (if avail)
                 for deploy in deploy_group:
                     for vm in deployed_vm.get(deploy, []):
                         vm.finalize(auth)
                     deployed_vm[deploy] = []
-            if cancel_deployment or all_ok:
+            else:
+                # All was OK so do not try with other cloud provider
                 break
+
         if not all_ok and not cancel_deployment:
             msg = ""
             for i, e in enumerate(exceptions):
-                msg += "Attempt " + str(i + 1) + ": " + str(e) + "\n"
+                msg += "Attempt %d: %s\n" % (i + 1, str(e))
             cancel_deployment.append(
                 Exception("All machines could not be launched: \n%s" % msg))
+
+    @staticmethod
+    def _launch_groups(sel_inf, deploy_groups, deploys_group_cloud_list_all, cloud_list, concrete_systems,
+                       radl, auth, deployed_vm, cancel_deployment):
+        """Launch all groups of deploys together."""
+        try:
+            tasks = []
+            cloud_with_errors = {}
+            for deploy_group in deploy_groups:
+                deploys_group_cloud_list = deploys_group_cloud_list_all[id(deploy_group)]
+                if not deploy_group:
+                    InfrastructureManager.logger.warning("No VMs to deploy!")
+                    return
+                if not deploys_group_cloud_list:
+                    cancel_deployment.append(Exception("No cloud provider available"))
+                    return
+                exceptions = []
+                for deploy in deploy_group:
+                    task_cloud = []
+                    if deploy.vm_number > 0:
+                        for cloud_id in deploys_group_cloud_list:
+                            cloud = cloud_list[cloud_id]
+                            concrete_system = concrete_systems[cloud_id][deploy.id][0]
+                            if not concrete_system:
+                                InfrastructureManager.logger.error(
+                                    "Error, no concrete system to deploy: " + deploy.id + " in cloud: " +
+                                    cloud_id + ". Check if a correct image is being used")
+                                exceptions.append("Error, no concrete system to deploy: " +
+                                                  deploy.id + ". Check if a correct image is being used.")
+                                break
+
+                            (username, _, _, _) = concrete_system.getCredentialValues()
+                            if not username:
+                                raise IncorrectVMCrecentialsException("No username for deploy: " + deploy.id)
+
+                            launch_radl = radl.clone()
+                            launch_radl.systems = [concrete_system.clone()]
+                            requested_radl = radl.clone()
+                            requested_radl.systems = [radl.get_system_by_name(concrete_system.name)]
+                            task_cloud.append((cloud, deploy, launch_radl, requested_radl,
+                                               deploy.vm_number, concrete_system.name))
+                    else:
+                        InfrastructureManager.logger.debug("deploy %s with 0 num. Ignoring." % deploy.id)
+
+                    if task_cloud:
+                        tasks.append(task_cloud)
+
+            if Config.MAX_SIMULTANEOUS_LAUNCHES > 1:
+                pool = ThreadPool(processes=Config.MAX_SIMULTANEOUS_LAUNCHES)
+                pool.map(
+                    lambda task: InfrastructureManager._launch_vm(sel_inf, task, deploy_group, auth,
+                                                                  deployed_vm, cancel_deployment, exceptions,
+                                                                  cloud_with_errors), tasks)
+                pool.close()
+            else:
+                for task in tasks:
+                    InfrastructureManager._launch_vm(sel_inf, task, deploy_group, auth,
+                                                     deployed_vm, cancel_deployment, exceptions,
+                                                     cloud_with_errors)
+        except Exception as e:
+            # Please, avoid exception to arrive to this level, because some virtual
+            # machine may lost.
+            cancel_deployment.append(e)
 
     @staticmethod
     def get_infrastructure(inf_id, auth):
@@ -461,7 +518,7 @@ class InfrastructureManager:
 
         # Concrete systems with cloud providers and select systems with the greatest score
         # in every cloud
-        cloud_list = dict([(c.id, c.getCloudConnector())
+        cloud_list = dict([(c.id, c.getCloudConnector(sel_inf))
                            for c in CloudInfo.get_cloud_list(auth) if c not in failed_clouds])
         concrete_systems = {}
         for cloud_id, cloud in cloud_list.items():
@@ -523,23 +580,9 @@ class InfrastructureManager:
         # Launch every group in the same cloud provider
         deployed_vm = {}
         cancel_deployment = []
-        try:
-            if Config.MAX_SIMULTANEOUS_LAUNCHES > 1:
-                pool = ThreadPool(processes=Config.MAX_SIMULTANEOUS_LAUNCHES)
-                pool.map(
-                    lambda ds: InfrastructureManager._launch_group(sel_inf, ds, deploys_group_cloud_list[id(ds)],
-                                                                   cloud_list, concrete_systems, radl, auth,
-                                                                   deployed_vm, cancel_deployment), deploy_groups)
-                pool.close()
-            else:
-                for ds in deploy_groups:
-                    InfrastructureManager._launch_group(sel_inf, ds, deploys_group_cloud_list[id(ds)],
-                                                        cloud_list, concrete_systems, radl,
-                                                        auth, deployed_vm, cancel_deployment)
-        except Exception, e:
-            # Please, avoid exception to arrive to this level, because some virtual
-            # machine may lost.
-            cancel_deployment.append(e)
+        InfrastructureManager._launch_groups(sel_inf, deploy_groups, deploys_group_cloud_list,
+                                             cloud_list, concrete_systems, radl, auth,
+                                             deployed_vm, cancel_deployment)
 
         # We make this to maintain the order of the VMs in the sel_inf.vm_list
         # according to the deploys shown in the RADL
@@ -570,7 +613,7 @@ class InfrastructureManager:
             if passwd and not new_passwd:
                 # The VM uses the VMI password, set to change it
                 random_password = ''.join(random.choice(
-                    string.letters + string.digits) for _ in range(8))
+                    string.ascii_letters + string.digits) for _ in range(8))
                 vm.info.systems[0].setCredentialValues(
                     password=random_password, new=True)
 
@@ -632,7 +675,7 @@ class InfrastructureManager:
                             cont += 1
                         else:
                             exceptions.append(msg)
-                    except Exception, e:
+                    except Exception as e:
                         exceptions.append(e)
 
         InfrastructureManager.logger.info(
@@ -725,9 +768,10 @@ class InfrastructureManager:
 
         vm = InfrastructureManager.get_vm_from_inf(inf_id, vm_id, auth)
 
-        InfrastructureManager.logger.debug(vm.cont_out)
+        cont_msg = vm.get_cont_msg()
+        InfrastructureManager.logger.debug(cont_msg)
 
-        return vm.cont_out
+        return cont_msg
 
     @staticmethod
     def AlterVM(inf_id, vm_id, radl_data, auth):
@@ -761,7 +805,7 @@ class InfrastructureManager:
         exception = None
         try:
             (success, alter_res) = vm.alter(radl, auth)
-        except Exception, e:
+        except Exception as e:
             exception = e
 
         if exception:
@@ -847,8 +891,8 @@ class InfrastructureManager:
         res = sel_inf.cont_out
 
         for vm in sel_inf.get_vm_list():
-            if vm.cont_out:
-                res += "VM " + str(vm.id) + ":\n" + vm.cont_out + "\n"
+            if vm.get_cont_msg():
+                res += "VM " + str(vm.id) + ":\n" + vm.get_cont_msg() + "\n"
                 res += "***************************************************************************\n"
 
         InfrastructureManager.logger.debug(res)
@@ -921,7 +965,7 @@ class InfrastructureManager:
             success = False
             InfrastructureManager.logger.debug("Stopping the VM id: " + vm.id)
             (success, msg) = vm.stop(auth)
-        except Exception, e:
+        except Exception as e:
             msg = str(e)
         if not success:
             InfrastructureManager.logger.info("The VM cannot be stopped")
@@ -974,7 +1018,7 @@ class InfrastructureManager:
             success = False
             InfrastructureManager.logger.debug("Starting the VM id: " + vm.id)
             (success, msg) = vm.start(auth)
-        except Exception, e:
+        except Exception as e:
             msg = str(e)
         if not success:
             InfrastructureManager.logger.info("The VM cannot be restarted")
@@ -1043,7 +1087,7 @@ class InfrastructureManager:
         success = False
         try:
             (success, msg) = vm.start(auth)
-        except Exception, e:
+        except Exception as e:
             msg = str(e)
 
         if not success:
@@ -1078,7 +1122,7 @@ class InfrastructureManager:
         success = False
         try:
             (success, msg) = vm.stop(auth)
-        except Exception, e:
+        except Exception as e:
             msg = str(e)
 
         if not success:
@@ -1097,7 +1141,7 @@ class InfrastructureManager:
             InfrastructureManager.logger.debug(
                 "Finalizing the VM id: " + str(vm.id))
             (success, msg) = vm.finalize(auth)
-        except Exception, e:
+        except Exception as e:
             msg = str(e)
         if not success:
             InfrastructureManager.logger.info("The VM cannot be finalized")
@@ -1190,7 +1234,7 @@ class InfrastructureManager:
         try:
             # decode the token to get the info
             decoded_token = JWT().get_info(token)
-        except Exception, ex:
+        except Exception as ex:
             InfrastructureManager.logger.exception("Error trying decode OIDC auth token: %s" % str(ex))
             raise Exception("Error trying to decode OIDC auth token: %s" % str(ex))
 
@@ -1229,7 +1273,7 @@ class InfrastructureManager:
                 # convert to username to use it in the rest of the IM
                 im_auth['username'] = str(userinfo.get("preferred_username"))
                 im_auth['password'] = str(decoded_token['iss']) + str(userinfo.get("sub"))
-        except Exception, ex:
+        except Exception as ex:
             InfrastructureManager.logger.exception("Error trying to validate OIDC auth token: %s" % str(ex))
             raise Exception("Error trying to validate OIDC auth token: %s" % str(ex))
 
@@ -1298,7 +1342,7 @@ class InfrastructureManager:
         # Add the resources in radl_data
         try:
             InfrastructureManager.AddResource(inf.id, radl, auth)
-        except Exception, e:
+        except Exception as e:
             InfrastructureManager.logger.exception(
                 "Error Creating Inf id " + str(inf.id))
             inf.delete()
@@ -1354,7 +1398,7 @@ class InfrastructureManager:
 
         try:
             new_inf = IM.InfrastructureInfo.InfrastructureInfo.deserialize(str_inf)
-        except Exception, ex:
+        except Exception as ex:
             InfrastructureManager.logger.exception("Error importing the infrastructure, incorrect data")
             raise Exception("Error importing the infrastructure, incorrect data: " + str(ex))
 

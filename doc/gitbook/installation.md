@@ -15,28 +15,20 @@ be installed in the system.
 
  + The YAML library for Python, typically available as the 'python-yaml' or 'PyYAML' package.
 
-  + The suds library for Python, typically available as the 'python-suds' package.
-
+ + The suds library for Python, typically available as the 'python-suds' package.
+ 
  + The Netaddr library for Python, typically available as the 'python-netaddr' package.
 
- + The boto library version 2.29 or later
-   must be installed (http://boto.readthedocs.org/en/latest/).
-
- + The apache-libcloud library version 0.18 or later
-   must be installed (http://libcloud.apache.org/). To support OpenStack sites with IAM authentication,
-   version 1.0.0 or later must be installed.
+ + The Requests library for Python, typically available as the 'python-requests' package.
 
  + The TOSCA-Parser library for Python. Currently it must be used the INDIGO version located at
    https://github.com/indigo-dc/tosca-parser but we are working to improve the mainstream version
    to enable to use it with the IM.
 
- + The Bottle framework (http://bottlepy.org/) must be installed, typically available as the 'python-bottle' package.
-
- + The CherryPy Web framework (http://www.cherrypy.org/) must be installed, typically available as the 'python-cherrypy'
-   or 'python-cherrypy3' package.
-
- + The Python interface to MySQL must be installed,  typically available as the package 'python-mysqldb'  or 
-   'MySQL-python' package.
+ + The CherryPy Web framework (http://www.cherrypy.org/), is needed for the REST API. 
+   It is typically available as the 'python-cherrypy' or 'python-cherrypy3' package.
+   In newer versions (9.0 and later) the functionality has been moved to the 'cheroot' library
+   (https://github.com/cherrypy/cheroot) it can be installed using pip.
 
  + Ansible (http://www.ansibleworks.com/) to configure nodes in the infrastructures.
    In particular, Ansible 1.4.2+ must be installed. The current recommended version is 1.9.4 untill the 2.X versions become stable.
@@ -70,10 +62,30 @@ pipelining = True
 1.2 OPTIONAL PACKAGES
 ---------------------
 
+The Bottle framework (http://bottlepy.org/) is used for the REST API. 
+It is typically available as the 'python-bottle' package.
+
+Apache-libcloud (http://libcloud.apache.org/) 0.17 or later is used in the
+LibCloud, OpenStack and GCE connectors.
+
+Boto (http://boto.readthedocs.org) 2.29.0 or later is used as interface to
+Amazon EC2. It is available as package named ``python-boto`` in Debian based
+distributions. It can also be downloaded from `boto GitHub repository (https://github.com/boto/boto).
+Download the file and copy the boto subdirectory into the IM install path.
+
 In case of using the SSL secured version of the XMLRPC API the SpringPython
 framework (http://springpython.webfactional.com/) must be installed.
 
+In case of using the a MySQL DB as the backend to store IM data. The Python interface to MySQL
+must be installed, typically available as the package 'python-mysqldb' or 'MySQL-python' package.
+In case of using Python 3 use the PyMySQL package, available as the package 'python3-pymysql' on 
+debian systems or PyMySQL package in pip.
+
 In case of using the SSL secured version of the REST API pyOpenSSL must be installed.
+
+Azure python SDK (https://azure.microsoft.com/es-es/develop/python/) is used to connect with the 
+Microsoft Azure platform.
+
 
 1.3 INSTALLING
 --------------

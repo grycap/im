@@ -14,9 +14,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from db import DataBase
+from IM.db import DataBase
 
-from config import Config
+from IM.config import Config
 from radl.radl import FeaturesApp
 
 
