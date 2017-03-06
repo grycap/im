@@ -139,7 +139,7 @@ class TestIM(unittest.TestCase):
             data["aud"] = aud
         if exp:
             data["exp"] = int(time.time()) + exp
-        return "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.%s.ignored" % base64.urlsafe_b64encode(json.dumps(data))
+        return "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.%s.ignored" % base64.urlsafe_b64encode(json.dumps(data).encode("utf-8")).decode("utf-8")
 
     def test_inf_creation0(self):
         """Create infrastructure with empty RADL."""

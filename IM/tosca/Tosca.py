@@ -3,7 +3,16 @@ import logging
 import yaml
 import copy
 import tempfile
-import urllib
+try:
+    import urllib.request as urllib
+except:
+    import urllib
+try:
+    unicode("hola")
+except NameError:
+    unicode = str
+
+
 
 from IM.uriparse import uriparse
 from toscaparser.tosca_template import ToscaTemplate
@@ -50,7 +59,7 @@ class Tosca:
         relationships = []
         for node in self.tosca.nodetemplates:
             # Store relationships to check later
-            for relationship, trgt in node.relationships.iteritems():
+            for relationship, trgt in node.relationships.items():
                 src = node
                 relationships.append((src, trgt, relationship))
 
@@ -407,7 +416,7 @@ class Tosca:
                 # Get the inputs
                 env = {}
                 if interface.inputs:
-                    for param_name, param_value in interface.inputs.iteritems():
+                    for param_name, param_value in interface.inputs.items():
                         val = None
 
                         if self._is_artifact(param_value):
@@ -472,7 +481,7 @@ class Tosca:
 
                 if script_path.endswith(".yaml") or script_path.endswith(".yml"):
                     if env:
-                        for var_name, var_value in env.iteritems():
+                        for var_name, var_value in env.items():
                             if isinstance(var_value, str) and not var_value.startswith("|"):
                                 var_value = '"%s"' % var_value
                             else:
@@ -494,7 +503,7 @@ class Tosca:
                         os.path.basename(script_path) + "\n"
                     if env:
                         recipe += "    environment:\n"
-                        for var_name, var_value in env.iteritems():
+                        for var_name, var_value in env.items():
                             recipe += "      %s: %s\n" % (var_name, var_value)
 
                     recipe_list.append(recipe)
@@ -713,7 +722,7 @@ class Tosca:
             else:
                 # As default assume that there will be only one VM per group
                 vm = vm_list[node.name][0]
-                if len(vm_list[node.name]) < index:
+                if index is not None and len(vm_list[node.name]) < index:
                     index = len(vm_list[node.name]) - 1
 
             if attribute_name == "tosca_id":
@@ -876,7 +885,7 @@ class Tosca:
             return node
 
         if node.requirements:
-            for r, n in node.relationships.iteritems():
+            for r, n in node.relationships.items():
                 if Tosca._is_derived_from(r, r.HOSTEDON) or Tosca._is_derived_from(r, r.BINDSTO):
                     root_type = Tosca._get_root_parent_type(n).type
                     if root_type == "tosca.nodes.Compute":
@@ -921,11 +930,11 @@ class Tosca:
                 for cap_type in ['os', 'host']:
                     if cap_type in elem:
                         for p in elem.get(cap_type).get('properties'):
-                            p_name = p.keys()[0]
-                            p_value = p.values()[0]
+                            p_name = list(p.keys())[0]
+                            p_value = list(p.values())[0]
                             if isinstance(p_value, dict):
-                                filter_props[p_name] = (
-                                    p_value.keys()[0], p_value.values()[0])
+                                filter_props[p_name] = (list(p_value.keys())[0],
+                                                        list(p_value.values())[0])
                             else:
                                 filter_props[p_name] = ("equal", p_value)
 
@@ -938,7 +947,7 @@ class Tosca:
         }
 
         # Compare the properties
-        for name, value in filter_props.iteritems():
+        for name, value in filter_props.items():
             operator, filter_value = value
             if name in ['disk_size', 'mem_size']:
                 filter_value, _ = Tosca._get_size_and_unit(filter_value)
@@ -1003,7 +1012,7 @@ class Tosca:
         """
         if node.requirements:
             maxl = 0
-            for r, n in node.relationships.iteritems():
+            for r, n in node.relationships.items():
                 if Tosca._is_derived_from(r, r.HOSTEDON):
                     level = Tosca._get_dependency_level(n)
                 else:
@@ -1221,7 +1230,7 @@ class Tosca:
         disks = []
         count = 1
 
-        for rel, trgt in node.relationships.iteritems():
+        for rel, trgt in node.relationships.items():
             src = node
             rel_tpl = Tosca._get_relationship_template(rel, src, trgt)
             # TODO: ver root_type
@@ -1295,7 +1304,7 @@ class Tosca:
 
         while True:
             if node_type.interfaces and 'Standard' in node_type.interfaces:
-                for name, elems in node_type.interfaces['Standard'].iteritems():
+                for name, elems in node_type.interfaces['Standard'].items():
                     if name in ['create', 'configure', 'start', 'stop', 'delete']:
                         if name not in interfaces:
                             interfaces[name] = InterfacesDef(
@@ -1385,7 +1394,7 @@ class Tosca:
         if yaml2 is None:
             return yaml1
         elif isinstance(yaml1, dict) and isinstance(yaml2, dict):
-            for k, v in yaml2.iteritems():
+            for k, v in yaml2.items():
                 if k not in yaml1:
                     yaml1[k] = v
                 else:
