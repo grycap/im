@@ -1234,7 +1234,7 @@ class InfrastructureManager:
         try:
             # decode the token to get the info
             decoded_token = JWT().get_info(token)
-        except Exception, ex:
+        except Exception as ex:
             InfrastructureManager.logger.exception("Error trying decode OIDC auth token: %s" % str(ex))
             raise Exception("Error trying to decode OIDC auth token: %s" % str(ex))
 
@@ -1273,7 +1273,7 @@ class InfrastructureManager:
                 # convert to username to use it in the rest of the IM
                 im_auth['username'] = str(userinfo.get("preferred_username"))
                 im_auth['password'] = str(decoded_token['iss']) + str(userinfo.get("sub"))
-        except Exception, ex:
+        except Exception as ex:
             InfrastructureManager.logger.exception("Error trying to validate OIDC auth token: %s" % str(ex))
             raise Exception("Error trying to validate OIDC auth token: %s" % str(ex))
 

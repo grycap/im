@@ -447,7 +447,7 @@ class Tosca:
                         script_content = response.read()
                         if response.code != 200:
                             raise Exception("")
-                    except Exception, ex:
+                    except Exception as ex:
                         raise Exception("Error downloading the implementation script '%s': %s" % (
                             interface.implementation, str(ex)))
                 else:
@@ -464,7 +464,7 @@ class Tosca:
                             script_content = response.read()
                             if response.code != 200:
                                 raise Exception("")
-                        except Exception, ex:
+                        except Exception as ex:
                             raise Exception("Implementation file: '%s' is not located in the artifacts folder '%s' "
                                             "or in the artifacts remote url '%s'." % (interface.implementation,
                                                                                       Tosca.ARTIFACTS_PATH,
@@ -1321,7 +1321,7 @@ class Tosca:
             yamlo1o = yaml.load(yaml1)[0]
             if not isinstance(yamlo1o, dict):
                 yamlo1o = {}
-        except Exception, ex:
+        except Exception as ex:
             raise Exception("Error parsing YAML: " + yaml1 + "\n. Error: %s" % str(ex))
 
         yamlo2s = {}
@@ -1329,7 +1329,7 @@ class Tosca:
             yamlo2s = yaml.load(yaml2)
             if not isinstance(yamlo2s, list) or any([not isinstance(d, dict) for d in yamlo2s]):
                 yamlo2s = {}
-        except Exception, ex:
+        except Exception as ex:
             raise Exception("Error parsing YAML: " + yaml2 + "\n. Error: %s" % str(ex))
 
         if not yamlo2s and not yamlo1o:
