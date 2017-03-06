@@ -40,6 +40,13 @@ try:
 except:
     MYSQL_AVAILABLE = False
 
+if not MYSQL_AVAILABLE:
+    try:
+        import pymysql as mdb
+        MYSQL_AVAILABLE = True
+    except:
+        MYSQL_AVAILABLE = False
+
 
 # Class to manage DB operations
 class DataBase:
@@ -142,13 +149,13 @@ class DataBase:
                         cursor.execute(sql)
 
                     if fetch:
-                        res = cursor.fetchall()
+                        res = list(cursor.fetchall())
                     else:
                         self.connection.commit()
                         res = True
                     return res
                 # If the operational error is db lock, retry
-                except sqlite.OperationalError, ex:
+                except sqlite.OperationalError as ex:
                     if str(ex).lower() == 'database is locked':
                         retries_cont += 1
                         # release the connection
@@ -158,7 +165,7 @@ class DataBase:
                         self.connect()
                     else:
                         raise ex
-                except sqlite.IntegrityError, ex:
+                except sqlite.IntegrityError as ex:
                     raise IntegrityError()
 
     def execute(self, sql, args=None):

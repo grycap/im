@@ -21,7 +21,10 @@ import unittest
 import os
 import logging
 import logging.config
-from StringIO import StringIO
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 
 sys.path.append(".")
 sys.path.append("..")
@@ -46,14 +49,13 @@ class TestDockerConnector(unittest.TestCase):
     Class to test the IM connectors
     """
 
-    @classmethod
-    def setUpClass(cls):
-        cls.swarm = False
-        cls.log = StringIO()
-        ch = logging.StreamHandler(cls.log)
+    def setUp(self):
+        self.swarm = False
+        self.log = StringIO()
+        self.handler = logging.StreamHandler(self.log)
         formatter = logging.Formatter(
             '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        ch.setFormatter(formatter)
+        self.handler.setFormatter(formatter)
 
         logging.RootLogger.propagate = 0
         logging.root.setLevel(logging.ERROR)
@@ -61,11 +63,15 @@ class TestDockerConnector(unittest.TestCase):
         logger = logging.getLogger('CloudConnector')
         logger.setLevel(logging.DEBUG)
         logger.propagate = 0
-        logger.addHandler(ch)
+        for handler in logger.handlers:
+            logger.removeHandler(handler)
+        logger.addHandler(self.handler)
 
-    @classmethod
-    def clean_log(cls):
-        cls.log = StringIO()
+    def tearDown(self):
+        self.handler.flush()
+        self.log.close()
+        self.log = StringIO()
+        self.handler.close()
 
     @classmethod
     def activate_swarm(cls, activate=True):
@@ -78,7 +84,9 @@ class TestDockerConnector(unittest.TestCase):
         cloud_info.protocol = "http"
         cloud_info.server = "server.com"
         cloud_info.port = 2375
-        cloud = DockerCloudConnector(cloud_info)
+        inf = MagicMock()
+        inf.id = "1"
+        cloud = DockerCloudConnector(cloud_info, inf)
         return cloud
 
     def test_10_concrete(self):
@@ -103,7 +111,6 @@ class TestDockerConnector(unittest.TestCase):
         concrete = docker_cloud.concreteSystem(radl_system, auth)
         self.assertEqual(len(concrete), 1)
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.clean_log()
 
     def get_response(self, method, url, verify, cert, headers, data):
         resp = MagicMock()
@@ -135,7 +142,7 @@ class TestDockerConnector(unittest.TestCase):
             if url == "/containers/create":
                 resp.status_code = 201
                 resp.text = '{"Id": "id"}'
-            if url == "/services/create":
+            elif url == "/services/create":
                 resp.status_code = 201
                 resp.text = '{"ID": "id"}'
             elif url == "/images/create":
@@ -144,6 +151,10 @@ class TestDockerConnector(unittest.TestCase):
                 resp.status_code = 204
             elif url.endswith("/stop"):
                 resp.status_code = 204
+            elif url == "/volumes/create":
+                resp.status_code = 201
+            elif url == "/networks/create":
+                resp.status_code = 201
         elif method == "DELETE":
             if url.endswith("/containers/1"):
                 resp.status_code = 204
@@ -183,7 +194,6 @@ class TestDockerConnector(unittest.TestCase):
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.clean_log()
 
         self.activate_swarm()
         res = docker_cloud.launch(InfrastructureInfo(), radl, radl, 1, auth)
@@ -191,7 +201,6 @@ class TestDockerConnector(unittest.TestCase):
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.clean_log()
 
     @patch('requests.request')
     def test_30_updateVMInfo(self, requests):
@@ -225,7 +234,6 @@ class TestDockerConnector(unittest.TestCase):
         self.assertTrue(success, msg="ERROR: updating VM info.")
         self.assertEquals(vm.info.systems[0].getValue("net_interface.1.ip"), "10.0.0.1")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.clean_log()
 
         self.activate_swarm()
         success, vm = docker_cloud.updateVMInfo(vm, auth)
@@ -234,7 +242,6 @@ class TestDockerConnector(unittest.TestCase):
         self.assertTrue(success, msg="ERROR: updating VM info.")
         self.assertEquals(vm.info.systems[0].getValue("net_interface.1.ip"), "10.0.0.1")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.clean_log()
 
     @patch('requests.request')
     def test_40_stop(self, requests):
@@ -251,7 +258,6 @@ class TestDockerConnector(unittest.TestCase):
 
         self.assertTrue(success, msg="ERROR: stopping VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.clean_log()
 
     @patch('requests.request')
     def test_50_start(self, requests):
@@ -268,7 +274,6 @@ class TestDockerConnector(unittest.TestCase):
 
         self.assertTrue(success, msg="ERROR: stopping VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.clean_log()
 
     @patch('requests.request')
     def test_60_finalize(self, requests):
@@ -292,7 +297,6 @@ class TestDockerConnector(unittest.TestCase):
 
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.clean_log()
 
         self.activate_swarm()
         success, _ = docker_cloud.finalize(vm, auth)
@@ -300,7 +304,6 @@ class TestDockerConnector(unittest.TestCase):
 
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.clean_log()
 
 
 if __name__ == '__main__':

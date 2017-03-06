@@ -19,7 +19,7 @@ Class to contact with an OpenID server
 import requests
 import json
 import time
-from JWT import JWT
+from .JWT import JWT
 
 
 class OpenIDClient(object):

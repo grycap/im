@@ -21,7 +21,10 @@ import unittest
 import os
 import logging
 import logging.config
-from StringIO import StringIO
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 
 sys.path.append(".")
 sys.path.append("..")
@@ -45,13 +48,12 @@ class TestOSTConnector(unittest.TestCase):
     Class to test the IM connectors
     """
 
-    @classmethod
-    def setUpClass(cls):
-        cls.log = StringIO()
-        ch = logging.StreamHandler(cls.log)
+    def setUp(self):
+        self.log = StringIO()
+        self.handler = logging.StreamHandler(self.log)
         formatter = logging.Formatter(
             '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        ch.setFormatter(formatter)
+        self.handler.setFormatter(formatter)
 
         logging.RootLogger.propagate = 0
         logging.root.setLevel(logging.ERROR)
@@ -59,11 +61,15 @@ class TestOSTConnector(unittest.TestCase):
         logger = logging.getLogger('CloudConnector')
         logger.setLevel(logging.DEBUG)
         logger.propagate = 0
-        logger.addHandler(ch)
+        for handler in logger.handlers:
+            logger.removeHandler(handler)
+        logger.addHandler(self.handler)
 
-    @classmethod
-    def clean_log(cls):
-        cls.log = StringIO()
+    def tearDown(self):
+        self.handler.flush()
+        self.log.close()
+        self.log = StringIO()
+        self.handler.close()
 
     @staticmethod
     def get_ost_cloud():
@@ -72,7 +78,9 @@ class TestOSTConnector(unittest.TestCase):
         cloud_info.protocol = "https"
         cloud_info.server = "server.com"
         cloud_info.port = 5000
-        one_cloud = OpenStackCloudConnector(cloud_info)
+        inf = MagicMock()
+        inf.id = "1"
+        one_cloud = OpenStackCloudConnector(cloud_info, inf)
         return one_cloud
 
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
@@ -110,7 +118,6 @@ class TestOSTConnector(unittest.TestCase):
         concrete = ost_cloud.concreteSystem(radl_system, auth)
         self.assertEqual(len(concrete), 1)
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.clean_log()
 
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
     def test_20_launch(self, get_driver):
@@ -173,7 +180,6 @@ class TestOSTConnector(unittest.TestCase):
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.clean_log()
 
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
     def test_30_updateVMInfo(self, get_driver):
@@ -237,7 +243,6 @@ class TestOSTConnector(unittest.TestCase):
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.clean_log()
 
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
     def test_40_stop(self, get_driver):
@@ -267,7 +272,6 @@ class TestOSTConnector(unittest.TestCase):
 
         self.assertTrue(success, msg="ERROR: stopping VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.clean_log()
 
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
     def test_50_start(self, get_driver):
@@ -297,7 +301,6 @@ class TestOSTConnector(unittest.TestCase):
 
         self.assertTrue(success, msg="ERROR: stopping VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.clean_log()
 
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
     def test_55_alter(self, get_driver):
@@ -357,7 +360,6 @@ class TestOSTConnector(unittest.TestCase):
 
         self.assertTrue(success, msg="ERROR: modifying VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.clean_log()
 
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
     @patch('time.sleep')
@@ -409,7 +411,6 @@ class TestOSTConnector(unittest.TestCase):
 
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.clean_log()
 
 
 if __name__ == '__main__':

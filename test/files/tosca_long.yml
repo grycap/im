@@ -126,12 +126,12 @@ topology_template:
         - host:
             node_filter:
               capabilities:
-                # Constraints for selecting “host” (Container Capability)
+                # Constraints for selecting "host" (Container Capability)
                 - host:
                     properties:
                       - num_cpus: { in_range: [ 1, 4 ] }
                       - mem_size: { greater_or_equal: 2 GB }
-                # Constraints for selecting “os” (OperatingSystem Capability)
+                # Constraints for selecting "os" (OperatingSystem Capability)
                 - os:
                     properties:
                       - type: linux

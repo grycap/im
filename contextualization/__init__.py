@@ -13,11 +13,3 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-
-__all__ = ['auth', 'CloudInfo', 'config', 'ConfManager', 'db', 'ganglia', 'HTTPHeaderTransport',
-           'InfrastructureInfo', 'InfrastructureManager', 'recipe', 'request', 'REST', 'retry',
-           'ServiceRequests', 'SSH', 'SSHRetry', 'timedcall', 'UnixHTTPConnection', 'uriparse',
-           'VirtualMachine', 'VMRC', 'xmlobject']
-__version__ = '1.5.2'
-__author__ = 'Miguel Caballer'

@@ -62,7 +62,7 @@ class TTSClient:
         try:
             headers = {'Authorization': 'Bearer %s' % self.token, 'Content-Type': 'application/json'}
             success, res = self._perform_post(url, headers, body)
-        except Exception, ex:
+        except Exception as ex:
             success = False
             res = str(ex)
         if success:
@@ -77,7 +77,7 @@ class TTSClient:
         url = "/api/v2/oidcp"
         try:
             success, output = self._perform_get(url)
-        except Exception, ex:
+        except Exception as ex:
             success = False
             output = str(ex)
         if not success:
@@ -93,7 +93,7 @@ class TTSClient:
         try:
             headers = {'Authorization': 'Bearer %s' % self.token}
             success, output = self._perform_get(url, headers)
-        except Exception, ex:
+        except Exception as ex:
             success = False
             output = str(ex)
         if not success:

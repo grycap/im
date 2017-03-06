@@ -176,7 +176,7 @@ class TestSSH(unittest.TestCase):
         client = MagicMock()
         from_transport.return_value = client
 
-        res = ssh.sftp_chmod("some_file", 0644)
+        res = ssh.sftp_chmod("some_file", 0o644)
         self.assertTrue(res)
 
 
