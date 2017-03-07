@@ -640,7 +640,6 @@ class TestIM(unittest.TestCase):
         InfrastructureList.infrastructure_list[infId].vm_list[0].cloud_connector.error_messages = "TESTMSG"
         contmsg = IM.GetInfrastructureContMsg(infId, auth0)
 
-        self.assertIn("No correct Master VM found", contmsg)
         self.assertIn("TESTMSG", contmsg)
 
         state = IM.GetInfrastructureState(infId, auth0)
