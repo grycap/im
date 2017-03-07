@@ -184,7 +184,7 @@ configure imclient (
         content: |
             type = InfrastructureManager; username = imuser01; password = invitado
             type = VMRC; host = http://servproject.i3m.upv.es:8080/vmrc/vmrc; username = demo; password = demo
-            id = docker; type = Docker; host = {{INFRA_NODE_IP}}:2375
+            id = docker; type = Docker; host = http://{{INFRA_NODE_IP}}:2375
         mode: 0644
 
     - name: Download LoadTest.py
