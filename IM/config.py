@@ -92,6 +92,7 @@ class Config:
     UPDATE_CTXT_LOG_INTERVAL = 20
     ANSIBLE_INSTALL_TIMEOUT = 500
     INF_CACHE_TIME = None
+    VMINFO_JSON = False
 
 config = ConfigParser()
 config.read([Config.IM_PATH + '/../im.cfg', Config.IM_PATH +
