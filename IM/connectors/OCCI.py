@@ -418,10 +418,10 @@ class OCCICloudConnector(CloudConnector):
         config_data = {"users": [user_data]}
         if cloud_config_str:
             cloud_config = yaml.load(cloud_config_str)
-            if 'users' in cloud_config: 
+            if 'users' in cloud_config:
                 config_data["users"].extend(cloud_config['users'])
                 del cloud_config["users"]
-            
+
             config_data.update(cloud_config)
         config = "#cloud-config\n%s" % yaml.dump(config_data, default_flow_style=False, width=256)
         return config
