@@ -36,6 +36,7 @@ from IM.InfrastructureList import InfrastructureList
 from IM.auth import Authentication
 from radl.radl import RADL, system, deploy, Feature, SoftFeatures
 from radl.radl_parse import parse_radl
+from radl.radl_json import parse_radl as parse_radl_json
 from IM.CloudInfo import CloudInfo
 from IM.connectors.CloudConnector import CloudConnector
 from IM.SSH import SSH
@@ -631,6 +632,10 @@ class TestIM(unittest.TestCase):
         parsed_radl_info = parse_radl(str(radl_info))
         self.assertEqual(parsed_radl_info.systems[0].getValue("state"), "running")
 
+        radl_info = IM.GetVMInfo(infId, "0", auth0, True)
+        parsed_radl_info = parse_radl_json(radl_info)
+        self.assertEqual(parsed_radl_info.systems[0].getValue("state"), "running")
+
         state = IM.GetVMProperty(infId, "0", "state", auth0)
         self.assertEqual(state, "running")
 
@@ -640,7 +645,6 @@ class TestIM(unittest.TestCase):
         InfrastructureList.infrastructure_list[infId].vm_list[0].cloud_connector.error_messages = "TESTMSG"
         contmsg = IM.GetInfrastructureContMsg(infId, auth0)
 
-        self.assertIn("No correct Master VM found", contmsg)
         self.assertIn("TESTMSG", contmsg)
 
         state = IM.GetInfrastructureState(infId, auth0)

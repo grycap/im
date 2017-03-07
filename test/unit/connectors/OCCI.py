@@ -317,6 +317,66 @@ class TestOCCIConnector(unittest.TestCase):
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
+    def test_gen_cloud_config(self):
+        cloud_init = """
+groups:
+  - ubuntu: [foo,bar]
+  - cloud-users
+
+# Add users to the system. Users are added after groups are added.
+users:
+  - default
+  - name: cloudy
+    gecos: Magic Cloud App Daemon User
+    inactive: true
+    system: true
+  - snapuser: joe@joeuser.io
+packages:
+ - pwgen
+ - pastebinit
+ - [libpython2.7, 2.7.3-0ubuntu3.1]
+ """
+
+        expected_res = """#cloud-config
+users:
+- lock-passwd: true
+  name: user
+  ssh-authorized-keys:
+  - pub_key
+  ssh-import-id: user
+  sudo: ALL=(ALL) NOPASSWD:ALL
+"""
+        occi_cloud = self.get_occi_cloud()
+        res = occi_cloud.gen_cloud_config("pub_key", "user")
+        self.assertEqual(res, expected_res)
+
+        expected_res = """#cloud-config
+groups:
+- ubuntu:
+  - foo
+  - bar
+- cloud-users
+packages:
+- pwgen
+- pastebinit
+- - libpython2.7
+  - 2.7.3-0ubuntu3.1
+users:
+- lock-passwd: true
+  name: user
+  ssh-authorized-keys:
+  - pub_key
+  ssh-import-id: user
+  sudo: ALL=(ALL) NOPASSWD:ALL
+- default
+- gecos: Magic Cloud App Daemon User
+  inactive: true
+  name: cloudy
+  system: true
+- snapuser: joe@joeuser.io
+"""
+        res = occi_cloud.gen_cloud_config("pub_key", "user", cloud_init)
+        self.assertEqual(res, expected_res)
 
 if __name__ == '__main__':
     unittest.main()
