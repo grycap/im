@@ -418,6 +418,7 @@ class OCCICloudConnector(CloudConnector):
         config_data = {"users": [user_data]}
         if cloud_config_str:
             cloud_config = yaml.load(cloud_config_str)
+            # If the client has included the "users" section, append it to the current one
             if 'users' in cloud_config:
                 config_data["users"].extend(cloud_config['users'])
                 del cloud_config["users"]
