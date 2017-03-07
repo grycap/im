@@ -23,6 +23,7 @@ import string
 import requests
 import tempfile
 import uuid
+import yaml
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
@@ -408,17 +409,21 @@ class OCCICloudConnector(CloudConnector):
         """
         if not user:
             user = self.DEFAULT_USER
-        config = """#cloud-config
-users:
-  - name: %s
-    sudo: ALL=(ALL) NOPASSWD:ALL
-    lock-passwd: true
-    ssh-import-id: %s
-    ssh-authorized-keys:
-      - %s
-""" % (user, user, public_key)
+        user_data = {}
+        user_data['name'] = user
+        user_data['sudo'] = "ALL=(ALL) NOPASSWD:ALL"
+        user_data['lock-passwd'] = True
+        user_data['ssh-import-id'] = user
+        user_data['ssh-authorized-keys'] = [public_key]
+        config_data = {"users": [user_data]}
         if cloud_config_str:
-            config += "\n%s\n\n" % cloud_config_str.replace("\\n", "\n")
+            cloud_config = yaml.load(cloud_config_str)
+            if 'users' in cloud_config: 
+                config_data["users"].extend(cloud_config['users'])
+                del cloud_config["users"]
+            
+            config_data.update(cloud_config)
+        config = "#cloud-config\n%s" % yaml.dump(config_data, default_flow_style=False, width=256)
         return config
 
     def query_occi(self, auth_data):
@@ -667,30 +672,25 @@ users:
         i = 0
 
         public_key = system.getValue('disk.0.os.credentials.public_key')
-        password = system.getValue('disk.0.os.credentials.password')
+        # OCCI only uses private key
+        if system.getValue('disk.0.os.credentials.password'):
+            system.delValue('disk.0.os.credentials.password')
 
-        if public_key:
-            if password:
-                system.delValue('disk.0.os.credentials.password')
-            password = None
-        else:
-            if not password:
-                # We must generate them
-                (public_key, private_key) = self.keygen()
-                system.setValue('disk.0.os.credentials.private_key', private_key)
+        if not public_key:
+            # We must generate them
+            (public_key, private_key) = self.keygen()
+            system.setValue('disk.0.os.credentials.private_key', private_key)
 
         user = system.getValue('disk.0.os.credentials.username')
         if not user:
             user = self.DEFAULT_USER
             system.setValue('disk.0.os.credentials.username', user)
 
-        user_data = ""
-        if public_key:
-            # Add user cloud init data
-            cloud_config_str = self.get_cloud_init_data(radl)
-            cloud_config = self.gen_cloud_config(public_key, user, cloud_config_str).encode()
-            user_data = str(base64.b64encode(cloud_config)).replace("\n", "")
-            self.log_debug("Cloud init: %s" % cloud_config)
+        # Add user cloud init data
+        cloud_config_str = self.get_cloud_init_data(radl)
+        cloud_config = self.gen_cloud_config(public_key, user, cloud_config_str).encode()
+        user_data = str(base64.b64encode(cloud_config)).replace("\n", "")
+        self.log_debug("Cloud init: %s" % cloud_config)
 
         # Get the info about the OCCI server (GET /-/)
         occi_info = self.query_occi(auth_data)
