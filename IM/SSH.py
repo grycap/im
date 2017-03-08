@@ -51,14 +51,13 @@ class ThreadSSH(Thread):
         if self.command:
             self.client = self.ssh.connect()
 
+            channel = self.client.get_transport().open_session()
             if self.ssh.tty:
-                channel = self.client.get_transport().open_session()
                 channel.get_pty()
-                channel.exec_command(self.command + "\n")
-                stdout = channel.makefile()
-                stderr = channel.makefile_stderr()
-            else:
-                _, stdout, stderr = self.client.exec_command(self.command)
+            channel.exec_command(self.command + "\n")
+            stdout = channel.makefile()
+            stderr = channel.makefile_stderr()
+            exit_status = channel.recv_exit_status()
 
             res_stdout = ""
             for line in stdout:
@@ -70,7 +69,7 @@ class ThreadSSH(Thread):
             if self.ssh.tty:
                 channel.close()
 
-            self.command_return = (res_stdout, res_stderr)
+            self.command_return = (res_stdout, res_stderr, exit_status)
 
 
 class SSH:
