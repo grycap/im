@@ -518,7 +518,7 @@ class TestIM(unittest.TestCase):
         self.assertLess(delay, 17)
         self.assertGreater(delay, 14)
 
-        self.assertEqual(len(vms), 6)
+        self.assertEqual(vms, [0, 1, 2, 3, 4, 5])
         self.assertEqual(cloud.launch.call_count, 3)
         self.assertEqual(cloud.launch.call_args_list[0][0][3], 1)
         self.assertEqual(cloud.launch.call_args_list[1][0][3], 3)
@@ -537,7 +537,7 @@ class TestIM(unittest.TestCase):
         self.assertGreater(delay, 4)
         Config.MAX_SIMULTANEOUS_LAUNCHES = 1
 
-        self.assertEqual(len(vms), 6)
+        self.assertEqual(vms, [6, 7, 8, 9, 10, 11])
         self.assertEqual(cloud.launch.call_count, 3)
         self.assertEqual(cloud.launch.call_args_list[0][0][3], 1)
         self.assertEqual(cloud.launch.call_args_list[1][0][3], 3)
