@@ -110,11 +110,11 @@ configure iminstall (
 @begin
 ---
     - name: Install Reqs
-      apt: name=git,gcc,python-dev,python-pip,python-mysqldb,openssh-client,sshpass,libssl-dev,libffi-dev update_cache=yes cache_valid_time=3600
+      apt: name=git,gcc,python-dev,python-pip,python-mysqldb,openssh-client,sshpass,libssl-dev,libffi-dev,libsqlite3-dev update_cache=yes cache_valid_time=3600
       when: ansible_os_family == "Debian"
       
     - name: Yum install requirements RH or Fedora
-      yum: name=git,gcc,python-distribute,gcc,python-devel,wget,openssh-clients,sshpass,python-pip,libffi-devel,openssl-devel
+      yum: name=git,gcc,python-distribute,gcc,python-devel,wget,openssh-clients,sshpass,python-pip,libffi-devel,openssl-devel,sqlite-devel
       when: ansible_os_family == "RedHat"
 
     - name: Install backports.ssl_match_hostname with Pip
@@ -173,7 +173,7 @@ configure imclient (
     - INFRA_NODE_IP: "{{ hostvars[groups['infra'][0]]['IM_NODE_NET_0_IP'] }}"
     tasks:
     - name: Install Reqs
-      apt: name=gcc,python-dev,python-pip,python-mysqldb,openssh-client,sshpass,libssl-dev,libffi-dev update_cache=yes cache_valid_time=3600
+      apt: name=gcc,python-dev,python-pip,python-mysqldb,openssh-client,sshpass,libssl-dev,libffi-dev,libsqlite3-dev update_cache=yes cache_valid_time=3600
 
     - name: Install IM with Pip
       pip: name=IM
@@ -184,7 +184,7 @@ configure imclient (
         content: |
             type = InfrastructureManager; username = imuser01; password = invitado
             type = VMRC; host = http://servproject.i3m.upv.es:8080/vmrc/vmrc; username = demo; password = demo
-            id = docker; type = Docker; host = {{INFRA_NODE_IP}}:2375
+            id = docker; type = Docker; host = http://{{INFRA_NODE_IP}}:2375
         mode: 0644
 
     - name: Download LoadTest.py
@@ -192,7 +192,9 @@ configure imclient (
       with_items:
        - LoadTest.py
        - load-test.radl
+       - LoadTestR.py
        - LoadTestREST.py
+       - LoadTestRESTR.py
 
 @end
 )
