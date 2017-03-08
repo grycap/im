@@ -432,6 +432,12 @@ XML-RPC API
    Full path to the SSL Certification Authorities (CA) certificate.
    The default value is :file:`/etc/im/pki/ca-chain.pem`.
 
+.. confval:: VMINFO_JSON
+
+	Return the VM information of function GetVMInfo in RADL JSON instead of plain RADL
+	(**Added in IM version 1.5.2**) 
+	The default value is ``False``.
+
 .. _options-rest:
 
 REST API

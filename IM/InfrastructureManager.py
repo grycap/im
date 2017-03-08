@@ -34,6 +34,7 @@ import IM.InfrastructureInfo
 import IM.InfrastructureList
 from radl import radl_parse
 from radl.radl import Feature, RADL
+from radl.radl_json import dump_radl as dump_radl_json
 from IM.recipe import Recipe
 
 from IM.config import Config
@@ -717,7 +718,7 @@ class InfrastructureManager:
         return res
 
     @staticmethod
-    def GetVMInfo(inf_id, vm_id, auth):
+    def GetVMInfo(inf_id, vm_id, auth, json=False):
         """
         Get information about a virtual machine in an infrastructure.
 
@@ -726,6 +727,7 @@ class InfrastructureManager:
         - inf_id(str): infrastructure id.
         - vm_id(str): virtual machine id.
         - auth(Authentication): parsed authentication tokens.
+        - json(bool): Flag to return the info in RADL JSON format
 
         Return: a str with the information about the VM
         """
@@ -746,7 +748,10 @@ class InfrastructureManager:
             InfrastructureManager.logger.warn(
                 "Information not updated. Using last information retrieved")
 
-        return vm.get_vm_info()
+        if json:
+            return dump_radl_json(vm.get_vm_info())
+        else:
+            return vm.get_vm_info()
 
     @staticmethod
     def GetVMContMsg(inf_id, vm_id, auth):

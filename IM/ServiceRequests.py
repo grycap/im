@@ -20,7 +20,7 @@ import logging
 
 from IM.request import Request, AsyncRequest
 import IM.InfrastructureManager
-import IM.InfrastructureList
+from IM.config import Config
 from IM.auth import Authentication
 from IM import __version__ as version
 
@@ -167,7 +167,9 @@ class Request_GetVMInfo(IMBaseRequest):
     def _call_function(self):
         self._error_mesage = "Error Getting VM Info."
         (inf_id, vm_id, auth_data) = self.arguments
-        return str(IM.InfrastructureManager.InfrastructureManager.GetVMInfo(inf_id, vm_id, Authentication(auth_data)))
+        return str(IM.InfrastructureManager.InfrastructureManager.GetVMInfo(inf_id, vm_id,
+                                                                            Authentication(auth_data),
+                                                                            Config.VMINFO_JSON))
 
 
 class Request_GetVMProperty(IMBaseRequest):
