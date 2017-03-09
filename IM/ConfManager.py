@@ -54,8 +54,6 @@ class ConfManager(threading.Thread):
     Class to manage the contextualization steps
     """
 
-    logger = logging.getLogger('ConfManager')
-    """ Logger object """
     MASTER_YAML = "conf-ansible.yml"
     """ The file with the ansible steps to configure the master node """
     SECOND_STEP_YAML = 'conf-ansible-s2.yml'
@@ -70,6 +68,7 @@ class ConfManager(threading.Thread):
         self.max_ctxt_time = max_ctxt_time
         self._stop_thread = False
         self.ansible_process = None
+        self.logger = logging.getLogger('ConfManager')
 
     def check_running_pids(self, vms_configuring):
         """
@@ -86,13 +85,10 @@ class ConfManager(threading.Thread):
                         if step not in res:
                             res[step] = []
                         res[step].append(vm)
-                        ConfManager.logger.debug("Inf ID: " + str(self.inf.id) +
-                                                 ": Ansible process to configure " + str(
-                            vm.im_id) + " with PID " + vm.ctxt_pid + " is still running.")
+                        self.log_debug("Ansible process to configure " + str(vm.im_id) +
+                                       " with PID " + vm.ctxt_pid + " is still running.")
                     else:
-                        ConfManager.logger.debug(
-                            "Inf ID: " + str(self.inf.id) + ": Configuration process in VM: " +
-                            str(vm.im_id) + " finished.")
+                        self.log_debug("Configuration process in VM: " + str(vm.im_id) + " finished.")
                         # Force to save the data to store the log data ()
                         IM.InfrastructureList.InfrastructureList.save_data(self.inf.id)
                 else:
@@ -101,16 +97,13 @@ class ConfManager(threading.Thread):
                         if step not in res:
                             res[step] = []
                         res[step].append(vm)
-                        ConfManager.logger.debug("Inf ID: " + str(self.inf.id) +
-                                                 ": Configuration process of master node: " +
-                                                 str(vm.get_ctxt_process_names()) + " is still running.")
+                        self.log_debug("Configuration process of master node: " +
+                                       str(vm.get_ctxt_process_names()) + " is still running.")
                     else:
                         if vm.configured:
-                            ConfManager.logger.debug("Inf ID: " + str(self.inf.id) +
-                                                     ": Configuration process of master node successfully finished.")
+                            self.log_debug("Configuration process of master node successfully finished.")
                         else:
-                            ConfManager.logger.debug(
-                                "Inf ID: " + str(self.inf.id) + ": Configuration process of master node failed.")
+                            self.log_debug("Configuration process of master node failed.")
                         # Force to save the data to store the log data
                         IM.InfrastructureList.InfrastructureList.save_data(self.inf.id)
 
@@ -120,11 +113,9 @@ class ConfManager(threading.Thread):
         self._stop_thread = True
         # put a task to assure to wake up the thread
         self.inf.add_ctxt_tasks([(-10, 0, None, None)])
-        ConfManager.logger.debug(
-            "Inf ID: " + str(self.inf.id) + ": Stop Configuration thread.")
+        self.log_debug("Stop Configuration thread.")
         if self.ansible_process and self.ansible_process.is_alive():
-            ConfManager.logger.debug(
-                "Inf ID: " + str(self.inf.id) + ": Stopping pending Ansible process.")
+            self.log_debug("Stopping pending Ansible process.")
             self.ansible_process.terminate()
 
     def check_vm_ips(self, timeout=Config.WAIT_RUNNING_VM_TIMEOUT):
@@ -148,8 +139,8 @@ class ConfManager(threading.Thread):
 
                     # If the VM is not in a "running" state, ignore it
                     if vm.state in VirtualMachine.NOT_RUNNING_STATES:
-                        ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": The VM ID: " + str(
-                            vm.id) + " is not running, do not wait it to have an IP.")
+                        self.log_warn("The VM ID: " + str(vm.id) +
+                                      " is not running, do not wait it to have an IP.")
                         continue
 
                     if vm.hasPublicNet():
@@ -164,8 +155,7 @@ class ConfManager(threading.Thread):
                         break
 
             if not success:
-                ConfManager.logger.warn(
-                    "Inf ID: " + str(self.inf.id) + ": Error waiting all the VMs to have a correct IP")
+                self.log_warn("Error waiting all the VMs to have a correct IP")
                 wait += Config.CONFMAMAGER_CHECK_STATE_INTERVAL
                 time.sleep(Config.CONFMAMAGER_CHECK_STATE_INTERVAL)
             else:
@@ -178,26 +168,22 @@ class ConfManager(threading.Thread):
             Kill all the ctxt processes
         """
         for vm in self.inf.get_vm_list():
-            ConfManager.logger.debug(
-                "Inf ID: " + str(self.inf.id) + ": Killing ctxt processes.")
+            self.log_debug("Killing ctxt processes.")
             vm.kill_check_ctxt_process()
 
     def run(self):
-        ConfManager.logger.debug(
-            "Inf ID: " + str(self.inf.id) + ": Starting the ConfManager Thread")
+        self.log_debug("Starting the ConfManager Thread")
 
         last_step = None
         vms_configuring = {}
 
         while not self._stop_thread:
             if self.init_time + self.max_ctxt_time < time.time():
-                ConfManager.logger.debug(
-                    "Inf ID: " + str(self.inf.id) + ": Max contextualization time passed. Exit thread.")
+                self.log_debug("Max contextualization time passed. Exit thread.")
                 # Kill the ansible processes
                 self.kill_ctxt_processes()
                 if self.ansible_process and self.ansible_process.is_alive():
-                    ConfManager.logger.debug(
-                        "Inf ID: " + str(self.inf.id) + ": Stopping pending Ansible process.")
+                    self.log_debug("Stopping pending Ansible process.")
                     self.ansible_process.terminate()
                 return
 
@@ -213,15 +199,14 @@ class ConfManager(threading.Thread):
 
             # stop the thread if the stop method has been called
             if self._stop_thread:
-                ConfManager.logger.debug(
-                    "Inf ID: " + str(self.inf.id) + ": Exit Configuration thread.")
+                self.log_debug("Exit Configuration thread.")
                 return
 
             # if this task is from a next step
             if last_step is not None and last_step < step:
                 if vm.is_configured() is False:
-                    ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Configuration process of step " + str(
-                        last_step) + " failed, ignoring tasks of later steps.")
+                    self.log_debug("Configuration process of step " + str(last_step) +
+                                   " failed, ignoring tasks of later steps.")
                 else:
                     # Add the task again to the queue only if the last step was
                     # OK
@@ -229,28 +214,25 @@ class ConfManager(threading.Thread):
 
                     # If there are any process running of last step, wait
                     if last_step in vms_configuring and len(vms_configuring[last_step]) > 0:
-                        ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Waiting processes of step " +
-                                                 str(last_step) + " to finish.")
+                        self.log_debug("Waiting processes of step " + str(last_step) + " to finish.")
                         time.sleep(Config.CONFMAMAGER_CHECK_STATE_INTERVAL)
                     else:
                         # if not, update the step, to go ahead with the new
                         # step
-                        ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Step " + str(
-                            last_step) + " finished. Go to step: " + str(step))
+                        self.log_debug("Step " + str(last_step) + " finished. Go to step: " + str(step))
                         last_step = step
             else:
                 if isinstance(vm, VirtualMachine):
                     if vm.destroy:
-                        ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": VM ID " + str(
-                            vm.im_id) + " has been destroyed. Not launching new tasks for it.")
+                        self.log_warn("VM ID " + str(vm.im_id) +
+                                      " has been destroyed. Not launching new tasks for it.")
                     elif vm.is_configured() is False:
-                        ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Configuration process of step " +
-                                                 str(last_step) + " failed, ignoring tasks of later steps.")
+                        self.log_debug("Configuration process of step " +
+                                       str(last_step) + " failed, ignoring tasks of later steps.")
                         # Check that the VM has no other ansible process
                         # running
                     elif vm.ctxt_pid:
-                        ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": VM ID " +
-                                                 str(vm.im_id) + " has running processes, wait.")
+                        self.log_debug("VM ID " + str(vm.im_id) + " has running processes, wait.")
                         # If there are, add the tasks again to the queue
                         # Set the priority to a higher number to decrease the
                         # priority enabling to select other items of the queue
@@ -307,22 +289,19 @@ class ConfManager(threading.Thread):
                 ip = vm.getPrivateIP()
 
             if not ip:
-                ConfManager.logger.error("Inf ID: " + str(self.inf.id) +
-                                         ": VM with ID %s (%s) does not have an IP!!. "
-                                         "We cannot launch the ansible process!!" % (str(vm.im_id), vm.id))
+                self.log_error("VM with ID %s (%s) does not have an IP!!. "
+                               "We cannot launch the ansible process!!" % (str(vm.im_id), vm.id))
             else:
                 remote_dir = Config.REMOTE_CONF_DIR + "/" + \
                     str(self.inf.id) + "/" + ip + "_" + \
                     str(vm.getRemoteAccessPort())
                 tmp_dir = tempfile.mkdtemp()
 
-                ConfManager.logger.debug(
-                    "Inf ID: " + str(self.inf.id) + ": Create the configuration file for the contextualization agent")
+                self.log_debug("Create the configuration file for the contextualization agent")
                 conf_file = tmp_dir + "/config.cfg"
                 self.create_vm_conf_file(conf_file, vm, tasks, remote_dir)
 
-                ConfManager.logger.debug(
-                    "Inf ID: " + str(self.inf.id) + ": Copy the contextualization agent config file")
+                self.log_debug("Copy the contextualization agent config file")
 
                 # Copy the contextualization agent config file
                 ssh = vm.get_ssh_ansible_master()
@@ -342,18 +321,15 @@ class ConfManager(threading.Thread):
                                               " > " + remote_dir + "/stdout" + " 2> " + remote_dir +
                                               "/stderr < /dev/null & echo -n $!")
 
-                    ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": Ansible process to configure " +
-                                             str(vm.im_id) + " launched with pid: " + pid)
+                    self.log_debug("Ansible process to configure " + str(vm.im_id) + " launched with pid: " + pid)
 
                     vm.ctxt_pid = pid
                     vm.launch_check_ctxt_process()
                 else:
-                    ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": Ansible process to configure " +
-                                            str(vm.im_id) + " NOT launched")
+                    self.log_warn("Ansible process to configure " + str(vm.im_id) + " NOT launched")
         except:
             pid = None
-            ConfManager.logger.exception("Inf ID: " + str(self.inf.id) + ": Error launching the ansible process "
-                                         "to configure VM with ID %s" % str(vm.im_id))
+            self.log_exception("Error launching the ansible process to configure VM with ID %s" % str(vm.im_id))
         finally:
             if tmp_dir:
                 shutil.rmtree(tmp_dir, ignore_errors=True)
@@ -371,8 +347,7 @@ class ConfManager(threading.Thread):
         """
         Generate the ansible inventory file
         """
-        ConfManager.logger.debug(
-            "Inf ID: " + str(self.inf.id) + ": create the ansible configuration file")
+        self.log_debug("Create the ansible configuration file")
         res_filename = "hosts"
         ansible_file = tmp_dir + "/" + res_filename
         out = open(ansible_file, 'w')
@@ -414,13 +389,13 @@ class ConfManager(threading.Thread):
                     ip = vm.getPrivateIP()
 
                 if not ip:
-                    ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": The VM ID: " + str(
-                        vm.id) + " does not have an IP. It will not be included in the inventory file.")
+                    self.log_warn("The VM ID: " + str(vm.id) +
+                                  " does not have an IP. It will not be included in the inventory file.")
                     continue
 
                 if vm.state in VirtualMachine.NOT_RUNNING_STATES:
-                    ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": The VM ID: " + str(
-                        vm.id) + " is not running. It will not be included in the inventory file.")
+                    self.log_warn("The VM ID: " + str(vm.id) +
+                                  " is not running. It will not be included in the inventory file.")
                     continue
 
                 if vm.getOS().lower() == "windows":
@@ -533,8 +508,8 @@ class ConfManager(threading.Thread):
                     ip = vm.getPrivateIP()
 
                 if not ip:
-                    ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": The VM ID: " + str(
-                        vm.id) + " does not have an IP. It will not be included in the /etc/hosts file.")
+                    self.log_warn("The VM ID: " + str(vm.id) +
+                                  " does not have an IP. It will not be included in the /etc/hosts file.")
                     continue
 
                 for i in range(vm.getNumNetworkIfaces()):
@@ -544,12 +519,11 @@ class ConfManager(threading.Thread):
                             hosts_out.write(vm.getIfaceIP(
                                 i) + " " + nodename + "." + nodedom + " " + nodename + "\r\n")
                         else:
-                            ConfManager.logger.warn("Inf ID: %s: Net interface %d request a name, "
-                                                    "but it does not have an IP." % (self.inf.id, i))
+                            self.log_warn("Net interface %d request a name, but it does not have an IP." % i)
 
                             for j in range(vm.getNumNetworkIfaces()):
                                 if vm.getIfaceIP(j):
-                                    ConfManager.logger.warn("Setting the IP of the iface %d." % j)
+                                    self.log_warn("Setting the IP of the iface %d." % j)
                                     hosts_out.write(vm.getIfaceIP(
                                         j) + " " + nodename + "." + nodedom + " " + nodename + "\r\n")
                                     break
@@ -740,8 +714,7 @@ class ConfManager(threading.Thread):
                 time.sleep(cont * 5)
                 cont += 1
                 try:
-                    ConfManager.logger.info(
-                        "Inf ID: " + str(self.inf.id) + ": Start the contextualization process.")
+                    self.log_info("Start the contextualization process.")
 
                     if self.inf.radl.ansible_hosts:
                         configured_ok = True
@@ -759,17 +732,14 @@ class ConfManager(threading.Thread):
                         configured_ok = self.configure_ansible(ssh, tmp_dir)
 
                         if not configured_ok:
-                            ConfManager.logger.error(
-                                "Inf ID: " + str(self.inf.id) + ": Error in the ansible installation process")
+                            self.log_error("Error in the ansible installation process")
                             if not self.inf.ansible_configured:
                                 self.inf.ansible_configured = False
                         else:
-                            ConfManager.logger.info(
-                                "Inf ID: " + str(self.inf.id) + ": Ansible installation finished successfully")
+                            self.log_info("Ansible installation finished successfully")
 
                     remote_dir = Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/"
-                    ConfManager.logger.debug(
-                        "Inf ID: " + str(self.inf.id) + ": Copy the contextualization agent files")
+                    self.log_debug("Copy the contextualization agent files")
                     files = []
                     files.append((Config.IM_PATH + "/SSH.py", remote_dir + "/IM/SSH.py"))
                     files.append((Config.CONTEXTUALIZATION_DIR + "/ctxt_agent.py", remote_dir + "/ctxt_agent.py"))
@@ -805,8 +775,7 @@ class ConfManager(threading.Thread):
                     success = configured_ok
 
                 except Exception as ex:
-                    ConfManager.logger.exception(
-                        "Inf ID: " + str(self.inf.id) + ": Error in the ansible installation process")
+                    self.log_exception("Error in the ansible installation process")
                     self.inf.add_cont_msg(
                         "Error in the ansible installation process: " + str(ex))
                     if not self.inf.ansible_configured:
@@ -833,8 +802,7 @@ class ConfManager(threading.Thread):
             - Wait it to boot and has the SSH port open
         """
         if self.inf.radl.ansible_hosts:
-            ConfManager.logger.debug("Inf ID: " + str(self.inf.id) +
-                                     ": Usign ansible host: " + self.inf.radl.ansible_hosts[0].getHost())
+            self.log_debug("Usign ansible host: " + self.inf.radl.ansible_hosts[0].getHost())
             self.inf.set_configured(True)
             return True
 
@@ -853,41 +821,38 @@ class ConfManager(threading.Thread):
 
                 if not self.inf.vm_master:
                     # If there are not a valid master VM, exit
-                    ConfManager.logger.error("Inf ID: " + str(self.inf.id) + ": No correct Master VM found. Exit")
+                    self.log_error("No correct Master VM found. Exit")
                     self.inf.add_cont_msg("Contextualization Error: No correct Master VM found. Check if there a "
                                           "linux VM with Public IP and connected with the rest of VMs.")
                     self.inf.set_configured(False)
                     return
 
-                ConfManager.logger.info("Inf ID: " + str(self.inf.id) + ": Wait the master VM to be running")
+                self.log_info("Wait the master VM to be running")
 
                 self.inf.add_cont_msg("Wait master VM to boot")
                 all_running = self.wait_vm_running(self.inf.vm_master, Config.WAIT_RUNNING_VM_TIMEOUT, True)
 
                 if not all_running:
-                    ConfManager.logger.error("Inf ID: " + str(self.inf.id) +
-                                             ":  Error Waiting the Master VM to boot, exit")
+                    self.log_error("Error Waiting the Master VM to boot, exit")
                     self.inf.add_cont_msg("Contextualization Error: Error Waiting the Master VM to boot")
                     self.inf.set_configured(False)
                     return
 
                 # To avoid problems with the known hosts of previous calls
                 if os.path.isfile(os.path.expanduser("~/.ssh/known_hosts")):
-                    ConfManager.logger.debug("Remove " + os.path.expanduser("~/.ssh/known_hosts"))
+                    self.log_debug("Remove " + os.path.expanduser("~/.ssh/known_hosts"))
                     os.remove(os.path.expanduser("~/.ssh/known_hosts"))
 
                 self.inf.add_cont_msg("Wait master VM to have the SSH active.")
                 is_connected, msg = self.wait_vm_ssh_acccess(self.inf.vm_master, Config.WAIT_SSH_ACCCESS_TIMEOUT)
                 if not is_connected:
-                    ConfManager.logger.error("Inf ID: " + str(self.inf.id) +
-                                             ": Error Waiting the Master VM to have the SSH active, exit: " +
-                                             msg)
+                    self.log_error("Error Waiting the Master VM to have the SSH active, exit: " + msg)
                     self.inf.add_cont_msg("Contextualization Error: Error Waiting the Master VM to have the SSH"
                                           " active: " + msg)
                     self.inf.set_configured(False)
                     return
 
-                ConfManager.logger.info("Inf ID: " + str(self.inf.id) + ": VMs available.")
+                self.log_info("VMs available.")
 
                 # Check and change if necessary the credentials of the master
                 # vm
@@ -901,8 +866,7 @@ class ConfManager(threading.Thread):
 
                 self.inf.set_configured(True)
             except:
-                ConfManager.logger.exception(
-                    "Inf ID: " + str(self.inf.id) + ": Error waiting the master VM to be running")
+                self.log_exception("Error waiting the master VM to be running")
                 self.inf.set_configured(False)
         else:
             self.inf.set_configured(True)
@@ -920,8 +884,7 @@ class ConfManager(threading.Thread):
             # Get the groups for the different VM types
             vm_group = self.inf.get_vm_list_by_system_name()
 
-            ConfManager.logger.debug(
-                "Inf ID: " + str(self.inf.id) + ": Generating YAML, hosts and inventory files.")
+            self.log_debug("Generating YAML, hosts and inventory files.")
             # Create the other configure sections (it may be included in other
             # configure)
             filenames = []
@@ -973,8 +936,7 @@ class ConfManager(threading.Thread):
                 recipe_files.append((tmp_dir + "/" + f, remote_dir + "/" + f))
 
             self.inf.add_cont_msg("Copying YAML, hosts and inventory files.")
-            ConfManager.logger.debug(
-                "Inf ID: " + str(self.inf.id) + ": Copying YAML files.")
+            self.log_debug("Copying YAML files.")
             if self.inf.radl.ansible_hosts:
                 for ansible_host in self.inf.radl.ansible_hosts:
                     (user, passwd, private_key) = ansible_host.getCredentialValues()
@@ -990,8 +952,7 @@ class ConfManager(threading.Thread):
             self.inf.set_configured(True)
         except Exception as ex:
             self.inf.set_configured(False)
-            ConfManager.logger.exception(
-                "Inf ID: " + str(self.inf.id) + ": Error generating playbooks.")
+            self.log_exception("Error generating playbooks.")
             self.inf.add_cont_msg("Error generating playbooks: " + str(ex))
         finally:
             if tmp_dir:
@@ -1005,13 +966,11 @@ class ConfManager(threading.Thread):
             removed = IM.InfrastructureManager.InfrastructureManager.RemoveResource(
                 self.inf.id, vm.im_id, self.auth)
         except:
-            ConfManager.logger.exception(
-                "Inf ID: " + str(self.inf.id) + ": Error removing a failed VM.")
+            self.log_exception("Error removing a failed VM.")
             removed = 0
 
         if removed != 1:
-            ConfManager.logger.error(
-                "Inf ID: " + str(self.inf.id) + ": Error removing a failed VM. Not launching a new one.")
+            self.log_error("Error removing a failed VM. Not launching a new one.")
             return
 
         new_radl = ""
@@ -1047,27 +1006,22 @@ class ConfManager(threading.Thread):
                 if vm.state == VirtualMachine.RUNNING:
                     return True
                 elif vm.state == VirtualMachine.FAILED:
-                    ConfManager.logger.warn(
-                        "Inf ID: " + str(self.inf.id) + ": VM " + str(vm.id) + " is FAILED")
+                    self.log_warn("VM " + str(vm.id) + " is FAILED")
 
                     if relaunch and retries < Config.MAX_VM_FAILS:
-                        ConfManager.logger.info(
-                            "Inf ID: " + str(self.inf.id) + ": Launching new VM")
+                        self.log_info("Launching new VM")
                         self.relaunch_vm(vm, True)
                         # Set the wait counter to 0
                         wait = 0
                         retries += 1
                     else:
-                        ConfManager.logger.error(
-                            "Inf ID: " + str(self.inf.id) + ": Relaunch is not enabled. Exit")
+                        self.log_error("Relaunch is not enabled. Exit")
                         return False
             else:
-                ConfManager.logger.warn(
-                    "Inf ID: " + str(self.inf.id) + ": VM deleted by the user, Exit")
+                self.log_warn("VM deleted by the user, Exit")
                 return False
 
-            ConfManager.logger.debug(
-                "Inf ID: " + str(self.inf.id) + ": VM " + str(vm.id) + " is not running yet.")
+            self.log_debug("VM " + str(vm.id) + " is not running yet.")
             time.sleep(delay)
             wait += delay
 
@@ -1083,19 +1037,16 @@ class ConfManager(threading.Thread):
                     if vm.state == VirtualMachine.RUNNING:
                         return True
                     else:
-                        ConfManager.logger.warn(
-                            "VM " + str(vm.id) + " timeout")
+                        self.log_warn("VM " + str(vm.id) + " timeout")
 
                         if relaunch:
-                            ConfManager.logger.info("Launch a new VM")
+                            self.log_info("Launch a new VM")
                             self.relaunch_vm(vm)
                         else:
-                            ConfManager.logger.error(
-                                "Relaunch is not available. Exit")
+                            self.log_error("Relaunch is not available. Exit")
                             return False
                 else:
-                    ConfManager.logger.warn(
-                        "Inf ID: " + str(self.inf.id) + ": VM deleted by the user, Exit")
+                    self.log_warn("VM deleted by the user, Exit")
                     return False
 
         # Timeout, return False
@@ -1123,36 +1074,33 @@ class ConfManager(threading.Thread):
             else:
                 vm.update_status(self.auth)
                 if vm.state == VirtualMachine.FAILED:
-                    ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " + 'VM: ' +
-                                             str(vm.id) + " is in state Failed. Does not wait for SSH.")
+                    self.log_debug('VM: ' + str(vm.id) + " is in state Failed. Does not wait for SSH.")
                     return False, "VM Failure."
 
                 ip = vm.getPublicIP()
                 if ip is not None:
                     ssh = vm.get_ssh()
-                    ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " + 'SSH Connecting with: ' +
-                                             ip + ' to the VM: ' + str(vm.id))
+                    self.log_debug('SSH Connecting with: ' + ip + ' to the VM: ' + str(vm.id))
 
                     try:
                         connected = ssh.test_connectivity(5)
                     except AuthenticationException:
-                        ConfManager.logger.warn("Error connecting with ip: " + ip + " incorrect credentials.")
+                        self.log_warn("Error connecting with ip: " + ip + " incorrect credentials.")
                         auth_errors += 1
 
                         if auth_errors >= auth_error_retries:
-                            ConfManager.logger.error("Too many authentication errors")
+                            self.log_error("Too many authentication errors")
                             return False, "Error connecting with ip: " + ip + " incorrect credentials."
 
                     if connected:
-                        ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " + 'Works!')
+                        self.log_debug('Works!')
                         return True, ""
                     else:
-                        ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " + 'do not connect, wait ...')
+                        self.log_debug('do not connect, wait ...')
                         wait += delay
                         time.sleep(delay)
                 else:
-                    ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " + 'VM ' +
-                                             str(vm.id) + ' with no IP')
+                    self.log_debug('VM ' + str(vm.id) + ' with no IP')
                     # Update the VM info and wait to have a valid public IP
                     wait += delay
                     time.sleep(delay)
@@ -1193,7 +1141,7 @@ class ConfManager(threading.Thread):
                     # only change to the new password if there are a previous
                     # passwd value
                     if passwd and new_passwd:
-                        ConfManager.logger.info("Changing password to master VM")
+                        self.log_info("Changing password to master VM")
                         (out, err, code) = ssh.execute('echo "' + passwd + '" | sudo -S bash -c \'echo "' +
                                                        user + ':' + new_passwd +
                                                        '" | /usr/sbin/chpasswd && echo "OK"\' 2> /dev/null')
@@ -1202,13 +1150,13 @@ class ConfManager(threading.Thread):
                             change_creds = True
                             ssh.password = new_passwd
                         else:
-                            ConfManager.logger.error("Error changing password to master VM. " + out + err)
+                            self.log_error("Error changing password to master VM. " + out + err)
 
                     if new_public_key and new_private_key:
-                        ConfManager.logger.info("Changing public key to master VM")
+                        self.log_info("Changing public key to master VM")
                         (out, err, code) = ssh.execute_timeout('echo ' + new_public_key + ' >> .ssh/authorized_keys', 5)
                         if code != 0:
-                            ConfManager.logger.error("Error changing public key to master VM. " + out + err)
+                            self.log_error("Error changing public key to master VM. " + out + err)
                         else:
                             change_creds = True
                             ssh.private_key = new_private_key
@@ -1216,7 +1164,7 @@ class ConfManager(threading.Thread):
                 if change_creds:
                     self.inf.vm_master.info.systems[0].updateNewCredentialValues()
         except:
-            ConfManager.logger.exception("Error changing credentials to master VM.")
+            self.log_exception("Error changing credentials to master VM.")
 
         return change_creds
 
@@ -1249,8 +1197,7 @@ class ConfManager(threading.Thread):
             os.symlink(os.path.abspath(
                 Config.RECIPES_DIR + "/utils"), tmp_dir + "/utils")
 
-        ConfManager.logger.debug(
-            "Inf ID: " + str(self.inf.id) + ": " + 'Lanzamos ansible.')
+        self.log_debug('Launching Ansible process.')
         result = Queue()
         # store the process to terminate it later is Ansible does not finish correctly
         self.ansible_process = AnsibleThread(result, StringIO(), tmp_dir + "/" + playbook, None, 1, gen_pk_file,
@@ -1260,32 +1207,30 @@ class ConfManager(threading.Thread):
         wait = 0
         while self.ansible_process.is_alive():
             if wait >= Config.ANSIBLE_INSTALL_TIMEOUT:
-                ConfManager.logger.error("Inf ID: " + str(self.inf.id) + ": " +
-                                         'Timeout waiting Ansible process to finish')
+                self.log_error('Timeout waiting Ansible process to finish')
                 try:
                     # Try to assure that the are no ansible process running
                     self.ansible_process.teminate()
                 except:
-                    ConfManager.logger.exception("Inf ID: " + str(self.inf.id) + ": " +
-                                                 'Problems terminating Ansible processes.')
+                    self.log_exception('Problems terminating Ansible processes.')
                 self.ansible_process = None
                 return (False, "Timeout. Ansible process terminated.")
             else:
-                ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " +
-                                         'Waiting Ansible process to finish '
-                                         '(%d/%d).' % (wait, Config.ANSIBLE_INSTALL_TIMEOUT))
+                self.log_debug('Waiting Ansible process to finish (%d/%d).' % (wait, Config.ANSIBLE_INSTALL_TIMEOUT))
                 time.sleep(Config.CHECK_CTXT_PROCESS_INTERVAL)
                 wait += Config.CHECK_CTXT_PROCESS_INTERVAL
 
-        ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " +
-                                 'Ansible process finished.')
+        self.log_debug('Ansible process finished.')
 
         try:
-            _, (return_code, _), output = result.get(timeout=Config.CHECK_CTXT_PROCESS_INTERVAL)
+            timeout = Config.ANSIBLE_INSTALL_TIMEOUT - wait
+            if timeout < Config.CHECK_CTXT_PROCESS_INTERVAL:
+                timeout = Config.CHECK_CTXT_PROCESS_INTERVAL
+            self.log_debug('Get the result with a timeout of %d seconds.' % timeout)
+            _, (return_code, _), output = result.get(timeout=timeout)
             msg = output.getvalue()
         except:
-            ConfManager.logger.exception("Inf ID: " + str(self.inf.id) + ": " +
-                                         'Error getting ansible results.')
+            self.log_exception('Error getting ansible results.')
             return_code = 1
             msg = "Error getting ansible results."
 
@@ -1293,8 +1238,7 @@ class ConfManager(threading.Thread):
             # Try to assure that the are no ansible process running
             self.ansible_process.teminate()
         except:
-            ConfManager.logger.exception("Inf ID: " + str(self.inf.id) + ": " +
-                                         'Problems terminating Ansible processes.')
+            self.log_exception('Problems terminating Ansible processes.')
         self.ansible_process = None
 
         if return_code == 0:
@@ -1369,8 +1313,7 @@ class ConfManager(threading.Thread):
 
             self.inf.add_cont_msg(
                 "Creating and copying Ansible playbook files")
-            ConfManager.logger.debug("Inf ID: " + str(self.inf.id) +
-                                     ": Preparing Ansible playbook to copy Ansible modules: " + str(modules))
+            self.log_debug("Preparing Ansible playbook to copy Ansible modules: " + str(modules))
 
             ssh.sftp_mkdir(Config.REMOTE_CONF_DIR)
             ssh.sftp_mkdir(Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/")
@@ -1378,8 +1321,7 @@ class ConfManager(threading.Thread):
 
             for galaxy_name in modules:
                 if galaxy_name:
-                    ConfManager.logger.debug(
-                        "Inf ID: " + str(self.inf.id) + ": Install " + galaxy_name + " with ansible-galaxy.")
+                    self.log_debug("Install " + galaxy_name + " with ansible-galaxy.")
                     self.inf.add_cont_msg(
                         "Galaxy role " + galaxy_name + " detected setting to install.")
 
@@ -1414,35 +1356,29 @@ class ConfManager(threading.Thread):
 
             self.inf.add_cont_msg("Performing preliminary steps to configure Ansible.")
 
-            ConfManager.logger.debug(
-                "Inf ID: " + str(self.inf.id) + ": Remove requiretty in sshd config")
+            self.log_debug("Remove requiretty in sshd config")
             try:
                 cmd = "sudo -S sed -i 's/.*requiretty$/#Defaults requiretty/' /etc/sudoers"
                 if ssh.password:
                     cmd = "echo '" + ssh.password + "' | " + cmd
                 (stdout, stderr, _) = ssh.execute(cmd, 120)
-                ConfManager.logger.debug(
-                    "Inf ID: " + str(self.inf.id) + ": " + stdout + stderr)
+                self.log_debug(stdout + "\n" + stderr)
             except:
-                ConfManager.logger.exception("Inf ID: " + str(self.inf.id) + ": Error remove requiretty. Ignoring.")
+                self.log_exception("Error removing requiretty. Ignoring.")
 
             self.inf.add_cont_msg("Configure Ansible in the master VM.")
-            ConfManager.logger.debug(
-                "Inf ID: " + str(self.inf.id) + ": Call Ansible to (re)configure in the master node")
+            self.log_debug("Call Ansible to (re)configure in the master node")
             (success, msg) = self.call_ansible(
                 tmp_dir, "inventory.cfg", ConfManager.MASTER_YAML, ssh)
 
             if not success:
-                ConfManager.logger.error("Inf ID: " + str(self.inf.id) +
-                                         ": Error configuring master node: " + msg + "\n\n")
+                self.log_error("Error configuring master node: " + msg + "\n\n")
                 self.inf.add_cont_msg("Error configuring the master VM: " + msg + " " + tmp_dir)
             else:
-                ConfManager.logger.debug("Inf ID: " + str(self.inf.id) +
-                                         ": Ansible successfully configured in the master VM:\n" + msg + "\n\n")
+                self.log_debug("Ansible successfully configured in the master VM:\n" + msg + "\n\n")
                 self.inf.add_cont_msg("Ansible successfully configured in the master VM.")
         except Exception as ex:
-            ConfManager.logger.exception(
-                "Inf ID: " + str(self.inf.id) + ": Error configuring master node.")
+            self.log_exception("Error configuring master node.")
             self.inf.add_cont_msg("Error configuring master node: " + str(ex))
             success = False
 
@@ -1458,8 +1394,8 @@ class ConfManager(threading.Thread):
         conf_data['vms'] = []
         for vm in vm_list:
             if vm.state in VirtualMachine.NOT_RUNNING_STATES:
-                ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": The VM ID: " + str(
-                    vm.id) + " is not running, do not include in the general conf file.")
+                self.log_warn("The VM ID: " + str(vm.id) +
+                              " is not running, do not include in the general conf file.")
             else:
                 vm_conf_data = {}
                 vm_conf_data['id'] = vm.im_id
@@ -1489,8 +1425,8 @@ class ConfManager(threading.Thread):
                 if not vm_conf_data['ip']:
                     # if the vm does not have an IP, do not iclude it to avoid
                     # errors configurin gother VMs
-                    ConfManager.logger.warn("Inf ID: " + str(self.inf.id) + ": The VM ID: " + str(
-                        vm.id) + " does not have an IP, do not include in the general conf file.")
+                    self.log_warn("The VM ID: " + str(vm.id) +
+                                  " does not have an IP, do not include in the general conf file.")
                 else:
                     conf_data['vms'].append(vm_conf_data)
 
@@ -1520,13 +1456,11 @@ class ConfManager(threading.Thread):
             conf_data['changed_pass'] = True
 
         conf_out = open(conf_file, 'w')
-        ConfManager.logger.debug(
-            "Ctxt agent vm configuration file: " + json.dumps(conf_data))
+        self.log_debug("Ctxt agent vm configuration file: " + json.dumps(conf_data))
         json.dump(conf_data, conf_out, indent=2)
         conf_out.close()
 
-    @staticmethod
-    def mergeYAML(yaml1, yaml2):
+    def mergeYAML(self, yaml1, yaml2):
         """
         Merge two ansible yaml docs
 
@@ -1541,16 +1475,14 @@ class ConfManager(threading.Thread):
             if not isinstance(yamlo1o, dict):
                 yamlo1o = {}
         except Exception:
-            ConfManager.logger.exception(
-                "Error parsing YAML: " + yaml1 + "\n Ignore it")
+            self.log_exception("Error parsing YAML: " + yaml1 + "\n Ignore it")
 
         try:
             yamlo2s = yaml.load(yaml2)
             if not isinstance(yamlo2s, list) or any([not isinstance(d, dict) for d in yamlo2s]):
                 yamlo2s = {}
         except Exception:
-            ConfManager.logger.exception(
-                "Error parsing YAML: " + yaml2 + "\n Ignore it")
+            self.log_exception("Error parsing YAML: " + yaml2 + "\n Ignore it")
             yamlo2s = {}
 
         if not yamlo2s and not yamlo1o:
@@ -1581,3 +1513,22 @@ class ConfManager(threading.Thread):
             result.append(yamlo1)
 
         return yaml.dump(result, default_flow_style=False, explicit_start=True, width=256)
+
+    def log_msg(self, level, msg, exc_info=0):
+        msg = "Inf ID: %s: %s" % (self.inf.id, msg)
+        self.logger.log(level, msg, exc_info=exc_info)
+
+    def log_error(self, msg):
+        self.log_msg(logging.ERROR, msg)
+
+    def log_debug(self, msg):
+        self.log_msg(logging.DEBUG, msg)
+
+    def log_warn(self, msg):
+        self.log_msg(logging.WARNING, msg)
+
+    def log_exception(self, msg):
+        self.log_msg(logging.ERROR, msg, exc_info=1)
+
+    def log_info(self, msg):
+        self.log_msg(logging.INFO, msg)
