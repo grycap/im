@@ -1223,13 +1223,7 @@ class ConfManager(threading.Thread):
         self.log_debug('Ansible process finished.')
 
         try:
-            ret_val, (return_code, _), output = result.get(timeout=Config.CHECK_CTXT_PROCESS_INTERVAL)
-            if not result.empty():
-                ret_val, (return_code, _), output = result.get(timeout=Config.CHECK_CTXT_PROCESS_INTERVAL)
-                if ret_val != 0:
-                    self.log_error('Error getting ansible results.')
-            else:
-                self.log_error('Error getting ansible results. Only error result obtained.')
+            _, (return_code, _), output = result.get(timeout=Config.CHECK_CTXT_PROCESS_INTERVAL)
             msg = output.getvalue()
         except:
             self.log_exception('Error getting ansible results.')
@@ -1370,7 +1364,8 @@ class ConfManager(threading.Thread):
 
             self.inf.add_cont_msg("Configure Ansible in the master VM.")
             self.log_debug("Call Ansible to (re)configure in the master node")
-            (success, msg) = self.call_ansible(tmp_dir, "inventory.cfg", ConfManager.MASTER_YAML, ssh)
+            (success, msg) = self.call_ansible(
+                tmp_dir, "inventory.cfg", ConfManager.MASTER_YAML, ssh)
 
             if not success:
                 self.log_error("Error configuring master node: " + msg + "\n\n")
