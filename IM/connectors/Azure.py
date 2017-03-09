@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import time
+import uuid
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
@@ -342,7 +342,7 @@ class AzureCloudConnector(CloudConnector):
         system.updateNewCredentialValues()
         user_credentials = system.getCredentials()
 
-        os_disk_name = "osdisk-" + str(int(time.time() * 100))
+        os_disk_name = "osdisk-" + str(uuid.uuid1())
 
         return {
             'location': location,
@@ -474,18 +474,18 @@ class AzureCloudConnector(CloudConnector):
         res = []
         i = 0
         while i < num_vm:
+            group_name = None
             try:
-                # Create the VM to get the nodename
-                now = int(time.time() * 100)
-                vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self)
-                group_name = "rg-%s-%d" % (inf.id, vm.im_id)
-                storage_account_name = "st%d%d" % (now, vm.im_id)
+                uid = str(uuid.uuid1())
+                storage_account_name = "st-%s" % uid
 
                 vm_name = radl.systems[0].getValue("instance_name")
                 if vm_name:
-                    vm_name = "%s%d" % (vm_name, now)
+                    vm_name = "%s-%s" % (vm_name, uid)
                 else:
-                    vm_name = "userimage%d" % now
+                    vm_name = "userimage-%s" % uid
+
+                group_name = "rg-%s" % (vm_name)
 
                 # Create resource group for the VM
                 resource_client.resource_groups.create_or_update(group_name, {'location': location})
@@ -508,8 +508,7 @@ class AzureCloudConnector(CloudConnector):
                 async_vm_creation = compute_client.virtual_machines.create_or_update(group_name, vm_name, vm_parameters)
                 azure_vm = async_vm_creation.result()
 
-                # Set the cloud id to the VM
-                vm.id = group_name + '/' + vm_name
+                vm = VirtualMachine(inf, group_name + '/' + vm_name, self.cloud, radl, requested_radl, self)
                 vm.info.systems[0].setValue('instance_id', group_name + '/' + vm_name)
 
                 self.attach_data_disks(vm, storage_account_name, credentials, subscription_id, location)
@@ -520,7 +519,8 @@ class AzureCloudConnector(CloudConnector):
                 res.append((False, "Error creating the VM: " + str(ex)))
 
                 # Delete Resource group and everything in it
-                resource_client.resource_groups.delete(group_name)
+                if group_name:
+                    resource_client.resource_groups.delete(group_name)
 
             i += 1
 

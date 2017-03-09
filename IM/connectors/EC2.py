@@ -17,6 +17,7 @@
 import time
 import base64
 import os
+import uuid
 
 try:
     import boto.ec2
@@ -401,7 +402,7 @@ class EC2CloudConnector(CloudConnector):
 
     def create_keypair(self, system, conn):
         # create the keypair
-        keypair_name = "im-" + str(int(time.time() * 100))
+        keypair_name = "im-" + str(uuid.uuid1())
         created = False
 
         try:

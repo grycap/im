@@ -203,8 +203,7 @@ class TestOCCIConnector(unittest.TestCase):
         occi_cloud = self.get_occi_cloud()
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "1", occi_cloud.cloud, radl, radl, occi_cloud)
+        vm = VirtualMachine(inf, "1", occi_cloud.cloud, radl, radl, occi_cloud, 1)
 
         requests.side_effect = self.get_response
 
@@ -222,8 +221,7 @@ class TestOCCIConnector(unittest.TestCase):
         occi_cloud = self.get_occi_cloud()
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "1", occi_cloud.cloud, "", "", occi_cloud)
+        vm = VirtualMachine(inf, "1", occi_cloud.cloud, "", "", occi_cloud, 1)
 
         requests.side_effect = self.get_response
 
@@ -241,8 +239,7 @@ class TestOCCIConnector(unittest.TestCase):
         occi_cloud = self.get_occi_cloud()
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "1", occi_cloud.cloud, "", "", occi_cloud)
+        vm = VirtualMachine(inf, "1", occi_cloud.cloud, "", "", occi_cloud, 1)
 
         requests.side_effect = self.get_response
 
@@ -284,8 +281,7 @@ class TestOCCIConnector(unittest.TestCase):
         occi_cloud = self.get_occi_cloud()
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "1", occi_cloud.cloud, radl, radl, occi_cloud)
+        vm = VirtualMachine(inf, "1", occi_cloud.cloud, radl, radl, occi_cloud, 1)
 
         requests.side_effect = self.get_response
 
@@ -303,10 +299,9 @@ class TestOCCIConnector(unittest.TestCase):
         occi_cloud = self.get_occi_cloud()
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
         radl = RADL()
         radl.systems.append(system("test"))
-        vm = VirtualMachine(inf, "1", occi_cloud.cloud, radl, radl, occi_cloud)
+        vm = VirtualMachine(inf, "1", occi_cloud.cloud, radl, radl, occi_cloud, 1)
 
         requests.side_effect = self.get_response
 

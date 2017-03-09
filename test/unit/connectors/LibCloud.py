@@ -197,8 +197,7 @@ class TestOSTConnector(unittest.TestCase):
         lib_cloud = self.get_lib_cloud()
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "1", lib_cloud.cloud, radl, radl, lib_cloud)
+        vm = VirtualMachine(inf, "1", lib_cloud.cloud, radl, radl, lib_cloud, 1)
 
         driver = MagicMock()
         driver.name = "Amazon EC2"
@@ -239,8 +238,7 @@ class TestOSTConnector(unittest.TestCase):
         lib_cloud = self.get_lib_cloud()
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "1", lib_cloud.cloud, "", "", lib_cloud)
+        vm = VirtualMachine(inf, "1", lib_cloud.cloud, "", "", lib_cloud, 1)
 
         driver = MagicMock()
         get_driver.return_value = driver
@@ -265,8 +263,7 @@ class TestOSTConnector(unittest.TestCase):
         lib_cloud = self.get_lib_cloud()
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "1", lib_cloud.cloud, "", "", lib_cloud)
+        vm = VirtualMachine(inf, "1", lib_cloud.cloud, "", "", lib_cloud, 1)
 
         driver = MagicMock()
         get_driver.return_value = driver
@@ -313,8 +310,7 @@ class TestOSTConnector(unittest.TestCase):
         lib_cloud = self.get_lib_cloud()
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "1", lib_cloud.cloud, radl, radl, lib_cloud)
+        vm = VirtualMachine(inf, "1", lib_cloud.cloud, radl, radl, lib_cloud, 1)
 
         driver = MagicMock()
         get_driver.return_value = driver
@@ -353,8 +349,7 @@ class TestOSTConnector(unittest.TestCase):
         radl = radl_parse.parse_radl(radl_data)
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "1", lib_cloud.cloud, radl, radl, lib_cloud)
+        vm = VirtualMachine(inf, "1", lib_cloud.cloud, radl, radl, lib_cloud, 1)
         vm.keypair = ""
 
         driver = MagicMock()

@@ -21,6 +21,7 @@ import json
 import socket
 import requests
 import random
+import uuid
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from IM.config import Config
@@ -183,7 +184,7 @@ class DockerCloudConnector(CloudConnector):
         if not name:
             name = "imsvc"
 
-        svc_data['Name'] = "%s-%d" % (name, int(time.time() * 100))
+        svc_data['Name'] = "%s-%s" % (name, str(uuid.uuid1()))
         svc_data['TaskTemplate'] = {}
         svc_data['TaskTemplate']['ContainerSpec'] = {}
         svc_data['TaskTemplate']['ContainerSpec']['Image'] = image_name
@@ -487,7 +488,7 @@ class DockerCloudConnector(CloudConnector):
             # user device as volume name
             source = system.getValue("disk." + str(cont) + ".device")
             if not source:
-                source = "d-%d-%d" % (int(time.time() * 100), cont)
+                source = "d-%s-%d" % (str(uuid.uuid1()), cont)
                 system.setValue("disk." + str(cont) + ".device", source)
 
             # if the name of the source starts with / we assume it is a bind, so do not create a volume

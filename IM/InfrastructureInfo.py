@@ -157,13 +157,6 @@ class InfrastructureInfo:
             newinf.auth = Authentication.deserialize(dic['auth'])
         return newinf
 
-    def get_next_vm_id(self):
-        """Get the next vm id available."""
-        with self._lock:
-            vmid = self.vm_id
-            self.vm_id += 1
-        return vmid
-
     def delete(self):
         """
         Set this Inf as deleted

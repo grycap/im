@@ -206,8 +206,7 @@ class TestGCEConnector(unittest.TestCase):
         gce_cloud = self.get_gce_cloud()
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "1", gce_cloud.cloud, radl, radl, gce_cloud)
+        vm = VirtualMachine(inf, "1", gce_cloud.cloud, radl, radl, gce_cloud, 1)
 
         driver = MagicMock()
         get_driver.return_value = driver
@@ -243,8 +242,7 @@ class TestGCEConnector(unittest.TestCase):
         gce_cloud = self.get_gce_cloud()
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "1", gce_cloud.cloud, "", "", gce_cloud)
+        vm = VirtualMachine(inf, "1", gce_cloud.cloud, "", "", gce_cloud, 1)
 
         driver = MagicMock()
         get_driver.return_value = driver
@@ -264,8 +262,7 @@ class TestGCEConnector(unittest.TestCase):
         gce_cloud = self.get_gce_cloud()
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "1", gce_cloud.cloud, "", "", gce_cloud)
+        vm = VirtualMachine(inf, "1", gce_cloud.cloud, "", "", gce_cloud, 1)
 
         driver = MagicMock()
         get_driver.return_value = driver
@@ -293,8 +290,7 @@ class TestGCEConnector(unittest.TestCase):
         radl = radl_parse.parse_radl(radl_data)
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "1", gce_cloud.cloud, radl, radl, gce_cloud)
+        vm = VirtualMachine(inf, "1", gce_cloud.cloud, radl, radl, gce_cloud, 1)
 
         driver = MagicMock()
         driver.name = "OpenStack"
