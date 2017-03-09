@@ -1279,26 +1279,28 @@ class ConfManager(threading.Thread):
 
         ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " +
                                  'Ansible process finished.')
+
+        try:
+            _, (return_code, _), output = result.get(timeout=Config.CHECK_CTXT_PROCESS_INTERVAL)
+            msg = output.getvalue()
+        except:
+            ConfManager.logger.exception("Inf ID: " + str(self.inf.id) + ": " +
+                                         'Error getting ansible results.')
+            return_code = 1
+            msg = "Error getting ansible results."
+
         try:
             # Try to assure that the are no ansible process running
             self.ansible_process.teminate()
         except:
             ConfManager.logger.exception("Inf ID: " + str(self.inf.id) + ": " +
                                          'Problems terminating Ansible processes.')
-            pass
         self.ansible_process = None
 
-        try:
-            _, (return_code, _), output = result.get(timeout=Config.CHECK_CTXT_PROCESS_INTERVAL)
-        except:
-            ConfManager.logger.exception("Inf ID: " + str(self.inf.id) + ": " +
-                                         'Error getting ansible results.')
-            return (False, "Error getting ansible results.")
-
         if return_code == 0:
-            return (True, output.getvalue())
+            return (True, msg)
         else:
-            return (False, output.getvalue())
+            return (False, msg)
 
     def add_ansible_header(self, host, os):
         """
