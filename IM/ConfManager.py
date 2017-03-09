@@ -1223,7 +1223,10 @@ class ConfManager(threading.Thread):
         self.log_debug('Ansible process finished.')
 
         try:
-            _, (return_code, _), output = result.get(timeout=Config.CHECK_CTXT_PROCESS_INTERVAL)
+            timeout = Config.ANSIBLE_INSTALL_TIMEOUT - wait
+            if timeout < Config.CHECK_CTXT_PROCESS_INTERVAL:
+                timeout = Config.CHECK_CTXT_PROCESS_INTERVAL
+            _, (return_code, _), output = result.get(timeout=timeout)
             msg = output.getvalue()
         except:
             self.log_exception('Error getting ansible results.')
