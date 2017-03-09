@@ -184,7 +184,12 @@ class CtxtAgent():
         """
         thread, result = thread_data
         thread.join()
-        _, (return_code, hosts_with_errors), _ = result.get()
+        try:
+            _, (return_code, hosts_with_errors), _ = result.get(False)
+        except:
+            CtxtAgent.logger.exception('Error getting ansible results.')
+            return_code = -1
+            hosts_with_errors = []
 
         if output:
             if return_code == 0:

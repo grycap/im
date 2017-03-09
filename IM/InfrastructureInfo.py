@@ -206,6 +206,8 @@ class InfrastructureInfo:
         Add, and assigns a new VM ID to the infrastructure
         """
         with self._lock:
+            # Set the ID of the pos in the list
+            vm.im_id = len(self.vm_list)
             self.vm_list.append(vm)
 
     def add_cont_msg(self, msg):

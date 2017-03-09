@@ -1276,6 +1276,9 @@ class ConfManager(threading.Thread):
                                          '(%d/%d).' % (wait, Config.ANSIBLE_INSTALL_TIMEOUT))
                 time.sleep(Config.CHECK_CTXT_PROCESS_INTERVAL)
                 wait += Config.CHECK_CTXT_PROCESS_INTERVAL
+
+        ConfManager.logger.debug("Inf ID: " + str(self.inf.id) + ": " +
+                                 'Ansible process finished.')
         try:
             # Try to assure that the are no ansible process running
             self.ansible_process.teminate()
@@ -1285,7 +1288,12 @@ class ConfManager(threading.Thread):
             pass
         self.ansible_process = None
 
-        _, (return_code, _), output = result.get()
+        try:
+            _, (return_code, _), output = result.get(timeout=Config.CHECK_CTXT_PROCESS_INTERVAL)
+        except:
+            ConfManager.logger.exception("Inf ID: " + str(self.inf.id) + ": " +
+                                         'Error getting ansible results.')
+            return (False, "Error getting ansible results.")
 
         if return_code == 0:
             return (True, output.getvalue())
