@@ -871,7 +871,7 @@ configure step2 (
 
         IM.DestroyInfrastructure(infId, auth0)
 
-    def test_db(self):
+    def test_0db(self):
         """ Test DB data access """
         inf = InfrastructureInfo()
         inf.id = "1"
@@ -881,8 +881,8 @@ configure step2 (
         radl = RADL()
         radl.add(system("s0", [Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er")]))
         radl.add(deploy("s0", 1))
-        vm1 = VirtualMachine(inf, "1", cloud, radl, radl)
-        vm2 = VirtualMachine(inf, "2", cloud, radl, radl)
+        vm1 = VirtualMachine(inf, "1", cloud, radl, radl, None, 1)
+        vm2 = VirtualMachine(inf, "2", cloud, radl, radl, None, 2)
         inf.vm_list = [vm1, vm2]
         inf.vm_master = vm1
         # first create the DB table
