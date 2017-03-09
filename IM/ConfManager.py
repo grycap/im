@@ -1226,6 +1226,7 @@ class ConfManager(threading.Thread):
             timeout = Config.ANSIBLE_INSTALL_TIMEOUT - wait
             if timeout < Config.CHECK_CTXT_PROCESS_INTERVAL:
                 timeout = Config.CHECK_CTXT_PROCESS_INTERVAL
+            self.log_debug('Get the result with a timeout of %d seconds.' % timeout)
             _, (return_code, _), output = result.get(timeout=timeout)
             msg = output.getvalue()
         except:
