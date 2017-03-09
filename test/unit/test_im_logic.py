@@ -267,6 +267,52 @@ class TestIM(unittest.TestCase):
             self.assertEqual(call[3], 1)
         IM.DestroyInfrastructure(infId, auth0)
 
+    def test_inf_creation3(self):
+        """Create infrastructure """
+
+        radl = """"
+            network publica (outbound = 'yes')
+            network privada ()
+            system front (
+            cpu.arch='x86_64' and
+            cpu.count>=1 and
+            memory.size>=512m and
+            net_interface.0.connection = 'publica' and
+            net_interface.1.connection = 'privada' and
+            disk.0.image.url = 'one://localhost' and
+            disk.0.os.credentials.username = 'ubuntu' and
+            disk.0.os.credentials.password = 'yoyoyo' and
+            disk.0.os.name = 'linux'
+            )
+            deploy front 1
+        """
+
+        auth0 = Authentication([{'id': 'ost', 'type': 'OpenStack', 'username': 'user',
+                                'password': 'pass', 'tenant': 'ten', 'host': 'localhost:5000'},
+                               {'type': 'InfrastructureManager', 'username': 'test',
+                                'password': 'tests'}])
+        with self.assertRaises(Exception) as ex:
+            IM.CreateInfrastructure(radl, auth0)
+        self.assertEqual(str(ex.exception),
+                         'Some deploys did not proceed successfully: All machines could not be launched: \n'
+                         'Attempt 1: Error, no concrete system to deploy: front in cloud: ost. '
+                         'Check if a correct image is being used\n\n')
+
+        auth0 = Authentication([{'id': 'ost', 'type': 'OpenStack', 'username': 'user',
+                                'password': 'pass', 'tenant': 'ten', 'host': 'localhost:5000'},
+                                {'id': 'one', 'type': 'OpenNebula', 'username': 'user',
+                                'password': 'pass', 'host': 'localhost:2633'},
+                               {'type': 'InfrastructureManager', 'username': 'test',
+                                'password': 'tests'}])
+        with self.assertRaises(Exception) as ex:
+            IM.CreateInfrastructure(radl, auth0)
+        self.assertEqual(str(ex.exception), 'Some deploys did not proceed successfully: '
+                         'All machines could not be launched: \n'
+                         'Attempt 1: Error, no concrete system to deploy: front in cloud: ost. '
+                         'Check if a correct image is being used\n'
+                         'Attempt 2: Error launching the VMs of type front to cloud ID one of type OpenNebula.'
+                         ' Cloud Provider Error: [Errno 111] Connection refused\n\n')
+
     def test_inf_auth(self):
         """Try to access not owned Infs."""
 
@@ -871,7 +917,7 @@ configure step2 (
 
         IM.DestroyInfrastructure(infId, auth0)
 
-    def test_0db(self):
+    def test_db(self):
         """ Test DB data access """
         inf = InfrastructureInfo()
         inf.id = "1"
