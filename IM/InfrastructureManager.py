@@ -172,7 +172,9 @@ class InfrastructureManager:
                 try:
                     launched_vms = cloud.cloud.getCloudConnector(sel_inf).launch(
                         sel_inf, launch_radl, requested_radl, remain_vm, auth)
+                    all_ok = True
                 except Exception as e:
+                    all_ok = False
                     InfrastructureManager.logger.exception("Error launching some of the VMs: %s" % e)
                     exceptions.append("Error launching the VMs of type %s to cloud ID %s"
                                       " of type %s. Cloud Provider Error: %s" % (vm_type,
@@ -180,7 +182,6 @@ class InfrastructureManager:
                                                                                  cloud.cloud.type, e))
                     launched_vms = []
 
-                all_ok = True
                 for success, launched_vm in launched_vms:
                     if success:
                         InfrastructureManager.logger.debug("VM successfully launched: %s" % str(launched_vm.id))
@@ -228,6 +229,7 @@ class InfrastructureManager:
         try:
             tasks = []
             cloud_with_errors = {}
+            exceptions = []
             for deploy_group in deploy_groups:
                 deploys_group_cloud_list = deploys_group_cloud_list_all[id(deploy_group)]
                 if not deploy_group:
@@ -247,8 +249,9 @@ class InfrastructureManager:
                                 InfrastructureManager.logger.error(
                                     "Error, no concrete system to deploy: " + deploy.id + " in cloud: " +
                                     cloud_id + ". Check if a correct image is being used")
-                                exceptions.append("Error, no concrete system to deploy: " +
-                                                  deploy.id + ". Check if a correct image is being used.")
+                                exceptions.append("Error, no concrete system to deploy: " + deploy.id +
+                                                  " in cloud: " + cloud_id + ". Check if a correct image"
+                                                  " is being used")
                                 break
 
                             (username, _, _, _) = concrete_system.getCredentialValues()
@@ -279,6 +282,13 @@ class InfrastructureManager:
                     InfrastructureManager._launch_vm(sel_inf, task, deploy_group, auth,
                                                      deployed_vm, cancel_deployment, exceptions,
                                                      cloud_with_errors)
+
+            if exceptions and not cancel_deployment:
+                msg = ""
+                for i, e in enumerate(exceptions):
+                    msg += "Attempt %d: %s\n" % (i + 1, str(e))
+                cancel_deployment.append(Exception("All machines could not be launched: \n%s" % msg))
+
         except Exception as e:
             # Please, avoid exception to arrive to this level, because some virtual
             # machine may lost.
@@ -596,8 +606,7 @@ class InfrastructureManager:
             msg = ""
             for e in cancel_deployment:
                 msg += str(e) + "\n"
-            raise Exception(
-                "Some deploys did not proceed successfully: %s" % msg)
+            raise Exception("Some deploys did not proceed successfully: %s" % msg)
 
         for vm in new_vms:
             sel_inf.add_vm(vm)
