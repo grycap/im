@@ -43,6 +43,8 @@ class TestAnsible(unittest.TestCase):
                                         "password", 1, inventory, "username")
         ansible_process.run()
 
+        # get the first "error" result
+        _, (return_code, _), output = result.get()
         _, (return_code, _), output = result.get()
         self.assertEqual(return_code, 0)
         self.assertIn("failed=0", output.getvalue())

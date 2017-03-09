@@ -118,7 +118,7 @@ class AnsibleThread(Process):
     def run(self):
         try:
             # Add an Error response to try assure that result will never be empty
-            self.result.put((-1, "Error in Ansible process", self.output))
+            self.result.put((-1, (-1, []), self.output))
             output = self.output
             if isinstance(output, logging.Logger):
                 output = None
