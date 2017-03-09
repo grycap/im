@@ -158,7 +158,7 @@ class InfrastructureManager:
         # Each task_cloud represents a task to launch the VM in a cloud provider
         # if some fails we will try to use the next one
         for task_cloud in task:
-            cloud, deploy, launch_radl, requested_radl, remain_vm, vm_type = task_cloud
+            cloud, deploy, launch_radl, requested_radl, remain_vm, vm_type, t_num = task_cloud
 
             if id(deploy_group) in cloud_with_errors and cloud.cloud.id in cloud_with_errors[id(deploy_group)]:
                 InfrastructureManager.logger.debug("Cloud %s has failed for this deployment group. "
@@ -175,11 +175,11 @@ class InfrastructureManager:
                 except Exception as e:
                     all_ok = False
                     InfrastructureManager.logger.exception("Error launching some of the VMs: %s" % e)
-                    exceptions[deploy].append("Error launching the VMs of type %s to cloud ID %s"
-                                              " of type %s. Cloud Provider Error: %s" % (vm_type,
-                                                                                         cloud.cloud.id,
-                                                                                         cloud.cloud.type,
-                                                                                         e))
+                    exceptions[deploy][t_num] = ("Error launching the VMs of type %s to cloud ID %s"
+                                                 " of type %s. Cloud Provider Error: %s" % (vm_type,
+                                                                                            cloud.cloud.id,
+                                                                                            cloud.cloud.type,
+                                                                                            e))
                     launched_vms = []
 
                 for success, launched_vm in launched_vms:
@@ -191,8 +191,9 @@ class InfrastructureManager:
                     else:
                         all_ok = False
                         InfrastructureManager.logger.warn("Error launching some of the VMs: %s" % str(launched_vm))
-                        exceptions[deploy].append("Error launching the VMs of type %s to cloud ID %s of type %s. "
-                                                  "%s" % (vm_type, cloud.cloud.id, cloud.cloud.type, str(launched_vm)))
+                        exceptions[deploy][t_num] = ("Error launching the VMs of type %s to cloud ID %s of type %s. "
+                                                     "%s" % (vm_type, cloud.cloud.id,
+                                                             cloud.cloud.type, str(launched_vm)))
                         if not isinstance(launched_vm, (str, unicode)):
                             cloud.finalize(launched_vm, auth)
 
@@ -234,15 +235,17 @@ class InfrastructureManager:
                     task_cloud = []
                     if deploy.vm_number > 0:
                         for cloud_id in deploys_group_cloud_list:
+                            t_num = len(exceptions[deploy])
+                            exceptions[deploy].append(None)
                             cloud = cloud_list[cloud_id]
                             concrete_system = concrete_systems[cloud_id][deploy.id][0]
                             if not concrete_system:
                                 InfrastructureManager.logger.error(
                                     "Error, no concrete system to deploy: " + deploy.id + " in cloud: " +
                                     cloud_id + ". Check if a correct image is being used")
-                                exceptions[deploy].append("Error, no concrete system to deploy: " +
-                                                          deploy.id + " in cloud: " + cloud_id +
-                                                          ". Check if a correct image is being used")
+                                exceptions[deploy][t_num] = ("Error, no concrete system to deploy: " +
+                                                             deploy.id + " in cloud: " + cloud_id +
+                                                             ". Check if a correct image is being used")
                                 break
 
                             (username, _, _, _) = concrete_system.getCredentialValues()
@@ -254,7 +257,7 @@ class InfrastructureManager:
                             requested_radl = radl.clone()
                             requested_radl.systems = [radl.get_system_by_name(concrete_system.name)]
                             task_cloud.append((cloud, deploy, launch_radl, requested_radl,
-                                               deploy.vm_number, concrete_system.name))
+                                               deploy.vm_number, concrete_system.name, t_num))
                     else:
                         InfrastructureManager.logger.debug("deploy %s with 0 num. Ignoring." % deploy.id)
 
@@ -287,7 +290,8 @@ class InfrastructureManager:
 
         except Exception as e:
             # Please, avoid exception to arrive to this level, because some virtual
-            # machine may lost.
+            # machine may lost
+            InfrastructureManager.logger.exception("Error launching deploy group.")
             cancel_deployment.append(e)
 
         return deployed_vm, cancel_deployment
