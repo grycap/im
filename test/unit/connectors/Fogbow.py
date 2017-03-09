@@ -191,8 +191,7 @@ class TestFogBowConnector(unittest.TestCase):
         fogbow_cloud = self.get_fogbow_cloud()
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "1", fogbow_cloud.cloud, radl, radl, fogbow_cloud)
+        vm = VirtualMachine(inf, "1", fogbow_cloud.cloud, radl, radl, fogbow_cloud, 1)
 
         conn = MagicMock()
         connection.return_value = conn
@@ -211,8 +210,7 @@ class TestFogBowConnector(unittest.TestCase):
         fogbow_cloud = self.get_fogbow_cloud()
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "1", fogbow_cloud.cloud, "", "", fogbow_cloud)
+        vm = VirtualMachine(inf, "1", fogbow_cloud.cloud, "", "", fogbow_cloud, 1)
 
         conn = MagicMock()
         connection.return_value = conn
