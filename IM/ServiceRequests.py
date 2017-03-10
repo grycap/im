@@ -377,6 +377,6 @@ class Request_CreateDiskSnapshot(IMBaseRequest):
 
     def _call_function(self):
         self._error_mesage = "Error creating disk snapshot"
-        (inf_id, vm_id, disk_num, image_name, auth_data) = self.arguments
-        return InfrastructureManager.InfrastructureManager.CreateDiskSnapshot(inf_id, vm_id, disk_num, image_name,
-                                                                              Authentication(auth_data))
+        (inf_id, vm_id, disk_num, image_name, auto_delete, auth_data) = self.arguments
+        return IM.InfrastructureManager.InfrastructureManager.CreateDiskSnapshot(inf_id, vm_id, disk_num, image_name,
+                                                                                 auto_delete, Authentication(auth_data))

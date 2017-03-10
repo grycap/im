@@ -991,5 +991,20 @@ configure step2 (
         self.assertEqual(res['1'].vm_master.info.systems[0].getValue("disk.0.image.url"), "mock0://linux.for.ev.er")
         self.assertTrue(res['1'].auth.compare(inf.auth, "InfrastructureManager"))
 
+    def test_CreateDiskSnapshot(self):
+        """Test CreateDiskSnapshot """
+        radl = RADL()
+        radl.add(system("s0", [Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
+                               Feature("disk.0.os.credentials.username", "=", "user"),
+                               Feature("disk.0.os.credentials.password", "=", "pass")]))
+        radl.add(deploy("s0", 1))
+
+        auth0 = self.getAuth([0], [], [("Dummy", 0)])
+        infId = IM.CreateInfrastructure(str(radl), auth0)
+
+        auth0 = self.getAuth([0], [], [("Dummy", 0)])
+        res = IM.CreateDiskSnapshot(infId, 0, 0, "test", True, auth0)
+        self.assertEqual(res, "mock0://linux.for.ev.er/test")
+
 if __name__ == "__main__":
     unittest.main()

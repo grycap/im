@@ -364,6 +364,13 @@ class OpenNebulaCloudConnector(CloudConnector):
         if session_id is None:
             return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
         func_res = server.one.vm.action(session_id, 'delete', int(vm.id))
+        
+        if vm.inf.is_last_vm(vm.id):
+            try:
+                for image_url in vm.inf.snapshots:
+                    self.delete_image(image_url, auth_data)
+            except:
+                self.log_exception("Error deleting snapshots.")
 
         if len(func_res) == 1:
             success = True
@@ -981,7 +988,7 @@ class OpenNebulaCloudConnector(CloudConnector):
             # Nothing to do
             return (True, "")
 
-    def create_snapshot(self, vm, disk_num, image_name, auth_data):
+    def create_snapshot(self, vm, disk_num, image_name, auto_delete, auth_data):
         server = ServerProxy(self.server_url, allow_none=True)
 
         session_id = self.getSessionID(auth_data)
@@ -999,6 +1006,9 @@ class OpenNebulaCloudConnector(CloudConnector):
 
         if success:
             new_url = "one://%s/%d" % (self.cloud.server, res_info)
+            if auto_delete:
+                vm.inf.snapshots.append(new_url)
+                
             return (True, new_url)
         else:
             return (False, res_info)

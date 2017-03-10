@@ -1320,7 +1320,7 @@ class InfrastructureManager:
 
         vm = InfrastructureManager.get_vm_from_inf(inf_id, vm_id, auth)
 
-        success, image_url = vm.create_snapshot(disk_num, image_name, auth)
+        success, image_url = vm.create_snapshot(disk_num, image_name, auto_delete, auth)
         if not success:
             InfrastructureManager.logger.error("Error creating snapshot: %s" % image_url)
             raise Exception("Error creating snapshot: %s" % image_url)

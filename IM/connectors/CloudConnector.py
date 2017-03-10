@@ -134,7 +134,7 @@ class CloudConnector:
 
         raise NotImplementedError("Should have implemented this")
 
-    def create_snapshot(self, vm, disk_num, image_name, auth_data):
+    def create_snapshot(self, vm, disk_num, image_name, auto_delete, auth_data):
         """
         Create a snapshot of the specified num disk in a virtual machine.
 
@@ -142,6 +142,8 @@ class CloudConnector:
           - vm(:py:class:`IM.VirtualMachine`): VM to stop.
           - disk_num(int): Number of the disk.
           - image_name(str): Name of the new image.
+          - auto_delete(bool): A flag to specify that the snapshot will be deleted when the
+            infrastructure is destroyed.
           - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
 
         Returns: a tuple (success, vm).

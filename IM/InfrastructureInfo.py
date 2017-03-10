@@ -95,6 +95,8 @@ class InfrastructureInfo:
         """ List of configuration threads."""
         self.last_access = datetime.now()
         """ Time of the last access to this Inf. """
+        self.snapshots = []
+        """ List of URLs of snapshots made to this Inf that must be deleted on finalization """
 
     def serialize(self):
         with self._lock:
