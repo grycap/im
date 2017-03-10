@@ -224,8 +224,7 @@ class TestDockerConnector(unittest.TestCase):
         docker_cloud = self.get_docker_cloud()
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "1", docker_cloud.cloud, radl, radl, docker_cloud)
+        vm = VirtualMachine(inf, "1", docker_cloud.cloud, radl, radl, docker_cloud, 1)
 
         requests.side_effect = self.get_response
 
@@ -249,8 +248,7 @@ class TestDockerConnector(unittest.TestCase):
         docker_cloud = self.get_docker_cloud()
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "1", docker_cloud.cloud, "", "", docker_cloud)
+        vm = VirtualMachine(inf, "1", docker_cloud.cloud, "", "", docker_cloud, 1)
 
         requests.side_effect = self.get_response
 
@@ -265,8 +263,7 @@ class TestDockerConnector(unittest.TestCase):
         docker_cloud = self.get_docker_cloud()
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "1", docker_cloud.cloud, "", "", docker_cloud)
+        vm = VirtualMachine(inf, "1", docker_cloud.cloud, "", "", docker_cloud, 1)
 
         requests.side_effect = self.get_response
 
@@ -288,8 +285,7 @@ class TestDockerConnector(unittest.TestCase):
         docker_cloud = self.get_docker_cloud()
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "1", docker_cloud.cloud, radl, radl, docker_cloud)
+        vm = VirtualMachine(inf, "1", docker_cloud.cloud, radl, radl, docker_cloud, 1)
 
         requests.side_effect = self.get_response
 

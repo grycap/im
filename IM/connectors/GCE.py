@@ -15,6 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import time
+import uuid
 import os
 
 try:
@@ -426,10 +427,10 @@ class GCECloudConnector(CloudConnector):
         res = []
         if num_vm > 1:
             args['number'] = num_vm
-            args['base_name'] = "%s-%s" % (name.lower().replace("_", "-"), int(time.time() * 100))
+            args['base_name'] = "%s-%s" % (name.lower().replace("_", "-"), str(uuid.uuid1()))
             nodes = driver.ex_create_multiple_nodes(**args)
         else:
-            args['name'] = "%s-%s" % (name.lower().replace("_", "-"), int(time.time() * 100))
+            args['name'] = "%s-%s" % (name.lower().replace("_", "-"), str(uuid.uuid1()))
             nodes = [driver.create_node(**args)]
 
         for node in nodes:
@@ -600,7 +601,7 @@ class GCECloudConnector(CloudConnector):
                         "disk." + str(cont) + ".device")
                     self.log_debug(
                         "Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
-                    volume_name = "im-%d" % int(time.time() * 100.0)
+                    volume_name = "im-%s" % str(uuid.uuid1())
 
                     location = self.get_node_location(node)
                     volume = node.driver.create_volume(

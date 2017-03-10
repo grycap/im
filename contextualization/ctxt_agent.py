@@ -185,7 +185,7 @@ class CtxtAgent():
         thread, result = thread_data
         thread.join()
         try:
-            _, (return_code, hosts_with_errors), _ = result.get(False)
+            _, (return_code, hosts_with_errors), _ = result.get(timeout=60)
         except:
             CtxtAgent.logger.exception('Error getting ansible results.')
             return_code = -1
