@@ -168,8 +168,7 @@ class TestONEConnector(unittest.TestCase):
         one_cloud = self.get_one_cloud()
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "1", one_cloud.cloud, radl, radl, one_cloud)
+        vm = VirtualMachine(inf, "1", one_cloud.cloud, radl, radl, one_cloud, 1)
 
         one_server = MagicMock()
         one_server.one.vm.info.return_value = (True, read_file_as_string("files/vm_info.xml"), 0)
@@ -187,8 +186,7 @@ class TestONEConnector(unittest.TestCase):
         one_cloud = self.get_one_cloud()
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "1", one_cloud.cloud, "", "", one_cloud)
+        vm = VirtualMachine(inf, "1", one_cloud.cloud, "", "", one_cloud, 1)
 
         one_server = MagicMock()
         one_server.one.vm.action.return_value = (True, "", 0)
@@ -206,8 +204,7 @@ class TestONEConnector(unittest.TestCase):
         one_cloud = self.get_one_cloud()
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "1", one_cloud.cloud, "", "", one_cloud)
+        vm = VirtualMachine(inf, "1", one_cloud.cloud, "", "", one_cloud, 1)
 
         one_server = MagicMock()
         one_server.one.vm.action.return_value = (True, "", 0)
@@ -252,8 +249,7 @@ class TestONEConnector(unittest.TestCase):
         one_cloud = self.get_one_cloud()
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "1", one_cloud.cloud, radl, radl, one_cloud)
+        vm = VirtualMachine(inf, "1", one_cloud.cloud, radl, radl, one_cloud, 1)
 
         checkResize.return_value = True
         one_server = MagicMock()
@@ -275,8 +271,7 @@ class TestONEConnector(unittest.TestCase):
         one_cloud = self.get_one_cloud()
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "1", one_cloud.cloud, "", "", one_cloud)
+        vm = VirtualMachine(inf, "1", one_cloud.cloud, "", "", one_cloud, 1)
 
         one_server = MagicMock()
         one_server.one.vm.action.return_value = (True, "", 0)

@@ -204,8 +204,7 @@ class TestOSTConnector(unittest.TestCase):
         ost_cloud = self.get_ost_cloud()
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "1", ost_cloud.cloud, radl, radl, ost_cloud)
+        vm = VirtualMachine(inf, "1", ost_cloud.cloud, radl, radl, ost_cloud, 1)
 
         driver = MagicMock()
         get_driver.return_value = driver
@@ -251,8 +250,7 @@ class TestOSTConnector(unittest.TestCase):
         ost_cloud = self.get_ost_cloud()
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "1", ost_cloud.cloud, "", "", ost_cloud)
+        vm = VirtualMachine(inf, "1", ost_cloud.cloud, "", "", ost_cloud, 1)
 
         driver = MagicMock()
         get_driver.return_value = driver
@@ -280,8 +278,7 @@ class TestOSTConnector(unittest.TestCase):
         ost_cloud = self.get_ost_cloud()
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "1", ost_cloud.cloud, "", "", ost_cloud)
+        vm = VirtualMachine(inf, "1", ost_cloud.cloud, "", "", ost_cloud, 1)
 
         driver = MagicMock()
         get_driver.return_value = driver
@@ -331,8 +328,7 @@ class TestOSTConnector(unittest.TestCase):
         ost_cloud = self.get_ost_cloud()
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "1", ost_cloud.cloud, radl, radl, ost_cloud)
+        vm = VirtualMachine(inf, "1", ost_cloud.cloud, radl, radl, ost_cloud, 1)
 
         driver = MagicMock()
         get_driver.return_value = driver
@@ -376,8 +372,7 @@ class TestOSTConnector(unittest.TestCase):
         radl = radl_parse.parse_radl(radl_data)
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "1", ost_cloud.cloud, radl, radl, ost_cloud)
+        vm = VirtualMachine(inf, "1", ost_cloud.cloud, radl, radl, ost_cloud, 1)
 
         driver = MagicMock()
         driver.name = "OpenStack"

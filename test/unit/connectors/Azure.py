@@ -202,8 +202,7 @@ class TestAzureConnector(unittest.TestCase):
         azure_cloud = self.get_azure_cloud()
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "rg0/im0", azure_cloud.cloud, radl, radl, azure_cloud)
+        vm = VirtualMachine(inf, "rg0/im0", azure_cloud.cloud, radl, radl, azure_cloud, 1)
 
         instace_type = MagicMock()
         instace_type.name = "instance_type1"
@@ -251,8 +250,7 @@ class TestAzureConnector(unittest.TestCase):
         azure_cloud = self.get_azure_cloud()
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "rg0/vm0", azure_cloud.cloud, "", "", azure_cloud)
+        vm = VirtualMachine(inf, "rg0/vm0", azure_cloud.cloud, "", "", azure_cloud, 1)
 
         success, _ = azure_cloud.stop(vm, auth)
 
@@ -267,8 +265,7 @@ class TestAzureConnector(unittest.TestCase):
         azure_cloud = self.get_azure_cloud()
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "rg0/vm0", azure_cloud.cloud, "", "", azure_cloud)
+        vm = VirtualMachine(inf, "rg0/vm0", azure_cloud.cloud, "", "", azure_cloud, 1)
 
         success, _ = azure_cloud.start(vm, auth)
 
@@ -341,8 +338,7 @@ class TestAzureConnector(unittest.TestCase):
         nclient.public_ip_addresses.get.return_value = pub_ip_res
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "rg0/vm0", azure_cloud.cloud, radl, radl, azure_cloud)
+        vm = VirtualMachine(inf, "rg0/vm0", azure_cloud.cloud, radl, radl, azure_cloud, 1)
 
         success, _ = azure_cloud.alterVM(vm, new_radl, auth)
 
@@ -357,8 +353,7 @@ class TestAzureConnector(unittest.TestCase):
         azure_cloud = self.get_azure_cloud()
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "rg0/vm0", azure_cloud.cloud, "", "", azure_cloud)
+        vm = VirtualMachine(inf, "rg0/vm0", azure_cloud.cloud, "", "", azure_cloud, 1)
 
         success, _ = azure_cloud.finalize(vm, auth)
 

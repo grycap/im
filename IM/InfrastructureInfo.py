@@ -157,13 +157,6 @@ class InfrastructureInfo:
             newinf.auth = Authentication.deserialize(dic['auth'])
         return newinf
 
-    def get_next_vm_id(self):
-        """Get the next vm id available."""
-        with self._lock:
-            vmid = self.vm_id
-            self.vm_id += 1
-        return vmid
-
     def delete(self):
         """
         Set this Inf as deleted
@@ -198,6 +191,8 @@ class InfrastructureInfo:
         Add, and assigns a new VM ID to the infrastructure
         """
         with self._lock:
+            # Set the ID of the pos in the list
+            vm.im_id = len(self.vm_list)
             self.vm_list.append(vm)
 
     def add_cont_msg(self, msg):
