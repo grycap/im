@@ -190,7 +190,7 @@ class InfrastructureManager:
                             "Launching %d VMs of type %s" % (remain_vm, concrete_system.name))
                         launched_vms = cloud.cloud.getCloudConnector(sel_inf).launch(
                             sel_inf, launch_radl, requested_radl, remain_vm, auth)
-                    except Exception, e:
+                    except Exception as e:
                         InfrastructureManager.logger.exception("Error launching some of the VMs: %s" % e)
                         exceptions.append("Error launching the VMs of type %s to cloud ID %s"
                                           " of type %s. Cloud Provider Error: %s" % (concrete_system.name,
@@ -535,7 +535,7 @@ class InfrastructureManager:
                     InfrastructureManager._launch_group(sel_inf, ds, deploys_group_cloud_list[id(ds)],
                                                         cloud_list, concrete_systems, radl,
                                                         auth, deployed_vm, cancel_deployment)
-        except Exception, e:
+        except Exception as e:
             # Please, avoid exception to arrive to this level, because some virtual
             # machine may lost.
             cancel_deployment.append(e)
