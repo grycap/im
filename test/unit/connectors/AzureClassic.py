@@ -227,8 +227,7 @@ class TestAzureClassicConnector(unittest.TestCase):
         azure_cloud = self.get_azure_cloud()
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "1", azure_cloud.cloud, radl, radl, azure_cloud)
+        vm = VirtualMachine(inf, "1", azure_cloud.cloud, radl, radl, azure_cloud, 1)
 
         requests.side_effect = self.get_response
 
@@ -245,8 +244,7 @@ class TestAzureClassicConnector(unittest.TestCase):
         azure_cloud = self.get_azure_cloud()
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "1", azure_cloud.cloud, "", "", azure_cloud)
+        vm = VirtualMachine(inf, "1", azure_cloud.cloud, "", "", azure_cloud, 1)
 
         requests.side_effect = self.get_response
 
@@ -263,8 +261,7 @@ class TestAzureClassicConnector(unittest.TestCase):
         azure_cloud = self.get_azure_cloud()
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "1", azure_cloud.cloud, "", "", azure_cloud)
+        vm = VirtualMachine(inf, "1", azure_cloud.cloud, "", "", azure_cloud, 1)
 
         requests.side_effect = self.get_response
 
@@ -303,8 +300,7 @@ class TestAzureClassicConnector(unittest.TestCase):
         azure_cloud = self.get_azure_cloud()
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "1", azure_cloud.cloud, radl, radl, azure_cloud)
+        vm = VirtualMachine(inf, "1", azure_cloud.cloud, radl, radl, azure_cloud, 1)
 
         requests.side_effect = self.get_response
 
@@ -321,8 +317,7 @@ class TestAzureClassicConnector(unittest.TestCase):
         azure_cloud = self.get_azure_cloud()
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "1", azure_cloud.cloud, "", "", azure_cloud)
+        vm = VirtualMachine(inf, "1", azure_cloud.cloud, "", "", azure_cloud, 1)
 
         sleep.return_value = True
         requests.side_effect = self.get_response

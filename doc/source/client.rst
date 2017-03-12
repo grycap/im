@@ -165,9 +165,11 @@ keys are:
   used as the label in the *deploy* section in the RADL.
 
 * ``subscription_id`` indicates the subscription_id name associated to the credential.
-  This field is only used in the Azure and Azure Classic plugins.
+  This field is only used in the Azure and Azure Classic plugins. To create a user to use the Azure (ARM)
+  plugin check the documentation of the Azure python SDK:
+  `here <https://azure-sdk-for-python.readthedocs.io/en/latest/quickstart_authentication.html#using-ad-user-password>`_
 
-OpenStack addicional fields
+OpenStack additional fields
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 OpenStack has a set of additional fields to access a cloud site:
