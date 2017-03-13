@@ -47,10 +47,10 @@ from IM.REST import (RESTDestroyInfrastructure,
                      RESTGeVersion)
 
 
-def read_file_as_string(file_name):
+def read_file_as_bytes(file_name):
     tests_path = os.path.dirname(os.path.abspath(__file__))
     abs_file_path = os.path.join(tests_path, file_name)
-    return open(abs_file_path, 'r').read()
+    return BytesIO(open(abs_file_path, 'r').read().encode())
 
 
 class TestREST(unittest.TestCase):
@@ -168,7 +168,7 @@ class TestREST(unittest.TestCase):
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass"),
                                   "Content-Type": "application/json"}
-        bottle_request.body = BytesIO(read_file_as_string("../files/test_simple.json").encode())
+        bottle_request.body = read_file_as_bytes("../files/test_simple.json")
 
         CreateInfrastructure.return_value = "1"
 
@@ -252,7 +252,7 @@ class TestREST(unittest.TestCase):
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass"),
                                   "Content-Type": "application/json"}
-        bottle_request.body = BytesIO(read_file_as_string("../files/test_simple.json").encode())
+        bottle_request.body = read_file_as_bytes("../files/test_simple.json")
 
         res = RESTAddResource("1")
         self.assertEqual(res, "http://imserver.com/infrastructures/1/vms/1")
@@ -292,7 +292,7 @@ class TestREST(unittest.TestCase):
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass"),
                                   "Content-Type": "application/json"}
-        bottle_request.body = BytesIO(read_file_as_string("../files/test_simple.json").encode())
+        bottle_request.body = read_file_as_bytes("../files/test_simple.json")
 
         res = RESTAlterVM("1", "1")
         self.assertEqual(res, "vm_info")
@@ -317,7 +317,7 @@ class TestREST(unittest.TestCase):
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass"),
                                   "Content-Type": "application/json"}
-        bottle_request.body = BytesIO(read_file_as_string("../files/test_simple.json").encode())
+        bottle_request.body = read_file_as_bytes("../files/test_simple.json")
 
         res = RESTReconfigureInfrastructure("1")
         self.assertEqual(res, "")
