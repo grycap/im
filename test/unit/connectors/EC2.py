@@ -305,8 +305,7 @@ class TestEC2Connector(unittest.TestCase):
         ec2_cloud = self.get_ec2_cloud()
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "us-east-1;id-1", ec2_cloud.cloud, radl, radl, ec2_cloud)
+        vm = VirtualMachine(inf, "us-east-1;id-1", ec2_cloud.cloud, radl, radl, ec2_cloud, 1)
 
         conn = MagicMock()
         get_connection.return_value = conn
@@ -366,8 +365,7 @@ class TestEC2Connector(unittest.TestCase):
         ec2_cloud = self.get_ec2_cloud()
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "us-east-1;sid-1", ec2_cloud.cloud, radl, radl, ec2_cloud)
+        vm = VirtualMachine(inf, "us-east-1;sid-1", ec2_cloud.cloud, radl, radl, ec2_cloud, 1)
 
         conn = MagicMock()
         get_connection.return_value = conn
@@ -411,8 +409,7 @@ class TestEC2Connector(unittest.TestCase):
         ec2_cloud = self.get_ec2_cloud()
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "us-east-1;id-1", ec2_cloud.cloud, "", "", ec2_cloud)
+        vm = VirtualMachine(inf, "us-east-1;id-1", ec2_cloud.cloud, "", "", ec2_cloud, 1)
 
         conn = MagicMock()
         get_connection.return_value = conn
@@ -435,8 +432,7 @@ class TestEC2Connector(unittest.TestCase):
         ec2_cloud = self.get_ec2_cloud()
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "us-east-1;id-1", ec2_cloud.cloud, "", "", ec2_cloud)
+        vm = VirtualMachine(inf, "us-east-1;id-1", ec2_cloud.cloud, "", "", ec2_cloud, 1)
 
         conn = MagicMock()
         get_connection.return_value = conn
@@ -481,8 +477,7 @@ class TestEC2Connector(unittest.TestCase):
         ec2_cloud = self.get_ec2_cloud()
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "us-east-1;sid-1", ec2_cloud.cloud, radl, radl, ec2_cloud)
+        vm = VirtualMachine(inf, "us-east-1;sid-1", ec2_cloud.cloud, radl, radl, ec2_cloud, 1)
 
         conn = MagicMock()
         get_connection.return_value = conn
@@ -527,8 +522,7 @@ class TestEC2Connector(unittest.TestCase):
 
         inf = MagicMock()
         inf.id = "1"
-        inf.get_next_vm_id.return_value = 1
-        vm = VirtualMachine(inf, "us-east-1;id-1", ec2_cloud.cloud, radl, radl, ec2_cloud)
+        vm = VirtualMachine(inf, "us-east-1;id-1", ec2_cloud.cloud, radl, radl, ec2_cloud, 1)
         vm.keypair_name = "key"
 
         conn = MagicMock()

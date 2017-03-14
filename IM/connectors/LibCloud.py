@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import time
+import uuid
 
 try:
     from libcloud.compute.base import NodeImage, NodeAuthSSHKey
@@ -224,7 +224,7 @@ class LibCloudCloudConnector(CloudConnector):
 
         args = {'size': instance_type,
                 'image': image,
-                'name': "%s-%s" % (name, int(time.time() * 100))}
+                'name': "%s-%s" % (name, str(uuid.uuid1()))}
 
         keypair = None
         public_key = system.getValue("disk.0.os.credentials.public_key")
@@ -240,7 +240,7 @@ class LibCloudCloudConnector(CloudConnector):
                     else:
                         args["ex_keyname"] = keypair.name
             elif not system.getValue("disk.0.os.credentials.password"):
-                keypair_name = "im-%d" % int(time.time() * 100.0)
+                keypair_name = "im-%s" % str(uuid.uuid1())
                 keypair = driver.create_key_pair(keypair_name)
                 system.setUserKeyCredentials(
                     system.getCredentials().username, None, keypair.private_key)
@@ -584,7 +584,7 @@ class LibCloudCloudConnector(CloudConnector):
                     if disk_device:
                         disk_device = "/dev/" + disk_device
                     self.log_debug("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
-                    volume_name = "im-%d" % int(time.time() * 100.0)
+                    volume_name = "im-%s" % str(uuid.uuid1())
 
                     location = self.get_node_location(node)
                     volume = node.driver.create_volume(int(disk_size), volume_name, location=location)

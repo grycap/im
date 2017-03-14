@@ -98,6 +98,7 @@ class Config:
     OIDC_ISSUERS = ["https://iam-test.indigo-datacloud.eu/"]
     OIDC_AUDIENCE = None
     INF_CACHE_TIME = None
+    VMINFO_JSON = False
 
 config = ConfigParser()
 config.read([Config.IM_PATH + '/../im.cfg', Config.IM_PATH +

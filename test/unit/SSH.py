@@ -150,11 +150,18 @@ class TestSSH(unittest.TestCase):
 
         client = MagicMock()
         ssh_client.return_value = client
-        client.exec_command.return_value = "", ["out"], ["err"]
+        tansport = MagicMock()
+        client.get_transport.return_value = tansport
+        channel = MagicMock()
+        tansport.open_session.return_value = channel
+        channel.makefile.return_value = "out"
+        channel.makefile_stderr.return_value = "err"
+        channel.recv_exit_status.return_value = 0
 
-        res_stdout, res_stderr = ssh.execute_timeout("ls", 5)
+        res_stdout, res_stderr, code = ssh.execute_timeout("ls", 5)
         self.assertEqual(res_stdout, "out")
         self.assertEqual(res_stderr, "err")
+        self.assertEqual(code, 0)
 
     @patch('paramiko.SSHClient')
     @patch('paramiko.SFTPClient.from_transport')
