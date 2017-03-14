@@ -207,3 +207,39 @@ or
 REST_SSL = True
 
 And then set the variables: XMLRCP_SSL_* or REST_SSL_* to your certificates paths.
+
+### 1.4.2 SINGLE SITE
+
+To configure the IM as the orchestrator of a single site you can use the SINGLE_SITE* 
+configuration variables. This is an example for an OpenNebula based site assuming that
+the hostname of the OpenNebula server is 'server.com':
+
+SINGLE_SITE = True
+SINGLE_SITE_TYPE = OpenNebula
+SINGLE_SITE_AUTH_HOST = http://server.com:2633
+SINGLE_SITE_IMAGE_URL_PREFIX = one://server.com/
+
+And this second example shows how to configure for an OpenStack based site assuming that
+the hostname of the OpenStack keystone server is 'server.com':
+
+SINGLE_SITE = True
+SINGLE_SITE_TYPE = OpenStack
+SINGLE_SITE_AUTH_HOST = https://server.com:5000
+SINGLE_SITE_IMAGE_URL_PREFIX = ost://server.com/
+
+Using this kind of configuration combined with OIDC tokens the IM authentication is
+simplified and an standard 'Bearer' authorization header can be using to interact with the IM service. 
+
+### 1.4.3 OPENNEBULA TTS INTEGRATION
+
+The IM service enables to configure a WaTTS - the INDIGO Token Translation Service (https://github.com/indigo-dc/tts)
+to access OpenNebula sites. IM uses version 2 of the WaTTS API (https://indigo-dc.gitbooks.io/token-translation-service/content/api.html)
+
+To configure it you must set the value of the TTS_URL in the OpenNebula section: 
+TTS_URL = https://localhost:8443
+
+In particular the WaTTS instance must be configured to include the hostname of the OpenNebula server
+in the plugin configuration of the WaTTS service, for example like this:
+
+service.onesite.description = server.com 
+
