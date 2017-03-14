@@ -436,7 +436,10 @@ class InfrastructureManager:
 
             if Config.SINGLE_SITE:
                 image_id = os.path.basename(s.getValue("disk.0.image.url"))
-                s.setValue("disk.0.image.url", Config.SINGLE_SITE_IMAGE_URL_PREFIX + '/' + image_id)
+                url_prefix = Config.SINGLE_SITE_IMAGE_URL_PREFIX
+                if not url_prefix.endswith("/"):
+                    url_prefix = url_prefix + "/"
+                s.setValue("disk.0.image.url", url_prefix + image_id)
 
             # Remove the requested apps from the system
             s_without_apps = radl.get_system_by_name(system_id).clone()
