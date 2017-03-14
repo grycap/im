@@ -991,7 +991,7 @@ configure step2 (
         self.assertEqual(res['1'].vm_master.info.systems[0].getValue("disk.0.image.url"), "mock0://linux.for.ev.er")
         self.assertTrue(res['1'].auth.compare(inf.auth, "InfrastructureManager"))
 
-    def test_CreateDiskSnapshot(self):
+    def test_0CreateDiskSnapshot(self):
         """Test CreateDiskSnapshot """
         radl = RADL()
         radl.add(system("s0", [Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
@@ -999,12 +999,21 @@ configure step2 (
                                Feature("disk.0.os.credentials.password", "=", "pass")]))
         radl.add(deploy("s0", 1))
 
-        auth0 = self.getAuth([0], [], [("Dummy", 0)])
+        new_url = "mock0://linux.for.ev.er/test"
+
+        cloud0 = self.get_cloud_connector_mock("MyMock0")
+        cloud0.create_snapshot = Mock(return_value=(True, new_url))
+        self.register_cloudconnector("Mock0", cloud0)
+        auth0 = self.getAuth([0], [], [("Mock0", 0)])
+
         infId = IM.CreateInfrastructure(str(radl), auth0)
 
-        auth0 = self.getAuth([0], [], [("Dummy", 0)])
+        InfrastructureList.infrastructure_list[infId].vm_list[0].cloud_connector = cloud0
+
         res = IM.CreateDiskSnapshot(infId, 0, 0, "test", True, auth0)
-        self.assertEqual(res, "mock0://linux.for.ev.er/test")
+        self.assertEqual(res, new_url)
+
+        self.assertEqual(cloud0.create_snapshot.call_count, 1)
 
 if __name__ == "__main__":
     unittest.main()
