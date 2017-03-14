@@ -740,14 +740,13 @@ class VirtualMachine:
         # Download the contextualization agent log
         try:
             # Get the messages of the contextualization process
-            ssh.sftp_get(remote_dir + '/ctxt_agent.log',
-                         tmp_dir + '/ctxt_agent.log')
+            ssh.sftp_get(remote_dir + '/ctxt_agent.log', tmp_dir + '/ctxt_agent.log')
             with open(tmp_dir + '/ctxt_agent.log') as f:
                 conf_out = f.read()
 
             # Remove problematic chars
-            conf_out = filter(lambda x: x in string.printable,
-                              conf_out).encode("ascii", "replace")
+            conf_out = str("".join(list(filter(lambda x: x in string.printable,
+                                               conf_out))).encode("ascii", "replace").decode("utf-8"))
             try:
                 if delete:
                     ssh.sftp_remove(remote_dir + '/ctxt_agent.log')

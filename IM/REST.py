@@ -409,7 +409,7 @@ def RESTCreateInfrastructure():
 
     try:
         content_type = get_media_type('Content-Type')
-        radl_data = bottle.request.body.read()
+        radl_data = bottle.request.body.read().decode("utf-8")
         tosca_data = None
 
         if content_type:
@@ -524,7 +524,7 @@ def RESTAddResource(id=None):
                 return return_error(400, "Incorrect value in context parameter")
 
         content_type = get_media_type('Content-Type')
-        radl_data = bottle.request.body.read()
+        radl_data = bottle.request.body.read().decode("utf-8")
         tosca_data = None
         remove_list = []
 
@@ -621,7 +621,7 @@ def RESTAlterVM(infid=None, vmid=None):
 
     try:
         content_type = get_media_type('Content-Type')
-        radl_data = bottle.request.body.read()
+        radl_data = bottle.request.body.read().decode("utf-8")
 
         if content_type:
             if "application/json" in content_type:
@@ -666,7 +666,7 @@ def RESTReconfigureInfrastructure(id=None):
                 return return_error(400, "Incorrect vm_list format.")
 
         content_type = get_media_type('Content-Type')
-        radl_data = bottle.request.body.read()
+        radl_data = bottle.request.body.read().decode("utf-8")
 
         if radl_data:
             if content_type:
