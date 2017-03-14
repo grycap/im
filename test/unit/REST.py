@@ -20,6 +20,7 @@ import os
 import json
 import unittest
 import sys
+from io import BytesIO
 from mock import patch, MagicMock
 from IM.InfrastructureInfo import InfrastructureInfo
 
@@ -47,10 +48,10 @@ from IM.REST import (RESTDestroyInfrastructure,
                      RESTGeVersion)
 
 
-def read_file_as_string(file_name):
+def read_file_as_bytes(file_name):
     tests_path = os.path.dirname(os.path.abspath(__file__))
     abs_file_path = os.path.join(tests_path, file_name)
-    return open(abs_file_path, 'r').read()
+    return BytesIO(open(abs_file_path, 'r').read().encode())
 
 
 class TestREST(unittest.TestCase):
@@ -168,7 +169,7 @@ class TestREST(unittest.TestCase):
         bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass")}
-        bottle_request.body.read.return_value = "radl"
+        bottle_request.body = BytesIO(b"radl")
 
         CreateInfrastructure.return_value = "1"
 
@@ -179,7 +180,7 @@ class TestREST(unittest.TestCase):
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass"),
                                   "Content-Type": "application/json"}
-        bottle_request.body.read.return_value = read_file_as_string("../files/test_simple.json")
+        bottle_request.body = read_file_as_bytes("../files/test_simple.json")
 
         CreateInfrastructure.return_value = "1"
 
@@ -190,7 +191,7 @@ class TestREST(unittest.TestCase):
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass"),
                                   "Content-Type": "text/yaml"}
-        bottle_request.body.read.return_value = read_file_as_string("../files/tosca_create.yml")
+        bottle_request.body = read_file_as_bytes("../files/tosca_create.yml")
 
         CreateInfrastructure.return_value = "1"
 
@@ -207,7 +208,7 @@ class TestREST(unittest.TestCase):
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass"),
                                   "Content-Type": "application/pdf", "Accept": "application/json"}
-        bottle_request.body.read.return_value = "radl"
+        bottle_request.body = BytesIO(b"radl")
 
         CreateInfrastructure.return_value = "1"
 
@@ -263,7 +264,7 @@ class TestREST(unittest.TestCase):
         bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass")}
-        bottle_request.body.read.return_value = "radl"
+        bottle_request.body = BytesIO(b"radl")
         bottle_request.params = {'context': 'yes'}
 
         AddResource.return_value = "1"
@@ -275,7 +276,7 @@ class TestREST(unittest.TestCase):
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass"),
                                   "Content-Type": "application/json"}
-        bottle_request.body.read.return_value = read_file_as_string("../files/test_simple.json")
+        bottle_request.body = read_file_as_bytes("../files/test_simple.json")
 
         res = RESTAddResource("1")
         self.assertEqual(res, "http://imserver.com/infrastructures/1/vms/1")
@@ -284,7 +285,7 @@ class TestREST(unittest.TestCase):
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass"),
                                   "Content-Type": "text/yaml"}
-        bottle_request.body.read.return_value = read_file_as_string("../files/tosca_create.yml")
+        bottle_request.body = read_file_as_bytes("../files/tosca_create.yml")
 
         res = RESTAddResource("1")
         self.assertEqual(res, "http://imserver.com/infrastructures/1/vms/1")
@@ -312,7 +313,7 @@ class TestREST(unittest.TestCase):
         bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass")}
-        bottle_request.body.read.return_value = "radl"
+        bottle_request.body = BytesIO(b"radl")
         bottle_request.params = {'context': 'yes'}
 
         AlterVM.return_value = "vm_info"
@@ -324,7 +325,7 @@ class TestREST(unittest.TestCase):
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass"),
                                   "Content-Type": "application/json"}
-        bottle_request.body.read.return_value = read_file_as_string("../files/test_simple.json")
+        bottle_request.body = read_file_as_bytes("../files/test_simple.json")
 
         res = RESTAlterVM("1", "1")
         self.assertEqual(res, "vm_info")
@@ -337,7 +338,7 @@ class TestREST(unittest.TestCase):
         bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass")}
-        bottle_request.body.read.return_value = "radl"
+        bottle_request.body = BytesIO(b"radl")
         bottle_request.params = {'vm_list': '1,2'}
 
         Reconfigure.return_value = ""
@@ -349,7 +350,7 @@ class TestREST(unittest.TestCase):
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass"),
                                   "Content-Type": "application/json"}
-        bottle_request.body.read.return_value = read_file_as_string("../files/test_simple.json")
+        bottle_request.body = read_file_as_bytes("../files/test_simple.json")
 
         res = RESTReconfigureInfrastructure("1")
         self.assertEqual(res, "")
