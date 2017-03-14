@@ -2,11 +2,10 @@ import os
 import logging
 import yaml
 import copy
-import tempfile
 try:
-    import urllib.request as urllib
+    from urllib.request import urlopen
 except:
-    import urllib
+    from urllib import urlopen
 try:
     unicode("hola")
 except NameError:
@@ -450,7 +449,7 @@ class Tosca:
                 if implementation_url[0] in ['http', 'https', 'ftp']:
                     script_path = implementation_url[2]
                     try:
-                        response = urllib.urlopen(interface.implementation)
+                        response = urlopen(interface.implementation)
                         script_content = response.read()
                         if response.code != 200:
                             raise Exception("")
@@ -466,8 +465,7 @@ class Tosca:
                         f.close()
                     else:
                         try:
-                            response = urllib.urlopen(
-                                Tosca.ARTIFACTS_REMOTE_REPO + interface.implementation)
+                            response = urlopen(Tosca.ARTIFACTS_REMOTE_REPO + interface.implementation)
                             script_content = response.read()
                             if response.code != 200:
                                 raise Exception("")
