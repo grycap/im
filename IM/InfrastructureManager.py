@@ -1225,6 +1225,24 @@ class InfrastructureManager:
                 InfrastructureManager.logger.error("Audience %s not found in access token." % Config.OIDC_AUDIENCE)
                 raise InvaliddUserException("Invalid InfrastructureManager credentials. Audience not accepted.")
 
+        if Config.OIDC_SCOPES and Config.OIDC_CLIENT_ID and Config.OIDC_CLIENT_SECRET:
+            success, res = OpenIDClient.get_token_introspection(token,
+                                                                Config.OIDC_CLIENT_ID,
+                                                                Config.OIDC_CLIENT_SECRET)
+            if not success:
+                raise InvaliddUserException("Invalid InfrastructureManager credentials. "
+                                            "Invalid token or Client credentials.")
+            else:
+                if not res["scope"]:
+                    raise InvaliddUserException("Invalid InfrastructureManager credentials. "
+                                                "No scope obtained from introspection.")
+                else:
+                    scopes = res["scope"].split(" ")
+                    if not all([elem in scopes for elem in Config.OIDC_SCOPES]):
+                        raise InvaliddUserException("Invalid InfrastructureManager credentials. Scopes %s "
+                                                    "not in introspection scopes: %s" % (" ".join(Config.OIDC_SCOPES),
+                                                                                         res["scope"]))
+
         # Now check if the token is not expired
         expired, msg = OpenIDClient.is_access_token_expired(token)
         if expired:

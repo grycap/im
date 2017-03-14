@@ -965,7 +965,8 @@ configure step2 (
 
         IM.DestroyInfrastructure(infId, auth0)
 
-    def test_check_oidc_invalid_token(self):
+    @patch('requests.request')
+    def test_check_oidc_invalid_token(self, request):
         im_auth = {"token": self.gen_token()}
 
         with self.assertRaises(Exception) as ex:
@@ -987,6 +988,32 @@ configure step2 (
         self.assertEqual(str(ex.exception),
                          'Invalid InfrastructureManager credentials. OIDC auth Token expired.')
         Config.OIDC_AUDIENCE = None
+
+        Config.OIDC_SCOPES = ["scope1", "scope2"]
+        Config.OIDC_CLIENT_ID = "client"
+        Config.OIDC_CLIENT_SECRET = "secret"
+        response = MagicMock()
+        response.status_code = 200
+        response.text = '{ "scope": "profile scope1" }'
+        request.return_value = response
+        with self.assertRaises(Exception) as ex:
+            IM.check_oidc_token(im_auth_aud)
+        self.assertEqual(str(ex.exception),
+                         'Invalid InfrastructureManager credentials. '
+                         'Scopes scope1 scope2 not in introspection scopes: profile scope1')
+
+        response.status_code = 200
+        response.text = '{ "scope": "address profile scope1 scope2" }'
+        request.return_value = response
+        with self.assertRaises(Exception) as ex:
+            IM.check_oidc_token(im_auth_aud)
+        self.assertEqual(str(ex.exception),
+                         'Invalid InfrastructureManager credentials. '
+                         'OIDC auth Token expired.')
+
+        Config.OIDC_SCOPES = []
+        Config.OIDC_CLIENT_ID = None
+        Config.OIDC_CLIENT_SECRET = None
 
         Config.OIDC_ISSUERS = ["https://other_issuer"]
 

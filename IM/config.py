@@ -99,6 +99,9 @@ class Config:
     OIDC_AUDIENCE = None
     INF_CACHE_TIME = None
     VMINFO_JSON = False
+    OIDC_CLIENT_ID = None
+    OIDC_CLIENT_SECRET = None
+    OIDC_SCOPES = []
 
 config = ConfigParser()
 config.read([Config.IM_PATH + '/../im.cfg', Config.IM_PATH +
