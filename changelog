@@ -277,4 +277,5 @@ IM 1.5.2
     * Add Python 3 compatibility.
     * Improve VM launch paralelism.
     * Enrich the logging entries + stack trace with the infra id.
-
+    * Improve OCCI cloud_init data process.
+    * Add VMINFO_JSON conf var to enable the GetVMInfo function return JSON RADL.

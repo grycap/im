@@ -18,6 +18,7 @@ import base64
 import requests
 import time
 import os
+import uuid
 import tempfile
 from IM.xmlobject import XMLObject
 from IM.uriparse import uriparse
@@ -318,7 +319,7 @@ class AzureClassicCloudConnector(CloudConnector):
             disk_size = system.getFeature(
                 "disk." + str(cont) + ".size").getValue('G')
 
-            disk_name = "datadisk-1-" + str(int(time.time() * 100))
+            disk_name = "datadisk-1-" + str(uuid.uuid1())
             disks += '''
 <DataVirtualHardDisks>
   <DataVirtualHardDisk>
@@ -436,7 +437,7 @@ class AzureClassicCloudConnector(CloudConnector):
         """
         Create a Azure Cloud Service and return the name
         """
-        service_name = "IM-" + str(int(time.time() * 100))
+        service_name = "IM-" + str(uuid.uuid1())
         self.log_info("Create the service " + service_name + " in region: " + region)
 
         try:

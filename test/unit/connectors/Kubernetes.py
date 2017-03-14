@@ -194,9 +194,8 @@ class TestKubernetesConnector(unittest.TestCase):
         kube_cloud = self.get_kube_cloud()
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
         inf.id = "namespace"
-        vm = VirtualMachine(inf, "1", kube_cloud.cloud, radl, radl, kube_cloud)
+        vm = VirtualMachine(inf, "1", kube_cloud.cloud, radl, radl, kube_cloud, 1)
 
         requests.side_effect = self.get_response
 
@@ -233,9 +232,8 @@ class TestKubernetesConnector(unittest.TestCase):
         kube_cloud = self.get_kube_cloud()
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
         inf.id = "namespace"
-        vm = VirtualMachine(inf, "1", kube_cloud.cloud, radl, radl, kube_cloud)
+        vm = VirtualMachine(inf, "1", kube_cloud.cloud, radl, radl, kube_cloud, 1)
 
         requests.side_effect = self.get_response
 
@@ -250,9 +248,8 @@ class TestKubernetesConnector(unittest.TestCase):
         kube_cloud = self.get_kube_cloud()
 
         inf = MagicMock()
-        inf.get_next_vm_id.return_value = 1
         inf.id = "namespace"
-        vm = VirtualMachine(inf, "1", kube_cloud.cloud, "", "", kube_cloud)
+        vm = VirtualMachine(inf, "1", kube_cloud.cloud, "", "", kube_cloud, 1)
 
         requests.side_effect = self.get_response
 
