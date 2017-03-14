@@ -118,7 +118,7 @@ class LoadTest(unittest.TestCase):
 
                 if vm_state == VirtualMachine.UNCONFIGURED:
                     resp = self.create_request("GET", "/infrastructures/" + self.inf_id + "/contmsg")
-                    print resp.text
+                    print(resp.text)
 
                 self.assertFalse(vm_state in err_states, msg=("ERROR waiting for a state. '%s' state was expected "
                                                               "and '%s' was obtained in the VM %s" % (state,
@@ -207,8 +207,6 @@ class LoadTest(unittest.TestCase):
         resp = self.create_request("GET", vm_uri[2] + "/contmsg")
         self.assertEqual(resp.status_code, 200,
                          msg="ERROR getting VM contmsg:" + resp.text)
-        self.assertEqual(
-            len(resp.text), 0, msg="Incorrect VM contextualization message: " + resp.text)
 
     def test_33_get_contmsg(self):
         resp = self.create_request("GET", "/infrastructures/" + self.inf_id + "/contmsg")
@@ -223,7 +221,7 @@ class LoadTest(unittest.TestCase):
                          msg="ERROR getting the infrastructure RADL:" + resp.text)
         try:
             radl_parse.parse_radl(resp.text)
-        except Exception, ex:
+        except Exception as ex:
             self.assertTrue(
                 False, msg="ERROR parsing the RADL returned by GetInfrastructureRADL: " + str(ex))
 
@@ -326,10 +324,10 @@ class LoadTest(unittest.TestCase):
 
 def test(num_client):
     now = datetime.datetime.now()
-    print now, ": Launch client num: %d" % num_client
+    print(now, ": Launch client num: %d" % num_client)
     unittest.main()
     now = datetime.datetime.now()
-    print now, ": End client num: %d" % num_client
+    print(now, ": End client num: %d" % num_client)
 
 if __name__ == '__main__':
     MAX_THREADS = 1
@@ -354,7 +352,7 @@ if __name__ == '__main__':
         num_treads = min(MAX_CLIENTS - cont, MAX_THREADS)
         processes = []
         now = datetime.datetime.now()
-        print now, ": Launch %d threads. " % num_treads
+        print(now, ": Launch %d threads. " % num_treads)
         for num in range(num_treads):
             p = Process(target=test, args=(cont + num,))
             p.start()
@@ -364,4 +362,4 @@ if __name__ == '__main__':
             p.join()
         cont += num_treads
         now = datetime.datetime.now()
-        print now, ": End %d threads. " % num_treads
+        print(now, ": End %d threads. " % num_treads)

@@ -18,12 +18,15 @@
 
 from multiprocessing import Process
 import unittest
-import xmlrpclib
 import time
 import sys
 import os
 import random
 import datetime
+try:
+    from xmlrpclib import ServerProxy
+except ImportError:
+    from xmlrpc.client import ServerProxy
 
 sys.path.append("..")
 sys.path.append(".")
@@ -46,8 +49,7 @@ class LoadTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.server = xmlrpclib.ServerProxy(
-            "http://" + HOSTNAME + ":" + str(TEST_PORT), allow_none=True)
+        cls.server = ServerProxy("http://" + HOSTNAME + ":" + str(TEST_PORT), allow_none=True)
         cls.auth_data = Authentication.read_auth_data(AUTH_FILE)
 
     @staticmethod
@@ -106,15 +108,15 @@ class LoadTest(unittest.TestCase):
         total = 0.0
         for time in self.response_times:
             total += time
-        print "Mean Time: %.4f" % (total / len(self.response_times))
+        print("Mean Time: %.4f" % (total / len(self.response_times)))
 
 
 def test(num_client):
     now = datetime.datetime.now()
-    print now, ": Launch client num: %d" % num_client
+    print(now, ": Launch client num: %d" % num_client)
     unittest.main()
     now = datetime.datetime.now()
-    print now, ": End client num: %d" % num_client
+    print(now, ": End client num: %d" % num_client)
 
 if __name__ == '__main__':
     MAX_THREADS = 1
@@ -139,7 +141,7 @@ if __name__ == '__main__':
         num_treads = min(MAX_CLIENTS - cont, MAX_THREADS)
         processes = []
         now = datetime.datetime.now()
-        print now, ": Launch %d threads. " % num_treads
+        print(now, ": Launch %d threads. " % num_treads)
         for num in range(num_treads):
             p = Process(target=test, args=(cont + num,))
             p.start()
@@ -149,4 +151,4 @@ if __name__ == '__main__':
             p.join()
         cont += num_treads
         now = datetime.datetime.now()
-        print now, ": End %d threads. " % num_treads
+        print(now, ": End %d threads. " % num_treads)
