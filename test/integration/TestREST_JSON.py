@@ -86,8 +86,7 @@ class TestIM(unittest.TestCase):
         else:
             pass
 
-        err_states = [VirtualMachine.FAILED,
-                      VirtualMachine.OFF, VirtualMachine.UNCONFIGURED]
+        err_states = [VirtualMachine.FAILED, VirtualMachine.UNCONFIGURED]
         err_states.extend(incorrect_states)
 
         wait = 0
@@ -104,7 +103,7 @@ class TestIM(unittest.TestCase):
 
                 if vm_state == VirtualMachine.UNCONFIGURED:
                     resp = self.create_request("GET", "/infrastructures/" + self.inf_id + "/contmsg")
-                    print resp.text
+                    print(resp.text)
 
                 self.assertFalse(vm_state in err_states, msg=("ERROR waiting for a state. '%s' state was expected "
                                                               "and '%s' was obtained in the VM %s" % (state,

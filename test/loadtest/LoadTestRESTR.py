@@ -98,12 +98,12 @@ class LoadTest(unittest.TestCase):
             self.getstate(inf_id)
 
     def getinfo(self, inf_id):
-        resp = self.create_request("GET", "/infrastructures/" + self.inf_id)
+        resp = self.create_request("GET", "/infrastructures/" + inf_id)
         self.assertEqual(resp.status_code, 200,
                          msg="ERROR getting the infrastructure info:" + resp.text)
 
     def getstate(self, inf_id):
-        resp = self.create_request("GET", "/infrastructures/" + self.inf_id + "/state")
+        resp = self.create_request("GET", "/infrastructures/" + inf_id + "/state")
         self.assertEqual(
             resp.status_code, 200, msg="ERROR getting the infrastructure state:" + resp.text)
         res = json.loads(resp.text)
@@ -113,10 +113,10 @@ class LoadTest(unittest.TestCase):
 
 def test(num_client):
     now = datetime.datetime.now()
-    print now, ": Launch client num: %d" % num_client
+    print(now, ": Launch client num: %d" % num_client)
     unittest.main()
     now = datetime.datetime.now()
-    print now, ": End client num: %d" % num_client
+    print(now, ": End client num: %d" % num_client)
 
 if __name__ == '__main__':
     MAX_THREADS = 1
@@ -141,7 +141,7 @@ if __name__ == '__main__':
         num_treads = min(MAX_CLIENTS - cont, MAX_THREADS)
         processes = []
         now = datetime.datetime.now()
-        print now, ": Launch %d threads. " % num_treads
+        print(now, ": Launch %d threads. " % num_treads)
         for num in range(num_treads):
             p = Process(target=test, args=(cont + num,))
             p.start()
@@ -151,4 +151,4 @@ if __name__ == '__main__':
             p.join()
         cont += num_treads
         now = datetime.datetime.now()
-        print now, ": End %d threads. " % num_treads
+        print(now, ": End %d threads. " % num_treads)
