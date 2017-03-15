@@ -87,8 +87,7 @@ class TestIM(unittest.TestCase):
         else:
             pass
 
-        err_states = [VirtualMachine.FAILED,
-                      VirtualMachine.OFF, VirtualMachine.UNCONFIGURED]
+        err_states = [VirtualMachine.FAILED, VirtualMachine.UNCONFIGURED]
         err_states.extend(incorrect_states)
 
         wait = 0
