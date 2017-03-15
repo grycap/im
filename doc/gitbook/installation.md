@@ -183,6 +183,7 @@ or set the name of the script file (im_service.py) if the file is in the PATH
 Check the parameters in $IM_PATH/etc/im.cfg or /etc/im/im.cfg. Please pay attention
 to the next configuration variables, as they are the most important
 
+```
 DATA_DB - must be set to the URL to access the database to store the IM data. 
          Be careful if you have two different instances of the IM service running in the same machine!!.
          It can be a MySQL DB: 'mysql://username:password@server/db_name' or 
@@ -192,6 +193,7 @@ CONTEXTUALIZATION_DIR - must be set to the full path where the IM contextualizat
 		are located. In case of using pip installation the default value is correct
 		(/usr/share/im/contextualization) in case of installing from sources set to
 		$IM_PATH/contextualization (e.g. /usr/local/im/contextualization)
+```
 
 ### 1.4.1 SECURITY
 
@@ -200,11 +202,15 @@ get the messages with the IM with the authorisation data with the cloud provider
 
 Security can be activated both in the XMLRPC and REST APIs. Setting this variables:
 
+```
 XMLRCP_SSL = True
+```
 
 or
 
+```
 REST_SSL = True
+```
 
 And then set the variables: XMLRCP_SSL_* or REST_SSL_* to your certificates paths.
 
@@ -214,24 +220,22 @@ To configure the IM as the orchestrator of a single site you can use the SINGLE_
 configuration variables. This is an example for an OpenNebula based site assuming that
 the hostname of the OpenNebula server is 'server.com':
 
+```
 SINGLE_SITE = True
-
 SINGLE_SITE_TYPE = OpenNebula
-
 SINGLE_SITE_AUTH_HOST = http://server.com:2633
-
-SINGLE_SITE_IMAGE_URL_PREFIX = one://server.com/
+SINGLE_SITE_IMAGE_URL_PREFIX = one://server.com
+```
 
 And this second example shows how to configure for an OpenStack based site assuming that
 the hostname of the OpenStack keystone server is 'server.com':
 
+```
 SINGLE_SITE = True
-
 SINGLE_SITE_TYPE = OpenStack
-
 SINGLE_SITE_AUTH_HOST = https://server.com:5000
-
-SINGLE_SITE_IMAGE_URL_PREFIX = ost://server.com/
+SINGLE_SITE_IMAGE_URL_PREFIX = ost://server.com
+```
 
 Using this kind of configuration combined with OIDC tokens the IM authentication is
 simplified and an standard 'Bearer' authorization header can be using to interact with the IM service. 
@@ -243,10 +247,14 @@ to access OpenNebula sites. IM uses version 2 of the WaTTS API (https://indigo-d
 
 To configure it you must set the value of the TTS_URL in the OpenNebula section: 
 
+```
 TTS_URL = https://localhost:8443
+```
 
 In particular the WaTTS instance must be configured to include the hostname of the OpenNebula server
 in the plugin configuration of the WaTTS service, for example like this:
 
+```
 service.onesite.description = server.com 
+```
 
