@@ -80,8 +80,7 @@ class TestIM(unittest.TestCase):
             self.assertTrue(
                 success, msg="ERROR calling the GetInfrastructureInfo function:" + str(vm_ids))
 
-        err_states = [VirtualMachine.FAILED,
-                      VirtualMachine.OFF, VirtualMachine.UNCONFIGURED]
+        err_states = [VirtualMachine.FAILED, VirtualMachine.UNCONFIGURED]
         err_states.extend(incorrect_states)
 
         wait = 0
