@@ -35,6 +35,7 @@ from IM.VirtualMachine import VirtualMachine
 from IM.InfrastructureInfo import InfrastructureInfo
 from IM.connectors.GCE import GCECloudConnector
 from mock import patch, MagicMock
+from libcloud.compute.base import NodeSize
 
 
 def read_file_as_string(file_name):
@@ -105,10 +106,15 @@ class TestGCEConnector(unittest.TestCase):
 
         node_size = MagicMock()
         node_size.ram = 512
-        node_size.price = 1
+        node_size.price = 1.0
         node_size.disk = 1
         node_size.name = "small"
-        driver.list_sizes.return_value = [node_size]
+        node_size2 = MagicMock()
+        node_size2.ram = 1024
+        node_size2.price = None
+        node_size2.disk = 2
+        node_size2.name = "medium"
+        driver.list_sizes.return_value = [node_size, node_size2]
 
         gce_cloud = self.get_gce_cloud()
         concrete = gce_cloud.concreteSystem(radl_system, auth)
@@ -222,6 +228,7 @@ class TestGCEConnector(unittest.TestCase):
         node.driver = driver
         zone.name = 'us-central1-a'
         node.extra = {'zone': zone}
+        node.size = NodeSize("1", "name1", 512, 1, None, None, driver)
         driver.ex_get_node.return_value = node
 
         volume = MagicMock()
