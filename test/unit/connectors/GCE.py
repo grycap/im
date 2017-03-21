@@ -105,10 +105,15 @@ class TestGCEConnector(unittest.TestCase):
 
         node_size = MagicMock()
         node_size.ram = 512
-        node_size.price = 1
+        node_size.price = 1.0
         node_size.disk = 1
         node_size.name = "small"
-        driver.list_sizes.return_value = [node_size]
+        node_size2 = MagicMock()
+        node_size2.ram = 1024
+        node_size2.price = None
+        node_size2.disk = 2
+        node_size2.name = "medium"
+        driver.list_sizes.return_value = [node_size, node_size2]
 
         gce_cloud = self.get_gce_cloud()
         concrete = gce_cloud.concreteSystem(radl_system, auth)
