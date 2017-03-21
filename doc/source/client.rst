@@ -134,15 +134,15 @@ keys are:
   it refers to the *Access Key ID*. In GCE it refers to *Service Account’s Email Address*. 
 
 * ``password`` indicates the password associated to the credential. In EC2
-  it refers to the *Secret Access Key*. In GCE it refers to *Service 
-  Private Key*. See how to get it and how to extract the private key file from
+  it refers to the *Secret Access Key*. In GCE it refers to *Service  Private Key*
+  (either in JSON or PKCS12 formats). See how to get it and how to extract the private key file from
   `here info <https://cloud.google.com/storage/docs/authentication#service_accounts>`_).
 
 * ``tenant`` indicates the tenant associated to the credential.
   This field is only used in the OpenStack plugin.
 
 * ``host`` indicates the address of the access point to the cloud provider.
-  This field is not used in IM and EC2 credentials.
+  This field is not used in IM, GCE, Azure, and EC2 credentials.
   
 * ``proxy`` indicates the content of the proxy file associated to the credential.
   To refer to a file you must use the function "file(/tmp/proxyfile.pem)" as shown in the example.
