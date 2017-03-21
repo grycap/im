@@ -35,7 +35,7 @@ from IM.VirtualMachine import VirtualMachine
 from IM.InfrastructureInfo import InfrastructureInfo
 from IM.connectors.GCE import GCECloudConnector
 from mock import patch, MagicMock
-from libcloud.compute.base import NodeSize 
+from libcloud.compute.base import NodeSize
 
 
 def read_file_as_string(file_name):
