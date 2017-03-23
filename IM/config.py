@@ -83,7 +83,7 @@ class Config:
     VM_INFO_UPDATE_FREQUENCY = 10
     # This value must be always higher than VM_INFO_UPDATE_FREQUENCY
     VM_INFO_UPDATE_ERROR_GRACE_PERIOD = 120
-    REMOTE_CONF_DIR = "/tmp/.im"
+    REMOTE_CONF_DIR = "/var/tmp/.im"
     MAX_SSH_ERRORS = 5
     PRIVATE_NET_MASKS = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16",
                          "169.254.0.0/16", "100.64.0.0/10", "192.0.0.0/24", "198.18.0.0/15"]
