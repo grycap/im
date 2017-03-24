@@ -45,6 +45,21 @@ topology_template:
       requirements:
         - host: lrms_server
 
+    other_server:
+      type: tosca.nodes.indigo.Compute
+      capabilities:
+        endpoint:
+          properties:
+            network_name: PUBLIC
+            ports:
+              port_range:
+                protocol: tcp
+                source_range: [ 1, 4 ]
+        host:
+          properties:
+            num_cpus: 1
+            mem_size: 1 GB 
+
     lrms_server:
       type: tosca.nodes.indigo.Compute
       capabilities:
