@@ -190,10 +190,10 @@ class Tosca:
 
             # In case of source_range do not use port mapping only direct ports
             if source_range:
-                for port_in_range in range(source_range[0], source_range[1]):
+                for port_in_range in range(source_range[0], source_range[1] + 1):
                     if res:
                         res += ","
-                    res += "%s" % (port_in_range)
+                    res += "%s/%s" % (port_in_range, protocol)
             else:
                 if res:
                     res += ","
@@ -302,7 +302,10 @@ class Tosca:
                     num_net = system.getNumNetworkIfaces()
 
                 if ports:
-                    public_net.setValue("outports", Tosca._format_outports(ports))
+                    outports = Tosca._format_outports(ports)
+                    if public_net.getValue("outports"):
+                        outports = "%s,%s" % (public_net.getValue("outports"), outports)
+                    public_net.setValue("outports", outports)
                 if net_provider_id:
                     public_net.setValue("provider_id", net_provider_id)
 
