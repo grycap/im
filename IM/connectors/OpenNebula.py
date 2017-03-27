@@ -119,6 +119,8 @@ class VNET_POOL(XMLObject):
 
 
 class IMAGE(XMLObject):
+    STATE_READY = 1
+    STATE_ERROR = 5
     values = ['ID', 'UID', 'GID', 'UNAME', 'GNAME', 'NAME', 'SOURCE', 'PATH'
               'FSTYPE', 'TYPE', 'DISK_TYPE', 'PERSISTENT', 'SIZE', 'STATE']
     numeric = ['ID', 'UID', 'GID', 'SIZE']
@@ -555,9 +557,9 @@ class OpenNebulaCloudConnector(CloudConnector):
 
          Returns: bool, True if there are at least one lease free or False otherwise
         """
-        start = long(''.join(["%02X" % long(i)
+        start = int(''.join(["%02X" % int(i)
                               for i in ar_range.IP_START.split('.')]), 16)
-        end = long(''.join(["%02X" % long(i)
+        end = int(''.join(["%02X" % int(i)
                             for i in ar_range.IP_END.split('.')]), 16)
         if end - start > int(total_leases):
             return True
@@ -1010,12 +1012,53 @@ class OpenNebulaCloudConnector(CloudConnector):
 
         if success:
             new_url = "one://%s/%d" % (self.cloud.server, res_info)
-            if auto_delete:
-                vm.inf.snapshots.append(new_url)
-
-            return (True, new_url)
+            if success:
+                success, msg = self.wait_image(res_info, auth_data)
+                if auto_delete:
+                    vm.inf.snapshots.append(new_url)
+                return (True, new_url)
+            else:
+                try:
+                    (success, res_info, _) = server.one.image.delete(session_id, res_info)
+                except:
+                    self.logger.error("Error deleting image: %s" % res_info)
+                return (False, "Error waiting image to be ready: %s" % msg)
         else:
             return (False, res_info)
+
+    def wait_image(self, image_id, auth_data, timeout=180):
+        server = ServerProxy(self.server_url, allow_none=True)
+
+        session_id = self.getSessionID(auth_data)
+        if session_id is None:
+            return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
+
+        state = 0
+        wait = 0
+        while state != IMAGE.STATE_ERROR and state != IMAGE.STATE_READY and wait < timeout:
+            func_res = server.one.image.info(session_id, image_id)
+            if len(func_res) == 2:
+                (success, res_info) = func_res
+            elif len(func_res) == 3:
+                (success, res_info, _) = func_res
+            else:
+                return (False, "Error in theone.image.info return value")
+
+            if success:
+                image_info = IMAGE(res_info)
+                state = image_info.STATE
+            else:
+                self.logger.error("Error in the function one.image.info: " + res_info)
+
+            wait += 5
+            time.sleep(5)
+
+        if state == IMAGE.STATE_READY:
+            return True, ""
+        elif state == IMAGE.STATE_ERROR:
+            return False, "Image in Error state"
+        else:
+            return False, "Timeout waiting image to be ready"
 
     def delete_image(self, image_url, auth_data):
         server = ServerProxy(self.server_url, allow_none=True)
