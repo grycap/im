@@ -545,9 +545,9 @@ class OpenNebulaCloudConnector(CloudConnector):
 
          Returns: bool, True if there are at least one lease free or False otherwise
         """
-        start = long(''.join(["%02X" % long(i)
+        start = int(''.join(["%02X" % int(i)
                               for i in ar_range.IP_START.split('.')]), 16)
-        end = long(''.join(["%02X" % long(i)
+        end = int(''.join(["%02X" % int(i)
                             for i in ar_range.IP_END.split('.')]), 16)
         if end - start > int(total_leases):
             return True
