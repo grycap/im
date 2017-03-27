@@ -14,8 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import time
-import string
 import base64
 import json
 import requests
@@ -81,7 +79,7 @@ class KubernetesCloudConnector(CloudConnector):
             passwd = auth['password']
             user = auth['username']
             auth_header = {'Authorization': 'Basic ' +
-                           string.strip(base64.encodestring(user + ':' + passwd))}
+                           (base64.encodestring((user + ':' + passwd).encode('utf-8'))).strip().decode('utf-8')}
         elif 'token' in auth:
             token = auth['token']
             auth_header = {'Authorization': 'Bearer ' + token}
