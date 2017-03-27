@@ -996,7 +996,11 @@ class OpenNebulaCloudConnector(CloudConnector):
             return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
 
         image_type = ""  # Use the default one
-        func_res = server.one.vm.savedisk(session_id, int(vm.id), disk_num, image_name, image_type, True, False)
+        one_ver = self.getONEVersion(auth_data)
+        if one_ver.startswith("5."):
+            func_res = server.one.vm.disksnapshotcreate(session_id, int(vm.id), disk_num, image_name, image_type, True, False)
+        else:
+            func_res = server.one.vm.savedisk(session_id, int(vm.id), disk_num, image_name, image_type, True, False)
         if len(func_res) == 2:
             (success, res_info) = func_res
         elif len(func_res) == 3:
