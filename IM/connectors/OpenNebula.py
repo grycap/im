@@ -123,7 +123,7 @@ class IMAGE(XMLObject):
     STATE_ERROR = 5
     values = ['ID', 'UID', 'GID', 'UNAME', 'GNAME', 'NAME', 'SOURCE', 'PATH'
               'FSTYPE', 'TYPE', 'DISK_TYPE', 'PERSISTENT', 'SIZE', 'STATE']
-    numeric = ['ID', 'UID', 'GID', 'SIZE']
+    numeric = ['ID', 'UID', 'GID', 'SIZE', 'STATE']
 
 
 class IMAGE_POOL(XMLObject):
@@ -558,9 +558,9 @@ class OpenNebulaCloudConnector(CloudConnector):
          Returns: bool, True if there are at least one lease free or False otherwise
         """
         start = int(''.join(["%02X" % int(i)
-                              for i in ar_range.IP_START.split('.')]), 16)
+                             for i in ar_range.IP_START.split('.')]), 16)
         end = int(''.join(["%02X" % int(i)
-                            for i in ar_range.IP_END.split('.')]), 16)
+                           for i in ar_range.IP_END.split('.')]), 16)
         if end - start > int(total_leases):
             return True
         return False
@@ -1036,6 +1036,9 @@ class OpenNebulaCloudConnector(CloudConnector):
         state = 0
         wait = 0
         while state != IMAGE.STATE_ERROR and state != IMAGE.STATE_READY and wait < timeout:
+            wait += 5
+            time.sleep(5)
+
             func_res = server.one.image.info(session_id, image_id)
             if len(func_res) == 2:
                 (success, res_info) = func_res
@@ -1049,9 +1052,6 @@ class OpenNebulaCloudConnector(CloudConnector):
                 state = image_info.STATE
             else:
                 self.logger.error("Error in the function one.image.info: " + res_info)
-
-            wait += 5
-            time.sleep(5)
 
         if state == IMAGE.STATE_READY:
             return True, ""
@@ -1085,13 +1085,12 @@ class OpenNebulaCloudConnector(CloudConnector):
 
     def get_image_id(self, image_url, session_id):
         url = uriparse(image_url)
-        image_id = url[2]
+        image_id = url[2][1:]
         if image_id.isdigit():
             return int(image_id)
         else:
             # We have to find the ID of the image name
             server = ServerProxy(self.server_url, allow_none=True)
-            image_id = self.get_image_id(image_url)
             func_res = server.one.imagepool.info(session_id, -2, -1, -1)
             if len(func_res) == 2:
                 (success, res_info) = func_res
