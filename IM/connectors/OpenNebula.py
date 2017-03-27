@@ -998,7 +998,7 @@ class OpenNebulaCloudConnector(CloudConnector):
         image_type = ""  # Use the default one
         one_ver = self.getONEVersion(auth_data)
         if one_ver.startswith("5."):
-            func_res = server.one.vm.disksnapshotcreate(session_id, int(vm.id), disk_num, image_name, image_type, True, False)
+            func_res = server.one.vm.disksaveas(session_id, int(vm.id), disk_num, image_name, image_type, -1)
         else:
             func_res = server.one.vm.savedisk(session_id, int(vm.id), disk_num, image_name, image_type, True, False)
         if len(func_res) == 2:
