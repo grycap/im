@@ -122,7 +122,7 @@ class TestOSTConnector(unittest.TestCase):
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
     def test_20_launch(self, get_driver):
         radl_data = """
-            network net1 (outbound = 'yes' and provider_id = 'public' and outports = '8080')
+            network net1 (outbound = 'yes' and provider_id = 'public' and outports = '8080,9000:9100')
             network net2 ()
             system test (
             cpu.arch='x86_64' and
