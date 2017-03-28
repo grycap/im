@@ -230,23 +230,26 @@ class AzureCloudConnector(CloudConnector):
                            'source_port_range': '*',
                            'priority': 100
                            }]
-        for remote_port, remote_protocol, local_port, local_protocol in outports:
-            if local_port != 22:
-                protocol = remote_protocol
-                if remote_protocol != local_protocol:
-                    self.log_warn("Different protocols used in outports ignoring local port protocol!")
-
-                sr = {'name': 'sr-%s-%d-%d' % (protocol, remote_port, local_port),
-                      'access': 'Allow',
-                      'protocol': protocol,
-                      'destination_address_prefix': '*',
-                      'source_address_prefix': '*',
-                      'direction': 'Inbound',
-                      'destination_port_range': str(local_port),
-                      'source_port_range': '*',
-                      'priority': 100
-                      }
-                security_rules.append(sr)
+        for outport in outports:
+            sr = {'access': 'Allow',
+                  'protocol': outport.get_protocol(),
+                  'destination_address_prefix': '*',
+                  'source_address_prefix': '*',
+                  'direction': 'Inbound',
+                  'source_port_range': '*',
+                  'priority': 100
+                  }
+            if outport.is_range():
+                sr['name'] = 'sr-%s-%d-%d' % (outport.get_protocol(),
+                                              outport.get_port_init(),
+                                              outport.get_port_end())
+                sr['destination_port_range'] = "%d-%d" % (outport.get_port_init(), outport.get_port_end())
+            elif outport.get_local_port() != 22:
+                sr['name'] = 'sr-%s-%d-%d' % (outport.get_protocol(),
+                                              outport.get_remote_port(),
+                                              outport.get_local_port())
+                sr['destination_port_range'] = str(outport.get_local_port())
+            security_rules.append(sr)
 
         params = {
             'location': location,

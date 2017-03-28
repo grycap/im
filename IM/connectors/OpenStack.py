@@ -626,19 +626,24 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         if public_net:
             outports = public_net.getOutPorts()
             if outports:
-                for remote_port, remote_protocol, local_port, local_protocol in outports:
-                    if local_port != 22:
-                        protocol = remote_protocol
-                        if remote_protocol != local_protocol:
-                            self.log_warn(
-                                "Different protocols used in outports ignoring local port protocol!")
-
+                for outport in outports:
+                    if outport.is_range():
                         try:
-                            driver.ex_create_security_group_rule(
-                                sg, protocol, remote_port, remote_port, '0.0.0.0/0')
+                            driver.ex_create_security_group_rule(sg, outport.get_protocol(),
+                                                                 outport.get_port_init(),
+                                                                 outport.get_port_end(), '0.0.0.0/0')
                         except Exception as ex:
                             self.log_warn(
                                 "Exception adding SG rules: " + str(ex))
+                    else:
+                        if outport.get_remote_port() != 22:
+                            try:
+                                driver.ex_create_security_group_rule(sg, outport.get_protocol(),
+                                                                     outport.get_remote_port(),
+                                                                     outport.get_remote_port(), '0.0.0.0/0')
+                            except Exception as ex:
+                                self.log_warn(
+                                    "Exception adding SG rules: " + str(ex))
 
         try:
             driver.ex_create_security_group_rule(sg, 'tcp', 22, 22, '0.0.0.0/0')

@@ -117,7 +117,7 @@ class OCCICloudConnector(CloudConnector):
                 passwd = auth['password']
                 user = auth['username']
                 auth_header = {'Authorization': 'Basic ' +
-                               string.strip(base64.encodestring(user + ':' + passwd))}
+                               (base64.encodestring((user + ':' + passwd).encode('utf-8'))).strip().decode('utf-8')}
 
         return auth_header
 

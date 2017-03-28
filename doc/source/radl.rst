@@ -173,7 +173,12 @@ The supported features are:
 	* 8899-8899,22-22
 	* 8899/tcp,22/udp
 	* 8899,22
+	* 9000:9100/tcp
+	* 9000:9100
 
+   The usage of ``-`` means port mapping the first port (remote) will be opened and
+   redirected the the second port (local). 
+   The usage of ``:`` means port range.  
    The default value is ``''``.
    
 ``provider_id = <string>``
