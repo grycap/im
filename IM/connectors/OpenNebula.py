@@ -1040,15 +1040,16 @@ class OpenNebulaCloudConnector(CloudConnector):
             if len(func_res) == 2:
                 (success, res_info) = func_res
             elif len(func_res) == 3:
-                (success, res_info, _) = func_res
+                (success, res_info, error_code) = func_res
             else:
-                return (False, "Error in theone.image.info return value")
+                return (False, "Error in the one.image.info return value")
 
             if success:
                 image_info = IMAGE(res_info)
                 state = image_info.STATE
             else:
                 self.logger.error("Error in the function one.image.info: " + res_info)
+                return False, "Error getting image info: %s" % res_info
 
         if state == IMAGE.STATE_READY:
             return True, ""
