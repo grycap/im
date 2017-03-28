@@ -237,7 +237,7 @@ class AzureClassicCloudConnector(CloudConnector):
                 for outport in outports:
                     protocol = outport.get_protocol().upper()
                     if outport.is_range():
-                        for port in range(outport.get_port_init(), outport.get_port_end()+1):
+                        for port in range(outport.get_port_init(), outport.get_port_end() + 1):
                             res += """
                 <InputEndpoint>
                   <LocalPort>%d</LocalPort>
@@ -249,7 +249,6 @@ class AzureClassicCloudConnector(CloudConnector):
                         local_port = outport.get_local_port()
                         remote_port = outport.get_remote_port()
                         if local_port != 22 and local_port != 5986 and local_port != 3389:
-    
                             res += """
                 <InputEndpoint>
                   <LocalPort>%d</LocalPort>
