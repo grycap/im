@@ -174,7 +174,7 @@ class TestAzureClassicConnector(unittest.TestCase):
     @patch('time.sleep')
     def test_20_launch(self, sleep, requests):
         radl_data = """
-            network net1 (outbound = 'yes' and outports = '8080')
+            network net1 (outbound = 'yes' and outports = '8080,9000:9100')
             network net2 ()
             system test (
             cpu.arch='x86_64' and

@@ -627,24 +627,20 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             outports = public_net.getOutPorts()
             if outports:
                 for outport in outports:
-                    if len(outport) == 5:
-                        range_init, protocol, range_end, _, _ = outport
+                    if outport.is_range():
                         try:
-                            driver.ex_create_security_group_rule(
-                                sg, protocol, range_init, range_end, '0.0.0.0/0')
+                            driver.ex_create_security_group_rule(sg, outport.get_protocol(),
+                                                                 outport.get_port_init(),
+                                                                 outport.get_port_end(), '0.0.0.0/0')
                         except Exception as ex:
                             self.log_warn(
                                 "Exception adding SG rules: " + str(ex))
                     else:
-                        remote_port, remote_protocol, local_port, local_protocol = outport
-                        if local_port != 22:
-                            protocol = remote_protocol
-                            if remote_protocol != local_protocol:
-                                self.log_warn(
-                                    "Different protocols used in outports ignoring local port protocol!")
+                        if outport.get_remote_port() != 22:
                             try:
-                                driver.ex_create_security_group_rule(
-                                    sg, protocol, remote_port, remote_port, '0.0.0.0/0')
+                                driver.ex_create_security_group_rule(sg, outport.get_protocol(),
+                                                                     outport.get_remote_port(),
+                                                                     outport.get_remote_port(), '0.0.0.0/0')
                             except Exception as ex:
                                 self.log_warn(
                                     "Exception adding SG rules: " + str(ex))

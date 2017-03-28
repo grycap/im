@@ -369,22 +369,18 @@ class EC2CloudConnector(CloudConnector):
                 outports = public_net.getOutPorts()
                 if outports:
                     for outport in outports:
-                        if len(outport) == 5:
-                            range_init, protocol, range_end, _, _ = outport
+                        if outport.is_range():
                             try:
-                                sg.authorize(protocol, range_init, range_end, '0.0.0.0/0')
+                                sg.authorize(outport.get_protocol(), outport.get_port_init(),
+                                             outport.get_port_end(), '0.0.0.0/0')
                             except Exception as addex:
                                 self.log_warn("Exception adding SG rules. Probably the rules exists:" + str(addex))
                                 pass
                         else:
-                            remote_port, remote_protocol, local_port, local_protocol = outport
-                            if local_port != 22:
-                                protocol = remote_protocol
-                                if remote_protocol != local_protocol:
-                                    self.log_warn(
-                                        "Different protocols used in outports ignoring local port protocol!")
+                            if outport.get_remote_port() != 22:
                                 try:
-                                    sg.authorize(protocol, remote_port, remote_port, '0.0.0.0/0')
+                                    sg.authorize(outport.get_protocol(), outport.get_remote_port(),
+                                                 outport.get_remote_port(), '0.0.0.0/0')
                                 except Exception as addex:
                                     self.log_warn("Exception adding SG rules. Probably the rules exists:" + str(addex))
                                     pass

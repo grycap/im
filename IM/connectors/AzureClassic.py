@@ -234,20 +234,29 @@ class AzureClassicCloudConnector(CloudConnector):
         if public_net:
             outports = public_net.getOutPorts()
             if outports:
-                for remote_port, remote_protocol, local_port, local_protocol in outports:
-                    if local_port != 22 and local_port != 5986 and local_port != 3389:
-                        protocol = remote_protocol
-                        if remote_protocol != local_protocol:
-                            self.log_warn(
-                                "Diferent protocols used in outports ignoring local port protocol!")
-
-                        res += """
-            <InputEndpoint>
-              <LocalPort>%d</LocalPort>
-              <Name>Port %d</Name>
-              <Port>%d</Port>
-              <Protocol>%s</Protocol>
-            </InputEndpoint>""" % (local_port, local_port, remote_port, protocol.upper())
+                for outport in outports:
+                    protocol = outport.get_protocol().upper()
+                    if outport.is_range():
+                        for port in range(outport.get_port_init(), outport.get_port_end()+1):
+                            res += """
+                <InputEndpoint>
+                  <LocalPort>%d</LocalPort>
+                  <Name>Port %d</Name>
+                  <Port>%d</Port>
+                  <Protocol>%s</Protocol>
+                </InputEndpoint>""" % (port, port, port, protocol)
+                    else:
+                        local_port = outport.get_local_port()
+                        remote_port = outport.get_remote_port()
+                        if local_port != 22 and local_port != 5986 and local_port != 3389:
+    
+                            res += """
+                <InputEndpoint>
+                  <LocalPort>%d</LocalPort>
+                  <Name>Port %d</Name>
+                  <Port>%d</Port>
+                  <Protocol>%s</Protocol>
+                </InputEndpoint>""" % (local_port, local_port, remote_port, protocol)
 
         res += "\n          </InputEndpoints>"
         return res
