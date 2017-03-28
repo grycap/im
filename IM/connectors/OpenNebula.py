@@ -1070,6 +1070,12 @@ class OpenNebulaCloudConnector(CloudConnector):
         image_id = self.get_image_id(image_url, session_id)
         if image_id is None:
             return (False, "Incorrect image name or id specified.")
+
+        # Wait the image to be READY (not USED)
+        success, msg = self.wait_image(image_id, auth_data)
+        if not success:
+            self.logger.warn("Error waiting image to be READY: " + msg)
+
         func_res = server.one.image.delete(session_id, image_id)
         if len(func_res) == 2:
             (success, res_info) = func_res

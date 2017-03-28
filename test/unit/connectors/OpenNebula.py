@@ -306,7 +306,8 @@ class TestONEConnector(unittest.TestCase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('IM.connectors.OpenNebula.ServerProxy')
-    def test_80_delete_image(self, server_proxy):
+    @patch('time.sleep')
+    def test_80_delete_image(self, sleep, server_proxy):
         auth = Authentication([{'id': 'one', 'type': 'OpenNebula', 'username': 'user',
                                 'password': 'pass', 'host': 'server.com:2633'}])
         one_cloud = self.get_one_cloud()
