@@ -128,15 +128,12 @@ class VirtualMachine:
         Finalize the VM
         """
         if not self.destroy:
-            # set as drestroyed now
-            self.destroy = True
             if not self.cloud_connector:
                 self.cloud_connector = self.cloud.getCloudConnector(self.inf)
             self.kill_check_ctxt_process()
             (success, msg) = self.cloud_connector.finalize(self, auth)
-            if not success:
-                # if something fails, set as active again
-                self.destroy = False
+            if success:
+                self.destroy = True
             # force the update of the information
             self.last_update = 0
             return (success, msg)

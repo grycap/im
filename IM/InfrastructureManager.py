@@ -618,10 +618,10 @@ class InfrastructureManager:
         cont = 0
         exceptions = []
         for vmid in vm_ids:
-            for vm in sel_inf.get_vm_list():
+            # use reversed to maintain the same order as used in DestroyInfrastructure
+            for vm in reversed(sel_inf.get_vm_list()):
                 if str(vm.im_id) == str(vmid):
-                    InfrastructureManager.logger.debug(
-                        "Removing the VM ID: '" + vmid + "'")
+                    InfrastructureManager.logger.debug("Removing the VM ID: '%s'" % vmid)
                     try:
                         success, msg = vm.finalize(auth)
                         if success:
@@ -631,8 +631,7 @@ class InfrastructureManager:
                     except Exception as e:
                         exceptions.append(e)
 
-        InfrastructureManager.logger.info(
-            str(cont) + " VMs successfully removed")
+        InfrastructureManager.logger.info("%d VMs successfully removed" % cont)
 
         if context and cont > 0:
             # Now test again if the infrastructure is contextualizing
@@ -1128,8 +1127,7 @@ class InfrastructureManager:
         if Config.MAX_SIMULTANEOUS_LAUNCHES > 1:
             pool = ThreadPool(processes=Config.MAX_SIMULTANEOUS_LAUNCHES)
             pool.map(
-                lambda vm: InfrastructureManager._delete_vm(
-                    vm, auth, exceptions),
+                lambda vm: InfrastructureManager._delete_vm(vm, auth, exceptions),
                 reversed(sel_inf.get_vm_list())
             )
             pool.close()
