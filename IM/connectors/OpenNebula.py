@@ -367,13 +367,8 @@ class OpenNebulaCloudConnector(CloudConnector):
             return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
 
         # first delete the snapshots to aviod problems in EC3 deleting the IM front-end
-        if vm.inf.is_last_vm(vm.id):
-            try:
-                for image_url in vm.inf.snapshots:
-                    self.delete_image(image_url, auth_data)
-            except:
-                self.log_exception("Error deleting snapshots.")
-        
+        self.delete_snapshots(vm, auth_data)
+
         func_res = server.one.vm.action(session_id, 'delete', int(vm.id))
 
         if len(func_res) == 1:

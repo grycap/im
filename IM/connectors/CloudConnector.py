@@ -201,6 +201,20 @@ class CloudConnector:
             shutil.rmtree(tmp_dir, ignore_errors=True)
             return (public, private)
 
+    def delete_snapshots(self, vm, auth_data):
+        """
+        Delete the snapshots created with auto_delete option
+        """
+        if vm.inf.is_last_vm(vm.id):
+            try:
+                for image_url in vm.inf.snapshots:
+                    self.log_debug("Deleting snapshot: %s" % image_url)
+                    success, msg = self.delete_image(image_url, auth_data)
+                    if not success:
+                        self.log_error("Error deleting snapshot: %s" % msg)
+            except:
+                self.log_exception("Error deleting snapshots.")
+
     def log_msg(self, level, msg, exc_info=0):
         msg = "Inf ID: %s: %s" % (self.inf.id, msg)
         self.logger.log(level, msg, exc_info=exc_info)

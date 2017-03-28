@@ -1118,12 +1118,7 @@ class EC2CloudConnector(CloudConnector):
         conn = self.get_connection(region_name, auth_data)
 
         # first delete the snapshots to aviod problems in EC3 deleting the IM front-end
-        if vm.inf.is_last_vm(vm.id):
-            try:
-                for image_url in vm.inf.snapshots:
-                    self.delete_image(image_url, auth_data)
-            except:
-                self.log_exception("Error deleting snapshots.")
+        self.delete_snapshots(vm, auth_data)
 
         # Terminate the instance
         volumes = []
