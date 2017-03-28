@@ -1009,8 +1009,8 @@ class OpenNebulaCloudConnector(CloudConnector):
 
         if success:
             new_url = "one://%s/%d" % (self.cloud.server, res_info)
+            success, msg = self.wait_image(res_info, auth_data)
             if success:
-                success, msg = self.wait_image(res_info, auth_data)
                 if auto_delete:
                     vm.inf.snapshots.append(new_url)
                 return (True, new_url)
