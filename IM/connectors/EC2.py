@@ -1117,6 +1117,14 @@ class EC2CloudConnector(CloudConnector):
 
         conn = self.get_connection(region_name, auth_data)
 
+        # first delete the snapshots to aviod problems in EC3 deleting the IM front-end
+        if vm.inf.is_last_vm(vm.id):
+            try:
+                for image_url in vm.inf.snapshots:
+                    self.delete_image(image_url, auth_data)
+            except:
+                self.log_exception("Error deleting snapshots.")
+
         # Terminate the instance
         volumes = []
         instance = self.get_instance_by_id(instance_id, region_name, auth_data)
@@ -1159,13 +1167,6 @@ class EC2CloudConnector(CloudConnector):
             self.delete_security_group(conn, vm.inf)
         except:
             self.log_exception("Error deleting security group.")
-
-        if vm.inf.is_last_vm(vm.id):
-            try:
-                for image_url in vm.inf.snapshots:
-                    self.delete_image(image_url, auth_data)
-            except:
-                self.log_exception("Error deleting snapshots.")
 
         return (True, "")
 
