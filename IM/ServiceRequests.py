@@ -52,6 +52,7 @@ class IMBaseRequest(AsyncRequest):
     START_VM = "StartVM"
     STOP_VM = "StopVM"
     GET_VERSION = "GetVersion"
+    CREATE_DISK_SNAPSHOT = "CreateDiskSnapshot"
 
     @staticmethod
     def create_request(function, arguments=(), priority=Request.PRIORITY_NORMAL):
@@ -97,6 +98,8 @@ class IMBaseRequest(AsyncRequest):
             return Request_GetInfrastructureState(arguments)
         elif function == IMBaseRequest.GET_VERSION:
             return Request_GetVersion(arguments)
+        elif function == IMBaseRequest.CREATE_DISK_SNAPSHOT:
+            return Request_CreateDiskSnapshot(arguments)
 
         else:
             raise NotImplementedError("Function not Implemented")
@@ -365,3 +368,15 @@ class Request_GetVersion(IMBaseRequest):
     def _call_function(self):
         self._error_mesage = "Error getting IM service version"
         return version
+
+
+class Request_CreateDiskSnapshot(IMBaseRequest):
+    """
+    Request class for the CreateDiskSnapshot function
+    """
+
+    def _call_function(self):
+        self._error_mesage = "Error creating disk snapshot"
+        (inf_id, vm_id, disk_num, image_name, auto_delete, auth_data) = self.arguments
+        return IM.InfrastructureManager.InfrastructureManager.CreateDiskSnapshot(inf_id, vm_id, disk_num, image_name,
+                                                                                 auto_delete, Authentication(auth_data))

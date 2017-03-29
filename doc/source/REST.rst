@@ -49,6 +49,13 @@ Next tables summaries the resources and the HTTP methods available.
 | **PUT**     | | **Stop** the machine ``vmId`` in ``infId``. | | **Start** the machine ``vmId`` in ``infId``. |
 +-------------+-----------------------------------------------+------------------------------------------------+
 
++-------------+--------------------------------------------------------------+
+| HTTP method | /infrastructures/<infId>/vms/<vmId>/disks/<diskNum>/snapshot |
++=============+==============================================================+
+| **PUT**     | | **Create** an snapshot of the disk ``diskNum`` of the      |
+|             | | machine ``vmId`` in ``infId``                              |
++-------------+--------------------------------------------------------------+
+
 The error message returned by the service will depend on the ``Accept`` header of the request:
 
 * text/plain: (default option).
@@ -281,3 +288,18 @@ GET ``http://imserver.com/version``
     {
       "version": "1.4.4"
     }
+
+PUT ``http://imserver.com/infrastructures/<infId>/vms/<vmId>/disks/<diskNum>/snapshot``
+   :Response Content-type: text/plain or application/json
+   :ok response: 200 OK
+   :input fields: ``image_name`` (mandatory), ``auto_delete`` (optional)
+   :fail response: 401, 403, 404, 400
+
+   Create a snapshot of the specified ``diskNum`` in the VM ``vmId``
+   of the infrastructure with ID ``infId`. 
+   
+   The ``autoDelete`` flag
+   specifies that the snapshot will be deleted when the infrastructure is
+   destroyed. If the operation has been performed successfully the return
+   value is the image url of the new created image in IM format
+   (see disk.<diskId>.image.url format in RADL).

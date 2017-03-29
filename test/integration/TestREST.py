@@ -224,6 +224,19 @@ class TestIM(unittest.TestCase):
         self.assertEqual(resp.status_code, 200,
                          msg="ERROR getting VM property:" + resp.text)
 
+    def test_37_create_snapshot(self):
+        resp = self.create_request("GET", "/infrastructures/" + self.inf_id)
+        self.assertEqual(resp.status_code, 200,
+                         msg="ERROR getting the infrastructure info:" + resp.text)
+        vm_ids = resp.text.split("\n")
+
+        vm_uri = uriparse(vm_ids[0])
+        resp = self.create_request("PUT", vm_uri[2] + "/disks/0/snapshot?"
+                                   "image_name=im-rest-test-image&auto_delete=yes")
+        self.assertEqual(resp.status_code, 200,
+                         msg="ERROR creating snapshot:" + resp.text)
+        self.assertTrue(resp.text.startswith("one://"))
+
     def test_40_addresource(self):
         resp = self.create_request("POST", "/infrastructures/" + self.inf_id, body=RADL_ADD)
         self.assertEqual(resp.status_code, 200,
