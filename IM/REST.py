@@ -761,6 +761,7 @@ def RESTCreateDiskSnapshot(infid=None, vmid=None, disknum=None):
         logger.exception("Error creating snapshot")
         return return_error(400, "Error creating snapshot: " + str(ex))
 
+
 @app.error(403)
 def error_mesage_403(error):
     return return_error(403, error.body)
