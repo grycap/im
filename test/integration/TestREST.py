@@ -236,7 +236,6 @@ class TestIM(unittest.TestCase):
         self.assertEqual(resp.status_code, 200,
                          msg="ERROR creating snapshot:" + resp.text)
         self.assertTrue(resp.text.startswith("one://"))
-        self.assertTrue(resp.text.endswith("/im-rest-test-image"))
 
     def test_40_addresource(self):
         resp = self.create_request("POST", "/infrastructures/" + self.inf_id, body=RADL_ADD)

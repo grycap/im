@@ -746,7 +746,7 @@ def RESTCreateDiskSnapshot(infid=None, vmid=None, disknum=None):
         else:
             auto_delete = False
 
-        return InfrastructureManager.CreateDiskSnapshot(infid, vmid, disknum, image_name, auto_delete, auth)
+        return InfrastructureManager.CreateDiskSnapshot(infid, vmid, int(disknum), image_name, auto_delete, auth)
     except DeletedInfrastructureException as ex:
         return return_error(404, "Error creating snapshot: " + str(ex))
     except IncorrectInfrastructureException as ex:
