@@ -721,6 +721,46 @@ def RESTGeVersion():
         return return_error(400, "Error getting IM version: " + str(ex))
 
 
+@app.route('/infrastructures/:infid/vms/:vmid/disks/:disknum/snapshot', method='PUT')
+def RESTCreateDiskSnapshot(infid=None, vmid=None, disknum=None):
+    try:
+        auth = get_auth_header()
+    except:
+        return return_error(401, "No authentication data provided")
+
+    try:
+        bottle.response.content_type = "text/plain"
+
+        if "image_name" in bottle.request.params.keys():
+            image_name = bottle.request.params.get("image_name")
+        else:
+            return return_error(400, "Parameter image_name required.")
+        if "auto_delete" in bottle.request.params.keys():
+            str_auto_delete = bottle.request.params.get("auto_delete").lower()
+            if str_auto_delete in ['yes', 'true', '1']:
+                auto_delete = True
+            elif str_auto_delete in ['no', 'false', '0']:
+                auto_delete = False
+            else:
+                return return_error(400, "Incorrect value in context parameter")
+        else:
+            auto_delete = False
+
+        return InfrastructureManager.CreateDiskSnapshot(infid, vmid, disknum, image_name, auto_delete, auth)
+    except DeletedInfrastructureException as ex:
+        return return_error(404, "Error creating snapshot: " + str(ex))
+    except IncorrectInfrastructureException as ex:
+        return return_error(404, "Error creating snapshot: " + str(ex))
+    except UnauthorizedUserException as ex:
+        return return_error(403, "Error creating snapshot: " + str(ex))
+    except DeletedVMException as ex:
+        return return_error(404, "Error creating snapshot: " + str(ex))
+    except IncorrectVMException as ex:
+        return return_error(404, "Error creating snapshot: " + str(ex))
+    except Exception as ex:
+        logger.exception("Error creating snapshot")
+        return return_error(400, "Error creating snapshot: " + str(ex))
+
 @app.error(403)
 def error_mesage_403(error):
     return return_error(403, error.body)
