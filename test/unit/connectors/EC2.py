@@ -108,7 +108,7 @@ class TestEC2Connector(unittest.TestCase):
     @patch('boto.ec2.blockdevicemapping.BlockDeviceMapping')
     def test_20_launch(self, blockdevicemapping, VPCConnection, get_region):
         radl_data = """
-            network net1 (outbound = 'yes' and outports='8080')
+            network net1 (outbound = 'yes' and outports='8080,9000:9100')
             network net2 ()
             system test (
             cpu.arch='x86_64' and

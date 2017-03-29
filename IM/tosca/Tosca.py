@@ -190,10 +190,9 @@ class Tosca:
 
             # In case of source_range do not use port mapping only direct ports
             if source_range:
-                for port_in_range in range(source_range[0], source_range[1] + 1):
-                    if res:
-                        res += ","
-                    res += "%s/%s" % (port_in_range, protocol)
+                if res:
+                    res += ","
+                res += "%s:%s/%s" % (source_range[0], source_range[1], protocol)
             else:
                 if res:
                     res += ","
@@ -798,7 +797,6 @@ class Tosca:
                 return node.name
             elif attribute_name == "private_address":
                 if node.type == "tosca.nodes.indigo.Compute":
-                    # This only works with Ansible 2.1, wait for it to be released
                     if index is not None:
                         return "{{ hostvars[groups['%s'][%d]]['IM_NODE_PRIVATE_IP'] }}" % (node.name, index)
                     else:
@@ -811,7 +809,6 @@ class Tosca:
                         return "{{ hostvars[groups['%s'][0]]['IM_NODE_PRIVATE_IP'] }}" % node.name
             elif attribute_name == "public_address":
                 if node.type == "tosca.nodes.indigo.Compute":
-                    # This only works with Ansible 2.1, wait for it to be released
                     if index is not None:
                         return "{{ hostvars[groups['%s'][%d]]['IM_NODE_PUBLIC_IP'] }}" % (node.name, index)
                     else:
