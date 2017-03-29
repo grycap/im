@@ -414,7 +414,7 @@ class OCCICloudConnector(CloudConnector):
         user_data['sudo'] = "ALL=(ALL) NOPASSWD:ALL"
         user_data['lock-passwd'] = True
         user_data['ssh-import-id'] = user
-        user_data['ssh-authorized-keys'] = [public_key]
+        user_data['ssh-authorized-keys'] = [public_key.strip()]
         config_data = {"users": [user_data]}
         if cloud_config_str:
             cloud_config = yaml.load(cloud_config_str)
@@ -690,7 +690,7 @@ class OCCICloudConnector(CloudConnector):
         # Add user cloud init data
         cloud_config_str = self.get_cloud_init_data(radl)
         cloud_config = self.gen_cloud_config(public_key, user, cloud_config_str).encode()
-        user_data = str(base64.b64encode(cloud_config)).replace("\n", "")
+        user_data = base64.b64encode(cloud_config).decode().replace("\n", "")
         self.log_debug("Cloud init: %s" % cloud_config)
 
         # Get the info about the OCCI server (GET /-/)
