@@ -214,6 +214,16 @@ class TestIM(unittest.TestCase):
         self.assertNotEqual(
             info, "", msg="ERROR in the value returned by GetVMPropert: " + info)
 
+    def test_17_create_snapshot(self):
+        """
+        Test CreateDiskSnapshot function
+        """
+        (success, res) = self.server.CreateDiskSnapshot(self.inf_id, "0", 0,
+                                                        "im-test-image", True,
+                                                        self.auth_data)
+        self.assertTrue(
+            success, msg="ERROR calling CreateDiskSnapshot: " + str(res))
+
     def test_18_error_addresource(self):
         """
         Test to get error when adding a resource with an incorrect RADL

@@ -313,15 +313,14 @@ class GCECloudConnector(CloudConnector):
             if public_net:
                 outports = public_net.getOutPorts()
                 if outports:
-                    for remote_port, remote_protocol, local_port, local_protocol in outports:
-                        if local_port != 22:
-                            protocol = remote_protocol
-                            if remote_protocol != local_protocol:
-                                self.log_warn("Different protocols used in outports ignoring local port protocol!")
-
-                            if protocol not in ports:
-                                ports[protocol] = []
-                            ports[protocol].append(str(remote_port))
+                    for outport in outports:
+                        if outport.get_protocol() not in ports:
+                            ports[outport.get_protocol()] = []
+                        if outport.is_range():
+                            port_range = "%d-%d" % (outport.get_port_init(), outport.get_port_end())
+                            ports[outport.get_protocol()].append(port_range)
+                        elif outport.get_local_port() != 22:
+                            ports[outport.get_protocol()].append(str(outport.get_remote_port()))
 
                     allowed = [{'IPProtocol': 'tcp', 'ports': ports['tcp']}]
                     if 'udp' in ports:

@@ -254,10 +254,12 @@ class KubernetesCloudConnector(CloudConnector):
 
         ports = [{'containerPort': 22, 'protocol': 'TCP', 'hostPort': ssh_port}]
         if outports:
-            for remote_port, _, local_port, local_protocol in outports:
-                if local_port != 22:
-                    ports.append({'containerPort': local_port, 'protocol': local_protocol.upper(
-                    ), 'hostPort': remote_port})
+            for outport in outports:
+                if outport.is_range():
+                    self.log_warn("Port range not allowed in Kubernetes connector. Ignoring.")
+                elif outport.get_local_port() != 22:
+                    ports.append({'containerPort': outport.get_local_port(), 'protocol': outport.get_protocol().upper(
+                    ), 'hostPort': outport.get_remote_port()})
 
         pod_data = {'apiVersion': apiVersion, 'kind': 'Pod'}
         pod_data['metadata'] = {

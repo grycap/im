@@ -219,11 +219,14 @@ class DockerCloudConnector(CloudConnector):
             ports = []
             ports.append({"Protocol": "tcp", "PublishedPort": ssh_port, "TargetPort": 22})
             if outports:
-                for remote_port, _, local_port, local_protocol in outports:
-                    if local_port != 22:
-                        ports.append({"Protocol": local_protocol,
-                                      "PublishedPort": remote_port,
-                                      "TargetPort": local_port})
+                for outport in outports:
+                    if outport.is_range():
+                        self.log_warn("Port range not allowed in Docker connector. Ignoring.")
+                    else:
+                        if outport.get_local_port() != 22:
+                            ports.append({"Protocol": outport.get_protocol(),
+                                          "PublishedPort": outport.get_remote_port(),
+                                          "TargetPort": outport.get_local_port()})
 
             svc_data['EndpointSpec'] = {'Ports': ports}
 
@@ -284,9 +287,12 @@ class DockerCloudConnector(CloudConnector):
 
         exposed_ports = {"22/tcp": {}}
         if outports:
-            for _, _, local_port, local_protocol in outports:
-                if local_port != 22:
-                    exposed_ports[str(local_port) + '/' + local_protocol.lower()] = {}
+            for outport in outports:
+                if outport.is_range():
+                    self.log_warn("Port range not allowed in Docker connector. Ignoring.")
+                else:
+                    if outport.get_local_port() != 22:
+                        exposed_ports[str(outport.get_local_port()) + '/' + outport.get_protocol().lower()] = {}
         cont_data['ExposedPorts'] = exposed_ports
 
         # Attach to first private network
@@ -314,9 +320,13 @@ class DockerCloudConnector(CloudConnector):
             port_bindings = {}
             port_bindings["22/tcp"] = [{"HostPort": str(ssh_port)}]
             if outports:
-                for remote_port, _, local_port, local_protocol in outports:
-                    if local_port != 22:
-                        port_bindings[str(local_port) + '/' + local_protocol] = [{"HostPort": str(remote_port)}]
+                for outport in outports:
+                    if outport.is_range():
+                        self.log_warn("Port range not allowed in Docker connector. Ignoring.")
+                    else:
+                        if outport.get_local_port() != 22:
+                            port_bindings[str(outport.get_local_port()) +
+                                          '/' + outport.get_protocol()] = [{"HostPort": str(outport.get_remote_port())}]
             HostConfig['PortBindings'] = port_bindings
         if system.getValue("docker.privileged") == 'yes':
             HostConfig['Privileged'] = True
