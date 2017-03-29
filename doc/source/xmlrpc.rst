@@ -292,3 +292,21 @@ This is the list of method names:
    Take control of the infrastructure serialized in ``strInf`` and return
    the ID associated in the server. See
    :ref:`ExportInfrastructure <ExportInfrastructure-xmlrpc>`.
+
+.. _CreateDiskSnapshot-xmlrpc:
+
+``CreateDiskSnapshot``
+   :parameter 0: ``infId``: integer
+   :parameter 1: ``vmId``: integer
+   :parameter 2: ``diskNum``: integer
+   :parameter 3: ``imageName``: string
+   :parameter 4: ``autoDelete``: boolean   
+   :parameter 5: ``auth``: array of structs
+   :ok response: [true, string]
+   :fail response: [false, ``error``: string]
+
+   Create a snapshot of the specified ``diskNum`` in the VM ``vmId``
+   of the infrastructure with ID ``infId`. The ``autoDelete`` flag
+   specifies that the snapshot will be deleted when the infrastructure is
+   destroyed. It returns the image url of the new created image in IM format
+   (see disk.<diskId>.image.url format in RADL).

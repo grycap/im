@@ -44,7 +44,8 @@ from IM.REST import (RESTDestroyInfrastructure,
                      RESTStopInfrastructure,
                      RESTStartVM,
                      RESTStopVM,
-                     RESTGeVersion)
+                     RESTGeVersion,
+                     RESTCreateDiskSnapshot)
 
 
 def read_file_as_bytes(file_name):
@@ -384,6 +385,20 @@ class TestREST(unittest.TestCase):
         res = RESTGeVersion()
         self.assertEqual(res, version)
 
+    @patch("IM.InfrastructureManager.InfrastructureManager.CreateDiskSnapshot")
+    @patch("bottle.request")
+    def test_CreateDiskSnapshot(self, bottle_request, CreateDiskSnapshot):
+        """Test REST StopVM."""
+        bottle_request.return_value = MagicMock()
+        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
+                                                    "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
+                                                    "username = user; password = pass")}
+
+        bottle_request.params = {'image_name': 'image_url', 'auto_delete': 'yes'}
+        CreateDiskSnapshot.return_value = "one://server.com/image_url"
+
+        res = RESTCreateDiskSnapshot("1", "1", 0)
+        self.assertEqual(res, "one://server.com/image_url")
 
 if __name__ == "__main__":
     unittest.main()
