@@ -231,7 +231,7 @@ class TestIM(unittest.TestCase):
         vm_ids = resp.text.split("\n")
 
         vm_uri = uriparse(vm_ids[0])
-        resp = self.create_request("GET", vm_uri[2] + "/disks/0/snapshot?"
+        resp = self.create_request("PUT", vm_uri[2] + "/disks/0/snapshot?"
                                    "image_name=im-rest-test-image&auto_delete=yes")
         self.assertEqual(resp.status_code, 200,
                          msg="ERROR creating snapshot:" + resp.text)
