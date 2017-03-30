@@ -137,7 +137,11 @@ class InfrastructureInfo:
         if dic['radl']:
             dic['radl'] = parse_radl(dic['radl'])
         if 'extra_info' in dic and dic['extra_info'] and "TOSCA" in dic['extra_info']:
-            dic['extra_info']['TOSCA'] = Tosca.deserialize(dic['extra_info']['TOSCA'])
+            try:
+                dic['extra_info']['TOSCA'] = Tosca.deserialize(dic['extra_info']['TOSCA'])
+            except:
+                del dic['extra_info']['TOSCA']
+                InfrastructureInfo.logger.exception("Error deserializing TOSCA document")
         newinf.__dict__.update(dic)
         newinf.cloud_connector = None
         # Set the ConfManager object and the lock to the data loaded
