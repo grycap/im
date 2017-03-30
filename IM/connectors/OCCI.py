@@ -424,7 +424,7 @@ class OCCICloudConnector(CloudConnector):
                 del cloud_config["users"]
 
             config_data.update(cloud_config)
-        config = "#cloud-config\n%s" % yaml.dump(config_data, default_flow_style=False, width=256)
+        config = "#cloud-config\n%s" % yaml.dump(config_data, default_flow_style=False, width=512)
         return config
 
     def query_occi(self, auth_data):
@@ -691,7 +691,7 @@ class OCCICloudConnector(CloudConnector):
         cloud_config_str = self.get_cloud_init_data(radl)
         cloud_config = self.gen_cloud_config(public_key, user, cloud_config_str).encode()
         user_data = base64.b64encode(cloud_config).decode().replace("\n", "")
-        self.log_debug("Cloud init: %s" % cloud_config)
+        self.log_debug("Cloud init: %s" % cloud_config.decode())
 
         # Get the info about the OCCI server (GET /-/)
         occi_info = self.query_occi(auth_data)
