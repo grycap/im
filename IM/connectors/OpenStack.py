@@ -16,6 +16,7 @@
 
 import time
 from netaddr import IPNetwork, IPAddress
+import os.path
 
 try:
     from libcloud.compute.types import Provider, NodeState
@@ -779,3 +780,34 @@ users:
             return locations[0].name
 
         return None
+
+    def create_snapshot(self, vm, disk_num, image_name, auto_delete, auth_data):
+        node = self.get_node_with_id(vm.id, auth_data)
+
+        if node:
+            try:
+                image = node.driver.create_image(node, image_name)
+            except Exception as ex:
+                self.log_exception("Error creating image.")
+                return False, "Error creating image: %s." % str(ex)
+            new_url = "ost://%s/%s" % (self.cloud.server, image.id)
+            if auto_delete:
+                vm.inf.snapshots.append(new_url)
+            return True, new_url
+        else:
+            return (False, "VM not found with id: %s" % vm.id)
+
+    def delete_image(self, image_url, auth_data):
+        driver = self.get_driver(auth_data)
+        image_id = os.path.basename(image_url)
+        try:
+            image = driver.get_image(image_id)
+        except Exception as ex:
+            self.log_exception("Error getting image.")
+            return (False, "Error getting image %s: %s" % (image_id, str(ex)))
+        try:
+            driver.delete_image(image)
+            return True, ""
+        except Exception as ex:
+            self.log_exception("Error deleting image.")
+            return (False, "Error deleting image.: %s" % str(ex))
