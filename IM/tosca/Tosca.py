@@ -276,29 +276,16 @@ class Tosca:
 
             # If the node needs a public IP
             if public_ip:
-                public_nets = []
-                for net in radl.networks:
-                    if net.isPublic():
-                        public_nets.append(net)
-
-                if public_nets:
-                    public_net = None
-                    for net in public_nets:
-                        num_net = system.getNumNetworkWithConnection(net.id)
-                        if num_net is not None:
-                            public_net = net
-                            break
-
-                    if not public_net:
-                        # There are a public net but it has not been used in
-                        # this VM
-                        public_net = public_nets[0]
-                        num_net = system.getNumNetworkIfaces()
-                else:
-                    # There no public net, create one
-                    public_net = network.createNetwork("public_net", True)
-                    radl.networks.append(public_net)
-                    num_net = system.getNumNetworkIfaces()
+                # Always create a public IP per VM
+                # to enable to specify different outports
+                net_name = "public_net"
+                i = 1
+                while radl.get_network_by_id(net_name) is not None:
+                    net_name = "public_net_%d" % i
+                    i += 1
+                public_net = network.createNetwork(net_name, True)
+                radl.networks.append(public_net)
+                num_net = system.getNumNetworkIfaces()
 
                 if ports:
                     outports = Tosca._format_outports(ports)
