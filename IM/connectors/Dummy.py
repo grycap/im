@@ -80,3 +80,12 @@ class DummyCloudConnector(CloudConnector):
             Feature("memory.size", "=", new_memory, 'M'), conflict="other", missing="other")
 
         return (True, "")
+
+    def create_snapshot(self, vm, disk_num, image_name, auto_delete, auth_data):
+        new_url = "mock0://linux.for.ev.er/%s" % image_name
+        if auto_delete:
+            vm.inf.snapshots.append(new_url)
+        return (True, new_url)
+
+    def delete_image(self, image_url, auth_data):
+        return (True, "")

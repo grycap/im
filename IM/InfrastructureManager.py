@@ -627,10 +627,10 @@ class InfrastructureManager:
         cont = 0
         exceptions = []
         for vmid in vm_ids:
-            for vm in sel_inf.get_vm_list():
+            # use reversed to maintain the same order as used in DestroyInfrastructure
+            for vm in reversed(sel_inf.get_vm_list()):
                 if str(vm.im_id) == str(vmid):
-                    InfrastructureManager.logger.debug(
-                        "Removing the VM ID: '" + vmid + "'")
+                    InfrastructureManager.logger.debug("Removing the VM ID: '%s'" % vmid)
                     try:
                         success, msg = vm.finalize(auth)
                         if success:
@@ -640,8 +640,7 @@ class InfrastructureManager:
                     except Exception as e:
                         exceptions.append(e)
 
-        InfrastructureManager.logger.info(
-            str(cont) + " VMs successfully removed")
+        InfrastructureManager.logger.info("%d VMs successfully removed" % cont)
 
         if context and cont > 0:
             # Now test again if the infrastructure is contextualizing
@@ -1137,8 +1136,7 @@ class InfrastructureManager:
         if Config.MAX_SIMULTANEOUS_LAUNCHES > 1:
             pool = ThreadPool(processes=Config.MAX_SIMULTANEOUS_LAUNCHES)
             pool.map(
-                lambda vm: InfrastructureManager._delete_vm(
-                    vm, auth, exceptions),
+                lambda vm: InfrastructureManager._delete_vm(vm, auth, exceptions),
                 reversed(sel_inf.get_vm_list())
             )
             pool.close()
@@ -1394,6 +1392,35 @@ class InfrastructureManager:
         # Save the state
         IM.InfrastructureList.InfrastructureList.save_data(new_inf.id)
         return new_inf.id
+
+    @staticmethod
+    def CreateDiskSnapshot(inf_id, vm_id, disk_num, image_name, auto_delete, auth):
+        """
+        Create a snapshot of the specified num disk in a
+        virtual machine in an infrastructure.
+
+        Args:
+
+        - inf_id(str): infrastructure id.
+        - vm_id(str): virtual machine id.
+        - image_name(str): A name to set to the image
+        - disk_num(int): Number of the disk.
+        - auto_delete(bool): A flag to specify that the snapshot will be deleted when the
+          infrastructure is destroyed.
+        - auth(Authentication): parsed authentication tokens.
+
+        Return: a str with url of the saved snapshot.
+        """
+        auth = InfrastructureManager.check_auth_data(auth)
+
+        vm = InfrastructureManager.get_vm_from_inf(inf_id, vm_id, auth)
+
+        success, image_url = vm.create_snapshot(disk_num, image_name, auto_delete, auth)
+        if not success:
+            InfrastructureManager.logger.error("Error creating snapshot: %s" % image_url)
+            raise Exception("Error creating snapshot: %s" % image_url)
+        else:
+            return image_url
 
     @staticmethod
     def stop():

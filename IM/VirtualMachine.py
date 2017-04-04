@@ -123,15 +123,21 @@ class VirtualMachine:
             newvm.configured = False
         return newvm
 
+    def getCloudConnector(self):
+        """
+        Get the CloudConnector for this VM
+        """
+        if not self.cloud_connector:
+            self.cloud_connector = self.cloud.getCloudConnector(self.inf)
+        return self.cloud_connector
+
     def finalize(self, auth):
         """
         Finalize the VM
         """
         if not self.destroy:
-            if not self.cloud_connector:
-                self.cloud_connector = self.cloud.getCloudConnector(self.inf)
             self.kill_check_ctxt_process()
-            (success, msg) = self.cloud_connector.finalize(self, auth)
+            (success, msg) = self.getCloudConnector().finalize(self, auth)
             if success:
                 self.destroy = True
             # force the update of the information
@@ -144,9 +150,7 @@ class VirtualMachine:
         """
         Modify the features of the the VM
         """
-        if not self.cloud_connector:
-            self.cloud_connector = self.cloud.getCloudConnector(self.inf)
-        (success, alter_res) = self.cloud_connector.alterVM(self, radl, auth)
+        (success, alter_res) = self.getCloudConnector().alterVM(self, radl, auth)
         # force the update of the information
         self.last_update = 0
         return (success, alter_res)
@@ -155,9 +159,7 @@ class VirtualMachine:
         """
         Stop the VM
         """
-        if not self.cloud_connector:
-            self.cloud_connector = self.cloud.getCloudConnector(self.inf)
-        (success, msg) = self.cloud_connector.stop(self, auth)
+        (success, msg) = self.getCloudConnector().stop(self, auth)
         # force the update of the information
         self.last_update = 0
         return (success, msg)
@@ -166,12 +168,16 @@ class VirtualMachine:
         """
         Start the VM
         """
-        if not self.cloud_connector:
-            self.cloud_connector = self.cloud.getCloudConnector(self.inf)
-        (success, msg) = self.cloud_connector.start(self, auth)
+        (success, msg) = self.getCloudConnector().start(self, auth)
         # force the update of the information
         self.last_update = 0
         return (success, msg)
+
+    def create_snapshot(self, disk_num, image_name, auto_delete, auth):
+        """
+        Create a snapshot of one disk of the VM
+        """
+        return self.getCloudConnector().create_snapshot(self, disk_num, image_name, auto_delete, auth)
 
     def getRequestedSystem(self):
         """
@@ -447,11 +453,8 @@ class VirtualMachine:
             updated = False
             # To avoid to refresh the information too quickly
             if now - self.last_update > Config.VM_INFO_UPDATE_FREQUENCY:
-                if not self.cloud_connector:
-                    self.cloud_connector = self.cloud.getCloudConnector(self.inf)
-
                 try:
-                    (success, new_vm) = self.cloud_connector.updateVMInfo(self, auth)
+                    (success, new_vm) = self.getCloudConnector().updateVMInfo(self, auth)
                     if success:
                         state = new_vm.state
                         updated = True
