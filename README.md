@@ -95,9 +95,6 @@ Amazon EC2. It is available as package named ``python-boto`` in Debian based
 distributions. It can also be downloaded from `boto GitHub repository (https://github.com/boto/boto).
 Download the file and copy the boto subdirectory into the IM install path.
 
-In case of using the SSL secured version of the XMLRPC API the SpringPython
-framework (http://springpython.webfactional.com/) must be installed.
-
 In case of using the a MySQL DB as the backend to store IM data. The Python interface to MySQL
 must be installed, typically available as the package 'python-mysqldb' or 'MySQL-python' package.
 In case of using Python 3 use the PyMySQL package, available as the package 'python3-pymysql' on 

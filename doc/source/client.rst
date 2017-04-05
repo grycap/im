@@ -6,10 +6,7 @@ The :program:`im_client` is a CLI client that uses XML-RPC API of IM Server.
 Prerequisites
 -------------
 
-The :program:`im_client` needs at least Python 2.4 to run. If the XML-RPC API
-is secured with SSL certificates (see :confval:`XMLRCP_SSL`),
-`Spring Python <http://springpython.webfactional.com/>`_ should be installed.
-The Debian package is named ``python-springpython``.
+The :program:`im_client` needs at least Python 2.4 to run.
 
 Invocation
 ----------

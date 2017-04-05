@@ -64,10 +64,6 @@ Optional Packages
   Amazon EC2. It is available as package named ``python-boto`` in Debian based
   distributions. It can also be downloaded from `boto GitHub repository <https://github.com/boto/boto>`_.
   Download the file and copy the boto subdirectory into the IM install path.
-* `Spring Python <http://springpython.webfactional.com/>`_ framework is needed
-  if the access to XML-RPC API is secured with SSL certificates (see
-  :confval:`XMLRCP_SSL`).
-  The Debian package is named ``python-springpython``.
 * pyOpenSSL are needed if needed to secure the REST API
   with SSL certificates (see :confval:`REST_SSL`).
   pyOpenSSL can be installed using pip.
