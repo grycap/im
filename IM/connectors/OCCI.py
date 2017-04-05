@@ -839,7 +839,7 @@ class OCCICloudConnector(CloudConnector):
                 occi_volumes = self.get_attached_volumes_from_info(resp.text)
                 deleted_vols = []
                 for link, num_storage, device in occi_volumes:
-                    if not device.endswith("vda") and not device.endswith("hda"):
+                    if device is None or (not device.endswith("vda") and not device.endswith("hda")):
                         deleted_vols.append((link, num_storage, device))
                 return (True, deleted_vols)
         except Exception as ex:
