@@ -8,6 +8,7 @@ Prerequisites
 IM needs at least Python 2.6 to run, as well as the next libraries:
 
 * `The RADL parser <https://github.com/grycap/radl>`_.
+  (Since IM version 1.5.3, it requires RADL version 1.1.0 or later).
 * `paramiko <http://www.lag.net/paramiko/>`_, ssh2 protocol library for python
   (version 1.14 or later).
 * `PyYAML <http://pyyaml.org/>`_, a YAML parser.
