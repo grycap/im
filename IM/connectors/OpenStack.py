@@ -383,7 +383,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         nets = self.get_networks(driver, radl)
 
-        sgs = self.create_security_group(driver, inf, radl)
+        sgs = self.create_security_groups(driver, inf, radl)
 
         args = {'size': instance_type,
                 'image': image,
@@ -457,16 +457,15 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 res.append((False, msg))
             i += 1
 
-        # if all the VMs have failed, remove the sg and keypair
+        # if all the VMs have failed, remove the sgs and keypair
         if all_failed:
             if keypair_created:
-                # only delete in case of the user do not specify the keypair
-                # name
+                # only delete in case of the user do not specify the keypair name
                 self.log_debug("Deleting keypair: %s." % keypair_name)
                 driver.delete_key_pair(keypair)
-            if sgs:
-                self.log_debug("Deleting security group: %s." % sgs[0].id)
-                driver.ex_delete_security_group(sgs[0])
+            for sg in sgs:
+                self.log_debug("Deleting security group: %s." % sg.id)
+                driver.ex_delete_security_group(sg)
 
         return res
 
@@ -603,29 +602,35 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         except Exception:
             return None
 
-    def create_security_group(self, driver, inf, radl):
-        res = None
-        # Use the InfrastructureInfo lock to assure that only one VM create the SG
-        with inf._lock:
-            sg_name = "im-" + str(inf.id)
-            sg = self._get_security_group(driver, sg_name)
+    def create_security_groups(self, driver, inf, radl):
+        res = []
+        i = 0
+        system = radl.systems[0]
+        while system.getValue("net_interface." + str(i) + ".connection"):
+            network_name = system.getValue("net_interface." + str(i) + ".connection")
+            network = radl.get_network_by_id(network_name)
 
-            if not sg:
-                self.log_debug("Creating security group: " + sg_name)
-                sg = driver.ex_create_security_group(
-                    sg_name, "Security group created by the IM")
-            else:
-                return [sg]
+            sg_name = "im-%s-%s" % (str(inf.id), network_name)
 
-            res = [sg]
+            # Use the InfrastructureInfo lock to assure that only one VM create the SG
+            with inf._lock:
+                sg = self._get_security_group(driver, sg_name)
+                if not sg:
+                    self.log_debug("Creating security group: %s" % sg_name)
+                    sg = driver.ex_create_security_group(sg_name, "Security group created by the IM")
+                res.append(sg)
 
-        public_net = None
-        for net in radl.networks:
-            if net.isPublic():
-                public_net = net
+            try:
+                # open always SSH port on public nets
+                if network.isPublic():
+                    driver.ex_create_security_group_rule(sg, 'tcp', 22, 22, '0.0.0.0/0')
+                # open all the ports for the VMs in the security group
+                driver.ex_create_security_group_rule(sg, 'tcp', 1, 65535, source_security_group=sg)
+                driver.ex_create_security_group_rule(sg, 'udp', 1, 65535, source_security_group=sg)
+            except Exception as addex:
+                self.log_warn("Exception adding SG rules. Probably the rules exists:" + str(addex))
 
-        if public_net:
-            outports = public_net.getOutPorts()
+            outports = network.getOutPorts()
             if outports:
                 for outport in outports:
                     if outport.is_range():
@@ -634,8 +639,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                                                                  outport.get_port_init(),
                                                                  outport.get_port_end(), '0.0.0.0/0')
                         except Exception as ex:
-                            self.log_warn(
-                                "Exception adding SG rules: " + str(ex))
+                            self.log_warn("Exception adding SG rules: " + str(ex))
                     else:
                         if outport.get_remote_port() != 22:
                             try:
@@ -643,21 +647,9 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                                                                      outport.get_remote_port(),
                                                                      outport.get_remote_port(), '0.0.0.0/0')
                             except Exception as ex:
-                                self.log_warn(
-                                    "Exception adding SG rules: " + str(ex))
+                                self.log_warn("Exception adding SG rules: " + str(ex))
 
-        try:
-            driver.ex_create_security_group_rule(sg, 'tcp', 22, 22, '0.0.0.0/0')
-
-            # open all the ports for the VMs in the security group
-            driver.ex_create_security_group_rule(
-                sg, 'tcp', 1, 65535, source_security_group=sg)
-            driver.ex_create_security_group_rule(
-                sg, 'udp', 1, 65535, source_security_group=sg)
-        except Exception as addex:
-            self.log_warn(
-                "Exception adding SG rules. Probably the rules exists:" + str(addex))
-            pass
+            i += 1
 
         return res
 
@@ -670,8 +662,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             success = node.destroy()
 
             try:
-                public_key = vm.getRequestedSystem().getValue(
-                    'disk.0.os.credentials.public_key')
+                public_key = vm.getRequestedSystem().getValue('disk.0.os.credentials.public_key')
                 if (vm.keypair and public_key is None or len(public_key) == 0 or
                         (len(public_key) >= 1 and public_key.find('-----BEGIN CERTIFICATE-----') != -1)):
                     # only delete in case of the user do not specify the
@@ -694,11 +685,10 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 self.log_exception("Error deleting volumes.")
 
             try:
-                # Delete the SG if this is the last VM
-                self.delete_security_group(node, sgs, vm.inf, vm.id)
+                # Delete the SGs
+                self.delete_security_groups(node, sgs, vm.inf, vm.id)
             except:
-                self.log_exception("VM " + str(vm.id) + " successfully destroyed. "
-                                   "But some errors in deleting other elements, Ignoring it.")
+                self.log_exception("Error deleting security groups.")
 
             if not success:
                 return (False, "Error destroying node: " + vm.id)
@@ -709,21 +699,17 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         return (True, "")
 
-    def delete_security_group(self, node, sgs, inf, vm_id, timeout=60):
+    def delete_security_groups(self, node, sgs, inf, vm_id, timeout=90, delay=10):
         """
-        Delete the SG of this infrastructure if this is the last VM
+        Delete the SG of this node
+        In some cases (as the SG is shared) it will fail.
         """
         if sgs:
-            # There will be only one
-            sg = sgs[0]
-
-            if inf.is_last_vm(vm_id):
+            for sg in sgs:
                 # wait it to terminate and then remove the SG
                 cont = 0
                 deleted = False
                 while not deleted and cont < timeout:
-                    time.sleep(5)
-                    cont += 5
                     try:
                         node.driver.ex_delete_security_group(sg)
                         deleted = True
@@ -731,15 +717,13 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                         # Check if it has been deleted yet
                         sg = self._get_security_group(node.driver, sg.name)
                         if not sg:
-                            self.log_debug(
-                                "Error deleting the SG. But it does not exist. Ignore. " + str(ex))
+                            self.log_debug("Error deleting the SG. But it does not exist. Ignore. %s" % str(ex))
                             deleted = True
                         else:
                             self.log_exception("Error deleting the SG.")
-            else:
-                # If there are more than 1, we skip this step
-                self.log_debug(
-                    "There are active instances. Not removing the SG")
+
+                        time.sleep(delay)
+                        cont += delay
         else:
             self.log_warn("No Security Groups to delete")
 

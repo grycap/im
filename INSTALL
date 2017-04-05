@@ -64,9 +64,6 @@ However, if you install IM from sources you should install:
 1.2 OPTIONAL PACKAGES
 ---------------------
 
-In case of using the SSL secured version of the XMLRPC API the SpringPython
-framework (http://springpython.webfactional.com/) must be installed.
-
 In case of using the SSL secured version of the REST API pyOpenSSL must be installed.
 
 1.3 INSTALLING
