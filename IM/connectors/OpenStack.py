@@ -600,10 +600,24 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     pool = self.get_ip_pool(node.driver, pool_name)
                     floating_ip = pool.create_floating_ip()
 
-                    try:
-                        node.driver.ex_attach_floating_ip_to_node(node, floating_ip)
-                    except:
-                        self.log_exception("Error attaching a Floating IP to the node.")
+                    # sometimes the ip cannot be attached inmediately
+                    # we have to try and wait
+                    cont = 0
+                    retries = 5
+                    delay = 5
+                    attached = False
+                    while not attached and cont < retries:
+                        try:
+                            node.driver.ex_attach_floating_ip_to_node(node, floating_ip)
+                            attached = True
+                        except Exception as atex:
+                            self.log_warn("Error attaching a Floating IP to the node: %s" % str(atex))
+                            cont += 1
+                            if cont < retries:
+                                time.sleep(delay)
+
+                    if not attached:
+                        self.log_error("Error attaching a Floating IP to the node.")
                         self.log_debug("We have created it, so release it.")
                         floating_ip.delete()
                         return False, "Error attaching a Floating IP to the node."
