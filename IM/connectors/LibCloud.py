@@ -464,8 +464,7 @@ class LibCloudCloudConnector(CloudConnector):
                     n = 0
                     found = False
                     while vm.getRequestedSystem().getValue("net_interface." + str(n) + ".connection"):
-                        net_conn = vm.getRequestedSystem().getValue(
-                            'net_interface.' + str(n) + '.connection')
+                        net_conn = vm.getRequestedSystem().getValue('net_interface.' + str(n) + '.connection')
                         if vm.info.get_network_by_id(net_conn).isPublic():
                             if vm.getRequestedSystem().getValue("net_interface." + str(n) + ".ip"):
                                 fixed_ip = vm.getRequestedSystem().getValue("net_interface." + str(n) + ".ip")
@@ -480,14 +479,13 @@ class LibCloudCloudConnector(CloudConnector):
             elif node.driver.name == "OpenStack":
                 for floating_ip in node.driver.ex_list_floating_ips():
                     if floating_ip.node_id == node.id:
+                        self.log_debug("Remove Floating IP: %s" % floating_ip.ip_address)
                         # remove it from the node
-                        node.driver.ex_detach_floating_ip_from_node(
-                            node, floating_ip)
+                        node.driver.ex_detach_floating_ip_from_node(node, floating_ip)
                         # delete the ip
                         floating_ip.delete()
         except Exception:
-            self.log_exception(
-                "Error removing Elastic/Floating IPs to VM ID: " + str(vm.id))
+            self.log_exception("Error removing Elastic/Floating IPs to VM ID: " + str(vm.id))
 
     def start(self, vm, auth_data):
         node = self.get_node_with_id(vm.id, auth_data)
