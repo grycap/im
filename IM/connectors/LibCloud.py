@@ -640,19 +640,17 @@ class LibCloudCloudConnector(CloudConnector):
         all_ok = True
         if "volumes" in vm.__dict__.keys() and vm.volumes:
             for volumeid in vm.volumes:
+                self.log_debug("Deleting volume ID %s" % volumeid)
                 try:
                     volume = node.driver.ex_get_volume(volumeid)
                     success = self.wait_volume(volume, timeout=timeout)
                     if not success:
-                        self.log_error(
-                            "Error waiting the volume ID " + str(volume.id))
+                        self.log_error("Error waiting the volume ID " + str(volume.id))
                     success = volume.destroy()
                     if not success:
-                        self.log_error(
-                            "Error destroying the volume: " + str(volume.id))
+                        self.log_error("Error destroying the volume: " + str(volume.id))
                 except:
-                    self.log_exception(
-                        "Error destroying the volume: " + str(volume.id) + " from the node: " + vm.id)
+                    self.log_exception("Error destroying the volume: " + str(volume.id) + " from the node: " + vm.id)
                     success = False
 
                 if not success:

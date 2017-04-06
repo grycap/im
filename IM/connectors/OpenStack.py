@@ -591,8 +591,9 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     if found:
                         try:
                             node.driver.ex_attach_floating_ip_to_node(node, floating_ip)
-                        except:
-                            self.log_exception("Error attaching a found Floating IP to the node. Create a new one.")
+                        except Exception as atex:
+                            self.log_warn("Error attaching a found Floating IP to the node. "
+                                          "Create a new one (%s)." % str(atex))
                     else:
                         self.log_debug(floating_ip)
 
@@ -751,6 +752,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 deleted = False
                 while not deleted and cont < timeout:
                     try:
+                        self.log_debug("Deleting SG: %s" % sg.name)
                         node.driver.ex_delete_security_group(sg)
                         deleted = True
                     except Exception as ex:
