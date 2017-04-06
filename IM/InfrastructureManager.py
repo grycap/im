@@ -1100,7 +1100,7 @@ class InfrastructureManager:
         except Exception as e:
             msg = str(e)
         if not success:
-            InfrastructureManager.logger.info("The VM cannot be finalized")
+            InfrastructureManager.logger.info("The VM cannot be finalized: %s" % msg)
             exceptions.append(msg)
 
     @staticmethod
