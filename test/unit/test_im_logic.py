@@ -999,5 +999,60 @@ configure step2 (
         self.assertEqual(res['1'].vm_master.info.systems[0].getValue("disk.0.image.url"), "mock0://linux.for.ev.er")
         self.assertTrue(res['1'].auth.compare(inf.auth, "InfrastructureManager"))
 
+    def test_0inf_remove_two_clouds(self):
+        """ Test remove VMs from 2 cloud providers """
+
+        radl = """"
+            network publica (outbound = 'yes')
+            system front (
+            cpu.arch='x86_64' and
+            cpu.count>=1 and
+            memory.size>=512m and
+            net_interface.0.connection = 'publica' and
+            disk.0.image.url = 'mock0://linux.for.ev.er' and
+            disk.0.os.credentials.username = 'ubuntu' and
+            disk.0.os.credentials.password = 'aaaaa' and
+            disk.0.os.name = 'linux'
+            )
+            contextualize ()
+            deploy front 2 cloud0
+            deploy front 2 cloud1
+        """
+
+        cloud0 = self.get_cloud_connector_mock("MyMock0")
+        cloud0.finalize = Mock(return_value=(True, ""))
+        self.register_cloudconnector("Mock0", cloud0)
+        cloud1 = self.get_cloud_connector_mock("MyMock1")
+        cloud1.finalize = Mock(return_value=(True, ""))
+        self.register_cloudconnector("Mock1", cloud1)
+        auth0 = self.getAuth([0], [], [("Mock1", 1), ("Mock0", 0)])
+
+        infId = IM.CreateInfrastructure(radl, auth0)
+
+        InfrastructureList.infrastructure_list[infId].vm_list[0].cloud.server = "server0"
+        InfrastructureList.infrastructure_list[infId].vm_list[0].cloud_connector = cloud0
+        InfrastructureList.infrastructure_list[infId].vm_list[1].cloud.server = "server0"
+        InfrastructureList.infrastructure_list[infId].vm_list[1].cloud_connector = cloud0
+        InfrastructureList.infrastructure_list[infId].vm_list[2].cloud.server = "server1"
+        InfrastructureList.infrastructure_list[infId].vm_list[2].cloud_connector = cloud1
+        InfrastructureList.infrastructure_list[infId].vm_list[3].cloud.server = "server1"
+        InfrastructureList.infrastructure_list[infId].vm_list[3].cloud_connector = cloud1
+
+        cont = IM.RemoveResource(infId, ['0', '1'], auth0)
+
+        self.assertEqual(cont, 2)
+        self.assertEqual(cloud0.finalize.call_args_list[0][0][1], False)
+        self.assertEqual(cloud0.finalize.call_args_list[1][0][1], True)
+        self.assertEqual(cloud0.finalize.call_count, 2)
+        self.assertEqual(cloud1.finalize.call_count, 0)
+
+        IM.DestroyInfrastructure(infId, auth0)
+
+        self.assertEqual(cloud1.finalize.call_args_list[0][0][1], False)
+        self.assertEqual(cloud1.finalize.call_args_list[1][0][1], True)
+        self.assertEqual(cloud0.finalize.call_count, 2)
+        self.assertEqual(cloud1.finalize.call_count, 2)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1090,13 +1090,14 @@ class InfrastructureManager:
         resources correctly
         """
         for v in remain_vms:
-            if v.cloud.type == vm.cloud.type:
+            if v.cloud.type == vm.cloud.type and v.cloud.server == vm.cloud.server:
                 # There are at least one VM in the same cloud
                 # that will remain. This is not the last one
                 return False
 
         # Get the list of VMs on the same cloud to be deleted
-        delete_list_cloud = [v for v in delete_list if v.cloud.type == vm.cloud.type]
+        delete_list_cloud = [v for v in delete_list if (v.cloud.type == vm.cloud.type and
+                                                        v.cloud.server == vm.cloud.server)]
 
         # And return true in the last of these VMs
         return vm == delete_list_cloud[-1]
