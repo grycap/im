@@ -999,7 +999,7 @@ configure step2 (
         self.assertEqual(res['1'].vm_master.info.systems[0].getValue("disk.0.image.url"), "mock0://linux.for.ev.er")
         self.assertTrue(res['1'].auth.compare(inf.auth, "InfrastructureManager"))
 
-    def test_0inf_remove_two_clouds(self):
+    def test_inf_remove_two_clouds(self):
         """ Test remove VMs from 2 cloud providers """
 
         radl = """"
