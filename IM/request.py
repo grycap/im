@@ -33,6 +33,7 @@ except ImportError:
 
 from IM.timedcall import TimedCall
 from IM.config import Config
+from IM.xmlrpcssl import SSLSimpleXMLRPCServer
 
 
 class RequestQueue(Queue):
@@ -275,9 +276,7 @@ class AsyncXMLRPCServer(ThreadingMixIn, SimpleXMLRPCServer):
         self.__thread.start()
 
 if Config.XMLRCP_SSL:
-    from springpython.remoting.xmlrpc import SSLServer
-
-    class AsyncSSLXMLRPCServer(ThreadingMixIn, SSLServer):
+    class AsyncSSLXMLRPCServer(ThreadingMixIn, SSLSimpleXMLRPCServer):
 
         def __init__(self, *args, **kwargs):
             super(AsyncSSLXMLRPCServer, self).__init__(*args, **kwargs)

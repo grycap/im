@@ -325,48 +325,53 @@ class EC2CloudConnector(CloudConnector):
     @staticmethod
     def _get_security_group(conn, sg_name):
         try:
-            sg = None
-            for elem in conn.get_all_security_groups():
-                if elem.name == sg_name:
-                    sg = elem
-                    break
-            return sg
+            return conn.get_all_security_groups([sg_name])[0]
         except Exception:
             return None
 
-    def create_security_group(self, conn, inf, radl, vpc=None):
-        res = None
+    def create_security_groups(self, conn, inf, radl, vpc=None):
+        res = []
         try:
-            sg_name = "im-" + str(inf.id)
-            sg = self._get_security_group(conn, sg_name)
+            i = 0
+            system = radl.systems[0]
+            while system.getValue("net_interface." + str(i) + ".connection"):
+                network_name = system.getValue("net_interface." + str(i) + ".connection")
+                network = radl.get_network_by_id(network_name)
 
-            if not sg:
-                self.log_debug("Creating security group: " + sg_name)
-                try:
-                    sg = conn.create_security_group(
-                        sg_name, "Security group created by the IM", vpc_id=vpc)
-                except Exception as crex:
-                    # First check if the SG does exist
+                sg_name = "im-%s-%s" % (str(inf.id), network_name)
+
+                # Use the InfrastructureInfo lock to assure that only one VM create the SG
+                with inf._lock:
                     sg = self._get_security_group(conn, sg_name)
                     if not sg:
-                        # if not raise the exception
-                        raise crex
-                    else:
-                        self.log_debug(
-                            "Security group: " + sg_name + " already created.")
+                        self.log_debug("Creating security group: " + sg_name)
+                        try:
+                            sg = conn.create_security_group(sg_name, "Security group created by the IM", vpc_id=vpc)
+                        except Exception as crex:
+                            # First check if the SG does exist
+                            sg = self._get_security_group(conn, sg_name)
+                            if not sg:
+                                # if not raise the exception
+                                raise crex
+                            else:
+                                self.log_debug("Security group: " + sg_name + " already created.")
 
-            if vpc:
-                res = [sg.id]
-            else:
-                res = [sg.name]
+                if vpc:
+                    res.append(sg.id)
+                else:
+                    res.append(sg.name)
 
-            public_net = None
-            for net in radl.networks:
-                if net.isPublic():
-                    public_net = net
+                try:
+                    # open always SSH port on public nets
+                    if network.isPublic():
+                        sg.authorize('tcp', 22, 22, '0.0.0.0/0')
+                    # open all the ports for the VMs in the security group
+                    sg.authorize('tcp', 0, 65535, src_group=sg)
+                    sg.authorize('udp', 0, 65535, src_group=sg)
+                except Exception as addex:
+                    self.log_warn("Exception adding SG rules. Probably the rules exists:" + str(addex))
 
-            if public_net:
-                outports = public_net.getOutPorts()
+                outports = network.getOutPorts()
                 if outports:
                     for outport in outports:
                         if outport.is_range():
@@ -375,7 +380,6 @@ class EC2CloudConnector(CloudConnector):
                                              outport.get_port_end(), '0.0.0.0/0')
                             except Exception as addex:
                                 self.log_warn("Exception adding SG rules. Probably the rules exists:" + str(addex))
-                                pass
                         else:
                             if outport.get_remote_port() != 22:
                                 try:
@@ -383,27 +387,17 @@ class EC2CloudConnector(CloudConnector):
                                                  outport.get_remote_port(), '0.0.0.0/0')
                                 except Exception as addex:
                                     self.log_warn("Exception adding SG rules. Probably the rules exists:" + str(addex))
-                                    pass
 
-            try:
-                sg.authorize('tcp', 22, 22, '0.0.0.0/0')
-
-                # open all the ports for the VMs in the security group
-                sg.authorize('tcp', 0, 65535, src_group=sg)
-                sg.authorize('udp', 0, 65535, src_group=sg)
-                # sg.authorize('icmp', 0, 65535, src_group=sg)
-            except Exception as addex:
-                self.log_warn("Exception adding SG rules. Probably the rules exists:" + str(addex))
-                pass
-
+                i += 1
         except Exception as ex:
             self.log_exception("Error Creating the Security group")
             if vpc:
-                raise Exception(
-                    "Error Creating the Security group: " + str(ex))
-            pass
+                raise Exception("Error Creating the Security group: " + str(ex))
 
-        return res
+        if not res:
+            return None
+        else:
+            return res
 
     def create_keypair(self, system, conn):
         # create the keypair
@@ -530,7 +524,7 @@ class EC2CloudConnector(CloudConnector):
             if provider_id:
                 vpc, subnet = provider_id
                 sg_names = None
-                sg_ids = self.create_security_group(conn, inf, radl, vpc)
+                sg_ids = self.create_security_groups(conn, inf, radl, vpc)
                 if not sg_ids:
                     vpc = None
                     subnet = None
@@ -543,10 +537,10 @@ class EC2CloudConnector(CloudConnector):
                 if vpc:
                     self.set_net_provider_id(radl, vpc, subnet)
                     sg_names = None
-                    sg_ids = self.create_security_group(conn, inf, radl, vpc)
+                    sg_ids = self.create_security_groups(conn, inf, radl, vpc)
                 else:
                     sg_ids = None
-                    sg_names = self.create_security_group(conn, inf, radl, vpc)
+                    sg_names = self.create_security_groups(conn, inf, radl, vpc)
                     if not sg_names:
                         sg_names = ['default']
 
@@ -577,7 +571,6 @@ class EC2CloudConnector(CloudConnector):
                         self.log_debug("Launching a spot instance")
                         instance_type = self.get_instance_type(system, vpc is not None)
                         if not instance_type:
-
                             self.log_error(
                                 "Error %s, no instance type available for the requirements." % err_msg)
                             self.log_debug(system)
@@ -711,12 +704,16 @@ class EC2CloudConnector(CloudConnector):
                     self.log_exception("Error deleting keypair.")
             if sg_ids:
                 try:
-                    conn.delete_security_group(group_id=sg_ids[0])
+                    for sgid in sg_ids:
+                        self.log_debug("Remove the SG: %s" % sgid)
+                        conn.delete_security_group(group_id=sgid)
                 except:
                     self.log_exception("Error deleting SG.")
             if sg_names and sg_names[0] != 'default':
                 try:
-                    conn.delete_security_group(sg_names[0])
+                    for sgname in sg_names:
+                        self.log_debug("Remove the SG: %s" % sgname)
+                        conn.delete_security_group(sgname)
                 except:
                     self.log_exception("Error deleting SG.")
 
@@ -1131,6 +1128,12 @@ class EC2CloudConnector(CloudConnector):
                 volumes.append(volume.volume_id)
             instance.terminate()
 
+        # Delete the SG if this is the last VM
+        try:
+            self.delete_security_groups(conn, vm)
+        except:
+            self.log_exception("Error deleting security group.")
+
         public_key = vm.getRequestedSystem().getValue('disk.0.os.credentials.public_key')
         if public_key is None or len(public_key) == 0 or (len(public_key) >= 1 and
                                                           public_key.find('-----BEGIN CERTIFICATE-----') != -1):
@@ -1158,26 +1161,32 @@ class EC2CloudConnector(CloudConnector):
         except:
             self.log_exception("Error deleting EBS volumess")
 
-        # Delete the SG if this is the last VM
-        try:
-            self.delete_security_group(conn, vm.inf)
-        except:
-            self.log_exception("Error deleting security group.")
-
         return (True, "")
 
-    def delete_security_group(self, conn, inf, timeout=90):
+    def _get_security_groups(self, conn, vm):
+        """
+        Get all the SGs where the VM is included
+        """
+        sgs = []
+        for net in vm.info.networks:
+            sg_name = "im-%s-%s" % (str(vm.inf.id), net.id)
+            try:
+                sgs.extend(conn.get_all_security_groups([sg_name]))
+            except Exception:
+                self.log_exception("Error getting SG %s" % sg_name)
+        return sgs
+
+    def delete_security_groups(self, conn, vm, timeout=90):
         """
         Delete the SG of this infrastructure if this is the last VM
 
         Arguments:
            - conn(:py:class:`boto.ec2.connection`): object to connect to EC2 API.
-           - inf(:py:class:`IM.InfrastructureInfo`): Infrastructure information.
+           - vm(:py:class:`IM.VirtualMachine`): VirtualMachine information.
         """
-        sg_name = "im-" + str(inf.id)
-        sg = self._get_security_group(conn, sg_name)
+        sgs = self._get_security_groups(conn, vm)
 
-        if sg:
+        for sg in sgs:
             some_vm_running = False
             for instance in sg.instances():
                 if instance.state == 'running':
@@ -1198,14 +1207,13 @@ class EC2CloudConnector(CloudConnector):
                         all_vms_terminated = False
 
                 if all_vms_terminated:
-                    self.log_debug("Remove the SG: " + sg_name)
+                    self.log_debug("Remove the SG: " + sg.name)
                     try:
                         sg.revoke('tcp', 0, 65535, src_group=sg)
                         sg.revoke('udp', 0, 65535, src_group=sg)
                         time.sleep(2)
                     except Exception as ex:
-                        self.log_warn(
-                            "Error revoking self rules: " + str(ex))
+                        self.log_warn("Error revoking self rules: " + str(ex))
 
                     deleted = False
                     while not deleted and cont < timeout:
@@ -1216,19 +1224,17 @@ class EC2CloudConnector(CloudConnector):
                             deleted = True
                         except Exception as ex:
                             # Check if it has been deleted yet
-                            sg = self._get_security_group(conn, sg_name)
+                            sg = self._get_security_group(conn, sg.name)
                             if not sg:
-                                self.log_debug(
-                                    "Error deleting the SG. But it does not exist. Ignore. " + str(ex))
+                                self.log_debug("Error deleting the SG. But it does not exist. Ignore. " + str(ex))
                                 deleted = True
                             else:
                                 self.log_exception("Error deleting the SG.")
             else:
                 # If there are more than 1, we skip this step
-                self.log_debug(
-                    "There are active instances. Not removing the SG")
+                self.log_debug("There are active instances. Not removing the SG")
         else:
-            self.log_warn("No Security Group with name: " + sg_name)
+            self.log_warn("No Security Groups to delete to node: %s" % vm.id)
 
     def stop(self, vm, auth_data):
         region_name = vm.id.split(";")[0]
