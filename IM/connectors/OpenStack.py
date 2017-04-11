@@ -661,7 +661,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         return res
 
-    def finalize(self, vm, auth_data):
+    def finalize(self, vm, last, auth_data):
         node = self.get_node_with_id(vm.id, auth_data)
 
         if node:
@@ -670,8 +670,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             success = node.destroy()
 
             try:
-                public_key = vm.getRequestedSystem().getValue(
-                    'disk.0.os.credentials.public_key')
+                public_key = vm.getRequestedSystem().getValue('disk.0.os.credentials.public_key')
                 if (vm.keypair and public_key is None or len(public_key) == 0 or
                         (len(public_key) >= 1 and public_key.find('-----BEGIN CERTIFICATE-----') != -1)):
                     # only delete in case of the user do not specify the
@@ -695,7 +694,11 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
             try:
                 # Delete the SG if this is the last VM
-                self.delete_security_group(node, sgs, vm.inf, vm.id)
+                if last:
+                    self.delete_security_group(node, sgs, vm.inf, vm.id)
+                else:
+                    # If this is not the last vm, we skip this step
+                    self.log_debug("There are active instances. Not removing the SG")
             except:
                 self.log_exception("VM " + str(vm.id) + " successfully destroyed. "
                                    "But some errors in deleting other elements, Ignoring it.")
@@ -717,29 +720,25 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             # There will be only one
             sg = sgs[0]
 
-            if inf.is_last_vm(vm_id):
-                # wait it to terminate and then remove the SG
-                cont = 0
-                deleted = False
-                while not deleted and cont < timeout:
-                    time.sleep(5)
-                    cont += 5
-                    try:
-                        node.driver.ex_delete_security_group(sg)
+            # wait it to terminate and then remove the SG
+            cont = 0
+            deleted = False
+            while not deleted and cont < timeout:
+                time.sleep(5)
+                cont += 5
+                try:
+                    node.driver.ex_delete_security_group(sg)
+                    deleted = True
+                except Exception as ex:
+                    # Check if it has been deleted yet
+                    sg = self._get_security_group(node.driver, sg.name)
+                    if not sg:
+                        self.log_debug(
+                            "Error deleting the SG. But it does not exist. Ignore. " + str(ex))
                         deleted = True
-                    except Exception as ex:
-                        # Check if it has been deleted yet
-                        sg = self._get_security_group(node.driver, sg.name)
-                        if not sg:
-                            self.log_debug(
-                                "Error deleting the SG. But it does not exist. Ignore. " + str(ex))
-                            deleted = True
-                        else:
-                            self.log_exception("Error deleting the SG.")
-            else:
-                # If there are more than 1, we skip this step
-                self.log_debug(
-                    "There are active instances. Not removing the SG")
+                    else:
+                        self.log_exception("Error deleting the SG.")
+
         else:
             self.log_warn("No Security Groups to delete")
 

@@ -1111,14 +1111,15 @@ class EC2CloudConnector(CloudConnector):
         except Exception:
             self.log_exception("Error deleting the spot instance request")
 
-    def finalize(self, vm, auth_data):
+    def finalize(self, vm, last, auth_data):
         region_name = vm.id.split(";")[0]
         instance_id = vm.id.split(";")[1]
 
         conn = self.get_connection(region_name, auth_data)
 
-        # first delete the snapshots to aviod problems in EC3 deleting the IM front-end
-        self.delete_snapshots(vm, auth_data)
+        # first delete the snapshots to avoid problems in EC3 deleting the IM front-end
+        if last:
+            self.delete_snapshots(vm, auth_data)
 
         # Terminate the instance
         volumes = []

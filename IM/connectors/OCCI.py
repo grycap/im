@@ -846,7 +846,7 @@ class OCCICloudConnector(CloudConnector):
             self.log_exception("Error deleting volumes")
             return (False, "Error deleting volumes " + str(ex))
 
-    def finalize(self, vm, auth_data):
+    def finalize(self, vm, last, auth_data):
         # First try to get the volumes
         get_vols_ok, volumes = self.get_attached_volumes(vm, auth_data)
         if not get_vols_ok:

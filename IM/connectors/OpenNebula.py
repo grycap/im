@@ -360,14 +360,15 @@ class OpenNebulaCloudConnector(CloudConnector):
             i += 1
         return res
 
-    def finalize(self, vm, auth_data):
+    def finalize(self, vm, last, auth_data):
         server = ServerProxy(self.server_url, allow_none=True)
         session_id = self.getSessionID(auth_data)
         if session_id is None:
             return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
 
-        # first delete the snapshots to aviod problems in EC3 deleting the IM front-end
-        self.delete_snapshots(vm, auth_data)
+        # first delete the snapshots to avoid problems in EC3 deleting the IM front-end
+        if last:
+            self.delete_snapshots(vm, auth_data)
 
         func_res = server.one.vm.action(session_id, 'delete', int(vm.id))
 

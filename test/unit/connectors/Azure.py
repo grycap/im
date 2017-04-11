@@ -355,7 +355,7 @@ class TestAzureConnector(unittest.TestCase):
         inf = MagicMock()
         vm = VirtualMachine(inf, "rg0/vm0", azure_cloud.cloud, "", "", azure_cloud, 1)
 
-        success, _ = azure_cloud.finalize(vm, auth)
+        success, _ = azure_cloud.finalize(vm, True, auth)
 
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())

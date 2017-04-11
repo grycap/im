@@ -376,7 +376,7 @@ class FogBowCloudConnector(CloudConnector):
 
         return res
 
-    def finalize(self, vm, auth_data):
+    def finalize(self, vm, last, auth_data):
         auth = self.get_auth_headers(auth_data)
         headers = {'Accept': 'text/plain'}
         if auth:

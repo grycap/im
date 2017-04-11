@@ -289,13 +289,13 @@ class TestDockerConnector(unittest.TestCase):
 
         requests.side_effect = self.get_response
 
-        success, _ = docker_cloud.finalize(vm, auth)
+        success, _ = docker_cloud.finalize(vm, True, auth)
 
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
         self.activate_swarm()
-        success, _ = docker_cloud.finalize(vm, auth)
+        success, _ = docker_cloud.finalize(vm, True, auth)
         self.activate_swarm(False)
 
         self.assertTrue(success, msg="ERROR: finalizing VM info.")

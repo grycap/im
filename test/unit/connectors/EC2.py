@@ -561,7 +561,7 @@ class TestEC2Connector(unittest.TestCase):
         sg.delete.return_value = True
         conn.get_all_security_groups.return_value = [sg]
 
-        success, _ = ec2_cloud.finalize(vm, auth)
+        success, _ = ec2_cloud.finalize(vm, True, auth)
 
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())

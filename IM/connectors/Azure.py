@@ -626,7 +626,7 @@ class AzureCloudConnector(CloudConnector):
 
         vm.setIps(public_ips, private_ips)
 
-    def finalize(self, vm, auth_data):
+    def finalize(self, vm, last, auth_data):
         try:
             self.log_debug("Terminate VM: " + vm.id)
             group_name = vm.id.split('/')[0]
@@ -638,7 +638,7 @@ class AzureCloudConnector(CloudConnector):
             resource_client.resource_groups.delete(group_name).wait()
 
             # if it is the last VM delete the RG of the Inf
-            if vm.inf.is_last_vm(vm.id):
+            if last:
                 self.log_debug("Removing RG: %s" % "rg-%s" % vm.inf.id)
                 resource_client.resource_groups.delete("rg-%s" % vm.inf.id)
 
