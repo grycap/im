@@ -365,6 +365,7 @@ class TestOSTConnector(unittest.TestCase):
         ost_cloud = self.get_ost_cloud()
 
         radl_data = """
+            network public (outboud = 'yes')
             system test (
             cpu.count>=2 and
             memory.size>=2048m
@@ -372,6 +373,8 @@ class TestOSTConnector(unittest.TestCase):
         radl = radl_parse.parse_radl(radl_data)
 
         inf = MagicMock()
+        inf.id = "infid"
+        inf.radl = radl
         vm = VirtualMachine(inf, "1", ost_cloud.cloud, radl, radl, ost_cloud, 1)
 
         driver = MagicMock()
@@ -387,10 +390,6 @@ class TestOSTConnector(unittest.TestCase):
         node.driver = driver
         node.destroy.return_value = True
         driver.list_nodes.return_value = [node]
-
-        sg = MagicMock()
-        sg.id = sg.name = "sg1"
-        driver.ex_get_node_security_groups.return_value = [sg]
 
         keypair = MagicMock()
         driver.get_key_pair.return_value = keypair
