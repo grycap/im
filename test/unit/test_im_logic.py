@@ -309,12 +309,12 @@ class TestIM(unittest.TestCase):
                                  'password': 'tests'}])
         with self.assertRaises(Exception) as ex:
             IM.CreateInfrastructure(radl, auth0)
-        self.assertEqual(str(ex.exception),
-                         'Some deploys did not proceed successfully: All machines could not be launched: \n'
-                         'Attempt 1: Error launching the VMs of type front to cloud ID one of type OpenNebula. '
-                         'Cloud Provider Error: [Errno 111] Connection refused\n'
-                         'Attempt 2: Error, no concrete system to deploy: front in cloud: ost. '
-                         'Check if a correct image is being used\n\n')
+        self.assertIn('Some deploys did not proceed successfully: All machines could not be launched: \n'
+                      'Attempt 1: Error launching the VMs of type front to cloud ID one of type OpenNebula. ',
+                      str(ex.exception))
+        self.assertIn('Attempt 2: Error, no concrete system to deploy: front in cloud: ost. '
+                      'Check if a correct image is being used\n\n',
+                      str(ex.exception))
 
         # this case must fail with two errors, first the OCCI one
         auth0 = Authentication([{'id': 'occi', 'type': 'OCCI', 'proxy': 'proxy',
@@ -325,13 +325,12 @@ class TestIM(unittest.TestCase):
                                  'password': 'tests'}])
         with self.assertRaises(Exception) as ex:
             IM.CreateInfrastructure(radl, auth0)
-        self.assertIn(str(ex.exception),
-                      'Some deploys did not proceed successfully: All machines could not be launched: \n'
+        self.assertIn('Some deploys did not proceed successfully: All machines could not be launched: \n'
                       'Attempt 1: Error launching the VMs of type front to cloud ID occi of type OCCI. '
                       'Cloud Provider Error: Error getting os_tpl scheme. '
                       'Check that the image specified is supported in the OCCI server.\n'
-                      'Attempt 2: Error launching the VMs of type front to cloud ID one of type OpenNebula. '
-                      'Cloud Provider Error: [Errno 111] Connection refused\n\n')
+                      'Attempt 2: Error launching the VMs of type front to cloud ID one of type OpenNebula. ',
+                      str(ex.exception))
 
         # this case must work OK
         auth0 = Authentication([{'id': 'ost', 'type': 'OpenStack', 'username': 'user',
