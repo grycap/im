@@ -618,13 +618,10 @@ class InfrastructureManager:
 
         cont = 0
         exceptions = []
-        for vmid in vm_ids:
-            # use reversed to maintain the same order as used in DestroyInfrastructure
-            delete_list = list(reversed(sel_inf.get_vm_list()))
-            for vm in delete_list:
-                if str(vm.im_id) == str(vmid):
-                    if InfrastructureManager._delete_vm(vm, vm==delete_list[-1], auth, exceptions):
-                        cont += 1
+        delete_list = [sel_inf.get_vm(vmid) for vmid in vm_ids]
+        for vm in delete_list:
+            if InfrastructureManager._delete_vm(vm, vm==delete_list[-1], auth, exceptions):
+                cont += 1
 
         InfrastructureManager.logger.info("%d VMs successfully removed" % cont)
 
