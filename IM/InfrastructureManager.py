@@ -615,6 +615,12 @@ class InfrastructureManager:
             raise Exception(
                 'Incorrect parameter type to RemoveResource function: expected: str, int or list of str.')
 
+        # if there are some "unconfigure" sections
+        if context and sel_inf.radl.contextualize.get_contextualize_items_by_step(unconfigure=True):
+            sel_inf.Contextualize(auth, vm_ids, unconfigure=True)
+            # now wait it to finish
+            # IS NOT SO EASY ...
+
         cont = 0
         exceptions = []
         for vmid in vm_ids:

@@ -76,7 +76,7 @@ class VirtualMachine:
         self.cont_out = ""
         """Contextualization output message"""
         self.configured = None
-        """Configure flag. If it is None the contextualization has not been finished yet"""
+        """Configure flag. If it is None the contextualization has not finished yet"""
         self.ctxt_pid = None
         """Number of the PID of the contextualization process being executed in this VM"""
         self.ssh_connect_errors = 0

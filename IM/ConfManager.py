@@ -40,11 +40,10 @@ from IM.ansible_utils.ansible_launcher import AnsibleThread
 import IM.InfrastructureManager
 import IM.InfrastructureList
 from IM.VirtualMachine import VirtualMachine
-from IM.SSH import AuthenticationException, TimeOutException
+from IM.SSH import AuthenticationException
 from IM.SSHRetry import SSHRetry
 from IM.recipe import Recipe
 from radl.radl import system, contextualize_item
-import IM.ServiceRequests as ServiceRequests
 
 from IM.config import Config
 

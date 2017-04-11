@@ -449,7 +449,7 @@ class InfrastructureInfo:
             self.conf_threads = []
         return not all_finished
 
-    def Contextualize(self, auth, vm_list=None):
+    def Contextualize(self, auth, vm_list=None, unconfigure=False):
         """
         Launch the contextualization process of this Inf
 
@@ -489,8 +489,7 @@ class InfrastructureInfo:
             ) if self.radl.get_configure_by_name(group)]
             # get the contextualize steps specified in the RADL, or use the
             # default value
-            contextualizes = self.radl.contextualize.get_contextualize_items_by_step({
-                                                                                     1: ctxts})
+            contextualizes = self.radl.contextualize.get_contextualize_items_by_step({1: ctxts}, unconfigure=unconfigure)
 
             max_ctxt_time = self.radl.contextualize.max_time
             if not max_ctxt_time:
@@ -499,8 +498,7 @@ class InfrastructureInfo:
             ctxt_task = []
             ctxt_task.append((-3, 0, self, ['kill_ctxt_processes']))
             ctxt_task.append((-2, 0, self, ['wait_master', 'check_vm_ips']))
-            ctxt_task.append(
-                (-1, 0, self, ['configure_master', 'generate_playbooks_and_hosts']))
+            ctxt_task.append((-1, 0, self, ['configure_master', 'generate_playbooks_and_hosts']))
 
             for vm in self.get_vm_list():
                 # Assure to update the VM status before running the ctxt
