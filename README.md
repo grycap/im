@@ -294,7 +294,7 @@ REST_SSL = True
 
 And then set the variables: XMLRCP_SSL_* or REST_SSL_* to your certificates paths.
 
-2. DOCKER IMAGE
+2 DOCKER IMAGE
 ===============
 
 A Docker image named `grycap/im` has been created to make easier the deployment of an IM service using the 
