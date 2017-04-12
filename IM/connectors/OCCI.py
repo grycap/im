@@ -240,18 +240,20 @@ class OCCICloudConnector(CloudConnector):
             if self.add_public_ip_count < self.MAX_ADD_IP_COUNT:
                 # in some sites the network is called floating, in others PUBLIC ...
                 net_names = ["public", "PUBLIC", "floating"]
+                msgs = ""
                 for name in net_names:
                     success, msg = self.add_public_ip(vm, auth_data, network_name=name)
+                    msgs += msg + "\n"
                     if success:
                         break
                 if success:
                     self.log_debug("Public IP successfully added.")
                 else:
                     self.add_public_ip_count += 1
-                    self.log_warn("Error adding public IP the VM: %s (%d/%d)\n" % (msg,
+                    self.log_warn("Error adding public IP the VM: %s (%d/%d)\n" % (msgs,
                                                                                    self.add_public_ip_count,
                                                                                    self.MAX_ADD_IP_COUNT))
-                    self.error_messages += "Error adding public IP the VM: %s (%d/%d)\n" % (msg,
+                    self.error_messages += "Error adding public IP the VM: %s (%d/%d)\n" % (msgs,
                                                                                             self.add_public_ip_count,
                                                                                             self.MAX_ADD_IP_COUNT)
             else:
@@ -325,7 +327,7 @@ class OCCICloudConnector(CloudConnector):
 
             output = str(resp.text)
             if resp.status_code != 201 and resp.status_code != 200:
-                return (False, resp.reason + "\n" + output)
+                return (False, output)
             else:
                 self.log_debug("Public IP added from pool %s" % network_name)
                 return (True, vm.id)
