@@ -143,6 +143,8 @@ class TestOCCIConnector(unittest.TestCase):
                 resp.status_code = 200
             elif url.endswith("/storage/1"):
                 resp.status_code = 200
+            elif url.endswith("/link/storagelink/compute_10_disk_1"):
+                resp.status_code = 200
 
         return resp
 

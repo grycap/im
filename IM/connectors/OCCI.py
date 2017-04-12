@@ -14,12 +14,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import random
 import time
 from ssl import SSLError
 import os
 import re
 import base64
-import string
 import requests
 import tempfile
 import uuid
@@ -286,13 +286,16 @@ class OCCICloudConnector(CloudConnector):
         """
         occi_data = self.query_occi(auth_data)
         lines = occi_data.split("\n")
+        pools = []
         for l in lines:
             if l.find('http://schemas.openstack.org/network/floatingippool#') != -1:
                 for elem in l.split(';'):
                     if elem.startswith('Category: '):
-                            return elem[10:]
-
-        return None
+                            pools.append(elem[10:])
+        if pools:
+            return pools[random.randint(0, len(pools) - 1)]
+        else:
+            return None
 
     def add_public_ip(self, vm, auth_data, network_name="public"):
         occi_info = self.query_occi(auth_data)
@@ -633,7 +636,7 @@ class OCCICloudConnector(CloudConnector):
 
             time.sleep(delay)
             wait += delay
-        
+
         return (False, "Error detaching the Volume: Timeout.")
 
     def delete_volume(self, storage_id, auth_data, timeout=180, delay=5):
