@@ -218,7 +218,7 @@ class InfrastructureManager:
                 for deploy in deploy_group:
                     vm_to_delete = [vm for vm in deployed_vm.get(deploy, [])]
                     for vm in vm_to_delete:
-                        vm.finalize(vm == vm_to_delete[-1], auth)
+                        vm.finalize(True, auth)
                     deployed_vm[deploy] = []
             if cancel_deployment or all_ok:
                 break
@@ -552,7 +552,7 @@ class InfrastructureManager:
         if cancel_deployment:
             # If error, all deployed virtual machine will be undeployed.
             for vm in new_vms:
-                vm.finalize(vm == new_vms[-1], auth)
+                vm.finalize(True, auth)
             msg = ""
             for e in cancel_deployment:
                 msg += str(e) + "\n"
