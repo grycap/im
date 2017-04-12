@@ -215,18 +215,6 @@ class InfrastructureInfo:
             res = [vm for vm in self.vm_list if not vm.destroy]
         return res
 
-    def is_last_vm(self, vm_id):
-        """
-        Check if the the vm_id specified is the last VM in this Inf.
-        """
-        # use a "hack" as we now that the first VM in the list
-        # (see IM DestroyInfrastructure) is the last VM deleted
-        vm_list = self.get_vm_list()
-        if vm_list:
-            return vm_list[0].id == vm_id
-        else:
-            return True
-
     def get_vm(self, str_vm_id):
         """
         Get the VM with the specified ID (if it is not destroyed)

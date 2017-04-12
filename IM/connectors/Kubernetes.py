@@ -459,7 +459,7 @@ class KubernetesCloudConnector(CloudConnector):
 
         vm.setIps(public_ips, private_ips)
 
-    def finalize(self, vm, auth_data):
+    def finalize(self, vm, last, auth_data):
         success, status, output = self._get_pod(vm, auth_data)
         if success:
             if status == 404:
@@ -472,7 +472,7 @@ class KubernetesCloudConnector(CloudConnector):
 
         success = self._delete_pod(vm, auth_data)
 
-        if vm.inf.is_last_vm(vm.id):
+        if last:
             self._delete_namespace(vm, auth_data)
 
         return success

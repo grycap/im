@@ -307,7 +307,7 @@ class TestOCCIConnector(unittest.TestCase):
 
         get_keystone_uri.return_value = None
 
-        success, _ = occi_cloud.finalize(vm, auth)
+        success, _ = occi_cloud.finalize(vm, True, auth)
 
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())

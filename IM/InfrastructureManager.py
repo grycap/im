@@ -209,15 +209,16 @@ class InfrastructureManager:
                             exceptions.append("Error launching the VMs of type %s to cloud ID %s of type %s. %s" % (
                                 concrete_system.name, cloud.cloud.id, cloud.cloud.type, str(launched_vm)))
                             if not isinstance(launched_vm, (str, unicode)):
-                                cloud.finalize(launched_vm, auth)
+                                cloud.finalize(launched_vm, True, auth)
                     fail_cont += 1
                 if remain_vm > 0 or cancel_deployment:
                     all_ok = False
                     break
             if not all_ok:
                 for deploy in deploy_group:
-                    for vm in deployed_vm.get(deploy, []):
-                        vm.finalize(auth)
+                    vm_to_delete = [vm for vm in deployed_vm.get(deploy, [])]
+                    for vm in vm_to_delete:
+                        vm.finalize(True, auth)
                     deployed_vm[deploy] = []
             if cancel_deployment or all_ok:
                 break
@@ -551,7 +552,7 @@ class InfrastructureManager:
         if cancel_deployment:
             # If error, all deployed virtual machine will be undeployed.
             for vm in new_vms:
-                vm.finalize(auth)
+                vm.finalize(True, auth)
             msg = ""
             for e in cancel_deployment:
                 msg += str(e) + "\n"
@@ -617,19 +618,10 @@ class InfrastructureManager:
 
         cont = 0
         exceptions = []
-        for vmid in vm_ids:
-            # use reversed to maintain the same order as used in DestroyInfrastructure
-            for vm in reversed(sel_inf.get_vm_list()):
-                if str(vm.im_id) == str(vmid):
-                    InfrastructureManager.logger.debug("Removing the VM ID: '%s'" % vmid)
-                    try:
-                        success, msg = vm.finalize(auth)
-                        if success:
-                            cont += 1
-                        else:
-                            exceptions.append(msg)
-                    except Exception as e:
-                        exceptions.append(e)
+        delete_list = [sel_inf.get_vm(vmid) for vmid in vm_ids]
+        for vm in delete_list:
+            if InfrastructureManager._delete_vm(vm, delete_list, auth, exceptions):
+                cont += 1
 
         InfrastructureManager.logger.info("%d VMs successfully removed" % cont)
 
@@ -1091,17 +1083,40 @@ class InfrastructureManager:
             return ""
 
     @staticmethod
-    def _delete_vm(vm, auth, exceptions):
+    def is_last_in_cloud(vm, delete_list, remain_vms):
+        """
+        Check if this VM is the last in the cloud provider
+        to send the correct flag to the finalize function to clean
+        resources correctly
+        """
+        for v in remain_vms:
+            if v.cloud.type == vm.cloud.type and v.cloud.server == vm.cloud.server:
+                # There are at least one VM in the same cloud
+                # that will remain. This is not the last one
+                return False
+
+        # Get the list of VMs on the same cloud to be deleted
+        delete_list_cloud = [v for v in delete_list if (v.cloud.type == vm.cloud.type and
+                                                        v.cloud.server == vm.cloud.server)]
+
+        # And return true in the last of these VMs
+        return vm == delete_list_cloud[-1]
+
+    @staticmethod
+    def _delete_vm(vm, delete_list, auth, exceptions):
+        # Select the last in the list to delete
+        remain_vms = [v for v in vm.inf.get_vm_list() if v not in delete_list]
+        last = InfrastructureManager.is_last_in_cloud(vm, delete_list, remain_vms)
+        success = False
         try:
-            success = False
-            InfrastructureManager.logger.debug(
-                "Finalizing the VM id: " + str(vm.id))
-            (success, msg) = vm.finalize(auth)
+            InfrastructureManager.logger.debug("Finalizing the VM id: " + str(vm.id))
+            (success, msg) = vm.finalize(last, auth)
         except Exception as e:
             msg = str(e)
         if not success:
             InfrastructureManager.logger.info("The VM cannot be finalized: %s" % msg)
             exceptions.append(msg)
+        return success
 
     @staticmethod
     def DestroyInfrastructure(inf_id, auth):
@@ -1123,18 +1138,19 @@ class InfrastructureManager:
 
         sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
         exceptions = []
+        delete_list = list(reversed(sel_inf.get_vm_list()))
 
         if Config.MAX_SIMULTANEOUS_LAUNCHES > 1:
             pool = ThreadPool(processes=Config.MAX_SIMULTANEOUS_LAUNCHES)
             pool.map(
-                lambda vm: InfrastructureManager._delete_vm(vm, auth, exceptions),
-                reversed(sel_inf.get_vm_list())
+                lambda vm: InfrastructureManager._delete_vm(vm, delete_list, auth, exceptions),
+                delete_list
             )
             pool.close()
         else:
             # If IM server is the first VM, then it will be the last destroyed
-            for vm in reversed(sel_inf.get_vm_list()):
-                InfrastructureManager._delete_vm(vm, auth, exceptions)
+            for vm in delete_list:
+                InfrastructureManager._delete_vm(vm, delete_list, auth, exceptions)
 
         if exceptions:
             IM.InfrastructureList.InfrastructureList.save_data(inf_id)

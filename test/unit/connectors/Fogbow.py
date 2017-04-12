@@ -218,7 +218,7 @@ class TestFogBowConnector(unittest.TestCase):
         conn.request.side_effect = self.request
         conn.getresponse.side_effect = self.get_response
 
-        success, _ = fogbow_cloud.finalize(vm, auth)
+        success, _ = fogbow_cloud.finalize(vm, True, auth)
 
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
