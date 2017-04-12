@@ -14,12 +14,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import random
 import time
 from ssl import SSLError
 import os
 import re
 import base64
-import string
 import requests
 import tempfile
 import uuid
@@ -240,18 +240,20 @@ class OCCICloudConnector(CloudConnector):
             if self.add_public_ip_count < self.MAX_ADD_IP_COUNT:
                 # in some sites the network is called floating, in others PUBLIC ...
                 net_names = ["public", "PUBLIC", "floating"]
+                msgs = ""
                 for name in net_names:
                     success, msg = self.add_public_ip(vm, auth_data, network_name=name)
+                    msgs += msg + "\n"
                     if success:
                         break
                 if success:
                     self.log_debug("Public IP successfully added.")
                 else:
                     self.add_public_ip_count += 1
-                    self.log_warn("Error adding public IP the VM: %s (%d/%d)\n" % (msg,
+                    self.log_warn("Error adding public IP the VM: %s (%d/%d)\n" % (msgs,
                                                                                    self.add_public_ip_count,
                                                                                    self.MAX_ADD_IP_COUNT))
-                    self.error_messages += "Error adding public IP the VM: %s (%d/%d)\n" % (msg,
+                    self.error_messages += "Error adding public IP the VM: %s (%d/%d)\n" % (msgs,
                                                                                             self.add_public_ip_count,
                                                                                             self.MAX_ADD_IP_COUNT)
             else:
@@ -286,13 +288,16 @@ class OCCICloudConnector(CloudConnector):
         """
         occi_data = self.query_occi(auth_data)
         lines = occi_data.split("\n")
+        pools = []
         for l in lines:
             if l.find('http://schemas.openstack.org/network/floatingippool#') != -1:
                 for elem in l.split(';'):
                     if elem.startswith('Category: '):
-                            return elem[10:]
-
-        return None
+                            pools.append(elem[10:])
+        if pools:
+            return pools[random.randint(0, len(pools) - 1)]
+        else:
+            return None
 
     def add_public_ip(self, vm, auth_data, network_name="public"):
         occi_info = self.query_occi(auth_data)
@@ -322,7 +327,7 @@ class OCCICloudConnector(CloudConnector):
 
             output = str(resp.text)
             if resp.status_code != 201 and resp.status_code != 200:
-                return (False, resp.reason + "\n" + output)
+                return (False, output)
             else:
                 self.log_debug("Public IP added from pool %s" % network_name)
                 return (True, vm.id)
@@ -608,23 +613,52 @@ class OCCICloudConnector(CloudConnector):
             self.log_exception("Error creating volume")
             return False, str(ex)
 
+    def detach_volume(self, volume, auth_data, timeout=180, delay=5):
+        auth = self.get_auth_header(auth_data)
+        headers = {'Accept': 'text/plain', 'Connection': 'close'}
+        if auth:
+            headers.update(auth)
+
+        link, storage_id, _ = volume
+        if not link.startswith("http"):
+            link = self.cloud.path + "/" + link
+
+        wait = 0
+        while wait < timeout:
+            try:
+                self.log_debug("Detaching volume: %s" % storage_id)
+                resp = self.create_request('DELETE', link, auth_data, headers)
+                if resp.status_code in [404, 204, 200]:
+                    self.log_debug("Successfully detached")
+                    return (True, "")
+                else:
+                    self.log_error("Error detaching volume: %s" + resp.reason + "\n" + resp.text)
+            except Exception as ex:
+                self.log_warn("Error detaching volume " + str(ex))
+
+            time.sleep(delay)
+            wait += delay
+
+        return (False, "Error detaching the Volume: Timeout.")
+
     def delete_volume(self, storage_id, auth_data, timeout=180, delay=5):
         """
         Delete a volume
         """
+        auth = self.get_auth_header(auth_data)
+        headers = {'Accept': 'text/plain', 'Connection': 'close'}
+        if auth:
+            headers.update(auth)
+
         if storage_id.startswith("http"):
             storage_id = uriparse(storage_id)[2]
         else:
             if not storage_id.startswith("/storage"):
                 storage_id = "/storage/%s" % storage_id
             storage_id = self.cloud.path + storage_id
+
         wait = 0
         while wait < timeout:
-            auth = self.get_auth_header(auth_data)
-            headers = {'Accept': 'text/plain', 'Connection': 'close'}
-            if auth:
-                headers.update(auth)
-
             self.log_debug("Delete storage: %s" % storage_id)
             try:
                 resp = self.create_request('DELETE', storage_id, auth_data, headers)
@@ -635,18 +669,18 @@ class OCCICloudConnector(CloudConnector):
                 elif resp.status_code == 409:
                     self.log_debug("Error deleting the Volume. It seems that it is still "
                                    "attached to a VM: %s" % resp.text)
-                    time.sleep(delay)
-                    wait += delay
                 elif resp.status_code != 200 and resp.status_code != 204:
-                    self.log_error("Error deleting the Volume: " + resp.reason + "\n" + resp.text)
-                    return (False, "Error deleting the Volume: " + resp.reason + "\n" + resp.text)
+                    self.log_warn("Error deleting the Volume: " + resp.reason + "\n" + resp.text)
                 else:
                     self.log_debug("Successfully deleted")
                     return (True, "")
+                time.sleep(delay)
+                wait += delay
             except Exception:
                 self.log_exception("Error connecting with OCCI server")
                 return (False, "Error connecting with OCCI server")
 
+        self.log_error("Error deleting the Volume: Timeout")
         return (False, "Error deleting the Volume: Timeout.")
 
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
@@ -851,6 +885,9 @@ class OCCICloudConnector(CloudConnector):
         get_vols_ok, volumes = self.get_attached_volumes(vm, auth_data)
         if not get_vols_ok:
             self.log_error("Error getting attached volumes: %s" % volumes)
+        else:
+            for volume in volumes:
+                self.detach_volume(volume, auth_data)
 
         auth = self.get_auth_header(auth_data)
         headers = {'Accept': 'text/plain', 'Connection': 'close'}
