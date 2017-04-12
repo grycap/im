@@ -635,18 +635,18 @@ class OCCICloudConnector(CloudConnector):
                 elif resp.status_code == 409:
                     self.log_debug("Error deleting the Volume. It seems that it is still "
                                    "attached to a VM: %s" % resp.text)
-                    time.sleep(delay)
-                    wait += delay
                 elif resp.status_code != 200 and resp.status_code != 204:
-                    self.log_error("Error deleting the Volume: " + resp.reason + "\n" + resp.text)
-                    return (False, "Error deleting the Volume: " + resp.reason + "\n" + resp.text)
+                    self.log_warn("Error deleting the Volume: " + resp.reason + "\n" + resp.text)
                 else:
                     self.log_debug("Successfully deleted")
                     return (True, "")
+                time.sleep(delay)
+                wait += delay
             except Exception:
                 self.log_exception("Error connecting with OCCI server")
                 return (False, "Error connecting with OCCI server")
 
+        self.log_error("Error deleting the Volume: Timeout")
         return (False, "Error deleting the Volume: Timeout.")
 
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
