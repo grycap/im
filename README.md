@@ -21,7 +21,7 @@ There is also an Infrastructure Manager YouTube reproduction list with a set of 
 of the functionality of the platform: https://www.youtube.com/playlist?list=PLgPH186Qwh_37AMhEruhVKZSfoYpHkrUp.
 
 
-1. INSTALLATION
+1 INSTALLATION
 ===============
 
 1.1 REQUISITES
