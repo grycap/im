@@ -714,8 +714,7 @@ class OpenNebulaCloudConnector(CloudConnector):
             net_provider_id = radl_net.getValue('provider_id')
             if net_provider_id:
                 for (net_name, net_id, is_public) in one_nets:
-                    # If the name is the same and have the same "publicity"
-                    # value
+                    # If the name is the same and have the same "publicity" value
                     if net_name == net_provider_id and radl_net.isPublic() == is_public:
                         res[radl_net.id] = (net_name, net_id, is_public)
                         used_nets.append(net_id)
@@ -734,15 +733,23 @@ class OpenNebulaCloudConnector(CloudConnector):
         # mapped networks
         used_nets = []
         for radl_net in radl_nets:
-            if not res[radl_net.id]:
-                for (net_name, net_id, is_public) in one_nets:
-                    if net_id not in used_nets and is_public:
-                        res[radl_net.id] = (net_name, net_id, is_public)
-                        used_nets.append(net_id)
-                        last_net = (net_name, net_id, is_public)
-                        break
-                if radl_net.id not in res:
-                    res[radl_net.id] = last_net
+            if radl_net.id not in res or not res[radl_net.id]:
+                net_provider_id = radl_net.getValue('provider_id')
+                if net_provider_id:
+                    for (net_name, net_id, is_public) in one_nets:
+                        if net_name == net_provider_id:
+                            res[radl_net.id] = (net_name, net_id, is_public)
+                            used_nets.append(net_id)
+                            break
+                else:
+                    for (net_name, net_id, is_public) in one_nets:
+                        if net_id not in used_nets and is_public:
+                            res[radl_net.id] = (net_name, net_id, is_public)
+                            used_nets.append(net_id)
+                            last_net = (net_name, net_id, is_public)
+                            break
+                    if radl_net.id not in res:
+                        res[radl_net.id] = last_net
 
         return res
 
