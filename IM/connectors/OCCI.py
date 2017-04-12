@@ -608,23 +608,52 @@ class OCCICloudConnector(CloudConnector):
             self.log_exception("Error creating volume")
             return False, str(ex)
 
+    def detach_volume(self, volume, auth_data, timeout=180, delay=5):
+        auth = self.get_auth_header(auth_data)
+        headers = {'Accept': 'text/plain', 'Connection': 'close'}
+        if auth:
+            headers.update(auth)
+
+        link, storage_id, _ = volume
+        if not link.startswith("http"):
+            link = self.cloud.path + "/" + link
+
+        wait = 0
+        while wait < timeout:
+            try:
+                self.log_debug("Detaching volume: %s" % storage_id)
+                resp = self.create_request('DELETE', link, auth_data, headers)
+                if resp.status_code in [404, 204, 200]:
+                    self.log_debug("Successfully detached")
+                    return (True, "")
+                else:
+                    self.log_error("Error detaching volume: %s" + resp.reason + "\n" + resp.text)
+            except Exception as ex:
+                self.log_warn("Error detaching volume " + str(ex))
+
+            time.sleep(delay)
+            wait += delay
+        
+        return (False, "Error detaching the Volume: Timeout.")
+
     def delete_volume(self, storage_id, auth_data, timeout=180, delay=5):
         """
         Delete a volume
         """
+        auth = self.get_auth_header(auth_data)
+        headers = {'Accept': 'text/plain', 'Connection': 'close'}
+        if auth:
+            headers.update(auth)
+
         if storage_id.startswith("http"):
             storage_id = uriparse(storage_id)[2]
         else:
             if not storage_id.startswith("/storage"):
                 storage_id = "/storage/%s" % storage_id
             storage_id = self.cloud.path + storage_id
+
         wait = 0
         while wait < timeout:
-            auth = self.get_auth_header(auth_data)
-            headers = {'Accept': 'text/plain', 'Connection': 'close'}
-            if auth:
-                headers.update(auth)
-
             self.log_debug("Delete storage: %s" % storage_id)
             try:
                 resp = self.create_request('DELETE', storage_id, auth_data, headers)
@@ -851,6 +880,9 @@ class OCCICloudConnector(CloudConnector):
         get_vols_ok, volumes = self.get_attached_volumes(vm, auth_data)
         if not get_vols_ok:
             self.log_error("Error getting attached volumes: %s" % volumes)
+        else:
+            for volume in volumes:
+                self.detach_volume(volume, auth_data)
 
         auth = self.get_auth_header(auth_data)
         headers = {'Accept': 'text/plain', 'Connection': 'close'}
