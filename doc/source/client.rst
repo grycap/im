@@ -171,8 +171,10 @@ OpenStack additional fields
 
 OpenStack has a set of additional fields to access a cloud site:
 
+* ``domain`` the domain name associated to the credential. The default value is: ``Default``.
+
 * ``auth_version`` the auth version used to connect with the Keystone server.
-  The possible values are: ``2.0_password``, ``3.X_password`` or ``3.x_oidc_access_token``.
+  The possible values are: ``2.0_password``, ``2.0_voms``, ``3.X_password`` or ``3.x_oidc_access_token``.
   The default value is ``2.0_password``.
 
 * ``base_url`` base URL to the OpenStack API endpoint. By default, the connector obtains API endpoint URL from the 
@@ -183,11 +185,26 @@ OpenStack has a set of additional fields to access a cloud site:
   endpoint URL. The default value is: ``RegionOne``.
 
 * ``service_name`` the service name used to obtain the API endpoint URL. The default value is: ``Compute``.
+  From version 1.5.3 a special name ``None`` can be used to use a ``Null\None`` value as the service name
+  as it is used for example in the Open Telekom Cloud. 
 
 * ``auth_token`` token which is used for authentication. If this argument is provided, normal authentication 
   flow is skipped and the OpenStack API endpoint is directly hit with the provided token. Normal authentication 
   flow involves hitting the auth service (Keystone) with the provided username and password and requesting an
   authentication token.
+
+Open Telekom Cloud
+++++++++++++++++++
+
+The Open Telekom Cloud (OTC) is the cloud provided by T-Systems. It is based on OpenStack and it can be accessed
+using the OpenStack IM connector using an authorization line similar to the following example:
+
+id = otc; type = OpenStack; host = https://iam.eu-de.otc.t-systems.com:443 ; username = user; password = pass; tenant = tenant; domain = domain; auth_version = 3.x_password; service_name = None; service_region = eu-de
+
+You can get the username, password, tenant and domain values from the ``My Credentials`` section of your OTC access. 
+
+Examples
+^^^^^^^^
 
 An example of the auth file::
 
