@@ -105,6 +105,11 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             except:
                 pass
 
+            # Workaround to OTC to enable to set service_name as None
+            service_name = parameters["service_name"]
+            if parameters["service_name"] == "None":
+                service_name = None
+
             cls = get_driver(Provider.OPENSTACK)
             driver = cls(auth['username'], auth['password'],
                          ex_tenant_name=auth['tenant'],
@@ -113,9 +118,13 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                          ex_force_auth_version=parameters["auth_version"],
                          ex_force_service_region=parameters["service_region"],
                          ex_force_base_url=parameters["base_url"],
-                         ex_force_service_name=parameters["service_name"],
+                         ex_force_service_name=service_name,
                          ex_force_service_type=parameters["service_type"],
                          ex_force_auth_token=parameters["auth_token"])
+
+            # Workaround to OTC to enable to set service_name as None
+            if parameters["service_name"] == "None":
+                driver.connection.service_name = None
 
             self.driver = driver
             return driver
