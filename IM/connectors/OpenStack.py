@@ -17,6 +17,7 @@
 import time
 from netaddr import IPNetwork, IPAddress
 import os.path
+import tempfile
 
 try:
     from libcloud.compute.types import Provider, NodeState
@@ -74,24 +75,39 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             if not protocol:
                 protocol = "http"
 
+            parameters = {"auth_version": '2.0_password',
+                          "auth_url": protocol + "://" + self.cloud.server + ":" + str(self.cloud.port),
+                          "auth_token": None,
+                          "service_type": None,
+                          "service_name": None,
+                          "service_region": 'RegionOne',
+                          "base_url": None,
+                          "domain": None}
+
             if 'username' in auth and 'password' in auth and 'tenant' in auth:
-                parameters = {"auth_version": '2.0_password',
-                              "auth_url": protocol + "://" + self.cloud.server + ":" + str(self.cloud.port),
-                              "auth_token": None,
-                              "service_type": None,
-                              "service_name": None,
-                              "service_region": 'RegionOne',
-                              "base_url": None,
-                              "domain": None}
+                username = auth['username']
+                password = auth['password']
+                tenant = auth['tenant']
+                for param in parameters:
+                    if param in auth:
+                        parameters[param] = auth[param]
+            elif 'proxy' in auth:
+                (fproxy, proxy_filename) = tempfile.mkstemp()
+                os.write(fproxy, auth['proxy'].encode())
+                os.close(fproxy)
+                username = ''
+                password = proxy_filename
+                tenant = auth['tenant']
+                parameters["auth_version"] = '2.0_voms'
 
                 for param in parameters:
                     if param in auth:
                         parameters[param] = auth[param]
             else:
                 self.log_error(
-                    "No correct auth data has been specified to OpenStack: username, password and tenant")
+                    "No correct auth data has been specified to OpenStack: username, password and tenant or proxy")
                 raise Exception(
-                    "No correct auth data has been specified to OpenStack: username, password and tenant")
+                    "No correct auth data has been specified to OpenStack: username, password and tenant or proxy")
 
             # To avoid errors with host certificates
             # if you want to do it in a more secure way check this:
@@ -111,8 +127,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 service_name = None
 
             cls = get_driver(Provider.OPENSTACK)
-            driver = cls(auth['username'], auth['password'],
-                         ex_tenant_name=auth['tenant'],
+            driver = cls(username, password,
+                         ex_tenant_name=tenant,
                          ex_domain_name=parameters['domain'],
                          ex_force_auth_url=parameters["auth_url"],
                          ex_force_auth_version=parameters["auth_version"],

@@ -143,7 +143,7 @@ keys are:
   
 * ``proxy`` indicates the content of the proxy file associated to the credential.
   To refer to a file you must use the function "file(/tmp/proxyfile.pem)" as shown in the example.
-  This field is only used in the OCCI plugin.
+  This field is used in the OCCI and OpenStack plugins. 
   
 * ``project`` indicates the project name associated to the credential.
   This field is only used in the GCE plugin.
@@ -208,17 +208,33 @@ Examples
 
 An example of the auth file::
 
+   # OpenNebula site
    id = one; type = OpenNebula; host = osenserver:2633; username = user; password = pass
+   # OpenStack site using standard user, password, tenant format
    id = ost; type = OpenStack; host = https://ostserver:5000; username = user; password = pass; tenant = tenant
+   # OpenStack site using VOMS proxy authentication
+   id = ostvoms; type = OpenStack; proxy = file(/tmp/proxy.pem); host = https://keystone:5000; tenant = tname
+   # IM auth data 
    id = im; type = InfrastructureManager; username = user; password = pass
+   # VMRC auth data
    id = vmrc; type = VMRC; host = http://server:8080/vmrc; username = user; password = pass
+   # EC2 auth data
    id = ec2; type = EC2; username = ACCESS_KEY; password = SECRET_KEY
+   # Google compute auth data
    id = gce; type = GCE; username = username.apps.googleusercontent.com; password = pass; project = projectname
+   # Docker site with certificates
    id = docker; type = Docker; host = http://host:2375; public_key = file(/tmp/cert.pem); private_key = file(/tmp/key.pem)
+   # Docker site without SSL security
+   id = docker; type = Docker; host = http://host:2375
+   # OCCI site auth data
    id = occi; type = OCCI; proxy = file(/tmp/proxy.pem); host = https://fc-one.i3m.upv.es:11443
+   # Azure (RM) site auth data
    id = azure; type = Azure; subscription_id = subscription-id; username = user@domain.com; password = pass
+   # Kubernetes site auth data
    id = kub; type = Kubernetes; host = http://server:8080; username = user; password = pass
+   # FogBow auth data
    id = fog; type = FogBow; host = http://server:8182; proxy = file(/tmp/proxy.pem)
+   # Azure Classic auth data
    id = azurecla; type = AzureClassic; subscription_id = subscription_id; public_key = file(/tmp/cert.pem); private_key = file(/tmp/key.pem)
    
 
