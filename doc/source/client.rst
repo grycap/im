@@ -201,7 +201,7 @@ using the OpenStack IM connector using an authorization line similar to the foll
 
 id = otc; type = OpenStack; host = https://iam.eu-de.otc.t-systems.com:443 ; username = user; password = pass; tenant = tenant; domain = domain; auth_version = 3.x_password; service_name = None; service_region = eu-de
 
-You can get the username, password, tenant and domain values from the ``My Credentials`` section of you OTC access. 
+You can get the username, password, tenant and domain values from the ``My Credentials`` section of your OTC access. 
 
 Examples
 ^^^^^^^^
