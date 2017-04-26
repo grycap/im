@@ -253,7 +253,7 @@ class TestKubernetesConnector(unittest.TestCase):
 
         requests.side_effect = self.get_response
 
-        success, _ = kube_cloud.finalize(vm, auth)
+        success, _ = kube_cloud.finalize(vm, True, auth)
 
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())

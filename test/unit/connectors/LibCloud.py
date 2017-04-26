@@ -379,7 +379,7 @@ class TestOSTConnector(unittest.TestCase):
         driver.ex_describe_addresses_for_node.return_value = ["ip"]
         driver.ex_disassociate_address.return_value = True
 
-        success, _ = lib_cloud.finalize(vm, auth)
+        success, _ = lib_cloud.finalize(vm, True, auth)
 
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())

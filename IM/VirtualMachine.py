@@ -131,13 +131,13 @@ class VirtualMachine:
             self.cloud_connector = self.cloud.getCloudConnector(self.inf)
         return self.cloud_connector
 
-    def finalize(self, auth):
+    def finalize(self, last, auth):
         """
         Finalize the VM
         """
         if not self.destroy:
             self.kill_check_ctxt_process()
-            (success, msg) = self.getCloudConnector().finalize(self, auth)
+            (success, msg) = self.getCloudConnector().finalize(self, last, auth)
             if success:
                 self.destroy = True
             # force the update of the information

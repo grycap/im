@@ -292,7 +292,7 @@ class LibCloudCloudConnector(CloudConnector):
                 res = node
         return res
 
-    def finalize(self, vm, auth_data):
+    def finalize(self, vm, last, auth_data):
         node = self.get_node_with_id(vm.id, auth_data)
 
         if node:

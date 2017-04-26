@@ -314,7 +314,7 @@ class TestGCEConnector(unittest.TestCase):
         volume.destroy.return_value = True
         driver.ex_get_volume.return_value = volume
 
-        success, _ = gce_cloud.finalize(vm, auth)
+        success, _ = gce_cloud.finalize(vm, True, auth)
 
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())

@@ -680,7 +680,7 @@ class DockerCloudConnector(CloudConnector):
                 return VirtualMachine.PENDING
         return VirtualMachine.UNKNOWN
 
-    def finalize(self, vm, auth_data):
+    def finalize(self, vm, last, auth_data):
         try:
             if self._is_swarm(auth_data):
                 resp = self.create_request('DELETE', "/services/" + vm.id, auth_data)
@@ -702,7 +702,7 @@ class DockerCloudConnector(CloudConnector):
             self._delete_volumes(vm, auth_data)
 
             # if it is the last VM delete the Docker networks
-            if vm.inf.is_last_vm(vm.id):
+            if last:
                 try:
                     self._delete_networks(vm, auth_data)
                 except Exception:

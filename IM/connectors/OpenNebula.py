@@ -368,14 +368,15 @@ class OpenNebulaCloudConnector(CloudConnector):
             i += 1
         return res
 
-    def finalize(self, vm, auth_data):
+    def finalize(self, vm, last, auth_data):
         server = ServerProxy(self.server_url, allow_none=True)
         session_id = self.getSessionID(auth_data)
         if session_id is None:
             return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
 
-        # first delete the snapshots to aviod problems in EC3 deleting the IM front-end
-        self.delete_snapshots(vm, auth_data)
+        # first delete the snapshots to avoid problems in EC3 deleting the IM front-end
+        if last:
+            self.delete_snapshots(vm, auth_data)
 
         func_res = server.one.vm.action(session_id, 'delete', int(vm.id))
 
@@ -721,8 +722,7 @@ class OpenNebulaCloudConnector(CloudConnector):
             net_provider_id = radl_net.getValue('provider_id')
             if net_provider_id:
                 for (net_name, net_id, is_public) in one_nets:
-                    # If the name is the same and have the same "publicity"
-                    # value
+                    # If the name is the same and have the same "publicity" value
                     if net_name == net_provider_id and radl_net.isPublic() == is_public:
                         res[radl_net.id] = (net_name, net_id, is_public)
                         used_nets.append(net_id)
@@ -741,15 +741,23 @@ class OpenNebulaCloudConnector(CloudConnector):
         # mapped networks
         used_nets = []
         for radl_net in radl_nets:
-            if not res[radl_net.id]:
-                for (net_name, net_id, is_public) in one_nets:
-                    if net_id not in used_nets and is_public:
-                        res[radl_net.id] = (net_name, net_id, is_public)
-                        used_nets.append(net_id)
-                        last_net = (net_name, net_id, is_public)
-                        break
-                if radl_net.id not in res:
-                    res[radl_net.id] = last_net
+            if radl_net.id not in res or not res[radl_net.id]:
+                net_provider_id = radl_net.getValue('provider_id')
+                if net_provider_id:
+                    for (net_name, net_id, is_public) in one_nets:
+                        if net_name == net_provider_id:
+                            res[radl_net.id] = (net_name, net_id, is_public)
+                            used_nets.append(net_id)
+                            break
+                else:
+                    for (net_name, net_id, is_public) in one_nets:
+                        if net_id not in used_nets and is_public:
+                            res[radl_net.id] = (net_name, net_id, is_public)
+                            used_nets.append(net_id)
+                            last_net = (net_name, net_id, is_public)
+                            break
+                    if radl_net.id not in res:
+                        res[radl_net.id] = last_net
 
         return res
 

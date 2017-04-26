@@ -17,6 +17,7 @@
 import time
 from netaddr import IPNetwork, IPAddress
 import os.path
+import tempfile
 
 try:
     from libcloud.compute.types import Provider, NodeState
@@ -74,24 +75,39 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             if not protocol:
                 protocol = "http"
 
+            parameters = {"auth_version": '2.0_password',
+                          "auth_url": protocol + "://" + self.cloud.server + ":" + str(self.cloud.port),
+                          "auth_token": None,
+                          "service_type": None,
+                          "service_name": None,
+                          "service_region": 'RegionOne',
+                          "base_url": None,
+                          "domain": None}
+
             if 'username' in auth and 'password' in auth and 'tenant' in auth:
-                parameters = {"auth_version": '2.0_password',
-                              "auth_url": protocol + "://" + self.cloud.server + ":" + str(self.cloud.port),
-                              "auth_token": None,
-                              "service_type": None,
-                              "service_name": None,
-                              "service_region": 'RegionOne',
-                              "base_url": None,
-                              "domain": None}
+                username = auth['username']
+                password = auth['password']
+                tenant = auth['tenant']
+                for param in parameters:
+                    if param in auth:
+                        parameters[param] = auth[param]
+            elif 'proxy' in auth:
+                (fproxy, proxy_filename) = tempfile.mkstemp()
+                os.write(fproxy, auth['proxy'].encode())
+                os.close(fproxy)
+                username = ''
+                password = proxy_filename
+                tenant = auth['tenant']
+                parameters["auth_version"] = '2.0_voms'
 
                 for param in parameters:
                     if param in auth:
                         parameters[param] = auth[param]
             else:
                 self.log_error(
-                    "No correct auth data has been specified to OpenStack: username, password and tenant")
+                    "No correct auth data has been specified to OpenStack: username, password and tenant or proxy")
                 raise Exception(
-                    "No correct auth data has been specified to OpenStack: username, password and tenant")
+                    "No correct auth data has been specified to OpenStack: username, password and tenant or proxy")
 
             # To avoid errors with host certificates
             # if you want to do it in a more secure way check this:
@@ -105,17 +121,26 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             except:
                 pass
 
+            # Workaround to OTC to enable to set service_name as None
+            service_name = parameters["service_name"]
+            if parameters["service_name"] == "None":
+                service_name = None
+
             cls = get_driver(Provider.OPENSTACK)
-            driver = cls(auth['username'], auth['password'],
-                         ex_tenant_name=auth['tenant'],
+            driver = cls(username, password,
+                         ex_tenant_name=tenant,
                          ex_domain_name=parameters['domain'],
                          ex_force_auth_url=parameters["auth_url"],
                          ex_force_auth_version=parameters["auth_version"],
                          ex_force_service_region=parameters["service_region"],
                          ex_force_base_url=parameters["base_url"],
-                         ex_force_service_name=parameters["service_name"],
+                         ex_force_service_name=service_name,
                          ex_force_service_type=parameters["service_type"],
                          ex_force_auth_token=parameters["auth_token"])
+
+            # Workaround to OTC to enable to set service_name as None
+            if parameters["service_name"] == "None":
+                driver.connection.service_name = None
 
             self.driver = driver
             return driver
@@ -631,8 +656,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             self.log_exception("Error adding an Elastic/Floating IP to VM ID: " + str(vm.id))
             return False, str(ex)
 
-    @staticmethod
-    def _get_security_group(driver, sg_name):
+    def _get_security_group(self, driver, sg_name):
         try:
             sg = None
             for elem in driver.ex_list_security_groups():
@@ -641,6 +665,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     break
             return sg
         except Exception:
+            self.log_exception("Error getting security groups.")
             return None
 
     def create_security_groups(self, driver, inf, radl):
@@ -694,12 +719,10 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         return res
 
-    def finalize(self, vm, auth_data):
+    def finalize(self, vm, last, auth_data):
         node = self.get_node_with_id(vm.id, auth_data)
 
         if node:
-            sgs = node.driver.ex_get_node_security_groups(node)
-
             success = node.destroy()
 
             try:
@@ -726,8 +749,12 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 self.log_exception("Error deleting volumes.")
 
             try:
-                # Delete the SGs
-                self.delete_security_groups(node, sgs, vm.inf, vm.id)
+                # Delete the SG if this is the last VM
+                if last:
+                    self.delete_security_groups(node, vm.inf, vm.id)
+                else:
+                    # If this is not the last vm, we skip this step
+                    self.log_debug("There are active instances. Not removing the SG")
             except:
                 self.log_exception("Error deleting security groups.")
 
@@ -740,34 +767,35 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         return (True, "")
 
-    def delete_security_groups(self, node, sgs, inf, vm_id, timeout=90, delay=10):
+    def delete_security_groups(self, node, inf, vm_id, timeout=90, delay=10):
         """
         Delete the SG of this node
-        In some cases (as the SG is shared) it will fail.
         """
-        if sgs:
-            for sg in sgs:
-                # wait it to terminate and then remove the SG
-                cont = 0
-                deleted = False
-                while not deleted and cont < timeout:
+        for net in inf.radl.networks:
+            sg_name = "im-%s-%s" % (str(inf.id), net.id)
+
+            # wait it to terminate and then remove the SG
+            cont = 0
+            deleted = False
+            while not deleted and cont < timeout:
+                # Get the SG to delete
+                sg = self._get_security_group(node.driver, sg_name)
+                if not sg:
+                    self.log_debug("The SG %s does not exist. Do not delete it." % sg_name)
+                    deleted = True
+                else:
                     try:
-                        self.log_debug("Deleting SG: %s" % sg.name)
+                        self.log_debug("Deleting SG: %s" % sg_name)
                         node.driver.ex_delete_security_group(sg)
                         deleted = True
                     except Exception as ex:
-                        # Check if it has been deleted yet
-                        sg = self._get_security_group(node.driver, sg.name)
-                        if not sg:
-                            self.log_debug("Error deleting the SG. But it does not exist. Ignore. %s" % str(ex))
-                            deleted = True
-                        else:
-                            self.log_exception("Error deleting the SG.")
+                        self.log_warn("Error deleting the SG: %s" % str(ex))
 
-                        time.sleep(delay)
-                        cont += delay
-        else:
-            self.log_warn("No Security Groups to delete")
+                    time.sleep(delay)
+                    cont += delay
+
+            if not deleted:
+                self.log_error("Error deleting the SG: Timeout.")
 
     def gen_cloud_config(self, public_key, user=None, cloud_config_str=None):
         """

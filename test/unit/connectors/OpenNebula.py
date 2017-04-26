@@ -277,7 +277,7 @@ class TestONEConnector(unittest.TestCase):
         one_server.one.vm.action.return_value = (True, "", 0)
         server_proxy.return_value = one_server
 
-        success, _ = one_cloud.finalize(vm, auth)
+        success, _ = one_cloud.finalize(vm, True, auth)
 
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
