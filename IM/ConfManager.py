@@ -746,7 +746,7 @@ class ConfManager(threading.Thread):
                         files.append((Config.CONTEXTUALIZATION_DIR + "/ctxt_agent.py", remote_dir + "/ctxt_agent.py"))
                         # copy an empty init to make IM as package
                         files.append((Config.CONTEXTUALIZATION_DIR + "/__init__.py", remote_dir + "/IM/__init__.py"))
-    
+
                         if self.inf.radl.ansible_hosts:
                             for ansible_host in self.inf.radl.ansible_hosts:
                                 (user, passwd, private_key) = ansible_host.getCredentialValues()
