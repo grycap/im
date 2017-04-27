@@ -191,6 +191,12 @@ def GetVersion():
     return WaitRequest(request)
 
 
+def CreateDiskSnapshot(inf_id, vm_id, disk_num, image_name, auto_delete, auth_data):
+    request = IMBaseRequest.create_request(
+        IMBaseRequest.CREATE_DISK_SNAPSHOT, (inf_id, vm_id, disk_num, image_name, auto_delete, auth_data))
+    return WaitRequest(request)
+
+
 def launch_daemon():
     """
     Launch the IM daemon
@@ -201,8 +207,8 @@ def launch_daemon():
         # if specified launch the secure version
         import ssl
         from IM.request import AsyncSSLXMLRPCServer
-        server = AsyncSSLXMLRPCServer(Config.XMLRCP_ADDRESS, Config.XMLRCP_PORT, Config.XMLRCP_SSL_KEYFILE,
-                                      Config.XMLRCP_SSL_CERTFILE, Config.XMLRCP_SSL_CA_CERTS,
+        server = AsyncSSLXMLRPCServer((Config.XMLRCP_ADDRESS, Config.XMLRCP_PORT), keyfile=Config.XMLRCP_SSL_KEYFILE,
+                                      certfile=Config.XMLRCP_SSL_CERTFILE, ca_certs=Config.XMLRCP_SSL_CA_CERTS,
                                       cert_reqs=ssl.CERT_OPTIONAL)
     else:
         # otherwise the standard XML-RPC service
@@ -230,6 +236,7 @@ def launch_daemon():
     server.register_function(StopVM)
     server.register_function(GetInfrastructureState)
     server.register_function(GetVersion)
+    server.register_function(CreateDiskSnapshot)
 
     InfrastructureManager.logger.info(
         '************ Start Infrastructure Manager daemon (v.%s) ************' % version)

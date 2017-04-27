@@ -8,6 +8,7 @@ Prerequisites
 IM needs at least Python 2.6 to run, as well as the next libraries:
 
 * `The RADL parser <https://github.com/grycap/radl>`_.
+  (Since IM version 1.5.3, it requires RADL version 1.1.0 or later).
 * `paramiko <http://www.lag.net/paramiko/>`_, ssh2 protocol library for python
   (version 1.14 or later).
 * `PyYAML <http://pyyaml.org/>`_, a YAML parser.
@@ -63,10 +64,6 @@ Optional Packages
   Amazon EC2. It is available as package named ``python-boto`` in Debian based
   distributions. It can also be downloaded from `boto GitHub repository <https://github.com/boto/boto>`_.
   Download the file and copy the boto subdirectory into the IM install path.
-* `Spring Python <http://springpython.webfactional.com/>`_ framework is needed
-  if the access to XML-RPC API is secured with SSL certificates (see
-  :confval:`XMLRCP_SSL`).
-  The Debian package is named ``python-springpython``.
 * pyOpenSSL are needed if needed to secure the REST API
   with SSL certificates (see :confval:`REST_SSL`).
   pyOpenSSL can be installed using pip.

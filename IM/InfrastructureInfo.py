@@ -99,6 +99,8 @@ class InfrastructureInfo:
         """ Extra information about the Infrastructure."""
         self.last_access = datetime.now()
         """ Time of the last access to this Inf. """
+        self.snapshots = []
+        """ List of URLs of snapshots made to this Inf that must be deleted on finalization """
 
     def serialize(self):
         with self._lock:
@@ -224,17 +226,6 @@ class InfrastructureInfo:
         with self._lock:
             res = [vm for vm in self.vm_list if not vm.destroy]
         return res
-
-    def is_last_vm(self, vm_id):
-        """
-        Check if the the vm_id specified is the last VM in this Inf.
-        """
-        some_vm = False
-        with self._lock:
-            for vm in [vm for vm in self.vm_list if not vm.destroy]:
-                if vm.id != vm_id:
-                    some_vm = True
-        return not some_vm
 
     def get_vm(self, str_vm_id):
         """

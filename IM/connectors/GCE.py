@@ -447,7 +447,7 @@ class GCECloudConnector(CloudConnector):
 
         return res
 
-    def finalize(self, vm, auth_data):
+    def finalize(self, vm, last, auth_data):
         try:
             node = self.get_node_with_id(vm.id, auth_data)
         except Exception as ex:
@@ -458,7 +458,7 @@ class GCECloudConnector(CloudConnector):
             success = node.destroy()
             self.delete_disks(node)
 
-            if vm.inf.is_last_vm(vm.id):
+            if last:
                 self.delete_firewall(vm, node.driver)
 
             if not success:

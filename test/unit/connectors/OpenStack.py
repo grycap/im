@@ -34,7 +34,7 @@ from radl import radl_parse
 from IM.VirtualMachine import VirtualMachine
 from IM.InfrastructureInfo import InfrastructureInfo
 from IM.connectors.OpenStack import OpenStackCloudConnector
-from mock import patch, MagicMock
+from mock import patch, MagicMock, call
 
 
 def read_file_as_string(file_name):
@@ -365,6 +365,7 @@ class TestOSTConnector(unittest.TestCase):
         ost_cloud = self.get_ost_cloud()
 
         radl_data = """
+            network public (outboud = 'yes')
             system test (
             cpu.count>=2 and
             memory.size>=2048m
@@ -372,6 +373,8 @@ class TestOSTConnector(unittest.TestCase):
         radl = radl_parse.parse_radl(radl_data)
 
         inf = MagicMock()
+        inf.id = "infid"
+        inf.radl = radl
         vm = VirtualMachine(inf, "1", ost_cloud.cloud, radl, radl, ost_cloud, 1)
 
         driver = MagicMock()
@@ -388,10 +391,6 @@ class TestOSTConnector(unittest.TestCase):
         node.destroy.return_value = True
         driver.list_nodes.return_value = [node]
 
-        sg = MagicMock()
-        sg.id = sg.name = "sg1"
-        driver.ex_get_node_security_groups.return_value = [sg]
-
         keypair = MagicMock()
         driver.get_key_pair.return_value = keypair
         vm.keypair = keypair
@@ -402,9 +401,57 @@ class TestOSTConnector(unittest.TestCase):
 
         driver.ex_list_floating_ips.return_value = []
 
-        success, _ = ost_cloud.finalize(vm, auth)
+        success, _ = ost_cloud.finalize(vm, True, auth)
 
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
+    @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
+    def test_70_create_snapshot(self, get_driver):
+        auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'username': 'user',
+                                'password': 'pass', 'tenant': 'tenant', 'host': 'https://server.com:5000'}])
+        ost_cloud = self.get_ost_cloud()
+
+        inf = MagicMock()
+        vm = VirtualMachine(inf, "1", ost_cloud.cloud, "", "", ost_cloud, 1)
+
+        driver = MagicMock()
+        driver.name = "OpenStack"
+        get_driver.return_value = driver
+
+        node = MagicMock()
+        node.id = "1"
+        node.driver = driver
+        driver.list_nodes.return_value = [node]
+        image = MagicMock()
+        image.id = "newimage"
+        driver.create_image.return_value = image
+
+        success, new_image = ost_cloud.create_snapshot(vm, 0, "image_name", True, auth)
+
+        self.assertTrue(success, msg="ERROR: creating snapshot: %s" % new_image)
+        self.assertEqual(new_image, "ost://server.com/newimage")
+        self.assertEqual(driver.create_image.call_args_list, [call(node, "image_name")])
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
+    @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
+    def test_80_delete_image(self, get_driver):
+        auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'username': 'user',
+                                'password': 'pass', 'tenant': 'tenant', 'host': 'https://server.com:5000'}])
+        ost_cloud = self.get_ost_cloud()
+
+        driver = MagicMock()
+        driver.name = "OpenStack"
+        get_driver.return_value = driver
+
+        image = MagicMock()
+        image.id = "image"
+        driver.get_image.return_value = image
+
+        success, msg = ost_cloud.delete_image('ost://server.com/image', auth)
+
+        self.assertTrue(success, msg="ERROR: deleting image. %s" % msg)
+        self.assertEqual(driver.delete_image.call_args_list, [call(image)])
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
 

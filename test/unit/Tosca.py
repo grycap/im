@@ -49,9 +49,15 @@ class TestTosca(unittest.TestCase):
         _, radl = tosca.to_radl()
         radl = parse_radl(str(radl))
         net = radl.get_network_by_id('public_net')
-        self.assertEqual(net.getValue('provider_id'), 'vpc-XX.subnet-XX')
-        self.assertIn(net.getValue("outports"), ['1:4/tcp,8080/tcp-8080/tcp',
-                                                 '8080/tcp-8080/tcp,1:4/tcp'])
+        net1 = radl.get_network_by_id('public_net_1')
+        self.assertIn(net.getValue('provider_id'), ['vpc-XX.subnet-XX', None])
+        if net.getValue('provider_id') is None:
+            self.assertEqual(net.getValue("outports"), '1:4/tcp')
+            self.assertEqual(net1.getValue("outports"), '8080/tcp-8080/tcp')
+        else:
+            self.assertEqual(net.getValue('provider_id'), 'vpc-XX.subnet-XX')
+            self.assertEqual(net.getValue("outports"), '8080/tcp-8080/tcp')
+            self.assertEqual(net1.getValue("outports"), '1:4/tcp')
         lrms_wn = radl.get_system_by_name('lrms_wn')
         self.assertEqual(lrms_wn.getValue('memory.size'), 2000000000)
         lrms_server = radl.get_system_by_name('lrms_server')

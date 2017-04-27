@@ -8,7 +8,7 @@ IM is based on Python, so Python 2.6 or higher runtime and standard library must
 be installed in the system.
 
  + The RADL parser (https://github.com/grycap/radl), available in pip
-   as the 'RADL' package.
+   as the 'RADL' package. (Since IM version 1.5.3, it requires RADL version 1.1.0 or later).
 
  + The paramiko ssh2 protocol library for python version 1.14 or later
 (http://www.lag.net/paramiko/), typically available as the 'python-paramiko' package.
@@ -72,9 +72,6 @@ Boto (http://boto.readthedocs.org) 2.29.0 or later is used as interface to
 Amazon EC2. It is available as package named ``python-boto`` in Debian based
 distributions. It can also be downloaded from `boto GitHub repository (https://github.com/boto/boto).
 Download the file and copy the boto subdirectory into the IM install path.
-
-In case of using the SSL secured version of the XMLRPC API the SpringPython
-framework (http://springpython.webfactional.com/) must be installed.
 
 In case of using the a MySQL DB as the backend to store IM data. The Python interface to MySQL
 must be installed, typically available as the package 'python-mysqldb' or 'MySQL-python' package.

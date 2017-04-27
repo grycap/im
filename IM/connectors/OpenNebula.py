@@ -76,15 +76,8 @@ class VM(XMLObject):
     STATE_DONE = 6
     STATE_FAILED = 7
     STATE_POWEROFF = 8
-    STATE_STR = {'0': 'init', '1': 'pending', '2': 'hold', '3': 'active',
-                 '4': 'stopped', '5': 'suspended', '6': 'done', '7': 'failed', '8': 'poweroff'}
-    LCM_STATE_STR = {'0': 'init', '1': 'prologing', '2': 'booting', '3': 'running', '4': 'migrating',
-                     '5': 'saving (stop)', '6': 'saving (suspend)', '7': 'saving (migrate)',
-                     '8': 'prologing (migration)', '9': 'prologing (resume)', '10': 'epilog (stop)',
-                     '11': 'epilog', '12': 'cancel', '13': 'failure', '14': 'delete', '15': 'unknown'}
     values = ['ID', 'UID', 'NAME', 'LAST_POLL', 'STATE', 'LCM_STATE',
               'DEPLOY_ID', 'MEMORY', 'CPU', 'NET_TX', 'NET_RX', 'STIME', 'ETIME']
-#        tuples = { 'TEMPLATE': TEMPLATE, 'HISTORY': HISTORY }
     tuples = {'TEMPLATE': TEMPLATE}
     numeric = ['ID', 'UID', 'STATE', 'LCM_STATE', 'STIME', 'ETIME']
 
@@ -124,6 +117,18 @@ class VNET(XMLObject):
 
 class VNET_POOL(XMLObject):
     tuples_lists = {'VNET': VNET}
+
+
+class IMAGE(XMLObject):
+    STATE_READY = 1
+    STATE_ERROR = 5
+    values = ['ID', 'UID', 'GID', 'UNAME', 'GNAME', 'NAME', 'SOURCE', 'PATH'
+              'FSTYPE', 'TYPE', 'DISK_TYPE', 'PERSISTENT', 'SIZE', 'STATE']
+    numeric = ['ID', 'UID', 'GID', 'SIZE', 'STATE']
+
+
+class IMAGE_POOL(XMLObject):
+    tuples_lists = {'IMAGE': IMAGE}
 
 
 class OpenNebulaCloudConnector(CloudConnector):
@@ -363,11 +368,16 @@ class OpenNebulaCloudConnector(CloudConnector):
             i += 1
         return res
 
-    def finalize(self, vm, auth_data):
+    def finalize(self, vm, last, auth_data):
         server = ServerProxy(self.server_url, allow_none=True)
         session_id = self.getSessionID(auth_data)
         if session_id is None:
             return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
+
+        # first delete the snapshots to avoid problems in EC3 deleting the IM front-end
+        if last:
+            self.delete_snapshots(vm, auth_data)
+
         func_res = server.one.vm.action(session_id, 'delete', int(vm.id))
 
         if len(func_res) == 1:
@@ -712,8 +722,7 @@ class OpenNebulaCloudConnector(CloudConnector):
             net_provider_id = radl_net.getValue('provider_id')
             if net_provider_id:
                 for (net_name, net_id, is_public) in one_nets:
-                    # If the name is the same and have the same "publicity"
-                    # value
+                    # If the name is the same and have the same "publicity" value
                     if net_name == net_provider_id and radl_net.isPublic() == is_public:
                         res[radl_net.id] = (net_name, net_id, is_public)
                         used_nets.append(net_id)
@@ -732,15 +741,23 @@ class OpenNebulaCloudConnector(CloudConnector):
         # mapped networks
         used_nets = []
         for radl_net in radl_nets:
-            if not res[radl_net.id]:
-                for (net_name, net_id, is_public) in one_nets:
-                    if net_id not in used_nets and is_public:
-                        res[radl_net.id] = (net_name, net_id, is_public)
-                        used_nets.append(net_id)
-                        last_net = (net_name, net_id, is_public)
-                        break
-                if radl_net.id not in res:
-                    res[radl_net.id] = last_net
+            if radl_net.id not in res or not res[radl_net.id]:
+                net_provider_id = radl_net.getValue('provider_id')
+                if net_provider_id:
+                    for (net_name, net_id, is_public) in one_nets:
+                        if net_name == net_provider_id:
+                            res[radl_net.id] = (net_name, net_id, is_public)
+                            used_nets.append(net_id)
+                            break
+                else:
+                    for (net_name, net_id, is_public) in one_nets:
+                        if net_id not in used_nets and is_public:
+                            res[radl_net.id] = (net_name, net_id, is_public)
+                            used_nets.append(net_id)
+                            last_net = (net_name, net_id, is_public)
+                            break
+                    if radl_net.id not in res:
+                        res[radl_net.id] = last_net
 
         return res
 
@@ -985,3 +1002,132 @@ class OpenNebulaCloudConnector(CloudConnector):
         else:
             # Nothing to do
             return (True, "")
+
+    def create_snapshot(self, vm, disk_num, image_name, auto_delete, auth_data):
+        server = ServerProxy(self.server_url, allow_none=True)
+
+        session_id = self.getSessionID(auth_data)
+        if session_id is None:
+            return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
+
+        image_type = ""  # Use the default one
+        one_ver = self.getONEVersion(auth_data)
+        if one_ver.startswith("5."):
+            func_res = server.one.vm.disksaveas(session_id, int(vm.id), disk_num, image_name, image_type, -1)
+        else:
+            func_res = server.one.vm.savedisk(session_id, int(vm.id), disk_num, image_name, image_type, True, False)
+        if len(func_res) == 2:
+            (success, res_info) = func_res
+        elif len(func_res) == 3:
+            (success, res_info, _) = func_res
+        else:
+            return (False, "Error in the one.vm.savedisk return value")
+
+        if success:
+            new_url = "one://%s/%d" % (self.cloud.server, res_info)
+            success, msg = self.wait_image(res_info, auth_data)
+            if success:
+                if auto_delete:
+                    vm.inf.snapshots.append(new_url)
+                return (True, new_url)
+            else:
+                try:
+                    (success, res_info, _) = server.one.image.delete(session_id, res_info)
+                except:
+                    self.logger.error("Error deleting image: %s" % res_info)
+                return (False, "Error waiting image to be ready: %s" % msg)
+        else:
+            return (False, res_info)
+
+    def wait_image(self, image_id, auth_data, timeout=180):
+        server = ServerProxy(self.server_url, allow_none=True)
+
+        session_id = self.getSessionID(auth_data)
+        if session_id is None:
+            return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
+
+        state = 0
+        wait = 0
+        while state != IMAGE.STATE_ERROR and state != IMAGE.STATE_READY and wait < timeout:
+            wait += 5
+            time.sleep(5)
+
+            func_res = server.one.image.info(session_id, image_id)
+            if len(func_res) == 2:
+                (success, res_info) = func_res
+            elif len(func_res) == 3:
+                (success, res_info, error_code) = func_res
+            else:
+                return (False, "Error in the one.image.info return value")
+
+            if success:
+                image_info = IMAGE(res_info)
+                state = image_info.STATE
+            else:
+                self.logger.error("Error in the function one.image.info: " + res_info)
+                return False, "Error getting image info: %s" % res_info
+
+        if state == IMAGE.STATE_READY:
+            return True, ""
+        elif state == IMAGE.STATE_ERROR:
+            return False, "Image in Error state"
+        else:
+            return False, "Timeout waiting image to be ready"
+
+    def delete_image(self, image_url, auth_data):
+        server = ServerProxy(self.server_url, allow_none=True)
+
+        session_id = self.getSessionID(auth_data)
+        if session_id is None:
+            return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
+
+        image_id = self.get_image_id(image_url, session_id)
+        if image_id is None:
+            return (False, "Incorrect image name or id specified.")
+
+        # Wait the image to be READY (not USED)
+        success, msg = self.wait_image(image_id, auth_data)
+        if not success:
+            self.logger.warn("Error waiting image to be READY: " + msg)
+
+        func_res = server.one.image.delete(session_id, image_id)
+        if len(func_res) == 2:
+            (success, res_info) = func_res
+        elif len(func_res) == 3:
+            (success, res_info, _) = func_res
+        else:
+            return (False, "Error in the one.image.delete return value")
+
+        if success:
+            return (True, "")
+        else:
+            return (False, res_info)
+
+    def get_image_id(self, image_url, session_id):
+        url = uriparse(image_url)
+        image_id = url[2][1:]
+        if image_id.isdigit():
+            return int(image_id)
+        else:
+            # We have to find the ID of the image name
+            server = ServerProxy(self.server_url, allow_none=True)
+            func_res = server.one.imagepool.info(session_id, -2, -1, -1)
+            if len(func_res) == 2:
+                (success, res_info) = func_res
+            elif len(func_res) == 3:
+                (success, res_info, _) = func_res
+            else:
+                self.logger.error("Error in the one.imagepool.info return value")
+                return None
+
+            if success:
+                pool_info = IMAGE_POOL(res_info)
+            else:
+                self.logger.error("Error in the function one.imagepool.info: " + res_info)
+                return None
+
+            for image in pool_info.IMAGE:
+                if image.NAME == image_id:
+                    return image.ID
+
+            return None

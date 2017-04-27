@@ -279,3 +279,18 @@ IM 1.5.2
     * Enrich the logging entries + stack trace with the infra id.
     * Improve OCCI cloud_init data process.
     * Add VMINFO_JSON conf var to enable the GetVMInfo function return JSON RADL.
+
+IM 1.5.3
+    * Fix errors with python3
+    * Fix error in some SFTP functions in SSH class.
+    * Change default value of REMOTE_CONF_DIR to /var/tmp.
+    * Enable to specify a port range in outports.
+    * Add functions to create VM snapshots.
+    * Fix error in OCCI conn setting public key.
+    * Improve SG management in connectors EC2 and OpenStack.
+    * Add support to OTC.
+    * In case of hybrid infrastructures some connector will not remove all resources.
+    * Select a random pool in case of OpenStack site in OCCI conn.
+    * Detach volumes before removing it in OCCI conn.
+    * Support OpenStack calls with VOMS proxies.
+

@@ -327,12 +327,12 @@ class TestIM(unittest.TestCase):
                                  'password': 'tests'}])
         with self.assertRaises(Exception) as ex:
             IM.CreateInfrastructure(radl, auth0)
-        self.assertEqual(str(ex.exception),
-                         'Some deploys did not proceed successfully: All machines could not be launched: \n'
-                         'Attempt 1: Error launching the VMs of type front to cloud ID one of type OpenNebula. '
-                         'Cloud Provider Error: [Errno 111] Connection refused\n'
-                         'Attempt 2: Error, no concrete system to deploy: front in cloud: ost. '
-                         'Check if a correct image is being used\n\n')
+        self.assertIn('Some deploys did not proceed successfully: All machines could not be launched: \n'
+                      'Attempt 1: Error launching the VMs of type front to cloud ID one of type OpenNebula. ',
+                      str(ex.exception))
+        self.assertIn('Attempt 2: Error, no concrete system to deploy: front in cloud: ost. '
+                      'Check if a correct image is being used\n\n',
+                      str(ex.exception))
 
         # this case must fail with two errors, first the OCCI one
         auth0 = Authentication([{'id': 'occi', 'type': 'OCCI', 'proxy': 'proxy',
@@ -343,13 +343,12 @@ class TestIM(unittest.TestCase):
                                  'password': 'tests'}])
         with self.assertRaises(Exception) as ex:
             IM.CreateInfrastructure(radl, auth0)
-        self.assertIn(str(ex.exception),
-                      'Some deploys did not proceed successfully: All machines could not be launched: \n'
+        self.assertIn('Some deploys did not proceed successfully: All machines could not be launched: \n'
                       'Attempt 1: Error launching the VMs of type front to cloud ID occi of type OCCI. '
                       'Cloud Provider Error: Error getting os_tpl scheme. '
                       'Check that the image specified is supported in the OCCI server.\n'
-                      'Attempt 2: Error launching the VMs of type front to cloud ID one of type OpenNebula. '
-                      'Cloud Provider Error: [Errno 111] Connection refused\n\n')
+                      'Attempt 2: Error launching the VMs of type front to cloud ID one of type OpenNebula. ',
+                      str(ex.exception))
 
         # this case must work OK
         auth0 = Authentication([{'id': 'ost', 'type': 'OpenStack', 'username': 'user',
@@ -881,6 +880,30 @@ class TestIM(unittest.TestCase):
 
         IM.DestroyInfrastructure(new_inf_id, auth0)
 
+    def test_create_disk_snapshot(self):
+        """Test CreateDiskSnapshot """
+        radl = RADL()
+        radl.add(system("s0", [Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
+                               Feature("disk.0.os.credentials.username", "=", "user"),
+                               Feature("disk.0.os.credentials.password", "=", "pass")]))
+        radl.add(deploy("s0", 1))
+
+        new_url = "mock0://linux.for.ev.er/test"
+
+        cloud0 = self.get_cloud_connector_mock("MyMock0")
+        cloud0.create_snapshot = Mock(return_value=(True, new_url))
+        self.register_cloudconnector("Mock0", cloud0)
+        auth0 = self.getAuth([0], [], [("Mock0", 0)])
+
+        infId = IM.CreateInfrastructure(str(radl), auth0)
+
+        InfrastructureList.infrastructure_list[infId].vm_list[0].cloud_connector = cloud0
+
+        res = IM.CreateDiskSnapshot(infId, 0, 0, "test", True, auth0)
+        self.assertEqual(res, new_url)
+
+        self.assertEqual(cloud0.create_snapshot.call_count, 1)
+
     def test_contextualize(self):
         """Test Contextualization process"""
         radl = """"
@@ -1066,6 +1089,61 @@ configure step2 (
         self.assertEqual(res['1'].vm_list[0], res['1'].vm_master)
         self.assertEqual(res['1'].vm_master.info.systems[0].getValue("disk.0.image.url"), "mock0://linux.for.ev.er")
         self.assertTrue(res['1'].auth.compare(inf.auth, "InfrastructureManager"))
+
+    def test_inf_remove_two_clouds(self):
+        """ Test remove VMs from 2 cloud providers """
+
+        radl = """"
+            network publica (outbound = 'yes')
+            system front (
+            cpu.arch='x86_64' and
+            cpu.count>=1 and
+            memory.size>=512m and
+            net_interface.0.connection = 'publica' and
+            disk.0.image.url = 'mock0://linux.for.ev.er' and
+            disk.0.os.credentials.username = 'ubuntu' and
+            disk.0.os.credentials.password = 'aaaaa' and
+            disk.0.os.name = 'linux'
+            )
+            contextualize ()
+            deploy front 2 cloud0
+            deploy front 2 cloud1
+        """
+
+        cloud0 = self.get_cloud_connector_mock("MyMock0")
+        cloud0.finalize = Mock(return_value=(True, ""))
+        self.register_cloudconnector("Mock0", cloud0)
+        cloud1 = self.get_cloud_connector_mock("MyMock1")
+        cloud1.finalize = Mock(return_value=(True, ""))
+        self.register_cloudconnector("Mock1", cloud1)
+        auth0 = self.getAuth([0], [], [("Mock1", 1), ("Mock0", 0)])
+
+        infId = IM.CreateInfrastructure(radl, auth0)
+
+        InfrastructureList.infrastructure_list[infId].vm_list[0].cloud.server = "server0"
+        InfrastructureList.infrastructure_list[infId].vm_list[0].cloud_connector = cloud0
+        InfrastructureList.infrastructure_list[infId].vm_list[1].cloud.server = "server0"
+        InfrastructureList.infrastructure_list[infId].vm_list[1].cloud_connector = cloud0
+        InfrastructureList.infrastructure_list[infId].vm_list[2].cloud.server = "server1"
+        InfrastructureList.infrastructure_list[infId].vm_list[2].cloud_connector = cloud1
+        InfrastructureList.infrastructure_list[infId].vm_list[3].cloud.server = "server1"
+        InfrastructureList.infrastructure_list[infId].vm_list[3].cloud_connector = cloud1
+
+        cont = IM.RemoveResource(infId, ['0', '1'], auth0)
+
+        self.assertEqual(cont, 2)
+        self.assertEqual(cloud0.finalize.call_args_list[0][0][1], False)
+        self.assertEqual(cloud0.finalize.call_args_list[1][0][1], True)
+        self.assertEqual(cloud0.finalize.call_count, 2)
+        self.assertEqual(cloud1.finalize.call_count, 0)
+
+        IM.DestroyInfrastructure(infId, auth0)
+
+        self.assertEqual(cloud1.finalize.call_args_list[0][0][1], False)
+        self.assertEqual(cloud1.finalize.call_args_list[1][0][1], True)
+        self.assertEqual(cloud0.finalize.call_count, 2)
+        self.assertEqual(cloud1.finalize.call_count, 2)
+
 
 if __name__ == "__main__":
     unittest.main()

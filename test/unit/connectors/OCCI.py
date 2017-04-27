@@ -143,6 +143,8 @@ class TestOCCIConnector(unittest.TestCase):
                 resp.status_code = 200
             elif url.endswith("/storage/1"):
                 resp.status_code = 200
+            elif url.endswith("/link/storagelink/compute_10_disk_1"):
+                resp.status_code = 200
 
         return resp
 
@@ -307,7 +309,7 @@ class TestOCCIConnector(unittest.TestCase):
 
         get_keystone_uri.return_value = None
 
-        success, _ = occi_cloud.finalize(vm, auth)
+        success, _ = occi_cloud.finalize(vm, True, auth)
 
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())

@@ -57,7 +57,7 @@ class DeployedNodeCloudConnector(CloudConnector):
 
         return res
 
-    def finalize(self, vm, auth_data):
+    def finalize(self, vm, last, auth_data):
         return (True, "")
 
     def stop(self, vm, auth_data):
