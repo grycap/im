@@ -1397,6 +1397,8 @@ class ConfManager(threading.Thread):
             if vm.state in VirtualMachine.NOT_RUNNING_STATES:
                 self.log_warn("The VM ID: " + str(vm.id) +
                               " is not running, do not include in the general conf file.")
+                self.inf.add_cont_msg("WARNING: The VM ID: " + str(vm.id) +
+                                      " is not running, do not include in the contextualization agent.")
             else:
                 vm_conf_data = {}
                 vm_conf_data['id'] = vm.im_id
@@ -1428,6 +1430,8 @@ class ConfManager(threading.Thread):
                     # errors configurin gother VMs
                     self.log_warn("The VM ID: " + str(vm.id) +
                                   " does not have an IP, do not include in the general conf file.")
+                    self.inf.add_cont_msg("WARNING: The VM ID: " + str(vm.id) +
+                                          " does not have an IP, do not include in the contextualization agent.")
                 else:
                     conf_data['vms'].append(vm_conf_data)
 
