@@ -365,6 +365,7 @@ class TestOSTConnector(unittest.TestCase):
         ost_cloud = self.get_ost_cloud()
 
         radl_data = """
+            network public (outboud = 'yes')
             system test (
             cpu.count>=2 and
             memory.size>=2048m
@@ -372,6 +373,8 @@ class TestOSTConnector(unittest.TestCase):
         radl = radl_parse.parse_radl(radl_data)
 
         inf = MagicMock()
+        inf.id = "infid"
+        inf.radl = radl
         vm = VirtualMachine(inf, "1", ost_cloud.cloud, radl, radl, ost_cloud, 1)
 
         driver = MagicMock()
@@ -388,10 +391,6 @@ class TestOSTConnector(unittest.TestCase):
         node.destroy.return_value = True
         driver.list_nodes.return_value = [node]
 
-        sg = MagicMock()
-        sg.id = sg.name = "sg1"
-        driver.ex_get_node_security_groups.return_value = [sg]
-
         keypair = MagicMock()
         driver.get_key_pair.return_value = keypair
         vm.keypair = keypair
@@ -402,7 +401,7 @@ class TestOSTConnector(unittest.TestCase):
 
         driver.ex_list_floating_ips.return_value = []
 
-        success, _ = ost_cloud.finalize(vm, auth)
+        success, _ = ost_cloud.finalize(vm, True, auth)
 
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())

@@ -88,11 +88,12 @@ class CloudConnector:
 
         raise NotImplementedError("Should have implemented this")
 
-    def finalize(self, vm, auth_data):
+    def finalize(self, vm, last, auth_data):
         """ Terminates a VM
 
                 Arguments:
                 - vm(:py:class:`IM.VirtualMachine`): VM to terminate.
+                - last(boolean): Flag that specifies that the VM is that last one, to clean all related resources.
                 - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
 
                 Returns: a tuple (success, vm).
@@ -205,15 +206,14 @@ class CloudConnector:
         """
         Delete the snapshots created with auto_delete option
         """
-        if vm.inf.is_last_vm(vm.id):
-            try:
-                for image_url in vm.inf.snapshots:
-                    self.log_debug("Deleting snapshot: %s" % image_url)
-                    success, msg = self.delete_image(image_url, auth_data)
-                    if not success:
-                        self.log_error("Error deleting snapshot: %s" % msg)
-            except:
-                self.log_exception("Error deleting snapshots.")
+        try:
+            for image_url in vm.inf.snapshots:
+                self.log_debug("Deleting snapshot: %s" % image_url)
+                success, msg = self.delete_image(image_url, auth_data)
+                if not success:
+                    self.log_error("Error deleting snapshot: %s" % msg)
+        except:
+            self.log_exception("Error deleting snapshots.")
 
     def log_msg(self, level, msg, exc_info=0):
         msg = "Inf ID: %s: %s" % (self.inf.id, msg)

@@ -737,18 +737,30 @@ class ConfManager(threading.Thread):
                         else:
                             self.log_info("Ansible installation finished successfully")
 
-                    remote_dir = Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/"
-                    self.log_debug("Copy the contextualization agent files")
-                    files = []
-                    files.append((Config.IM_PATH + "/SSH.py", remote_dir + "/IM/SSH.py"))
-                    files.append((Config.CONTEXTUALIZATION_DIR + "/ctxt_agent.py", remote_dir + "/ctxt_agent.py"))
-                    # copy an empty init to make IM as package
-                    files.append((Config.CONTEXTUALIZATION_DIR + "/__init__.py", remote_dir + "/IM/__init__.py"))
+                    if configured_ok:
+                        remote_dir = Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/"
+                        self.log_debug("Copy the contextualization agent files")
+                        files = []
+                        files.append((Config.IM_PATH + "/SSH.py", remote_dir + "/IM/SSH.py"))
+                        files.append((Config.CONTEXTUALIZATION_DIR + "/ctxt_agent.py", remote_dir + "/ctxt_agent.py"))
+                        # copy an empty init to make IM as package
+                        files.append((Config.CONTEXTUALIZATION_DIR + "/__init__.py", remote_dir + "/IM/__init__.py"))
 
-                    if self.inf.radl.ansible_hosts:
-                        for ansible_host in self.inf.radl.ansible_hosts:
-                            (user, passwd, private_key) = ansible_host.getCredentialValues()
-                            ssh = SSHRetry(ansible_host.getHost(), user, passwd, private_key)
+                        if self.inf.radl.ansible_hosts:
+                            for ansible_host in self.inf.radl.ansible_hosts:
+                                (user, passwd, private_key) = ansible_host.getCredentialValues()
+                                ssh = SSHRetry(ansible_host.getHost(), user, passwd, private_key)
+                                ssh.sftp_mkdir(remote_dir)
+                                ssh.sftp_chmod(remote_dir, 448)
+                                ssh.sftp_mkdir(remote_dir + "/IM")
+                                ssh.sftp_put_files(files)
+                                # Copy the utils helper files
+                                ssh.sftp_mkdir(remote_dir + "/utils")
+                                ssh.sftp_put_dir(Config.RECIPES_DIR + "/utils", remote_dir + "//utils")
+                                # Copy the ansible_utils files
+                                ssh.sftp_mkdir(remote_dir + "/IM/ansible_utils")
+                                ssh.sftp_put_dir(Config.IM_PATH + "/ansible_utils", remote_dir + "/IM/ansible_utils")
+                        else:
                             ssh.sftp_mkdir(remote_dir)
                             ssh.sftp_chmod(remote_dir, 448)
                             ssh.sftp_mkdir(remote_dir + "/IM")
@@ -759,17 +771,6 @@ class ConfManager(threading.Thread):
                             # Copy the ansible_utils files
                             ssh.sftp_mkdir(remote_dir + "/IM/ansible_utils")
                             ssh.sftp_put_dir(Config.IM_PATH + "/ansible_utils", remote_dir + "/IM/ansible_utils")
-                    else:
-                        ssh.sftp_mkdir(remote_dir)
-                        ssh.sftp_chmod(remote_dir, 448)
-                        ssh.sftp_mkdir(remote_dir + "/IM")
-                        ssh.sftp_put_files(files)
-                        # Copy the utils helper files
-                        ssh.sftp_mkdir(remote_dir + "/utils")
-                        ssh.sftp_put_dir(Config.RECIPES_DIR + "/utils", remote_dir + "//utils")
-                        # Copy the ansible_utils files
-                        ssh.sftp_mkdir(remote_dir + "/IM/ansible_utils")
-                        ssh.sftp_put_dir(Config.IM_PATH + "/ansible_utils", remote_dir + "/IM/ansible_utils")
 
                     success = configured_ok
 
@@ -1395,6 +1396,8 @@ class ConfManager(threading.Thread):
             if vm.state in VirtualMachine.NOT_RUNNING_STATES:
                 self.log_warn("The VM ID: " + str(vm.id) +
                               " is not running, do not include in the general conf file.")
+                self.inf.add_cont_msg("WARNING: The VM ID: " + str(vm.id) +
+                                      " is not running, do not include in the contextualization agent.")
             else:
                 vm_conf_data = {}
                 vm_conf_data['id'] = vm.im_id
@@ -1426,6 +1429,8 @@ class ConfManager(threading.Thread):
                     # errors configurin gother VMs
                     self.log_warn("The VM ID: " + str(vm.id) +
                                   " does not have an IP, do not include in the general conf file.")
+                    self.inf.add_cont_msg("WARNING: The VM ID: " + str(vm.id) +
+                                          " does not have an IP, do not include in the contextualization agent.")
                 else:
                     conf_data['vms'].append(vm_conf_data)
 

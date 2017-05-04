@@ -143,7 +143,7 @@ keys are:
   
 * ``proxy`` indicates the content of the proxy file associated to the credential.
   To refer to a file you must use the function "file(/tmp/proxyfile.pem)" as shown in the example.
-  This field is only used in the OCCI plugin.
+  This field is used in the OCCI and OpenStack plugins. 
   
 * ``project`` indicates the project name associated to the credential.
   This field is only used in the GCE plugin.
@@ -171,8 +171,10 @@ OpenStack additional fields
 
 OpenStack has a set of additional fields to access a cloud site:
 
+* ``domain`` the domain name associated to the credential. The default value is: ``Default``.
+
 * ``auth_version`` the auth version used to connect with the Keystone server.
-  The possible values are: ``2.0_password``, ``3.X_password`` or ``3.x_oidc_access_token``.
+  The possible values are: ``2.0_password``, ``2.0_voms``, ``3.X_password`` or ``3.x_oidc_access_token``.
   The default value is ``2.0_password``.
 
 * ``base_url`` base URL to the OpenStack API endpoint. By default, the connector obtains API endpoint URL from the 
@@ -183,25 +185,56 @@ OpenStack has a set of additional fields to access a cloud site:
   endpoint URL. The default value is: ``RegionOne``.
 
 * ``service_name`` the service name used to obtain the API endpoint URL. The default value is: ``Compute``.
+  From version 1.5.3 a special name ``None`` can be used to use a ``Null\None`` value as the service name
+  as it is used for example in the Open Telekom Cloud. 
 
 * ``auth_token`` token which is used for authentication. If this argument is provided, normal authentication 
   flow is skipped and the OpenStack API endpoint is directly hit with the provided token. Normal authentication 
   flow involves hitting the auth service (Keystone) with the provided username and password and requesting an
   authentication token.
 
+Open Telekom Cloud
+++++++++++++++++++
+
+The Open Telekom Cloud (OTC) is the cloud provided by T-Systems. It is based on OpenStack and it can be accessed
+using the OpenStack IM connector using an authorization line similar to the following example:
+
+id = otc; type = OpenStack; host = https://iam.eu-de.otc.t-systems.com:443 ; username = user; password = pass; tenant = tenant; domain = domain; auth_version = 3.x_password; service_name = None; service_region = eu-de
+
+You can get the username, password, tenant and domain values from the ``My Credentials`` section of your OTC access. 
+
+Examples
+^^^^^^^^
+
 An example of the auth file::
 
+   # OpenNebula site
    id = one; type = OpenNebula; host = osenserver:2633; username = user; password = pass
+   # OpenStack site using standard user, password, tenant format
    id = ost; type = OpenStack; host = https://ostserver:5000; username = user; password = pass; tenant = tenant
+   # OpenStack site using VOMS proxy authentication
+   id = ostvoms; type = OpenStack; proxy = file(/tmp/proxy.pem); host = https://keystone:5000; tenant = tname
+   # IM auth data 
    id = im; type = InfrastructureManager; username = user; password = pass
+   # VMRC auth data
    id = vmrc; type = VMRC; host = http://server:8080/vmrc; username = user; password = pass
+   # EC2 auth data
    id = ec2; type = EC2; username = ACCESS_KEY; password = SECRET_KEY
+   # Google compute auth data
    id = gce; type = GCE; username = username.apps.googleusercontent.com; password = pass; project = projectname
+   # Docker site with certificates
    id = docker; type = Docker; host = http://host:2375; public_key = file(/tmp/cert.pem); private_key = file(/tmp/key.pem)
+   # Docker site without SSL security
+   id = docker; type = Docker; host = http://host:2375
+   # OCCI site auth data
    id = occi; type = OCCI; proxy = file(/tmp/proxy.pem); host = https://fc-one.i3m.upv.es:11443
+   # Azure (RM) site auth data
    id = azure; type = Azure; subscription_id = subscription-id; username = user@domain.com; password = pass
+   # Kubernetes site auth data
    id = kub; type = Kubernetes; host = http://server:8080; username = user; password = pass
+   # FogBow auth data
    id = fog; type = FogBow; host = http://server:8182; proxy = file(/tmp/proxy.pem)
+   # Azure Classic auth data
    id = azurecla; type = AzureClassic; subscription_id = subscription_id; public_key = file(/tmp/cert.pem); private_key = file(/tmp/key.pem)
    
 
