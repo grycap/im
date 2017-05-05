@@ -35,6 +35,11 @@ try:
 except:
     from ansible.utils.vault import VaultEditor
 
+try:
+    from Queue import PriorityQueue
+except ImportError:
+    from queue import PriorityQueue
+
 from IM.ansible_utils.ansible_launcher import AnsibleThread
 
 import IM.InfrastructureManager
@@ -58,7 +63,7 @@ class ConfManager(threading.Thread):
     SECOND_STEP_YAML = 'conf-ansible-s2.yml'
     """ The file with the ansible steps to configure the second step of the the master node """
 
-    def __init__(self, inf, auth, max_ctxt_time=1e9):
+    def __init__(self, inf, auth, max_ctxt_time=1e9, unconfigure=False):
         threading.Thread.__init__(self)
         self.daemon = True
         self.inf = inf
@@ -68,6 +73,7 @@ class ConfManager(threading.Thread):
         self._stop_thread = False
         self.ansible_process = None
         self.logger = logging.getLogger('ConfManager')
+        self.unconfigure = unconfigure
 
     def check_running_pids(self, vms_configuring):
         """
@@ -171,7 +177,10 @@ class ConfManager(threading.Thread):
             vm.kill_check_ctxt_process()
 
     def run(self):
-        self.log_debug("Starting the ConfManager Thread")
+        if self.unconfigure:
+            self.log_debug("Starting the UnConfManager Thread")
+        else:
+            self.log_debug("Starting the ConfManager Thread")
 
         last_step = None
         vms_configuring = {}
@@ -179,8 +188,17 @@ class ConfManager(threading.Thread):
         while not self._stop_thread:
             if self.init_time + self.max_ctxt_time < time.time():
                 self.log_debug("Max contextualization time passed. Exit thread.")
+                self.inf.add_cont_msg("ERROR: Max contextualization time passed.")
+                # Remove tasks from queue
+                with self.inf._lock:
+                    self.inf.ctxt_tasks = PriorityQueue()
                 # Kill the ansible processes
                 self.kill_ctxt_processes()
+                # set as unconfigured all VMs with configured as None 
+                for vm in self.inf.get_vm_list():
+                    if vm.configured is None:
+                        vm.configured = False
+                # Stop ansible processes
                 if self.ansible_process and self.ansible_process.is_alive():
                     self.log_debug("Stopping pending Ansible process.")
                     self.ansible_process.terminate()
@@ -188,8 +206,12 @@ class ConfManager(threading.Thread):
 
             vms_configuring = self.check_running_pids(vms_configuring)
 
-            # If the queue is empty but there are vms configuring wait and test
-            # again
+            # If the queue is empty and there are not vms configuring and we are unconfiguring
+            if self.inf.ctxt_tasks.empty() and not vms_configuring and self.unconfigure:
+                # exit the loop
+                return
+
+            # If the queue is empty but there are vms configuring wait and test again
             if self.inf.ctxt_tasks.empty() and vms_configuring:
                 time.sleep(Config.CONFMAMAGER_CHECK_STATE_INTERVAL)
                 continue

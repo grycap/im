@@ -18,6 +18,7 @@ import json
 import os
 import string
 import random
+import time
 
 try:
     unicode("hola")
@@ -277,6 +278,9 @@ class InfrastructureManager:
         InfrastructureManager.logger.debug(radl)
 
         sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
+        
+        if sel_inf.is_unconfiguring():
+            raise Exception("Infrastructure in unconfigure process. It cannot be modified")
 
         # Update infrastructure RADL with this new RADL
         # Add or update configures
@@ -383,6 +387,9 @@ class InfrastructureManager:
         radl.check()
 
         sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
+        
+        if sel_inf.is_unconfiguring():
+            raise Exception("Infrastructure in unconfigure process. It cannot be modified")
 
         # Update infrastructure RADL with this new RADL
         sel_inf.complete_radl(radl)
@@ -605,6 +612,9 @@ class InfrastructureManager:
             "Removing the VMs: " + str(vm_list) + " from inf ID: '" + str(inf_id) + "'")
 
         sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
+        
+        if sel_inf.is_unconfiguring():
+            raise Exception("Infrastructure in unconfigure process. It cannot be modified")
 
         if isinstance(vm_list, str):
             vm_ids = vm_list.split(",")
@@ -616,15 +626,13 @@ class InfrastructureManager:
             raise Exception(
                 'Incorrect parameter type to RemoveResource function: expected: str, int or list of str.')
 
-        # if there are some "unconfigure" sections
-        if context and sel_inf.radl.contextualize.get_contextualize_items_by_step(unconfigure=True):
-            sel_inf.Contextualize(auth, vm_ids, unconfigure=True)
-            # now wait it to finish
-            # IS NOT SO EASY ...
+        delete_list = [sel_inf.get_vm(vmid) for vmid in vm_ids]
+
+        if context:
+            sel_inf.UnContextualize(auth, vm_ids)
 
         cont = 0
         exceptions = []
-        delete_list = [sel_inf.get_vm(vmid) for vmid in vm_ids]
         for vm in delete_list:
             if InfrastructureManager._delete_vm(vm, delete_list, auth, exceptions):
                 cont += 1
@@ -1143,8 +1151,15 @@ class InfrastructureManager:
             "Destroying the infrastructure id: " + str(inf_id))
 
         sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
+
+        if sel_inf.is_unconfiguring():
+            raise Exception("Infrastructure in unconfigure process. It cannot be modified")
+
         exceptions = []
         delete_list = list(reversed(sel_inf.get_vm_list()))
+        
+        # Try to unconfigure VMs
+        sel_inf.UnContextualize(auth, [vm.im_id for vm in delete_list])
 
         if Config.MAX_SIMULTANEOUS_LAUNCHES > 1:
             pool = ThreadPool(processes=Config.MAX_SIMULTANEOUS_LAUNCHES)

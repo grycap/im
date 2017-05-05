@@ -97,12 +97,15 @@ class InfrastructureInfo:
         """ Time of the last access to this Inf. """
         self.snapshots = []
         """ List of URLs of snapshots made to this Inf that must be deleted on finalization """
+        self.ucm = None
+        """ConfManager Thread to unconfigure"""
 
     def serialize(self):
         with self._lock:
             odict = self.__dict__.copy()
         # Quit the ConfManager object and the lock to the data to be stored
         del odict['cm']
+        del odict['ucm']
         del odict['_lock']
         del odict['ctxt_tasks']
         del odict['conf_threads']
@@ -136,6 +139,7 @@ class InfrastructureInfo:
         newinf.cloud_connector = None
         # Set the ConfManager object and the lock to the data loaded
         newinf.cm = None
+        newinf.ucm = None
         newinf.ctxt_tasks = PriorityQueue()
         newinf.conf_threads = []
         for vm_data in vm_list:
@@ -173,6 +177,9 @@ class InfrastructureInfo:
         # Stop the Ctxt thread if it is alive.
         if self.cm and self.cm.isAlive():
             self.cm.stop()
+        # Stop the Ctxt thread if it is alive.
+        if self.ucm and self.ucm.isAlive():
+            self.ucm.stop()
 
         # kill all the ctxt processes in the VMs
         for vm in self.get_vm_list():
@@ -437,6 +444,29 @@ class InfrastructureInfo:
             self.conf_threads = []
         return not all_finished
 
+    def is_unconfiguring(self):
+        """
+        Checks if this Infrastructure is in the unconfiguring some VM
+        """
+        return self.ucm and self.ucm.isAlive()
+
+    def UnContextualize(self, auth, vm_list=None):
+        # if there are some "unconfigure" sections
+        if self.radl.contextualize.get_contextualize_items_by_step(unconfigure=True):
+            self.Contextualize(auth, vm_list, unconfigure=True)
+            # now wait it to finish
+            while self.is_unconfiguring():
+                time.sleep(Config.CONFMAMAGER_CHECK_STATE_INTERVAL)
+
+            error_msg = "" 
+            for vm in [self.get_vm(vmid) for vmid in vm_list]:
+                vm.update_status(auth)
+                if vm.state == VirtualMachine.UNCONFIGURED:
+                    error_msg += vm.get_cont_msg() + "\n"
+            if error_msg:
+                error_msg = self.cont_out + "\n" + error_msg
+                raise Exception("Error unconfiguring resources: %s" % error_msg)
+
     def Contextualize(self, auth, vm_list=None, unconfigure=False):
         """
         Launch the contextualization process of this Inf
@@ -517,15 +547,19 @@ class InfrastructureInfo:
 
             self.add_ctxt_tasks(ctxt_task)
 
-            if self.cm is None or not self.cm.isAlive():
-                self.cm = IM.ConfManager.ConfManager(self, auth, max_ctxt_time)
-                self.cm.start()
+            if unconfigure:
+                self.ucm = IM.ConfManager.ConfManager(self, auth, max_ctxt_time, unconfigure)
+                self.ucm.start() 
             else:
-                # update the ConfManager reference to the inf object
-                self.cm.inf = self
-                # update the ConfManager auth
-                self.cm.auth = auth
-                self.cm.init_time = time.time()
+                if self.cm is None or not self.cm.isAlive():
+                    self.cm = IM.ConfManager.ConfManager(self, auth, max_ctxt_time)
+                    self.cm.start()
+                else:
+                    # update the ConfManager reference to the inf object
+                    self.cm.inf = self
+                    # update the ConfManager auth
+                    self.cm.auth = auth
+                    self.cm.init_time = time.time()
 
     def is_authorized(self, auth):
         """
