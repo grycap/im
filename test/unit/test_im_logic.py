@@ -1054,7 +1054,7 @@ configure step2 (
 
     def test_unconfigure(self):
         """Test Unconfigure process"""
-        radl = """"
+        radl = """
             network publica (outbound = 'yes')
 
             system front (

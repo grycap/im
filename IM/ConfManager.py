@@ -943,8 +943,15 @@ class ConfManager(threading.Thread):
                 for ctxt_elem in contextualizes[ctxt_num]:
                     if ctxt_elem.system in vm_group and ctxt_elem.get_ctxt_tool() == "Ansible":
                         vm = vm_group[ctxt_elem.system][0]
-                        filenames.extend(self.generate_playbook(
-                            vm, ctxt_elem, tmp_dir))
+                        filenames.extend(self.generate_playbook(vm, ctxt_elem, tmp_dir))
+
+            # create the files for the unconfigure sections that appears in the contextualization steps
+            # and add the ansible information and modules
+            unconfigures = self.inf.radl.contextualize.get_contextualize_items_by_step(unconfigure=True)
+            for ctxt_num in unconfigures.keys():
+                for ctxt_elem in unconfigures[ctxt_num]:
+                    vm = vm_group[ctxt_elem.system][0]
+                    filenames.extend(self.generate_playbook(vm, ctxt_elem, tmp_dir))
 
             filenames.append(self.generate_etc_hosts(tmp_dir))
             filenames.append(self.generate_inventory(tmp_dir))
