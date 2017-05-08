@@ -629,7 +629,7 @@ class InfrastructureManager:
         delete_list = [sel_inf.get_vm(vmid) for vmid in vm_ids]
 
         if context:
-            sel_inf.UnContextualize(auth, vm_ids)
+            sel_inf.UnContextualize(auth, [int(vmid) for vmid in vm_ids])
 
         cont = 0
         exceptions = []
