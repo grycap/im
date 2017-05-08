@@ -1100,17 +1100,15 @@ configure unconf (
         infId = IM.CreateInfrastructure(str(radl), auth0)
 
         InfrastructureList.infrastructure_list[infId].ansible_configured = True
-        InfrastructureList.infrastructure_list[infId].vm_list[0].get_ctxt_log = MagicMock()
-        InfrastructureList.infrastructure_list[infId].vm_list[0].get_ctxt_log.return_value = "OK"
 
         with self.assertRaises(Exception) as ex:
             _ = IM.RemoveResource(infId, [1], auth0)
-        self.assertIn("Error unconfiguring resources:",str(ex.exception))
+        self.assertIn("Error unconfiguring resources:", str(ex.exception))
 
         with self.assertRaises(Exception) as ex:
             _ = IM.DestroyInfrastructure(infId, auth0)
-        self.assertIn("Error unconfiguring resources:",str(ex.exception))
-        
+        self.assertIn("Error unconfiguring resources:", str(ex.exception))
+
         Config.MAX_CONTEXTUALIZATION_TIME = 7200
 
 if __name__ == "__main__":

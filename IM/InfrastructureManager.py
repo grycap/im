@@ -278,7 +278,7 @@ class InfrastructureManager:
         InfrastructureManager.logger.debug(radl)
 
         sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
-        
+
         if sel_inf.is_unconfiguring():
             raise Exception("Infrastructure in unconfigure process. It cannot be modified")
 
@@ -387,7 +387,7 @@ class InfrastructureManager:
         radl.check()
 
         sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
-        
+
         if sel_inf.is_unconfiguring():
             raise Exception("Infrastructure in unconfigure process. It cannot be modified")
 
@@ -612,7 +612,7 @@ class InfrastructureManager:
             "Removing the VMs: " + str(vm_list) + " from inf ID: '" + str(inf_id) + "'")
 
         sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
-        
+
         if sel_inf.is_unconfiguring():
             raise Exception("Infrastructure in unconfigure process. It cannot be modified")
 
@@ -1157,9 +1157,9 @@ class InfrastructureManager:
 
         exceptions = []
         delete_list = list(reversed(sel_inf.get_vm_list()))
-        
+
         # Try to unconfigure VMs
-        sel_inf.UnContextualize(auth, [vm.im_id for vm in delete_list])
+        unconf_out = sel_inf.UnContextualize(auth, [vm.im_id for vm in delete_list])
 
         if Config.MAX_SIMULTANEOUS_LAUNCHES > 1:
             pool = ThreadPool(processes=Config.MAX_SIMULTANEOUS_LAUNCHES)
@@ -1186,7 +1186,7 @@ class InfrastructureManager:
         IM.InfrastructureList.InfrastructureList.remove_inf(sel_inf)
         InfrastructureManager.logger.info(
             "Infrastructure successfully destroyed")
-        return ""
+        return unconf_out
 
     @staticmethod
     def check_im_user(auth):

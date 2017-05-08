@@ -458,14 +458,21 @@ class InfrastructureInfo:
             while self.is_unconfiguring():
                 time.sleep(Config.CONFMAMAGER_CHECK_STATE_INTERVAL)
 
-            error_msg = "" 
+            out_msg = ""
+            error_msg = ""
             for vm in [self.get_vm(vmid) for vmid in vm_list]:
                 vm.update_status(auth)
                 if vm.state == VirtualMachine.UNCONFIGURED:
                     error_msg += vm.get_cont_msg() + "\n"
+                out_msg += vm.get_cont_msg() + "\n"
             if error_msg:
                 error_msg = self.cont_out + "\n" + error_msg
                 raise Exception("Error unconfiguring resources: %s" % error_msg)
+
+            out_msg = self.cont_out + "\n" + out_msg
+            return out_msg
+        else:
+            return ""
 
     def Contextualize(self, auth, vm_list=None, unconfigure=False):
         """
@@ -507,7 +514,8 @@ class InfrastructureInfo:
             ) if self.radl.get_configure_by_name(group)]
             # get the contextualize steps specified in the RADL, or use the
             # default value
-            contextualizes = self.radl.contextualize.get_contextualize_items_by_step({1: ctxts}, unconfigure=unconfigure)
+            contextualizes = self.radl.contextualize.get_contextualize_items_by_step({1: ctxts},
+                                                                                     unconfigure=unconfigure)
 
             max_ctxt_time = self.radl.contextualize.max_time
             if not max_ctxt_time:
@@ -549,7 +557,7 @@ class InfrastructureInfo:
 
             if unconfigure:
                 self.ucm = IM.ConfManager.ConfManager(self, auth, max_ctxt_time, unconfigure)
-                self.ucm.start() 
+                self.ucm.start()
             else:
                 if self.cm is None or not self.cm.isAlive():
                     self.cm = IM.ConfManager.ConfManager(self, auth, max_ctxt_time)

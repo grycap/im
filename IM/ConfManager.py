@@ -194,7 +194,7 @@ class ConfManager(threading.Thread):
                     self.inf.ctxt_tasks = PriorityQueue()
                 # Kill the ansible processes
                 self.kill_ctxt_processes()
-                # set as unconfigured all VMs with configured as None 
+                # set as unconfigured all VMs with configured as None
                 for vm in self.inf.get_vm_list():
                     if vm.configured is None:
                         vm.configured = False

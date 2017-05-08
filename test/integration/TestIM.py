@@ -651,5 +651,60 @@ echo "Hello World" >> /tmp/data.txt
             self.assertTrue(
                 success, msg="ERROR calling DestroyInfrastructure: " + str(res))
 
+    def test_01_unconfigure(self):
+        """
+        Test Unconfigure functions
+        """
+        radl = """
+            network net1 (outbound = 'yes')
+            network net2 ()
+
+            system front (
+             cpu.arch='x86_64' and
+             cpu.count>=1 and
+             memory.size>=512m and
+             net_interface.0.connection = 'net1' and
+             net_interface.1.connection = 'net2' and
+             disk.0.os.flavour='ubuntu' and
+             disk.0.os.version>='12.04'
+            )
+
+configure unconf (
+@begin
+---
+  - tasks:
+      - debug:  msg="Unconfigure TEST"
+
+@end
+)
+
+            contextualize (
+                system front unconfigure unconf
+            )
+
+            deploy front 2
+            """
+
+        radl_parse.parse_radl(radl)
+        (success, inf_id) = self.server.CreateInfrastructure(radl, self.auth_data)
+        self.assertTrue(success, msg="ERROR calling CreateInfrastructure: " + str(inf_id))
+        self.__class__.inf_id = inf_id
+
+        (success, vm_ids) = self.server.GetInfrastructureInfo(self.inf_id, self.auth_data)
+        self.assertTrue(success, msg="ERROR calling GetInfrastructureInfo: " + str(vm_ids))
+
+        all_stopped = self.wait_inf_state(self.inf_id, VirtualMachine.CONFIGURED, 450)
+
+        self.assertTrue(all_stopped, msg="ERROR waiting the infrastructure to be configured (timeout).")
+
+        (success, res) = self.server.RemoveResource(self.inf_id, vm_ids[1], self.auth_data)
+        self.assertTrue(success, msg="ERROR calling RemoveResource: " + str(res))
+
+        (success, res) = self.server.DestroyInfrastructure(self.inf_id, self.auth_data)
+        self.assertTrue(success, msg="ERROR calling DestroyInfrastructure: " + str(res))
+
+        self.assertIn("Unconfigure TEST", res)
+
+
 if __name__ == '__main__':
     unittest.main()
