@@ -947,7 +947,7 @@ class ConfManager(threading.Thread):
 
             # create the files for the unconfigure sections that appears in the contextualization steps
             # and add the ansible information and modules
-            unconfigures = self.inf.radl.contextualize.get_contextualize_items_by_step(unconfigure=True)
+            unconfigures = self.inf.radl.contextualize.get_contextualize_items_by_step({},unconfigure=True)
             for ctxt_num in unconfigures.keys():
                 for ctxt_elem in unconfigures[ctxt_num]:
                     vm = vm_group[ctxt_elem.system][0]
