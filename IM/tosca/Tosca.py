@@ -996,7 +996,7 @@ class Tosca:
         if node.requirements:
             maxl = 0
             for r, n in node.relationships.items():
-                if Tosca._is_derived_from(r, r.HOSTEDON):
+                if Tosca._is_derived_from(r, [r.HOSTEDON, r.DEPENDSON]):
                     level = Tosca._get_dependency_level(n)
                 else:
                     level = 0
@@ -1249,8 +1249,12 @@ class Tosca:
         """
         Check if a node is a descendant from a specified parent type
         """
+        if isinstance(parent_type, list):
+            parent_types = parent_type
+        else:
+            parent_types = [parent_type]
         while True:
-            if rel.type == parent_type:
+            if rel.type in parent_types:
                 return True
             else:
                 if rel.parent_type:
