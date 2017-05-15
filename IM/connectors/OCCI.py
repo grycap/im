@@ -728,7 +728,7 @@ class OCCICloudConnector(CloudConnector):
         # Get the info about the OCCI server (GET /-/)
         success, occi_info = self.query_occi(auth_data)
         if not success:
-            raise(occi_info)
+            raise Exception(occi_info)
 
         # Parse the info to get the os_tpl scheme
         url = uriparse(system.getValue("disk.0.image.url"))
