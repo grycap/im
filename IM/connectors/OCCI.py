@@ -447,8 +447,8 @@ class OCCICloudConnector(CloudConnector):
                 return False, "Error querying the OCCI server: %s" % resp.reason
             else:
                 return True, resp.text
-        except:
-            return False, "Error querying the OCCI server"
+        except Exception as ex:
+            return False, "Error querying the OCCI server: %s" % str(ex)
 
     def get_scheme(self, occi_info, category, ctype):
         """
