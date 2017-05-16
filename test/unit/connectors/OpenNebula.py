@@ -110,7 +110,7 @@ class TestONEConnector(unittest.TestCase):
     @patch('IM.connectors.OpenNebula.OpenNebulaCloudConnector.getONEVersion')
     def test_20_launch(self, getONEVersion, server_proxy):
         radl_data = """
-            network net1 (provider_id = 'publica' and outbound = 'yes')
+            network net1 (provider_id = 'publica' and outbound = 'yes' and outports = '8080,9000:9100')
             network net2 ()
             system test (
             cpu.arch='x86_64' and
@@ -133,16 +133,23 @@ class TestONEConnector(unittest.TestCase):
                                 'password': 'pass', 'host': 'server.com:2633'}])
         one_cloud = self.get_one_cloud()
 
-        getONEVersion.return_value = "4.12"
+        getONEVersion.return_value = "4.14.0"
 
         one_server = MagicMock()
         one_server.one.vm.allocate.return_value = (True, "1", 0)
         one_server.one.vnpool.info.return_value = (True, read_file_as_string("files/nets.xml"), 0)
+        one_server.one.secgrouppool.info.return_value = (True, read_file_as_string("files/sgs.xml"), 0)
+        one_server.one.secgroup.allocate.return_value = (True, 1, 0)
         server_proxy.return_value = one_server
 
-        res = one_cloud.launch(InfrastructureInfo(), radl, radl, 1, auth)
+        inf = InfrastructureInfo()
+        res = one_cloud.launch(inf, radl, radl, 1, auth)
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
+        sg_template = ('NAME = im-%s-net1\nRULE = [ PROTOCOL = TCP, RULE_TYPE = inbound, RANGE = 22:22 ]\n'
+                       'RULE = [ PROTOCOL = TCP, RULE_TYPE = inbound, RANGE = 8080:8080 ]\n'
+                       'RULE = [ PROTOCOL = TCP, RULE_TYPE = inbound, RANGE = 9000:9100 ]\n' % inf.id)
+        self.assertEqual(one_server.one.secgroup.allocate.call_args_list, [call('user:pass', sg_template)])
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('IM.connectors.OpenNebula.ServerProxy')
