@@ -272,17 +272,40 @@ class TestONEConnector(unittest.TestCase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('IM.connectors.OpenNebula.ServerProxy')
-    def test_60_finalize(self, server_proxy):
+    @patch('IM.connectors.OpenNebula.OpenNebulaCloudConnector._get_security_group')
+    def test_60_finalize(self, get_security_group, server_proxy):
         auth = Authentication([{'id': 'one', 'type': 'OpenNebula', 'username': 'user',
                                 'password': 'pass', 'host': 'server.com:2633'}])
         one_cloud = self.get_one_cloud()
+        radl_data = """
+            network net1 (provider_id = 'publica' and outbound = 'yes' and outports = '8080,9000:9100')
+            network net2 ()
+            system test (
+            cpu.arch='x86_64' and
+            cpu.count=1 and
+            memory.size=512m and
+            net_interface.0.connection = 'net1' and
+            net_interface.0.dns_name = 'test' and
+            net_interface.1.connection = 'net2' and
+            disk.0.os.name = 'linux' and
+            disk.0.image.url = 'one://server.com/1' and
+            disk.0.os.credentials.username = 'user' and
+            disk.1.size=1GB and
+            disk.1.device='hdb' and
+            disk.1.mount_path='/mnt/path'
+            )"""
+        radl = radl_parse.parse_radl(radl_data)
+        radl.check()
 
         inf = MagicMock()
-        vm = VirtualMachine(inf, "1", one_cloud.cloud, "", "", one_cloud, 1)
+        inf.radl = radl
+        vm = VirtualMachine(inf, "1", one_cloud.cloud, radl, radl, one_cloud, 1)
 
         one_server = MagicMock()
         one_server.one.vm.action.return_value = (True, "", 0)
         server_proxy.return_value = one_server
+        get_security_group.return_value = 101
+        one_server.one.secgroup.delete.return_value = (True, "", 0)
 
         success, _ = one_cloud.finalize(vm, True, auth)
 
