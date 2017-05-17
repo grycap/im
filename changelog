@@ -294,3 +294,7 @@ IM 1.5.3
     * Detach volumes before removing it in OCCI conn.
     * Support OpenStack calls with VOMS proxies.
 
+IM 1.5.4
+    * Fix error in contextualization nodes with private keys.
+    * Improve OpenNebula conn with new ver. 5 functions as SGs.
+    * Improve error mesage in case of invalid proxy in OCCI conn.
