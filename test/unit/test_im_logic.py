@@ -327,9 +327,9 @@ class TestIM(unittest.TestCase):
             IM.CreateInfrastructure(radl, auth0)
         self.assertIn('Some deploys did not proceed successfully: All machines could not be launched: \n'
                       'Attempt 1: Error launching the VMs of type front to cloud ID occi of type OCCI. '
-                      'Cloud Provider Error: Error getting os_tpl scheme. '
-                      'Check that the image specified is supported in the OCCI server.\n'
-                      'Attempt 2: Error launching the VMs of type front to cloud ID one of type OpenNebula. ',
+                      'Cloud Provider Error: Error querying the OCCI server:',
+                      str(ex.exception))
+        self.assertIn('Attempt 2: Error launching the VMs of type front to cloud ID one of type OpenNebula. ',
                       str(ex.exception))
 
         # this case must work OK

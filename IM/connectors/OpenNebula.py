@@ -22,6 +22,7 @@ except ImportError:
 
 import time
 
+from distutils.version import LooseVersion
 from IM.xmlobject import XMLObject
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
@@ -128,6 +129,25 @@ class IMAGE(XMLObject):
 
 class IMAGE_POOL(XMLObject):
     tuples_lists = {'IMAGE': IMAGE}
+
+
+class RULE(XMLObject):
+    values = ['PROTOCOL', 'RULE_TYPE', 'RANGE', 'NETWORK_ID']
+
+
+class TEMPLATE_SG(XMLObject):
+    values = ['DESCRIPTION']
+    tuples_lists = {'RULE': RULE}
+
+
+class SECURITY_GROUP(XMLObject):
+    values = ['ID', 'UID', 'GID', 'UNAME', 'GNAME', 'NAME']
+    numeric = ['ID', 'UID', 'GID']
+    tuples = {'TEMPLATE': TEMPLATE_SG}
+
+
+class SECURITY_GROUP_POOL(XMLObject):
+    tuples_lists = {'SECURITY_GROUP': SECURITY_GROUP}
 
 
 class OpenNebulaCloudConnector(CloudConnector):
@@ -326,11 +346,84 @@ class OpenNebulaCloudConnector(CloudConnector):
         else:
             return (success, res_info)
 
+    def _get_security_group(self, sg_name, auth_data):
+        server = ServerProxy(self.server_url, allow_none=True)
+        session_id = self.getSessionID(auth_data)
+
+        success, res_info, _ = server.one.secgrouppool.info(session_id, -1, -1, -1)
+        if success:
+            sg_pool = SECURITY_GROUP_POOL(res_info)
+            for sg in sg_pool.SECURITY_GROUP:
+                if sg.NAME == sg_name:
+                    return sg.ID
+        else:
+            self.logger.error("Error getting security group: %s" % res_info)
+
+        return None
+
+    def create_security_groups(self, inf, radl, auth_data):
+        server = ServerProxy(self.server_url, allow_none=True)
+        session_id = self.getSessionID(auth_data)
+
+        sgs = {}
+        one_ver = LooseVersion(self.getONEVersion(auth_data))
+        # Security Groups appears in version 4.12.0
+        if one_ver >= LooseVersion("4.12.0"):
+            sgs = {}
+            i = 0
+            system = radl.systems[0]
+            while system.getValue("net_interface." + str(i) + ".connection"):
+                network_name = system.getValue("net_interface." + str(i) + ".connection")
+                network = radl.get_network_by_id(network_name)
+
+                sg_name = "im-%s-%s" % (str(inf.id), network_name)
+
+                # Use the InfrastructureInfo lock to assure that only one VM create the SG
+                with inf._lock:
+                    success = True
+                    sg_id = self._get_security_group(sg_name, auth_data)
+                    if not sg_id:
+                        sg_template = ""
+                        # open always SSH port on public nets
+                        if network.isPublic():
+                            sg_template += "RULE = [ PROTOCOL = TCP, RULE_TYPE = inbound, RANGE = 22:22 ]\n"
+
+                        outports = network.getOutPorts()
+                        if outports:
+                            for outport in outports:
+                                if outport.is_range():
+                                    sg_template += ("RULE = [ PROTOCOL = %s, RULE_TYPE = inbound, "
+                                                    "RANGE = %d:%d ]\n" % (outport.get_protocol().upper(),
+                                                                           outport.get_port_init(),
+                                                                           outport.get_port_end()))
+                                else:
+                                    if outport.get_remote_port() != 22:
+                                        sg_template += ("RULE = [ PROTOCOL = %s, RULE_TYPE = inbound, "
+                                                        "RANGE = %d:%d ]\n" % (outport.get_protocol().upper(),
+                                                                               outport.get_remote_port(),
+                                                                               outport.get_remote_port()))
+
+                        if sg_template:
+                            self.log_debug("Creating security group: %s" % sg_name)
+                            sg_template = ("NAME = %s\n" % sg_name) + sg_template
+                            success, sg_id, _ = server.one.secgroup.allocate(session_id, sg_template)
+                            if not success:
+                                self.log_error("Error creating security group: %s" % sg_id)
+
+                    if success and sg_id:
+                        sgs[network_name] = sg_id
+
+                i += 1
+
+        return sgs
+
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         server = ServerProxy(self.server_url, allow_none=True)
         session_id = self.getSessionID(auth_data)
         if session_id is None:
             return [(False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")]
+
+        sgs = self.create_security_groups(inf, radl, auth_data)
 
         system = radl.systems[0]
         # Currently ONE plugin prioritizes user-password credentials
@@ -338,9 +431,10 @@ class OpenNebulaCloudConnector(CloudConnector):
             system.delValue('disk.0.os.credentials.private_key')
             system.delValue('disk.0.os.credentials.public_key')
 
-        template = self.getONETemplate(radl, auth_data)
+        template = self.getONETemplate(radl, sgs, auth_data)
         res = []
         i = 0
+        all_failed = True
         while i < num_vm:
             func_res = server.one.vm.allocate(session_id, template)
             if len(func_res) == 2:
@@ -355,10 +449,59 @@ class OpenNebulaCloudConnector(CloudConnector):
                     inf, str(res_id), self.cloud, radl, requested_radl, self)
                 vm.info.systems[0].setValue('instance_id', str(res_id))
                 res.append((success, vm))
+                all_failed = False
             else:
                 res.append((success, "ERROR: " + str(res_id)))
             i += 1
+
+        if all_failed:
+            self.log_debug("All VMs failed, delete Security Groups.")
+            for sg in sgs.values():
+                self.log_debug("Delete Security Group: %d." % sg)
+                success, sg_id, _ = server.one.secgroup.delete(session_id, sg)
+                if success:
+                    self.log_debug("Deleted.")
+                else:
+                    self.log_debug("Error deleting SG: %s." % sg_id)
         return res
+
+    def delete_security_groups(self, inf, auth_data, timeout=90, delay=10):
+        """
+        Delete the SG of this node
+        """
+        server = ServerProxy(self.server_url, allow_none=True)
+        session_id = self.getSessionID(auth_data)
+
+        for net in inf.radl.networks:
+            sg_name = "im-%s-%s" % (str(inf.id), net.id)
+
+            # wait it to terminate and then remove the SG
+            cont = 0
+            deleted = False
+            while not deleted and cont < timeout:
+                # Get the SG to delete
+                sg = self._get_security_group(sg_name, auth_data)
+                if not sg:
+                    self.log_debug("The SG %s does not exist. Do not delete it." % sg_name)
+                    deleted = True
+                else:
+                    try:
+                        self.log_debug("Deleting SG: %s" % sg_name)
+                        success, sg_id, _ = server.one.secgroup.delete(session_id, sg)
+                        if success:
+                            self.log_debug("Deleted.")
+                            deleted = True
+                        else:
+                            self.log_debug("Error deleting SG: %s." % sg_id)
+                    except Exception as ex:
+                        self.log_warn("Error deleting the SG: %s" % str(ex))
+
+                    if not deleted:
+                        time.sleep(delay)
+                        cont += delay
+
+            if not deleted:
+                self.log_error("Error deleting the SG: Timeout.")
 
     def finalize(self, vm, last, auth_data):
         server = ServerProxy(self.server_url, allow_none=True)
@@ -381,6 +524,8 @@ class OpenNebulaCloudConnector(CloudConnector):
             (success, err, _) = func_res
         else:
             return (False, "Error in the one.vm.action return value")
+
+        self.delete_security_groups(vm.inf, auth_data)
 
         return (success, err)
 
@@ -422,13 +567,14 @@ class OpenNebulaCloudConnector(CloudConnector):
 
         return (success, err)
 
-    def getONETemplate(self, radl, auth_data):
+    def getONETemplate(self, radl, sgs, auth_data):
         """
         Get the ONE template to create the VM
 
         Arguments:
            - vmi(:py:class:`dict` of str objects): VMI info.
            - radl(str): RADL document with the VM features to launch.
+           - sgs(:py:class:`dict` of int objects): Map of RADL net name to created SG ID
            - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
 
          Returns: str with the ONE template
@@ -489,7 +635,7 @@ class OpenNebulaCloudConnector(CloudConnector):
             %s
         ''' % (name, cpu, cpu, memory, arch, disks, ConfigOpenNebula.TEMPLATE_OTHER)
 
-        res += self.get_networks_template(radl, auth_data)
+        res += self.get_networks_template(radl, sgs, auth_data)
 
         # include the SSH_KEYS
         # It is supported since 3.8 version, (the VM must be prepared with the
@@ -753,12 +899,13 @@ class OpenNebulaCloudConnector(CloudConnector):
 
         return res
 
-    def get_networks_template(self, radl, auth_data):
+    def get_networks_template(self, radl, sgs, auth_data):
         """
         Generate the network part of the ONE template
 
         Arguments:
            - radl(str): RADL document with the VM features to launch.
+           - sgs(:py:class:`dict` of int objects): Map of RADL net name to created SG ID
            - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
 
          Returns: str with the network part of the ONE template
@@ -800,6 +947,9 @@ class OpenNebulaCloudConnector(CloudConnector):
 
                         if fixed_ip:
                             res += ',IP = "' + fixed_ip + '"\n'
+
+                        if network in sgs:
+                            res += ',SECURITY_GROUPS = "%d"\n' % sgs[network]
 
                         res += ']\n'
                     else:
