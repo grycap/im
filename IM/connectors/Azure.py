@@ -15,6 +15,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import uuid
+import random
+import string
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
@@ -210,6 +212,13 @@ class AzureCloudConnector(CloudConnector):
                         if not username:
                             res_system.setValue('disk.0.os.credentials.username', 'azureuser')
 
+                        # In Azure we always need to set a password
+                        password = res_system.getValue('disk.0.os.credentials.password')
+                        if not password:
+                            password = ''.join(random.choice(string.ascii_letters + string.digits + "+-*_$@#=<>[]")
+                                               for _ in range(16))
+                            res_system.setValue('disk.0.os.credentials.password', password)
+
                         res_system.updateNewCredentialValues()
 
                         res.append(res_system)
@@ -375,7 +384,7 @@ class AzureCloudConnector(CloudConnector):
                 },
             },
             'network_profile': {
-                'network_interfaces': [{'id': nic.id} for nic in nics]
+                'network_interfaces': [{'id': nic.id, 'primary': nic == nics[0]} for nic in nics]
             },
         }
 
@@ -480,7 +489,11 @@ class AzureCloudConnector(CloudConnector):
             group_name = None
             try:
                 uid = str(uuid.uuid1())
-                storage_account_name = "st-%s" % uid
+                # Storage account name must be between 3 and 24 characters in length and use
+                # numbers and lower-case letters only
+                storage_account_name = "s%s" % uid
+                storage_account_name = storage_account_name.replace("-", "")
+                storage_account_name = storage_account_name[:24]
 
                 vm_name = radl.systems[0].getValue("instance_name")
                 if vm_name:
@@ -523,6 +536,7 @@ class AzureCloudConnector(CloudConnector):
 
                 # Delete Resource group and everything in it
                 if group_name:
+                    self.log_debug("Delete Resource group and everything in it.")
                     resource_client.resource_groups.delete(group_name)
 
             i += 1
