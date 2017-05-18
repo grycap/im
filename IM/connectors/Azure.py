@@ -632,11 +632,13 @@ class AzureCloudConnector(CloudConnector):
             ip_conf = network_client.network_interfaces.get(sub, name).ip_configurations
 
             for ip in ip_conf:
-                private_ips.append(ip.private_ip_address)
-                name = " ".join(ip.public_ip_address.id.split('/')[-1:])
-                sub = "".join(ip.public_ip_address.id.split('/')[4])
-                public_ip_info = network_client.public_ip_addresses.get(sub, name)
-                public_ips.append(public_ip_info.ip_address)
+                if ip.private_ip_address:
+                    private_ips.append(ip.private_ip_address)
+                if ip.public_ip_address:
+                    name = " ".join(ip.public_ip_address.id.split('/')[-1:])
+                    sub = "".join(ip.public_ip_address.id.split('/')[4])
+                    public_ip_info = network_client.public_ip_addresses.get(sub, name)
+                    public_ips.append(public_ip_info.ip_address)
 
         vm.setIps(public_ips, private_ips)
 
