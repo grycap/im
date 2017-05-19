@@ -468,7 +468,7 @@ class AzureCloudConnector(CloudConnector):
         else:
             subnets = {}
             for i, net in enumerate(radl.networks):
-                subnets[net.id] = network_client.subnets.get(group_name, net.id)
+                subnets[net.id] = network_client.subnets.get(group_name, "privates", net.id)
 
         return subnets
 
