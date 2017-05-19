@@ -436,7 +436,7 @@ class AzureCloudConnector(CloudConnector):
         # check if the vnet exists
         vnet = None
         try:
-            vnet = network_client.virtual_networks.get(self, group_name, "privates")
+            vnet = network_client.virtual_networks.get(group_name, "privates")
         except Exception:
             pass
 
