@@ -283,13 +283,22 @@ class AzureCloudConnector(CloudConnector):
         if radl.systems[0].getValue('availability_zone'):
             location = radl.systems[0].getValue('availability_zone')
 
+        hasPublicIP = radl.hasPublicNet(system.name)
+
         i = 0
         res = []
+        publicAdded = False
         while system.getValue("net_interface." + str(i) + ".connection"):
             network_name = system.getValue("net_interface." + str(i) + ".connection")
             # TODO: check how to do that
             # fixed_ip = system.getValue("net_interface." + str(i) + ".ip")
             network = radl.get_network_by_id(network_name)
+
+            if network.isPublic():
+                # Public nets are not added as nics
+                i += 1
+                continue
+
             nic_name = "nic-%d" % i
             ip_config_name = "ip-config-%d" % i
 
@@ -302,8 +311,11 @@ class AzureCloudConnector(CloudConnector):
                 }]
             }
 
-            if network.isPublic():
+            primary = False
+            if hasPublicIP and not publicAdded:
                 # Create PublicIP
+                publicAdded = True
+                primary = True
                 public_ip_name = "public-ip-%d" % i
                 public_ip_parameters = {
                     'location': location,
@@ -329,7 +341,7 @@ class AzureCloudConnector(CloudConnector):
             async_nic_creation = network_client.network_interfaces.create_or_update(
                 group_name, nic_name, nic_params)
             nic = async_nic_creation.result()
-            res.append(nic)
+            res.append((nic, primary))
 
             i += 1
 
@@ -384,7 +396,7 @@ class AzureCloudConnector(CloudConnector):
                 },
             },
             'network_profile': {
-                'network_interfaces': [{'id': nic.id, 'primary': nic == nics[0]} for nic in nics]
+                'network_interfaces': [{'id': nic.id, 'primary': primary} for nic, primary in nics]
             },
         }
 
@@ -632,11 +644,13 @@ class AzureCloudConnector(CloudConnector):
             ip_conf = network_client.network_interfaces.get(sub, name).ip_configurations
 
             for ip in ip_conf:
-                private_ips.append(ip.private_ip_address)
-                name = " ".join(ip.public_ip_address.id.split('/')[-1:])
-                sub = "".join(ip.public_ip_address.id.split('/')[4])
-                public_ip_info = network_client.public_ip_addresses.get(sub, name)
-                public_ips.append(public_ip_info.ip_address)
+                if ip.private_ip_address:
+                    private_ips.append(ip.private_ip_address)
+                if ip.public_ip_address:
+                    name = " ".join(ip.public_ip_address.id.split('/')[-1:])
+                    sub = "".join(ip.public_ip_address.id.split('/')[4])
+                    public_ip_info = network_client.public_ip_addresses.get(sub, name)
+                    public_ips.append(public_ip_info.ip_address)
 
         vm.setIps(public_ips, private_ips)
 
