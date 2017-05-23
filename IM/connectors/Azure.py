@@ -567,6 +567,7 @@ class AzureCloudConnector(CloudConnector):
 
         while system.getValue("disk." + str(cont) + ".size"):
             disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('G')
+            self.log_debug("Attaching a %s GB disk to VM." % disk_size)
 
             try:
                 # Attach data disk
