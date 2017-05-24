@@ -81,7 +81,7 @@ else
             yum install -y ansible
             ;;
         fedora)
-            yum install -y wget ansible
+            yum install -y wget ansible python2-rpm yum
             ;;
     	*)
   	    	echo "Unsupported distribution: $DISTRO"
@@ -94,7 +94,7 @@ then
 	echo "ansible_install.yaml file present. Do not download."
 else
 	echo "Downloading ansible_install.yaml file from github."
-	wget http://raw.githubusercontent.com/grycap/im/devel/ansible_install.yaml
+	wget http://raw.githubusercontent.com/grycap/im/master/ansible_install.yaml
 fi
 
 echo "Call Ansible playbook to install the IM."

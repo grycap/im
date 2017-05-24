@@ -3,7 +3,7 @@
   tasks:
     - name: Yum install epel-release
       action: yum pkg=epel-release state=installed
-      when: ansible_os_family == "RedHat"
+      when: ansible_os_family == "RedHat" and ansible_distribution != "Fedora"
 
     - name: Install libselinux-python in RH
       action: yum pkg=libselinux-python state=installed
@@ -46,9 +46,13 @@
       apt: name=gcc,python-dev,libmysqld-dev,python-pysqlite2,openssh-client,sshpass,libssl-dev,libffi-dev,python-requests
       when: ansible_os_family == "Debian"
 
-    - name: Yum install requirements RH/Fedora
+    - name: Yum install requirements RH
       yum: name=python-distribute,gcc,python-devel,wget,openssh-clients,sshpass,libffi-devel,openssl-devel,mysql-devel,sqlite-devel
-      when: ansible_os_family == "RedHat"
+      when: ansible_os_family == "RedHat" and ansible_distribution != "Fedora"
+
+    - name: Yum install requirements Fedora
+      yum: name=redhat-rpm-config,gcc,python-devel,wget,openssh-clients,sshpass,libffi-devel,openssl-devel,mysql-devel,sqlite-devel
+      when: ansible_distribution == "Fedora"
 
     - name: Install last pip version
       easy_install: name=pip
