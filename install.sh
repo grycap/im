@@ -84,8 +84,8 @@ else
             yum install -y wget ansible python2-rpm yum
             ;;
     	*)
-  	    	echo "Unsupported distribution: $DISTRO"
-  		    ;;
+            echo "Unsupported distribution: $DISTRO"
+            ;;
     esac
 fi
 
