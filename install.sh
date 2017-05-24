@@ -76,7 +76,9 @@ case $(distribution_id) in
 esac
 
 if [ -f "ansible_install.yaml" ]; then
+	echo "ansible_install.yaml file present. Do not download."
 else
+	echo "Downloading ansible_install.yaml file."
 	wget http://raw.githubusercontent.com/grycap/im/devel/ansible_install.yaml
 fi
 
