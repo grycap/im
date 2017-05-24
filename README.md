@@ -109,7 +109,19 @@ Microsoft Azure platform.
 1.3 INSTALLING
 --------------
 
-### 1.3.1 FROM PIP (Recommended option)
+### 1.3.1 Using installer (Recommended option)
+
+The IM provides a script to install the IM in one single step.
+You only need to execute the following command:
+
+```sh
+$ wget -qO- https://raw.githubusercontent.com/grycap/im/master/install.sh | bash
+```
+
+It works for the most recent version of the main Linux distributions (RHEL, CentOS, Fedora, Ubuntu, Debian).
+In case that you O.S. does not work with this install script see next sections.
+
+### 1.3.2 From PIP
 
 **WARNING: In some linux old distributions (REL 6 or equivalents) you must unistall
 the package python-crypto and python-paramiko before installing the IM with pip.**
@@ -154,7 +166,7 @@ of IM features that you need requires to install some of the packages of section
 You must also remember to modify the ansible.cfg file setting as specified in the 
 REQUISITES section.
 
-### 1.3.2 From RPM packages (RH7)
+### 1.3.3 From RPM packages (RH7)
 
 Download the RPM package from [GitHub](https://github.com/grycap/im/releases/latest). 
 Also remember to download the RPM of the RADL package also from [GitHub](https://github.com/grycap/radl/releases/latest). 
@@ -176,7 +188,7 @@ Azure python SDK is not available in CentOS. So if you need the Azure plugin you
 $ pip install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource
 ```
 
-### 1.3.3 From Deb package (Tested with Ubuntu 14.04 and 16.04)
+### 1.3.4 From Deb package (Tested with Ubuntu 14.04 and 16.04)
 
 Download the Deb package from [GitHub](https://github.com/grycap/im/releases/latest).
 Also remember to download the Deb of the RADL package also from [GitHub](https://github.com/grycap/radl/releases/latest).
@@ -210,7 +222,7 @@ $ sudo dpkg -i *.deb
 $ sudo apt install -f -y
 ```
 
-### 1.3.4 FROM SOURCE
+### 1.3.5 FROM SOURCE
 
 Select a proper path where the IM service will be installed (i.e. /usr/local/im,
 /opt/im or other). This path will be called IM_PATH
