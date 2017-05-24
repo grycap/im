@@ -203,7 +203,7 @@ class OCCICloudConnector(CloudConnector):
         for l in lines:
             if l.find('Link:') != -1 and l.find('/network/public') != -1:
                 link_to_public = True
-            if l.find('Link:') != -1 and l.find('/network/') != -1:
+            if l.find('Link:') != -1 and (l.find('/network/') != -1 or l.find('/networklink/') != -1):
                 num_interface = None
                 ip_address = None
                 parts = l.split(';')
