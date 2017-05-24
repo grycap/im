@@ -55,15 +55,16 @@ ansible_installed=`type -p ansible-playbook`
 
 if [ x${ansible_installed}x != "xx" ]
 then
-	echo "Ansible installed. Do not install."
+    echo "Ansible installed. Do not install."
 else
+    echo "Ansible not installed. Installing ..."
     DISTRO=$(distribution_id)
     case $DISTRO in
         debian)
             echo "deb http://ppa.launchpad.net/ansible/ansible/ubuntu trusty main" >> /etc/apt/sources.list
             apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 93C4A3FD7BB9C367
             apt-get update
-            apt-get install ansible
+            apt-get -y install wget ansible
             ;;
         ubuntu)
             apt-get -y install software-properties-common
@@ -96,5 +97,5 @@ else
 	wget http://raw.githubusercontent.com/grycap/im/devel/ansible_install.yaml
 fi
 
-
+echo "Call Ansible playbook to install the IM."
 ansible-playbook ansible_install.yaml

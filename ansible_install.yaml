@@ -42,13 +42,16 @@
       apt: update_cache=yes cache_valid_time=3600
       when: ansible_os_family == "Debian"
 
-    - name: Ubuntu install requirements
-      apt: name=gcc,python-dbg,python-dev,python-pip,libmysqld-dev,python-pysqlite2,openssh-client,sshpass,libssl-dev,libffi-dev,python-requests
-      when: ansible_distribution == "Ubuntu"
+    - name: Apt install requirements Ubuntu/Debian
+      apt: name=gcc,python-dev,libmysqld-dev,python-pysqlite2,openssh-client,sshpass,libssl-dev,libffi-dev,python-requests
+      when: ansible_os_family == "Debian"
 
-    - name: Yum install requirements RH or Fedora
-      yum: name=python-distribute,gcc,python-devel,wget,openssh-clients,sshpass,python-pip,libffi-devel,openssl-devel,mysql-devel,sqlite-devel
+    - name: Yum install requirements RH/Fedora
+      yum: name=python-distribute,gcc,python-devel,wget,openssh-clients,sshpass,libffi-devel,openssl-devel,mysql-devel,sqlite-devel
       when: ansible_os_family == "RedHat"
+
+    - name: Install last pip version
+      easy_install: name=pip
 
     - name: Install pip libraries
       pip: executable=pip name=pyOpenSSL,MySQL-python,msrest,msrestazure,azure-common,azure-mgmt-storage,azure-mgmt-compute,azure-mgmt-network,azure-mgmt-resource
