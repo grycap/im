@@ -172,7 +172,7 @@ class OCCICloudConnector(CloudConnector):
         lines = occi_res.split("\n")
         res = []
         for l in lines:
-            if l.find('Link:') != -1 and l.find('/storage/') != -1:
+            if 'Link:' in l and '/storage/' in l:
                 num_link = None
                 num_storage = None
                 device = None
@@ -201,9 +201,9 @@ class OCCICloudConnector(CloudConnector):
         res = []
         link_to_public = False
         for l in lines:
-            if l.find('Link:') != -1 and l.find('/network/public') != -1:
+            if 'Link:' in l and '/network/public' in l:
                 link_to_public = True
-            if l.find('Link:') != -1 and l.find('/network/') != -1:
+            if 'Link:' in l and ('/network/' in l or '/networklink/' in l):
                 num_interface = None
                 ip_address = None
                 parts = l.split(';')
@@ -290,7 +290,7 @@ class OCCICloudConnector(CloudConnector):
         lines = occi_data.split("\n")
         pools = []
         for l in lines:
-            if l.find('http://schemas.openstack.org/network/floatingippool#') != -1:
+            if 'http://schemas.openstack.org/network/floatingippool#' in l:
                 for elem in l.split(';'):
                     if elem.startswith('Category: '):
                             pools.append(elem[10:])

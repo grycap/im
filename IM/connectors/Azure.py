@@ -142,28 +142,25 @@ class AzureCloudConnector(CloudConnector):
             disk_free_op = system.getFeature('memory.size').getLogOperator()
 
         compute_client = ComputeManagementClient(credentials, subscription_id)
-        instace_types = compute_client.virtual_machine_sizes.list(location)
+        instace_types = list(compute_client.virtual_machine_sizes.list(location))
+        instace_types.sort(key=lambda x: (x.number_of_cores, x.memory_in_mb, x.resource_disk_size_in_mb, x.name))
 
         res = None
         default = None
-        for instace_type in list(instace_types):
+        for instace_type in instace_types:
             if instace_type.name == self.INSTANCE_TYPE:
                 default = instace_type
             # get the instance type with the lowest Memory
-            if res is None or (instace_type.memory_in_mb <= res.memory_in_mb):
+            if res is None:
                 str_compare = "instace_type.number_of_cores " + cpu_op + " cpu "
                 str_compare += " and instace_type.memory_in_mb " + memory_op + " memory "
-                str_compare += " and instace_type.resource_disk_size_in_mb " + \
-                    disk_free_op + " disk_free"
+                str_compare += " and instace_type.resource_disk_size_in_mb " + disk_free_op + " disk_free"
 
                 if eval(str_compare):
                     if not instance_type_name or instace_type.name == instance_type_name:
-                        res = instace_type
+                        return instace_type
 
-        if res is None:
-            return default
-        else:
-            return res
+        return default
 
     def update_system_info_from_instance(self, system, instance_type):
         """

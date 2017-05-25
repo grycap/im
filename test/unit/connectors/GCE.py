@@ -109,11 +109,13 @@ class TestGCEConnector(unittest.TestCase):
         node_size.price = 1.0
         node_size.disk = 1
         node_size.name = "small"
+        node_size.extra = {'guestCpus': 1}
         node_size2 = MagicMock()
         node_size2.ram = 1024
         node_size2.price = None
         node_size2.disk = 2
         node_size2.name = "medium"
+        node_size2.extra = {'guestCpus': 2}
         driver.list_sizes.return_value = [node_size, node_size2]
 
         gce_cloud = self.get_gce_cloud()
@@ -156,6 +158,7 @@ class TestGCEConnector(unittest.TestCase):
         node_size.disk = 1
         node_size.vcpus = 1
         node_size.name = "small"
+        node_size.extra = {'guestCpus': 1}
         driver.list_sizes.return_value = [node_size]
 
         driver.ex_get_image.return_value = "image"
