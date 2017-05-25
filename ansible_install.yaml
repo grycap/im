@@ -57,9 +57,9 @@
     - name: Install last pip version
       easy_install: name=pip
 
-    # Step needed by ubuntu 14
     - name: Install setuptools with pip
       pip: executable=pip name=setuptools,six extra_args="-I"
+      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int <= 14
 
     - name: Install pip libraries
       pip: executable=pip name=pyOpenSSL,MySQL-python,msrest,msrestazure,azure-common,azure-mgmt-storage,azure-mgmt-compute,azure-mgmt-network,azure-mgmt-resource
