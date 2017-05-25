@@ -87,7 +87,18 @@ Microsoft Azure platform.
 1.3 INSTALLING
 --------------
 
-### 1.3.1 FROM RPM
+### 1.3.1 Using installer (Recommended option)
+
+The IM provides a script to install the IM in one single step.
+You only need to execute the following command:
+
+```sh
+$ wget -qO- https://raw.githubusercontent.com/grycap/im/master/install.sh | bash
+```
+
+It works for the most recent version of the main Linux distributions (RHEL/CentOS 7, Ubuntu 14/16).
+
+### 1.3.2 FROM RPM
 
 You must have the epel repository enabled:
 
@@ -115,7 +126,7 @@ Finally install the IM package.
 $ yum install IM
 ```
 
-### 1.3.2 FROM DEB
+### 1.3.3 FROM DEB
 
 You have to enable the INDIGO - DataCloud packages repositories. See full instructions
 [here](https://indigo-dc.gitbooks.io/indigo-datacloud-releases/content/generic_installation_and_configuration_guide_1.html#id4). Briefly you have to download the list file from [INDIGO SW Repository](http://repo.indigo-datacloud.eu/repos/1/indigo1-ubuntu14_04.list) in your /etc/apt/sources.list.d folder.
