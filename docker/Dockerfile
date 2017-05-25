@@ -7,7 +7,7 @@ EXPOSE 8899 8800
 # Install Ansible
 RUN echo "deb http://ppa.launchpad.net/ansible/ansible/ubuntu xenial main" > /etc/apt/sources.list.d/ansible-ubuntu-ansible-xenial.list && \
     apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 93C4A3FD7BB9C367 && \ 
-    apt-get update && apt-get -y install wget ansible && \
+    apt-get update && apt-get -y install wget ansible sshpass && \
     rm -rf /var/lib/apt/lists/*
 
 # Install Azure python SDK
