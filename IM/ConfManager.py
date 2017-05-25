@@ -789,7 +789,7 @@ class ConfManager(threading.Thread):
                             ssh.sftp_put_files(files)
                             # Copy the utils helper files
                             ssh.sftp_mkdir(remote_dir + "/utils")
-                            ssh.sftp_put_dir(Config.RECIPES_DIR + "/utils", remote_dir + "//utils")
+                            ssh.sftp_put_dir(Config.RECIPES_DIR + "/utils", remote_dir + "/utils")
                             # Copy the ansible_utils files
                             ssh.sftp_mkdir(remote_dir + "/IM/ansible_utils")
                             ssh.sftp_put_dir(Config.IM_PATH + "/ansible_utils", remote_dir + "/IM/ansible_utils")

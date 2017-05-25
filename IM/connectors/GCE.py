@@ -199,6 +199,12 @@ class GCECloudConnector(CloudConnector):
         """
         instance_type_name = radl.getValue('instance_type')
 
+        cpu = 1
+        cpu_op = ">="
+        if radl.getFeature('cpu.count'):
+            cpu = radl.getValue('cpu.count')
+            cpu_op = radl.getFeature('cpu.count').getLogOperator()
+
         memory = 1
         memory_op = ">1"
         if radl.getFeature('memory.size'):
@@ -212,7 +218,11 @@ class GCECloudConnector(CloudConnector):
             if size.price is None:
                 size.price = 0
             if res is None or (size.price <= res.price and size.ram <= res.ram):
-                str_compare = "size.ram " + memory_op + " memory"
+                str_compare = ""
+                if 'guestCpus' in size.extra and size.extra['guestCpus']:
+                    str_compare = "size.extra['guestCpus'] " + cpu_op + " cpu and "
+                str_compare += "size.ram " + memory_op + " memory"
+
                 if eval(str_compare):
                     if not instance_type_name or size.name == instance_type_name:
                         res = size

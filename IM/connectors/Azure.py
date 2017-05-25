@@ -15,6 +15,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import uuid
+import random
+import string
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
@@ -140,28 +142,25 @@ class AzureCloudConnector(CloudConnector):
             disk_free_op = system.getFeature('memory.size').getLogOperator()
 
         compute_client = ComputeManagementClient(credentials, subscription_id)
-        instace_types = compute_client.virtual_machine_sizes.list(location)
+        instace_types = list(compute_client.virtual_machine_sizes.list(location))
+        instace_types.sort(key=lambda x: (x.number_of_cores, x.memory_in_mb, x.resource_disk_size_in_mb, x.name))
 
         res = None
         default = None
-        for instace_type in list(instace_types):
+        for instace_type in instace_types:
             if instace_type.name == self.INSTANCE_TYPE:
                 default = instace_type
             # get the instance type with the lowest Memory
-            if res is None or (instace_type.memory_in_mb <= res.memory_in_mb):
+            if res is None:
                 str_compare = "instace_type.number_of_cores " + cpu_op + " cpu "
                 str_compare += " and instace_type.memory_in_mb " + memory_op + " memory "
-                str_compare += " and instace_type.resource_disk_size_in_mb " + \
-                    disk_free_op + " disk_free"
+                str_compare += " and instace_type.resource_disk_size_in_mb " + disk_free_op + " disk_free"
 
                 if eval(str_compare):
                     if not instance_type_name or instace_type.name == instance_type_name:
-                        res = instace_type
+                        return instace_type
 
-        if res is None:
-            return default
-        else:
-            return res
+        return default
 
     def update_system_info_from_instance(self, system, instance_type):
         """
@@ -209,6 +208,13 @@ class AzureCloudConnector(CloudConnector):
                         username = res_system.getValue('disk.0.os.credentials.username')
                         if not username:
                             res_system.setValue('disk.0.os.credentials.username', 'azureuser')
+
+                        # In Azure we always need to set a password
+                        password = res_system.getValue('disk.0.os.credentials.password')
+                        if not password:
+                            password = ''.join(random.choice(string.ascii_letters + string.digits + "+-*_$@#=<>[]")
+                                               for _ in range(16))
+                            res_system.setValue('disk.0.os.credentials.password', password)
 
                         res_system.updateNewCredentialValues()
 
@@ -274,13 +280,22 @@ class AzureCloudConnector(CloudConnector):
         if radl.systems[0].getValue('availability_zone'):
             location = radl.systems[0].getValue('availability_zone')
 
+        hasPublicIP = radl.hasPublicNet(system.name)
+
         i = 0
         res = []
+        publicAdded = False
         while system.getValue("net_interface." + str(i) + ".connection"):
             network_name = system.getValue("net_interface." + str(i) + ".connection")
             # TODO: check how to do that
             # fixed_ip = system.getValue("net_interface." + str(i) + ".ip")
             network = radl.get_network_by_id(network_name)
+
+            if network.isPublic():
+                # Public nets are not added as nics
+                i += 1
+                continue
+
             nic_name = "nic-%d" % i
             ip_config_name = "ip-config-%d" % i
 
@@ -293,8 +308,11 @@ class AzureCloudConnector(CloudConnector):
                 }]
             }
 
-            if network.isPublic():
+            primary = False
+            if hasPublicIP and not publicAdded:
                 # Create PublicIP
+                publicAdded = True
+                primary = True
                 public_ip_name = "public-ip-%d" % i
                 public_ip_parameters = {
                     'location': location,
@@ -320,7 +338,7 @@ class AzureCloudConnector(CloudConnector):
             async_nic_creation = network_client.network_interfaces.create_or_update(
                 group_name, nic_name, nic_params)
             nic = async_nic_creation.result()
-            res.append(nic)
+            res.append((nic, primary))
 
             i += 1
 
@@ -375,7 +393,7 @@ class AzureCloudConnector(CloudConnector):
                 },
             },
             'network_profile': {
-                'network_interfaces': [{'id': nic.id} for nic in nics]
+                'network_interfaces': [{'id': nic.id, 'primary': primary} for nic, primary in nics]
             },
         }
 
@@ -415,7 +433,7 @@ class AzureCloudConnector(CloudConnector):
         # check if the vnet exists
         vnet = None
         try:
-            vnet = network_client.virtual_networks.get(self, group_name, "privates")
+            vnet = network_client.virtual_networks.get(group_name, "privates")
         except Exception:
             pass
 
@@ -447,7 +465,7 @@ class AzureCloudConnector(CloudConnector):
         else:
             subnets = {}
             for i, net in enumerate(radl.networks):
-                subnets[net.id] = network_client.subnets.get(group_name, net.id)
+                subnets[net.id] = network_client.subnets.get(group_name, "privates", net.id)
 
         return subnets
 
@@ -480,7 +498,11 @@ class AzureCloudConnector(CloudConnector):
             group_name = None
             try:
                 uid = str(uuid.uuid1())
-                storage_account_name = "st-%s" % uid
+                # Storage account name must be between 3 and 24 characters in length and use
+                # numbers and lower-case letters only
+                storage_account_name = "s%s" % uid
+                storage_account_name = storage_account_name.replace("-", "")
+                storage_account_name = storage_account_name[:24]
 
                 vm_name = radl.systems[0].getValue("instance_name")
                 if vm_name:
@@ -523,6 +545,7 @@ class AzureCloudConnector(CloudConnector):
 
                 # Delete Resource group and everything in it
                 if group_name:
+                    self.log_debug("Delete Resource group and everything in it.")
                     resource_client.resource_groups.delete(group_name)
 
             i += 1
@@ -541,6 +564,7 @@ class AzureCloudConnector(CloudConnector):
 
         while system.getValue("disk." + str(cont) + ".size"):
             disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('G')
+            self.log_debug("Attaching a %s GB disk to VM." % disk_size)
 
             try:
                 # Attach data disk
@@ -618,11 +642,13 @@ class AzureCloudConnector(CloudConnector):
             ip_conf = network_client.network_interfaces.get(sub, name).ip_configurations
 
             for ip in ip_conf:
-                private_ips.append(ip.private_ip_address)
-                name = " ".join(ip.public_ip_address.id.split('/')[-1:])
-                sub = "".join(ip.public_ip_address.id.split('/')[4])
-                public_ip_info = network_client.public_ip_addresses.get(sub, name)
-                public_ips.append(public_ip_info.ip_address)
+                if ip.private_ip_address:
+                    private_ips.append(ip.private_ip_address)
+                if ip.public_ip_address:
+                    name = " ".join(ip.public_ip_address.id.split('/')[-1:])
+                    sub = "".join(ip.public_ip_address.id.split('/')[4])
+                    public_ip_info = network_client.public_ip_addresses.get(sub, name)
+                    public_ips.append(public_ip_info.ip_address)
 
         vm.setIps(public_ips, private_ips)
 

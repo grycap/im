@@ -717,8 +717,10 @@ class TestIM(unittest.TestCase):
         contmsg = IM.GetVMContMsg(infId, "0", auth0)
         self.assertEqual(contmsg, "")
 
+        InfrastructureList.infrastructure_list[infId].vm_list[0].cloud_connector = MagicMock()
         InfrastructureList.infrastructure_list[infId].vm_list[0].cloud_connector.error_messages = "TESTMSG"
         contmsg = IM.GetInfrastructureContMsg(infId, auth0)
+        InfrastructureList.infrastructure_list[infId].vm_list[0].cloud_connector = None
 
         self.assertIn("TESTMSG", contmsg)
 
