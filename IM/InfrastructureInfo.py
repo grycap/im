@@ -459,15 +459,8 @@ class InfrastructureInfo:
                 time.sleep(Config.CONFMAMAGER_CHECK_STATE_INTERVAL)
 
             out_msg = ""
-            error_msg = ""
             for vm in [self.get_vm(vmid) for vmid in vm_list]:
-                vm.update_status(auth)
-                if vm.state == VirtualMachine.UNCONFIGURED:
-                    error_msg += vm.get_cont_msg() + "\n"
                 out_msg += vm.get_cont_msg() + "\n"
-            if error_msg:
-                error_msg = self.cont_out + "\n" + error_msg
-                raise Exception("Error unconfiguring resources: %s" % error_msg)
 
             out_msg = self.cont_out + "\n" + out_msg
             return out_msg

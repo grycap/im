@@ -651,7 +651,7 @@ echo "Hello World" >> /tmp/data.txt
             self.assertTrue(
                 success, msg="ERROR calling DestroyInfrastructure: " + str(res))
 
-    def test_01_unconfigure(self):
+    def test_90_unconfigure(self):
         """
         Test Unconfigure functions
         """
