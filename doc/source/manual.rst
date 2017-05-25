@@ -79,7 +79,7 @@ Installation
 
 Using installer (Recommended option)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The IM provides a script to install the IM in one single step.
+The IM provides a script to install the IM in one single step (using pip).
 You only need to execute the following command::
 
 	$ wget -qO- https://raw.githubusercontent.com/grycap/im/master/install.sh | bash
