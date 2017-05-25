@@ -791,8 +791,9 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     except Exception as ex:
                         self.log_warn("Error deleting the SG: %s" % str(ex))
 
-                    time.sleep(delay)
-                    cont += delay
+                    if not deleted:
+                        time.sleep(delay)
+                        cont += delay
 
             if not deleted:
                 self.log_error("Error deleting the SG: Timeout.")
