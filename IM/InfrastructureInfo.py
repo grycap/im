@@ -507,6 +507,7 @@ class InfrastructureInfo:
                 # process
                 vm.update_status(auth)
                 vm.cont_out = ""
+                vm.cloud_connector = None
                 vm.configured = None
                 tasks = {}
 

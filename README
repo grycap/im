@@ -114,7 +114,17 @@ Microsoft Azure platform.
 1.3 INSTALLING
 --------------
 
-1.3.1 From RPM package
+1.3.1 Using installer (Recommended option)
+------------------------------------------
+
+The IM provides a script to install the IM in one single step.
+You only need to execute the following command:
+
+	$ wget -qO- https://raw.githubusercontent.com/grycap/im/master/install.sh | bash
+
+It works for the most recent version of the main Linux distributions (RHEL/CentOS 7, Ubuntu 14/16).
+
+1.3.2 From RPM package
 ----------------------
 
 You must have the epel repository enabled:
@@ -141,7 +151,7 @@ Azure python SDK is not available in CentOS. So if you need the Azure plugin you
 	$ pip install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource
 
 
-1.3.2 From Deb package
+1.3.3 From Deb package
 ----------------------
 
 You have to enable the INDIGO - DataCloud packages repositories. See full instructions 

@@ -996,7 +996,7 @@ class Tosca:
         if node.requirements:
             maxl = 0
             for r, n in node.relationships.items():
-                if Tosca._is_derived_from(r, r.HOSTEDON):
+                if Tosca._is_derived_from(r, [r.HOSTEDON, r.DEPENDSON]):
                     level = Tosca._get_dependency_level(n)
                 else:
                     level = 0
@@ -1116,9 +1116,10 @@ class Tosca:
             'image': 'disk.0.image.url',
             'credential': 'disk.0.os.credentials',
             'num_cpus': 'cpu.count',
-            'disk_size': 'disk.0.size',
+            'disk_size': 'disks.free_size',
             'mem_size': 'memory.size',
-            'cpu_frequency': 'cpu.performance'
+            'cpu_frequency': 'cpu.performance',
+            'instance_type': 'instance_type',
         }
 
         for cap_type in ['os', 'host']:
@@ -1249,8 +1250,12 @@ class Tosca:
         """
         Check if a node is a descendant from a specified parent type
         """
+        if isinstance(parent_type, list):
+            parent_types = parent_type
+        else:
+            parent_types = [parent_type]
         while True:
-            if rel.type == parent_type:
+            if rel.type in parent_types:
                 return True
             else:
                 if rel.parent_type:

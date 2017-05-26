@@ -172,7 +172,7 @@ class OCCICloudConnector(CloudConnector):
         lines = occi_res.split("\n")
         res = []
         for l in lines:
-            if l.find('Link:') != -1 and l.find('/storage/') != -1:
+            if 'Link:' in l and '/storage/' in l:
                 num_link = None
                 num_storage = None
                 device = None
@@ -201,9 +201,9 @@ class OCCICloudConnector(CloudConnector):
         res = []
         link_to_public = False
         for l in lines:
-            if l.find('Link:') != -1 and l.find('/network/public') != -1:
+            if 'Link:' in l and '/network/public' in l:
                 link_to_public = True
-            if l.find('Link:') != -1 and l.find('/network/') != -1:
+            if 'Link:' in l and ('/network/' in l or '/networklink/' in l):
                 num_interface = None
                 ip_address = None
                 parts = l.split(';')
@@ -286,11 +286,11 @@ class OCCICloudConnector(CloudConnector):
         """
         Get the first floating pool available (For OpenStack sites with Neutron)
         """
-        occi_data = self.query_occi(auth_data)
+        _, occi_data = self.query_occi(auth_data)
         lines = occi_data.split("\n")
         pools = []
         for l in lines:
-            if l.find('http://schemas.openstack.org/network/floatingippool#') != -1:
+            if 'http://schemas.openstack.org/network/floatingippool#' in l:
                 for elem in l.split(';'):
                     if elem.startswith('Category: '):
                             pools.append(elem[10:])
@@ -300,7 +300,7 @@ class OCCICloudConnector(CloudConnector):
             return None
 
     def add_public_ip(self, vm, auth_data, network_name="public"):
-        occi_info = self.query_occi(auth_data)
+        _, occi_info = self.query_occi(auth_data)
         url = self.get_property_from_category(occi_info, "networkinterface", "location")
         if not url:
             self.log_error("No location for networkinterface category.")
@@ -444,13 +444,11 @@ class OCCICloudConnector(CloudConnector):
             resp = self.create_request('GET', self.cloud.path + "/-/", auth_data, headers)
 
             if resp.status_code != 200:
-                self.log_error("Error querying the OCCI server: %s" % resp.reason)
-                return ""
+                return False, "Error querying the OCCI server: %s" % resp.reason
             else:
-                return resp.text
-        except:
-            self.log_exception("Error querying the OCCI server")
-            return ""
+                return True, resp.text
+        except Exception as ex:
+            return False, "Error querying the OCCI server: %s" % str(ex)
 
     def get_scheme(self, occi_info, category, ctype):
         """
@@ -728,7 +726,9 @@ class OCCICloudConnector(CloudConnector):
         self.log_debug("Cloud init: %s" % cloud_config.decode())
 
         # Get the info about the OCCI server (GET /-/)
-        occi_info = self.query_occi(auth_data)
+        success, occi_info = self.query_occi(auth_data)
+        if not success:
+            raise Exception(occi_info)
 
         # Parse the info to get the os_tpl scheme
         url = uriparse(system.getValue("disk.0.image.url"))
@@ -1020,7 +1020,7 @@ class OCCICloudConnector(CloudConnector):
         """
         Attach a volume to a running VM
         """
-        occi_info = self.query_occi(auth_data)
+        _, occi_info = self.query_occi(auth_data)
         url = self.get_property_from_category(occi_info, "storagelink", "location")
         if not url:
             self.log_error("No location for storagelink category.")
