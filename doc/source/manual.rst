@@ -77,8 +77,18 @@ Optional Packages
 Installation
 ------------
 
-From Pip (Recommended option)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Using installer (Recommended option)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The IM provides a script to install the IM in one single step.
+You only need to execute the following command::
+
+	$ wget -qO- https://raw.githubusercontent.com/grycap/im/master/install.sh | bash
+
+It works for the most recent version of the main Linux distributions (RHEL, CentOS, Fedora, Ubuntu, Debian).
+In case that you O.S. does not work with this install script see next sections.
+
+From Pip
+^^^^^^^^
 **WARNING: In some linux old distributions (REL 6 or equivalents) you must unistall
 the package python-crypto and python-paramiko before installing the IM with pip.**::
 

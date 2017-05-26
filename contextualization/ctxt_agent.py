@@ -220,12 +220,10 @@ class CtxtAgent():
             else:
                 if vm['private_key'] and not vm['passwd']:
                     gen_pk_file = "/tmp/pk_" + vm['ip'] + ".pem"
-                    # If the file exists do not create it again
-                    if not os.path.isfile(gen_pk_file):
-                        pk_out = open(gen_pk_file, 'w')
-                        pk_out.write(vm['private_key'])
-                        pk_out.close()
-                        os.chmod(gen_pk_file, 0o400)
+                    pk_out = open(gen_pk_file, 'w')
+                    pk_out.write(vm['private_key'])
+                    pk_out.close()
+                    os.chmod(gen_pk_file, 0o600)
                 else:
                     gen_pk_file = None
 

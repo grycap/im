@@ -180,6 +180,10 @@ class ConfManager(threading.Thread):
         while not self._stop_thread:
             if self.init_time + self.max_ctxt_time < time.time():
                 self.log_debug("Max contextualization time passed. Exit thread.")
+                self.inf.add_cont_msg("ERROR: Max contextualization time passed.")
+                # Remove tasks from queue
+                with self.inf._lock:
+                    self.inf.ctxt_tasks = PriorityQueue()
                 # Kill the ansible processes
                 self.kill_ctxt_processes()
                 if self.ansible_process and self.ansible_process.is_alive():
@@ -768,7 +772,7 @@ class ConfManager(threading.Thread):
                             ssh.sftp_put_files(files)
                             # Copy the utils helper files
                             ssh.sftp_mkdir(remote_dir + "/utils")
-                            ssh.sftp_put_dir(Config.RECIPES_DIR + "/utils", remote_dir + "//utils")
+                            ssh.sftp_put_dir(Config.RECIPES_DIR + "/utils", remote_dir + "/utils")
                             # Copy the ansible_utils files
                             ssh.sftp_mkdir(remote_dir + "/IM/ansible_utils")
                             ssh.sftp_put_dir(Config.IM_PATH + "/ansible_utils", remote_dir + "/IM/ansible_utils")
@@ -1397,6 +1401,8 @@ class ConfManager(threading.Thread):
             if vm.state in VirtualMachine.NOT_RUNNING_STATES:
                 self.log_warn("The VM ID: " + str(vm.id) +
                               " is not running, do not include in the general conf file.")
+                self.inf.add_cont_msg("WARNING: The VM ID: " + str(vm.id) +
+                                      " is not running, do not include in the contextualization agent.")
             else:
                 vm_conf_data = {}
                 vm_conf_data['id'] = vm.im_id
@@ -1428,6 +1434,8 @@ class ConfManager(threading.Thread):
                     # errors configurin gother VMs
                     self.log_warn("The VM ID: " + str(vm.id) +
                                   " does not have an IP, do not include in the general conf file.")
+                    self.inf.add_cont_msg("WARNING: The VM ID: " + str(vm.id) +
+                                          " does not have an IP, do not include in the contextualization agent.")
                 else:
                     conf_data['vms'].append(vm_conf_data)
 
