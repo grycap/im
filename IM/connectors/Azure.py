@@ -143,7 +143,7 @@ class AzureCloudConnector(CloudConnector):
 
         compute_client = ComputeManagementClient(credentials, subscription_id)
         instace_types = list(compute_client.virtual_machine_sizes.list(location))
-        instace_types.sort(key=lambda x: (x.number_of_cores, x.memory_in_mb, x.resource_disk_size_in_mb, x.name))
+        instace_types.sort(key=lambda x: (x.number_of_cores, x.memory_in_mb, x.resource_disk_size_in_mb))
 
         res = None
         default = None

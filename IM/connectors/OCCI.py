@@ -284,7 +284,7 @@ class OCCICloudConnector(CloudConnector):
 
     def get_floating_pool(self, auth_data):
         """
-        Get the first floating pool available (For OpenStack sites with Neutron)
+        Get a random floating pool available (For OpenStack sites with Neutron)
         """
         _, occi_data = self.query_occi(auth_data)
         lines = occi_data.split("\n")
@@ -989,26 +989,25 @@ class OCCICloudConnector(CloudConnector):
                         self.log_debug("Error waiting volume %s. Deleting it." % volume_id)
                         self.delete_volume(volume_id, auth_data)
                         return (False, "Error waiting volume %s. Deleting it." % volume_id)
+                    else:
+                        self.log_debug("Attaching to the instance")
+                        attached = self.attach_volume(vm, volume_id, disk_device, mount_path, auth_data)
+                        if attached:
+                            orig_system.setValue("disk." + str(cont) + ".size", disk_size, "G")
+                            orig_system.setValue("disk." + str(cont) + ".provider_id", volume_id)
+                            if disk_device:
+                                orig_system.setValue("disk." + str(cont) + ".device", disk_device)
+                            if mount_path:
+                                orig_system.setValue("disk." + str(cont) + ".mount_path", mount_path)
+                        else:
+                            self.log_error("Error attaching a %d GB volume for the disk %d."
+                                           " Deleting it." % (int(disk_size), cont))
+                            self.delete_volume(volume_id, auth_data)
+                            return (False, "Error attaching the new volume")
                 else:
                     self.log_error("Error creating volume: %s" % volume_id)
+                    return (False, "Error creating volume: %s" % volume_id)
 
-                if wait_ok:
-                    self.log_debug("Attaching to the instance")
-                    attached = self.attach_volume(vm, volume_id, disk_device, mount_path, auth_data)
-                    if attached:
-                        orig_system.setValue("disk." + str(cont) + ".size", disk_size, "G")
-                        orig_system.setValue("disk." + str(cont) + ".provider_id", volume_id)
-                        if disk_device:
-                            orig_system.setValue("disk." + str(cont) + ".device", disk_device)
-                        if mount_path:
-                            orig_system.setValue("disk." + str(cont) + ".mount_path", mount_path)
-                    else:
-                        self.log_error("Error attaching a %d GB volume for the disk %d."
-                                       " Deleting it." % (int(disk_size), cont))
-                        self.delete_volume(volume_id, auth_data)
-                        return (False, "Error attaching the new volume")
-                else:
-                    return (False, "Error creating the new volume: " + volume_id)
                 cont += 1
         except Exception as ex:
             self.log_exception("Error connecting with OCCI server")
