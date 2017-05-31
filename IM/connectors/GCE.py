@@ -808,7 +808,8 @@ class GCECloudConnector(CloudConnector):
                                     self.log_error("Error deleting DNS record %s." % fqdn)
 
                         # if there are no records (except the NS and SOA auto added ones), delete the zone
-                        all_records = [r for r in driver.iterate_records(zone) if r.type not in [RecordType.NS, RecordType.SOA]]
+                        all_records = [r for r in driver.iterate_records(zone)
+                                       if r.type not in [RecordType.NS, RecordType.SOA]]
                         if not all_records:
                             driver.delete_zone(zone)
 
