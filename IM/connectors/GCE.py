@@ -759,7 +759,7 @@ class GCECloudConnector(CloudConnector):
                         record = [r for r in driver.iterate_records(zone) if r.name == fqdn]
                         if not record:
                             self.log_debug("Creating DNS record %s." % fqdn)
-                            driver.create_record(fqdn, zone, RecordType.A, ip)
+                            driver.create_record(fqdn, zone, RecordType.A, dict(ttl=300, rrdatas=[ip]))
                         else:
                             self.log_debug("DNS record %s exists. Do not create." % fqdn)
 
@@ -799,9 +799,9 @@ class GCECloudConnector(CloudConnector):
                             self.log_debug("DNS record %s does not exists. Do not delete." % fqdn)
                         else:
                             record = record[0]
-                            if record.data != ip:
+                            if record.data['rrdatas'] != [ip]:
                                 self.log_debug("DNS record %s mapped to unexpected IP: %s != %s."
-                                               "Do not delete." % (fqdn, record.data, ip))
+                                               "Do not delete." % (fqdn, record.data['rrdatas'], ip))
                             else:
                                 self.log_debug("Deleting DNS record %s." % fqdn)
                                 if not driver.delete_record(record):

@@ -254,7 +254,7 @@ class TestGCEConnector(unittest.TestCase):
         self.assertEquals(dns_driver.create_zone.call_args_list[0], call('domain.com.'))
         self.assertEquals(dns_driver.create_record.call_args_list[0][0][0], 'test.domain.com.')
         self.assertEquals(dns_driver.create_record.call_args_list[0][0][2], 'A')
-        self.assertEquals(dns_driver.create_record.call_args_list[0][0][3], '158.42.1.1')
+        self.assertEquals(dns_driver.create_record.call_args_list[0][0][3], {'rrdatas': ['158.42.1.1'], 'ttl': 300})
 
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
@@ -341,7 +341,7 @@ class TestGCEConnector(unittest.TestCase):
         dns_driver.iterate_zones.return_value = [zone]
         record = MagicMock()
         record.name = 'test.domain.com.'
-        record.data = '158.42.1.1'
+        record.data = {'rrdatas': ['158.42.1.1'], 'ttl': 300}
         dns_driver.iterate_records.return_value = [record]
 
         success, _ = gce_cloud.finalize(vm, True, auth)
