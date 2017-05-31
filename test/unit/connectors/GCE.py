@@ -347,6 +347,8 @@ class TestGCEConnector(unittest.TestCase):
         success, _ = gce_cloud.finalize(vm, True, auth)
 
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
+        self.assertEquals(dns_driver.delete_record.call_count, 1)
+        self.assertEquals(dns_driver.delete_record.call_args_list[0][0][0].name, 'test.domain.com.')
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
 
