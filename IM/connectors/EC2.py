@@ -22,6 +22,7 @@ import uuid
 try:
     import boto.ec2
     import boto.vpc
+    import boto.route53
 except Exception as ex:
     print("WARN: Boto library not correctly installed. EC2CloudConnector will not work!.")
     print(ex)
@@ -30,6 +31,7 @@ from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
 from radl.radl import Feature
+from IM.config import Config
 
 
 class InstanceTypeInfo:
@@ -87,6 +89,7 @@ class EC2CloudConnector(CloudConnector):
 
     def __init__(self, cloud_info, inf):
         self.connection = None
+        self.route53_connection = None
         self.auth = None
         CloudConnector.__init__(self, cloud_info, inf)
 
@@ -195,6 +198,45 @@ class EC2CloudConnector(CloudConnector):
                                 region_name + ": " + str(ex))
 
             self.connection = conn
+            return conn
+
+    # Get the Route53 connection object
+    def get_route53_connection(self, region_name, auth_data):
+        """
+        Get a :py:class:`boto.route53.connection` to interact with.
+
+        Arguments:
+           - region_name(str): AWS region to connect.
+           - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
+        Returns: a :py:class:`boto.route53.connection` or None in case of error
+        """
+        auths = auth_data.getAuthInfo(self.type)
+        if not auths:
+            raise Exception("No auth data has been specified to EC2.")
+        else:
+            auth = auths[0]
+
+        if self.route53_connection and self.auth.compare(auth_data, self.type):
+            return self.route53_connection
+        else:
+            self.auth = auth_data
+            conn = None
+            try:
+                if 'username' in auth and 'password' in auth:
+                    conn = boto.route53.connect_to_region(region_name,
+                                                          aws_access_key_id=auth['username'],
+                                                          aws_secret_access_key=auth['password'])
+                else:
+                    self.log_error("No correct auth data has been specified to EC2: "
+                                   "username (Access Key) and password (Secret Key)")
+                    raise Exception("No correct auth data has been specified to EC2: "
+                                    "username (Access Key) and password (Secret Key)")
+
+            except Exception as ex:
+                self.log_exception("Error conneting Route53 in region " + region_name)
+                raise Exception("Error conneting Route53 in region" + region_name + ": " + str(ex))
+
+            self.route53_connection = conn
             return conn
 
     # el path sera algo asi: aws://eu-west-1/ami-00685b74
@@ -1075,6 +1117,7 @@ class EC2CloudConnector(CloudConnector):
 
             self.setIPsFromInstance(vm, instance)
             self.attach_volumes(instance, vm)
+            self.add_dns_entries(vm, auth_data)
 
             try:
                 vm.info.systems[0].setValue('launch_time', int(time.mktime(
@@ -1087,6 +1130,90 @@ class EC2CloudConnector(CloudConnector):
             vm.state = VirtualMachine.OFF
 
         return (True, vm)
+
+    def add_dns_entries(self, vm, auth_data):
+        """
+        Add the required entries in the AWS Route53 service
+
+        Arguments:
+           - vm(:py:class:`IM.VirtualMachine`): VM information.
+           - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
+        """
+        try:
+            region = vm.id.split(";")[0]
+            conn = self.get_route53_connection(region, auth_data)
+            system = vm.info.systems[0]
+            for net_name in system.getNetworkIDs():
+                num_conn = system.getNumNetworkWithConnection(net_name)
+                ip = system.getIfaceIP(num_conn)
+                (hostname, domain) = vm.getRequestedNameIface(num_conn,
+                                                              default_hostname=Config.DEFAULT_VM_NAME,
+                                                              default_domain=Config.DEFAULT_DOMAIN)
+                if domain != "localdomain":
+                    if not domain.endswith("."):
+                        domain += "."
+                    zone = conn.get_zone(domain)
+                    if not zone:
+                        self.log_debug("Creating DNS zone %s" % domain)
+                        zone = conn.create_zone(domain)
+                    else:
+                        self.log_debug("DNS zone %s exists. Do not create." % domain)
+
+                    if zone:
+                        fqdn = hostname + "." + domain
+                        record = zone.get_a(fqdn)
+                        if not record:
+                            self.log_debug("Creating DNS record %s." % fqdn)
+                            changes = boto.route53.record.ResourceRecordSets(conn, zone.id)
+                            change = changes.add_change("CREATE", fqdn, "A")
+                            change.add_value(ip)
+                            result = changes.commit()
+                        else:
+                            self.log_debug("DNS record %s exists. Do not create." % fqdn)
+
+            return True
+        except Exception:
+            self.log_exception("Error creating DNS entries")
+            return False
+
+    def del_dns_entries(self, vm, auth_data):
+        """
+        Delete the added entries in the AWS Route53 service
+
+        Arguments:
+           - vm(:py:class:`IM.VirtualMachine`): VM information.
+           - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
+        """
+        region = vm.id.split(";")[0]
+        conn = self.get_route53_connection(region, auth_data)
+        system = vm.info.systems[0]
+        for net_name in system.getNetworkIDs():
+            num_conn = system.getNumNetworkWithConnection(net_name)
+            ip = system.getIfaceIP(num_conn)
+            (hostname, domain) = vm.getRequestedNameIface(num_conn,
+                                                          default_hostname=Config.DEFAULT_VM_NAME,
+                                                          default_domain=Config.DEFAULT_DOMAIN)
+            if domain != "localdomain":
+                if not domain.endswith("."):
+                    domain += "."
+                zone = conn.get_zone(domain)
+                if not zone:
+                    self.log_debug("The DNS zone %s does not exists. Do not delete records." % domain)
+                else:
+                    fqdn = hostname + "." + domain
+                    record = zone.get_a(fqdn)
+                    if not record:
+                        self.log_debug("DNS record %s does not exists. Do not delete." % fqdn)
+                    else:
+                        self.log_debug("Deleting DNS record %s." % fqdn)
+                        changes = boto.route53.record.ResourceRecordSets(conn, zone.id)
+                        change = changes.add_change("DELETE", fqdn, "A")
+                        change.add_value(ip)
+                        result = changes.commit()
+
+                    # if there are no A records
+                    if not zone.find_records(type="A"):
+                        conn.delete_hosted_zone(zone.id)
 
     def cancel_spot_requests(self, conn, vm):
         """
@@ -1158,6 +1285,12 @@ class EC2CloudConnector(CloudConnector):
         # Delete the EBS volumes
         try:
             self.delete_volumes(conn, volumes, instance_id)
+        except:
+            self.log_exception("Error deleting EBS volumess")
+
+        # Delete the DNS entries
+        try:
+            self.del_dns_entries(vm, auth_data)
         except:
             self.log_exception("Error deleting EBS volumess")
 
