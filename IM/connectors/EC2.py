@@ -1193,7 +1193,7 @@ class EC2CloudConnector(CloudConnector):
             (hostname, domain) = vm.getRequestedNameIface(num_conn,
                                                           default_hostname=Config.DEFAULT_VM_NAME,
                                                           default_domain=Config.DEFAULT_DOMAIN)
-            if domain != "localdomain":
+            if domain != "localdomain" and ip:
                 if not domain.endswith("."):
                     domain += "."
                 zone = conn.get_zone(domain)
