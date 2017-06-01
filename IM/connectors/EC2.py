@@ -462,7 +462,7 @@ class EC2CloudConnector(CloudConnector):
                 system.setUserKeyCredentials(
                     system.getCredentials().username, public, private)
             else:
-                self.log_debug("Creating the Keypair")
+                self.log_debug("Creating the Keypair name: %s" % keypair_name)
                 keypair_file = self.KEYPAIR_DIR + '/' + keypair_name + '.pem'
                 keypair = conn.create_key_pair(keypair_name)
                 created = True
@@ -1149,7 +1149,7 @@ class EC2CloudConnector(CloudConnector):
                 (hostname, domain) = vm.getRequestedNameIface(num_conn,
                                                               default_hostname=Config.DEFAULT_VM_NAME,
                                                               default_domain=Config.DEFAULT_DOMAIN)
-                if domain != "localdomain":
+                if domain != "localdomain" and ip:
                     if not domain.endswith("."):
                         domain += "."
                     zone = conn.get_zone(domain)

@@ -743,7 +743,7 @@ class GCECloudConnector(CloudConnector):
                 (hostname, domain) = vm.getRequestedNameIface(num_conn,
                                                               default_hostname=Config.DEFAULT_VM_NAME,
                                                               default_domain=Config.DEFAULT_DOMAIN)
-                if domain != "localdomain":
+                if domain != "localdomain" and ip:
                     if not domain.endswith("."):
                         domain += "."
                     zone = [z for z in driver.iterate_zones() if z.domain == domain]
