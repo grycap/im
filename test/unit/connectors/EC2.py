@@ -588,7 +588,7 @@ class TestEC2Connector(unittest.TestCase):
         record = MagicMock()
         zone.id = "zid"
         zone.get_a.return_value = record
-        zone.find_records.return_value = None
+        dns_conn.get_all_rrsets.return_value = []
         dns_conn.get_zone.return_value = zone
         changes = MagicMock()
         record_sets.return_value = changes

@@ -1212,7 +1212,8 @@ class EC2CloudConnector(CloudConnector):
                         result = changes.commit()
 
                     # if there are no A records
-                    if not zone.find_records(type="A"):
+                    all_a_records = [r for r in conn.get_all_rrsets(zone.id) if r.type == "A"]
+                    if not all_a_records:
                         conn.delete_hosted_zone(zone.id)
 
     def cancel_spot_requests(self, conn, vm):
@@ -1270,6 +1271,12 @@ class EC2CloudConnector(CloudConnector):
             except:
                 self.log_exception("Error deleting keypair.")
 
+        # Delete the DNS entries
+        try:
+            self.del_dns_entries(vm, auth_data)
+        except:
+            self.log_exception("Error deleting DNS entries")
+
         # Delete the elastic IPs
         try:
             self.delete_elastic_ips(conn, vm)
@@ -1286,13 +1293,7 @@ class EC2CloudConnector(CloudConnector):
         try:
             self.delete_volumes(conn, volumes, instance_id)
         except:
-            self.log_exception("Error deleting EBS volumess")
-
-        # Delete the DNS entries
-        try:
-            self.del_dns_entries(vm, auth_data)
-        except:
-            self.log_exception("Error deleting EBS volumess")
+            self.log_exception("Error deleting EBS volumes")
 
         return (True, "")
 
