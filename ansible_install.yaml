@@ -16,9 +16,13 @@
       action: yum pkg=libselinux-python state=installed
       when: ansible_os_family == "RedHat"
 
-    - name: Ubuntu install indigo list
+    - name: Ubuntu 14 install indigo 1 list
       get_url: url=http://repo.indigo-datacloud.eu/repos/1/indigo1-ubuntu14_04.list dest=/etc/apt/sources.list.d/indigo1-ubuntu14_04.list
-      when: ansible_distribution == "Ubuntu"
+      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version == "14"
+
+    - name: Ubuntu 16 install indigo 2 list
+      get_url: url=http://repo.indigo-datacloud.eu/repos/2/indigo2-ubuntu16_04.list dest=/etc/apt/sources.list.d/indigo2-ubuntu16_04.list
+      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version == "16"
 
     - apt_key: url=http://repo.indigo-datacloud.eu/repository/RPM-GPG-KEY-indigodc state=present
       when: ansible_distribution == "Ubuntu"
@@ -32,7 +36,7 @@
       when: ansible_distribution == "Ubuntu"
       
     - name: RH indigo repos
-      get_url: url=http://repo.indigo-datacloud.eu/repos/1/indigo1.repo dest=/etc/yum.repos.d/indigo1.repo
+      get_url: url=http://repo.indigo-datacloud.eu/repos/2/indigo2.repo dest=/etc/yum.repos.d/indigo2.repo
       when: ansible_os_family == "RedHat"
 
     - rpm_key: state=present key=http://repo.indigo-datacloud.eu/repository/RPM-GPG-KEY-indigodc

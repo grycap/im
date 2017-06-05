@@ -107,11 +107,11 @@ $ yum install epel-release
 ```
 
 Then you have to enable the INDIGO - DataCloud packages repositories. See full instructions
-[here](https://indigo-dc.gitbooks.io/indigo-datacloud-releases/content/generic_installation_and_configuration_guide_1.html#id4). Briefly you have to download the repo file from [INDIGO SW Repository](http://repo.indigo-datacloud.eu/repos/1/indigo1.repo) in your /etc/yum.repos.d folder.
+[here](https://indigo-dc.gitbooks.io/indigo-datacloud-releases/content/generic_installation_and_configuration_guide_2.html#id4). Briefly you have to download the repo file from [INDIGO SW Repository](http://repo.indigo-datacloud.eu/repos/2/indigo2.repo) in your /etc/yum.repos.d folder.
 
 ```sh
 $ cd /etc/yum.repos.d
-$ wget http://repo.indigo-datacloud.eu/repos/1/indigo1.repo
+$ wget http://repo.indigo-datacloud.eu/repos/2/indigo2.repo
 ```
 
 And then install the GPG key for the INDIGO repository:
@@ -129,11 +129,11 @@ $ yum install IM
 ### 1.3.3 FROM DEB
 
 You have to enable the INDIGO - DataCloud packages repositories. See full instructions
-[here](https://indigo-dc.gitbooks.io/indigo-datacloud-releases/content/generic_installation_and_configuration_guide_1.html#id4). Briefly you have to download the list file from [INDIGO SW Repository](http://repo.indigo-datacloud.eu/repos/1/indigo1-ubuntu14_04.list) in your /etc/apt/sources.list.d folder.
+[here](https://indigo-dc.gitbooks.io/indigo-datacloud-releases/content/generic_installation_and_configuration_guide_2.html#id4). Briefly you have to download the list file from [INDIGO SW Repository](http://repo.indigo-datacloud.eu/repos/2/indigo2-ubuntu16_04.list) in your /etc/apt/sources.list.d folder.
 
 ```sh
 $ cd /etc/apt/sources.list.d
-$ wget http://repo.indigo-datacloud.eu/repos/1/indigo1-ubuntu14_04.list
+$ wget http://repo.indigo-datacloud.eu/repos/2/indigo2-ubuntu16_04.list
 ```
 
 And then install the GPG key for INDIGO the repository:
