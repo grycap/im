@@ -357,9 +357,8 @@ class TestAzureConnector(unittest.TestCase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('IM.connectors.Azure.ResourceManagementClient')
-    @patch('IM.connectors.Azure.DnsManagementClient')
     @patch('IM.connectors.Azure.UserPassCredentials')
-    def test_60_finalize(self, credentials, dns_client, resource_client):
+    def test_60_finalize(self, credentials, resource_client):
         auth = Authentication([{'id': 'azure', 'type': 'Azure', 'subscription_id': 'subscription_id',
                                 'username': 'user', 'password': 'password'}])
         azure_cloud = self.get_azure_cloud()
@@ -377,15 +376,9 @@ class TestAzureConnector(unittest.TestCase):
         inf = MagicMock()
         vm = VirtualMachine(inf, "rg0/vm0", azure_cloud.cloud, radl, radl, azure_cloud, 1)
 
-        dclient = MagicMock()
-        dns_client.return_value = dclient
-        dclient.record_sets.list_by_type.return_value = []
-
         success, _ = azure_cloud.finalize(vm, True, auth)
 
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
-        self.assertEquals(dclient.record_sets.delete.call_args_list, [call('rg0', 'domain.com.', 'test', 'A')])
-        self.assertEquals(dclient.zones.delete.call_args_list, [call('rg0', 'domain.com.')])
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
 

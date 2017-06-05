@@ -282,7 +282,21 @@ class AzureCloudConnector(CloudConnector):
         if radl.systems[0].getValue('availability_zone'):
             location = radl.systems[0].getValue('availability_zone')
 
-        hasPublicIP = radl.hasPublicNet(system.name)
+        i = 0
+        hasPublicIP = False
+        hasPrivateIP = False
+        while system.getValue("net_interface." + str(i) + ".connection"):
+            network_name = system.getValue("net_interface." + str(i) + ".connection")
+            # TODO: check how to do that
+            # fixed_ip = system.getValue("net_interface." + str(i) + ".ip")
+            network = radl.get_network_by_id(network_name)
+
+            if network.isPublic():
+                hasPublicIP = True
+            else:
+                hasPrivateIP = True
+
+            i += 1
 
         i = 0
         res = []
@@ -293,7 +307,7 @@ class AzureCloudConnector(CloudConnector):
             # fixed_ip = system.getValue("net_interface." + str(i) + ".ip")
             network = radl.get_network_by_id(network_name)
 
-            if network.isPublic():
+            if network.isPublic() and hasPrivateIP:
                 # Public nets are not added as nics
                 i += 1
                 continue
@@ -496,6 +510,7 @@ class AzureCloudConnector(CloudConnector):
 
         res = []
         i = 0
+        all_ok = True
         while i < num_vm:
             group_name = None
             try:
@@ -522,9 +537,11 @@ class AzureCloudConnector(CloudConnector):
                                                                          credentials, subscription_id, location)
 
                 if not storage_account:
+                    all_ok = False
                     res.append((False, error_msg))
+                    # delete VM group
                     resource_client.resource_groups.delete(group_name)
-                    break
+                    continue
 
                 nics = self.create_nics(inf, radl, credentials, subscription_id, group_name, subnets)
 
@@ -533,7 +550,7 @@ class AzureCloudConnector(CloudConnector):
 
                 compute_client = ComputeManagementClient(credentials, subscription_id)
                 async_vm_creation = compute_client.virtual_machines.create_or_update(group_name, vm_name, vm_parameters)
-                azure_vm = async_vm_creation.result()
+                # azure_vm = async_vm_creation.result()
 
                 vm = VirtualMachine(inf, group_name + '/' + vm_name, self.cloud, radl, requested_radl, self)
                 vm.info.systems[0].setValue('instance_id', group_name + '/' + vm_name)
@@ -542,6 +559,7 @@ class AzureCloudConnector(CloudConnector):
 
                 res.append((True, vm))
             except Exception as ex:
+                all_ok = False
                 self.log_exception("Error creating the VM")
                 res.append((False, "Error creating the VM: " + str(ex)))
 
@@ -551,6 +569,10 @@ class AzureCloudConnector(CloudConnector):
                     resource_client.resource_groups.delete(group_name)
 
             i += 1
+
+        if not all_ok:
+            # Remove the general group
+            resource_client.resource_groups.delete("rg-%s" % inf.id)
 
         return res
 
@@ -679,52 +701,6 @@ class AzureCloudConnector(CloudConnector):
             self.log_exception("Error creating DNS entries")
             return False
 
-    def del_dns_entries(self, vm, credentials, subscription_id):
-        """
-        Delete the added entries in the Azure DNS service
-
-        Arguments:
-           - vm(:py:class:`IM.VirtualMachine`): VM information.
-           - credentials, subscription_id: Authentication data to access cloud provider.
-        """
-        try:
-            group_name = vm.id.split('/')[0]
-            dns_client = DnsManagementClient(credentials, subscription_id)
-            system = vm.info.systems[0]
-            for net_name in system.getNetworkIDs():
-                num_conn = system.getNumNetworkWithConnection(net_name)
-                ip = system.getIfaceIP(num_conn)
-                (hostname, domain) = vm.getRequestedNameIface(num_conn,
-                                                              default_hostname=Config.DEFAULT_VM_NAME,
-                                                              default_domain=Config.DEFAULT_DOMAIN)
-                if domain != "localdomain" and ip:
-                    if not domain.endswith("."):
-                        domain += "."
-                    zone = None
-                    try:
-                        zone = dns_client.zones.get(group_name, domain)
-                    except Exception:
-                        pass
-                    if not zone:
-                        self.log_debug("The DNS zone %s does not exists. Do not delete records." % domain)
-                    else:
-                        record = None
-                        try:
-                            record = dns_client.record_sets.get(group_name, domain, hostname, 'A')
-                        except Exception:
-                            pass
-                        if not record:
-                            self.log_debug("DNS record %s does not exists. Do not delete." % hostname)
-                        else:
-                            self.log_debug("Deleting DNS record %s." % hostname)
-                            dns_client.record_sets.delete(group_name, domain, hostname, 'A')
-
-                        # if there are no A records
-                        if not dns_client.record_sets.list_by_type(group_name, domain, 'A'):
-                            dns_client.zones.delete(group_name, domain)
-        except Exception as ex:
-            self.log_exception("Error removing DNS entries.")
-
     def setIPs(self, vm, network_profile, credentials, subscription_id):
         """
         Set the information about the IPs of the VM
@@ -762,8 +738,6 @@ class AzureCloudConnector(CloudConnector):
             resource_client = ResourceManagementClient(credentials, subscription_id)
             self.log_debug("Removing RG: %s" % group_name)
             resource_client.resource_groups.delete(group_name).wait()
-
-            self.del_dns_entries(vm, credentials, subscription_id)
 
             # if it is the last VM delete the RG of the Inf
             if last:
