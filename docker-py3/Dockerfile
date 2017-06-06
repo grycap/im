@@ -10,7 +10,7 @@ RUN pip3 install setuptools --upgrade -I
 RUN pip3 install cheroot
 RUN pip3 install pyOpenSSL --upgrade -I
 # Install pip optional libraries
-RUN pip3 install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource
+RUN pip3 install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns
 
 RUN apt install -y git
 RUN cd tmp \
