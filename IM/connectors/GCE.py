@@ -19,10 +19,13 @@ import uuid
 import os
 
 try:
-    from libcloud.compute.base import Node, NodeSize
+    from libcloud.compute.base import NodeSize
     from libcloud.compute.types import NodeState, Provider
     from libcloud.compute.providers import get_driver
     from libcloud.common.google import ResourceNotFoundError
+    from libcloud.dns.types import Provider as DNSProvider
+    from libcloud.dns.types import RecordType
+    from libcloud.dns.providers import get_driver as get_dns_driver
 except Exception as ex:
     print("WARN: libcloud library not correctly installed. GCECloudConnector will not work!.")
     print(ex)
@@ -31,6 +34,7 @@ from .CloudConnector import CloudConnector
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from radl.radl import Feature
+from IM.config import Config
 
 
 class GCECloudConnector(CloudConnector):
@@ -46,11 +50,12 @@ class GCECloudConnector(CloudConnector):
         self.auth = None
         self.datacenter = None
         self.driver = None
+        self.dns_driver = None
         CloudConnector.__init__(self, cloud_info, inf)
 
     def get_driver(self, auth_data, datacenter=None):
         """
-        Get the driver from the auth data
+        Get the compute driver from the auth data
 
         Arguments:
             - auth(Authentication): parsed authentication tokens.
@@ -83,6 +88,46 @@ class GCECloudConnector(CloudConnector):
                              project=auth['project'], datacenter=datacenter)
 
                 self.driver = driver
+                return driver
+            else:
+                self.log_error(
+                    "No correct auth data has been specified to GCE: username, password and project")
+                self.log_debug(auth)
+                raise Exception(
+                    "No correct auth data has been specified to GCE: username, password and project")
+
+    def get_dns_driver(self, auth_data):
+        """
+        Get the DNS driver from the auth data
+
+        Arguments:
+            - auth(Authentication): parsed authentication tokens.
+
+        Returns: a :py:class:`libcloud.dns.base.DNSDriver` or None in case of error
+        """
+        auths = auth_data.getAuthInfo(self.type)
+        if not auths:
+            raise Exception("No auth data has been specified to GCE.")
+        else:
+            auth = auths[0]
+
+        if self.dns_driver and self.auth.compare(auth_data, self.type):
+            return self.dns_driver
+        else:
+            self.auth = auth_data
+
+            if 'username' in auth and 'password' in auth and 'project' in auth:
+                cls = get_dns_driver(DNSProvider.GOOGLE)
+                # Patch to solve some client problems with \\n
+                auth['password'] = auth['password'].replace('\\n', '\n')
+                lines = len(auth['password'].replace(" ", "").split())
+                if lines < 2:
+                    raise Exception("The certificate provided to the GCE plugin has an incorrect format."
+                                    " Check that it has more than one line.")
+
+                driver = cls(auth['username'], auth['password'], project=auth['project'])
+
+                self.dns_driver = driver
                 return driver
             else:
                 self.log_error(
@@ -199,6 +244,12 @@ class GCECloudConnector(CloudConnector):
         """
         instance_type_name = radl.getValue('instance_type')
 
+        cpu = 1
+        cpu_op = ">="
+        if radl.getFeature('cpu.count'):
+            cpu = radl.getValue('cpu.count')
+            cpu_op = radl.getFeature('cpu.count').getLogOperator()
+
         memory = 1
         memory_op = ">1"
         if radl.getFeature('memory.size'):
@@ -212,7 +263,11 @@ class GCECloudConnector(CloudConnector):
             if size.price is None:
                 size.price = 0
             if res is None or (size.price <= res.price and size.ram <= res.ram):
-                str_compare = "size.ram " + memory_op + " memory"
+                str_compare = ""
+                if 'guestCpus' in size.extra and size.extra['guestCpus']:
+                    str_compare = "size.extra['guestCpus'] " + cpu_op + " cpu and "
+                str_compare += "size.ram " + memory_op + " memory"
+
                 if eval(str_compare):
                     if not instance_type_name or size.name == instance_type_name:
                         res = size
@@ -440,6 +495,7 @@ class GCECloudConnector(CloudConnector):
             vm.info.systems[0].setValue('instance_id', str(vm.id))
             vm.info.systems[0].setValue('instance_name', str(vm.id))
             self.log_debug("Node successfully created.")
+
             res.append((True, vm))
 
         for _ in range(len(nodes), num_vm):
@@ -457,6 +513,7 @@ class GCECloudConnector(CloudConnector):
         if node:
             success = node.destroy()
             self.delete_disks(node)
+            self.del_dns_entries(vm, auth_data)
 
             if last:
                 self.delete_firewall(vm, node.driver)
@@ -663,10 +720,103 @@ class GCECloudConnector(CloudConnector):
 
             vm.setIps(node.public_ips, node.private_ips)
             self.attach_volumes(vm, node)
+            self.add_dns_entries(vm, auth_data)
         else:
             vm.state = VirtualMachine.OFF
 
         return (True, vm)
+
+    def add_dns_entries(self, vm, auth_data):
+        """
+        Add the required entries in the Google DNS system
+
+        Arguments:
+           - vm(:py:class:`IM.VirtualMachine`): VM information.
+           - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
+        """
+        try:
+            driver = self.get_dns_driver(auth_data)
+            system = vm.info.systems[0]
+            for net_name in system.getNetworkIDs():
+                num_conn = system.getNumNetworkWithConnection(net_name)
+                ip = system.getIfaceIP(num_conn)
+                (hostname, domain) = vm.getRequestedNameIface(num_conn,
+                                                              default_hostname=Config.DEFAULT_VM_NAME,
+                                                              default_domain=Config.DEFAULT_DOMAIN)
+                if domain != "localdomain" and ip:
+                    if not domain.endswith("."):
+                        domain += "."
+                    zone = [z for z in driver.iterate_zones() if z.domain == domain]
+                    if not zone:
+                        self.log_debug("Creating DNS zone %s" % domain)
+                        zone = driver.create_zone(domain)
+                    else:
+                        zone = zone[0]
+                        self.log_debug("DNS zone %s exists. Do not create." % domain)
+
+                    if zone:
+                        fqdn = hostname + "." + domain
+                        record = [r for r in driver.iterate_records(zone) if r.name == fqdn]
+                        if not record:
+                            self.log_debug("Creating DNS record %s." % fqdn)
+                            driver.create_record(fqdn, zone, RecordType.A, dict(ttl=300, rrdatas=[ip]))
+                        else:
+                            self.log_debug("DNS record %s exists. Do not create." % fqdn)
+
+            return True
+        except Exception:
+            self.log_exception("Error creating DNS entries")
+            return False
+
+    def del_dns_entries(self, vm, auth_data):
+        """
+        Delete the added entries in the Google DNS system
+
+        Arguments:
+           - vm(:py:class:`IM.VirtualMachine`): VM information.
+           - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
+        """
+        try:
+            driver = self.get_dns_driver(auth_data)
+            system = vm.info.systems[0]
+            for net_name in system.getNetworkIDs():
+                num_conn = system.getNumNetworkWithConnection(net_name)
+                ip = system.getIfaceIP(num_conn)
+                (hostname, domain) = vm.getRequestedNameIface(num_conn,
+                                                              default_hostname=Config.DEFAULT_VM_NAME,
+                                                              default_domain=Config.DEFAULT_DOMAIN)
+                if domain != "localdomain" and ip:
+                    if not domain.endswith("."):
+                        domain += "."
+                    zone = [z for z in driver.iterate_zones() if z.domain == domain]
+                    if not zone:
+                        self.log_debug("The DNS zone %s does not exists. Do not delete records." % domain)
+                    else:
+                        zone = zone[0]
+                        fqdn = hostname + "." + domain
+                        record = [r for r in driver.iterate_records(zone) if r.name == fqdn]
+                        if not record:
+                            self.log_debug("DNS record %s does not exists. Do not delete." % fqdn)
+                        else:
+                            record = record[0]
+                            if record.data['rrdatas'] != [ip]:
+                                self.log_debug("DNS record %s mapped to unexpected IP: %s != %s."
+                                               "Do not delete." % (fqdn, record.data['rrdatas'], ip))
+                            else:
+                                self.log_debug("Deleting DNS record %s." % fqdn)
+                                if not driver.delete_record(record):
+                                    self.log_error("Error deleting DNS record %s." % fqdn)
+
+                        # if there are no records (except the NS and SOA auto added ones), delete the zone
+                        all_records = [r for r in driver.iterate_records(zone)
+                                       if r.type not in [RecordType.NS, RecordType.SOA]]
+                        if not all_records:
+                            driver.delete_zone(zone)
+
+            return True
+        except Exception:
+            self.log_exception("Error deleting DNS entries")
+            return False
 
     def start(self, vm, auth_data):
         driver = self.get_driver(auth_data)
