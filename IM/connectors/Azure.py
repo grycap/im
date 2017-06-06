@@ -455,7 +455,7 @@ class AzureCloudConnector(CloudConnector):
 
         if not vnet:
             # Create VNet in the RG of the Inf
-            async_vnet_creation = network_client.virtual_networks.create_or_update(
+            network_client.virtual_networks.create_or_update(
                 group_name,
                 "privates",
                 {
@@ -465,7 +465,6 @@ class AzureCloudConnector(CloudConnector):
                     }
                 }
             )
-            async_vnet_creation.wait()
 
             subnets = {}
             for i, net in enumerate(radl.networks):
@@ -592,7 +591,7 @@ class AzureCloudConnector(CloudConnector):
 
             try:
                 # Attach data disk
-                async_vm_update = compute_client.virtual_machines.create_or_update(
+                compute_client.virtual_machines.create_or_update(
                     group_name,
                     vm_name,
                     {
@@ -611,7 +610,6 @@ class AzureCloudConnector(CloudConnector):
                         }
                     }
                 )
-                async_vm_update.wait()
             except Exception as ex:
                 self.log_exception("Error attaching disk %d to VM %s" % (cont, vm_name))
                 return False, "Error attaching disk %d to VM %s: %s" % (cont, vm_name, str(ex))
@@ -737,7 +735,7 @@ class AzureCloudConnector(CloudConnector):
             # Delete Resource group and everything in it
             resource_client = ResourceManagementClient(credentials, subscription_id)
             self.log_debug("Removing RG: %s" % group_name)
-            resource_client.resource_groups.delete(group_name).wait()
+            resource_client.resource_groups.delete(group_name)
 
             # if it is the last VM delete the RG of the Inf
             if last:
@@ -797,7 +795,7 @@ class AzureCloudConnector(CloudConnector):
 
             # Start the VM
             async_vm_start = compute_client.virtual_machines.start(group_name, vm_name)
-            async_vm_start.wait()
+            # async_vm_start.wait()
 
             return self.updateVMInfo(vm, auth_data)
         except Exception as ex:
