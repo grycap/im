@@ -9,6 +9,13 @@ How to launch the IM service using docker::
 ```sh
 $ sudo docker run -d -p 8899:8899 -p 8800:8800 --name im indigodatacloud/im
 ```
+
+To make the IM data persistent you also have to specify a persistent location for the IM database using the IM_DATA_DB environment variable and adding a volume::
+
+```sh
+$ sudo docker run -d -p 8899:8899 -p 8800:8800 -v "/some_local_path/db:/db" -e IM_DATA_DB=/db/inf.dat --name im indigodatacloud/im
+```
+
 You can also specify an external MySQL server to store IM data using the IM_DATA_DB environment variable::
 
 ```sh
