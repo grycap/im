@@ -34,7 +34,7 @@ from radl import radl_parse
 from IM.VirtualMachine import VirtualMachine
 from IM.InfrastructureInfo import InfrastructureInfo
 from IM.connectors.Azure import AzureCloudConnector
-from mock import patch, MagicMock
+from mock import patch, MagicMock, call
 
 
 def read_file_as_string(file_name):
@@ -179,8 +179,9 @@ class TestAzureConnector(unittest.TestCase):
 
     @patch('IM.connectors.Azure.NetworkManagementClient')
     @patch('IM.connectors.Azure.ComputeManagementClient')
+    @patch('IM.connectors.Azure.DnsManagementClient')
     @patch('IM.connectors.Azure.UserPassCredentials')
-    def test_30_updateVMInfo(self, credentials, compute_client, network_client):
+    def test_30_updateVMInfo(self, credentials, dns_client, compute_client, network_client):
         radl_data = """
             network net (outbound = 'yes')
             system test (
@@ -188,7 +189,7 @@ class TestAzureConnector(unittest.TestCase):
             cpu.count=1 and
             memory.size=512m and
             net_interface.0.connection = 'net' and
-            net_interface.0.dns_name = 'test' and
+            net_interface.0.dns_name = 'test.domain.com' and
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'azr://Canonical/UbuntuServer/16.04.0-LTS/latest' and
             disk.0.os.credentials.username = 'user' and
@@ -214,14 +215,14 @@ class TestAzureConnector(unittest.TestCase):
         compute_client.return_value = cclient
         cclient.virtual_machine_sizes.list.return_value = instace_types
 
-        vm = MagicMock()
-        vm.provisioning_state = "Succeeded"
-        vm.hardware_profile.vm_size = "instance_type1"
-        vm.location = "northeurope"
+        avm = MagicMock()
+        avm.provisioning_state = "Succeeded"
+        avm.hardware_profile.vm_size = "instance_type1"
+        avm.location = "northeurope"
         ni = MagicMock()
         ni.id = "/subscriptions/subscription-id/resourceGroups/rg0/providers/Microsoft.Network/networkInterfaces/ni-0"
-        vm.network_profile.network_interfaces = [ni]
-        cclient.virtual_machines.get.return_value = vm
+        avm.network_profile.network_interfaces = [ni]
+        cclient.virtual_machines.get.return_value = avm
 
         nclient = MagicMock()
         network_client.return_value = nclient
@@ -237,9 +238,19 @@ class TestAzureConnector(unittest.TestCase):
         pub_ip_res.ip_address = "13.0.0.1"
         nclient.public_ip_addresses.get.return_value = pub_ip_res
 
+        dclient = MagicMock()
+        dns_client.return_value = dclient
+        dclient.zones.get.return_value = None
+        dclient.record_sets.get.return_value = None
+
         success, vm = azure_cloud.updateVMInfo(vm, auth)
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
+        self.assertEquals(dclient.zones.create_or_update.call_args_list,
+                          [call('rg0', 'domain.com', {'location': 'global'})])
+        self.assertEquals(dclient.record_sets.create_or_update.call_args_list,
+                          [call('rg0', 'domain.com', 'test', 'A',
+                                {'arecords': [{'ipv4_address': '13.0.0.1'}], 'ttl': 300})])
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('IM.connectors.Azure.ComputeManagementClient')
@@ -351,9 +362,19 @@ class TestAzureConnector(unittest.TestCase):
         auth = Authentication([{'id': 'azure', 'type': 'Azure', 'subscription_id': 'subscription_id',
                                 'username': 'user', 'password': 'password'}])
         azure_cloud = self.get_azure_cloud()
+        radl_data = """
+            network net (outbound = 'yes')
+            system test (
+            cpu.count=1 and
+            memory.size=512m and
+            net_interface.0.connection = 'net' and
+            net_interface.0.ip = '158.42.1.1' and
+            net_interface.0.dns_name = 'test.domain.com'
+            )"""
+        radl = radl_parse.parse_radl(radl_data)
 
         inf = MagicMock()
-        vm = VirtualMachine(inf, "rg0/vm0", azure_cloud.cloud, "", "", azure_cloud, 1)
+        vm = VirtualMachine(inf, "rg0/vm0", azure_cloud.cloud, radl, radl, azure_cloud, 1)
 
         success, _ = azure_cloud.finalize(vm, True, auth)
 
