@@ -34,7 +34,7 @@ from radl import radl_parse
 from IM.VirtualMachine import VirtualMachine
 from IM.InfrastructureInfo import InfrastructureInfo
 from IM.connectors.GCE import GCECloudConnector
-from mock import patch, MagicMock
+from mock import patch, MagicMock, call
 from libcloud.compute.base import NodeSize
 
 
@@ -109,11 +109,13 @@ class TestGCEConnector(unittest.TestCase):
         node_size.price = 1.0
         node_size.disk = 1
         node_size.name = "small"
+        node_size.extra = {'guestCpus': 1}
         node_size2 = MagicMock()
         node_size2.ram = 1024
         node_size2.price = None
         node_size2.disk = 2
         node_size2.name = "medium"
+        node_size2.extra = {'guestCpus': 2}
         driver.list_sizes.return_value = [node_size, node_size2]
 
         gce_cloud = self.get_gce_cloud()
@@ -156,6 +158,7 @@ class TestGCEConnector(unittest.TestCase):
         node_size.disk = 1
         node_size.vcpus = 1
         node_size.name = "small"
+        node_size.extra = {'guestCpus': 1}
         driver.list_sizes.return_value = [node_size]
 
         driver.ex_get_image.return_value = "image"
@@ -188,7 +191,8 @@ class TestGCEConnector(unittest.TestCase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('libcloud.compute.drivers.gce.GCENodeDriver')
-    def test_30_updateVMInfo(self, get_driver):
+    @patch('libcloud.dns.drivers.google.GoogleDNSDriver')
+    def test_30_updateVMInfo(self, get_dns_driver, get_driver):
         radl_data = """
             network net (outbound = 'yes')
             system test (
@@ -196,7 +200,7 @@ class TestGCEConnector(unittest.TestCase):
             cpu.count=1 and
             memory.size=512m and
             net_interface.0.connection = 'net' and
-            net_interface.0.dns_name = 'test' and
+            net_interface.0.dns_name = 'test.domain.com' and
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'gce://us-central1-a/centos-6' and
             disk.0.os.credentials.username = 'user' and
@@ -216,13 +220,14 @@ class TestGCEConnector(unittest.TestCase):
 
         driver = MagicMock()
         get_driver.return_value = driver
+        dns_driver = MagicMock()
+        get_dns_driver.return_value = dns_driver
 
         node = MagicMock()
         zone = MagicMock()
         node.id = "1"
         node.state = "running"
         node.extra = {'flavorId': 'small'}
-        node.public_ips = []
         node.public_ips = ['158.42.1.1']
         node.private_ips = ['10.0.0.1']
         node.driver = driver
@@ -237,9 +242,20 @@ class TestGCEConnector(unittest.TestCase):
         volume.extra = {'status': 'READY'}
         driver.create_volume.return_value = volume
 
+        dns_driver.iterate_zones.return_value = []
+        dns_driver.iterate_records.return_value = []
+
         success, vm = gce_cloud.updateVMInfo(vm, auth)
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
+
+        self.assertEquals(dns_driver.create_zone.call_count, 1)
+        self.assertEquals(dns_driver.create_record.call_count, 1)
+        self.assertEquals(dns_driver.create_zone.call_args_list[0], call('domain.com.'))
+        self.assertEquals(dns_driver.create_record.call_args_list[0][0][0], 'test.domain.com.')
+        self.assertEquals(dns_driver.create_record.call_args_list[0][0][2], 'A')
+        self.assertEquals(dns_driver.create_record.call_args_list[0][0][3], {'rrdatas': ['158.42.1.1'], 'ttl': 300})
+
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('libcloud.compute.drivers.gce.GCENodeDriver')
@@ -283,16 +299,21 @@ class TestGCEConnector(unittest.TestCase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('libcloud.compute.drivers.gce.GCENodeDriver')
+    @patch('libcloud.dns.drivers.google.GoogleDNSDriver')
     @patch('time.sleep')
-    def test_60_finalize(self, sleep, get_driver):
+    def test_60_finalize(self, sleep, get_dns_driver, get_driver):
         auth = Authentication([{'id': 'one', 'type': 'GCE', 'username': 'user',
                                 'password': 'pass\npass', 'project': 'proj'}])
         gce_cloud = self.get_gce_cloud()
 
         radl_data = """
+            network net (outbound = 'yes')
             system test (
-            cpu.count>=2 and
-            memory.size>=2048m
+            cpu.count=2 and
+            memory.size=2048m and
+            net_interface.0.connection = 'net' and
+            net_interface.0.dns_name = 'test.domain.com' and
+            net_interface.0.ip = '158.42.1.1'
             )"""
         radl = radl_parse.parse_radl(radl_data)
 
@@ -300,8 +321,9 @@ class TestGCEConnector(unittest.TestCase):
         vm = VirtualMachine(inf, "1", gce_cloud.cloud, radl, radl, gce_cloud, 1)
 
         driver = MagicMock()
-        driver.name = "OpenStack"
         get_driver.return_value = driver
+        dns_driver = MagicMock()
+        get_dns_driver.return_value = dns_driver
 
         node = MagicMock()
         node.destroy.return_value = True
@@ -314,9 +336,19 @@ class TestGCEConnector(unittest.TestCase):
         volume.destroy.return_value = True
         driver.ex_get_volume.return_value = volume
 
+        zone = MagicMock()
+        zone.domain = "domain.com."
+        dns_driver.iterate_zones.return_value = [zone]
+        record = MagicMock()
+        record.name = 'test.domain.com.'
+        record.data = {'rrdatas': ['158.42.1.1'], 'ttl': 300}
+        dns_driver.iterate_records.return_value = [record]
+
         success, _ = gce_cloud.finalize(vm, True, auth)
 
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
+        self.assertEquals(dns_driver.delete_record.call_count, 1)
+        self.assertEquals(dns_driver.delete_record.call_args_list[0][0][0].name, 'test.domain.com.')
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
 

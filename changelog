@@ -301,3 +301,10 @@ IM 1.5.4
     * Fix error in Azure connector creating a VM with two nics.
     * Fix error in Azure connector creating Storage Account with more than 24 chars.
 
+IM 1.5.5
+    * Fix error getting IP info in OCCI conn.
+    * Enable to reset the add_public_ip_count in the OCCI/OST conns.
+    * Improve Azure instance_type selection.
+    * Improve GCE instance type selection.
+    * Manage DNS records in EC2, Azure and GCE connectors.
+    * Fix error in Azure conn creating a VM with only a public net attached.
