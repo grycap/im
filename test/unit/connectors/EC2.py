@@ -280,7 +280,9 @@ class TestEC2Connector(unittest.TestCase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('IM.connectors.EC2.EC2CloudConnector.get_connection')
-    def test_30_updateVMInfo(self, get_connection):
+    @patch('boto.route53.connect_to_region')
+    @patch('boto.route53.record.ResourceRecordSets')
+    def test_30_updateVMInfo(self, record_sets, connect_to_region, get_connection):
         radl_data = """
             network net (outbound = 'yes')
             system test (
@@ -289,7 +291,7 @@ class TestEC2Connector(unittest.TestCase):
             memory.size=512m and
             net_interface.0.connection = 'net' and
             net_interface.0.ip = '158.42.1.1' and
-            net_interface.0.dns_name = 'test' and
+            net_interface.0.dns_name = 'test.domain.com' and
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'one://server.com/1' and
             disk.0.os.credentials.username = 'user' and
@@ -335,9 +337,25 @@ class TestEC2Connector(unittest.TestCase):
         conn.create_volume.return_value = volume
         conn.attach_volume.return_value = True
 
+        dns_conn = MagicMock()
+        connect_to_region.return_value = dns_conn
+
+        dns_conn.get_zone.return_value = None
+        zone = MagicMock()
+        zone.get_a.return_value = None
+        dns_conn.create_zone.return_value = zone
+        changes = MagicMock()
+        record_sets.return_value = changes
+        change = MagicMock()
+        changes.add_change.return_value = change
+
         success, vm = ec2_cloud.updateVMInfo(vm, auth)
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
+        self.assertEquals(dns_conn.create_zone.call_count, 1)
+        self.assertEquals(dns_conn.create_zone.call_args_list[0][0][0], "domain.com.")
+        self.assertEquals(changes.add_change.call_args_list, [call('CREATE', 'test.domain.com.', 'A')])
+        self.assertEquals(change.add_value.call_args_list, [call('158.42.1.1')])
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('IM.connectors.EC2.EC2CloudConnector.get_connection')
@@ -497,7 +515,9 @@ class TestEC2Connector(unittest.TestCase):
 
     @patch('IM.connectors.EC2.EC2CloudConnector.get_connection')
     @patch('time.sleep')
-    def test_60_finalize(self, sleep, get_connection):
+    @patch('boto.route53.connect_to_region')
+    @patch('boto.route53.record.ResourceRecordSets')
+    def test_60_finalize(self, record_sets, connect_to_region, sleep, get_connection):
         radl_data = """
             network net (outbound = 'yes')
             system test (
@@ -506,7 +526,7 @@ class TestEC2Connector(unittest.TestCase):
             memory.size=512m and
             net_interface.0.connection = 'net' and
             net_interface.0.ip = '158.42.1.1' and
-            net_interface.0.dns_name = 'test' and
+            net_interface.0.dns_name = 'test.domain.com' and
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'one://server.com/1' and
             disk.0.os.credentials.username = 'user' and
@@ -561,9 +581,27 @@ class TestEC2Connector(unittest.TestCase):
         sg.delete.return_value = True
         conn.get_all_security_groups.return_value = [sg]
 
+        dns_conn = MagicMock()
+        connect_to_region.return_value = dns_conn
+
+        zone = MagicMock()
+        record = MagicMock()
+        zone.id = "zid"
+        zone.get_a.return_value = record
+        dns_conn.get_all_rrsets.return_value = []
+        dns_conn.get_zone.return_value = zone
+        changes = MagicMock()
+        record_sets.return_value = changes
+        change = MagicMock()
+        changes.add_change.return_value = change
+
         success, _ = ec2_cloud.finalize(vm, True, auth)
 
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
+        self.assertEquals(dns_conn.delete_hosted_zone.call_count, 1)
+        self.assertEquals(dns_conn.delete_hosted_zone.call_args_list[0][0][0], zone.id)
+        self.assertEquals(changes.add_change.call_args_list, [call('DELETE', 'test.domain.com.', 'A')])
+        self.assertEquals(change.add_value.call_args_list, [call('158.42.1.1')])
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('IM.connectors.EC2.EC2CloudConnector.get_connection')

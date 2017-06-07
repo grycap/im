@@ -21,12 +21,14 @@ from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
 from radl.radl import Feature
+from IM.config import Config
 
 try:
     from azure.mgmt.resource import ResourceManagementClient
     from azure.mgmt.storage import StorageManagementClient
     from azure.mgmt.compute import ComputeManagementClient
     from azure.mgmt.network import NetworkManagementClient
+    from azure.mgmt.dns import DnsManagementClient
     from azure.common.credentials import UserPassCredentials
 except Exception as ex:
     print("WARN: Python Azure SDK not correctly installed. AzureCloudConnector will not work!.")
@@ -142,28 +144,25 @@ class AzureCloudConnector(CloudConnector):
             disk_free_op = system.getFeature('memory.size').getLogOperator()
 
         compute_client = ComputeManagementClient(credentials, subscription_id)
-        instace_types = compute_client.virtual_machine_sizes.list(location)
+        instace_types = list(compute_client.virtual_machine_sizes.list(location))
+        instace_types.sort(key=lambda x: (x.number_of_cores, x.memory_in_mb, x.resource_disk_size_in_mb))
 
         res = None
         default = None
-        for instace_type in list(instace_types):
+        for instace_type in instace_types:
             if instace_type.name == self.INSTANCE_TYPE:
                 default = instace_type
             # get the instance type with the lowest Memory
-            if res is None or (instace_type.memory_in_mb <= res.memory_in_mb):
+            if res is None:
                 str_compare = "instace_type.number_of_cores " + cpu_op + " cpu "
                 str_compare += " and instace_type.memory_in_mb " + memory_op + " memory "
-                str_compare += " and instace_type.resource_disk_size_in_mb " + \
-                    disk_free_op + " disk_free"
+                str_compare += " and instace_type.resource_disk_size_in_mb " + disk_free_op + " disk_free"
 
                 if eval(str_compare):
                     if not instance_type_name or instace_type.name == instance_type_name:
-                        res = instace_type
+                        return instace_type
 
-        if res is None:
-            return default
-        else:
-            return res
+        return default
 
     def update_system_info_from_instance(self, system, instance_type):
         """
@@ -283,7 +282,21 @@ class AzureCloudConnector(CloudConnector):
         if radl.systems[0].getValue('availability_zone'):
             location = radl.systems[0].getValue('availability_zone')
 
-        hasPublicIP = radl.hasPublicNet(system.name)
+        i = 0
+        hasPublicIP = False
+        hasPrivateIP = False
+        while system.getValue("net_interface." + str(i) + ".connection"):
+            network_name = system.getValue("net_interface." + str(i) + ".connection")
+            # TODO: check how to do that
+            # fixed_ip = system.getValue("net_interface." + str(i) + ".ip")
+            network = radl.get_network_by_id(network_name)
+
+            if network.isPublic():
+                hasPublicIP = True
+            else:
+                hasPrivateIP = True
+
+            i += 1
 
         i = 0
         res = []
@@ -294,7 +307,7 @@ class AzureCloudConnector(CloudConnector):
             # fixed_ip = system.getValue("net_interface." + str(i) + ".ip")
             network = radl.get_network_by_id(network_name)
 
-            if network.isPublic():
+            if network.isPublic() and hasPrivateIP:
                 # Public nets are not added as nics
                 i += 1
                 continue
@@ -442,7 +455,7 @@ class AzureCloudConnector(CloudConnector):
 
         if not vnet:
             # Create VNet in the RG of the Inf
-            async_vnet_creation = network_client.virtual_networks.create_or_update(
+            network_client.virtual_networks.create_or_update(
                 group_name,
                 "privates",
                 {
@@ -452,7 +465,6 @@ class AzureCloudConnector(CloudConnector):
                     }
                 }
             )
-            async_vnet_creation.wait()
 
             subnets = {}
             for i, net in enumerate(radl.networks):
@@ -497,6 +509,7 @@ class AzureCloudConnector(CloudConnector):
 
         res = []
         i = 0
+        all_ok = True
         while i < num_vm:
             group_name = None
             try:
@@ -523,9 +536,11 @@ class AzureCloudConnector(CloudConnector):
                                                                          credentials, subscription_id, location)
 
                 if not storage_account:
+                    all_ok = False
                     res.append((False, error_msg))
+                    # delete VM group
                     resource_client.resource_groups.delete(group_name)
-                    break
+                    continue
 
                 nics = self.create_nics(inf, radl, credentials, subscription_id, group_name, subnets)
 
@@ -534,7 +549,7 @@ class AzureCloudConnector(CloudConnector):
 
                 compute_client = ComputeManagementClient(credentials, subscription_id)
                 async_vm_creation = compute_client.virtual_machines.create_or_update(group_name, vm_name, vm_parameters)
-                azure_vm = async_vm_creation.result()
+                # azure_vm = async_vm_creation.result()
 
                 vm = VirtualMachine(inf, group_name + '/' + vm_name, self.cloud, radl, requested_radl, self)
                 vm.info.systems[0].setValue('instance_id', group_name + '/' + vm_name)
@@ -543,6 +558,7 @@ class AzureCloudConnector(CloudConnector):
 
                 res.append((True, vm))
             except Exception as ex:
+                all_ok = False
                 self.log_exception("Error creating the VM")
                 res.append((False, "Error creating the VM: " + str(ex)))
 
@@ -552,6 +568,10 @@ class AzureCloudConnector(CloudConnector):
                     resource_client.resource_groups.delete(group_name)
 
             i += 1
+
+        if not all_ok:
+            # Remove the general group
+            resource_client.resource_groups.delete("rg-%s" % inf.id)
 
         return res
 
@@ -571,7 +591,7 @@ class AzureCloudConnector(CloudConnector):
 
             try:
                 # Attach data disk
-                async_vm_update = compute_client.virtual_machines.create_or_update(
+                compute_client.virtual_machines.create_or_update(
                     group_name,
                     vm_name,
                     {
@@ -590,7 +610,6 @@ class AzureCloudConnector(CloudConnector):
                         }
                     }
                 )
-                async_vm_update.wait()
             except Exception as ex:
                 self.log_exception("Error attaching disk %d to VM %s" % (cont, vm_name))
                 return False, "Error attaching disk %d to VM %s: %s" % (cont, vm_name, str(ex))
@@ -626,7 +645,59 @@ class AzureCloudConnector(CloudConnector):
 
         # Update IP info
         self.setIPs(vm, virtual_machine.network_profile, credentials, subscription_id)
+        self.add_dns_entries(vm, credentials, subscription_id)
         return (True, vm)
+
+    def add_dns_entries(self, vm, credentials, subscription_id):
+        """
+        Add the required entries in the Azure DNS service
+
+        Arguments:
+           - vm(:py:class:`IM.VirtualMachine`): VM information.
+           - credentials, subscription_id: Authentication data to access cloud provider.
+        """
+        try:
+            group_name = vm.id.split('/')[0]
+            dns_client = DnsManagementClient(credentials, subscription_id)
+            system = vm.info.systems[0]
+            for net_name in system.getNetworkIDs():
+                num_conn = system.getNumNetworkWithConnection(net_name)
+                ip = system.getIfaceIP(num_conn)
+                (hostname, domain) = vm.getRequestedNameIface(num_conn,
+                                                              default_hostname=Config.DEFAULT_VM_NAME,
+                                                              default_domain=Config.DEFAULT_DOMAIN)
+                if domain != "localdomain" and ip:
+                    zone = None
+                    try:
+                        zone = dns_client.zones.get(group_name, domain)
+                    except Exception:
+                        pass
+                    if not zone:
+                        self.log_debug("Creating DNS zone %s" % domain)
+                        zone = dns_client.zones.create_or_update(group_name, domain,
+                                                                 {'location': 'global'})
+                    else:
+                        self.log_debug("DNS zone %s exists. Do not create." % domain)
+
+                    if zone:
+                        record = None
+                        try:
+                            record = dns_client.record_sets.get(group_name, domain, hostname, 'A')
+                        except Exception:
+                            pass
+                        if not record:
+                            self.log_debug("Creating DNS record %s." % hostname)
+                            record_data = {"ttl": 300, "arecords": [{"ipv4_address": ip}]}
+                            record_set = dns_client.record_sets.create_or_update(group_name, domain,
+                                                                                 hostname, 'A',
+                                                                                 record_data)
+                        else:
+                            self.log_debug("DNS record %s exists. Do not create." % hostname)
+
+            return True
+        except Exception:
+            self.log_exception("Error creating DNS entries")
+            return False
 
     def setIPs(self, vm, network_profile, credentials, subscription_id):
         """
@@ -664,7 +735,7 @@ class AzureCloudConnector(CloudConnector):
             # Delete Resource group and everything in it
             resource_client = ResourceManagementClient(credentials, subscription_id)
             self.log_debug("Removing RG: %s" % group_name)
-            resource_client.resource_groups.delete(group_name).wait()
+            resource_client.resource_groups.delete(group_name)
 
             # if it is the last VM delete the RG of the Inf
             if last:
@@ -724,7 +795,7 @@ class AzureCloudConnector(CloudConnector):
 
             # Start the VM
             async_vm_start = compute_client.virtual_machines.start(group_name, vm_name)
-            async_vm_start.wait()
+            # async_vm_start.wait()
 
             return self.updateVMInfo(vm, auth_data)
         except Exception as ex:

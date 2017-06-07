@@ -533,7 +533,8 @@ class OpenNebulaCloudConnector(CloudConnector):
         else:
             return (False, "Error in the one.vm.action return value")
 
-        self.delete_security_groups(vm.inf, auth_data)
+        if success:
+            self.delete_security_groups(vm.inf, auth_data)
 
         return (success, err)
 
