@@ -94,13 +94,15 @@ class TestREST(unittest.TestCase):
 
         GetInfrastructureList.side_effect = InvaliddUserException()
         res = RESTGetInfrastructureList()
-        self.assertEqual(res, '{"message": "Error Getting Inf. List: '
-                         'Invalid InfrastructureManager credentials", "code": 401}')
+        res = json.loads(res)
+        self.assertEqual(res, {"message": "Error Getting Inf. List: Invalid InfrastructureManager credentials",
+                               "code": 401})
 
         GetInfrastructureList.side_effect = UnauthorizedUserException()
         res = RESTGetInfrastructureList()
-        self.assertEqual(res, '{"message": "Error Getting Inf. List: '
-                         'Access to this infrastructure not granted.", "code": 400}')
+        res = json.loads(res)
+        self.assertEqual(res, {"message": "Error Getting Inf. List: Access to this infrastructure not granted.",
+                               "code": 400})
 
     @patch("IM.InfrastructureManager.InfrastructureManager.GetInfrastructureList")
     @patch("bottle.request")
@@ -656,7 +658,8 @@ class TestREST(unittest.TestCase):
     def test_return_error(self, get_media_type):
         get_media_type.return_value = ["application/json"]
         msg = return_error(400, "Error msg.")
-        self.assertEqual(msg, '{"message": "Error msg.", "code": 400}')
+        res = json.loads(msg)
+        self.assertEqual(res, {"message": "Error msg.", "code": 400})
         get_media_type.return_value = "text/html"
         msg = return_error(400, "Error msg.")
         self.assertEqual(msg, ('<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">\n<html>\n    <head>\n'
