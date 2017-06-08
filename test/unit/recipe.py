@@ -45,5 +45,11 @@ class TestRecipe(unittest.TestCase):
         self.assertEqual(res[0].name, "app")
         self.assertEqual(res[0].version, "1.0")
 
+        db.select.return_value = [("app", "1.0", "mod", "rec", 1, "gmod", "desc", "req")]
+        res = Recipe.getInstallableApps()
+        self.assertEqual(str(res[0][0]), "version = '1.0' and\nname = 'app'")
+        self.assertEqual(res[0][1], "mod")
+        self.assertEqual(res[0][2], "gmod")
+
 if __name__ == '__main__':
     unittest.main()

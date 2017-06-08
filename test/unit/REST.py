@@ -683,7 +683,7 @@ class TestREST(unittest.TestCase):
         radl = parse_radl("system test (cpu.count = 1)")
         info = format_output(radl)
         info = json.loads(info)
-        self.assertEqual(info, [{"cpu.count":1,"class":"system","id":"test"}])
+        self.assertEqual(info, [{"cpu.count": 1, "class": "system", "id": "test"}])
         info = format_output(radl, field_name="radl")
         info = json.loads(info)
         self.assertEqual(info, {"radl": [{"cpu.count": 1, "class": "system", "id": "test"}]})
