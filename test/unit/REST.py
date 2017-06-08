@@ -28,6 +28,11 @@ sys.path.append(".")
 
 from radl.radl_parse import parse_radl
 from IM import __version__ as version
+from IM.InfrastructureManager import (DeletedInfrastructureException,
+                                      IncorrectInfrastructureException,
+                                      UnauthorizedUserException,
+                                      InvaliddUserException)
+from IM.InfrastructureInfo import IncorrectVMException, DeletedVMException
 from IM.auth import Authentication
 from IM.REST import (RESTDestroyInfrastructure,
                      RESTGetInfrastructureInfo,
@@ -45,7 +50,9 @@ from IM.REST import (RESTDestroyInfrastructure,
                      RESTStartVM,
                      RESTStopVM,
                      RESTGeVersion,
-                     RESTCreateDiskSnapshot)
+                     RESTCreateDiskSnapshot,
+                     return_error,
+                     format_output)
 
 
 def read_file_as_bytes(file_name):
@@ -85,6 +92,16 @@ class TestREST(unittest.TestCase):
         self.assertEqual(res, ('{"uri-list": [{"uri": "http://imserver.com/infrastructures/1"},'
                                ' {"uri": "http://imserver.com/infrastructures/2"}]}'))
 
+        GetInfrastructureList.side_effect = InvaliddUserException()
+        res = RESTGetInfrastructureList()
+        self.assertEqual(res, '{"message": "Error Getting Inf. List: '
+                         'Invalid InfrastructureManager credentials", "code": 401}')
+
+        GetInfrastructureList.side_effect = UnauthorizedUserException()
+        res = RESTGetInfrastructureList()
+        self.assertEqual(res, '{"message": "Error Getting Inf. List: '
+                         'Access to this infrastructure not granted.", "code": 400}')
+
     @patch("IM.InfrastructureManager.InfrastructureManager.GetInfrastructureList")
     @patch("bottle.request")
     def test_GetInfrastructureListWithErrors(self, bottle_request, GetInfrastructureList):
@@ -112,6 +129,18 @@ class TestREST(unittest.TestCase):
         self.assertEqual(res, ("http://imserver.com/infrastructures/1/vms/1\n"
                                "http://imserver.com/infrastructures/1/vms/2"))
 
+        GetInfrastructureInfo.side_effect = DeletedInfrastructureException()
+        res = RESTGetInfrastructureInfo("1")
+        self.assertEqual(res, "Error Getting Inf. info: Deleted infrastructure.")
+
+        GetInfrastructureInfo.side_effect = IncorrectInfrastructureException()
+        res = RESTGetInfrastructureInfo("1")
+        self.assertEqual(res, "Error Getting Inf. info: Invalid infrastructure ID or access not granted.")
+
+        GetInfrastructureInfo.side_effect = UnauthorizedUserException()
+        res = RESTGetInfrastructureInfo("1")
+        self.assertEqual(res, "Error Getting Inf. info: Access to this infrastructure not granted.")
+
     @patch("IM.InfrastructureManager.InfrastructureManager.GetInfrastructureContMsg")
     @patch("IM.InfrastructureManager.InfrastructureManager.GetInfrastructureRADL")
     @patch("IM.InfrastructureManager.InfrastructureManager.GetInfrastructureState")
@@ -137,6 +166,18 @@ class TestREST(unittest.TestCase):
         res = RESTGetInfrastructureProperty("1", "radl")
         self.assertEqual(res, "radl")
 
+        GetInfrastructureRADL.side_effect = DeletedInfrastructureException()
+        res = RESTGetInfrastructureProperty("1", "radl")
+        self.assertEqual(res, "Error Getting Inf. prop: Deleted infrastructure.")
+
+        GetInfrastructureRADL.side_effect = IncorrectInfrastructureException()
+        res = RESTGetInfrastructureProperty("1", "radl")
+        self.assertEqual(res, "Error Getting Inf. prop: Invalid infrastructure ID or access not granted.")
+
+        GetInfrastructureRADL.side_effect = UnauthorizedUserException()
+        res = RESTGetInfrastructureProperty("1", "radl")
+        self.assertEqual(res, "Error Getting Inf. prop: Access to this infrastructure not granted.")
+
     @patch("IM.InfrastructureManager.InfrastructureManager.DestroyInfrastructure")
     @patch("bottle.request")
     def test_DestroyInfrastructure(self, bottle_request, DestroyInfrastructure):
@@ -148,6 +189,18 @@ class TestREST(unittest.TestCase):
 
         res = RESTDestroyInfrastructure("1")
         self.assertEqual(res, "")
+
+        DestroyInfrastructure.side_effect = DeletedInfrastructureException()
+        res = RESTDestroyInfrastructure("1")
+        self.assertEqual(res, "Error Destroying Inf: Deleted infrastructure.")
+
+        DestroyInfrastructure.side_effect = IncorrectInfrastructureException()
+        res = RESTDestroyInfrastructure("1")
+        self.assertEqual(res, "Error Destroying Inf: Invalid infrastructure ID or access not granted.")
+
+        DestroyInfrastructure.side_effect = UnauthorizedUserException()
+        res = RESTDestroyInfrastructure("1")
+        self.assertEqual(res, "Error Destroying Inf: Access to this infrastructure not granted.")
 
     @patch("IM.InfrastructureManager.InfrastructureManager.CreateInfrastructure")
     @patch("bottle.request")
@@ -175,6 +228,16 @@ class TestREST(unittest.TestCase):
 
         res = RESTCreateInfrastructure()
         self.assertEqual(res, "http://imserver.com/infrastructures/1")
+
+        bottle_request.body = read_file_as_bytes("../files/test_simple.json")
+        CreateInfrastructure.side_effect = InvaliddUserException()
+        res = RESTCreateInfrastructure()
+        self.assertEqual(res, "Error Getting Inf. info: Invalid InfrastructureManager credentials")
+
+        bottle_request.body = read_file_as_bytes("../files/test_simple.json")
+        CreateInfrastructure.side_effect = UnauthorizedUserException()
+        res = RESTCreateInfrastructure()
+        self.assertEqual(res, "Error Creating Inf.: Access to this infrastructure not granted.")
 
     @patch("IM.InfrastructureManager.InfrastructureManager.CreateInfrastructure")
     @patch("bottle.request")
@@ -213,6 +276,18 @@ class TestREST(unittest.TestCase):
         res = RESTGetVMInfo("1", "1")
         self.assertEqual(res, 'system test (\ncpu.count = 1\n)\n\n')
 
+        GetVMInfo.side_effect = DeletedInfrastructureException()
+        res = RESTGetVMInfo("1", "1")
+        self.assertEqual(res, "Error Getting VM. info: Deleted infrastructure.")
+
+        GetVMInfo.side_effect = IncorrectInfrastructureException()
+        res = RESTGetVMInfo("1", "1")
+        self.assertEqual(res, "Error Getting VM. info: Invalid infrastructure ID or access not granted.")
+
+        GetVMInfo.side_effect = UnauthorizedUserException()
+        res = RESTGetVMInfo("1", "1")
+        self.assertEqual(res, "Error Getting VM. info: Access to this infrastructure not granted.")
+
     @patch("IM.InfrastructureManager.InfrastructureManager.GetVMProperty")
     @patch("IM.InfrastructureManager.InfrastructureManager.GetVMContMsg")
     @patch("bottle.request")
@@ -231,6 +306,26 @@ class TestREST(unittest.TestCase):
 
         res = RESTGetVMProperty("1", "1", "contmsg")
         self.assertEqual(res, "contmsg")
+
+        GetVMProperty.side_effect = DeletedInfrastructureException()
+        res = RESTGetVMProperty("1", "1", "prop")
+        self.assertEqual(res, "Error Getting VM. property: Deleted infrastructure.")
+
+        GetVMProperty.side_effect = IncorrectInfrastructureException()
+        res = RESTGetVMProperty("1", "1", "prop")
+        self.assertEqual(res, "Error Getting VM. property: Invalid infrastructure ID or access not granted.")
+
+        GetVMProperty.side_effect = UnauthorizedUserException()
+        res = RESTGetVMProperty("1", "1", "prop")
+        self.assertEqual(res, "Error Getting VM. property: Access to this infrastructure not granted.")
+
+        GetVMProperty.side_effect = DeletedVMException()
+        res = RESTGetVMProperty("1", "1", "prop")
+        self.assertEqual(res, "Error Getting VM. property: Deleted VM.")
+
+        GetVMProperty.side_effect = IncorrectVMException()
+        res = RESTGetVMProperty("1", "1", "prop")
+        self.assertEqual(res, "Error Getting VM. property: Invalid VM ID")
 
     @patch("IM.InfrastructureManager.InfrastructureManager.AddResource")
     @patch("bottle.request")
@@ -258,6 +353,21 @@ class TestREST(unittest.TestCase):
         res = RESTAddResource("1")
         self.assertEqual(res, "http://imserver.com/infrastructures/1/vms/1")
 
+        bottle_request.body = read_file_as_bytes("../files/test_simple.json")
+        AddResource.side_effect = DeletedInfrastructureException()
+        res = RESTAddResource("1")
+        self.assertEqual(res, "Error Adding resources: Deleted infrastructure.")
+
+        bottle_request.body = read_file_as_bytes("../files/test_simple.json")
+        AddResource.side_effect = IncorrectInfrastructureException()
+        res = RESTAddResource("1")
+        self.assertEqual(res, "Error Adding resources: Invalid infrastructure ID or access not granted.")
+
+        bottle_request.body = read_file_as_bytes("../files/test_simple.json")
+        AddResource.side_effect = UnauthorizedUserException()
+        res = RESTAddResource("1")
+        self.assertEqual(res, "Error Adding resources: Access to this infrastructure not granted.")
+
     @patch("IM.InfrastructureManager.InfrastructureManager.RemoveResource")
     @patch("bottle.request")
     def test_RemoveResource(self, bottle_request, RemoveResource):
@@ -272,6 +382,26 @@ class TestREST(unittest.TestCase):
 
         res = RESTRemoveResource("1", "1,2")
         self.assertEqual(res, "")
+
+        RemoveResource.side_effect = DeletedInfrastructureException()
+        res = RESTRemoveResource("1", "1,2")
+        self.assertEqual(res, "Error Removing resources: Deleted infrastructure.")
+
+        RemoveResource.side_effect = IncorrectInfrastructureException()
+        res = RESTRemoveResource("1", "1,2")
+        self.assertEqual(res, "Error Removing resources: Invalid infrastructure ID or access not granted.")
+
+        RemoveResource.side_effect = UnauthorizedUserException()
+        res = RESTRemoveResource("1", "1,2")
+        self.assertEqual(res, "Error Removing resources: Access to this infrastructure not granted.")
+
+        RemoveResource.side_effect = DeletedVMException()
+        res = RESTRemoveResource("1", "1,2")
+        self.assertEqual(res, "Error Removing resources: Deleted VM.")
+
+        RemoveResource.side_effect = IncorrectVMException()
+        res = RESTRemoveResource("1", "1,2")
+        self.assertEqual(res, "Error Removing resources: Invalid VM ID")
 
     @patch("IM.InfrastructureManager.InfrastructureManager.AlterVM")
     @patch("bottle.request")
@@ -298,6 +428,31 @@ class TestREST(unittest.TestCase):
         res = RESTAlterVM("1", "1")
         self.assertEqual(res, "vm_info")
 
+        bottle_request.body = read_file_as_bytes("../files/test_simple.json")
+        AlterVM.side_effect = DeletedInfrastructureException()
+        res = RESTAlterVM("1", "1")
+        self.assertEqual(res, "Error modifying resources: Deleted infrastructure.")
+
+        bottle_request.body = read_file_as_bytes("../files/test_simple.json")
+        AlterVM.side_effect = IncorrectInfrastructureException()
+        res = RESTAlterVM("1", "1")
+        self.assertEqual(res, "Error modifying resources: Invalid infrastructure ID or access not granted.")
+
+        bottle_request.body = read_file_as_bytes("../files/test_simple.json")
+        AlterVM.side_effect = UnauthorizedUserException()
+        res = RESTAlterVM("1", "1")
+        self.assertEqual(res, "Error modifying resources: Access to this infrastructure not granted.")
+
+        bottle_request.body = read_file_as_bytes("../files/test_simple.json")
+        AlterVM.side_effect = DeletedVMException()
+        res = RESTAlterVM("1", "1")
+        self.assertEqual(res, "Error modifying resources: Deleted VM.")
+
+        bottle_request.body = read_file_as_bytes("../files/test_simple.json")
+        AlterVM.side_effect = IncorrectVMException()
+        res = RESTAlterVM("1", "1")
+        self.assertEqual(res, "Error modifying resources: Invalid VM ID")
+
     @patch("IM.InfrastructureManager.InfrastructureManager.Reconfigure")
     @patch("bottle.request")
     def test_Reconfigure(self, bottle_request, Reconfigure):
@@ -323,6 +478,21 @@ class TestREST(unittest.TestCase):
         res = RESTReconfigureInfrastructure("1")
         self.assertEqual(res, "")
 
+        bottle_request.body = read_file_as_bytes("../files/test_simple.json")
+        Reconfigure.side_effect = DeletedInfrastructureException()
+        res = RESTReconfigureInfrastructure("1")
+        self.assertEqual(res, "Error reconfiguring infrastructure: Deleted infrastructure.")
+
+        bottle_request.body = read_file_as_bytes("../files/test_simple.json")
+        Reconfigure.side_effect = IncorrectInfrastructureException()
+        res = RESTReconfigureInfrastructure("1")
+        self.assertEqual(res, "Error reconfiguring infrastructure: Invalid infrastructure ID or access not granted.")
+
+        bottle_request.body = read_file_as_bytes("../files/test_simple.json")
+        Reconfigure.side_effect = UnauthorizedUserException()
+        res = RESTReconfigureInfrastructure("1")
+        self.assertEqual(res, "Error reconfiguring infrastructure: Access to this infrastructure not granted.")
+
     @patch("IM.InfrastructureManager.InfrastructureManager.StartInfrastructure")
     @patch("bottle.request")
     def test_StartInfrastructure(self, bottle_request, StartInfrastructure):
@@ -336,6 +506,18 @@ class TestREST(unittest.TestCase):
 
         res = RESTStartInfrastructure("1")
         self.assertEqual(res, "")
+
+        StartInfrastructure.side_effect = DeletedInfrastructureException()
+        res = RESTStartInfrastructure("1")
+        self.assertEqual(res, "Error starting infrastructure: Deleted infrastructure.")
+
+        StartInfrastructure.side_effect = IncorrectInfrastructureException()
+        res = RESTStartInfrastructure("1")
+        self.assertEqual(res, "Error starting infrastructure: Invalid infrastructure ID or access not granted.")
+
+        StartInfrastructure.side_effect = UnauthorizedUserException()
+        res = RESTStartInfrastructure("1")
+        self.assertEqual(res, "Error starting infrastructure: Access to this infrastructure not granted.")
 
     @patch("IM.InfrastructureManager.InfrastructureManager.StopInfrastructure")
     @patch("bottle.request")
@@ -351,6 +533,18 @@ class TestREST(unittest.TestCase):
         res = RESTStopInfrastructure("1")
         self.assertEqual(res, "")
 
+        StopInfrastructure.side_effect = DeletedInfrastructureException()
+        res = RESTStopInfrastructure("1")
+        self.assertEqual(res, "Error stopping infrastructure: Deleted infrastructure.")
+
+        StopInfrastructure.side_effect = IncorrectInfrastructureException()
+        res = RESTStopInfrastructure("1")
+        self.assertEqual(res, "Error stopping infrastructure: Invalid infrastructure ID or access not granted.")
+
+        StopInfrastructure.side_effect = UnauthorizedUserException()
+        res = RESTStopInfrastructure("1")
+        self.assertEqual(res, "Error stopping infrastructure: Access to this infrastructure not granted.")
+
     @patch("IM.InfrastructureManager.InfrastructureManager.StartVM")
     @patch("bottle.request")
     def test_StartVM(self, bottle_request, StartVM):
@@ -364,6 +558,26 @@ class TestREST(unittest.TestCase):
 
         res = RESTStartVM("1", "1")
         self.assertEqual(res, "")
+
+        StartVM.side_effect = DeletedInfrastructureException()
+        res = RESTStartVM("1", "1")
+        self.assertEqual(res, "Error starting VM: Deleted infrastructure.")
+
+        StartVM.side_effect = IncorrectInfrastructureException()
+        res = RESTStartVM("1", "1")
+        self.assertEqual(res, "Error starting VM: Invalid infrastructure ID or access not granted.")
+
+        StartVM.side_effect = UnauthorizedUserException()
+        res = RESTStartVM("1", "1")
+        self.assertEqual(res, "Error starting VM: Access to this infrastructure not granted.")
+
+        StartVM.side_effect = IncorrectInfrastructureException()
+        res = RESTStartVM("1", "1")
+        self.assertEqual(res, "Error starting VM: Invalid infrastructure ID or access not granted.")
+
+        StartVM.side_effect = UnauthorizedUserException()
+        res = RESTStartVM("1", "1")
+        self.assertEqual(res, "Error starting VM: Access to this infrastructure not granted.")
 
     @patch("IM.InfrastructureManager.InfrastructureManager.StopVM")
     @patch("bottle.request")
@@ -379,9 +593,27 @@ class TestREST(unittest.TestCase):
         res = RESTStopVM("1", "1")
         self.assertEqual(res, "")
 
-    @patch("IM.InfrastructureManager.InfrastructureManager.StopVM")
-    @patch("bottle.request")
-    def test_GeVersion(self, bottle_request, StopVM):
+        StopVM.side_effect = DeletedInfrastructureException()
+        res = RESTStopVM("1", "1")
+        self.assertEqual(res, "Error stopping VM: Deleted infrastructure.")
+
+        StopVM.side_effect = IncorrectInfrastructureException()
+        res = RESTStopVM("1", "1")
+        self.assertEqual(res, "Error stopping VM: Invalid infrastructure ID or access not granted.")
+
+        StopVM.side_effect = UnauthorizedUserException()
+        res = RESTStopVM("1", "1")
+        self.assertEqual(res, "Error stopping VM: Access to this infrastructure not granted.")
+
+        StopVM.side_effect = IncorrectInfrastructureException()
+        res = RESTStopVM("1", "1")
+        self.assertEqual(res, "Error stopping VM: Invalid infrastructure ID or access not granted.")
+
+        StopVM.side_effect = UnauthorizedUserException()
+        res = RESTStopVM("1", "1")
+        self.assertEqual(res, "Error stopping VM: Access to this infrastructure not granted.")
+
+    def test_GeVersion(self):
         res = RESTGeVersion()
         self.assertEqual(res, version)
 
@@ -399,6 +631,67 @@ class TestREST(unittest.TestCase):
 
         res = RESTCreateDiskSnapshot("1", "1", 0)
         self.assertEqual(res, "one://server.com/image_url")
+
+        CreateDiskSnapshot.side_effect = DeletedInfrastructureException()
+        res = RESTCreateDiskSnapshot("1", "1", 0)
+        self.assertEqual(res, "Error creating snapshot: Deleted infrastructure.")
+
+        CreateDiskSnapshot.side_effect = IncorrectInfrastructureException()
+        res = RESTCreateDiskSnapshot("1", "1", 0)
+        self.assertEqual(res, "Error creating snapshot: Invalid infrastructure ID or access not granted.")
+
+        CreateDiskSnapshot.side_effect = UnauthorizedUserException()
+        res = RESTCreateDiskSnapshot("1", "1", 0)
+        self.assertEqual(res, "Error creating snapshot: Access to this infrastructure not granted.")
+
+        CreateDiskSnapshot.side_effect = IncorrectInfrastructureException()
+        res = RESTCreateDiskSnapshot("1", "1", 0)
+        self.assertEqual(res, "Error creating snapshot: Invalid infrastructure ID or access not granted.")
+
+        CreateDiskSnapshot.side_effect = UnauthorizedUserException()
+        res = RESTCreateDiskSnapshot("1", "1", 0)
+        self.assertEqual(res, "Error creating snapshot: Access to this infrastructure not granted.")
+
+    @patch("IM.REST.get_media_type")
+    def test_return_error(self, get_media_type):
+        get_media_type.return_value = ["application/json"]
+        msg = return_error(400, "Error msg.")
+        self.assertEqual(msg, '{"message": "Error msg.", "code": 400}')
+        get_media_type.return_value = "text/html"
+        msg = return_error(400, "Error msg.")
+        self.assertEqual(msg, ('<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">\n<html>\n    <head>\n'
+                               '        <title>Error 400.</title>\n    </head>\n    <body>\n        '
+                               '<h1>Code: 400.</h1>\n        <h1>Message: Error msg.</h1>\n    </body>\n</html>\n'))
+        get_media_type.return_value = "text/plain"
+        msg = return_error(400, "Error msg.")
+        self.assertEqual(msg, "Error msg.")
+
+    @patch("IM.REST.get_media_type")
+    def test_format_output(self, get_media_type):
+        get_media_type.return_value = ["application/json"]
+        radl = parse_radl("system test (cpu.count = 1)")
+        info = format_output(radl)
+        self.assertEqual(info, '[{"cpu.count":1,"class":"system","id":"test"}]')
+        info = format_output(radl, field_name="radl")
+        self.assertEqual(info, '{"radl": [{"cpu.count": 1, "class": "system", "id": "test"}]}')
+
+        radl = parse_radl("system test ( disk.0.applications contains (name='test'))")
+        res = radl.systems[0].props.values()[0]
+        info = format_output(res, field_name="cont")
+        self.assertEqual(info, '{"cont": {"test": {"name": "test"}}}')
+
+        info = format_output(["1", "2"])
+        self.assertEqual(info, '["1", "2"]')
+
+        get_media_type.return_value = ["text/*"]
+        info = format_output(["1", "2"], field_name="cont", default_type="application/json")
+        self.assertEqual(info, '{"cont": ["1", "2"]}')
+        info = format_output(["1", "2"])
+        self.assertEqual(info, '1\n2')
+
+        get_media_type.return_value = ["application/zip"]
+        info = format_output(["1", "2"])
+        self.assertEqual(info, 'Unsupported Accept Media Types: application/zip')
 
 if __name__ == "__main__":
     unittest.main()
