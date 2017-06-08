@@ -47,7 +47,7 @@ class TestRecipe(unittest.TestCase):
 
         db.select.return_value = [("app", "1.0", "mod", "rec", 1, "gmod", "desc", "req")]
         res = Recipe.getInstallableApps()
-        self.assertEqual(str(res[0][0]), "version = '1.0' and\nname = 'app'")
+        self.assertIn(str(res[0][0]), ["version = '1.0' and\nname = 'app'", "name = 'app' and\nversion = '1.0'"])
         self.assertEqual(res[0][1], "mod")
         self.assertEqual(res[0][2], "gmod")
 
