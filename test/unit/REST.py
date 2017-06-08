@@ -290,6 +290,14 @@ class TestREST(unittest.TestCase):
         res = RESTGetVMInfo("1", "1")
         self.assertEqual(res, "Error Getting VM. info: Access to this infrastructure not granted.")
 
+        GetVMInfo.side_effect = DeletedVMException()
+        res = RESTGetVMInfo("1", "1")
+        self.assertEqual(res, "Error Getting VM. info: Deleted VM.")
+
+        GetVMInfo.side_effect = IncorrectVMException()
+        res = RESTGetVMInfo("1", "1")
+        self.assertEqual(res, "Error Getting VM. info: Invalid VM ID")
+
     @patch("IM.InfrastructureManager.InfrastructureManager.GetVMProperty")
     @patch("IM.InfrastructureManager.InfrastructureManager.GetVMContMsg")
     @patch("bottle.request")
@@ -573,13 +581,13 @@ class TestREST(unittest.TestCase):
         res = RESTStartVM("1", "1")
         self.assertEqual(res, "Error starting VM: Access to this infrastructure not granted.")
 
-        StartVM.side_effect = IncorrectInfrastructureException()
+        StartVM.side_effect = DeletedVMException()
         res = RESTStartVM("1", "1")
-        self.assertEqual(res, "Error starting VM: Invalid infrastructure ID or access not granted.")
+        self.assertEqual(res, "Error starting VM: Deleted VM.")
 
-        StartVM.side_effect = UnauthorizedUserException()
+        StartVM.side_effect = IncorrectVMException()
         res = RESTStartVM("1", "1")
-        self.assertEqual(res, "Error starting VM: Access to this infrastructure not granted.")
+        self.assertEqual(res, "Error starting VM: Invalid VM ID")
 
     @patch("IM.InfrastructureManager.InfrastructureManager.StopVM")
     @patch("bottle.request")
@@ -607,13 +615,13 @@ class TestREST(unittest.TestCase):
         res = RESTStopVM("1", "1")
         self.assertEqual(res, "Error stopping VM: Access to this infrastructure not granted.")
 
-        StopVM.side_effect = IncorrectInfrastructureException()
+        StopVM.side_effect = DeletedVMException()
         res = RESTStopVM("1", "1")
-        self.assertEqual(res, "Error stopping VM: Invalid infrastructure ID or access not granted.")
+        self.assertEqual(res, "Error stopping VM: Deleted VM.")
 
-        StopVM.side_effect = UnauthorizedUserException()
+        StopVM.side_effect = IncorrectVMException()
         res = RESTStopVM("1", "1")
-        self.assertEqual(res, "Error stopping VM: Access to this infrastructure not granted.")
+        self.assertEqual(res, "Error stopping VM: Invalid VM ID")
 
     def test_GeVersion(self):
         res = RESTGeVersion()
@@ -646,13 +654,13 @@ class TestREST(unittest.TestCase):
         res = RESTCreateDiskSnapshot("1", "1", 0)
         self.assertEqual(res, "Error creating snapshot: Access to this infrastructure not granted.")
 
-        CreateDiskSnapshot.side_effect = IncorrectInfrastructureException()
+        CreateDiskSnapshot.side_effect = DeletedVMException()
         res = RESTCreateDiskSnapshot("1", "1", 0)
-        self.assertEqual(res, "Error creating snapshot: Invalid infrastructure ID or access not granted.")
+        self.assertEqual(res, "Error creating snapshot: Deleted VM.")
 
-        CreateDiskSnapshot.side_effect = UnauthorizedUserException()
+        CreateDiskSnapshot.side_effect = IncorrectVMException()
         res = RESTCreateDiskSnapshot("1", "1", 0)
-        self.assertEqual(res, "Error creating snapshot: Access to this infrastructure not granted.")
+        self.assertEqual(res, "Error creating snapshot: Invalid VM ID")
 
     @patch("IM.REST.get_media_type")
     def test_return_error(self, get_media_type):
