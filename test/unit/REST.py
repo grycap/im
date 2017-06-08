@@ -674,21 +674,26 @@ class TestREST(unittest.TestCase):
         get_media_type.return_value = ["application/json"]
         radl = parse_radl("system test (cpu.count = 1)")
         info = format_output(radl)
-        self.assertEqual(info, '[{"cpu.count":1,"class":"system","id":"test"}]')
+        info = json.loads(info)
+        self.assertEqual(info, [{"cpu.count":1,"class":"system","id":"test"}])
         info = format_output(radl, field_name="radl")
-        self.assertEqual(info, '{"radl": [{"cpu.count": 1, "class": "system", "id": "test"}]}')
+        info = json.loads(info)
+        self.assertEqual(info, {"radl": [{"cpu.count": 1, "class": "system", "id": "test"}]})
 
         radl = parse_radl("system test ( disk.0.applications contains (name='test'))")
         res = radl.systems[0].props.values()[0]
         info = format_output(res, field_name="cont")
-        self.assertEqual(info, '{"cont": {"test": {"name": "test"}}}')
+        info = json.loads(info)
+        self.assertEqual(info, {"cont": {"test": {"name": "test"}}})
 
         info = format_output(["1", "2"])
-        self.assertEqual(info, '["1", "2"]')
+        info = json.loads(info)
+        self.assertEqual(info, ["1", "2"])
 
         get_media_type.return_value = ["text/*"]
         info = format_output(["1", "2"], field_name="cont", default_type="application/json")
-        self.assertEqual(info, '{"cont": ["1", "2"]}')
+        info = json.loads(info)
+        self.assertEqual(info, {"cont": ["1", "2"]})
         info = format_output(["1", "2"])
         self.assertEqual(info, '1\n2')
 
