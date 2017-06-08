@@ -681,7 +681,7 @@ class TestREST(unittest.TestCase):
         self.assertEqual(info, {"radl": [{"cpu.count": 1, "class": "system", "id": "test"}]})
 
         radl = parse_radl("system test ( disk.0.applications contains (name='test'))")
-        res = radl.systems[0].props.values()[0]
+        res = list(radl.systems[0].props.values())[0]
         info = format_output(res, field_name="cont")
         info = json.loads(info)
         self.assertEqual(info, {"cont": {"test": {"name": "test"}}})
