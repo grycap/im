@@ -174,7 +174,7 @@ OpenStack has a set of additional fields to access a cloud site:
 * ``domain`` the domain name associated to the credential. The default value is: ``Default``.
 
 * ``auth_version`` the auth version used to connect with the Keystone server.
-  The possible values are: ``2.0_password``, ``2.0_voms``, ``3.X_password`` or ``3.x_oidc_access_token``.
+  The possible values are: ``2.0_password``, ``2.0_voms``, ``3.x_password`` or ``3.x_oidc_access_token``.
   The default value is ``2.0_password``.
 
 * ``base_url`` base URL to the OpenStack API endpoint. By default, the connector obtains API endpoint URL from the 
