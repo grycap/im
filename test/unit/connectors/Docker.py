@@ -134,8 +134,9 @@ class TestDockerConnector(unittest.TestCase):
                 resp.text = '{"State": {"Running": 1}, "NetworkSettings": {"IPAddress": "10.0.0.1"}}'
             elif url == "/services/1":
                 resp.status_code = 200
-                resp.text = ('{"Spec": {"Name": "sname"},"UpdateStatus": {"CompletedAt": "2016-06-07T21:10:20.269723157Z"},'
-                             '"Endpoint": {"VirtualIPs": [{"Addr": "10.0.0.1/16"}]}}')
+                resp.text = ('{"Spec": {"Name": "sname"},"UpdateStatus": {"CompletedAt": '
+                             '"2016-06-07T21:10:20.269723157Z"},"Endpoint": {"VirtualIPs":'
+                             ' [{"Addr": "10.0.0.1/16"}]}}')
             elif url.startswith("/tasks"):
                 resp.status_code = 200
                 resp.text = ('[{"Status": {"State": "rejected", "Err": "Err"}}, {"Status": {"State": "running"}}]')
