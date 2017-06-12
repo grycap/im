@@ -165,7 +165,7 @@ Then install the downloaded RPMs::
    
 Azure python SDK is not available in CentOS. So if you need the Azure plugin you have to manually install them using pip::
 
-	$ pip install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource
+	$ pip install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns
 
 1.3.4 From Deb package (Tested with Ubuntu 14.04 and 16.04)
 -----------------------------------------------------------
@@ -276,7 +276,12 @@ default configuration. Information about this image can be found here: https://r
 
 How to launch the IM service using docker:
 
-	$ sudo docker run -d -p 8899:8899 -p 8800:8800 --name im grycap/im 
+	$ sudo docker run -d -p 8899:8899 -p 8800:8800 --name im grycap/im
+
+To make the IM data persistent you also have to specify a persistent location for the IM database using the 
+IM_DATA_DB environment variable and adding a volume::
+
+    $ sudo docker run -d -p 8899:8899 -p 8800:8800 -v "/some_local_path/db:/db" -e IM_DATA_DB=/db/inf.dat --name im grycap/im
 	
 You can also specify an external MySQL server to store IM data using the IM_DATA_DB environment variable::
   

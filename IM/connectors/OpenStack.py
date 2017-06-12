@@ -366,10 +366,10 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             net_provider_id = network.getValue('provider_id')
 
             # if the network is public, and the VM has another interface and the
-            # site has IP pools, we do not need to assing a network to this interface
+            # site has IP pools, we do not need to assign a network to this interface
             # it will be assigned with a floating IP
             if network.isPublic() and num_nets > 1 and pool_names:
-                self.log_debug("Public IP to be assingned with a floating IP. Do not set a net.")
+                self.log_debug("Public IP to be assigned with a floating IP. Do not set a net.")
             else:
                 # First check if the user has specified a provider ID
                 if net_provider_id:
@@ -575,23 +575,18 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                                                                                      self.add_public_ip_count,
                                                                                      self.MAX_ADD_IP_COUNT)
 
-    def get_floating_ip(self, driver, pool_name=None):
+    def get_floating_ip(self, driver, pool):
         """
         Get a floating IP
         """
-        if pool_name:
-            self.log_debug("Asking for pool name: %s." % pool_name)
-        pool = self.get_ip_pool(driver, pool_name)
-        if pool:
-            for ip in pool.list_floating_ips():
-                if not ip.node_id:
+        for ip in pool.list_floating_ips():
+            if not ip.node_id:
+                is_private = any([IPAddress(ip.ip_address) in IPNetwork(mask) for mask in Config.PRIVATE_NET_MASKS])
+                if is_private:
+                    self.log_debug("Floating IP found %s, but it is private. Ignore." % ip.ip_address)
+                else:
                     return True, ip
-        else:
-            if pool_name:
-                msg = "Incorrect pool name: %s." % pool_name
-            else:
-                msg = "No pools available."
-            return False, msg
+
         return False, "No Float IP free found."
 
     def add_elastic_ip(self, vm, node, fixed_ip=None, pool_name=None):
@@ -605,14 +600,23 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         Returns: a :py:class:`OpenStack_1_1_FloatingIpAddress` added or None if some problem occur.
         """
         try:
-            self.log_debug("Add an Elastic/Floating IP")
+            self.log_debug("Add an Floating IP")
+
+            pool = self.get_ip_pool(node.driver, pool_name)
+            if not pool:
+                if pool_name:
+                    msg = "Incorrect pool name: %s." % pool_name
+                else:
+                    msg = "No pools available."
+                self.log_debug("No Floating IP assigned: %s" % msg)
+                return False, msg
 
             if node.driver.ex_list_floating_ip_pools():
                 if fixed_ip:
                     floating_ip = node.driver.ex_get_floating_ip(fixed_ip)
                 else:
-                    # First try to check if there are a Float IP free to attach to the node
-                    found, floating_ip = self.get_floating_ip(node.driver, pool_name)
+                    # First try to check if there is a Float IP free to attach to the node
+                    found, floating_ip = self.get_floating_ip(node.driver, pool)
                     if found:
                         try:
                             node.driver.ex_attach_floating_ip_to_node(node, floating_ip)
@@ -623,8 +627,16 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                         self.log_debug(floating_ip)
 
                     # Now create a Float IP
-                    pool = self.get_ip_pool(node.driver, pool_name)
                     floating_ip = pool.create_floating_ip()
+
+                    is_private = any([IPAddress(floating_ip.ip_address) in IPNetwork(mask)
+                                      for mask in Config.PRIVATE_NET_MASKS])
+
+                    if is_private:
+                        self.log_error("Error getting a Floating IP from pool %s. The IP is private." % pool_name)
+                        self.log_debug("We have created it, so release it.")
+                        floating_ip.delete()
+                        return False, "Error attaching a Floating IP to the node. Private IP returned."
 
                     # sometimes the ip cannot be attached inmediately
                     # we have to try and wait

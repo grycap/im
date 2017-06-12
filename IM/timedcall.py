@@ -31,7 +31,7 @@ class Timer(object):
 
       ej: t = Timer(10)
           while True:
-            if not t.can_call:
+            if not t.can_call():
                 break
             ejecutar_cosas()
             ...
@@ -77,7 +77,7 @@ class TimedCall(object):
     La forma de proceder seria haciendo
         call = TimedCall(callback)
         while (True):
-            call.call
+            call.call()
             sleep(1)
     """
 

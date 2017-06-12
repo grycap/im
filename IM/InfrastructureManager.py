@@ -235,14 +235,14 @@ class InfrastructureManager:
         """Return infrastructure info with some id if valid authorization provided."""
 
         if inf_id not in IM.InfrastructureList.InfrastructureList.get_inf_ids():
-            InfrastructureManager.logger.error("Error, incorrect infrastructure ID")
+            InfrastructureManager.logger.error("Error, incorrect infrastructure ID: %s" % inf_id)
             raise IncorrectInfrastructureException()
         sel_inf = IM.InfrastructureList.InfrastructureList.get_infrastructure(inf_id)
         if not sel_inf.is_authorized(auth):
-            InfrastructureManager.logger.error("Access Error")
+            InfrastructureManager.logger.error("Access Error to infrastructure ID: %s" % inf_id)
             raise UnauthorizedUserException()
         if sel_inf.deleted:
-            InfrastructureManager.logger.error("Access to a deleted infrastructure.")
+            InfrastructureManager.logger.error("Infrastructure ID: %s is deleted." % inf_id)
             raise DeletedInfrastructureException()
 
         return sel_inf
