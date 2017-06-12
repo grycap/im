@@ -628,8 +628,9 @@ class InfrastructureManager:
 
         delete_list = [sel_inf.get_vm(vmid) for vmid in vm_ids]
 
+        unconflog = ""
         if context:
-            unconf_out = sel_inf.UnContextualize(auth, [int(vmid) for vmid in vm_ids])
+            unconflog = sel_inf.UnContextualize(auth, [int(vmid) for vmid in vm_ids])
 
         cont = 0
         exceptions = []
@@ -649,7 +650,7 @@ class InfrastructureManager:
             InfrastructureManager.logger.exception("Error removing resources")
             raise Exception("Error removing resources: %s" % exceptions)
 
-        return cont
+        return cont, unconflog
 
     @staticmethod
     def GetVMProperty(inf_id, vm_id, property_name, auth):
@@ -692,11 +693,6 @@ class InfrastructureManager:
 
         InfrastructureManager.logger.info(
             "Get information about the vm: '" + str(vm_id) + "' from inf: " + str(inf_id))
-
-        sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
-
-        # Getting information from monitors
-        sel_inf.update_ganglia_info()
 
         vm = InfrastructureManager.get_vm_from_inf(inf_id, vm_id, auth)
 
