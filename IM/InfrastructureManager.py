@@ -269,6 +269,11 @@ class InfrastructureManager:
         """
         auth = InfrastructureManager.check_auth_data(auth)
 
+        sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
+
+        if sel_inf.is_unconfiguring():
+            raise Exception("Infrastructure in unconfigure process. It cannot be modified")
+
         InfrastructureManager.logger.info(
             "Reconfiguring the inf: " + str(inf_id))
         if isinstance(radl_data, RADL):
@@ -276,11 +281,6 @@ class InfrastructureManager:
         else:
             radl = radl_parse.parse_radl(radl_data)
         InfrastructureManager.logger.debug(radl)
-
-        sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
-
-        if sel_inf.is_unconfiguring():
-            raise Exception("Infrastructure in unconfigure process. It cannot be modified")
 
         # Update infrastructure RADL with this new RADL
         # Add or update configures
@@ -378,6 +378,11 @@ class InfrastructureManager:
         InfrastructureManager.logger.info(
             "Adding resources to inf: " + str(inf_id))
 
+        sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
+
+        if sel_inf.is_unconfiguring():
+            raise Exception("Infrastructure in unconfigure process. It cannot be modified")
+
         if isinstance(radl_data, RADL):
             radl = radl_data
         else:
@@ -385,11 +390,6 @@ class InfrastructureManager:
 
         InfrastructureManager.logger.debug(radl)
         radl.check()
-
-        sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
-
-        if sel_inf.is_unconfiguring():
-            raise Exception("Infrastructure in unconfigure process. It cannot be modified")
 
         # Update infrastructure RADL with this new RADL
         sel_inf.complete_radl(radl)
