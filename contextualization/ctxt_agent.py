@@ -109,7 +109,7 @@ class CtxtAgent():
             try:
                 ssh_client = SSH(vm_ip, vm['user'], vm['passwd'], vm[
                                  'private_key'], vm['remote_port'])
-                success = ssh_client.test_connectivity()
+                success = ssh_client.test_connectivity(delay)
                 res = 'init'
             except AuthenticationException:
                 try_ansible_key = True
