@@ -304,6 +304,8 @@ class InfrastructureManager:
 
         # Stick all virtual machines to be reconfigured
         InfrastructureManager.logger.info("Contextualize the inf.")
+        # reset ansible_configured to force the re-installation of galaxy roles
+        sel_inf.ansible_configured = None
         sel_inf.Contextualize(auth, vm_list)
 
         IM.InfrastructureList.InfrastructureList.save_data(inf_id)
