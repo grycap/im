@@ -252,12 +252,13 @@ class AzureCloudConnector(CloudConnector):
                                               outport.get_port_init(),
                                               outport.get_port_end())
                 sr['destination_port_range'] = "%d-%d" % (outport.get_port_init(), outport.get_port_end())
+                security_rules.append(sr)
             elif outport.get_local_port() != 22:
                 sr['name'] = 'sr-%s-%d-%d' % (outport.get_protocol(),
                                               outport.get_remote_port(),
                                               outport.get_local_port())
                 sr['destination_port_range'] = str(outport.get_local_port())
-            security_rules.append(sr)
+                security_rules.append(sr)
 
         params = {
             'location': location,
@@ -455,7 +456,7 @@ class AzureCloudConnector(CloudConnector):
 
         if not vnet:
             # Create VNet in the RG of the Inf
-            network_client.virtual_networks.create_or_update(
+            async_vnet_creation = network_client.virtual_networks.create_or_update(
                 group_name,
                 "privates",
                 {
@@ -465,6 +466,7 @@ class AzureCloudConnector(CloudConnector):
                     }
                 }
             )
+            async_vnet_creation.wait()
 
             subnets = {}
             for i, net in enumerate(radl.networks):
@@ -507,7 +509,7 @@ class AzureCloudConnector(CloudConnector):
 
             subnets = self.create_nets(inf, radl, credentials, subscription_id, "rg-%s" % inf.id)
 
-        res = []
+        vms = []
         i = 0
         all_ok = True
         while i < num_vm:
@@ -537,7 +539,7 @@ class AzureCloudConnector(CloudConnector):
 
                 if not storage_account:
                     all_ok = False
-                    res.append((False, error_msg))
+                    vms.append((False, error_msg))
                     # delete VM group
                     resource_client.resource_groups.delete(group_name)
                     continue
@@ -549,18 +551,16 @@ class AzureCloudConnector(CloudConnector):
 
                 compute_client = ComputeManagementClient(credentials, subscription_id)
                 async_vm_creation = compute_client.virtual_machines.create_or_update(group_name, vm_name, vm_parameters)
-                # azure_vm = async_vm_creation.result()
 
                 vm = VirtualMachine(inf, group_name + '/' + vm_name, self.cloud, radl, requested_radl, self)
                 vm.info.systems[0].setValue('instance_id', group_name + '/' + vm_name)
+                self.log_debug("VM ID: %s created." % vm.id)
 
-                self.attach_data_disks(vm, storage_account_name, credentials, subscription_id, location)
-
-                res.append((True, vm))
+                vms.append((True, (vm, async_vm_creation, storage_account_name)))
             except Exception as ex:
                 all_ok = False
                 self.log_exception("Error creating the VM")
-                res.append((False, "Error creating the VM: " + str(ex)))
+                vms.append((False, "Error creating the VM: " + str(ex)))
 
                 # Delete Resource group and everything in it
                 if group_name:
@@ -568,6 +568,20 @@ class AzureCloudConnector(CloudConnector):
                     resource_client.resource_groups.delete(group_name)
 
             i += 1
+
+        res = []
+        for success, data in vms:
+            if success:
+                vm, async_vm_creation, storage_account_name = data
+                try:
+                    async_vm_creation.wait()
+                    self.log_debug("Waiting VM ID %s to be created." % vm.id)
+                    self.attach_data_disks(vm, storage_account_name, credentials, subscription_id, location)
+                    res.append((True, vm))
+                except Exception as ex:
+                    self.log_exception("Error creating the VM")
+            else:
+                res.append(success, data)
 
         if not all_ok:
             # Remove the general group
@@ -591,7 +605,7 @@ class AzureCloudConnector(CloudConnector):
 
             try:
                 # Attach data disk
-                compute_client.virtual_machines.create_or_update(
+                async_disk_creation = compute_client.virtual_machines.create_or_update(
                     group_name,
                     vm_name,
                     {
@@ -610,6 +624,7 @@ class AzureCloudConnector(CloudConnector):
                         }
                     }
                 )
+                async_disk_creation.wait()
             except Exception as ex:
                 self.log_exception("Error attaching disk %d to VM %s" % (cont, vm_name))
                 return False, "Error attaching disk %d to VM %s: %s" % (cont, vm_name, str(ex))
@@ -735,7 +750,7 @@ class AzureCloudConnector(CloudConnector):
             # Delete Resource group and everything in it
             resource_client = ResourceManagementClient(credentials, subscription_id)
             self.log_debug("Removing RG: %s" % group_name)
-            resource_client.resource_groups.delete(group_name)
+            resource_client.resource_groups.delete(group_name).wait()
 
             # if it is the last VM delete the RG of the Inf
             if last:
@@ -795,7 +810,7 @@ class AzureCloudConnector(CloudConnector):
 
             # Start the VM
             async_vm_start = compute_client.virtual_machines.start(group_name, vm_name)
-            # async_vm_start.wait()
+            async_vm_start.wait()
 
             return self.updateVMInfo(vm, auth_data)
         except Exception as ex:

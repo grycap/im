@@ -421,6 +421,10 @@ class InfrastructureInfo:
             # Otherwise return the value of configured
             return self.configured
 
+    def reset_ctxt_tasks(self):
+        with self._lock:
+            self.ctxt_tasks = PriorityQueue()
+
     def add_ctxt_tasks(self, ctxt_tasks):
         # Use the lock to add all the tasks in a atomic way
         with self._lock:

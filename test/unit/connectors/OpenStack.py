@@ -234,8 +234,10 @@ class TestOSTConnector(unittest.TestCase):
 
         pool = MagicMock()
         pool.name = "pool1"
+        floating_ip = MagicMock()
+        floating_ip.ip_address = "8.8.8.8"
         pool.list_floating_ips.return_value = []
-        pool.create_floating_ip.return_value = True
+        pool.create_floating_ip.return_value = floating_ip
         driver.ex_list_floating_ip_pools.return_value = [pool]
 
         success, vm = ost_cloud.updateVMInfo(vm, auth)

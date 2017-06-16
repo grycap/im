@@ -974,11 +974,11 @@ configure step2 (
         state = IM.GetInfrastructureState(infId, auth0)
         self.assertEqual(state["state"], "unconfigured")
 
+        IM.Reconfigure(infId, "", auth0)
+
         InfrastructureList.infrastructure_list[infId].ansible_configured = True
         InfrastructureList.infrastructure_list[infId].vm_list[0].get_ctxt_log = MagicMock()
         InfrastructureList.infrastructure_list[infId].vm_list[0].get_ctxt_log.return_value = "OK"
-
-        IM.Reconfigure(infId, "", auth0)
 
         time.sleep(5)
 
