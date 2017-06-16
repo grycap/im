@@ -455,7 +455,7 @@ class AzureCloudConnector(CloudConnector):
 
         if not vnet:
             # Create VNet in the RG of the Inf
-            network_client.virtual_networks.create_or_update(
+            async_vnet_creation = network_client.virtual_networks.create_or_update(
                 group_name,
                 "privates",
                 {
@@ -465,6 +465,7 @@ class AzureCloudConnector(CloudConnector):
                     }
                 }
             )
+            async_vnet_creation.wait()
 
             subnets = {}
             for i, net in enumerate(radl.networks):
@@ -549,7 +550,7 @@ class AzureCloudConnector(CloudConnector):
 
                 compute_client = ComputeManagementClient(credentials, subscription_id)
                 async_vm_creation = compute_client.virtual_machines.create_or_update(group_name, vm_name, vm_parameters)
-                # azure_vm = async_vm_creation.result()
+                azure_vm = async_vm_creation.result()
 
                 vm = VirtualMachine(inf, group_name + '/' + vm_name, self.cloud, radl, requested_radl, self)
                 vm.info.systems[0].setValue('instance_id', group_name + '/' + vm_name)
@@ -735,7 +736,7 @@ class AzureCloudConnector(CloudConnector):
             # Delete Resource group and everything in it
             resource_client = ResourceManagementClient(credentials, subscription_id)
             self.log_debug("Removing RG: %s" % group_name)
-            resource_client.resource_groups.delete(group_name)
+            resource_client.resource_groups.delete(group_name).wait()
 
             # if it is the last VM delete the RG of the Inf
             if last:
@@ -795,7 +796,7 @@ class AzureCloudConnector(CloudConnector):
 
             # Start the VM
             async_vm_start = compute_client.virtual_machines.start(group_name, vm_name)
-            # async_vm_start.wait()
+            async_vm_start.wait()
 
             return self.updateVMInfo(vm, auth_data)
         except Exception as ex:

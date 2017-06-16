@@ -182,8 +182,7 @@ class ConfManager(threading.Thread):
                 self.log_debug("Max contextualization time passed. Exit thread.")
                 self.inf.add_cont_msg("ERROR: Max contextualization time passed.")
                 # Remove tasks from queue
-                with self.inf._lock:
-                    self.inf.ctxt_tasks = PriorityQueue()
+                self.inf.reset_ctxt_tasks()
                 # Kill the ansible processes
                 self.kill_ctxt_processes()
                 if self.ansible_process and self.ansible_process.is_alive():

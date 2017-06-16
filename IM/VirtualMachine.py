@@ -674,49 +674,46 @@ class VirtualMachine:
             if ctxt_pid != self.WAIT_TO_PID:
                 ssh = self.get_ssh_ansible_master()
 
-                if self.state in VirtualMachine.NOT_RUNNING_STATES:
-                    self.kill_check_ctxt_process()
-                else:
-                    try:
-                        (_, _, exit_status) = ssh.execute("ps " + str(ctxt_pid))
-                    except:
-                        VirtualMachine.logger.warn(
-                            "Error getting status of ctxt process with pid: " + str(ctxt_pid))
-                        exit_status = 0
-                        self.ssh_connect_errors += 1
-                        if self.ssh_connect_errors > Config.MAX_SSH_ERRORS:
-                            VirtualMachine.logger.error("Too much errors getting status of ctxt process with pid: " +
-                                                        str(ctxt_pid) + ". Forget it.")
-                            self.ssh_connect_errors = 0
-                            self.configured = False
-                            self.ctxt_pid = None
-                            self.cont_out = initial_count_out + ("Too much errors getting the status of ctxt process."
-                                                                 " Check some network connection problems or if user "
-                                                                 "credentials has been changed.")
-                            return None
-
-                    if exit_status != 0:
-                        # The process has finished, get the outputs
-                        ctxt_log = self.get_ctxt_log(remote_dir, True)
-                        msg = self.get_ctxt_output(remote_dir, True)
-                        if ctxt_log:
-                            self.cont_out = initial_count_out + msg + ctxt_log
-                        else:
-                            self.cont_out = initial_count_out + msg + \
-                                "Error getting contextualization process log."
+                try:
+                    (_, _, exit_status) = ssh.execute("ps " + str(ctxt_pid))
+                except:
+                    VirtualMachine.logger.warn(
+                        "Error getting status of ctxt process with pid: " + str(ctxt_pid))
+                    exit_status = 0
+                    self.ssh_connect_errors += 1
+                    if self.ssh_connect_errors > Config.MAX_SSH_ERRORS:
+                        VirtualMachine.logger.error("Too much errors getting status of ctxt process with pid: " +
+                                                    str(ctxt_pid) + ". Forget it.")
+                        self.ssh_connect_errors = 0
+                        self.configured = False
                         self.ctxt_pid = None
+                        self.cont_out = initial_count_out + ("Too much errors getting the status of ctxt process."
+                                                             " Check some network connection problems or if user "
+                                                             "credentials has been changed.")
+                        return None
+
+                if exit_status != 0:
+                    # The process has finished, get the outputs
+                    ctxt_log = self.get_ctxt_log(remote_dir, True)
+                    msg = self.get_ctxt_output(remote_dir, True)
+                    if ctxt_log:
+                        self.cont_out = initial_count_out + msg + ctxt_log
                     else:
-                        # Get the log of the process to update the cont_out
-                        # dynamically
-                        if Config.UPDATE_CTXT_LOG_INTERVAL > 0 and wait > Config.UPDATE_CTXT_LOG_INTERVAL:
-                            wait = 0
-                            VirtualMachine.logger.debug(
-                                "Get the log of the ctxt process with pid: " + str(ctxt_pid))
-                            ctxt_log = self.get_ctxt_log(remote_dir)
-                            self.cont_out = initial_count_out + ctxt_log
-                        # The process is still running, wait
-                        time.sleep(Config.CHECK_CTXT_PROCESS_INTERVAL)
-                        wait += Config.CHECK_CTXT_PROCESS_INTERVAL
+                        self.cont_out = initial_count_out + msg + \
+                            "Error getting contextualization process log."
+                    self.ctxt_pid = None
+                else:
+                    # Get the log of the process to update the cont_out
+                    # dynamically
+                    if Config.UPDATE_CTXT_LOG_INTERVAL > 0 and wait > Config.UPDATE_CTXT_LOG_INTERVAL:
+                        wait = 0
+                        VirtualMachine.logger.debug(
+                            "Get the log of the ctxt process with pid: " + str(ctxt_pid))
+                        ctxt_log = self.get_ctxt_log(remote_dir)
+                        self.cont_out = initial_count_out + ctxt_log
+                    # The process is still running, wait
+                    time.sleep(Config.CHECK_CTXT_PROCESS_INTERVAL)
+                    wait += Config.CHECK_CTXT_PROCESS_INTERVAL
             else:
                 # We are waiting the PID, sleep
                 time.sleep(Config.CHECK_CTXT_PROCESS_INTERVAL)
