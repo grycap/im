@@ -21,6 +21,7 @@ import unittest
 import os
 import logging
 import logging.config
+import json
 try:
     from StringIO import StringIO
 except ImportError:
@@ -50,7 +51,7 @@ class TestDockerConnector(unittest.TestCase):
     """
 
     def setUp(self):
-        self.swarm = False
+        TestDockerConnector.swarm = False
         self.log = StringIO()
         self.handler = logging.StreamHandler(self.log)
         formatter = logging.Formatter(
@@ -73,9 +74,9 @@ class TestDockerConnector(unittest.TestCase):
         self.log = StringIO()
         self.handler.close()
 
-    @classmethod
-    def activate_swarm(cls, activate=True):
-        cls.swarm = activate
+    @staticmethod
+    def activate_swarm(activate=True):
+        TestDockerConnector.swarm = activate
 
     @staticmethod
     def get_docker_cloud():
@@ -116,12 +117,12 @@ class TestDockerConnector(unittest.TestCase):
         resp = MagicMock()
         parts = uriparse(url)
         url = parts[2]
-        # params = parts[4]
+        params = parts[4]
 
         if method == "GET":
             if url == '/info':
                 resp.status_code = 200
-                if self.swarm:
+                if TestDockerConnector.swarm:
                     resp.text = '{"Swarm": {"LocalNodeState": "active"}}'
                 else:
                     resp.text = '{"Swarm": {"LocalNodeState": "inactive"}}'
@@ -133,11 +134,17 @@ class TestDockerConnector(unittest.TestCase):
                 resp.text = '{"State": {"Running": 1}, "NetworkSettings": {"IPAddress": "10.0.0.1"}}'
             elif url == "/services/1":
                 resp.status_code = 200
-                resp.text = ('{"UpdateStatus": {"CompletedAt": "2016-06-07T21:10:20.269723157Z"},'
-                             '"Endpoint": {"VirtualIPs": [{"Addr": "10.0.0.1/16"}]}}')
-            elif url.startswith("/tasks?filters"):
+                resp.text = ('{"Spec": {"Name": "sname"},"UpdateStatus": {"CompletedAt": '
+                             '"2016-06-07T21:10:20.269723157Z"},"Endpoint": {"VirtualIPs":'
+                             ' [{"Addr": "10.0.0.1/16"}]}}')
+            elif url.startswith("/tasks"):
                 resp.status_code = 200
                 resp.text = ('[{"Status": {"State": "rejected", "Err": "Err"}}, {"Status": {"State": "running"}}]')
+            elif url.startswith("/networks"):
+                resp.status_code = 200
+                data = json.loads(params.split("=")[1])
+                netname = list(data['name'].keys())[0]
+                resp.text = '[{"Name": "%s", "Id": "netid"}]' % netname
         elif method == "POST":
             if url == "/containers/create":
                 resp.status_code = 201
@@ -158,7 +165,7 @@ class TestDockerConnector(unittest.TestCase):
         elif method == "DELETE":
             if url.endswith("/containers/1"):
                 resp.status_code = 204
-            if url.endswith("/servicess/1"):
+            if url.endswith("/services/1"):
                 resp.status_code = 200
 
         return resp
@@ -196,8 +203,10 @@ class TestDockerConnector(unittest.TestCase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
         self.activate_swarm()
+        docker_cloud._swarm = None
         res = docker_cloud.launch(InfrastructureInfo(), radl, radl, 1, auth)
         self.activate_swarm(False)
+        docker_cloud._swarm = None
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
@@ -235,8 +244,10 @@ class TestDockerConnector(unittest.TestCase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
         self.activate_swarm()
+        docker_cloud._swarm = None
         success, vm = docker_cloud.updateVMInfo(vm, auth)
         self.activate_swarm(False)
+        docker_cloud._swarm = None
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
         self.assertEquals(vm.info.systems[0].getValue("net_interface.1.ip"), "10.0.0.1")
@@ -295,8 +306,10 @@ class TestDockerConnector(unittest.TestCase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
         self.activate_swarm()
+        docker_cloud._swarm = None
         success, _ = docker_cloud.finalize(vm, True, auth)
         self.activate_swarm(False)
+        docker_cloud._swarm = None
 
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())

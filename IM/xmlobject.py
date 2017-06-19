@@ -61,8 +61,7 @@ class XMLObject:
 
         for tag in self.__class__.values:
             if self.__dict__[tag] is not None and len(str(self.__dict__[tag])) > 0:
-                res += "<" + tag + ">" + \
-                    self.__dict__[tag] + "</" + tag + ">\n"
+                res += "<" + tag + ">" + str(self.__dict__[tag]) + "</" + tag + ">\n"
 
         res += "</" + node_name + ">\n"
 

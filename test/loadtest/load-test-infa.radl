@@ -30,7 +30,8 @@ net_interface.0.connection = 'privada' and
 net_interface.0.dns_name = 'infra' and
 disk.0.os.name='linux' and
 disk.0.os.flavour='ubuntu' and
-disk.0.os.credentials.new.password = 'Tututu+01'
+disk.0.os.credentials.new.password = 'Tututu+01' and
+disk.0.applications contains (name='ansible.modules.grycap.docker')
 )
 
 configure docker (
@@ -128,6 +129,11 @@ configure iminstall (
 
     - name: Start IM
       service: name=im state=started
+
+    - name: Stop firewall
+      service: name=firewalld state=stopped
+      when: ansible_os_family == "RedHat"
+      ignore_errors: yes
 @end
 )
 
@@ -136,9 +142,9 @@ configure im (
 ---
   - tasks:
 # To test the im directly installed at the VM
-#    - include: iminstall.yml
+    - include: iminstall.yml
 # To test the im from a docker container
-    - include: imdocker.yml
+#    - include: imdocker.yml
 
     - name: Install Reqs
       apt: name=sysstat update_cache=yes cache_valid_time=3600
@@ -201,28 +207,10 @@ configure imclient (
 
 configure infra (
 @begin
+  - roles:
+    - { role: 'grycap.docker', docker_opts: '-H tcp://0.0.0.0:2375' }
   - tasks:
-    - name: Ubuntu install requirements
-      apt: name=apt-transport-https,ca-certificates
-    
-    - name: Ubuntu add key
-      command: apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 58118E89F3A912897C070ADBF76221572C52609D
-
-    - name: Create docker.list 
-      copy: dest=/etc/apt/sources.list.d/docker.list content="deb https://apt.dockerproject.org/repo ubuntu-trusty main"
-      
-    - apt: update_cache=yes
-      
-    - name: Ubuntu install requirements
-      apt: name=docker-engine
-      
-    - lineinfile: dest=/etc/default/docker regexp="DOCKER_OPTS=" line='DOCKER_OPTS="-H tcp://0.0.0.0:2375"'
-    
-    - service: name=docker state=restarted
-    
     - command: docker -H tcp://localhost:2375 pull ubuntu:14.04
-    
-
 @end
 )
 
