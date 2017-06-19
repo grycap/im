@@ -693,6 +693,7 @@ class GCECloudConnector(CloudConnector):
             node = driver.ex_get_node(vm.id)
         except ResourceNotFoundError:
             self.log_warn("VM " + str(vm.id) + " does not exist.")
+            return (False, "Error getting VM info: %s. VM does not exist." % vm.id)
         except Exception as ex:
             self.log_exception("Error getting VM info: %s" % vm.id)
             return (False, "Error getting VM info: %s. %s" % (vm.id, str(ex)))
