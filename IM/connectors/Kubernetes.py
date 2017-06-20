@@ -412,7 +412,7 @@ class KubernetesCloudConnector(CloudConnector):
             uri = "/api/" + apiVersion + "/namespaces/" + namespace + "/pods/" + pod_name
             resp = self.create_request('GET', uri, auth_data)
 
-            if resp.status_code == 404 or resp.status_code == 200:
+            if resp.status_code == 200:
                 return (True, resp.status_code, resp.text)
             else:
                 return (False, resp.status_code, resp.text)
@@ -425,21 +425,16 @@ class KubernetesCloudConnector(CloudConnector):
     def updateVMInfo(self, vm, auth_data):
         success, status, output = self._get_pod(vm, auth_data)
         if success:
-            if status == 404:
-                # If the container does not exist, set state to OFF
-                vm.state = VirtualMachine.OFF
-                return (True, vm)
-            else:
-                output = json.loads(output)
-                vm.state = self.VM_STATE_MAP.get(
-                    output["status"]["phase"], VirtualMachine.UNKNOWN)
+            output = json.loads(output)
+            vm.state = self.VM_STATE_MAP.get(
+                output["status"]["phase"], VirtualMachine.UNKNOWN)
 
-                # Update the network info
-                self.setIPs(vm, output)
-                return (True, vm)
+            # Update the network info
+            self.setIPs(vm, output)
+            return (True, vm)
         else:
-            self.log_error("Error getting info about the POD: " + output)
-            return (False, "Error getting info about the POD: " + output)
+            self.log_error("Error getting info about the POD: code: %s, msg: %s" % (status, output))
+            return (False, "Error getting info about the POD: code: %s, msg: %s" % (status, output))
 
     def setIPs(self, vm, pod_info):
         """

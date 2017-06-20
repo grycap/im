@@ -643,12 +643,8 @@ class AzureCloudConnector(CloudConnector):
             # Get one the virtual machine by name
             virtual_machine = compute_client.virtual_machines.get(group_name, vm_name)
         except Exception as ex:
-            if "NotFound" in str(ex):
-                vm.state = VirtualMachine.OFF
-                return (True, vm)
-            else:
-                self.log_exception("Error getting the VM info: " + vm.id)
-                return (False, "Error getting the VM info: " + vm.id + ". " + str(ex))
+            self.log_exception("Error getting the VM info: " + vm.id)
+            return (False, "Error getting the VM info: " + vm.id + ". " + str(ex))
 
         self.log_debug("VM info: " + vm.id + " obtained.")
         vm.state = self.PROVISION_STATE_MAP.get(virtual_machine.provisioning_state, VirtualMachine.UNKNOWN)

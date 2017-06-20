@@ -211,7 +211,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             self.setIPsFromInstance(vm, node)
             self.attach_volumes(vm, node)
         else:
-            vm.state = VirtualMachine.OFF
+            self.log_warn("Error updating the instance %s. VM not found." % vm.id)
+            return (False, "Error updating the instance %s. VM not found." % vm.id)
 
         return (True, vm)
 

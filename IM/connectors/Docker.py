@@ -637,11 +637,7 @@ class DockerCloudConnector(CloudConnector):
             else:
                 resp = self.create_request('GET', "/containers/" + vm.id + "/json", auth_data)
 
-            if resp.status_code == 404:
-                # If the container does not exist, set state to OFF
-                vm.state = VirtualMachine.OFF
-                return (True, vm)
-            elif resp.status_code != 200:
+            if resp.status_code != 200:
                 return (False, "Error getting info about the Container: " + resp.text)
 
             output = json.loads(resp.text)

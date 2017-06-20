@@ -792,10 +792,6 @@ class AzureClassicCloudConnector(CloudConnector):
             self.log_exception("Error getting the VM info: " + vm.id)
             return (False, "Error getting the VM info: " + vm.id + ". " + str(ex))
 
-        if resp.status_code == 404:
-            self.log_warn("VM with ID: " + vm.id + ". Not found!.")
-            vm.state = VirtualMachine.OFF
-            return (True, vm)
         if resp.status_code != 200:
             self.log_error("Error getting the VM info: " + vm.id +
                            ". Error Code: " + str(resp.status_code) + ". Msg: " + resp.text)
