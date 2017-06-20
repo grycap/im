@@ -162,11 +162,17 @@ class TestDockerConnector(unittest.TestCase):
                 resp.status_code = 201
             elif url == "/networks/create":
                 resp.status_code = 201
-        elif method == "DELETE":
-            if url.endswith("/containers/1"):
-                resp.status_code = 204
-            if url.endswith("/services/1"):
+            elif url == "/networks/netid/connect":
                 resp.status_code = 200
+        elif method == "DELETE":
+            if url == "/containers/1":
+                resp.status_code = 204
+            if url == "/services/1":
+                resp.status_code = 200
+            if url == "/volumes/hdb":
+                resp.status_code = 204
+            if url == "/networks/netid":
+                resp.status_code = 204
 
         return resp
 
@@ -175,6 +181,7 @@ class TestDockerConnector(unittest.TestCase):
         radl_data = """
             network net1 (outbound = 'yes' and outports = '8080')
             network net2 ()
+            network net3 ()
             system test (
             cpu.arch='x86_64' and
             cpu.count>=1 and
@@ -182,6 +189,7 @@ class TestDockerConnector(unittest.TestCase):
             net_interface.0.connection = 'net1' and
             net_interface.0.dns_name = 'test' and
             net_interface.1.connection = 'net2' and
+            net_interface.2.connection = 'net3' and
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'docker://someimage' and
             disk.0.os.credentials.username = 'user' and
@@ -287,15 +295,21 @@ class TestDockerConnector(unittest.TestCase):
     def test_60_finalize(self, requests):
         radl_data = """
             network net (outbound = 'yes')
+            network net1 ()
             system test (
             cpu.count=1 and
-            memory.size=512m
+            memory.size=512m and
+            disk.1.size=1GB and
+            disk.1.device='hdb' and
+            disk.1.mount_path='/mnt/path' and
+            disk.1.created='yes'
             )"""
         radl = radl_parse.parse_radl(radl_data)
         auth = Authentication([{'id': 'docker', 'type': 'Docker', 'host': 'http://server.com:2375'}])
         docker_cloud = self.get_docker_cloud()
 
         inf = MagicMock()
+        inf.id = "infid"
         vm = VirtualMachine(inf, "1", docker_cloud.cloud, radl, radl, docker_cloud, 1)
 
         requests.side_effect = self.get_response
