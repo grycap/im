@@ -415,17 +415,6 @@ class AzureCloudConnector(CloudConnector):
             },
         }
 
-    def get_storage_account(self, group_name, storage_account, credentials, subscription_id):
-        """
-        Get the information about the Storage Account named "storage_account" or None if it does not exist
-        """
-        try:
-            storage_client = StorageManagementClient(credentials, subscription_id)
-            return storage_client.storage_accounts.get_properties(group_name, storage_account)
-        except Exception:
-            self.log_exception("Error checking the storage account")
-            return None
-
     def create_storage_account(self, group_name, storage_account, credentials, subscription_id, location):
         """
         Create an storage account with the name specified in "storage_account"

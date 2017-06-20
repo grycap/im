@@ -152,6 +152,8 @@ class TestAzureConnector(unittest.TestCase):
         nclient = MagicMock()
         network_client.return_value = nclient
 
+        nclient.virtual_networks.get.side_effect = Exception()
+
         subnet_create = MagicMock()
         subnet_create_res = MagicMock()
         subnet_create_res.id = "subnet-0"
