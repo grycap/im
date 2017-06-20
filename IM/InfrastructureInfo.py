@@ -20,7 +20,6 @@ import time
 from uuid import uuid1
 import json
 
-from IM.ganglia import ganglia_info
 import IM.ConfManager
 from datetime import datetime, timedelta
 from radl.radl import RADL, Feature, deploy, system, contextualize_item
@@ -81,8 +80,6 @@ class InfrastructureInfo:
         """VM selected as the master node to the contextualization step"""
         self.vm_id = 0
         """Next vm id available."""
-        self.last_ganglia_update = 0
-        """Last update of the ganglia info"""
         self.cont_out = ""
         """Contextualization output message"""
         self.ctxt_tasks = PriorityQueue()
@@ -360,29 +357,6 @@ class InfrastructureInfo:
                 if full_connected:
                     self.vm_master = vm
                     break
-
-    def update_ganglia_info(self):
-        """
-        Get information about the infrastructure from ganglia monitors.
-        """
-        if Config.GET_GANGLIA_INFO:
-            InfrastructureInfo.logger.debug(
-                "Getting information from monitors")
-
-            now = int(time.time())
-            # To avoid to refresh the information too quickly
-            if now - self.last_ganglia_update > Config.GANGLIA_INFO_UPDATE_FREQUENCY:
-                try:
-                    (success, msg) = ganglia_info.update_ganglia_info(self)
-                except Exception as ex:
-                    success = False
-                    msg = str(ex)
-            else:
-                success = False
-                msg = "The information was updated recently. Using last information obtained"
-
-            if not success:
-                InfrastructureInfo.logger.debug(msg)
 
     def vm_in_ctxt_tasks(self, vm):
         found = False
