@@ -286,6 +286,7 @@ class AzureCloudConnector(CloudConnector):
         i = 0
         hasPublicIP = False
         hasPrivateIP = False
+        outports = None
         while system.getValue("net_interface." + str(i) + ".connection"):
             network_name = system.getValue("net_interface." + str(i) + ".connection")
             # TODO: check how to do that
@@ -294,6 +295,7 @@ class AzureCloudConnector(CloudConnector):
 
             if network.isPublic():
                 hasPublicIP = True
+                outports = network.getOutPorts()
             else:
                 hasPrivateIP = True
 
@@ -345,7 +347,6 @@ class AzureCloudConnector(CloudConnector):
                 nic_params['ip_configurations'][0]['public_ip_address'] = {'id': public_ip_info.id}
 
                 # Create a NSG
-                outports = network.getOutPorts()
                 if outports:
                     nsg_name = "nsg-%d" % i
                     nsg = self.create_ngs(location, group_name, nsg_name, outports, network_client)
@@ -413,17 +414,6 @@ class AzureCloudConnector(CloudConnector):
                 'network_interfaces': [{'id': nic.id, 'primary': primary} for nic, primary in nics]
             },
         }
-
-    def get_storage_account(self, group_name, storage_account, credentials, subscription_id):
-        """
-        Get the information about the Storage Account named "storage_account" or None if it does not exist
-        """
-        try:
-            storage_client = StorageManagementClient(credentials, subscription_id)
-            return storage_client.storage_accounts.get_properties(group_name, storage_account)
-        except Exception:
-            self.log_exception("Error checking the storage account")
-            return None
 
     def create_storage_account(self, group_name, storage_account, credentials, subscription_id, location):
         """
@@ -643,12 +633,8 @@ class AzureCloudConnector(CloudConnector):
             # Get one the virtual machine by name
             virtual_machine = compute_client.virtual_machines.get(group_name, vm_name)
         except Exception as ex:
-            if "NotFound" in str(ex):
-                vm.state = VirtualMachine.OFF
-                return (True, vm)
-            else:
-                self.log_exception("Error getting the VM info: " + vm.id)
-                return (False, "Error getting the VM info: " + vm.id + ". " + str(ex))
+            self.log_exception("Error getting the VM info: " + vm.id)
+            return (False, "Error getting the VM info: " + vm.id + ". " + str(ex))
 
         self.log_debug("VM info: " + vm.id + " obtained.")
         vm.state = self.PROVISION_STATE_MAP.get(virtual_machine.provisioning_state, VirtualMachine.UNKNOWN)

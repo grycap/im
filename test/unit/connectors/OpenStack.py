@@ -181,6 +181,13 @@ class TestOSTConnector(unittest.TestCase):
         self.assertTrue(success, msg="ERROR: launching a VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
+        # test with proxy auth data
+        auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'proxy': 'proxy',
+                                'tenant': 'tenant', 'host': 'https://server.com:5000'}])
+        res = ost_cloud.launch(InfrastructureInfo(), radl, radl, 1, auth)
+        success, _ = res[0]
+        self.assertTrue(success, msg="ERROR: launching a VM.")
+
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
     def test_30_updateVMInfo(self, get_driver):
         radl_data = """
@@ -241,6 +248,27 @@ class TestOSTConnector(unittest.TestCase):
         driver.ex_list_floating_ip_pools.return_value = [pool]
 
         success, vm = ost_cloud.updateVMInfo(vm, auth)
+
+        self.assertTrue(success, msg="ERROR: updating VM info.")
+        self.assertEquals(vm.info.systems[0].getValue("net_interface.1.ip"), "10.0.0.1")
+
+        # In this case the Node has the float ip assigned
+        node.public_ips = ['8.8.8.8']
+        floating_ip.node_id = node.id
+        pool.list_floating_ips.return_value = [floating_ip]
+        driver.ex_list_floating_ip_pools.return_value = [pool]
+
+        success, vm = ost_cloud.updateVMInfo(vm, auth)
+
+        self.assertTrue(success, msg="ERROR: updating VM info.")
+        self.assertEquals(vm.info.systems[0].getValue("net_interface.1.ip"), "10.0.0.1")
+        self.assertEquals(vm.info.systems[0].getValue("net_interface.0.ip"), "8.8.8.8")
+
+        # In this case the Node addresses are not available and it uses the old method
+        node.extra = {'flavorId': 'small'}
+        success, vm = ost_cloud.updateVMInfo(vm, auth)
+        self.assertEquals(vm.info.systems[0].getValue("net_interface.1.ip"), "10.0.0.1")
+        self.assertEquals(vm.info.systems[0].getValue("net_interface.0.ip"), "8.8.8.8")
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())

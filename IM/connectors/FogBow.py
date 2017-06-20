@@ -196,10 +196,7 @@ class FogBowCloudConnector(CloudConnector):
             resp = conn.getresponse()
 
             output = resp.read()
-            if resp.status == 404:
-                vm.state = VirtualMachine.OFF
-                return (True, vm)
-            elif resp.status != 200:
+            if resp.status != 200:
                 return (False, resp.reason + "\n" + output)
             else:
                 providing_member = self.get_occi_attribute_value(
