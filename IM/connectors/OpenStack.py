@@ -252,7 +252,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
     def get_node_floating_ips(self, node):
         """
-        Get a list of ip addresses asociated with a node
+        Get a list of ip addresses associated with a node
         """
         ips = []
         try:
@@ -283,7 +283,6 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     is_private = any([IPAddress(ip) in IPNetwork(mask) for mask in Config.PRIVATE_NET_MASKS])
 
                     if ipo['OS-EXT-IPS:type'] == 'floating':
-                        # in this case it always has to be public
                         ip_net_map[ip] = (None, not is_private)
                     else:
                         ip_net_map[ip] = (net_name, not is_private)

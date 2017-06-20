@@ -180,6 +180,13 @@ class TestOSTConnector(unittest.TestCase):
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+        
+        # test with proxy auth data
+        auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'proxy': 'proxy',
+                                'tenant': 'tenant', 'host': 'https://server.com:5000'}])
+        res = ost_cloud.launch(InfrastructureInfo(), radl, radl, 1, auth)
+        success, _ = res[0]
+        self.assertTrue(success, msg="ERROR: launching a VM.")
 
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
     def test_30_updateVMInfo(self, get_driver):
@@ -238,6 +245,15 @@ class TestOSTConnector(unittest.TestCase):
         floating_ip.ip_address = "8.8.8.8"
         pool.list_floating_ips.return_value = []
         pool.create_floating_ip.return_value = floating_ip
+        driver.ex_list_floating_ip_pools.return_value = [pool]
+
+        success, vm = ost_cloud.updateVMInfo(vm, auth)
+
+        self.assertTrue(success, msg="ERROR: updating VM info.")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
+        floating_ip.node_id = node.id
+        pool.list_floating_ips.return_value = [floating_ip]
         driver.ex_list_floating_ip_pools.return_value = [pool]
 
         success, vm = ost_cloud.updateVMInfo(vm, auth)
