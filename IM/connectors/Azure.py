@@ -286,6 +286,7 @@ class AzureCloudConnector(CloudConnector):
         i = 0
         hasPublicIP = False
         hasPrivateIP = False
+        outports = None
         while system.getValue("net_interface." + str(i) + ".connection"):
             network_name = system.getValue("net_interface." + str(i) + ".connection")
             # TODO: check how to do that
@@ -294,6 +295,7 @@ class AzureCloudConnector(CloudConnector):
 
             if network.isPublic():
                 hasPublicIP = True
+                outports = network.getOutPorts()
             else:
                 hasPrivateIP = True
 
@@ -345,7 +347,6 @@ class AzureCloudConnector(CloudConnector):
                 nic_params['ip_configurations'][0]['public_ip_address'] = {'id': public_ip_info.id}
 
                 # Create a NSG
-                outports = network.getOutPorts()
                 if outports:
                     nsg_name = "nsg-%d" % i
                     nsg = self.create_ngs(location, group_name, nsg_name, outports, network_client)
