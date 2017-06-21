@@ -569,9 +569,16 @@ class AzureCloudConnector(CloudConnector):
                     self.attach_data_disks(vm, storage_account_name, credentials, subscription_id, location)
                     res.append((True, vm))
                 except Exception as ex:
-                    self.log_exception("Error creating the VM")
+                    all_ok = False
+                    self.log_exception("Error waiting the VM")
+                    vms.append((False, "Error waiting the VM: " + str(ex)))
+
+                    # Delete Resource group and everything in it
+                    if group_name:
+                        self.log_debug("Delete Resource group and everything in it.")
+                        resource_client.resource_groups.delete(group_name)
             else:
-                res.append(success, data)
+                res.append((success, data))
 
         if not all_ok:
             # Remove the general group
