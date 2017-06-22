@@ -237,6 +237,19 @@ class AzureCloudConnector(CloudConnector):
             else:
                 raise cex
 
+    def get_storage_account(self, group_name, storage_name, credentials, subscription_id):
+        """
+        Get the Storage Account named storage_name in group_name, if it not exists return None
+        """
+        try:
+            storage_client = StorageManagementClient(credentials, subscription_id)
+            return storage_client.storage_accounts.get_properties(group_name, storage_name)
+        except CloudError as cex:
+            if cex.status_code == 404:
+                return None
+            else:
+                raise cex
+
     def create_ngs(self, location, group_name, nsg_name, outports, network_client):
         """
         Create a Network Security Group
@@ -431,23 +444,6 @@ class AzureCloudConnector(CloudConnector):
             },
         }
 
-    def create_storage_account(self, group_name, storage_account, credentials, subscription_id, location):
-        """
-        Create an storage account with the name specified in "storage_account"
-        """
-        try:
-            storage_client = StorageManagementClient(credentials, subscription_id)
-            storage_async_operation = storage_client.storage_accounts.create(group_name,
-                                                                             storage_account,
-                                                                             {'sku': {'name': 'standard_lrs'},
-                                                                              'kind': 'storage',
-                                                                              'location': location}
-                                                                             )
-            return storage_async_operation.result(), ""
-        except Exception as ex:
-            self.log_exception("Error creating the storage account")
-            return None, str(ex)
-
     def create_nets(self, inf, radl, credentials, subscription_id, group_name):
         network_client = NetworkManagementClient(credentials, subscription_id)
         location = self.DEFAULT_LOCATION
@@ -503,10 +499,36 @@ class AzureCloudConnector(CloudConnector):
 
         resource_client = ResourceManagementClient(credentials, subscription_id)
 
+        # Storage account name must be between 3 and 24 characters in length and use
+        # numbers and lower-case letters only
+        storage_account_name = "s%s" % inf.id
+        storage_account_name = storage_account_name.replace("-", "")
+        storage_account_name = storage_account_name[:24]
+
         with inf._lock:
             # Create resource group for the Infrastructure if it does not exists
             if not self.get_rg("rg-%s" % inf.id, credentials, subscription_id):
+                self.log_debug("Creating Inf RG: %s" % "rg-%s" % inf.id)
                 resource_client.resource_groups.create_or_update("rg-%s" % inf.id, {'location': location})
+
+            # Create an storage_account per Infrastructure
+            storage_account = self.get_storage_account("rg-%s" % inf.id, storage_account_name,
+                                                       credentials, subscription_id)
+
+            if not storage_account:
+                self.log_debug("Creating storage account: %s" % storage_account_name)
+                try:
+                    storage_client = StorageManagementClient(credentials, subscription_id)
+                    storage_client.storage_accounts.create("rg-%s" % inf.id,
+                                                           storage_account_name,
+                                                           {'sku': {'name': 'standard_lrs'},
+                                                            'kind': 'storage',
+                                                            'location': location}
+                                                           ).wait()
+                except:
+                    self.log_exception("Error creating storage account: %s" % storage_account)
+                    self.log_debug("Delete Inf RG group %s" % "rg-%s" % inf.id)
+                    resource_client.resource_groups.delete("rg-%s" % inf.id)
 
             subnets = self.create_nets(inf, radl, credentials, subscription_id, "rg-%s" % inf.id)
 
@@ -517,11 +539,6 @@ class AzureCloudConnector(CloudConnector):
             group_name = None
             try:
                 uid = str(uuid.uuid1())
-                # Storage account name must be between 3 and 24 characters in length and use
-                # numbers and lower-case letters only
-                storage_account_name = "s%s" % uid
-                storage_account_name = storage_account_name.replace("-", "")
-                storage_account_name = storage_account_name[:24]
 
                 vm_name = radl.systems[0].getValue("instance_name")
                 if vm_name:
@@ -538,17 +555,6 @@ class AzureCloudConnector(CloudConnector):
                 vm.info.systems[0].setValue('instance_id', group_name + '/' + vm_name)
                 # Add it now as we have create the rg for the VM
                 inf.add_vm(vm)
-
-                # Create storage account
-                storage_account, error_msg = self.create_storage_account(group_name, storage_account_name,
-                                                                         credentials, subscription_id, location)
-
-                if not storage_account:
-                    all_ok = False
-                    vms.append((False, error_msg))
-                    # delete VM group
-                    resource_client.resource_groups.delete(group_name)
-                    continue
 
                 nics = self.create_nics(inf, radl, credentials, subscription_id, group_name, subnets)
 
@@ -568,7 +574,7 @@ class AzureCloudConnector(CloudConnector):
 
                 # Delete Resource group and everything in it
                 if group_name:
-                    self.log_debug("Delete Resource group and everything in it.")
+                    self.log_debug("Delete Resource group %s and everything in it." % group_name)
                     resource_client.resource_groups.delete(group_name)
 
             i += 1
@@ -589,13 +595,14 @@ class AzureCloudConnector(CloudConnector):
 
                     # Delete Resource group and everything in it
                     if group_name:
-                        self.log_debug("Delete Resource group and everything in it.")
+                        self.log_debug("Delete Resource group %s and everything in it." % group_name)
                         resource_client.resource_groups.delete(group_name)
             else:
                 res.append((success, data))
 
         if not all_ok:
             # Remove the general group
+            self.log_debug("Delete Inf RG group %s" % "rg-%s" % inf.id)
             resource_client.resource_groups.delete("rg-%s" % inf.id)
 
         return res
@@ -623,12 +630,12 @@ class AzureCloudConnector(CloudConnector):
                         'location': location,
                         'storage_profile': {
                             'data_disks': [{
-                                'name': 'mydatadisk%d' % cont,
+                                'name': '%s_disk_%d' % (vm_name, cont),
                                 'disk_size_gb': disk_size,
                                 'lun': 0,
                                 'vhd': {
-                                    'uri': "http://{}.blob.core.windows.net/vhds/mydatadisk1.vhd".format(
-                                        storage_account_name)
+                                    'uri': "http://{}.blob.core.windows.net/vhds/{}disk{}.vhd".format(
+                                        storage_account_name, vm_name, cont)
                                 },
                                 'create_option': 'Empty'
                             }]
@@ -765,7 +772,7 @@ class AzureCloudConnector(CloudConnector):
             # if it is the last VM delete the RG of the Inf
             if last:
                 if self.get_rg("rg-%s" % vm.inf.id, credentials, subscription_id):
-                    self.log_debug("Removing RG: %s" % "rg-%s" % vm.inf.id)
+                    self.log_debug("Removing Inf. RG: %s" % "rg-%s" % vm.inf.id)
                     resource_client.resource_groups.delete("rg-%s" % vm.inf.id)
                 else:
                     self.log_debug("RG: %s does not exist. Do not remove." % "rg-%s" % vm.inf.id)

@@ -118,6 +118,7 @@ class VirtualMachine:
             dic['requested_radl'] = parse_radl(dic['requested_radl'])
 
         newvm = VirtualMachine(None, None, None, None, None, None, dic['im_id'])
+        # Set creating to False as default to VMs stored with 1.5.5 or old versions
         newvm.creating = False
         newvm.__dict__.update(dic)
         # If we load a VM that is not configured, set it to False
