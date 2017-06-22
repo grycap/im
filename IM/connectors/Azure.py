@@ -514,15 +514,21 @@ class AzureCloudConnector(CloudConnector):
             # Create an storage_account per Infrastructure
             storage_account = self.get_storage_account("rg-%s" % inf.id, storage_account_name,
                                                        credentials, subscription_id)
+
             if not storage_account:
-                self.log_debug("Creating storage account: %s" % storage_account)
-                storage_client = StorageManagementClient(credentials, subscription_id)
-                storage_client.storage_accounts.create("rg-%s" % inf.id,
-                                                       storage_account_name,
-                                                       {'sku': {'name': 'standard_lrs'},
-                                                        'kind': 'storage',
-                                                        'location': location}
-                                                       ).wait()
+                self.log_debug("Creating storage account: %s" % storage_account_name)
+                try:
+                    storage_client = StorageManagementClient(credentials, subscription_id)
+                    storage_client.storage_accounts.create("rg-%s" % inf.id,
+                                                           storage_account_name,
+                                                           {'sku': {'name': 'standard_lrs'},
+                                                            'kind': 'storage',
+                                                            'location': location}
+                                                           ).wait()
+                except:
+                    self.log_exception("Error creating storage account: %s" % storage_account)
+                    self.log_debug("Delete Inf RG group %s" % "rg-%s" % inf.id)
+                    resource_client.resource_groups.delete("rg-%s" % inf.id)
 
             subnets = self.create_nets(inf, radl, credentials, subscription_id, "rg-%s" % inf.id)
 
@@ -568,7 +574,7 @@ class AzureCloudConnector(CloudConnector):
 
                 # Delete Resource group and everything in it
                 if group_name:
-                    self.log_debug("Delete Resource group and everything in it.")
+                    self.log_debug("Delete Resource group %s and everything in it." % group_name)
                     resource_client.resource_groups.delete(group_name)
 
             i += 1
@@ -589,13 +595,14 @@ class AzureCloudConnector(CloudConnector):
 
                     # Delete Resource group and everything in it
                     if group_name:
-                        self.log_debug("Delete Resource group and everything in it.")
+                        self.log_debug("Delete Resource group %s and everything in it." % group_name)
                         resource_client.resource_groups.delete(group_name)
             else:
                 res.append((success, data))
 
         if not all_ok:
             # Remove the general group
+            self.log_debug("Delete Inf RG group %s" % "rg-%s" % inf.id)
             resource_client.resource_groups.delete("rg-%s" % inf.id)
 
         return res
@@ -623,12 +630,12 @@ class AzureCloudConnector(CloudConnector):
                         'location': location,
                         'storage_profile': {
                             'data_disks': [{
-                                'name': 'mydatadisk%d' % cont,
+                                'name': '%s_disk_%d' % (vm_name, cont),
                                 'disk_size_gb': disk_size,
                                 'lun': 0,
                                 'vhd': {
-                                    'uri': "http://{}.blob.core.windows.net/vhds/mydatadisk1.vhd".format(
-                                        storage_account_name)
+                                    'uri': "http://{}.blob.core.windows.net/vhds/{}disk{}.vhd".format(
+                                        storage_account_name, vm_name, cont)
                                 },
                                 'create_option': 'Empty'
                             }]
@@ -765,7 +772,7 @@ class AzureCloudConnector(CloudConnector):
             # if it is the last VM delete the RG of the Inf
             if last:
                 if self.get_rg("rg-%s" % vm.inf.id, credentials, subscription_id):
-                    self.log_debug("Removing RG: %s" % "rg-%s" % vm.inf.id)
+                    self.log_debug("Removing Inf. RG: %s" % "rg-%s" % vm.inf.id)
                     resource_client.resource_groups.delete("rg-%s" % vm.inf.id)
                 else:
                     self.log_debug("RG: %s does not exist. Do not remove." % "rg-%s" % vm.inf.id)
