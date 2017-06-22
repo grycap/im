@@ -177,7 +177,8 @@ class TestDockerConnector(unittest.TestCase):
         return resp
 
     @patch('requests.request')
-    def test_20_launch(self, requests):
+    @patch('IM.InfrastructureList.InfrastructureList.save_data')
+    def test_20_launch(self, save_data, requests):
         radl_data = """
             network net1 (outbound = 'yes' and outports = '8080')
             network net2 ()

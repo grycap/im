@@ -560,12 +560,17 @@ class InfrastructureManager:
                 msg += str(e) + "\n"
             raise Exception("Some deploys did not proceed successfully: %s" % msg)
 
+        # Remove the VMs in creating state
+        sel_inf.remove_creating_vms()
+
         for vm in new_vms:
+            # Set now the VM as "created"
+            vm.creating = False
+            # and add it to the Inf
             sel_inf.add_vm(vm)
 
             (_, passwd, _, _) = vm.info.systems[0].getCredentialValues()
-            (_, new_passwd, _, _) = vm.info.systems[
-                0].getCredentialValues(new=True)
+            (_, new_passwd, _, _) = vm.info.systems[0].getCredentialValues(new=True)
             if passwd and not new_passwd:
                 # The VM uses the VMI password, set to change it
                 random_password = ''.join(random.choice(

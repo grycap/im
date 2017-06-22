@@ -150,7 +150,8 @@ class TestOCCIConnector(unittest.TestCase):
 
     @patch('requests.request')
     @patch('IM.connectors.OCCI.KeyStoneAuth.get_keystone_uri')
-    def test_20_launch(self, get_keystone_uri, requests):
+    @patch('IM.InfrastructureList.InfrastructureList.save_data')
+    def test_20_launch(self, save_data, get_keystone_uri, requests):
         radl_data = """
             network net1 (outbound = 'yes' and outports = '8080')
             network net2 ()

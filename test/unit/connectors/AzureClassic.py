@@ -172,7 +172,8 @@ class TestAzureClassicConnector(unittest.TestCase):
 
     @patch('requests.request')
     @patch('time.sleep')
-    def test_20_launch(self, sleep, requests):
+    @patch('IM.InfrastructureList.InfrastructureList.save_data')
+    def test_20_launch(self, save_data, sleep, requests):
         radl_data = """
             network net1 (outbound = 'yes' and outports = '8080,9000:9100')
             network net2 ()
