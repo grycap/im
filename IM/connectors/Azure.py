@@ -504,7 +504,7 @@ class AzureCloudConnector(CloudConnector):
         resource_client = ResourceManagementClient(credentials, subscription_id)
 
         with inf._lock:
-            # Create resource group for the Infrastructure if it does not exists 
+            # Create resource group for the Infrastructure if it does not exists
             if not self.get_rg("rg-%s" % inf.id, credentials, subscription_id):
                 resource_client.resource_groups.create_or_update("rg-%s" % inf.id, {'location': location})
 
