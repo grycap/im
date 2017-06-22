@@ -54,7 +54,7 @@ class AzureCloudConnector(CloudConnector):
 
     PROVISION_STATE_MAP = {
         'Accepted': VirtualMachine.PENDING,
-        'Canceled': VirtualMachine.OFF,
+        'Canceled': VirtualMachine.FAILED,
         'Created': VirtualMachine.PENDING,
         'Creating': VirtualMachine.PENDING,
         'Deleted': VirtualMachine.OFF,
@@ -583,11 +583,11 @@ class AzureCloudConnector(CloudConnector):
                 vm_parameters = self.get_azure_vm_create_json(storage_account_name, vm_name, nics, radl, instance_type)
 
                 compute_client = ComputeManagementClient(credentials, subscription_id)
-                async_vm_creation = compute_client.virtual_machines.create_or_update(group_name, vm_name, vm_parameters)
+                compute_client.virtual_machines.create_or_update(group_name, vm_name, vm_parameters)
 
                 self.log_debug("VM ID: %s created." % vm.id)
 
-                vms.append((True, (vm, async_vm_creation)))
+                vms.append((True, vm))
             except Exception as ex:
                 all_ok = False
                 self.log_exception("Error creating the VM")
@@ -600,28 +600,12 @@ class AzureCloudConnector(CloudConnector):
 
             i += 1
 
-        res = []
-        for success, data in vms:
-            if success:
-                vm, async_vm_creation = data
-                try:
-                    self.log_debug("Waiting VM ID %s to be created." % vm.id)
-                    async_vm_creation.wait()
-                except Exception as ex:
-                    # Just forget this error and try to move ahead
-                    self.log_exception("Error waiting the VM. Go ahead.")
-                    res.append((False, "Error waiting the VM: %s" % str(ex)))
-
-                res.append((True, vm))
-            else:
-                res.append((success, data))
-
         if not all_ok:
             # Remove the general group
             self.log_debug("Delete Inf RG group %s" % "rg-%s" % inf.id)
             resource_client.resource_groups.delete("rg-%s" % inf.id)
 
-        return res
+        return vms
 
     def updateVMInfo(self, vm, auth_data):
         self.log_debug("Get the VM info with the id: " + vm.id)
