@@ -168,8 +168,11 @@ class ConfManager(threading.Thread):
             Kill all the ctxt processes
         """
         for vm in self.inf.get_vm_list():
-            self.log_debug("Killing ctxt processes.")
-            vm.kill_check_ctxt_process()
+            self.log_debug("Killing ctxt processes in VM: %s" % vm.id)
+            try:
+                vm.kill_check_ctxt_process()
+            except:
+                self.log_exception("Killing ctxt processes in VM: %s" % vm.id)
 
     def run(self):
         self.log_debug("Starting the ConfManager Thread")
