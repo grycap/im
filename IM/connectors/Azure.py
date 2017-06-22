@@ -412,7 +412,7 @@ class AzureCloudConnector(CloudConnector):
 
         os_disk_name = "osdisk-" + str(uuid.uuid1())
 
-        return {
+        vm = {
             'location': location,
             'os_profile': {
                 'computer_name': vm_name,
@@ -443,6 +443,27 @@ class AzureCloudConnector(CloudConnector):
                 'network_interfaces': [{'id': nic.id, 'primary': primary} for nic, primary in nics]
             },
         }
+
+        cont = 1
+        data_disks = []
+        while system.getValue("disk." + str(cont) + ".size"):
+            disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('G')
+            data_disks.append({
+                'name': '%s_disk_%d' % (vm_name, cont),
+                'disk_size_gb': disk_size,
+                'lun': cont - 1,
+                'vhd': {
+                    'uri': "http://{}.blob.core.windows.net/vhds/{}disk{}.vhd".format(
+                        storage_account, vm_name, cont)
+                },
+                'create_option': 'Empty'
+            })
+            cont += 1
+
+        if data_disks:
+            vm['storage_profile']['data_disks'] = data_disks
+
+        return vm
 
     def create_nets(self, inf, radl, credentials, subscription_id, group_name):
         network_client = NetworkManagementClient(credentials, subscription_id)
@@ -566,7 +587,7 @@ class AzureCloudConnector(CloudConnector):
 
                 self.log_debug("VM ID: %s created." % vm.id)
 
-                vms.append((True, (vm, async_vm_creation, storage_account_name)))
+                vms.append((True, (vm, async_vm_creation)))
             except Exception as ex:
                 all_ok = False
                 self.log_exception("Error creating the VM")
@@ -582,21 +603,16 @@ class AzureCloudConnector(CloudConnector):
         res = []
         for success, data in vms:
             if success:
-                vm, async_vm_creation, storage_account_name = data
+                vm, async_vm_creation = data
                 try:
                     self.log_debug("Waiting VM ID %s to be created." % vm.id)
                     async_vm_creation.wait()
-                    self.attach_data_disks(vm, storage_account_name, credentials, subscription_id, location)
-                    res.append((True, vm))
                 except Exception as ex:
-                    all_ok = False
-                    self.log_exception("Error waiting the VM")
-                    vms.append((False, "Error waiting the VM: " + str(ex)))
+                    # Just forget this error and try to move ahead
+                    self.log_exception("Error waiting the VM. Go ahead.")
+                    res.append((False, "Error waiting the VM: %s" % str(ex)))
 
-                    # Delete Resource group and everything in it
-                    if group_name:
-                        self.log_debug("Delete Resource group %s and everything in it." % group_name)
-                        resource_client.resource_groups.delete(group_name)
+                res.append((True, vm))
             else:
                 res.append((success, data))
 
@@ -606,49 +622,6 @@ class AzureCloudConnector(CloudConnector):
             resource_client.resource_groups.delete("rg-%s" % inf.id)
 
         return res
-
-    def attach_data_disks(self, vm, storage_account_name, credentials, subscription_id, location):
-        """
-        Attach the specified RADL disks to the VM
-        """
-        system = vm.info.systems[0]
-        cont = 1
-        group_name = vm.id.split('/')[0]
-        vm_name = vm.id.split('/')[1]
-        compute_client = ComputeManagementClient(credentials, subscription_id)
-
-        while system.getValue("disk." + str(cont) + ".size"):
-            disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('G')
-            self.log_debug("Attaching a %s GB disk to VM." % disk_size)
-
-            try:
-                # Attach data disk
-                async_disk_creation = compute_client.virtual_machines.create_or_update(
-                    group_name,
-                    vm_name,
-                    {
-                        'location': location,
-                        'storage_profile': {
-                            'data_disks': [{
-                                'name': '%s_disk_%d' % (vm_name, cont),
-                                'disk_size_gb': disk_size,
-                                'lun': 0,
-                                'vhd': {
-                                    'uri': "http://{}.blob.core.windows.net/vhds/{}disk{}.vhd".format(
-                                        storage_account_name, vm_name, cont)
-                                },
-                                'create_option': 'Empty'
-                            }]
-                        }
-                    }
-                )
-                async_disk_creation.wait()
-            except Exception as ex:
-                self.log_exception("Error attaching disk %d to VM %s" % (cont, vm_name))
-                return False, "Error attaching disk %d to VM %s: %s" % (cont, vm_name, str(ex))
-            cont += 1
-
-        return True, ""
 
     def updateVMInfo(self, vm, auth_data):
         self.log_debug("Get the VM info with the id: " + vm.id)
