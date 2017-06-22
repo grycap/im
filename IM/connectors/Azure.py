@@ -608,7 +608,7 @@ class AzureCloudConnector(CloudConnector):
                     self.log_debug("Waiting VM ID %s to be created." % vm.id)
                     async_vm_creation.wait()
                 except Exception as ex:
-                    # Just forget this error and try to move ahead
+                    all_ok = False
                     self.log_exception("Error waiting the VM. Go ahead.")
                     res.append((False, "Error waiting the VM: %s" % str(ex)))
 
