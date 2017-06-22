@@ -584,8 +584,8 @@ class AzureCloudConnector(CloudConnector):
             if success:
                 vm, async_vm_creation, storage_account_name = data
                 try:
-                    async_vm_creation.wait()
                     self.log_debug("Waiting VM ID %s to be created." % vm.id)
+                    async_vm_creation.wait()
                     self.attach_data_disks(vm, storage_account_name, credentials, subscription_id, location)
                     res.append((True, vm))
                 except Exception as ex:
