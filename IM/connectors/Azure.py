@@ -512,8 +512,14 @@ class AzureCloudConnector(CloudConnector):
                 resource_client.resource_groups.create_or_update("rg-%s" % inf.id, {'location': location})
 
             # Create an storage_account per Infrastructure
-            storage_account = self.get_storage_account("rg-%s" % inf.id, storage_account_name,
-                                                       credentials, subscription_id)
+            storage_account = None
+            try:
+                storage_account = self.get_storage_account("rg-%s" % inf.id, storage_account_name,
+                                                           credentials, subscription_id)
+            except:
+                self.log_exception("Error creating storage account: %s" % storage_account)
+                pass
+
             if not storage_account:
                 self.log_debug("Creating storage account: %s" % storage_account)
                 storage_client = StorageManagementClient(credentials, subscription_id)
