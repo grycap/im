@@ -117,7 +117,8 @@ class TestEC2Connector(unittest.TestCase):
     @patch('boto.ec2.get_region')
     @patch('boto.vpc.VPCConnection')
     @patch('boto.ec2.blockdevicemapping.BlockDeviceMapping')
-    def test_20_launch(self, blockdevicemapping, VPCConnection, get_region):
+    @patch('IM.InfrastructureList.InfrastructureList.save_data')
+    def test_20_launch(self, save_data, blockdevicemapping, VPCConnection, get_region):
         radl_data = """
             network net1 (outbound = 'yes' and outports='8080,9000:9100')
             network net2 ()
@@ -219,7 +220,8 @@ class TestEC2Connector(unittest.TestCase):
     @patch('boto.ec2.get_region')
     @patch('boto.vpc.VPCConnection')
     @patch('boto.ec2.blockdevicemapping.BlockDeviceMapping')
-    def test_25_launch_spot(self, blockdevicemapping, VPCConnection, get_region):
+    @patch('IM.InfrastructureList.InfrastructureList.save_data')
+    def test_25_launch_spot(self, save_data, blockdevicemapping, VPCConnection, get_region):
         radl_data = """
             network net1 (outbound = 'yes' and provider_id = 'vpc-id.subnet-id')
             network net2 ()

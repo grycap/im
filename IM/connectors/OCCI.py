@@ -829,6 +829,7 @@ class OCCICloudConnector(CloudConnector):
                     if occi_vm_id:
                         vm.id = occi_vm_id
                         vm.info.systems[0].setValue('instance_id', str(occi_vm_id))
+                        inf.add_vm(vm)
                         res.append((True, vm))
                     else:
                         res.append((False, 'Unknown Error launching the VM.'))

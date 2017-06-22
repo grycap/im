@@ -596,6 +596,7 @@ class DockerCloudConnector(CloudConnector):
                     res.append((False, "Error: response format not expected."))
 
                 vm.info.systems[0].setValue('instance_id', str(vm.id))
+                inf.add_vm(vm)
 
                 if not self._is_swarm(auth_data):
                     # In creation a container can only be attached to one one network

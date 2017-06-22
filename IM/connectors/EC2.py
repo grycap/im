@@ -684,6 +684,7 @@ class EC2CloudConnector(CloudConnector):
                                 self.log_debug(
                                     "Instance successfully launched.")
                                 all_failed = False
+                                inf.add_vm(vm)
                                 res.append((True, vm))
                             else:
                                 res.append((False, "Error %s." % err_msg))
@@ -726,6 +727,7 @@ class EC2CloudConnector(CloudConnector):
                                 vm.keypair_name = keypair_name
                                 self.log_debug(
                                     "Instance successfully launched.")
+                                inf.add_vm(vm)
                                 res.append((True, vm))
                                 all_failed = False
                             else:
