@@ -266,6 +266,7 @@ class LibCloudCloudConnector(CloudConnector):
                 # Add the keypair name to remove it later
                 vm.keypair = keypair_name
                 self.log_debug("Node successfully created.")
+                inf.add_vm(vm)
                 res.append((True, vm))
             else:
                 res.append((False, "Error creating the node"))

@@ -121,7 +121,8 @@ class TestONEConnector(unittest.TestCase):
 
     @patch('IM.connectors.OpenNebula.ServerProxy')
     @patch('IM.connectors.OpenNebula.OpenNebulaCloudConnector.getONEVersion')
-    def test_20_launch(self, getONEVersion, server_proxy):
+    @patch('IM.InfrastructureList.InfrastructureList.save_data')
+    def test_20_launch(self, save_data, getONEVersion, server_proxy):
         radl_data = """
             network net1 (provider_id = 'publica' and outbound = 'yes' and outports = '8080,9000:9100')
             network net2 ()

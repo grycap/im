@@ -392,6 +392,7 @@ class KubernetesCloudConnector(CloudConnector):
                         'disk.0.os.credentials.password', self._root_password)
                     vm.info.systems[0].setValue('instance_id', str(vm.id))
                     vm.info.systems[0].setValue('instance_name', str(vm.id))
+                    inf.add_vm(vm)
 
                     res.append((True, vm))
 

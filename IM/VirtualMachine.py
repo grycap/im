@@ -83,6 +83,8 @@ class VirtualMachine:
         """Number of errors in the ssh connection trying to get the state of the ctxt pid """
         self.cloud_connector = cloud_connector
         """CloudConnector object to connect with the IaaS platform"""
+        self.creating = True
+        """Flag to specify that this VM is creation process"""
 
     def serialize(self):
         with self._lock:
@@ -116,6 +118,7 @@ class VirtualMachine:
             dic['requested_radl'] = parse_radl(dic['requested_radl'])
 
         newvm = VirtualMachine(None, None, None, None, None, None, dic['im_id'])
+        newvm.creating = False
         newvm.__dict__.update(dic)
         # If we load a VM that is not configured, set it to False
         # because the configuration process will be lost
@@ -458,6 +461,9 @@ class VirtualMachine:
                         state = new_vm.state
                         updated = True
                         self.last_update = now
+                    elif self.creating:
+                        VirtualMachine.logger.debug("VM is in creation process, set pending state")
+                        state = VirtualMachine.PENDING
                     else:
                         VirtualMachine.logger.error("Error updating VM status: %s" % new_vm)
                 except:

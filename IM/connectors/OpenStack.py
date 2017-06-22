@@ -513,6 +513,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     vm.keypair = keypair_name
                 self.log_debug("Node successfully created.")
                 all_failed = False
+                inf.add_vm(vm)
                 res.append((True, vm))
             else:
                 res.append((False, msg))

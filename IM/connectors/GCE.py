@@ -494,6 +494,7 @@ class GCECloudConnector(CloudConnector):
                                 requested_radl, self.cloud.getCloudConnector(inf))
             vm.info.systems[0].setValue('instance_id', str(vm.id))
             vm.info.systems[0].setValue('instance_name', str(vm.id))
+            inf.add_vm(vm)
             self.log_debug("Node successfully created.")
 
             res.append((True, vm))
