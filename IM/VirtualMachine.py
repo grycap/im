@@ -441,12 +441,13 @@ class VirtualMachine:
             self.info.systems[0].setValue(
                 'net_interface.' + str(num_net) + '.connection', public_net.id)
 
-    def update_status(self, auth):
+    def update_status(self, auth, force=False):
         """
         Update the status of this virtual machine.
         Only performs the update with UPDATE_FREQUENCY secs.
         Args:
         - auth(Authentication): parsed authentication tokens.
+        - force(boolean): force the VM update
         Return:
         - boolean: True if the information has been updated, false otherwise
         """
@@ -455,7 +456,7 @@ class VirtualMachine:
             state = self.state
             updated = False
             # To avoid to refresh the information too quickly
-            if now - self.last_update > Config.VM_INFO_UPDATE_FREQUENCY:
+            if force or now - self.last_update > Config.VM_INFO_UPDATE_FREQUENCY:
                 try:
                     (success, new_vm) = self.getCloudConnector().updateVMInfo(self, auth)
                     if success:
