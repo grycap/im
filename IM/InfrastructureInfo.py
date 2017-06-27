@@ -461,7 +461,7 @@ class InfrastructureInfo:
 
         - auth(Authentication): parsed authentication tokens.
         - vm_list(list of int): List of VM ids to reconfigure. If None all VMs will be reconfigured.
-        - unconfigure(boolean): Flag to specify that this is an unconfigure process. 
+        - unconfigure(boolean): Flag to specify that this is an unconfigure process.
         """
         ctxt = True
 

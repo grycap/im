@@ -682,8 +682,8 @@ class TestIM(unittest.TestCase):
 
         auth0 = self.getAuth([0], [], [("Dummy", 0)])
         infId = IM.CreateInfrastructure(str(radl), auth0)
-        cont = IM.RemoveResource(infId, ['0', '1'], auth0)
-        self.assertEqual(cont, 2)
+        res = IM.RemoveResource(infId, ['0', '1'], auth0)
+        self.assertEqual(res, (2, ''))
         vms = IM.GetInfrastructureInfo(infId, auth0)
         self.assertEqual(sorted(vms), ['2', '3'])
 
@@ -1039,9 +1039,9 @@ configure step2 (
         InfrastructureList.infrastructure_list[infId].vm_list[3].cloud.server = "server1"
         InfrastructureList.infrastructure_list[infId].vm_list[3].cloud_connector = cloud1
 
-        cont = IM.RemoveResource(infId, ['0', '1'], auth0)
+        res = IM.RemoveResource(infId, ['0', '1'], auth0)
 
-        self.assertEqual(cont, 2)
+        self.assertEqual(res, (2, ''))
         self.assertEqual(cloud0.finalize.call_args_list[0][0][1], False)
         self.assertEqual(cloud0.finalize.call_args_list[1][0][1], True)
         self.assertEqual(cloud0.finalize.call_count, 2)
@@ -1103,13 +1103,12 @@ configure unconf (
 
         InfrastructureList.infrastructure_list[infId].ansible_configured = True
 
-        with self.assertRaises(Exception) as ex:
-            _ = IM.RemoveResource(infId, [1], auth0)
-        self.assertIn("Error unconfiguring resources:", str(ex.exception))
+        cont, unconf_log = IM.RemoveResource(infId, [1], auth0)
+        self.assertEqual(cont, 1)
+        self.assertIn("Select master VM", unconf_log)
 
-        with self.assertRaises(Exception) as ex:
-            _ = IM.DestroyInfrastructure(infId, auth0)
-        self.assertIn("Error unconfiguring resources:", str(ex.exception))
+        unconf_log = IM.DestroyInfrastructure(infId, auth0)
+        self.assertIn("Select master VM", unconf_log)
 
         Config.MAX_CONTEXTUALIZATION_TIME = 7200
 

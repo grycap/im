@@ -20,16 +20,18 @@ from ssl import SSLError
 import os
 import re
 import base64
-import requests
 import tempfile
 import uuid
+
+from netaddr import IPNetwork, IPAddress
+import requests
 import yaml
+
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
+from IM.config import Config
 from .CloudConnector import CloudConnector
 from radl.radl import Feature
-from netaddr import IPNetwork, IPAddress
-from IM.config import Config
 
 
 class OCCICloudConnector(CloudConnector):
