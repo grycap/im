@@ -266,6 +266,7 @@ class LibCloudCloudConnector(CloudConnector):
                 # Add the keypair name to remove it later
                 vm.keypair = keypair_name
                 self.log_debug("Node successfully created.")
+                inf.add_vm(vm)
                 res.append((True, vm))
             else:
                 res.append((False, "Error creating the node"))
@@ -350,7 +351,8 @@ class LibCloudCloudConnector(CloudConnector):
             self.setIPsFromInstance(vm, node)
             self.attach_volumes(vm, node)
         else:
-            vm.state = VirtualMachine.OFF
+            self.log_warn("Error updating the instance %s. VM not found." % vm.id)
+            return (False, "Error updating the instance %s. VM not found." % vm.id)
 
         return (True, vm)
 

@@ -14,15 +14,15 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import yaml
-import threading
+import copy
+import json
+import logging
 import os
+import threading
 import time
 import tempfile
-import logging
 import shutil
-import json
-import copy
+import yaml
 
 try:
     from StringIO import StringIO
@@ -48,9 +48,9 @@ from IM.VirtualMachine import VirtualMachine
 from IM.SSH import AuthenticationException
 from IM.SSHRetry import SSHRetry
 from IM.recipe import Recipe
-from radl.radl import system, contextualize_item
-
 from IM.config import Config
+
+from radl.radl import system, contextualize_item
 
 
 class ConfManager(threading.Thread):
@@ -173,8 +173,11 @@ class ConfManager(threading.Thread):
             Kill all the ctxt processes
         """
         for vm in self.inf.get_vm_list():
-            self.log_debug("Killing ctxt processes.")
-            vm.kill_check_ctxt_process()
+            self.log_debug("Killing ctxt processes in VM: %s" % vm.id)
+            try:
+                vm.kill_check_ctxt_process()
+            except:
+                self.log_exception("Error killing ctxt processes in VM: %s" % vm.id)
 
     def run(self):
         if self.unconfigure:
@@ -190,8 +193,7 @@ class ConfManager(threading.Thread):
                 self.log_debug("Max contextualization time passed. Exit thread.")
                 self.inf.add_cont_msg("ERROR: Max contextualization time passed.")
                 # Remove tasks from queue
-                with self.inf._lock:
-                    self.inf.ctxt_tasks = PriorityQueue()
+                self.inf.reset_ctxt_tasks()
                 # Kill the ansible processes
                 self.kill_ctxt_processes()
                 # set as unconfigured all VMs with configured as None
@@ -630,7 +632,7 @@ class ConfManager(threading.Thread):
         _, recipes = Recipe.getInfoApps(vm.getAppsToInstall())
 
         conf_out = open(tmp_dir + "/main_" + group + "_task.yml", 'w')
-        conf_content = self.add_ansible_header(group, vm.getOS().lower())
+        conf_content = self.add_ansible_header(vm.getOS().lower())
 
         conf_content += "  pre_tasks: \n"
         # Basic tasks set copy /etc/hosts ...
@@ -690,7 +692,7 @@ class ConfManager(threading.Thread):
             "_" + ctxt_elem.system + "_task.yml"
         if not os.path.isfile(conf_filename):
             configure = self.inf.radl.get_configure_by_name(ctxt_elem.configure)
-            conf_content = self.add_ansible_header(ctxt_elem.system, vm.getOS().lower())
+            conf_content = self.add_ansible_header(vm.getOS().lower())
             vault_password = vm.info.systems[0].getValue("vault.password")
             if vault_password:
                 vault_edit = VaultEditor(vault_password)
@@ -1275,18 +1277,17 @@ class ConfManager(threading.Thread):
         else:
             return (False, msg)
 
-    def add_ansible_header(self, host, os):
+    def add_ansible_header(self, os_type):
         """
         Add the IM needed header in the contextualization playbooks
 
         Arguments:
-           - host(str): Hostname of VM.
-           - os(str): OS of the VM.
+           - os_type(str): OS of the VM.
         Returns: True if the process finished sucessfully, False otherwise.
         """
         conf_content = "---\n"
         conf_content += "- hosts: \"{{IM_HOST}}\"\n"
-        if os != 'windows':
+        if os_type != 'windows':
             conf_content += "  become: yes\n"
 
         return conf_content

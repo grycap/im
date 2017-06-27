@@ -118,7 +118,8 @@ class TestOSTConnector(unittest.TestCase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('libcloud.compute.drivers.ec2.EC2NodeDriver')
-    def test_20_launch(self, get_driver):
+    @patch('IM.InfrastructureList.InfrastructureList.save_data')
+    def test_20_launch(self, save_data, get_driver):
         radl_data = """
             network net1 (outbound = 'yes')
             network net2 ()

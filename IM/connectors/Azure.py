@@ -30,6 +30,7 @@ try:
     from azure.mgmt.network import NetworkManagementClient
     from azure.mgmt.dns import DnsManagementClient
     from azure.common.credentials import UserPassCredentials
+    from msrestazure.azure_exceptions import CloudError
 except Exception as ex:
     print("WARN: Python Azure SDK not correctly installed. AzureCloudConnector will not work!.")
     print(ex)
@@ -48,12 +49,12 @@ class AzureCloudConnector(CloudConnector):
     INSTANCE_TYPE = 'ExtraSmall'
     """Default instance type."""
     """Port of the server with the Service Management REST API."""
-    DEFAULT_LOCATION = "northeurope"
+    DEFAULT_LOCATION = "westeurope"
     """Default location to use"""
 
     PROVISION_STATE_MAP = {
         'Accepted': VirtualMachine.PENDING,
-        'Canceled': VirtualMachine.OFF,
+        'Canceled': VirtualMachine.FAILED,
         'Created': VirtualMachine.PENDING,
         'Creating': VirtualMachine.PENDING,
         'Deleted': VirtualMachine.OFF,
@@ -223,6 +224,32 @@ class AzureCloudConnector(CloudConnector):
                         res.append(res_system)
             return res
 
+    def get_rg(self, group_name, credentials, subscription_id):
+        """
+        Get the RG named group_name, if it not exists return None
+        """
+        try:
+            resource_client = ResourceManagementClient(credentials, subscription_id)
+            return resource_client.resource_groups.get(group_name)
+        except CloudError as cex:
+            if cex.status_code == 404:
+                return None
+            else:
+                raise cex
+
+    def get_storage_account(self, group_name, storage_name, credentials, subscription_id):
+        """
+        Get the Storage Account named storage_name in group_name, if it not exists return None
+        """
+        try:
+            storage_client = StorageManagementClient(credentials, subscription_id)
+            return storage_client.storage_accounts.get_properties(group_name, storage_name)
+        except CloudError as cex:
+            if cex.status_code == 404:
+                return None
+            else:
+                raise cex
+
     def create_ngs(self, location, group_name, nsg_name, outports, network_client):
         """
         Create a Network Security Group
@@ -238,6 +265,7 @@ class AzureCloudConnector(CloudConnector):
                            'source_port_range': '*',
                            'priority': 100
                            }]
+        cont = 200
         for outport in outports:
             sr = {'access': 'Allow',
                   'protocol': outport.get_protocol(),
@@ -245,19 +273,21 @@ class AzureCloudConnector(CloudConnector):
                   'source_address_prefix': '*',
                   'direction': 'Inbound',
                   'source_port_range': '*',
-                  'priority': 100
+                  'priority': cont
                   }
+            cont += 100
             if outport.is_range():
                 sr['name'] = 'sr-%s-%d-%d' % (outport.get_protocol(),
                                               outport.get_port_init(),
                                               outport.get_port_end())
                 sr['destination_port_range'] = "%d-%d" % (outport.get_port_init(), outport.get_port_end())
+                security_rules.append(sr)
             elif outport.get_local_port() != 22:
                 sr['name'] = 'sr-%s-%d-%d' % (outport.get_protocol(),
                                               outport.get_remote_port(),
                                               outport.get_local_port())
                 sr['destination_port_range'] = str(outport.get_local_port())
-            security_rules.append(sr)
+                security_rules.append(sr)
 
         params = {
             'location': location,
@@ -285,6 +315,7 @@ class AzureCloudConnector(CloudConnector):
         i = 0
         hasPublicIP = False
         hasPrivateIP = False
+        outports = None
         while system.getValue("net_interface." + str(i) + ".connection"):
             network_name = system.getValue("net_interface." + str(i) + ".connection")
             # TODO: check how to do that
@@ -293,6 +324,7 @@ class AzureCloudConnector(CloudConnector):
 
             if network.isPublic():
                 hasPublicIP = True
+                outports = network.getOutPorts()
             else:
                 hasPrivateIP = True
 
@@ -344,7 +376,6 @@ class AzureCloudConnector(CloudConnector):
                 nic_params['ip_configurations'][0]['public_ip_address'] = {'id': public_ip_info.id}
 
                 # Create a NSG
-                outports = network.getOutPorts()
                 if outports:
                     nsg_name = "nsg-%d" % i
                     nsg = self.create_ngs(location, group_name, nsg_name, outports, network_client)
@@ -381,7 +412,7 @@ class AzureCloudConnector(CloudConnector):
 
         os_disk_name = "osdisk-" + str(uuid.uuid1())
 
-        return {
+        vm = {
             'location': location,
             'os_profile': {
                 'computer_name': vm_name,
@@ -413,33 +444,26 @@ class AzureCloudConnector(CloudConnector):
             },
         }
 
-    def get_storage_account(self, group_name, storage_account, credentials, subscription_id):
-        """
-        Get the information about the Storage Account named "storage_account" or None if it does not exist
-        """
-        try:
-            storage_client = StorageManagementClient(credentials, subscription_id)
-            return storage_client.storage_accounts.get_properties(group_name, storage_account)
-        except Exception:
-            self.log_exception("Error checking the storage account")
-            return None
+        cont = 1
+        data_disks = []
+        while system.getValue("disk." + str(cont) + ".size"):
+            disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('G')
+            data_disks.append({
+                'name': '%s_disk_%d' % (vm_name, cont),
+                'disk_size_gb': disk_size,
+                'lun': cont - 1,
+                'vhd': {
+                    'uri': "http://{}.blob.core.windows.net/vhds/{}disk{}.vhd".format(
+                        storage_account, vm_name, cont)
+                },
+                'create_option': 'Empty'
+            })
+            cont += 1
 
-    def create_storage_account(self, group_name, storage_account, credentials, subscription_id, location):
-        """
-        Create an storage account with the name specified in "storage_account"
-        """
-        try:
-            storage_client = StorageManagementClient(credentials, subscription_id)
-            storage_async_operation = storage_client.storage_accounts.create(group_name,
-                                                                             storage_account,
-                                                                             {'sku': {'name': 'standard_lrs'},
-                                                                              'kind': 'storage',
-                                                                              'location': location}
-                                                                             )
-            return storage_async_operation.result(), ""
-        except Exception as ex:
-            self.log_exception("Error creating the storage account")
-            return None, str(ex)
+        if data_disks:
+            vm['storage_profile']['data_disks'] = data_disks
+
+        return vm
 
     def create_nets(self, inf, radl, credentials, subscription_id, group_name):
         network_client = NetworkManagementClient(credentials, subscription_id)
@@ -455,7 +479,7 @@ class AzureCloudConnector(CloudConnector):
 
         if not vnet:
             # Create VNet in the RG of the Inf
-            network_client.virtual_networks.create_or_update(
+            async_vnet_creation = network_client.virtual_networks.create_or_update(
                 group_name,
                 "privates",
                 {
@@ -465,6 +489,7 @@ class AzureCloudConnector(CloudConnector):
                     }
                 }
             )
+            async_vnet_creation.wait()
 
             subnets = {}
             for i, net in enumerate(radl.networks):
@@ -495,30 +520,46 @@ class AzureCloudConnector(CloudConnector):
 
         resource_client = ResourceManagementClient(credentials, subscription_id)
 
+        # Storage account name must be between 3 and 24 characters in length and use
+        # numbers and lower-case letters only
+        storage_account_name = "s%s" % inf.id
+        storage_account_name = storage_account_name.replace("-", "")
+        storage_account_name = storage_account_name[:24]
+
         with inf._lock:
-            # Create resource group for the Infrastructure
-            inf_rg = None
-            try:
-                inf_rg = resource_client.resource_groups.get("rg-%s" % inf.id)
-            except Exception:
-                pass
-            if not inf_rg:
+            # Create resource group for the Infrastructure if it does not exists
+            if not self.get_rg("rg-%s" % inf.id, credentials, subscription_id):
+                self.log_debug("Creating Inf RG: %s" % "rg-%s" % inf.id)
                 resource_client.resource_groups.create_or_update("rg-%s" % inf.id, {'location': location})
+
+            # Create an storage_account per Infrastructure
+            storage_account = self.get_storage_account("rg-%s" % inf.id, storage_account_name,
+                                                       credentials, subscription_id)
+
+            if not storage_account:
+                self.log_debug("Creating storage account: %s" % storage_account_name)
+                try:
+                    storage_client = StorageManagementClient(credentials, subscription_id)
+                    storage_client.storage_accounts.create("rg-%s" % inf.id,
+                                                           storage_account_name,
+                                                           {'sku': {'name': 'standard_lrs'},
+                                                            'kind': 'storage',
+                                                            'location': location}
+                                                           ).wait()
+                except:
+                    self.log_exception("Error creating storage account: %s" % storage_account)
+                    self.log_debug("Delete Inf RG group %s" % "rg-%s" % inf.id)
+                    resource_client.resource_groups.delete("rg-%s" % inf.id)
 
             subnets = self.create_nets(inf, radl, credentials, subscription_id, "rg-%s" % inf.id)
 
-        res = []
+        vms = []
         i = 0
         all_ok = True
         while i < num_vm:
             group_name = None
             try:
                 uid = str(uuid.uuid1())
-                # Storage account name must be between 3 and 24 characters in length and use
-                # numbers and lower-case letters only
-                storage_account_name = "s%s" % uid
-                storage_account_name = storage_account_name.replace("-", "")
-                storage_account_name = storage_account_name[:24]
 
                 vm_name = radl.systems[0].getValue("instance_name")
                 if vm_name:
@@ -531,16 +572,10 @@ class AzureCloudConnector(CloudConnector):
                 # Create resource group for the VM
                 resource_client.resource_groups.create_or_update(group_name, {'location': location})
 
-                # Create storage account
-                storage_account, error_msg = self.create_storage_account(group_name, storage_account_name,
-                                                                         credentials, subscription_id, location)
-
-                if not storage_account:
-                    all_ok = False
-                    res.append((False, error_msg))
-                    # delete VM group
-                    resource_client.resource_groups.delete(group_name)
-                    continue
+                vm = VirtualMachine(inf, group_name + '/' + vm_name, self.cloud, radl, requested_radl, self)
+                vm.info.systems[0].setValue('instance_id', group_name + '/' + vm_name)
+                # Add it now as we have create the rg for the VM
+                inf.add_vm(vm)
 
                 nics = self.create_nics(inf, radl, credentials, subscription_id, group_name, subnets)
 
@@ -548,74 +583,29 @@ class AzureCloudConnector(CloudConnector):
                 vm_parameters = self.get_azure_vm_create_json(storage_account_name, vm_name, nics, radl, instance_type)
 
                 compute_client = ComputeManagementClient(credentials, subscription_id)
-                async_vm_creation = compute_client.virtual_machines.create_or_update(group_name, vm_name, vm_parameters)
-                # azure_vm = async_vm_creation.result()
+                compute_client.virtual_machines.create_or_update(group_name, vm_name, vm_parameters)
 
-                vm = VirtualMachine(inf, group_name + '/' + vm_name, self.cloud, radl, requested_radl, self)
-                vm.info.systems[0].setValue('instance_id', group_name + '/' + vm_name)
+                self.log_debug("VM ID: %s created." % vm.id)
 
-                self.attach_data_disks(vm, storage_account_name, credentials, subscription_id, location)
-
-                res.append((True, vm))
+                vms.append((True, vm))
             except Exception as ex:
                 all_ok = False
                 self.log_exception("Error creating the VM")
-                res.append((False, "Error creating the VM: " + str(ex)))
+                vms.append((False, "Error creating the VM: " + str(ex)))
 
                 # Delete Resource group and everything in it
                 if group_name:
-                    self.log_debug("Delete Resource group and everything in it.")
+                    self.log_debug("Delete Resource group %s and everything in it." % group_name)
                     resource_client.resource_groups.delete(group_name)
 
             i += 1
 
         if not all_ok:
             # Remove the general group
+            self.log_debug("Delete Inf RG group %s" % "rg-%s" % inf.id)
             resource_client.resource_groups.delete("rg-%s" % inf.id)
 
-        return res
-
-    def attach_data_disks(self, vm, storage_account_name, credentials, subscription_id, location):
-        """
-        Attach the specified RADL disks to the VM
-        """
-        system = vm.info.systems[0]
-        cont = 1
-        group_name = vm.id.split('/')[0]
-        vm_name = vm.id.split('/')[1]
-        compute_client = ComputeManagementClient(credentials, subscription_id)
-
-        while system.getValue("disk." + str(cont) + ".size"):
-            disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('G')
-            self.log_debug("Attaching a %s GB disk to VM." % disk_size)
-
-            try:
-                # Attach data disk
-                compute_client.virtual_machines.create_or_update(
-                    group_name,
-                    vm_name,
-                    {
-                        'location': location,
-                        'storage_profile': {
-                            'data_disks': [{
-                                'name': 'mydatadisk%d' % cont,
-                                'disk_size_gb': disk_size,
-                                'lun': 0,
-                                'vhd': {
-                                    'uri': "http://{}.blob.core.windows.net/vhds/mydatadisk1.vhd".format(
-                                        storage_account_name)
-                                },
-                                'create_option': 'Empty'
-                            }]
-                        }
-                    }
-                )
-            except Exception as ex:
-                self.log_exception("Error attaching disk %d to VM %s" % (cont, vm_name))
-                return False, "Error attaching disk %d to VM %s: %s" % (cont, vm_name, str(ex))
-            cont += 1
-
-        return True, ""
+        return vms
 
     def updateVMInfo(self, vm, auth_data):
         self.log_debug("Get the VM info with the id: " + vm.id)
@@ -628,12 +618,8 @@ class AzureCloudConnector(CloudConnector):
             # Get one the virtual machine by name
             virtual_machine = compute_client.virtual_machines.get(group_name, vm_name)
         except Exception as ex:
-            if "NotFound" in str(ex):
-                vm.state = VirtualMachine.OFF
-                return (True, vm)
-            else:
-                self.log_exception("Error getting the VM info: " + vm.id)
-                return (False, "Error getting the VM info: " + vm.id + ". " + str(ex))
+            self.log_exception("Error getting the VM info: " + vm.id)
+            return (False, "Error getting the VM info: " + vm.id + ". " + str(ex))
 
         self.log_debug("VM info: " + vm.id + " obtained.")
         vm.state = self.PROVISION_STATE_MAP.get(virtual_machine.provisioning_state, VirtualMachine.UNKNOWN)
@@ -731,16 +717,22 @@ class AzureCloudConnector(CloudConnector):
             self.log_debug("Terminate VM: " + vm.id)
             group_name = vm.id.split('/')[0]
             credentials, subscription_id = self.get_credentials(auth_data)
+            resource_client = ResourceManagementClient(credentials, subscription_id)
 
             # Delete Resource group and everything in it
-            resource_client = ResourceManagementClient(credentials, subscription_id)
-            self.log_debug("Removing RG: %s" % group_name)
-            resource_client.resource_groups.delete(group_name)
+            if self.get_rg(group_name, credentials, subscription_id):
+                self.log_debug("Removing RG: %s" % group_name)
+                resource_client.resource_groups.delete(group_name).wait()
+            else:
+                self.log_debug("RG: %s does not exist. Do not remove." % group_name)
 
             # if it is the last VM delete the RG of the Inf
             if last:
-                self.log_debug("Removing RG: %s" % "rg-%s" % vm.inf.id)
-                resource_client.resource_groups.delete("rg-%s" % vm.inf.id)
+                if self.get_rg("rg-%s" % vm.inf.id, credentials, subscription_id):
+                    self.log_debug("Removing Inf. RG: %s" % "rg-%s" % vm.inf.id)
+                    resource_client.resource_groups.delete("rg-%s" % vm.inf.id)
+                else:
+                    self.log_debug("RG: %s does not exist. Do not remove." % "rg-%s" % vm.inf.id)
 
         except Exception as ex:
             self.log_exception("Error terminating the VM")
@@ -795,7 +787,7 @@ class AzureCloudConnector(CloudConnector):
 
             # Start the VM
             async_vm_start = compute_client.virtual_machines.start(group_name, vm_name)
-            # async_vm_start.wait()
+            async_vm_start.wait()
 
             return self.updateVMInfo(vm, auth_data)
         except Exception as ex:

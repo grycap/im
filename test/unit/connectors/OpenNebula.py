@@ -82,6 +82,19 @@ class TestONEConnector(unittest.TestCase):
         one_cloud = OpenNebulaCloudConnector(cloud_info, inf)
         return one_cloud
 
+    @patch('IM.connectors.OpenNebula.ServerProxy')
+    def test_05_getONEVersion(self, server_proxy):
+        one_server = MagicMock()
+        one_server.system.listMethods.return_value = ["one.system.version"]
+        one_server.one.system.version.return_value = (True, "5.2.1", "")
+        server_proxy.return_value = one_server
+
+        auth = Authentication([{'id': 'one', 'type': 'OpenNebula', 'username': 'user',
+                                'password': 'pass', 'host': 'server.com:2633'}])
+
+        one_cloud = self.get_one_cloud()
+        one_cloud.getONEVersion(auth)
+
     def test_10_concrete(self):
         radl_data = """
             network net ()
@@ -108,7 +121,8 @@ class TestONEConnector(unittest.TestCase):
 
     @patch('IM.connectors.OpenNebula.ServerProxy')
     @patch('IM.connectors.OpenNebula.OpenNebulaCloudConnector.getONEVersion')
-    def test_20_launch(self, getONEVersion, server_proxy):
+    @patch('IM.InfrastructureList.InfrastructureList.save_data')
+    def test_20_launch(self, save_data, getONEVersion, server_proxy):
         radl_data = """
             network net1 (provider_id = 'publica' and outbound = 'yes' and outports = '8080,9000:9100')
             network net2 ()
@@ -155,13 +169,15 @@ class TestONEConnector(unittest.TestCase):
     @patch('IM.connectors.OpenNebula.ServerProxy')
     def test_30_updateVMInfo(self, server_proxy):
         radl_data = """
-            network net ()
+            network net (outbound = 'yes' and provider_id = 'publica')
+            network net1 (provider_id = 'privada')
             system test (
             cpu.arch='x86_64' and
             cpu.count=1 and
             memory.size=512m and
             net_interface.0.connection = 'net' and
             net_interface.0.dns_name = 'test' and
+            net_interface.1.connection = 'net1' and
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'one://server.com/1' and
             disk.0.os.credentials.username = 'user' and
@@ -182,6 +198,8 @@ class TestONEConnector(unittest.TestCase):
         server_proxy.return_value = one_server
 
         success, vm = one_cloud.updateVMInfo(vm, auth)
+        self.assertEquals(vm.info.systems[0].getValue("net_interface.1.ip"), "10.0.0.01")
+        self.assertEquals(vm.info.systems[0].getValue("net_interface.0.ip"), "158.42.1.1")
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
@@ -223,8 +241,7 @@ class TestONEConnector(unittest.TestCase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('IM.connectors.OpenNebula.ServerProxy')
-    @patch('IM.connectors.OpenNebula.OpenNebulaCloudConnector.checkResize')
-    def test_55_alter(self, checkResize, server_proxy):
+    def test_55_alter(self, server_proxy):
         radl_data = """
             network net ()
             system test (
@@ -258,12 +275,14 @@ class TestONEConnector(unittest.TestCase):
         inf = MagicMock()
         vm = VirtualMachine(inf, "1", one_cloud.cloud, radl, radl, one_cloud, 1)
 
-        checkResize.return_value = True
         one_server = MagicMock()
         one_server.one.vm.action.return_value = (True, "", 0)
         one_server.one.vm.resize.return_value = (True, "", 0)
         one_server.one.vm.info.return_value = (True, read_file_as_string("files/vm_info_off.xml"), 0)
         one_server.one.vm.attach.return_value = (True, "", 0)
+
+        one_server.system.listMethods.return_value = ["one.vm.resize"]
+
         server_proxy.return_value = one_server
 
         success, _ = one_cloud.alterVM(vm, new_radl, auth)
@@ -347,13 +366,20 @@ class TestONEConnector(unittest.TestCase):
         getONEVersion.return_value = "4.12"
         one_server = MagicMock()
         one_server.one.image.delete.return_value = (True, "", 0)
-        one_server.one.imagepool.info.return_value = (True, "<IMAGE_POOL><IMAGE><ID>1</ID></IMAGE></IMAGE_POOL>", 0)
+        one_server.one.imagepool.info.return_value = (True, "<IMAGE_POOL><IMAGE><ID>1</ID>"
+                                                      "<NAME>imagename</NAME></IMAGE></IMAGE_POOL>", 0)
         server_proxy.return_value = one_server
 
         success, msg = one_cloud.delete_image('one://server.com/1', auth)
 
         self.assertTrue(success, msg="ERROR: deleting image. %s" % msg)
         self.assertEqual(one_server.one.image.delete.call_args_list, [call('user:pass', 1)])
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
+        success, msg = one_cloud.delete_image('one://server.com/imagename', auth)
+
+        self.assertTrue(success, msg="ERROR: deleting image. %s" % msg)
+        self.assertEqual(one_server.one.image.delete.call_args_list[1], call('user:pass', 1))
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
 if __name__ == '__main__':

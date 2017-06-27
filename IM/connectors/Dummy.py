@@ -42,6 +42,7 @@ class DummyCloudConnector(CloudConnector):
             now = str(int(time.time() * 100))
             vm = VirtualMachine(inf, now, self.cloud,
                                 requested_radl, requested_radl)
+            inf.add_vm(vm)
 
             vm.info.systems[0].setValue('provider.type', self.type)
             vm.state = VirtualMachine.RUNNING

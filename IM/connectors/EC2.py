@@ -684,6 +684,7 @@ class EC2CloudConnector(CloudConnector):
                                 self.log_debug(
                                     "Instance successfully launched.")
                                 all_failed = False
+                                inf.add_vm(vm)
                                 res.append((True, vm))
                             else:
                                 res.append((False, "Error %s." % err_msg))
@@ -726,6 +727,7 @@ class EC2CloudConnector(CloudConnector):
                                 vm.keypair_name = keypair_name
                                 self.log_debug(
                                     "Instance successfully launched.")
+                                inf.add_vm(vm)
                                 res.append((True, vm))
                                 all_failed = False
                             else:
@@ -1093,7 +1095,7 @@ class EC2CloudConnector(CloudConnector):
                 return (True, vm)
 
         instance = self.get_instance_by_id(instance_id, region, auth_data)
-        if (instance is not None):
+        if instance:
             try:
                 # sometime if you try to update a recently created instance
                 # this operation fails
@@ -1127,7 +1129,8 @@ class EC2CloudConnector(CloudConnector):
                     "Error setting the launch_time of the instance. Probably the instance is not running:" + str(ex))
 
         else:
-            vm.state = VirtualMachine.OFF
+            self.log_warn("Error updating the instance %s. VM not found." % instance_id)
+            return (False, "Error updating the instance %s. VM not found." % instance_id)
 
         return (True, vm)
 

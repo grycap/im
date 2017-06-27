@@ -103,10 +103,22 @@ class TestEC2Connector(unittest.TestCase):
         self.assertEqual(len(concrete), 1)
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
+    def create_key_pair(self, keypair_name):
+        keypair = MagicMock()
+        keypair.name = keypair_name
+
+        def save_key_pair(keypair_dir):
+            with open(keypair_dir + "/" + keypair_name + ".pem", 'a') as f:
+                f.write("key")
+
+        keypair.save.side_effect = save_key_pair
+        return keypair
+
     @patch('boto.ec2.get_region')
     @patch('boto.vpc.VPCConnection')
     @patch('boto.ec2.blockdevicemapping.BlockDeviceMapping')
-    def test_20_launch(self, blockdevicemapping, VPCConnection, get_region):
+    @patch('IM.InfrastructureList.InfrastructureList.save_data')
+    def test_20_launch(self, save_data, blockdevicemapping, VPCConnection, get_region):
         radl_data = """
             network net1 (outbound = 'yes' and outports='8080,9000:9100')
             network net2 ()
@@ -120,8 +132,6 @@ class TestEC2Connector(unittest.TestCase):
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'aws://us-east-one/ami-id' and
             disk.0.os.credentials.username = 'user' and
-            disk.0.os.credentials.private_key = 'private' and
-            disk.0.os.credentials.public_key = 'public' and
             disk.1.size=1GB and
             disk.1.device='hdb' and
             disk.1.mount_path='/mnt/path'
@@ -167,6 +177,8 @@ class TestEC2Connector(unittest.TestCase):
 
         conn.get_all_security_groups.return_value = []
 
+        conn.create_key_pair.side_effect = self.create_key_pair
+
         blockdevicemapping.return_value = {'device': ''}
 
         res = ec2_cloud.launch(InfrastructureInfo(), radl, radl, 1, auth)
@@ -188,8 +200,8 @@ class TestEC2Connector(unittest.TestCase):
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'aws://us-east-one/ami-id' and
             disk.0.os.credentials.username = 'user' and
-            disk.0.os.credentials.private_key = 'private' and
-            disk.0.os.credentials.public_key = 'public' and
+            #disk.0.os.credentials.private_key = 'private' and
+            #disk.0.os.credentials.public_key = 'public' and
             disk.1.size=1GB and
             disk.1.device='hdb' and
             disk.1.mount_path='/mnt/path'
@@ -198,6 +210,7 @@ class TestEC2Connector(unittest.TestCase):
         conn.get_all_vpcs.return_value = []
         res = ec2_cloud.launch(InfrastructureInfo(), radl, radl, 1, auth)
         success, _ = res[0]
+        print(self.log.getvalue())
         self.assertTrue(success, msg="ERROR: launching a VM.")
         # check the instance_type selected is correct
         self.assertEquals(image.run.call_args_list[1][1]["instance_type"], "m1.small")
@@ -207,7 +220,8 @@ class TestEC2Connector(unittest.TestCase):
     @patch('boto.ec2.get_region')
     @patch('boto.vpc.VPCConnection')
     @patch('boto.ec2.blockdevicemapping.BlockDeviceMapping')
-    def test_25_launch_spot(self, blockdevicemapping, VPCConnection, get_region):
+    @patch('IM.InfrastructureList.InfrastructureList.save_data')
+    def test_25_launch_spot(self, save_data, blockdevicemapping, VPCConnection, get_region):
         radl_data = """
             network net1 (outbound = 'yes' and provider_id = 'vpc-id.subnet-id')
             network net2 ()

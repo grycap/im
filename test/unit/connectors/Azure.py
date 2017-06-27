@@ -122,7 +122,8 @@ class TestAzureConnector(unittest.TestCase):
     @patch('IM.connectors.Azure.ComputeManagementClient')
     @patch('IM.connectors.Azure.NetworkManagementClient')
     @patch('IM.connectors.Azure.UserPassCredentials')
-    def test_20_launch(self, credentials, network_client, compute_client, storage_client, resource_client):
+    @patch('IM.InfrastructureList.InfrastructureList.save_data')
+    def test_20_launch(self, save_data, credentials, network_client, compute_client, storage_client, resource_client):
         radl_data = """
             network net1 (outbound = 'yes' and outports = '8080,9000:9100')
             network net2 ()
@@ -151,6 +152,8 @@ class TestAzureConnector(unittest.TestCase):
         compute_client.return_value = cclient
         nclient = MagicMock()
         network_client.return_value = nclient
+
+        nclient.virtual_networks.get.side_effect = Exception()
 
         subnet_create = MagicMock()
         subnet_create_res = MagicMock()

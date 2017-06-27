@@ -200,6 +200,7 @@ class InfrastructureInfo:
             # Set the ID of the pos in the list
             vm.im_id = len(self.vm_list)
             self.vm_list.append(vm)
+        IM.InfrastructureList.InfrastructureList.save_data(self.id)
 
     def add_cont_msg(self, msg):
         """
@@ -210,6 +211,13 @@ class InfrastructureInfo:
         except:
             str_msg = msg
         self.cont_out += str(datetime.now()) + ": " + str_msg + "\n"
+
+    def remove_creating_vms(self):
+        """
+        Remove the VMs with the creating flag
+        """
+        with self._lock:
+            self.vm_list = [vm for vm in self.vm_list if not vm.creating]
 
     def get_vm_list(self):
         """
@@ -389,6 +397,10 @@ class InfrastructureInfo:
         else:
             # Otherwise return the value of configured
             return self.configured
+
+    def reset_ctxt_tasks(self):
+        with self._lock:
+            self.ctxt_tasks = PriorityQueue()
 
     def add_ctxt_tasks(self, ctxt_tasks):
         # Use the lock to add all the tasks in a atomic way
