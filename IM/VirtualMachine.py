@@ -493,12 +493,21 @@ class VirtualMachine:
 
         return updated
 
-    def setIps(self, public_ips, private_ips):
+    def setIps(self, public_ips, private_ips, remove_old=False):
         """
         Set the specified IPs in the VM RADL info
         """
         now = str(int(time.time() * 100))
         vm_system = self.info.systems[0]
+
+        # First remove old ip values
+        # in case that some IP has been removed from the VM
+        if remove_old:
+            cont = 0
+            while vm_system.getValue('net_interface.%d.connection' % cont):
+                if vm_system.getValue('net_interface.%d.ip' % cont):
+                    vm_system.setValue('net_interface.%d.ip' % cont, None)
+                cont += 1
 
         if public_ips and not set(public_ips).issubset(set(private_ips)):
             public_nets = []
@@ -527,10 +536,8 @@ class VirtualMachine:
 
             for public_ip in public_ips:
                 if public_ip not in private_ips:
-                    vm_system.setValue('net_interface.' +
-                                       str(num_net) + '.ip', str(public_ip))
-                    vm_system.setValue(
-                        'net_interface.' + str(num_net) + '.connection', public_net.id)
+                    vm_system.setValue('net_interface.%s.ip' % num_net, str(public_ip))
+                    vm_system.setValue('net_interface.%s.connection' % num_net, public_net.id)
 
         if private_ips:
             private_net_map = {}
@@ -588,10 +595,8 @@ class VirtualMachine:
                         # this VM
                         num_net = self.getNumNetworkIfaces()
 
-                vm_system.setValue('net_interface.' +
-                                   str(num_net) + '.ip', str(private_ip))
-                vm_system.setValue(
-                    'net_interface.' + str(num_net) + '.connection', private_net.id)
+                vm_system.setValue('net_interface.%s.ip' % num_net, str(private_ip))
+                vm_system.setValue('net_interface.%s.connection' % num_net, private_net.id)
 
     def get_ssh(self, retry=False):
         """
