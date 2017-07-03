@@ -623,7 +623,7 @@ class AzureCloudConnector(CloudConnector):
                         res.append((True, vm))
                         remaining_vms -= 1
                     except:
-                        self.log_exception("Error waiting the VM %d." % vm.id)
+                        self.log_exception("Error waiting the VM %s." % vm.id)
 
             self.log_debug("End of retry %d of %d" % (retries, self.VM_CREATION_RETRIES))
 
