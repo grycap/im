@@ -153,11 +153,16 @@ class ConfManager(threading.Thread):
                         break
 
             if not success:
-                self.log_warn("Error waiting all the VMs to have a correct IP")
+                self.log_warn("Still waiting all the VMs to have a correct IP")
                 wait += Config.CONFMAMAGER_CHECK_STATE_INTERVAL
                 time.sleep(Config.CONFMAMAGER_CHECK_STATE_INTERVAL)
-            else:
-                self.inf.set_configured(True)
+
+        if not success:
+            self.log_error("Error waiting all the VMs to have a correct IP")
+            self.inf.set_configured(False)
+        else:
+            self.log_debug("All the VMs have a correct IP")
+            self.inf.set_configured(True)
 
         return success
 
