@@ -200,8 +200,10 @@ class TestAzureConnector(unittest.TestCase):
         cclient.virtual_machines.create_or_update.side_effect = self.create_vm
 
         res = azure_cloud.launch(InfrastructureInfo(), radl, radl, 3, auth)
-        success, _ = res[0]
-        self.assertTrue(success, msg="ERROR: launching a VM.")
+        self.assertEqual(len(res), 3)
+        self.assertTrue(res[0][0])
+        self.assertTrue(res[1][0])
+        self.assertTrue(res[2][0])
 
     @patch('IM.connectors.Azure.NetworkManagementClient')
     @patch('IM.connectors.Azure.ComputeManagementClient')

@@ -606,6 +606,7 @@ class AzureCloudConnector(CloudConnector):
 
             subnets = self.create_nets(inf, radl, credentials, subscription_id, "rg-%s" % inf.id)
 
+        res = []
         remaining_vms = num_vm
         retries = 0
         while remaining_vms > 0 and retries < self.VM_CREATION_RETRIES:
@@ -613,7 +614,6 @@ class AzureCloudConnector(CloudConnector):
             vms = self.create_vms(inf, radl, requested_radl, remaining_vms, location,
                                   storage_account_name, subnets, credentials, subscription_id)
 
-            res = []
             for success, data in vms:
                 if success:
                     vm, async_vm_creation = data
