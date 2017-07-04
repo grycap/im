@@ -50,7 +50,7 @@ class AzureCloudConnector(CloudConnector):
     """Default instance type."""
     DEFAULT_LOCATION = "westeurope"
     """Default location to use"""
-    VM_CREATION_RETRIES = 3
+    VM_CREATION_RETRIES = 5
 
     PROVISION_STATE_MAP = {
         'Accepted': VirtualMachine.PENDING,
@@ -509,6 +509,59 @@ class AzureCloudConnector(CloudConnector):
 
         return subnets
 
+    def create_vms(self, inf, radl, requested_radl, num_vm, location, storage_account_name,
+                   subnets, credentials, subscription_id):
+        """
+        Creates a set of VMs
+        """
+        resource_client = ResourceManagementClient(credentials, subscription_id)
+        vms = []
+        i = 0
+        while i < num_vm:
+            uid = str(uuid.uuid1())
+
+            vm_name = radl.systems[0].getValue("instance_name")
+            if vm_name:
+                vm_name = "%s-%s" % (vm_name, uid)
+            else:
+                vm_name = "userimage-%s" % uid
+
+            group_name = "rg-%s" % (vm_name)
+
+            try:
+                # Create resource group for the VM
+                resource_client.resource_groups.create_or_update(group_name, {'location': location})
+
+                vm = VirtualMachine(inf, group_name + '/' + vm_name, self.cloud, radl, requested_radl, self)
+                vm.info.systems[0].setValue('instance_id', group_name + '/' + vm_name)
+
+                nics = self.create_nics(inf, radl, credentials, subscription_id, group_name, subnets)
+
+                instance_type = self.get_instance_type(radl.systems[0], credentials, subscription_id)
+                vm_parameters = self.get_azure_vm_create_json(storage_account_name, vm_name,
+                                                              nics, radl, instance_type)
+
+                compute_client = ComputeManagementClient(credentials, subscription_id)
+                async_vm_creation = compute_client.virtual_machines.create_or_update(group_name,
+                                                                                     vm_name,
+                                                                                     vm_parameters)
+
+                self.log_debug("VM ID: %s created." % vm.id)
+                inf.add_vm(vm)
+                vms.append((True, (vm, async_vm_creation)))
+            except Exception as ex:
+                vms.append((False, "Error creating the VM: %s" % str(ex)))
+                self.log_exception("Error creating the VM")
+
+                # Delete Resource group and everything in it
+                if group_name:
+                    self.log_debug("Delete Resource group %s and everything in it." % group_name)
+                    resource_client.resource_groups.delete(group_name).wait()
+
+            i += 1
+
+        return vms
+
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         location = self.DEFAULT_LOCATION
         if radl.systems[0].getValue('availability_zone'):
@@ -553,70 +606,35 @@ class AzureCloudConnector(CloudConnector):
 
             subnets = self.create_nets(inf, radl, credentials, subscription_id, "rg-%s" % inf.id)
 
-        vms = []
-        i = 0
-        all_ok = True
-        while i < num_vm:
-            uid = str(uuid.uuid1())
+        res = []
+        remaining_vms = num_vm
+        retries = 0
+        while remaining_vms > 0 and retries < self.VM_CREATION_RETRIES:
+            retries += 1
+            vms = self.create_vms(inf, radl, requested_radl, remaining_vms, location,
+                                  storage_account_name, subnets, credentials, subscription_id)
 
-            vm_name = radl.systems[0].getValue("instance_name")
-            if vm_name:
-                vm_name = "%s-%s" % (vm_name, uid)
-            else:
-                vm_name = "userimage-%s" % uid
+            for success, data in vms:
+                if success:
+                    vm, async_vm_creation = data
+                    try:
+                        self.log_debug("Waiting VM ID %s to be created." % vm.id)
+                        async_vm_creation.wait()
+                        res.append((True, vm))
+                        remaining_vms -= 1
+                    except:
+                        self.log_exception("Error waiting the VM %s." % vm.id)
 
-            group_name = "rg-%s" % (vm_name)
+            self.log_debug("End of retry %d of %d" % (retries, self.VM_CREATION_RETRIES))
 
-            retries = 0
-            created_vm = False
-            error_msg = ""
-            while retries < self.VM_CREATION_RETRIES and not created_vm:
-                retries += 1
-                try:
-                    # Create resource group for the VM
-                    resource_client.resource_groups.create_or_update(group_name, {'location': location})
-
-                    vm = VirtualMachine(inf, group_name + '/' + vm_name, self.cloud, radl, requested_radl, self)
-                    vm.info.systems[0].setValue('instance_id', group_name + '/' + vm_name)
-
-                    nics = self.create_nics(inf, radl, credentials, subscription_id, group_name, subnets)
-
-                    instance_type = self.get_instance_type(radl.systems[0], credentials, subscription_id)
-                    vm_parameters = self.get_azure_vm_create_json(storage_account_name, vm_name,
-                                                                  nics, radl, instance_type)
-
-                    compute_client = ComputeManagementClient(credentials, subscription_id)
-                    compute_client.virtual_machines.create_or_update(group_name, vm_name, vm_parameters)
-
-                    self.log_debug("VM ID: %s created." % vm.id)
-
-                    created_vm = True
-                except Exception as ex:
-                    self.log_exception("Error creating the VM")
-                    error_msg += "Attempt %d/%d: Error creating the VM: %s\n" % (retries,
-                                                                                 self.VM_CREATION_RETRIES,
-                                                                                 str(ex))
-
-                    # Delete Resource group and everything in it
-                    if group_name:
-                        self.log_debug("Delete Resource group %s and everything in it." % group_name)
-                        resource_client.resource_groups.delete(group_name).wait()
-
-            if created_vm:
-                inf.add_vm(vm)
-                vms.append((True, vm))
-            else:
-                all_ok = False
-                vms.append((False, error_msg))
-
-            i += 1
-
-        if not all_ok:
+        if remaining_vms > 0:
             # Remove the general group
             self.log_debug("Delete Inf RG group %s" % "rg-%s" % inf.id)
             resource_client.resource_groups.delete("rg-%s" % inf.id)
+        else:
+            self.log_debug("All VMs created successfully.")
 
-        return vms
+        return res
 
     def updateVMInfo(self, vm, auth_data):
         self.log_debug("Get the VM info with the id: " + vm.id)

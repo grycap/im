@@ -52,7 +52,7 @@ class VirtualMachine:
     def __init__(self, inf, cloud_id, cloud, info, requested_radl, cloud_connector=None, im_id=None):
         self._lock = threading.Lock()
         """Threading Lock to avoid concurrency problems."""
-        self.last_update = 0
+        self.last_update = int(time.time())
         """Last update of the VM info"""
         self.destroy = False
         """Flag to specify that this VM has been destroyed"""

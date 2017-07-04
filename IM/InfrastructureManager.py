@@ -1164,7 +1164,7 @@ class InfrastructureManager:
         IM.InfrastructureList.InfrastructureList.save_data(inf_id)
         IM.InfrastructureList.InfrastructureList.remove_inf(sel_inf)
         InfrastructureManager.logger.info(
-            "Infrastructure successfully destroyed")
+            "Infrastructure %s successfully destroyed" % inf_id)
         return ""
 
     @staticmethod
