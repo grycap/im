@@ -405,7 +405,6 @@ class CtxtAgent():
                                         ' -q -N "" -f ' + CtxtAgent.PK_FILE)
             CtxtAgent.logger.debug(out)
 
-        # Check that we can SSH access the node
         ctxt_vm = None
         for vm in general_conf_data['vms']:
             if vm['id'] == vm_conf_data['id']:
@@ -432,36 +431,41 @@ class CtxtAgent():
                 inventory_file = general_conf_data['conf_dir'] + "/hosts"
 
                 ansible_thread = None
-                if task == "basic":
-                    # This is always the fist step, so put the SSH test, the
-                    # requiretty removal and change password here
+                if task == "wait_all_ssh":
+                    # Wait all the VMs to have remote access active
                     for vm in general_conf_data['vms']:
                         if vm['os'] == "windows":
                             CtxtAgent.logger.info("Waiting WinRM access to VM: " + vm['ip'])
-                            ssh_res = CtxtAgent.wait_winrm_access(vm)
+                            CtxtAgent.wait_winrm_access(vm)
                         else:
                             CtxtAgent.logger.info("Waiting SSH access to VM: " + vm['ip'])
-                            ssh_res = CtxtAgent.wait_ssh_access(vm)
+                            CtxtAgent.wait_ssh_access(vm)
 
                         # the IP has changed public for private and we are the
                         # master VM
                         if 'ctxt_ip' in vm and vm['ctxt_ip'] != vm['ip'] and ctxt_vm['master']:
                             # update the ansible inventory
-                            CtxtAgent.logger.info("Changing the IP %s for %s in config files." % (
-                                vm['ctxt_ip'], vm['ip']))
+                            CtxtAgent.logger.info("Changing the IP %s for %s in config files." % (vm['ctxt_ip'],
+                                                                                                  vm['ip']))
                             CtxtAgent.replace_vm_ip(vm)
+                elif task == "basic":
+                    # This is always the fist step, so put the SSH test, the
+                    # requiretty removal and change password here
+                    if ctxt_vm['os'] == "windows":
+                        CtxtAgent.logger.info("Waiting WinRM access to VM: " + ctxt_vm['ip'])
+                        cred_used = CtxtAgent.wait_winrm_access(ctxt_vm)
+                    else:
+                        CtxtAgent.logger.info("Waiting SSH access to VM: " + ctxt_vm['ip'])
+                        cred_used = CtxtAgent.wait_ssh_access(ctxt_vm)
 
-                        if vm['id'] == vm_conf_data['id']:
-                            cred_used = ssh_res
-                        if not ssh_res:
-                            CtxtAgent.logger.error("Error Waiting access to VM: " + vm['ip'])
-                            res_data['SSH_WAIT'] = False
-                            res_data['OK'] = False
-                            return res_data
-                        else:
-                            res_data['SSH_WAIT'] = True
-                            CtxtAgent.logger.info("Remote access to VM: " +
-                                                  vm['ip'] + " Open!")
+                    if not cred_used:
+                        CtxtAgent.logger.error("Error Waiting access to VM: " + ctxt_vm['ip'])
+                        res_data['SSH_WAIT'] = False
+                        res_data['OK'] = False
+                        return res_data
+                    else:
+                        res_data['SSH_WAIT'] = True
+                        CtxtAgent.logger.info("Remote access to VM: " + ctxt_vm['ip'] + " Open!")
 
                     # The basic task uses the credentials of VM stored in ctxt_vm
                     pk_file = None
@@ -476,7 +480,7 @@ class CtxtAgent():
                         else:
                             CtxtAgent.logger.error("Error removing Requiretty")
 
-                    # Check if we must chage user credentials
+                    # Check if we must change user credentials
                     # Do not change it on the master. It must be changed only by
                     # the ConfManager
                     change_creds = False

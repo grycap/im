@@ -473,10 +473,9 @@ class InfrastructureInfo:
             ctxt_task.append((-4, 0, self, ['kill_ctxt_processes']))
             ctxt_task.append((-3, 0, self, ['check_vm_ips']))
             ctxt_task.append((-2, 0, self, ['wait_master']))
-            ctxt_task.append(
-                (-1, 0, self, ['configure_master', 'generate_playbooks_and_hosts']))
+            ctxt_task.append((-1, 0, self, ['configure_master', 'generate_playbooks_and_hosts']))
 
-            for vm in self.get_vm_list():
+            for cont, vm in enumerate(self.get_vm_list()):
                 # Assure to update the VM status before running the ctxt
                 # process
                 vm.update_status(auth)
@@ -486,7 +485,11 @@ class InfrastructureInfo:
                 tasks = {}
 
                 # Add basic tasks for all VMs
-                tasks[0] = ['basic']
+                if cont == 0:
+                    # In the first VM put the wait all ssh task
+                    tasks[0] = ['wait_all_ssh', 'basic']
+                else:
+                    tasks[0] = ['basic']
                 tasks[1] = ['main_' + vm.info.systems[0].name]
 
                 # And the specific tasks only for the specified ones
