@@ -720,7 +720,8 @@ class ConfManager(threading.Thread):
             success = False
             cont = 0
             while not self._stop_thread and not success and cont < Config.PLAYBOOK_RETRIES:
-                time.sleep(cont * 5)
+                self.log_debug("Sleeping %s secs." % cont ** 2 * 5)
+                time.sleep(cont ** 2 * 5)
                 cont += 1
                 try:
                     self.log_info("Start the contextualization process.")
