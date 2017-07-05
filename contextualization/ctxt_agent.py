@@ -443,7 +443,7 @@ class CtxtAgent():
 
                         # the IP has changed public for private and we are the
                         # master VM
-                        if 'ctxt_ip' in vm and vm['ctxt_ip'] != vm['ip'] and ctxt_vm['master']:
+                        if 'ctxt_ip' in vm and vm['ctxt_ip'] != vm['ip']:
                             # update the ansible inventory
                             CtxtAgent.logger.info("Changing the IP %s for %s in config files." % (vm['ctxt_ip'],
                                                                                                   vm['ip']))
