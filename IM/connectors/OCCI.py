@@ -220,6 +220,38 @@ class OCCICloudConnector(CloudConnector):
                     res.append((num_interface, ip_address, not is_private))
         return link_to_public, res
 
+    def manage_public_ips(self, vm, auth_data):
+        """
+        Manage public IPs in the VM
+        """
+        self.log_debug("The VM does not have public IP trying to add one.")
+        if self.add_public_ip_count < self.MAX_ADD_IP_COUNT:
+            # in some sites the network is called floating, in others PUBLIC ...
+            net_names = ["public", "PUBLIC", "floating"]
+            msgs = ""
+            for name in net_names:
+                success, msg = self.add_public_ip(vm, auth_data, network_name=name)
+                msgs += msg + "\n"
+                if success:
+                    break
+            if success:
+                self.log_debug("Public IP successfully added.")
+            else:
+                self.add_public_ip_count += 1
+                self.log_warn("Error adding public IP the VM: %s (%d/%d)\n" % (msgs,
+                                                                               self.add_public_ip_count,
+                                                                               self.MAX_ADD_IP_COUNT))
+                self.error_messages += "Error adding public IP the VM: %s (%d/%d)\n" % (msgs,
+                                                                                        self.add_public_ip_count,
+                                                                                        self.MAX_ADD_IP_COUNT)
+        else:
+            self.log_error("Error adding public IP the VM: Max number of retries reached.")
+            self.error_messages += "Error adding public IP the VM: Max number of retries reached.\n"
+            # this is a total fail, stop contextualization
+            vm.configured = False
+            vm.inf.set_configured(False)
+            vm.inf.stop()
+
     def setIPs(self, vm, occi_res, auth_data):
         """
         Set to the VM info the IPs obtained from the OCCI info
@@ -236,33 +268,7 @@ class OCCICloudConnector(CloudConnector):
 
         if (vm.state == VirtualMachine.RUNNING and not link_to_public and
                 not public_ips and vm.requested_radl.hasPublicNet(vm.info.systems[0].name)):
-            self.log_debug("The VM does not have public IP trying to add one.")
-            if self.add_public_ip_count < self.MAX_ADD_IP_COUNT:
-                # in some sites the network is called floating, in others PUBLIC ...
-                net_names = ["public", "PUBLIC", "floating"]
-                msgs = ""
-                for name in net_names:
-                    success, msg = self.add_public_ip(vm, auth_data, network_name=name)
-                    msgs += msg + "\n"
-                    if success:
-                        break
-                if success:
-                    self.log_debug("Public IP successfully added.")
-                else:
-                    self.add_public_ip_count += 1
-                    self.log_warn("Error adding public IP the VM: %s (%d/%d)\n" % (msgs,
-                                                                                   self.add_public_ip_count,
-                                                                                   self.MAX_ADD_IP_COUNT))
-                    self.error_messages += "Error adding public IP the VM: %s (%d/%d)\n" % (msgs,
-                                                                                            self.add_public_ip_count,
-                                                                                            self.MAX_ADD_IP_COUNT)
-            else:
-                self.log_error("Error adding public IP the VM: Max number of retries reached.")
-                self.error_messages += "Error adding public IP the VM: Max number of retries reached.\n"
-                # this is a total fail, stop contextualization
-                vm.configured = False
-                vm.inf.set_configured(False)
-                vm.inf.stop()
+            self.manage_public_ips(vm, auth_data)
 
         vm.setIps(public_ips, private_ips)
 
@@ -293,13 +299,16 @@ class OCCICloudConnector(CloudConnector):
             if 'http://schemas.openstack.org/network/floatingippool#' in l:
                 for elem in l.split(';'):
                     if elem.startswith('Category: '):
-                            pools.append(elem[10:])
+                        pools.append(elem[10:])
         if pools:
             return pools[random.randint(0, len(pools) - 1)]
         else:
             return None
 
     def add_public_ip(self, vm, auth_data, network_name="public"):
+        """
+        Add a public IP to the VM
+        """
         _, occi_info = self.query_occi(auth_data)
         url = self.get_property_from_category(occi_info, "networkinterface", "location")
         if not url:
@@ -353,10 +362,7 @@ class OCCICloudConnector(CloudConnector):
         try:
             resp = self.create_request('GET', self.cloud.path + "/compute/" + vm.id, auth_data, headers)
 
-            if resp.status_code == 404 or resp.status_code == 204:
-                vm.state = VirtualMachine.OFF
-                return (True, vm)
-            elif resp.status_code != 200:
+            if resp.status_code != 200:
                 return (False, resp.reason + "\n" + resp.text)
             else:
                 old_state = vm.state
@@ -388,14 +394,14 @@ class OCCICloudConnector(CloudConnector):
                 self.setIPs(vm, resp.text, auth_data)
 
                 # Update disks data
-                self.set_disk_info(vm, resp.text, auth_data)
+                self.set_disk_info(vm, resp.text)
                 return (True, vm)
 
         except Exception as ex:
             self.log_exception("Error connecting with OCCI server")
             return (False, "Error connecting with OCCI server: " + str(ex))
 
-    def set_disk_info(self, vm, occi_res, auth_data):
+    def set_disk_info(self, vm, occi_res):
         """
         Update the disks info with the actual device assigned by OCCI
         """
@@ -832,6 +838,7 @@ class OCCICloudConnector(CloudConnector):
                     if occi_vm_id:
                         vm.id = occi_vm_id
                         vm.info.systems[0].setValue('instance_id', str(occi_vm_id))
+                        inf.add_vm(vm)
                         res.append((True, vm))
                     else:
                         res.append((False, 'Unknown Error launching the VM.'))
@@ -955,13 +962,10 @@ class OCCICloudConnector(CloudConnector):
             self.log_exception("Error connecting with OCCI server")
             return (False, "Error connecting with OCCI server")
 
-    def alterVM(self, vm, radl, auth_data):
+    def add_new_disks(self, vm, radl, auth_data):
         """
-        In the OCCI case it only enable to attach new disks
+        Add new disks specified in the radl to the vm
         """
-        if not radl.systems:
-            return (True, "")
-
         try:
             orig_system = vm.info.systems[0]
 
@@ -1009,9 +1013,41 @@ class OCCICloudConnector(CloudConnector):
                     return (False, "Error creating volume: %s" % volume_id)
 
                 cont += 1
+            return (True, "")
         except Exception as ex:
             self.log_exception("Error connecting with OCCI server")
             return (False, "Error connecting with OCCI server: " + str(ex))
+
+    def add_new_nics(self, vm, radl, auth_data):
+        """
+        Add new public IP if currently it does not have one and new RADL requests it
+        """
+        # update VM info
+        try:
+            vm.update_status(auth_data, force=True)
+            current_has_public_ip = vm.info.hasPublicNet(vm.info.systems[0].name)
+            new_has_public_ip = radl.hasPublicNet(vm.info.systems[0].name)
+            if new_has_public_ip and not current_has_public_ip:
+                self.manage_public_ips(vm, auth_data)
+        except Exception as ex:
+            self.log_exception("Error adding new public IP")
+            return (False, "Error adding new public IP: " + str(ex))
+        return True, ""
+
+    def alterVM(self, vm, radl, auth_data):
+        """
+        In the OCCI case it only enables attaching new disks or add a public IP
+        """
+        if not radl.systems:
+            return (True, "")
+
+        success, msg = self.add_new_disks(vm, radl, auth_data)
+        if not success:
+            return (success, msg)
+
+        success, msg = self.add_new_nics(vm, radl, auth_data)
+        if not success:
+            return (success, msg)
 
         return (True, "")
 

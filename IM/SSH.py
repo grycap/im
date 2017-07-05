@@ -47,6 +47,14 @@ class ThreadSSH(Thread):
         self.command_return = None
         self.client = None
 
+    def close(self):
+        """
+        Close the SSH client connection
+        """
+        if self.client:
+            self.client.close()
+            self.client = None
+
     def run(self):
         if self.command:
             self.client = self.ssh.connect()
@@ -449,14 +457,14 @@ class SSH:
             self.thread.join(timeout)
 
             if self.thread.isAlive():
-                self.thread.client.close()
+                self.thread.close()
                 self.thread.join(2)
                 if kill_command:
                     self.execute(kill_command)
                 self.thread = None
             else:
                 res = self.thread.command_return
-                self.thread.client.close()
+                self.thread.close()
                 self.thread = None
                 return res
 

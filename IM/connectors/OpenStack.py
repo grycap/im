@@ -211,7 +211,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             self.setIPsFromInstance(vm, node)
             self.attach_volumes(vm, node)
         else:
-            vm.state = VirtualMachine.OFF
+            self.log_warn("Error updating the instance %s. VM not found." % vm.id)
+            return (False, "Error updating the instance %s. VM not found." % vm.id)
 
         return (True, vm)
 
@@ -226,7 +227,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
          Returns: a dict with key the RADL network id and value a tuple (ost_net_name, is_public)
         """
 
-        res = {}
+        res = {"#UNMAPPED#": []}
         for ip, (net_name, is_public) in ost_nets.items():
             if net_name:
                 for radl_net in radl_nets:
@@ -236,10 +237,14 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                             res[radl_net.id] = ip
                             break
                     else:
-                        if radl_net.id not in res and radl_net.isPublic() == is_public:
-                            res[radl_net.id] = ip
-                            radl_net.setValue('provider_id', net_name)
-                            break
+                        if radl_net.id not in res:
+                            if radl_net.isPublic() == is_public:
+                                res[radl_net.id] = ip
+                                radl_net.setValue('provider_id', net_name)
+                                break
+                            else:
+                                # the ip not matches the is_public value
+                                res["#UNMAPPED#"].append(ip)
             else:
                 # It seems to be a floating IP
                 for radl_net in radl_nets:
@@ -251,7 +256,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
     def get_node_floating_ips(self, node):
         """
-        Get a list of ip addresses asociated with a node
+        Get a list of ip addresses associated with a node
         """
         ips = []
         try:
@@ -282,7 +287,6 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     is_private = any([IPAddress(ip) in IPNetwork(mask) for mask in Config.PRIVATE_NET_MASKS])
 
                     if ipo['OS-EXT-IPS:type'] == 'floating':
-                        # in this case it always has to be public
                         ip_net_map[ip] = (None, not is_private)
                     else:
                         ip_net_map[ip] = (net_name, not is_private)
@@ -313,10 +317,21 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             # e.g. If you request a private IP and you get a public one it is
             # not correctly mapped
             for net_name, ip in map_nets.items():
-                if ip not in ips_assigned:
-                    num_net = system.getNumNetworkIfaces()
-                    system.setValue('net_interface.' + str(num_net) + '.ip', ip)
-                    system.setValue('net_interface.' + str(num_net) + '.connection', net_name)
+                if net_name != '#UNMAPPED#':
+                    if ip not in ips_assigned:
+                        num_net = system.getNumNetworkIfaces()
+                        system.setValue('net_interface.' + str(num_net) + '.ip', ip)
+                        system.setValue('net_interface.' + str(num_net) + '.connection', net_name)
+                else:
+                    public_ips = []
+                    private_ips = []
+                    for ipu in ip:
+                        if any([IPAddress(ipu) in IPNetwork(mask) for mask in Config.PRIVATE_NET_MASKS]):
+                            private_ips.append(ipu)
+                        else:
+                            public_ips.append(ipu)
+                    vm.setIps(public_ips, private_ips)
+
         else:
             # if addresses are not available use the old method
             public_ips = []
@@ -498,6 +513,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     vm.keypair = keypair_name
                 self.log_debug("Node successfully created.")
                 all_failed = False
+                inf.add_vm(vm)
                 res.append((True, vm))
             else:
                 res.append((False, msg))

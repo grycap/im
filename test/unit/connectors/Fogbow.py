@@ -133,7 +133,8 @@ class TestFogBowConnector(unittest.TestCase):
         self.__class__.last_op = method, url
 
     @patch('IM.connectors.FogBow.HTTPConnection')
-    def test_20_launch(self, connection):
+    @patch('IM.InfrastructureList.InfrastructureList.save_data')
+    def test_20_launch(self, save_data, connection):
         radl_data = """
             network net1 (outbound = 'yes' and outports = '8080')
             network net2 ()

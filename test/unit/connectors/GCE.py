@@ -124,7 +124,8 @@ class TestGCEConnector(unittest.TestCase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('libcloud.compute.drivers.gce.GCENodeDriver')
-    def test_20_launch(self, get_driver):
+    @patch('IM.InfrastructureList.InfrastructureList.save_data')
+    def test_20_launch(self, save_data, get_driver):
         radl_data = """
             network net1 (outbound = 'yes' and outports = '8080,9000:9100')
             network net2 ()

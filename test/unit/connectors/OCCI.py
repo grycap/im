@@ -150,7 +150,8 @@ class TestOCCIConnector(unittest.TestCase):
 
     @patch('requests.request')
     @patch('IM.connectors.OCCI.KeyStoneAuth.get_keystone_uri')
-    def test_20_launch(self, get_keystone_uri, requests):
+    @patch('IM.InfrastructureList.InfrastructureList.save_data')
+    def test_20_launch(self, save_data, get_keystone_uri, requests):
         radl_data = """
             network net1 (outbound = 'yes' and outports = '8080')
             network net2 ()
@@ -256,7 +257,7 @@ class TestOCCIConnector(unittest.TestCase):
     @patch('IM.connectors.OCCI.KeyStoneAuth.get_keystone_uri')
     def test_55_alter(self, get_keystone_uri, requests):
         radl_data = """
-            network net (outbound = 'yes')
+            network net ()
             system test (
             cpu.arch='x86_64' and
             cpu.count=1 and
@@ -271,7 +272,11 @@ class TestOCCIConnector(unittest.TestCase):
         radl = radl_parse.parse_radl(radl_data)
 
         new_radl_data = """
+            network net ()
+            network net1 (outbound = 'yes')
             system test (
+            net_interface.0.connection = 'net' and
+            net_interface.1.connection = 'net1' and
             disk.1.size=1GB and
             disk.1.device='hdc' and
             disk.1.fstype='ext4' and

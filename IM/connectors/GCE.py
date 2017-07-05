@@ -494,6 +494,7 @@ class GCECloudConnector(CloudConnector):
                                 requested_radl, self.cloud.getCloudConnector(inf))
             vm.info.systems[0].setValue('instance_id', str(vm.id))
             vm.info.systems[0].setValue('instance_name', str(vm.id))
+            inf.add_vm(vm)
             self.log_debug("Node successfully created.")
 
             res.append((True, vm))
@@ -693,6 +694,7 @@ class GCECloudConnector(CloudConnector):
             node = driver.ex_get_node(vm.id)
         except ResourceNotFoundError:
             self.log_warn("VM " + str(vm.id) + " does not exist.")
+            return (False, "Error getting VM info: %s. VM does not exist." % vm.id)
         except Exception as ex:
             self.log_exception("Error getting VM info: %s" % vm.id)
             return (False, "Error getting VM info: %s. %s" % (vm.id, str(ex)))
