@@ -52,7 +52,7 @@ class VirtualMachine:
     def __init__(self, inf, cloud_id, cloud, info, requested_radl, cloud_connector=None, im_id=None):
         self._lock = threading.Lock()
         """Threading Lock to avoid concurrency problems."""
-        self.last_update = 0
+        self.last_update = int(time.time())
         """Last update of the VM info"""
         self.destroy = False
         """Flag to specify that this VM has been destroyed"""
@@ -83,6 +83,8 @@ class VirtualMachine:
         """Number of errors in the ssh connection trying to get the state of the ctxt pid """
         self.cloud_connector = cloud_connector
         """CloudConnector object to connect with the IaaS platform"""
+        self.creating = True
+        """Flag to specify that this VM is creation process"""
 
     def serialize(self):
         with self._lock:
@@ -116,6 +118,8 @@ class VirtualMachine:
             dic['requested_radl'] = parse_radl(dic['requested_radl'])
 
         newvm = VirtualMachine(None, None, None, None, None, None, dic['im_id'])
+        # Set creating to False as default to VMs stored with 1.5.5 or old versions
+        newvm.creating = False
         newvm.__dict__.update(dic)
         # If we load a VM that is not configured, set it to False
         # because the configuration process will be lost
@@ -438,12 +442,13 @@ class VirtualMachine:
             self.info.systems[0].setValue(
                 'net_interface.' + str(num_net) + '.connection', public_net.id)
 
-    def update_status(self, auth):
+    def update_status(self, auth, force=False):
         """
         Update the status of this virtual machine.
         Only performs the update with UPDATE_FREQUENCY secs.
         Args:
         - auth(Authentication): parsed authentication tokens.
+        - force(boolean): force the VM update
         Return:
         - boolean: True if the information has been updated, false otherwise
         """
@@ -452,13 +457,16 @@ class VirtualMachine:
             state = self.state
             updated = False
             # To avoid to refresh the information too quickly
-            if now - self.last_update > Config.VM_INFO_UPDATE_FREQUENCY:
+            if force or now - self.last_update > Config.VM_INFO_UPDATE_FREQUENCY:
                 try:
                     (success, new_vm) = self.getCloudConnector().updateVMInfo(self, auth)
                     if success:
                         state = new_vm.state
                         updated = True
                         self.last_update = now
+                    elif self.creating:
+                        VirtualMachine.logger.debug("VM is in creation process, set pending state")
+                        state = VirtualMachine.PENDING
                     else:
                         VirtualMachine.logger.error("Error updating VM status: %s" % new_vm)
                 except:
@@ -486,12 +494,21 @@ class VirtualMachine:
 
         return updated
 
-    def setIps(self, public_ips, private_ips):
+    def setIps(self, public_ips, private_ips, remove_old=False):
         """
         Set the specified IPs in the VM RADL info
         """
         now = str(int(time.time() * 100))
         vm_system = self.info.systems[0]
+
+        # First remove old ip values
+        # in case that some IP has been removed from the VM
+        if remove_old:
+            cont = 0
+            while vm_system.getValue('net_interface.%d.connection' % cont):
+                if vm_system.getValue('net_interface.%d.ip' % cont):
+                    vm_system.setValue('net_interface.%d.ip' % cont, None)
+                cont += 1
 
         if public_ips and not set(public_ips).issubset(set(private_ips)):
             public_nets = []
@@ -520,10 +537,8 @@ class VirtualMachine:
 
             for public_ip in public_ips:
                 if public_ip not in private_ips:
-                    vm_system.setValue('net_interface.' +
-                                       str(num_net) + '.ip', str(public_ip))
-                    vm_system.setValue(
-                        'net_interface.' + str(num_net) + '.connection', public_net.id)
+                    vm_system.setValue('net_interface.%s.ip' % num_net, str(public_ip))
+                    vm_system.setValue('net_interface.%s.connection' % num_net, public_net.id)
 
         if private_ips:
             private_net_map = {}
@@ -581,10 +596,8 @@ class VirtualMachine:
                         # this VM
                         num_net = self.getNumNetworkIfaces()
 
-                vm_system.setValue('net_interface.' +
-                                   str(num_net) + '.ip', str(private_ip))
-                vm_system.setValue(
-                    'net_interface.' + str(num_net) + '.connection', private_net.id)
+                vm_system.setValue('net_interface.%s.ip' % num_net, str(private_ip))
+                vm_system.setValue('net_interface.%s.connection' % num_net, private_net.id)
 
     def get_ssh(self, retry=False):
         """

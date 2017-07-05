@@ -18,32 +18,35 @@ import json
 import os
 import string
 import random
-
-try:
-    unicode("hola")
-except NameError:
-    unicode = str
-
-from IM.VMRC import VMRC
-from IM.CloudInfo import CloudInfo
-from IM.auth import Authentication
-
 import logging
 
 import IM.InfrastructureInfo
 import IM.InfrastructureList
+
+from IM.VMRC import VMRC
+from IM.CloudInfo import CloudInfo
+from IM.auth import Authentication
+from IM.recipe import Recipe
+from IM.config import Config
+from IM.VirtualMachine import VirtualMachine
+
 from radl import radl_parse
 from radl.radl import Feature, RADL
 from radl.radl_json import dump_radl as dump_radl_json
-from IM.recipe import Recipe
 
 from IM.config import Config
 from IM.VirtualMachine import VirtualMachine
 from IM.openid.JWT import JWT
 from IM.openid.OpenIDClient import OpenIDClient
 
+
 if Config.MAX_SIMULTANEOUS_LAUNCHES > 1:
     from multiprocessing.pool import ThreadPool
+
+try:
+    unicode("hola")
+except NameError:
+    unicode = str
 
 
 class UnauthorizedUserException(Exception):
@@ -168,7 +171,7 @@ class InfrastructureManager:
             all_ok = True
             for deploy in deploy_group:
                 remain_vm, fail_cont = deploy.vm_number, 0
-                while (remain_vm > 0 and fail_cont < Config.MAX_VM_FAILS and not cancel_deployment):
+                while remain_vm > 0 and fail_cont < Config.MAX_VM_FAILS and not cancel_deployment:
                     concrete_system = concrete_systems[cloud_id][deploy.id][0]
                     if not concrete_system:
                         InfrastructureManager.logger.error(
@@ -218,8 +221,7 @@ class InfrastructureManager:
                     break
             if not all_ok:
                 for deploy in deploy_group:
-                    vm_to_delete = [vm for vm in deployed_vm.get(deploy, [])]
-                    for vm in vm_to_delete:
+                    for vm in deployed_vm.get(deploy, []):
                         vm.finalize(True, auth)
                     deployed_vm[deploy] = []
             if cancel_deployment or all_ok:
@@ -569,12 +571,17 @@ class InfrastructureManager:
                 msg += str(e) + "\n"
             raise Exception("Some deploys did not proceed successfully: %s" % msg)
 
+        # Remove the VMs in creating state
+        sel_inf.remove_creating_vms()
+
         for vm in new_vms:
+            # Set now the VM as "created"
+            vm.creating = False
+            # and add it to the Inf
             sel_inf.add_vm(vm)
 
             (_, passwd, _, _) = vm.info.systems[0].getCredentialValues()
-            (_, new_passwd, _, _) = vm.info.systems[
-                0].getCredentialValues(new=True)
+            (_, new_passwd, _, _) = vm.info.systems[0].getCredentialValues(new=True)
             if passwd and not new_passwd:
                 # The VM uses the VMI password, set to change it
                 random_password = ''.join(random.choice(
@@ -672,7 +679,7 @@ class InfrastructureManager:
         return res
 
     @staticmethod
-    def GetVMInfo(inf_id, vm_id, auth, json=False):
+    def GetVMInfo(inf_id, vm_id, auth, json_res=False):
         """
         Get information about a virtual machine in an infrastructure.
 
@@ -681,19 +688,14 @@ class InfrastructureManager:
         - inf_id(str): infrastructure id.
         - vm_id(str): virtual machine id.
         - auth(Authentication): parsed authentication tokens.
-        - json(bool): Flag to return the info in RADL JSON format
+        - json_res(bool): Flag to return the info in RADL JSON format
 
-        Return: a str with the information about the VM
+        Return: the RADL with the information about the VM or a str with the JSON data if json_res flag.
         """
         auth = InfrastructureManager.check_auth_data(auth)
 
         InfrastructureManager.logger.info(
             "Get information about the vm: '" + str(vm_id) + "' from inf: " + str(inf_id))
-
-        sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
-
-        # Getting information from monitors
-        sel_inf.update_ganglia_info()
 
         vm = InfrastructureManager.get_vm_from_inf(inf_id, vm_id, auth)
 
@@ -702,7 +704,7 @@ class InfrastructureManager:
             InfrastructureManager.logger.warn(
                 "Information not updated. Using last information retrieved")
 
-        if json:
+        if json_res:
             return dump_radl_json(vm.get_vm_info())
         else:
             return vm.get_vm_info()
@@ -1175,7 +1177,7 @@ class InfrastructureManager:
         IM.InfrastructureList.InfrastructureList.save_data(inf_id)
         IM.InfrastructureList.InfrastructureList.remove_inf(sel_inf)
         InfrastructureManager.logger.info(
-            "Infrastructure successfully destroyed")
+            "Infrastructure %s successfully destroyed" % inf_id)
         return ""
 
     @staticmethod
@@ -1198,7 +1200,7 @@ class InfrastructureManager:
                             found = True
                             break
                     return found
-                except:
+                except Exception:
                     InfrastructureManager.logger.exception(
                         "Incorrect format in the User DB file %s" % Config.USER_DB)
                     return False

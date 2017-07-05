@@ -596,6 +596,7 @@ class DockerCloudConnector(CloudConnector):
                     res.append((False, "Error: response format not expected."))
 
                 vm.info.systems[0].setValue('instance_id', str(vm.id))
+                inf.add_vm(vm)
 
                 if not self._is_swarm(auth_data):
                     # In creation a container can only be attached to one one network
@@ -637,11 +638,7 @@ class DockerCloudConnector(CloudConnector):
             else:
                 resp = self.create_request('GET', "/containers/" + vm.id + "/json", auth_data)
 
-            if resp.status_code == 404:
-                # If the container does not exist, set state to OFF
-                vm.state = VirtualMachine.OFF
-                return (True, vm)
-            elif resp.status_code != 200:
+            if resp.status_code != 200:
                 return (False, "Error getting info about the Container: " + resp.text)
 
             output = json.loads(resp.text)

@@ -49,6 +49,8 @@ class TestAzureConnector(unittest.TestCase):
     """
 
     def setUp(self):
+        self.error_in_wait = True
+        self.error_in_create = True
         self.last_op = None, None
         self.log = StringIO()
         self.handler = logging.StreamHandler(self.log)
@@ -117,12 +119,33 @@ class TestAzureConnector(unittest.TestCase):
         self.assertEqual(len(concrete), 1)
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
+    def wait(self):
+        """
+        Wait VMs returning error only first time
+        """
+        if self.error_in_wait:
+            self.error_in_wait = False
+            raise Exception("Error waiting VM")
+
+    def create_vm(self, group_name, vm_name, vm_parameters):
+        """
+        Create VMs returning error only first time
+        """
+        if self.error_in_create:
+            self.error_in_create = False
+            raise Exception("Error creating VM")
+        else:
+            async_vm_creation = MagicMock()
+            async_vm_creation.wait.side_effect = self.wait
+            return async_vm_creation
+
     @patch('IM.connectors.Azure.ResourceManagementClient')
     @patch('IM.connectors.Azure.StorageManagementClient')
     @patch('IM.connectors.Azure.ComputeManagementClient')
     @patch('IM.connectors.Azure.NetworkManagementClient')
     @patch('IM.connectors.Azure.UserPassCredentials')
-    def test_20_launch(self, credentials, network_client, compute_client, storage_client, resource_client):
+    @patch('IM.InfrastructureList.InfrastructureList.save_data')
+    def test_20_launch(self, save_data, credentials, network_client, compute_client, storage_client, resource_client):
         radl_data = """
             network net1 (outbound = 'yes' and outports = '8080,9000:9100')
             network net2 ()
@@ -152,6 +175,8 @@ class TestAzureConnector(unittest.TestCase):
         nclient = MagicMock()
         network_client.return_value = nclient
 
+        nclient.virtual_networks.get.side_effect = Exception()
+
         subnet_create = MagicMock()
         subnet_create_res = MagicMock()
         subnet_create_res.id = "subnet-0"
@@ -172,10 +197,13 @@ class TestAzureConnector(unittest.TestCase):
         instace_types = [instace_type]
         cclient.virtual_machine_sizes.list.return_value = instace_types
 
-        res = azure_cloud.launch(InfrastructureInfo(), radl, radl, 1, auth)
-        success, _ = res[0]
-        self.assertTrue(success, msg="ERROR: launching a VM.")
-        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+        cclient.virtual_machines.create_or_update.side_effect = self.create_vm
+
+        res = azure_cloud.launch(InfrastructureInfo(), radl, radl, 3, auth)
+        self.assertEqual(len(res), 3)
+        self.assertTrue(res[0][0])
+        self.assertTrue(res[1][0])
+        self.assertTrue(res[2][0])
 
     @patch('IM.connectors.Azure.NetworkManagementClient')
     @patch('IM.connectors.Azure.ComputeManagementClient')

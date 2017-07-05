@@ -20,7 +20,6 @@ import time
 from uuid import uuid1
 import json
 
-from IM.ganglia import ganglia_info
 import IM.ConfManager
 from datetime import datetime, timedelta
 from radl.radl import RADL, Feature, deploy, system, contextualize_item
@@ -83,8 +82,6 @@ class InfrastructureInfo:
         """VM selected as the master node to the contextualization step"""
         self.vm_id = 0
         """Next vm id available."""
-        self.last_ganglia_update = 0
-        """Last update of the ganglia info"""
         self.cont_out = ""
         """Contextualization output message"""
         self.ctxt_tasks = PriorityQueue()
@@ -208,6 +205,7 @@ class InfrastructureInfo:
             # Set the ID of the pos in the list
             vm.im_id = len(self.vm_list)
             self.vm_list.append(vm)
+        IM.InfrastructureList.InfrastructureList.save_data(self.id)
 
     def add_cont_msg(self, msg):
         """
@@ -218,6 +216,13 @@ class InfrastructureInfo:
         except:
             str_msg = msg
         self.cont_out += str(datetime.now()) + ": " + str_msg + "\n"
+
+    def remove_creating_vms(self):
+        """
+        Remove the VMs with the creating flag
+        """
+        with self._lock:
+            self.vm_list = [vm for vm in self.vm_list if not vm.creating]
 
     def get_vm_list(self):
         """
@@ -373,29 +378,6 @@ class InfrastructureInfo:
                     self.vm_master = vm
                     break
 
-    def update_ganglia_info(self):
-        """
-        Get information about the infrastructure from ganglia monitors.
-        """
-        if Config.GET_GANGLIA_INFO:
-            InfrastructureInfo.logger.debug(
-                "Getting information from monitors")
-
-            now = int(time.time())
-            # To avoid to refresh the information too quickly
-            if now - self.last_ganglia_update > Config.GANGLIA_INFO_UPDATE_FREQUENCY:
-                try:
-                    (success, msg) = ganglia_info.update_ganglia_info(self)
-                except Exception as ex:
-                    success = False
-                    msg = str(ex)
-            else:
-                success = False
-                msg = "The information was updated recently. Using last information obtained"
-
-            if not success:
-                InfrastructureInfo.logger.debug(msg)
-
     def vm_in_ctxt_tasks(self, vm):
         found = False
         with self._lock:
@@ -493,20 +475,19 @@ class InfrastructureInfo:
             ) if self.radl.get_configure_by_name(group)]
             # get the contextualize steps specified in the RADL, or use the
             # default value
-            contextualizes = self.radl.contextualize.get_contextualize_items_by_step({
-                                                                                     1: ctxts})
+            contextualizes = self.radl.contextualize.get_contextualize_items_by_step({1: ctxts})
 
             max_ctxt_time = self.radl.contextualize.max_time
             if not max_ctxt_time:
                 max_ctxt_time = Config.MAX_CONTEXTUALIZATION_TIME
 
             ctxt_task = []
-            ctxt_task.append((-3, 0, self, ['kill_ctxt_processes']))
-            ctxt_task.append((-2, 0, self, ['wait_master', 'check_vm_ips']))
-            ctxt_task.append(
-                (-1, 0, self, ['configure_master', 'generate_playbooks_and_hosts']))
+            ctxt_task.append((-4, 0, self, ['kill_ctxt_processes']))
+            ctxt_task.append((-3, 0, self, ['check_vm_ips']))
+            ctxt_task.append((-2, 0, self, ['wait_master']))
+            ctxt_task.append((-1, 0, self, ['configure_master', 'generate_playbooks_and_hosts']))
 
-            for vm in self.get_vm_list():
+            for cont, vm in enumerate(self.get_vm_list()):
                 # Assure to update the VM status before running the ctxt
                 # process
                 vm.update_status(auth)
@@ -516,7 +497,11 @@ class InfrastructureInfo:
                 tasks = {}
 
                 # Add basic tasks for all VMs
-                tasks[0] = ['basic']
+                if cont == 0:
+                    # In the first VM put the wait all ssh task
+                    tasks[0] = ['wait_all_ssh', 'basic']
+                else:
+                    tasks[0] = ['basic']
                 tasks[1] = ['main_' + vm.info.systems[0].name]
 
                 # And the specific tasks only for the specified ones
