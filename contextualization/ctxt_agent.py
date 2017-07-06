@@ -436,10 +436,19 @@ class CtxtAgent():
                     for vm in general_conf_data['vms']:
                         if vm['os'] == "windows":
                             CtxtAgent.logger.info("Waiting WinRM access to VM: " + vm['ip'])
-                            CtxtAgent.wait_winrm_access(vm)
+                            cred_used = CtxtAgent.wait_winrm_access(vm)
                         else:
                             CtxtAgent.logger.info("Waiting SSH access to VM: " + vm['ip'])
-                            CtxtAgent.wait_ssh_access(vm)
+                            cred_used = CtxtAgent.wait_ssh_access(vm)
+
+                        if not cred_used:
+                            CtxtAgent.logger.error("Error Waiting access to VM: " + vm['ip'])
+                            res_data['SSH_WAIT'] = False
+                            res_data['OK'] = False
+                            return res_data
+                        else:
+                            res_data['SSH_WAIT'] = True
+                            CtxtAgent.logger.info("Remote access to VM: " + vm['ip'] + " Open!")
 
                         # the IP has changed public for private
                         if 'ctxt_ip' in vm and vm['ctxt_ip'] != vm['ip']:
