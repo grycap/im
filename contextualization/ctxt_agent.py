@@ -244,6 +244,8 @@ class CtxtAgent():
             if 'passwd' in vm and vm['passwd'] and 'new_passwd' in vm and vm['new_passwd']:
                 try:
                     import winrm
+                    import ssl
+                    ssl._create_default_https_context = ssl._create_unverified_context
                 except:
                     CtxtAgent.logger.exception("Error importing winrm.")
                     return False
