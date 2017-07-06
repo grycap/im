@@ -642,13 +642,18 @@ class VirtualMachine:
                     if code == 0:
                         out_parts = stdout.split("\n")
                         if len(out_parts) == 3:
-                            pgid = int(out_parts[1])
-                            (stdout, stderr, code) = ssh.execute("kill -9 -" + str(pgid))
-                            if code == 0:
-                                pgkill_success = True
-                            else:
-                                VirtualMachine.logger.error("Error getting PGID of pid: " + str(self.ctxt_pid) +
-                                                            ": " + stderr + ". Using only PID.")
+                            try:
+                                pgid = int(out_parts[1])
+                                (stdout, stderr, code) = ssh.execute("kill -9 -" + str(pgid))
+
+                                if code == 0:
+                                    pgkill_success = True
+                                else:
+                                    VirtualMachine.logger.error("Error getting PGID of pid: " + str(self.ctxt_pid) +
+                                                                ": " + stderr + ". Using only PID.")
+                            except:
+                                VirtualMachine.logger.exception("Error getting PGID of pid: " + str(self.ctxt_pid) +
+                                                                ": " + stderr + ". Using only PID.")
                         else:
                             VirtualMachine.logger.error("Error getting PGID of pid: " + str(self.ctxt_pid) + ": " +
                                                         stdout + ". Using only PID.")
