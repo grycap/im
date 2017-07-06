@@ -1267,6 +1267,7 @@ class ConfManager(threading.Thread):
         """
         conf_content = "---\n"
         conf_content += "- hosts: \"{{IM_HOST}}\"\n"
+        conf_content += "  gather_facts: False\n"
         if os_type != 'windows':
             conf_content += "  become: yes\n"
 
