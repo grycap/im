@@ -243,18 +243,13 @@ class CtxtAgent():
         if vm['os'] == "windows":
             if 'passwd' in vm and vm['passwd'] and 'new_passwd' in vm and vm['new_passwd']:
                 try:
-                    import ssl
-                    ssl._create_default_https_context = ssl._create_unverified_context
-                except:
-                    pass
-                try:
                     import winrm
                 except:
                     CtxtAgent.logger.exception("Error importing winrm.")
                     return False
                 try:
                     url = "https://" + vm['ip'] + ":5986"
-                    s = winrm.Session(url, auth=(vm['user'], vm['passwd']))
+                    s = winrm.Session(url, auth=(vm['user'], vm['passwd']), server_cert_validation='ignore')
                     r = s.run_cmd('net', ['user', vm['user'], vm['new_passwd']])
 
                     # this part of the code is never reached ...
