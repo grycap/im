@@ -23,7 +23,6 @@ import time
 import tempfile
 import shutil
 import yaml
-from ansible.modules.cloud.vmware.vsphere_guest import gather_facts
 
 try:
     from StringIO import StringIO
