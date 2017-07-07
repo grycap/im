@@ -265,7 +265,7 @@ class CtxtAgent():
                     # error
                     try:
                         # let's check that the new password works
-                        s = winrm.Session(url, auth=(vm['user'], vm['new_passwd']))
+                        s = winrm.Session(url, auth=(vm['user'], vm['new_passwd']), server_cert_validation='ignore')
                         r = s.run_cmd('echo', ['OK'])
                         if r.status_code == 0:
                             vm['passwd'] = vm['new_passwd']
