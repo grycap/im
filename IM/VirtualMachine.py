@@ -507,7 +507,7 @@ class VirtualMachine:
             cont = 0
             while vm_system.getValue('net_interface.%d.connection' % cont):
                 if vm_system.getValue('net_interface.%d.ip' % cont):
-                    vm_system.setValue('net_interface.%d.ip' % cont, None)
+                    vm_system.delValue('net_interface.%d.ip' % cont)
                 cont += 1
 
         if public_ips and not set(public_ips).issubset(set(private_ips)):
@@ -643,13 +643,18 @@ class VirtualMachine:
                     if code == 0:
                         out_parts = stdout.split("\n")
                         if len(out_parts) == 3:
-                            pgid = int(out_parts[1])
-                            (stdout, stderr, code) = ssh.execute("kill -9 -" + str(pgid))
-                            if code == 0:
-                                pgkill_success = True
-                            else:
-                                VirtualMachine.logger.error("Error getting PGID of pid: " + str(self.ctxt_pid) +
-                                                            ": " + stderr + ". Using only PID.")
+                            try:
+                                pgid = int(out_parts[1])
+                                (stdout, stderr, code) = ssh.execute("kill -9 -" + str(pgid))
+
+                                if code == 0:
+                                    pgkill_success = True
+                                else:
+                                    VirtualMachine.logger.error("Error getting PGID of pid: " + str(self.ctxt_pid) +
+                                                                ": " + stderr + ". Using only PID.")
+                            except:
+                                VirtualMachine.logger.exception("Error getting PGID of pid: " + str(self.ctxt_pid) +
+                                                                ": " + stderr + ". Using only PID.")
                         else:
                             VirtualMachine.logger.error("Error getting PGID of pid: " + str(self.ctxt_pid) + ": " +
                                                         stdout + ". Using only PID.")
