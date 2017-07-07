@@ -556,7 +556,10 @@ class AzureCloudConnector(CloudConnector):
                 # Delete Resource group and everything in it
                 if group_name:
                     self.log_debug("Delete Resource group %s and everything in it." % group_name)
-                    resource_client.resource_groups.delete(group_name).wait()
+                    try:
+                        resource_client.resource_groups.delete(group_name).wait()
+                    except:
+                        self.log_exception("Error deleting Resource group %." % group_name)
 
             i += 1
 
@@ -602,7 +605,10 @@ class AzureCloudConnector(CloudConnector):
                 except:
                     self.log_exception("Error creating storage account: %s" % storage_account)
                     self.log_debug("Delete Inf RG group %s" % "rg-%s" % inf.id)
-                    resource_client.resource_groups.delete("rg-%s" % inf.id)
+                    try:
+                        resource_client.resource_groups.delete("rg-%s" % inf.id)
+                    except:
+                        pass
 
             subnets = self.create_nets(inf, radl, credentials, subscription_id, "rg-%s" % inf.id)
 
@@ -630,7 +636,10 @@ class AzureCloudConnector(CloudConnector):
         if remaining_vms > 0:
             # Remove the general group
             self.log_debug("Delete Inf RG group %s" % "rg-%s" % inf.id)
-            resource_client.resource_groups.delete("rg-%s" % inf.id)
+            try:
+                resource_client.resource_groups.delete("rg-%s" % inf.id)
+            except:
+                pass
         else:
             self.log_debug("All VMs created successfully.")
 

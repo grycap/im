@@ -23,6 +23,7 @@ import time
 import tempfile
 import shutil
 import yaml
+from ansible.modules.cloud.vmware.vsphere_guest import gather_facts
 
 try:
     from StringIO import StringIO
@@ -618,7 +619,7 @@ class ConfManager(threading.Thread):
         _, recipes = Recipe.getInfoApps(vm.getAppsToInstall())
 
         conf_out = open(tmp_dir + "/main_" + group + "_task.yml", 'w')
-        conf_content = self.add_ansible_header(vm.getOS().lower())
+        conf_content = self.add_ansible_header(vm.getOS().lower(), gather_facts=True)
 
         conf_content += "  pre_tasks: \n"
         # Basic tasks set copy /etc/hosts ...
@@ -660,8 +661,7 @@ class ConfManager(threading.Thread):
 
         # create the "all" to enable this playbook to see the facts of all the
         # nodes
-        all_filename = self.create_all_recipe(
-            tmp_dir, "main_" + group + "_task")
+        all_filename = self.create_all_recipe(tmp_dir, "main_" + group + "_task")
         recipe_files.append(all_filename)
         # all_windows_filename =  self.create_all_recipe(tmp_dir, "main_" + group + "_task", "windows", "_all_win.yml")
         # recipe_files.append(all_windows_filename)
@@ -720,7 +720,7 @@ class ConfManager(threading.Thread):
             success = False
             cont = 0
             while not self._stop_thread and not success and cont < Config.PLAYBOOK_RETRIES:
-                self.log_debug("Sleeping %s secs." % cont ** 2 * 5)
+                self.log_debug("Sleeping %s secs." % (cont ** 2 * 5))
                 time.sleep(cont ** 2 * 5)
                 cont += 1
                 try:
@@ -1257,7 +1257,7 @@ class ConfManager(threading.Thread):
         else:
             return (False, msg)
 
-    def add_ansible_header(self, os_type):
+    def add_ansible_header(self, os_type, gather_facts=False):
         """
         Add the IM needed header in the contextualization playbooks
 
@@ -1267,6 +1267,8 @@ class ConfManager(threading.Thread):
         """
         conf_content = "---\n"
         conf_content += "- hosts: \"{{IM_HOST}}\"\n"
+        if not gather_facts:
+            conf_content += "  gather_facts: False\n"
         if os_type != 'windows':
             conf_content += "  become: yes\n"
 
