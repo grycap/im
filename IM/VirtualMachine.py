@@ -506,7 +506,7 @@ class VirtualMachine:
             cont = 0
             while vm_system.getValue('net_interface.%d.connection' % cont):
                 if vm_system.getValue('net_interface.%d.ip' % cont):
-                    vm_system.setValue('net_interface.%d.ip' % cont, None)
+                    vm_system.delValue('net_interface.%d.ip' % cont)
                 cont += 1
 
         if public_ips and not set(public_ips).issubset(set(private_ips)):
