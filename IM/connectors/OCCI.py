@@ -54,6 +54,7 @@ class OCCICloudConnector(CloudConnector):
         'suspended': VirtualMachine.STOPPED
     }
     """Dictionary with a map with the OCCI VM states to the IM states."""
+    PUBLIC_NET_NAMES = ["public", "PUBLIC", "floating"]
 
     def __init__(self, cloud_info, inf):
         self.add_public_ip_count = 0
@@ -206,6 +207,7 @@ class OCCICloudConnector(CloudConnector):
             if 'Link:' in l and ('/network/' in l or '/networklink/' in l):
                 num_interface = None
                 ip_address = None
+                link = None
                 parts = l.split(';')
                 for part in parts:
                     kv = part.split('=')
@@ -216,8 +218,10 @@ class OCCICloudConnector(CloudConnector):
                     elif kv[0].strip() == "occi.networkinterface.interface":
                         net_interface = kv[1].strip('"')
                         num_interface = re.findall('\d+', net_interface)[0]
+                    elif kv[0].strip() == "self":
+                        link = kv[1].strip('"')
                 if num_interface and ip_address:
-                    res.append((num_interface, ip_address, not is_private))
+                    res.append((num_interface, ip_address, not is_private, link))
         return link_to_public, res
 
     def manage_public_ips(self, vm, auth_data):
@@ -227,9 +231,8 @@ class OCCICloudConnector(CloudConnector):
         self.log_debug("The VM does not have public IP trying to add one.")
         if self.add_public_ip_count < self.MAX_ADD_IP_COUNT:
             # in some sites the network is called floating, in others PUBLIC ...
-            net_names = ["public", "PUBLIC", "floating"]
             msgs = ""
-            for name in net_names:
+            for name in self.PUBLIC_NET_NAMES:
                 success, msg = self.add_public_ip(vm, auth_data, network_name=name)
                 msgs += msg + "\n"
                 if success:
@@ -260,7 +263,7 @@ class OCCICloudConnector(CloudConnector):
         private_ips = []
 
         link_to_public, addresses = self.get_net_info(occi_res)
-        for _, ip_address, is_public in addresses:
+        for _, ip_address, is_public, _ in addresses:
             if is_public:
                 public_ips.append(ip_address)
             else:
@@ -270,7 +273,7 @@ class OCCICloudConnector(CloudConnector):
                 not public_ips and vm.requested_radl.hasPublicNet(vm.info.systems[0].name)):
             self.manage_public_ips(vm, auth_data)
 
-        vm.setIps(public_ips, private_ips)
+        vm.setIps(public_ips, private_ips, remove_old=True)
 
     def get_property_from_category(self, occi_res, category, prop_name):
         """
@@ -1018,9 +1021,54 @@ class OCCICloudConnector(CloudConnector):
             self.log_exception("Error connecting with OCCI server")
             return (False, "Error connecting with OCCI server: " + str(ex))
 
-    def add_new_nics(self, vm, radl, auth_data):
+    def get_public_ip_link(self, occi_res):
         """
-        Add new public IP if currently it does not have one and new RADL requests it
+        Get the link of the first public IP
+        """
+        _, addresses = self.get_net_info(occi_res)
+        link = None
+        for _, _, is_public, addr_link in addresses:
+            if is_public:
+                link = addr_link
+                break
+        return link
+
+    def remove_public_ip(self, vm, auth_data):
+        """
+        Remove/Detach public IP from VM
+        """
+        self.log_debug("Removing Public IP from VM %s" % vm.id)
+
+        auth = self.get_auth_header(auth_data)
+        headers = {'Accept': 'text/plain', 'Connection': 'close'}
+        if auth:
+            headers.update(auth)
+
+        try:
+            resp = self.create_request('GET', self.cloud.path + "/compute/" + vm.id, auth_data, headers)
+
+            if resp.status_code != 200:
+                self.log_error("Error getting VM info: " + resp.reason + "\n" + resp.text)
+                return (False, "Error getting VM info: " + resp.reason + "\n" + resp.text)
+            else:
+                link = self.get_public_ip_link(resp.text)
+                if not link:
+                    self.log_warn("No public IP to delete.")
+                    return (True, "No public IP to delete.")
+                resp = self.create_request('DELETE', link, auth_data, headers)
+                if resp.status_code in [404, 204, 200]:
+                    self.log_debug("Successfully removed")
+                    return (True, "")
+                else:
+                    self.log_error("Error removing public IP: " + resp.reason + "\n" + resp.text)
+                    return (False, resp.reason + "\n" + resp.text)
+        except Exception as ex:
+            self.log_exception("Error removing public IP")
+            return (False, str(ex))
+
+    def manage_nics(self, vm, radl, auth_data):
+        """
+        Add/remove public IP if currently it does not have one and new RADL requests it or vice versa
         """
         # update VM info
         try:
@@ -1028,7 +1076,15 @@ class OCCICloudConnector(CloudConnector):
             current_has_public_ip = vm.info.hasPublicNet(vm.info.systems[0].name)
             new_has_public_ip = radl.hasPublicNet(vm.info.systems[0].name)
             if new_has_public_ip and not current_has_public_ip:
-                self.manage_public_ips(vm, auth_data)
+                msgs = ""
+                for name in self.PUBLIC_NET_NAMES:
+                    success, msg = self.add_public_ip(vm, auth_data, network_name=name)
+                    msgs += msg + "\n"
+                    if success:
+                        return (True, "")
+                return (False, msgs)
+            if not new_has_public_ip and current_has_public_ip:
+                return self.remove_public_ip(vm, auth_data)
         except Exception as ex:
             self.log_exception("Error adding new public IP")
             return (False, "Error adding new public IP: " + str(ex))
@@ -1045,7 +1101,7 @@ class OCCICloudConnector(CloudConnector):
         if not success:
             return (success, msg)
 
-        success, msg = self.add_new_nics(vm, radl, auth_data)
+        success, msg = self.manage_nics(vm, radl, auth_data)
         if not success:
             return (success, msg)
 
