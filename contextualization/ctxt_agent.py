@@ -249,7 +249,7 @@ class CtxtAgent():
                     return False
                 try:
                     url = "https://" + vm['ip'] + ":5986"
-                    s = winrm.Session(url, auth=(vm['user'], vm['passwd']))
+                    s = winrm.Session(url, auth=(vm['user'], vm['passwd']), server_cert_validation='ignore')
                     r = s.run_cmd('net', ['user', vm['user'], vm['new_passwd']])
 
                     # this part of the code is never reached ...
@@ -265,7 +265,7 @@ class CtxtAgent():
                     # error
                     try:
                         # let's check that the new password works
-                        s = winrm.Session(url, auth=(vm['user'], vm['new_passwd']))
+                        s = winrm.Session(url, auth=(vm['user'], vm['new_passwd']), server_cert_validation='ignore')
                         r = s.run_cmd('echo', ['OK'])
                         if r.status_code == 0:
                             vm['passwd'] = vm['new_passwd']
@@ -436,10 +436,19 @@ class CtxtAgent():
                     for vm in general_conf_data['vms']:
                         if vm['os'] == "windows":
                             CtxtAgent.logger.info("Waiting WinRM access to VM: " + vm['ip'])
-                            CtxtAgent.wait_winrm_access(vm)
+                            cred_used = CtxtAgent.wait_winrm_access(vm)
                         else:
                             CtxtAgent.logger.info("Waiting SSH access to VM: " + vm['ip'])
-                            CtxtAgent.wait_ssh_access(vm)
+                            cred_used = CtxtAgent.wait_ssh_access(vm)
+
+                        if not cred_used:
+                            CtxtAgent.logger.error("Error Waiting access to VM: " + vm['ip'])
+                            res_data['SSH_WAIT'] = False
+                            res_data['OK'] = False
+                            return res_data
+                        else:
+                            res_data['SSH_WAIT'] = True
+                            CtxtAgent.logger.info("Remote access to VM: " + vm['ip'] + " Open!")
 
                         # the IP has changed public for private
                         if 'ctxt_ip' in vm and vm['ctxt_ip'] != vm['ip']:
