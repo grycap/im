@@ -101,8 +101,10 @@ class Tosca:
                     else:
                         num_instances = 1
 
-                    num_instances = num_instances - \
-                        self._get_num_instances(sys.name, inf_info)
+                    current_num_instances = self._get_num_instances(sys.name, inf_info)
+                    num_instances = num_instances - current_num_instances
+                    Tosca.logger.debug("User requested %d instances of type %s and there"
+                                       " are %s" % (num_instances, sys.name, current_num_instances))
 
                     # TODO: Think about to check the IDs of the VMs
                     if num_instances < 0:
@@ -216,8 +218,9 @@ class Tosca:
                     system.setValue('net_interface.%d.ip' % num, ip)
         else:
             public_ip = False
+            private_ip = True
 
-            # This is the solution using the public_ip property
+            # This is the solution using the deprecated public_ip property
             node_props = node.get_properties()
             if node_props and "public_ip" in node_props:
                 public_ip = self._final_function_result(node_props["public_ip"].value, node)
@@ -244,35 +247,38 @@ class Tosca:
                             net_provider_id = ".".join(parts[:-1])
                     if cap_props and "dns_name" in cap_props:
                         dns_name = self._final_function_result(cap_props["dns_name"].value, node)
+                    if cap_props and "private_ip" in cap_props:
+                        private_ip = self._final_function_result(cap_props["private_ip"].value, node)
                     if cap_props and "ports" in cap_props:
                         ports = self._final_function_result(cap_props["ports"].value, node)
 
             # The private net is always added
-            private_nets = []
-            for net in radl.networks:
-                if not net.isPublic():
-                    private_nets.append(net)
+            if not public_ip or private_ip:
+                private_nets = []
+                for net in radl.networks:
+                    if not net.isPublic():
+                        private_nets.append(net)
 
-            if private_nets:
-                private_net = None
-                for net in private_nets:
-                    num_net = system.getNumNetworkWithConnection(net.id)
-                    if num_net is not None:
-                        private_net = net
-                        break
+                if private_nets:
+                    private_net = None
+                    for net in private_nets:
+                        num_net = system.getNumNetworkWithConnection(net.id)
+                        if num_net is not None:
+                            private_net = net
+                            break
 
-                if not private_net:
-                    # There are a public net but it has not been used in this
-                    # VM
-                    private_net = private_nets[0]
+                    if not private_net:
+                        # There are a public net but it has not been used in this
+                        # VM
+                        private_net = private_nets[0]
+                        num_net = system.getNumNetworkIfaces()
+                else:
+                    # There no public net, create one
+                    private_net = network.createNetwork("private_net", False)
+                    radl.networks.append(private_net)
                     num_net = system.getNumNetworkIfaces()
-            else:
-                # There no public net, create one
-                private_net = network.createNetwork("private_net", False)
-                radl.networks.append(private_net)
-                num_net = system.getNumNetworkIfaces()
 
-            system.setValue('net_interface.' + str(num_net) + '.connection', private_net.id)
+                system.setValue('net_interface.' + str(num_net) + '.connection', private_net.id)
 
             # If the node needs a public IP
             if public_ip:
