@@ -54,8 +54,6 @@ class ConfManager(threading.Thread):
 
     MASTER_YAML = "conf-ansible.yml"
     """ The file with the ansible steps to configure the master node """
-    SECOND_STEP_YAML = 'conf-ansible-s2.yml'
-    """ The file with the ansible steps to configure the second step of the the master node """
 
     def __init__(self, inf, auth, max_ctxt_time=1e9):
         threading.Thread.__init__(self)
@@ -755,6 +753,8 @@ class ConfManager(threading.Thread):
                         files.append((Config.CONTEXTUALIZATION_DIR + "/ctxt_agent.py", remote_dir + "/ctxt_agent.py"))
                         # copy an empty init to make IM as package
                         files.append((Config.CONTEXTUALIZATION_DIR + "/__init__.py", remote_dir + "/IM/__init__.py"))
+                        # Copy the conf-ansible playbook to install ansible in nodes
+                        files.append((tmp_dir + "/" + ConfManager.MASTER_YAML, remote_dir + "/" + ConfManager.MASTER_YAML))
 
                         if self.inf.radl.ansible_hosts:
                             for ansible_host in self.inf.radl.ansible_hosts:
