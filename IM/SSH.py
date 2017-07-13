@@ -295,6 +295,8 @@ class SSH:
             - dest: Destination path in the remote server.
         """
         if os.path.isdir(src):
+            if src.endswith("/"):
+                src = src[:-1]
             client = self.connect()
             transport = client.get_transport()
             try:
