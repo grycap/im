@@ -431,7 +431,26 @@ class CtxtAgent():
                 inventory_file = general_conf_data['conf_dir'] + "/hosts"
 
                 ansible_thread = None
-                if task == "wait_all_ssh":
+                if task == "install_ansible":
+                    playbook = general_conf_data['conf_dir'] + "/" + "conf-ansible.yml" 
+                    ansible_thread = CtxtAgent.LaunchAnsiblePlaybook(CtxtAgent.logger, vm_conf_data['remote_dir'],
+                                                                     playbook, ctxt_vm, 2,
+                                                                     inventory_file, CtxtAgent.PK_FILE,
+                                                                     CtxtAgent.INTERNAL_PLAYBOOK_RETRIES,
+                                                                     vm_conf_data['changed_pass'], vault_pass)
+                    # Copy dir general_conf_data['conf_dir'] to node
+                    try:
+                        ssh_client = SSH(vm['ip'], vm['user'], None, CtxtAgent.PK_FILE, vm['remote_port'])
+                        _, _, code = ssh_client.execute("mkdir -p %s" % general_conf_data['conf_dir'])
+                        if code != 0:
+                            raise Exception("Error creating dir %s" % general_conf_data['conf_dir'])
+                        ssh_client.sftp_put_dir(general_conf_data['conf_dir'] , general_conf_data['conf_dir'] )
+                    except:
+                        CtxtAgent.logger.exception("Error copying playbooks to VM: " + vm['ip'])
+                        res_data['COPY_PLAYBOOKS'] = False
+                        res_data['OK'] = False
+                        return res_data
+                elif task == "wait_all_ssh":
                     # Wait all the VMs to have remote access active
                     for vm in general_conf_data['vms']:
                         if vm['os'] == "windows":
