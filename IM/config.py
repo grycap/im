@@ -100,6 +100,7 @@ class Config:
     OIDC_CLIENT_ID = None
     OIDC_CLIENT_SECRET = None
     OIDC_SCOPES = []
+    MAX_PARALLEL_VMS_CTXT = 50
 
 config = ConfigParser()
 config.read([Config.IM_PATH + '/../im.cfg', Config.IM_PATH +
