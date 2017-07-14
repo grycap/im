@@ -487,17 +487,18 @@ class InfrastructureInfo:
                 # Add basic tasks for all VMs
                 if cont == 0:
                     # In the first VM put the wait all ssh task
-                    tasks[0] = ['wait_all_ssh', 'basic', 'install_ansible']
+                    tasks[0] = ['wait_all_ssh', 'install_ansible']
                 else:
-                    tasks[0] = ['basic', 'install_ansible']
-                tasks[1] = ['main_' + vm.info.systems[0].name]
+                    tasks[0] = ['install_ansible']
+                tasks[1] = ['basic']
+                tasks[2] = ['main_' + vm.info.systems[0].name]
 
                 # And the specific tasks only for the specified ones
                 if not vm_list or vm.im_id in vm_list:
                     # Then add the configure sections
                     for ctxt_num in contextualizes.keys():
                         for ctxt_elem in contextualizes[ctxt_num]:
-                            step = ctxt_num + 2
+                            step = ctxt_num + 3
                             if ctxt_elem.system == vm.info.systems[0].name and ctxt_elem.get_ctxt_tool() == "Ansible":
                                 if step not in tasks:
                                     tasks[step] = []
