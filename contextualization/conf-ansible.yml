@@ -132,6 +132,9 @@
   
       - name: Set host_key_checking to false in ansible.cfg
         ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=host_key_checking value=False
+
+      - name: Set nocolor to 1 in ansible.cfg to avoid strange chars in Ansible outputs
+        ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=nocolor value=1        
   
       - name: Set transport to ssh in ansible.cfg
         ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=transport value=ssh
@@ -154,5 +157,7 @@
   
       - name: Set jinja2.ext.do to jinja2_extensions in ansible.cfg
         ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=jinja2_extensions value=jinja2.ext.do
+        
+        nocolor = 0
 
       when: not ansible_installed.results[0].stat.exists

@@ -290,7 +290,7 @@ class CtxtAgent():
 
     @staticmethod
     def LaunchAnsiblePlaybook(output, remote_dir, playbook_file, vm, threads, inventory_file, pk_file,
-                              retries, change_pass_ok, vault_pass, local):
+                              retries, change_pass_ok, vault_pass):
         CtxtAgent.logger.debug('Call Ansible')
 
         extra_vars = {'IM_HOST': vm['ip'] + "_" + str(vm['remote_port'])}
@@ -590,7 +590,7 @@ class CtxtAgent():
                                                                          playbook, ctxt_vm, 2,
                                                                          inventory_file, pk_file,
                                                                          CtxtAgent.INTERNAL_PLAYBOOK_RETRIES,
-                                                                         changed_pass, vault_pass, local)
+                                                                         changed_pass, vault_pass)
                         # Copy dir general_conf_data['conf_dir'] to node
                         try:
                             ssh_client = CtxtAgent.get_ssh(ctxt_vm, changed_pass, pk_file)
@@ -670,8 +670,7 @@ class CtxtAgent():
                                                                              playbook, ctxt_vm, 2,
                                                                              inventory_file, pk_file,
                                                                              CtxtAgent.INTERNAL_PLAYBOOK_RETRIES,
-                                                                             changed_pass, vault_pass,
-                                                                             local)
+                                                                             changed_pass, vault_pass)
                         else:
                             remote_process = CtxtAgent.LaunchRemoteAgent(ctxt_vm, vault_pass, pk_file, changed_pass)
                 else:
@@ -685,8 +684,7 @@ class CtxtAgent():
                                                                          playbook, ctxt_vm, 2,
                                                                          inventory_file, CtxtAgent.PK_FILE,
                                                                          CtxtAgent.INTERNAL_PLAYBOOK_RETRIES,
-                                                                         vm_conf_data['changed_pass'], vault_pass,
-                                                                         local)
+                                                                         vm_conf_data['changed_pass'], vault_pass)
 
                 if ansible_thread:
                     copy = True
@@ -727,16 +725,13 @@ class CtxtAgent():
         for vm in general_conf_data['vms']:
             if vm['id'] == vm_conf_data['id']:
                 ctxt_vm = vm
+                break
 
         if local or ctxt_vm['master'] or "install_ansible" in vm_conf_data['tasks']:
             log_file = vm_conf_data['remote_dir'] + "/ctxt_agent.log"
         else:
             log_file = vm_conf_data['remote_dir'] + "/ctxt_agentr.log"
 
-        try:
-            os.unlink(log_file)
-        except:
-            pass
         # Root logger: is used by paramiko
         logging.basicConfig(filename=log_file,
                             level=logging.WARNING,
