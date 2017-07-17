@@ -48,13 +48,15 @@ However, if you install IM from sources you should install:
  + The Requests library for Python, typically available as the 'python-requests' package.
 
  + Ansible (http://www.ansibleworks.com/) to configure nodes in the infrastructures.
-   In particular, Ansible 1.4.2+ must be installed.
+   In particular, Ansible 2.0.0+ must be installed.
    To ensure the functionality the following values must be set in the ansible.cfg file (usually found in /etc/ansible/):
 
 ```
 [defaults]
 transport  = smart
 host_key_checking = False
+nocolor = 1
+
 # For old versions 1.X
 sudo_user = root
 sudo_exe = sudo
