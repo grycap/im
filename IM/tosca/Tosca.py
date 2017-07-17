@@ -1241,8 +1241,8 @@ class Tosca:
                         device = value
 
                 if trgt.type_definition.type == "tosca.nodes.BlockStorage":
-                    size, unit = Tosca._get_size_and_unit(
-                        trgt.get_property_value('size'))
+                    full_size = self._final_function_result(trgt.get_property_value('size'), trgt)
+                    size, unit = Tosca._get_size_and_unit(full_size)
                     disks.append((size, unit, location, device, count, "ext4"))
                     count += 1
                 else:
