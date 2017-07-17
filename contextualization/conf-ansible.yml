@@ -157,7 +157,5 @@
   
       - name: Set jinja2.ext.do to jinja2_extensions in ansible.cfg
         ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=jinja2_extensions value=jinja2.ext.do
-        
-        nocolor = 0
 
       when: not ansible_installed.results[0].stat.exists
