@@ -87,17 +87,18 @@ class CtxtAgent():
                 time.sleep(delay)
 
     @staticmethod
-    def wait_ssh_access(vm):
+    def wait_ssh_access(vm, delay=10, max_wait=None, quiet=False):
         """
          Test the SSH access to the VM
          return: init, new or pk_file or None if it fails
         """
-        delay = 10
+        if not max_wait:
+            max_wait = CtxtAgent.SSH_WAIT_TIMEOUT
         wait = 0
         success = False
         res = None
         last_tested_private = False
-        while wait < CtxtAgent.SSH_WAIT_TIMEOUT:
+        while wait < max_wait:
             if 'ctxt_ip' in vm:
                 vm_ip = vm['ctxt_ip']
             elif 'private_ip' in vm and not last_tested_private:
@@ -107,7 +108,8 @@ class CtxtAgent():
             else:
                 vm_ip = vm['ip']
                 last_tested_private = False
-            CtxtAgent.logger.debug("Testing SSH access to VM: %s:%s" % (vm_ip, vm['remote_port']))
+            if not quiet:
+                CtxtAgent.logger.debug("Testing SSH access to VM: %s:%s" % (vm_ip, vm['remote_port']))
             wait += delay
             try:
                 ssh_client = SSH(vm_ip, vm['user'], vm['passwd'], vm[
@@ -120,8 +122,9 @@ class CtxtAgent():
                     try_ansible_key = False
                     # If the process of changing credentials has finished in the
                     # VM, we must use the new ones
-                    CtxtAgent.logger.debug(
-                        "Error connecting with SSH with initial credentials with: " + vm_ip + ". Try to use new ones.")
+                    if not quiet:
+                        CtxtAgent.logger.debug("Error connecting with SSH with initial credentials with: "
+                                               + vm_ip + ". Try to use new ones.")
                     try:
                         ssh_client = SSH(vm_ip, vm['user'], vm['new_passwd'], vm[
                                          'private_key'], vm['remote_port'])
@@ -133,15 +136,15 @@ class CtxtAgent():
                 if try_ansible_key:
                     # In some very special cases the last two cases fail, so check
                     # if the ansible key works
-                    CtxtAgent.logger.debug(
-                        "Error connecting with SSH with initial credentials with: " + vm_ip + ". Try to ansible_key.")
+                    if not quiet:
+                        CtxtAgent.logger.debug("Error connecting with SSH with initial credentials with: "
+                                               + vm_ip + ". Try to ansible_key.")
                     try:
                         ssh_client = SSH(vm_ip, vm['user'], None, CtxtAgent.PK_FILE, vm['remote_port'])
                         success = ssh_client.test_connectivity()
                         res = 'pk_file'
                     except:
-                        CtxtAgent.logger.exception(
-                            "Error connecting with SSH with: " + vm_ip)
+                        CtxtAgent.logger.exception("Error connecting with SSH with: " + vm_ip)
                         success = False
 
             if success:
@@ -181,12 +184,26 @@ class CtxtAgent():
             return "ERROR: Exception msg: " + str(ex)
 
     @staticmethod
-    def wait_thread(thread_data, output=None):
+    def wait_thread(thread_data, general_conf_data, copy, output=None, poll_delay=1, copy_step=10):
         """
          Wait for a thread to finish
         """
         thread, result = thread_data
-        thread.join()
+        if not copy:
+            thread.join()
+        else:
+            vm_dir = os.path.abspath(os.path.dirname(CtxtAgent.VM_CONF_DATA_FILENAME))
+            ssh_master = CtxtAgent.get_master_ssh(general_conf_data)
+            cont = 0
+            while thread.is_alive():
+                cont += 1
+                time.sleep(poll_delay)
+                if cont % copy_step == 0:
+                    try:
+                        ssh_master.sftp_put(vm_dir + "/ctxt_agent.log", vm_dir + "/ctxt_agent.log")
+                    except:
+                        CtxtAgent.logger.exception("Error putting %s file" % (vm_dir + "/ctxt_agent.log"))
+
         try:
             _, (return_code, hosts_with_errors), _ = result.get(timeout=60)
         except:
@@ -203,34 +220,32 @@ class CtxtAgent():
         return (return_code == 0, hosts_with_errors)
 
     @staticmethod
-    def wait_remote(data, poll_delay=5, copy_step=2):
+    def wait_remote(data, poll_delay=2, ssh_step=10):
         ssh_client, pid = data
         if not pid:
             return False
         exit_status = 0
-        cont = 0
         vm_dir = os.path.abspath(os.path.dirname(CtxtAgent.VM_CONF_DATA_FILENAME))
+        cont = 0
         while exit_status == 0:
-            (_, _, exit_status) = ssh_client.execute("ps " + str(pid))
-            time.sleep(poll_delay)
             cont += 1
-            if cont % copy_step == 0:
-                try:
-                    ssh_client.sftp_get(vm_dir + "/ctxt_agent.log", vm_dir + "/ctxt_agent.log")
-                except:
-                    CtxtAgent.logger.exception("Error getting %s file" % (vm_dir + "/ctxt_agent.log"))
-        
-        try:
-            ssh_client.sftp_get(vm_dir + "/ctxt_agent.log", vm_dir + "/ctxt_agent.log")
-            ssh_client.sftp_get(vm_dir + "/ctxt_agent.out", vm_dir + "/ctxt_agent.out")
-            return True
-        except:
-            CtxtAgent.logger.exception("Error getting %s files" % (vm_dir + "/ctxt_agent.*"))
+            # Only check the process status every ssh_step or if the out file exists
+            if cont % ssh_step == 0 or os.path.exists(vm_dir + "/ctxt_agent.out"):
+                CtxtAgent.logger.debug("Check status of remote process: %s" % pid)
+                (_, _, exit_status) = ssh_client.execute("ps " + str(pid))
+            if exit_status == 0:
+                time.sleep(poll_delay)
+
+        if os.path.exists(vm_dir + "/ctxt_agent.out"):
             try:
-                ssh_client.sftp_get(vm_dir + "/stdout", vm_dir + "/stdout")
-                ssh_client.sftp_get(vm_dir + "/stderr", vm_dir + "/stderr")
+                with open(vm_dir + "/ctxt_agent.out", "r") as f:
+                    results = json.load(f)
+                    return results["OK"]
             except:
-                CtxtAgent.logger.exception("Error getting stdout and stderr files")
+                CtxtAgent.logger.exception("Error parsing %s." % (vm_dir + "/ctxt_agent.out"))
+                return False
+        else:
+            CtxtAgent.logger.error("Error file %s does not exist." % (vm_dir + "/ctxt_agent.out"))
             return False
 
     @staticmethod
@@ -463,6 +478,28 @@ class CtxtAgent():
             f.write(inventoy_data)
 
     @staticmethod
+    def get_master_ssh(general_conf_data):
+        ctxt_vm = None
+        for vm in general_conf_data['vms']:
+            if vm['master']:
+                ctxt_vm = vm
+                break
+        if not ctxt_vm:
+            CtxtAgent.logger.error('Not VM master found to get ssh.')
+            return None
+
+        cred_used = CtxtAgent.wait_ssh_access(ctxt_vm, 2, 10, True)
+        passwd = ctxt_vm['passwd']
+        if cred_used == 'new':
+            passwd = ctxt_vm['new_passwd']
+
+        private_key = ctxt_vm['private_key']
+        if cred_used == "pk_file":
+            private_key = CtxtAgent.PK_FILE
+
+        return SSH(ctxt_vm['ip'], ctxt_vm['user'], passwd, private_key, ctxt_vm['remote_port'])
+
+    @staticmethod
     def get_ssh(ctxt_vm, changed_pass, pk_file):
         passwd = ctxt_vm['passwd']
         if 'new_passwd' in ctxt_vm and ctxt_vm['new_passwd'] and changed_pass:
@@ -568,6 +605,8 @@ class CtxtAgent():
                             res_data['COPY_PLAYBOOKS'] = False
                             res_data['OK'] = False
                             return res_data
+                    else:
+                        CtxtAgent.logger.info("Master or Windows VM do not install Ansible.")
                 elif task == "wait_all_ssh":
                     # Wait all the VMs to have remote access active
                     for vm in general_conf_data['vms']:
@@ -650,7 +689,10 @@ class CtxtAgent():
                                                                          local)
 
                 if ansible_thread:
-                    (task_ok, _) = CtxtAgent.wait_thread(ansible_thread)
+                    copy = True
+                    if task == "install_ansible" or ctxt_vm['master'] or ctxt_vm['os'] == "windows":
+                        copy = False
+                    (task_ok, _) = CtxtAgent.wait_thread(ansible_thread, general_conf_data, copy)
                 elif remote_process:
                     task_ok = CtxtAgent.wait_remote(remote_process)
                 else:
@@ -686,11 +728,15 @@ class CtxtAgent():
             if vm['id'] == vm_conf_data['id']:
                 ctxt_vm = vm
 
-        if local or ctxt_vm['master']:
+        if local or ctxt_vm['master'] or "install_ansible" in vm_conf_data['tasks']:
             log_file = vm_conf_data['remote_dir'] + "/ctxt_agent.log"
         else:
             log_file = vm_conf_data['remote_dir'] + "/ctxt_agentr.log"
 
+        try:
+            os.unlink(log_file)
+        except:
+            pass
         # Root logger: is used by paramiko
         logging.basicConfig(filename=log_file,
                             level=logging.WARNING,
@@ -709,11 +755,32 @@ class CtxtAgent():
         res_data = CtxtAgent.contextualize_vm(general_conf_data, vm_conf_data, ctxt_vm, local)
 
         if local or ctxt_vm['master'] or "install_ansible" in vm_conf_data['tasks']:
-            ctxt_out = open(vm_conf_data['remote_dir'] + "/ctxt_agent.out", 'w')
+            ctxt_out = open(vm_conf_data['remote_dir'] + "/ctxt_agent.out", 'w+')
         else:
-            ctxt_out = open(vm_conf_data['remote_dir'] + "/ctxt_agentr.out", 'w')
+            ctxt_out = open(vm_conf_data['remote_dir'] + "/ctxt_agentr.out", 'w+')
         json.dump(res_data, ctxt_out, indent=2)
         ctxt_out.close()
+
+        if local and not ctxt_vm['master'] and ctxt_vm['os'] != "windows":
+            try:
+                ssh_master = CtxtAgent.get_master_ssh(general_conf_data)
+                if os.path.exists(vm_conf_data['remote_dir'] + "/ctxt_agent.log"):
+                    ssh_master.sftp_put(vm_conf_data['remote_dir'] + "/ctxt_agent.log",
+                                        vm_conf_data['remote_dir'] + "/ctxt_agent.log")
+                    os.unlink(vm_conf_data['remote_dir'] + "/ctxt_agent.log")
+                else:
+                    CtxtAgent.logger.error("File %s does not exist" % vm_conf_data['remote_dir'] + "/ctxt_agent.log")
+                    return False
+                if os.path.exists(vm_conf_data['remote_dir'] + "/ctxt_agent.out"):
+                    ssh_master.sftp_put(vm_conf_data['remote_dir'] + "/ctxt_agent.out",
+                                        vm_conf_data['remote_dir'] + "/ctxt_agent.out")
+                    os.unlink(vm_conf_data['remote_dir'] + "/ctxt_agent.out")
+                else:
+                    CtxtAgent.logger.error("File %s does not exist" % vm_conf_data['remote_dir'] + "/ctxt_agent.out")
+                    return False
+            except:
+                CtxtAgent.logger.exception("Error copying back the results")
+                return False
 
         return res_data['OK']
 
