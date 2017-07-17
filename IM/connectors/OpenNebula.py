@@ -871,7 +871,8 @@ class OpenNebulaCloudConnector(CloudConnector):
             if net_provider_id:
                 for (net_name, net_id, is_public) in one_nets:
                     # If the name is the same and have the same "publicity" value
-                    if net_name == net_provider_id and radl_net.isPublic() == is_public:
+                    if ((net_id == net_provider_id or net_name == net_provider_id) and
+                            radl_net.isPublic() == is_public):
                         res[radl_net.id] = (net_name, net_id, is_public)
                         used_nets.append(net_id)
                         break

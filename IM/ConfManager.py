@@ -54,8 +54,6 @@ class ConfManager(threading.Thread):
 
     MASTER_YAML = "conf-ansible.yml"
     """ The file with the ansible steps to configure the master node """
-    SECOND_STEP_YAML = 'conf-ansible-s2.yml'
-    """ The file with the ansible steps to configure the second step of the the master node """
 
     def __init__(self, inf, auth, max_ctxt_time=1e9):
         threading.Thread.__init__(self)
@@ -72,6 +70,7 @@ class ConfManager(threading.Thread):
         """
         Update the status of the configuration processes
         """
+        cont_vms = 0
         res = {}
         for step, vm_list in vms_configuring.items():
             for vm in vm_list:
@@ -83,6 +82,7 @@ class ConfManager(threading.Thread):
                         if step not in res:
                             res[step] = []
                         res[step].append(vm)
+                        cont_vms += 1
                         self.log_debug("Ansible process to configure " + str(vm.im_id) +
                                        " with PID " + vm.ctxt_pid + " is still running.")
                     else:
@@ -105,7 +105,7 @@ class ConfManager(threading.Thread):
                         # Force to save the data to store the log data
                         IM.InfrastructureList.InfrastructureList.save_data(self.inf.id)
 
-        return res
+        return cont_vms, res
 
     def stop(self):
         self._stop_thread = True
@@ -196,7 +196,13 @@ class ConfManager(threading.Thread):
                     self.ansible_process.terminate()
                 return
 
-            vms_configuring = self.check_running_pids(vms_configuring)
+            cont_vms, vms_configuring = self.check_running_pids(vms_configuring)
+
+            self.log_debug("There are %d VMs contextualizing" % cont_vms)
+            if cont_vms >= Config.MAX_PARALLEL_VMS_CTXT:
+                self.log_debug("Do not launch more ctxt processes.")
+                time.sleep(Config.CONFMAMAGER_CHECK_STATE_INTERVAL)
+                continue
 
             # If the queue is empty but there are vms configuring wait and test
             # again

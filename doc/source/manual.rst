@@ -402,6 +402,11 @@ Contextualization
    Interval to update the log output of the contextualization process in the VMs (in secs).
    The default value is 20.
 
+.. confval:: MAX_PARALLEL_VMS_CTXT
+
+   Max number or contextualization processes launched in parallel.
+   The default value is 50.
+
 .. _options-xmlrpc:
 
 XML-RPC API
