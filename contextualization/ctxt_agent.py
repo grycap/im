@@ -123,8 +123,8 @@ class CtxtAgent():
                     # If the process of changing credentials has finished in the
                     # VM, we must use the new ones
                     if not quiet:
-                        CtxtAgent.logger.debug("Error connecting with SSH with initial credentials with: "
-                                               + vm_ip + ". Try to use new ones.")
+                        CtxtAgent.logger.debug("Error connecting with SSH with initial credentials with: " +
+                                               vm_ip + ". Try to use new ones.")
                     try:
                         ssh_client = SSH(vm_ip, vm['user'], vm['new_passwd'], vm[
                                          'private_key'], vm['remote_port'])
@@ -137,8 +137,8 @@ class CtxtAgent():
                     # In some very special cases the last two cases fail, so check
                     # if the ansible key works
                     if not quiet:
-                        CtxtAgent.logger.debug("Error connecting with SSH with initial credentials with: "
-                                               + vm_ip + ". Try to ansible_key.")
+                        CtxtAgent.logger.debug("Error connecting with SSH with initial credentials with: " +
+                                               vm_ip + ". Try to ansible_key.")
                     try:
                         ssh_client = SSH(vm_ip, vm['user'], None, CtxtAgent.PK_FILE, vm['remote_port'])
                         success = ssh_client.test_connectivity()
@@ -249,7 +249,7 @@ class CtxtAgent():
             return False
 
     @staticmethod
-    def LaunchRemoteAgent(vm, vault_pass, pk_file, changed_pass_ok): 
+    def LaunchRemoteAgent(vm, vault_pass, pk_file, changed_pass_ok):
         CtxtAgent.logger.debug('Launch Ctxt agent on node: %s' % vm['ip'])
 
         ssh_client = CtxtAgent.get_ssh(vm, changed_pass_ok, pk_file)
@@ -265,8 +265,8 @@ class CtxtAgent():
         vm_dir = os.path.abspath(os.path.dirname(CtxtAgent.VM_CONF_DATA_FILENAME))
         remote_dir = os.path.abspath(os.path.dirname(CtxtAgent.CONF_DATA_FILENAME))
         try:
-            (pid, _, _) = ssh_client.execute(vault_export + "nohup python_ansible " + remote_dir + "/ctxt_agent.py "
-                                             + CtxtAgent.CONF_DATA_FILENAME + " " + CtxtAgent.VM_CONF_DATA_FILENAME +
+            (pid, _, _) = ssh_client.execute(vault_export + "nohup python_ansible " + remote_dir + "/ctxt_agent.py " +
+                                             CtxtAgent.CONF_DATA_FILENAME + " " + CtxtAgent.VM_CONF_DATA_FILENAME +
                                              " 1 > " + vm_dir + "/stdout 2> " + vm_dir +
                                              "/stderr < /dev/null & echo -n $!")
         except:
@@ -319,7 +319,7 @@ class CtxtAgent():
         # Set local_tmp dir different for any VM
         os.environ['DEFAULT_LOCAL_TMP'] = remote_dir + "/.ansible_tmp"
         # it must be set before doing the import
-        from IM.ansible_utils.ansible_launcher import AnsibleThread  
+        from IM.ansible_utils.ansible_launcher import AnsibleThread
 
         result = Queue()
         t = AnsibleThread(result, output, playbook_file, None, threads, gen_pk_file,
@@ -552,7 +552,7 @@ class CtxtAgent():
                         # requiretty removal and change password here
                         CtxtAgent.logger.info("Waiting SSH access to VM: " + ctxt_vm['ip'])
                         cred_used = CtxtAgent.wait_ssh_access(ctxt_vm)
-    
+
                         if not cred_used:
                             CtxtAgent.logger.error("Error Waiting access to VM: " + ctxt_vm['ip'])
                             res_data['SSH_WAIT'] = False
@@ -561,7 +561,7 @@ class CtxtAgent():
                         else:
                             res_data['SSH_WAIT'] = True
                             CtxtAgent.logger.info("Remote access to VM: " + ctxt_vm['ip'] + " Open!")
-    
+
                         # The install_ansible task uses the credentials of VM stored in ctxt_vm
                         pk_file = None
                         changed_pass = False
@@ -569,13 +569,13 @@ class CtxtAgent():
                             pk_file = CtxtAgent.PK_FILE
                         elif cred_used == "new":
                             changed_pass = True
-    
+
                         success = CtxtAgent.removeRequiretty(ctxt_vm, changed_pass, pk_file)
                         if success:
                             CtxtAgent.logger.info("Requiretty successfully removed")
                         else:
                             CtxtAgent.logger.error("Error removing Requiretty")
-    
+
                         # Check if we must change user credentials
                         # Do not change it on the master. It must be changed only by
                         # the ConfManager
@@ -584,8 +584,8 @@ class CtxtAgent():
                         else:
                             change_creds = CtxtAgent.changeVMCredentials(ctxt_vm, pk_file)
                         res_data['CHANGE_CREDS'] = change_creds
-                        
-                        playbook = general_conf_data['conf_dir'] + "/" + "conf-ansible.yml" 
+
+                        playbook = general_conf_data['conf_dir'] + "/" + "conf-ansible.yml"
                         ansible_thread = CtxtAgent.LaunchAnsiblePlaybook(CtxtAgent.logger, vm_conf_data['remote_dir'],
                                                                          playbook, ctxt_vm, 2,
                                                                          inventory_file, pk_file,
@@ -597,7 +597,7 @@ class CtxtAgent():
                             _, _, code = ssh_client.execute("mkdir -p %s" % general_conf_data['conf_dir'])
                             if code != 0:
                                 raise Exception("Error creating dir %s" % general_conf_data['conf_dir'])
-                            ssh_client.sftp_put_dir(general_conf_data['conf_dir'] , general_conf_data['conf_dir'] )
+                            ssh_client.sftp_put_dir(general_conf_data['conf_dir'], general_conf_data['conf_dir'])
                             # Put the correct permissions on the key file
                             ssh_client.sftp_chmod(CtxtAgent.PK_FILE, 0o600)
                         except:
@@ -634,7 +634,7 @@ class CtxtAgent():
                             CtxtAgent.replace_vm_ip(vm)
 
                     # Replace it here to make it at the begining and only once
-                    playbook = general_conf_data['conf_dir'] + "/" + "conf-ansible.yml" 
+                    playbook = general_conf_data['conf_dir'] + "/" + "conf-ansible.yml"
                     CtxtAgent.replace_playbook_hosts(playbook, "{{IM_HOST}}")
                 elif task == "basic":
                     if ctxt_vm['os'] == "windows":
@@ -652,7 +652,7 @@ class CtxtAgent():
                     else:
                         res_data['SSH_WAIT'] = True
                         CtxtAgent.logger.info("Remote access to VM: " + ctxt_vm['ip'] + " Open!")
-                        
+
                     # The basic task uses the credentials of VM stored in ctxt_vm
                     pk_file = None
                     changed_pass = False
@@ -665,7 +665,7 @@ class CtxtAgent():
                         if local:
                             # this step is not needed in windows systems
                             CtxtAgent.set_ansible_connection_local(general_conf_data, ctxt_vm)
-                            ansible_thread = CtxtAgent.LaunchAnsiblePlaybook(CtxtAgent.logger, 
+                            ansible_thread = CtxtAgent.LaunchAnsiblePlaybook(CtxtAgent.logger,
                                                                              vm_conf_data['remote_dir'],
                                                                              playbook, ctxt_vm, 2,
                                                                              inventory_file, pk_file,
@@ -675,7 +675,7 @@ class CtxtAgent():
                         else:
                             remote_process = CtxtAgent.LaunchRemoteAgent(ctxt_vm, vault_pass, pk_file, changed_pass)
                 else:
-                    # in the other tasks pk_file can be used                
+                    # in the other tasks pk_file can be used
                     if ctxt_vm['os'] != "windows" and not ctxt_vm['master'] and not local:
                         remote_process = CtxtAgent.LaunchRemoteAgent(ctxt_vm, vault_pass, CtxtAgent.PK_FILE,
                                                                      vm_conf_data['changed_pass'])
