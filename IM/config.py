@@ -91,6 +91,7 @@ class Config:
     ANSIBLE_INSTALL_TIMEOUT = 500
     INF_CACHE_TIME = None
     VMINFO_JSON = False
+    VM_NUM_USE_CTXT_DIST = 30
 
 config = ConfigParser()
 config.read([Config.IM_PATH + '/../im.cfg', Config.IM_PATH +

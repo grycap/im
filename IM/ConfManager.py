@@ -317,12 +317,16 @@ class ConfManager(threading.Thread):
                              os.path.basename(conf_file))
 
                 if vm.configured is None:
+                    if len(self.inf.get_vm_list()) > Config.VM_NUM_USE_CTXT_DIST:
+                        ctxt_agent_command = "/ctxt_agent_dist.py "
+                    else:
+                        ctxt_agent_command = "/ctxt_agent.py "
                     vault_export = ""
                     vault_password = vm.info.systems[0].getValue("vault.password")
                     if vault_password:
                         vault_export = "export VAULT_PASS='%s' && " % vault_password
                     (pid, _, _) = ssh.execute(vault_export + "nohup python_ansible " + Config.REMOTE_CONF_DIR + "/" +
-                                              str(self.inf.id) + "/" + "/ctxt_agent.py " +
+                                              str(self.inf.id) + "/" + ctxt_agent_command +
                                               Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/" +
                                               "/general_info.cfg " + remote_dir + "/" + os.path.basename(conf_file) +
                                               " > " + remote_dir + "/stdout" + " 2> " + remote_dir +
@@ -750,6 +754,7 @@ class ConfManager(threading.Thread):
                         self.log_debug("Copy the contextualization agent files")
                         files = []
                         files.append((Config.IM_PATH + "/SSH.py", remote_dir + "/IM/SSH.py"))
+                        files.append((Config.CONTEXTUALIZATION_DIR + "/ctxt_agent_dist.py", remote_dir + "/ctxt_agent_dist.py"))
                         files.append((Config.CONTEXTUALIZATION_DIR + "/ctxt_agent.py", remote_dir + "/ctxt_agent.py"))
                         # copy an empty init to make IM as package
                         files.append((Config.CONTEXTUALIZATION_DIR + "/__init__.py", remote_dir + "/IM/__init__.py"))
