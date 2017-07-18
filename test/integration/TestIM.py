@@ -96,7 +96,7 @@ class TestIM(unittest.TestCase):
                 if vm_state == VirtualMachine.UNCONFIGURED:
                     (success, cont_msg) = self.server.GetVMContMsg(
                         inf_id, vm_id, self.auth_data)
-                    print cont_msg
+                    print(cont_msg)
 
                 self.assertFalse(vm_state in err_states, msg="ERROR waiting for a state. '" + vm_state +
                                  "' was obtained in the VM: " + str(vm_id) + " err_states = " + str(err_states))
@@ -642,6 +642,32 @@ echo "Hello World" >> /tmp/data.txt
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
     def test_85_destroy(self):
+        """
+        Test DestroyInfrastructure function
+        """
+        for inf_id in self.inf_id:
+            (success, res) = self.server.DestroyInfrastructure(
+                inf_id, self.auth_data)
+            self.assertTrue(
+                success, msg="ERROR calling DestroyInfrastructure: " + str(res))
+
+    def test_90_create(self):
+        """
+        Test the CreateInfrastructure IM function with ctxt dist
+        """
+        radl = read_file_as_string("../files/test_cont_dist.radl")
+
+        (success, inf_id) = self.server.CreateInfrastructure(radl, self.auth_data)
+        self.assertTrue(
+            success, msg="ERROR calling CreateInfrastructure: " + str(inf_id))
+        self.__class__.inf_id = inf_id
+
+        all_configured = self.wait_inf_state(
+            inf_id, VirtualMachine.CONFIGURED, 1000)
+        self.assertTrue(
+            all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
+
+    def test_95_destroy(self):
         """
         Test DestroyInfrastructure function
         """

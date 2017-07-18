@@ -547,7 +547,16 @@ class CtxtAgent():
                 ansible_thread = None
                 remote_process = None
                 if task == "install_ansible":
-                    if not ctxt_vm['master'] and ctxt_vm['os'] != "windows":
+                    if ctxt_vm['os'] == "windows":
+                        CtxtAgent.logger.info("Waiting WinRM access to VM: " + ctxt_vm['ip'])
+                        cred_used = CtxtAgent.wait_winrm_access(ctxt_vm)
+                        if not cred_used:
+                            CtxtAgent.logger.error("Error Waiting access to VM: " + ctxt_vm['ip'])
+                            res_data['SSH_WAIT'] = False
+                            res_data['OK'] = False
+                            return res_data
+                        res_data['CHANGE_CREDS'] = CtxtAgent.changeVMCredentials(ctxt_vm, None)
+                    elif not ctxt_vm['master']:
                         # This is always the fist step, so put the SSH test, the
                         # requiretty removal and change password here
                         CtxtAgent.logger.info("Waiting SSH access to VM: " + ctxt_vm['ip'])
@@ -586,6 +595,7 @@ class CtxtAgent():
                         res_data['CHANGE_CREDS'] = change_creds
 
                         playbook = general_conf_data['conf_dir'] + "/" + "conf-ansible.yml"
+                        CtxtAgent.replace_playbook_hosts(playbook, "{{IM_HOST}}")
                         ansible_thread = CtxtAgent.LaunchAnsiblePlaybook(CtxtAgent.logger, vm_conf_data['remote_dir'],
                                                                          playbook, ctxt_vm, 2,
                                                                          inventory_file, pk_file,
@@ -632,10 +642,6 @@ class CtxtAgent():
                             CtxtAgent.logger.info("Changing the IP %s for %s in config files." % (vm['ctxt_ip'],
                                                                                                   vm['ip']))
                             CtxtAgent.replace_vm_ip(vm)
-
-                    # Replace it here to make it at the begining and only once
-                    playbook = general_conf_data['conf_dir'] + "/" + "conf-ansible.yml"
-                    CtxtAgent.replace_playbook_hosts(playbook, "{{IM_HOST}}")
                 elif task == "basic":
                     if ctxt_vm['os'] == "windows":
                         CtxtAgent.logger.info("Waiting WinRM access to VM: " + ctxt_vm['ip'])
@@ -679,7 +685,8 @@ class CtxtAgent():
                         remote_process = CtxtAgent.LaunchRemoteAgent(ctxt_vm, vault_pass, CtxtAgent.PK_FILE,
                                                                      vm_conf_data['changed_pass'])
                     else:
-                        CtxtAgent.set_ansible_connection_local(general_conf_data, ctxt_vm)
+                        if ctxt_vm['os'] != "windows":
+                            CtxtAgent.set_ansible_connection_local(general_conf_data, ctxt_vm)
                         ansible_thread = CtxtAgent.LaunchAnsiblePlaybook(CtxtAgent.logger, vm_conf_data['remote_dir'],
                                                                          playbook, ctxt_vm, 2,
                                                                          inventory_file, CtxtAgent.PK_FILE,
@@ -727,7 +734,7 @@ class CtxtAgent():
                 ctxt_vm = vm
                 break
 
-        if local or ctxt_vm['master'] or "install_ansible" in vm_conf_data['tasks']:
+        if local or ctxt_vm['master'] or "install_ansible" in vm_conf_data['tasks'] or ctxt_vm['os'] == 'windows':
             log_file = vm_conf_data['remote_dir'] + "/ctxt_agent.log"
         else:
             log_file = vm_conf_data['remote_dir'] + "/ctxt_agentr.log"
@@ -749,7 +756,7 @@ class CtxtAgent():
 
         res_data = CtxtAgent.contextualize_vm(general_conf_data, vm_conf_data, ctxt_vm, local)
 
-        if local or ctxt_vm['master'] or "install_ansible" in vm_conf_data['tasks']:
+        if local or ctxt_vm['master'] or "install_ansible" in vm_conf_data['tasks'] or ctxt_vm['os'] == 'windows':
             ctxt_out = open(vm_conf_data['remote_dir'] + "/ctxt_agent.out", 'w+')
         else:
             ctxt_out = open(vm_conf_data['remote_dir'] + "/ctxt_agentr.out", 'w+')

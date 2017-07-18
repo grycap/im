@@ -318,8 +318,10 @@ class ConfManager(threading.Thread):
 
                 if vm.configured is None:
                     if len(self.inf.get_vm_list()) > Config.VM_NUM_USE_CTXT_DIST:
+                        self.log_debug("Using ctxt_agent_dist")
                         ctxt_agent_command = "/ctxt_agent_dist.py "
                     else:
+                        self.log_debug("Using ctxt_agent")
                         ctxt_agent_command = "/ctxt_agent.py "
                     vault_export = ""
                     vault_password = vm.info.systems[0].getValue("vault.password")
