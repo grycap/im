@@ -585,15 +585,16 @@ class CtxtAgent():
                             change_creds = CtxtAgent.changeVMCredentials(ctxt_vm, pk_file)
                         res_data['CHANGE_CREDS'] = change_creds
 
-                        playbook = general_conf_data['conf_dir'] + "/" + "conf-ansible.yml"
-                        ansible_thread = CtxtAgent.LaunchAnsiblePlaybook(CtxtAgent.logger, vm_conf_data['remote_dir'],
-                                                                         playbook, ctxt_vm, 2,
-                                                                         inventory_file, pk_file,
-                                                                         CtxtAgent.INTERNAL_PLAYBOOK_RETRIES,
-                                                                         changed_pass, vault_pass)
                         # Copy dir general_conf_data['conf_dir'] to node
                         try:
                             ssh_client = CtxtAgent.get_ssh(ctxt_vm, changed_pass, pk_file)
+                            
+                            out, err, code = ssh_client.execute("bash %s/ansible_install.sh" % general_conf_data['conf_dir'])
+                            CtxtAgent.logger.info(out + err)
+                            if code != 0:
+                                res_data['OK'] = False
+                                return res_data
+                            
                             _, _, code = ssh_client.execute("mkdir -p %s" % general_conf_data['conf_dir'])
                             if code != 0:
                                 raise Exception("Error creating dir %s" % general_conf_data['conf_dir'])

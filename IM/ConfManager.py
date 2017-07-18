@@ -760,8 +760,8 @@ class ConfManager(threading.Thread):
                         files.append((Config.CONTEXTUALIZATION_DIR + "/ctxt_agent.py", remote_dir + "/ctxt_agent.py"))
                         # copy an empty init to make IM as package
                         files.append((Config.CONTEXTUALIZATION_DIR + "/__init__.py", remote_dir + "/IM/__init__.py"))
-                        # Copy the conf-ansible playbook to install ansible in nodes
-                        files.append((tmp_dir + "/" + ConfManager.MASTER_YAML, remote_dir + "/" + ConfManager.MASTER_YAML))
+                        # copy the ansible_install script to install the nodes
+                        files.append((Config.CONTEXTUALIZATION_DIR + "/ansible_install.sh", remote_dir + "/ansible_install.sh"))
 
                         if self.inf.radl.ansible_hosts:
                             for ansible_host in self.inf.radl.ansible_hosts:
