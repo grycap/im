@@ -1,5 +1,5 @@
 ---
-- hosts: all
+- hosts: "{{IM_HOST}}"
   become: yes
   become_method: sudo
   gather_facts: false

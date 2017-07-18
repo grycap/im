@@ -440,16 +440,6 @@ class CtxtAgent():
             return True
 
     @staticmethod
-    def replace_playbook_hosts(playbook, hosts):
-        with open(playbook) as f:
-            yaml_data = yaml.load(f)
-
-        yaml_data[0]['hosts'] = hosts
-
-        with open(playbook, 'w+') as f:
-            yaml.dump(yaml_data, f)
-
-    @staticmethod
     def replace_vm_ip(vm_data):
         # Add the Ctxt IP with the one that is actually working
         # in the inventory and in the general info file
@@ -556,6 +546,7 @@ class CtxtAgent():
                             res_data['OK'] = False
                             return res_data
                         res_data['CHANGE_CREDS'] = CtxtAgent.changeVMCredentials(ctxt_vm, None)
+                        CtxtAgent.logger.info("Windows VM do not install Ansible.")
                     elif not ctxt_vm['master']:
                         # This is always the fist step, so put the SSH test, the
                         # requiretty removal and change password here
@@ -595,7 +586,6 @@ class CtxtAgent():
                         res_data['CHANGE_CREDS'] = change_creds
 
                         playbook = general_conf_data['conf_dir'] + "/" + "conf-ansible.yml"
-                        CtxtAgent.replace_playbook_hosts(playbook, "{{IM_HOST}}")
                         ansible_thread = CtxtAgent.LaunchAnsiblePlaybook(CtxtAgent.logger, vm_conf_data['remote_dir'],
                                                                          playbook, ctxt_vm, 2,
                                                                          inventory_file, pk_file,
@@ -616,7 +606,7 @@ class CtxtAgent():
                             res_data['OK'] = False
                             return res_data
                     else:
-                        CtxtAgent.logger.info("Master or Windows VM do not install Ansible.")
+                        CtxtAgent.logger.info("Master VM do not install Ansible.")
                 elif task == "wait_all_ssh":
                     # Wait all the VMs to have remote access active
                     for vm in general_conf_data['vms']:

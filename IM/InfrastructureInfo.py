@@ -504,7 +504,6 @@ class InfrastructureInfo:
                         tasks[0] = ['basic']
                     tasks[1] = ['main_' + vm.info.systems[0].name]
 
-
                 # And the specific tasks only for the specified ones
                 if not vm_list or vm.im_id in vm_list:
                     # Then add the configure sections
