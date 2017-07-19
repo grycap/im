@@ -101,6 +101,27 @@ if [ ! $(which ansible-playbook) ]; then
       yum erase -y python-crypto
       yum install -y python-crypto python-paramiko
     fi
-  fi
+  fi  
+else
+  echo "Ansible already installed"
+fi
 
+# Create the config file
+cat > /etc/ansible/ansible.cfg <<EOL
+[defaults]
+transport  = smart
+host_key_checking = False
+nocolor = 1
+become_user = root
+become_method = sudo
+[paramiko_connection]
+record_host_keys=False
+[ssh_connection]
+pipelining = True
+EOL
+
+if [ $(which ansible-playbook) ]; then
+	echo '{"OK" : true}' > $1
+else
+	echo '{"OK" : false}' > $1
 fi
