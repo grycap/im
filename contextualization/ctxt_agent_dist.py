@@ -272,7 +272,7 @@ class CtxtAgent():
         vm_dir = os.path.abspath(os.path.dirname(CtxtAgent.VM_CONF_DATA_FILENAME))
         remote_dir = os.path.abspath(os.path.dirname(CtxtAgent.CONF_DATA_FILENAME))
         ssh_client = CtxtAgent.get_ssh(vm, changed_pass_ok, pk_file)
-        
+
         # Create a temporary log file
         with open(vm_dir + "/ctxt_agent.log", "w+") as f:
             f.write("Installing Ansible...")
