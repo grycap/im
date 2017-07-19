@@ -478,7 +478,7 @@ class CtxtAgent():
                 if ssh_client.password:
                     sudo_pass = "echo '" + ssh_client.password + "' | "
                 (stdout, stderr, code) = ssh_client.execute_timeout(
-                    sudo_pass + "sudo -S sed -i 's/.*requiretty$/#Defaults requiretty/' /etc/sudoers", 5)
+                    sudo_pass + "sudo -S sed -i 's/.*requiretty$/#Defaults requiretty/' /etc/sudoers", 30)
                 CtxtAgent.logger.debug("OUT: " + stdout + stderr)
                 return code == 0
             except:
@@ -535,7 +535,11 @@ class CtxtAgent():
         if cred_used == "pk_file":
             private_key = CtxtAgent.PK_FILE
 
-        return SSH(ctxt_vm['ip'], ctxt_vm['user'], passwd, private_key, ctxt_vm['remote_port'])
+        vm_ip = ctxt_vm['ip']
+        if 'ctxt_ip' in ctxt_vm:
+            vm_ip = ctxt_vm['ctxt_ip']
+
+        return SSH(vm_ip, ctxt_vm['user'], passwd, private_key, ctxt_vm['remote_port'])
 
     @staticmethod
     def get_ssh(ctxt_vm, changed_pass, pk_file):
@@ -547,7 +551,11 @@ class CtxtAgent():
         if pk_file:
             private_key = pk_file
 
-        return SSH(ctxt_vm['ip'], ctxt_vm['user'], passwd, private_key, ctxt_vm['remote_port'])
+        vm_ip = ctxt_vm['ip']
+        if 'ctxt_ip' in ctxt_vm:
+            vm_ip = ctxt_vm['ctxt_ip']
+
+        return SSH(vm_ip, ctxt_vm['user'], passwd, private_key, ctxt_vm['remote_port'])
 
     @staticmethod
     def contextualize_vm(general_conf_data, vm_conf_data, ctxt_vm, local):
