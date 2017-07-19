@@ -125,3 +125,5 @@ if [ $(which ansible-playbook) ]; then
 else
 	echo '{"OK" : false}' > $1
 fi
+
+chmod 666 $1
