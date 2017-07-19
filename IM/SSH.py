@@ -301,7 +301,7 @@ class SSH:
         client = self.connect()
         transport = client.get_transport()
         sftp = paramiko.SFTPClient.from_transport(transport)
-        
+
         files = self.sftp_walk(src, None, sftp)
 
         for filename in files:
@@ -330,7 +330,7 @@ class SSH:
         folders = []
         if not files:
             files = []
-        for f in sftp.listdir_attr(src):        
+        for f in sftp.listdir_attr(src):
             if S_ISDIR(f.st_mode):
                 folder = os.path.join(src, f.filename)
                 folders.append(folder)
@@ -344,7 +344,7 @@ class SSH:
         if close:
             sftp.close()
             transport.close()
-        
+
         return files
 
     def sftp_put_dir(self, src, dest):

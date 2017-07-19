@@ -624,11 +624,11 @@ class CtxtAgent():
                         else:
                             change_creds = CtxtAgent.changeVMCredentials(ctxt_vm, pk_file)
                         res_data['CHANGE_CREDS'] = change_creds
-                        
+
                         # Copy dir general_conf_data['conf_dir'] to node
                         try:
                             ssh_client = CtxtAgent.get_ssh(ctxt_vm, changed_pass, pk_file)
-                            _, _, code = ssh_client.execute("mkdir -p %s" % general_conf_data['conf_dir'])                                
+                            _, _, code = ssh_client.execute("mkdir -p %s" % general_conf_data['conf_dir'])
                             if code != 0:
                                 raise Exception("Error creating dir %s: %s" % (general_conf_data['conf_dir'],
                                                                                out))
@@ -640,7 +640,7 @@ class CtxtAgent():
                             res_data['COPY_PLAYBOOKS'] = False
                             res_data['OK'] = False
                             return res_data
-                        
+
                         remote_process = CtxtAgent.LaunchRemoteInstallAnsible(ctxt_vm, pk_file, changed_pass)
                     else:
                         CtxtAgent.logger.info("Master VM do not install Ansible.")
@@ -726,7 +726,7 @@ class CtxtAgent():
                         copy = False
                     (task_ok, _) = CtxtAgent.wait_thread(ansible_thread, general_conf_data, copy)
                 elif remote_process:
-                    task_ok = CtxtAgent.wait_remote(remote_process, active = task == "install_ansible")
+                    task_ok = CtxtAgent.wait_remote(remote_process, active=task == "install_ansible")
                 else:
                     task_ok = True
                 if not task_ok:

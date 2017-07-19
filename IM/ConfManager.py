@@ -756,12 +756,14 @@ class ConfManager(threading.Thread):
                         self.log_debug("Copy the contextualization agent files")
                         files = []
                         files.append((Config.IM_PATH + "/SSH.py", remote_dir + "/IM/SSH.py"))
-                        files.append((Config.CONTEXTUALIZATION_DIR + "/ctxt_agent_dist.py", remote_dir + "/ctxt_agent_dist.py"))
+                        files.append((Config.CONTEXTUALIZATION_DIR + "/ctxt_agent_dist.py",
+                                      remote_dir + "/ctxt_agent_dist.py"))
                         files.append((Config.CONTEXTUALIZATION_DIR + "/ctxt_agent.py", remote_dir + "/ctxt_agent.py"))
                         # copy an empty init to make IM as package
                         files.append((Config.CONTEXTUALIZATION_DIR + "/__init__.py", remote_dir + "/IM/__init__.py"))
                         # copy the ansible_install script to install the nodes
-                        files.append((Config.CONTEXTUALIZATION_DIR + "/ansible_install.sh", remote_dir + "/ansible_install.sh"))
+                        files.append((Config.CONTEXTUALIZATION_DIR + "/ansible_install.sh",
+                                      remote_dir + "/ansible_install.sh"))
 
                         if self.inf.radl.ansible_hosts:
                             for ansible_host in self.inf.radl.ansible_hosts:
