@@ -281,8 +281,12 @@ class CtxtAgent():
         pid = None
 
         try:
-            (pid, _, _) = ssh_client.execute("nohup sh " + remote_dir + "/ansible_install.sh " + vm_dir +
-                                             "/ctxt_agent.out  > " + vm_dir + "/ctxt_agent.log 2> " + vm_dir +
+            sudo_pass = ""
+            if ssh_client.password:
+                sudo_pass = "echo '" + ssh_client.password + "' | "
+            (pid, _, _) = ssh_client.execute("nohup " + sudo_pass + "sudo -S sh " + remote_dir +
+                                             "/ansible_install.sh " + vm_dir + "/ctxt_agent.out  > " +
+                                             vm_dir + "/ctxt_agent.log 2> " + vm_dir +
                                              "/ctxt_agent.log < /dev/null & echo -n $!")
         except:
             CtxtAgent.logger.exception('Error launching ansible install on node: %s' % vm['ip'])
