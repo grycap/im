@@ -608,6 +608,23 @@ class CtxtAgent():
         return SSH(vm_ip, ctxt_vm['user'], passwd, private_key, ctxt_vm['remote_port'])
 
     @staticmethod
+    def gen_facts_cache(remote_dir, inventory_file, threads):
+        # Set local_tmp dir different for any VM
+        os.environ['DEFAULT_LOCAL_TMP'] = remote_dir + "/.ansible_tmp"
+        # it must be set before doing the import
+        from IM.ansible_utils.ansible_launcher import AnsibleThread
+
+        playbook_file = "/tmp/gen_facts_cache.yml"
+        with open(playbook_file, "w+") as f:
+            f.write(" - hosts: allnowindows\n")
+
+        result = Queue()
+        t = AnsibleThread(result, CtxtAgent.logger, playbook_file, None, threads, CtxtAgent.PK_FILE,
+                          None, CtxtAgent.PLAYBOOK_RETRIES, inventory_file)
+        t.start()
+        return (t, result)
+
+    @staticmethod
     def contextualize_vm(general_conf_data, vm_conf_data, ctxt_vm, local):
         vault_pass = None
         if 'VAULT_PASS' in os.environ:
@@ -642,7 +659,15 @@ class CtxtAgent():
 
                 ansible_thread = None
                 remote_process = None
-                if task == "install_ansible":
+                if task == "facts_cache":
+                    cache_dir = "/var/tmp/.im/facts_cache"
+                    CtxtAgent.gen_facts_cache(vm_conf_data['remote_dir'], inventory_file,
+                                              len(general_conf_data['vms']) * 2)
+                    for vm in general_conf_data['vms']:
+                        if not ctxt_vm['master']:
+                            ssh_client = CtxtAgent.get_ssh(ctxt_vm, True, CtxtAgent.PK_FILE)
+                            ssh_client.sftp_put_dir(cache_dir, cache_dir)
+                elif task == "install_ansible":
                     if ctxt_vm['os'] == "windows":
                         CtxtAgent.logger.info("Waiting WinRM access to VM: " + ctxt_vm['ip'])
                         cred_used = CtxtAgent.wait_winrm_access(ctxt_vm)
@@ -699,8 +724,6 @@ class CtxtAgent():
                                 raise Exception("Error creating dir %s: %s" % (general_conf_data['conf_dir'],
                                                                                out))
                             ssh_client.sftp_put_dir(general_conf_data['conf_dir'], general_conf_data['conf_dir'])
-                            # Copy the ansible roles installed in the master
-                            ssh_client.sftp_put_dir("/etc/ansible/roles", "/tmp")
                             # Put the correct permissions on the key file
                             ssh_client.sftp_chmod(CtxtAgent.PK_FILE, 0o600)
                         except:

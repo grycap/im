@@ -248,23 +248,26 @@ class ConfManager(threading.Thread):
                         # Sleep to check this later
                         time.sleep(Config.CONFMAMAGER_CHECK_STATE_INTERVAL)
                     else:
-                        # If not, launch it
-                        # Mark this VM as configuring
-                        vm.configured = None
-                        # Launch the ctxt_agent using a thread
-                        t = threading.Thread(name="launch_ctxt_agent_" + str(
-                            vm.id), target=eval("self.launch_ctxt_agent"), args=(vm, tasks))
-                        t.daemon = True
-                        t.start()
-                        vm.inf.conf_threads.append(t)
-                        if step not in vms_configuring:
-                            vms_configuring[step] = []
-                        vms_configuring[step].append(vm.inf)
-                        # Add the VM to the list of configuring vms
-                        vms_configuring[step].append(vm)
-                        # Set the "special pid" to wait untill the real pid is
-                        # assigned
-                        vm.ctxt_pid = VirtualMachine.WAIT_TO_PID
+                        if not tasks:
+                            self.log_debug("No tasks to execute. Ignore this step.")
+                        else:
+                            # If not, launch it
+                            # Mark this VM as configuring
+                            vm.configured = None
+                            # Launch the ctxt_agent using a thread
+                            t = threading.Thread(name="launch_ctxt_agent_" + str(
+                                vm.id), target=eval("self.launch_ctxt_agent"), args=(vm, tasks))
+                            t.daemon = True
+                            t.start()
+                            vm.inf.conf_threads.append(t)
+                            if step not in vms_configuring:
+                                vms_configuring[step] = []
+                            vms_configuring[step].append(vm.inf)
+                            # Add the VM to the list of configuring vms
+                            vms_configuring[step].append(vm)
+                            # Set the "special pid" to wait untill the real pid is
+                            # assigned
+                            vm.ctxt_pid = VirtualMachine.WAIT_TO_PID
                         # Force to save the data to store the log data
                         IM.InfrastructureList.InfrastructureList.save_data(self.inf.id)
                 else:

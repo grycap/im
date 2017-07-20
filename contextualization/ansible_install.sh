@@ -97,6 +97,10 @@ host_key_checking = False
 nocolor = 1
 become_user = root
 become_method = sudo
+fact_caching = jsonfile
+fact_caching_connection = /var/tmp/.im/facts_cache
+fact_caching_timeout = 86400
+gathering = smart
 [paramiko_connection]
 record_host_keys=False
 [ssh_connection]

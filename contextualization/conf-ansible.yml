@@ -158,4 +158,16 @@
       - name: Set jinja2.ext.do to jinja2_extensions in ansible.cfg
         ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=jinja2_extensions value=jinja2.ext.do
 
+      - name: Set fact_caching in ansible.cfg
+        ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=fact_caching value=jsonfile
+
+      - name: Set fact_caching_connection in ansible.cfg
+        ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=fact_caching_connection value=/var/tmp/.im/facts_cache
+
+      - name: Set fact_caching_timeout in ansible.cfg
+        ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=fact_caching_timeout value=86400
+        
+      - name: Set fact_caching_timeout in ansible.cfg
+        ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=gathering value=smart
+
       when: not ansible_installed.results[0].stat.exists
