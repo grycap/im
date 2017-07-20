@@ -120,6 +120,9 @@ record_host_keys=False
 pipelining = True
 EOL
 
+cp -rf /tmp/ansible_roles /etc/ansible/roles
+rm -rf /tmp/roles
+
 if [ $(which ansible-playbook) ]; then
 	echo '{"OK" : true}' > $1
 else

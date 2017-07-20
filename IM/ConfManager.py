@@ -1318,63 +1318,11 @@ class ConfManager(threading.Thread):
             shutil.copy(Config.CONTEXTUALIZATION_DIR + "/" +
                         ConfManager.MASTER_YAML, tmp_dir + "/" + ConfManager.MASTER_YAML)
 
-            # Add all the modules specified in the RADL
-            modules = []
-            for s in self.inf.radl.systems:
-                for req_app in s.getApplications():
-                    if req_app.getValue("name").startswith("ansible.modules."):
-                        # Get the modules specified by the user in the RADL
-                        modules.append(req_app.getValue("name")[16:])
-                    else:
-                        # Get the info about the apps from the recipes DB
-                        vm_modules, _ = Recipe.getInfoApps([req_app])
-                        modules.extend(vm_modules)
-
-            # avoid duplicates
-            modules = set(modules)
-
-            self.inf.add_cont_msg(
-                "Creating and copying Ansible playbook files")
-            self.log_debug("Preparing Ansible playbook to copy Ansible modules: " + str(modules))
+            self.inf.add_cont_msg("Creating and copying Ansible playbook files")
 
             ssh.sftp_mkdir(Config.REMOTE_CONF_DIR)
             ssh.sftp_mkdir(Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/")
             ssh.sftp_chmod(Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/", 448)
-
-            for galaxy_name in modules:
-                if galaxy_name:
-                    self.log_debug("Install " + galaxy_name + " with ansible-galaxy.")
-                    self.inf.add_cont_msg(
-                        "Galaxy role " + galaxy_name + " detected setting to install.")
-
-                    recipe_out = open(
-                        tmp_dir + "/" + ConfManager.MASTER_YAML, 'a')
-
-                    parts = galaxy_name.split("|")
-                    if len(parts) > 1:
-                        url = parts[0]
-                        rolename = parts[1]
-
-                        recipe_out.write(
-                            '    - name: Create YAML file to install the %s role with ansible-galaxy\n' % rolename)
-                        recipe_out.write('      copy:\n')
-                        recipe_out.write('        dest: "/tmp/%s.yml"\n' % rolename)
-                        recipe_out.write('        content: "- src: %s\\n  name: %s"\n' % (url, rolename))
-                        url = "-r /tmp/%s.yml" % rolename
-                    else:
-                        url = rolename = galaxy_name
-
-                    if galaxy_name.startswith("git"):
-                        recipe_out.write("    - yum: name=git\n")
-                        recipe_out.write('      when: ansible_os_family == "RedHat"\n')
-                        recipe_out.write("    - apt: name=git\n")
-                        recipe_out.write('      when: ansible_os_family == "Debian"\n')
-                    recipe_out.write(
-                        "    - name: Install the %s role with ansible-galaxy\n" % rolename)
-                    recipe_out.write(
-                        "      command: ansible-galaxy -f install %s\n" % url)
-
-                    recipe_out.close()
 
             self.inf.add_cont_msg("Performing preliminary steps to configure Ansible.")
 
@@ -1410,8 +1358,24 @@ class ConfManager(threading.Thread):
         """
         Create the configuration file needed by the contextualization agent
         """
+        # Add all the modules specified in the RADL
+        modules = []
+        for s in self.inf.radl.systems:
+            for req_app in s.getApplications():
+                if req_app.getValue("name").startswith("ansible.modules."):
+                    # Get the modules specified by the user in the RADL
+                    modules.append(req_app.getValue("name")[16:])
+                else:
+                    # Get the info about the apps from the recipes DB
+                    vm_modules, _ = Recipe.getInfoApps([req_app])
+                    modules.extend(vm_modules)
+
+        # avoid duplicates
+        modules = list(set(modules))
+
         conf_data = {}
 
+        conf_data['ansible_modules'] = modules
         conf_data['playbook_retries'] = Config.PLAYBOOK_RETRIES
         conf_data['vms'] = []
         for vm in vm_list:

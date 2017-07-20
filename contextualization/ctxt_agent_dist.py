@@ -322,6 +322,56 @@ class CtxtAgent():
         return ssh_client, pid
 
     @staticmethod
+    def install_ansible_modules(general_conf_data, playbook):
+        new_playbook = playbook
+        if 'ansible_modules' in general_conf_data and general_conf_data['ansible_modules']:
+            play_dir = os.path.dirname(playbook)
+            play_filename = os.path.basename(playbook)
+            new_playbook = os.path.join(play_dir, "mod_" + play_filename)
+
+            with open(playbook) as f:
+                yaml_data = yaml.load(f)
+
+            for galaxy_name in general_conf_data['ansible_modules']:
+                galaxy_name = galaxy_name.encode()
+                if galaxy_name:
+                    CtxtAgent.logger.debug("Install " + galaxy_name + " with ansible-galaxy.")
+
+                    parts = galaxy_name.split("|")
+                    if len(parts) > 1:
+                        url = parts[0]
+                        rolename = parts[1]
+
+                        task = {"copy": 'dest=/tmp/%s.yml content="- src: %s\\n  name: %s"' % (rolename,
+                                                                                               url, rolename)}
+                        task["name"] = "Create YAML file to install the %s role with ansible-galaxy" % rolename
+                        yaml_data[0]['tasks'].append(task)
+                        url = "-r /tmp/%s.yml" % rolename
+                    else:
+                        url = rolename = galaxy_name
+
+                    if galaxy_name.startswith("git"):
+                        task = {"yum": "name=git"}
+                        task["name"] = "Install git with yum"
+                        task["become"] = "yes"
+                        task["when"] = 'ansible_os_family == "RedHat"'
+                        yaml_data[0]['tasks'].append(task)
+                        task = {"apt": "name=git"}
+                        task["name"] = "Install git with apt"
+                        task["become"] = "yes"
+                        task["when"] = 'ansible_os_family == "Debian"'
+                        yaml_data[0]['tasks'].append(task)
+                    task = {"command": "ansible-galaxy -f install %s" % url}
+                    task["name"] = "Install %s galaxy role" % galaxy_name
+                    task["become"] = "yes"
+                    yaml_data[0]['tasks'].append(task)
+
+            with open(new_playbook, 'w+') as f:
+                yaml.dump(yaml_data, f)
+
+        return new_playbook
+
+    @staticmethod
     def set_ansible_connection_local(general_conf_data, vm):
         filename = general_conf_data['conf_dir'] + "/hosts"
         vm_id = vm['ip'] + "_" + str(vm['remote_port'])
@@ -649,6 +699,8 @@ class CtxtAgent():
                                 raise Exception("Error creating dir %s: %s" % (general_conf_data['conf_dir'],
                                                                                out))
                             ssh_client.sftp_put_dir(general_conf_data['conf_dir'], general_conf_data['conf_dir'])
+                            # Copy the ansible roles installed in the master
+                            ssh_client.sftp_put_dir("/etc/ansible/roles", "/tmp")
                             # Put the correct permissions on the key file
                             ssh_client.sftp_chmod(CtxtAgent.PK_FILE, 0o600)
                         except:
@@ -714,6 +766,8 @@ class CtxtAgent():
                         if local:
                             # this step is not needed in windows systems
                             CtxtAgent.set_ansible_connection_local(general_conf_data, ctxt_vm)
+                            # Install ansible modules
+                            playbook = CtxtAgent.install_ansible_modules(general_conf_data, playbook)
                             ansible_thread = CtxtAgent.LaunchAnsiblePlaybook(CtxtAgent.logger,
                                                                              vm_conf_data['remote_dir'],
                                                                              playbook, ctxt_vm, 2,
