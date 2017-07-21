@@ -34,6 +34,7 @@ import socket
 from multiprocessing import Queue
 
 from IM.SSH import SSH, AuthenticationException
+from IM.SSHRetry import SSHRetry
 
 
 class CtxtAgent():
@@ -589,7 +590,7 @@ class CtxtAgent():
         if 'ctxt_ip' in ctxt_vm:
             vm_ip = ctxt_vm['ctxt_ip']
 
-        return SSH(vm_ip, ctxt_vm['user'], passwd, private_key, ctxt_vm['remote_port'])
+        return SSHRetry(vm_ip, ctxt_vm['user'], passwd, private_key, ctxt_vm['remote_port'])
 
     @staticmethod
     def get_ssh(ctxt_vm, changed_pass, pk_file):
@@ -605,7 +606,7 @@ class CtxtAgent():
         if 'ctxt_ip' in ctxt_vm:
             vm_ip = ctxt_vm['ctxt_ip']
 
-        return SSH(vm_ip, ctxt_vm['user'], passwd, private_key, ctxt_vm['remote_port'])
+        return SSHRetry(vm_ip, ctxt_vm['user'], passwd, private_key, ctxt_vm['remote_port'])
 
     @staticmethod
     def gen_facts_cache(remote_dir, inventory_file, threads):
@@ -659,24 +660,18 @@ class CtxtAgent():
 
                 ansible_thread = None
                 remote_process = None
-                if task == "facts_cache":
-                    cache_dir = "/var/tmp/.im/facts_cache"
-                    facts_thread = CtxtAgent.gen_facts_cache(vm_conf_data['remote_dir'], inventory_file,
-                                                             len(general_conf_data['vms']))
-                    (task_ok, _) = CtxtAgent.wait_thread(facts_thread, general_conf_data, False)
-                    if task_ok:
-                        for vm in general_conf_data['vms']:
-                            if not vm['master']:
-                                try:
-                                    CtxtAgent.logger.info("Copy Facts cache to: %s" % vm['ip'])
-                                    ssh_client = CtxtAgent.get_ssh(vm, True, CtxtAgent.PK_FILE)
-                                    ssh_client.sftp_mkdir(cache_dir)
-                                    ssh_client.sftp_put_dir(cache_dir, cache_dir)
-                                except:
-                                    CtxtAgent.logger.exception("Error copying cache to VM: " + ctxt_vm['ip'])
-                    else:
-                        CtxtAgent.logger.error("Error generating Facts")
-                        continue
+                cache_dir = "/var/tmp/.im/facts_cache"
+                if task == "copy_facts_cache":
+                    try:
+                        CtxtAgent.logger.info("Copy Facts cache to: %s" % ctxt_vm['ip'])
+                        ssh_client = CtxtAgent.get_ssh(ctxt_vm, True, CtxtAgent.PK_FILE)
+                        ssh_client.sftp_mkdir(cache_dir)
+                        ssh_client.sftp_put_dir(cache_dir, cache_dir)
+                    except:
+                        CtxtAgent.logger.exception("Error copying cache to VM: " + ctxt_vm['ip'])
+                elif task == "gen_facts_cache":
+                    ansible_thread = CtxtAgent.gen_facts_cache(vm_conf_data['remote_dir'], inventory_file,
+                                                               len(general_conf_data['vms']))
                 elif task == "install_ansible":
                     if ctxt_vm['os'] == "windows":
                         CtxtAgent.logger.info("Waiting WinRM access to VM: " + ctxt_vm['ip'])
@@ -864,7 +859,7 @@ class CtxtAgent():
                 ctxt_vm = vm
                 break
 
-        if local or ctxt_vm['master'] or ctxt_vm['os'] == 'windows':
+        if local or "copy_facts_cache" in vm_conf_data['tasks'] or ctxt_vm['master'] or ctxt_vm['os'] == 'windows':
             log_file = vm_conf_data['remote_dir'] + "/ctxt_agent.log"
         else:
             log_file = vm_conf_data['remote_dir'] + "/ctxt_agentr.log"
@@ -886,7 +881,8 @@ class CtxtAgent():
 
         res_data = CtxtAgent.contextualize_vm(general_conf_data, vm_conf_data, ctxt_vm, local)
 
-        if local or ctxt_vm['master'] or "install_ansible" in vm_conf_data['tasks'] or ctxt_vm['os'] == 'windows':
+        if (local or ctxt_vm['master'] or "install_ansible" in vm_conf_data['tasks'] or
+                "copy_facts_cache" in vm_conf_data['tasks'] or ctxt_vm['os'] == 'windows'):
             ctxt_out = open(vm_conf_data['remote_dir'] + "/ctxt_agent.out", 'w+')
         else:
             ctxt_out = open(vm_conf_data['remote_dir'] + "/ctxt_agentr.out", 'w+')

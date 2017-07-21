@@ -487,7 +487,7 @@ class InfrastructureInfo:
 
                 # Add basic tasks for all VMs
                 if use_dist:
-                    init_steps = 4
+                    init_steps = 5
                     if cont == 0:
                         # In the first VM put the wait all ssh task
                         tasks[0] = ['wait_all_ssh', 'install_ansible']
@@ -495,10 +495,14 @@ class InfrastructureInfo:
                         tasks[0] = ['install_ansible']
                     tasks[1] = ['basic']
                     if cont == 0:
-                        tasks[2] = ['facts_cache']
+                        tasks[2] = ['gen_facts_cache']
                     else:
                         tasks[2] = []
-                    tasks[3] = ['main_' + vm.info.systems[0].name]
+                    if cont == 0:
+                        tasks[3] = []
+                    else:
+                        tasks[3] = ['copy_facts_cache']
+                    tasks[4] = ['main_' + vm.info.systems[0].name]
                 else:
                     init_steps = 2
                     if cont == 0:

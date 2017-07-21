@@ -756,6 +756,8 @@ class ConfManager(threading.Thread):
                         self.log_debug("Copy the contextualization agent files")
                         files = []
                         files.append((Config.IM_PATH + "/SSH.py", remote_dir + "/IM/SSH.py"))
+                        files.append((Config.IM_PATH + "/SSHRetry.py", remote_dir + "/IM/SSHRetry.py"))
+                        files.append((Config.IM_PATH + "/retry.py", remote_dir + "/IM/retry.py"))
                         files.append((Config.CONTEXTUALIZATION_DIR + "/ctxt_agent_dist.py",
                                       remote_dir + "/ctxt_agent_dist.py"))
                         files.append((Config.CONTEXTUALIZATION_DIR + "/ctxt_agent.py", remote_dir + "/ctxt_agent.py"))
