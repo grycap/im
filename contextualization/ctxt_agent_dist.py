@@ -661,12 +661,22 @@ class CtxtAgent():
                 remote_process = None
                 if task == "facts_cache":
                     cache_dir = "/var/tmp/.im/facts_cache"
-                    CtxtAgent.gen_facts_cache(vm_conf_data['remote_dir'], inventory_file,
-                                              len(general_conf_data['vms']) * 2)
-                    for vm in general_conf_data['vms']:
-                        if not ctxt_vm['master']:
-                            ssh_client = CtxtAgent.get_ssh(ctxt_vm, True, CtxtAgent.PK_FILE)
-                            ssh_client.sftp_put_dir(cache_dir, cache_dir)
+                    facts_thread = CtxtAgent.gen_facts_cache(vm_conf_data['remote_dir'], inventory_file,
+                                                             len(general_conf_data['vms']) * 2)
+                    (task_ok, _) = CtxtAgent.wait_thread(facts_thread, general_conf_data, False)
+                    if task_ok:
+                        for vm in general_conf_data['vms']:
+                            if not vm['master']:
+                                try:
+                                    CtxtAgent.logger.info("Copy Facts cache to: %s" % vm['ip'])
+                                    ssh_client = CtxtAgent.get_ssh(vm, True, CtxtAgent.PK_FILE)
+                                    ssh_client.sftp_mkdir(cache_dir)
+                                    ssh_client.sftp_put_dir(cache_dir, cache_dir)
+                                except:
+                                    CtxtAgent.logger.exception("Error copying cache to VM: " + ctxt_vm['ip'])
+                    else:
+                        CtxtAgent.logger.error("Error generating Facts")
+                        continue
                 elif task == "install_ansible":
                     if ctxt_vm['os'] == "windows":
                         CtxtAgent.logger.info("Waiting WinRM access to VM: " + ctxt_vm['ip'])

@@ -1,6 +1,22 @@
 ---
 - gather_facts: False
   tasks: 
+      # Some OSs does not have python by default
+    - name: Bootstrap with python
+      raw: which python || (sudo apt update; sudo apt install -y python; sudo yum install -y python)
+      ignore_errors: yes
+
+    # In case of REL 5 system install python-simplejson
+    - name: Install python-simplejson on REL 5
+      action: raw cat /etc/redhat-release | grep "release 5" && sudo yum -y install python-simplejson
+      ignore_errors: yes
+
+    # In case of redhat systems libselinux-python is needed
+    - name: Install libselinux-python on redhat systems
+      action: yum pkg=libselinux-python state=installed
+      become: yes
+      ignore_errors: yes
+
     # Set the correct hostname
     - name: Set the hostname of the node
       action: hostname name={{ IM_NODE_FQDN }}
