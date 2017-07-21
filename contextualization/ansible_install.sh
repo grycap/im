@@ -51,10 +51,7 @@ distribution_major_version() {
     echo ${RELEASE_VERSION} | sed -e 's|\(.\+\) release \([0-9]\+\)\([0-9.]*\).*|\2|'
 }
 
-ansible_installed=`type -p ansible-playbook`
-
-if [ x${ansible_installed}x != "xx" ]
-then
+if [ $(which ansible-playbook) ]; then
     echo "Ansible installed. Do not install."
 else
     echo "Ansible not installed. Installing ..."
