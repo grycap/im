@@ -662,7 +662,7 @@ class CtxtAgent():
                 if task == "facts_cache":
                     cache_dir = "/var/tmp/.im/facts_cache"
                     facts_thread = CtxtAgent.gen_facts_cache(vm_conf_data['remote_dir'], inventory_file,
-                                                             len(general_conf_data['vms']) * 2)
+                                                             len(general_conf_data['vms']))
                     (task_ok, _) = CtxtAgent.wait_thread(facts_thread, general_conf_data, False)
                     if task_ok:
                         for vm in general_conf_data['vms']:
