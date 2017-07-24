@@ -33,6 +33,9 @@ except ImportError:
 import socket
 from multiprocessing import Queue
 
+import threading
+from multiprocessing.pool import ThreadPool
+
 from IM.SSH import SSH, AuthenticationException
 from IM.SSHRetry import SSHRetry
 
@@ -51,6 +54,8 @@ class CtxtAgent():
 
     CONF_DATA_FILENAME = None
     VM_CONF_DATA_FILENAME = None
+
+    MAX_SIMULTANEOUS_SSH = 30
 
     logger = None
 
@@ -626,6 +631,41 @@ class CtxtAgent():
         return (t, result)
 
     @staticmethod
+    def copy_playbooks(vm, general_conf_data, errors, lock):
+        if vm['os'] != "windows" and not vm['master']:
+            cred_used = CtxtAgent.wait_ssh_access(vm, quiet=True)
+
+            # the IP has changed public for private
+            if 'ctxt_ip' in vm and vm['ctxt_ip'] != vm['ip']:
+                with lock:
+                    # update the ansible inventory
+                    CtxtAgent.logger.info("Changing the IP %s for %s in config files." % (vm['ctxt_ip'],
+                                                                                          vm['ip']))
+                    CtxtAgent.replace_vm_ip(vm)
+
+            pk_file = None
+            changed_pass = False
+            if cred_used == "pk_file":
+                pk_file = CtxtAgent.PK_FILE
+            elif cred_used == "new":
+                changed_pass = True
+
+            CtxtAgent.logger.debug("Copying playbooks to VM: " + vm['ip'])
+            try:
+                ssh_client = CtxtAgent.get_ssh(vm, changed_pass, pk_file)
+                out, _, code = ssh_client.execute("mkdir -p %s" % general_conf_data['conf_dir'])
+                if code != 0:
+                    raise Exception("Error creating dir %s: %s" % (general_conf_data['conf_dir'],
+                                                                   out))
+                ssh_client.sftp_put_dir(general_conf_data['conf_dir'],
+                                        general_conf_data['conf_dir'])
+                # Put the correct permissions on the key file
+                ssh_client.sftp_chmod(CtxtAgent.PK_FILE, 0o600)
+            except Exception as ex:
+                CtxtAgent.logger.exception("Error copying playbooks to VM: " + vm['ip'])
+                errors.append(ex)
+
+    @staticmethod
     def contextualize_vm(general_conf_data, vm_conf_data, ctxt_vm, local):
         vault_pass = None
         if 'VAULT_PASS' in os.environ:
@@ -712,52 +752,23 @@ class CtxtAgent():
                         else:
                             CtxtAgent.logger.error("Error removing Requiretty")
 
-                        # Check if we must change user credentials
-                        # Do not change it on the master. It must be changed only by
-                        # the ConfManager
-                        if changed_pass:
-                            change_creds = True
-                        else:
-                            change_creds = CtxtAgent.changeVMCredentials(ctxt_vm, pk_file)
-                        res_data['CHANGE_CREDS'] = change_creds
-
                         remote_process = CtxtAgent.LaunchRemoteInstallAnsible(ctxt_vm, pk_file, changed_pass)
                     else:
                         # Copy dir general_conf_data['conf_dir'] to node
-                        for vm in general_conf_data['vms']:
-                            if vm['os'] != "windows" and not vm['master']:
-                                cred_used = CtxtAgent.wait_ssh_access(vm, quiet=True)
+                        errors = []
+                        lock = threading.Lock()
+                        pool = ThreadPool(processes=CtxtAgent.MAX_SIMULTANEOUS_SSH)
+                        pool.map(
+                            lambda vm: CtxtAgent.copy_playbooks(vm, general_conf_data, errors,
+                                                                lock), general_conf_data['vms'])
+                        pool.close()
 
-                                # the IP has changed public for private
-                                if 'ctxt_ip' in vm and vm['ctxt_ip'] != vm['ip']:
-                                    # update the ansible inventory
-                                    CtxtAgent.logger.info("Changing the IP %s for %s in config files." % (vm['ctxt_ip'],
-                                                                                                          vm['ip']))
-                                    CtxtAgent.replace_vm_ip(vm)
-
-                                pk_file = None
-                                changed_pass = False
-                                if cred_used == "pk_file":
-                                    pk_file = CtxtAgent.PK_FILE
-                                elif cred_used == "new":
-                                    changed_pass = True
-
-                                try:
-                                    CtxtAgent.logger.debug("Copying playbooks to VM: " + vm['ip'])
-                                    ssh_client = CtxtAgent.get_ssh(vm, changed_pass, pk_file)
-                                    _, _, code = ssh_client.execute("mkdir -p %s" % general_conf_data['conf_dir'])
-                                    if code != 0:
-                                        raise Exception("Error creating dir %s: %s" % (general_conf_data['conf_dir'],
-                                                                                       out))
-                                    ssh_client.sftp_put_dir(general_conf_data['conf_dir'],
-                                                            general_conf_data['conf_dir'])
-                                    # Put the correct permissions on the key file
-                                    ssh_client.sftp_chmod(CtxtAgent.PK_FILE, 0o600)
-                                except:
-                                    CtxtAgent.logger.exception("Error copying playbooks to VM: " + vm['ip'])
-                                    res_data['COPY_PLAYBOOKS'] = False
-                                    res_data['OK'] = False
-                                    return res_data
+                        if errors:
+                            CtxtAgent.logger.error("Error copying playbooks to VMs")
+                            CtxtAgent.logger.error(errors)
+                            res_data['COPY_PLAYBOOKS'] = False
+                            res_data['OK'] = False
+                            return res_data
                 elif task == "basic":
                     if ctxt_vm['os'] == "windows":
                         CtxtAgent.logger.info("Waiting WinRM access to VM: " + ctxt_vm['ip'])
@@ -782,6 +793,13 @@ class CtxtAgent():
                         pk_file = CtxtAgent.PK_FILE
                     elif cred_used == "new":
                         changed_pass = True
+
+                    # Check if we must change user credentials
+                    # Do not change it on the master. It must be changed only by
+                    # the ConfManager
+                    if not changed_pass:
+                        changed_pass = CtxtAgent.changeVMCredentials(ctxt_vm, pk_file)
+                        res_data['CHANGE_CREDS'] = changed_pass
 
                     if ctxt_vm['os'] != "windows":
                         if local:
