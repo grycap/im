@@ -693,6 +693,7 @@ class VirtualMachine:
                 ssh = self.get_ssh_ansible_master()
 
                 try:
+                    VirtualMachine.logger.debug("Getting status of ctxt process with pid: " + str(ctxt_pid))
                     (_, _, exit_status) = ssh.execute("ps " + str(ctxt_pid))
                 except:
                     VirtualMachine.logger.warn(
@@ -712,6 +713,7 @@ class VirtualMachine:
 
                 if exit_status != 0:
                     # The process has finished, get the outputs
+                    VirtualMachine.logger.debug("The process %s has finished, get the outputs" % ctxt_pid)
                     ctxt_log = self.get_ctxt_log(remote_dir, True)
                     msg = self.get_ctxt_output(remote_dir, True)
                     if ctxt_log:
@@ -730,6 +732,7 @@ class VirtualMachine:
                         ctxt_log = self.get_ctxt_log(remote_dir)
                         self.cont_out = initial_count_out + ctxt_log
                     # The process is still running, wait
+                    VirtualMachine.logger.debug("The process %s is still running. wait." % ctxt_pid)
                     time.sleep(Config.CHECK_CTXT_PROCESS_INTERVAL)
                     wait += Config.CHECK_CTXT_PROCESS_INTERVAL
             else:

@@ -721,50 +721,43 @@ class CtxtAgent():
                             change_creds = CtxtAgent.changeVMCredentials(ctxt_vm, pk_file)
                         res_data['CHANGE_CREDS'] = change_creds
 
-                        # Copy dir general_conf_data['conf_dir'] to node
-                        try:
-                            ssh_client = CtxtAgent.get_ssh(ctxt_vm, changed_pass, pk_file)
-                            _, _, code = ssh_client.execute("mkdir -p %s" % general_conf_data['conf_dir'])
-                            if code != 0:
-                                raise Exception("Error creating dir %s: %s" % (general_conf_data['conf_dir'],
-                                                                               out))
-                            ssh_client.sftp_put_dir(general_conf_data['conf_dir'], general_conf_data['conf_dir'])
-                            # Put the correct permissions on the key file
-                            ssh_client.sftp_chmod(CtxtAgent.PK_FILE, 0o600)
-                        except:
-                            CtxtAgent.logger.exception("Error copying playbooks to VM: " + ctxt_vm['ip'])
-                            res_data['COPY_PLAYBOOKS'] = False
-                            res_data['OK'] = False
-                            return res_data
-
                         remote_process = CtxtAgent.LaunchRemoteInstallAnsible(ctxt_vm, pk_file, changed_pass)
                     else:
-                        CtxtAgent.logger.info("Master VM do not install Ansible.")
-                elif task == "wait_all_ssh":
-                    # Wait all the VMs to have remote access active
-                    for vm in general_conf_data['vms']:
-                        if vm['os'] == "windows":
-                            CtxtAgent.logger.info("Waiting WinRM access to VM: " + vm['ip'])
-                            cred_used = CtxtAgent.wait_winrm_access(vm)
-                        else:
-                            CtxtAgent.logger.info("Waiting SSH access to VM: " + vm['ip'])
-                            cred_used = CtxtAgent.wait_ssh_access(vm)
+                        # Copy dir general_conf_data['conf_dir'] to node
+                        for vm in general_conf_data['vms']:
+                            if vm['os'] != "windows" and not vm['master']:
+                                cred_used = CtxtAgent.wait_ssh_access(vm, quiet=True)
 
-                        if not cred_used:
-                            CtxtAgent.logger.error("Error Waiting access to VM: " + vm['ip'])
-                            res_data['SSH_WAIT'] = False
-                            res_data['OK'] = False
-                            return res_data
-                        else:
-                            res_data['SSH_WAIT'] = True
-                            CtxtAgent.logger.info("Remote access to VM: " + vm['ip'] + " Open!")
+                                # the IP has changed public for private
+                                if 'ctxt_ip' in vm and vm['ctxt_ip'] != vm['ip']:
+                                    # update the ansible inventory
+                                    CtxtAgent.logger.info("Changing the IP %s for %s in config files." % (vm['ctxt_ip'],
+                                                                                                          vm['ip']))
+                                    CtxtAgent.replace_vm_ip(vm)
 
-                        # the IP has changed public for private
-                        if 'ctxt_ip' in vm and vm['ctxt_ip'] != vm['ip']:
-                            # update the ansible inventory
-                            CtxtAgent.logger.info("Changing the IP %s for %s in config files." % (vm['ctxt_ip'],
-                                                                                                  vm['ip']))
-                            CtxtAgent.replace_vm_ip(vm)
+                                pk_file = None
+                                changed_pass = False
+                                if cred_used == "pk_file":
+                                    pk_file = CtxtAgent.PK_FILE
+                                elif cred_used == "new":
+                                    changed_pass = True
+
+                                try:
+                                    CtxtAgent.logger.debug("Copying playbooks to VM: " + vm['ip'])
+                                    ssh_client = CtxtAgent.get_ssh(vm, changed_pass, pk_file)
+                                    _, _, code = ssh_client.execute("mkdir -p %s" % general_conf_data['conf_dir'])
+                                    if code != 0:
+                                        raise Exception("Error creating dir %s: %s" % (general_conf_data['conf_dir'],
+                                                                                       out))
+                                    ssh_client.sftp_put_dir(general_conf_data['conf_dir'],
+                                                            general_conf_data['conf_dir'])
+                                    # Put the correct permissions on the key file
+                                    ssh_client.sftp_chmod(CtxtAgent.PK_FILE, 0o600)
+                                except:
+                                    CtxtAgent.logger.exception("Error copying playbooks to VM: " + vm['ip'])
+                                    res_data['COPY_PLAYBOOKS'] = False
+                                    res_data['OK'] = False
+                                    return res_data
                 elif task == "basic":
                     if ctxt_vm['os'] == "windows":
                         CtxtAgent.logger.info("Waiting WinRM access to VM: " + ctxt_vm['ip'])
