@@ -316,9 +316,9 @@ class OpenNebulaCloudConnector(CloudConnector):
                     res_state = VirtualMachine.UNKNOWN
                 elif res_vm.LCM_STATE == 12 or res_vm.LCM_STATE == 13 or res_vm.LCM_STATE == 18:
                     res_state = VirtualMachine.OFF
-                elif res_vm.LCM_STATE >= 36 or res_vm.LCM_STATE <= 42:
+                elif res_vm.LCM_STATE >= 36 and res_vm.LCM_STATE <= 42:
                     res_state = VirtualMachine.FAILED
-                elif res_vm.LCM_STATE >= 46 or res_vm.LCM_STATE <= 50:
+                elif res_vm.LCM_STATE >= 46 and res_vm.LCM_STATE <= 50:
                     res_state = VirtualMachine.FAILED
                 else:
                     res_state = VirtualMachine.RUNNING
