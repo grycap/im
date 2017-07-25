@@ -55,7 +55,7 @@ class CtxtAgent():
     CONF_DATA_FILENAME = None
     VM_CONF_DATA_FILENAME = None
 
-    MAX_SIMULTANEOUS_SSH = 30
+    MAX_SIMULTANEOUS_SSH = -1
 
     logger = None
 
@@ -757,7 +757,11 @@ class CtxtAgent():
                         # Copy dir general_conf_data['conf_dir'] to node
                         errors = []
                         lock = threading.Lock()
-                        pool = ThreadPool(processes=CtxtAgent.MAX_SIMULTANEOUS_SSH)
+                        if CtxtAgent.MAX_SIMULTANEOUS_SSH <= 0:
+                            threads = len(general_conf_data['vms']) - 1
+                        else:
+                            threads = CtxtAgent.MAX_SIMULTANEOUS_SSH
+                        pool = ThreadPool(processes=threads)
                         pool.map(
                             lambda vm: CtxtAgent.copy_playbooks(vm, general_conf_data, errors,
                                                                 lock), general_conf_data['vms'])
