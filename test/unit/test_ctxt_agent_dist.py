@@ -187,8 +187,8 @@ class TestCtxtAgent(unittest.TestCase):
         self.assertTrue(res)
 
     @patch("contextualization.ctxt_agent_dist.SSH.test_connectivity")
-    @patch("contextualization.ctxt_agent_dist.SSH.execute")
-    @patch("contextualization.ctxt_agent_dist.SSH.sftp_put")
+    @patch("contextualization.ctxt_agent_dist.SSHRetry.execute")
+    @patch("contextualization.ctxt_agent_dist.SSHRetry.sftp_put")
     def test_70_contextualize_vm(self, sftp_put, execute, test_connectivity):
         CtxtAgent.logger = self.logger
         CtxtAgent.changeVMCredentials = MagicMock()
@@ -217,11 +217,11 @@ class TestCtxtAgent(unittest.TestCase):
         with open("/tmp/ctxt_agent.out", 'a') as f:
             f.write('{"OK": true}')
         res = CtxtAgent.contextualize_vm(self.gen_general_conf(), self.gen_vm_conf(["basic"]), ctxt_vm, 0)
-        expected_res = {'SSH_WAIT': True, 'OK': True, 'basic': True}
+        expected_res = {'SSH_WAIT': True, 'OK': True, 'CHANGE_CREDS': True, 'basic': True}
         self.assertEqual(res, expected_res)
 
         res = CtxtAgent.contextualize_vm(self.gen_general_conf(), self.gen_vm_conf(["basic"]), ctxt_vm, 1)
-        expected_res = {'SSH_WAIT': True, 'OK': True, 'basic': True}
+        expected_res = {'SSH_WAIT': True, 'OK': True, 'CHANGE_CREDS': True, 'basic': True}
         self.assertEqual(res, expected_res)
 
         ctxt_vm = None
