@@ -683,7 +683,7 @@ class VirtualMachine:
         if not ip:
             ip = ip = self.getPrivateIP()
         remote_dir = Config.REMOTE_CONF_DIR + "/" + \
-            str(self.inf.id) + "/" + ip + "_" + str(self.getRemoteAccessPort())
+            str(self.inf.id) + "/" + ip + "_" + str(self.im_id)
 
         initial_count_out = self.cont_out
         wait = 0

@@ -300,8 +300,7 @@ class ConfManager(threading.Thread):
                                "We cannot launch the ansible process!!" % (str(vm.im_id), vm.id))
             else:
                 remote_dir = Config.REMOTE_CONF_DIR + "/" + \
-                    str(self.inf.id) + "/" + ip + "_" + \
-                    str(vm.getRemoteAccessPort())
+                    str(self.inf.id) + "/" + ip + "_" + str(vm.im_id)
                 tmp_dir = tempfile.mkdtemp()
 
                 self.log_debug("Create the configuration file for the contextualization agent")
@@ -412,9 +411,9 @@ class ConfManager(threading.Thread):
                     continue
 
                 if vm.getOS().lower() == "windows":
-                    windows += "%s_%d\n" % (ip, vm.getRemoteAccessPort())
+                    windows += "%s_%d\n" % (ip, vm.im_id)
                 else:
-                    no_windows += "%s_%d\n" % (ip, vm.getRemoteAccessPort())
+                    no_windows += "%s_%d\n" % (ip, vm.im_id)
 
                 ifaces_im_vars = ''
                 for i in range(vm.getNumNetworkIfaces()):
@@ -441,7 +440,7 @@ class ConfManager(threading.Thread):
                     (nodename, nodedom) = vm.getRequestedName(
                         default_domain=Config.DEFAULT_DOMAIN)
 
-                node_line = "%s_%d" % (ip, vm.getRemoteAccessPort())
+                node_line = "%s_%d" % (ip, vm.im_id)
                 node_line += ' ansible_host=%s' % ip
                 # For compatibility with Ansible 1.X versions
                 node_line += ' ansible_ssh_host=%s' % ip

@@ -162,7 +162,7 @@
         ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=fact_caching value=jsonfile
 
       - name: Set fact_caching_connection in ansible.cfg
-        ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=fact_caching_connection value=/var/tmp/.im/facts_cache
+        ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=fact_caching_connection value=/var/tmp/facts_cache
 
       - name: Set fact_caching_timeout in ansible.cfg
         ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=fact_caching_timeout value=86400

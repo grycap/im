@@ -380,7 +380,7 @@ class CtxtAgent():
     @staticmethod
     def set_ansible_connection_local(general_conf_data, vm):
         filename = general_conf_data['conf_dir'] + "/hosts"
-        vm_id = vm['ip'] + "_" + str(vm['remote_port'])
+        vm_id = vm['ip'] + "_" + str(vm['id'])
         with open(filename) as f:
             inventoy_data = ""
             for line in f:
@@ -397,7 +397,7 @@ class CtxtAgent():
                               retries, change_pass_ok, vault_pass):
         CtxtAgent.logger.debug('Call Ansible')
 
-        extra_vars = {'IM_HOST': vm['ip'] + "_" + str(vm['remote_port'])}
+        extra_vars = {'IM_HOST': vm['ip'] + "_" + str(vm['id'])}
         user = None
         if vm['os'] == "windows":
             gen_pk_file = None
@@ -700,7 +700,7 @@ class CtxtAgent():
 
                 ansible_thread = None
                 remote_process = None
-                cache_dir = "/var/tmp/.im/facts_cache"
+                cache_dir = "/var/tmp/facts_cache"
                 if task == "copy_facts_cache":
                     try:
                         CtxtAgent.logger.info("Copy Facts cache to: %s" % ctxt_vm['ip'])
@@ -724,6 +724,11 @@ class CtxtAgent():
                         res_data['CHANGE_CREDS'] = CtxtAgent.changeVMCredentials(ctxt_vm, None)
                         CtxtAgent.logger.info("Windows VM do not install Ansible.")
                     elif not ctxt_vm['master']:
+                        vm_dir = os.path.abspath(os.path.dirname(CtxtAgent.VM_CONF_DATA_FILENAME))
+                        # Create a temporary log file
+                        with open(vm_dir + "/ctxt_agent.log", "w+") as f:
+                            f.write("Waiting SSH access to VM: " + ctxt_vm['ip'])
+
                         # This is always the fist step, so put the SSH test, the
                         # requiretty removal and change password here
                         CtxtAgent.logger.info("Waiting SSH access to VM: " + ctxt_vm['ip'])

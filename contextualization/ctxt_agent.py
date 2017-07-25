@@ -205,7 +205,7 @@ class CtxtAgent():
                               retries, change_pass_ok, vault_pass):
         CtxtAgent.logger.debug('Call Ansible')
 
-        extra_vars = {'IM_HOST': vm['ip'] + "_" + str(vm['remote_port'])}
+        extra_vars = {'IM_HOST': vm['ip'] + "_" + str(vm['id'])}
         user = None
         if vm['os'] == "windows":
             gen_pk_file = None
