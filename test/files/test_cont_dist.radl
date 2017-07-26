@@ -1,0 +1,76 @@
+network publica (outbound = 'yes')
+network privada ( )
+
+system front (
+cpu.arch='x86_64' and
+cpu.count>=1 and
+memory.size>=512m and
+net_interface.1.connection = 'publica' and
+net_interface.0.connection = 'privada' and
+net_interface.0.dns_name = 'front' and
+disk.0.os.flavour='centos' and
+disk.0.os.version>='7' and
+disk.0.os.name = 'linux' and
+disk.0.applications contains (name = 'ansible.modules.grycap.octave')
+)
+
+system wn (
+cpu.arch='x86_64' and
+cpu.count>=1 and
+memory.size>=512m and
+net_interface.0.connection = 'privada' and
+disk.0.os.name='linux' and
+disk.0.image.url = 'one://ramses.i3m.upv.es/95' and
+disk.0.os.credentials.username = 'ubuntu' and
+disk.0.os.credentials.password = 'yoyoyo' and
+disk.0.os.credentials.new.password = 'Tututu+01'
+)
+
+system windows (
+cpu.arch='x86_64' and
+cpu.count>=2 and
+memory.size>=4g and
+net_interface.0.connection = 'privada' and
+disk.0.os.name='windows' and
+disk.0.image.url = 'one://ramses.i3m.upv.es/141' and
+disk.0.os.credentials.username = 'winuser' and
+disk.0.os.credentials.password = 'grycap01'
+)
+
+configure octave (
+@begin
+---
+ - roles:
+   - { role: 'grycap.octave' }
+@end
+)
+
+configure test (
+@begin
+---
+  - tasks:
+      - name: test
+        debug: msg="OK"
+
+@end
+)
+
+configure win (
+@begin
+---
+  - tasks:
+      - win_get_url: url=http://mafft.cbrc.jp/alignment/software/mafft-7.157-with-extensions-src.tgz dest=c:\Users\winuser\mafft-7.157-with-extensions-src.tgz
+
+@end
+)
+
+deploy front 1
+deploy wn 2
+deploy windows 1
+
+contextualize (
+    system front configure octave step 1
+    system front configure test step 1
+    system wn configure test step 1
+    system windows configure win step 1
+)
