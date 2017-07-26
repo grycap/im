@@ -17,13 +17,17 @@
 """ Classes to encapsulate SSH operations using paramiko """
 
 import paramiko
-import scp
+try:
+    import scp
+except:
+    pass
 import os
 try:
     from StringIO import StringIO
 except ImportError:
     from io import StringIO
 from threading import Thread
+from stat import S_ISDIR
 
 
 class TimeOutException(Exception):
@@ -286,6 +290,62 @@ class SSH:
         sftp.put(src, dest)
         sftp.close()
         transport.close()
+
+    def sftp_get_dir(self, src, dest):
+        """ Gets recursively a directory from the remote server
+
+            Arguments:
+            - src: Source directory in the remote server to copy.
+            - dest: Local destination path.
+        """
+        client = self.connect()
+        transport = client.get_transport()
+        sftp = paramiko.SFTPClient.from_transport(transport)
+
+        files = self.sftp_walk(src, None, sftp)
+
+        for filename in files:
+            dirname = os.path.dirname(filename)
+            if not os.path.exists(dirname):
+                os.mkdir(dirname)
+            full_dest = filename.replace(src, dest)
+            sftp.get(filename, full_dest)
+
+        sftp.close()
+        transport.close()
+
+    def sftp_walk(self, src, files=None, sftp=None):
+        """ Gets recursively the list of items in a directory from the remote server
+
+            Arguments:
+            - src: Source directory in the remote server to copy.
+        """
+        close = False
+        if not sftp:
+            client = self.connect()
+            transport = client.get_transport()
+            sftp = paramiko.SFTPClient.from_transport(transport)
+            close = True
+
+        folders = []
+        if not files:
+            files = []
+        for f in sftp.listdir_attr(src):
+            if S_ISDIR(f.st_mode):
+                folder = os.path.join(src, f.filename)
+                folders.append(folder)
+            else:
+                filename = os.path.join(src, f.filename)
+                files.append(filename)
+
+        for folder in folders:
+            self.sftp_walk(folder, files, sftp)
+
+        if close:
+            sftp.close()
+            transport.close()
+
+        return files
 
     def sftp_put_dir(self, src, dest):
         """ Puts recursively the contents of a directory to the remote server
