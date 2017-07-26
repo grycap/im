@@ -660,7 +660,7 @@ echo "Hello World" >> /tmp/data.txt
         (success, inf_id) = self.server.CreateInfrastructure(radl, self.auth_data)
         self.assertTrue(
             success, msg="ERROR calling CreateInfrastructure: " + str(inf_id))
-        self.__class__.inf_id = inf_id
+        self.__class__.inf_id = [inf_id]
 
         all_configured = self.wait_inf_state(
             inf_id, VirtualMachine.CONFIGURED, 1000)
