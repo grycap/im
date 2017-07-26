@@ -195,12 +195,6 @@ class ConfManager(threading.Thread):
 
             cont_vms, vms_configuring = self.check_running_pids(vms_configuring)
 
-            self.log_debug("There are %d VMs contextualizing" % cont_vms)
-            if cont_vms >= Config.MAX_PARALLEL_VMS_CTXT:
-                self.log_debug("Do not launch more ctxt processes.")
-                time.sleep(Config.CONFMAMAGER_CHECK_STATE_INTERVAL)
-                continue
-
             # If the queue is empty but there are vms configuring wait and test
             # again
             if self.inf.ctxt_tasks.empty() and vms_configuring:

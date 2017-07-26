@@ -214,7 +214,7 @@ class TestCtxtAgent(unittest.TestCase):
             if vm['id'] == self.gen_vm_conf(["basic"])['id']:
                 ctxt_vm = vm
 
-        with open("/tmp/ctxt_agent.out", 'a') as f:
+        with open("/tmp/ctxt_agent.out", 'w+') as f:
             f.write('{"OK": true}')
         res = CtxtAgent.contextualize_vm(self.gen_general_conf(), self.gen_vm_conf(["basic"]), ctxt_vm, 0)
         expected_res = {'SSH_WAIT': True, 'OK': True, 'CHANGE_CREDS': True, 'basic': True}
