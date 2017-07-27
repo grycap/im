@@ -352,6 +352,18 @@ class TestGCEConnector(unittest.TestCase):
         self.assertEquals(dns_driver.delete_record.call_args_list[0][0][0].name, 'test.domain.com.')
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
+    def test_70_get_custom_instance(self):
+        radl_data = """
+            system test (
+            instance_type = 'custom' and
+            cpu.count=2 and
+            memory.size=2048m
+            )"""
+        radl = radl_parse.parse_radl(radl_data)
+
+        gce_cloud = self.get_gce_cloud()
+        instance = gce_cloud.get_instance_type([], radl.systems[0])
+        self.assertEquals(instance.name, "custom-2-2048")
 
 if __name__ == '__main__':
     unittest.main()
