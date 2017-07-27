@@ -257,10 +257,12 @@ class GCECloudConnector(CloudConnector):
             memory = radl.getFeature('memory.size').getValue('M')
             memory_op = radl.getFeature('memory.size').getLogOperator()
 
-        if instance_type_name == "custom":
+        if instance_type_name and instance_type_name.startswith("custom"):
             name = "custom-%s-%s" % (cpu, memory)
-            return GCENodeSize(id=name, name=name, ram=memory, disk=0, bandwidth=0,
-                               price=0, driver=None, extra={'guestCpus': cpu})
+            path = os.path.dirname(sizes[0].extra['selfLink'])
+            selfLink = path + "/" + name
+            return GCENodeSize(id=name, name=name, ram=memory, disk=0, bandwidth=0, price=0,
+                               driver=None, extra={'guestCpus': cpu, 'selfLink': selfLink})
 
         res = None
         for size in sizes:

@@ -362,8 +362,12 @@ class TestGCEConnector(unittest.TestCase):
         radl = radl_parse.parse_radl(radl_data)
 
         gce_cloud = self.get_gce_cloud()
-        instance = gce_cloud.get_instance_type([], radl.systems[0])
+        size = MagicMock()
+        size.extra = {"selfLink": "/some/path/sizenamne"}
+        sizes = [size]
+        instance = gce_cloud.get_instance_type(sizes, radl.systems[0])
         self.assertEquals(instance.name, "custom-2-2048")
+        self.assertEquals(instance.extra['selfLink'], "/some/path/custom-2-2048")
 
 if __name__ == '__main__':
     unittest.main()
