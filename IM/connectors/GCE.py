@@ -273,7 +273,7 @@ class GCECloudConnector(CloudConnector):
                     if not instance_type_name or size.name == instance_type_name:
                         res = size
 
-        if res is None and not instance_type_name:
+        if res is None and (not instance_type_name or instance_type_name.startswith("custom")):
             name = "custom-%s-%s" % (cpu, memory)
             path = os.path.dirname(sizes[0].extra['selfLink'])
             selfLink = path + "/" + name
