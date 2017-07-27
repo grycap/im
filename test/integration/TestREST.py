@@ -32,7 +32,7 @@ from radl import radl_parse
 from IM import __version__ as version
 
 PID = None
-RADL_ADD = "network publica\nsystem front\ndeploy front 1"
+RADL_ADD = "network privada\nsystem front\ndeploy front 1"
 RADL_ADD_ERROR = "system wnno deploy wnno 1"
 HOSTNAME = "localhost"
 TEST_PORT = 8800
