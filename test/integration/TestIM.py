@@ -399,12 +399,12 @@ class TestIM(unittest.TestCase):
         """
         Test StopInfrastructure function
         """
-        time.sleep(10)
+        time.sleep(30)
         (success, res) = self.server.StopInfrastructure(
             self.inf_id, self.auth_data)
         self.assertTrue(
             success, msg="ERROR calling StopInfrastructure: " + str(res))
-        time.sleep(10)
+        time.sleep(30)
 
         all_stopped = self.wait_inf_state(
             self.inf_id, VirtualMachine.STOPPED, 120, [VirtualMachine.RUNNING])
@@ -416,12 +416,12 @@ class TestIM(unittest.TestCase):
         Test StartInfrastructure function
         """
         # Assure the VM to be stopped
-        time.sleep(10)
+        time.sleep(30)
         (success, res) = self.server.StartInfrastructure(
             self.inf_id, self.auth_data)
         self.assertTrue(
             success, msg="ERROR calling StartInfrastructure: " + str(res))
-        time.sleep(10)
+        time.sleep(30)
 
         all_configured = self.wait_inf_state(
             self.inf_id, VirtualMachine.CONFIGURED, 150, [VirtualMachine.RUNNING])
@@ -434,10 +434,10 @@ class TestIM(unittest.TestCase):
         """
         (success, vm_ids) = self.server.GetInfrastructureInfo(
             self.inf_id, self.auth_data)
-        time.sleep(10)
+        time.sleep(30)
         (success, res) = self.server.StopVM(self.inf_id, vm_ids[0], self.auth_data)
         self.assertTrue(success, msg="ERROR calling StopVM: " + str(res))
-        time.sleep(10)
+        time.sleep(30)
 
         all_stopped = self.wait_inf_state(self.inf_id, VirtualMachine.STOPPED, 120, [
                                           VirtualMachine.RUNNING], [vm_ids[0]])
@@ -451,10 +451,10 @@ class TestIM(unittest.TestCase):
         (success, vm_ids) = self.server.GetInfrastructureInfo(
             self.inf_id, self.auth_data)
         # Assure the VM to be stopped
-        time.sleep(10)
+        time.sleep(30)
         (success, res) = self.server.StartVM(self.inf_id, vm_ids[0], self.auth_data)
         self.assertTrue(success, msg="ERROR calling StartVM: " + str(res))
-        time.sleep(10)
+        time.sleep(30)
 
         all_configured = self.wait_inf_state(
             self.inf_id, VirtualMachine.CONFIGURED, 150, [VirtualMachine.RUNNING], [vm_ids[0]])
