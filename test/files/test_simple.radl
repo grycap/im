@@ -1,4 +1,4 @@
-network privada
+network privada ()
 
 system front (
 cpu.arch='x86_64' and
