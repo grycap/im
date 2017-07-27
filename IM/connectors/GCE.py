@@ -257,13 +257,6 @@ class GCECloudConnector(CloudConnector):
             memory = radl.getFeature('memory.size').getValue('M')
             memory_op = radl.getFeature('memory.size').getLogOperator()
 
-        if instance_type_name and instance_type_name.startswith("custom"):
-            name = "custom-%s-%s" % (cpu, memory)
-            path = os.path.dirname(sizes[0].extra['selfLink'])
-            selfLink = path + "/" + name
-            return GCENodeSize(id=name, name=name, ram=memory, disk=0, bandwidth=0, price=0,
-                               driver=None, extra={'guestCpus': cpu, 'selfLink': selfLink})
-
         res = None
         for size in sizes:
             # get the node size with the lowest price and memory (in the case
@@ -279,6 +272,13 @@ class GCECloudConnector(CloudConnector):
                 if eval(str_compare):
                     if not instance_type_name or size.name == instance_type_name:
                         res = size
+
+        if res is None and not instance_type_name:
+            name = "custom-%s-%s" % (cpu, memory)
+            path = os.path.dirname(sizes[0].extra['selfLink'])
+            selfLink = path + "/" + name
+            res = GCENodeSize(id=name, name=name, ram=memory, disk=0, bandwidth=0, price=0,
+                              driver=None, extra={'guestCpus': cpu, 'selfLink': selfLink})
 
         if res is None:
             self.log_error("No compatible size found")
