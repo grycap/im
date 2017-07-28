@@ -402,11 +402,6 @@ Contextualization
    Number of VMs in an infrastructure that will use the distributed version of the Ctxt Agent
    The default value is 30.
 
-.. confval:: MAX_PARALLEL_VMS_CTXT
-
-   Max number or contextualization processes launched in parallel.
-   The default value is 50.
-
 .. _options-xmlrpc:
 
 XML-RPC API
