@@ -75,9 +75,6 @@ class ConfManager(threading.Thread):
         for step, vm_list in vms_configuring.items():
             for vm in vm_list:
                 if isinstance(vm, VirtualMachine):
-                    # Update the info of the VM to check it is in a correct
-                    # state
-                    vm.update_status(self.auth)
                     if vm.is_ctxt_process_running():
                         if step not in res:
                             res[step] = []
@@ -198,12 +195,6 @@ class ConfManager(threading.Thread):
 
             cont_vms, vms_configuring = self.check_running_pids(vms_configuring)
 
-            self.log_debug("There are %d VMs contextualizing" % cont_vms)
-            if cont_vms >= Config.MAX_PARALLEL_VMS_CTXT:
-                self.log_debug("Do not launch more ctxt processes.")
-                time.sleep(Config.CONFMAMAGER_CHECK_STATE_INTERVAL)
-                continue
-
             # If the queue is empty but there are vms configuring wait and test
             # again
             if self.inf.ctxt_tasks.empty() and vms_configuring:
@@ -256,23 +247,26 @@ class ConfManager(threading.Thread):
                         # Sleep to check this later
                         time.sleep(Config.CONFMAMAGER_CHECK_STATE_INTERVAL)
                     else:
-                        # If not, launch it
-                        # Mark this VM as configuring
-                        vm.configured = None
-                        # Launch the ctxt_agent using a thread
-                        t = threading.Thread(name="launch_ctxt_agent_" + str(
-                            vm.id), target=eval("self.launch_ctxt_agent"), args=(vm, tasks))
-                        t.daemon = True
-                        t.start()
-                        vm.inf.conf_threads.append(t)
-                        if step not in vms_configuring:
-                            vms_configuring[step] = []
-                        vms_configuring[step].append(vm.inf)
-                        # Add the VM to the list of configuring vms
-                        vms_configuring[step].append(vm)
-                        # Set the "special pid" to wait untill the real pid is
-                        # assigned
-                        vm.ctxt_pid = VirtualMachine.WAIT_TO_PID
+                        if not tasks:
+                            self.log_debug("No tasks to execute. Ignore this step.")
+                        else:
+                            # If not, launch it
+                            # Mark this VM as configuring
+                            vm.configured = None
+                            # Launch the ctxt_agent using a thread
+                            t = threading.Thread(name="launch_ctxt_agent_" + str(
+                                vm.id), target=eval("self.launch_ctxt_agent"), args=(vm, tasks))
+                            t.daemon = True
+                            t.start()
+                            vm.inf.conf_threads.append(t)
+                            if step not in vms_configuring:
+                                vms_configuring[step] = []
+                            vms_configuring[step].append(vm.inf)
+                            # Add the VM to the list of configuring vms
+                            vms_configuring[step].append(vm)
+                            # Set the "special pid" to wait untill the real pid is
+                            # assigned
+                            vm.ctxt_pid = VirtualMachine.WAIT_TO_PID
                         # Force to save the data to store the log data
                         IM.InfrastructureList.InfrastructureList.save_data(self.inf.id)
                 else:
@@ -308,8 +302,7 @@ class ConfManager(threading.Thread):
                                "We cannot launch the ansible process!!" % (str(vm.im_id), vm.id))
             else:
                 remote_dir = Config.REMOTE_CONF_DIR + "/" + \
-                    str(self.inf.id) + "/" + ip + "_" + \
-                    str(vm.getRemoteAccessPort())
+                    str(self.inf.id) + "/" + ip + "_" + str(vm.im_id)
                 tmp_dir = tempfile.mkdtemp()
 
                 self.log_debug("Create the configuration file for the contextualization agent")
@@ -325,12 +318,18 @@ class ConfManager(threading.Thread):
                              os.path.basename(conf_file))
 
                 if vm.configured is None:
+                    if len(self.inf.get_vm_list()) > Config.VM_NUM_USE_CTXT_DIST:
+                        self.log_debug("Using ctxt_agent_dist")
+                        ctxt_agent_command = "/ctxt_agent_dist.py "
+                    else:
+                        self.log_debug("Using ctxt_agent")
+                        ctxt_agent_command = "/ctxt_agent.py "
                     vault_export = ""
                     vault_password = vm.info.systems[0].getValue("vault.password")
                     if vault_password:
                         vault_export = "export VAULT_PASS='%s' && " % vault_password
                     (pid, _, _) = ssh.execute(vault_export + "nohup python_ansible " + Config.REMOTE_CONF_DIR + "/" +
-                                              str(self.inf.id) + "/" + "/ctxt_agent.py " +
+                                              str(self.inf.id) + "/" + ctxt_agent_command +
                                               Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/" +
                                               "/general_info.cfg " + remote_dir + "/" + os.path.basename(conf_file) +
                                               " > " + remote_dir + "/stdout" + " 2> " + remote_dir +
@@ -414,9 +413,9 @@ class ConfManager(threading.Thread):
                     continue
 
                 if vm.getOS().lower() == "windows":
-                    windows += "%s_%d\n" % (ip, vm.getRemoteAccessPort())
+                    windows += "%s_%d\n" % (ip, vm.im_id)
                 else:
-                    no_windows += "%s_%d\n" % (ip, vm.getRemoteAccessPort())
+                    no_windows += "%s_%d\n" % (ip, vm.im_id)
 
                 ifaces_im_vars = ''
                 for i in range(vm.getNumNetworkIfaces()):
@@ -443,7 +442,7 @@ class ConfManager(threading.Thread):
                     (nodename, nodedom) = vm.getRequestedName(
                         default_domain=Config.DEFAULT_DOMAIN)
 
-                node_line = "%s_%d" % (ip, vm.getRemoteAccessPort())
+                node_line = "%s_%d" % (ip, vm.im_id)
                 node_line += ' ansible_host=%s' % ip
                 # For compatibility with Ansible 1.X versions
                 node_line += ' ansible_ssh_host=%s' % ip
@@ -758,9 +757,16 @@ class ConfManager(threading.Thread):
                         self.log_debug("Copy the contextualization agent files")
                         files = []
                         files.append((Config.IM_PATH + "/SSH.py", remote_dir + "/IM/SSH.py"))
+                        files.append((Config.IM_PATH + "/SSHRetry.py", remote_dir + "/IM/SSHRetry.py"))
+                        files.append((Config.IM_PATH + "/retry.py", remote_dir + "/IM/retry.py"))
+                        files.append((Config.CONTEXTUALIZATION_DIR + "/ctxt_agent_dist.py",
+                                      remote_dir + "/ctxt_agent_dist.py"))
                         files.append((Config.CONTEXTUALIZATION_DIR + "/ctxt_agent.py", remote_dir + "/ctxt_agent.py"))
                         # copy an empty init to make IM as package
                         files.append((Config.CONTEXTUALIZATION_DIR + "/__init__.py", remote_dir + "/IM/__init__.py"))
+                        # copy the ansible_install script to install the nodes
+                        files.append((Config.CONTEXTUALIZATION_DIR + "/ansible_install.sh",
+                                      remote_dir + "/ansible_install.sh"))
 
                         if self.inf.radl.ansible_hosts:
                             for ansible_host in self.inf.radl.ansible_hosts:
@@ -1215,9 +1221,11 @@ class ConfManager(threading.Thread):
 
         self.log_debug('Launching Ansible process.')
         result = Queue()
+        extra_vars = {'IM_HOST': 'all'}
         # store the process to terminate it later is Ansible does not finish correctly
         self.ansible_process = AnsibleThread(result, StringIO(), tmp_dir + "/" + playbook, None, 1, gen_pk_file,
-                                             ssh.password, 1, tmp_dir + "/" + inventory, ssh.username)
+                                             ssh.password, 1, tmp_dir + "/" + inventory, ssh.username,
+                                             extra_vars=extra_vars)
         self.ansible_process.start()
 
         wait = 0
@@ -1313,63 +1321,11 @@ class ConfManager(threading.Thread):
             shutil.copy(Config.CONTEXTUALIZATION_DIR + "/" +
                         ConfManager.MASTER_YAML, tmp_dir + "/" + ConfManager.MASTER_YAML)
 
-            # Add all the modules specified in the RADL
-            modules = []
-            for s in self.inf.radl.systems:
-                for req_app in s.getApplications():
-                    if req_app.getValue("name").startswith("ansible.modules."):
-                        # Get the modules specified by the user in the RADL
-                        modules.append(req_app.getValue("name")[16:])
-                    else:
-                        # Get the info about the apps from the recipes DB
-                        vm_modules, _ = Recipe.getInfoApps([req_app])
-                        modules.extend(vm_modules)
-
-            # avoid duplicates
-            modules = set(modules)
-
-            self.inf.add_cont_msg(
-                "Creating and copying Ansible playbook files")
-            self.log_debug("Preparing Ansible playbook to copy Ansible modules: " + str(modules))
+            self.inf.add_cont_msg("Creating and copying Ansible playbook files")
 
             ssh.sftp_mkdir(Config.REMOTE_CONF_DIR)
             ssh.sftp_mkdir(Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/")
             ssh.sftp_chmod(Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/", 448)
-
-            for galaxy_name in modules:
-                if galaxy_name:
-                    self.log_debug("Install " + galaxy_name + " with ansible-galaxy.")
-                    self.inf.add_cont_msg(
-                        "Galaxy role " + galaxy_name + " detected setting to install.")
-
-                    recipe_out = open(
-                        tmp_dir + "/" + ConfManager.MASTER_YAML, 'a')
-
-                    parts = galaxy_name.split("|")
-                    if len(parts) > 1:
-                        url = parts[0]
-                        rolename = parts[1]
-
-                        recipe_out.write(
-                            '    - name: Create YAML file to install the %s role with ansible-galaxy\n' % rolename)
-                        recipe_out.write('      copy:\n')
-                        recipe_out.write('        dest: "/tmp/%s.yml"\n' % rolename)
-                        recipe_out.write('        content: "- src: %s\\n  name: %s"\n' % (url, rolename))
-                        url = "-r /tmp/%s.yml" % rolename
-                    else:
-                        url = rolename = galaxy_name
-
-                    if galaxy_name.startswith("git"):
-                        recipe_out.write("    - yum: name=git\n")
-                        recipe_out.write('      when: ansible_os_family == "RedHat"\n')
-                        recipe_out.write("    - apt: name=git\n")
-                        recipe_out.write('      when: ansible_os_family == "Debian"\n')
-                    recipe_out.write(
-                        "    - name: Install the %s role with ansible-galaxy\n" % rolename)
-                    recipe_out.write(
-                        "      command: ansible-galaxy -f install %s\n" % url)
-
-                    recipe_out.close()
 
             self.inf.add_cont_msg("Performing preliminary steps to configure Ansible.")
 
@@ -1405,8 +1361,24 @@ class ConfManager(threading.Thread):
         """
         Create the configuration file needed by the contextualization agent
         """
+        # Add all the modules specified in the RADL
+        modules = []
+        for s in self.inf.radl.systems:
+            for req_app in s.getApplications():
+                if req_app.getValue("name").startswith("ansible.modules."):
+                    # Get the modules specified by the user in the RADL
+                    modules.append(req_app.getValue("name")[16:])
+                else:
+                    # Get the info about the apps from the recipes DB
+                    vm_modules, _ = Recipe.getInfoApps([req_app])
+                    modules.extend(vm_modules)
+
+        # avoid duplicates
+        modules = list(set(modules))
+
         conf_data = {}
 
+        conf_data['ansible_modules'] = modules
         conf_data['playbook_retries'] = Config.PLAYBOOK_RETRIES
         conf_data['vms'] = []
         for vm in vm_list:

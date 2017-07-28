@@ -17,6 +17,10 @@ RUN cd tmp \
  && git clone --branch devel --recursive https://github.com/indigo-dc/im.git \
  && cd im \
  && pip install /tmp/im
+
+# Set the VM_NUM_USE_CTXT_DIST to 3 for the tests
+RUN sed -i -e 's/VM_NUM_USE_CTXT_DIST = 30/VM_NUM_USE_CTXT_DIST = 3/g' /etc/im/im.cfg
+
 COPY ansible.cfg /etc/ansible/ansible.cfg
 
 # Turn on the REST services

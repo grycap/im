@@ -238,6 +238,7 @@ class InfrastructureList():
                 return []
         except Exception:
             InfrastructureList.logger.exception("ERROR loading data. Correct or delete it!!")
+            return []
 
     @staticmethod
     def _reinit():

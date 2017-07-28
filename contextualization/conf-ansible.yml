@@ -1,5 +1,5 @@
 ---
-- hosts: all
+- hosts: "{{IM_HOST}}"
   become: yes
   become_method: sudo
   gather_facts: false
@@ -14,143 +14,169 @@
       raw: cat /etc/redhat-release | grep "release 5" && sudo yum -y install python-simplejson
       ignore_errors: yes
 
-    - name: Get Facts
-      setup:
+    - name: Check if ansible is installed
+      stat: path={{item}}
+      register: ansible_installed
+      with_first_found:
+        - "/usr/bin/ansible"
+        - "/usr/local/bin/ansible"
 
-    - name: Install libselinux-python in RH
-      action: yum pkg=libselinux-python state=installed
-      when: ansible_os_family == "RedHat"
+    # A block to avoid any step if ansible is installed
+    - block:
+      - name: Get Facts
+        setup:
 
-    - name: EPEL
-      yum: name=epel-release,yum-priorities
-      when: ansible_os_family == "RedHat" and ansible_distribution != "Fedora"
+      - name: Install libselinux-python in RH
+        action: yum pkg=libselinux-python state=installed
+        when: ansible_os_family == "RedHat"
 
-####################### Install Ansible in Ubuntu and RHEL systems with apt and yum ###################################
-################### because they have recent versions of ansible in system repositories ###############################
-################# Use INDIGO repos from Ubuntu 14 and CentOS 7 to assure a stable version  ############################
+      - name: EPEL
+        yum: name=epel-release,yum-priorities
+        when: ansible_os_family == "RedHat" and ansible_distribution != "Fedora"
 
-    - name: Ubuntu install indigo list
-      get_url: url=http://repo.indigo-datacloud.eu/repos/1/indigo1-ubuntu14_04.list dest=/etc/apt/sources.list.d/indigo1-ubuntu14_04.list
-      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version == "14"
+  ####################### Install Ansible in Ubuntu and RHEL systems with apt and yum ###################################
+  ################### because they have recent versions of ansible in system repositories ###############################
+  ################# Use INDIGO repos from Ubuntu 14 and CentOS 7 to assure a stable version  ############################
 
-    - apt_key: url=http://repo.indigo-datacloud.eu/repository/RPM-GPG-KEY-indigodc state=present
-      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version == "14"
+      - name: Ubuntu install indigo list
+        get_url: url=http://repo.indigo-datacloud.eu/repos/1/indigo1-ubuntu14_04.list dest=/etc/apt/sources.list.d/indigo1-ubuntu14_04.list
+        when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version == "14"
 
-    - name: Ubuntu install requirements
-      apt: name=software-properties-common
-      when: ansible_os_family == "Debian" and (ansible_distribution != "Ubuntu" or ansible_distribution_major_version != "14")
+      - apt_key: url=http://repo.indigo-datacloud.eu/repository/RPM-GPG-KEY-indigodc state=present
+        when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version == "14"
+
+      - name: Ubuntu install requirements
+        apt: name=software-properties-common
+        when: ansible_os_family == "Debian" and (ansible_distribution != "Ubuntu" or ansible_distribution_major_version != "14")
+        
+      - name: Ubuntu install Ansible PPA repo  
+        apt_repository: repo='ppa:ansible/ansible'
+        when: ansible_os_family == "Debian" and (ansible_distribution != "Ubuntu" or ansible_distribution_major_version != "14")
+        
+      - name: Apt-get update
+        apt: update_cache=yes
+        when: ansible_os_family == "Debian"
+        
+      - name: Ubuntu install Ansible with apt
+        apt: name=ansible,python-pip,python-jinja2,sshpass,openssh-client,unzip force=yes
+        when: ansible_distribution == "Ubuntu"
+        
+      - name: RH indigo repos
+        get_url: url=http://repo.indigo-datacloud.eu/repos/1/indigo1.repo dest=/etc/yum.repos.d/indigo1.repo
+        when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 7 and ansible_distribution != "Fedora"
+        
+      - rpm_key: state=present key=http://repo.indigo-datacloud.eu/repository/RPM-GPG-KEY-indigodc
+        when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 7 and ansible_distribution != "Fedora"
+        
+      - name: RH7 install Ansible with yum
+        yum: name=ansible,python-pip,python-jinja2,sshpass,openssh-clients,unzip
+        when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 7 and ansible_distribution != "Fedora"
+
+  ############################################ In other systems use pip #################################################
+
+      - name: Apt install requirements
+        apt: name=unzip,gcc,python-dev,openssh-client,sshpass,python-pip,libffi-dev,libssl-dev
+        when: ansible_os_family == "Debian" and ansible_distribution != "Ubuntu"
       
-    - name: Ubuntu install Ansible PPA repo  
-      apt_repository: repo='ppa:ansible/ansible'
-      when: ansible_os_family == "Debian" and (ansible_distribution != "Ubuntu" or ansible_distribution_major_version != "14")
+      - name: Yum install requirements RH or Fedora
+        yum: name=python-distribute,gcc,python-devel,wget,openssh-clients,sshpass,python-pip,libffi-devel,openssl-devel
+        when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 6
       
-    - name: Apt-get update
-      apt: update_cache=yes
-      when: ansible_os_family == "Debian"
-      
-    - name: Ubuntu install Ansible with apt
-      apt: name=ansible,python-pip,python-jinja2,sshpass,openssh-client,unzip force=yes
-      when: ansible_distribution == "Ubuntu"
-      
-    - name: RH indigo repos
-      get_url: url=http://repo.indigo-datacloud.eu/repos/1/indigo1.repo dest=/etc/yum.repos.d/indigo1.repo
-      when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 7 and ansible_distribution != "Fedora"
-      
-    - rpm_key: state=present key=http://repo.indigo-datacloud.eu/repository/RPM-GPG-KEY-indigodc
-      when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 7 and ansible_distribution != "Fedora"
-      
-    - name: RH7 install Ansible with yum
-      yum: name=ansible,python-pip,python-jinja2,sshpass,openssh-clients,unzip
-      when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 7 and ansible_distribution != "Fedora"
+      - name: Yum install requirements RH5
+        yum: name=python26,python26-simplejson,python26-distribute,gcc,python26-devel,openssh-clients,sshpass,libffi-devel,openssl-devel
+        when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int < 6
 
-############################################ In other systems use pip #################################################
+      - name: Zypper install requirements Suse   
+        zypper: name=python,python-pip,gcc,python-devel,wget,libffi-devel,openssl-devel state=present
+        when: ansible_os_family == "Suse"
 
-    - name: Apt install requirements
-      apt: name=unzip,gcc,python-dev,openssh-client,sshpass,python-pip,libffi-dev,libssl-dev
-      when: ansible_os_family == "Debian" and ansible_distribution != "Ubuntu"
-    
-    - name: Yum install requirements RH or Fedora
-      yum: name=python-distribute,gcc,python-devel,wget,openssh-clients,sshpass,python-pip,libffi-devel,openssl-devel
-      when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 6
-    
-    - name: Yum install requirements RH5
-      yum: name=python26,python26-simplejson,python26-distribute,gcc,python26-devel,openssh-clients,sshpass,libffi-devel,openssl-devel
-      when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int < 6
+      - name: Install Pip 2.6
+        easy_install: name=pip executable=easy_install-2.6
+        when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int < 6
+        
+  #    - name: Install Pip (alternative)
+  #      shell: wget https://bootstrap.pypa.io/get-pip.py && python get-pip.py
 
-    - name: Zypper install requirements Suse   
-      zypper: name=python,python-pip,gcc,python-devel,wget,libffi-devel,openssl-devel state=present
-      when: ansible_os_family == "Suse"
+      - name: Link python 
+        file: src=/usr/bin/python dest=/usr/bin/python_ansible state=link
+        when: ansible_os_family == "Suse" or ansible_os_family == "Debian" or (ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 6)
 
-    - name: Install Pip 2.6
-      easy_install: name=pip executable=easy_install-2.6
-      when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int < 6
-      
-#    - name: Install Pip (alternative)
-#      shell: wget https://bootstrap.pypa.io/get-pip.py && python get-pip.py
+      - name: Link python 2.6
+        file: src=/usr/bin/python2.6 dest=/usr/bin/python_ansible state=link
+        when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int < 6
 
-    - name: Link python 
-      file: src=/usr/bin/python dest=/usr/bin/python_ansible state=link
-      when: ansible_os_family == "Suse" or ansible_os_family == "Debian" or (ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 6)
+      - name: Install ansible with Pip
+        pip: name=ansible extra_args="-I"
+        when: ansible_os_family == "Suse" or (ansible_os_family == "Debian" and ansible_distribution != "Ubuntu") or ansible_distribution == "Fedora" or (ansible_os_family == "RedHat" and ansible_distribution_major_version|int < 7)
+        
+      - name: Install ansible with Pip 2.6
+        pip: name=ansible executable=pip-2.6
+        when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int < 6
+        
+  #################################### Now install and scp and pywinrm with pip  ########################################
+        
+      - name: Install scp and pywinrm with Pip
+        pip: name="scp pywinrm"
+        when: ansible_os_family != "RedHat" or (ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 6)
+        
+      - name: Install scp and pywinrm with Pip 2.6
+        pip: name="scp pywinrm" executable=pip-2.6
+        when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int < 6
 
-    - name: Link python 2.6
-      file: src=/usr/bin/python2.6 dest=/usr/bin/python_ansible state=link
-      when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int < 6
+      - name: Disable SELinux
+        selinux: state=disabled
+        when: ansible_os_family == "RedHat"
+        ignore_errors: yes
+        
+  ################################################ Configure Ansible  ###################################################
 
-    - name: Install ansible with Pip
-      pip: name=ansible extra_args="-I"
-      when: ansible_os_family == "Suse" or (ansible_os_family == "Debian" and ansible_distribution != "Ubuntu") or ansible_distribution == "Fedora" or (ansible_os_family == "RedHat" and ansible_distribution_major_version|int < 7)
-      
-    - name: Install ansible with Pip 2.6
-      pip: name=ansible executable=pip-2.6
-      when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int < 6
-      
-#################################### Now install and scp and pywinrm with pip  ########################################
-      
-    - name: Install scp and pywinrm with Pip
-      pip: name="scp pywinrm"
-      when: ansible_os_family != "RedHat" or (ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 6)
-      
-    - name: Install scp and pywinrm with Pip 2.6
-      pip: name="scp pywinrm" executable=pip-2.6
-      when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int < 6
+      - name: Create /etc/ansible
+        file: path=/etc/ansible state=directory
+        
+      - name: Create /etc/ansible/ansible.cfg
+        file: path=/etc/ansible/ansible.cfg state=touch owner=root group=root mode=0644
 
-    - name: Disable SELinux
-      selinux: state=disabled
-      when: ansible_os_family == "RedHat"
-      ignore_errors: yes
-      
-################################################ Configure Ansible  ###################################################
+      - name: Set host_key_checking to false in ansible.cfg
+        ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=host_key_checking value=False
 
-    - name: Create /etc/ansible
-      file: path=/etc/ansible state=directory
-      
-    - name: Create /etc/ansible/ansible.cfg
-      file: path=/etc/ansible/ansible.cfg state=touch owner=root group=root mode=0644
+      - name: Set nocolor to 1 in ansible.cfg to avoid strange chars in Ansible outputs
+        ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=nocolor value=1
 
-    - name: Set host_key_checking to false in ansible.cfg
-      ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=host_key_checking value=False
+      - name: Set transport to ssh in ansible.cfg
+        ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=transport value=ssh
+        when: ansible_os_family == "Debian" or (ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 6)  or (ansible_os_family == "Suse" and ansible_distribution_major_version|int >= 10)
+        
+      - name: Set transport to smart in ansible.cfg
+        ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=transport value=smart
+        when: (ansible_os_family == "RedHat" and ansible_distribution_major_version|int < 6) or (ansible_os_family == "Suse" and ansible_distribution_major_version|int < 10)
 
-    - name: Set transport to ssh in ansible.cfg
-      ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=transport value=ssh
-      when: ansible_os_family == "Debian" or (ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 6)  or (ansible_os_family == "Suse" and ansible_distribution_major_version|int >= 10)
-      
-    - name: Set transport to smart in ansible.cfg
-      ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=transport value=smart
-      when: (ansible_os_family == "RedHat" and ansible_distribution_major_version|int < 6) or (ansible_os_family == "Suse" and ansible_distribution_major_version|int < 10)
+      - name: Change ssh_args to set ControlPersist to 15 min in ansible.cfg
+        ini_file: dest=/etc/ansible/ansible.cfg section=ssh_connection option=ssh_args value="-o ControlMaster=auto -o ControlPersist=900s"
+        when: ansible_os_family == "Debian" or (ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 7) or (ansible_os_family == "Suse" and ansible_distribution_major_version|int >= 12)
+        
+      - name: Change ssh_args to remove ControlPersist in REL 6 and older in ansible.cfg
+        ini_file: dest=/etc/ansible/ansible.cfg section=ssh_connection option=ssh_args value=""
+        when: (ansible_os_family == "RedHat" and ansible_distribution_major_version|int < 7) or (ansible_os_family == "Suse" and ansible_distribution_major_version|int < 12)
+        
+      - name: Activate SSH pipelining in ansible.cfg
+        ini_file: dest=/etc/ansible/ansible.cfg section=ssh_connection option=pipelining value=True
 
-    - name: Change ssh_args to set ControlPersist to 15 min in ansible.cfg
-      ini_file: dest=/etc/ansible/ansible.cfg section=ssh_connection option=ssh_args value="-o ControlMaster=auto -o ControlPersist=900s"
-      when: ansible_os_family == "Debian" or (ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 7) or (ansible_os_family == "Suse" and ansible_distribution_major_version|int >= 12)
-      
-    - name: Change ssh_args to remove ControlPersist in REL 6 and older in ansible.cfg
-      ini_file: dest=/etc/ansible/ansible.cfg section=ssh_connection option=ssh_args value=""
-      when: (ansible_os_family == "RedHat" and ansible_distribution_major_version|int < 7) or (ansible_os_family == "Suse" and ansible_distribution_major_version|int < 12)
-      
-    - name: Activate SSH pipelining in ansible.cfg
-      ini_file: dest=/etc/ansible/ansible.cfg section=ssh_connection option=pipelining value=True
+      - name: Set jinja2.ext.do to jinja2_extensions in ansible.cfg
+        ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=jinja2_extensions value=jinja2.ext.do
 
-    - name: Set jinja2.ext.do to jinja2_extensions in ansible.cfg
-      ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=jinja2_extensions value=jinja2.ext.do
+      - name: Set allow_world_readable_tmpfiles to True ansible.cfg
+        ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=allow_world_readable_tmpfiles value=True
 
-    - name: Set allow_world_readable_tmpfiles to True ansible.cfg
-      ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=allow_world_readable_tmpfiles value=True
+      - name: Set fact_caching in ansible.cfg
+        ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=fact_caching value=jsonfile
+
+      - name: Set fact_caching_connection in ansible.cfg
+        ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=fact_caching_connection value=/var/tmp/facts_cache
+
+      - name: Set fact_caching_timeout in ansible.cfg
+        ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=fact_caching_timeout value=86400
+        
+      - name: Set fact_caching_timeout in ansible.cfg
+        ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=gathering value=smart
+
+      when: not ansible_installed.results[0].stat.exists
