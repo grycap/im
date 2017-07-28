@@ -50,6 +50,10 @@ class SSHRetry(SSH):
         return SSH.sftp_put_dir(self, src, dest)
 
     @retry(Exception, tries=TRIES, delay=DELAY, backoff=BACKOFF)
+    def sftp_get_dir(self, src, dest):
+        return SSH.sftp_get_dir(self, src, dest)
+
+    @retry(Exception, tries=TRIES, delay=DELAY, backoff=BACKOFF)
     def sftp_put_content(self, content, dest):
         return SSH.sftp_put_content(self, content, dest)
 

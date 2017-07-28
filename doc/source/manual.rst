@@ -396,6 +396,11 @@ Contextualization
 
    Interval to update the log output of the contextualization process in the VMs (in secs).
    The default value is 20.
+   
+.. confval:: VM_NUM_USE_CTXT_DIST
+
+   Number of VMs in an infrastructure that will use the distributed version of the Ctxt Agent
+   The default value is 30.
 
 .. confval:: MAX_PARALLEL_VMS_CTXT
 

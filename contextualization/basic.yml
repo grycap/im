@@ -1,7 +1,7 @@
 ---
 - gather_facts: False
   tasks: 
-    # Some OSs does not have python by default
+      # Some OSs does not have python by default
     - name: Bootstrap with python
       raw: which python || (sudo apt update; sudo apt install -y python; sudo yum install -y python)
       ignore_errors: yes
