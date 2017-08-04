@@ -322,12 +322,11 @@ class OCCICloudConnector(CloudConnector):
         try:
             net_id = "imnet.%s" % str(uuid.uuid1())
 
-            body = ('Category: networkinterface;scheme="http://schemas.ogf.org/occi/infrastructure#";class="kind";'
-                    'location="%s/link/networkinterface/";title="networkinterface link"\n' % self.cloud.path)
+            body = 'Category: networkinterface;scheme="http://schemas.ogf.org/occi/infrastructure#";class="kind"\n'
             pool_name = self.get_floating_pool(auth_data)
             if pool_name:
                 body += ('Category: %s;scheme="http://schemas.openstack.org/network/floatingippool#";'
-                         'class="mixin";location="/mixin/%s/";title="%s"' % (pool_name, pool_name, pool_name))
+                         'class="mixin"\n' % pool_name)
             body += 'X-OCCI-Attribute: occi.core.id="%s"\n' % net_id
             body += 'X-OCCI-Attribute: occi.core.target="%s/network/%s"\n' % (self.cloud.path, network_name)
             body += 'X-OCCI-Attribute: occi.core.source="%s/compute/%s"' % (self.cloud.path, vm.id)
@@ -953,7 +952,7 @@ class OCCICloudConnector(CloudConnector):
                 headers.update(auth_header)
 
             body = ('Category: start;scheme="http://schemas.ogf.org/occi/infrastructure/compute/action#"'
-                    ';class="action";\n')
+                    ';class="action"\n')
             resp = self.create_request('POST', self.cloud.path + "/compute/" + vm.id + "?action=start",
                                        auth_data, headers, body)
 
@@ -1125,8 +1124,7 @@ class OCCICloudConnector(CloudConnector):
 
             disk_id = "imdisk.%s" % str(uuid.uuid1())
 
-            body = ('Category: storagelink;scheme="http://schemas.ogf.org/occi/infrastructure#";class="kind";'
-                    'location="%s/link/storagelink/";title="storagelink"\n' % self.cloud.path)
+            body = 'Category: storagelink;scheme="http://schemas.ogf.org/occi/infrastructure#";class="kind"\n'
             body += 'X-OCCI-Attribute: occi.core.id="%s"\n' % disk_id
             body += 'X-OCCI-Attribute: occi.core.target="%s/storage/%s"\n' % (self.cloud.path, volume_id)
             body += 'X-OCCI-Attribute: occi.core.source="%s/compute/%s"' % (self.cloud.path, vm.id)
