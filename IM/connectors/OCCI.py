@@ -230,13 +230,7 @@ class OCCICloudConnector(CloudConnector):
         """
         self.log_debug("The VM does not have public IP trying to add one.")
         if self.add_public_ip_count < self.MAX_ADD_IP_COUNT:
-            # in some sites the network is called floating, in others PUBLIC ...
-            msgs = ""
-            for name in self.PUBLIC_NET_NAMES:
-                success, msg = self.add_public_ip(vm, auth_data, network_name=name)
-                msgs += msg + "\n"
-                if success:
-                    break
+            success, msgs = self.add_public_ip(vm, auth_data)
             if success:
                 self.log_debug("Public IP successfully added.")
             else:
@@ -308,10 +302,50 @@ class OCCICloudConnector(CloudConnector):
         else:
             return None
 
-    def add_public_ip(self, vm, auth_data, network_name="public"):
+    def get_public_net_name(self, auth_data):
+        # in some sites the network is called floating, in others PUBLIC ...
+        """
+        Get the public network name contacting with the OCCI server
+        """
+        auth = self.get_auth_header(auth_data)
+        headers = {'Accept': 'text/plain', 'Connection': 'close'}
+        if auth:
+            headers.update(auth)
+        try:
+            resp = self.create_request('GET', self.cloud.path + "/network/", auth_data, headers)
+
+            if resp.status_code != 200:
+                return False, "Error querying the OCCI server: %s" % resp.reason
+        except Exception as ex:
+            return False, "Error querying the OCCI server: %s" % str(ex)
+
+        lines = resp.text.split("\n")
+        # If there are only one net, return it
+        if len(lines) == 1 and lines[0].startswith("X-OCCI-Location: "):
+            return os.path.basename(lines[0][17:])
+
+        # if not, try to find one with the expected names
+        net_name = None
+        for l in lines:
+            if l.startswith("X-OCCI-Location: "):
+                net_name = os.path.basename(l[17:])
+            if net_name in self.PUBLIC_NET_NAMES:
+                return net_name
+
+        # if not, return the first one and pray
+        if not net_name and len(lines) > 0:
+            return os.path.basename(lines[0][17:])
+
+        return net_name
+
+    def add_public_ip(self, vm, auth_data):
         """
         Add a public IP to the VM
         """
+        network_name = self.get_public_net_name(auth_data)
+        if not network_name:
+            return (False, "No correct network name found.")
+
         _, occi_info = self.query_occi(auth_data)
         url = self.get_property_from_category(occi_info, "networkinterface", "location")
         if not url:
@@ -1075,13 +1109,7 @@ class OCCICloudConnector(CloudConnector):
             current_has_public_ip = vm.info.hasPublicNet(vm.info.systems[0].name)
             new_has_public_ip = radl.hasPublicNet(vm.info.systems[0].name)
             if new_has_public_ip and not current_has_public_ip:
-                msgs = ""
-                for name in self.PUBLIC_NET_NAMES:
-                    success, msg = self.add_public_ip(vm, auth_data, network_name=name)
-                    msgs += msg + "\n"
-                    if success:
-                        return (True, "")
-                return (False, msgs)
+                return self.add_public_ip(vm, auth_data)
             if not new_has_public_ip and current_has_public_ip:
                 return self.remove_public_ip(vm, auth_data)
         except Exception as ex:
