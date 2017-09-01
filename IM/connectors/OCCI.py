@@ -23,6 +23,7 @@ import base64
 import requests
 import tempfile
 import uuid
+import xmltodict
 import yaml
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
@@ -135,7 +136,17 @@ class OCCICloudConnector(CloudConnector):
                 url = uriparse(str_url)
                 protocol = url[0]
                 cloud_url = self.cloud.protocol + "://" + self.cloud.server + ":" + str(self.cloud.port)
-                if (protocol in ['https', 'http'] and url[2] and url[0] + "://" + url[1] == cloud_url):
+                site_url = None
+                if protocol == "appdb":
+                    # The url has this format: appdb://UPV-GRyCAP/egi.docker.ubuntu.16.04
+                    # Get the Site url from the AppDB
+                    site_name = url[1]
+                    image_name = url[2][1:]
+                    site_id = self.get_site_id(site_name)
+                    _, site_url = self.get_image_id_and_site_url(site_id, image_name)
+
+                if ((protocol in ['https', 'http'] and url[2] and url[0] + "://" + url[1] == cloud_url) or
+                        (protocol == "appdb" and site_url == cloud_url)):
                     res_system = radl_system.clone()
 
                     res_system.getFeature("cpu.count").operator = "="
@@ -774,8 +785,18 @@ class OCCICloudConnector(CloudConnector):
 
         # Parse the info to get the os_tpl scheme
         url = uriparse(system.getValue("disk.0.image.url"))
-        # Get the Image ID from the last part of the path
-        os_tpl = os.path.basename(url[2])
+
+        if url[0] == "appdb":
+            # the url has this format appdb://UPV-GRyCAP/egi.docker.ubuntu.16.04
+            # Get the Image ID from the AppDB
+            site_name = url[1]
+            image_name = url[2][1:]
+            site_id = self.get_site_id(site_name)
+            os_tpl, _ = self.get_image_id_and_site_url(site_id, image_name)
+        else:
+            # Get the Image ID from the last part of the path
+            os_tpl = os.path.basename(url[2])
+
         os_tpl_scheme = self.get_os_tpl_scheme(occi_info, os_tpl)
         if not os_tpl_scheme:
             raise Exception(
@@ -1168,6 +1189,39 @@ class OCCICloudConnector(CloudConnector):
         except Exception:
             self.log_exception("Error connecting with OCCI server")
             return False
+
+    @staticmethod
+    def appdb_call(path):
+        resp = requests.request("GET", "https://appdb.egi.eu" + path, verify=False)
+        if resp.status_code == 200:
+            resp.text.replace('\n', '')
+            return xmltodict.parse(resp.text)
+        else:
+            return None
+
+    @staticmethod
+    def get_site_id(site_name):
+        data = OCCICloudConnector.appdb_call('/rest/1.0/va_providers')
+        if data:
+            for site in data['appdb:appdb']['virtualization:provider']:
+                if site_name == site['provider:name']:
+                    return site['@id']
+        return None
+
+    @staticmethod
+    def get_image_id_and_site_url(site_id, image_name):
+        data = OCCICloudConnector.appdb_call('/rest/1.0/va_providers/%s' % site_id)
+        if data:
+            site_url = data['appdb:appdb']['virtualization:provider']["provider:endpoint_url"]
+            for image in data['appdb:appdb']['virtualization:provider']['provider:image']:
+                if image['@appcname'] == image_name:
+                    image_basename = os.path.basename(image['@va_provider_image_id'])
+                    parts = image_basename.split("#")
+                    if len(parts) > 1:
+                        return parts[1], site_url
+                    else:
+                        return image_basename, site_url
+        return None
 
 
 class KeyStoneAuth:
