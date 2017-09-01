@@ -332,9 +332,9 @@ class OCCICloudConnector(CloudConnector):
             if net_name in self.PUBLIC_NET_NAMES:
                 return net_name
 
-        # if not, return the first one and pray
+        # if not, return a random one and pray
         if not net_name and len(lines) > 0:
-            return os.path.basename(lines[0][17:])
+            return os.path.basename(lines[random.randint(0, len(lines) - 1)][17:])
 
         return net_name
 
