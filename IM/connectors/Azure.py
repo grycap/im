@@ -446,6 +446,7 @@ class AzureCloudConnector(CloudConnector):
         data_disks = []
         while system.getValue("disk." + str(cont) + ".size"):
             disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('G')
+            self.log_debug("Adding a %s GB disk." % disk_size)
             data_disks.append({
                 'name': '%s_disk_%d' % (vm_name, cont),
                 'disk_size_gb': disk_size,
