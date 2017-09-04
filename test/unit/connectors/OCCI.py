@@ -119,7 +119,7 @@ class TestOCCIConnector(unittest.TestCase):
             net_interface.0.connection = 'net' and
             net_interface.0.dns_name = 'test' and
             disk.0.os.name = 'linux' and
-            disk.0.image.url = 'appdb://UPV-GRyCAP/egi.docker.ubuntu.16.04' and
+            disk.0.image.url = 'appdb://UPV-GRyCAP/egi.docker.ubuntu.16.04?fedcloud.egi.eu' and
             disk.0.os.credentials.username = 'user'
             )"""
         radl = radl_parse.parse_radl(radl_data)

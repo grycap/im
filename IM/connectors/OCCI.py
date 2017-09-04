@@ -138,12 +138,13 @@ class OCCICloudConnector(CloudConnector):
                 cloud_url = self.cloud.protocol + "://" + self.cloud.server + ":" + str(self.cloud.port)
                 site_url = None
                 if protocol == "appdb":
-                    # The url has this format: appdb://UPV-GRyCAP/egi.docker.ubuntu.16.04
+                    # The url has this format: appdb://UPV-GRyCAP/egi.docker.ubuntu.16.04?fedcloud.egi.eu
                     # Get the Site url from the AppDB
                     site_name = url[1]
                     image_name = url[2][1:]
+                    vo_name = url[4]
                     site_id = self.get_site_id(site_name)
-                    _, site_url = self.get_image_id_and_site_url(site_id, image_name)
+                    _, site_url = self.get_image_id_and_site_url(site_id, image_name, vo_name)
 
                 if ((protocol in ['https', 'http'] and url[2] and url[0] + "://" + url[1] == cloud_url) or
                         (protocol == "appdb" and site_url == cloud_url)):
@@ -787,12 +788,13 @@ class OCCICloudConnector(CloudConnector):
         url = uriparse(system.getValue("disk.0.image.url"))
 
         if url[0] == "appdb":
-            # the url has this format appdb://UPV-GRyCAP/egi.docker.ubuntu.16.04
+            # the url has this format appdb://UPV-GRyCAP/egi.docker.ubuntu.16.04?fedcloud.egi.eu
             # Get the Image ID from the AppDB
             site_name = url[1]
             image_name = url[2][1:]
+            vo_name = url[4]
             site_id = self.get_site_id(site_name)
-            os_tpl, _ = self.get_image_id_and_site_url(site_id, image_name)
+            os_tpl, _ = self.get_image_id_and_site_url(site_id, image_name, vo_name)
         else:
             # Get the Image ID from the last part of the path
             os_tpl = os.path.basename(url[2])
@@ -1209,19 +1211,19 @@ class OCCICloudConnector(CloudConnector):
         return None
 
     @staticmethod
-    def get_image_id_and_site_url(site_id, image_name):
+    def get_image_id_and_site_url(site_id, image_name, vo_name=None):
         data = OCCICloudConnector.appdb_call('/rest/1.0/va_providers/%s' % site_id)
         if data:
             site_url = data['appdb:appdb']['virtualization:provider']["provider:endpoint_url"]
             for image in data['appdb:appdb']['virtualization:provider']['provider:image']:
-                if image['@appcname'] == image_name:
+                if image['@appcname'] == image_name and (not vo_name or image['@voname'] == vo_name):
                     image_basename = os.path.basename(image['@va_provider_image_id'])
                     parts = image_basename.split("#")
                     if len(parts) > 1:
                         return parts[1], site_url
                     else:
                         return image_basename, site_url
-        return None
+        return None, None
 
 
 class KeyStoneAuth:
