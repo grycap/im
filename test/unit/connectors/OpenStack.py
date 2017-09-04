@@ -34,6 +34,7 @@ from radl import radl_parse
 from IM.VirtualMachine import VirtualMachine
 from IM.InfrastructureInfo import InfrastructureInfo
 from IM.connectors.OpenStack import OpenStackCloudConnector
+from IM.config import Config
 from mock import patch, MagicMock, call
 
 
@@ -49,6 +50,7 @@ class TestOSTConnector(unittest.TestCase):
     """
 
     def setUp(self):
+        self.error_in_create = True
         self.log = StringIO()
         self.handler = logging.StreamHandler(self.log)
         formatter = logging.Formatter(
@@ -119,6 +121,19 @@ class TestOSTConnector(unittest.TestCase):
         self.assertEqual(len(concrete), 1)
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
+    def create_node(self, **kwargs):
+        """
+        Create VMs returning error only first time
+        """
+        if self.error_in_create:
+            self.error_in_create = False
+            raise Exception("Error creating VM")
+        else:
+            node = MagicMock()
+            node.id = "ost1"
+            node.name = "ost1name"
+            return node
+
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
     @patch('IM.InfrastructureList.InfrastructureList.save_data')
     def test_20_launch(self, save_data, get_driver):
@@ -169,14 +184,13 @@ class TestOSTConnector(unittest.TestCase):
 
         keypair = MagicMock()
         keypair.public_key = "public"
+        keypair.private_key = "private"
         driver.create_key_pair.return_value = keypair
         driver.features = {'create_node': ['ssh_key']}
 
-        node = MagicMock()
-        node.id = "ost1"
-        node.name = "ost1name"
-        driver.create_node.return_value = node
+        driver.create_node.side_effect = self.create_node
 
+        Config.MAX_VM_FAILS = 2
         res = ost_cloud.launch(InfrastructureInfo(), radl, radl, 1, auth)
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")

@@ -498,11 +498,15 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             self.log_debug("Creating node")
 
             node = None
-            msg = "Error creating the node. "
-            try:
-                node = driver.create_node(**args)
-            except Exception as ex:
-                msg += str(ex)
+            retries = 0
+            msg = ""
+            while not node and retries < Config.MAX_VM_FAILS:
+                retries += 1
+                msg += "Error creating the node (%d/%d): " % (retries, Config.MAX_VM_FAILS)
+                try:
+                    node = driver.create_node(**args)
+                except Exception as ex:
+                    msg += str(ex) + "\n"
 
             if node:
                 vm = VirtualMachine(inf, node.id, self.cloud, radl, requested_radl, self.cloud.getCloudConnector(inf))

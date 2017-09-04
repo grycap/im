@@ -50,7 +50,6 @@ class AzureCloudConnector(CloudConnector):
     """Default instance type."""
     DEFAULT_LOCATION = "westeurope"
     """Default location to use"""
-    VM_CREATION_RETRIES = 5
 
     PROVISION_STATE_MAP = {
         'Accepted': VirtualMachine.PENDING,
@@ -191,7 +190,6 @@ class AzureCloudConnector(CloudConnector):
                 url = uriparse(str_url)
                 protocol = url[0]
 
-                protocol = url[0]
                 if protocol == "azr":
                     credentials, subscription_id = self.get_credentials(auth_data)
 
@@ -448,6 +446,7 @@ class AzureCloudConnector(CloudConnector):
         data_disks = []
         while system.getValue("disk." + str(cont) + ".size"):
             disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('G')
+            self.log_debug("Adding a %s GB disk." % disk_size)
             data_disks.append({
                 'name': '%s_disk_%d' % (vm_name, cont),
                 'disk_size_gb': disk_size,
@@ -615,7 +614,7 @@ class AzureCloudConnector(CloudConnector):
         res = []
         remaining_vms = num_vm
         retries = 0
-        while remaining_vms > 0 and retries < self.VM_CREATION_RETRIES:
+        while remaining_vms > 0 and retries < Config.MAX_VM_FAILS:
             retries += 1
             vms = self.create_vms(inf, radl, requested_radl, remaining_vms, location,
                                   storage_account_name, subnets, credentials, subscription_id)
@@ -631,7 +630,7 @@ class AzureCloudConnector(CloudConnector):
                     except:
                         self.log_exception("Error waiting the VM %s." % vm.id)
 
-            self.log_debug("End of retry %d of %d" % (retries, self.VM_CREATION_RETRIES))
+            self.log_debug("End of retry %d of %d" % (retries, Config.MAX_VM_FAILS))
 
         if remaining_vms > 0:
             # Remove the general group

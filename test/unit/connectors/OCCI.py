@@ -109,6 +109,31 @@ class TestOCCIConnector(unittest.TestCase):
         self.assertEqual(len(concrete), 1)
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
+    def test_15_concrete_appdb(self):
+        radl_data = """
+            network net ()
+            system test (
+            cpu.arch='x86_64' and
+            cpu.count>=1 and
+            memory.size>=512m and
+            net_interface.0.connection = 'net' and
+            net_interface.0.dns_name = 'test' and
+            disk.0.os.name = 'linux' and
+            disk.0.image.url = 'appdb://UPV-GRyCAP/egi.docker.ubuntu.16.04?fedcloud.egi.eu' and
+            disk.0.os.credentials.username = 'user'
+            )"""
+        radl = radl_parse.parse_radl(radl_data)
+        radl_system = radl.systems[0]
+
+        auth = Authentication([{'id': 'occi', 'type': 'OCCI', 'proxy': 'proxy',
+                                'host': 'https://fc-one.i3m.upv.es:11443'}])
+        occi_cloud = self.get_occi_cloud()
+        occi_cloud.cloud.server = "fc-one.i3m.upv.es"
+
+        concrete = occi_cloud.concreteSystem(radl_system, auth)
+        self.assertEqual(len(concrete), 1)
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
     def get_response(self, method, url, verify, cert, headers, data):
         resp = MagicMock()
         parts = uriparse(url)
