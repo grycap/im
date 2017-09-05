@@ -702,7 +702,7 @@ class CtxtAgent():
                 remote_process = None
                 cache_dir = "/var/tmp/facts_cache"
                 if task == "copy_facts_cache":
-                    if ctxt_vm['os'] == "windows":
+                    if ctxt_vm['os'] != "windows":
                         try:
                             CtxtAgent.logger.info("Copy Facts cache to: %s" % ctxt_vm['ip'])
                             ssh_client = CtxtAgent.get_ssh(ctxt_vm, True, CtxtAgent.PK_FILE)
