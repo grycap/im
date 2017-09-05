@@ -266,6 +266,7 @@ machine.  The supported features are:
    * ``azr://<image-id>``, for Microsoft Azure Clasic; and
    * ``azr://<publisher>/<offer>/<sku>/<version>``, for Microsoft Azure; and
    * ``<fedcloud_endpoint_url>/<image_id>``, for FedCloud OCCI connector.
+   * ``appdb://<site_name>/<apc_name>?<vo_name>``, for FedCloud OCCI connector using AppDB info (from ver. 1.6.0).
    * ``docker://<docker_image>``, for Docker images.
    * ``fbw://<fogbow_image>``, for FogBow images.
 
