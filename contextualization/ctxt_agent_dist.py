@@ -702,13 +702,16 @@ class CtxtAgent():
                 remote_process = None
                 cache_dir = "/var/tmp/facts_cache"
                 if task == "copy_facts_cache":
-                    try:
-                        CtxtAgent.logger.info("Copy Facts cache to: %s" % ctxt_vm['ip'])
-                        ssh_client = CtxtAgent.get_ssh(ctxt_vm, True, CtxtAgent.PK_FILE)
-                        ssh_client.sftp_mkdir(cache_dir)
-                        ssh_client.sftp_put_dir(cache_dir, cache_dir)
-                    except:
-                        CtxtAgent.logger.exception("Error copying cache to VM: " + ctxt_vm['ip'])
+                    if ctxt_vm['os'] != "windows":
+                        try:
+                            CtxtAgent.logger.info("Copy Facts cache to: %s" % ctxt_vm['ip'])
+                            ssh_client = CtxtAgent.get_ssh(ctxt_vm, True, CtxtAgent.PK_FILE)
+                            ssh_client.sftp_mkdir(cache_dir)
+                            ssh_client.sftp_put_dir(cache_dir, cache_dir)
+                        except:
+                            CtxtAgent.logger.exception("Error copying cache to VM: " + ctxt_vm['ip'])
+                    else:
+                        CtxtAgent.logger.info("Windows VM do not copy Facts cache to: %s" % ctxt_vm['ip'])
                 elif task == "gen_facts_cache":
                     ansible_thread = CtxtAgent.gen_facts_cache(vm_conf_data['remote_dir'], inventory_file,
                                                                len(general_conf_data['vms']))
