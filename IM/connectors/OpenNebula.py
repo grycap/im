@@ -318,12 +318,16 @@ class OpenNebulaCloudConnector(CloudConnector):
                     res_state = VirtualMachine.PENDING
                 elif res_vm.LCM_STATE == 5 or res_vm.LCM_STATE == 6:
                     res_state = VirtualMachine.STOPPED
-                elif res_vm.LCM_STATE == 14:
+                elif res_vm.LCM_STATE == [14, 44, 61]:
                     res_state = VirtualMachine.FAILED
                 elif res_vm.LCM_STATE == 16:
                     res_state = VirtualMachine.UNKNOWN
                 elif res_vm.LCM_STATE == 12 or res_vm.LCM_STATE == 13 or res_vm.LCM_STATE == 18:
                     res_state = VirtualMachine.OFF
+                elif res_vm.LCM_STATE >= 36 and res_vm.LCM_STATE <= 42:
+                    res_state = VirtualMachine.FAILED
+                elif res_vm.LCM_STATE >= 46 and res_vm.LCM_STATE <= 50:
+                    res_state = VirtualMachine.FAILED
                 else:
                     res_state = VirtualMachine.RUNNING
             elif res_vm.STATE == 4 or res_vm.STATE == 5:
@@ -534,7 +538,7 @@ class OpenNebulaCloudConnector(CloudConnector):
         else:
             return (False, "Error in the one.vm.action return value")
 
-        if success:
+        if last and success:
             self.delete_security_groups(vm.inf, auth_data)
 
         return (success, err)

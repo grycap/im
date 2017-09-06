@@ -17,8 +17,8 @@ IM needs at least Python 2.6 to run, as well as the next libraries:
   and manipulating network addresses.
 * `Requests <http://docs.python-requests.org>`_, A Python library for access REST APIs.
     
-Also, IM uses `Ansible <http://www.ansible.com>`_ (1.4.2 or later) to configure the
-infrastructure nodes. The current recommended version is 1.9.4 untill the 2.X versions become stable.
+Also, IM uses `Ansible <http://www.ansible.com>`_ (2.0.0 or later) to configure the
+infrastructure nodes.
  
 These components are usually available from the distribution repositories.
    
@@ -28,12 +28,7 @@ Finally, check the next values in the Ansible configuration file
    [defaults]
    transport  = smart
    host_key_checking = False
-   
-   # For old versions 1.X
-   sudo_user = root
-   sudo_exe = sudo
-   
-   # For new versions 2.X
+   nocolor = 1
    become_user      = root
    become_method    = sudo
    
@@ -401,11 +396,11 @@ Contextualization
 
    Interval to update the log output of the contextualization process in the VMs (in secs).
    The default value is 20.
+   
+.. confval:: VM_NUM_USE_CTXT_DIST
 
-.. confval:: MAX_PARALLEL_VMS_CTXT
-
-   Max number or contextualization processes launched in parallel.
-   The default value is 50.
+   Number of VMs in an infrastructure that will use the distributed version of the Ctxt Agent
+   The default value is 30.
 
 .. _options-xmlrpc:
 

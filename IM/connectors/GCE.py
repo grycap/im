@@ -26,6 +26,7 @@ try:
     from libcloud.dns.types import Provider as DNSProvider
     from libcloud.dns.types import RecordType
     from libcloud.dns.providers import get_driver as get_dns_driver
+    from libcloud.compute.drivers.gce import GCENodeSize
 except Exception as ex:
     print("WARN: libcloud library not correctly installed. GCECloudConnector will not work!.")
     print(ex)
@@ -272,6 +273,13 @@ class GCECloudConnector(CloudConnector):
                     if not instance_type_name or size.name == instance_type_name:
                         res = size
 
+        if res is None and (not instance_type_name or instance_type_name.startswith("custom")):
+            name = "custom-%s-%s" % (cpu, memory)
+            path = os.path.dirname(sizes[0].extra['selfLink'])
+            selfLink = path + "/" + name
+            res = GCENodeSize(id=name, name=name, ram=memory, disk=0, bandwidth=0, price=0,
+                              driver=None, extra={'guestCpus': cpu, 'selfLink': selfLink})
+
         if res is None:
             self.log_error("No compatible size found")
 
@@ -418,8 +426,7 @@ class GCECloudConnector(CloudConnector):
         if not image:
             return [(False, "Incorrect image name") for _ in range(num_vm)]
 
-        instance_type = self.get_instance_type(
-            driver.list_sizes(region), system)
+        instance_type = self.get_instance_type(driver.list_sizes(region), system)
 
         if not instance_type:
             raise Exception("No compatible size found")
