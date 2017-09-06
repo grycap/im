@@ -49,19 +49,20 @@
       when: ansible_os_family == "Debian"
 
     - name: Apt install requirements Ubuntu/Debian
-      apt: name=gcc,python-dev,libmysqld-dev,python-pysqlite2,openssh-client,sshpass,libssl-dev,libffi-dev,python-requests
+      apt: name=python-pip,gcc,python-dev,libmysqld-dev,python-pysqlite2,openssh-client,sshpass,libssl-dev,libffi-dev,python-requests
       when: ansible_os_family == "Debian"
 
     - name: Yum install requirements RH
-      yum: name=python-distribute,gcc,python-devel,wget,openssh-clients,sshpass,libffi-devel,openssl-devel,mysql-devel,sqlite-devel
+      yum: name=python-pip,python-distribute,gcc,python-devel,wget,openssh-clients,sshpass,libffi-devel,openssl-devel,mysql-devel,sqlite-devel
       when: ansible_os_family == "RedHat" and ansible_distribution != "Fedora"
 
     - name: Yum install requirements Fedora
-      yum: name=redhat-rpm-config,gcc,python-devel,wget,openssh-clients,sshpass,libffi-devel,openssl-devel,mysql-devel,sqlite-devel
+      yum: name=python-pip,redhat-rpm-config,gcc,python-devel,wget,openssh-clients,sshpass,libffi-devel,openssl-devel,mysql-devel,sqlite-devel
       when: ansible_distribution == "Fedora"
 
     - name: Install last pip version
       easy_install: name=pip
+      ignore_errors: yes
 
     - name: Install setuptools with pip
       pip: executable=pip name=setuptools,six extra_args="-I"
@@ -69,6 +70,10 @@
 
     - name: Install pip libraries
       pip: executable=pip name=pyOpenSSL,MySQL-python,msrest,msrestazure,azure-common,azure-mgmt-storage,azure-mgmt-compute,azure-mgmt-network,azure-mgmt-resource,azure-mgmt-dns
+      
+    - name: Install IM dependencies for CentOS 6
+      pip: name=pysqlite version=2.7.0
+      when: ansible_os_family == "RedHat" and ansible_distribution_major_version == "6"
 
     - name: Install IM
       pip: executable=pip name=IM
