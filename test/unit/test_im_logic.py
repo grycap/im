@@ -219,7 +219,8 @@ class TestIM(unittest.TestCase):
                       " are asked to be deployed in different cloud providers",
                       str(ex.exception))
 
-    def test_inf_creation_errors(self):
+    @patch("IM.connectors.OCCI.OCCICloudConnector")
+    def test_inf_creation_errors(self, occi):
         """Create infrastructure """
 
         radl = """"
@@ -237,7 +238,7 @@ class TestIM(unittest.TestCase):
             disk.0.os.credentials.username = 'ubuntu'
             )
             deploy front 1
-            deploy wn 2
+            deploy wn 1
         """
 
         # this case must fail only with one error
@@ -256,15 +257,28 @@ class TestIM(unittest.TestCase):
         self.assertIn('VM 1:\nError launching the VMs of type wn to cloud ID ost of type OpenStack. '
                       'Error, no concrete system to deploy: wn in cloud: ost. '
                       'Check if a correct image is being used', res)
-        self.assertIn('VM 2:\nError launching the VMs of type wn to cloud ID ost of type OpenStack. '
-                      'Error, no concrete system to deploy: wn in cloud: ost. '
-                      'Check if a correct image is being used', res)
 
         # this case must work OK
         auth0 = Authentication([{'id': 'dummy', 'type': 'Dummy'},
                                 {'type': 'InfrastructureManager', 'username': 'test',
                                  'password': 'tests'}])
         IM.CreateInfrastructure(radl, auth0)
+
+        radl = RADL()
+        radl.add(system("s0", [Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
+                               Feature("disk.0.os.credentials.username", "=", "user"),
+                               Feature("disk.0.os.credentials.password", "=", "pass")]))
+        radl.add(deploy("s0", 1))
+        cloud = type("MyMock0", (CloudConnector, object), {})
+        cloud.launch = Mock(return_value=[(False, "e1")])
+        self.register_cloudconnector("Mock", cloud)
+        auth0 = self.getAuth([0], [], [("Mock", 0)])
+        infID = IM.CreateInfrastructure(str(radl), auth0)
+        res = IM.GetInfrastructureState(infID, auth0)
+        self.assertEqual(res['state'], VirtualMachine.FAILED)
+        res = IM.GetInfrastructureContMsg(infID, auth0)
+        self.assertIn(("VM 0:\nError launching the VMs of type s0 to cloud ID cloud0 of type Mock. "
+                       "Attempt 1: e1\nAttempt 2: e1\nAttempt 3: e1"), res)
 
     def test_inf_auth(self):
         """Try to access not owned Infs."""
@@ -297,10 +311,10 @@ class TestIM(unittest.TestCase):
         vms = IM.AddResource(infId, str(radl), auth0)
 
         self.assertEqual(vms, [0])
-        
+
         res = IM.GetInfrastructureState(infId, auth0)
         self.assertEqual(res['state'], VirtualMachine.FAILED)
-        
+
         res = IM.GetVMContMsg(infId, 0, auth0)
         self.assertEqual(res, ("Error launching the VMs of type s0 to cloud ID cloud0 of type Dummy."
                                " No username for deploy: s0\n"))

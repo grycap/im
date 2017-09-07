@@ -88,6 +88,51 @@ class CloudConnector:
 
         raise NotImplementedError("Should have implemented this")
 
+    def launch_with_retry(self, inf, radl, requested_radl, num_vm, auth_data, max_num):
+        """
+        Launch a set of VMs to the Cloud provider with a set of retries in case of failure
+
+        Args:
+
+        - inf(InfrastructureInfo): InfrastructureInfo object the VM is part of.
+        - radl(RADL): RADL document.
+        - num_vm(int): number of instances to deploy.
+        - auth_data(Authentication): Authentication data to access cloud provider.
+        - max_num: Number of retries.
+
+                Returns: a list of tuples with the format (success, vm).
+           - The first value is True if the operation finished successfully or false otherwise.
+           - The second value is a :py:class:`IM.VirtualMachine` of the launched VMs if the operation
+             finished successfully or a str with an error message otherwise.
+        """
+        res_ok = []
+        res_err = {}
+        retries = 0
+        while len(res_ok) < num_vm and retries < max_num:
+            retries += 1
+            err_count = 0
+            for success, vm in self.launch(inf, radl, requested_radl, num_vm - len(res_ok), auth_data):
+                if success:
+                    res_ok.append(vm)
+                else:
+                    if err_count not in res_err:
+                        res_err[err_count] = [vm]
+                    else:
+                        res_err[err_count].append(vm)
+                    err_count += 1
+
+        res = []
+        for elem in res_ok:
+            res.append((True, elem))
+
+        for i in range(num_vm - len(res_ok)):
+            msgs = ""
+            for n, msg in enumerate(res_err[i]):
+                msgs += "Attempt %d: %s\n" % (n + 1, msg)
+            res.append((False, msgs))
+
+        return res
+
     def finalize(self, vm, last, auth_data):
         """ Terminates a VM
 

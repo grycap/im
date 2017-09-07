@@ -438,7 +438,6 @@ class OpenNebulaCloudConnector(CloudConnector):
         template = self.getONETemplate(radl, sgs, auth_data)
         res = []
         i = 0
-        all_failed = True
         while i < num_vm:
             func_res = server.one.vm.allocate(session_id, template)
             if len(func_res) == 2:
@@ -454,20 +453,10 @@ class OpenNebulaCloudConnector(CloudConnector):
                 vm.info.systems[0].setValue('instance_id', str(res_id))
                 inf.add_vm(vm)
                 res.append((success, vm))
-                all_failed = False
             else:
                 res.append((success, "ERROR: " + str(res_id)))
             i += 1
 
-        if all_failed:
-            self.log_debug("All VMs failed, delete Security Groups.")
-            for sg in sgs.values():
-                self.log_debug("Delete Security Group: %d." % sg)
-                success, sg_id, _ = server.one.secgroup.delete(session_id, sg)
-                if success:
-                    self.log_debug("Deleted.")
-                else:
-                    self.log_debug("Error deleting SG: %s." % sg_id)
         return res
 
     def delete_security_groups(self, inf, auth_data, timeout=90, delay=10):

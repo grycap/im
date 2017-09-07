@@ -34,7 +34,6 @@ from radl import radl_parse
 from IM.VirtualMachine import VirtualMachine
 from IM.InfrastructureInfo import InfrastructureInfo
 from IM.connectors.Azure import AzureCloudConnector
-from IM.config import Config
 from mock import patch, MagicMock, call
 
 
@@ -200,8 +199,7 @@ class TestAzureConnector(unittest.TestCase):
 
         cclient.virtual_machines.create_or_update.side_effect = self.create_vm
 
-        Config.MAX_VM_FAILS = 2
-        res = azure_cloud.launch(InfrastructureInfo(), radl, radl, 3, auth)
+        res = azure_cloud.launch_with_retry(InfrastructureInfo(), radl, radl, 3, auth, 2)
         self.assertEqual(len(res), 3)
         self.assertTrue(res[0][0])
         self.assertTrue(res[1][0])

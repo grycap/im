@@ -33,7 +33,6 @@ from IM.VirtualMachine import VirtualMachine
 from radl import radl_parse
 from radl.radl import Feature, RADL
 from radl.radl_json import dump_radl as dump_radl_json
-from IM.InfrastructureInfo import InfrastructureInfo
 
 if Config.MAX_SIMULTANEOUS_LAUNCHES > 1:
     from multiprocessing.pool import ThreadPool
@@ -159,7 +158,7 @@ class InfrastructureManager:
 
         cloud = cloud_list[cloud_id]
         for deploy in deploy_group:
-            if not deploy.id.startswith(InfrastructureInfo.FAKE_SYSTEM):
+            if not deploy.id.startswith(IM.InfrastructureInfo.InfrastructureInfo.FAKE_SYSTEM):
                 concrete_system = concrete_systems[cloud_id][deploy.id][0]
                 launched_vms = []
                 launch_radl = radl.clone()
@@ -187,8 +186,8 @@ class InfrastructureManager:
                         try:
                             InfrastructureManager.logger.debug(
                                 "Launching %d VMs of type %s" % (deploy.vm_number, concrete_system.name))
-                            launched_vms = cloud.cloud.getCloudConnector(sel_inf).launch(
-                                sel_inf, launch_radl, requested_radl, deploy.vm_number, auth)
+                            launched_vms = cloud.cloud.getCloudConnector(sel_inf).launch_with_retry(
+                                sel_inf, launch_radl, requested_radl, deploy.vm_number, auth, Config.MAX_VM_FAILS)
                         except Exception as e:
                             InfrastructureManager.logger.exception("Error launching some of the VMs: %s" % e)
                             for _ in range(deploy.vm_number):
@@ -201,7 +200,7 @@ class InfrastructureManager:
                 if len(launched_vms) < deploy.vm_number:
                     for _ in range(deploy.vm_number - len(launched_vms)):
                         launched_vms.append((False, "Error in deploy: " + deploy.id))
-    
+
                 for success, launched_vm in launched_vms:
                     if success:
                         InfrastructureManager.logger.debug("VM successfully launched: " + str(launched_vm.id))
@@ -510,7 +509,7 @@ class InfrastructureManager:
                                           reverse=True)
             if sorted_scored_clouds and sorted_scored_clouds[0]:
                 deploys_group_cloud[id(deploy_group)] = sorted_scored_clouds[0][0]
-            else: 
+            else:
                 raise Exception("No cloud provider available")
 
         # Launch every group in the same cloud provider

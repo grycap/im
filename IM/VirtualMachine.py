@@ -142,7 +142,7 @@ class VirtualMachine:
         Finalize the VM
         """
         # In case of a VM failed during creation
-        if self.state == VirtualMachine.FAILED and self.id == None:
+        if self.state == VirtualMachine.FAILED and self.id is None:
             # set as deleted and return
             self.destroy = True
             return (True, "")
@@ -460,7 +460,7 @@ class VirtualMachine:
         """
         with self._lock:
             # In case of a VM failed during creation, do not update
-            if self.state == VirtualMachine.FAILED and self.id == None:
+            if self.state == VirtualMachine.FAILED and self.id is None:
                 return False
 
             now = int(time.time())
