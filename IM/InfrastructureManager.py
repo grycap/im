@@ -183,18 +183,11 @@ class InfrastructureManager:
                         for _ in range(deploy.vm_number):
                             launched_vms.append((False, "No username for deploy: " + deploy.id))
                     else:
-                        try:
-                            InfrastructureManager.logger.debug(
-                                "Launching %d VMs of type %s" % (deploy.vm_number, concrete_system.name))
-                            launched_vms = cloud.cloud.getCloudConnector(sel_inf).launch_with_retry(
-                                sel_inf, launch_radl, requested_radl, deploy.vm_number, auth, Config.MAX_VM_FAILS)
-                        except Exception as e:
-                            InfrastructureManager.logger.exception("Error launching some of the VMs: %s" % e)
-                            for _ in range(deploy.vm_number):
-                                launched_vms.append((False, "Error launching the VMs of type %s to cloud ID %s"
-                                                     " of type %s. Cloud Provider Error: %s" % (concrete_system.name,
-                                                                                                cloud.cloud.id,
-                                                                                                cloud.cloud.type, e)))
+                        InfrastructureManager.logger.debug(
+                            "Launching %d VMs of type %s" % (deploy.vm_number, concrete_system.name))
+                        launched_vms = cloud.cloud.getCloudConnector(sel_inf).launch_with_retry(
+                            sel_inf, launch_radl, requested_radl, deploy.vm_number, auth, Config.MAX_VM_FAILS,
+                            Config.DELAY_BETWEEN_VM_RETRIES)
 
                 # this must never happen ...
                 if len(launched_vms) < deploy.vm_number:

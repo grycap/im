@@ -199,7 +199,7 @@ class TestAzureConnector(unittest.TestCase):
 
         cclient.virtual_machines.create_or_update.side_effect = self.create_vm
 
-        res = azure_cloud.launch_with_retry(InfrastructureInfo(), radl, radl, 3, auth, 2)
+        res = azure_cloud.launch_with_retry(InfrastructureInfo(), radl, radl, 3, auth, 2, 0)
         self.assertEqual(len(res), 3)
         self.assertTrue(res[0][0])
         self.assertTrue(res[1][0])

@@ -92,6 +92,7 @@ class Config:
     INF_CACHE_TIME = None
     VMINFO_JSON = False
     VM_NUM_USE_CTXT_DIST = 30
+    DELAY_BETWEEN_VM_RETRIES = 5
 
 config = ConfigParser()
 config.read([Config.IM_PATH + '/../im.cfg', Config.IM_PATH +

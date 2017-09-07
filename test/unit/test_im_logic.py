@@ -221,7 +221,7 @@ class TestIM(unittest.TestCase):
 
     @patch("IM.connectors.OCCI.OCCICloudConnector")
     def test_inf_creation_errors(self, occi):
-        """Create infrastructure """
+        """Create infrastructure with errors"""
 
         radl = """"
             network publica (outbound = 'yes')
@@ -257,6 +257,24 @@ class TestIM(unittest.TestCase):
         self.assertIn('VM 1:\nError launching the VMs of type wn to cloud ID ost of type OpenStack. '
                       'Error, no concrete system to deploy: wn in cloud: ost. '
                       'Check if a correct image is being used', res)
+
+        # this case must fail with two errors, first the OCCI one
+        auth0 = Authentication([{'id': 'occi', 'type': 'OCCI', 'proxy': 'proxy',
+                                'host': 'http://localhost:443'},
+                                {'id': 'one', 'type': 'OpenNebula', 'username': 'user',
+                                'password': 'pass', 'host': 'localhost:2633'},
+                                {'type': 'InfrastructureManager', 'username': 'test',
+                                 'password': 'tests'}])
+        infID = IM.CreateInfrastructure(radl, auth0)
+        res = IM.GetInfrastructureState(infID, auth0)
+        self.assertEqual(res['state'], VirtualMachine.FAILED)
+        res = IM.GetInfrastructureContMsg(infID, auth0)
+        self.assertIn('VM 0:\nError launching the VMs of type front to cloud ID one of type OpenNebula. '
+                      'Attempt 1: Error: [Errno 111] Connection refused\nAttempt 2: Error: [Errno 111] '
+                      'Connection refused\nAttempt 3: Error: [Errno 111] Connection refused', res)
+        self.assertIn('VM 1:\nError launching the VMs of type wn to cloud ID one of type OpenNebula. '
+                      'Attempt 1: Error: [Errno 111] Connection refused\nAttempt 2: Error: [Errno 111] '
+                      'Connection refused\nAttempt 3: Error: [Errno 111] Connection refused', res)
 
         # this case must work OK
         auth0 = Authentication([{'id': 'dummy', 'type': 'Dummy'},

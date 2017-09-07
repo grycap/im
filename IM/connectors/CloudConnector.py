@@ -2,6 +2,7 @@ import logging
 import subprocess
 import shutil
 import tempfile
+import time
 
 
 class CloudConnector:
@@ -88,7 +89,7 @@ class CloudConnector:
 
         raise NotImplementedError("Should have implemented this")
 
-    def launch_with_retry(self, inf, radl, requested_radl, num_vm, auth_data, max_num):
+    def launch_with_retry(self, inf, radl, requested_radl, num_vm, auth_data, max_num, delay):
         """
         Launch a set of VMs to the Cloud provider with a set of retries in case of failure
 
@@ -99,6 +100,7 @@ class CloudConnector:
         - num_vm(int): number of instances to deploy.
         - auth_data(Authentication): Authentication data to access cloud provider.
         - max_num: Number of retries.
+        - delay: a sleep time between retries
 
                 Returns: a list of tuples with the format (success, vm).
            - The first value is True if the operation finished successfully or false otherwise.
@@ -109,9 +111,18 @@ class CloudConnector:
         res_err = {}
         retries = 0
         while len(res_ok) < num_vm and retries < max_num:
+            if retries != 0:
+                time.sleep(delay)
             retries += 1
             err_count = 0
-            for success, vm in self.launch(inf, radl, requested_radl, num_vm - len(res_ok), auth_data):
+            try:
+                vms = self.launch(inf, radl, requested_radl, num_vm - len(res_ok), auth_data)
+            except Exception as ex:
+                self.log_exception("Error launching some of the VMs")
+                vms = []
+                for _ in range(num_vm - len(res_ok)):
+                    vms.append((False, "Error: %s" % ex))
+            for success, vm in vms:
                 if success:
                     res_ok.append(vm)
                 else:
