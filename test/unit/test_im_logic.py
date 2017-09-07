@@ -245,39 +245,20 @@ class TestIM(unittest.TestCase):
                                 'password': 'pass', 'tenant': 'ten', 'host': 'localhost:5000'},
                                {'type': 'InfrastructureManager', 'username': 'test',
                                 'password': 'tests'}])
-        with self.assertRaises(Exception) as ex:
-            IM.CreateInfrastructure(radl, auth0)
-        self.assertEqual(str(ex.exception),
-                         'Some deploys did not proceed successfully: All machines could not be launched: \n'
-                         'Attempt 1: Error, no concrete system to deploy: front in cloud: ost. '
-                         'Check if a correct image is being used\n\n')
 
-        # this case must fail with two errors, first the OpenNebula one
-        auth0 = Authentication([{'id': 'ost', 'type': 'OpenStack', 'username': 'user',
-                                'password': 'pass', 'tenant': 'ten', 'host': 'localhost:5000'},
-                                {'id': 'one', 'type': 'OpenNebula', 'username': 'user',
-                                'password': 'pass', 'host': 'localhost:2633'},
-                                {'type': 'InfrastructureManager', 'username': 'test',
-                                 'password': 'tests'}])
-        with self.assertRaises(Exception) as ex:
-            IM.CreateInfrastructure(radl, auth0)
-        self.assertIn('Some deploys did not proceed successfully: All machines could not be launched: \n'
-                      'Attempt 1: Error launching the VMs of type front to cloud ID one of type OpenNebula. ',
-                      str(ex.exception))
-
-        # this case must fail with two errors, first the OCCI one
-        auth0 = Authentication([{'id': 'occi', 'type': 'OCCI', 'proxy': 'proxy',
-                                'host': 'http://localhost:443'},
-                                {'id': 'one', 'type': 'OpenNebula', 'username': 'user',
-                                'password': 'pass', 'host': 'localhost:2633'},
-                                {'type': 'InfrastructureManager', 'username': 'test',
-                                 'password': 'tests'}])
-        with self.assertRaises(Exception) as ex:
-            IM.CreateInfrastructure(radl, auth0)
-        self.assertIn('Some deploys did not proceed successfully: All machines could not be launched: \n'
-                      'Attempt 1: Error launching the VMs of type front to cloud ID occi of type OCCI. '
-                      'Cloud Provider Error: Error querying the OCCI server:',
-                      str(ex.exception))
+        infID = IM.CreateInfrastructure(radl, auth0)
+        res = IM.GetInfrastructureState(infID, auth0)
+        self.assertEqual(res['state'], VirtualMachine.FAILED)
+        res = IM.GetInfrastructureContMsg(infID, auth0)
+        self.assertIn('VM 0:\nError launching the VMs of type front to cloud ID ost of type OpenStack.'
+                      ' Error, no concrete system to deploy: front in cloud: ost. '
+                      'Check if a correct image is being used', res)
+        self.assertIn('VM 1:\nError launching the VMs of type wn to cloud ID ost of type OpenStack. '
+                      'Error, no concrete system to deploy: wn in cloud: ost. '
+                      'Check if a correct image is being used', res)
+        self.assertIn('VM 2:\nError launching the VMs of type wn to cloud ID ost of type OpenStack. '
+                      'Error, no concrete system to deploy: wn in cloud: ost. '
+                      'Check if a correct image is being used', res)
 
         # this case must work OK
         auth0 = Authentication([{'id': 'dummy', 'type': 'Dummy'},
@@ -313,10 +294,16 @@ class TestIM(unittest.TestCase):
         auth0 = self.getAuth([0], [], [("Dummy", 0)])
         infId = IM.CreateInfrastructure("", auth0)
 
-        with self.assertRaises(Exception) as ex:
-            IM.AddResource(infId, str(radl), auth0)
+        vms = IM.AddResource(infId, str(radl), auth0)
 
-        self.assertIn("No username", str(ex.exception))
+        self.assertEqual(vms, [0])
+        
+        res = IM.GetInfrastructureState(infId, auth0)
+        self.assertEqual(res['state'], VirtualMachine.FAILED)
+        
+        res = IM.GetVMContMsg(infId, 0, auth0)
+        self.assertEqual(res, ("Error launching the VMs of type s0 to cloud ID cloud0 of type Dummy."
+                               " No username for deploy: s0\n"))
 
         IM.DestroyInfrastructure(infId, auth0)
 

@@ -85,6 +85,8 @@ class VirtualMachine:
         """CloudConnector object to connect with the IaaS platform"""
         self.creating = True
         """Flag to specify that this VM is creation process"""
+        self.error_msg = None
+        """Message with the cause of the the error in the VM (if known) """
 
     def serialize(self):
         with self._lock:
@@ -139,6 +141,11 @@ class VirtualMachine:
         """
         Finalize the VM
         """
+        # In case of a VM failed during creation
+        if self.state == VirtualMachine.FAILED and self.id == None:
+            # set as deleted and return
+            self.destroy = True
+            return (True, "")
         if not self.destroy:
             self.kill_check_ctxt_process()
             (success, msg) = self.getCloudConnector().finalize(self, last, auth)
@@ -452,6 +459,10 @@ class VirtualMachine:
         - boolean: True if the information has been updated, false otherwise
         """
         with self._lock:
+            # In case of a VM failed during creation, do not update
+            if self.state == VirtualMachine.FAILED and self.id == None:
+                return False
+
             now = int(time.time())
             state = self.state
             updated = False
@@ -873,7 +884,10 @@ class VirtualMachine:
         return True
 
     def get_cont_msg(self):
-        res = self.cont_out
+        if self.error_msg:
+            res = self.error_msg + "\n" + self.cont_out
+        else:
+            res = self.cont_out
         if self.cloud_connector and self.cloud_connector.error_messages:
             res += self.cloud_connector.error_messages
         return res
