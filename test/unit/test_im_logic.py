@@ -219,8 +219,7 @@ class TestIM(unittest.TestCase):
                       " are asked to be deployed in different cloud providers",
                       str(ex.exception))
 
-    @patch("IM.connectors.OCCI.OCCICloudConnector")
-    def test_inf_creation_errors(self, occi):
+    def test_inf_creation_errors(self):
         """Create infrastructure with errors"""
 
         radl = """"
@@ -241,7 +240,15 @@ class TestIM(unittest.TestCase):
             deploy wn 1
         """
 
-        # this case must fail only with one error
+        # this case raises an exception
+        auth0 = Authentication([{'type': 'InfrastructureManager', 'username': 'test',
+                                 'password': 'tests'}])
+        with self.assertRaises(Exception) as ex:
+            IM.CreateInfrastructure(radl, auth0)
+
+        self.assertEqual(str(ex.exception), "No cloud provider available")
+
+        # this case must fail with "no concrete system" error
         auth0 = Authentication([{'id': 'ost', 'type': 'OpenStack', 'username': 'user',
                                 'password': 'pass', 'tenant': 'ten', 'host': 'localhost:5000'},
                                {'type': 'InfrastructureManager', 'username': 'test',
@@ -258,10 +265,8 @@ class TestIM(unittest.TestCase):
                       'Error, no concrete system to deploy: wn in cloud: ost. '
                       'Check if a correct image is being used', res)
 
-        # this case must fail with two errors, first the OCCI one
-        auth0 = Authentication([{'id': 'occi', 'type': 'OCCI', 'proxy': 'proxy',
-                                'host': 'http://localhost:443'},
-                                {'id': 'one', 'type': 'OpenNebula', 'username': 'user',
+        # this case must fail with Connection refused error in the VMs
+        auth0 = Authentication([{'id': 'one', 'type': 'OpenNebula', 'username': 'user',
                                 'password': 'pass', 'host': 'localhost:2633'},
                                 {'type': 'InfrastructureManager', 'username': 'test',
                                  'password': 'tests'}])
