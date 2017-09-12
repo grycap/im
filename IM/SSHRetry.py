@@ -19,6 +19,7 @@ from IM.retry import retry
 from IM.SSH import SSH, AuthenticationException
 import paramiko
 
+
 class SSHRetry(SSH):
     """ SSH class decorated to perform a number of retries """
     TRIES = 5
