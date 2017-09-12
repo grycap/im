@@ -2,7 +2,7 @@ import time
 from functools import wraps
 
 
-def retry(ExceptionToCheck, tries=4, delay=3, backoff=2, logger=None, quiet=True):
+def retry(ExceptionToCheck, ExceptionToAvoid, tries=4, delay=3, backoff=2, logger=None, quiet=True):
     """Retry calling the decorated function using an exponential backoff.
 
     http://www.saltycrane.com/blog/2009/11/trying-out-retry-decorator-python/
@@ -11,6 +11,9 @@ def retry(ExceptionToCheck, tries=4, delay=3, backoff=2, logger=None, quiet=True
     :param ExceptionToCheck: the exception to check. may be a tuple of
         exceptions to check
     :type ExceptionToCheck: Exception or tuple
+    :param ExceptionToAvoid: the exception to avoid to check. may be a tuple of
+        exceptions to check
+    :type ExceptionToAvoid: Exception or tuple
     :param tries: number of times to try (not retry) before giving up
     :type tries: int
     :param delay: initial delay between retries in seconds
@@ -31,6 +34,8 @@ def retry(ExceptionToCheck, tries=4, delay=3, backoff=2, logger=None, quiet=True
             while mtries > 1:
                 try:
                     return f(*args, **kwargs)
+                except ExceptionToAvoid as a:
+                    raise(a)
                 except ExceptionToCheck as e:
                     if not quiet:
                         msg = "%s, Retrying in %d seconds..." % (
