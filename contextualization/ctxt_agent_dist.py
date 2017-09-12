@@ -26,7 +26,6 @@ import os
 import getpass
 import json
 import yaml
-import shutil
 try:
     from StringIO import StringIO
 except ImportError:
