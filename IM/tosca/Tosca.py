@@ -245,7 +245,7 @@ class Tosca:
                         elif network_name.endswith(".PRIVATE"):
                             parts = network_name.split(".")
                             net_provider_id = ".".join(parts[:-1])
-                        else:
+                        elif network_name != "PRIVATE":
                             # assume that is a private one
                             net_provider_id = network_name
                     if cap_props and "dns_name" in cap_props:
