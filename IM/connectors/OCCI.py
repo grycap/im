@@ -147,7 +147,7 @@ class OCCICloudConnector(CloudConnector):
                     _, site_url = self.get_image_id_and_site_url(site_id, image_name, vo_name)
 
                 if ((protocol in ['https', 'http'] and url[2] and url[0] + "://" + url[1] == cloud_url) or
-                        (protocol == "appdb" and site_url == cloud_url)):
+                        (protocol == "appdb" and site_url.startswith(cloud_url))):
                     res_system = radl_system.clone()
 
                     res_system.getFeature("cpu.count").operator = "="
@@ -1206,7 +1206,7 @@ class OCCICloudConnector(CloudConnector):
         data = OCCICloudConnector.appdb_call('/rest/1.0/va_providers')
         if data:
             for site in data['appdb:appdb']['virtualization:provider']:
-                if site_name == site['provider:name']:
+                if site_name == site['provider:name'] and site['@in_production'] == "true":
                     return site['@id']
         return None
 
@@ -1215,15 +1215,16 @@ class OCCICloudConnector(CloudConnector):
         data = OCCICloudConnector.appdb_call('/rest/1.0/va_providers/%s' % site_id)
         if data:
             site_url = data['appdb:appdb']['virtualization:provider']["provider:endpoint_url"]
-            for image in data['appdb:appdb']['virtualization:provider']['provider:image']:
-                if image['@appcname'] == image_name and (not vo_name or image['@voname'] == vo_name):
-                    image_basename = os.path.basename(image['@va_provider_image_id'])
-                    parts = image_basename.split("#")
-                    if len(parts) > 1:
-                        return parts[1], site_url
-                    else:
-                        return image_basename, site_url
-        return None, None
+            if 'provider:image' in data['appdb:appdb']['virtualization:provider']:
+                for image in data['appdb:appdb']['virtualization:provider']['provider:image']:
+                    if image['@appcname'] == image_name and (not vo_name or image['@voname'] == vo_name):
+                        image_basename = os.path.basename(image['@va_provider_image_id'])
+                        parts = image_basename.split("#")
+                        if len(parts) > 1:
+                            return parts[1], site_url
+                        else:
+                            return image_basename, site_url
+        return '', ''
 
 
 class KeyStoneAuth:
