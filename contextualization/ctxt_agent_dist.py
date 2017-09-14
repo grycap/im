@@ -138,6 +138,10 @@ class CtxtAgent():
                         res = "new"
                     except AuthenticationException:
                         try_ansible_key = True
+                    except:
+                        if not quiet:
+                            CtxtAgent.logger.exception("Error connecting with SSH with: " + vm_ip)
+                        success = False
 
                 if try_ansible_key:
                     # In some very special cases the last two cases fail, so check
@@ -150,8 +154,13 @@ class CtxtAgent():
                         success = ssh_client.test_connectivity()
                         res = 'pk_file'
                     except:
-                        CtxtAgent.logger.exception("Error connecting with SSH with: " + vm_ip)
+                        if not quiet:
+                            CtxtAgent.logger.exception("Error connecting with SSH with: " + vm_ip)
                         success = False
+            except:
+                if not quiet:
+                    CtxtAgent.logger.exception("Error connecting with SSH with: " + vm_ip)
+                success = False
 
             if success:
                 vm['ctxt_ip'] = vm_ip
