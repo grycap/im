@@ -138,6 +138,10 @@ class CtxtAgent():
                         res = "new"
                     except AuthenticationException:
                         try_ansible_key = True
+                    except:
+                        if not quiet:
+                            CtxtAgent.logger.exception("Error connecting with SSH with: " + vm_ip)
+                        success = False
 
                 if try_ansible_key:
                     # In some very special cases the last two cases fail, so check
@@ -150,8 +154,13 @@ class CtxtAgent():
                         success = ssh_client.test_connectivity()
                         res = 'pk_file'
                     except:
-                        CtxtAgent.logger.exception("Error connecting with SSH with: " + vm_ip)
+                        if not quiet:
+                            CtxtAgent.logger.exception("Error connecting with SSH with: " + vm_ip)
                         success = False
+            except:
+                if not quiet:
+                    CtxtAgent.logger.exception("Error connecting with SSH with: " + vm_ip)
+                success = False
 
             if success:
                 vm['ctxt_ip'] = vm_ip
@@ -554,7 +563,7 @@ class CtxtAgent():
             if vm['id'] == vm_data['id']:
                 vm['ctxt_ip'] = vm_data['ctxt_ip']
 
-        with open(CtxtAgent.CONF_DATA_FILENAME, 'w+') as f:
+        with open(CtxtAgent.CONF_DATA_FILENAME + ".rep", 'w+') as f:
             json.dump(general_conf_data, f, indent=2)
 
         # Now in the ansible inventory
@@ -708,6 +717,10 @@ class CtxtAgent():
                             ssh_client = CtxtAgent.get_ssh(ctxt_vm, True, CtxtAgent.PK_FILE)
                             ssh_client.sftp_mkdir(cache_dir)
                             ssh_client.sftp_put_dir(cache_dir, cache_dir)
+
+                            CtxtAgent.logger.info("Copy ansible roles to: %s" % ctxt_vm['ip'])
+                            ssh_client.sftp_mkdir(general_conf_data['conf_dir'] + "/roles")
+                            ssh_client.sftp_put_dir("/etc/ansible/roles", general_conf_data['conf_dir'] + "/roles")
                         except:
                             CtxtAgent.logger.exception("Error copying cache to VM: " + ctxt_vm['ip'])
                     else:
@@ -817,8 +830,9 @@ class CtxtAgent():
                         if local:
                             # this step is not needed in windows systems
                             CtxtAgent.set_ansible_connection_local(general_conf_data, ctxt_vm)
-                            # Install ansible modules
-                            playbook = CtxtAgent.install_ansible_modules(general_conf_data, playbook)
+                            if ctxt_vm['master']:
+                                # Install ansible modules
+                                playbook = CtxtAgent.install_ansible_modules(general_conf_data, playbook)
                             ansible_thread = CtxtAgent.LaunchAnsiblePlaybook(CtxtAgent.logger,
                                                                              vm_conf_data['remote_dir'],
                                                                              playbook, ctxt_vm, 2,
@@ -871,8 +885,18 @@ class CtxtAgent():
         CtxtAgent.CONF_DATA_FILENAME = os.path.abspath(general_conf_file)
         CtxtAgent.VM_CONF_DATA_FILENAME = os.path.abspath(vm_conf_file)
 
-        with open(CtxtAgent.CONF_DATA_FILENAME) as f:
-            general_conf_data = json.load(f)
+        # if we have the .rep file, read it instead
+        if os.path.isfile(CtxtAgent.CONF_DATA_FILENAME + ".rep"):
+            try:
+                with open(CtxtAgent.CONF_DATA_FILENAME + ".rep") as f:
+                    general_conf_data = json.load(f)
+            except:
+                print("Error loading .rep file, using original one.")
+                with open(CtxtAgent.CONF_DATA_FILENAME) as f:
+                    general_conf_data = json.load(f)
+        else:
+            with open(CtxtAgent.CONF_DATA_FILENAME) as f:
+                general_conf_data = json.load(f)
         with open(vm_conf_file) as f:
             vm_conf_data = json.load(f)
 

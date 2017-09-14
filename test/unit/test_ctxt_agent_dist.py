@@ -268,7 +268,7 @@ class TestCtxtAgent(unittest.TestCase):
         vm_data['ctxt_ip'] = "10.0.0.2"
         CtxtAgent.replace_vm_ip(vm_data)
 
-        with open("/tmp/gen_data.json", "r") as f:
+        with open("/tmp/gen_data.json.rep", "r") as f:
             general_conf_data = json.load(f)
         for vm in general_conf_data['vms']:
             if vm['id'] == vm_data['id']:

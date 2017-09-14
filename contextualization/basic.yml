@@ -38,3 +38,6 @@
     - name: Add the authorized_key to the nodes again
       lineinfile: dest="/home/{{ansible_user}}/.ssh/authorized_keys" line="{{ lookup('file', pk_file) }}2"
       ignore_errors: yes
+
+    - name: Gather Facts
+      setup: 
