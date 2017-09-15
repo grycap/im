@@ -123,6 +123,8 @@ class ConfManager(threading.Thread):
             for vm in self.inf.get_vm_list():
                 if vm.hasPublicNet():
                     ip = vm.getPublicIP()
+                    if not ip:
+                        ip = vm.getPrivateIP()
                 else:
                     ip = vm.getPrivateIP()
                     if not ip:
@@ -140,6 +142,8 @@ class ConfManager(threading.Thread):
 
                     if vm.hasPublicNet():
                         ip = vm.getPublicIP()
+                        if not ip:
+                            ip = vm.getPrivateIP()
                     else:
                         ip = vm.getPrivateIP()
                         if not ip:
