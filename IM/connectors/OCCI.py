@@ -1201,17 +1201,19 @@ class OCCICloudConnector(CloudConnector):
         else:
             return None
 
-    @staticmethod
-    def get_site_id(site_name):
+    def get_site_id(self, site_name):
         data = OCCICloudConnector.appdb_call('/rest/1.0/va_providers')
         if data:
             for site in data['appdb:appdb']['virtualization:provider']:
                 if site_name == site['provider:name'] and site['@in_production'] == "true":
                     return site['@id']
+        else:
+            self.log_warn("No data returned from EGI AppDB.")
+
+        self.log_warn("No site ID returned from EGI AppDB for site: %s." % site_name)
         return None
 
-    @staticmethod
-    def get_image_id_and_site_url(site_id, image_name, vo_name=None):
+    def get_image_id_and_site_url(self, site_id, image_name, vo_name=None):
         data = OCCICloudConnector.appdb_call('/rest/1.0/va_providers/%s' % site_id)
         if data:
             site_url = data['appdb:appdb']['virtualization:provider']["provider:endpoint_url"]
@@ -1224,6 +1226,10 @@ class OCCICloudConnector(CloudConnector):
                             return parts[1], site_url
                         else:
                             return image_basename, site_url
+        else:
+            self.log_warn("No data returned from EGI AppDB.")
+
+        self.log_warn("No image ID returned from EGI AppDB for image: %s/%s." % (site_id, image_name))
         return '', ''
 
 
