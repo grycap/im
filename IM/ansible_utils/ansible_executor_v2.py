@@ -371,8 +371,6 @@ class IMPlaybookExecutor(PlaybookExecutor):
             for playbook_path in self._playbooks:
                 pb = Playbook.load(
                     playbook_path, variable_manager=self._variable_manager, loader=self._loader)
-                self._inventory.set_playbook_basedir(
-                    os.path.dirname(playbook_path))
 
                 # make sure the tqm has callbacks loaded
                 self._tqm.load_callbacks()
