@@ -38,7 +38,12 @@ if ansible_version.startswith("1."):
 else:
     from ansible.cli import CLI
     from ansible.parsing.dataloader import DataLoader
-    from ansible.vars import VariableManager
+    try:
+        # for Ansible version 2.4.0 or higher
+        from ansible.vars.manager import VariableManager
+    except:
+        # for Ansible version 2.3.2 or lower
+        from ansible.vars import VariableManager
     import ansible.inventory
 
     from .ansible_executor_v2 import IMPlaybookExecutor
