@@ -329,3 +329,8 @@ IM 1.6.0
     * Update Ansible roles in Master node in reconfiguration.
     * Fix error in Azure conn creating subnet.
     * Fix error in Context. process in basic test in SSH tests.
+
+IM 1.6.1
+    * Fix error in ctxt process in some cases in OpenStack sites.
+    * Fix error launching IM with Ansible 2.4.0.
+
