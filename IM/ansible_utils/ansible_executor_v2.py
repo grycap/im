@@ -371,10 +371,6 @@ class IMPlaybookExecutor(PlaybookExecutor):
             for playbook_path in self._playbooks:
                 pb = Playbook.load(
                     playbook_path, variable_manager=self._variable_manager, loader=self._loader)
-                self._inventory.set_playbook_basedir(
-                    os.path.dirname(playbook_path))
-
-                i = 1
 
                 # make sure the tqm has callbacks loaded
                 self._tqm.load_callbacks()
@@ -393,8 +389,12 @@ class IMPlaybookExecutor(PlaybookExecutor):
                     # Create a temporary copy of the play here, so we can run post_validate
                     # on it without the templating changes affecting the
                     # original object.
-                    all_vars = self._variable_manager.get_vars(
-                        loader=self._loader, play=play)
+                    try:
+                        # for Ansible version 2.3.2 or lower
+                        all_vars = self._variable_manager.get_vars(loader=self._loader, play=play)
+                    except TypeError:
+                        # for Ansible version 2.4.0 or higher
+                        all_vars = self._variable_manager.get_vars(play=play)
                     templar = Templar(loader=self._loader, variables=all_vars)
                     new_play = play.copy()
                     new_play.post_validate(templar)
@@ -441,8 +441,6 @@ class IMPlaybookExecutor(PlaybookExecutor):
                     # break out of the serial batch loop
                     if result not in (0, 3):
                         break
-
-                    i = i + 1  # per play
 
                 self._tqm.send_callback(
                     'v2_playbook_on_stats', self._tqm._stats)
