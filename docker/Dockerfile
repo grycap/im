@@ -31,4 +31,10 @@ RUN wget https://github.com/grycap/RADL/releases/download/v1.1.0/python-radl_1.1
     rm -rf /var/lib/apt/lists/*
 
 COPY ansible.cfg /etc/ansible/ansible.cfg
+
+RUN easy_install cheroot
+
+# Expose the IM ports
+EXPOSE 8899 8800
+
 CMD im_service.py
