@@ -288,6 +288,7 @@ class TestIM(unittest.TestCase):
             deploy wn 2
         """
 
+        Config.MAX_VM_FAILS = 1
         # this case must fail only with one error
         auth0 = Authentication([{'id': 'ost', 'type': 'OpenStack', 'username': 'user',
                                 'password': 'pass', 'tenant': 'ten', 'host': 'localhost:5000'},
@@ -315,6 +316,21 @@ class TestIM(unittest.TestCase):
         self.assertIn('Attempt 2: Error, no concrete system to deploy: front in cloud: ost. '
                       'Check if a correct image is being used\n\n',
                       str(ex.exception))
+        
+        Config.MAX_VM_FAILS = 3
+        with self.assertRaises(Exception) as ex:
+            IM.CreateInfrastructure(radl, auth0)
+        self.assertIn('Some deploys did not proceed successfully: All machines could not be launched: \n'
+                      'Attempt 1: Error launching the VMs of type front to cloud ID one of type OpenNebula. ',
+                      str(ex.exception))
+        self.assertIn('Attempt 2: Error launching the VMs of type front to cloud ID one of type OpenNebula. ',
+                      str(ex.exception))
+        self.assertIn('Attempt 3: Error launching the VMs of type front to cloud ID one of type OpenNebula. ',
+                      str(ex.exception))
+        self.assertIn('Attempt 4: Error, no concrete system to deploy: front in cloud: ost. '
+                      'Check if a correct image is being used\n\n',
+                      str(ex.exception))
+        Config.MAX_VM_FAILS = 1
 
         # this case must fail with two errors, first the OCCI one
         auth0 = Authentication([{'id': 'occi', 'type': 'OCCI', 'proxy': 'proxy',

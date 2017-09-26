@@ -191,11 +191,8 @@ class InfrastructureManager:
                             sel_inf, launch_radl, requested_radl, remain_vm, auth)
                     except Exception as e:
                         InfrastructureManager.logger.exception("Error launching some of the VMs: %s" % e)
-                        exceptions.append("Error launching the VMs of type %s to cloud ID %s"
-                                          " of type %s. Cloud Provider Error: %s" % (concrete_system.name,
-                                                                                     cloud.cloud.id,
-                                                                                     cloud.cloud.type, e))
-                        launched_vms = []
+                        launched_vms = [(False, str(e)) for _ in range(remain_vm)]
+
                     for success, launched_vm in launched_vms:
                         if success:
                             InfrastructureManager.logger.debug("VM successfully launched: " + str(launched_vm.id))
@@ -205,8 +202,9 @@ class InfrastructureManager:
                         else:
                             InfrastructureManager.logger.warn(
                                 "Error launching some of the VMs: " + str(launched_vm))
-                            exceptions.append("Error launching the VMs of type %s to cloud ID %s of type %s. %s" % (
-                                concrete_system.name, cloud.cloud.id, cloud.cloud.type, str(launched_vm)))
+                            exceptions.append("Error launching the VMs of type %s to cloud ID %s of type %s."
+                                              " Cloud Provider Error: %s" % (concrete_system.name, cloud.cloud.id,
+                                                                             cloud.cloud.type, str(launched_vm)))
                             if not isinstance(launched_vm, (str, unicode)):
                                 cloud.finalize(launched_vm, True, auth)
                     fail_cont += 1
