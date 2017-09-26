@@ -66,11 +66,10 @@ class ConfManager(threading.Thread):
         self.ansible_process = None
         self.logger = logging.getLogger('ConfManager')
 
-    def check_running_pids(self, vms_configuring):
+    def check_running_pids(self, vms_configuring, failed_step):
         """
         Update the status of the configuration processes
         """
-        cont_vms = 0
         res = {}
         for step, vm_list in vms_configuring.items():
             for vm in vm_list:
@@ -79,11 +78,17 @@ class ConfManager(threading.Thread):
                         if step not in res:
                             res[step] = []
                         res[step].append(vm)
-                        cont_vms += 1
                         self.log_debug("Ansible process to configure " + str(vm.im_id) +
                                        " with PID " + vm.ctxt_pid + " is still running.")
                     else:
                         self.log_debug("Configuration process in VM: " + str(vm.im_id) + " finished.")
+                        if vm.configured:
+                            self.log_debug("Configuration process of VM %s success." % vm.im_id)
+                        elif vm.configured is False:
+                            failed_step.append(step)
+                            self.log_debug("Configuration process of VM %s failed." % vm.im_id)
+                        else:
+                            self.log_warn("Configuration process of VM %s in unfinished state." % vm.im_id)
                         # Force to save the data to store the log data ()
                         IM.InfrastructureList.InfrastructureList.save_data(self.inf.id)
                 else:
@@ -97,12 +102,15 @@ class ConfManager(threading.Thread):
                     else:
                         if vm.configured:
                             self.log_debug("Configuration process of master node successfully finished.")
-                        else:
+                        elif vm.configured is False:
+                            failed_step.append(step)
                             self.log_debug("Configuration process of master node failed.")
+                        else:
+                            self.log_warn("Configuration process of master node in unfinished state.")
                         # Force to save the data to store the log data
                         IM.InfrastructureList.InfrastructureList.save_data(self.inf.id)
 
-        return cont_vms, res
+        return failed_step, res
 
     def stop(self):
         self._stop_thread = True
@@ -177,10 +185,12 @@ class ConfManager(threading.Thread):
                 vm.kill_check_ctxt_process()
             except:
                 self.log_exception("Error killing ctxt processes in VM: %s" % vm.id)
+            vm.configured = None
 
     def run(self):
         self.log_debug("Starting the ConfManager Thread")
 
+        failed_step = []
         last_step = None
         vms_configuring = {}
 
@@ -197,7 +207,7 @@ class ConfManager(threading.Thread):
                     self.ansible_process.terminate()
                 return
 
-            cont_vms, vms_configuring = self.check_running_pids(vms_configuring)
+            failed_step, vms_configuring = self.check_running_pids(vms_configuring, failed_step)
 
             # If the queue is empty but there are vms configuring wait and test
             # again
@@ -214,9 +224,9 @@ class ConfManager(threading.Thread):
 
             # if this task is from a next step
             if last_step is not None and last_step < step:
-                if vm.is_configured() is False:
-                    self.log_debug("Configuration process of step " + str(last_step) +
-                                   " failed, ignoring tasks of later steps.")
+                if failed_step and sorted(failed_step)[-1] < step:
+                    self.log_debug("Configuration of process of step %s failed, "
+                                   "ignoring tasks of step %s." % (sorted(failed_step)[-1], step))
                 else:
                     # Add the task again to the queue only if the last step was
                     # OK
@@ -237,8 +247,8 @@ class ConfManager(threading.Thread):
                         self.log_warn("VM ID " + str(vm.im_id) +
                                       " has been destroyed. Not launching new tasks for it.")
                     elif vm.is_configured() is False:
-                        self.log_debug("Configuration process of step " +
-                                       str(last_step) + " failed, ignoring tasks of later steps.")
+                        self.log_debug("Configuration process of step %s failed, "
+                                       "ignoring tasks of step %s." % (last_step, step))
                         # Check that the VM has no other ansible process
                         # running
                     elif vm.ctxt_pid:
@@ -802,8 +812,7 @@ class ConfManager(threading.Thread):
 
                 except Exception as ex:
                     self.log_exception("Error in the ansible installation process")
-                    self.inf.add_cont_msg(
-                        "Error in the ansible installation process: " + str(ex))
+                    self.inf.add_cont_msg("Error in the ansible installation process: " + str(ex))
                     if not self.inf.ansible_configured:
                         self.inf.ansible_configured = False
                     success = False
