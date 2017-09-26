@@ -66,11 +66,10 @@ class ConfManager(threading.Thread):
         self.ansible_process = None
         self.logger = logging.getLogger('ConfManager')
 
-    def check_running_pids(self, vms_configuring):
+    def check_running_pids(self, vms_configuring, all_ok):
         """
         Update the status of the configuration processes
         """
-        cont_vms = 0
         res = {}
         for step, vm_list in vms_configuring.items():
             for vm in vm_list:
@@ -79,11 +78,17 @@ class ConfManager(threading.Thread):
                         if step not in res:
                             res[step] = []
                         res[step].append(vm)
-                        cont_vms += 1
                         self.log_debug("Ansible process to configure " + str(vm.im_id) +
                                        " with PID " + vm.ctxt_pid + " is still running.")
                     else:
                         self.log_debug("Configuration process in VM: " + str(vm.im_id) + " finished.")
+                        if vm.configured:
+                            self.log_debug("Configuration process of VM %s success." % vm.im_id)
+                        elif vm.configured is False:
+                            all_ok = False
+                            self.log_debug("Configuration process of VM %s failed." % vm.im_id)
+                        else:
+                            self.log_warn("Configuration process of VM %s in unfinished state." % vm.im_id)
                         # Force to save the data to store the log data ()
                         IM.InfrastructureList.InfrastructureList.save_data(self.inf.id)
                 else:
@@ -97,12 +102,15 @@ class ConfManager(threading.Thread):
                     else:
                         if vm.configured:
                             self.log_debug("Configuration process of master node successfully finished.")
-                        else:
+                        elif vm.configured is False:
+                            all_ok = False
                             self.log_debug("Configuration process of master node failed.")
+                        else:
+                            self.log_warn("Configuration process of master node in unfinished state.")
                         # Force to save the data to store the log data
                         IM.InfrastructureList.InfrastructureList.save_data(self.inf.id)
 
-        return cont_vms, res
+        return all_ok, res
 
     def stop(self):
         self._stop_thread = True
@@ -181,6 +189,7 @@ class ConfManager(threading.Thread):
     def run(self):
         self.log_debug("Starting the ConfManager Thread")
 
+        all_ok = True
         last_step = None
         vms_configuring = {}
 
@@ -197,7 +206,7 @@ class ConfManager(threading.Thread):
                     self.ansible_process.terminate()
                 return
 
-            cont_vms, vms_configuring = self.check_running_pids(vms_configuring)
+            all_ok, vms_configuring = self.check_running_pids(vms_configuring, all_ok)
 
             # If the queue is empty but there are vms configuring wait and test
             # again
@@ -214,7 +223,7 @@ class ConfManager(threading.Thread):
 
             # if this task is from a next step
             if last_step is not None and last_step < step:
-                if vm.is_configured() is False:
+                if not all_ok:
                     self.log_debug("Configuration process of step " + str(last_step) +
                                    " failed, ignoring tasks of later steps.")
                 else:
@@ -227,6 +236,7 @@ class ConfManager(threading.Thread):
                         self.log_debug("Waiting processes of step " + str(last_step) + " to finish.")
                         time.sleep(Config.CONFMAMAGER_CHECK_STATE_INTERVAL)
                     else:
+                        all_ok = True
                         # if not, update the step, to go ahead with the new
                         # step
                         self.log_debug("Step " + str(last_step) + " finished. Go to step: " + str(step))
