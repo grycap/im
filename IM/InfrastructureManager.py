@@ -439,13 +439,6 @@ class InfrastructureManager:
                 raise Exception(
                     "No correct VMRC auth data provided nor image URL")
 
-            if Config.SINGLE_SITE:
-                image_id = os.path.basename(s.getValue("disk.0.image.url"))
-                url_prefix = Config.SINGLE_SITE_IMAGE_URL_PREFIX
-                if not url_prefix.endswith("/"):
-                    url_prefix = url_prefix + "/"
-                s.setValue("disk.0.image.url", url_prefix + image_id)
-
             # Remove the requested apps from the system
             s_without_apps = radl.get_system_by_name(system_id).clone()
             s_without_apps.delValue("disk.0.applications")
@@ -1299,19 +1292,6 @@ class InfrastructureManager:
         if not InfrastructureManager.check_im_user(im_auth):
             raise InvaliddUserException()
 
-        if Config.SINGLE_SITE:
-            vmrc_auth = auth.getAuthInfo("VMRC")
-            single_site_auth = auth.getAuthInfo(Config.SINGLE_SITE_TYPE)
-
-            single_site_auth[0]["host"] = Config.SINGLE_SITE_AUTH_HOST
-
-            auth_list = []
-            auth_list.extend(im_auth)
-            auth_list.extend(vmrc_auth)
-            auth_list.extend(single_site_auth)
-            auth = Authentication(auth_list)
-
-        # We have to check if TTS is needed for other auth item
         return auth
 
     @staticmethod

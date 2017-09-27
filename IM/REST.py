@@ -170,35 +170,6 @@ def get_auth_header():
     Get the Authentication object from the AUTHORIZATION header
     replacing the new line chars.
     """
-    auth_header = bottle.request.headers['AUTHORIZATION']
-    if Config.SINGLE_SITE:
-        if auth_header.startswith("Basic "):
-            auth_data = base64.b64decode(auth_header[6:])
-            user_pass = auth_data.split(":")
-            im_auth = {"type": "InfrastructureManager",
-                       "username": user_pass[0],
-                       "password": user_pass[1]}
-            single_site_auth = {"type": Config.SINGLE_SITE_TYPE,
-                                "host": Config.SINGLE_SITE_AUTH_HOST,
-                                "username": user_pass[0],
-                                "password": user_pass[1]}
-            return Authentication([im_auth, single_site_auth])
-        elif auth_header.startswith("Bearer "):
-            token = auth_header[7:].strip()
-            im_auth = {"type": "InfrastructureManager",
-                       "username": "user",
-                       "token": token}
-            if Config.SINGLE_SITE_TYPE == "OpenStack":
-                single_site_auth = {"type": Config.SINGLE_SITE_TYPE,
-                                    "host": Config.SINGLE_SITE_AUTH_HOST,
-                                    "username": "indigo-dc",
-                                    "tenant": "oidc",
-                                    "password": token}
-            else:
-                single_site_auth = {"type": Config.SINGLE_SITE_TYPE,
-                                    "host": Config.SINGLE_SITE_AUTH_HOST,
-                                    "token": token}
-            return Authentication([im_auth, single_site_auth])
     auth_data = auth_header.replace(AUTH_NEW_LINE_SEPARATOR, "\n")
     auth_data = auth_data.split(AUTH_LINE_SEPARATOR)
     return Authentication(Authentication.read_auth_data(auth_data))
