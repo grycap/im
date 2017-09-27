@@ -170,7 +170,8 @@ def get_auth_header():
     Get the Authentication object from the AUTHORIZATION header
     replacing the new line chars.
     """
-    auth_data = auth_header.replace(AUTH_NEW_LINE_SEPARATOR, "\n")
+    auth_data = bottle.request.headers[
+        'AUTHORIZATION'].replace(AUTH_NEW_LINE_SEPARATOR, "\n")
     auth_data = auth_data.split(AUTH_LINE_SEPARATOR)
     return Authentication(Authentication.read_auth_data(auth_data))
 
