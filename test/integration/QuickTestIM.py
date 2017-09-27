@@ -194,18 +194,12 @@ class QuickTestIM(unittest.TestCase):
         """
         Test the GetVMProperty IM function
         """
-        (success, vm_ids) = self.server.GetInfrastructureInfo(
-            self.inf_id, self.auth_data)
-        self.assertTrue(
-            success, msg="ERROR calling GetInfrastructureInfo: " + str(vm_ids))
-        (success, info) = self.server.GetVMProperty(
-            self.inf_id, vm_ids[0], "state", self.auth_data)
-        self.assertTrue(
-            success, msg="ERROR calling GetVMProperty: " + str(info))
-        self.assertNotEqual(
-            info, None, msg="ERROR in the value returned by GetVMProperty: " + info)
-        self.assertNotEqual(
-            info, "", msg="ERROR in the value returned by GetVMPropert: " + info)
+        (success, vm_ids) = self.server.GetInfrastructureInfo(self.inf_id, self.auth_data)
+        self.assertTrue(success, msg="ERROR calling GetInfrastructureInfo: " + str(vm_ids))
+        (success, info) = self.server.GetVMProperty(self.inf_id, vm_ids[0], "state", self.auth_data)
+        self.assertTrue(success, msg="ERROR calling GetVMProperty: " + str(info))
+        self.assertNotEqual(info, None, msg="ERROR in the value returned by GetVMProperty: " + info)
+        self.assertNotEqual(info, "", msg="ERROR in the value returned by GetVMPropert: " + info)
 
     def test_18_error_addresource(self):
         """
@@ -529,7 +523,6 @@ echo "Hello World" >> /tmp/data.txt
             )
             """
 
-        a = radl_parse.parse_radl(radl)
         (success, inf_id) = self.server.CreateInfrastructure(radl, self.auth_data)
         self.assertTrue(
             success, msg="ERROR calling CreateInfrastructure: " + str(inf_id))

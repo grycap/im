@@ -1,0 +1,118 @@
+tosca_definitions_version: tosca_simple_yaml_1_0
+ 
+description: TOSCA test for the IM
+
+
+topology_template:
+  inputs:
+    db_name:
+      type: string
+      default: dbname
+    db_user:
+      type: string
+      default: dbuser
+    db_password:
+      type: string
+      default: pass
+    mysql_root_password:
+      type: string
+      default: mypass
+
+  relationship_templates:
+    my_custom_connection:
+      type: HostedOn
+      interfaces:
+        Configure:
+          pre_configure_source: scripts/wp_db_configure.sh 
+
+  node_templates:
+    apache:
+      type: tosca.nodes.WebServer.Apache
+      requirements:
+        - host: web_server
+ 
+    web_server:
+      type: tosca.nodes.Compute
+      capabilities:
+        # Host container properties
+        host:
+         properties:
+           num_cpus: 1
+           mem_size: 1 GB
+        # Guest Operating System properties
+        os:
+          properties:
+            # host Operating System image properties
+            type: linux 
+            distribution: scientific 
+            version: 6.6
+ 
+    test_db:
+      type: tosca.nodes.Database.MySQL
+      properties:
+        name: { get_input: db_name }
+        user: { get_input: db_user }
+        password: { get_input: db_password }
+        root_password: { get_input: mysql_root_password }
+      requirements:
+        - host:
+            node: mysql
+            relationship: my_custom_connection
+ 
+    mysql:
+      type: tosca.nodes.DBMS.MySQL
+      properties:
+        root_password: { get_input: mysql_root_password }
+      requirements:
+        - host:
+            node_filter:
+              capabilities:
+                # Constraints for selecting “host” (Container Capability)
+                - host:
+                    properties:
+                      - num_cpus: { in_range: [1,4] }
+                      - mem_size: { greater_or_equal: 1 GB }
+                # Constraints for selecting “os” (OperatingSystem Capability)
+                - os:
+                    properties:
+                      - architecture: { equal: x86_64 }
+                      - type: linux
+                      - distribution: ubuntu
+ 
+    db_server:
+      type: tosca.nodes.Compute
+      capabilities:
+        # Host container properties
+        host:
+         properties:
+           num_cpus: 1
+           disk_size: 10 GB
+           mem_size: 4 GB
+        os:
+         properties:
+           architecture: x86_64
+           type: linux
+           distribution: ubuntu
+      requirements:
+        # contextually this can only be a relationship type
+        - local_storage:
+            # capability is provided by Compute Node Type
+            node: my_block_storage           
+            relationship:
+              type: AttachesTo
+              properties:
+                location: /mnt/disk
+                # This maps the local requirement name ‘local_storage’ to the
+                # target node’s capability name ‘attachment’
+                device: hdb
+              interfaces:
+                Configure:
+                  pre_configure_source: scripts/wp_db_configure.sh 
+
+    my_block_storage:
+      type: BlockStorage
+      properties:
+        size: 1 GB
+
+
+

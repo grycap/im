@@ -134,6 +134,22 @@ class TestIM(unittest.TestCase):
         self.assertEqual(resp.status_code, 200,
                          msg="ERROR listing user infrastructures:" + resp.text)
 
+    def test_12_list_with_incorrect_token(self):
+        auth_data_lines = read_file_as_string('../auth.dat').split("\n")
+        token = ("eyJraWQiOiJyc2ExIiwiYWxnIjoiUlMyNTYifQ.eyJzdWIiOiJkYzVkNWFiNy02ZGI5LTQwNzktOTg1Yy04MGFjMDUwMTcwNjYi"
+                 "LCJpc3MiOiJodHRwczpcL1wvaWFtLXRlc3QuaW5kaWdvLWRhdGFjbG91ZC5ldVwvIiwiZXhwIjoxNDYyODY5MjgxLCJpYXQiOjE"
+                 "0NjI4NjU2ODEsImp0aSI6Ijc1M2M4ZTI1LWU3MGMtNGI5MS05YWJhLTcxNDI5NTg3MzUzOSJ9.iA9nv7QdkmfgJPSQ_77_eKrvh"
+                 "P1xwZ1Z91xzrZ0Bzue0ark4qRMlHCdZvad1tunURaSsHHMsFYQ3H7oQj-ZSYWOfr1KxMaIo4pWaVHrW8qsCMLmqdNfubR54GmTh"
+                 "M4cA2ZdNZa8neVT8jUvzR1YX-5cz7sp2gWbW9LAwejoXDtk")
+        auth_data = "type = InfrastructureManager; token = %s\\n" % token
+        for line in auth_data_lines:
+            if line.find("type = InfrastructureManager") == -1:
+                auth_data += line.strip() + "\\n"
+
+        resp = self.create_request("GET", "/infrastructures", headers={'AUTHORIZATION': auth_data})
+        self.assertEqual(resp.status_code, 401,
+                         msg="ERROR using an invalid token. A 401 error is expected:" + resp.text)
+
     def test_15_get_incorrect_info(self):
         resp = self.create_request("GET", "/infrastructures/999999")
         self.assertEqual(resp.status_code, 404,
@@ -383,7 +399,79 @@ class TestIM(unittest.TestCase):
         self.assertTrue(
             all_configured, msg="ERROR waiting the vm to be started (timeout).")
 
-    def test_95_destroy(self):
+    def test_92_destroy(self):
+        resp = self.create_request("DELETE", "/infrastructures/" + self.inf_id)
+        self.assertEqual(resp.status_code, 200,
+                         msg="ERROR destroying the infrastructure:" + resp.text)
+
+    def test_93_create_tosca(self):
+        """
+        Test the CreateInfrastructure IM function with a TOSCA document
+        """
+        tosca = read_file_as_string('../files/tosca_create.yml')
+
+        resp = self.create_request("POST", "/infrastructures", headers={'Content-Type': 'text/yaml'}, body=tosca)
+        self.assertEqual(resp.status_code, 200,
+                         msg="ERROR creating the infrastructure:" + resp.text)
+
+        self.__class__.inf_id = str(os.path.basename(resp.text))
+
+        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 600)
+        self.assertTrue(
+            all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
+
+    def test_94_get_outputs(self):
+        resp = self.create_request("GET", "/infrastructures/" + self.inf_id + "/outputs")
+        self.assertEqual(resp.status_code, 200,
+                         msg="ERROR getting TOSCA outputs:" + resp.text)
+        res = json.loads(resp.text)
+        server_url = str(res['outputs']['server_url'][0])
+        self.assertRegexpMatches(
+            server_url, '\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}', msg="Unexpected outputs: " + resp.text)
+
+    def test_95_add_tosca(self):
+        """
+        Test the AddResource IM function with a TOSCA document
+        """
+        tosca = read_file_as_string('../files/tosca_add.yml')
+
+        resp = self.create_request("POST", "/infrastructures/" + self.inf_id,
+                                   headers={'Content-Type': 'text/yaml'}, body=tosca)
+        self.assertEqual(resp.status_code, 200,
+                         msg="ERROR adding resources:" + resp.text)
+
+        resp = self.create_request("GET", "/infrastructures/" + self.inf_id)
+        self.assertEqual(resp.status_code, 200,
+                         msg="ERROR getting the infrastructure info:" + resp.text)
+        vm_ids = resp.text.split("\n")
+        self.assertEqual(len(vm_ids), 3, msg=("ERROR getting infrastructure info: Incorrect number of VMs(" +
+                                              str(len(vm_ids)) + "). It must be 2"))
+        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 600)
+        self.assertTrue(
+            all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
+
+    def test_96_remove_tosca(self):
+        """
+        Test the RemoveResource IM function with a TOSCA document
+        """
+        tosca = read_file_as_string('../files/tosca_remove.yml')
+
+        resp = self.create_request("POST", "/infrastructures/" + self.inf_id,
+                                   headers={'Content-Type': 'text/yaml'}, body=tosca)
+        self.assertEqual(resp.status_code, 200,
+                         msg="ERROR removing resources:" + resp.text)
+
+        resp = self.create_request("GET", "/infrastructures/" + self.inf_id)
+        self.assertEqual(resp.status_code, 200,
+                         msg="ERROR getting the infrastructure info:" + resp.text)
+        vm_ids = resp.text.split("\n")
+        self.assertEqual(len(vm_ids), 2, msg=("ERROR getting infrastructure info: Incorrect number of VMs(" +
+                                              str(len(vm_ids)) + "). It must be 2"))
+        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 600)
+        self.assertTrue(
+            all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
+
+    def test_98_destroy(self):
         resp = self.create_request("DELETE", "/infrastructures/" + self.inf_id)
         self.assertEqual(resp.status_code, 200,
                          msg="ERROR destroying the infrastructure:" + resp.text)

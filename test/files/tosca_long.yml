@@ -1,0 +1,162 @@
+tosca_definitions_version: tosca_simple_yaml_1_0
+
+imports:
+  - indigo_custom_types: https://raw.githubusercontent.com/indigo-dc/tosca-types/master/custom_types.yaml
+ 
+description: >
+  TOSCA test for launching a Virtual Elastic Cluster. It will launch
+  a single front-end that will be in change of managing the elasticity
+  using the specified LRMS (torque, sge, slurm and condor) workload.
+
+topology_template:
+
+  inputs:
+
+    network_name:
+      type: string
+      default: vpc-XX.subnet-XX
+
+    access_key:
+      type: string
+      default: AKXX
+
+    secret_key:
+      type: string
+      default: SKXX
+
+  node_templates:
+
+    elastic_cluster_front_end:
+      type: tosca.nodes.indigo.ElasticCluster
+      properties:
+       # fake value to test token intrinsic functions
+        deployment_id: { token: [ get_attribute: [ lrms_server, public_address, 0 ], ':', 0 ] }
+        # fake value to test concat intrinsic functions
+        orchestrator_url: { concat: [ 'http://', get_attribute: [ lrms_server, public_address, 0 ], ':8080' ] }
+        iam_access_token: iam_access_token
+      requirements:
+        - lrms: lrms_front_end
+        - wn: wn_node
+
+    lrms_front_end:
+      type: tosca.nodes.indigo.LRMS.FrontEnd.Slurm
+      properties:
+        wn_ips: { get_attribute: [ lrms_wn, private_address ] }
+      requirements:
+        - host: lrms_server
+
+    other_server:
+      type: tosca.nodes.indigo.Compute
+      capabilities:
+        endpoint:
+          properties:
+            network_name: PUBLIC
+            ports:
+              port_range:
+                protocol: tcp
+                source_range: [ 1, 4 ]
+        host:
+          properties:
+            num_cpus: 1
+            mem_size: 1 GB 
+
+    lrms_server:
+      type: tosca.nodes.indigo.Compute
+      capabilities:
+        endpoint:
+          properties:
+            dns_name: slurmserver
+            network_name: { concat: [ { get_input: network_name }, ".PUBLIC" ] }
+            ports:
+              http_port:
+                protocol: tcp
+                source: 8080
+        host:
+          properties:
+            num_cpus: 1
+            mem_size: 1 GB
+        os:
+          properties:
+            # host Operating System image properties
+            type: linux 
+            #distribution: scientific 
+            #version: 6.6
+      requirements:
+        - local_storage:
+            node: my_onedata_storage
+            relationship:
+              type: AttachesTo
+              properties:
+                location: /mnt/disk
+              interfaces:
+                Configure:
+                  pre_configure_source:
+                    implementation: https://raw.githubusercontent.com/indigo-dc/tosca-types/master/artifacts/onedata/oneclient_install.yml
+                    inputs:
+                      onedata_token: { get_property: [ TARGET, credential, token ] }
+                      onedata_location: { get_property: [ SELF, location ] }
+
+    my_onedata_storage:
+      type: tosca.nodes.indigo.OneDataStorage
+      properties:
+        oneprovider_host: ["oneprovider.com", "twoprovider.net"]
+        dataspace: ["space1","space2"]
+        onezone_endpoint: http://server.com
+        credential:
+          token: some_token
+          token_type: token
+
+    wn_node:
+      type: tosca.nodes.indigo.LRMS.WorkerNode.Slurm
+      properties:
+        front_end_ip: { get_attribute: [ lrms_server, private_address, 0 ] }
+      capabilities:
+        wn:
+          properties:
+            max_instances: 5
+            min_instances: 0
+      requirements:
+        - host: lrms_wn
+
+    lrms_wn:
+      type: tosca.nodes.indigo.Compute
+      capabilities:
+        scalable:
+          properties:
+            count: 0
+        host:
+          properties:
+            num_cpus: 1
+            mem_size: 2 GB
+        os:
+          properties:
+            # host Operating System image properties
+            type: linux 
+            #distribution: scientific 
+            #version: 6.6
+
+    mysql:
+      type: tosca.nodes.DBMS
+      requirements:
+        - host:
+            node_filter:
+              capabilities:
+                # Constraints for selecting "host" (Container Capability)
+                - host:
+                    properties:
+                      - num_cpus: { in_range: [ 1, 4 ] }
+                      - mem_size: { greater_or_equal: 2 GB }
+                # Constraints for selecting "os" (OperatingSystem Capability)
+                - os:
+                    properties:
+                      - type: linux
+
+  outputs:
+    galaxy_url:
+      value: { concat: [ 'http://', get_attribute: [ lrms_server, public_address, 0 ], ':8080' ] }
+
+  policies:
+    - deploy_on_aws:
+       type: tosca.policies.Placement
+       properties: { sla_id: SLA_provider-AWS-us-east-1_indigo-dc,  username: {get_input: access_key}, password: {get_input: secret_key}}
+       targets: [ lrms_wn ]
