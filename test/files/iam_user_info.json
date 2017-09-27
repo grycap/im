@@ -1,0 +1,20 @@
+{
+  "sub": "sub",
+  "name": "Miguel",
+  "preferred_username": "micafer",
+  "family_name": "Caballer",
+  "email": "",
+  "email_verified": true,
+  "phone_number_verified": false,
+  "groups": [
+    {
+      "id": "gid",
+      "name": "Users"
+    },
+    {
+      "id": "gid",
+      "name": "Developers"
+    }
+  ],
+  "organisation_name": "indigo-dc"
+}

@@ -32,7 +32,7 @@ RUN wget https://github.com/grycap/RADL/releases/download/v1.1.0/python-radl_1.1
 
 COPY ansible.cfg /etc/ansible/ansible.cfg
 
-RUN easy_install -U cheroot apache-libcloud
+RUN easy_install -U cheroot apache-libcloud tosca-parser
 
 # Expose the IM ports
 EXPOSE 8899 8800

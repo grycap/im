@@ -231,7 +231,7 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
   ('index', 'IMDocumentation.tex', u'IM Documentation',
-   u'IM', 'manual'),
+   u'I3M-GRyCAP', 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
@@ -261,7 +261,7 @@ latex_documents = [
 # (source start file, name, description, authors, manual section).
 man_pages = [
     ('index', 'imdocumentation', u'IM Documentation',
-     [u'IM'], 1)
+     [u'I3M-GRyCAP'], 1)
 ]
 
 # If true, show URL addresses after external links.
@@ -275,7 +275,7 @@ man_pages = [
 #  dir menu entry, description, category)
 texinfo_documents = [
   ('index', 'IMDocumentation', u'IM Documentation',
-   u'IM', 'IMDocumentation', 'One line description of project.',
+   u'I3M-GRyCAP', 'IMDocumentation', 'One line description of project.',
    'Miscellaneous'),
 ]
 
