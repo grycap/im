@@ -52,7 +52,7 @@ class VirtualMachine:
     def __init__(self, inf, cloud_id, cloud, info, requested_radl, cloud_connector=None, im_id=None):
         self._lock = threading.Lock()
         """Threading Lock to avoid concurrency problems."""
-        self.last_update = 0
+        self.last_update = int(time.time())
         """Last update of the VM info"""
         self.destroy = False
         """Flag to specify that this VM has been destroyed"""
@@ -493,12 +493,21 @@ class VirtualMachine:
 
         return updated
 
-    def setIps(self, public_ips, private_ips):
+    def setIps(self, public_ips, private_ips, remove_old=False):
         """
         Set the specified IPs in the VM RADL info
         """
         now = str(int(time.time() * 100))
         vm_system = self.info.systems[0]
+
+        # First remove old ip values
+        # in case that some IP has been removed from the VM
+        if remove_old:
+            cont = 0
+            while vm_system.getValue('net_interface.%d.connection' % cont):
+                if vm_system.getValue('net_interface.%d.ip' % cont):
+                    vm_system.delValue('net_interface.%d.ip' % cont)
+                cont += 1
 
         if public_ips and not set(public_ips).issubset(set(private_ips)):
             public_nets = []
@@ -527,10 +536,8 @@ class VirtualMachine:
 
             for public_ip in public_ips:
                 if public_ip not in private_ips:
-                    vm_system.setValue('net_interface.' +
-                                       str(num_net) + '.ip', str(public_ip))
-                    vm_system.setValue(
-                        'net_interface.' + str(num_net) + '.connection', public_net.id)
+                    vm_system.setValue('net_interface.%s.ip' % num_net, str(public_ip))
+                    vm_system.setValue('net_interface.%s.connection' % num_net, public_net.id)
 
         if private_ips:
             private_net_map = {}
@@ -588,10 +595,8 @@ class VirtualMachine:
                         # this VM
                         num_net = self.getNumNetworkIfaces()
 
-                vm_system.setValue('net_interface.' +
-                                   str(num_net) + '.ip', str(private_ip))
-                vm_system.setValue(
-                    'net_interface.' + str(num_net) + '.connection', private_net.id)
+                vm_system.setValue('net_interface.%s.ip' % num_net, str(private_ip))
+                vm_system.setValue('net_interface.%s.connection' % num_net, private_net.id)
 
     def get_ssh(self, retry=False):
         """
@@ -637,13 +642,18 @@ class VirtualMachine:
                     if code == 0:
                         out_parts = stdout.split("\n")
                         if len(out_parts) == 3:
-                            pgid = int(out_parts[1])
-                            (stdout, stderr, code) = ssh.execute("kill -9 -" + str(pgid))
-                            if code == 0:
-                                pgkill_success = True
-                            else:
-                                VirtualMachine.logger.error("Error getting PGID of pid: " + str(self.ctxt_pid) +
-                                                            ": " + stderr + ". Using only PID.")
+                            try:
+                                pgid = int(out_parts[1])
+                                (stdout, stderr, code) = ssh.execute("kill -9 -" + str(pgid))
+
+                                if code == 0:
+                                    pgkill_success = True
+                                else:
+                                    VirtualMachine.logger.error("Error getting PGID of pid: " + str(self.ctxt_pid) +
+                                                                ": " + stderr + ". Using only PID.")
+                            except:
+                                VirtualMachine.logger.exception("Error getting PGID of pid: " + str(self.ctxt_pid) +
+                                                                ": " + stderr + ". Using only PID.")
                         else:
                             VirtualMachine.logger.error("Error getting PGID of pid: " + str(self.ctxt_pid) + ": " +
                                                         stdout + ". Using only PID.")
@@ -673,7 +683,7 @@ class VirtualMachine:
         if not ip:
             ip = ip = self.getPrivateIP()
         remote_dir = Config.REMOTE_CONF_DIR + "/" + \
-            str(self.inf.id) + "/" + ip + "_" + str(self.getRemoteAccessPort())
+            str(self.inf.id) + "/" + ip + "_" + str(self.im_id)
 
         initial_count_out = self.cont_out
         wait = 0
@@ -683,6 +693,7 @@ class VirtualMachine:
                 ssh = self.get_ssh_ansible_master()
 
                 try:
+                    VirtualMachine.logger.debug("Getting status of ctxt process with pid: " + str(ctxt_pid))
                     (_, _, exit_status) = ssh.execute("ps " + str(ctxt_pid))
                 except:
                     VirtualMachine.logger.warn(
@@ -702,6 +713,7 @@ class VirtualMachine:
 
                 if exit_status != 0:
                     # The process has finished, get the outputs
+                    VirtualMachine.logger.debug("The process %s has finished, get the outputs" % ctxt_pid)
                     ctxt_log = self.get_ctxt_log(remote_dir, True)
                     msg = self.get_ctxt_output(remote_dir, True)
                     if ctxt_log:
@@ -720,6 +732,7 @@ class VirtualMachine:
                         ctxt_log = self.get_ctxt_log(remote_dir)
                         self.cont_out = initial_count_out + ctxt_log
                     # The process is still running, wait
+                    VirtualMachine.logger.debug("The process %s is still running. wait." % ctxt_pid)
                     time.sleep(Config.CHECK_CTXT_PROCESS_INTERVAL)
                     wait += Config.CHECK_CTXT_PROCESS_INTERVAL
             else:

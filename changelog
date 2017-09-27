@@ -309,8 +309,28 @@ IM 1.5.5
     * Manage DNS records in EC2, Azure and GCE connectors.
     * Fix error in Azure conn creating a VM with only a public net attached.
 
-IM 1.5.6
+IM 1.6.0
+    * Improve getting Public network name in OCCI conn enhancement P2
+    * Improve Ansible contextualization to scale more than 50 VMs
+    * Add Support Custom instance types in Google Conn
+    * Implements Delete SGs in ONE conn only in last VM
+    * Fix error getting contmsg output in case of use colors
+    * Enable to set a limit in the number of parallel ctxt processes
+    * Fix error in SSH module in sftp_put_dir if src dir ends with /
+    * Fix SSL verification error in windows
+    * Enable to add IPs in OCCI conn in AlterVM
+    * Fix error in OpenStack conn trying to assing a floating IP to VM with public IP
+    * Wait SSH access to VMs only in one ctxt task
+    * Create only one storage account per Infrastructure instead of per VM in Azure conn.
+    * Improve save data in VM creation process
+    * Fix Error creating NGS in Azure conn
+    * Return false if VM does not exists in updateVMInfo
     * Fix error creating NSG in Azure conn if port 22 is set in outports.
     * Update Ansible roles in Master node in reconfiguration.
     * Fix error in Azure conn creating subnet.
     * Fix error in Context. process in basic test in SSH tests.
+
+IM 1.6.1
+    * Fix error in ctxt process in some cases in OpenStack sites.
+    * Fix error launching IM with Ansible 2.4.0.
+

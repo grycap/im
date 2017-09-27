@@ -16,63 +16,82 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from IM.retry import retry
-from IM.SSH import SSH
+from IM.SSH import SSH, AuthenticationException
+import paramiko
 
 
 class SSHRetry(SSH):
     """ SSH class decorated to perform a number of retries """
-    TRIES = 3
+    TRIES = 5
     DELAY = 3
     BACKOFF = 2
 
-    @retry(Exception, tries=TRIES, delay=DELAY, backoff=BACKOFF)
+    @retry(Exception, (AuthenticationException, paramiko.AuthenticationException),
+           tries=TRIES, delay=DELAY, backoff=BACKOFF)
     def execute(self, command, timeout=None):
         return SSH.execute(self, command, timeout)
 
-    @retry(Exception, tries=TRIES, delay=DELAY, backoff=BACKOFF)
+    @retry(Exception, (AuthenticationException, paramiko.AuthenticationException),
+           tries=TRIES, delay=DELAY, backoff=BACKOFF)
     def sftp_get(self, src, dest):
         return SSH.sftp_get(self, src, dest)
 
-    @retry(Exception, tries=TRIES, delay=DELAY, backoff=BACKOFF)
+    @retry(Exception, (AuthenticationException, paramiko.AuthenticationException),
+           tries=TRIES, delay=DELAY, backoff=BACKOFF)
     def sftp_get_files(self, src, dest):
         return SSH.sftp_get_files(self, src, dest)
 
-    @retry(Exception, tries=TRIES, delay=DELAY, backoff=BACKOFF)
+    @retry(Exception, (AuthenticationException, paramiko.AuthenticationException),
+           tries=TRIES, delay=DELAY, backoff=BACKOFF)
     def sftp_put_files(self, files):
         return SSH.sftp_put_files(self, files)
 
-    @retry(Exception, tries=TRIES, delay=DELAY, backoff=BACKOFF)
+    @retry(Exception, (AuthenticationException, paramiko.AuthenticationException),
+           tries=TRIES, delay=DELAY, backoff=BACKOFF)
     def sftp_put(self, src, dest):
         return SSH.sftp_put(self, src, dest)
 
-    @retry(Exception, tries=TRIES, delay=DELAY, backoff=BACKOFF)
+    @retry(Exception, (AuthenticationException, paramiko.AuthenticationException),
+           tries=TRIES, delay=DELAY, backoff=BACKOFF)
     def sftp_put_dir(self, src, dest):
         return SSH.sftp_put_dir(self, src, dest)
 
-    @retry(Exception, tries=TRIES, delay=DELAY, backoff=BACKOFF)
+    @retry(Exception, (AuthenticationException, paramiko.AuthenticationException),
+           tries=TRIES, delay=DELAY, backoff=BACKOFF)
+    def sftp_get_dir(self, src, dest):
+        return SSH.sftp_get_dir(self, src, dest)
+
+    @retry(Exception, (AuthenticationException, paramiko.AuthenticationException),
+           tries=TRIES, delay=DELAY, backoff=BACKOFF)
     def sftp_put_content(self, content, dest):
         return SSH.sftp_put_content(self, content, dest)
 
-    @retry(Exception, tries=TRIES, delay=DELAY, backoff=BACKOFF)
+    @retry(Exception, (AuthenticationException, paramiko.AuthenticationException),
+           tries=TRIES, delay=DELAY, backoff=BACKOFF)
     def sftp_mkdir(self, directory):
         return SSH.sftp_mkdir(self, directory)
 
-    @retry(Exception, tries=TRIES, delay=DELAY, backoff=BACKOFF)
+    @retry(Exception, (AuthenticationException, paramiko.AuthenticationException),
+           tries=TRIES, delay=DELAY, backoff=BACKOFF)
     def sftp_list(self, directory):
         return SSH.sftp_list(self, directory)
 
-    @retry(Exception, tries=TRIES, delay=DELAY, backoff=BACKOFF)
+    @retry(Exception, (AuthenticationException, paramiko.AuthenticationException),
+           tries=TRIES, delay=DELAY, backoff=BACKOFF)
     def sftp_list_attr(self, directory):
         return SSH.sftp_list_attr(self, directory)
 
-    @retry(Exception, tries=TRIES, delay=DELAY, backoff=BACKOFF)
+    @retry(Exception, (AuthenticationException, paramiko.AuthenticationException),
+           tries=TRIES, delay=DELAY, backoff=BACKOFF)
     def getcwd(self):
         return SSH.getcwd(self)
 
-    @retry(Exception, tries=TRIES, delay=DELAY, backoff=BACKOFF)
+    @retry(Exception, (AuthenticationException, paramiko.AuthenticationException),
+           tries=TRIES, delay=DELAY, backoff=BACKOFF)
     def sftp_remove(self, path):
         return SSH.sftp_remove(self, path)
 
-    @retry(Exception, tries=TRIES, delay=DELAY, backoff=BACKOFF)
+    @retry(Exception, (AuthenticationException, paramiko.AuthenticationException),
+           tries=TRIES, delay=DELAY, backoff=BACKOFF)
     def sftp_chmod(self, path, mode):
         return SSH.sftp_chmod(self, path, mode)

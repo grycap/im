@@ -352,6 +352,31 @@ class TestGCEConnector(unittest.TestCase):
         self.assertEquals(dns_driver.delete_record.call_args_list[0][0][0].name, 'test.domain.com.')
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
+    def test_70_get_custom_instance(self):
+        radl_data = """
+            system test (
+            cpu.count=2 and
+            memory.size=2048m
+            )"""
+        radl = radl_parse.parse_radl(radl_data)
+
+        gce_cloud = self.get_gce_cloud()
+        size = MagicMock()
+        size.extra = {"selfLink": "/some/path/sizenamne", "guestCpus": 1}
+        size.ram = 1024
+        size.name = "sizenamne"
+        sizes = [size]
+        instance = gce_cloud.get_instance_type(sizes, radl.systems[0])
+        self.assertEquals(instance.name, "custom-2-2048")
+        self.assertEquals(instance.extra['selfLink'], "/some/path/custom-2-2048")
+
+        size2 = MagicMock()
+        size2.extra = {"selfLink": "/some/path/sizenamne", "guestCpus": 2}
+        size2.ram = 2048
+        size2.name = "sizenamne"
+        sizes.append(size2)
+        instance = gce_cloud.get_instance_type(sizes, radl.systems[0])
+        self.assertEquals(instance.name, "sizenamne")
 
 if __name__ == '__main__':
     unittest.main()

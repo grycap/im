@@ -96,6 +96,13 @@ class TestSSH(unittest.TestCase):
 
     @patch('paramiko.SSHClient')
     @patch('paramiko.SFTPClient')
+    def test_sftp_get_dir(self, sftp_client, ssh_client):
+        ssh = SSHRetry("host", "user", "passwd", read_file_as_string("../files/privatekey.pem"))
+
+        ssh.sftp_get_dir("/tmp", "/tmp")
+
+    @patch('paramiko.SSHClient')
+    @patch('paramiko.SFTPClient')
     def test_sftp_put_content(self, sftp_client, ssh_client):
         ssh = SSHRetry("host", "user", "passwd", read_file_as_string("../files/privatekey.pem"))
 

@@ -323,14 +323,14 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                         system.setValue('net_interface.' + str(num_net) + '.ip', ip)
                         system.setValue('net_interface.' + str(num_net) + '.connection', net_name)
                 else:
-                    public_ips = []
-                    private_ips = []
+                    pub_ips = []
+                    priv_ips = []
                     for ipu in ip:
                         if any([IPAddress(ipu) in IPNetwork(mask) for mask in Config.PRIVATE_NET_MASKS]):
-                            private_ips.append(ipu)
+                            priv_ips.append(ipu)
                         else:
-                            public_ips.append(ipu)
-                    vm.setIps(public_ips, private_ips)
+                            pub_ips.append(ipu)
+                    vm.setIps(pub_ips, priv_ips)
 
         else:
             # if addresses are not available use the old method
@@ -498,11 +498,15 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             self.log_debug("Creating node")
 
             node = None
-            msg = "Error creating the node. "
-            try:
-                node = driver.create_node(**args)
-            except Exception as ex:
-                msg += str(ex)
+            retries = 0
+            msg = ""
+            while not node and retries < Config.MAX_VM_FAILS:
+                retries += 1
+                msg += "Error creating the node (%d/%d): " % (retries, Config.MAX_VM_FAILS)
+                try:
+                    node = driver.create_node(**args)
+                except Exception as ex:
+                    msg += str(ex) + "\n"
 
             if node:
                 vm = VirtualMachine(inf, node.id, self.cloud, radl, requested_radl, self.cloud.getCloudConnector(inf))

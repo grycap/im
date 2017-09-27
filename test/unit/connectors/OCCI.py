@@ -109,6 +109,31 @@ class TestOCCIConnector(unittest.TestCase):
         self.assertEqual(len(concrete), 1)
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
+    def test_15_concrete_appdb(self):
+        radl_data = """
+            network net ()
+            system test (
+            cpu.arch='x86_64' and
+            cpu.count>=1 and
+            memory.size>=512m and
+            net_interface.0.connection = 'net' and
+            net_interface.0.dns_name = 'test' and
+            disk.0.os.name = 'linux' and
+            disk.0.image.url = 'appdb://UPV-GRyCAP/egi.docker.ubuntu.16.04?fedcloud.egi.eu' and
+            disk.0.os.credentials.username = 'user'
+            )"""
+        radl = radl_parse.parse_radl(radl_data)
+        radl_system = radl.systems[0]
+
+        auth = Authentication([{'id': 'occi', 'type': 'OCCI', 'proxy': 'proxy',
+                                'host': 'https://fc-one.i3m.upv.es:11443'}])
+        occi_cloud = self.get_occi_cloud()
+        occi_cloud.cloud.server = "fc-one.i3m.upv.es"
+
+        concrete = occi_cloud.concreteSystem(radl_system, auth)
+        self.assertEqual(len(concrete), 1)
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
     def get_response(self, method, url, verify, cert, headers, data):
         resp = MagicMock()
         parts = uriparse(url)
@@ -138,12 +163,16 @@ class TestOCCIConnector(unittest.TestCase):
             elif url == "/storage/":
                 resp.status_code = 201
                 resp.text = 'https://server.com/storage/1'
+            elif url == "/networkinterface/":
+                resp.status_code = 201
         elif method == "DELETE":
             if url.endswith("/compute/1"):
                 resp.status_code = 200
             elif url.endswith("/storage/1"):
                 resp.status_code = 200
             elif url.endswith("/link/storagelink/compute_10_disk_1"):
+                resp.status_code = 200
+            elif url.endswith("/link/networkinterface/compute_10_nic_1"):
                 resp.status_code = 200
 
         return resp
@@ -265,7 +294,6 @@ class TestOCCIConnector(unittest.TestCase):
             net_interface.0.connection = 'net' and
             net_interface.0.dns_name = 'test' and
             disk.0.os.name = 'linux' and
-            disk.0.image.url = 'azr://image-id' and
             disk.0.os.credentials.username = 'user' and
             disk.0.os.credentials.password = 'pass'
             )"""
@@ -296,6 +324,37 @@ class TestOCCIConnector(unittest.TestCase):
 
         success, _ = occi_cloud.alterVM(vm, new_radl, auth)
 
+        self.assertTrue(success, msg="ERROR: modifying VM info.")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
+        # Now test to delete the public IP
+        radl_data = """
+            network net ()
+            network net1 (outbound = 'yes')
+            system test (
+            net_interface.0.connection = 'net' and
+            net_interface.1.connection = 'net1' and
+            net_interface.1.ip = '8.8.8.8' and
+            cpu.arch='x86_64' and
+            cpu.count=1 and
+            memory.size=512m and
+            disk.0.os.name = 'linux'
+            )"""
+        radl = radl_parse.parse_radl(radl_data)
+
+        new_radl_data = """
+            network net ()
+            system test (
+            net_interface.0.connection = 'net' and
+            disk.1.size=1GB and
+            disk.1.device='hdc' and
+            disk.1.fstype='ext4' and
+            disk.1.mount_path='/mnt/disk'
+            )"""
+        new_radl = radl_parse.parse_radl(new_radl_data)
+
+        vm = VirtualMachine(inf, "1", occi_cloud.cloud, radl, radl, occi_cloud, 1)
+        success, _ = occi_cloud.alterVM(vm, new_radl, auth)
         self.assertTrue(success, msg="ERROR: modifying VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 

@@ -502,11 +502,13 @@ class InfrastructureInfo:
                 max_ctxt_time = Config.MAX_CONTEXTUALIZATION_TIME
 
             ctxt_task = []
-            ctxt_task.append((-3, 0, self, ['kill_ctxt_processes']))
-            ctxt_task.append((-2, 0, self, ['wait_master', 'check_vm_ips']))
+            ctxt_task.append((-4, 0, self, ['kill_ctxt_processes']))
+            ctxt_task.append((-3, 0, self, ['check_vm_ips']))
+            ctxt_task.append((-2, 0, self, ['wait_master']))
             ctxt_task.append((-1, 0, self, ['configure_master', 'generate_playbooks_and_hosts']))
 
-            for vm in self.get_vm_list():
+            use_dist = len(self.get_vm_list()) > Config.VM_NUM_USE_CTXT_DIST
+            for cont, vm in enumerate(self.get_vm_list()):
                 # Assure to update the VM status before running the ctxt
                 # process
                 vm.update_status(auth)
@@ -516,8 +518,26 @@ class InfrastructureInfo:
                 tasks = {}
 
                 # Add basic tasks for all VMs
-                tasks[0] = ['basic']
-                if not unconfigure:
+                if use_dist:
+                    init_steps = 5
+                    tasks[0] = ['install_ansible']
+                    tasks[1] = ['basic']
+                    if cont == 0:
+                        tasks[2] = ['gen_facts_cache']
+                    else:
+                        tasks[2] = []
+                    if cont == 0:
+                        tasks[3] = []
+                    else:
+                        tasks[3] = ['copy_facts_cache']
+                    tasks[4] = ['main_' + vm.info.systems[0].name]
+                else:
+                    init_steps = 2
+                    if cont == 0:
+                        # In the first VM put the wait all ssh task
+                        tasks[0] = ['wait_all_ssh', 'basic']
+                    else:
+                        tasks[0] = ['basic']
                     tasks[1] = ['main_' + vm.info.systems[0].name]
 
                 # And the specific tasks only for the specified ones
@@ -525,7 +545,7 @@ class InfrastructureInfo:
                     # Then add the configure sections
                     for ctxt_num in contextualizes.keys():
                         for ctxt_elem in contextualizes[ctxt_num]:
-                            step = ctxt_num + 2
+                            step = ctxt_num + init_steps
                             if ctxt_elem.system == vm.info.systems[0].name and ctxt_elem.get_ctxt_tool() == "Ansible":
                                 if step not in tasks:
                                     tasks[step] = []

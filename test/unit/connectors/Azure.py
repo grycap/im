@@ -34,6 +34,7 @@ from radl import radl_parse
 from IM.VirtualMachine import VirtualMachine
 from IM.InfrastructureInfo import InfrastructureInfo
 from IM.connectors.Azure import AzureCloudConnector
+from IM.config import Config
 from mock import patch, MagicMock, call
 
 
@@ -49,6 +50,8 @@ class TestAzureConnector(unittest.TestCase):
     """
 
     def setUp(self):
+        self.error_in_wait = True
+        self.error_in_create = True
         self.last_op = None, None
         self.log = StringIO()
         self.handler = logging.StreamHandler(self.log)
@@ -117,6 +120,26 @@ class TestAzureConnector(unittest.TestCase):
         self.assertEqual(len(concrete), 1)
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
+    def wait(self):
+        """
+        Wait VMs returning error only first time
+        """
+        if self.error_in_wait:
+            self.error_in_wait = False
+            raise Exception("Error waiting VM")
+
+    def create_vm(self, group_name, vm_name, vm_parameters):
+        """
+        Create VMs returning error only first time
+        """
+        if self.error_in_create:
+            self.error_in_create = False
+            raise Exception("Error creating VM")
+        else:
+            async_vm_creation = MagicMock()
+            async_vm_creation.wait.side_effect = self.wait
+            return async_vm_creation
+
     @patch('IM.connectors.Azure.ResourceManagementClient')
     @patch('IM.connectors.Azure.StorageManagementClient')
     @patch('IM.connectors.Azure.ComputeManagementClient')
@@ -175,10 +198,14 @@ class TestAzureConnector(unittest.TestCase):
         instace_types = [instace_type]
         cclient.virtual_machine_sizes.list.return_value = instace_types
 
-        res = azure_cloud.launch(InfrastructureInfo(), radl, radl, 1, auth)
-        success, _ = res[0]
-        self.assertTrue(success, msg="ERROR: launching a VM.")
-        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+        cclient.virtual_machines.create_or_update.side_effect = self.create_vm
+
+        Config.MAX_VM_FAILS = 2
+        res = azure_cloud.launch(InfrastructureInfo(), radl, radl, 3, auth)
+        self.assertEqual(len(res), 3)
+        self.assertTrue(res[0][0])
+        self.assertTrue(res[1][0])
+        self.assertTrue(res[2][0])
 
     @patch('IM.connectors.Azure.NetworkManagementClient')
     @patch('IM.connectors.Azure.ComputeManagementClient')

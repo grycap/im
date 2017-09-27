@@ -56,6 +56,7 @@ class OCCICloudConnector(CloudConnector):
         'suspended': VirtualMachine.STOPPED
     }
     """Dictionary with a map with the OCCI VM states to the IM states."""
+    PUBLIC_NET_NAMES = ["public", "PUBLIC", "floating"]
 
     def __init__(self, cloud_info, inf):
         self.add_public_ip_count = 0
@@ -136,7 +137,18 @@ class OCCICloudConnector(CloudConnector):
                 url = uriparse(str_url)
                 protocol = url[0]
                 cloud_url = self.cloud.protocol + "://" + self.cloud.server + ":" + str(self.cloud.port)
-                if (protocol in ['https', 'http'] and url[2] and url[0] + "://" + url[1] == cloud_url):
+                site_url = None
+                if protocol == "appdb":
+                    # The url has this format: appdb://UPV-GRyCAP/egi.docker.ubuntu.16.04?fedcloud.egi.eu
+                    # Get the Site url from the AppDB
+                    site_name = url[1]
+                    image_name = url[2][1:]
+                    vo_name = url[4]
+                    site_id = self.get_site_id(site_name)
+                    _, site_url = self.get_image_id_and_site_url(site_id, image_name, vo_name)
+
+                if ((protocol in ['https', 'http'] and url[2] and url[0] + "://" + url[1] == cloud_url) or
+                        (protocol == "appdb" and site_url.startswith(cloud_url))):
                     res_system = radl_system.clone()
 
                     res_system.getFeature("cpu.count").operator = "="
@@ -208,6 +220,7 @@ class OCCICloudConnector(CloudConnector):
             if 'Link:' in l and ('/network/' in l or '/networklink/' in l):
                 num_interface = None
                 ip_address = None
+                link = None
                 parts = l.split(';')
                 for part in parts:
                     kv = part.split('=')
@@ -218,8 +231,10 @@ class OCCICloudConnector(CloudConnector):
                     elif kv[0].strip() == "occi.networkinterface.interface":
                         net_interface = kv[1].strip('"')
                         num_interface = re.findall('\d+', net_interface)[0]
+                    elif kv[0].strip() == "self":
+                        link = kv[1].strip('"')
                 if num_interface and ip_address:
-                    res.append((num_interface, ip_address, not is_private))
+                    res.append((num_interface, ip_address, not is_private, link))
         return link_to_public, res
 
     def manage_public_ips(self, vm, auth_data):
@@ -228,14 +243,7 @@ class OCCICloudConnector(CloudConnector):
         """
         self.log_debug("The VM does not have public IP trying to add one.")
         if self.add_public_ip_count < self.MAX_ADD_IP_COUNT:
-            # in some sites the network is called floating, in others PUBLIC ...
-            net_names = ["public", "PUBLIC", "floating"]
-            msgs = ""
-            for name in net_names:
-                success, msg = self.add_public_ip(vm, auth_data, network_name=name)
-                msgs += msg + "\n"
-                if success:
-                    break
+            success, msgs = self.add_public_ip(vm, auth_data)
             if success:
                 self.log_debug("Public IP successfully added.")
             else:
@@ -262,7 +270,7 @@ class OCCICloudConnector(CloudConnector):
         private_ips = []
 
         link_to_public, addresses = self.get_net_info(occi_res)
-        for _, ip_address, is_public in addresses:
+        for _, ip_address, is_public, _ in addresses:
             if is_public:
                 public_ips.append(ip_address)
             else:
@@ -272,7 +280,7 @@ class OCCICloudConnector(CloudConnector):
                 not public_ips and vm.requested_radl.hasPublicNet(vm.info.systems[0].name)):
             self.manage_public_ips(vm, auth_data)
 
-        vm.setIps(public_ips, private_ips)
+        vm.setIps(public_ips, private_ips, remove_old=True)
 
     def get_property_from_category(self, occi_res, category, prop_name):
         """
@@ -307,10 +315,50 @@ class OCCICloudConnector(CloudConnector):
         else:
             return None
 
-    def add_public_ip(self, vm, auth_data, network_name="public"):
+    def get_public_net_name(self, auth_data):
+        # in some sites the network is called floating, in others PUBLIC ...
+        """
+        Get the public network name contacting with the OCCI server
+        """
+        auth = self.get_auth_header(auth_data)
+        headers = {'Accept': 'text/plain', 'Connection': 'close'}
+        if auth:
+            headers.update(auth)
+        try:
+            resp = self.create_request('GET', self.cloud.path + "/network/", auth_data, headers)
+
+            if resp.status_code != 200:
+                return False, "Error querying the OCCI server: %s" % resp.reason
+        except Exception as ex:
+            return False, "Error querying the OCCI server: %s" % str(ex)
+
+        lines = resp.text.split("\n")
+        # If there are only one net, return it
+        if len(lines) == 1 and lines[0].startswith("X-OCCI-Location: "):
+            return os.path.basename(lines[0][17:])
+
+        # if not, try to find one with the expected names
+        net_name = None
+        for l in lines:
+            if l.startswith("X-OCCI-Location: "):
+                net_name = os.path.basename(l[17:])
+            if net_name in self.PUBLIC_NET_NAMES:
+                return net_name
+
+        # if not, return a random one and pray
+        if not net_name and len(lines) > 0:
+            return os.path.basename(lines[random.randint(0, len(lines) - 1)][17:])
+
+        return net_name
+
+    def add_public_ip(self, vm, auth_data):
         """
         Add a public IP to the VM
         """
+        network_name = self.get_public_net_name(auth_data)
+        if not network_name:
+            return (False, "No correct network name found.")
+
         _, occi_info = self.query_occi(auth_data)
         url = self.get_property_from_category(occi_info, "networkinterface", "location")
         if not url:
@@ -321,12 +369,11 @@ class OCCICloudConnector(CloudConnector):
         try:
             net_id = "imnet.%s" % str(uuid.uuid1())
 
-            body = ('Category: networkinterface;scheme="http://schemas.ogf.org/occi/infrastructure#";class="kind";'
-                    'location="%s/link/networkinterface/";title="networkinterface link"\n' % self.cloud.path)
+            body = 'Category: networkinterface;scheme="http://schemas.ogf.org/occi/infrastructure#";class="kind"\n'
             pool_name = self.get_floating_pool(auth_data)
             if pool_name:
                 body += ('Category: %s;scheme="http://schemas.openstack.org/network/floatingippool#";'
-                         'class="mixin";location="/mixin/%s/";title="%s"' % (pool_name, pool_name, pool_name))
+                         'class="mixin"\n' % pool_name)
             body += 'X-OCCI-Attribute: occi.core.id="%s"\n' % net_id
             body += 'X-OCCI-Attribute: occi.core.target="%s/network/%s"\n' % (self.cloud.path, network_name)
             body += 'X-OCCI-Attribute: occi.core.source="%s/compute/%s"' % (self.cloud.path, vm.id)
@@ -740,8 +787,19 @@ class OCCICloudConnector(CloudConnector):
 
         # Parse the info to get the os_tpl scheme
         url = uriparse(system.getValue("disk.0.image.url"))
-        # Get the Image ID from the last part of the path
-        os_tpl = os.path.basename(url[2])
+
+        if url[0] == "appdb":
+            # the url has this format appdb://UPV-GRyCAP/egi.docker.ubuntu.16.04?fedcloud.egi.eu
+            # Get the Image ID from the AppDB
+            site_name = url[1]
+            image_name = url[2][1:]
+            vo_name = url[4]
+            site_id = self.get_site_id(site_name)
+            os_tpl, _ = self.get_image_id_and_site_url(site_id, image_name, vo_name)
+        else:
+            # Get the Image ID from the last part of the path
+            os_tpl = os.path.basename(url[2])
+
         os_tpl_scheme = self.get_os_tpl_scheme(occi_info, os_tpl)
         if not os_tpl_scheme:
             raise Exception(
@@ -952,7 +1010,7 @@ class OCCICloudConnector(CloudConnector):
                 headers.update(auth_header)
 
             body = ('Category: start;scheme="http://schemas.ogf.org/occi/infrastructure/compute/action#"'
-                    ';class="action";\n')
+                    ';class="action"\n')
             resp = self.create_request('POST', self.cloud.path + "/compute/" + vm.id + "?action=start",
                                        auth_data, headers, body)
 
@@ -1020,9 +1078,54 @@ class OCCICloudConnector(CloudConnector):
             self.log_exception("Error connecting with OCCI server")
             return (False, "Error connecting with OCCI server: " + str(ex))
 
-    def add_new_nics(self, vm, radl, auth_data):
+    def get_public_ip_link(self, occi_res):
         """
-        Add new public IP if currently it does not have one and new RADL requests it
+        Get the link of the first public IP
+        """
+        _, addresses = self.get_net_info(occi_res)
+        link = None
+        for _, _, is_public, addr_link in addresses:
+            if is_public:
+                link = addr_link
+                break
+        return link
+
+    def remove_public_ip(self, vm, auth_data):
+        """
+        Remove/Detach public IP from VM
+        """
+        self.log_debug("Removing Public IP from VM %s" % vm.id)
+
+        auth = self.get_auth_header(auth_data)
+        headers = {'Accept': 'text/plain', 'Connection': 'close'}
+        if auth:
+            headers.update(auth)
+
+        try:
+            resp = self.create_request('GET', self.cloud.path + "/compute/" + vm.id, auth_data, headers)
+
+            if resp.status_code != 200:
+                self.log_error("Error getting VM info: " + resp.reason + "\n" + resp.text)
+                return (False, "Error getting VM info: " + resp.reason + "\n" + resp.text)
+            else:
+                link = self.get_public_ip_link(resp.text)
+                if not link:
+                    self.log_warn("No public IP to delete.")
+                    return (True, "No public IP to delete.")
+                resp = self.create_request('DELETE', link, auth_data, headers)
+                if resp.status_code in [404, 204, 200]:
+                    self.log_debug("Successfully removed")
+                    return (True, "")
+                else:
+                    self.log_error("Error removing public IP: " + resp.reason + "\n" + resp.text)
+                    return (False, resp.reason + "\n" + resp.text)
+        except Exception as ex:
+            self.log_exception("Error removing public IP")
+            return (False, str(ex))
+
+    def manage_nics(self, vm, radl, auth_data):
+        """
+        Add/remove public IP if currently it does not have one and new RADL requests it or vice versa
         """
         # update VM info
         try:
@@ -1030,7 +1133,9 @@ class OCCICloudConnector(CloudConnector):
             current_has_public_ip = vm.info.hasPublicNet(vm.info.systems[0].name)
             new_has_public_ip = radl.hasPublicNet(vm.info.systems[0].name)
             if new_has_public_ip and not current_has_public_ip:
-                self.manage_public_ips(vm, auth_data)
+                return self.add_public_ip(vm, auth_data)
+            if not new_has_public_ip and current_has_public_ip:
+                return self.remove_public_ip(vm, auth_data)
         except Exception as ex:
             self.log_exception("Error adding new public IP")
             return (False, "Error adding new public IP: " + str(ex))
@@ -1047,7 +1152,7 @@ class OCCICloudConnector(CloudConnector):
         if not success:
             return (success, msg)
 
-        success, msg = self.add_new_nics(vm, radl, auth_data)
+        success, msg = self.manage_nics(vm, radl, auth_data)
         if not success:
             return (success, msg)
 
@@ -1071,8 +1176,7 @@ class OCCICloudConnector(CloudConnector):
 
             disk_id = "imdisk.%s" % str(uuid.uuid1())
 
-            body = ('Category: storagelink;scheme="http://schemas.ogf.org/occi/infrastructure#";class="kind";'
-                    'location="%s/link/storagelink/";title="storagelink"\n' % self.cloud.path)
+            body = 'Category: storagelink;scheme="http://schemas.ogf.org/occi/infrastructure#";class="kind"\n'
             body += 'X-OCCI-Attribute: occi.core.id="%s"\n' % disk_id
             body += 'X-OCCI-Attribute: occi.core.target="%s/storage/%s"\n' % (self.cloud.path, volume_id)
             body += 'X-OCCI-Attribute: occi.core.source="%s/compute/%s"' % (self.cloud.path, vm.id)
@@ -1088,6 +1192,46 @@ class OCCICloudConnector(CloudConnector):
         except Exception:
             self.log_exception("Error connecting with OCCI server")
             return False
+
+    @staticmethod
+    def appdb_call(path):
+        resp = requests.request("GET", "https://appdb.egi.eu" + path, verify=False)
+        if resp.status_code == 200:
+            resp.text.replace('\n', '')
+            return xmltodict.parse(resp.text)
+        else:
+            return None
+
+    def get_site_id(self, site_name):
+        data = OCCICloudConnector.appdb_call('/rest/1.0/va_providers')
+        if data:
+            for site in data['appdb:appdb']['virtualization:provider']:
+                if site_name == site['provider:name'] and site['@in_production'] == "true":
+                    return site['@id']
+        else:
+            self.log_warn("No data returned from EGI AppDB.")
+
+        self.log_warn("No site ID returned from EGI AppDB for site: %s." % site_name)
+        return None
+
+    def get_image_id_and_site_url(self, site_id, image_name, vo_name=None):
+        data = OCCICloudConnector.appdb_call('/rest/1.0/va_providers/%s' % site_id)
+        if data:
+            site_url = data['appdb:appdb']['virtualization:provider']["provider:endpoint_url"]
+            if 'provider:image' in data['appdb:appdb']['virtualization:provider']:
+                for image in data['appdb:appdb']['virtualization:provider']['provider:image']:
+                    if image['@appcname'] == image_name and (not vo_name or image['@voname'] == vo_name):
+                        image_basename = os.path.basename(image['@va_provider_image_id'])
+                        parts = image_basename.split("#")
+                        if len(parts) > 1:
+                            return parts[1], site_url
+                        else:
+                            return image_basename, site_url
+        else:
+            self.log_warn("No data returned from EGI AppDB.")
+
+        self.log_warn("No image ID returned from EGI AppDB for image: %s/%s." % (site_id, image_name))
+        return '', ''
 
 
 class KeyStoneAuth:

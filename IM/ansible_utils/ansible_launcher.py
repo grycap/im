@@ -25,6 +25,7 @@ from multiprocessing import Process
 import subprocess
 import signal
 import logging
+from distutils.version import LooseVersion
 from ansible import errors
 from ansible import __version__ as ansible_version
 
@@ -38,7 +39,14 @@ if ansible_version.startswith("1."):
 else:
     from ansible.cli import CLI
     from ansible.parsing.dataloader import DataLoader
-    from ansible.vars import VariableManager
+    try:
+        # for Ansible version 2.4.0 or higher
+        from ansible.vars.manager import VariableManager
+        from ansible.inventory.manager import InventoryManager
+    except ImportError:
+        # for Ansible version 2.3.2 or lower
+        from ansible.vars import VariableManager
+        from ansible.inventory import Inventory
     import ansible.inventory
 
     from .ansible_executor_v2 import IMPlaybookExecutor
@@ -131,6 +139,54 @@ class AnsibleThread(Process):
             display("ERROR: %s" % e, output=self.output)
             self.result.put((0, (1, []), output))
 
+    def get_play_prereqs(self, options):
+        if LooseVersion(ansible_version) >= LooseVersion("2.4.0"):
+            # for Ansible version 2.4.0 or higher
+            return self.get_play_prereqs_2_4(options)
+        else:
+            # for Ansible version 2.3.2 or lower
+            return self.get_play_prereqs_2(options)
+
+    def get_play_prereqs_2(self, options):
+        loader = DataLoader()
+
+        if self.vault_pass:
+            loader.set_vault_password(self.vault_pass)
+
+        variable_manager = VariableManager()
+        variable_manager.extra_vars = self.extra_vars
+
+        # Add this to avoid the Ansible bug:  no host vars as host is not in inventory
+        # In version 2.0.1 it must be fixed
+        ansible.inventory.HOSTS_PATTERNS_CACHE = {}
+
+        inventory = Inventory(loader=loader, variable_manager=variable_manager, host_list=options.inventory)
+        variable_manager.set_inventory(inventory)
+
+        if self.host:
+            inventory.subset(self.host)
+        # let inventory know which playbooks are using so it can know the
+        # basedirs
+        inventory.set_playbook_basedir(os.path.dirname(self.playbook_file))
+
+        return loader, inventory, variable_manager
+
+    def get_play_prereqs_2_4(self, options):
+        loader = DataLoader()
+
+        if self.vault_pass:
+            loader.set_vault_password(self.vault_pass)
+
+        # create the inventory, and filter it based on the subset specified (if any)
+        inventory = InventoryManager(loader=loader, sources=options.inventory)
+
+        # create the variable manager, which will be shared throughout
+        # the code, ensuring a consistent view of global variables
+        variable_manager = VariableManager(loader=loader, inventory=inventory)
+        variable_manager.extra_vars = self.extra_vars
+
+        return loader, inventory, variable_manager
+
     def launch_playbook_v2(self):
         ''' run ansible-playbook operations v2.X'''
         # create parser for CLI options
@@ -171,31 +227,12 @@ class AnsibleThread(Process):
             raise errors.AnsibleError(
                 "the playbook: %s does not appear to be a file" % self.playbook_file)
 
-        variable_manager = VariableManager()
-        variable_manager.extra_vars = self.extra_vars
-
         if self.inventory_file:
             options.inventory = self.inventory_file
 
         options.forks = self.threads
 
-        loader = DataLoader()
-        # Add this to avoid the Ansible bug:  no host vars as host is not in inventory
-        # In version 2.0.1 it must be fixed
-        ansible.inventory.HOSTS_PATTERNS_CACHE = {}
-
-        if self.vault_pass:
-            loader.set_vault_password(self.vault_pass)
-
-        inventory = ansible.inventory.Inventory(
-            loader=loader, variable_manager=variable_manager, host_list=options.inventory)
-        variable_manager.set_inventory(inventory)
-
-        if self.host:
-            inventory.subset(self.host)
-        # let inventory know which playbooks are using so it can know the
-        # basedirs
-        inventory.set_playbook_basedir(os.path.dirname(self.playbook_file))
+        loader, inventory, variable_manager = self.get_play_prereqs(options)
 
         num_retries = 0
         return_code = 4

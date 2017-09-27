@@ -25,6 +25,7 @@ import subprocess
 import os
 import getpass
 import json
+import yaml
 try:
     from StringIO import StringIO
 except ImportError:
@@ -204,7 +205,7 @@ class CtxtAgent():
                               retries, change_pass_ok, vault_pass):
         CtxtAgent.logger.debug('Call Ansible')
 
-        extra_vars = {'IM_HOST': vm['ip'] + "_" + str(vm['remote_port'])}
+        extra_vars = {'IM_HOST': vm['ip'] + "_" + str(vm['id'])}
         user = None
         if vm['os'] == "windows":
             gen_pk_file = None
@@ -249,7 +250,7 @@ class CtxtAgent():
                     return False
                 try:
                     url = "https://" + vm['ip'] + ":5986"
-                    s = winrm.Session(url, auth=(vm['user'], vm['passwd']))
+                    s = winrm.Session(url, auth=(vm['user'], vm['passwd']), server_cert_validation='ignore')
                     r = s.run_cmd('net', ['user', vm['user'], vm['new_passwd']])
 
                     # this part of the code is never reached ...
@@ -265,7 +266,7 @@ class CtxtAgent():
                     # error
                     try:
                         # let's check that the new password works
-                        s = winrm.Session(url, auth=(vm['user'], vm['new_passwd']))
+                        s = winrm.Session(url, auth=(vm['user'], vm['new_passwd']), server_cert_validation='ignore')
                         r = s.run_cmd('echo', ['OK'])
                         if r.status_code == 0:
                             vm['passwd'] = vm['new_passwd']
@@ -391,6 +392,56 @@ class CtxtAgent():
             f.write(inventoy_data)
 
     @staticmethod
+    def install_ansible_modules(general_conf_data, playbook):
+        new_playbook = playbook
+        if 'ansible_modules' in general_conf_data and general_conf_data['ansible_modules']:
+            play_dir = os.path.dirname(playbook)
+            play_filename = os.path.basename(playbook)
+            new_playbook = os.path.join(play_dir, "mod_" + play_filename)
+
+            with open(playbook) as f:
+                yaml_data = yaml.load(f)
+
+            for galaxy_name in general_conf_data['ansible_modules']:
+                galaxy_name = galaxy_name.encode()
+                if galaxy_name:
+                    CtxtAgent.logger.debug("Install " + galaxy_name + " with ansible-galaxy.")
+
+                    parts = galaxy_name.split("|")
+                    if len(parts) > 1:
+                        url = parts[0]
+                        rolename = parts[1]
+
+                        task = {"copy": 'dest=/tmp/%s.yml content="- src: %s\\n  name: %s"' % (rolename,
+                                                                                               url, rolename)}
+                        task["name"] = "Create YAML file to install the %s role with ansible-galaxy" % rolename
+                        yaml_data[0]['tasks'].append(task)
+                        url = "-r /tmp/%s.yml" % rolename
+                    else:
+                        url = rolename = galaxy_name
+
+                    if galaxy_name.startswith("git"):
+                        task = {"yum": "name=git"}
+                        task["name"] = "Install git with yum"
+                        task["become"] = "yes"
+                        task["when"] = 'ansible_os_family == "RedHat"'
+                        yaml_data[0]['tasks'].append(task)
+                        task = {"apt": "name=git"}
+                        task["name"] = "Install git with apt"
+                        task["become"] = "yes"
+                        task["when"] = 'ansible_os_family == "Debian"'
+                        yaml_data[0]['tasks'].append(task)
+                    task = {"command": "ansible-galaxy -f install %s" % url}
+                    task["name"] = "Install %s galaxy role" % galaxy_name
+                    task["become"] = "yes"
+                    yaml_data[0]['tasks'].append(task)
+
+            with open(new_playbook, 'w+') as f:
+                yaml.dump(yaml_data, f)
+
+        return new_playbook
+
+    @staticmethod
     def contextualize_vm(general_conf_data, vm_conf_data):
         vault_pass = None
         if 'VAULT_PASS' in os.environ:
@@ -405,7 +456,6 @@ class CtxtAgent():
                                         ' -q -N "" -f ' + CtxtAgent.PK_FILE)
             CtxtAgent.logger.debug(out)
 
-        # Check that we can SSH access the node
         ctxt_vm = None
         for vm in general_conf_data['vms']:
             if vm['id'] == vm_conf_data['id']:
@@ -432,36 +482,49 @@ class CtxtAgent():
                 inventory_file = general_conf_data['conf_dir'] + "/hosts"
 
                 ansible_thread = None
-                if task == "basic":
-                    # This is always the fist step, so put the SSH test, the
-                    # requiretty removal and change password here
+                if task == "wait_all_ssh":
+                    # Wait all the VMs to have remote access active
                     for vm in general_conf_data['vms']:
                         if vm['os'] == "windows":
                             CtxtAgent.logger.info("Waiting WinRM access to VM: " + vm['ip'])
-                            ssh_res = CtxtAgent.wait_winrm_access(vm)
+                            cred_used = CtxtAgent.wait_winrm_access(vm)
                         else:
                             CtxtAgent.logger.info("Waiting SSH access to VM: " + vm['ip'])
-                            ssh_res = CtxtAgent.wait_ssh_access(vm)
+                            cred_used = CtxtAgent.wait_ssh_access(vm)
 
-                        # the IP has changed public for private and we are the
-                        # master VM
-                        if 'ctxt_ip' in vm and vm['ctxt_ip'] != vm['ip'] and ctxt_vm['master']:
-                            # update the ansible inventory
-                            CtxtAgent.logger.info("Changing the IP %s for %s in config files." % (
-                                vm['ctxt_ip'], vm['ip']))
-                            CtxtAgent.replace_vm_ip(vm)
-
-                        if vm['id'] == vm_conf_data['id']:
-                            cred_used = ssh_res
-                        if not ssh_res:
+                        if not cred_used:
                             CtxtAgent.logger.error("Error Waiting access to VM: " + vm['ip'])
                             res_data['SSH_WAIT'] = False
                             res_data['OK'] = False
                             return res_data
                         else:
                             res_data['SSH_WAIT'] = True
-                            CtxtAgent.logger.info("Remote access to VM: " +
-                                                  vm['ip'] + " Open!")
+                            CtxtAgent.logger.info("Remote access to VM: " + vm['ip'] + " Open!")
+
+                        # the IP has changed public for private
+                        if 'ctxt_ip' in vm and vm['ctxt_ip'] != vm['ip']:
+                            # update the ansible inventory
+                            CtxtAgent.logger.info("Changing the IP %s for %s in config files." % (vm['ctxt_ip'],
+                                                                                                  vm['ip']))
+                            CtxtAgent.replace_vm_ip(vm)
+                elif task == "basic":
+                    # This is always the fist step, so put the SSH test, the
+                    # requiretty removal and change password here
+                    if ctxt_vm['os'] == "windows":
+                        CtxtAgent.logger.info("Waiting WinRM access to VM: " + ctxt_vm['ip'])
+                        cred_used = CtxtAgent.wait_winrm_access(ctxt_vm)
+                    else:
+                        CtxtAgent.logger.info("Waiting SSH access to VM: " + ctxt_vm['ip'])
+                        cred_used = CtxtAgent.wait_ssh_access(ctxt_vm)
+
+                    if not cred_used:
+                        CtxtAgent.logger.error("Error Waiting access to VM: " + ctxt_vm['ip'])
+                        res_data['SSH_WAIT'] = False
+                        res_data['OK'] = False
+                        return res_data
+                    else:
+                        res_data['SSH_WAIT'] = True
+                        CtxtAgent.logger.info("Remote access to VM: " + ctxt_vm['ip'] + " Open!")
 
                     # The basic task uses the credentials of VM stored in ctxt_vm
                     pk_file = None
@@ -476,7 +539,7 @@ class CtxtAgent():
                         else:
                             CtxtAgent.logger.error("Error removing Requiretty")
 
-                    # Check if we must chage user credentials
+                    # Check if we must change user credentials
                     # Do not change it on the master. It must be changed only by
                     # the ConfManager
                     change_creds = False
@@ -485,6 +548,9 @@ class CtxtAgent():
                         res_data['CHANGE_CREDS'] = change_creds
 
                     if ctxt_vm['os'] != "windows":
+                        if ctxt_vm['master']:
+                            # Install ansible modules
+                            playbook = CtxtAgent.install_ansible_modules(general_conf_data, playbook)
                         # this step is not needed in windows systems
                         ansible_thread = CtxtAgent.LaunchAnsiblePlaybook(CtxtAgent.logger, vm_conf_data['remote_dir'],
                                                                          playbook, ctxt_vm, 2, inventory_file,
