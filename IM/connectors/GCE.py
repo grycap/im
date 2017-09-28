@@ -365,8 +365,6 @@ class GCECloudConnector(CloudConnector):
         Create a firewall for the net using the outports param
         """
         with inf._lock:
-            firewall_name = "fw-im-%s" % net_name
-
             public_net = None
             for net in radl.networks:
                 if net.isPublic():
@@ -376,6 +374,9 @@ class GCECloudConnector(CloudConnector):
             if public_net:
                 outports = public_net.getOutPorts()
                 if outports:
+                    firewall_name = public_net.getValue("sg_name")
+                    if not firewall_name:
+                        firewall_name = "fw-im-%s" % net_name
                     for outport in outports:
                         if outport.get_protocol() not in ports:
                             ports[outport.get_protocol()] = []
