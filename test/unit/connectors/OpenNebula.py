@@ -124,7 +124,8 @@ class TestONEConnector(unittest.TestCase):
     @patch('IM.InfrastructureList.InfrastructureList.save_data')
     def test_20_launch(self, save_data, getONEVersion, server_proxy):
         radl_data = """
-            network net1 (provider_id = 'publica' and outbound = 'yes' and outports = '8080,9000:9100')
+            network net1 (provider_id = 'publica' and outbound = 'yes' and
+                          outports = '8080,9000:9100' and sg_name= 'test')
             network net2 ()
             system test (
             cpu.arch='x86_64' and
@@ -160,9 +161,9 @@ class TestONEConnector(unittest.TestCase):
         res = one_cloud.launch(inf, radl, radl, 1, auth)
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
-        sg_template = ('NAME = im-%s-net1\nRULE = [ PROTOCOL = TCP, RULE_TYPE = inbound, RANGE = 22:22 ]\n'
+        sg_template = ('NAME = test\nRULE = [ PROTOCOL = TCP, RULE_TYPE = inbound, RANGE = 22:22 ]\n'
                        'RULE = [ PROTOCOL = TCP, RULE_TYPE = inbound, RANGE = 8080:8080 ]\n'
-                       'RULE = [ PROTOCOL = TCP, RULE_TYPE = inbound, RANGE = 9000:9100 ]\n' % inf.id)
+                       'RULE = [ PROTOCOL = TCP, RULE_TYPE = inbound, RANGE = 9000:9100 ]\n')
         self.assertEqual(one_server.one.secgroup.allocate.call_args_list, [call('user:pass', sg_template)])
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 

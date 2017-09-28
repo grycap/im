@@ -707,8 +707,9 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         while system.getValue("net_interface." + str(i) + ".connection"):
             network_name = system.getValue("net_interface." + str(i) + ".connection")
             network = radl.get_network_by_id(network_name)
-
-            sg_name = "im-%s-%s" % (str(inf.id), network_name)
+            sg_name = network.getValue("sg_name")
+            if not sg_name:
+                sg_name = "im-%s-%s" % (str(inf.id), network_name)
 
             # Use the InfrastructureInfo lock to assure that only one VM create the SG
             with inf._lock:

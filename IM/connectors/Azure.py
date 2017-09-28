@@ -375,7 +375,9 @@ class AzureCloudConnector(CloudConnector):
 
                 # Create a NSG
                 if outports:
-                    nsg_name = "nsg-%d" % i
+                    nsg_name = network.getValue("sg_name")
+                    if not nsg_name:
+                        nsg_name = "nsg-%d" % i
                     nsg = self.create_ngs(location, group_name, nsg_name, outports, network_client)
                     if nsg:
                         nic_params['network_security_group'] = {'id': nsg.id}
