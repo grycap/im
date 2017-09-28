@@ -994,7 +994,7 @@ configure step2 (
     def test_check_oidc_invalid_token(self, request):
         im_auth = {"token": self.gen_token()}
 
-	Config.OIDC_ISSUERS = ["https://iam-test.indigo-datacloud.eu/"]
+        Config.OIDC_ISSUERS = ["https://iam-test.indigo-datacloud.eu/"]
         with self.assertRaises(Exception) as ex:
             IM.check_oidc_token(im_auth)
         self.assertEqual(str(ex.exception),
