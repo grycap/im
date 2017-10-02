@@ -45,6 +45,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
     """ default user to SSH access the VM """
     MAX_ADD_IP_COUNT = 5
     """ Max number of retries to get a public IP """
+    CONFIG_DRIVE = False
+    """ Enable config drive """
 
     def __init__(self, cloud_info, inf):
         self.auth = None
@@ -490,6 +492,9 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         if cloud_init:
             args['ex_userdata'] = cloud_init
+
+        if self.CONFIG_DRIVE:
+            args['ex_config_drive'] = self.CONFIG_DRIVE
 
         res = []
         i = 0
