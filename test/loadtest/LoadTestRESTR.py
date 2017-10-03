@@ -92,10 +92,11 @@ class LoadTest(unittest.TestCase):
         self.assertEqual(resp.status_code, 200,
                          msg="ERROR listing user infrastructures:" + resp.text)
 
-        for inf_id in resp.text.split("\n"):
-            inf_id = os.path.basename(inf_id)
-            self.getinfo(inf_id)
-            self.getstate(inf_id)
+        if resp.text:
+            for inf_id in resp.text.split("\n"):
+                inf_id = os.path.basename(inf_id)
+                self.getinfo(inf_id)
+                self.getstate(inf_id)
 
     def getinfo(self, inf_id):
         resp = self.create_request("GET", "/infrastructures/" + inf_id)
@@ -109,6 +110,7 @@ class LoadTest(unittest.TestCase):
         res = json.loads(resp.text)
         state = res['state']['state']
         vm_states = res['state']['vm_states']
+        print(inf_id, " ", state)
 
 
 def test(num_client):
@@ -124,7 +126,7 @@ if __name__ == '__main__':
     DELAY = 1
 
     if len(sys.argv) > 3:
-        DELAY = int(sys.argv[3])
+        DELAY = float(sys.argv[3])
         del sys.argv[3]
 
     if len(sys.argv) > 2:
@@ -136,19 +138,21 @@ if __name__ == '__main__':
         MAX_CLIENTS = MAX_THREADS = int(sys.argv[1])
         del sys.argv[1]
 
-    cont = 0
-    while cont < MAX_CLIENTS:
-        num_treads = min(MAX_CLIENTS - cont, MAX_THREADS)
-        processes = []
+    processes = []
+    remaining = MAX_CLIENTS
+    while remaining > 0:
         now = datetime.datetime.now()
-        print(now, ": Launch %d threads. " % num_treads)
-        for num in range(num_treads):
-            p = Process(target=test, args=(cont + num,))
+        while len(processes) < MAX_THREADS:
+            p = Process(target=test, args=(MAX_CLIENTS - remaining,))
             p.start()
             processes.append(p)
-            time.sleep(DELAY)
-        for p in processes:
-            p.join()
-        cont += num_treads
-        now = datetime.datetime.now()
-        print(now, ": End %d threads. " % num_treads)
+            remaining -= 1
+
+        while len(processes) >= MAX_THREADS:
+            new_processes = []
+            for p in processes:
+                if p.is_alive():
+                    new_processes.append(p)
+            processes = new_processes
+            if len(processes) >= MAX_THREADS:
+                time.sleep(DELAY)
