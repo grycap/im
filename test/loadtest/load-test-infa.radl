@@ -132,13 +132,13 @@ configure iminstall (
     - name: Start IM
       service: name=im state=started
 
-	- firewalld: service=8800/tcp permanent=true state=enabled
-	  when: ansible_os_family == "RedHat"
-	  ignore_errors: yes
+    - firewalld: service="8800/tcp" permanent=true state=enabled
+      when: ansible_os_family == "RedHat"
+      ignore_errors: yes
 
-	- firewalld: service=8899/tcp permanent=true state=enabled
-	  when: ansible_os_family == "RedHat"
-	  ignore_errors: yes
+    - firewalld: service="8899/tcp" permanent=true state=enabled
+      when: ansible_os_family == "RedHat"
+      ignore_errors: yes
 @end
 )
 
@@ -217,14 +217,18 @@ configure imclient (
 
 configure infra (
 @begin
-  - roles:
-    - { role: 'grycap.docker', docker_opts: '-H tcp://0.0.0.0:2375' }
-  - tasks:
-    - command: docker -H tcp://localhost:2375 pull ubuntu:14.04
+  - pre_tasks:
+    - firewalld: port=2375/tcp permanent=true state=enabled immediate=yes
+      when: ansible_os_family == "RedHat"
+      ignore_errors: yes
 
-	- firewalld: service=2375/tcp permanent=true state=enabled
-	  when: ansible_os_family == "RedHat"
-	  ignore_errors: yes
+    roles:
+    - role: 'grycap.docker'
+      docker_opts: '-H tcp://0.0.0.0:2375'
+
+    tasks:
+    - meta: flush_handlers
+    - command: docker -H tcp://localhost:2375 pull ubuntu:14.04
 @end
 )
 
