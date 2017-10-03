@@ -60,6 +60,8 @@ class DB150to151():
             dic['auth'] = Authentication.deserialize(dic['auth'])
         if dic['radl']:
             dic['radl'] = parse_radl_json(dic['radl'])
+        if 'extra_info' in dic and dic['extra_info'] and "TOSCA" in dic['extra_info']:
+            dic['extra_info']['TOSCA'] = Tosca.deserialize(dic['extra_info']['TOSCA'])
         newinf.__dict__.update(dic)
         newinf.cloud_connector = None
         # Set the ConfManager object and the lock to the data loaded
