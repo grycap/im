@@ -58,8 +58,11 @@ configure octave (
 configure test (
 @begin
 ---
-  - tasks:
+  - vars:
+      NODENAME: {{IM_INFRASTRUCTURE_RADL|json_query("[?id == 'front'].net_interface_0_dns_name")}}
+    tasks:
       - shell:  test -d "/mnt/disk/lost+found"
+      - debug: msg="NODENAME = {{NODENAME}}"
 
 @end
 )

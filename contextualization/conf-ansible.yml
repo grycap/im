@@ -93,10 +93,10 @@
       pip: name=ansible executable=pip-2.6
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int < 6
 
-#################################### Now install and scp and pywinrm with pip  ########################################
+#################################### Now install scp, jmespath and pywinrm with pip  ##################################
       
-    - name: Install scp with Pip
-      pip: name=scp
+    - name: Install scp and jmespath with Pip
+      pip: name=scp,jmespath
       when: ansible_os_family != "RedHat" or (ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 6)
 
     - name: Install pywinrm with Pip
