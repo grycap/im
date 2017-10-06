@@ -469,7 +469,7 @@ users:
         self.assertEqual(res, expected_res)
 
     @patch('requests.request')
-    def test_01_keystone_auth(self, requests):
+    def test_keystone_auth(self, requests):
         occi_cloud = self.get_occi_cloud()
 
         requests.side_effect = self.get_response
