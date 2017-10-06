@@ -25,6 +25,7 @@ import tempfile
 import uuid
 import xmltodict
 import yaml
+import json
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
@@ -72,6 +73,10 @@ class OCCICloudConnector(CloudConnector):
             cert = proxy_filename
         else:
             cert = None
+
+        if auth and "token" in auth:
+            headers.update({'Authorization': 'Bearer ' + auth["token"]})
+
         try:
             resp = requests.request(method, url, verify=False, cert=cert, headers=headers, data=body)
         finally:
@@ -111,8 +116,7 @@ class OCCICloudConnector(CloudConnector):
 
         if keystone_uri:
             # TODO: Check validity of token
-            keystone_token = KeyStoneAuth.get_keystone_token(
-                self, keystone_uri, auth)
+            keystone_token = KeyStoneAuth.get_keystone_token(self, keystone_uri, auth)
             auth_header = {'X-Auth-Token': keystone_token}
         else:
             if 'username' in auth and 'password' in auth:
@@ -1271,6 +1275,57 @@ class KeyStoneAuth:
         """
         Contact the specified keystone server to return the token
         """
+        version = KeyStoneAuth.get_keystone_version(occi, keystone_uri, auth)
+        if version == 2:
+            occi.logger.debug("Getting Keystone v2 token")
+            return KeyStoneAuth.get_keystone_token_v2(occi, keystone_uri, auth)
+        elif version == 3:
+            occi.logger.debug("Getting Keystone v3 token")
+            return KeyStoneAuth.get_keystone_token_v3(occi, keystone_uri, auth)
+        else:
+            # this must never happen
+            raise Exception("Error obtaining Keystone Token: Unknown version %d" % version)
+
+    @staticmethod
+    def get_keystone_version(occi, keystone_uri, auth):
+        """
+        Contact the specified keystone server to return version to use
+        """
+        version = None
+        token = auth and "token" in auth
+
+        try:
+            uri = uriparse(keystone_uri)
+            server = uri[1].split(":")[0]
+            port = int(uri[1].split(":")[1])
+
+            url = "https://%s:%s" % (server, port)
+            resp = occi.create_request_static('GET', url, None, {})
+            if resp.status_code == 200:
+                json_data = resp.json()
+            for elem in json_data["versions"]["values"]:
+                if not token and elem["id"].startswith("v2"):
+                    version = 2
+                if (not version or token) and elem["id"].startswith("v3"):
+                    # only use version 3 if 2 is not available
+                    version = 3
+            else:
+                occi.logger.error("Error obtaining Keystone versions: %s" % resp.text)
+        except Exception as ex:
+            occi.logger.exception("Error obtaining Keystone versions.")
+
+        if not version:
+            # use version 2 as the default one in case of error
+            occi.logger.warn("Keystone Version not obtained, using default one v2.")
+            return 2
+        else:
+            return version
+
+    @staticmethod
+    def get_keystone_token_v2(occi, keystone_uri, auth):
+        """
+        Contact the specified keystone v2 server to return the token
+        """
         try:
             uri = uriparse(keystone_uri)
             server = uri[1].split(":")[0]
@@ -1333,5 +1388,51 @@ class KeyStoneAuth:
 
             return tenant_token_id
         except Exception as ex:
-            occi.logger.exception("Error obtaining Keystone Token.")
-            raise Exception("Error obtaining Keystone Token: %s" % str(ex))
+            occi.logger.exception("Error obtaining Keystone v2 Token.")
+            raise Exception("Error obtaining Keystone v2 Token: %s" % str(ex))
+
+    @staticmethod
+    def get_keystone_token_v3(occi, keystone_uri, auth):
+        """
+        Contact the specified keystone v3 server to return the token
+        """
+        try:
+            uri = uriparse(keystone_uri)
+            server = uri[1].split(":")[0]
+            port = int(uri[1].split(":")[1])
+
+            headers = {'Accept': 'application/json', 'Connection': 'close', 'Content-Type': 'application/json'}
+
+            if auth and "token" in auth:
+                # Use OpenID
+                url = "https://%s:%s/v3/OS-FEDERATION/identity_providers/egi.eu/protocols/oidc/auth" % (server, port)
+            else:
+                # Use VOMS proxy
+                url = "https://%s:%s/v3/OS-FEDERATION/identity_providers/egi.eu/protocols/mapped/auth" % (server, port)
+
+            resp = occi.create_request_static('POST', url, auth, headers)
+
+            token = resp.headers['X-Subject-Token']
+
+            headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
+                       'X-Auth-Token': token, 'Connection': 'close'}
+            url = "https://%s:%s/v3.0/projects" % (server, port)
+            resp = occi.create_request_static('GET', url, auth, headers)
+
+            output = resp.json()
+
+            # get the first tenant (usually only one)
+            project = output['projects'].pop()
+
+            # get scoped token for allowed project
+            headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
+                       'X-Auth-Token': token, 'Connection': 'close'}
+            body = {"auth": {"identity": {"methods": ["token"], "token": {"id": token}},
+                    "scope": {"project": {"id": project["id"]}}}}
+            url = "https://%s:%s/v3.0/tokens" % (server, port)
+            resp = occi.create_request_static('POST', url, auth, headers, json.dumps(body))
+            token = resp.headers['X-Subject-Token']
+            return token
+        except Exception as ex:
+            occi.logger.exception("Error obtaining Keystone v3 Token.")
+            raise Exception("Error obtaining Keystone v3 Token: %s" % str(ex))
