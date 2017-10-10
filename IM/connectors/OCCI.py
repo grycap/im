@@ -1403,7 +1403,7 @@ class KeyStoneAuth:
 
             headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
                        'X-Auth-Token': token, 'Connection': 'close'}
-            url = "%s/v3.0/projects" % keystone_uri
+            url = "%s/v3/auth/projects" % keystone_uri
             resp = occi.create_request_static('GET', url, auth, headers)
 
             output = resp.json()
@@ -1416,7 +1416,7 @@ class KeyStoneAuth:
                        'X-Auth-Token': token, 'Connection': 'close'}
             body = {"auth": {"identity": {"methods": ["token"], "token": {"id": token}},
                     "scope": {"project": {"id": project["id"]}}}}
-            url = "%s/v3.0/tokens" % keystone_uri
+            url = "%s/v3/auth/tokens" % keystone_uri
             resp = occi.create_request_static('POST', url, auth, headers, json.dumps(body))
             token = resp.headers['X-Subject-Token']
             return token
