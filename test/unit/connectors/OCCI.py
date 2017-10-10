@@ -158,7 +158,7 @@ class TestOCCIConnector(unittest.TestCase):
             elif url == "/v2.0/tenants":
                 resp.status_code = 200
                 resp.json.return_value = {"tenants": [{"name": "tenantname"}]}
-            elif url == "/v3.0/projects":
+            elif url == "/v3/auth/projects":
                 resp.status_code = 200
                 resp.json.return_value = {"projects": [{"id": "projectid"}]}
             elif url == "/v3/OS-FEDERATION/identity_providers/egi.eu/protocols/oidc/auth":
@@ -188,7 +188,7 @@ class TestOCCIConnector(unittest.TestCase):
                     resp.json.return_value = {"access": {"token": {"id": "token2"}}}
                 else:
                     resp.status_code = 400
-            elif url == "/v3.0/tokens":
+            elif url == "/v3/auth/tokens":
                 if json.loads(data) == {"auth": {"scope": {"project": {"id": "projectid"}},
                                                  "identity": {"token": {"id": "token1"}, "methods": ["token"]}}}:
                     resp.status_code = 200
