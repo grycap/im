@@ -337,7 +337,7 @@ class InfrastructureInfo:
         res_radl.deploys = radl.deploys
         json_data = []
         # remove "." in key names
-        for elem in radlToSimple(radl):
+        for elem in radlToSimple(res_radl):
             new_data = {}
             for key in elem.keys():
                 new_data[key.replace(".","_")] = elem[key]
