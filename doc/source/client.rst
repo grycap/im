@@ -255,4 +255,5 @@ the previous parameters has a diferent meaning:
 
 So the auth line will be like that::
 
-   id = ost; type = OpenStack; host = https://ostserver:5000; username = indigo-dc; tenant = oidc; password = iam_token_value;
+   id = ost; type = OpenStack; host = https://ostserver:5000; username = indigo-dc; tenant = oidc; password = iam_token_value; auth_version = 3.x_oidc_access_token
+
