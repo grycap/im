@@ -1297,8 +1297,16 @@ class KeyStoneAuth:
         try:
             resp = occi.create_request_static('GET', keystone_uri, None, {})
             if resp.status_code in [200, 300]:
+                versions = []
                 json_data = resp.json()
-                for elem in json_data["versions"]["values"]:
+                if 'versions' in json_data:
+                    versions = json_data["versions"]["values"]
+                elif 'version' in json_data:
+                    versions = [json_data["version"]]
+                else:
+                    occi.logger.error("Error obtaining Keystone versions: versions or version expected.")
+
+                for elem in versions:
                     if not token and elem["id"].startswith("v2"):
                         version = 2
                     if (not version or token) and elem["id"].startswith("v3"):
