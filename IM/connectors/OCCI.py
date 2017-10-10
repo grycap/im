@@ -1334,6 +1334,7 @@ class KeyStoneAuth:
             headers = {'Accept': 'application/json', 'Connection': 'close', 'Content-Type': 'application/json'}
             url = "%s/v2.0/tokens" % keystone_uri
             resp = occi.create_request_static('POST', url, auth, headers, body)
+            resp.raise_for_status()
 
             # format: -> "{\"access\": {\"token\": {\"issued_at\":
             # \"2014-12-29T17:10:49.609894\", \"expires\":
@@ -1355,6 +1356,7 @@ class KeyStoneAuth:
                        'X-Auth-Token': token_id, 'Connection': 'close'}
             url = "%s/v2.0/tenants" % keystone_uri
             resp = occi.create_request_static('GET', url, auth, headers)
+            resp.raise_for_status()
 
             # format: -> "{\"tenants_links\": [], \"tenants\":
             # [{\"description\": \"egi fedcloud\", \"enabled\": true, \"id\":
@@ -1370,6 +1372,7 @@ class KeyStoneAuth:
                            'X-Auth-Token': token_id, 'Connection': 'close'}
                 url = "%s/v2.0/tokens" % keystone_uri
                 resp = occi.create_request_static('POST', url, auth, headers, body)
+                resp.raise_for_status()
 
                 # format: -> "{\"access\": {\"token\": {\"issued_at\":
                 # \"2014-12-29T17:10:49.609894\", \"expires\":
@@ -1406,6 +1409,7 @@ class KeyStoneAuth:
                 url = "%s/v3/OS-FEDERATION/identity_providers/egi.eu/protocols/mapped/auth" % keystone_uri
 
             resp = occi.create_request_static('GET', url, auth, headers)
+            resp.raise_for_status()
 
             token = resp.headers['X-Subject-Token']
 
@@ -1413,6 +1417,7 @@ class KeyStoneAuth:
                        'X-Auth-Token': token, 'Connection': 'close'}
             url = "%s/v3/auth/projects" % keystone_uri
             resp = occi.create_request_static('GET', url, auth, headers)
+            resp.raise_for_status()
 
             output = resp.json()
 
@@ -1426,6 +1431,7 @@ class KeyStoneAuth:
                     "scope": {"project": {"id": project["id"]}}}}
             url = "%s/v3/auth/tokens" % keystone_uri
             resp = occi.create_request_static('POST', url, auth, headers, json.dumps(body))
+            resp.raise_for_status()
             token = resp.headers['X-Subject-Token']
             return token
         except Exception as ex:
