@@ -30,10 +30,13 @@ RUN wget https://github.com/grycap/RADL/releases/download/v1.1.0/python-radl_1.1
     apt update && apt install -f -y && \
     rm -rf /var/lib/apt/lists/*
 
+# Copy a ansible.cfg with correct minimum values
 COPY ansible.cfg /etc/ansible/ansible.cfg
 
+# Remove old version of libcloud
 RUN dpkg -r --force-depends python-libcloud
 
+# And install the last versios of cheroot and libcloud
 RUN easy_install -U cheroot apache-libcloud
 
 # Expose the IM ports
