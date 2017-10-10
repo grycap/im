@@ -19,6 +19,7 @@
 import sys
 import unittest
 import os
+import json
 import logging
 import logging.config
 try:
@@ -160,6 +161,9 @@ class TestOCCIConnector(unittest.TestCase):
             elif url == "/v3.0/projects":
                 resp.status_code = 200
                 resp.json.return_value = {"projects": [{"id": "projectid"}]}
+            elif url == "/v3/OS-FEDERATION/identity_providers/egi.eu/protocols/oidc/auth":
+                resp.status_code = 200
+                resp.headers = {'X-Subject-Token': 'token1'}
         elif method == "POST":
             if url == "/compute/":
                 resp.status_code = 201
@@ -176,20 +180,17 @@ class TestOCCIConnector(unittest.TestCase):
             elif url == "/networkinterface/":
                 resp.status_code = 201
             elif url == "/v2.0/tokens":
-                if data == '{"auth":{"voms":true}}':
+                if json.loads(data) == {"auth": {"voms": True}}:
                     resp.status_code = 200
                     resp.json.return_value = {"access": {"token": {"id": "token1"}}}
-                elif data == '{"auth":{"voms":true,"tenantName":"tenantname"}}':
+                elif json.loads(data) == {"auth": {"voms": True, "tenantName": "tenantname"}}:
                     resp.status_code = 200
                     resp.json.return_value = {"access": {"token": {"id": "token2"}}}
                 else:
                     resp.status_code = 400
-            elif url == "/v3/OS-FEDERATION/identity_providers/egi.eu/protocols/oidc/auth":
-                resp.status_code = 200
-                resp.headers = {'X-Subject-Token': 'token1'}
             elif url == "/v3.0/tokens":
-                if data == ('{"auth": {"scope": {"project": {"id": "projectid"}}, "identity": '
-                            '{"token": {"id": "token1"}, "methods": ["token"]}}}'):
+                if json.loads(data) == {"auth": {"scope": {"project": {"id": "projectid"}},
+                                                 "identity": {"token": {"id": "token1"}, "methods": ["token"]}}}:
                     resp.status_code = 200
                     resp.headers = {'X-Subject-Token': 'token3'}
                 else:

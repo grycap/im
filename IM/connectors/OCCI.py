@@ -1295,20 +1295,15 @@ class KeyStoneAuth:
         token = auth and "token" in auth
 
         try:
-            uri = uriparse(keystone_uri)
-            server = uri[1].split(":")[0]
-            port = int(uri[1].split(":")[1])
-
-            url = "https://%s:%s" % (server, port)
-            resp = occi.create_request_static('GET', url, None, {})
+            resp = occi.create_request_static('GET', keystone_uri, None, {})
             if resp.status_code == 200:
                 json_data = resp.json()
-            for elem in json_data["versions"]["values"]:
-                if not token and elem["id"].startswith("v2"):
-                    version = 2
-                if (not version or token) and elem["id"].startswith("v3"):
-                    # only use version 3 if 2 is not available
-                    version = 3
+                for elem in json_data["versions"]["values"]:
+                    if not token and elem["id"].startswith("v2"):
+                        version = 2
+                    if (not version or token) and elem["id"].startswith("v3"):
+                        # only use version 3 if 2 is not available
+                        version = 3
             else:
                 occi.logger.error("Error obtaining Keystone versions: %s" % resp.text)
         except Exception as ex:
@@ -1327,13 +1322,9 @@ class KeyStoneAuth:
         Contact the specified keystone v2 server to return the token
         """
         try:
-            uri = uriparse(keystone_uri)
-            server = uri[1].split(":")[0]
-            port = int(uri[1].split(":")[1])
-
             body = '{"auth":{"voms":true}}'
             headers = {'Accept': 'application/json', 'Connection': 'close', 'Content-Type': 'application/json'}
-            url = "https://%s:%s/v2.0/tokens" % (server, port)
+            url = "%s/v2.0/tokens" % keystone_uri
             resp = occi.create_request_static('POST', url, auth, headers, body)
 
             # format: -> "{\"access\": {\"token\": {\"issued_at\":
@@ -1354,7 +1345,7 @@ class KeyStoneAuth:
 
             headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
                        'X-Auth-Token': token_id, 'Connection': 'close'}
-            url = "https://%s:%s/v2.0/tenants" % (server, port)
+            url = "%s/v2.0/tenants" % keystone_uri
             resp = occi.create_request_static('GET', url, auth, headers)
 
             # format: -> "{\"tenants_links\": [], \"tenants\":
@@ -1369,7 +1360,7 @@ class KeyStoneAuth:
 
                 headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
                            'X-Auth-Token': token_id, 'Connection': 'close'}
-                url = "https://%s:%s/v2.0/tokens" % (server, port)
+                url = "%s/v2.0/tokens" % keystone_uri
                 resp = occi.create_request_static('POST', url, auth, headers, body)
 
                 # format: -> "{\"access\": {\"token\": {\"issued_at\":
@@ -1397,26 +1388,22 @@ class KeyStoneAuth:
         Contact the specified keystone v3 server to return the token
         """
         try:
-            uri = uriparse(keystone_uri)
-            server = uri[1].split(":")[0]
-            port = int(uri[1].split(":")[1])
-
             headers = {'Accept': 'application/json', 'Connection': 'close', 'Content-Type': 'application/json'}
 
             if auth and "token" in auth:
                 # Use OpenID
-                url = "https://%s:%s/v3/OS-FEDERATION/identity_providers/egi.eu/protocols/oidc/auth" % (server, port)
+                url = "%s/v3/OS-FEDERATION/identity_providers/egi.eu/protocols/oidc/auth" % keystone_uri
             else:
                 # Use VOMS proxy
-                url = "https://%s:%s/v3/OS-FEDERATION/identity_providers/egi.eu/protocols/mapped/auth" % (server, port)
+                url = "%s/v3/OS-FEDERATION/identity_providers/egi.eu/protocols/mapped/auth" % keystone_uri
 
-            resp = occi.create_request_static('POST', url, auth, headers)
+            resp = occi.create_request_static('GET', url, auth, headers)
 
             token = resp.headers['X-Subject-Token']
 
             headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
                        'X-Auth-Token': token, 'Connection': 'close'}
-            url = "https://%s:%s/v3.0/projects" % (server, port)
+            url = "%s/v3.0/projects" % keystone_uri
             resp = occi.create_request_static('GET', url, auth, headers)
 
             output = resp.json()
@@ -1429,7 +1416,7 @@ class KeyStoneAuth:
                        'X-Auth-Token': token, 'Connection': 'close'}
             body = {"auth": {"identity": {"methods": ["token"], "token": {"id": token}},
                     "scope": {"project": {"id": project["id"]}}}}
-            url = "https://%s:%s/v3.0/tokens" % (server, port)
+            url = "%s/v3.0/tokens" % keystone_uri
             resp = occi.create_request_static('POST', url, auth, headers, json.dumps(body))
             token = resp.headers['X-Subject-Token']
             return token
