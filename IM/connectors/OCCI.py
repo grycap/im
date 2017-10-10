@@ -1296,7 +1296,7 @@ class KeyStoneAuth:
 
         try:
             resp = occi.create_request_static('GET', keystone_uri, None, {})
-            if resp.status_code == 200:
+            if resp.status_code in [200, 300]:
                 json_data = resp.json()
                 for elem in json_data["versions"]["values"]:
                     if not token and elem["id"].startswith("v2"):

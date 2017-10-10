@@ -144,7 +144,7 @@ class TestOCCIConnector(unittest.TestCase):
 
         if method == "GET":
             if url == "":
-                resp.status_code = 200
+                resp.status_code = 300
                 resp.json.return_value = {"versions": {"values": [{"id": "v3.6"}, {"id": "v2.0"}]}}
             if url == "/-/":
                 resp.status_code = 200
