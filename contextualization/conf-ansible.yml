@@ -103,23 +103,29 @@
     - name: Install ansible with Pip 2.6
       pip: name=ansible executable=pip-2.6
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int < 6
-        
-#################################### Now install and scp and pywinrm with pip  ########################################
-        
-    - name: Install scp and pywinrm with Pip
-      pip: name="scp pywinrm"
+
+#################################### Now install scp, jmespath and pywinrm with pip  ##################################
+    - name: Install jmespath with Pip
+      pip: name=jmespath
+
+    - name: Install scp with Pip
+      pip: name=scp
+      when: ansible_os_family != "RedHat" or (ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 6)
+
+    - name: Install pywinrm with Pip
+      pip: name=pywinrm
       when: ansible_os_family != "RedHat" or (ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 6)
         
     - name: Install scp and pywinrm with Pip 2.6
       pip: name="scp pywinrm" executable=pip-2.6
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int < 6
+        
+################################################ Configure Ansible  ###################################################
 
     - name: Disable SELinux
       selinux: state=disabled
       when: ansible_os_family == "RedHat"
       ignore_errors: yes
-        
-################################################ Configure Ansible  ###################################################
 
     - name: Create /etc/ansible
       file: path=/etc/ansible state=directory

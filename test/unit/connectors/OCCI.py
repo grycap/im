@@ -19,6 +19,7 @@
 import sys
 import unittest
 import os
+import json
 import logging
 import logging.config
 try:
@@ -35,6 +36,7 @@ from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from IM.InfrastructureInfo import InfrastructureInfo
 from IM.connectors.OCCI import OCCICloudConnector
+from IM.connectors.OCCI import KeyStoneAuth
 from radl.radl import RADL, system
 from mock import patch, MagicMock
 
@@ -141,6 +143,9 @@ class TestOCCIConnector(unittest.TestCase):
         params = parts[4]
 
         if method == "GET":
+            if url == "":
+                resp.status_code = 300
+                resp.json.return_value = {"versions": {"values": [{"id": "v3.6"}, {"id": "v2.0"}]}}
             if url == "/-/":
                 resp.status_code = 200
                 resp.text = read_file_as_string("files/occi.txt")
@@ -150,6 +155,15 @@ class TestOCCIConnector(unittest.TestCase):
             elif url.startswith("/storage"):
                 resp.status_code = 200
                 resp.text = 'X-OCCI-Attribute: occi.storage.state="online"'
+            elif url == "/v2.0/tenants":
+                resp.status_code = 200
+                resp.json.return_value = {"tenants": [{"name": "tenantname"}]}
+            elif url == "/v3/auth/projects":
+                resp.status_code = 200
+                resp.json.return_value = {"projects": [{"id": "projectid"}]}
+            elif url == "/v3/OS-FEDERATION/identity_providers/egi.eu/protocols/oidc/auth":
+                resp.status_code = 200
+                resp.headers = {'X-Subject-Token': 'token1'}
         elif method == "POST":
             if url == "/compute/":
                 resp.status_code = 201
@@ -165,6 +179,22 @@ class TestOCCIConnector(unittest.TestCase):
                 resp.text = 'https://server.com/storage/1'
             elif url == "/networkinterface/":
                 resp.status_code = 201
+            elif url == "/v2.0/tokens":
+                if json.loads(data) == {"auth": {"voms": True}}:
+                    resp.status_code = 200
+                    resp.json.return_value = {"access": {"token": {"id": "token1"}}}
+                elif json.loads(data) == {"auth": {"voms": True, "tenantName": "tenantname"}}:
+                    resp.status_code = 200
+                    resp.json.return_value = {"access": {"token": {"id": "token2"}}}
+                else:
+                    resp.status_code = 400
+            elif url == "/v3/auth/tokens":
+                if json.loads(data) == {"auth": {"scope": {"project": {"id": "projectid"}},
+                                                 "identity": {"token": {"id": "token1"}, "methods": ["token"]}}}:
+                    resp.status_code = 200
+                    resp.headers = {'X-Subject-Token': 'token3'}
+                else:
+                    resp.status_code = 400
         elif method == "DELETE":
             if url.endswith("/compute/1"):
                 resp.status_code = 200
@@ -438,6 +468,27 @@ users:
 """
         res = occi_cloud.gen_cloud_config("pub_key", "user", cloud_init)
         self.assertEqual(res, expected_res)
+
+    @patch('requests.request')
+    def test_keystone_auth(self, requests):
+        occi_cloud = self.get_occi_cloud()
+
+        requests.side_effect = self.get_response
+
+        auth = {'id': 'occi', 'type': 'OCCI', 'proxy': 'proxy', 'host': 'https://server.com:11443'}
+        version = KeyStoneAuth.get_keystone_version(occi_cloud, "https://keystone.com:5000", auth)
+        self.assertEqual(version, 2)
+
+        token = KeyStoneAuth.get_keystone_token(occi_cloud, "https://keystone.com:5000", auth)
+        self.assertEqual(token, "token2")
+
+        auth = {'id': 'occi', 'type': 'OCCI', 'token': 'token', 'host': 'https://server.com:11443'}
+        version = KeyStoneAuth.get_keystone_version(occi_cloud, "https://keystone.com:5000", auth)
+        self.assertEqual(version, 3)
+
+        token = KeyStoneAuth.get_keystone_token(occi_cloud, "https://keystone.com:5000", auth)
+        self.assertEqual(token, "token3")
+
 
 if __name__ == '__main__':
     unittest.main()

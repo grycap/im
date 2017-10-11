@@ -341,4 +341,5 @@ IM 1.6.2
     * Enable to specify a name of a security group in the RADL.
     * Fix Ctxt process does not correctly stops in case of failure in one internal step.
     * Add support for Keystone v3 in OCCI connector.
+    * Add support access RADL properties from Ansible recipes.
 
