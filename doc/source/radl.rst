@@ -443,7 +443,7 @@ the virtual machine.
    The IP assigned to the network interface num ``iface num``.
 
 ``IM_INFRASTRUCTURE_RADL``
-   The RADL in JSON format (networks, systems and deploys). It enables to use
+   The RADL in JSON format: networks, systems and deploys. (from ver. 1.6.2). It enables to use
    RADL values in Ansible recipes. The ``.`` in the properties are replaces by ``_``
    (e.g. ``net.interface.0.dns_name`` is replaced by ``net_interface_0_dns_name``).
    It can be used in combination with the `Ansible json_query filter <http://docs.ansible.com/ansible/latest/playbooks_filters.html#json-query-filter>`_
