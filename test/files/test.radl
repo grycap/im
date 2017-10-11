@@ -55,21 +55,16 @@ configure octave (
 @end
 )
 
-configure testvar (
-@begin
----
-  - vars:
-      NODENAME: '{{IM_INFRASTRUCTURE_RADL|json_query("[?id == ''front''].net_interface_0_dns_name|[0]")}}'
-    tasks:
-      - debug: msg="NODENAME = {{NODENAME}}"
-
-@end
-)
 
 configure test (
 @begin
 ---
-  - tasks:
+  - vars:
+      NODENAME: '{{IM_INFRASTRUCTURE_RADL|json_query("[?id == ''front''].net_interface_0_dns_name|[0]")}}'
+    pre_tasks:
+     - easy_install: name=jmespath
+    tasks:
+      - debug: msg="NODENAME = {{NODENAME}}"
       - shell:  test -d "/mnt/disk/lost+found"
 
 @end
@@ -90,7 +85,6 @@ deploy windows 1
 
 contextualize (
     system front configure octave step 1
-    system front configure testvar step 1
     system front configure test step 1
     system wn configure test step 1
     system windows configure win step 1
