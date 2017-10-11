@@ -55,10 +55,20 @@ configure octave (
 @end
 )
 
+
 configure test (
 @begin
 ---
-  - tasks:
+  - vars:
+      NODENAME: '{{IM_INFRASTRUCTURE_RADL|json_query("[?id == ''front''].net_interface_0_dns_name|[0]")}}'
+    pre_tasks:
+     - apt: name=python-setuptools update_cache=yes cache_valid_time=3600
+       when: ansible_os_family == "Debian"
+     - yum: name=python-setuptools
+       when: ansible_os_family == "RedHat"
+     - easy_install: name=jmespath
+    tasks:
+      - debug: msg="NODENAME = {{NODENAME}}"
       - shell:  test -d "/mnt/disk/lost+found"
 
 @end
