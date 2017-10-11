@@ -431,7 +431,7 @@ class CtxtAgent():
                         task["become"] = "yes"
                         task["when"] = 'ansible_os_family == "Debian"'
                         yaml_data[0]['tasks'].append(task)
-                    task = {"command": "ansible-galaxy -f install %s" % url}
+                    task = {"command": "ansible-galaxy install %s" % url}
                     task["name"] = "Install %s galaxy role" % galaxy_name
                     task["become"] = "yes"
                     yaml_data[0]['tasks'].append(task)

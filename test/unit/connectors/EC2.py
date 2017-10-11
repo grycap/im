@@ -120,7 +120,7 @@ class TestEC2Connector(unittest.TestCase):
     @patch('IM.InfrastructureList.InfrastructureList.save_data')
     def test_20_launch(self, save_data, blockdevicemapping, VPCConnection, get_region):
         radl_data = """
-            network net1 (outbound = 'yes' and outports='8080,9000:9100')
+            network net1 (outbound = 'yes' and outports='8080,9000:9100' and sg_name = 'sgname')
             network net2 ()
             system test (
             cpu.arch='x86_64' and
