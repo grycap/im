@@ -451,6 +451,11 @@ the virtual machine.
    
       NODENAME: '{{IM_INFRASTRUCTURE_RADL|json_query("[?id == ''front''].net_interface_0_dns_name|[0]")}}'
 
+   Ansible json_query filter is built upon `jmespath <http://jmespath.org/>`_ so this library must be installed
+   on the managed node that uses this function. IM installs it on the master VM but no in the rest of VMs. If you
+   want to use it on other VMs you have to prepare them installing jmespath in a previous step.
+
+
 Including roles of Ansible Galaxy
 ---------------------------------
 
