@@ -442,6 +442,14 @@ the virtual machine.
 ``IM_NODE_NET_<iface num>_IP``
    The IP assigned to the network interface num ``iface num``.
 
+``IM_INFRASTRUCTURE_RADL``
+   The RADL in JSON format (networks, systems and deploys). It enables to use
+   RADL values in Ansible recipes. The ``.`` in the properties are replaces by ``_``
+   (e.g. ``net.interface.0.dns_name`` is replaced by ``net_interface_0_dns_name``).
+   It can be used in combination with the `Ansible json_query filter <http://docs.ansible.com/ansible/latest/playbooks_filters.html#json-query-filter>`_
+   to extract values as shown in this example::
+   
+      NODENAME: '{{IM_INFRASTRUCTURE_RADL|json_query("[?id == ''front''].net_interface_0_dns_name|[0]")}}'
 
 Including roles of Ansible Galaxy
 ---------------------------------
