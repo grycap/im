@@ -327,7 +327,7 @@ class InfrastructureInfo:
 
     def get_json_radl(self):
         """
-        Get the RADL of this Infrastructure in JSON format to 
+        Get the RADL of this Infrastructure in JSON format to
         send it to the Ansible inventory
         """
         radl = self.radl.clone()
@@ -340,7 +340,7 @@ class InfrastructureInfo:
         for elem in radlToSimple(res_radl):
             new_data = {}
             for key in elem.keys():
-                new_data[key.replace(".","_")] = elem[key]
+                new_data[key.replace(".", "_")] = elem[key]
             json_data.append(new_data)
         return json.dumps(json_data)
 
