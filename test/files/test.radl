@@ -62,6 +62,7 @@ configure test (
   - vars:
       NODENAME: '{{IM_INFRASTRUCTURE_RADL|json_query("[?id == ''front''].net_interface_0_dns_name|[0]")}}'
     pre_tasks:
+     - apt: name=python-setuptools update_cache=yes cache_valid_time=3600
      - easy_install: name=jmespath
     tasks:
       - debug: msg="NODENAME = {{NODENAME}}"
