@@ -631,12 +631,11 @@ class CtxtAgent():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Contextualization Agent.')
-    (options, args) = parser.parse_args()
+    parser.add_argument('general', type=str, nargs=1)
+    parser.add_argument('vmconf', type=str, nargs=1)
+    options = parser.parse_args()
 
-    if len(args) != 2:
-        parser.error("Error: Incorrect parameters")
-
-    if CtxtAgent.run(args[0], args[1]):
+    if CtxtAgent.run(options.general[0], options.vmconf[0]):
         sys.exit(0)
     else:
         sys.exit(1)
