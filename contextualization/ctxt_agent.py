@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from optparse import OptionParser
+import argparse
 import re
 import time
 import logging
@@ -630,8 +630,7 @@ class CtxtAgent():
         return res_data['OK']
 
 if __name__ == "__main__":
-    parser = OptionParser(
-        usage="%prog [general_input_file] [vm_input_file]", version="%prog 1.0")
+    parser = argparse.ArgumentParser(description='Contextualization Agent.')
     (options, args) = parser.parse_args()
 
     if len(args) != 2:
