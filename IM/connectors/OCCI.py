@@ -1315,7 +1315,7 @@ class KeyStoneAuth:
                         version = 3
             else:
                 occi.logger.error("Error obtaining Keystone versions: %s" % resp.text)
-        except Exception as ex:
+        except Exception:
             occi.logger.exception("Error obtaining Keystone versions.")
 
         if not version:

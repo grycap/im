@@ -300,7 +300,7 @@ class InfrastructureManager:
                 # The user has specified a credential:
                 if len(list(set(new_creds))) > 1 or list(set(new_creds))[0] is not None:
                     creds = system.getCredentialValues()
-                    if cmp(new_creds, creds) != 0:
+                    if new_creds != creds:
                         # The credentials have changed
                         (_, password, public_key, private_key) = new_creds
                         system.setCredentialValues(
@@ -361,7 +361,7 @@ class InfrastructureManager:
         return concrete_system, score
 
     @staticmethod
-    def AddResource(inf_id, radl_data, auth, context=True, failed_clouds=[]):
+    def AddResource(inf_id, radl_data, auth, context=True, failed_clouds=None):
         """
         Add the resources in the RADL to the infrastructure.
 
@@ -375,6 +375,8 @@ class InfrastructureManager:
 
         Return(list of int): ids of the new virtual machine created.
         """
+        if failed_clouds is None:
+            failed_clouds = []
         auth = InfrastructureManager.check_auth_data(auth)
 
         InfrastructureManager.logger.info(

@@ -81,12 +81,14 @@ class TimedCall(object):
             sleep(1)
     """
 
-    def __init__(self, callback, args=[], time_between_calls=5, retry_missed=False):
+    def __init__(self, callback, args=None, time_between_calls=5, retry_missed=False):
         self._next_call = time.time()
         self._time_between_calls = time_between_calls
         self._retry_missed = retry_missed
         self._callback = callback
-        self._args = args
+        self._args = []
+        if args:
+            self._args = args
         self._id = uuid.uuid4()
 
     @property
@@ -104,7 +106,7 @@ class TimedCall(object):
             return 0
         return ttn
 
-    def call(self, time_between_calls=None, callback=None, args=[]):
+    def call(self, time_between_calls=None, callback=None, args=None):
         """
         Esta funcion comprueba si "toca" hacer la llamada y en caso de que asi sea,
         la hace. Permite hecer overriding del tiempo entre llamadas y de la llamada
@@ -116,6 +118,9 @@ class TimedCall(object):
         if callback is None:
             callback = self._callback
             args = self._args
+
+        if args is None:
+            args = []
 
         cur_time = time.time()
         elapsed_time = self._next_call - cur_time

@@ -78,7 +78,7 @@ class AnsibleThread(Process):
     """
 
     def __init__(self, result, output, playbook_file, host=None, threads=1, pk_file=None, passwd=None, retries=1,
-                 inventory_file=None, user=None, vault_pass=None, extra_vars={}):
+                 inventory_file=None, user=None, vault_pass=None, extra_vars=None):
         super(AnsibleThread, self).__init__()
         self.playbook_file = playbook_file
         self.host = host
@@ -88,7 +88,9 @@ class AnsibleThread(Process):
         self.retries = retries
         self.inventory_file = inventory_file
         self.user = user
-        self.extra_vars = extra_vars
+        self.extra_vars = {}
+        if extra_vars:
+            self.extra_vars = extra_vars
         self.output = output
         self.result = result
         self.vault_pass = vault_pass

@@ -11,8 +11,8 @@ RUN echo "deb http://ppa.launchpad.net/ansible/ansible/ubuntu xenial main" > /et
     rm -rf /var/lib/apt/lists/*
 
 # Install Azure python SDK
-RUN wget https://launchpad.net/ubuntu/+archive/primary/+files/python-msrest_0.4.4-1_all.deb && \
-    wget https://launchpad.net/ubuntu/+archive/primary/+files/python-msrestazure_0.4.3-1_all.deb && \
+RUN wget https://launchpad.net/ubuntu/+archive/primary/+files/python-msrest_0.4.14-1_all.deb && \
+    wget https://launchpad.net/ubuntu/+archive/primary/+files/python-msrestazure_0.4.12-1_all.deb && \
     wget https://launchpad.net/ubuntu/+archive/primary/+files/python-azure_2.0.0~rc6+dfsg-2_all.deb && \
     dpkg -i python-msrest_*_all.deb ; \
     dpkg -i python-msrestazure_*_all.deb ; \
@@ -23,7 +23,7 @@ RUN wget https://launchpad.net/ubuntu/+archive/primary/+files/python-msrest_0.4.
 
 # Install IM
 RUN wget https://github.com/grycap/RADL/releases/download/v1.1.0/python-radl_1.1.0-1_all.deb && \ 
-    wget https://github.com/grycap/im/releases/download/v1.6.1/python-im_1.6.1-1_all.deb && \
+    wget https://github.com/grycap/im/releases/download/v1.6.2/python-im_1.6.2-1_all.deb && \
     dpkg -i python-radl_*_all.deb ; \
     dpkg -i python-im_*_all.deb ; \
     rm *.deb && \

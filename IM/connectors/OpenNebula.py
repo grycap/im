@@ -1207,7 +1207,7 @@ class OpenNebulaCloudConnector(CloudConnector):
             if len(func_res) == 2:
                 (success, res_info) = func_res
             elif len(func_res) == 3:
-                (success, res_info, error_code) = func_res
+                (success, res_info, _) = func_res
             else:
                 return (False, "Error in the one.image.info return value")
 

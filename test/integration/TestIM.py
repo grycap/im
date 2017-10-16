@@ -70,7 +70,7 @@ class TestIM(unittest.TestCase):
         except Exception:
             pass
 
-    def wait_inf_state(self, inf_id, state, timeout, incorrect_states=[], vm_ids=None):
+    def wait_inf_state(self, inf_id, state, timeout, incorrect_states=None, vm_ids=None):
         """
         Wait for an infrastructure to have a specific state
         """
@@ -81,7 +81,8 @@ class TestIM(unittest.TestCase):
                 success, msg="ERROR calling the GetInfrastructureInfo function:" + str(vm_ids))
 
         err_states = [VirtualMachine.FAILED, VirtualMachine.UNCONFIGURED]
-        err_states.extend(incorrect_states)
+        if incorrect_states:
+            err_states.extend(incorrect_states)
 
         wait = 0
         all_ok = False
