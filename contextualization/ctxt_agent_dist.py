@@ -961,8 +961,8 @@ class CtxtAgent():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Contextualization Agent.')
-    parser.add_argument('general', type=str, nargs='1')
-    parser.add_argument('vmconf', type=str, nargs='1')
+    parser.add_argument('general', type=str, nargs=1)
+    parser.add_argument('vmconf', type=str, nargs=1)
     parser.add_argument('local', type=int, nargs='?', default=False)
     options = parser.parse_args()
 
