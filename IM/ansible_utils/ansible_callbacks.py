@@ -275,57 +275,13 @@ class PlaybookCallbacks(object):
 
         if hasattr(self, 'start_at'):  # we still have start_at so skip the task
             self.skip_task = True
-        elif hasattr(self, 'step') and self.step:
-            msg = ('Perform task: %s (y/n/c): ' %
-                   name).encode(sys.stdout.encoding)
-            resp = raw_input(msg)
-            if resp.lower() in ['y', 'yes']:
-                self.skip_task = False
-                display(banner(msg), output=self.output)
-            elif resp.lower() in ['c', 'continue']:
-                self.skip_task = False
-                self.step = False
-                display(banner(msg), output=self.output)
-            else:
-                self.skip_task = True
         else:
             self.skip_task = False
             display(banner(msg), output=self.output)
 
     def on_vars_prompt(self, varname, private=True, prompt=None, encrypt=None, confirm=False,
                        salt_size=None, salt=None, default=None):
-
-        if prompt and default:
-            msg = "%s [%s]: " % (prompt, default)
-        elif prompt:
-            msg = "%s: " % prompt
-        else:
-            msg = 'input for %s: ' % varname
-
-        def prompt(prompt, private):
-            if private:
-                return getpass.getpass(prompt)
-            return raw_input(prompt)
-
-        if confirm:
-            while True:
-                result = prompt(msg, private)
-                second = prompt("confirm " + msg, private)
-                if result == second:
-                    break
-                display("***** VALUES ENTERED DO NOT MATCH ****",
-                        output=self.output)
-        else:
-            result = prompt(msg, private)
-
-        # if result is false and default is not None
-        if not result and default:
-            result = default
-
-        if encrypt:
-            result = ansible.utils.do_encrypt(result, encrypt, salt_size, salt)
-
-        return result
+        return default
 
     def on_setup(self):
         display(banner("GATHERING FACTS"), output=self.output)

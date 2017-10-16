@@ -57,7 +57,9 @@ class InstanceTypeInfo:
         self.num_cpu = num_cpu
         self.cores_per_cpu = cores_per_cpu
         self.mem = mem
-        self.cpu_arch = cpu_arch
+        self.cpu_arch = ["i386"]
+        if cpu_arch:
+            self.cpu_arch = cpu_arch
         self.price = price
         self.cpu_perf = cpu_perf
         self.disks = disks

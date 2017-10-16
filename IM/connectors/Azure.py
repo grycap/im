@@ -76,6 +76,7 @@ class AzureCloudConnector(CloudConnector):
 
     def __init__(self, cloud_info, inf):
         self.credentials = None
+        self.auth = None
         CloudConnector.__init__(self, cloud_info, inf)
 
     def get_credentials(self, auth_data):
