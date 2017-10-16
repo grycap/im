@@ -703,7 +703,6 @@ class DockerCloudConnector(CloudConnector):
                     self._delete_networks(vm, auth_data)
                 except Exception:
                     self.log_exception("Error deleting networks.")
-                    pass
 
             return res
         except Exception:

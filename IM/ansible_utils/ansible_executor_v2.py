@@ -22,16 +22,13 @@ from __future__ import (absolute_import, division, print_function)
 __metaclass__ = type
 
 import logging
-
 import sys
-import os
 
 from ansible import constants as C
 from ansible.plugins.callback import CallbackBase
 from ansible.utils.color import colorize, hostcolor
 from ansible.utils.display import Display
 
-from ansible.cli import CLI
 from ansible.executor.playbook_executor import PlaybookExecutor
 from ansible.playbook import Playbook
 from ansible.template import Templar

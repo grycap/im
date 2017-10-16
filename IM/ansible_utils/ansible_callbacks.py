@@ -18,12 +18,11 @@
 # (c) 2012-2014, Michael DeHaan <michael.dehaan@gmail.com>
 #
 
-import ansible.utils
 import sys
-import getpass
 import fnmatch
 import datetime
 import logging
+import ansible.utils
 
 
 def display(msg, color=None, stderr=False, screen_only=False, log_only=False, runner=None, output=sys.stdout):

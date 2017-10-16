@@ -301,7 +301,7 @@ class AzureCloudConnector(CloudConnector):
 
         return ngs
 
-    def create_nics(self, inf, radl, credentials, subscription_id, group_name, subnets):
+    def create_nics(self, radl, credentials, subscription_id, group_name, subnets):
         """Create a Network Interface for a VM.
         """
         system = radl.systems[0]
@@ -467,7 +467,7 @@ class AzureCloudConnector(CloudConnector):
 
         return vm
 
-    def create_nets(self, inf, radl, credentials, subscription_id, group_name):
+    def create_nets(self, radl, credentials, subscription_id, group_name):
         network_client = NetworkManagementClient(credentials, subscription_id)
         location = self.DEFAULT_LOCATION
         if radl.systems[0].getValue('availability_zone'):
@@ -537,7 +537,7 @@ class AzureCloudConnector(CloudConnector):
                 vm = VirtualMachine(inf, group_name + '/' + vm_name, self.cloud, radl, requested_radl, self)
                 vm.info.systems[0].setValue('instance_id', group_name + '/' + vm_name)
 
-                nics = self.create_nics(inf, radl, credentials, subscription_id, group_name, subnets)
+                nics = self.create_nics(radl, credentials, subscription_id, group_name, subnets)
 
                 instance_type = self.get_instance_type(radl.systems[0], credentials, subscription_id)
                 vm_parameters = self.get_azure_vm_create_json(storage_account_name, vm_name,
@@ -612,7 +612,7 @@ class AzureCloudConnector(CloudConnector):
                     except:
                         pass
 
-            subnets = self.create_nets(inf, radl, credentials, subscription_id, "rg-%s" % inf.id)
+            subnets = self.create_nets(radl, credentials, subscription_id, "rg-%s" % inf.id)
 
         res = []
         remaining_vms = num_vm

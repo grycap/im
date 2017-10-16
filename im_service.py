@@ -58,10 +58,8 @@ def WaitRequest(request):
     success = (request.status() == Request.STATUS_PROCESSED)
     return (success, request.get())
 
-"""
-API functions.
-They create the specified request and wait for it.
-"""
+# API functions.
+# They create the specified request and wait for it.
 
 
 def AddResource(inf_id, radl_data, auth_data, context=True):
