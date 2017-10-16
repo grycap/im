@@ -271,10 +271,18 @@ def config_logging():
         formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         fileh.setFormatter(formatter)
 
-        try:
-            log_level = eval("logging." + Config.LOG_LEVEL)
-        except:
+        if Config.LOG_LEVEL == "DEBUG":
             log_level = logging.DEBUG
+        elif Config.LOG_LEVEL == "INFO":
+            log_level = logging.INFO
+        elif Config.LOG_LEVEL in ["WARN", "WARNING"]:
+            log_level = logging.WARN
+        elif Config.LOG_LEVEL == "ERROR":
+            log_level = logging.ERROR
+        elif Config.LOG_LEVEL in ["FATAL", "CRITICAL"]:
+            log_level = logging.FATAL
+        else:
+            log_level = logging.WARN
 
         logging.RootLogger.propagate = 0
         logging.root.setLevel(logging.ERROR)

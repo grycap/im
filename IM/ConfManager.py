@@ -269,7 +269,7 @@ class ConfManager(threading.Thread):
                             vm.configured = None
                             # Launch the ctxt_agent using a thread
                             t = threading.Thread(name="launch_ctxt_agent_" + str(
-                                vm.id), target=eval("self.launch_ctxt_agent"), args=(vm, tasks))
+                                vm.id), target=self.launch_ctxt_agent, args=(vm, tasks))
                             t.daemon = True
                             t.start()
                             vm.inf.conf_threads.append(t)
@@ -287,8 +287,7 @@ class ConfManager(threading.Thread):
                     # Launch the Infrastructure tasks
                     vm.configured = None
                     for task in tasks:
-                        t = threading.Thread(
-                            name=task, target=eval("self." + task))
+                        t = threading.Thread(name=task, target=getattr(self, task))
                         t.daemon = True
                         t.start()
                         vm.conf_threads.append(t)

@@ -621,7 +621,7 @@ class VirtualMachine:
         """
         Launch the check_ctxt_process as a thread
         """
-        t = threading.Thread(target=eval("self.check_ctxt_process"))
+        t = threading.Thread(target=self.check_ctxt_process)
         t.daemon = True
         t.start()
 
