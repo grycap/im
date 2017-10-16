@@ -561,7 +561,7 @@ class AzureCloudConnector(CloudConnector):
                     try:
                         resource_client.resource_groups.delete(group_name).wait()
                     except:
-                        self.log_exception("Error deleting Resource group %." % group_name)
+                        self.log_exception("Error deleting Resource group %s." % group_name)
 
             i += 1
 
@@ -714,9 +714,7 @@ class AzureCloudConnector(CloudConnector):
                         if not record:
                             self.log_debug("Creating DNS record %s." % hostname)
                             record_data = {"ttl": 300, "arecords": [{"ipv4_address": ip}]}
-                            record_set = dns_client.record_sets.create_or_update(group_name, domain,
-                                                                                 hostname, 'A',
-                                                                                 record_data)
+                            dns_client.record_sets.create_or_update(group_name, domain, hostname, 'A', record_data)
                         else:
                             self.log_debug("DNS record %s exists. Do not create." % hostname)
 

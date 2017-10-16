@@ -55,7 +55,7 @@ class IMBaseRequest(AsyncRequest):
     CREATE_DISK_SNAPSHOT = "CreateDiskSnapshot"
 
     @staticmethod
-    def create_request(function, arguments=(), priority=Request.PRIORITY_NORMAL):
+    def create_request(function, arguments=()):
         if function == IMBaseRequest.ADD_RESOURCE:
             return Request_AddResource(arguments)
         elif function == IMBaseRequest.ALTER_VM:
@@ -100,7 +100,6 @@ class IMBaseRequest(AsyncRequest):
             return Request_GetVersion(arguments)
         elif function == IMBaseRequest.CREATE_DISK_SNAPSHOT:
             return Request_CreateDiskSnapshot(arguments)
-
         else:
             raise NotImplementedError("Function not Implemented")
 

@@ -663,7 +663,7 @@ def RESTStopInfrastructure(id=None):
 
 
 @app.route('/infrastructures/:infid/vms/:vmid/start', method='PUT')
-def RESTStartVM(infid=None, vmid=None, prop=None):
+def RESTStartVM(infid=None, vmid=None):
     try:
         auth = get_auth_header()
     except:
@@ -688,7 +688,7 @@ def RESTStartVM(infid=None, vmid=None, prop=None):
 
 
 @app.route('/infrastructures/:infid/vms/:vmid/stop', method='PUT')
-def RESTStopVM(infid=None, vmid=None, prop=None):
+def RESTStopVM(infid=None, vmid=None):
     try:
         auth = get_auth_header()
     except:

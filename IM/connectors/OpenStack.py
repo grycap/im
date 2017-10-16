@@ -600,7 +600,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                                                                                      self.add_public_ip_count,
                                                                                      self.MAX_ADD_IP_COUNT)
 
-    def get_floating_ip(self, driver, pool):
+    def get_floating_ip(self, pool):
         """
         Get a floating IP
         """
@@ -641,7 +641,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     floating_ip = node.driver.ex_get_floating_ip(fixed_ip)
                 else:
                     # First try to check if there is a Float IP free to attach to the node
-                    found, floating_ip = self.get_floating_ip(node.driver, pool)
+                    found, floating_ip = self.get_floating_ip(pool)
                     if found:
                         try:
                             node.driver.ex_attach_floating_ip_to_node(node, floating_ip)
@@ -789,7 +789,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             try:
                 # Delete the SG if this is the last VM
                 if last:
-                    self.delete_security_groups(node, vm.inf, vm.id)
+                    self.delete_security_groups(node, vm.inf)
                 else:
                     # If this is not the last vm, we skip this step
                     self.log_debug("There are active instances. Not removing the SG")
@@ -805,7 +805,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         return (True, "")
 
-    def delete_security_groups(self, node, inf, vm_id, timeout=90, delay=10):
+    def delete_security_groups(self, node, inf, timeout=90, delay=10):
         """
         Delete the SG of this node
         """
