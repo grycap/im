@@ -168,7 +168,7 @@ class DockerCloudConnector(CloudConnector):
             if str(cont_info["NetworkSettings"]["IPAddress"]):
                 private_ips.append(str(cont_info["NetworkSettings"]["IPAddress"]))
             elif "Networks" in cont_info["NetworkSettings"]:
-                for net_name, net_data in cont_info["NetworkSettings"]["Networks"].items():
+                for _, net_data in cont_info["NetworkSettings"]["Networks"].items():
                     if str(net_data["IPAddress"]):
                         private_ips.append(str(net_data["IPAddress"]))
 
@@ -251,7 +251,7 @@ class DockerCloudConnector(CloudConnector):
 
         return json.dumps(svc_data)
 
-    def _generate_create_cont_request_data(self, image_name, outports, vm, ssh_port, auth_data):
+    def _generate_create_cont_request_data(self, image_name, outports, vm, ssh_port):
         cont_data = {}
         system = vm.info.systems[0]
 
@@ -578,8 +578,7 @@ class DockerCloudConnector(CloudConnector):
                         res.append((False, "Error pulling the image: " + resp.text))
                         continue
 
-                    cont_data = self._generate_create_cont_request_data(full_image_name, outports, vm,
-                                                                        ssh_port, auth_data)
+                    cont_data = self._generate_create_cont_request_data(full_image_name, outports, vm, ssh_port)
                     resp = self.create_request('POST', "/containers/create", auth_data, headers, cont_data)
 
                 if resp.status_code != 201:
@@ -704,7 +703,6 @@ class DockerCloudConnector(CloudConnector):
                     self._delete_networks(vm, auth_data)
                 except Exception:
                     self.log_exception("Error deleting networks.")
-                    pass
 
             return res
         except Exception:

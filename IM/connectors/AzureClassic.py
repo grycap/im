@@ -874,7 +874,7 @@ class AzureClassicCloudConnector(CloudConnector):
                 service_name, service_name, self.ROLE_NAME)
 
             headers = {'x-ms-version': '2013-06-01', 'Content-Type': 'application/xml'}
-            resp = self.create_request('POST', uri, auth_data, headers)
+            resp = self.create_request('POST', uri, auth_data, headers, op)
         except Exception as ex:
             self.log_exception("Error calling role operation")
             return (False, "Error calling role operation: " + str(ex))

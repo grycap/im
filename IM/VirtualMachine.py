@@ -67,10 +67,10 @@ class VirtualMachine:
         self.cloud = cloud
         """CloudInfo object with the information about the cloud provider"""
         self.info = info.clone() if info else None
+        """RADL object with the current information about the VM"""
         # Set the initial state of the VM
         if info:
             self.info.systems[0].setValue("state", self.state)
-        """RADL object with the current information about the VM"""
         self.requested_radl = requested_radl
         """Original RADL requested by the user"""
         self.cont_out = ""
@@ -621,7 +621,7 @@ class VirtualMachine:
         """
         Launch the check_ctxt_process as a thread
         """
-        t = threading.Thread(target=eval("self.check_ctxt_process"))
+        t = threading.Thread(target=self.check_ctxt_process)
         t.daemon = True
         t.start()
 
@@ -666,7 +666,6 @@ class VirtualMachine:
                 except:
                     VirtualMachine.logger.exception(
                         "Error killing ctxt process with pid: " + str(self.ctxt_pid))
-                    pass
 
             self.ctxt_pid = None
             self.configured = False
@@ -773,7 +772,6 @@ class VirtualMachine:
             except:
                 VirtualMachine.logger.exception(
                     "Error deleting remote contextualization process log: " + remote_dir + '/ctxt_agent.log')
-                pass
         except:
             VirtualMachine.logger.exception(
                 "Error getting contextualization process log: " + remote_dir + '/ctxt_agent.log')
@@ -801,7 +799,6 @@ class VirtualMachine:
             except:
                 VirtualMachine.logger.exception(
                     "Error deleting remote contextualization process output: " + remote_dir + '/ctxt_agent.out')
-                pass
             # And process it
             self.process_ctxt_agent_out(ctxt_agent_out)
             msg = "Contextualization agent output processed successfully"
@@ -826,7 +823,6 @@ class VirtualMachine:
             except:
                 VirtualMachine.logger.exception(
                     "Error getting stdout and stderr to guess why the agent output is not there.")
-                pass
         except Exception as ex:
             VirtualMachine.logger.exception(
                 "Error getting contextualization agent output: " + remote_dir + '/ctxt_agent.out')

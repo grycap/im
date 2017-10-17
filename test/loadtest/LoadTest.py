@@ -72,7 +72,7 @@ class LoadTest(unittest.TestCase):
         delay = random.uniform(mint, maxt)
         time.sleep(delay)
 
-    def wait_inf_state(self, states, timeout, incorrect_states=[], vm_ids=None):
+    def wait_inf_state(self, states, timeout, incorrect_states=None, vm_ids=None):
         """
         Wait for an infrastructure to have a specific state
         """
@@ -87,7 +87,8 @@ class LoadTest(unittest.TestCase):
                 success, msg="ERROR calling the GetInfrastructureInfo function:" + str(vm_ids))
 
         err_states = [VirtualMachine.FAILED, VirtualMachine.OFF]
-        err_states.extend(incorrect_states)
+        if incorrect_states:
+            err_states.extend(incorrect_states)
 
         wait = 0
         all_ok = False

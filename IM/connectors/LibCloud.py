@@ -57,7 +57,7 @@ class LibCloudCloudConnector(CloudConnector):
         else:
             auth = auth_data.getAuthInfo(LibCloudCloudConnector.type)
             if auth and 'driver' in auth[0]:
-                cls = get_driver(eval("Provider." + auth[0]['driver']))
+                cls = get_driver(getattr(Provider, auth[0]['driver']))
 
                 MAP = {"username": "key", "password": "secret"}
 

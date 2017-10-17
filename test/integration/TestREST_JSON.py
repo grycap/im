@@ -73,7 +73,7 @@ class TestIM(unittest.TestCase):
         url = "http://%s:%d%s" % (HOSTNAME, TEST_PORT, path)
         return requests.request(method, url, headers=headers, data=body)
 
-    def wait_inf_state(self, state, timeout, incorrect_states=[], vm_ids=None):
+    def wait_inf_state(self, state, timeout, incorrect_states=None, vm_ids=None):
         """
         Wait for an infrastructure to have a specific state
         """
@@ -87,7 +87,8 @@ class TestIM(unittest.TestCase):
             pass
 
         err_states = [VirtualMachine.FAILED, VirtualMachine.UNCONFIGURED]
-        err_states.extend(incorrect_states)
+        if incorrect_states:
+            err_states.extend(incorrect_states)
 
         wait = 0
         all_ok = False
