@@ -1379,22 +1379,23 @@ class KeyStoneAuth:
                            'X-Auth-Token': token_id, 'Connection': 'close'}
                 url = "%s/v2.0/tokens" % keystone_uri
                 resp = occi.create_request_static('POST', url, auth, headers, body)
-                resp.raise_for_status()
+                if resp.status_code == 200:
+                    # format: -> "{\"access\": {\"token\": {\"issued_at\":
+                    # \"2014-12-29T17:10:49.609894\", \"expires\":
+                    # \"2014-12-30T17:10:49Z\", \"id\":
+                    # \"c861ab413e844d12a61d09b23dc4fb9c\"}, \"serviceCatalog\": [],
+                    # \"user\": {\"username\":
+                    # \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\", \"roles_links\":
+                    # [], \"id\": \"475ce4978fb042e49ce0391de9bab49b\", \"roles\": [],
+                    # \"name\": \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\"},
+                    # \"metadata\": {\"is_admin\": 0, \"roles\": []}}}"
+                    output = resp.json()
+                    if 'access' in output:
+                        tenant_token_id = str(output['access']['token']['id'])
+                        break
 
-                # format: -> "{\"access\": {\"token\": {\"issued_at\":
-                # \"2014-12-29T17:10:49.609894\", \"expires\":
-                # \"2014-12-30T17:10:49Z\", \"id\":
-                # \"c861ab413e844d12a61d09b23dc4fb9c\"}, \"serviceCatalog\": [],
-                # \"user\": {\"username\":
-                # \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\", \"roles_links\":
-                # [], \"id\": \"475ce4978fb042e49ce0391de9bab49b\", \"roles\": [],
-                # \"name\": \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\"},
-                # \"metadata\": {\"is_admin\": 0, \"roles\": []}}}"
-                output = resp.json()
-                if 'access' in output:
-                    tenant_token_id = str(output['access']['token']['id'])
-                    break
-
+            if not tenant_token_id:
+                raise Exception("Error obtaining Keystone v2 Token: No tenant scoped token.")
             return tenant_token_id
         except Exception as ex:
             occi.logger.exception("Error obtaining Keystone v2 Token.")
