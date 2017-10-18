@@ -60,6 +60,8 @@ class OCCICloudConnector(CloudConnector):
 
     def __init__(self, cloud_info, inf):
         self.add_public_ip_count = 0
+        if cloud_info.path == "/":
+            cloud_info.path = ""
         CloudConnector.__init__(self, cloud_info, inf)
 
     @staticmethod
