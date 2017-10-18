@@ -1258,7 +1258,11 @@ class KeyStoneAuth:
                 www_auth_head = resp.headers['Www-Authenticate']
 
             if www_auth_head and www_auth_head.startswith('Keystone uri'):
-                return www_auth_head.split('=')[1].replace("'", "")
+                keystone_uri = www_auth_head.split('=')[1].replace("'", "")
+                # remove version in some old OpenStack sites
+                if keystone_uri.endswith("/v2.0"):
+                    keystone_uri = keystone_uri[:-5]
+                return keystone_uri
             else:
                 return None
         except SSLError as ex:
