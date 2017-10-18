@@ -564,7 +564,7 @@ This is an example of the HAProxy configuration file::
 	backend imbackend
 	    mode http
 	    balance roundrobin
-      option httpchk GET /version
+	    option httpchk GET /version
 	    stick-table type string len 32 size 30k expire 60m
 	    stick store-response hdr(InfID)
 	    acl inf_id path -m beg /infrastructures/
