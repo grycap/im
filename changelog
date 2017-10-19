@@ -343,3 +343,9 @@ IM 1.6.2
     * Add support for Keystone v3 in OCCI connector.
     * Add support access RADL properties from Ansible recipes.
 
+IM 1.6.3
+    * Enable to reuse keystone tokens in OCCI conn.
+    * Add support to specify the project in case of OCCI OpenStack sites.
+    * Add the Inf ID in all the related log messages.
+    * Fix error in auth process in old OpenStack sites.
+
