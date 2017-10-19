@@ -649,16 +649,16 @@ class VirtualMachine:
                                     pgkill_success = True
                                 else:
                                     self.log_error("Error getting PGID of pid: " + str(self.ctxt_pid) +
-                                                                ": " + stderr + ". Using only PID.")
+                                                   ": " + stderr + ". Using only PID.")
                             except:
                                 self.log_exception("Error getting PGID of pid: " + str(self.ctxt_pid) +
-                                                                ": " + stderr + ". Using only PID.")
+                                                   ": " + stderr + ". Using only PID.")
                         else:
                             self.log_error("Error getting PGID of pid: " + str(self.ctxt_pid) + ": " +
-                                                        stdout + ". Using only PID.")
+                                           stdout + ". Using only PID.")
                     else:
                         self.log_error("Error getting PGID of pid: " + str(self.ctxt_pid) + ": " +
-                                                    stderr + ". Using only PID.")
+                                       stderr + ". Using only PID.")
 
                     if not pgkill_success:
                         ssh.execute("kill -9 " + str(int(self.ctxt_pid)))
@@ -698,7 +698,7 @@ class VirtualMachine:
                     self.ssh_connect_errors += 1
                     if self.ssh_connect_errors > Config.MAX_SSH_ERRORS:
                         self.log_error("Too much errors getting status of ctxt process with pid: " +
-                                                    str(ctxt_pid) + ". Forget it.")
+                                       str(ctxt_pid) + ". Forget it.")
                         self.ssh_connect_errors = 0
                         self.configured = False
                         self.ctxt_pid = None
