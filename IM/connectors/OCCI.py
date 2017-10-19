@@ -1299,7 +1299,7 @@ class KeyStoneAuth:
                 if resp.status_code == 200:
                     return occi.keystone_token
                 else:
-                    occi.logger.exception("Old Keystone token invalid.")
+                    occi.logger.warn("Old Keystone token invalid.")
                     return None
             except Exception:
                 occi.logger.exception("Error checking Keystone token")
