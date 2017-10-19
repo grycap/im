@@ -548,6 +548,7 @@ class DockerCloudConnector(CloudConnector):
                 i += 1
                 # Create the VM to get the nodename
                 vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self)
+                inf.add_vm(vm)
 
                 ssh_port = 22
                 if vm.hasPublicNet():
@@ -575,6 +576,7 @@ class DockerCloudConnector(CloudConnector):
                                                auth_data, headers)
 
                     if resp.status_code not in [201, 200]:
+                        vm.destroy = True
                         res.append((False, "Error pulling the image: " + resp.text))
                         continue
 
@@ -582,6 +584,7 @@ class DockerCloudConnector(CloudConnector):
                     resp = self.create_request('POST', "/containers/create", auth_data, headers, cont_data)
 
                 if resp.status_code != 201:
+                    vm.destroy = True
                     res.append((False, "Error creating the Container: " + resp.text))
                     continue
 
@@ -592,16 +595,17 @@ class DockerCloudConnector(CloudConnector):
                 elif "ID" in output:
                     vm.id = output["ID"]
                 else:
+                    vm.destroy = True
                     res.append((False, "Error: response format not expected."))
 
                 vm.info.systems[0].setValue('instance_id', str(vm.id))
-                inf.add_vm(vm)
 
                 if not self._is_swarm(auth_data):
                     # In creation a container can only be attached to one one network
                     # so now we must attach to the rest of networks (if any)
                     success = self._attach_cont_to_networks(vm, auth_data)
                     if not success:
+                        vm.destroy = True
                         res.append((False, "Error attaching to networks the Container"))
                         # Delete the container
                         resp = self.create_request('DELETE', "/containers/" + vm.id, auth_data)
@@ -610,6 +614,7 @@ class DockerCloudConnector(CloudConnector):
                     # Now start it
                     success, msg = self.start(vm, auth_data)
                     if not success:
+                        vm.destroy = True
                         res.append((False, "Error starting the Container: " + str(msg)))
                         # Delete the container
                         resp = self.create_request('DELETE', "/containers/" + vm.id, auth_data)
