@@ -14,7 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from netaddr import IPNetwork, IPAddress
 import time
 import threading
 import shutil
@@ -22,12 +21,13 @@ import string
 import json
 import tempfile
 import logging
+from netaddr import IPNetwork, IPAddress
 
 from radl.radl import network, RADL
+from radl.radl_parse import parse_radl
 from IM.SSH import SSH
 from IM.SSHRetry import SSHRetry
 from IM.config import Config
-from radl.radl_parse import parse_radl
 import IM.CloudInfo
 
 
@@ -464,20 +464,19 @@ class VirtualMachine:
                         updated = True
                         self.last_update = now
                     elif self.creating:
-                        VirtualMachine.logger.debug("VM is in creation process, set pending state")
+                        self.log_debug("VM is in creation process, set pending state")
                         state = VirtualMachine.PENDING
                     else:
-                        VirtualMachine.logger.error("Error updating VM status: %s" % new_vm)
+                        self.log_error("Error updating VM status: %s" % new_vm)
                 except:
-                    VirtualMachine.logger.exception("Error updating VM status.")
+                    self.log_exception("Error updating VM status.")
                     updated = False
 
             # If we have problems to update the VM info too much time, set to
             # unknown
             if now - self.last_update > Config.VM_INFO_UPDATE_ERROR_GRACE_PERIOD:
                 new_state = VirtualMachine.UNKNOWN
-                VirtualMachine.logger.warn(
-                    "Grace period to update VM info passed. Set state to 'unknown'")
+                self.log_warn("Grace period to update VM info passed. Set state to 'unknown'")
             else:
                 if state not in [VirtualMachine.RUNNING, VirtualMachine.CONFIGURED, VirtualMachine.UNCONFIGURED]:
                     new_state = state
@@ -554,7 +553,7 @@ class VirtualMachine:
                 if not private_net_mask:
                     parts = private_ip.split(".")
                     private_net_mask = "%s.0.0.0/8" % parts[0]
-                    VirtualMachine.logger.warn("%s is not in known private net groups. Using mask: %s" % (
+                    self.log_warn("%s is not in known private net groups. Using mask: %s" % (
                         private_ip, private_net_mask))
 
                 # Search in previous used private ips
@@ -633,7 +632,7 @@ class VirtualMachine:
             if self.ctxt_pid != self.WAIT_TO_PID:
                 ssh = self.get_ssh_ansible_master()
                 try:
-                    VirtualMachine.logger.debug(
+                    self.log_debug(
                         "Killing ctxt process with pid: " + str(self.ctxt_pid))
 
                     # Try to get PGID to kill all child processes
@@ -649,23 +648,22 @@ class VirtualMachine:
                                 if code == 0:
                                     pgkill_success = True
                                 else:
-                                    VirtualMachine.logger.error("Error getting PGID of pid: " + str(self.ctxt_pid) +
+                                    self.log_error("Error getting PGID of pid: " + str(self.ctxt_pid) +
                                                                 ": " + stderr + ". Using only PID.")
                             except:
-                                VirtualMachine.logger.exception("Error getting PGID of pid: " + str(self.ctxt_pid) +
+                                self.log_exception("Error getting PGID of pid: " + str(self.ctxt_pid) +
                                                                 ": " + stderr + ". Using only PID.")
                         else:
-                            VirtualMachine.logger.error("Error getting PGID of pid: " + str(self.ctxt_pid) + ": " +
+                            self.log_error("Error getting PGID of pid: " + str(self.ctxt_pid) + ": " +
                                                         stdout + ". Using only PID.")
                     else:
-                        VirtualMachine.logger.error("Error getting PGID of pid: " + str(self.ctxt_pid) + ": " +
+                        self.log_error("Error getting PGID of pid: " + str(self.ctxt_pid) + ": " +
                                                     stderr + ". Using only PID.")
 
                     if not pgkill_success:
                         ssh.execute("kill -9 " + str(int(self.ctxt_pid)))
                 except:
-                    VirtualMachine.logger.exception(
-                        "Error killing ctxt process with pid: " + str(self.ctxt_pid))
+                    self.log_exception("Error killing ctxt process with pid: " + str(self.ctxt_pid))
 
             self.ctxt_pid = None
             self.configured = False
@@ -692,15 +690,14 @@ class VirtualMachine:
                 ssh = self.get_ssh_ansible_master()
 
                 try:
-                    VirtualMachine.logger.debug("Getting status of ctxt process with pid: " + str(ctxt_pid))
+                    self.log_debug("Getting status of ctxt process with pid: " + str(ctxt_pid))
                     (_, _, exit_status) = ssh.execute("ps " + str(ctxt_pid))
                 except:
-                    VirtualMachine.logger.warn(
-                        "Error getting status of ctxt process with pid: " + str(ctxt_pid))
+                    self.log_warn("Error getting status of ctxt process with pid: " + str(ctxt_pid))
                     exit_status = 0
                     self.ssh_connect_errors += 1
                     if self.ssh_connect_errors > Config.MAX_SSH_ERRORS:
-                        VirtualMachine.logger.error("Too much errors getting status of ctxt process with pid: " +
+                        self.log_error("Too much errors getting status of ctxt process with pid: " +
                                                     str(ctxt_pid) + ". Forget it.")
                         self.ssh_connect_errors = 0
                         self.configured = False
@@ -712,7 +709,7 @@ class VirtualMachine:
 
                 if exit_status != 0:
                     # The process has finished, get the outputs
-                    VirtualMachine.logger.debug("The process %s has finished, get the outputs" % ctxt_pid)
+                    self.log_debug("The process %s has finished, get the outputs" % ctxt_pid)
                     ctxt_log = self.get_ctxt_log(remote_dir, True)
                     msg = self.get_ctxt_output(remote_dir, True)
                     if ctxt_log:
@@ -726,12 +723,11 @@ class VirtualMachine:
                     # dynamically
                     if Config.UPDATE_CTXT_LOG_INTERVAL > 0 and wait > Config.UPDATE_CTXT_LOG_INTERVAL:
                         wait = 0
-                        VirtualMachine.logger.debug(
-                            "Get the log of the ctxt process with pid: " + str(ctxt_pid))
+                        self.log_debug("Get the log of the ctxt process with pid: " + str(ctxt_pid))
                         ctxt_log = self.get_ctxt_log(remote_dir)
                         self.cont_out = initial_count_out + ctxt_log
                     # The process is still running, wait
-                    VirtualMachine.logger.debug("The process %s is still running. wait." % ctxt_pid)
+                    self.log_debug("The process %s is still running. wait." % ctxt_pid)
                     time.sleep(Config.CHECK_CTXT_PROCESS_INTERVAL)
                     wait += Config.CHECK_CTXT_PROCESS_INTERVAL
             else:
@@ -770,10 +766,10 @@ class VirtualMachine:
                 if delete:
                     ssh.sftp_remove(remote_dir + '/ctxt_agent.log')
             except:
-                VirtualMachine.logger.exception(
+                self.log_exception(
                     "Error deleting remote contextualization process log: " + remote_dir + '/ctxt_agent.log')
         except:
-            VirtualMachine.logger.exception(
+            self.log_exception(
                 "Error getting contextualization process log: " + remote_dir + '/ctxt_agent.log')
             self.configured = False
         finally:
@@ -797,7 +793,7 @@ class VirtualMachine:
                 if delete:
                     ssh.sftp_remove(remote_dir + '/ctxt_agent.out')
             except:
-                VirtualMachine.logger.exception(
+                self.log_exception(
                     "Error deleting remote contextualization process output: " + remote_dir + '/ctxt_agent.out')
             # And process it
             self.process_ctxt_agent_out(ctxt_agent_out)
@@ -805,7 +801,7 @@ class VirtualMachine:
         except IOError as ex:
             msg = "Error getting contextualization agent output " + \
                 remote_dir + "/ctxt_agent.out:  No such file."
-            VirtualMachine.logger.error(msg)
+            self.log_error(msg)
             self.configured = False
             try:
                 # Get the output of the ctxt_agent to guess why the agent
@@ -818,14 +814,12 @@ class VirtualMachine:
                     stdout += "\n" + f.read() + "\n"
                 with open(tmp_dir + '/stderr') as f:
                     stdout += f.read() + "\n"
-                VirtualMachine.logger.error(stdout)
+                self.log_error(stdout)
                 msg += stdout
             except:
-                VirtualMachine.logger.exception(
-                    "Error getting stdout and stderr to guess why the agent output is not there.")
+                self.log_exception("Error getting stdout and stderr to guess why the agent output is not there.")
         except Exception as ex:
-            VirtualMachine.logger.exception(
-                "Error getting contextualization agent output: " + remote_dir + '/ctxt_agent.out')
+            self.log_exception("Error getting contextualization agent output: " + remote_dir + '/ctxt_agent.out')
             self.configured = False
             msg = "Error getting contextualization agent output: " + str(ex)
         finally:
@@ -857,7 +851,7 @@ class VirtualMachine:
             ansible_host = self.requested_radl.ansible_hosts[0]
             if self.requested_radl.systems[0].getValue("ansible_host"):
                 ansible_host = self.requested_radl.get_ansible_by_id(
-                    self.getValue("ansible_host"))
+                    self.requested_radl.systems[0].getValue("ansible_host"))
 
         if ansible_host:
             (user, passwd, private_key) = ansible_host.getCredentialValues()
@@ -873,3 +867,22 @@ class VirtualMachine:
         if self.cloud_connector and self.cloud_connector.error_messages:
             res += self.cloud_connector.error_messages
         return res
+
+    def log_msg(self, level, msg, exc_info=0):
+        msg = "Inf ID: %s: %s" % (self.inf.id, msg)
+        self.logger.log(level, msg, exc_info=exc_info)
+
+    def log_error(self, msg):
+        self.log_msg(logging.ERROR, msg)
+
+    def log_debug(self, msg):
+        self.log_msg(logging.DEBUG, msg)
+
+    def log_warn(self, msg):
+        self.log_msg(logging.WARNING, msg)
+
+    def log_exception(self, msg):
+        self.log_msg(logging.ERROR, msg, exc_info=1)
+
+    def log_info(self, msg):
+        self.log_msg(logging.INFO, msg)
