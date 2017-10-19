@@ -1222,16 +1222,19 @@ class OCCICloudConnector(CloudConnector):
     def get_image_id_and_site_url(self, site_id, image_name, vo_name=None):
         data = OCCICloudConnector.appdb_call('/rest/1.0/va_providers/%s' % site_id)
         if data:
-            site_url = data['appdb:appdb']['virtualization:provider']["provider:endpoint_url"]
-            if 'provider:image' in data['appdb:appdb']['virtualization:provider']:
-                for image in data['appdb:appdb']['virtualization:provider']['provider:image']:
-                    if image['@appcname'] == image_name and (not vo_name or image['@voname'] == vo_name):
-                        image_basename = os.path.basename(image['@va_provider_image_id'])
-                        parts = image_basename.split("#")
-                        if len(parts) > 1:
-                            return parts[1], site_url
-                        else:
-                            return image_basename, site_url
+            if 'provider:endpoint_url' in data['appdb:appdb']['virtualization:provider']:
+                site_url = data['appdb:appdb']['virtualization:provider']["provider:endpoint_url"]
+                if 'provider:image' in data['appdb:appdb']['virtualization:provider']:
+                    for image in data['appdb:appdb']['virtualization:provider']['provider:image']:
+                        if image['@appcname'] == image_name and (not vo_name or image['@voname'] == vo_name):
+                            image_basename = os.path.basename(image['@va_provider_image_id'])
+                            parts = image_basename.split("#")
+                            if len(parts) > 1:
+                                return parts[1], site_url
+                            else:
+                                return image_basename, site_url
+            else:
+                self.log_warn("No endpoint_url returned from EGI AppDB for site %s." % site_id)
         else:
             self.log_warn("No data returned from EGI AppDB.")
 
@@ -1429,8 +1432,21 @@ class KeyStoneAuth:
 
             output = resp.json()
 
-            # get the first tenant (usually only one)
-            project = output['projects'].pop()
+            if len(output['projects']) == 1:
+                # If there are only one get the first tenant
+                project = output['projects'].pop()
+            if len(output['projects']) >= 1:
+                # If there are more than one
+                if auth and "project" in auth:
+                    project_found = None
+                    for elem in output['projects']:
+                        if elem['id'] == auth["project"] or elem['name'] == auth["project"]:
+                            project_found = elem
+                    if project_found:
+                        project = project_found
+                    else:
+                        project = output['projects'].pop()
+                        self.log_warn("Keystone 3 project %s not found. Using first one." % auth["project"])
 
             # get scoped token for allowed project
             headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
