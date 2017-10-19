@@ -60,6 +60,7 @@ class OCCICloudConnector(CloudConnector):
 
     def __init__(self, cloud_info, inf):
         self.add_public_ip_count = 0
+        self.keystone_token = None
         if cloud_info.path == "/":
             cloud_info.path = ""
         CloudConnector.__init__(self, cloud_info, inf)
@@ -1280,17 +1281,51 @@ class KeyStoneAuth:
             return None
 
     @staticmethod
+    def check_keystone_token(occi, keystone_uri, version, auth):
+        """
+        Check if old keystone token is stil valid
+        """
+        if occi.keystone_token:
+            try:
+                headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
+                           'X-Auth-Token': occi.keystone_token, 'Connection': 'close'}
+                if version == 2:
+                    url = "%s/v2.0" % keystone_uri
+                elif version == 3:
+                    url = "%s/v3" % keystone_uri
+                else:
+                    return None
+                resp = occi.create_request_static('GET', url, auth, headers)
+                if resp.status_code == 200:
+                    return occi.keystone_token
+                else:
+                    occi.logger.exception("Old Keystone token invalid.")
+                    return None
+            except Exception:
+                occi.logger.exception("Error checking Keystone token")
+                return None
+        else:
+            return None
+
+    @staticmethod
     def get_keystone_token(occi, keystone_uri, auth):
         """
         Contact the specified keystone server to return the token
         """
         version = KeyStoneAuth.get_keystone_version(occi, keystone_uri, auth)
+
+        token = KeyStoneAuth.check_keystone_token(occi, keystone_uri, version, auth)
+        if token:
+            return token
+
         if version == 2:
             occi.logger.debug("Getting Keystone v2 token")
-            return KeyStoneAuth.get_keystone_token_v2(occi, keystone_uri, auth)
+            occi.keystone_token = KeyStoneAuth.get_keystone_token_v2(occi, keystone_uri, auth)
+            return occi.keystone_token
         elif version == 3:
             occi.logger.debug("Getting Keystone v3 token")
-            return KeyStoneAuth.get_keystone_token_v3(occi, keystone_uri, auth)
+            occi.keystone_token = KeyStoneAuth.get_keystone_token_v3(occi, keystone_uri, auth)
+            return occi.keystone_token
         else:
             # this must never happen
             raise Exception("Error obtaining Keystone Token: Unknown version %d" % version)
