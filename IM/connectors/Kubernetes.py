@@ -358,6 +358,7 @@ class KubernetesCloudConnector(CloudConnector):
                 i += 1
 
                 vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self)
+                vm.destroy = True
                 inf.add_vm(vm)
                 (nodename, _) = vm.getRequestedName(default_hostname=Config.DEFAULT_VM_NAME,
                                                     default_domain=Config.DEFAULT_DOMAIN)
@@ -377,7 +378,6 @@ class KubernetesCloudConnector(CloudConnector):
                 resp = self.create_request('POST', uri, auth_data, headers, body)
 
                 if resp.status_code != 201:
-                    vm.destroy = True
                     res.append((False, "Error creating the Container: " + resp.text))
                 else:
                     output = json.loads(resp.text)
@@ -392,10 +392,10 @@ class KubernetesCloudConnector(CloudConnector):
                     vm.info.systems[0].setValue('instance_id', str(vm.id))
                     vm.info.systems[0].setValue('instance_name', str(vm.id))
 
+                    vm.destroy = False
                     res.append((True, vm))
 
             except Exception as ex:
-                vm.destroy = True
                 self.log_exception("Error connecting with Kubernetes API server")
                 res.append((False, "ERROR: " + str(ex)))
 

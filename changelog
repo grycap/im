@@ -348,4 +348,5 @@ IM 1.6.3
     * Add support to specify the project in case of OCCI OpenStack sites.
     * Add the Inf ID in all the related log messages.
     * Fix error in auth process in old OpenStack sites.
+    * Fix error setting Hostname in Docker, Kubernetes and AzureClassic conns.
 
