@@ -27,6 +27,7 @@ from IM.auth import Authentication
 from IM.config import Config
 from radl.radl_json import parse_radl as parse_radl_json, dump_radl as dump_radl_json, featuresToSimple, radlToSimple
 from radl.radl import RADL, Features, Feature
+from IM.tosca.Tosca import Tosca
 
 logger = logging.getLogger('InfrastructureManager')
 
@@ -316,6 +317,19 @@ def RESTGetInfrastructureProperty(infid=None, prop=None):
             bottle.response.content_type = "application/json"
             res = InfrastructureManager.GetInfrastructureState(infid, auth)
             return format_output(res, default_type="application/json", field_name="state")
+        elif prop == "outputs":
+            accept = get_media_type('Accept')
+            if accept and "application/json" not in accept and "*/*" not in accept and "application/*" not in accept:
+                return return_error(415, "Unsupported Accept Media Types: %s" % accept)
+            bottle.response.content_type = "application/json"
+            auth = InfrastructureManager.check_auth_data(auth)
+            sel_inf = InfrastructureManager.get_infrastructure(id, auth)
+            if "TOSCA" in sel_inf.extra_info:
+                res = sel_inf.extra_info["TOSCA"].get_outputs(sel_inf)
+            else:
+                bottle.abort(
+                    403, "'outputs' infrastructure property is not valid in this infrastructure")
+            return format_output(res, default_type="application/json", field_name="outputs")
         else:
             return return_error(404, "Incorrect infrastructure property")
 
@@ -367,16 +381,25 @@ def RESTCreateInfrastructure():
     try:
         content_type = get_media_type('Content-Type')
         radl_data = bottle.request.body.read().decode("utf-8")
+        tosca_data = None
 
         if content_type:
             if "application/json" in content_type:
                 radl_data = parse_radl_json(radl_data)
+            elif "text/yaml" in content_type:
+                tosca_data = Tosca(radl_data)
+                _, radl_data = tosca_data.to_radl()
             elif "text/plain" in content_type or "*/*" in content_type or "text/*" in content_type:
                 content_type = "text/plain"
             else:
                 return return_error(415, "Unsupported Media Type %s" % content_type)
 
         inf_id = InfrastructureManager.CreateInfrastructure(radl_data, auth)
+
+        # Store the TOSCA document
+        if tosca_data:
+            sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
+            sel_inf.extra_info['TOSCA'] = tosca_data
 
         bottle.response.headers['InfID'] = inf_id
         bottle.response.content_type = "text/uri-list"
@@ -473,16 +496,34 @@ def RESTAddResource(infid=None):
 
         content_type = get_media_type('Content-Type')
         radl_data = bottle.request.body.read().decode("utf-8")
+        tosca_data = None
+        remove_list = []
 
         if content_type:
             if "application/json" in content_type:
                 radl_data = parse_radl_json(radl_data)
+            elif "text/yaml" in content_type:
+                tosca_data = Tosca(radl_data)
+                auth = InfrastructureManager.check_auth_data(auth)
+                sel_inf = InfrastructureManager.get_infrastructure(id, auth)
+                # merge the current TOSCA with the new one
+                if isinstance(sel_inf.extra_info['TOSCA'], Tosca):
+                    tosca_data = sel_inf.extra_info['TOSCA'].merge(tosca_data)
+                remove_list, radl_data = tosca_data.to_radl(sel_inf)
             elif "text/plain" in content_type or "*/*" in content_type or "text/*" in content_type:
                 content_type = "text/plain"
             else:
                 return return_error(415, "Unsupported Media Type %s" % content_type)
 
+        if remove_list:
+            InfrastructureManager.RemoveResource(infid, remove_list, auth, context)
+
         vm_ids = InfrastructureManager.AddResource(infid, radl_data, auth, context)
+
+        # Replace the TOSCA document
+        if tosca_data:
+            sel_inf = InfrastructureManager.get_infrastructure(id, auth)
+            sel_inf.extra_info['TOSCA'] = tosca_data
 
         protocol = "http://"
         if Config.REST_SSL:
