@@ -155,7 +155,7 @@ keys are:
   This field is used in the OCCI and OpenStack plugins. 
   
 * ``project`` indicates the project name associated to the credential.
-  This field is only used in the GCE plugin.
+  This field is only used in the GCE or OCCI (from version 1.6.3) plugins.
   
 * ``public_key`` indicates the content of the public key file associated to the credential.
   To refer to a file you must use the function "file(cert.pem)" as shown in the example.
