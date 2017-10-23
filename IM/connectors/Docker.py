@@ -548,6 +548,8 @@ class DockerCloudConnector(CloudConnector):
                 i += 1
                 # Create the VM to get the nodename
                 vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self)
+                vm.destroy = True
+                inf.add_vm(vm)
 
                 ssh_port = 22
                 if vm.hasPublicNet():
@@ -595,7 +597,6 @@ class DockerCloudConnector(CloudConnector):
                     res.append((False, "Error: response format not expected."))
 
                 vm.info.systems[0].setValue('instance_id', str(vm.id))
-                inf.add_vm(vm)
 
                 if not self._is_swarm(auth_data):
                     # In creation a container can only be attached to one one network
@@ -622,6 +623,7 @@ class DockerCloudConnector(CloudConnector):
                 # Set ssh port in the RADL info of the VM
                 vm.setSSHPort(ssh_port)
 
+                vm.destroy = False
                 res.append((True, vm))
 
             except Exception as ex:

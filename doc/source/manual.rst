@@ -564,6 +564,7 @@ This is an example of the HAProxy configuration file::
 	backend imbackend
 	    mode http
 	    balance roundrobin
+	    option httpchk GET /version
 	    stick-table type string len 32 size 30k expire 60m
 	    stick store-response hdr(InfID)
 	    acl inf_id path -m beg /infrastructures/
@@ -574,3 +575,13 @@ This is an example of the HAProxy configuration file::
         ...
 
 See more details of HAProxy configuration at `HAProxy Documentation <https://cbonte.github.io/haproxy-dconv/>`_.
+
+Purgue IM DB
+============
+
+The IM service does not remove deleted infrastructures from DB for provenance purposes.
+In case that you want to remove old deleted infrastructures from the DB to reduce its size
+you can use the ``delete_old_infs`` script. It will delete from DB all the infrastructures
+created before a specified date::
+
+  python delete_old_infs.py <date>

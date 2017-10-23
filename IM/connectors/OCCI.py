@@ -60,6 +60,9 @@ class OCCICloudConnector(CloudConnector):
 
     def __init__(self, cloud_info, inf):
         self.add_public_ip_count = 0
+        self.keystone_token = None
+        if cloud_info.path == "/":
+            cloud_info.path = ""
         CloudConnector.__init__(self, cloud_info, inf)
 
     @staticmethod
@@ -1220,16 +1223,19 @@ class OCCICloudConnector(CloudConnector):
     def get_image_id_and_site_url(self, site_id, image_name, vo_name=None):
         data = OCCICloudConnector.appdb_call('/rest/1.0/va_providers/%s' % site_id)
         if data:
-            site_url = data['appdb:appdb']['virtualization:provider']["provider:endpoint_url"]
-            if 'provider:image' in data['appdb:appdb']['virtualization:provider']:
-                for image in data['appdb:appdb']['virtualization:provider']['provider:image']:
-                    if image['@appcname'] == image_name and (not vo_name or image['@voname'] == vo_name):
-                        image_basename = os.path.basename(image['@va_provider_image_id'])
-                        parts = image_basename.split("#")
-                        if len(parts) > 1:
-                            return parts[1], site_url
-                        else:
-                            return image_basename, site_url
+            if 'provider:endpoint_url' in data['appdb:appdb']['virtualization:provider']:
+                site_url = data['appdb:appdb']['virtualization:provider']["provider:endpoint_url"]
+                if 'provider:image' in data['appdb:appdb']['virtualization:provider']:
+                    for image in data['appdb:appdb']['virtualization:provider']['provider:image']:
+                        if image['@appcname'] == image_name and (not vo_name or image['@voname'] == vo_name):
+                            image_basename = os.path.basename(image['@va_provider_image_id'])
+                            parts = image_basename.split("#")
+                            if len(parts) > 1:
+                                return parts[1], site_url
+                            else:
+                                return image_basename, site_url
+            else:
+                self.log_warn("No endpoint_url returned from EGI AppDB for site %s." % site_id)
         else:
             self.log_warn("No data returned from EGI AppDB.")
 
@@ -1258,7 +1264,11 @@ class KeyStoneAuth:
                 www_auth_head = resp.headers['Www-Authenticate']
 
             if www_auth_head and www_auth_head.startswith('Keystone uri'):
-                return www_auth_head.split('=')[1].replace("'", "")
+                keystone_uri = www_auth_head.split('=')[1].replace("'", "")
+                # remove version in some old OpenStack sites
+                if keystone_uri.endswith("/v2.0"):
+                    keystone_uri = keystone_uri[:-5]
+                return keystone_uri
             else:
                 return None
         except SSLError as ex:
@@ -1271,17 +1281,51 @@ class KeyStoneAuth:
             return None
 
     @staticmethod
+    def check_keystone_token(occi, keystone_uri, version, auth):
+        """
+        Check if old keystone token is stil valid
+        """
+        if occi.keystone_token:
+            try:
+                headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
+                           'X-Auth-Token': occi.keystone_token, 'Connection': 'close'}
+                if version == 2:
+                    url = "%s/v2.0" % keystone_uri
+                elif version == 3:
+                    url = "%s/v3" % keystone_uri
+                else:
+                    return None
+                resp = occi.create_request_static('GET', url, auth, headers)
+                if resp.status_code == 200:
+                    return occi.keystone_token
+                else:
+                    occi.logger.warn("Old Keystone token invalid.")
+                    return None
+            except Exception:
+                occi.logger.exception("Error checking Keystone token")
+                return None
+        else:
+            return None
+
+    @staticmethod
     def get_keystone_token(occi, keystone_uri, auth):
         """
         Contact the specified keystone server to return the token
         """
         version = KeyStoneAuth.get_keystone_version(occi, keystone_uri, auth)
+
+        token = KeyStoneAuth.check_keystone_token(occi, keystone_uri, version, auth)
+        if token:
+            return token
+
         if version == 2:
             occi.logger.debug("Getting Keystone v2 token")
-            return KeyStoneAuth.get_keystone_token_v2(occi, keystone_uri, auth)
+            occi.keystone_token = KeyStoneAuth.get_keystone_token_v2(occi, keystone_uri, auth)
+            return occi.keystone_token
         elif version == 3:
             occi.logger.debug("Getting Keystone v3 token")
-            return KeyStoneAuth.get_keystone_token_v3(occi, keystone_uri, auth)
+            occi.keystone_token = KeyStoneAuth.get_keystone_token_v3(occi, keystone_uri, auth)
+            return occi.keystone_token
         else:
             # this must never happen
             raise Exception("Error obtaining Keystone Token: Unknown version %d" % version)
@@ -1373,22 +1417,23 @@ class KeyStoneAuth:
                            'X-Auth-Token': token_id, 'Connection': 'close'}
                 url = "%s/v2.0/tokens" % keystone_uri
                 resp = occi.create_request_static('POST', url, auth, headers, body)
-                resp.raise_for_status()
+                if resp.status_code == 200:
+                    # format: -> "{\"access\": {\"token\": {\"issued_at\":
+                    # \"2014-12-29T17:10:49.609894\", \"expires\":
+                    # \"2014-12-30T17:10:49Z\", \"id\":
+                    # \"c861ab413e844d12a61d09b23dc4fb9c\"}, \"serviceCatalog\": [],
+                    # \"user\": {\"username\":
+                    # \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\", \"roles_links\":
+                    # [], \"id\": \"475ce4978fb042e49ce0391de9bab49b\", \"roles\": [],
+                    # \"name\": \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\"},
+                    # \"metadata\": {\"is_admin\": 0, \"roles\": []}}}"
+                    output = resp.json()
+                    if 'access' in output:
+                        tenant_token_id = str(output['access']['token']['id'])
+                        break
 
-                # format: -> "{\"access\": {\"token\": {\"issued_at\":
-                # \"2014-12-29T17:10:49.609894\", \"expires\":
-                # \"2014-12-30T17:10:49Z\", \"id\":
-                # \"c861ab413e844d12a61d09b23dc4fb9c\"}, \"serviceCatalog\": [],
-                # \"user\": {\"username\":
-                # \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\", \"roles_links\":
-                # [], \"id\": \"475ce4978fb042e49ce0391de9bab49b\", \"roles\": [],
-                # \"name\": \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\"},
-                # \"metadata\": {\"is_admin\": 0, \"roles\": []}}}"
-                output = resp.json()
-                if 'access' in output:
-                    tenant_token_id = str(output['access']['token']['id'])
-                    break
-
+            if not tenant_token_id:
+                raise Exception("Error obtaining Keystone v2 Token: No tenant scoped token.")
             return tenant_token_id
         except Exception as ex:
             occi.logger.exception("Error obtaining Keystone v2 Token.")
@@ -1422,8 +1467,21 @@ class KeyStoneAuth:
 
             output = resp.json()
 
-            # get the first tenant (usually only one)
-            project = output['projects'].pop()
+            if len(output['projects']) == 1:
+                # If there are only one get the first tenant
+                project = output['projects'].pop()
+            if len(output['projects']) >= 1:
+                # If there are more than one
+                if auth and "project" in auth:
+                    project_found = None
+                    for elem in output['projects']:
+                        if elem['id'] == auth["project"] or elem['name'] == auth["project"]:
+                            project_found = elem
+                    if project_found:
+                        project = project_found
+                    else:
+                        project = output['projects'].pop()
+                        self.log_warn("Keystone 3 project %s not found. Using first one." % auth["project"])
 
             # get scoped token for allowed project
             headers = {'Accept': 'application/json', 'Content-Type': 'application/json',

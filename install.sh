@@ -67,6 +67,7 @@ else
             apt-get -y install wget ansible
             ;;
         ubuntu)
+            apt-get update
             apt-get -y install software-properties-common
             apt-add-repository -y ppa:ansible/ansible
             apt-get update
