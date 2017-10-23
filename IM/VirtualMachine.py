@@ -239,9 +239,10 @@ class VirtualMachine:
 
     def getOS(self):
         """
-        Get O.S. of this VM
+        Get O.S. of this VM (if not specified assume linux)
         """
-        return self.info.systems[0].getValue("disk.0.os.name")
+        os = self.info.systems[0].getValue("disk.0.os.name")
+        return os if os else "linux"
 
     def getCredentialValues(self, new=False):
         """
