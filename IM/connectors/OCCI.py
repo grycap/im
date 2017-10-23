@@ -686,12 +686,17 @@ class OCCICloudConnector(CloudConnector):
         while wait < timeout:
             try:
                 self.log_debug("Detaching volume: %s" % storage_id)
-                resp = self.create_request('DELETE', link, auth_data, headers)
-                if resp.status_code in [404, 204, 200]:
+                resp = self.create_request('GET', link, auth_data, headers)
+                if resp.status_code == 200:
+                    resp = self.create_request('DELETE', link, auth_data, headers)
+                    if resp.status_code in [204, 200]:
+                        self.log_debug("Successfully detached. Wait it to be deleted.")
+                    else:
+                        self.log_error("Error detaching volume: %s" + resp.reason + "\n" + resp.text)
+                elif resp.status_code == 404:
+                    # wait until the resource does not exist
                     self.log_debug("Successfully detached")
                     return (True, "")
-                else:
-                    self.log_error("Error detaching volume: %s" + resp.reason + "\n" + resp.text)
             except Exception as ex:
                 self.log_warn("Error detaching volume " + str(ex))
 
