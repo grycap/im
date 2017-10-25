@@ -164,6 +164,8 @@ class TestOCCIConnector(unittest.TestCase):
             elif url == "/v3/OS-FEDERATION/identity_providers/egi.eu/protocols/oidc/auth":
                 resp.status_code = 200
                 resp.headers = {'X-Subject-Token': 'token1'}
+            elif url.endswith("/link/storagelink/compute_10_disk_1"):
+                resp.status_code = 404
         elif method == "POST":
             if url == "/compute/":
                 resp.status_code = 201

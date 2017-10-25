@@ -6,7 +6,7 @@
   tasks:
     # Some OSs does not have python by default
     - name: Bootstrap with python
-      raw: which python || (sudo apt update; sudo apt install -y python; sudo yum install -y python)
+      raw: which python || (sudo apt update; sudo apt install -y python; sudo yum install -y python; sudo zypper -n install python python-xml)
       ignore_errors: yes
 
     # In case of REL 5 system install python-simplejson
@@ -17,10 +17,6 @@
     - name: Get Facts
       setup:
 
-    - name: Install libselinux-python in RH
-      action: yum pkg=libselinux-python state=installed
-      when: ansible_os_family == "RedHat"
-
     - name: EPEL
       yum: name=epel-release
       when: ansible_os_family == "RedHat" and ansible_distribution != "Fedora"
@@ -28,7 +24,11 @@
     - name: Fedora install yum with dnf
       dnf: name=python2-rpm,yum
       when: ansible_distribution == "Fedora"
-  
+
+    - name: Install libselinux-python in RH
+      action: yum pkg=libselinux-python state=installed
+      when: ansible_os_family == "RedHat"
+
   ################### Install Ansible in Ubuntu RHEL Debian and Fedora systems with apt and yum #########################
   ################### because they have recent versions of ansible in system repositories ###############################
   
@@ -40,12 +40,16 @@
       apt_repository: repo='ppa:ansible/ansible'
       when: ansible_distribution == "Ubuntu"
 
+    - name: Debian install gnupg
+      apt: name=gnupg update_cache=yes cache_valid_time=3600
+      when: ansible_distribution == "Debian"
+
     - name: Debian install Ansible PPA repo
       lineinfile: dest=/etc/apt/sources.list regexp="deb http://ppa.launchpad.net/ansible/ansible/ubuntu trusty main" line="deb http://ppa.launchpad.net/ansible/ansible/ubuntu trusty main"
       when: ansible_distribution == "Debian"
 
     - name: Debian install Ansible PPA key
-      apt_key: id=93C4A3FD7BB9C367 url="keyserver.ubuntu.com"
+      apt_key: id=93C4A3FD7BB9C367 keyserver=keyserver.ubuntu.com
       when: ansible_distribution == "Debian"
       
     - name: Debian/Ubuntu install Ansible with apt
@@ -55,7 +59,11 @@
     - name: Yum install Ansible RH 7/Fedora
       yum: name=ansible,python-pip,python-jinja2,sshpass,openssh-clients,wget update_cache=yes
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 7
-      
+
+    - name: Ubuntu install Cryptography with apt
+      apt: name=python-cryptography
+      when: (ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int >= 16) or (ansible_distribution == "Debian" and ansible_distribution_major_version|int >= 8)
+
   ############################################ In other systems use pip #################################################
   
     - name: Yum install requirements RH 6
@@ -67,7 +75,7 @@
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int < 6
 
     - name: Zypper install requirements Suse
-      zypper: name=python,python-pip,gcc,python-devel,wget,libffi-devel,openssl-devel state=present
+      zypper: name=python,python-pip,gcc,python-devel,wget,libffi-devel,openssl-devel,python-cryptography,make state=present
       when: ansible_os_family == "Suse"
 
     - name: Install Pip 2.6
@@ -84,6 +92,10 @@
     - name: Link python 2.6
       file: src=/usr/bin/python2.6 dest=/usr/bin/python_ansible state=link
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int < 6
+
+    - name: Upgrade setuptools with Pip
+      pip: name=setuptools extra_args="-I" state=latest
+      when: ansible_os_family == "Suse" or (ansible_os_family == "RedHat" and ansible_distribution_major_version|int < 7)
 
     - name: Install ansible with Pip
       pip: name=ansible extra_args="-I"
