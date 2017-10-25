@@ -6,7 +6,7 @@
   tasks:
     # Some OSs does not have python by default
     - name: Bootstrap with python
-      raw: which python || (sudo apt update; sudo apt install -y python; sudo yum install -y python)
+      raw: which python || (sudo apt update; sudo apt install -y python; sudo yum install -y python; sudo zypper -n install python python-xml)
       ignore_errors: yes
 
     # In case of REL 5 system install python-simplejson
@@ -75,7 +75,7 @@
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int < 6
 
     - name: Zypper install requirements Suse
-      zypper: name=python,python-pip,gcc,python-devel,wget,libffi-devel,openssl-devel state=present
+      zypper: name=python,python-pip,gcc,python-devel,wget,libffi-devel,openssl-devel,python-cryptography,make state=present
       when: ansible_os_family == "Suse"
 
     - name: Install Pip 2.6
@@ -92,6 +92,10 @@
     - name: Link python 2.6
       file: src=/usr/bin/python2.6 dest=/usr/bin/python_ansible state=link
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int < 6
+
+    - name: Upgrade setuptools with Pip
+      pip: name=setuptools extra_args="-I" state=latest
+      when: ansible_os_family == "Suse" or (ansible_os_family == "RedHat" and ansible_distribution_major_version|int < 7)
 
     - name: Install ansible with Pip
       pip: name=ansible extra_args="-I"
