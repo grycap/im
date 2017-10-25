@@ -192,7 +192,7 @@ class DockerCloudConnector(CloudConnector):
 
         command = "yum install -y openssh-server python"
         command += " ; "
-        command += "zypper -n install sudo openssh"
+        command += "zypper -n install sudo which openssh"
         command += " ; "
         command += "apt-get update && apt-get install -y openssh-server python"
         command += " ; "
