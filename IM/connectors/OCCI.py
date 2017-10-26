@@ -93,7 +93,10 @@ class OCCICloudConnector(CloudConnector):
 
     def create_request(self, method, url, auth_data, headers, body=None):
         if not url.startswith("http://") and not url.startswith("https://"):
-            url = "%s://%s:%d%s" % (self.cloud.protocol, self.cloud.server, self.cloud.port, url)
+            if self.cloud.port > 0:
+                url = "%s://%s:%d%s" % (self.cloud.protocol, self.cloud.server, self.cloud.port, url)
+            else:
+                url = "%s://%s%s" % (self.cloud.protocol, self.cloud.server, url)
 
         auths = auth_data.getAuthInfo(self.type, self.cloud.server)
         if not auths:
@@ -142,7 +145,9 @@ class OCCICloudConnector(CloudConnector):
             for str_url in image_urls:
                 url = uriparse(str_url)
                 protocol = url[0]
-                cloud_url = self.cloud.protocol + "://" + self.cloud.server + ":" + str(self.cloud.port)
+                cloud_url = self.cloud.protocol + "://" + self.cloud.server
+                if self.cloud.port > 0:
+                    cloud_url += ":" + str(self.cloud.port)
                 site_url = None
                 if protocol == "appdb":
                     # The url has this format: appdb://UPV-GRyCAP/egi.docker.ubuntu.16.04?fedcloud.egi.eu
@@ -220,20 +225,21 @@ class OCCICloudConnector(CloudConnector):
         lines = occi_res.split("\n")
         res = []
         link_to_public = False
+        num_interface = None
+        ip_address = None
+        link = None
         for l in lines:
             if 'Link:' in l and '/network/public' in l:
                 link_to_public = True
             if 'Link:' in l and ('/network/' in l or '/networklink/' in l):
-                num_interface = None
-                ip_address = None
-                link = None
                 parts = l.split(';')
                 for part in parts:
                     kv = part.split('=')
                     if kv[0].strip() == "occi.networkinterface.address":
-                        ip_address = kv[1].strip('"')
-                        is_private = any([IPAddress(ip_address) in IPNetwork(
-                            mask) for mask in Config.PRIVATE_NET_MASKS])
+                        if kv[1].count('.') == 3 or ip_address is None:
+                            ip_address = kv[1].strip('"')
+                            is_private = any([IPAddress(ip_address) in IPNetwork(
+                                mask) for mask in Config.PRIVATE_NET_MASKS])
                     elif kv[0].strip() == "occi.networkinterface.interface":
                         net_interface = kv[1].strip('"')
                         num_interface = re.findall('\d+', net_interface)[0]
@@ -688,6 +694,7 @@ class OCCICloudConnector(CloudConnector):
                 self.log_debug("Detaching volume: %s" % storage_id)
                 resp = self.create_request('GET', link, auth_data, headers)
                 if resp.status_code == 200:
+                    self.log_debug("Volume link %s exists. Try to delete it." % link)
                     resp = self.create_request('DELETE', link, auth_data, headers)
                     if resp.status_code in [204, 200]:
                         self.log_debug("Successfully detached. Wait it to be deleted.")
@@ -697,6 +704,8 @@ class OCCICloudConnector(CloudConnector):
                     # wait until the resource does not exist
                     self.log_debug("Successfully detached")
                     return (True, "")
+                else:
+                    self.log_warn("Error detaching volume: %s" + resp.reason + "\n" + resp.text)
             except Exception as ex:
                 self.log_warn("Error detaching volume " + str(ex))
 
@@ -725,19 +734,27 @@ class OCCICloudConnector(CloudConnector):
         while wait < timeout:
             self.log_debug("Delete storage: %s" % storage_id)
             try:
-                resp = self.create_request('DELETE', storage_id, auth_data, headers)
+                resp = self.create_request('GET', storage_id, auth_data, headers)
+                if resp.status_code == 200:
+                    self.log_debug("Storage %s exists. Try to delete it." % storage_id)
+                    resp = self.create_request('DELETE', storage_id, auth_data, headers)
 
-                if resp.status_code == 404:
+                    if resp.status_code == 404:
+                        self.log_debug("It does not exist.")
+                        return (True, "")
+                    elif resp.status_code == 409:
+                        self.log_debug("Error deleting the Volume. It seems that it is still "
+                                       "attached to a VM: %s" % resp.text)
+                    elif resp.status_code != 200 and resp.status_code != 204:
+                        self.log_warn("Error deleting the Volume: " + resp.reason + "\n" + resp.text)
+                    else:
+                        self.log_debug("Successfully deleted")
+                        return (True, "")
+                elif resp.status_code == 404:
                     self.log_debug("It does not exist.")
                     return (True, "")
-                elif resp.status_code == 409:
-                    self.log_debug("Error deleting the Volume. It seems that it is still "
-                                   "attached to a VM: %s" % resp.text)
-                elif resp.status_code != 200 and resp.status_code != 204:
-                    self.log_warn("Error deleting the Volume: " + resp.reason + "\n" + resp.text)
                 else:
-                    self.log_debug("Successfully deleted")
-                    return (True, "")
+                    self.log_warn("Error deleting storage: %s" + resp.reason + "\n" + resp.text)
                 time.sleep(delay)
                 wait += delay
             except Exception:
@@ -1422,7 +1439,7 @@ class KeyStoneAuth:
                            'X-Auth-Token': token_id, 'Connection': 'close'}
                 url = "%s/v2.0/tokens" % keystone_uri
                 resp = occi.create_request_static('POST', url, auth, headers, body)
-                if resp.status_code == 200:
+                if resp.status_code in [200, 202]:
                     # format: -> "{\"access\": {\"token\": {\"issued_at\":
                     # \"2014-12-29T17:10:49.609894\", \"expires\":
                     # \"2014-12-30T17:10:49Z\", \"id\":
