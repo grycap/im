@@ -189,13 +189,13 @@ class CloudConnector:
             private = None
             try:
                 with open(pk_file) as f:
-                    private = f.read()
+                    private = f.read().strip()
             except:
                 self.log_exception("Error reading private_key file.")
 
             try:
                 with open(pk_file + ".pub") as f:
-                    public = f.read()
+                    public = f.read().strip()
             except:
                 self.log_exception("Error reading public_key file.")
 
