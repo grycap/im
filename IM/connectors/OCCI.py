@@ -854,26 +854,20 @@ class OCCICloudConnector(CloudConnector):
                 volumes = self.create_volumes(system, auth_data)
 
                 body = 'Category: compute; scheme="http://schemas.ogf.org/occi/infrastructure#"; class="kind"\n'
-                body += 'Category: ' + os_tpl + '; scheme="' + \
-                    os_tpl_scheme + '"; class="mixin"\n'
+                body += 'Category: ' + os_tpl + '; scheme="' + os_tpl_scheme + '"; class="mixin"\n'
                 body += 'Category: user_data; scheme="http://schemas.openstack.org/compute/instance#"; class="mixin"\n'
-                # body += 'Category: public_key;
-                # scheme="http://schemas.openstack.org/instance/credentials#";
-                # class="mixin"\n'
+                body += 'Category: public_key; scheme="http://schemas.openstack.org/instance/credentials#";' + \
+                    ' class="mixin"\n'
 
                 if instance_type_uri:
-                    body += 'Category: ' + instance_name + '; scheme="' + \
-                        instance_scheme + '"; class="mixin"\n'
+                    body += 'Category: ' + instance_name + '; scheme="' + instance_scheme + '"; class="mixin"\n'
                 else:
-                    # Try to use this OCCI attributes (not supported by
-                    # openstack)
+                    # Try to use this OCCI attributes (not supported by openstack)
                     if cpu:
-                        body += 'X-OCCI-Attribute: occi.compute.cores=' + \
-                            str(cpu) + '\n'
+                        body += 'X-OCCI-Attribute: occi.compute.cores=' + str(cpu) + '\n'
                     # body += 'X-OCCI-Attribute: occi.compute.architecture=' + arch +'\n'
                     if memory:
-                        body += 'X-OCCI-Attribute: occi.compute.memory=' + \
-                            str(memory) + '\n'
+                        body += 'X-OCCI-Attribute: occi.compute.memory=' + str(memory) + '\n'
 
                 compute_id = "im.%s" % str(uuid.uuid1())
                 body += 'X-OCCI-Attribute: occi.core.id="' + compute_id + '"\n'
@@ -886,11 +880,10 @@ class OCCICloudConnector(CloudConnector):
                                                     default_domain=Config.DEFAULT_DOMAIN)
 
                 body += 'X-OCCI-Attribute: occi.compute.hostname="' + nodename + '"\n'
-                # See: https://wiki.egi.eu/wiki/HOWTO10
-                # body += 'X-OCCI-Attribute: org.openstack.credentials.publickey.name="my_key"'
-                # body += 'X-OCCI-Attribute: org.openstack.credentials.publickey.data="ssh-rsa BAA...zxe ==user@host"'
                 if user_data:
                     body += 'X-OCCI-Attribute: org.openstack.compute.user_data="' + user_data + '"\n'
+                if public_key:
+                    body += 'X-OCCI-Attribute: org.openstack.credentials.publickey.data="' + public_key + '"\n'
 
                 # Add volume links
                 for device, volume_id in volumes:
