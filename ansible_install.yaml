@@ -49,7 +49,7 @@
       when: ansible_os_family == "Debian"
 
     - name: Apt install requirements Ubuntu/Debian
-      apt: name=python-pip,gcc,python-dev,python-pysqlite2,openssh-client,sshpass,libssl-dev,libffi-dev,python-requests
+      apt: name=python-pip,gcc,python-dev,python-pysqlite2,openssh-client,sshpass,libssl-dev,libffi-dev
       when: ansible_os_family == "Debian"
 
     - name: Apt install requirements Debian
@@ -84,3 +84,16 @@
 
     - name: Install IM
       pip: executable=pip name=IM
+
+    # Pip requests package have a bug in debian systems, remove it and force reinstall python-requests
+    - name: Pip uninstall requests Ubuntu/Debian
+      pip: executable=pip name=requests state=absent
+      when: ansible_os_family == "Debian"
+
+    - name: Apt install requests Ubuntu/Debian
+      apt: name=python-requests state=absent
+      when: ansible_os_family == "Debian"
+
+    - name: Apt install requests Ubuntu/Debian
+      apt: name=python-requests state=present
+      when: ansible_os_family == "Debian"
