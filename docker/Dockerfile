@@ -6,7 +6,7 @@ LABEL description="Container image to run the IM service. (http://www.grycap.upv
 EXPOSE 8899 8800
 
 # Ensure system is up to date with mandatory python packages installed
-RUN apt-get update && apt-get install --no-install-recommends -y python-dbg python-dev python-pip openssh-client sshpass vim python-requests && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install --no-install-recommends -y python-dbg python-dev python-pip openssh-client sshpass vim && rm -rf /var/lib/apt/lists/*
 
 RUN pip install setuptools pip --upgrade -I
 RUN pip install pyOpenSSL --upgrade -I
@@ -21,6 +21,10 @@ RUN apt-get update && apt-get install --no-install-recommends -y gcc libmysqld-d
      apt-get remove -y gcc libmysqld-dev libssl-dev libffi-dev libsqlite3-dev python-dev python-pip && \
      apt-get autoremove -y && \
      rm -rf /var/lib/apt/lists/*
+
+# Remove pip requests and force python-requests to be installed to avoid SSL ca errors
+RUN pip uninstall -y requests
+RUN apt-get update && apt-get install --no-install-recommends -y python-requests && rm -rf /var/lib/apt/lists/*
 
 # Copy a ansible.cfg with correct minimum values
 COPY ansible.cfg /etc/ansible/ansible.cfg
