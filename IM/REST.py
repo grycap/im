@@ -352,7 +352,7 @@ def RESTGetInfrastructureProperty(infid=None, prop=None):
                 return return_error(415, "Unsupported Accept Media Types: %s" % accept)
             bottle.response.content_type = "application/json"
             auth = InfrastructureManager.check_auth_data(auth)
-            sel_inf = InfrastructureManager.get_infrastructure(id, auth)
+            sel_inf = InfrastructureManager.get_infrastructure(infid, auth)
             if "TOSCA" in sel_inf.extra_info:
                 res = sel_inf.extra_info["TOSCA"].get_outputs(sel_inf)
             else:
@@ -534,7 +534,7 @@ def RESTAddResource(infid=None):
             elif "text/yaml" in content_type:
                 tosca_data = Tosca(radl_data)
                 auth = InfrastructureManager.check_auth_data(auth)
-                sel_inf = InfrastructureManager.get_infrastructure(id, auth)
+                sel_inf = InfrastructureManager.get_infrastructure(infid, auth)
                 # merge the current TOSCA with the new one
                 if isinstance(sel_inf.extra_info['TOSCA'], Tosca):
                     tosca_data = sel_inf.extra_info['TOSCA'].merge(tosca_data)
@@ -551,7 +551,7 @@ def RESTAddResource(infid=None):
 
         # Replace the TOSCA document
         if tosca_data:
-            sel_inf = InfrastructureManager.get_infrastructure(id, auth)
+            sel_inf = InfrastructureManager.get_infrastructure(infid, auth)
             sel_inf.extra_info['TOSCA'] = tosca_data
 
         protocol = "http://"
