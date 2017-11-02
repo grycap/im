@@ -1,9 +1,6 @@
  IM - Infrastructure Manager (With TOSCA Support)
 =================================================
 
-* Version ![PyPI](https://img.shields.io/pypi/v/im.svg)
-* PyPI ![PypI](https://img.shields.io/pypi/dm/IM.svg)
-
 IM is a tool that deploys complex and customized virtual infrastructures on IaaS
 Cloud deployments (such as AWS, OpenStack, etc.). It eases the access and the
 usability of IaaS clouds by automating the VMI (Virtual Machine Image)
@@ -14,16 +11,22 @@ contextualization system to enable the installation and configuration of all the
 user required applications providing the user with a fully functional
 infrastructure.
 
-This version evolved in the INDIGO-Datacloud project (https://www.indigo-datacloud.eu/). It is used by the [INDIGO Orchestrator](https://github.com/indigo-dc/orchestrator) to contact Cloud sites to finally deploy the VMs/containers.
+This version evolved in the INDIGO-Datacloud project (https://www.indigo-datacloud.eu/) has
+added support to TOSCA documents as input for the infrastructure creation.
 
-New features added:
-
-+ Support for TOSCA 1.0 YAML specification with the custom node types described in https://github.com/indigo-dc/tosca-types/blob/master/custom_types.yaml
-+ Support for the Identity and Access Management Service (IAM).
-+ Support for the Token Translation Service (TTS) to support IAM authetication on OpenNebula Clouds.
-+ Improvements to access OpenStack Clouds that support IAM.
-
-Read the documentation and more at the [IM Webpage](http://www.grycap.upv.es/im) or at [Gitbook](https://indigo-dc.gitbooks.io/im/content/).
+Read the documentation and more at http://www.grycap.upv.es/im.
 
 There is also an Infrastructure Manager YouTube reproduction list with a set of videos with demos
 of the functionality of the platform: https://www.youtube.com/playlist?list=PLgPH186Qwh_37AMhEruhVKZSfoYpHkrUp.
+
+DOCKER IMAGE
+=============
+
+A Docker image named `indigodatacloud/im` has been created to make easier the deployment of an IM service using the 
+default configuration. Information about this image can be found here: https://hub.docker.com/r/indigodatacloud/im/.
+
+How to launch the IM service using docker:
+
+```sh
+sudo docker run -d -p 8899:8899 -p 8800:8800 --name im indigodatacloud/im 
+```

@@ -25,6 +25,7 @@ from datetime import datetime, timedelta
 from radl.radl import RADL, Feature, deploy, system, contextualize_item
 from radl.radl_parse import parse_radl
 from radl.radl_json import radlToSimple
+from IM.openid.JWT import JWT
 from IM.config import Config
 try:
     from Queue import PriorityQueue
@@ -32,6 +33,7 @@ except ImportError:
     from queue import PriorityQueue
 from IM.VirtualMachine import VirtualMachine
 from IM.auth import Authentication
+from IM.tosca.Tosca import Tosca
 
 
 class IncorrectVMException(Exception):
@@ -91,6 +93,8 @@ class InfrastructureInfo:
         """Flag to specify that the configuration threads of this inf has finished successfully or with errors."""
         self.conf_threads = []
         """ List of configuration threads."""
+        self.extra_info = {}
+        """ Extra information about the Infrastructure."""
         self.last_access = datetime.now()
         """ Time of the last access to this Inf. """
         self.snapshots = []
@@ -116,6 +120,8 @@ class InfrastructureInfo:
             odict['auth'] = odict['auth'].serialize()
         if odict['radl']:
             odict['radl'] = str(odict['radl'])
+        if odict['extra_info'] and "TOSCA" in odict['extra_info']:
+            odict['extra_info'] = {'TOSCA': odict['extra_info']['TOSCA'].serialize()}
         return json.dumps(odict)
 
     @staticmethod
@@ -130,6 +136,12 @@ class InfrastructureInfo:
             dic['auth'] = Authentication.deserialize(dic['auth'])
         if dic['radl']:
             dic['radl'] = parse_radl(dic['radl'])
+        if 'extra_info' in dic and dic['extra_info'] and "TOSCA" in dic['extra_info']:
+            try:
+                dic['extra_info']['TOSCA'] = Tosca.deserialize(dic['extra_info']['TOSCA'])
+            except:
+                del dic['extra_info']['TOSCA']
+                InfrastructureInfo.logger.exception("Error deserializing TOSCA document")
         newinf.__dict__.update(dic)
         newinf.cloud_connector = None
         # Set the ConfManager object and the lock to the data loaded
@@ -264,14 +276,14 @@ class InfrastructureInfo:
         """
 
         with self._lock:
-            # Add new systems and networks only
+            # Add new networks only
             for s in radl.systems + radl.networks + radl.ansible_hosts:
                 if not self.radl.add(s.clone(), "ignore"):
                     InfrastructureInfo.logger.warn(
                         "Ignoring the redefinition of %s %s" % (type(s), s.getId()))
 
             # Add or update configures
-            for s in radl.configures:
+            for s in radl.configures + radl.systems:
                 self.radl.add(s.clone(), "replace")
                 InfrastructureInfo.logger.warn(
                     "(Re)definition of %s %s" % (type(s), s.getId()))
@@ -570,6 +582,15 @@ class InfrastructureInfo:
                     InfrastructureInfo.logger.error("Inf ID %s has not elem %s in the auth data" % (self.id, elem))
                     return True
                 if self_im_auth[elem] != other_im_auth[elem]:
+                    return False
+
+            if 'token' in self_im_auth:
+                if 'token' not in other_im_auth:
+                    return False
+                decoded_token = JWT().get_info(other_im_auth['token'])
+                password = str(decoded_token['iss']) + str(decoded_token['sub'])
+                # check that the token provided is associated with the current owner of the inf.
+                if self_im_auth['password'] != password:
                     return False
 
             return True

@@ -31,6 +31,7 @@ from radl.radl import network, Feature
 from IM.config import ConfigOpenNebula
 from netaddr import IPNetwork, IPAddress
 from IM.config import Config
+from IM.tts.onetts import ONETTSClient
 
 # Set of classes to parse the XML results of the ONE API
 
@@ -239,8 +240,15 @@ class OpenNebulaCloudConnector(CloudConnector):
                     hash_password = True
             if hash_password:
                 passwd = hashlib.sha1(passwd.strip().encode('utf-8')).hexdigest()
-
             return auth['username'] + ":" + passwd
+        elif 'token' in auth:
+            username, passwd = ONETTSClient.get_auth_from_tts(ConfigOpenNebula.TTS_URL,
+                                                              self.cloud.server, auth['token'])
+            if not username or not passwd:
+                raise Exception("Error getting ONE credentials using TTS.")
+            auth["username"] = username
+            auth["password"] = passwd
+            return username + ":" + passwd
         else:
             raise Exception("No correct auth data has been specified to OpenNebula: username and password")
 
@@ -613,7 +621,7 @@ class OpenNebulaCloudConnector(CloudConnector):
         while system.getValue("disk." + str(cont) + ".image.url") or system.getValue("disk." + str(cont) + ".size"):
             disk_image = system.getValue("disk." + str(cont) + ".image.url")
             if disk_image:
-                disks += '\nDISK = [ IMAGE_ID = "%s" ]\n' % uriparse(disk_image)[
+                disks += 'DISK = [ IMAGE_ID = "%s" ]\n' % uriparse(disk_image)[
                     2][1:]
             else:
                 disk_size = system.getFeature(

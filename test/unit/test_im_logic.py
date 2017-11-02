@@ -21,6 +21,9 @@ import time
 import logging
 import unittest
 import sys
+import json
+import base64
+
 from mock import Mock, patch, MagicMock
 
 sys.path.append("..")
@@ -124,6 +127,21 @@ class TestIM(unittest.TestCase):
         cloud = type(name, (CloudConnector, object), {})
         cloud.launch = Mock(side_effect=self.gen_launch_res)
         return cloud
+
+    def gen_token(self, aud=None, exp=None):
+        data = {
+            "sub": "user_sub",
+            "iss": "https://iam-test.indigo-datacloud.eu/",
+            "exp": 1465471354,
+            "iat": 1465467755,
+            "jti": "jti",
+        }
+        if aud:
+            data["aud"] = aud
+        if exp:
+            data["exp"] = int(time.time()) + exp
+        return ("eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.%s.ignored" %
+                base64.urlsafe_b64encode(json.dumps(data).encode("utf-8")).decode("utf-8"))
 
     def test_inf_creation0(self):
         """Create infrastructure with empty RADL."""
@@ -951,7 +969,7 @@ configure step2 (
 
         infId = IM.CreateInfrastructure(str(radl), auth0)
 
-        time.sleep(10)
+        time.sleep(15)
 
         state = IM.GetInfrastructureState(infId, auth0)
         self.assertEqual(state["state"], "unconfigured")
@@ -971,6 +989,80 @@ configure step2 (
         self.assertGreater(len(contmsg), 150)
 
         IM.DestroyInfrastructure(infId, auth0)
+
+    @patch('requests.request')
+    def test_check_oidc_invalid_token(self, request):
+        im_auth = {"token": self.gen_token()}
+
+        with self.assertRaises(Exception) as ex:
+            IM.check_oidc_token(im_auth)
+        self.assertEqual(str(ex.exception),
+                         'Invalid InfrastructureManager credentials. OIDC auth Token expired.')
+
+        im_auth_aud = {"token": self.gen_token(aud="test1,test2")}
+
+        Config.OIDC_AUDIENCE = "test"
+        with self.assertRaises(Exception) as ex:
+            IM.check_oidc_token(im_auth_aud)
+        self.assertEqual(str(ex.exception),
+                         'Invalid InfrastructureManager credentials. Audience not accepted.')
+
+        Config.OIDC_AUDIENCE = "test2"
+        with self.assertRaises(Exception) as ex:
+            IM.check_oidc_token(im_auth_aud)
+        self.assertEqual(str(ex.exception),
+                         'Invalid InfrastructureManager credentials. OIDC auth Token expired.')
+        Config.OIDC_AUDIENCE = None
+
+        Config.OIDC_SCOPES = ["scope1", "scope2"]
+        Config.OIDC_CLIENT_ID = "client"
+        Config.OIDC_CLIENT_SECRET = "secret"
+        response = MagicMock()
+        response.status_code = 200
+        response.text = '{ "scope": "profile scope1" }'
+        request.return_value = response
+        with self.assertRaises(Exception) as ex:
+            IM.check_oidc_token(im_auth_aud)
+        self.assertEqual(str(ex.exception),
+                         'Invalid InfrastructureManager credentials. '
+                         'Scopes scope1 scope2 not in introspection scopes: profile scope1')
+
+        response.status_code = 200
+        response.text = '{ "scope": "address profile scope1 scope2" }'
+        request.return_value = response
+        with self.assertRaises(Exception) as ex:
+            IM.check_oidc_token(im_auth_aud)
+        self.assertEqual(str(ex.exception),
+                         'Invalid InfrastructureManager credentials. '
+                         'OIDC auth Token expired.')
+
+        Config.OIDC_SCOPES = []
+        Config.OIDC_CLIENT_ID = None
+        Config.OIDC_CLIENT_SECRET = None
+
+        Config.OIDC_ISSUERS = ["https://other_issuer"]
+
+        with self.assertRaises(Exception) as ex:
+            IM.check_oidc_token(im_auth)
+        self.assertEqual(str(ex.exception),
+                         "Invalid InfrastructureManager credentials. Issuer not accepted.")
+
+    @patch('IM.InfrastructureManager.OpenIDClient')
+    def test_check_oidc_valid_token(self, openidclient):
+        im_auth = {"token": (self.gen_token())}
+
+        user_info = json.loads(read_file_as_string('../files/iam_user_info.json'))
+
+        openidclient.is_access_token_expired.return_value = False, "Valid Token for 100 seconds"
+        openidclient.get_user_info_request.return_value = True, user_info
+
+        Config.OIDC_ISSUERS = ["https://iam-test.indigo-datacloud.eu/"]
+        Config.OIDC_AUDIENCE = None
+
+        IM.check_oidc_token(im_auth)
+
+        self.assertEqual(im_auth['username'], "micafer")
+        self.assertEqual(im_auth['password'], "https://iam-test.indigo-datacloud.eu/sub")
 
     def test_db(self):
         """ Test DB data access """
