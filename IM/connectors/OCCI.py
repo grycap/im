@@ -1516,7 +1516,7 @@ class KeyStoneAuth:
                 headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
                            'X-Auth-Token': token, 'Connection': 'close'}
                 body = {"auth": {"identity": {"methods": ["token"], "token": {"id": token}},
-                        "scope": {"project": {"id": project["id"]}}}}
+                                 "scope": {"project": {"id": project["id"]}}}}
                 url = "%s/v3/auth/tokens" % keystone_uri
                 resp = occi.create_request_static('POST', url, auth, headers, json.dumps(body))
                 if resp.status_code in [200, 201, 202]:

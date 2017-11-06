@@ -351,3 +351,8 @@ IM 1.6.3
     * Fix error setting Hostname in Docker, Kubernetes and AzureClassic conns.
     * Fix error connecting with Synefo OCCI sites.
     * Fix error deleting VM in OCCI OpenNebula sites.
+
+IM 1.6.4
+    * Store tenant and project in OCCI connector.
+    * Fix error validating keystone token in OCCI conn.
+    * Decrease timeout getting ansible process results.
