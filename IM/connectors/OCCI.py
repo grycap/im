@@ -61,6 +61,8 @@ class OCCICloudConnector(CloudConnector):
     def __init__(self, cloud_info, inf):
         self.add_public_ip_count = 0
         self.keystone_token = None
+        self.keystone_tenant = None
+        self.keystone_project = None
         if cloud_info.path == "/":
             cloud_info.path = ""
         CloudConnector.__init__(self, cloud_info, inf)
@@ -1412,20 +1414,25 @@ class KeyStoneAuth:
                 occi.logger.exception("Error obtaining Keystone Token.")
                 raise Exception("Error obtaining Keystone Token: %s" % str(output))
 
-            headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
-                       'X-Auth-Token': token_id, 'Connection': 'close'}
-            url = "%s/v2.0/tenants" % keystone_uri
-            resp = occi.create_request_static('GET', url, auth, headers)
-            resp.raise_for_status()
+            if occi.keystone_tenant is None:
+                headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
+                           'X-Auth-Token': token_id, 'Connection': 'close'}
+                url = "%s/v2.0/tenants" % keystone_uri
+                resp = occi.create_request_static('GET', url, auth, headers)
+                resp.raise_for_status()
 
-            # format: -> "{\"tenants_links\": [], \"tenants\":
-            # [{\"description\": \"egi fedcloud\", \"enabled\": true, \"id\":
-            # \"fffd98393bae4bf0acf66237c8f292ad\", \"name\": \"egi\"}]}"
-            output = resp.json()
+                # format: -> "{\"tenants_links\": [], \"tenants\":
+                # [{\"description\": \"egi fedcloud\", \"enabled\": true, \"id\":
+                # \"fffd98393bae4bf0acf66237c8f292ad\", \"name\": \"egi\"}]}"
+                output = resp.json()
+                tenants = output['tenants']
+            else:
+                tenants = [occi.keystone_tenant]
 
             tenant_token_id = None
+
             # retry for each available tenant (usually only one)
-            for tenant in output['tenants']:
+            for tenant in tenants:
                 body = '{"auth":{"voms":true,"tenantName":"' + str(tenant['name']) + '"}}'
 
                 headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
@@ -1444,6 +1451,8 @@ class KeyStoneAuth:
                     # \"metadata\": {\"is_admin\": 0, \"roles\": []}}}"
                     output = resp.json()
                     if 'access' in output:
+                        occi.logger.debug("Using tenant: %s" % tenant["name"])
+                        occi.keystone_tenant = tenant
                         tenant_token_id = str(output['access']['token']['id'])
                         break
 
@@ -1474,40 +1483,52 @@ class KeyStoneAuth:
 
             token = resp.headers['X-Subject-Token']
 
-            headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
-                       'X-Auth-Token': token, 'Connection': 'close'}
-            url = "%s/v3/auth/projects" % keystone_uri
-            resp = occi.create_request_static('GET', url, auth, headers)
-            resp.raise_for_status()
+            if occi.keystone_project is None:
+                headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
+                           'X-Auth-Token': token, 'Connection': 'close'}
+                url = "%s/v3/auth/projects" % keystone_uri
+                resp = occi.create_request_static('GET', url, auth, headers)
+                resp.raise_for_status()
 
-            output = resp.json()
+                output = resp.json()
 
-            if len(output['projects']) == 1:
-                # If there are only one get the first tenant
-                project = output['projects'].pop()
-            if len(output['projects']) >= 1:
-                # If there are more than one
-                if auth and "project" in auth:
-                    project_found = None
-                    for elem in output['projects']:
-                        if elem['id'] == auth["project"] or elem['name'] == auth["project"]:
-                            project_found = elem
-                    if project_found:
-                        project = project_found
-                    else:
-                        project = output['projects'].pop()
-                        self.log_warn("Keystone 3 project %s not found. Using first one." % auth["project"])
+                if len(output['projects']) == 1:
+                    # If there are only one get the first project
+                    projects = output['projects']
+                elif len(output['projects']) > 1:
+                    # If there are more than one
+                    if auth and "project" in auth:
+                        project_found = None
+                        for elem in output['projects']:
+                            if elem['id'] == auth["project"] or elem['name'] == auth["project"]:
+                                project_found = elem
+                        if project_found:
+                            projects = [project_found]
+                        else:
+                            projects = output['projects']
+                            self.log_warn("Keystone 3 project %s not found." % auth["project"])
+            else:
+                projects = [occi.keystone_project]
 
-            # get scoped token for allowed project
-            headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
-                       'X-Auth-Token': token, 'Connection': 'close'}
-            body = {"auth": {"identity": {"methods": ["token"], "token": {"id": token}},
-                    "scope": {"project": {"id": project["id"]}}}}
-            url = "%s/v3/auth/tokens" % keystone_uri
-            resp = occi.create_request_static('POST', url, auth, headers, json.dumps(body))
-            resp.raise_for_status()
-            token = resp.headers['X-Subject-Token']
-            return token
+            scoped_token = None
+            for project in projects:
+                # get scoped token for allowed project
+                headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
+                           'X-Auth-Token': token, 'Connection': 'close'}
+                body = {"auth": {"identity": {"methods": ["token"], "token": {"id": token}},
+                        "scope": {"project": {"id": project["id"]}}}}
+                url = "%s/v3/auth/tokens" % keystone_uri
+                resp = occi.create_request_static('POST', url, auth, headers, json.dumps(body))
+                if resp.status_code in [200, 201, 202]:
+                    occi.logger.debug("Using project: %s" % project["name"])
+                    occi.keystone_project = project
+                    scoped_token = resp.headers['X-Subject-Token']
+                    break
+
+            if not scoped_token:
+                occi.logger.error("Not project accesible for the user.")
+
+            return scoped_token
         except Exception as ex:
             occi.logger.exception("Error obtaining Keystone v3 Token.")
             raise Exception("Error obtaining Keystone v3 Token: %s" % str(ex))

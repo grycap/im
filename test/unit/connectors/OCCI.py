@@ -160,7 +160,7 @@ class TestOCCIConnector(unittest.TestCase):
                 resp.json.return_value = {"tenants": [{"name": "tenantname"}]}
             elif url == "/v3/auth/projects":
                 resp.status_code = 200
-                resp.json.return_value = {"projects": [{"id": "projectid"}]}
+                resp.json.return_value = {"projects": [{"id": "projectid", "name": "prname"}]}
             elif url == "/v3/OS-FEDERATION/identity_providers/egi.eu/protocols/oidc/auth":
                 resp.status_code = 200
                 resp.headers = {'X-Subject-Token': 'token1'}
