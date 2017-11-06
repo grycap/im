@@ -1305,9 +1305,9 @@ class KeyStoneAuth:
                 headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
                            'X-Auth-Token': occi.keystone_token, 'Connection': 'close'}
                 if version == 2:
-                    url = "%s/v2.0" % keystone_uri
+                    url = "%s/v2.0/tenants" % keystone_uri
                 elif version == 3:
-                    url = "%s/v3" % keystone_uri
+                    url = "%s/v3/auth/tokens" % keystone_uri
                 else:
                     return None
                 resp = occi.create_request_static('GET', url, auth, headers)
