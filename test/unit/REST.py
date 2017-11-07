@@ -155,6 +155,14 @@ class TestREST(unittest.TestCase):
         res = RESTGetInfrastructureProperty("1", "contmsg")
         self.assertEqual(res, "contmsg")
 
+        bottle_request.params = {'headeronly': 'yes'}
+        res = RESTGetInfrastructureProperty("1", "contmsg")
+        self.assertEqual(res, "contmsg")
+
+        bottle_request.params = {'headeronly': 'no'}
+        res = RESTGetInfrastructureProperty("1", "contmsg")
+        self.assertEqual(res, "contmsg")
+
         res = RESTGetInfrastructureProperty("1", "radl")
         self.assertEqual(res, "radl")
 

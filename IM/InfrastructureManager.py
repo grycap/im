@@ -821,7 +821,7 @@ class InfrastructureManager:
         return res
 
     @staticmethod
-    def GetInfrastructureContMsg(inf_id, auth):
+    def GetInfrastructureContMsg(inf_id, auth, headeronly=False):
         """
         Get cont msg of an infrastructure.
 
@@ -829,6 +829,7 @@ class InfrastructureManager:
 
         - inf_id(str): infrastructure id.
         - auth(Authentication): parsed authentication tokens.
+        - headeronly(bool): Flag to return only the header part of the infra log.
 
         Return: a str with the cont msg
         """
@@ -840,10 +841,11 @@ class InfrastructureManager:
         sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
         res = sel_inf.cont_out
 
-        for vm in sel_inf.get_vm_list():
-            if vm.get_cont_msg():
-                res += "VM " + str(vm.id) + ":\n" + vm.get_cont_msg() + "\n"
-                res += "***************************************************************************\n"
+        if not headeronly:
+            for vm in sel_inf.get_vm_list():
+                if vm.get_cont_msg():
+                    res += "VM " + str(vm.id) + ":\n" + vm.get_cont_msg() + "\n"
+                    res += "***************************************************************************\n"
 
         InfrastructureManager.logger.debug(res)
         return res
