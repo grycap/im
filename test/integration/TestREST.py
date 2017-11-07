@@ -196,8 +196,6 @@ class TestIM(unittest.TestCase):
 
         resp2 = self.create_request("GET", vm_uri[2] + "/contmsg?headeronly=true")
         self.assertEqual(resp2.status_code, 200, msg="ERROR getting VM contmsg:" + resp.text)
-        self.assertEqual(len(resp2.text), 0, msg="Incorrect VM contextualization message: " + resp.text)
-        self.assertGreater(len(resp.text), len(resp2.text))
 
     def test_33_get_contmsg(self):
         resp = self.create_request("GET", "/infrastructures/" + self.inf_id + "/contmsg")
