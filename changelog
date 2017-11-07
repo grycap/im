@@ -356,3 +356,5 @@ IM 1.6.4
     * Store tenant and project in OCCI connector.
     * Fix error validating keystone token in OCCI conn.
     * Decrease timeout getting ansible process results.
+    * Enable to get the initial infrastructure contextualization log.
+
