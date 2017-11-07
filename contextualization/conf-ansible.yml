@@ -29,34 +29,39 @@
 ################### because they have recent versions of ansible in system repositories ###############################
 ################# Use INDIGO repos from Ubuntu 14 and CentOS 7 to assure a stable version  ############################
 
-    - name: Ubuntu install indigo list
-      get_url: url=http://repo.indigo-datacloud.eu/repos/1/indigo1-ubuntu14_04.list dest=/etc/apt/sources.list.d/indigo1-ubuntu14_04.list
-      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version == "14"
+    - name: Ubuntu install Ansible requisites with apt
+      apt: name=python-pip,python-jinja2,sshpass,openssh-client,unzip
+      when: ansible_distribution == "Ubuntu"
 
     - apt_key: url=http://repo.indigo-datacloud.eu/repository/RPM-GPG-KEY-indigodc state=present
-      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version == "14"
+      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int >= 14
+
+    - name: Ubuntu 14 install indigo 1 repo
+      apt: deb=http://repo.indigo-datacloud.eu/repository/indigo/1/ubuntu/dists/trusty/main/binary-amd64/indigodc-release_1.0.0-1_amd64.deb
+      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int >= 14
+      ignore_errors: yes
 
     - name: Ubuntu install requirements
       apt: name=software-properties-common
-      when: ansible_os_family == "Debian" and (ansible_distribution != "Ubuntu" or ansible_distribution_major_version != "14")
+      when: ansible_os_family == "Debian" and (ansible_distribution != "Ubuntu" or (ansible_distribution_major_version != "14" and ansible_distribution_major_version != "16"))
         
     - name: Ubuntu install Ansible PPA repo  
       apt_repository: repo='ppa:ansible/ansible'
-      when: ansible_os_family == "Debian" and (ansible_distribution != "Ubuntu" or ansible_distribution_major_version != "14")
+      when: ansible_os_family == "Debian" and (ansible_distribution != "Ubuntu" or (ansible_distribution_major_version != "14" and ansible_distribution_major_version != "16"))
         
     - name: Apt-get update
       apt: update_cache=yes
       when: ansible_os_family == "Debian"
 
     - name: Ubuntu install Ansible with apt
-      apt: name=ansible,python-pip,python-jinja2,sshpass,openssh-client,unzip force=yes
+      apt: name=ansible force=yes
       when: ansible_distribution == "Ubuntu"
-        
-    - name: RH indigo repos
-      get_url: url=http://repo.indigo-datacloud.eu/repos/1/indigo1.repo dest=/etc/yum.repos.d/indigo1.repo
-      when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 7 and ansible_distribution != "Fedora"
-        
+
     - rpm_key: state=present key=http://repo.indigo-datacloud.eu/repository/RPM-GPG-KEY-indigodc
+      when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 7 and ansible_distribution != "Fedora"
+
+    - name: RH indigo repos
+      yum: state=present name=http://repo.indigo-datacloud.eu/repository/indigo/2/centos7/x86_64/base/indigodc-release-2.0.0-1.el7.centos.noarch.rpm
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 7 and ansible_distribution != "Fedora"
         
     - name: RH7 install Ansible with yum
@@ -96,6 +101,12 @@
       file: src=/usr/bin/python2.6 dest=/usr/bin/python_ansible state=link
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int < 6
 
+    - name: Upgrade pip
+      pip: name=pip extra_args="-I" state=latest
+
+    - name: Upgrade pyOpenSSL with Pip
+      pip: name=pyOpenSSL extra_args="-I" state=latest
+
     - name: Install ansible with Pip
       pip: name=ansible extra_args="-I"
       when: ansible_os_family == "Suse" or (ansible_os_family == "Debian" and ansible_distribution != "Ubuntu") or ansible_distribution == "Fedora" or (ansible_os_family == "RedHat" and ansible_distribution_major_version|int < 7)
@@ -106,9 +117,14 @@
         
 #################################### Now install and scp and pywinrm with pip  ########################################
         
-    - name: Install scp and pywinrm with Pip
-      pip: name="scp pywinrm"
+    - name: Install scp with Pip
+      pip: name=scp
       when: ansible_os_family != "RedHat" or (ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 6)
+
+    - name: Install pywinrm with Pip
+      pip: name=pywinrm
+      when: ansible_os_family != "RedHat" or (ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 6)
+      ignore_errors: yes
         
     - name: Install scp and pywinrm with Pip 2.6
       pip: name="scp pywinrm" executable=pip-2.6
@@ -172,3 +188,4 @@
 
     - name: Set roles_path in ansible.cfg
       ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=roles_path value=/etc/ansible/roles
+
