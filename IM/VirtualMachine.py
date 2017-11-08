@@ -465,7 +465,7 @@ class VirtualMachine:
                         updated = True
                         self.last_update = now
                     elif self.creating:
-                        self.log_debug("VM is in creation process, set pending state")
+                        self.log_info("VM is in creation process, set pending state")
                         state = VirtualMachine.PENDING
                     else:
                         self.log_error("Error updating VM status: %s" % new_vm)
@@ -633,8 +633,7 @@ class VirtualMachine:
             if self.ctxt_pid != self.WAIT_TO_PID:
                 ssh = self.get_ssh_ansible_master()
                 try:
-                    self.log_debug(
-                        "Killing ctxt process with pid: " + str(self.ctxt_pid))
+                    self.log_info("Killing ctxt process with pid: " + str(self.ctxt_pid))
 
                     # Try to get PGID to kill all child processes
                     pgkill_success = False
@@ -691,7 +690,7 @@ class VirtualMachine:
                 ssh = self.get_ssh_ansible_master()
 
                 try:
-                    self.log_debug("Getting status of ctxt process with pid: " + str(ctxt_pid))
+                    self.log_info("Getting status of ctxt process with pid: " + str(ctxt_pid))
                     (_, _, exit_status) = ssh.execute("ps " + str(ctxt_pid))
                 except:
                     self.log_warn("Error getting status of ctxt process with pid: " + str(ctxt_pid))
@@ -710,7 +709,7 @@ class VirtualMachine:
 
                 if exit_status != 0:
                     # The process has finished, get the outputs
-                    self.log_debug("The process %s has finished, get the outputs" % ctxt_pid)
+                    self.log_info("The process %s has finished, get the outputs" % ctxt_pid)
                     ctxt_log = self.get_ctxt_log(remote_dir, True)
                     msg = self.get_ctxt_output(remote_dir, True)
                     if ctxt_log:
@@ -724,11 +723,11 @@ class VirtualMachine:
                     # dynamically
                     if Config.UPDATE_CTXT_LOG_INTERVAL > 0 and wait > Config.UPDATE_CTXT_LOG_INTERVAL:
                         wait = 0
-                        self.log_debug("Get the log of the ctxt process with pid: " + str(ctxt_pid))
+                        self.log_info("Get the log of the ctxt process with pid: " + str(ctxt_pid))
                         ctxt_log = self.get_ctxt_log(remote_dir)
                         self.cont_out = initial_count_out + ctxt_log
                     # The process is still running, wait
-                    self.log_debug("The process %s is still running. wait." % ctxt_pid)
+                    self.log_info("The process %s is still running. wait." % ctxt_pid)
                     time.sleep(Config.CHECK_CTXT_PROCESS_INTERVAL)
                     wait += Config.CHECK_CTXT_PROCESS_INTERVAL
             else:

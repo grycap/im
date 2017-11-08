@@ -410,7 +410,7 @@ class OpenNebulaCloudConnector(CloudConnector):
                                                                                outport.get_remote_port()))
 
                         if sg_template:
-                            self.log_debug("Creating security group: %s" % sg_name)
+                            self.log_info("Creating security group: %s" % sg_name)
                             sg_template = ("NAME = %s\n" % sg_name) + sg_template
                             success, sg_id, _ = server.one.secgroup.allocate(session_id, sg_template)
                             if not success:
@@ -462,14 +462,14 @@ class OpenNebulaCloudConnector(CloudConnector):
             i += 1
 
         if all_failed:
-            self.log_debug("All VMs failed, delete Security Groups.")
+            self.log_info("All VMs failed, delete Security Groups.")
             for sg in sgs.values():
-                self.log_debug("Delete Security Group: %d." % sg)
+                self.log_info("Delete Security Group: %d." % sg)
                 success, sg_id, _ = server.one.secgroup.delete(session_id, sg)
                 if success:
-                    self.log_debug("Deleted.")
+                    self.log_info("Deleted.")
                 else:
-                    self.log_debug("Error deleting SG: %s." % sg_id)
+                    self.log_info("Error deleting SG: %s." % sg_id)
         return res
 
     def delete_security_groups(self, inf, auth_data, timeout=90, delay=10):
@@ -489,17 +489,17 @@ class OpenNebulaCloudConnector(CloudConnector):
                 # Get the SG to delete
                 sg = self._get_security_group(sg_name, auth_data)
                 if not sg:
-                    self.log_debug("The SG %s does not exist. Do not delete it." % sg_name)
+                    self.log_info("The SG %s does not exist. Do not delete it." % sg_name)
                     deleted = True
                 else:
                     try:
-                        self.log_debug("Deleting SG: %s" % sg_name)
+                        self.log_info("Deleting SG: %s" % sg_name)
                         success, sg_id, _ = server.one.secgroup.delete(session_id, sg)
                         if success:
-                            self.log_debug("Deleted.")
+                            self.log_info("Deleted.")
                             deleted = True
                         else:
-                            self.log_debug("Error deleting SG: %s." % sg_id)
+                            self.log_info("Error deleting SG: %s." % sg_id)
                     except Exception as ex:
                         self.log_warn("Error deleting the SG: %s" % str(ex))
 
@@ -1095,7 +1095,7 @@ class OpenNebulaCloudConnector(CloudConnector):
             # get the last letter and use vd
             disk_device = "vd" + disk_device[-1]
             system.setValue("disk." + str(cont) + ".device", disk_device)
-            self.log_debug("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
+            self.log_info("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
             success, volume_id = self.attach_volume(vm, int(disk_size), disk_device, disk_fstype, session_id)
             if success:
                 orig_system.setValue("disk." + str(cont) + ".size", disk_size, "M")

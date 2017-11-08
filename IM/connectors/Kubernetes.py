@@ -105,8 +105,7 @@ class KubernetesCloudConnector(CloudConnector):
             self.log_exception(
                 "Error connecting with Kubernetes API server")
 
-        self.log_warn(
-            "Error getting a compatible API version. Setting the default one.")
+        self.log_warn("Error getting a compatible API version. Setting the default one.")
         self.log_debug("Using %s API version." % version)
         return version
 
@@ -221,7 +220,7 @@ class KubernetesCloudConnector(CloudConnector):
                 disk_mount_path = '/' + disk_mount_path
             if not disk_device.startswith('/'):
                 disk_device = '/' + disk_device
-            self.log_debug("Binding a volume in %s to %s" % (disk_device, disk_mount_path))
+            self.log_info("Binding a volume in %s to %s" % (disk_device, disk_mount_path))
             name = "%s-%d" % (pod_name, cont)
 
             if persistent:
@@ -536,8 +535,7 @@ class KubernetesCloudConnector(CloudConnector):
                 changed = True
 
             if not changed:
-                self.log_debug(
-                    "Nothing changes in the kubernetes pod: " + str(vm.id))
+                self.log_info("Nothing changes in the kubernetes pod: " + str(vm.id))
                 return (True, vm)
 
             # Create the container
