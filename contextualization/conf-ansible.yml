@@ -30,7 +30,7 @@
 ################# Use INDIGO repos from Ubuntu 14 and CentOS 7 to assure a stable version  ############################
 
     - name: Ubuntu install Ansible requisites with apt
-      apt: name=python-pip,python-jinja2,sshpass,openssh-client,unzip
+      apt: name=python-pip,python-jinja2,sshpass,openssh-client,unzip update_cache=yes
       when: ansible_distribution == "Ubuntu"
 
     - apt_key: url=http://repo.indigo-datacloud.eu/repository/RPM-GPG-KEY-indigodc state=present
