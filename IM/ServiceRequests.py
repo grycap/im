@@ -317,9 +317,10 @@ class Request_GetInfrastructureContMsg(IMBaseRequest):
 
     def _call_function(self):
         self._error_mesage = "Error gettinf the Inf. cont msg"
-        (inf_id, auth_data) = self.arguments
+        (inf_id, auth_data, headeronly) = self.arguments
         return IM.InfrastructureManager.InfrastructureManager.GetInfrastructureContMsg(inf_id,
-                                                                                       Authentication(auth_data))
+                                                                                       Authentication(auth_data),
+                                                                                       headeronly)
 
 
 class Request_StartVM(IMBaseRequest):

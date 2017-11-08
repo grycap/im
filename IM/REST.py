@@ -306,7 +306,17 @@ def RESTGetInfrastructureProperty(infid=None, prop=None):
 
     try:
         if prop == "contmsg":
-            res = InfrastructureManager.GetInfrastructureContMsg(infid, auth)
+            headeronly = False
+            if "headeronly" in bottle.request.params.keys():
+                str_headeronly = bottle.request.params.get("headeronly").lower()
+                if str_headeronly in ['yes', 'true', '1']:
+                    headeronly = True
+                elif str_headeronly in ['no', 'false', '0']:
+                    headeronly = False
+                else:
+                    return return_error(400, "Incorrect value in context parameter")
+
+            res = InfrastructureManager.GetInfrastructureContMsg(infid, auth, headeronly)
         elif prop == "radl":
             res = InfrastructureManager.GetInfrastructureRADL(infid, auth)
         elif prop == "state":

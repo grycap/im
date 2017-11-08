@@ -164,13 +164,17 @@ class TestIM(unittest.TestCase):
         """
         Test the GetInfrastructureContMsg IM function
         """
-        (success, cont_out) = self.server.GetInfrastructureContMsg(
-            self.inf_id, self.auth_data)
-        self.assertTrue(
-            success, msg="ERROR calling GetInfrastructureContMsg: " + str(cont_out))
-        self.assertGreater(
-            len(cont_out), 100, msg="Incorrect contextualization message: " + cont_out)
+        (success, cont_out) = self.server.GetInfrastructureContMsg(self.inf_id, self.auth_data)
+        self.assertTrue(success, msg="ERROR calling GetInfrastructureContMsg: " + str(cont_out))
+        self.assertGreater(len(cont_out), 100, msg="Incorrect contextualization message: " + cont_out)
+        self.assertIn("Select master VM", cont_out)
         self.assertIn("NODENAME = front", cont_out)
+
+        (success, cont_out) = self.server.GetInfrastructureContMsg(self.inf_id, self.auth_data, True)
+        self.assertTrue(success, msg="ERROR calling GetInfrastructureContMsg: " + str(cont_out))
+        self.assertGreater(len(cont_out), 100, msg="Incorrect contextualization message: " + cont_out)
+        self.assertIn("Select master VM", cont_out)
+        self.assertNotIn("NODENAME = front", cont_out)
 
     def test_14_getvmcontmsg(self):
         """
