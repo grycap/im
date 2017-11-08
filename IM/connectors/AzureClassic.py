@@ -686,6 +686,8 @@ class AzureClassicCloudConnector(CloudConnector):
 
                 # Create the VM to get the nodename
                 vm = VirtualMachine(inf, service_name, self.cloud, radl, requested_radl, self)
+                vm.destroy = True
+                inf.add_vm(vm)
                 vm.info.systems[0].setValue('instance_id', str(vm.id))
 
                 # Generate the XML to create the VM
@@ -708,7 +710,7 @@ class AzureClassicCloudConnector(CloudConnector):
                     res.append((False, "Error creating the VM: Error Code " +
                                 str(resp.status_code) + ". Msg: " + resp.text))
                 else:
-                    inf.add_vm(vm)
+                    vm.destroy = False
                     # Call the GET OPERATION STATUS until sea 200 (OK)
                     request_id = resp.headers['x-ms-request-id']
                     success = self.wait_operation_status(request_id, auth_data)
@@ -874,7 +876,7 @@ class AzureClassicCloudConnector(CloudConnector):
                 service_name, service_name, self.ROLE_NAME)
 
             headers = {'x-ms-version': '2013-06-01', 'Content-Type': 'application/xml'}
-            resp = self.create_request('POST', uri, auth_data, headers)
+            resp = self.create_request('POST', uri, auth_data, headers, op)
         except Exception as ex:
             self.log_exception("Error calling role operation")
             return (False, "Error calling role operation: " + str(ex))

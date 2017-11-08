@@ -70,7 +70,7 @@ class TestIM(unittest.TestCase):
         except Exception:
             pass
 
-    def wait_inf_state(self, inf_id, state, timeout, incorrect_states=[], vm_ids=None):
+    def wait_inf_state(self, inf_id, state, timeout, incorrect_states=None, vm_ids=None):
         """
         Wait for an infrastructure to have a specific state
         """
@@ -81,7 +81,8 @@ class TestIM(unittest.TestCase):
                 success, msg="ERROR calling the GetInfrastructureInfo function:" + str(vm_ids))
 
         err_states = [VirtualMachine.FAILED, VirtualMachine.UNCONFIGURED]
-        err_states.extend(incorrect_states)
+        if incorrect_states:
+            err_states.extend(incorrect_states)
 
         wait = 0
         all_ok = False
@@ -163,12 +164,17 @@ class TestIM(unittest.TestCase):
         """
         Test the GetInfrastructureContMsg IM function
         """
-        (success, cont_out) = self.server.GetInfrastructureContMsg(
-            self.inf_id, self.auth_data)
-        self.assertTrue(
-            success, msg="ERROR calling GetInfrastructureContMsg: " + str(cont_out))
-        self.assertGreater(
-            len(cont_out), 100, msg="Incorrect contextualization message: " + cont_out)
+        (success, cont_out) = self.server.GetInfrastructureContMsg(self.inf_id, self.auth_data)
+        self.assertTrue(success, msg="ERROR calling GetInfrastructureContMsg: " + str(cont_out))
+        self.assertGreater(len(cont_out), 100, msg="Incorrect contextualization message: " + cont_out)
+        self.assertIn("Select master VM", cont_out)
+        self.assertIn("NODENAME = front", cont_out)
+
+        (success, cont_out) = self.server.GetInfrastructureContMsg(self.inf_id, self.auth_data, True)
+        self.assertTrue(success, msg="ERROR calling GetInfrastructureContMsg: " + str(cont_out))
+        self.assertGreater(len(cont_out), 100, msg="Incorrect contextualization message: " + cont_out)
+        self.assertIn("Select master VM", cont_out)
+        self.assertNotIn("NODENAME = front", cont_out)
 
     def test_14_getvmcontmsg(self):
         """

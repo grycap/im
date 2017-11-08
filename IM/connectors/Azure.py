@@ -76,6 +76,7 @@ class AzureCloudConnector(CloudConnector):
 
     def __init__(self, cloud_info, inf):
         self.credentials = None
+        self.auth = None
         CloudConnector.__init__(self, cloud_info, inf)
 
     def get_credentials(self, auth_data):
@@ -300,7 +301,7 @@ class AzureCloudConnector(CloudConnector):
 
         return ngs
 
-    def create_nics(self, inf, radl, credentials, subscription_id, group_name, subnets):
+    def create_nics(self, radl, credentials, subscription_id, group_name, subnets):
         """Create a Network Interface for a VM.
         """
         system = radl.systems[0]
@@ -375,7 +376,9 @@ class AzureCloudConnector(CloudConnector):
 
                 # Create a NSG
                 if outports:
-                    nsg_name = "nsg-%d" % i
+                    nsg_name = network.getValue("sg_name")
+                    if not nsg_name:
+                        nsg_name = "nsg-%d" % i
                     nsg = self.create_ngs(location, group_name, nsg_name, outports, network_client)
                     if nsg:
                         nic_params['network_security_group'] = {'id': nsg.id}
@@ -464,7 +467,7 @@ class AzureCloudConnector(CloudConnector):
 
         return vm
 
-    def create_nets(self, inf, radl, credentials, subscription_id, group_name):
+    def create_nets(self, radl, credentials, subscription_id, group_name):
         network_client = NetworkManagementClient(credentials, subscription_id)
         location = self.DEFAULT_LOCATION
         if radl.systems[0].getValue('availability_zone'):
@@ -534,7 +537,7 @@ class AzureCloudConnector(CloudConnector):
                 vm = VirtualMachine(inf, group_name + '/' + vm_name, self.cloud, radl, requested_radl, self)
                 vm.info.systems[0].setValue('instance_id', group_name + '/' + vm_name)
 
-                nics = self.create_nics(inf, radl, credentials, subscription_id, group_name, subnets)
+                nics = self.create_nics(radl, credentials, subscription_id, group_name, subnets)
 
                 instance_type = self.get_instance_type(radl.systems[0], credentials, subscription_id)
                 vm_parameters = self.get_azure_vm_create_json(storage_account_name, vm_name,
@@ -558,7 +561,7 @@ class AzureCloudConnector(CloudConnector):
                     try:
                         resource_client.resource_groups.delete(group_name).wait()
                     except:
-                        self.log_exception("Error deleting Resource group %." % group_name)
+                        self.log_exception("Error deleting Resource group %s." % group_name)
 
             i += 1
 
@@ -609,7 +612,7 @@ class AzureCloudConnector(CloudConnector):
                     except:
                         pass
 
-            subnets = self.create_nets(inf, radl, credentials, subscription_id, "rg-%s" % inf.id)
+            subnets = self.create_nets(radl, credentials, subscription_id, "rg-%s" % inf.id)
 
         res = []
         remaining_vms = num_vm
@@ -711,9 +714,7 @@ class AzureCloudConnector(CloudConnector):
                         if not record:
                             self.log_debug("Creating DNS record %s." % hostname)
                             record_data = {"ttl": 300, "arecords": [{"ipv4_address": ip}]}
-                            record_set = dns_client.record_sets.create_or_update(group_name, domain,
-                                                                                 hostname, 'A',
-                                                                                 record_data)
+                            dns_client.record_sets.create_or_update(group_name, domain, hostname, 'A', record_data)
                         else:
                             self.log_debug("DNS record %s exists. Do not create." % hostname)
 

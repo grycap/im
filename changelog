@@ -334,3 +334,26 @@ IM 1.6.1
     * Fix error in ctxt process in some cases in OpenStack sites.
     * Fix error launching IM with Ansible 2.4.0.
 
+IM 1.6.2
+    * Enable config_drive option in OpenStack conn.
+    * Improve wait_ssh_access function to test 22 port in case of Dockers.
+    * Do not force install galaxy roles on basic task.
+    * Enable to specify a name of a security group in the RADL.
+    * Fix Ctxt process does not correctly stops in case of failure in one internal step.
+    * Add support for Keystone v3 in OCCI connector.
+    * Add support access RADL properties from Ansible recipes.
+
+IM 1.6.3
+    * Enable to reuse keystone tokens in OCCI conn.
+    * Add support to specify the project in case of OCCI OpenStack sites.
+    * Add the Inf ID in all the related log messages.
+    * Fix error in auth process in old OpenStack sites.
+    * Fix error setting Hostname in Docker, Kubernetes and AzureClassic conns.
+    * Fix error connecting with Synefo OCCI sites.
+    * Fix error deleting VM in OCCI OpenNebula sites.
+
+IM 1.6.4
+    * Store tenant and project in OCCI connector.
+    * Fix error validating keystone token in OCCI conn.
+    * Decrease timeout getting ansible process results.
+    * Enable to get the initial infrastructure contextualization log.

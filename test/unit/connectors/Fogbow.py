@@ -129,7 +129,7 @@ class TestFogBowConnector(unittest.TestCase):
 
         return resp
 
-    def request(self, method, url, body=None, headers={}):
+    def request(self, method, url, body=None, headers=None):
         self.__class__.last_op = method, url
 
     @patch('IM.connectors.FogBow.HTTPConnection')
