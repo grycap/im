@@ -357,4 +357,3 @@ IM 1.6.4
     * Fix error validating keystone token in OCCI conn.
     * Decrease timeout getting ansible process results.
     * Enable to get the initial infrastructure contextualization log.
-
