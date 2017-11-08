@@ -45,6 +45,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
     """ default user to SSH access the VM """
     MAX_ADD_IP_COUNT = 5
     """ Max number of retries to get a public IP """
+    CONFIG_DRIVE = False
+    """ Enable config drive """
 
     def __init__(self, cloud_info, inf):
         self.auth = None
@@ -491,6 +493,9 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         if cloud_init:
             args['ex_userdata'] = cloud_init
 
+        if self.CONFIG_DRIVE:
+            args['ex_config_drive'] = self.CONFIG_DRIVE
+
         res = []
         i = 0
         all_failed = True
@@ -595,7 +600,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                                                                                      self.add_public_ip_count,
                                                                                      self.MAX_ADD_IP_COUNT)
 
-    def get_floating_ip(self, driver, pool):
+    def get_floating_ip(self, pool):
         """
         Get a floating IP
         """
@@ -636,7 +641,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     floating_ip = node.driver.ex_get_floating_ip(fixed_ip)
                 else:
                     # First try to check if there is a Float IP free to attach to the node
-                    found, floating_ip = self.get_floating_ip(node.driver, pool)
+                    found, floating_ip = self.get_floating_ip(pool)
                     if found:
                         try:
                             node.driver.ex_attach_floating_ip_to_node(node, floating_ip)
@@ -707,8 +712,9 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         while system.getValue("net_interface." + str(i) + ".connection"):
             network_name = system.getValue("net_interface." + str(i) + ".connection")
             network = radl.get_network_by_id(network_name)
-
-            sg_name = "im-%s-%s" % (str(inf.id), network_name)
+            sg_name = network.getValue("sg_name")
+            if not sg_name:
+                sg_name = "im-%s-%s" % (str(inf.id), network_name)
 
             # Use the InfrastructureInfo lock to assure that only one VM create the SG
             with inf._lock:
@@ -783,7 +789,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             try:
                 # Delete the SG if this is the last VM
                 if last:
-                    self.delete_security_groups(node, vm.inf, vm.id)
+                    self.delete_security_groups(node, vm.inf)
                 else:
                     # If this is not the last vm, we skip this step
                     self.log_debug("There are active instances. Not removing the SG")
@@ -799,7 +805,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         return (True, "")
 
-    def delete_security_groups(self, node, inf, vm_id, timeout=90, delay=10):
+    def delete_security_groups(self, node, inf, timeout=90, delay=10):
         """
         Delete the SG of this node
         """

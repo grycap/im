@@ -23,12 +23,6 @@ from IM.db import DataBase
 from IM.config import Config
 import IM.InfrastructureInfo
 
-'''
-Created on 17 nov. 2016
-
-@author: micafer
-'''
-
 
 class InfrastructureList():
     """

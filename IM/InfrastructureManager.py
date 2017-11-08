@@ -300,7 +300,7 @@ class InfrastructureManager:
                 # The user has specified a credential:
                 if len(list(set(new_creds))) > 1 or list(set(new_creds))[0] is not None:
                     creds = system.getCredentialValues()
-                    if cmp(new_creds, creds) != 0:
+                    if new_creds != creds:
                         # The credentials have changed
                         (_, password, public_key, private_key) = new_creds
                         system.setCredentialValues(
@@ -361,7 +361,7 @@ class InfrastructureManager:
         return concrete_system, score
 
     @staticmethod
-    def AddResource(inf_id, radl_data, auth, context=True, failed_clouds=[]):
+    def AddResource(inf_id, radl_data, auth, context=True, failed_clouds=None):
         """
         Add the resources in the RADL to the infrastructure.
 
@@ -375,6 +375,8 @@ class InfrastructureManager:
 
         Return(list of int): ids of the new virtual machine created.
         """
+        if failed_clouds is None:
+            failed_clouds = []
         auth = InfrastructureManager.check_auth_data(auth)
 
         InfrastructureManager.logger.info(
@@ -832,7 +834,7 @@ class InfrastructureManager:
         return res
 
     @staticmethod
-    def GetInfrastructureContMsg(inf_id, auth):
+    def GetInfrastructureContMsg(inf_id, auth, headeronly=False):
         """
         Get cont msg of an infrastructure.
 
@@ -840,6 +842,7 @@ class InfrastructureManager:
 
         - inf_id(str): infrastructure id.
         - auth(Authentication): parsed authentication tokens.
+        - headeronly(bool): Flag to return only the header part of the infra log.
 
         Return: a str with the cont msg
         """
@@ -851,10 +854,11 @@ class InfrastructureManager:
         sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
         res = sel_inf.cont_out
 
-        for vm in sel_inf.get_vm_list():
-            if vm.get_cont_msg():
-                res += "VM " + str(vm.id) + ":\n" + vm.get_cont_msg() + "\n"
-                res += "***************************************************************************\n"
+        if not headeronly:
+            for vm in sel_inf.get_vm_list():
+                if vm.get_cont_msg():
+                    res += "VM " + str(vm.id) + ":\n" + vm.get_cont_msg() + "\n"
+                    res += "***************************************************************************\n"
 
         InfrastructureManager.logger.debug(res)
         return res

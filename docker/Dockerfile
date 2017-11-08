@@ -33,6 +33,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y python-requests
 
 # Copy a ansible.cfg with correct minimum values
 COPY ansible.cfg /etc/ansible/ansible.cfg
+COPY conf-ansible.yml /usr/share/im/contextualization/conf-ansible.yml
 
 # Start IM service
 CMD im_service.py

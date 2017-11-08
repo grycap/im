@@ -61,12 +61,15 @@ else
     DISTRO=$(distribution_id)
     case $DISTRO in
         debian)
+            apt-get update
+            apt-get -y install gnupg wget
             echo "deb http://ppa.launchpad.net/ansible/ansible/ubuntu trusty main" >> /etc/apt/sources.list
             apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 93C4A3FD7BB9C367
             apt-get update
-            apt-get -y install wget ansible
+            apt-get -y install ansible
             ;;
         ubuntu)
+            apt-get update
             apt-get -y install software-properties-common
             apt-add-repository -y ppa:ansible/ansible
             apt-get update

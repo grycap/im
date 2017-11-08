@@ -74,7 +74,7 @@ class TestIM(unittest.TestCase):
         url = "http://%s:%d%s" % (HOSTNAME, TEST_PORT, path)
         return requests.request(method, url, headers=headers, data=body)
 
-    def wait_inf_state(self, state, timeout, incorrect_states=[], vm_ids=None):
+    def wait_inf_state(self, state, timeout, incorrect_states=None, vm_ids=None):
         """
         Wait for an infrastructure to have a specific state
         """
@@ -88,7 +88,8 @@ class TestIM(unittest.TestCase):
             pass
 
         err_states = [VirtualMachine.FAILED, VirtualMachine.UNCONFIGURED]
-        err_states.extend(incorrect_states)
+        if incorrect_states:
+            err_states.extend(incorrect_states)
 
         wait = 0
         all_ok = False
@@ -201,16 +202,16 @@ class TestIM(unittest.TestCase):
 
     def test_32_get_vm_contmsg(self):
         resp = self.create_request("GET", "/infrastructures/" + self.inf_id)
-        self.assertEqual(resp.status_code, 200,
-                         msg="ERROR getting the infrastructure info:" + resp.text)
+        self.assertEqual(resp.status_code, 200, msg="ERROR getting the infrastructure info:" + resp.text)
         vm_ids = resp.text.split("\n")
 
         vm_uri = uriparse(vm_ids[0])
         resp = self.create_request("GET", vm_uri[2] + "/contmsg")
-        self.assertEqual(resp.status_code, 200,
-                         msg="ERROR getting VM contmsg:" + resp.text)
-        self.assertEqual(
-            len(resp.text), 0, msg="Incorrect VM contextualization message: " + resp.text)
+        self.assertEqual(resp.status_code, 200, msg="ERROR getting VM contmsg:" + resp.text)
+        self.assertEqual(len(resp.text), 0, msg="Incorrect VM contextualization message: " + resp.text)
+
+        resp2 = self.create_request("GET", vm_uri[2] + "/contmsg?headeronly=true")
+        self.assertEqual(resp2.status_code, 200, msg="ERROR getting VM contmsg:" + resp.text)
 
     def test_33_get_contmsg(self):
         resp = self.create_request("GET", "/infrastructures/" + self.inf_id + "/contmsg")

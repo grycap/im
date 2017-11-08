@@ -67,16 +67,6 @@ class TestREST(unittest.TestCase):
     def __init__(self, *args):
         unittest.TestCase.__init__(self, *args)
 
-    @staticmethod
-    def getAuth(im_users=[], vmrc_users=[], clouds=[]):
-        return Authentication([
-            {'id': 'im%s' % i, 'type': 'InfrastructureManager', 'username': 'user%s' % i,
-             'password': 'pass%s' % i} for i in im_users] + [
-            {'id': 'vmrc%s' % i, 'type': 'VMRC', 'username': 'vmrcuser%s' % i,
-             'password': 'pass%s' % i, 'host': 'hostname'} for i in vmrc_users] + [
-            {'id': 'cloud%s' % i, 'type': c, 'username': 'user%s' % i,
-             'password': 'pass%s' % i, 'host': 'http://server.com:80/path'} for c, i in clouds])
-
     @patch("IM.InfrastructureManager.InfrastructureManager.GetInfrastructureList")
     @patch("bottle.request")
     def test_GetInfrastructureList(self, bottle_request, GetInfrastructureList):
@@ -173,8 +163,13 @@ class TestREST(unittest.TestCase):
         res = RESTGetInfrastructureProperty("1", "contmsg")
         self.assertEqual(res, "contmsg")
 
-        res = RESTGetInfrastructureProperty("1", "outputs")
-        self.assertEqual(res, '{"outputs": "outputs"}')
+        bottle_request.params = {'headeronly': 'yes'}
+        res = RESTGetInfrastructureProperty("1", "contmsg")
+        self.assertEqual(res, "contmsg")
+
+        bottle_request.params = {'headeronly': 'no'}
+        res = RESTGetInfrastructureProperty("1", "contmsg")
+        self.assertEqual(res, "contmsg")
 
         res = RESTGetInfrastructureProperty("1", "radl")
         self.assertEqual(res, "radl")

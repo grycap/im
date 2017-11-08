@@ -88,10 +88,10 @@ The :program:`im_client` is called like this::
       associated to the infrastructure with ID ``vmId``, using the RADL
       specification in file with path ``radlfile``.
 
-   ``reconfigure infId vm_list``
+   ``reconfigure radl_file infId vm_list``
       Reconfigure the infrastructure with ID ``infId`` and also update the
-      configuration data. The last  ``vm_list`` parameter is optional
-      and is a list integers specifying the IDs of the VMs to reconfigure.
+      configuration data specified in the optional ``radl_file``. The last  ``vm_list`` 
+      parameter is optional and is a list integers specifying the IDs of the VMs to reconfigure.
       If not specified all the VMs will be reconfigured. 
       
    ``startvm infId vmId``
@@ -105,6 +105,15 @@ The :program:`im_client` is called like this::
    ``sshvm infId vmId``
       Connect with SSH with the specified virtual machine ``vmId`` associated to the infrastructure with ID
       infrastructure with ID ``infId``.
+
+   ``export infId delete``
+      Export the data of the infrastructure with ID ``infId``. The ``delete`` parameter is optional
+      and is a flag to specify if the infrastructure will be deleted from the IM service (the VMs are not
+      deleted).
+
+   ``import json_file``  
+      Import the data of an infrastructure previously exported with the previous function.
+      The ``json_file`` is a file with the data generated with the  ``export`` function.
 
 .. _auth-file:
 
@@ -146,7 +155,7 @@ keys are:
   This field is used in the OCCI and OpenStack plugins. 
   
 * ``project`` indicates the project name associated to the credential.
-  This field is only used in the GCE plugin.
+  This field is only used in the GCE or OCCI (from version 1.6.3) plugins.
   
 * ``public_key`` indicates the content of the public key file associated to the credential.
   To refer to a file you must use the function "file(cert.pem)" as shown in the example.
@@ -165,6 +174,8 @@ keys are:
   This field is only used in the Azure and Azure Classic plugins. To create a user to use the Azure (ARM)
   plugin check the documentation of the Azure python SDK:
   `here <https://azure-sdk-for-python.readthedocs.io/en/latest/quickstart_authentication.html#using-ad-user-password>`_
+
+* ``token`` indicates the OpenID token associated to the credential. This field is used in the OCCI plugin (from version 1.6.2). 
 
 OpenStack additional fields
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -226,8 +237,10 @@ An example of the auth file::
    id = docker; type = Docker; host = http://host:2375; public_key = file(/tmp/cert.pem); private_key = file(/tmp/key.pem)
    # Docker site without SSL security
    id = docker; type = Docker; host = http://host:2375
-   # OCCI site auth data
-   id = occi; type = OCCI; proxy = file(/tmp/proxy.pem); host = https://fc-one.i3m.upv.es:11443
+   # OCCI VOMS site auth data
+   id = occi; type = OCCI; proxy = file(/tmp/proxy.pem); host = https://server.com:11443
+   # OCCI OIDC site auth data
+   id = occi; type = OCCI; token = token; host = https://server.com:11443
    # Azure (RM) site auth data
    id = azure; type = Azure; subscription_id = subscription-id; username = user@domain.com; password = pass
    # Kubernetes site auth data
@@ -255,4 +268,5 @@ the previous parameters has a diferent meaning:
 
 So the auth line will be like that::
 
-   id = ost; type = OpenStack; host = https://ostserver:5000; username = indigo-dc; tenant = oidc; password = iam_token_value;
+   id = ost; type = OpenStack; host = https://ostserver:5000; username = indigo-dc; tenant = oidc; password = iam_token_value; auth_version = 3.x_oidc_access_token
+

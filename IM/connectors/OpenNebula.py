@@ -388,7 +388,9 @@ class OpenNebulaCloudConnector(CloudConnector):
                 network_name = system.getValue("net_interface." + str(i) + ".connection")
                 network = radl.get_network_by_id(network_name)
 
-                sg_name = "im-%s-%s" % (str(inf.id), network_name)
+                sg_name = network.getValue("sg_name")
+                if not sg_name:
+                    sg_name = "im-%s-%s" % (str(inf.id), network_name)
 
                 # Use the InfrastructureInfo lock to assure that only one VM create the SG
                 with inf._lock:
@@ -1213,7 +1215,7 @@ class OpenNebulaCloudConnector(CloudConnector):
             if len(func_res) == 2:
                 (success, res_info) = func_res
             elif len(func_res) == 3:
-                (success, res_info, error_code) = func_res
+                (success, res_info, _) = func_res
             else:
                 return (False, "Error in the one.image.info return value")
 

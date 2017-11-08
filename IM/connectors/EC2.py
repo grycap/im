@@ -51,13 +51,15 @@ class InstanceTypeInfo:
             - vpc_only(bool, optional): the instance works only on VPC
     """
 
-    def __init__(self, name="", cpu_arch=["i386"], num_cpu=1, cores_per_cpu=1, mem=0,
+    def __init__(self, name="", cpu_arch=None, num_cpu=1, cores_per_cpu=1, mem=0,
                  price=0, cpu_perf=0, disks=0, disk_space=0, vpc_only=None):
         self.name = name
         self.num_cpu = num_cpu
         self.cores_per_cpu = cores_per_cpu
         self.mem = mem
-        self.cpu_arch = cpu_arch
+        self.cpu_arch = ["i386"]
+        if cpu_arch:
+            self.cpu_arch = cpu_arch
         self.price = price
         self.cpu_perf = cpu_perf
         self.disks = disks
@@ -380,7 +382,9 @@ class EC2CloudConnector(CloudConnector):
                 network_name = system.getValue("net_interface." + str(i) + ".connection")
                 network = radl.get_network_by_id(network_name)
 
-                sg_name = "im-%s-%s" % (str(inf.id), network_name)
+                sg_name = network.getValue("sg_name")
+                if not sg_name:
+                    sg_name = "im-%s-%s" % (str(inf.id), network_name)
 
                 # Use the InfrastructureInfo lock to assure that only one VM create the SG
                 with inf._lock:
@@ -1212,7 +1216,7 @@ class EC2CloudConnector(CloudConnector):
                         changes = boto.route53.record.ResourceRecordSets(conn, zone.id)
                         change = changes.add_change("DELETE", fqdn, "A")
                         change.add_value(ip)
-                        result = changes.commit()
+                        changes.commit()
 
                     # if there are no A records
                     all_a_records = [r for r in conn.get_all_rrsets(zone.id) if r.type == "A"]
@@ -1370,8 +1374,6 @@ class EC2CloudConnector(CloudConnector):
             else:
                 # If there are more than 1, we skip this step
                 self.log_debug("There are active instances. Not removing the SG")
-        else:
-            self.log_warn("No Security Groups to delete to node: %s" % vm.id)
 
     def stop(self, vm, auth_data):
         region_name = vm.id.split(";")[0]

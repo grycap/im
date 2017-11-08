@@ -269,7 +269,7 @@ class ConfManager(threading.Thread):
                             vm.configured = None
                             # Launch the ctxt_agent using a thread
                             t = threading.Thread(name="launch_ctxt_agent_" + str(
-                                vm.id), target=eval("self.launch_ctxt_agent"), args=(vm, tasks))
+                                vm.id), target=self.launch_ctxt_agent, args=(vm, tasks))
                             t.daemon = True
                             t.start()
                             vm.inf.conf_threads.append(t)
@@ -287,8 +287,7 @@ class ConfManager(threading.Thread):
                     # Launch the Infrastructure tasks
                     vm.configured = None
                     for task in tasks:
-                        t = threading.Thread(
-                            name=task, target=eval("self." + task))
+                        t = threading.Thread(name=task, target=getattr(self, task))
                         t.daemon = True
                         t.start()
                         vm.conf_threads.append(t)
@@ -505,6 +504,7 @@ class ConfManager(threading.Thread):
         out.write('IM_MASTER_FQDN=' + master_name + "." + masterdom + '\n')
         out.write('IM_MASTER_DOMAIN=' + masterdom + '\n')
         out.write('IM_INFRASTRUCTURE_ID=' + self.inf.id + '\n\n')
+        out.write('IM_INFRASTRUCTURE_RADL=' + self.inf.get_json_radl() + '\n\n')
 
         if windows:
             out.write('[windows]\n' + windows + "\n")
@@ -1260,11 +1260,8 @@ class ConfManager(threading.Thread):
         self.log_debug('Ansible process finished.')
 
         try:
-            timeout = Config.ANSIBLE_INSTALL_TIMEOUT - wait
-            if timeout < Config.CHECK_CTXT_PROCESS_INTERVAL:
-                timeout = Config.CHECK_CTXT_PROCESS_INTERVAL
-            self.log_debug('Get the result with a timeout of %d seconds.' % timeout)
-            _, (return_code, _), output = result.get(timeout=timeout)
+            self.log_debug('Get the results of the Ansible process.')
+            _, (return_code, _), output = result.get(timeout=10)
             msg = output.getvalue()
         except:
             self.log_exception('Error getting ansible results.')
@@ -1334,11 +1331,38 @@ class ConfManager(threading.Thread):
             shutil.copy(Config.CONTEXTUALIZATION_DIR + "/" +
                         ConfManager.MASTER_YAML, tmp_dir + "/" + ConfManager.MASTER_YAML)
 
+            # Add all the modules specified in the RADL
+            modules = []
+            for s in self.inf.radl.systems:
+                for req_app in s.getApplications():
+                    if req_app.getValue("name").startswith("ansible.modules."):
+                        # Get the modules specified by the user in the RADL
+                        modules.append(req_app.getValue("name")[16:])
+                    else:
+                        # Get the info about the apps from the recipes DB
+                        vm_modules, _ = Recipe.getInfoApps([req_app])
+                        modules.extend(vm_modules)
+
+            # avoid duplicates
+            modules = set(modules)
+
             self.inf.add_cont_msg("Creating and copying Ansible playbook files")
 
             ssh.sftp_mkdir(Config.REMOTE_CONF_DIR)
             ssh.sftp_mkdir(Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/")
             ssh.sftp_chmod(Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/", 448)
+
+            for galaxy_name in modules:
+                if galaxy_name:
+                    self.log_debug("Install " + galaxy_name + " with ansible-galaxy.")
+                    self.inf.add_cont_msg("Galaxy role " + galaxy_name + " detected setting to install.")
+
+                    recipe_out = open(tmp_dir + "/" + ConfManager.MASTER_YAML, 'a')
+
+                    recipe_out.write("    - name: Delete the %s role\n" % galaxy_name)
+                    recipe_out.write("      file: state=absent path=/etc/ansible/roles/%s\n" % galaxy_name)
+
+                    recipe_out.close()
 
             self.inf.add_cont_msg("Performing preliminary steps to configure Ansible.")
 
