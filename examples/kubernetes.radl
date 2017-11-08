@@ -7,7 +7,8 @@ memory.size>=1g and
 net_interface.0.connection = 'publica' and
 net_interface.0.dns_name = 'kubeserver' and
 disk.0.os.name='linux' and
-disk.0.os.flavour='ubuntu'
+disk.0.os.flavour='centos' and
+disk.0.os.version>='7' and
 disk.0.applications contains (name='ansible.modules.grycap.kubernetes')
 )
 
@@ -18,7 +19,8 @@ memory.size>=4g and
 net_interface.0.connection = 'publica' and
 net_interface.0.dns_name = 'wn-#N#' and
 disk.0.os.name='linux' and
-disk.0.os.flavour='ubuntu'
+disk.0.os.flavour='centos' and
+disk.0.os.version>='7'
 )
 
 configure front (

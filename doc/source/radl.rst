@@ -442,6 +442,19 @@ the virtual machine.
 ``IM_NODE_NET_<iface num>_IP``
    The IP assigned to the network interface num ``iface num``.
 
+``IM_INFRASTRUCTURE_RADL``
+   The RADL in JSON format: networks, systems and deploys. (from ver. 1.6.2). It enables to use
+   RADL values in Ansible recipes. The ``.`` in the properties are replaced by ``_``
+   (e.g. ``net.interface.0.dns_name`` is replaced by ``net_interface_0_dns_name``).
+   It can be used in combination with the `Ansible json_query filter <http://docs.ansible.com/ansible/latest/playbooks_filters.html#json-query-filter>`_
+   to extract values as shown in this example::
+   
+      NODENAME: '{{IM_INFRASTRUCTURE_RADL|json_query("[?id == ''front''].net_interface_0_dns_name|[0]")}}'
+
+   Ansible json_query filter is built upon `jmespath <http://jmespath.org/>`_ so this library must be installed
+   on the managed node that uses this function. IM installs it on the master VM but no in the rest of VMs. If you
+   want to use it on other VMs you have to prepare them installing jmespath in a previous step.
+
 
 Including roles of Ansible Galaxy
 ---------------------------------

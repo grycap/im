@@ -66,11 +66,10 @@ class ConfManager(threading.Thread):
         self.ansible_process = None
         self.logger = logging.getLogger('ConfManager')
 
-    def check_running_pids(self, vms_configuring):
+    def check_running_pids(self, vms_configuring, failed_step):
         """
         Update the status of the configuration processes
         """
-        cont_vms = 0
         res = {}
         for step, vm_list in vms_configuring.items():
             for vm in vm_list:
@@ -79,11 +78,17 @@ class ConfManager(threading.Thread):
                         if step not in res:
                             res[step] = []
                         res[step].append(vm)
-                        cont_vms += 1
                         self.log_debug("Ansible process to configure " + str(vm.im_id) +
                                        " with PID " + vm.ctxt_pid + " is still running.")
                     else:
                         self.log_debug("Configuration process in VM: " + str(vm.im_id) + " finished.")
+                        if vm.configured:
+                            self.log_debug("Configuration process of VM %s success." % vm.im_id)
+                        elif vm.configured is False:
+                            failed_step.append(step)
+                            self.log_debug("Configuration process of VM %s failed." % vm.im_id)
+                        else:
+                            self.log_warn("Configuration process of VM %s in unfinished state." % vm.im_id)
                         # Force to save the data to store the log data ()
                         IM.InfrastructureList.InfrastructureList.save_data(self.inf.id)
                 else:
@@ -97,12 +102,15 @@ class ConfManager(threading.Thread):
                     else:
                         if vm.configured:
                             self.log_debug("Configuration process of master node successfully finished.")
-                        else:
+                        elif vm.configured is False:
+                            failed_step.append(step)
                             self.log_debug("Configuration process of master node failed.")
+                        else:
+                            self.log_warn("Configuration process of master node in unfinished state.")
                         # Force to save the data to store the log data
                         IM.InfrastructureList.InfrastructureList.save_data(self.inf.id)
 
-        return cont_vms, res
+        return failed_step, res
 
     def stop(self):
         self._stop_thread = True
@@ -177,10 +185,12 @@ class ConfManager(threading.Thread):
                 vm.kill_check_ctxt_process()
             except:
                 self.log_exception("Error killing ctxt processes in VM: %s" % vm.id)
+            vm.configured = None
 
     def run(self):
         self.log_debug("Starting the ConfManager Thread")
 
+        failed_step = []
         last_step = None
         vms_configuring = {}
 
@@ -197,7 +207,7 @@ class ConfManager(threading.Thread):
                     self.ansible_process.terminate()
                 return
 
-            cont_vms, vms_configuring = self.check_running_pids(vms_configuring)
+            failed_step, vms_configuring = self.check_running_pids(vms_configuring, failed_step)
 
             # If the queue is empty but there are vms configuring wait and test
             # again
@@ -214,9 +224,9 @@ class ConfManager(threading.Thread):
 
             # if this task is from a next step
             if last_step is not None and last_step < step:
-                if vm.is_configured() is False:
-                    self.log_debug("Configuration process of step " + str(last_step) +
-                                   " failed, ignoring tasks of later steps.")
+                if failed_step and sorted(failed_step)[-1] < step:
+                    self.log_debug("Configuration of process of step %s failed, "
+                                   "ignoring tasks of step %s." % (sorted(failed_step)[-1], step))
                 else:
                     # Add the task again to the queue only if the last step was
                     # OK
@@ -237,8 +247,8 @@ class ConfManager(threading.Thread):
                         self.log_warn("VM ID " + str(vm.im_id) +
                                       " has been destroyed. Not launching new tasks for it.")
                     elif vm.is_configured() is False:
-                        self.log_debug("Configuration process of step " +
-                                       str(last_step) + " failed, ignoring tasks of later steps.")
+                        self.log_debug("Configuration process of step %s failed, "
+                                       "ignoring tasks of step %s." % (last_step, step))
                         # Check that the VM has no other ansible process
                         # running
                     elif vm.ctxt_pid:
@@ -259,7 +269,7 @@ class ConfManager(threading.Thread):
                             vm.configured = None
                             # Launch the ctxt_agent using a thread
                             t = threading.Thread(name="launch_ctxt_agent_" + str(
-                                vm.id), target=eval("self.launch_ctxt_agent"), args=(vm, tasks))
+                                vm.id), target=self.launch_ctxt_agent, args=(vm, tasks))
                             t.daemon = True
                             t.start()
                             vm.inf.conf_threads.append(t)
@@ -277,8 +287,7 @@ class ConfManager(threading.Thread):
                     # Launch the Infrastructure tasks
                     vm.configured = None
                     for task in tasks:
-                        t = threading.Thread(
-                            name=task, target=eval("self." + task))
+                        t = threading.Thread(name=task, target=getattr(self, task))
                         t.daemon = True
                         t.start()
                         vm.conf_threads.append(t)
@@ -495,6 +504,7 @@ class ConfManager(threading.Thread):
         out.write('IM_MASTER_FQDN=' + master_name + "." + masterdom + '\n')
         out.write('IM_MASTER_DOMAIN=' + masterdom + '\n')
         out.write('IM_INFRASTRUCTURE_ID=' + self.inf.id + '\n\n')
+        out.write('IM_INFRASTRUCTURE_RADL=' + self.inf.get_json_radl() + '\n\n')
 
         if windows:
             out.write('[windows]\n' + windows + "\n")
@@ -802,8 +812,7 @@ class ConfManager(threading.Thread):
 
                 except Exception as ex:
                     self.log_exception("Error in the ansible installation process")
-                    self.inf.add_cont_msg(
-                        "Error in the ansible installation process: " + str(ex))
+                    self.inf.add_cont_msg("Error in the ansible installation process: " + str(ex))
                     if not self.inf.ansible_configured:
                         self.inf.ansible_configured = False
                     success = False
@@ -1251,11 +1260,8 @@ class ConfManager(threading.Thread):
         self.log_debug('Ansible process finished.')
 
         try:
-            timeout = Config.ANSIBLE_INSTALL_TIMEOUT - wait
-            if timeout < Config.CHECK_CTXT_PROCESS_INTERVAL:
-                timeout = Config.CHECK_CTXT_PROCESS_INTERVAL
-            self.log_debug('Get the result with a timeout of %d seconds.' % timeout)
-            _, (return_code, _), output = result.get(timeout=timeout)
+            self.log_debug('Get the results of the Ansible process.')
+            _, (return_code, _), output = result.get(timeout=10)
             msg = output.getvalue()
         except:
             self.log_exception('Error getting ansible results.')
@@ -1325,11 +1331,38 @@ class ConfManager(threading.Thread):
             shutil.copy(Config.CONTEXTUALIZATION_DIR + "/" +
                         ConfManager.MASTER_YAML, tmp_dir + "/" + ConfManager.MASTER_YAML)
 
+            # Add all the modules specified in the RADL
+            modules = []
+            for s in self.inf.radl.systems:
+                for req_app in s.getApplications():
+                    if req_app.getValue("name").startswith("ansible.modules."):
+                        # Get the modules specified by the user in the RADL
+                        modules.append(req_app.getValue("name")[16:])
+                    else:
+                        # Get the info about the apps from the recipes DB
+                        vm_modules, _ = Recipe.getInfoApps([req_app])
+                        modules.extend(vm_modules)
+
+            # avoid duplicates
+            modules = set(modules)
+
             self.inf.add_cont_msg("Creating and copying Ansible playbook files")
 
             ssh.sftp_mkdir(Config.REMOTE_CONF_DIR)
             ssh.sftp_mkdir(Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/")
             ssh.sftp_chmod(Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/", 448)
+
+            for galaxy_name in modules:
+                if galaxy_name:
+                    self.log_debug("Install " + galaxy_name + " with ansible-galaxy.")
+                    self.inf.add_cont_msg("Galaxy role " + galaxy_name + " detected setting to install.")
+
+                    recipe_out = open(tmp_dir + "/" + ConfManager.MASTER_YAML, 'a')
+
+                    recipe_out.write("    - name: Delete the %s role\n" % galaxy_name)
+                    recipe_out.write("      file: state=absent path=/etc/ansible/roles/%s\n" % galaxy_name)
+
+                    recipe_out.close()
 
             self.inf.add_cont_msg("Performing preliminary steps to configure Ansible.")
 

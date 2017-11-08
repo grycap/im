@@ -168,7 +168,7 @@ class DockerCloudConnector(CloudConnector):
             if str(cont_info["NetworkSettings"]["IPAddress"]):
                 private_ips.append(str(cont_info["NetworkSettings"]["IPAddress"]))
             elif "Networks" in cont_info["NetworkSettings"]:
-                for net_name, net_data in cont_info["NetworkSettings"]["Networks"].items():
+                for _, net_data in cont_info["NetworkSettings"]["Networks"].items():
                     if str(net_data["IPAddress"]):
                         private_ips.append(str(net_data["IPAddress"]))
 
@@ -192,13 +192,19 @@ class DockerCloudConnector(CloudConnector):
 
         command = "yum install -y openssh-server python"
         command += " ; "
+        command += "zypper -n install sudo which openssh"
+        command += " ; "
         command += "apt-get update && apt-get install -y openssh-server python"
         command += " ; "
         command += "mkdir /var/run/sshd"
         command += " ; "
+        command += " sed -i 's/#PermitRootLogin yes/PermitRootLogin yes/g' /etc/ssh/sshd_config "
+        command += " ; "
         command += "sed -i 's/PermitRootLogin without-password/PermitRootLogin yes/g' /etc/ssh/sshd_config"
         command += " ; "
         command += "sed -i 's/PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config"
+        command += " ; "
+        command += "rm -f /etc/ssh/ssh_host_rsa_key*"
         command += " ; "
         command += "ssh-keygen -t rsa -f /etc/ssh/ssh_host_rsa_key -N ''"
         command += " ; "
@@ -251,7 +257,7 @@ class DockerCloudConnector(CloudConnector):
 
         return json.dumps(svc_data)
 
-    def _generate_create_cont_request_data(self, image_name, outports, vm, ssh_port, auth_data):
+    def _generate_create_cont_request_data(self, image_name, outports, vm, ssh_port):
         cont_data = {}
         system = vm.info.systems[0]
 
@@ -548,6 +554,8 @@ class DockerCloudConnector(CloudConnector):
                 i += 1
                 # Create the VM to get the nodename
                 vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self)
+                vm.destroy = True
+                inf.add_vm(vm)
 
                 ssh_port = 22
                 if vm.hasPublicNet():
@@ -578,8 +586,7 @@ class DockerCloudConnector(CloudConnector):
                         res.append((False, "Error pulling the image: " + resp.text))
                         continue
 
-                    cont_data = self._generate_create_cont_request_data(full_image_name, outports, vm,
-                                                                        ssh_port, auth_data)
+                    cont_data = self._generate_create_cont_request_data(full_image_name, outports, vm, ssh_port)
                     resp = self.create_request('POST', "/containers/create", auth_data, headers, cont_data)
 
                 if resp.status_code != 201:
@@ -596,7 +603,6 @@ class DockerCloudConnector(CloudConnector):
                     res.append((False, "Error: response format not expected."))
 
                 vm.info.systems[0].setValue('instance_id', str(vm.id))
-                inf.add_vm(vm)
 
                 if not self._is_swarm(auth_data):
                     # In creation a container can only be attached to one one network
@@ -623,6 +629,7 @@ class DockerCloudConnector(CloudConnector):
                 # Set ssh port in the RADL info of the VM
                 vm.setSSHPort(ssh_port)
 
+                vm.destroy = False
                 res.append((True, vm))
 
             except Exception as ex:
@@ -704,7 +711,6 @@ class DockerCloudConnector(CloudConnector):
                     self._delete_networks(vm, auth_data)
                 except Exception:
                     self.log_exception("Error deleting networks.")
-                    pass
 
             return res
         except Exception:
