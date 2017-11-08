@@ -93,6 +93,12 @@
       file: src=/usr/bin/python2.6 dest=/usr/bin/python_ansible state=link
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int < 6
 
+    - name: Upgrade pip
+      pip: name=pip extra_args="-I" state=latest
+
+    - name: Upgrade pyOpenSSL with Pip
+      pip: name=pyOpenSSL extra_args="-I" state=latest
+
     - name: Upgrade setuptools with Pip
       pip: name=setuptools extra_args="-I" state=latest
       when: ansible_os_family == "Suse" or (ansible_os_family == "RedHat" and ansible_distribution_major_version|int < 7)
