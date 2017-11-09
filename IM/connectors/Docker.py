@@ -352,7 +352,7 @@ class DockerCloudConnector(CloudConnector):
             disk_mount_path = system.getValue("disk." + str(cont) + ".mount_path")
             if not disk_mount_path.startswith('/'):
                 disk_mount_path = '/' + disk_mount_path
-            self.log_debug("Attaching a volume in %s" % disk_mount_path)
+            self.log_info("Attaching a volume in %s" % disk_mount_path)
             mount = {"Source": source, "Target": disk_mount_path}
             mount["Type"] = "volume"
             mount["ReadOnly"] = False
@@ -443,10 +443,10 @@ class DockerCloudConnector(CloudConnector):
                         self.log_warn("Error deleting volume %s: %s." % (source, resp.text))
                         time.sleep(delay)
                     else:
-                        self.log_debug("Volume %s successfully deleted." % source)
+                        self.log_info("Volume %s successfully deleted." % source)
                         break
             else:
-                self.log_debug("Volume %s not created by the IM, not deleting it." % source)
+                self.log_info("Volume %s not created by the IM, not deleting it." % source)
 
     def _delete_networks(self, vm, auth_data):
         for net in vm.info.networks:
@@ -465,7 +465,7 @@ class DockerCloudConnector(CloudConnector):
                     if resp.status_code not in [204, 404]:
                         self.log_error("Error deleting network %s: %s" % (net.id, resp.text))
                     else:
-                        self.log_debug("Network %s deleted successfully" % net.id)
+                        self.log_info("Network %s deleted successfully" % net.id)
 
     def _attach_cont_to_networks(self, vm, auth_data):
         system = vm.info.systems[0]
@@ -493,7 +493,7 @@ class DockerCloudConnector(CloudConnector):
                         self.log_error("Error attaching cont %s to network %s: %s" % (vm.id, net_name, resp.text))
                         all_ok = False
                     else:
-                        self.log_debug("Cont %s attached to network %s" % (vm.id, net_name))
+                        self.log_info("Cont %s attached to network %s" % (vm.id, net_name))
         return all_ok
 
     def _create_volumes(self, system, auth_data):
@@ -515,7 +515,7 @@ class DockerCloudConnector(CloudConnector):
                 resp = self.create_request('GET', "/volumes/%s" % source, auth_data, headers)
                 if resp.status_code == 200:
                     # the volume already exists
-                    self.log_debug("Volume named %s already exists." % source)
+                    self.log_info("Volume named %s already exists." % source)
                 else:
                     body = json.dumps({"Name": source, "Driver": driver})
                     resp = self.create_request('POST', "/volumes/create", auth_data, headers, body)
@@ -524,7 +524,7 @@ class DockerCloudConnector(CloudConnector):
                         self.log_error("Error creating volume %s: %s." % (source, resp.text))
                     else:
                         system.setValue("disk." + str(cont) + ".created", "yes")
-                        self.log_debug("Volume %s successfully created." % source)
+                        self.log_info("Volume %s successfully created." % source)
 
             cont += 1
 
@@ -678,7 +678,7 @@ class DockerCloudConnector(CloudConnector):
                     if task["Status"]["State"] == "running":
                         return VirtualMachine.RUNNING
                     elif task["Status"]["State"] == "rejected":
-                        self.log_debug("Task %s rejected: %s." % (task["ID"], task["Status"]["Err"]))
+                        self.log_info("Task %s rejected: %s." % (task["ID"], task["Status"]["Err"]))
                 return VirtualMachine.PENDING
             else:
                 return VirtualMachine.PENDING

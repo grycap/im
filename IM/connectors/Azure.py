@@ -449,7 +449,7 @@ class AzureCloudConnector(CloudConnector):
         data_disks = []
         while system.getValue("disk." + str(cont) + ".size"):
             disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('G')
-            self.log_debug("Adding a %s GB disk." % disk_size)
+            self.log_info("Adding a %s GB disk." % disk_size)
             data_disks.append({
                 'name': '%s_disk_%d' % (vm_name, cont),
                 'disk_size_gb': disk_size,
@@ -548,7 +548,7 @@ class AzureCloudConnector(CloudConnector):
                                                                                      vm_name,
                                                                                      vm_parameters)
 
-                self.log_debug("VM ID: %s created." % vm.id)
+                self.log_info("VM ID: %s created." % vm.id)
                 inf.add_vm(vm)
                 vms.append((True, (vm, async_vm_creation)))
             except Exception as ex:
@@ -557,7 +557,7 @@ class AzureCloudConnector(CloudConnector):
 
                 # Delete Resource group and everything in it
                 if group_name:
-                    self.log_debug("Delete Resource group %s and everything in it." % group_name)
+                    self.log_info("Delete Resource group %s and everything in it." % group_name)
                     try:
                         resource_client.resource_groups.delete(group_name).wait()
                     except:
@@ -587,7 +587,7 @@ class AzureCloudConnector(CloudConnector):
         with inf._lock:
             # Create resource group for the Infrastructure if it does not exists
             if not self.get_rg("rg-%s" % inf.id, credentials, subscription_id):
-                self.log_debug("Creating Inf RG: %s" % "rg-%s" % inf.id)
+                self.log_info("Creating Inf RG: %s" % "rg-%s" % inf.id)
                 resource_client.resource_groups.create_or_update("rg-%s" % inf.id, {'location': location})
 
             # Create an storage_account per Infrastructure
@@ -595,7 +595,7 @@ class AzureCloudConnector(CloudConnector):
                                                        credentials, subscription_id)
 
             if not storage_account:
-                self.log_debug("Creating storage account: %s" % storage_account_name)
+                self.log_info("Creating storage account: %s" % storage_account_name)
                 try:
                     storage_client = StorageManagementClient(credentials, subscription_id)
                     storage_client.storage_accounts.create("rg-%s" % inf.id,
@@ -606,7 +606,7 @@ class AzureCloudConnector(CloudConnector):
                                                            ).wait()
                 except:
                     self.log_exception("Error creating storage account: %s" % storage_account)
-                    self.log_debug("Delete Inf RG group %s" % "rg-%s" % inf.id)
+                    self.log_info("Delete Inf RG group %s" % "rg-%s" % inf.id)
                     try:
                         resource_client.resource_groups.delete("rg-%s" % inf.id)
                     except:
@@ -626,29 +626,29 @@ class AzureCloudConnector(CloudConnector):
                 if success:
                     vm, async_vm_creation = data
                     try:
-                        self.log_debug("Waiting VM ID %s to be created." % vm.id)
+                        self.log_info("Waiting VM ID %s to be created." % vm.id)
                         async_vm_creation.wait()
                         res.append((True, vm))
                         remaining_vms -= 1
                     except:
                         self.log_exception("Error waiting the VM %s." % vm.id)
 
-            self.log_debug("End of retry %d of %d" % (retries, Config.MAX_VM_FAILS))
+            self.log_info("End of retry %d of %d" % (retries, Config.MAX_VM_FAILS))
 
         if remaining_vms > 0:
             # Remove the general group
-            self.log_debug("Delete Inf RG group %s" % "rg-%s" % inf.id)
+            self.log_info("Delete Inf RG group %s" % "rg-%s" % inf.id)
             try:
                 resource_client.resource_groups.delete("rg-%s" % inf.id)
             except:
                 pass
         else:
-            self.log_debug("All VMs created successfully.")
+            self.log_info("All VMs created successfully.")
 
         return res
 
     def updateVMInfo(self, vm, auth_data):
-        self.log_debug("Get the VM info with the id: " + vm.id)
+        self.log_info("Get the VM info with the id: " + vm.id)
         group_name = vm.id.split('/')[0]
         vm_name = vm.id.split('/')[1]
 
@@ -661,9 +661,9 @@ class AzureCloudConnector(CloudConnector):
             self.log_exception("Error getting the VM info: " + vm.id)
             return (False, "Error getting the VM info: " + vm.id + ". " + str(ex))
 
-        self.log_debug("VM info: " + vm.id + " obtained.")
+        self.log_info("VM info: " + vm.id + " obtained.")
         vm.state = self.PROVISION_STATE_MAP.get(virtual_machine.provisioning_state, VirtualMachine.UNKNOWN)
-        self.log_debug("The VM state is: " + vm.state)
+        self.log_info("The VM state is: " + vm.state)
 
         instance_type = self.get_instance_type_by_name(virtual_machine.hardware_profile.vm_size,
                                                        virtual_machine.location, credentials, subscription_id)
@@ -699,11 +699,11 @@ class AzureCloudConnector(CloudConnector):
                     except Exception:
                         pass
                     if not zone:
-                        self.log_debug("Creating DNS zone %s" % domain)
+                        self.log_info("Creating DNS zone %s" % domain)
                         zone = dns_client.zones.create_or_update(group_name, domain,
                                                                  {'location': 'global'})
                     else:
-                        self.log_debug("DNS zone %s exists. Do not create." % domain)
+                        self.log_info("DNS zone %s exists. Do not create." % domain)
 
                     if zone:
                         record = None
@@ -712,11 +712,11 @@ class AzureCloudConnector(CloudConnector):
                         except Exception:
                             pass
                         if not record:
-                            self.log_debug("Creating DNS record %s." % hostname)
+                            self.log_info("Creating DNS record %s." % hostname)
                             record_data = {"ttl": 300, "arecords": [{"ipv4_address": ip}]}
                             dns_client.record_sets.create_or_update(group_name, domain, hostname, 'A', record_data)
                         else:
-                            self.log_debug("DNS record %s exists. Do not create." % hostname)
+                            self.log_info("DNS record %s exists. Do not create." % hostname)
 
             return True
         except Exception:
@@ -752,25 +752,25 @@ class AzureCloudConnector(CloudConnector):
 
     def finalize(self, vm, last, auth_data):
         try:
-            self.log_debug("Terminate VM: " + vm.id)
+            self.log_info("Terminate VM: " + vm.id)
             group_name = vm.id.split('/')[0]
             credentials, subscription_id = self.get_credentials(auth_data)
             resource_client = ResourceManagementClient(credentials, subscription_id)
 
             # Delete Resource group and everything in it
             if self.get_rg(group_name, credentials, subscription_id):
-                self.log_debug("Removing RG: %s" % group_name)
+                self.log_info("Removing RG: %s" % group_name)
                 resource_client.resource_groups.delete(group_name).wait()
             else:
-                self.log_debug("RG: %s does not exist. Do not remove." % group_name)
+                self.log_info("RG: %s does not exist. Do not remove." % group_name)
 
             # if it is the last VM delete the RG of the Inf
             if last:
                 if self.get_rg("rg-%s" % vm.inf.id, credentials, subscription_id):
-                    self.log_debug("Removing Inf. RG: %s" % "rg-%s" % vm.inf.id)
+                    self.log_info("Removing Inf. RG: %s" % "rg-%s" % vm.inf.id)
                     resource_client.resource_groups.delete("rg-%s" % vm.inf.id)
                 else:
-                    self.log_debug("RG: %s does not exist. Do not remove." % "rg-%s" % vm.inf.id)
+                    self.log_info("RG: %s does not exist. Do not remove." % "rg-%s" % vm.inf.id)
 
         except Exception as ex:
             self.log_exception("Error terminating the VM")
