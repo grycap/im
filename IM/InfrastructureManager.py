@@ -185,7 +185,7 @@ class InfrastructureManager:
                     requested_radl = radl.clone()
                     requested_radl.systems = [radl.get_system_by_name(concrete_system.name)]
                     try:
-                        InfrastructureManager.logger.debug(
+                        InfrastructureManager.logger.info(
                             "Launching %d VMs of type %s" % (remain_vm, concrete_system.name))
                         launched_vms = cloud.cloud.getCloudConnector(sel_inf).launch(
                             sel_inf, launch_radl, requested_radl, remain_vm, auth)
@@ -198,7 +198,7 @@ class InfrastructureManager:
                         launched_vms = []
                     for success, launched_vm in launched_vms:
                         if success:
-                            InfrastructureManager.logger.debug("VM successfully launched: " + str(launched_vm.id))
+                            InfrastructureManager.logger.info("VM successfully launched: " + str(launched_vm.id))
                             deployed_vm.setdefault(deploy, []).append(launched_vm)
                             deploy.cloud_id = cloud_id
                             remain_vm -= 1
@@ -907,7 +907,7 @@ class InfrastructureManager:
         if state is None:
             state = VirtualMachine.UNKNOWN
 
-        InfrastructureManager.logger.debug(
+        InfrastructureManager.logger.info(
             "inf: " + str(inf_id) + " is in state: " + state)
         return {'state': state, 'vm_states': vm_states}
 
@@ -915,7 +915,7 @@ class InfrastructureManager:
     def _stop_vm(vm, auth, exceptions):
         try:
             success = False
-            InfrastructureManager.logger.debug("Stopping the VM id: " + vm.id)
+            InfrastructureManager.logger.info("Stopping the VM id: " + vm.id)
             (success, msg) = vm.stop(auth)
         except Exception as e:
             msg = str(e)
@@ -968,7 +968,7 @@ class InfrastructureManager:
     def _start_vm(vm, auth, exceptions):
         try:
             success = False
-            InfrastructureManager.logger.debug("Starting the VM id: " + vm.id)
+            InfrastructureManager.logger.info("Starting the VM id: " + vm.id)
             (success, msg) = vm.start(auth)
         except Exception as e:
             msg = str(e)
@@ -1113,7 +1113,7 @@ class InfrastructureManager:
         last = InfrastructureManager.is_last_in_cloud(vm, delete_list, remain_vms)
         success = False
         try:
-            InfrastructureManager.logger.debug("Finalizing the VM id: " + str(vm.id))
+            InfrastructureManager.logger.info("Finalizing the VM id: " + str(vm.id))
             (success, msg) = vm.finalize(last, auth)
         except Exception as e:
             msg = str(e)
