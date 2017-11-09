@@ -680,7 +680,7 @@ class OCCICloudConnector(CloudConnector):
             self.log_exception("Error creating volume")
             return False, str(ex)
 
-    def detach_volume(self, volume, auth_data, timeout=90, delay=5):
+    def detach_volume(self, volume, auth_data, timeout=60, delay=5):
         auth = self.get_auth_header(auth_data)
         headers = {'Accept': 'text/plain', 'Connection': 'close'}
         if auth:
