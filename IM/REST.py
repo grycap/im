@@ -16,8 +16,8 @@
 
 import logging
 import threading
-import bottle
 import json
+import bottle
 
 from IM.InfrastructureInfo import IncorrectVMException, DeletedVMException
 from IM.InfrastructureManager import (InfrastructureManager, DeletedInfrastructureException,
@@ -245,15 +245,15 @@ def format_output(res, default_type="text/plain", field_name=None, list_field_na
     return info
 
 
-@app.route('/infrastructures/:id', method='DELETE')
-def RESTDestroyInfrastructure(id=None):
+@app.route('/infrastructures/:infid', method='DELETE')
+def RESTDestroyInfrastructure(infid=None):
     try:
         auth = get_auth_header()
     except:
         return return_error(401, "No authentication data provided")
 
     try:
-        InfrastructureManager.DestroyInfrastructure(id, auth)
+        InfrastructureManager.DestroyInfrastructure(infid, auth)
         bottle.response.content_type = "text/plain"
         return ""
     except DeletedInfrastructureException as ex:
@@ -267,15 +267,15 @@ def RESTDestroyInfrastructure(id=None):
         return return_error(400, "Error Destroying Inf: " + str(ex))
 
 
-@app.route('/infrastructures/:id', method='GET')
-def RESTGetInfrastructureInfo(id=None):
+@app.route('/infrastructures/:infid', method='GET')
+def RESTGetInfrastructureInfo(infid=None):
     try:
         auth = get_auth_header()
     except:
         return return_error(401, "No authentication data provided")
 
     try:
-        vm_ids = InfrastructureManager.GetInfrastructureInfo(id, auth)
+        vm_ids = InfrastructureManager.GetInfrastructureInfo(infid, auth)
         res = []
 
         protocol = "http://"
@@ -283,7 +283,7 @@ def RESTGetInfrastructureInfo(id=None):
             protocol = "https://"
         for vm_id in vm_ids:
             res.append(protocol + bottle.request.environ[
-                       'HTTP_HOST'] + '/infrastructures/' + str(id) + '/vms/' + str(vm_id))
+                       'HTTP_HOST'] + '/infrastructures/' + str(infid) + '/vms/' + str(vm_id))
 
         return format_output(res, "text/uri-list", "uri-list", "uri")
     except DeletedInfrastructureException as ex:
@@ -297,8 +297,8 @@ def RESTGetInfrastructureInfo(id=None):
         return return_error(400, "Error Getting Inf. info: " + str(ex))
 
 
-@app.route('/infrastructures/:id/:prop', method='GET')
-def RESTGetInfrastructureProperty(id=None, prop=None):
+@app.route('/infrastructures/:infid/:prop', method='GET')
+def RESTGetInfrastructureProperty(infid=None, prop=None):
     try:
         auth = get_auth_header()
     except:
@@ -306,15 +306,25 @@ def RESTGetInfrastructureProperty(id=None, prop=None):
 
     try:
         if prop == "contmsg":
-            res = InfrastructureManager.GetInfrastructureContMsg(id, auth)
+            headeronly = False
+            if "headeronly" in bottle.request.params.keys():
+                str_headeronly = bottle.request.params.get("headeronly").lower()
+                if str_headeronly in ['yes', 'true', '1']:
+                    headeronly = True
+                elif str_headeronly in ['no', 'false', '0']:
+                    headeronly = False
+                else:
+                    return return_error(400, "Incorrect value in context parameter")
+
+            res = InfrastructureManager.GetInfrastructureContMsg(infid, auth, headeronly)
         elif prop == "radl":
-            res = InfrastructureManager.GetInfrastructureRADL(id, auth)
+            res = InfrastructureManager.GetInfrastructureRADL(infid, auth)
         elif prop == "state":
             accept = get_media_type('Accept')
             if accept and "application/json" not in accept and "*/*" not in accept and "application/*" not in accept:
                 return return_error(415, "Unsupported Accept Media Types: %s" % accept)
             bottle.response.content_type = "application/json"
-            res = InfrastructureManager.GetInfrastructureState(id, auth)
+            res = InfrastructureManager.GetInfrastructureState(infid, auth)
             return format_output(res, default_type="application/json", field_name="state")
         else:
             return return_error(404, "Incorrect infrastructure property")
@@ -453,8 +463,8 @@ def RESTGetVMProperty(infid=None, vmid=None, prop=None):
         return return_error(400, "Error Getting VM property: " + str(ex))
 
 
-@app.route('/infrastructures/:id', method='POST')
-def RESTAddResource(id=None):
+@app.route('/infrastructures/:infid', method='POST')
+def RESTAddResource(infid=None):
     try:
         auth = get_auth_header()
     except:
@@ -482,8 +492,7 @@ def RESTAddResource(id=None):
             else:
                 return return_error(415, "Unsupported Media Type %s" % content_type)
 
-        vm_ids = InfrastructureManager.AddResource(
-            id, radl_data, auth, context)
+        vm_ids = InfrastructureManager.AddResource(infid, radl_data, auth, context)
 
         protocol = "http://"
         if Config.REST_SSL:
@@ -491,7 +500,7 @@ def RESTAddResource(id=None):
         res = []
         for vm_id in vm_ids:
             res.append(protocol + bottle.request.environ[
-                       'HTTP_HOST'] + "/infrastructures/" + str(id) + "/vms/" + str(vm_id))
+                       'HTTP_HOST'] + "/infrastructures/" + str(infid) + "/vms/" + str(vm_id))
 
         return format_output(res, "text/uri-list", "uri-list", "uri")
     except DeletedInfrastructureException as ex:
@@ -578,8 +587,8 @@ def RESTAlterVM(infid=None, vmid=None):
         return return_error(400, "Error modifying resources: " + str(ex))
 
 
-@app.route('/infrastructures/:id/reconfigure', method='PUT')
-def RESTReconfigureInfrastructure(id=None):
+@app.route('/infrastructures/:infid/reconfigure', method='PUT')
+def RESTReconfigureInfrastructure(infid=None):
     try:
         auth = get_auth_header()
     except:
@@ -608,7 +617,7 @@ def RESTReconfigureInfrastructure(id=None):
         else:
             radl_data = ""
         bottle.response.content_type = "text/plain"
-        return InfrastructureManager.Reconfigure(id, radl_data, auth, vm_list)
+        return InfrastructureManager.Reconfigure(infid, radl_data, auth, vm_list)
     except DeletedInfrastructureException as ex:
         return return_error(404, "Error reconfiguring infrastructure: " + str(ex))
     except IncorrectInfrastructureException as ex:
@@ -620,8 +629,8 @@ def RESTReconfigureInfrastructure(id=None):
         return return_error(400, "Error reconfiguring infrastructure: " + str(ex))
 
 
-@app.route('/infrastructures/:id/start', method='PUT')
-def RESTStartInfrastructure(id=None):
+@app.route('/infrastructures/:infid/start', method='PUT')
+def RESTStartInfrastructure(infid=None):
     try:
         auth = get_auth_header()
     except:
@@ -629,7 +638,7 @@ def RESTStartInfrastructure(id=None):
 
     try:
         bottle.response.content_type = "text/plain"
-        return InfrastructureManager.StartInfrastructure(id, auth)
+        return InfrastructureManager.StartInfrastructure(infid, auth)
     except DeletedInfrastructureException as ex:
         return return_error(404, "Error starting infrastructure: " + str(ex))
     except IncorrectInfrastructureException as ex:
@@ -641,8 +650,8 @@ def RESTStartInfrastructure(id=None):
         return return_error(400, "Error starting infrastructure: " + str(ex))
 
 
-@app.route('/infrastructures/:id/stop', method='PUT')
-def RESTStopInfrastructure(id=None):
+@app.route('/infrastructures/:infid/stop', method='PUT')
+def RESTStopInfrastructure(infid=None):
     try:
         auth = get_auth_header()
     except:
@@ -650,7 +659,7 @@ def RESTStopInfrastructure(id=None):
 
     try:
         bottle.response.content_type = "text/plain"
-        return InfrastructureManager.StopInfrastructure(id, auth)
+        return InfrastructureManager.StopInfrastructure(infid, auth)
     except DeletedInfrastructureException as ex:
         return return_error(404, "Error stopping infrastructure: " + str(ex))
     except IncorrectInfrastructureException as ex:
@@ -663,7 +672,7 @@ def RESTStopInfrastructure(id=None):
 
 
 @app.route('/infrastructures/:infid/vms/:vmid/start', method='PUT')
-def RESTStartVM(infid=None, vmid=None, prop=None):
+def RESTStartVM(infid=None, vmid=None):
     try:
         auth = get_auth_header()
     except:
@@ -688,7 +697,7 @@ def RESTStartVM(infid=None, vmid=None, prop=None):
 
 
 @app.route('/infrastructures/:infid/vms/:vmid/stop', method='PUT')
-def RESTStopVM(infid=None, vmid=None, prop=None):
+def RESTStopVM(infid=None, vmid=None):
     try:
         auth = get_auth_header()
     except:

@@ -69,7 +69,6 @@ class RequestQueue(Queue):
                 requests_processed = requests_processed + 1
             except Empty:
                 empty = True
-                pass
         return requests_processed
 
     def generic_process_loop(self, callback=None, timeout=0.5, max_requests=-1):

@@ -91,8 +91,7 @@ class GCECloudConnector(CloudConnector):
                 self.driver = driver
                 return driver
             else:
-                self.log_error(
-                    "No correct auth data has been specified to GCE: username, password and project")
+                self.log_error("No correct auth data has been specified to GCE: username, password and project")
                 self.log_debug(auth)
                 raise Exception(
                     "No correct auth data has been specified to GCE: username, password and project")
@@ -131,8 +130,7 @@ class GCECloudConnector(CloudConnector):
                 self.dns_driver = driver
                 return driver
             else:
-                self.log_error(
-                    "No correct auth data has been specified to GCE: username, password and project")
+                self.log_error("No correct auth data has been specified to GCE: username, password and project")
                 self.log_debug(auth)
                 raise Exception(
                     "No correct auth data has been specified to GCE: username, password and project")
@@ -302,7 +300,7 @@ class GCECloudConnector(CloudConnector):
             n += 1
 
         if requested_ips:
-            self.log_debug("The user requested for a fixed IP")
+            self.log_info("The user requested for a fixed IP")
             if len(requested_ips) > 1:
                 self.log_warn(
                     "The user has requested more than one fixed IP. Using only the first one")
@@ -365,8 +363,6 @@ class GCECloudConnector(CloudConnector):
         Create a firewall for the net using the outports param
         """
         with inf._lock:
-            firewall_name = "fw-im-%s" % net_name
-
             public_net = None
             for net in radl.networks:
                 if net.isPublic():
@@ -376,6 +372,9 @@ class GCECloudConnector(CloudConnector):
             if public_net:
                 outports = public_net.getOutPorts()
                 if outports:
+                    firewall_name = public_net.getValue("sg_name")
+                    if not firewall_name:
+                        firewall_name = "fw-im-%s" % net_name
                     for outport in outports:
                         if outport.get_protocol() not in ports:
                             ports[outport.get_protocol()] = []
@@ -393,7 +392,7 @@ class GCECloudConnector(CloudConnector):
                     try:
                         firewall = driver.ex_get_firewall(firewall_name)
                     except ResourceNotFoundError:
-                        self.log_debug("The firewall %s does not exist." % firewall_name)
+                        self.log_info("The firewall %s does not exist." % firewall_name)
                     except:
                         self.log_exception("Error trying to get FW %s." % firewall_name)
 
@@ -401,14 +400,14 @@ class GCECloudConnector(CloudConnector):
                         try:
                             firewall.allowed = allowed
                             firewall.update()
-                            self.log_debug("Firewall %s existing. Rules updated." % firewall_name)
+                            self.log_info("Firewall %s existing. Rules updated." % firewall_name)
                         except:
                             self.log_exception("Error updating the firewall %s." % firewall_name)
                         return
 
                     try:
                         driver.ex_create_firewall(firewall_name, allowed, network=net_name)
-                        self.log_debug("Firewall %s successfully created." % firewall_name)
+                        self.log_info("Firewall %s successfully created." % firewall_name)
                     except Exception as addex:
                         self.log_warn("Exception creating FW: " + str(addex))
 
@@ -457,14 +456,14 @@ class GCECloudConnector(CloudConnector):
 
         if not public or not private:
             # We must generate them
-            self.log_debug("No keys. Generating key pair.")
+            self.log_info("No keys. Generating key pair.")
             (public, private) = self.keygen()
             system.setValue('disk.0.os.credentials.private_key', private)
 
         metadata = {}
         if private and public:
             metadata = {"sshKeys": username + ":" + public}
-            self.log_debug("Setting ssh for user: " + username)
+            self.log_info("Setting ssh for user: " + username)
             self.log_debug(metadata)
 
         startup_script = self.get_cloud_init_data(radl)
@@ -502,7 +501,7 @@ class GCECloudConnector(CloudConnector):
             vm.info.systems[0].setValue('instance_id', str(vm.id))
             vm.info.systems[0].setValue('instance_name', str(vm.id))
             inf.add_vm(vm)
-            self.log_debug("Node successfully created.")
+            self.log_info("Node successfully created.")
 
             res.append((True, vm))
 
@@ -529,7 +528,7 @@ class GCECloudConnector(CloudConnector):
             if not success:
                 return (False, "Error destroying node: " + vm.id)
 
-            self.log_debug("VM " + str(vm.id) + " successfully destroyed")
+            self.log_info("VM " + str(vm.id) + " successfully destroyed")
         else:
             self.log_warn("VM " + str(vm.id) + " not found.")
         return (True, "")
@@ -545,14 +544,14 @@ class GCECloudConnector(CloudConnector):
         try:
             firewall = driver.ex_get_firewall(firewall_name)
         except ResourceNotFoundError:
-            self.log_debug("Firewall %s does not exist. Do not delete." % firewall_name)
+            self.log_info("Firewall %s does not exist. Do not delete." % firewall_name)
         except:
             self.log_exception("Error trying to get FW %s." % firewall_name)
 
         if firewall:
             try:
                 firewall.destroy()
-                self.log_debug("Firewall %s successfully deleted." % firewall_name)
+                self.log_info("Firewall %s successfully deleted." % firewall_name)
             except:
                 self.log_exception("Error trying to delete FW %s." % firewall_name)
 
@@ -582,7 +581,7 @@ class GCECloudConnector(CloudConnector):
                         self.log_error(
                             "Error destroying the volume: " + vol_name)
             except ResourceNotFoundError:
-                self.log_debug("The volume: " + vol_name + " does not exists. Ignore it.")
+                self.log_info("The volume: " + vol_name + " does not exists. Ignore it.")
                 success = True
             except:
                 self.log_exception(
@@ -665,8 +664,7 @@ class GCECloudConnector(CloudConnector):
                         "disk." + str(cont) + ".size").getValue('G')
                     disk_device = vm.info.systems[0].getValue(
                         "disk." + str(cont) + ".device")
-                    self.log_debug(
-                        "Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
+                    self.log_info("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
                     volume_name = "im-%s" % str(uuid.uuid1())
 
                     location = self.get_node_location(node)
@@ -674,7 +672,7 @@ class GCECloudConnector(CloudConnector):
                         int(disk_size), volume_name, location=location)
                     success = self.wait_volume(volume)
                     if success:
-                        self.log_debug("Attach the volume ID " + str(volume.id))
+                        self.log_info("Attach the volume ID " + str(volume.id))
                         try:
                             volume.attach(node, disk_device)
                         except:
@@ -757,20 +755,20 @@ class GCECloudConnector(CloudConnector):
                         domain += "."
                     zone = [z for z in driver.iterate_zones() if z.domain == domain]
                     if not zone:
-                        self.log_debug("Creating DNS zone %s" % domain)
+                        self.log_info("Creating DNS zone %s" % domain)
                         zone = driver.create_zone(domain)
                     else:
                         zone = zone[0]
-                        self.log_debug("DNS zone %s exists. Do not create." % domain)
+                        self.log_info("DNS zone %s exists. Do not create." % domain)
 
                     if zone:
                         fqdn = hostname + "." + domain
                         record = [r for r in driver.iterate_records(zone) if r.name == fqdn]
                         if not record:
-                            self.log_debug("Creating DNS record %s." % fqdn)
+                            self.log_info("Creating DNS record %s." % fqdn)
                             driver.create_record(fqdn, zone, RecordType.A, dict(ttl=300, rrdatas=[ip]))
                         else:
-                            self.log_debug("DNS record %s exists. Do not create." % fqdn)
+                            self.log_info("DNS record %s exists. Do not create." % fqdn)
 
             return True
         except Exception:
@@ -799,20 +797,20 @@ class GCECloudConnector(CloudConnector):
                         domain += "."
                     zone = [z for z in driver.iterate_zones() if z.domain == domain]
                     if not zone:
-                        self.log_debug("The DNS zone %s does not exists. Do not delete records." % domain)
+                        self.log_info("The DNS zone %s does not exists. Do not delete records." % domain)
                     else:
                         zone = zone[0]
                         fqdn = hostname + "." + domain
                         record = [r for r in driver.iterate_records(zone) if r.name == fqdn]
                         if not record:
-                            self.log_debug("DNS record %s does not exists. Do not delete." % fqdn)
+                            self.log_info("DNS record %s does not exists. Do not delete." % fqdn)
                         else:
                             record = record[0]
                             if record.data['rrdatas'] != [ip]:
-                                self.log_debug("DNS record %s mapped to unexpected IP: %s != %s."
-                                               "Do not delete." % (fqdn, record.data['rrdatas'], ip))
+                                self.log_info("DNS record %s mapped to unexpected IP: %s != %s."
+                                              "Do not delete." % (fqdn, record.data['rrdatas'], ip))
                             else:
-                                self.log_debug("Deleting DNS record %s." % fqdn)
+                                self.log_info("Deleting DNS record %s." % fqdn)
                                 if not driver.delete_record(record):
                                     self.log_error("Error deleting DNS record %s." % fqdn)
 

@@ -24,6 +24,7 @@ import IM.ConfManager
 from datetime import datetime, timedelta
 from radl.radl import RADL, Feature, deploy, system, contextualize_item
 from radl.radl_parse import parse_radl
+from radl.radl_json import radlToSimple
 from IM.config import Config
 try:
     from Queue import PriorityQueue
@@ -331,6 +332,25 @@ class InfrastructureInfo:
         # Check the RADL
         radl.check()
 
+    def get_json_radl(self):
+        """
+        Get the RADL of this Infrastructure in JSON format to
+        send it to the Ansible inventory
+        """
+        radl = self.radl.clone()
+        res_radl = RADL()
+        res_radl.systems = radl.systems
+        res_radl.networks = radl.networks
+        res_radl.deploys = radl.deploys
+        json_data = []
+        # remove "." in key names
+        for elem in radlToSimple(res_radl):
+            new_data = {}
+            for key in elem.keys():
+                new_data[key.replace(".", "_")] = elem[key]
+            json_data.append(new_data)
+        return json.dumps(json_data)
+
     def get_radl(self):
         """
         Get the RADL of this Infrastructure
@@ -479,8 +499,7 @@ class InfrastructureInfo:
                         break
 
         if not ctxt:
-            InfrastructureInfo.logger.debug(
-                "Inf ID: " + str(self.id) + ": Contextualization disabled by the RADL.")
+            InfrastructureInfo.logger.info("Inf ID: " + str(self.id) + ": Contextualization disabled by the RADL.")
             self.cont_out = "Contextualization disabled by the RADL."
             self.configured = True
             for vm in self.get_vm_list():

@@ -105,8 +105,7 @@ class KubernetesCloudConnector(CloudConnector):
             self.log_exception(
                 "Error connecting with Kubernetes API server")
 
-        self.log_warn(
-            "Error getting a compatible API version. Setting the default one.")
+        self.log_warn("Error getting a compatible API version. Setting the default one.")
         self.log_debug("Using %s API version." % version)
         return version
 
@@ -221,7 +220,7 @@ class KubernetesCloudConnector(CloudConnector):
                 disk_mount_path = '/' + disk_mount_path
             if not disk_device.startswith('/'):
                 disk_device = '/' + disk_device
-            self.log_debug("Binding a volume in %s to %s" % (disk_device, disk_mount_path))
+            self.log_info("Binding a volume in %s to %s" % (disk_device, disk_mount_path))
             name = "%s-%d" % (pod_name, cont)
 
             if persistent:
@@ -357,15 +356,15 @@ class KubernetesCloudConnector(CloudConnector):
             try:
                 i += 1
 
-                vm = VirtualMachine(inf, None, self.cloud,
-                                    radl, requested_radl, self)
-                (nodename, _) = vm.getRequestedName(
-                    default_hostname=Config.DEFAULT_VM_NAME, default_domain=Config.DEFAULT_DOMAIN)
+                vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self)
+                vm.destroy = True
+                inf.add_vm(vm)
+                (nodename, _) = vm.getRequestedName(default_hostname=Config.DEFAULT_VM_NAME,
+                                                    default_domain=Config.DEFAULT_DOMAIN)
                 pod_name = nodename
 
                 # Do not use the Persistent volumes yet
-                volumes = self._create_volumes(
-                    apiVersion, namespace, system, pod_name, auth_data)
+                volumes = self._create_volumes(apiVersion, namespace, system, pod_name, auth_data)
 
                 ssh_port = (KubernetesCloudConnector._port_base_num +
                             KubernetesCloudConnector._port_counter) % 65535
@@ -378,8 +377,7 @@ class KubernetesCloudConnector(CloudConnector):
                 resp = self.create_request('POST', uri, auth_data, headers, body)
 
                 if resp.status_code != 201:
-                    res.append(
-                        (False, "Error creating the Container: " + resp.text))
+                    res.append((False, "Error creating the Container: " + resp.text))
                 else:
                     output = json.loads(resp.text)
                     vm.id = output["metadata"]["name"]
@@ -392,13 +390,12 @@ class KubernetesCloudConnector(CloudConnector):
                         'disk.0.os.credentials.password', self._root_password)
                     vm.info.systems[0].setValue('instance_id', str(vm.id))
                     vm.info.systems[0].setValue('instance_name', str(vm.id))
-                    inf.add_vm(vm)
 
+                    vm.destroy = False
                     res.append((True, vm))
 
             except Exception as ex:
-                self.log_exception(
-                    "Error connecting with Kubernetes API server")
+                self.log_exception("Error connecting with Kubernetes API server")
                 res.append((False, "ERROR: " + str(ex)))
 
         return res
@@ -538,8 +535,7 @@ class KubernetesCloudConnector(CloudConnector):
                 changed = True
 
             if not changed:
-                self.log_debug(
-                    "Nothing changes in the kubernetes pod: " + str(vm.id))
+                self.log_info("Nothing changes in the kubernetes pod: " + str(vm.id))
                 return (True, vm)
 
             # Create the container
