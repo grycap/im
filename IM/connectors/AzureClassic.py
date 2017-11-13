@@ -517,7 +517,7 @@ class AzureClassicCloudConnector(CloudConnector):
                     output = Operation(resp.text)
                     status_str = output.Status
                     # InProgress|Succeeded|Failed
-                    self.log_debug("Operation string state: " + status_str)
+                    self.log_info("Operation string state: " + status_str)
                 else:
                     self.log_error(
                         "Error waiting operation to finish: Code %d. Msg: %s." % (resp.status_code, resp.text))
@@ -629,8 +629,7 @@ class AzureClassicCloudConnector(CloudConnector):
                 storage_info = StorageService(resp.text)
                 return storage_info.StorageServiceProperties
             elif resp.status_code == 404:
-                self.log_debug(
-                    "Storage " + storage_account + " does not exist")
+                self.log_info("Storage " + storage_account + " does not exist")
                 return None
             else:
                 self.log_warn(
@@ -682,7 +681,7 @@ class AzureClassicCloudConnector(CloudConnector):
                     res.append((False, error_msg))
                     break
 
-                self.log_debug("Creating the VM with id: " + service_name)
+                self.log_info("Creating the VM with id: " + service_name)
 
                 # Create the VM to get the nodename
                 vm = VirtualMachine(inf, service_name, self.cloud, radl, requested_radl, self)
@@ -784,7 +783,7 @@ class AzureClassicCloudConnector(CloudConnector):
             return res
 
     def updateVMInfo(self, vm, auth_data):
-        self.log_debug("Get the VM info with the id: " + vm.id)
+        self.log_info("Get the VM info with the id: " + vm.id)
         service_name = vm.id
 
         try:
@@ -801,13 +800,13 @@ class AzureClassicCloudConnector(CloudConnector):
             return (False, "Error getting the VM info: " + vm.id +
                     ". Error Code: " + str(resp.status_code) + ". Msg: " + resp.text)
         else:
-            self.log_debug("VM info: " + vm.id + " obtained.")
-            self.log_debug(resp.text)
+            self.log_info("VM info: " + vm.id + " obtained.")
+            self.log_info(resp.text)
             vm_info = Deployment(resp.text)
 
             vm.state = self.get_vm_state(vm_info)
 
-            self.log_debug("The VM state is: " + vm.state)
+            self.log_info("The VM state is: " + vm.state)
 
             instance_type = self.get_instance_type_by_name(
                 vm_info.RoleInstanceList.RoleInstance[0].InstanceSize, auth_data)
@@ -857,7 +856,7 @@ class AzureClassicCloudConnector(CloudConnector):
         vm.setIps(public_ips, private_ips)
 
     def finalize(self, vm, last, auth_data):
-        self.log_debug("Terminate VM: " + vm.id)
+        self.log_info("Terminate VM: " + vm.id)
         service_name = vm.id
 
         # Delete the service
@@ -900,7 +899,7 @@ class AzureClassicCloudConnector(CloudConnector):
         return (True, "")
 
     def stop(self, vm, auth_data):
-        self.log_debug("Stop VM: " + vm.id)
+        self.log_info("Stop VM: " + vm.id)
 
         op = """<ShutdownRoleOperation xmlns="http://schemas.microsoft.com/windowsazure"
  xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
@@ -910,7 +909,7 @@ class AzureClassicCloudConnector(CloudConnector):
         return self.call_role_operation(op, vm, auth_data)
 
     def start(self, vm, auth_data):
-        self.log_debug("Start VM: " + vm.id)
+        self.log_info("Start VM: " + vm.id)
 
         op = """<StartRoleOperation xmlns="http://schemas.microsoft.com/windowsazure"
  xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
@@ -935,7 +934,7 @@ class AzureClassicCloudConnector(CloudConnector):
                     "Error getting Role Sizes. Error Code: " + str(resp.status_code) + ". Msg: " + resp.text)
                 return []
             else:
-                self.log_debug("Role List obtained.")
+                self.log_info("Role List obtained.")
                 role_sizes = RoleSizes(resp.text)
                 res = []
                 for role_size in role_sizes.RoleSize:

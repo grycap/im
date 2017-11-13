@@ -147,6 +147,51 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             self.driver = driver
             return driver
 
+    def get_instance_type(self, sizes, radl):
+        """
+        Get the name of the instance type to launch to LibCloud
+
+        Arguments:
+           - size(list of :py:class: `libcloud.compute.base.NodeSize`): List of sizes on a provider
+           - radl(str): RADL document with the requirements of the VM to get the instance type
+        Returns: a :py:class:`libcloud.compute.base.NodeSize` with the instance type to launch
+        """
+        instance_type_name = radl.getValue('instance_type')
+
+        cpu = 1
+        cpu_op = ">="
+        if radl.getFeature('cpu.count'):
+            cpu = radl.getValue('cpu.count')
+            cpu_op = radl.getFeature('cpu.count').getLogOperator()
+
+        memory = 1
+        memory_op = ">="
+        if radl.getFeature('memory.size'):
+            memory = radl.getFeature('memory.size').getValue('M')
+            memory_op = radl.getFeature('memory.size').getLogOperator()
+        disk_free = 0
+        disk_free_op = ">="
+        if radl.getValue('disk.0.free_size'):
+            disk_free = radl.getFeature('disk.0.free_size').getValue('G')
+            disk_free_op = radl.getFeature('memory.size').getLogOperator()
+
+        res = None
+        for size in sizes:
+            # get the node size with the lowest price and memory (in the case
+            # of the price is not set)
+            if res is None or (size.price <= res.price and size.ram <= res.ram):
+                str_compare = "size.ram " + memory_op + " memory"
+                str_compare += " and size.vcpus " + cpu_op + " cpu "
+                str_compare += " and size.disk " + disk_free_op + " disk_free"
+                if eval(str_compare):
+                    if not instance_type_name or size.name == instance_type_name:
+                        res = size
+
+        if res is None:
+            self.log_error("No compatible size found")
+
+        return res
+
     def concreteSystem(self, radl_system, auth_data):
         image_urls = radl_system.getValue("disk.0.image.url")
         if not image_urls:
@@ -352,7 +397,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 self.log_error("Error adding a floating IP: Max number of retries reached.")
                 self.error_messages += "Error adding a floating IP: Max number of retries reached.\n"
         else:
-            self.log_debug("The VM is not running, not adding Elastic/Floating IPs.")
+            self.log_info("The VM is not running, not adding Elastic/Floating IPs.")
 
     def update_system_info_from_instance(self, system, instance_type):
         """
@@ -386,7 +431,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             # site has IP pools, we do not need to assign a network to this interface
             # it will be assigned with a floating IP
             if network.isPublic() and num_nets > 1 and pool_names:
-                self.log_debug("Public IP to be assigned with a floating IP. Do not set a net.")
+                self.log_info("Public IP to be assigned with a floating IP. Do not set a net.")
             else:
                 # First check if the user has specified a provider ID
                 if net_provider_id:
@@ -469,7 +514,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         elif not system.getValue("disk.0.os.credentials.password"):
             keypair_name = "im-%d" % int(time.time() * 100.0)
-            self.log_debug("Create keypair: %s" % keypair_name)
+            self.log_info("Create keypair: %s" % keypair_name)
             keypair = driver.create_key_pair(keypair_name)
             keypair_created = True
             public_key = keypair.public_key
@@ -500,7 +545,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         i = 0
         all_failed = True
         while i < num_vm:
-            self.log_debug("Creating node")
+            self.log_info("Creating node")
 
             node = None
             retries = 0
@@ -520,7 +565,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 # Add the keypair name to remove it later
                 if keypair_name:
                     vm.keypair = keypair_name
-                self.log_debug("Node successfully created.")
+                self.log_info("Node successfully created.")
                 all_failed = False
                 inf.add_vm(vm)
                 res.append((True, vm))
@@ -532,10 +577,10 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         if all_failed:
             if keypair_created:
                 # only delete in case of the user do not specify the keypair name
-                self.log_debug("Deleting keypair: %s." % keypair_name)
+                self.log_info("Deleting keypair: %s." % keypair_name)
                 driver.delete_key_pair(keypair)
             for sg in sgs:
-                self.log_debug("Deleting security group: %s." % sg.id)
+                self.log_info("Deleting security group: %s." % sg.id)
                 driver.ex_delete_security_group(sg)
 
         return res
@@ -584,11 +629,11 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 # It is a fixed IP
                 if ip not in public_ips:
                     # It has not been created yet, do it
-                    self.log_debug("Asking for a fixed ip: %s." % ip)
+                    self.log_info("Asking for a fixed ip: %s." % ip)
                     success, msg = self.add_elastic_ip(vm, node, ip, pool_name)
             else:
                 if num >= len(public_ips):
-                    self.log_debug("Asking for public IP %d and there are %d" % (num + 1, len(public_ips)))
+                    self.log_info("Asking for public IP %d and there are %d" % (num + 1, len(public_ips)))
                     success, msg = self.add_elastic_ip(vm, node, None, pool_name)
 
             if not success:
@@ -608,7 +653,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             if not ip.node_id:
                 is_private = any([IPAddress(ip.ip_address) in IPNetwork(mask) for mask in Config.PRIVATE_NET_MASKS])
                 if is_private:
-                    self.log_debug("Floating IP found %s, but it is private. Ignore." % ip.ip_address)
+                    self.log_info("Floating IP found %s, but it is private. Ignore." % ip.ip_address)
                 else:
                     return True, ip
 
@@ -625,7 +670,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         Returns: a :py:class:`OpenStack_1_1_FloatingIpAddress` added or None if some problem occur.
         """
         try:
-            self.log_debug("Add an Floating IP")
+            self.log_info("Add an Floating IP")
 
             pool = self.get_ip_pool(node.driver, pool_name)
             if not pool:
@@ -633,7 +678,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     msg = "Incorrect pool name: %s." % pool_name
                 else:
                     msg = "No pools available."
-                self.log_debug("No Floating IP assigned: %s" % msg)
+                self.log_info("No Floating IP assigned: %s" % msg)
                 return False, msg
 
             if node.driver.ex_list_floating_ip_pools():
@@ -659,7 +704,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
                     if is_private:
                         self.log_error("Error getting a Floating IP from pool %s. The IP is private." % pool_name)
-                        self.log_debug("We have created it, so release it.")
+                        self.log_info("We have created it, so release it.")
                         floating_ip.delete()
                         return False, "Error attaching a Floating IP to the node. Private IP returned."
 
@@ -681,7 +726,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
                     if not attached:
                         self.log_error("Error attaching a Floating IP to the node.")
-                        self.log_debug("We have created it, so release it.")
+                        self.log_info("We have created it, so release it.")
                         floating_ip.delete()
                         return False, "Error attaching a Floating IP to the node."
                 return True, floating_ip
@@ -720,7 +765,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             with inf._lock:
                 sg = self._get_security_group(driver, sg_name)
                 if not sg:
-                    self.log_debug("Creating security group: %s" % sg_name)
+                    self.log_info("Creating security group: %s" % sg_name)
                     sg = driver.ex_create_security_group(sg_name, "Security group created by the IM")
                 res.append(sg)
 
@@ -792,14 +837,14 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     self.delete_security_groups(node, vm.inf)
                 else:
                     # If this is not the last vm, we skip this step
-                    self.log_debug("There are active instances. Not removing the SG")
+                    self.log_info("There are active instances. Not removing the SG")
             except:
                 self.log_exception("Error deleting security groups.")
 
             if not success:
                 return (False, "Error destroying node: " + vm.id)
 
-            self.log_debug("VM " + str(vm.id) + " successfully destroyed")
+            self.log_info("VM " + str(vm.id) + " successfully destroyed")
         else:
             self.log_warn("VM " + str(vm.id) + " not found.")
 
@@ -819,11 +864,11 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 # Get the SG to delete
                 sg = self._get_security_group(node.driver, sg_name)
                 if not sg:
-                    self.log_debug("The SG %s does not exist. Do not delete it." % sg_name)
+                    self.log_info("The SG %s does not exist. Do not delete it." % sg_name)
                     deleted = True
                 else:
                     try:
-                        self.log_debug("Deleting SG: %s" % sg_name)
+                        self.log_info("Deleting SG: %s" % sg_name)
                         node.driver.ex_delete_security_group(sg)
                         deleted = True
                     except Exception as ex:
