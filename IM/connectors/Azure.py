@@ -148,20 +148,18 @@ class AzureCloudConnector(CloudConnector):
         instace_types = list(compute_client.virtual_machine_sizes.list(location))
         instace_types.sort(key=lambda x: (x.number_of_cores, x.memory_in_mb, x.resource_disk_size_in_mb))
 
-        res = None
         default = None
         for instace_type in instace_types:
             if instace_type.name == self.INSTANCE_TYPE:
                 default = instace_type
-            # get the instance type with the lowest Memory
-            if res is None:
-                str_compare = "instace_type.number_of_cores " + cpu_op + " cpu "
-                str_compare += " and instace_type.memory_in_mb " + memory_op + " memory "
-                str_compare += " and instace_type.resource_disk_size_in_mb " + disk_free_op + " disk_free"
 
-                if eval(str_compare):
-                    if not instance_type_name or instace_type.name == instance_type_name:
-                        return instace_type
+            str_compare = "instace_type.number_of_cores " + cpu_op + " cpu "
+            str_compare += " and instace_type.memory_in_mb " + memory_op + " memory "
+            str_compare += " and instace_type.resource_disk_size_in_mb " + disk_free_op + " disk_free"
+
+            if eval(str_compare):
+                if not instance_type_name or instace_type.name == instance_type_name:
+                    return instace_type
 
         return default
 

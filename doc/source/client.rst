@@ -102,9 +102,10 @@ The :program:`im_client` is called like this::
       Stop (but not remove) the specified virtual machine ``vmId`` associated to the infrastructure with ID
       infrastructure with ID ``infId``.
       
-   ``sshvm infId vmId``
+   ``sshvm infId vmId [show_only]``
       Connect with SSH with the specified virtual machine ``vmId`` associated to the infrastructure with ID
-      infrastructure with ID ``infId``.
+      infrastructure with ID ``infId``. The ``show_only`` parameter is optional and is a flag to specify if ssh
+      command will only be shown in stdout instead of executed.
 
    ``export infId delete``
       Export the data of the infrastructure with ID ``infId``. The ``delete`` parameter is optional
