@@ -242,14 +242,14 @@ class InfrastructureManager:
         """Return infrastructure info with some id if valid authorization provided."""
 
         if inf_id not in IM.InfrastructureList.InfrastructureList.get_inf_ids():
-            InfrastructureManager.logger.error("Error, incorrect infrastructure ID: %s" % inf_id)
+            InfrastructureManager.logger.error("Error, incorrect Inf ID: %s" % inf_id)
             raise IncorrectInfrastructureException()
         sel_inf = IM.InfrastructureList.InfrastructureList.get_infrastructure(inf_id)
         if not sel_inf.is_authorized(auth):
-            InfrastructureManager.logger.error("Access Error to infrastructure ID: %s" % inf_id)
+            InfrastructureManager.logger.error("Access Error to Inf ID: %s" % inf_id)
             raise UnauthorizedUserException()
         if sel_inf.deleted:
-            InfrastructureManager.logger.error("Infrastructure ID: %s is deleted." % inf_id)
+            InfrastructureManager.logger.error("Inf ID: %s is deleted." % inf_id)
             raise DeletedInfrastructureException()
 
         return sel_inf
@@ -276,12 +276,12 @@ class InfrastructureManager:
         """
         auth = InfrastructureManager.check_auth_data(auth)
 
-        InfrastructureManager.logger.info("Reconfiguring the inf: " + str(inf_id))
+        InfrastructureManager.logger.info("Reconfiguring the Inf ID: " + str(inf_id))
         if isinstance(radl_data, RADL):
             radl = radl_data
         else:
             radl = radl_parse.parse_radl(radl_data)
-        InfrastructureManager.logger.debug(radl)
+        InfrastructureManager.logger.debug("Inf ID: " + str(inf_id) + ": \n" + str(radl))
 
         sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
 
@@ -311,7 +311,7 @@ class InfrastructureManager:
                             password=password, public_key=public_key, private_key=private_key, new=True)
 
         # Stick all virtual machines to be reconfigured
-        InfrastructureManager.logger.info("Contextualize the inf: " + sel_inf.id)
+        InfrastructureManager.logger.info("Contextualize the Inf ID: " + sel_inf.id)
         # reset ansible_configured to force the re-installation of galaxy roles
         sel_inf.ansible_configured = None
         sel_inf.Contextualize(auth, vm_list)
@@ -383,14 +383,14 @@ class InfrastructureManager:
             failed_clouds = []
         auth = InfrastructureManager.check_auth_data(auth)
 
-        InfrastructureManager.logger.info("Adding resources to inf: " + str(inf_id))
+        InfrastructureManager.logger.info("Adding resources to Inf ID: " + str(inf_id))
 
         if isinstance(radl_data, RADL):
             radl = radl_data
         else:
             radl = radl_parse.parse_radl(radl_data)
 
-        InfrastructureManager.logger.debug(radl)
+        InfrastructureManager.logger.debug("Inf ID: " + str(inf_id) + ": \n" + str(radl))
         radl.check()
 
         sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
@@ -423,7 +423,7 @@ class InfrastructureManager:
                                 "Error in the requirements of the app: " +
                                 app_to_install.getValue("name") +
                                 ". Ignore them.")
-                            InfrastructureManager.logger.debug(requirements)
+                            InfrastructureManager.logger.debug("Inf ID: " + sel_inf.id + ": " + str(requirements))
                         break
 
         # Get VMRC credentials
@@ -493,7 +493,7 @@ class InfrastructureManager:
         # Group virtual machines to deploy by network dependencies
         deploy_groups = InfrastructureManager._compute_deploy_groups(radl)
         InfrastructureManager.logger.debug("Inf ID: " + sel_inf.id + ": Groups of VMs with dependencies")
-        InfrastructureManager.logger.debug(deploy_groups)
+        InfrastructureManager.logger.debug("Inf ID: " + sel_inf.id + "\n" + str(deploy_groups))
 
         # Sort by score the cloud providers
         # NOTE: consider fake deploys (vm_number == 0)
@@ -511,7 +511,7 @@ class InfrastructureManager:
             elif len(suggested_cloud_ids) == 1:
                 if suggested_cloud_ids[0] not in cloud_list:
                     InfrastructureManager.logger.debug("Inf ID: " + sel_inf.id + ": Cloud Provider list:")
-                    InfrastructureManager.logger.debug(cloud_list)
+                    InfrastructureManager.logger.debug("Inf ID: " + sel_inf.id + " - " + str(cloud_list))
                     raise Exception("No auth data for cloud with ID: %s" % suggested_cloud_ids[0])
                 else:
                     cloud_list0 = [
@@ -597,7 +597,7 @@ class InfrastructureManager:
         # Add the new virtual machines to the infrastructure
         sel_inf.update_radl(radl, [(d, deployed_vm[d], concrete_systems[d.cloud_id][d.id][0])
                                    for d in deployed_vm])
-        InfrastructureManager.logger.info("VMs %s successfully added to Inf id %s" % (new_vms, sel_inf.id))
+        InfrastructureManager.logger.info("VMs %s successfully added to Inf ID: %s" % (new_vms, sel_inf.id))
 
         # Let's contextualize!
         if context and new_vms:
@@ -623,7 +623,7 @@ class InfrastructureManager:
         """
         auth = InfrastructureManager.check_auth_data(auth)
 
-        InfrastructureManager.logger.info("Removing the VMs: " + str(vm_list) + " from inf ID: '" + str(inf_id) + "'")
+        InfrastructureManager.logger.info("Removing the VMs: " + str(vm_list) + " from Inf ID: '" + str(inf_id) + "'")
 
         sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
 
@@ -698,7 +698,7 @@ class InfrastructureManager:
         auth = InfrastructureManager.check_auth_data(auth)
 
         InfrastructureManager.logger.info(
-            "Get information about the vm: '" + str(vm_id) + "' from inf: " + str(inf_id))
+            "Get information about the vm: '" + str(vm_id) + "' from Inf ID: " + str(inf_id))
 
         vm = InfrastructureManager.get_vm_from_inf(inf_id, vm_id, auth)
 
@@ -729,12 +729,12 @@ class InfrastructureManager:
         auth = InfrastructureManager.check_auth_data(auth)
 
         InfrastructureManager.logger.info(
-            "Get contextualization log of the vm: '" + str(vm_id) + "' from inf: " + str(inf_id))
+            "Get contextualization log of the vm: '" + str(vm_id) + "' from Inf ID: " + str(inf_id))
 
         vm = InfrastructureManager.get_vm_from_inf(inf_id, vm_id, auth)
 
         cont_msg = vm.get_cont_msg()
-        InfrastructureManager.logger.debug(cont_msg)
+        InfrastructureManager.logger.debug("Inf ID: " + str(inf_id) + ": " + cont_msg)
 
         return cont_msg
 
@@ -755,7 +755,7 @@ class InfrastructureManager:
         auth = InfrastructureManager.check_auth_data(auth)
 
         InfrastructureManager.logger.info(
-            "Modifying the VM: '" + str(vm_id) + "' from inf: " + str(inf_id))
+            "Modifying the VM: '" + str(vm_id) + "' from Inf ID: " + str(inf_id))
         vm = InfrastructureManager.get_vm_from_inf(inf_id, vm_id, auth)
         if not vm:
             InfrastructureManager.logger.info(
@@ -800,12 +800,12 @@ class InfrastructureManager:
         """
         auth = InfrastructureManager.check_auth_data(auth)
 
-        InfrastructureManager.logger.info("Getting RADL of the inf: " + str(inf_id))
+        InfrastructureManager.logger.info("Getting RADL of the Inf ID: " + str(inf_id))
 
         sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
 
         radl = str(sel_inf.get_radl())
-        InfrastructureManager.logger.debug(radl)
+        InfrastructureManager.logger.debug("Inf ID: " + sel_inf.id + ": " + radl)
         return radl
 
     @staticmethod
@@ -822,12 +822,12 @@ class InfrastructureManager:
         """
         auth = InfrastructureManager.check_auth_data(auth)
 
-        InfrastructureManager.logger.info("Getting information about the inf: " + str(inf_id))
+        InfrastructureManager.logger.info("Getting information about the Inf ID: " + str(inf_id))
 
         sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
         res = [str(vm.im_id) for vm in sel_inf.get_vm_list()]
 
-        InfrastructureManager.logger.debug(res)
+        InfrastructureManager.logger.debug("Inf ID: " + sel_inf.id + ": " + str(res))
         return res
 
     @staticmethod
@@ -846,7 +846,7 @@ class InfrastructureManager:
         auth = InfrastructureManager.check_auth_data(auth)
 
         InfrastructureManager.logger.info(
-            "Getting cont msg of the inf: " + str(inf_id))
+            "Getting cont msg of the Inf ID: " + str(inf_id))
 
         sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
         res = sel_inf.cont_out
@@ -857,7 +857,7 @@ class InfrastructureManager:
                     res += "VM " + str(vm.id) + ":\n" + vm.get_cont_msg() + "\n"
                     res += "***************************************************************************\n"
 
-        InfrastructureManager.logger.debug(res)
+        InfrastructureManager.logger.debug("Inf ID: " + sel_inf.id + ": " + res)
         return res
 
     @staticmethod
@@ -876,8 +876,7 @@ class InfrastructureManager:
         """
         auth = InfrastructureManager.check_auth_data(auth)
 
-        InfrastructureManager.logger.info(
-            "Getting state of the inf: " + str(inf_id))
+        InfrastructureManager.logger.info("Getting state of the Inf ID: " + str(inf_id))
 
         sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
 
@@ -917,20 +916,19 @@ class InfrastructureManager:
         if state is None:
             state = VirtualMachine.UNKNOWN
 
-        InfrastructureManager.logger.info(
-            "inf: " + str(inf_id) + " is in state: " + state)
+        InfrastructureManager.logger.info("Inf ID: " + str(inf_id) + " is in state: " + state)
         return {'state': state, 'vm_states': vm_states}
 
     @staticmethod
     def _stop_vm(vm, auth, exceptions):
         try:
             success = False
-            InfrastructureManager.logger.info("Stopping the VM id: " + vm.id)
+            InfrastructureManager.logger.info("Inf ID: " + vm.inf.id + ": Stopping the VM id: " + vm.id)
             (success, msg) = vm.stop(auth)
         except Exception as e:
             msg = str(e)
         if not success:
-            InfrastructureManager.logger.info("The VM cannot be stopped")
+            InfrastructureManager.logger.info("Inf ID: " + vm.inf.id + ": The VM cannot be stopped")
             exceptions.append(msg)
 
     @staticmethod
@@ -947,8 +945,7 @@ class InfrastructureManager:
         """
         auth = InfrastructureManager.check_auth_data(auth)
 
-        InfrastructureManager.logger.info(
-            "Stopping the infrastructure id: " + str(inf_id))
+        InfrastructureManager.logger.info("Stopping the Inf ID: " + str(inf_id))
 
         sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
         exceptions = []
@@ -977,12 +974,12 @@ class InfrastructureManager:
     def _start_vm(vm, auth, exceptions):
         try:
             success = False
-            InfrastructureManager.logger.info("Starting the VM id: " + vm.id)
+            InfrastructureManager.logger.info("Inf ID: " + vm.inf.id + ": Starting the VM id: " + vm.id)
             (success, msg) = vm.start(auth)
         except Exception as e:
             msg = str(e)
         if not success:
-            InfrastructureManager.logger.info("The VM cannot be restarted")
+            InfrastructureManager.logger.info("Inf ID: " + vm.inf.id + ": The VM cannot be restarted")
             exceptions.append(msg)
 
     @staticmethod
@@ -999,8 +996,7 @@ class InfrastructureManager:
         """
         auth = InfrastructureManager.check_auth_data(auth)
 
-        InfrastructureManager.logger.info(
-            "Starting the infrastructure id: " + str(inf_id))
+        InfrastructureManager.logger.info("Starting the Inf ID: " + str(inf_id))
 
         sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
         exceptions = []
@@ -1040,8 +1036,7 @@ class InfrastructureManager:
         """
         auth = InfrastructureManager.check_auth_data(auth)
 
-        InfrastructureManager.logger.info(
-            "Starting the VM id %s from the infrastructure id: %s" % (vm_id, inf_id))
+        InfrastructureManager.logger.info("Starting the VM id %s from the Inf ID: %s" % (vm_id, inf_id))
 
         vm = InfrastructureManager.get_vm_from_inf(inf_id, vm_id, auth)
         success = False
@@ -1078,7 +1073,7 @@ class InfrastructureManager:
         auth = InfrastructureManager.check_auth_data(auth)
 
         InfrastructureManager.logger.info(
-            "Stopping the VM id %s from the infrastructure id: %s" % (vm_id, inf_id))
+            "Stopping the VM id %s from the Inf ID: %s" % (vm_id, inf_id))
 
         vm = InfrastructureManager.get_vm_from_inf(inf_id, vm_id, auth)
         success = False
@@ -1125,12 +1120,12 @@ class InfrastructureManager:
         last = InfrastructureManager.is_last_in_cloud(vm, delete_list, remain_vms)
         success = False
         try:
-            InfrastructureManager.logger.info("Finalizing the VM id: " + str(vm.id))
+            InfrastructureManager.logger.info("Inf ID: " + vm.inf.id + ": Finalizing the VM id: " + str(vm.id))
             (success, msg) = vm.finalize(last, auth)
         except Exception as e:
             msg = str(e)
         if not success:
-            InfrastructureManager.logger.info("The VM cannot be finalized: %s" % msg)
+            InfrastructureManager.logger.info("Inf ID: " + vm.inf.id + ": The VM cannot be finalized: %s" % msg)
             exceptions.append(msg)
         return success
 
@@ -1149,7 +1144,7 @@ class InfrastructureManager:
         # First check the auth data
         auth = InfrastructureManager.check_auth_data(auth)
 
-        InfrastructureManager.logger.info("Destroying the infrastructure id: " + str(inf_id))
+        InfrastructureManager.logger.info("Destroying the Inf ID: " + str(inf_id))
 
         sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
         exceptions = []
@@ -1178,7 +1173,7 @@ class InfrastructureManager:
         sel_inf.delete()
         IM.InfrastructureList.InfrastructureList.save_data(inf_id)
         IM.InfrastructureList.InfrastructureList.remove_inf(sel_inf)
-        InfrastructureManager.logger.info("Infrastructure %s successfully destroyed" % inf_id)
+        InfrastructureManager.logger.info("Inf ID: %s: Successfully destroyed" % inf_id)
         return ""
 
     @staticmethod
@@ -1202,12 +1197,10 @@ class InfrastructureManager:
                             break
                     return found
                 except Exception:
-                    InfrastructureManager.logger.exception(
-                        "Incorrect format in the User DB file %s" % Config.USER_DB)
+                    InfrastructureManager.logger.exception("Incorrect format in the User DB file %s" % Config.USER_DB)
                     return False
             else:
-                InfrastructureManager.logger.error(
-                    "User DB file %s not found" % Config.USER_DB)
+                InfrastructureManager.logger.error("User DB file %s not found" % Config.USER_DB)
                 return False
         else:
             return True
@@ -1339,21 +1332,18 @@ class InfrastructureManager:
         inf.auth = Authentication(auth.getAuthInfo("InfrastructureManager"))
         IM.InfrastructureList.InfrastructureList.add_infrastructure(inf)
         IM.InfrastructureList.InfrastructureList.save_data(inf.id)
-        InfrastructureManager.logger.info(
-            "Creating new infrastructure with id: " + str(inf.id))
+        InfrastructureManager.logger.info("Creating new Inf ID: " + str(inf.id))
 
         # Add the resources in radl_data
         try:
             InfrastructureManager.AddResource(inf.id, radl, auth)
         except Exception as e:
-            InfrastructureManager.logger.exception(
-                "Error Creating Inf id " + str(inf.id))
+            InfrastructureManager.logger.exception("Error Creating Inf ID " + str(inf.id))
             inf.delete()
             IM.InfrastructureList.InfrastructureList.save_data(inf.id)
             IM.InfrastructureList.InfrastructureList.remove_inf(inf)
             raise e
-        InfrastructureManager.logger.info(
-            "Infrastructure id " + str(inf.id) + " successfully created")
+        InfrastructureManager.logger.info("Inf ID:" + str(inf.id) + ": Successfully created")
 
         return inf.id
 
@@ -1374,8 +1364,7 @@ class InfrastructureManager:
 
         auths = auth.getAuthInfo('InfrastructureManager')
         if not auths:
-            InfrastructureManager.logger.error(
-                "No correct auth data has been specified.")
+            InfrastructureManager.logger.error("No correct auth data has been specified.")
             raise InvaliddUserException()
 
         return IM.InfrastructureList.InfrastructureList.get_inf_ids(auth)
@@ -1387,7 +1376,7 @@ class InfrastructureManager:
 
         sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
         str_inf = sel_inf.serialize()
-        InfrastructureManager.logger.info("Exporting infrastructure id: " + str(sel_inf.id))
+        InfrastructureManager.logger.info("Exporting Inf ID: " + str(sel_inf.id))
         if delete:
             sel_inf.delete()
             IM.InfrastructureList.InfrastructureList.save_data(sel_inf.id)
@@ -1408,8 +1397,7 @@ class InfrastructureManager:
         new_inf.auth = Authentication(auth.getAuthInfo("InfrastructureManager"))
 
         IM.InfrastructureList.InfrastructureList.add_infrastructure(new_inf)
-        InfrastructureManager.logger.info(
-            "Importing new infrastructure with id: " + str(new_inf.id))
+        InfrastructureManager.logger.info("Importing new infrastructure with Inf ID: " + str(new_inf.id))
         # Save the state
         IM.InfrastructureList.InfrastructureList.save_data(new_inf.id)
         return new_inf.id
@@ -1433,13 +1421,14 @@ class InfrastructureManager:
         Return: a str with url of the saved snapshot.
         """
         auth = InfrastructureManager.check_auth_data(auth)
-        InfrastructureManager.logger.info("Creating a snapshot of VM id: %s Inf id: %s" % (vm_id, inf_id))
+        InfrastructureManager.logger.info("Creating a snapshot of VM id: %s Inf ID: %s" % (vm_id, inf_id))
 
         vm = InfrastructureManager.get_vm_from_inf(inf_id, vm_id, auth)
 
         success, image_url = vm.create_snapshot(disk_num, image_name, auto_delete, auth)
         if not success:
-            InfrastructureManager.logger.error("Error creating snapshot: %s" % image_url)
+            InfrastructureManager.logger.error("Error creating a snapshot: %s of VM id: %s "
+                                               "Inf ID: %s" % (image_url, vm_id, inf_id))
             raise Exception("Error creating snapshot: %s" % image_url)
         else:
             return image_url

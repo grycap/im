@@ -270,7 +270,7 @@ class OCCICloudConnector(CloudConnector):
                                                                                         self.MAX_ADD_IP_COUNT)
         else:
             self.log_error("Error adding public IP the VM: Max number of retries reached.")
-            self.error_messages += "Error adding public IP the VM: Max number of retries reached.\n"
+            # self.error_messages += "Error adding public IP the VM: Max number of retries reached.\n"
             # this is a total fail, stop contextualization
             vm.configured = False
             vm.inf.set_configured(False)

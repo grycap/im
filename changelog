@@ -357,3 +357,8 @@ IM 1.6.4
     * Fix error validating keystone token in OCCI conn.
     * Decrease timeout getting ansible process results.
     * Enable to get the initial infrastructure contextualization log.
+
+IM 1.6.5
+    * Homogenize Inf ID log message
+    * Fix error cpu.count parameter is ignored in OpenStack conn.
+
