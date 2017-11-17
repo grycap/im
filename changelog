@@ -361,3 +361,4 @@ IM 1.6.4
 IM 1.6.5
     * Homogenize Inf ID log message
     * Fix error cpu.count parameter is ignored in OpenStack conn.
+    * Fix ansible_version is not available in ctxt process.
