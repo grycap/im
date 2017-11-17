@@ -48,7 +48,6 @@ else:
         from ansible.vars import VariableManager
         from ansible.inventory import Inventory
     import ansible.inventory
-    from ansible.utils.vars import load_options_vars
 
     from .ansible_executor_v2 import IMPlaybookExecutor
 
@@ -158,7 +157,7 @@ class AnsibleThread(Process):
 
         variable_manager = VariableManager()
         variable_manager.extra_vars = self.extra_vars
-        variable_manager.options_vars = load_options_vars(options, self.version_info(ansible_version))
+        variable_manager.options_vars = {'ansible_version': self.version_info(ansible_version)}
 
         # Add this to avoid the Ansible bug:  no host vars as host is not in inventory
         # In version 2.0.1 it must be fixed
@@ -188,7 +187,7 @@ class AnsibleThread(Process):
         # the code, ensuring a consistent view of global variables
         variable_manager = VariableManager(loader=loader, inventory=inventory)
         variable_manager.extra_vars = self.extra_vars
-        variable_manager.options_vars = load_options_vars(options, self.version_info(ansible_version))
+        variable_manager.options_vars = {'ansible_version': self.version_info(ansible_version)}
 
         return loader, inventory, variable_manager
 
