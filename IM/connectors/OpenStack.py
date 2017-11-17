@@ -175,22 +175,18 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             disk_free = radl.getFeature('disk.0.free_size').getValue('G')
             disk_free_op = radl.getFeature('memory.size').getLogOperator()
 
-        res = None
+        # get the node size with the lowest price, vcpus and memory
+        sizes.sort(key=lambda x: (x.price, x.vcpus, x.ram))
         for size in sizes:
-            # get the node size with the lowest price and memory (in the case
-            # of the price is not set)
-            if res is None or (size.price <= res.price and size.ram <= res.ram):
-                str_compare = "size.ram " + memory_op + " memory"
-                str_compare += " and size.vcpus " + cpu_op + " cpu "
-                str_compare += " and size.disk " + disk_free_op + " disk_free"
-                if eval(str_compare):
-                    if not instance_type_name or size.name == instance_type_name:
-                        res = size
+            str_compare = "size.ram " + memory_op + " memory"
+            str_compare += " and size.vcpus " + cpu_op + " cpu "
+            str_compare += " and size.disk " + disk_free_op + " disk_free"
+            if eval(str_compare):
+                if not instance_type_name or size.name == instance_type_name:
+                    return size
 
-        if res is None:
-            self.log_error("No compatible size found")
-
-        return res
+        self.log_error("No compatible size found")
+        return None
 
     def concreteSystem(self, radl_system, auth_data):
         image_urls = radl_system.getValue("disk.0.image.url")
