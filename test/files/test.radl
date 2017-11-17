@@ -69,6 +69,7 @@ configure test (
      - easy_install: name=jmespath
     tasks:
       - debug: msg="NODENAME = {{NODENAME}}"
+      - debug: msg="VERSION = {{ansible_version.major}}"
       - shell:  test -d "/mnt/disk/lost+found"
 
 @end
