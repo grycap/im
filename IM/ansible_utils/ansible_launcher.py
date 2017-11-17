@@ -48,6 +48,7 @@ else:
         from ansible.vars import VariableManager
         from ansible.inventory import Inventory
     import ansible.inventory
+    from ansible.utils.vars import load_options_vars
 
     from .ansible_executor_v2 import IMPlaybookExecutor
 
@@ -157,6 +158,7 @@ class AnsibleThread(Process):
 
         variable_manager = VariableManager()
         variable_manager.extra_vars = self.extra_vars
+        variable_manager.options_vars = load_options_vars(options, self.version_info(ansible_version))
 
         # Add this to avoid the Ansible bug:  no host vars as host is not in inventory
         # In version 2.0.1 it must be fixed
@@ -186,8 +188,29 @@ class AnsibleThread(Process):
         # the code, ensuring a consistent view of global variables
         variable_manager = VariableManager(loader=loader, inventory=inventory)
         variable_manager.extra_vars = self.extra_vars
+        variable_manager.options_vars = load_options_vars(options, self.version_info(ansible_version))
 
         return loader, inventory, variable_manager
+
+    def version_info(self, ansible_version_string):
+        ''' return full ansible version info '''
+        ansible_ver = ansible_version_string.split()[0]
+        ansible_versions = ansible_ver.split('.')
+        for counter in range(len(ansible_versions)):
+            if ansible_versions[counter] == "":
+                ansible_versions[counter] = 0
+            try:
+                ansible_versions[counter] = int(ansible_versions[counter])
+            except:
+                pass
+        if len(ansible_versions) < 3:
+            for counter in range(len(ansible_versions), 3):
+                ansible_versions.append(0)
+        return {'string': ansible_version_string.strip(),
+                'full': ansible_ver,
+                'major': ansible_versions[0],
+                'minor': ansible_versions[1],
+                'revision': ansible_versions[2]}
 
     def launch_playbook_v2(self):
         ''' run ansible-playbook operations v2.X'''
