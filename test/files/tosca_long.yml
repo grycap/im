@@ -164,7 +164,7 @@ topology_template:
     - deploy_on_cloudid:
        type: tosca.policies.Placement
        properties: { cloud_id: cloudid }
-       targets: [ lrms_server ]
+       targets: [ other_server ]
 
     - deploy_group_on_cloudid:
        type: tosca.policies.Placement
