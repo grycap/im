@@ -44,6 +44,30 @@ class Tosca:
     def deserialize(str_data):
         return Tosca(str_data)
 
+    def _get_cloud_id(self, sys_name):
+        """
+        Get the cloud ID of the deployment based on policies
+        """
+        for policy in self.tosca.policies:
+            if policy.type_definition.type == "tosca.policies.Placement":
+                node_list = []
+                if policy.targets_type == "node_templates":
+                    node_list = policy.targets_list
+                elif policy.targets_type == "groups":
+                    for group in policy.targets_list:
+                        node_list.extend(group.member_nodes)
+
+                for node in node_list:
+                    if node.name == sys_name:
+                        if 'cloud_id' in policy.properties:
+                            Tosca.logger.debug("Set cloud id: %s to system: %s." % (policy.properties['cloud_id'],
+                                                                                    sys_name))
+                            return policy.properties['cloud_id']
+            else:
+                Tosca.logger.warn("Policy %s not supported. Ignoring it." % policy.type_definition.type)
+
+        return None
+
     def to_radl(self, inf_info=None):
         """
         Converts the current ToscaTemplate object in a RADL object
@@ -111,7 +135,8 @@ class Tosca:
                         all_removal_list.extend(removal_list[0:-num_instances])
 
                     if num_instances > 0:
-                        dep = deploy(sys.name, num_instances)
+                        cloud_id = self._get_cloud_id(sys.name)
+                        dep = deploy(sys.name, num_instances, cloud_id)
                         radl.deploys.append(dep)
                     compute = node
                 else:

@@ -123,7 +123,7 @@ topology_template:
       capabilities:
         scalable:
           properties:
-            count: 0
+            count: 1
         host:
           properties:
             num_cpus: 1
@@ -155,8 +155,18 @@ topology_template:
     galaxy_url:
       value: { concat: [ 'http://', get_attribute: [ lrms_server, public_address, 0 ], ':8080' ] }
 
+  groups:
+    my_placement_group:
+      type: tosca.groups.Root
+      members: [ lrms_server, lrms_wn ]
+
   policies:
-    - deploy_on_aws:
+    - deploy_on_cloudid:
        type: tosca.policies.Placement
-       properties: { sla_id: SLA_provider-AWS-us-east-1_indigo-dc,  username: {get_input: access_key}, password: {get_input: secret_key}}
-       targets: [ lrms_wn ]
+       properties: { cloud_id: cloudid }
+       targets: [ lrms_server ]
+
+    - deploy_group_on_cloudid:
+       type: tosca.policies.Placement
+       properties: { cloud_id: cloudid }
+       targets: [ my_placement_group ]
