@@ -63,6 +63,9 @@ class TestTosca(unittest.TestCase):
         lrms_server = radl.get_system_by_name('lrms_server')
         self.assertEqual(lrms_server.getValue('memory.size'), 1000000000)
         self.assertEqual(lrms_server.getValue('net_interface.0.dns_name'), 'slurmserver')
+        self.assertEqual("cloudid", radl.deploys[0].cloud_id)
+        self.assertEqual("cloudid", radl.deploys[1].cloud_id)
+        self.assertEqual("cloudid", radl.deploys[2].cloud_id)
 
     def test_tosca_get_outputs(self):
         """Test TOSCA get_outputs function"""
