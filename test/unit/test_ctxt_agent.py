@@ -228,6 +228,7 @@ class TestCtxtAgent(unittest.TestCase):
             f.write(" ansible_ssh_host=%s \n" % vm_data['ip'])
 
         vm_data['ctxt_ip'] = "10.0.0.2"
+        vm_data['ctxt_port'] = 22
         CtxtAgent.replace_vm_ip(vm_data)
 
         with open("/tmp/gen_data.json", "r") as f:

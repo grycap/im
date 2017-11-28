@@ -95,6 +95,7 @@ class CtxtAgent():
         success = False
         res = None
         last_tested_private = False
+        last_tested_22 = True
         while wait < CtxtAgent.SSH_WAIT_TIMEOUT:
             if 'ctxt_ip' in vm:
                 vm_ip = vm['ctxt_ip']
@@ -105,11 +106,18 @@ class CtxtAgent():
             else:
                 vm_ip = vm['ip']
                 last_tested_private = False
-            CtxtAgent.logger.debug("Testing SSH access to VM: %s:%s" % (vm_ip, vm['remote_port']))
+            if 'ctxt_port' in vm:
+                remote_port = vm['ctxt_port']
+            elif not last_tested_22:
+                remote_port = vm['remote_port']
+                last_tested_22 = False
+            else:
+                remote_port = 22
+                last_tested_22 = True
+            CtxtAgent.logger.debug("Testing SSH access to VM: %s:%s" % (vm_ip, remote_port))
             wait += delay
             try:
-                ssh_client = SSH(vm_ip, vm['user'], vm['passwd'], vm[
-                                 'private_key'], vm['remote_port'])
+                ssh_client = SSH(vm_ip, vm['user'], vm['passwd'], vm['private_key'], remote_port)
                 success = ssh_client.test_connectivity(delay)
                 res = 'init'
             except AuthenticationException:
@@ -121,8 +129,7 @@ class CtxtAgent():
                     CtxtAgent.logger.debug(
                         "Error connecting with SSH with initial credentials with: " + vm_ip + ". Try to use new ones.")
                     try:
-                        ssh_client = SSH(vm_ip, vm['user'], vm['new_passwd'], vm[
-                                         'private_key'], vm['remote_port'])
+                        ssh_client = SSH(vm_ip, vm['user'], vm['new_passwd'], vm['private_key'], remote_port)
                         success = ssh_client.test_connectivity()
                         res = "new"
                     except AuthenticationException:
@@ -134,7 +141,7 @@ class CtxtAgent():
                     CtxtAgent.logger.debug(
                         "Error connecting with SSH with initial credentials with: " + vm_ip + ". Try to ansible_key.")
                     try:
-                        ssh_client = SSH(vm_ip, vm['user'], None, CtxtAgent.PK_FILE, vm['remote_port'])
+                        ssh_client = SSH(vm_ip, vm['user'], None, CtxtAgent.PK_FILE, remote_port)
                         success = ssh_client.test_connectivity()
                         res = 'pk_file'
                     except:
@@ -144,6 +151,7 @@ class CtxtAgent():
 
             if success:
                 vm['ctxt_ip'] = vm_ip
+                vm['ctxt_port'] = remote_port
                 return res
             else:
                 time.sleep(delay)
@@ -373,6 +381,7 @@ class CtxtAgent():
         for vm in general_conf_data['vms']:
             if vm['id'] == vm_data['id']:
                 vm['ctxt_ip'] = vm_data['ctxt_ip']
+                vm['ctxt_port'] = vm_data['ctxt_port']
 
         with open(CtxtAgent.CONF_DATA_FILENAME, 'w+') as f:
             json.dump(general_conf_data, f, indent=2)
@@ -386,6 +395,10 @@ class CtxtAgent():
                               " ansible_host=%s " % vm_data['ctxt_ip'], line)
                 line = re.sub(" ansible_ssh_host=%s " % vm_data['ip'],
                               " ansible_ssh_host=%s " % vm_data['ctxt_ip'], line)
+                line = re.sub(" ansible_port=%s " % vm_data['remote_port'],
+                              " ansible_port=%s " % vm_data['ctxt_port'], line)
+                line = re.sub(" ansible_ssh_port=%s " % vm_data['remote_port'],
+                              " ansible_ssh_port=%s " % vm_data['ctxt_port'], line)
                 inventoy_data += line
 
         with open(filename, 'w+') as f:
@@ -431,7 +444,7 @@ class CtxtAgent():
                         task["become"] = "yes"
                         task["when"] = 'ansible_os_family == "Debian"'
                         yaml_data[0]['tasks'].append(task)
-                    task = {"command": "ansible-galaxy -f install %s" % url}
+                    task = {"command": "ansible-galaxy install %s" % url}
                     task["name"] = "Install %s galaxy role" % galaxy_name
                     task["become"] = "yes"
                     yaml_data[0]['tasks'].append(task)

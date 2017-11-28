@@ -45,6 +45,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
     """ default user to SSH access the VM """
     MAX_ADD_IP_COUNT = 5
     """ Max number of retries to get a public IP """
+    CONFIG_DRIVE = False
+    """ Enable config drive """
 
     def __init__(self, cloud_info, inf):
         self.auth = None
@@ -491,6 +493,9 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         if cloud_init:
             args['ex_userdata'] = cloud_init
 
+        if self.CONFIG_DRIVE:
+            args['ex_config_drive'] = self.CONFIG_DRIVE
+
         res = []
         i = 0
         all_failed = True
@@ -707,8 +712,9 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         while system.getValue("net_interface." + str(i) + ".connection"):
             network_name = system.getValue("net_interface." + str(i) + ".connection")
             network = radl.get_network_by_id(network_name)
-
-            sg_name = "im-%s-%s" % (str(inf.id), network_name)
+            sg_name = network.getValue("sg_name")
+            if not sg_name:
+                sg_name = "im-%s-%s" % (str(inf.id), network_name)
 
             # Use the InfrastructureInfo lock to assure that only one VM create the SG
             with inf._lock:

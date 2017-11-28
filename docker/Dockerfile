@@ -1,7 +1,7 @@
 # Dockerfile to create a container with the IM service
 FROM ubuntu:16.04
 MAINTAINER Miguel Caballer <micafer1@upv.es>
-LABEL version="1.5.6"
+LABEL version="1.6.2"
 LABEL description="Container image to run the IM service. (http://www.grycap.upv.es/im)"
 EXPOSE 8899 8800
 # Install Ansible
@@ -23,12 +23,23 @@ RUN wget https://launchpad.net/ubuntu/+archive/primary/+files/python-msrest_0.4.
 
 # Install IM
 RUN wget https://github.com/grycap/RADL/releases/download/v1.1.0/python-radl_1.1.0-1_all.deb && \ 
-    wget https://github.com/grycap/im/releases/download/v1.5.6/python-im_1.5.6-1_all.deb && \
+    wget https://github.com/grycap/im/releases/download/v1.6.1/python-im_1.6.1-1_all.deb && \
     dpkg -i python-radl_*_all.deb ; \
     dpkg -i python-im_*_all.deb ; \
     rm *.deb && \
     apt update && apt install -f -y && \
     rm -rf /var/lib/apt/lists/*
 
+# Copy a ansible.cfg with correct minimum values
 COPY ansible.cfg /etc/ansible/ansible.cfg
+
+# Remove old version of libcloud
+RUN dpkg -r --force-depends python-libcloud
+
+# And install the last versios of cheroot and libcloud
+RUN easy_install -U cheroot apache-libcloud
+
+# Expose the IM ports
+EXPOSE 8899 8800
+
 CMD im_service.py

@@ -93,8 +93,10 @@
       pip: name=ansible executable=pip-2.6
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int < 6
 
-#################################### Now install and scp and pywinrm with pip  ########################################
-      
+#################################### Now install scp, jmespath and pywinrm with pip  ##################################
+    - name: Install jmespath with Pip
+      pip: name=jmespath
+
     - name: Install scp with Pip
       pip: name=scp
       when: ansible_os_family != "RedHat" or (ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 6)
@@ -152,6 +154,9 @@
     - name: Set jinja2.ext.do to jinja2_extensions in ansible.cfg
       ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=jinja2_extensions value=jinja2.ext.do
 
+    - name: Set allow_world_readable_tmpfiles to True ansible.cfg
+      ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=allow_world_readable_tmpfiles value=True
+
     - name: Set fact_caching in ansible.cfg
       ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=fact_caching value=jsonfile
 
@@ -163,3 +168,6 @@
         
     - name: Set fact_caching_timeout in ansible.cfg
       ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=gathering value=smart
+
+    - name: Set roles_path in ansible.cfg
+      ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=roles_path value=/etc/ansible/roles

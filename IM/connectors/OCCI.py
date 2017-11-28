@@ -25,6 +25,7 @@ import tempfile
 import uuid
 import xmltodict
 import yaml
+import json
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
@@ -72,6 +73,10 @@ class OCCICloudConnector(CloudConnector):
             cert = proxy_filename
         else:
             cert = None
+
+        if auth and "token" in auth:
+            headers.update({'Authorization': 'Bearer ' + auth["token"]})
+
         try:
             resp = requests.request(method, url, verify=False, cert=cert, headers=headers, data=body)
         finally:
@@ -111,8 +116,7 @@ class OCCICloudConnector(CloudConnector):
 
         if keystone_uri:
             # TODO: Check validity of token
-            keystone_token = KeyStoneAuth.get_keystone_token(
-                self, keystone_uri, auth)
+            keystone_token = KeyStoneAuth.get_keystone_token(self, keystone_uri, auth)
             auth_header = {'X-Auth-Token': keystone_token}
         else:
             if 'username' in auth and 'password' in auth:
@@ -1201,17 +1205,19 @@ class OCCICloudConnector(CloudConnector):
         else:
             return None
 
-    @staticmethod
-    def get_site_id(site_name):
+    def get_site_id(self, site_name):
         data = OCCICloudConnector.appdb_call('/rest/1.0/va_providers')
         if data:
             for site in data['appdb:appdb']['virtualization:provider']:
                 if site_name == site['provider:name'] and site['@in_production'] == "true":
                     return site['@id']
+        else:
+            self.log_warn("No data returned from EGI AppDB.")
+
+        self.log_warn("No site ID returned from EGI AppDB for site: %s." % site_name)
         return None
 
-    @staticmethod
-    def get_image_id_and_site_url(site_id, image_name, vo_name=None):
+    def get_image_id_and_site_url(self, site_id, image_name, vo_name=None):
         data = OCCICloudConnector.appdb_call('/rest/1.0/va_providers/%s' % site_id)
         if data:
             site_url = data['appdb:appdb']['virtualization:provider']["provider:endpoint_url"]
@@ -1224,6 +1230,10 @@ class OCCICloudConnector(CloudConnector):
                             return parts[1], site_url
                         else:
                             return image_basename, site_url
+        else:
+            self.log_warn("No data returned from EGI AppDB.")
+
+        self.log_warn("No image ID returned from EGI AppDB for image: %s/%s." % (site_id, image_name))
         return '', ''
 
 
@@ -1265,15 +1275,67 @@ class KeyStoneAuth:
         """
         Contact the specified keystone server to return the token
         """
-        try:
-            uri = uriparse(keystone_uri)
-            server = uri[1].split(":")[0]
-            port = int(uri[1].split(":")[1])
+        version = KeyStoneAuth.get_keystone_version(occi, keystone_uri, auth)
+        if version == 2:
+            occi.logger.debug("Getting Keystone v2 token")
+            return KeyStoneAuth.get_keystone_token_v2(occi, keystone_uri, auth)
+        elif version == 3:
+            occi.logger.debug("Getting Keystone v3 token")
+            return KeyStoneAuth.get_keystone_token_v3(occi, keystone_uri, auth)
+        else:
+            # this must never happen
+            raise Exception("Error obtaining Keystone Token: Unknown version %d" % version)
 
+    @staticmethod
+    def get_keystone_version(occi, keystone_uri, auth):
+        """
+        Contact the specified keystone server to return version to use
+        """
+        version = None
+        token = auth and "token" in auth
+
+        try:
+            headers = {"Accept": "application/json"}
+            resp = occi.create_request_static('GET', keystone_uri, None, headers)
+            if resp.status_code in [200, 300]:
+                versions = []
+                json_data = resp.json()
+                if 'versions' in json_data:
+                    versions = json_data["versions"]["values"]
+                elif 'version' in json_data:
+                    versions = [json_data["version"]]
+                else:
+                    occi.logger.error("Error obtaining Keystone versions: versions or version expected.")
+
+                for elem in versions:
+                    if not token and elem["id"].startswith("v2"):
+                        version = 2
+                    if (not version or token) and elem["id"].startswith("v3"):
+                        # only use version 3 if 2 is not available
+                        version = 3
+            else:
+                occi.logger.error("Error obtaining Keystone versions: %s" % resp.text)
+        except Exception as ex:
+            occi.logger.exception("Error obtaining Keystone versions.")
+
+        if not version:
+            # use version 2 as the default one in case of error
+            occi.logger.warn("Keystone Version not obtained, using default one v2.")
+            return 2
+        else:
+            return version
+
+    @staticmethod
+    def get_keystone_token_v2(occi, keystone_uri, auth):
+        """
+        Contact the specified keystone v2 server to return the token
+        """
+        try:
             body = '{"auth":{"voms":true}}'
             headers = {'Accept': 'application/json', 'Connection': 'close', 'Content-Type': 'application/json'}
-            url = "https://%s:%s/v2.0/tokens" % (server, port)
+            url = "%s/v2.0/tokens" % keystone_uri
             resp = occi.create_request_static('POST', url, auth, headers, body)
+            resp.raise_for_status()
 
             # format: -> "{\"access\": {\"token\": {\"issued_at\":
             # \"2014-12-29T17:10:49.609894\", \"expires\":
@@ -1293,8 +1355,9 @@ class KeyStoneAuth:
 
             headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
                        'X-Auth-Token': token_id, 'Connection': 'close'}
-            url = "https://%s:%s/v2.0/tenants" % (server, port)
+            url = "%s/v2.0/tenants" % keystone_uri
             resp = occi.create_request_static('GET', url, auth, headers)
+            resp.raise_for_status()
 
             # format: -> "{\"tenants_links\": [], \"tenants\":
             # [{\"description\": \"egi fedcloud\", \"enabled\": true, \"id\":
@@ -1308,8 +1371,9 @@ class KeyStoneAuth:
 
                 headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
                            'X-Auth-Token': token_id, 'Connection': 'close'}
-                url = "https://%s:%s/v2.0/tokens" % (server, port)
+                url = "%s/v2.0/tokens" % keystone_uri
                 resp = occi.create_request_static('POST', url, auth, headers, body)
+                resp.raise_for_status()
 
                 # format: -> "{\"access\": {\"token\": {\"issued_at\":
                 # \"2014-12-29T17:10:49.609894\", \"expires\":
@@ -1327,5 +1391,50 @@ class KeyStoneAuth:
 
             return tenant_token_id
         except Exception as ex:
-            occi.logger.exception("Error obtaining Keystone Token.")
-            raise Exception("Error obtaining Keystone Token: %s" % str(ex))
+            occi.logger.exception("Error obtaining Keystone v2 Token.")
+            raise Exception("Error obtaining Keystone v2 Token: %s" % str(ex))
+
+    @staticmethod
+    def get_keystone_token_v3(occi, keystone_uri, auth):
+        """
+        Contact the specified keystone v3 server to return the token
+        """
+        try:
+            headers = {'Accept': 'application/json', 'Connection': 'close', 'Content-Type': 'application/json'}
+
+            if auth and "token" in auth:
+                # Use OpenID
+                url = "%s/v3/OS-FEDERATION/identity_providers/egi.eu/protocols/oidc/auth" % keystone_uri
+            else:
+                # Use VOMS proxy
+                url = "%s/v3/OS-FEDERATION/identity_providers/egi.eu/protocols/mapped/auth" % keystone_uri
+
+            resp = occi.create_request_static('GET', url, auth, headers)
+            resp.raise_for_status()
+
+            token = resp.headers['X-Subject-Token']
+
+            headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
+                       'X-Auth-Token': token, 'Connection': 'close'}
+            url = "%s/v3/auth/projects" % keystone_uri
+            resp = occi.create_request_static('GET', url, auth, headers)
+            resp.raise_for_status()
+
+            output = resp.json()
+
+            # get the first tenant (usually only one)
+            project = output['projects'].pop()
+
+            # get scoped token for allowed project
+            headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
+                       'X-Auth-Token': token, 'Connection': 'close'}
+            body = {"auth": {"identity": {"methods": ["token"], "token": {"id": token}},
+                    "scope": {"project": {"id": project["id"]}}}}
+            url = "%s/v3/auth/tokens" % keystone_uri
+            resp = occi.create_request_static('POST', url, auth, headers, json.dumps(body))
+            resp.raise_for_status()
+            token = resp.headers['X-Subject-Token']
+            return token
+        except Exception as ex:
+            occi.logger.exception("Error obtaining Keystone v3 Token.")
+            raise Exception("Error obtaining Keystone v3 Token: %s" % str(ex))

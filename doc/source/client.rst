@@ -166,6 +166,8 @@ keys are:
   plugin check the documentation of the Azure python SDK:
   `here <https://azure-sdk-for-python.readthedocs.io/en/latest/quickstart_authentication.html#using-ad-user-password>`_
 
+* ``token`` indicates the OpenID token associated to the credential. This field is used in the OCCI plugin. 
+
 OpenStack additional fields
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -226,8 +228,10 @@ An example of the auth file::
    id = docker; type = Docker; host = http://host:2375; public_key = file(/tmp/cert.pem); private_key = file(/tmp/key.pem)
    # Docker site without SSL security
    id = docker; type = Docker; host = http://host:2375
-   # OCCI site auth data
-   id = occi; type = OCCI; proxy = file(/tmp/proxy.pem); host = https://fc-one.i3m.upv.es:11443
+   # OCCI VOMS site auth data
+   id = occi; type = OCCI; proxy = file(/tmp/proxy.pem); host = https://server.com:11443
+   # OCCI OIDC site auth data
+   id = occi; type = OCCI; token = token; host = https://server.com:11443
    # Azure (RM) site auth data
    id = azure; type = Azure; subscription_id = subscription-id; username = user@domain.com; password = pass
    # Kubernetes site auth data
@@ -255,4 +259,5 @@ the previous parameters has a diferent meaning:
 
 So the auth line will be like that::
 
-   id = ost; type = OpenStack; host = https://ostserver:5000; username = indigo-dc; tenant = oidc; password = iam_token_value;
+   id = ost; type = OpenStack; host = https://ostserver:5000; username = indigo-dc; tenant = oidc; password = iam_token_value; auth_version = 3.x_oidc_access_token
+

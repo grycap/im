@@ -147,7 +147,7 @@ class TestAzureConnector(unittest.TestCase):
     @patch('IM.InfrastructureList.InfrastructureList.save_data')
     def test_20_launch(self, save_data, credentials, network_client, compute_client, storage_client, resource_client):
         radl_data = """
-            network net1 (outbound = 'yes' and outports = '8080,9000:9100')
+            network net1 (outbound = 'yes' and outports = '8080,9000:9100' and sg_name = 'nsgname')
             network net2 ()
             system test (
             cpu.arch='x86_64' and
