@@ -378,7 +378,7 @@ class SSH:
                         except:
                             sftp.mkdir(dest_path)
                     else:
-                        out, err, code = self.execute("mkdir -p %s" % dest_path)
+                        self.execute("mkdir -p %s" % dest_path)
                 for filename in filenames:
                     src_file = os.path.join(dirname, filename)
                     dest_file = os.path.join(dest, dirname[len(src) + 1:],

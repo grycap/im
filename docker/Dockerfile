@@ -1,45 +1,33 @@
 # Dockerfile to create a container with the IM service
 FROM ubuntu:16.04
-MAINTAINER Miguel Caballer <micafer1@upv.es>
-LABEL version="1.6.2"
+LABEL maintainer="Miguel Caballer <micafer1@upv.es>"
+LABEL version="1.6.5"
 LABEL description="Container image to run the IM service. (http://www.grycap.upv.es/im)"
 EXPOSE 8899 8800
-# Install Ansible
-RUN echo "deb http://ppa.launchpad.net/ansible/ansible/ubuntu xenial main" > /etc/apt/sources.list.d/ansible-ubuntu-ansible-xenial.list && \
-    apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 93C4A3FD7BB9C367 && \ 
-    apt-get update && apt-get -y install wget ansible && \
-    rm -rf /var/lib/apt/lists/*
 
-# Install Azure python SDK
-RUN wget https://launchpad.net/ubuntu/+archive/primary/+files/python-msrest_0.4.4-1_all.deb && \
-    wget https://launchpad.net/ubuntu/+archive/primary/+files/python-msrestazure_0.4.3-1_all.deb && \
-    wget https://launchpad.net/ubuntu/+archive/primary/+files/python-azure_2.0.0~rc6+dfsg-2_all.deb && \
-    dpkg -i python-msrest_*_all.deb ; \
-    dpkg -i python-msrestazure_*_all.deb ; \
-    dpkg -i python-azure_*_all.deb ; \
-    rm *.deb && \
-    apt update && apt install -f -y && \
-    rm -rf /var/lib/apt/lists/*
+# Ensure system is up to date with mandatory python packages installed
+RUN apt-get update && apt-get install --no-install-recommends -y python-dbg python-dev python-pip openssh-client sshpass vim && rm -rf /var/lib/apt/lists/*
+
+RUN pip install setuptools pip --upgrade -I
+RUN pip install pyOpenSSL --upgrade -I
+
+# Install pip optional libraries
+RUN pip install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns cheroot xmltodict
 
 # Install IM
-RUN wget https://github.com/grycap/RADL/releases/download/v1.1.0/python-radl_1.1.0-1_all.deb && \ 
-    wget https://github.com/grycap/im/releases/download/v1.6.1/python-im_1.6.1-1_all.deb && \
-    dpkg -i python-radl_*_all.deb ; \
-    dpkg -i python-im_*_all.deb ; \
-    rm *.deb && \
-    apt update && apt install -f -y && \
-    rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install --no-install-recommends -y gcc libmysqld-dev libssl-dev libffi-dev libsqlite3-dev && \
+     pip install MySQL-python && \
+     pip install IM==1.6.5 && \
+     apt-get remove -y gcc libmysqld-dev libssl-dev libffi-dev libsqlite3-dev python-dev python-pip && \
+     apt-get autoremove -y && \
+     rm -rf /var/lib/apt/lists/*
+
+# Remove pip requests and force python-requests to be installed to avoid SSL ca errors
+RUN pip uninstall -y requests
+RUN apt-get update && apt-get install --no-install-recommends -y python-requests && rm -rf /var/lib/apt/lists/*
 
 # Copy a ansible.cfg with correct minimum values
 COPY ansible.cfg /etc/ansible/ansible.cfg
 
-# Remove old version of libcloud
-RUN dpkg -r --force-depends python-libcloud
-
-# And install the last versios of cheroot and libcloud
-RUN easy_install -U cheroot apache-libcloud
-
-# Expose the IM ports
-EXPOSE 8899 8800
-
+# Start IM service
 CMD im_service.py

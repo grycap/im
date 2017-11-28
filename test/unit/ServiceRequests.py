@@ -65,7 +65,7 @@ class TestServiceRequests(unittest.TestCase):
         import IM.ServiceRequests
         req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.
                                                               IMBaseRequest.GET_INFRASTRUCTURE_CONT_MSG,
-                                                              ("", ""))
+                                                              ("", "", False))
         req._call_function()
 
     @patch('IM.InfrastructureManager.InfrastructureManager')

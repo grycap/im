@@ -88,10 +88,10 @@ The :program:`im_client` is called like this::
       associated to the infrastructure with ID ``vmId``, using the RADL
       specification in file with path ``radlfile``.
 
-   ``reconfigure infId vm_list``
+   ``reconfigure radl_file infId vm_list``
       Reconfigure the infrastructure with ID ``infId`` and also update the
-      configuration data. The last  ``vm_list`` parameter is optional
-      and is a list integers specifying the IDs of the VMs to reconfigure.
+      configuration data specified in the optional ``radl_file``. The last  ``vm_list`` 
+      parameter is optional and is a list integers specifying the IDs of the VMs to reconfigure.
       If not specified all the VMs will be reconfigured. 
       
    ``startvm infId vmId``
@@ -102,9 +102,19 @@ The :program:`im_client` is called like this::
       Stop (but not remove) the specified virtual machine ``vmId`` associated to the infrastructure with ID
       infrastructure with ID ``infId``.
       
-   ``sshvm infId vmId``
+   ``sshvm infId vmId [show_only]``
       Connect with SSH with the specified virtual machine ``vmId`` associated to the infrastructure with ID
-      infrastructure with ID ``infId``.
+      infrastructure with ID ``infId``. The ``show_only`` parameter is optional and is a flag to specify if ssh
+      command will only be shown in stdout instead of executed.
+
+   ``export infId delete``
+      Export the data of the infrastructure with ID ``infId``. The ``delete`` parameter is optional
+      and is a flag to specify if the infrastructure will be deleted from the IM service (the VMs are not
+      deleted).
+
+   ``import json_file``  
+      Import the data of an infrastructure previously exported with the previous function.
+      The ``json_file`` is a file with the data generated with the  ``export`` function.
 
 .. _auth-file:
 
@@ -146,7 +156,7 @@ keys are:
   This field is used in the OCCI and OpenStack plugins. 
   
 * ``project`` indicates the project name associated to the credential.
-  This field is only used in the GCE plugin.
+  This field is only used in the GCE or OCCI (from version 1.6.3) plugins.
   
 * ``public_key`` indicates the content of the public key file associated to the credential.
   To refer to a file you must use the function "file(cert.pem)" as shown in the example.
@@ -166,7 +176,7 @@ keys are:
   plugin check the documentation of the Azure python SDK:
   `here <https://azure-sdk-for-python.readthedocs.io/en/latest/quickstart_authentication.html#using-ad-user-password>`_
 
-* ``token`` indicates the OpenID token associated to the credential. This field is used in the OCCI plugin. 
+* ``token`` indicates the OpenID token associated to the credential. This field is used in the OCCI plugin (from version 1.6.2). 
 
 OpenStack additional fields
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^

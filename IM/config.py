@@ -62,7 +62,7 @@ class Config:
     IM_PATH = os.path.dirname(os.path.realpath(__file__))
     LOG_FILE = '/var/log/im/inf.log'
     LOG_FILE_MAX_SIZE = 10485760
-    LOG_LEVEL = "DEBUG"
+    LOG_LEVEL = "INFO"
     CONTEXTUALIZATION_DIR = '/usr/share/im/contextualization'
     RECIPES_DIR = CONTEXTUALIZATION_DIR + '/AnsibleRecipes'
     RECIPES_DB_FILE = CONTEXTUALIZATION_DIR + '/recipes_ansible.db'

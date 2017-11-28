@@ -144,6 +144,7 @@ You can download it from their corresponding PPAs. But here you have some links:
  * python-backports.ssl-match-hostname: `download <http://archive.ubuntu.com/ubuntu/pool/universe/b/backports.ssl-match-hostname/python-backports.ssl-match-hostname_3.4.0.2-1_all.deb>`_
  * python-scp: `download <http://archive.ubuntu.com/ubuntu/pool/universe/p/python-scp/python-scp_0.10.2-1_all.deb>`_
  * python-libcloud: `download <http://archive.ubuntu.com/ubuntu/pool/universe/libc/libcloud/python-libcloud_0.20.0-1_all.deb>`_
+ * python-xmltodict: `download <http://archive.ubuntu.com/ubuntu/pool/universe/p/python-xmltodict/python-xmltodict_0.9.2-3_all.deb>`_ 
 
 Also Azure python SDK is not available in Ubuntu 16.04. So if you need the Azure plugin you have to manually install them.
 You can download it from their corresponding PPAs. But here you have some links:
@@ -564,6 +565,7 @@ This is an example of the HAProxy configuration file::
 	backend imbackend
 	    mode http
 	    balance roundrobin
+	    option httpchk GET /version
 	    stick-table type string len 32 size 30k expire 60m
 	    stick store-response hdr(InfID)
 	    acl inf_id path -m beg /infrastructures/
@@ -574,3 +576,13 @@ This is an example of the HAProxy configuration file::
         ...
 
 See more details of HAProxy configuration at `HAProxy Documentation <https://cbonte.github.io/haproxy-dconv/>`_.
+
+Purgue IM DB
+============
+
+The IM service does not remove deleted infrastructures from DB for provenance purposes.
+In case that you want to remove old deleted infrastructures from the DB to reduce its size
+you can use the ``delete_old_infs`` script. It will delete from DB all the infrastructures
+created before a specified date::
+
+  python delete_old_infs.py <date>

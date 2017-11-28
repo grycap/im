@@ -121,16 +121,16 @@ class TestOCCIConnector(unittest.TestCase):
             net_interface.0.connection = 'net' and
             net_interface.0.dns_name = 'test' and
             disk.0.os.name = 'linux' and
-            disk.0.image.url = 'appdb://UPV-GRyCAP/egi.docker.ubuntu.16.04?fedcloud.egi.eu' and
+            disk.0.image.url = 'appdb://CESNET-MetaCloud/egi.docker.ubuntu.16.04?fedcloud.egi.eu' and
             disk.0.os.credentials.username = 'user'
             )"""
         radl = radl_parse.parse_radl(radl_data)
         radl_system = radl.systems[0]
 
         auth = Authentication([{'id': 'occi', 'type': 'OCCI', 'proxy': 'proxy',
-                                'host': 'https://fc-one.i3m.upv.es:11443'}])
+                                'host': 'https://carach5.ics.muni.cz:11443'}])
         occi_cloud = self.get_occi_cloud()
-        occi_cloud.cloud.server = "fc-one.i3m.upv.es"
+        occi_cloud.cloud.server = "carach5.ics.muni.cz"
 
         concrete = occi_cloud.concreteSystem(radl_system, auth)
         self.assertEqual(len(concrete), 1)
@@ -160,10 +160,12 @@ class TestOCCIConnector(unittest.TestCase):
                 resp.json.return_value = {"tenants": [{"name": "tenantname"}]}
             elif url == "/v3/auth/projects":
                 resp.status_code = 200
-                resp.json.return_value = {"projects": [{"id": "projectid"}]}
+                resp.json.return_value = {"projects": [{"id": "projectid", "name": "prname"}]}
             elif url == "/v3/OS-FEDERATION/identity_providers/egi.eu/protocols/oidc/auth":
                 resp.status_code = 200
                 resp.headers = {'X-Subject-Token': 'token1'}
+            elif url.endswith("/link/storagelink/compute_10_disk_1"):
+                resp.status_code = 404
         elif method == "POST":
             if url == "/compute/":
                 resp.status_code = 201

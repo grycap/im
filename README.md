@@ -2,7 +2,6 @@
 ============================
 
 * Version ![PyPI](https://img.shields.io/pypi/v/im.svg)
-* PyPI ![PypI](https://img.shields.io/pypi/dm/IM.svg)
 * Build Status [![Build Status](http://jenkins.i3m.upv.es/buildStatus/icon?job=grycap/im-unit)](http://jenkins.i3m.upv.es/job/grycap/job/im-unit/)
 
 IM is a tool that deploys complex and customized virtual infrastructures on IaaS
@@ -201,6 +200,7 @@ You can download it from their corresponding PPAs. But here you have some links:
  * python-backports.ssl-match-hostname: [download](http://archive.ubuntu.com/ubuntu/pool/universe/b/backports.ssl-match-hostname/python-backports.ssl-match-hostname_3.4.0.2-1_all.deb)
  * python-scp: [download](http://archive.ubuntu.com/ubuntu/pool/universe/p/python-scp/python-scp_0.10.2-1_all.deb)
  * python-libcloud: [download](http://archive.ubuntu.com/ubuntu/pool/universe/libc/libcloud/python-libcloud_0.20.0-1_all.deb)
+ * python-xmltodict: [download](http://archive.ubuntu.com/ubuntu/pool/universe/p/python-xmltodict/python-xmltodict_0.9.2-3_all.deb)
 
 Also Azure python SDK is not available in Ubuntu 16.04. So if you need the Azure plugin you have to manually install them.
 You can download it from their corresponding PPAs. But here you have some links:
