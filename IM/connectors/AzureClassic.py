@@ -755,7 +755,7 @@ class AzureClassicCloudConnector(CloudConnector):
         disk_free_op = ">="
         if system.getValue('disks.free_size'):
             disk_free = system.getFeature('disks.free_size').getValue('M')
-            disk_free_op = system.getFeature('memory.size').getLogOperator()
+            disk_free_op = system.getFeature('disks.free_size').getLogOperator()
 
         instace_types = self.get_all_instance_types(auth_data)
 

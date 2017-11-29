@@ -184,9 +184,9 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             memory_op = radl.getFeature('memory.size').getLogOperator()
         disk_free = 0
         disk_free_op = ">="
-        if radl.getValue('disk.0.free_size'):
-            disk_free = radl.getFeature('disk.0.free_size').getValue('G')
-            disk_free_op = radl.getFeature('memory.size').getLogOperator()
+        if radl.getValue('disks.free_size'):
+            disk_free = radl.getFeature('disks.free_size').getValue('G')
+            disk_free_op = radl.getFeature('disks.free_size').getLogOperator()
 
         # get the node size with the lowest price, vcpus and memory
         sizes.sort(key=lambda x: (x.price, x.vcpus, x.ram))

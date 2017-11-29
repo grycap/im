@@ -142,7 +142,7 @@ class AzureCloudConnector(CloudConnector):
         disk_free_op = ">="
         if system.getValue('disks.free_size'):
             disk_free = system.getFeature('disks.free_size').getValue('M')
-            disk_free_op = system.getFeature('memory.size').getLogOperator()
+            disk_free_op = system.getFeature('disks.free_size').getLogOperator()
 
         compute_client = ComputeManagementClient(credentials, subscription_id)
         instace_types = list(compute_client.virtual_machine_sizes.list(location))
