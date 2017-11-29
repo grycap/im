@@ -53,6 +53,19 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         self.add_public_ip_count = 0
         LibCloudCloudConnector.__init__(self, cloud_info, inf)
 
+    def get_node_with_id(self, node_id, auth_data):
+        """
+        Get the node with the specified ID
+
+        Arguments:
+           - node_id(str): ID of the node to get
+           - auth(Authentication): parsed authentication tokens.
+        Returns: a :py:class:`libcloud.compute.base.Node` with the node info
+        """
+        driver = self.get_driver(auth_data)
+        node = driver.ex_get_node_details(node_id)
+        return node
+
     def get_driver(self, auth_data):
         """
         Get the driver from the auth data
