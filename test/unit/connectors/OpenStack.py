@@ -240,7 +240,7 @@ class TestOSTConnector(unittest.TestCase):
         node.public_ips = []
         node.private_ips = ['10.0.0.1']
         node.driver = driver
-        driver.list_nodes.return_value = [node]
+        driver.ex_get_node_details.return_value = node
 
         node_size = MagicMock()
         node_size.ram = 512
@@ -308,7 +308,7 @@ class TestOSTConnector(unittest.TestCase):
         node.public_ips = ['158.42.1.1']
         node.private_ips = ['10.0.0.1']
         node.driver = driver
-        driver.list_nodes.return_value = [node]
+        driver.ex_get_node_details.return_value = node
 
         driver.ex_stop_node.return_value = True
 
@@ -336,7 +336,7 @@ class TestOSTConnector(unittest.TestCase):
         node.public_ips = ['158.42.1.1']
         node.private_ips = ['10.0.0.1']
         node.driver = driver
-        driver.list_nodes.return_value = [node]
+        driver.ex_get_node_details.return_value = node
 
         driver.ex_start_node.return_value = True
 
@@ -386,7 +386,7 @@ class TestOSTConnector(unittest.TestCase):
         node.public_ips = ['158.42.1.1']
         node.private_ips = ['10.0.0.1']
         node.driver = driver
-        driver.list_nodes.return_value = [node]
+        driver.ex_get_node_details.return_value = node
 
         node_size = MagicMock()
         node_size.ram = 2048
@@ -435,7 +435,7 @@ class TestOSTConnector(unittest.TestCase):
         node.private_ips = ['10.0.0.1']
         node.driver = driver
         node.destroy.return_value = True
-        driver.list_nodes.return_value = [node]
+        driver.ex_get_node_details.return_value = node
 
         keypair = MagicMock()
         driver.get_key_pair.return_value = keypair
@@ -468,7 +468,7 @@ class TestOSTConnector(unittest.TestCase):
         node = MagicMock()
         node.id = "1"
         node.driver = driver
-        driver.list_nodes.return_value = [node]
+        driver.ex_get_node_details.return_value = node
         image = MagicMock()
         image.id = "newimage"
         driver.create_image.return_value = image
