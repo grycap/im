@@ -117,11 +117,14 @@ GET ``http://imserver.com/infrastructures/<infId>``
 GET ``http://imserver.com/infrastructures/<infId>/<property_name>``
    :Response Content-type: text/plain or application/json
    :ok response: 200 OK
+   :input fields: ``headeronly`` (optional)
    :fail response: 401, 404, 400, 403
 
    Return property ``property_name`` associated to the infrastructure with ID ``infId``. It has three properties:
       :``outputs``: in case of TOSCA documents it will return a JSON object with the outputs of the TOSCA document. 
-      :``contmsg``: a string with the contextualization message. 
+      :``contmsg``: a string with the contextualization message. In case of ``headeronly`` flag is set to 'yes',
+                    'true' or '1' only the initial part of the infrastructure contextualization log will be
+                    returned (without any VM contextualization log).
       :``radl``: a string with the original specified RADL of the infrastructure. 
       :``state``: a JSON object with two elements:
       

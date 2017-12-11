@@ -61,6 +61,8 @@ class OCCICloudConnector(CloudConnector):
     def __init__(self, cloud_info, inf):
         self.add_public_ip_count = 0
         self.keystone_token = None
+        self.keystone_tenant = None
+        self.keystone_project = None
         if cloud_info.path == "/":
             cloud_info.path = ""
         CloudConnector.__init__(self, cloud_info, inf)
@@ -253,11 +255,11 @@ class OCCICloudConnector(CloudConnector):
         """
         Manage public IPs in the VM
         """
-        self.log_debug("The VM does not have public IP trying to add one.")
+        self.log_info("The VM does not have public IP trying to add one.")
         if self.add_public_ip_count < self.MAX_ADD_IP_COUNT:
             success, msgs = self.add_public_ip(vm, auth_data)
             if success:
-                self.log_debug("Public IP successfully added.")
+                self.log_info("Public IP successfully added.")
             else:
                 self.add_public_ip_count += 1
                 self.log_warn("Error adding public IP the VM: %s (%d/%d)\n" % (msgs,
@@ -268,7 +270,7 @@ class OCCICloudConnector(CloudConnector):
                                                                                         self.MAX_ADD_IP_COUNT)
         else:
             self.log_error("Error adding public IP the VM: Max number of retries reached.")
-            self.error_messages += "Error adding public IP the VM: Max number of retries reached.\n"
+            # self.error_messages += "Error adding public IP the VM: Max number of retries reached.\n"
             # this is a total fail, stop contextualization
             vm.configured = False
             vm.inf.set_configured(False)
@@ -399,7 +401,7 @@ class OCCICloudConnector(CloudConnector):
             if resp.status_code != 201 and resp.status_code != 200:
                 return (False, output)
             else:
-                self.log_debug("Public IP added from pool %s" % network_name)
+                self.log_info("Public IP added from pool %s" % network_name)
                 return (True, vm.id)
         except Exception:
             self.log_exception("Error connecting with OCCI server")
@@ -584,11 +586,11 @@ class OCCICloudConnector(CloudConnector):
                 # get the last letter and use vd
                 disk_device = "vd" + disk_device[-1]
                 system.setValue("disk." + str(cont) + ".device", disk_device)
-            self.log_debug("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
+            self.log_info("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
             storage_name = "im-disk-%s" % str(uuid.uuid1())
             success, volume_id = self.create_volume(int(disk_size), storage_name, auth_data)
             if success:
-                self.log_debug("Volume id %s sucessfully created." % volume_id)
+                self.log_info("Volume id %s sucessfully created." % volume_id)
                 volumes.append((disk_device, volume_id))
                 system.setValue("disk." + str(cont) + ".provider_id", volume_id)
                 # TODO: get the actual device_id from OCCI
@@ -619,7 +621,7 @@ class OCCICloudConnector(CloudConnector):
             wait += delay
             success, storage_info = self.get_volume_info(volume_id, auth_data)
             state = self.get_occi_attribute_value(storage_info, 'occi.storage.state')
-            self.log_debug("Waiting volume %s to be %s. Current state: %s" % (volume_id, wait_state, state))
+            self.log_info("Waiting volume %s to be %s. Current state: %s" % (volume_id, wait_state, state))
             if success and state == wait_state:
                 online = True
             elif not success:
@@ -678,7 +680,7 @@ class OCCICloudConnector(CloudConnector):
             self.log_exception("Error creating volume")
             return False, str(ex)
 
-    def detach_volume(self, volume, auth_data, timeout=180, delay=5):
+    def detach_volume(self, volume, auth_data, timeout=60, delay=5):
         auth = self.get_auth_header(auth_data)
         headers = {'Accept': 'text/plain', 'Connection': 'close'}
         if auth:
@@ -691,18 +693,18 @@ class OCCICloudConnector(CloudConnector):
         wait = 0
         while wait < timeout:
             try:
-                self.log_debug("Detaching volume: %s" % storage_id)
+                self.log_info("Detaching volume: %s" % storage_id)
                 resp = self.create_request('GET', link, auth_data, headers)
                 if resp.status_code == 200:
-                    self.log_debug("Volume link %s exists. Try to delete it." % link)
+                    self.log_info("Volume link %s exists. Try to delete it." % link)
                     resp = self.create_request('DELETE', link, auth_data, headers)
                     if resp.status_code in [204, 200]:
-                        self.log_debug("Successfully detached. Wait it to be deleted.")
+                        self.log_info("Successfully detached. Wait it to be deleted.")
                     else:
                         self.log_error("Error detaching volume: %s" + resp.reason + "\n" + resp.text)
                 elif resp.status_code == 404:
                     # wait until the resource does not exist
-                    self.log_debug("Successfully detached")
+                    self.log_info("Successfully detached")
                     return (True, "")
                 else:
                     self.log_warn("Error detaching volume: %s" + resp.reason + "\n" + resp.text)
@@ -732,26 +734,26 @@ class OCCICloudConnector(CloudConnector):
 
         wait = 0
         while wait < timeout:
-            self.log_debug("Delete storage: %s" % storage_id)
+            self.log_info("Delete storage: %s" % storage_id)
             try:
                 resp = self.create_request('GET', storage_id, auth_data, headers)
                 if resp.status_code == 200:
-                    self.log_debug("Storage %s exists. Try to delete it." % storage_id)
+                    self.log_info("Storage %s exists. Try to delete it." % storage_id)
                     resp = self.create_request('DELETE', storage_id, auth_data, headers)
 
                     if resp.status_code == 404:
-                        self.log_debug("It does not exist.")
+                        self.log_info("It does not exist.")
                         return (True, "")
                     elif resp.status_code == 409:
-                        self.log_debug("Error deleting the Volume. It seems that it is still "
-                                       "attached to a VM: %s" % resp.text)
+                        self.log_info("Error deleting the Volume. It seems that it is still "
+                                      "attached to a VM: %s" % resp.text)
                     elif resp.status_code != 200 and resp.status_code != 204:
                         self.log_warn("Error deleting the Volume: " + resp.reason + "\n" + resp.text)
                     else:
-                        self.log_debug("Successfully deleted")
+                        self.log_info("Successfully deleted")
                         return (True, "")
                 elif resp.status_code == 404:
-                    self.log_debug("It does not exist.")
+                    self.log_info("It does not exist.")
                     return (True, "")
                 else:
                     self.log_warn("Error deleting storage: %s" + resp.reason + "\n" + resp.text)
@@ -1063,19 +1065,19 @@ class OCCICloudConnector(CloudConnector):
                     # get the last letter and use vd
                     disk_device = "vd" + disk_device[-1]
                     system.setValue("disk." + str(cont) + ".device", disk_device)
-                self.log_debug("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
+                self.log_info("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
                 success, volume_id = self.create_volume(int(disk_size), "im-disk-%d" % cont, auth_data)
 
                 if success:
-                    self.log_debug("Volume id %s successfuly created." % volume_id)
+                    self.log_info("Volume id %s successfuly created." % volume_id)
                     # let's wait the storage to be ready "online"
                     wait_ok = self.wait_volume_state(volume_id, auth_data)
                     if not wait_ok:
-                        self.log_debug("Error waiting volume %s. Deleting it." % volume_id)
+                        self.log_info("Error waiting volume %s. Deleting it." % volume_id)
                         self.delete_volume(volume_id, auth_data)
                         return (False, "Error waiting volume %s. Deleting it." % volume_id)
                     else:
-                        self.log_debug("Attaching to the instance")
+                        self.log_info("Attaching to the instance")
                         attached = self.attach_volume(vm, volume_id, disk_device, mount_path, auth_data)
                         if attached:
                             orig_system.setValue("disk." + str(cont) + ".size", disk_size, "G")
@@ -1115,7 +1117,7 @@ class OCCICloudConnector(CloudConnector):
         """
         Remove/Detach public IP from VM
         """
-        self.log_debug("Removing Public IP from VM %s" % vm.id)
+        self.log_info("Removing Public IP from VM %s" % vm.id)
 
         auth = self.get_auth_header(auth_data)
         headers = {'Accept': 'text/plain', 'Connection': 'close'}
@@ -1135,7 +1137,7 @@ class OCCICloudConnector(CloudConnector):
                     return (True, "No public IP to delete.")
                 resp = self.create_request('DELETE', link, auth_data, headers)
                 if resp.status_code in [404, 204, 200]:
-                    self.log_debug("Successfully removed")
+                    self.log_info("Successfully removed")
                     return (True, "")
                 else:
                     self.log_error("Error removing public IP: " + resp.reason + "\n" + resp.text)
@@ -1305,9 +1307,9 @@ class KeyStoneAuth:
                 headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
                            'X-Auth-Token': occi.keystone_token, 'Connection': 'close'}
                 if version == 2:
-                    url = "%s/v2.0" % keystone_uri
+                    url = "%s/v2.0/tenants" % keystone_uri
                 elif version == 3:
-                    url = "%s/v3" % keystone_uri
+                    url = "%s/v3/auth/tokens" % keystone_uri
                 else:
                     return None
                 resp = occi.create_request_static('GET', url, auth, headers)
@@ -1334,11 +1336,11 @@ class KeyStoneAuth:
             return token
 
         if version == 2:
-            occi.logger.debug("Getting Keystone v2 token")
+            occi.logger.info("Getting Keystone v2 token")
             occi.keystone_token = KeyStoneAuth.get_keystone_token_v2(occi, keystone_uri, auth)
             return occi.keystone_token
         elif version == 3:
-            occi.logger.debug("Getting Keystone v3 token")
+            occi.logger.info("Getting Keystone v3 token")
             occi.keystone_token = KeyStoneAuth.get_keystone_token_v3(occi, keystone_uri, auth)
             return occi.keystone_token
         else:
@@ -1412,20 +1414,25 @@ class KeyStoneAuth:
                 occi.logger.exception("Error obtaining Keystone Token.")
                 raise Exception("Error obtaining Keystone Token: %s" % str(output))
 
-            headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
-                       'X-Auth-Token': token_id, 'Connection': 'close'}
-            url = "%s/v2.0/tenants" % keystone_uri
-            resp = occi.create_request_static('GET', url, auth, headers)
-            resp.raise_for_status()
+            if occi.keystone_tenant is None:
+                headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
+                           'X-Auth-Token': token_id, 'Connection': 'close'}
+                url = "%s/v2.0/tenants" % keystone_uri
+                resp = occi.create_request_static('GET', url, auth, headers)
+                resp.raise_for_status()
 
-            # format: -> "{\"tenants_links\": [], \"tenants\":
-            # [{\"description\": \"egi fedcloud\", \"enabled\": true, \"id\":
-            # \"fffd98393bae4bf0acf66237c8f292ad\", \"name\": \"egi\"}]}"
-            output = resp.json()
+                # format: -> "{\"tenants_links\": [], \"tenants\":
+                # [{\"description\": \"egi fedcloud\", \"enabled\": true, \"id\":
+                # \"fffd98393bae4bf0acf66237c8f292ad\", \"name\": \"egi\"}]}"
+                output = resp.json()
+                tenants = output['tenants']
+            else:
+                tenants = [occi.keystone_tenant]
 
             tenant_token_id = None
+
             # retry for each available tenant (usually only one)
-            for tenant in output['tenants']:
+            for tenant in tenants:
                 body = '{"auth":{"voms":true,"tenantName":"' + str(tenant['name']) + '"}}'
 
                 headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
@@ -1444,6 +1451,8 @@ class KeyStoneAuth:
                     # \"metadata\": {\"is_admin\": 0, \"roles\": []}}}"
                     output = resp.json()
                     if 'access' in output:
+                        occi.logger.info("Using tenant: %s" % tenant["name"])
+                        occi.keystone_tenant = tenant
                         tenant_token_id = str(output['access']['token']['id'])
                         break
 
@@ -1474,40 +1483,52 @@ class KeyStoneAuth:
 
             token = resp.headers['X-Subject-Token']
 
-            headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
-                       'X-Auth-Token': token, 'Connection': 'close'}
-            url = "%s/v3/auth/projects" % keystone_uri
-            resp = occi.create_request_static('GET', url, auth, headers)
-            resp.raise_for_status()
+            if occi.keystone_project is None:
+                headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
+                           'X-Auth-Token': token, 'Connection': 'close'}
+                url = "%s/v3/auth/projects" % keystone_uri
+                resp = occi.create_request_static('GET', url, auth, headers)
+                resp.raise_for_status()
 
-            output = resp.json()
+                output = resp.json()
 
-            if len(output['projects']) == 1:
-                # If there are only one get the first tenant
-                project = output['projects'].pop()
-            if len(output['projects']) >= 1:
-                # If there are more than one
-                if auth and "project" in auth:
-                    project_found = None
-                    for elem in output['projects']:
-                        if elem['id'] == auth["project"] or elem['name'] == auth["project"]:
-                            project_found = elem
-                    if project_found:
-                        project = project_found
-                    else:
-                        project = output['projects'].pop()
-                        self.log_warn("Keystone 3 project %s not found. Using first one." % auth["project"])
+                if len(output['projects']) == 1:
+                    # If there are only one get the first project
+                    projects = output['projects']
+                elif len(output['projects']) > 1:
+                    # If there are more than one
+                    if auth and "project" in auth:
+                        project_found = None
+                        for elem in output['projects']:
+                            if elem['id'] == auth["project"] or elem['name'] == auth["project"]:
+                                project_found = elem
+                        if project_found:
+                            projects = [project_found]
+                        else:
+                            projects = output['projects']
+                            self.log_warn("Keystone 3 project %s not found." % auth["project"])
+            else:
+                projects = [occi.keystone_project]
 
-            # get scoped token for allowed project
-            headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
-                       'X-Auth-Token': token, 'Connection': 'close'}
-            body = {"auth": {"identity": {"methods": ["token"], "token": {"id": token}},
-                    "scope": {"project": {"id": project["id"]}}}}
-            url = "%s/v3/auth/tokens" % keystone_uri
-            resp = occi.create_request_static('POST', url, auth, headers, json.dumps(body))
-            resp.raise_for_status()
-            token = resp.headers['X-Subject-Token']
-            return token
+            scoped_token = None
+            for project in projects:
+                # get scoped token for allowed project
+                headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
+                           'X-Auth-Token': token, 'Connection': 'close'}
+                body = {"auth": {"identity": {"methods": ["token"], "token": {"id": token}},
+                                 "scope": {"project": {"id": project["id"]}}}}
+                url = "%s/v3/auth/tokens" % keystone_uri
+                resp = occi.create_request_static('POST', url, auth, headers, json.dumps(body))
+                if resp.status_code in [200, 201, 202]:
+                    occi.logger.info("Using project: %s" % project["name"])
+                    occi.keystone_project = project
+                    scoped_token = resp.headers['X-Subject-Token']
+                    break
+
+            if not scoped_token:
+                occi.logger.error("Not project accesible for the user.")
+
+            return scoped_token
         except Exception as ex:
             occi.logger.exception("Error obtaining Keystone v3 Token.")
             raise Exception("Error obtaining Keystone v3 Token: %s" % str(ex))

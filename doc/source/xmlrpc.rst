@@ -43,11 +43,13 @@ This is the list of method names:
 ``GetInfrastructureContMsg``
    :parameter 0: ``infId``: integer
    :parameter 1: ``auth``: array of structs
+   :parameter 2: ``headeronly``: (optional, default value False) boolean
    :ok response: [true, ``cont_out``: string]
    :fail response: [false, ``error``: string]
 
-   Return the contextualization log associated to the 
-   infrastructure with ID ``infId``. 
+   Return the contextualization log associated to the infrastructure with ID ``infId``. 
+   In case of ``headeronly`` flag is set to True. Only the initial part of the infrastructure
+   contextualization log will be returned (without any VM contextualization log).
    
 ``GetInfrastructureState``
    :parameter 0: ``infId``: integer

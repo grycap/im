@@ -480,8 +480,7 @@ class InfrastructureInfo:
                         break
 
         if not ctxt:
-            InfrastructureInfo.logger.debug(
-                "Inf ID: " + str(self.id) + ": Contextualization disabled by the RADL.")
+            InfrastructureInfo.logger.info("Inf ID: " + str(self.id) + ": Contextualization disabled by the RADL.")
             self.cont_out = "Contextualization disabled by the RADL."
             self.configured = True
             for vm in self.get_vm_list():

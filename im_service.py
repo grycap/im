@@ -160,9 +160,9 @@ def GetVMContMsg(inf_id, vm_id, auth_data):
     return WaitRequest(request)
 
 
-def GetInfrastructureContMsg(inf_id, auth_data):
+def GetInfrastructureContMsg(inf_id, auth_data, headeronly=False):
     request = IMBaseRequest.create_request(
-        IMBaseRequest.GET_INFRASTRUCTURE_CONT_MSG, (inf_id, auth_data))
+        IMBaseRequest.GET_INFRASTRUCTURE_CONT_MSG, (inf_id, auth_data, headeronly))
     return WaitRequest(request)
 
 
