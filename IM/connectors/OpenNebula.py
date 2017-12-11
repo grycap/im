@@ -941,19 +941,16 @@ class OpenNebulaCloudConnector(CloudConnector):
         for public in [True, False]:
             i = 0
             while system.getValue("net_interface." + str(i) + ".connection"):
-                network = system.getValue(
-                    "net_interface." + str(i) + ".connection")
+                network = system.getValue("net_interface." + str(i) + ".connection")
                 fixed_ip = system.getValue("net_interface." + str(i) + ".ip")
 
                 # get the one network info
-                if nets[network]:
+                if network in nets and nets[network]:
                     (net_name, net_id, is_public) = nets[network]
                     radl.get_network_by_id(network).setValue('provider_id', str(net_name))
                 else:
-                    self.log_error(
-                        "No ONE network found for network: " + network)
-                    raise Exception(
-                        "No ONE network found for network: " + network)
+                    self.log_error("No ONE network found for network: " + network)
+                    raise Exception("No ONE network found for network: " + network)
 
                 if public == is_public:
                     if net_id is not None:
