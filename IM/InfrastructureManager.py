@@ -403,10 +403,8 @@ class InfrastructureManager:
         # Get VMRC credentials
         vmrc_list = []
         for vmrc_elem in auth.getAuthInfo('VMRC'):
-            if ('host' in vmrc_elem and 'username' in vmrc_elem and
-                    'password' in vmrc_elem):
-                vmrc_list.append(VMRC(vmrc_elem['host'], vmrc_elem['username'],
-                                      vmrc_elem['password']))
+            if ('host' in vmrc_elem and 'username' in vmrc_elem and 'password' in vmrc_elem):
+                vmrc_list.append(VMRC(vmrc_elem['host'], vmrc_elem['username'], vmrc_elem['password']))
 
         # Concrete systems using VMRC
         # NOTE: consider not-fake deploys (vm_number > 0)
@@ -415,8 +413,7 @@ class InfrastructureManager:
             s = radl.get_system_by_name(system_id)
 
             if not s.getValue("disk.0.image.url") and len(vmrc_list) == 0:
-                raise Exception(
-                    "No correct VMRC auth data provided nor image URL")
+                raise Exception("No correct VMRC auth data provided nor image URL")
 
             # Remove the requested apps from the system
             s_without_apps = radl.get_system_by_name(system_id).clone()
@@ -424,8 +421,7 @@ class InfrastructureManager:
 
             # Set the default values for cpu, memory
             defaults = (Feature("cpu.count", ">=", Config.DEFAULT_VM_CPUS),
-                        Feature("memory.size", ">=", Config.DEFAULT_VM_MEMORY,
-                                Config.DEFAULT_VM_MEMORY_UNIT),
+                        Feature("memory.size", ">=", Config.DEFAULT_VM_MEMORY, Config.DEFAULT_VM_MEMORY_UNIT),
                         Feature("cpu.arch", "=", Config.DEFAULT_VM_CPU_ARCH))
             for f in defaults:
                 if not s_without_apps.hasFeature(f.prop, check_softs=True):
@@ -596,7 +592,7 @@ class InfrastructureManager:
         exceptions = []
         delete_list = [sel_inf.get_vm(vmid) for vmid in vm_ids]
         for vm in delete_list:
-            if InfrastructureManager._delete_vm(vm, delete_list, auth, exceptions):
+            if vm.delete(delete_list, auth, exceptions):
                 cont += 1
 
         InfrastructureManager.logger.info("Inf ID: " + sel_inf.id + ": %d VMs successfully removed" % cont)
@@ -1049,42 +1045,6 @@ class InfrastructureManager:
             return ""
 
     @staticmethod
-    def is_last_in_cloud(vm, delete_list, remain_vms):
-        """
-        Check if this VM is the last in the cloud provider
-        to send the correct flag to the finalize function to clean
-        resources correctly
-        """
-        for v in remain_vms:
-            if v.cloud.type == vm.cloud.type and v.cloud.server == vm.cloud.server:
-                # There are at least one VM in the same cloud
-                # that will remain. This is not the last one
-                return False
-
-        # Get the list of VMs on the same cloud to be deleted
-        delete_list_cloud = [v for v in delete_list if (v.cloud.type == vm.cloud.type and
-                                                        v.cloud.server == vm.cloud.server)]
-
-        # And return true in the last of these VMs
-        return vm == delete_list_cloud[-1]
-
-    @staticmethod
-    def _delete_vm(vm, delete_list, auth, exceptions):
-        # Select the last in the list to delete
-        remain_vms = [v for v in vm.inf.get_vm_list() if v not in delete_list]
-        last = InfrastructureManager.is_last_in_cloud(vm, delete_list, remain_vms)
-        success = False
-        try:
-            InfrastructureManager.logger.info("Inf ID: " + vm.inf.id + ": Finalizing the VM id: " + str(vm.id))
-            (success, msg) = vm.finalize(last, auth)
-        except Exception as e:
-            msg = str(e)
-        if not success:
-            InfrastructureManager.logger.info("Inf ID: " + vm.inf.id + ": The VM cannot be finalized: %s" % msg)
-            exceptions.append(msg)
-        return success
-
-    @staticmethod
     def DestroyInfrastructure(inf_id, auth):
         """
         Destroy all virtual machines in an infrastructure.
@@ -1108,14 +1068,14 @@ class InfrastructureManager:
         if Config.MAX_SIMULTANEOUS_LAUNCHES > 1:
             pool = ThreadPool(processes=Config.MAX_SIMULTANEOUS_LAUNCHES)
             pool.map(
-                lambda vm: InfrastructureManager._delete_vm(vm, delete_list, auth, exceptions),
+                lambda vm: vm.delete(delete_list, auth, exceptions),
                 delete_list
             )
             pool.close()
         else:
             # If IM server is the first VM, then it will be the last destroyed
             for vm in delete_list:
-                InfrastructureManager._delete_vm(vm, delete_list, auth, exceptions)
+                vm.delete(delete_list, auth, exceptions)
 
         if exceptions:
             IM.InfrastructureList.InfrastructureList.save_data(inf_id)
