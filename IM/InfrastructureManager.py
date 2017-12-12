@@ -403,7 +403,7 @@ class InfrastructureManager:
         # Get VMRC credentials
         vmrc_list = []
         for vmrc_elem in auth.getAuthInfo('VMRC'):
-            if ('host' in vmrc_elem and 'username' in vmrc_elem and 'password' in vmrc_elem):
+            if 'host' in vmrc_elem and 'username' in vmrc_elem and 'password' in vmrc_elem:
                 vmrc_list.append(VMRC(vmrc_elem['host'], vmrc_elem['username'], vmrc_elem['password']))
 
         # Concrete systems using VMRC
