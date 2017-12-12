@@ -339,6 +339,97 @@ class InfrastructureManager:
         return concrete_system, score
 
     @staticmethod
+    def systems_with_vmrc(radl, auth):
+        """
+        Concrete systems using VMRC
+        NOTE: consider not-fake deploys (vm_number > 0)
+        """
+        # Get VMRC credentials
+        vmrc_list = []
+        for vmrc_elem in auth.getAuthInfo('VMRC'):
+            if 'host' in vmrc_elem and 'username' in vmrc_elem and 'password' in vmrc_elem:
+                vmrc_list.append(VMRC(vmrc_elem['host'], vmrc_elem['username'], vmrc_elem['password']))
+
+        systems_with_vmrc = {}
+        for system_id in set([d.id for d in radl.deploys if d.vm_number > 0]):
+            s = radl.get_system_by_name(system_id)
+
+            if not s.getValue("disk.0.image.url") and len(vmrc_list) == 0:
+                raise Exception("No correct VMRC auth data provided nor image URL")
+
+            # Remove the requested apps from the system
+            s_without_apps = radl.get_system_by_name(system_id).clone()
+            s_without_apps.delValue("disk.0.applications")
+
+            # Set the default values for cpu, memory
+            defaults = (Feature("cpu.count", ">=", Config.DEFAULT_VM_CPUS),
+                        Feature("memory.size", ">=", Config.DEFAULT_VM_MEMORY, Config.DEFAULT_VM_MEMORY_UNIT),
+                        Feature("cpu.arch", "=", Config.DEFAULT_VM_CPU_ARCH))
+            for f in defaults:
+                if not s_without_apps.hasFeature(f.prop, check_softs=True):
+                    s_without_apps.addFeature(f)
+
+            vmrc_res = [s0 for vmrc in vmrc_list for s0 in vmrc.search_vm(s)]
+            # Check that now the image URL is in the RADL
+            if not s.getValue("disk.0.image.url") and not vmrc_res:
+                raise Exception("No VMI obtained from VMRC to system: " + system_id)
+
+            n = [s_without_apps.clone().applyFeatures(s0, conflict="other", missing="other")
+                 for s0 in vmrc_res]
+            systems_with_vmrc[system_id] = n if n else [s_without_apps]
+
+        return systems_with_vmrc
+
+    @staticmethod
+    def sort_by_score(sel_inf, concrete_systems, cloud_list, deploy_groups, auth):
+        """
+        Sort by score the cloud providers
+        NOTE: consider fake deploys (vm_number == 0)
+        """
+        deploys_group_cloud = {}
+
+        # reverse the list to use the reverse order in the sort function
+        # list of ordered clouds
+        ordered_cloud_list = [c.id for c in CloudInfo.get_cloud_list(auth)]
+        ordered_cloud_list.reverse()
+        for deploy_group in deploy_groups:
+            suggested_cloud_ids = list(set([d.cloud_id for d in deploy_group if d.cloud_id]))
+            if len(suggested_cloud_ids) > 1:
+                raise Exception("Two deployments that have to be launched in the same cloud provider "
+                                "are asked to be deployed in different cloud providers: %s" % deploy_group)
+            elif len(suggested_cloud_ids) == 1:
+                if suggested_cloud_ids[0] not in cloud_list:
+                    InfrastructureManager.logger.debug("Inf ID: " + sel_inf.id + ": Cloud Provider list:")
+                    InfrastructureManager.logger.debug("Inf ID: " + sel_inf.id + " - " + str(cloud_list))
+                    raise Exception("No auth data for cloud with ID: %s" % suggested_cloud_ids[0])
+                else:
+                    cloud_list0 = [(suggested_cloud_ids[0], cloud_list[suggested_cloud_ids[0]])]
+            else:
+                cloud_list0 = cloud_list.items()
+
+            scored_clouds = []
+            for cloud_id, _ in cloud_list0:
+                total = 0
+                for d in deploy_group:
+                    if d.vm_number:
+                        total += d.vm_number * concrete_systems[cloud_id][d.id][1]
+                    else:
+                        total += 1
+                scored_clouds.append((cloud_id, total))
+
+            # Order the clouds first by the score and then using the cloud
+            # order in the auth data
+            sorted_scored_clouds = sorted(scored_clouds,
+                                          key=lambda x: (x[1], ordered_cloud_list.index(x[0])),
+                                          reverse=True)
+            if sorted_scored_clouds and sorted_scored_clouds[0]:
+                deploys_group_cloud[id(deploy_group)] = sorted_scored_clouds[0][0]
+            else:
+                raise Exception("No cloud provider available")
+
+        return deploys_group_cloud
+
+    @staticmethod
     def AddResource(inf_id, radl_data, auth, context=True, failed_clouds=None):
         """
         Add the resources in the RADL to the infrastructure.
@@ -387,55 +478,17 @@ class InfrastructureManager:
                         # This app must be installed and it has special
                         # requirements
                         try:
-                            requirements_radl = radl_parse.parse_radl(
-                                requirements).systems[0]
-                            system.applyFeatures(
-                                requirements_radl, conflict="other", missing="other")
+                            requirements_radl = radl_parse.parse_radl(requirements).systems[0]
+                            system.applyFeatures(requirements_radl, conflict="other", missing="other")
                         except Exception:
                             InfrastructureManager.logger.exception(
-                                "Inf ID: " + sel_inf.id + ": " +
-                                "Error in the requirements of the app: " +
-                                app_to_install.getValue("name") +
-                                ". Ignore them.")
+                                "Inf ID: " + sel_inf.id + ": Error in the requirements of the app: " +
+                                app_to_install.getValue("name") + ". Ignore them.")
                             InfrastructureManager.logger.debug("Inf ID: " + sel_inf.id + ": " + str(requirements))
                         break
 
-        # Get VMRC credentials
-        vmrc_list = []
-        for vmrc_elem in auth.getAuthInfo('VMRC'):
-            if 'host' in vmrc_elem and 'username' in vmrc_elem and 'password' in vmrc_elem:
-                vmrc_list.append(VMRC(vmrc_elem['host'], vmrc_elem['username'], vmrc_elem['password']))
-
         # Concrete systems using VMRC
-        # NOTE: consider not-fake deploys (vm_number > 0)
-        systems_with_vmrc = {}
-        for system_id in set([d.id for d in radl.deploys if d.vm_number > 0]):
-            s = radl.get_system_by_name(system_id)
-
-            if not s.getValue("disk.0.image.url") and len(vmrc_list) == 0:
-                raise Exception("No correct VMRC auth data provided nor image URL")
-
-            # Remove the requested apps from the system
-            s_without_apps = radl.get_system_by_name(system_id).clone()
-            s_without_apps.delValue("disk.0.applications")
-
-            # Set the default values for cpu, memory
-            defaults = (Feature("cpu.count", ">=", Config.DEFAULT_VM_CPUS),
-                        Feature("memory.size", ">=", Config.DEFAULT_VM_MEMORY, Config.DEFAULT_VM_MEMORY_UNIT),
-                        Feature("cpu.arch", "=", Config.DEFAULT_VM_CPU_ARCH))
-            for f in defaults:
-                if not s_without_apps.hasFeature(f.prop, check_softs=True):
-                    s_without_apps.addFeature(f)
-
-            vmrc_res = [s0 for vmrc in vmrc_list for s0 in vmrc.search_vm(s)]
-            # Check that now the image URL is in the RADL
-            if not s.getValue("disk.0.image.url") and not vmrc_res:
-                raise Exception(
-                    "No VMI obtained from VMRC to system: " + system_id)
-
-            n = [s_without_apps.clone().applyFeatures(s0, conflict="other", missing="other")
-                 for s0 in vmrc_res]
-            systems_with_vmrc[system_id] = n if n else [s_without_apps]
+        systems_with_vmrc = InfrastructureManager.systems_with_vmrc(radl, auth)
 
         # Concrete systems with cloud providers and select systems with the greatest score
         # in every cloud
@@ -459,48 +512,8 @@ class InfrastructureManager:
         InfrastructureManager.logger.debug("Inf ID: " + sel_inf.id + "\n" + str(deploy_groups))
 
         # Sort by score the cloud providers
-        # NOTE: consider fake deploys (vm_number == 0)
-        deploys_group_cloud = {}
-        # reverse the list to use the reverse order in the sort function
-        # list of ordered clouds
-
-        ordered_cloud_list = [c.id for c in CloudInfo.get_cloud_list(auth)]
-        ordered_cloud_list.reverse()
-        for deploy_group in deploy_groups:
-            suggested_cloud_ids = list(set([d.cloud_id for d in deploy_group if d.cloud_id]))
-            if len(suggested_cloud_ids) > 1:
-                raise Exception("Two deployments that have to be launched in the same cloud provider "
-                                "are asked to be deployed in different cloud providers: %s" % deploy_group)
-            elif len(suggested_cloud_ids) == 1:
-                if suggested_cloud_ids[0] not in cloud_list:
-                    InfrastructureManager.logger.debug("Inf ID: " + sel_inf.id + ": Cloud Provider list:")
-                    InfrastructureManager.logger.debug("Inf ID: " + sel_inf.id + " - " + str(cloud_list))
-                    raise Exception("No auth data for cloud with ID: %s" % suggested_cloud_ids[0])
-                else:
-                    cloud_list0 = [
-                        (suggested_cloud_ids[0], cloud_list[suggested_cloud_ids[0]])]
-            else:
-                cloud_list0 = cloud_list.items()
-
-            scored_clouds = []
-            for cloud_id, _ in cloud_list0:
-                total = 0
-                for d in deploy_group:
-                    if d.vm_number:
-                        total += d.vm_number * concrete_systems[cloud_id][d.id][1]
-                    else:
-                        total += 1
-                scored_clouds.append((cloud_id, total))
-
-            # Order the clouds first by the score and then using the cloud
-            # order in the auth data
-            sorted_scored_clouds = sorted(scored_clouds,
-                                          key=lambda x: (x[1], ordered_cloud_list.index(x[0])),
-                                          reverse=True)
-            if sorted_scored_clouds and sorted_scored_clouds[0]:
-                deploys_group_cloud[id(deploy_group)] = sorted_scored_clouds[0][0]
-            else:
-                raise Exception("No cloud provider available")
+        deploys_group_cloud = InfrastructureManager.sort_by_score(sel_inf, concrete_systems, cloud_list,
+                                                                  deploy_groups, auth)
 
         # Launch every group in the same cloud provider
         deployed_vm = {}
@@ -540,14 +553,11 @@ class InfrastructureManager:
             (_, new_passwd, _, _) = vm.info.systems[0].getCredentialValues(new=True)
             if passwd and not new_passwd:
                 # The VM uses the VMI password, set to change it
-                random_password = ''.join(random.choice(
-                    string.ascii_letters + string.digits) for _ in range(8))
-                vm.info.systems[0].setCredentialValues(
-                    password=random_password, new=True)
+                random_password = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(8))
+                vm.info.systems[0].setCredentialValues(password=random_password, new=True)
 
         # Add the new virtual machines to the infrastructure
-        sel_inf.update_radl(radl, [(d, deployed_vm[d], concrete_systems[d.cloud_id][d.id][0])
-                                   for d in deployed_vm])
+        sel_inf.update_radl(radl, [(d, deployed_vm[d], concrete_systems[d.cloud_id][d.id][0]) for d in deployed_vm])
         InfrastructureManager.logger.info("VMs %s successfully added to Inf ID: %s" % (new_vms, sel_inf.id))
 
         # Let's contextualize!
