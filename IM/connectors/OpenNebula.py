@@ -450,8 +450,7 @@ class OpenNebulaCloudConnector(CloudConnector):
                 return [(False, "Error in the one.vm.allocate return value")]
 
             if success:
-                vm = VirtualMachine(
-                    inf, str(res_id), self.cloud, radl, requested_radl, self)
+                vm = VirtualMachine(inf, str(res_id), self.cloud, radl, requested_radl, self)
                 vm.info.systems[0].setValue('instance_id', str(res_id))
                 inf.add_vm(vm)
                 res.append((success, vm))
