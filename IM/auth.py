@@ -115,6 +115,28 @@ class Authentication:
         return True
 
     @staticmethod
+    def split_line(line):
+        """
+        Split line using ; as separator char
+        considering single quotes as a way to delimit
+        tokens. (in particular to enable using char ; inside a token)
+        """
+        tokens = []
+        token = ""
+        in_qoutes = False
+        for char in line:
+            if char == "'":
+                in_qoutes = not in_qoutes
+            elif char == ";" and not in_qoutes:
+                tokens.append(token)
+                token = ""
+            else:
+                token += char
+
+        #return line.split(";")
+        return tokens
+
+    @staticmethod
     def read_auth_data(filename):
         """
         Read a file to load the Authentication data.
@@ -146,7 +168,7 @@ class Authentication:
             line = line.strip()
             if len(line) > 0 and not line.startswith("#"):
                 auth = {}
-                tokens = line.split(";")
+                tokens = Authentication.split_line(line)
                 for token in tokens:
                     key_value = token.split(" = ")
                     if len(key_value) != 2:
