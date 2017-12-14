@@ -130,8 +130,13 @@ this::
 
    id = id_value ; type = value_of_type ; username = value_of_username ; password = value_of_password 
 
-Values can contain "=", and "\\n" is replaced by carriage return. The available
-keys are:
+Values can contain "=", and "\\n" is replaced by carriage return. 
+You can also delimit the values using single quotes (e.g. if a semicolon character appear in a value)
+(from version 1.6.6)::
+
+   id = id_value ; type = value_of_type ; username = value_of_username ; password = 'some;password'
+
+The available keys are:
 
 * ``type`` indicates the service that refers the credential. The services
   supported are ``InfrastructureManager``, ``VMRC``, ``OpenNebula``, ``EC2``,, ``FogBow``, 
