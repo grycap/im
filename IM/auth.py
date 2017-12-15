@@ -124,10 +124,13 @@ class Authentication:
         tokens = []
         token = ""
         in_qoutes = False
+        in_dqoutes = False
         for char in line:
-            if char == "'":
+            if char == '"' and not in_qoutes:
+                in_dqoutes = not in_dqoutes
+            elif char == "'" and not in_dqoutes:
                 in_qoutes = not in_qoutes
-            elif char == ";" and not in_qoutes:
+            elif char == ";" and not in_qoutes and not in_dqoutes:
                 tokens.append(token)
                 token = ""
             else:
@@ -144,8 +147,8 @@ class Authentication:
         Read a file to load the Authentication data.
         The file has the following format:
 
-        id = one; type = OpenNebula; host = osenserve:2633; username = user; password = pass
-        type = InfrastructureManager; username = user; password = pass
+        id = one; type = OpenNebula; host = oneserver:2633; username = user; password = pass
+        type = InfrastructureManager; username = user; password = 'pass;test'
         type = VMRC; host = http://server:8080/vmrc; username = user; password = pass
         id = ec2; type = EC2; username = ACCESS_KEY; password = SECRET_KEY
         id = oshost; type = OpenStack; host = oshost:8773; username = ACCESS_KEY; key = SECRET_KEY
