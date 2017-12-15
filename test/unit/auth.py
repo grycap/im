@@ -17,6 +17,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
+import os
+import shutil
 
 from IM.auth import Authentication
 
@@ -40,6 +42,14 @@ class TestAuth(unittest.TestCase):
                                  'type': 'OpenNebula', 'username': 'someuser'},
                                 {'id': '4', 'password': 'some;"pass',
                                  'type': 'EC2', 'username': 'someuser'}])
+
+        tests_path = os.path.dirname(os.path.abspath(__file__))
+        shutil.copyfile(os.path.join(tests_path, "../files/privatekey.pem"), "/tmp/privatekey.pem")
+        auth = Authentication(Authentication.read_auth_data(os.path.join(tests_path, "../files/auth.dat")))
+        auth_data = auth.getAuthInfoByID("occi")
+        self.assertEqual(auth_data[0]['proxy'][:37], "-----BEGIN RSA PRIVATE KEY-----\nMIIEo")
+        os.unlink("/tmp/privatekey.pem")
+
 
     def test_get_auth(self):
         auth_lines = ["""id = 1; type = InfrastructureManager; username = someuser; password = somepass """,
