@@ -149,14 +149,14 @@ class Authentication:
 
         id = one; type = OpenNebula; host = oneserver:2633; username = user; password = pass
         type = InfrastructureManager; username = user; password = 'pass;test'
-        type = VMRC; host = http://server:8080/vmrc; username = user; password = pass
+        type = VMRC; host = http://server:8080/vmrc; username = user; password = "pass';test"
         id = ec2; type = EC2; username = ACCESS_KEY; password = SECRET_KEY
         id = oshost; type = OpenStack; host = oshost:8773; username = ACCESS_KEY; key = SECRET_KEY
         id = occi; type = OCCI; host = occiserver:4567; username = user; password = file(/tmp/filename)
         id = occi; type = OCCI; proxy = file(/tmp/proxy.pem)
 
         Arguments:
-           - filename(str): The filename to read
+           - filename(str or list): The filename to read or list of auth lines
 
         Returns: a list with all the auth data
         """
