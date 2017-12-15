@@ -132,8 +132,10 @@ class Authentication:
                 token = ""
             else:
                 token += char
+        # Add the last token
+        if token.strip() != "":
+            tokens.append(token)
 
-        #return line.split(";")
         return tokens
 
     @staticmethod
