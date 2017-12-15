@@ -71,7 +71,7 @@ class Authentication:
         """
         res = []
         for auth in self.auth_list:
-            if auth['id'] == auth_id:
+            if 'id' in auth and auth['id'] == auth_id:
                 res.append(auth)
         return res
 
