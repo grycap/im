@@ -362,3 +362,10 @@ IM 1.6.5
     * Homogenize Inf ID log message
     * Fix error cpu.count parameter is ignored in OpenStack conn.
     * Fix ansible_version is not available in ctxt process.
+
+IM 1.6.6
+    * Fix authorization file format does not allow passwords that contain ";".
+    * Improve error message in ONE conn in case net without leases.
+    * Fix error using disks.free_size in connectors.
+    * Add retries in Azure RG deletion.
+    * Avoid raising error in case that one auth line does not have the type field.
