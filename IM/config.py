@@ -93,7 +93,7 @@ class Config:
     SINGLE_SITE_TYPE = ''
     SINGLE_SITE_AUTH_HOST = ''
     SINGLE_SITE_IMAGE_URL_PREFIX = ''
-    OIDC_ISSUERS = ["https://iam-test.indigo-datacloud.eu/"]
+    OIDC_ISSUERS = []
     OIDC_AUDIENCE = None
     INF_CACHE_TIME = None
     VMINFO_JSON = False
