@@ -17,7 +17,7 @@ There is also an Infrastructure Manager YouTube reproduction list with a set of 
 of the functionality of the platform: https://www.youtube.com/playlist?list=PLgPH186Qwh_37AMhEruhVKZSfoYpHkrUp.
 
 DOCKER IMAGE
-=============
+------------
 
 A Docker image named `grycap/im` has been created to make easier the deployment of an IM service using the 
 default configuration. Information about this image can be found here: https://registry.hub.docker.com/u/grycap/im/.
