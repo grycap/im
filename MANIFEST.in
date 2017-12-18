@@ -5,6 +5,5 @@ include scripts/im.service
 include etc/im.cfg
 include etc/logging.conf
 include LICENSE
-include INSTALL
 include NOTICE
 include changelog
