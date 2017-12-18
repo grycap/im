@@ -17,6 +17,7 @@ RUN pip install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-co
 # Install IM
 RUN apt-get update && apt-get install --no-install-recommends -y gcc libmysqld-dev libssl-dev libffi-dev libsqlite3-dev && \
      pip install MySQL-python && \
+     pip install xmltodict && \
      pip install IM==1.6.6 && \
      apt-get purge -y gcc libmysqld-dev libssl-dev libffi-dev libsqlite3-dev python-dev python-pip && \
      apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && rm -rf ~/.cache/

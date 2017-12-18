@@ -40,7 +40,7 @@ Next tables summaries the resources and the HTTP methods available.
 | **GET**     | | **Get** the specified property ``property_name``  | | **Get** the specified property ``property_name`` |
 |             | | associated to the machine ``vmId`` in ``infId``.  | | associated to the infrastructure ``infId``.      |
 |             | | It has one special property: ``contmsg``.         | | It has three properties: ``contmsg``, ``radl``,  |
-|             |                                                     | | ``state``.                                       |
+|             |                                                     | | ``state`` and ``outputs``.                       |
 +-------------+-----------------------------------------------------+----------------------------------------------------+
 
 +-------------+-----------------------------------------------+------------------------------------------------+
@@ -121,6 +121,7 @@ GET ``http://imserver.com/infrastructures/<infId>/<property_name>``
    :fail response: 401, 404, 400, 403
 
    Return property ``property_name`` associated to the infrastructure with ID ``infId``. It has three properties:
+      :``outputs``: in case of TOSCA documents it will return a JSON object with the outputs of the TOSCA document. 
       :``contmsg``: a string with the contextualization message. In case of ``headeronly`` flag is set to 'yes',
                     'true' or '1' only the initial part of the infrastructure contextualization log will be
                     returned (without any VM contextualization log).
@@ -133,7 +134,7 @@ GET ``http://imserver.com/infrastructures/<infId>/<property_name>``
    The result is JSON format has the following format::
    
     {
-      ["radl"|"state"|"contmsg"]: <property_value>
+      ["radl"|"state"|"contmsg"|"outputs"]: <property_value>
     }
 
 POST ``http://imserver.com/infrastructures/<infId>``

@@ -1,0 +1,38 @@
+tosca_definitions_version: tosca_simple_yaml_1_0
+ 
+description: TOSCA Galaxy test for the IM
+
+topology_template:
+ 
+  node_templates:
+
+    bowtie2_galaxy_tool:
+      type: tosca.nodes.indigo.GalaxyShedTool
+      properties:
+         name: bowtie2
+         owner: devteam
+         tool_panel_section_id: ngs_mapping
+      requirements:
+        - host: galaxy
+
+    galaxy:
+      type: tosca.nodes.indigo.GalaxyPortal
+      requirements:
+        - host: galaxy_server
+ 
+    galaxy_server:
+      type: tosca.nodes.Compute
+      capabilities:
+        # Host container properties
+        host:
+         properties:
+           num_cpus: 1
+           mem_size: 1 GB
+        # Guest Operating System properties
+        os:
+          properties:
+            # host Operating System image properties
+            type: linux 
+            #distribution: scientific 
+            #version: 6.6
+
