@@ -46,6 +46,8 @@ However, if you install IM from sources you should install:
 
  + The Requests library for Python, typically available as the 'python-requests' package.
 
+ + TOSCA parser library for Python, available as the 'tosca-parser' package in pip.
+
  + Ansible (http://www.ansibleworks.com/) to configure nodes in the infrastructures.
    In particular, Ansible 2.0.0+ must be installed.
    To ensure the functionality the following values must be set in the ansible.cfg file (usually found in /etc/ansible/):
@@ -170,7 +172,9 @@ REQUISITES section.
 ### 1.3.3 From RPM packages (RH7)
 
 Download the RPM package from [GitHub](https://github.com/grycap/im/releases/latest). 
-Also remember to download the RPM of the RADL package also from [GitHub](https://github.com/grycap/radl/releases/latest). 
+Also remember to download the RPM of the RADL package also from [GitHub](https://github.com/grycap/radl/releases/latest)and TOSCA parser from [INDIGO repositories](http://repo.indigo-datacloud.eu/repository/indigo/2/centos7/x86_64/updates/tosca-parser-0.8.3-1.el7.noarch.rpm). 
+
+
 You must have the epel repository enabled:
 
 ```sh
@@ -192,7 +196,7 @@ $ pip install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-comp
 ### 1.3.4 From Deb package (Tested with Ubuntu 14.04 and 16.04)
 
 Download the Deb package from [GitHub](https://github.com/grycap/im/releases/latest).
-Also remember to download the Deb of the RADL package also from [GitHub](https://github.com/grycap/radl/releases/latest).
+Also remember to download the Deb of the RADL package also from [GitHub](https://github.com/grycap/radl/releases/latest) and TOSCA parser from [INDIGO repositories](http://repo.indigo-datacloud.eu/repository/indigo/2/ubuntu/dists/xenial-updates/main/binary-amd64/python-tosca-parser_0.8.3-1_all.deb)
 
 In Ubuntu 14.04 there are some requisites not available for the "trusty" version or are too old, so you have to manually install them manually.
 You can download it from their corresponding PPAs. But here you have some links:
