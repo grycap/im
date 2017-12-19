@@ -160,7 +160,10 @@ def get_media_type(header):
             pos = media_type.find(";")
             if pos != -1:
                 media_type = media_type[:pos]
-            res.append(media_type.strip())
+            if media_type.strip() in ["text/yaml", "text/x-yaml"]:
+                res.append("text/yaml")
+            else:
+                res.append(media_type.strip())
 
     return res
 
