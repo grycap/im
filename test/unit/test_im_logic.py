@@ -292,12 +292,12 @@ class TestIM(unittest.TestCase):
         res = IM.GetInfrastructureState(infID, auth0)
         self.assertEqual(res['state'], VirtualMachine.FAILED)
         res = IM.GetInfrastructureContMsg(infID, auth0)
-        self.assertIn('VM 0:\nError launching the VMs of type front to cloud ID one of type OpenNebula. '
-                      'Attempt 1: Error: [Errno 111] Connection refused\nAttempt 2: Error: [Errno 111] '
-                      'Connection refused\nAttempt 3: Error: [Errno 111] Connection refused', res)
-        self.assertIn('VM 1:\nError launching the VMs of type wn to cloud ID one of type OpenNebula. '
-                      'Attempt 1: Error: [Errno 111] Connection refused\nAttempt 2: Error: [Errno 111] '
-                      'Connection refused\nAttempt 3: Error: [Errno 111] Connection refused', res)
+        self.assertRegexpMatches(res, 'VM 0:\nError launching the VMs of type front to cloud ID one of type '
+                                 'OpenNebula. Attempt 1: Error: \[Errno (.*)\nAttempt 2: Error: \[Errno (.*)'
+                                 '\nAttempt 3: Error: \[Errno (.*)')
+        self.assertRegexpMatches(res, 'VM 1:\nError launching the VMs of type wn to cloud ID one of type '
+                                 'OpenNebula. Attempt 1: Error: \[Errno (.*)\nAttempt 2: Error: \[Errno (.*)'
+                                 '\nAttempt 3: Error: \[Errno (.*)')
 
         # this case must work OK
         auth0 = Authentication([{'id': 'dummy', 'type': 'Dummy'},
