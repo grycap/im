@@ -289,6 +289,7 @@ class TestIM(unittest.TestCase):
                                  'password': 'tests'}])
         IM.CreateInfrastructure(radl, auth0)
 
+        Config.MAX_VM_FAILS = 3
         radl = RADL()
         radl.add(system("s0", [Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
                                Feature("disk.0.os.credentials.username", "=", "user"),
