@@ -89,8 +89,17 @@ class Config:
     CONFMAMAGER_CHECK_STATE_INTERVAL = 5
     UPDATE_CTXT_LOG_INTERVAL = 20
     ANSIBLE_INSTALL_TIMEOUT = 500
+    SINGLE_SITE = False
+    SINGLE_SITE_TYPE = ''
+    SINGLE_SITE_AUTH_HOST = ''
+    SINGLE_SITE_IMAGE_URL_PREFIX = ''
+    OIDC_ISSUERS = []
+    OIDC_AUDIENCE = None
     INF_CACHE_TIME = None
     VMINFO_JSON = False
+    OIDC_CLIENT_ID = None
+    OIDC_CLIENT_SECRET = None
+    OIDC_SCOPES = []
     VM_NUM_USE_CTXT_DIST = 30
     DELAY_BETWEEN_VM_RETRIES = 5
 
@@ -106,11 +115,23 @@ if config.has_section(section_name):
 if 'IM_DATA_DB' in os.environ:
     Config.DATA_DB = os.environ['IM_DATA_DB']
 
+if 'IM_SINGLE_SITE_ONE_HOST' in os.environ:
+    Config.SINGLE_SITE = True
+    Config.SINGLE_SITE_TYPE = 'OpenNebula'
+    Config.SINGLE_SITE_AUTH_HOST = 'http://%s:2633' % os.environ['IM_SINGLE_SITE_ONE_HOST']
+    Config.SINGLE_SITE_IMAGE_URL_PREFIX = 'one://%s/' % os.environ['IM_SINGLE_SITE_ONE_HOST']
+
 
 class ConfigOpenNebula:
     TEMPLATE_CONTEXT = ''
     TEMPLATE_OTHER = 'GRAPHICS = [type="vnc",listen="0.0.0.0"]'
     IMAGE_UNAME = ''
+    TTS_URL = 'https://localhost:8443'
 
 if config.has_section("OpenNebula"):
     parse_options(config, 'OpenNebula', ConfigOpenNebula)
+
+
+# In this case set assume that the TTS server is in the same server
+if 'IM_SINGLE_SITE_ONE_HOST' in os.environ:
+    ConfigOpenNebula.TTS_URL = 'https://%s:8443' % os.environ['IM_SINGLE_SITE_ONE_HOST']

@@ -34,6 +34,12 @@ from radl import radl_parse
 from radl.radl import Feature, RADL
 from radl.radl_json import dump_radl as dump_radl_json
 
+from IM.config import Config
+from IM.VirtualMachine import VirtualMachine
+from IM.openid.JWT import JWT
+from IM.openid.OpenIDClient import OpenIDClient
+
+
 if Config.MAX_SIMULTANEOUS_LAUNCHES > 1:
     from multiprocessing.pool import ThreadPool
 
@@ -1131,6 +1137,78 @@ class InfrastructureManager:
             return True
 
     @staticmethod
+    def check_oidc_token(im_auth):
+        token = im_auth["token"]
+        success = False
+        try:
+            # decode the token to get the info
+            decoded_token = JWT().get_info(token)
+        except Exception as ex:
+            InfrastructureManager.logger.exception("Error trying decode OIDC auth token: %s" % str(ex))
+            raise Exception("Error trying to decode OIDC auth token: %s" % str(ex))
+
+        # First check if the issuer is in valid
+        if decoded_token['iss'] not in Config.OIDC_ISSUERS:
+            InfrastructureManager.logger.error("Incorrect OIDC issuer: %s" % decoded_token['iss'])
+            raise InvaliddUserException("Invalid InfrastructureManager credentials. Issuer not accepted.")
+
+        # Now check the audience
+        if Config.OIDC_AUDIENCE:
+            if 'aud' in decoded_token and decoded_token['aud']:
+                found = False
+                for aud in decoded_token['aud'].split(","):
+                    if aud == Config.OIDC_AUDIENCE:
+                        found = True
+                        break
+                if found:
+                    InfrastructureManager.logger.debug("Audience %s successfully checked." % Config.OIDC_AUDIENCE)
+                else:
+                    InfrastructureManager.logger.error("Audience %s not found in access token." % Config.OIDC_AUDIENCE)
+                    raise InvaliddUserException("Invalid InfrastructureManager credentials. Audience not accepted.")
+            else:
+                InfrastructureManager.logger.error("Audience %s not found in access token." % Config.OIDC_AUDIENCE)
+                raise InvaliddUserException("Invalid InfrastructureManager credentials. Audience not accepted.")
+
+        if Config.OIDC_SCOPES and Config.OIDC_CLIENT_ID and Config.OIDC_CLIENT_SECRET:
+            success, res = OpenIDClient.get_token_introspection(token,
+                                                                Config.OIDC_CLIENT_ID,
+                                                                Config.OIDC_CLIENT_SECRET)
+            if not success:
+                raise InvaliddUserException("Invalid InfrastructureManager credentials. "
+                                            "Invalid token or Client credentials.")
+            else:
+                if not res["scope"]:
+                    raise InvaliddUserException("Invalid InfrastructureManager credentials. "
+                                                "No scope obtained from introspection.")
+                else:
+                    scopes = res["scope"].split(" ")
+                    if not all([elem in scopes for elem in Config.OIDC_SCOPES]):
+                        raise InvaliddUserException("Invalid InfrastructureManager credentials. Scopes %s "
+                                                    "not in introspection scopes: %s" % (" ".join(Config.OIDC_SCOPES),
+                                                                                         res["scope"]))
+
+        # Now check if the token is not expired
+        expired, msg = OpenIDClient.is_access_token_expired(token)
+        if expired:
+            InfrastructureManager.logger.error("OIDC auth %s." % msg)
+            raise InvaliddUserException("Invalid InfrastructureManager credentials. OIDC auth %s." % msg)
+
+        try:
+            # Now try to get user info
+            success, userinfo = OpenIDClient.get_user_info_request(token)
+            if success:
+                # convert to username to use it in the rest of the IM
+                im_auth['username'] = str(userinfo.get("preferred_username"))
+                im_auth['password'] = str(decoded_token['iss']) + str(userinfo.get("sub"))
+        except Exception as ex:
+            InfrastructureManager.logger.exception("Error trying to validate OIDC auth token: %s" % str(ex))
+            raise Exception("Error trying to validate OIDC auth token: %s" % str(ex))
+
+        if not success:
+            InfrastructureManager.logger.error("Incorrect OIDC auth token: %s" % userinfo)
+            raise InvaliddUserException("Invalid InfrastructureManager credentials. %s." % userinfo)
+
+    @staticmethod
     def check_auth_data(auth):
         # First check if it is configured to check the users from a list
         im_auth = auth.getAuthInfo("InfrastructureManager")
@@ -1138,9 +1216,25 @@ class InfrastructureManager:
         if not im_auth:
             raise IncorrectVMCrecentialsException("No credentials provided for the InfrastructureManager.")
 
-        # if not assume the basic user/password auth data
+        # First check if an OIDC token is included
+        if "token" in im_auth[0]:
+            InfrastructureManager.check_oidc_token(im_auth[0])
+
+        # Now check if the user is in authorized
         if not InfrastructureManager.check_im_user(im_auth):
             raise InvaliddUserException()
+
+        if Config.SINGLE_SITE:
+            vmrc_auth = auth.getAuthInfo("VMRC")
+            single_site_auth = auth.getAuthInfo(Config.SINGLE_SITE_TYPE)
+
+            single_site_auth[0]["host"] = Config.SINGLE_SITE_AUTH_HOST
+
+            auth_list = []
+            auth_list.extend(im_auth)
+            auth_list.extend(vmrc_auth)
+            auth_list.extend(single_site_auth)
+            auth = Authentication(auth_list)
 
         # We have to check if TTS is needed for other auth item
         return auth

@@ -53,6 +53,19 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         self.add_public_ip_count = 0
         LibCloudCloudConnector.__init__(self, cloud_info, inf)
 
+    def get_node_with_id(self, node_id, auth_data):
+        """
+        Get the node with the specified ID
+
+        Arguments:
+           - node_id(str): ID of the node to get
+           - auth(Authentication): parsed authentication tokens.
+        Returns: a :py:class:`libcloud.compute.base.Node` with the node info
+        """
+        driver = self.get_driver(auth_data)
+        node = driver.ex_get_node_details(node_id)
+        return node
+
     def get_driver(self, auth_data):
         """
         Get the driver from the auth data
@@ -171,9 +184,9 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             memory_op = radl.getFeature('memory.size').getLogOperator()
         disk_free = 0
         disk_free_op = ">="
-        if radl.getValue('disk.0.free_size'):
-            disk_free = radl.getFeature('disk.0.free_size').getValue('G')
-            disk_free_op = radl.getFeature('memory.size').getLogOperator()
+        if radl.getValue('disks.free_size'):
+            disk_free = radl.getFeature('disks.free_size').getValue('G')
+            disk_free_op = radl.getFeature('disks.free_size').getLogOperator()
 
         # get the node size with the lowest price, vcpus and memory
         sizes.sort(key=lambda x: (x.price, x.vcpus, x.ram))

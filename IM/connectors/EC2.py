@@ -283,7 +283,7 @@ class EC2CloudConnector(CloudConnector):
         disk_free_op = ">="
         if radl.getValue('disks.free_size'):
             disk_free = radl.getFeature('disks.free_size').getValue('G')
-            disk_free_op = radl.getFeature('memory.size').getLogOperator()
+            disk_free_op = radl.getFeature('disks.free_size').getLogOperator()
 
         performance = 0
         performance_op = ">="

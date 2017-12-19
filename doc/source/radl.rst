@@ -417,8 +417,17 @@ the virtual machine.
 ``IM_NODE_FQDN``
    Complete FQDN of the virtual machine.
 
+``IM_NODE_PRIVATE_IP``
+   Private IP of the virtual machine. In case that the VM has more that one the first one will be returned.
+
+``IM_NODE_PUBLIC_IP``
+   Public IP of the virtual machine. In case that the VM has more that one the first one will be returned.
+
 ``IM_NODE_NUM``
    The value of the substitution ``#N#`` in the virtual machine.
+
+``IM_NODE_CLOUD_TYPE``
+   Cloud type where the VM has been deployed.
 
 ``IM_MASTER_HOSTNAME``
    Hostname (without the domain) of the virtual machine doing the *master*
@@ -441,6 +450,9 @@ the virtual machine.
    
 ``IM_NODE_NET_<iface num>_IP``
    The IP assigned to the network interface num ``iface num``.
+
+``IM_INFRASTRUCTURE_ID``
+   The identifier asigned by the IM to the infrastrucure this VM belongs to.
 
 ``IM_INFRASTRUCTURE_RADL``
    The RADL in JSON format: networks, systems and deploys. (from ver. 1.6.2). It enables to use
