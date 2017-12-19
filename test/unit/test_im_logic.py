@@ -268,9 +268,9 @@ class TestIM(unittest.TestCase):
 
         # this case must fail with "no concrete system" error
         auth0 = Authentication([{'id': 'ost', 'type': 'OpenStack', 'username': 'user',
-                                'password': 'pass', 'tenant': 'ten', 'host': 'localhost:5000'},
-                               {'type': 'InfrastructureManager', 'username': 'test',
-                                'password': 'tests'}])
+                                 'password': 'pass', 'tenant': 'ten', 'host': 'localhost:5000'},
+                                {'type': 'InfrastructureManager', 'username': 'test',
+                                 'password': 'tests'}])
 
         infID = IM.CreateInfrastructure(radl, auth0)
         res = IM.GetInfrastructureState(infID, auth0)
@@ -285,7 +285,7 @@ class TestIM(unittest.TestCase):
 
         # this case must fail with Connection refused error in the VMs
         auth0 = Authentication([{'id': 'one', 'type': 'OpenNebula', 'username': 'user',
-                                'password': 'pass', 'host': 'localhost:2633'},
+                                 'password': 'pass', 'host': 'localhost:2633'},
                                 {'type': 'InfrastructureManager', 'username': 'test',
                                  'password': 'tests'}])
         infID = IM.CreateInfrastructure(radl, auth0)
