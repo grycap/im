@@ -565,9 +565,10 @@ class TestIM(unittest.TestCase):
 
         self.assertEqual(vms, [6, 7, 8, 9, 10, 11])
         self.assertEqual(cloud.launch.call_count, 3)
-        self.assertEqual(cloud.launch.call_args_list[0][0][3], 1)
-        self.assertEqual(cloud.launch.call_args_list[1][0][3], 3)
-        self.assertEqual(cloud.launch.call_args_list[2][0][3], 2)
+        total = cloud.launch.call_args_list[0][0][3]
+        total += cloud.launch.call_args_list[1][0][3]
+        total += cloud.launch.call_args_list[2][0][3]
+        self.assertEqual(total, 6)
 
         IM.DestroyInfrastructure(infId, auth0)
 
