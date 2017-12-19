@@ -165,8 +165,8 @@ REQUISITES section.
 
 #### 1.3.3 From RPM packages (RH7)
 
-Download the RPM package from [GitHub](https://github.com/grycap/im/releases/latest). 
-Also remember to download the RPM of the RADL package also from [GitHub](https://github.com/grycap/radl/releases/latest)and TOSCA parser from [INDIGO repositories](http://repo.indigo-datacloud.eu/repository/indigo/2/centos7/x86_64/updates/tosca-parser-0.8.3-1.el7.noarch.rpm). 
+Download the RPM package from [GitHub](https://github.com/grycap/im/releases/latest).
+Also remember to download the RPMs of the RADL and TOSCA parser packages from its corresponding GitHub repositories: [RADL](https://github.com/grycap/radl/releases/latest) and [TOSCA parser](https://github.com/indigo-dc/tosca-parser/releases/latest).
 
 
 You must have the epel repository enabled:
@@ -190,7 +190,8 @@ $ pip install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-comp
 #### 1.3.4 From Deb package (Tested with Ubuntu 14.04 and 16.04)
 
 Download the Deb package from [GitHub](https://github.com/grycap/im/releases/latest).
-Also remember to download the Deb of the RADL package also from [GitHub](https://github.com/grycap/radl/releases/latest) and TOSCA parser from [INDIGO repositories](http://repo.indigo-datacloud.eu/repository/indigo/2/ubuntu/dists/xenial-updates/main/binary-amd64/python-tosca-parser_0.8.3-1_all.deb)
+Also remember to download the Debs of the RADL and TOSCA parser packages from its corresponding GitHub repositories: [RADL](https://github.com/grycap/radl/releases/latest) and [TOSCA parser](https://github.com/indigo-dc/tosca-parser/releases/latest).
+
 
 In Ubuntu 14.04 there are some requisites not available for the "trusty" version or are too old, so you have to manually install them manually.
 You can download it from their corresponding PPAs. But here you have some links:
