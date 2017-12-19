@@ -22,6 +22,7 @@ import unittest
 import sys
 from io import BytesIO
 from mock import patch, MagicMock
+from IM.InfrastructureInfo import InfrastructureInfo
 
 sys.path.append("..")
 sys.path.append(".")
@@ -136,8 +137,9 @@ class TestREST(unittest.TestCase):
     @patch("IM.InfrastructureManager.InfrastructureManager.GetInfrastructureContMsg")
     @patch("IM.InfrastructureManager.InfrastructureManager.GetInfrastructureRADL")
     @patch("IM.InfrastructureManager.InfrastructureManager.GetInfrastructureState")
+    @patch("IM.InfrastructureManager.InfrastructureManager.get_infrastructure")
     @patch("bottle.request")
-    def test_GetInfrastructureProperty(self, bottle_request, GetInfrastructureState,
+    def test_GetInfrastructureProperty(self, bottle_request, get_infrastructure, GetInfrastructureState,
                                        GetInfrastructureRADL, GetInfrastructureContMsg):
         """Test REST GetInfrastructureProperty."""
         bottle_request.return_value = MagicMock()
@@ -148,6 +150,12 @@ class TestREST(unittest.TestCase):
         GetInfrastructureState.return_value = {'state': "running", 'vm_states': {"vm1": "running", "vm2": "running"}}
         GetInfrastructureRADL.return_value = "radl"
         GetInfrastructureContMsg.return_value = "contmsg"
+
+        inf = MagicMock()
+        get_infrastructure.return_value = inf
+        tosca = MagicMock()
+        inf.extra_info = {"TOSCA": tosca}
+        tosca.get_outputs.return_value = "outputs"
 
         res = RESTGetInfrastructureProperty("1", "state")
         self.assertEqual(json.loads(res)["state"]["state"], "running")
@@ -203,8 +211,9 @@ class TestREST(unittest.TestCase):
         self.assertEqual(res, "Error Destroying Inf: Access to this infrastructure not granted.")
 
     @patch("IM.InfrastructureManager.InfrastructureManager.CreateInfrastructure")
+    @patch("IM.InfrastructureManager.InfrastructureManager.get_infrastructure")
     @patch("bottle.request")
-    def test_CreateInfrastructure(self, bottle_request, CreateInfrastructure):
+    def test_CreateInfrastructure(self, bottle_request, get_infrastructure, CreateInfrastructure):
         """Test REST CreateInfrastructure."""
         bottle_request.environ = {'HTTP_HOST': 'imserver.com'}
         bottle_request.return_value = MagicMock()
@@ -229,12 +238,23 @@ class TestREST(unittest.TestCase):
         res = RESTCreateInfrastructure()
         self.assertEqual(res, "http://imserver.com/infrastructures/1")
 
-        bottle_request.body = read_file_as_bytes("../files/test_simple.json")
+        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
+                                                    "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
+                                                    "username = user; password = pass"),
+                                  "Content-Type": "text/yaml"}
+        bottle_request.body = read_file_as_bytes("../files/tosca_create.yml")
+
+        CreateInfrastructure.return_value = "1"
+
+        res = RESTCreateInfrastructure()
+        self.assertEqual(res, "http://imserver.com/infrastructures/1")
+
+        bottle_request.body = read_file_as_bytes("../files/tosca_create.yml")
         CreateInfrastructure.side_effect = InvaliddUserException()
         res = RESTCreateInfrastructure()
         self.assertEqual(res, "Error Getting Inf. info: Invalid InfrastructureManager credentials")
 
-        bottle_request.body = read_file_as_bytes("../files/test_simple.json")
+        bottle_request.body = read_file_as_bytes("../files/tosca_create.yml")
         CreateInfrastructure.side_effect = UnauthorizedUserException()
         res = RESTCreateInfrastructure()
         self.assertEqual(res, "Error Creating Inf.: Access to this infrastructure not granted.")
@@ -336,8 +356,9 @@ class TestREST(unittest.TestCase):
         self.assertEqual(res, "Error Getting VM. property: Invalid VM ID")
 
     @patch("IM.InfrastructureManager.InfrastructureManager.AddResource")
+    @patch("IM.InfrastructureManager.InfrastructureManager.get_infrastructure")
     @patch("bottle.request")
-    def test_AddResource(self, bottle_request, AddResource):
+    def test_AddResource(self, bottle_request, get_infrastructure, AddResource):
         """Test REST AddResource."""
         bottle_request.environ = {'HTTP_HOST': 'imserver.com'}
         bottle_request.return_value = MagicMock()
@@ -361,17 +382,26 @@ class TestREST(unittest.TestCase):
         res = RESTAddResource("1")
         self.assertEqual(res, "http://imserver.com/infrastructures/1/vms/1")
 
-        bottle_request.body = read_file_as_bytes("../files/test_simple.json")
+        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
+                                                    "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
+                                                    "username = user; password = pass"),
+                                  "Content-Type": "text/yaml"}
+        bottle_request.body = read_file_as_bytes("../files/tosca_create.yml")
+
+        res = RESTAddResource("1")
+        self.assertEqual(res, "http://imserver.com/infrastructures/1/vms/1")
+
+        bottle_request.body = read_file_as_bytes("../files/tosca_create.yml")
         AddResource.side_effect = DeletedInfrastructureException()
         res = RESTAddResource("1")
         self.assertEqual(res, "Error Adding resources: Deleted infrastructure.")
 
-        bottle_request.body = read_file_as_bytes("../files/test_simple.json")
+        bottle_request.body = read_file_as_bytes("../files/tosca_create.yml")
         AddResource.side_effect = IncorrectInfrastructureException()
         res = RESTAddResource("1")
         self.assertEqual(res, "Error Adding resources: Invalid infrastructure ID or access not granted.")
 
-        bottle_request.body = read_file_as_bytes("../files/test_simple.json")
+        bottle_request.body = read_file_as_bytes("../files/tosca_create.yml")
         AddResource.side_effect = UnauthorizedUserException()
         res = RESTAddResource("1")
         self.assertEqual(res, "Error Adding resources: Access to this infrastructure not granted.")

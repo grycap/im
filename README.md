@@ -1,5 +1,4 @@
- IM - Infrastructure Manager
-============================
+# IM - Infrastructure Manager
 
 * Version ![PyPI](https://img.shields.io/pypi/v/im.svg)
 * Build Status [![Build Status](http://jenkins.i3m.upv.es/buildStatus/icon?job=grycap/im-unit)](http://jenkins.i3m.upv.es/job/grycap/job/im-unit/)
@@ -19,12 +18,9 @@ Read the documentation and more at http://www.grycap.upv.es/im.
 There is also an Infrastructure Manager YouTube reproduction list with a set of videos with demos
 of the functionality of the platform: https://www.youtube.com/playlist?list=PLgPH186Qwh_37AMhEruhVKZSfoYpHkrUp.
 
+## 1 INSTALLATION
 
-1 INSTALLATION
-===============
-
-1.1 REQUISITES
---------------
+### 1.1 REQUISITES
 
 IM is based on Python, so Python 2.6 or higher runtime and standard library must
 be installed in the system.
@@ -32,25 +28,27 @@ be installed in the system.
 If you use pip to install the IM, all the requisites will be installed.
 However, if you install IM from sources you should install:
 
- + The RADL parser (https://github.com/grycap/radl), available in pip
+ * The RADL parser (https://github.com/grycap/radl), available in pip
    as the 'RADL' package.
 
- + The paramiko ssh2 protocol library for python version 1.14 or later
+ * The paramiko ssh2 protocol library for python version 1.14 or later
 (http://www.lag.net/paramiko/), typically available as the 'python-paramiko' package.
 
- + The YAML library for Python, typically available as the 'python-yaml' or 'PyYAML' package.
+ * The YAML library for Python, typically available as the 'python-yaml' or 'PyYAML' package.
 
- + The suds library for Python, typically available as the 'python-suds' package.
- 
- + The Netaddr library for Python, typically available as the 'python-netaddr' package.
+ * The suds library for Python, typically available as the 'python-suds' package.
 
- + The Requests library for Python, typically available as the 'python-requests' package.
+ * The Netaddr library for Python, typically available as the 'python-netaddr' package.
 
- + Ansible (http://www.ansibleworks.com/) to configure nodes in the infrastructures.
+ * The Requests library for Python, typically available as the 'python-requests' package.
+
+ * TOSCA parser library for Python, available as the 'tosca-parser' package in pip.
+
+ * Ansible (http://www.ansibleworks.com/) to configure nodes in the infrastructures.
    In particular, Ansible 2.0.0+ must be installed.
    To ensure the functionality the following values must be set in the ansible.cfg file (usually found in /etc/ansible/):
 
-```
+```yml
 [defaults]
 transport  = smart
 host_key_checking = False
@@ -77,8 +75,7 @@ ssh_args = -o ControlMaster=auto -o ControlPersist=900s
 pipelining = True
 ```
 
-1.2 OPTIONAL PACKAGES
----------------------
+### 1.2 OPTIONAL PACKAGES
 
 The Bottle framework (http://bottlepy.org/) is used for the REST API. 
 It is typically available as the 'python-bottle' package.
@@ -107,10 +104,9 @@ Azure python SDK (https://azure.microsoft.com/es-es/develop/python/) is used to 
 Microsoft Azure platform.
 
 
-1.3 INSTALLING
---------------
+### 1.3 INSTALLING
 
-### 1.3.1 Using installer (Recommended option)
+#### 1.3.1 Using installer (Recommended option)
 
 The IM provides a script to install the IM in one single step (using pip).
 You only need to execute the following command:
@@ -122,7 +118,7 @@ $ wget -qO- https://raw.githubusercontent.com/grycap/im/master/install.sh | bash
 It works for the most recent version of the main Linux distributions (RHEL, CentOS, Fedora, Ubuntu, Debian).
 In case that you O.S. does not work with this install script see next sections.
 
-### 1.3.2 From PIP
+#### 1.3.2 From PIP
 
 **WARNING: In some linux old distributions (REL 6 or equivalents) you must unistall
 the package python-crypto and python-paramiko before installing the IM with pip.**
@@ -167,10 +163,12 @@ of IM features that you need requires to install some of the packages of section
 You must also remember to modify the ansible.cfg file setting as specified in the 
 REQUISITES section.
 
-### 1.3.3 From RPM packages (RH7)
+#### 1.3.3 From RPM packages (RH7)
 
-Download the RPM package from [GitHub](https://github.com/grycap/im/releases/latest). 
-Also remember to download the RPM of the RADL package also from [GitHub](https://github.com/grycap/radl/releases/latest). 
+Download the RPM package from [GitHub](https://github.com/grycap/im/releases/latest).
+Also remember to download the RPMs of the RADL and TOSCA parser packages from its corresponding GitHub repositories: [RADL](https://github.com/grycap/radl/releases/latest) and [TOSCA parser](https://github.com/indigo-dc/tosca-parser/releases/latest).
+
+
 You must have the epel repository enabled:
 
 ```sh
@@ -189,18 +187,19 @@ Azure python SDK is not available in CentOS. So if you need the Azure plugin you
 $ pip install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns 
 ```
 
-### 1.3.4 From Deb package (Tested with Ubuntu 14.04 and 16.04)
+#### 1.3.4 From Deb package (Tested with Ubuntu 14.04 and 16.04)
 
 Download the Deb package from [GitHub](https://github.com/grycap/im/releases/latest).
-Also remember to download the Deb of the RADL package also from [GitHub](https://github.com/grycap/radl/releases/latest).
+Also remember to download the Debs of the RADL and TOSCA parser packages from its corresponding GitHub repositories: [RADL](https://github.com/grycap/radl/releases/latest) and [TOSCA parser](https://github.com/indigo-dc/tosca-parser/releases/latest).
+
 
 In Ubuntu 14.04 there are some requisites not available for the "trusty" version or are too old, so you have to manually install them manually.
 You can download it from their corresponding PPAs. But here you have some links:
  
  * python-backports.ssl-match-hostname: [download](http://archive.ubuntu.com/ubuntu/pool/universe/b/backports.ssl-match-hostname/python-backports.ssl-match-hostname_3.4.0.2-1_all.deb)
  * python-scp: [download](http://archive.ubuntu.com/ubuntu/pool/universe/p/python-scp/python-scp_0.10.2-1_all.deb)
- * python-libcloud: [download](http://archive.ubuntu.com/ubuntu/pool/universe/libc/libcloud/python-libcloud_0.20.0-1_all.deb)
- * python-xmltodict: [download](http://archive.ubuntu.com/ubuntu/pool/universe/p/python-xmltodict/python-xmltodict_0.9.2-3_all.deb)
+ * python-libcloud: [download](http://archive.ubuntu.com/ubuntu/pool/universe/libc/libcloud/python-libcloud_2.2.1-1_all.deb)
+ * python-xmltodict: [download](http://archive.ubuntu.com/ubuntu/pool/universe/p/python-xmltodict/python-xmltodict_0.11.0-1_all.deb)
 
 Also Azure python SDK is not available in Ubuntu 16.04. So if you need the Azure plugin you have to manually install them.
 You can download it from their corresponding PPAs. But here you have some links:
@@ -224,7 +223,7 @@ $ sudo dpkg -i *.deb
 $ sudo apt install -f -y
 ```
 
-### 1.3.5 FROM SOURCE
+#### 1.3.5 FROM SOURCE
 
 Select a proper path where the IM service will be installed (i.e. /usr/local/im,
 /opt/im or other). This path will be called IM_PATH
@@ -241,8 +240,7 @@ Finally you must copy (or link) $IM_PATH/scripts/im file to /etc/init.d director
 $ ln -s /usr/local/im/scripts/im /etc/init.d/im
 ```
 
-1.4 CONFIGURATION
------------------
+### 1.4 CONFIGURATION
 
 In case that you want the IM service to be started at boot time, you must
 execute the next set of commands:
@@ -293,7 +291,7 @@ CONTEXTUALIZATION_DIR - must be set to the full path where the IM contextualizat
 		(/usr/share/im/contextualization) in case of installing from sources set to
 		$IM_PATH/contextualization (e.g. /usr/local/im/contextualization)
 
-### 1.4.1 SECURITY
+#### 1.4.1 SECURITY
 
 Security is disabled by default. Please notice that someone with local network access can "sniff" the traffic and
 get the messages with the IM with the authorisation data with the cloud providers.
@@ -308,8 +306,7 @@ REST_SSL = True
 
 And then set the variables: XMLRCP_SSL_* or REST_SSL_* to your certificates paths.
 
-2 DOCKER IMAGE
-===============
+## 2 DOCKER IMAGE
 
 A Docker image named `grycap/im` has been created to make easier the deployment of an IM service using the 
 default configuration. Information about this image can be found here: https://registry.hub.docker.com/u/grycap/im/.
@@ -327,7 +324,7 @@ $ sudo docker run -d -p 8899:8899 -p 8800:8800 -v "/some_local_path/db:/db" -e I
 ```
 
 You can also specify an external MySQL server to store IM data using the IM_DATA_DB environment variable::
-  
+
 ```sh
 $ sudo docker run -d -p 8899:8899 -p 8800:8800 -e IM_DATA_DB=mysql://username:password@server/db_name --name im grycap/im 
 ```

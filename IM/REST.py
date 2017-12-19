@@ -17,6 +17,7 @@
 import logging
 import threading
 import json
+import base64
 import bottle
 
 from IM.InfrastructureInfo import IncorrectVMException, DeletedVMException
@@ -27,6 +28,7 @@ from IM.auth import Authentication
 from IM.config import Config
 from radl.radl_json import parse_radl as parse_radl_json, dump_radl as dump_radl_json, featuresToSimple, radlToSimple
 from radl.radl import RADL, Features, Feature
+from IM.tosca.Tosca import Tosca
 
 logger = logging.getLogger('InfrastructureManager')
 
@@ -158,7 +160,10 @@ def get_media_type(header):
             pos = media_type.find(";")
             if pos != -1:
                 media_type = media_type[:pos]
-            res.append(media_type.strip())
+            if media_type.strip() in ["text/yaml", "text/x-yaml"]:
+                res.append("text/yaml")
+            else:
+                res.append(media_type.strip())
 
     return res
 
@@ -168,8 +173,36 @@ def get_auth_header():
     Get the Authentication object from the AUTHORIZATION header
     replacing the new line chars.
     """
-    auth_data = bottle.request.headers[
-        'AUTHORIZATION'].replace(AUTH_NEW_LINE_SEPARATOR, "\n")
+    auth_header = bottle.request.headers['AUTHORIZATION']
+    if Config.SINGLE_SITE:
+        if auth_header.startswith("Basic "):
+            auth_data = base64.b64decode(auth_header[6:])
+            user_pass = auth_data.split(":")
+            im_auth = {"type": "InfrastructureManager",
+                       "username": user_pass[0],
+                       "password": user_pass[1]}
+            single_site_auth = {"type": Config.SINGLE_SITE_TYPE,
+                                "host": Config.SINGLE_SITE_AUTH_HOST,
+                                "username": user_pass[0],
+                                "password": user_pass[1]}
+            return Authentication([im_auth, single_site_auth])
+        elif auth_header.startswith("Bearer "):
+            token = auth_header[7:].strip()
+            im_auth = {"type": "InfrastructureManager",
+                       "username": "user",
+                       "token": token}
+            if Config.SINGLE_SITE_TYPE == "OpenStack":
+                single_site_auth = {"type": Config.SINGLE_SITE_TYPE,
+                                    "host": Config.SINGLE_SITE_AUTH_HOST,
+                                    "username": "indigo-dc",
+                                    "tenant": "oidc",
+                                    "password": token}
+            else:
+                single_site_auth = {"type": Config.SINGLE_SITE_TYPE,
+                                    "host": Config.SINGLE_SITE_AUTH_HOST,
+                                    "token": token}
+            return Authentication([im_auth, single_site_auth])
+    auth_data = auth_header.replace(AUTH_NEW_LINE_SEPARATOR, "\n")
     auth_data = auth_data.split(AUTH_LINE_SEPARATOR)
     return Authentication(Authentication.read_auth_data(auth_data))
 
@@ -326,6 +359,19 @@ def RESTGetInfrastructureProperty(infid=None, prop=None):
             bottle.response.content_type = "application/json"
             res = InfrastructureManager.GetInfrastructureState(infid, auth)
             return format_output(res, default_type="application/json", field_name="state")
+        elif prop == "outputs":
+            accept = get_media_type('Accept')
+            if accept and "application/json" not in accept and "*/*" not in accept and "application/*" not in accept:
+                return return_error(415, "Unsupported Accept Media Types: %s" % accept)
+            bottle.response.content_type = "application/json"
+            auth = InfrastructureManager.check_auth_data(auth)
+            sel_inf = InfrastructureManager.get_infrastructure(infid, auth)
+            if "TOSCA" in sel_inf.extra_info:
+                res = sel_inf.extra_info["TOSCA"].get_outputs(sel_inf)
+            else:
+                bottle.abort(
+                    403, "'outputs' infrastructure property is not valid in this infrastructure")
+            return format_output(res, default_type="application/json", field_name="outputs")
         else:
             return return_error(404, "Incorrect infrastructure property")
 
@@ -377,16 +423,25 @@ def RESTCreateInfrastructure():
     try:
         content_type = get_media_type('Content-Type')
         radl_data = bottle.request.body.read().decode("utf-8")
+        tosca_data = None
 
         if content_type:
             if "application/json" in content_type:
                 radl_data = parse_radl_json(radl_data)
+            elif "text/yaml" in content_type:
+                tosca_data = Tosca(radl_data)
+                _, radl_data = tosca_data.to_radl()
             elif "text/plain" in content_type or "*/*" in content_type or "text/*" in content_type:
                 content_type = "text/plain"
             else:
                 return return_error(415, "Unsupported Media Type %s" % content_type)
 
         inf_id = InfrastructureManager.CreateInfrastructure(radl_data, auth)
+
+        # Store the TOSCA document
+        if tosca_data:
+            sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
+            sel_inf.extra_info['TOSCA'] = tosca_data
 
         bottle.response.headers['InfID'] = inf_id
         bottle.response.content_type = "text/uri-list"
@@ -483,16 +538,34 @@ def RESTAddResource(infid=None):
 
         content_type = get_media_type('Content-Type')
         radl_data = bottle.request.body.read().decode("utf-8")
+        tosca_data = None
+        remove_list = []
 
         if content_type:
             if "application/json" in content_type:
                 radl_data = parse_radl_json(radl_data)
+            elif "text/yaml" in content_type:
+                tosca_data = Tosca(radl_data)
+                auth = InfrastructureManager.check_auth_data(auth)
+                sel_inf = InfrastructureManager.get_infrastructure(infid, auth)
+                # merge the current TOSCA with the new one
+                if isinstance(sel_inf.extra_info['TOSCA'], Tosca):
+                    tosca_data = sel_inf.extra_info['TOSCA'].merge(tosca_data)
+                remove_list, radl_data = tosca_data.to_radl(sel_inf)
             elif "text/plain" in content_type or "*/*" in content_type or "text/*" in content_type:
                 content_type = "text/plain"
             else:
                 return return_error(415, "Unsupported Media Type %s" % content_type)
 
+        if remove_list:
+            InfrastructureManager.RemoveResource(infid, remove_list, auth, context)
+
         vm_ids = InfrastructureManager.AddResource(infid, radl_data, auth, context)
+
+        # Replace the TOSCA document
+        if tosca_data:
+            sel_inf = InfrastructureManager.get_infrastructure(infid, auth)
+            sel_inf.extra_info['TOSCA'] = tosca_data
 
         protocol = "http://"
         if Config.REST_SSL:
