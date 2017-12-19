@@ -170,7 +170,6 @@ class InfrastructureManager:
                 launch_radl = radl.clone()
                 requested_radl = radl.clone()
                 requested_radl.systems = [radl.get_system_by_name(deploy.id)]
-                requested_radl.systems = [radl.get_system_by_name(deploy.id)]
                 if not concrete_system:
                     InfrastructureManager.logger.error(
                         "Error, no concrete system to deploy: " + deploy.id + " in cloud: " +
