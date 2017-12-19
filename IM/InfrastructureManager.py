@@ -443,7 +443,7 @@ class InfrastructureManager:
         return deploys_group_cloud
 
     @staticmethod
-    def AddResource(inf_id, radl_data, auth, context=True, failed_clouds=None):
+    def AddResource(inf_id, radl_data, auth, context=True):
         """
         Add the resources in the RADL to the infrastructure.
 
@@ -453,12 +453,9 @@ class InfrastructureManager:
         - radl(str): RADL description.
         - auth(Authentication): parsed authentication tokens.
         - context(bool): Flag to specify if the ctxt step will be made
-        - failed_clouds(list of CloudInfo): A list of failed Cloud providers to avoid launching the VMs in them.
 
         Return(list of int): ids of the new virtual machine created.
         """
-        if failed_clouds is None:
-            failed_clouds = []
         auth = InfrastructureManager.check_auth_data(auth)
 
         InfrastructureManager.logger.info("Adding resources to Inf ID: " + str(inf_id))
@@ -505,8 +502,7 @@ class InfrastructureManager:
 
         # Concrete systems with cloud providers and select systems with the greatest score
         # in every cloud
-        cloud_list = dict([(c.id, c.getCloudConnector(sel_inf))
-                           for c in CloudInfo.get_cloud_list(auth) if c not in failed_clouds])
+        cloud_list = dict([(c.id, c.getCloudConnector(sel_inf)) for c in CloudInfo.get_cloud_list(auth)])
         concrete_systems = {}
         for cloud_id, cloud in cloud_list.items():
             for system_id, systems in systems_with_vmrc.items():
