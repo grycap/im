@@ -145,12 +145,6 @@ class VirtualMachine:
         if self.destroy:
             return (True, "")
 
-        # In case of a VM failed during creation
-        if self.state == VirtualMachine.FAILED and self.id is None:
-            # set as deleted and return
-            self.destroy = True
-            return (True, "")
-
         # Select the last in the list to delete
         remain_vms = [v for v in self.inf.get_vm_list() if v not in delete_list]
         last = self.is_last_in_cloud(delete_list, remain_vms)
