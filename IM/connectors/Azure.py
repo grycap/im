@@ -733,16 +733,18 @@ class AzureCloudConnector(CloudConnector):
 
     def finalize(self, vm, last, auth_data):
         try:
-            self.log_info("Terminate VM: " + vm.id)
-            group_name = vm.id.split('/')[0]
             credentials, subscription_id = self.get_credentials(auth_data)
             resource_client = ResourceManagementClient(credentials, subscription_id)
 
-            # Delete Resource group and everything in it
-            if self.get_rg(group_name, credentials, subscription_id):
-                self.delete_resource_group(group_name, resource_client)
-            else:
-                self.log_info("RG: %s does not exist. Do not remove." % group_name)
+            if vm.id:
+                self.log_info("Terminate VM: %s" % vm.id)
+                group_name = vm.id.split('/')[0]
+
+                # Delete Resource group and everything in it
+                if self.get_rg(group_name, credentials, subscription_id):
+                    self.delete_resource_group(group_name, resource_client)
+                else:
+                    self.log_info("RG: %s does not exist. Do not remove." % group_name)
 
             # if it is the last VM delete the RG of the Inf
             if last:

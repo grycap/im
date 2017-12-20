@@ -312,7 +312,7 @@ class LibCloudCloudConnector(CloudConnector):
             self.delete_elastic_ips(node, vm)
 
             # Delete the EBS volumes
-            self.delete_volumes(node, vm)
+            self.delete_volumes(node.driver, vm)
 
             if not success:
                 return (False, "Error destroying node: " + vm.id)
@@ -629,7 +629,7 @@ class LibCloudCloudConnector(CloudConnector):
                     return location
         return None
 
-    def delete_volumes(self, node, vm, timeout=300):
+    def delete_volumes(self, driver, vm, timeout=300):
         """
         Delete the volumes of a VM
 
@@ -642,7 +642,7 @@ class LibCloudCloudConnector(CloudConnector):
             for volumeid in vm.volumes:
                 self.log_debug("Deleting volume ID %s" % volumeid)
                 try:
-                    volume = node.driver.ex_get_volume(volumeid)
+                    volume = driver.ex_get_volume(volumeid)
                     success = self.wait_volume(volume, timeout=timeout)
                     if not success:
                         self.log_error("Error waiting the volume ID " + str(volume.id))
@@ -650,7 +650,8 @@ class LibCloudCloudConnector(CloudConnector):
                     if not success:
                         self.log_error("Error destroying the volume: " + str(volume.id))
                 except:
-                    self.log_exception("Error destroying the volume: " + str(volume.id) + " from the node: " + vm.id)
+                    self.log_exception("Error destroying the volume: " + str(volume.id) +
+                                       " from the node: " + str(vm.id))
                     success = False
 
                 if not success:

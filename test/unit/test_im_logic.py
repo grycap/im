@@ -297,6 +297,7 @@ class TestIM(unittest.TestCase):
         radl.add(deploy("s0", 1))
         cloud = type("MyMock0", (CloudConnector, object), {})
         cloud.launch = Mock(return_value=[(False, "e1")])
+        cloud.finalize = Mock(return_value=(True, ""))
         self.register_cloudconnector("Mock", cloud)
         auth0 = self.getAuth([0], [], [("Mock", 0)])
         infID = IM.CreateInfrastructure(str(radl), auth0)
@@ -305,6 +306,9 @@ class TestIM(unittest.TestCase):
         res = IM.GetInfrastructureContMsg(infID, auth0)
         self.assertIn(("VM 0:\nError launching the VMs of type s0 to cloud ID cloud0 of type Mock. "
                        "Attempt 1: e1\nAttempt 2: e1\nAttempt 3: e1"), res)
+
+        IM.DestroyInfrastructure(infID, auth0)
+        self.assertEqual(cloud.finalize.call_count, 1)
 
     def test_inf_auth(self):
         """Try to access not owned Infs."""

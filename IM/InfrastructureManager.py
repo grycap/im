@@ -203,8 +203,7 @@ class InfrastructureManager:
                     deployed_vm.setdefault(deploy, []).append(launched_vm)
                     deploy.cloud_id = cloud_id
                 else:
-                    InfrastructureManager.logger.error(
-                        "Error launching some of the VMs: " + str(launched_vm))
+                    InfrastructureManager.logger.error("Error launching some of the VMs: " + str(launched_vm))
                     vm = VirtualMachine(sel_inf, None, cloud.cloud, launch_radl, requested_radl)
                     vm.state = VirtualMachine.FAILED
                     vm.info.systems[0].setValue('state', VirtualMachine.FAILED)

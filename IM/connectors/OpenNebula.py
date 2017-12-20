@@ -516,17 +516,17 @@ class OpenNebulaCloudConnector(CloudConnector):
         if last:
             self.delete_snapshots(vm, auth_data)
 
-        func_res = server.one.vm.action(session_id, 'delete', int(vm.id))
-
-        if len(func_res) == 1:
-            success = True
-            err = vm.id
-        elif len(func_res) == 2:
-            (success, err) = func_res
-        elif len(func_res) == 3:
-            (success, err, _) = func_res
-        else:
-            return (False, "Error in the one.vm.action return value")
+        if vm.id:
+            func_res = server.one.vm.action(session_id, 'delete', int(vm.id))
+            if len(func_res) == 1:
+                success = True
+                err = vm.id
+            elif len(func_res) == 2:
+                (success, err) = func_res
+            elif len(func_res) == 3:
+                (success, err, _) = func_res
+            else:
+                return (False, "Error in the one.vm.action return value")
 
         if last and success:
             self.delete_security_groups(vm.inf, auth_data)
