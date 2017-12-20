@@ -167,6 +167,14 @@ class TestONEConnector(unittest.TestCase):
         self.assertEqual(one_server.one.secgroup.allocate.call_args_list, [call('user:pass', sg_template)])
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
+        # Now test an error in allocate
+        one_server.one.vm.allocate.return_value = (False, "Error msg", 0)
+        res = one_cloud.launch(inf, radl, radl, 1, auth)
+        success, msg = res[0]
+        self.assertFalse(success)
+        self.assertEqual(msg, "ERROR: Error msg")
+
+
     @patch('IM.connectors.OpenNebula.ServerProxy')
     def test_30_updateVMInfo(self, server_proxy):
         radl_data = """

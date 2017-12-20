@@ -174,6 +174,8 @@ class TestAzureConnector(unittest.TestCase):
         compute_client.return_value = cclient
         nclient = MagicMock()
         network_client.return_value = nclient
+        rclient = MagicMock()
+        resource_client.return_value = rclient
 
         nclient.virtual_networks.get.side_effect = Exception()
 
@@ -204,6 +206,10 @@ class TestAzureConnector(unittest.TestCase):
         self.assertTrue(res[0][0])
         self.assertTrue(res[1][0])
         self.assertTrue(res[2][0])
+        self.assertEquals(rclient.resource_groups.delete.call_count, 2)
+        self.assertIn("rg-userimage-", rclient.resource_groups.delete.call_args_list[0][0][0])
+        self.assertIn("rg-userimage-", rclient.resource_groups.delete.call_args_list[1][0][0])
+
 
     @patch('IM.connectors.Azure.NetworkManagementClient')
     @patch('IM.connectors.Azure.ComputeManagementClient')
