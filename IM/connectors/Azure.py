@@ -619,6 +619,14 @@ class AzureCloudConnector(CloudConnector):
                     remaining_vms -= 1
                 except Exception as ex:
                     self.log_exception("Error waiting the VM %s." % vm.id)
+
+                    # Delete created resources for this VM
+                    try:
+                        group_name = vm.id.split('/')[0]
+                        self.delete_resource_group(group_name, resource_client)
+                    except:
+                        self.log_exception("Error removing resource group: %s." % group_name)
+
                     res.append((False, "Error waiting the VM %s: %s" % (vm.id, str(ex))))
             else:
                 res.append((False, data))
