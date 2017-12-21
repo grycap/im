@@ -174,7 +174,6 @@ class TestONEConnector(unittest.TestCase):
         self.assertFalse(success)
         self.assertEqual(msg, "ERROR: Error msg")
 
-
     @patch('IM.connectors.OpenNebula.ServerProxy')
     def test_30_updateVMInfo(self, server_proxy):
         radl_data = """
