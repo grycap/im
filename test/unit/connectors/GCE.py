@@ -191,6 +191,34 @@ class TestGCEConnector(unittest.TestCase):
         self.assertTrue(success, msg="ERROR: launching 3 VMs.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
+        radl_data = """
+            network net1 (outbound = 'yes' and outports = '8080,9000:9100' and sg_name = 'fwname')
+            network net2 ()
+            system test (
+            cpu.arch='x86_64' and
+            cpu.count=1 and
+            memory.size=512m and
+            net_interface.0.connection = 'net1' and
+            net_interface.0.dns_name = 'test' and
+            net_interface.0.ip = '10.0.0.1' and
+            net_interface.1.connection = 'net2' and
+            disk.0.os.name = 'linux' and
+            disk.0.image.url = 'gce://us-central1-a/centos-6' and
+            disk.0.os.credentials.username = 'user' and
+            disk.1.size=1GB and
+            disk.1.device='hdb' and
+            disk.1.mount_path='/mnt/path'
+            )"""
+        radl = radl_parse.parse_radl(radl_data)
+        radl.check()
+        driver.create_node.side_effect = Exception("Error msg")
+        res = gce_cloud.launch(InfrastructureInfo(), radl, radl, 1, auth)
+        success, msg = res[0]
+        self.assertFalse(success)
+        self.assertEqual(msg, "ERROR: Error msg")
+        self.assertEqual(driver.ex_destroy_address.call_count, 1)
+        self.assertEqual(driver.ex_destroy_address.call_args_list, [call('ip')])
+
     @patch('libcloud.compute.drivers.gce.GCENodeDriver')
     @patch('libcloud.dns.drivers.google.GoogleDNSDriver')
     def test_30_updateVMInfo(self, get_dns_driver, get_driver):

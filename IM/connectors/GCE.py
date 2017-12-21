@@ -485,21 +485,24 @@ class GCECloudConnector(CloudConnector):
             args['external_ip'] = driver.ex_create_address(name="im-" + fixed_ip, region=region, address=fixed_ip)
 
         res = []
+        error_msg = "Error launching VM."
         if num_vm > 1:
             args['number'] = num_vm
             args['base_name'] = "%s-%s" % (name.lower().replace("_", "-"), str(uuid.uuid1()))
             try:
                 nodes = driver.ex_create_multiple_nodes(**args)
-            except:
+            except Exception as ex:
                 nodes = []
                 self.log_exception("Error launching VMs.")
+                error_msg = str(ex)
         else:
             args['name'] = "%s-%s" % (name.lower().replace("_", "-"), str(uuid.uuid1()))
             try:
                 nodes = [driver.create_node(**args)]
-            except:
+            except Exception as ex:
                 nodes = []
                 self.log_exception("Error launching VM.")
+                error_msg = str(ex)
 
         for node in nodes:
             vm = VirtualMachine(inf, node.extra['name'], self.cloud, radl,
@@ -514,7 +517,7 @@ class GCECloudConnector(CloudConnector):
         all_ok = True
         for _ in range(len(nodes), num_vm):
             all_ok = False
-            res.append((False, "Error launching VM."))
+            res.append((False, "ERROR: %s" % error_msg))
 
         if not all_ok:
             if args['external_ip'] != 'ephemeral':
