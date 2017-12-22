@@ -170,7 +170,13 @@ class VirtualMachine:
         """
         Modify the features of the the VM
         """
-        (success, alter_res) = self.getCloudConnector().alterVM(self, radl, auth)
+        # Get only the system with the same name as this VM
+        new_radl = radl.clone()
+        s = radl.get_system_by_name(self.info.systems[0].name)
+        if not s:
+            raise Exception("Incorrect RADL no system with name %s provided." % self.info.systems[0].name)
+        new_radl.systems = [s]
+        (success, alter_res) = self.getCloudConnector().alterVM(self, new_radl, auth)
         # force the update of the information
         self.last_update = 0
         return (success, alter_res)

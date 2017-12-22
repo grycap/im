@@ -460,6 +460,15 @@ class TestREST(unittest.TestCase):
         bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass"),
+                                  "Content-Type": "text/yaml"}
+        bottle_request.body = read_file_as_bytes("../files/tosca_create.yml")
+
+        res = RESTAlterVM("1", "1")
+        self.assertEqual(res, "vm_info")
+
+        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
+                                                    "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
+                                                    "username = user; password = pass"),
                                   "Content-Type": "application/json"}
         bottle_request.body = read_file_as_bytes("../files/test_simple.json")
 
