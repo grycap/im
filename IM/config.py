@@ -101,6 +101,7 @@ class Config:
     OIDC_CLIENT_SECRET = None
     OIDC_SCOPES = []
     VM_NUM_USE_CTXT_DIST = 30
+    DELAY_BETWEEN_VM_RETRIES = 5
 
 config = ConfigParser()
 config.read([Config.IM_PATH + '/../im.cfg', Config.IM_PATH +

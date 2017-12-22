@@ -605,31 +605,34 @@ class AzureCloudConnector(CloudConnector):
             subnets = self.create_nets(radl, credentials, subscription_id, "rg-%s" % inf.id)
 
         res = []
+        vms = self.create_vms(inf, radl, requested_radl, num_vm, location,
+                              storage_account_name, subnets, credentials, subscription_id)
+
         remaining_vms = num_vm
-        retries = 0
-        while remaining_vms > 0 and retries < Config.MAX_VM_FAILS:
-            retries += 1
-            vms = self.create_vms(inf, radl, requested_radl, remaining_vms, location,
-                                  storage_account_name, subnets, credentials, subscription_id)
+        for success, data in vms:
+            if success:
+                vm, async_vm_creation = data
+                try:
+                    self.log_debug("Waiting VM ID %s to be created." % vm.id)
+                    async_vm_creation.wait()
+                    res.append((True, vm))
+                    remaining_vms -= 1
+                except Exception as ex:
+                    self.log_exception("Error waiting the VM %s." % vm.id)
 
-            for success, data in vms:
-                if success:
-                    vm, async_vm_creation = data
+                    # Delete created resources for this VM
                     try:
-                        self.log_info("Waiting VM ID %s to be created." % vm.id)
-                        async_vm_creation.wait()
-                        res.append((True, vm))
-                        remaining_vms -= 1
+                        group_name = vm.id.split('/')[0]
+                        self.delete_resource_group(group_name, resource_client)
                     except:
-                        self.log_exception("Error waiting the VM %s." % vm.id)
+                        self.log_exception("Error removing resource group: %s." % group_name)
 
-            self.log_info("End of retry %d of %d" % (retries, Config.MAX_VM_FAILS))
+                    res.append((False, "Error waiting the VM %s: %s" % (vm.id, str(ex))))
+            else:
+                res.append((False, data))
 
-        if remaining_vms > 0:
-            # Remove the general group
-            self.delete_resource_group("rg-%s" % inf.id, resource_client)
-        else:
-            self.log_info("All VMs created successfully.")
+        if remaining_vms == 0:
+            self.log_debug("All VMs created successfully.")
 
         return res
 
@@ -738,16 +741,18 @@ class AzureCloudConnector(CloudConnector):
 
     def finalize(self, vm, last, auth_data):
         try:
-            self.log_info("Terminate VM: " + vm.id)
-            group_name = vm.id.split('/')[0]
             credentials, subscription_id = self.get_credentials(auth_data)
             resource_client = ResourceManagementClient(credentials, subscription_id)
 
-            # Delete Resource group and everything in it
-            if self.get_rg(group_name, credentials, subscription_id):
-                self.delete_resource_group(group_name, resource_client)
-            else:
-                self.log_info("RG: %s does not exist. Do not remove." % group_name)
+            if vm.id:
+                self.log_info("Terminate VM: %s" % vm.id)
+                group_name = vm.id.split('/')[0]
+
+                # Delete Resource group and everything in it
+                if self.get_rg(group_name, credentials, subscription_id):
+                    self.delete_resource_group(group_name, resource_client)
+                else:
+                    self.log_info("RG: %s does not exist. Do not remove." % group_name)
 
             # if it is the last VM delete the RG of the Inf
             if last:

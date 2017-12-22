@@ -191,8 +191,7 @@ class TestOSTConnector(unittest.TestCase):
 
         driver.create_node.side_effect = self.create_node
 
-        Config.MAX_VM_FAILS = 2
-        res = ost_cloud.launch(InfrastructureInfo(), radl, radl, 1, auth)
+        res = ost_cloud.launch_with_retry(InfrastructureInfo(), radl, radl, 1, auth, 2, 1)
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())

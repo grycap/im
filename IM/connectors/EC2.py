@@ -1225,6 +1225,9 @@ class EC2CloudConnector(CloudConnector):
             self.log_exception("Error deleting the spot instance request")
 
     def finalize(self, vm, last, auth_data):
+        if not vm.id:
+            return True, "No VM ID. Ignoring"
+
         region_name = vm.id.split(";")[0]
         instance_id = vm.id.split(";")[1]
 
@@ -1237,7 +1240,7 @@ class EC2CloudConnector(CloudConnector):
         # Terminate the instance
         volumes = []
         instance = self.get_instance_by_id(instance_id, region_name, auth_data)
-        if (instance is not None):
+        if instance is not None:
             instance.update()
             # Get the volumnes to delete
             for volume in instance.block_device_mapping.values():
@@ -1245,10 +1248,11 @@ class EC2CloudConnector(CloudConnector):
             instance.terminate()
 
         # Delete the SG if this is the last VM
-        try:
-            self.delete_security_groups(conn, vm)
-        except:
-            self.log_exception("Error deleting security group.")
+        if last:
+            try:
+                self.delete_security_groups(conn, vm)
+            except:
+                self.log_exception("Error deleting security group.")
 
         public_key = vm.getRequestedSystem().getValue('disk.0.os.credentials.public_key')
         if public_key is None or len(public_key) == 0 or (len(public_key) >= 1 and

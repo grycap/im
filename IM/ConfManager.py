@@ -865,7 +865,7 @@ class ConfManager(threading.Thread):
                 self.log_info("Wait the master VM to be running")
 
                 self.inf.add_cont_msg("Wait master VM to boot")
-                all_running = self.wait_vm_running(self.inf.vm_master, Config.WAIT_RUNNING_VM_TIMEOUT, True)
+                all_running = self.wait_vm_running(self.inf.vm_master, Config.WAIT_RUNNING_VM_TIMEOUT)
 
                 if not all_running:
                     self.log_error("Error Waiting the Master VM to boot, exit")
@@ -993,45 +993,15 @@ class ConfManager(threading.Thread):
             if tmp_dir:
                 shutil.rmtree(tmp_dir, ignore_errors=True)
 
-    def relaunch_vm(self, vm, failed_cloud=False):
-        """
-        Remove and launch again the specified VM
-        """
-        try:
-            removed = IM.InfrastructureManager.InfrastructureManager.RemoveResource(
-                self.inf.id, vm.im_id, self.auth)
-        except:
-            self.log_exception("Error removing a failed VM.")
-            removed = 0
-
-        if removed != 1:
-            self.log_error("Error removing a failed VM. Not launching a new one.")
-            return
-
-        new_radl = ""
-        for net in vm.info.networks:
-            new_radl += "network " + net.id + "\n"
-        new_radl += "system " + vm.getRequestedSystem().name + "\n"
-        new_radl += "deploy " + vm.getRequestedSystem().name + " 1"
-
-        failed_clouds = []
-        if failed_cloud:
-            failed_clouds = [vm.cloud]
-        IM.InfrastructureManager.InfrastructureManager.AddResource(
-            self.inf.id, new_radl, self.auth, False, failed_clouds)
-
-    def wait_vm_running(self, vm, timeout, relaunch=False):
+    def wait_vm_running(self, vm, timeout):
         """
         Wait for a VM to be running
 
         Arguments:
            - vm(:py:class:`IM.VirtualMachine`): VM to be running.
            - timeout(int): Max time to wait the VM to be running.
-           - relaunch(bool, optional): Flag to specify if the VM must be relaunched in case of failure.
         Returns: True if all the VMs are running or false otherwise
         """
-        timeout_retries = 0
-        retries = 1
         delay = 10
         wait = 0
         while not self._stop_thread and wait < timeout:
@@ -1039,19 +1009,11 @@ class ConfManager(threading.Thread):
                 vm.update_status(self.auth)
 
                 if vm.state == VirtualMachine.RUNNING:
+                    self.log_info("VM " + str(vm.id) + " is Running.")
                     return True
                 elif vm.state == VirtualMachine.FAILED:
-                    self.log_warn("VM " + str(vm.id) + " is FAILED")
-
-                    if relaunch and retries < Config.MAX_VM_FAILS:
-                        self.log_info("Launching new VM")
-                        self.relaunch_vm(vm, True)
-                        # Set the wait counter to 0
-                        wait = 0
-                        retries += 1
-                    else:
-                        self.log_error("Relaunch is not enabled. Exit")
-                        return False
+                    self.log_warn("VM " + str(vm.id) + " is FAILED, Exit.")
+                    return False
             else:
                 self.log_warn("VM deleted by the user, Exit")
                 return False
@@ -1059,30 +1021,6 @@ class ConfManager(threading.Thread):
             self.log_info("VM " + str(vm.id) + " is not running yet.")
             time.sleep(delay)
             wait += delay
-
-            # if the timeout is passed
-            # try to relaunch max_retries times, and restart the counter
-            if wait > timeout and timeout_retries < Config.MAX_VM_FAILS:
-                timeout_retries += 1
-                # Set the wait counter to 0
-                wait = 0
-                if not vm.destroy:
-                    vm.update_status(self.auth)
-
-                    if vm.state == VirtualMachine.RUNNING:
-                        return True
-                    else:
-                        self.log_warn("VM " + str(vm.id) + " timeout")
-
-                        if relaunch:
-                            self.log_info("Launch a new VM")
-                            self.relaunch_vm(vm)
-                        else:
-                            self.log_error("Relaunch is not available. Exit")
-                            return False
-                else:
-                    self.log_warn("VM deleted by the user, Exit")
-                    return False
 
         # Timeout, return False
         return False

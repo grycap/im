@@ -85,6 +85,8 @@ class VirtualMachine:
         """CloudConnector object to connect with the IaaS platform"""
         self.creating = True
         """Flag to specify that this VM is creation process"""
+        self.error_msg = None
+        """Message with the cause of the the error in the VM (if known) """
 
     def serialize(self):
         with self._lock:
@@ -135,20 +137,34 @@ class VirtualMachine:
             self.cloud_connector = self.cloud.getCloudConnector(self.inf)
         return self.cloud_connector
 
-    def finalize(self, last, auth):
+    def delete(self, delete_list, auth, exceptions):
         """
-        Finalize the VM
+        Delete the VM
         """
-        if not self.destroy:
+        # In case of a VM is already destroyed
+        if self.destroy:
+            return (True, "")
+
+        # Select the last in the list to delete
+        remain_vms = [v for v in self.inf.get_vm_list() if v not in delete_list]
+        last = self.is_last_in_cloud(delete_list, remain_vms)
+        success = False
+        try:
+            VirtualMachine.logger.info("Inf ID: " + self.inf.id + ": Finalizing the VM id: " + str(self.id))
+
             self.kill_check_ctxt_process()
             (success, msg) = self.getCloudConnector().finalize(self, last, auth)
             if success:
                 self.destroy = True
             # force the update of the information
             self.last_update = 0
-            return (success, msg)
-        else:
-            return (True, "")
+        except Exception as e:
+            msg = str(e)
+
+        if not success:
+            VirtualMachine.logger.info("Inf ID: " + self.inf.id + ": The VM cannot be finalized: %s" % msg)
+            exceptions.append(msg)
+        return success
 
     def alter(self, radl, auth):
         """
@@ -453,6 +469,10 @@ class VirtualMachine:
         - boolean: True if the information has been updated, false otherwise
         """
         with self._lock:
+            # In case of a VM failed during creation, do not update
+            if self.state == VirtualMachine.FAILED and self.id is None:
+                return False
+
             now = int(time.time())
             state = self.state
             updated = False
@@ -863,10 +883,32 @@ class VirtualMachine:
         return True
 
     def get_cont_msg(self):
-        res = self.cont_out
+        if self.error_msg:
+            res = self.error_msg + "\n" + self.cont_out
+        else:
+            res = self.cont_out
         if self.cloud_connector and self.cloud_connector.error_messages:
             res += self.cloud_connector.error_messages
         return res
+
+    def is_last_in_cloud(self, delete_list, remain_vms):
+        """
+        Check if this VM is the last in the cloud provider
+        to send the correct flag to the finalize function to clean
+        resources correctly
+        """
+        for v in remain_vms:
+            if v.cloud.type == self.cloud.type and v.cloud.server == self.cloud.server:
+                # There are at least one VM in the same cloud
+                # that will remain. This is not the last one
+                return False
+
+        # Get the list of VMs on the same cloud to be deleted
+        delete_list_cloud = [v for v in delete_list if (v.cloud.type == self.cloud.type and
+                                                        v.cloud.server == self.cloud.server)]
+
+        # And return true in the last of these VMs
+        return self == delete_list_cloud[-1]
 
     def log_msg(self, level, msg, exc_info=0):
         msg = "Inf ID: %s: %s" % (self.inf.id, msg)

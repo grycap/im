@@ -375,6 +375,9 @@ class FogBowCloudConnector(CloudConnector):
         return res
 
     def finalize(self, vm, last, auth_data):
+        if not vm.id:
+            return True, "No VM ID. Ignoring"
+
         auth = self.get_auth_headers(auth_data)
         headers = {'Accept': 'text/plain'}
         if auth:
@@ -389,7 +392,7 @@ class FogBowCloudConnector(CloudConnector):
             output = resp.read()
             if resp.status == 404:
                 vm.state = VirtualMachine.OFF
-                return (True, vm.id)
+                return (True, "")
             elif resp.status != 200:
                 return (False, "Error removing the VM: " + resp.reason + "\n" + output)
             else:
@@ -414,7 +417,7 @@ class FogBowCloudConnector(CloudConnector):
 
             output = str(resp.read())
             if resp.status == 404 or resp.status == 200:
-                return (True, vm.id)
+                return (True, "")
             else:
                 return (False, "Error removing the VM: " + resp.reason + "\n" + output)
         except Exception:

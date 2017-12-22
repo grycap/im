@@ -838,16 +838,14 @@ class OCCICloudConnector(CloudConnector):
         # Parse the info to get the instance_type (resource_tpl) scheme
         instance_type_uri = None
         if system.getValue('instance_type'):
-            instance_type = self.get_instance_type_uri(
-                occi_info, system.getValue('instance_type'))
+            instance_type = self.get_instance_type_uri(occi_info, system.getValue('instance_type'))
             instance_type_uri = uriparse(instance_type)
             if not instance_type_uri[5]:
                 raise Exception("Error getting Instance type URI. Check that the instance_type specified is "
                                 "supported in the OCCI server.")
             else:
                 instance_name = instance_type_uri[5]
-                instance_scheme = instance_type_uri[
-                    0] + "://" + instance_type_uri[1] + instance_type_uri[2] + "#"
+                instance_scheme = instance_type_uri[0] + "://" + instance_type_uri[1] + instance_type_uri[2] + "#"
 
         while i < num_vm:
             volumes = []
@@ -971,6 +969,9 @@ class OCCICloudConnector(CloudConnector):
             return (False, "Error deleting volumes " + str(ex))
 
     def finalize(self, vm, last, auth_data):
+        if vm.id:
+            return True, "No VM ID. Ignoring"
+
         # First try to get the volumes
         get_vols_ok, volumes = self.get_attached_volumes(vm, auth_data)
         if not get_vols_ok:

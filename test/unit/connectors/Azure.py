@@ -34,7 +34,6 @@ from radl import radl_parse
 from IM.VirtualMachine import VirtualMachine
 from IM.InfrastructureInfo import InfrastructureInfo
 from IM.connectors.Azure import AzureCloudConnector
-from IM.config import Config
 from mock import patch, MagicMock, call
 
 
@@ -175,6 +174,8 @@ class TestAzureConnector(unittest.TestCase):
         compute_client.return_value = cclient
         nclient = MagicMock()
         network_client.return_value = nclient
+        rclient = MagicMock()
+        resource_client.return_value = rclient
 
         nclient.virtual_networks.get.side_effect = Exception()
 
@@ -200,12 +201,14 @@ class TestAzureConnector(unittest.TestCase):
 
         cclient.virtual_machines.create_or_update.side_effect = self.create_vm
 
-        Config.MAX_VM_FAILS = 2
-        res = azure_cloud.launch(InfrastructureInfo(), radl, radl, 3, auth)
+        res = azure_cloud.launch_with_retry(InfrastructureInfo(), radl, radl, 3, auth, 2, 0)
         self.assertEqual(len(res), 3)
         self.assertTrue(res[0][0])
         self.assertTrue(res[1][0])
         self.assertTrue(res[2][0])
+        self.assertEquals(rclient.resource_groups.delete.call_count, 2)
+        self.assertIn("rg-userimage-", rclient.resource_groups.delete.call_args_list[0][0][0])
+        self.assertIn("rg-userimage-", rclient.resource_groups.delete.call_args_list[1][0][0])
 
     @patch('IM.connectors.Azure.NetworkManagementClient')
     @patch('IM.connectors.Azure.ComputeManagementClient')

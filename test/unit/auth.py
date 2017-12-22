@@ -50,7 +50,6 @@ class TestAuth(unittest.TestCase):
         self.assertEqual(auth_data[0]['proxy'][:37], "-----BEGIN RSA PRIVATE KEY-----\nMIIEo")
         os.unlink("/tmp/privatekey.pem")
 
-
     def test_get_auth(self):
         auth_lines = ["""id = 1; type = InfrastructureManager; username = someuser; password = somepass """,
                       """id = 2; type = VMRC; username = someuser; password = somepass; """]

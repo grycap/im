@@ -856,11 +856,10 @@ class AzureClassicCloudConnector(CloudConnector):
         vm.setIps(public_ips, private_ips)
 
     def finalize(self, vm, last, auth_data):
-        self.log_info("Terminate VM: " + vm.id)
-        service_name = vm.id
+        self.log_info("Terminate VM: %s" % vm.id)
 
         # Delete the service
-        res = self.delete_service(service_name, auth_data)
+        res = self.delete_service(vm.id, auth_data)
 
         return res
 
