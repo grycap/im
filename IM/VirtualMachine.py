@@ -175,7 +175,7 @@ class VirtualMachine:
         new_radl.systems = [radl.get_system_by_name(self.info.systems[0].name)]
         if  not new_radl.systems:
             raise Exception("Incorrect RADL no system with name %s provided." % self.info.systems[0].name)
-        (success, alter_res) = self.getCloudConnector().alterVM(self, radl, auth)
+        (success, alter_res) = self.getCloudConnector().alterVM(self, new_radl, auth)
         # force the update of the information
         self.last_update = 0
         return (success, alter_res)
