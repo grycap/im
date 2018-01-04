@@ -120,13 +120,6 @@ In case that you O.S. does not work with this install script see next sections.
 
 #### 1.3.2 From PIP
 
-**WARNING: In some linux old distributions (REL 6 or equivalents) you must unistall
-the package python-crypto and python-paramiko before installing the IM with pip.**
-
-```sh
-$ rpm -e python-crypto python-paramiko --nodeps
-```
-
 First you need to install pip tool and some packages needed to compile some of the IM requirements.
 To install them in Debian and Ubuntu based distributions, do::
 
@@ -141,13 +134,6 @@ Fedora, etc.), do:
 ```sh
 $ yum install epel-release
 $ yum install which gcc python-devel libffi-devel openssl-devel python-pip sshpass python-sqlite3dbm
-```
-
-For some problems with the dependencies of the apache-libcloud package in some systems (as ubuntu 14.04 or CentOS 6)
-this package has to be installed manually:
-
-```sh
-$ pip install backports-ssl_match_hostname
 ```
 
 Then you only have to call the install command of the pip tool with the IM package:
