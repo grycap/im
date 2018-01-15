@@ -15,6 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import time
+import uuid
 from netaddr import IPNetwork, IPAddress
 import os.path
 import tempfile
@@ -522,7 +523,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     args["auth"] = NodeAuthSSHKey(public_key)
 
         elif not system.getValue("disk.0.os.credentials.password"):
-            keypair_name = "im-%d" % int(time.time() * 100.0)
+            keypair_name = "im-%s" % str(uuid.uuid1())
             self.log_info("Create keypair: %s" % keypair_name)
             keypair = driver.create_key_pair(keypair_name)
             keypair_created = True
