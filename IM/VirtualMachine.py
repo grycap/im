@@ -663,13 +663,13 @@ class VirtualMachine:
 
                     # Try to get PGID to kill all child processes
                     pgkill_success = False
-                    (stdout, stderr, code) = ssh.execute('ps -o "%r" ' + str(int(self.ctxt_pid)))
+                    (stdout, stderr, code) = ssh.execute('ps -o "%r" ' + str(int(self.ctxt_pid)), 10)
                     if code == 0:
                         out_parts = stdout.split("\n")
                         if len(out_parts) == 3:
                             try:
                                 pgid = int(out_parts[1])
-                                (stdout, stderr, code) = ssh.execute("kill -9 -" + str(pgid))
+                                (stdout, stderr, code) = ssh.execute("kill -9 -" + str(pgid), 20)
 
                                 if code == 0:
                                     pgkill_success = True
@@ -687,7 +687,7 @@ class VirtualMachine:
                                        stderr + ". Using only PID.")
 
                     if not pgkill_success:
-                        ssh.execute("kill -9 " + str(int(self.ctxt_pid)))
+                        ssh.execute("kill -9 " + str(int(self.ctxt_pid)), 10)
                 except:
                     self.log_exception("Error killing ctxt process with pid: " + str(self.ctxt_pid))
 
