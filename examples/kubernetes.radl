@@ -30,11 +30,18 @@ configure front (
 @begin
 ---
  - pre_tasks:
-    - file: path=/etc/kubernetes/pki state=directory mode=755 recurse=yes
+    - name: Create dir for the NFS PV
+      file: path=/pv state=directory mode=755
+    - name: Create auth file dir
+      file: path=/etc/kubernetes/pki state=directory mode=755 recurse=yes
     - name: Create auth data file with an admin user
       copy: content='sometoken,kubeuser,100,"users,system:masters"' dest=/etc/kubernetes/pki/auth mode=600
 
    roles:
+    - role: 'grycap.nfs'
+      nfs_mode: 'front'
+      nfs_exports: [{path: "/pv", export: "wn-*.localdomain(fsid=0,rw,async,no_root_squash,no_subtree_check,insecure)"}]
+
     - role: 'grycap.kubernetes'
       kube_server: 'kubeserver'
       kube_apiserver_options: [{option: "--insecure-port", value: "8080"}, {option: "--token-auth-file", value: "/etc/kubernetes/pki/auth"}]
@@ -47,6 +54,9 @@ configure wn (
 @begin
 ---
  - roles:
+    - role: 'grycap.nfs'
+      nfs_mode: 'wn'
+
     - role: 'grycap.kubernetes'
       kube_type_of_node: 'wn'
       kube_server: 'kubeserver'
