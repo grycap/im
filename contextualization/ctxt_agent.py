@@ -391,14 +391,15 @@ class CtxtAgent():
         with open(filename) as f:
             inventoy_data = ""
             for line in f:
-                line = re.sub(" ansible_host=%s " % vm_data['ip'],
-                              " ansible_host=%s " % vm_data['ctxt_ip'], line)
-                line = re.sub(" ansible_ssh_host=%s " % vm_data['ip'],
-                              " ansible_ssh_host=%s " % vm_data['ctxt_ip'], line)
-                line = re.sub(" ansible_port=%s " % vm_data['remote_port'],
-                              " ansible_port=%s " % vm_data['ctxt_port'], line)
-                line = re.sub(" ansible_ssh_port=%s " % vm_data['remote_port'],
-                              " ansible_ssh_port=%s " % vm_data['ctxt_port'], line)
+                if line.startswith("%s_%s " % (vm_data['ip'], vm_data['id'])):
+                    line = re.sub(" ansible_host=%s " % vm_data['ip'],
+                                  " ansible_host=%s " % vm_data['ctxt_ip'], line)
+                    line = re.sub(" ansible_ssh_host=%s " % vm_data['ip'],
+                                  " ansible_ssh_host=%s " % vm_data['ctxt_ip'], line)
+                    line = re.sub(" ansible_port=%s " % vm_data['remote_port'],
+                                  " ansible_port=%s " % vm_data['ctxt_port'], line)
+                    line = re.sub(" ansible_ssh_port=%s " % vm_data['remote_port'],
+                                  " ansible_ssh_port=%s " % vm_data['ctxt_port'], line)
                 inventoy_data += line
 
         with open(filename, 'w+') as f:
