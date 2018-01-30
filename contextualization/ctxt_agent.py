@@ -95,7 +95,7 @@ class CtxtAgent():
         success = False
         res = None
         last_tested_private = False
-        last_tested_22 = True
+        last_tested_22 = False
         while wait < CtxtAgent.SSH_WAIT_TIMEOUT:
             if 'ctxt_ip' in vm:
                 vm_ip = vm['ctxt_ip']
@@ -108,7 +108,7 @@ class CtxtAgent():
                 last_tested_private = False
             if 'ctxt_port' in vm:
                 remote_port = vm['ctxt_port']
-            elif not last_tested_22:
+            elif last_tested_22:
                 remote_port = vm['remote_port']
                 last_tested_22 = False
             else:
