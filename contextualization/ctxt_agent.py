@@ -108,7 +108,7 @@ class CtxtAgent():
                 last_tested_private = False
             if 'ctxt_port' in vm:
                 remote_port = vm['ctxt_port']
-            elif not last_tested_22:
+            elif last_tested_22:
                 remote_port = vm['remote_port']
                 last_tested_22 = False
             else:
