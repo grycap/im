@@ -1140,10 +1140,8 @@ class Tosca:
 
         for role in roles:
             app_features = Features()
-            app_features.addFeature(
-                Feature('name', '=', 'ansible.modules.' + role))
-            feature = Feature(
-                'disk.0.applications', 'contains', app_features)
+            app_features.addFeature(Feature('name', '=', 'ansible.modules.' + role))
+            feature = Feature('disk.0.applications', 'contains', app_features)
             system.addFeature(feature)
 
     def _gen_system(self, node, nodetemplates):
