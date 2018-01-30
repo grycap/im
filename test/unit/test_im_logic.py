@@ -815,17 +815,35 @@ class TestIM(unittest.TestCase):
         infId = IM.CreateInfrastructure(str(radl), auth0)
 
         radl = RADL()
+        radl.add(system("s1", [Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
+                               Feature("disk.0.os.credentials.username", "=", "user"),
+                               Feature("cpu.count", "=", 1),
+                               Feature("memory.size", "=", 512, "M"),
+                               Feature("disk.0.os.credentials.password", "=", "pass")]))
         radl.add(system("s0", [Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
                                Feature("disk.0.os.credentials.username", "=", "user"),
                                Feature("cpu.count", "=", 2),
                                Feature("memory.size", "=", 1024, "M"),
                                Feature("disk.0.os.credentials.password", "=", "pass")]))
+        radl.add(deploy("s1", 1))
         radl.add(deploy("s0", 1))
 
         radl_info = IM.AlterVM(infId, "0", str(radl), auth0)
         parsed_radl_info = parse_radl(str(radl_info))
         self.assertEqual(parsed_radl_info.systems[0].getValue("cpu.count"), 2)
         self.assertEqual(parsed_radl_info.systems[0].getFeature('memory.size').getValue('M'), 1024)
+
+        radl = RADL()
+        radl.add(system("s1", [Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
+                               Feature("disk.0.os.credentials.username", "=", "user"),
+                               Feature("cpu.count", "=", 2),
+                               Feature("memory.size", "=", 1024, "M"),
+                               Feature("disk.0.os.credentials.password", "=", "pass")]))
+        radl.add(deploy("s1", 1))
+
+        with self.assertRaises(Exception) as ex:
+            IM.AlterVM(infId, "0", str(radl), auth0)
+        self.assertEqual(str(ex.exception), 'Incorrect RADL no system with name s0 provided.')
 
         IM.DestroyInfrastructure(infId, auth0)
 
