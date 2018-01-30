@@ -387,25 +387,23 @@ class Tosca:
 
     def _get_artifact_full_uri(self, node, artifact_name):
         res = None
-        artifacts = node.type_definition.get_value(
-            'artifacts', node.entity_tpl, True)
-        if artifacts:
-            for name, artifact in artifacts.items():
-                if name == artifact_name:
-                    if isinstance(artifact, dict):
-                        res = artifact['file']
-                        if 'repository' in artifact:
-                            repo = artifact['repository']
-                            repositories = self.tosca.tpl.get('repositories')
+        artifacts = self._get_node_artifacts(node)
+        for name, artifact in artifacts.items():
+            if name == artifact_name:
+                if isinstance(artifact, dict):
+                    res = artifact['file']
+                    if 'repository' in artifact:
+                        repo = artifact['repository']
+                        repositories = self.tosca.tpl.get('repositories')
 
-                            if repositories:
-                                for repo_name, repo_def in repositories.items():
-                                    if repo_name == repo:
-                                        repo_url = (
-                                            (repo_def['url']).strip()).rstrip("//")
-                                        res = repo_url + "/" + artifact['file']
-                    else:
-                        res = artifact
+                        if repositories:
+                            for repo_name, repo_def in repositories.items():
+                                if repo_name == repo:
+                                    repo_url = (
+                                        (repo_def['url']).strip()).rstrip("//")
+                                    res = repo_url + "/" + artifact['file']
+                else:
+                    res = artifact
 
         return res
 
@@ -1101,6 +1099,22 @@ class Tosca:
 
         return res
 
+    @staticmethod
+    def _get_node_artifacts(node):
+        """ Get a dict will the node artifacts """
+        artifacts_dict = {}
+        artifacts = node.type_definition.get_value('artifacts', node.entity_tpl, True)
+
+        if artifacts:
+            if isinstance(artifacts, dict):
+                artifacts_dict = artifacts
+            else:
+                artifacts_dict = {}
+                for elem in artifacts:
+                    artifacts_dict.update(elem)
+
+        return artifacts_dict
+
     def _add_ansible_roles(self, node, nodetemplates, system):
         """
         Find all the roles to be applied to this node and
@@ -1118,15 +1132,12 @@ class Tosca:
             if compute and compute.name == node.name:
                 # Get the artifacts to see if there is a ansible galaxy role
                 # and add it as an "ansible.modules" app requirement in RADL
-                artifacts = other_node.type_definition.get_value(
-                    'artifacts', other_node.entity_tpl, True)
-                if artifacts:
-                    for name, artifact in artifacts.items():
-                        name
-                        if ('type' in artifact and artifact['type'] == 'tosca.artifacts.AnsibleGalaxy.role' and
-                                'file' in artifact and artifact['file']):
-                            if artifact['file'] not in roles:
-                                roles.append(artifact['file'])
+                artifacts = self._get_node_artifacts(other_node)
+                for _, artifact in artifacts.items():
+                    if ('type' in artifact and artifact['type'] == 'tosca.artifacts.AnsibleGalaxy.role' and
+                            'file' in artifact and artifact['file']):
+                        if artifact['file'] not in roles:
+                            roles.append(artifact['file'])
 
         for role in roles:
             app_features = Features()
