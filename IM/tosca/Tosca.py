@@ -1109,7 +1109,6 @@ class Tosca:
             if isinstance(artifacts, dict):
                 artifacts_dict = artifacts
             else:
-                artifacts_dict = {}
                 for elem in artifacts:
                     artifacts_dict.update(elem)
 
