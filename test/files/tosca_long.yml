@@ -45,6 +45,22 @@ topology_template:
       requirements:
         - host: lrms_server
 
+    apache:
+      type: tosca.nodes.WebServer.Apache
+      capabilities:
+        data_endpoint:
+          properties:
+            protocol: tcp
+            port: 80
+            network_name: PUBLIC
+        admin_endpoint:
+          properties:
+            port: 8080
+            protocol: tcp
+            network_name: PRIVATE
+      requirements:
+        - host: other_server
+
     other_server:
       type: tosca.nodes.indigo.Compute
       capabilities:
