@@ -282,7 +282,7 @@ class Tosca:
             dns_name = None
             ports = {}
             endpoints = self._get_node_endpoints(node, nodetemplates)
-            
+
             for endpoint in endpoints:
                 cap_props = endpoint.get_properties()
                 if cap_props and "network_name" in cap_props:
@@ -310,7 +310,7 @@ class Tosca:
                     port = self._final_function_result(cap_props["port"].value, node)
                     if "protocol" in cap_props:
                         protocol = self._final_function_result(cap_props["protocol"].value, node)
-                    ports["im-%s-%s" % (protocol, port)] = {"protocol": protocol, "source": port} 
+                    ports["im-%s-%s" % (protocol, port)] = {"protocol": protocol, "source": port}
 
             # The private net is always added
             if not public_ip or private_ip:
