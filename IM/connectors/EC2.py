@@ -1425,7 +1425,8 @@ class EC2CloudConnector(CloudConnector):
                     return (False, "Error stopping instance: " + instance_id)
 
         if success:
-            return (success, self.updateVMInfo(vm, auth_data))
+            _, vm = self.updateVMInfo(vm, auth_data)
+            return (success, vm)
         else:
             return (success, "Unknown Error")
 
