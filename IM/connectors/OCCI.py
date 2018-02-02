@@ -591,8 +591,6 @@ class OCCICloudConnector(CloudConnector):
             success, volume_id = self.create_volume(int(disk_size), storage_name, auth_data)
             if success:
                 self.log_info("Volume id %s sucessfully created." % volume_id)
-                volumes.append((disk_device, volume_id))
-                system.setValue("disk." + str(cont) + ".provider_id", volume_id)
                 # TODO: get the actual device_id from OCCI
 
                 # let's wait the storage to be ready "online"
@@ -601,6 +599,9 @@ class OCCICloudConnector(CloudConnector):
                     self.log_error("Error waiting volume %s. Deleting it." % volume_id)
                     self.delete_volume(volume_id, auth_data)
                     self.error_messages += "Error waiting volume: %s. Deleting it." % volume_id
+                else:
+                    volumes.append((disk_device, volume_id))
+                    system.setValue("disk." + str(cont) + ".provider_id", volume_id)
             else:
                 self.log_error("Error creating volume: %s" % volume_id)
                 self.error_messages += "Error creating volume: %s. Deleting it." % volume_id
@@ -937,7 +938,7 @@ class OCCICloudConnector(CloudConnector):
     def get_volume_ids_from_radl(self, system):
         volumes = []
         cont = 1
-        while system.getValue("disk." + str(cont) + ".size") and system.getValue("disk." + str(cont) + ".device"):
+        while system.getValue("disk." + str(cont) + ".size"):
             provider_id = system.getValue("disk." + str(cont) + ".provider_id")
             if provider_id:
                 volumes.append(provider_id)
