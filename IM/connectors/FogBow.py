@@ -376,6 +376,7 @@ class FogBowCloudConnector(CloudConnector):
 
     def finalize(self, vm, last, auth_data):
         if not vm.id:
+            self.log_warn("No VM ID. Ignoring")
             return True, "No VM ID. Ignoring"
 
         auth = self.get_auth_headers(auth_data)

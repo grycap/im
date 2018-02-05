@@ -807,6 +807,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         if vm.id:
             node = self.get_node_with_id(vm.id, auth_data)
         else:
+            self.log_warn("No VM ID. Ignoring")
             node = None
 
         if node:

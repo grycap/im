@@ -856,6 +856,10 @@ class AzureClassicCloudConnector(CloudConnector):
         vm.setIps(public_ips, private_ips)
 
     def finalize(self, vm, last, auth_data):
+        if not vm.id:
+            self.log_warn("No VM ID. Ignoring")
+            return True, "No VM ID. Ignoring"
+
         self.log_info("Terminate VM: %s" % vm.id)
 
         # Delete the service

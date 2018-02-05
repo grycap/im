@@ -528,6 +528,7 @@ class OpenNebulaCloudConnector(CloudConnector):
             else:
                 return (False, "Error in the one.vm.action return value")
         else:
+            self.log_warn("No VM ID. Ignoring")
             err = ""
             success = True
 
