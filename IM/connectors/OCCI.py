@@ -970,7 +970,7 @@ class OCCICloudConnector(CloudConnector):
             return (False, "Error deleting volumes " + str(ex))
 
     def finalize(self, vm, last, auth_data):
-        if vm.id:
+        if not vm.id:
             return True, "No VM ID. Ignoring"
 
         # First try to get the volumes
