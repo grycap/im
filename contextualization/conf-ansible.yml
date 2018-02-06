@@ -62,7 +62,7 @@
   ############################################ In other systems use pip #################################################
   
     - name: Yum install requirements RH 6
-      yum: name=python-distribute,gcc,python-devel,wget,openssh-clients,sshpass,python-pip,libffi-devel,openssl-devel
+      yum: name=ansible,python-jinja2,python-distribute,gcc,python-devel,wget,openssh-clients,sshpass,python-pip,libffi-devel,openssl-devel
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int <= 6
 
     - name: Zypper install requirements Suse
@@ -76,11 +76,6 @@
       pip: name=pip extra_args="-I" state=latest
       when: ansible_os_family == "Suse"
 
-    # From version 2.4 python 2.6 is not supported
-    - name: Install correct version of Paramiko in RH6
-      pip: name=paramiko version=2.3.1
-      when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int <= 6
-
     - name: Install ansible with Pip
       pip: name=ansible
       when: ansible_os_family == "Suse"
@@ -90,7 +85,7 @@
     - name: Install jmespath with Pip
       pip: name=jmespath
 
-    - name: Install scp with Pip
+    - name: Install cffi with Pip in RH6
       pip: name=cffi
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int <= 6
 
