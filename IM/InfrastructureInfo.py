@@ -35,6 +35,9 @@ from IM.VirtualMachine import VirtualMachine
 from IM.auth import Authentication
 from IM.tosca.Tosca import Tosca
 
+if Config.MAX_SIMULTANEOUS_LAUNCHES > 1:
+    from multiprocessing.pool import ThreadPool
+
 
 class IncorrectVMException(Exception):
     """ Invalid VM ID. """
@@ -168,6 +171,32 @@ class InfrastructureInfo:
         if dic['auth']:
             newinf.auth = Authentication.deserialize(dic['auth'])
         return newinf
+
+    def destroy(self, auth, delete_list=None):
+        """
+        Destroy the VMs listed in delete_list or all if not specified
+        """
+        if delete_list is None:
+            delete_list = list(reversed(self.get_vm_list()))
+
+        exceptions = []
+        if Config.MAX_SIMULTANEOUS_LAUNCHES > 1:
+            pool = ThreadPool(processes=Config.MAX_SIMULTANEOUS_LAUNCHES)
+            pool.map(
+                lambda vm: vm.delete(delete_list, auth, exceptions),
+                delete_list
+            )
+            pool.close()
+        else:
+            # If IM server is the first VM, then it will be the last destroyed
+            for vm in delete_list:
+                vm.delete(delete_list, auth, exceptions)
+
+        if exceptions:
+            msg = ""
+            for e in exceptions:
+                msg += str(e) + "\n"
+            raise Exception("Error destroying the infrastructure: \n%s" % msg)
 
     def delete(self):
         """
