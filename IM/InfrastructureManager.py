@@ -556,25 +556,32 @@ class InfrastructureManager:
         # Remove the VMs in creating state
         sel_inf.remove_creating_vms()
 
+        all_failed = True
         for vm in new_vms:
             # Set now the VM as "created"
             vm.creating = False
             # and add it to the Inf
             sel_inf.add_vm(vm)
 
-            (_, passwd, _, _) = vm.info.systems[0].getCredentialValues()
-            (_, new_passwd, _, _) = vm.info.systems[0].getCredentialValues(new=True)
-            if passwd and not new_passwd:
-                # The VM uses the VMI password, set to change it
-                random_password = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(8))
-                vm.info.systems[0].setCredentialValues(password=random_password, new=True)
+            if vm.state != VirtualMachine.FAILED:
+                all_failed = False
+
+                (_, passwd, _, _) = vm.info.systems[0].getCredentialValues()
+                (_, new_passwd, _, _) = vm.info.systems[0].getCredentialValues(new=True)
+                if passwd and not new_passwd:
+                    # The VM uses the VMI password, set to change it
+                    random_password = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(8))
+                    vm.info.systems[0].setCredentialValues(password=random_password, new=True)
 
         # Add the new virtual machines to the infrastructure
         sel_inf.update_radl(radl, [(d, deployed_vm[d], concrete_systems[d.cloud_id][d.id][0]) for d in deployed_vm])
-        InfrastructureManager.logger.info("VMs %s successfully added to Inf ID: %s" % (new_vms, sel_inf.id))
+        if all_failed:
+            InfrastructureManager.logger.error("VMs failed when adding to Inf ID: %s" % sel_inf.id)
+        else:
+            InfrastructureManager.logger.info("VMs %s successfully added to Inf ID: %s" % (new_vms, sel_inf.id))
 
         # Let's contextualize!
-        if context and new_vms:
+        if context and new_vms and not all_failed:
             sel_inf.Contextualize(auth)
 
         IM.InfrastructureList.InfrastructureList.save_data(inf_id)
@@ -1085,28 +1092,9 @@ class InfrastructureManager:
         InfrastructureManager.logger.info("Destroying the Inf ID: " + str(inf_id))
 
         sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
-        exceptions = []
         delete_list = list(reversed(sel_inf.get_vm_list()))
-
-        if Config.MAX_SIMULTANEOUS_LAUNCHES > 1:
-            pool = ThreadPool(processes=Config.MAX_SIMULTANEOUS_LAUNCHES)
-            pool.map(
-                lambda vm: vm.delete(delete_list, auth, exceptions),
-                delete_list
-            )
-            pool.close()
-        else:
-            # If IM server is the first VM, then it will be the last destroyed
-            for vm in delete_list:
-                vm.delete(delete_list, auth, exceptions)
-
-        if exceptions:
-            IM.InfrastructureList.InfrastructureList.save_data(inf_id)
-            msg = ""
-            for e in exceptions:
-                msg += str(e) + "\n"
-            raise Exception("Error destroying the infrastructure: \n%s" % msg)
-
+        # Destroy the Infrastructure
+        sel_inf.destroy(auth, delete_list)
         # Set the Infrastructure as deleted
         sel_inf.delete()
         IM.InfrastructureList.InfrastructureList.save_data(inf_id)
@@ -1274,13 +1262,28 @@ class InfrastructureManager:
 
         # Add the resources in radl_data
         try:
-            InfrastructureManager.AddResource(inf.id, radl, auth)
+            vms = InfrastructureManager.AddResource(inf.id, radl, auth)
+            all_failed = False
+            error_msg = ""
+            for vmid in vms:
+                vm = inf.get_vm(vmid)
+                if vm.state == VirtualMachine.FAILED:
+                    all_failed = True
+                    if vm.error_msg:
+                        error_msg += "%s\n" % vm.error_msg
+                else:
+                    all_failed = False
+                    break
+            if all_failed:
+                inf.destroy(auth)
+                raise Exception(error_msg)
         except Exception as e:
             InfrastructureManager.logger.exception("Error Creating Inf ID " + str(inf.id))
             inf.delete()
             IM.InfrastructureList.InfrastructureList.save_data(inf.id)
             IM.InfrastructureList.InfrastructureList.remove_inf(inf)
             raise e
+
         InfrastructureManager.logger.info("Inf ID:" + str(inf.id) + ": Successfully created")
 
         return inf.id

@@ -272,16 +272,11 @@ class TestIM(unittest.TestCase):
                                 {'type': 'InfrastructureManager', 'username': 'test',
                                  'password': 'tests'}])
 
-        infID = IM.CreateInfrastructure(radl, auth0)
-        res = IM.GetInfrastructureState(infID, auth0)
-        self.assertEqual(res['state'], VirtualMachine.FAILED)
-        res = IM.GetInfrastructureContMsg(infID, auth0)
-        self.assertIn('VM 0:\nError launching the VMs of type front to cloud ID ost of type OpenStack.'
+        with self.assertRaises(Exception) as ex:
+            IM.CreateInfrastructure(radl, auth0)
+        self.assertIn('Error launching the VMs of type front to cloud ID ost of type OpenStack.'
                       ' Error, no concrete system to deploy: front in cloud: ost. '
-                      'Check if a correct image is being used', res)
-        self.assertIn('VM 1:\nError launching the VMs of type wn to cloud ID ost of type OpenStack. '
-                      'Error, no concrete system to deploy: wn in cloud: ost. '
-                      'Check if a correct image is being used', res)
+                      'Check if a correct image is being used', str(ex.exception))
 
         # this case must work OK
         auth0 = Authentication([{'id': 'dummy', 'type': 'Dummy'},
@@ -300,14 +295,13 @@ class TestIM(unittest.TestCase):
         cloud.finalize = Mock(return_value=(True, ""))
         self.register_cloudconnector("Mock", cloud)
         auth0 = self.getAuth([0], [], [("Mock", 0)])
-        infID = IM.CreateInfrastructure(str(radl), auth0)
-        res = IM.GetInfrastructureState(infID, auth0)
-        self.assertEqual(res['state'], VirtualMachine.FAILED)
-        res = IM.GetInfrastructureContMsg(infID, auth0)
-        self.assertIn(("VM 0:\nError launching the VMs of type s0 to cloud ID cloud0 of type Mock. "
-                       "Attempt 1: e1\nAttempt 2: e1\nAttempt 3: e1"), res)
 
-        IM.DestroyInfrastructure(infID, auth0)
+        with self.assertRaises(Exception) as ex:
+            IM.CreateInfrastructure(str(radl), auth0)
+
+        self.assertIn(("Error launching the VMs of type s0 to cloud ID cloud0 of type Mock. "
+                       "Attempt 1: e1\nAttempt 2: e1\nAttempt 3: e1"), str(ex.exception))
+
         self.assertEqual(cloud.finalize.call_count, 1)
 
     def test_inf_auth(self):
