@@ -458,6 +458,7 @@ class KubernetesCloudConnector(CloudConnector):
 
             success = self._delete_pod(vm, auth_data)
         else:
+            self.log_warn("No VM ID. Ignoring")
             success = True
 
         if last:

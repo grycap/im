@@ -704,6 +704,7 @@ class DockerCloudConnector(CloudConnector):
                 else:
                     res = (True, "")
             else:
+                self.log_warn("No VM ID. Ignoring")
                 res = (True, "")
 
             self._delete_volumes(vm, auth_data)

@@ -753,6 +753,8 @@ class AzureCloudConnector(CloudConnector):
                     self.delete_resource_group(group_name, resource_client)
                 else:
                     self.log_info("RG: %s does not exist. Do not remove." % group_name)
+            else:
+                self.log_warn("No VM ID. Ignoring")
 
             # if it is the last VM delete the RG of the Inf
             if last:

@@ -533,6 +533,7 @@ class GCECloudConnector(CloudConnector):
             if vm.id:
                 node = self.get_node_with_id(vm.id, auth_data)
             else:
+                self.log_warn("No VM ID. Ignoring")
                 node = None
         except Exception as ex:
             self.log_exception("Error getting VM: %s. Err: %s." % (vm.id, str(ex)))

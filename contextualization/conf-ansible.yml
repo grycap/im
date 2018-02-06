@@ -76,6 +76,10 @@
       pip: name=pip extra_args="-I" state=latest
       when: ansible_os_family == "Suse"
 
+    - name: Install correct version of Paramiko in RH6
+      pip: name=paramiko version=2.3.1
+      when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int <= 6
+
     - name: Install ansible with Pip
       pip: name=ansible
       when: ansible_os_family == "Suse"
@@ -86,12 +90,14 @@
       pip: name=jmespath
 
     - name: Install scp with Pip
+      pip: name=cffi
+      when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int <= 6
+
+    - name: Install scp with Pip
       pip: name=scp
-      when: ansible_os_family != "RedHat" or (ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 6)
 
     - name: Install pywinrm with Pip
       pip: name=pywinrm
-      when: ansible_os_family != "RedHat" or (ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 6)
       ignore_errors: yes
       
 ################################################ Configure Ansible  ###################################################
