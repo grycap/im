@@ -97,7 +97,7 @@
       pip: name=pip extra_args="-I" state=latest
 
     - name: Upgrade pyOpenSSL with Pip
-      pip: name=pyOpenSSL extra_args="-I" state=latest
+      pip: name=pyOpenSSL state=latest
 
     - name: Upgrade setuptools with Pip
       pip: name=setuptools extra_args="-I" state=latest
