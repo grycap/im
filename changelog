@@ -369,3 +369,10 @@ IM 1.6.6
     * Fix error using disks.free_size in connectors.
     * Add retries in Azure RG deletion.
     * Avoid raising error in case that one auth line does not have the type field.
+
+IM 1.6.7
+    * Fix error with the update of pyOpenSSL package causes Ansible error.
+    * Fix error contextualizing docker containers.
+    * Improves performance deleting an infra when configuring it.
+    * Fix error in EC2 conn getting security groups in case of VPC usage.
+    * Improve AlterVM function to allow receive complete RADL.
