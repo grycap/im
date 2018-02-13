@@ -58,7 +58,6 @@ topology_template:
             # host Operating System image properties
             type: linux
             distribution: ubuntu
-            version: 16.04
 
     test_db:
       type: tosca.nodes.indigo.Database.MySQL
@@ -106,7 +105,6 @@ topology_template:
            architecture: x86_64
            type: linux
            distribution: ubuntu
-           version: 16.04
 
   outputs:
     server_url:
