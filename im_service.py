@@ -24,6 +24,7 @@ import os
 import signal
 import subprocess
 import time
+import argparse
 
 from IM.request import Request, AsyncXMLRPCServer, get_system_queue
 from IM.config import Config
@@ -371,6 +372,15 @@ def signal_int_handler(signal, frame):
     im_stop()
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='IM service')
+    parser.add_argument('--version', help='Show IM service version.', dest="version",
+                        action="store_true", default=False)
+    args = parser.parse_args()
+
+    if args.version:
+        print("IM %s" % version)
+        sys.exit(0)
+
     signal.signal(signal.SIGINT, signal_int_handler)
     config_logging()
     launch_daemon()
