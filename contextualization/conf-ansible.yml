@@ -76,12 +76,15 @@
 #    - name: Install Pip (alternative)
 #      shell: wget https://bootstrap.pypa.io/get-pip.py && python get-pip.py
 
-    - name: Upgrade pyOpenSSL with Pip
-      pip: name=pyOpenSSL state=latest
-
     - name: Upgrade pip
       pip: name=pip extra_args="-I" state=latest
       when: ansible_os_family == "Suse"
+
+    - name: Upgrade setuptools with Pip
+      pip: name=setuptools state=latest
+
+    - name: Upgrade pyOpenSSL with Pip
+      pip: name=pyOpenSSL state=latest
 
     - name: Install ansible with Pip
       pip: name=ansible
