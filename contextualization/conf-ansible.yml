@@ -101,8 +101,7 @@
       pip: name=pip extra_args="-I" state=latest
 
     - name: Upgrade setuptools with Pip
-      pip: name=setuptools extra_args="-I" state=latest
-      when: ansible_os_family == "Suse" or (ansible_os_family == "RedHat" and ansible_distribution_major_version|int < 7)
+      pip: name=setuptools state=latest
 
     - name: Upgrade pyOpenSSL with Pip
       pip: name=pyOpenSSL state=latest
