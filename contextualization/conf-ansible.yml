@@ -78,7 +78,6 @@
 
     - name: Upgrade pip
       pip: name=pip extra_args="-I" state=latest
-      when: ansible_os_family == "Suse"
 
     - name: Upgrade setuptools with Pip
       pip: name=setuptools state=latest
