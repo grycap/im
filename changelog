@@ -377,4 +377,5 @@ IM 1.6.7
     * Fix error in EC2 conn getting security groups in case of VPC usage.
     * Improve AlterVM function to allow receive complete RADL.
     * Add --version option in im_service.py.
-
+    * Fix error reconfiguring nodes in case of addition of nodes.
+    * Avoid "Failed to lock apt for exclusive operation" in contextualization.
