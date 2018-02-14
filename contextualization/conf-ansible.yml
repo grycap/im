@@ -31,9 +31,19 @@
 
   ################### Install Ansible in Ubuntu RHEL Debian and Fedora systems with apt and yum #########################
   ################### because they have recent versions of ansible in system repositories ###############################
-  
+
     - name: Ubuntu install requirements
-      apt: name=software-properties-common update_cache=yes cache_valid_time=3600
+      apt: update_cache=yes cache_valid_time=3600
+      when: ansible_distribution == "Ubuntu"
+      ignore_errors: yes
+      register: apt_update
+  
+    - name: Ubuntu force apt update (avoid apt lock)
+      command: apt update
+      when: ansible_distribution == "Ubuntu" and apt_update|failed
+ 
+    - name: Ubuntu install requirements
+      apt: name=software-properties-common
       when: ansible_distribution == "Ubuntu"
 
     - name: Ubuntu install Ansible PPA repo
