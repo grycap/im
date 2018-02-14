@@ -5,9 +5,18 @@
   gather_facts: false
   tasks:
     # Some OSs does not have python by default
-    - name: Bootstrap with python
-      raw: which python || (sudo apt update; sudo apt install -y python; sudo yum install -y python; sudo zypper -n install python python-xml)
+    - name: Check Python is installed
+      raw: which python
       ignore_errors: yes
+      register: python_exists
+      changed_when: false
+
+    - name: Bootstrap with python
+      raw: sudo apt update; sudo apt install -y python; sudo yum install -y python; sudo zypper -n install python python-xml
+      ignore_errors: yes
+      register: python_install
+      changed_when: python_install.stdout_lines|length > 1
+      when: python_exists|failed
 
     - name: Get Facts
       setup:
@@ -27,8 +36,18 @@
   ################### Install Ansible in Ubuntu RHEL Debian and Fedora systems with apt and yum #########################
   ################### because they have recent versions of ansible in system repositories ###############################
   
+    - name: Ubuntu apt update
+      apt: update_cache=yes cache_valid_time=3600
+      when: ansible_distribution == "Ubuntu"
+      ignore_errors: yes
+      register: apt_update
+  
+    - name: Ubuntu force apt update (avoid apt lock)
+      command: apt update
+      when: ansible_distribution == "Ubuntu" and apt_update|failed
+    
     - name: Ubuntu install requirements
-      apt: name=software-properties-common update_cache=yes cache_valid_time=3600
+      apt: name=software-properties-common
       when: ansible_distribution == "Ubuntu"
 
     - name: Ubuntu install Ansible PPA repo
