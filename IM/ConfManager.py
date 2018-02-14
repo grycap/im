@@ -64,6 +64,7 @@ class ConfManager(threading.Thread):
         self.max_ctxt_time = max_ctxt_time
         self._stop_thread = False
         self.ansible_process = None
+        self.failed_step = []
         self.logger = logging.getLogger('ConfManager')
 
     def check_running_pids(self, vms_configuring, failed_step):
@@ -190,7 +191,7 @@ class ConfManager(threading.Thread):
     def run(self):
         self.log_info("Starting the ConfManager Thread")
 
-        failed_step = []
+        self.failed_step = []
         last_step = None
         vms_configuring = {}
 
@@ -207,7 +208,7 @@ class ConfManager(threading.Thread):
                     self.ansible_process.terminate()
                 return
 
-            failed_step, vms_configuring = self.check_running_pids(vms_configuring, failed_step)
+            self.failed_step, vms_configuring = self.check_running_pids(vms_configuring, self.failed_step)
 
             # If the queue is empty but there are vms configuring wait and test
             # again
@@ -224,9 +225,9 @@ class ConfManager(threading.Thread):
 
             # if this task is from a next step
             if last_step is not None and last_step < step:
-                if failed_step and sorted(failed_step)[-1] < step:
+                if self.failed_step and sorted(self.failed_step)[-1] < step:
                     self.log_info("Configuration of process of step %s failed, "
-                                  "ignoring tasks of step %s." % (sorted(failed_step)[-1], step))
+                                  "ignoring tasks of step %s." % (sorted(self.failed_step)[-1], step))
                 else:
                     # Add the task again to the queue only if the last step was
                     # OK

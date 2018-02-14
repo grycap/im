@@ -59,6 +59,10 @@
       apt: name=python-cryptography
       when: (ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int >= 16) or (ansible_distribution == "Debian" and ansible_distribution_major_version|int >= 8)
 
+    - name: Install requirements Ubuntu 14
+      apt: name=gcc,python-dev,libffi-dev,libssl-dev
+      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int <= 14
+
   ############################################ In other systems use pip #################################################
   
     - name: Yum install requirements RH 6
@@ -74,7 +78,12 @@
 
     - name: Upgrade pip
       pip: name=pip extra_args="-I" state=latest
-      when: ansible_os_family == "Suse"
+
+    - name: Upgrade setuptools with Pip
+      pip: name=setuptools state=latest
+
+    - name: Upgrade pyOpenSSL with Pip
+      pip: name=pyOpenSSL state=latest
 
     - name: Install ansible with Pip
       pip: name=ansible
