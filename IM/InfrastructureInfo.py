@@ -553,6 +553,7 @@ class InfrastructureInfo:
                 # update the ConfManager auth
                 self.cm.auth = auth
                 self.cm.init_time = time.time()
+                self.cm.failed_step = []
 
     def is_authorized(self, auth):
         """
