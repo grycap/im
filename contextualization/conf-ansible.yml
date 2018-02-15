@@ -207,4 +207,3 @@
   
       - name: Set roles_path in ansible.cfg
         ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=roles_path value=/etc/ansible/roles
-  
