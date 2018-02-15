@@ -71,7 +71,7 @@ class Authentication:
         """
         res = []
         for auth in self.auth_list:
-            if auth['id'] == auth_id:
+            if 'id' in auth and auth['id'] == auth_id:
                 res.append(auth)
         return res
 
@@ -115,21 +115,48 @@ class Authentication:
         return True
 
     @staticmethod
+    def split_line(line):
+        """
+        Split line using ; as separator char
+        considering single quotes as a way to delimit
+        tokens. (in particular to enable using char ; inside a token)
+        """
+        tokens = []
+        token = ""
+        in_qoutes = False
+        in_dqoutes = False
+        for char in line:
+            if char == '"' and not in_qoutes:
+                in_dqoutes = not in_dqoutes
+            elif char == "'" and not in_dqoutes:
+                in_qoutes = not in_qoutes
+            elif char == ";" and not in_qoutes and not in_dqoutes:
+                tokens.append(token)
+                token = ""
+            else:
+                token += char
+        # Add the last token
+        if token.strip() != "":
+            tokens.append(token)
+
+        return tokens
+
+    @staticmethod
     def read_auth_data(filename):
         """
         Read a file to load the Authentication data.
         The file has the following format:
 
-        id = one; type = OpenNebula; host = osenserve:2633; username = user; password = pass
-        type = InfrastructureManager; username = user; password = pass
-        type = VMRC; host = http://server:8080/vmrc; username = user; password = pass
+        id = one; type = OpenNebula; host = oneserver:2633; username = user; password = pass
+        type = InfrastructureManager; username = user; password = 'pass;test'
+        type = VMRC; host = http://server:8080/vmrc; username = user; password = "pass';test"
         id = ec2; type = EC2; username = ACCESS_KEY; password = SECRET_KEY
         id = oshost; type = OpenStack; host = oshost:8773; username = ACCESS_KEY; key = SECRET_KEY
         id = occi; type = OCCI; host = occiserver:4567; username = user; password = file(/tmp/filename)
         id = occi; type = OCCI; proxy = file(/tmp/proxy.pem)
 
         Arguments:
-           - filename(str): The filename to read
+           - filename(str or list): The filename to read or list of auth lines
 
         Returns: a list with all the auth data
         """
@@ -146,7 +173,7 @@ class Authentication:
             line = line.strip()
             if len(line) > 0 and not line.startswith("#"):
                 auth = {}
-                tokens = line.split(";")
+                tokens = Authentication.split_line(line)
                 for token in tokens:
                     key_value = token.split(" = ")
                     if len(key_value) != 2:

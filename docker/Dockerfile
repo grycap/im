@@ -1,7 +1,7 @@
 # Dockerfile to create a container with the IM service and TOSCA support
 FROM ubuntu:16.04
 MAINTAINER Miguel Caballer <micafer1@upv.es>
-LABEL version="1.6.5"
+LABEL version="1.6.7"
 LABEL description="Container image to run the IM service with TOSCA support. (http://www.grycap.upv.es/im)"
 
 # Install Ansible
@@ -23,7 +23,7 @@ RUN wget https://launchpad.net/ubuntu/+archive/primary/+files/python-msrest_0.4.
 
 # Install IM
 RUN wget https://github.com/grycap/RADL/releases/download/v1.1.0/python-radl_1.1.0-1_all.deb && \ 
-    wget https://github.com/indigo-dc/im/releases/download/v1.6.5/python-im_1.6.5-1_all.deb && \
+    wget https://github.com/indigo-dc/im/releases/download/v1.6.7/python-im_1.6.5-1_all.deb && \
     wget https://github.com/indigo-dc/tosca-parser/releases/download/0.8.3/python-tosca-parser_0.8.3-1_all.deb && \
     dpkg -i python-radl_*_all.deb ; \
     dpkg -i python-tosca-parser_*_all.deb ; \

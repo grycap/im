@@ -1,0 +1,4 @@
+type = InfrastructureManager; username = someurser; password = somepass
+type = VMRC; host = http://server:8080/vmrc/vmrc; username = user; password = pass
+id = one2; type = OpenNebula; host = server1.com:2633; username = user; password = pass
+id = occi; type = OCCI; proxy = file(/tmp/privatekey.pem); host = https://server.com:11443

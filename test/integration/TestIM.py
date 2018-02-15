@@ -606,7 +606,7 @@ echo "Hello World" >> /tmp/data.txt
         self.__class__.inf_id = [inf_id]
 
         all_configured = self.wait_inf_state(
-            inf_id, VirtualMachine.CONFIGURED, 600)
+            inf_id, VirtualMachine.CONFIGURED, 900)
         self.assertTrue(
             all_configured, msg="ERROR waiting the ansible master to be configured (timeout).")
 
@@ -643,7 +643,7 @@ echo "Hello World" >> /tmp/data.txt
         self.__class__.inf_id.append(inf_id)
 
         all_configured = self.wait_inf_state(
-            inf_id, VirtualMachine.CONFIGURED, 300)
+            inf_id, VirtualMachine.CONFIGURED, 450)
         self.assertTrue(
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 

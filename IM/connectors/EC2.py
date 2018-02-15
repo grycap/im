@@ -283,7 +283,7 @@ class EC2CloudConnector(CloudConnector):
         disk_free_op = ">="
         if radl.getValue('disks.free_size'):
             disk_free = radl.getFeature('disks.free_size').getValue('G')
-            disk_free_op = radl.getFeature('memory.size').getLogOperator()
+            disk_free_op = radl.getFeature('disks.free_size').getLogOperator()
 
         performance = 0
         performance_op = ">="
@@ -368,7 +368,7 @@ class EC2CloudConnector(CloudConnector):
     @staticmethod
     def _get_security_group(conn, sg_name):
         try:
-            return conn.get_all_security_groups([sg_name])[0]
+            return conn.get_all_security_groups(filters={'group-name': sg_name})[0]
         except Exception:
             return None
 
@@ -1293,7 +1293,7 @@ class EC2CloudConnector(CloudConnector):
         for net in vm.info.networks:
             sg_name = "im-%s-%s" % (str(vm.inf.id), net.id)
             try:
-                sgs.extend(conn.get_all_security_groups([sg_name]))
+                sgs.extend(conn.get_all_security_groups(filters={'group-name': sg_name}))
             except Exception:
                 self.log_exception("Error getting SG %s" % sg_name)
         return sgs
