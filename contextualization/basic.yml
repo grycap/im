@@ -2,9 +2,18 @@
 - gather_facts: False
   tasks: 
       # Some OSs does not have python by default
-    - name: Bootstrap with python
-      raw: which python || (sudo apt update; sudo apt install -y python; sudo yum install -y python)
+    - name: Check Python is installed
+      raw: which python
       ignore_errors: yes
+      register: python_exists
+      changed_when: false
+
+    - name: Bootstrap with python
+      raw: sudo apt update; sudo apt install -y python; sudo yum install -y python; sudo zypper -n install python python-xml
+      ignore_errors: yes
+      register: python_install
+      changed_when: python_install.stdout_lines|length > 1
+      when: python_exists|failed
 
     # In case of redhat systems libselinux-python is needed
     - name: Install libselinux-python on redhat systems
@@ -36,3 +45,17 @@
 
     - name: Gather Facts
       setup: 
+
+    - name: Ubuntu apt update
+      apt: update_cache=yes cache_valid_time=3600
+      when: ansible_distribution == "Ubuntu"
+      ignore_errors: yes
+      register: apt_update
+      become: yes
+      become_method: sudo
+  
+    - name: Ubuntu force apt update (avoid apt lock)
+      command: apt update
+      when: ansible_distribution == "Ubuntu" and apt_update|failed
+      become: yes
+      become_method: sudo
