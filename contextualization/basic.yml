@@ -41,3 +41,17 @@
 
     - name: Gather Facts
       setup: 
+
+    - name: Ubuntu apt update
+      apt: update_cache=yes cache_valid_time=3600
+      when: ansible_distribution == "Ubuntu"
+      ignore_errors: yes
+      register: apt_update
+      become: yes
+      become_method: sudo
+
+    - name: Ubuntu force apt update (avoid apt lock)
+      command: apt update
+      when: ansible_distribution == "Ubuntu" and apt_update|failed
+      become: yes
+      become_method: sudo
