@@ -1360,7 +1360,7 @@ class ConfManager(threading.Thread):
 
                     recipe_out = open(tmp_dir + "/" + ConfManager.MASTER_YAML, 'a')
 
-                    recipe_out.write("    - name: Delete the %s role\n" % galaxy_name)
+                    recipe_out.write("\n    - name: Delete the %s role\n" % galaxy_name)
                     recipe_out.write("      file: state=absent path=/etc/ansible/roles/%s\n" % galaxy_name)
 
                     recipe_out.close()
