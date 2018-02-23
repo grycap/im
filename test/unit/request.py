@@ -67,7 +67,7 @@ class TestRequest(unittest.TestCase):
         after = time.time()
         self.assertEqual(sr.status(), Request.STATUS_PROCESSING)
         self.assertEqual(sr.get(), "OK")
-        self.assertLess(after-before, 2)
+        self.assertLess(after - before, 2)
         self.assertEqual(cont, 1)
         time.sleep(2.5)
         self.assertEqual(sr.status(), Request.STATUS_PROCESSED)

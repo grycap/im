@@ -119,9 +119,9 @@ def DestroyInfrastructure(inf_id, auth_data):
     return WaitRequest(request)
 
 
-def CreateInfrastructure(radl_data, auth_data):
+def CreateInfrastructure(radl_data, auth_data, async_call=False):
     request = IMBaseRequest.create_request(
-        IMBaseRequest.CREATE_INFRASTRUCTURE, (radl_data, auth_data))
+        IMBaseRequest.CREATE_INFRASTRUCTURE, (radl_data, auth_data, async_call))
     return WaitRequest(request)
 
 

@@ -19,6 +19,7 @@ import os
 import string
 import random
 import logging
+import threading
 
 import IM.InfrastructureInfo
 import IM.InfrastructureList
@@ -1235,7 +1236,7 @@ class InfrastructureManager:
         return auth
 
     @staticmethod
-    def CreateInfrastructure(radl, auth):
+    def CreateInfrastructure(radl, auth, async_call=False):
         """
         Create a new infrastructure.
 
@@ -1246,6 +1247,7 @@ class InfrastructureManager:
 
         - radl(RADL): RADL description.
         - auth(Authentication): parsed authentication tokens.
+        - async_call(bool): Create the inf in an async way.
 
         Return(int): the new infrastructure ID if successful.
         """
@@ -1262,21 +1264,32 @@ class InfrastructureManager:
 
         # Add the resources in radl_data
         try:
-            vms = InfrastructureManager.AddResource(inf.id, radl, auth)
-            all_failed = False
-            error_msg = ""
-            for vmid in vms:
-                vm = inf.get_vm(vmid)
-                if vm.state == VirtualMachine.FAILED:
-                    all_failed = True
-                    if vm.error_msg:
-                        error_msg += "%s\n" % vm.error_msg
-                else:
-                    all_failed = False
-                    break
-            if all_failed:
-                inf.destroy(auth)
-                raise Exception(error_msg)
+            if async_call:
+                InfrastructureManager.logger.debug("Inf ID: " + str(inf.id) + " created Async.")
+                t = threading.Thread(name="AddResource-%s" % inf.id,
+                                     target=InfrastructureManager.AddResource,
+                                     args=(inf.id, radl, auth))
+                t.daemon = True
+                t.start()
+            else:
+                # In case of sync call
+                vms = InfrastructureManager.AddResource(inf.id, radl, auth)
+
+                all_failed = False
+                error_msg = ""
+                for vmid in vms:
+                    vm = inf.get_vm(vmid)
+                    if vm.state == VirtualMachine.FAILED:
+                        all_failed = True
+                        if vm.error_msg:
+                            error_msg += "%s\n" % vm.error_msg
+                    else:
+                        all_failed = False
+                        break
+                if all_failed:
+                    # If all VMs has failed, destroy then inf and return the error
+                    inf.destroy(auth)
+                    raise Exception(error_msg)
         except Exception as e:
             InfrastructureManager.logger.exception("Error Creating Inf ID " + str(inf.id))
             inf.delete()
