@@ -29,8 +29,18 @@
 ################### because they have recent versions of ansible in system repositories ###############################
 ################# Use INDIGO repos from Ubuntu 14 and CentOS 7 to assure a stable version  ############################
 
+    - name: Ubuntu apt update
+      apt: update_cache=yes cache_valid_time=3600
+      when: ansible_distribution == "Ubuntu"
+      ignore_errors: yes
+      register: apt_update
+
+    - name: Ubuntu force apt update (avoid apt lock)
+      command: apt update
+      when: ansible_distribution == "Ubuntu" and apt_update|failed
+
     - name: Ubuntu install Ansible requisites with apt
-      apt: name=python-pip,python-jinja2,sshpass,openssh-client,unzip update_cache=yes
+      apt: name=python-pip,python-jinja2,sshpass,openssh-client,unzip
       when: ansible_distribution == "Ubuntu"
 
     - apt_key: url=http://repo.indigo-datacloud.eu/repository/RPM-GPG-KEY-indigodc state=present
@@ -40,6 +50,10 @@
       apt: deb=http://repo.indigo-datacloud.eu/repository/indigo/1/ubuntu/dists/trusty/main/binary-amd64/indigodc-release_1.0.0-1_amd64.deb
       when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int >= 14
       ignore_errors: yes
+
+    - name: Install requirements Ubuntu 14
+      apt: name=gcc,python-dev,libffi-dev,libssl-dev
+      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int <= 14
 
     - name: Ubuntu install requirements
       apt: name=software-properties-common
@@ -104,8 +118,11 @@
     - name: Upgrade pip
       pip: name=pip extra_args="-I" state=latest
 
+    - name: Upgrade setuptools with Pip
+      pip: name=setuptools state=latest
+
     - name: Upgrade pyOpenSSL with Pip
-      pip: name=pyOpenSSL extra_args="-I" state=latest
+      pip: name=pyOpenSSL state=latest
 
     - name: Install ansible with Pip
       pip: name=ansible extra_args="-I"
@@ -190,4 +207,3 @@
 
     - name: Set roles_path in ansible.cfg
       ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=roles_path value=/etc/ansible/roles
-

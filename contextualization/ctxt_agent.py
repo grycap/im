@@ -95,7 +95,7 @@ class CtxtAgent():
         success = False
         res = None
         last_tested_private = False
-        last_tested_22 = True
+        last_tested_22 = False
         while wait < CtxtAgent.SSH_WAIT_TIMEOUT:
             if 'ctxt_ip' in vm:
                 vm_ip = vm['ctxt_ip']
@@ -108,7 +108,7 @@ class CtxtAgent():
                 last_tested_private = False
             if 'ctxt_port' in vm:
                 remote_port = vm['ctxt_port']
-            elif not last_tested_22:
+            elif last_tested_22:
                 remote_port = vm['remote_port']
                 last_tested_22 = False
             else:
@@ -391,14 +391,15 @@ class CtxtAgent():
         with open(filename) as f:
             inventoy_data = ""
             for line in f:
-                line = re.sub(" ansible_host=%s " % vm_data['ip'],
-                              " ansible_host=%s " % vm_data['ctxt_ip'], line)
-                line = re.sub(" ansible_ssh_host=%s " % vm_data['ip'],
-                              " ansible_ssh_host=%s " % vm_data['ctxt_ip'], line)
-                line = re.sub(" ansible_port=%s " % vm_data['remote_port'],
-                              " ansible_port=%s " % vm_data['ctxt_port'], line)
-                line = re.sub(" ansible_ssh_port=%s " % vm_data['remote_port'],
-                              " ansible_ssh_port=%s " % vm_data['ctxt_port'], line)
+                if line.startswith("%s_%s " % (vm_data['ip'], vm_data['id'])):
+                    line = re.sub(" ansible_host=%s " % vm_data['ip'],
+                                  " ansible_host=%s " % vm_data['ctxt_ip'], line)
+                    line = re.sub(" ansible_ssh_host=%s " % vm_data['ip'],
+                                  " ansible_ssh_host=%s " % vm_data['ctxt_ip'], line)
+                    line = re.sub(" ansible_port=%s " % vm_data['remote_port'],
+                                  " ansible_port=%s " % vm_data['ctxt_port'], line)
+                    line = re.sub(" ansible_ssh_port=%s " % vm_data['remote_port'],
+                                  " ansible_ssh_port=%s " % vm_data['ctxt_port'], line)
                 inventoy_data += line
 
         with open(filename, 'w+') as f:

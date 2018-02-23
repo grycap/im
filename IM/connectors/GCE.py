@@ -441,14 +441,6 @@ class GCECloudConnector(CloudConnector):
                 'external_ip': 'ephemeral',
                 'location': region}
 
-        if self.request_external_ip(radl):
-            if num_vm > 1:
-                raise Exception(
-                    "A fixed IP cannot be specified to a set of nodes (deploy is higher than 1)")
-            fixed_ip = self.request_external_ip(radl)
-            args['external_ip'] = driver.ex_create_address(
-                name="im-" + fixed_ip, region=region, address=fixed_ip)
-
         # include the SSH_KEYS
         username = system.getValue('disk.0.os.credentials.username')
         private = system.getValue('disk.0.os.credentials.private_key')
@@ -486,14 +478,31 @@ class GCECloudConnector(CloudConnector):
             self.set_net_provider_id(radl, net_name)
             self.create_firewall(inf, net_name, radl, driver)
 
+        if self.request_external_ip(radl):
+            if num_vm > 1:
+                raise Exception("A fixed IP cannot be specified to a set of nodes (deploy is higher than 1)")
+            fixed_ip = self.request_external_ip(radl)
+            args['external_ip'] = driver.ex_create_address(name="im-" + fixed_ip, region=region, address=fixed_ip)
+
         res = []
+        error_msg = "Error launching VM."
         if num_vm > 1:
             args['number'] = num_vm
             args['base_name'] = "%s-%s" % (name.lower().replace("_", "-"), str(uuid.uuid1()))
-            nodes = driver.ex_create_multiple_nodes(**args)
+            try:
+                nodes = driver.ex_create_multiple_nodes(**args)
+            except Exception as ex:
+                nodes = []
+                self.log_exception("Error launching VMs.")
+                error_msg = str(ex)
         else:
             args['name'] = "%s-%s" % (name.lower().replace("_", "-"), str(uuid.uuid1()))
-            nodes = [driver.create_node(**args)]
+            try:
+                nodes = [driver.create_node(**args)]
+            except Exception as ex:
+                nodes = []
+                self.log_exception("Error launching VMs.")
+                error_msg = str(ex)
 
         for node in nodes:
             vm = VirtualMachine(inf, node.extra['name'], self.cloud, radl,
@@ -505,8 +514,16 @@ class GCECloudConnector(CloudConnector):
 
             res.append((True, vm))
 
+        all_ok = True
         for _ in range(len(nodes), num_vm):
-            res.append((False, "Error launching VM."))
+            res.append((False, "ERROR: %s" % error_msg))
+
+        if not all_ok:
+            if args['external_ip'] != 'ephemeral':
+                try:
+                    driver.ex_destroy_address(args['external_ip'])
+                except:
+                    self.log_exception("Error deleting extenal IP.")
 
         return res
 
@@ -522,15 +539,16 @@ class GCECloudConnector(CloudConnector):
             self.delete_disks(node)
             self.del_dns_entries(vm, auth_data)
 
-            if last:
-                self.delete_firewall(vm, node.driver)
-
             if not success:
                 return (False, "Error destroying node: " + vm.id)
 
             self.log_info("VM " + str(vm.id) + " successfully destroyed")
         else:
             self.log_warn("VM " + str(vm.id) + " not found.")
+
+        if last:
+            self.delete_firewall(vm, node.driver)
+
         return (True, "")
 
     def delete_firewall(self, vm, driver):
