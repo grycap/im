@@ -34,7 +34,6 @@ from IM.InfrastructureManager import (DeletedInfrastructureException,
                                       UnauthorizedUserException,
                                       InvaliddUserException)
 from IM.InfrastructureInfo import IncorrectVMException, DeletedVMException
-from IM.auth import Authentication
 from IM.REST import (RESTDestroyInfrastructure,
                      RESTGetInfrastructureInfo,
                      RESTGetInfrastructureProperty,
@@ -224,6 +223,10 @@ class TestREST(unittest.TestCase):
 
         CreateInfrastructure.return_value = "1"
 
+        res = RESTCreateInfrastructure()
+        self.assertEqual(res, "http://imserver.com/infrastructures/1")
+
+        bottle_request.params = {"async": "yes"}
         res = RESTCreateInfrastructure()
         self.assertEqual(res, "http://imserver.com/infrastructures/1")
 
