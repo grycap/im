@@ -228,6 +228,7 @@ class ConfManager(threading.Thread):
                 if self.failed_step and sorted(self.failed_step)[-1] < step:
                     self.log_info("Configuration of process of step %s failed, "
                                   "ignoring tasks of step %s." % (sorted(self.failed_step)[-1], step))
+                    vm.configured = False
                 else:
                     # Add the task again to the queue only if the last step was
                     # OK
