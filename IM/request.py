@@ -233,6 +233,12 @@ class Request(object):
         # Se ha terminado de ejecutar, asi que notificamos
         self.__event.set()
 
+    def wake_up(self):
+        """
+        Notificamos para que notifique, aunque no haya terminado
+        """
+        self.__event.set()
+
     def _execute(self):
         """
         Implementa de forma efectiva el procesamiento de la ejecucion
