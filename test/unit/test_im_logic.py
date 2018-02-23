@@ -1086,7 +1086,7 @@ configure step2 (
         self.assertEqual(cloud0.finalize.call_count, 2)
         self.assertEqual(cloud1.finalize.call_count, 2)
 
-    def test_00create_async(self):
+    def test_create_async(self):
         """Create Inf. async"""
 
         radl = RADL()
