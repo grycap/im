@@ -86,12 +86,17 @@ GET ``http://imserver.com/infrastructures``
 POST ``http://imserver.com/infrastructures``
    :body: ``RADL or TOSCA document``
    :body Content-type: text/plain, application/json or text/yaml
+   :input fields: ``async`` (optional)
    :Response Content-type: text/uri-list
    :ok response: 200 OK
    :fail response: 401, 400, 415
 
    Create and configure an infrastructure with the requirements specified in
    the RADL (in plain RADL or in JSON formats) or TOSCA document of the body contents.
+   
+   The ``async`` parameter is optional and is a flag to specify if the call will not wait the VMs
+   to be created. Acceptable values: yes, no, true, false, 1 or 0. If not specified the flag is set to False.
+   
    If success, it is returned the URI of the new infrastructure.  
    The result is JSON format has the following format::
 
@@ -162,7 +167,7 @@ POST ``http://imserver.com/infrastructures/<infId>``
 
    If success, it is returned a list of URIs of the new virtual machines. The ``context`` parameter is
    optional and is a flag to specify if the contextualization step will be launched just after the VM
-   addition. Accetable values: yes, no, true, false, 1 or 0. If not specified the flag is set to True. 
+   addition. Acceptable values: yes, no, true, false, 1 or 0. If not specified the flag is set to True. 
    The result is JSON format has the following format::
 
     {
@@ -273,7 +278,7 @@ DELETE ``http://imserver.com/infrastructures/<infId>/vms/<vmId>``
    infrastructure with ID ``infId``. If  ``vmId`` is a comma separated list of 
    VM IDs, all the VMs of this list will be undeployed.  The ``context`` parameter is optional and 
    is a flag to specify if the contextualization step will be launched just after the VM
-   addition. Accetable values: yes, no, true, false, 1 or 0. If not specified the flag is set to True.
+   addition. Acceptable values: yes, no, true, false, 1 or 0. If not specified the flag is set to True.
    If the operation has been performed successfully the return value is an empty string.
 
 PUT ``http://imserver.com/infrastructures/<infId>/vms/<vmId>/start``
