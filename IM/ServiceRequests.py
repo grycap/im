@@ -238,8 +238,9 @@ class Request_CreateInfrastructure(IMBaseRequest):
 
     def _call_function(self):
         self._error_mesage = "Error Creating Inf."
-        (radl_data, auth_data) = self.arguments
-        return IM.InfrastructureManager.InfrastructureManager.CreateInfrastructure(radl_data, Authentication(auth_data))
+        (radl_data, auth_data, async_call) = self.arguments
+        return IM.InfrastructureManager.InfrastructureManager.CreateInfrastructure(radl_data, Authentication(auth_data),
+                                                                                   async_call)
 
 
 class Request_GetInfrastructureList(IMBaseRequest):

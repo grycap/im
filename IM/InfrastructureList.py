@@ -221,7 +221,7 @@ class InfrastructureList():
             db = DataBase(Config.DATA_DB)
             if db.connect():
                 inf_list = []
-                res = db.select("select id from inf_list where deleted = 0 order by id desc")
+                res = db.select("select id from inf_list where deleted = 0 order by rowid desc")
                 for elem in res:
                     inf_list.append(elem[0])
 

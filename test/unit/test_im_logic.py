@@ -1086,6 +1086,30 @@ configure step2 (
         self.assertEqual(cloud0.finalize.call_count, 2)
         self.assertEqual(cloud1.finalize.call_count, 2)
 
+    def test_create_async(self):
+        """Create Inf. async"""
+
+        radl = RADL()
+        radl.add(system("s0", [Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
+                               Feature("disk.0.os.credentials.username", "=", "user"),
+                               Feature("disk.0.os.credentials.password", "=", "pass")]))
+        radl.add(deploy("s0", 1))
+
+        cloud = type("MyMock0", (CloudConnector, object), {})
+        cloud.launch = Mock(side_effect=self.sleep_and_create_vm)
+        cloud.finalize = Mock(return_value=(True, ""))
+        self.register_cloudconnector("Mock", cloud)
+        auth0 = self.getAuth([0], [], [("Mock", 0)])
+
+        before = int(time.time())
+        infId = IM.CreateInfrastructure(str(radl), auth0, True)
+        delay = int(time.time()) - before
+
+        self.assertLess(delay, 2)
+
+        time.sleep(6)
+
+        IM.DestroyInfrastructure(infId, auth0)
 
 if __name__ == "__main__":
     unittest.main()

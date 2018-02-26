@@ -425,6 +425,16 @@ def RESTCreateInfrastructure():
         radl_data = bottle.request.body.read().decode("utf-8")
         tosca_data = None
 
+        async_call = False
+        if "async" in bottle.request.params.keys():
+            str_ctxt = bottle.request.params.get("async").lower()
+            if str_ctxt in ['yes', 'true', '1']:
+                async_call = True
+            elif str_ctxt in ['no', 'false', '0']:
+                async_call = False
+            else:
+                return return_error(400, "Incorrect value in async parameter")
+
         if content_type:
             if "application/json" in content_type:
                 radl_data = parse_radl_json(radl_data)
@@ -436,7 +446,7 @@ def RESTCreateInfrastructure():
             else:
                 return return_error(415, "Unsupported Media Type %s" % content_type)
 
-        inf_id = InfrastructureManager.CreateInfrastructure(radl_data, auth)
+        inf_id = InfrastructureManager.CreateInfrastructure(radl_data, auth, async_call)
 
         # Store the TOSCA document
         if tosca_data:
@@ -449,9 +459,7 @@ def RESTCreateInfrastructure():
         if Config.REST_SSL:
             protocol = "https://"
 
-        res = protocol + \
-            bottle.request.environ['HTTP_HOST'] + \
-            "/infrastructures/" + str(inf_id)
+        res = protocol + bottle.request.environ['HTTP_HOST'] + "/infrastructures/" + str(inf_id)
 
         return format_output(res, "text/uri-list", "uri")
     except InvaliddUserException as ex:
