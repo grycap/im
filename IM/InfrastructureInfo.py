@@ -623,6 +623,11 @@ class InfrastructureInfo:
                 if self_im_auth['password'] != password:
                     return False
 
+            if self_im_auth['username'].startswith("OPENID#") and 'token' not in other_im_auth:
+                # This is a OpenID user do not enable to get data using user/pass creds
+                InfrastructureInfo.logger.warn("Inf ID %s: A non OpenID user tried to access it." % self.id)
+                return False
+
             return True
         else:
             return False

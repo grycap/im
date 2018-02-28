@@ -1194,7 +1194,13 @@ class InfrastructureManager:
             success, userinfo = OpenIDClient.get_user_info_request(token)
             if success:
                 # convert to username to use it in the rest of the IM
-                im_auth['username'] = str(userinfo.get("preferred_username"))
+                im_auth['username'] = "OPENID#"
+                if userinfo.get("preferred_username"):
+                    im_auth['username'] += str(userinfo.get("preferred_username"))
+                elif userinfo.get("name"):
+                    im_auth['username'] += str(userinfo.get("name"))
+                else:
+                    im_auth['username'] += str(userinfo.get("sub"))
                 im_auth['password'] = str(decoded_token['iss']) + str(userinfo.get("sub"))
         except Exception as ex:
             InfrastructureManager.logger.exception("Error trying to validate OIDC auth token: %s" % str(ex))
