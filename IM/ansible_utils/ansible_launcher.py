@@ -31,10 +31,12 @@ from ansible import __version__ as ansible_version
 
 from ansible.cli import CLI
 from ansible.parsing.dataloader import DataLoader
+from ansible.module_utils._text import to_bytes
 try:
     # for Ansible version 2.4.0 or higher
     from ansible.vars.manager import VariableManager
     from ansible.inventory.manager import InventoryManager
+    from ansible.parsing.vault import VaultSecret
 except ImportError:
     # for Ansible version 2.3.2 or lower
     from ansible.vars import VariableManager
@@ -122,11 +124,7 @@ class AnsibleThread(Process):
             output = self.output
             if isinstance(output, logging.Logger):
                 output = None
-            if ansible_version.startswith("2."):
-                self.result.put((0, self.launch_playbook_v2(), output))
-            else:
-                display("ERROR: Unsupported Ansible version.", output=self.output)
-                self.result.put((0, (1, []), output))
+            self.result.put((0, self.launch_playbook_v2(), output))
         except errors.AnsibleError as e:
             display("ERROR: %s" % e, output=self.output)
             self.result.put((0, (1, []), output))
@@ -168,7 +166,7 @@ class AnsibleThread(Process):
         loader = DataLoader()
 
         if self.vault_pass:
-            loader.set_vault_password(self.vault_pass)
+            loader.set_vault_secrets([('default',VaultSecret(_bytes=to_bytes(self.vault_pass)))])
 
         # create the inventory, and filter it based on the subset specified (if any)
         inventory = InventoryManager(loader=loader, sources=options.inventory)
