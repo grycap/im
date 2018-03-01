@@ -166,7 +166,7 @@ class AnsibleThread(Process):
         loader = DataLoader()
 
         if self.vault_pass:
-            loader.set_vault_secrets([('default',VaultSecret(_bytes=to_bytes(self.vault_pass)))])
+            loader.set_vault_secrets([('default', VaultSecret(_bytes=to_bytes(self.vault_pass)))])
 
         # create the inventory, and filter it based on the subset specified (if any)
         inventory = InventoryManager(loader=loader, sources=options.inventory)
