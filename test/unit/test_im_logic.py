@@ -1004,10 +1004,19 @@ configure step2 (
         self.assertEqual(im_auth['username'], "OPENID#micafer")
         self.assertEqual(im_auth['password'], "https://iam-test.indigo-datacloud.eu/sub")
 
+    def test_inf_auth_with_token(self):
+        im_auth = {"token": (self.gen_token())}
+        im_auth['username'] = "OPENID#micafer"
+        im_auth['password'] = "https://iam-test.indigo-datacloud.eu/sub"
         # Check that a user/pass cred cannot access OpenID ones
         user_auth = Authentication([{'id': 'im', 'type': 'InfrastructureManager',
                                      'username': im_auth['username'],
                                      'password': im_auth['password']}])
+
+        with self.assertRaises(Exception) as ex:
+            IM.check_auth_data(user_auth)
+        self.assertEqual(str(ex.exception), "Invalid username used for the InfrastructureManager.")
+
         inf = InfrastructureInfo()
         inf.id = "1"
         inf.auth = user_auth
