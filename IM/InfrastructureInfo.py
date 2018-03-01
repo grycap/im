@@ -62,6 +62,7 @@ class InfrastructureInfo:
     """Logger object."""
 
     FAKE_SYSTEM = "F0000__FAKE_SYSTEM__"
+    OPENID_USER_PREFIX = "__OPENID__"
 
     def __init__(self):
         self._lock = threading.Lock()
@@ -623,7 +624,8 @@ class InfrastructureInfo:
                 if self_im_auth['password'] != password:
                     return False
 
-            if self_im_auth['username'].startswith("OPENID#") and 'token' not in other_im_auth:
+            if (self_im_auth['username'].startswith(InfrastructureInfo.OPENID_USER_PREFIX) and
+                    'token' not in other_im_auth):
                 # This is a OpenID user do not enable to get data using user/pass creds
                 InfrastructureInfo.logger.warn("Inf ID %s: A non OpenID user tried to access it." % self.id)
                 return False

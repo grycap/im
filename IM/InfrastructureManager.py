@@ -1194,7 +1194,7 @@ class InfrastructureManager:
             success, userinfo = OpenIDClient.get_user_info_request(token)
             if success:
                 # convert to username to use it in the rest of the IM
-                im_auth['username'] = "OPENID#"
+                im_auth['username'] = IM.InfrastructureInfo.InfrastructureInfo.OPENID_USER_PREFIX
                 if userinfo.get("preferred_username"):
                     im_auth['username'] += str(userinfo.get("preferred_username"))
                 elif userinfo.get("name"):
@@ -1221,6 +1221,10 @@ class InfrastructureManager:
         # First check if an OIDC token is included
         if "token" in im_auth[0]:
             InfrastructureManager.check_oidc_token(im_auth[0])
+        else:
+            if im_auth[0]['username'].startswith(IM.InfrastructureInfo.InfrastructureInfo.OPENID_USER_PREFIX):
+                # This is a OpenID user do not enable to get data using user/pass creds
+                raise IncorrectVMCrecentialsException("Invalid username used for the InfrastructureManager.")
 
         # Now check if the user is in authorized
         if not InfrastructureManager.check_im_user(im_auth):
