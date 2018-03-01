@@ -1001,8 +1001,25 @@ configure step2 (
 
         IM.check_oidc_token(im_auth)
 
-        self.assertEqual(im_auth['username'], "micafer")
+        self.assertEqual(im_auth['username'], "OPENID#micafer")
         self.assertEqual(im_auth['password'], "https://iam-test.indigo-datacloud.eu/sub")
+
+        # Check that a user/pass cred cannot access OpenID ones
+        user_auth = Authentication([{'id': 'im', 'type': 'InfrastructureManager',
+                                     'username': im_auth['username'],
+                                     'password': im_auth['password']}])
+        inf = InfrastructureInfo()
+        inf.id = "1"
+        inf.auth = user_auth
+        res = inf.is_authorized(user_auth)
+        self.assertEqual(res, False)
+
+        user_auth = Authentication([{'id': 'im', 'type': 'InfrastructureManager',
+                                     'username': im_auth['username'],
+                                     'password': im_auth['password'],
+                                     'token': im_auth['token']}])
+        res = inf.is_authorized(user_auth)
+        self.assertEqual(res, True)
 
     def test_db(self):
         """ Test DB data access """
