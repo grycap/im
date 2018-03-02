@@ -67,7 +67,10 @@ Optional Packages
   using Python 3 use the PyMySQL package, available as the package 'python3-pymysql' on debian systems or PyMySQL
   package in pip.  
 * `The Azure Python SDK <https://docs.microsoft.com/es-es/azure/python-how-to-install/>`_, is needed by the Azure
-  connector. It is available as the package 'azure' at the pip repository.  
+  connector. It is available as the package 'azure' at the pip repository.
+* `The VMware vSphere API Python Bindings <https://github.com/vmware/pyvmomi/>`_ are needed by the vSphere
+  connector. It is available as the package 'pyvmomi' at the pip repository.  
+  
 
 Installation
 ------------

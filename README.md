@@ -103,6 +103,9 @@ In case of using the SSL secured version of the REST API pyOpenSSL must be insta
 Azure python SDK (https://azure.microsoft.com/es-es/develop/python/) is used to connect with the 
 Microsoft Azure platform.
 
+The VMware vSphere API Python Bindings (https://github.com/vmware/pyvmomi/) are needed by the vSphere
+connector. It is available as the package 'pyvmomi' at the pip repository.  
+
 
 ### 1.3 INSTALLING
 
