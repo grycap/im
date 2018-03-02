@@ -169,6 +169,8 @@ class TestIM(unittest.TestCase):
         self.assertGreater(len(cont_out), 100, msg="Incorrect contextualization message: " + cont_out)
         self.assertIn("Select master VM", cont_out)
         self.assertIn("NODENAME = front", cont_out)
+        # Check vault task
+        self.assertIn("VAULTOK", cont_out)
 
         (success, cont_out) = self.server.GetInfrastructureContMsg(self.inf_id, self.auth_data, True)
         self.assertTrue(success, msg="ERROR calling GetInfrastructureContMsg: " + str(cont_out))

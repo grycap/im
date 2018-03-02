@@ -29,27 +29,21 @@ from distutils.version import LooseVersion
 from ansible import errors
 from ansible import __version__ as ansible_version
 
-if ansible_version.startswith("1."):
-    import ansible.playbook
-    import ansible.inventory
-    import ansible.constants as C
-    from ansible import utils
+from ansible.cli import CLI
+from ansible.parsing.dataloader import DataLoader
+from ansible.module_utils._text import to_bytes
+try:
+    # for Ansible version 2.4.0 or higher
+    from ansible.vars.manager import VariableManager
+    from ansible.inventory.manager import InventoryManager
+    from ansible.parsing.vault import VaultSecret
+except ImportError:
+    # for Ansible version 2.3.2 or lower
+    from ansible.vars import VariableManager
+    from ansible.inventory import Inventory
+import ansible.inventory
 
-    from .ansible_callbacks import banner, AggregateStats, PlaybookCallbacks, PlaybookRunnerCallbacks
-else:
-    from ansible.cli import CLI
-    from ansible.parsing.dataloader import DataLoader
-    try:
-        # for Ansible version 2.4.0 or higher
-        from ansible.vars.manager import VariableManager
-        from ansible.inventory.manager import InventoryManager
-    except ImportError:
-        # for Ansible version 2.3.2 or lower
-        from ansible.vars import VariableManager
-        from ansible.inventory import Inventory
-    import ansible.inventory
-
-    from .ansible_executor_v2 import IMPlaybookExecutor
+from .ansible_executor_v2 import IMPlaybookExecutor
 
 
 def display(msg, color=None, stderr=False, screen_only=False, log_only=False, output=None):
@@ -130,13 +124,7 @@ class AnsibleThread(Process):
             output = self.output
             if isinstance(output, logging.Logger):
                 output = None
-            if ansible_version.startswith("1."):
-                self.result.put((0, self.launch_playbook_v1(), output))
-            elif ansible_version.startswith("2."):
-                self.result.put((0, self.launch_playbook_v2(), output))
-            else:
-                display("ERROR: Unknown Ansible version.", output=self.output)
-                self.result.put((0, (1, []), output))
+            self.result.put((0, self.launch_playbook_v2(), output))
         except errors.AnsibleError as e:
             display("ERROR: %s" % e, output=self.output)
             self.result.put((0, (1, []), output))
@@ -178,7 +166,7 @@ class AnsibleThread(Process):
         loader = DataLoader()
 
         if self.vault_pass:
-            loader.set_vault_password(self.vault_pass)
+            loader.set_vault_secrets([('default', VaultSecret(_bytes=to_bytes(self.vault_pass)))])
 
         # create the inventory, and filter it based on the subset specified (if any)
         inventory = InventoryManager(loader=loader, sources=options.inventory)
@@ -289,131 +277,3 @@ class AnsibleThread(Process):
                         (num_retries, self.retries), output=self.output)
 
         return (return_code, results)
-
-    def launch_playbook_v1(self):
-        ''' run ansible-playbook operations v1.X'''
-        # create parser for CLI options
-        parser = utils.base_parser(
-            constants=C,
-            usage="%prog playbook.yml",
-            connect_opts=True,
-            runas_opts=True,
-            subset_opts=True,
-            check_opts=True,
-            diff_opts=True
-        )
-
-        options, _ = parser.parse_args([])
-
-        sshpass = None
-        if self.pk_file:
-            options.private_key_file = self.pk_file
-        else:
-            sshpass = self.passwd
-
-        if self.user:
-            remote_user = self.user
-        else:
-            remote_user = options.remote_user
-
-        if not os.path.exists(self.playbook_file):
-            raise errors.AnsibleError(
-                "the playbook: %s could not be found" % self.playbook_file)
-        if not os.path.isfile(self.playbook_file):
-            raise errors.AnsibleError(
-                "the playbook: %s does not appear to be a file" % self.playbook_file)
-
-        num_retries = 0
-        return_code = 4
-        hosts_with_errors = []
-        while return_code != 0 and num_retries < self.retries:
-            time.sleep(5 * num_retries)
-            num_retries += 1
-            return_code = 0
-
-            if self.inventory_file:
-                inventory = ansible.inventory.Inventory(self.inventory_file)
-            else:
-                inventory = ansible.inventory.Inventory(options.inventory)
-
-            if self.host:
-                inventory.subset(self.host)
-            # let inventory know which playbooks are using so it can know the
-            # basedirs
-            inventory.set_playbook_basedir(os.path.dirname(self.playbook_file))
-
-            stats = AggregateStats()
-            playbook_cb = PlaybookCallbacks(
-                verbose=utils.VERBOSITY, output=self.output)
-            runner_cb = PlaybookRunnerCallbacks(
-                stats, verbose=utils.VERBOSITY, output=self.output)
-
-            pb = ansible.playbook.PlayBook(
-                playbook=self.playbook_file,
-                module_path=options.module_path,
-                inventory=inventory,
-                forks=self.threads,
-                remote_user=remote_user,
-                remote_pass=sshpass,
-                callbacks=playbook_cb,
-                runner_callbacks=runner_cb,
-                stats=stats,
-                extra_vars=self.extra_vars,
-                private_key_file=options.private_key_file,
-                only_tags=['all']
-            )
-
-            try:
-                failed_hosts = []
-                unreachable_hosts = []
-
-                pb.run()
-
-                hosts = sorted(pb.stats.processed.keys())
-                display(banner("PLAY RECAP"), output=self.output)
-                playbook_cb.on_stats(pb.stats)
-
-                for h in hosts:
-                    t = pb.stats.summarize(h)
-                    if t['failures'] > 0:
-                        failed_hosts.append(h)
-                    if t['unreachable'] > 0:
-                        unreachable_hosts.append(h)
-
-                hosts_with_errors = failed_hosts + unreachable_hosts
-
-                for h in hosts:
-                    t = pb.stats.summarize(h)
-
-                    display("%s : %s %s %s %s" % (
-                        hostcolor(h, t),
-                        colorize('ok', t['ok'], 'green'),
-                        colorize('changed', t['changed'], 'yellow'),
-                        colorize('unreachable', t['unreachable'], 'red'),
-                        colorize('failed', t['failures'], 'red')),
-                        screen_only=True, output=self.output
-                    )
-
-                    display("%s : %s %s %s %s" % (
-                        hostcolor(h, t, False),
-                        colorize('ok', t['ok'], None),
-                        colorize('changed', t['changed'], None),
-                        colorize('unreachable', t['unreachable'], None),
-                        colorize('failed', t['failures'], None)),
-                        log_only=True, output=self.output
-                    )
-
-                if len(failed_hosts) > 0:
-                    return_code = 2
-                if len(unreachable_hosts) > 0:
-                    return_code = 3
-
-            except errors.AnsibleError as e:
-                display("ERROR: %s" % e, color='red', output=self.output)
-                return_code = 1
-
-            if return_code != 0:
-                display("ERROR executing playbook (%s/%s)" %
-                        (num_retries, self.retries), color='red', output=self.output)
-
-        return (return_code, hosts_with_errors)

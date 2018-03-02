@@ -23,6 +23,7 @@ import time
 import tempfile
 import shutil
 import yaml
+from distutils.version import LooseVersion
 
 try:
     from StringIO import StringIO
@@ -30,10 +31,16 @@ except ImportError:
     from io import StringIO
 from multiprocessing import Queue
 
+from ansible import __version__ as ansible_version
+from ansible.module_utils._text import to_bytes
+from ansible.parsing.vault import VaultEditor
 try:
-    from ansible.parsing.vault import VaultEditor
-except:
-    from ansible.utils.vault import VaultEditor
+    # for Ansible version 2.4.0 or higher
+    from ansible.parsing.vault import VaultSecret
+    from ansible.parsing.vault import VaultLib
+except ImportError:
+    # for Ansible version 2.3.2 or lower
+    pass
 
 from IM.ansible_utils.ansible_launcher import AnsibleThread
 
@@ -688,6 +695,18 @@ class ConfManager(threading.Thread):
 
         return recipe_files
 
+    def get_vault_editor(self, vault_password):
+        """
+        Get the correct VaultEditor object in different Ansible versions
+        """
+        if LooseVersion(ansible_version) >= LooseVersion("2.4.0"):
+            # for Ansible version 2.4.0 or higher
+            vault_secrets = [('default', VaultSecret(_bytes=to_bytes(vault_password)))]
+            return VaultEditor(VaultLib(vault_secrets))
+        else:
+            # for Ansible version 2.3.2 or lower
+            return VaultEditor(vault_password)
+
     def generate_playbook(self, vm, ctxt_elem, tmp_dir):
         """
         Generate the playbook for the specified configure section
@@ -701,7 +720,7 @@ class ConfManager(threading.Thread):
             conf_content = self.add_ansible_header(vm.getOS().lower())
             vault_password = vm.info.systems[0].getValue("vault.password")
             if vault_password:
-                vault_edit = VaultEditor(vault_password)
+                vault_edit = self.get_vault_editor(vault_password)
                 if configure.recipes.strip().startswith("$ANSIBLE_VAULT"):
                     recipes = vault_edit.vault.decrypt(configure.recipes.strip())
                 else:
