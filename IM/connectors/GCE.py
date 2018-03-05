@@ -250,7 +250,7 @@ class GCECloudConnector(CloudConnector):
             cpu_op = radl.getFeature('cpu.count').getLogOperator()
 
         memory = 1
-        memory_op = ">1"
+        memory_op = ">="
         if radl.getFeature('memory.size'):
             memory = radl.getFeature('memory.size').getValue('M')
             memory_op = radl.getFeature('memory.size').getLogOperator()
@@ -285,14 +285,27 @@ class GCECloudConnector(CloudConnector):
 
     def request_external_ip(self, radl):
         """
+        Check if the user has requested for a public ip
+        """
+        system = radl.systems[0]
+        n = 0
+        while system.getValue("net_interface." + str(n) + ".connection"):
+            net_conn = system.getValue('net_interface.' + str(n) + '.connection')
+            if radl.get_network_by_id(net_conn).isPublic():
+                return True
+            n += 1
+
+        return False
+
+    def request_fixed_ip(self, radl):
+        """
         Check if the user has requested for a fixed ip
         """
         system = radl.systems[0]
         n = 0
         requested_ips = []
         while system.getValue("net_interface." + str(n) + ".connection"):
-            net_conn = system.getValue(
-                'net_interface.' + str(n) + '.connection')
+            net_conn = system.getValue('net_interface.' + str(n) + '.connection')
             if radl.get_network_by_id(net_conn).isPublic():
                 fixed_ip = system.getValue("net_interface." + str(n) + ".ip")
                 if fixed_ip:
@@ -302,8 +315,7 @@ class GCECloudConnector(CloudConnector):
         if requested_ips:
             self.log_info("The user requested for a fixed IP")
             if len(requested_ips) > 1:
-                self.log_warn(
-                    "The user has requested more than one fixed IP. Using only the first one")
+                self.log_warn("The user has requested more than one fixed IP. Using only the first one")
             return requested_ips[0]
         else:
             return None
@@ -413,13 +425,16 @@ class GCECloudConnector(CloudConnector):
 
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         system = radl.systems[0]
-        region, image_id = self.get_image_data(
-            system.getValue("disk.0.image.url"))
+        region, image_id = self.get_image_data(system.getValue("disk.0.image.url"))
 
         if system.getValue('availability_zone'):
             region = system.getValue('availability_zone')
 
         driver = self.get_driver(auth_data, region)
+
+        region = driver.ex_get_zone(region)
+        if not region:
+            return [(False, "Incorrect region specified.") for _ in range(num_vm)]
 
         image = driver.ex_get_image(image_id)
         if not image:
@@ -438,7 +453,7 @@ class GCECloudConnector(CloudConnector):
 
         args = {'size': instance_type,
                 'image': image,
-                'external_ip': 'ephemeral',
+                'external_ip': None,
                 'location': region}
 
         # include the SSH_KEYS
@@ -479,10 +494,13 @@ class GCECloudConnector(CloudConnector):
             self.create_firewall(inf, net_name, radl, driver)
 
         if self.request_external_ip(radl):
-            if num_vm > 1:
-                raise Exception("A fixed IP cannot be specified to a set of nodes (deploy is higher than 1)")
-            fixed_ip = self.request_external_ip(radl)
-            args['external_ip'] = driver.ex_create_address(name="im-" + fixed_ip, region=region, address=fixed_ip)
+            args['external_ip'] = 'ephemeral'
+            fixed_ip = self.request_fixed_ip(radl)
+            if fixed_ip:
+                if num_vm > 1:
+                    raise Exception("A fixed IP cannot be specified to a set of nodes (deploy is higher than 1)")
+
+                args['external_ip'] = driver.ex_create_address(name="im-" + fixed_ip, region=region, address=fixed_ip)
 
         res = []
         error_msg = "Error launching VM."
