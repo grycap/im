@@ -351,7 +351,7 @@ class vSphereCloudConnector(CloudConnector):
             # First check if the user has specified a provider ID
             net_provider_id = radl_net.getValue('provider_id')
             if net_provider_id:
-                for net_name, net_values in vsphere_nets.iteritems():
+                for net_name, net_values in vsphere_nets.items():
                     is_public = net_values[1]
                     # If the name is the same and have the same "publicity" value
                     if net_name == net_provider_id and radl_net.isPublic() == is_public:
@@ -359,7 +359,7 @@ class vSphereCloudConnector(CloudConnector):
                         used_nets.append(net_name)
                         break
             else:
-                for net_name, net_values in vsphere_nets.iteritems():
+                for net_name, net_values in vsphere_nets.items():
                     is_public = net_values[1]
                     if net_name not in used_nets and radl_net.isPublic() == is_public:
                         res[radl_net.id] = net_values
@@ -373,7 +373,7 @@ class vSphereCloudConnector(CloudConnector):
         used_nets = []
         for radl_net in radl_nets:
             if not res[radl_net.id]:
-                for net_name, net_values in vsphere_nets.iteritems():
+                for net_name, net_values in vsphere_nets.items():
                     is_public = net_values[1]
                     if net_name not in used_nets and is_public:
                         res[radl_net.id] = net_values
