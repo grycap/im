@@ -404,9 +404,12 @@ class ConfManager(threading.Thread):
             vm = vm_group[group][0]
             user = vm.getCredentialValues()[0]
             out.write('[' + group + ':vars]\n')
-            out.write('ansible_user=' + user + '\n')
-            # For compatibility with Ansible 1.X versions
-            out.write('ansible_ssh_user=' + user + '\n')
+            if user:
+                out.write('ansible_user=' + user + '\n')
+                # For compatibility with Ansible 1.X versions
+                out.write('ansible_ssh_user=' + user + '\n')
+            else:
+                self.log_warn("The VM ID: " + str(vm.id) + " does not have username!!")
 
             if vm.getOS().lower() == "windows":
                 out.write('ansible_connection=winrm\n')

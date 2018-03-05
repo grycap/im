@@ -141,7 +141,8 @@ The available keys are:
 
 * ``type`` indicates the service that refers the credential. The services
   supported are ``InfrastructureManager``, ``VMRC``, ``OpenNebula``, ``EC2``,, ``FogBow``, 
-  ``OpenStack``, ``OCCI``, ``LibCloud``, ``Docker``, ``GCE``, ``Azure``, ``AzureClassic`` and ``Kubernetes``.
+  ``OpenStack``, ``OCCI``, ``LibCloud``, ``Docker``, ``GCE``, ``Azure``, ``AzureClassic``,
+   ``Kubernetes`` and ``vSphere``.
 
 * ``username`` indicates the user name associated to the credential. In EC2
   it refers to the *Access Key ID*. In GCE it refers to *Service Account’s Email Address*. 
@@ -256,6 +257,8 @@ An example of the auth file::
    id = fog; type = FogBow; host = http://server:8182; proxy = file(/tmp/proxy.pem)
    # Azure Classic auth data
    id = azurecla; type = AzureClassic; subscription_id = subscription_id; public_key = file(/tmp/cert.pem); private_key = file(/tmp/key.pem)
+   # vSphere site auth data
+   id = vsphere; type = vSphere; host = http://server; username = user; password = pass
    
 
 IM Server does not store the credentials used in the creation of
