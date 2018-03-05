@@ -750,7 +750,9 @@ class AzureCloudConnector(CloudConnector):
 
                 # Delete Resource group and everything in it
                 if self.get_rg(group_name, credentials, subscription_id):
-                    self.delete_resource_group(group_name, resource_client)
+                    deleted, msg = self.delete_resource_group(group_name, resource_client)
+                    if not deleted:
+                        return False, "Error terminating the VM: %s" % msg
                 else:
                     self.log_info("RG: %s does not exist. Do not remove." % group_name)
             else:
@@ -759,7 +761,9 @@ class AzureCloudConnector(CloudConnector):
             # if it is the last VM delete the RG of the Inf
             if last:
                 if self.get_rg("rg-%s" % vm.inf.id, credentials, subscription_id):
-                    self.delete_resource_group("rg-%s" % vm.inf.id, resource_client)
+                    deleted, msg = self.delete_resource_group("rg-%s" % vm.inf.id, resource_client)
+                    if not deleted:
+                        return False, "Error terminating the VM: %s" % msg
                 else:
                     self.log_info("RG: %s does not exist. Do not remove." % "rg-%s" % vm.inf.id)
 
@@ -830,6 +834,7 @@ class AzureCloudConnector(CloudConnector):
         Delete a RG with retries
         """
         cont = 0
+        msg = ""
         deleted = False
 
         self.log_info("Delete RG %s." % group_name)
@@ -838,7 +843,8 @@ class AzureCloudConnector(CloudConnector):
             try:
                 resource_client.resource_groups.delete(group_name).wait()
                 deleted = True
-            except:
+            except Exception as ex:
+                msg = str(ex)
                 self.log_exception("Error deleting Resource group %s (%d/%d)." % (group_name, cont, max_retries))
 
         if not deleted:
@@ -846,4 +852,4 @@ class AzureCloudConnector(CloudConnector):
         else:
             self.log_info("Resource group %s successfully deleted." % group_name)
 
-        return deleted
+        return deleted, msg
