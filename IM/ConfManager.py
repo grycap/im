@@ -404,7 +404,7 @@ class ConfManager(threading.Thread):
             vm = vm_group[group][0]
             user = vm.getCredentialValues()[0]
             out.write('[' + group + ':vars]\n')
-            if not user:
+            if user:
                 out.write('ansible_user=' + user + '\n')
                 # For compatibility with Ansible 1.X versions
                 out.write('ansible_ssh_user=' + user + '\n')
