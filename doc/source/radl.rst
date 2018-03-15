@@ -367,18 +367,18 @@ Disk Management
 
 In the RADL documents there are two different types of disks: ``disk.0`` as the boot disk with the O.S. and
 the rest of disks assumed as data disks. In the first case if you are using an VMRC server you can specify the
-featured of the requested O.S. and let VMRC to get the most suitable image::   
+features of the requested O.S. and let VMRC to get the most suitable image::   
 
 	disk.0.os.name='linux' and
 	disk.0.os.flavour='ubuntu' and
 	disk.0.os.version>='16.04'
 
-Otherwise you can directly specify the image and, if required the crecentials to access the O.S.::
+Otherwise you can directly specify the image and, if required, the credentials to access the O.S.::
 
 	disk.0.os.name='linux' and  
-	disk.0.image.url = 'one://onecloud.i3m.upv.es/123' and
+	disk.0.image.url = 'one://someserver.com/123' and
 	disk.0.os.credentials.username = 'ubuntu' and
-	disk.0.os.credentials.password = 'somepass' and
+	disk.0.os.credentials.password = 'somepass'
 
 In case of the rest of disks you can specify the requirements of the data disk to be attached:: 
 
