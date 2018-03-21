@@ -264,6 +264,7 @@ class TestOCCIConnector(unittest.TestCase):
         self.assertFalse(success)
         self.assertEqual(msg, "Error msg\n")
         self.assertEqual(self.call_count['DELETE']['/storage/1'], 1)
+        self.assertNotIn('/storage/2', self.call_count['DELETE'])
 
     @patch('requests.request')
     @patch('IM.connectors.OCCI.KeyStoneAuth.get_keystone_uri')
