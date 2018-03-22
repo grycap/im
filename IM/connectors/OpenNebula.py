@@ -613,8 +613,7 @@ class OpenNebulaCloudConnector(CloudConnector):
         while system.getValue("disk." + str(cont) + ".image.url") or system.getValue("disk." + str(cont) + ".size"):
             disk_image = system.getValue("disk." + str(cont) + ".image.url")
             if disk_image:
-                disks += 'DISK = [ IMAGE_ID = "%s" ]\n' % uriparse(disk_image)[
-                    2][1:]
+                disks += 'DISK = [ IMAGE_ID = "%s" ]\n' % uriparse(disk_image)[2][1:]
             else:
                 disk_size = system.getFeature(
                     "disk." + str(cont) + ".size").getValue('M')

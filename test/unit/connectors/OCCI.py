@@ -240,7 +240,8 @@ class TestOCCIConnector(unittest.TestCase):
             disk.0.os.credentials.username = 'user' and
             disk.1.size=1GB and
             disk.1.device='hdb' and
-            disk.1.mount_path='/mnt/path'
+            disk.1.mount_path='/mnt/path' and
+            disk.2.image.url = 'http://server.com/storage/2'
             )"""
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
@@ -263,6 +264,7 @@ class TestOCCIConnector(unittest.TestCase):
         self.assertFalse(success)
         self.assertEqual(msg, "Error msg\n")
         self.assertEqual(self.call_count['DELETE']['/storage/1'], 1)
+        self.assertNotIn('/storage/2', self.call_count['DELETE'])
 
     @patch('requests.request')
     @patch('IM.connectors.OCCI.KeyStoneAuth.get_keystone_uri')

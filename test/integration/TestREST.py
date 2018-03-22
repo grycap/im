@@ -364,7 +364,7 @@ class TestIM(unittest.TestCase):
 
     def test_70_start(self):
         # To assure the VM is stopped
-        time.sleep(10)
+        time.sleep(30)
         resp = self.create_request("PUT", "/infrastructures/" + self.inf_id + "/start")
         self.assertEqual(resp.status_code, 200,
                          msg="ERROR starting the infrastructure:" + resp.text)
@@ -376,7 +376,7 @@ class TestIM(unittest.TestCase):
             all_configured, msg="ERROR waiting the infrastructure to be started (timeout).")
 
     def test_80_stop_vm(self):
-        time.sleep(10)
+        time.sleep(30)
         resp = self.create_request("PUT", "/infrastructures/" + self.inf_id + "/vms/0/stop")
         self.assertEqual(resp.status_code, 200,
                          msg="ERROR stopping the vm:" + resp.text)
@@ -389,7 +389,7 @@ class TestIM(unittest.TestCase):
 
     def test_90_start_vm(self):
         # To assure the VM is stopped
-        time.sleep(10)
+        time.sleep(30)
         resp = self.create_request("PUT", "/infrastructures/" + self.inf_id + "/vms/0/start")
         self.assertEqual(resp.status_code, 200,
                          msg="ERROR starting the vm:" + resp.text)
