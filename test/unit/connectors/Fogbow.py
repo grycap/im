@@ -98,7 +98,7 @@ class TestFogBowConnector(unittest.TestCase):
         radl = radl_parse.parse_radl(radl_data)
         radl_system = radl.systems[0]
 
-        auth = Authentication([{'id': 'fogbow', 'type': 'FogBow', 'proxy': 'user', 'host': 'server.com:8182'}])
+        auth = Authentication([{'id': 'fogbow', 'type': 'FogBow', 'token': 'token', 'host': 'server.com:8182'}])
         fogbow_cloud = self.get_fogbow_cloud()
 
         concrete = fogbow_cloud.concreteSystem(radl_system, auth)
@@ -111,18 +111,18 @@ class TestFogBowConnector(unittest.TestCase):
         resp = MagicMock()
 
         if method == "GET":
-            if url == "/fogbow_request/1":
+            if url == "/order/1":
                 resp.status = 200
                 resp.read.return_value = read_file_as_string("files/focci_resource.txt")
             if url == "/compute/267@manager.i3m.upv.es":
                 resp.status = 200
                 resp.read.return_value = read_file_as_string("files/focci_instance.txt")
         elif method == "POST":
-            if url == "/fogbow_request/":
+            if url == "/order/":
                 resp.status = 201
                 resp.msg.dict = {'location': 'http/server.com/computeid'}
         elif method == "DELETE":
-            if url == "/fogbow_request/1":
+            if url == "/order/1":
                 resp.status = 200
             if url == "/compute/267@manager.i3m.upv.es":
                 resp.status = 200
@@ -155,7 +155,7 @@ class TestFogBowConnector(unittest.TestCase):
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
 
-        auth = Authentication([{'id': 'fogbow', 'type': 'FogBow', 'proxy': 'user', 'host': 'server.com:8182'}])
+        auth = Authentication([{'id': 'fogbow', 'type': 'FogBow', 'token': 'user', 'host': 'server.com:8182'}])
         fogbow_cloud = self.get_fogbow_cloud()
 
         conn = MagicMock()
@@ -188,7 +188,7 @@ class TestFogBowConnector(unittest.TestCase):
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
 
-        auth = Authentication([{'id': 'fogbow', 'type': 'FogBow', 'proxy': 'user', 'host': 'server.com:8182'}])
+        auth = Authentication([{'id': 'fogbow', 'type': 'FogBow', 'token': 'user', 'host': 'server.com:8182'}])
         fogbow_cloud = self.get_fogbow_cloud()
 
         inf = MagicMock()
@@ -207,7 +207,7 @@ class TestFogBowConnector(unittest.TestCase):
 
     @patch('IM.connectors.FogBow.HTTPConnection')
     def test_60_finalize(self, connection):
-        auth = Authentication([{'id': 'fogbow', 'type': 'FogBow', 'proxy': 'user', 'host': 'server.com:8182'}])
+        auth = Authentication([{'id': 'fogbow', 'type': 'FogBow', 'token': 'user', 'host': 'server.com:8182'}])
         fogbow_cloud = self.get_fogbow_cloud()
 
         inf = MagicMock()
