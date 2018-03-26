@@ -76,18 +76,16 @@ class FogBowCloudConnector(CloudConnector):
         """
         auth = auth_data.getAuthInfo(FogBowCloudConnector.type)
         if not auth:
-            raise Exception(
-                "No correct auth data has been specified to FogBow.")
+            raise Exception("No correct auth data has been specified to FogBow.")
 
         if 'token_type' in auth[0]:
             token_type = auth[0]['token_type']
         else:
             # If not token_type supplied, we assume that is VOMS one
-            token_type = 'VOMS'
+            token_type = 'Token'
 
         plugin = IdentityPlugin.getIdentityPlugin(token_type)
-        token = plugin.create_token(auth[0]).replace(
-            "\n", "").replace("\r", "")
+        token = plugin.create_token(auth[0]).replace("\n", "").replace("\r", "")
 
         auth_headers = {'X-Auth-Token': token}
 
@@ -138,10 +136,10 @@ class FogBowCloudConnector(CloudConnector):
     """
     text/plain format:
         Recurso:
-        Category: fogbow_request; scheme="http://schemas.fogbowcloud.org/request#"; class="kind";
+        Category: order; scheme="http://schemas.fogbowcloud.org/order#"; class="kind";
                title="Request new Instances"; rel="http://schemas.ogf.org/occi/core#resource";
-               location="http://localhost:8182/fogbow_request/";
-               attributes="org.fogbowcloud.request.instance-count ..."
+               location="http://localhost:8182/order/";
+               attributes="org.fogbowcloud.order.instance-count ..."
         Category: fogbow_small; scheme="http://schemas.fogbowcloud.org/template/resource#"; class="mixin";
                title="Small Flavor"; rel="http://schemas.ogf.org/occi/infrastructure#resource_tpl";
                location="http://localhost:8182/fogbow_small/"
@@ -151,14 +149,14 @@ class FogBowCloudConnector(CloudConnector):
         Category: fogbow_userdata; scheme="http://schemas.fogbowcloud.org/request#"; class="mixin";
                location="http://localhost:8182/fogbow_userdata/"
         X-OCCI-Attribute: org.fogbowcloud.credentials.publickey.data="Not defined"
-        X-OCCI-Attribute: org.fogbowcloud.request.state="fulfilled"
-        X-OCCI-Attribute: org.fogbowcloud.request.valid-from="Not defined"
+        X-OCCI-Attribute: org.fogbowcloud.order.state="fulfilled"
+        X-OCCI-Attribute: org.fogbowcloud.order.valid-from="Not defined"
         X-OCCI-Attribute: occi.core.id="32b9f297-2728-4155-bcf5-409348aa474e"
-        X-OCCI-Attribute: org.fogbowcloud.request.user-data="IyEvYmluL3NoC ..."
-        X-OCCI-Attribute: org.fogbowcloud.request.type="one-time"
-        X-OCCI-Attribute: org.fogbowcloud.request.valid-until="Not defined"
-        X-OCCI-Attribute: org.fogbowcloud.request.instance-count="1"
-        X-OCCI-Attribute: org.fogbowcloud.request.instance-id="267@manager.i3m.upv.es"
+        X-OCCI-Attribute: org.fogbowcloud.order.user-data="IyEvYmluL3NoC ..."
+        X-OCCI-Attribute: org.fogbowcloud.order.type="one-time"
+        X-OCCI-Attribute: org.fogbowcloud.order.valid-until="Not defined"
+        X-OCCI-Attribute: org.fogbowcloud.order.instance-count="1"
+        X-OCCI-Attribute: org.fogbowcloud.order.instance-id="267@manager.i3m.upv.es"
 
         Instancia:
         Category: compute; scheme="http://schemas.ogf.org/occi/infrastructure#"; class="kind";
@@ -176,7 +174,7 @@ class FogBowCloudConnector(CloudConnector):
         X-OCCI-Attribute: occi.compute.hostname="one-267"
         X-OCCI-Attribute: occi.compute.memory="0.125"
         X-OCCI-Attribute: occi.compute.cores="1"
-        X-OCCI-Attribute: org.fogbowcloud.request.ssh-public-address="158.42.104.75:20001"
+        X-OCCI-Attribute: org.fogbowcloud.order.ssh-public-address="158.42.104.75:20001"
         X-OCCI-Attribute: occi.core.id="267"
         X-OCCI-Attribute: occi.compute.architecture="x86"
         X-OCCI-Attribute: occi.compute.speed="Not defined"
@@ -192,19 +190,17 @@ class FogBowCloudConnector(CloudConnector):
         try:
             # First get the request info
             conn = self.get_http_connection()
-            conn.request('GET', "/fogbow_request/" + vm.id, headers=headers)
+            conn.request('GET', "/order/" + vm.id, headers=headers)
             resp = conn.getresponse()
 
             output = resp.read()
             if resp.status != 200:
                 return (False, resp.reason + "\n" + output)
             else:
-                providing_member = self.get_occi_attribute_value(
-                    output, 'org.fogbowcloud.request.providing-member')
+                providing_member = self.get_occi_attribute_value(output, 'org.fogbowcloud.order.providing-member')
                 if providing_member == "null":
                     providing_member = None
-                instance_id = self.get_occi_attribute_value(
-                    output, 'org.fogbowcloud.request.instance-id')
+                instance_id = self.get_occi_attribute_value(output, 'org.fogbowcloud.order.instance-id')
                 if instance_id == "null":
                     instance_id = None
 
@@ -214,8 +210,7 @@ class FogBowCloudConnector(CloudConnector):
                 else:
                     # Now get the instance info
                     conn = self.get_http_connection()
-                    conn.request('GET', "/compute/" +
-                                 instance_id, headers=headers)
+                    conn.request('GET', "/compute/" + instance_id, headers=headers)
                     resp = conn.getresponse()
 
                     output = resp.read()
@@ -228,41 +223,36 @@ class FogBowCloudConnector(CloudConnector):
                         vm.state = self.VM_STATE_MAP.get(self.get_occi_attribute_value(
                             output, 'occi.compute.state'), VirtualMachine.UNKNOWN)
 
-                        cores = self.get_occi_attribute_value(
-                            output, 'occi.compute.cores')
+                        cores = self.get_occi_attribute_value(output, 'occi.compute.cores')
                         if cores:
                             vm.info.systems[0].addFeature(
                                 Feature("cpu.count", "=", int(cores)), conflict="other", missing="other")
-                        memory = self.get_occi_attribute_value(
-                            output, 'occi.compute.memory')
+                        memory = self.get_occi_attribute_value(output, 'occi.compute.memory')
                         if memory:
                             vm.info.systems[0].addFeature(Feature("memory.size", "=", float(
                                 memory), 'G'), conflict="other", missing="other")
 
                         # Update the network data
                         ssh_public_address = self.get_occi_attribute_value(
-                            output, 'org.fogbowcloud.request.ssh-public-address')
+                            output, 'org.fogbowcloud.order.ssh-public-address')
                         if ssh_public_address:
                             parts = ssh_public_address.split(':')
                             vm.setIps([parts[0]], [])
                             if len(parts) > 1:
                                 vm.setSSHPort(int(parts[1]))
 
-                        extra_ports = self.get_occi_attribute_value(
-                            output, 'org.fogbowcloud.request.extra-ports')
+                        extra_ports = self.get_occi_attribute_value(output, 'org.fogbowcloud.order.extra-ports')
                         if extra_ports:
                             vm.info.systems[0].addFeature(Feature(
                                 "fogbow.extra-ports", "=", extra_ports), conflict="other", missing="other")
 
-                        ssh_user = self.get_occi_attribute_value(
-                            output, 'org.fogbowcloud.request.ssh-username')
+                        ssh_user = self.get_occi_attribute_value(output, 'org.fogbowcloud.order.ssh-username')
                         if ssh_user:
                             vm.info.systems[0].addFeature(Feature(
                                 "disk.0.os.credentials.username", "=", ssh_user), conflict="other", missing="other")
 
                         vm.info.systems[0].setValue('instance_id', instance_id)
-                        vm.info.systems[0].setValue(
-                            'availability_zone', providing_member)
+                        vm.info.systems[0].setValue('availability_zone', providing_member)
 
                         return (True, vm)
 
@@ -299,22 +289,18 @@ class FogBowCloudConnector(CloudConnector):
 
         while i < num_vm:
             try:
-                conn.putrequest('POST', "/fogbow_request/")
+                conn.putrequest('POST', "/order/")
                 conn.putheader('Content-Type', 'text/occi')
                 # conn.putheader('Accept', 'text/occi')
                 if auth_headers:
                     for k, v in auth_headers.items():
                         conn.putheader(k, v)
 
-                conn.putheader(
-                    'Category', 'fogbow_request; scheme="http://schemas.fogbowcloud.org/request#"; class="kind"')
+                conn.putheader('Category', 'order; scheme="http://schemas.fogbowcloud.org/order#"; class="kind"')
 
-                conn.putheader('X-OCCI-Attribute',
-                               'org.fogbowcloud.request.instance-count=1')
-                conn.putheader('X-OCCI-Attribute',
-                               'org.fogbowcloud.request.type="one-time"')
-                conn.putheader('X-OCCI-Attribute',
-                               'org.fogbowcloud.order.resource-kind="compute"')
+                conn.putheader('X-OCCI-Attribute', 'org.fogbowcloud.order.instance-count=1')
+                conn.putheader('X-OCCI-Attribute', 'org.fogbowcloud.order.type="one-time"')
+                conn.putheader('X-OCCI-Attribute', 'org.fogbowcloud.order.resource-kind="compute"')
 
                 requirements = ""
                 if system.getValue('instance_type'):
@@ -340,19 +326,17 @@ class FogBowCloudConnector(CloudConnector):
                 if system.getValue('availability_zone'):
                     if requirements:
                         requirements += ' && '
-                        requirements += 'Glue2CloudComputeManagerID == "%s"' % system.getValue(
-                            'availability_zone')
+                        requirements += 'Glue2CloudComputeManagerID == "%s"' % system.getValue('availability_zone')
 
                 if requirements:
-                    conn.putheader(
-                        'X-OCCI-Attribute', 'org.fogbowcloud.request.requirements=' + requirements)
+                    conn.putheader('X-OCCI-Attribute', 'org.fogbowcloud.order.requirements=' + requirements)
 
                 conn.endheaders()
 
                 resp = conn.getresponse()
 
                 # With this format: X-OCCI-Location:
-                # http://158.42.104.75:8182/fogbow_request/436e76ef-9980-4fdb-87fe-71e82655f578
+                # http://158.42.104.75:8182/order/436e76ef-9980-4fdb-87fe-71e82655f578
                 output = resp.read()
 
                 if resp.status != 201:
@@ -360,8 +344,7 @@ class FogBowCloudConnector(CloudConnector):
                 else:
                     occi_vm_id = os.path.basename(resp.msg.dict['location'])
                     # occi_vm_id = os.path.basename(output)
-                    vm = VirtualMachine(
-                        inf, occi_vm_id, self.cloud, radl, requested_radl)
+                    vm = VirtualMachine(inf, occi_vm_id, self.cloud, radl, requested_radl)
                     vm.info.systems[0].setValue('instance_id', str(vm.id))
                     inf.add_vm(vm)
                     res.append((True, vm))
@@ -387,7 +370,7 @@ class FogBowCloudConnector(CloudConnector):
         try:
             # First get the request info
             conn = self.get_http_connection()
-            conn.request('GET', "/fogbow_request/" + vm.id, headers=headers)
+            conn.request('GET', "/order/" + vm.id, headers=headers)
             resp = conn.getresponse()
 
             output = resp.read()
@@ -397,15 +380,13 @@ class FogBowCloudConnector(CloudConnector):
             elif resp.status != 200:
                 return (False, "Error removing the VM: " + resp.reason + "\n" + output)
             else:
-                instance_id = self.get_occi_attribute_value(
-                    output, 'org.fogbowcloud.request.instance-id')
+                instance_id = self.get_occi_attribute_value(output, 'org.fogbowcloud.order.instance-id')
                 if instance_id == "null":
                     instance_id = None
 
                 if instance_id:
                     conn = self.get_http_connection()
-                    conn.request('DELETE', "/compute/" +
-                                 instance_id, headers=headers)
+                    conn.request('DELETE', "/compute/" + instance_id, headers=headers)
                     resp = conn.getresponse()
 
                     output = str(resp.read())
@@ -413,7 +394,7 @@ class FogBowCloudConnector(CloudConnector):
                         return (False, "Error removing the VM: " + resp.reason + "\n" + output)
 
             conn = self.get_http_connection()
-            conn.request('DELETE', "/fogbow_request/" + vm.id, headers=headers)
+            conn.request('DELETE', "/order/" + vm.id, headers=headers)
             resp = conn.getresponse()
 
             output = str(resp.read())
@@ -454,8 +435,7 @@ class IdentityPlugin:
         try:
             return getattr(sys.modules[__name__], identity_type + "IdentityPlugin")()
         except Exception as ex:
-            raise Exception("IdentityPlugin not supported: %s (error: %s)" % (
-                identity_type, str(ex)))
+            raise Exception("IdentityPlugin not supported: %s (error: %s)" % (identity_type, str(ex)))
 
 
 class OpenNebulaIdentityPlugin(IdentityPlugin):
@@ -465,8 +445,17 @@ class OpenNebulaIdentityPlugin(IdentityPlugin):
         if 'username' in params and 'password' in params:
             return params['username'] + ":" + params['password']
         else:
-            raise Exception(
-                "Incorrect auth data, username and password must be specified")
+            raise Exception("Incorrect auth data, username and password must be specified")
+
+
+class TokenIdentityPlugin(IdentityPlugin):
+
+    @staticmethod
+    def create_token(params):
+        if 'token' in params:
+            return params['token']
+        else:
+            raise Exception("Incorrect auth data, token must be specified")
 
 
 class X509IdentityPlugin(IdentityPlugin):
