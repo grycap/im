@@ -38,8 +38,8 @@ class FogBowCloudConnector(CloudConnector):
     VM_STATE_MAP = {
         'waiting': VirtualMachine.PENDING,
         'active': VirtualMachine.RUNNING,
-        'inactive': VirtualMachine.OFF,
-        'suspended': VirtualMachine.OFF
+        'inactive': VirtualMachine.PENDING,
+        'suspended': VirtualMachine.STOPPED
     }
     """Dictionary with a map with the FogBow VM states to the IM states."""
 
