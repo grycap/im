@@ -17,11 +17,7 @@
 import json
 import os
 import sys
-
-try:
-    from httplib import HTTPSConnection, HTTPConnection
-except ImportError:
-    from http.client import HTTPSConnection, HTTPConnection
+import requests
 
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
@@ -56,21 +52,23 @@ class FogBowCloudConnector(CloudConnector):
     }
     """Dictionary with a map with the FogBow Request states to the IM states."""
 
-    def get_http_connection(self):
-        """
-        Get the HTTPConnection object to contact the FogBow API
+    def create_request(self, method, url, auth_data, headers=None, body=None):
+        auth_header = self.get_auth_header(auth_data)
+        if auth_header:
+            if headers is None:
+                headers = {}
+            headers.update(auth_header)
 
-        Returns(HTTPConnection or HTTPSConnection): HTTPConnection connection object
-        """
+        protocol = "http"
+        if self.cloud.protocol:
+            protocol = self.cloud.protocol
 
-        if self.cloud.protocol == 'https':
-            conn = HTTPSConnection(self.cloud.server, self.cloud.port)
-        else:
-            conn = HTTPConnection(self.cloud.server, self.cloud.port)
+        url = "%s://%s:%d%s%s" % (protocol, self.cloud.server, self.cloud.port, self.cloud.path, url)
+        resp = requests.request(method, url, verify=False, headers=headers, data=body)
 
-        return conn
+        return resp
 
-    def get_auth_headers(self, auth_data):
+    def get_auth_header(self, auth_data):
         """
         Generate the auth header needed to contact with the FogBow server.
         """
@@ -182,25 +180,18 @@ class FogBowCloudConnector(CloudConnector):
     """
 
     def updateVMInfo(self, vm, auth_data):
-        auth = self.get_auth_headers(auth_data)
-        headers = {'Accept': 'text/plain'}
-        if auth:
-            headers.update(auth)
-
         try:
             # First get the request info
-            conn = self.get_http_connection()
-            conn.request('GET', "/order/" + vm.id, headers=headers)
-            resp = conn.getresponse()
+            headers = {'Accept': 'text/plain'}
+            resp = self.create_request('GET', "/order/" + vm.id, auth_data, headers=headers)
 
-            output = resp.read()
-            if resp.status != 200:
-                return (False, resp.reason + "\n" + output)
+            if resp.status_code != 200:
+                return (False, resp.reason + "\n" + resp.text)
             else:
-                providing_member = self.get_occi_attribute_value(output, 'org.fogbowcloud.order.providing-member')
+                providing_member = self.get_occi_attribute_value(resp.text, 'org.fogbowcloud.order.providing-member')
                 if providing_member == "null":
                     providing_member = None
-                instance_id = self.get_occi_attribute_value(output, 'org.fogbowcloud.order.instance-id')
+                instance_id = self.get_occi_attribute_value(resp.text, 'org.fogbowcloud.order.instance-id')
                 if instance_id == "null":
                     instance_id = None
 
@@ -209,44 +200,41 @@ class FogBowCloudConnector(CloudConnector):
                     return (True, vm)
                 else:
                     # Now get the instance info
-                    conn = self.get_http_connection()
-                    conn.request('GET', "/compute/" + instance_id, headers=headers)
-                    resp = conn.getresponse()
+                    resp = self.create_request('GET', "/compute/" + instance_id, auth_data, headers=headers)
 
-                    output = resp.read()
-                    if resp.status == 404:
+                    if resp.status_code == 404:
                         vm.state = VirtualMachine.OFF
                         return (True, vm)
-                    elif resp.status != 200:
-                        return (False, resp.reason + "\n" + output)
+                    elif resp.status_code != 200:
+                        return (False, resp.reason + "\n" + resp.text)
                     else:
                         vm.state = self.VM_STATE_MAP.get(self.get_occi_attribute_value(
-                            output, 'occi.compute.state'), VirtualMachine.UNKNOWN)
+                            resp.text, 'occi.compute.state'), VirtualMachine.UNKNOWN)
 
-                        cores = self.get_occi_attribute_value(output, 'occi.compute.cores')
+                        cores = self.get_occi_attribute_value(resp.text, 'occi.compute.cores')
                         if cores:
                             vm.info.systems[0].addFeature(
                                 Feature("cpu.count", "=", int(cores)), conflict="other", missing="other")
-                        memory = self.get_occi_attribute_value(output, 'occi.compute.memory')
+                        memory = self.get_occi_attribute_value(resp.text, 'occi.compute.memory')
                         if memory:
                             vm.info.systems[0].addFeature(Feature("memory.size", "=", float(
                                 memory), 'G'), conflict="other", missing="other")
 
                         # Update the network data
                         ssh_public_address = self.get_occi_attribute_value(
-                            output, 'org.fogbowcloud.order.ssh-public-address')
+                            resp.text, 'org.fogbowcloud.order.ssh-public-address')
                         if ssh_public_address:
                             parts = ssh_public_address.split(':')
                             vm.setIps([parts[0]], [])
                             if len(parts) > 1:
                                 vm.setSSHPort(int(parts[1]))
 
-                        extra_ports = self.get_occi_attribute_value(output, 'org.fogbowcloud.order.extra-ports')
+                        extra_ports = self.get_occi_attribute_value(resp.text, 'org.fogbowcloud.order.extra-ports')
                         if extra_ports:
                             vm.info.systems[0].addFeature(Feature(
                                 "fogbow.extra-ports", "=", extra_ports), conflict="other", missing="other")
 
-                        ssh_user = self.get_occi_attribute_value(output, 'org.fogbowcloud.order.ssh-username')
+                        ssh_user = self.get_occi_attribute_value(resp.text, 'org.fogbowcloud.order.ssh-username')
                         if ssh_user:
                             vm.info.systems[0].addFeature(Feature(
                                 "disk.0.os.credentials.username", "=", ssh_user), conflict="other", missing="other")
@@ -262,13 +250,10 @@ class FogBowCloudConnector(CloudConnector):
 
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         system = radl.systems[0]
-        auth_headers = self.get_auth_headers(auth_data)
-
         # name = system.getValue("disk.0.image.name")
 
         res = []
         i = 0
-        conn = self.get_http_connection()
 
         url = uriparse(system.getValue("disk.0.image.url"))
         if url[1].startswith('http'):
@@ -289,23 +274,19 @@ class FogBowCloudConnector(CloudConnector):
 
         while i < num_vm:
             try:
-                conn.putrequest('POST', "/order/")
-                conn.putheader('Content-Type', 'text/occi')
-                # conn.putheader('Accept', 'text/occi')
-                if auth_headers:
-                    for k, v in auth_headers.items():
-                        conn.putheader(k, v)
-
-                conn.putheader('Category', 'order; scheme="http://schemas.fogbowcloud.org/order#"; class="kind"')
-
-                conn.putheader('X-OCCI-Attribute', 'org.fogbowcloud.order.instance-count=1')
-                conn.putheader('X-OCCI-Attribute', 'org.fogbowcloud.order.type="one-time"')
-                conn.putheader('X-OCCI-Attribute', 'org.fogbowcloud.order.resource-kind="compute"')
+                headers = {'Content-Type': 'text/occi'}
+                headers['Category'] = 'order; scheme="http://schemas.fogbowcloud.org/order#"; class="kind"'
+                headers['X-OCCI-Attribute'] = 'org.fogbowcloud.order.instance-count=1'
+                headers['X-OCCI-Attribute'] += ',org.fogbowcloud.order.type="one-time"'
+                headers['X-OCCI-Attribute'] += ',org.fogbowcloud.order.resource-kind="compute"'
+                headers['X-OCCI-Attribute'] += (',org.fogbowcloud.credentials.publickey.data="' +
+                                                public_key.strip() + '"')
 
                 requirements = ""
                 if system.getValue('instance_type'):
-                    conn.putheader('Category', system.getValue('instance_type') +
-                                   '; scheme="http://schemas.fogbowcloud.org/template/resource#"; class="mixin"')
+                    headers['Category'] += ("," + system.getValue('instance_type') +
+                                            '; scheme="http://schemas.fogbowcloud.org/template/resource#";'
+                                            ' class="mixin"')
                 else:
                     cpu = system.getValue('cpu.count')
                     memory = system.getFeature('memory.size').getValue('M')
@@ -316,12 +297,10 @@ class FogBowCloudConnector(CloudConnector):
                             requirements += " && "
                         requirements += "Glue2RAM >= %d" % memory
 
-                conn.putheader(
-                    'Category', os_tpl + '; scheme="http://schemas.fogbowcloud.org/template/os#"; class="mixin"')
-                conn.putheader(
-                    'Category', 'fogbow_public_key; scheme="http://schemas.fogbowcloud/credentials#"; class="mixin"')
-                conn.putheader(
-                    'X-OCCI-Attribute', 'org.fogbowcloud.credentials.publickey.data="' + public_key.strip() + '"')
+                headers['Category'] += ("," + os_tpl +
+                                        '; scheme="http://schemas.fogbowcloud.org/template/os#"; class="mixin"')
+                headers['Category'] += (',fogbow_public_key; scheme="http://schemas.fogbowcloud/credentials#";'
+                                        ' class="mixin"')
 
                 if system.getValue('availability_zone'):
                     if requirements:
@@ -329,21 +308,17 @@ class FogBowCloudConnector(CloudConnector):
                     requirements += 'Glue2CloudComputeManagerID == "%s"' % system.getValue('availability_zone')
 
                 if requirements:
-                    conn.putheader('X-OCCI-Attribute', 'org.fogbowcloud.order.requirements=' + requirements)
+                    headers['X-OCCI-Attribute'] += ',org.fogbowcloud.order.requirements=' + requirements
 
-                conn.endheaders()
+                resp = self.create_request('POST', '/order/', auth_data, headers)
 
-                resp = conn.getresponse()
-
-                # With this format: X-OCCI-Location:
-                # http://158.42.104.75:8182/order/436e76ef-9980-4fdb-87fe-71e82655f578
-                output = resp.read()
-
-                if resp.status != 201:
-                    res.append((False, resp.reason + "\n" + output))
+                if resp.status_code != 201:
+                    res.append((False, resp.reason + "\n" + resp.text))
                 else:
-                    occi_vm_id = os.path.basename(resp.msg.dict['location'])
-                    # occi_vm_id = os.path.basename(output)
+                    if 'location' in resp.headers:
+                        occi_vm_id = os.path.basename(resp.headers['location'])
+                    else:
+                        occi_vm_id = os.path.basename(resp.text)
                     vm = VirtualMachine(inf, occi_vm_id, self.cloud, radl, requested_radl)
                     vm.info.systems[0].setValue('instance_id', str(vm.id))
                     inf.add_vm(vm)
@@ -362,46 +337,34 @@ class FogBowCloudConnector(CloudConnector):
             self.log_warn("No VM ID. Ignoring")
             return True, "No VM ID. Ignoring"
 
-        auth = self.get_auth_headers(auth_data)
         headers = {'Accept': 'text/plain'}
-        if auth:
-            headers.update(auth)
 
         try:
-            # First get the request info
-            conn = self.get_http_connection()
-            conn.request('GET', "/order/" + vm.id, headers=headers)
-            resp = conn.getresponse()
+            # First get the order info
+            resp = self.create_request('GET', "/order/" + vm.id, auth_data, headers=headers)
 
-            output = resp.read()
-            if resp.status == 404:
+            if resp.status_code == 404:
                 vm.state = VirtualMachine.OFF
                 return (True, "")
-            elif resp.status != 200:
-                return (False, "Error removing the VM: " + resp.reason + "\n" + output)
+            elif resp.status_code != 200:
+                return (False, "Error removing the VM: " + resp.reason + "\n" + resp.text)
             else:
-                instance_id = self.get_occi_attribute_value(output, 'org.fogbowcloud.order.instance-id')
+                instance_id = self.get_occi_attribute_value(resp.text, 'org.fogbowcloud.order.instance-id')
                 if instance_id == "null":
                     instance_id = None
 
                 if instance_id:
-                    conn = self.get_http_connection()
-                    conn.request('DELETE', "/compute/" + instance_id, headers=headers)
-                    resp = conn.getresponse()
+                    resp = self.create_request('DELETE', "/compute/" + instance_id, auth_data, headers=headers)
 
-                    output = str(resp.read())
-                    if resp.status != 404 and resp.status != 200:
-                        return (False, "Error removing the VM: " + resp.reason + "\n" + output)
+                    if resp.status_code != 404 and resp.status_code != 200:
+                        return (False, "Error removing the VM: " + resp.reason + "\n" + resp.text)
 
-            conn = self.get_http_connection()
-            conn.request('DELETE', "/order/" + vm.id, headers=headers)
-            resp = conn.getresponse()
+            resp = self.create_request('DELETE', "/order/" + vm.id, auth_data, headers=headers)
 
-            output = str(resp.read())
-            if resp.status == 404 or resp.status == 200:
+            if resp.status_code == 404 or resp.status_code == 200:
                 return (True, "")
             else:
-                return (False, "Error removing the VM: " + resp.reason + "\n" + output)
+                return (False, "Error removing the VM: " + resp.reason + "\n" + resp.text)
         except Exception:
             self.log_exception("Error connecting with OCCI server")
             return (False, "Error connecting with OCCI server")
@@ -491,23 +454,13 @@ class KeyStoneIdentityPlugin(IdentityPlugin):
         if 'username' in params and 'password' in params and 'auth_url' in params and 'tenant' in params:
             try:
                 keystone_uri = params['auth_url']
-                uri = uriparse(keystone_uri)
-                server = uri[1].split(":")[0]
-                port = int(uri[1].split(":")[1])
 
-                conn = HTTPSConnection(server, port)
-                conn.putrequest('POST', "/v2.0/tokens")
-                conn.putheader('Accept', 'application/json')
-                conn.putheader('Content-Type', 'application/json')
-                conn.putheader('Connection', 'close')
-
+                headers = {'Accept': 'application/json', 'Connection': 'close', 'Content-Type': 'application/json'}
                 body = ('{"auth":{"passwordCredentials":{"username": "' + params['username'] +
                         '","password": "' + params['password'] + '"},"tenantName": "' + params['tenant'] + '"}}')
 
-                conn.putheader('Content-Length', len(body))
-                conn.endheaders(body)
-
-                resp = conn.getresponse()
+                url = "%s/v2.0/tokens" % keystone_uri
+                resp = requests.request('POST', url, verify=False, headers=headers, data=body)
 
                 # format: -> "{\"access\": {\"token\": {\"issued_at\":
                 # \"2014-12-29T17:10:49.609894\", \"expires\":
@@ -519,11 +472,8 @@ class KeyStoneIdentityPlugin(IdentityPlugin):
                 # \"475ce4978fb042e49ce0391de9bab49b\", \"roles\": [],
                 # \"name\": \"/DC=es/DC=irisgrid/O=upv/CN=miguel-caballer\"},
                 # \"metadata\": {\"is_admin\": 0, \"roles\": []}}}"
-                output = json.loads(resp.read())
+                output = resp.json()
                 token_id = output['access']['token']['id']
-
-                if conn.cert_file and os.path.isfile(conn.cert_file):
-                    os.unlink(conn.cert_file)
 
                 return token_id
             except:
