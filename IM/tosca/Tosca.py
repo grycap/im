@@ -308,6 +308,7 @@ class Tosca:
                     ports = self._final_function_result(cap_props["ports"].value, node)
                 if cap_props and "port" in cap_props:
                     port = self._final_function_result(cap_props["port"].value, node)
+                    protocol = "tcp"
                     if "protocol" in cap_props:
                         protocol = self._final_function_result(cap_props["protocol"].value, node)
                     ports["im-%s-%s" % (protocol, port)] = {"protocol": protocol, "source": port}

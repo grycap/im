@@ -326,7 +326,7 @@ class FogBowCloudConnector(CloudConnector):
                 if system.getValue('availability_zone'):
                     if requirements:
                         requirements += ' && '
-                        requirements += 'Glue2CloudComputeManagerID == "%s"' % system.getValue('availability_zone')
+                    requirements += 'Glue2CloudComputeManagerID == "%s"' % system.getValue('availability_zone')
 
                 if requirements:
                     conn.putheader('X-OCCI-Attribute', 'org.fogbowcloud.order.requirements=' + requirements)
