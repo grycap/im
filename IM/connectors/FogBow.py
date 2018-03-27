@@ -221,13 +221,24 @@ class FogBowCloudConnector(CloudConnector):
                                 memory), 'G'), conflict="other", missing="other")
 
                         # Update the network data
+                        private_ips = []
+                        public_ips = []
+
                         ssh_public_address = self.get_occi_attribute_value(
                             resp.text, 'org.fogbowcloud.order.ssh-public-address')
+                        local_ip_address = self.get_occi_attribute_value(
+                            resp.text, 'org.fogbowcloud.order.local-ip-address')
+
+                        if local_ip_address:
+                            private_ips.append(local_ip_address)
+
                         if ssh_public_address:
                             parts = ssh_public_address.split(':')
-                            vm.setIps([parts[0]], [])
+                            public_ips.append(parts[0])
                             if len(parts) > 1:
                                 vm.setSSHPort(int(parts[1]))
+
+                        vm.setIps(public_ips, private_ips)
 
                         extra_ports = self.get_occi_attribute_value(resp.text, 'org.fogbowcloud.order.extra-ports')
                         if extra_ports:
