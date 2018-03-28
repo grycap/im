@@ -367,7 +367,7 @@ class FogBowCloudConnector(CloudConnector):
                     requirements += 'Glue2CloudComputeManagerID == "%s"' % system.getValue('availability_zone')
 
                 if requirements:
-                    headers['X-OCCI-Attribute'] += ',org.fogbowcloud.order.requirements=' + requirements
+                    headers['X-OCCI-Attribute'] += ',org.fogbowcloud.order.requirements="%s"' % requirements
 
                 for net in radl.networks:
                     if not net.isPublic() and radl.systems[0].getNumNetworkWithConnection(net.id) is not None:
@@ -379,8 +379,8 @@ class FogBowCloudConnector(CloudConnector):
 
                 extra_ports_script = self.create_extra_ports_script(radl)
                 if extra_ports_script:
-                    user_data = base64.b64encode(extra_ports_script.replace("\n", "[[\\n]]")).decode()
-                    headers['X-OCCI-Attribute'] += ',org.fogbowcloud.order.extra-user-data="%s"' % user_data
+                    user_data = base64.b64encode(extra_ports_script.replace("\n", "[[\\n]]").encode())
+                    headers['X-OCCI-Attribute'] += ',org.fogbowcloud.order.extra-user-data="%s"' % user_data.decode()
                     headers['X-OCCI-Attribute'] += (',org.fogbowcloud.order.extra-user-data-content-type'
                                                     '="text/x-shellscript"')
 
