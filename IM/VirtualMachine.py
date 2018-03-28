@@ -29,7 +29,6 @@ from IM.SSH import SSH
 from IM.SSHRetry import SSHRetry
 from IM.config import Config
 import IM.CloudInfo
-from ansible.modules.network import protocol
 
 
 class VirtualMachine:
@@ -467,10 +466,10 @@ class VirtualMachine:
                     if outport.get_local_port() != local or outport.get_protocol() != protocol:
                         if outport.get_protocol() == "tcp":
                             outports_str += "," + (str(outport.get_remote_port()) + "-" +
-                                             str(outport.get_local_port()))
+                                                   str(outport.get_local_port()))
                         else:
                             outports_str += "," + (str(outport.get_remote_port()) + "/udp" + "-" +
-                                             str(outport.get_local_port()) + "/udp")
+                                                   str(outport.get_local_port()) + "/udp")
             public_net.setValue('outports', outports_str)
 
             # get the ID

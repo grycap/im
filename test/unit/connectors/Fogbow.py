@@ -201,7 +201,7 @@ class TestFogBowConnector(unittest.TestCase):
         requests.side_effect = self.get_response
 
         success, vm = fogbow_cloud.updateVMInfo(vm, auth)
-        
+
         self.assertEqual(str(vm.info.networks[0].getOutPorts()[0]), "10069:8080/tcp")
         self.assertEqual(str(vm.info.networks[0].getOutPorts()[1]), "10068:22/tcp")
 

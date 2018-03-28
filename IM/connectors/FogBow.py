@@ -146,7 +146,7 @@ class FogBowCloudConnector(CloudConnector):
                 remote_port = int(parts[1])
                 vm.setOutPort(local_port, remote_port)
         except:
-            self.log_exception("Error setting extra ports: %s" % extra_ports)        
+            self.log_exception("Error setting extra ports: %s" % extra_ports)
 
     """
     text/plain format:
