@@ -18,6 +18,7 @@ import json
 import os
 import sys
 import requests
+import base64
 
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
@@ -131,6 +132,22 @@ class FogBowCloudConnector(CloudConnector):
                 return str(l.split('=')[1].strip().strip('"'))
         return None
 
+    def set_extra_ports(self, vm, extra_ports):
+        """
+        Set extra ports in the net outports
+        Format:
+        '{"tcp8080":"150.165.85.18:10067"}
+        """
+        try:
+            ports = json.loads(extra_ports)
+            for name, address in ports.items():
+                local_port = int(name[3:])
+                parts = address.split(":")
+                remote_port = int(parts[1])
+                vm.setOutPort(local_port, remote_port)
+        except:
+            self.log_exception("Error setting extra ports: %s" % extra_ports)        
+
     """
     text/plain format:
         Recurso:
@@ -242,8 +259,7 @@ class FogBowCloudConnector(CloudConnector):
 
                         extra_ports = self.get_occi_attribute_value(resp.text, 'org.fogbowcloud.order.extra-ports')
                         if extra_ports:
-                            vm.info.systems[0].addFeature(Feature(
-                                "fogbow.extra-ports", "=", extra_ports), conflict="other", missing="other")
+                            self.set_extra_ports(vm, extra_ports)
 
                         ssh_user = self.get_occi_attribute_value(resp.text, 'org.fogbowcloud.order.ssh-username')
                         if ssh_user:
@@ -258,6 +274,38 @@ class FogBowCloudConnector(CloudConnector):
         except Exception as ex:
             self.log_exception("Error connecting with FogBow Manager")
             return (False, "Error connecting with FogBow Manager: " + str(ex))
+
+    def create_extra_ports_script(self, radl):
+        """
+        Create the Script to create the tunneled ports
+        """
+        res = ""
+        i = 0
+        system = radl.systems[0]
+        while system.getValue("net_interface." + str(i) + ".connection"):
+            network_name = system.getValue("net_interface." + str(i) + ".connection")
+            network = radl.get_network_by_id(network_name)
+
+            outports = network.getOutPorts()
+            if outports:
+                for outport in outports:
+                    protocol = outport.get_protocol()
+                    if not protocol:
+                        protocol = "tcp"
+                    if outport.is_range():
+                        for port in range(outport.get_port_init(), outport.get_port_end()):
+                            res += "create-fogbow-tunnel %s%d %d &\n" % (protocol, port, port)
+                    else:
+                        if outport.get_remote_port() != 22:
+                            port = outport.get_remote_port()
+                            res += "create-fogbow-tunnel %s%d %d &\n" % (protocol, port, port)
+
+            i += 1
+
+        if res:
+            return "#!/bin/bash\n" + res
+        else:
+            return res
 
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         system = radl.systems[0]
@@ -328,6 +376,13 @@ class FogBowCloudConnector(CloudConnector):
                             headers['Link'] = ('</network/' + provider_id + '>; ' +
                                                'rel="http://schemas.ogf.org/occi/infrastructure#network"; category=' +
                                                '"http://schemas.ogf.org/occi/infrastructure#networkinterface";')
+
+                extra_ports_script = self.create_extra_ports_script(radl)
+                if extra_ports_script:
+                    user_data = base64.b64encode(extra_ports_script.replace("\n", "[[\\n]]")).decode()
+                    headers['X-OCCI-Attribute'] += ',org.fogbowcloud.order.extra-user-data="%s"' % user_data
+                    headers['X-OCCI-Attribute'] += (',org.fogbowcloud.order.extra-user-data-content-type'
+                                                    '="text/x-shellscript"')
 
                 resp = self.create_request('POST', '/order/', auth_data, headers)
 
