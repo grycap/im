@@ -321,6 +321,14 @@ class FogBowCloudConnector(CloudConnector):
                 if requirements:
                     headers['X-OCCI-Attribute'] += ',org.fogbowcloud.order.requirements=' + requirements
 
+                for net in radl.networks:
+                    if not net.isPublic() and radl.systems[0].getNumNetworkWithConnection(net.id) is not None:
+                        provider_id = net.getValue('provider_id')
+                        if provider_id:
+                            headers['Link'] = ('</network/' + provider_id + '>; ' +
+                                               'rel="http://schemas.ogf.org/occi/infrastructure#network"; category=' +
+                                               '"http://schemas.ogf.org/occi/infrastructure#networkinterface";')
+
                 resp = self.create_request('POST', '/order/', auth_data, headers)
 
                 if resp.status_code != 201:
