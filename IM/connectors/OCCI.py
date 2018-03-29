@@ -63,8 +63,8 @@ class OCCICloudConnector(CloudConnector):
         self.keystone_token = None
         self.keystone_tenant = None
         self.keystone_project = None
-        if cloud_info.path == "/":
-            cloud_info.path = ""
+        if cloud_info.path.endswith("/"):
+            cloud_info.path = cloud_info.path[:-1]
         CloudConnector.__init__(self, cloud_info, inf)
 
     @staticmethod
