@@ -409,7 +409,18 @@ class VirtualMachine:
 
         Returns: int with the port
         """
-        ssh_port = 22
+        ssh_port = self.getOutPort(22)
+        if not ssh_port:
+            ssh_port = 22
+        return ssh_port
+
+    def getOutPort(self, port, protocol="tcp"):
+        """
+        Get the port from the RADL
+
+        Returns: int with the port
+        """
+        res = None
 
         public_net = None
         for net in self.info.networks:
@@ -420,16 +431,22 @@ class VirtualMachine:
             outports = public_net.getOutPorts()
             if outports:
                 for outport in outports:
-                    if outport.get_local_port() == 22 and outport.get_protocol() == "tcp":
-                        ssh_port = outport.get_remote_port()
+                    if outport.get_local_port() == port and outport.get_protocol() == protocol:
+                        res = outport.get_remote_port()
 
-        return ssh_port
+        return res
 
     def setSSHPort(self, ssh_port):
         """
         Set the SSH port in the RADL info of this VM
         """
-        if ssh_port != self.getSSHPort():
+        self.setOutPort(22, ssh_port)
+
+    def setOutPort(self, local, remote, protocol="tcp"):
+        """
+        Set the port in the RADL info of this VM
+        """
+        if remote != self.getOutPort(local):
             now = str(int(time.time() * 100))
 
             public_net = None
@@ -442,17 +459,17 @@ class VirtualMachine:
                 public_net = network.createNetwork("public." + now, True)
                 self.info.networks.append(public_net)
 
-            outports_str = str(ssh_port) + "-22"
+            outports_str = "%d-%d" % (remote, local)
             outports = public_net.getOutPorts()
             if outports:
                 for outport in outports:
-                    if outport.get_local_port() != 22 and outport.get_protocol() != "tcp":
-                        if outport.get_protocol() != "tcp":
-                            outports_str += (str(outport.get_remote_port()) + "-" +
-                                             str(outport.get_local_port()))
+                    if outport.get_local_port() != local or outport.get_protocol() != protocol:
+                        if outport.get_protocol() == "tcp":
+                            outports_str += "," + (str(outport.get_remote_port()) + "-" +
+                                                   str(outport.get_local_port()))
                         else:
-                            outports_str += (str(outport.get_remote_port()) + "/udp" + "-" +
-                                             str(outport.get_local_port()) + "/udp")
+                            outports_str += "," + (str(outport.get_remote_port()) + "/udp" + "-" +
+                                                   str(outport.get_local_port()) + "/udp")
             public_net.setValue('outports', outports_str)
 
             # get the ID

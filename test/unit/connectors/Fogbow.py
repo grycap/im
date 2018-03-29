@@ -123,7 +123,7 @@ class TestFogBowConnector(unittest.TestCase):
             if url == "/order/1":
                 resp.status_code = 200
                 resp.text = read_file_as_string("files/focci_resource.txt")
-            if url == "/compute/267@manager.i3m.upv.es":
+            if url == "/compute/08d50672-76c6-4bcb-9eb4-7a17e611b86c@lsd.manager.naf.lsd.ufcg.edu.br":
                 resp.status_code = 200
                 resp.text = read_file_as_string("files/focci_instance.txt")
         elif method == "POST":
@@ -133,7 +133,7 @@ class TestFogBowConnector(unittest.TestCase):
         elif method == "DELETE":
             if url == "/order/1":
                 resp.status_code = 200
-            if url == "/compute/267@manager.i3m.upv.es":
+            if url == "/compute/08d50672-76c6-4bcb-9eb4-7a17e611b86c@lsd.manager.naf.lsd.ufcg.edu.br":
                 resp.status_code = 200
 
         return resp
@@ -145,7 +145,7 @@ class TestFogBowConnector(unittest.TestCase):
     @patch('IM.InfrastructureList.InfrastructureList.save_data')
     def test_20_launch(self, save_data, requests):
         radl_data = """
-            network net1 (outbound = 'yes' and outports = '8080')
+            network net1 (outbound = 'yes' and outports = '8080,9000')
             network net2 ()
             system test (
             cpu.arch='x86_64' and
@@ -201,6 +201,9 @@ class TestFogBowConnector(unittest.TestCase):
         requests.side_effect = self.get_response
 
         success, vm = fogbow_cloud.updateVMInfo(vm, auth)
+
+        self.assertEqual(str(vm.info.networks[0].getOutPorts()[0]), "10069:8080/tcp")
+        self.assertEqual(str(vm.info.networks[0].getOutPorts()[1]), "10068:22/tcp")
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
