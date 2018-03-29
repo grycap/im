@@ -200,16 +200,16 @@ class InfrastructureManager:
 
             for success, launched_vm in launched_vms:
                 if success:
-                    InfrastructureManager.logger.debug("VM successfully launched: " + str(launched_vm.id))
+                    InfrastructureManager.logger.debug("VM successfully launched: %s" % launched_vm.id)
                     deployed_vm.setdefault(deploy, []).append(launched_vm)
                     deploy.cloud_id = cloud_id
                 else:
-                    InfrastructureManager.logger.error("Error launching some of the VMs: " + str(launched_vm))
+                    InfrastructureManager.logger.error("Error launching some of the VMs: %s" % launched_vm)
                     vm = VirtualMachine(sel_inf, None, cloud.cloud, launch_radl, requested_radl)
                     vm.state = VirtualMachine.FAILED
                     vm.info.systems[0].setValue('state', VirtualMachine.FAILED)
                     vm.error_msg = "Error launching the VMs of type %s to cloud ID %s of type %s. %s" % (
-                        deploy.id, cloud.cloud.id, cloud.cloud.type, str(launched_vm))
+                        deploy.id, cloud.cloud.id, cloud.cloud.type, launched_vm)
                     sel_inf.add_vm(vm)
                     deployed_vm.setdefault(deploy, []).append(vm)
                     deploy.cloud_id = cloud_id
