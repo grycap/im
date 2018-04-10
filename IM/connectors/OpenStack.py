@@ -550,6 +550,10 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         if self.CONFIG_DRIVE:
             args['ex_config_drive'] = self.CONFIG_DRIVE
 
+        if system.getValue('availability_zone'):
+            self.log_debug("Setting availability_zone: %s" % system.getValue('availability_zone'))
+            args['ex_availability_zone'] = system.getValue('availability_zone')
+
         res = []
         i = 0
         all_failed = True
