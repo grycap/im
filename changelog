@@ -379,3 +379,8 @@ IM 1.6.7
     * Add --version option in im_service.py.
     * Fix error reconfiguring nodes in case of addition of nodes.
     * Avoid "Failed to lock apt for exclusive operation" in contextualization.
+
+IM 1.6.8
+    * Add support for the "endpoint" "port" field.
+    * Fix error that causes that some services left behind after deleting infrastructure on Azure.
+    * Fix error that causes that GCE conn assing public IPs to all VMs.

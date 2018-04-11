@@ -51,6 +51,7 @@ topology_template:
         endpoint:
           properties:
             network_name: PUBLIC
+            port: 8000
             ports:
               port_range:
                 protocol: tcp
