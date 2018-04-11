@@ -57,7 +57,8 @@ class TestTosca(unittest.TestCase):
         else:
             self.assertEqual(net.getValue('provider_id'), 'vpc-XX.subnet-XX')
             self.assertEqual(net.getValue("outports"), '8080/tcp-8080/tcp')
-            self.assertEqual(net1.getValue("outports"), '1:4/tcp,8000/tcp-8000/tcp')
+            self.assertIn('1:4/tcp', net1.getValue("outports"))
+            self.assertIn('8000/tcp-8000/tcp', net1.getValue("outports"))
         lrms_wn = radl.get_system_by_name('lrms_wn')
         self.assertEqual(lrms_wn.getValue('memory.size'), 2000000000)
         lrms_server = radl.get_system_by_name('lrms_server')
