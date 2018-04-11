@@ -52,7 +52,8 @@ class TestTosca(unittest.TestCase):
         net1 = radl.get_network_by_id('public_net_1')
         self.assertIn(net.getValue('provider_id'), ['vpc-XX.subnet-XX', None])
         if net.getValue('provider_id') is None:
-            self.assertEqual(net.getValue("outports"), '1:4/tcp')
+            self.assertIn('1:4/tcp', net.getValue("outports"))
+            self.assertIn('8000/tcp-8000/tcp', net.getValue("outports"))
             self.assertEqual(net1.getValue("outports"), '8080/tcp-8080/tcp')
         else:
             self.assertEqual(net.getValue('provider_id'), 'vpc-XX.subnet-XX')
