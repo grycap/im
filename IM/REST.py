@@ -142,6 +142,25 @@ def return_error(code, msg):
         return msg
 
 
+def get_full_url(path):
+    """
+    Get the full URL to be returned by the API calls
+    """
+    protocol = "http://"
+    if Config.REST_SSL:
+        protocol = "https://"
+
+    # if it is a forwarded call use the original protocol
+    if 'HTTP_X_FORWARDED_PROTO' in bottle.request.environ and bottle.request.environ['HTTP_X_FORWARDED_PROTO']:
+        protocol = bottle.request.environ['HTTP_X_FORWARDED_PROTO'] + "://"
+
+    # if it is a forwarded call add the original prefix
+    if 'HTTP_X_FORWARDED_PREFIX' in bottle.request.environ and bottle.request.environ['HTTP_X_FORWARDED_PREFIX']:
+        path = bottle.request.environ['HTTP_X_FORWARDED_PREFIX'].rstrip('/') + path
+
+    return protocol + bottle.request.environ['HTTP_HOST'] + path
+
+
 def stop():
     if bottle_server:
         bottle_server.shutdown()
@@ -311,12 +330,8 @@ def RESTGetInfrastructureInfo(infid=None):
         vm_ids = InfrastructureManager.GetInfrastructureInfo(infid, auth)
         res = []
 
-        protocol = "http://"
-        if Config.REST_SSL:
-            protocol = "https://"
         for vm_id in vm_ids:
-            res.append(protocol + bottle.request.environ[
-                       'HTTP_HOST'] + '/infrastructures/' + str(infid) + '/vms/' + str(vm_id))
+            res.append(get_full_url('/infrastructures/' + str(infid) + '/vms/' + str(vm_id)))
 
         return format_output(res, "text/uri-list", "uri-list", "uri")
     except DeletedInfrastructureException as ex:
@@ -398,12 +413,8 @@ def RESTGetInfrastructureList():
         inf_ids = InfrastructureManager.GetInfrastructureList(auth)
         res = []
 
-        protocol = "http://"
-        if Config.REST_SSL:
-            protocol = "https://"
         for inf_id in inf_ids:
-            res.append(
-                protocol + bottle.request.environ['HTTP_HOST'] + "/infrastructures/" + str(inf_id))
+            res.append(get_full_url('/infrastructures/%s' % inf_id))
 
         return format_output(res, "text/uri-list", "uri-list", "uri")
     except InvaliddUserException as ex:
@@ -455,11 +466,7 @@ def RESTCreateInfrastructure():
 
         bottle.response.headers['InfID'] = inf_id
         bottle.response.content_type = "text/uri-list"
-        protocol = "http://"
-        if Config.REST_SSL:
-            protocol = "https://"
-
-        res = protocol + bottle.request.environ['HTTP_HOST'] + "/infrastructures/" + str(inf_id)
+        res = get_full_url('/infrastructures/%s' % inf_id)
 
         return format_output(res, "text/uri-list", "uri")
     except InvaliddUserException as ex:
@@ -575,13 +582,9 @@ def RESTAddResource(infid=None):
             sel_inf = InfrastructureManager.get_infrastructure(infid, auth)
             sel_inf.extra_info['TOSCA'] = tosca_data
 
-        protocol = "http://"
-        if Config.REST_SSL:
-            protocol = "https://"
         res = []
         for vm_id in vm_ids:
-            res.append(protocol + bottle.request.environ[
-                       'HTTP_HOST'] + "/infrastructures/" + str(infid) + "/vms/" + str(vm_id))
+            res.append(get_full_url("/infrastructures/" + str(infid) + "/vms/" + str(vm_id)))
 
         return format_output(res, "text/uri-list", "uri-list", "uri")
     except DeletedInfrastructureException as ex:
