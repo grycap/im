@@ -103,6 +103,7 @@
 
     - name: Upgrade pyOpenSSL with Pip
       pip: name=pyOpenSSL state=latest
+      ignore_errors: yes
 
     - name: Install ansible with Pip
       pip: name=ansible
