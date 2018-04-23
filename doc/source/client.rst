@@ -181,7 +181,7 @@ The available keys are:
 * ``subscription_id`` indicates the subscription_id name associated to the credential.
   This field is only used in the Azure and Azure Classic plugins. To create a user to use the Azure (ARM)
   plugin check the documentation of the Azure python SDK:
-  `here <https://azure-sdk-for-python.readthedocs.io/en/latest/quickstart_authentication.html#using-ad-user-password>`_
+  `here <https://docs.microsoft.com/en-us/python/azure/python-sdk-azure-authenticate?view=azure-python>`_
 
 * ``token`` indicates the OpenID token associated to the credential. This field is used in the OCCI plugin (from version 1.6.2). 
 
