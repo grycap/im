@@ -213,7 +213,7 @@ class ConfManager(threading.Thread):
                 if self.ansible_process and self.ansible_process.is_alive():
                     self.log_info("Stopping pending Ansible process.")
                     self.ansible_process.terminate()
-                
+
                 # Set as unconfigured all non finished ctxt VMs
                 for vm in self.inf.get_vm_list():
                     if vm.configured is None:
