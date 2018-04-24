@@ -144,7 +144,10 @@ spec:
   capacity:
     storage: 10Gi
   accessModes:
-    - ReadWriteMany
+    - ReadWriteOnce
+  mountOptions:
+    - nolock
+    - hard
   nfs:
     path: /pv
     server: kubeserver
@@ -157,7 +160,7 @@ metadata:
   name: imdb
 spec:
   accessModes:
-    - ReadWriteMany
+    - ReadWriteOnce
   resources:
     requests:
       storage: 8Gi
