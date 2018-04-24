@@ -148,8 +148,8 @@ spec:
   nfs:
     path: /pv
     server: kubeserver
- 
- ---
+
+---
 kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
@@ -161,7 +161,7 @@ spec:
   resources:
     requests:
       storage: 8Gi
- 
+
 # Deployments for the IM service
 ---
 apiVersion: apps/v1
