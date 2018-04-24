@@ -133,6 +133,35 @@ subjects:
     kind: User
     name: ingress-controller
 
+# Persistent Volumes in NFS
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  namespace: ingress-controller
+  name: pvnfs
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteMany
+  nfs:
+    path: /pv
+    server: kubeserver
+ 
+ ---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  namespace: ingress-controller
+  name: imdb
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 8Gi
+ 
 # Deployments for the IM service
 ---
 apiVersion: apps/v1
@@ -167,7 +196,13 @@ spec:
              value: im-mysql-pass
            - name: MYSQL_DATABASE
              value: im-db
-
+          volumeMounts:
+           - name: im-mysql-db
+             mountPath: /var/lib/mysql
+      volumes:
+        - name: im-mysql-db
+          persistentVolumeClaim:
+            claimName: imdata
 ---
 apiVersion: v1
 kind: Service
