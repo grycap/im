@@ -202,7 +202,7 @@ spec:
       volumes:
         - name: im-mysql-db
           persistentVolumeClaim:
-            claimName: imdata
+            claimName: imdb
 ---
 apiVersion: v1
 kind: Service
