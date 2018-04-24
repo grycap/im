@@ -53,6 +53,10 @@ configure front (
       file: path=/pv/mysql state=directory mode=777
     - name: Create dir for the NFS PV IM dir
       file: path=/pv/im state=directory mode=777
+    - name: Download im logging.conf
+      get_url: url=http://raw.githubusercontent.com/grycap/im/master_1_6_X/etc/logging.conf dest=/pv/im/logging.conf
+    - name: Download im logging.conf
+      get_url: url=https://raw.githubusercontent.com/grycap/im/master_1_6_X/etc/im.cfg dest=/pv/im/im.cfg
     - name: Create auth file dir
       file: path=/etc/kubernetes/pki state=directory mode=755 recurse=yes
     - name: Create auth data file with an admin user
@@ -92,6 +96,15 @@ configure wn (
     - role: 'grycap.kubernetes'
       kube_type_of_node: 'wn'
       kube_server: 'kubeserver'
+
+   tasks:
+      - local_action: command kubectl label node {{ansible_fqdn}} role=wn
+        environment:
+          KUBECONFIG: /etc/kubernetes/admin.conf
+        register: result
+        until: result|success
+        retries: 5
+        delay: 5
 
 @end
 )
