@@ -47,8 +47,12 @@ configure front (
 @begin
 ---
  - pre_tasks:
-    - name: Create dir for the NFS PV
-      file: path=/pv state=directory mode=755
+    - name: Create dir for the NFS PV Top dir
+      file: path=/pv state=directory mode=777
+    - name: Create dir for the NFS PV MySQL sir
+      file: path=/pv/mysql state=directory mode=777
+    - name: Create dir for the NFS PV IM dir
+      file: path=/pv/im state=directory mode=777
     - name: Create auth file dir
       file: path=/etc/kubernetes/pki state=directory mode=755 recurse=yes
     - name: Create auth data file with an admin user
@@ -57,16 +61,23 @@ configure front (
    roles:
     - role: 'grycap.nfs'
       nfs_mode: 'front'
-      nfs_exports: [{path: "/pv", export: "wn-*.localdomain(fsid=0,rw,async,no_root_squash,no_subtree_check,insecure)"}]
+      nfs_exports: [{path: "/pv", export: "wn-*.localdomain(fsid=0,rw,async,no_root_squash,no_subtree_check,insecure)"},
+                    {path: "/pv/mysql", export: "wn-*.localdomain(rw,async,no_root_squash,no_subtree_check,insecure)"},
+                    {path: "/pv/im", export: "wn-*.localdomain(rw,async,no_root_squash,no_subtree_check,insecure)"}]
 
     - role: 'grycap.kubernetes'
       kube_server: 'kubeserver'
       kube_apiserver_options: [{option: "--insecure-port", value: "8080"}, {option: "--token-auth-file", value: "/etc/kubernetes/pki/auth"}]
       
    tasks:
-      - shell: kubectl create -f http://raw.githubusercontent.com/grycap/im/kube/kube/im-kube-ha.yaml && touch /etc/im-kube-ha creates=im-kube-ha
+      - name: Launch IM in HA mode
+        shell: kubectl create -f http://raw.githubusercontent.com/grycap/im/kube/kube/im-kube-ha.yaml && touch /etc/im-kube-ha creates=im-kube-ha
         environment:
           KUBECONFIG: /etc/kubernetes/admin.conf
+        register: result
+        until: result|success
+        retries: 5
+        delay: 5
 
 @end
 )
