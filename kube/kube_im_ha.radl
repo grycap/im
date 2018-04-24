@@ -62,19 +62,11 @@ configure front (
     - role: 'grycap.kubernetes'
       kube_server: 'kubeserver'
       kube_apiserver_options: [{option: "--insecure-port", value: "8080"}, {option: "--token-auth-file", value: "/etc/kubernetes/pki/auth"}]
-      #kube_deploy_dashboard: true
-      kube_install_helm: true
-      #kube_network: 'weave'
       
    tasks:
-      - command: kubectl label node ingress.localdomain role=ingress-controller
+      - shell: kubectl create -f http://raw.githubusercontent.com/grycap/im/kube/kube/im-kube-ha.yaml && touch /etc/im-kube-ha creates=im-kube-ha
         environment:
           KUBECONFIG: /etc/kubernetes/admin.conf
-        
-      - command: kubectl create -f https://raw.githubusercontent.com/grycap/im/kube/kube/im-kube-ha.yaml
-        environment:
-          KUBECONFIG: /etc/kubernetes/admin.conf
-        ignore_errors: yes
 
 @end
 )
@@ -103,6 +95,15 @@ configure ingress (
     - role: 'grycap.kubernetes'
       kube_type_of_node: 'wn'
       kube_server: 'kubeserver'
+
+   tasks:
+      - local_action: command kubectl label node ingress.localdomain role=ingress-controller
+        environment:
+          KUBECONFIG: /etc/kubernetes/admin.conf
+        register: result
+        until: result|success
+        retries: 5
+        delay: 5
 
 @end
 )

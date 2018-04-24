@@ -192,7 +192,7 @@ metadata:
   labels:
     run: ingress-im-backend
 spec:
-  replicas: 1
+  replicas: 4
   selector:
     matchLabels:
       run: ingress-im-backend
