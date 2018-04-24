@@ -1,0 +1,53 @@
+{{- $ing := . -}}
+{{- $cfg := .Cfg -}}
+
+defaults
+    log global
+    timeout http-request    {{ $cfg.TimeoutHTTPRequest }}
+    timeout connect         {{ $cfg.TimeoutConnect }}
+    timeout client          {{ $cfg.TimeoutClient }}
+    timeout client-fin      {{ $cfg.TimeoutClientFin }}
+    timeout server          {{ $cfg.TimeoutServer }}
+    timeout server-fin      {{ $cfg.TimeoutServerFin }}
+    timeout tunnel          {{ $cfg.TimeoutTunnel }}
+    timeout http-keep-alive {{ $cfg.TimeoutKeepAlive }}
+    mode http
+
+######
+###### Stats page
+######
+listen stats
+    bind *:{{ $cfg.StatsPort }}{{ if $cfg.StatsProxyProtocol }} accept-proxy{{ end }}
+    mode http
+    stats enable
+    stats realm HAProxy\ Statistics
+{{- if ne $cfg.StatsAuth "" }}
+    stats auth {{ $cfg.StatsAuth }}
+{{- end }}
+    stats uri /
+    no log
+
+frontend http-frontend
+        bind *:80
+        default_backend imbackend
+
+backend imbackend
+        option httpchk GET /version
+        balance roundrobin
+        stick-table type string len 32 size 30k expire 120m
+        stick store-response hdr(InfID)
+        #stick on hdr(InfID)
+        acl inf_id path -m beg /infrastructures/
+        #acl inf_id path_len gt 40
+        stick on path,field(3,/) if inf_id
+
+{{- if $ing.Backends -}}
+{{- $backend := index $ing.Backends 0 -}}
+{{- $BackendSlots := index $ing.BackendSlots $backend.Name }}
+{{- range $target, $slot := $BackendSlots.FullSlots }}
+    server {{ $slot.BackendServerName }} {{ $target }} check port {{ $slot.BackendEndpoint.Port }} inter {{ $cfg.BackendCheckInterval }}
+{{- end }}
+{{- range $empty := $BackendSlots.EmptySlots }}
+    server {{ $empty }} 127.0.0.1:81 check disabled inter {{ $cfg.BackendCheckInterval }}
+{{- end }}
+{{- end }}{{/* if Backends */}}

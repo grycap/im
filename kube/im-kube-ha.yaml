@@ -1,0 +1,294 @@
+# User roles for the ingress-controller
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ingress-controller
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ingress-controller
+  namespace: ingress-controller
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: ingress-controller
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+      - endpoints
+      - nodes
+      - pods
+      - secrets
+    verbs:
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - nodes
+    verbs:
+      - get
+  - apiGroups:
+      - ""
+    resources:
+      - services
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - "extensions"
+    resources:
+      - ingresses
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - events
+    verbs:
+      - create
+      - patch
+  - apiGroups:
+      - "extensions"
+    resources:
+      - ingresses/status
+    verbs:
+      - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: ingress-controller
+  namespace: ingress-controller
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+      - pods
+      - secrets
+      - namespaces
+    verbs:
+      - get
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    verbs:
+      - get
+      - update
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    verbs:
+      - create
+  - apiGroups:
+      - ""
+    resources:
+      - endpoints
+    verbs:
+      - get
+      - create
+      - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: ingress-controller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: ingress-controller
+subjects:
+  - kind: ServiceAccount
+    name: ingress-controller
+    namespace: ingress-controller
+  - apiGroup: rbac.authorization.k8s.io
+    kind: User
+    name: ingress-controller
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ingress-controller
+  namespace: ingress-controller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: ingress-controller
+subjects:
+  - kind: ServiceAccount
+    name: ingress-controller
+    namespace: ingress-controller
+  - apiGroup: rbac.authorization.k8s.io
+    kind: User
+    name: ingress-controller
+
+# Deployments for the IM service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: ingress-controller
+  name: im-mysql
+  labels:
+    app: im
+    tier: im-mysql
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: im
+      tier: im-mysql
+  template:
+    metadata:
+      labels:
+        name: im-mysql
+        app: im
+        tier: im-mysql
+    spec:
+      containers:
+        - name: im-mysql
+          image: mysql:5.6
+          ports:
+          - containerPort: 3306
+            name: mysql
+          env:
+           - name: MYSQL_ROOT_PASSWORD
+             value: im-mysql-pass
+           - name: MYSQL_DATABASE
+             value: im-db
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: ingress-controller
+  name: im-mysql
+  labels:
+    app: im
+spec:
+  ports:
+  - port: 3306
+    protocol: TCP
+  selector:
+    name: im-mysql
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: ingress-controller
+  name: ingress-im-backend
+  labels:
+    run: ingress-im-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      run: ingress-im-backend
+  template:
+    metadata:
+      labels:
+        run: ingress-im-backend
+    spec:
+      containers:
+      - name: ingress-im-backend
+        image: indigodatacloud/im
+        ports:
+        - containerPort: 8800
+        imagePullPolicy: Always
+        env:
+          - name: IM_DATA_DB
+            value: mysql://root:im-mysql-pass@im-mysql/im-db
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ingress-im-backend
+  namespace: ingress-controller
+spec:
+  ports:
+  - port: 8800
+  selector:
+    run: ingress-im-backend
+# ConfigMap of the haproxy-ingress see: https://github.com/jcmoraisjr/haproxy-ingress#configmap
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: haproxy-ingress
+  namespace: ingress-controller
+data:
+  stats-auth: "micafer:grycap01"
+# Ingress controller
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: ingress-controller
+  labels:
+    run: haproxy-ingress
+  name: haproxy-ingress
+spec:
+  selector:
+    matchLabels:
+      run: haproxy-ingress
+  template:
+    metadata:
+      labels:
+        run: haproxy-ingress
+    spec:
+      serviceAccountName: ingress-controller
+      containers:
+      - name: haproxy-ingress
+        image: grycap/haproxy-ingress-im
+        args:
+        - --default-backend-service=$(POD_NAMESPACE)/ingress-im-backend
+        - --configmap=$(POD_NAMESPACE)/haproxy-ingress
+        - --sort-backends
+        ports:
+        - name: http
+          containerPort: 80
+        - name: https
+          containerPort: 443
+        - name: stat
+          containerPort: 1936
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+# Ingress controller service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ingress-svc
+  namespace: ingress-controller
+spec:
+  type: NodePort
+  ports:
+  - name: http
+    port: 80
+    nodePort: 30008
+# Open also the stats port
+  - name: stats
+    port: 1936
+    nodePort: 30009
+  selector:
+    run: haproxy-ingress
