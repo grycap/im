@@ -139,8 +139,9 @@ apiVersion: v1
 kind: PersistentVolume
 metadata:
   namespace: ingress-controller
-  name: pvnfs
+  name: pvnfsmysql
 spec:
+  storageClassName: mysql
   capacity:
     storage: 10Gi
   accessModes:
@@ -149,9 +150,26 @@ spec:
     - nolock
     - hard
   nfs:
-    path: /pv
+    path: /pv/mysql
     server: kubeserver
-
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  namespace: ingress-controller
+  name: pvnfsim
+spec:
+  storageClassName: im
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadOnlyMany
+  mountOptions:
+    - nolock
+    - hard
+  nfs:
+    path: /pv/im
+    server: kubeserver
 ---
 kind: PersistentVolumeClaim
 apiVersion: v1
@@ -159,8 +177,22 @@ metadata:
   namespace: ingress-controller
   name: imdb
 spec:
+  storageClassName: mysql
   accessModes:
     - ReadWriteOnce
+  resources:
+    requests:
+      storage: 8Gi
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  namespace: ingress-controller
+  name: imetc
+spec:
+  storageClassName: im
+  accessModes:
+    - ReadOnlyMany
   resources:
     requests:
       storage: 8Gi
@@ -248,6 +280,13 @@ spec:
         env:
           - name: IM_DATA_DB
             value: mysql://root:im-mysql-pass@im-mysql/im-db
+        volumeMounts:
+           - name: imetc
+             mountPath: /etc/im
+      volumes:
+        - name: imetc
+          persistentVolumeClaim:
+            claimName: imetc
 
 ---
 apiVersion: v1
