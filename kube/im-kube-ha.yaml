@@ -352,6 +352,13 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+        volumeMounts:
+           - name: imetc
+             mountPath: /etc/im
+      volumes:
+        - name: imetc
+          persistentVolumeClaim:
+            claimName: imetc
 # Ingress controller service
 ---
 apiVersion: v1
@@ -362,9 +369,9 @@ metadata:
 spec:
   type: NodePort
   ports:
-  - name: http
-    port: 80
-    nodePort: 30008
+  - name: https
+    port: 443
+    nodePort: 30443
 # Open also the stats port
   - name: stats
     port: 1936
