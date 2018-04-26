@@ -32,7 +32,12 @@ except ImportError:
 from multiprocessing import Queue
 
 from ansible import __version__ as ansible_version
-from ansible.module_utils._text import to_bytes
+try:
+    # for Ansible version 2.2.0 or higher
+    from ansible.module_utils._text import to_bytes
+except ImportError:
+    from ansible.utils.unicode import to_bytes
+
 from ansible.parsing.vault import VaultEditor
 try:
     # for Ansible version 2.4.0 or higher

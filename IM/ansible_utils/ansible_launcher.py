@@ -31,7 +31,11 @@ from ansible import __version__ as ansible_version
 
 from ansible.cli import CLI
 from ansible.parsing.dataloader import DataLoader
-from ansible.module_utils._text import to_bytes
+try:
+    # for Ansible version 2.2.0 or higher
+    from ansible.module_utils._text import to_bytes
+except ImportError:
+    from ansible.utils.unicode import to_bytes
 try:
     # for Ansible version 2.4.0 or higher
     from ansible.vars.manager import VariableManager
