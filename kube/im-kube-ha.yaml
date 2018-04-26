@@ -3,18 +3,18 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: ingress-controller
+  name: im
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: ingress-controller
-  namespace: ingress-controller
+  name: im-ingress-controller
+  namespace: im
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: ingress-controller
+  name: im-ingress-controller
 rules:
   - apiGroups:
       - ""
@@ -66,8 +66,8 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: ingress-controller
-  namespace: ingress-controller
+  name: im-ingress-controller
+  namespace: im
 rules:
   - apiGroups:
       - ""
@@ -103,42 +103,42 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: ingress-controller
+  name: im-ingress-controller
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: ingress-controller
+  name: im-ingress-controller
 subjects:
   - kind: ServiceAccount
-    name: ingress-controller
-    namespace: ingress-controller
+    name: im-ingress-controller
+    namespace: im
   - apiGroup: rbac.authorization.k8s.io
     kind: User
-    name: ingress-controller
+    name: im-ingress-controller
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: ingress-controller
-  namespace: ingress-controller
+  name: im-ingress-controller
+  namespace: im
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: ingress-controller
+  name: im-ingress-controller
 subjects:
   - kind: ServiceAccount
-    name: ingress-controller
-    namespace: ingress-controller
+    name: im-ingress-controller
+    namespace: im
   - apiGroup: rbac.authorization.k8s.io
     kind: User
-    name: ingress-controller
+    name: im-ingress-controller
 
 # Persistent Volumes in NFS
 ---
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  namespace: ingress-controller
+  namespace: im
   name: pvnfsmysql
 spec:
   storageClassName: mysql
@@ -156,7 +156,7 @@ spec:
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  namespace: ingress-controller
+  namespace: im
   name: pvnfsim
 spec:
   storageClassName: im
@@ -174,7 +174,7 @@ spec:
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  namespace: ingress-controller
+  namespace: im
   name: pvnfslog
 spec:
   storageClassName: imlog
@@ -192,7 +192,7 @@ spec:
 kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
-  namespace: ingress-controller
+  namespace: im
   name: imdb
 spec:
   storageClassName: mysql
@@ -205,7 +205,7 @@ spec:
 kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
-  namespace: ingress-controller
+  namespace: im
   name: imetc
 spec:
   storageClassName: im
@@ -218,7 +218,7 @@ spec:
 kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
-  namespace: ingress-controller
+  namespace: im
   name: imlog
 spec:
   storageClassName: imlog
@@ -232,7 +232,7 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  namespace: ingress-controller
+  namespace: im
   name: im-mysql
   labels:
     app: im
@@ -274,7 +274,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  namespace: ingress-controller
+  namespace: im
   name: im-mysql
   labels:
     app: im
@@ -289,25 +289,25 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  namespace: ingress-controller
-  name: ingress-im-backend
+  namespace: im
+  name: im-backend
   labels:
-    run: ingress-im-backend
+    run: im-backend
 spec:
   replicas: 4
   selector:
     matchLabels:
-      run: ingress-im-backend
+      run: im-backend
   template:
     metadata:
       labels:
-        run: ingress-im-backend
+        run: im-backend
     spec:
       nodeSelector:
         role: wn
       containers:
-      - name: ingress-im-backend
-        image: indigodatacloud/im
+      - name: im-backend
+        image: grycap/im:1.7.0-dev
         ports:
         - containerPort: 8800
         imagePullPolicy: Always
@@ -332,20 +332,20 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: ingress-im-backend
-  namespace: ingress-controller
+  name: im-backend
+  namespace: im
 spec:
   ports:
   - port: 8800
   selector:
-    run: ingress-im-backend
+    run: im-backend
 
 # Deployment for the Syslog service
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  namespace: ingress-controller
+  namespace: im
   name: im-log
   labels:
     app: im
@@ -387,7 +387,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  namespace: ingress-controller
+  namespace: im
   name: im-log
   labels:
     app: im
@@ -409,7 +409,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: haproxy-ingress
-  namespace: ingress-controller
+  namespace: im
 data:
   stats-auth: "micafer:grycap01"
 # Ingress controller
@@ -417,7 +417,7 @@ data:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  namespace: ingress-controller
+  namespace: im
   labels:
     run: haproxy-ingress
   name: haproxy-ingress
@@ -430,12 +430,12 @@ spec:
       labels:
         run: haproxy-ingress
     spec:
-      serviceAccountName: ingress-controller
+      serviceAccountName: im-ingress-controller
       containers:
       - name: haproxy-ingress
         image: grycap/haproxy-ingress-im
         args:
-        - --default-backend-service=$(POD_NAMESPACE)/ingress-im-backend
+        - --default-backend-service=$(POD_NAMESPACE)/im-backend
         - --configmap=$(POD_NAMESPACE)/haproxy-ingress
         - --sort-backends
         ports:
@@ -466,8 +466,8 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: ingress-svc
-  namespace: ingress-controller
+  name: im-ingress-svc
+  namespace: im
 spec:
   type: NodePort
   ports:
