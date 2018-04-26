@@ -171,6 +171,24 @@ spec:
     path: /pv/im
     server: kubeserver
 ---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  namespace: ingress-controller
+  name: pvnfslog
+spec:
+  storageClassName: imlog
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  mountOptions:
+    - nolock
+    - hard
+  nfs:
+    path: /pv/log
+    server: kubeserver
+---
 kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
@@ -196,7 +214,19 @@ spec:
   resources:
     requests:
       storage: 8Gi
-
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  namespace: ingress-controller
+  name: imlog
+spec:
+  storageClassName: imlog
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 8Gi
 # Deployments for the IM service
 ---
 apiVersion: apps/v1
@@ -285,6 +315,12 @@ spec:
         volumeMounts:
            - name: imetc
              mountPath: /etc/im
+        livenessProbe:
+          httpGet:
+            path: /version
+            port: 8800
+          initialDelaySeconds: 10
+          periodSeconds: 10
       volumes:
         - name: imetc
           persistentVolumeClaim:
@@ -301,6 +337,70 @@ spec:
   - port: 8800
   selector:
     run: ingress-im-backend
+
+# Deployment for the Syslog service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: ingress-controller
+  name: im-syslog
+  labels:
+    app: im
+    tier: im-syslog
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: im
+      tier: im-syslog
+  template:
+    metadata:
+      labels:
+        name: im-syslog
+        app: im
+        tier: im-syslog
+    spec:
+      nodeSelector:
+        role: wn
+      containers:
+        - name: im-syslog
+          image: grycap/rsyslog-im
+          ports:
+          - containerPort: 514
+            protocol: TCP
+            name: syslogtcp
+          - containerPort: 514
+            protocol: UDP
+            name: syslog
+          volumeMounts:
+           - name: im-logs
+             mountPath: /var/log
+      volumes:
+        - name: im-logs
+          persistentVolumeClaim:
+            claimName: imlog
+# And the service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: ingress-controller
+  name: im-log
+  labels:
+    app: im
+spec:
+  ports:
+  - port: 514
+    protocol: TCP
+    targetPort: 514
+    name: logtcp
+  - port: 514
+    protocol: UDP
+    targetPort: 514
+    name: logudp
+  selector:
+    name: im-log
 # ConfigMap of the haproxy-ingress see: https://github.com/jcmoraisjr/haproxy-ingress#configmap
 ---
 apiVersion: v1
