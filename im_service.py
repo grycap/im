@@ -200,7 +200,9 @@ def launch_daemon():
     """
     Launch the IM daemon
     """
-    InfrastructureList.init_table()
+    if not InfrastructureList.init_table():
+        print("Error connecting with the DB!!.")
+        sys.exit(2)
 
     if Config.XMLRCP_SSL:
         # if specified launch the secure version
