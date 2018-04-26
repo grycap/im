@@ -148,10 +148,11 @@ class InfrastructureList():
         db = DataBase(Config.DATA_DB)
         if db.connect():
             if not db.table_exists("inf_list"):
+                InfrastructureList.logger.debug("Creating the IM database!.")
                 db.execute("CREATE TABLE inf_list(id VARCHAR(255) PRIMARY KEY, deleted INTEGER,"
                            " date TIMESTAMP, data LONGBLOB)")
                 db.close()
-                return True
+            return True
         else:
             InfrastructureList.logger.error("ERROR connecting with the database!.")
 
