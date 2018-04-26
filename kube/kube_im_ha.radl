@@ -121,6 +121,21 @@ configure front (
         retries: 5
         delay: 5
 
+      - name: Create logrotate file
+        copy:
+          dest: /etc/logrotate.d/imlog
+          content: |
+               /pv/log/messages
+               {
+                       rotate 365
+                       daily
+                       missingok
+                       notifempty
+                       compress
+                       copytruncate
+                       endscript
+               }
+
 @end
 )
 

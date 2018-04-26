@@ -367,7 +367,7 @@ spec:
         role: wn
       containers:
         - name: im-log
-          image: grycap/rsyslog-im
+          image: voxxit/rsyslog
           ports:
           - containerPort: 514
             protocol: TCP

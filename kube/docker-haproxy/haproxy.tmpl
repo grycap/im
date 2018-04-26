@@ -30,6 +30,8 @@ listen stats
 frontend http-frontend
         bind *:80
         bind *:443 ssl crt /etc/im/server.pem
+        redirect scheme https if !{ ssl_fc }
+        reqadd X-Forwarded-Proto:\ https
         default_backend imbackend
 
 backend imbackend
