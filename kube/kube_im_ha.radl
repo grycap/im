@@ -53,10 +53,30 @@ configure front (
       file: path=/pv/mysql state=directory mode=777
     - name: Create dir for the NFS PV IM dir
       file: path=/pv/im state=directory mode=777
+    - name: Create dir for the NFS PV Log dir
+      file: path=/pv/log state=directory mode=777
     - name: Download im logging.conf
       get_url: url=http://raw.githubusercontent.com/grycap/im/master_1_6_X/etc/logging.conf dest=/pv/im/logging.conf
     - name: Download im logging.conf
       get_url: url=https://raw.githubusercontent.com/grycap/im/master_1_6_X/etc/im.cfg dest=/pv/im/im.cfg
+    - name: Set log data
+      ini_file:
+        path: /pv/im/logging.conf
+        section: handler_fileHandler
+        option: class
+        value: "logging.handlers.SysLogHandler"
+    - name: Set log data
+      ini_file:
+        path: /pv/im/logging.conf
+        section: handler_fileHandler
+        option: args
+        value: "(('im-log', 514),)"
+    - name: Set log data
+      ini_file:
+        path: /pv/im/logging.conf
+        section: formatter_simpleFormatter
+        option: format
+        value: '%(asctime)s - %(hostname)s - %(name)s - %(levelname)s - %(message)s'
     - name: Create auth file dir
       file: path=/etc/kubernetes/pki state=directory mode=755 recurse=yes
     - name: Create auth data file with an admin user
@@ -67,20 +87,28 @@ configure front (
       nfs_mode: 'front'
       nfs_exports: [{path: "/pv", export: "wn-*.localdomain(fsid=0,rw,async,no_root_squash,no_subtree_check,insecure)"},
                     {path: "/pv/mysql", export: "wn-*.localdomain(rw,async,no_root_squash,no_subtree_check,insecure)"},
-                    {path: "/pv/im", export: "wn-*.localdomain(rw,async,no_root_squash,no_subtree_check,insecure)"}]
+                    {path: "/pv/im", export: "wn-*.localdomain(rw,async,no_root_squash,no_subtree_check,insecure)"},
+                    {path: "/pv/log", export: "wn-*.localdomain(rw,async,no_root_squash,no_subtree_check,insecure)"}]
 
     - role: 'grycap.kubernetes'
       kube_server: 'kubeserver'
       kube_apiserver_options: [{option: "--insecure-port", value: "8080"}, {option: "--token-auth-file", value: "/etc/kubernetes/pki/auth"}]
       
    tasks:
+      - name: Generate a Private Key for HAProxy
+        openssl_privatekey:
+          path: /pv/im/server.key
+      - name: Generate a CSR for HAProxy
+        openssl_csr:
+          path: /pv/im/server.csr
+          privatekey_path: /pv/im/server.key
+          common_name: "{{ansible_fqdn}}"
       - name: Generate a Self Signed OpenSSL certificate for HAProxy
         openssl_certificate:
           path: /pv/im/server.crt
           privatekey_path: /pv/im/server.key
           csr_path: /pv/im/server.csr
           provider: selfsigned
-
       - name: Merge it in one single file for HAProxy
         shell: cat /pv/im/server.crt /pv/im/server.key > /pv/im/server.pem creates=/pv/im/server.pem
 

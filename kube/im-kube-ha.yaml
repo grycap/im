@@ -250,6 +250,8 @@ spec:
         app: im
         tier: im-mysql
     spec:
+      nodeSelector:
+        role: wn
       containers:
         - name: im-mysql
           image: mysql:5.6
@@ -344,27 +346,27 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   namespace: ingress-controller
-  name: im-syslog
+  name: im-log
   labels:
     app: im
-    tier: im-syslog
+    tier: im-log
 spec:
   replicas: 1
   selector:
     matchLabels:
       app: im
-      tier: im-syslog
+      tier: im-log
   template:
     metadata:
       labels:
-        name: im-syslog
+        name: im-log
         app: im
-        tier: im-syslog
+        tier: im-log
     spec:
       nodeSelector:
         role: wn
       containers:
-        - name: im-syslog
+        - name: im-log
           image: grycap/rsyslog-im
           ports:
           - containerPort: 514
