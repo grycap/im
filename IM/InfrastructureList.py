@@ -149,8 +149,12 @@ class InfrastructureList():
         if db.connect():
             if not db.table_exists("inf_list"):
                 InfrastructureList.logger.debug("Creating the IM database!.")
-                db.execute("CREATE TABLE inf_list(id VARCHAR(255) PRIMARY KEY, deleted INTEGER,"
-                           " date TIMESTAMP, data LONGBLOB)")
+                if db.db_type == DataBase.MYSQL:
+                    db.execute("CREATE TABLE test(rowid INTEGER NOT NULL AUTO_INCREMENT PRIMARY KEY,"
+                               " id VARCHAR(255) UNIQUE, deleted INTEGER,  date TIMESTAMP, data LONGBLOB)")
+                else:
+                    db.execute("CREATE TABLE inf_list(id VARCHAR(255) PRIMARY KEY, deleted INTEGER,"
+                               " date TIMESTAMP, data LONGBLOB)")
                 db.close()
             return True
         else:
