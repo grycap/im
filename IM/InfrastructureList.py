@@ -148,10 +148,15 @@ class InfrastructureList():
         db = DataBase(Config.DATA_DB)
         if db.connect():
             if not db.table_exists("inf_list"):
-                db.execute("CREATE TABLE inf_list(id VARCHAR(255) PRIMARY KEY, deleted INTEGER,"
-                           " date TIMESTAMP, data LONGBLOB)")
+                InfrastructureList.logger.debug("Creating the IM database!.")
+                if db.db_type == DataBase.MYSQL:
+                    db.execute("CREATE TABLE inf_list(rowid INTEGER NOT NULL AUTO_INCREMENT UNIQUE,"
+                               " id VARCHAR(255) PRIMARY KEY, deleted INTEGER, date TIMESTAMP, data LONGBLOB)")
+                else:
+                    db.execute("CREATE TABLE inf_list(id VARCHAR(255) PRIMARY KEY, deleted INTEGER,"
+                               " date TIMESTAMP, data LONGBLOB)")
                 db.close()
-                return True
+            return True
         else:
             InfrastructureList.logger.error("ERROR connecting with the database!.")
 
@@ -165,8 +170,6 @@ class InfrastructureList():
         If auth is specified only auth data will be loaded.
         """
         if InfrastructureList.init_table():
-            return {}
-        else:
             db = DataBase(db_url)
             if db.connect():
                 inf_list = {}
@@ -196,6 +199,9 @@ class InfrastructureList():
             else:
                 InfrastructureList.logger.error("ERROR connecting with the database!.")
                 return {}
+        else:
+            InfrastructureList.logger.error("ERROR connecting with the database!.")
+            return {}
 
     @staticmethod
     def _save_data_to_db(db_url, inf_list, inf_id=None):

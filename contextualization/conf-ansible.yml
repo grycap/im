@@ -95,8 +95,9 @@
 #    - name: Install Pip (alternative)
 #      shell: wget https://bootstrap.pypa.io/get-pip.py && python get-pip.py
 
+    # do not upgrade to 10 as it is failing
     - name: Upgrade pip
-      pip: name=pip extra_args="-I" state=latest
+      pip: name=pip extra_args="-I" version=9.0.3
 
     - name: Upgrade setuptools with Pip
       pip: name=setuptools state=latest
