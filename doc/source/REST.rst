@@ -18,8 +18,8 @@ Next tables summaries the resources and the HTTP methods available.
 | **GET**     | | **List** the infrastructure IDs. | | **List** the virtual machines    | | **Get** information associated to the   |
 |             |                                    | | in the infrastructure ``infId``  | | virtual machine ``vmId`` in ``infId``.  |
 +-------------+------------------------------------+------------------------------------+-------------------------------------------+
-| **POST**    | | **Create** a new infrastructure  | | **Create** a new virtual machine |                                           |
-|             | | based on the RADL posted         | | based on the RADL posted.        |                                           |
+| **POST**    | | **Create** a new infrastructure  | | **Create** a new virtual machine | | **Alter** VM properties based on        |
+|             | | based on the RADL posted         | | based on the RADL posted.        | | then RADL posted                        |
 +-------------+------------------------------------+------------------------------------+-------------------------------------------+
 | **PUT**     |                                    |                                    | | **Modify** the virtual machine based on |
 |             |                                    |                                    | | the RADL posted.                        |
@@ -233,9 +233,27 @@ GET ``http://imserver.com/infrastructures/<infId>/vms/<vmId>``
    The result is JSON format has the following format::
    
     {
-      ["radl"|"state"|"contmsg"]: "<property_value>"
+      "radl": "<radl_in_json>"
     }
-   
+
+POST ``http://imserver.com/infrastructures/<infId>/vms/<vmId>``
+   :body: ``RADL document``
+   :body Content-type: text/plain or application/json
+   :Response Content-type: text/plain or application/json
+   :ok response: 200 OK
+   :fail response: 401, 403, 404, 400, 415
+
+   Change the features of the virtual machine with ID ``vmId`` in the
+   infrastructure with with ID ``infId``, specified by the RADL ``radl``.
+   Return then information about the nodified virtual machine. The returned string is in RADL format,
+   either in plain RADL or in JSON formats.
+   See more the details of the output in :ref:`GetVMInfo <GetVMInfo-xmlrpc>`.
+   The result is JSON format has the following format::
+ 
+    {
+      "radl": "<radl_in_json>"
+    }
+
 GET ``http://imserver.com/infrastructures/<infId>/vms/<vmId>/<property_name>``
    :Response Content-type: text/plain or application/json
    :ok response: 200 OK
