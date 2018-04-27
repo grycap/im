@@ -266,6 +266,11 @@ spec:
           volumeMounts:
            - name: im-mysql-db
              mountPath: /var/lib/mysql
+          livenessProbe:
+            tcpSocket:
+              port: 3306
+            initialDelaySeconds: 20
+            periodSeconds: 20
       volumes:
         - name: im-mysql-db
           persistentVolumeClaim:
@@ -321,8 +326,8 @@ spec:
           httpGet:
             path: /version
             port: 8800
-          initialDelaySeconds: 10
-          periodSeconds: 10
+          initialDelaySeconds: 20
+          periodSeconds: 20
       volumes:
         - name: imetc
           persistentVolumeClaim:
@@ -431,6 +436,8 @@ spec:
         run: haproxy-ingress
     spec:
       serviceAccountName: im-ingress-controller
+      nodeSelector:
+        role: ingress-controller
       containers:
       - name: haproxy-ingress
         image: grycap/haproxy-ingress-im
@@ -457,6 +464,11 @@ spec:
         volumeMounts:
            - name: imetc
              mountPath: /etc/im
+        livenessProbe:
+          tcpSocket:
+            port: 443
+          initialDelaySeconds: 20
+          periodSeconds: 20
       volumes:
         - name: imetc
           persistentVolumeClaim:
