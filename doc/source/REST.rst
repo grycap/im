@@ -21,8 +21,8 @@ Next tables summaries the resources and the HTTP methods available.
 | **POST**    | | **Create** a new infrastructure  | | **Create** a new virtual machine | | **Alter** VM properties based on        |
 |             | | based on the RADL posted         | | based on the RADL posted.        | | then RADL posted                        |
 +-------------+------------------------------------+------------------------------------+-------------------------------------------+
-| **PUT**     |                                    |                                    | | **Modify** the virtual machine based on |
-|             |                                    |                                    | | the RADL posted.                        |
+| **PUT**     |                                    | | **Import** an infrastructure     | | **Modify** the virtual machine based on |
+|             |                                    | | from another IM instance         | | the RADL posted.                        |
 +-------------+------------------------------------+------------------------------------+-------------------------------------------+
 | **DELETE**  |                                    | | **Undeploy** all the virtual     | | **Undeploy** the virtual machine.       |
 |             |                                    | | machines in the infrastructure.  |                                           |
@@ -39,8 +39,8 @@ Next tables summaries the resources and the HTTP methods available.
 +=============+=====================================================+====================================================+
 | **GET**     | | **Get** the specified property ``property_name``  | | **Get** the specified property ``property_name`` |
 |             | | associated to the machine ``vmId`` in ``infId``.  | | associated to the infrastructure ``infId``.      |
-|             | | It has one special property: ``contmsg``.         | | It has three properties: ``contmsg``, ``radl``,  |
-|             |                                                     | | ``state`` and ``outputs``.                       |
+|             | | It has one special property: ``contmsg``.         | | It has five properties: ``contmsg``, ``radl``,   |
+|             |                                                     | | ``state``, ``outputs`` and ``data``.             |
 +-------------+-----------------------------------------------------+----------------------------------------------------+
 
 +-------------+-----------------------------------------------+------------------------------------------------+
@@ -104,6 +104,23 @@ POST ``http://imserver.com/infrastructures``
       "uri" : "http://server.com:8800/infrastructures/inf_id
     }
 
+PUT ``http://imserver.com/infrastructures``
+   :body: ``JSON data of the infrastructure``
+   :body Content-type: application/json
+   :Response Content-type: text/uri-list
+   :ok response: 200 OK
+   :fail response: 401, 400, 415
+
+   Take control of the infrastructure serialized in in the body and return
+   the ID associated in the server. (See GET /infrastructures/<infId>/data).
+   
+   If success, it is returned the URI of the new infrastructure.  
+   The result is JSON format has the following format::
+
+    {
+      "uri" : "http://server.com:8800/infrastructures/inf_id
+    }
+
 GET ``http://imserver.com/infrastructures/<infId>``
    :Response Content-type: text/uri-list or application/json
    :ok response: 200 OK
@@ -122,7 +139,7 @@ GET ``http://imserver.com/infrastructures/<infId>``
 GET ``http://imserver.com/infrastructures/<infId>/<property_name>``
    :Response Content-type: text/plain or application/json
    :ok response: 200 OK
-   :input fields: ``headeronly`` (optional)
+   :input fields: ``headeronly`` (optional), ``delete`` (optional)
    :fail response: 401, 404, 400, 403
 
    Return property ``property_name`` associated to the infrastructure with ID ``infId``. It has three properties:
@@ -131,6 +148,9 @@ GET ``http://imserver.com/infrastructures/<infId>/<property_name>``
                     'true' or '1' only the initial part of the infrastructure contextualization log will be
                     returned (without any VM contextualization log).
       :``radl``: a string with the original specified RADL of the infrastructure. 
+      :``data``: a string with the JSOMN serialized data of the infrastructure. In case of ``delete`` flag is set to 'yes',
+                 'true' or '1' the data not only will be exported but also the infrastructure will be set deleted
+                 (the virtual infrastructure will not be modified).
       :``state``: a JSON object with two elements:
       
          :``state``: a string with the aggregated state of the infrastructure. 
@@ -139,7 +159,7 @@ GET ``http://imserver.com/infrastructures/<infId>/<property_name>``
    The result is JSON format has the following format::
    
     {
-      ["radl"|"state"|"contmsg"|"outputs"]: <property_value>
+      ["radl"|"state"|"contmsg"|"outputs"|"data"]: <property_value>
     }
 
 POST ``http://imserver.com/infrastructures/<infId>``
