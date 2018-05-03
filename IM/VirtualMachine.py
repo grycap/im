@@ -577,10 +577,27 @@ class VirtualMachine:
                 self.info.networks.append(public_net)
                 num_net = self.getNumNetworkIfaces()
 
-            for public_ip in public_ips:
-                if public_ip not in private_ips:
-                    vm_system.setValue('net_interface.%s.ip' % num_net, str(public_ip))
-                    vm_system.setValue('net_interface.%s.connection' % num_net, public_net.id)
+            real_public_ips = [public_ip for public_ip in public_ips if public_ip not in private_ips]
+            if len(real_public_ips) > 1:
+                self.logger.warn("Node with more that one public IP!")
+                self.logger.debug(real_public_ips)
+                if len(real_public_ips) == 2:
+                    ip1 = IPAddress(real_public_ips[0])
+                    ip2 = IPAddress(real_public_ips[1])
+                    if ip1.version != ip2.version:
+                        self.logger.info("It seems that there are one IPv4 and other IPv6. Get the IPv4 one.")
+                        if ip1.version == 4:
+                            real_public_ips = [real_public_ips[0]]
+                        else:
+                            real_public_ips = [real_public_ips[1]]
+                    else:
+                        self.logger.info("It seems that both are from the same version Last one will be used")
+                else:
+                    self.logger.info("It seems that there are more that 2 Last one will be used")
+
+            for public_ip in real_public_ips:
+                vm_system.setValue('net_interface.%s.ip' % num_net, str(public_ip))
+                vm_system.setValue('net_interface.%s.connection' % num_net, public_net.id)
 
         if private_ips:
             private_net_map = {}
