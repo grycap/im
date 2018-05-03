@@ -46,7 +46,10 @@ class InfrastructureList():
         """Add a new Infrastructure."""
 
         with InfrastructureList._lock:
-            InfrastructureList.infrastructure_list[inf.id] = inf
+            if inf.id in InfrastructureList.infrastructure_list:
+                raise Exception("Trying to add an existing infrastructure ID.")
+            else:
+                InfrastructureList.infrastructure_list[inf.id] = inf
 
     @staticmethod
     def remove_inf(del_inf):
