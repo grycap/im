@@ -234,8 +234,8 @@ class TestOSTConnector(unittest.TestCase):
         node = MagicMock()
         node.id = "1"
         node.state = "running"
-        node.extra = {'flavorId': 'small', 'addresses': {'os-lan': [{'addr': '10.0.0.1',
-                                                                     'OS-EXT-IPS:type': 'fixed'}]}}
+        node.extra = {'flavorId': 'small',
+                      'addresses': {'os-lan': [{'addr': '10.0.0.1', 'OS-EXT-IPS:type': 'fixed'}]}}
         node.public_ips = []
         node.private_ips = ['10.0.0.1']
         node.driver = driver
@@ -268,7 +268,7 @@ class TestOSTConnector(unittest.TestCase):
         self.assertEquals(vm.info.systems[0].getValue("net_interface.1.ip"), "10.0.0.1")
 
         # In this case the Node has the float ip assigned
-        node.public_ips = ['8.8.8.8']
+        # node.public_ips = ['8.8.8.8']
         floating_ip.node_id = node.id
         pool.list_floating_ips.return_value = [floating_ip]
         driver.ex_list_floating_ip_pools.return_value = [pool]
@@ -286,6 +286,20 @@ class TestOSTConnector(unittest.TestCase):
         self.assertEquals(vm.info.systems[0].getValue("net_interface.0.ip"), "8.8.8.8")
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
+
+        # the node has a IPv6 IP
+        node = MagicMock()
+        node.id = "2"
+        node.state = "running"
+        node.extra = {'flavorId': 'small'}
+        node.public_ips = ['8.8.8.8', '2001:630:12:581:f816:3eff:fe92:2146']
+        node.private_ips = ['10.0.0.1']
+        node.driver = driver
+        driver.ex_get_node_details.return_value = node
+
+        success, vm = ost_cloud.updateVMInfo(vm, auth)
+        self.assertTrue(success, msg="ERROR: updating VM info.")
+        self.assertEquals(vm.info.systems[0].getValue("net_interface.0.ip"), "8.8.8.8")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
