@@ -387,6 +387,23 @@ def RESTGetInfrastructureProperty(infid=None, prop=None):
                 bottle.abort(
                     403, "'outputs' infrastructure property is not valid in this infrastructure")
             return format_output(res, default_type="application/json", field_name="outputs")
+        elif prop == "data":
+            accept = get_media_type('Accept')
+            if accept and "application/json" not in accept and "*/*" not in accept and "application/*" not in accept:
+                return return_error(415, "Unsupported Accept Media Types: %s" % accept)
+
+            delete = False
+            if "delete" in bottle.request.params.keys():
+                str_delete = bottle.request.params.get("delete").lower()
+                if str_delete in ['yes', 'true', '1']:
+                    delete = True
+                elif str_delete in ['no', 'false', '0']:
+                    delete = False
+                else:
+                    return return_error(400, "Incorrect value in delete parameter")
+
+            data = InfrastructureManager.ExportInfrastructure(infid, delete, auth)
+            return format_output(data, default_type="application/json", field_name="data")
         else:
             return return_error(404, "Incorrect infrastructure property")
 
@@ -474,6 +491,35 @@ def RESTCreateInfrastructure():
     except Exception as ex:
         logger.exception("Error Creating Inf.")
         return return_error(400, "Error Creating Inf.: " + str(ex))
+
+
+@app.route('/infrastructures', method='PUT')
+def RESTImportInfrastructure():
+    try:
+        auth = get_auth_header()
+    except:
+        return return_error(401, "No authentication data provided")
+
+    try:
+        content_type = get_media_type('Content-Type')
+        data = bottle.request.body.read().decode("utf-8")
+
+        if content_type:
+            if "application/json" not in content_type:
+                return return_error(415, "Unsupported Media Type %s" % content_type)
+
+        new_id = InfrastructureManager.ImportInfrastructure(data, auth)
+
+        bottle.response.headers['InfID'] = new_id
+        bottle.response.content_type = "text/uri-list"
+        res = get_full_url('/infrastructures/%s' % new_id)
+
+        return format_output(res, "text/uri-list", "uri")
+    except InvaliddUserException as ex:
+        return return_error(401, "Error Impporting Inf.: " + str(ex))
+    except Exception as ex:
+        logger.exception("Error Impporting Inf.")
+        return return_error(400, "Error Impporting Inf.: " + str(ex))
 
 
 @app.route('/infrastructures/:infid/vms/:vmid', method='GET')

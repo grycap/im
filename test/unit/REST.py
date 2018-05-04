@@ -51,6 +51,7 @@ from IM.REST import (RESTDestroyInfrastructure,
                      RESTStopVM,
                      RESTGeVersion,
                      RESTCreateDiskSnapshot,
+                     RESTImportInfrastructure,
                      return_error,
                      format_output)
 
@@ -701,6 +702,35 @@ class TestREST(unittest.TestCase):
         CreateDiskSnapshot.side_effect = IncorrectVMException()
         res = RESTCreateDiskSnapshot("1", "1", 0)
         self.assertEqual(res, "Error creating snapshot: Invalid VM ID")
+
+    @patch("IM.InfrastructureManager.InfrastructureManager.ExportInfrastructure")
+    @patch("bottle.request")
+    def test_ExportInfrastructure(self, bottle_request, ExportInfrastructure):
+        """Test REST StopInfrastructure."""
+        bottle_request.return_value = MagicMock()
+        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
+                                                    "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
+                                                    "username = user; password = pass")}
+
+        ExportInfrastructure.return_value = "strinf"
+
+        res = RESTGetInfrastructureProperty("1", "data")
+        self.assertEqual(res, '{"data": "strinf"}')
+
+    @patch("IM.InfrastructureManager.InfrastructureManager.ImportInfrastructure")
+    @patch("bottle.request")
+    def test_ImportInfrastructure(self, bottle_request, ImportInfrastructure):
+        """Test REST StopInfrastructure."""
+        bottle_request.return_value = MagicMock()
+        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
+                                                    "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
+                                                    "username = user; password = pass")}
+        bottle_request.environ = {'HTTP_HOST': 'imserver.com'}
+
+        ImportInfrastructure.return_value = "newid"
+
+        res = RESTImportInfrastructure()
+        self.assertEqual(res, "http://imserver.com/infrastructures/newid")
 
     @patch("IM.REST.get_media_type")
     def test_return_error(self, get_media_type):

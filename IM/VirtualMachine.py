@@ -577,10 +577,36 @@ class VirtualMachine:
                 self.info.networks.append(public_net)
                 num_net = self.getNumNetworkIfaces()
 
-            for public_ip in public_ips:
-                if public_ip not in private_ips:
-                    vm_system.setValue('net_interface.%s.ip' % num_net, str(public_ip))
-                    vm_system.setValue('net_interface.%s.connection' % num_net, public_net.id)
+            real_public_ips = [public_ip for public_ip in public_ips if public_ip not in private_ips]
+            if real_public_ips:
+                vm_system.setValue('net_interface.%s.connection' % num_net, public_net.id)
+                if len(real_public_ips) > 1:
+                    self.logger.warn("Node with more that one public IP!")
+                    self.logger.debug(real_public_ips)
+                    if len(real_public_ips) == 2:
+                        ip1 = IPAddress(real_public_ips[0])
+                        ip2 = IPAddress(real_public_ips[1])
+                        if ip1.version != ip2.version:
+                            self.logger.info("It seems that there are one IPv4 and other IPv6. Get the IPv4 one.")
+                            if ip1.version == 4:
+                                vm_system.setValue('net_interface.%s.ip' % num_net, str(real_public_ips[0]))
+                                vm_system.setValue('net_interface.%s.ipv6' % num_net, str(real_public_ips[1]))
+                            else:
+                                vm_system.setValue('net_interface.%s.ip' % num_net, str(real_public_ips[1]))
+                                vm_system.setValue('net_interface.%s.ipv6' % num_net, str(real_public_ips[0]))
+                        else:
+                            self.logger.info("It seems that both are from the same version first one will be used")
+                            vm_system.setValue('net_interface.%s.ip' % num_net, str(real_public_ips[0]))
+                    else:
+                        self.logger.info("It seems that there are more that 2 last ones will be used")
+                        for ip in real_public_ips:
+                            if IPAddress(ip).version == 4:
+                                vm_system.setValue('net_interface.%s.ip' % num_net, str(ip))
+                            else:
+                                vm_system.setValue('net_interface.%s.ipv6' % num_net, str(ip))
+                else:
+                    # The usual case
+                    vm_system.setValue('net_interface.%s.ip' % num_net, str(real_public_ips[0]))
 
         if private_ips:
             private_net_map = {}

@@ -474,7 +474,7 @@ class TestIM(unittest.TestCase):
         Test ExportInfrastructure and ImportInfrastructure functions
         """
         (success, res) = self.server.ExportInfrastructure(
-            self.inf_id, False, self.auth_data)
+            self.inf_id, True, self.auth_data)
         self.assertTrue(
             success, msg="ERROR calling ExportInfrastructure: " + str(res))
 
