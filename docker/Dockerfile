@@ -22,10 +22,8 @@ RUN apt-get update && apt-get install --no-install-recommends -y gcc libmysqld-d
      apt-get purge -y gcc libmysqld-dev libssl-dev libffi-dev libsqlite3-dev python-dev python-pip && \
      apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && rm -rf ~/.cache/
 
-# Remove pip requests and force python-requests to be installed to avoid SSL ca errors
-RUN pip uninstall -y requests
-RUN apt-get update && apt-get install --no-install-recommends -y python-requests && \
-    apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && rm -rf ~/.cache/
+# Force requests to be version 2.11.1 to avoid SSL ca errors with proxy files
+RUN pip install requests==2.11.1
 
 # Copy a ansible.cfg with correct minimum values
 COPY ansible.cfg /etc/ansible/ansible.cfg
