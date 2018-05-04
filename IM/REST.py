@@ -510,7 +510,6 @@ def RESTImportInfrastructure():
 
         new_id = InfrastructureManager.ImportInfrastructure(data, auth)
 
-        bottle.response.headers['InfID'] = new_id
         bottle.response.content_type = "text/uri-list"
         res = get_full_url('/infrastructures/%s' % new_id)
 
