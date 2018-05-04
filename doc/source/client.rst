@@ -8,23 +8,28 @@ Prerequisites
 
 The :program:`im_client` needs at least Python 2.4 to run.
 
+It is also required to install the RADL parser (`https://github.com/grycap/radl <https://github.com/grycap/radl>`_), 
+available in pip as the 'RADL' package. It is also required the Python Requests library (`http://docs.python-requests.org/ <http://docs.python-requests.org/>`_) 
+available as 'python-requests' in O.S. packages or 'requests' in pip.
+
 Invocation
 ----------
 
 The :program:`im_client` is called like this::
 
-   $ im_client.py [-u|--xmlrpc-url url] [-a|--auth_file filename] operation op_parameters
+   $ im_client.py [-u|--xmlrpc-url url] [-r|--rest-url url]  [-a|--auth_file filename] operation op_parameters
 
 .. program:: im_client
 
 .. option:: -u|--xmlrpc-url url
 
    URL to the XML-RPC service.
-   The default value is ``http://localhost:8888``.
+   This option or the ` -r` one must be specified.
+   
+.. option:: -r|--rest-url url
 
-   .. todo::
-
-      Change the default value of the port to XMLRCP_PORT.
+   URL to the REST API on the IM service.
+   This option or the ` -u` one must be specified.
 
 .. option:: -a|--auth_file filename
 
