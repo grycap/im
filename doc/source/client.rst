@@ -17,7 +17,7 @@ Invocation
 
 The :program:`im_client` is called like this::
 
-   $ im_client.py [-u|--xmlrpc-url url] [-r|--rest-url url]  [-a|--auth_file filename] operation op_parameters
+   $ im_client.py [-u|--xmlrpc-url <url>] [-r|--restapi-url <url>] [-v|--verify-ssl] [-a|--auth_file <filename>] operation op_parameters
 
 .. program:: im_client
 
@@ -30,6 +30,11 @@ The :program:`im_client` is called like this::
 
    URL to the REST API on the IM service.
    This option or the ` -u` one must be specified.
+
+.. option:: -v|--verify-ssl
+
+   Verify the certificates of the SSL connection.
+   The default value is `False`,
 
 .. option:: -a|--auth_file filename
 
