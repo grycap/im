@@ -401,6 +401,7 @@ IM 1.7.0:
     * Change the behaviour en case of VM launch failure.
     * Add TOSCA support for REST AlterVM function
     * Add TOSCA support from INDIGO fork
+    * Add export and import functions in REST API
     * Change in the DB schema in the case of MySQL DB. This command must be made
       in the current DB:
 			ALTER TABLE `inf_list` ADD COLUMN `rowid` INT AUTO_INCREMENT UNIQUE FIRST;
