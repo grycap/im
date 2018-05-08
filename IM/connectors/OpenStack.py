@@ -15,6 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import time
+import uuid
 from netaddr import IPNetwork, IPAddress
 import os.path
 import tempfile
@@ -188,8 +189,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             disk_free = radl.getFeature('disks.free_size').getValue('G')
             disk_free_op = radl.getFeature('disks.free_size').getLogOperator()
 
-        # get the node size with the lowest price, vcpus and memory
-        sizes.sort(key=lambda x: (x.price, x.vcpus, x.ram))
+        # get the node size with the lowest price, vcpus, memory and disk
+        sizes.sort(key=lambda x: (x.price, x.vcpus, x.ram, x.disk))
         for size in sizes:
             str_compare = "size.ram " + memory_op + " memory"
             str_compare += " and size.vcpus " + cpu_op + " cpu "
@@ -522,13 +523,12 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     args["auth"] = NodeAuthSSHKey(public_key)
 
         elif not system.getValue("disk.0.os.credentials.password"):
-            keypair_name = "im-%d" % int(time.time() * 100.0)
+            keypair_name = "im-%s" % str(uuid.uuid1())
             self.log_info("Create keypair: %s" % keypair_name)
             keypair = driver.create_key_pair(keypair_name)
             keypair_created = True
             public_key = keypair.public_key
-            system.setUserKeyCredentials(
-                system.getCredentials().username, None, keypair.private_key)
+            system.setUserKeyCredentials(system.getCredentials().username, None, keypair.private_key)
 
             if keypair.public_key and "ssh_key" in driver.features.get("create_node", []):
                 args["auth"] = NodeAuthSSHKey(keypair.public_key)
@@ -550,6 +550,10 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         if self.CONFIG_DRIVE:
             args['ex_config_drive'] = self.CONFIG_DRIVE
 
+        if system.getValue('availability_zone'):
+            self.log_debug("Setting availability_zone: %s" % system.getValue('availability_zone'))
+            args['ex_availability_zone'] = system.getValue('availability_zone')
+
         res = []
         i = 0
         all_failed = True
@@ -557,17 +561,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             self.log_info("Creating node")
 
             node = None
-            retries = 0
-            msg = ""
-            while not node and retries < Config.MAX_VM_FAILS:
-                retries += 1
-                msg += "Error creating the node (%d/%d): " % (retries, Config.MAX_VM_FAILS)
-                try:
-                    node = driver.create_node(**args)
-                except Exception as ex:
-                    msg += str(ex) + "\n"
-
-            if node:
+            try:
+                node = driver.create_node(**args)
                 vm = VirtualMachine(inf, node.id, self.cloud, radl, requested_radl, self.cloud.getCloudConnector(inf))
                 vm.info.systems[0].setValue('instance_id', str(node.id))
                 vm.info.systems[0].setValue('instance_name', str(node.name))
@@ -578,8 +573,9 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 all_failed = False
                 inf.add_vm(vm)
                 res.append((True, vm))
-            else:
-                res.append((False, msg))
+            except Exception as ex:
+                res.append((False, str(ex)))
+
             i += 1
 
         # if all the VMs have failed, remove the sgs and keypair
@@ -812,43 +808,19 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         return res
 
     def finalize(self, vm, last, auth_data):
-        node = self.get_node_with_id(vm.id, auth_data)
+        if vm.id:
+            node = self.get_node_with_id(vm.id, auth_data)
+        else:
+            self.log_warn("No VM ID. Ignoring")
+            node = None
 
         if node:
             success = node.destroy()
 
             try:
-                public_key = vm.getRequestedSystem().getValue('disk.0.os.credentials.public_key')
-                if (vm.keypair and public_key is None or len(public_key) == 0 or
-                        (len(public_key) >= 1 and public_key.find('-----BEGIN CERTIFICATE-----') != -1)):
-                    # only delete in case of the user do not specify the
-                    # keypair name
-                    keypair = node.driver.get_key_pair(vm.keypair)
-                    if keypair:
-                        node.driver.delete_key_pair(keypair)
-            except:
-                self.log_exception("Error deleting keypair.")
-
-            try:
                 self.delete_elastic_ips(node, vm)
             except:
                 self.log_exception("Error deleting elastic ips.")
-
-            try:
-                # Delete the EBS volumes
-                self.delete_volumes(node, vm)
-            except:
-                self.log_exception("Error deleting volumes.")
-
-            try:
-                # Delete the SG if this is the last VM
-                if last:
-                    self.delete_security_groups(node, vm.inf)
-                else:
-                    # If this is not the last vm, we skip this step
-                    self.log_info("There are active instances. Not removing the SG")
-            except:
-                self.log_exception("Error deleting security groups.")
 
             if not success:
                 return (False, "Error destroying node: " + vm.id)
@@ -857,11 +829,40 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         else:
             self.log_warn("VM " + str(vm.id) + " not found.")
 
+        driver = self.get_driver(auth_data)
+        try:
+            public_key = vm.getRequestedSystem().getValue('disk.0.os.credentials.public_key')
+            if (vm.keypair and public_key is None or len(public_key) == 0 or
+                    (len(public_key) >= 1 and public_key.find('-----BEGIN CERTIFICATE-----') != -1)):
+                # only delete in case of the user do not specify the
+                # keypair name
+                keypair = driver.get_key_pair(vm.keypair)
+                if keypair:
+                    driver.delete_key_pair(keypair)
+        except:
+            self.log_exception("Error deleting keypair.")
+
+        try:
+            # Delete the EBS volumes
+            self.delete_volumes(driver, vm)
+        except:
+            self.log_exception("Error deleting volumes.")
+
+        try:
+            # Delete the SG if this is the last VM
+            if last:
+                self.delete_security_groups(driver, vm.inf)
+            else:
+                # If this is not the last vm, we skip this step
+                self.log_info("There are active instances. Not removing the SG")
+        except:
+            self.log_exception("Error deleting security groups.")
+
         return (True, "")
 
-    def delete_security_groups(self, node, inf, timeout=90, delay=10):
+    def delete_security_groups(self, driver, inf, timeout=90, delay=10):
         """
-        Delete the SG of this node
+        Delete the SG of this inf
         """
         for net in inf.radl.networks:
             sg_name = "im-%s-%s" % (str(inf.id), net.id)
@@ -871,14 +872,14 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             deleted = False
             while not deleted and cont < timeout:
                 # Get the SG to delete
-                sg = self._get_security_group(node.driver, sg_name)
+                sg = self._get_security_group(driver, sg_name)
                 if not sg:
                     self.log_info("The SG %s does not exist. Do not delete it." % sg_name)
                     deleted = True
                 else:
                     try:
                         self.log_info("Deleting SG: %s" % sg_name)
-                        node.driver.ex_delete_security_group(sg)
+                        driver.ex_delete_security_group(sg)
                         deleted = True
                     except Exception as ex:
                         self.log_warn("Error deleting the SG: %s" % str(ex))

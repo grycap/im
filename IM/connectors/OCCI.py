@@ -63,8 +63,8 @@ class OCCICloudConnector(CloudConnector):
         self.keystone_token = None
         self.keystone_tenant = None
         self.keystone_project = None
-        if cloud_info.path == "/":
-            cloud_info.path = ""
+        if cloud_info.path.endswith("/"):
+            cloud_info.path = cloud_info.path[:-1]
         CloudConnector.__init__(self, cloud_info, inf)
 
     @staticmethod
@@ -472,7 +472,8 @@ class OCCICloudConnector(CloudConnector):
 
         for _, num_storage, device in self.get_attached_volumes_from_info(occi_res):
             cont = 1
-            while system.getValue("disk." + str(cont) + ".size") and device:
+            while (device and (system.getValue("disk." + str(cont) + ".image.url") or
+                               system.getValue("disk." + str(cont) + ".size"))):
                 if os.path.basename(num_storage) == system.getValue("disk." + str(cont) + ".provider_id"):
                     system.setValue("disk." + str(cont) + ".device", device)
                 cont += 1
@@ -578,32 +579,38 @@ class OCCICloudConnector(CloudConnector):
         """
         volumes = []
         cont = 1
-        while system.getValue("disk." + str(cont) + ".size"):
-            disk_size = system.getFeature(
-                "disk." + str(cont) + ".size").getValue('G')
+        while system.getValue("disk." + str(cont) + ".image.url") or system.getValue("disk." + str(cont) + ".size"):
+            disk_image = system.getValue("disk." + str(cont) + ".image.url")
             disk_device = system.getValue("disk." + str(cont) + ".device")
             if disk_device:
                 # get the last letter and use vd
                 disk_device = "vd" + disk_device[-1]
                 system.setValue("disk." + str(cont) + ".device", disk_device)
-            self.log_info("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
-            storage_name = "im-disk-%s" % str(uuid.uuid1())
-            success, volume_id = self.create_volume(int(disk_size), storage_name, auth_data)
-            if success:
-                self.log_info("Volume id %s sucessfully created." % volume_id)
-                volumes.append((disk_device, volume_id))
+            if disk_image:
+                volume_id = os.path.basename(uriparse(disk_image)[2])
+                volumes.append((False, disk_device, volume_id))
                 system.setValue("disk." + str(cont) + ".provider_id", volume_id)
-                # TODO: get the actual device_id from OCCI
-
-                # let's wait the storage to be ready "online"
-                wait_ok = self.wait_volume_state(volume_id, auth_data)
-                if not wait_ok:
-                    self.log_error("Error waiting volume %s. Deleting it." % volume_id)
-                    self.delete_volume(volume_id, auth_data)
-                    self.error_messages += "Error waiting volume: %s. Deleting it." % volume_id
+                self.log_info("User set a specific Volume id %s." % volume_id)
             else:
-                self.log_error("Error creating volume: %s" % volume_id)
-                self.error_messages += "Error creating volume: %s. Deleting it." % volume_id
+                disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('G')
+                self.log_info("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
+                storage_name = "im-disk-%s" % str(uuid.uuid1())
+                success, volume_id = self.create_volume(int(disk_size), storage_name, auth_data)
+                if success:
+                    self.log_info("Volume id %s sucessfully created." % volume_id)
+
+                    # let's wait the storage to be ready "online"
+                    wait_ok = self.wait_volume_state(volume_id, auth_data)
+                    if not wait_ok:
+                        self.log_error("Error waiting volume %s. Deleting it." % volume_id)
+                        self.delete_volume(volume_id, auth_data)
+                        self.error_messages += "Error waiting volume: %s. Deleting it." % volume_id
+                    else:
+                        volumes.append((True, disk_device, volume_id))
+                        system.setValue("disk." + str(cont) + ".provider_id", volume_id)
+                else:
+                    self.log_error("Error creating volume: %s" % volume_id)
+                    self.error_messages += "Error creating volume: %s. Deleting it." % volume_id
 
             cont += 1
 
@@ -838,16 +845,14 @@ class OCCICloudConnector(CloudConnector):
         # Parse the info to get the instance_type (resource_tpl) scheme
         instance_type_uri = None
         if system.getValue('instance_type'):
-            instance_type = self.get_instance_type_uri(
-                occi_info, system.getValue('instance_type'))
+            instance_type = self.get_instance_type_uri(occi_info, system.getValue('instance_type'))
             instance_type_uri = uriparse(instance_type)
             if not instance_type_uri[5]:
                 raise Exception("Error getting Instance type URI. Check that the instance_type specified is "
                                 "supported in the OCCI server.")
             else:
                 instance_name = instance_type_uri[5]
-                instance_scheme = instance_type_uri[
-                    0] + "://" + instance_type_uri[1] + instance_type_uri[2] + "#"
+                instance_scheme = instance_type_uri[0] + "://" + instance_type_uri[1] + instance_type_uri[2] + "#"
 
         while i < num_vm:
             volumes = []
@@ -888,7 +893,7 @@ class OCCICloudConnector(CloudConnector):
                     body += 'X-OCCI-Attribute: org.openstack.credentials.publickey.data="' + public_key + '"\n'
 
                 # Add volume links
-                for device, volume_id in volumes:
+                for _, device, volume_id in volumes:
                     link_id = "im.%s" % str(uuid.uuid1())
                     body += ('Link: <%s/storage/%s>;rel="http://schemas.ogf.org/occi/infrastructure#storage";'
                              'category="http://schemas.ogf.org/occi/infrastructure#storagelink";'
@@ -911,8 +916,9 @@ class OCCICloudConnector(CloudConnector):
                 # some servers return 201 and other 200
                 if resp.status_code != 201 and resp.status_code != 200:
                     res.append((False, resp.reason + "\n" + resp.text))
-                    for _, volume_id in volumes:
-                        self.delete_volume(volume_id, auth_data)
+                    for created, _, volume_id in volumes:
+                        if created:
+                            self.delete_volume(volume_id, auth_data)
                 else:
                     if 'location' in resp.headers:
                         occi_vm_id = os.path.basename(resp.headers['location'])
@@ -929,8 +935,9 @@ class OCCICloudConnector(CloudConnector):
             except Exception as ex:
                 self.log_exception("Error connecting with OCCI server")
                 res.append((False, "ERROR: " + str(ex)))
-                for _, volume_id in volumes:
-                    self.delete_volume(volume_id, auth_data)
+                for created, _, volume_id in volumes:
+                    if created:
+                        self.delete_volume(volume_id, auth_data)
 
             i += 1
 
@@ -939,10 +946,23 @@ class OCCICloudConnector(CloudConnector):
     def get_volume_ids_from_radl(self, system):
         volumes = []
         cont = 1
-        while system.getValue("disk." + str(cont) + ".size") and system.getValue("disk." + str(cont) + ".device"):
+        while system.getValue("disk." + str(cont) + ".image.url") or system.getValue("disk." + str(cont) + ".size"):
+            disk_image = system.getValue("disk." + str(cont) + ".image.url")
             provider_id = system.getValue("disk." + str(cont) + ".provider_id")
-            if provider_id:
+            if not disk_image and provider_id:
                 volumes.append(provider_id)
+            cont += 1
+
+        return volumes
+
+    def get_volume_not_delete(self, system):
+        volumes = []
+        cont = 1
+        while system.getValue("disk." + str(cont) + ".image.url") or system.getValue("disk." + str(cont) + ".size"):
+            disk_image = system.getValue("disk." + str(cont) + ".image.url")
+            if disk_image:
+                volume_id = uriparse(disk_image)[2]
+                volumes.append(volume_id)
             cont += 1
 
         return volumes
@@ -971,6 +991,10 @@ class OCCICloudConnector(CloudConnector):
             return (False, "Error deleting volumes " + str(ex))
 
     def finalize(self, vm, last, auth_data):
+        if not vm.id:
+            self.log_warn("No VM ID. Ignoring")
+            return True, "No VM ID. Ignoring"
+
         # First try to get the volumes
         get_vols_ok, volumes = self.get_attached_volumes(vm, auth_data)
         if not get_vols_ok:
@@ -992,10 +1016,14 @@ class OCCICloudConnector(CloudConnector):
             self.log_exception("Error connecting with OCCI server")
             return (False, "Error connecting with OCCI server")
 
+        vols_not_to_delete = self.get_volume_not_delete(vm.info.systems[0])
+
         # now delete the volumes
         if get_vols_ok:
             for _, storage_id, _ in volumes:
-                self.delete_volume(storage_id, auth_data)
+                storage_path = uriparse(storage_id)[2]
+                if storage_path not in vols_not_to_delete:
+                    self.delete_volume(storage_id, auth_data)
 
         # sometime we have created a volume that is not correctly attached to the vm
         # check the RADL of the VM to get them
@@ -1053,10 +1081,12 @@ class OCCICloudConnector(CloudConnector):
             orig_system = vm.info.systems[0]
 
             cont = 1
-            while orig_system.getValue("disk." + str(cont) + ".size"):
+            while (orig_system.getValue("disk." + str(cont) + ".image.url") or
+                   orig_system.getValue("disk." + str(cont) + ".size")):
                 cont += 1
 
             system = radl.systems[0]
+            # TODO: enable to attach an existing disk
             while system.getValue("disk." + str(cont) + ".size"):
                 disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('G')
                 disk_device = system.getValue("disk." + str(cont) + ".device")

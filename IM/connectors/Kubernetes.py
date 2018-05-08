@@ -157,18 +157,15 @@ class KubernetesCloudConnector(CloudConnector):
             resp = self.create_request('DELETE', uri, auth_data)
 
             if resp.status_code == 404:
-                self.log_warn(
-                    "Trying to remove a non existing PersistentVolumeClaim: " + vc_name)
+                self.log_warn("Trying to remove a non existing PersistentVolumeClaim: " + vc_name)
                 return True
             elif resp.status_code != 200:
-                self.log_error(
-                    "Error deleting the PersistentVolumeClaim: " + resp.txt)
+                self.log_error("Error deleting the PersistentVolumeClaim: " + resp.txt)
                 return False
             else:
                 return True
         except Exception:
-            self.log_exception(
-                "Error connecting with Kubernetes API server")
+            self.log_exception("Error connecting with Kubernetes API server")
             return False
 
     def _delete_volume_claims(self, pod_data, auth_data):
@@ -176,11 +173,9 @@ class KubernetesCloudConnector(CloudConnector):
             for volume in pod_data['spec']['volumes']:
                 if 'persistentVolumeClaim' in volume and 'claimName' in volume['persistentVolumeClaim']:
                     vc_name = volume['persistentVolumeClaim']['claimName']
-                    success = self._delete_volume_claim(
-                        pod_data["metadata"]["namespace"], vc_name, auth_data)
+                    success = self._delete_volume_claim(pod_data["metadata"]["namespace"], vc_name, auth_data)
                     if not success:
-                        self.log_error(
-                            "Error deleting PersistentVolumeClaim:" + vc_name)
+                        self.log_error("Error deleting PersistentVolumeClaim:" + vc_name)
 
     def _create_volume_claim(self, claim_data, auth_data):
         try:
@@ -210,12 +205,10 @@ class KubernetesCloudConnector(CloudConnector):
         while (system.getValue("disk." + str(cont) + ".size") and
                 system.getValue("disk." + str(cont) + ".mount_path") and
                 system.getValue("disk." + str(cont) + ".device")):
-            disk_mount_path = system.getValue(
-                "disk." + str(cont) + ".mount_path")
+            disk_mount_path = system.getValue("disk." + str(cont) + ".mount_path")
             # Use the device as volume host path to bind
             disk_device = system.getValue("disk." + str(cont) + ".device")
-            disk_size = system.getFeature(
-                "disk." + str(cont) + ".size").getValue('B')
+            disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('B')
             if not disk_mount_path.startswith('/'):
                 disk_mount_path = '/' + disk_mount_path
             if not disk_device.startswith('/'):
@@ -224,22 +217,18 @@ class KubernetesCloudConnector(CloudConnector):
             name = "%s-%d" % (pod_name, cont)
 
             if persistent:
-                claim_data = {'apiVersion': apiVersion,
-                              'kind': 'PersistentVolumeClaim'}
+                claim_data = {'apiVersion': apiVersion, 'kind': 'PersistentVolumeClaim'}
                 claim_data['metadata'] = {'name': name, 'namespace': namespace}
                 claim_data['spec'] = {'accessModes': ['ReadWriteOnce'], 'resources': {
                     'requests': {'storage': disk_size}}}
 
                 success = self._create_volume_claim(claim_data, auth_data)
                 if success:
-                    res.append((name, disk_device, disk_size,
-                                disk_mount_path, persistent))
+                    res.append((name, disk_device, disk_size, disk_mount_path, persistent))
                 else:
-                    self.log_error(
-                        "Error creating PersistentVolumeClaim:" + name)
+                    self.log_error("Error creating PersistentVolumeClaim:" + name)
             else:
-                res.append((name, disk_device, disk_size,
-                            disk_mount_path, persistent))
+                res.append((name, disk_device, disk_size, disk_mount_path, persistent))
 
             cont += 1
 
@@ -335,6 +324,7 @@ class KubernetesCloudConnector(CloudConnector):
         apiVersion = self.get_api_version(auth_data)
 
         res = []
+        # First create the namespace for the infrastructure
         namespace = inf.id
         headers = {'Content-Type': 'application/json'}
         uri = "/api/" + apiVersion + "/namespaces"
@@ -366,11 +356,10 @@ class KubernetesCloudConnector(CloudConnector):
                 # Do not use the Persistent volumes yet
                 volumes = self._create_volumes(apiVersion, namespace, system, pod_name, auth_data)
 
-                ssh_port = (KubernetesCloudConnector._port_base_num +
-                            KubernetesCloudConnector._port_counter) % 65535
+                ssh_port = (KubernetesCloudConnector._port_base_num + KubernetesCloudConnector._port_counter) % 65535
                 KubernetesCloudConnector._port_counter += 1
-                pod_data = self._generate_pod_data(
-                    apiVersion, namespace, pod_name, outports, system, ssh_port, volumes)
+                pod_data = self._generate_pod_data(apiVersion, namespace, pod_name, outports,
+                                                   system, ssh_port, volumes)
                 body = json.dumps(pod_data)
 
                 uri = "/api/" + apiVersion + "/namespaces/" + namespace + "/pods"
@@ -378,6 +367,10 @@ class KubernetesCloudConnector(CloudConnector):
 
                 if resp.status_code != 201:
                     res.append((False, "Error creating the Container: " + resp.text))
+                    try:
+                        self._delete_volume_claims(pod_data, auth_data)
+                    except:
+                        self.log_exception("Error deleting volumes.")
                 else:
                     output = json.loads(resp.text)
                     vm.id = output["metadata"]["name"]
@@ -453,17 +446,20 @@ class KubernetesCloudConnector(CloudConnector):
         vm.setIps(public_ips, private_ips)
 
     def finalize(self, vm, last, auth_data):
-        success, status, output = self._get_pod(vm, auth_data)
-        if success:
-            if status == 404:
-                self.log_warn(
-                    "Trying to remove a non existing POD id: " + vm.id)
-                return (True, vm.id)
-            else:
-                pod_data = json.loads(output)
-                self._delete_volume_claims(pod_data, auth_data)
+        if vm.id:
+            success, status, output = self._get_pod(vm, auth_data)
+            if success:
+                if status == 404:
+                    self.log_warn("Trying to remove a non existing POD id: %s" % vm.id)
+                    return (True, vm.id)
+                else:
+                    pod_data = json.loads(output)
+                    self._delete_volume_claims(pod_data, auth_data)
 
-        success = self._delete_pod(vm, auth_data)
+            success = self._delete_pod(vm, auth_data)
+        else:
+            self.log_warn("No VM ID. Ignoring")
+            success = True
 
         if last:
             self._delete_namespace(vm, auth_data)
@@ -490,16 +486,14 @@ class KubernetesCloudConnector(CloudConnector):
             resp = self.create_request('DELETE', uri, auth_data)
 
             if resp.status_code == 404:
-                self.log_warn(
-                    "Trying to remove a non existing POD id: " + pod_name)
+                self.log_warn("Trying to remove a non existing POD id: " + pod_name)
                 return (True, pod_name)
             elif resp.status_code != 200:
                 return (False, "Error deleting the POD: " + resp.text)
             else:
                 return (True, pod_name)
         except Exception:
-            self.log_exception(
-                "Error connecting with Kubernetes API server")
+            self.log_exception("Error connecting with Kubernetes API server")
             return (False, "Error connecting with Kubernetes API server")
 
     def stop(self, vm, auth_data):

@@ -142,6 +142,25 @@ def return_error(code, msg):
         return msg
 
 
+def get_full_url(path):
+    """
+    Get the full URL to be returned by the API calls
+    """
+    protocol = "http://"
+    if Config.REST_SSL:
+        protocol = "https://"
+
+    # if it is a forwarded call use the original protocol
+    if 'HTTP_X_FORWARDED_PROTO' in bottle.request.environ and bottle.request.environ['HTTP_X_FORWARDED_PROTO']:
+        protocol = bottle.request.environ['HTTP_X_FORWARDED_PROTO'] + "://"
+
+    # if it is a forwarded call add the original prefix
+    if 'HTTP_X_FORWARDED_PREFIX' in bottle.request.environ and bottle.request.environ['HTTP_X_FORWARDED_PREFIX']:
+        path = bottle.request.environ['HTTP_X_FORWARDED_PREFIX'].rstrip('/') + path
+
+    return protocol + bottle.request.environ['HTTP_HOST'] + path
+
+
 def stop():
     if bottle_server:
         bottle_server.shutdown()
@@ -160,7 +179,10 @@ def get_media_type(header):
             pos = media_type.find(";")
             if pos != -1:
                 media_type = media_type[:pos]
-            res.append(media_type.strip())
+            if media_type.strip() in ["text/yaml", "text/x-yaml"]:
+                res.append("text/yaml")
+            else:
+                res.append(media_type.strip())
 
     return res
 
@@ -308,12 +330,8 @@ def RESTGetInfrastructureInfo(infid=None):
         vm_ids = InfrastructureManager.GetInfrastructureInfo(infid, auth)
         res = []
 
-        protocol = "http://"
-        if Config.REST_SSL:
-            protocol = "https://"
         for vm_id in vm_ids:
-            res.append(protocol + bottle.request.environ[
-                       'HTTP_HOST'] + '/infrastructures/' + str(infid) + '/vms/' + str(vm_id))
+            res.append(get_full_url('/infrastructures/' + str(infid) + '/vms/' + str(vm_id)))
 
         return format_output(res, "text/uri-list", "uri-list", "uri")
     except DeletedInfrastructureException as ex:
@@ -369,6 +387,23 @@ def RESTGetInfrastructureProperty(infid=None, prop=None):
                 bottle.abort(
                     403, "'outputs' infrastructure property is not valid in this infrastructure")
             return format_output(res, default_type="application/json", field_name="outputs")
+        elif prop == "data":
+            accept = get_media_type('Accept')
+            if accept and "application/json" not in accept and "*/*" not in accept and "application/*" not in accept:
+                return return_error(415, "Unsupported Accept Media Types: %s" % accept)
+
+            delete = False
+            if "delete" in bottle.request.params.keys():
+                str_delete = bottle.request.params.get("delete").lower()
+                if str_delete in ['yes', 'true', '1']:
+                    delete = True
+                elif str_delete in ['no', 'false', '0']:
+                    delete = False
+                else:
+                    return return_error(400, "Incorrect value in delete parameter")
+
+            data = InfrastructureManager.ExportInfrastructure(infid, delete, auth)
+            return format_output(data, default_type="application/json", field_name="data")
         else:
             return return_error(404, "Incorrect infrastructure property")
 
@@ -395,12 +430,8 @@ def RESTGetInfrastructureList():
         inf_ids = InfrastructureManager.GetInfrastructureList(auth)
         res = []
 
-        protocol = "http://"
-        if Config.REST_SSL:
-            protocol = "https://"
         for inf_id in inf_ids:
-            res.append(
-                protocol + bottle.request.environ['HTTP_HOST'] + "/infrastructures/" + str(inf_id))
+            res.append(get_full_url('/infrastructures/%s' % inf_id))
 
         return format_output(res, "text/uri-list", "uri-list", "uri")
     except InvaliddUserException as ex:
@@ -422,6 +453,16 @@ def RESTCreateInfrastructure():
         radl_data = bottle.request.body.read().decode("utf-8")
         tosca_data = None
 
+        async_call = False
+        if "async" in bottle.request.params.keys():
+            str_ctxt = bottle.request.params.get("async").lower()
+            if str_ctxt in ['yes', 'true', '1']:
+                async_call = True
+            elif str_ctxt in ['no', 'false', '0']:
+                async_call = False
+            else:
+                return return_error(400, "Incorrect value in async parameter")
+
         if content_type:
             if "application/json" in content_type:
                 radl_data = parse_radl_json(radl_data)
@@ -433,7 +474,7 @@ def RESTCreateInfrastructure():
             else:
                 return return_error(415, "Unsupported Media Type %s" % content_type)
 
-        inf_id = InfrastructureManager.CreateInfrastructure(radl_data, auth)
+        inf_id = InfrastructureManager.CreateInfrastructure(radl_data, auth, async_call)
 
         # Store the TOSCA document
         if tosca_data:
@@ -442,13 +483,7 @@ def RESTCreateInfrastructure():
 
         bottle.response.headers['InfID'] = inf_id
         bottle.response.content_type = "text/uri-list"
-        protocol = "http://"
-        if Config.REST_SSL:
-            protocol = "https://"
-
-        res = protocol + \
-            bottle.request.environ['HTTP_HOST'] + \
-            "/infrastructures/" + str(inf_id)
+        res = get_full_url('/infrastructures/%s' % inf_id)
 
         return format_output(res, "text/uri-list", "uri")
     except InvaliddUserException as ex:
@@ -456,6 +491,34 @@ def RESTCreateInfrastructure():
     except Exception as ex:
         logger.exception("Error Creating Inf.")
         return return_error(400, "Error Creating Inf.: " + str(ex))
+
+
+@app.route('/infrastructures', method='PUT')
+def RESTImportInfrastructure():
+    try:
+        auth = get_auth_header()
+    except:
+        return return_error(401, "No authentication data provided")
+
+    try:
+        content_type = get_media_type('Content-Type')
+        data = bottle.request.body.read().decode("utf-8")
+
+        if content_type:
+            if "application/json" not in content_type:
+                return return_error(415, "Unsupported Media Type %s" % content_type)
+
+        new_id = InfrastructureManager.ImportInfrastructure(data, auth)
+
+        bottle.response.content_type = "text/uri-list"
+        res = get_full_url('/infrastructures/%s' % new_id)
+
+        return format_output(res, "text/uri-list", "uri")
+    except InvaliddUserException as ex:
+        return return_error(401, "Error Impporting Inf.: " + str(ex))
+    except Exception as ex:
+        logger.exception("Error Impporting Inf.")
+        return return_error(400, "Error Impporting Inf.: " + str(ex))
 
 
 @app.route('/infrastructures/:infid/vms/:vmid', method='GET')
@@ -564,13 +627,9 @@ def RESTAddResource(infid=None):
             sel_inf = InfrastructureManager.get_infrastructure(infid, auth)
             sel_inf.extra_info['TOSCA'] = tosca_data
 
-        protocol = "http://"
-        if Config.REST_SSL:
-            protocol = "https://"
         res = []
         for vm_id in vm_ids:
-            res.append(protocol + bottle.request.environ[
-                       'HTTP_HOST'] + "/infrastructures/" + str(infid) + "/vms/" + str(vm_id))
+            res.append(get_full_url("/infrastructures/" + str(infid) + "/vms/" + str(vm_id)))
 
         return format_output(res, "text/uri-list", "uri-list", "uri")
     except DeletedInfrastructureException as ex:
@@ -634,6 +693,9 @@ def RESTAlterVM(infid=None, vmid=None):
         if content_type:
             if "application/json" in content_type:
                 radl_data = parse_radl_json(radl_data)
+            elif "text/yaml" in content_type:
+                tosca_data = Tosca(radl_data)
+                _, radl_data = tosca_data.to_radl()
             elif "text/plain" in content_type or "*/*" in content_type or "text/*" in content_type:
                 content_type = "text/plain"
             else:

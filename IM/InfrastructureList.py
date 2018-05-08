@@ -46,7 +46,10 @@ class InfrastructureList():
         """Add a new Infrastructure."""
 
         with InfrastructureList._lock:
-            InfrastructureList.infrastructure_list[inf.id] = inf
+            if inf.id in InfrastructureList.infrastructure_list:
+                raise Exception("Trying to add an existing infrastructure ID.")
+            else:
+                InfrastructureList.infrastructure_list[inf.id] = inf
 
     @staticmethod
     def remove_inf(del_inf):
@@ -148,10 +151,15 @@ class InfrastructureList():
         db = DataBase(Config.DATA_DB)
         if db.connect():
             if not db.table_exists("inf_list"):
-                db.execute("CREATE TABLE inf_list(id VARCHAR(255) PRIMARY KEY, deleted INTEGER,"
-                           " date TIMESTAMP, data LONGBLOB)")
+                InfrastructureList.logger.debug("Creating the IM database!.")
+                if db.db_type == DataBase.MYSQL:
+                    db.execute("CREATE TABLE inf_list(rowid INTEGER NOT NULL AUTO_INCREMENT UNIQUE,"
+                               " id VARCHAR(255) PRIMARY KEY, deleted INTEGER, date TIMESTAMP, data LONGBLOB)")
+                else:
+                    db.execute("CREATE TABLE inf_list(id VARCHAR(255) PRIMARY KEY, deleted INTEGER,"
+                               " date TIMESTAMP, data LONGBLOB)")
                 db.close()
-                return True
+            return True
         else:
             InfrastructureList.logger.error("ERROR connecting with the database!.")
 
@@ -165,15 +173,13 @@ class InfrastructureList():
         If auth is specified only auth data will be loaded.
         """
         if InfrastructureList.init_table():
-            return {}
-        else:
             db = DataBase(db_url)
             if db.connect():
                 inf_list = {}
                 if inf_id:
-                    res = db.select("select * from inf_list where id = '%s'" % inf_id)
+                    res = db.select("select data from inf_list where id = '%s'" % inf_id)
                 else:
-                    res = db.select("select * from inf_list where deleted = 0 order by id desc")
+                    res = db.select("select data from inf_list where deleted = 0 order by id desc")
                 if len(res) > 0:
                     for elem in res:
                         # inf_id = elem[0]
@@ -181,9 +187,9 @@ class InfrastructureList():
                         # deleted = elem[2]
                         try:
                             if auth:
-                                inf = IM.InfrastructureInfo.InfrastructureInfo.deserialize_auth(elem[3])
+                                inf = IM.InfrastructureInfo.InfrastructureInfo.deserialize_auth(elem[0])
                             else:
-                                inf = IM.InfrastructureInfo.InfrastructureInfo.deserialize(elem[3])
+                                inf = IM.InfrastructureInfo.InfrastructureInfo.deserialize(elem[0])
                             inf_list[inf.id] = inf
                         except:
                             InfrastructureList.logger.exception(
@@ -196,6 +202,9 @@ class InfrastructureList():
             else:
                 InfrastructureList.logger.error("ERROR connecting with the database!.")
                 return {}
+        else:
+            InfrastructureList.logger.error("ERROR connecting with the database!.")
+            return {}
 
     @staticmethod
     def _save_data_to_db(db_url, inf_list, inf_id=None):
@@ -221,7 +230,7 @@ class InfrastructureList():
             db = DataBase(Config.DATA_DB)
             if db.connect():
                 inf_list = []
-                res = db.select("select id from inf_list where deleted = 0 order by id desc")
+                res = db.select("select id from inf_list where deleted = 0 order by rowid desc")
                 for elem in res:
                     inf_list.append(elem[0])
 

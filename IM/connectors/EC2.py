@@ -1225,30 +1225,35 @@ class EC2CloudConnector(CloudConnector):
             self.log_exception("Error deleting the spot instance request")
 
     def finalize(self, vm, last, auth_data):
-        region_name = vm.id.split(";")[0]
-        instance_id = vm.id.split(";")[1]
-
-        conn = self.get_connection(region_name, auth_data)
 
         # first delete the snapshots to avoid problems in EC3 deleting the IM front-end
         if last:
             self.delete_snapshots(vm, auth_data)
 
-        # Terminate the instance
-        volumes = []
-        instance = self.get_instance_by_id(instance_id, region_name, auth_data)
-        if (instance is not None):
-            instance.update()
-            # Get the volumnes to delete
-            for volume in instance.block_device_mapping.values():
-                volumes.append(volume.volume_id)
-            instance.terminate()
+        if vm.id:
+            region_name = vm.id.split(";")[0]
+            instance_id = vm.id.split(";")[1]
+
+            conn = self.get_connection(region_name, auth_data)
+
+            # Terminate the instance
+            volumes = []
+            instance = self.get_instance_by_id(instance_id, region_name, auth_data)
+            if instance is not None:
+                instance.update()
+                # Get the volumnes to delete
+                for volume in instance.block_device_mapping.values():
+                    volumes.append(volume.volume_id)
+                instance.terminate()
+        else:
+            self.log_info("VM with no ID. Ignore.")
 
         # Delete the SG if this is the last VM
-        try:
-            self.delete_security_groups(conn, vm)
-        except:
-            self.log_exception("Error deleting security group.")
+        if last:
+            try:
+                self.delete_security_groups(conn, vm)
+            except:
+                self.log_exception("Error deleting security group.")
 
         public_key = vm.getRequestedSystem().getValue('disk.0.os.credentials.public_key')
         if public_key is None or len(public_key) == 0 or (len(public_key) >= 1 and
@@ -1421,7 +1426,8 @@ class EC2CloudConnector(CloudConnector):
                     return (False, "Error stopping instance: " + instance_id)
 
         if success:
-            return (success, self.updateVMInfo(vm, auth_data))
+            _, vm = self.updateVMInfo(vm, auth_data)
+            return (success, vm)
         else:
             return (success, "Unknown Error")
 

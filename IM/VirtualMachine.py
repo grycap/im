@@ -85,6 +85,8 @@ class VirtualMachine:
         """CloudConnector object to connect with the IaaS platform"""
         self.creating = True
         """Flag to specify that this VM is creation process"""
+        self.error_msg = None
+        """Message with the cause of the the error in the VM (if known) """
 
     def serialize(self):
         with self._lock:
@@ -135,20 +137,34 @@ class VirtualMachine:
             self.cloud_connector = self.cloud.getCloudConnector(self.inf)
         return self.cloud_connector
 
-    def finalize(self, last, auth):
+    def delete(self, delete_list, auth, exceptions):
         """
-        Finalize the VM
+        Delete the VM
         """
-        if not self.destroy:
+        # In case of a VM is already destroyed
+        if self.destroy:
+            return (True, "")
+
+        # Select the last in the list to delete
+        remain_vms = [v for v in self.inf.get_vm_list() if v not in delete_list]
+        last = self.is_last_in_cloud(delete_list, remain_vms)
+        success = False
+        try:
+            VirtualMachine.logger.info("Inf ID: " + self.inf.id + ": Finalizing the VM id: " + str(self.id))
+
             self.kill_check_ctxt_process()
             (success, msg) = self.getCloudConnector().finalize(self, last, auth)
             if success:
                 self.destroy = True
             # force the update of the information
             self.last_update = 0
-            return (success, msg)
-        else:
-            return (True, "")
+        except Exception as e:
+            msg = str(e)
+
+        if not success:
+            VirtualMachine.logger.info("Inf ID: " + self.inf.id + ": The VM cannot be finalized: %s" % msg)
+            exceptions.append(msg)
+        return success
 
     def alter(self, radl, auth):
         """
@@ -393,7 +409,18 @@ class VirtualMachine:
 
         Returns: int with the port
         """
-        ssh_port = 22
+        ssh_port = self.getOutPort(22)
+        if not ssh_port:
+            ssh_port = 22
+        return ssh_port
+
+    def getOutPort(self, port, protocol="tcp"):
+        """
+        Get the port from the RADL
+
+        Returns: int with the port
+        """
+        res = None
 
         public_net = None
         for net in self.info.networks:
@@ -404,16 +431,22 @@ class VirtualMachine:
             outports = public_net.getOutPorts()
             if outports:
                 for outport in outports:
-                    if outport.get_local_port() == 22 and outport.get_protocol() == "tcp":
-                        ssh_port = outport.get_remote_port()
+                    if outport.get_local_port() == port and outport.get_protocol() == protocol:
+                        res = outport.get_remote_port()
 
-        return ssh_port
+        return res
 
     def setSSHPort(self, ssh_port):
         """
         Set the SSH port in the RADL info of this VM
         """
-        if ssh_port != self.getSSHPort():
+        self.setOutPort(22, ssh_port)
+
+    def setOutPort(self, local, remote, protocol="tcp"):
+        """
+        Set the port in the RADL info of this VM
+        """
+        if remote != self.getOutPort(local):
             now = str(int(time.time() * 100))
 
             public_net = None
@@ -426,17 +459,17 @@ class VirtualMachine:
                 public_net = network.createNetwork("public." + now, True)
                 self.info.networks.append(public_net)
 
-            outports_str = str(ssh_port) + "-22"
+            outports_str = "%d-%d" % (remote, local)
             outports = public_net.getOutPorts()
             if outports:
                 for outport in outports:
-                    if outport.get_local_port() != 22 and outport.get_protocol() != "tcp":
-                        if outport.get_protocol() != "tcp":
-                            outports_str += (str(outport.get_remote_port()) + "-" +
-                                             str(outport.get_local_port()))
+                    if outport.get_local_port() != local or outport.get_protocol() != protocol:
+                        if outport.get_protocol() == "tcp":
+                            outports_str += "," + (str(outport.get_remote_port()) + "-" +
+                                                   str(outport.get_local_port()))
                         else:
-                            outports_str += (str(outport.get_remote_port()) + "/udp" + "-" +
-                                             str(outport.get_local_port()) + "/udp")
+                            outports_str += "," + (str(outport.get_remote_port()) + "/udp" + "-" +
+                                                   str(outport.get_local_port()) + "/udp")
             public_net.setValue('outports', outports_str)
 
             # get the ID
@@ -459,6 +492,10 @@ class VirtualMachine:
         - boolean: True if the information has been updated, false otherwise
         """
         with self._lock:
+            # In case of a VM failed during creation, do not update
+            if self.state == VirtualMachine.FAILED and self.id is None:
+                return False
+
             now = int(time.time())
             state = self.state
             updated = False
@@ -540,10 +577,36 @@ class VirtualMachine:
                 self.info.networks.append(public_net)
                 num_net = self.getNumNetworkIfaces()
 
-            for public_ip in public_ips:
-                if public_ip not in private_ips:
-                    vm_system.setValue('net_interface.%s.ip' % num_net, str(public_ip))
-                    vm_system.setValue('net_interface.%s.connection' % num_net, public_net.id)
+            real_public_ips = [public_ip for public_ip in public_ips if public_ip not in private_ips]
+            if real_public_ips:
+                vm_system.setValue('net_interface.%s.connection' % num_net, public_net.id)
+                if len(real_public_ips) > 1:
+                    self.logger.warn("Node with more that one public IP!")
+                    self.logger.debug(real_public_ips)
+                    if len(real_public_ips) == 2:
+                        ip1 = IPAddress(real_public_ips[0])
+                        ip2 = IPAddress(real_public_ips[1])
+                        if ip1.version != ip2.version:
+                            self.logger.info("It seems that there are one IPv4 and other IPv6. Get the IPv4 one.")
+                            if ip1.version == 4:
+                                vm_system.setValue('net_interface.%s.ip' % num_net, str(real_public_ips[0]))
+                                vm_system.setValue('net_interface.%s.ipv6' % num_net, str(real_public_ips[1]))
+                            else:
+                                vm_system.setValue('net_interface.%s.ip' % num_net, str(real_public_ips[1]))
+                                vm_system.setValue('net_interface.%s.ipv6' % num_net, str(real_public_ips[0]))
+                        else:
+                            self.logger.info("It seems that both are from the same version first one will be used")
+                            vm_system.setValue('net_interface.%s.ip' % num_net, str(real_public_ips[0]))
+                    else:
+                        self.logger.info("It seems that there are more that 2 last ones will be used")
+                        for ip in real_public_ips:
+                            if IPAddress(ip).version == 4:
+                                vm_system.setValue('net_interface.%s.ip' % num_net, str(ip))
+                            else:
+                                vm_system.setValue('net_interface.%s.ipv6' % num_net, str(ip))
+                else:
+                    # The usual case
+                    vm_system.setValue('net_interface.%s.ip' % num_net, str(real_public_ips[0]))
 
         if private_ips:
             private_net_map = {}
@@ -643,13 +706,13 @@ class VirtualMachine:
 
                     # Try to get PGID to kill all child processes
                     pgkill_success = False
-                    (stdout, stderr, code) = ssh.execute('ps -o "%r" ' + str(int(self.ctxt_pid)), 10)
+                    (stdout, stderr, code) = ssh.execute('ps -o "%r" ' + str(int(self.ctxt_pid)), 5)
                     if code == 0:
                         out_parts = stdout.split("\n")
                         if len(out_parts) == 3:
                             try:
                                 pgid = int(out_parts[1])
-                                (stdout, stderr, code) = ssh.execute("kill -9 -" + str(pgid), 20)
+                                (stdout, stderr, code) = ssh.execute("kill -9 -" + str(pgid), 10)
 
                                 if code == 0:
                                     pgkill_success = True
@@ -667,7 +730,7 @@ class VirtualMachine:
                                        stderr + ". Using only PID.")
 
                     if not pgkill_success:
-                        ssh.execute("kill -9 " + str(int(self.ctxt_pid)), 10)
+                        ssh.execute("kill -9 " + str(int(self.ctxt_pid)), 5)
                 except:
                     self.log_exception("Error killing ctxt process with pid: " + str(self.ctxt_pid))
 
@@ -869,10 +932,32 @@ class VirtualMachine:
         return True
 
     def get_cont_msg(self):
-        res = self.cont_out
+        if self.error_msg:
+            res = self.error_msg + "\n" + self.cont_out
+        else:
+            res = self.cont_out
         if self.cloud_connector and self.cloud_connector.error_messages:
             res += self.cloud_connector.error_messages
         return res
+
+    def is_last_in_cloud(self, delete_list, remain_vms):
+        """
+        Check if this VM is the last in the cloud provider
+        to send the correct flag to the finalize function to clean
+        resources correctly
+        """
+        for v in remain_vms:
+            if v.cloud.type == self.cloud.type and v.cloud.server == self.cloud.server:
+                # There are at least one VM in the same cloud
+                # that will remain. This is not the last one
+                return False
+
+        # Get the list of VMs on the same cloud to be deleted
+        delete_list_cloud = [v for v in delete_list if (v.cloud.type == self.cloud.type and
+                                                        v.cloud.server == self.cloud.server)]
+
+        # And return true in the last of these VMs
+        return self == delete_list_cloud[-1]
 
     def log_msg(self, level, msg, exc_info=0):
         msg = "Inf ID: %s: %s" % (self.inf.id, msg)

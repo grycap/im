@@ -53,7 +53,8 @@ class TestOCCIConnector(unittest.TestCase):
     """
 
     def setUp(self):
-        self.last_op = None, None
+        self.call_count = {}
+        self.return_error = False
         self.log = StringIO()
         self.handler = logging.StreamHandler(self.log)
         formatter = logging.Formatter(
@@ -142,6 +143,12 @@ class TestOCCIConnector(unittest.TestCase):
         url = parts[2]
         params = parts[4]
 
+        if method not in self.call_count:
+            self.call_count[method] = {}
+        if url not in self.call_count[method]:
+            self.call_count[method][url] = 0
+        self.call_count[method][url] += 1
+
         if method == "GET":
             if url == "":
                 resp.status_code = 300
@@ -168,8 +175,13 @@ class TestOCCIConnector(unittest.TestCase):
                 resp.status_code = 404
         elif method == "POST":
             if url == "/compute/":
-                resp.status_code = 201
-                resp.text = 'https://server.com/compute/1'
+                if self.return_error:
+                    resp.status_code = 400
+                    resp.reason = 'Error msg'
+                    resp.text = ''
+                else:
+                    resp.status_code = 201
+                    resp.text = 'https://server.com/compute/1'
             elif params == "action=suspend":
                 resp.status_code = 204
             elif params == "action=start":
@@ -228,7 +240,8 @@ class TestOCCIConnector(unittest.TestCase):
             disk.0.os.credentials.username = 'user' and
             disk.1.size=1GB and
             disk.1.device='hdb' and
-            disk.1.mount_path='/mnt/path'
+            disk.1.mount_path='/mnt/path' and
+            disk.2.image.url = 'http://server.com/storage/2'
             )"""
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
@@ -243,6 +256,15 @@ class TestOCCIConnector(unittest.TestCase):
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
+        self.return_error = True
+        res = occi_cloud.launch(InfrastructureInfo(), radl, radl, 1, auth)
+        self.return_error = False
+        success, msg = res[0]
+        self.assertFalse(success)
+        self.assertEqual(msg, "Error msg\n")
+        self.assertEqual(self.call_count['DELETE']['/storage/1'], 1)
+        self.assertNotIn('/storage/2', self.call_count['DELETE'])
 
     @patch('requests.request')
     @patch('IM.connectors.OCCI.KeyStoneAuth.get_keystone_uri')

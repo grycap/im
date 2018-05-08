@@ -43,7 +43,7 @@ class TestServiceRequests(unittest.TestCase):
     def test_create(self, inflist):
         import IM.ServiceRequests
         req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.CREATE_INFRASTRUCTURE,
-                                                              ("", ""))
+                                                              ("", "", True))
         req._call_function()
 
     @patch('IM.InfrastructureManager.InfrastructureManager')

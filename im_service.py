@@ -119,9 +119,9 @@ def DestroyInfrastructure(inf_id, auth_data):
     return WaitRequest(request)
 
 
-def CreateInfrastructure(radl_data, auth_data):
+def CreateInfrastructure(radl_data, auth_data, async_call=False):
     request = IMBaseRequest.create_request(
-        IMBaseRequest.CREATE_INFRASTRUCTURE, (radl_data, auth_data))
+        IMBaseRequest.CREATE_INFRASTRUCTURE, (radl_data, auth_data, async_call))
     return WaitRequest(request)
 
 
@@ -200,7 +200,9 @@ def launch_daemon():
     """
     Launch the IM daemon
     """
-    InfrastructureList.init_table()
+    if not InfrastructureList.init_table():
+        print("Error connecting with the DB!!.")
+        sys.exit(2)
 
     if Config.XMLRCP_SSL:
         # if specified launch the secure version

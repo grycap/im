@@ -24,8 +24,8 @@ import IM.ConfManager
 from datetime import datetime, timedelta
 from radl.radl import RADL, Feature, deploy, system, contextualize_item
 from radl.radl_parse import parse_radl
-from IM.openid.JWT import JWT
 from radl.radl_json import radlToSimple
+from IM.openid.JWT import JWT
 from IM.config import Config
 try:
     from Queue import PriorityQueue
@@ -34,6 +34,9 @@ except ImportError:
 from IM.VirtualMachine import VirtualMachine
 from IM.auth import Authentication
 from IM.tosca.Tosca import Tosca
+
+if Config.MAX_SIMULTANEOUS_LAUNCHES > 1:
+    from multiprocessing.pool import ThreadPool
 
 
 class IncorrectVMException(Exception):
@@ -59,6 +62,7 @@ class InfrastructureInfo:
     """Logger object."""
 
     FAKE_SYSTEM = "F0000__FAKE_SYSTEM__"
+    OPENID_USER_PREFIX = "__OPENID__"
 
     def __init__(self):
         self._lock = threading.Lock()
@@ -168,6 +172,32 @@ class InfrastructureInfo:
         if dic['auth']:
             newinf.auth = Authentication.deserialize(dic['auth'])
         return newinf
+
+    def destroy(self, auth, delete_list=None):
+        """
+        Destroy the VMs listed in delete_list or all if not specified
+        """
+        if delete_list is None:
+            delete_list = list(reversed(self.get_vm_list()))
+
+        exceptions = []
+        if Config.MAX_SIMULTANEOUS_LAUNCHES > 1:
+            pool = ThreadPool(processes=Config.MAX_SIMULTANEOUS_LAUNCHES)
+            pool.map(
+                lambda vm: vm.delete(delete_list, auth, exceptions),
+                delete_list
+            )
+            pool.close()
+        else:
+            # If IM server is the first VM, then it will be the last destroyed
+            for vm in delete_list:
+                vm.delete(delete_list, auth, exceptions)
+
+        if exceptions:
+            msg = ""
+            for e in exceptions:
+                msg += str(e) + "\n"
+            raise Exception("Error destroying the infrastructure: \n%s" % msg)
 
     def delete(self):
         """
@@ -565,6 +595,7 @@ class InfrastructureInfo:
                 # update the ConfManager auth
                 self.cm.auth = auth
                 self.cm.init_time = time.time()
+                # restart the failed step
                 self.cm.failed_step = []
 
     def is_authorized(self, auth):
@@ -592,6 +623,12 @@ class InfrastructureInfo:
                 # check that the token provided is associated with the current owner of the inf.
                 if self_im_auth['password'] != password:
                     return False
+
+            if (self_im_auth['username'].startswith(InfrastructureInfo.OPENID_USER_PREFIX) and
+                    'token' not in other_im_auth):
+                # This is a OpenID user do not enable to get data using user/pass creds
+                InfrastructureInfo.logger.warn("Inf ID %s: A non OpenID user tried to access it." % self.id)
+                return False
 
             return True
         else:

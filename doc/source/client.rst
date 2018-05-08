@@ -8,23 +8,33 @@ Prerequisites
 
 The :program:`im_client` needs at least Python 2.4 to run.
 
+It is also required to install the RADL parser (`https://github.com/grycap/radl <https://github.com/grycap/radl>`_), 
+available in pip as the 'RADL' package. It is also required the Python Requests library (`http://docs.python-requests.org/ <http://docs.python-requests.org/>`_) 
+available as 'python-requests' in O.S. packages or 'requests' in pip.
+
 Invocation
 ----------
 
 The :program:`im_client` is called like this::
 
-   $ im_client.py [-u|--xmlrpc-url url] [-a|--auth_file filename] operation op_parameters
+   $ im_client.py [-u|--xmlrpc-url <url>] [-r|--restapi-url <url>] [-v|--verify-ssl] [-a|--auth_file <filename>] operation op_parameters
 
 .. program:: im_client
 
 .. option:: -u|--xmlrpc-url url
 
    URL to the XML-RPC service.
-   The default value is ``http://localhost:8888``.
+   This option or the ` -r` one must be specified.
+   
+.. option:: -r|--rest-url url
 
-   .. todo::
+   URL to the REST API on the IM service.
+   This option or the ` -u` one must be specified.
 
-      Change the default value of the port to XMLRCP_PORT.
+.. option:: -v|--verify-ssl
+
+   Verify the certificates of the SSL connection.
+   The default value is `False`,
 
 .. option:: -a|--auth_file filename
 
@@ -141,7 +151,8 @@ The available keys are:
 
 * ``type`` indicates the service that refers the credential. The services
   supported are ``InfrastructureManager``, ``VMRC``, ``OpenNebula``, ``EC2``,, ``FogBow``, 
-  ``OpenStack``, ``OCCI``, ``LibCloud``, ``Docker``, ``GCE``, ``Azure``, ``AzureClassic`` and ``Kubernetes``.
+  ``OpenStack``, ``OCCI``, ``LibCloud``, ``Docker``, ``GCE``, ``Azure``, ``AzureClassic``,
+   ``Kubernetes`` and ``vSphere``.
 
 * ``username`` indicates the user name associated to the credential. In EC2
   it refers to the *Access Key ID*. In GCE it refers to *Service Account’s Email Address*. 
@@ -180,7 +191,7 @@ The available keys are:
 * ``subscription_id`` indicates the subscription_id name associated to the credential.
   This field is only used in the Azure and Azure Classic plugins. To create a user to use the Azure (ARM)
   plugin check the documentation of the Azure python SDK:
-  `here <https://azure-sdk-for-python.readthedocs.io/en/latest/quickstart_authentication.html#using-ad-user-password>`_
+  `here <https://docs.microsoft.com/en-us/python/azure/python-sdk-azure-authenticate?view=azure-python>`_
 
 * ``token`` indicates the OpenID token associated to the credential. This field is used in the OCCI plugin (from version 1.6.2). 
 
@@ -256,6 +267,8 @@ An example of the auth file::
    id = fog; type = FogBow; host = http://server:8182; proxy = file(/tmp/proxy.pem)
    # Azure Classic auth data
    id = azurecla; type = AzureClassic; subscription_id = subscription_id; public_key = file(/tmp/cert.pem); private_key = file(/tmp/key.pem)
+   # vSphere site auth data
+   id = vsphere; type = vSphere; host = http://server; username = user; password = pass
    
 
 IM Server does not store the credentials used in the creation of

@@ -384,3 +384,26 @@ IM 1.6.8
     * Add support for the "endpoint" "port" field.
     * Fix error that causes that some services left behind after deleting infrastructure on Azure.
     * Fix error that causes that GCE conn assing public IPs to all VMs.
+
+IM 1.7.0
+    * Return correct URL path when IM is behind a nginx proxy (or similiar)
+    * Fix error in case of Max contextualization time passed the nodes are maintained in running state.
+    * Add availability_zone field in OpenStack conn.
+    * Fix error showing error messages with special characters.
+    * Fix error in occi connector in case of setting and slash at the end of the host URL.
+    * Move FogBow connector to requests library
+    * Enable to reference an existing volume in OCCI conn
+    * Fix error using vault recipe options with ubuntu 2.4
+    * Fix than user/pass credentials can access OpenID infras
+    * Enable to create an infrastructure async
+    * Return IM list in correct order (by creation)
+    * Fix error processing TOSCA node artifacts as lists
+    * Improve VM launch paralelism
+    * Add VM creation retry in conns
+    * Change the behaviour en case of VM launch failure.
+    * Add TOSCA support for REST AlterVM function
+    * Add TOSCA support from INDIGO fork
+    * Add export and import functions in REST API
+    * Change in the DB schema in the case of MySQL DB. This command must be made
+      in the current DB:
+			ALTER TABLE `inf_list` ADD COLUMN `rowid` INT AUTO_INCREMENT UNIQUE FIRST;

@@ -24,12 +24,14 @@ This is the list of method names:
 ``CreateInfrastructure``
    :parameter 0: ``radl``: string
    :parameter 1: ``auth``: array of structs
+   :parameter 2: ``async``: (optional, default value False) boolean
    :ok response: [true, ``infId``: integer]
    :fail response: [false, ``error``: string]
 
    Create and configure an infrastructure with the requirements specified in
    the RADL document passed as string. Return the ID associated to the created
-   infrastructure.
+   infrastructure. If ``async`` is set to ``True`` the call will not wait the VMs
+   to be created.
 
 ``GetInfrastructureInfo``
    :parameter 0: ``infId``: integer

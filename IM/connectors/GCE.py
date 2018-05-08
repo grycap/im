@@ -519,7 +519,7 @@ class GCECloudConnector(CloudConnector):
                 nodes = [driver.create_node(**args)]
             except Exception as ex:
                 nodes = []
-                self.log_exception("Error launching VMs.")
+                self.log_exception("Error launching VM.")
                 error_msg = str(ex)
 
         for node in nodes:
@@ -534,6 +534,7 @@ class GCECloudConnector(CloudConnector):
 
         all_ok = True
         for _ in range(len(nodes), num_vm):
+            all_ok = False
             res.append((False, "ERROR: %s" % error_msg))
 
         if not all_ok:
@@ -547,7 +548,11 @@ class GCECloudConnector(CloudConnector):
 
     def finalize(self, vm, last, auth_data):
         try:
-            node = self.get_node_with_id(vm.id, auth_data)
+            if vm.id:
+                node = self.get_node_with_id(vm.id, auth_data)
+            else:
+                self.log_warn("No VM ID. Ignoring")
+                node = None
         except Exception as ex:
             self.log_exception("Error getting VM: %s. Err: %s." % (vm.id, str(ex)))
             return (False, "Error getting VM: %s. Err: %s." % (vm.id, str(ex)))
@@ -565,14 +570,15 @@ class GCECloudConnector(CloudConnector):
             self.log_warn("VM " + str(vm.id) + " not found.")
 
         if last:
-            self.delete_firewall(vm, node.driver)
+            self.delete_firewall(vm, auth_data)
 
         return (True, "")
 
-    def delete_firewall(self, vm, driver):
+    def delete_firewall(self, vm, auth_data):
         """
         Delete the FW
         """
+        driver = self.get_driver(auth_data)
         net_provider_id = self.get_net_provider_id(vm.info)
         firewall_name = "fw-im-%s" % net_provider_id
 
