@@ -67,7 +67,10 @@ Optional Packages
   using Python 3 use the PyMySQL package, available as the package 'python3-pymysql' on debian systems or PyMySQL
   package in pip.  
 * `The Azure Python SDK <https://docs.microsoft.com/es-es/azure/python-how-to-install/>`_, is needed by the Azure
-  connector. It is available as the package 'azure' at the pip repository.  
+  connector. It is available as the package 'azure' at the pip repository.
+* `The VMware vSphere API Python Bindings <https://github.com/vmware/pyvmomi/>`_ are needed by the vSphere
+  connector. It is available as the package 'pyvmomi' at the pip repository.  
+  
 
 Installation
 ------------
@@ -84,10 +87,6 @@ In case that you O.S. does not work with this install script see next sections.
 
 From Pip
 ^^^^^^^^
-**WARNING: In some linux old distributions (REL 6 or equivalents) you must unistall
-the package python-crypto and python-paramiko before installing the IM with pip.**::
-
-	$ rpm -e python-crypto python-paramiko --nodeps
 
 First you need to install pip tool and some packages needed to compile some of the IM requirements.
 To install them in Debian and Ubuntu based distributions, do::
@@ -100,11 +99,6 @@ Fedora, etc.), do::
 
 	$ yum install epel-release
 	$ yum install which gcc python-devel libffi-devel openssl-devel python-pip sshpass python-sqlite3dbm
-
-For some problems with the dependencies of the apache-libcloud package in some systems (as ubuntu 14.04 or CentOS 6)
-this package has to be installed manually::
-
-	$ pip install backports-ssl_match_hostname
 
 Then you only have to call the install command of the pip tool with the IM package::
 

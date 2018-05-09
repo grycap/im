@@ -169,6 +169,8 @@ class TestIM(unittest.TestCase):
         self.assertGreater(len(cont_out), 100, msg="Incorrect contextualization message: " + cont_out)
         self.assertIn("Select master VM", cont_out)
         self.assertIn("NODENAME = front", cont_out)
+        # Check vault task
+        self.assertIn("VAULTOK", cont_out)
 
         (success, cont_out) = self.server.GetInfrastructureContMsg(self.inf_id, self.auth_data, True)
         self.assertTrue(success, msg="ERROR calling GetInfrastructureContMsg: " + str(cont_out))
@@ -472,7 +474,7 @@ class TestIM(unittest.TestCase):
         Test ExportInfrastructure and ImportInfrastructure functions
         """
         (success, res) = self.server.ExportInfrastructure(
-            self.inf_id, False, self.auth_data)
+            self.inf_id, True, self.auth_data)
         self.assertTrue(
             success, msg="ERROR calling ExportInfrastructure: " + str(res))
 
@@ -501,7 +503,7 @@ class TestIM(unittest.TestCase):
             memory.size>=512m and
             net_interface.0.connection = 'net' and
             disk.0.os.flavour='ubuntu' and
-            disk.0.os.version>='12.04'
+            disk.0.os.version>='14.04'
             )
 
             deploy test 1
@@ -541,7 +543,7 @@ class TestIM(unittest.TestCase):
              memory.size>=512m and
              net_interface.0.connection = 'net' and
              disk.0.os.flavour='ubuntu' and
-             disk.0.os.version>='12.04'
+             disk.0.os.version>='14.04'
             )
 
             deploy node 1
@@ -593,7 +595,7 @@ echo "Hello World" >> /tmp/data.txt
              net_interface.0.connection = 'publicnet' and
              net_interface.1.connection = 'net' and
              disk.0.os.flavour='ubuntu' and
-             disk.0.os.version>='12.04'
+             disk.0.os.version>='14.04'
             )
 
             deploy node 1
@@ -631,7 +633,7 @@ echo "Hello World" >> /tmp/data.txt
              memory.size>=512m and
              net_interface.0.connection = 'net' and
              disk.0.os.flavour='ubuntu' and
-             disk.0.os.version>='12.04'
+             disk.0.os.version>='14.04'
             )
 
             deploy node 1

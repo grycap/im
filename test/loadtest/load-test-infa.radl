@@ -8,8 +8,8 @@ net_interface.0.connection = 'publica' and
 net_interface.1.connection = 'privada' and
 net_interface.1.dns_name = 'imservice' and
 disk.0.os.name='linux' and
-disk.0.os.flavour='centos' and
-disk.0.os.version >= '7' and
+disk.0.os.flavour='ubuntu' and
+disk.0.os.version >= '16.04' and
 disk.0.os.credentials.new.password = 'Tututu+01'
 )
 
@@ -19,8 +19,8 @@ memory.size>=1G and
 net_interface.0.connection = 'privada' and
 net_interface.0.dns_name = 'imclient' and
 disk.0.os.name='linux' and
-disk.0.os.flavour='centos' and
-disk.0.os.version >= '7' and
+disk.0.os.flavour='ubuntu' and
+disk.0.os.version >= '16.04' and
 disk.0.os.credentials.new.password = 'Tututu+01'
 )
 
@@ -30,73 +30,18 @@ memory.size>=8G and
 net_interface.0.connection = 'privada' and
 net_interface.0.dns_name = 'infra' and
 disk.0.os.name='linux' and
-disk.0.os.flavour='centos' and
-disk.0.os.version >= '7' and
+disk.0.os.flavour='ubuntu' and
+disk.0.os.version >= '16.04' and
 disk.0.os.credentials.new.password = 'Tututu+01' and
 disk.0.applications contains (name='ansible.modules.grycap.docker')
 )
 
-configure docker (
-@begin
-    - name: add docker apt key
-      apt_key: keyserver=hkp://pgp.mit.edu:80 id=58118E89F3A912897C070ADBF76221572C52609D state=present 
-      when: ansible_os_family == "Debian"
-
-    - name: add docker repository
-      apt_repository: repo="deb https://apt.dockerproject.org/repo ubuntu-trusty main" state=present update_cache=yes 
-      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version == "14"  
-
-    - name: add docker repository
-      apt_repository: repo="deb https://apt.dockerproject.org/repo ubuntu-xenial main" state=present update_cache=yes 
-      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version == "16"  
-
-    - name: install docker Deb
-      apt: pkg=docker-engine,python-pip state=present update_cache=yes
-      when: ansible_os_family == "Debian"
-      
-    - name: Create the /etc/yum.repos.d/docker.repo file
-      copy:
-        dest: /etc/yum.repos.d/docker.repo
-        content: |
-            [dockerrepo]
-            name=Docker Repository
-            baseurl=https://yum.dockerproject.org/repo/main/centos/7/
-            enabled=1
-            gpgcheck=1
-            gpgkey=https://yum.dockerproject.org/gpg
-        mode: 0644
-        owner: root
-        group: root
-      when: ansible_os_family == "RedHat"
-
-    - name: install EPEL
-      yum: pkg=epel-release state=present
-      when: ansible_os_family == "RedHat"
-
-    - name: install docker RH
-      yum: pkg=docker-engine,python-pip state=present
-      when: ansible_os_family == "RedHat"
-
-    - name: start docker
-      service: name=docker state=started enabled=yes
-
-    - name: Upgrade pip version
-      pip: name=pip extra_args='-I' state=latest
-
-    - name: install docker-py
-    # user 1.9 version as ansible fails in case of 1.10 or higher 
-      pip: name=docker-py version=1.9.0
-
-@end
-)
 
 configure imdocker (
 @begin
 ---
-    - include: docker.yml
-
     - name: im container
-      docker:
+      docker_container:
         name: im
         image: "grycap/im"
         state: started
@@ -145,11 +90,16 @@ configure iminstall (
 configure im (
 @begin
 ---
-  - tasks:
-# To test the im directly installed at the VM
-#    - include: iminstall.yml
+# To test the im from a docker container
+  - roles:
+    - role: 'grycap.docker'
+
+    tasks:
 # To test the im from a docker container
     - include: imdocker.yml
+# To test the im directly installed at the VM
+#    - include: iminstall.yml
+
 
     - name: Install Reqs Deb
       apt: name=sysstat update_cache=yes cache_valid_time=3600

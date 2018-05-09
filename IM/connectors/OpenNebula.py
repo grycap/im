@@ -448,7 +448,6 @@ class OpenNebulaCloudConnector(CloudConnector):
         template = self.getONETemplate(radl, sgs, auth_data)
         res = []
         i = 0
-        all_failed = True
         while i < num_vm:
             func_res = server.one.vm.allocate(session_id, template)
             if len(func_res) == 2:
@@ -459,25 +458,14 @@ class OpenNebulaCloudConnector(CloudConnector):
                 return [(False, "Error in the one.vm.allocate return value")]
 
             if success:
-                vm = VirtualMachine(
-                    inf, str(res_id), self.cloud, radl, requested_radl, self)
+                vm = VirtualMachine(inf, str(res_id), self.cloud, radl, requested_radl, self)
                 vm.info.systems[0].setValue('instance_id', str(res_id))
                 inf.add_vm(vm)
                 res.append((success, vm))
-                all_failed = False
             else:
                 res.append((success, "ERROR: " + str(res_id)))
             i += 1
 
-        if all_failed:
-            self.log_info("All VMs failed, delete Security Groups.")
-            for sg in sgs.values():
-                self.log_info("Delete Security Group: %d." % sg)
-                success, sg_id, _ = server.one.secgroup.delete(session_id, sg)
-                if success:
-                    self.log_info("Deleted.")
-                else:
-                    self.log_info("Error deleting SG: %s." % sg_id)
         return res
 
     def delete_security_groups(self, inf, auth_data, timeout=90, delay=10):
@@ -528,17 +516,21 @@ class OpenNebulaCloudConnector(CloudConnector):
         if last:
             self.delete_snapshots(vm, auth_data)
 
-        func_res = server.one.vm.action(session_id, 'delete', int(vm.id))
-
-        if len(func_res) == 1:
-            success = True
-            err = vm.id
-        elif len(func_res) == 2:
-            (success, err) = func_res
-        elif len(func_res) == 3:
-            (success, err, _) = func_res
+        if vm.id:
+            func_res = server.one.vm.action(session_id, 'delete', int(vm.id))
+            if len(func_res) == 1:
+                success = True
+                err = vm.id
+            elif len(func_res) == 2:
+                (success, err) = func_res
+            elif len(func_res) == 3:
+                (success, err, _) = func_res
+            else:
+                return (False, "Error in the one.vm.action return value")
         else:
-            return (False, "Error in the one.vm.action return value")
+            self.log_warn("No VM ID. Ignoring")
+            err = ""
+            success = True
 
         if last and success:
             self.delete_security_groups(vm.inf, auth_data)
@@ -621,8 +613,7 @@ class OpenNebulaCloudConnector(CloudConnector):
         while system.getValue("disk." + str(cont) + ".image.url") or system.getValue("disk." + str(cont) + ".size"):
             disk_image = system.getValue("disk." + str(cont) + ".image.url")
             if disk_image:
-                disks += 'DISK = [ IMAGE_ID = "%s" ]\n' % uriparse(disk_image)[
-                    2][1:]
+                disks += 'DISK = [ IMAGE_ID = "%s" ]\n' % uriparse(disk_image)[2][1:]
             else:
                 disk_size = system.getFeature(
                     "disk." + str(cont) + ".size").getValue('M')

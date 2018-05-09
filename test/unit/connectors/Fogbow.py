@@ -28,6 +28,7 @@ except ImportError:
 
 sys.path.append(".")
 sys.path.append("..")
+from IM.uriparse import uriparse
 from IM.CloudInfo import CloudInfo
 from IM.auth import Authentication
 from radl import radl_parse
@@ -49,6 +50,7 @@ class TestFogBowConnector(unittest.TestCase):
     """
 
     def setUp(self):
+        self.call_count = {}
         self.log = StringIO()
         self.handler = logging.StreamHandler(self.log)
         formatter = logging.Formatter(
@@ -98,45 +100,52 @@ class TestFogBowConnector(unittest.TestCase):
         radl = radl_parse.parse_radl(radl_data)
         radl_system = radl.systems[0]
 
-        auth = Authentication([{'id': 'fogbow', 'type': 'FogBow', 'proxy': 'user', 'host': 'server.com:8182'}])
+        auth = Authentication([{'id': 'fogbow', 'type': 'FogBow', 'token': 'token', 'host': 'server.com:8182'}])
         fogbow_cloud = self.get_fogbow_cloud()
 
         concrete = fogbow_cloud.concreteSystem(radl_system, auth)
         self.assertEqual(len(concrete), 1)
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
-    def get_response(self):
-        method, url = self.__class__.last_op
-
+    def get_response(self, method, url, verify, headers, data):
         resp = MagicMock()
+        parts = uriparse(url)
+        url = parts[2]
+        params = parts[4]
+
+        if method not in self.call_count:
+            self.call_count[method] = {}
+        if url not in self.call_count[method]:
+            self.call_count[method][url] = 0
+        self.call_count[method][url] += 1
 
         if method == "GET":
-            if url == "/fogbow_request/1":
-                resp.status = 200
-                resp.read.return_value = read_file_as_string("files/focci_resource.txt")
-            if url == "/compute/267@manager.i3m.upv.es":
-                resp.status = 200
-                resp.read.return_value = read_file_as_string("files/focci_instance.txt")
+            if url == "/order/1":
+                resp.status_code = 200
+                resp.text = read_file_as_string("files/focci_resource.txt")
+            if url == "/compute/08d50672-76c6-4bcb-9eb4-7a17e611b86c@lsd.manager.naf.lsd.ufcg.edu.br":
+                resp.status_code = 200
+                resp.text = read_file_as_string("files/focci_instance.txt")
         elif method == "POST":
-            if url == "/fogbow_request/":
-                resp.status = 201
-                resp.msg.dict = {'location': 'http/server.com/computeid'}
+            if url == "/order/":
+                resp.status_code = 201
+                resp.headers = {'location': 'http/server.com/computeid'}
         elif method == "DELETE":
-            if url == "/fogbow_request/1":
-                resp.status = 200
-            if url == "/compute/267@manager.i3m.upv.es":
-                resp.status = 200
+            if url == "/order/1":
+                resp.status_code = 200
+            if url == "/compute/08d50672-76c6-4bcb-9eb4-7a17e611b86c@lsd.manager.naf.lsd.ufcg.edu.br":
+                resp.status_code = 200
 
         return resp
 
     def request(self, method, url, body=None, headers=None):
         self.__class__.last_op = method, url
 
-    @patch('IM.connectors.FogBow.HTTPConnection')
+    @patch('requests.request')
     @patch('IM.InfrastructureList.InfrastructureList.save_data')
-    def test_20_launch(self, save_data, connection):
+    def test_20_launch(self, save_data, requests):
         radl_data = """
-            network net1 (outbound = 'yes' and outports = '8080')
+            network net1 (outbound = 'yes' and outports = '8080,9000')
             network net2 ()
             system test (
             cpu.arch='x86_64' and
@@ -155,23 +164,18 @@ class TestFogBowConnector(unittest.TestCase):
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
 
-        auth = Authentication([{'id': 'fogbow', 'type': 'FogBow', 'proxy': 'user', 'host': 'server.com:8182'}])
+        auth = Authentication([{'id': 'fogbow', 'type': 'FogBow', 'token': 'user', 'host': 'server.com:8182'}])
         fogbow_cloud = self.get_fogbow_cloud()
 
-        conn = MagicMock()
-        connection.return_value = conn
-
-        conn.request.side_effect = self.request
-        conn.putrequest.side_effect = self.request
-        conn.getresponse.side_effect = self.get_response
+        requests.side_effect = self.get_response
 
         res = fogbow_cloud.launch(InfrastructureInfo(), radl, radl, 1, auth)
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
-    @patch('IM.connectors.FogBow.HTTPConnection')
-    def test_30_updateVMInfo(self, connection):
+    @patch('requests.request')
+    def test_30_updateVMInfo(self, requests):
         radl_data = """
             network net (outbound = 'yes')
             system test (
@@ -188,36 +192,31 @@ class TestFogBowConnector(unittest.TestCase):
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
 
-        auth = Authentication([{'id': 'fogbow', 'type': 'FogBow', 'proxy': 'user', 'host': 'server.com:8182'}])
+        auth = Authentication([{'id': 'fogbow', 'type': 'FogBow', 'token': 'user', 'host': 'server.com:8182'}])
         fogbow_cloud = self.get_fogbow_cloud()
 
         inf = MagicMock()
         vm = VirtualMachine(inf, "1", fogbow_cloud.cloud, radl, radl, fogbow_cloud, 1)
 
-        conn = MagicMock()
-        connection.return_value = conn
-
-        conn.request.side_effect = self.request
-        conn.getresponse.side_effect = self.get_response
+        requests.side_effect = self.get_response
 
         success, vm = fogbow_cloud.updateVMInfo(vm, auth)
+
+        self.assertEqual(str(vm.info.networks[0].getOutPorts()[0]), "10069:8080/tcp")
+        self.assertEqual(str(vm.info.networks[0].getOutPorts()[1]), "10068:22/tcp")
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
-    @patch('IM.connectors.FogBow.HTTPConnection')
-    def test_60_finalize(self, connection):
-        auth = Authentication([{'id': 'fogbow', 'type': 'FogBow', 'proxy': 'user', 'host': 'server.com:8182'}])
+    @patch('requests.request')
+    def test_60_finalize(self, requests):
+        auth = Authentication([{'id': 'fogbow', 'type': 'FogBow', 'token': 'user', 'host': 'server.com:8182'}])
         fogbow_cloud = self.get_fogbow_cloud()
 
         inf = MagicMock()
         vm = VirtualMachine(inf, "1", fogbow_cloud.cloud, "", "", fogbow_cloud, 1)
 
-        conn = MagicMock()
-        connection.return_value = conn
-
-        conn.request.side_effect = self.request
-        conn.getresponse.side_effect = self.get_response
+        requests.side_effect = self.get_response
 
         success, _ = fogbow_cloud.finalize(vm, True, auth)
 

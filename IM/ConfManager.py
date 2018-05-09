@@ -23,6 +23,7 @@ import time
 import tempfile
 import shutil
 import yaml
+from distutils.version import LooseVersion
 
 try:
     from StringIO import StringIO
@@ -30,10 +31,21 @@ except ImportError:
     from io import StringIO
 from multiprocessing import Queue
 
+from ansible import __version__ as ansible_version
 try:
-    from ansible.parsing.vault import VaultEditor
-except:
-    from ansible.utils.vault import VaultEditor
+    # for Ansible version 2.2.0 or higher
+    from ansible.module_utils._text import to_bytes
+except ImportError:
+    from ansible.utils.unicode import to_bytes
+
+from ansible.parsing.vault import VaultEditor
+try:
+    # for Ansible version 2.4.0 or higher
+    from ansible.parsing.vault import VaultSecret
+    from ansible.parsing.vault import VaultLib
+except ImportError:
+    # for Ansible version 2.3.2 or lower
+    pass
 
 from IM.ansible_utils.ansible_launcher import AnsibleThread
 
@@ -206,6 +218,11 @@ class ConfManager(threading.Thread):
                 if self.ansible_process and self.ansible_process.is_alive():
                     self.log_info("Stopping pending Ansible process.")
                     self.ansible_process.terminate()
+
+                # Set as unconfigured all non finished ctxt VMs
+                for vm in self.inf.get_vm_list():
+                    if vm.configured is None:
+                        vm.configured = False
                 return
 
             self.failed_step, vms_configuring = self.check_running_pids(vms_configuring, self.failed_step)
@@ -228,6 +245,7 @@ class ConfManager(threading.Thread):
                 if self.failed_step and sorted(self.failed_step)[-1] < step:
                     self.log_info("Configuration of process of step %s failed, "
                                   "ignoring tasks of step %s." % (sorted(self.failed_step)[-1], step))
+                    vm.configured = False
                 else:
                     # Add the task again to the queue only if the last step was
                     # OK
@@ -342,7 +360,7 @@ class ConfManager(threading.Thread):
                     vault_password = vm.info.systems[0].getValue("vault.password")
                     if vault_password:
                         vault_export = "export VAULT_PASS='%s' && " % vault_password
-                    (pid, _, _) = ssh.execute(vault_export + "nohup python_ansible " + Config.REMOTE_CONF_DIR + "/" +
+                    (pid, _, _) = ssh.execute(vault_export + "nohup python " + Config.REMOTE_CONF_DIR + "/" +
                                               str(self.inf.id) + "/" + ctxt_agent_command +
                                               Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/" +
                                               "/general_info.cfg " + remote_dir + "/" + os.path.basename(conf_file) +
@@ -396,9 +414,12 @@ class ConfManager(threading.Thread):
             vm = vm_group[group][0]
             user = vm.getCredentialValues()[0]
             out.write('[' + group + ':vars]\n')
-            out.write('ansible_user=' + user + '\n')
-            # For compatibility with Ansible 1.X versions
-            out.write('ansible_ssh_user=' + user + '\n')
+            if user:
+                out.write('ansible_user=' + user + '\n')
+                # For compatibility with Ansible 1.X versions
+                out.write('ansible_ssh_user=' + user + '\n')
+            else:
+                self.log_warn("The VM ID: " + str(vm.id) + " does not have username!!")
 
             if vm.getOS().lower() == "windows":
                 out.write('ansible_connection=winrm\n')
@@ -687,6 +708,18 @@ class ConfManager(threading.Thread):
 
         return recipe_files
 
+    def get_vault_editor(self, vault_password):
+        """
+        Get the correct VaultEditor object in different Ansible versions
+        """
+        if LooseVersion(ansible_version) >= LooseVersion("2.4.0"):
+            # for Ansible version 2.4.0 or higher
+            vault_secrets = [('default', VaultSecret(_bytes=to_bytes(vault_password)))]
+            return VaultEditor(VaultLib(vault_secrets))
+        else:
+            # for Ansible version 2.3.2 or lower
+            return VaultEditor(vault_password)
+
     def generate_playbook(self, vm, ctxt_elem, tmp_dir):
         """
         Generate the playbook for the specified configure section
@@ -700,7 +733,7 @@ class ConfManager(threading.Thread):
             conf_content = self.add_ansible_header(vm.getOS().lower())
             vault_password = vm.info.systems[0].getValue("vault.password")
             if vault_password:
-                vault_edit = VaultEditor(vault_password)
+                vault_edit = self.get_vault_editor(vault_password)
                 if configure.recipes.strip().startswith("$ANSIBLE_VAULT"):
                     recipes = vault_edit.vault.decrypt(configure.recipes.strip())
                 else:
@@ -866,7 +899,7 @@ class ConfManager(threading.Thread):
                 self.log_info("Wait the master VM to be running")
 
                 self.inf.add_cont_msg("Wait master VM to boot")
-                all_running = self.wait_vm_running(self.inf.vm_master, Config.WAIT_RUNNING_VM_TIMEOUT, True)
+                all_running = self.wait_vm_running(self.inf.vm_master, Config.WAIT_RUNNING_VM_TIMEOUT)
 
                 if not all_running:
                     self.log_error("Error Waiting the Master VM to boot, exit")
@@ -994,45 +1027,15 @@ class ConfManager(threading.Thread):
             if tmp_dir:
                 shutil.rmtree(tmp_dir, ignore_errors=True)
 
-    def relaunch_vm(self, vm, failed_cloud=False):
-        """
-        Remove and launch again the specified VM
-        """
-        try:
-            removed = IM.InfrastructureManager.InfrastructureManager.RemoveResource(
-                self.inf.id, vm.im_id, self.auth)
-        except:
-            self.log_exception("Error removing a failed VM.")
-            removed = 0
-
-        if removed != 1:
-            self.log_error("Error removing a failed VM. Not launching a new one.")
-            return
-
-        new_radl = ""
-        for net in vm.info.networks:
-            new_radl += "network " + net.id + "\n"
-        new_radl += "system " + vm.getRequestedSystem().name + "\n"
-        new_radl += "deploy " + vm.getRequestedSystem().name + " 1"
-
-        failed_clouds = []
-        if failed_cloud:
-            failed_clouds = [vm.cloud]
-        IM.InfrastructureManager.InfrastructureManager.AddResource(
-            self.inf.id, new_radl, self.auth, False, failed_clouds)
-
-    def wait_vm_running(self, vm, timeout, relaunch=False):
+    def wait_vm_running(self, vm, timeout):
         """
         Wait for a VM to be running
 
         Arguments:
            - vm(:py:class:`IM.VirtualMachine`): VM to be running.
            - timeout(int): Max time to wait the VM to be running.
-           - relaunch(bool, optional): Flag to specify if the VM must be relaunched in case of failure.
         Returns: True if all the VMs are running or false otherwise
         """
-        timeout_retries = 0
-        retries = 1
         delay = 10
         wait = 0
         while not self._stop_thread and wait < timeout:
@@ -1040,19 +1043,11 @@ class ConfManager(threading.Thread):
                 vm.update_status(self.auth)
 
                 if vm.state == VirtualMachine.RUNNING:
+                    self.log_info("VM " + str(vm.id) + " is Running.")
                     return True
                 elif vm.state == VirtualMachine.FAILED:
-                    self.log_warn("VM " + str(vm.id) + " is FAILED")
-
-                    if relaunch and retries < Config.MAX_VM_FAILS:
-                        self.log_info("Launching new VM")
-                        self.relaunch_vm(vm, True)
-                        # Set the wait counter to 0
-                        wait = 0
-                        retries += 1
-                    else:
-                        self.log_error("Relaunch is not enabled. Exit")
-                        return False
+                    self.log_warn("VM " + str(vm.id) + " is FAILED, Exit.")
+                    return False
             else:
                 self.log_warn("VM deleted by the user, Exit")
                 return False
@@ -1060,30 +1055,6 @@ class ConfManager(threading.Thread):
             self.log_info("VM " + str(vm.id) + " is not running yet.")
             time.sleep(delay)
             wait += delay
-
-            # if the timeout is passed
-            # try to relaunch max_retries times, and restart the counter
-            if wait > timeout and timeout_retries < Config.MAX_VM_FAILS:
-                timeout_retries += 1
-                # Set the wait counter to 0
-                wait = 0
-                if not vm.destroy:
-                    vm.update_status(self.auth)
-
-                    if vm.state == VirtualMachine.RUNNING:
-                        return True
-                    else:
-                        self.log_warn("VM " + str(vm.id) + " timeout")
-
-                        if relaunch:
-                            self.log_info("Launch a new VM")
-                            self.relaunch_vm(vm)
-                        else:
-                            self.log_error("Relaunch is not available. Exit")
-                            return False
-                else:
-                    self.log_warn("VM deleted by the user, Exit")
-                    return False
 
         # Timeout, return False
         return False

@@ -686,22 +686,26 @@ class DockerCloudConnector(CloudConnector):
 
     def finalize(self, vm, last, auth_data):
         try:
-            if self._is_swarm(auth_data):
-                resp = self.create_request('DELETE', "/services/" + vm.id, auth_data)
-            else:
-                # First Stop it
-                self.stop(vm, auth_data)
-                # Now delete it
-                resp = self.create_request('DELETE', "/containers/" + vm.id, auth_data)
+            if vm.id:
+                if self._is_swarm(auth_data):
+                    resp = self.create_request('DELETE', "/services/" + vm.id, auth_data)
+                else:
+                    # First Stop it
+                    self.stop(vm, auth_data)
+                    # Now delete it
+                    resp = self.create_request('DELETE', "/containers/" + vm.id, auth_data)
 
-            res = (False, "")
-            if resp.status_code == 404:
-                self.log_warn("Trying to remove a non existing container id: " + vm.id)
-                res = (True, vm.id)
-            elif resp.status_code not in [204, 200]:
-                res = (False, "Error deleting the Container: " + resp.text)
+                res = (False, "")
+                if resp.status_code == 404:
+                    self.log_warn("Trying to remove a non existing container id: " + vm.id)
+                    res = (True, "")
+                elif resp.status_code not in [204, 200]:
+                    res = (False, "Error deleting the Container: " + resp.text)
+                else:
+                    res = (True, "")
             else:
-                res = (True, vm.id)
+                self.log_warn("No VM ID. Ignoring")
+                res = (True, "")
 
             self._delete_volumes(vm, auth_data)
 

@@ -93,7 +93,7 @@ class Config:
     SINGLE_SITE_TYPE = ''
     SINGLE_SITE_AUTH_HOST = ''
     SINGLE_SITE_IMAGE_URL_PREFIX = ''
-    OIDC_ISSUERS = ["https://iam-test.indigo-datacloud.eu/"]
+    OIDC_ISSUERS = []
     OIDC_AUDIENCE = None
     INF_CACHE_TIME = None
     VMINFO_JSON = False
@@ -101,6 +101,7 @@ class Config:
     OIDC_CLIENT_SECRET = None
     OIDC_SCOPES = []
     VM_NUM_USE_CTXT_DIST = 30
+    DELAY_BETWEEN_VM_RETRIES = 5
 
 config = ConfigParser()
 config.read([Config.IM_PATH + '/../im.cfg', Config.IM_PATH +

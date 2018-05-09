@@ -362,6 +362,34 @@ machine.  The supported features are:
      (using the git scheme in the URL) afther the string ``ansible.modules.``. Furthermore the 
      user can specify the rolename using a ``|`` afther the url, as shown in the example.
 
+Disk Management
+^^^^^^^^^^^^^^^
+
+In the RADL documents there are two different types of disks: ``disk.0`` as the boot disk with the O.S. and
+the rest of disks assumed as data disks. In the first case if you are using an VMRC server you can specify the
+features of the requested O.S. and let VMRC to get the most suitable image::   
+
+	disk.0.os.name='linux' and
+	disk.0.os.flavour='ubuntu' and
+	disk.0.os.version>='16.04'
+
+Otherwise you can directly specify the image and, if required, the credentials to access the O.S.::
+
+	disk.0.os.name='linux' and  
+	disk.0.image.url = 'one://someserver.com/123' and
+	disk.0.os.credentials.username = 'ubuntu' and
+	disk.0.os.credentials.password = 'somepass'
+
+In case of the rest of disks you can specify the requirements of the data disk to be attached:: 
+
+	disk.1.size=1GB and
+	disk.1.device='hdc' and
+	disk.1.fstype='ext4' and
+	disk.1.mount_path='/mnt/disk1'
+
+The fields fstype and mount_path are optional and they enable the IM (through Ansible) to format and mount
+the disk in the specified path. The device field is optional in most of the connectors but some of them 
+require it to correctly attach the disk to the VM. 
 
 Parametric Values
 -----------------

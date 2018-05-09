@@ -227,6 +227,33 @@ class Tosca:
 
         return res
 
+    def _get_node_endpoints(self, node, nodetemplates):
+        """ Get all endpoint associated with a node """
+        endpoints = []
+
+        # First add its own endpoints
+        node_caps = node.get_capabilities()
+        if node_caps:
+            if "endpoint" in node_caps and node_caps["endpoint"]:
+                endpoints.append(node_caps["endpoint"])
+
+        # Now other hosted nodes ones
+        for other_node in nodetemplates:
+            root_type = Tosca._get_root_parent_type(other_node).type
+            compute = None
+            if root_type != "tosca.nodes.Compute":
+                # Select the host to host this element
+                compute = self._find_host_compute(other_node, nodetemplates)
+
+            if compute and compute.name == node.name:
+                node_caps = other_node.get_capabilities()
+                for cap in node_caps.values():
+                    root_type = Tosca._get_root_parent_type(cap).type
+                    if root_type == "tosca.capabilities.Endpoint":
+                        endpoints.append(cap)
+
+        return endpoints
+
     def _add_node_nets(self, node, radl, system, nodetemplates):
         # Find associated Networks
         nets = Tosca._get_bind_networks(node, nodetemplates)
@@ -254,37 +281,37 @@ class Tosca:
             net_provider_id = None
             dns_name = None
             ports = {}
-            node_caps = node.get_capabilities()
-            if node_caps:
-                if "endpoint" in node_caps:
-                    cap_props = node_caps["endpoint"].get_properties()
-                    if cap_props and "network_name" in cap_props:
-                        network_name = str(self._final_function_result(cap_props["network_name"].value, node))
-                        if network_name == "PUBLIC":
-                            public_ip = True
-                        # In this case the user is specifying the provider_id
-                        elif network_name.endswith(".PUBLIC"):
-                            public_ip = True
-                            parts = network_name.split(".")
-                            net_provider_id = ".".join(parts[:-1])
-                        elif network_name.endswith(".PRIVATE"):
-                            parts = network_name.split(".")
-                            net_provider_id = ".".join(parts[:-1])
-                        elif network_name != "PRIVATE":
-                            # assume that is a private one
-                            net_provider_id = network_name
-                    if cap_props and "dns_name" in cap_props:
-                        dns_name = self._final_function_result(cap_props["dns_name"].value, node)
-                    if cap_props and "private_ip" in cap_props:
-                        private_ip = self._final_function_result(cap_props["private_ip"].value, node)
-                    if cap_props and "ports" in cap_props:
-                        ports = self._final_function_result(cap_props["ports"].value, node)
-                    if cap_props and "port" in cap_props:
-                        port = self._final_function_result(cap_props["port"].value, node)
-                        protocol = "tcp"
-                        if "protocol" in cap_props:
-                            protocol = self._final_function_result(cap_props["protocol"].value, node)
-                        ports["im-%s-%s" % (protocol, port)] = {"protocol": protocol, "source": port}
+            endpoints = self._get_node_endpoints(node, nodetemplates)
+
+            for endpoint in endpoints:
+                cap_props = endpoint.get_properties()
+                if cap_props and "network_name" in cap_props:
+                    network_name = str(self._final_function_result(cap_props["network_name"].value, node))
+                    if network_name == "PUBLIC":
+                        public_ip = True
+                    # In this case the user is specifying the provider_id
+                    elif network_name.endswith(".PUBLIC"):
+                        public_ip = True
+                        parts = network_name.split(".")
+                        net_provider_id = ".".join(parts[:-1])
+                    elif network_name.endswith(".PRIVATE"):
+                        parts = network_name.split(".")
+                        net_provider_id = ".".join(parts[:-1])
+                    elif network_name != "PRIVATE":
+                        # assume that is a private one
+                        net_provider_id = network_name
+                if cap_props and "dns_name" in cap_props:
+                    dns_name = self._final_function_result(cap_props["dns_name"].value, node)
+                if cap_props and "private_ip" in cap_props:
+                    private_ip = self._final_function_result(cap_props["private_ip"].value, node)
+                if cap_props and "ports" in cap_props:
+                    ports = self._final_function_result(cap_props["ports"].value, node)
+                if cap_props and "port" in cap_props:
+                    port = self._final_function_result(cap_props["port"].value, node)
+                    protocol = "tcp"
+                    if "protocol" in cap_props:
+                        protocol = self._final_function_result(cap_props["protocol"].value, node)
+                    ports["im-%s-%s" % (protocol, port)] = {"protocol": protocol, "source": port}
 
             # The private net is always added
             if not public_ip or private_ip:
@@ -393,25 +420,23 @@ class Tosca:
 
     def _get_artifact_full_uri(self, node, artifact_name):
         res = None
-        artifacts = node.type_definition.get_value(
-            'artifacts', node.entity_tpl, True)
-        if artifacts:
-            for name, artifact in artifacts.items():
-                if name == artifact_name:
-                    if isinstance(artifact, dict):
-                        res = artifact['file']
-                        if 'repository' in artifact:
-                            repo = artifact['repository']
-                            repositories = self.tosca.tpl.get('repositories')
+        artifacts = self._get_node_artifacts(node)
+        for name, artifact in artifacts.items():
+            if name == artifact_name:
+                if isinstance(artifact, dict):
+                    res = artifact['file']
+                    if 'repository' in artifact:
+                        repo = artifact['repository']
+                        repositories = self.tosca.tpl.get('repositories')
 
-                            if repositories:
-                                for repo_name, repo_def in repositories.items():
-                                    if repo_name == repo:
-                                        repo_url = (
-                                            (repo_def['url']).strip()).rstrip("//")
-                                        res = repo_url + "/" + artifact['file']
-                    else:
-                        res = artifact
+                        if repositories:
+                            for repo_name, repo_def in repositories.items():
+                                if repo_name == repo:
+                                    repo_url = (
+                                        (repo_def['url']).strip()).rstrip("//")
+                                    res = repo_url + "/" + artifact['file']
+                else:
+                    res = artifact
 
         return res
 
@@ -1107,6 +1132,21 @@ class Tosca:
 
         return res
 
+    @staticmethod
+    def _get_node_artifacts(node):
+        """ Get a dict will the node artifacts """
+        artifacts_dict = {}
+        artifacts = node.type_definition.get_value('artifacts', node.entity_tpl, True)
+
+        if artifacts:
+            if isinstance(artifacts, dict):
+                artifacts_dict = artifacts
+            else:
+                for elem in artifacts:
+                    artifacts_dict.update(elem)
+
+        return artifacts_dict
+
     def _add_ansible_roles(self, node, nodetemplates, system):
         """
         Find all the roles to be applied to this node and
@@ -1124,22 +1164,17 @@ class Tosca:
             if compute and compute.name == node.name:
                 # Get the artifacts to see if there is a ansible galaxy role
                 # and add it as an "ansible.modules" app requirement in RADL
-                artifacts = other_node.type_definition.get_value(
-                    'artifacts', other_node.entity_tpl, True)
-                if artifacts:
-                    for name, artifact in artifacts.items():
-                        name
-                        if ('type' in artifact and artifact['type'] == 'tosca.artifacts.AnsibleGalaxy.role' and
-                                'file' in artifact and artifact['file']):
-                            if artifact['file'] not in roles:
-                                roles.append(artifact['file'])
+                artifacts = self._get_node_artifacts(other_node)
+                for _, artifact in artifacts.items():
+                    if ('type' in artifact and artifact['type'] == 'tosca.artifacts.AnsibleGalaxy.role' and
+                            'file' in artifact and artifact['file']):
+                        if artifact['file'] not in roles:
+                            roles.append(artifact['file'])
 
         for role in roles:
             app_features = Features()
-            app_features.addFeature(
-                Feature('name', '=', 'ansible.modules.' + role))
-            feature = Feature(
-                'disk.0.applications', 'contains', app_features)
+            app_features.addFeature(Feature('name', '=', 'ansible.modules.' + role))
+            feature = Feature('disk.0.applications', 'contains', app_features)
             system.addFeature(feature)
 
     def _gen_system(self, node, nodetemplates):
@@ -1308,7 +1343,10 @@ class Tosca:
         """
         Get the root parent type of a node (just before the tosca.nodes.Root)
         """
-        node_type = node.type_definition
+        try:
+            node_type = node.type_definition
+        except:
+            node_type = node.definition
 
         while True:
             if node_type.parent_type is not None:
