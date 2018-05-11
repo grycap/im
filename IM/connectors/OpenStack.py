@@ -860,7 +860,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         return (True, "")
 
-    def delete_security_groups(self, driver, inf, timeout=90, delay=10):
+    def delete_security_groups(self, driver, inf, timeout=180, delay=10):
         """
         Delete the SG of this inf
         """

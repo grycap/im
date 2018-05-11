@@ -16,6 +16,16 @@ Configuration
 The web interface reads the configuration from :file:`$IM_WEB_PATH/config.php`. It has 
 the following variables:
 
+.. confval:: im_use_rest
+
+   Flag to set the usage of the REST API instead of the XML-RPC one.
+   The default value is `false`.
+
+.. confval:: im_use_ssl
+
+   Flag to set the usage of the APIs using HTTPS protocol instead of the standard HTTP.
+   The default value is `false`.
+
 .. confval:: im_host
 
    Hostname or IP address of the host with the IM service.
@@ -36,6 +46,26 @@ the following variables:
    Location of the IM service recipes D.B. To use that feature the IM recipes file must accesible to the web server
    The default value is `""`.
 
+.. confval:: openid_issuer
+
+   OpenID Issuer supported use "" to disable OpenID support.
+   The default value is `""`.
+ 
+.. confval:: openid_name
+
+   OpenID Issuer name.
+   The default value is `""`.
+
+.. confval:: CLIENT_ID
+
+   OpenID Client data.
+   The default value is `""`.
+
+.. confval:: CLIENT_SECRET
+
+   OpenID Client data.
+   The default value is `""`.
+
 Docker Image
 ------------
 
@@ -47,7 +77,7 @@ This container is prepaired to work linked with the IM service container `grycap
 * First launch the IM service specifying the name "im":
 
 ```sh
-sudo docker run -d -p 8899:8899 --name im grycap/im
+sudo docker run -d -p 8899:8899 -p 8800:8800 --name im grycap/im
 ````
 
 * Then launch the im-web container linking to the im:
