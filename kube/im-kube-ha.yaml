@@ -471,8 +471,10 @@ spec:
            - name: imetc
              mountPath: /etc/im
         livenessProbe:
-          tcpSocket:
+          httpGet:
+            path: /version
             port: 443
+            scheme: HTTPS
           initialDelaySeconds: 20
           periodSeconds: 20
       volumes:
