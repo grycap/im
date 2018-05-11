@@ -46,9 +46,11 @@ The :program:`im_client` is called like this::
    ``list``
       List the infrastructure IDs created by the user.
 
-   ``create radlfile``
+   ``create radlfile async_flag``
       Create an infrastructure using RADL specified in the file with path
-      ``radlfile``.
+      ``radlfile``. The ``async_flag`` parameter is optional
+      and is a flag to specify if the creation call will wait the resources
+      to be created or return immediately the id of the infrastructure.
 
    ``destroy infId``
       Destroy the infrastructure with ID ``infId``.
