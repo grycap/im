@@ -150,7 +150,7 @@ spec:
     - nolock
     - hard
   nfs:
-    path: /pv/mysql
+    path: /pv/im/mysql
     server: kubeserver
 ---
 apiVersion: v1
@@ -168,7 +168,7 @@ spec:
     - nolock
     - hard
   nfs:
-    path: /pv/im
+    path: /pv/im/etc
     server: kubeserver
 ---
 apiVersion: v1
@@ -186,7 +186,7 @@ spec:
     - nolock
     - hard
   nfs:
-    path: /pv/log
+    path: /pv/im/log
     server: kubeserver
 ---
 kind: PersistentVolumeClaim
@@ -299,10 +299,16 @@ metadata:
   labels:
     run: im-backend
 spec:
-  replicas: 4
+  replicas: 6
   selector:
     matchLabels:
       run: im-backend
+  minReadySeconds: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
   template:
     metadata:
       labels:
@@ -312,7 +318,7 @@ spec:
         role: wn
       containers:
       - name: im-backend
-        image: grycap/im:1.7.0-dev
+        image: grycap/im:1.7.0
         ports:
         - containerPort: 8800
         imagePullPolicy: Always
@@ -326,8 +332,8 @@ spec:
           httpGet:
             path: /version
             port: 8800
-          initialDelaySeconds: 20
-          periodSeconds: 20
+          initialDelaySeconds: 10
+          periodSeconds: 10
       volumes:
         - name: imetc
           persistentVolumeClaim:
@@ -492,3 +498,86 @@ spec:
     nodePort: 30009
   selector:
     run: haproxy-ingress
+
+# Deployment for the IM-web service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: im
+  name: im-web
+  labels:
+    app: im
+    tier: im-web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: im
+      tier: im-web
+  template:
+    metadata:
+      labels:
+        name: im-web
+        app: im
+        tier: im-web
+    spec:
+      nodeSelector:
+        role: ingress-controller
+      containers:
+        - name: im-web
+          image: "grycap/im-web:1.5.5-ssl"
+          ports:
+          - containerPort: 80
+            protocol: TCP
+            name: http
+          - containerPort: 443
+            protocol: TCP
+            name: https
+          env:
+          - name: im_use_rest
+            value: "true"
+          - name: im_use_ssl
+            value: "true"
+          - name: im_host
+            value: im-ingress-svc
+          - name: im_port
+            value: "443"
+          - name: im_db
+            value: "/etc/im-web/im-web/im.db"
+          volumeMounts:
+           - name: imetc
+             mountPath: /etc/ssl/certs
+           - name: imdb
+             mountPath: /etc/im-web
+          livenessProbe:
+            httpGet:
+              path: /im-web/
+              port: 443
+              scheme: HTTPS
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      volumes:
+        - name: imetc
+          persistentVolumeClaim:
+            claimName: imetc
+        - name: imdb
+          persistentVolumeClaim:
+            claimName: imdb
+
+# IM-Web interface
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: im-web-svc
+  namespace: im
+spec:
+  type: NodePort
+  ports:
+  - name: https
+    port: 443
+    nodePort: 30080
+  selector:
+    name: im-web
+

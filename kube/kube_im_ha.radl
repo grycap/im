@@ -49,12 +49,14 @@ configure front (
  - pre_tasks:
     - name: Create dir for the NFS PV Top dir
       file: path=/pv state=directory mode=755
-    - name: Create dir for the NFS PV MySQL sir
-      file: path=/pv/mysql state=directory mode=755
-    - name: Create dir for the NFS PV IM dir
+    - name: Create dir for the im NFS PV Top dir
       file: path=/pv/im state=directory mode=755
+    - name: Create dir for the NFS PV MySQL sir
+      file: path=/pv/im/mysql state=directory mode=755
+    - name: Create dir for the NFS PV IM dir
+      file: path=/pv/im/etc state=directory mode=755
     - name: Create dir for the NFS PV Log dir
-      file: path=/pv/log state=directory mode=755
+      file: path=/pv/im/log state=directory mode=755
     - name: Download im logging.conf
       get_url: url=http://raw.githubusercontent.com/grycap/im/master_1_6_X/etc/logging.conf dest=/pv/im/logging.conf
     - name: Download im logging.conf
