@@ -647,13 +647,21 @@ class AzureCloudConnector(CloudConnector):
             # Get one the virtual machine by name
             virtual_machine = compute_client.virtual_machines.get(group_name, vm_name, expand='instanceView')
         except Exception as ex:
+            self.log_warn("The VM does not exists.")
+            # check if the RG still exists
+            if self.get_rg(group_name, credentials, subscription_id):
+                self.log_info("But the RG %s does exits. Retun OFF." % group_name)
+                vm.state = VirtualMachine.OFF
+                return (True, vm)
+
             self.log_exception("Error getting the VM info: " + vm.id)
             return (False, "Error getting the VM info: " + vm.id + ". " + str(ex))
 
         self.log_info("VM info: " + vm.id + " obtained.")
         vm.state = self.PROVISION_STATE_MAP.get(virtual_machine.provisioning_state, VirtualMachine.UNKNOWN)
 
-        if vm.state == VirtualMachine.RUNNING:
+        if (vm.state == VirtualMachine.RUNNING and virtual_machine.instance_view and
+                len(virtual_machine.instance_view.statuses) > 1):
             vm.state = self.POWER_STATE_MAP.get(virtual_machine.instance_view.statuses[1].code, VirtualMachine.UNKNOWN)
 
         self.log_debug("The VM state is: " + vm.state)
