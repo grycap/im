@@ -66,12 +66,12 @@ class AzureCloudConnector(CloudConnector):
     }
 
     POWER_STATE_MAP = {
-        'Deallocated': VirtualMachine.OFF,
-        'Deallocating': VirtualMachine.OFF,
-        'Running': VirtualMachine.RUNNING,
-        'Starting': VirtualMachine.PENDING,
-        'Started': VirtualMachine.PENDING,
-        'Stopped': VirtualMachine.STOPPED
+        'PowerState/deallocated': VirtualMachine.OFF,
+        'PowerState/deallocating': VirtualMachine.OFF,
+        'PowerState/running': VirtualMachine.RUNNING,
+        'PowerState/starting': VirtualMachine.PENDING,
+        'PowerState/started': VirtualMachine.PENDING,
+        'PowerState/stopped': VirtualMachine.STOPPED
     }
 
     def __init__(self, cloud_info, inf):
@@ -645,14 +645,18 @@ class AzureCloudConnector(CloudConnector):
             credentials, subscription_id = self.get_credentials(auth_data)
             compute_client = ComputeManagementClient(credentials, subscription_id)
             # Get one the virtual machine by name
-            virtual_machine = compute_client.virtual_machines.get(group_name, vm_name)
+            virtual_machine = compute_client.virtual_machines.get(group_name, vm_name, expand='instanceView')
         except Exception as ex:
             self.log_exception("Error getting the VM info: " + vm.id)
             return (False, "Error getting the VM info: " + vm.id + ". " + str(ex))
 
         self.log_info("VM info: " + vm.id + " obtained.")
         vm.state = self.PROVISION_STATE_MAP.get(virtual_machine.provisioning_state, VirtualMachine.UNKNOWN)
-        self.log_info("The VM state is: " + vm.state)
+
+        if vm.state == VirtualMachine.RUNNING:
+            vm.state = self.POWER_STATE_MAP.get(virtual_machine.instance_view.statuses[1].code, VirtualMachine.UNKNOWN)
+
+        self.log_debug("The VM state is: " + vm.state)
 
         instance_type = self.get_instance_type_by_name(virtual_machine.hardware_profile.vm_size,
                                                        virtual_machine.location, credentials, subscription_id)
