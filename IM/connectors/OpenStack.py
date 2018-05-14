@@ -366,7 +366,10 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 net_name = system.getValue("net_interface." + str(i) + ".connection")
                 if net_name in map_nets:
                     ip = map_nets[net_name]
-                    system.setValue("net_interface." + str(i) + ".ip", ip)
+                    if IPAddress(ip).version == 6:
+                        system.setValue("net_interface." + str(i) + ".ipv6", ip)
+                    else:
+                        system.setValue("net_interface." + str(i) + ".ip", ip)
                     ips_assigned.append(ip)
                 i += 1
 
@@ -377,7 +380,10 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 if net_name != '#UNMAPPED#':
                     if ip not in ips_assigned:
                         num_net = system.getNumNetworkIfaces()
-                        system.setValue('net_interface.' + str(num_net) + '.ip', ip)
+                        if IPAddress(ip).version == 6:
+                            system.setValue('net_interface.' + str(num_net) + '.ipv6', ip)
+                        else:
+                            system.setValue('net_interface.' + str(num_net) + '.ip', ip)
                         system.setValue('net_interface.' + str(num_net) + '.connection', net_name)
                 else:
                     pub_ips = []

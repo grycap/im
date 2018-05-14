@@ -668,7 +668,10 @@ class VirtualMachine:
                         # this VM
                         num_net = self.getNumNetworkIfaces()
 
-                vm_system.setValue('net_interface.%s.ip' % num_net, str(private_ip))
+                if IPAddress(private_ip).version == 6:
+                    vm_system.setValue('net_interface.%s.ipv6' % num_net, str(private_ip))
+                else:
+                    vm_system.setValue('net_interface.%s.ip' % num_net, str(private_ip))
                 vm_system.setValue('net_interface.%s.connection' % num_net, private_net.id)
 
     def get_ssh(self, retry=False):
