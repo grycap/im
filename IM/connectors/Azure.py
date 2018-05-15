@@ -650,7 +650,7 @@ class AzureCloudConnector(CloudConnector):
             self.log_warn("The VM does not exists.")
             # check if the RG still exists
             if self.get_rg(group_name, credentials, subscription_id):
-                self.log_info("But the RG %s does exits. Retun OFF." % group_name)
+                self.log_info("But the RG %s does exits. Return OFF." % group_name)
                 vm.state = VirtualMachine.OFF
                 return (True, vm)
 
