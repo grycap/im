@@ -1,7 +1,7 @@
 # Dockerfile to create a container with the IM service
 FROM ubuntu:16.04
 LABEL maintainer="Miguel Caballer <micafer1@upv.es>"
-LABEL version="1.6.4"
+LABEL version="1.7.1"
 LABEL description="Container image to run the IM service. (http://www.grycap.upv.es/im)"
 EXPOSE 8899 8800
 
@@ -16,10 +16,13 @@ RUN pip3 install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-c
 
 # Install IM
 RUN apt-get update && apt-get install --no-install-recommends -y gcc libssl-dev libffi-dev libsqlite3-dev && \
-     pip3 install IM==1.6.4 && \
+     pip3 install IM==1.6.1 && \
      apt-get remove -y gcc libssl-dev libffi-dev libsqlite3-dev python-dev python-pip && \
      apt-get autoremove -y && \
      rm -rf /var/lib/apt/lists/*
+
+# Force requests to be version 2.11.1 to avoid SSL ca errors with proxy files
+RUN pip3 install requests==2.11.1
 
 # Copy a ansible.cfg with correct minimum values
 COPY ansible.cfg /etc/ansible/ansible.cfg
