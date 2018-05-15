@@ -54,11 +54,6 @@ transport  = smart
 host_key_checking = False
 nocolor = 1
 
-# For old versions 1.X
-sudo_user = root
-sudo_exe = sudo
-
-# For new versions 2.X
 become_user      = root
 become_method    = sudo
 
@@ -69,9 +64,9 @@ record_host_keys=False
 [ssh_connection]
 
 # Only in systems with OpenSSH support to ControlPersist
-ssh_args = -o ControlMaster=auto -o ControlPersist=900s
+ssh_args = -o ControlMaster=auto -o ControlPersist=900s -o StrictHostKeyChecking=no
 # In systems with older versions of OpenSSH (RHEL 6, CentOS 6, SLES 10 or SLES 11) 
-#ssh_args =
+#ssh_args = -o StrictHostKeyChecking=no
 pipelining = True
 ```
 
