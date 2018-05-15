@@ -64,9 +64,9 @@ record_host_keys=False
 [ssh_connection]
 
 # Only in systems with OpenSSH support to ControlPersist
-ssh_args = -o ControlMaster=auto -o ControlPersist=900s -o StrictHostKeyChecking=no
+ssh_args = -o ControlMaster=auto -o ControlPersist=900s -o UserKnownHostsFile=/dev/null
 # In systems with older versions of OpenSSH (RHEL 6, CentOS 6, SLES 10 or SLES 11) 
-#ssh_args = -o StrictHostKeyChecking=no
+#ssh_args = -o UserKnownHostsFile=/dev/null
 pipelining = True
 ```
 
