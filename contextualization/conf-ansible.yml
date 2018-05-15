@@ -157,11 +157,11 @@
       when: (ansible_os_family == "RedHat" and ansible_distribution_major_version|int < 6) or (ansible_os_family == "Suse" and ansible_distribution_major_version|int < 10)
   
     - name: Change ssh_args to set ControlPersist to 15 min in ansible.cfg
-      ini_file: dest=/etc/ansible/ansible.cfg section=ssh_connection option=ssh_args value="-o ControlMaster=auto -o ControlPersist=900s"
+      ini_file: dest=/etc/ansible/ansible.cfg section=ssh_connection option=ssh_args value="-o ControlMaster=auto -o ControlPersist=900s -o StrictHostKeyChecking=no"
       when: ansible_os_family == "Debian" or (ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 7) or (ansible_os_family == "Suse" and ansible_distribution_major_version|int >= 12)
         
     - name: Change ssh_args to remove ControlPersist in REL 6 and older in ansible.cfg
-      ini_file: dest=/etc/ansible/ansible.cfg section=ssh_connection option=ssh_args value=""
+      ini_file: dest=/etc/ansible/ansible.cfg section=ssh_connection option=ssh_args value="-o StrictHostKeyChecking=no"
       when: (ansible_os_family == "RedHat" and ansible_distribution_major_version|int < 7) or (ansible_os_family == "Suse" and ansible_distribution_major_version|int < 12)
         
     - name: Activate SSH pipelining in ansible.cfg
