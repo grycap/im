@@ -1009,10 +1009,8 @@ class EC2CloudConnector(CloudConnector):
                 # It will be used if it is different to the public IP of the
                 # instance
                 if str(address.public_ip) != instance.ip_address:
-                    vm_system.setValue(
-                        'net_interface.' + str(num_nets) + '.ip', str(instance.ip_address))
-                    vm_system.setValue(
-                        'net_interface.' + str(num_nets) + '.connection', public_net.id)
+                    vm_system.setValue('net_interface.' + str(num_nets) + '.ip', str(instance.ip_address))
+                    vm_system.setValue('net_interface.' + str(num_nets) + '.connection', public_net.id)
 
                     num_pub_nets += 1
                     num_nets += 1
@@ -1020,8 +1018,7 @@ class EC2CloudConnector(CloudConnector):
         n = 0
         requested_ips = []
         while vm.getRequestedSystem().getValue("net_interface." + str(n) + ".connection"):
-            net_conn = vm.getRequestedSystem().getValue(
-                'net_interface.' + str(n) + '.connection')
+            net_conn = vm.getRequestedSystem().getValue('net_interface.' + str(n) + '.connection')
             if vm.info.get_network_by_id(net_conn).isPublic():
                 fixed_ip = vm.getRequestedSystem().getValue("net_interface." + str(n) + ".ip")
                 requested_ips.append(fixed_ip)

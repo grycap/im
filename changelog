@@ -407,3 +407,8 @@ IM 1.7.0
     * Change in the DB schema in the case of MySQL DB. This command must be made
       in the current DB:
 			ALTER TABLE `inf_list` ADD COLUMN `rowid` INT AUTO_INCREMENT UNIQUE FIRST;
+
+IM 1.7.1:
+    * Fix problems with nodes with IPv6 in OpenStack conn.
+    * Fix Azure conn does not get the correct state (in case of suspended VMs).
+    * Enable to specify pool_name in the network provider_ip in OpenStack conn.

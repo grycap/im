@@ -1221,10 +1221,12 @@ class InfrastructureManager:
         # First check if an OIDC token is included
         if "token" in im_auth[0]:
             InfrastructureManager.check_oidc_token(im_auth[0])
-        else:
+        elif "username" in im_auth[0]:
             if im_auth[0]['username'].startswith(IM.InfrastructureInfo.InfrastructureInfo.OPENID_USER_PREFIX):
                 # This is a OpenID user do not enable to get data using user/pass creds
                 raise IncorrectVMCrecentialsException("Invalid username used for the InfrastructureManager.")
+        else:
+            raise IncorrectVMCrecentialsException("No username nor token for the InfrastructureManager.")
 
         # Now check if the user is in authorized
         if not InfrastructureManager.check_im_user(im_auth):
