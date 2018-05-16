@@ -108,5 +108,7 @@ class TestTTSClient(unittest.TestCase):
 
         self.assertTrue(success, msg="ERROR: getting credentials: %s." % cred)
         self.assertEqual(cred, expected_cred, msg="ERROR: getting credentials: Unexpected credetials.")
+
+
 if __name__ == '__main__':
     unittest.main()

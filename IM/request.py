@@ -280,6 +280,7 @@ class AsyncXMLRPCServer(ThreadingMixIn, SimpleXMLRPCServer):
         self.__thread.daemon = True
         self.__thread.start()
 
+
 if Config.XMLRCP_SSL:
     class AsyncSSLXMLRPCServer(ThreadingMixIn, SSLSimpleXMLRPCServer):
 

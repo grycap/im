@@ -36,6 +36,7 @@ class DeleteInfs():
             sys.stderr.write("ERROR connecting with the database!.")
             sys.exit(-1)
 
+
 if __name__ == "__main__":
     if not Config.DATA_DB:
         sys.stderr.write("No DATA_DB defined in the im.cfg file!!\n")

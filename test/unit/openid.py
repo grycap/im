@@ -74,5 +74,6 @@ class TestOpenIDClient(unittest.TestCase):
         self.assertTrue(success)
         self.assertEqual(json.loads(token_info), token_info_resp)
 
+
 if __name__ == '__main__':
     unittest.main()
