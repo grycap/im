@@ -289,25 +289,40 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             if net_name:
                 for radl_net in radl_nets:
                     net_provider_id = radl_net.getValue('provider_id')
+
                     if net_provider_id:
+                        parts = net_provider_id.split(".")
+                        if len(parts) > 1:
+                            net_provider_id = parts[0]
                         if net_name == net_provider_id:
-                            res[radl_net.id] = ip
-                            break
+                            if radl_net.isPublic() == is_public:
+                                res[radl_net.id] = ip
+                                break
+                            else:
+                                # the ip not matches the is_public value
+                                res["#UNMAPPED#"].append(ip)
                     else:
                         if radl_net.id not in res:
                             if radl_net.isPublic() == is_public:
                                 res[radl_net.id] = ip
                                 radl_net.setValue('provider_id', net_name)
+                                if ip in res["#UNMAPPED#"]:
+                                    res["#UNMAPPED#"].remove(ip)
                                 break
                             else:
                                 # the ip not matches the is_public value
                                 res["#UNMAPPED#"].append(ip)
             else:
                 # It seems to be a floating IP
+                added = False
                 for radl_net in radl_nets:
                     if radl_net.id not in res and radl_net.isPublic() == is_public:
                         res[radl_net.id] = ip
+                        added = True
                         break
+
+                if not added:
+                    res["#UNMAPPED#"].append(ip)
 
         return res
 
@@ -451,6 +466,10 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             else:
                 # First check if the user has specified a provider ID
                 if net_provider_id:
+                    parts = net_provider_id.split(".")
+                    if len(parts) > 1:
+                        net_provider_id = parts[0]
+
                     for net in ost_nets:
                         if net.name == net_provider_id:
                             if net.name not in used_nets:
@@ -630,6 +649,14 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             if net.isPublic():
                 fixed_ip = vm.getRequestedSystem().getValue("net_interface." + str(n) + ".ip")
                 pool_name = net.getValue("pool_name")
+
+                if not pool_name:
+                    net_provider_id = net.getValue("provider_id")
+                    if net_provider_id:
+                        parts = net_provider_id.split(".")
+                        if len(parts) > 1:
+                            pool_name = parts[1]
+
                 requested_ips.append((fixed_ip, pool_name))
             n += 1
 
