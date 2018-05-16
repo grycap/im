@@ -19,6 +19,7 @@ Contents:
    REST
    client
    web
+   endpoints
 
 ..   mods
 

@@ -1,7 +1,7 @@
 Public IM Endpoints at UPV
 ==========================
 
-UPV offers an IM endpoint deployed in H.A. mode over a kubernetes cluster in it premises. 
+UPV offers an IM endpoint deployed in H.A. mode over a kubernetes cluster on it premises. 
 
 This service exposes the **web-based GUI and REST API** in the following URLs:
 
