@@ -551,6 +551,11 @@ It is a experimental issue currently it is not intended to be used in a producti
 
 This is an example of the HAProxy configuration file::
 
+    defaults
+        timeout connect 600s
+        timeout client 600s
+        timeout server 600s
+
 	frontend http-frontend
 	    mode http
 	    bind *:8800
