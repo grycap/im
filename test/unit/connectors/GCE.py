@@ -406,5 +406,6 @@ class TestGCEConnector(unittest.TestCase):
         instance = gce_cloud.get_instance_type(sizes, radl.systems[0])
         self.assertEquals(instance.name, "sizenamne")
 
+
 if __name__ == '__main__':
     unittest.main()

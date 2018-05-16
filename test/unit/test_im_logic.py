@@ -259,6 +259,13 @@ class TestIM(unittest.TestCase):
         """
 
         # this case raises an exception
+        auth0 = Authentication([{'type': 'InfrastructureManager', 'password': 'tests'}])
+        with self.assertRaises(Exception) as ex:
+            IM.CreateInfrastructure(radl, auth0)
+
+        self.assertEqual(str(ex.exception), "No username nor token for the InfrastructureManager.")
+
+        # this case raises an exception
         auth0 = Authentication([{'type': 'InfrastructureManager', 'username': 'test',
                                  'password': 'tests'}])
         with self.assertRaises(Exception) as ex:
@@ -1202,6 +1209,7 @@ configure step2 (
         time.sleep(6)
 
         IM.DestroyInfrastructure(infId, auth0)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -182,5 +182,6 @@ class TestIM(unittest.TestCase):
 
         IM.DestroyInfrastructure(infId, auth0)
 
+
 if __name__ == "__main__":
     unittest.main()

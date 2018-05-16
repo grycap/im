@@ -47,5 +47,6 @@ class TestONETTSClient(unittest.TestCase):
         self.assertEqual(username, "username", msg="ERROR: getting one auth from TTS, incorrect username.")
         self.assertEqual(password, "password", msg="ERROR: getting one auth from TTS, incorrect password.")
 
+
 if __name__ == '__main__':
     unittest.main()

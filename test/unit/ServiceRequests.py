@@ -172,5 +172,6 @@ class TestServiceRequests(unittest.TestCase):
         req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.GET_VERSION)
         req._call_function()
 
+
 if __name__ == '__main__':
     unittest.main()

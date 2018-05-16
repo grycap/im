@@ -227,6 +227,7 @@ class DataBase:
         else:
             return True
 
+
 try:
     class IntegrityError(sqlite.IntegrityError):
         """ Class to return IntegrityError independently of the DB used"""

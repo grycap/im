@@ -286,7 +286,11 @@ class OpenNebulaCloudConnector(CloudConnector):
                 net = vm.info.get_network_by_id(net_name)
                 provider_id = net.getValue("provider_id")
                 if provider_id == nic.NETWORK:
-                    system.setValue("net_interface." + str(i) + ".ip", str(nic.IP))
+                    ip = str(nic.IP)
+                    if IPAddress(ip).version == 6:
+                        system.setValue("net_interface." + str(i) + ".ipv6", ip)
+                    else:
+                        system.setValue("net_interface." + str(i) + ".ip", ip)
                     break
                 i += 1
 

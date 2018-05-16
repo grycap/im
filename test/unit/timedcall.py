@@ -57,5 +57,6 @@ class TestTimed(unittest.TestCase):
             time.sleep(0.1)
         self.assertEqual(res, 4)
 
+
 if __name__ == '__main__':
     unittest.main()

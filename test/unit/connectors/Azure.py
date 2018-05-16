@@ -252,6 +252,11 @@ class TestAzureConnector(unittest.TestCase):
         avm.provisioning_state = "Succeeded"
         avm.hardware_profile.vm_size = "instance_type1"
         avm.location = "northeurope"
+        status1 = MagicMock()
+        status1.code = "ProvisioningState/succeeded"
+        status2 = MagicMock()
+        status2.code = "PowerState/running"
+        avm.instance_view.statuses = [status1, status2]
         ni = MagicMock()
         ni.id = "/subscriptions/subscription-id/resourceGroups/rg0/providers/Microsoft.Network/networkInterfaces/ni-0"
         avm.network_profile.network_interfaces = [ni]
