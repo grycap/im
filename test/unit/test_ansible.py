@@ -49,5 +49,6 @@ class TestAnsible(unittest.TestCase):
         self.assertIn("changed=2", output.getvalue())
         print(output.getvalue())
 
+
 if __name__ == '__main__':
     unittest.main()

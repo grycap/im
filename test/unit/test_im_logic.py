@@ -1210,5 +1210,6 @@ configure step2 (
 
         IM.DestroyInfrastructure(infId, auth0)
 
+
 if __name__ == "__main__":
     unittest.main()

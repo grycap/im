@@ -390,5 +390,6 @@ class TestONEConnector(unittest.TestCase):
         self.assertEqual(one_server.one.image.delete.call_args_list[1], call('user:pass', 1))
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
+
 if __name__ == '__main__':
     unittest.main()
