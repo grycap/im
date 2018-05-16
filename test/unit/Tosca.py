@@ -92,5 +92,6 @@ class TestTosca(unittest.TestCase):
                                                     'token': 'pass',
                                                     'user': 'ubuntu'}})
 
+
 if __name__ == "__main__":
     unittest.main()

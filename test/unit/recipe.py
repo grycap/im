@@ -51,5 +51,6 @@ class TestRecipe(unittest.TestCase):
         self.assertEqual(res[0][1], "mod")
         self.assertEqual(res[0][2], "gmod")
 
+
 if __name__ == '__main__':
     unittest.main()

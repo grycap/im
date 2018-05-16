@@ -103,6 +103,7 @@ class Config:
     VM_NUM_USE_CTXT_DIST = 30
     DELAY_BETWEEN_VM_RETRIES = 5
 
+
 config = ConfigParser()
 config.read([Config.IM_PATH + '/../im.cfg', Config.IM_PATH +
              '/../etc/im.cfg', '/etc/im/im.cfg'])
@@ -127,6 +128,7 @@ class ConfigOpenNebula:
     TEMPLATE_OTHER = 'GRAPHICS = [type="vnc",listen="0.0.0.0"]'
     IMAGE_UNAME = ''
     TTS_URL = 'https://localhost:8443'
+
 
 if config.has_section("OpenNebula"):
     parse_options(config, 'OpenNebula', ConfigOpenNebula)

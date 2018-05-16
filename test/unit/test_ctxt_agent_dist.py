@@ -279,5 +279,6 @@ class TestCtxtAgent(unittest.TestCase):
         self.assertIn(" ansible_host=%s \n" % vm_data['ctxt_ip'], data)
         self.assertIn(" ansible_ssh_host=%s \n" % vm_data['ctxt_ip'], data)
 
+
 if __name__ == '__main__':
     unittest.main()

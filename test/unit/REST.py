@@ -779,5 +779,6 @@ class TestREST(unittest.TestCase):
         info = format_output(["1", "2"])
         self.assertEqual(info, 'Unsupported Accept Media Types: application/zip')
 
+
 if __name__ == "__main__":
     unittest.main()

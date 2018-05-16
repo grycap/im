@@ -373,6 +373,7 @@ def signal_int_handler(signal, frame):
     """
     im_stop()
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='IM service')
     parser.add_argument('--version', help='Show IM service version.', dest="version",

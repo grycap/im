@@ -105,6 +105,7 @@ class DB14to15():
                 vm.cloud_connector = None
                 vm.inf = None
 
+
 if __name__ == "__main__":
     if not Config.DATA_DB:
         sys.stderr.write("No DATA_DB defined in the im.cfg file!!")

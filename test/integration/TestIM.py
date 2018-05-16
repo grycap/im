@@ -685,5 +685,6 @@ echo "Hello World" >> /tmp/data.txt
             self.assertTrue(
                 success, msg="ERROR calling DestroyInfrastructure: " + str(res))
 
+
 if __name__ == '__main__':
     unittest.main()
