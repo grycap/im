@@ -551,6 +551,11 @@ It is a experimental issue currently it is not intended to be used in a producti
 
 This is an example of the HAProxy configuration file::
 
+    defaults
+        timeout connect 600s
+        timeout client 600s
+        timeout server 600s
+
 	frontend http-frontend
 	    mode http
 	    bind *:8800
@@ -570,6 +575,10 @@ This is an example of the HAProxy configuration file::
         ...
 
 See more details of HAProxy configuration at `HAProxy Documentation <https://cbonte.github.io/haproxy-dconv/>`_.
+
+Also the ``INF_CACHE_TIME`` variable of the IM config file must be set to a time in seconds lower or equal to the time
+set in the stick-table ``expire`` value (in the example 60m). So for this example INF_CACHE_TIME must be set to less
+than or equals to 3600.
 
 Purgue IM DB
 ============
