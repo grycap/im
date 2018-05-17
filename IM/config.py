@@ -95,7 +95,7 @@ class Config:
     SINGLE_SITE_IMAGE_URL_PREFIX = ''
     OIDC_ISSUERS = []
     OIDC_AUDIENCE = None
-    INF_CACHE_TIME = None
+    INF_CACHE_TIME = 0
     VMINFO_JSON = False
     OIDC_CLIENT_ID = None
     OIDC_CLIENT_SECRET = None
