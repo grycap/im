@@ -271,6 +271,7 @@ spec:
               port: 3306
             initialDelaySeconds: 20
             periodSeconds: 20
+            timeoutSeconds: 2
       volumes:
         - name: im-mysql-db
           persistentVolumeClaim:
@@ -338,6 +339,7 @@ spec:
             port: 8800
           initialDelaySeconds: 10
           periodSeconds: 10
+          timeoutSeconds: 2
       volumes:
         - name: imetc
           persistentVolumeClaim:
@@ -393,6 +395,12 @@ spec:
           volumeMounts:
            - name: im-logs
              mountPath: /var/log
+          livenessProbe:
+            tcpSocket:
+              port: 514
+            initialDelaySeconds: 20
+            periodSeconds: 20
+            timeoutSeconds: 2
       volumes:
         - name: im-logs
           persistentVolumeClaim:
@@ -484,6 +492,7 @@ spec:
             scheme: HTTPS
           initialDelaySeconds: 20
           periodSeconds: 20
+          timeoutSeconds: 2
       volumes:
         - name: imetc
           persistentVolumeClaim:
@@ -584,6 +593,7 @@ spec:
               scheme: HTTPS
             initialDelaySeconds: 30
             periodSeconds: 20
+            timeoutSeconds: 2
       volumes:
         - name: imetc
           persistentVolumeClaim:

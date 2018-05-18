@@ -50,6 +50,13 @@ data:
           index index.html;
       }
     }
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: nginx
+data:
   # this can be moved to a secret
   server.crt: "-----BEGIN CERTIFICATE-----\n\n-----END CERTIFICATE-----\n"
   server.key: "-----BEGIN PRIVATE KEY-----\n\n-----END PRIVATE KEY-----\n"
@@ -81,13 +88,13 @@ spec:
           - containerPort: 80
             name: http
           volumeMounts:
-           - name: nginx
+           - name: nginx-cm
              mountPath: /etc/nginx/conf.d/default.conf 
              subPath: default.conf
-           - name: nginx
+           - name: nginx-sec
              mountPath: /etc/nginx/server.key
              subPath: server.key
-           - name: nginx
+           - name: nginx-sec
              mountPath: /etc/nginx/server.crt
              subPath: server.crt
           livenessProbe:
@@ -98,9 +105,12 @@ spec:
             initialDelaySeconds: 30
             periodSeconds: 20
       volumes:
-        - name: nginx
+        - name: nginx-cm
           configMap:
             name: nginx
+        - name: nginx-sec
+          secret:
+            secretName: nginx
 
 # Service for the nginx service
 ---
