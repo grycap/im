@@ -318,7 +318,11 @@ spec:
         role: wn
       containers:
       - name: im-backend
-        image: grycap/im:1.7.0
+        image: grycap/im:1.7.2-dev
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "250m"
         ports:
         - containerPort: 8800
         imagePullPolicy: Always
@@ -423,6 +427,9 @@ metadata:
   namespace: im
 data:
   stats-auth: "micafer:grycap01"
+  timeout-connect: "600s"
+  timeout-client: "600s"
+  timeout-server: "600s"
 # Ingress controller
 ---
 apiVersion: apps/v1
@@ -494,12 +501,27 @@ spec:
   - name: https
     port: 443
     nodePort: 30443
+  - name: http
+    port: 80
+    nodePort: 32080
 # Open also the stats port
   - name: stats
     port: 1936
     nodePort: 30009
   selector:
     run: haproxy-ingress
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: im-web
+  namespace: im
+data:
+  analyticstracking.php: |
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script>
+    </script>
 
 # Deployment for the IM-web service
 ---
@@ -528,7 +550,7 @@ spec:
         role: ingress-controller
       containers:
         - name: im-web
-          image: "grycap/im-web:1.5.5-ssl"
+          image: "grycap/im-web:1.5.6-ssl-dev"
           ports:
           - containerPort: 80
             protocol: TCP
@@ -552,13 +574,16 @@ spec:
              mountPath: /etc/ssl/certs
            - name: imdb
              mountPath: /etc/im-web
+           - name: im-web
+             mountPath: /var/www/html/im-web/analyticstracking.php
+             subPath: analyticstracking.php
           livenessProbe:
             httpGet:
               path: /im-web/
               port: 443
               scheme: HTTPS
-            initialDelaySeconds: 10
-            periodSeconds: 10
+            initialDelaySeconds: 30
+            periodSeconds: 20
       volumes:
         - name: imetc
           persistentVolumeClaim:
@@ -566,6 +591,10 @@ spec:
         - name: imdb
           persistentVolumeClaim:
             claimName: imdb
+        - name: im-web
+          configMap:
+            name: im-web
+
 
 # IM-Web interface
 ---
