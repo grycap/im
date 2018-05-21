@@ -71,6 +71,8 @@ class TestTosca(unittest.TestCase):
         self.assertEqual("cloudid", radl.deploys[0].cloud_id)
         self.assertEqual("cloudid", radl.deploys[1].cloud_id)
         self.assertEqual("cloudid", radl.deploys[2].cloud_id)
+        other_server = radl.get_system_by_name('other_server')
+        self.assertEqual(other_server.getValue("availability_zone"), 'some_zone')
 
     def test_tosca_get_outputs(self):
         """Test TOSCA get_outputs function"""
