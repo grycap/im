@@ -56,7 +56,8 @@ class InfrastructureList():
         """Remove destroyed infrastructure."""
 
         with InfrastructureList._lock:
-            del InfrastructureList.infrastructure_list[del_inf.id]
+            if del_inf.id in InfrastructureList.infrastructure_list:
+                del InfrastructureList.infrastructure_list[del_inf.id]
 
     @staticmethod
     def get_inf_ids(auth=None):

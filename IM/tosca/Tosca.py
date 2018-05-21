@@ -44,9 +44,9 @@ class Tosca:
     def deserialize(str_data):
         return Tosca(str_data)
 
-    def _get_cloud_id(self, sys_name):
+    def _get_placement_property(self, sys_name, prop):
         """
-        Get the cloud ID of the deployment based on policies
+        Get the specified property of the deployment based on policies
         """
         for policy in self.tosca.policies:
             if policy.type_definition.type == "tosca.policies.Placement":
@@ -59,10 +59,11 @@ class Tosca:
 
                 for node in node_list:
                     if node.name == sys_name:
-                        if 'cloud_id' in policy.properties:
-                            Tosca.logger.debug("Set cloud id: %s to system: %s." % (policy.properties['cloud_id'],
-                                                                                    sys_name))
-                            return policy.properties['cloud_id']
+                        if prop in policy.properties:
+                            Tosca.logger.debug("Set %s: %s to system: %s." % (prop,
+                                                                              policy.properties[prop],
+                                                                              sys_name))
+                            return policy.properties[prop]
             else:
                 Tosca.logger.warn("Policy %s not supported. Ignoring it." % policy.type_definition.type)
 
@@ -108,8 +109,7 @@ class Tosca:
                     sys = self._gen_system(node, self.tosca.nodetemplates)
                     # add networks using the simple method with the public_ip
                     # property
-                    self._add_node_nets(
-                        node, radl, sys, self.tosca.nodetemplates)
+                    self._add_node_nets(node, radl, sys, self.tosca.nodetemplates)
                     radl.systems.append(sys)
                     # Add the deploy element for this system
                     min_instances, _, default_instances, count, removal_list = self._get_scalable_properties(
@@ -135,14 +135,13 @@ class Tosca:
                         all_removal_list.extend(removal_list[0:-num_instances])
 
                     if num_instances > 0:
-                        cloud_id = self._get_cloud_id(sys.name)
+                        cloud_id = self._get_placement_property(sys.name, "cloud_id")
                         dep = deploy(sys.name, num_instances, cloud_id)
                         radl.deploys.append(dep)
                     compute = node
                 else:
                     # Select the host to host this element
-                    compute = self._find_host_compute(
-                        node, self.tosca.nodetemplates)
+                    compute = self._find_host_compute(node, self.tosca.nodetemplates)
                     if not compute:
                         Tosca.logger.warn(
                             "Node %s has not compute node to host in." % node.name)
@@ -1258,6 +1257,10 @@ class Tosca:
                 res.setValue('disk.%d.fstype' % num, fstype)
 
         self._add_ansible_roles(node, nodetemplates, res)
+
+        availability_zone = self._get_placement_property(res.name, "availability_zone")
+        if availability_zone:
+            res.setValue('availability_zone', availability_zone)
 
         return res
 
