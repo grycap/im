@@ -411,4 +411,6 @@ IM 1.7.1:
     * Fix Azure conn does not get the correct state (in case of suspended VMs).
     * Enable to specify pool_name in the network provider_ip in OpenStack conn.
 
-
+IM 1.7.2:
+    * Fix Error setting the INF_CACHE_TIME conf variable time.
+    * Add support to availability_zone in tosca.policies.Placement.
