@@ -168,7 +168,7 @@ $ yum localinstall IM-*.rpm RADL-*.rpm
 Azure python SDK is not available in CentOS. So if you need the Azure plugin you have to manually install them using pip:
 
 ```sh
-$ pip install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns 
+$ pip install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns azure-storage 
 ```
 
 #### 1.3.4 From Deb package (Tested with Ubuntu 14.04 and 16.04)
