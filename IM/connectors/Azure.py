@@ -544,8 +544,21 @@ class AzureCloudConnector(CloudConnector):
             group_name = "rg-%s" % (vm_name)
 
             try:
+                tags = {}
+                if radl.systems[0].getValue('instance_tags'):
+                    keypairs = radl.systems[0].getValue('instance_tags').split(",")
+                    for keypair in keypairs:
+                        parts = keypair.split("=")
+                        key = parts[0].strip()
+                        value = parts[1].strip()
+                        tags[key] = value
+
+                args = {'location': location}
+                if tags:
+                    args['tags'] = tags
+
                 # Create resource group for the VM
-                resource_client.resource_groups.create_or_update(group_name, {'location': location})
+                resource_client.resource_groups.create_or_update(group_name, args)
 
                 vm = VirtualMachine(inf, group_name + '/' + vm_name, self.cloud, radl, requested_radl, self)
                 vm.info.systems[0].setValue('instance_id', group_name + '/' + vm_name)
