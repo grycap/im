@@ -445,6 +445,18 @@ class AzureCloudConnector(CloudConnector):
             },
         }
 
+        tags = {}
+        if system.getValue('instance_tags'):
+            keypairs = system.getValue('instance_tags').split(",")
+            for keypair in keypairs:
+                parts = keypair.split("=")
+                key = parts[0].strip()
+                value = parts[1].strip()
+                tags[key] = value
+
+        if tags:
+            vm['tags'] = tags
+
         cont = 1
         data_disks = []
         while system.getValue("disk." + str(cont) + ".size"):

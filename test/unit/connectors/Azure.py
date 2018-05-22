@@ -153,6 +153,7 @@ class TestAzureConnector(unittest.TestCase):
             cpu.arch='x86_64' and
             cpu.count>=1 and
             memory.size>=512m and
+            instance_tags = 'key=value,key1=value2' and
             net_interface.0.connection = 'net1' and
             net_interface.0.dns_name = 'test' and
             net_interface.1.connection = 'net2' and
