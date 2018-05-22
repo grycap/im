@@ -456,6 +456,16 @@ class GCECloudConnector(CloudConnector):
                 'external_ip': None,
                 'location': region}
 
+        tags = {}
+        if system.getValue('instance_tags'):
+            keypairs = system.getValue('instance_tags').split(",")
+            for keypair in keypairs:
+                parts = keypair.split("=")
+                key = parts[0].strip()
+                value = parts[1].strip()
+                tags[key] = value
+            args['ex_metadata'] = tags
+
         # include the SSH_KEYS
         username = system.getValue('disk.0.os.credentials.username')
         private = system.getValue('disk.0.os.credentials.private_key')
