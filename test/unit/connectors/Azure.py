@@ -394,9 +394,11 @@ class TestAzureConnector(unittest.TestCase):
         self.assertTrue(success, msg="ERROR: modifying VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
+    @patch('IM.connectors.Azure.BlockBlobService')
+    @patch('IM.connectors.Azure.StorageManagementClient')
     @patch('IM.connectors.Azure.ResourceManagementClient')
     @patch('IM.connectors.Azure.UserPassCredentials')
-    def test_60_finalize(self, credentials, resource_client):
+    def test_60_finalize(self, credentials, resource_client, storage_client, blob):
         auth = Authentication([{'id': 'azure', 'type': 'Azure', 'subscription_id': 'subscription_id',
                                 'username': 'user', 'password': 'password'}])
         azure_cloud = self.get_azure_cloud()
@@ -411,9 +413,17 @@ class TestAzureConnector(unittest.TestCase):
             )"""
         radl = radl_parse.parse_radl(radl_data)
 
+        key = MagicMock()
+        key.keys = [MagicMock()]
+        sclient = MagicMock()
+        storage_client.return_value = sclient
+        sclient.storage_accounts.list_keys.return_value = key
+
         inf = MagicMock()
         vm = VirtualMachine(inf, "rg0/vm0", azure_cloud.cloud, radl, radl, azure_cloud, 1)
+        vm.disks = ["disk1"]
 
+        success, _ = azure_cloud.finalize(vm, False, auth)
         success, _ = azure_cloud.finalize(vm, True, auth)
 
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
