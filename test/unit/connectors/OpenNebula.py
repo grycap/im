@@ -134,6 +134,7 @@ class TestONEConnector(unittest.TestCase):
             net_interface.0.connection = 'net1' and
             net_interface.0.dns_name = 'test' and
             net_interface.1.connection = 'net2' and
+            instance_tags = 'key=value,key1=value2' and
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'one://server.com/1' and
             disk.0.os.credentials.username = 'user' and
