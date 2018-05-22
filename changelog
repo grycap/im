@@ -414,3 +414,5 @@ IM 1.7.1:
 IM 1.7.2:
     * Fix Error setting the INF_CACHE_TIME conf variable time.
     * Add support to availability_zone in tosca.policies.Placement.
+    * Enable to set instance_tags in connectors.
+    * Fix error in Azure conn: VM disks are not deleted when VM is finalized, only when Infrastructure is destroyed.

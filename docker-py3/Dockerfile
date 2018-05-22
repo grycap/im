@@ -12,7 +12,7 @@ RUN pip3 install setuptools pip --upgrade -I
 RUN pip3 install pyOpenSSL --upgrade -I
 
 # Install pip optional libraries
-RUN pip3 install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns cheroot xmltodict
+RUN pip3 install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns azure-storage cheroot xmltodict
 
 # Install IM
 RUN apt-get update && apt-get install --no-install-recommends -y gcc libssl-dev libffi-dev libsqlite3-dev && \

@@ -646,6 +646,18 @@ class OpenNebulaCloudConnector(CloudConnector):
             %s
         ''' % (name, cpu, cpu, memory, arch, disks, ConfigOpenNebula.TEMPLATE_OTHER)
 
+        user_template = ""
+        if system.getValue('instance_tags'):
+            keypairs = system.getValue('instance_tags').split(",")
+            for keypair in keypairs:
+                parts = keypair.split("=")
+                key = parts[0].strip()
+                value = parts[1].strip()
+                user_template += '%s = "%s", ' % (key, value)
+
+        if user_template:
+            res += "\nUSER_TEMPLATE = [%s]\n" % user_template[:-2]
+
         res += self.get_networks_template(radl, sgs, auth_data)
 
         # include the SSH_KEYS
