@@ -105,7 +105,8 @@ This is the list of method names:
    * ``failed``, an error happened during the launching; or
    * ``unknown``, unable to obtain the status.
 
-   The next figure shows a state diagram of virtual machine status.
+   The next figure shows a state diagram of virtual machine status. This figure is illustrative
+   as if may differ in case of Cloud Providers.
 
    .. digraph:: stategraph
    
