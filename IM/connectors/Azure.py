@@ -681,16 +681,8 @@ class AzureCloudConnector(CloudConnector):
             compute_client = ComputeManagementClient(credentials, subscription_id)
             # Get one the virtual machine by name
             virtual_machine = compute_client.virtual_machines.get(group_name, vm_name, expand='instanceView')
-
-            if virtual_machine.storage_profile.data_disks:
-                for data_disk in virtual_machine.storage_profile.data_disks:
-                    self.log_debug(data_disk.vhd.name)
-
-            if virtual_machine.storage_profile.os_disk:
-                self.log_debug(virtual_machine.storage_profile.os_disk.name)
-
         except Exception as ex:
-            self.log_warn("The VM does not exists.")
+            self.log_warn("The VM does not exists: %s" % str(ex))
             # check if the RG still exists
             if self.get_rg(group_name, credentials, subscription_id):
                 self.log_info("But the RG %s does exits. Return OFF." % group_name)
