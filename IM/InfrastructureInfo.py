@@ -306,17 +306,16 @@ class InfrastructureInfo:
         """
 
         with self._lock:
-            # Add new networks only
-            for s in radl.systems + radl.networks + radl.ansible_hosts:
+            original_radl = self.radl.clone()
+            # Add new networks ad ansible_hosts only
+            for s in radl.networks + radl.ansible_hosts:
                 if not self.radl.add(s.clone(), "ignore"):
-                    InfrastructureInfo.logger.warn(
-                        "Ignoring the redefinition of %s %s" % (type(s), s.getId()))
+                    InfrastructureInfo.logger.warn("Ignoring the redefinition of %s %s" % (type(s), s.getId()))
 
-            # Add or update configures
+            # Add or update configures and systems
             for s in radl.configures + radl.systems:
                 self.radl.add(s.clone(), "replace")
-                InfrastructureInfo.logger.warn(
-                    "(Re)definition of %s %s" % (type(s), s.getId()))
+                InfrastructureInfo.logger.warn("(Re)definition of %s %s" % (type(s), s.getId()))
 
             # Append contextualize
             self.radl.add(radl.contextualize)
@@ -335,7 +334,12 @@ class InfrastructureInfo:
                         self.private_networks[private_net] = d.cloud_id
 
         # Check the RADL
-        self.radl.check()
+        try:
+            self.radl.check()
+        except Exception as ex:
+            # If something is not correct restore the original one and raise the error
+            self.radl = original_radl
+            raise(ex)
 
     def complete_radl(self, radl):
         """

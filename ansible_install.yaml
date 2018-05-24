@@ -50,6 +50,9 @@
       yum: name=IM,ansible,python-pip,python-jinja2,sshpass,openssh-clients,unzip,MySQL-python,python-sqlite3dbm
       when: ansible_os_family == "RedHat"
 
+    - name: Install Azure libraries
+      pip: executable=pip name=msrest,msrestazure,azure-common,azure-mgmt-storage,azure-mgmt-compute,azure-mgmt-network,azure-mgmt-resource,azure-mgmt-dns,azure-storage
+
 ################################################ Configure Ansible  ###################################################
 
     - name: Create /etc/ansible

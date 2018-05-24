@@ -596,6 +596,15 @@ class EC2CloudConnector(CloudConnector):
                     res.append((False, "Error managing the keypair."))
                 return res
 
+            tags = {}
+            if system.getValue('instance_tags'):
+                keypairs = system.getValue('instance_tags').split(",")
+                for keypair in keypairs:
+                    parts = keypair.split("=")
+                    key = parts[0].strip()
+                    value = parts[1].strip()
+                    tags[key] = value
+
             all_failed = True
 
             i = 0
@@ -711,6 +720,8 @@ class EC2CloudConnector(CloudConnector):
                             if len(reservation.instances) == 1:
                                 instance = reservation.instances[0]
                                 instance.add_tag("IM-USER", im_username)
+                                for key, value in tags.items():
+                                    instance.add_tag(key, value)
                                 ec2_vm_id = region_name + ";" + instance.id
 
                                 self.log_debug("RADL:")
@@ -796,7 +807,7 @@ class EC2CloudConnector(CloudConnector):
         """
         try:
             if instance.state == 'running' and "volumes" not in vm.__dict__.keys():
-                # Flag to se that this VM has created (or is creating) the
+                # Flag to set that this VM has created (or is creating) the
                 # volumes
                 vm.volumes = True
                 conn = instance.connection

@@ -22,7 +22,7 @@ RUN wget https://launchpad.net/ubuntu/+archive/primary/+files/python-msrest_0.4.
     rm -rf /var/lib/apt/lists/*
 
 # Install IM
-RUN wget https://github.com/grycap/RADL/releases/download/v1.1.0/python-radl_1.1.0-1_all.deb && \ 
+RUN wget https://github.com/grycap/RADL/releases/download/v1.1.1/python-radl_1.1.1-1_all.deb && \ 
     wget https://github.com/indigo-dc/im/releases/download/v1.7.2/python-im_1.7.2-1_all.deb && \
     wget https://github.com/indigo-dc/tosca-parser/releases/download/0.9.1/python-tosca-parser_0.9.1-1_all.deb && \
     dpkg -i python-radl_*_all.deb ; \

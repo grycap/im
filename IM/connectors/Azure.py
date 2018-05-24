@@ -26,6 +26,7 @@ from IM.config import Config
 try:
     from azure.mgmt.resource import ResourceManagementClient
     from azure.mgmt.storage import StorageManagementClient
+    from azure.storage.blob import BlockBlobService
     from azure.mgmt.compute import ComputeManagementClient
     from azure.mgmt.network import NetworkManagementClient
     from azure.mgmt.dns import DnsManagementClient
@@ -405,11 +406,12 @@ class AzureCloudConnector(CloudConnector):
         if system.getValue('availability_zone'):
             location = system.getValue('availability_zone')
 
-        # Allways use the new credentials
+        # Always use the new credentials
         system.updateNewCredentialValues()
         user_credentials = system.getCredentials()
 
         os_disk_name = "osdisk-" + str(uuid.uuid1())
+        disks = [vm_name + os_disk_name + ".vhd"]
 
         vm = {
             'location': location,
@@ -443,10 +445,23 @@ class AzureCloudConnector(CloudConnector):
             },
         }
 
+        tags = {}
+        if system.getValue('instance_tags'):
+            keypairs = system.getValue('instance_tags').split(",")
+            for keypair in keypairs:
+                parts = keypair.split("=")
+                key = parts[0].strip()
+                value = parts[1].strip()
+                tags[key] = value
+
+        if tags:
+            vm['tags'] = tags
+
         cont = 1
         data_disks = []
         while system.getValue("disk." + str(cont) + ".size"):
             disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('G')
+            disks.append("{}disk{}.vhd".format(vm_name, cont))
             self.log_info("Adding a %s GB disk." % disk_size)
             data_disks.append({
                 'name': '%s_disk_%d' % (vm_name, cont),
@@ -463,7 +478,7 @@ class AzureCloudConnector(CloudConnector):
         if data_disks:
             vm['storage_profile']['data_disks'] = data_disks
 
-        return vm
+        return vm, disks
 
     def create_nets(self, radl, credentials, subscription_id, group_name):
         network_client = NetworkManagementClient(credentials, subscription_id)
@@ -529,8 +544,21 @@ class AzureCloudConnector(CloudConnector):
             group_name = "rg-%s" % (vm_name)
 
             try:
+                tags = {}
+                if radl.systems[0].getValue('instance_tags'):
+                    keypairs = radl.systems[0].getValue('instance_tags').split(",")
+                    for keypair in keypairs:
+                        parts = keypair.split("=")
+                        key = parts[0].strip()
+                        value = parts[1].strip()
+                        tags[key] = value
+
+                args = {'location': location}
+                if tags:
+                    args['tags'] = tags
+
                 # Create resource group for the VM
-                resource_client.resource_groups.create_or_update(group_name, {'location': location})
+                resource_client.resource_groups.create_or_update(group_name, args)
 
                 vm = VirtualMachine(inf, group_name + '/' + vm_name, self.cloud, radl, requested_radl, self)
                 vm.info.systems[0].setValue('instance_id', group_name + '/' + vm_name)
@@ -538,8 +566,9 @@ class AzureCloudConnector(CloudConnector):
                 nics = self.create_nics(radl, credentials, subscription_id, group_name, subnets)
 
                 instance_type = self.get_instance_type(radl.systems[0], credentials, subscription_id)
-                vm_parameters = self.get_azure_vm_create_json(storage_account_name, vm_name,
-                                                              nics, radl, instance_type)
+                vm_parameters, disks = self.get_azure_vm_create_json(storage_account_name, vm_name,
+                                                                     nics, radl, instance_type)
+                vm.disks = disks
 
                 compute_client = ComputeManagementClient(credentials, subscription_id)
                 async_vm_creation = compute_client.virtual_machines.create_or_update(group_name,
@@ -556,10 +585,20 @@ class AzureCloudConnector(CloudConnector):
                 # Delete Resource group and everything in it
                 if group_name:
                     self.delete_resource_group(group_name, resource_client)
+                    self.delete_vm_disks(vm, credentials, subscription_id)
 
             i += 1
 
         return vms
+
+    @staticmethod
+    def get_storage_account_name(inf_id):
+        # Storage account name must be between 3 and 24 characters in length and use
+        # numbers and lower-case letters only
+        storage_account_name = "s%s" % inf_id
+        storage_account_name = storage_account_name.replace("-", "")
+        storage_account_name = storage_account_name[:24]
+        return storage_account_name
 
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         location = self.DEFAULT_LOCATION
@@ -572,11 +611,7 @@ class AzureCloudConnector(CloudConnector):
 
         resource_client = ResourceManagementClient(credentials, subscription_id)
 
-        # Storage account name must be between 3 and 24 characters in length and use
-        # numbers and lower-case letters only
-        storage_account_name = "s%s" % inf.id
-        storage_account_name = storage_account_name.replace("-", "")
-        storage_account_name = storage_account_name[:24]
+        storage_account_name = self.get_storage_account_name(inf.id)
 
         with inf._lock:
             # Create resource group for the Infrastructure if it does not exists
@@ -646,6 +681,14 @@ class AzureCloudConnector(CloudConnector):
             compute_client = ComputeManagementClient(credentials, subscription_id)
             # Get one the virtual machine by name
             virtual_machine = compute_client.virtual_machines.get(group_name, vm_name, expand='instanceView')
+
+            if virtual_machine.storage_profile.data_disks:
+                for data_disk in virtual_machine.storage_profile.data_disks:
+                    self.log_debug(data_disk.vhd.name)
+
+            if virtual_machine.storage_profile.os_disk:
+                self.log_debug(virtual_machine.storage_profile.os_disk.name)
+
         except Exception as ex:
             self.log_warn("The VM does not exists.")
             # check if the RG still exists
@@ -778,6 +821,8 @@ class AzureCloudConnector(CloudConnector):
                         return False, "Error terminating the VM: %s" % msg
                 else:
                     self.log_info("RG: %s does not exist. Do not remove." % "rg-%s" % vm.inf.id)
+            else:
+                self.delete_vm_disks(vm, credentials, subscription_id)
 
         except Exception as ex:
             self.log_exception("Error terminating the VM")
@@ -865,3 +910,29 @@ class AzureCloudConnector(CloudConnector):
             self.log_info("Resource group %s successfully deleted." % group_name)
 
         return deleted, msg
+
+    def delete_vm_disks(self, vm, credentials, subscription_id):
+        try:
+            if "disks" in vm.__dict__.keys():
+                storage_account_name = self.get_storage_account_name(vm.inf.id)
+
+                storage_client = StorageManagementClient(credentials, subscription_id)
+                keys = storage_client.storage_accounts.list_keys("rg-%s" % vm.inf.id, storage_account_name)
+
+                key = None
+                for key in keys.keys:
+                    break
+                if not key:
+                    self.log_error("Error deleting VM disks: No key found.")
+                    return (False, "Error deleting VM disks: No key found.")
+
+                block_blob_service = BlockBlobService(account_name=storage_account_name, account_key=key.value)
+
+                for disk in vm.disks:
+                    self.log_debug("Deleting disk: %s" % disk)
+                    block_blob_service.delete_blob("vhds", disk)
+        except Exception as ex:
+            self.log_exception("Error deleting VM disks")
+            return (False, "Error deleting VM disks" + str(ex))
+
+        return True, ""
