@@ -370,7 +370,7 @@ IM 1.6.6
     * Add retries in Azure RG deletion.
     * Avoid raising error in case that one auth line does not have the type field.
 
-IM 1.6.7:
+IM 1.6.7
     * Fix error with the update of pyOpenSSL package causes Ansible error.
     * Fix error contextualizing docker containers.
     * Improves performance deleting an infra when configuring it.
@@ -380,7 +380,12 @@ IM 1.6.7:
     * Fix error reconfiguring nodes in case of addition of nodes.
     * Avoid "Failed to lock apt for exclusive operation" in contextualization.
 
-IM 1.7.0:
+IM 1.6.8
+    * Add support for the "endpoint" "port" field.
+    * Fix error that causes that some services left behind after deleting infrastructure on Azure.
+    * Fix error that causes that GCE conn assing public IPs to all VMs.
+
+IM 1.7.0
     * Return correct URL path when IM is behind a nginx proxy (or similiar)
     * Fix error in case of Max contextualization time passed the nodes are maintained in running state.
     * Add availability_zone field in OpenStack conn.
@@ -388,13 +393,10 @@ IM 1.7.0:
     * Fix error in occi connector in case of setting and slash at the end of the host URL.
     * Move FogBow connector to requests library
     * Enable to reference an existing volume in OCCI conn
-    * Fix error Resources in Azure are not properly deleted and IM returns "successfully destroyed"
-    * Fix error GCE conn assing public IPs to all VMs.
     * Fix error using vault recipe options with ubuntu 2.4
     * Fix than user/pass credentials can access OpenID infras
     * Enable to create an infrastructure async
     * Return IM list in correct order (by creation)
-    * Add TOSCA support por managing node Endpoints
     * Fix error processing TOSCA node artifacts as lists
     * Improve VM launch paralelism
     * Add VM creation retry in conns

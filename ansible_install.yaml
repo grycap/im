@@ -1,13 +1,57 @@
 - hosts: localhost
   connection: local
+  vars:
+      # Set True to activate IM in single site more (OpenNebula sites)
+      SINGLE_SITE: False
+      # Hostname of the OpenNebula API server 
+      SINGLE_SITE_HOST: onserver.domain.com
+      # URL of the IAM TTS server
+      TTS_URL: https://localhost:8443
   tasks:
     - name: Yum install epel-release
       action: yum pkg=epel-release state=installed
-      when: ansible_os_family == "RedHat" and ansible_distribution != "Fedora"
+      when: ansible_os_family == "RedHat"
 
     - name: Install libselinux-python in RH
       action: yum pkg=libselinux-python state=installed
       when: ansible_os_family == "RedHat"
+
+    - name: Ubuntu install Ansible requisites with apt
+      apt: name=python-pip,python-jinja2,sshpass,openssh-client,unzip,python-mysqldb,python-sqlite update_cache=yes
+      when: ansible_distribution == "Ubuntu"
+
+    - name: Ubuntu 14 install indigo 1 list
+      get_url: url=http://repo.indigo-datacloud.eu/repos/1/indigo1-ubuntu14_04.list dest=/etc/apt/sources.list.d/indigo1-ubuntu14_04.list
+      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version == "14"
+
+    - name: Ubuntu 16 install indigo 2 list
+      get_url: url=http://repo.indigo-datacloud.eu/repos/2/indigo2-ubuntu16_04.list dest=/etc/apt/sources.list.d/indigo2-ubuntu16_04.list
+      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version == "16"
+
+    - apt_key: url=http://repo.indigo-datacloud.eu/repository/RPM-GPG-KEY-indigodc state=present
+      when: ansible_distribution == "Ubuntu"
+      
+    - name: Apt-get update
+      apt: update_cache=yes
+      when: ansible_os_family == "Debian"
+
+    - name: Ubuntu install IM and Ansible with apt
+      apt: name=python-im,ansible force=yes
+      when: ansible_distribution == "Ubuntu"
+      
+    - name: RH indigo repos
+      get_url: url=http://repo.indigo-datacloud.eu/repos/2/indigo2.repo dest=/etc/yum.repos.d/indigo2.repo
+      when: ansible_os_family == "RedHat"
+
+    - rpm_key: state=present key=http://repo.indigo-datacloud.eu/repository/RPM-GPG-KEY-indigodc
+      when: ansible_os_family == "RedHat"
+
+    - name: RH7 install Ansible with yum
+      yum: name=IM,ansible,python-pip,python-jinja2,sshpass,openssh-clients,unzip,MySQL-python,python-sqlite3dbm
+      when: ansible_os_family == "RedHat"
+
+    - name: Install Azure libraries
+      pip: executable=pip name=msrest,msrestazure,azure-common,azure-mgmt-storage,azure-mgmt-compute,azure-mgmt-network,azure-mgmt-resource,azure-mgmt-dns,azure-storage
 
 ################################################ Configure Ansible  ###################################################
 
@@ -42,61 +86,19 @@
     - name: Activate SSH pipelining in ansible.cfg
       ini_file: dest=/etc/ansible/ansible.cfg section=ssh_connection option=pipelining value=True
 
-################################################ Install IM  ###################################################
+################################################ Configure IM  ###################################################
 
-    - name: Apt-get update
-      apt: update_cache=yes cache_valid_time=3600
-      when: ansible_os_family == "Debian"
+    - name: Activate SINGLE_SITE in the IM
+      ini_file: dest=/etc/im/im.cfg section=im option=SINGLE_SITE value=True
+      when: SINGLE_SITE
 
-    - name: Apt install requirements Ubuntu/Debian
-      apt: name=python-pip,gcc,python-dev,python-pysqlite2,openssh-client,sshpass,libssl-dev,libffi-dev
-      when: ansible_os_family == "Debian"
+    - name: Set SINGLE_SITE_AUTH_HOST in the IM
+      ini_file: dest=/etc/im/im.cfg section=im option=SINGLE_SITE_AUTH_HOST value="http://{{SINGLE_SITE_HOST}}:2633"
+      when: SINGLE_SITE
 
-    - name: Apt install requirements Debian
-      apt: name=libmariadbd-dev
-      when: ansible_distribution == "Debian"
+    - name: Set SINGLE_SITE_IMAGE_URL_PREFIX in the IM
+      ini_file: dest=/etc/im/im.cfg section=im option=SINGLE_SITE_IMAGE_URL_PREFIX value="one://{{SINGLE_SITE_HOST}}/"
+      when: SINGLE_SITE
 
-    - name: Apt install requirements Ubuntu
-      apt: name=libmysqld-dev
-      when: ansible_distribution == "Ubuntu"
-
-    - name: Yum install requirements RH
-      yum: name=python-pip,python-distribute,gcc,python-devel,wget,openssh-clients,sshpass,libffi-devel,openssl-devel,mysql-devel,sqlite-devel
-      when: ansible_os_family == "RedHat" and ansible_distribution != "Fedora"
-
-    - name: Yum install requirements Fedora
-      yum: name=python-pip,redhat-rpm-config,gcc,python-devel,wget,openssh-clients,sshpass,libffi-devel,openssl-devel,mysql-devel,sqlite-devel
-      when: ansible_distribution == "Fedora"
-
-    - name: Install setuptools with pip
-      pip: executable=pip name=setuptools,six extra_args="-I"
-
-    - name: Install last pip version
-      easy_install: name=pip state=latest
-      ignore_errors: yes
-
-    - name: Install pip libraries
-      pip: executable=pip name=pyOpenSSL,MySQL-python,msrest,msrestazure,azure-common,azure-mgmt-storage,azure-mgmt-compute,azure-mgmt-network,azure-mgmt-resource,azure-mgmt-dns,azure-storage
-      
-    - name: Install IM dependencies for CentOS 6
-      pip: name=pysqlite version=2.7.0
-      when: ansible_os_family == "RedHat" and ansible_distribution_major_version == "6"
-
-    - name: Install xmltodict
-      pip: executable=pip name=xmltodict
-
-    - name: Install IM
-      pip: executable=pip name=IM
-
-    # Pip requests package have a bug in debian systems, remove it and force reinstall python-requests
-    - name: Pip uninstall requests Ubuntu/Debian
-      pip: executable=pip name=requests state=absent
-      when: ansible_os_family == "Debian"
-
-    - name: Apt install requests Ubuntu/Debian
-      apt: name=python-requests state=absent
-      when: ansible_os_family == "Debian"
-
-    - name: Apt install requests Ubuntu/Debian
-      apt: name=python-requests state=present
-      when: ansible_os_family == "Debian"
+    - name: Set TTS_URL in the IM
+      ini_file: dest=/etc/im/im.cfg section=OpenNebula option=TTS_URL value="{{TTS_URL}}"

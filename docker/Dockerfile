@@ -1,32 +1,46 @@
-# Dockerfile to create a container with the IM service
-FROM ubuntu:18.04
-LABEL maintainer="Miguel Caballer <micafer1@upv.es>"
+# Dockerfile to create a container with the IM service and TOSCA support
+FROM ubuntu:16.04
+MAINTAINER Miguel Caballer <micafer1@upv.es>
 LABEL version="1.7.2"
-LABEL description="Container image to run the IM service. (http://www.grycap.upv.es/im)"
-EXPOSE 8899 8800
+LABEL description="Container image to run the IM service with TOSCA support. (http://www.grycap.upv.es/im)"
 
-# Ensure system is up to date with mandatory python packages installed
-RUN apt-get update && apt-get install --no-install-recommends -y python-dbg python-dev python-pip openssh-client sshpass vim && rm -rf /var/lib/apt/lists/*
+# Install Ansible
+RUN echo "deb http://ppa.launchpad.net/ansible/ansible/ubuntu xenial main" > /etc/apt/sources.list.d/ansible-ubuntu-ansible-xenial.list && \
+    apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 93C4A3FD7BB9C367 && \ 
+    apt-get update && apt-get -y install wget ansible python-dbg python-xmltodict && \
+    rm -rf /var/lib/apt/lists/*
 
-RUN pip install setuptools pip --upgrade -I
-RUN pip install pyOpenSSL --upgrade -I
+# Install Azure python SDK
+RUN wget https://launchpad.net/ubuntu/+archive/primary/+files/python-msrest_0.4.4-1_all.deb && \
+    wget https://launchpad.net/ubuntu/+archive/primary/+files/python-msrestazure_0.4.3-1_all.deb && \
+    wget https://launchpad.net/ubuntu/+archive/primary/+files/python-azure_2.0.0~rc6+dfsg-2_all.deb && \
+    dpkg -i python-msrest_*_all.deb ; \
+    dpkg -i python-msrestazure_*_all.deb ; \
+    dpkg -i python-azure_*_all.deb ; \
+    rm *.deb && \
+    apt update && apt install -f -y && \
+    rm -rf /var/lib/apt/lists/*
 
 # Install IM
-RUN apt-get update && apt-get install --no-install-recommends -y gcc libmysqld-dev libssl-dev libffi-dev libsqlite3-dev libmysqlclient20 && \
-     pip install pycrypto && \
-     pip install MySQL-python && \
-     pip install IM==1.7.2 && \
-     apt-get purge -y gcc libmysqld-dev libssl-dev libffi-dev libsqlite3-dev python-dev python-pip && \
-     apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && rm -rf ~/.cache/
+RUN wget https://github.com/grycap/RADL/releases/download/v1.1.1/python-radl_1.1.1-1_all.deb && \ 
+    wget https://github.com/indigo-dc/im/releases/download/v1.7.2/python-im_1.7.2-1_all.deb && \
+    wget https://github.com/indigo-dc/tosca-parser/releases/download/0.9.1/python-tosca-parser_0.9.1-1_all.deb && \
+    dpkg -i python-radl_*_all.deb ; \
+    dpkg -i python-tosca-parser_*_all.deb ; \
+    dpkg -i python-im_*_all.deb ; \
+    rm *.deb && \
+    apt update && apt install -f -y && \
+    rm -rf /var/lib/apt/lists/*
 
-# Install pip optional libraries
-RUN pip install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns azure-storage cheroot xmltodict
+RUN dpkg -r --force-depends python-libcloud
 
-# Force requests to be version 2.11.1 to avoid SSL ca errors with proxy files
-RUN pip install requests==2.11.1
+RUN easy_install -U cheroot apache-libcloud
+
+# Expose the IM ports
+EXPOSE 8899 8800
 
 # Copy a ansible.cfg with correct minimum values
 COPY ansible.cfg /etc/ansible/ansible.cfg
 
-# Start IM service
+# Launch the service at the beginning of the container
 CMD im_service.py
