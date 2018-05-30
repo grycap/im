@@ -98,6 +98,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                           "service_name": None,
                           "service_region": 'RegionOne',
                           "base_url": None,
+                          "api_version": "2.0",
                           "domain": None}
 
             if 'username' in auth and 'password' in auth and 'tenant' in auth:
@@ -145,11 +146,14 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             cls = get_driver(Provider.OPENSTACK)
             driver = cls(username, password,
                          ex_tenant_name=tenant,
+                         api_version=parameters['api_version'],
                          ex_domain_name=parameters['domain'],
                          ex_force_auth_url=parameters["auth_url"],
                          ex_force_auth_version=parameters["auth_version"],
                          ex_force_service_region=parameters["service_region"],
                          ex_force_base_url=parameters["base_url"],
+                         ex_force_network_url="http://contos.i3m.upv.es:9696",
+                         ex_force_image_url="http://contos.i3m.upv.es:9292",
                          ex_force_service_name=service_name,
                          ex_force_service_type=parameters["service_type"],
                          ex_force_auth_token=parameters["auth_token"])
@@ -291,9 +295,6 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     net_provider_id = radl_net.getValue('provider_id')
 
                     if net_provider_id:
-                        parts = net_provider_id.split(".")
-                        if len(parts) > 1:
-                            net_provider_id = parts[0]
                         if net_name == net_provider_id:
                             if radl_net.isPublic() == is_public:
                                 res[radl_net.id] = ip
@@ -440,53 +441,126 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 system.addFeature(
                     Feature("cpu.count", "=", instance_type.vcpus), conflict="me", missing="other")
 
+    def get_ost_network_info(self, driver, pool_names):
+        ost_nets = driver.ex_list_networks()
+        get_subnets = False
+        if "ex_list_subnets" in dir(driver):
+            ost_subnets = driver.ex_list_subnets()
+            get_subnets = True
+
+            for ost_net in ost_nets:
+                if not ost_net.cidr and 'subnets' in ost_net.extra:
+                    net_subnets = ost_net.extra['subnets']
+                    for subnet in ost_subnets:
+                        if subnet.id in net_subnets and subnet.cidr:
+                            ost_net.cidr = subnet.cidr
+                            ost_net.extra['is_public'] = not (any([IPNetwork(ost_net.cidr).ip in IPNetwork(mask)
+                                                                   for mask in Config.PRIVATE_NET_MASKS]))
+                            break
+                
+                # If we do not have the IP range try to use the router:external to identify a net as public 
+                if 'is_public' not in ost_net.extra:
+                    if 'router:external' in ost_net.extra and ost_net.extra['router:external']:
+                        ost_net.extra['is_public'] = True
+                    elif ost_net.name in pool_names:
+                        # If we do not have any clue assume that if it is 
+                        # in the pool it should be a public net
+                        ost_net.extra['is_public'] = True
+
+                    # otherwise a private one
+                    os_net_is_public = False
+
+        return get_subnets, ost_nets
+
+    def map_networks(self, radl, ost_nets, pool_names):
+        i = 0
+        net_map = {}
+        used_nets = []
+        while radl.systems[0].getValue("net_interface." + str(i) + ".connection"):
+            net_name = radl.systems[0].getValue("net_interface." + str(i) + ".connection")
+            network = radl.get_network_by_id(net_name)
+            net_provider_id = network.getValue('provider_id')
+            net_map[i] = None
+
+            if net_provider_id:
+                found = False
+                for net in ost_nets:
+                    if net.name == net_provider_id:
+                        if net in used_nets:
+                            raise Exception("Two different networks assigned to the same provider_id")
+                        net_map[i] = net
+                        used_nets.append(net)
+                        found = True 
+                        break
+                if not found:
+                    raise Exception("Network with provider_id %s not found." % net_provider_id)
+            else:
+                for net in ost_nets:
+                    if net not in used_nets:
+                        if network.isPublic() == net.extra['is_public']:
+                            net_map[i] = net
+                            used_nets.append(net)
+                            break
+
+            i += 1
+
+        return net_map
+
     def get_networks(self, driver, radl):
         """
         Get the list of networks to connect the VM
         """
         nets = []
-        ost_nets = driver.ex_list_networks()
-        used_nets = []
-
         pool_names = [pool.name for pool in driver.ex_list_floating_ip_pools()]
+        get_subnets, ost_nets = self.get_ost_network_info(driver, pool_names)
 
-        num_nets = radl.systems[0].getNumNetworkIfaces()
-
-        i = 0
-        while radl.systems[0].getValue("net_interface." + str(i) + ".connection"):
-            net_name = radl.systems[0].getValue("net_interface." + str(i) + ".connection")
-            network = radl.get_network_by_id(net_name)
-            net_provider_id = network.getValue('provider_id')
-
-            # if the network is public, and the VM has another interface and the
-            # site has IP pools, we do not need to assign a network to this interface
-            # it will be assigned with a floating IP
-            if network.isPublic() and num_nets > 1 and pool_names:
-                self.log_info("Public IP to be assigned with a floating IP. Do not set a net.")
-            else:
-                # First check if the user has specified a provider ID
-                if net_provider_id:
-                    parts = net_provider_id.split(".")
-                    if len(parts) > 1:
-                        net_provider_id = parts[0]
-
-                    for net in ost_nets:
-                        if net.name == net_provider_id:
-                            if net.name not in used_nets:
-                                nets.append(net)
-                                used_nets.append(net.name)
-                            break
+        if get_subnets:
+            net_map = self.map_networks(radl, ost_nets, pool_names)
+            i = 0
+            while radl.systems[0].getValue("net_interface." + str(i) + ".connection"):
+                net_name = radl.systems[0].getValue("net_interface." + str(i) + ".connection")
+                network = radl.get_network_by_id(net_name)
+                if net_map[i]:
+                    network.setValue('provider_id', net_map[i].name)
+                    if net_map[i].name not in pool_names:
+                        nets.append(net_map[i])
+                i += 1
+        else:
+            # TO BE DEPRECATED
+            num_nets = radl.systems[0].getNumNetworkIfaces()
+            used_nets = []
+    
+            i = 0
+            while radl.systems[0].getValue("net_interface." + str(i) + ".connection"):
+                net_name = radl.systems[0].getValue("net_interface." + str(i) + ".connection")
+                network = radl.get_network_by_id(net_name)
+                net_provider_id = network.getValue('provider_id')
+    
+                # if the network is public, and the VM has another interface and the
+                # site has IP pools, we do not need to assign a network to this interface
+                # it will be assigned with a floating IP
+                if network.isPublic() and num_nets > 1 and pool_names:
+                    self.log_info("Public IP to be assigned with a floating IP. Do not set a net.")
                 else:
-                    # if not select the first not used net
-                    for net in ost_nets:
-                        # do not use nets that are IP pools
-                        if net.name not in pool_names:
-                            if net.name not in used_nets:
-                                nets.append(net)
-                                used_nets.append(net.name)
+                    # First check if the user has specified a provider ID
+                    if net_provider_id:    
+                        for net in ost_nets:
+                            if net.name == net_provider_id:
+                                if net.name not in used_nets:
+                                    nets.append(net)
+                                    used_nets.append(net.name)
                                 break
-
-            i += 1
+                    else:
+                        # if not select the first not used net
+                        for net in ost_nets:
+                            # do not use nets that are IP pools
+                            if net.name not in pool_names:
+                                if net.name not in used_nets:
+                                    nets.append(net)
+                                    used_nets.append(net.name)
+                                    break
+    
+                i += 1
 
         return nets
 
@@ -658,15 +732,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             net = vm.info.get_network_by_id(net_conn)
             if net.isPublic():
                 fixed_ip = vm.getRequestedSystem().getValue("net_interface." + str(n) + ".ip")
-                pool_name = net.getValue("pool_name")
-
-                if not pool_name:
-                    net_provider_id = net.getValue("provider_id")
-                    if net_provider_id:
-                        parts = net_provider_id.split(".")
-                        if len(parts) > 1:
-                            pool_name = parts[1]
-
+                pool_name = net.getValue("provider_id")
                 requested_ips.append((fixed_ip, pool_name))
             n += 1
 
