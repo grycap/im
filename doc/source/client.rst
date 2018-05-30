@@ -61,9 +61,12 @@ The :program:`im_client` is called like this::
 
    ``getcontmsg infId``
       Show the contextualization message of the infrastructure with ID ``id``.
-      
+
    ``getstate infId``
       Show the state of the infrastructure with ID ``id``.
+
+   ``getputputs <infId>``
+      Show the outputs of infrastructure with ID ``infId`` (Only in case of TOSCA docs with REST API).
 
    ``getvminfo infId vmId``
       Show the information associated to the virtual machine with ID ``vmId``
