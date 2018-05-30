@@ -635,7 +635,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             for pool in pools:
                 if pool.name == pool_name:
                     return pool
-        else:
+        elif pools:
             # Currently returns the first one
             # until I see what metric use to select one
             return pools[0]

@@ -101,8 +101,7 @@ class DataBase:
 
     def _connect_mysql(self, url, db):
         if MYSQL_AVAILABLE:
-            username, password, server, port = self._get_user_pass_host_port(
-                url)
+            username, password, server, port = self._get_user_pass_host_port(url)
             if not port:
                 port = 3306
             self.connection = mdb.connect(server, username, password, db, port)
