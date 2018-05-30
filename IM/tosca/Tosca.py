@@ -372,10 +372,10 @@ class Tosca:
 
             if net_provider_id:
                 if private_net:
-                    # There are a private IP, et the provider_id to the priv net
+                    # There are a private IP, net the provider_id to the priv net
                     private_net.setValue("provider_id", net_provider_id)
                 else:
-                    # There are no a private IP, et the provider_id to the priv net
+                    # There are no a private IP, net the provider_id to the priv net
                     if not public_net:
                         Tosca.logger.warn("Node %s does not require any IP!!" % node.name)
 
