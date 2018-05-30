@@ -457,13 +457,13 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                             ost_net.extra['is_public'] = not (any([IPNetwork(ost_net.cidr).ip in IPNetwork(mask)
                                                                    for mask in Config.PRIVATE_NET_MASKS]))
                             break
-                
-                # If we do not have the IP range try to use the router:external to identify a net as public 
+
+                # If we do not have the IP range try to use the router:external to identify a net as public
                 if 'is_public' not in ost_net.extra:
                     if 'router:external' in ost_net.extra and ost_net.extra['router:external']:
                         ost_net.extra['is_public'] = True
                     elif ost_net.name in pool_names:
-                        # If we do not have any clue assume that if it is 
+                        # If we do not have any clue assume that if it is
                         # in the pool it should be a public net
                         ost_net.extra['is_public'] = True
 
@@ -490,7 +490,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                             raise Exception("Two different networks assigned to the same provider_id")
                         net_map[i] = net
                         used_nets.append(net)
-                        found = True 
+                        found = True
                         break
                 if not found:
                     raise Exception("Network with provider_id %s not found." % net_provider_id)
@@ -529,13 +529,13 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             # TO BE DEPRECATED
             num_nets = radl.systems[0].getNumNetworkIfaces()
             used_nets = []
-    
+
             i = 0
             while radl.systems[0].getValue("net_interface." + str(i) + ".connection"):
                 net_name = radl.systems[0].getValue("net_interface." + str(i) + ".connection")
                 network = radl.get_network_by_id(net_name)
                 net_provider_id = network.getValue('provider_id')
-    
+
                 # if the network is public, and the VM has another interface and the
                 # site has IP pools, we do not need to assign a network to this interface
                 # it will be assigned with a floating IP
@@ -543,7 +543,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     self.log_info("Public IP to be assigned with a floating IP. Do not set a net.")
                 else:
                     # First check if the user has specified a provider ID
-                    if net_provider_id:    
+                    if net_provider_id:
                         for net in ost_nets:
                             if net.name == net_provider_id:
                                 if net.name not in used_nets:
@@ -559,7 +559,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                                     nets.append(net)
                                     used_nets.append(net.name)
                                     break
-    
+
                 i += 1
 
         return nets
