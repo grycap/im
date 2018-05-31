@@ -61,7 +61,7 @@ the following variables:
 
 .. confval:: recipes_db
 
-   Location of the IM service recipes D.B. To use that feature the IM recipes file must accesible to the web server
+   Location of the IM service recipes D.B. To use that feature the IM recipes file must accessible to the web server
    The default value is `""`.
 
 .. confval:: openid_issuer
@@ -88,7 +88,7 @@ Docker Image
 ------------
 
 A Docker image named `grycap/im-web` has been created to make easier the deployment of an IM web GUI using the 
-default configuration. Information about this image can be found here: https://registry.hub.docker.com/u/grycap/im-web/ <https://registry.hub.docker.com/u/grycap/im-web/>`_.
+default configuration. Information about this image can be found here: `https://registry.hub.docker.com/u/grycap/im-web/ <https://registry.hub.docker.com/u/grycap/im-web/>`_.
 
 This container is prepaired to work linked with the IM service container `grycap/im`, in this way:
 
