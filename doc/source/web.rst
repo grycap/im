@@ -98,7 +98,7 @@ This container is prepaired to work linked with the IM service container `grycap
 
 * Then launch the im-web container linking to the im:
 
-0``sudo docker run -d -p 80:80 --name im-web --link im:im grycap/im-web``
+``sudo docker run -d -p 80:80 --name im-web --link im:im grycap/im-web``
 
 * It also supports environment variables to set the IM service location:
   * `im_use_rest`: Uses the REST API instead of the XML-RPC that is the default one. Default value "false".
