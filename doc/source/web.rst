@@ -94,15 +94,15 @@ This container is prepaired to work linked with the IM service container `grycap
 
 * First launch the IM service specifying the name "im":
 
-```sh
+``
 sudo docker run -d -p 8899:8899 --name im grycap/im 
-```
+``
 
 * Then launch the im-web container linking to the im:
 
-```sh
+``
 sudo docker run -d -p 80:80 --name im-web --link im:im grycap/im-web 
-```
+``
 
 * It also supports environment variables to set the IM service location:
   * `im_use_rest`: Uses the REST API instead of the XML-RPC that is the default one. Default value "false".
@@ -111,17 +111,17 @@ sudo docker run -d -p 80:80 --name im-web --link im:im grycap/im-web
   * `im_port`: Port of the IM service. Default value "8899".
   * `im_db`: Location of the D.B. file used in the web application to store data. Default value "/home/www-data/im.db".
 
-```sh
+``
 docker run -p 80:80 -e "im_use_rest=true" -e "im_host=server.domain" -e "im_port=8800" -d grycap/im-web
-```
+``
 
 There is also a version SSL enabled. In this case the docker image have a selfsigned certificate for testing purposes.
 Add your own in the docker command:
 
 
-```sh
+``
 docker run -p 80:80 -p 443:443 -v server.crt:/etc/ssl/certs/server.crt -v server.key:/etc/ssl/certs/server.key -d grycap/im-web:1.5.5-ssl
-```
+``
 
 Usage
 -----
