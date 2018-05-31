@@ -286,6 +286,13 @@ class Tosca:
                 cap_props = endpoint.get_properties()
                 if cap_props and "network_name" in cap_props:
                     network_name = str(self._final_function_result(cap_props["network_name"].value, node))
+                    pool_name = None
+                    parts = network_name.split(",")
+                    if len(parts) > 1:
+                        # This is for the special case of OST with net name and pool name
+                        network_name = parts[0].strip()
+                        pool_name = parts[1].strip()
+
                     if network_name == "PUBLIC":
                         public_ip = True
                     # In this case the user is specifying the provider_id
@@ -312,6 +319,7 @@ class Tosca:
                         protocol = self._final_function_result(cap_props["protocol"].value, node)
                     ports["im-%s-%s" % (protocol, port)] = {"protocol": protocol, "source": port}
 
+            private_net = None
             # The private net is always added
             if not public_ip or private_ip:
                 private_nets = []
@@ -340,6 +348,7 @@ class Tosca:
 
                 system.setValue('net_interface.' + str(num_net) + '.connection', private_net.id)
 
+            public_net = None
             # If the node needs a public IP
             if public_ip:
                 # Always create a public IP per VM
@@ -358,13 +367,23 @@ class Tosca:
                     if public_net.getValue("outports"):
                         outports = "%s,%s" % (public_net.getValue("outports"), outports)
                     public_net.setValue("outports", outports)
-                if net_provider_id:
-                    public_net.setValue("provider_id", net_provider_id)
 
                 system.setValue('net_interface.%d.connection' % num_net, public_net.id)
 
-            if not public_ip and net_provider_id:
-                private_net.setValue("provider_id", net_provider_id)
+            if net_provider_id:
+                if private_net:
+                    # There are a private IP, net the provider_id to the priv net
+                    private_net.setValue("provider_id", net_provider_id)
+                else:
+                    # There are no a private IP, net the provider_id to the priv net
+                    if not public_net:
+                        Tosca.logger.warn("Node %s does not require any IP!!" % node.name)
+
+                if public_net:
+                    if pool_name:
+                        public_net.setValue("provider_id", pool_name)
+                    elif not private_net:
+                        public_net.setValue("provider_id", net_provider_id)
 
             if dns_name:
                 system.setValue('net_interface.0.dns_name', dns_name)
