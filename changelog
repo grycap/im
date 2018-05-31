@@ -416,3 +416,8 @@ IM 1.7.2:
     * Add support to availability_zone in tosca.policies.Placement.
     * Enable to set instance_tags in connectors.
     * Fix error in Azure conn: VM disks are not deleted when VM is finalized, only when Infrastructure is destroyed.
+
+IM 1.7.3:
+    * Fix error getting VM info in case of having an HD added.
+    * Improve OpenStack network management.
+    * Enable to set poolname in the TOSCA docs.
