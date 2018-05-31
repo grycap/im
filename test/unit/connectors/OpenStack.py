@@ -207,13 +207,15 @@ class TestOSTConnector(unittest.TestCase):
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
     def test_30_updateVMInfo(self, get_driver):
         radl_data = """
-            network net (outbound = 'yes' and provider_id = 'os-lan.pool1')
+            network net (outbound = 'yes' and provider_id = 'pool1')
+            network net1 (provider_id = 'os-lan')
             system test (
             cpu.arch='x86_64' and
             cpu.count=1 and
             memory.size=512m and
             net_interface.0.connection = 'net' and
             net_interface.0.dns_name = 'test' and
+            net_interface.1.connection = 'net1' and
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'ost://server.com/ami-id' and
             disk.0.os.credentials.username = 'user' and

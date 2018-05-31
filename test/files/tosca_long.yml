@@ -14,7 +14,7 @@ topology_template:
 
     network_name:
       type: string
-      default: vpc-XX.subnet-XX
+      default: provider_id.PUBLIC,pool_name
 
     access_key:
       type: string
@@ -83,7 +83,7 @@ topology_template:
         endpoint:
           properties:
             dns_name: slurmserver
-            network_name: { concat: [ { get_input: network_name }, ".PUBLIC" ] }
+            network_name: { get_input: network_name }
             ports:
               http_port:
                 protocol: tcp
