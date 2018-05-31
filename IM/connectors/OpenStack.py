@@ -152,8 +152,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                          ex_force_auth_version=parameters["auth_version"],
                          ex_force_service_region=parameters["service_region"],
                          ex_force_base_url=parameters["base_url"],
-                         ex_force_network_url="http://contos.i3m.upv.es:9696",
-                         ex_force_image_url="http://contos.i3m.upv.es:9292",
+                         ex_force_network_url=parameters["network_url"],
+                         ex_force_image_url=parameters["image_url"],
                          ex_force_service_name=service_name,
                          ex_force_service_type=parameters["service_type"],
                          ex_force_auth_token=parameters["auth_token"])
