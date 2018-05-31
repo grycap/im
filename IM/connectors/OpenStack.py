@@ -98,6 +98,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                           "service_name": None,
                           "service_region": 'RegionOne',
                           "base_url": None,
+                          "network_url": None,
+                          "image_url": None,
                           "api_version": "2.0",
                           "domain": None}
 
