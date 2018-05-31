@@ -105,7 +105,7 @@ The :program:`im_client` is called like this::
    ``getstate infId``
       Show the state of the infrastructure with ID ``id``.
 
-   ``getputputs <infId>``
+   ``getoputputs <infId>``
       Show the outputs of infrastructure with ID ``infId`` (Only in case of TOSCA docs with REST API).
 
    ``getvminfo infId vmId``
