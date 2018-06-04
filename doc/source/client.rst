@@ -1,16 +1,56 @@
 IM Command-line Interface (CLI)
 ===============================
 
-The :program:`im_client` is a CLI client that uses XML-RPC API of IM Server.
+The :program:`im_client` is a CLI client that uses XML-RPC or REST APIs of IM Server.
+
+Installation
+-------------
 
 Prerequisites
--------------
+^^^^^^^^^^^^^
 
 The :program:`im_client` needs at least Python 2.4 to run.
 
 It is also required to install the RADL parser (`https://github.com/grycap/radl <https://github.com/grycap/radl>`_), 
 available in pip as the 'RADL' package. It is also required the Python Requests library (`http://docs.python-requests.org/ <http://docs.python-requests.org/>`_) 
 available as 'python-requests' in O.S. packages or 'requests' in pip.
+
+Optional packages
+^^^^^^^^^^^^^^^^^
+In case of using the SSL secured version of the XMLRPC API the SpringPython framework 
+(`http://springpython.webfactional.com/ <http://springpython.webfactional.com/>`_) must be installed.
+
+Installing
+^^^^^^^^^^
+
+From pip
+++++++++
+
+You only have to call the install command of the pip tool with the IM-client package::
+
+	$ pip install IM-client
+
+From source
++++++++++++
+
+Download de source code from the Github repo: `https://github.com/grycap/im-client/releases <https://github.com/grycap/im-client/releases>`_.
+Then you only need to install the tar-gziped file to any directoy::
+
+	$ tar xvzf IM-client-X.XX.tar.gz
+
+Configuration
+^^^^^^^^^^^^^
+
+To avoid typing the parameters in all the client calls. The user can define a config file "im_client.cfg" 
+in the current directory or a file ".im_client.cfg" in their home directory. In the config file the 
+user can specify the following parameters::
+
+	[im_client]
+	# only set one of the urls
+	#xmlrpc_url=http://localhost:8899
+	restapi_url==http://localhost:8800
+	auth_file=auth.dat
+	xmlrpc_ssl_ca_certs=/tmp/pki/ca-chain.pem
 
 Invocation
 ----------
@@ -65,7 +105,7 @@ The :program:`im_client` is called like this::
    ``getstate infId``
       Show the state of the infrastructure with ID ``id``.
 
-   ``getputputs <infId>``
+   ``getoutputs <infId>``
       Show the outputs of infrastructure with ID ``infId`` (Only in case of TOSCA docs with REST API).
 
    ``getvminfo infId vmId``
