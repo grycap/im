@@ -1,5 +1,5 @@
-Getting Started
-===============
+Quick Start
+===========
 
 Launch IM Service
 -----------------
@@ -18,12 +18,22 @@ IM Client tools
 
 To access the IM service two client tools can be used (apart from the two APIs):
 
-* The IM client: See full reference in IM Client :ref:`inv-client`.
+* The IM client: You only have to call the install command of the pip tool with the IM-client package::
 
-* The IM web: See full manual in IM Web :ref:`use-web`.
+	$ pip install IM-client
 
-In this first examples we will use the IM-client tool to create, get the state, access via SSH and 
-destroy the a single VM.
+  See full reference in IM Client :ref:`inv-client`.
+
+* The IM web: To launch the IM Web portal in the same machine where we have previously launched the IM service use
+  the followiing docker command::
+
+    $ sudo docker run -d -p 80:80 --name im-web --link im:im grycap/im-web
+
+  See full manual in IM Web :ref:`use-web`.
+
+
+
+In this first examples we will use the IM-client tool to create, manage and finally destroy a single VM.
 
 Authentication file
 ^^^^^^^^^^^^^^^^^^^
