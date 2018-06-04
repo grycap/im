@@ -1,3 +1,4 @@
+.. _endpoints:
 Public IM Endpoints at UPV
 ==========================
 

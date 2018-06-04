@@ -52,6 +52,8 @@ user can specify the following parameters::
 	auth_file=auth.dat
 	xmlrpc_ssl_ca_certs=/tmp/pki/ca-chain.pem
 
+.. _inv-client:
+
 Invocation
 ----------
 

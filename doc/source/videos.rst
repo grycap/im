@@ -1,3 +1,4 @@
+.. _videos:
 IM Videos
 =========
 
