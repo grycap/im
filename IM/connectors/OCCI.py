@@ -1233,7 +1233,8 @@ class OCCICloudConnector(CloudConnector):
             body += 'X-OCCI-Attribute: occi.core.id="%s"\n' % disk_id
             body += 'X-OCCI-Attribute: occi.core.target="%s/storage/%s"\n' % (self.cloud.path, volume_id)
             body += 'X-OCCI-Attribute: occi.core.source="%s/compute/%s"' % (self.cloud.path, vm.id)
-            body += 'X-OCCI-Attribute: occi.storagelink.deviceid="/dev/%s"' % device
+            if device:
+                body += '\nX-OCCI-Attribute: occi.storagelink.deviceid="/dev/%s"' % device
             # body += 'X-OCCI-Attribute: occi.storagelink.mountpoint="%s"' % mount_path
             resp = self.create_request('POST', url, auth_data, headers, body)
 

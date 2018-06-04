@@ -15,6 +15,8 @@ RUN pip install pyOpenSSL --upgrade -I
 RUN apt-get update && apt-get install --no-install-recommends -y gcc libmysqld-dev libssl-dev libffi-dev libsqlite3-dev libmysqlclient20 && \
      pip install pycrypto && \
      pip install MySQL-python && \
+     # Install my version until PR #1215 is accepted
+     cd /tmp && git clone https://github.com/micafer/libcloud && cd libcloud && pip install /tmp/libcloud && \
      pip install IM==1.7.3 && \
      apt-get purge -y gcc libmysqld-dev libssl-dev libffi-dev libsqlite3-dev python-dev python-pip && \
      apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && rm -rf ~/.cache/

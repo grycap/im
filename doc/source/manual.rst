@@ -521,11 +521,11 @@ Docker Image
 ============
 
 A Docker image named `grycap/im` has been created to make easier the deployment of an IM service using the 
-default configuration. Information about this image can be found here: https://registry.hub.docker.com/u/grycap/im/.
+default configuration. Information about this image can be found here: `https://registry.hub.docker.com/u/grycap/im/ <https://registry.hub.docker.com/u/grycap/im/>`_.
 
 How to launch the IM service using docker::
 
-  $ sudo docker run -d -p 8899:8899 --name im grycap/im
+  $ sudo docker run -d -p 8899:8899 -p 8800:8800 --name im grycap/im
 
 To make the IM data persistent you also have to specify a persistent location for the IM database using
 the IM_DATA_DB environment variable and adding a volume::

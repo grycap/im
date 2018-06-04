@@ -106,6 +106,11 @@ This container is prepaired to work linked with the IM service container `grycap
   * `im_host`: Hostname of the IM service. Default value "im".
   * `im_port`: Port of the IM service. Default value "8899".
   * `im_db`: Location of the D.B. file used in the web application to store data. Default value "/home/www-data/im.db".
+  * `openid_issuer`: OpenID Issuer supported use "" to disable OpenID support.
+  * `openid_name`: OpenID Issuer name.
+  * `client_id`: OpenID Client data.
+  * `client_secret`: OpenID Client secret.
+  * `redirect_uri`: OpenID Redirect URI.
 
 ``docker run -p 80:80 -e "im_use_rest=true" -e "im_host=server.domain" -e "im_port=8800" -d grycap/im-web``
 
@@ -114,6 +119,8 @@ Add your own in the docker command:
 
 
 ``docker run -p 80:80 -p 443:443 -v server.crt:/etc/ssl/certs/server.crt -v server.key:/etc/ssl/certs/server.key -d grycap/im-web:1.5.5-ssl``
+
+.. _use-web:
 
 Usage
 -----
@@ -124,12 +131,14 @@ Register
 ^^^^^^^^
 
 To access the we interface the user must register first to the application. Each user
-must include a username and a password to access the platform.
+must include a username and a password to access the platform. From 1.5.6 version OpenID
+authentication has been added.
 
 .. _figure_register:
 .. figure:: images/register.png
 
    Fig 1. Register page.
+
 
 Credentials
 ^^^^^^^^^^^
@@ -141,9 +150,9 @@ of user credentials. In this list there are two related with the IM components:
  * InfrastructureManager: user and password to access the IM service.
  * VMRC: user, password and URL to access the `VMRC <http://www.grycap.upv.es/vmrc>`_ service
 
-When a new user is registered the web UI automatically creates credentials to both of them to make easier
-the creation of credentials process. The rest of elements of this list are the user credentials to access
-diferent Cloud providers.
+When a new user is registered (or access with OpenID credentials) the web UI automatically creates
+credentials to both of them to make easier the creation of credentials process. The rest of elements
+of this list are the user credentials to access diferent Cloud providers.
 
 .. _figure_cred_list:
 .. figure:: images/cred_list.png
