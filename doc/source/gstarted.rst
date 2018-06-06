@@ -31,8 +31,6 @@ To access the IM service two client tools can be used (apart from the two APIs):
 
   See full manual in IM Web :ref:`use-web`.
 
-
-
 In this first examples we will use the IM-client tool to create, manage and finally destroy a single VM.
 
 Authentication file
@@ -48,7 +46,6 @@ An example to access an OpenNebula and/or an OpenStack site::
     id = ost; type = OpenStack; host = https://ostserver:5000; username = user; password = pass; tenant = tenant
 
 See all the options of the auth file are describe in section :ref:`auth-file`.
-
 
 RADL basic example
 ^^^^^^^^^^^^^^^^^^^
@@ -182,3 +179,9 @@ Finally to destroy the infrastructure and all the related resources call the `de
 
     Connected with: http://locahost:8899
     Infrastructure successfully destroyed
+
+IM Video Demos
+-----------------
+
+There is an Infrastructure Manager YouTube reproduction list with a set of videos with demos
+of the functionality of the platform: see section: :ref:`videos`.
