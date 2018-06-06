@@ -497,23 +497,6 @@ class EC2CloudConnector(CloudConnector):
 
         return vpc_id, subnet_id
 
-    def get_cloud_init_data(self, radl):
-        """
-        Get the cloud init data specified by the user in the RADL
-        """
-        configure_name = None
-        if radl.contextualize.items:
-            system_name = radl.systems[0].name
-
-            for item in radl.contextualize.items.values():
-                if item.system == system_name and item.get_ctxt_tool() == "cloud_init":
-                    configure_name = item.configure
-
-        if configure_name:
-            return radl.get_configure_by_name(configure_name).recipes
-        else:
-            return None
-
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
 
         im_username = "im_user"

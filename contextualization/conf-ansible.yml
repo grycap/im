@@ -16,7 +16,7 @@
       ignore_errors: yes
       register: python_install
       changed_when: python_install.stdout_lines|length > 1
-      when: python_exists|failed
+      when: python_exists is failed
 
     - name: Get Facts
       setup:
@@ -44,7 +44,7 @@
   
     - name: Ubuntu force apt update (avoid apt lock)
       command: apt update
-      when: ansible_distribution == "Ubuntu" and apt_update|failed
+      when: ansible_distribution == "Ubuntu" and apt_update is failed
     
     - name: Ubuntu install requirements
       apt: name=software-properties-common
