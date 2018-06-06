@@ -421,3 +421,4 @@ IM 1.7.3:
     * Fix error getting VM info in case of having an HD added.
     * Improve OpenStack network management.
     * Enable to set poolname in the TOSCA docs.
+    * Error when trying to attach a storage in OCCI (OpenStack sites).
