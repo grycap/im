@@ -34,7 +34,10 @@ RUN wget https://github.com/grycap/RADL/releases/download/v1.1.1/python-radl_1.1
 
 RUN dpkg -r --force-depends python-libcloud
 
-RUN easy_install -U cheroot apache-libcloud
+# Install my version until PR #1215 is accepted
+RUN cd /tmp && git clone https://github.com/micafer/libcloud && cd libcloud && pip install /tmp/libcloud && rm -rf /tmp/*
+#RUN easy_install -U cheroot apache-libcloud
+RUN easy_install -U cheroot
 
 # Expose the IM ports
 EXPOSE 8899 8800

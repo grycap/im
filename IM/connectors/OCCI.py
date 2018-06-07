@@ -552,23 +552,6 @@ class OCCICloudConnector(CloudConnector):
         """
         return self.get_scheme(occi_info, os_tpl, 'os_tpl')
 
-    def get_cloud_init_data(self, radl):
-        """
-        Get the cloud init data specified by the user in the RADL
-        """
-        configure_name = None
-        if radl.contextualize.items:
-            system_name = radl.systems[0].name
-
-            for item in radl.contextualize.items.values():
-                if item.system == system_name and item.get_ctxt_tool() == "cloud_init":
-                    configure_name = item.configure
-
-        if configure_name:
-            return radl.get_configure_by_name(configure_name).recipes
-        else:
-            return None
-
     def create_volumes(self, system, auth_data):
         """
         Attach the required volumes (in the RADL) to the launched instance
@@ -1233,7 +1216,8 @@ class OCCICloudConnector(CloudConnector):
             body += 'X-OCCI-Attribute: occi.core.id="%s"\n' % disk_id
             body += 'X-OCCI-Attribute: occi.core.target="%s/storage/%s"\n' % (self.cloud.path, volume_id)
             body += 'X-OCCI-Attribute: occi.core.source="%s/compute/%s"' % (self.cloud.path, vm.id)
-            body += 'X-OCCI-Attribute: occi.storagelink.deviceid="/dev/%s"' % device
+            if device:
+                body += '\nX-OCCI-Attribute: occi.storagelink.deviceid="/dev/%s"' % device
             # body += 'X-OCCI-Attribute: occi.storagelink.mountpoint="%s"' % mount_path
             resp = self.create_request('POST', url, auth_data, headers, body)
 

@@ -52,6 +52,8 @@ user can specify the following parameters::
 	auth_file=auth.dat
 	xmlrpc_ssl_ca_certs=/tmp/pki/ca-chain.pem
 
+.. _inv-client:
+
 Invocation
 ----------
 
@@ -251,9 +253,21 @@ OpenStack has a set of additional fields to access a cloud site:
   The possible values are: ``2.0_password``, ``2.0_voms``, ``3.x_password`` or ``3.x_oidc_access_token``.
   The default value is ``2.0_password``.
 
-* ``base_url`` base URL to the OpenStack API endpoint. By default, the connector obtains API endpoint URL from the 
+* ``api_version`` the api version used to connect with nova endpoint.
+  The possible values are: ``1.0``, ``1.1``, ``2.0`, ``2.1`` or ``2.2``.
+  The default value is ``2.0``.
+
+* ``base_url`` base URL to the OpenStack API nova endpoint. By default, the connector obtains API endpoint URL from the 
   server catalog, but if this argument is provided, this step is skipped and the provided value is used directly.
   The value is: http://cloud_server.com:8774/v2/<tenant_id>.
+  
+* ``network_url`` base URL to the OpenStack API neutron endpoint. By default, the connector obtains API endpoint URL from the 
+  server catalog, but if this argument is provided, this step is skipped and the provided value is used directly.
+  The value is: http://cloud_server.com:9696.
+  
+* ``image_url`` base URL to the OpenStack API glance endpoint. By default, the connector obtains API endpoint URL from the 
+  server catalog, but if this argument is provided, this step is skipped and the provided value is used directly.
+  The value is: http://cloud_server.com:9292.
   
 * ``service_region`` the region of the cloud site (case sensitive). It is used to obtain the API 
   endpoint URL. The default value is: ``RegionOne``.

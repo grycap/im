@@ -1,3 +1,4 @@
+.. _radl:
 
 Resource and Application Description Language (RADL)
 ====================================================
