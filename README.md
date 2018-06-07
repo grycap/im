@@ -2,7 +2,6 @@
 =================================================
 
 * Version ![PyPI](https://img.shields.io/pypi/v/im.svg)
-* PyPI ![PypI](https://img.shields.io/pypi/dm/IM.svg)
 
 IM is a tool that deploys complex and customized virtual infrastructures on IaaS
 Cloud deployments (such as AWS, OpenStack, etc.). It eases the access and the
