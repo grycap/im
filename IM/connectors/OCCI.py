@@ -30,7 +30,7 @@ import yaml
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
-from radl.radl import Feature
+from radl.radl import Feature, network
 from IM.config import Config
 
 
@@ -1169,9 +1169,30 @@ class OCCICloudConnector(CloudConnector):
             current_has_public_ip = vm.info.hasPublicNet(vm.info.systems[0].name)
             new_has_public_ip = radl.hasPublicNet(vm.info.systems[0].name)
             if new_has_public_ip and not current_has_public_ip:
-                return self.add_public_ip(vm, auth_data)
+                success = self.add_public_ip(vm, auth_data)
+
+                if success:
+                    # Add public net in the Requested RADL
+                    public_net, num_net = VirtualMachine.add_public_net(vm.requested_radl)
+                    vm.requested_radl.systems[0].setValue("net_interface.%d.connection" % num_net, public_net.id)
+
+                return success
             if not new_has_public_ip and current_has_public_ip:
-                return self.remove_public_ip(vm, auth_data)
+                success = self.remove_public_ip(vm, auth_data)
+
+                if success:
+                    # Remove all public net connections in the Requested RADL
+                    nets_id = [net.id for net in vm.requested_radl.networks if net.isPublic()]
+                    system = vm.requested_radl.systems[0]
+
+                    i = 0
+                    while system.getValue('net_interface.%d.connection' % i):
+                        f = system.getFeature("net_interface.%d.connection" % i)
+                        if f.value in nets_id:
+                            system.delValue('net_interface.%d.connection' % i)
+                        i += 1
+
+                return success
         except Exception as ex:
             self.log_exception("Error adding new public IP")
             return (False, "Error adding new public IP: " + str(ex))
@@ -1303,12 +1324,12 @@ class KeyStoneAuth:
             else:
                 return None
         except SSLError as ex:
-            occi.logger.exception(
+            occi.log_exception(
                 "Error with the credentials when contacting with the OCCI server.")
             raise Exception(
                 "Error with the credentials when contacting with the OCCI server: %s. Check your proxy file." % str(ex))
         except:
-            occi.logger.exception("Error contacting with the OCCI server.")
+            occi.log_exception("Error contacting with the OCCI server.")
             return None
 
     @staticmethod
@@ -1330,10 +1351,10 @@ class KeyStoneAuth:
                 if resp.status_code == 200:
                     return occi.keystone_token
                 else:
-                    occi.logger.warn("Old Keystone token invalid.")
+                    occi.log_warn("Old Keystone token invalid.")
                     return None
             except Exception:
-                occi.logger.exception("Error checking Keystone token")
+                occi.log_exception("Error checking Keystone token")
                 return None
         else:
             return None
@@ -1350,11 +1371,11 @@ class KeyStoneAuth:
             return token
 
         if version == 2:
-            occi.logger.info("Getting Keystone v2 token")
+            occi.log_info("Getting Keystone v2 token")
             occi.keystone_token = KeyStoneAuth.get_keystone_token_v2(occi, keystone_uri, auth)
             return occi.keystone_token
         elif version == 3:
-            occi.logger.info("Getting Keystone v3 token")
+            occi.log_info("Getting Keystone v3 token")
             occi.keystone_token = KeyStoneAuth.get_keystone_token_v3(occi, keystone_uri, auth)
             return occi.keystone_token
         else:
@@ -1380,7 +1401,7 @@ class KeyStoneAuth:
                 elif 'version' in json_data:
                     versions = [json_data["version"]]
                 else:
-                    occi.logger.error("Error obtaining Keystone versions: versions or version expected.")
+                    occi.log_error("Error obtaining Keystone versions: versions or version expected.")
 
                 for elem in versions:
                     if not token and elem["id"].startswith("v2"):
@@ -1389,13 +1410,13 @@ class KeyStoneAuth:
                         # only use version 3 if 2 is not available
                         version = 3
             else:
-                occi.logger.error("Error obtaining Keystone versions: %s" % resp.text)
+                occi.log_error("Error obtaining Keystone versions: %s" % resp.text)
         except Exception:
-            occi.logger.exception("Error obtaining Keystone versions.")
+            occi.log_exception("Error obtaining Keystone versions.")
 
         if not version:
             # use version 2 as the default one in case of error
-            occi.logger.warn("Keystone Version not obtained, using default one v2.")
+            occi.log_warn("Keystone Version not obtained, using default one v2.")
             return 2
         else:
             return version
@@ -1425,7 +1446,7 @@ class KeyStoneAuth:
             if 'access' in output:
                 token_id = output['access']['token']['id']
             else:
-                occi.logger.exception("Error obtaining Keystone Token.")
+                occi.log_exception("Error obtaining Keystone Token.")
                 raise Exception("Error obtaining Keystone Token: %s" % str(output))
 
             if occi.keystone_tenant is None:
@@ -1465,7 +1486,7 @@ class KeyStoneAuth:
                     # \"metadata\": {\"is_admin\": 0, \"roles\": []}}}"
                     output = resp.json()
                     if 'access' in output:
-                        occi.logger.info("Using tenant: %s" % tenant["name"])
+                        occi.log_info("Using tenant: %s" % tenant["name"])
                         occi.keystone_tenant = tenant
                         tenant_token_id = str(output['access']['token']['id'])
                         break
@@ -1474,7 +1495,7 @@ class KeyStoneAuth:
                 raise Exception("Error obtaining Keystone v2 Token: No tenant scoped token.")
             return tenant_token_id
         except Exception as ex:
-            occi.logger.exception("Error obtaining Keystone v2 Token.")
+            occi.log_exception("Error obtaining Keystone v2 Token.")
             raise Exception("Error obtaining Keystone v2 Token: %s" % str(ex))
 
     @staticmethod
@@ -1520,7 +1541,7 @@ class KeyStoneAuth:
                             projects = [project_found]
                         else:
                             projects = output['projects']
-                            self.log_warn("Keystone 3 project %s not found." % auth["project"])
+                            occi.log_warn("Keystone 3 project %s not found." % auth["project"])
             else:
                 projects = [occi.keystone_project]
 
@@ -1534,15 +1555,15 @@ class KeyStoneAuth:
                 url = "%s/v3/auth/tokens" % keystone_uri
                 resp = occi.create_request_static('POST', url, auth, headers, json.dumps(body))
                 if resp.status_code in [200, 201, 202]:
-                    occi.logger.info("Using project: %s" % project["name"])
+                    occi.log_info("Using project: %s" % project["name"])
                     occi.keystone_project = project
                     scoped_token = resp.headers['X-Subject-Token']
                     break
 
             if not scoped_token:
-                occi.logger.error("Not project accesible for the user.")
+                occi.log_error("Not project accesible for the user.")
 
             return scoped_token
         except Exception as ex:
-            occi.logger.exception("Error obtaining Keystone v3 Token.")
+            occi.log_exception("Error obtaining Keystone v3 Token.")
             raise Exception("Error obtaining Keystone v3 Token: %s" % str(ex))
