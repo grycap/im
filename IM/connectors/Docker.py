@@ -62,7 +62,7 @@ class DockerCloudConnector(CloudConnector):
                                               url)
             session = requests.Session()
             session.mount('http+unix://', UnixHTTPAdapter.UnixHTTPAdapter())
-            resp = session.request(method, url, verify=False, headers=headers, data=body)
+            resp = session.request(method, url, verify=self.verify_ssl, headers=headers, data=body)
         else:
             url = "%s://%s:%d%s%s" % (self.cloud.protocol, self.cloud.server, self.cloud.port, self.cloud.path, url)
             if 'public_key' in auth and 'private_key' in auth:
@@ -71,7 +71,7 @@ class DockerCloudConnector(CloudConnector):
                 cert = None
 
             try:
-                resp = requests.request(method, url, verify=False, cert=cert, headers=headers, data=body)
+                resp = requests.request(method, url, verify=self.verify_ssl, cert=cert, headers=headers, data=body)
             finally:
                 if cert:
                     try:

@@ -102,6 +102,7 @@ class Config:
     OIDC_SCOPES = []
     VM_NUM_USE_CTXT_DIST = 30
     DELAY_BETWEEN_VM_RETRIES = 5
+    VERIFI_SSL = False
 
 
 config = ConfigParser()

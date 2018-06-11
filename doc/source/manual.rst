@@ -337,6 +337,12 @@ Default Virtual Machine Options
    Default domain assigned to a virtual machine.
    The default value is ``localdomain``.
 
+.. confval:: VERIFI_SSL 
+
+   Verify SSL hosts in CloudConnectors connections If you set it to True you must assure
+   the CA certificates are installed correctly
+   The default value is ``False``.
+
 .. _options-ctxt:
 
 Contextualization
