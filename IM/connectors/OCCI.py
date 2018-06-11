@@ -1169,16 +1169,17 @@ class OCCICloudConnector(CloudConnector):
             current_has_public_ip = vm.info.hasPublicNet(vm.info.systems[0].name)
             new_has_public_ip = radl.hasPublicNet(vm.info.systems[0].name)
             if new_has_public_ip and not current_has_public_ip:
-                success = self.add_public_ip(vm, auth_data)
+                success, msg = self.add_public_ip(vm, auth_data)
 
                 if success:
                     # Add public net in the Requested RADL
                     public_net, num_net = VirtualMachine.add_public_net(vm.requested_radl)
                     vm.requested_radl.systems[0].setValue("net_interface.%d.connection" % num_net, public_net.id)
-
-                return success
+                    return True, ""
+                else:
+                    return False, msg
             if not new_has_public_ip and current_has_public_ip:
-                success = self.remove_public_ip(vm, auth_data)
+                success, msg = self.remove_public_ip(vm, auth_data)
 
                 if success:
                     # Remove all public net connections in the Requested RADL
@@ -1190,9 +1191,13 @@ class OCCICloudConnector(CloudConnector):
                         f = system.getFeature("net_interface.%d.connection" % i)
                         if f.value in nets_id:
                             system.delValue('net_interface.%d.connection' % i)
+                            if system.getValue('net_interface.%d.ip' % i):
+                                system.delValue('net_interface.%d.ip' % i)
                         i += 1
 
-                return success
+                    return True, ""
+                else:
+                    return False, msg
         except Exception as ex:
             self.log_exception("Error adding new public IP")
             return (False, "Error adding new public IP: " + str(ex))
