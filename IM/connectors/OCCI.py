@@ -1166,7 +1166,7 @@ class OCCICloudConnector(CloudConnector):
         # update VM info
         try:
             vm.update_status(auth_data, force=True)
-            current_has_public_ip = vm.info.hasPublicNet(vm.info.systems[0].name)
+            current_has_public_ip = vm.hasPublicIP()
             new_has_public_ip = radl.hasPublicNet(vm.info.systems[0].name)
             if new_has_public_ip and not current_has_public_ip:
                 success, msg = self.add_public_ip(vm, auth_data)
