@@ -68,7 +68,7 @@ class OCCICloudConnector(CloudConnector):
         CloudConnector.__init__(self, cloud_info, inf)
 
     @staticmethod
-    def create_request_static(method, url, auth, headers, body=None):
+    def create_request_static(method, url, auth, headers, verify=False, body=None):
         if auth and 'proxy' in auth:
             proxy = auth['proxy']
 
@@ -83,7 +83,7 @@ class OCCICloudConnector(CloudConnector):
             headers.update({'Authorization': 'Bearer ' + auth["token"]})
 
         try:
-            resp = requests.request(method, url, verify=False, cert=cert, headers=headers, data=body)
+            resp = requests.request(method, url, verify=verify, cert=cert, headers=headers, data=body)
         finally:
             if cert:
                 try:
@@ -106,7 +106,7 @@ class OCCICloudConnector(CloudConnector):
         else:
             auth = auths[0]
 
-        return self.create_request_static(method, url, auth, headers, body)
+        return self.create_request_static(method, url, auth, headers, self.verify_ssl, body)
 
     def get_auth_header(self, auth_data):
         """
@@ -1352,7 +1352,7 @@ class KeyStoneAuth:
                     url = "%s/v3/auth/tokens" % keystone_uri
                 else:
                     return None
-                resp = occi.create_request_static('GET', url, auth, headers)
+                resp = occi.create_request_static('GET', url, auth, headers, occi.verify_ssl)
                 if resp.status_code == 200:
                     return occi.keystone_token
                 else:
@@ -1397,7 +1397,7 @@ class KeyStoneAuth:
 
         try:
             headers = {"Accept": "application/json"}
-            resp = occi.create_request_static('GET', keystone_uri, None, headers)
+            resp = occi.create_request_static('GET', keystone_uri, None, headers, occi.verify_ssl)
             if resp.status_code in [200, 300]:
                 versions = []
                 json_data = resp.json()
@@ -1435,7 +1435,7 @@ class KeyStoneAuth:
             body = '{"auth":{"voms":true}}'
             headers = {'Accept': 'application/json', 'Connection': 'close', 'Content-Type': 'application/json'}
             url = "%s/v2.0/tokens" % keystone_uri
-            resp = occi.create_request_static('POST', url, auth, headers, body)
+            resp = occi.create_request_static('POST', url, auth, headers, occi.verify_ssl, body)
             resp.raise_for_status()
 
             # format: -> "{\"access\": {\"token\": {\"issued_at\":
@@ -1458,7 +1458,7 @@ class KeyStoneAuth:
                 headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
                            'X-Auth-Token': token_id, 'Connection': 'close'}
                 url = "%s/v2.0/tenants" % keystone_uri
-                resp = occi.create_request_static('GET', url, auth, headers)
+                resp = occi.create_request_static('GET', url, auth, headers, occi.verify_ssl)
                 resp.raise_for_status()
 
                 # format: -> "{\"tenants_links\": [], \"tenants\":
@@ -1478,7 +1478,7 @@ class KeyStoneAuth:
                 headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
                            'X-Auth-Token': token_id, 'Connection': 'close'}
                 url = "%s/v2.0/tokens" % keystone_uri
-                resp = occi.create_request_static('POST', url, auth, headers, body)
+                resp = occi.create_request_static('POST', url, auth, headers, occi.verify_ssl, body)
                 if resp.status_code in [200, 202]:
                     # format: -> "{\"access\": {\"token\": {\"issued_at\":
                     # \"2014-12-29T17:10:49.609894\", \"expires\":
@@ -1518,7 +1518,7 @@ class KeyStoneAuth:
                 # Use VOMS proxy
                 url = "%s/v3/OS-FEDERATION/identity_providers/egi.eu/protocols/mapped/auth" % keystone_uri
 
-            resp = occi.create_request_static('GET', url, auth, headers)
+            resp = occi.create_request_static('GET', url, auth, headers, occi.verify_ssl)
             resp.raise_for_status()
 
             token = resp.headers['X-Subject-Token']
@@ -1527,7 +1527,7 @@ class KeyStoneAuth:
                 headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
                            'X-Auth-Token': token, 'Connection': 'close'}
                 url = "%s/v3/auth/projects" % keystone_uri
-                resp = occi.create_request_static('GET', url, auth, headers)
+                resp = occi.create_request_static('GET', url, auth, headers, occi.verify_ssl)
                 resp.raise_for_status()
 
                 output = resp.json()
@@ -1558,7 +1558,7 @@ class KeyStoneAuth:
                 body = {"auth": {"identity": {"methods": ["token"], "token": {"id": token}},
                                  "scope": {"project": {"id": project["id"]}}}}
                 url = "%s/v3/auth/tokens" % keystone_uri
-                resp = occi.create_request_static('POST', url, auth, headers, json.dumps(body))
+                resp = occi.create_request_static('POST', url, auth, headers, occi.verify_ssl, json.dumps(body))
                 if resp.status_code in [200, 201, 202]:
                     occi.log_info("Using project: %s" % project["name"])
                     occi.keystone_project = project

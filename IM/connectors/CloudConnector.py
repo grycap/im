@@ -3,6 +3,7 @@ import subprocess
 import shutil
 import tempfile
 import time
+from IM.config import Config
 
 
 class CloudConnector:
@@ -22,6 +23,16 @@ class CloudConnector:
         """Logger object."""
         self.error_messages = ""
         """String with error messages to be shown to the user."""
+        self.verify_ssl = Config.VERIFI_SSL
+        """Verify SSL connections """
+        if not self.verify_ssl:
+            try:
+                # To avoid annoying InsecureRequestWarning messages in some Connectors
+                import requests.packages
+                from requests.packages.urllib3.exceptions import InsecureRequestWarning
+                requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+            except:
+                pass
 
     def concreteSystem(self, radl_system, auth_data):
         """

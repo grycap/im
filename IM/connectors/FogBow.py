@@ -65,7 +65,7 @@ class FogBowCloudConnector(CloudConnector):
             protocol = self.cloud.protocol
 
         url = "%s://%s:%d%s%s" % (protocol, self.cloud.server, self.cloud.port, self.cloud.path, url)
-        resp = requests.request(method, url, verify=False, headers=headers, data=body)
+        resp = requests.request(method, url, verify=self.verify_ssl, headers=headers, data=body)
 
         return resp
 
