@@ -580,7 +580,6 @@ class VirtualMachine:
         if remove_old:
             cont = 0
             while vm_system.getValue('net_interface.%d.connection' % cont):
-                vm_system.delValue('net_interface.%d.connection' % cont)
                 if vm_system.getValue('net_interface.%d.ip' % cont):
                     vm_system.delValue('net_interface.%d.ip' % cont)
                 cont += 1
