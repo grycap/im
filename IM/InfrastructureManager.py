@@ -457,24 +457,31 @@ class InfrastructureManager:
 
         InfrastructureManager.logger.info("Adding resources to Inf ID: " + str(inf_id))
 
-        if isinstance(radl_data, RADL):
-            radl = radl_data
-        else:
-            radl = radl_parse.parse_radl(radl_data)
-
-        InfrastructureManager.logger.debug("Inf ID: " + str(inf_id) + ": \n" + str(radl))
-        radl.check()
-
         sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
 
-        # Update infrastructure RADL with this new RADL
-        sel_inf.complete_radl(radl)
+        try:
+            if isinstance(radl_data, RADL):
+                radl = radl_data
+            else:
+                radl = radl_parse.parse_radl(radl_data)
 
-        # If any deploy is defined, only update definitions.
-        if not radl.deploys:
-            sel_inf.update_radl(radl, [])
-            InfrastructureManager.logger.warn("Inf ID: " + sel_inf.id + ": without any deploy. Exiting.")
-            return []
+            InfrastructureManager.logger.debug("Inf ID: " + str(inf_id) + ": \n" + str(radl))
+            radl.check()
+
+            # Update infrastructure RADL with this new RADL
+            sel_inf.complete_radl(radl)
+
+            # If any deploy is defined, only update definitions.
+            if not radl.deploys:
+                sel_inf.update_radl(radl, [])
+                InfrastructureManager.logger.warn("Inf ID: " + sel_inf.id + ": without any deploy. Exiting.")
+                sel_inf.add_cont_msg("Infrastructure without any deploy. Exiting.")
+                return []
+        except Exception as ex:
+            sel_inf.configured = False
+            sel_inf.add_cont_msg("Error parsing RADL: %s" % str(ex))
+            InfrastructureManager.logger.exception("Inf ID: " + sel_inf.id + " error parsing RADL")
+            raise ex
 
         for system in radl.systems:
             # Add apps requirements to the RADL
@@ -526,7 +533,8 @@ class InfrastructureManager:
         for deploy_group in deploy_groups:
             if not deploy_group:
                 InfrastructureManager.logger.warning("Inf ID: %s: No VMs to deploy!" % sel_inf.id)
-                return
+                sel_inf.add_cont_msg("No VMs to deploy. Exiting.")
+                return []
 
             cloud_id = deploys_group_cloud[id(deploy_group)]
             cloud = cloud_list[cloud_id]
@@ -896,7 +904,10 @@ class InfrastructureManager:
                     state = VirtualMachine.UNCONFIGURED
 
         if state is None:
-            state = VirtualMachine.UNKNOWN
+            if sel_inf.configured is False:
+                state = VirtualMachine.FAILED
+            else:
+                state = VirtualMachine.UNKNOWN
 
         InfrastructureManager.logger.info("Inf ID: " + str(inf_id) + " is in state: " + state)
         return {'state': state, 'vm_states': vm_states}
