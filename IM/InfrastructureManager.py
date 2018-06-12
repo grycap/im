@@ -586,6 +586,7 @@ class InfrastructureManager:
         sel_inf.update_radl(radl, [(d, deployed_vm[d], concrete_systems[d.cloud_id][d.id][0]) for d in deployed_vm])
         if all_failed:
             InfrastructureManager.logger.error("VMs failed when adding to Inf ID: %s" % sel_inf.id)
+            sel_inf.add_cont_msg("All VMs failed. No contextualize.")
         else:
             InfrastructureManager.logger.info("VMs %s successfully added to Inf ID: %s" % (new_vms, sel_inf.id))
 
@@ -1259,7 +1260,7 @@ class InfrastructureManager:
         return auth
 
     @staticmethod
-    def CreateInfrastructure(radl, auth, async_call=False):
+    def CreateInfrastructure(radl_data, auth, async_call=False):
         """
         Create a new infrastructure.
 
@@ -1268,7 +1269,7 @@ class InfrastructureManager:
 
         Args:
 
-        - radl(RADL): RADL description.
+        - radl_data(RADL): RADL description.
         - auth(Authentication): parsed authentication tokens.
         - async_call(bool): Create the inf in an async way.
 
@@ -1277,6 +1278,14 @@ class InfrastructureManager:
 
         # First check the auth data
         auth = InfrastructureManager.check_auth_data(auth)
+
+        # Then parse the RADL
+        if isinstance(radl_data, RADL):
+            radl = radl_data
+        else:
+            radl = radl_parse.parse_radl(radl_data)
+
+        radl.check()
 
         # Create a new infrastructure
         inf = IM.InfrastructureInfo.InfrastructureInfo()
