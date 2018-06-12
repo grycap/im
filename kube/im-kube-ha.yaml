@@ -319,7 +319,7 @@ spec:
         role: wn
       containers:
       - name: im-backend
-        image: grycap/im:1.7.2-dev
+        image: grycap/im:1.7.4
         resources:
           requests:
             memory: "128Mi"
@@ -488,8 +488,8 @@ spec:
         livenessProbe:
           httpGet:
             path: /version
-            port: 443
-            scheme: HTTPS
+            port: 80
+            scheme: HTTP
           initialDelaySeconds: 20
           periodSeconds: 20
           timeoutSeconds: 2
@@ -559,7 +559,7 @@ spec:
         role: ingress-controller
       containers:
         - name: im-web
-          image: "grycap/im-web:1.5.6-ssl-dev"
+          image: "grycap/im-web:1.5.7-ssl-dev"
           ports:
           - containerPort: 80
             protocol: TCP
@@ -589,8 +589,7 @@ spec:
           livenessProbe:
             httpGet:
               path: /im-web/
-              port: 443
-              scheme: HTTPS
+              port: 80
             initialDelaySeconds: 30
             periodSeconds: 20
             timeoutSeconds: 2
@@ -619,6 +618,8 @@ spec:
   - name: https
     port: 443
     nodePort: 30080
+  - name: http
+    port: 80
   selector:
     name: im-web
 
