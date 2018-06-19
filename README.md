@@ -123,7 +123,7 @@ To install them in Debian and Ubuntu based distributions, do::
 
 ```sh
 $ apt update
-$ apt install gcc python-dev libffi-dev libssl-dev python-pip sshpass python-pysqlite2 python-requests
+$ apt install gcc python-dev libffi-dev libssl-dev python-pip sshpass python-pysqlite2
 ```
 
 In Red Hat based distributions (RHEL, CentOS, Amazon Linux, Oracle Linux,
@@ -140,7 +140,7 @@ Then you only have to call the install command of the pip tool with the IM packa
 $ pip install IM
 ```
 
-Pip will also install the, non installed, pre-requisites needed. So Ansible  1.4.2 or later will 
+Pip will also install the, non installed, pre-requisites needed. So Ansible  2.0.0 or later will 
 be installed in the system. Some of the optional packages are also installed please check if some
 of IM features that you need requires to install some of the packages of section OPTIONAL PACKAGES. 
 
