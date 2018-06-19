@@ -64,5 +64,5 @@ setup(name="IM", version=version,
       platforms=["any"],
       install_requires=["ansible >= 2.0", "paramiko >= 1.14", "PyYAML", suds_pkg, sqlite_pkg, "cheroot",
                         "boto >= 2.29", "apache-libcloud >= 2.3.0", "RADL >= 1.1.1", "bottle", "netaddr",
-                        "requests", "scp", "tosca-parser"]
+                        "requests >= 2.19", "scp", "tosca-parser"]
       )
