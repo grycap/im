@@ -24,9 +24,6 @@ RUN apt-get update && apt-get install --no-install-recommends -y git gcc libmysq
 # Install pip optional libraries
 RUN pip install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns azure-storage cheroot xmltodict
 
-# Force requests to be version 2.11.1 to avoid SSL ca errors with proxy files
-RUN pip install requests==2.11.1
-
 # Copy a ansible.cfg with correct minimum values
 COPY ansible.cfg /etc/ansible/ansible.cfg
 
