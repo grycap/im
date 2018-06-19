@@ -1,7 +1,7 @@
 # Dockerfile to create a container with the IM service
 FROM ubuntu:18.04
 LABEL maintainer="Miguel Caballer <micafer1@upv.es>"
-LABEL version="1.7.3"
+LABEL version="1.7.4"
 LABEL description="Container image to run the IM service. (http://www.grycap.upv.es/im)"
 EXPOSE 8899 8800
 
@@ -17,7 +17,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y git gcc libmysq
      pip install MySQL-python && \
      # Install my version until PR #1215 is accepted
      cd /tmp && git clone https://github.com/micafer/libcloud && cd libcloud && pip install /tmp/libcloud && \
-     pip install IM==1.7.3 && \
+     pip install IM==1.7.4 && \
      apt-get purge -y git gcc libmysqld-dev libssl-dev libffi-dev libsqlite3-dev python-dev python-pip && \
      apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && rm -rf ~/.cache/
 
