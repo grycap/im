@@ -424,3 +424,10 @@ IM 1.7.3:
     * Improve OpenStack network management.
     * Enable to set poolname in the TOSCA docs.
     * Error when trying to attach a storage in OCCI (OpenStack sites).
+
+IM 1.7.4:
+    * Fix error OCCI connector does not correctly AlterVM adding/removing ips.
+    * Add VERIFI_SSL var.
+    * Improve error messages in Async call.
+
+    

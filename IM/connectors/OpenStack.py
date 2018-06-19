@@ -128,17 +128,18 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 raise Exception(
                     "No correct auth data has been specified to OpenStack: username, password and tenant or proxy")
 
-            # To avoid errors with host certificates
-            # if you want to do it in a more secure way check this:
-            # http://libcloud.readthedocs.org/en/latest/other/ssl-certificate-validation.html
-            import libcloud.security
-            libcloud.security.VERIFY_SSL_CERT = False
+            if not self.verify_ssl:
+                # To avoid errors with host certificates
+                # if you want to do it in a more secure way check this:
+                # http://libcloud.readthedocs.org/en/latest/other/ssl-certificate-validation.html
+                import libcloud.security
+                libcloud.security.VERIFY_SSL_CERT = False
 
-            try:
-                import ssl
-                ssl._create_default_https_context = ssl._create_unverified_context
-            except:
-                pass
+                try:
+                    import ssl
+                    ssl._create_default_https_context = ssl._create_unverified_context
+                except:
+                    pass
 
             # Workaround to OTC to enable to set service_name as None
             service_name = parameters["service_name"]

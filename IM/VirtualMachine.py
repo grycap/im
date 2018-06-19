@@ -536,11 +536,43 @@ class VirtualMachine:
 
         return updated
 
+    @staticmethod
+    def add_public_net(radl):
+        """
+        Add a public net to the radl specified
+        """
+        now = str(int(time.time() * 100))
+
+        public_nets = []
+        for net in radl.networks:
+            if net.isPublic():
+                public_nets.append(net)
+
+        if public_nets:
+            public_net = None
+            for net in public_nets:
+                num_net = radl.systems[0].getNumNetworkWithConnection(net.id)
+                if num_net is not None:
+                    public_net = net
+                    break
+
+            if not public_net:
+                # There are a public net but it has not been used in this
+                # VM
+                public_net = public_nets[0]
+                num_net = radl.systems[0].getNumNetworkIfaces()
+        else:
+            # There no public net, create one
+            public_net = network.createNetwork("public." + now, True)
+            radl.networks.append(public_net)
+            num_net = radl.systems[0].getNumNetworkIfaces()
+
+        return public_net, num_net
+
     def setIps(self, public_ips, private_ips, remove_old=False):
         """
         Set the specified IPs in the VM RADL info
         """
-        now = str(int(time.time() * 100))
         vm_system = self.info.systems[0]
 
         # First remove old ip values
@@ -553,29 +585,7 @@ class VirtualMachine:
                 cont += 1
 
         if public_ips and not set(public_ips).issubset(set(private_ips)):
-            public_nets = []
-            for net in self.info.networks:
-                if net.isPublic():
-                    public_nets.append(net)
-
-            if public_nets:
-                public_net = None
-                for net in public_nets:
-                    num_net = self.getNumNetworkWithConnection(net.id)
-                    if num_net is not None:
-                        public_net = net
-                        break
-
-                if not public_net:
-                    # There are a public net but it has not been used in this
-                    # VM
-                    public_net = public_nets[0]
-                    num_net = self.getNumNetworkIfaces()
-            else:
-                # There no public net, create one
-                public_net = network.createNetwork("public." + now, True)
-                self.info.networks.append(public_net)
-                num_net = self.getNumNetworkIfaces()
+            public_net, num_net = self.add_public_net(self.info)
 
             real_public_ips = [public_ip for public_ip in public_ips if public_ip not in private_ips]
             if real_public_ips:
