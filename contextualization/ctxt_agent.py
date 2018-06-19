@@ -477,7 +477,7 @@ class CtxtAgent():
 
         if not ctxt_vm:
             CtxtAgent.logger.error("No VM to Contextualize!")
-            res_data['OK'] = False
+            res_data['OK'] = True
             return res_data
 
         for task in vm_conf_data['tasks']:
