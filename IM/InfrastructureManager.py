@@ -342,7 +342,7 @@ class InfrastructureManager:
         return concrete_system, score
 
     @staticmethod
-    def systems_with_vmrc(radl, auth):
+    def systems_with_vmrc(sel_inf, radl, auth):
         """
         Concrete systems using VMRC
         NOTE: consider not-fake deploys (vm_number > 0)
@@ -382,6 +382,7 @@ class InfrastructureManager:
             vmrc_res = [s0 for vmrc in vmrc_list for s0 in vmrc.search_vm(s)]
             # Check that now the image URL is in the RADL
             if not s.getValue("disk.0.image.url") and not vmrc_res:
+                sel_inf.add_cont_msg("No VMI obtained from VMRC to system: " + system_id)
                 raise Exception("No VMI obtained from VMRC to system: " + system_id)
 
             n = [s_without_apps.clone().applyFeatures(s0, conflict="other", missing="other")
@@ -435,6 +436,8 @@ class InfrastructureManager:
             if sorted_scored_clouds and sorted_scored_clouds[0]:
                 deploys_group_cloud[id(deploy_group)] = sorted_scored_clouds[0][0]
             else:
+                sel_inf.configured = False
+                sel_inf.add_cont_msg("No cloud provider available")
                 raise Exception("No cloud provider available")
 
         return deploys_group_cloud
@@ -502,7 +505,7 @@ class InfrastructureManager:
                         break
 
         # Concrete systems using VMRC
-        systems_with_vmrc = InfrastructureManager.systems_with_vmrc(radl, auth)
+        systems_with_vmrc = InfrastructureManager.systems_with_vmrc(sel_inf, radl, auth)
 
         # Concrete systems with cloud providers and select systems with the greatest score
         # in every cloud
