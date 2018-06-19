@@ -412,6 +412,10 @@ class TestOCCIConnector(unittest.TestCase):
         self.assertTrue(success, msg="ERROR: modifying VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
+        self.assertEqual(vm.requested_radl.systems[0].getValue("net_interface.1.connection"), None)
+        self.assertEqual(vm.requested_radl.systems[0].getValue("net_interface.1.ip"), None)
+        self.assertEqual(vm.requested_radl.systems[0].getValue("net_interface.0.connection"), "net")
+
     @patch('requests.request')
     @patch('IM.connectors.OCCI.KeyStoneAuth.get_keystone_uri')
     def test_60_finalize(self, get_keystone_uri, requests):

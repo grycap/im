@@ -342,7 +342,7 @@ class InfrastructureManager:
         return concrete_system, score
 
     @staticmethod
-    def systems_with_vmrc(radl, auth):
+    def systems_with_vmrc(sel_inf, radl, auth):
         """
         Concrete systems using VMRC
         NOTE: consider not-fake deploys (vm_number > 0)
@@ -382,6 +382,7 @@ class InfrastructureManager:
             vmrc_res = [s0 for vmrc in vmrc_list for s0 in vmrc.search_vm(s)]
             # Check that now the image URL is in the RADL
             if not s.getValue("disk.0.image.url") and not vmrc_res:
+                sel_inf.add_cont_msg("No VMI obtained from VMRC to system: " + system_id)
                 raise Exception("No VMI obtained from VMRC to system: " + system_id)
 
             n = [s_without_apps.clone().applyFeatures(s0, conflict="other", missing="other")
@@ -435,6 +436,8 @@ class InfrastructureManager:
             if sorted_scored_clouds and sorted_scored_clouds[0]:
                 deploys_group_cloud[id(deploy_group)] = sorted_scored_clouds[0][0]
             else:
+                sel_inf.configured = False
+                sel_inf.add_cont_msg("No cloud provider available")
                 raise Exception("No cloud provider available")
 
         return deploys_group_cloud
@@ -457,24 +460,31 @@ class InfrastructureManager:
 
         InfrastructureManager.logger.info("Adding resources to Inf ID: " + str(inf_id))
 
-        if isinstance(radl_data, RADL):
-            radl = radl_data
-        else:
-            radl = radl_parse.parse_radl(radl_data)
-
-        InfrastructureManager.logger.debug("Inf ID: " + str(inf_id) + ": \n" + str(radl))
-        radl.check()
-
         sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
 
-        # Update infrastructure RADL with this new RADL
-        sel_inf.complete_radl(radl)
+        try:
+            if isinstance(radl_data, RADL):
+                radl = radl_data
+            else:
+                radl = radl_parse.parse_radl(radl_data)
 
-        # If any deploy is defined, only update definitions.
-        if not radl.deploys:
-            sel_inf.update_radl(radl, [])
-            InfrastructureManager.logger.warn("Inf ID: " + sel_inf.id + ": without any deploy. Exiting.")
-            return []
+            InfrastructureManager.logger.debug("Inf ID: " + str(inf_id) + ": \n" + str(radl))
+            radl.check()
+
+            # Update infrastructure RADL with this new RADL
+            sel_inf.complete_radl(radl)
+
+            # If any deploy is defined, only update definitions.
+            if not radl.deploys:
+                sel_inf.update_radl(radl, [])
+                InfrastructureManager.logger.warn("Inf ID: " + sel_inf.id + ": without any deploy. Exiting.")
+                sel_inf.add_cont_msg("Infrastructure without any deploy. Exiting.")
+                return []
+        except Exception as ex:
+            sel_inf.configured = False
+            sel_inf.add_cont_msg("Error parsing RADL: %s" % str(ex))
+            InfrastructureManager.logger.exception("Inf ID: " + sel_inf.id + " error parsing RADL")
+            raise ex
 
         for system in radl.systems:
             # Add apps requirements to the RADL
@@ -495,7 +505,7 @@ class InfrastructureManager:
                         break
 
         # Concrete systems using VMRC
-        systems_with_vmrc = InfrastructureManager.systems_with_vmrc(radl, auth)
+        systems_with_vmrc = InfrastructureManager.systems_with_vmrc(sel_inf, radl, auth)
 
         # Concrete systems with cloud providers and select systems with the greatest score
         # in every cloud
@@ -526,7 +536,8 @@ class InfrastructureManager:
         for deploy_group in deploy_groups:
             if not deploy_group:
                 InfrastructureManager.logger.warning("Inf ID: %s: No VMs to deploy!" % sel_inf.id)
-                return
+                sel_inf.add_cont_msg("No VMs to deploy. Exiting.")
+                return []
 
             cloud_id = deploys_group_cloud[id(deploy_group)]
             cloud = cloud_list[cloud_id]
@@ -578,6 +589,7 @@ class InfrastructureManager:
         sel_inf.update_radl(radl, [(d, deployed_vm[d], concrete_systems[d.cloud_id][d.id][0]) for d in deployed_vm])
         if all_failed:
             InfrastructureManager.logger.error("VMs failed when adding to Inf ID: %s" % sel_inf.id)
+            sel_inf.add_cont_msg("All VMs failed. No contextualize.")
         else:
             InfrastructureManager.logger.info("VMs %s successfully added to Inf ID: %s" % (new_vms, sel_inf.id))
 
@@ -896,7 +908,10 @@ class InfrastructureManager:
                     state = VirtualMachine.UNCONFIGURED
 
         if state is None:
-            state = VirtualMachine.UNKNOWN
+            if sel_inf.configured is False:
+                state = VirtualMachine.FAILED
+            else:
+                state = VirtualMachine.UNKNOWN
 
         InfrastructureManager.logger.info("Inf ID: " + str(inf_id) + " is in state: " + state)
         return {'state': state, 'vm_states': vm_states}
@@ -1248,7 +1263,7 @@ class InfrastructureManager:
         return auth
 
     @staticmethod
-    def CreateInfrastructure(radl, auth, async_call=False):
+    def CreateInfrastructure(radl_data, auth, async_call=False):
         """
         Create a new infrastructure.
 
@@ -1257,7 +1272,7 @@ class InfrastructureManager:
 
         Args:
 
-        - radl(RADL): RADL description.
+        - radl_data(RADL): RADL description.
         - auth(Authentication): parsed authentication tokens.
         - async_call(bool): Create the inf in an async way.
 
@@ -1266,6 +1281,14 @@ class InfrastructureManager:
 
         # First check the auth data
         auth = InfrastructureManager.check_auth_data(auth)
+
+        # Then parse the RADL
+        if isinstance(radl_data, RADL):
+            radl = radl_data
+        else:
+            radl = radl_parse.parse_radl(radl_data)
+
+        radl.check()
 
         # Create a new infrastructure
         inf = IM.InfrastructureInfo.InfrastructureInfo()

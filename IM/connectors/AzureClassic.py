@@ -155,7 +155,7 @@ class AzureClassicCloudConnector(CloudConnector):
         subscription_id = self.get_subscription_id(auth_data)
         url = "https://%s:%d/%s%s" % (self.AZURE_SERVER, self.AZURE_PORT, subscription_id, url)
         cert = self.get_user_cert_data(auth)
-        resp = requests.request(method, url, verify=False, cert=cert, headers=headers, data=body)
+        resp = requests.request(method, url, verify=self.verify_ssl, cert=cert, headers=headers, data=body)
 
         return resp
 
