@@ -180,7 +180,7 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
                                                                          protocol='tcp',
                                                                          startport=22,
                                                                          cidrlist='0.0.0.0/0')
-                    usersecuritygrouplist = [{'group': sg['name'], 'account': sg['account'],}]
+
                 # open all the ports for the VMs in the security group
 #                 usersecuritygrouplist = [{'group': sg['name'], 'account': sg['account'],}]
 #                 success = driver.ex_authorize_security_group_ingress(securitygroupname=sg_name,
