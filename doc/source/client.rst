@@ -203,11 +203,13 @@ The available keys are:
 
 * ``username`` indicates the user name associated to the credential. In EC2
   it refers to the *Access Key ID*. In GCE it refers to *Service Account’s Email Address*. 
+  In CloudStack refers to Api Key value.
 
 * ``password`` indicates the password associated to the credential. In EC2
   it refers to the *Secret Access Key*. In GCE it refers to *Service  Private Key*
   (either in JSON or PKCS12 formats). See how to get it and how to extract the private key file from
   `here info <https://cloud.google.com/storage/docs/authentication#service_accounts>`_).
+  In CloudStack refers to Secret Key value.
 
 * ``tenant`` indicates the tenant associated to the credential.
   This field is only used in the OpenStack plugin.
@@ -328,6 +330,8 @@ An example of the auth file::
    id = azurecla; type = AzureClassic; subscription_id = subscription_id; public_key = file(/tmp/cert.pem); private_key = file(/tmp/key.pem)
    # vSphere site auth data
    id = vsphere; type = vSphere; host = http://server; username = user; password = pass
+   # CloudStack site auth data
+   id = cloudstack; type = CloudStack; host = http://server; username = apikey; password = secret
    
 
 IM Server does not store the credentials used in the creation of
