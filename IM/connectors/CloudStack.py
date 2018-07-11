@@ -174,9 +174,8 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
                 res.append(sg['name'])
 
             try:
-                # open always SSH port on public nets
-                if network.isPublic():
-                    success = driver.ex_authorize_security_group_ingress(securitygroupname=sg_name,
+                # open always SSH port
+                success = driver.ex_authorize_security_group_ingress(securitygroupname=sg_name,
                                                                          protocol='tcp',
                                                                          startport=22,
                                                                          cidrlist='0.0.0.0/0')
