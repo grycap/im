@@ -29,20 +29,20 @@ If you use pip to install the IM, all the requisites will be installed.
 However, if you install IM from sources you should install:
 
  * The RADL parser (https://github.com/grycap/radl), available in pip
-   as the 'RADL' package.
+   as the ``RADL`` package.
 
  * The paramiko ssh2 protocol library for python version 1.14 or later
-(http://www.lag.net/paramiko/), typically available as the 'python-paramiko' package.
+(http://www.lag.net/paramiko/), typically available as the ``python-paramiko`` package.
 
- * The YAML library for Python, typically available as the 'python-yaml' or 'PyYAML' package.
+ * The YAML library for Python, typically available as the ``python-yaml`` or ``PyYAML`` package.
 
- * The suds library for Python, typically available as the 'python-suds' package.
+ * The suds library for Python, typically available as the ``python-suds`` package.
 
- * The Netaddr library for Python, typically available as the 'python-netaddr' package.
+ * The Netaddr library for Python, typically available as the ``python-netaddr`` package.
 
- * The Requests library for Python, typically available as the 'python-requests' package.
+ * The Requests library for Python, typically available as the ``python-requests`` package.
 
- * TOSCA parser library for Python, available as the 'tosca-parser' package in pip.
+ * TOSCA parser library for Python, available as the ``tosca-parser`` package in pip.
 
  * Ansible (http://www.ansibleworks.com/) to configure nodes in the infrastructures.
    In particular, Ansible 2.0.0+ must be installed.
@@ -73,33 +73,40 @@ pipelining = True
 ### 1.2 OPTIONAL PACKAGES
 
 The Bottle framework (http://bottlepy.org/) is used for the REST API. 
-It is typically available as the 'python-bottle' package.
+It is typically available as the ``python-bottle`` system package or ``bottle`` pip package.
 
 The CherryPy Web framework (http://www.cherrypy.org/), is needed for the REST API. 
-It is typically available as the 'python-cherrypy' or 'python-cherrypy3' package.
-In newer versions (9.0 and later) the functionality has been moved to the 'cheroot' library
+It is typically available as the ``python-cherrypy`` or ``python-cherrypy3`` system package
+or ``CherryPy`` pip package.
+In newer versions (9.0 and later) the functionality has been moved to the ``cheroot`` library
 (https://github.com/cherrypy/cheroot) it can be installed using pip.
 
-Apache-libcloud (http://libcloud.apache.org/) 0.17 or later is used in the
-LibCloud, OpenStack and GCE connectors.
+Apache-libcloud (http://libcloud.apache.org/) 2.0 or later is used in the
+LibCloud, OpenStack and GCE connectors. It is typically available as the ``python-libcloud`` 
+system package or ``apache-libcloud`` pip package.
 
 Boto (http://boto.readthedocs.org) 2.29.0 or later is used as interface to
 Amazon EC2. It is available as package named ``python-boto`` in Debian based
-distributions. It can also be downloaded from `boto GitHub repository (https://github.com/boto/boto).
+distributions or ``boto`` pip package. It can also be downloaded from boto GitHub repository (https://github.com/boto/boto).
 Download the file and copy the boto subdirectory into the IM install path.
 
 In case of using the a MySQL DB as the backend to store IM data. The Python interface to MySQL
-must be installed, typically available as the package 'python-mysqldb' or 'MySQL-python' package.
-In case of using Python 3 use the PyMySQL package, available as the package 'python3-pymysql' on 
-debian systems or PyMySQL package in pip.  
+must be installed, typically available as the package ``python-mysqldb`` or ``MySQL-python`` package.
+In case of using Python 3 use the PyMySQL package, available as the package ``python3-pymysql`` on 
+debian systems or ``PyMySQL`` package in pip.  
 
-In case of using the SSL secured version of the REST API pyOpenSSL must be installed.
+In case of using the SSL secured version of the REST API pyOpenSSL (https://pyopenssl.org/) must be installed.
+available as ``pyOpenSSL`` package in pip.  
 
 Azure python SDK (https://azure.microsoft.com/es-es/develop/python/) is used to connect with the 
-Microsoft Azure platform.
+Microsoft Azure platform. The easiest way is to install all the required packages with pip:
+
+```sh
+$ pip install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns azure-storage 
+```
 
 The VMware vSphere API Python Bindings (https://github.com/vmware/pyvmomi/) are needed by the vSphere
-connector. It is available as the package 'pyvmomi' at the pip repository.  
+connector. It is available as the package ``pyvmomi`` at the pip repository.  
 
 
 ### 1.3 INSTALLING
@@ -165,11 +172,9 @@ Then install the downloaded RPMs:
 $ yum localinstall IM-*.rpm RADL-*.rpm
 ```
 
-Azure python SDK is not available in CentOS. So if you need the Azure plugin you have to manually install them using pip:
+Azure python SDK is not available in CentOS. So if you need the Azure plugin you have to manually install them using pip as
+shown in the OPTIONAL PACKAGES section.
 
-```sh
-$ pip install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns azure-storage 
-```
 
 #### 1.3.4 From Deb package (Tested with Ubuntu 14.04 and 16.04)
 
