@@ -416,39 +416,58 @@ class CtxtAgent():
             with open(playbook) as f:
                 yaml_data = yaml.load(f)
 
+            galaxy_dependencies = []
+            needs_git = False
             for galaxy_name in general_conf_data['ansible_modules']:
                 galaxy_name = galaxy_name.encode()
                 if galaxy_name:
                     CtxtAgent.logger.debug("Install " + galaxy_name + " with ansible-galaxy.")
 
+                    if galaxy_name.startswith("git"):
+                        needs_git = True
+
                     parts = galaxy_name.split("|")
                     if len(parts) > 1:
                         url = parts[0]
                         rolename = parts[1]
-
-                        task = {"copy": 'dest=/tmp/%s.yml content="- src: %s\\n  name: %s"' % (rolename,
-                                                                                               url, rolename)}
-                        task["name"] = "Create YAML file to install the %s role with ansible-galaxy" % rolename
-                        yaml_data[0]['tasks'].append(task)
-                        url = "-r /tmp/%s.yml" % rolename
+                        dep = {"src": url, "name": rolename}
                     else:
                         url = rolename = galaxy_name
+                        dep = {"src": url}
 
-                    if galaxy_name.startswith("git"):
-                        task = {"yum": "name=git"}
-                        task["name"] = "Install git with yum"
-                        task["become"] = "yes"
-                        task["when"] = 'ansible_os_family == "RedHat"'
-                        yaml_data[0]['tasks'].append(task)
-                        task = {"apt": "name=git"}
-                        task["name"] = "Install git with apt"
-                        task["become"] = "yes"
-                        task["when"] = 'ansible_os_family == "Debian"'
-                        yaml_data[0]['tasks'].append(task)
-                    task = {"command": "ansible-galaxy install %s" % url}
-                    task["name"] = "Install %s galaxy role" % galaxy_name
-                    task["become"] = "yes"
-                    yaml_data[0]['tasks'].append(task)
+                    parts = url.split(",")
+                    if len(parts) > 1:
+                        url = parts[0]
+                        version = parts[1]
+                        dep = {"src": url, "version": version}
+
+                    galaxy_dependencies.append(dep)
+
+            if needs_git:
+                task = {"yum": "name=git"}
+                task["name"] = "Install git with yum"
+                task["become"] = "yes"
+                task["when"] = 'ansible_os_family == "RedHat"'
+                yaml_data[0]['tasks'].append(task)
+                task = {"apt": "name=git"}
+                task["name"] = "Install git with apt"
+                task["become"] = "yes"
+                task["when"] = 'ansible_os_family == "Debian"'
+                yaml_data[0]['tasks'].append(task)
+
+            if galaxy_dependencies:
+                now = str(int(time.time() * 100))
+                filename = "/tmp/galaxy_roles_%s.yml" % now
+                yaml_deps = yaml.dump(galaxy_dependencies, indent=2)
+                CtxtAgent.logger.debug("Galaxy depencies file: %s" % yaml_deps)
+                task = {"copy": 'dest=%s content="%s"' % (filename, yaml_deps)}
+                task["name"] = "Create YAML file to install the roles with ansible-galaxy"
+                yaml_data[0]['tasks'].append(task)
+
+                task = {"command": "ansible-galaxy install -r %s" % filename}
+                task["name"] = "Install galaxy roles"
+                task["become"] = "yes"
+                yaml_data[0]['tasks'].append(task)
 
             with open(new_playbook, 'w+') as f:
                 yaml.dump(yaml_data, f)
