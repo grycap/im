@@ -16,6 +16,7 @@
 
 import time
 import uuid
+import yaml
 from netaddr import IPNetwork, IPAddress
 import os.path
 import tempfile
@@ -635,13 +636,6 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             user = self.DEFAULT_USER
             system.setValue('disk.0.os.credentials.username', user)
 
-        cloud_init = self.get_cloud_init_data(radl)
-        if public_key:
-            cloud_init = self.gen_cloud_config(public_key, user, cloud_init)
-
-        if cloud_init:
-            args['ex_userdata'] = cloud_init
-
         if self.CONFIG_DRIVE:
             args['ex_config_drive'] = self.CONFIG_DRIVE
 
@@ -655,10 +649,19 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         while i < num_vm:
             self.log_info("Creating node")
 
+            vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self.cloud.getCloudConnector(inf))
+            vm.destroy = True
+            inf.add_vm(vm)
+            cloud_init = self.get_cloud_init_data(radl, vm, public_key, user)
+    
+            if cloud_init:
+                args['ex_userdata'] = cloud_init
+
             node = None
             try:
                 node = driver.create_node(**args)
-                vm = VirtualMachine(inf, node.id, self.cloud, radl, requested_radl, self.cloud.getCloudConnector(inf))
+                
+                vm.id = node.id
                 vm.info.systems[0].setValue('instance_id', str(node.id))
                 vm.info.systems[0].setValue('instance_name', str(node.name))
                 # Add the keypair name to remove it later
@@ -666,7 +669,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     vm.keypair = keypair_name
                 self.log_info("Node successfully created.")
                 all_failed = False
-                inf.add_vm(vm)
+                vm.destroy = False
                 res.append((True, vm))
             except Exception as ex:
                 res.append((False, str(ex)))
@@ -985,25 +988,6 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
             if not deleted:
                 self.log_error("Error deleting the SG: Timeout.")
-
-    def gen_cloud_config(self, public_key, user=None, cloud_config_str=None):
-        """
-        Generate the cloud-config file to be used in the user_data of the OCCI VM
-        """
-        if not user:
-            user = self.DEFAULT_USER
-        config = """#cloud-config
-users:
-  - name: %s
-    sudo: ALL=(ALL) NOPASSWD:ALL
-    lock-passwd: true
-    ssh-import-id: %s
-    ssh-authorized-keys:
-      - %s
-""" % (user, user, public_key)
-        if cloud_config_str:
-            config += "\n%s\n\n" % cloud_config_str.replace("\\n", "\n")
-        return config
 
     def get_node_location(self, node):
         """

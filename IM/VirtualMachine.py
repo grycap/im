@@ -46,6 +46,8 @@ class VirtualMachine:
     WAIT_TO_PID = "WAIT"
 
     NOT_RUNNING_STATES = [OFF, FAILED, STOPPED]
+    
+    SSH_REVERSE_BASE_PORT = 20000
 
     logger = logging.getLogger('InfrastructureManager')
 
@@ -63,7 +65,9 @@ class VirtualMachine:
         self.id = cloud_id
         """The ID of the VM assigned by the cloud provider"""
         self.im_id = im_id
-        """The internal ID of the VM assigned by the IM"""
+        """The ID of the VM assigned by the IM"""
+        self.creation_im_id = im_id
+        """The ID of the VM assigned by the IM during creation"""
         self.cloud = cloud
         """CloudInfo object with the information about the cloud provider"""
         self.info = info.clone() if info else None
@@ -975,6 +979,44 @@ class VirtualMachine:
 
         # And return true in the last of these VMs
         return self == delete_list_cloud[-1]
+
+    def get_boot_curl_commands(self):
+        from IM.REST import REST_URL
+        url = REST_URL + '/infrastructures/' + str(self.inf.id) + '/vms/' + str(self.im_id) + '/command'
+        auth = self.inf.auth.getAuthInfo("InfrastructureManager")[0]
+        imuser = auth['username'] 
+        impass = auth['password']
+        command = ('curl -s -H "Authorization: type = InfrastructureManager; '
+                   'username = %s; password = %s" -H "Accept: text/plain" %s' % (imuser, impass, url))
+        return [command + " | bash &"]
+    
+    def getSSHReversePort(self):
+        return self.SSH_REVERSE_BASE_PORT + int(self.creation_im_id)
+    
+    def get_ssh_command(self, vmid):
+        ssh_port = self.getSSHPort()
+        s = self.info.systems[0]
+        reverse_opt = "-R %d:localhost:22" % (self.SSH_REVERSE_BASE_PORT + int(vmid))
+
+        if s.getValue("disk.0.os.credentials.private_key"):
+            private_key = s.getValue("disk.0.os.credentials.private_key")
+            filename = "/tmp/%s_%s.pem" % (self.inf.id, self.im_id)
+            command = 'echo "%s" > %s && chmod 400 %s ' % (private_key, filename, filename)
+            command += ('&& ssh -N %s -p %s -i %s -o "UserKnownHostsFile=/dev/null"'
+                        ' -o "StrictHostKeyChecking=no" %s@%s &' % (reverse_opt,
+                                                                  ssh_port,
+                                                                  filename,
+                                                                  s.getValue("disk.0.os.credentials.username"),
+                                                                  self.getPublicIP())) 
+        else:
+            command = ('sshpass -p%s ssh -N %s -p %s -o "UserKnownHostsFile=/dev/null"'
+                       ' -o "StrictHostKeyChecking=no" %s@%s &' % (s.getValue("disk.0.os.credentials.password"),
+                                                                 reverse_opt,
+                                                                 ssh_port,
+                                                                 s.getValue("disk.0.os.credentials.username"),
+                                                                 self.getPublicIP()))
+
+        return command
 
     def log_msg(self, level, msg, exc_info=0):
         msg = "Inf ID: %s: %s" % (self.inf.id, msg)

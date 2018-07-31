@@ -233,8 +233,13 @@ class InfrastructureInfo:
         Add, and assigns a new VM ID to the infrastructure
         """
         with self._lock:
+            # Store the creation ID
+            vm.creation_im_id = vm.im_id
             # Set the ID of the pos in the list
             vm.im_id = len(self.vm_list)
+            # Store the creation ID if not set
+            if vm.creation_im_id is None:
+                vm.creation_im_id = vm.im_id
             self.vm_list.append(vm)
         IM.InfrastructureList.InfrastructureList.save_data(self.id)
 
@@ -416,21 +421,23 @@ class InfrastructureInfo:
     def select_vm_master(self):
         """
         Select the VM master of the infrastructure.
-        The master VM must be connected with all the VMs and must have a Linux OS
+        The master VM must be have a Linux OS connected with the maximum number of VMs
         It will select the first created VM that fulfills this requirements
         and store the value in the vm_master field
         """
         self.vm_master = None
         for vm in self.get_vm_list():
+            max_vms_connected = -1
+            vms_connected = -1
             if vm.getOS() and vm.getOS().lower() == 'linux' and vm.hasPublicNet():
-                # check that is connected with all the VMs
-                full_connected = True
+                # check that is connected with other VMs
+                vms_connected = 0 
                 for other_vm in self.get_vm_list():
                     if not vm.isConnectedWith(other_vm):
-                        full_connected = False
-                if full_connected:
-                    self.vm_master = vm
-                    break
+                        vms_connected += 1
+        
+            if vms_connected > max_vms_connected:
+                self.vm_master = vm
 
     def vm_in_ctxt_tasks(self, vm):
         found = False

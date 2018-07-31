@@ -50,6 +50,8 @@ HTML_ERROR_TEMPLATE = """<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
 </html>
 """
 
+REST_URL = None
+
 app = bottle.Bottle()
 bottle_server = None
 
@@ -192,6 +194,11 @@ def get_auth_header():
     Get the Authentication object from the AUTHORIZATION header
     replacing the new line chars.
     """
+    # Initialize REST_URL
+    global REST_URL
+    if REST_URL is None:
+        REST_URL = get_full_url("")
+
     auth_header = bottle.request.headers['AUTHORIZATION']
     if Config.SINGLE_SITE:
         if auth_header.startswith("Basic "):
@@ -556,6 +563,44 @@ def RESTGetVMProperty(infid=None, vmid=None, prop=None):
     try:
         if prop == 'contmsg':
             info = InfrastructureManager.GetVMContMsg(infid, vmid, auth)
+        elif prop == 'command':
+            auth = InfrastructureManager.check_auth_data(auth)
+            sel_inf = InfrastructureManager.get_infrastructure(infid, auth)
+
+            step=1
+            if "step" in bottle.request.params.keys():
+                step = int(bottle.request.params.get("step"))
+
+            if step == 1: 
+                url = get_full_url('/infrastructures/' + str(infid) + '/vms/' + str(vmid) + '/command?step=2')
+                auth = sel_inf.auth.getAuthInfo("InfrastructureManager")[0]
+                imuser = auth['username'] 
+                impass = auth['password']
+                command = ('curl -s -H "Authorization: type = InfrastructureManager; '
+                           'username = %s; password = %s" -H "Accept: text/plain" %s' % (imuser, impass, url))
+
+                info = """
+                res="wait"
+                while [ "$res" == "wait" ]
+                do
+                  res=`%s`
+                  if [ "$res" != "wait" ]
+                  then
+                    eval "$res"
+                  else
+                    sleep 20
+                  fi
+                done""" % command
+            elif step == 2: 
+                if sel_inf.vm_master:
+                    if vmid == sel_inf.vm_master.creation_im_id:
+                        info = "true"
+                    else:
+                        info = sel_inf.vm_master.get_ssh_command(vmid)
+                else:
+                    info = "wait"
+            else:
+                info = None
         else:
             info = InfrastructureManager.GetVMProperty(infid, vmid, prop, auth)
 

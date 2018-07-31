@@ -449,10 +449,14 @@ class OpenNebulaCloudConnector(CloudConnector):
             system.delValue('disk.0.os.credentials.private_key')
             system.delValue('disk.0.os.credentials.public_key')
 
-        template = self.getONETemplate(radl, sgs, auth_data)
         res = []
         i = 0
         while i < num_vm:
+            vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self)
+            vm.destroy = True
+            inf.add_vm(vm)
+            template = self.getONETemplate(vm.info, sgs, auth_data, vm)
+            
             func_res = server.one.vm.allocate(session_id, template)
             if len(func_res) == 2:
                 (success, res_id) = func_res
@@ -462,9 +466,9 @@ class OpenNebulaCloudConnector(CloudConnector):
                 return [(False, "Error in the one.vm.allocate return value")]
 
             if success:
-                vm = VirtualMachine(inf, str(res_id), self.cloud, radl, requested_radl, self)
+                vm.id = str(res_id)
                 vm.info.systems[0].setValue('instance_id', str(res_id))
-                inf.add_vm(vm)
+                vm.destroy = False
                 res.append((success, vm))
             else:
                 res.append((success, "ERROR: " + str(res_id)))
@@ -579,7 +583,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 
         return (success, err)
 
-    def getONETemplate(self, radl, sgs, auth_data):
+    def getONETemplate(self, radl, sgs, auth_data, vm):
         """
         Get the ONE template to create the VM
 
@@ -671,12 +675,22 @@ class OpenNebulaCloudConnector(CloudConnector):
             (public, private) = self.keygen()
             system.setValue('disk.0.os.credentials.private_key', private)
 
-        if (private and public) or ConfigOpenNebula.TEMPLATE_CONTEXT:
+        if (private and public) or ConfigOpenNebula.TEMPLATE_CONTEXT or Config.SSH_REVERSE_TUNNELS:
             res += 'CONTEXT = ['
             if private and public:
                 res += 'SSH_PUBLIC_KEY = "%s"' % public
-            if ConfigOpenNebula.TEMPLATE_CONTEXT:
+
+            if Config.SSH_REVERSE_TUNNELS:
                 if private and public:
+                    res += ", "
+                command = "apt update; apt install -y sshpass curl;"
+                command += "yum install sshpass curl;"
+                command += "zypper install -y sshpass curl;"
+                command += vm.get_boot_curl_commands()[0]
+                res += 'START_SCRIPT = "%s"' % command.replace('"', '\\"')
+
+            if ConfigOpenNebula.TEMPLATE_CONTEXT:
+                if private and public or Config.SSH_REVERSE_TUNNELS:
                     res += ", "
                 res += ConfigOpenNebula.TEMPLATE_CONTEXT
             res += ']'

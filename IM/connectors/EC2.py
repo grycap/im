@@ -506,8 +506,6 @@ class EC2CloudConnector(CloudConnector):
 
         system = radl.systems[0]
 
-        user_data = self.get_cloud_init_data(radl)
-
         # Currently EC2 plugin uses first private_key credentials
         if system.getValue('disk.0.os.credentials.private_key'):
             system.delValue('disk.0.os.credentials.password')
@@ -592,6 +590,12 @@ class EC2CloudConnector(CloudConnector):
 
             i = 0
             while i < num_vm:
+                
+                vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self)
+                vm.destroy = True
+                inf.add_vm(vm)
+                user_data = self.get_cloud_init_data(radl, vm)
+
                 err_msg = "Launching in region %s with image: %s" % (region_name, ami)
                 if vpc:
                     err_msg += " in VPC: %s-%s " % (vpc, subnet)
@@ -666,15 +670,13 @@ class EC2CloudConnector(CloudConnector):
                                 self.log_debug("RADL:")
                                 self.log_debug(system)
 
-                                vm = VirtualMachine(
-                                    inf, ec2_vm_id, self.cloud, radl, requested_radl, self)
-                                vm.info.systems[0].setValue(
-                                    'instance_id', str(vm.id))
+                                vm.id = ec2_vm_id
+                                vm.info.systems[0].setValue('instance_id', str(vm.id))
                                 # Add the keypair name to remove it later
                                 vm.keypair_name = keypair_name
                                 self.log_info("Instance successfully launched.")
                                 all_failed = False
-                                inf.add_vm(vm)
+                                vm.destroy = False
                                 res.append((True, vm))
                             else:
                                 res.append((False, "Error %s." % err_msg))
@@ -710,14 +712,12 @@ class EC2CloudConnector(CloudConnector):
                                 self.log_debug("RADL:")
                                 self.log_debug(system)
 
-                                vm = VirtualMachine(
-                                    inf, ec2_vm_id, self.cloud, radl, requested_radl, self)
-                                vm.info.systems[0].setValue(
-                                    'instance_id', str(vm.id))
+                                vm.id = ec2_vm_id
+                                vm.info.systems[0].setValue('instance_id', str(vm.id))
                                 # Add the keypair name to remove it later
                                 vm.keypair_name = keypair_name
                                 self.log_info("Instance successfully launched.")
-                                inf.add_vm(vm)
+                                vm.destroy = False
                                 res.append((True, vm))
                                 all_failed = False
                             else:
