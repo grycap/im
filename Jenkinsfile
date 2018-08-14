@@ -115,3 +115,18 @@ commands = bandit -r IM -f html -o bandit.html"""
                 }
             }
         }
+
+        stage('Metrics gathering') {
+            agent {
+                label 'sloc'
+            }
+            steps {
+                checkout scm
+                SLOCRun()
+            }
+            post {
+                success {
+                    SLOCPublish()
+                }
+            }
+        }
