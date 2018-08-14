@@ -1,25 +1,20 @@
+#!/usr/bin/groovy
+
+@Library(['github.com/indigo-dc/jenkins-pipeline-library']) _
+
 pipeline {
     agent {
         label 'python'
     }
-    
-    stages {
-        stage('Fetch code') {
-            steps {
-                checkout scm
-            }
-        }
-        
-        stage('Generate configuration files') {
-            steps {
-                echo 'Generating test-requirements.txt file..'
-                writeFile file: 'test-requirements.txt', text: '''bandit
+
+    environment {
+        dockerhub_repo = "indigodatacloud/im"
+        pip_test_reqs = '''bandit
 pep8
 nose
 nosexcover
 '''
-                echo 'Generating requirements.txt file..'
-                writeFile file: 'requirements.txt', text: '''paramiko
+        pip_reqs = '''paramiko
 radl
 mock
 scp
@@ -44,16 +39,7 @@ azure-storage
 pywinrm
 MySQL-python
 pyVmomi'''
-                echo 'Generating tox.ini file..'
-                writeFile file: 'tox.ini', text: '''[tox]
-envlist = py27
-[testenv]
-usedevelop = True
-install_command = pip install -U {opts} {packages}
-setenv =
-   VIRTUAL_ENV={envdir}
-deps = -r{toxinidir}/test-requirements.txt
-       -r{toxinidir}/requirements.txt
+        tox_envs = """
 [testenv:pep8]
 commands = pep8 --max-line-length=120 --ignore=E402 --exclude=doc,.tox .
 [testenv:unit]
@@ -61,84 +47,71 @@ commands = nosetests --with-xcoverage --xcoverage-file=coverage_unit.xml --cover
 [testenv:functional]
 commands = nosetests -vv --all-modules --exe test/functional
 [testenv:bandit]
-commands = bandit -r IM -f html -o bandit/index.html'''
+commands = bandit -r IM -f html -o bandit.html"""
+    }
+
+    stages {
+        stage('Code fetching') {
+            steps {
+                checkout scm
             }
         }
-        
-        stage('Style Analysis') {
+
+        stage('Environment setup') {
             steps {
-                echo 'Running pep8..'
-                sh 'tox -e pep8'
+                PipRequirements(pip_test_reqs, 'test-requirements.txt')
+                PipRequirements(pip_reqs, 'requirements.txt')
+                ToxConfig(tox_envs)
             }
             post {
                 always {
-                    warnings canComputeNew: false,
-                             canResolveRelativePaths: false,
-                             categoriesPattern: '',
-                             consoleParsers: [[parserName: 'Pep8']],
-                             defaultEncoding: '',
-                             excludePattern: '',
-                             healthy: '',
-                             includePattern: '',
-                             messagesPattern: '',
-                             unHealthy: ''
+                    archiveArtifacts artifacts: '*requirements.txt,*tox*.ini'
                 }
             }
-        } // code style stage
-        
-        stage('Unit tests') {
+        }
+
+        stage('Style analysis') {
             steps {
-                sh 'tox -e unit'
+                ToxEnvRun('pep8')
+            }
+            post {
+                always {
+                    WarningsReport('Pep8')
+                }
+            }
+        }
+
+        stage('Unit testing coverage') {
+            steps {
+                ToxEnvRun('unit')
             }
             post {
                 success {
-                    cobertura autoUpdateHealth: false,
-                              autoUpdateStability: false,
-                              coberturaReportFile: '**/coverage_unit.xml',
-                              conditionalCoverageTargets: '70, 0, 0',
-                              failUnhealthy: false,
-                              failUnstable: false,
-                              lineCoverageTargets: '80, 0, 0',
-                              maxNumberOfBuilds: 0,
-                              methodCoverageTargets: '80, 0, 0',
-                              onlyStable: false,
-                              sourceEncoding: 'ASCII',
-                              zoomCoverageChart: false
+                    CoberturaReport()
                 }
             }
-        } // unit testing stage
-        
-        stage('Functional tests') {
+        }
+
+        stage('Functional testing') {
             steps {
-                sh 'tox -e functional'
+                ToxEnvRun('functional')
             }
-        } // functional testing stage
-        
+        }
+
         stage('Security scanner') {
             steps {
                 script {
                     try {
-                        sh 'mkdir bandit' // otherwise report does not show up
-                        sh 'tox -e bandit'
+                        ToxEnvRun('bandit')
                     }
                     catch(e) {
-                        // Mark build as UNSTABLE (instead of FAILURE) until
-                        // Bandit warnings are resolved
                         currentBuild.result = 'UNSTABLE'
                     }
                 }
             }
             post {
                 always {
-                    publishHTML([allowMissing: false,
-                                 alwaysLinkToLastBuild: false,
-                                 keepAll: true,
-                                 reportDir: 'bandit',
-                                 reportFiles: 'index.html',
-                                 reportName: 'Bandit report',
-                                 reportTitles: ''])
+                    HTMLReport('', 'bandit.html', 'Bandit report')
                 }
             }
-        } // security stage
-    } // stages
-} // pipeline
+        }
