@@ -116,6 +116,23 @@ commands = bandit -r IM -f html -o bandit.html"""
             }
         }
 
+        stage('Dependency check') {
+            agent {
+                label 'docker-build'
+            }
+            steps {
+                checkout scm
+                OWASPDependencyCheckRun("$WORKSPACE/DEEPaaS/deepaas", project="DEEPaaS")
+            }
+            post {
+                always {
+                    OWASPDependencyCheckPublish()
+                    HTMLReport('deepaas', 'dependency-check-report.html', 'OWASP Dependency Report')
+                    deleteDir()
+                }
+            }
+        }
+
         stage('Metrics gathering') {
             agent {
                 label 'sloc'
