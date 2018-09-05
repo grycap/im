@@ -224,25 +224,6 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
 
         return res
 
-    def gen_cloud_config(self, public_key, user=None, cloud_config_str=None):
-        """
-        Generate the cloud-config file to be used in the user_data of the OCCI VM
-        """
-        if not user:
-            user = self.DEFAULT_USER
-        config = """#cloud-config
-users:
-  - name: %s
-    sudo: ALL=(ALL) NOPASSWD:ALL
-    lock-passwd: true
-    ssh-import-id: %s
-    ssh-authorized-keys:
-      - %s
-""" % (user, user, public_key)
-        if cloud_config_str:
-            config += "\n%s\n\n" % cloud_config_str.replace("\\n", "\n")
-        return config
-
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         driver = self.get_driver(auth_data)
 
@@ -287,13 +268,6 @@ users:
             user = self.DEFAULT_USER
             system.setValue('disk.0.os.credentials.username', user)
 
-        cloud_init = self.get_cloud_init_data(radl)
-        if public_key:
-            cloud_init = self.gen_cloud_config(public_key, user, cloud_init)
-
-        if cloud_init:
-            args['ex_userdata'] = cloud_init
-
         tags = {}
         if system.getValue('instance_tags'):
             keypairs = system.getValue('instance_tags').split(",")
@@ -308,6 +282,14 @@ users:
         while i < num_vm:
             self.log_debug("Creating node")
 
+            vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self.cloud.getCloudConnector(inf))
+            vm.destroy = True
+            inf.add_vm(vm)
+            cloud_init = self.get_cloud_init_data(radl, vm, public_key, user)
+
+            if cloud_init:
+                args['ex_userdata'] = cloud_init
+
             try:
                 node = driver.create_node(**args)
             except:
@@ -321,12 +303,13 @@ users:
                     except:
                         self.log_exception("Error adding tags to node %s." % node.id)
 
-                vm = VirtualMachine(inf, node.id, self.cloud, radl, requested_radl, self.cloud.getCloudConnector(inf))
+                vm.id = node.id
                 vm.info.systems[0].setValue('instance_id', str(node.id))
                 vm.info.systems[0].setValue('instance_name', str(node.name))
                 if 'zone_name' in node.extra:
                     vm.info.systems[0].setValue('availability_zone', node.extra["zone_name"])
                 self.log_debug("Node successfully created.")
+                vm.destroy = False
                 inf.add_vm(vm)
                 res.append((True, vm))
             else:

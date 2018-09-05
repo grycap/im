@@ -567,14 +567,14 @@ def RESTGetVMProperty(infid=None, vmid=None, prop=None):
             auth = InfrastructureManager.check_auth_data(auth)
             sel_inf = InfrastructureManager.get_infrastructure(infid, auth)
 
-            step=1
+            step = 1
             if "step" in bottle.request.params.keys():
                 step = int(bottle.request.params.get("step"))
 
-            if step == 1: 
+            if step == 1:
                 url = get_full_url('/infrastructures/' + str(infid) + '/vms/' + str(vmid) + '/command?step=2')
                 auth = sel_inf.auth.getAuthInfo("InfrastructureManager")[0]
-                imuser = auth['username'] 
+                imuser = auth['username']
                 impass = auth['password']
                 command = ('curl -s -H "Authorization: type = InfrastructureManager; '
                            'username = %s; password = %s" -H "Accept: text/plain" %s' % (imuser, impass, url))
@@ -591,7 +591,8 @@ def RESTGetVMProperty(infid=None, vmid=None, prop=None):
                     sleep 20
                   fi
                 done""" % command
-            elif step == 2: 
+                logger.debug("Step 1 command: %s" % info)
+            elif step == 2:
                 if sel_inf.vm_master:
                     if vmid == sel_inf.vm_master.creation_im_id:
                         info = "true"
@@ -599,6 +600,7 @@ def RESTGetVMProperty(infid=None, vmid=None, prop=None):
                         info = sel_inf.vm_master.get_ssh_command(vmid)
                 else:
                     info = "wait"
+                logger.debug("Step 2 command: %s" % info)
             else:
                 info = None
         else:

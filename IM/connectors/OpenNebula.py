@@ -456,7 +456,7 @@ class OpenNebulaCloudConnector(CloudConnector):
             vm.destroy = True
             inf.add_vm(vm)
             template = self.getONETemplate(vm.info, sgs, auth_data, vm)
-            
+
             func_res = server.one.vm.allocate(session_id, template)
             if len(func_res) == 2:
                 (success, res_id) = func_res
@@ -683,9 +683,12 @@ class OpenNebulaCloudConnector(CloudConnector):
             if Config.SSH_REVERSE_TUNNELS:
                 if private and public:
                     res += ", "
-                command = "apt update; apt install -y sshpass curl;"
-                command += "yum install sshpass curl;"
-                command += "zypper install -y sshpass curl;"
+                inst_command = "apt update; apt install -y sshpass curl > /tmp/sshpass.out 2> /tmp/sshpass.err;"
+                inst_command += "yum install sshpass curl -y;"
+                inst_command += "zypper install -y sshpass curl;"
+
+                command = "which sshpass && which curl || %s" % inst_command
+
                 command += vm.get_boot_curl_commands()[0]
                 res += 'START_SCRIPT = "%s"' % command.replace('"', '\\"')
 

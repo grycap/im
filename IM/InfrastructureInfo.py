@@ -61,7 +61,6 @@ class InfrastructureInfo:
     logger = logging.getLogger('InfrastructureManager')
     """Logger object."""
 
-    FAKE_SYSTEM = "F0000__FAKE_SYSTEM__"
     OPENID_USER_PREFIX = "__OPENID__"
 
     def __init__(self):
@@ -75,8 +74,6 @@ class InfrastructureInfo:
         """Authentication of type ``InfrastructureManager``."""
         self.radl = RADL()
         """RADL associated to the infrastructure."""
-        self.private_networks = {}
-        """(dict from str to str) Cloud provider ids associated to a private network."""
         self.system_counter = 0
         """(int) Last system generated."""
         self.deleted = False
@@ -329,15 +326,6 @@ class InfrastructureInfo:
                 # Overwrite to create only the last deploys
                 self.radl.deploys = radl.deploys
 
-            # Associate private networks with cloud providers
-            for d, _, _ in deployed_vms:
-                for private_net in [net.id for net in radl.networks if not net.isPublic() and
-                                    net.id in radl.get_system_by_name(d.id).getNetworkIDs()]:
-                    if private_net in self.private_networks:
-                        assert self.private_networks[private_net] == d.cloud_id
-                    else:
-                        self.private_networks[private_net] = d.cloud_id
-
         # Check the RADL
         try:
             self.radl.check()
@@ -361,17 +349,6 @@ class InfrastructureInfo:
                         raise Exception(
                             "Unknown reference in RADL to %s '%s'" % (type(s), s.getId()))
                     radl.add(aspect.clone(), "replace")
-
-            # Add fake deploys to indicate the cloud provider associated to a
-            # private network.
-            system_counter = 0
-            for n in radl.networks:
-                if n.id in self.private_networks:
-                    system_id = self.FAKE_SYSTEM + str(system_counter)
-                    system_counter += 1
-                    radl.add(
-                        system(system_id, [Feature("net_interface.0.connection", "=", n.id)]))
-                    radl.add(deploy(system_id, 0, self.private_networks[n.id]))
 
         # Check the RADL
         radl.check()
@@ -399,24 +376,7 @@ class InfrastructureInfo:
         """
         Get the RADL of this Infrastructure
         """
-        # remove the F0000__FAKE_SYSTEM__ deploys
-        # TODO: Do in a better way
-        radl = self.radl.clone()
-        deploys = []
-        for deploy in radl.deploys:
-            if not deploy.id.startswith(self.FAKE_SYSTEM):
-                deploys.append(deploy)
-        radl.deploys = deploys
-
-        # remove the F0000__FAKE_SYSTEM__ deploys
-        # TODO: Do in a better way
-        systems = []
-        for system in radl.systems:
-            if not system.name.startswith(self.FAKE_SYSTEM):
-                systems.append(system)
-        radl.systems = systems
-
-        return radl
+        return self.radl.clone()
 
     def select_vm_master(self):
         """
@@ -431,11 +391,11 @@ class InfrastructureInfo:
             vms_connected = -1
             if vm.getOS() and vm.getOS().lower() == 'linux' and vm.hasPublicNet():
                 # check that is connected with other VMs
-                vms_connected = 0 
+                vms_connected = 0
                 for other_vm in self.get_vm_list():
                     if not vm.isConnectedWith(other_vm):
                         vms_connected += 1
-        
+
             if vms_connected > max_vms_connected:
                 self.vm_master = vm
 
@@ -572,13 +532,15 @@ class InfrastructureInfo:
                         tasks[3] = ['copy_facts_cache']
                     tasks[4] = ['main_' + vm.info.systems[0].name]
                 else:
-                    init_steps = 2
+                    init_steps = 3
                     if cont == 0:
                         # In the first VM put the wait all ssh task
-                        tasks[0] = ['wait_all_ssh', 'basic']
+                        tasks[0] = ['wait_all_ssh']
+                        tasks[1] = ['basic']
                     else:
-                        tasks[0] = ['basic']
-                    tasks[1] = ['main_' + vm.info.systems[0].name]
+                        tasks[0] = []
+                        tasks[1] = ['basic']
+                    tasks[2] = ['main_' + vm.info.systems[0].name]
 
                 # And the specific tasks only for the specified ones
                 if not vm_list or vm.im_id in vm_list:

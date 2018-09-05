@@ -140,14 +140,14 @@ class CtxtAgent():
                 success, res = CtxtAgent.test_ssh(vm, vm['ctxt_ip'], vm['ctxt_port'])
             else:
                 # First test the private one
-                if 'private_ip' in vm: 
+                if 'private_ip' in vm:
                     vm_ip = vm['private_ip']
                     remote_port = vm['remote_port']
                     success, res = CtxtAgent.test_ssh(vm, vm_ip, remote_port)
                     if not success and remote_port != 22:
                         remote_port = 22
                         success, res = CtxtAgent.test_ssh(vm, vm_ip, 22)
-            
+
                 # if not use the default one
                 if not success:
                     vm_ip = vm['ip']
@@ -156,7 +156,7 @@ class CtxtAgent():
                     if not success and remote_port != 22:
                         remote_port = 22
                         success, res = CtxtAgent.test_ssh(vm, vm_ip, remote_port)
-                
+
                 # if not use the default one
                 if not success and 'reverse_port' in vm:
                     vm_ip = '127.0.0.1'
@@ -377,10 +377,15 @@ class CtxtAgent():
                 sudo_pass = ""
                 if ssh_client.password:
                     sudo_pass = "echo '" + ssh_client.password + "' | "
-                (stdout, stderr, code) = ssh_client.execute_timeout(
+                res = ssh_client.execute_timeout(
                     sudo_pass + "sudo -S sed -i 's/.*requiretty$/#Defaults requiretty/' /etc/sudoers", 5)
-                CtxtAgent.logger.debug("OUT: " + stdout + stderr)
-                return code == 0
+                if res is not None:
+                    (stdout, stderr, code) = res
+                    CtxtAgent.logger.debug("OUT: " + stdout + stderr)
+                    return code == 0
+                else:
+                    CtxtAgent.logger.error("No output.")
+                    return False
             except:
                 CtxtAgent.logger.exception("Error removing requiretty to VM: " + vm['ip'])
                 return False

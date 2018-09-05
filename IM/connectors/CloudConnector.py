@@ -305,7 +305,7 @@ class CloudConnector:
 
         return yaml.dump(config_data, default_flow_style=False, width=512)
 
-    def get_cloud_init_data(self, radl, vm, public_key=None, user=None):
+    def get_cloud_init_data(self, radl, vm=None, public_key=None, user=None):
         """
         Get the cloud init data specified by the user in the RADL
         """
@@ -321,14 +321,15 @@ class CloudConnector:
             cloud_init_str = radl.get_configure_by_name(configure_name).recipes
         else:
             cloud_init_str = None
-        
-        if Config.SSH_REVERSE_TUNNELS:
+
+        res = None
+        if Config.SSH_REVERSE_TUNNELS and vm:
             res = self._add_curl_cloud_init_data(vm, cloud_init_str)
-        
+
         if public_key:
             res = self._gen_cloud_config(public_key, user, res)
-        
-        return  "#cloud-config\n%s" % res
+
+        return "#cloud-config\n%s" % res
 
     def _add_curl_cloud_init_data(self, vm, cloud_init_str):
         if cloud_init_str:
@@ -340,13 +341,13 @@ class CloudConnector:
             cloud_config["packages"].extend(["curl", "sshpass"])
         else:
             cloud_config["packages"] = ["curl", "sshpass"]
- 
+
         curl_command = vm.get_boot_curl_commands()
         if 'runcmd' in cloud_config:
             cloud_config["runcmd"].extend(curl_command)
         else:
             cloud_config["runcmd"] = curl_command
-        
+
         return yaml.dump(cloud_config, default_flow_style=False, width=512)
 
     def log_msg(self, level, msg, exc_info=0):

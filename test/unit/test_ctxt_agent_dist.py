@@ -262,10 +262,12 @@ class TestCtxtAgent(unittest.TestCase):
         with open("/tmp/gen_data.json", "w+") as f:
             json.dump(self.gen_general_conf(), f)
         with open("/tmp/hosts", "w+") as f:
-            f.write(" ansible_host=%s \n" % vm_data['ip'])
+            f.write("%s_%s " % (vm_data['ip'], vm_data['id']))
+            f.write(" ansible_host=%s " % vm_data['ip'])
             f.write(" ansible_ssh_host=%s \n" % vm_data['ip'])
 
         vm_data['ctxt_ip'] = "10.0.0.2"
+        vm_data['ctxt_port'] = 22
         CtxtAgent.replace_vm_ip(vm_data)
 
         with open("/tmp/gen_data.json.rep", "r") as f:
@@ -276,7 +278,7 @@ class TestCtxtAgent(unittest.TestCase):
 
         with open("/tmp/hosts", "r") as f:
             data = f.read()
-        self.assertIn(" ansible_host=%s \n" % vm_data['ctxt_ip'], data)
+        self.assertIn(" ansible_host=%s " % vm_data['ctxt_ip'], data)
         self.assertIn(" ansible_ssh_host=%s \n" % vm_data['ctxt_ip'], data)
 
 

@@ -590,7 +590,7 @@ class EC2CloudConnector(CloudConnector):
 
             i = 0
             while i < num_vm:
-                
+
                 vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self)
                 vm.destroy = True
                 inf.add_vm(vm)

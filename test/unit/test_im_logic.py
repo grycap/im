@@ -143,99 +143,12 @@ class TestIM(unittest.TestCase):
         return ("eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.%s.ignored" %
                 base64.urlsafe_b64encode(json.dumps(data).encode("utf-8")).decode("utf-8"))
 
-    def test_inf_creation0(self):
+    def test_inf_creation(self):
         """Create infrastructure with empty RADL."""
 
         auth0 = self.getAuth([0])
         infId = IM.CreateInfrastructure("", auth0)
         IM.DestroyInfrastructure(infId, auth0)
-
-    def test_inf_creation1(self):
-        """Create infrastructure with an incorrect RADL in two cloud providers."""
-
-        radl = """"
-            network publica (outbound = 'yes')
-            network privada ()
-
-            system front (
-            cpu.arch='x86_64' and
-            cpu.count>=1 and
-            memory.size>=512m and
-            net_interface.0.connection = 'publica' and
-            net_interface.1.connection = 'privada' and
-            disk.0.image.url = 'mock0://linux.for.ev.er' and
-            disk.0.os.credentials.username = 'ubuntu' and
-            disk.0.os.credentials.password = 'yoyoyo' and
-            disk.0.os.name = 'linux'
-            )
-
-            system wn (
-            cpu.arch='x86_64' and
-            cpu.count>=1 and
-            memory.size>=512m and
-            net_interface.0.connection = 'privada' and
-            disk.0.image.url = 'mock0://linux.for.ev.er' and
-            disk.0.os.credentials.username = 'ubuntu' and
-            disk.0.os.credentials.password = 'yoyoyo' and
-            disk.0.os.name = 'linux'
-            )
-
-            deploy front 1 cloud0
-            deploy wn 1 cloud1
-        """
-
-        auth0 = self.getAuth([0])
-        with self.assertRaises(Exception) as ex:
-            _ = IM.CreateInfrastructure(radl, auth0)
-        self.assertIn("Two deployments that have to be launched in the same cloud provider"
-                      " are asked to be deployed in different cloud providers",
-                      str(ex.exception))
-
-    def test_inf_creation_addition_clouds(self):
-        """Add resources infrastructure with an incorrect RADL with 2 clouds."""
-
-        radl = """"
-            network publica (outbound = 'yes')
-            network privada ()
-            system front (
-            cpu.arch='x86_64' and
-            cpu.count>=1 and
-            memory.size>=512m and
-            net_interface.0.connection = 'publica' and
-            net_interface.1.connection = 'privada' and
-            disk.0.image.url = 'mock0://linux.for.ev.er' and
-            disk.0.os.credentials.username = 'ubuntu' and
-            disk.0.os.credentials.password = 'yoyoyo' and
-            disk.0.os.name = 'linux'
-            )
-            system wn (
-            cpu.arch='x86_64' and
-            cpu.count>=1 and
-            memory.size>=512m and
-            net_interface.0.connection = 'privada' and
-            disk.0.image.url = 'mock0://linux.for.ev.er' and
-            disk.0.os.credentials.username = 'ubuntu' and
-            disk.0.os.credentials.password = 'yoyoyo' and
-            disk.0.os.name = 'linux'
-            )
-            deploy front 1 cloud0
-            deploy wn 1
-        """
-
-        auth0 = self.getAuth([0], [], [("Dummy", 0), ("Dummy", 1)])
-        infId = IM.CreateInfrastructure(radl, auth0)
-
-        radl = """
-            network privada
-            system wn
-            deploy wn 1 cloud1
-        """
-
-        with self.assertRaises(Exception) as ex:
-            _ = IM.AddResource(infId, radl, auth0)
-        self.assertIn("Two deployments that have to be launched in the same cloud provider"
-                      " are asked to be deployed in different cloud providers",
-                      str(ex.exception))
 
     def test_inf_creation_errors(self):
         """Create infrastructure with errors"""
@@ -405,11 +318,11 @@ class TestIM(unittest.TestCase):
         self.register_cloudconnector("Mock", cloud)
         auth0 = self.getAuth([0], [], [("Mock", 0)])
         infId = IM.CreateInfrastructure("", auth0)
-        vms = IM.AddResource(infId, str(radl), auth0)
+        str_radl = str(radl)
+        vms = IM.AddResource(infId, str_radl, auth0)
         self.assertEqual(len(vms), n)
-        self.assertEqual(cloud.launch.call_count, n)
-        for call, _ in cloud.launch.call_args_list:
-            self.assertEqual(call[3], 1)
+        self.assertEqual(cloud.launch.call_count, 1)
+        self.assertEqual(cloud.launch.call_args_list[0][0][3], 20)
         IM.DestroyInfrastructure(infId, auth0)
 
     def test_inf_addresources2(self):
@@ -441,10 +354,10 @@ class TestIM(unittest.TestCase):
         infId = IM.CreateInfrastructure("", auth0)
         vms = IM.AddResource(infId, str(radl), auth0)
         self.assertEqual(len(vms), n0 + n1)
-        self.assertEqual(cloud0.launch.call_count, n0)
-        self.assertEqual(cloud1.launch.call_count, n1)
-        for call, _ in cloud0.launch.call_args_list + cloud1.launch.call_args_list:
-            self.assertEqual(call[3], 1)
+        self.assertEqual(cloud0.launch.call_count, 1)
+        self.assertEqual(cloud1.launch.call_count, 1)
+        self.assertEqual(cloud0.launch.call_args_list[0][0][3], n0)
+        self.assertEqual(cloud1.launch.call_args_list[0][0][3], n1)
         IM.DestroyInfrastructure(infId, auth0)
 
     @patch('IM.VMRC.Client')
@@ -478,10 +391,10 @@ class TestIM(unittest.TestCase):
         infId = IM.CreateInfrastructure("", auth0)
         vms = IM.AddResource(infId, str(radl), auth0)
         self.assertEqual(len(vms), n0 + n1)
-        self.assertEqual(cloud0.launch.call_count, n0)
-        self.assertEqual(cloud1.launch.call_count, n1)
-        for call, _ in cloud0.launch.call_args_list + cloud1.launch.call_args_list:
-            self.assertEqual(call[3], 1)
+        self.assertEqual(cloud0.launch.call_count, 1)
+        self.assertEqual(cloud1.launch.call_count, 1)
+        self.assertEqual(cloud0.launch.call_args_list[0][0][3], n0)
+        self.assertEqual(cloud1.launch.call_args_list[0][0][3], n1)
         IM.DestroyInfrastructure(infId, auth0)
 
     def test_inf_addresources_parallel(self):

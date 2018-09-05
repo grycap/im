@@ -99,63 +99,7 @@ class InfrastructureManager:
         IM.InfrastructureList.InfrastructureList._reinit()
 
     @staticmethod
-    def _compute_deploy_groups(radl):
-        """
-        Group the virtual machines that had to be deployed together.
-
-        Args:
-
-        - radl(RADL): RADL to consider.
-
-        Return(list of list of deploy): list of group of deploys.
-        """
-
-        # If some virtual machine is in two private networks, the machines in both
-        # networks will be in the same group
-        # NOTE: net_groups is a *Disjoint-set data structure*
-        net_groups = {}
-        for net in radl.networks:
-            net_groups[net.id] = net.id
-
-        def root(n):
-            while True:
-                n0 = net_groups[n]
-                if n0 == n:
-                    return n
-                n = n0
-
-        for d in radl.deploys:
-            private_nets = [net.id for net in radl.networks if not net.isPublic() and
-                            net.id in radl.get_system_by_name(d.id).getNetworkIDs()]
-            if not private_nets:
-                continue
-            for n in private_nets[1:]:
-                net_groups[root(n)] = net_groups[root(private_nets[0])]
-
-        deploy_groups = []
-        deploy_groups_net = {}
-        for d in radl.deploys:
-            private_nets = [net.id for net in radl.networks if not net.isPublic() and
-                            net.id in radl.get_system_by_name(d.id).getNetworkIDs()]
-            # If no private net is set, every launch can go in a separate group
-            if not private_nets:
-                for _ in range(d.vm_number):
-                    d0 = d.clone()
-                    d0.vm_number = 1
-                    deploy_groups.append([d0])
-                continue
-            # Otherwise the deploy goes to some group
-            net = net_groups[root(private_nets[0])]
-            if net not in deploy_groups_net:
-                deploy_groups_net[net] = [d]
-            else:
-                deploy_groups_net[net].append(d)
-
-        deploy_groups.extend(deploy_groups_net.values())
-        return deploy_groups
-
-    @staticmethod
-    def _launch_deploy(sel_inf, deploy, cloud_id, cloud, concrete_systems, radl, auth, deployed_vm):
+    def _launch_deploy(sel_inf, deploy, cloud_list, concrete_systems, radl, auth, deployed_vm):
         """Launch a deploy."""
 
         if deploy.vm_number <= 0:
@@ -163,56 +107,58 @@ class InfrastructureManager:
                 "Inf ID: %s: deploy %s with 0 num: Ignoring." % (sel_inf.id, deploy.id))
             return
 
-        if not deploy.id.startswith(IM.InfrastructureInfo.InfrastructureInfo.FAKE_SYSTEM):
-            concrete_system = concrete_systems[cloud_id][deploy.id][0]
-            launched_vms = []
+        cloud_id = InfrastructureManager.sort_by_score(deploy, sel_inf, concrete_systems, cloud_list, auth)
+        cloud = cloud_list[cloud_id]
+
+        concrete_system = concrete_systems[cloud_id][deploy.id][0]
+        launched_vms = []
+        launch_radl = radl.clone()
+        requested_radl = radl.clone()
+        requested_radl.systems = [radl.get_system_by_name(deploy.id)]
+        if not concrete_system:
+            InfrastructureManager.logger.error(
+                "Error, no concrete system to deploy: " + deploy.id + " in cloud: " +
+                cloud_id + ". Check if a correct image is being used")
+            for _ in range(deploy.vm_number):
+                launched_vms.append((False, "Error, no concrete system to deploy: " + deploy.id +
+                                     " in cloud: " + cloud_id + ". Check if a correct image is being used"))
+        else:
             launch_radl = radl.clone()
+            launch_radl.systems = [concrete_system.clone()]
             requested_radl = radl.clone()
-            requested_radl.systems = [radl.get_system_by_name(deploy.id)]
-            if not concrete_system:
-                InfrastructureManager.logger.error(
-                    "Error, no concrete system to deploy: " + deploy.id + " in cloud: " +
-                    cloud_id + ". Check if a correct image is being used")
+            requested_radl.systems = [radl.get_system_by_name(concrete_system.name)]
+
+            (username, _, _, _) = concrete_system.getCredentialValues()
+            if not username:
                 for _ in range(deploy.vm_number):
-                    launched_vms.append((False, "Error, no concrete system to deploy: " + deploy.id +
-                                         " in cloud: " + cloud_id + ". Check if a correct image is being used"))
+                    launched_vms.append((False, "No username for deploy: " + deploy.id))
             else:
-                launch_radl = radl.clone()
-                launch_radl.systems = [concrete_system.clone()]
-                requested_radl = radl.clone()
-                requested_radl.systems = [radl.get_system_by_name(concrete_system.name)]
+                InfrastructureManager.logger.debug(
+                    "Launching %d VMs of type %s" % (deploy.vm_number, concrete_system.name))
+                launched_vms = cloud.cloud.getCloudConnector(sel_inf).launch_with_retry(
+                    sel_inf, launch_radl, requested_radl, deploy.vm_number, auth, Config.MAX_VM_FAILS,
+                    Config.DELAY_BETWEEN_VM_RETRIES)
 
-                (username, _, _, _) = concrete_system.getCredentialValues()
-                if not username:
-                    for _ in range(deploy.vm_number):
-                        launched_vms.append((False, "No username for deploy: " + deploy.id))
-                else:
-                    InfrastructureManager.logger.debug(
-                        "Launching %d VMs of type %s" % (deploy.vm_number, concrete_system.name))
-                    launched_vms = cloud.cloud.getCloudConnector(sel_inf).launch_with_retry(
-                        sel_inf, launch_radl, requested_radl, deploy.vm_number, auth, Config.MAX_VM_FAILS,
-                        Config.DELAY_BETWEEN_VM_RETRIES)
+        # this must never happen ...
+        if len(launched_vms) < deploy.vm_number:
+            for _ in range(deploy.vm_number - len(launched_vms)):
+                launched_vms.append((False, "Error in deploy: " + deploy.id))
 
-            # this must never happen ...
-            if len(launched_vms) < deploy.vm_number:
-                for _ in range(deploy.vm_number - len(launched_vms)):
-                    launched_vms.append((False, "Error in deploy: " + deploy.id))
-
-            for success, launched_vm in launched_vms:
-                if success:
-                    InfrastructureManager.logger.debug("VM successfully launched: %s" % launched_vm.id)
-                    deployed_vm.setdefault(deploy, []).append(launched_vm)
-                    deploy.cloud_id = cloud_id
-                else:
-                    InfrastructureManager.logger.error("Error launching some of the VMs: %s" % launched_vm)
-                    vm = VirtualMachine(sel_inf, None, cloud.cloud, launch_radl, requested_radl)
-                    vm.state = VirtualMachine.FAILED
-                    vm.info.systems[0].setValue('state', VirtualMachine.FAILED)
-                    vm.error_msg = "Error launching the VMs of type %s to cloud ID %s of type %s. %s" % (
-                        deploy.id, cloud.cloud.id, cloud.cloud.type, launched_vm)
-                    sel_inf.add_vm(vm)
-                    deployed_vm.setdefault(deploy, []).append(vm)
-                    deploy.cloud_id = cloud_id
+        for success, launched_vm in launched_vms:
+            if success:
+                InfrastructureManager.logger.debug("VM successfully launched: %s" % launched_vm.id)
+                deployed_vm.setdefault(deploy, []).append(launched_vm)
+                deploy.cloud_id = cloud_id
+            else:
+                InfrastructureManager.logger.error("Error launching some of the VMs: %s" % launched_vm)
+                vm = VirtualMachine(sel_inf, None, cloud.cloud, launch_radl, requested_radl)
+                vm.state = VirtualMachine.FAILED
+                vm.info.systems[0].setValue('state', VirtualMachine.FAILED)
+                vm.error_msg = "Error launching the VMs of type %s to cloud ID %s of type %s. %s" % (
+                    deploy.id, cloud.cloud.id, cloud.cloud.type, launched_vm)
+                sel_inf.add_vm(vm)
+                deployed_vm.setdefault(deploy, []).append(vm)
+                deploy.cloud_id = cloud_id
 
     @staticmethod
     def get_infrastructure(inf_id, auth):
@@ -392,55 +338,46 @@ class InfrastructureManager:
         return systems_with_vmrc
 
     @staticmethod
-    def sort_by_score(sel_inf, concrete_systems, cloud_list, deploy_groups, auth):
+    def sort_by_score(deploy, sel_inf, concrete_systems, cloud_list, auth):
         """
         Sort by score the cloud providers
-        NOTE: consider fake deploys (vm_number == 0)
         """
-        deploys_group_cloud = {}
 
         # reverse the list to use the reverse order in the sort function
         # list of ordered clouds
         ordered_cloud_list = [c.id for c in CloudInfo.get_cloud_list(auth)]
         ordered_cloud_list.reverse()
-        for deploy_group in deploy_groups:
-            suggested_cloud_ids = list(set([d.cloud_id for d in deploy_group if d.cloud_id]))
-            if len(suggested_cloud_ids) > 1:
-                raise Exception("Two deployments that have to be launched in the same cloud provider "
-                                "are asked to be deployed in different cloud providers: %s" % deploy_group)
-            elif len(suggested_cloud_ids) == 1:
-                if suggested_cloud_ids[0] not in cloud_list:
-                    InfrastructureManager.logger.debug("Inf ID: " + sel_inf.id + ": Cloud Provider list:")
-                    InfrastructureManager.logger.debug("Inf ID: " + sel_inf.id + " - " + str(cloud_list))
-                    raise Exception("No auth data for cloud with ID: %s" % suggested_cloud_ids[0])
-                else:
-                    cloud_list0 = [(suggested_cloud_ids[0], cloud_list[suggested_cloud_ids[0]])]
+
+        if deploy.cloud_id:
+            if deploy.cloud_id not in cloud_list:
+                InfrastructureManager.logger.debug("Inf ID: " + sel_inf.id + ": Cloud Provider list:")
+                InfrastructureManager.logger.debug("Inf ID: " + sel_inf.id + " - " + str(cloud_list))
+                raise Exception("No auth data for cloud with ID: %s" % deploy.cloud_id)
             else:
-                cloud_list0 = cloud_list.items()
+                cloud_list0 = [(deploy.cloud_id, cloud_list[deploy.cloud_id])]
+        else:
+            cloud_list0 = cloud_list.items()
 
-            scored_clouds = []
-            for cloud_id, _ in cloud_list0:
-                total = 0
-                for d in deploy_group:
-                    if d.vm_number:
-                        total += d.vm_number * concrete_systems[cloud_id][d.id][1]
-                    else:
-                        total += 1
-                scored_clouds.append((cloud_id, total))
-
-            # Order the clouds first by the score and then using the cloud
-            # order in the auth data
-            sorted_scored_clouds = sorted(scored_clouds,
-                                          key=lambda x: (x[1], ordered_cloud_list.index(x[0])),
-                                          reverse=True)
-            if sorted_scored_clouds and sorted_scored_clouds[0]:
-                deploys_group_cloud[id(deploy_group)] = sorted_scored_clouds[0][0]
+        scored_clouds = []
+        for cloud_id, _ in cloud_list0:
+            total = 0
+            if deploy.vm_number:
+                total += deploy.vm_number * concrete_systems[cloud_id][deploy.id][1]
             else:
-                sel_inf.configured = False
-                sel_inf.add_cont_msg("No cloud provider available")
-                raise Exception("No cloud provider available")
+                total += 1
+            scored_clouds.append((cloud_id, total))
 
-        return deploys_group_cloud
+        # Order the clouds first by the score and then using the cloud
+        # order in the auth data
+        sorted_scored_clouds = sorted(scored_clouds,
+                                      key=lambda x: (x[1], ordered_cloud_list.index(x[0])),
+                                      reverse=True)
+        if sorted_scored_clouds and sorted_scored_clouds[0]:
+            return sorted_scored_clouds[0][0]
+        else:
+            sel_inf.configured = False
+            sel_inf.add_cont_msg("No cloud provider available")
+            raise Exception("No cloud provider available")
 
     @staticmethod
     def AddResource(inf_id, radl_data, auth, context=True):
@@ -522,38 +459,22 @@ class InfrastructureManager:
                 concrete_systems.setdefault(cloud_id, {})[system_id] = (
                     max(s1, key=lambda x: x[1]) if s1 else (None, -1e9))
 
-        # Group virtual machines to deploy by network dependencies
-        deploy_groups = InfrastructureManager._compute_deploy_groups(radl)
-        InfrastructureManager.logger.debug("Inf ID: " + sel_inf.id + ": Groups of VMs with dependencies")
-        InfrastructureManager.logger.debug("Inf ID: " + sel_inf.id + "\n" + str(deploy_groups))
-
-        # Sort by score the cloud providers
-        deploys_group_cloud = InfrastructureManager.sort_by_score(sel_inf, concrete_systems, cloud_list,
-                                                                  deploy_groups, auth)
-
         # Launch every group in the same cloud provider
         deployed_vm = {}
-        for deploy_group in deploy_groups:
-            if not deploy_group:
-                InfrastructureManager.logger.warning("Inf ID: %s: No VMs to deploy!" % sel_inf.id)
-                sel_inf.add_cont_msg("No VMs to deploy. Exiting.")
-                return []
 
-            cloud_id = deploys_group_cloud[id(deploy_group)]
-            cloud = cloud_list[cloud_id]
-            if Config.MAX_SIMULTANEOUS_LAUNCHES > 1:
-                pool = ThreadPool(processes=Config.MAX_SIMULTANEOUS_LAUNCHES)
-                pool.map(
-                    lambda deploy: InfrastructureManager._launch_deploy(sel_inf, deploy, cloud_id,
-                                                                        cloud, concrete_systems, radl, auth,
-                                                                        deployed_vm),
-                    deploy_group)
-                pool.close()
-            else:
-                for deploy in deploy_group:
-                    InfrastructureManager._launch_deploy(sel_inf, deploy, cloud_id,
-                                                         cloud, concrete_systems, radl,
-                                                         auth, deployed_vm)
+        if Config.MAX_SIMULTANEOUS_LAUNCHES > 1:
+            pool = ThreadPool(processes=Config.MAX_SIMULTANEOUS_LAUNCHES)
+            pool.map(
+                lambda deploy: InfrastructureManager._launch_deploy(sel_inf, deploy, cloud_list,
+                                                                    concrete_systems, radl, auth,
+                                                                    deployed_vm),
+                radl.deploys)
+            pool.close()
+        else:
+            for deploy in radl.deploys:
+                InfrastructureManager._launch_deploy(sel_inf, deploy, cloud_list,
+                                                     concrete_systems, radl,
+                                                     auth, deployed_vm)
 
         # We make this to maintain the order of the VMs in the sel_inf.vm_list
         # according to the deploys shown in the RADL

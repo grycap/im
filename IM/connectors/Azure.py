@@ -17,6 +17,7 @@
 import uuid
 import random
 import string
+import base64
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
@@ -31,6 +32,7 @@ try:
     from azure.mgmt.network import NetworkManagementClient
     from azure.mgmt.dns import DnsManagementClient
     from azure.common.credentials import UserPassCredentials
+    from azure.common.credentials import ServicePrincipalCredentials
     from msrestazure.azure_exceptions import CloudError
 except Exception as ex:
     print("WARN: Python Azure SDK not correctly installed. AzureCloudConnector will not work!.")
@@ -89,17 +91,26 @@ class AzureCloudConnector(CloudConnector):
 
         if 'subscription_id' in auth and 'username' in auth and 'password' in auth:
             subscription_id = auth['subscription_id']
-            username = auth['username']
-            password = auth['password']
-        else:
-            raise Exception(
-                "No correct auth data has been specified to Azure: subscription_id, username and password.")
 
-        if self.credentials and self.auth.compare(auth_data, self.type):
-            return self.credentials, subscription_id
+            if self.credentials and self.auth.compare(auth_data, self.type):
+                return self.credentials, subscription_id
+            else:
+                self.auth = auth_data
+                self.credentials = UserPassCredentials(auth['username'], auth['password'])
+        elif 'subscription_id' in auth and 'client_id' in auth and 'secret' in auth and 'tenant' in auth:
+            subscription_id = auth['subscription_id']
+
+            if self.credentials and self.auth.compare(auth_data, self.type):
+                return self.credentials, subscription_id
+            else:
+                self.auth = auth_data
+                self.credentials = ServicePrincipalCredentials(client_id=auth['client_id'],
+                                                               secret=auth['secret'],
+                                                               tenant=auth['tenant'])
         else:
-            self.auth = auth_data
-            self.credentials = UserPassCredentials(username, password)
+            raise Exception("No correct auth data has been specified to Azure: "
+                            "subscription_id, username and password or"
+                            "subscription_id, client_id, secret and tenant")
 
         return self.credentials, subscription_id
 
@@ -391,7 +402,7 @@ class AzureCloudConnector(CloudConnector):
 
         return res
 
-    def get_azure_vm_create_json(self, storage_account, vm_name, nics, radl, instance_type):
+    def get_azure_vm_create_json(self, storage_account, vm_name, nics, radl, instance_type, custom_data=None):
         """ Create the VM parameters structure. """
         system = radl.systems[0]
         url = uriparse(system.getValue("disk.0.image.url"))
@@ -413,12 +424,16 @@ class AzureCloudConnector(CloudConnector):
         os_disk_name = "osdisk-" + str(uuid.uuid1())
         disks = [vm_name + os_disk_name + ".vhd"]
 
+        if custom_data:
+            custom_data = base64.b64encode(custom_data)
+
         vm = {
             'location': location,
             'os_profile': {
                 'computer_name': vm_name,
                 'admin_username': user_credentials.username,
-                'admin_password': user_credentials.password
+                'admin_password': user_credentials.password,
+                'custom_data': custom_data
             },
             'hardware_profile': {
                 'vm_size': instance_type.name
@@ -565,9 +580,10 @@ class AzureCloudConnector(CloudConnector):
 
                 nics = self.create_nics(radl, credentials, subscription_id, group_name, subnets)
 
+                custom_data = self.get_cloud_init_data(radl, vm)
                 instance_type = self.get_instance_type(radl.systems[0], credentials, subscription_id)
                 vm_parameters, disks = self.get_azure_vm_create_json(storage_account_name, vm_name,
-                                                                     nics, radl, instance_type)
+                                                                     nics, radl, instance_type, custom_data)
                 vm.disks = disks
 
                 compute_client = ComputeManagementClient(credentials, subscription_id)

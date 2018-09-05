@@ -653,14 +653,14 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             vm.destroy = True
             inf.add_vm(vm)
             cloud_init = self.get_cloud_init_data(radl, vm, public_key, user)
-    
+
             if cloud_init:
                 args['ex_userdata'] = cloud_init
 
             node = None
             try:
                 node = driver.create_node(**args)
-                
+
                 vm.id = node.id
                 vm.info.systems[0].setValue('instance_id', str(node.id))
                 vm.info.systems[0].setValue('instance_name', str(node.name))
