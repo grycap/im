@@ -1602,6 +1602,25 @@ class EC2CloudConnector(CloudConnector):
             "c4.8xlarge", ["x86_64"], 36, 1, 61952, 1.591, 132, 1, 0, True)
         instance_list.append(c4_8xlarge)
 
+        p3_2xlarge = InstanceTypeInfo(
+            "p3.2xlarge", ["x86_64"], 8, 1, 62464, 3.06, 26, 1, 0, True)
+        instance_list.append(p3_2xlarge)
+        p3_8xlarge = InstanceTypeInfo(
+            "p3.8xlarge", ["x86_64"], 32, 1, 249856, 12.24, 94, 1, 0, True)
+        instance_list.append(p3_8xlarge)
+        p3_16xlarge = InstanceTypeInfo(
+            "p3.16xlarge", ["x86_64"], 64, 1, 499712, 24.48, 188, 1, 0, True)
+        instance_list.append(p3_16xlarge)
+        p2_xlarge = InstanceTypeInfo(
+            "p2.xlarge", ["x86_64"], 4, 1, 62464, 0.9, 12, 1, 0, True)
+        instance_list.append(p2_xlarge)
+        p2_8xlarge = InstanceTypeInfo(
+            "p2.8xlarge", ["x86_64"], 32, 1, 499712, 7.2, 94, 1, 0, True)
+        instance_list.append(p2_8xlarge)
+        p2_16xlarge = InstanceTypeInfo(
+            "p2.16xlarge", ["x86_64"], 64, 1, 786432, 14.4, 188, 1, 0, True)
+        instance_list.append(p2_16xlarge)
+
         return instance_list
 
     def get_instance_type_by_name(self, name):

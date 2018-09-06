@@ -594,13 +594,31 @@ def RESTGetVMProperty(infid=None, vmid=None, prop=None):
                 logger.debug("Step 1 command: %s" % info)
             elif step == 2:
                 if sel_inf.vm_master:
-                    if vmid == sel_inf.vm_master.creation_im_id:
+                    # if it is the master do not make the ssh command
+                    if int(vmid) == sel_inf.vm_master.creation_im_id:
+                        logger.debug("Step 2: Is the master do no make ssh command.")
                         info = "true"
                     else:
-                        info = sel_inf.vm_master.get_ssh_command(vmid)
+                        sel_vm = None
+                        for vm in sel_inf.get_vm_list():
+                            if vm.creation_im_id == int(vmid):
+                                sel_vm = vm
+                                break
+
+                        if not sel_vm:
+                            # this must never happen
+                            logger.error("Specified vmid in step2 is incorrect!!")
+                            info = None
+                        else:
+                            # if this vm is connected with the master directly do not make it also
+                            if sel_vm.isConnectedWith(sel_inf.vm_master):
+                                logger.debug("Step 2: Is connected with the master do no make ssh command.")
+                                info = "true"
+                            else:
+                                info = sel_inf.vm_master.get_ssh_command(vmid)
                 else:
                     info = "wait"
-                logger.debug("Step 2 command: %s" % info)
+                logger.debug("Step 2 command for vm ID: %s is %s" % (vmid, info))
             else:
                 info = None
         else:
