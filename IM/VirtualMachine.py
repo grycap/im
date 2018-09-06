@@ -319,8 +319,7 @@ class VirtualMachine:
             common_net = False
             j = 0
             while vm.info.systems[0].getValue("net_interface." + str(j) + ".connection"):
-                other_net_name = vm.info.systems[0].getValue(
-                    "net_interface." + str(j) + ".connection")
+                other_net_name = vm.info.systems[0].getValue("net_interface." + str(j) + ".connection")
 
                 if other_net_name == net_name:
                     common_net = True
