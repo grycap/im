@@ -29,6 +29,7 @@ from IM.config import Config
 from radl.radl_json import parse_radl as parse_radl_json, dump_radl as dump_radl_json, featuresToSimple, radlToSimple
 from radl.radl import RADL, Features, Feature
 from IM.tosca.Tosca import Tosca
+from IM.VirtualMachine import VirtualMachine
 
 logger = logging.getLogger('InfrastructureManager')
 
@@ -593,7 +594,11 @@ def RESTGetVMProperty(infid=None, vmid=None, prop=None):
                 done""" % command
                 logger.debug("Step 1 command: %s" % info)
             elif step == 2:
+                ssh_ok = False
                 if sel_inf.vm_master:
+                    ssh = sel_inf.vm_master.get_ssh(retry=False)
+                    ssh_ok = ssh.test_connectivity(time_out=2)
+                if ssh_ok:
                     # if it is the master do not make the ssh command
                     if int(vmid) == sel_inf.vm_master.creation_im_id:
                         logger.debug("Step 2: Is the master do no make ssh command.")

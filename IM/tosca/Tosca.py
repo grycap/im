@@ -2,6 +2,7 @@ import os
 import logging
 import yaml
 import copy
+import time
 try:
     from urllib.request import urlopen
 except:
@@ -166,7 +167,50 @@ class Tosca:
 
         self._order_deploys(radl)
 
+        self._check_private_networks(radl)
+
         return all_removal_list, self._complete_radl_networks(radl)
+
+    def _check_private_networks(self, radl):
+        """
+        Check private networks to assure to create different nets
+        for different cloud providers
+        """
+        priv_net_cloud_map = {}
+        for s in radl.systems:
+            image = s.getValue("disk.0.image.url")
+            if image:
+                url = uriparse(image)
+                protocol = url[0]
+                src_host = url[1].split(':')[0]
+                for net_id in s.getNetworkIDs():
+                    net = radl.get_network_by_id(net_id)
+                    if not net.isPublic():
+                        if net_id in priv_net_cloud_map:
+                            if priv_net_cloud_map[net_id] != "%s://%s" % (protocol, src_host):
+                                if "%s://%s" % (protocol, src_host) in list(priv_net_cloud_map.values()):
+                                    for key, value in priv_net_cloud_map.items():
+                                        if value == "%s://%s" % (protocol, src_host):
+                                            new_net_id = key
+                                            break
+                                else:
+                                    # This net appears in two cloud, create another one
+                                    now = str(int(time.time() * 100))
+                                    new_net = network.createNetwork("private." + now, False)
+                                    radl.networks.append(new_net)
+                                    new_net_id = new_net.id
+                                    # and replace the connection id in the system
+                                i = 0
+                                while s.getValue("net_interface.%d.connection" % i):
+                                    if s.getValue("net_interface.%d.connection" % i) == net_id:
+                                        s.setValue("net_interface.%d.connection" % i, new_net_id)
+                                    i += 1
+
+                                priv_net_cloud_map[new_net.id] = "%s://%s" % (protocol, src_host)
+                        else:
+                            priv_net_cloud_map[net_id] = "%s://%s" % (protocol, src_host)
+
+        return
 
     def _order_deploys(self, radl):
         """
