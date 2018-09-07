@@ -758,7 +758,6 @@ class OCCICloudConnector(CloudConnector):
 
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         system = radl.systems[0]
-        auth_header = self.get_auth_header(auth_data)
 
         cpu = system.getValue('cpu.count')
         memory = None
@@ -859,7 +858,7 @@ class OCCICloudConnector(CloudConnector):
                     if memory:
                         body += 'X-OCCI-Attribute: occi.compute.memory=' + str(memory) + '\n'
 
-                compute_id = "im.%s" % str(uuid.uuid1())
+                compute_id = "im-%s" % str(uuid.uuid1())
                 body += 'X-OCCI-Attribute: occi.core.id="' + compute_id + '"\n'
                 body += 'X-OCCI-Attribute: occi.core.title="' + name + '"\n'
 
@@ -877,7 +876,7 @@ class OCCICloudConnector(CloudConnector):
 
                 # Add volume links
                 for _, device, volume_id in volumes:
-                    link_id = "im.%s" % str(uuid.uuid1())
+                    link_id = "im-%s" % str(uuid.uuid1())
                     body += ('Link: <%s/storage/%s>;rel="http://schemas.ogf.org/occi/infrastructure#storage";'
                              'category="http://schemas.ogf.org/occi/infrastructure#storagelink";'
                              'occi.core.target="%s/storage/%s";'
@@ -892,6 +891,7 @@ class OCCICloudConnector(CloudConnector):
                 self.log_debug(body)
 
                 headers = {'Accept': 'text/plain', 'Connection': 'close', 'Content-Type': 'text/plain,text/occi'}
+                auth_header = self.get_auth_header(auth_data)
                 if auth_header:
                     headers.update(auth_header)
                 resp = self.create_request('POST', self.cloud.path + "/compute/", auth_data, headers, body)
