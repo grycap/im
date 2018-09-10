@@ -734,6 +734,9 @@ class OCCICloudConnector(CloudConnector):
                     if resp.status_code == 404:
                         self.log_info("It does not exist.")
                         return (True, "")
+                    elif resp.status_code in [403, 401]:
+                        self.log_info("You are not authorized to delete it. Ignore.")
+                        return (True, "")
                     elif resp.status_code == 409:
                         self.log_info("Error deleting the Volume. It seems that it is still "
                                       "attached to a VM: %s" % resp.text)
@@ -993,7 +996,7 @@ class OCCICloudConnector(CloudConnector):
         try:
             resp = self.create_request('DELETE', self.cloud.path + "/compute/" + vm.id, auth_data, headers)
 
-            if resp.status_code != 200 and resp.status_code != 404 and resp.status_code != 204:
+            if resp.status_code not in [200, 204, 404]:
                 return (False, "Error removing the VM: " + resp.reason + "\n" + resp.text)
         except Exception:
             self.log_exception("Error connecting with OCCI server")
