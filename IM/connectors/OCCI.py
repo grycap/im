@@ -734,7 +734,7 @@ class OCCICloudConnector(CloudConnector):
                     if resp.status_code == 404:
                         self.log_info("It does not exist.")
                         return (True, "")
-                    elif resp.status_code == 401:
+                    elif resp.status_code in [403, 401]:
                         self.log_info("You are not authorized to delete it. Ignore.")
                         return (True, "")
                     elif resp.status_code == 409:
@@ -795,12 +795,6 @@ class OCCICloudConnector(CloudConnector):
         if not user:
             user = self.DEFAULT_USER
             system.setValue('disk.0.os.credentials.username', user)
-
-        # Add user cloud init data
-        cloud_config_str = self.get_cloud_init_data(radl)
-        cloud_config = self.gen_cloud_config(public_key, user, cloud_config_str).encode()
-        user_data = base64.b64encode(cloud_config).decode().replace("\n", "")
-        self.log_debug("Cloud init: %s" % cloud_config.decode())
 
         # Get the info about the OCCI server (GET /-/)
         success, occi_info = self.query_occi(auth_data)
@@ -870,6 +864,12 @@ class OCCICloudConnector(CloudConnector):
                 vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self)
                 (nodename, _) = vm.getRequestedName(default_hostname=Config.DEFAULT_VM_NAME,
                                                     default_domain=Config.DEFAULT_DOMAIN)
+
+                # Add user cloud init data
+                cloud_config_str = self.get_cloud_init_data(radl, vm)
+                cloud_config = self.gen_cloud_config(public_key, user, cloud_config_str).encode()
+                user_data = base64.b64encode(cloud_config).decode().replace("\n", "")
+                self.log_debug("Cloud init: %s" % cloud_config.decode())
 
                 body += 'X-OCCI-Attribute: occi.compute.hostname="' + nodename + '"\n'
                 if user_data:
@@ -996,7 +996,7 @@ class OCCICloudConnector(CloudConnector):
         try:
             resp = self.create_request('DELETE', self.cloud.path + "/compute/" + vm.id, auth_data, headers)
 
-            if resp.status_code != 200 and resp.status_code != 404 and resp.status_code != 204:
+            if resp.status_code not in [200, 204, 404]:
                 return (False, "Error removing the VM: " + resp.reason + "\n" + resp.text)
         except Exception:
             self.log_exception("Error connecting with OCCI server")
@@ -1359,7 +1359,7 @@ class KeyStoneAuth:
                 if resp.status_code == 200:
                     return occi.keystone_token
                 else:
-                    occi.log_warn("Old Keystone token invalid.")
+                    occi.log_warn("Keystone token invalid.")
                     return None
             except Exception:
                 occi.log_exception("Error checking Keystone token")
