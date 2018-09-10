@@ -782,10 +782,11 @@ class TestREST(unittest.TestCase):
         info = format_output(["1", "2"])
         self.assertEqual(info, 'Unsupported Accept Media Types: application/zip')
 
+    @patch("IM.VirtualMachine.SSH")
     @patch("IM.InfrastructureManager.InfrastructureManager.get_infrastructure")
     @patch("IM.InfrastructureManager.InfrastructureManager.check_auth_data")
     @patch("bottle.request")
-    def test_commands(self, bottle_request, check_auth_data, get_infrastructure):
+    def test_commands(self, bottle_request, check_auth_data, get_infrastructure, SSH):
         """Test REST StopInfrastructure."""
         bottle_request.return_value = MagicMock()
         bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
@@ -874,6 +875,9 @@ class TestREST(unittest.TestCase):
         bottle_request.params = {'step': '2'}
         inf.vm_master = VirtualMachine(inf, None, None, radl_master, radl_master)
         inf.vm_master.creation_im_id = 0
+        ssh = MagicMock()
+        ssh.test_connectivity.return_value = True
+        SSH.return_value = ssh
         vm1 = VirtualMachine(inf, None, None, radl_vm1, radl_vm1)
         vm1.creation_im_id = 1
         vm1.destroy = False
@@ -883,6 +887,7 @@ class TestREST(unittest.TestCase):
         inf.vm_list = [vm1, vm2]
 
         # in VM connected to the Master VM
+        inf.vm_master.creation_im_id = 0
         res = RESTGetVMProperty("1", "1", "command")
         expected_res = "true"
         self.assertEqual(res, expected_res)
