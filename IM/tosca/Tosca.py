@@ -102,7 +102,7 @@ class Tosca:
                 # TODO: check IM to support more network properties
                 # At this moment we only support the network_type with values,
                 # private and public
-                net = Tosca._gen_network(node)
+                net = self._gen_network(node)
                 radl.networks.append(net)
             else:
                 if root_type == "tosca.nodes.Compute":
@@ -299,7 +299,7 @@ class Tosca:
 
     def _add_node_nets(self, node, radl, system, nodetemplates):
         # Find associated Networks
-        nets = Tosca._get_bind_networks(node, nodetemplates)
+        nets = self._get_bind_networks(node, nodetemplates)
         if nets:
             # If there are network nodes, use it to define system network
             # properties
@@ -886,7 +886,7 @@ class Tosca:
                     return vm.getPublicIP()
             elif attribute_name == "ip_address":
                 if root_type == "tosca.nodes.network.Port":
-                    order = node.get_property_value('order')
+                    order = self._final_function_result(node.get_property_value('order'), node)
                     return vm.getNumNetworkWithConnection(order)
                 elif root_type == "tosca.capabilities.Endpoint":
                     if vm.getPublicIP():
@@ -935,7 +935,7 @@ class Tosca:
                         return "{{ hostvars[groups['%s'][0]]['IM_NODE_PUBLIC_IP'] }}" % node.name
             elif attribute_name == "ip_address":
                 if root_type == "tosca.nodes.network.Port":
-                    order = node.get_property_value('order')
+                    order = self._final_function_result(node.get_property_value('order'), node)
                     return "{{ hostvars[groups['%s'][0]]['IM_NODE_NET_%s_IP'] }}" % (node.name, order)
                 elif root_type == "tosca.capabilities.Endpoint":
                     # TODO: check this
@@ -1175,15 +1175,14 @@ class Tosca:
 
         return value, 'B'
 
-    @staticmethod
-    def _gen_network(node):
+    def _gen_network(self, node):
         """
         Take a node of type "Network" and get the RADL.network to represent it
         """
         res = network(node.name)
 
-        nework_type = node.get_property_value("network_type")
-        network_name = node.get_property_value("network_name")
+        nework_type = self._final_function_result(node.get_property_value('network_type'), node)
+        network_name = self._final_function_result(node.get_property_value('network_name'), node)
 
         # TODO: get more properties -> must be implemented in the RADL
         if nework_type == "public":
@@ -1327,8 +1326,7 @@ class Tosca:
 
         return res
 
-    @staticmethod
-    def _get_bind_networks(node, nodetemplates):
+    def _get_bind_networks(self, node, nodetemplates):
         nets = []
 
         for port in nodetemplates:
@@ -1341,9 +1339,9 @@ class Tosca:
                     link = requires.get('link', link)
 
                 if binding == node.name:
-                    ip = port.get_property_value('ip_address')
-                    order = port.get_property_value('order')
-                    dns_name = port.get_property_value('dns_name')
+                    ip = self._final_function_result(port.get_property_value('ip_address'), port)
+                    order = self._final_function_result(port.get_property_value('order'), port)
+                    dns_name = self._final_function_result(port.get_property_value('dns_name'), port)
                     nets.append((link, ip, dns_name, order))
 
         return nets
