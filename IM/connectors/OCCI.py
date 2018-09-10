@@ -447,7 +447,7 @@ class OCCICloudConnector(CloudConnector):
                     vm.info.systems[0].setValue("cpu.count", int(cores))
                 memory = self.get_occi_attribute_value(resp.text, 'occi.compute.memory')
                 if memory:
-                    vm.info.systems[0].setValue("memory.size", int(float(memory)), 'G')
+                    vm.info.systems[0].setValue("memory.size", int(float(memory)), 'M')
 
                 console_vnc = self.get_occi_attribute_value(resp.text, 'org.openstack.compute.console.vnc')
                 if console_vnc:
@@ -862,6 +862,8 @@ class OCCICloudConnector(CloudConnector):
                 # Set the hostname defined in the RADL
                 # Create the VM to get the nodename
                 vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self)
+                vm.destroy = True
+                inf.add_vm(vm)
                 (nodename, _) = vm.getRequestedName(default_hostname=Config.DEFAULT_VM_NAME,
                                                     default_domain=Config.DEFAULT_DOMAIN)
 
@@ -913,7 +915,7 @@ class OCCICloudConnector(CloudConnector):
                     if occi_vm_id:
                         vm.id = occi_vm_id
                         vm.info.systems[0].setValue('instance_id', str(occi_vm_id))
-                        inf.add_vm(vm)
+                        vm.destroy = False
                         res.append((True, vm))
                     else:
                         res.append((False, 'Unknown Error launching the VM.'))
