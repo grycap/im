@@ -425,7 +425,7 @@ class AzureCloudConnector(CloudConnector):
         disks = [vm_name + os_disk_name + ".vhd"]
 
         if custom_data:
-            custom_data = base64.b64encode(custom_data)
+            custom_data = base64.b64encode(custom_data.encode()).decode()
 
         vm = {
             'location': location,
