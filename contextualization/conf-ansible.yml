@@ -76,11 +76,11 @@
       when: ansible_distribution == "Debian"
       
     - name: Debian/Ubuntu install Ansible with apt
-      apt: name=ansible,python-setuptools,python-jinja2,sshpass,openssh-client,unzip update_cache=yes
+      apt: name=ansible,python-pip,python-jinja2,sshpass,openssh-client,unzip update_cache=yes
       when: ansible_os_family == "Debian"
 
     - name: Yum install Ansible RH 7/Fedora
-      yum: name=ansible,python-setuptools,python-jinja2,sshpass,openssh-clients,wget update_cache=yes
+      yum: name=ansible,python-pip,python-jinja2,sshpass,openssh-clients,wget update_cache=yes
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 7
 
     - name: Ubuntu install Cryptography with apt
@@ -94,18 +94,19 @@
   ############################################ In other systems use pip #################################################
   
     - name: Yum install requirements RH 6
-      yum: name=ansible,python-jinja2,python-distribute,gcc,python-devel,wget,openssh-clients,sshpass,python-setuptools,libffi-devel,openssl-devel
+      yum: name=ansible,python-jinja2,python-distribute,gcc,python-devel,wget,openssh-clients,sshpass,python-pip,libffi-devel,openssl-devel
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int <= 6
 
     - name: Zypper install requirements Suse
-      zypper: name=python,python-setuptools,gcc,python-devel,wget,libffi-devel,openssl-devel,python-cryptography,make state=present
+      zypper: name=python,python-pip,gcc,python-devel,wget,libffi-devel,openssl-devel,python-cryptography,make state=present
       when: ansible_os_family == "Suse"
-        
-#    - name: Install Pip (alternative)
-#      shell: wget https://bootstrap.pypa.io/get-pip.py && python get-pip.py
 
-    - name: Install pip with easy_install 
-      easy_install: name=pip state=latest
+#    - name: Install Pip (alternative)
+#      shell: wget https://bootstrap.pypa.io/get-pip.py && python get-pip.py creates=/usr/local/bin/pip
+
+    # do not upgrade to 10 as it is failing
+    - name: Upgrade pip
+      pip: name=pip version=9.0.3
 
     - name: Upgrade setuptools with Pip
       pip: name=setuptools state=latest
