@@ -44,6 +44,7 @@ class IncorrectVMException(Exception):
 
     def __init__(self, msg="Invalid VM ID"):
         Exception.__init__(self, msg)
+        self.message = msg
 
 
 class DeletedVMException(Exception):
@@ -51,6 +52,7 @@ class DeletedVMException(Exception):
 
     def __init__(self, msg="Deleted VM."):
         Exception.__init__(self, msg)
+        self.message = msg
 
 
 class InfrastructureInfo:
