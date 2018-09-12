@@ -691,17 +691,17 @@ echo "Hello World" >> /tmp/data.txt
 #         Test the CreateInfrastructure IM function with reverse SSH support
 #         """
 #         radl = read_file_as_string("../files/reverse.radl")
-# 
+#
 #         (success, inf_id) = self.server.CreateInfrastructure(radl, self.auth_data)
 #         self.assertTrue(
 #             success, msg="ERROR calling CreateInfrastructure: " + str(inf_id))
 #         self.__class__.inf_id = [inf_id]
-# 
+#
 #         all_configured = self.wait_inf_state(
 #             inf_id, VirtualMachine.CONFIGURED, 600)
 #         self.assertTrue(
 #             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
-# 
+#
 #     def test_99_destroy(self):
 #         """
 #         Test DestroyInfrastructure function

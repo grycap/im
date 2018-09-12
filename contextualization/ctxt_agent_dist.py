@@ -837,6 +837,9 @@ class CtxtAgent():
                     if ctxt_vm['os'] == "windows":
                         CtxtAgent.logger.info("Waiting WinRM access to VM: " + ctxt_vm['ip'])
                         cred_used = CtxtAgent.wait_winrm_access(ctxt_vm)
+                    elif local:
+                        CtxtAgent.logger.info("Local command do not wait SSH.")
+                        cred_used = "local"
                     else:
                         CtxtAgent.logger.info("Waiting SSH access to VM: " + ctxt_vm['ip'])
                         cred_used = CtxtAgent.wait_ssh_access(ctxt_vm)
@@ -856,6 +859,8 @@ class CtxtAgent():
                     if cred_used == "pk_file":
                         pk_file = CtxtAgent.PK_FILE
                     elif cred_used == "new":
+                        changed_pass = True
+                    elif cred_used == "local":
                         changed_pass = True
 
                     # Check if we must change user credentials
