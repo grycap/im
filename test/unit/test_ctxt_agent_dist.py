@@ -221,7 +221,7 @@ class TestCtxtAgent(unittest.TestCase):
         self.assertEqual(res, expected_res)
 
         res = CtxtAgent.contextualize_vm(self.gen_general_conf(), self.gen_vm_conf(["basic"]), ctxt_vm, 1)
-        expected_res = {'SSH_WAIT': True, 'OK': True, 'CHANGE_CREDS': True, 'basic': True}
+        expected_res = {'SSH_WAIT': True, 'OK': True, 'basic': True}
         self.assertEqual(res, expected_res)
 
         ctxt_vm = None
