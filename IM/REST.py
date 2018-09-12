@@ -594,35 +594,36 @@ def RESTGetVMProperty(infid=None, vmid=None, prop=None):
                 done""" % command
                 logger.debug("Step 1 command: %s" % info)
             elif step == 2:
-                ssh_ok = False
-                if sel_inf.vm_master:
-                    ssh = sel_inf.vm_master.get_ssh(retry=False)
-                    ssh_ok = ssh.test_connectivity(time_out=2)
-                if ssh_ok:
-                    # if it is the master do not make the ssh command
-                    if int(vmid) == sel_inf.vm_master.creation_im_id:
-                        logger.debug("Step 2: Is the master do no make ssh command.")
-                        info = "true"
-                    else:
-                        sel_vm = None
-                        for vm in sel_inf.get_vm_list():
-                            if vm.creation_im_id == int(vmid):
-                                sel_vm = vm
-                                break
+                sel_vm = None
+                for vm in sel_inf.get_vm_list():
+                    if vm.creation_im_id == int(vmid):
+                        sel_vm = vm
+                        break
+                if not sel_vm:
+                    # this must never happen
+                    logger.error("Specified vmid in step2 is incorrect!!")
+                    info = None
+                else:
+                    ssh = sel_vm.get_ssh_ansible_master(retry=False)
 
-                        if not sel_vm:
-                            # this must never happen
-                            logger.error("Specified vmid in step2 is incorrect!!")
-                            info = None
+                    ssh_ok = False
+                    if ssh:
+                        ssh_ok = ssh.test_connectivity(time_out=2)
+
+                    if ssh_ok:
+                        # if it is the master do not make the ssh command
+                        if sel_inf.vm_master and int(vmid) == sel_inf.vm_master.creation_im_id:
+                            logger.debug("Step 2: Is the master do no make ssh command.")
+                            info = "true"
                         else:
                             # if this vm is connected with the master directly do not make it also
                             if sel_vm.isConnectedWith(sel_inf.vm_master):
                                 logger.debug("Step 2: Is connected with the master do no make ssh command.")
                                 info = "true"
                             else:
-                                info = sel_inf.vm_master.get_ssh_command(vmid)
-                else:
-                    info = "wait"
+                                info = sel_vm.get_ssh_command()
+                    else:
+                        info = "wait"
                 logger.debug("Step 2 command for vm ID: %s is %s" % (vmid, info))
             else:
                 info = None
