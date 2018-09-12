@@ -168,7 +168,8 @@ class TestAzureConnector(unittest.TestCase):
         radl.check()
 
         auth = Authentication([{'id': 'azure', 'type': 'Azure', 'subscription_id': 'subscription_id',
-                                'username': 'user', 'password': 'password'}])
+                                'username': 'user', 'password': 'password'},
+                               {'type': 'InfrastructureManager', 'username': 'user', 'password': 'pass'}])
         azure_cloud = self.get_azure_cloud()
 
         cclient = MagicMock()
@@ -202,7 +203,9 @@ class TestAzureConnector(unittest.TestCase):
 
         cclient.virtual_machines.create_or_update.side_effect = self.create_vm
 
-        res = azure_cloud.launch_with_retry(InfrastructureInfo(), radl, radl, 3, auth, 2, 0)
+        inf = InfrastructureInfo()
+        inf.auth = auth
+        res = azure_cloud.launch_with_retry(inf, radl, radl, 3, auth, 2, 0)
         self.assertEqual(len(res), 3)
         self.assertTrue(res[0][0])
         self.assertTrue(res[1][0])

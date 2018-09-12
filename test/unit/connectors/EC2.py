@@ -140,7 +140,8 @@ class TestEC2Connector(unittest.TestCase):
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
 
-        auth = Authentication([{'id': 'ec2', 'type': 'EC2', 'username': 'user', 'password': 'pass'}])
+        auth = Authentication([{'id': 'ec2', 'type': 'EC2', 'username': 'user', 'password': 'pass'},
+                               {'type': 'InfrastructureManager', 'username': 'user', 'password': 'pass'}])
         ec2_cloud = self.get_ec2_cloud()
 
         region = MagicMock()
@@ -182,7 +183,9 @@ class TestEC2Connector(unittest.TestCase):
 
         blockdevicemapping.return_value = {'device': ''}
 
-        res = ec2_cloud.launch(InfrastructureInfo(), radl, radl, 1, auth)
+        inf = InfrastructureInfo()
+        inf.auth = auth
+        res = ec2_cloud.launch(inf, radl, radl, 1, auth)
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
@@ -209,7 +212,9 @@ class TestEC2Connector(unittest.TestCase):
             )"""
         radl = radl_parse.parse_radl(radl_data)
         conn.get_all_vpcs.return_value = []
-        res = ec2_cloud.launch(InfrastructureInfo(), radl, radl, 1, auth)
+        inf = InfrastructureInfo()
+        inf.auth = auth
+        res = ec2_cloud.launch(inf, radl, radl, 1, auth)
         success, _ = res[0]
         print(self.log.getvalue())
         self.assertTrue(success, msg="ERROR: launching a VM.")
@@ -246,7 +251,8 @@ class TestEC2Connector(unittest.TestCase):
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
 
-        auth = Authentication([{'id': 'ec2', 'type': 'EC2', 'username': 'user', 'password': 'pass'}])
+        auth = Authentication([{'id': 'ec2', 'type': 'EC2', 'username': 'user', 'password': 'pass'},
+                               {'type': 'InfrastructureManager', 'username': 'user', 'password': 'pass'}])
         ec2_cloud = self.get_ec2_cloud()
 
         region = MagicMock()
@@ -289,7 +295,9 @@ class TestEC2Connector(unittest.TestCase):
         request.id = "id"
         conn.request_spot_instances.return_value = [request]
 
-        res = ec2_cloud.launch(InfrastructureInfo(), radl, radl, 1, auth)
+        inf = InfrastructureInfo()
+        inf.auth = auth
+        res = ec2_cloud.launch(inf, radl, radl, 1, auth)
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())

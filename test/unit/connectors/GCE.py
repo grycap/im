@@ -148,7 +148,9 @@ class TestGCEConnector(unittest.TestCase):
         radl.check()
 
         auth = Authentication([{'id': 'one', 'type': 'GCE', 'username': 'user',
-                                'password': 'pass\npass', 'project': 'proj'}])
+                                'password': 'pass\npass', 'project': 'proj'},
+                               {'type': 'InfrastructureManager', 'username': 'user',
+                                'password': 'pass'}])
         gce_cloud = self.get_gce_cloud()
 
         driver = MagicMock()
@@ -182,12 +184,16 @@ class TestGCEConnector(unittest.TestCase):
         node3.name = "gce3name"
         driver.ex_create_multiple_nodes.return_value = [node, node2, node3]
 
-        res = gce_cloud.launch(InfrastructureInfo(), radl, radl, 1, auth)
+        inf = InfrastructureInfo()
+        inf.auth = auth
+        res = gce_cloud.launch(inf, radl, radl, 1, auth)
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a single VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
-        res = gce_cloud.launch(InfrastructureInfo(), radl, radl, 3, auth)
+        inf = InfrastructureInfo()
+        inf.auth = auth
+        res = gce_cloud.launch(inf, radl, radl, 3, auth)
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching 3 VMs.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
@@ -213,7 +219,9 @@ class TestGCEConnector(unittest.TestCase):
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
         driver.create_node.side_effect = Exception("Error msg")
-        res = gce_cloud.launch(InfrastructureInfo(), radl, radl, 1, auth)
+        inf = InfrastructureInfo()
+        inf.auth = auth
+        res = gce_cloud.launch(inf, radl, radl, 1, auth)
         success, msg = res[0]
         self.assertFalse(success)
         self.assertEqual(msg, "ERROR: Error msg")

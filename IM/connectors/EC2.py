@@ -506,8 +506,6 @@ class EC2CloudConnector(CloudConnector):
 
         system = radl.systems[0]
 
-        user_data = self.get_cloud_init_data(radl)
-
         # Currently EC2 plugin uses first private_key credentials
         if system.getValue('disk.0.os.credentials.private_key'):
             system.delValue('disk.0.os.credentials.password')
@@ -592,6 +590,12 @@ class EC2CloudConnector(CloudConnector):
 
             i = 0
             while i < num_vm:
+
+                vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self)
+                vm.destroy = True
+                inf.add_vm(vm)
+                user_data = self.get_cloud_init_data(radl, vm)
+
                 err_msg = "Launching in region %s with image: %s" % (region_name, ami)
                 if vpc:
                     err_msg += " in VPC: %s-%s " % (vpc, subnet)
@@ -666,15 +670,13 @@ class EC2CloudConnector(CloudConnector):
                                 self.log_debug("RADL:")
                                 self.log_debug(system)
 
-                                vm = VirtualMachine(
-                                    inf, ec2_vm_id, self.cloud, radl, requested_radl, self)
-                                vm.info.systems[0].setValue(
-                                    'instance_id', str(vm.id))
+                                vm.id = ec2_vm_id
+                                vm.info.systems[0].setValue('instance_id', str(vm.id))
                                 # Add the keypair name to remove it later
                                 vm.keypair_name = keypair_name
                                 self.log_info("Instance successfully launched.")
                                 all_failed = False
-                                inf.add_vm(vm)
+                                vm.destroy = False
                                 res.append((True, vm))
                             else:
                                 res.append((False, "Error %s." % err_msg))
@@ -710,14 +712,12 @@ class EC2CloudConnector(CloudConnector):
                                 self.log_debug("RADL:")
                                 self.log_debug(system)
 
-                                vm = VirtualMachine(
-                                    inf, ec2_vm_id, self.cloud, radl, requested_radl, self)
-                                vm.info.systems[0].setValue(
-                                    'instance_id', str(vm.id))
+                                vm.id = ec2_vm_id
+                                vm.info.systems[0].setValue('instance_id', str(vm.id))
                                 # Add the keypair name to remove it later
                                 vm.keypair_name = keypair_name
                                 self.log_info("Instance successfully launched.")
-                                inf.add_vm(vm)
+                                vm.destroy = False
                                 res.append((True, vm))
                                 all_failed = False
                             else:
@@ -1601,6 +1601,25 @@ class EC2CloudConnector(CloudConnector):
         c4_8xlarge = InstanceTypeInfo(
             "c4.8xlarge", ["x86_64"], 36, 1, 61952, 1.591, 132, 1, 0, True)
         instance_list.append(c4_8xlarge)
+
+        p3_2xlarge = InstanceTypeInfo(
+            "p3.2xlarge", ["x86_64"], 8, 1, 62464, 3.06, 26, 1, 0, True)
+        instance_list.append(p3_2xlarge)
+        p3_8xlarge = InstanceTypeInfo(
+            "p3.8xlarge", ["x86_64"], 32, 1, 249856, 12.24, 94, 1, 0, True)
+        instance_list.append(p3_8xlarge)
+        p3_16xlarge = InstanceTypeInfo(
+            "p3.16xlarge", ["x86_64"], 64, 1, 499712, 24.48, 188, 1, 0, True)
+        instance_list.append(p3_16xlarge)
+        p2_xlarge = InstanceTypeInfo(
+            "p2.xlarge", ["x86_64"], 4, 1, 62464, 0.9, 12, 1, 0, True)
+        instance_list.append(p2_xlarge)
+        p2_8xlarge = InstanceTypeInfo(
+            "p2.8xlarge", ["x86_64"], 32, 1, 499712, 7.2, 94, 1, 0, True)
+        instance_list.append(p2_8xlarge)
+        p2_16xlarge = InstanceTypeInfo(
+            "p2.16xlarge", ["x86_64"], 64, 1, 786432, 14.4, 188, 1, 0, True)
+        instance_list.append(p2_16xlarge)
 
         return instance_list
 
