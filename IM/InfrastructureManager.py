@@ -55,6 +55,7 @@ class UnauthorizedUserException(Exception):
 
     def __init__(self, msg="Access to this infrastructure not granted."):
         Exception.__init__(self, msg)
+        self.message = msg
 
 
 class IncorrectInfrastructureException(Exception):
@@ -62,6 +63,7 @@ class IncorrectInfrastructureException(Exception):
 
     def __init__(self, msg="Invalid infrastructure ID or access not granted."):
         Exception.__init__(self, msg)
+        self.message = msg
 
 
 class DeletedInfrastructureException(Exception):
@@ -69,6 +71,7 @@ class DeletedInfrastructureException(Exception):
 
     def __init__(self, msg="Deleted infrastructure."):
         Exception.__init__(self, msg)
+        self.message = msg
 
 
 class InvaliddUserException(Exception):
@@ -76,6 +79,7 @@ class InvaliddUserException(Exception):
 
     def __init__(self, msg="Invalid InfrastructureManager credentials"):
         Exception.__init__(self, msg)
+        self.message = msg
 
 
 class IncorrectVMCrecentialsException(Exception):
@@ -83,6 +87,7 @@ class IncorrectVMCrecentialsException(Exception):
 
     def __init__(self, msg="Incorrect VM credentials"):
         Exception.__init__(self, msg)
+        self.message = msg
 
 
 class InfrastructureManager:
@@ -102,11 +107,8 @@ class InfrastructureManager:
     def _compute_deploy_groups(radl):
         """
         Group the virtual machines that had to be deployed together.
-
         Args:
-
         - radl(RADL): RADL to consider.
-
         Return(list of list of deploy): list of group of deploys.
         """
 

@@ -86,6 +86,44 @@ class CtxtAgent():
                 time.sleep(delay)
 
     @staticmethod
+    def test_ssh(vm, vm_ip, remote_port, delay=10):
+        success = False
+        CtxtAgent.logger.debug("Testing SSH access to VM: %s:%s" % (vm_ip, remote_port))
+        try:
+            ssh_client = SSH(vm_ip, vm['user'], vm['passwd'], vm['private_key'], remote_port)
+            success = ssh_client.test_connectivity(delay)
+            res = 'init'
+        except AuthenticationException:
+            try_ansible_key = True
+            if 'new_passwd' in vm:
+                try_ansible_key = False
+                # If the process of changing credentials has finished in the
+                # VM, we must use the new ones
+                CtxtAgent.logger.debug("Error connecting with SSH with initial credentials with: " +
+                                       vm_ip + ". Try to use new ones.")
+                try:
+                    ssh_client = SSH(vm_ip, vm['user'], vm['new_passwd'], vm['private_key'], remote_port)
+                    success = ssh_client.test_connectivity()
+                    res = "new"
+                except AuthenticationException:
+                    try_ansible_key = True
+
+            if try_ansible_key:
+                # In some very special cases the last two cases fail, so check
+                # if the ansible key works
+                CtxtAgent.logger.debug("Error connecting with SSH with initial credentials with: " +
+                                       vm_ip + ". Try to ansible_key.")
+                try:
+                    ssh_client = SSH(vm_ip, vm['user'], None, CtxtAgent.PK_FILE, remote_port)
+                    success = ssh_client.test_connectivity()
+                    res = 'pk_file'
+                except:
+                    CtxtAgent.logger.exception("Error connecting with SSH with: " + vm_ip)
+                    success = False
+
+        return success, res
+
+    @staticmethod
     def wait_ssh_access(vm):
         """
          Test the SSH access to the VM
@@ -94,60 +132,38 @@ class CtxtAgent():
         wait = 0
         success = False
         res = None
-        last_tested_private = False
-        last_tested_22 = False
         while wait < CtxtAgent.SSH_WAIT_TIMEOUT:
-            if 'ctxt_ip' in vm:
+            if 'ctxt_ip' in vm and 'ctxt_port' in vm:
+                # These have been previously tested and worked use it
                 vm_ip = vm['ctxt_ip']
-            elif 'private_ip' in vm and not last_tested_private:
-                # First test the private one
-                vm_ip = vm['private_ip']
-                last_tested_private = True
-            else:
-                vm_ip = vm['ip']
-                last_tested_private = False
-            if 'ctxt_port' in vm:
                 remote_port = vm['ctxt_port']
-            elif last_tested_22:
-                remote_port = vm['remote_port']
-                last_tested_22 = False
+                success, res = CtxtAgent.test_ssh(vm, vm['ctxt_ip'], vm['ctxt_port'])
             else:
-                remote_port = 22
-                last_tested_22 = True
-            CtxtAgent.logger.debug("Testing SSH access to VM: %s:%s" % (vm_ip, remote_port))
-            wait += delay
-            try:
-                ssh_client = SSH(vm_ip, vm['user'], vm['passwd'], vm['private_key'], remote_port)
-                success = ssh_client.test_connectivity(delay)
-                res = 'init'
-            except AuthenticationException:
-                try_ansible_key = True
-                if 'new_passwd' in vm:
-                    try_ansible_key = False
-                    # If the process of changing credentials has finished in the
-                    # VM, we must use the new ones
-                    CtxtAgent.logger.debug(
-                        "Error connecting with SSH with initial credentials with: " + vm_ip + ". Try to use new ones.")
-                    try:
-                        ssh_client = SSH(vm_ip, vm['user'], vm['new_passwd'], vm['private_key'], remote_port)
-                        success = ssh_client.test_connectivity()
-                        res = "new"
-                    except AuthenticationException:
-                        try_ansible_key = True
+                # First test the private one
+                if 'private_ip' in vm:
+                    vm_ip = vm['private_ip']
+                    remote_port = vm['remote_port']
+                    success, res = CtxtAgent.test_ssh(vm, vm_ip, remote_port)
+                    if not success and remote_port != 22:
+                        remote_port = 22
+                        success, res = CtxtAgent.test_ssh(vm, vm_ip, 22)
 
-                if try_ansible_key:
-                    # In some very special cases the last two cases fail, so check
-                    # if the ansible key works
-                    CtxtAgent.logger.debug(
-                        "Error connecting with SSH with initial credentials with: " + vm_ip + ". Try to ansible_key.")
-                    try:
-                        ssh_client = SSH(vm_ip, vm['user'], None, CtxtAgent.PK_FILE, remote_port)
-                        success = ssh_client.test_connectivity()
-                        res = 'pk_file'
-                    except:
-                        CtxtAgent.logger.exception(
-                            "Error connecting with SSH with: " + vm_ip)
-                        success = False
+                # if not use the default one
+                if not success:
+                    vm_ip = vm['ip']
+                    remote_port = vm['remote_port']
+                    success, res = CtxtAgent.test_ssh(vm, vm_ip, remote_port)
+                    if not success and remote_port != 22:
+                        remote_port = 22
+                        success, res = CtxtAgent.test_ssh(vm, vm_ip, remote_port)
+
+                # if not use the default one
+                if not success and 'reverse_port' in vm:
+                    vm_ip = '127.0.0.1'
+                    remote_port = vm['reverse_port']
+                    success, res = CtxtAgent.test_ssh(vm, vm_ip, remote_port)
+
+            wait += delay
 
             if success:
                 vm['ctxt_ip'] = vm_ip
@@ -299,8 +315,8 @@ class CtxtAgent():
                 if pk_file:
                     private_key = pk_file
                 try:
-                    ssh_client = SSH(vm['ip'], vm['user'], vm['passwd'],
-                                     private_key, vm['remote_port'])
+                    ssh_client = SSH(vm['ctxt_ip'], vm['user'], vm['passwd'],
+                                     private_key, vm['ctxt_port'])
 
                     sudo_pass = ""
                     if ssh_client.password:
@@ -327,8 +343,8 @@ class CtxtAgent():
                 if pk_file:
                     private_key = pk_file
                 try:
-                    ssh_client = SSH(vm['ip'], vm['user'], vm[
-                                     'passwd'], private_key, vm['remote_port'])
+                    ssh_client = SSH(vm['ctxt_ip'], vm['user'], vm[
+                                     'passwd'], private_key, vm['ctxt_port'])
                     (out, err, code) = ssh_client.execute_timeout('echo ' + vm['new_public_key'] +
                                                                   ' >> .ssh/authorized_keys', 5)
                 except:
@@ -354,17 +370,22 @@ class CtxtAgent():
                 private_key = vm['private_key']
                 if pk_file:
                     private_key = pk_file
-                ssh_client = SSH(vm['ip'], vm['user'], vm['passwd'],
-                                 private_key, vm['remote_port'])
+                ssh_client = SSH(vm['ctxt_ip'], vm['user'], vm['passwd'],
+                                 private_key, vm['ctxt_port'])
                 # Activate tty mode to avoid some problems with sudo in REL
                 ssh_client.tty = True
                 sudo_pass = ""
                 if ssh_client.password:
                     sudo_pass = "echo '" + ssh_client.password + "' | "
-                (stdout, stderr, code) = ssh_client.execute_timeout(
+                res = ssh_client.execute_timeout(
                     sudo_pass + "sudo -S sed -i 's/.*requiretty$/#Defaults requiretty/' /etc/sudoers", 5)
-                CtxtAgent.logger.debug("OUT: " + stdout + stderr)
-                return code == 0
+                if res is not None:
+                    (stdout, stderr, code) = res
+                    CtxtAgent.logger.debug("OUT: " + stdout + stderr)
+                    return code == 0
+                else:
+                    CtxtAgent.logger.error("No output.")
+                    return False
             except:
                 CtxtAgent.logger.exception("Error removing requiretty to VM: " + vm['ip'])
                 return False

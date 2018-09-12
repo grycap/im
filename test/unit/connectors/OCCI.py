@@ -246,19 +246,24 @@ class TestOCCIConnector(unittest.TestCase):
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
 
-        auth = Authentication([{'id': 'occi', 'type': 'OCCI', 'proxy': 'proxy', 'host': 'https://server.com:11443'}])
+        auth = Authentication([{'id': 'occi', 'type': 'OCCI', 'proxy': 'proxy', 'host': 'https://server.com:11443'},
+                               {'type': 'InfrastructureManager', 'username': 'user', 'password': 'pass'}])
         occi_cloud = self.get_occi_cloud()
 
         requests.side_effect = self.get_response
         get_keystone_uri.return_value = None
 
-        res = occi_cloud.launch(InfrastructureInfo(), radl, radl, 1, auth)
+        inf = InfrastructureInfo()
+        inf.auth = auth
+        res = occi_cloud.launch(inf, radl, radl, 1, auth)
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
         self.return_error = True
-        res = occi_cloud.launch(InfrastructureInfo(), radl, radl, 1, auth)
+        inf = InfrastructureInfo()
+        inf.auth = auth
+        res = occi_cloud.launch(inf, radl, radl, 1, auth)
         self.return_error = False
         success, msg = res[0]
         self.assertFalse(success)

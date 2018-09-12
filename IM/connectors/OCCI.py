@@ -796,12 +796,6 @@ class OCCICloudConnector(CloudConnector):
             user = self.DEFAULT_USER
             system.setValue('disk.0.os.credentials.username', user)
 
-        # Add user cloud init data
-        cloud_config_str = self.get_cloud_init_data(radl)
-        cloud_config = self.gen_cloud_config(public_key, user, cloud_config_str).encode()
-        user_data = base64.b64encode(cloud_config).decode().replace("\n", "")
-        self.log_debug("Cloud init: %s" % cloud_config.decode())
-
         # Get the info about the OCCI server (GET /-/)
         success, occi_info = self.query_occi(auth_data)
         if not success:
@@ -868,8 +862,16 @@ class OCCICloudConnector(CloudConnector):
                 # Set the hostname defined in the RADL
                 # Create the VM to get the nodename
                 vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self)
+                vm.destroy = True
+                inf.add_vm(vm)
                 (nodename, _) = vm.getRequestedName(default_hostname=Config.DEFAULT_VM_NAME,
                                                     default_domain=Config.DEFAULT_DOMAIN)
+
+                # Add user cloud init data
+                cloud_config_str = self.get_cloud_init_data(radl, vm)
+                cloud_config = self.gen_cloud_config(public_key, user, cloud_config_str).encode()
+                user_data = base64.b64encode(cloud_config).decode().replace("\n", "")
+                self.log_debug("Cloud init: %s" % cloud_config.decode())
 
                 body += 'X-OCCI-Attribute: occi.compute.hostname="' + nodename + '"\n'
                 if user_data:
@@ -913,7 +915,7 @@ class OCCICloudConnector(CloudConnector):
                     if occi_vm_id:
                         vm.id = occi_vm_id
                         vm.info.systems[0].setValue('instance_id', str(occi_vm_id))
-                        inf.add_vm(vm)
+                        vm.destroy = False
                         res.append((True, vm))
                     else:
                         res.append((False, 'Unknown Error launching the VM.'))

@@ -892,7 +892,7 @@ class ConfManager(threading.Thread):
                     # If there are not a valid master VM, exit
                     self.log_error("No correct Master VM found. Exit")
                     self.inf.add_cont_msg("Contextualization Error: No correct Master VM found. Check if there a "
-                                          "linux VM with Public IP and connected with the rest of VMs.")
+                                          "linux VM with Public IP.")
                     self.inf.set_configured(False)
                     return
 
@@ -1412,6 +1412,7 @@ class ConfManager(threading.Thread):
                 if vm.getPublicIP() and vm.getPrivateIP():
                     vm_conf_data['private_ip'] = vm.getPrivateIP()
                 vm_conf_data['remote_port'] = vm.getRemoteAccessPort()
+                vm_conf_data['reverse_port'] = vm.getSSHReversePort()
                 creds = vm.getCredentialValues()
                 new_creds = vm.getCredentialValues(new=True)
                 (vm_conf_data['user'], vm_conf_data['passwd'],

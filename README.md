@@ -18,9 +18,40 @@ Read the documentation and more at http://www.grycap.upv.es/im.
 There is also an Infrastructure Manager YouTube reproduction list with a set of videos with demos
 of the functionality of the platform: https://www.youtube.com/playlist?list=PLgPH186Qwh_37AMhEruhVKZSfoYpHkrUp.
 
-## 1 INSTALLATION
+## 1 DOCKER IMAGE
 
-### 1.1 REQUISITES
+The recommended option to use the Infrastructure Manager service is using the available docker image.
+A Docker image named `grycap/im` has been created to make easier the deployment of an IM service using the 
+default configuration. Information about this image can be found here: https://registry.hub.docker.com/u/grycap/im/.
+
+How to launch the IM service using docker::
+
+```sh
+$ sudo docker run -d -p 8899:8899 -p 8800:8800 --name im grycap/im
+```
+
+To make the IM data persistent you also have to specify a persistent location for the IM database using the IM_DATA_DB environment variable and adding a volume::
+
+```sh
+$ sudo docker run -d -p 8899:8899 -p 8800:8800 -v "/some_local_path/db:/db" -e IM_DATA_DB=/db/inf.dat --name im grycap/im
+```
+
+You can also specify an external MySQL server to store IM data using the IM_DATA_DB environment variable::
+
+```sh
+$ sudo docker run -d -p 8899:8899 -p 8800:8800 -e IM_DATA_DB=mysql://username:password@server/db_name --name im grycap/im 
+```
+
+Or you can also add a volume with all the IM configuration::
+
+```sh
+$ sudo docker run -d -p 8899:8899 -p 8800:8800 -v "/some_local_path/im.cfg:/etc/im/im.cfg" --name im grycap/im
+```
+
+
+## 2 INSTALLATION
+
+### 2.1 REQUISITES
 
 IM is based on Python, so Python 2.6 or higher runtime and standard library must
 be installed in the system.
@@ -70,7 +101,7 @@ ssh_args = -o ControlMaster=auto -o ControlPersist=900s -o UserKnownHostsFile=/d
 pipelining = True
 ```
 
-### 1.2 OPTIONAL PACKAGES
+### 2.2 OPTIONAL PACKAGES
 
 The Bottle framework (http://bottlepy.org/) is used for the REST API. 
 It is typically available as the ``python-bottle`` system package or ``bottle`` pip package.
@@ -109,9 +140,9 @@ The VMware vSphere API Python Bindings (https://github.com/vmware/pyvmomi/) are 
 connector. It is available as the package ``pyvmomi`` at the pip repository.  
 
 
-### 1.3 INSTALLING
+### 2.3 INSTALLING
 
-#### 1.3.1 Using installer (Recommended option)
+#### 2.3.1 Using installer (Recommended option)
 
 The IM provides a script to install the IM in one single step (using pip).
 You only need to execute the following command:
@@ -123,7 +154,7 @@ $ wget -qO- https://raw.githubusercontent.com/grycap/im/master/install.sh | bash
 It works for the most recent version of the main Linux distributions (RHEL, CentOS, Fedora, Ubuntu, Debian).
 In case that you O.S. does not work with this install script see next sections.
 
-#### 1.3.2 From PIP
+#### 2.3.2 From PIP
 
 First you need to install pip tool and some packages needed to compile some of the IM requirements.
 To install them in Debian and Ubuntu based distributions, do::
@@ -154,7 +185,7 @@ of IM features that you need requires to install some of the packages of section
 You must also remember to modify the ansible.cfg file setting as specified in the 
 REQUISITES section.
 
-#### 1.3.3 From RPM packages (RH7)
+#### 2.3.3 From RPM packages (RH7)
 
 Download the RPM package from [GitHub](https://github.com/grycap/im/releases/latest).
 Also remember to download the RPMs of the RADL and TOSCA parser packages from its corresponding GitHub repositories: [RADL](https://github.com/grycap/radl/releases/latest) and [TOSCA parser](https://github.com/indigo-dc/tosca-parser/releases/latest).
@@ -176,7 +207,7 @@ Azure python SDK is not available in CentOS. So if you need the Azure plugin you
 shown in the OPTIONAL PACKAGES section.
 
 
-#### 1.3.4 From Deb package (Tested with Ubuntu 14.04 and 16.04)
+#### 2.3.4 From Deb package (Tested with Ubuntu 14.04 and 16.04)
 
 Download the Deb package from [GitHub](https://github.com/grycap/im/releases/latest).
 Also remember to download the Debs of the RADL and TOSCA parser packages from its corresponding GitHub repositories: [RADL](https://github.com/grycap/radl/releases/latest) and [TOSCA parser](https://github.com/indigo-dc/tosca-parser/releases/latest).
@@ -212,7 +243,7 @@ $ sudo dpkg -i *.deb
 $ sudo apt install -f -y
 ```
 
-#### 1.3.5 FROM SOURCE
+#### 2.3.5 FROM SOURCE
 
 Select a proper path where the IM service will be installed (i.e. /usr/local/im,
 /opt/im or other). This path will be called IM_PATH
@@ -229,7 +260,7 @@ Finally you must copy (or link) $IM_PATH/scripts/im file to /etc/init.d director
 $ ln -s /usr/local/im/scripts/im /etc/init.d/im
 ```
 
-### 1.4 CONFIGURATION
+### 2.4 START IM ON BOOT
 
 In case that you want the IM service to be started at boot time, you must
 execute the next set of commands:
@@ -267,20 +298,21 @@ to the path where the IM im_service.py file is installed (e.g. /usr/local/im/im_
 or set the name of the script file (im_service.py) if the file is in the PATH
 (pip puts the im_service.py file in the PATH as default).
 
-Check the parameters in $IM_PATH/etc/im.cfg or /etc/im/im.cfg. Please pay attention
-to the next configuration variables, as they are the most important:
+### 3 CONFIGURATION
+
+Check the parameters in $IM_PATH/etc/im.cfg or /etc/im/im.cfg.
+See [IM Manual](https://imdocs.readthedocs.io/en/latest/manual.html#configuration) to get a full 
+reference of the configuration variables.
+
+Please pay attention to the next configuration variables, as they are the most important:
 
 DATA_DB - must be set to the URL to access the database to store the IM data. 
          Be careful if you have two different instances of the IM service running in the same machine!!.
          It can be a MySQL DB: 'mysql://username:password@server/db_name' or 
          a SQLite one: 'sqlite:///etc/im/inf.dat'.
 
-CONTEXTUALIZATION_DIR - must be set to the full path where the IM contextualization files
-		are located. In case of using pip installation the default value is correct
-		(/usr/share/im/contextualization) in case of installing from sources set to
-		$IM_PATH/contextualization (e.g. /usr/local/im/contextualization)
 
-#### 1.4.1 SECURITY
+#### 3.1 SECURITY
 
 Security is disabled by default. Please notice that someone with local network access can "sniff" the traffic and
 get the messages with the IM with the authorisation data with the cloud providers.
@@ -295,31 +327,3 @@ REST_SSL = True
 
 And then set the variables: XMLRCP_SSL_* or REST_SSL_* to your certificates paths.
 
-## 2 DOCKER IMAGE
-
-A Docker image named `grycap/im` has been created to make easier the deployment of an IM service using the 
-default configuration. Information about this image can be found here: https://registry.hub.docker.com/u/grycap/im/.
-
-How to launch the IM service using docker::
-
-```sh
-$ sudo docker run -d -p 8899:8899 -p 8800:8800 --name im grycap/im
-```
-
-To make the IM data persistent you also have to specify a persistent location for the IM database using the IM_DATA_DB environment variable and adding a volume::
-
-```sh
-$ sudo docker run -d -p 8899:8899 -p 8800:8800 -v "/some_local_path/db:/db" -e IM_DATA_DB=/db/inf.dat --name im grycap/im
-```
-
-You can also specify an external MySQL server to store IM data using the IM_DATA_DB environment variable::
-
-```sh
-$ sudo docker run -d -p 8899:8899 -p 8800:8800 -e IM_DATA_DB=mysql://username:password@server/db_name --name im grycap/im 
-```
-
-Or you can also add a volume with all the IM configuration::
-
-```sh
-$ sudo docker run -d -p 8899:8899 -p 8800:8800 -v "/some_local_path/im.cfg:/etc/im/im.cfg" --name im grycap/im
-```

@@ -131,6 +131,8 @@ class TestCtxtAgent(unittest.TestCase):
         CtxtAgent.logger = self.logger
         execute_timeout.return_value = "", "", 0
         vm = self.gen_vm_data()
+        vm['ctxt_ip'] = "10.0.0.1"
+        vm['ctxt_port'] = 22
         res = CtxtAgent.removeRequiretty(vm, None)
         self.assertTrue(res)
 
@@ -161,6 +163,8 @@ class TestCtxtAgent(unittest.TestCase):
         execute.return_value = "", "", 0
         execute_timeout.return_value = "", "", 0
         vm = self.gen_vm_data()
+        vm['ctxt_ip'] = "10.0.0.1"
+        vm['ctxt_port'] = 22
         res = CtxtAgent.changeVMCredentials(vm, None)
         self.assertTrue(res)
 
@@ -168,6 +172,8 @@ class TestCtxtAgent(unittest.TestCase):
         del vm['new_passwd']
         vm['new_public_key'] = "new_public_key"
         vm['new_private_key'] = "new_private_key"
+        vm['ctxt_ip'] = "10.0.0.1"
+        vm['ctxt_port'] = 22
         res = CtxtAgent.changeVMCredentials(vm, None)
         self.assertTrue(res)
 

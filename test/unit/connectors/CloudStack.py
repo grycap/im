@@ -154,7 +154,8 @@ class TestOSCConnector(unittest.TestCase):
         radl.check()
 
         auth = Authentication([{'id': 'ost', 'type': 'CloudStack', 'username': 'apikey',
-                                'password': 'secretkey', 'host': 'http://server.com'}])
+                                'password': 'secretkey', 'host': 'http://server.com'},
+                               {'type': 'InfrastructureManager', 'username': 'user', 'password': 'pass'}])
         osc_cloud = self.get_osc_cloud()
 
         driver = MagicMock()
@@ -174,7 +175,9 @@ class TestOSCConnector(unittest.TestCase):
 
         driver.create_node.side_effect = self.create_node
 
-        res = osc_cloud.launch_with_retry(InfrastructureInfo(), radl, radl, 1, auth, 2, 1)
+        inf = InfrastructureInfo()
+        inf.auth = auth
+        res = osc_cloud.launch_with_retry(inf, radl, radl, 1, auth, 2, 1)
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
 
@@ -385,6 +388,7 @@ class TestOSCConnector(unittest.TestCase):
 
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
 
 if __name__ == '__main__':
     unittest.main()
