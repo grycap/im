@@ -104,6 +104,7 @@ class Config:
     DELAY_BETWEEN_VM_RETRIES = 5
     VERIFI_SSL = False
     SSH_REVERSE_TUNNELS = True
+    ACTIVATE_XMLRPC = True
 
 
 config = ConfigParser()

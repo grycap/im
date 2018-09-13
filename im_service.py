@@ -242,16 +242,19 @@ def launch_daemon():
     InfrastructureManager.logger.info(
         '************ Start Infrastructure Manager daemon (v.%s) ************' % version)
 
-    # Launch the API XMLRPC thread
-    server.serve_forever_in_thread()
-
     if Config.ACTIVATE_REST:
         # If specified launch the REST server
         import IM.REST
-        IM.REST.run_in_thread(host=Config.REST_ADDRESS, port=Config.REST_PORT)
+        if Config.ACTIVATE_XMLRPC:
+            IM.REST.run_in_thread(host=Config.REST_ADDRESS, port=Config.REST_PORT)
+        else:
+            IM.REST.run(host=Config.REST_ADDRESS, port=Config.REST_PORT)
 
-    # Start the messages queue
-    get_system_queue().timed_process_loop(None, 1, exit_callback=im_stop)
+    if Config.ACTIVATE_XMLRPC:
+        # Launch the API XMLRPC thread
+        server.serve_forever_in_thread()
+        # Start the messages queue
+        get_system_queue().timed_process_loop(None, 1, exit_callback=im_stop)
 
 
 def config_logging():
