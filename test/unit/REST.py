@@ -23,6 +23,9 @@ import sys
 from io import BytesIO
 from mock import patch, MagicMock
 from IM.InfrastructureInfo import InfrastructureInfo
+from IM.auth import Authentication
+from IM.VirtualMachine import VirtualMachine
+from radl.radl_parse import parse_radl
 
 sys.path.append("..")
 sys.path.append(".")
@@ -778,6 +781,124 @@ class TestREST(unittest.TestCase):
         get_media_type.return_value = ["application/zip"]
         info = format_output(["1", "2"])
         self.assertEqual(info, 'Unsupported Accept Media Types: application/zip')
+
+    @patch("IM.VirtualMachine.SSH")
+    @patch("IM.InfrastructureManager.InfrastructureManager.get_infrastructure")
+    @patch("IM.InfrastructureManager.InfrastructureManager.check_auth_data")
+    @patch("bottle.request")
+    def test_commands(self, bottle_request, check_auth_data, get_infrastructure, SSH):
+        """Test REST StopInfrastructure."""
+        bottle_request.return_value = MagicMock()
+        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
+                                                    "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
+                                                    "username = user; password = pass")}
+        bottle_request.environ = {'HTTP_HOST': 'imserver.com'}
+
+        inf = InfrastructureInfo()
+        inf.id = "1"
+        inf.auth = Authentication([{'type': 'InfrastructureManager', 'username': 'user', 'password': 'pass'}])
+        get_infrastructure.return_value = inf
+
+        bottle_request.params = {'step': '1'}
+        res = RESTGetVMProperty("1", "1", "command")
+        auth_str = "Authorization: type = InfrastructureManager; username = user; password = pass"
+        url = "http://imserver.com/infrastructures/1/vms/1/command?step=2"
+        expected_res = """
+                res="wait"
+                while [ "$res" == "wait" ]
+                do
+                  res=`curl -s -H "%s" -H "Accept: text/plain" %s`
+                  if [ "$res" != "wait" ]
+                  then
+                    eval "$res"
+                  else
+                    sleep 20
+                  fi
+                done""" % (auth_str, url)
+        self.assertEqual(res, expected_res)
+
+        radl_master = parse_radl("""
+            network publica (outbound = 'yes')
+            network privada ()
+
+            system front (
+            cpu.arch='x86_64' and
+            cpu.count>=1 and
+            memory.size>=512m and
+            net_interface.0.ip = '8.8.8.8' and
+            net_interface.0.connection = 'publica' and
+            net_interface.1.connection = 'privada' and
+            disk.0.image.url = 'mock0://linux.for.ev.er' and
+            disk.0.os.credentials.username = 'ubuntu' and
+            disk.0.os.credentials.password = 'yoyoyo' and
+            disk.0.os.name = 'linux'
+            )
+        """)
+
+        radl_vm1 = parse_radl("""
+            network privada ()
+
+            system wn (
+            cpu.arch='x86_64' and
+            cpu.count>=1 and
+            memory.size>=512m and
+            net_interface.0.connection = 'privada' and
+            disk.0.image.url = 'mock0://linux.for.ev.er' and
+            disk.0.os.credentials.username = 'ubuntu' and
+            disk.0.os.credentials.password = 'yoyoyo' and
+            disk.0.os.name = 'linux'
+            )
+        """)
+
+        radl_vm2 = parse_radl("""
+            network privada2 ()
+
+            system wn2 (
+            cpu.arch='x86_64' and
+            cpu.count>=1 and
+            memory.size>=512m and
+            net_interface.0.connection = 'privada2' and
+            disk.0.image.url = 'mock0://linux.for.ev.er' and
+            disk.0.os.credentials.username = 'ubuntu' and
+            disk.0.os.credentials.password = 'yoyoyo' and
+            disk.0.os.name = 'linux'
+            )
+        """)
+
+        # in the Master VM
+        bottle_request.params = {'step': '2'}
+        inf.vm_master = VirtualMachine(inf, None, None, radl_master, radl_master)
+        inf.vm_master.creation_im_id = 0
+        ssh = MagicMock()
+        ssh.test_connectivity.return_value = True
+        ssh.port = 22
+        ssh.private_key = None
+        ssh.password = "yoyoyo"
+        ssh.username = "ubuntu"
+        ssh.host = "8.8.8.8"
+        SSH.return_value = ssh
+        vm1 = VirtualMachine(inf, None, None, radl_vm1, radl_vm1)
+        vm1.creation_im_id = 1
+        vm1.destroy = False
+        vm2 = VirtualMachine(inf, None, None, radl_vm2, radl_vm2)
+        vm2.creation_im_id = 2
+        vm2.destroy = False
+        inf.vm_list = [inf.vm_master, vm1, vm2]
+
+        res = RESTGetVMProperty("1", "0", "command")
+        expected_res = "true"
+        self.assertEqual(res, expected_res)
+
+        bottle_request.params = {'step': '2'}
+        res = RESTGetVMProperty("1", "1", "command")
+        expected_res = "true"
+        self.assertEqual(res, expected_res)
+
+        # in VM not connected to the Master VM
+        res = RESTGetVMProperty("1", "2", "command")
+        expected_res = ('sshpass -pyoyoyo ssh -N -R 20002:localhost:22 -p 22 -o "UserKnownHostsFile=/dev/null"'
+                        ' -o "StrictHostKeyChecking=no" ubuntu@8.8.8.8 &')
+        self.assertEqual(res, expected_res)
 
 
 if __name__ == "__main__":

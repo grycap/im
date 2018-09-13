@@ -430,4 +430,11 @@ IM 1.7.4:
     * Add VERIFI_SSL var.
     * Improve error messages in Async call.
 
-    
+IM 1.7.5:
+    * Add option to disable XML-RPC API
+    * Enable hybrid deployment
+    * Create a connector to Apache CloudStack
+    * Fix error reporting memory units in OCCI connector
+    * Fix error deleting OCCI infrastructure: Volume deleting returns forbidden and takes too long
+    * Fix error with OCCI server 2.0.4 authentication error
+    * Fix problem installing specific branch of Ansible galaxy roles
