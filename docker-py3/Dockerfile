@@ -1,7 +1,7 @@
 # Dockerfile to create a container with the IM service
 FROM ubuntu:16.04
 LABEL maintainer="Miguel Caballer <micafer1@upv.es>"
-LABEL version="1.7.4"
+LABEL version="1.7.5"
 LABEL description="Container image to run the IM service. (http://www.grycap.upv.es/im)"
 EXPOSE 8899 8800
 
@@ -17,7 +17,7 @@ RUN pip3 install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-c
 # Install IM
 RUN apt-get update && apt-get install --no-install-recommends -y gcc git libssl-dev libffi-dev libsqlite3-dev && \
      cd /tmp && git clone https://github.com/micafer/libcloud && cd libcloud && pip3 install /tmp/libcloud && \
-     pip3 install IM==1.7.4 && \
+     pip3 install IM==1.7.5 && \
      apt-get remove -y gcc git libssl-dev libffi-dev libsqlite3-dev python-dev python-pip && \
      apt-get autoremove -y && \
      rm -rf /var/lib/apt/lists/*
