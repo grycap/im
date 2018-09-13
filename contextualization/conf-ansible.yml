@@ -72,8 +72,12 @@
       when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int >= 14
       ignore_errors: yes
 
-    - name: Install requirements Ubuntu 14
-      apt: name=gcc,python-dev,libffi-dev,libssl-dev
+    - name: Apt Install requirements Ubuntu 14
+      apt: name=gcc,python-dev,libffi-dev,libssl-dev,python-urllib3,python-openssl,python-pyasn1
+      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int <= 14
+
+    - name: Pip Install requirements Ubuntu 14
+      pip: name=ndg-httpsclient
       when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int <= 14
 
     - name: Ubuntu install requirements
