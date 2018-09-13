@@ -817,14 +817,6 @@ class TestREST(unittest.TestCase):
                 done""" % (auth_str, url)
         self.assertEqual(res, expected_res)
 
-        # in the Master VM
-        bottle_request.params = {'step': '2'}
-        inf.vm_master = MagicMock()
-        inf.vm_master.creation_im_id = 0
-        res = RESTGetVMProperty("1", "0", "command")
-        expected_res = "true"
-        self.assertEqual(res, expected_res)
-
         radl_master = parse_radl("""
             network publica (outbound = 'yes')
             network privada ()
@@ -872,11 +864,18 @@ class TestREST(unittest.TestCase):
             disk.0.os.name = 'linux'
             )
         """)
+
+        # in the Master VM
         bottle_request.params = {'step': '2'}
         inf.vm_master = VirtualMachine(inf, None, None, radl_master, radl_master)
         inf.vm_master.creation_im_id = 0
         ssh = MagicMock()
         ssh.test_connectivity.return_value = True
+        ssh.port = 22
+        ssh.private_key = None
+        ssh.password = "yoyoyo"
+        ssh.username = "ubuntu"
+        ssh.host = "8.8.8.8"
         SSH.return_value = ssh
         vm1 = VirtualMachine(inf, None, None, radl_vm1, radl_vm1)
         vm1.creation_im_id = 1
@@ -884,10 +883,13 @@ class TestREST(unittest.TestCase):
         vm2 = VirtualMachine(inf, None, None, radl_vm2, radl_vm2)
         vm2.creation_im_id = 2
         vm2.destroy = False
-        inf.vm_list = [vm1, vm2]
+        inf.vm_list = [inf.vm_master, vm1, vm2]
 
-        # in VM connected to the Master VM
-        inf.vm_master.creation_im_id = 0
+        res = RESTGetVMProperty("1", "0", "command")
+        expected_res = "true"
+        self.assertEqual(res, expected_res)
+
+        bottle_request.params = {'step': '2'}
         res = RESTGetVMProperty("1", "1", "command")
         expected_res = "true"
         self.assertEqual(res, expected_res)
