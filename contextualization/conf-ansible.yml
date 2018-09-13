@@ -61,7 +61,7 @@
       when: ansible_distribution == "Ubuntu" and apt_update is failed
 
     - name: Ubuntu install Ansible requisites with apt
-      apt: name=python-pip,python-jinja2,sshpass,openssh-client,unzip
+      apt: name=python-pip,python-jinja2,sshpass,openssh-client,unzip,python-urllib3,python-pyasn1
       when: ansible_distribution == "Ubuntu"
 
     - apt_key: url=http://repo.indigo-datacloud.eu/repository/RPM-GPG-KEY-indigodc state=present
@@ -73,12 +73,12 @@
       ignore_errors: yes
 
     - name: Apt Install requirements Ubuntu 14
-      apt: name=gcc,python-dev,libffi-dev,libssl-dev,python-urllib3,python-openssl,python-pyasn1
+      apt: name=gcc,python-dev,libffi-dev,libssl-dev
       when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int <= 14
 
-    - name: Pip Install requirements Ubuntu 14
+    - name: Pip Install requirements Ubuntu
       pip: name=ndg-httpsclient
-      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int <= 14
+      when: ansible_distribution == "Ubuntu"
 
     - name: Ubuntu install requirements
       apt: name=software-properties-common
