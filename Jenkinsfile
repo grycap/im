@@ -122,12 +122,12 @@ commands = bandit -r IM -f html -o bandit.html"""
             }
             steps {
                 checkout scm
-                OWASPDependencyCheckRun("$WORKSPACE/DEEPaaS/deepaas", project="DEEPaaS")
+                OWASPDependencyCheckRun("$WORKSPACE/im/IM", project="im")
             }
             post {
                 always {
                     OWASPDependencyCheckPublish()
-                    HTMLReport('deepaas', 'dependency-check-report.html', 'OWASP Dependency Report')
+                    HTMLReport('im', 'dependency-check-report.html', 'OWASP Dependency Report')
                     deleteDir()
                 }
             }
