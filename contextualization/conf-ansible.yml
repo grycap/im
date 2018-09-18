@@ -61,7 +61,7 @@
       when: ansible_distribution == "Ubuntu" and apt_update is failed
 
     - name: Ubuntu install Ansible requisites with apt
-      apt: name=python-pip,python-jinja2,sshpass,openssh-client,unzip,python-urllib3,python-pyasn1
+      apt: name=python-pip,python-jinja2,sshpass,openssh-client,unzip,python-pyasn1
       when: ansible_distribution == "Ubuntu"
 
     - apt_key: url=http://repo.indigo-datacloud.eu/repository/RPM-GPG-KEY-indigodc state=present
@@ -77,7 +77,7 @@
       when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int <= 14
 
     - name: Pip Install requirements Ubuntu
-      pip: name=ndg-httpsclient
+      pip: name=ndg-httpsclient,urllib3
       when: ansible_distribution == "Ubuntu"
 
     - name: Ubuntu install requirements
