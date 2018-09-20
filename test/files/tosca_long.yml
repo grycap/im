@@ -150,6 +150,19 @@ topology_template:
             type: linux 
             #distribution: scientific 
             #version: 6.6
+      requirements:
+        - local_storage:
+            node: my_storage
+            relationship:
+              type: AttachesTo
+              properties:
+                location: /mnt/disk
+
+    my_storage:
+      type: tosca.nodes.BlockStorage
+      properties:
+        size: 10 GB
+        volume_id: some_id
 
     mysql:
       type: tosca.nodes.DBMS
@@ -186,3 +199,4 @@ topology_template:
        type: tosca.policies.Placement
        properties: { cloud_id: cloudid }
        targets: [ my_placement_group ]
+
