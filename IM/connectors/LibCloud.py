@@ -16,9 +16,10 @@
 
 import time
 import uuid
+import os.path
 
 try:
-    from libcloud.compute.base import NodeImage, NodeAuthSSHKey
+    from libcloud.compute.base import NodeImage, NodeAuthSSHKey, StorageVolume
     from libcloud.compute.types import Provider, NodeState
     from libcloud.compute.providers import get_driver
 except Exception as ex:
@@ -579,20 +580,35 @@ class LibCloudCloudConnector(CloudConnector):
             if node.state == NodeState.RUNNING and "volumes" not in vm.__dict__.keys():
                 vm.volumes = []
                 cont = 1
-                while vm.info.systems[0].getValue("disk." + str(cont) + ".size"):
-                    disk_size = vm.info.systems[0].getFeature("disk." + str(cont) + ".size").getValue('G')
+                while (vm.info.systems[0].getValue("disk." + str(cont) + ".size") or
+                       vm.info.systems[0].getValue("disk." + str(cont) + ".image.url")):
+                    disk_size = None
+                    if vm.info.systems[0].getValue("disk." + str(cont) + ".size"):
+                        disk_size = vm.info.systems[0].getFeature("disk." + str(cont) + ".size").getValue('G')
                     disk_device = vm.info.systems[0].getValue("disk." + str(cont) + ".device")
+                    disk_url = vm.info.systems[0].getValue("disk." + str(cont) + ".image.url")
                     if disk_device:
                         disk_device = "/dev/" + disk_device
-                    self.log_debug("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
-                    volume_name = "im-%s" % str(uuid.uuid1())
+                    if disk_url:
+                        volume_id = os.path.basename(disk_url)
+                        try:
+                            volume = node.driver.ex_get_volume(volume_id)
+                            success = True
+                        except:
+                            success = False
+                            self.log_exception("Error getting volume ID %s" % volume_id)
+                    else:
+                        self.log_debug("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
+                        volume_name = "im-%s" % str(uuid.uuid1())
 
-                    location = self.get_node_location(node)
-                    volume = node.driver.create_volume(int(disk_size), volume_name, location=location)
-                    success = self.wait_volume(volume)
+                        location = self.get_node_location(node)
+                        volume = node.driver.create_volume(int(disk_size), volume_name, location=location)
+                        success = self.wait_volume(volume)
+                        if success:
+                            # Add the volume to the VM to remove it later
+                            vm.volumes.append(volume.id)
+
                     if success:
-                        # Add the volume to the VM to remove it later
-                        vm.volumes.append(volume.id)
                         self.log_debug("Attach the volume ID " + str(volume.id))
                         volume.attach(node, disk_device)
                         # wait the volume to be attached
@@ -603,9 +619,10 @@ class LibCloudCloudConnector(CloudConnector):
                             disk_device = volume.extra['attachments'][0]['device']
                             vm.info.systems[0].setValue("disk." + str(cont) + ".device", disk_device)
                     else:
-                        self.log_error("Error waiting the volume ID " + str(
-                            volume.id) + " not attaching to the VM and destroying it.")
-                        volume.destroy()
+                        self.log_error("Error waiting the volume ID not attaching to the VM.")
+                        if not disk_url:
+                            self.log_error("Destroying it.")
+                            volume.destroy()
 
                     cont += 1
             return True
