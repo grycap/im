@@ -1443,36 +1443,37 @@ class EC2CloudConnector(CloudConnector):
             return EC2CloudConnector.instance_type_list
 
         instance_list = []
-        info_url = "https://raw.githubusercontent.com/powdahound/ec2instances.info/master/www/instances.json"
-        resp = requests.get(info_url)
-        if resp.status_code == 200:
-            data = resp.json()
-            for instance_type in data:
-                price = 1000000
-                if instance_type['pricing']:
-                    region = instance_type['pricing'].keys()[0]
-                    price = float(instance_type['pricing'][region]['linux']['ondemand'])
-                disks = 0
-                disk_space = 0
-                if instance_type['storage']:
-                    disks = instance_type['storage']['devices']
-                    disk_space = instance_type['storage']['size']
-                cpu_perf = instance_type['ECU']
-                if cpu_perf == 'variable':
-                    cpu_perf = 0
-                instance_list.append(InstanceTypeInfo(name=instance_type['instance_type'],
-                                                      cpu_arch=instance_type['arch'],
-                                                      num_cpu=instance_type['vCPU'],
-                                                      cores_per_cpu=1,
-                                                      mem=instance_type['memory'] * 1024,
-                                                      price=price,
-                                                      cpu_perf=cpu_perf,
-                                                      disks=disks,
-                                                      disk_space=disk_space,
-                                                      vpc_only=instance_type['vpc_only'],
-                                                      gpu=instance_type['GPU']))
-            EC2CloudConnector.instance_type_list = instance_list
-        else:
+        try:
+            info_url = "https://raw.githubusercontent.com/powdahound/ec2instances.info/master/www/instances.json"
+            resp = requests.get(info_url)
+            if resp.status_code == 200:
+                data = resp.json()
+                for instance_type in data:
+                    price = 1000000
+                    if instance_type['pricing']:
+                        region = instance_type['pricing'].keys()[0]
+                        price = float(instance_type['pricing'][region]['linux']['ondemand'])
+                    disks = 0
+                    disk_space = 0
+                    if instance_type['storage']:
+                        disks = instance_type['storage']['devices']
+                        disk_space = instance_type['storage']['size']
+                    cpu_perf = instance_type['ECU']
+                    if cpu_perf == 'variable':
+                        cpu_perf = 0
+                    instance_list.append(InstanceTypeInfo(name=instance_type['instance_type'],
+                                                          cpu_arch=instance_type['arch'],
+                                                          num_cpu=instance_type['vCPU'],
+                                                          cores_per_cpu=1,
+                                                          mem=instance_type['memory'] * 1024,
+                                                          price=price,
+                                                          cpu_perf=cpu_perf,
+                                                          disks=disks,
+                                                          disk_space=disk_space,
+                                                          vpc_only=instance_type['vpc_only'],
+                                                          gpu=instance_type['GPU']))
+                EC2CloudConnector.instance_type_list = instance_list
+        except:
             # Maintain the old list in case of error in the previous method
             t1_micro = InstanceTypeInfo(
                 "t1.micro", ["i386", "x86_64"], 1, 1, 613, 0.0031, 0.5, 0, 0, False)
