@@ -1451,7 +1451,7 @@ class EC2CloudConnector(CloudConnector):
                 for instance_type in data:
                     price = 1000000
                     if instance_type['pricing']:
-                        region = instance_type['pricing'].keys()[0]
+                        region = list(instance_type['pricing'].keys())[0]
                         price = float(instance_type['pricing'][region]['linux']['ondemand'])
                     disks = 0
                     disk_space = 0
