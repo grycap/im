@@ -330,7 +330,10 @@ class CloudConnector:
         if public_key:
             res = self._gen_cloud_config(public_key, user, res)
 
-        return "#cloud-config\n%s" % res
+        if res:
+            return "#cloud-config\n%s" % res
+        else:
+            return res
 
     def _add_curl_cloud_init_data(self, vm, cloud_init_str):
         if cloud_init_str:
