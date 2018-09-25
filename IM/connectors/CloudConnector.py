@@ -323,7 +323,8 @@ class CloudConnector:
             cloud_init_str = None
 
         res = None
-        if Config.SSH_REVERSE_TUNNELS and vm:
+        # Only for those VMs with private IP
+        if Config.SSH_REVERSE_TUNNELS and vm and not vm.hasPublicNet():
             res = self._add_curl_cloud_init_data(vm, cloud_init_str)
 
         if public_key:

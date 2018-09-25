@@ -1006,31 +1006,6 @@ class VirtualMachine:
     def getSSHReversePort(self):
         return self.SSH_REVERSE_BASE_PORT + int(self.creation_im_id)
 
-    def get_ssh_command_old(self, vmid):
-        ssh_port = self.getSSHPort()
-        s = self.info.systems[0]
-        reverse_opt = "-R %d:localhost:22" % (self.SSH_REVERSE_BASE_PORT + int(vmid))
-
-        if s.getValue("disk.0.os.credentials.private_key"):
-            private_key = s.getValue("disk.0.os.credentials.private_key")
-            filename = "/tmp/%s_%s.pem" % (self.inf.id, self.im_id)
-            command = 'echo "%s" > %s && chmod 400 %s ' % (private_key, filename, filename)
-            command += ('&& ssh -N %s -p %s -i %s -o "UserKnownHostsFile=/dev/null"'
-                        ' -o "StrictHostKeyChecking=no" %s@%s &' % (reverse_opt,
-                                                                    ssh_port,
-                                                                    filename,
-                                                                    s.getValue("disk.0.os.credentials.username"),
-                                                                    self.getPublicIP()))
-        else:
-            command = ('sshpass -p%s ssh -N %s -p %s -o "UserKnownHostsFile=/dev/null"'
-                       ' -o "StrictHostKeyChecking=no" %s@%s &' % (s.getValue("disk.0.os.credentials.password"),
-                                                                   reverse_opt,
-                                                                   ssh_port,
-                                                                   s.getValue("disk.0.os.credentials.username"),
-                                                                   self.getPublicIP()))
-
-        return command
-
     def get_ssh_command(self):
         ssh = self.get_ssh_ansible_master(retry=False)
         if not ssh:
