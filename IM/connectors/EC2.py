@@ -497,7 +497,7 @@ class EC2CloudConnector(CloudConnector):
         for vpc in conn.get_all_vpcs():
             if vpc.is_default:
                 vpc_id = vpc.id
-                for subnet in conn.get_all_subnets({"vpcId": vpc_id}):
+                for subnet in conn.get_all_subnets(filters={"vpcId": vpc_id}):
                     subnet_id = subnet.id
                     break
                 break
