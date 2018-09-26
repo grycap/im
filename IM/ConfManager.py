@@ -1233,7 +1233,7 @@ class ConfManager(threading.Thread):
 
         try:
             self.log_info('Get the results of the Ansible process.')
-            _, (return_code, _), output = result.get(timeout=10)
+            _, (return_code, _), output = result.get(timeout=30)
             msg = output.getvalue()
         except:
             self.log_exception('Error getting ansible results.')
