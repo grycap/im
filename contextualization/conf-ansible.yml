@@ -3,6 +3,9 @@
   become: yes
   become_method: sudo
   gather_facts: false
+  vars:
+    # Ansible specific Version or "latest"
+    ANSIBLE_VERSION: 2.4.6
   tasks:
     # Some OSs does not have python by default
     - name: Check Python is installed
@@ -55,47 +58,19 @@
       command: apt update
       when: ansible_distribution == "Ubuntu" and apt_update is failed
     
-    - name: Ubuntu install requirements
-      apt: name=software-properties-common
-      when: ansible_distribution == "Ubuntu"
-
-    - name: Ubuntu install Ansible PPA repo
-      apt_repository: repo='ppa:ansible/ansible'
-      when: ansible_distribution == "Ubuntu"
-
-    - name: Debian install gnupg
-      apt: name=gnupg update_cache=yes cache_valid_time=3600
-      when: ansible_distribution == "Debian"
-
-    - name: Debian install Ansible PPA repo
-      lineinfile: dest=/etc/apt/sources.list regexp="deb http://ppa.launchpad.net/ansible/ansible/ubuntu trusty main" line="deb http://ppa.launchpad.net/ansible/ansible/ubuntu trusty main"
-      when: ansible_distribution == "Debian"
-
-    - name: Debian install Ansible PPA key
-      apt_key: id=93C4A3FD7BB9C367 keyserver=keyserver.ubuntu.com
-      when: ansible_distribution == "Debian"
-      
-    - name: Debian/Ubuntu install Ansible with apt
-      apt: name=ansible,python-pip,python-jinja2,sshpass,openssh-client,unzip update_cache=yes
+    - name: Debian/Ubuntu install requisites with apt
+      apt: name=python-pip,python-jinja2,sshpass,openssh-client,unzip,gcc,python-dev,libffi-dev,libssl-dev update_cache=yes
       when: ansible_os_family == "Debian"
 
-    - name: Yum install Ansible RH 7/Fedora
-      yum: name=ansible,python-pip,python-jinja2,sshpass,openssh-clients,wget update_cache=yes
+    - name: Yum install requisites RH 7/Fedora
+      yum: name=python-pip,python-jinja2,sshpass,openssh-clients,wget,gcc,python-devel,libffi-devel,openssl-devel update_cache=yes
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 7
 
     - name: Ubuntu install Cryptography with apt
       apt: name=python-cryptography
       when: (ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int >= 16) or (ansible_distribution == "Debian" and ansible_distribution_major_version|int >= 8)
 
-    - name: Install requirements Ubuntu 14
-      apt: name=gcc,python-dev,libffi-dev,libssl-dev
-      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int <= 14
-
   ############################################ In other systems use pip #################################################
-  
-    - name: Yum install requirements RH 6
-      yum: name=ansible,python-jinja2,python-distribute,gcc,python-devel,wget,openssh-clients,sshpass,python-pip,libffi-devel,openssl-devel
-      when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int <= 6
 
     - name: Zypper install requirements Suse
       zypper: name=python,python-pip,gcc,python-devel,wget,libffi-devel,openssl-devel,python-cryptography,make state=present
@@ -115,9 +90,13 @@
       pip: name=pyOpenSSL state=latest
       ignore_errors: yes
 
-    - name: Install ansible with Pip
-      pip: name=ansible
-      when: ansible_os_family == "Suse"
+    - name: Install ansible {{ ANSIBLE_VERSION }} with Pip
+      pip: name=ansible version={{ ANSIBLE_VERSION }}
+      when: ANSIBLE_VERSION != "latest"
+      
+    - name: Install latest ansible version with Pip
+      pip: name=ansible state=latest
+      when: ANSIBLE_VERSION == "latest"
 
 #################################### Now install scp, jmespath and pywinrm with pip  ##################################
 
