@@ -1309,14 +1309,17 @@ class Tosca:
         # Find associated BlockStorages
         disks = self._get_attached_disks(node, nodetemplates)
 
-        for size, unit, location, device, num, fstype in disks:
-            if size:
-                res.setValue('disk.%d.size' % num, size, unit)
-            if device:
-                res.setValue('disk.%d.device' % num, device)
-            if location:
-                res.setValue('disk.%d.mount_path' % num, location)
-                res.setValue('disk.%d.fstype' % num, fstype)
+        for size, unit, location, device, num, fstype, vol_id, snap_id in disks:
+            if vol_id:
+                res.setValue('disk.%d.image.url' % num, vol_id)
+            else:
+                if size:
+                    res.setValue('disk.%d.size' % num, size, unit)
+                if device:
+                    res.setValue('disk.%d.device' % num, device)
+                if location:
+                    res.setValue('disk.%d.mount_path' % num, location)
+                    res.setValue('disk.%d.fstype' % num, fstype)
 
         self._add_ansible_roles(node, nodetemplates, res)
 
@@ -1375,8 +1378,10 @@ class Tosca:
 
                 if trgt.type_definition.type == "tosca.nodes.BlockStorage":
                     full_size = self._final_function_result(trgt.get_property_value('size'), trgt)
+                    volume_id = self._final_function_result(trgt.get_property_value('volume_id'), trgt)
+                    snapshot_id = self._final_function_result(trgt.get_property_value('snapshot_id'), trgt)
                     size, unit = Tosca._get_size_and_unit(full_size)
-                    disks.append((size, unit, location, device, count, "ext4"))
+                    disks.append((size, unit, location, device, count, "ext4", volume_id, snapshot_id))
                     count += 1
                 else:
                     Tosca.logger.debug(

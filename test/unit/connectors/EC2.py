@@ -114,6 +114,18 @@ class TestEC2Connector(unittest.TestCase):
         keypair.save.side_effect = save_key_pair
         return keypair
 
+    def test_15_get_all_instance_types(self):
+        instances = EC2CloudConnector.get_all_instance_types()
+        self.assertGreater(len(instances), 20)
+
+        self.assertEqual(instances[0].cpu_perf, 1.0)
+        self.assertEqual(instances[0].name, 'm1.small')
+        self.assertEqual(instances[0].mem, 1740.8)
+        self.assertEqual(instances[0].price, 0.044)
+        self.assertEqual(instances[0].disks, 1)
+        self.assertEqual(instances[0].cores_per_cpu, 1)
+        self.assertEqual(instances[0].disk_space, 160)
+
     @patch('boto.ec2.get_region')
     @patch('boto.vpc.VPCConnection')
     @patch('boto.ec2.blockdevicemapping.BlockDeviceMapping')
