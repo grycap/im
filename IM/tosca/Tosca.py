@@ -1256,13 +1256,14 @@ class Tosca:
             'mem_size': 'memory.size',
             'cpu_frequency': 'cpu.performance',
             'instance_type': 'instance_type',
+            'preemtible_instance': 'spot',
         }
 
         for cap_type in ['os', 'host']:
             if node.get_capability(cap_type):
                 for prop in node.get_capability(cap_type).get_properties_objects():
                     name = property_map.get(prop.name, None)
-                    if name and prop.value:
+                    if name and prop.value is not None:
                         unit = None
                         value = self._final_function_result(prop.value, node)
                         if prop.name in ['disk_size', 'mem_size']:
@@ -1297,6 +1298,8 @@ class Tosca:
                                 raise Exception("User must be specified in the image credentials.")
                             name = "disk.0.os.credentials.username"
                             value = value['user']
+                        elif prop.name == "preemtible_instance":
+                            value = 'yes' if value else 'no'
 
                         if isinstance(value, float) or isinstance(value, int):
                             operator = ">="
