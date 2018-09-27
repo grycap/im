@@ -153,8 +153,7 @@ class TestOSTConnector(unittest.TestCase):
             disk.0.image.url = 'ost://server.com/ami-id' and
             disk.0.os.credentials.username = 'user' and
             disk.1.size=1GB and
-            disk.1.device='hdb' and
-            disk.1.mount_path='/mnt/path'
+            disk.1.device='hdb'
             )"""
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
@@ -227,7 +226,12 @@ class TestOSTConnector(unittest.TestCase):
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'ost://server.com/ami-id' and
             disk.0.os.credentials.username = 'user' and
-            disk.0.os.credentials.password = 'pass'
+            disk.0.os.credentials.password = 'pass' and
+            disk.1.size=1GB and
+            disk.1.device='hdb' and
+            disk.1.mount_path='/mnt/path' and
+            disk.2.image.url='ost://server.com/ami-id1' and
+            disk.2.mount_path='/mnt/path'
             )"""
         radl = radl_parse.parse_radl(radl_data)
         radl.check()

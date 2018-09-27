@@ -1311,7 +1311,7 @@ class Tosca:
 
         for size, unit, location, device, num, fstype, vol_id, snap_id in disks:
             if vol_id:
-                res.setValue('disk.%d.image_url' % num, vol_id)
+                res.setValue('disk.%d.image.url' % num, vol_id)
             else:
                 if size:
                     res.setValue('disk.%d.size' % num, size, unit)
