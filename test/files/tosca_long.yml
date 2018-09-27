@@ -144,6 +144,8 @@ topology_template:
           properties:
             num_cpus: 1
             mem_size: 2 GB
+            instance_type: some_type
+            preemtible_instance: false
         os:
           properties:
             # host Operating System image properties
