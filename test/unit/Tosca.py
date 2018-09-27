@@ -77,6 +77,8 @@ class TestTosca(unittest.TestCase):
         other_server = radl.get_system_by_name('other_server')
         self.assertEqual(other_server.getValue("availability_zone"), 'some_zone')
         self.assertEqual(lrms_wn.getValue("disk.1.image.url"), 'some_id')
+        self.assertEqual(lrms_wn.getValue("spot"), 'no')
+        self.assertEqual(lrms_wn.getValue("instance_type"), 'some_type')
 
     def test_tosca_get_outputs(self):
         """Test TOSCA get_outputs function"""
