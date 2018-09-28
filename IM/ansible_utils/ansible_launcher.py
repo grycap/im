@@ -21,7 +21,7 @@
 import sys
 import time
 import os
-from multiprocessing import Process
+from multiprocessing import Process, active_children
 import subprocess
 import signal
 import logging
@@ -132,6 +132,8 @@ class AnsibleThread(Process):
         except errors.AnsibleError as e:
             display("ERROR: %s" % e, output=self.output)
             self.result.put((0, (1, []), output))
+        finally:
+            self._kill_childs()
 
     def get_play_prereqs(self, options):
         if LooseVersion(ansible_version) >= LooseVersion("2.4.0"):

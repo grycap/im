@@ -23,6 +23,8 @@ __metaclass__ = type
 
 import logging
 import sys
+import tempfile
+import shutil
 
 from ansible import constants as C
 from ansible.plugins.callback import CallbackBase
@@ -363,6 +365,9 @@ class IMPlaybookExecutor(PlaybookExecutor):
         Run the given playbook, based on the settings in the play which
         may limit the runs to serialized groups, etc.
         '''
+        # Create a specific dir for the local temp
+        C.DEFAULT_LOCAL_TMP = tempfile.mkdtemp()
+
         result = 0
         try:
             for playbook_path in self._playbooks:
@@ -451,4 +456,8 @@ class IMPlaybookExecutor(PlaybookExecutor):
             if self._tqm is not None:
                 self._tqm.cleanup()
 
+        try:
+            shutil.rmtree(C.DEFAULT_LOCAL_TMP, True)
+        except:
+            pass
         return result
