@@ -1449,7 +1449,7 @@ class EC2CloudConnector(CloudConnector):
             if resp.status_code == 200:
                 data = resp.json()
                 for instance_type in data:
-                    price = 1000000
+                    price = 50
                     if instance_type['pricing']:
                         price = float(instance_type['pricing']['us-east-1']['linux']['ondemand'])
                     disks = 0

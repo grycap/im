@@ -1214,7 +1214,7 @@ class ConfManager(threading.Thread):
         self.ansible_process.start()
 
         wait = 0
-        while self.ansible_process.is_alive():
+        while result.empty() and self.ansible_process.is_alive():
             if wait >= Config.ANSIBLE_INSTALL_TIMEOUT:
                 self.log_error('Timeout waiting Ansible process to finish')
                 try:
@@ -1233,7 +1233,7 @@ class ConfManager(threading.Thread):
 
         try:
             self.log_info('Get the results of the Ansible process.')
-            _, (return_code, _), output = result.get(timeout=10)
+            _, (return_code, _), output = result.get(timeout=10, block=False)
             msg = output.getvalue()
             self.log_info('Results obtained')
         except:
