@@ -21,7 +21,7 @@
 import sys
 import time
 import os
-from multiprocessing import Process, active_children
+from multiprocessing import Process
 import subprocess
 import signal
 import logging
