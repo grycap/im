@@ -102,7 +102,9 @@ class AnsibleThread(Process):
 
     def _get_childs(self, parent_id=None):
         if parent_id is None:
-            parent_id = os.getpid()
+            parent_id = self.pid
+        if parent_id is None:
+            return []
         ps_command = subprocess.Popen("ps -o pid --ppid %d --noheaders" % parent_id, shell=True, stdout=subprocess.PIPE)
         ps_command.wait()
         ps_output = str(ps_command.stdout.read())
