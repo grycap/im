@@ -152,7 +152,7 @@ class TestREST(unittest.TestCase):
 
         GetInfrastructureState.return_value = {'state': "running", 'vm_states': {"vm1": "running", "vm2": "running"}}
         GetInfrastructureRADL.return_value = "radl"
-        GetInfrastructureContMsg.return_value = "contmsg"
+        GetInfrastructureContMsg.return_value = "contmsg" 
 
         inf = MagicMock()
         get_infrastructure.return_value = inf
@@ -777,6 +777,9 @@ class TestREST(unittest.TestCase):
         self.assertEqual(info, {"cont": ["1", "2"]})
         info = format_output(["1", "2"])
         self.assertEqual(info, '1\n2')
+
+        info = format_output(u'contmsg\xe1', field_name="contmsg", default_type="text/plain")
+        self.assertEqual(info, u'contmsg\xe1')
 
         get_media_type.return_value = ["application/zip"]
         info = format_output(["1", "2"])
