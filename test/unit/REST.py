@@ -152,7 +152,7 @@ class TestREST(unittest.TestCase):
 
         GetInfrastructureState.return_value = {'state': "running", 'vm_states': {"vm1": "running", "vm2": "running"}}
         GetInfrastructureRADL.return_value = "radl"
-        GetInfrastructureContMsg.return_value = "contmsg" 
+        GetInfrastructureContMsg.return_value = "contmsg"
 
         inf = MagicMock()
         get_infrastructure.return_value = inf
