@@ -148,12 +148,12 @@ class TestCtxtAgent(unittest.TestCase):
         vm = self.gen_vm_data()
         queue_mock = MagicMock()
         queue.return_value = queue_mock
-        queue_mock.get.return_value = None, (0, []), None
+        queue_mock.get.return_value = None, 0, None
         ansible_thread = CtxtAgent.LaunchAnsiblePlaybook(self.logger, "/tmp", "play.yml",
                                                          vm, 1, "/tmp/inv", "/tmp/pk.pem",
                                                          3, True, None)
         res = CtxtAgent.wait_thread(ansible_thread, "All was OK.")
-        self.assertEqual(res, (True, []))
+        self.assertEqual(res, True)
 
     @patch("contextualization.ctxt_agent.SSH.execute_timeout")
     @patch("contextualization.ctxt_agent.SSH.execute")
@@ -193,7 +193,7 @@ class TestCtxtAgent(unittest.TestCase):
         CtxtAgent.changeVMCredentials.return_value = True
         CtxtAgent.LaunchAnsiblePlaybook = MagicMock()
         queue = MagicMock()
-        queue.get.return_value = None, (0, []), None
+        queue.get.return_value = None, 0, None
         CtxtAgent.LaunchAnsiblePlaybook.return_value = (MagicMock(), queue)
         CtxtAgent.wait_winrm_access = MagicMock()
         CtxtAgent.wait_winrm_access.return_value = True
