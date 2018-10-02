@@ -428,8 +428,8 @@ class InfrastructureInfo:
         and store the value in the vm_master field
         """
         self.vm_master = None
+        max_vms_connected = -1
         for vm in self.get_vm_list():
-            max_vms_connected = -1
             vms_connected = -1
             if vm.getOS() and vm.getOS().lower() == 'linux' and vm.hasPublicNet():
                 # check that is connected with other VMs
@@ -438,8 +438,9 @@ class InfrastructureInfo:
                     if not vm.isConnectedWith(other_vm):
                         vms_connected += 1
 
-            if vms_connected > max_vms_connected:
-                self.vm_master = vm
+                if vms_connected > max_vms_connected:
+                    max_vms_connected = vms_connected
+                    self.vm_master = vm
 
     def vm_in_ctxt_tasks(self, vm):
         found = False
