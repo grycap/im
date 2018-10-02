@@ -778,6 +778,9 @@ class TestREST(unittest.TestCase):
         info = format_output(["1", "2"])
         self.assertEqual(info, '1\n2')
 
+        info = format_output(u'contmsg\xe1', field_name="contmsg", default_type="text/plain")
+        self.assertEqual(info, u'contmsg\xe1')
+
         get_media_type.return_value = ["application/zip"]
         info = format_output(["1", "2"])
         self.assertEqual(info, 'Unsupported Accept Media Types: application/zip')
