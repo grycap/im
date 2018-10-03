@@ -1111,6 +1111,8 @@ class InfrastructureManager:
 
         sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
         delete_list = list(reversed(sel_inf.get_vm_list()))
+        # First stop ctxt processes
+        sel_inf.stop()
         # Destroy the Infrastructure
         sel_inf.destroy(auth, delete_list)
         # Set the Infrastructure as deleted
