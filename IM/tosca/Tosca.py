@@ -225,7 +225,16 @@ class Tosca:
             else:
                 priv.append(d)
 
-        radl.deploys = pub + priv
+        # This is patch, we need a solution for that
+        wn = []
+        fe = []
+        for d in pub:
+            if "wn" in d.id:
+                wn.append(d)
+            else:
+                fe.append(d)
+
+        radl.deploys = fe + wn + priv
 
     def _get_num_instances(self, sys_name, inf_info):
         """

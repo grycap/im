@@ -80,6 +80,8 @@ class TestTosca(unittest.TestCase):
         self.assertEqual(lrms_wn.getValue("spot"), 'no')
         self.assertEqual(lrms_wn.getValue("instance_type"), 'some_type')
 
+        self.assertEqual([d.id for d in radl.deploys], ['other_server', 'lrms_server', 'lrms_wn'])
+
     def test_tosca_get_outputs(self):
         """Test TOSCA get_outputs function"""
         tosca_data = read_file_as_string('../files/tosca_create.yml')
