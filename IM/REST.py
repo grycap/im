@@ -284,7 +284,7 @@ def format_output(res, default_type="text/plain", field_name=None, list_field_na
                     if isinstance(res, list):
                         info = "\n".join(res)
                     else:
-                        info = str(res)
+                        info = "%s" % res
                 content_type = default_type
                 break
 
@@ -299,7 +299,7 @@ def format_output(res, default_type="text/plain", field_name=None, list_field_na
             if isinstance(res, list):
                 info = "\n".join(res)
             else:
-                info = str(res)
+                info = "%s" % res
         bottle.response.content_type = default_type
 
     return info
