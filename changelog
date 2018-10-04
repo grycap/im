@@ -436,3 +436,10 @@ IM 1.7.5:
     * Fix error deleting OCCI infrastructure: Volume deleting returns forbidden and takes too long
     * Fix error with OCCI server 2.0.4 authentication error
     * Fix problem installing specific branch of Ansible galaxy roles
+    * Fix error in REST API in case of strange char in ansible output
+    * Add support to disk.*.image_url in OpenStack connector
+    * Fix error detecting ansible process end
+    * Enable to specify spot to EC2 instances in TOSCA
+    * Get EC2 instances info from ec2instances.info
+    * Fix error geting the subnets of the default VPC on EC2 conn
+    * Add volume_id to TOSCA BlockStorage type
