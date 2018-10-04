@@ -153,14 +153,15 @@ class TestOSTConnector(unittest.TestCase):
             disk.0.image.url = 'ost://server.com/ami-id' and
             disk.0.os.credentials.username = 'user' and
             disk.1.size=1GB and
-            disk.1.device='hdb' and
-            disk.1.mount_path='/mnt/path'
+            disk.1.device='hdb'
             )"""
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
 
         auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'username': 'user',
-                                'password': 'pass', 'tenant': 'tenant', 'host': 'https://server.com:5000'}])
+                                'password': 'pass', 'tenant': 'tenant', 'host': 'https://server.com:5000'},
+                               {'type': 'InfrastructureManager', 'username': 'user',
+                                'password': 'pass'}])
         ost_cloud = self.get_ost_cloud()
 
         driver = MagicMock()
@@ -192,15 +193,21 @@ class TestOSTConnector(unittest.TestCase):
 
         driver.create_node.side_effect = self.create_node
 
-        res = ost_cloud.launch_with_retry(InfrastructureInfo(), radl, radl, 1, auth, 2, 1)
+        inf = InfrastructureInfo()
+        inf.auth = auth
+        res = ost_cloud.launch_with_retry(inf, radl, radl, 1, auth, 2, 1)
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
         # test with proxy auth data
         auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'proxy': 'proxy',
-                                'tenant': 'tenant', 'host': 'https://server.com:5000'}])
-        res = ost_cloud.launch(InfrastructureInfo(), radl, radl, 1, auth)
+                                'tenant': 'tenant', 'host': 'https://server.com:5000'},
+                               {'type': 'InfrastructureManager', 'username': 'user',
+                                'password': 'pass'}])
+        inf = InfrastructureInfo()
+        inf.auth = auth
+        res = ost_cloud.launch(inf, radl, radl, 1, auth)
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
 
@@ -219,7 +226,12 @@ class TestOSTConnector(unittest.TestCase):
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'ost://server.com/ami-id' and
             disk.0.os.credentials.username = 'user' and
-            disk.0.os.credentials.password = 'pass'
+            disk.0.os.credentials.password = 'pass' and
+            disk.1.size=1GB and
+            disk.1.device='hdb' and
+            disk.1.mount_path='/mnt/path' and
+            disk.2.image.url='ost://server.com/ami-id1' and
+            disk.2.mount_path='/mnt/path'
             )"""
         radl = radl_parse.parse_radl(radl_data)
         radl.check()

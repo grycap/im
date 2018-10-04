@@ -447,7 +447,7 @@ class OCCICloudConnector(CloudConnector):
                     vm.info.systems[0].setValue("cpu.count", int(cores))
                 memory = self.get_occi_attribute_value(resp.text, 'occi.compute.memory')
                 if memory:
-                    vm.info.systems[0].setValue("memory.size", int(float(memory)), 'G')
+                    vm.info.systems[0].setValue("memory.size", int(float(memory)), 'M')
 
                 console_vnc = self.get_occi_attribute_value(resp.text, 'org.openstack.compute.console.vnc')
                 if console_vnc:
@@ -734,6 +734,9 @@ class OCCICloudConnector(CloudConnector):
                     if resp.status_code == 404:
                         self.log_info("It does not exist.")
                         return (True, "")
+                    elif resp.status_code in [403, 401]:
+                        self.log_info("You are not authorized to delete it. Ignore.")
+                        return (True, "")
                     elif resp.status_code == 409:
                         self.log_info("Error deleting the Volume. It seems that it is still "
                                       "attached to a VM: %s" % resp.text)
@@ -758,7 +761,6 @@ class OCCICloudConnector(CloudConnector):
 
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         system = radl.systems[0]
-        auth_header = self.get_auth_header(auth_data)
 
         cpu = system.getValue('cpu.count')
         memory = None
@@ -793,12 +795,6 @@ class OCCICloudConnector(CloudConnector):
         if not user:
             user = self.DEFAULT_USER
             system.setValue('disk.0.os.credentials.username', user)
-
-        # Add user cloud init data
-        cloud_config_str = self.get_cloud_init_data(radl)
-        cloud_config = self.gen_cloud_config(public_key, user, cloud_config_str).encode()
-        user_data = base64.b64encode(cloud_config).decode().replace("\n", "")
-        self.log_debug("Cloud init: %s" % cloud_config.decode())
 
         # Get the info about the OCCI server (GET /-/)
         success, occi_info = self.query_occi(auth_data)
@@ -859,15 +855,23 @@ class OCCICloudConnector(CloudConnector):
                     if memory:
                         body += 'X-OCCI-Attribute: occi.compute.memory=' + str(memory) + '\n'
 
-                compute_id = "im.%s" % str(uuid.uuid1())
+                compute_id = "im-%s" % str(uuid.uuid1())
                 body += 'X-OCCI-Attribute: occi.core.id="' + compute_id + '"\n'
                 body += 'X-OCCI-Attribute: occi.core.title="' + name + '"\n'
 
                 # Set the hostname defined in the RADL
                 # Create the VM to get the nodename
                 vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self)
+                vm.destroy = True
+                inf.add_vm(vm)
                 (nodename, _) = vm.getRequestedName(default_hostname=Config.DEFAULT_VM_NAME,
                                                     default_domain=Config.DEFAULT_DOMAIN)
+
+                # Add user cloud init data
+                cloud_config_str = self.get_cloud_init_data(radl, vm)
+                cloud_config = self.gen_cloud_config(public_key, user, cloud_config_str).encode()
+                user_data = base64.b64encode(cloud_config).decode().replace("\n", "")
+                self.log_debug("Cloud init: %s" % cloud_config.decode())
 
                 body += 'X-OCCI-Attribute: occi.compute.hostname="' + nodename + '"\n'
                 if user_data:
@@ -877,7 +881,7 @@ class OCCICloudConnector(CloudConnector):
 
                 # Add volume links
                 for _, device, volume_id in volumes:
-                    link_id = "im.%s" % str(uuid.uuid1())
+                    link_id = "im-%s" % str(uuid.uuid1())
                     body += ('Link: <%s/storage/%s>;rel="http://schemas.ogf.org/occi/infrastructure#storage";'
                              'category="http://schemas.ogf.org/occi/infrastructure#storagelink";'
                              'occi.core.target="%s/storage/%s";'
@@ -892,6 +896,7 @@ class OCCICloudConnector(CloudConnector):
                 self.log_debug(body)
 
                 headers = {'Accept': 'text/plain', 'Connection': 'close', 'Content-Type': 'text/plain,text/occi'}
+                auth_header = self.get_auth_header(auth_data)
                 if auth_header:
                     headers.update(auth_header)
                 resp = self.create_request('POST', self.cloud.path + "/compute/", auth_data, headers, body)
@@ -910,7 +915,7 @@ class OCCICloudConnector(CloudConnector):
                     if occi_vm_id:
                         vm.id = occi_vm_id
                         vm.info.systems[0].setValue('instance_id', str(occi_vm_id))
-                        inf.add_vm(vm)
+                        vm.destroy = False
                         res.append((True, vm))
                     else:
                         res.append((False, 'Unknown Error launching the VM.'))
@@ -993,7 +998,7 @@ class OCCICloudConnector(CloudConnector):
         try:
             resp = self.create_request('DELETE', self.cloud.path + "/compute/" + vm.id, auth_data, headers)
 
-            if resp.status_code != 200 and resp.status_code != 404 and resp.status_code != 204:
+            if resp.status_code not in [200, 204, 404]:
                 return (False, "Error removing the VM: " + resp.reason + "\n" + resp.text)
         except Exception:
             self.log_exception("Error connecting with OCCI server")
@@ -1356,7 +1361,7 @@ class KeyStoneAuth:
                 if resp.status_code == 200:
                     return occi.keystone_token
                 else:
-                    occi.log_warn("Old Keystone token invalid.")
+                    occi.log_warn("Keystone token invalid.")
                     return None
             except Exception:
                 occi.log_exception("Error checking Keystone token")

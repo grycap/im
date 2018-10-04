@@ -44,6 +44,7 @@ class IncorrectVMException(Exception):
 
     def __init__(self, msg="Invalid VM ID"):
         Exception.__init__(self, msg)
+        self.message = msg
 
 
 class DeletedVMException(Exception):
@@ -51,6 +52,7 @@ class DeletedVMException(Exception):
 
     def __init__(self, msg="Deleted VM."):
         Exception.__init__(self, msg)
+        self.message = msg
 
 
 class InfrastructureInfo:
@@ -233,8 +235,13 @@ class InfrastructureInfo:
         Add, and assigns a new VM ID to the infrastructure
         """
         with self._lock:
+            # Store the creation ID
+            vm.creation_im_id = vm.im_id
             # Set the ID of the pos in the list
             vm.im_id = len(self.vm_list)
+            # Store the creation ID if not set
+            if vm.creation_im_id is None:
+                vm.creation_im_id = vm.im_id
             self.vm_list.append(vm)
         IM.InfrastructureList.InfrastructureList.save_data(self.id)
 
@@ -416,21 +423,24 @@ class InfrastructureInfo:
     def select_vm_master(self):
         """
         Select the VM master of the infrastructure.
-        The master VM must be connected with all the VMs and must have a Linux OS
+        The master VM must be have a Linux OS connected with the maximum number of VMs
         It will select the first created VM that fulfills this requirements
         and store the value in the vm_master field
         """
         self.vm_master = None
+        max_vms_connected = -1
         for vm in self.get_vm_list():
+            vms_connected = -1
             if vm.getOS() and vm.getOS().lower() == 'linux' and vm.hasPublicNet():
-                # check that is connected with all the VMs
-                full_connected = True
+                # check that is connected with other VMs
+                vms_connected = 0
                 for other_vm in self.get_vm_list():
                     if not vm.isConnectedWith(other_vm):
-                        full_connected = False
-                if full_connected:
+                        vms_connected += 1
+
+                if vms_connected > max_vms_connected:
+                    max_vms_connected = vms_connected
                     self.vm_master = vm
-                    break
 
     def vm_in_ctxt_tasks(self, vm):
         found = False
@@ -565,13 +575,15 @@ class InfrastructureInfo:
                         tasks[3] = ['copy_facts_cache']
                     tasks[4] = ['main_' + vm.info.systems[0].name]
                 else:
-                    init_steps = 2
+                    init_steps = 3
                     if cont == 0:
                         # In the first VM put the wait all ssh task
-                        tasks[0] = ['wait_all_ssh', 'basic']
+                        tasks[0] = ['wait_all_ssh']
+                        tasks[1] = ['basic']
                     else:
-                        tasks[0] = ['basic']
-                    tasks[1] = ['main_' + vm.info.systems[0].name]
+                        tasks[0] = []
+                        tasks[1] = ['basic']
+                    tasks[2] = ['main_' + vm.info.systems[0].name]
 
                 # And the specific tasks only for the specified ones
                 if not vm_list or vm.im_id in vm_list:

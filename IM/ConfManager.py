@@ -892,7 +892,7 @@ class ConfManager(threading.Thread):
                     # If there are not a valid master VM, exit
                     self.log_error("No correct Master VM found. Exit")
                     self.inf.add_cont_msg("Contextualization Error: No correct Master VM found. Check if there a "
-                                          "linux VM with Public IP and connected with the rest of VMs.")
+                                          "linux VM with Public IP.")
                     self.inf.set_configured(False)
                     return
 
@@ -1214,7 +1214,7 @@ class ConfManager(threading.Thread):
         self.ansible_process.start()
 
         wait = 0
-        while self.ansible_process.is_alive():
+        while result.empty() and self.ansible_process.is_alive():
             if wait >= Config.ANSIBLE_INSTALL_TIMEOUT:
                 self.log_error('Timeout waiting Ansible process to finish')
                 try:
@@ -1233,8 +1233,9 @@ class ConfManager(threading.Thread):
 
         try:
             self.log_info('Get the results of the Ansible process.')
-            _, (return_code, _), output = result.get(timeout=10)
+            _, (return_code, _), output = result.get(timeout=10, block=False)
             msg = output.getvalue()
+            self.log_info('Results obtained')
         except:
             self.log_exception('Error getting ansible results.')
             return_code = 1
@@ -1412,6 +1413,7 @@ class ConfManager(threading.Thread):
                 if vm.getPublicIP() and vm.getPrivateIP():
                     vm_conf_data['private_ip'] = vm.getPrivateIP()
                 vm_conf_data['remote_port'] = vm.getRemoteAccessPort()
+                vm_conf_data['reverse_port'] = vm.getSSHReversePort()
                 creds = vm.getCredentialValues()
                 new_creds = vm.getCredentialValues(new=True)
                 (vm_conf_data['user'], vm_conf_data['passwd'],

@@ -146,7 +146,9 @@ class TestONEConnector(unittest.TestCase):
         radl.check()
 
         auth = Authentication([{'id': 'one', 'type': 'OpenNebula', 'username': 'user',
-                                'password': 'pass', 'host': 'server.com:2633'}])
+                                'password': 'pass', 'host': 'server.com:2633'},
+                               {'type': 'InfrastructureManager', 'username': 'user',
+                                'password': 'pass'}])
         one_cloud = self.get_one_cloud()
 
         getONEVersion.return_value = "4.14.0"
@@ -159,6 +161,7 @@ class TestONEConnector(unittest.TestCase):
         server_proxy.return_value = one_server
 
         inf = InfrastructureInfo()
+        inf.auth = auth
         res = one_cloud.launch(inf, radl, radl, 1, auth)
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
