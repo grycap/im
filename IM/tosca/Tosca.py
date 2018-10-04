@@ -225,7 +225,7 @@ class Tosca:
             else:
                 priv.append(d)
 
-        # This is patch, we need a solution for that
+        # This is patch, we need an actual solution for that
         wn = []
         fe = []
         for d in pub:
