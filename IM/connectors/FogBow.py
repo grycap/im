@@ -19,6 +19,7 @@ import os
 import sys
 import requests
 import base64
+import time
 from uuid import uuid1
 
 from IM.uriparse import uriparse
@@ -36,14 +37,14 @@ class FogBowCloudConnector(CloudConnector):
     """str with the name of the provider."""
 
     VM_STATE_MAP = {
-        'DISPATCHED': VirtualMachine.RUNNING,
+        # 'DISPATCHED': VirtualMachine.RUNNING,
+        # 'INACTIVE': VirtualMachine.PENDING,
+        # 'SPAWNING': VirtualMachine.PENDING,
+        # 'CREATING': VirtualMachine.PENDING,
+        # 'ATTACHING': VirtualMachine.RUNNING,
+        # 'UNAVAILABLE': VirtualMachine.STOPPED,
         'READY': VirtualMachine.RUNNING,
-        'INACTIVE': VirtualMachine.PENDING,
-        'SPAWNING': VirtualMachine.PENDING,
-        'CREATING': VirtualMachine.PENDING,
-        'ATTACHING': VirtualMachine.RUNNING,
         'IN_USE': VirtualMachine.RUNNING,
-        'UNAVAILABLE': VirtualMachine.STOPPED,
         'FAILED': VirtualMachine.FAILED,
         'INCONSISTENT': VirtualMachine.FAILED
     }
@@ -157,16 +158,17 @@ class FogBowCloudConnector(CloudConnector):
                         if provider_id:
                             nets.append(provider_id)
 
-                body = {
-                    "imageId": image,
-                    "memory": memory,
-                    "name": "%s-%s" % (name.lower().replace("_", "-"), str(uuid1())),
-                    "publicKey": public_key,
-                    "vCPU": cpu
-                    }
+                body = {"imageId": image,
+                        "memory": memory,
+                        "name": "%s-%s" % (name.lower().replace("_", "-"), str(uuid1())),
+                        "publicKey": public_key,
+                        "vCPU": cpu}
 
                 if nets:
                     body["networkIds"] = nets
+
+                if system.getValue('availability_zone'):
+                    body['providingMember'] = system.getValue('availability_zone')
 
                 resp = self.create_request('POST', '/computes/', auth_data, headers, json.dumps(body))
 
@@ -186,6 +188,27 @@ class FogBowCloudConnector(CloudConnector):
             i += 1
 
         return res
+
+    def wait_volume(self, volume_id, auth_data, state='READY', timeout=60, delay=5):
+        """
+        Wait a volume to be in certain state.
+        """
+        if volume_id:
+            count = 0
+            vol_state = ""
+            while vol_state != state and vol_state != "FAILED" and count < timeout:
+                time.sleep(delay)
+                count += delay
+                resp = self.create_request('GET', '/volumes/%s' % volume_id, auth_data)
+                if resp.status_code != 200:
+                    self.log_error("Error getting volume state: %s. %s." % (resp.reason, resp.text))
+                    return False
+                else:
+                    vol_state = resp.json()["state"]
+
+            return vol_state == state
+        else:
+            return False
 
     def attach_volumes(self, vm, auth_data):
         """
@@ -232,7 +255,7 @@ class FogBowCloudConnector(CloudConnector):
                         else:
                             volume_id = resp.json()["id"]
 
-                        success = self.wait_volume(volume_id)
+                        success = self.wait_volume(volume_id, auth_data)
                         if success:
                             # Add the volume to the VM to remove it later
                             vm.volumes.append(volume_id)
@@ -240,13 +263,13 @@ class FogBowCloudConnector(CloudConnector):
                     if success:
                         self.log_debug("Attach the volume ID %s" % volume_id)
                         body = '{"computeId": "%s","device": "%s","volumeId": "%s"}' % (vm.id, disk_device, volume_id)
-                        resp = self.create_request('POST', '/attachment/', auth_data, headers, body)
+                        resp = self.create_request('POST', '/attachments/', auth_data, headers, body)
 
                         # wait the volume to be attached
                         if resp.status_code not in [201, 200]:
                             self.log_error("Error attaching volume: %s. %s" % (resp.reason, resp.text))
                         else:
-                            attach_id = resp.json()["id"]
+                            disk_device = resp.json()["device"]
 
                         vm.info.systems[0].setValue("disk." + str(cont) + ".device", disk_device)
                     else:
@@ -263,17 +286,18 @@ class FogBowCloudConnector(CloudConnector):
             self.log_exception("Error creating or attaching the volume to the node")
             return False
 
-    def _get_instance_public_ips(self, vm_id, auth_data):
+    def _get_instance_public_ips(self, vm_id, auth_data, field="ip"):
         """
         Get the IPs associated with the compute specified
         """
+        # TODO: See how to get this
         return []
 
-    def manage_elastic_ip(self, vm, public_ips, auth_data):
+    def add_elastic_ip(self, vm, public_ips, auth_data):
         """
         Get a public IP if needed.
         """
-        if not public_ips and vm.getRequestedSystem().hasPublicNet():
+        if not public_ips and vm.hasPublicNet():
             self.log_debug("VM ID %s requests a public IP and it does not have it. Requesting the IP." % vm.id)
             headers = {'Accept': 'application/json'}
             body = '{"computeOrderId": "%s"}' % vm.id
@@ -299,15 +323,29 @@ class FogBowCloudConnector(CloudConnector):
             else:
                 output = resp.json()
                 vm.state = self.VM_STATE_MAP.get(output["state"], VirtualMachine.UNKNOWN)
-                
+
+                if output["vCPU"]:
+                    vm.info.systems[0].addFeature(Feature(
+                        "cpu.count", "=", output["vCPU"]), conflict="other", missing="other")
+                if output["ram"]:
+                    vm.info.systems[0].addFeature(Feature(
+                        "memory.size", "=", output["ram"], 'M'), conflict="other", missing="other")
+
                 # Update the network data
                 private_ips = []
                 if output["localIpAddress"]:
                     private_ips.append(output["localIpAddress"])
                 public_ips = self._get_instance_public_ips(vm.id, auth_data)
-                
-                self.manage_elastic_ip(vm, public_ips, auth_data)
+
+                if 'providingMember' in output:
+                    vm.info.systems[0].setValue('availability_zone', output['providingMember'])
+
+                ip = self.add_elastic_ip(vm, public_ips, auth_data)
+                if ip:
+                    public_ips.append(ip)
                 vm.setIps(public_ips, private_ips)
+
+                self.attach_volumes(vm, auth_data)
 
                 return (True, vm)
         except Exception as ex:
@@ -326,14 +364,66 @@ class FogBowCloudConnector(CloudConnector):
 
             if resp.status_code == 404:
                 vm.state = VirtualMachine.OFF
-                return (True, "")
+                res = (True, "")
             elif resp.status_code not in [200, 204]:
-                return (False, "Error removing the VM: " + resp.reason + "\n" + resp.text)
+                res = (False, "Error removing the VM: " + resp.reason + "\n" + resp.text)
             else:
-                return (True, "")
+                res = (True, "")
+
+            self.delete_volumes(vm, auth_data)
+            self.delete_public_ips(vm, auth_data)
+
+            return res
         except Exception as ex:
             self.log_exception("Error connecting with FogBow server")
             return (False, "Error connecting with FogBow server: %s" % ex.message)
+
+    def delete_volumes(self, vm, auth_data):
+        """
+        Delete the volumes of a VM
+        """
+        all_ok = True
+        if "volumes" in vm.__dict__.keys() and vm.volumes:
+            for volumeid in vm.volumes:
+                self.log_debug("Deleting volume ID %s" % volumeid)
+                try:
+                    resp = self.create_request('DELETE', '/volumes/%s' % volumeid, auth_data)
+                    if resp.status_code not in [200, 204, 404]:
+                        success = False
+                        raise Exception(resp.reason + "\n" + resp.text)
+                    else:
+                        success = True
+                except:
+                    self.log_exception("Error destroying the volume: " + str(volumeid) +
+                                       " from the node: " + str(vm.id))
+                    success = False
+
+                if not success:
+                    all_ok = False
+        return all_ok
+
+    def delete_public_ips(self, vm, auth_data):
+        """
+        Release the public IPs of this VM
+        """
+        all_ok = True
+        public_ips = self._get_instance_public_ips(vm.id, auth_data, "id")
+        for ip_id in public_ips:
+            try:
+                resp = self.create_request('DELETE', '/publicIps/%s' % ip_id, auth_data)
+                if resp.status_code not in [200, 204, 404]:
+                    success = False
+                    raise Exception(resp.reason + "\n" + resp.text)
+                else:
+                    success = True
+                success = True
+            except:
+                self.log_exception("Error releasing the IP: " + str(ip_id) +
+                                   " from the node: " + str(vm.id))
+                success = False
+            if not success:
+                all_ok = False
+        return all_ok
 
     def stop(self, vm, auth_data):
         return (False, "Not supported")

@@ -120,21 +120,63 @@ class TestFogBowConnector(unittest.TestCase):
         self.call_count[method][url] += 1
 
         if method == "GET":
-            if url == "/order/1":
+            if url == "/computes/1":
                 resp.status_code = 200
-                resp.text = read_file_as_string("files/focci_resource.txt")
-            if url == "/compute/08d50672-76c6-4bcb-9eb4-7a17e611b86c@lsd.manager.naf.lsd.ufcg.edu.br":
+                resp.json.return_value = {"disk": 0,
+                                          "hostName": "hostname",
+                                          "id": "1",
+                                          "localIpAddress": "10.0.0.1",
+                                          "providingMember": "provider",
+                                          "ram": 1024,
+                                          "state": "READY",
+                                          "vCPU": 1}
+            elif url == "/volumes/1":
                 resp.status_code = 200
-                resp.text = read_file_as_string("files/focci_instance.txt")
+                resp.json.return_value = {"id": "1",
+                                          "name": "8.8.8.8",
+                                          "size": 1024,
+                                          "state": "READY"}
+            else:
+                resp.status_code = 404
         elif method == "POST":
-            if url == "/order/":
+            if url == "/computes/":
                 resp.status_code = 201
-                resp.headers = {'location': 'http/server.com/computeid'}
+                resp.json.return_value = {"disk": 0,
+                                          "hostName": "hostname",
+                                          "id": "1",
+                                          "localIpAddress": "10.0.0.1",
+                                          "providingMember": "provider",
+                                          "ram": 1024,
+                                          "state": "READY",
+                                          "vCPU": 1}
+            elif url == "/publicIps/":
+                resp.status_code = 201
+                resp.json.return_value = {"id": "1",
+                                          "ip": "8.8.8.8"}
+            elif url == "/volumes/":
+                resp.status_code = 201
+                resp.json.return_value = {"id": "1",
+                                          "name": "8.8.8.8",
+                                          "size": 1024,
+                                          "state": "READY"}
+            elif url == "/attachments/":
+                resp.status_code = 201
+                resp.json.return_value = {"id": "1",
+                                          "device": "hdc",
+                                          "serverId": "1",
+                                          "state": "READY",
+                                          "volumeId": "1"}
+            else:
+                resp.status_code = 404
         elif method == "DELETE":
-            if url == "/order/1":
+            if url == "/computes/1":
                 resp.status_code = 200
-            if url == "/compute/08d50672-76c6-4bcb-9eb4-7a17e611b86c@lsd.manager.naf.lsd.ufcg.edu.br":
+            elif url == "/volumes/1":
                 resp.status_code = 200
+            else:
+                resp.status_code = 404
+        else:
+            resp.status_code = 404
 
         return resp
 
@@ -156,10 +198,7 @@ class TestFogBowConnector(unittest.TestCase):
             net_interface.1.connection = 'net2' and
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'fbw://fogbow-ubuntu' and
-            disk.0.os.credentials.username = 'user' and
-            disk.1.size=1GB and
-            disk.1.device='hdb' and
-            disk.1.mount_path='/mnt/path'
+            disk.0.os.credentials.username = 'user'
             )"""
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
@@ -175,7 +214,8 @@ class TestFogBowConnector(unittest.TestCase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('requests.request')
-    def test_30_updateVMInfo(self, requests):
+    @patch('time.sleep')
+    def test_30_updateVMInfo(self, sleep, requests):
         radl_data = """
             network net (outbound = 'yes')
             system test (
@@ -187,7 +227,10 @@ class TestFogBowConnector(unittest.TestCase):
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'azr://image-id' and
             disk.0.os.credentials.username = 'user' and
-            disk.0.os.credentials.password = 'pass'
+            disk.0.os.credentials.password = 'pass' and
+            disk.1.size=1GB and
+            disk.1.device='hdb' and
+            disk.1.mount_path='/mnt/path'
             )"""
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
@@ -202,10 +245,29 @@ class TestFogBowConnector(unittest.TestCase):
 
         success, vm = fogbow_cloud.updateVMInfo(vm, auth)
 
-        self.assertEqual(str(vm.info.networks[0].getOutPorts()[0]), "10069:8080/tcp")
-        self.assertEqual(str(vm.info.networks[0].getOutPorts()[1]), "10068:22/tcp")
-
         self.assertTrue(success, msg="ERROR: updating VM info.")
+        expected_res = """network net ( outbound = 'yes' )
+network private.10.0.0.0 ( outbound = 'no' )
+system test (
+net_interface.1.ip = '10.0.0.1' and
+cpu.arch = 'x86_64' and
+disk.0.image.url = 'azr://image-id' and
+net_interface.0.ip = '8.8.8.8' and
+memory.size = 1024M and
+cpu.count = 1 and
+net_interface.1.connection = 'private.10.0.0.0' and
+availability_zone = 'provider' and
+state = 'pending' and
+net_interface.0.dns_name = 'test' and
+disk.1.mount_path = '/mnt/path' and
+disk.1.device = 'hdc' and
+disk.1.size = 1GB and
+net_interface.0.connection = 'net' and
+disk.0.os.name = 'linux' and
+disk.0.os.credentials.password = 'pass' and
+disk.0.os.credentials.username = 'user'
+)\n\n"""
+        self.assertEqual(str(vm.info), expected_res)
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('requests.request')
@@ -215,6 +277,7 @@ class TestFogBowConnector(unittest.TestCase):
 
         inf = MagicMock()
         vm = VirtualMachine(inf, "1", fogbow_cloud.cloud, "", "", fogbow_cloud, 1)
+        vm.volumes = ["1"]
 
         requests.side_effect = self.get_response
 
