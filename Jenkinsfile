@@ -9,6 +9,7 @@ pipeline {
 
     environment {
         dockerhub_repo = "indigodatacloud/im"
+        dockerhub_image_id = ""
         pip_test_reqs = '''bandit
 pep8
 nose
@@ -162,12 +163,12 @@ commands = bandit -r IM -f html -o bandit.html"""
             steps {
                 checkout scm
                 script {
-                    image_id = DockerBuild(dockerhub_repo, env.BRANCH_NAME)
+                    dockerhub_image_id = DockerBuild(dockerhub_repo, env.BRANCH_NAME)
                 }
             }
             post {
                 success {
-                    DockerPush(image_id)
+                    DockerPush(dockerhub_image_id)
                 }
                 failure {
                     DockerClean()
