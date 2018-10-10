@@ -177,5 +177,23 @@ commands = bandit -r IM -f html -o bandit.html"""
                 }
             }
         }
+
+        stage('Notifications') {
+            when {
+                buildingTag()
+            }
+	    steps {
+                JiraIssueNotification(
+                    'DEEP',
+                    'DPM',
+                    '10204',
+                    "[preview-testbed] New InfrastructureManager version ${env.BRANCH_NAME} available",
+                    'Check new artifacts at:\n\t- Docker image: ${dockerhub_image_id}\n',
+                    ['wp3', 'preview-testbed', "IM-${env.BRANCH_NAME}"],
+		    'Task',
+		    'mariojmdavid'
+                )
+            }
+        }
     }
 }
