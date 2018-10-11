@@ -1208,7 +1208,7 @@ class ConfManager(threading.Thread):
         result = Queue()
         extra_vars = {'IM_HOST': 'all'}
         # store the process to terminate it later is Ansible does not finish correctly
-        self.ansible_process = AnsibleThread(result, StringIO(), tmp_dir + "/" + playbook, None, 1, gen_pk_file,
+        self.ansible_process = AnsibleThread(result, StringIO(), tmp_dir + "/" + playbook, 1, gen_pk_file,
                                              ssh.password, 1, tmp_dir + "/" + inventory, ssh.username,
                                              extra_vars=extra_vars)
         self.ansible_process.start()
@@ -1233,7 +1233,7 @@ class ConfManager(threading.Thread):
 
         try:
             self.log_info('Get the results of the Ansible process.')
-            _, (return_code, _), output = result.get(timeout=10, block=False)
+            _, return_code, output = result.get(timeout=10, block=False)
             msg = output.getvalue()
             self.log_info('Results obtained')
         except:

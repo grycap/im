@@ -210,11 +210,10 @@ class CtxtAgent():
         thread, result = thread_data
         thread.join()
         try:
-            _, (return_code, hosts_with_errors), _ = result.get(timeout=60, block=False)
+            _, return_code, _ = result.get(timeout=60, block=False)
         except:
             CtxtAgent.logger.exception('Error getting ansible results.')
             return_code = -1
-            hosts_with_errors = []
 
         if output:
             if return_code == 0:
@@ -222,7 +221,7 @@ class CtxtAgent():
             else:
                 CtxtAgent.logger.error(output)
 
-        return (return_code == 0, hosts_with_errors)
+        return return_code == 0
 
     @staticmethod
     def LaunchAnsiblePlaybook(output, remote_dir, playbook_file, vm, threads, inventory_file, pk_file,
@@ -258,7 +257,7 @@ class CtxtAgent():
         from IM.ansible_utils.ansible_launcher import AnsibleThread
 
         result = Queue()
-        t = AnsibleThread(result, output, playbook_file, None, threads, gen_pk_file,
+        t = AnsibleThread(result, output, playbook_file, threads, gen_pk_file,
                           passwd, retries, inventory_file, user, vault_pass, extra_vars)
         t.start()
         return (t, result)
@@ -619,7 +618,7 @@ class CtxtAgent():
                                                                      vm_conf_data['changed_pass'], vault_pass)
 
                 if ansible_thread:
-                    (task_ok, _) = CtxtAgent.wait_thread(ansible_thread)
+                    task_ok = CtxtAgent.wait_thread(ansible_thread)
                 else:
                     task_ok = True
                 if not task_ok:

@@ -26,16 +26,17 @@ import subprocess
 import signal
 import logging
 from distutils.version import LooseVersion
+from collections import namedtuple
 from ansible import errors
 from ansible import __version__ as ansible_version
 
-from ansible.cli import CLI
 from ansible.parsing.dataloader import DataLoader
 try:
     # for Ansible version 2.2.0 or higher
     from ansible.module_utils._text import to_bytes
 except ImportError:
     from ansible.utils.unicode import to_bytes
+
 try:
     # for Ansible version 2.4.0 or higher
     from ansible.vars.manager import VariableManager
@@ -45,7 +46,6 @@ except ImportError:
     # for Ansible version 2.3.2 or lower
     from ansible.vars import VariableManager
     from ansible.inventory import Inventory
-import ansible.inventory
 
 from .ansible_executor_v2 import IMPlaybookExecutor
 
@@ -75,11 +75,10 @@ class AnsibleThread(Process):
     Class to call the ansible playbooks in a Thread
     """
 
-    def __init__(self, result, output, playbook_file, host=None, threads=1, pk_file=None, passwd=None, retries=1,
+    def __init__(self, result, output, playbook_file, threads=1, pk_file=None, passwd=None, retries=1,
                  inventory_file=None, user=None, vault_pass=None, extra_vars=None):
         super(AnsibleThread, self).__init__()
         self.playbook_file = playbook_file
-        self.host = host
         self.passwd = passwd
         self.threads = threads
         self.pk_file = pk_file
@@ -133,7 +132,7 @@ class AnsibleThread(Process):
             self.result.put((0, self.launch_playbook_v2(), output))
         except errors.AnsibleError as e:
             display("ERROR: %s" % e, output=self.output)
-            self.result.put((0, (1, []), output))
+            self.result.put((0, 1, output))
         finally:
             self._kill_childs()
 
@@ -155,15 +154,9 @@ class AnsibleThread(Process):
         variable_manager.extra_vars = self.extra_vars
         variable_manager.options_vars = {'ansible_version': self.version_info(ansible_version)}
 
-        # Add this to avoid the Ansible bug:  no host vars as host is not in inventory
-        # In version 2.0.1 it must be fixed
-        ansible.inventory.HOSTS_PATTERNS_CACHE = {}
-
         inventory = Inventory(loader=loader, variable_manager=variable_manager, host_list=options.inventory)
         variable_manager.set_inventory(inventory)
 
-        if self.host:
-            inventory.subset(self.host)
         # let inventory know which playbooks are using so it can know the
         # basedirs
         inventory.set_playbook_basedir(os.path.dirname(self.playbook_file))
@@ -207,56 +200,49 @@ class AnsibleThread(Process):
                 'minor': ansible_versions[1],
                 'revision': ansible_versions[2]}
 
+    def _gen_options(self):
+        Options = namedtuple('Options',
+                             ['connection',
+                              'module_path',
+                              'forks',
+                              'become',
+                              'become_method',
+                              'become_user',
+                              'check',
+                              'diff',
+                              'inventory',
+                              'private_key_file',
+                              'remote_user'])
+        options = Options(connection='ssh',
+                          module_path=None,
+                          forks=self.threads,
+                          become=False,
+                          become_method='sudo',
+                          become_user='root',
+                          check=False,
+                          diff=False,
+                          inventory=self.inventory_file,
+                          private_key_file=self.pk_file,
+                          remote_user=self.user)
+        return options
+
     def launch_playbook_v2(self):
         ''' run ansible-playbook operations v2.X'''
-        # create parser for CLI options
-        parser = CLI.base_parser(
-            usage="%prog playbook.yml",
-            connect_opts=True,
-            meta_opts=True,
-            runas_opts=True,
-            subset_opts=True,
-            check_opts=True,
-            inventory_opts=True,
-            runtask_opts=True,
-            vault_opts=True,
-            fork_opts=True,
-            module_opts=True,
-        )
+        options = self._gen_options()
+        passwords = {'become_pass': self.passwd}
 
-        options, _ = parser.parse_args([])
-
-        sshpass = None
-        if not options.become_user:
-            options.become_user = "root"
-
-        if self.pk_file:
-            options.private_key_file = self.pk_file
-        else:
-            sshpass = self.passwd
-
-        passwords = {'conn_pass': sshpass, 'become_pass': self.passwd}
-
-        if self.user:
-            options.remote_user = self.user
+        if self.pk_file is None:
+            passwords['conn_pass'] = self.passwd
 
         if not os.path.exists(self.playbook_file):
-            raise errors.AnsibleError(
-                "the playbook: %s could not be found" % self.playbook_file)
+            raise errors.AnsibleError("the playbook: %s could not be found" % self.playbook_file)
         if not os.path.isfile(self.playbook_file):
-            raise errors.AnsibleError(
-                "the playbook: %s does not appear to be a file" % self.playbook_file)
-
-        if self.inventory_file:
-            options.inventory = self.inventory_file
-
-        options.forks = self.threads
+            raise errors.AnsibleError("the playbook: %s does not appear to be a file" % self.playbook_file)
 
         loader, inventory, variable_manager = self.get_play_prereqs(options)
 
         num_retries = 0
         return_code = 4
-        results = None
 
         while return_code != 0 and num_retries < self.retries:
             time.sleep(5 * num_retries)
@@ -266,7 +252,7 @@ class AnsibleThread(Process):
             try:
                 # create the playbook executor, which manages running the plays
                 # via a task queue manager
-                pbex = IMPlaybookExecutor(playbooks=[self.playbook_file],
+                pbex = IMPlaybookExecutor(playbook=self.playbook_file,
                                           inventory=inventory,
                                           variable_manager=variable_manager,
                                           loader=loader,
@@ -284,4 +270,4 @@ class AnsibleThread(Process):
                 display("ERROR executing playbook (%s/%s)" %
                         (num_retries, self.retries), output=self.output)
 
-        return (return_code, results)
+        return return_code
