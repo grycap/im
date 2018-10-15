@@ -399,6 +399,12 @@ class Tosca:
                     radl.networks.append(private_net)
                     num_net = system.getNumNetworkIfaces()
 
+                if not public_ip and ports:
+                    outports = Tosca._format_outports(ports)
+                    if private_net.getValue("outports"):
+                        outports = "%s,%s" % (private_net.getValue("outports"), outports)
+                    private_net.setValue("outports", outports)
+
                 system.setValue('net_interface.' + str(num_net) + '.connection', private_net.id)
 
             public_net = None
