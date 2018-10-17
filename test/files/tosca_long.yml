@@ -137,6 +137,12 @@ topology_template:
     lrms_wn:
       type: tosca.nodes.indigo.Compute
       capabilities:
+        endpoint:
+          properties:
+            ports:
+              http_port:
+                protocol: tcp
+                source: 10000
         scalable:
           properties:
             count: 1
