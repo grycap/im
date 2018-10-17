@@ -34,6 +34,7 @@ try:
     from azure.common.credentials import UserPassCredentials
     from azure.common.credentials import ServicePrincipalCredentials
     from msrestazure.azure_exceptions import CloudError
+    from azure.mgmt.compute.models import DiskCreateOption
 except Exception as ex:
     print("WARN: Python Azure SDK not correctly installed. AzureCloudConnector will not work!.")
     print(ex)
@@ -402,7 +403,8 @@ class AzureCloudConnector(CloudConnector):
 
         return res
 
-    def get_azure_vm_create_json(self, storage_account, vm_name, nics, radl, instance_type, custom_data=None):
+    def get_azure_vm_create_json(self, storage_account, vm_name, nics, radl, instance_type,
+                                 custom_data, compute_client):
         """ Create the VM parameters structure. """
         system = radl.systems[0]
         url = uriparse(system.getValue("disk.0.image.url"))
@@ -420,9 +422,6 @@ class AzureCloudConnector(CloudConnector):
         # Always use the new credentials
         system.updateNewCredentialValues()
         user_credentials = system.getCredentials()
-
-        os_disk_name = "osdisk-" + str(uuid.uuid1())
-        disks = [vm_name + os_disk_name + ".vhd"]
 
         if custom_data:
             custom_data = base64.b64encode(custom_data.encode()).decode()
@@ -445,15 +444,6 @@ class AzureCloudConnector(CloudConnector):
                     'sku': image_values[2],
                     'version': image_values[3]
                 },
-                'os_disk': {
-                    'name': os_disk_name,
-                    'caching': 'None',
-                    'create_option': 'fromImage',
-                    'vhd': {
-                        'uri': 'https://{}.blob.core.windows.net/vhds/{}.vhd'.format(
-                            storage_account, vm_name + os_disk_name)
-                    }
-                },
             },
             'network_profile': {
                 'network_interfaces': [{'id': nic.id, 'primary': primary} for nic, primary in nics]
@@ -474,26 +464,36 @@ class AzureCloudConnector(CloudConnector):
 
         cont = 1
         data_disks = []
-        while system.getValue("disk." + str(cont) + ".size"):
-            disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('G')
-            disks.append("{}disk{}.vhd".format(vm_name, cont))
-            self.log_info("Adding a %s GB disk." % disk_size)
-            data_disks.append({
-                'name': '%s_disk_%d' % (vm_name, cont),
-                'disk_size_gb': disk_size,
-                'lun': cont - 1,
-                'vhd': {
-                    'uri': "http://{}.blob.core.windows.net/vhds/{}disk{}.vhd".format(
-                        storage_account, vm_name, cont)
-                },
-                'create_option': 'Empty'
-            })
+        while system.getValue("disk." + str(cont) + ".size") or system.getValue("disk." + str(cont) + ".image.url"):
+            disk_image = system.getValue("disk." + str(cont) + ".image.url")
+            if disk_image:
+                disk_parts = disk_image.split("/")
+                if len(disk_parts) != 2:
+                    raise Exception("Invalid format in disk." + str(cont) + ".image.url: rg_name/disk_name")
+                managed_disk = compute_client.disks.get(disk_parts[0], disk_parts[1])
+                data_disks.append({
+                    'name': managed_disk.name,
+                    'lun': cont - 1,
+                    'managed_disk': {
+                        'id': managed_disk.id
+                    },
+                    'create_option': DiskCreateOption.attach
+                })
+            else:
+                disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('G')
+                self.log_info("Adding a %s GB disk." % disk_size)
+                data_disks.append({
+                    'name': '%s_disk_%d' % (vm_name, cont),
+                    'disk_size_gb': disk_size,
+                    'lun': cont - 1,
+                    'create_option': DiskCreateOption.empty
+                })
             cont += 1
 
         if data_disks:
             vm['storage_profile']['data_disks'] = data_disks
 
-        return vm, disks
+        return vm
 
     def create_nets(self, radl, credentials, subscription_id, group_name):
         network_client = NetworkManagementClient(credentials, subscription_id)
@@ -574,6 +574,7 @@ class AzureCloudConnector(CloudConnector):
 
                 # Create resource group for the VM
                 resource_client.resource_groups.create_or_update(group_name, args)
+                compute_client = ComputeManagementClient(credentials, subscription_id)
 
                 vm = VirtualMachine(inf, group_name + '/' + vm_name, self.cloud, radl, requested_radl, self)
                 vm.info.systems[0].setValue('instance_id', group_name + '/' + vm_name)
@@ -582,11 +583,10 @@ class AzureCloudConnector(CloudConnector):
 
                 custom_data = self.get_cloud_init_data(radl, vm)
                 instance_type = self.get_instance_type(radl.systems[0], credentials, subscription_id)
-                vm_parameters, disks = self.get_azure_vm_create_json(storage_account_name, vm_name,
-                                                                     nics, radl, instance_type, custom_data)
-                vm.disks = disks
+                vm_parameters = self.get_azure_vm_create_json(storage_account_name, vm_name,
+                                                              nics, radl, instance_type, custom_data,
+                                                              compute_client)
 
-                compute_client = ComputeManagementClient(credentials, subscription_id)
                 async_vm_creation = compute_client.virtual_machines.create_or_update(group_name,
                                                                                      vm_name,
                                                                                      vm_parameters)
@@ -601,7 +601,6 @@ class AzureCloudConnector(CloudConnector):
                 # Delete Resource group and everything in it
                 if group_name:
                     self.delete_resource_group(group_name, resource_client)
-                    self.delete_vm_disks(vm, credentials, subscription_id)
 
             i += 1
 
@@ -829,8 +828,6 @@ class AzureCloudConnector(CloudConnector):
                         return False, "Error terminating the VM: %s" % msg
                 else:
                     self.log_info("RG: %s does not exist. Do not remove." % "rg-%s" % vm.inf.id)
-            else:
-                self.delete_vm_disks(vm, credentials, subscription_id)
 
         except Exception as ex:
             self.log_exception("Error terminating the VM")
@@ -918,29 +915,3 @@ class AzureCloudConnector(CloudConnector):
             self.log_info("Resource group %s successfully deleted." % group_name)
 
         return deleted, msg
-
-    def delete_vm_disks(self, vm, credentials, subscription_id):
-        try:
-            if "disks" in vm.__dict__.keys():
-                storage_account_name = self.get_storage_account_name(vm.inf.id)
-
-                storage_client = StorageManagementClient(credentials, subscription_id)
-                keys = storage_client.storage_accounts.list_keys("rg-%s" % vm.inf.id, storage_account_name)
-
-                key = None
-                for key in keys.keys:
-                    break
-                if not key:
-                    self.log_error("Error deleting VM disks: No key found.")
-                    return (False, "Error deleting VM disks: No key found.")
-
-                block_blob_service = BlockBlobService(account_name=storage_account_name, account_key=key.value)
-
-                for disk in vm.disks:
-                    self.log_debug("Deleting disk: %s" % disk)
-                    block_blob_service.delete_blob("vhds", disk)
-        except Exception as ex:
-            self.log_exception("Error deleting VM disks")
-            return (False, "Error deleting VM disks" + str(ex))
-
-        return True, ""
