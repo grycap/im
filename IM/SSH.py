@@ -102,19 +102,15 @@ class SSH:
         self.username = user
         self.password = passwd
         self.private_key = private_key
-        self.private_key_data = None
+        self.private_key_data = ""
         if (private_key is not None and private_key.strip() != ""):
-            private_key_obj = BytesIO()
             if os.path.isfile(private_key):
                 pkfile = open(private_key)
                 for line in pkfile.readlines():
-                    private_key_obj.write(line)
+                    self.private_key_data += line
                 pkfile.close()
             else:
-                private_key_obj.write(private_key)
-
-            private_key_obj.seek(0)
-            self.private_key_data = private_key_obj.getvalue()
+                self.private_key_data = private_key
 
     def __str__(self):
         res = "SSH: host: " + self.host + ", port: " + \
