@@ -857,6 +857,21 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         res = []
         i = 0
         system = radl.systems[0]
+
+        # First create a SG for the entire Infra
+        # Use the InfrastructureInfo lock to assure that only one VM create the SG
+        with inf._lock:
+            sg_name = "im-%s" % str(inf.id)
+            sg = self._get_security_group(driver, sg_name)
+            if not sg:
+                self.log_info("Creating security group: %s" % sg_name)
+                sg = driver.ex_create_security_group(sg_name, "Security group created by the IM")
+            res.append(sg)
+
+            # open all the ports for the VMs in the security group
+            driver.ex_create_security_group_rule(sg, 'tcp', 1, 65535, source_security_group=sg)
+            driver.ex_create_security_group_rule(sg, 'udp', 1, 65535, source_security_group=sg)
+
         while system.getValue("net_interface." + str(i) + ".connection"):
             network_name = system.getValue("net_interface." + str(i) + ".connection")
             network = radl.get_network_by_id(network_name)
