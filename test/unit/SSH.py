@@ -134,9 +134,16 @@ class TestSSH(unittest.TestCase):
     @patch('socket.socket')
     @patch('IM.SSH.Session')
     def test_sftp_mkdir(self, session, socket):
+        sess = MagicMock()
+        session.return_value = sess
+        sftp = MagicMock()
+        sess.sftp_init.return_value = sftp
+        sftp.stat.side_effect = Exception()
+
         ssh = SSHRetry("host", "user", "passwd", read_file_as_string("../files/privatekey.pem"))
 
         ssh.sftp_mkdir("/some_dir")
+        self.assertEqual(sftp.mkdir.call_args_list[0][0], ("/some_dir", 420))
 
     @patch('socket.socket')
     @patch('IM.SSH.Session')
