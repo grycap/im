@@ -234,9 +234,11 @@ class SSH:
     def _sftp_put(sftp, src, dest):
         f_flags = LIBSSH2_FXF_CREAT | LIBSSH2_FXF_WRITE
         fileinfo = os.stat(src)
-        with open(src, 'rb') as local_fh, sftp.open(dest, f_flags, fileinfo.st_mode) as remote_fh:
+        remote_fh = sftp.open(dest, f_flags, fileinfo.st_mode)
+        with open(src, 'rb') as local_fh:
             for data in local_fh:
                 remote_fh.write(data)
+        remote_fh.close()
 
     def sftp_put(self, src, dest):
         """ Puts a file to the remote server
@@ -396,10 +398,10 @@ class SSH:
         client = self.connect()
         sftp = client.sftp_init()
         res = []
-        with sftp.opendir(directory) as fh:
-            for _, name, attrs in fh.readdir():
-                print(attrs.permissions)
-                res.append(name)
+        fh = sftp.opendir(directory)
+        for _, name, _ in fh.readdir():
+            res.append(name)
+        fh.close()
         return res
 
     def sftp_list_attr(self, directory):
@@ -415,9 +417,10 @@ class SSH:
         client = self.connect()
         sftp = client.sftp_init()
         res = []
-        with sftp.opendir(directory) as fh:
-            for _, _, attrs in fh.readdir():
-                res.append(attrs)
+        fh = sftp.opendir(directory)
+        for _, _, attrs in fh.readdir():
+            res.append(attrs)
+        fh.close()
         return res
 
     def getcwd(self):
