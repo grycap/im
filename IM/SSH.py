@@ -367,7 +367,7 @@ class SSH:
         with sftp.open(dest, f_flags, mode) as remote_fh:
             remote_fh.write(content)
 
-    def sftp_mkdir(self, directory):
+    def sftp_mkdir(self, directory, mode=420):
         """ Creates a remote directory
 
             Arguments:
@@ -382,8 +382,6 @@ class SSH:
             sftp.stat(directory)
             res = False
         except:
-            mode = LIBSSH2_SFTP_S_IRUSR | LIBSSH2_SFTP_S_IWUSR | \
-                    LIBSSH2_SFTP_S_IRGRP | LIBSSH2_SFTP_S_IROTH
             sftp.mkdir(directory, mode)
             res = True
 
@@ -504,7 +502,7 @@ class SSH:
         sftp = client.sftp_init()
 
         attrs = sftp.stat(path)
-        attrs.permissions = mode
+        attrs.permissions = attrs.permissions | mode
         sftp.setstat(path, attrs)
 
         return True
