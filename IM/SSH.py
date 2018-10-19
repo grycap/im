@@ -382,7 +382,9 @@ class SSH:
             sftp.stat(directory)
             res = False
         except:
-            sftp.mkdir(directory)
+            mode = LIBSSH2_SFTP_S_IRUSR | LIBSSH2_SFTP_S_IWUSR | \
+                    LIBSSH2_SFTP_S_IRGRP | LIBSSH2_SFTP_S_IROTH
+            sftp.mkdir(directory, mode)
             res = True
 
         return res
