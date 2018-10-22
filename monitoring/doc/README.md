@@ -60,24 +60,24 @@ Create or download a [Dockerfile](https://github.com/grycap/im/blob/master/monit
 In case you want to test the OpenID authentication you must provide a valid token to the IM instance. The IM instance must be configured to support the OpenID issuer that you will use in the probes. Then you can download and execute the [script](https://github.com/grycap/im/blob/master/monitoring/get-access-token.sh) used to request to IM an access token. You need your client credentials, IAM user and password.
 
 ```sh
-[root@localhost imzabbix]# sh get-access-token.sh 
+[root@localhost improbe]# sh get-access-token.sh 
 
 {"access_token":"eyJraWQiOiJyc2E...","token_type":"Bearer","refresh_token":"eyJhbGciOiJub25lIn0.eyJqd...","expires_in":3599,"scope":"address phone openid email profile offline_access","id_token":"eyJraWQiOi..."}
-[root@localhost imzabbix]# 
+[root@localhost improbe]# 
 
 ```
 Build an image from the directory where your Dockerfile is located.
 
 ```sh
-[root@localhost imzabbix]# ls Dockerfile 
+[root@localhost improbe]# ls Dockerfile 
 Dockerfile
-[root@localhost imzabbix]# docker build -t <dockeruser>/<my_built_image> .
+[root@localhost improbe]# docker build -t <dockeruser>/<my_built_image> .
 Sending build context to Docker daemon  35.33kB
 Step 1/7 : FROM alpine:3.8
  ---> 0584b3d2cf6d
 ...
 Successfully built afe963948e10
-[root@localhost imzabbix]# 
+[root@localhost improbe]# 
 
 ```
 
@@ -85,13 +85,13 @@ After image was created, set up required parameters and run the docker container
 
 ```sh
 
-[root@localhost imzabbix]# TOKEN=eyJraWQiOiJyc2E...
+[root@localhost improbe]# TOKEN=eyJraWQiOiJyc2E...
 
 # If you  don't want to pass the token set it to the string 'None'
-[root@localhost imzabbix]# TOKEN='None'
+[root@localhost improbe]# TOKEN='None'
 
-[root@localhost imzabbix]# IM_URL=http://server.com/:8800
+[root@localhost improbe]# IM_URL=http://server.com/:8800
 
-[root@localhost imzabbix]# docker run --name MY_IMZABBIX_CONTAINER -e TOKEN=$TOKEN -e IM_URL=$IM_URL -d <dockeruser>/<my_built_image>
+[root@localhost improbe]# docker run --name MY_improbe_CONTAINER -e TOKEN=$TOKEN -e IM_URL=$IM_URL -d <dockeruser>/<my_built_image>
 
 ```
