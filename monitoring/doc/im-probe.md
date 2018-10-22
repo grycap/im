@@ -86,6 +86,10 @@ After image was created, set up required parameters and run the docker container
 ```sh
 
 [root@localhost imzabbix]# TOKEN=eyJraWQiOiJyc2E...
+
+# If you  don't want to pass the token set it to the string 'None'
+[root@localhost imzabbix]# TOKEN='None'
+
 [root@localhost imzabbix]# IM_URL=http://server.com/:8800
 
 [root@localhost imzabbix]# docker run --name MY_IMZABBIX_CONTAINER -e TOKEN=$TOKEN -e IM_URL=$IM_URL -d <dockeruser>/<my_built_image>
