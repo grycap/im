@@ -39,6 +39,8 @@ def log_setup(loglevel):
 
 def main(url, token):
 
+    if token == "None":
+        token = None
     imheaders = IMinfrastructureOper.update_imheaders(token)
 
     # CREATE INFRASTRUCTURE
