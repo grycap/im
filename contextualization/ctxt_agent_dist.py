@@ -246,11 +246,10 @@ class CtxtAgent():
                         CtxtAgent.logger.exception("Error putting %s file" % (vm_dir + "/ctxt_agent.log"))
 
         try:
-            _, (return_code, hosts_with_errors), _ = result.get(timeout=60, block=False)
+            _, return_code, _ = result.get(timeout=60, block=False)
         except:
             CtxtAgent.logger.exception('Error getting ansible results.')
             return_code = -1
-            hosts_with_errors = []
 
         if output:
             if return_code == 0:
@@ -258,7 +257,7 @@ class CtxtAgent():
             else:
                 CtxtAgent.logger.error(output)
 
-        return (return_code == 0, hosts_with_errors)
+        return return_code == 0
 
     @staticmethod
     def wait_remote(data, poll_delay=5, ssh_step=4, max_errors=10, active=False):
@@ -461,7 +460,7 @@ class CtxtAgent():
         from IM.ansible_utils.ansible_launcher import AnsibleThread
 
         result = Queue()
-        t = AnsibleThread(result, output, playbook_file, None, threads, gen_pk_file,
+        t = AnsibleThread(result, output, playbook_file, threads, gen_pk_file,
                           passwd, retries, inventory_file, user, vault_pass, extra_vars)
         t.start()
         return (t, result)
@@ -673,7 +672,7 @@ class CtxtAgent():
             f.write(" - hosts: allnowindows\n")
 
         result = Queue()
-        t = AnsibleThread(result, CtxtAgent.logger, playbook_file, None, threads, CtxtAgent.PK_FILE,
+        t = AnsibleThread(result, CtxtAgent.logger, playbook_file, threads, CtxtAgent.PK_FILE,
                           None, CtxtAgent.PLAYBOOK_RETRIES, inventory_file)
         t.start()
         return (t, result)
@@ -903,7 +902,7 @@ class CtxtAgent():
                     copy = True
                     if ctxt_vm['master'] or ctxt_vm['os'] == "windows":
                         copy = False
-                    (task_ok, _) = CtxtAgent.wait_thread(ansible_thread, general_conf_data, copy)
+                    task_ok = CtxtAgent.wait_thread(ansible_thread, general_conf_data, copy)
                 elif remote_process:
                     task_ok = CtxtAgent.wait_remote(remote_process, active=task == "install_ansible")
                 else:
