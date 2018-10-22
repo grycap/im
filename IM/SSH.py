@@ -101,16 +101,16 @@ class SSH:
         self.host = host
         self.username = user
         self.password = passwd
-        self.private_key = private_key
-        self.private_key_data = ""
-        if (private_key is not None and private_key.strip() != ""):
-            if os.path.isfile(private_key):
-                pkfile = open(private_key)
-                for line in pkfile.readlines():
-                    self.private_key_data += line
-                pkfile.close()
-            else:
-                self.private_key_data = private_key
+        if private_key:
+            self.private_key = ""
+            if (private_key is not None and private_key.strip() != ""):
+                if os.path.isfile(private_key):
+                    pkfile = open(private_key)
+                    for line in pkfile.readlines():
+                        self.private_key += line
+                    pkfile.close()
+                else:
+                    self.private_key = str(private_key)
 
     def __str__(self):
         res = "SSH: host: " + self.host + ", port: " + \
@@ -138,14 +138,14 @@ class SSH:
         session = Session()
         session.handshake(sock)
 
-        if self.password and self.private_key_data:
+        if self.password and self.private_key:
             # If both credentials are provided first try to use the password
             try:
                 session.userauth_password(self.username, self.password)
             except AuthenticationError:
-                session.userauth_publickey_frommemory(self.username, self.private_key_data, '', '')
-        elif self.private_key_data:
-            session.userauth_publickey_frommemory(self.username, self.private_key_data, '', '')
+                session.userauth_publickey_frommemory(self.username, self.private_key, '', '')
+        elif self.private_key:
+            session.userauth_publickey_frommemory(self.username, self.private_key, '', '')
         elif self.password:
             session.userauth_password(self.username, self.password)
         else:
