@@ -384,6 +384,33 @@ class EC2CloudConnector(CloudConnector):
         try:
             i = 0
             system = radl.systems[0]
+
+            # First create a SG for the entire Infra
+            # Use the InfrastructureInfo lock to assure that only one VM create the SG
+            with inf._lock:
+                sg_name = "im-%s" % str(inf.id)
+                sg = self._get_security_group(conn, sg_name)
+                if not sg:
+                    self.log_info("Creating security group: %s" % sg_name)
+                    try:
+                        sg = conn.create_security_group(sg_name, "Security group created by the IM", vpc_id=vpc)
+                    except Exception as crex:
+                        # First check if the SG does exist
+                        sg = self._get_security_group(conn, sg_name)
+                        if not sg:
+                            # if not raise the exception
+                            raise crex
+                        else:
+                            self.log_info("Security group: " + sg_name + " already created.")
+                if vpc:
+                    res.append(sg.id)
+                else:
+                    res.append(sg.name)
+
+                # open all the ports for the VMs in the security group
+                sg.authorize('tcp', 0, 65535, src_group=sg)
+                sg.authorize('udp', 0, 65535, src_group=sg)
+
             while system.getValue("net_interface." + str(i) + ".connection"):
                 network_name = system.getValue("net_interface." + str(i) + ".connection")
                 network = radl.get_network_by_id(network_name)
