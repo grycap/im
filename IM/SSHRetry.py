@@ -68,7 +68,7 @@ class SSHRetry(SSH):
 
     @retry(Exception, (AuthenticationException, paramiko.AuthenticationException),
            tries=TRIES, delay=DELAY, backoff=BACKOFF)
-    def sftp_mkdir(self, directory, mode=420):
+    def sftp_mkdir(self, directory, mode=0o777):
         return SSH.sftp_mkdir(self, directory, mode)
 
     @retry(Exception, (AuthenticationException, paramiko.AuthenticationException),
