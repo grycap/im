@@ -115,7 +115,7 @@ class TestSSH(unittest.TestCase):
     def test_sftp_put_dir(self, session, socket):
         ssh = SSHRetry("host", "user", "passwd", read_file_as_string("../files/privatekey.pem"))
 
-        ssh.sftp_put_dir("/tmp", "/tmp")
+        ssh.sftp_put_dir("/var/tmp", "/var/tmp")
 
     @patch('socket.socket')
     @patch('IM.SSH.Session')
