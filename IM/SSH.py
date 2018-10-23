@@ -362,11 +362,12 @@ class SSH:
         with sftp.open(dest, f_flags, mode) as remote_fh:
             remote_fh.write(content.encode())
 
-    def sftp_mkdir(self, directory, mode=420):
+    def sftp_mkdir(self, directory, mode=0o777):
         """ Creates a remote directory
 
             Arguments:
             - directory: Name of the directory in the remote server.
+            - mode: Int with the new permissions
 
             Returns: True if the directory is created or False if it exists.
         """
