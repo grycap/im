@@ -109,7 +109,7 @@ class SSH:
                     with open(private_key, "rb") as pkfile:
                         self.private_key = pkfile.read()
                 else:
-                    self.private_key = bytes(private_key)
+                    self.private_key = private_key.encode()
 
     def __str__(self):
         res = "SSH: host: " + self.host + ", port: " + \

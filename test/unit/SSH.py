@@ -77,12 +77,12 @@ class TestSSH(unittest.TestCase):
 
         src = "/tmp/some_file"
         with open(src, 'wb+') as fh:
-            fh.write("some_data")
+            fh.write(b"some_data")
 
         ssh = SSHRetry("host", "user", "passwd", read_file_as_string("../files/privatekey.pem"))
         ssh.sftp_put(src, src)
 
-        self.assertEqual(remote_fh.write.call_args_list[0][0][0], "some_data")
+        self.assertEqual(remote_fh.write.call_args_list[0][0][0], b"some_data")
 
     @patch('socket.socket')
     @patch('IM.SSH.Session')
