@@ -106,12 +106,10 @@ class SSH:
             self.private_key = ""
             if (private_key is not None and private_key.strip() != ""):
                 if os.path.isfile(private_key):
-                    pkfile = open(private_key)
-                    for line in pkfile.readlines():
-                        self.private_key += line
-                    pkfile.close()
+                    with open(private_key, "rb") as pkfile:
+                        self.private_key = pkfile.read()
                 else:
-                    self.private_key = str(private_key)
+                    self.private_key = bytes(private_key)
 
     def __str__(self):
         res = "SSH: host: " + self.host + ", port: " + \
@@ -144,9 +142,9 @@ class SSH:
             try:
                 session.userauth_password(self.username, self.password)
             except AuthenticationError:
-                session.userauth_publickey_frommemory(self.username, self.private_key, '', '')
+                session.userauth_publickey_frommemory(self.username, self.private_key, '', b'')
         elif self.private_key:
-            session.userauth_publickey_frommemory(self.username, self.private_key, '', '')
+            session.userauth_publickey_frommemory(self.username, self.private_key, '', b'')
         elif self.password:
             session.userauth_password(self.username, self.password)
         else:
@@ -362,7 +360,7 @@ class SSH:
         sftp = client.sftp_init()
         f_flags = LIBSSH2_FXF_CREAT | LIBSSH2_FXF_WRITE
         with sftp.open(dest, f_flags, mode) as remote_fh:
-            remote_fh.write(content)
+            remote_fh.write(content.encode())
 
     def sftp_mkdir(self, directory, mode=420):
         """ Creates a remote directory
