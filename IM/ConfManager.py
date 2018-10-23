@@ -820,8 +820,7 @@ class ConfManager(threading.Thread):
                             for ansible_host in self.inf.radl.ansible_hosts:
                                 (user, passwd, private_key) = ansible_host.getCredentialValues()
                                 ssh = SSHRetry(ansible_host.getHost(), user, passwd, private_key)
-                                ssh.sftp_mkdir(remote_dir)
-                                ssh.sftp_chmod(remote_dir, 448)
+                                ssh.sftp_mkdir(remote_dir, 0o700)
                                 ssh.sftp_mkdir(remote_dir + "/IM")
                                 ssh.sftp_put_files(files)
                                 # Copy the utils helper files
@@ -831,8 +830,7 @@ class ConfManager(threading.Thread):
                                 ssh.sftp_mkdir(remote_dir + "/IM/ansible_utils")
                                 ssh.sftp_put_dir(Config.IM_PATH + "/ansible_utils", remote_dir + "/IM/ansible_utils")
                         else:
-                            ssh.sftp_mkdir(remote_dir)
-                            ssh.sftp_chmod(remote_dir, 448)
+                            ssh.sftp_mkdir(remote_dir, 0o700)
                             ssh.sftp_mkdir(remote_dir + "/IM")
                             ssh.sftp_put_files(files)
                             # Copy the utils helper files
@@ -1321,9 +1319,8 @@ class ConfManager(threading.Thread):
 
             self.inf.add_cont_msg("Creating and copying Ansible playbook files")
 
-            ssh.sftp_mkdir(Config.REMOTE_CONF_DIR)
-            ssh.sftp_mkdir(Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/")
-            ssh.sftp_chmod(Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/", 448)
+            ssh.sftp_mkdir(Config.REMOTE_CONF_DIR, 0o777)
+            ssh.sftp_mkdir(Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/", 0o700)
 
             for galaxy_name in modules:
                 if galaxy_name:
