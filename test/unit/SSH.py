@@ -143,7 +143,7 @@ class TestSSH(unittest.TestCase):
         ssh = SSHRetry("host", "user", "passwd", read_file_as_string("../files/privatekey.pem"))
 
         ssh.sftp_mkdir("/some_dir")
-        self.assertEqual(sftp.mkdir.call_args_list[0][0], ("/some_dir", 420))
+        self.assertEqual(sftp.mkdir.call_args_list[0][0], ("/some_dir", 0o777))
 
     @patch('socket.socket')
     @patch('IM.SSH.Session')
