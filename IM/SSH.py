@@ -101,6 +101,7 @@ class SSH:
         self.host = host
         self.username = user
         self.password = passwd
+        self.private_key = None
         if private_key:
             self.private_key = ""
             if (private_key is not None and private_key.strip() != ""):
