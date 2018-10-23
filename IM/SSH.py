@@ -341,7 +341,7 @@ class SSH:
                         # if it exists we do not try to create it
                         sftp.stat(dest_path)
                     except:
-                        sftp.mkdir(dest_path, fileinfo.st_mode & 777)
+                        sftp.mkdir(dest_path, fileinfo.st_mode & 0o777)
                 for filename in filenames:
                     src_file = os.path.join(dirname, filename)
                     dest_file = os.path.join(dest, dirname[len(src) + 1:],
