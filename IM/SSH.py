@@ -404,7 +404,7 @@ class SSH:
         sftp.close()
         transport.close()
 
-    def sftp_mkdir(self, directory, mode=420):
+    def sftp_mkdir(self, directory, mode=511):
         """ Creates a remote directory
 
             Arguments:
