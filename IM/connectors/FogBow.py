@@ -37,16 +37,16 @@ class FogBowCloudConnector(CloudConnector):
     """str with the name of the provider."""
 
     VM_STATE_MAP = {
-        # 'DISPATCHED': VirtualMachine.RUNNING,
-        # 'INACTIVE': VirtualMachine.PENDING,
-        # 'SPAWNING': VirtualMachine.PENDING,
-        # 'CREATING': VirtualMachine.PENDING,
-        # 'ATTACHING': VirtualMachine.RUNNING,
-        # 'UNAVAILABLE': VirtualMachine.STOPPED,
+        'INACTIVE': VirtualMachine.STOPPED,
+        'CREATING': VirtualMachine.PENDING,
+        'ATTACHING': VirtualMachine.PENDING,
+        'DISPATCHED': VirtualMachine.PENDING,
+        'SPAWNING': VirtualMachine.PENDING,
         'READY': VirtualMachine.RUNNING,
         'IN_USE': VirtualMachine.RUNNING,
         'FAILED': VirtualMachine.FAILED,
-        'INCONSISTENT': VirtualMachine.FAILED
+        'INCONSISTENT': VirtualMachine.UNKNOWN,
+        'UNAVAILABLE': VirtualMachine.STOPPED
     }
     """Dictionary with a map with the FogBow VM states to the IM states."""
 
@@ -158,17 +158,19 @@ class FogBowCloudConnector(CloudConnector):
                         if provider_id:
                             nets.append(provider_id)
 
-                body = {"imageId": image,
-                        "memory": memory,
-                        "name": "%s-%s" % (name.lower().replace("_", "-"), str(uuid1())),
-                        "publicKey": public_key,
-                        "vCPU": cpu}
+                body = {"computeOrder":
+                        {"imageId": image,
+                         "memory": memory,
+                         "name": "%s-%s" % (name.lower().replace("_", "-"), str(uuid1())),
+                         "publicKey": public_key,
+                         "vCPU": cpu}
+                        }
 
                 if nets:
                     body["networkIds"] = nets
 
                 if system.getValue('availability_zone'):
-                    body['providingMember'] = system.getValue('availability_zone')
+                    body['provider'] = system.getValue('availability_zone')
 
                 resp = self.create_request('POST', '/computes/', auth_data, headers, json.dumps(body))
 
@@ -290,8 +292,21 @@ class FogBowCloudConnector(CloudConnector):
         """
         Get the IPs associated with the compute specified
         """
-        # TODO: See how to get this
-        return []
+        res = []
+        headers = {'Accept': 'application/json'}
+        resp = self.create_request('GET', '/publicIps/status', auth_data, headers=headers)
+        if resp.status_code == 200:
+            for ipstatus in resp.json():
+                resp_ip = self.create_request('GET', '/publicIps/%s' % ipstatus['instanceId'], auth_data, headers=headers)
+                if resp_ip.status_code == 200:
+                    ipdata = resp_ip.json()
+                    if ipdata['computeId'] == vm_id:
+                        res.append(ipdata[field])
+                else:
+                    self.log_error("Error getting public IP info: %s. %s." % (resp.reason, resp.text))
+        else:
+            self.log_error("Error getting public IP info: %s. %s." % (resp.reason, resp.text))
+        return res
 
     def add_elastic_ip(self, vm, public_ips, auth_data):
         """
