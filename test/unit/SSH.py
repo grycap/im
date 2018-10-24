@@ -21,6 +21,7 @@ import os
 from io import BytesIO
 
 from ssh2.exceptions import SFTPProtocolError
+from ssh2.sftp import LIBSSH2_SFTP_S_IFDIR
 from IM.SSHRetry import SSHRetry, SSH
 from mock import patch, MagicMock
 
@@ -121,9 +122,23 @@ class TestSSH(unittest.TestCase):
     @patch('socket.socket')
     @patch('IM.SSH.Session')
     def test_sftp_get_dir(self, session, socket):
+        sess = MagicMock()
+        session.return_value = sess
+        sftp = MagicMock()
+        sess.sftp_init.return_value = sftp
+        fh = MagicMock()
+        sftp.opendir.return_value = fh
+        attrsd = MagicMock()
+        attrsd.permissions = LIBSSH2_SFTP_S_IFDIR
+        attrsf = MagicMock()
+        attrsf.permissions = 0
+        fh.readdir.side_effect = [[(None, "dir", attrsd), (None, "file1", attrsf)],
+                                  [(None, "file2", attrsf)]]
+
         ssh = SSHRetry("host", "user", "passwd", read_file_as_string("../files/privatekey.pem"))
 
-        ssh.sftp_get_dir("/tmp", "/tmp")
+        files = ssh.sftp_get_dir("/tmp", "/tmp")
+        self.assertEqual(files, ['/tmp/file1', '/tmp/dir/file2'])
 
     @patch('socket.socket')
     @patch('IM.SSH.Session')

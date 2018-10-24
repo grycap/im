@@ -295,15 +295,16 @@ class SSH:
             client = self.connect()
             sftp = client.sftp_init()
 
-        with sftp.opendir(src) as fh:
-            for _, name, attrs in fh.readdir():
-                if attrs.permissions & LIBSSH2_SFTP_S_IFDIR > 0:
-                    if name not in [".", ".."]:
-                        folder = os.path.join(src, name)
-                        folders.append(folder)
-                else:
-                    filename = os.path.join(src, name)
-                    files.append(filename)
+        fh = sftp.opendir(src)
+        for _, name, attrs in fh.readdir():
+            if attrs.permissions & LIBSSH2_SFTP_S_IFDIR > 0:
+                if name not in [".", ".."]:
+                    folder = os.path.join(src, name)
+                    folders.append(folder)
+            else:
+                filename = os.path.join(src, name)
+                files.append(filename)
+        fh.close()
 
         for folder in folders:
             self.sftp_walk(folder, files, sftp)
@@ -316,6 +317,8 @@ class SSH:
             Arguments:
             - src: Source directory in the remote server to copy.
             - dest: Local destination path.
+
+            Returns: The list of files copied
         """
         client = self.connect()
         try:
@@ -329,6 +332,8 @@ class SSH:
                     os.mkdir(dirname)
                 full_dest = filename.replace(src, dest)
                 self._sftp_get(sftp, filename, full_dest)
+
+            return files
         except SFTPProtocolError:
             self._raise_sftp_error(sftp)
 
