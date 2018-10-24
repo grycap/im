@@ -38,17 +38,22 @@ distribution_id() {
 }
 
 distribution_major_version() {
-    for RELEASE_FILE in /etc/system-release \
-                        /etc/centos-release \
-                        /etc/fedora-release \
-                        /etc/redhat-release
-    do
-        if [ -e "${RELEASE_FILE}" ]; then
-            RELEASE_VERSION=$(head -n1 ${RELEASE_FILE})
-            break
-        fi
-    done
-    echo ${RELEASE_VERSION} | sed -e 's|\(.\+\) release \([0-9]\+\)\([0-9.]*\).*|\2|'
+	if [ -f /etc/lsb-release ]; then
+		. /etc/lsb-release
+		echo ${DISTRIB_RELEASE} | sed -e 's|\([0-9]\+\)\([0-9.]*\).*|\1|'
+	else
+	    for RELEASE_FILE in /etc/system-release \
+	                        /etc/centos-release \
+	                        /etc/fedora-release \
+	                        /etc/redhat-release
+	    do
+	        if [ -e "${RELEASE_FILE}" ]; then
+	            RELEASE_VERSION=$(head -n1 ${RELEASE_FILE})
+	            break
+	        fi
+	    done
+	    echo ${RELEASE_VERSION} | sed -e 's|\(.\+\) release \([0-9]\+\)\([0-9.]*\).*|\2|'
+	fi
 }
 
 if [ $(which ansible-playbook) ]; then
