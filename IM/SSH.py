@@ -18,8 +18,8 @@
 
 import socket
 from ssh2.session import Session
-from ssh2.exceptions import AuthenticationError
-from ssh2.sftp import LIBSSH2_FXF_CREAT, LIBSSH2_FXF_WRITE, \
+from ssh2.exceptions import AuthenticationError, SFTPProtocolError
+from ssh2.sftp import LIBSSH2_FXF_CREAT, LIBSSH2_FXF_WRITE, LIBSSH2_FXF_TRUNC, \
     LIBSSH2_SFTP_S_IRUSR, LIBSSH2_SFTP_S_IRGRP, LIBSSH2_SFTP_S_IWUSR, \
     LIBSSH2_SFTP_S_IROTH, LIBSSH2_FXF_READ, LIBSSH2_SFTP_S_IFDIR
 from ssh2.sftp_handle import SFTPAttributes
@@ -220,12 +220,15 @@ class SSH:
             - dest: Local destination path to copy.
         """
         client = self.connect()
-        sftp = client.sftp_init()
-        self._sftp_get(sftp, src, dest)
+        try:
+            sftp = client.sftp_init()
+            self._sftp_get(sftp, src, dest)
+        except SFTPProtocolError:
+            self._raise_sftp_error(sftp)
 
     @staticmethod
     def _sftp_put(sftp, src, dest):
-        f_flags = LIBSSH2_FXF_CREAT | LIBSSH2_FXF_WRITE
+        f_flags = LIBSSH2_FXF_CREAT | LIBSSH2_FXF_WRITE | LIBSSH2_FXF_TRUNC
         fileinfo = os.stat(src)
         remote_fh = sftp.open(dest, f_flags, fileinfo.st_mode)
         with open(src, 'rb') as local_fh:
@@ -241,8 +244,11 @@ class SSH:
             - dest: Destination path in the remote server.
         """
         client = self.connect()
-        sftp = client.sftp_init()
-        self._sftp_put(sftp, src, dest)
+        try:
+            sftp = client.sftp_init()
+            self._sftp_put(sftp, src, dest)
+        except SFTPProtocolError:
+            self._raise_sftp_error(sftp)
 
     def sftp_get_files(self, src, dest):
         """ Gets a list of files from the remote server
@@ -253,9 +259,12 @@ class SSH:
         """
         client = self.connect()
 
-        sftp = client.sftp_init()
-        for file0, file1 in zip(src, dest):
-            self._sftp_get(sftp, file0, file1)
+        try:
+            sftp = client.sftp_init()
+            for file0, file1 in zip(src, dest):
+                self._sftp_get(sftp, file0, file1)
+        except SFTPProtocolError:
+            self._raise_sftp_error(sftp)
 
     def sftp_put_files(self, files):
         """ Puts a list of files to the remote server
@@ -265,9 +274,12 @@ class SSH:
                      element the destination paths in the remote server.
         """
         client = self.connect()
-        sftp = client.sftp_init()
-        for src, dest in files:
-            self._sftp_put(sftp, src, dest)
+        try:
+            sftp = client.sftp_init()
+            for src, dest in files:
+                self._sftp_put(sftp, src, dest)
+        except SFTPProtocolError:
+            self._raise_sftp_error(sftp)
 
     def sftp_walk(self, src, files=None, sftp=None):
         """ Gets recursively the list of items in a directory from the remote server
@@ -275,13 +287,13 @@ class SSH:
             Arguments:
             - src: Source directory in the remote server to copy.
         """
-        if not sftp:
-            client = self.connect()
-            sftp = client.sftp_init()
-
         folders = []
         if not files:
             files = []
+
+        if not sftp:
+            client = self.connect()
+            sftp = client.sftp_init()
 
         with sftp.opendir(src) as fh:
             for _, name, attrs in fh.readdir():
@@ -306,16 +318,19 @@ class SSH:
             - dest: Local destination path.
         """
         client = self.connect()
-        sftp = client.sftp_init()
+        try:
+            sftp = client.sftp_init()
 
-        files = self.sftp_walk(src, None, sftp)
+            files = self.sftp_walk(src, None, sftp)
 
-        for filename in files:
-            dirname = os.path.dirname(filename)
-            if not os.path.exists(dirname):
-                os.mkdir(dirname)
-            full_dest = filename.replace(src, dest)
-            self._sftp_get(sftp, filename, full_dest)
+            for filename in files:
+                dirname = os.path.dirname(filename)
+                if not os.path.exists(dirname):
+                    os.mkdir(dirname)
+                full_dest = filename.replace(src, dest)
+                self._sftp_get(sftp, filename, full_dest)
+        except SFTPProtocolError:
+            self._raise_sftp_error(sftp)
 
     def sftp_put_dir(self, src, dest):
         """ Puts recursively the contents of a directory to the remote server
@@ -324,27 +339,30 @@ class SSH:
             - src: Source local directory to copy.
             - dest: Destination path in the remote server.
         """
-        if os.path.isdir(src):
-            if src.endswith("/"):
-                src = src[:-1]
+        try:
+            if os.path.isdir(src):
+                if src.endswith("/"):
+                    src = src[:-1]
 
-            client = self.connect()
-            sftp = client.sftp_init()
-            for dirname, dirnames, filenames in os.walk(src):
-                for subdirname in dirnames:
-                    src_path = os.path.join(dirname, subdirname)
-                    dest_path = os.path.join(dest, src_path[len(src) + 1:])
-                    fileinfo = os.stat(src_path)
-                    try:
-                        # if it exists we do not try to create it
-                        sftp.stat(dest_path)
-                    except:
-                        sftp.mkdir(dest_path, fileinfo.st_mode & 0o777)
-                for filename in filenames:
-                    src_file = os.path.join(dirname, filename)
-                    dest_file = os.path.join(dest, dirname[len(src) + 1:],
-                                             filename)
-                    self._sftp_put(sftp, src_file, dest_file)
+                client = self.connect()
+                sftp = client.sftp_init()
+                for dirname, dirnames, filenames in os.walk(src):
+                    for subdirname in dirnames:
+                        src_path = os.path.join(dirname, subdirname)
+                        dest_path = os.path.join(dest, src_path[len(src) + 1:])
+                        fileinfo = os.stat(src_path)
+                        try:
+                            # if it exists we do not try to create it
+                            sftp.stat(dest_path)
+                        except:
+                            sftp.mkdir(dest_path, fileinfo.st_mode & 0o777)
+                    for filename in filenames:
+                        src_file = os.path.join(dirname, filename)
+                        dest_file = os.path.join(dest, dirname[len(src) + 1:],
+                                                 filename)
+                        self._sftp_put(sftp, src_file, dest_file)
+        except SFTPProtocolError:
+            self._raise_sftp_error(sftp)
 
     def sftp_put_content(self, content, dest):
         """ Puts the contents of a string in a remote file
@@ -355,10 +373,13 @@ class SSH:
         """
         mode = LIBSSH2_SFTP_S_IRUSR | LIBSSH2_SFTP_S_IWUSR | LIBSSH2_SFTP_S_IRGRP | LIBSSH2_SFTP_S_IROTH
         client = self.connect()
-        sftp = client.sftp_init()
-        f_flags = LIBSSH2_FXF_CREAT | LIBSSH2_FXF_WRITE
-        with sftp.open(dest, f_flags, mode) as remote_fh:
-            remote_fh.write(content.encode())
+        try:
+            sftp = client.sftp_init()
+            f_flags = LIBSSH2_FXF_CREAT | LIBSSH2_FXF_WRITE
+            with sftp.open(dest, f_flags, mode) as remote_fh:
+                remote_fh.write(content.encode())
+        except SFTPProtocolError:
+            self._raise_sftp_error(sftp)
 
     def sftp_mkdir(self, directory, mode=0o777):
         """ Creates a remote directory
@@ -370,14 +391,17 @@ class SSH:
             Returns: True if the directory is created or False if it exists.
         """
         client = self.connect()
-        sftp = client.sftp_init()
         try:
-            # if it exists we do not try to create it
-            sftp.stat(directory)
-            res = False
-        except:
-            sftp.mkdir(directory, mode)
-            res = True
+            sftp = client.sftp_init()
+            try:
+                # if it exists we do not try to create it
+                sftp.stat(directory)
+                res = False
+            except:
+                sftp.mkdir(directory, mode)
+                res = True
+        except SFTPProtocolError:
+            self._raise_sftp_error(sftp)
 
         return res
 
@@ -390,13 +414,16 @@ class SSH:
             Returns: A list with the contents of the directory
         """
         client = self.connect()
-        sftp = client.sftp_init()
-        res = []
-        fh = sftp.opendir(directory)
-        for _, name, _ in fh.readdir():
-            res.append(name)
-        fh.close()
-        return res
+        try:
+            sftp = client.sftp_init()
+            res = []
+            fh = sftp.opendir(directory)
+            for _, name, _ in fh.readdir():
+                res.append(name)
+            fh.close()
+            return res
+        except SFTPProtocolError:
+            self._raise_sftp_error(sftp)
 
     def sftp_list_attr(self, directory):
         """ Return a list containing SFTPAttributes objects corresponding to
@@ -409,13 +436,16 @@ class SSH:
                      (see paramiko.SFTPClient.listdir_attr)
         """
         client = self.connect()
-        sftp = client.sftp_init()
-        res = []
-        fh = sftp.opendir(directory)
-        for _, _, attrs in fh.readdir():
-            res.append(attrs)
-        fh.close()
-        return res
+        try:
+            sftp = client.sftp_init()
+            res = []
+            fh = sftp.opendir(directory)
+            for _, _, attrs in fh.readdir():
+                res.append(attrs)
+            fh.close()
+            return res
+        except SFTPProtocolError:
+            self._raise_sftp_error(sftp)
 
     def getcwd(self):
         """ Get the current working directory.
@@ -472,15 +502,18 @@ class SSH:
             Returns: True if the file is deleted or False if it exists.
         """
         client = self.connect()
-        sftp = client.sftp_init()
         try:
-            # if it exists we do not try to delete it
-            sftp.stat(path)
-            res = False
-        except:
-            sftp.unlink(path)
-            res = True
-        return res
+            sftp = client.sftp_init()
+            try:
+                # if it exists we do not try to delete it
+                sftp.stat(path)
+                res = False
+            except:
+                sftp.unlink(path)
+                res = True
+            return res
+        except SFTPProtocolError:
+            self._raise_sftp_error(sftp)
 
     def sftp_chmod(self, path, mode):
         """
@@ -493,10 +526,37 @@ class SSH:
             - mode: Int with the new permissions
         """
         client = self.connect()
-        sftp = client.sftp_init()
+        try:
+            sftp = client.sftp_init()
 
-        attrs = sftp.stat(path)
-        attrs.permissions = attrs.permissions | mode
-        sftp.setstat(path, attrs)
+            attrs = sftp.stat(path)
+            attrs.permissions = attrs.permissions | mode
+            sftp.setstat(path, attrs)
 
-        return True
+            return True
+        except SFTPProtocolError:
+            self._raise_sftp_error(sftp)
+
+    @staticmethod
+    def _raise_sftp_error(sftp):
+        """
+        Raises SFTPProtocolError with the correct error message
+        """
+        code = sftp.last_error()
+        messages = ["OK",
+                    "EOF error",
+                    "No such file",
+                    "Permission denied",
+                    "Failure",
+                    "Bad Message",
+                    "No connection",
+                    "Connection lost",
+                    "Op Unsupported"]
+
+        msg = "Error code: %d." % code
+        if code == 0:
+            return
+        elif code in range(1, 9):
+            msg += " %s." % messages[code]
+
+        raise SFTPProtocolError(msg)

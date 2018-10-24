@@ -20,7 +20,8 @@ import unittest
 import os
 from io import BytesIO
 
-from IM.SSHRetry import SSHRetry
+from ssh2.exceptions import SFTPProtocolError
+from IM.SSHRetry import SSHRetry, SSH
 from mock import patch, MagicMock
 
 
@@ -241,6 +242,22 @@ class TestSSH(unittest.TestCase):
 
         res = ssh.sftp_chmod("some_file", 0o644)
         self.assertTrue(res)
+
+    @patch('socket.socket')
+    @patch('IM.SSH.Session')
+    def test_sftp_error(self, session, socket):
+        sess = MagicMock()
+        session.return_value = sess
+        sftp = MagicMock()
+        sess.sftp_init.return_value = sftp
+        sftp.open.side_effect = SFTPProtocolError()
+        sftp.last_error.return_value = 3
+
+        ssh = SSH("host", "user", "passwd", read_file_as_string("../files/privatekey.pem"))
+
+        with self.assertRaises(SFTPProtocolError) as ex:
+            ssh.sftp_get("/tmp/some_file", "/tmp/some_file")
+        self.assertEquals("Error code: 3. Permission denied.", str(ex.exception))
 
 
 if __name__ == '__main__':
