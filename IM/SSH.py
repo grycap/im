@@ -88,10 +88,10 @@ class ThreadSSH(Thread):
 
 
 class SSH:
-    """ Class to encapsulate SSH operations using paramiko """
+    """ Class to encapsulate SSH operations using ssh2-python lib """
 
     def __init__(self, host, user, passwd, private_key=None, port=22):
-        # Atributo para la version "thread"
+        # Attribute for the "thread" version
         self.thread = None
 
         self.tty = False
