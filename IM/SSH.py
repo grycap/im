@@ -56,7 +56,7 @@ class ThreadSSH(Thread):
         Close the SSH client connection
         """
         if self.client:
-            self.client.close()
+            del self.client
             self.client = None
 
     def run(self):
