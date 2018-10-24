@@ -25,9 +25,7 @@ from ssh2.sftp import LIBSSH2_FXF_CREAT, LIBSSH2_FXF_WRITE, \
 from ssh2.sftp_handle import SFTPAttributes
 
 import os
-from io import BytesIO
 from threading import Thread
-from stat import S_ISDIR
 
 
 class TimeOutException(Exception):
