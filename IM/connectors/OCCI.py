@@ -425,7 +425,11 @@ class OCCICloudConnector(CloudConnector):
         try:
             resp = self.create_request('GET', self.cloud.path + "/compute/" + vm.id, auth_data, headers)
 
-            if resp.status_code != 200:
+            if resp.status_code == 404:
+                # if the VM does not exists return off
+                vm.state = VirtualMachine.OFF
+                return (True, vm)
+            elif resp.status_code != 200:
                 return (False, resp.reason + "\n" + resp.text)
             else:
                 old_state = vm.state
