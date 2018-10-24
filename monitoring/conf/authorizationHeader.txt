@@ -1,0 +1,2 @@
+id = os; type = OpenNebula; host = http://onehost.com:2633;
+id = im; type = InfrastructureManager;
