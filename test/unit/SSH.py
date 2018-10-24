@@ -114,10 +114,15 @@ class TestSSH(unittest.TestCase):
 
     @patch('socket.socket')
     @patch('IM.SSH.Session')
-    def test_sftp_put_dir(self, session, socket):
+    @patch('os.walk')
+    def test_sftp_put_dir(self, walk, session, socket):
         ssh = SSHRetry("host", "user", "passwd", read_file_as_string("../files/privatekey.pem"))
 
-        ssh.sftp_put_dir("/var/tmp", "/var/tmp")
+        walk.return_value = [("/tmp", ["dir"], ["file1"]),
+                             ("/tmp/dir", [], ["file2"])]
+
+        files = ssh.sftp_put_dir("/tmp", "/tmp")
+        self.assertEqual(files, ['/tmp/file1', '/tmp/dir/file2'])
 
     @patch('socket.socket')
     @patch('IM.SSH.Session')

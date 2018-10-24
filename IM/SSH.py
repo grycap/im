@@ -343,12 +343,15 @@ class SSH:
             Arguments:
             - src: Source local directory to copy.
             - dest: Destination path in the remote server.
+
+            Returns: The list of the remote path of the files copied
         """
         try:
             if os.path.isdir(src):
                 if src.endswith("/"):
                     src = src[:-1]
 
+                files = []
                 client = self.connect()
                 sftp = client.sftp_init()
                 for dirname, dirnames, filenames in os.walk(src):
@@ -365,7 +368,9 @@ class SSH:
                         src_file = os.path.join(dirname, filename)
                         dest_file = os.path.join(dest, dirname[len(src) + 1:],
                                                  filename)
+                        files.append(dest_file)
                         self._sftp_put(sftp, src_file, dest_file)
+                return files
         except SFTPProtocolError:
             self._raise_sftp_error(sftp)
 
