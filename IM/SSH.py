@@ -507,10 +507,10 @@ class SSH:
             try:
                 # if it exists we do not try to delete it
                 sftp.stat(path)
-                res = False
-            except:
                 sftp.unlink(path)
                 res = True
+            except:
+                res = False
             return res
         except SFTPProtocolError:
             self._raise_sftp_error(sftp)

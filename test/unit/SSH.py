@@ -223,7 +223,6 @@ class TestSSH(unittest.TestCase):
         session.return_value = sess
         sftp = MagicMock()
         sess.sftp_init.return_value = sftp
-        sftp.stat.side_effect = Exception()
 
         ssh = SSHRetry("host", "user", "passwd", read_file_as_string("../files/privatekey.pem"))
 
