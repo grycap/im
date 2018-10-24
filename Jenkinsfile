@@ -9,6 +9,7 @@ pipeline {
 
     environment {
         dockerhub_repo = "indigodatacloud/im"
+        dockerhub_image_id = ""
         pip_test_reqs = '''bandit
 pep8
 nose
@@ -162,12 +163,12 @@ commands = bandit -r IM -f html -o bandit.html"""
             steps {
                 checkout scm
                 script {
-                    image_id = DockerBuild(dockerhub_repo, env.BRANCH_NAME)
+                    dockerhub_image_id = DockerBuild(dockerhub_repo, env.BRANCH_NAME)
                 }
             }
             post {
                 success {
-                    DockerPush(image_id)
+                    DockerPush(dockerhub_image_id)
                 }
                 failure {
                     DockerClean()
@@ -175,6 +176,24 @@ commands = bandit -r IM -f html -o bandit.html"""
                 always {
                     cleanWs()
                 }
+            }
+        }
+
+        stage('Notifications') {
+            when {
+                buildingTag()
+            }
+	    steps {
+                JiraIssueNotification(
+                    'DEEP',
+                    'DPM',
+                    '10204',
+                    "[preview-testbed] New InfrastructureManager version ${env.BRANCH_NAME} available",
+                    'Check new artifacts at:\n\t- Docker image: ${dockerhub_image_id}\n',
+                    ['wp3', 'preview-testbed', "IM-${env.BRANCH_NAME}"],
+		    'Task',
+		    'mariojmdavid'
+                )
             }
         }
     }
