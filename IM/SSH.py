@@ -14,7 +14,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-""" Classes to encapsulate SSH operations using paramiko """
+""" Classes to encapsulate SSH operations using ssh2-python lib """
 
 import socket
 from ssh2.session import Session
