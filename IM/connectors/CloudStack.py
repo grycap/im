@@ -139,7 +139,7 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
             if 'cpu' in instance_type.extra:
                 system.addFeature(Feature("cpu.count", "=", instance_type.extra['cpu']),
                                   conflict="other", missing="other")
-    
+
             system.addFeature(Feature("instance_type", "=",
                                       instance_type.name), conflict="other", missing="other")
 
