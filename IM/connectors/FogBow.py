@@ -97,7 +97,9 @@ class FogBowCloudConnector(CloudConnector):
             for str_url in image_urls:
                 url = uriparse(str_url)
                 protocol = url[0]
-                if protocol in ['fbw']:
+                src_host = url[1].split(':')[0]
+                # TODO: check the port
+                if protocol == "fbw" and self.cloud.server == src_host:
                     res_system = radl_system.clone()
 
                     res_system.addFeature(
@@ -107,8 +109,9 @@ class FogBowCloudConnector(CloudConnector):
                         Feature("provider.type", "=", self.type), conflict="other", missing="other")
                     res_system.addFeature(Feature(
                         "provider.host", "=", self.cloud.server), conflict="other", missing="other")
-                    res_system.addFeature(Feature(
-                        "provider.port", "=", self.cloud.port), conflict="other", missing="other")
+                    if self.cloud.port != -1:
+                        res_system.addFeature(Feature(
+                            "provider.port", "=", self.cloud.port), conflict="other", missing="other")
 
                     res_system.delValue('disk.0.os.credentials.username')
                     res_system.setValue('disk.0.os.credentials.username', 'fogbow')
@@ -122,11 +125,7 @@ class FogBowCloudConnector(CloudConnector):
         res = []
         i = 0
 
-        url = uriparse(system.getValue("disk.0.image.url"))
-        if url[1].startswith('http'):
-            image = url[1] + url[2]
-        else:
-            image = url[1]
+        image = os.path.basename(system.getValue("disk.0.image.url"))
 
         # set the credentials the FogBow default username: fogbow
         system.delValue('disk.0.os.credentials.username')
