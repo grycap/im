@@ -4,6 +4,7 @@ import shutil
 import tempfile
 import time
 import yaml
+import json
 from IM.config import Config
 
 
@@ -283,76 +284,48 @@ class CloudConnector:
         except:
             self.log_exception("Error deleting snapshots.")
 
-    def _gen_cloud_config(self, public_key, user, cloud_config_str=None):
-        """
-        Generate the cloud-config file to be used in the user_data of the VM
-        """
-        user_data = {}
-        user_data['name'] = user
-        user_data['sudo'] = "ALL=(ALL) NOPASSWD:ALL"
-        user_data['lock-passwd'] = True
-        user_data['ssh-import-id'] = user
-        user_data['ssh-authorized-keys'] = [public_key.strip()]
-        config_data = {"users": [user_data]}
-        if cloud_config_str:
-            cloud_config = yaml.load(cloud_config_str)
-            # If the client has included the "users" section, append it to the current one
-            if 'users' in cloud_config:
-                config_data["users"].extend(cloud_config['users'])
-                del cloud_config["users"]
-
-            config_data.update(cloud_config)
-
-        return yaml.dump(config_data, default_flow_style=False, width=512)
-
-    def get_cloud_init_data(self, radl, vm=None, public_key=None, user=None):
+    def get_cloud_init_data(self, radl=None, vm=None, public_key=None, user=None):
         """
         Get the cloud init data specified by the user in the RADL
         """
-        configure_name = None
-        if radl.contextualize.items:
-            system_name = radl.systems[0].name
+        cloud_config = []
 
-            for item in radl.contextualize.items.values():
-                if item.system == system_name and item.get_ctxt_tool() == "cloud_init":
-                    configure_name = item.configure
+        if radl:
+            configure_name = None
+            if radl.contextualize.items:
+                system_name = radl.systems[0].name
 
-        if configure_name:
-            cloud_init_str = radl.get_configure_by_name(configure_name).recipes
-        else:
-            cloud_init_str = None
+                for item in radl.contextualize.items.values():
+                    if item.system == system_name and item.get_ctxt_tool() == "cloud_init":
+                        configure_name = item.configure
 
-        res = None
+            if configure_name:
+                cloud_config = json.loads(radl.get_configure_by_name(configure_name).recipes)
+            else:
+                cloud_config = []
+
         # Only for those VMs with private IP
         if Config.SSH_REVERSE_TUNNELS and vm and not vm.hasPublicNet():
-            res = self._add_curl_cloud_init_data(vm, cloud_init_str)
+            cloud_config.append({"op": "add", "path": "/packages", "value": ["curl", "sshpass"]})
+
+            curl_command = vm.get_boot_curl_commands()
+            cloud_config.append({"op": "add", "path": "/runcmd", "value": [curl_command]})
 
         if public_key:
-            res = self._gen_cloud_config(public_key, user, res)
+            user_data = {}
+            user_data['name'] = user
+            user_data['sudo'] = "ALL=(ALL) NOPASSWD:ALL"
+            user_data['lock-passwd'] = True
+            user_data['ssh-import-id'] = user
+            user_data['ssh-authorized-keys'] = [public_key.strip()]
+            cloud_config.append({"op": "add", "path": "/users", "value": [user_data]})
 
-        if res:
-            return "#cloud-config\n%s" % res
+        if cloud_config:
+            res = json.dumps(cloud_config, indent=1)
+            self.log_debug("#cloud-config-jsonp\n%s" % res)
+            return "#cloud-config-jsonp\n%s" % res
         else:
-            return res
-
-    def _add_curl_cloud_init_data(self, vm, cloud_init_str):
-        if cloud_init_str:
-            cloud_config = yaml.load(cloud_init_str)
-        else:
-            cloud_config = {}
-        # If the client has included the "users" section, append it to the current one
-        if 'packages' in cloud_config:
-            cloud_config["packages"].extend(["curl", "sshpass"])
-        else:
-            cloud_config["packages"] = ["curl", "sshpass"]
-
-        curl_command = vm.get_boot_curl_commands()
-        if 'runcmd' in cloud_config:
-            cloud_config["runcmd"].extend(curl_command)
-        else:
-            cloud_config["runcmd"] = curl_command
-
-        return yaml.dump(cloud_config, default_flow_style=False, width=512)
+            return None
 
     def log_msg(self, level, msg, exc_info=0):
         msg = "Inf ID: %s: %s" % (self.inf.id, msg)

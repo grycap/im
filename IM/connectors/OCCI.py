@@ -425,7 +425,11 @@ class OCCICloudConnector(CloudConnector):
         try:
             resp = self.create_request('GET', self.cloud.path + "/compute/" + vm.id, auth_data, headers)
 
-            if resp.status_code != 200:
+            if resp.status_code == 404:
+                # if the VM does not exists return off
+                vm.state = VirtualMachine.OFF
+                return (True, vm)
+            elif resp.status_code != 200:
                 return (False, resp.reason + "\n" + resp.text)
             else:
                 old_state = vm.state
@@ -477,30 +481,6 @@ class OCCICloudConnector(CloudConnector):
                 if os.path.basename(num_storage) == system.getValue("disk." + str(cont) + ".provider_id"):
                     system.setValue("disk." + str(cont) + ".device", device)
                 cont += 1
-
-    def gen_cloud_config(self, public_key, user=None, cloud_config_str=None):
-        """
-        Generate the cloud-config file to be used in the user_data of the OCCI VM
-        """
-        if not user:
-            user = self.DEFAULT_USER
-        user_data = {}
-        user_data['name'] = user
-        user_data['sudo'] = "ALL=(ALL) NOPASSWD:ALL"
-        user_data['lock-passwd'] = True
-        user_data['ssh-import-id'] = user
-        user_data['ssh-authorized-keys'] = [public_key.strip()]
-        config_data = {"users": [user_data]}
-        if cloud_config_str:
-            cloud_config = yaml.load(cloud_config_str)
-            # If the client has included the "users" section, append it to the current one
-            if 'users' in cloud_config:
-                config_data["users"].extend(cloud_config['users'])
-                del cloud_config["users"]
-
-            config_data.update(cloud_config)
-        config = "#cloud-config\n%s" % yaml.dump(config_data, default_flow_style=False, width=512)
-        return config
 
     def query_occi(self, auth_data):
         """
@@ -868,8 +848,7 @@ class OCCICloudConnector(CloudConnector):
                                                     default_domain=Config.DEFAULT_DOMAIN)
 
                 # Add user cloud init data
-                cloud_config_str = self.get_cloud_init_data(radl, vm)
-                cloud_config = self.gen_cloud_config(public_key, user, cloud_config_str).encode()
+                cloud_config = self.get_cloud_init_data(radl, vm, public_key, user).encode()
                 user_data = base64.b64encode(cloud_config).decode().replace("\n", "")
                 self.log_debug("Cloud init: %s" % cloud_config.decode())
 

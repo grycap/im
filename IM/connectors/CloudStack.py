@@ -130,17 +130,18 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
         """
         Update the features of the system with the information of the instance_type
         """
-        system.addFeature(Feature(
-            "memory.size", "=", instance_type.ram, 'M'), conflict="other", missing="other")
-        if instance_type.disk:
-            system.addFeature(Feature("disk.0.free_size", "=", instance_type.disk, 'G'),
-                              conflict="other", missing="other")
-        if 'cpu' in instance_type.extra:
-            system.addFeature(Feature("cpu.count", "=", instance_type.extra['cpu']),
-                              conflict="other", missing="other")
+        if instance_type:
+            system.addFeature(Feature(
+                "memory.size", "=", instance_type.ram, 'M'), conflict="other", missing="other")
+            if instance_type.disk:
+                system.addFeature(Feature("disk.0.free_size", "=", instance_type.disk, 'G'),
+                                  conflict="other", missing="other")
+            if 'cpu' in instance_type.extra:
+                system.addFeature(Feature("cpu.count", "=", instance_type.extra['cpu']),
+                                  conflict="other", missing="other")
 
-        system.addFeature(Feature("instance_type", "=",
-                                  instance_type.name), conflict="other", missing="other")
+            system.addFeature(Feature("instance_type", "=",
+                                      instance_type.name), conflict="other", missing="other")
 
     def _get_security_group(self, driver, sg_name):
         try:
