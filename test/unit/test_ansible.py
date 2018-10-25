@@ -39,11 +39,11 @@ class TestAnsible(unittest.TestCase):
         tests_path = os.path.dirname(os.path.abspath(__file__))
         play_file_path = os.path.join(tests_path, "../files/play.yaml")
         inventory = os.path.join(tests_path, "../files/inventory")
-        ansible_process = AnsibleThread(result, StringIO(), play_file_path, None, 1, None,
+        ansible_process = AnsibleThread(result, StringIO(), play_file_path, 1, None,
                                         "password", 1, inventory, "username")
         ansible_process.run()
 
-        _, (return_code, _), output = result.get()
+        _, return_code, output = result.get()
         self.assertEqual(return_code, 0)
         self.assertIn("failed=0", output.getvalue())
         self.assertIn("changed=2", output.getvalue())

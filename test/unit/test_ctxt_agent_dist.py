@@ -147,17 +147,17 @@ class TestCtxtAgent(unittest.TestCase):
         vm = self.gen_vm_data()
         queue_mock = MagicMock()
         queue.return_value = queue_mock
-        queue_mock.get.return_value = None, (0, []), None
+        queue_mock.get.return_value = None, 0, None
         thread = CtxtAgent.LaunchAnsiblePlaybook(self.logger, "/tmp", "play.yml",
                                                  vm, 1, "/tmp/inv", "/tmp/pk.pem",
                                                  3, True, None)
         res = CtxtAgent.wait_thread(thread, self.gen_general_conf(), False)
-        self.assertEqual(res, (True, []))
+        self.assertEqual(res, True)
 
         CtxtAgent.VM_CONF_DATA_FILENAME = "/tmp/conf.dat"
         thread[0].is_alive.return_value = False
         res = CtxtAgent.wait_thread(thread, self.gen_general_conf(), True)
-        self.assertEqual(res, (True, []))
+        self.assertEqual(res, True)
 
     @patch("contextualization.ctxt_agent_dist.SSH.execute_timeout")
     @patch("contextualization.ctxt_agent_dist.SSH.execute")
@@ -195,7 +195,7 @@ class TestCtxtAgent(unittest.TestCase):
         CtxtAgent.changeVMCredentials.return_value = True
         CtxtAgent.LaunchAnsiblePlaybook = MagicMock()
         queue = MagicMock()
-        queue.get.return_value = None, (0, []), None
+        queue.get.return_value = None, 0, None
         thread = MagicMock()
         thread.is_alive.return_value = False
         CtxtAgent.LaunchAnsiblePlaybook.return_value = (thread, queue)

@@ -820,8 +820,7 @@ class ConfManager(threading.Thread):
                             for ansible_host in self.inf.radl.ansible_hosts:
                                 (user, passwd, private_key) = ansible_host.getCredentialValues()
                                 ssh = SSHRetry(ansible_host.getHost(), user, passwd, private_key)
-                                ssh.sftp_mkdir(remote_dir)
-                                ssh.sftp_chmod(remote_dir, 448)
+                                ssh.sftp_mkdir(remote_dir, 0o700)
                                 ssh.sftp_mkdir(remote_dir + "/IM")
                                 ssh.sftp_put_files(files)
                                 # Copy the utils helper files
@@ -831,8 +830,7 @@ class ConfManager(threading.Thread):
                                 ssh.sftp_mkdir(remote_dir + "/IM/ansible_utils")
                                 ssh.sftp_put_dir(Config.IM_PATH + "/ansible_utils", remote_dir + "/IM/ansible_utils")
                         else:
-                            ssh.sftp_mkdir(remote_dir)
-                            ssh.sftp_chmod(remote_dir, 448)
+                            ssh.sftp_mkdir(remote_dir, 0o700)
                             ssh.sftp_mkdir(remote_dir + "/IM")
                             ssh.sftp_put_files(files)
                             # Copy the utils helper files
@@ -1208,7 +1206,7 @@ class ConfManager(threading.Thread):
         result = Queue()
         extra_vars = {'IM_HOST': 'all'}
         # store the process to terminate it later is Ansible does not finish correctly
-        self.ansible_process = AnsibleThread(result, StringIO(), tmp_dir + "/" + playbook, None, 1, gen_pk_file,
+        self.ansible_process = AnsibleThread(result, StringIO(), tmp_dir + "/" + playbook, 1, gen_pk_file,
                                              ssh.password, 1, tmp_dir + "/" + inventory, ssh.username,
                                              extra_vars=extra_vars)
         self.ansible_process.start()
@@ -1233,7 +1231,7 @@ class ConfManager(threading.Thread):
 
         try:
             self.log_info('Get the results of the Ansible process.')
-            _, (return_code, _), output = result.get(timeout=10, block=False)
+            _, return_code, output = result.get(timeout=10, block=False)
             msg = output.getvalue()
             self.log_info('Results obtained')
         except:
@@ -1321,9 +1319,8 @@ class ConfManager(threading.Thread):
 
             self.inf.add_cont_msg("Creating and copying Ansible playbook files")
 
-            ssh.sftp_mkdir(Config.REMOTE_CONF_DIR)
-            ssh.sftp_mkdir(Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/")
-            ssh.sftp_chmod(Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/", 448)
+            ssh.sftp_mkdir(Config.REMOTE_CONF_DIR, 0o777)
+            ssh.sftp_mkdir(Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/", 0o700)
 
             for galaxy_name in modules:
                 if galaxy_name:

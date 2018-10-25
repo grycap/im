@@ -160,9 +160,13 @@ class TestAzureConnector(unittest.TestCase):
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'azr://Canonical/UbuntuServer/16.04.0-LTS/latest' and
             disk.0.os.credentials.username = 'user' and
+            disk.0.os.credentials.password = 'pass' and
             disk.1.size=1GB and
             disk.1.device='hdb' and
-            disk.1.mount_path='/mnt/path'
+            disk.1.mount_path='/mnt/path' and
+            disk.2.image.url='RGname/DiskName' and
+            disk.2.device='hdb' and
+            disk.2.mount_path='/mnt/path2'
             )"""
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
@@ -203,6 +207,11 @@ class TestAzureConnector(unittest.TestCase):
 
         cclient.virtual_machines.create_or_update.side_effect = self.create_vm
 
+        disk = MagicMock()
+        disk.name = "dname"
+        disk.id = "did"
+        cclient.disks.get.return_value = disk
+
         inf = InfrastructureInfo()
         inf.auth = auth
         res = azure_cloud.launch_with_retry(inf, radl, radl, 3, auth, 2, 0)
@@ -213,6 +222,15 @@ class TestAzureConnector(unittest.TestCase):
         self.assertEquals(rclient.resource_groups.delete.call_count, 2)
         self.assertIn("rg-userimage-", rclient.resource_groups.delete.call_args_list[0][0][0])
         self.assertIn("rg-userimage-", rclient.resource_groups.delete.call_args_list[1][0][0])
+
+        json_vm_req = cclient.virtual_machines.create_or_update.call_args_list[0][0][2]
+        self.assertEquals(json_vm_req['storage_profile']['data_disks'][0]['disk_size_gb'], 1)
+        self.assertEquals(json_vm_req['storage_profile']['data_disks'][1]['managed_disk']['id'], "did")
+        image_res = {'sku': '16.04.0-LTS', 'publisher': 'Canonical', 'version': 'latest', 'offer': 'UbuntuServer'}
+        self.assertEquals(json_vm_req['storage_profile']['image_reference'], image_res)
+        self.assertEquals(json_vm_req['hardware_profile']['vm_size'], 'instance_type1')
+        self.assertEquals(json_vm_req['os_profile']['admin_username'], 'user')
+        self.assertEquals(json_vm_req['os_profile']['admin_password'], 'pass')
 
     @patch('IM.connectors.Azure.NetworkManagementClient')
     @patch('IM.connectors.Azure.ComputeManagementClient')
