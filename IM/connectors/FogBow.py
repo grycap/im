@@ -487,7 +487,11 @@ class FogBowCloudConnector(CloudConnector):
         """
         Delete the created nets
         """
-        fbw_nets = self.get_fbw_nets(auth_data)
+        try:
+            fbw_nets = self.get_fbw_nets(auth_data)
+        except:
+            self.log_exception("Error getting FogBow nets.")
+            fbw_nets = {}
         for net in vm.info.networks:
             if not net.isPublic():
                 net_name = "im_%s_%s" % (vm.inf.id, net.id)
