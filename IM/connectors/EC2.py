@@ -394,6 +394,9 @@ class EC2CloudConnector(CloudConnector):
                     self.log_info("Creating security group: %s" % sg_name)
                     try:
                         sg = conn.create_security_group(sg_name, "Security group created by the IM", vpc_id=vpc)
+                        # open all the ports for the VMs in the security group
+                        sg.authorize('tcp', 0, 65535, src_group=sg)
+                        sg.authorize('udp', 0, 65535, src_group=sg)
                     except Exception as crex:
                         # First check if the SG does exist
                         sg = self._get_security_group(conn, sg_name)
@@ -406,10 +409,6 @@ class EC2CloudConnector(CloudConnector):
                     res.append(sg.id)
                 else:
                     res.append(sg.name)
-
-                # open all the ports for the VMs in the security group
-                sg.authorize('tcp', 0, 65535, src_group=sg)
-                sg.authorize('udp', 0, 65535, src_group=sg)
 
             while system.getValue("net_interface." + str(i) + ".connection"):
                 network_name = system.getValue("net_interface." + str(i) + ".connection")
