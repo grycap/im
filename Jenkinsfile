@@ -106,7 +106,7 @@ commands = bandit -r IM -f html -o bandit.html"""
                         ToxEnvRun('bandit')
                     }
                     catch(e) {
-			// FIXME: Temporarily ignore bandit exit status
+                        // FIXME: Temporarily ignore bandit exit status
                         currentBuild.result = 'SUCCESS'
                     }
                 }
@@ -163,7 +163,10 @@ commands = bandit -r IM -f html -o bandit.html"""
             steps {
                 checkout scm
                 script {
-                    dockerhub_image_id = DockerBuild(dockerhub_repo, env.BRANCH_NAME)
+                    dockerhub_image_id = DockerBuild(
+                        dockerhub_repo,
+                        env.BRANCH_NAME,
+                        "docker-devel")
                 }
             }
             post {
