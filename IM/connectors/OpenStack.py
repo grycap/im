@@ -866,11 +866,10 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             if not sg:
                 self.log_info("Creating security group: %s" % sg_name)
                 sg = driver.ex_create_security_group(sg_name, "Security group created by the IM")
+                # open all the ports for the VMs in the security group
+                driver.ex_create_security_group_rule(sg, 'tcp', 1, 65535, source_security_group=sg)
+                driver.ex_create_security_group_rule(sg, 'udp', 1, 65535, source_security_group=sg)
             res.append(sg)
-
-            # open all the ports for the VMs in the security group
-            driver.ex_create_security_group_rule(sg, 'tcp', 1, 65535, source_security_group=sg)
-            driver.ex_create_security_group_rule(sg, 'udp', 1, 65535, source_security_group=sg)
 
         while system.getValue("net_interface." + str(i) + ".connection"):
             network_name = system.getValue("net_interface." + str(i) + ".connection")
