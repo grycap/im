@@ -309,7 +309,7 @@ class CloudConnector:
             cloud_config.append({"op": "add", "path": "/packages", "value": ["curl", "sshpass"]})
 
             curl_command = vm.get_boot_curl_commands()
-            cloud_config.append({"op": "add", "path": "/runcmd", "value": [curl_command]})
+            cloud_config.append({"op": "add", "path": "/bootcmd", "value": curl_command})
 
         if public_key:
             user_data = {}
