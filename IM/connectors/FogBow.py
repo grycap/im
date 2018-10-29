@@ -486,10 +486,25 @@ class FogBowCloudConnector(CloudConnector):
             else:
                 res = (True, "")
 
-            self.delete_volumes(vm, auth_data)
-            self.delete_public_ips(vm.id, public_ips, auth_data)
+            retries = 3
+            success = False
+            cont = 0
+            while not success and cont < retries:
+                cont += 1
+                success = self.delete_volumes(vm, auth_data)
+
+            success = False
+            cont = 0
+            while not success and cont < retries:
+                cont += 1
+                success = self.delete_public_ips(vm.id, public_ips, auth_data)
+
             if last:
-                self.delete_nets(vm, auth_data)
+                success = False
+                cont = 0
+                while not success and cont < retries:
+                    cont += 1
+                    success = self.delete_nets(vm, auth_data)
 
             return res
         except Exception as ex:
@@ -505,16 +520,23 @@ class FogBowCloudConnector(CloudConnector):
         except:
             self.log_exception("Error getting FogBow nets.")
             fbw_nets = {}
-        for net in vm.info.networks:
-            if not net.isPublic():
-                net_name = "im_%s_%s" % (vm.inf.id, net.id)
-                if net_name in fbw_nets:
-                    net_id = fbw_nets[net_name]
-                    resp = self.create_request('DELETE', '/networks/%s' % net_id, auth_data)
-                    if resp.status_code not in [200, 204, 404]:
-                        self.log_error("Error deleting net %s: %s. %s." % (net_name, resp.reason, resp.text))
-                    else:
-                        self.log_info("Net %s: Successfully deleted." % net_name)
+        success = True
+        try:
+            for net in vm.info.networks:
+                if not net.isPublic():
+                    net_name = "im_%s_%s" % (vm.inf.id, net.id)
+                    if net_name in fbw_nets:
+                        net_id = fbw_nets[net_name]
+                        resp = self.create_request('DELETE', '/networks/%s' % net_id, auth_data)
+                        if resp.status_code not in [200, 204, 404]:
+                            success = False
+                            self.log_error("Error deleting net %s: %s. %s." % (net_name, resp.reason, resp.text))
+                        else:
+                            self.log_info("Net %s: Successfully deleted." % net_name)
+        except:
+            success = False
+            self.log_exception("Error deleting net %s." % net_name)
+        return success
 
     def delete_volumes(self, vm, auth_data):
         """
