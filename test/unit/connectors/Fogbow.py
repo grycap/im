@@ -164,7 +164,7 @@ class TestFogBowConnector(unittest.TestCase):
                 resp.json.return_value = {"id": "1",
                                           "serverId": "1",
                                           "volumeId": "1",
-                                          "device": None,
+                                          "device": "/dev/sdb",
                                           "state": "READY"}
             else:
                 resp.status_code = 404
@@ -268,28 +268,11 @@ class TestFogBowConnector(unittest.TestCase):
         success, vm = fogbow_cloud.updateVMInfo(vm, auth)
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
-        expected_res = """network net ( outbound = 'yes' )
-network private.10.0.0.0 ( outbound = 'no' )
-system test (
-net_interface.1.ip = '10.0.0.1' and
-cpu.arch = 'x86_64' and
-disk.0.image.url = 'fbw://server.com/fogbow-ubuntu' and
-net_interface.0.ip = '8.8.8.8' and
-memory.size = 1024M and
-cpu.count = 1 and
-net_interface.1.connection = 'private.10.0.0.0' and
-state = 'pending' and
-net_interface.0.dns_name = 'test' and
-disk.1.mount_path = '/mnt/path' and
-disk.1.device = 'hdb' and
-disk.1.size = 1GB and
-net_interface.0.connection = 'net' and
-disk.0.os.name = 'linux' and
-disk.0.os.credentials.password = 'pass' and
-disk.0.os.credentials.username = 'user'
-)\n\n"""
-        self.assertEqual(str(vm.info), expected_res)
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+        self.assertEquals(vm.info.systems[0].getValue("net_interface.1.ip"), "10.0.0.1")
+        self.assertEquals(vm.info.systems[0].getValue("net_interface.0.ip"), "8.8.8.8")
+        self.assertEquals(vm.info.systems[0].getValue("memory.size"), 1073741824)
+        self.assertEquals(vm.info.systems[0].getValue("disk.1.device"), "/dev/sdb")
 
     @patch('requests.request')
     def test_60_finalize(self, requests):
