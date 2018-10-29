@@ -19,7 +19,9 @@ import os
 import requests
 import time
 from uuid import uuid1
+from netaddr import IPNetwork, IPAddress
 
+from IM.config import Config
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
@@ -375,7 +377,7 @@ class FogBowCloudConnector(CloudConnector):
                         ipdata = resp_ip.json()
                         if ipdata['state'] == 'FAILED':
                             try:
-                                self.log_warn("Public IP id: %s is FAILED!!. Trying to delete." % ipstatus['instanceId'])
+                                self.log_warn("Public IP id: %s is FAILED. Trying to delete." % ipstatus['instanceId'])
                                 resp_del = self.create_request('DELETE', '/publicIps/%s' % ipstatus['instanceId'],
                                                                auth_data, headers)
                                 if resp_del.status_code in [200, 204]:
@@ -385,7 +387,7 @@ class FogBowCloudConnector(CloudConnector):
                                                                                                 resp.reason, resp.text))
                             except:
                                 self.log_warn("Error deleting public IP id: %s" % ipstatus['instanceId'])
-    
+
                         elif ipdata['computeId'] == vm_id:
                             res.append(ipdata[field])
                     else:
@@ -442,9 +444,15 @@ class FogBowCloudConnector(CloudConnector):
 
                 # Update the network data
                 private_ips = []
+                public_ips = []
                 if output["ipAddresses"]:
-                    private_ips.extend(output["ipAddresses"])
-                public_ips = self._get_instance_public_ips(vm.id, auth_data)
+                    for ip in output["ipAddresses"]:
+                        is_public = not (any([IPAddress(ip) in IPNetwork(mask)
+                                              for mask in Config.PRIVATE_NET_MASKS]))
+                        if is_public:
+                            public_ips.append(ip)
+                        else:
+                            private_ips.append(ip)
 
                 ip = self.add_elastic_ip(vm, public_ips, auth_data)
                 if ip:
@@ -539,6 +547,7 @@ class FogBowCloudConnector(CloudConnector):
         all_ok = True
         for ip_id in public_ips:
             try:
+                self.log_info("Deleting IP with ID: %s" % ip_id)
                 resp = self.create_request('DELETE', '/publicIps/%s' % ip_id, auth_data)
                 if resp.status_code not in [200, 204, 404]:
                     success = False
