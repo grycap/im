@@ -435,17 +435,20 @@ class FogBowCloudConnector(CloudConnector):
                 output = resp.json()
                 vm.state = self.VM_STATE_MAP.get(output["state"], VirtualMachine.UNKNOWN)
 
-                if output["vCPU"]:
+                if "vCPU" in output and output["vCPU"]:
                     vm.info.systems[0].addFeature(Feature(
                         "cpu.count", "=", output["vCPU"]), conflict="other", missing="other")
-                if output["memory"]:
+                if "memory" in output and output["memory"]:
                     vm.info.systems[0].addFeature(Feature(
                         "memory.size", "=", output["memory"], 'M'), conflict="other", missing="other")
+                if "disk" in output and output["disk"]:
+                    vm.info.systems[0].addFeature(Feature(
+                        "disk.0.size", "=", output["disk"], 'G'), conflict="other", missing="other")
 
                 # Update the network data
                 private_ips = []
                 public_ips = []
-                if output["ipAddresses"]:
+                if "ipAddresses" in output and output["ipAddresses"]:
                     for ip in output["ipAddresses"]:
                         is_public = not (any([IPAddress(ip) in IPNetwork(mask)
                                               for mask in Config.PRIVATE_NET_MASKS]))
