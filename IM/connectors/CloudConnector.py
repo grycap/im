@@ -245,9 +245,8 @@ class CloudConnector:
         """
         tmp_dir = tempfile.mkdtemp()
         pk_file = tmp_dir + "/im-ssh-key"
-        command = 'ssh-keygen -t rsa -b 2048 -q -N "" -f ' + pk_file
-        p = subprocess.Popen(command, stdout=subprocess.PIPE,
-                             stderr=subprocess.PIPE, shell=True)
+        command = ['ssh-keygen', '-t', 'rsa', '-b', '2048', '-q', '-N', '', '-f', pk_file]
+        p = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         (out, err) = p.communicate()
         if p.returncode != 0:
             shutil.rmtree(tmp_dir, ignore_errors=True)
@@ -309,7 +308,7 @@ class CloudConnector:
             cloud_config.append({"op": "add", "path": "/packages", "value": ["curl", "sshpass"]})
 
             curl_command = vm.get_boot_curl_commands()
-            cloud_config.append({"op": "add", "path": "/runcmd", "value": [curl_command]})
+            cloud_config.append({"op": "add", "path": "/bootcmd", "value": curl_command})
 
         if public_key:
             user_data = {}

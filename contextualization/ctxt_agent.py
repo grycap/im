@@ -26,10 +26,6 @@ import os
 import getpass
 import json
 import yaml
-try:
-    from StringIO import StringIO
-except ImportError:
-    from io import StringIO
 import socket
 from multiprocessing import Queue
 
@@ -435,7 +431,7 @@ class CtxtAgent():
             new_playbook = os.path.join(play_dir, "mod_" + play_filename)
 
             with open(playbook) as f:
-                yaml_data = yaml.load(f)
+                yaml_data = yaml.safe_load(f)
 
             galaxy_dependencies = []
             needs_git = False
