@@ -26,10 +26,6 @@ import os
 import getpass
 import json
 import yaml
-try:
-    from StringIO import StringIO
-except ImportError:
-    from io import StringIO
 import socket
 from multiprocessing import Queue
 
@@ -87,6 +83,7 @@ class CtxtAgent():
 
     @staticmethod
     def test_ssh(vm, vm_ip, remote_port, delay=10):
+        res = None
         success = False
         CtxtAgent.logger.debug("Testing SSH access to VM: %s:%s" % (vm_ip, remote_port))
         try:
