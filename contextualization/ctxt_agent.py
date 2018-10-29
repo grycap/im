@@ -26,10 +26,6 @@ import os
 import getpass
 import json
 import yaml
-try:
-    from StringIO import StringIO
-except ImportError:
-    from io import StringIO
 import socket
 from multiprocessing import Queue
 
