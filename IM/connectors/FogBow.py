@@ -365,32 +365,35 @@ class FogBowCloudConnector(CloudConnector):
         Get the IPs associated with the compute specified
         """
         res = []
-        headers = {'Accept': 'application/json'}
-        resp = self.create_request('GET', '/publicIps/status', auth_data, headers=headers)
-        if resp.status_code == 200:
-            for ipstatus in resp.json():
-                resp_ip = self.create_request('GET', '/publicIps/%s' % ipstatus['instanceId'], auth_data, headers)
-                if resp_ip.status_code == 200:
-                    ipdata = resp_ip.json()
-                    if ipdata['state'] == 'FAILED':
-                        try:
-                            self.log_warn("Public IP id: %s is FAILED!!. Trying to delete." % ipstatus['instanceId'])
-                            resp_del = self.create_request('DELETE', '/publicIps/%s' % ipstatus['instanceId'],
-                                                           auth_data, headers)
-                            if resp_del.status_code in [200, 204]:
-                                self.log_info("Public IP id: %s deleted." % ipstatus['instanceId'])
-                            else:
-                                self.log_warn("Error deleting public IP id: %s. %s. %s." % (ipstatus['instanceId'],
-                                                                                            resp.reason, resp.text))
-                        except:
-                            self.log_warn("Error deleting public IP id: %s" % ipstatus['instanceId'])
-
-                    elif ipdata['computeId'] == vm_id:
-                        res.append(ipdata[field])
-                else:
-                    self.log_error("Error getting public IP info: %s. %s." % (resp.reason, resp.text))
-        else:
-            self.log_error("Error getting public IP info: %s. %s." % (resp.reason, resp.text))
+        try:
+            headers = {'Accept': 'application/json'}
+            resp = self.create_request('GET', '/publicIps/status', auth_data, headers=headers)
+            if resp.status_code == 200:
+                for ipstatus in resp.json():
+                    resp_ip = self.create_request('GET', '/publicIps/%s' % ipstatus['instanceId'], auth_data, headers)
+                    if resp_ip.status_code == 200:
+                        ipdata = resp_ip.json()
+                        if ipdata['state'] == 'FAILED':
+                            try:
+                                self.log_warn("Public IP id: %s is FAILED!!. Trying to delete." % ipstatus['instanceId'])
+                                resp_del = self.create_request('DELETE', '/publicIps/%s' % ipstatus['instanceId'],
+                                                               auth_data, headers)
+                                if resp_del.status_code in [200, 204]:
+                                    self.log_info("Public IP id: %s deleted." % ipstatus['instanceId'])
+                                else:
+                                    self.log_warn("Error deleting public IP id: %s. %s. %s." % (ipstatus['instanceId'],
+                                                                                                resp.reason, resp.text))
+                            except:
+                                self.log_warn("Error deleting public IP id: %s" % ipstatus['instanceId'])
+    
+                        elif ipdata['computeId'] == vm_id:
+                            res.append(ipdata[field])
+                    else:
+                        self.log_error("Error getting public IP info: %s. %s." % (resp.reason, resp.text))
+            else:
+                self.log_error("Error getting public IP info: %s. %s." % (resp.reason, resp.text))
+        except:
+            self.log_exception("Error getting public IP info")
         return res
 
     def add_elastic_ip(self, vm, public_ips, auth_data):
@@ -433,9 +436,9 @@ class FogBowCloudConnector(CloudConnector):
                 if output["vCPU"]:
                     vm.info.systems[0].addFeature(Feature(
                         "cpu.count", "=", output["vCPU"]), conflict="other", missing="other")
-                if output["ram"]:
+                if output["memory"]:
                     vm.info.systems[0].addFeature(Feature(
-                        "memory.size", "=", output["ram"], 'M'), conflict="other", missing="other")
+                        "memory.size", "=", output["memory"], 'M'), conflict="other", missing="other")
 
                 # Update the network data
                 private_ips = []
@@ -462,6 +465,8 @@ class FogBowCloudConnector(CloudConnector):
 
         headers = {'Accept': 'text/plain'}
 
+        public_ips = self._get_instance_public_ips(vm.id, auth_data, "id")
+
         try:
             resp = self.create_request('DELETE', "/computes/" + vm.id, auth_data, headers=headers)
 
@@ -474,7 +479,7 @@ class FogBowCloudConnector(CloudConnector):
                 res = (True, "")
 
             self.delete_volumes(vm, auth_data)
-            self.delete_public_ips(vm, auth_data)
+            self.delete_public_ips(vm.id, public_ips, auth_data)
             if last:
                 self.delete_nets(vm, auth_data)
 
@@ -527,12 +532,11 @@ class FogBowCloudConnector(CloudConnector):
                     all_ok = False
         return all_ok
 
-    def delete_public_ips(self, vm, auth_data):
+    def delete_public_ips(self, vm_id, public_ips, auth_data):
         """
         Release the public IPs of this VM
         """
         all_ok = True
-        public_ips = self._get_instance_public_ips(vm.id, auth_data, "id")
         for ip_id in public_ips:
             try:
                 resp = self.create_request('DELETE', '/publicIps/%s' % ip_id, auth_data)
@@ -542,7 +546,7 @@ class FogBowCloudConnector(CloudConnector):
                 success = True
             except:
                 self.log_exception("Error releasing the IP: " + str(ip_id) +
-                                   " from the node: " + str(vm.id))
+                                   " from the node: " + str(vm_id))
                 success = False
             if not success:
                 all_ok = False

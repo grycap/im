@@ -126,7 +126,7 @@ class TestFogBowConnector(unittest.TestCase):
                                           "hostName": "hostname",
                                           "id": "1",
                                           "ipAddresses": ["10.0.0.1"],
-                                          "ram": 1024,
+                                          "memory": 1024,
                                           "state": "READY",
                                           "vCPU": 1}
             elif url == "/volumes/1":
