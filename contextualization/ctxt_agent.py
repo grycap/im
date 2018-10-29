@@ -435,7 +435,7 @@ class CtxtAgent():
             new_playbook = os.path.join(play_dir, "mod_" + play_filename)
 
             with open(playbook) as f:
-                yaml_data = yaml.load(f)
+                yaml_data = yaml.safe_load(f)
 
             galaxy_dependencies = []
             needs_git = False
