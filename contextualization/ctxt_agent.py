@@ -83,6 +83,7 @@ class CtxtAgent():
 
     @staticmethod
     def test_ssh(vm, vm_ip, remote_port, delay=10):
+        res = None
         success = False
         res = None
         CtxtAgent.logger.debug("Testing SSH access to VM: %s:%s" % (vm_ip, remote_port))

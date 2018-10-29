@@ -442,94 +442,70 @@ class TestOCCIConnector(unittest.TestCase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     def test_get_cloud_init_data(self):
-        cloud_init = """[
-    { "op": "add",
-      "path": "/groups",
-      "value":
-          [{"ubuntu": ["foo", "bar"]},
-           "cloud-users"]
-    },
-    { "op": "add",
-      "path": "/users",
-      "value":
-            ["default",
-             {"inactive": true,  "name": "cloudy", "system": true},
-             {"snapuser": "joe@joeuser.io"}
-            ]
-    },
-    { "op": "add",
-      "path": "/packages",
-      "value":
-          ["pwgen", "pastebinit"]
-    }
-]"""
+        cloud_init = """
+groups:
+  - ubuntu: [foo,bar]
+  - cloud-users
+# Add users to the system. Users are added after groups are added.
+users:
+  - default
+  - name: cloudy
+    gecos: Magic Cloud App Daemon User
+    inactive: true
+    system: true
+  - snapuser: joe@joeuser.io
+packages:
+ - pwgen
+ - pastebinit
+ - [libpython2.7, 2.7.3-0ubuntu3.1]
+ """
 
-        expected_res = [
-            {
-                "path": "/users",
-                "value": [
-                    {
-                        "ssh-import-id": "user",
-                        "ssh-authorized-keys": ["pub_key"],
-                        "sudo": "ALL=(ALL) NOPASSWD:ALL",
-                        "name": "user",
-                        "lock-passwd": True
-                    }
-                ],
-                "op": "add"
-            }
-        ]
-
+        expected_res = """#cloud-config
+merge_how: 'list(append)+dict(recurse_array,no_replace)+str()'
+users:
+- lock-passwd: true
+  name: user
+  ssh-authorized-keys:
+  - pub_key
+  ssh-import-id: user
+  sudo: ALL=(ALL) NOPASSWD:ALL
+"""
         occi_cloud = self.get_occi_cloud()
         res = occi_cloud.get_cloud_init_data(None, None, "pub_key", "user")
-        res = json.loads("".join(res.split("\n")[1:]))
         self.assertEqual(res, expected_res)
 
-        expected_res = [
-            {
-                "path": "/groups",
-                "value": [
-                    {"ubuntu": ["foo", "bar"]},
-                    "cloud-users"
-                ],
-                "op": "add"
-            },
-            {
-                "path": "/users",
-                "value": [
-                    "default",
-                    {"inactive": True, "name": "cloudy", "system": True},
-                    {"snapuser": "joe@joeuser.io"}
-                ],
-                "op": "add"
-            },
-            {
-                "path": "/packages",
-                "value": ["pwgen", "pastebinit"],
-                "op": "add"
-            },
-            {
-                "path": "/users",
-                "value": [
-                    {
-                        "ssh-import-id": "user",
-                        "ssh-authorized-keys": ["pub_key"],
-                        "sudo": "ALL=(ALL) NOPASSWD:ALL",
-                        "name": "user",
-                        "lock-passwd": True
-                    }
-                ],
-                "op": "add"
-            }
-        ]
-
+        expected_res = """#cloud-config
+merge_how: 'list(append)+dict(recurse_array,no_replace)+str()'
+groups:
+- ubuntu:
+  - foo
+  - bar
+- cloud-users
+packages:
+- pwgen
+- pastebinit
+- - libpython2.7
+  - 2.7.3-0ubuntu3.1
+users:
+- default
+- gecos: Magic Cloud App Daemon User
+  inactive: true
+  name: cloudy
+  system: true
+- snapuser: joe@joeuser.io
+- lock-passwd: true
+  name: user
+  ssh-authorized-keys:
+  - pub_key
+  ssh-import-id: user
+  sudo: ALL=(ALL) NOPASSWD:ALL
+"""
         radl = RADL()
         radl.systems.append(system("test"))
         citem = contextualize_item("test", "cid", ctxt_tool="cloud_init")
         radl.contextualize.items = {"id": citem}
         radl.configures.append(configure("cid", cloud_init))
         res = occi_cloud.get_cloud_init_data(radl, None, "pub_key", "user")
-        res = json.loads("".join(res.split("\n")[1:]))
         self.assertEqual(res, expected_res)
 
     @patch('requests.request')
