@@ -26,11 +26,6 @@ import os
 import getpass
 import json
 import yaml
-import shutil
-try:
-    from StringIO import StringIO
-except ImportError:
-    from io import StringIO
 import socket
 from multiprocessing import Queue
 
@@ -95,6 +90,7 @@ class CtxtAgent():
 
     @staticmethod
     def test_ssh(vm, vm_ip, remote_port, quiet, delay=10):
+        res = None
         try:
             if not quiet:
                 CtxtAgent.logger.debug("Testing SSH access to VM: %s:%s" % (vm_ip, remote_port))
@@ -153,7 +149,6 @@ class CtxtAgent():
         wait = 0
         success = False
         res = None
-        last_tested_private = False
         while wait < max_wait:
             if 'ctxt_ip' in vm and 'ctxt_port' in vm:
                 # These have been previously tested and worked use it
