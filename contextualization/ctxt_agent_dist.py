@@ -150,7 +150,6 @@ class CtxtAgent():
         wait = 0
         success = False
         res = None
-        last_tested_private = False
         while wait < max_wait:
             if 'ctxt_ip' in vm and 'ctxt_port' in vm:
                 # These have been previously tested and worked use it
