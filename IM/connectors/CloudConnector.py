@@ -309,7 +309,7 @@ class CloudConnector:
             curl_command = vm.get_boot_curl_commands()
             if 'bootcmd' not in cloud_config:
                 cloud_config['bootcmd'] = []
-            cloud_config.extend(curl_command)
+            cloud_config['bootcmd'].extend(curl_command)
 
         if public_key:
             user_data = {}
