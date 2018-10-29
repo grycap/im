@@ -4,7 +4,6 @@ import shutil
 import tempfile
 import time
 import yaml
-import json
 from IM.config import Config
 
 
@@ -287,7 +286,7 @@ class CloudConnector:
         """
         Get the cloud init data specified by the user in the RADL
         """
-        cloud_config = []
+        cloud_config = {}
 
         if radl:
             configure_name = None
@@ -299,16 +298,18 @@ class CloudConnector:
                         configure_name = item.configure
 
             if configure_name:
-                cloud_config = json.loads(radl.get_configure_by_name(configure_name).recipes)
-            else:
-                cloud_config = []
+                cloud_config = yaml.safe_load(radl.get_configure_by_name(configure_name).recipes)
 
         # Only for those VMs with private IP
         if Config.SSH_REVERSE_TUNNELS and vm and not vm.hasPublicNet():
-            cloud_config.append({"op": "add", "path": "/packages", "value": ["curl", "sshpass"]})
+            if 'packages' not in cloud_config:
+                cloud_config['packages'] = []
+            cloud_config['packages'].extend(["curl", "sshpass"])
 
             curl_command = vm.get_boot_curl_commands()
-            cloud_config.append({"op": "add", "path": "/bootcmd", "value": curl_command})
+            if 'bootcmd' not in cloud_config:
+                cloud_config['bootcmd'] = []
+            cloud_config.extend(curl_command)
 
         if public_key:
             user_data = {}
@@ -317,12 +318,15 @@ class CloudConnector:
             user_data['lock-passwd'] = True
             user_data['ssh-import-id'] = user
             user_data['ssh-authorized-keys'] = [public_key.strip()]
-            cloud_config.append({"op": "add", "path": "/users", "value": [user_data]})
+            if 'users' not in cloud_config:
+                cloud_config['users'] = []
+            cloud_config['users'].append(user_data)
 
         if cloud_config:
-            res = json.dumps(cloud_config, indent=1)
-            self.log_debug("#cloud-config-jsonp\n%s" % res)
-            return "#cloud-config-jsonp\n%s" % res
+            res = "merge_how: 'list(append)+dict(recurse_array,no_replace)+str()'\n"
+            res += yaml.dump(cloud_config, default_flow_style=False, width=512)
+            self.log_debug("#cloud-config\n%s" % res)
+            return "#cloud-config\n%s" % res
         else:
             return None
 
