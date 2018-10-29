@@ -35,7 +35,7 @@ class Tosca:
 
     def __init__(self, yaml_str):
         Tosca.logger.debug("TOSCA: %s" % yaml_str)
-        self.yaml = yaml.load(yaml_str)
+        self.yaml = yaml.safe_load(yaml_str)
         self.tosca = ToscaTemplate(yaml_dict_tpl=copy.deepcopy(self.yaml))
 
     def serialize(self):
@@ -661,7 +661,7 @@ class Tosca:
         """
 
         try:
-            yamlo = yaml.load(script_content)
+            yamlo = yaml.safe_load(script_content)
             if not isinstance(yamlo, list):
                 Tosca.logger.warn("Error parsing YAML: " +
                                   script_content + "\n.Do not remove header.")
@@ -1480,7 +1480,7 @@ class Tosca:
         """
         yamlo1o = {}
         try:
-            yamlo1o = yaml.load(yaml1)[0]
+            yamlo1o = yaml.safe_load(yaml1)[0]
             if not isinstance(yamlo1o, dict):
                 yamlo1o = {}
         except Exception as ex:
@@ -1488,7 +1488,7 @@ class Tosca:
 
         yamlo2s = {}
         try:
-            yamlo2s = yaml.load(yaml2)
+            yamlo2s = yaml.safe_load(yaml2)
             if not isinstance(yamlo2s, list) or any([not isinstance(d, dict) for d in yamlo2s]):
                 yamlo2s = {}
         except Exception as ex:

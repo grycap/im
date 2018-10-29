@@ -370,7 +370,7 @@ class CtxtAgent():
             new_playbook = os.path.join(play_dir, "mod_" + play_filename)
 
             with open(playbook) as f:
-                yaml_data = yaml.load(f)
+                yaml_data = yaml.safe_load(f)
 
             for galaxy_name in general_conf_data['ansible_modules']:
                 galaxy_name = galaxy_name.encode()
