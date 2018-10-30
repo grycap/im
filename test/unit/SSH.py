@@ -274,7 +274,7 @@ class TestSSH(unittest.TestCase):
 
         ssh = SSH("host", "user", "passwd", read_file_as_string("../files/privatekey.pem"))
 
-        with self.assertRaises(SFTPProtocolError) as ex:
+        with self.assertRaises(IOError) as ex:
             ssh.sftp_get("/tmp/some_file", "/tmp/some_file")
         self.assertEquals("Error code: 3. Permission denied.", str(ex.exception))
 

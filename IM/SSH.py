@@ -569,4 +569,7 @@ class SSH:
         elif code in range(1, 9):
             msg += " %s." % messages[code]
 
-        raise SFTPProtocolError(msg)
+        if code == 1:
+            raise EOFError(msg)
+        else:
+            raise IOError(msg)
