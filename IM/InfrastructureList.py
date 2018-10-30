@@ -178,7 +178,7 @@ class InfrastructureList():
             if db.connect():
                 inf_list = {}
                 if inf_id:
-                    res = db.select("select data from inf_list where id = '%s'" % inf_id)
+                    res = db.select("select data from inf_list where id = %s", (inf_id,))
                 else:
                     res = db.select("select data from inf_list where deleted = 0 order by id desc")
                 if len(res) > 0:

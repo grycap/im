@@ -1471,14 +1471,14 @@ class ConfManager(threading.Thread):
         """
         yamlo1o = {}
         try:
-            yamlo1o = yaml.load(yaml1)[0]
+            yamlo1o = yaml.safe_load(yaml1)[0]
             if not isinstance(yamlo1o, dict):
                 yamlo1o = {}
         except Exception:
             self.log_exception("Error parsing YAML: " + yaml1 + "\n Ignore it")
 
         try:
-            yamlo2s = yaml.load(yaml2)
+            yamlo2s = yaml.safe_load(yaml2)
             if not isinstance(yamlo2s, list) or any([not isinstance(d, dict) for d in yamlo2s]):
                 yamlo2s = {}
         except Exception:

@@ -177,6 +177,9 @@ class TestREST(unittest.TestCase):
         res = RESTGetInfrastructureProperty("1", "radl")
         self.assertEqual(res, "radl")
 
+        res = RESTGetInfrastructureProperty("1", "outputs")
+        self.assertEqual(res, '{"outputs": "outputs"}')
+
         GetInfrastructureRADL.side_effect = DeletedInfrastructureException()
         res = RESTGetInfrastructureProperty("1", "radl")
         self.assertEqual(res, "Error Getting Inf. prop: Deleted infrastructure.")

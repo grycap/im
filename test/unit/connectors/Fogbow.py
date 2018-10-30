@@ -94,13 +94,13 @@ class TestFogBowConnector(unittest.TestCase):
             net_interface.0.connection = 'net' and
             net_interface.0.dns_name = 'test' and
             disk.0.os.name = 'linux' and
-            disk.0.image.url = 'fbw://fogbow-ubuntu' and
+            disk.0.image.url = 'fbw://server.com/fogbow-ubuntu' and
             disk.0.os.credentials.username = 'user'
             )"""
         radl = radl_parse.parse_radl(radl_data)
         radl_system = radl.systems[0]
 
-        auth = Authentication([{'id': 'fogbow', 'type': 'FogBow', 'token': 'token', 'host': 'server.com:8182'}])
+        auth = Authentication([{'id': 'fogbow', 'type': 'FogBow', 'token': 'user', 'host': 'server.com'}])
         fogbow_cloud = self.get_fogbow_cloud()
 
         concrete = fogbow_cloud.concreteSystem(radl_system, auth)
@@ -120,21 +120,85 @@ class TestFogBowConnector(unittest.TestCase):
         self.call_count[method][url] += 1
 
         if method == "GET":
-            if url == "/order/1":
+            if url == "/computes/1":
                 resp.status_code = 200
-                resp.text = read_file_as_string("files/focci_resource.txt")
-            if url == "/compute/08d50672-76c6-4bcb-9eb4-7a17e611b86c@lsd.manager.naf.lsd.ufcg.edu.br":
+                resp.json.return_value = {"disk": 0,
+                                          "hostName": "hostname",
+                                          "id": "1",
+                                          "ipAddresses": ["10.0.0.1"],
+                                          "memory": 1024,
+                                          "state": "READY",
+                                          "vCPU": 1}
+            elif url == "/volumes/1":
                 resp.status_code = 200
-                resp.text = read_file_as_string("files/focci_instance.txt")
+                resp.json.return_value = {"id": "1",
+                                          "name": "volname",
+                                          "size": 1,
+                                          "state": "READY"}
+            elif url == "/networks/status":
+                resp.status_code = 200
+                resp.json.return_value = [{"instanceId": "1",
+                                           "instanceName": "netname",
+                                           "state": "READY"}]
+            elif url == "/publicIps/status":
+                resp.status_code = 200
+                resp.json.return_value = [{"instanceId": "1",
+                                           "instanceName": "ipname",
+                                           "state": "READY"}]
+            elif url == "/publicIps/1":
+                resp.status_code = 200
+                resp.json.return_value = {"id": "1",
+                                          "ip": "8.8.8.8",
+                                          "computeId": "1",
+                                          "state": "READY"}
+            elif url == "/networks/1":
+                resp.status_code = 200
+                resp.json.return_value = {"id": "1",
+                                          "name": "netname",
+                                          "address": "192.168.0.0/24",
+                                          "gateway": "192.168.0.1",
+                                          "allocation": "dynamic",
+                                          "state": "READY"}
+            elif url == "/attachments/1":
+                resp.status_code = 200
+                resp.json.return_value = {"id": "1",
+                                          "serverId": "1",
+                                          "volumeId": "1",
+                                          "device": "/dev/sdb",
+                                          "state": "READY"}
+            else:
+                resp.status_code = 404
         elif method == "POST":
-            if url == "/order/":
+            if url == "/computes/":
                 resp.status_code = 201
-                resp.headers = {'location': 'http/server.com/computeid'}
+                resp.text = "1"
+            elif url == "/publicIps/":
+                resp.status_code = 201
+                resp.text = "1"
+            elif url == "/volumes/":
+                resp.status_code = 201
+                resp.text = "1"
+            elif url == "/attachments/":
+                resp.status_code = 201
+                resp.text = "1"
+            elif url == "/networks/":
+                resp.status_code = 201
+                resp.text = "1"
+            else:
+                resp.status_code = 404
         elif method == "DELETE":
-            if url == "/order/1":
-                resp.status_code = 200
-            if url == "/compute/08d50672-76c6-4bcb-9eb4-7a17e611b86c@lsd.manager.naf.lsd.ufcg.edu.br":
-                resp.status_code = 200
+            if url == "/computes/1":
+                resp.status_code = 204
+            elif url == "/volumes/1":
+                resp.status_code = 204
+            elif url == "/networks/1":
+                resp.status_code = 204
+            elif url == "/publicIps/1":
+                resp.status_code = 204
+            else:
+                resp.status_code = 404
+        else:
+            resp.status_code = 404
 
         return resp
 
@@ -155,16 +219,13 @@ class TestFogBowConnector(unittest.TestCase):
             net_interface.0.dns_name = 'test' and
             net_interface.1.connection = 'net2' and
             disk.0.os.name = 'linux' and
-            disk.0.image.url = 'fbw://fogbow-ubuntu' and
-            disk.0.os.credentials.username = 'user' and
-            disk.1.size=1GB and
-            disk.1.device='hdb' and
-            disk.1.mount_path='/mnt/path'
+            disk.0.image.url = 'fbw://server.com/fogbow-ubuntu' and
+            disk.0.os.credentials.username = 'user'
             )"""
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
 
-        auth = Authentication([{'id': 'fogbow', 'type': 'FogBow', 'token': 'user', 'host': 'server.com:8182'}])
+        auth = Authentication([{'id': 'fogbow', 'type': 'FogBow', 'token': 'user', 'host': 'server.com'}])
         fogbow_cloud = self.get_fogbow_cloud()
 
         requests.side_effect = self.get_response
@@ -175,7 +236,8 @@ class TestFogBowConnector(unittest.TestCase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('requests.request')
-    def test_30_updateVMInfo(self, requests):
+    @patch('time.sleep')
+    def test_30_updateVMInfo(self, sleep, requests):
         radl_data = """
             network net (outbound = 'yes')
             system test (
@@ -185,14 +247,17 @@ class TestFogBowConnector(unittest.TestCase):
             net_interface.0.connection = 'net' and
             net_interface.0.dns_name = 'test' and
             disk.0.os.name = 'linux' and
-            disk.0.image.url = 'azr://image-id' and
+            disk.0.image.url = 'fbw://server.com/fogbow-ubuntu' and
             disk.0.os.credentials.username = 'user' and
-            disk.0.os.credentials.password = 'pass'
+            disk.0.os.credentials.password = 'pass' and
+            disk.1.size=1GB and
+            disk.1.device='hdb' and
+            disk.1.mount_path='/mnt/path'
             )"""
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
 
-        auth = Authentication([{'id': 'fogbow', 'type': 'FogBow', 'token': 'user', 'host': 'server.com:8182'}])
+        auth = Authentication([{'id': 'fogbow', 'type': 'FogBow', 'token': 'user', 'host': 'server.com'}])
         fogbow_cloud = self.get_fogbow_cloud()
 
         inf = MagicMock()
@@ -202,19 +267,27 @@ class TestFogBowConnector(unittest.TestCase):
 
         success, vm = fogbow_cloud.updateVMInfo(vm, auth)
 
-        self.assertEqual(str(vm.info.networks[0].getOutPorts()[0]), "10069:8080/tcp")
-        self.assertEqual(str(vm.info.networks[0].getOutPorts()[1]), "10068:22/tcp")
-
         self.assertTrue(success, msg="ERROR: updating VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+        self.assertEquals(vm.info.systems[0].getValue("net_interface.1.ip"), "10.0.0.1")
+        self.assertEquals(vm.info.systems[0].getValue("net_interface.0.ip"), "8.8.8.8")
+        self.assertEquals(vm.info.systems[0].getValue("memory.size"), 1073741824)
+        self.assertEquals(vm.info.systems[0].getValue("disk.1.device"), "/dev/sdb")
 
     @patch('requests.request')
     def test_60_finalize(self, requests):
-        auth = Authentication([{'id': 'fogbow', 'type': 'FogBow', 'token': 'user', 'host': 'server.com:8182'}])
+        auth = Authentication([{'id': 'fogbow', 'type': 'FogBow', 'token': 'user', 'host': 'server.com'}])
         fogbow_cloud = self.get_fogbow_cloud()
 
+        radl_data = """
+        network public (outbound = 'yes')
+        network private ()
+        system test ()
+        """
+        radl = radl_parse.parse_radl(radl_data)
         inf = MagicMock()
-        vm = VirtualMachine(inf, "1", fogbow_cloud.cloud, "", "", fogbow_cloud, 1)
+        vm = VirtualMachine(inf, "1", fogbow_cloud.cloud, radl, radl, fogbow_cloud, 1)
+        vm.volumes = ["1"]
 
         requests.side_effect = self.get_response
 
