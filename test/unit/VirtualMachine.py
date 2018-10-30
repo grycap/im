@@ -125,6 +125,16 @@ class TestVirtualMachine(unittest.TestCase):
         self.assertEqual(cont_out, "Contextualization agent output processed successfully")
         self.assertEqual(vm.info.systems[0].getCredentialValues(), ('user', 'newpass', None, None))
 
+        os.mkdir("/tmp/test_get_ctxt")
+        ssh.sftp_get.side_effect = IOError()
+        with open('/tmp/test_get_ctxt/stderr', 'w+') as f:
+            f.write('stderr')
+        with open('/tmp/test_get_ctxt/stdout', 'w+') as f:
+            f.write('stdout')
+        cont_out = vm.get_ctxt_output("", delete=True)
+        self.assertEqual(cont_out, "Error getting contextualization agent output /ctxt_agent.out:"
+                         "  No such file.\nstdout\nstderr\n")
+
 
 if __name__ == '__main__':
     unittest.main()
