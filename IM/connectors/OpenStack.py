@@ -476,7 +476,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         return get_subnets, ost_nets
 
-    def map_networks(self, radl, ost_nets, pool_names):
+    def map_networks(self, radl, ost_nets):
         i = 0
         net_map = {}
         used_nets = []
@@ -519,7 +519,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         get_subnets, ost_nets = self.get_ost_network_info(driver, pool_names)
 
         if get_subnets:
-            net_map = self.map_networks(radl, ost_nets, pool_names)
+            net_map = self.map_networks(radl, ost_nets)
             i = 0
             while radl.systems[0].getValue("net_interface." + str(i) + ".connection"):
                 net_name = radl.systems[0].getValue("net_interface." + str(i) + ".connection")
