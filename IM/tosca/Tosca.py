@@ -39,7 +39,7 @@ class Tosca:
         self.tosca = ToscaTemplate(yaml_dict_tpl=copy.deepcopy(self.yaml))
 
     def serialize(self):
-        return yaml.dump(self.yaml)
+        return yaml.safe_dump(self.yaml)
 
     @staticmethod
     def deserialize(str_data):
@@ -677,7 +677,7 @@ class Tosca:
             if 'connection' in elem:
                 del elem['connection']
 
-        return yaml.dump(yamlo, default_flow_style=False, explicit_start=True, width=256)
+        return yaml.safe_dump(yamlo, default_flow_style=False, explicit_start=True, width=256)
 
     @staticmethod
     def _is_artifact(function):
@@ -1521,7 +1521,7 @@ class Tosca:
                     yamlo1[key] = yamlo2[key]
             result.append(yamlo1)
 
-        return yaml.dump(result, default_flow_style=False, explicit_start=True, width=256)
+        return yaml.safe_dump(result, default_flow_style=False, explicit_start=True, width=256)
 
     def get_outputs(self, inf_info):
         """

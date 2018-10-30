@@ -445,3 +445,8 @@ IM 1.7.5:
     * Get EC2 instances info from ec2instances.info
     * Fix error geting the subnets of the default VPC on EC2 conn
     * Add volume_id to TOSCA BlockStorage type
+
+IM 1.7.6:
+    * Change FogBow connector to new APIs.
+    * Use merge_how option in cloud-init.
+    * Fix error VMS with Public IP cannot reach each other.

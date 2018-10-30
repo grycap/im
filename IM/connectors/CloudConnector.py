@@ -324,7 +324,7 @@ class CloudConnector:
 
         if cloud_config:
             res = "merge_how: 'list(append)+dict(recurse_array,no_replace)+str()'\n"
-            res += yaml.dump(cloud_config, default_flow_style=False, width=512)
+            res += yaml.safe_dump(cloud_config, default_flow_style=False, width=512)
             self.log_debug("#cloud-config\n%s" % res)
             return "#cloud-config\n%s" % res
         else:

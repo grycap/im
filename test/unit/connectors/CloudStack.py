@@ -370,6 +370,7 @@ class TestOSCConnector(unittest.TestCase):
         inf.id = "infid"
         inf.radl = radl
         vm = VirtualMachine(inf, "1", osc_cloud.cloud, radl, radl, osc_cloud, 1)
+        vm.volumes = ["volid"]
 
         driver = MagicMock()
         driver.name = "CloudStack"

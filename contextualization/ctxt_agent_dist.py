@@ -403,7 +403,7 @@ class CtxtAgent():
                     yaml_data[0]['tasks'].append(task)
 
             with open(new_playbook, 'w+') as f:
-                yaml.dump(yaml_data, f)
+                yaml.safe_dump(yaml_data, f)
 
         return new_playbook
 
