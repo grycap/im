@@ -476,7 +476,7 @@ class CtxtAgent():
             if galaxy_dependencies:
                 now = str(int(time.time() * 100))
                 filename = "/tmp/galaxy_roles_%s.yml" % now
-                yaml_deps = yaml.dump(galaxy_dependencies, indent=2)
+                yaml_deps = yaml.safe_dump(galaxy_dependencies, indent=2)
                 CtxtAgent.logger.debug("Galaxy depencies file: %s" % yaml_deps)
                 task = {"copy": 'dest=%s content="%s"' % (filename, yaml_deps)}
                 task["name"] = "Create YAML file to install the roles with ansible-galaxy"
@@ -488,7 +488,7 @@ class CtxtAgent():
                 yaml_data[0]['tasks'].append(task)
 
             with open(new_playbook, 'w+') as f:
-                yaml.dump(yaml_data, f)
+                yaml.safe_dump(yaml_data, f)
 
         return new_playbook
 
