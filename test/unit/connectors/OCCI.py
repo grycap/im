@@ -461,7 +461,7 @@ packages:
  """
 
         expected_res = """#cloud-config
-merge_how: 'list(append)+dict(recurse_array,no_replace)+str()'
+merge_how: list(append)+dict(recurse_array,no_replace)+str()
 users:
 - lock-passwd: true
   name: user
@@ -475,12 +475,12 @@ users:
         self.assertEqual(res, expected_res)
 
         expected_res = """#cloud-config
-merge_how: 'list(append)+dict(recurse_array,no_replace)+str()'
 groups:
 - ubuntu:
   - foo
   - bar
 - cloud-users
+merge_how: list(append)+dict(recurse_array,no_replace)+str()
 packages:
 - pwgen
 - pastebinit

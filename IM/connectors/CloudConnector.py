@@ -322,9 +322,11 @@ class CloudConnector:
                 cloud_config['users'] = []
             cloud_config['users'].append(user_data)
 
+        if 'merge_how' not in cloud_config:
+            cloud_config['merge_how'] = 'list(append)+dict(recurse_array,no_replace)+str()'
+
         if cloud_config:
-            res = "merge_how: 'list(append)+dict(recurse_array,no_replace)+str()'\n"
-            res += yaml.safe_dump(cloud_config, default_flow_style=False, width=512)
+            res = yaml.safe_dump(cloud_config, default_flow_style=False, width=512)
             self.log_debug("#cloud-config\n%s" % res)
             return "#cloud-config\n%s" % res
         else:
