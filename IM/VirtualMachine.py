@@ -393,20 +393,9 @@ class VirtualMachine:
 
         Returns: int with the port
         """
-        winrm_port = 5986
-
-        public_net = None
-        for net in self.info.networks:
-            if net.isPublic():
-                public_net = net
-
-        if public_net:
-            outports = public_net.getOutPorts()
-            if outports:
-                for outport in outports:
-                    if outport.get_local_port() == 5986 and outport.get_protocol() == "tcp":
-                        winrm_port = outport.get_remote_port()
-
+        winrm_port = self.getOutPort(5986)
+        if not winrm_port:
+            winrm_port = 5986
         return winrm_port
 
     def getSSHPort(self):

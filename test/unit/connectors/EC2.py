@@ -115,7 +115,8 @@ class TestEC2Connector(unittest.TestCase):
         return keypair
 
     def test_15_get_all_instance_types(self):
-        instances = EC2CloudConnector.get_all_instance_types()
+        ec2_cloud = self.get_ec2_cloud()
+        instances = ec2_cloud.get_all_instance_types()
         self.assertGreater(len(instances), 20)
 
         self.assertEqual(instances[0].cpu_perf, 1.0)

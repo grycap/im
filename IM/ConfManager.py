@@ -1513,7 +1513,7 @@ class ConfManager(threading.Thread):
                     yamlo1[key] = yamlo2[key]
             result.append(yamlo1)
 
-        return yaml.dump(result, default_flow_style=False, explicit_start=True, width=256)
+        return yaml.safe_dump(result, default_flow_style=False, explicit_start=True, width=256)
 
     def log_msg(self, level, msg, exc_info=0):
         msg = "Inf ID: %s: %s" % (self.inf.id, msg)
