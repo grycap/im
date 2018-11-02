@@ -18,7 +18,6 @@
 
 import sys
 import unittest
-import os
 import logging
 import logging.config
 try:
@@ -36,12 +35,6 @@ from IM.VirtualMachine import VirtualMachine
 from IM.InfrastructureInfo import InfrastructureInfo
 from IM.connectors.FogBow import FogBowCloudConnector
 from mock import patch, MagicMock
-
-
-def read_file_as_string(file_name):
-    tests_path = os.path.dirname(os.path.abspath(__file__))
-    abs_file_path = os.path.join(tests_path, file_name)
-    return open(abs_file_path, 'r').read()
 
 
 class TestFogBowConnector(unittest.TestCase):

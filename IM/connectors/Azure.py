@@ -691,8 +691,9 @@ class AzureCloudConnector(CloudConnector):
         group_name = vm.id.split('/')[0]
         vm_name = vm.id.split('/')[1]
 
+        credentials, subscription_id = self.get_credentials(auth_data)
+
         try:
-            credentials, subscription_id = self.get_credentials(auth_data)
             compute_client = ComputeManagementClient(credentials, subscription_id)
             # Get one the virtual machine by name
             virtual_machine = compute_client.virtual_machines.get(group_name, vm_name, expand='instanceView')
@@ -802,8 +803,9 @@ class AzureCloudConnector(CloudConnector):
         vm.setIps(public_ips, private_ips)
 
     def finalize(self, vm, last, auth_data):
+        credentials, subscription_id = self.get_credentials(auth_data)
+
         try:
-            credentials, subscription_id = self.get_credentials(auth_data)
             resource_client = ResourceManagementClient(credentials, subscription_id)
 
             if vm.id:
