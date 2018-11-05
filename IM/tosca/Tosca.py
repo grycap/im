@@ -3,7 +3,7 @@ import logging
 import yaml
 import copy
 import time
-from __builtin__ import isinstance
+
 try:
     from urllib.request import urlopen
 except:
