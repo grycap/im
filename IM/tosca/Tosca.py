@@ -3,6 +3,7 @@ import logging
 import yaml
 import copy
 import time
+from __builtin__ import isinstance
 try:
     from urllib.request import urlopen
 except:
@@ -813,8 +814,8 @@ class Tosca:
             try:
                 index = int(func.args[2])
             except:
-                Tosca.logger.exception("Error getting get_attribute index.")
-                pass
+                capability_name = func.args[1]
+                attribute_name = func.args[2]
         elif len(func.args) == 4:
             capability_name = func.args[1]
             attribute_name = func.args[2]
@@ -826,31 +827,44 @@ class Tosca:
 
         if node_name == "HOST":
             node = self._find_host_compute(node, self.tosca.nodetemplates)
+        elif node_name == "SOURCE":
+            node = func.context.source
+        elif node_name == "TARGET":
+            node = func.context.target
         elif node_name != "SELF":
             node = None
             for n in self.tosca.nodetemplates:
                 if n.name == node_name:
                     node = n
                     break
-            if not node:
-                Tosca.logger.error(
-                    "Calling get_attribute function for non existing node: %s" % node_name)
-                return None
+
+        if not node:
+            Tosca.logger.error("Calling get_attribute function for non existing node: %s" % node_name)
+            return None
+
+        #  if capability_name refers a requirement, try to get the referred node
+        if capability_name:
+            # Find attribute in node template's requirements
+            for r in node.requirements:
+                for req, name in r.items():
+                    if req == capability_name:
+                        node = func._find_node_template(name)
+
+        host_node = self._find_host_compute(node, self.tosca.nodetemplates)
 
         root_type = Tosca._get_root_parent_type(node).type
 
         if inf_info:
             vm_list = inf_info.get_vm_list_by_system_name()
 
-            if node.name not in vm_list:
-                Tosca.logger.warn(
-                    "There are no VM associated with the name %s." % node.name)
+            if host_node.name not in vm_list:
+                Tosca.logger.warn("There are no VM associated with the name %s." % host_node.name)
                 return None
             else:
                 # As default assume that there will be only one VM per group
-                vm = vm_list[node.name][0]
-                if index is not None and len(vm_list[node.name]) < index:
-                    index = len(vm_list[node.name]) - 1
+                vm = vm_list[host_node.name][0]
+                if index is not None and len(vm_list[host_node.name]) < index:
+                    index = len(vm_list[host_node.name]) - 1
 
             if attribute_name == "tosca_id":
                 return vm.id
@@ -903,68 +917,62 @@ class Tosca:
                 if root_type == "tosca.nodes.network.Port":
                     order = self._final_function_result(node.get_property_value('order'), node)
                     return vm.getNumNetworkWithConnection(order)
-                elif root_type == "tosca.capabilities.Endpoint":
+                else:
                     if vm.getPublicIP():
                         return vm.getPublicIP()
                     else:
                         return vm.getPrivateIP()
-                else:
-                    Tosca.logger.warn("Attribute ip_address only supported in tosca.nodes.network.Port "
-                                      "and tosca.capabilities.Endpoint nodes.")
-                    return None
             else:
-                Tosca.logger.warn("Attribute %s not supported." %
-                                  attribute_name)
+                Tosca.logger.warn("Attribute %s not supported." % attribute_name)
                 return None
         else:
             if attribute_name == "tosca_id":
                 if node_name in ["HOST", "SELF"]:
                     return "{{ IM_NODE_VMID }}"
                 else:
-                    return "{{ hostvars[groups['%s'][0]]['IM_NODE_VMID'] }}" % node.name
+                    return "{{ hostvars[groups['%s'][0]]['IM_NODE_VMID'] }}" % host_node.name
             elif attribute_name == "tosca_name":
                 return node.name
             elif attribute_name == "private_address":
                 if node.type == "tosca.nodes.indigo.Compute":
                     if index is not None:
-                        return "{{ hostvars[groups['%s'][%d]]['IM_NODE_PRIVATE_IP'] }}" % (node.name, index)
+                        return "{{ hostvars[groups['%s'][%d]]['IM_NODE_PRIVATE_IP'] }}" % (host_node.name, index)
                     else:
                         return ("{{ groups['%s']|map('extract', hostvars,'IM_NODE_PRIVATE_IP')|list"
-                                " if '%s' in groups else []}}" % (node.name, node.name))
+                                " if '%s' in groups else []}}" % (host_node.name, host_node.name))
                 else:
                     if node_name in ["HOST", "SELF"]:
                         return "{{ IM_NODE_PRIVATE_IP }}"
                     else:
-                        return "{{ hostvars[groups['%s'][0]]['IM_NODE_PRIVATE_IP'] }}" % node.name
+                        return "{{ hostvars[groups['%s'][0]]['IM_NODE_PRIVATE_IP'] }}" % host_node.name
             elif attribute_name == "public_address":
                 if node.type == "tosca.nodes.indigo.Compute":
                     if index is not None:
-                        return "{{ hostvars[groups['%s'][%d]]['IM_NODE_PUBLIC_IP'] }}" % (node.name, index)
+                        return "{{ hostvars[groups['%s'][%d]]['IM_NODE_PUBLIC_IP'] }}" % (host_node.name, index)
                     else:
                         return ("{{ groups['%s']|map('extract', hostvars,'IM_NODE_PUBLIC_IP')|list"
-                                " if '%s' in groups else []}}" % (node.name, node.name))
+                                " if '%s' in groups else []}}" % (host_node.name, host_node.name))
                 else:
                     if node_name in ["HOST", "SELF"]:
                         return "{{ IM_NODE_PUBLIC_IP }}"
                     else:
-                        return "{{ hostvars[groups['%s'][0]]['IM_NODE_PUBLIC_IP'] }}" % node.name
+                        return "{{ hostvars[groups['%s'][0]]['IM_NODE_PUBLIC_IP'] }}" % host_node.name
             elif attribute_name == "ip_address":
                 if root_type == "tosca.nodes.network.Port":
                     order = self._final_function_result(node.get_property_value('order'), node)
-                    return "{{ hostvars[groups['%s'][0]]['IM_NODE_NET_%s_IP'] }}" % (node.name, order)
-                elif root_type == "tosca.capabilities.Endpoint":
+                    return "{{ hostvars[groups['%s'][0]]['IM_NODE_NET_%s_IP'] }}" % (host_node.name, order)
+                else:
                     # TODO: check this
-                    if node_name in ["HOST", "SELF"]:
+                    if node_name == "HOST":
                         return "{{ IM_NODE_PUBLIC_IP }}"
                     else:
-                        return "{{ hostvars[groups['%s'][0]]['IM_NODE_PUBLIC_IP'] }}" % node.name
-                else:
-                    Tosca.logger.warn("Attribute ip_address only supported in tosca.nodes.network.Port and "
-                                      "tosca.capabilities.Endpoint nodes.")
-                    return None
+                        return ("{{ hostvars[groups['%s'][0]]['IM_NODE_PUBLIC_IP']"
+                                " if 'IM_NODE_PUBLIC_IP' in hostvars[groups['%s'][0]] else "
+                                "hostvars[groups['%s'][0]]['IM_NODE_PRIVATE_IP']}}" % (host_node.name,
+                                                                                       host_node.name,
+                                                                                       host_node.name))
             else:
-                Tosca.logger.warn("Attribute %s not supported." %
-                                  attribute_name)
+                Tosca.logger.warn("Attribute %s not supported." % attribute_name)
                 return None
 
     def _final_function_result(self, func, node, inf_info=None):

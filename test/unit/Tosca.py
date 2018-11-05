@@ -19,6 +19,7 @@
 import os
 import unittest
 import sys
+import yaml
 
 from mock import Mock, patch, MagicMock
 
@@ -82,6 +83,13 @@ class TestTosca(unittest.TestCase):
         self.assertEqual(lrms_wn.getValue("spot"), 'no')
         self.assertEqual(lrms_wn.getValue("instance_type"), 'some_type')
 
+        lrms_front_end_conf = radl.get_configure_by_name('lrms_front_end_conf')
+        conf = yaml.safe_load(lrms_front_end_conf.recipes)[0]
+        self.assertEqual(conf['vars']['front_end_ip'],
+                         "{{ hostvars[groups['lrms_server'][0]]['IM_NODE_PRIVATE_IP'] }}")
+        self.assertEqual(conf['vars']['wn_ips'],
+                         "{{ groups['lrms_wn']|map('extract', hostvars,'IM_NODE_PRIVATE_IP')|list"
+                         " if 'lrms_wn' in groups else []}}")
         self.assertEqual([d.id for d in radl.deploys][2], 'lrms_wn')
 
     def test_tosca_get_outputs(self):
