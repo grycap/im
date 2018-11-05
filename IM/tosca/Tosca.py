@@ -3,11 +3,8 @@ import logging
 import yaml
 import copy
 import time
+import requests
 
-try:
-    from urllib.request import urlopen
-except:
-    from urllib import urlopen
 try:
     unicode("hola")
 except NameError:
@@ -581,10 +578,10 @@ class Tosca:
                 if implementation_url[0] in ['http', 'https', 'ftp']:
                     script_path = implementation_url[2]
                     try:
-                        response = urlopen(interface.implementation)
-                        script_content = response.read()
-                        if response.code != 200:
-                            raise Exception("")
+                        resp = requests.get(interface.implementation)
+                        script_content = resp.text
+                        if resp.status_code != 200:
+                            raise Exception(resp.reason + "\n" + resp.text)
                     except Exception as ex:
                         raise Exception("Error downloading the implementation script '%s': %s" % (
                             interface.implementation, str(ex)))
@@ -597,10 +594,10 @@ class Tosca:
                         f.close()
                     else:
                         try:
-                            response = urlopen(Tosca.ARTIFACTS_REMOTE_REPO + interface.implementation)
-                            script_content = response.read()
-                            if response.code != 200:
-                                raise Exception("")
+                            resp = requests.get(Tosca.ARTIFACTS_REMOTE_REPO + interface.implementation)
+                            script_content = resp.text
+                            if resp.status_code != 200:
+                                raise Exception(resp.reason + "\n" + resp.text)
                         except Exception as ex:
                             raise Exception("Implementation file: '%s' is not located in the artifacts folder '%s' "
                                             "or in the artifacts remote url '%s'." % (interface.implementation,
