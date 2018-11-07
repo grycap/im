@@ -9,6 +9,7 @@ pipeline {
 
     environment {
         dockerhub_repo = "indigodatacloud/im"
+        dockerhub_image_id = ""
         pip_test_reqs = '''bandit
 pep8
 nose
@@ -105,7 +106,7 @@ commands = bandit -r IM -f html -o bandit.html"""
                         ToxEnvRun('bandit')
                     }
                     catch(e) {
-			// FIXME: Temporarily ignore bandit exit status
+                        // FIXME: Temporarily ignore bandit exit status
                         currentBuild.result = 'SUCCESS'
                     }
                 }
@@ -162,12 +163,15 @@ commands = bandit -r IM -f html -o bandit.html"""
             steps {
                 checkout scm
                 script {
-                    image_id = DockerBuild(dockerhub_repo, env.BRANCH_NAME)
+                    dockerhub_image_id = DockerBuild(
+                        dockerhub_repo,
+                        env.BRANCH_NAME,
+                        "docker-devel")
                 }
             }
             post {
                 success {
-                    DockerPush(image_id)
+                    DockerPush(dockerhub_image_id)
                 }
                 failure {
                     DockerClean()
@@ -175,6 +179,24 @@ commands = bandit -r IM -f html -o bandit.html"""
                 always {
                     cleanWs()
                 }
+            }
+        }
+
+        stage('Notifications') {
+            when {
+                buildingTag()
+            }
+	    steps {
+                JiraIssueNotification(
+                    'DEEP',
+                    'DPM',
+                    '10204',
+                    "[preview-testbed] New InfrastructureManager version ${env.BRANCH_NAME} available",
+                    "Check new artifacts at:\n\t- Docker image: [${dockerhub_image_id}:${env.BRANCH_NAME}|https://hub.docker.com/r/${dockerhub_image_id}/tags/]",
+                    ['wp3', 'preview-testbed', "IM-${env.BRANCH_NAME}"],
+		    'Task',
+		    'mariojmdavid'
+                )
             }
         }
     }
