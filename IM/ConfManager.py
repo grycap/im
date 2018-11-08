@@ -624,22 +624,28 @@ class ConfManager(threading.Thread):
                 if disk_mount_path and disk_fstype:
                     # This recipe works with EC2, OpenNebula and Azure. It must be
                     # tested/completed with other providers
-                    condition = "    when: ansible_os_family != 'Windows' and item.key.endswith('" + disk_device[
-                        -1] + "')\n"
-                    condition += "    with_dict: '{{ ansible_devices }}'\n"
+                    condition = "    when: ansible_os_family != 'Windows' and item.key.endswith('" + \
+                        disk_device[-1] + "')"
+                    with_dict = "    with_dict: '{{ ansible_devices }}'\n"
 
                     res += '  # Tasks to format and mount disk %d from device %s in %s\n' % (cont,
                                                                                              disk_device,
                                                                                              disk_mount_path)
                     res += '  - shell: (echo n; echo p; echo 1; echo ; echo; echo w) |'
                     res += ' fdisk /dev/{{item.key}} creates=/dev/{{item.key}}1\n'
-                    res += condition
+                    # res += '  - parted: device=/dev/{{item.key}} number=1 state=present'
+                    res += condition + '\n'
+                    res += with_dict
                     res += '  - filesystem: fstype=' + disk_fstype + ' dev=/dev/{{item.key}}1\n'
-                    res += condition
+                    res += '    ignore_errors: yes\n'
+                    res += '    register: format\n'
+                    res += condition + '\n'
+                    res += with_dict
                     res += '  - file: path=' + disk_mount_path + ' state=directory recurse=yes\n'
                     res += '  - mount: name=' + disk_mount_path + ' src=/dev/{{item.key}}1 state=mounted fstype=' + \
                         disk_fstype + '\n'
-                    res += condition
+                    res += condition + ' and not format is failed\n'
+                    res += with_dict
                     res += '\n'
 
             cont += 1

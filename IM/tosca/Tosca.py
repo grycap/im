@@ -1391,6 +1391,7 @@ class Tosca:
                 location = None
                 # set a default device
                 device = None
+                fs_type = "ext4"
 
                 for prop in props:
                     value = self._final_function_result(prop.value, node)
@@ -1398,13 +1399,15 @@ class Tosca:
                         location = value
                     elif prop.name == "device":
                         device = value
+                    elif prop.name == "fs_type":
+                        fs_type = value
 
                 if trgt.type_definition.type == "tosca.nodes.BlockStorage":
                     full_size = self._final_function_result(trgt.get_property_value('size'), trgt)
                     volume_id = self._final_function_result(trgt.get_property_value('volume_id'), trgt)
                     snapshot_id = self._final_function_result(trgt.get_property_value('snapshot_id'), trgt)
                     size, unit = Tosca._get_size_and_unit(full_size)
-                    disks.append((size, unit, location, device, count, "ext4", volume_id, snapshot_id))
+                    disks.append((size, unit, location, device, count, fs_type, volume_id, snapshot_id))
                     count += 1
                 else:
                     Tosca.logger.debug(
