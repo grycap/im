@@ -177,6 +177,9 @@ class TestFogBowConnector(unittest.TestCase):
             elif url == "/networks/":
                 resp.status_code = 201
                 resp.text = "1"
+            elif url == "/tokens/":
+                resp.status_code = 201
+                resp.text = "token"
             else:
                 resp.status_code = 404
         elif method == "DELETE":
@@ -269,7 +272,8 @@ class TestFogBowConnector(unittest.TestCase):
 
     @patch('requests.request')
     def test_60_finalize(self, requests):
-        auth = Authentication([{'id': 'fogbow', 'type': 'FogBow', 'token': 'user', 'host': 'server.com'}])
+        auth = Authentication([{'id': 'fogbow', 'type': 'FogBow', 'host': 'server.com',
+                                'username': 'user', 'password': 'pass'}])
         fogbow_cloud = self.get_fogbow_cloud()
 
         radl_data = """
