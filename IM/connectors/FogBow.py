@@ -57,13 +57,7 @@ class FogBowCloudConnector(CloudConnector):
         self.add_public_ip_count = 0
         CloudConnector.__init__(self, cloud_info, inf)
 
-    def create_request(self, method, url, auth_data, headers=None, body=None):
-        auth_header = self.get_auth_header(auth_data)
-        if auth_header:
-            if headers is None:
-                headers = {}
-            headers.update(auth_header)
-
+    def get_full_url(self, url):
         protocol = "http"
         if self.cloud.protocol:
             protocol = self.cloud.protocol
@@ -72,7 +66,16 @@ class FogBowCloudConnector(CloudConnector):
             url = "%s://%s:%d%s%s" % (protocol, self.cloud.server, self.cloud.port, self.cloud.path, url)
         else:
             url = "%s://%s%s%s" % (protocol, self.cloud.server, self.cloud.path, url)
-        resp = requests.request(method, url, verify=self.verify_ssl, headers=headers, data=body)
+        return url
+
+    def create_request(self, method, url, auth_data, headers=None, body=None):
+        auth_header = self.get_auth_header(auth_data)
+        if auth_header:
+            if headers is None:
+                headers = {}
+            headers.update(auth_header)
+
+        resp = requests.request(method, self.get_full_url(url), verify=self.verify_ssl, headers=headers, data=body)
 
         return resp
 
@@ -104,6 +107,20 @@ class FogBowCloudConnector(CloudConnector):
 
         return None
 
+    def get_token(self, auth_data):
+        headers = {'Content-Type': 'application/json'}
+        body = {}
+        for key, value in auth_data.items():
+            if key not in ['id', 'type', 'host']:
+                body[key] = value
+        resp = requests.request('POST', self.get_full_url('/tokens/'), verify=self.verify_ssl,
+                                headers=headers, data=json.dumps(body))
+        if resp.status_code in [200, 201]:
+            return resp.text
+        else:
+            self.log_error("Error getting token: %s. %s" % (resp.reason, resp.text))
+            raise Exception("Error getting token: %s. %s" % (resp.reason, resp.text))
+
     def get_auth_header(self, auth_data):
         """
         Generate the auth header needed to contact with the FogBow server.
@@ -115,9 +132,7 @@ class FogBowCloudConnector(CloudConnector):
         if 'token' in auth[0]:
             token = auth[0]['token']
         else:
-            self.log_error("No correct auth data has been specified to FogBow: token")
-            self.log_debug(auth)
-            raise Exception("No correct auth data has been specified to FogBow: token")
+            token = self.get_token(auth[0])
 
         auth_headers = {'federationTokenValue': token}
 
