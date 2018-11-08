@@ -56,7 +56,7 @@ class KubernetesCloudConnector(CloudConnector):
             headers.update(auth_header)
 
         url = "%s://%s:%d%s%s" % (self.cloud.protocol, self.cloud.server, self.cloud.port, self.cloud.path, url)
-        resp = requests.request(method, url, verify=False, headers=headers, data=body)
+        resp = requests.request(method, url, verify=self.verify_ssl, headers=headers, data=body)
 
         return resp
 

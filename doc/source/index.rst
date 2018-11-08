@@ -12,6 +12,7 @@ Contents:
    :maxdepth: 2
 
    intro
+   gstarted
    videos
    manual
    radl
@@ -19,6 +20,7 @@ Contents:
    REST
    client
    web
+   endpoints
 
 ..   mods
 

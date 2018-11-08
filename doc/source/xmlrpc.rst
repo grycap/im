@@ -62,6 +62,17 @@ This is the list of method names:
    Return the aggregated state associated to the 
    infrastructure with ID ``infId``. 
    
+   The ``state`` can be
+
+   * ``pending``, At least one VM is still in initialization stage;
+   * ``running``, All the VMs are created successfully and running, but at least one of them are still in the configuration stage;
+   * ``configured``, All the VMs are running and contextualized;
+   * ``unconfigured``, All the VMs are running but at least one of them are not correctly contextualized;
+   * ``stopped``, All the VMs are stopped or suspended;
+   * ``off``, All the VMs are shutdown or removed from the infrastructure;
+   * ``failed``, There are at least one VM in status ``failed``.
+   * ``unknown``, There are at least one VM in status ``unknown``.
+
 ``GetInfrastructureRADL``
    :parameter 0: ``infId``: integer
    :parameter 1: ``auth``: array of structs
@@ -94,7 +105,8 @@ This is the list of method names:
    * ``failed``, an error happened during the launching; or
    * ``unknown``, unable to obtain the status.
 
-   The next figure shows a state diagram of virtual machine status.
+   The next figure shows a state diagram of virtual machine status. This figure is illustrative
+   as if may differ in case of Cloud Providers.
 
    .. digraph:: stategraph
    

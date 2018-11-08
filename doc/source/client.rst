@@ -1,30 +1,82 @@
 IM Command-line Interface (CLI)
 ===============================
 
-The :program:`im_client` is a CLI client that uses XML-RPC API of IM Server.
+The :program:`im_client` is a CLI client that uses XML-RPC or REST APIs of IM Server.
 
-Prerequisites
+Installation
 -------------
 
+Prerequisites
+^^^^^^^^^^^^^
+
 The :program:`im_client` needs at least Python 2.4 to run.
+
+It is also required to install the RADL parser (`https://github.com/grycap/radl <https://github.com/grycap/radl>`_), 
+available in pip as the 'RADL' package. It is also required the Python Requests library (`http://docs.python-requests.org/ <http://docs.python-requests.org/>`_) 
+available as 'python-requests' in O.S. packages or 'requests' in pip.
+
+Optional packages
+^^^^^^^^^^^^^^^^^
+In case of using the SSL secured version of the XMLRPC API the SpringPython framework 
+(`http://springpython.webfactional.com/ <http://springpython.webfactional.com/>`_) must be installed.
+
+Installing
+^^^^^^^^^^
+
+From pip
+++++++++
+
+You only have to call the install command of the pip tool with the IM-client package::
+
+	$ pip install IM-client
+
+From source
++++++++++++
+
+Download de source code from the Github repo: `https://github.com/grycap/im-client/releases <https://github.com/grycap/im-client/releases>`_.
+Then you only need to install the tar-gziped file to any directoy::
+
+	$ tar xvzf IM-client-X.XX.tar.gz
+
+Configuration
+^^^^^^^^^^^^^
+
+To avoid typing the parameters in all the client calls. The user can define a config file "im_client.cfg" 
+in the current directory or a file ".im_client.cfg" in their home directory. In the config file the 
+user can specify the following parameters::
+
+	[im_client]
+	# only set one of the urls
+	#xmlrpc_url=http://localhost:8899
+	restapi_url==http://localhost:8800
+	auth_file=auth.dat
+	xmlrpc_ssl_ca_certs=/tmp/pki/ca-chain.pem
+
+.. _inv-client:
 
 Invocation
 ----------
 
 The :program:`im_client` is called like this::
 
-   $ im_client.py [-u|--xmlrpc-url url] [-a|--auth_file filename] operation op_parameters
+   $ im_client.py [-u|--xmlrpc-url <url>] [-r|--restapi-url <url>] [-v|--verify-ssl] [-a|--auth_file <filename>] operation op_parameters
 
 .. program:: im_client
 
 .. option:: -u|--xmlrpc-url url
 
    URL to the XML-RPC service.
-   The default value is ``http://localhost:8888``.
+   This option or the ` -r` one must be specified.
+   
+.. option:: -r|--rest-url url
 
-   .. todo::
+   URL to the REST API on the IM service.
+   This option or the ` -u` one must be specified.
 
-      Change the default value of the port to XMLRCP_PORT.
+.. option:: -v|--verify-ssl
+
+   Verify the certificates of the SSL connection.
+   The default value is `False`,
 
 .. option:: -a|--auth_file filename
 
@@ -36,9 +88,11 @@ The :program:`im_client` is called like this::
    ``list``
       List the infrastructure IDs created by the user.
 
-   ``create radlfile``
-      Create an infrastructure using RADL specified in the file with path
-      ``radlfile``.
+   ``create inputfile async_flag``
+      Create an infrastructure using RADL/TOSCA specified in the file with path
+      ``inputfile``. The ``async_flag`` parameter is optional
+      and is a flag to specify if the creation call will wait the resources
+      to be created or return immediately the id of the infrastructure.
 
    ``destroy infId``
       Destroy the infrastructure with ID ``infId``.
@@ -49,9 +103,12 @@ The :program:`im_client` is called like this::
 
    ``getcontmsg infId``
       Show the contextualization message of the infrastructure with ID ``id``.
-      
+
    ``getstate infId``
       Show the state of the infrastructure with ID ``id``.
+
+   ``getoutputs <infId>``
+      Show the outputs of infrastructure with ID ``infId`` (Only in case of TOSCA docs with REST API).
 
    ``getvminfo infId vmId``
       Show the information associated to the virtual machine with ID ``vmId``
@@ -146,11 +203,13 @@ The available keys are:
 
 * ``username`` indicates the user name associated to the credential. In EC2
   it refers to the *Access Key ID*. In GCE it refers to *Service Account’s Email Address*. 
+  In CloudStack refers to Api Key value.
 
 * ``password`` indicates the password associated to the credential. In EC2
   it refers to the *Secret Access Key*. In GCE it refers to *Service  Private Key*
   (either in JSON or PKCS12 formats). See how to get it and how to extract the private key file from
   `here info <https://cloud.google.com/storage/docs/authentication#service_accounts>`_).
+  In CloudStack refers to Secret Key value.
 
 * ``tenant`` indicates the tenant associated to the credential.
   This field is only used in the OpenStack plugin.
@@ -196,9 +255,21 @@ OpenStack has a set of additional fields to access a cloud site:
   The possible values are: ``2.0_password``, ``2.0_voms``, ``3.x_password`` or ``3.x_oidc_access_token``.
   The default value is ``2.0_password``.
 
-* ``base_url`` base URL to the OpenStack API endpoint. By default, the connector obtains API endpoint URL from the 
+* ``api_version`` the api version used to connect with nova endpoint.
+  The possible values are: ``1.0``, ``1.1``, ``2.0`, ``2.1`` or ``2.2``.
+  The default value is ``2.0``.
+
+* ``base_url`` base URL to the OpenStack API nova endpoint. By default, the connector obtains API endpoint URL from the 
   server catalog, but if this argument is provided, this step is skipped and the provided value is used directly.
   The value is: http://cloud_server.com:8774/v2/<tenant_id>.
+  
+* ``network_url`` base URL to the OpenStack API neutron endpoint. By default, the connector obtains API endpoint URL from the 
+  server catalog, but if this argument is provided, this step is skipped and the provided value is used directly.
+  The value is: http://cloud_server.com:9696.
+  
+* ``image_url`` base URL to the OpenStack API glance endpoint. By default, the connector obtains API endpoint URL from the 
+  server catalog, but if this argument is provided, this step is skipped and the provided value is used directly.
+  The value is: http://cloud_server.com:9292.
   
 * ``service_region`` the region of the cloud site (case sensitive). It is used to obtain the API 
   endpoint URL. The default value is: ``RegionOne``.
@@ -259,6 +330,8 @@ An example of the auth file::
    id = azurecla; type = AzureClassic; subscription_id = subscription_id; public_key = file(/tmp/cert.pem); private_key = file(/tmp/key.pem)
    # vSphere site auth data
    id = vsphere; type = vSphere; host = http://server; username = user; password = pass
+   # CloudStack site auth data
+   id = cloudstack; type = CloudStack; host = http://server; username = apikey; password = secret
    
 
 IM Server does not store the credentials used in the creation of

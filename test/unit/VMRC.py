@@ -98,5 +98,6 @@ class TestVMRC(unittest.TestCase):
         self.assertEqual(res_radl[0].getValue("disk.0.os.credentials.password"), "pass")
         self.assertEqual(res_radl[0].getValue("disk.0.os.credentials.username"), "user")
 
+
 if __name__ == '__main__':
     unittest.main()

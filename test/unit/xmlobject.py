@@ -78,5 +78,6 @@ class TestXMLObject(unittest.TestCase):
                     '<MEMORY>512</MEMORY>\n</TEMPLATE>\n')
         self.assertEqual(res, expected)
 
+
 if __name__ == '__main__':
     unittest.main()

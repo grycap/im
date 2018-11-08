@@ -1,3 +1,4 @@
+.. _radl:
 
 Resource and Application Description Language (RADL)
 ====================================================
@@ -251,6 +252,10 @@ machine.  The supported features are:
 
 ``instance_type``
    Set the instance type name of this VM. 
+
+``instance_tags``
+   A set of keypair values to be set to the VMs.
+   With the following format: key=value,key2=value2 ...   
 
 ``disk.<diskId>.<feature>``
    Features under this prefix refer to virtual storage devices attached to

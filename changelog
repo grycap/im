@@ -369,3 +369,82 @@ IM 1.6.6
     * Fix error using disks.free_size in connectors.
     * Add retries in Azure RG deletion.
     * Avoid raising error in case that one auth line does not have the type field.
+
+IM 1.6.7:
+    * Fix error with the update of pyOpenSSL package causes Ansible error.
+    * Fix error contextualizing docker containers.
+    * Improves performance deleting an infra when configuring it.
+    * Fix error in EC2 conn getting security groups in case of VPC usage.
+    * Improve AlterVM function to allow receive complete RADL.
+    * Add --version option in im_service.py.
+    * Fix error reconfiguring nodes in case of addition of nodes.
+    * Avoid "Failed to lock apt for exclusive operation" in contextualization.
+
+IM 1.7.0:
+    * Return correct URL path when IM is behind a nginx proxy (or similiar)
+    * Fix error in case of Max contextualization time passed the nodes are maintained in running state.
+    * Add availability_zone field in OpenStack conn.
+    * Fix error showing error messages with special characters.
+    * Fix error in occi connector in case of setting and slash at the end of the host URL.
+    * Move FogBow connector to requests library
+    * Enable to reference an existing volume in OCCI conn
+    * Fix error Resources in Azure are not properly deleted and IM returns "successfully destroyed"
+    * Fix error GCE conn assing public IPs to all VMs.
+    * Fix error using vault recipe options with ubuntu 2.4
+    * Fix than user/pass credentials can access OpenID infras
+    * Enable to create an infrastructure async
+    * Return IM list in correct order (by creation)
+    * Add TOSCA support por managing node Endpoints
+    * Fix error processing TOSCA node artifacts as lists
+    * Improve VM launch paralelism
+    * Add VM creation retry in conns
+    * Change the behaviour en case of VM launch failure.
+    * Add TOSCA support for REST AlterVM function
+    * Add TOSCA support from INDIGO fork
+    * Add export and import functions in REST API
+    * Change in the DB schema in the case of MySQL DB. This command must be made
+      in the current DB:
+			ALTER TABLE `inf_list` ADD COLUMN `rowid` INT AUTO_INCREMENT UNIQUE FIRST;
+
+IM 1.7.1:
+    * Fix problems with nodes with IPv6 in OpenStack conn.
+    * Fix Azure conn does not get the correct state (in case of suspended VMs).
+    * Enable to specify pool_name in the network provider_ip in OpenStack conn.
+
+IM 1.7.2:
+    * Fix Error setting the INF_CACHE_TIME conf variable time.
+    * Add support to availability_zone in tosca.policies.Placement.
+    * Enable to set instance_tags in connectors.
+    * Fix error in Azure conn: VM disks are not deleted when VM is finalized, only when Infrastructure is destroyed.
+
+IM 1.7.3:
+    * Fix error getting VM info in case of having an HD added.
+    * Improve OpenStack network management.
+    * Enable to set poolname in the TOSCA docs.
+    * Error when trying to attach a storage in OCCI (OpenStack sites).
+
+IM 1.7.4:
+    * Fix error OCCI connector does not correctly AlterVM adding/removing ips.
+    * Add VERIFI_SSL var.
+    * Improve error messages in Async call.
+
+IM 1.7.5:
+    * Add option to disable XML-RPC API
+    * Enable hybrid deployment
+    * Create a connector to Apache CloudStack
+    * Fix error reporting memory units in OCCI connector
+    * Fix error deleting OCCI infrastructure: Volume deleting returns forbidden and takes too long
+    * Fix error with OCCI server 2.0.4 authentication error
+    * Fix problem installing specific branch of Ansible galaxy roles
+    * Fix error in REST API in case of strange char in ansible output
+    * Add support to disk.*.image_url in OpenStack connector
+    * Fix error detecting ansible process end
+    * Enable to specify spot to EC2 instances in TOSCA
+    * Get EC2 instances info from ec2instances.info
+    * Fix error geting the subnets of the default VPC on EC2 conn
+    * Add volume_id to TOSCA BlockStorage type
+
+IM 1.7.6:
+    * Change FogBow connector to new APIs.
+    * Use merge_how option in cloud-init.
+    * Fix error VMS with Public IP cannot reach each other.

@@ -26,11 +26,6 @@ import os
 import getpass
 import json
 import yaml
-import shutil
-try:
-    from StringIO import StringIO
-except ImportError:
-    from io import StringIO
 import socket
 from multiprocessing import Queue
 
@@ -94,6 +89,57 @@ class CtxtAgent():
                 time.sleep(delay)
 
     @staticmethod
+    def test_ssh(vm, vm_ip, remote_port, quiet, delay=10):
+        success = False
+        res = None
+        if not quiet:
+            CtxtAgent.logger.debug("Testing SSH access to VM: %s:%s" % (vm_ip, remote_port))
+        try:
+            ssh_client = SSH(vm_ip, vm['user'], vm['passwd'], vm['private_key'], remote_port)
+            success = ssh_client.test_connectivity(delay)
+            res = 'init'
+        except AuthenticationException:
+            try_ansible_key = True
+            if 'new_passwd' in vm:
+                try_ansible_key = False
+                # If the process of changing credentials has finished in the
+                # VM, we must use the new ones
+                if not quiet:
+                    CtxtAgent.logger.debug("Error connecting with SSH with initial credentials with: " +
+                                           vm_ip + ". Try to use new ones.")
+                try:
+                    ssh_client = SSH(vm_ip, vm['user'], vm['new_passwd'], vm['private_key'], remote_port)
+                    success = ssh_client.test_connectivity()
+                    res = "new"
+                except AuthenticationException:
+                    try_ansible_key = True
+                except:
+                    if not quiet:
+                        CtxtAgent.logger.exception("Error connecting with SSH with: " + vm_ip)
+                    success = False
+
+            if try_ansible_key:
+                # In some very special cases the last two cases fail, so check
+                # if the ansible key works
+                if not quiet:
+                    CtxtAgent.logger.debug("Error connecting with SSH with initial credentials with: " +
+                                           vm_ip + ". Try to ansible_key.")
+                try:
+                    ssh_client = SSH(vm_ip, vm['user'], None, CtxtAgent.PK_FILE, remote_port)
+                    success = ssh_client.test_connectivity()
+                    res = 'pk_file'
+                except:
+                    if not quiet:
+                        CtxtAgent.logger.exception("Error connecting with SSH with: " + vm_ip)
+                    success = False
+        except:
+            if not quiet:
+                CtxtAgent.logger.exception("Error connecting with SSH with: " + vm_ip)
+            success = False
+
+        return success, res
+
+    @staticmethod
     def wait_ssh_access(vm, delay=10, max_wait=None, quiet=False):
         """
          Test the SSH access to the VM
@@ -104,67 +150,42 @@ class CtxtAgent():
         wait = 0
         success = False
         res = None
-        last_tested_private = False
         while wait < max_wait:
-            if 'ctxt_ip' in vm:
+            if 'ctxt_ip' in vm and 'ctxt_port' in vm:
+                # These have been previously tested and worked use it
                 vm_ip = vm['ctxt_ip']
-            elif 'private_ip' in vm and not last_tested_private:
-                # First test the private one
-                vm_ip = vm['private_ip']
-                last_tested_private = True
+                remote_port = vm['ctxt_port']
+                success, res = CtxtAgent.test_ssh(vm, vm['ctxt_ip'], vm['ctxt_port'], quiet)
             else:
-                vm_ip = vm['ip']
-                last_tested_private = False
-            if not quiet:
-                CtxtAgent.logger.debug("Testing SSH access to VM: %s:%s" % (vm_ip, vm['remote_port']))
-            wait += delay
-            try:
-                ssh_client = SSH(vm_ip, vm['user'], vm['passwd'], vm[
-                                 'private_key'], vm['remote_port'])
-                success = ssh_client.test_connectivity(delay)
-                res = 'init'
-            except AuthenticationException:
-                try_ansible_key = True
-                if 'new_passwd' in vm:
-                    try_ansible_key = False
-                    # If the process of changing credentials has finished in the
-                    # VM, we must use the new ones
-                    if not quiet:
-                        CtxtAgent.logger.debug("Error connecting with SSH with initial credentials with: " +
-                                               vm_ip + ". Try to use new ones.")
-                    try:
-                        ssh_client = SSH(vm_ip, vm['user'], vm['new_passwd'], vm[
-                                         'private_key'], vm['remote_port'])
-                        success = ssh_client.test_connectivity()
-                        res = "new"
-                    except AuthenticationException:
-                        try_ansible_key = True
-                    except:
-                        if not quiet:
-                            CtxtAgent.logger.exception("Error connecting with SSH with: " + vm_ip)
-                        success = False
+                # First test the private one
+                if 'private_ip' in vm:
+                    vm_ip = vm['private_ip']
+                    remote_port = vm['remote_port']
+                    success, res = CtxtAgent.test_ssh(vm, vm_ip, remote_port, quiet)
+                    if not success and remote_port != 22:
+                        remote_port = 22
+                        success, res = CtxtAgent.test_ssh(vm, vm_ip, 22, quiet)
 
-                if try_ansible_key:
-                    # In some very special cases the last two cases fail, so check
-                    # if the ansible key works
-                    if not quiet:
-                        CtxtAgent.logger.debug("Error connecting with SSH with initial credentials with: " +
-                                               vm_ip + ". Try to ansible_key.")
-                    try:
-                        ssh_client = SSH(vm_ip, vm['user'], None, CtxtAgent.PK_FILE, vm['remote_port'])
-                        success = ssh_client.test_connectivity()
-                        res = 'pk_file'
-                    except:
-                        if not quiet:
-                            CtxtAgent.logger.exception("Error connecting with SSH with: " + vm_ip)
-                        success = False
-            except:
-                if not quiet:
-                    CtxtAgent.logger.exception("Error connecting with SSH with: " + vm_ip)
-                success = False
+                # if not use the default one
+                if not success:
+                    vm_ip = vm['ip']
+                    remote_port = vm['remote_port']
+                    success, res = CtxtAgent.test_ssh(vm, vm_ip, remote_port, quiet)
+                    if not success and remote_port != 22:
+                        remote_port = 22
+                        success, res = CtxtAgent.test_ssh(vm, vm_ip, remote_port, quiet)
+
+                # if not use the default one
+                if not success and 'reverse_port' in vm:
+                    vm_ip = '127.0.0.1'
+                    remote_port = vm['reverse_port']
+                    success, res = CtxtAgent.test_ssh(vm, vm_ip, remote_port, quiet)
+
+            wait += delay
 
             if success:
                 vm['ctxt_ip'] = vm_ip
+                vm['ctxt_port'] = remote_port
                 return res
             else:
                 time.sleep(delay)
@@ -221,11 +242,10 @@ class CtxtAgent():
                         CtxtAgent.logger.exception("Error putting %s file" % (vm_dir + "/ctxt_agent.log"))
 
         try:
-            _, (return_code, hosts_with_errors), _ = result.get(timeout=60)
+            _, return_code, _ = result.get(timeout=60, block=False)
         except:
             CtxtAgent.logger.exception('Error getting ansible results.')
             return_code = -1
-            hosts_with_errors = []
 
         if output:
             if return_code == 0:
@@ -233,7 +253,7 @@ class CtxtAgent():
             else:
                 CtxtAgent.logger.error(output)
 
-        return (return_code == 0, hosts_with_errors)
+        return return_code == 0
 
     @staticmethod
     def wait_remote(data, poll_delay=5, ssh_step=4, max_errors=10, active=False):
@@ -346,7 +366,7 @@ class CtxtAgent():
             new_playbook = os.path.join(play_dir, "mod_" + play_filename)
 
             with open(playbook) as f:
-                yaml_data = yaml.load(f)
+                yaml_data = yaml.safe_load(f)
 
             for galaxy_name in general_conf_data['ansible_modules']:
                 galaxy_name = galaxy_name.encode()
@@ -383,7 +403,7 @@ class CtxtAgent():
                     yaml_data[0]['tasks'].append(task)
 
             with open(new_playbook, 'w+') as f:
-                yaml.dump(yaml_data, f)
+                yaml.safe_dump(yaml_data, f)
 
         return new_playbook
 
@@ -436,7 +456,7 @@ class CtxtAgent():
         from IM.ansible_utils.ansible_launcher import AnsibleThread
 
         result = Queue()
-        t = AnsibleThread(result, output, playbook_file, None, threads, gen_pk_file,
+        t = AnsibleThread(result, output, playbook_file, threads, gen_pk_file,
                           passwd, retries, inventory_file, user, vault_pass, extra_vars)
         t.start()
         return (t, result)
@@ -460,8 +480,7 @@ class CtxtAgent():
                         vm['passwd'] = vm['new_passwd']
                         return True
                     else:
-                        CtxtAgent.logger.error(
-                            "Error changing password to Windows VM: " + r.std_out)
+                        CtxtAgent.logger.error("Error changing password to Windows VM: " + r.std_out)
                         return False
                 except winrm.exceptions.AuthenticationError:
                     # if the password is correctly changed the command returns this
@@ -543,10 +562,15 @@ class CtxtAgent():
                 sudo_pass = ""
                 if ssh_client.password:
                     sudo_pass = "echo '" + ssh_client.password + "' | "
-                (stdout, stderr, code) = ssh_client.execute_timeout(
+                res = ssh_client.execute_timeout(
                     sudo_pass + "sudo -S sed -i 's/.*requiretty$/#Defaults requiretty/' /etc/sudoers", 30)
-                CtxtAgent.logger.debug("OUT: " + stdout + stderr)
-                return code == 0
+                if res is not None:
+                    (stdout, stderr, code) = res
+                    CtxtAgent.logger.debug("OUT: " + stdout + stderr)
+                    return code == 0
+                else:
+                    CtxtAgent.logger.error("No output.")
+                    return False
             except:
                 CtxtAgent.logger.exception("Error removing requiretty to VM: " + vm['ip'])
                 return False
@@ -563,6 +587,7 @@ class CtxtAgent():
         for vm in general_conf_data['vms']:
             if vm['id'] == vm_data['id']:
                 vm['ctxt_ip'] = vm_data['ctxt_ip']
+                vm['ctxt_port'] = vm_data['ctxt_port']
 
         with open(CtxtAgent.CONF_DATA_FILENAME + ".rep", 'w+') as f:
             json.dump(general_conf_data, f, indent=2)
@@ -572,10 +597,15 @@ class CtxtAgent():
         with open(filename) as f:
             inventoy_data = ""
             for line in f:
-                line = re.sub(" ansible_host=%s " % vm_data['ip'],
-                              " ansible_host=%s " % vm_data['ctxt_ip'], line)
-                line = re.sub(" ansible_ssh_host=%s " % vm_data['ip'],
-                              " ansible_ssh_host=%s " % vm_data['ctxt_ip'], line)
+                if line.startswith("%s_%s " % (vm_data['ip'], vm_data['id'])):
+                    line = re.sub(" ansible_host=%s " % vm_data['ip'],
+                                  " ansible_host=%s " % vm_data['ctxt_ip'], line)
+                    line = re.sub(" ansible_ssh_host=%s " % vm_data['ip'],
+                                  " ansible_ssh_host=%s " % vm_data['ctxt_ip'], line)
+                    line = re.sub(" ansible_port=%s " % vm_data['remote_port'],
+                                  " ansible_port=%s " % vm_data['ctxt_port'], line)
+                    line = re.sub(" ansible_ssh_port=%s " % vm_data['remote_port'],
+                                  " ansible_ssh_port=%s " % vm_data['ctxt_port'], line)
                 inventoy_data += line
 
         with open(filename, 'w+') as f:
@@ -618,10 +648,13 @@ class CtxtAgent():
             private_key = pk_file
 
         vm_ip = ctxt_vm['ip']
+        remote_port = ctxt_vm['remote_port']
         if 'ctxt_ip' in ctxt_vm:
             vm_ip = ctxt_vm['ctxt_ip']
+        if 'ctxt_port' in ctxt_vm:
+            remote_port = ctxt_vm['ctxt_port']
 
-        return SSHRetry(vm_ip, ctxt_vm['user'], passwd, private_key, ctxt_vm['remote_port'])
+        return SSHRetry(vm_ip, ctxt_vm['user'], passwd, private_key, remote_port)
 
     @staticmethod
     def gen_facts_cache(remote_dir, inventory_file, threads):
@@ -635,7 +668,7 @@ class CtxtAgent():
             f.write(" - hosts: allnowindows\n")
 
         result = Queue()
-        t = AnsibleThread(result, CtxtAgent.logger, playbook_file, None, threads, CtxtAgent.PK_FILE,
+        t = AnsibleThread(result, CtxtAgent.logger, playbook_file, threads, CtxtAgent.PK_FILE,
                           None, CtxtAgent.PLAYBOOK_RETRIES, inventory_file)
         t.start()
         return (t, result)
@@ -692,7 +725,7 @@ class CtxtAgent():
 
         if not ctxt_vm:
             CtxtAgent.logger.error("No VM to Contextualize!")
-            res_data['OK'] = False
+            res_data['OK'] = True
             return res_data
 
         for task in vm_conf_data['tasks']:
@@ -799,6 +832,9 @@ class CtxtAgent():
                     if ctxt_vm['os'] == "windows":
                         CtxtAgent.logger.info("Waiting WinRM access to VM: " + ctxt_vm['ip'])
                         cred_used = CtxtAgent.wait_winrm_access(ctxt_vm)
+                    elif local:
+                        CtxtAgent.logger.info("Local command do not wait SSH.")
+                        cred_used = "local"
                     else:
                         CtxtAgent.logger.info("Waiting SSH access to VM: " + ctxt_vm['ip'])
                         cred_used = CtxtAgent.wait_ssh_access(ctxt_vm)
@@ -818,6 +854,8 @@ class CtxtAgent():
                     if cred_used == "pk_file":
                         pk_file = CtxtAgent.PK_FILE
                     elif cred_used == "new":
+                        changed_pass = True
+                    elif cred_used == "local":
                         changed_pass = True
 
                     # Check if we must change user credentials
@@ -860,7 +898,7 @@ class CtxtAgent():
                     copy = True
                     if ctxt_vm['master'] or ctxt_vm['os'] == "windows":
                         copy = False
-                    (task_ok, _) = CtxtAgent.wait_thread(ansible_thread, general_conf_data, copy)
+                    task_ok = CtxtAgent.wait_thread(ansible_thread, general_conf_data, copy)
                 elif remote_process:
                     task_ok = CtxtAgent.wait_remote(remote_process, active=task == "install_ansible")
                 else:
@@ -959,6 +997,7 @@ class CtxtAgent():
                 return False
 
         return res_data['OK']
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Contextualization Agent.')

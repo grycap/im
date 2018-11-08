@@ -46,14 +46,18 @@ class InfrastructureList():
         """Add a new Infrastructure."""
 
         with InfrastructureList._lock:
-            InfrastructureList.infrastructure_list[inf.id] = inf
+            if inf.id in InfrastructureList.infrastructure_list:
+                raise Exception("Trying to add an existing infrastructure ID.")
+            else:
+                InfrastructureList.infrastructure_list[inf.id] = inf
 
     @staticmethod
     def remove_inf(del_inf):
         """Remove destroyed infrastructure."""
 
         with InfrastructureList._lock:
-            del InfrastructureList.infrastructure_list[del_inf.id]
+            if del_inf.id in InfrastructureList.infrastructure_list:
+                del InfrastructureList.infrastructure_list[del_inf.id]
 
     @staticmethod
     def get_inf_ids(auth=None):
@@ -174,9 +178,9 @@ class InfrastructureList():
             if db.connect():
                 inf_list = {}
                 if inf_id:
-                    res = db.select("select * from inf_list where id = '%s'" % inf_id)
+                    res = db.select("select data from inf_list where id = %s", (inf_id,))
                 else:
-                    res = db.select("select * from inf_list where deleted = 0 order by id desc")
+                    res = db.select("select data from inf_list where deleted = 0 order by id desc")
                 if len(res) > 0:
                     for elem in res:
                         # inf_id = elem[0]
@@ -184,9 +188,9 @@ class InfrastructureList():
                         # deleted = elem[2]
                         try:
                             if auth:
-                                inf = IM.InfrastructureInfo.InfrastructureInfo.deserialize_auth(elem[3])
+                                inf = IM.InfrastructureInfo.InfrastructureInfo.deserialize_auth(elem[0])
                             else:
-                                inf = IM.InfrastructureInfo.InfrastructureInfo.deserialize(elem[3])
+                                inf = IM.InfrastructureInfo.InfrastructureInfo.deserialize(elem[0])
                             inf_list[inf.id] = inf
                         except:
                             InfrastructureList.logger.exception(

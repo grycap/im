@@ -131,6 +131,8 @@ class TestCtxtAgent(unittest.TestCase):
         CtxtAgent.logger = self.logger
         execute_timeout.return_value = "", "", 0
         vm = self.gen_vm_data()
+        vm['ctxt_ip'] = "10.0.0.1"
+        vm['ctxt_port'] = 22
         res = CtxtAgent.removeRequiretty(vm, None)
         self.assertTrue(res)
 
@@ -146,12 +148,12 @@ class TestCtxtAgent(unittest.TestCase):
         vm = self.gen_vm_data()
         queue_mock = MagicMock()
         queue.return_value = queue_mock
-        queue_mock.get.return_value = None, (0, []), None
+        queue_mock.get.return_value = None, 0, None
         ansible_thread = CtxtAgent.LaunchAnsiblePlaybook(self.logger, "/tmp", "play.yml",
                                                          vm, 1, "/tmp/inv", "/tmp/pk.pem",
                                                          3, True, None)
         res = CtxtAgent.wait_thread(ansible_thread, "All was OK.")
-        self.assertEqual(res, (True, []))
+        self.assertEqual(res, True)
 
     @patch("contextualization.ctxt_agent.SSH.execute_timeout")
     @patch("contextualization.ctxt_agent.SSH.execute")
@@ -161,6 +163,8 @@ class TestCtxtAgent(unittest.TestCase):
         execute.return_value = "", "", 0
         execute_timeout.return_value = "", "", 0
         vm = self.gen_vm_data()
+        vm['ctxt_ip'] = "10.0.0.1"
+        vm['ctxt_port'] = 22
         res = CtxtAgent.changeVMCredentials(vm, None)
         self.assertTrue(res)
 
@@ -168,6 +172,8 @@ class TestCtxtAgent(unittest.TestCase):
         del vm['new_passwd']
         vm['new_public_key'] = "new_public_key"
         vm['new_private_key'] = "new_private_key"
+        vm['ctxt_ip'] = "10.0.0.1"
+        vm['ctxt_port'] = 22
         res = CtxtAgent.changeVMCredentials(vm, None)
         self.assertTrue(res)
 
@@ -187,7 +193,7 @@ class TestCtxtAgent(unittest.TestCase):
         CtxtAgent.changeVMCredentials.return_value = True
         CtxtAgent.LaunchAnsiblePlaybook = MagicMock()
         queue = MagicMock()
-        queue.get.return_value = None, (0, []), None
+        queue.get.return_value = None, 0, None
         CtxtAgent.LaunchAnsiblePlaybook.return_value = (MagicMock(), queue)
         CtxtAgent.wait_winrm_access = MagicMock()
         CtxtAgent.wait_winrm_access.return_value = True
@@ -241,6 +247,7 @@ class TestCtxtAgent(unittest.TestCase):
         with open("/tmp/hosts", "r") as f:
             data = f.read()
         self.assertIn(" ansible_host=%s ansible_ssh_host=%s \n" % (vm_data['ctxt_ip'], vm_data['ctxt_ip']), data)
+
 
 if __name__ == '__main__':
     unittest.main()

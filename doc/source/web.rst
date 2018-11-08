@@ -1,20 +1,48 @@
 IM Web Interface
 ================
 
-The IM Web client is a graphical interface to access the XML-RPC API of IM Server.
+The IM Web client is a graphical interface to access the XML-RPC or REST APIs of IM Server.
+
+Installation
+-------------
 
 Prerequisites
--------------
-As a web application it needs a web server (e.g. Apache) with support to PHP language
-and SQLite D.B.. It must have access to the XML-RPC API of the IM Server.
+^^^^^^^^^^^^^
+
+IM web interface is based on PHP, so a web server (e.g. Apache) with PHP support must be installed.
+
+Also the mcrypt PHP modules must be installed and enabled.
+
+It is also required to install the PHP module to access SQLite databases.
+
+In case of using the REST API it is also required to install the CURL PHP module.
+
+Installing
+^^^^^^^^^^
+
+Select a proper path in the document root of the web server to install the IM web interface (i.e. /var/www/im)::
+
+	$ tar xvzf IM-web-X.XX.tar.gz
+	$ mv IM-X.XX /var/www/im
+	$ chown -R www-data /var/www/im
 
 .. _configuration:
 
 Configuration
--------------
+^^^^^^^^^^^^^
 
 The web interface reads the configuration from :file:`$IM_WEB_PATH/config.php`. It has 
 the following variables:
+
+.. confval:: im_use_rest
+
+   Flag to set the usage of the REST API instead of the XML-RPC one.
+   The default value is `false`.
+
+.. confval:: im_use_ssl
+
+   Flag to set the usage of the APIs using HTTPS protocol instead of the standard HTTP.
+   The default value is `false`.
 
 .. confval:: im_host
 
@@ -33,28 +61,66 @@ the following variables:
 
 .. confval:: recipes_db
 
-   Location of the IM service recipes D.B. To use that feature the IM recipes file must accesible to the web server
+   Location of the IM service recipes D.B. To use that feature the IM recipes file must accessible to the web server
+   The default value is `""`.
+
+.. confval:: openid_issuer
+
+   OpenID Issuer supported use "" to disable OpenID support.
+   The default value is `""`.
+ 
+.. confval:: openid_name
+
+   OpenID Issuer name.
+   The default value is `""`.
+
+.. confval:: CLIENT_ID
+
+   OpenID Client data.
+   The default value is `""`.
+
+.. confval:: CLIENT_SECRET
+
+   OpenID Client data.
    The default value is `""`.
 
 Docker Image
 ------------
 
 A Docker image named `grycap/im-web` has been created to make easier the deployment of an IM web GUI using the 
-default configuration. Information about this image can be found here: https://registry.hub.docker.com/u/grycap/im-web/.
+default configuration. Information about this image can be found here: `https://registry.hub.docker.com/u/grycap/im-web/ <https://registry.hub.docker.com/u/grycap/im-web/>`_.
 
 This container is prepaired to work linked with the IM service container `grycap/im`, in this way:
 
 * First launch the IM service specifying the name "im":
 
-```sh
-sudo docker run -d -p 8899:8899 --name im grycap/im
-````
+``sudo docker run -d -p 8899:8899 --name im grycap/im``
 
 * Then launch the im-web container linking to the im:
 
-```sh
-sudo docker run -d -p 80:80 --name im-web --link im:im grycap/im-web
-```
+``sudo docker run -d -p 80:80 --name im-web --link im:im grycap/im-web``
+
+* It also supports environment variables to set the IM service location:
+  * `im_use_rest`: Uses the REST API instead of the XML-RPC that is the default one. Default value "false".
+  * `im_use_ssl`: Uses HTTPS to connect with the REST or XML-RPC APIs. Default value "false".
+  * `im_host`: Hostname of the IM service. Default value "im".
+  * `im_port`: Port of the IM service. Default value "8899".
+  * `im_db`: Location of the D.B. file used in the web application to store data. Default value "/home/www-data/im.db".
+  * `openid_issuer`: OpenID Issuer supported use "" to disable OpenID support.
+  * `openid_name`: OpenID Issuer name.
+  * `client_id`: OpenID Client data.
+  * `client_secret`: OpenID Client secret.
+  * `redirect_uri`: OpenID Redirect URI.
+
+``docker run -p 80:80 -e "im_use_rest=true" -e "im_host=server.domain" -e "im_port=8800" -d grycap/im-web``
+
+There is also a version SSL enabled. In this case the docker image have a selfsigned certificate for testing purposes.
+Add your own in the docker command:
+
+
+``docker run -p 80:80 -p 443:443 -v server.crt:/etc/ssl/certs/server.crt -v server.key:/etc/ssl/certs/server.key -d grycap/im-web:1.5.5-ssl``
+
+.. _use-web:
 
 Usage
 -----
@@ -65,12 +131,14 @@ Register
 ^^^^^^^^
 
 To access the we interface the user must register first to the application. Each user
-must include a username and a password to access the platform.
+must include a username and a password to access the platform. From 1.5.6 version OpenID
+authentication has been added.
 
 .. _figure_register:
 .. figure:: images/register.png
 
    Fig 1. Register page.
+
 
 Credentials
 ^^^^^^^^^^^
@@ -82,9 +150,9 @@ of user credentials. In this list there are two related with the IM components:
  * InfrastructureManager: user and password to access the IM service.
  * VMRC: user, password and URL to access the `VMRC <http://www.grycap.upv.es/vmrc>`_ service
 
-When a new user is registered the web UI automatically creates credentials to both of them to make easier
-the creation of credentials process. The rest of elements of this list are the user credentials to access
-diferent Cloud providers.
+When a new user is registered (or access with OpenID credentials) the web UI automatically creates
+credentials to both of them to make easier the creation of credentials process. The rest of elements
+of this list are the user credentials to access diferent Cloud providers.
 
 .. _figure_cred_list:
 .. figure:: images/cred_list.png

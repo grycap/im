@@ -114,6 +114,19 @@ class TestEC2Connector(unittest.TestCase):
         keypair.save.side_effect = save_key_pair
         return keypair
 
+    def test_15_get_all_instance_types(self):
+        ec2_cloud = self.get_ec2_cloud()
+        instances = ec2_cloud.get_all_instance_types()
+        self.assertGreater(len(instances), 20)
+
+        self.assertEqual(instances[0].cpu_perf, 1.0)
+        self.assertEqual(instances[0].name, 'm1.small')
+        self.assertEqual(instances[0].mem, 1740.8)
+        self.assertEqual(instances[0].price, 0.044)
+        self.assertEqual(instances[0].disks, 1)
+        self.assertEqual(instances[0].cores_per_cpu, 1)
+        self.assertEqual(instances[0].disk_space, 160)
+
     @patch('boto.ec2.get_region')
     @patch('boto.vpc.VPCConnection')
     @patch('boto.ec2.blockdevicemapping.BlockDeviceMapping')
@@ -126,6 +139,7 @@ class TestEC2Connector(unittest.TestCase):
             cpu.arch='x86_64' and
             cpu.count>=1 and
             memory.size>=512m and
+            instance_tags = 'key=value,key1=value2' and
             net_interface.0.connection = 'net1' and
             net_interface.0.dns_name = 'test' and
             net_interface.1.connection = 'net2' and
@@ -139,7 +153,8 @@ class TestEC2Connector(unittest.TestCase):
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
 
-        auth = Authentication([{'id': 'ec2', 'type': 'EC2', 'username': 'user', 'password': 'pass'}])
+        auth = Authentication([{'id': 'ec2', 'type': 'EC2', 'username': 'user', 'password': 'pass'},
+                               {'type': 'InfrastructureManager', 'username': 'user', 'password': 'pass'}])
         ec2_cloud = self.get_ec2_cloud()
 
         region = MagicMock()
@@ -181,7 +196,9 @@ class TestEC2Connector(unittest.TestCase):
 
         blockdevicemapping.return_value = {'device': ''}
 
-        res = ec2_cloud.launch(InfrastructureInfo(), radl, radl, 1, auth)
+        inf = InfrastructureInfo()
+        inf.auth = auth
+        res = ec2_cloud.launch(inf, radl, radl, 1, auth)
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
@@ -208,7 +225,9 @@ class TestEC2Connector(unittest.TestCase):
             )"""
         radl = radl_parse.parse_radl(radl_data)
         conn.get_all_vpcs.return_value = []
-        res = ec2_cloud.launch(InfrastructureInfo(), radl, radl, 1, auth)
+        inf = InfrastructureInfo()
+        inf.auth = auth
+        res = ec2_cloud.launch(inf, radl, radl, 1, auth)
         success, _ = res[0]
         print(self.log.getvalue())
         self.assertTrue(success, msg="ERROR: launching a VM.")
@@ -245,7 +264,8 @@ class TestEC2Connector(unittest.TestCase):
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
 
-        auth = Authentication([{'id': 'ec2', 'type': 'EC2', 'username': 'user', 'password': 'pass'}])
+        auth = Authentication([{'id': 'ec2', 'type': 'EC2', 'username': 'user', 'password': 'pass'},
+                               {'type': 'InfrastructureManager', 'username': 'user', 'password': 'pass'}])
         ec2_cloud = self.get_ec2_cloud()
 
         region = MagicMock()
@@ -288,7 +308,9 @@ class TestEC2Connector(unittest.TestCase):
         request.id = "id"
         conn.request_spot_instances.return_value = [request]
 
-        res = ec2_cloud.launch(InfrastructureInfo(), radl, radl, 1, auth)
+        inf = InfrastructureInfo()
+        inf.auth = auth
+        res = ec2_cloud.launch(inf, radl, radl, 1, auth)
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())

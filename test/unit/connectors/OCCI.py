@@ -37,7 +37,7 @@ from IM.VirtualMachine import VirtualMachine
 from IM.InfrastructureInfo import InfrastructureInfo
 from IM.connectors.OCCI import OCCICloudConnector
 from IM.connectors.OCCI import KeyStoneAuth
-from radl.radl import RADL, system
+from radl.radl import RADL, system, contextualize_item, configure
 from mock import patch, MagicMock
 
 
@@ -246,19 +246,24 @@ class TestOCCIConnector(unittest.TestCase):
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
 
-        auth = Authentication([{'id': 'occi', 'type': 'OCCI', 'proxy': 'proxy', 'host': 'https://server.com:11443'}])
+        auth = Authentication([{'id': 'occi', 'type': 'OCCI', 'proxy': 'proxy', 'host': 'https://server.com:11443'},
+                               {'type': 'InfrastructureManager', 'username': 'user', 'password': 'pass'}])
         occi_cloud = self.get_occi_cloud()
 
         requests.side_effect = self.get_response
         get_keystone_uri.return_value = None
 
-        res = occi_cloud.launch(InfrastructureInfo(), radl, radl, 1, auth)
+        inf = InfrastructureInfo()
+        inf.auth = auth
+        res = occi_cloud.launch(inf, radl, radl, 1, auth)
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
         self.return_error = True
-        res = occi_cloud.launch(InfrastructureInfo(), radl, radl, 1, auth)
+        inf = InfrastructureInfo()
+        inf.auth = auth
+        res = occi_cloud.launch(inf, radl, radl, 1, auth)
         self.return_error = False
         success, msg = res[0]
         self.assertFalse(success)
@@ -412,6 +417,10 @@ class TestOCCIConnector(unittest.TestCase):
         self.assertTrue(success, msg="ERROR: modifying VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
+        self.assertEqual(vm.requested_radl.systems[0].getValue("net_interface.1.connection"), None)
+        self.assertEqual(vm.requested_radl.systems[0].getValue("net_interface.1.ip"), None)
+        self.assertEqual(vm.requested_radl.systems[0].getValue("net_interface.0.connection"), "net")
+
     @patch('requests.request')
     @patch('IM.connectors.OCCI.KeyStoneAuth.get_keystone_uri')
     def test_60_finalize(self, get_keystone_uri, requests):
@@ -432,12 +441,11 @@ class TestOCCIConnector(unittest.TestCase):
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
-    def test_gen_cloud_config(self):
+    def test_get_cloud_init_data(self):
         cloud_init = """
 groups:
   - ubuntu: [foo,bar]
   - cloud-users
-
 # Add users to the system. Users are added after groups are added.
 users:
   - default
@@ -453,6 +461,7 @@ packages:
  """
 
         expected_res = """#cloud-config
+merge_how: list(append)+dict(recurse_array,no_replace)+str()
 users:
 - lock-passwd: true
   name: user
@@ -462,7 +471,7 @@ users:
   sudo: ALL=(ALL) NOPASSWD:ALL
 """
         occi_cloud = self.get_occi_cloud()
-        res = occi_cloud.gen_cloud_config("pub_key", "user")
+        res = occi_cloud.get_cloud_init_data(None, None, "pub_key", "user")
         self.assertEqual(res, expected_res)
 
         expected_res = """#cloud-config
@@ -471,26 +480,32 @@ groups:
   - foo
   - bar
 - cloud-users
+merge_how: list(append)+dict(recurse_array,no_replace)+str()
 packages:
 - pwgen
 - pastebinit
 - - libpython2.7
   - 2.7.3-0ubuntu3.1
 users:
-- lock-passwd: true
-  name: user
-  ssh-authorized-keys:
-  - pub_key
-  ssh-import-id: user
-  sudo: ALL=(ALL) NOPASSWD:ALL
 - default
 - gecos: Magic Cloud App Daemon User
   inactive: true
   name: cloudy
   system: true
 - snapuser: joe@joeuser.io
+- lock-passwd: true
+  name: user
+  ssh-authorized-keys:
+  - pub_key
+  ssh-import-id: user
+  sudo: ALL=(ALL) NOPASSWD:ALL
 """
-        res = occi_cloud.gen_cloud_config("pub_key", "user", cloud_init)
+        radl = RADL()
+        radl.systems.append(system("test"))
+        citem = contextualize_item("test", "cid", ctxt_tool="cloud_init")
+        radl.contextualize.items = {"id": citem}
+        radl.configures.append(configure("cid", cloud_init))
+        res = occi_cloud.get_cloud_init_data(radl, None, "pub_key", "user")
         self.assertEqual(res, expected_res)
 
     @patch('requests.request')

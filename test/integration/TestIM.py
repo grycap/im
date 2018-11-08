@@ -75,8 +75,7 @@ class TestIM(unittest.TestCase):
         Wait for an infrastructure to have a specific state
         """
         if not vm_ids:
-            (success, vm_ids) = self.server.GetInfrastructureInfo(
-                inf_id, self.auth_data)
+            (success, vm_ids) = self.server.GetInfrastructureInfo(inf_id, self.auth_data)
             self.assertTrue(
                 success, msg="ERROR calling the GetInfrastructureInfo function:" + str(vm_ids))
 
@@ -89,14 +88,11 @@ class TestIM(unittest.TestCase):
         while not all_ok and wait < timeout:
             all_ok = True
             for vm_id in vm_ids:
-                (success, vm_state) = self.server.GetVMProperty(
-                    inf_id, vm_id, "state", self.auth_data)
-                self.assertTrue(
-                    success, msg="ERROR getting VM info:" + str(vm_state))
+                (success, vm_state) = self.server.GetVMProperty(inf_id, vm_id, "state", self.auth_data)
+                self.assertTrue(success, msg="ERROR getting VM info:" + str(vm_state))
 
                 if vm_state == VirtualMachine.UNCONFIGURED:
-                    (success, cont_msg) = self.server.GetVMContMsg(
-                        inf_id, vm_id, self.auth_data)
+                    _, cont_msg = self.server.GetVMContMsg(inf_id, vm_id, self.auth_data)
                     print(cont_msg)
 
                 self.assertFalse(vm_state in err_states, msg="ERROR waiting for a state. '" + vm_state +
@@ -109,7 +105,11 @@ class TestIM(unittest.TestCase):
 
             if not all_ok:
                 wait += 5
-                time.sleep(5)
+                if wait >= timeout:
+                    _, cont_msg = self.server.GetInfrastructureContMsg(inf_id, self.auth_data)
+                    print(cont_msg)
+                else:
+                    time.sleep(5)
 
         return all_ok
 
@@ -474,7 +474,7 @@ class TestIM(unittest.TestCase):
         Test ExportInfrastructure and ImportInfrastructure functions
         """
         (success, res) = self.server.ExportInfrastructure(
-            self.inf_id, False, self.auth_data)
+            self.inf_id, True, self.auth_data)
         self.assertTrue(
             success, msg="ERROR calling ExportInfrastructure: " + str(res))
 
@@ -684,6 +684,34 @@ echo "Hello World" >> /tmp/data.txt
                 inf_id, self.auth_data)
             self.assertTrue(
                 success, msg="ERROR calling DestroyInfrastructure: " + str(res))
+
+#     It does not work in the jenkins env.
+#     def test_97_create(self):
+#         """
+#         Test the CreateInfrastructure IM function with reverse SSH support
+#         """
+#         radl = read_file_as_string("../files/reverse.radl")
+#
+#         (success, inf_id) = self.server.CreateInfrastructure(radl, self.auth_data)
+#         self.assertTrue(
+#             success, msg="ERROR calling CreateInfrastructure: " + str(inf_id))
+#         self.__class__.inf_id = [inf_id]
+#
+#         all_configured = self.wait_inf_state(
+#             inf_id, VirtualMachine.CONFIGURED, 600)
+#         self.assertTrue(
+#             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
+#
+#     def test_99_destroy(self):
+#         """
+#         Test DestroyInfrastructure function
+#         """
+#         for inf_id in self.inf_id:
+#             (success, res) = self.server.DestroyInfrastructure(
+#                 inf_id, self.auth_data)
+#             self.assertTrue(
+#                 success, msg="ERROR calling DestroyInfrastructure: " + str(res))
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -145,6 +145,7 @@ class TestOSTConnector(unittest.TestCase):
             cpu.arch='x86_64' and
             cpu.count=1 and
             memory.size=512m and
+            instance_tags='key=value,key1=value2' and
             net_interface.0.connection = 'net1' and
             net_interface.0.dns_name = 'test' and
             net_interface.1.connection = 'net2' and
@@ -152,14 +153,15 @@ class TestOSTConnector(unittest.TestCase):
             disk.0.image.url = 'ost://server.com/ami-id' and
             disk.0.os.credentials.username = 'user' and
             disk.1.size=1GB and
-            disk.1.device='hdb' and
-            disk.1.mount_path='/mnt/path'
+            disk.1.device='hdb'
             )"""
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
 
         auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'username': 'user',
-                                'password': 'pass', 'tenant': 'tenant', 'host': 'https://server.com:5000'}])
+                                'password': 'pass', 'tenant': 'tenant', 'host': 'https://server.com:5000'},
+                               {'type': 'InfrastructureManager', 'username': 'user',
+                                'password': 'pass'}])
         ost_cloud = self.get_ost_cloud()
 
         driver = MagicMock()
@@ -191,32 +193,45 @@ class TestOSTConnector(unittest.TestCase):
 
         driver.create_node.side_effect = self.create_node
 
-        res = ost_cloud.launch_with_retry(InfrastructureInfo(), radl, radl, 1, auth, 2, 1)
+        inf = InfrastructureInfo()
+        inf.auth = auth
+        res = ost_cloud.launch_with_retry(inf, radl, radl, 1, auth, 2, 1)
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
         # test with proxy auth data
         auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'proxy': 'proxy',
-                                'tenant': 'tenant', 'host': 'https://server.com:5000'}])
-        res = ost_cloud.launch(InfrastructureInfo(), radl, radl, 1, auth)
+                                'tenant': 'tenant', 'host': 'https://server.com:5000'},
+                               {'type': 'InfrastructureManager', 'username': 'user',
+                                'password': 'pass'}])
+        inf = InfrastructureInfo()
+        inf.auth = auth
+        res = ost_cloud.launch(inf, radl, radl, 1, auth)
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
 
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
     def test_30_updateVMInfo(self, get_driver):
         radl_data = """
-            network net (outbound = 'yes')
+            network net (outbound = 'yes' and provider_id = 'pool1')
+            network net1 (provider_id = 'os-lan')
             system test (
             cpu.arch='x86_64' and
             cpu.count=1 and
             memory.size=512m and
             net_interface.0.connection = 'net' and
             net_interface.0.dns_name = 'test' and
+            net_interface.1.connection = 'net1' and
             disk.0.os.name = 'linux' and
-            disk.0.image.url = 'one://server.com/1' and
+            disk.0.image.url = 'ost://server.com/ami-id' and
             disk.0.os.credentials.username = 'user' and
-            disk.0.os.credentials.password = 'pass'
+            disk.0.os.credentials.password = 'pass' and
+            disk.1.size=1GB and
+            disk.1.device='hdb' and
+            disk.1.mount_path='/mnt/path' and
+            disk.2.image.url='ost://server.com/ami-id1' and
+            disk.2.mount_path='/mnt/path'
             )"""
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
@@ -234,8 +249,8 @@ class TestOSTConnector(unittest.TestCase):
         node = MagicMock()
         node.id = "1"
         node.state = "running"
-        node.extra = {'flavorId': 'small', 'addresses': {'os-lan': [{'addr': '10.0.0.1',
-                                                                     'OS-EXT-IPS:type': 'fixed'}]}}
+        node.extra = {'flavorId': 'small',
+                      'addresses': {'os-lan': [{'addr': '10.0.0.1', 'OS-EXT-IPS:type': 'fixed'}]}}
         node.public_ips = []
         node.private_ips = ['10.0.0.1']
         node.driver = driver
@@ -268,7 +283,7 @@ class TestOSTConnector(unittest.TestCase):
         self.assertEquals(vm.info.systems[0].getValue("net_interface.1.ip"), "10.0.0.1")
 
         # In this case the Node has the float ip assigned
-        node.public_ips = ['8.8.8.8']
+        # node.public_ips = ['8.8.8.8']
         floating_ip.node_id = node.id
         pool.list_floating_ips.return_value = [floating_ip]
         driver.ex_list_floating_ip_pools.return_value = [pool]
@@ -286,6 +301,21 @@ class TestOSTConnector(unittest.TestCase):
         self.assertEquals(vm.info.systems[0].getValue("net_interface.0.ip"), "8.8.8.8")
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
+
+        # the node has a IPv6 IP
+        node = MagicMock()
+        node.id = "2"
+        node.state = "running"
+        node.extra = {'flavorId': 'small'}
+        node.public_ips = ['8.8.8.8', '2001:630:12:581:f816:3eff:fe92:2146']
+        node.private_ips = ['10.0.0.1']
+        node.driver = driver
+        driver.ex_get_node_details.return_value = node
+
+        success, vm = ost_cloud.updateVMInfo(vm, auth)
+        self.assertTrue(success, msg="ERROR: updating VM info.")
+        self.assertEquals(vm.info.systems[0].getValue("net_interface.0.ip"), "8.8.8.8")
+        self.assertEquals(vm.info.systems[0].getValue("net_interface.0.ipv6"), "2001:630:12:581:f816:3eff:fe92:2146")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
@@ -498,6 +528,50 @@ class TestOSTConnector(unittest.TestCase):
         self.assertTrue(success, msg="ERROR: deleting image. %s" % msg)
         self.assertEqual(driver.delete_image.call_args_list, [call(image)])
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
+    def test_get_networks(self):
+        radl_data = """
+            network net1 (outbound = 'yes')
+            network net2 ()
+            system test (
+            cpu.arch='x86_64' and
+            cpu.count=1 and
+            memory.size=512m and
+            instance_tags='key=value,key1=value2' and
+            net_interface.0.connection = 'net1' and
+            net_interface.0.dns_name = 'test' and
+            net_interface.1.connection = 'net2' and
+            disk.0.os.name = 'linux' and
+            disk.0.image.url = 'ost://server.com/ami-id' and
+            disk.0.os.credentials.username = 'user' and
+            disk.1.size=1GB and
+            disk.1.device='hdb'
+            )"""
+        radl = radl_parse.parse_radl(radl_data)
+        driver = MagicMock()
+
+        pool = MagicMock()
+        pool.name = "public"
+        driver.ex_list_floating_ip_pools.return_value = [pool]
+
+        net1 = MagicMock()
+        net1.name = "private"
+        net1.cidr = None
+        net1.extra = {'subnets': ["subnet1"]}
+        net2 = MagicMock()
+        net2.name = "public"
+        net2.cidr = None
+        net1.extra = {'subnets': [], 'router:external': True}
+        driver.ex_list_networks.return_value = [net1, net2]
+
+        subnet = MagicMock()
+        subnet.cidr = "10.0.0.0/24"
+        subnet.id = "subnet1"
+        driver.ex_list_subnets.return_value = [subnet]
+
+        ost_cloud = self.get_ost_cloud()
+        nets = ost_cloud.get_networks(driver, radl)
+        self.assertEqual(nets, [net1])
 
 
 if __name__ == '__main__':

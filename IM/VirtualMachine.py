@@ -47,6 +47,8 @@ class VirtualMachine:
 
     NOT_RUNNING_STATES = [OFF, FAILED, STOPPED]
 
+    SSH_REVERSE_BASE_PORT = 20000
+
     logger = logging.getLogger('InfrastructureManager')
 
     def __init__(self, inf, cloud_id, cloud, info, requested_radl, cloud_connector=None, im_id=None):
@@ -63,7 +65,9 @@ class VirtualMachine:
         self.id = cloud_id
         """The ID of the VM assigned by the cloud provider"""
         self.im_id = im_id
-        """The internal ID of the VM assigned by the IM"""
+        """The ID of the VM assigned by the IM"""
+        self.creation_im_id = im_id
+        """The ID of the VM assigned by the IM during creation"""
         self.cloud = cloud
         """CloudInfo object with the information about the cloud provider"""
         self.info = info.clone() if info else None
@@ -302,6 +306,9 @@ class VirtualMachine:
         """
         Check if this VM is connected with the specified VM with a network
         """
+        if not vm:
+            return False
+
         # If both VMs have public IPs
         if self.hasPublicIP() and vm.hasPublicIP():
             return True
@@ -315,8 +322,7 @@ class VirtualMachine:
             common_net = False
             j = 0
             while vm.info.systems[0].getValue("net_interface." + str(j) + ".connection"):
-                other_net_name = vm.info.systems[0].getValue(
-                    "net_interface." + str(j) + ".connection")
+                other_net_name = vm.info.systems[0].getValue("net_interface." + str(j) + ".connection")
 
                 if other_net_name == net_name:
                     common_net = True
@@ -387,20 +393,9 @@ class VirtualMachine:
 
         Returns: int with the port
         """
-        winrm_port = 5986
-
-        public_net = None
-        for net in self.info.networks:
-            if net.isPublic():
-                public_net = net
-
-        if public_net:
-            outports = public_net.getOutPorts()
-            if outports:
-                for outport in outports:
-                    if outport.get_local_port() == 5986 and outport.get_protocol() == "tcp":
-                        winrm_port = outport.get_remote_port()
-
+        winrm_port = self.getOutPort(5986)
+        if not winrm_port:
+            winrm_port = 5986
         return winrm_port
 
     def getSSHPort(self):
@@ -536,11 +531,43 @@ class VirtualMachine:
 
         return updated
 
+    @staticmethod
+    def add_public_net(radl):
+        """
+        Add a public net to the radl specified
+        """
+        now = str(int(time.time() * 100))
+
+        public_nets = []
+        for net in radl.networks:
+            if net.isPublic():
+                public_nets.append(net)
+
+        if public_nets:
+            public_net = None
+            for net in public_nets:
+                num_net = radl.systems[0].getNumNetworkWithConnection(net.id)
+                if num_net is not None:
+                    public_net = net
+                    break
+
+            if not public_net:
+                # There are a public net but it has not been used in this
+                # VM
+                public_net = public_nets[0]
+                num_net = radl.systems[0].getNumNetworkIfaces()
+        else:
+            # There no public net, create one
+            public_net = network.createNetwork("public." + now, True)
+            radl.networks.append(public_net)
+            num_net = radl.systems[0].getNumNetworkIfaces()
+
+        return public_net, num_net
+
     def setIps(self, public_ips, private_ips, remove_old=False):
         """
         Set the specified IPs in the VM RADL info
         """
-        now = str(int(time.time() * 100))
         vm_system = self.info.systems[0]
 
         # First remove old ip values
@@ -553,34 +580,42 @@ class VirtualMachine:
                 cont += 1
 
         if public_ips and not set(public_ips).issubset(set(private_ips)):
-            public_nets = []
-            for net in self.info.networks:
-                if net.isPublic():
-                    public_nets.append(net)
+            public_net, num_net = self.add_public_net(self.info)
 
-            if public_nets:
-                public_net = None
-                for net in public_nets:
-                    num_net = self.getNumNetworkWithConnection(net.id)
-                    if num_net is not None:
-                        public_net = net
-                        break
-
-                if not public_net:
-                    # There are a public net but it has not been used in this
-                    # VM
-                    public_net = public_nets[0]
-                    num_net = self.getNumNetworkIfaces()
-            else:
-                # There no public net, create one
-                public_net = network.createNetwork("public." + now, True)
-                self.info.networks.append(public_net)
-                num_net = self.getNumNetworkIfaces()
-
-            for public_ip in public_ips:
-                if public_ip not in private_ips:
-                    vm_system.setValue('net_interface.%s.ip' % num_net, str(public_ip))
-                    vm_system.setValue('net_interface.%s.connection' % num_net, public_net.id)
+            real_public_ips = [public_ip for public_ip in public_ips if public_ip not in private_ips]
+            if real_public_ips:
+                vm_system.setValue('net_interface.%s.connection' % num_net, public_net.id)
+                if len(real_public_ips) > 1:
+                    self.log_warn("Node with more that one public IP!")
+                    self.log_debug(real_public_ips)
+                    if len(real_public_ips) == 2:
+                        ip1 = IPAddress(real_public_ips[0])
+                        ip2 = IPAddress(real_public_ips[1])
+                        if ip1.version != ip2.version:
+                            self.log_info("It seems that there are one IPv4 and other IPv6. Get the IPv4 one.")
+                            if ip1.version == 4:
+                                vm_system.setValue('net_interface.%s.ip' % num_net, str(real_public_ips[0]))
+                                vm_system.setValue('net_interface.%s.ipv6' % num_net, str(real_public_ips[1]))
+                            else:
+                                vm_system.setValue('net_interface.%s.ip' % num_net, str(real_public_ips[1]))
+                                vm_system.setValue('net_interface.%s.ipv6' % num_net, str(real_public_ips[0]))
+                        else:
+                            self.log_info("It seems that both are from the same version first one will be used")
+                            vm_system.setValue('net_interface.%s.ip' % num_net, str(real_public_ips[0]))
+                    else:
+                        self.log_info("It seems that there are more that 2 last ones will be used")
+                        for ip in real_public_ips:
+                            if IPAddress(ip).version == 4:
+                                vm_system.setValue('net_interface.%s.ip' % num_net, str(ip))
+                            else:
+                                vm_system.setValue('net_interface.%s.ipv6' % num_net, str(ip))
+                else:
+                    # The usual case
+                    if IPAddress(real_public_ips[0]).version == 6:
+                        self.log_warn("Node only with one IPv6!!")
+                        vm_system.setValue('net_interface.%s.ipv6' % num_net, str(real_public_ips[0]))
+                    else:
+                        vm_system.setValue('net_interface.%s.ip' % num_net, str(real_public_ips[0]))
 
         if private_ips:
             private_net_map = {}
@@ -638,7 +673,10 @@ class VirtualMachine:
                         # this VM
                         num_net = self.getNumNetworkIfaces()
 
-                vm_system.setValue('net_interface.%s.ip' % num_net, str(private_ip))
+                if IPAddress(private_ip).version == 6:
+                    vm_system.setValue('net_interface.%s.ipv6' % num_net, str(private_ip))
+                else:
+                    vm_system.setValue('net_interface.%s.ip' % num_net, str(private_ip))
                 vm_system.setValue('net_interface.%s.connection' % num_net, private_net.id)
 
     def get_ssh(self, retry=False):
@@ -888,7 +926,7 @@ class VirtualMachine:
         res.systems = self.info.systems
         return res
 
-    def get_ssh_ansible_master(self):
+    def get_ansible_host(self):
         ansible_host = None
         if self.requested_radl.ansible_hosts:
             ansible_host = self.requested_radl.ansible_hosts[0]
@@ -896,11 +934,21 @@ class VirtualMachine:
                 ansible_host = self.requested_radl.get_ansible_by_id(
                     self.requested_radl.systems[0].getValue("ansible_host"))
 
+        return ansible_host
+
+    def get_ssh_ansible_master(self, retry=True):
+        ansible_host = self.get_ansible_host()
         if ansible_host:
             (user, passwd, private_key) = ansible_host.getCredentialValues()
-            return SSHRetry(ansible_host.getHost(), user, passwd, private_key)
+            if retry:
+                return SSHRetry(ansible_host.getHost(), user, passwd, private_key)
+            else:
+                return SSH(ansible_host.getHost(), user, passwd, private_key)
         else:
-            return self.inf.vm_master.get_ssh(retry=True)
+            if self.inf.vm_master:
+                return self.inf.vm_master.get_ssh(retry=retry)
+            else:
+                return None
 
     def __lt__(self, other):
         return True
@@ -932,6 +980,47 @@ class VirtualMachine:
 
         # And return true in the last of these VMs
         return self == delete_list_cloud[-1]
+
+    def get_boot_curl_commands(self):
+        from IM.REST import REST_URL
+        rest_url = REST_URL if REST_URL else ""
+        url = rest_url + '/infrastructures/' + str(self.inf.id) + '/vms/' + str(self.creation_im_id) + '/command'
+        auth = self.inf.auth.getAuthInfo("InfrastructureManager")[0]
+        imuser = auth['username']
+        impass = auth['password']
+        command = ('curl -s -H "Authorization: type = InfrastructureManager; '
+                   'username = %s; password = %s" -H "Accept: text/plain" %s' % (imuser, impass, url))
+        return [command + " | bash &"]
+
+    def getSSHReversePort(self):
+        return self.SSH_REVERSE_BASE_PORT + int(self.creation_im_id)
+
+    def get_ssh_command(self):
+        ssh = self.get_ssh_ansible_master(retry=False)
+        if not ssh:
+            return None
+
+        ssh_port = ssh.port
+        reverse_opt = "-R %d:localhost:22" % (self.SSH_REVERSE_BASE_PORT + self.creation_im_id)
+
+        if ssh.private_key:
+            filename = "/tmp/%s_%s.pem" % (self.inf.id, self.im_id)
+            command = 'echo "%s" > %s && chmod 400 %s ' % (ssh.private_key, filename, filename)
+            command += ('&& ssh -N %s -p %s -i %s -o "UserKnownHostsFile=/dev/null"'
+                        ' -o "StrictHostKeyChecking=no" %s@%s &' % (reverse_opt,
+                                                                    ssh_port,
+                                                                    filename,
+                                                                    ssh.username,
+                                                                    ssh.host))
+        else:
+            command = ('sshpass -p%s ssh -N %s -p %s -o "UserKnownHostsFile=/dev/null"'
+                       ' -o "StrictHostKeyChecking=no" %s@%s &' % (ssh.password,
+                                                                   reverse_opt,
+                                                                   ssh_port,
+                                                                   ssh.username,
+                                                                   ssh.host))
+
+        return command
 
     def log_msg(self, level, msg, exc_info=0):
         msg = "Inf ID: %s: %s" % (self.inf.id, msg)

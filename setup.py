@@ -63,6 +63,6 @@ setup(name="IM", version=version,
       description="IM is a tool to manage virtual infrastructures on Cloud deployments",
       platforms=["any"],
       install_requires=["ansible >= 2.0", "paramiko >= 1.14", "PyYAML", suds_pkg, sqlite_pkg, "cheroot",
-                        "boto >= 2.29", "apache-libcloud >= 2.3.0", "RADL >= 1.1.0", "bottle", "netaddr",
-                        "requests", "scp", "tosca-parser"]
+                        "boto >= 2.29", "apache-libcloud >= 2.3.0", "RADL >= 1.1.1", "bottle", "netaddr",
+                        "requests >= 2.19", "scp", "tosca-parser"]
       )

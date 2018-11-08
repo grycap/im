@@ -614,35 +614,39 @@ class ConfManager(threading.Thread):
         res = ""
         cont = 1
 
-        while system.getValue("disk." + str(cont) + ".size") and system.getValue("disk." + str(cont) + ".device"):
+        while system.getValue("disk." + str(cont) + ".size") or system.getValue("disk." + str(cont) + ".image.url"):
             disk_device = system.getValue("disk." + str(cont) + ".device")
-            disk_mount_path = system.getValue(
-                "disk." + str(cont) + ".mount_path")
-            disk_fstype = system.getValue("disk." + str(cont) + ".fstype")
+            if disk_device:
+                disk_mount_path = system.getValue("disk." + str(cont) + ".mount_path")
+                disk_fstype = system.getValue("disk." + str(cont) + ".fstype")
 
-            # Only add the tasks if the user has specified a moun_path and a
-            # filesystem
-            if disk_mount_path and disk_fstype:
-                # This recipe works with EC2 and OpenNebula. It must be
-                # tested/completed with other providers
-                condition = "    when: ansible_os_family != 'Windows' and item.key.endswith('" + disk_device[
-                    -1] + "')\n"
-                condition += "    with_dict: '{{ ansible_devices }}'\n"
+                # Only add the tasks if the user has specified a mount_path and a filesystem
+                if disk_mount_path and disk_fstype:
+                    # This recipe works with EC2, OpenNebula and Azure. It must be
+                    # tested/completed with other providers
+                    condition = "    when: ansible_os_family != 'Windows' and item.key.endswith('" + \
+                        disk_device[-1] + "')"
+                    with_dict = "    with_dict: '{{ ansible_devices }}'\n"
 
-                res += '  # Tasks to format and mount disk %d from device %s in %s\n' % (
-                    cont, disk_device, disk_mount_path)
-                res += '  - shell: (echo n; echo p; echo 1; echo ; echo; echo w) |'
-                res += ' fdisk /dev/{{item.key}} creates=/dev/{{item.key}}1\n'
-                res += condition
-                res += '  - filesystem: fstype=' + \
-                    disk_fstype + ' dev=/dev/{{item.key}}1\n'
-                res += condition
-                res += '  - file: path=' + disk_mount_path + ' state=directory recurse=yes\n'
-                res += '  - mount: name=' + disk_mount_path + \
-                    ' src=/dev/{{item.key}}1 state=mounted fstype=' + \
-                    disk_fstype + '\n'
-                res += condition
-                res += '\n'
+                    res += '  # Tasks to format and mount disk %d from device %s in %s\n' % (cont,
+                                                                                             disk_device,
+                                                                                             disk_mount_path)
+                    res += '  - shell: (echo n; echo p; echo 1; echo ; echo; echo w) |'
+                    res += ' fdisk /dev/{{item.key}} creates=/dev/{{item.key}}1\n'
+                    # res += '  - parted: device=/dev/{{item.key}} number=1 state=present'
+                    res += condition + '\n'
+                    res += with_dict
+                    res += '  - filesystem: fstype=' + disk_fstype + ' dev=/dev/{{item.key}}1\n'
+                    res += '    ignore_errors: yes\n'
+                    res += '    register: format\n'
+                    res += condition + '\n'
+                    res += with_dict
+                    res += '  - file: path=' + disk_mount_path + ' state=directory recurse=yes\n'
+                    res += '  - mount: name=' + disk_mount_path + ' src=/dev/{{item.key}}1 state=mounted fstype=' + \
+                        disk_fstype + '\n'
+                    res += condition + ' and not format is failed\n'
+                    res += with_dict
+                    res += '\n'
 
             cont += 1
 
@@ -820,8 +824,7 @@ class ConfManager(threading.Thread):
                             for ansible_host in self.inf.radl.ansible_hosts:
                                 (user, passwd, private_key) = ansible_host.getCredentialValues()
                                 ssh = SSHRetry(ansible_host.getHost(), user, passwd, private_key)
-                                ssh.sftp_mkdir(remote_dir)
-                                ssh.sftp_chmod(remote_dir, 448)
+                                ssh.sftp_mkdir(remote_dir, 0o700)
                                 ssh.sftp_mkdir(remote_dir + "/IM")
                                 ssh.sftp_put_files(files)
                                 # Copy the utils helper files
@@ -831,8 +834,7 @@ class ConfManager(threading.Thread):
                                 ssh.sftp_mkdir(remote_dir + "/IM/ansible_utils")
                                 ssh.sftp_put_dir(Config.IM_PATH + "/ansible_utils", remote_dir + "/IM/ansible_utils")
                         else:
-                            ssh.sftp_mkdir(remote_dir)
-                            ssh.sftp_chmod(remote_dir, 448)
+                            ssh.sftp_mkdir(remote_dir, 0o700)
                             ssh.sftp_mkdir(remote_dir + "/IM")
                             ssh.sftp_put_files(files)
                             # Copy the utils helper files
@@ -892,7 +894,7 @@ class ConfManager(threading.Thread):
                     # If there are not a valid master VM, exit
                     self.log_error("No correct Master VM found. Exit")
                     self.inf.add_cont_msg("Contextualization Error: No correct Master VM found. Check if there a "
-                                          "linux VM with Public IP and connected with the rest of VMs.")
+                                          "linux VM with Public IP.")
                     self.inf.set_configured(False)
                     return
 
@@ -1208,13 +1210,13 @@ class ConfManager(threading.Thread):
         result = Queue()
         extra_vars = {'IM_HOST': 'all'}
         # store the process to terminate it later is Ansible does not finish correctly
-        self.ansible_process = AnsibleThread(result, StringIO(), tmp_dir + "/" + playbook, None, 1, gen_pk_file,
+        self.ansible_process = AnsibleThread(result, StringIO(), tmp_dir + "/" + playbook, 1, gen_pk_file,
                                              ssh.password, 1, tmp_dir + "/" + inventory, ssh.username,
                                              extra_vars=extra_vars)
         self.ansible_process.start()
 
         wait = 0
-        while self.ansible_process.is_alive():
+        while result.empty() and self.ansible_process.is_alive():
             if wait >= Config.ANSIBLE_INSTALL_TIMEOUT:
                 self.log_error('Timeout waiting Ansible process to finish')
                 try:
@@ -1233,8 +1235,9 @@ class ConfManager(threading.Thread):
 
         try:
             self.log_info('Get the results of the Ansible process.')
-            _, (return_code, _), output = result.get(timeout=10)
+            _, return_code, output = result.get(timeout=10, block=False)
             msg = output.getvalue()
+            self.log_info('Results obtained')
         except:
             self.log_exception('Error getting ansible results.')
             return_code = 1
@@ -1320,9 +1323,8 @@ class ConfManager(threading.Thread):
 
             self.inf.add_cont_msg("Creating and copying Ansible playbook files")
 
-            ssh.sftp_mkdir(Config.REMOTE_CONF_DIR)
-            ssh.sftp_mkdir(Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/")
-            ssh.sftp_chmod(Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/", 448)
+            ssh.sftp_mkdir(Config.REMOTE_CONF_DIR, 0o777)
+            ssh.sftp_mkdir(Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/", 0o700)
 
             for galaxy_name in modules:
                 if galaxy_name:
@@ -1412,6 +1414,7 @@ class ConfManager(threading.Thread):
                 if vm.getPublicIP() and vm.getPrivateIP():
                     vm_conf_data['private_ip'] = vm.getPrivateIP()
                 vm_conf_data['remote_port'] = vm.getRemoteAccessPort()
+                vm_conf_data['reverse_port'] = vm.getSSHReversePort()
                 creds = vm.getCredentialValues()
                 new_creds = vm.getCredentialValues(new=True)
                 (vm_conf_data['user'], vm_conf_data['passwd'],
@@ -1473,14 +1476,14 @@ class ConfManager(threading.Thread):
         """
         yamlo1o = {}
         try:
-            yamlo1o = yaml.load(yaml1)[0]
+            yamlo1o = yaml.safe_load(yaml1)[0]
             if not isinstance(yamlo1o, dict):
                 yamlo1o = {}
         except Exception:
             self.log_exception("Error parsing YAML: " + yaml1 + "\n Ignore it")
 
         try:
-            yamlo2s = yaml.load(yaml2)
+            yamlo2s = yaml.safe_load(yaml2)
             if not isinstance(yamlo2s, list) or any([not isinstance(d, dict) for d in yamlo2s]):
                 yamlo2s = {}
         except Exception:
@@ -1514,7 +1517,7 @@ class ConfManager(threading.Thread):
                     yamlo1[key] = yamlo2[key]
             result.append(yamlo1)
 
-        return yaml.dump(result, default_flow_style=False, explicit_start=True, width=256)
+        return yaml.safe_dump(result, default_flow_style=False, explicit_start=True, width=256)
 
     def log_msg(self, level, msg, exc_info=0):
         msg = "Inf ID: %s: %s" % (self.inf.id, msg)

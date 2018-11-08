@@ -2,10 +2,9 @@ import os
 import logging
 import yaml
 import copy
-try:
-    from urllib.request import urlopen
-except:
-    from urllib import urlopen
+import time
+import requests
+
 try:
     unicode("hola")
 except NameError:
@@ -34,19 +33,19 @@ class Tosca:
 
     def __init__(self, yaml_str):
         Tosca.logger.debug("TOSCA: %s" % yaml_str)
-        self.yaml = yaml.load(yaml_str)
+        self.yaml = yaml.safe_load(yaml_str)
         self.tosca = ToscaTemplate(yaml_dict_tpl=copy.deepcopy(self.yaml))
 
     def serialize(self):
-        return yaml.dump(self.yaml)
+        return yaml.safe_dump(self.yaml)
 
     @staticmethod
     def deserialize(str_data):
         return Tosca(str_data)
 
-    def _get_cloud_id(self, sys_name):
+    def _get_placement_property(self, sys_name, prop):
         """
-        Get the cloud ID of the deployment based on policies
+        Get the specified property of the deployment based on policies
         """
         for policy in self.tosca.policies:
             if policy.type_definition.type == "tosca.policies.Placement":
@@ -59,10 +58,11 @@ class Tosca:
 
                 for node in node_list:
                     if node.name == sys_name:
-                        if 'cloud_id' in policy.properties:
-                            Tosca.logger.debug("Set cloud id: %s to system: %s." % (policy.properties['cloud_id'],
-                                                                                    sys_name))
-                            return policy.properties['cloud_id']
+                        if prop in policy.properties:
+                            Tosca.logger.debug("Set %s: %s to system: %s." % (prop,
+                                                                              policy.properties[prop],
+                                                                              sys_name))
+                            return policy.properties[prop]
             else:
                 Tosca.logger.warn("Policy %s not supported. Ignoring it." % policy.type_definition.type)
 
@@ -100,7 +100,7 @@ class Tosca:
                 # TODO: check IM to support more network properties
                 # At this moment we only support the network_type with values,
                 # private and public
-                net = Tosca._gen_network(node)
+                net = self._gen_network(node)
                 radl.networks.append(net)
             else:
                 if root_type == "tosca.nodes.Compute":
@@ -108,8 +108,7 @@ class Tosca:
                     sys = self._gen_system(node, self.tosca.nodetemplates)
                     # add networks using the simple method with the public_ip
                     # property
-                    self._add_node_nets(
-                        node, radl, sys, self.tosca.nodetemplates)
+                    self._add_node_nets(node, radl, sys, self.tosca.nodetemplates)
                     radl.systems.append(sys)
                     # Add the deploy element for this system
                     min_instances, _, default_instances, count, removal_list = self._get_scalable_properties(
@@ -135,14 +134,13 @@ class Tosca:
                         all_removal_list.extend(removal_list[0:-num_instances])
 
                     if num_instances > 0:
-                        cloud_id = self._get_cloud_id(sys.name)
+                        cloud_id = self._get_placement_property(sys.name, "cloud_id")
                         dep = deploy(sys.name, num_instances, cloud_id)
                         radl.deploys.append(dep)
                     compute = node
                 else:
                     # Select the host to host this element
-                    compute = self._find_host_compute(
-                        node, self.tosca.nodetemplates)
+                    compute = self._find_host_compute(node, self.tosca.nodetemplates)
                     if not compute:
                         Tosca.logger.warn(
                             "Node %s has not compute node to host in." % node.name)
@@ -167,7 +165,50 @@ class Tosca:
 
         self._order_deploys(radl)
 
+        self._check_private_networks(radl)
+
         return all_removal_list, self._complete_radl_networks(radl)
+
+    def _check_private_networks(self, radl):
+        """
+        Check private networks to assure to create different nets
+        for different cloud providers
+        """
+        priv_net_cloud_map = {}
+        for s in radl.systems:
+            image = s.getValue("disk.0.image.url")
+            if image:
+                url = uriparse(image)
+                protocol = url[0]
+                src_host = url[1].split(':')[0]
+                for net_id in s.getNetworkIDs():
+                    net = radl.get_network_by_id(net_id)
+                    if not net.isPublic():
+                        if net_id in priv_net_cloud_map:
+                            if priv_net_cloud_map[net_id] != "%s://%s" % (protocol, src_host):
+                                if "%s://%s" % (protocol, src_host) in list(priv_net_cloud_map.values()):
+                                    for key, value in priv_net_cloud_map.items():
+                                        if value == "%s://%s" % (protocol, src_host):
+                                            new_net_id = key
+                                            break
+                                else:
+                                    # This net appears in two cloud, create another one
+                                    now = str(int(time.time() * 100))
+                                    new_net = network.createNetwork("private." + now, False)
+                                    radl.networks.append(new_net)
+                                    new_net_id = new_net.id
+                                    # and replace the connection id in the system
+                                i = 0
+                                while s.getValue("net_interface.%d.connection" % i):
+                                    if s.getValue("net_interface.%d.connection" % i) == net_id:
+                                        s.setValue("net_interface.%d.connection" % i, new_net_id)
+                                    i += 1
+
+                                priv_net_cloud_map[new_net.id] = "%s://%s" % (protocol, src_host)
+                        else:
+                            priv_net_cloud_map[net_id] = "%s://%s" % (protocol, src_host)
+
+        return
 
     def _order_deploys(self, radl):
         """
@@ -182,7 +223,16 @@ class Tosca:
             else:
                 priv.append(d)
 
-        radl.deploys = pub + priv
+        # This is patch, we need an actual solution for that
+        wn = []
+        fe = []
+        for d in pub:
+            if "wn" in d.id:
+                wn.append(d)
+            else:
+                fe.append(d)
+
+        radl.deploys = fe + wn + priv
 
     def _get_num_instances(self, sys_name, inf_info):
         """
@@ -256,7 +306,7 @@ class Tosca:
 
     def _add_node_nets(self, node, radl, system, nodetemplates):
         # Find associated Networks
-        nets = Tosca._get_bind_networks(node, nodetemplates)
+        nets = self._get_bind_networks(node, nodetemplates)
         if nets:
             # If there are network nodes, use it to define system network
             # properties
@@ -287,6 +337,13 @@ class Tosca:
                 cap_props = endpoint.get_properties()
                 if cap_props and "network_name" in cap_props:
                     network_name = str(self._final_function_result(cap_props["network_name"].value, node))
+                    pool_name = None
+                    parts = network_name.split(",")
+                    if len(parts) > 1:
+                        # This is for the special case of OST with net name and pool name
+                        network_name = parts[0].strip()
+                        pool_name = parts[1].strip()
+
                     if network_name == "PUBLIC":
                         public_ip = True
                     # In this case the user is specifying the provider_id
@@ -313,6 +370,7 @@ class Tosca:
                         protocol = self._final_function_result(cap_props["protocol"].value, node)
                     ports["im-%s-%s" % (protocol, port)] = {"protocol": protocol, "source": port}
 
+            private_net = None
             # The private net is always added
             if not public_ip or private_ip:
                 private_nets = []
@@ -339,8 +397,15 @@ class Tosca:
                     radl.networks.append(private_net)
                     num_net = system.getNumNetworkIfaces()
 
+                if not public_ip and ports:
+                    outports = Tosca._format_outports(ports)
+                    if private_net.getValue("outports"):
+                        outports = "%s,%s" % (private_net.getValue("outports"), outports)
+                    private_net.setValue("outports", outports)
+
                 system.setValue('net_interface.' + str(num_net) + '.connection', private_net.id)
 
+            public_net = None
             # If the node needs a public IP
             if public_ip:
                 # Always create a public IP per VM
@@ -359,13 +424,23 @@ class Tosca:
                     if public_net.getValue("outports"):
                         outports = "%s,%s" % (public_net.getValue("outports"), outports)
                     public_net.setValue("outports", outports)
-                if net_provider_id:
-                    public_net.setValue("provider_id", net_provider_id)
 
                 system.setValue('net_interface.%d.connection' % num_net, public_net.id)
 
-            if not public_ip and net_provider_id:
-                private_net.setValue("provider_id", net_provider_id)
+            if net_provider_id:
+                if private_net:
+                    # There are a private IP, net the provider_id to the priv net
+                    private_net.setValue("provider_id", net_provider_id)
+                else:
+                    # There are no a private IP, net the provider_id to the priv net
+                    if not public_net:
+                        Tosca.logger.warn("Node %s does not require any IP!!" % node.name)
+
+                if public_net:
+                    if pool_name:
+                        public_net.setValue("provider_id", pool_name)
+                    elif not private_net:
+                        public_net.setValue("provider_id", net_provider_id)
 
             if dns_name:
                 system.setValue('net_interface.0.dns_name', dns_name)
@@ -503,10 +578,10 @@ class Tosca:
                 if implementation_url[0] in ['http', 'https', 'ftp']:
                     script_path = implementation_url[2]
                     try:
-                        response = urlopen(interface.implementation)
-                        script_content = response.read()
-                        if response.code != 200:
-                            raise Exception("")
+                        resp = requests.get(interface.implementation)
+                        script_content = resp.text
+                        if resp.status_code != 200:
+                            raise Exception(resp.reason + "\n" + resp.text)
                     except Exception as ex:
                         raise Exception("Error downloading the implementation script '%s': %s" % (
                             interface.implementation, str(ex)))
@@ -519,10 +594,10 @@ class Tosca:
                         f.close()
                     else:
                         try:
-                            response = urlopen(Tosca.ARTIFACTS_REMOTE_REPO + interface.implementation)
-                            script_content = response.read()
-                            if response.code != 200:
-                                raise Exception("")
+                            resp = requests.get(Tosca.ARTIFACTS_REMOTE_REPO + interface.implementation)
+                            script_content = resp.text
+                            if resp.status_code != 200:
+                                raise Exception(resp.reason + "\n" + resp.text)
                         except Exception as ex:
                             raise Exception("Implementation file: '%s' is not located in the artifacts folder '%s' "
                                             "or in the artifacts remote url '%s'." % (interface.implementation,
@@ -584,7 +659,7 @@ class Tosca:
         """
 
         try:
-            yamlo = yaml.load(script_content)
+            yamlo = yaml.safe_load(script_content)
             if not isinstance(yamlo, list):
                 Tosca.logger.warn("Error parsing YAML: " +
                                   script_content + "\n.Do not remove header.")
@@ -600,7 +675,7 @@ class Tosca:
             if 'connection' in elem:
                 del elem['connection']
 
-        return yaml.dump(yamlo, default_flow_style=False, explicit_start=True, width=256)
+        return yaml.safe_dump(yamlo, default_flow_style=False, explicit_start=True, width=256)
 
     @staticmethod
     def _is_artifact(function):
@@ -736,8 +811,8 @@ class Tosca:
             try:
                 index = int(func.args[2])
             except:
-                Tosca.logger.exception("Error getting get_attribute index.")
-                pass
+                capability_name = func.args[1]
+                attribute_name = func.args[2]
         elif len(func.args) == 4:
             capability_name = func.args[1]
             attribute_name = func.args[2]
@@ -749,31 +824,44 @@ class Tosca:
 
         if node_name == "HOST":
             node = self._find_host_compute(node, self.tosca.nodetemplates)
+        elif node_name == "SOURCE":
+            node = func.context.source
+        elif node_name == "TARGET":
+            node = func.context.target
         elif node_name != "SELF":
             node = None
             for n in self.tosca.nodetemplates:
                 if n.name == node_name:
                     node = n
                     break
-            if not node:
-                Tosca.logger.error(
-                    "Calling get_attribute function for non existing node: %s" % node_name)
-                return None
+
+        if not node:
+            Tosca.logger.error("Calling get_attribute function for non existing node: %s" % node_name)
+            return None
+
+        #  if capability_name refers a requirement, try to get the referred node
+        if capability_name:
+            # Find attribute in node template's requirements
+            for r in node.requirements:
+                for req, name in r.items():
+                    if req == capability_name:
+                        node = func._find_node_template(name)
+
+        host_node = self._find_host_compute(node, self.tosca.nodetemplates)
 
         root_type = Tosca._get_root_parent_type(node).type
 
         if inf_info:
             vm_list = inf_info.get_vm_list_by_system_name()
 
-            if node.name not in vm_list:
-                Tosca.logger.warn(
-                    "There are no VM associated with the name %s." % node.name)
+            if host_node.name not in vm_list:
+                Tosca.logger.warn("There are no VM associated with the name %s." % host_node.name)
                 return None
             else:
                 # As default assume that there will be only one VM per group
-                vm = vm_list[node.name][0]
-                if index is not None and len(vm_list[node.name]) < index:
-                    index = len(vm_list[node.name]) - 1
+                vm = vm_list[host_node.name][0]
+                if index is not None and len(vm_list[host_node.name]) < index:
+                    index = len(vm_list[host_node.name]) - 1
 
             if attribute_name == "tosca_id":
                 return vm.id
@@ -824,70 +912,64 @@ class Tosca:
                     return vm.getPublicIP()
             elif attribute_name == "ip_address":
                 if root_type == "tosca.nodes.network.Port":
-                    order = node.get_property_value('order')
+                    order = self._final_function_result(node.get_property_value('order'), node)
                     return vm.getNumNetworkWithConnection(order)
-                elif root_type == "tosca.capabilities.Endpoint":
+                else:
                     if vm.getPublicIP():
                         return vm.getPublicIP()
                     else:
                         return vm.getPrivateIP()
-                else:
-                    Tosca.logger.warn("Attribute ip_address only supported in tosca.nodes.network.Port "
-                                      "and tosca.capabilities.Endpoint nodes.")
-                    return None
             else:
-                Tosca.logger.warn("Attribute %s not supported." %
-                                  attribute_name)
+                Tosca.logger.warn("Attribute %s not supported." % attribute_name)
                 return None
         else:
             if attribute_name == "tosca_id":
                 if node_name in ["HOST", "SELF"]:
                     return "{{ IM_NODE_VMID }}"
                 else:
-                    return "{{ hostvars[groups['%s'][0]]['IM_NODE_VMID'] }}" % node.name
+                    return "{{ hostvars[groups['%s'][0]]['IM_NODE_VMID'] }}" % host_node.name
             elif attribute_name == "tosca_name":
                 return node.name
             elif attribute_name == "private_address":
                 if node.type == "tosca.nodes.indigo.Compute":
                     if index is not None:
-                        return "{{ hostvars[groups['%s'][%d]]['IM_NODE_PRIVATE_IP'] }}" % (node.name, index)
+                        return "{{ hostvars[groups['%s'][%d]]['IM_NODE_PRIVATE_IP'] }}" % (host_node.name, index)
                     else:
                         return ("{{ groups['%s']|map('extract', hostvars,'IM_NODE_PRIVATE_IP')|list"
-                                " if '%s' in groups else []}}" % (node.name, node.name))
+                                " if '%s' in groups else []}}" % (host_node.name, host_node.name))
                 else:
                     if node_name in ["HOST", "SELF"]:
                         return "{{ IM_NODE_PRIVATE_IP }}"
                     else:
-                        return "{{ hostvars[groups['%s'][0]]['IM_NODE_PRIVATE_IP'] }}" % node.name
+                        return "{{ hostvars[groups['%s'][0]]['IM_NODE_PRIVATE_IP'] }}" % host_node.name
             elif attribute_name == "public_address":
                 if node.type == "tosca.nodes.indigo.Compute":
                     if index is not None:
-                        return "{{ hostvars[groups['%s'][%d]]['IM_NODE_PUBLIC_IP'] }}" % (node.name, index)
+                        return "{{ hostvars[groups['%s'][%d]]['IM_NODE_PUBLIC_IP'] }}" % (host_node.name, index)
                     else:
                         return ("{{ groups['%s']|map('extract', hostvars,'IM_NODE_PUBLIC_IP')|list"
-                                " if '%s' in groups else []}}" % (node.name, node.name))
+                                " if '%s' in groups else []}}" % (host_node.name, host_node.name))
                 else:
                     if node_name in ["HOST", "SELF"]:
                         return "{{ IM_NODE_PUBLIC_IP }}"
                     else:
-                        return "{{ hostvars[groups['%s'][0]]['IM_NODE_PUBLIC_IP'] }}" % node.name
+                        return "{{ hostvars[groups['%s'][0]]['IM_NODE_PUBLIC_IP'] }}" % host_node.name
             elif attribute_name == "ip_address":
                 if root_type == "tosca.nodes.network.Port":
-                    order = node.get_property_value('order')
-                    return "{{ hostvars[groups['%s'][0]]['IM_NODE_NET_%s_IP'] }}" % (node.name, order)
-                elif root_type == "tosca.capabilities.Endpoint":
+                    order = self._final_function_result(node.get_property_value('order'), node)
+                    return "{{ hostvars[groups['%s'][0]]['IM_NODE_NET_%s_IP'] }}" % (host_node.name, order)
+                else:
                     # TODO: check this
-                    if node_name in ["HOST", "SELF"]:
+                    if node_name == "HOST":
                         return "{{ IM_NODE_PUBLIC_IP }}"
                     else:
-                        return "{{ hostvars[groups['%s'][0]]['IM_NODE_PUBLIC_IP'] }}" % node.name
-                else:
-                    Tosca.logger.warn("Attribute ip_address only supported in tosca.nodes.network.Port and "
-                                      "tosca.capabilities.Endpoint nodes.")
-                    return None
+                        return ("{{ hostvars[groups['%s'][0]]['IM_NODE_PUBLIC_IP']"
+                                " if 'IM_NODE_PUBLIC_IP' in hostvars[groups['%s'][0]] else "
+                                "hostvars[groups['%s'][0]]['IM_NODE_PRIVATE_IP']}}" % (host_node.name,
+                                                                                       host_node.name,
+                                                                                       host_node.name))
             else:
-                Tosca.logger.warn("Attribute %s not supported." %
-                                  attribute_name)
+                Tosca.logger.warn("Attribute %s not supported." % attribute_name)
                 return None
 
     def _final_function_result(self, func, node, inf_info=None):
@@ -1113,15 +1195,14 @@ class Tosca:
 
         return value, 'B'
 
-    @staticmethod
-    def _gen_network(node):
+    def _gen_network(self, node):
         """
         Take a node of type "Network" and get the RADL.network to represent it
         """
         res = network(node.name)
 
-        nework_type = node.get_property_value("network_type")
-        network_name = node.get_property_value("network_name")
+        nework_type = self._final_function_result(node.get_property_value('network_type'), node)
+        network_name = self._final_function_result(node.get_property_value('network_name'), node)
 
         # TODO: get more properties -> must be implemented in the RADL
         if nework_type == "public":
@@ -1195,13 +1276,14 @@ class Tosca:
             'mem_size': 'memory.size',
             'cpu_frequency': 'cpu.performance',
             'instance_type': 'instance_type',
+            'preemtible_instance': 'spot',
         }
 
         for cap_type in ['os', 'host']:
             if node.get_capability(cap_type):
                 for prop in node.get_capability(cap_type).get_properties_objects():
                     name = property_map.get(prop.name, None)
-                    if name and prop.value:
+                    if name and prop.value is not None:
                         unit = None
                         value = self._final_function_result(prop.value, node)
                         if prop.name in ['disk_size', 'mem_size']:
@@ -1236,6 +1318,8 @@ class Tosca:
                                 raise Exception("User must be specified in the image credentials.")
                             name = "disk.0.os.credentials.username"
                             value = value['user']
+                        elif prop.name == "preemtible_instance":
+                            value = 'yes' if value else 'no'
 
                         if isinstance(value, float) or isinstance(value, int):
                             operator = ">="
@@ -1248,21 +1332,27 @@ class Tosca:
         # Find associated BlockStorages
         disks = self._get_attached_disks(node, nodetemplates)
 
-        for size, unit, location, device, num, fstype in disks:
-            if size:
-                res.setValue('disk.%d.size' % num, size, unit)
-            if device:
-                res.setValue('disk.%d.device' % num, device)
-            if location:
-                res.setValue('disk.%d.mount_path' % num, location)
-                res.setValue('disk.%d.fstype' % num, fstype)
+        for size, unit, location, device, num, fstype, vol_id, snap_id in disks:
+            if vol_id:
+                res.setValue('disk.%d.image.url' % num, vol_id)
+            else:
+                if size:
+                    res.setValue('disk.%d.size' % num, size, unit)
+                if device:
+                    res.setValue('disk.%d.device' % num, device)
+                if location:
+                    res.setValue('disk.%d.mount_path' % num, location)
+                    res.setValue('disk.%d.fstype' % num, fstype)
 
         self._add_ansible_roles(node, nodetemplates, res)
 
+        availability_zone = self._get_placement_property(res.name, "availability_zone")
+        if availability_zone:
+            res.setValue('availability_zone', availability_zone)
+
         return res
 
-    @staticmethod
-    def _get_bind_networks(node, nodetemplates):
+    def _get_bind_networks(self, node, nodetemplates):
         nets = []
 
         for port in nodetemplates:
@@ -1275,9 +1365,9 @@ class Tosca:
                     link = requires.get('link', link)
 
                 if binding == node.name:
-                    ip = port.get_property_value('ip_address')
-                    order = port.get_property_value('order')
-                    dns_name = port.get_property_value('dns_name')
+                    ip = self._final_function_result(port.get_property_value('ip_address'), port)
+                    order = self._final_function_result(port.get_property_value('order'), port)
+                    dns_name = self._final_function_result(port.get_property_value('dns_name'), port)
                     nets.append((link, ip, dns_name, order))
 
         return nets
@@ -1301,6 +1391,7 @@ class Tosca:
                 location = None
                 # set a default device
                 device = None
+                fs_type = "ext4"
 
                 for prop in props:
                     value = self._final_function_result(prop.value, node)
@@ -1308,11 +1399,15 @@ class Tosca:
                         location = value
                     elif prop.name == "device":
                         device = value
+                    elif prop.name == "fs_type":
+                        fs_type = value
 
                 if trgt.type_definition.type == "tosca.nodes.BlockStorage":
                     full_size = self._final_function_result(trgt.get_property_value('size'), trgt)
+                    volume_id = self._final_function_result(trgt.get_property_value('volume_id'), trgt)
+                    snapshot_id = self._final_function_result(trgt.get_property_value('snapshot_id'), trgt)
                     size, unit = Tosca._get_size_and_unit(full_size)
-                    disks.append((size, unit, location, device, count, "ext4"))
+                    disks.append((size, unit, location, device, count, fs_type, volume_id, snapshot_id))
                     count += 1
                 else:
                     Tosca.logger.debug(
@@ -1393,7 +1488,7 @@ class Tosca:
         """
         yamlo1o = {}
         try:
-            yamlo1o = yaml.load(yaml1)[0]
+            yamlo1o = yaml.safe_load(yaml1)[0]
             if not isinstance(yamlo1o, dict):
                 yamlo1o = {}
         except Exception as ex:
@@ -1401,7 +1496,7 @@ class Tosca:
 
         yamlo2s = {}
         try:
-            yamlo2s = yaml.load(yaml2)
+            yamlo2s = yaml.safe_load(yaml2)
             if not isinstance(yamlo2s, list) or any([not isinstance(d, dict) for d in yamlo2s]):
                 yamlo2s = {}
         except Exception as ex:
@@ -1434,7 +1529,7 @@ class Tosca:
                     yamlo1[key] = yamlo2[key]
             result.append(yamlo1)
 
-        return yaml.dump(result, default_flow_style=False, explicit_start=True, width=256)
+        return yaml.safe_dump(result, default_flow_style=False, explicit_start=True, width=256)
 
     def get_outputs(self, inf_info):
         """

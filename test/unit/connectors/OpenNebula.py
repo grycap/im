@@ -134,6 +134,7 @@ class TestONEConnector(unittest.TestCase):
             net_interface.0.connection = 'net1' and
             net_interface.0.dns_name = 'test' and
             net_interface.1.connection = 'net2' and
+            instance_tags = 'key=value,key1=value2' and
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'one://server.com/1' and
             disk.0.os.credentials.username = 'user' and
@@ -145,7 +146,9 @@ class TestONEConnector(unittest.TestCase):
         radl.check()
 
         auth = Authentication([{'id': 'one', 'type': 'OpenNebula', 'username': 'user',
-                                'password': 'pass', 'host': 'server.com:2633'}])
+                                'password': 'pass', 'host': 'server.com:2633'},
+                               {'type': 'InfrastructureManager', 'username': 'user',
+                                'password': 'pass'}])
         one_cloud = self.get_one_cloud()
 
         getONEVersion.return_value = "4.14.0"
@@ -158,6 +161,7 @@ class TestONEConnector(unittest.TestCase):
         server_proxy.return_value = one_server
 
         inf = InfrastructureInfo()
+        inf.auth = auth
         res = one_cloud.launch(inf, radl, radl, 1, auth)
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
@@ -389,6 +393,7 @@ class TestONEConnector(unittest.TestCase):
         self.assertTrue(success, msg="ERROR: deleting image. %s" % msg)
         self.assertEqual(one_server.one.image.delete.call_args_list[1], call('user:pass', 1))
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
 
 if __name__ == '__main__':
     unittest.main()

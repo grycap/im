@@ -23,6 +23,9 @@ __metaclass__ = type
 
 import logging
 import sys
+import tempfile
+import shutil
+import time
 
 from ansible import constants as C
 from ansible.plugins.callback import CallbackBase
@@ -214,6 +217,9 @@ class AnsibleCallbacks(CallbackBase):
 
     def v2_playbook_on_task_start(self, task, is_conditional):
         self._display.banner("TASK [%s]" % task.get_name().strip())
+        # Display current time
+        self._display.display("%s" % time.strftime('%A %d %B %Y  %H:%M:%S %z'))
+
         if self._display.verbosity > 2:
             path = task.get_path()
             if path:
@@ -340,9 +346,9 @@ class IMPlaybookExecutor(PlaybookExecutor):
     Simplified version of the PlaybookExecutor
     '''
 
-    def __init__(self, playbooks, inventory, variable_manager,
+    def __init__(self, playbook, inventory, variable_manager,
                  loader, options, passwords, output):
-        self._playbooks = playbooks
+        self._playbook = playbook
         self._inventory = inventory
         self._variable_manager = variable_manager
         self._loader = loader
@@ -363,92 +369,88 @@ class IMPlaybookExecutor(PlaybookExecutor):
         Run the given playbook, based on the settings in the play which
         may limit the runs to serialized groups, etc.
         '''
+        # Create a specific dir for the local temp
+        C.DEFAULT_LOCAL_TMP = tempfile.mkdtemp()
+
         result = 0
         try:
-            for playbook_path in self._playbooks:
-                pb = Playbook.load(
-                    playbook_path, variable_manager=self._variable_manager, loader=self._loader)
+            pb = Playbook.load(self._playbook, variable_manager=self._variable_manager, loader=self._loader)
 
-                # make sure the tqm has callbacks loaded
-                self._tqm.load_callbacks()
-                self._tqm.send_callback('v2_playbook_on_start', pb)
+            # make sure the tqm has callbacks loaded
+            self._tqm.load_callbacks()
+            self._tqm.send_callback('v2_playbook_on_start', pb)
 
-                for play in pb.get_plays():
-                    if play._included_path is not None:
-                        self._loader.set_basedir(play._included_path)
-                    else:
-                        self._loader.set_basedir(pb._basedir)
+            for play in pb.get_plays():
+                if play._included_path is not None:
+                    self._loader.set_basedir(play._included_path)
+                else:
+                    self._loader.set_basedir(pb._basedir)
 
-                    # clear any filters which may have been applied to the
-                    # inventory
-                    self._inventory.remove_restriction()
+                # clear any filters which may have been applied to the
+                # inventory
+                self._inventory.remove_restriction()
 
-                    # Create a temporary copy of the play here, so we can run post_validate
-                    # on it without the templating changes affecting the
-                    # original object.
-                    try:
-                        # for Ansible version 2.3.2 or lower
-                        all_vars = self._variable_manager.get_vars(loader=self._loader, play=play)
-                    except TypeError:
-                        # for Ansible version 2.4.0 or higher
-                        all_vars = self._variable_manager.get_vars(play=play)
-                    templar = Templar(loader=self._loader, variables=all_vars)
-                    new_play = play.copy()
-                    new_play.post_validate(templar)
+                # Create a temporary copy of the play here, so we can run post_validate
+                # on it without the templating changes affecting the
+                # original object.
+                try:
+                    # for Ansible version 2.3.2 or lower
+                    all_vars = self._variable_manager.get_vars(loader=self._loader, play=play)
+                except TypeError:
+                    # for Ansible version 2.4.0 or higher
+                    all_vars = self._variable_manager.get_vars(play=play)
+                templar = Templar(loader=self._loader, variables=all_vars)
+                new_play = play.copy()
+                new_play.post_validate(templar)
 
-                    self._tqm._unreachable_hosts.update(
-                        self._unreachable_hosts)
+                self._tqm._unreachable_hosts.update(self._unreachable_hosts)
 
-                    # we are actually running plays
-                    for batch in self._get_serialized_batches(new_play):
-                        if len(batch) == 0:
-                            self._tqm.send_callback(
-                                'v2_playbook_on_play_start', new_play)
-                            self._tqm.send_callback(
-                                'v2_playbook_on_no_hosts_matched')
-                            break
-                        # restrict the inventory to the hosts in the serialized
-                        # batch
-                        self._inventory.restrict_to_hosts(batch)
-                        # and run it...
-                        result = self._tqm.run(play=play)
+                # we are actually running plays
+                for batch in self._get_serialized_batches(new_play):
+                    if len(batch) == 0:
+                        self._tqm.send_callback('v2_playbook_on_play_start', new_play)
+                        self._tqm.send_callback('v2_playbook_on_no_hosts_matched')
+                        break
+                    # restrict the inventory to the hosts in the serialized
+                    # batch
+                    self._inventory.restrict_to_hosts(batch)
+                    # and run it...
+                    result = self._tqm.run(play=play)
 
-                        # check the number of failures here, to see if they're above the maximum
-                        # failure percentage allowed, or if any errors are fatal. If either of those
-                        # conditions are met, we break out, otherwise we only break out if the entire
-                        # batch failed
-                        failed_hosts_count = len(
-                            self._tqm._failed_hosts) + len(self._tqm._unreachable_hosts)
-                        if new_play.any_errors_fatal and failed_hosts_count > 0:
-                            break
-                        elif new_play.max_fail_percentage is not None and \
-                                (int((new_play.max_fail_percentage) / 100.0 * len(batch)) >
-                                 int((len(batch) - failed_hosts_count) / len(batch) * 100.0)):
-                            break
-                        elif len(batch) == failed_hosts_count:
-                            break
-
-                        # clear the failed hosts dictionaires in the TQM for
-                        # the next batch
-                        self._unreachable_hosts.update(
-                            self._tqm._unreachable_hosts)
-                        self._tqm.clear_failed_hosts()
-
-                    # if the last result wasn't zero or 3 (some hosts were unreachable),
-                    # break out of the serial batch loop
-                    if result not in (0, 3):
+                    # check the number of failures here, to see if they're above the maximum
+                    # failure percentage allowed, or if any errors are fatal. If either of those
+                    # conditions are met, we break out, otherwise we only break out if the entire
+                    # batch failed
+                    failed_hosts_count = len(self._tqm._failed_hosts) + len(self._tqm._unreachable_hosts)
+                    if new_play.any_errors_fatal and failed_hosts_count > 0:
+                        break
+                    elif new_play.max_fail_percentage is not None and \
+                            (int((new_play.max_fail_percentage) / 100.0 * len(batch)) >
+                             int((len(batch) - failed_hosts_count) / len(batch) * 100.0)):
+                        break
+                    elif len(batch) == failed_hosts_count:
                         break
 
-                self._tqm.send_callback(
-                    'v2_playbook_on_stats', self._tqm._stats)
+                    # clear the failed hosts dictionaires in the TQM for
+                    # the next batch
+                    self._unreachable_hosts.update(self._tqm._unreachable_hosts)
+                    self._tqm.clear_failed_hosts()
 
-                # if the last result wasn't zero, break out of the playbook
-                # file name loop
-                if result != 0:
+                # if the last result wasn't zero or 3 (some hosts were unreachable),
+                # break out of the serial batch loop
+                if result not in (0, 3):
                     break
+
+            self._tqm.send_callback('v2_playbook_on_stats', self._tqm._stats)
 
         finally:
             if self._tqm is not None:
                 self._tqm.cleanup()
+
+        try:
+            # Remove the local temp
+            shutil.rmtree(C.DEFAULT_LOCAL_TMP, True)
+        except:
+            pass
 
         return result

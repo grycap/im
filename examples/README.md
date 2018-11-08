@@ -21,3 +21,9 @@ This directory has some RADL examples to deploy different types of virtual infra
 * swarm.radl: Installs a Docker Swarm cluster with one front-end node and two working nodes.
 * kubernetes.radl: Installs a Kubernetes cluster with one front-end node and two working nodes.
 * galaxy.radl: Installs a Galaxy Portal on top of a a SLURM cluster with one front-end node and two working nodes.
+
+## TOSCA examples:
+
+* tosca.yml: Launches an Apache web server VM and MySQL server VM adding an storage disk of 1 GB.
+* galaxy_tosca.yml: Installs a standalone Galaxy Portal on a single VM.
+* clues_tosca.yml: Launches a Torque/PBS Elastic cluster.

@@ -76,27 +76,12 @@
       ignore_errors: yes
 
     - name: Install pip libraries
-      pip: executable=pip name=pyOpenSSL,MySQL-python,msrest,msrestazure,azure-common,azure-mgmt-storage,azure-mgmt-compute,azure-mgmt-network,azure-mgmt-resource,azure-mgmt-dns
+      pip: executable=pip name=pycrypto,pyOpenSSL,MySQL-python,msrest,msrestazure,azure-common,azure-mgmt-storage,azure-mgmt-compute,azure-mgmt-network,azure-mgmt-resource,azure-mgmt-dns,azure-storage,xmltodict
       
     - name: Install IM dependencies for CentOS 6
       pip: name=pysqlite version=2.7.0
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version == "6"
 
-    - name: Install xmltodict
-      pip: executable=pip name=xmltodict
-
     - name: Install IM
       pip: executable=pip name=IM
 
-    # Pip requests package have a bug in debian systems, remove it and force reinstall python-requests
-    - name: Pip uninstall requests Ubuntu/Debian
-      pip: executable=pip name=requests state=absent
-      when: ansible_os_family == "Debian"
-
-    - name: Apt install requests Ubuntu/Debian
-      apt: name=python-requests state=absent
-      when: ansible_os_family == "Debian"
-
-    - name: Apt install requests Ubuntu/Debian
-      apt: name=python-requests state=present
-      when: ansible_os_family == "Debian"

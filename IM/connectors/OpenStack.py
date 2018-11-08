@@ -16,6 +16,7 @@
 
 import time
 import uuid
+import yaml
 from netaddr import IPNetwork, IPAddress
 import os.path
 import tempfile
@@ -98,6 +99,9 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                           "service_name": None,
                           "service_region": 'RegionOne',
                           "base_url": None,
+                          "network_url": None,
+                          "image_url": None,
+                          "api_version": "2.0",
                           "domain": None}
 
             if 'username' in auth and 'password' in auth and 'tenant' in auth:
@@ -125,17 +129,18 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 raise Exception(
                     "No correct auth data has been specified to OpenStack: username, password and tenant or proxy")
 
-            # To avoid errors with host certificates
-            # if you want to do it in a more secure way check this:
-            # http://libcloud.readthedocs.org/en/latest/other/ssl-certificate-validation.html
-            import libcloud.security
-            libcloud.security.VERIFY_SSL_CERT = False
+            if not self.verify_ssl:
+                # To avoid errors with host certificates
+                # if you want to do it in a more secure way check this:
+                # http://libcloud.readthedocs.org/en/latest/other/ssl-certificate-validation.html
+                import libcloud.security
+                libcloud.security.VERIFY_SSL_CERT = False
 
-            try:
-                import ssl
-                ssl._create_default_https_context = ssl._create_unverified_context
-            except:
-                pass
+                try:
+                    import ssl
+                    ssl._create_default_https_context = ssl._create_unverified_context
+                except:
+                    pass
 
             # Workaround to OTC to enable to set service_name as None
             service_name = parameters["service_name"]
@@ -145,11 +150,14 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             cls = get_driver(Provider.OPENSTACK)
             driver = cls(username, password,
                          ex_tenant_name=tenant,
+                         api_version=parameters['api_version'],
                          ex_domain_name=parameters['domain'],
                          ex_force_auth_url=parameters["auth_url"],
                          ex_force_auth_version=parameters["auth_version"],
                          ex_force_service_region=parameters["service_region"],
                          ex_force_base_url=parameters["base_url"],
+                         ex_force_network_url=parameters["network_url"],
+                         ex_force_image_url=parameters["image_url"],
                          ex_force_service_name=service_name,
                          ex_force_service_type=parameters["service_type"],
                          ex_force_auth_token=parameters["auth_token"])
@@ -289,25 +297,37 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             if net_name:
                 for radl_net in radl_nets:
                     net_provider_id = radl_net.getValue('provider_id')
+
                     if net_provider_id:
                         if net_name == net_provider_id:
-                            res[radl_net.id] = ip
-                            break
+                            if radl_net.isPublic() == is_public:
+                                res[radl_net.id] = ip
+                                break
+                            else:
+                                # the ip not matches the is_public value
+                                res["#UNMAPPED#"].append(ip)
                     else:
                         if radl_net.id not in res:
                             if radl_net.isPublic() == is_public:
                                 res[radl_net.id] = ip
                                 radl_net.setValue('provider_id', net_name)
+                                if ip in res["#UNMAPPED#"]:
+                                    res["#UNMAPPED#"].remove(ip)
                                 break
                             else:
                                 # the ip not matches the is_public value
                                 res["#UNMAPPED#"].append(ip)
             else:
                 # It seems to be a floating IP
+                added = False
                 for radl_net in radl_nets:
                     if radl_net.id not in res and radl_net.isPublic() == is_public:
                         res[radl_net.id] = ip
+                        added = True
                         break
+
+                if not added:
+                    res["#UNMAPPED#"].append(ip)
 
         return res
 
@@ -366,7 +386,10 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 net_name = system.getValue("net_interface." + str(i) + ".connection")
                 if net_name in map_nets:
                     ip = map_nets[net_name]
-                    system.setValue("net_interface." + str(i) + ".ip", ip)
+                    if IPAddress(ip).version == 6:
+                        system.setValue("net_interface." + str(i) + ".ipv6", ip)
+                    else:
+                        system.setValue("net_interface." + str(i) + ".ip", ip)
                     ips_assigned.append(ip)
                 i += 1
 
@@ -377,7 +400,10 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 if net_name != '#UNMAPPED#':
                     if ip not in ips_assigned:
                         num_net = system.getNumNetworkIfaces()
-                        system.setValue('net_interface.' + str(num_net) + '.ip', ip)
+                        if IPAddress(ip).version == 6:
+                            system.setValue('net_interface.' + str(num_net) + '.ipv6', ip)
+                        else:
+                            system.setValue('net_interface.' + str(num_net) + '.ip', ip)
                         system.setValue('net_interface.' + str(num_net) + '.connection', net_name)
                 else:
                     pub_ips = []
@@ -419,68 +445,128 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 system.addFeature(
                     Feature("cpu.count", "=", instance_type.vcpus), conflict="me", missing="other")
 
+    def get_ost_network_info(self, driver, pool_names):
+        ost_nets = driver.ex_list_networks()
+        get_subnets = False
+        if "ex_list_subnets" in dir(driver):
+            ost_subnets = driver.ex_list_subnets()
+            get_subnets = True
+
+            for ost_net in ost_nets:
+                if not ost_net.cidr and 'subnets' in ost_net.extra:
+                    net_subnets = ost_net.extra['subnets']
+                    for subnet in ost_subnets:
+                        if subnet.id in net_subnets and subnet.cidr:
+                            ost_net.cidr = subnet.cidr
+                            ost_net.extra['is_public'] = not (any([IPNetwork(ost_net.cidr).ip in IPNetwork(mask)
+                                                                   for mask in Config.PRIVATE_NET_MASKS]))
+                            break
+
+                # If we do not have the IP range try to use the router:external to identify a net as public
+                if 'is_public' not in ost_net.extra:
+                    if 'router:external' in ost_net.extra and ost_net.extra['router:external']:
+                        ost_net.extra['is_public'] = True
+                    elif ost_net.name in pool_names:
+                        # If we do not have any clue assume that if it is
+                        # in the pool it should be a public net
+                        ost_net.extra['is_public'] = True
+
+                    # otherwise a private one
+                    os_net_is_public = False
+
+        return get_subnets, ost_nets
+
+    def map_networks(self, radl, ost_nets):
+        i = 0
+        net_map = {}
+        used_nets = []
+        while radl.systems[0].getValue("net_interface." + str(i) + ".connection"):
+            net_name = radl.systems[0].getValue("net_interface." + str(i) + ".connection")
+            network = radl.get_network_by_id(net_name)
+            net_provider_id = network.getValue('provider_id')
+            net_map[i] = None
+
+            if net_provider_id:
+                found = False
+                for net in ost_nets:
+                    if net.name == net_provider_id:
+                        if net in used_nets:
+                            raise Exception("Two different networks assigned to the same provider_id")
+                        net_map[i] = net
+                        used_nets.append(net)
+                        found = True
+                        break
+                if not found:
+                    raise Exception("Network with provider_id %s not found." % net_provider_id)
+            else:
+                for net in ost_nets:
+                    if net not in used_nets:
+                        if network.isPublic() == net.extra['is_public']:
+                            net_map[i] = net
+                            used_nets.append(net)
+                            break
+
+            i += 1
+
+        return net_map
+
     def get_networks(self, driver, radl):
         """
         Get the list of networks to connect the VM
         """
         nets = []
-        ost_nets = driver.ex_list_networks()
-        used_nets = []
-
         pool_names = [pool.name for pool in driver.ex_list_floating_ip_pools()]
+        get_subnets, ost_nets = self.get_ost_network_info(driver, pool_names)
 
-        num_nets = radl.systems[0].getNumNetworkIfaces()
+        if get_subnets:
+            net_map = self.map_networks(radl, ost_nets)
+            i = 0
+            while radl.systems[0].getValue("net_interface." + str(i) + ".connection"):
+                net_name = radl.systems[0].getValue("net_interface." + str(i) + ".connection")
+                network = radl.get_network_by_id(net_name)
+                if net_map[i]:
+                    network.setValue('provider_id', net_map[i].name)
+                    if net_map[i].name not in pool_names:
+                        nets.append(net_map[i])
+                i += 1
+        else:
+            # TO BE DEPRECATED
+            num_nets = radl.systems[0].getNumNetworkIfaces()
+            used_nets = []
 
-        i = 0
-        while radl.systems[0].getValue("net_interface." + str(i) + ".connection"):
-            net_name = radl.systems[0].getValue("net_interface." + str(i) + ".connection")
-            network = radl.get_network_by_id(net_name)
-            net_provider_id = network.getValue('provider_id')
+            i = 0
+            while radl.systems[0].getValue("net_interface." + str(i) + ".connection"):
+                net_name = radl.systems[0].getValue("net_interface." + str(i) + ".connection")
+                network = radl.get_network_by_id(net_name)
+                net_provider_id = network.getValue('provider_id')
 
-            # if the network is public, and the VM has another interface and the
-            # site has IP pools, we do not need to assign a network to this interface
-            # it will be assigned with a floating IP
-            if network.isPublic() and num_nets > 1 and pool_names:
-                self.log_info("Public IP to be assigned with a floating IP. Do not set a net.")
-            else:
-                # First check if the user has specified a provider ID
-                if net_provider_id:
-                    for net in ost_nets:
-                        if net.name == net_provider_id:
-                            if net.name not in used_nets:
-                                nets.append(net)
-                                used_nets.append(net.name)
-                            break
+                # if the network is public, and the VM has another interface and the
+                # site has IP pools, we do not need to assign a network to this interface
+                # it will be assigned with a floating IP
+                if network.isPublic() and num_nets > 1 and pool_names:
+                    self.log_info("Public IP to be assigned with a floating IP. Do not set a net.")
                 else:
-                    # if not select the first not used net
-                    for net in ost_nets:
-                        # do not use nets that are IP pools
-                        if net.name not in pool_names:
-                            if net.name not in used_nets:
-                                nets.append(net)
-                                used_nets.append(net.name)
+                    # First check if the user has specified a provider ID
+                    if net_provider_id:
+                        for net in ost_nets:
+                            if net.name == net_provider_id:
+                                if net.name not in used_nets:
+                                    nets.append(net)
+                                    used_nets.append(net.name)
                                 break
+                    else:
+                        # if not select the first not used net
+                        for net in ost_nets:
+                            # do not use nets that are IP pools
+                            if net.name not in pool_names:
+                                if net.name not in used_nets:
+                                    nets.append(net)
+                                    used_nets.append(net.name)
+                                    break
 
-            i += 1
+                i += 1
 
         return nets
-
-    def get_cloud_init_data(self, radl):
-        """
-        Get the cloud init data specified by the user in the RADL
-        """
-        configure_name = None
-        if radl.contextualize.items:
-            system_name = radl.systems[0].name
-
-            for item in radl.contextualize.items.values():
-                if item.system == system_name and item.get_ctxt_tool() == "cloud_init":
-                    configure_name = item.configure
-
-        if configure_name:
-            return radl.get_configure_by_name(configure_name).recipes
-        else:
-            return None
 
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         driver = self.get_driver(auth_data)
@@ -508,6 +594,16 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 'networks': nets,
                 'ex_security_groups': sgs,
                 'name': "%s-%s" % (name, int(time.time() * 100))}
+
+        tags = {}
+        if system.getValue('instance_tags'):
+            keypairs = system.getValue('instance_tags').split(",")
+            for keypair in keypairs:
+                parts = keypair.split("=")
+                key = parts[0].strip()
+                value = parts[1].strip()
+                tags[key] = value
+            args['ex_metadata'] = tags
 
         keypair = None
         keypair_name = None
@@ -540,13 +636,6 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             user = self.DEFAULT_USER
             system.setValue('disk.0.os.credentials.username', user)
 
-        cloud_init = self.get_cloud_init_data(radl)
-        if public_key:
-            cloud_init = self.gen_cloud_config(public_key, user, cloud_init)
-
-        if cloud_init:
-            args['ex_userdata'] = cloud_init
-
         if self.CONFIG_DRIVE:
             args['ex_config_drive'] = self.CONFIG_DRIVE
 
@@ -560,10 +649,19 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         while i < num_vm:
             self.log_info("Creating node")
 
+            vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self.cloud.getCloudConnector(inf))
+            vm.destroy = True
+            inf.add_vm(vm)
+            cloud_init = self.get_cloud_init_data(radl, vm, public_key, user)
+
+            if cloud_init:
+                args['ex_userdata'] = cloud_init
+
             node = None
             try:
                 node = driver.create_node(**args)
-                vm = VirtualMachine(inf, node.id, self.cloud, radl, requested_radl, self.cloud.getCloudConnector(inf))
+
+                vm.id = node.id
                 vm.info.systems[0].setValue('instance_id', str(node.id))
                 vm.info.systems[0].setValue('instance_name', str(node.name))
                 # Add the keypair name to remove it later
@@ -571,7 +669,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     vm.keypair = keypair_name
                 self.log_info("Node successfully created.")
                 all_failed = False
-                inf.add_vm(vm)
+                vm.destroy = False
                 res.append((True, vm))
             except Exception as ex:
                 res.append((False, str(ex)))
@@ -600,7 +698,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             for pool in pools:
                 if pool.name == pool_name:
                     return pool
-        else:
+        elif pools:
             # Currently returns the first one
             # until I see what metric use to select one
             return pools[0]
@@ -623,7 +721,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             net = vm.info.get_network_by_id(net_conn)
             if net.isPublic():
                 fixed_ip = vm.getRequestedSystem().getValue("net_interface." + str(n) + ".ip")
-                pool_name = net.getValue("pool_name")
+                pool_name = net.getValue("provider_id")
                 requested_ips.append((fixed_ip, pool_name))
             n += 1
 
@@ -759,6 +857,20 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         res = []
         i = 0
         system = radl.systems[0]
+
+        # First create a SG for the entire Infra
+        # Use the InfrastructureInfo lock to assure that only one VM create the SG
+        with inf._lock:
+            sg_name = "im-%s" % str(inf.id)
+            sg = self._get_security_group(driver, sg_name)
+            if not sg:
+                self.log_info("Creating security group: %s" % sg_name)
+                sg = driver.ex_create_security_group(sg_name, "Security group created by the IM")
+                # open all the ports for the VMs in the security group
+                driver.ex_create_security_group_rule(sg, 'tcp', 1, 65535, source_security_group=sg)
+                driver.ex_create_security_group_rule(sg, 'udp', 1, 65535, source_security_group=sg)
+            res.append(sg)
+
         while system.getValue("net_interface." + str(i) + ".connection"):
             network_name = system.getValue("net_interface." + str(i) + ".connection")
             network = radl.get_network_by_id(network_name)
@@ -860,7 +972,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         return (True, "")
 
-    def delete_security_groups(self, driver, inf, timeout=90, delay=10):
+    def delete_security_groups(self, driver, inf, timeout=180, delay=10):
         """
         Delete the SG of this inf
         """
@@ -890,25 +1002,6 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
             if not deleted:
                 self.log_error("Error deleting the SG: Timeout.")
-
-    def gen_cloud_config(self, public_key, user=None, cloud_config_str=None):
-        """
-        Generate the cloud-config file to be used in the user_data of the OCCI VM
-        """
-        if not user:
-            user = self.DEFAULT_USER
-        config = """#cloud-config
-users:
-  - name: %s
-    sudo: ALL=(ALL) NOPASSWD:ALL
-    lock-passwd: true
-    ssh-import-id: %s
-    ssh-authorized-keys:
-      - %s
-""" % (user, user, public_key)
-        if cloud_config_str:
-            config += "\n%s\n\n" % cloud_config_str.replace("\\n", "\n")
-        return config
 
     def get_node_location(self, node):
         """

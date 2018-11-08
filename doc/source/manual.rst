@@ -125,7 +125,7 @@ Then install the downloaded RPMs::
    
 Azure python SDK is not available in CentOS. So if you need the Azure plugin you have to manually install them using pip::
 
-	$ pip install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns
+	$ pip install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns azure-storage
 
 From Deb package (Tested with Ubuntu 14.04 and 16.04)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -337,6 +337,12 @@ Default Virtual Machine Options
    Default domain assigned to a virtual machine.
    The default value is ``localdomain``.
 
+.. confval:: VERIFI_SSL 
+
+   Verify SSL hosts in CloudConnectors connections If you set it to True you must assure
+   the CA certificates are installed correctly
+   The default value is ``False``.
+
 .. _options-ctxt:
 
 Contextualization
@@ -521,11 +527,11 @@ Docker Image
 ============
 
 A Docker image named `grycap/im` has been created to make easier the deployment of an IM service using the 
-default configuration. Information about this image can be found here: https://registry.hub.docker.com/u/grycap/im/.
+default configuration. Information about this image can be found here: `https://registry.hub.docker.com/u/grycap/im/ <https://registry.hub.docker.com/u/grycap/im/>`_.
 
 How to launch the IM service using docker::
 
-  $ sudo docker run -d -p 8899:8899 --name im grycap/im
+  $ sudo docker run -d -p 8899:8899 -p 8800:8800 --name im grycap/im
 
 To make the IM data persistent you also have to specify a persistent location for the IM database using
 the IM_DATA_DB environment variable and adding a volume::
@@ -551,6 +557,11 @@ It is a experimental issue currently it is not intended to be used in a producti
 
 This is an example of the HAProxy configuration file::
 
+    defaults
+        timeout connect 600s
+        timeout client 600s
+        timeout server 600s
+
 	frontend http-frontend
 	    mode http
 	    bind *:8800
@@ -570,6 +581,10 @@ This is an example of the HAProxy configuration file::
         ...
 
 See more details of HAProxy configuration at `HAProxy Documentation <https://cbonte.github.io/haproxy-dconv/>`_.
+
+Also the ``INF_CACHE_TIME`` variable of the IM config file must be set to a time in seconds lower or equal to the time
+set in the stick-table ``expire`` value (in the example 60m). So for this example INF_CACHE_TIME must be set to less
+than or equals to 3600.
 
 Purgue IM DB
 ============

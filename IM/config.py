@@ -95,13 +95,17 @@ class Config:
     SINGLE_SITE_IMAGE_URL_PREFIX = ''
     OIDC_ISSUERS = []
     OIDC_AUDIENCE = None
-    INF_CACHE_TIME = None
+    INF_CACHE_TIME = 0
     VMINFO_JSON = False
     OIDC_CLIENT_ID = None
     OIDC_CLIENT_SECRET = None
     OIDC_SCOPES = []
     VM_NUM_USE_CTXT_DIST = 30
     DELAY_BETWEEN_VM_RETRIES = 5
+    VERIFI_SSL = False
+    SSH_REVERSE_TUNNELS = True
+    ACTIVATE_XMLRPC = True
+
 
 config = ConfigParser()
 config.read([Config.IM_PATH + '/../im.cfg', Config.IM_PATH +
@@ -127,6 +131,7 @@ class ConfigOpenNebula:
     TEMPLATE_OTHER = 'GRAPHICS = [type="vnc",listen="0.0.0.0"]'
     IMAGE_UNAME = ''
     TTS_URL = 'https://localhost:8443'
+
 
 if config.has_section("OpenNebula"):
     parse_options(config, 'OpenNebula', ConfigOpenNebula)

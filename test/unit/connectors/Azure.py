@@ -153,21 +153,27 @@ class TestAzureConnector(unittest.TestCase):
             cpu.arch='x86_64' and
             cpu.count>=1 and
             memory.size>=512m and
+            instance_tags = 'key=value,key1=value2' and
             net_interface.0.connection = 'net1' and
             net_interface.0.dns_name = 'test' and
             net_interface.1.connection = 'net2' and
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'azr://Canonical/UbuntuServer/16.04.0-LTS/latest' and
             disk.0.os.credentials.username = 'user' and
+            disk.0.os.credentials.password = 'pass' and
             disk.1.size=1GB and
             disk.1.device='hdb' and
-            disk.1.mount_path='/mnt/path'
+            disk.1.mount_path='/mnt/path' and
+            disk.2.image.url='RGname/DiskName' and
+            disk.2.device='hdb' and
+            disk.2.mount_path='/mnt/path2'
             )"""
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
 
         auth = Authentication([{'id': 'azure', 'type': 'Azure', 'subscription_id': 'subscription_id',
-                                'username': 'user', 'password': 'password'}])
+                                'username': 'user', 'password': 'password'},
+                               {'type': 'InfrastructureManager', 'username': 'user', 'password': 'pass'}])
         azure_cloud = self.get_azure_cloud()
 
         cclient = MagicMock()
@@ -201,7 +207,14 @@ class TestAzureConnector(unittest.TestCase):
 
         cclient.virtual_machines.create_or_update.side_effect = self.create_vm
 
-        res = azure_cloud.launch_with_retry(InfrastructureInfo(), radl, radl, 3, auth, 2, 0)
+        disk = MagicMock()
+        disk.name = "dname"
+        disk.id = "did"
+        cclient.disks.get.return_value = disk
+
+        inf = InfrastructureInfo()
+        inf.auth = auth
+        res = azure_cloud.launch_with_retry(inf, radl, radl, 3, auth, 2, 0)
         self.assertEqual(len(res), 3)
         self.assertTrue(res[0][0])
         self.assertTrue(res[1][0])
@@ -209,6 +222,15 @@ class TestAzureConnector(unittest.TestCase):
         self.assertEquals(rclient.resource_groups.delete.call_count, 2)
         self.assertIn("rg-userimage-", rclient.resource_groups.delete.call_args_list[0][0][0])
         self.assertIn("rg-userimage-", rclient.resource_groups.delete.call_args_list[1][0][0])
+
+        json_vm_req = cclient.virtual_machines.create_or_update.call_args_list[0][0][2]
+        self.assertEquals(json_vm_req['storage_profile']['data_disks'][0]['disk_size_gb'], 1)
+        self.assertEquals(json_vm_req['storage_profile']['data_disks'][1]['managed_disk']['id'], "did")
+        image_res = {'sku': '16.04.0-LTS', 'publisher': 'Canonical', 'version': 'latest', 'offer': 'UbuntuServer'}
+        self.assertEquals(json_vm_req['storage_profile']['image_reference'], image_res)
+        self.assertEquals(json_vm_req['hardware_profile']['vm_size'], 'instance_type1')
+        self.assertEquals(json_vm_req['os_profile']['admin_username'], 'user')
+        self.assertEquals(json_vm_req['os_profile']['admin_password'], 'pass')
 
     @patch('IM.connectors.Azure.NetworkManagementClient')
     @patch('IM.connectors.Azure.ComputeManagementClient')
@@ -252,6 +274,11 @@ class TestAzureConnector(unittest.TestCase):
         avm.provisioning_state = "Succeeded"
         avm.hardware_profile.vm_size = "instance_type1"
         avm.location = "northeurope"
+        status1 = MagicMock()
+        status1.code = "ProvisioningState/succeeded"
+        status2 = MagicMock()
+        status2.code = "PowerState/running"
+        avm.instance_view.statuses = [status1, status2]
         ni = MagicMock()
         ni.id = "/subscriptions/subscription-id/resourceGroups/rg0/providers/Microsoft.Network/networkInterfaces/ni-0"
         avm.network_profile.network_interfaces = [ni]
@@ -389,9 +416,11 @@ class TestAzureConnector(unittest.TestCase):
         self.assertTrue(success, msg="ERROR: modifying VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
+    @patch('IM.connectors.Azure.BlockBlobService')
+    @patch('IM.connectors.Azure.StorageManagementClient')
     @patch('IM.connectors.Azure.ResourceManagementClient')
     @patch('IM.connectors.Azure.UserPassCredentials')
-    def test_60_finalize(self, credentials, resource_client):
+    def test_60_finalize(self, credentials, resource_client, storage_client, blob):
         auth = Authentication([{'id': 'azure', 'type': 'Azure', 'subscription_id': 'subscription_id',
                                 'username': 'user', 'password': 'password'}])
         azure_cloud = self.get_azure_cloud()
@@ -406,9 +435,17 @@ class TestAzureConnector(unittest.TestCase):
             )"""
         radl = radl_parse.parse_radl(radl_data)
 
+        key = MagicMock()
+        key.keys = [MagicMock()]
+        sclient = MagicMock()
+        storage_client.return_value = sclient
+        sclient.storage_accounts.list_keys.return_value = key
+
         inf = MagicMock()
         vm = VirtualMachine(inf, "rg0/vm0", azure_cloud.cloud, radl, radl, azure_cloud, 1)
+        vm.disks = ["disk1"]
 
+        success, _ = azure_cloud.finalize(vm, False, auth)
         success, _ = azure_cloud.finalize(vm, True, auth)
 
         self.assertTrue(success, msg="ERROR: finalizing VM info.")

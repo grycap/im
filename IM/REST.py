@@ -29,6 +29,7 @@ from IM.config import Config
 from radl.radl_json import parse_radl as parse_radl_json, dump_radl as dump_radl_json, featuresToSimple, radlToSimple
 from radl.radl import RADL, Features, Feature
 from IM.tosca.Tosca import Tosca
+from IM.VirtualMachine import VirtualMachine
 
 logger = logging.getLogger('InfrastructureManager')
 
@@ -49,6 +50,8 @@ HTML_ERROR_TEMPLATE = """<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
     </body>
 </html>
 """
+
+REST_URL = None
 
 app = bottle.Bottle()
 bottle_server = None
@@ -192,6 +195,11 @@ def get_auth_header():
     Get the Authentication object from the AUTHORIZATION header
     replacing the new line chars.
     """
+    # Initialize REST_URL
+    global REST_URL
+    if REST_URL is None:
+        REST_URL = get_full_url("")
+
     auth_header = bottle.request.headers['AUTHORIZATION']
     if Config.SINGLE_SITE:
         if auth_header.startswith("Basic "):
@@ -276,7 +284,7 @@ def format_output(res, default_type="text/plain", field_name=None, list_field_na
                     if isinstance(res, list):
                         info = "\n".join(res)
                     else:
-                        info = str(res)
+                        info = "%s" % res
                 content_type = default_type
                 break
 
@@ -291,7 +299,7 @@ def format_output(res, default_type="text/plain", field_name=None, list_field_na
             if isinstance(res, list):
                 info = "\n".join(res)
             else:
-                info = str(res)
+                info = "%s" % res
         bottle.response.content_type = default_type
 
     return info
@@ -309,14 +317,14 @@ def RESTDestroyInfrastructure(infid=None):
         bottle.response.content_type = "text/plain"
         return ""
     except DeletedInfrastructureException as ex:
-        return return_error(404, "Error Destroying Inf: " + str(ex))
+        return return_error(404, "Error Destroying Inf: %s" % ex.message)
     except IncorrectInfrastructureException as ex:
-        return return_error(404, "Error Destroying Inf: " + str(ex))
+        return return_error(404, "Error Destroying Inf: %s" % ex.message)
     except UnauthorizedUserException as ex:
-        return return_error(403, "Error Destroying Inf: " + str(ex))
+        return return_error(403, "Error Destroying Inf: %s" % ex.message)
     except Exception as ex:
         logger.exception("Error Destroying Inf")
-        return return_error(400, "Error Destroying Inf: " + str(ex))
+        return return_error(400, "Error Destroying Inf: %s" % ex.message)
 
 
 @app.route('/infrastructures/:infid', method='GET')
@@ -335,14 +343,14 @@ def RESTGetInfrastructureInfo(infid=None):
 
         return format_output(res, "text/uri-list", "uri-list", "uri")
     except DeletedInfrastructureException as ex:
-        return return_error(404, "Error Getting Inf. info: " + str(ex))
+        return return_error(404, "Error Getting Inf. info: %s" % ex.message)
     except IncorrectInfrastructureException as ex:
-        return return_error(404, "Error Getting Inf. info: " + str(ex))
+        return return_error(404, "Error Getting Inf. info: %s" % ex.message)
     except UnauthorizedUserException as ex:
-        return return_error(403, "Error Getting Inf. info: " + str(ex))
+        return return_error(403, "Error Getting Inf. info: %s" % ex.message)
     except Exception as ex:
         logger.exception("Error Getting Inf. info")
-        return return_error(400, "Error Getting Inf. info: " + str(ex))
+        return return_error(400, "Error Getting Inf. info: %s" % ex.message)
 
 
 @app.route('/infrastructures/:infid/:prop', method='GET')
@@ -387,19 +395,36 @@ def RESTGetInfrastructureProperty(infid=None, prop=None):
                 bottle.abort(
                     403, "'outputs' infrastructure property is not valid in this infrastructure")
             return format_output(res, default_type="application/json", field_name="outputs")
+        elif prop == "data":
+            accept = get_media_type('Accept')
+            if accept and "application/json" not in accept and "*/*" not in accept and "application/*" not in accept:
+                return return_error(415, "Unsupported Accept Media Types: %s" % accept)
+
+            delete = False
+            if "delete" in bottle.request.params.keys():
+                str_delete = bottle.request.params.get("delete").lower()
+                if str_delete in ['yes', 'true', '1']:
+                    delete = True
+                elif str_delete in ['no', 'false', '0']:
+                    delete = False
+                else:
+                    return return_error(400, "Incorrect value in delete parameter")
+
+            data = InfrastructureManager.ExportInfrastructure(infid, delete, auth)
+            return format_output(data, default_type="application/json", field_name="data")
         else:
             return return_error(404, "Incorrect infrastructure property")
 
         return format_output(res, field_name=prop)
     except DeletedInfrastructureException as ex:
-        return return_error(404, "Error Getting Inf. prop: " + str(ex))
+        return return_error(404, "Error Getting Inf. prop: %s" % ex.message)
     except IncorrectInfrastructureException as ex:
-        return return_error(404, "Error Getting Inf. prop: " + str(ex))
+        return return_error(404, "Error Getting Inf. prop: %s" % ex.message)
     except UnauthorizedUserException as ex:
-        return return_error(403, "Error Getting Inf. prop: " + str(ex))
+        return return_error(403, "Error Getting Inf. prop: %s" % ex.message)
     except Exception as ex:
         logger.exception("Error Getting Inf. prop")
-        return return_error(400, "Error Getting Inf. prop: " + str(ex))
+        return return_error(400, "Error Getting Inf. prop: %s" % ex.message)
 
 
 @app.route('/infrastructures', method='GET')
@@ -418,10 +443,10 @@ def RESTGetInfrastructureList():
 
         return format_output(res, "text/uri-list", "uri-list", "uri")
     except InvaliddUserException as ex:
-        return return_error(401, "Error Getting Inf. List: " + str(ex))
+        return return_error(401, "Error Getting Inf. List: %s" % ex.message)
     except Exception as ex:
         logger.exception("Error Getting Inf. List")
-        return return_error(400, "Error Getting Inf. List: " + str(ex))
+        return return_error(400, "Error Getting Inf. List: %s" % ex.message)
 
 
 @app.route('/infrastructures', method='POST')
@@ -470,10 +495,38 @@ def RESTCreateInfrastructure():
 
         return format_output(res, "text/uri-list", "uri")
     except InvaliddUserException as ex:
-        return return_error(401, "Error Getting Inf. info: " + str(ex))
+        return return_error(401, "Error Getting Inf. info: %s" % ex.message)
     except Exception as ex:
         logger.exception("Error Creating Inf.")
-        return return_error(400, "Error Creating Inf.: " + str(ex))
+        return return_error(400, "Error Creating Inf.: %s" % ex.message)
+
+
+@app.route('/infrastructures', method='PUT')
+def RESTImportInfrastructure():
+    try:
+        auth = get_auth_header()
+    except:
+        return return_error(401, "No authentication data provided")
+
+    try:
+        content_type = get_media_type('Content-Type')
+        data = bottle.request.body.read().decode("utf-8")
+
+        if content_type:
+            if "application/json" not in content_type:
+                return return_error(415, "Unsupported Media Type %s" % content_type)
+
+        new_id = InfrastructureManager.ImportInfrastructure(data, auth)
+
+        bottle.response.content_type = "text/uri-list"
+        res = get_full_url('/infrastructures/%s' % new_id)
+
+        return format_output(res, "text/uri-list", "uri")
+    except InvaliddUserException as ex:
+        return return_error(401, "Error Impporting Inf.: %s" % ex.message)
+    except Exception as ex:
+        logger.exception("Error Impporting Inf.")
+        return return_error(400, "Error Impporting Inf.: %s" % ex.message)
 
 
 @app.route('/infrastructures/:infid/vms/:vmid', method='GET')
@@ -487,18 +540,18 @@ def RESTGetVMInfo(infid=None, vmid=None):
         radl = InfrastructureManager.GetVMInfo(infid, vmid, auth)
         return format_output(radl, field_name="radl")
     except DeletedInfrastructureException as ex:
-        return return_error(404, "Error Getting VM. info: " + str(ex))
+        return return_error(404, "Error Getting VM. info: %s" % ex.message)
     except IncorrectInfrastructureException as ex:
-        return return_error(404, "Error Getting VM. info: " + str(ex))
+        return return_error(404, "Error Getting VM. info: %s" % ex.message)
     except UnauthorizedUserException as ex:
-        return return_error(403, "Error Getting VM. info: " + str(ex))
+        return return_error(403, "Error Getting VM. info: %s" % ex.message)
     except DeletedVMException as ex:
-        return return_error(404, "Error Getting VM. info: " + str(ex))
+        return return_error(404, "Error Getting VM. info: %s" % ex.message)
     except IncorrectVMException as ex:
-        return return_error(404, "Error Getting VM. info: " + str(ex))
+        return return_error(404, "Error Getting VM. info: %s" % ex.message)
     except Exception as ex:
         logger.exception("Error Getting VM info")
-        return return_error(400, "Error Getting VM info: " + str(ex))
+        return return_error(400, "Error Getting VM info: %s" % ex.message)
 
 
 @app.route('/infrastructures/:infid/vms/:vmid/:prop', method='GET')
@@ -511,6 +564,69 @@ def RESTGetVMProperty(infid=None, vmid=None, prop=None):
     try:
         if prop == 'contmsg':
             info = InfrastructureManager.GetVMContMsg(infid, vmid, auth)
+        elif prop == 'command':
+            auth = InfrastructureManager.check_auth_data(auth)
+            sel_inf = InfrastructureManager.get_infrastructure(infid, auth)
+
+            step = 1
+            if "step" in bottle.request.params.keys():
+                step = int(bottle.request.params.get("step"))
+
+            if step == 1:
+                url = get_full_url('/infrastructures/' + str(infid) + '/vms/' + str(vmid) + '/command?step=2')
+                auth = sel_inf.auth.getAuthInfo("InfrastructureManager")[0]
+                imuser = auth['username']
+                impass = auth['password']
+                command = ('curl -s -H "Authorization: type = InfrastructureManager; '
+                           'username = %s; password = %s" -H "Accept: text/plain" %s' % (imuser, impass, url))
+
+                info = """
+                res="wait"
+                while [ "$res" == "wait" ]
+                do
+                  res=`%s`
+                  if [ "$res" != "wait" ]
+                  then
+                    eval "$res"
+                  else
+                    sleep 20
+                  fi
+                done""" % command
+                logger.debug("Step 1 command: %s" % info)
+            elif step == 2:
+                sel_vm = None
+                for vm in sel_inf.get_vm_list():
+                    if vm.creation_im_id == int(vmid):
+                        sel_vm = vm
+                        break
+                if not sel_vm:
+                    # this must never happen
+                    logger.error("Specified vmid in step2 is incorrect!!")
+                    info = None
+                else:
+                    ssh = sel_vm.get_ssh_ansible_master(retry=False)
+
+                    ssh_ok = False
+                    if ssh:
+                        ssh_ok = ssh.test_connectivity(time_out=2)
+
+                    if ssh_ok:
+                        # if it is the master do not make the ssh command
+                        if sel_inf.vm_master and int(vmid) == sel_inf.vm_master.creation_im_id:
+                            logger.debug("Step 2: Is the master do no make ssh command.")
+                            info = "true"
+                        else:
+                            # if this vm is connected with the master directly do not make it also
+                            if sel_vm.isConnectedWith(sel_inf.vm_master):
+                                logger.debug("Step 2: Is connected with the master do no make ssh command.")
+                                info = "true"
+                            else:
+                                info = sel_vm.get_ssh_command()
+                    else:
+                        info = "wait"
+                logger.debug("Step 2 command for vm ID: %s is %s" % (vmid, info))
+            else:
+                info = None
         else:
             info = InfrastructureManager.GetVMProperty(infid, vmid, prop, auth)
 
@@ -519,18 +635,18 @@ def RESTGetVMProperty(infid=None, vmid=None, prop=None):
         else:
             return format_output(info, field_name=prop)
     except DeletedInfrastructureException as ex:
-        return return_error(404, "Error Getting VM. property: " + str(ex))
+        return return_error(404, "Error Getting VM. property: %s" % ex.message)
     except IncorrectInfrastructureException as ex:
-        return return_error(404, "Error Getting VM. property: " + str(ex))
+        return return_error(404, "Error Getting VM. property: %s" % ex.message)
     except UnauthorizedUserException as ex:
-        return return_error(403, "Error Getting VM. property: " + str(ex))
+        return return_error(403, "Error Getting VM. property: %s" % ex.message)
     except DeletedVMException as ex:
-        return return_error(404, "Error Getting VM. property: " + str(ex))
+        return return_error(404, "Error Getting VM. property: %s" % ex.message)
     except IncorrectVMException as ex:
-        return return_error(404, "Error Getting VM. property: " + str(ex))
+        return return_error(404, "Error Getting VM. property: %s" % ex.message)
     except Exception as ex:
         logger.exception("Error Getting VM property")
-        return return_error(400, "Error Getting VM property: " + str(ex))
+        return return_error(400, "Error Getting VM property: %s" % ex.message)
 
 
 @app.route('/infrastructures/:infid', method='POST')
@@ -588,14 +704,14 @@ def RESTAddResource(infid=None):
 
         return format_output(res, "text/uri-list", "uri-list", "uri")
     except DeletedInfrastructureException as ex:
-        return return_error(404, "Error Adding resources: " + str(ex))
+        return return_error(404, "Error Adding resources: %s" % ex.message)
     except IncorrectInfrastructureException as ex:
-        return return_error(404, "Error Adding resources: " + str(ex))
+        return return_error(404, "Error Adding resources: %s" % ex.message)
     except UnauthorizedUserException as ex:
-        return return_error(403, "Error Adding resources: " + str(ex))
+        return return_error(403, "Error Adding resources: %s" % ex.message)
     except Exception as ex:
         logger.exception("Error Adding resources")
-        return return_error(400, "Error Adding resources: " + str(ex))
+        return return_error(400, "Error Adding resources: %s" % ex.message)
 
 
 @app.route('/infrastructures/:infid/vms/:vmid', method='DELETE')
@@ -620,18 +736,18 @@ def RESTRemoveResource(infid=None, vmid=None):
         bottle.response.content_type = "text/plain"
         return ""
     except DeletedInfrastructureException as ex:
-        return return_error(404, "Error Removing resources: " + str(ex))
+        return return_error(404, "Error Removing resources: %s" % ex.message)
     except IncorrectInfrastructureException as ex:
-        return return_error(404, "Error Removing resources: " + str(ex))
+        return return_error(404, "Error Removing resources: %s" % ex.message)
     except UnauthorizedUserException as ex:
-        return return_error(403, "Error Removing resources: " + str(ex))
+        return return_error(403, "Error Removing resources: %s" % ex.message)
     except DeletedVMException as ex:
-        return return_error(404, "Error Removing resources: " + str(ex))
+        return return_error(404, "Error Removing resources: %s" % ex.message)
     except IncorrectVMException as ex:
-        return return_error(404, "Error Removing resources: " + str(ex))
+        return return_error(404, "Error Removing resources: %s" % ex.message)
     except Exception as ex:
         logger.exception("Error Removing resources")
-        return return_error(400, "Error Removing resources: " + str(ex))
+        return return_error(400, "Error Removing resources: %s" % ex.message)
 
 
 @app.route('/infrastructures/:infid/vms/:vmid', method='PUT')
@@ -660,18 +776,18 @@ def RESTAlterVM(infid=None, vmid=None):
 
         return format_output(vm_info, field_name="radl")
     except DeletedInfrastructureException as ex:
-        return return_error(404, "Error modifying resources: " + str(ex))
+        return return_error(404, "Error modifying resources: %s" % ex.message)
     except IncorrectInfrastructureException as ex:
-        return return_error(404, "Error modifying resources: " + str(ex))
+        return return_error(404, "Error modifying resources: %s" % ex.message)
     except UnauthorizedUserException as ex:
-        return return_error(403, "Error modifying resources: " + str(ex))
+        return return_error(403, "Error modifying resources: %s" % ex.message)
     except DeletedVMException as ex:
-        return return_error(404, "Error modifying resources: " + str(ex))
+        return return_error(404, "Error modifying resources: %s" % ex.message)
     except IncorrectVMException as ex:
-        return return_error(404, "Error modifying resources: " + str(ex))
+        return return_error(404, "Error modifying resources: %s" % ex.message)
     except Exception as ex:
         logger.exception("Error modifying resources")
-        return return_error(400, "Error modifying resources: " + str(ex))
+        return return_error(400, "Error modifying resources: %s" % ex.message)
 
 
 @app.route('/infrastructures/:infid/reconfigure', method='PUT')
@@ -706,14 +822,14 @@ def RESTReconfigureInfrastructure(infid=None):
         bottle.response.content_type = "text/plain"
         return InfrastructureManager.Reconfigure(infid, radl_data, auth, vm_list)
     except DeletedInfrastructureException as ex:
-        return return_error(404, "Error reconfiguring infrastructure: " + str(ex))
+        return return_error(404, "Error reconfiguring infrastructure: %s" % ex.message)
     except IncorrectInfrastructureException as ex:
-        return return_error(404, "Error reconfiguring infrastructure: " + str(ex))
+        return return_error(404, "Error reconfiguring infrastructure: %s" % ex.message)
     except UnauthorizedUserException as ex:
-        return return_error(403, "Error reconfiguring infrastructure: " + str(ex))
+        return return_error(403, "Error reconfiguring infrastructure: %s" % ex.message)
     except Exception as ex:
         logger.exception("Error reconfiguring infrastructure")
-        return return_error(400, "Error reconfiguring infrastructure: " + str(ex))
+        return return_error(400, "Error reconfiguring infrastructure: %s" % ex.message)
 
 
 @app.route('/infrastructures/:infid/start', method='PUT')
@@ -727,14 +843,14 @@ def RESTStartInfrastructure(infid=None):
         bottle.response.content_type = "text/plain"
         return InfrastructureManager.StartInfrastructure(infid, auth)
     except DeletedInfrastructureException as ex:
-        return return_error(404, "Error starting infrastructure: " + str(ex))
+        return return_error(404, "Error starting infrastructure: %s" % ex.message)
     except IncorrectInfrastructureException as ex:
-        return return_error(404, "Error starting infrastructure: " + str(ex))
+        return return_error(404, "Error starting infrastructure: %s" % ex.message)
     except UnauthorizedUserException as ex:
-        return return_error(403, "Error starting infrastructure: " + str(ex))
+        return return_error(403, "Error starting infrastructure: %s" % ex.message)
     except Exception as ex:
         logger.exception("Error starting infrastructure")
-        return return_error(400, "Error starting infrastructure: " + str(ex))
+        return return_error(400, "Error starting infrastructure: %s" % ex.message)
 
 
 @app.route('/infrastructures/:infid/stop', method='PUT')
@@ -748,14 +864,14 @@ def RESTStopInfrastructure(infid=None):
         bottle.response.content_type = "text/plain"
         return InfrastructureManager.StopInfrastructure(infid, auth)
     except DeletedInfrastructureException as ex:
-        return return_error(404, "Error stopping infrastructure: " + str(ex))
+        return return_error(404, "Error stopping infrastructure: %s" % ex.message)
     except IncorrectInfrastructureException as ex:
-        return return_error(404, "Error stopping infrastructure: " + str(ex))
+        return return_error(404, "Error stopping infrastructure: %s" % ex.message)
     except UnauthorizedUserException as ex:
-        return return_error(403, "Error stopping infrastructure: " + str(ex))
+        return return_error(403, "Error stopping infrastructure: %s" % ex.message)
     except Exception as ex:
         logger.exception("Error stopping infrastructure")
-        return return_error(400, "Error stopping infrastructure: " + str(ex))
+        return return_error(400, "Error stopping infrastructure: %s" % ex.message)
 
 
 @app.route('/infrastructures/:infid/vms/:vmid/start', method='PUT')
@@ -769,18 +885,18 @@ def RESTStartVM(infid=None, vmid=None):
         bottle.response.content_type = "text/plain"
         return InfrastructureManager.StartVM(infid, vmid, auth)
     except DeletedInfrastructureException as ex:
-        return return_error(404, "Error starting VM: " + str(ex))
+        return return_error(404, "Error starting VM: %s" % ex.message)
     except IncorrectInfrastructureException as ex:
-        return return_error(404, "Error starting VM: " + str(ex))
+        return return_error(404, "Error starting VM: %s" % ex.message)
     except UnauthorizedUserException as ex:
-        return return_error(403, "Error starting VM: " + str(ex))
+        return return_error(403, "Error starting VM: %s" % ex.message)
     except DeletedVMException as ex:
-        return return_error(404, "Error starting VM: " + str(ex))
+        return return_error(404, "Error starting VM: %s" % ex.message)
     except IncorrectVMException as ex:
-        return return_error(404, "Error starting VM: " + str(ex))
+        return return_error(404, "Error starting VM: %s" % ex.message)
     except Exception as ex:
         logger.exception("Error starting VM")
-        return return_error(400, "Error starting VM: " + str(ex))
+        return return_error(400, "Error starting VM: %s" % ex.message)
 
 
 @app.route('/infrastructures/:infid/vms/:vmid/stop', method='PUT')
@@ -794,18 +910,18 @@ def RESTStopVM(infid=None, vmid=None):
         bottle.response.content_type = "text/plain"
         return InfrastructureManager.StopVM(infid, vmid, auth)
     except DeletedInfrastructureException as ex:
-        return return_error(404, "Error stopping VM: " + str(ex))
+        return return_error(404, "Error stopping VM: %s" % ex.message)
     except IncorrectInfrastructureException as ex:
-        return return_error(404, "Error stopping VM: " + str(ex))
+        return return_error(404, "Error stopping VM: %s" % ex.message)
     except UnauthorizedUserException as ex:
-        return return_error(403, "Error stopping VM: " + str(ex))
+        return return_error(403, "Error stopping VM: %s" % ex.message)
     except DeletedVMException as ex:
-        return return_error(404, "Error stopping VM: " + str(ex))
+        return return_error(404, "Error stopping VM: %s" % ex.message)
     except IncorrectVMException as ex:
-        return return_error(404, "Error stopping VM: " + str(ex))
+        return return_error(404, "Error stopping VM: %s" % ex.message)
     except Exception as ex:
         logger.exception("Error stopping VM")
-        return return_error(400, "Error stopping VM: " + str(ex))
+        return return_error(400, "Error stopping VM: %s" % ex.message)
 
 
 @app.route('/version', method='GET')
@@ -814,7 +930,7 @@ def RESTGeVersion():
         from IM import __version__ as version
         return format_output(version, field_name="version")
     except Exception as ex:
-        return return_error(400, "Error getting IM version: " + str(ex))
+        return return_error(400, "Error getting IM version: %s" % ex.message)
 
 
 @app.route('/infrastructures/:infid/vms/:vmid/disks/:disknum/snapshot', method='PUT')
@@ -844,18 +960,18 @@ def RESTCreateDiskSnapshot(infid=None, vmid=None, disknum=None):
 
         return InfrastructureManager.CreateDiskSnapshot(infid, vmid, int(disknum), image_name, auto_delete, auth)
     except DeletedInfrastructureException as ex:
-        return return_error(404, "Error creating snapshot: " + str(ex))
+        return return_error(404, "Error creating snapshot: %s" % ex.message)
     except IncorrectInfrastructureException as ex:
-        return return_error(404, "Error creating snapshot: " + str(ex))
+        return return_error(404, "Error creating snapshot: %s" % ex.message)
     except UnauthorizedUserException as ex:
-        return return_error(403, "Error creating snapshot: " + str(ex))
+        return return_error(403, "Error creating snapshot: %s" % ex.message)
     except DeletedVMException as ex:
-        return return_error(404, "Error creating snapshot: " + str(ex))
+        return return_error(404, "Error creating snapshot: %s" % ex.message)
     except IncorrectVMException as ex:
-        return return_error(404, "Error creating snapshot: " + str(ex))
+        return return_error(404, "Error creating snapshot: %s" % ex.message)
     except Exception as ex:
         logger.exception("Error creating snapshot")
-        return return_error(400, "Error creating snapshot: " + str(ex))
+        return return_error(400, "Error creating snapshot: %s" % ex.message)
 
 
 @app.error(403)

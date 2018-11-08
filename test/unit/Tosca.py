@@ -19,6 +19,7 @@
 import os
 import unittest
 import sys
+import yaml
 
 from mock import Mock, patch, MagicMock
 
@@ -50,18 +51,23 @@ class TestTosca(unittest.TestCase):
         radl = parse_radl(str(radl))
         net = radl.get_network_by_id('public_net')
         net1 = radl.get_network_by_id('public_net_1')
-        self.assertIn(net.getValue('provider_id'), ['vpc-XX.subnet-XX', None])
+        net2 = radl.get_network_by_id('private_net')
+        self.assertEqual(net2.getValue('provider_id'), 'provider_id')
+        self.assertIn(net.getValue('provider_id'), ['pool_name', None])
         if net.getValue('provider_id') is None:
+            self.assertEqual(net1.getValue('provider_id'), 'pool_name')
             self.assertIn('1:4/tcp', net.getValue("outports"))
             self.assertIn('80/tcp-80/tcp', net.getValue("outports"))
             self.assertIn('8080/tcp-8080/tcp', net.getValue("outports"))
             self.assertEqual(net1.getValue("outports"), '8080/tcp-8080/tcp')
         else:
-            self.assertEqual(net.getValue('provider_id'), 'vpc-XX.subnet-XX')
+            self.assertEqual(net.getValue('provider_id'), 'pool_name')
             self.assertEqual(net.getValue("outports"), '8080/tcp-8080/tcp')
             self.assertIn('1:4/tcp', net1.getValue("outports"))
             self.assertIn('80/tcp-80/tcp', net1.getValue("outports"))
             self.assertIn('8080/tcp-8080/tcp', net1.getValue("outports"))
+
+        self.assertIn('10000/tcp-10000/tcp', net2.getValue("outports"))
 
         lrms_wn = radl.get_system_by_name('lrms_wn')
         self.assertEqual(lrms_wn.getValue('memory.size'), 2000000000)
@@ -71,6 +77,20 @@ class TestTosca(unittest.TestCase):
         self.assertEqual("cloudid", radl.deploys[0].cloud_id)
         self.assertEqual("cloudid", radl.deploys[1].cloud_id)
         self.assertEqual("cloudid", radl.deploys[2].cloud_id)
+        other_server = radl.get_system_by_name('other_server')
+        self.assertEqual(other_server.getValue("availability_zone"), 'some_zone')
+        self.assertEqual(lrms_wn.getValue("disk.1.image.url"), 'some_id')
+        self.assertEqual(lrms_wn.getValue("spot"), 'no')
+        self.assertEqual(lrms_wn.getValue("instance_type"), 'some_type')
+
+        lrms_front_end_conf = radl.get_configure_by_name('lrms_front_end_conf')
+        conf = yaml.safe_load(lrms_front_end_conf.recipes)[0]
+        self.assertEqual(conf['vars']['front_end_ip'],
+                         "{{ hostvars[groups['lrms_server'][0]]['IM_NODE_PRIVATE_IP'] }}")
+        self.assertEqual(conf['vars']['wn_ips'],
+                         "{{ groups['lrms_wn']|map('extract', hostvars,'IM_NODE_PRIVATE_IP')|list"
+                         " if 'lrms_wn' in groups else []}}")
+        self.assertEqual([d.id for d in radl.deploys][2], 'lrms_wn')
 
     def test_tosca_get_outputs(self):
         """Test TOSCA get_outputs function"""
@@ -91,6 +111,7 @@ class TestTosca(unittest.TestCase):
                                    'server_creds': {'token_type': 'password',
                                                     'token': 'pass',
                                                     'user': 'ubuntu'}})
+
 
 if __name__ == "__main__":
     unittest.main()

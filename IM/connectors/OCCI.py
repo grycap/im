@@ -30,7 +30,7 @@ import yaml
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
-from radl.radl import Feature
+from radl.radl import Feature, network
 from IM.config import Config
 
 
@@ -68,7 +68,7 @@ class OCCICloudConnector(CloudConnector):
         CloudConnector.__init__(self, cloud_info, inf)
 
     @staticmethod
-    def create_request_static(method, url, auth, headers, body=None):
+    def create_request_static(method, url, auth, headers, verify=False, body=None):
         if auth and 'proxy' in auth:
             proxy = auth['proxy']
 
@@ -83,7 +83,7 @@ class OCCICloudConnector(CloudConnector):
             headers.update({'Authorization': 'Bearer ' + auth["token"]})
 
         try:
-            resp = requests.request(method, url, verify=False, cert=cert, headers=headers, data=body)
+            resp = requests.request(method, url, verify=verify, cert=cert, headers=headers, data=body)
         finally:
             if cert:
                 try:
@@ -106,7 +106,7 @@ class OCCICloudConnector(CloudConnector):
         else:
             auth = auths[0]
 
-        return self.create_request_static(method, url, auth, headers, body)
+        return self.create_request_static(method, url, auth, headers, self.verify_ssl, body)
 
     def get_auth_header(self, auth_data):
         """
@@ -425,7 +425,11 @@ class OCCICloudConnector(CloudConnector):
         try:
             resp = self.create_request('GET', self.cloud.path + "/compute/" + vm.id, auth_data, headers)
 
-            if resp.status_code != 200:
+            if resp.status_code == 404:
+                # if the VM does not exists return off
+                vm.state = VirtualMachine.OFF
+                return (True, vm)
+            elif resp.status_code != 200:
                 return (False, resp.reason + "\n" + resp.text)
             else:
                 old_state = vm.state
@@ -447,7 +451,7 @@ class OCCICloudConnector(CloudConnector):
                     vm.info.systems[0].setValue("cpu.count", int(cores))
                 memory = self.get_occi_attribute_value(resp.text, 'occi.compute.memory')
                 if memory:
-                    vm.info.systems[0].setValue("memory.size", int(float(memory)), 'G')
+                    vm.info.systems[0].setValue("memory.size", int(float(memory)), 'M')
 
                 console_vnc = self.get_occi_attribute_value(resp.text, 'org.openstack.compute.console.vnc')
                 if console_vnc:
@@ -477,30 +481,6 @@ class OCCICloudConnector(CloudConnector):
                 if os.path.basename(num_storage) == system.getValue("disk." + str(cont) + ".provider_id"):
                     system.setValue("disk." + str(cont) + ".device", device)
                 cont += 1
-
-    def gen_cloud_config(self, public_key, user=None, cloud_config_str=None):
-        """
-        Generate the cloud-config file to be used in the user_data of the OCCI VM
-        """
-        if not user:
-            user = self.DEFAULT_USER
-        user_data = {}
-        user_data['name'] = user
-        user_data['sudo'] = "ALL=(ALL) NOPASSWD:ALL"
-        user_data['lock-passwd'] = True
-        user_data['ssh-import-id'] = user
-        user_data['ssh-authorized-keys'] = [public_key.strip()]
-        config_data = {"users": [user_data]}
-        if cloud_config_str:
-            cloud_config = yaml.load(cloud_config_str)
-            # If the client has included the "users" section, append it to the current one
-            if 'users' in cloud_config:
-                config_data["users"].extend(cloud_config['users'])
-                del cloud_config["users"]
-
-            config_data.update(cloud_config)
-        config = "#cloud-config\n%s" % yaml.dump(config_data, default_flow_style=False, width=512)
-        return config
 
     def query_occi(self, auth_data):
         """
@@ -551,23 +531,6 @@ class OCCICloudConnector(CloudConnector):
         Get the whole URI of an OCCI os template from the OCCI info
         """
         return self.get_scheme(occi_info, os_tpl, 'os_tpl')
-
-    def get_cloud_init_data(self, radl):
-        """
-        Get the cloud init data specified by the user in the RADL
-        """
-        configure_name = None
-        if radl.contextualize.items:
-            system_name = radl.systems[0].name
-
-            for item in radl.contextualize.items.values():
-                if item.system == system_name and item.get_ctxt_tool() == "cloud_init":
-                    configure_name = item.configure
-
-        if configure_name:
-            return radl.get_configure_by_name(configure_name).recipes
-        else:
-            return None
 
     def create_volumes(self, system, auth_data):
         """
@@ -751,6 +714,9 @@ class OCCICloudConnector(CloudConnector):
                     if resp.status_code == 404:
                         self.log_info("It does not exist.")
                         return (True, "")
+                    elif resp.status_code in [403, 401]:
+                        self.log_info("You are not authorized to delete it. Ignore.")
+                        return (True, "")
                     elif resp.status_code == 409:
                         self.log_info("Error deleting the Volume. It seems that it is still "
                                       "attached to a VM: %s" % resp.text)
@@ -775,7 +741,6 @@ class OCCICloudConnector(CloudConnector):
 
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         system = radl.systems[0]
-        auth_header = self.get_auth_header(auth_data)
 
         cpu = system.getValue('cpu.count')
         memory = None
@@ -810,12 +775,6 @@ class OCCICloudConnector(CloudConnector):
         if not user:
             user = self.DEFAULT_USER
             system.setValue('disk.0.os.credentials.username', user)
-
-        # Add user cloud init data
-        cloud_config_str = self.get_cloud_init_data(radl)
-        cloud_config = self.gen_cloud_config(public_key, user, cloud_config_str).encode()
-        user_data = base64.b64encode(cloud_config).decode().replace("\n", "")
-        self.log_debug("Cloud init: %s" % cloud_config.decode())
 
         # Get the info about the OCCI server (GET /-/)
         success, occi_info = self.query_occi(auth_data)
@@ -876,15 +835,22 @@ class OCCICloudConnector(CloudConnector):
                     if memory:
                         body += 'X-OCCI-Attribute: occi.compute.memory=' + str(memory) + '\n'
 
-                compute_id = "im.%s" % str(uuid.uuid1())
+                compute_id = "im-%s" % str(uuid.uuid1())
                 body += 'X-OCCI-Attribute: occi.core.id="' + compute_id + '"\n'
                 body += 'X-OCCI-Attribute: occi.core.title="' + name + '"\n'
 
                 # Set the hostname defined in the RADL
                 # Create the VM to get the nodename
                 vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self)
+                vm.destroy = True
+                inf.add_vm(vm)
                 (nodename, _) = vm.getRequestedName(default_hostname=Config.DEFAULT_VM_NAME,
                                                     default_domain=Config.DEFAULT_DOMAIN)
+
+                # Add user cloud init data
+                cloud_config = self.get_cloud_init_data(radl, vm, public_key, user).encode()
+                user_data = base64.b64encode(cloud_config).decode().replace("\n", "")
+                self.log_debug("Cloud init: %s" % cloud_config.decode())
 
                 body += 'X-OCCI-Attribute: occi.compute.hostname="' + nodename + '"\n'
                 if user_data:
@@ -894,7 +860,7 @@ class OCCICloudConnector(CloudConnector):
 
                 # Add volume links
                 for _, device, volume_id in volumes:
-                    link_id = "im.%s" % str(uuid.uuid1())
+                    link_id = "im-%s" % str(uuid.uuid1())
                     body += ('Link: <%s/storage/%s>;rel="http://schemas.ogf.org/occi/infrastructure#storage";'
                              'category="http://schemas.ogf.org/occi/infrastructure#storagelink";'
                              'occi.core.target="%s/storage/%s";'
@@ -909,6 +875,7 @@ class OCCICloudConnector(CloudConnector):
                 self.log_debug(body)
 
                 headers = {'Accept': 'text/plain', 'Connection': 'close', 'Content-Type': 'text/plain,text/occi'}
+                auth_header = self.get_auth_header(auth_data)
                 if auth_header:
                     headers.update(auth_header)
                 resp = self.create_request('POST', self.cloud.path + "/compute/", auth_data, headers, body)
@@ -927,7 +894,7 @@ class OCCICloudConnector(CloudConnector):
                     if occi_vm_id:
                         vm.id = occi_vm_id
                         vm.info.systems[0].setValue('instance_id', str(occi_vm_id))
-                        inf.add_vm(vm)
+                        vm.destroy = False
                         res.append((True, vm))
                     else:
                         res.append((False, 'Unknown Error launching the VM.'))
@@ -1010,7 +977,7 @@ class OCCICloudConnector(CloudConnector):
         try:
             resp = self.create_request('DELETE', self.cloud.path + "/compute/" + vm.id, auth_data, headers)
 
-            if resp.status_code != 200 and resp.status_code != 404 and resp.status_code != 204:
+            if resp.status_code not in [200, 204, 404]:
                 return (False, "Error removing the VM: " + resp.reason + "\n" + resp.text)
         except Exception:
             self.log_exception("Error connecting with OCCI server")
@@ -1183,12 +1150,38 @@ class OCCICloudConnector(CloudConnector):
         # update VM info
         try:
             vm.update_status(auth_data, force=True)
-            current_has_public_ip = vm.info.hasPublicNet(vm.info.systems[0].name)
+            current_has_public_ip = vm.hasPublicIP()
             new_has_public_ip = radl.hasPublicNet(vm.info.systems[0].name)
             if new_has_public_ip and not current_has_public_ip:
-                return self.add_public_ip(vm, auth_data)
+                success, msg = self.add_public_ip(vm, auth_data)
+
+                if success:
+                    # Add public net in the Requested RADL
+                    public_net, num_net = VirtualMachine.add_public_net(vm.requested_radl)
+                    vm.requested_radl.systems[0].setValue("net_interface.%d.connection" % num_net, public_net.id)
+                    return True, ""
+                else:
+                    return False, msg
             if not new_has_public_ip and current_has_public_ip:
-                return self.remove_public_ip(vm, auth_data)
+                success, msg = self.remove_public_ip(vm, auth_data)
+
+                if success:
+                    # Remove all public net connections in the Requested RADL
+                    nets_id = [net.id for net in vm.requested_radl.networks if net.isPublic()]
+                    system = vm.requested_radl.systems[0]
+
+                    i = 0
+                    while system.getValue('net_interface.%d.connection' % i):
+                        f = system.getFeature("net_interface.%d.connection" % i)
+                        if f.value in nets_id:
+                            system.delValue('net_interface.%d.connection' % i)
+                            if system.getValue('net_interface.%d.ip' % i):
+                                system.delValue('net_interface.%d.ip' % i)
+                        i += 1
+
+                    return True, ""
+                else:
+                    return False, msg
         except Exception as ex:
             self.log_exception("Error adding new public IP")
             return (False, "Error adding new public IP: " + str(ex))
@@ -1233,7 +1226,8 @@ class OCCICloudConnector(CloudConnector):
             body += 'X-OCCI-Attribute: occi.core.id="%s"\n' % disk_id
             body += 'X-OCCI-Attribute: occi.core.target="%s/storage/%s"\n' % (self.cloud.path, volume_id)
             body += 'X-OCCI-Attribute: occi.core.source="%s/compute/%s"' % (self.cloud.path, vm.id)
-            body += 'X-OCCI-Attribute: occi.storagelink.deviceid="/dev/%s"' % device
+            if device:
+                body += '\nX-OCCI-Attribute: occi.storagelink.deviceid="/dev/%s"' % device
             # body += 'X-OCCI-Attribute: occi.storagelink.mountpoint="%s"' % mount_path
             resp = self.create_request('POST', url, auth_data, headers, body)
 
@@ -1319,12 +1313,12 @@ class KeyStoneAuth:
             else:
                 return None
         except SSLError as ex:
-            occi.logger.exception(
+            occi.log_exception(
                 "Error with the credentials when contacting with the OCCI server.")
             raise Exception(
                 "Error with the credentials when contacting with the OCCI server: %s. Check your proxy file." % str(ex))
         except:
-            occi.logger.exception("Error contacting with the OCCI server.")
+            occi.log_exception("Error contacting with the OCCI server.")
             return None
 
     @staticmethod
@@ -1342,14 +1336,14 @@ class KeyStoneAuth:
                     url = "%s/v3/auth/tokens" % keystone_uri
                 else:
                     return None
-                resp = occi.create_request_static('GET', url, auth, headers)
+                resp = occi.create_request_static('GET', url, auth, headers, occi.verify_ssl)
                 if resp.status_code == 200:
                     return occi.keystone_token
                 else:
-                    occi.logger.warn("Old Keystone token invalid.")
+                    occi.log_warn("Keystone token invalid.")
                     return None
             except Exception:
-                occi.logger.exception("Error checking Keystone token")
+                occi.log_exception("Error checking Keystone token")
                 return None
         else:
             return None
@@ -1366,11 +1360,11 @@ class KeyStoneAuth:
             return token
 
         if version == 2:
-            occi.logger.info("Getting Keystone v2 token")
+            occi.log_info("Getting Keystone v2 token")
             occi.keystone_token = KeyStoneAuth.get_keystone_token_v2(occi, keystone_uri, auth)
             return occi.keystone_token
         elif version == 3:
-            occi.logger.info("Getting Keystone v3 token")
+            occi.log_info("Getting Keystone v3 token")
             occi.keystone_token = KeyStoneAuth.get_keystone_token_v3(occi, keystone_uri, auth)
             return occi.keystone_token
         else:
@@ -1387,7 +1381,7 @@ class KeyStoneAuth:
 
         try:
             headers = {"Accept": "application/json"}
-            resp = occi.create_request_static('GET', keystone_uri, None, headers)
+            resp = occi.create_request_static('GET', keystone_uri, None, headers, occi.verify_ssl)
             if resp.status_code in [200, 300]:
                 versions = []
                 json_data = resp.json()
@@ -1396,7 +1390,7 @@ class KeyStoneAuth:
                 elif 'version' in json_data:
                     versions = [json_data["version"]]
                 else:
-                    occi.logger.error("Error obtaining Keystone versions: versions or version expected.")
+                    occi.log_error("Error obtaining Keystone versions: versions or version expected.")
 
                 for elem in versions:
                     if not token and elem["id"].startswith("v2"):
@@ -1405,13 +1399,13 @@ class KeyStoneAuth:
                         # only use version 3 if 2 is not available
                         version = 3
             else:
-                occi.logger.error("Error obtaining Keystone versions: %s" % resp.text)
+                occi.log_error("Error obtaining Keystone versions: %s" % resp.text)
         except Exception:
-            occi.logger.exception("Error obtaining Keystone versions.")
+            occi.log_exception("Error obtaining Keystone versions.")
 
         if not version:
             # use version 2 as the default one in case of error
-            occi.logger.warn("Keystone Version not obtained, using default one v2.")
+            occi.log_warn("Keystone Version not obtained, using default one v2.")
             return 2
         else:
             return version
@@ -1425,7 +1419,7 @@ class KeyStoneAuth:
             body = '{"auth":{"voms":true}}'
             headers = {'Accept': 'application/json', 'Connection': 'close', 'Content-Type': 'application/json'}
             url = "%s/v2.0/tokens" % keystone_uri
-            resp = occi.create_request_static('POST', url, auth, headers, body)
+            resp = occi.create_request_static('POST', url, auth, headers, occi.verify_ssl, body)
             resp.raise_for_status()
 
             # format: -> "{\"access\": {\"token\": {\"issued_at\":
@@ -1441,14 +1435,14 @@ class KeyStoneAuth:
             if 'access' in output:
                 token_id = output['access']['token']['id']
             else:
-                occi.logger.exception("Error obtaining Keystone Token.")
+                occi.log_exception("Error obtaining Keystone Token.")
                 raise Exception("Error obtaining Keystone Token: %s" % str(output))
 
             if occi.keystone_tenant is None:
                 headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
                            'X-Auth-Token': token_id, 'Connection': 'close'}
                 url = "%s/v2.0/tenants" % keystone_uri
-                resp = occi.create_request_static('GET', url, auth, headers)
+                resp = occi.create_request_static('GET', url, auth, headers, occi.verify_ssl)
                 resp.raise_for_status()
 
                 # format: -> "{\"tenants_links\": [], \"tenants\":
@@ -1468,7 +1462,7 @@ class KeyStoneAuth:
                 headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
                            'X-Auth-Token': token_id, 'Connection': 'close'}
                 url = "%s/v2.0/tokens" % keystone_uri
-                resp = occi.create_request_static('POST', url, auth, headers, body)
+                resp = occi.create_request_static('POST', url, auth, headers, occi.verify_ssl, body)
                 if resp.status_code in [200, 202]:
                     # format: -> "{\"access\": {\"token\": {\"issued_at\":
                     # \"2014-12-29T17:10:49.609894\", \"expires\":
@@ -1481,7 +1475,7 @@ class KeyStoneAuth:
                     # \"metadata\": {\"is_admin\": 0, \"roles\": []}}}"
                     output = resp.json()
                     if 'access' in output:
-                        occi.logger.info("Using tenant: %s" % tenant["name"])
+                        occi.log_info("Using tenant: %s" % tenant["name"])
                         occi.keystone_tenant = tenant
                         tenant_token_id = str(output['access']['token']['id'])
                         break
@@ -1490,7 +1484,7 @@ class KeyStoneAuth:
                 raise Exception("Error obtaining Keystone v2 Token: No tenant scoped token.")
             return tenant_token_id
         except Exception as ex:
-            occi.logger.exception("Error obtaining Keystone v2 Token.")
+            occi.log_exception("Error obtaining Keystone v2 Token.")
             raise Exception("Error obtaining Keystone v2 Token: %s" % str(ex))
 
     @staticmethod
@@ -1508,7 +1502,7 @@ class KeyStoneAuth:
                 # Use VOMS proxy
                 url = "%s/v3/OS-FEDERATION/identity_providers/egi.eu/protocols/mapped/auth" % keystone_uri
 
-            resp = occi.create_request_static('GET', url, auth, headers)
+            resp = occi.create_request_static('GET', url, auth, headers, occi.verify_ssl)
             resp.raise_for_status()
 
             token = resp.headers['X-Subject-Token']
@@ -1517,7 +1511,7 @@ class KeyStoneAuth:
                 headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
                            'X-Auth-Token': token, 'Connection': 'close'}
                 url = "%s/v3/auth/projects" % keystone_uri
-                resp = occi.create_request_static('GET', url, auth, headers)
+                resp = occi.create_request_static('GET', url, auth, headers, occi.verify_ssl)
                 resp.raise_for_status()
 
                 output = resp.json()
@@ -1536,7 +1530,7 @@ class KeyStoneAuth:
                             projects = [project_found]
                         else:
                             projects = output['projects']
-                            self.log_warn("Keystone 3 project %s not found." % auth["project"])
+                            occi.log_warn("Keystone 3 project %s not found." % auth["project"])
             else:
                 projects = [occi.keystone_project]
 
@@ -1548,17 +1542,17 @@ class KeyStoneAuth:
                 body = {"auth": {"identity": {"methods": ["token"], "token": {"id": token}},
                                  "scope": {"project": {"id": project["id"]}}}}
                 url = "%s/v3/auth/tokens" % keystone_uri
-                resp = occi.create_request_static('POST', url, auth, headers, json.dumps(body))
+                resp = occi.create_request_static('POST', url, auth, headers, occi.verify_ssl, json.dumps(body))
                 if resp.status_code in [200, 201, 202]:
-                    occi.logger.info("Using project: %s" % project["name"])
+                    occi.log_info("Using project: %s" % project["name"])
                     occi.keystone_project = project
                     scoped_token = resp.headers['X-Subject-Token']
                     break
 
             if not scoped_token:
-                occi.logger.error("Not project accesible for the user.")
+                occi.log_error("Not project accesible for the user.")
 
             return scoped_token
         except Exception as ex:
-            occi.logger.exception("Error obtaining Keystone v3 Token.")
+            occi.log_exception("Error obtaining Keystone v3 Token.")
             raise Exception("Error obtaining Keystone v3 Token: %s" % str(ex))

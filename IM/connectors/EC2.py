@@ -18,6 +18,8 @@ import time
 import base64
 import os
 import uuid
+import requests
+import json
 
 try:
     import boto.ec2
@@ -49,10 +51,11 @@ class InstanceTypeInfo:
             - disks(int, optional): number of disks
             - disk_space(int, optional): size of the disks
             - vpc_only(bool, optional): the instance works only on VPC
+            - gpu(int, optional): the number of gpus of this instance
     """
 
     def __init__(self, name="", cpu_arch=None, num_cpu=1, cores_per_cpu=1, mem=0,
-                 price=0, cpu_perf=0, disks=0, disk_space=0, vpc_only=None):
+                 price=0, cpu_perf=0, disks=0, disk_space=0, vpc_only=None, gpu=0):
         self.name = name
         self.num_cpu = num_cpu
         self.cores_per_cpu = cores_per_cpu
@@ -65,6 +68,7 @@ class InstanceTypeInfo:
         self.disks = disks
         self.disk_space = disk_space
         self.vpc_only = vpc_only
+        self.gpu = gpu
 
 
 class EC2CloudConnector(CloudConnector):
@@ -88,6 +92,9 @@ class EC2CloudConnector(CloudConnector):
         'terminated': VirtualMachine.OFF
     }
     """Dictionary with a map with the EC3 VM states to the IM states."""
+
+    instance_type_list = []
+    """ Information about the instance types """
 
     def __init__(self, cloud_info, inf):
         self.connection = None
@@ -377,6 +384,32 @@ class EC2CloudConnector(CloudConnector):
         try:
             i = 0
             system = radl.systems[0]
+
+            # First create a SG for the entire Infra
+            # Use the InfrastructureInfo lock to assure that only one VM create the SG
+            with inf._lock:
+                sg_name = "im-%s" % str(inf.id)
+                sg = self._get_security_group(conn, sg_name)
+                if not sg:
+                    self.log_info("Creating security group: %s" % sg_name)
+                    try:
+                        sg = conn.create_security_group(sg_name, "Security group created by the IM", vpc_id=vpc)
+                        # open all the ports for the VMs in the security group
+                        sg.authorize('tcp', 0, 65535, src_group=sg)
+                        sg.authorize('udp', 0, 65535, src_group=sg)
+                    except Exception as crex:
+                        # First check if the SG does exist
+                        sg = self._get_security_group(conn, sg_name)
+                        if not sg:
+                            # if not raise the exception
+                            raise crex
+                        else:
+                            self.log_info("Security group: " + sg_name + " already created.")
+                if vpc:
+                    res.append(sg.id)
+                else:
+                    res.append(sg.name)
+
             while system.getValue("net_interface." + str(i) + ".connection"):
                 network_name = system.getValue("net_interface." + str(i) + ".connection")
                 network = radl.get_network_by_id(network_name)
@@ -490,29 +523,12 @@ class EC2CloudConnector(CloudConnector):
         for vpc in conn.get_all_vpcs():
             if vpc.is_default:
                 vpc_id = vpc.id
-                for subnet in conn.get_all_subnets({"vpcId": vpc_id}):
+                for subnet in conn.get_all_subnets(filters={"vpcId": vpc_id}):
                     subnet_id = subnet.id
                     break
                 break
 
         return vpc_id, subnet_id
-
-    def get_cloud_init_data(self, radl):
-        """
-        Get the cloud init data specified by the user in the RADL
-        """
-        configure_name = None
-        if radl.contextualize.items:
-            system_name = radl.systems[0].name
-
-            for item in radl.contextualize.items.values():
-                if item.system == system_name and item.get_ctxt_tool() == "cloud_init":
-                    configure_name = item.configure
-
-        if configure_name:
-            return radl.get_configure_by_name(configure_name).recipes
-        else:
-            return None
 
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
 
@@ -522,8 +538,6 @@ class EC2CloudConnector(CloudConnector):
                 'InfrastructureManager')[0]['username']
 
         system = radl.systems[0]
-
-        user_data = self.get_cloud_init_data(radl)
 
         # Currently EC2 plugin uses first private_key credentials
         if system.getValue('disk.0.os.credentials.private_key'):
@@ -596,10 +610,25 @@ class EC2CloudConnector(CloudConnector):
                     res.append((False, "Error managing the keypair."))
                 return res
 
+            tags = {}
+            if system.getValue('instance_tags'):
+                keypairs = system.getValue('instance_tags').split(",")
+                for keypair in keypairs:
+                    parts = keypair.split("=")
+                    key = parts[0].strip()
+                    value = parts[1].strip()
+                    tags[key] = value
+
             all_failed = True
 
             i = 0
             while i < num_vm:
+
+                vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self)
+                vm.destroy = True
+                inf.add_vm(vm)
+                user_data = self.get_cloud_init_data(radl, vm)
+
                 err_msg = "Launching in region %s with image: %s" % (region_name, ami)
                 if vpc:
                     err_msg += " in VPC: %s-%s " % (vpc, subnet)
@@ -674,15 +703,13 @@ class EC2CloudConnector(CloudConnector):
                                 self.log_debug("RADL:")
                                 self.log_debug(system)
 
-                                vm = VirtualMachine(
-                                    inf, ec2_vm_id, self.cloud, radl, requested_radl, self)
-                                vm.info.systems[0].setValue(
-                                    'instance_id', str(vm.id))
+                                vm.id = ec2_vm_id
+                                vm.info.systems[0].setValue('instance_id', str(vm.id))
                                 # Add the keypair name to remove it later
                                 vm.keypair_name = keypair_name
                                 self.log_info("Instance successfully launched.")
                                 all_failed = False
-                                inf.add_vm(vm)
+                                vm.destroy = False
                                 res.append((True, vm))
                             else:
                                 res.append((False, "Error %s." % err_msg))
@@ -711,19 +738,19 @@ class EC2CloudConnector(CloudConnector):
                             if len(reservation.instances) == 1:
                                 instance = reservation.instances[0]
                                 instance.add_tag("IM-USER", im_username)
+                                for key, value in tags.items():
+                                    instance.add_tag(key, value)
                                 ec2_vm_id = region_name + ";" + instance.id
 
                                 self.log_debug("RADL:")
                                 self.log_debug(system)
 
-                                vm = VirtualMachine(
-                                    inf, ec2_vm_id, self.cloud, radl, requested_radl, self)
-                                vm.info.systems[0].setValue(
-                                    'instance_id', str(vm.id))
+                                vm.id = ec2_vm_id
+                                vm.info.systems[0].setValue('instance_id', str(vm.id))
                                 # Add the keypair name to remove it later
                                 vm.keypair_name = keypair_name
                                 self.log_info("Instance successfully launched.")
-                                inf.add_vm(vm)
+                                vm.destroy = False
                                 res.append((True, vm))
                                 all_failed = False
                             else:
@@ -796,7 +823,7 @@ class EC2CloudConnector(CloudConnector):
         """
         try:
             if instance.state == 'running' and "volumes" not in vm.__dict__.keys():
-                # Flag to se that this VM has created (or is creating) the
+                # Flag to set that this VM has created (or is creating) the
                 # volumes
                 vm.volumes = True
                 conn = instance.connection
@@ -1009,10 +1036,8 @@ class EC2CloudConnector(CloudConnector):
                 # It will be used if it is different to the public IP of the
                 # instance
                 if str(address.public_ip) != instance.ip_address:
-                    vm_system.setValue(
-                        'net_interface.' + str(num_nets) + '.ip', str(instance.ip_address))
-                    vm_system.setValue(
-                        'net_interface.' + str(num_nets) + '.connection', public_net.id)
+                    vm_system.setValue('net_interface.' + str(num_nets) + '.ip', str(instance.ip_address))
+                    vm_system.setValue('net_interface.' + str(num_nets) + '.connection', public_net.id)
 
                     num_pub_nets += 1
                     num_nets += 1
@@ -1020,8 +1045,7 @@ class EC2CloudConnector(CloudConnector):
         n = 0
         requested_ips = []
         while vm.getRequestedSystem().getValue("net_interface." + str(n) + ".connection"):
-            net_conn = vm.getRequestedSystem().getValue(
-                'net_interface.' + str(n) + '.connection')
+            net_conn = vm.getRequestedSystem().getValue('net_interface.' + str(n) + '.connection')
             if vm.info.get_network_by_id(net_conn).isPublic():
                 fixed_ip = vm.getRequestedSystem().getValue("net_interface." + str(n) + ".ip")
                 requested_ips.append(fixed_ip)
@@ -1431,185 +1455,61 @@ class EC2CloudConnector(CloudConnector):
         else:
             return (success, "Unknown Error")
 
-    def get_all_instance_types(self):
+    def get_all_instance_types(self, retries=3, delay=5):
         """
         Get all the EC2 instance types
 
         Returns: a list of :py:class:`InstanceTypeInfo`
         """
-        # TODO: use some like Cloudymetrics or CloudHarmony or http://www.ec2instances.info/
+        # Get info from http://www.ec2instances.info/
+        # https://raw.githubusercontent.com/powdahound/ec2instances.info/master/www/instances.json
+
+        if EC2CloudConnector.instance_type_list:
+            return EC2CloudConnector.instance_type_list
+
+        cont = 0
+        data = None
+        while cont < retries and not data:
+            cont += 1
+            try:
+                info_url = "https://raw.githubusercontent.com/powdahound/ec2instances.info/master/www/instances.json"
+                resp = requests.get(info_url)
+                if resp.status_code == 200:
+                    data = resp.json()
+                else:
+                    time.sleep(delay)
+            except Exception as ex:
+                self.log_warn("Error getting ec2instances info: %s. (%s/%s)" % (ex.message, cont, retries))
+                time.sleep(delay)
+
         instance_list = []
-
-        t1_micro = InstanceTypeInfo(
-            "t1.micro", ["i386", "x86_64"], 1, 1, 613, 0.0031, 0.5, 0, 0, False)
-        instance_list.append(t1_micro)
-
-        t2_nano = InstanceTypeInfo(
-            "t2.nano", ["i386", "x86_64"], 1, 1, 512, 0.0059, 0.5, 0, 0, True)
-        instance_list.append(t2_nano)
-        t2_micro = InstanceTypeInfo(
-            "t2.micro", ["i386", "x86_64"], 1, 1, 1024, 0.013, 0.5, 0, 0, True)
-        instance_list.append(t2_micro)
-        t2_small = InstanceTypeInfo(
-            "t2.small", ["i386", "x86_64"], 1, 1, 2048, 0.026, 0.5, 0, 0, True)
-        instance_list.append(t2_small)
-        t2_medium = InstanceTypeInfo(
-            "t2.medium", ["i386", "x86_64"], 2, 1, 4096, 0.052, 0.5, 0, 0, True)
-        instance_list.append(t2_medium)
-
-        m1_small = InstanceTypeInfo(
-            "m1.small", ["i386", "x86_64"], 1, 1, 1740, 0.044, 1, 1, 160, False)
-        instance_list.append(m1_small)
-        m1_medium = InstanceTypeInfo(
-            "m1.medium", ["i386", "x86_64"], 1, 1, 3840, 0.087, 2, 1, 410, False)
-        instance_list.append(m1_medium)
-        m1_large = InstanceTypeInfo(
-            "m1.large", ["x86_64"], 1, 2, 7680, 0.175, 4, 2, 420, False)
-        instance_list.append(m1_large)
-        m1_xlarge = InstanceTypeInfo(
-            "m1.xlarge", ["x86_64"], 1, 4, 15360, 0.35, 8, 4, 420, False)
-        instance_list.append(m1_xlarge)
-
-        m2_xlarge = InstanceTypeInfo(
-            "m2.xlarge", ["x86_64"], 1, 2, 17510, 0.245, 6.5, 1, 420, False)
-        instance_list.append(m2_xlarge)
-        m2_2xlarge = InstanceTypeInfo(
-            "m2.2xlarge", ["x86_64"], 1, 4, 35020, 0.49, 13, 1, 850, False)
-        instance_list.append(m2_2xlarge)
-        m2_4xlarge = InstanceTypeInfo(
-            "m2.4xlarge", ["x86_64"], 1, 4, 70041, 0.98, 13, 2, 840, False)
-        instance_list.append(m2_4xlarge)
-
-        m3_medium = InstanceTypeInfo(
-            "m3.medium", ["x86_64"], 1, 1, 3840, 0.048, 3, 1, 4, False)
-        instance_list.append(m3_medium)
-        m3_large = InstanceTypeInfo(
-            "m3.large", ["x86_64"], 2, 1, 7680, 0.095, 6.5, 1, 4, False)
-        instance_list.append(m3_large)
-        m3_xlarge = InstanceTypeInfo(
-            "m3.xlarge", ["x86_64"], 1, 8, 15360, 0.190, 13, 2, 40, False)
-        instance_list.append(m3_xlarge)
-        m3_2xlarge = InstanceTypeInfo(
-            "m3.2xlarge", ["x86_64"], 1, 8, 30720, 0.38, 26, 2, 80, False)
-        instance_list.append(m3_2xlarge)
-
-        m4_large = InstanceTypeInfo(
-            "m4.large", ["x86_64"], 2, 1, 8192, 0.108, 6.5, 1, 0, True)
-        instance_list.append(m4_large)
-        m4_xlarge = InstanceTypeInfo(
-            "m4.xlarge", ["x86_64"], 4, 1, 16384, 0.215, 13, 1, 0, True)
-        instance_list.append(m4_xlarge)
-        m4_2xlarge = InstanceTypeInfo(
-            "m4.2xlarge", ["x86_64"], 8, 1, 32768, 0.431, 26, 1, 0, True)
-        instance_list.append(m4_2xlarge)
-        m4_4xlarge = InstanceTypeInfo(
-            "m4.4xlarge", ["x86_64"], 16, 1, 65536, 0.862, 53.5, 1, 0, True)
-        instance_list.append(m4_4xlarge)
-        m4_10xlarge = InstanceTypeInfo(
-            "m4.10xlarge", ["x86_64"], 40, 1, 163840, 2.155, 124.5, 1, 0, True)
-        instance_list.append(m4_10xlarge)
-        m4_16xlarge = InstanceTypeInfo(
-            "m4.16xlarge", ["x86_64"], 64, 1, 262144, 3.447, 256, 1, 0, True)
-        instance_list.append(m4_16xlarge)
-
-        c1_medium = InstanceTypeInfo(
-            "c1.medium", ["i386", "x86_64"], 1, 2, 1740, 0.13, 5, 1, 350, False)
-        instance_list.append(c1_medium)
-        c1_xlarge = InstanceTypeInfo(
-            "c1.xlarge", ["x86_64"], 1, 8, 7680, 0.52, 20, 4, 420, False)
-        instance_list.append(c1_xlarge)
-
-        cc2_8xlarge = InstanceTypeInfo(
-            "cc2.8xlarge", ["x86_64"], 2, 8, 61952, 2.0, 88, 4, 840, False)
-        instance_list.append(cc2_8xlarge)
-
-        cr1_8xlarge = InstanceTypeInfo(
-            "cr1.8xlarge", ["x86_64"], 2, 8, 249856, 3.5, 88, 2, 120, False)
-        instance_list.append(cr1_8xlarge)
-
-        c3_large = InstanceTypeInfo(
-            "c3.large", ["x86_64"], 2, 1, 3840, 0.105, 7, 2, 16, False)
-        instance_list.append(c3_large)
-        c3_xlarge = InstanceTypeInfo(
-            "c3.xlarge", ["x86_64"], 4, 1, 7680, 0.21, 14, 2, 40, False)
-        instance_list.append(c3_xlarge)
-        c3_2xlarge = InstanceTypeInfo(
-            "c3.2xlarge", ["x86_64"], 8, 1, 15360, 0.42, 28, 2, 80, False)
-        instance_list.append(c3_2xlarge)
-        c3_4xlarge = InstanceTypeInfo(
-            "c3.4xlarge", ["x86_64"], 16, 1, 30720, 0.84, 55, 2, 160, False)
-        instance_list.append(c3_4xlarge)
-        c3_8xlarge = InstanceTypeInfo(
-            "c3.8xlarge", ["x86_64"], 32, 1, 61952, 1.68, 108, 2, 320, False)
-        instance_list.append(c3_8xlarge)
-
-        r3_large = InstanceTypeInfo(
-            "r3.large", ["x86_64"], 2, 1, 15360, 0.166, 6.5, 1, 32, False)
-        instance_list.append(r3_large)
-        r3_xlarge = InstanceTypeInfo(
-            "r3.xlarge", ["x86_64"], 4, 1, 31232, 0.333, 13, 1, 80, False)
-        instance_list.append(r3_xlarge)
-        r3_2xlarge = InstanceTypeInfo(
-            "r3.2xlarge", ["x86_64"], 8, 1, 62464, 0.665, 26, 1, 160, False)
-        instance_list.append(r3_2xlarge)
-        r3_4xlarge = InstanceTypeInfo(
-            "r3.4xlarge", ["x86_64"], 16, 1, 124928, 1.33, 52, 1, 320, False)
-        instance_list.append(r3_4xlarge)
-        r3_8xlarge = InstanceTypeInfo(
-            "r3.8xlarge", ["x86_64"], 32, 1, 249856, 2.66, 104, 2, 320, False)
-        instance_list.append(r3_8xlarge)
-
-        r4_large = InstanceTypeInfo(
-            "r4.large", ["x86_64"], 2, 1, 15616, 0.133, 7, 1, 0, True)
-        instance_list.append(r4_large)
-        r4_xlarge = InstanceTypeInfo(
-            "r4.xlarge", ["x86_64"], 4, 1, 31232, 0.266, 13.5, 1, 0, True)
-        instance_list.append(r4_xlarge)
-        r4_2xlarge = InstanceTypeInfo(
-            "r4.2xlarge", ["x86_64"], 8, 1, 62464, 0.532, 27, 1, 0, True)
-        instance_list.append(r4_2xlarge)
-        r4_4xlarge = InstanceTypeInfo(
-            "r4.4xlarge", ["x86_64"], 16, 1, 124928, 1.064, 53, 1, 0, True)
-        instance_list.append(r4_4xlarge)
-        r4_8xlarge = InstanceTypeInfo(
-            "r4.8xlarge", ["x86_64"], 32, 1, 249856, 2.128, 99, 1, 0, True)
-        instance_list.append(r4_8xlarge)
-        r4_16xlarge = InstanceTypeInfo(
-            "r4.16xlarge", ["x86_64"], 64, 1, 499712, 4.256, 195, 1, 0, True)
-        instance_list.append(r4_16xlarge)
-
-        i2_xlarge = InstanceTypeInfo(
-            "i2.xlarge", ["x86_64"], 4, 1, 31232, 0.853, 14, 1, 800, False)
-        instance_list.append(i2_xlarge)
-        i2_2xlarge = InstanceTypeInfo(
-            "i2.2xlarge", ["x86_64"], 8, 1, 62464, 1.705, 27, 2, 800, False)
-        instance_list.append(i2_2xlarge)
-        i2_4xlarge = InstanceTypeInfo(
-            "i2.4xlarge", ["x86_64"], 16, 1, 124928, 3.41, 53, 4, 800, False)
-        instance_list.append(i2_4xlarge)
-        i2_8xlarge = InstanceTypeInfo(
-            "i2.8xlarge", ["x86_64"], 32, 1, 249856, 6.82, 104, 8, 800, False)
-        instance_list.append(i2_8xlarge)
-
-        hs1_8xlarge = InstanceTypeInfo(
-            "hs1.8xlarge", ["x86_64"], 16, 1, 119808, 4.6, 35, 24, 2048, False)
-        instance_list.append(hs1_8xlarge)
-
-        c4_large = InstanceTypeInfo(
-            "c4.large", ["x86_64"], 2, 1, 3840, 0.1, 8, 1, 0, True)
-        instance_list.append(c4_large)
-        c4_xlarge = InstanceTypeInfo(
-            "c4.xlarge", ["x86_64"], 4, 1, 7680, 0.199, 16, 1, 0, True)
-        instance_list.append(c4_xlarge)
-        c4_2xlarge = InstanceTypeInfo(
-            "c4.2xlarge", ["x86_64"], 8, 1, 15360, 0.398, 31, 1, 0, True)
-        instance_list.append(c4_2xlarge)
-        c4_4xlarge = InstanceTypeInfo(
-            "c4.4xlarge", ["x86_64"], 16, 1, 30720, 0.796, 62, 1, 0, True)
-        instance_list.append(c4_4xlarge)
-        c4_8xlarge = InstanceTypeInfo(
-            "c4.8xlarge", ["x86_64"], 36, 1, 61952, 1.591, 132, 1, 0, True)
-        instance_list.append(c4_8xlarge)
+        if not data:
+            self.log_error("Error getting ec2instances info.")
+        else:
+            for instance_type in data:
+                price = 50
+                if instance_type['pricing']:
+                    price = float(instance_type['pricing']['us-east-1']['linux']['ondemand'])
+                disks = 0
+                disk_space = 0
+                if instance_type['storage']:
+                    disks = instance_type['storage']['devices']
+                    disk_space = instance_type['storage']['size']
+                cpu_perf = instance_type['ECU']
+                if cpu_perf == 'variable':
+                    cpu_perf = 0
+                instance_list.append(InstanceTypeInfo(name=instance_type['instance_type'],
+                                                      cpu_arch=instance_type['arch'],
+                                                      num_cpu=instance_type['vCPU'],
+                                                      cores_per_cpu=1,
+                                                      mem=instance_type['memory'] * 1024,
+                                                      price=price,
+                                                      cpu_perf=cpu_perf,
+                                                      disks=disks,
+                                                      disk_space=disk_space,
+                                                      vpc_only=instance_type['vpc_only'],
+                                                      gpu=instance_type['GPU']))
+            EC2CloudConnector.instance_type_list = instance_list
 
         return instance_list
 
