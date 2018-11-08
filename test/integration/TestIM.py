@@ -106,7 +106,7 @@ class TestIM(unittest.TestCase):
             if not all_ok:
                 wait += 5
                 if wait >= timeout:
-                    _, cont_msg = self.server.GetVMContMsg(inf_id, vm_id, self.auth_data)
+                    _, cont_msg = self.server.GetInfrastructureContMsg(inf_id, self.auth_data)
                     print(cont_msg)
                 else:
                     time.sleep(5)
