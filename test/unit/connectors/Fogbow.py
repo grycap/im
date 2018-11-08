@@ -18,7 +18,6 @@
 
 import sys
 import unittest
-import os
 import logging
 import logging.config
 try:
@@ -36,12 +35,6 @@ from IM.VirtualMachine import VirtualMachine
 from IM.InfrastructureInfo import InfrastructureInfo
 from IM.connectors.FogBow import FogBowCloudConnector
 from mock import patch, MagicMock
-
-
-def read_file_as_string(file_name):
-    tests_path = os.path.dirname(os.path.abspath(__file__))
-    abs_file_path = os.path.join(tests_path, file_name)
-    return open(abs_file_path, 'r').read()
 
 
 class TestFogBowConnector(unittest.TestCase):
@@ -184,6 +177,9 @@ class TestFogBowConnector(unittest.TestCase):
             elif url == "/networks/":
                 resp.status_code = 201
                 resp.text = "1"
+            elif url == "/tokens/":
+                resp.status_code = 201
+                resp.text = "token"
             else:
                 resp.status_code = 404
         elif method == "DELETE":
@@ -276,7 +272,8 @@ class TestFogBowConnector(unittest.TestCase):
 
     @patch('requests.request')
     def test_60_finalize(self, requests):
-        auth = Authentication([{'id': 'fogbow', 'type': 'FogBow', 'token': 'user', 'host': 'server.com'}])
+        auth = Authentication([{'id': 'fogbow', 'type': 'FogBow', 'host': 'server.com',
+                                'username': 'user', 'password': 'pass'}])
         fogbow_cloud = self.get_fogbow_cloud()
 
         radl_data = """
