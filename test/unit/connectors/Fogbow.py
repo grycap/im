@@ -100,7 +100,7 @@ class TestFogBowConnector(unittest.TestCase):
         self.assertEqual(len(concrete), 1)
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
-    def get_response(self, method, url, verify, headers, data):
+    def get_response(self, method, url, verify, headers={}, data=None):
         resp = MagicMock()
         parts = uriparse(url)
         url = parts[2]
@@ -111,6 +111,8 @@ class TestFogBowConnector(unittest.TestCase):
         if url not in self.call_count[method]:
             self.call_count[method][url] = 0
         self.call_count[method][url] += 1
+
+        resp.status_code = 404
 
         if method == "GET":
             if url == "/computes/1":
@@ -159,8 +161,6 @@ class TestFogBowConnector(unittest.TestCase):
                                           "volumeId": "1",
                                           "device": "/dev/sdb",
                                           "state": "READY"}
-            else:
-                resp.status_code = 404
         elif method == "POST":
             if url == "/computes/":
                 resp.status_code = 201
@@ -180,8 +180,6 @@ class TestFogBowConnector(unittest.TestCase):
             elif url == "/tokens/":
                 resp.status_code = 201
                 resp.text = "token"
-            else:
-                resp.status_code = 404
         elif method == "DELETE":
             if url == "/computes/1":
                 resp.status_code = 204
@@ -191,10 +189,9 @@ class TestFogBowConnector(unittest.TestCase):
                 resp.status_code = 204
             elif url == "/publicIps/1":
                 resp.status_code = 204
-            else:
-                resp.status_code = 404
-        else:
-            resp.status_code = 404
+        elif method == "HEAD":
+            if url == "/images/":
+                resp.status_code = 200
 
         return resp
 

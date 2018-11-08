@@ -55,6 +55,7 @@ class FogBowCloudConnector(CloudConnector):
 
     def __init__(self, cloud_info, inf):
         self.add_public_ip_count = 0
+        self.token = None
         CloudConnector.__init__(self, cloud_info, inf)
 
     def get_full_url(self, url):
@@ -109,6 +110,16 @@ class FogBowCloudConnector(CloudConnector):
 
     def get_token(self, auth_data):
         headers = {'Content-Type': 'application/json'}
+
+        if self.token:
+            self.log_debug("We have a token. Check if it is valid.")
+            resp = requests.request('HEAD', self.get_full_url('/images/'), verify=self.verify_ssl)
+            if resp.status_code in [200, 201]:
+                return self.token
+            else:
+                self.log_debug("It is not valid. Request for a new one.")
+                self.token = None
+
         body = {}
         for key, value in auth_data.items():
             if key not in ['id', 'type', 'host']:
@@ -116,6 +127,7 @@ class FogBowCloudConnector(CloudConnector):
         resp = requests.request('POST', self.get_full_url('/tokens/'), verify=self.verify_ssl,
                                 headers=headers, data=json.dumps(body))
         if resp.status_code in [200, 201]:
+            self.token = resp.text
             return resp.text
         else:
             self.log_error("Error getting token: %s. %s" % (resp.reason, resp.text))
