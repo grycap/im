@@ -146,9 +146,8 @@ class TestOSTConnector(unittest.TestCase):
             cpu.count=1 and
             memory.size=512m and
             instance_tags='key=value,key1=value2' and
-            net_interface.0.connection = 'net1' and
-            net_interface.0.dns_name = 'test' and
-            net_interface.1.connection = 'net2' and
+            net_interface.1.connection = 'net1' and
+            net_interface.0.connection = 'net2' and
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'ost://server.com/ami-id' and
             disk.0.os.credentials.username = 'user' and
@@ -175,9 +174,11 @@ class TestOSTConnector(unittest.TestCase):
         node_size.name = "small"
         driver.list_sizes.return_value = [node_size]
 
-        net = MagicMock()
-        net.name = "public"
-        driver.ex_list_networks.return_value = [net]
+        net1 = MagicMock()
+        net1.name = "public"
+        net2 = MagicMock()
+        net2.name = "private"
+        driver.ex_list_networks.return_value = [net2, net1]
 
         sg = MagicMock()
         sg.name = "sg"
@@ -199,6 +200,7 @@ class TestOSTConnector(unittest.TestCase):
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+        self.assertEqual(driver.create_node.call_args_list[0][1]['networks'], [net1, net2])
 
         # test with proxy auth data
         auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'proxy': 'proxy',
