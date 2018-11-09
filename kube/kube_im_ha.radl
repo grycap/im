@@ -33,32 +33,10 @@ configure front (
       file: path=/pv state=directory mode=755
     - name: Create dir for the NFS PV MySQL sir
       file: path=/pv/mysql state=directory mode=755
-    - name: Create dir for the NFS PV IM dir
-      file: path=/pv/im state=directory mode=755
+    - name: Create dir for the NFS PV MySQL IM-Web sir
+      file: path=/pv/mysql/im-web state=directory owner=www-data
     - name: Create dir for the NFS PV Log dir
       file: path=/pv/log state=directory mode=755
-    - name: Download im logging.conf
-      get_url: url=http://raw.githubusercontent.com/grycap/im/master/etc/logging.conf dest=/pv/im/logging.conf
-    - name: Download im logging.conf
-      get_url: url=https://raw.githubusercontent.com/grycap/im/master/etc/im.cfg dest=/pv/im/im.cfg
-    - name: Set log data
-      ini_file:
-        path: /pv/im/logging.conf
-        section: handler_fileHandler
-        option: class
-        value: "logging.handlers.SysLogHandler"
-    - name: Set log data
-      ini_file:
-        path: /pv/im/logging.conf
-        section: handler_fileHandler
-        option: args
-        value: "(('im-log', 514),)"
-    - name: Set log data
-      ini_file:
-        path: /pv/im/logging.conf
-        section: formatter_simpleFormatter
-        option: format
-        value: '%(asctime)s - %(hostname)s - %(name)s - %(levelname)s - %(message)s'
     - name: Create auth file dir
       file: path=/etc/kubernetes/pki state=directory mode=755 recurse=yes
     - name: Create auth data file with an admin user
@@ -69,39 +47,16 @@ configure front (
       nfs_mode: 'front'
       nfs_exports: [{path: "/pv", export: "wn*.localdomain(fsid=0,rw,async,no_root_squash,no_subtree_check,insecure)"},
                     {path: "/pv/mysql", export: "wn*.localdomain(rw,async,no_root_squash,no_subtree_check,insecure)"},
-                    {path: "/pv/im", export: "wn*.localdomain(rw,async,no_root_squash,no_subtree_check,insecure)"},
                     {path: "/pv/log", export: "wn*.localdomain(rw,async,no_root_squash,no_subtree_check,insecure)"}]
 
     - role: 'grycap.kubernetes'
       kube_server: 'kubeserver'
       kube_apiserver_options: [{option: "--insecure-port", value: "8080"}, {option: "--token-auth-file", value: "/etc/kubernetes/pki/auth"}]
-      
-   tasks:
-      - name: Generate a Private Key for HAProxy
-        openssl_privatekey:
-          path: /pv/im/server.key
-      - name: Generate a CSR for HAProxy
-        openssl_csr:
-          path: /pv/im/server.csr
-          privatekey_path: /pv/im/server.key
-          common_name: "{{ansible_fqdn}}"
-      - name: Generate a Self Signed OpenSSL certificate for HAProxy
-        openssl_certificate:
-          path: /pv/im/server.crt
-          privatekey_path: /pv/im/server.key
-          csr_path: /pv/im/server.csr
-          provider: selfsigned
-      - name: Merge it in one single file for HAProxy
-        shell: cat /pv/im/server.crt /pv/im/server.key > /pv/im/server.pem creates=/pv/im/server.pem
+      kube_deploy_dashboard: true
 
-      - name: Launch IM in HA mode
-        shell: kubectl create -f http://raw.githubusercontent.com/grycap/im/kube/kube/im-kube-ha.yaml && touch /etc/im-kube-ha creates=im-kube-ha
-        environment:
-          KUBECONFIG: /etc/kubernetes/admin.conf
-        register: result
-        until: result|success
-        retries: 5
-        delay: 5
+   tasks:
+      - name: Download im.db
+        get_url: url=https://github.com/grycap/im-web/raw/master/im.db dest=/pv/mysql/im-web/im.db owner=www-data
 
       - name: Create logrotate file
         copy:
@@ -117,6 +72,18 @@ configure front (
                        copytruncate
                }
 
+#      - name: Launch IM in HA mode
+#        shell: kubectl apply -f http://raw.githubusercontent.com/grycap/im/master/kube/im-deploy-ha.yaml && touch /etc/im-kube-ha creates=im-kube-ha
+#        environment:
+#          KUBECONFIG: /etc/kubernetes/admin.conf
+
+
+#      - name: Launch IM in standalone mode
+#        shell: kubectl create -f http://raw.githubusercontent.com/grycap/im/master/kube/im-deploy.yaml && touch /etc/im-kube-ha creates=im-kube-ha
+#        environment:
+#          KUBECONFIG: /etc/kubernetes/admin.conf
+
+
 @end
 )
 
@@ -130,15 +97,6 @@ configure wn (
     - role: 'grycap.kubernetes'
       kube_type_of_node: 'wn'
       kube_server: 'kubeserver'
-
-   tasks:
-      - local_action: command kubectl label node {{ansible_fqdn}} role=wn
-        environment:
-          KUBECONFIG: /etc/kubernetes/admin.conf
-        register: result
-        until: result|success
-        retries: 5
-        delay: 5
 
 @end
 )
