@@ -75,13 +75,13 @@ configure front (
                }
 
       - name: Launch IM in HA mode
-        shell: kubectl apply -f http://raw.githubusercontent.com/grycap/im/master/kube/im-deploy-ha.yaml && touch /etc/im-kube-ha creates=im-kube-ha
+        shell: kubectl apply -f http://raw.githubusercontent.com/grycap/im/master/kube/im-deploy-ha.yaml
         environment:
           KUBECONFIG: /etc/kubernetes/admin.conf
 
 
 #      - name: Launch IM in standalone mode
-#        shell: kubectl create -f http://raw.githubusercontent.com/grycap/im/master/kube/im-deploy.yaml && touch /etc/im-kube-ha creates=im-kube-ha
+#        shell: kubectl apply -f http://raw.githubusercontent.com/grycap/im/master/kube/im-deploy.yaml
 #        environment:
 #          KUBECONFIG: /etc/kubernetes/admin.conf
 
