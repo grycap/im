@@ -11,25 +11,8 @@ net_interface.1.connection = 'public' and
 net_interface.1.dns_name = 'kubeserverpublic' and
 disk.0.os.name='linux' and
 disk.0.image.url = 'one://ramses.i3m.upv.es/476' and
-disk.1.image.url = 'one://ramses.i3m.upv.es/662' and
-disk.0.os.credentials.username = 'ubuntu' and
-disk.0.os.credentials.password = 'yoyoyo' and
 disk.0.applications contains (name='ansible.modules.grycap.kubernetes') and
 disk.0.applications contains (name='ansible.modules.grycap.nfs')
-)
-
-system ingress (
-cpu.arch='x86_64' and
-cpu.count>=1 and
-memory.size>=1g and
-net_interface.0.connection = 'private' and
-net_interface.0.dns_name = 'wningress' and
-net_interface.1.connection = 'public' and
-net_interface.1.dns_name = 'ingresspublic' and
-disk.0.os.name='linux' and
-disk.0.image.url = 'one://ramses.i3m.upv.es/476' and
-disk.0.os.credentials.username = 'ubuntu' and
-disk.0.os.credentials.password = 'yoyoyo'
 )
 
 system wn (
@@ -39,9 +22,7 @@ memory.size>=2g and
 net_interface.0.connection = 'private' and
 net_interface.0.dns_name = 'wn-#N#' and
 disk.0.os.name='linux' and
-disk.0.image.url = 'one://ramses.i3m.upv.es/476' and
-disk.0.os.credentials.username = 'ubuntu' and
-disk.0.os.credentials.password = 'yoyoyo'
+disk.0.image.url = 'one://ramses.i3m.upv.es/476'
 )
 
 configure front (
@@ -57,9 +38,9 @@ configure front (
     - name: Create dir for the NFS PV Log dir
       file: path=/pv/log state=directory mode=755
     - name: Download im logging.conf
-      get_url: url=http://raw.githubusercontent.com/grycap/im/master_1_6_X/etc/logging.conf dest=/pv/im/logging.conf
+      get_url: url=http://raw.githubusercontent.com/grycap/im/master/etc/logging.conf dest=/pv/im/logging.conf
     - name: Download im logging.conf
-      get_url: url=https://raw.githubusercontent.com/grycap/im/master_1_6_X/etc/im.cfg dest=/pv/im/im.cfg
+      get_url: url=https://raw.githubusercontent.com/grycap/im/master/etc/im.cfg dest=/pv/im/im.cfg
     - name: Set log data
       ini_file:
         path: /pv/im/logging.conf
@@ -162,30 +143,5 @@ configure wn (
 @end
 )
 
-configure ingress (
-@begin
----
- - roles:
-    - role: 'grycap.nfs'
-      nfs_mode: 'wn'
-
-    - role: 'grycap.kubernetes'
-      kube_type_of_node: 'wn'
-      kube_server: 'kubeserver'
-
-   tasks:
-      - local_action: command kubectl label node wningress.localdomain role=ingress-controller
-        environment:
-          KUBECONFIG: /etc/kubernetes/admin.conf
-        register: result
-        until: result|success
-        retries: 5
-        delay: 5
-
-@end
-)
-
-
 deploy front 1
-deploy ingress 1
 deploy wn 1
