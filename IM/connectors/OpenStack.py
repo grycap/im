@@ -520,51 +520,59 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         if get_subnets:
             net_map = self.map_networks(radl, ost_nets)
-            i = 0
-            while radl.systems[0].getValue("net_interface." + str(i) + ".connection"):
-                net_name = radl.systems[0].getValue("net_interface." + str(i) + ".connection")
-                network = radl.get_network_by_id(net_name)
-                if net_map[i]:
-                    network.setValue('provider_id', net_map[i].name)
-                    if net_map[i].name not in pool_names:
-                        nets.append(net_map[i])
-                i += 1
+
+            # First set the public ones
+            for public in [True, False]:
+                i = 0
+                while radl.systems[0].getValue("net_interface." + str(i) + ".connection"):
+                    net_name = radl.systems[0].getValue("net_interface." + str(i) + ".connection")
+                    network = radl.get_network_by_id(net_name)
+
+                    if public == network.isPublic():
+                        if net_map[i]:
+                            network.setValue('provider_id', net_map[i].name)
+                            if net_map[i].name not in pool_names:
+                                nets.append(net_map[i])
+                    i += 1
         else:
             # TO BE DEPRECATED
             num_nets = radl.systems[0].getNumNetworkIfaces()
             used_nets = []
 
-            i = 0
-            while radl.systems[0].getValue("net_interface." + str(i) + ".connection"):
-                net_name = radl.systems[0].getValue("net_interface." + str(i) + ".connection")
-                network = radl.get_network_by_id(net_name)
-                net_provider_id = network.getValue('provider_id')
+            # First set the public ones
+            for public in [True, False]:
+                i = 0
+                while radl.systems[0].getValue("net_interface." + str(i) + ".connection"):
+                    net_name = radl.systems[0].getValue("net_interface." + str(i) + ".connection")
+                    network = radl.get_network_by_id(net_name)
+                    net_provider_id = network.getValue('provider_id')
 
-                # if the network is public, and the VM has another interface and the
-                # site has IP pools, we do not need to assign a network to this interface
-                # it will be assigned with a floating IP
-                if network.isPublic() and num_nets > 1 and pool_names:
-                    self.log_info("Public IP to be assigned with a floating IP. Do not set a net.")
-                else:
-                    # First check if the user has specified a provider ID
-                    if net_provider_id:
-                        for net in ost_nets:
-                            if net.name == net_provider_id:
-                                if net.name not in used_nets:
-                                    nets.append(net)
-                                    used_nets.append(net.name)
-                                break
-                    else:
-                        # if not select the first not used net
-                        for net in ost_nets:
-                            # do not use nets that are IP pools
-                            if net.name not in pool_names:
-                                if net.name not in used_nets:
-                                    nets.append(net)
-                                    used_nets.append(net.name)
-                                    break
+                    if public == network.isPublic():
+                        # if the network is public, and the VM has another interface and the
+                        # site has IP pools, we do not need to assign a network to this interface
+                        # it will be assigned with a floating IP
+                        if network.isPublic() and num_nets > 1 and pool_names:
+                            self.log_info("Public IP to be assigned with a floating IP. Do not set a net.")
+                        else:
+                            # First check if the user has specified a provider ID
+                            if net_provider_id:
+                                for net in ost_nets:
+                                    if net.name == net_provider_id:
+                                        if net.name not in used_nets:
+                                            nets.append(net)
+                                            used_nets.append(net.name)
+                                        break
+                            else:
+                                # if not select the first not used net
+                                for net in ost_nets:
+                                    # do not use nets that are IP pools
+                                    if net.name not in pool_names:
+                                        if net.name not in used_nets:
+                                            nets.append(net)
+                                            used_nets.append(net.name)
+                                            break
 
-                i += 1
+                    i += 1
 
         return nets
 
