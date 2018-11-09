@@ -31,9 +31,11 @@ configure front (
  - pre_tasks:
     - name: Create dir for the NFS PV Top dir
       file: path=/pv state=directory mode=755
-    - name: Create dir for the NFS PV MySQL sir
+    - name: Create dir for the im NFS PV Top dir
+      file: path=/pv/im state=directory mode=755
+    - name: Create dir for the NFS PV MySQL dir
       file: path=/pv/mysql state=directory mode=755
-    - name: Create dir for the NFS PV MySQL IM-Web sir
+    - name: Create dir for the NFS PV MySQL IM-Web dir
       file: path=/pv/mysql/im-web state=directory owner=www-data
     - name: Create dir for the NFS PV Log dir
       file: path=/pv/log state=directory mode=755
