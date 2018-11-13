@@ -273,7 +273,7 @@ machine.  The supported features are:
    * ``<fedcloud_endpoint_url>/<image_id>``, for FedCloud OCCI connector.
    * ``appdb://<site_name>/<apc_name>?<vo_name>``, for FedCloud OCCI connector using AppDB info (from ver. 1.6.0).
    * ``docker://<docker_image>``, for Docker images.
-   * ``fbw://<fogbow_image>``, for FogBow images.
+   * ``fbw://<fns_server>/<image-id>``, for FogBow images.
 
    In case of using a list of URLs, the IM will select the final image based on
    the credentials provided by the user. 
