@@ -394,7 +394,11 @@ In case of the rest of disks you can specify the requirements of the data disk t
 
 The fields fstype and mount_path are optional and they enable the IM (through Ansible) to format and mount
 the disk in the specified path. The device field is optional in most of the connectors but some of them 
-require it to correctly attach the disk to the VM. 
+require it to correctly attach the disk to the VM.
+
+You can also specify an image to be attached to the VM::
+
+	disk.1.image.url = 'one://someserver.com/456' and
 
 Parametric Values
 -----------------
@@ -530,6 +534,10 @@ documentation. In the particular case of the "micafer.hadoop" role is the follow
    
    @end
    )
+
+You can request an specific version/tag/branch of a galaxy role using the following format::
+
+	disk.0.applications contains (name="ansible.modules.micafer.hadoop,v1.0.0")
 
 Disable Contextualization
 -------------------------
@@ -684,8 +692,8 @@ The next RADL deploys a single node that will be configured using Cloud-Init ins
    )
 
 It depends on the Cloud provider to process correctly the cloud-init recipes of the configure section.
-In some cases (EGI FedCloud) it uses the cloud-init language (see `Cloud-Init documentation <http://cloudinit.readthedocs.org/>`_).
-In other cases as Amazon EC2 or OpenStack it must be a script to be executed in the instance.   
+More information about Cloud-Init in `Cloud-Init documentation <http://cloudinit.readthedocs.org/>`_).
+
 
 JSON Version
 ------------
