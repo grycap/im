@@ -16,6 +16,8 @@ RUN pip3 install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-c
 
 # Install IM
 RUN apt-get update && apt-get install --no-install-recommends -y gcc libssl-dev libffi-dev libsqlite3-dev && \
+     pip install pycrypto && \
+     cd /tmp && git clone https://github.com/indigo-dc/tosca-parser && pip install /tmp/tosca-parser && \
      pip3 install IM==1.7.6 && \
      apt-get remove -y gcc libssl-dev libffi-dev libsqlite3-dev python-dev python-pip && \
      apt-get autoremove -y && \
