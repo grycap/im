@@ -12,13 +12,12 @@ RUN pip install setuptools pip --upgrade -I
 RUN pip install pyOpenSSL --upgrade -I
 
 # Install IM
-RUN apt-get update && apt-get install --no-install-recommends -y git gcc libmysqld-dev libssl-dev libffi-dev libsqlite3-dev libmysqlclient20 && \
+RUN apt-get update && apt-get install --no-install-recommends -y gcc libmysqld-dev libssl-dev libffi-dev libsqlite3-dev libmysqlclient20 && \
      pip install pycrypto && \
      pip install MySQL-python && \
-     # Install master version until version with OpenStack changes are released
-     cd /tmp && git clone https://github.com/apache/libcloud && cd libcloud && pip install /tmp/libcloud && \
+     cd /tmp && git clone https://github.com/indigo-dc/tosca-parser && pip install /tmp/tosca-parser && \
      pip install IM==1.7.6 && \
-     apt-get purge -y git gcc libmysqld-dev libssl-dev libffi-dev libsqlite3-dev python-dev python-pip && \
+     apt-get purge -y gcc libmysqld-dev libssl-dev libffi-dev libsqlite3-dev python-dev python-pip && \
      apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && rm -rf ~/.cache/
 
 # Install pip optional libraries
