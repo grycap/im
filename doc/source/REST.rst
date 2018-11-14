@@ -21,8 +21,8 @@ Next tables summaries the resources and the HTTP methods available.
 | **POST**    | | **Create** a new infrastructure  | | **Create** a new virtual machine | | **Alter** VM properties based on        |
 |             | | based on the RADL posted         | | based on the RADL posted.        | | then RADL posted                        |
 +-------------+------------------------------------+------------------------------------+-------------------------------------------+
-| **PUT**     |                                    | | **Import** an infrastructure     | | **Modify** the virtual machine based on |
-|             |                                    | | from another IM instance         | | the RADL posted.                        |
+| **PUT**     | | **Import** an infrastructure     |                                    | | **Modify** the virtual machine based on |
+|             | | from another IM instance         |                                    | | the RADL posted.                        |
 +-------------+------------------------------------+------------------------------------+-------------------------------------------+
 | **DELETE**  |                                    | | **Undeploy** all the virtual     | | **Undeploy** the virtual machine.       |
 |             |                                    | | machines in the infrastructure.  |                                           |
