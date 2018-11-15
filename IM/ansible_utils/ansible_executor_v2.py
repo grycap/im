@@ -25,7 +25,7 @@ import logging
 import sys
 import tempfile
 import shutil
-import time
+from datetime import datetime
 
 from ansible import constants as C
 from ansible.plugins.callback import CallbackBase
@@ -218,7 +218,7 @@ class AnsibleCallbacks(CallbackBase):
     def v2_playbook_on_task_start(self, task, is_conditional):
         self._display.banner("TASK [%s]" % task.get_name().strip())
         # Display current time
-        self._display.display("%s" % time.strftime('%A %d %B %Y  %H:%M:%S %z'))
+        self._display.display("%s" % datetime.now().strftime('%A %d %B %Y  %H:%M:%S.%f '))
 
         if self._display.verbosity > 2:
             path = task.get_path()

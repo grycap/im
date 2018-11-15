@@ -39,7 +39,8 @@ azure-mgmt-dns
 azure-storage
 pywinrm
 MySQL-python
-pyVmomi'''
+pyVmomi
+defusedxml'''
         tox_envs = """
 [testenv:pep8]
 commands = pep8 --max-line-length=120 --ignore=E402 --exclude=doc,.tox .

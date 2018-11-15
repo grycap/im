@@ -32,12 +32,10 @@ RUN wget https://github.com/grycap/RADL/releases/download/v1.1.1/python-radl_1.1
     apt update && apt install -f -y && \
     rm -rf /var/lib/apt/lists/*
 
-RUN dpkg -r --force-depends python-libcloud
-
-# Install my version until PR #1215 is accepted
-RUN apt-get update && apt-get install --no-install-recommends -y git python-pip && \
-     cd /tmp && git clone https://github.com/apache/libcloud && cd libcloud && pip install /tmp/libcloud && \
-     apt-get purge -y git python-pip && \
+# Install last PIP version of libcloud
+RUN apt-get update && apt-get install --no-install-recommends -y python-pip && \
+     pip install apache-libcloud && \
+     apt-get purge -y python-pip && \
      apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && rm -rf ~/.cache/ && \
      dpkg -r --force-depends python-libcloud
 
