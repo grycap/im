@@ -21,6 +21,8 @@ except ImportError:
     from xmlrpc.client import ServerProxy
 
 import time
+import defusedxml.xmlrpc
+defusedxml.xmlrpc.monkey_patch()
 
 from distutils.version import LooseVersion
 from IM.xmlobject import XMLObject
