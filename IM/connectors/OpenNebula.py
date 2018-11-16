@@ -14,12 +14,15 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import hashlib
+import defusedxml.xmlrpc
+defusedxml.xmlrpc.monkey_patch()
+
 try:
     from xmlrpclib import ServerProxy
 except ImportError:
     from xmlrpc.client import ServerProxy
 
+import hashlib
 import time
 
 from distutils.version import LooseVersion
