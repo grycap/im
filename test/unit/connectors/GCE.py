@@ -140,7 +140,6 @@ class TestGCEConnector(unittest.TestCase):
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'gce://us-central1-a/centos-6' and
             disk.0.os.credentials.username = 'user' and
-            disks.free_size >= 100g and
             disk.1.size=1GB and
             disk.1.device='hdb' and
             disk.1.mount_path='/mnt/path'
@@ -160,7 +159,7 @@ class TestGCEConnector(unittest.TestCase):
         node_size = MagicMock()
         node_size.ram = 512
         node_size.price = 1
-        node_size.disk = 100
+        node_size.disk = 1
         node_size.vcpus = 1
         node_size.name = "small"
         node_size.extra = {'guestCpus': 1}
