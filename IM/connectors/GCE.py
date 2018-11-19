@@ -255,6 +255,12 @@ class GCECloudConnector(CloudConnector):
             memory = radl.getFeature('memory.size').getValue('M')
             memory_op = radl.getFeature('memory.size').getLogOperator()
 
+        disk_free = 0
+        disk_free_op = ">="
+        if radl.getValue('disks.free_size'):
+            disk_free = radl.getFeature('disks.free_size').getValue('G')
+            disk_free_op = radl.getFeature('disks.free_size').getLogOperator()
+
         res = None
         for size in sizes:
             # get the node size with the lowest price and memory (in the case
@@ -266,6 +272,7 @@ class GCECloudConnector(CloudConnector):
                 if 'guestCpus' in size.extra and size.extra['guestCpus']:
                     str_compare = "size.extra['guestCpus'] " + cpu_op + " cpu and "
                 str_compare += "size.ram " + memory_op + " memory"
+                str_compare += " and size.disk " + disk_free_op + " disk_free"
 
                 if eval(str_compare):
                     if not instance_type_name or size.name == instance_type_name:
