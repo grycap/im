@@ -260,7 +260,7 @@ class GCECloudConnector(CloudConnector):
             # get the node size with the lowest price and memory (in the case
             # of the price is not set)
             if size.price is None:
-                size.price = 0
+                size.price = 9999
             if res is None or (size.price <= res.price or size.ram <= res.ram):
                 str_compare = ""
                 if 'guestCpus' in size.extra and size.extra['guestCpus']:
