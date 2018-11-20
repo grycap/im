@@ -1318,9 +1318,12 @@ class EC2CloudConnector(CloudConnector):
         """
         Get all the SGs where the VM is included
         """
+        sg_names = ["im-%s" % str(vm.inf.id)]
+        for net in vm.inf.radl.networks:
+            sg_names.append("im-%s-%s" % (str(vm.inf.id), net.id))
+
         sgs = []
-        for net in vm.info.networks:
-            sg_name = "im-%s-%s" % (str(vm.inf.id), net.id)
+        for sg_name in sg_names:
             try:
                 sgs.extend(conn.get_all_security_groups(filters={'group-name': sg_name}))
             except Exception:
