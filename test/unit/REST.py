@@ -159,6 +159,7 @@ class TestREST(unittest.TestCase):
         tosca = MagicMock()
         inf.extra_info = {"TOSCA": tosca}
         tosca.get_outputs.return_value = "outputs"
+        tosca.serialize.return_value = "tosca"
 
         res = RESTGetInfrastructureProperty("1", "state")
         self.assertEqual(json.loads(res)["state"]["state"], "running")
@@ -176,6 +177,9 @@ class TestREST(unittest.TestCase):
 
         res = RESTGetInfrastructureProperty("1", "radl")
         self.assertEqual(res, "radl")
+
+        res = RESTGetInfrastructureProperty("1", "tosca")
+        self.assertEqual(res, "tosca")
 
         GetInfrastructureRADL.side_effect = DeletedInfrastructureException()
         res = RESTGetInfrastructureProperty("1", "radl")
