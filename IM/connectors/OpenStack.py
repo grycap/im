@@ -984,9 +984,11 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         """
         Delete the SG of this inf
         """
+        sg_names = ["im-%s" % str(inf.id)]
         for net in inf.radl.networks:
-            sg_name = "im-%s-%s" % (str(inf.id), net.id)
+            sg_names.append("im-%s-%s" % (str(inf.id), net.id))
 
+        for sg_name in sg_names:
             # wait it to terminate and then remove the SG
             cont = 0
             deleted = False

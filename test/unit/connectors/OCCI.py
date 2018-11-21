@@ -112,7 +112,8 @@ class TestOCCIConnector(unittest.TestCase):
         self.assertEqual(len(concrete), 1)
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
-    def test_15_concrete_appdb(self):
+    @patch('requests.request')
+    def test_15_concrete_appdb(self, requests):
         radl_data = """
             network net ()
             system test (
@@ -133,11 +134,12 @@ class TestOCCIConnector(unittest.TestCase):
         occi_cloud = self.get_occi_cloud()
         occi_cloud.cloud.server = "carach5.ics.muni.cz"
 
+        requests.side_effect = self.get_response
         concrete = occi_cloud.concreteSystem(radl_system, auth)
         self.assertEqual(len(concrete), 1)
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
-    def get_response(self, method, url, verify, cert, headers, data):
+    def get_response(self, method, url, verify, cert=None, headers=None, data=None):
         resp = MagicMock()
         parts = uriparse(url)
         url = parts[2]
@@ -173,6 +175,31 @@ class TestOCCIConnector(unittest.TestCase):
                 resp.headers = {'X-Subject-Token': 'token1'}
             elif url.endswith("/link/storagelink/compute_10_disk_1"):
                 resp.status_code = 404
+            elif url == "/rest/1.0/va_providers":
+                resp.status_code = 200
+                resp.text = """<appdb:appdb>
+                                <virtualization:provider id="4454G0" in_production="true">
+                                    <provider:name>CESNET-MetaCloud</provider:name>
+                                </virtualization:provider>
+                                <virtualization:provider id="id" in_production="true">
+                                    <provider:name>some</provider:name>
+                                </virtualization:provider>
+                                </appdb:appdb>"""
+            elif url == "/rest/1.0/va_providers/4454G0":
+                resp.status_code = 200
+                resp.text = """<appdb:appdb>
+                                <virtualization:provider id="4454G0" in_production="true">
+                                <provider:endpoint_url>https://carach5.ics.muni.cz:11443</provider:endpoint_url>
+                                <provider:image
+                                    va_provider_image_id="http://url/os_tpl#image_id"
+                                    appcname="egi.docker.ubuntu.16.04"
+                                    voname="fedcloud.egi.eu"/>
+                                <provider:image
+                                    va_provider_image_id="http://url/os_tpl#image_id2"
+                                    appcname="egi.ubuntu.16.04"
+                                    voname="fedcloud.egi.eu"/>
+                                </virtualization:provider>
+                                </appdb:appdb>"""
         elif method == "POST":
             if url == "/compute/":
                 if self.return_error:

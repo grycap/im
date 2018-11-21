@@ -375,6 +375,18 @@ def RESTGetInfrastructureProperty(infid=None, prop=None):
             res = InfrastructureManager.GetInfrastructureContMsg(infid, auth, headeronly)
         elif prop == "radl":
             res = InfrastructureManager.GetInfrastructureRADL(infid, auth)
+        elif prop == "tosca":
+            accept = get_media_type('Accept')
+            if accept and "application/json" not in accept and "*/*" not in accept and "application/*" not in accept:
+                return return_error(415, "Unsupported Accept Media Types: %s" % accept)
+            bottle.response.content_type = "application/json"
+            auth = InfrastructureManager.check_auth_data(auth)
+            sel_inf = InfrastructureManager.get_infrastructure(infid, auth)
+            if "TOSCA" in sel_inf.extra_info:
+                res = sel_inf.extra_info["TOSCA"].serialize()
+            else:
+                bottle.abort(
+                    403, "'tosca' infrastructure property is not valid in this infrastructure")
         elif prop == "state":
             accept = get_media_type('Accept')
             if accept and "application/json" not in accept and "*/*" not in accept and "application/*" not in accept:
