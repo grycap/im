@@ -476,7 +476,7 @@ class CtxtAgent():
             if galaxy_dependencies:
                 now = str(int(time.time() * 100))
                 filename = "/tmp/galaxy_roles_%s.yml" % now
-                yaml_deps = yaml.dump(galaxy_dependencies, indent=2)
+                yaml_deps = yaml.safe_dump(galaxy_dependencies, indent=2)
                 CtxtAgent.logger.debug("Galaxy depencies file: %s" % yaml_deps)
                 task = {"copy": 'dest=%s content="%s"' % (filename, yaml_deps)}
                 task["name"] = "Create YAML file to install the roles with ansible-galaxy"
@@ -488,7 +488,7 @@ class CtxtAgent():
                 yaml_data[0]['tasks'].append(task)
 
             with open(new_playbook, 'w+') as f:
-                yaml.dump(yaml_data, f)
+                yaml.safe_dump(yaml_data, f)
 
         return new_playbook
 
@@ -578,12 +578,15 @@ class CtxtAgent():
                         CtxtAgent.logger.info("Remote access to VM: " + ctxt_vm['ip'] + " Open!")
 
                     # The basic task uses the credentials of VM stored in ctxt_vm
+                    change_creds = False
                     pk_file = None
                     if cred_used == "pk_file":
                         pk_file = CtxtAgent.PK_FILE
+                    elif cred_used == "new":
+                        change_creds = True
 
                     # First remove requiretty in the node
-                    if ctxt_vm['os'] != "windows":
+                    if ctxt_vm['os'] != "windows" and not change_creds:
                         success = CtxtAgent.removeRequiretty(ctxt_vm, pk_file)
                         if success:
                             CtxtAgent.logger.info("Requiretty successfully removed")
@@ -593,8 +596,7 @@ class CtxtAgent():
                     # Check if we must change user credentials
                     # Do not change it on the master. It must be changed only by
                     # the ConfManager
-                    change_creds = False
-                    if not ctxt_vm['master']:
+                    if not ctxt_vm['master'] and not change_creds:
                         change_creds = CtxtAgent.changeVMCredentials(ctxt_vm, pk_file)
                         res_data['CHANGE_CREDS'] = change_creds
 
