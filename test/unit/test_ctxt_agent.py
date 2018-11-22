@@ -18,9 +18,7 @@
 
 import unittest
 import sys
-import os
 import logging
-import logging.config
 import json
 try:
     from StringIO import StringIO

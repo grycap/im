@@ -19,7 +19,7 @@ import uuid
 import os.path
 
 try:
-    from libcloud.compute.base import NodeImage, NodeAuthSSHKey, StorageVolume
+    from libcloud.compute.base import NodeImage, NodeAuthSSHKey
     from libcloud.compute.types import Provider, NodeState
     from libcloud.compute.providers import get_driver
 except Exception as ex:
@@ -367,15 +367,16 @@ class LibCloudCloudConnector(CloudConnector):
         """
 
         vm.setIps(node.public_ips, node.private_ips)
-        self.manage_elastic_ips(vm, node)
+        self.manage_elastic_ips(vm, node, node.public_ips)
 
-    def manage_elastic_ips(self, vm, node):
+    def manage_elastic_ips(self, vm, node, public_ips):
         """
         Manage the elastic IPs in case of EC2 and OpenStack
 
         Arguments:
            - vm(:py:class:`IM.VirtualMachine`): VM information.
            - node(:py:class:`libcloud.compute.base.Node`): node object.
+           - public_ips(list of str): list of Public IPs of the node
         """
         if node.driver.name in ["Amazon EC2", "OpenStack"]:
             n = 0
@@ -391,11 +392,11 @@ class LibCloudCloudConnector(CloudConnector):
             for num, ip in enumerate(sorted(requested_ips, reverse=True)):
                 if ip:
                     # It is a fixed IP
-                    if ip not in node.public_ips:
+                    if ip not in public_ips:
                         # It has not been created yet, do it
                         self.add_elastic_ip(vm, node, ip)
                 else:
-                    if num >= len(node.public_ips):
+                    if num >= len(public_ips):
                         self.add_elastic_ip(vm, node)
 
     def add_elastic_ip(self, vm, node, fixed_ip=None):

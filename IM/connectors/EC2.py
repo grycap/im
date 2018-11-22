@@ -19,7 +19,6 @@ import base64
 import os
 import uuid
 import requests
-import json
 
 try:
     import boto.ec2

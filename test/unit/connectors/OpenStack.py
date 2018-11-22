@@ -20,7 +20,6 @@ import sys
 import unittest
 import os
 import logging
-import logging.config
 try:
     from StringIO import StringIO
 except ImportError:
@@ -34,7 +33,6 @@ from radl import radl_parse
 from IM.VirtualMachine import VirtualMachine
 from IM.InfrastructureInfo import InfrastructureInfo
 from IM.connectors.OpenStack import OpenStackCloudConnector
-from IM.config import Config
 from mock import patch, MagicMock, call
 
 

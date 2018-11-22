@@ -721,6 +721,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         Arguments:
            - vm(:py:class:`IM.VirtualMachine`): VM information.
            - node(:py:class:`libcloud.compute.base.Node`): node object.
+           - public_ips(list of str): list of Public IPs of the node
         """
         n = 0
         requested_ips = []
@@ -741,11 +742,11 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 if ip not in public_ips:
                     # It has not been created yet, do it
                     self.log_info("Asking for a fixed ip: %s." % ip)
-                    success, msg = self.add_elastic_ip(vm, node, ip, pool_name)
+                    success, msg = self.add_elastic_ip_from_pool(vm, node, ip, pool_name)
             else:
                 if num >= len(public_ips):
                     self.log_info("Asking for public IP %d and there are %d" % (num + 1, len(public_ips)))
-                    success, msg = self.add_elastic_ip(vm, node, None, pool_name)
+                    success, msg = self.add_elastic_ip_from_pool(vm, node, None, pool_name)
 
             if not success:
                 self.add_public_ip_count += 1
@@ -770,7 +771,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         return False, "No Float IP free found."
 
-    def add_elastic_ip(self, vm, node, fixed_ip=None, pool_name=None):
+    def add_elastic_ip_from_pool(self, vm, node, fixed_ip=None, pool_name=None):
         """
         Add an elastic IP to an instance
 
@@ -778,6 +779,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
            - vm(:py:class:`IM.VirtualMachine`): VM information.
            - node(:py:class:`libcloud.compute.base.Node`): node object to attach the volumes.
            - fixed_ip(str, optional): specifies a fixed IP to add to the instance.
+           - pool_name(str, optional): specifies a pool to get the elastic IP
         Returns: a :py:class:`OpenStack_1_1_FloatingIpAddress` added or None if some problem occur.
         """
         try:

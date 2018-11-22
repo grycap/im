@@ -29,11 +29,6 @@ import json
 sys.path.append("..")
 sys.path.append(".")
 
-from IM.uriparse import uriparse
-from IM.VirtualMachine import VirtualMachine
-from radl import radl_parse
-from IM import __version__ as version
-
 RADL_ADD = "network publica\nnetwork privada\nsystem wn\ndeploy wn 1"
 TESTS_PATH = os.path.dirname(os.path.realpath(__file__))
 RADL_FILE = TESTS_PATH + '/load-test.radl'
