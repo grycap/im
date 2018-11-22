@@ -178,6 +178,9 @@ class TestREST(unittest.TestCase):
         res = RESTGetInfrastructureProperty("1", "radl")
         self.assertEqual(res, "radl")
 
+        res = RESTGetInfrastructureProperty("1", "outputs")
+        self.assertEqual(res, '{"outputs": "outputs"}')
+
         res = RESTGetInfrastructureProperty("1", "tosca")
         self.assertEqual(res, "tosca")
 
