@@ -450,3 +450,13 @@ IM 1.7.6:
     * Change FogBow connector to new APIs.
     * Use merge_how option in cloud-init.
     * Fix error VMS with Public IP cannot reach each other.
+    * Enable to return TOSCA data with REST API: #719
+    * Improve GCE conn instance type selection: #717
+    * Order network in OpenStack conn to set public first:#710
+    * IM is not mounting a disk in case of setting disk.X.image.url: #705
+    * Error in ctxt process: #703
+    * Return off in case of 404 message in OCCI: #694
+    * Simplify Ansible API code: #680
+    * Update Azure conn to new Auth methods: #589
+    * Enable to open ports in SG in private nets in TOSCA: #687
+    * Enable to link a VM with an existing disk in Azure conn: #590
