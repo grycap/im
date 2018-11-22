@@ -3,9 +3,6 @@ import os
 import argparse
 import sys
 
-import requests
-from requests.exceptions import ConnectionError
-
 import logging
 from logging.handlers import RotatingFileHandler
 

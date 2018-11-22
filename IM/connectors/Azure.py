@@ -27,7 +27,6 @@ from IM.config import Config
 try:
     from azure.mgmt.resource import ResourceManagementClient
     from azure.mgmt.storage import StorageManagementClient
-    from azure.storage.blob import BlockBlobService
     from azure.mgmt.compute import ComputeManagementClient
     from azure.mgmt.network import NetworkManagementClient
     from azure.mgmt.dns import DnsManagementClient

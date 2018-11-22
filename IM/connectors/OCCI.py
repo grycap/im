@@ -26,11 +26,10 @@ import json
 import requests
 from netaddr import IPNetwork, IPAddress
 import xmltodict
-import yaml
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
-from radl.radl import Feature, network
+from radl.radl import Feature
 from IM.config import Config
 
 

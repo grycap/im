@@ -35,8 +35,6 @@ from radl import radl_parse
 from radl.radl import Feature, RADL
 from radl.radl_json import dump_radl as dump_radl_json
 
-from IM.config import Config
-from IM.VirtualMachine import VirtualMachine
 from IM.openid.JWT import JWT
 from IM.openid.OpenIDClient import OpenIDClient
 
@@ -764,14 +762,8 @@ class InfrastructureManager:
         else:
             radl = radl_parse.parse_radl(radl_data)
 
-        exception = None
-        try:
-            (success, alter_res) = vm.alter(radl, auth)
-        except Exception as e:
-            exception = e
+        (success, alter_res) = vm.alter(radl, auth)
 
-        if exception:
-            raise exception
         if not success:
             InfrastructureManager.logger.warn(
                 "Inf ID: " + str(inf_id) + ": " +
