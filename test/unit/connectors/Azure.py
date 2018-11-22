@@ -416,11 +416,10 @@ class TestAzureConnector(unittest.TestCase):
         self.assertTrue(success, msg="ERROR: modifying VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
-    @patch('IM.connectors.Azure.BlockBlobService')
     @patch('IM.connectors.Azure.StorageManagementClient')
     @patch('IM.connectors.Azure.ResourceManagementClient')
     @patch('IM.connectors.Azure.UserPassCredentials')
-    def test_60_finalize(self, credentials, resource_client, storage_client, blob):
+    def test_60_finalize(self, credentials, resource_client, storage_client):
         auth = Authentication([{'id': 'azure', 'type': 'Azure', 'subscription_id': 'subscription_id',
                                 'username': 'user', 'password': 'password'}])
         azure_cloud = self.get_azure_cloud()

@@ -33,7 +33,7 @@ from IM.auth import Authentication
 from radl import radl_parse
 from IM.VirtualMachine import VirtualMachine
 from IM.InfrastructureInfo import InfrastructureInfo
-from IM.connectors.CloudStack import CloudStackCloudConnector 
+from IM.connectors.CloudStack import CloudStackCloudConnector
 from mock import patch, MagicMock
 
 
