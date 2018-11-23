@@ -18,16 +18,10 @@
 
 import sys
 import unittest
-import os
-import logging
-import logging.config
-try:
-    from StringIO import StringIO
-except ImportError:
-    from io import StringIO
 
 sys.path.append(".")
 sys.path.append("..")
+from .CloudConn import TestCloudConnectorBase
 from IM.CloudInfo import CloudInfo
 from IM.auth import Authentication
 from radl import radl_parse
@@ -37,39 +31,10 @@ from IM.connectors.EC2 import EC2CloudConnector
 from mock import patch, MagicMock, call
 
 
-def read_file_as_string(file_name):
-    tests_path = os.path.dirname(os.path.abspath(__file__))
-    abs_file_path = os.path.join(tests_path, file_name)
-    return open(abs_file_path, 'r').read()
-
-
-class TestEC2Connector(unittest.TestCase):
+class TestEC2Connector(TestCloudConnectorBase):
     """
     Class to test the IM connectors
     """
-
-    def setUp(self):
-        self.log = StringIO()
-        self.handler = logging.StreamHandler(self.log)
-        formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        self.handler.setFormatter(formatter)
-
-        logging.RootLogger.propagate = 0
-        logging.root.setLevel(logging.ERROR)
-
-        logger = logging.getLogger('CloudConnector')
-        logger.setLevel(logging.DEBUG)
-        logger.propagate = 0
-        for handler in logger.handlers:
-            logger.removeHandler(handler)
-        logger.addHandler(self.handler)
-
-    def tearDown(self):
-        self.handler.flush()
-        self.log.close()
-        self.log = StringIO()
-        self.handler.close()
 
     @staticmethod
     def get_ec2_cloud():

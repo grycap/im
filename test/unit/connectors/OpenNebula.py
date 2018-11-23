@@ -18,16 +18,10 @@
 
 import sys
 import unittest
-import os
-import logging
-import logging.config
-try:
-    from StringIO import StringIO
-except ImportError:
-    from io import StringIO
 
 sys.path.append(".")
 sys.path.append("..")
+from .CloudConn import TestCloudConnectorBase
 from IM.CloudInfo import CloudInfo
 from IM.auth import Authentication
 from radl import radl_parse
@@ -37,39 +31,10 @@ from IM.connectors.OpenNebula import OpenNebulaCloudConnector
 from mock import patch, MagicMock, call
 
 
-def read_file_as_string(file_name):
-    tests_path = os.path.dirname(os.path.abspath(__file__))
-    abs_file_path = os.path.join(tests_path, file_name)
-    return open(abs_file_path, 'r').read()
-
-
-class TestONEConnector(unittest.TestCase):
+class TestONEConnector(TestCloudConnectorBase):
     """
     Class to test the IM connectors
     """
-
-    def setUp(self):
-        self.log = StringIO()
-        self.handler = logging.StreamHandler(self.log)
-        formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        self.handler.setFormatter(formatter)
-
-        logging.RootLogger.propagate = 0
-        logging.root.setLevel(logging.ERROR)
-
-        logger = logging.getLogger('CloudConnector')
-        logger.setLevel(logging.DEBUG)
-        logger.propagate = 0
-        for handler in logger.handlers:
-            logger.removeHandler(handler)
-        logger.addHandler(self.handler)
-
-    def tearDown(self):
-        self.handler.flush()
-        self.log.close()
-        self.log = StringIO()
-        self.handler.close()
 
     @staticmethod
     def get_one_cloud():
@@ -155,8 +120,8 @@ class TestONEConnector(unittest.TestCase):
 
         one_server = MagicMock()
         one_server.one.vm.allocate.return_value = (True, "1", 0)
-        one_server.one.vnpool.info.return_value = (True, read_file_as_string("files/nets.xml"), 0)
-        one_server.one.secgrouppool.info.return_value = (True, read_file_as_string("files/sgs.xml"), 0)
+        one_server.one.vnpool.info.return_value = (True, self.read_file_as_string("files/nets.xml"), 0)
+        one_server.one.secgrouppool.info.return_value = (True, self.read_file_as_string("files/sgs.xml"), 0)
         one_server.one.secgroup.allocate.return_value = (True, 1, 0)
         server_proxy.return_value = one_server
 
@@ -206,7 +171,7 @@ class TestONEConnector(unittest.TestCase):
         vm = VirtualMachine(inf, "1", one_cloud.cloud, radl, radl, one_cloud, 1)
 
         one_server = MagicMock()
-        one_server.one.vm.info.return_value = (True, read_file_as_string("files/vm_info.xml"), 0)
+        one_server.one.vm.info.return_value = (True, self.read_file_as_string("files/vm_info.xml"), 0)
         server_proxy.return_value = one_server
 
         success, vm = one_cloud.updateVMInfo(vm, auth)
@@ -290,7 +255,7 @@ class TestONEConnector(unittest.TestCase):
         one_server = MagicMock()
         one_server.one.vm.action.return_value = (True, "", 0)
         one_server.one.vm.resize.return_value = (True, "", 0)
-        one_server.one.vm.info.return_value = (True, read_file_as_string("files/vm_info_off.xml"), 0)
+        one_server.one.vm.info.return_value = (True, self.read_file_as_string("files/vm_info_off.xml"), 0)
         one_server.one.vm.attach.return_value = (True, "", 0)
 
         one_server.system.listMethods.return_value = ["one.vm.resize"]
