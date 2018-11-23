@@ -89,7 +89,7 @@ class CloudConnector:
         Returns(:py:class:`radl.system`): a compatible system or none if the url is
         not compatible with the provider.
         """
-        raise NotImplementedError("Should have implemented this")
+        return radl_system.clone()
 
     def updateVMInfo(self, vm, auth_data):
         """

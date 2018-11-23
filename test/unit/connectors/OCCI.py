@@ -39,7 +39,7 @@ class TestOCCIConnector(TestCloudConnectorBase):
     """
     Class to test the IM connectors
     """
-    
+
     def setUp(self):
         self.return_error = False
         TestCloudConnectorBase.setUp(self)
