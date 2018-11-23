@@ -196,9 +196,9 @@ class TestSSH(unittest.TestCase):
         session.return_value = sess
         sftp = MagicMock()
         sess.sftp_init.return_value = sftp
-        dir = MagicMock()
-        dir.readdir.return_value = [("", "", "attrs")]
-        sftp.opendir.return_value = dir
+        d = MagicMock()
+        d.readdir.return_value = [("", "", "attrs")]
+        sftp.opendir.return_value = d
 
         ssh = SSHRetry("host", "user", "passwd", read_file_as_string("../files/privatekey.pem"))
 
