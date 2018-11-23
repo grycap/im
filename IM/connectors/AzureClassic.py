@@ -119,6 +119,8 @@ class AzureClassicCloudConnector(CloudConnector):
     """Default location to use"""
     ROLE_NAME = "IMVMRole"
     """Name of the Role"""
+    DEFAULT_USER = 'azureuser'
+    """ default user to SSH access the VM """
 
     DEPLOY_STATE_MAP = {
         'Running': VirtualMachine.RUNNING,
@@ -159,45 +161,29 @@ class AzureClassicCloudConnector(CloudConnector):
 
         return resp
 
-    def concreteSystem(self, radl_system, auth_data):
-        image_urls = radl_system.getValue("disk.0.image.url")
-        if not image_urls:
-            return [radl_system.clone()]
+    def concrete_system(self, radl_system, str_url, auth_data):
+        url = uriparse(str_url)
+        protocol = url[0]
+
+        if protocol == "azr":
+            instance_type = self.get_instance_type(radl_system, auth_data)
+            if not instance_type:
+                self.log_error("Error generating the RADL of the VM, no instance type available for the requirements.")
+                self.log_debug(radl_system)
+                return None
+
+            res_system = radl_system.clone()
+            self.update_system_info_from_instance(res_system, instance_type)
+
+            username = res_system.getValue('disk.0.os.credentials.username')
+            if not username:
+                res_system.setValue('disk.0.os.credentials.username', self.DEFAULT_USER)
+
+            res_system.updateNewCredentialValues()
+
+            return res_system
         else:
-            if not isinstance(image_urls, list):
-                image_urls = [image_urls]
-
-            res = []
-            for str_url in image_urls:
-                url = uriparse(str_url)
-                protocol = url[0]
-
-                protocol = url[0]
-                if protocol == "azr":
-                    res_system = radl_system.clone()
-                    instance_type = self.get_instance_type(res_system, auth_data)
-                    if not instance_type:
-                        self.log_error(
-                            "Error generating the RADL of the VM, no instance type available for the requirements.")
-                        self.log_debug(res_system)
-                    else:
-                        res_system.addFeature(
-                            Feature("disk.0.image.url", "=", str_url), conflict="other", missing="other")
-                        self.update_system_info_from_instance(
-                            res_system, instance_type)
-                        res_system.addFeature(
-                            Feature("provider.type", "=", self.type), conflict="other", missing="other")
-
-                        username = res_system.getValue(
-                            'disk.0.os.credentials.username')
-                        if not username:
-                            res_system.setValue(
-                                'disk.0.os.credentials.username', 'azureuser')
-
-                        res_system.updateNewCredentialValues()
-
-                        res.append(res_system)
-            return res
+            return None
 
     def gen_input_endpoints(self, radl):
         """

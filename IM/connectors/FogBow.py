@@ -35,6 +35,8 @@ class FogBowCloudConnector(CloudConnector):
 
     type = "FogBow"
     """str with the name of the provider."""
+    DEFAULT_USER = 'fogbow'
+    """ default user to SSH access the VM """
 
     VM_STATE_MAP = {
         'INACTIVE': VirtualMachine.STOPPED,
@@ -150,40 +152,20 @@ class FogBowCloudConnector(CloudConnector):
 
         return auth_headers
 
-    def concreteSystem(self, radl_system, auth_data):
-        image_urls = radl_system.getValue("disk.0.image.url")
-        if not image_urls:
-            return [radl_system.clone()]
+    def concrete_system(self, radl_system, str_url, auth_data):
+        url = uriparse(str_url)
+        protocol = url[0]
+        src_host = url[1].split(':')[0]
+
+        if protocol == "fbw" and self.cloud.server == src_host:
+            res_system = radl_system.clone()
+
+            res_system.delValue('disk.0.os.credentials.username')
+            res_system.setValue('disk.0.os.credentials.username', self.DEFAULT_USER)
+
+            return res_system
         else:
-            if not isinstance(image_urls, list):
-                image_urls = [image_urls]
-
-            res = []
-            for str_url in image_urls:
-                url = uriparse(str_url)
-                protocol = url[0]
-                src_host = url[1].split(':')[0]
-                # TODO: check the port
-                if protocol == "fbw" and self.cloud.server == src_host:
-                    res_system = radl_system.clone()
-
-                    res_system.addFeature(
-                        Feature("disk.0.image.url", "=", str_url), conflict="other", missing="other")
-
-                    res_system.addFeature(
-                        Feature("provider.type", "=", self.type), conflict="other", missing="other")
-                    res_system.addFeature(Feature(
-                        "provider.host", "=", self.cloud.server), conflict="other", missing="other")
-                    if self.cloud.port != -1:
-                        res_system.addFeature(Feature(
-                            "provider.port", "=", self.cloud.port), conflict="other", missing="other")
-
-                    res_system.delValue('disk.0.os.credentials.username')
-                    res_system.setValue('disk.0.os.credentials.username', 'fogbow')
-
-                    res.append(res_system)
-
-            return res
+            return None
 
     def get_fbw_nets(self, auth_data):
         """

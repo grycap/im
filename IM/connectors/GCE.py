@@ -46,6 +46,8 @@ class GCECloudConnector(CloudConnector):
     type = "GCE"
     """str with the name of the provider."""
     DEFAULT_ZONE = "us-central1-a"
+    DEFAULT_USER = 'gceuser'
+    """ default user to SSH access the VM """
 
     def __init__(self, cloud_info, inf):
         self.auth = None
@@ -135,50 +137,34 @@ class GCECloudConnector(CloudConnector):
                 raise Exception(
                     "No correct auth data has been specified to GCE: username, password and project")
 
-    def concreteSystem(self, radl_system, auth_data):
-        image_urls = radl_system.getValue("disk.0.image.url")
-        if not image_urls:
-            return [radl_system.clone()]
+    def concrete_system(self, radl_system, str_url, auth_data):
+        url = uriparse(str_url)
+        protocol = url[0]
+
+        if protocol == "gce":
+            driver = self.get_driver(auth_data)
+
+            res_system = radl_system.clone()
+            res_system.addFeature(Feature("disk.0.image.url", "=", str_url), conflict="other", missing="other")
+
+            if res_system.getValue('availability_zone'):
+                region = res_system.getValue('availability_zone')
+            else:
+                region, _ = self.get_image_data(str_url)
+
+            instance_type = self.get_instance_type(driver.list_sizes(region), res_system)
+            if not instance_type:
+                return None
+
+            self.update_system_info_from_instance(res_system, instance_type)
+
+            username = res_system.getValue('disk.0.os.credentials.username')
+            if not username:
+                res_system.setValue('disk.0.os.credentials.username', self.DEFAULT_USER)
+
+            return res_system
         else:
-            if not isinstance(image_urls, list):
-                image_urls = [image_urls]
-
-            res = []
-            for str_url in image_urls:
-                url = uriparse(str_url)
-                protocol = url[0]
-                if protocol == "gce":
-                    driver = self.get_driver(auth_data)
-
-                    res_system = radl_system.clone()
-                    res_system.addFeature(
-                        Feature("disk.0.image.url", "=", str_url), conflict="other", missing="other")
-
-                    if res_system.getValue('availability_zone'):
-                        region = res_system.getValue('availability_zone')
-                    else:
-                        region, _ = self.get_image_data(str_url)
-
-                    instance_type = self.get_instance_type(
-                        driver.list_sizes(region), res_system)
-
-                    if not instance_type:
-                        return []
-
-                    self.update_system_info_from_instance(
-                        res_system, instance_type)
-
-                    username = res_system.getValue(
-                        'disk.0.os.credentials.username')
-                    if not username:
-                        res_system.setValue(
-                            'disk.0.os.credentials.username', 'gceuser')
-                    res_system.addFeature(
-                        Feature("provider.type", "=", self.type), conflict="other", missing="other")
-
-                    res.append(res_system)
-
-            return res
+            return None
 
     def update_system_info_from_instance(self, system, instance_type):
         """
