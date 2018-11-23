@@ -18,7 +18,6 @@
 
 import sys
 import unittest
-import os
 import logging
 import logging.config
 try:
@@ -36,12 +35,6 @@ from IM.VirtualMachine import VirtualMachine
 from IM.InfrastructureInfo import InfrastructureInfo
 from IM.connectors.FogBow import FogBowCloudConnector
 from mock import patch, MagicMock
-
-
-def read_file_as_string(file_name):
-    tests_path = os.path.dirname(os.path.abspath(__file__))
-    abs_file_path = os.path.join(tests_path, file_name)
-    return open(abs_file_path, 'r').read()
 
 
 class TestFogBowConnector(unittest.TestCase):
@@ -107,7 +100,7 @@ class TestFogBowConnector(unittest.TestCase):
         self.assertEqual(len(concrete), 1)
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
-    def get_response(self, method, url, verify, headers, data):
+    def get_response(self, method, url, verify, headers={}, data=None):
         resp = MagicMock()
         parts = uriparse(url)
         url = parts[2]
@@ -118,6 +111,8 @@ class TestFogBowConnector(unittest.TestCase):
         if url not in self.call_count[method]:
             self.call_count[method][url] = 0
         self.call_count[method][url] += 1
+
+        resp.status_code = 404
 
         if method == "GET":
             if url == "/computes/1":
@@ -166,8 +161,6 @@ class TestFogBowConnector(unittest.TestCase):
                                           "volumeId": "1",
                                           "device": "/dev/sdb",
                                           "state": "READY"}
-            else:
-                resp.status_code = 404
         elif method == "POST":
             if url == "/computes/":
                 resp.status_code = 201
@@ -184,8 +177,9 @@ class TestFogBowConnector(unittest.TestCase):
             elif url == "/networks/":
                 resp.status_code = 201
                 resp.text = "1"
-            else:
-                resp.status_code = 404
+            elif url == "/tokens/":
+                resp.status_code = 201
+                resp.text = "token"
         elif method == "DELETE":
             if url == "/computes/1":
                 resp.status_code = 204
@@ -195,10 +189,9 @@ class TestFogBowConnector(unittest.TestCase):
                 resp.status_code = 204
             elif url == "/publicIps/1":
                 resp.status_code = 204
-            else:
-                resp.status_code = 404
-        else:
-            resp.status_code = 404
+        elif method == "HEAD":
+            if url == "/images/":
+                resp.status_code = 200
 
         return resp
 
@@ -276,7 +269,8 @@ class TestFogBowConnector(unittest.TestCase):
 
     @patch('requests.request')
     def test_60_finalize(self, requests):
-        auth = Authentication([{'id': 'fogbow', 'type': 'FogBow', 'token': 'user', 'host': 'server.com'}])
+        auth = Authentication([{'id': 'fogbow', 'type': 'FogBow', 'host': 'server.com',
+                                'username': 'user', 'password': 'pass'}])
         fogbow_cloud = self.get_fogbow_cloud()
 
         radl_data = """

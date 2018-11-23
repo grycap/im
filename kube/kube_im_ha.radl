@@ -1,0 +1,107 @@
+network public (outbound = 'yes')
+network private ()
+
+system front (
+cpu.arch='x86_64' and
+cpu.count>=2 and
+memory.size>=2g and
+net_interface.0.connection = 'private' and
+net_interface.0.dns_name = 'kubeserver' and
+net_interface.1.connection = 'public' and
+net_interface.1.dns_name = 'kubeserverpublic' and
+disk.0.os.name='linux' and
+disk.0.image.url = 'one://ramses.i3m.upv.es/476' and
+disk.0.applications contains (name='ansible.modules.grycap.kubernetes') and
+disk.0.applications contains (name='ansible.modules.grycap.nfs')
+)
+
+system wn (
+cpu.arch='x86_64' and
+cpu.count>=2 and
+memory.size>=2g and
+net_interface.0.connection = 'private' and
+net_interface.0.dns_name = 'wn-#N#' and
+disk.0.os.name='linux' and
+disk.0.image.url = 'one://ramses.i3m.upv.es/476'
+)
+
+configure front (
+@begin
+---
+ - pre_tasks:
+    - name: Create dir for the NFS PV Top dir
+      file: path=/pv state=directory mode=755
+    - name: Create dir for the im NFS PV Top dir
+      file: path=/pv/im state=directory mode=755
+    - name: Create dir for the NFS PV MySQL dir
+      file: path=/pv/mysql state=directory mode=755
+    - name: Create dir for the NFS PV MySQL IM-Web dir
+      file: path=/pv/mysql/im-web state=directory owner=www-data
+    - name: Create dir for the NFS PV Log dir
+      file: path=/pv/log state=directory mode=755
+    - name: Create auth file dir
+      file: path=/etc/kubernetes/pki state=directory mode=755 recurse=yes
+    - name: Create auth data file with an admin user
+      copy: content='sometoken,kubeuser,100,"users,system:masters"' dest=/etc/kubernetes/pki/auth mode=600
+
+   roles:
+    - role: 'grycap.nfs'
+      nfs_mode: 'front'
+      nfs_exports: [{path: "/pv", export: "wn*.localdomain(fsid=0,rw,async,no_root_squash,no_subtree_check,insecure)"},
+                    {path: "/pv/mysql", export: "wn*.localdomain(rw,async,no_root_squash,no_subtree_check,insecure)"},
+                    {path: "/pv/log", export: "wn*.localdomain(rw,async,no_root_squash,no_subtree_check,insecure)"}]
+
+    - role: 'grycap.kubernetes'
+      kube_server: 'kubeserver'
+      kube_apiserver_options: [{option: "--insecure-port", value: "8080"}, {option: "--token-auth-file", value: "/etc/kubernetes/pki/auth"}]
+      kube_deploy_dashboard: true
+
+   tasks:
+      - name: Download im.db
+        get_url: url=https://github.com/grycap/im-web/raw/master/im.db dest=/pv/mysql/im-web/im.db owner=www-data
+
+      - name: Create logrotate file
+        copy:
+          dest: /etc/logrotate.d/imlog
+          content: |
+               /pv/log/messages
+               {
+                       rotate 365
+                       daily
+                       missingok
+                       notifempty
+                       compress
+                       copytruncate
+               }
+
+      - name: Launch IM in HA mode
+        shell: kubectl apply -f http://raw.githubusercontent.com/grycap/im/master/kube/im-deploy-ha.yaml
+        environment:
+          KUBECONFIG: /etc/kubernetes/admin.conf
+
+
+#      - name: Launch IM in standalone mode
+#        shell: kubectl apply -f http://raw.githubusercontent.com/grycap/im/master/kube/im-deploy.yaml
+#        environment:
+#          KUBECONFIG: /etc/kubernetes/admin.conf
+
+
+@end
+)
+
+configure wn (
+@begin
+---
+ - roles:
+    - role: 'grycap.nfs'
+      nfs_mode: 'wn'
+
+    - role: 'grycap.kubernetes'
+      kube_type_of_node: 'wn'
+      kube_server: 'kubeserver'
+
+@end
+)
+
+deploy front 1
+deploy wn 1

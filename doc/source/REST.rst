@@ -21,8 +21,8 @@ Next tables summaries the resources and the HTTP methods available.
 | **POST**    | | **Create** a new infrastructure  | | **Create** a new virtual machine | | **Alter** VM properties based on        |
 |             | | based on the RADL posted         | | based on the RADL posted.        | | then RADL posted                        |
 +-------------+------------------------------------+------------------------------------+-------------------------------------------+
-| **PUT**     |                                    | | **Import** an infrastructure     | | **Modify** the virtual machine based on |
-|             |                                    | | from another IM instance         | | the RADL posted.                        |
+| **PUT**     | | **Import** an infrastructure     |                                    | | **Modify** the virtual machine based on |
+|             | | from another IM instance         |                                    | | the RADL posted.                        |
 +-------------+------------------------------------+------------------------------------+-------------------------------------------+
 | **DELETE**  |                                    | | **Undeploy** all the virtual     | | **Undeploy** the virtual machine.       |
 |             |                                    | | machines in the infrastructure.  |                                           |
@@ -40,7 +40,7 @@ Next tables summaries the resources and the HTTP methods available.
 | **GET**     | | **Get** the specified property ``property_name``  | | **Get** the specified property ``property_name`` |
 |             | | associated to the machine ``vmId`` in ``infId``.  | | associated to the infrastructure ``infId``.      |
 |             | | It has one special property: ``contmsg``.         | | It has five properties: ``contmsg``, ``radl``,   |
-|             |                                                     | | ``state``, ``outputs`` and ``data``.             |
+|             |                                                     | | ``state``, ``outputs``, ``tosca`` and ``data``. |
 +-------------+-----------------------------------------------------+----------------------------------------------------+
 
 +-------------+-----------------------------------------------+------------------------------------------------+
@@ -147,7 +147,8 @@ GET ``http://imserver.com/infrastructures/<infId>/<property_name>``
       :``contmsg``: a string with the contextualization message. In case of ``headeronly`` flag is set to 'yes',
                     'true' or '1' only the initial part of the infrastructure contextualization log will be
                     returned (without any VM contextualization log).
-      :``radl``: a string with the original specified RADL of the infrastructure. 
+      :``radl``: a string with the original specified RADL of the infrastructure.
+      :``tosca``: a string with the TOSCA representation of the infrastructure. 
       :``data``: a string with the JSOMN serialized data of the infrastructure. In case of ``delete`` flag is set to 'yes',
                  'true' or '1' the data not only will be exported but also the infrastructure will be set deleted
                  (the virtual infrastructure will not be modified).
