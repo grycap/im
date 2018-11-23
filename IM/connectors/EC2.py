@@ -101,43 +101,30 @@ class EC2CloudConnector(CloudConnector):
         self.auth = None
         CloudConnector.__init__(self, cloud_info, inf)
 
-    def concreteSystem(self, radl_system, auth_data):
-        image_urls = radl_system.getValue("disk.0.image.url")
-        if not image_urls:
-            return [radl_system.clone()]
+    def concrete_system(self, radl_system, str_url, auth_data):
+        url = uriparse(str_url)
+        protocol = url[0]
+        src_host = url[1].split(':')[0]
+
+        if protocol == "aws":
+
+            instance_type = self.get_instance_type(radl_system)
+            if not instance_type:
+                self.log_error("Error launching the VM, no instance type available for the requirements.")
+                self.log_debug(radl_system)
+                return None
+
+            # Currently EC2 plugin only uses private_key credentials
+            res_system = radl_system.clone()
+            if res_system.getValue('disk.0.os.credentials.private_key'):
+                res_system.delValue('disk.0.os.credentials.password')
+                res_system.delValue('disk.0.os.credentials.new.password')
+
+            self.update_system_info_from_instance(res_system, instance_type)
+
+            return res_system
         else:
-            if not isinstance(image_urls, list):
-                image_urls = [image_urls]
-
-            res = []
-            for str_url in image_urls:
-                url = uriparse(str_url)
-                protocol = url[0]
-
-                protocol = url[0]
-                if protocol == "aws":
-                    # Currently EC2 plugin only uses private_key credentials
-                    res_system = radl_system.clone()
-                    if res_system.getValue('disk.0.os.credentials.private_key'):
-                        res_system.delValue('disk.0.os.credentials.password')
-                        res_system.delValue('disk.0.os.credentials.new.password')
-
-                    res_system.addFeature(
-                        Feature("disk.0.image.url", "=", str_url), conflict="other", missing="other")
-                    res_system.addFeature(
-                        Feature("provider.type", "=", self.type), conflict="other", missing="other")
-
-                    instance_type = self.get_instance_type(res_system)
-                    if not instance_type:
-                        self.log_error("Error launching the VM, no instance type available for the requirements.")
-                        self.log_debug(res_system)
-                        return []
-                    else:
-                        self.update_system_info_from_instance(
-                            res_system, instance_type)
-                        res.append(res_system)
-
-            return res
+            return None
 
     def update_system_info_from_instance(self, system, instance_type):
         """

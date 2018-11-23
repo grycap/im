@@ -235,6 +235,10 @@ spec:
       containers:
         - name: im-mysql
           image: mysql:5.6
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
           ports:
           - containerPort: 3306
             name: mysql
@@ -629,7 +633,7 @@ spec:
     spec:
       containers:
         - name: im-web
-          image: grycap/im-web
+          image: grycap/im-web:1.5.8-dev
           ports:
           - containerPort: 80
             protocol: TCP
@@ -642,10 +646,8 @@ spec:
           - name: im_port
             value: "80"
           - name: im_db
-            value: "/etc/im-web/im-web/im.db"
+            value: mysql://root:im-mysql-pass@im-mysql/im-web
           volumeMounts:
-           - name: imdb
-             mountPath: /etc/im-web
            - name: im-web
              mountPath: /var/www/html/im-web/analyticstracking.php
              subPath: analyticstracking.php

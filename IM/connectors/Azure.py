@@ -53,6 +53,8 @@ class AzureCloudConnector(CloudConnector):
     """Default instance type."""
     DEFAULT_LOCATION = "westeurope"
     """Default location to use"""
+    DEFAULT_USER = 'azureuser'
+    """ default user to SSH access the VM """
 
     PROVISION_STATE_MAP = {
         'Accepted': VirtualMachine.PENDING,
@@ -187,6 +189,37 @@ class AzureCloudConnector(CloudConnector):
                           conflict="other", missing="other")
         system.addFeature(Feature("instance_type", "=", instance_type.name),
                           conflict="other", missing="other")
+
+    def concrete_system(self, radl_system, str_url, auth_data):
+        url = uriparse(str_url)
+        protocol = url[0]
+
+        if protocol == "azr":
+            credentials, subscription_id = self.get_credentials(auth_data)
+
+            instance_type = self.get_instance_type(radl_system, credentials, subscription_id)
+            if not instance_type:
+                self.log_error("Error generating the RADL of the VM, no instance type available for the requirements.")
+                self.log_debug(radl_system)
+                return None
+
+            res_system = radl_system.clone()
+            username = res_system.getValue('disk.0.os.credentials.username')
+            if not username:
+                res_system.setValue('disk.0.os.credentials.username', self.DEFAULT_USER)
+
+            # In Azure we always need to set a password
+            password = res_system.getValue('disk.0.os.credentials.password')
+            if not password:
+                password = ''.join(random.choice(string.ascii_letters + string.digits + "+-*_$@#=<>[]")
+                                   for _ in range(16))
+                res_system.setValue('disk.0.os.credentials.password', password)
+
+            res_system.updateNewCredentialValues()
+
+            return res_system
+        else:
+            return None
 
     def concreteSystem(self, radl_system, auth_data):
         image_urls = radl_system.getValue("disk.0.image.url")

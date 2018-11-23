@@ -32,11 +32,7 @@ configure front (
     - name: Create dir for the NFS PV Top dir
       file: path=/pv state=directory mode=755
     - name: Create dir for the im NFS PV Top dir
-      file: path=/pv/im state=directory mode=755
-    - name: Create dir for the NFS PV MySQL dir
       file: path=/pv/mysql state=directory mode=755
-    - name: Create dir for the NFS PV MySQL IM-Web dir
-      file: path=/pv/mysql/im-web state=directory owner=www-data
     - name: Create dir for the NFS PV Log dir
       file: path=/pv/log state=directory mode=755
     - name: Create auth file dir
@@ -57,9 +53,6 @@ configure front (
       kube_deploy_dashboard: true
 
    tasks:
-      - name: Download im.db
-        get_url: url=https://github.com/grycap/im-web/raw/master/im.db dest=/pv/mysql/im-web/im.db owner=www-data
-
       - name: Create logrotate file
         copy:
           dest: /etc/logrotate.d/imlog
@@ -104,4 +97,4 @@ configure wn (
 )
 
 deploy front 1
-deploy wn 1
+deploy wn 2

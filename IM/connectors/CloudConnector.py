@@ -4,6 +4,7 @@ import shutil
 import tempfile
 import time
 import yaml
+from radl.radl import Feature
 from IM.config import Config
 
 
@@ -14,6 +15,9 @@ class CloudConnector:
     Arguments:
             - cloud_info(:py:class:`IM.CloudInfo`): Data about the Cloud Provider
     """
+
+    type = "BaseClass"
+    """str with the name of the provider."""
 
     def __init__(self, cloud_info, inf):
         self.cloud = cloud_info
@@ -46,8 +50,46 @@ class CloudConnector:
 
         Returns(list of system): list of compatible systems.
         """
+        image_urls = radl_system.getValue("disk.0.image.url")
+        if not image_urls:
+            return [radl_system.clone()]
+        else:
+            if not isinstance(image_urls, list):
+                image_urls = [image_urls]
 
-        return [radl_system.clone()]
+            res = []
+
+            for str_url in image_urls:
+                res_system = self.concrete_system(radl_system, str_url, auth_data)
+                if res_system:
+                    res_system.addFeature(Feature("disk.0.image.url", "=", str_url),
+                                          conflict="other", missing="other")
+                    res_system.addFeature(Feature("provider.type", "=", self.type),
+                                          conflict="other", missing="other")
+                    if self.cloud.server:
+                        res_system.addFeature(Feature("provider.host", "=", self.cloud.server),
+                                              conflict="other", missing="other")
+                    if self.cloud.port != -1:
+                        res_system.addFeature(Feature("provider.port", "=", self.cloud.port),
+                                              conflict="other", missing="other")
+                    res.append(res_system)
+
+            return res
+
+    def concrete_system(self, radl_system, str_url, auth_data):
+        """
+        Return a list of compatible systems with the cloud
+
+        Arguments:
+
+           - radl_system(:py:class:`radl.system`): a system.
+           - str_url(string): a VMI url
+           - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
+
+        Returns(:py:class:`radl.system`): a compatible system or none if the url is
+        not compatible with the provider.
+        """
+        return radl_system.clone()
 
     def updateVMInfo(self, vm, auth_data):
         """
