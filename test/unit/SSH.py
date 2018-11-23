@@ -18,7 +18,7 @@
 
 import unittest
 import os
-from io import BytesIO
+import tempfile
 
 from ssh2.exceptions import SFTPProtocolError
 from ssh2.sftp import LIBSSH2_SFTP_S_IFDIR
@@ -77,18 +77,20 @@ class TestSSH(unittest.TestCase):
         remote_fh = MagicMock()
         sftp.open.return_value = remote_fh
 
-        src = "/tmp/some_file"
-        with open(src, 'wb+') as fh:
-            fh.write(b"some_data")
+        fh = tempfile.NamedTemporaryFile(delete=False)
+        src = fh.name
+        fh.write(b"some_data")
+        fh.close()
 
         ssh = SSHRetry("host", "user", "passwd", read_file_as_string("../files/privatekey.pem"))
         ssh.sftp_put(src, src)
 
         self.assertEqual(remote_fh.write.call_args_list[0][0][0], b"some_data")
 
+    @staticmethod
     @patch('socket.socket')
     @patch('IM.SSH.Session')
-    def test_sftp_get_files(self, session, socket):
+    def test_sftp_get_files(session, socket):
         sess = MagicMock()
         session.return_value = sess
         sftp = MagicMock()
@@ -98,16 +100,18 @@ class TestSSH(unittest.TestCase):
 
         ssh.sftp_get_files(["some_file"], ["some_file"])
 
+    @staticmethod
     @patch('socket.socket')
     @patch('IM.SSH.Session')
-    def test_sftp_get(self, session, socket):
+    def test_sftp_get(session, socket):
         ssh = SSHRetry("host", "user", "passwd", read_file_as_string("../files/privatekey.pem"))
 
         ssh.sftp_get("some_file", "some_file")
 
+    @staticmethod
     @patch('socket.socket')
     @patch('IM.SSH.Session')
-    def test_sftp_put_files(self, session, socket):
+    def test_sftp_put_files(session, socket):
         ssh = SSHRetry("host", "user", "passwd", read_file_as_string("../files/privatekey.pem"))
 
         ssh.sftp_put_files([("some_file", "some_file")])
@@ -118,11 +122,12 @@ class TestSSH(unittest.TestCase):
     def test_sftp_put_dir(self, walk, session, socket):
         ssh = SSHRetry("host", "user", "passwd", read_file_as_string("../files/privatekey.pem"))
 
-        walk.return_value = [("/tmp", ["dir"], ["file1"]),
-                             ("/tmp/dir", [], ["file2"])]
+        tmp_dir = tempfile.gettempdir()
+        walk.return_value = [(tmp_dir, ["dir"], ["file1"]),
+                             ("%s/dir" % tmp_dir, [], ["file2"])]
 
-        files = ssh.sftp_put_dir("/tmp", "/tmp")
-        self.assertEqual(files, ['/tmp/file1', '/tmp/dir/file2'])
+        files = ssh.sftp_put_dir(tmp_dir, tmp_dir)
+        self.assertEqual(files, ['%s/file1' % tmp_dir, '%s/dir/file2' % tmp_dir])
 
     @patch('socket.socket')
     @patch('IM.SSH.Session')
@@ -142,12 +147,14 @@ class TestSSH(unittest.TestCase):
 
         ssh = SSHRetry("host", "user", "passwd", read_file_as_string("../files/privatekey.pem"))
 
-        files = ssh.sftp_get_dir("/tmp", "/tmp")
-        self.assertEqual(files, ['/tmp/file1', '/tmp/dir/file2'])
+        tmp_dir = tempfile.gettempdir()
+        files = ssh.sftp_get_dir(tmp_dir, tmp_dir)
+        self.assertEqual(files, ['%s/file1' % tmp_dir, '%s/dir/file2' % tmp_dir])
 
+    @staticmethod
     @patch('socket.socket')
     @patch('IM.SSH.Session')
-    def test_sftp_put_content(self, session, socket):
+    def test_sftp_put_content(session, socket):
         ssh = SSHRetry("host", "user", "passwd", read_file_as_string("../files/privatekey.pem"))
 
         ssh.sftp_put_content("some_file", "some_content")
@@ -173,9 +180,9 @@ class TestSSH(unittest.TestCase):
         session.return_value = sess
         sftp = MagicMock()
         sess.sftp_init.return_value = sftp
-        dir = MagicMock()
-        dir.readdir.return_value = [("", "file", "")]
-        sftp.opendir.return_value = dir
+        d = MagicMock()
+        d.readdir.return_value = [("", "file", "")]
+        sftp.opendir.return_value = d
 
         ssh = SSHRetry("host", "user", "passwd", read_file_as_string("../files/privatekey.pem"))
 
@@ -274,8 +281,9 @@ class TestSSH(unittest.TestCase):
 
         ssh = SSH("host", "user", "passwd", read_file_as_string("../files/privatekey.pem"))
 
+        tmp_dir = tempfile.gettempdir()
         with self.assertRaises(IOError) as ex:
-            ssh.sftp_get("/tmp/some_file", "/tmp/some_file")
+            ssh.sftp_get("%s/some_file" % tmp_dir, "%s/some_file" % tmp_dir)
         self.assertEquals("Error code: 3. Permission denied.", str(ex.exception))
 
 

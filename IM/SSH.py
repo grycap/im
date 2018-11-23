@@ -22,7 +22,6 @@ from ssh2.exceptions import AuthenticationError, SFTPProtocolError
 from ssh2.sftp import LIBSSH2_FXF_CREAT, LIBSSH2_FXF_WRITE, LIBSSH2_FXF_TRUNC, \
     LIBSSH2_SFTP_S_IRUSR, LIBSSH2_SFTP_S_IRGRP, LIBSSH2_SFTP_S_IWUSR, \
     LIBSSH2_SFTP_S_IROTH, LIBSSH2_FXF_READ, LIBSSH2_SFTP_S_IFDIR
-from ssh2.sftp_handle import SFTPAttributes
 
 import os
 from threading import Thread
