@@ -166,7 +166,8 @@ class GCECloudConnector(CloudConnector):
         else:
             return None
 
-    def update_system_info_from_instance(self, system, instance_type):
+    @staticmethod
+    def update_system_info_from_instance(system, instance_type):
         """
         Update the features of the system with the information of the instance_type
         """
@@ -269,7 +270,8 @@ class GCECloudConnector(CloudConnector):
 
         return res
 
-    def request_external_ip(self, radl):
+    @staticmethod
+    def request_external_ip(radl):
         """
         Check if the user has requested for a public ip
         """
@@ -326,7 +328,8 @@ class GCECloudConnector(CloudConnector):
 
         return (region, image_name)
 
-    def get_default_net(self, driver):
+    @staticmethod
+    def get_default_net(driver):
         """
         Get the first net
         """
@@ -634,7 +637,8 @@ class GCECloudConnector(CloudConnector):
 
         return node
 
-    def get_node_location(self, node):
+    @staticmethod
+    def get_node_location(node):
         """
         Get the location of a node
 
@@ -644,7 +648,8 @@ class GCECloudConnector(CloudConnector):
         """
         return node.extra['zone']
 
-    def wait_volume(self, volume, state='READY', timeout=60):
+    @staticmethod
+    def wait_volume(volume, state='READY', timeout=60):
         """
         Wait a volume (with the state extra parameter) to be in certain state.
 

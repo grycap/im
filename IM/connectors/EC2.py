@@ -19,6 +19,7 @@ import base64
 import os
 import uuid
 import requests
+import tempfile
 
 try:
     import boto.ec2
@@ -77,8 +78,6 @@ class EC2CloudConnector(CloudConnector):
 
     type = "EC2"
     """str with the name of the provider."""
-    KEYPAIR_DIR = '/tmp'
-    """str with a path to store the keypair files."""
     INSTANCE_TYPE = 't1.micro'
     """str with the name of the default instance type to launch."""
 
@@ -104,7 +103,6 @@ class EC2CloudConnector(CloudConnector):
     def concrete_system(self, radl_system, str_url, auth_data):
         url = uriparse(str_url)
         protocol = url[0]
-        src_host = url[1].split(':')[0]
 
         if protocol == "aws":
 
@@ -126,7 +124,8 @@ class EC2CloudConnector(CloudConnector):
         else:
             return None
 
-    def update_system_info_from_instance(self, system, instance_type):
+    @staticmethod
+    def update_system_info_from_instance(system, instance_type):
         """
         Update the features of the system with the information of the instance_type
         """
@@ -233,8 +232,9 @@ class EC2CloudConnector(CloudConnector):
             self.route53_connection = conn
             return conn
 
-    # el path sera algo asi: aws://eu-west-1/ami-00685b74
-    def getAMIData(self, path):
+    # path format: aws://eu-west-1/ami-00685b74
+    @staticmethod
+    def getAMIData(path):
         """
         Get the region and the AMI ID from an URL of a VMI
 
@@ -484,10 +484,11 @@ class EC2CloudConnector(CloudConnector):
                     system.getCredentials().username, public, private)
             else:
                 self.log_info("Creating the Keypair name: %s" % keypair_name)
-                keypair_file = self.KEYPAIR_DIR + '/' + keypair_name + '.pem'
+                tmp_dir = tempfile.mkdtemp()
+                keypair_file = tmp_dir + '/' + keypair_name + '.pem'
                 keypair = conn.create_key_pair(keypair_name)
                 created = True
-                keypair.save(self.KEYPAIR_DIR)
+                keypair.save(tmp_dir)
                 os.chmod(keypair_file, 0o400)
                 with open(keypair_file, "r") as fkeypair:
                     system.setUserKeyCredentials(system.getCredentials().username,
@@ -499,7 +500,8 @@ class EC2CloudConnector(CloudConnector):
 
         return (created, keypair_name)
 
-    def get_default_subnet(self, conn):
+    @staticmethod
+    def get_default_subnet(conn):
         """
         Get the default VPC and the first subnet
         """
@@ -1166,7 +1168,7 @@ class EC2CloudConnector(CloudConnector):
                             changes = boto.route53.record.ResourceRecordSets(conn, zone.id)
                             change = changes.add_change("CREATE", fqdn, "A")
                             change.add_value(ip)
-                            result = changes.commit()
+                            changes.commit()
                         else:
                             self.log_info("DNS record %s exists. Do not create." % fqdn)
 
