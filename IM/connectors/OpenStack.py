@@ -16,7 +16,6 @@
 
 import time
 import uuid
-import yaml
 from netaddr import IPNetwork, IPAddress
 import os.path
 import tempfile
@@ -261,7 +260,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         return (True, vm)
 
-    def map_radl_ost_networks(self, radl_nets, ost_nets):
+    @staticmethod
+    def map_radl_ost_networks(radl_nets, ost_nets):
         """
         Generate a mapping between the RADL networks and the OST networks
 
@@ -425,7 +425,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 system.addFeature(
                     Feature("cpu.count", "=", instance_type.vcpus), conflict="me", missing="other")
 
-    def get_ost_network_info(self, driver, pool_names):
+    @staticmethod
+    def get_ost_network_info(driver, pool_names):
         ost_nets = driver.ex_list_networks()
         get_subnets = False
         if "ex_list_subnets" in dir(driver):
@@ -451,12 +452,10 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                         # in the pool it should be a public net
                         ost_net.extra['is_public'] = True
 
-                    # otherwise a private one
-                    os_net_is_public = False
-
         return get_subnets, ost_nets
 
-    def map_networks(self, radl, ost_nets):
+    @staticmethod
+    def map_networks(radl, ost_nets):
         i = 0
         net_map = {}
         used_nets = []
@@ -676,7 +675,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         return res
 
-    def get_ip_pool(self, driver, pool_name=None):
+    @staticmethod
+    def get_ip_pool(driver, pool_name=None):
         """
         Return the most suitable IP pool
         """

@@ -165,58 +165,6 @@ class OCCICloudConnector(CloudConnector):
         else:
             return None
 
-    def concreteSystem(self, radl_system, auth_data):
-        image_urls = radl_system.getValue("disk.0.image.url")
-        if not image_urls:
-            return [radl_system.clone()]
-        else:
-            if not isinstance(image_urls, list):
-                image_urls = [image_urls]
-
-            res = []
-            for str_url in image_urls:
-                url = uriparse(str_url)
-                protocol = url[0]
-                cloud_url = self.cloud.protocol + "://" + self.cloud.server
-                if self.cloud.port > 0:
-                    cloud_url += ":" + str(self.cloud.port)
-                site_url = None
-                if protocol == "appdb":
-                    # The url has this format: appdb://UPV-GRyCAP/egi.docker.ubuntu.16.04?fedcloud.egi.eu
-                    # Get the Site url from the AppDB
-                    site_name = url[1]
-                    image_name = url[2][1:]
-                    vo_name = url[4]
-                    site_id = self.get_site_id(site_name)
-                    _, site_url = self.get_image_id_and_site_url(site_id, image_name, vo_name)
-
-                if ((protocol in ['https', 'http'] and url[2] and url[0] + "://" + url[1] == cloud_url) or
-                        (protocol == "appdb" and site_url.startswith(cloud_url))):
-                    res_system = radl_system.clone()
-
-                    res_system.getFeature("cpu.count").operator = "="
-                    res_system.getFeature("memory.size").operator = "="
-
-                    res_system.addFeature(
-                        Feature("disk.0.image.url", "=", str_url), conflict="other", missing="other")
-
-                    res_system.addFeature(
-                        Feature("provider.type", "=", self.type), conflict="other", missing="other")
-                    res_system.addFeature(Feature(
-                        "provider.host", "=", self.cloud.server), conflict="other", missing="other")
-                    res_system.addFeature(Feature(
-                        "provider.port", "=", self.cloud.port), conflict="other", missing="other")
-
-                    username = res_system.getValue(
-                        'disk.0.os.credentials.username')
-                    if not username:
-                        res_system.setValue(
-                            'disk.0.os.credentials.username', self.DEFAULT_USER)
-
-                    res.append(res_system)
-
-            return res
-
     def get_attached_volumes_from_info(self, occi_res):
         """
         Get the attached volumes in VM from the OCCI information returned by the server

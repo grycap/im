@@ -148,8 +148,7 @@ class Tosca:
                 interfaces = Tosca._get_interfaces(node)
                 interfaces.update(Tosca._get_relationships_interfaces(relationships, node))
 
-                conf = self._gen_configure_from_interfaces(
-                    radl, node, interfaces, compute)
+                conf = self._gen_configure_from_interfaces(node, interfaces)
                 if conf:
                     level = Tosca._get_dependency_level(node)
                     radl.configures.append(conf)
@@ -169,7 +168,8 @@ class Tosca:
 
         return all_removal_list, self._complete_radl_networks(radl)
 
-    def _check_private_networks(self, radl):
+    @staticmethod
+    def _check_private_networks(radl):
         """
         Check private networks to assure to create different nets
         for different cloud providers
@@ -210,7 +210,8 @@ class Tosca:
 
         return
 
-    def _order_deploys(self, radl):
+    @staticmethod
+    def _order_deploys(radl):
         """
         Order the RADL deploys to assure VMs with Public IPs a set a the beginning
         (to avoid problems with cluster configuration)
@@ -234,7 +235,8 @@ class Tosca:
 
         radl.deploys = fe + wn + priv
 
-    def _get_num_instances(self, sys_name, inf_info):
+    @staticmethod
+    def _get_num_instances(sys_name, inf_info):
         """
         Get the current number of instances of system type name sys_name
         """
@@ -524,7 +526,7 @@ class Tosca:
 
         return res
 
-    def _gen_configure_from_interfaces(self, radl, node, interfaces, compute):
+    def _gen_configure_from_interfaces(self, node, interfaces):
         if not interfaces:
             return None
 
@@ -652,7 +654,8 @@ class Tosca:
         else:
             return None
 
-    def _remove_recipe_header(self, script_content):
+    @staticmethod
+    def _remove_recipe_header(script_content):
         """
         Removes the "hosts" and "connection" elements from the recipe
         to make it "RADL" compatible
@@ -820,7 +823,6 @@ class Tosca:
                 index = int(func.args[3])
             except:
                 Tosca.logger.exception("Error getting get_attribute index.")
-                pass
 
         if node_name == "HOST":
             node = self._find_host_compute(node, self.tosca.nodetemplates)
@@ -1330,9 +1332,9 @@ class Tosca:
                         res.addFeature(feature)
 
         # Find associated BlockStorages
-        disks = self._get_attached_disks(node, nodetemplates)
+        disks = self._get_attached_disks(node)
 
-        for size, unit, location, device, num, fstype, vol_id, snap_id in disks:
+        for size, unit, location, device, num, fstype, vol_id, _ in disks:
             if vol_id:
                 res.setValue('disk.%d.image.url' % num, vol_id)
             else:
@@ -1372,7 +1374,7 @@ class Tosca:
 
         return nets
 
-    def _get_attached_disks(self, node, nodetemplates):
+    def _get_attached_disks(self, node):
         """
         Get the disks attached to a node
         """
@@ -1384,7 +1386,6 @@ class Tosca:
             rel_tpl = Tosca._get_relationship_template(rel, src, trgt)
             # TODO: ver root_type
             if rel.type.endswith("AttachesTo"):
-                rel_tpl.entity_tpl
                 props = rel_tpl.get_properties_objects()
 
                 size = None
