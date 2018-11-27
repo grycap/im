@@ -29,7 +29,6 @@ import xmltodict
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
-from radl.radl import Feature
 from IM.config import Config
 
 

@@ -24,7 +24,6 @@ except Exception as ex:
     print("WARN: VMWare pyVmomi library not correctly installed. vSphereCloudConnector will not work!.")
     print(ex)
 
-from radl.radl import Feature
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from IM.config import Config
