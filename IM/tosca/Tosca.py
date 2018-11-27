@@ -1334,10 +1334,12 @@ class Tosca:
         # Find associated BlockStorages
         disks = self._get_attached_disks(node)
 
-        for size, unit, location, device, num, fstype, vol_id, _ in disks:
+        for size, unit, location, device, num, fstype, vol_id, _, type in disks:
             if vol_id:
                 res.setValue('disk.%d.image.url' % num, vol_id)
             else:
+                if type:
+                    res.setValue('disk.%d.type' % num, type)
                 if size:
                     res.setValue('disk.%d.size' % num, size, unit)
                 if device:
@@ -1388,6 +1390,7 @@ class Tosca:
             if rel.type.endswith("AttachesTo"):
                 props = rel_tpl.get_properties_objects()
 
+                type = None
                 size = None
                 location = None
                 # set a default device
@@ -1404,15 +1407,15 @@ class Tosca:
                         fs_type = value
 
                 if trgt.type_definition.type == "tosca.nodes.BlockStorage":
+                    type = self._final_function_result(trgt.get_property_value('type'), trgt)
                     full_size = self._final_function_result(trgt.get_property_value('size'), trgt)
                     volume_id = self._final_function_result(trgt.get_property_value('volume_id'), trgt)
                     snapshot_id = self._final_function_result(trgt.get_property_value('snapshot_id'), trgt)
                     size, unit = Tosca._get_size_and_unit(full_size)
-                    disks.append((size, unit, location, device, count, fs_type, volume_id, snapshot_id))
+                    disks.append((size, unit, location, device, count, fs_type, volume_id, snapshot_id, type))
                     count += 1
                 else:
-                    Tosca.logger.debug(
-                        "Attached item of type %s ignored." % trgt.type_definition.type)
+                    Tosca.logger.debug("Attached item of type %s ignored." % trgt.type_definition.type)
 
         return disks
 
