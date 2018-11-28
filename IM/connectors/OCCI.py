@@ -292,11 +292,10 @@ class OCCICloudConnector(CloudConnector):
                             return value
         return None
 
-    def get_floating_pool(self, auth_data):
+    def get_floating_pool(self, occi_data):
         """
         Get a random floating pool available (For OpenStack sites with Neutron)
         """
-        _, occi_data = self.query_occi(auth_data)
         lines = occi_data.split("\n")
         pools = []
         for l in lines:
@@ -351,10 +350,10 @@ class OCCICloudConnector(CloudConnector):
             if l.startswith("X-OCCI-Location: "):
                 net_name = os.path.basename(l[17:])
             if is_public:
-                if net_name in self.PUBLIC_NET_NAMES:
+                if net_name.startswith(tuple(self.PUBLIC_NET_NAMES)):
                     return net_name
             else:
-                if net_name not in self.PUBLIC_NET_NAMES:
+                if not net_name.startswith(tuple(self.PUBLIC_NET_NAMES)):
                     return net_name
 
         # if not, return a random one and pray
@@ -382,7 +381,7 @@ class OCCICloudConnector(CloudConnector):
             net_id = "imnet.%s" % str(uuid.uuid1())
 
             body = 'Category: networkinterface;scheme="http://schemas.ogf.org/occi/infrastructure#";class="kind"\n'
-            pool_name = self.get_floating_pool(auth_data)
+            pool_name = self.get_floating_pool(occi_info)
             if pool_name:
                 body += ('Category: %s;scheme="http://schemas.openstack.org/network/floatingippool#";'
                          'class="mixin"\n' % pool_name)
@@ -883,12 +882,8 @@ class OCCICloudConnector(CloudConnector):
                 if resp.status_code == 409:
                     self.log_warn("Conflict creating the VM. Let's try to add the net id.")
 
-                    # First add public ip (if needed)
                     net_ids = []
-                    if radl.hasPublicNet(system.name):
-                        pub_net_id = self.get_net_name(auth_data, True)
-                        if pub_net_id:
-                            net_ids.append(pub_net_id)
+
                     # Then add private one
                     priv_net_id = self.get_net_name(auth_data, False)
                     if priv_net_id and priv_net_id not in net_ids:
