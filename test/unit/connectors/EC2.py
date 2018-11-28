@@ -84,13 +84,15 @@ class TestEC2Connector(TestCloudConnectorBase):
         instances = ec2_cloud.get_all_instance_types()
         self.assertGreater(len(instances), 20)
 
-        self.assertEqual(instances[0].cpu_perf, 1.0)
-        self.assertEqual(instances[0].name, 'm1.small')
-        self.assertEqual(instances[0].mem, 1740.8)
-        self.assertEqual(instances[0].price, 0.044)
-        self.assertEqual(instances[0].disks, 1)
-        self.assertEqual(instances[0].cores_per_cpu, 1)
-        self.assertEqual(instances[0].disk_space, 160)
+        for instance in instances:
+            if instance.name == 'm1.small':
+                self.assertEqual(instance.cpu_perf, 1.0)
+                self.assertEqual(instance.name, 'm1.small')
+                self.assertEqual(instance.mem, 1740.8)
+                self.assertEqual(instance.price, 0.044)
+                self.assertEqual(instance.disks, 1)
+                self.assertEqual(instance.cores_per_cpu, 1)
+                self.assertEqual(instance.disk_space, 160)
 
     @patch('boto.ec2.get_region')
     @patch('boto.vpc.VPCConnection')
