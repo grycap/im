@@ -1396,7 +1396,8 @@ class EC2CloudConnector(CloudConnector):
 
         return (True, "")
 
-    def waitStop(self, instance, timeout=120):
+    @staticmethod
+    def waitStop(instance, timeout=120):
         """
         Wait a instance to be stopped
         """

@@ -164,7 +164,8 @@ class OCCICloudConnector(CloudConnector):
         else:
             return None
 
-    def get_attached_volumes_from_info(self, occi_res):
+    @staticmethod
+    def get_attached_volumes_from_info(occi_res):
         """
         Get the attached volumes in VM from the OCCI information returned by the server
         """
@@ -193,7 +194,8 @@ class OCCICloudConnector(CloudConnector):
                     res.append((num_link, num_storage, device))
         return res
 
-    def get_net_info(self, occi_res):
+    @staticmethod
+    def get_net_info(occi_res):
         """
         Get the net related information about a VM from the OCCI information returned by the server
         """
@@ -273,7 +275,8 @@ class OCCICloudConnector(CloudConnector):
 
         vm.setIps(public_ips, private_ips, remove_old=True)
 
-    def get_property_from_category(self, occi_res, category, prop_name):
+    @staticmethod
+    def get_property_from_category(occi_res, category, prop_name):
         """
         Get a property of an OCCI category returned by an OCCI server
         """
@@ -384,7 +387,8 @@ class OCCICloudConnector(CloudConnector):
             self.log_exception("Error connecting with OCCI server")
             return (False, "Error connecting with OCCI server")
 
-    def get_occi_attribute_value(self, occi_res, attr_name):
+    @staticmethod
+    def get_occi_attribute_value(occi_res, attr_name):
         """
         Get the value of an OCCI attribute returned by an OCCI server
         """
@@ -887,7 +891,8 @@ class OCCICloudConnector(CloudConnector):
 
         return res
 
-    def get_volume_ids_from_radl(self, system):
+    @staticmethod
+    def get_volume_ids_from_radl(system):
         volumes = []
         cont = 1
         while system.getValue("disk." + str(cont) + ".image.url") or system.getValue("disk." + str(cont) + ".size"):
@@ -899,7 +904,8 @@ class OCCICloudConnector(CloudConnector):
 
         return volumes
 
-    def get_volume_not_delete(self, system):
+    @staticmethod
+    def get_volume_not_delete(system):
         volumes = []
         cont = 1
         while system.getValue("disk." + str(cont) + ".image.url") or system.getValue("disk." + str(cont) + ".size"):
