@@ -774,7 +774,7 @@ class EC2CloudConnector(CloudConnector):
 
         return res
 
-    def create_volume(self, conn, disk_size, placement, type=None, timeout=60):
+    def create_volume(self, conn, disk_size, placement, vol_type=None, timeout=60):
         """
         Create an EBS volume
 
@@ -786,7 +786,7 @@ class EC2CloudConnector(CloudConnector):
            - timeout(int): Time needed to create the volume.
         Returns: a :py:class:`boto.ec2.volume.Volume` of the new volume
         """
-        volume = conn.create_volume(disk_size, placement, volume_type=type)
+        volume = conn.create_volume(disk_size, placement, volume_type=vol_type)
         cont = 0
         err_states = ["error"]
         while str(volume.status) != 'available' and str(volume.status) not in err_states and cont < timeout:

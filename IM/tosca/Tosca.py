@@ -1334,12 +1334,12 @@ class Tosca:
         # Find associated BlockStorages
         disks = self._get_attached_disks(node)
 
-        for size, unit, location, device, num, fstype, vol_id, _, type in disks:
+        for size, unit, location, device, num, fstype, vol_id, _, vol_type in disks:
             if vol_id:
                 res.setValue('disk.%d.image.url' % num, vol_id)
             else:
-                if type:
-                    res.setValue('disk.%d.type' % num, type)
+                if vol_type:
+                    res.setValue('disk.%d.type' % num, vol_type)
                 if size:
                     res.setValue('disk.%d.size' % num, size, unit)
                 if device:
