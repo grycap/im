@@ -331,6 +331,22 @@ class OCCICloudConnector(CloudConnector):
         if len(lines) == 1 and lines[0].startswith("X-OCCI-Location: "):
             return os.path.basename(lines[0][17:])
 
+        # if not, try to find one with a public ip
+        net_name = None
+        for l in lines:
+            if l.startswith("X-OCCI-Location: "):
+                net_url = l[17:]
+                net_name = os.path.basename(l[17:])
+                resp = self.create_request('GET', net_url, auth_data, headers)
+                if resp.status_code == 200:
+                    net_addr = self.get_occi_attribute_value(resp.text, "occi.network.address")
+                    if net_addr:
+                        net_ip = net_addr.split("/")[0]
+                        is_private = any([IPAddress(net_ip) in IPNetwork(mask) for mask in Config.PRIVATE_NET_MASKS])
+                        if not is_private:
+                            self.log_debug("Using net with range: %s as public." % net_addr)
+                            return net_name
+
         # if not, try to find one with the expected names
         net_name = None
         for l in lines:

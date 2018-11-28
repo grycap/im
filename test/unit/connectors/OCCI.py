@@ -22,7 +22,7 @@ import json
 
 sys.path.append(".")
 sys.path.append("..")
-from .CloudConn import TestCloudConnectorBase
+from CloudConn import TestCloudConnectorBase
 from IM.CloudInfo import CloudInfo
 from IM.auth import Authentication
 from radl import radl_parse
@@ -118,6 +118,8 @@ class TestOCCIConnector(TestCloudConnectorBase):
             self.call_count[method][url] = 0
         self.call_count[method][url] += 1
 
+        resp.status_code = 404
+
         if method == "GET":
             if url == "":
                 resp.status_code = 300
@@ -167,6 +169,16 @@ class TestOCCIConnector(TestCloudConnectorBase):
                                     voname="fedcloud.egi.eu"/>
                                 </virtualization:provider>
                                 </appdb:appdb>"""
+            elif url == "/network/":
+                resp.status_code = 200
+                resp.text = ("X-OCCI-Location: http://server.com/network/1"
+                             "\nX-OCCI-Location: http://server.com/network/2")
+            elif url == "/network/2":
+                resp.status_code = 200
+                resp.text = "X-OCCI-Attribute: occi.network.address=\"158.42.0.0/24\""
+            elif url == "/network/1":
+                resp.status_code = 200
+                resp.text = "X-OCCI-Attribute: occi.network.address=\"10.0.0.0/24\""
         elif method == "POST":
             if url == "/compute/":
                 if self.return_error:
@@ -411,8 +423,6 @@ class TestOCCIConnector(TestCloudConnectorBase):
         self.assertTrue(success, msg="ERROR: modifying VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
-        self.assertEqual(vm.requested_radl.systems[0].getValue("net_interface.1.connection"), None)
-        self.assertEqual(vm.requested_radl.systems[0].getValue("net_interface.1.ip"), None)
         self.assertEqual(vm.requested_radl.systems[0].getValue("net_interface.0.connection"), "net")
 
     @patch('requests.request')
