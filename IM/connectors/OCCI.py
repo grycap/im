@@ -309,10 +309,9 @@ class OCCICloudConnector(CloudConnector):
         else:
             return None
 
-    def get_public_net_name(self, auth_data):
-        # in some sites the network is called floating, in others PUBLIC ...
+    def get_net_name(self, auth_data, is_public):
         """
-        Get the public network name contacting with the OCCI server
+        Get the public/private network name contacting with the OCCI server
         """
         auth = self.get_auth_header(auth_data)
         headers = {'Accept': 'text/plain', 'Connection': 'close'}
@@ -322,9 +321,11 @@ class OCCICloudConnector(CloudConnector):
             resp = self.create_request('GET', self.cloud.path + "/network/", auth_data, headers)
 
             if resp.status_code != 200:
-                return False, "Error querying the OCCI server: %s" % resp.reason
-        except Exception as ex:
-            return False, "Error querying the OCCI server: %s" % str(ex)
+                self.log_error("Error querying the OCCI server: %s" % resp.reason)
+                return None
+        except:
+            self.log_exception("Error querying the OCCI server")
+            return None
 
         lines = resp.text.split("\n")
         # If there are only one net, return it
@@ -332,7 +333,6 @@ class OCCICloudConnector(CloudConnector):
             return os.path.basename(lines[0][17:])
 
         # if not, try to find one with a public ip
-        net_name = None
         for l in lines:
             if l.startswith("X-OCCI-Location: "):
                 net_url = l[17:]
@@ -343,29 +343,31 @@ class OCCICloudConnector(CloudConnector):
                     if net_addr:
                         net_ip = net_addr.split("/")[0]
                         is_private = any([IPAddress(net_ip) in IPNetwork(mask) for mask in Config.PRIVATE_NET_MASKS])
-                        if not is_private:
-                            self.log_debug("Using net with range: %s as public." % net_addr)
+                        if is_private != is_public:
                             return net_name
 
         # if not, try to find one with the expected names
-        net_name = None
         for l in lines:
             if l.startswith("X-OCCI-Location: "):
                 net_name = os.path.basename(l[17:])
-            if net_name in self.PUBLIC_NET_NAMES:
-                return net_name
+            if is_public:
+                if net_name in self.PUBLIC_NET_NAMES:
+                    return net_name
+            else:
+                if net_name not in self.PUBLIC_NET_NAMES:
+                    return net_name
 
         # if not, return a random one and pray
-        if not net_name and len(lines) > 0:
+        if len(lines) > 0:
             return os.path.basename(lines[random.randint(0, len(lines) - 1)][17:])
 
-        return net_name
+        return None
 
     def add_public_ip(self, vm, auth_data):
         """
         Add a public IP to the VM
         """
-        network_name = self.get_public_net_name(auth_data)
+        network_name = self.get_net_name(auth_data, True)
         if not network_name:
             return (False, "No correct network name found.")
 
@@ -877,8 +879,37 @@ class OCCICloudConnector(CloudConnector):
                     headers.update(auth_header)
                 resp = self.create_request('POST', self.cloud.path + "/compute/", auth_data, headers, body)
 
+                # This error is returned is some sites if the network id is not specified
+                if resp.status_code == 409:
+                    self.log_warn("Conflict creating the VM. Let's try to add the net id.")
+
+                    # First add public ip (if needed)
+                    net_ids = []
+                    if radl.hasPublicNet(system.name):
+                        pub_net_id = self.get_net_name(auth_data, True)
+                        if pub_net_id:
+                            net_ids.append(pub_net_id)
+                    # Then add private one
+                    priv_net_id = self.get_net_name(auth_data, False)
+                    if priv_net_id and priv_net_id not in net_ids:
+                        net_ids.append(priv_net_id)
+
+                    for net_id in net_ids:
+                        link_id = "im-%s" % str(uuid.uuid1())
+                        body += ('Link: <%s/network/%s>;rel="http://schemas.ogf.org/occi/infrastructure#network";'
+                                 'category="http://schemas.ogf.org/occi/infrastructure#networkinterface";'
+                                 'occi.core.target="%s/network/%s";'
+                                 'occi.core.source="%s/compute/%s";'
+                                 'occi.core.id="%s"' % (self.cloud.path, net_id,
+                                                        self.cloud.path, net_id,
+                                                        self.cloud.path, compute_id, link_id))
+                        body += '\n'
+                    self.log_debug(body)
+
+                    resp = self.create_request('POST', self.cloud.path + "/compute/", auth_data, headers, body)
+
                 # some servers return 201 and other 200
-                if resp.status_code != 201 and resp.status_code != 200:
+                if resp.status_code not in [201, 200]:
                     res.append((False, resp.reason + "\n" + resp.text))
                     for created, _, volume_id in volumes:
                         if created:
