@@ -886,10 +886,12 @@ class OCCICloudConnector(CloudConnector):
                     net_ids = []
 
                     # First add public ip (if needed)
-#                     if radl.hasPublicNet(system.name):
-#                         pub_net_id = self.get_net_name(auth_data, True)
-#                         if pub_net_id:
-#                             net_ids.append(pub_net_id)
+                    if not self.get_floating_pool(occi_info):
+                        # First add public ip (if needed)
+                        if radl.hasPublicNet(system.name):
+                            pub_net_id = self.get_net_name(auth_data, True)
+                            if pub_net_id:
+                                net_ids.append(pub_net_id)
                     # Then add private one
                     priv_net_id = self.get_net_name(auth_data, False)
                     if priv_net_id and priv_net_id not in net_ids:
