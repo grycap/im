@@ -292,7 +292,8 @@ class OCCICloudConnector(CloudConnector):
                             return value
         return None
 
-    def get_floating_pool(self, occi_data):
+    @staticmethod
+    def get_floating_pool(occi_data):
         """
         Get a random floating pool available (For OpenStack sites with Neutron)
         """
@@ -884,6 +885,11 @@ class OCCICloudConnector(CloudConnector):
 
                     net_ids = []
 
+                    # First add public ip (if needed)
+#                     if radl.hasPublicNet(system.name):
+#                         pub_net_id = self.get_net_name(auth_data, True)
+#                         if pub_net_id:
+#                             net_ids.append(pub_net_id)
                     # Then add private one
                     priv_net_id = self.get_net_name(auth_data, False)
                     if priv_net_id and priv_net_id not in net_ids:
