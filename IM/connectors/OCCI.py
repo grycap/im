@@ -885,7 +885,7 @@ class OCCICloudConnector(CloudConnector):
 
                     net_ids = []
 
-                    # First add public ip (if needed)
+                    # If the site does not have IP pools
                     if not self.get_floating_pool(occi_info):
                         # First add public ip (if needed)
                         if radl.hasPublicNet(system.name):
