@@ -21,8 +21,6 @@ import unittest
 import sys
 import yaml
 
-from mock import Mock, patch, MagicMock
-
 sys.path.append("..")
 sys.path.append(".")
 

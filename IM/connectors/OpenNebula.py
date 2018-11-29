@@ -30,7 +30,7 @@ from IM.xmlobject import XMLObject
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
-from radl.radl import network, Feature
+from radl.radl import Feature
 from IM.config import ConfigOpenNebula
 from netaddr import IPNetwork, IPAddress
 from IM.config import Config
@@ -161,63 +161,45 @@ class OpenNebulaCloudConnector(CloudConnector):
 
     type = "OpenNebula"
     """str with the name of the provider."""
+    DEFAULT_USER = 'root'
+    """ default user to SSH access the VM """
 
     def __init__(self, cloud_info, inf):
         CloudConnector.__init__(self, cloud_info, inf)
         self.server_url = "http://%s:%d/RPC2" % (
             self.cloud.server, self.cloud.port)
 
-    def concreteSystem(self, radl_system, auth_data):
-        image_urls = radl_system.getValue("disk.0.image.url")
-        if not image_urls:
-            return [radl_system.clone()]
+    def concrete_system(self, radl_system, str_url, auth_data):
+        url = uriparse(str_url)
+        protocol = url[0]
+        src_host = url[1].split(':')[0]
+
+        if (protocol == "one") and self.cloud.server == src_host:
+            # Check the space in image and compare with disks.free_size
+            if radl_system.getValue('disks.free_size'):
+                disk_free = int(radl_system.getFeature('disks.free_size').getValue('M'))
+                # The VMRC specified the value in MB
+                if radl_system.getValue("disk.0.size"):
+                    disk_size = int(radl_system.getValue("disk.0.size"))
+                else:
+                    disk_size = 0
+
+                if disk_size < disk_free:
+                    # if the image do not have enough space, discard it
+                    return []
+
+            res_system = radl_system.clone()
+
+            res_system.getFeature("cpu.count").operator = "="
+            res_system.getFeature("memory.size").operator = "="
+
+            username = res_system.getValue('disk.0.os.credentials.username')
+            if not username:
+                res_system.setValue('disk.0.os.credentials.username', self.DEFAULT_USER)
+
+            return res_system
         else:
-            if not isinstance(image_urls, list):
-                image_urls = [image_urls]
-
-            res = []
-            for str_url in image_urls:
-                url = uriparse(str_url)
-                protocol = url[0]
-                src_host = url[1].split(':')[0]
-                # TODO: check the port
-                if (protocol == "one") and self.cloud.server == src_host:
-                    # Check the space in image and compare with disks.free_size
-                    if radl_system.getValue('disks.free_size'):
-                        disk_free = int(radl_system.getFeature(
-                            'disks.free_size').getValue('M'))
-                        # The VMRC specified the value in MB
-                        if radl_system.getValue("disk.0.size"):
-                            disk_size = int(radl_system.getValue("disk.0.size"))
-                        else:
-                            disk_size = 0
-
-                        if disk_size < disk_free:
-                            # if the image do not have enough space, discard it
-                            return []
-
-                    res_system = radl_system.clone()
-
-                    res_system.getFeature("cpu.count").operator = "="
-                    res_system.getFeature("memory.size").operator = "="
-
-                    res_system.addFeature(
-                        Feature("disk.0.image.url", "=", str_url), conflict="other", missing="other")
-
-                    res_system.addFeature(
-                        Feature("provider.type", "=", self.type), conflict="other", missing="other")
-                    res_system.addFeature(Feature(
-                        "provider.host", "=", self.cloud.server), conflict="other", missing="other")
-                    res_system.addFeature(Feature(
-                        "provider.port", "=", self.cloud.port), conflict="other", missing="other")
-
-                    username = res_system.getValue('disk.0.os.credentials.username')
-                    if not username:
-                        res_system.setValue('disk.0.os.credentials.username', 'root')
-
-                    res.append(res_system)
-
-            return res
+            return None
 
     def getSessionID(self, auth_data, hash_password=None):
         """

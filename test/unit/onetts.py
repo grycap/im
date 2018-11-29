@@ -18,7 +18,6 @@
 
 import unittest
 
-from IM.uriparse import uriparse
 from IM.tts.onetts import ONETTSClient
 from mock import patch, MagicMock
 

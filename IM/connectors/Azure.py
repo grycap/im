@@ -27,7 +27,6 @@ from IM.config import Config
 try:
     from azure.mgmt.resource import ResourceManagementClient
     from azure.mgmt.storage import StorageManagementClient
-    from azure.storage.blob import BlockBlobService
     from azure.mgmt.compute import ComputeManagementClient
     from azure.mgmt.network import NetworkManagementClient
     from azure.mgmt.dns import DnsManagementClient
@@ -54,6 +53,8 @@ class AzureCloudConnector(CloudConnector):
     """Default instance type."""
     DEFAULT_LOCATION = "westeurope"
     """Default location to use"""
+    DEFAULT_USER = 'azureuser'
+    """ default user to SSH access the VM """
 
     PROVISION_STATE_MAP = {
         'Accepted': VirtualMachine.PENDING,
@@ -115,7 +116,8 @@ class AzureCloudConnector(CloudConnector):
 
         return self.credentials, subscription_id
 
-    def get_instance_type_by_name(self, instance_name, location, credentials, subscription_id):
+    @staticmethod
+    def get_instance_type_by_name(instance_name, location, credentials, subscription_id):
         compute_client = ComputeManagementClient(credentials, subscription_id)
         instace_types = compute_client.virtual_machine_sizes.list(location)
 
@@ -176,7 +178,8 @@ class AzureCloudConnector(CloudConnector):
 
         return default
 
-    def update_system_info_from_instance(self, system, instance_type):
+    @staticmethod
+    def update_system_info_from_instance(system, instance_type):
         """
         Update the features of the system with the information of the instance_type
         """
@@ -189,52 +192,39 @@ class AzureCloudConnector(CloudConnector):
         system.addFeature(Feature("instance_type", "=", instance_type.name),
                           conflict="other", missing="other")
 
-    def concreteSystem(self, radl_system, auth_data):
-        image_urls = radl_system.getValue("disk.0.image.url")
-        if not image_urls:
-            return [radl_system.clone()]
+    def concrete_system(self, radl_system, str_url, auth_data):
+        url = uriparse(str_url)
+        protocol = url[0]
+
+        if protocol == "azr":
+            credentials, subscription_id = self.get_credentials(auth_data)
+
+            instance_type = self.get_instance_type(radl_system, credentials, subscription_id)
+            if not instance_type:
+                self.log_error("Error generating the RADL of the VM, no instance type available for the requirements.")
+                self.log_debug(radl_system)
+                return None
+
+            res_system = radl_system.clone()
+            username = res_system.getValue('disk.0.os.credentials.username')
+            if not username:
+                res_system.setValue('disk.0.os.credentials.username', self.DEFAULT_USER)
+
+            # In Azure we always need to set a password
+            password = res_system.getValue('disk.0.os.credentials.password')
+            if not password:
+                password = ''.join(random.choice(string.ascii_letters + string.digits + "+-*_$@#=<>[]")
+                                   for _ in range(16))
+                res_system.setValue('disk.0.os.credentials.password', password)
+
+            res_system.updateNewCredentialValues()
+
+            return res_system
         else:
-            if not isinstance(image_urls, list):
-                image_urls = [image_urls]
+            return None
 
-            res = []
-            for str_url in image_urls:
-                url = uriparse(str_url)
-                protocol = url[0]
-
-                if protocol == "azr":
-                    credentials, subscription_id = self.get_credentials(auth_data)
-
-                    res_system = radl_system.clone()
-                    instance_type = self.get_instance_type(res_system, credentials, subscription_id)
-                    if not instance_type:
-                        self.log_error(
-                            "Error generating the RADL of the VM, no instance type available for the requirements.")
-                        self.log_debug(res_system)
-                    else:
-                        res_system.addFeature(
-                            Feature("disk.0.image.url", "=", str_url), conflict="other", missing="other")
-                        self.update_system_info_from_instance(res_system, instance_type)
-                        res_system.addFeature(
-                            Feature("provider.type", "=", self.type), conflict="other", missing="other")
-
-                        username = res_system.getValue('disk.0.os.credentials.username')
-                        if not username:
-                            res_system.setValue('disk.0.os.credentials.username', 'azureuser')
-
-                        # In Azure we always need to set a password
-                        password = res_system.getValue('disk.0.os.credentials.password')
-                        if not password:
-                            password = ''.join(random.choice(string.ascii_letters + string.digits + "+-*_$@#=<>[]")
-                                               for _ in range(16))
-                            res_system.setValue('disk.0.os.credentials.password', password)
-
-                        res_system.updateNewCredentialValues()
-
-                        res.append(res_system)
-            return res
-
-    def get_rg(self, group_name, credentials, subscription_id):
+    @staticmethod
+    def get_rg(group_name, credentials, subscription_id):
         """
         Get the RG named group_name, if it not exists return None
         """
@@ -247,7 +237,8 @@ class AzureCloudConnector(CloudConnector):
             else:
                 raise cex
 
-    def get_storage_account(self, group_name, storage_name, credentials, subscription_id):
+    @staticmethod
+    def get_storage_account(group_name, storage_name, credentials, subscription_id):
         """
         Get the Storage Account named storage_name in group_name, if it not exists return None
         """
@@ -775,7 +766,8 @@ class AzureCloudConnector(CloudConnector):
             self.log_exception("Error creating DNS entries")
             return False
 
-    def setIPs(self, vm, network_profile, credentials, subscription_id):
+    @staticmethod
+    def setIPs(vm, network_profile, credentials, subscription_id):
         """
         Set the information about the IPs of the VM
         """

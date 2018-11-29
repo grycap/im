@@ -24,7 +24,6 @@ except Exception as ex:
     print("WARN: VMWare pyVmomi library not correctly installed. vSphereCloudConnector will not work!.")
     print(ex)
 
-from radl.radl import Feature
 from IM.uriparse import uriparse
 from IM.VirtualMachine import VirtualMachine
 from IM.config import Config
@@ -137,39 +136,30 @@ class vSphereCloudConnector(CloudConnector):
                 self.log_debug(auth)
                 raise Exception("No correct auth data has been specified to vSpere: username, password")
 
-    def concreteSystem(self, radl_system, auth_data):
-        if radl_system.getValue("disk.0.image.url"):
-            url = uriparse(radl_system.getValue("disk.0.image.url"))
-            protocol = url[0]
-            src_host = url[1].split(':')[0]
-            if protocol == "vsp" and self.cloud.server == src_host:
-                # Check the space in image and compare with disks.free_size
-                if radl_system.getValue('disks.free_size'):
-                    disk_free = int(radl_system.getFeature('disks.free_size').getValue('M'))
-                    # The VMRC specified the value in MB
-                    disk_size = int(radl_system.getValue("disk.0.size"))
+    def concrete_system(self, radl_system, str_url, auth_data):
+        url = uriparse(str_url)
+        protocol = url[0]
+        src_host = url[1].split(':')[0]
 
-                    if disk_size < disk_free:
-                        # if the image do not have enough space, discard it
-                        return []
+        if protocol == "vsp" and self.cloud.server == src_host:
+            # Check the space in image and compare with disks.free_size
+            if radl_system.getValue('disks.free_size'):
+                disk_free = int(radl_system.getFeature('disks.free_size').getValue('M'))
+                # The VMRC specified the value in MB
+                disk_size = int(radl_system.getValue("disk.0.size"))
 
-                res_system = radl_system.clone()
+                if disk_size < disk_free:
+                    # if the image do not have enough space, discard it
+                    return None
 
-                res_system.getFeature("cpu.count").operator = "="
-                res_system.getFeature("memory.size").operator = "="
+            res_system = radl_system.clone()
 
-                res_system.addFeature(Feature("provider.type", "=", self.type),
-                                      conflict="other", missing="other")
-                res_system.addFeature(Feature("provider.host", "=", self.cloud.server),
-                                      conflict="other", missing="other")
-                res_system.addFeature(Feature("provider.port", "=", self.cloud.port),
-                                      conflict="other", missing="other")
+            res_system.getFeature("cpu.count").operator = "="
+            res_system.getFeature("memory.size").operator = "="
 
-                return [res_system]
-            else:
-                return []
+            return res_system
         else:
-            return [radl_system.clone()]
+            return None
 
     def gen_nic(self, num, network):
         """

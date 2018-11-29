@@ -17,7 +17,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
-import os
 
 from IM.VMRC import VMRC
 from radl import radl_parse

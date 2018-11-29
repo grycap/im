@@ -29,7 +29,6 @@ from IM.config import Config
 from radl.radl_json import parse_radl as parse_radl_json, dump_radl as dump_radl_json, featuresToSimple, radlToSimple
 from radl.radl import RADL, Features, Feature
 from IM.tosca.Tosca import Tosca
-from IM.VirtualMachine import VirtualMachine
 
 logger = logging.getLogger('InfrastructureManager')
 

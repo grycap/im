@@ -19,7 +19,7 @@ import base64
 import os
 import uuid
 import requests
-import json
+import tempfile
 
 try:
     import boto.ec2
@@ -78,8 +78,6 @@ class EC2CloudConnector(CloudConnector):
 
     type = "EC2"
     """str with the name of the provider."""
-    KEYPAIR_DIR = '/tmp'
-    """str with a path to store the keypair files."""
     INSTANCE_TYPE = 't1.micro'
     """str with the name of the default instance type to launch."""
 
@@ -102,45 +100,32 @@ class EC2CloudConnector(CloudConnector):
         self.auth = None
         CloudConnector.__init__(self, cloud_info, inf)
 
-    def concreteSystem(self, radl_system, auth_data):
-        image_urls = radl_system.getValue("disk.0.image.url")
-        if not image_urls:
-            return [radl_system.clone()]
+    def concrete_system(self, radl_system, str_url, auth_data):
+        url = uriparse(str_url)
+        protocol = url[0]
+
+        if protocol == "aws":
+
+            instance_type = self.get_instance_type(radl_system)
+            if not instance_type:
+                self.log_error("Error launching the VM, no instance type available for the requirements.")
+                self.log_debug(radl_system)
+                return None
+
+            # Currently EC2 plugin only uses private_key credentials
+            res_system = radl_system.clone()
+            if res_system.getValue('disk.0.os.credentials.private_key'):
+                res_system.delValue('disk.0.os.credentials.password')
+                res_system.delValue('disk.0.os.credentials.new.password')
+
+            self.update_system_info_from_instance(res_system, instance_type)
+
+            return res_system
         else:
-            if not isinstance(image_urls, list):
-                image_urls = [image_urls]
+            return None
 
-            res = []
-            for str_url in image_urls:
-                url = uriparse(str_url)
-                protocol = url[0]
-
-                protocol = url[0]
-                if protocol == "aws":
-                    # Currently EC2 plugin only uses private_key credentials
-                    res_system = radl_system.clone()
-                    if res_system.getValue('disk.0.os.credentials.private_key'):
-                        res_system.delValue('disk.0.os.credentials.password')
-                        res_system.delValue('disk.0.os.credentials.new.password')
-
-                    res_system.addFeature(
-                        Feature("disk.0.image.url", "=", str_url), conflict="other", missing="other")
-                    res_system.addFeature(
-                        Feature("provider.type", "=", self.type), conflict="other", missing="other")
-
-                    instance_type = self.get_instance_type(res_system)
-                    if not instance_type:
-                        self.log_error("Error launching the VM, no instance type available for the requirements.")
-                        self.log_debug(res_system)
-                        return []
-                    else:
-                        self.update_system_info_from_instance(
-                            res_system, instance_type)
-                        res.append(res_system)
-
-            return res
-
-    def update_system_info_from_instance(self, system, instance_type):
+    @staticmethod
+    def update_system_info_from_instance(system, instance_type):
         """
         Update the features of the system with the information of the instance_type
         """
@@ -247,8 +232,9 @@ class EC2CloudConnector(CloudConnector):
             self.route53_connection = conn
             return conn
 
-    # el path sera algo asi: aws://eu-west-1/ami-00685b74
-    def getAMIData(self, path):
+    # path format: aws://eu-west-1/ami-00685b74
+    @staticmethod
+    def getAMIData(path):
         """
         Get the region and the AMI ID from an URL of a VMI
 
@@ -498,10 +484,11 @@ class EC2CloudConnector(CloudConnector):
                     system.getCredentials().username, public, private)
             else:
                 self.log_info("Creating the Keypair name: %s" % keypair_name)
-                keypair_file = self.KEYPAIR_DIR + '/' + keypair_name + '.pem'
+                tmp_dir = tempfile.mkdtemp()
+                keypair_file = tmp_dir + '/' + keypair_name + '.pem'
                 keypair = conn.create_key_pair(keypair_name)
                 created = True
-                keypair.save(self.KEYPAIR_DIR)
+                keypair.save(tmp_dir)
                 os.chmod(keypair_file, 0o400)
                 with open(keypair_file, "r") as fkeypair:
                     system.setUserKeyCredentials(system.getCredentials().username,
@@ -513,7 +500,8 @@ class EC2CloudConnector(CloudConnector):
 
         return (created, keypair_name)
 
-    def get_default_subnet(self, conn):
+    @staticmethod
+    def get_default_subnet(conn):
         """
         Get the default VPC and the first subnet
         """
@@ -786,7 +774,7 @@ class EC2CloudConnector(CloudConnector):
 
         return res
 
-    def create_volume(self, conn, disk_size, placement, timeout=60):
+    def create_volume(self, conn, disk_size, placement, vol_type=None, timeout=60):
         """
         Create an EBS volume
 
@@ -794,10 +782,11 @@ class EC2CloudConnector(CloudConnector):
            - conn(:py:class:`boto.ec2.connection`): object to connect to EC2 API.
            - disk_size(:py:class:`boto.ec2.connection`): The size of the new volume, in GiB
            - placement(str): The availability zone in which the Volume will be created.
+           - type(str): Type of the volume: standard | io1 | gp2.
            - timeout(int): Time needed to create the volume.
         Returns: a :py:class:`boto.ec2.volume.Volume` of the new volume
         """
-        volume = conn.create_volume(disk_size, placement)
+        volume = conn.create_volume(disk_size, placement, volume_type=vol_type)
         cont = 0
         err_states = ["error"]
         while str(volume.status) != 'available' and str(volume.status) not in err_states and cont < timeout:
@@ -830,17 +819,14 @@ class EC2CloudConnector(CloudConnector):
                 cont = 1
                 while (vm.info.systems[0].getValue("disk." + str(cont) + ".size") and
                        vm.info.systems[0].getValue("disk." + str(cont) + ".device")):
-                    disk_size = vm.info.systems[0].getFeature(
-                        "disk." + str(cont) + ".size").getValue('G')
-                    disk_device = vm.info.systems[0].getValue(
-                        "disk." + str(cont) + ".device")
+                    disk_size = vm.info.systems[0].getFeature("disk." + str(cont) + ".size").getValue('G')
+                    disk_device = vm.info.systems[0].getValue("disk." + str(cont) + ".device")
+                    disk_type = vm.info.systems[0].getValue("disk." + str(cont) + ".type")
                     self.log_info("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
-                    volume = self.create_volume(
-                        conn, int(disk_size), instance.placement)
+                    volume = self.create_volume(conn, int(disk_size), instance.placement, disk_type)
                     if volume:
                         self.log_info("Attach the volume ID " + str(volume.id))
-                        conn.attach_volume(
-                            volume.id, instance.id, "/dev/" + disk_device)
+                        conn.attach_volume(volume.id, instance.id, "/dev/" + disk_device)
                     cont += 1
         except Exception:
             self.log_exception(
@@ -1180,7 +1166,7 @@ class EC2CloudConnector(CloudConnector):
                             changes = boto.route53.record.ResourceRecordSets(conn, zone.id)
                             change = changes.add_change("CREATE", fqdn, "A")
                             change.add_value(ip)
-                            result = changes.commit()
+                            changes.commit()
                         else:
                             self.log_info("DNS record %s exists. Do not create." % fqdn)
 
@@ -1410,7 +1396,8 @@ class EC2CloudConnector(CloudConnector):
 
         return (True, "")
 
-    def waitStop(self, instance, timeout=120):
+    @staticmethod
+    def waitStop(instance, timeout=120):
         """
         Wait a instance to be stopped
         """

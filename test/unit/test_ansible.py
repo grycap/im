@@ -23,10 +23,8 @@ try:
     from StringIO import StringIO
 except ImportError:
     from io import StringIO
-import time
 
 from IM.ansible_utils.ansible_launcher import AnsibleThread
-from mock import patch, MagicMock
 
 
 class TestAnsible(unittest.TestCase):
