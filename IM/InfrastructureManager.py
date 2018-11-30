@@ -222,6 +222,9 @@ class InfrastructureManager:
             InfrastructureManager.logger.error("Error, incorrect Inf ID: %s" % inf_id)
             raise IncorrectInfrastructureException()
         sel_inf = IM.InfrastructureList.InfrastructureList.get_infrastructure(inf_id)
+        if not sel_inf:
+            InfrastructureManager.logger.error("Error loading Inf ID: %s" % inf_id)
+            raise IncorrectInfrastructureException("Error loading Inf ID data.")
         if not sel_inf.is_authorized(auth):
             InfrastructureManager.logger.error("Access Error to Inf ID: %s" % inf_id)
             raise UnauthorizedUserException()
