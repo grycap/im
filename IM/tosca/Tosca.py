@@ -1406,7 +1406,7 @@ class Tosca:
                     elif prop.name == "fs_type":
                         fs_type = value
 
-                if trgt.type_definition.type == "tosca.nodes.BlockStorage":
+                if trgt.type_definition.type.endswith(".BlockStorage"):
                     vol_type = self._final_function_result(trgt.get_property_value('type'), trgt)
                     full_size = self._final_function_result(trgt.get_property_value('size'), trgt)
                     volume_id = self._final_function_result(trgt.get_property_value('volume_id'), trgt)
