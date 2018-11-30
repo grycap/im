@@ -281,9 +281,6 @@ machine.  The supported features are:
 ``disk.<diskId>.image.name = <string>``
    Set the source of the disk image by its name in the VMRC server.
 
-``disk.<diskId>.type = swap|iso|filesystem``
-   Set the type of the image.
-
 ``disk.<diskId>.device = <string>``
    Set the device name, if it is disk with no source set.
    It specifies the device where the disk will be located in the system
