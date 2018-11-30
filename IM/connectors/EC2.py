@@ -774,7 +774,7 @@ class EC2CloudConnector(CloudConnector):
 
         return res
 
-    def create_volume(self, conn, disk_size, placement, timeout=60):
+    def create_volume(self, conn, disk_size, placement, vol_type=None, timeout=60):
         """
         Create an EBS volume
 
@@ -782,10 +782,11 @@ class EC2CloudConnector(CloudConnector):
            - conn(:py:class:`boto.ec2.connection`): object to connect to EC2 API.
            - disk_size(:py:class:`boto.ec2.connection`): The size of the new volume, in GiB
            - placement(str): The availability zone in which the Volume will be created.
+           - type(str): Type of the volume: standard | io1 | gp2.
            - timeout(int): Time needed to create the volume.
         Returns: a :py:class:`boto.ec2.volume.Volume` of the new volume
         """
-        volume = conn.create_volume(disk_size, placement)
+        volume = conn.create_volume(disk_size, placement, volume_type=vol_type)
         cont = 0
         err_states = ["error"]
         while str(volume.status) != 'available' and str(volume.status) not in err_states and cont < timeout:
@@ -818,17 +819,14 @@ class EC2CloudConnector(CloudConnector):
                 cont = 1
                 while (vm.info.systems[0].getValue("disk." + str(cont) + ".size") and
                        vm.info.systems[0].getValue("disk." + str(cont) + ".device")):
-                    disk_size = vm.info.systems[0].getFeature(
-                        "disk." + str(cont) + ".size").getValue('G')
-                    disk_device = vm.info.systems[0].getValue(
-                        "disk." + str(cont) + ".device")
+                    disk_size = vm.info.systems[0].getFeature("disk." + str(cont) + ".size").getValue('G')
+                    disk_device = vm.info.systems[0].getValue("disk." + str(cont) + ".device")
+                    disk_type = vm.info.systems[0].getValue("disk." + str(cont) + ".type")
                     self.log_info("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
-                    volume = self.create_volume(
-                        conn, int(disk_size), instance.placement)
+                    volume = self.create_volume(conn, int(disk_size), instance.placement, disk_type)
                     if volume:
                         self.log_info("Attach the volume ID " + str(volume.id))
-                        conn.attach_volume(
-                            volume.id, instance.id, "/dev/" + disk_device)
+                        conn.attach_volume(volume.id, instance.id, "/dev/" + disk_device)
                     cont += 1
         except Exception:
             self.log_exception(
@@ -1398,7 +1396,8 @@ class EC2CloudConnector(CloudConnector):
 
         return (True, "")
 
-    def waitStop(self, instance, timeout=120):
+    @staticmethod
+    def waitStop(instance, timeout=120):
         """
         Wait a instance to be stopped
         """

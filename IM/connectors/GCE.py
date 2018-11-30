@@ -686,16 +686,18 @@ class GCECloudConnector(CloudConnector):
                 cont = 1
                 while (vm.info.systems[0].getValue("disk." + str(cont) + ".size") and
                         vm.info.systems[0].getValue("disk." + str(cont) + ".device")):
-                    disk_size = vm.info.systems[0].getFeature(
-                        "disk." + str(cont) + ".size").getValue('G')
-                    disk_device = vm.info.systems[0].getValue(
-                        "disk." + str(cont) + ".device")
+                    disk_size = vm.info.systems[0].getFeature("disk." + str(cont) + ".size").getValue('G')
+                    disk_device = vm.info.systems[0].getValue("disk." + str(cont) + ".device")
+                    disk_type = vm.info.systems[0].getValue("disk." + str(cont) + ".type")
                     self.log_info("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
                     volume_name = "im-%s" % str(uuid.uuid1())
 
                     location = self.get_node_location(node)
-                    volume = node.driver.create_volume(
-                        int(disk_size), volume_name, location=location)
+                    if disk_type:
+                        volume = node.driver.create_volume(int(disk_size), volume_name,
+                                                           location=location, ex_disk_type=disk_type)
+                    else:
+                        volume = node.driver.create_volume(int(disk_size), volume_name, location=location)
                     success = self.wait_volume(volume)
                     if success:
                         self.log_info("Attach the volume ID " + str(volume.id))

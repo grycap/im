@@ -281,9 +281,6 @@ machine.  The supported features are:
 ``disk.<diskId>.image.name = <string>``
    Set the source of the disk image by its name in the VMRC server.
 
-``disk.<diskId>.type = swap|iso|filesystem``
-   Set the type of the image.
-
 ``disk.<diskId>.device = <string>``
    Set the device name, if it is disk with no source set.
    It specifies the device where the disk will be located in the system
@@ -307,6 +304,11 @@ machine.  The supported features are:
 
 ``disk.<diskId>.size = <positive integer value>B|K|M|G``
    Set the size of the disk, if it is a disk with no source set.
+
+``disk.<diskId>.type = <string>``
+   Set the type of the disk, if it is a disk with no source set.
+   The types depends on the provider: e.g. in GCE posible types are: pd-standard | pd-ssd,
+   in EC2 possible values are: standard | io1 | gp2.
 
 ``disk.0.free_size = <positive integer value>B|K|M|G``
    Set the free space available in boot disk.
