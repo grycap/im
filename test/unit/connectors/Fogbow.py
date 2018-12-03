@@ -106,6 +106,9 @@ class TestFogBowConnector(TestCloudConnectorBase):
                 resp.json.return_value = [{"instanceId": "1",
                                            "instanceName": "netname",
                                            "state": "READY"}]
+            elif url == "/federatedNetworks/status":
+                resp.status_code = 200
+                resp.json.return_value = []
             elif url == "/publicIps/status":
                 resp.status_code = 200
                 resp.json.return_value = [{"instanceId": "1",
