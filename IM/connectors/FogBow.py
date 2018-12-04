@@ -18,6 +18,7 @@ import json
 import os
 import requests
 import time
+import random
 from uuid import uuid1
 from netaddr import IPNetwork, IPAddress
 
@@ -82,7 +83,7 @@ class FogBowCloudConnector(CloudConnector):
 
         return resp
 
-    def post_and_get(self, path, body, auth_data):
+    def post_and_get(self, path, body, auth_data, failed_states=['FAILED']):
         headers = {'Content-Type': 'application/json'}
         resp = self.create_request('POST', path, auth_data, headers, body)
         if resp.status_code not in [201, 200]:
@@ -93,8 +94,13 @@ class FogBowCloudConnector(CloudConnector):
             resp = self.create_request('GET', '%s%s' % (path, obj_id), auth_data, headers)
             if resp.status_code == 200:
                 obj_info = resp.json()
-                if obj_info['state'] == 'FAILED':
-                    self.log_error("%s%s is FAILED." % (path, obj_id))
+                state = None
+                if 'state' in obj_info:
+                    state = obj_info['state']
+                elif 'orderState' in obj_info:
+                    state = obj_info['orderState']
+                if state in failed_states:
+                    self.log_error("%s%s is in state %s." % (path, obj_id, state))
                     try:
                         resp = self.create_request('DELETE', '%s%s' % (path, obj_id), auth_data, headers)
                         if resp.status_code not in [200, 204]:
@@ -196,11 +202,13 @@ class FogBowCloudConnector(CloudConnector):
                         net.setValue("provider_id", fbw_fed_nets[net_name])
                 else:
                     self.log_info("Creating federated net %s." % net_name)
-                    body = {"name": net_name}
+                    cidr = '10.0.%d.0/24' % random.randint(0, 254)
+                    body = {"name": net_name, "cidrNotation": cidr}
                     net_providers = net.getValue("providers")
                     if net_providers:
-                        body = {"providers": net_providers}
-                    net_info = self.post_and_get('/federatedNetworks/', json.dumps(body), auth_data)
+                        body["allowedMembers"] = net_providers
+                    net_info = self.post_and_get('/federatedNetworks/', json.dumps(body), auth_data,
+                                                 ['FAILED_AFTER_SUCCESSUL_REQUEST', 'FAILED_ON_REQUEST'])
                     if net_info:
                         net.setValue("provider_id", net_info['id'])
                     else:
@@ -549,22 +557,32 @@ class FogBowCloudConnector(CloudConnector):
         """
         try:
             fbw_nets = self.get_fbw_nets(auth_data)
+            fbw_fed_nets = self.get_fbw_nets(auth_data, True)
         except:
             self.log_exception("Error getting FogBow nets.")
             fbw_nets = {}
+            fbw_fed_nets = {}
         success = True
         try:
             for net in vm.info.networks:
                 if not net.isPublic():
                     net_name = "im_%s_%s" % (vm.inf.id, net.id)
+                    resp = None
                     if net_name in fbw_nets:
                         net_id = fbw_nets[net_name]
                         resp = self.create_request('DELETE', '/networks/%s' % net_id, auth_data)
+                    if net_name in fbw_fed_nets:
+                        net_id = fbw_fed_nets[net_name]
+                        resp = self.create_request('DELETE', '/federatedNetworks/%s' % net_id, auth_data)
+
+                    if resp:
                         if resp.status_code not in [200, 204, 404]:
                             success = False
                             self.log_error("Error deleting net %s: %s. %s." % (net_name, resp.reason, resp.text))
                         else:
                             self.log_info("Net %s: Successfully deleted." % net_name)
+                    else:
+                        self.log_warn("Net %s not appears in the list of FogBow nets." % net_name)
         except:
             success = False
             self.log_exception("Error deleting net %s." % net_name)
