@@ -121,7 +121,8 @@ class FogBowCloudConnector(CloudConnector):
 
         if self.token:
             self.log_debug("We have a token. Check if it is valid.")
-            resp = requests.request('HEAD', self.get_full_url('/images/'), verify=self.verify_ssl)
+            resp = requests.request('HEAD', self.get_full_url('/images/'), verify=self.verify_ssl,
+                                    headers={'federationTokenValue': self.token})
             if resp.status_code in [200, 201]:
                 return self.token
             else:
@@ -207,6 +208,7 @@ class FogBowCloudConnector(CloudConnector):
                     net_providers = net.getValue("providers")
                     if net_providers:
                         body["allowedMembers"] = net_providers
+                    self.log_debug(body)
                     net_info = self.post_and_get('/federatedNetworks/', json.dumps(body), auth_data,
                                                  ['FAILED_AFTER_SUCCESSUL_REQUEST', 'FAILED_ON_REQUEST'])
                     if net_info:
