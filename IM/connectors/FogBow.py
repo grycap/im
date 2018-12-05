@@ -121,7 +121,8 @@ class FogBowCloudConnector(CloudConnector):
 
         if self.token:
             self.log_debug("We have a token. Check if it is valid.")
-            resp = requests.request('HEAD', self.get_full_url('/images/'), verify=self.verify_ssl)
+            resp = requests.request('HEAD', self.get_full_url('/images/'), verify=self.verify_ssl,
+                                    headers={'federationTokenValue': self.token})
             if resp.status_code in [200, 201]:
                 return self.token
             else:
@@ -202,11 +203,12 @@ class FogBowCloudConnector(CloudConnector):
                         net.setValue("provider_id", fbw_fed_nets[net_name])
                 else:
                     self.log_info("Creating federated net %s." % net_name)
-                    cidr = '10.0.%d.0/24' % random.randint(0, 254)
+                    cidr = '10.0.%d.0/24' % random.randint(10, 250)
                     body = {"name": net_name, "cidrNotation": cidr}
                     net_providers = net.getValue("providers")
                     if net_providers:
                         body["allowedMembers"] = net_providers
+                    self.log_debug(body)
                     net_info = self.post_and_get('/federatedNetworks/', json.dumps(body), auth_data,
                                                  ['FAILED_AFTER_SUCCESSUL_REQUEST', 'FAILED_ON_REQUEST'])
                     if net_info:
@@ -263,11 +265,15 @@ class FogBowCloudConnector(CloudConnector):
                 headers = {'Content-Type': 'application/json'}
 
                 nets = []
+                fed_net = None
                 for net in radl.networks:
                     if not net.isPublic() and radl.systems[0].getNumNetworkWithConnection(net.id) is not None:
                         provider_id = net.getValue('provider_id')
                         if provider_id:
-                            nets.append(provider_id)
+                            if net.getValue("federated") == "yes":
+                                fed_net = provider_id
+                            else:
+                                nets.append(provider_id)
 
                 body = {"computeOrder":
                         {"imageId": image,
@@ -279,6 +285,8 @@ class FogBowCloudConnector(CloudConnector):
 
                 if nets:
                     body["computeOrder"]["networkIds"] = nets
+                if fed_net:
+                    body["federatedNetworkId"] = fed_net
 
                 if system.getValue('availability_zone'):
                     body["computeOrder"]['provider'] = system.getValue('availability_zone')
@@ -498,6 +506,13 @@ class FogBowCloudConnector(CloudConnector):
                 if ip:
                     public_ips.append(ip)
                 vm.setIps(public_ips, private_ips)
+
+                if private_ips and "federatedIp" in output and output["federatedIp"]:
+                    for net in vm.info.networks:
+                        if net.getValue("federated") == "yes":
+                            num_net = vm.getNumNetworkWithConnection(net.id)
+                            if num_net:
+                                vm.info.systems[0].setValue('net_interface.%s.ip' % num_net, str(output["federatedIp"]))
 
                 self.attach_volumes(vm, auth_data)
 
