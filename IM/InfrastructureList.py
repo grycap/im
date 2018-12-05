@@ -102,6 +102,7 @@ class InfrastructureList():
             else:
                 return None
         else:
+            InfrastructureList.logger.warning("%s not in list of Inf IDs." % inf_id)
             return None
 
     @staticmethod

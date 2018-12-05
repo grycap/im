@@ -46,6 +46,8 @@ class GCECloudConnector(CloudConnector):
     type = "GCE"
     """str with the name of the provider."""
     DEFAULT_ZONE = "us-central1-a"
+    DEFAULT_USER = 'gceuser'
+    """ default user to SSH access the VM """
 
     def __init__(self, cloud_info, inf):
         self.auth = None
@@ -135,52 +137,37 @@ class GCECloudConnector(CloudConnector):
                 raise Exception(
                     "No correct auth data has been specified to GCE: username, password and project")
 
-    def concreteSystem(self, radl_system, auth_data):
-        image_urls = radl_system.getValue("disk.0.image.url")
-        if not image_urls:
-            return [radl_system.clone()]
+    def concrete_system(self, radl_system, str_url, auth_data):
+        url = uriparse(str_url)
+        protocol = url[0]
+
+        if protocol == "gce":
+            driver = self.get_driver(auth_data)
+
+            res_system = radl_system.clone()
+            res_system.addFeature(Feature("disk.0.image.url", "=", str_url), conflict="other", missing="other")
+
+            if res_system.getValue('availability_zone'):
+                region = res_system.getValue('availability_zone')
+            else:
+                region, _ = self.get_image_data(str_url)
+
+            instance_type = self.get_instance_type(driver.list_sizes(region), res_system)
+            if not instance_type:
+                return None
+
+            self.update_system_info_from_instance(res_system, instance_type)
+
+            username = res_system.getValue('disk.0.os.credentials.username')
+            if not username:
+                res_system.setValue('disk.0.os.credentials.username', self.DEFAULT_USER)
+
+            return res_system
         else:
-            if not isinstance(image_urls, list):
-                image_urls = [image_urls]
+            return None
 
-            res = []
-            for str_url in image_urls:
-                url = uriparse(str_url)
-                protocol = url[0]
-                if protocol == "gce":
-                    driver = self.get_driver(auth_data)
-
-                    res_system = radl_system.clone()
-                    res_system.addFeature(
-                        Feature("disk.0.image.url", "=", str_url), conflict="other", missing="other")
-
-                    if res_system.getValue('availability_zone'):
-                        region = res_system.getValue('availability_zone')
-                    else:
-                        region, _ = self.get_image_data(str_url)
-
-                    instance_type = self.get_instance_type(
-                        driver.list_sizes(region), res_system)
-
-                    if not instance_type:
-                        return []
-
-                    self.update_system_info_from_instance(
-                        res_system, instance_type)
-
-                    username = res_system.getValue(
-                        'disk.0.os.credentials.username')
-                    if not username:
-                        res_system.setValue(
-                            'disk.0.os.credentials.username', 'gceuser')
-                    res_system.addFeature(
-                        Feature("provider.type", "=", self.type), conflict="other", missing="other")
-
-                    res.append(res_system)
-
-            return res
-
-    def update_system_info_from_instance(self, system, instance_type):
+    @staticmethod
+    def update_system_info_from_instance(system, instance_type):
         """
         Update the features of the system with the information of the instance_type
         """
@@ -283,7 +270,8 @@ class GCECloudConnector(CloudConnector):
 
         return res
 
-    def request_external_ip(self, radl):
+    @staticmethod
+    def request_external_ip(radl):
         """
         Check if the user has requested for a public ip
         """
@@ -340,7 +328,8 @@ class GCECloudConnector(CloudConnector):
 
         return (region, image_name)
 
-    def get_default_net(self, driver):
+    @staticmethod
+    def get_default_net(driver):
         """
         Get the first net
         """
@@ -648,7 +637,8 @@ class GCECloudConnector(CloudConnector):
 
         return node
 
-    def get_node_location(self, node):
+    @staticmethod
+    def get_node_location(node):
         """
         Get the location of a node
 
@@ -658,7 +648,8 @@ class GCECloudConnector(CloudConnector):
         """
         return node.extra['zone']
 
-    def wait_volume(self, volume, state='READY', timeout=60):
+    @staticmethod
+    def wait_volume(volume, state='READY', timeout=60):
         """
         Wait a volume (with the state extra parameter) to be in certain state.
 
@@ -695,16 +686,18 @@ class GCECloudConnector(CloudConnector):
                 cont = 1
                 while (vm.info.systems[0].getValue("disk." + str(cont) + ".size") and
                         vm.info.systems[0].getValue("disk." + str(cont) + ".device")):
-                    disk_size = vm.info.systems[0].getFeature(
-                        "disk." + str(cont) + ".size").getValue('G')
-                    disk_device = vm.info.systems[0].getValue(
-                        "disk." + str(cont) + ".device")
+                    disk_size = vm.info.systems[0].getFeature("disk." + str(cont) + ".size").getValue('G')
+                    disk_device = vm.info.systems[0].getValue("disk." + str(cont) + ".device")
+                    disk_type = vm.info.systems[0].getValue("disk." + str(cont) + ".type")
                     self.log_info("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
                     volume_name = "im-%s" % str(uuid.uuid1())
 
                     location = self.get_node_location(node)
-                    volume = node.driver.create_volume(
-                        int(disk_size), volume_name, location=location)
+                    if disk_type:
+                        volume = node.driver.create_volume(int(disk_size), volume_name,
+                                                           location=location, ex_disk_type=disk_type)
+                    else:
+                        volume = node.driver.create_volume(int(disk_size), volume_name, location=location)
                     success = self.wait_volume(volume)
                     if success:
                         self.log_info("Attach the volume ID " + str(volume.id))

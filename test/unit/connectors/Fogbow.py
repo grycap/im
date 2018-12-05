@@ -18,15 +18,10 @@
 
 import sys
 import unittest
-import logging
-import logging.config
-try:
-    from StringIO import StringIO
-except ImportError:
-    from io import StringIO
 
 sys.path.append(".")
 sys.path.append("..")
+from .CloudConn import TestCloudConnectorBase
 from IM.uriparse import uriparse
 from IM.CloudInfo import CloudInfo
 from IM.auth import Authentication
@@ -37,34 +32,10 @@ from IM.connectors.FogBow import FogBowCloudConnector
 from mock import patch, MagicMock
 
 
-class TestFogBowConnector(unittest.TestCase):
+class TestFogBowConnector(TestCloudConnectorBase):
     """
     Class to test the IM connectors
     """
-
-    def setUp(self):
-        self.call_count = {}
-        self.log = StringIO()
-        self.handler = logging.StreamHandler(self.log)
-        formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        self.handler.setFormatter(formatter)
-
-        logging.RootLogger.propagate = 0
-        logging.root.setLevel(logging.ERROR)
-
-        logger = logging.getLogger('CloudConnector')
-        logger.setLevel(logging.DEBUG)
-        logger.propagate = 0
-        for handler in logger.handlers:
-            logger.removeHandler(handler)
-        logger.addHandler(self.handler)
-
-    def tearDown(self):
-        self.handler.flush()
-        self.log.close()
-        self.log = StringIO()
-        self.handler.close()
 
     @staticmethod
     def get_fogbow_cloud():
@@ -135,6 +106,9 @@ class TestFogBowConnector(unittest.TestCase):
                 resp.json.return_value = [{"instanceId": "1",
                                            "instanceName": "netname",
                                            "state": "READY"}]
+            elif url == "/federatedNetworks/status":
+                resp.status_code = 200
+                resp.json.return_value = []
             elif url == "/publicIps/status":
                 resp.status_code = 200
                 resp.json.return_value = [{"instanceId": "1",

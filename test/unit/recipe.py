@@ -17,10 +17,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
-import time
 
 from IM.recipe import Recipe
-from IM.config import Config
 from mock import patch, MagicMock
 
 

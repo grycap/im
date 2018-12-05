@@ -168,10 +168,10 @@ topology_template:
                 location: /mnt/disk
 
     my_storage:
-      type: tosca.nodes.BlockStorage
+      type: tosca.nodes.indigo.BlockStorage
       properties:
         size: 10 GB
-        volume_id: some_id
+        type: ssd
 
     mysql:
       type: tosca.nodes.DBMS

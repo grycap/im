@@ -18,16 +18,10 @@
 
 import sys
 import unittest
-import os
-import logging
-import logging.config
-try:
-    from StringIO import StringIO
-except ImportError:
-    from io import StringIO
 
 sys.path.append(".")
 sys.path.append("..")
+from .CloudConn import TestCloudConnectorBase
 from IM.CloudInfo import CloudInfo
 from IM.auth import Authentication
 from radl import radl_parse
@@ -37,39 +31,10 @@ from IM.connectors.EC2 import EC2CloudConnector
 from mock import patch, MagicMock, call
 
 
-def read_file_as_string(file_name):
-    tests_path = os.path.dirname(os.path.abspath(__file__))
-    abs_file_path = os.path.join(tests_path, file_name)
-    return open(abs_file_path, 'r').read()
-
-
-class TestEC2Connector(unittest.TestCase):
+class TestEC2Connector(TestCloudConnectorBase):
     """
     Class to test the IM connectors
     """
-
-    def setUp(self):
-        self.log = StringIO()
-        self.handler = logging.StreamHandler(self.log)
-        formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        self.handler.setFormatter(formatter)
-
-        logging.RootLogger.propagate = 0
-        logging.root.setLevel(logging.ERROR)
-
-        logger = logging.getLogger('CloudConnector')
-        logger.setLevel(logging.DEBUG)
-        logger.propagate = 0
-        for handler in logger.handlers:
-            logger.removeHandler(handler)
-        logger.addHandler(self.handler)
-
-    def tearDown(self):
-        self.handler.flush()
-        self.log.close()
-        self.log = StringIO()
-        self.handler.close()
 
     @staticmethod
     def get_ec2_cloud():
@@ -119,13 +84,15 @@ class TestEC2Connector(unittest.TestCase):
         instances = ec2_cloud.get_all_instance_types()
         self.assertGreater(len(instances), 20)
 
-        self.assertEqual(instances[0].cpu_perf, 1.0)
-        self.assertEqual(instances[0].name, 'm1.small')
-        self.assertEqual(instances[0].mem, 1740.8)
-        self.assertEqual(instances[0].price, 0.044)
-        self.assertEqual(instances[0].disks, 1)
-        self.assertEqual(instances[0].cores_per_cpu, 1)
-        self.assertEqual(instances[0].disk_space, 160)
+        for instance in instances:
+            if instance.name == 'm1.small':
+                self.assertEqual(instance.cpu_perf, 1.0)
+                self.assertEqual(instance.name, 'm1.small')
+                self.assertEqual(instance.mem, 1740.8)
+                self.assertEqual(instance.price, 0.044)
+                self.assertEqual(instance.disks, 1)
+                self.assertEqual(instance.cores_per_cpu, 1)
+                self.assertEqual(instance.disk_space, 160)
 
     @patch('boto.ec2.get_region')
     @patch('boto.vpc.VPCConnection')

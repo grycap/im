@@ -30,7 +30,6 @@ from radl.radl_parse import parse_radl
 sys.path.append("..")
 sys.path.append(".")
 
-from radl.radl_parse import parse_radl
 from IM import __version__ as version
 from IM.InfrastructureManager import (DeletedInfrastructureException,
                                       IncorrectInfrastructureException,

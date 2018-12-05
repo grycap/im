@@ -607,7 +607,8 @@ class ConfManager(threading.Thread):
         recipe_files.append("basic_task_all.yml")
         return recipe_files
 
-    def generate_mount_disks_tasks(self, system):
+    @staticmethod
+    def generate_mount_disks_tasks(system):
         """
         Generate a set of tasks to format and mount the specified disks
         """
@@ -712,7 +713,8 @@ class ConfManager(threading.Thread):
 
         return recipe_files
 
-    def get_vault_editor(self, vault_password):
+    @staticmethod
+    def get_vault_editor(vault_password):
         """
         Get the correct VaultEditor object in different Ansible versions
         """
@@ -1255,7 +1257,8 @@ class ConfManager(threading.Thread):
         else:
             return (False, msg)
 
-    def add_ansible_header(self, os_type, gather_facts=False):
+    @staticmethod
+    def add_ansible_header(os_type, gather_facts=False):
         """
         Add the IM needed header in the contextualization playbooks
 
@@ -1272,7 +1275,8 @@ class ConfManager(threading.Thread):
 
         return conf_content
 
-    def create_all_recipe(self, tmp_dir, filename, group="allnowindows", suffix="_all.yml"):
+    @staticmethod
+    def create_all_recipe(tmp_dir, filename, group="allnowindows", suffix="_all.yml"):
         """
         Create the recipe "all" enabling to access all the ansible variables from all hosts
         Arguments:
