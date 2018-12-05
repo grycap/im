@@ -202,7 +202,7 @@ class FogBowCloudConnector(CloudConnector):
                         net.setValue("provider_id", fbw_fed_nets[net_name])
                 else:
                     self.log_info("Creating federated net %s." % net_name)
-                    cidr = '10.0.%d.0/24' % random.randint(0, 254)
+                    cidr = '10.0.%d.0/24' % random.randint(10, 250)
                     body = {"name": net_name, "cidrNotation": cidr}
                     net_providers = net.getValue("providers")
                     if net_providers:
@@ -505,7 +505,7 @@ class FogBowCloudConnector(CloudConnector):
                     public_ips.append(ip)
                 vm.setIps(public_ips, private_ips)
 
-                if "federatedIp" in output and output["federatedIp"]:
+                if private_ips and "federatedIp" in output and output["federatedIp"]:
                     for net in vm.info.networks:
                         if net.getValue("federated") == "yes":
                             num_net = vm.getNumNetworkWithConnection(net.id)
