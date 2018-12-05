@@ -248,10 +248,10 @@ class OpenNebulaCloudConnector(CloudConnector):
         for disk in template.DISK:
             vm.info.systems[0].setValue(
                 "disk." + str(disk.DISK_ID) + ".size", disk.SIZE, "M")
-            if disk.TARGET:
+            if disk.TARGET and not vm.info.systems[0].getValue("disk." + str(disk.DISK_ID) + ".device"):
                 vm.info.systems[0].setValue(
                     "disk." + str(disk.DISK_ID) + ".device", disk.TARGET)
-            if disk.FORMAT:
+            if disk.FORMAT and not vm.info.systems[0].getValue("disk." + str(disk.DISK_ID) + ".fstype"):
                 vm.info.systems[0].setValue(
                     "disk." + str(disk.DISK_ID) + ".fstype", disk.FORMAT)
 
