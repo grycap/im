@@ -417,7 +417,7 @@ class FogBowCloudConnector(CloudConnector):
             resp = self.create_request('GET', '/publicIps/status', auth_data, headers=headers)
             if resp.status_code == 200:
                 for ipstatus in resp.json():
-                    resp_ip = self.create_request('GET', '/publicIps/%s' % ipstatus['instanceId'], auth_data, headers)
+                    resp_ip = self.create_request('GET', '/publicIps/%s' % ipstatus['instanceId'], auth_data)
                     if resp_ip.status_code == 200:
                         ipdata = resp_ip.json()
                         if ipdata['state'] == 'FAILED':
@@ -526,12 +526,10 @@ class FogBowCloudConnector(CloudConnector):
             self.log_warn("No VM ID. Ignoring")
             return True, "No VM ID. Ignoring"
 
-        headers = {'Accept': 'text/plain'}
-
         public_ips = self._get_instance_public_ips(vm.id, auth_data, "id")
 
         try:
-            resp = self.create_request('DELETE', "/computes/" + vm.id, auth_data, headers=headers)
+            resp = self.create_request('DELETE', "/computes/" + vm.id, auth_data)
 
             if resp.status_code == 404:
                 vm.state = VirtualMachine.OFF
