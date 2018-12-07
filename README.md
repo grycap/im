@@ -1,7 +1,7 @@
 # IM - Infrastructure Manager
 
 * Version ![PyPI](https://img.shields.io/pypi/v/im.svg)
-* Build Status [![Build Status](http://jenkins.i3m.upv.es/buildStatus/icon?job=indigo/im-unit)](http://jenkins.i3m.upv.es/job/indigo/job/im-unit/)
+* Build Status [![Build Status](http://jenkins.i3m.upv.es/buildStatus/icon?job=indigo/im-unit)](http://jenkins.i3m.upv.es/job/indigo/job/im-unit/) [![Build Status](https://jenkins.indigo-datacloud.eu:8080/buildStatus/icon?job=Pipeline-as-code/im/master)](https://jenkins.indigo-datacloud.eu:8080/job/Pipeline-as-code/im/master)
 
 IM is a tool that deploys complex and customized virtual infrastructures on IaaS
 Cloud deployments (such as AWS, OpenStack, etc.). It eases the access and the
@@ -32,7 +32,7 @@ of the functionality of the platform: https://www.youtube.com/playlist?list=PLgP
 ## 1 DOCKER IMAGE
 
 The recommended option to use the Infrastructure Manager service is using the available docker image.
-A Docker image named `indigodatacloud/im` has been created to make easier the deployment of an IM service using the 
+A Docker image named `indigodatacloud/im` has been created to make easier the deployment of an IM service using the
 default configuration. Information about this image can be found here: https://registry.hub.docker.com/u/indigodatacloud/im/.
 
 How to launch the IM service using docker::
@@ -50,7 +50,7 @@ $ sudo docker run -d -p 8899:8899 -p 8800:8800 -v "/some_local_path/db:/db" -e I
 You can also specify an external MySQL server to store IM data using the IM_DATA_DB environment variable::
 
 ```sh
-$ sudo docker run -d -p 8899:8899 -p 8800:8800 -e IM_DATA_DB=mysql://username:password@server/db_name --name im indigodatacloud/im 
+$ sudo docker run -d -p 8899:8899 -p 8800:8800 -e IM_DATA_DB=mysql://username:password@server/db_name --name im indigodatacloud/im
 ```
 
 Or you can also add a volume with all the IM configuration::
@@ -75,7 +75,7 @@ In case that you O.S. does not work with this install script see next sections.
 ### 3 CONFIGURATION
 
 Check the parameters in $IM_PATH/etc/im.cfg or /etc/im/im.cfg.
-See [IM Manual](https://imdocs.readthedocs.io/en/latest/manual.html#configuration) to get a full 
+See [IM Manual](https://imdocs.readthedocs.io/en/latest/manual.html#configuration) to get a full
 reference of the configuration variables.
 
 Please pay attention to the next configuration variables, as they are the most important:
