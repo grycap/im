@@ -1,6 +1,5 @@
 # IM - Infrastructure Manager
 
-* Version ![PyPI](https://img.shields.io/pypi/v/im.svg)
 * Build Status [![Build Status](http://jenkins.i3m.upv.es/buildStatus/icon?job=indigo/im-unit)](http://jenkins.i3m.upv.es/job/indigo/job/im-unit/) [![Build Status](https://jenkins.indigo-datacloud.eu:8080/buildStatus/icon?job=Pipeline-as-code/im/master)](https://jenkins.indigo-datacloud.eu:8080/job/Pipeline-as-code/im/master)
 
 IM is a tool that deploys complex and customized virtual infrastructures on IaaS
