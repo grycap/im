@@ -505,14 +505,17 @@ class FogBowCloudConnector(CloudConnector):
                 ip = self.add_elastic_ip(vm, public_ips, auth_data)
                 if ip:
                     public_ips.append(ip)
-                vm.setIps(public_ips, private_ips)
 
+                fed_net_name = None
                 if private_ips and "federatedIp" in output and output["federatedIp"]:
                     for net in vm.info.networks:
                         if net.getValue("federated") == "yes":
+                            fed_net_name = net.id
                             num_net = vm.getNumNetworkWithConnection(net.id)
-                            if num_net:
+                            if num_net is not None:
                                 vm.info.systems[0].setValue('net_interface.%s.ip' % num_net, str(output["federatedIp"]))
+
+                vm.setIps(public_ips, private_ips, ignore_nets=[fed_net_name])
 
                 self.attach_volumes(vm, auth_data)
 
