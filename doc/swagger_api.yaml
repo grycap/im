@@ -13,8 +13,28 @@ info:
 tags:
   - name: infrastructures
     description: Manages Virtual Infrastructures.
+  - name: version
+    description: Get IM server version.
 
 paths:
+ /version:
+    get:
+      tags:
+        - version
+      summary: Get IM server version.
+      description: Get IM server version.
+      operationId: GetVersion
+      produces:
+      - text/plain
+      responses:
+        200:
+          description: successful operation
+          schema:
+            type: string
+            example: 1.7.6
+        400:
+          description: Invalid status value
+
  /infrastructures:
     get:
       tags:
@@ -23,8 +43,8 @@ paths:
       description: Return a list of URIs referencing the infrastructures associated to the IM user.
       operationId: GetInfrastructures
       produces:
-      - application/json
       - text/uri-list
+      - application/json
       parameters:
         - name: Authorization
           in: header
@@ -35,8 +55,17 @@ paths:
       responses:
         200:
           description: successful operation
-          schema:
-            $ref: '#/definitions/InfUriList'
+          examples:
+            text/uri-list: |
+              http://server.com:8800/infrastructures/inf_id1
+              http://server.com:8800/infrastructures/inf_id2
+            application/json: |
+              {
+                "uri-list": [
+                  {"uri": "http://server.com:8800/infrastructures/inf_id1"},
+                  {"uri": "http://server.com:8800/infrastructures/inf_id2"}
+                ]
+              }
         400:
           description: Invalid status value
         401:
@@ -48,11 +77,12 @@ paths:
       description: Create and configure an infrastructure with the requirements specified in RADL or TOSCA document.
       operationId: CreateInfrastructure
       consumes:
+      - text/plain
       - application/json
       - text/yaml
-      - text/plain
       produces:
       - text/uri-list
+      - application/json
       parameters:
         - name: Authorization
           in: header
@@ -78,8 +108,12 @@ paths:
       responses:
         200:
           description: successful operation
-          schema:
-            $ref: '#/definitions/InfUri'
+          examples:
+            text/uri-list: http://server.com:8800/infrastructures/inf_id1
+            application/json: |
+                  {
+                    "uri": "http://server.com:8800/infrastructures/inf_id1"
+                  }
         400:
           description: Invalid status value
         401:
@@ -110,32 +144,18 @@ paths:
       responses:
         200:
           description: successful operation
-          schema:
-            $ref: '#/definitions/InfUri'
+          examples:
+            text/uri-list: http://server.com:8800/infrastructures/inf_id1
+            application/json: |
+                  {
+                    "uri": "http://server.com:8800/infrastructures/inf_id1"
+                  }
         400:
           description: Invalid status value
         401:
           description: Unauthorized
         415:
           description: Unsupported Media type
-
- /infrastructures/version:
-    get:
-      tags:
-        - infrastructures
-      summary: Get IM server version.
-      description: Get IM server version.
-      operationId: GetVersion
-      produces:
-      - text/plain
-      responses:
-        200:
-          description: successful operation
-          schema:
-            type: string
-            example: 1.7.6
-        400:
-          description: Invalid status value
 
  /infrastructures/{InfId}:
     get:
@@ -145,8 +165,8 @@ paths:
       description: Return a list of URIs referencing the virtual machines associated to the infrastructure with ID InfId
       operationId: GetVMList
       produces:
-      - application/json
       - text/uri-list
+      - application/json
       parameters:
         - name: Authorization
           in: header
@@ -162,8 +182,17 @@ paths:
       responses:
         200:
           description: successful operation
-          schema:
-            $ref: '#/definitions/VMUriList'
+          examples:
+            text/uri-list: |
+              http://server.com:8800/infrastructures/inf_id/vms/0
+              http://server.com:8800/infrastructures/inf_id/vms/1
+            application/json: |
+              {
+                "uri-list": [
+                  {"uri": "http://server.com:8800/infrastructures/inf_id/vms/0"},
+                  {"uri": "http://server.com:8800/infrastructures/inf_id/vms/1"}
+                ]
+              }
         400:
           description: Invalid status value
         401:
@@ -182,9 +211,9 @@ paths:
           Using TOSCA as input this method can be used to add or remove resources depending on the number of resources specified in the new TOSCA document sent. If new nodes are added in the body compared with the last TOSCA sent to the IM, these new nodes will be added. For example an infrastructure has been created with this TOSCA document: [tosca_create.yml](https://github.com/grycap/im/blob/master/test/files/tosca_create.yml) it launches one DB server and one Web server. If this TOSCA document is sent as body of this POST function: [tosca_add.yml](https://github.com/grycap/im/blob/master/test/files/tosca_add.yml), a new web server will be added as the number of web servers has been increased to two (count parameter of scalable capability). However if this document is sent after the node addition (the number of web servers will be two): [tosca_remove.yml](https://github.com/grycap/im/blob/master/test/files/tosca_remove.yml) , a web server (the VM with the ID 2 as specified in the removal_list parameter) will be removed.      
       operationId: AddResources
       consumes:
+      - text/plain
       - application/json
       - text/yaml
-      - text/plain
       produces:
       - text/uri-list
       parameters:
@@ -202,8 +231,9 @@ paths:
         - name: context
           in: query
           description: |-
-            The context parameter is optional and is a flag to specify if the contextualization step will be launched just after the VM addition. If not specified the flag is set to True.
+            The context parameter is optional and is a flag to specify if the contextualization step will be launched just after the VM addition.
           required: false
+          default: true
           type: string
           enum:
             - yes
@@ -225,8 +255,17 @@ paths:
       responses:
         200:
           description: successful operation
-          schema:
-            $ref: '#/definitions/VMUriList'
+          examples:
+            text/uri-list: |
+              http://server.com:8800/infrastructures/inf_id/vms/0
+              http://server.com:8800/infrastructures/inf_id/vms/1
+            application/json: |
+              {
+                "uri-list": [
+                  {"uri": "http://server.com:8800/infrastructures/inf_id/vms/0"},
+                  {"uri": "http://server.com:8800/infrastructures/inf_id/vms/1"}
+                ]
+              }
         400:
           description: Invalid status value
         401:
@@ -277,8 +316,8 @@ paths:
       description: Return a property associated to the infrastructure with ID InfId.
       operationId: GetInfrastructureProperty
       produces:
-      - application/json
       - text/plain
+      - application/json
       parameters:
         - name: Authorization
           in: header
@@ -294,6 +333,7 @@ paths:
         - name: headeronly
           in: query
           description: Only used with `contmsg` property. In case of headeronly flag is set to `yes`, `true` or `1` only the initial part of the infrastructure contextualization log will be returned (without any VM contextualization log).
+          default: false
           required: false
           type: string
           enum:
@@ -327,11 +367,11 @@ paths:
       responses:
         200:
           description: successful operation
-          schema:
-            type: string
-            example: |
+          examples:
+            text/plain: property_value
+            application/json: |
                 {
-                  ["radl"|"state"|"contmsg"|"outputs"|"data"]: <property_value>
+                  "property_name": "property_value"
                 }
         400:
           description: Invalid status value
@@ -416,8 +456,8 @@ paths:
       description: Re-start the contextualization process of the infrastructure.
       operationId: ReconfigureInfrastructure
       consumes:
-      - application/json
       - text/plain
+      - application/json
       produces:
       - text/plain
       parameters:
@@ -473,8 +513,8 @@ paths:
       description: Return information about the virtual machine with ID VMId associated to the infrastructure with ID InfId
       operationId: GetVMInfo
       produces:
-      - application/json
       - text/plain
+      - application/json
       parameters:
         - name: Authorization
           in: header
@@ -521,11 +561,11 @@ paths:
       description: Change the features of the virtual machine with ID VMId in the infrastructure with with ID infId. 
       operationId: AlterVM
       consumes:
-      - application/json
       - text/plain
+      - application/json
       produces:
-      - application/json
       - text/plain
+      - application/json
       parameters:
         - name: Authorization
           in: header
@@ -622,8 +662,8 @@ paths:
       description: Return a property associated to the virtual machine with ID VMId in the infrastructure with with ID infId
       operationId: GetVMProperty
       produces:
-      - application/json
       - text/plain
+      - application/json
       parameters:
         - name: Authorization
           in: header
@@ -652,11 +692,11 @@ paths:
       responses:
         200:
           description: successful operation
-          schema:
-            type: string
-            example: |
+          examples:
+            text/plain: property_value
+            application/json: |
                 {
-                  "property_name": <property_value>
+                  "property_name": "property_value"
                 }
         400:
           description: Invalid status value
@@ -782,6 +822,7 @@ paths:
         - name: auto_delete
           in: query
           description: The auto_delete flag specifies that the snapshot will be deleted when the infrastructure is destroyed
+          default: false
           required: false
           type: string
           enum:
@@ -806,34 +847,11 @@ paths:
         404:
           description: Not Found
 
-definitions:
-
-  InfUriList:
-    type: object
-    properties:
-      uri-list:
-        type: array
-        items:
-          $ref: '#/definitions/InfUri'
-  VMUriList:
-    type: object
-    properties:
-      uri-list:
-        type: array
-        items:
-          $ref: '#/definitions/VMUri'
-  InfUri:
-    type: object
-    properties:
-      uri:
-        type: string
-        example: http://server.com:8800/infrastructures/inf_id1
-  VMUri:
-    type: object
-    properties:
-      uri:
-        type: string
-        example: http://server.com:8800/infrastructures/<inf_id>/vms/0
 externalDocs:
   description: Find out more about IM
   url: http://www.grycap.upv.es/im
+
+host: appsgrycap.i3m.upv.es:31443
+basePath: /im
+schemes:
+ - https
