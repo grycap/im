@@ -193,6 +193,7 @@ class FogBowCloudConnector(CloudConnector):
     def create_nets(self, inf, radl, auth_data):
         fbw_nets = self.get_fbw_nets(auth_data)
         fbw_fed_nets = self.get_fbw_nets(auth_data, True)
+        member = radl.systems[0].getValue('availability_zone')
 
         for net in radl.networks:
             net_name = "im_%s_%s" % (inf.id, net.id)
@@ -224,6 +225,9 @@ class FogBowCloudConnector(CloudConnector):
                     self.log_info("Creating net %s." % net_name)
 
                     body = {"allocationMode": "dynamic", "name": net_name}
+                    if member:
+                        body['provider'] = member
+                    self.log_debug(body)
 
                     net_info = self.post_and_get('/networks/', json.dumps(body), auth_data)
                     if net_info:
@@ -443,7 +447,7 @@ class FogBowCloudConnector(CloudConnector):
             self.log_exception("Error getting public IP info")
         return res
 
-    def add_elastic_ip(self, vm, public_ips, auth_data):
+    def add_elastic_ip(self, vm, public_ips, member, auth_data):
         """
         Get a public IP if needed.
         """
@@ -454,9 +458,12 @@ class FogBowCloudConnector(CloudConnector):
 
         if not public_ips and vm.hasPublicNet() and vm.state == VirtualMachine.RUNNING:
             self.log_debug("VM ID %s requests a public IP and it does not have it. Requesting the IP." % vm.id)
-            body = '{"computeId": "%s"}' % vm.id
+            body = {"computeId": vm.id}
+            if member:
+                body['provider'] = member
 
-            ip_info = self.post_and_get('/publicIps/', body, auth_data)
+            self.log_debug(body)
+            ip_info = self.post_and_get('/publicIps/', json.dumps(body), auth_data)
             if ip_info:
                 self.log_debug("IP obtained: %s." % ip_info['ip'])
                 return ip_info['ip']
@@ -502,7 +509,8 @@ class FogBowCloudConnector(CloudConnector):
                         else:
                             private_ips.append(ip)
 
-                ip = self.add_elastic_ip(vm, public_ips, auth_data)
+                member = vm.info.systems[0].getValue('availability_zone')
+                ip = self.add_elastic_ip(vm, public_ips, member, auth_data)
                 if ip:
                     public_ips.append(ip)
 
