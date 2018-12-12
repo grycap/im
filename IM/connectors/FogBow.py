@@ -193,6 +193,7 @@ class FogBowCloudConnector(CloudConnector):
     def create_nets(self, inf, radl, auth_data):
         fbw_nets = self.get_fbw_nets(auth_data)
         fbw_fed_nets = self.get_fbw_nets(auth_data, True)
+        member = radl.systems[0].getValue('availability_zone')
 
         for net in radl.networks:
             net_name = "im_%s_%s" % (inf.id, net.id)
@@ -224,6 +225,9 @@ class FogBowCloudConnector(CloudConnector):
                     self.log_info("Creating net %s." % net_name)
 
                     body = {"allocationMode": "dynamic", "name": net_name}
+                    if member:
+                        body['providingMember'] = member
+                    self.log_debug(body)
 
                     net_info = self.post_and_get('/networks/', json.dumps(body), auth_data)
                     if net_info:
