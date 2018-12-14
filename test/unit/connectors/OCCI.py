@@ -257,7 +257,7 @@ class TestOCCIConnector(TestCloudConnectorBase):
         occi_cloud = self.get_occi_cloud()
 
         requests.side_effect = self.get_response
-        get_keystone_uri.return_value = None
+        get_keystone_uri.return_value = None, None
 
         inf = InfrastructureInfo()
         inf.auth = auth
@@ -304,7 +304,7 @@ class TestOCCIConnector(TestCloudConnectorBase):
 
         requests.side_effect = self.get_response
 
-        get_keystone_uri.return_value = None
+        get_keystone_uri.return_value = None, None
 
         success, vm = occi_cloud.updateVMInfo(vm, auth)
 
@@ -322,7 +322,7 @@ class TestOCCIConnector(TestCloudConnectorBase):
 
         requests.side_effect = self.get_response
 
-        get_keystone_uri.return_value = None
+        get_keystone_uri.return_value = None, None
 
         success, _ = occi_cloud.stop(vm, auth)
 
@@ -340,7 +340,7 @@ class TestOCCIConnector(TestCloudConnectorBase):
 
         requests.side_effect = self.get_response
 
-        get_keystone_uri.return_value = None
+        get_keystone_uri.return_value = None, None
 
         success, _ = occi_cloud.start(vm, auth)
 
@@ -385,7 +385,7 @@ class TestOCCIConnector(TestCloudConnectorBase):
 
         requests.side_effect = self.get_response
 
-        get_keystone_uri.return_value = None
+        get_keystone_uri.return_value = None, None
 
         success, _ = occi_cloud.alterVM(vm, new_radl, auth)
 
@@ -438,7 +438,7 @@ class TestOCCIConnector(TestCloudConnectorBase):
 
         requests.side_effect = self.get_response
 
-        get_keystone_uri.return_value = None
+        get_keystone_uri.return_value = None, None
 
         success, _ = occi_cloud.finalize(vm, True, auth)
 

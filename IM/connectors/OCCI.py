@@ -98,11 +98,14 @@ class OCCICloudConnector(CloudConnector):
             else:
                 url = "%s://%s%s" % (self.cloud.protocol, self.cloud.server, url)
 
-        auths = auth_data.getAuthInfo(self.type, self.cloud.server)
-        if not auths:
-            raise Exception("No correct auth data has been specified to OCCI.")
+        if auth_data:
+            auths = auth_data.getAuthInfo(self.type, self.cloud.server)
+            if not auths:
+                raise Exception("No correct auth data has been specified to OCCI.")
+            else:
+                auth = auths[0]
         else:
-            auth = auths[0]
+            auth = None
 
         return self.create_request_static(method, url, auth, headers, self.verify_ssl, body)
 
@@ -118,10 +121,11 @@ class OCCICloudConnector(CloudConnector):
             auth = auths[0]
 
         auth_header = None
-        keystone_uri = KeyStoneAuth.get_keystone_uri(self, auth_data)
+        keystone_uri, keystone_token = KeyStoneAuth.get_keystone_uri(self)
 
-        if keystone_uri:
-            # TODO: Check validity of token
+        if keystone_token:
+            auth_header = {'X-Auth-Token': keystone_token}
+        elif keystone_uri:
             keystone_token = KeyStoneAuth.get_keystone_token(self, keystone_uri, auth)
             auth_header = {'X-Auth-Token': keystone_token}
         else:
@@ -881,7 +885,7 @@ class OCCICloudConnector(CloudConnector):
 
                 # This error is returned is some sites if the network id is not specified
                 if resp.status_code == 409:
-                    self.log_warn("Conflict creating the VM. Let's try to add the net id.")
+                    self.log_warn("Conflict creating the VM. Let's try to add the net id: %s" % resp.text)
 
                     net_ids = []
 
@@ -1323,7 +1327,7 @@ class KeyStoneAuth:
     """
 
     @staticmethod
-    def get_keystone_uri(occi, auth_data):
+    def get_keystone_uri(occi):
         """
         Contact the OCCI server to check if it needs to contact a keystone server.
         It returns the keystone server URI or None.
@@ -1331,7 +1335,12 @@ class KeyStoneAuth:
         try:
             headers = {'Accept': 'text/plain', 'Connection': 'close'}
 
-            resp = occi.create_request('HEAD', occi.cloud.path + "/-/", auth_data, headers)
+            if occi.keystone_token:
+                headers = {'Accept': 'text/plain', 'X-Auth-Token': occi.keystone_token, 'Connection': 'close'}
+
+            resp = occi.create_request('HEAD', occi.cloud.path + "/-/", None, headers)
+            if resp.status_code == 200:
+                return None, occi.keystone_token
 
             www_auth_head = None
             if 'Www-Authenticate' in resp.headers:
@@ -1342,9 +1351,9 @@ class KeyStoneAuth:
                 # remove version in some old OpenStack sites
                 if keystone_uri.endswith("/v2.0"):
                     keystone_uri = keystone_uri[:-5]
-                return keystone_uri
+                return keystone_uri, None
             else:
-                return None
+                return None, None
         except SSLError as ex:
             occi.log_exception(
                 "Error with the credentials when contacting with the OCCI server.")
@@ -1352,34 +1361,7 @@ class KeyStoneAuth:
                 "Error with the credentials when contacting with the OCCI server: %s. Check your proxy file." % str(ex))
         except:
             occi.log_exception("Error contacting with the OCCI server.")
-            return None
-
-    @staticmethod
-    def check_keystone_token(occi, keystone_uri, version, auth):
-        """
-        Check if old keystone token is stil valid
-        """
-        if occi.keystone_token:
-            try:
-                headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
-                           'X-Auth-Token': occi.keystone_token, 'Connection': 'close'}
-                if version == 2:
-                    url = "%s/v2.0/tenants" % keystone_uri
-                elif version == 3:
-                    url = "%s/v3/auth/tokens" % keystone_uri
-                else:
-                    return None
-                resp = occi.create_request_static('GET', url, auth, headers, occi.verify_ssl)
-                if resp.status_code == 200:
-                    return occi.keystone_token
-                else:
-                    occi.log_warn("Keystone token invalid.")
-                    return None
-            except Exception:
-                occi.log_exception("Error checking Keystone token")
-                return None
-        else:
-            return None
+            return None, None
 
     @staticmethod
     def get_keystone_token(occi, keystone_uri, auth):
@@ -1387,10 +1369,6 @@ class KeyStoneAuth:
         Contact the specified keystone server to return the token
         """
         version = KeyStoneAuth.get_keystone_version(occi, keystone_uri, auth)
-
-        token = KeyStoneAuth.check_keystone_token(occi, keystone_uri, version, auth)
-        if token:
-            return token
 
         if version == 2:
             occi.log_info("Getting Keystone v2 token")
