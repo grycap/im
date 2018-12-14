@@ -1354,13 +1354,7 @@ class KeyStoneAuth:
                 return keystone_uri, None
             else:
                 return None, None
-        except SSLError as ex:
-            occi.log_exception(
-                "Error with the credentials when contacting with the OCCI server.")
-            raise Exception(
-                "Error with the credentials when contacting with the OCCI server: %s. Check your proxy file." % str(ex))
         except:
-            occi.log_exception("Error contacting with the OCCI server.")
             return None, None
 
     @staticmethod
