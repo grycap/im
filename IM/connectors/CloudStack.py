@@ -408,7 +408,9 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
         else:
             return (False, "VM not found with id: " + vm.id)
 
-    def stop(self, vm, auth_data):
+    def stop(self, vm, auth_data, suspend=True):
+        if suspend:
+            return False, "Not supported"
         node = self.get_node_with_id(vm.id, auth_data)
         if node:
             success = node.ex_stop()

@@ -442,7 +442,7 @@ class TestEC2Connector(TestCloudConnectorBase):
         reservation.instances = [instance]
         conn.get_all_instances.return_value = [reservation]
 
-        success, _ = ec2_cloud.stop(vm, auth)
+        success, _ = ec2_cloud.stop(vm, auth, False)
 
         self.assertTrue(success, msg="ERROR: stopping VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())

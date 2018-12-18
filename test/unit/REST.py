@@ -653,6 +653,10 @@ class TestREST(unittest.TestCase):
         res = RESTStopVM("1", "1")
         self.assertEqual(res, "")
 
+        bottle_request.params = {'suspend': 'no'}
+        res = RESTStopVM("1", "1")
+        self.assertEqual(res, "")
+
         StopVM.side_effect = DeletedInfrastructureException()
         res = RESTStopVM("1", "1")
         self.assertEqual(res, "Error stopping VM: Deleted infrastructure.")

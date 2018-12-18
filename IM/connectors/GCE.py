@@ -872,7 +872,9 @@ class GCECloudConnector(CloudConnector):
 
         return (True, "")
 
-    def stop(self, vm, auth_data):
+    def stop(self, vm, auth_data, suspend=True):
+        if suspend:
+            return False, "Not supported"
         driver = self.get_driver(auth_data)
 
         try:

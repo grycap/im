@@ -60,8 +60,11 @@ class DummyCloudConnector(CloudConnector):
     def finalize(self, vm, last, auth_data):
         return (True, "")
 
-    def stop(self, vm, auth_data):
-        vm.state = VirtualMachine.STOPPED
+    def stop(self, vm, auth_data, suspend=True):
+        if suspend:
+            vm.state = VirtualMachine.STOPPED
+        else:
+            vm.state = VirtualMachine.OFF
         return (True, "")
 
     def start(self, vm, auth_data):

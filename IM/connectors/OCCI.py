@@ -1027,40 +1027,29 @@ class OCCICloudConnector(CloudConnector):
 
         return (True, vm.id)
 
-    def stop(self, vm, auth_data):
-        auth_header = self.get_auth_header(auth_data)
-        try:
-            headers = {'Accept': 'text/plain', 'Connection': 'close', 'Content-Type': 'text/plain,text/occi'}
-            if auth_header:
-                headers.update(auth_header)
-
-            body = ('Category: suspend;scheme="http://schemas.ogf.org/occi/infrastructure/compute/action#"'
-                    ';class="action";\n')
-            resp = self.create_request('POST', self.cloud.path + "/compute/" + vm.id + "?action=suspend",
-                                       auth_data, headers, body)
-
-            if resp.status_code not in [200, 204]:
-                return (False, "Error stopping the VM: " + resp.reason + "\n" + resp.text)
-            else:
-                return (True, vm.id)
-        except Exception:
-            self.log_exception("Error connecting with OCCI server")
-            return (False, "Error connecting with OCCI server")
+    def stop(self, vm, auth_data, suspend=True):
+        if suspend:
+            return self.vm_action(vm, 'suspend', auth_data)
+        else:
+            return self.vm_action(vm, 'stop', auth_data)
 
     def start(self, vm, auth_data):
+        return self.vm_action(vm, 'start', auth_data)
+
+    def vm_action(self, vm, action, auth_data):
         auth_header = self.get_auth_header(auth_data)
         try:
             headers = {'Accept': 'text/plain', 'Connection': 'close', 'Content-Type': 'text/plain,text/occi'}
             if auth_header:
                 headers.update(auth_header)
 
-            body = ('Category: start;scheme="http://schemas.ogf.org/occi/infrastructure/compute/action#"'
+            body = ('Category: ' + action + ';scheme="http://schemas.ogf.org/occi/infrastructure/compute/action#"'
                     ';class="action"\n')
-            resp = self.create_request('POST', self.cloud.path + "/compute/" + vm.id + "?action=start",
+            resp = self.create_request('POST', self.cloud.path + "/compute/" + vm.id + "?action=" + action,
                                        auth_data, headers, body)
 
             if resp.status_code not in [200, 204]:
-                return (False, "Error starting the VM: " + resp.reason + "\n" + resp.text)
+                return (False, "Error in " + action + " action in VM: " + resp.reason + "\n" + resp.text)
             else:
                 return (True, vm.id)
         except Exception:

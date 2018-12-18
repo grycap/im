@@ -810,27 +810,33 @@ class EC2CloudConnector(CloudConnector):
            - instance(:py:class:`boto.ec2.instance`): object to connect to EC2 instance.
            - vm(:py:class:`IM.VirtualMachine`): VM information.
         """
-        try:
-            if instance.state == 'running' and "volumes" not in vm.__dict__.keys():
-                # Flag to set that this VM has created (or is creating) the
-                # volumes
-                vm.volumes = True
-                conn = instance.connection
-                cont = 1
-                while (vm.info.systems[0].getValue("disk." + str(cont) + ".size") and
-                       vm.info.systems[0].getValue("disk." + str(cont) + ".device")):
-                    disk_size = vm.info.systems[0].getFeature("disk." + str(cont) + ".size").getValue('G')
-                    disk_device = vm.info.systems[0].getValue("disk." + str(cont) + ".device")
-                    disk_type = vm.info.systems[0].getValue("disk." + str(cont) + ".type")
-                    self.log_info("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
+        if instance.state == 'running' and "volumes" not in vm.__dict__.keys():
+            # Flag to set that this VM has created (or is creating) the
+            # volumes
+            vm.volumes = True
+            conn = instance.connection
+            cont = 1
+            while (vm.info.systems[0].getValue("disk." + str(cont) + ".size") and
+                   vm.info.systems[0].getValue("disk." + str(cont) + ".device")):
+                disk_size = vm.info.systems[0].getFeature("disk." + str(cont) + ".size").getValue('G')
+                disk_device = vm.info.systems[0].getValue("disk." + str(cont) + ".device")
+                disk_type = vm.info.systems[0].getValue("disk." + str(cont) + ".type")
+                self.log_info("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
+                volume = None
+                try:
                     volume = self.create_volume(conn, int(disk_size), instance.placement, disk_type)
                     if volume:
                         self.log_info("Attach the volume ID " + str(volume.id))
                         conn.attach_volume(volume.id, instance.id, "/dev/" + disk_device)
-                    cont += 1
-        except Exception:
-            self.log_exception(
-                "Error creating or attaching the volume to the instance")
+                except:
+                    self.log_exception("Error creating or attaching the volume to the instance")
+                    if volume:
+                        self.log_info("Removing the volume " + volume.id)
+                        try:
+                            conn.delete_volume(volume.id)
+                        except:
+                            self.log_exception("Error deleting the volume")
+                cont += 1
 
     def delete_volumes(self, conn, volumes, instance_id, timeout=240):
         """
@@ -1374,7 +1380,9 @@ class EC2CloudConnector(CloudConnector):
                 # If there are more than 1, we skip this step
                 self.log_info("There are active instances. Not removing the SG")
 
-    def stop(self, vm, auth_data):
+    def stop(self, vm, auth_data, suspend=True):
+        if suspend:
+            return False, "Not supported"
         region_name = vm.id.split(";")[0]
         instance_id = vm.id.split(";")[1]
 

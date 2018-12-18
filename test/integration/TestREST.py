@@ -357,12 +357,35 @@ class TestIM(unittest.TestCase):
                          msg="ERROR stopping the infrastructure:" + resp.text)
         time.sleep(10)
 
-        all_stopped = self.wait_inf_state(
-            VirtualMachine.STOPPED, 120, [VirtualMachine.RUNNING])
+        all_stopped = self.wait_inf_state(VirtualMachine.STOPPED, 120, [VirtualMachine.RUNNING])
         self.assertTrue(
             all_stopped, msg="ERROR waiting the infrastructure to be stopped (timeout).")
 
     def test_70_start(self):
+        # To assure the VM is stopped
+        time.sleep(30)
+        resp = self.create_request("PUT", "/infrastructures/" + self.inf_id + "/start")
+        self.assertEqual(resp.status_code, 200,
+                         msg="ERROR starting the infrastructure:" + resp.text)
+        time.sleep(10)
+
+        all_configured = self.wait_inf_state(
+            VirtualMachine.CONFIGURED, 120, [VirtualMachine.RUNNING])
+        self.assertTrue(
+            all_configured, msg="ERROR waiting the infrastructure to be started (timeout).")
+
+    def test_72_stop(self):
+        time.sleep(10)
+        resp = self.create_request("PUT", "/infrastructures/" + self.inf_id + "/stop?suspend=no")
+        self.assertEqual(resp.status_code, 200,
+                         msg="ERROR stopping the infrastructure:" + resp.text)
+        time.sleep(10)
+
+        all_stopped = self.wait_inf_state(VirtualMachine.OFF, 120, [VirtualMachine.RUNNING])
+        self.assertTrue(
+            all_stopped, msg="ERROR waiting the infrastructure to be stopped (timeout).")
+
+    def test_75_start(self):
         # To assure the VM is stopped
         time.sleep(30)
         resp = self.create_request("PUT", "/infrastructures/" + self.inf_id + "/start")
@@ -382,8 +405,8 @@ class TestIM(unittest.TestCase):
                          msg="ERROR stopping the vm:" + resp.text)
         time.sleep(10)
 
-        all_stopped = self.wait_inf_state(VirtualMachine.STOPPED, 120, [
-                                          VirtualMachine.RUNNING], ["/infrastructures/" + self.inf_id + "/vms/0"])
+        all_stopped = self.wait_inf_state(VirtualMachine.STOPPED, 120, [VirtualMachine.RUNNING],
+                                          ["/infrastructures/" + self.inf_id + "/vms/0"])
         self.assertTrue(
             all_stopped, msg="ERROR waiting the infrastructure to be stopped (timeout).")
 

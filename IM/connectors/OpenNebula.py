@@ -530,31 +530,21 @@ class OpenNebulaCloudConnector(CloudConnector):
 
         return (success, err)
 
-    def stop(self, vm, auth_data):
-        server = ServerProxy(self.server_url, allow_none=True)
-        session_id = self.getSessionID(auth_data)
-        if session_id is None:
-            return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
-        func_res = server.one.vm.action(session_id, 'suspend', int(vm.id))
-
-        if len(func_res) == 1:
-            success = True
-            err = vm.id
-        elif len(func_res) == 2:
-            (success, err) = func_res
-        elif len(func_res) == 3:
-            (success, err, _) = func_res
+    def stop(self, vm, auth_data, suspend=True):
+        if suspend:
+            return self.vm_action(vm, 'suspend', auth_data)
         else:
-            return (False, "Error in the one.vm.action return value")
-
-        return (success, err)
+            return self.vm_action(vm, 'poweroff', auth_data)
 
     def start(self, vm, auth_data):
+        return self.vm_action(vm, 'resume', auth_data)
+
+    def vm_action(self, vm, action, auth_data):
         server = ServerProxy(self.server_url, allow_none=True)
         session_id = self.getSessionID(auth_data)
         if session_id is None:
             return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
-        func_res = server.one.vm.action(session_id, 'resume', int(vm.id))
+        func_res = server.one.vm.action(session_id, action, int(vm.id))
 
         if len(func_res) == 1:
             success = True

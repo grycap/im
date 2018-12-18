@@ -276,7 +276,7 @@ class TestGCEConnector(TestCloudConnectorBase):
         driver.ex_get_node.return_value = MagicMock()
         driver.ex_stop_node.return_value = True
 
-        success, _ = gce_cloud.stop(vm, auth)
+        success, _ = gce_cloud.stop(vm, auth, False)
 
         self.assertTrue(success, msg="ERROR: stopping VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())

@@ -239,6 +239,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             elif node.state == NodeState.TERMINATED:
                 res_state = VirtualMachine.OFF
             elif node.state == NodeState.STOPPED:
+                res_state = VirtualMachine.OFF
+            elif node.state == NodeState.SUSPENDED:
                 res_state = VirtualMachine.STOPPED
             elif node.state == NodeState.ERROR:
                 res_state = VirtualMachine.FAILED
@@ -1044,3 +1046,29 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         except Exception as ex:
             self.log_exception("Error deleting image.")
             return (False, "Error deleting image.: %s" % str(ex))
+
+    def stop(self, vm, auth_data, suspend=True):
+        node = self.get_node_with_id(vm.id, auth_data)
+        if node:
+            if suspend:
+                node.driver.ex_suspend_node(node)
+            else:
+                node.driver.ex_stop_node(node)
+        else:
+            self.log_warn("Error stopping the instance %s. VM not found." % vm.id)
+            return (False, "Error stopping the instance %s. VM not found." % vm.id)
+
+        return (True, vm)
+
+    def start(self, vm, auth_data):
+        node = self.get_node_with_id(vm.id, auth_data)
+        if node:
+            if node.state == NodeState.SUSPENDED:
+                node.driver.ex_resume_node(node)
+            else:
+                node.driver.ex_start_node(node)
+        else:
+            self.log_warn("Error starting the instance %s. VM not found." % vm.id)
+            return (False, "Error starting the instance %s. VM not found." % vm.id)
+
+        return (True, vm)

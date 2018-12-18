@@ -657,7 +657,7 @@ class FogBowCloudConnector(CloudConnector):
                 all_ok = False
         return all_ok
 
-    def stop(self, vm, auth_data):
+    def stop(self, vm, auth_data, suspend=True):
         return (False, "Not supported")
 
     def start(self, vm, auth_data):

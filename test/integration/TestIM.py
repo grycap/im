@@ -469,6 +469,39 @@ class TestIM(unittest.TestCase):
         self.assertTrue(
             all_configured, msg="ERROR waiting the vm to be started (timeout).")
 
+    def test_34_stop_vm(self):
+        """
+        Test StopVM function
+        """
+        (success, vm_ids) = self.server.GetInfrastructureInfo(
+            self.inf_id, self.auth_data)
+        time.sleep(30)
+        (success, res) = self.server.StopVM(self.inf_id, vm_ids[0], self.auth_data, False)
+        self.assertTrue(success, msg="ERROR calling StopVM: " + str(res))
+        time.sleep(30)
+
+        all_stopped = self.wait_inf_state(self.inf_id, VirtualMachine.STOPPED, 120,
+                                          [VirtualMachine.RUNNING], [vm_ids[0]])
+        self.assertTrue(
+            all_stopped, msg="ERROR waiting the vm to be stopped (timeout).")
+
+    def test_35_start_vm(self):
+        """
+        Test StartVM function
+        """
+        (success, vm_ids) = self.server.GetInfrastructureInfo(
+            self.inf_id, self.auth_data)
+        # Assure the VM to be stopped
+        time.sleep(30)
+        (success, res) = self.server.StartVM(self.inf_id, vm_ids[0], self.auth_data)
+        self.assertTrue(success, msg="ERROR calling StartVM: " + str(res))
+        time.sleep(30)
+
+        all_configured = self.wait_inf_state(
+            self.inf_id, VirtualMachine.CONFIGURED, 150, [VirtualMachine.RUNNING], [vm_ids[0]])
+        self.assertTrue(
+            all_configured, msg="ERROR waiting the vm to be started (timeout).")
+
     def test_40_export_import(self):
         """
         Test ExportInfrastructure and ImportInfrastructure functions

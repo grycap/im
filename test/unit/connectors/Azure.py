@@ -290,7 +290,7 @@ class TestAzureConnector(TestCloudConnectorBase):
         inf = MagicMock()
         vm = VirtualMachine(inf, "rg0/vm0", azure_cloud.cloud, "", "", azure_cloud, 1)
 
-        success, _ = azure_cloud.stop(vm, auth)
+        success, _ = azure_cloud.stop(vm, auth, False)
 
         self.assertTrue(success, msg="ERROR: stopping VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())

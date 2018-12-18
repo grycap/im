@@ -473,7 +473,7 @@ class KubernetesCloudConnector(CloudConnector):
             self.log_exception("Error connecting with Kubernetes API server")
             return (False, "Error connecting with Kubernetes API server")
 
-    def stop(self, vm, auth_data):
+    def stop(self, vm, auth_data, suspend=True):
         return (False, "Not supported")
 
     def start(self, vm, auth_data):

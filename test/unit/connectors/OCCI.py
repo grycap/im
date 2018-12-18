@@ -192,6 +192,8 @@ class TestOCCIConnector(TestCloudConnectorBase):
                 resp.status_code = 204
             elif params == "action=start":
                 resp.status_code = 200
+            elif params == "action=stop":
+                resp.status_code = 204
             elif url == "/storagelink/":
                 resp.status_code = 200
             elif url == "/storage/":
@@ -326,7 +328,7 @@ class TestOCCIConnector(TestCloudConnectorBase):
 
         success, _ = occi_cloud.stop(vm, auth)
 
-        self.assertTrue(success, msg="ERROR: stopping VM info.")
+        self.assertTrue(success, msg="ERROR: stopping VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('requests.request')
@@ -344,7 +346,25 @@ class TestOCCIConnector(TestCloudConnectorBase):
 
         success, _ = occi_cloud.start(vm, auth)
 
-        self.assertTrue(success, msg="ERROR: stopping VM info.")
+        self.assertTrue(success, msg="ERROR: stopping VM.")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
+    @patch('requests.request')
+    @patch('IM.connectors.OCCI.KeyStoneAuth.get_keystone_uri')
+    def test_52_stop(self, get_keystone_uri, requests):
+        auth = Authentication([{'id': 'occi', 'type': 'OCCI', 'proxy': 'proxy', 'host': 'https://server.com:11443'}])
+        occi_cloud = self.get_occi_cloud()
+
+        inf = MagicMock()
+        vm = VirtualMachine(inf, "1", occi_cloud.cloud, "", "", occi_cloud, 1)
+
+        requests.side_effect = self.get_response
+
+        get_keystone_uri.return_value = None, None
+
+        success, _ = occi_cloud.stop(vm, auth, False)
+
+        self.assertTrue(success, msg="ERROR: stopping VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('requests.request')

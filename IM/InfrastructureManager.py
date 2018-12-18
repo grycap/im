@@ -914,11 +914,11 @@ class InfrastructureManager:
         return {'state': state, 'vm_states': vm_states}
 
     @staticmethod
-    def _stop_vm(vm, auth, exceptions):
+    def _stop_vm(vm, suspend, auth, exceptions):
         try:
             success = False
             InfrastructureManager.logger.info("Inf ID: " + vm.inf.id + ": Stopping the VM id: " + vm.id)
-            (success, msg) = vm.stop(auth)
+            (success, msg) = vm.stop(suspend, auth)
         except Exception as e:
             msg = str(e)
         if not success:
@@ -926,7 +926,7 @@ class InfrastructureManager:
             exceptions.append(msg)
 
     @staticmethod
-    def StopInfrastructure(inf_id, auth):
+    def StopInfrastructure(inf_id, auth, suspend=True):
         """
         Stop all virtual machines in an infrastructure.
 
@@ -934,6 +934,7 @@ class InfrastructureManager:
 
         - inf_id(str): infrastructure id.
         - auth(Authentication): parsed authentication tokens.
+        - suspend(boolean): Flag to set if the node will be suspended or powered off.
 
         Return(str): error messages; empty string means all was ok.
         """
@@ -946,14 +947,13 @@ class InfrastructureManager:
         if Config.MAX_SIMULTANEOUS_LAUNCHES > 1:
             pool = ThreadPool(processes=Config.MAX_SIMULTANEOUS_LAUNCHES)
             pool.map(
-                lambda vm: InfrastructureManager._stop_vm(
-                    vm, auth, exceptions),
+                lambda vm: InfrastructureManager._stop_vm(vm, suspend, auth, exceptions),
                 reversed(sel_inf.get_vm_list())
             )
             pool.close()
         else:
             for vm in sel_inf.get_vm_list():
-                InfrastructureManager._stop_vm(vm, auth, exceptions)
+                InfrastructureManager._stop_vm(vm, suspend, auth, exceptions)
 
         if exceptions:
             msg = ""
@@ -997,8 +997,7 @@ class InfrastructureManager:
         if Config.MAX_SIMULTANEOUS_LAUNCHES > 1:
             pool = ThreadPool(processes=Config.MAX_SIMULTANEOUS_LAUNCHES)
             pool.map(
-                lambda vm: InfrastructureManager._start_vm(
-                    vm, auth, exceptions),
+                lambda vm: InfrastructureManager._start_vm(vm, auth, exceptions),
                 reversed(sel_inf.get_vm_list())
             )
             pool.close()
@@ -1040,18 +1039,16 @@ class InfrastructureManager:
             msg = str(e)
 
         if not success:
-            InfrastructureManager.logger.info(
-                "Inf ID: " + str(inf_id) + ": " +
-                "The VM %s cannot be restarted: %s" % (vm_id, msg))
+            InfrastructureManager.logger.info("Inf ID: " + str(inf_id) + ": " +
+                                              "The VM %s cannot be restarted: %s" % (vm_id, msg))
             raise Exception("Error starting the VM: %s" % msg)
         else:
-            InfrastructureManager.logger.info(
-                "Inf ID: " + str(inf_id) + ": " +
-                "The VM %s successfully restarted" % vm_id)
+            InfrastructureManager.logger.info("Inf ID: " + str(inf_id) + ": " +
+                                              "The VM %s successfully restarted" % vm_id)
             return ""
 
     @staticmethod
-    def StopVM(inf_id, vm_id, auth):
+    def StopVM(inf_id, vm_id, auth, suspend=True):
         """
         Stop the specified virtual machine in an infrastructure
 
@@ -1060,31 +1057,29 @@ class InfrastructureManager:
         - inf_id(str): infrastructure id.
         - vm_id(str): virtual machine id.
         - auth(Authentication): parsed authentication tokens.
+        - suspend(boolean): Flag to set if the node will be suspended or powered off.
 
         Return(str): error messages; empty string means all was ok.
         """
         # First check the auth data
         auth = InfrastructureManager.check_auth_data(auth)
 
-        InfrastructureManager.logger.info(
-            "Stopping the VM id %s from the Inf ID: %s" % (vm_id, inf_id))
+        InfrastructureManager.logger.info("Stopping the VM id %s from the Inf ID: %s" % (vm_id, inf_id))
 
         vm = InfrastructureManager.get_vm_from_inf(inf_id, vm_id, auth)
         success = False
         try:
-            (success, msg) = vm.stop(auth)
+            (success, msg) = vm.stop(suspend, auth)
         except Exception as e:
             msg = str(e)
 
         if not success:
-            InfrastructureManager.logger.info(
-                "Inf ID: " + str(inf_id) + ": " +
-                "The VM %s cannot be stopped: %s" % (vm_id, msg))
+            InfrastructureManager.logger.info("Inf ID: " + str(inf_id) + ": " +
+                                              "The VM %s cannot be stopped: %s" % (vm_id, msg))
             raise Exception("Error stopping the VM: %s" % msg)
         else:
-            InfrastructureManager.logger.info(
-                "Inf ID: " + str(inf_id) + ": " +
-                "The VM %s successfully stopped" % vm_id)
+            InfrastructureManager.logger.info("Inf ID: " + str(inf_id) + ": " +
+                                              "The VM %s successfully stopped" % vm_id)
             return ""
 
     @staticmethod

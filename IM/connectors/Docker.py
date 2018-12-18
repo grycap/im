@@ -702,7 +702,9 @@ class DockerCloudConnector(CloudConnector):
             self.log_exception("Error connecting with Docker server")
             return (False, "Error connecting with Docker server")
 
-    def stop(self, vm, auth_data):
+    def stop(self, vm, auth_data, suspend=True):
+        if suspend:
+            return False, "Not supported"
         try:
             if self._is_swarm(auth_data):
                 return (False, "Not supported")

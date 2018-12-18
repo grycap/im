@@ -61,7 +61,7 @@ class DeployedNodeCloudConnector(CloudConnector):
     def finalize(self, vm, last, auth_data):
         return (True, "")
 
-    def stop(self, vm, auth_data):
+    def stop(self, vm, auth_data, suspend=True):
         return (False, "Operation not supported")
 
     def start(self, vm, auth_data):

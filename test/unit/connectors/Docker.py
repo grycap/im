@@ -240,7 +240,7 @@ class TestDockerConnector(TestCloudConnectorBase):
 
         requests.side_effect = self.get_response
 
-        success, _ = docker_cloud.stop(vm, auth)
+        success, _ = docker_cloud.stop(vm, auth, False)
 
         self.assertTrue(success, msg="ERROR: stopping VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())

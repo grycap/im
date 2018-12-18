@@ -229,12 +229,13 @@ class CloudConnector:
 
         raise NotImplementedError("Should have implemented this")
 
-    def stop(self, vm, auth_data):
+    def stop(self, vm, auth_data, suspend=True):
         """ Stops (but not finalizes) a VM
 
                 Arguments:
                 - vm(:py:class:`IM.VirtualMachine`): VM to stop.
                 - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
+                - suspend(boolean): Flag to set if the node will be suspended or powered off.
 
                 Returns: a tuple (success, vm).
            - The first value is True if the operation finished successfully or false otherwise.

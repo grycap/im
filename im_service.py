@@ -99,9 +99,9 @@ def GetInfrastructureInfo(inf_id, auth_data):
     return WaitRequest(request)
 
 
-def StopInfrastructure(inf_id, auth_data):
+def StopInfrastructure(inf_id, auth_data, suspend=True):
     request = IMBaseRequest.create_request(
-        IMBaseRequest.STOP_INFRASTRUCTURE, (inf_id, auth_data))
+        IMBaseRequest.STOP_INFRASTRUCTURE, (inf_id, auth_data, suspend))
     return WaitRequest(request)
 
 
@@ -167,9 +167,9 @@ def GetInfrastructureContMsg(inf_id, auth_data, headeronly=False):
     return WaitRequest(request)
 
 
-def StopVM(inf_id, vm_id, auth_data):
+def StopVM(inf_id, vm_id, auth_data, suspend):
     request = IMBaseRequest.create_request(
-        IMBaseRequest.STOP_VM, (inf_id, vm_id, auth_data))
+        IMBaseRequest.STOP_VM, (inf_id, vm_id, auth_data, suspend))
     return WaitRequest(request)
 
 

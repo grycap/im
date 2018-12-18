@@ -216,8 +216,10 @@ class Request_StopInfrastructure(IMBaseRequest):
 
     def _call_function(self):
         self._error_mesage = "Error Stopping Inf."
-        (inf_id, auth_data) = self.arguments
-        return IM.InfrastructureManager.InfrastructureManager.StopInfrastructure(inf_id, Authentication(auth_data))
+        (inf_id, auth_data, suspend) = self.arguments
+        return IM.InfrastructureManager.InfrastructureManager.StopInfrastructure(inf_id,
+                                                                                 Authentication(auth_data),
+                                                                                 suspend)
 
 
 class Request_StartInfrastructure(IMBaseRequest):
@@ -344,9 +346,9 @@ class Request_StopVM(IMBaseRequest):
 
     def _call_function(self):
         self._error_mesage = "Error stopping VM"
-        (inf_id, vm_id, auth_data) = self.arguments
+        (inf_id, vm_id, auth_data, suspend) = self.arguments
         IM.InfrastructureManager.InfrastructureManager.StopVM(
-            inf_id, vm_id, Authentication(auth_data))
+            inf_id, vm_id, Authentication(auth_data), suspend)
         return ""
 
 

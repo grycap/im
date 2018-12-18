@@ -185,11 +185,11 @@ class VirtualMachine:
         self.last_update = 0
         return (success, alter_res)
 
-    def stop(self, auth):
+    def stop(self, suspend, auth):
         """
         Stop the VM
         """
-        (success, msg) = self.getCloudConnector().stop(self, auth)
+        (success, msg) = self.getCloudConnector().stop(self, auth, suspend)
         # force the update of the information
         self.last_update = 0
         return (success, msg)

@@ -73,7 +73,7 @@ class TestOSTConnector(TestCloudConnectorBase):
                                 'password': 'pass', 'tenant': 'tenant', 'host': 'https://server.com:5000'}])
         ost_cloud = self.get_ost_cloud()
 
-        driver = MagicMock()
+        driver = MagicMock(spec=['list_sizes'])
         get_driver.return_value = driver
 
         node_size = MagicMock()
@@ -130,7 +130,10 @@ class TestOSTConnector(TestCloudConnectorBase):
                                 'password': 'pass'}])
         ost_cloud = self.get_ost_cloud()
 
-        driver = MagicMock()
+        driver = MagicMock(spec=['list_sizes', 'ex_list_networks', 'ex_create_security_group',
+                                 'ex_list_security_groups', 'ex_create_security_group_rule',
+                                 'create_key_pair', 'create_node', 'ex_list_floating_ip_pools',
+                                 'delete_key_pair', 'ex_delete_security_group'])
         get_driver.return_value = driver
 
         node_size = MagicMock()
@@ -212,7 +215,9 @@ class TestOSTConnector(TestCloudConnectorBase):
         inf = MagicMock()
         vm = VirtualMachine(inf, "1", ost_cloud.cloud, radl, radl, ost_cloud, 1)
 
-        driver = MagicMock()
+        driver = MagicMock(spec=['ex_get_node_details', 'ex_get_size', 'create_volume',
+                                 'ex_list_floating_ip_pools', 'ex_get_volume', 'ex_attach_floating_ip_to_node',
+                                 'list_locations'])
         get_driver.return_value = driver
 
         node = MagicMock()
@@ -296,7 +301,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         inf = MagicMock()
         vm = VirtualMachine(inf, "1", ost_cloud.cloud, "", "", ost_cloud, 1)
 
-        driver = MagicMock()
+        driver = MagicMock(spec=['ex_get_node_details', 'ex_suspend_node'])
         get_driver.return_value = driver
 
         node = MagicMock()
@@ -308,11 +313,11 @@ class TestOSTConnector(TestCloudConnectorBase):
         node.driver = driver
         driver.ex_get_node_details.return_value = node
 
-        driver.ex_stop_node.return_value = True
+        driver.ex_suspend_node.return_value = True
 
         success, _ = ost_cloud.stop(vm, auth)
 
-        self.assertTrue(success, msg="ERROR: stopping VM info.")
+        self.assertTrue(success, msg="ERROR: stopping VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
@@ -324,7 +329,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         inf = MagicMock()
         vm = VirtualMachine(inf, "1", ost_cloud.cloud, "", "", ost_cloud, 1)
 
-        driver = MagicMock()
+        driver = MagicMock(spec=['ex_get_node_details', 'ex_start_node'])
         get_driver.return_value = driver
 
         node = MagicMock()
@@ -340,7 +345,35 @@ class TestOSTConnector(TestCloudConnectorBase):
 
         success, _ = ost_cloud.start(vm, auth)
 
-        self.assertTrue(success, msg="ERROR: stopping VM info.")
+        self.assertTrue(success, msg="ERROR: starting VM.")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
+    @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
+    def test_53_stop(self, get_driver):
+        auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'username': 'user',
+                                'password': 'pass', 'tenant': 'tenant', 'host': 'https://server.com:5000'}])
+        ost_cloud = self.get_ost_cloud()
+
+        inf = MagicMock()
+        vm = VirtualMachine(inf, "1", ost_cloud.cloud, "", "", ost_cloud, 1)
+
+        driver = MagicMock(spec=['ex_get_node_details', 'ex_stop_node'])
+        get_driver.return_value = driver
+
+        node = MagicMock()
+        node.id = "1"
+        node.state = "running"
+        node.extra = {'flavorId': 'small'}
+        node.public_ips = ['158.42.1.1']
+        node.private_ips = ['10.0.0.1']
+        node.driver = driver
+        driver.ex_get_node_details.return_value = node
+
+        driver.ex_stop_node.return_value = True
+
+        success, _ = ost_cloud.stop(vm, auth, False)
+
+        self.assertTrue(success, msg="ERROR: stopping VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
@@ -374,7 +407,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         inf = MagicMock()
         vm = VirtualMachine(inf, "1", ost_cloud.cloud, radl, radl, ost_cloud, 1)
 
-        driver = MagicMock()
+        driver = MagicMock(spec=['ex_get_node_details', 'list_sizes', 'ex_resize'])
         get_driver.return_value = driver
 
         node = MagicMock()
@@ -421,11 +454,12 @@ class TestOSTConnector(TestCloudConnectorBase):
         inf.radl = radl
         vm = VirtualMachine(inf, "1", ost_cloud.cloud, radl, radl, ost_cloud, 1)
 
-        driver = MagicMock()
+        driver = MagicMock(spec=['ex_get_node_details', 'get_key_pair', 'delete_key_pair',
+                                 'delete_security_group', 'ex_list_floating_ips', 'ex_list_security_groups'])
         driver.name = "OpenStack"
         get_driver.return_value = driver
 
-        node = MagicMock()
+        node = MagicMock(spec=['destroy'])
         node.id = "1"
         node.state = "running"
         node.extra = {'flavorId': 'small'}
@@ -459,7 +493,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         inf = MagicMock()
         vm = VirtualMachine(inf, "1", ost_cloud.cloud, "", "", ost_cloud, 1)
 
-        driver = MagicMock()
+        driver = MagicMock(spec=['ex_get_node_details', 'create_image'])
         driver.name = "OpenStack"
         get_driver.return_value = driver
 
@@ -484,7 +518,7 @@ class TestOSTConnector(TestCloudConnectorBase):
                                 'password': 'pass', 'tenant': 'tenant', 'host': 'https://server.com:5000'}])
         ost_cloud = self.get_ost_cloud()
 
-        driver = MagicMock()
+        driver = MagicMock(spec=['get_image', 'delete_image'])
         driver.name = "OpenStack"
         get_driver.return_value = driver
 
@@ -517,7 +551,7 @@ class TestOSTConnector(TestCloudConnectorBase):
             disk.1.device='hdb'
             )"""
         radl = radl_parse.parse_radl(radl_data)
-        driver = MagicMock()
+        driver = MagicMock(spec=['ex_list_floating_ip_pools', 'ex_list_networks', 'ex_list_subnets'])
 
         pool = MagicMock()
         pool.name = "public"

@@ -829,7 +829,9 @@ class AzureCloudConnector(CloudConnector):
 
         return True, ""
 
-    def stop(self, vm, auth_data):
+    def stop(self, vm, auth_data, suspend=True):
+        if suspend:
+            return False, "Not supported"
         try:
             group_name = vm.id.split('/')[0]
             vm_name = vm.id.split('/')[1]

@@ -480,11 +480,13 @@ class LibCloudCloudConnector(CloudConnector):
         else:
             return (False, "VM not found with id: " + vm.id)
 
-    def stop(self, vm, auth_data):
+    def stop(self, vm, auth_data, suspend=True):
         node = self.get_node_with_id(vm.id, auth_data)
         if node:
-            func = getattr(node.driver, "ex_stop_node",
-                           getattr(node.driver, "ex_suspend_node", None))
+            if suspend:
+                func = getattr(node.driver, "ex_suspend_node", None)
+            else:
+                func = getattr(node.driver, "ex_stop_node", None)
             if func:
                 success = func(node)
                 if success:

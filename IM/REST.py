@@ -872,8 +872,16 @@ def RESTStopInfrastructure(infid=None):
         return return_error(401, "No authentication data provided")
 
     try:
+        suspend = True
+        if bottle.request.params.get("suspend"):
+            str_suspend = bottle.request.params.get("suspend").lower()
+            if str_suspend in ['yes', 'true', '1']:
+                suspend = True
+            elif str_suspend in ['no', 'false', '0']:
+                suspend = False
+
         bottle.response.content_type = "text/plain"
-        return InfrastructureManager.StopInfrastructure(infid, auth)
+        return InfrastructureManager.StopInfrastructure(infid, auth, suspend)
     except DeletedInfrastructureException as ex:
         return return_error(404, "Error stopping infrastructure: %s" % ex.message)
     except IncorrectInfrastructureException as ex:
@@ -918,8 +926,16 @@ def RESTStopVM(infid=None, vmid=None):
         return return_error(401, "No authentication data provided")
 
     try:
+        suspend = True
+        if bottle.request.params.get("suspend"):
+            str_suspend = bottle.request.params.get("suspend").lower()
+            if str_suspend in ['yes', 'true', '1']:
+                suspend = True
+            elif str_suspend in ['no', 'false', '0']:
+                suspend = False
+
         bottle.response.content_type = "text/plain"
-        return InfrastructureManager.StopVM(infid, vmid, auth)
+        return InfrastructureManager.StopVM(infid, vmid, auth, suspend)
     except DeletedInfrastructureException as ex:
         return return_error(404, "Error stopping VM: %s" % ex.message)
     except IncorrectInfrastructureException as ex:

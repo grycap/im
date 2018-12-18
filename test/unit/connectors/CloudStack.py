@@ -228,7 +228,7 @@ class TestOSCConnector(TestCloudConnectorBase):
         driver.list_nodes.return_value = [node]
         node.ex_stop.return_value = u"Stopped"
 
-        success, _ = osc_cloud.stop(vm, auth)
+        success, _ = osc_cloud.stop(vm, auth, False)
 
         self.assertTrue(success, msg="ERROR: stopping VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())

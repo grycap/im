@@ -523,7 +523,7 @@ class vSphereCloudConnector(CloudConnector):
         node = self.get_vm_by_name(connection.RetrieveContent(), vm.id)
 
         if node:
-            if format(node.runtime.powerState) == "suspended":
+            if format(node.runtime.powerState) in ["poweredOff", "suspended"]:
                 task = node.PowerOn()
                 try:
                     self.wait_for_tasks(connection, [task])
@@ -531,20 +531,23 @@ class vSphereCloudConnector(CloudConnector):
                     self.log_exception("Error starting VM " + str(vm.id))
                     return (False, "Error starting the VM: " + str(ex))
             else:
-                return (False, "Error starting the VM. The VM is not suspended.")
+                return (False, "Error starting the VM. The VM is not powered off.")
 
             self.log_debug("VM " + str(vm.id) + " successfully started")
         else:
             self.log_warn("VM " + str(vm.id) + " not found.")
         return (True, "")
 
-    def stop(self, vm, auth_data):
+    def stop(self, vm, auth_data, suspend=True):
         connection = self.get_connection(auth_data)
         node = self.get_vm_by_name(connection.RetrieveContent(), vm.id)
 
         if node:
             if format(node.runtime.powerState) == "poweredOn":
-                task = node.Suspend()
+                if suspend:
+                    task = node.Suspend()
+                else:
+                    task = node.PowerOff()
                 try:
                     self.wait_for_tasks(connection, [task])
                 except Exception as ex:

@@ -802,6 +802,8 @@ class TestIM(unittest.TestCase):
 
         res = IM.StopInfrastructure(infId, auth0)
         self.assertEqual(res, "")
+        res = IM.StopInfrastructure(infId, auth0, False)
+        self.assertEqual(res, "")
         res = IM.StartInfrastructure(infId, auth0)
         self.assertEqual(res, "")
 
