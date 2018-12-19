@@ -458,3 +458,9 @@ IM 1.7.6:
     * Update Azure conn to new Auth methods: #589
     * Enable to open ports in SG in private nets in TOSCA: #687
     * Enable to link a VM with an existing disk in Azure conn: #590
+
+IM 1.7.7:
+    * Enhance public network detection in OCCI conn.
+    * Add support of Federated networks in FogBow conn.
+    * Improve token check in OCCI conn.
+    * Fix created volumes are not deleted in EC2 conn.
