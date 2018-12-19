@@ -93,7 +93,7 @@ topology_template:
             node: db_server
 
     db_server:
-      type: tosca.nodes.Compute
+      type: tosca.nodes.indigo.Compute
       capabilities:
         scalable:
           properties:
