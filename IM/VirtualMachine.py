@@ -564,10 +564,12 @@ class VirtualMachine:
 
         return public_net, num_net
 
-    def setIps(self, public_ips, private_ips, remove_old=False):
+    def setIps(self, public_ips, private_ips, remove_old=False, ignore_nets=None):
         """
         Set the specified IPs in the VM RADL info
         """
+        if not ignore_nets:
+            ignore_nets = []
         vm_system = self.info.systems[0]
 
         # First remove old ip values
@@ -646,7 +648,7 @@ class VirtualMachine:
                 if private_net is None:
                     for net in self.info.networks:
                         if (not net.isPublic() and net not in private_net_map.values() and
-                                self.getNumNetworkWithConnection(net.id) is not None):
+                                net.id not in ignore_nets and self.getNumNetworkWithConnection(net.id) is not None):
                             private_net = net
                             private_net_map[private_net_mask] = net
                             break
@@ -654,15 +656,14 @@ class VirtualMachine:
                 # Search in the rest of RADL nets
                 if private_net is None:
                     for net in self.info.networks:
-                        if not net.isPublic() and net not in private_net_map.values():
+                        if not net.isPublic() and net not in private_net_map.values() and net.id not in ignore_nets:
                             private_net = net
                             private_net_map[private_net_mask] = net
                             break
 
                 # if it is still None, then create a new one
                 if private_net is None:
-                    private_net = network.createNetwork(
-                        "private." + private_net_mask.split('/')[0])
+                    private_net = network.createNetwork("private." + private_net_mask.split('/')[0])
                     self.info.networks.append(private_net)
                     num_net = self.getNumNetworkIfaces()
                 else:

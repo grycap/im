@@ -121,7 +121,8 @@ class FogBowCloudConnector(CloudConnector):
 
         if self.token:
             self.log_debug("We have a token. Check if it is valid.")
-            resp = requests.request('HEAD', self.get_full_url('/images/'), verify=self.verify_ssl)
+            resp = requests.request('HEAD', self.get_full_url('/images/'), verify=self.verify_ssl,
+                                    headers={'federationTokenValue': self.token})
             if resp.status_code in [200, 201]:
                 return self.token
             else:
@@ -192,6 +193,7 @@ class FogBowCloudConnector(CloudConnector):
     def create_nets(self, inf, radl, auth_data):
         fbw_nets = self.get_fbw_nets(auth_data)
         fbw_fed_nets = self.get_fbw_nets(auth_data, True)
+        member = radl.systems[0].getValue('availability_zone')
 
         for net in radl.networks:
             net_name = "im_%s_%s" % (inf.id, net.id)
@@ -207,6 +209,7 @@ class FogBowCloudConnector(CloudConnector):
                     net_providers = net.getValue("providers")
                     if net_providers:
                         body["allowedMembers"] = net_providers
+                    self.log_debug(body)
                     net_info = self.post_and_get('/federatedNetworks/', json.dumps(body), auth_data,
                                                  ['FAILED_AFTER_SUCCESSUL_REQUEST', 'FAILED_ON_REQUEST'])
                     if net_info:
@@ -222,6 +225,9 @@ class FogBowCloudConnector(CloudConnector):
                     self.log_info("Creating net %s." % net_name)
 
                     body = {"allocationMode": "dynamic", "name": net_name}
+                    if member:
+                        body['provider'] = member
+                    self.log_debug(body)
 
                     net_info = self.post_and_get('/networks/', json.dumps(body), auth_data)
                     if net_info:
@@ -415,7 +421,7 @@ class FogBowCloudConnector(CloudConnector):
             resp = self.create_request('GET', '/publicIps/status', auth_data, headers=headers)
             if resp.status_code == 200:
                 for ipstatus in resp.json():
-                    resp_ip = self.create_request('GET', '/publicIps/%s' % ipstatus['instanceId'], auth_data, headers)
+                    resp_ip = self.create_request('GET', '/publicIps/%s' % ipstatus['instanceId'], auth_data)
                     if resp_ip.status_code == 200:
                         ipdata = resp_ip.json()
                         if ipdata['state'] == 'FAILED':
@@ -441,7 +447,7 @@ class FogBowCloudConnector(CloudConnector):
             self.log_exception("Error getting public IP info")
         return res
 
-    def add_elastic_ip(self, vm, public_ips, auth_data):
+    def add_elastic_ip(self, vm, public_ips, member, auth_data):
         """
         Get a public IP if needed.
         """
@@ -452,9 +458,12 @@ class FogBowCloudConnector(CloudConnector):
 
         if not public_ips and vm.hasPublicNet() and vm.state == VirtualMachine.RUNNING:
             self.log_debug("VM ID %s requests a public IP and it does not have it. Requesting the IP." % vm.id)
-            body = '{"computeId": "%s"}' % vm.id
+            body = {"computeId": vm.id}
+            if member:
+                body['provider'] = member
 
-            ip_info = self.post_and_get('/publicIps/', body, auth_data)
+            self.log_debug(body)
+            ip_info = self.post_and_get('/publicIps/', json.dumps(body), auth_data)
             if ip_info:
                 self.log_debug("IP obtained: %s." % ip_info['ip'])
                 return ip_info['ip']
@@ -500,17 +509,21 @@ class FogBowCloudConnector(CloudConnector):
                         else:
                             private_ips.append(ip)
 
-                ip = self.add_elastic_ip(vm, public_ips, auth_data)
+                member = vm.info.systems[0].getValue('availability_zone')
+                ip = self.add_elastic_ip(vm, public_ips, member, auth_data)
                 if ip:
                     public_ips.append(ip)
-                vm.setIps(public_ips, private_ips)
 
+                fed_net_name = None
                 if private_ips and "federatedIp" in output and output["federatedIp"]:
                     for net in vm.info.networks:
                         if net.getValue("federated") == "yes":
+                            fed_net_name = net.id
                             num_net = vm.getNumNetworkWithConnection(net.id)
-                            if num_net:
+                            if num_net is not None:
                                 vm.info.systems[0].setValue('net_interface.%s.ip' % num_net, str(output["federatedIp"]))
+
+                vm.setIps(public_ips, private_ips, ignore_nets=[fed_net_name])
 
                 self.attach_volumes(vm, auth_data)
 
@@ -524,12 +537,10 @@ class FogBowCloudConnector(CloudConnector):
             self.log_warn("No VM ID. Ignoring")
             return True, "No VM ID. Ignoring"
 
-        headers = {'Accept': 'text/plain'}
-
         public_ips = self._get_instance_public_ips(vm.id, auth_data, "id")
 
         try:
-            resp = self.create_request('DELETE', "/computes/" + vm.id, auth_data, headers=headers)
+            resp = self.create_request('DELETE', "/computes/" + vm.id, auth_data)
 
             if resp.status_code == 404:
                 vm.state = VirtualMachine.OFF

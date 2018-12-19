@@ -16,7 +16,6 @@
 
 import random
 import time
-from ssl import SSLError
 import os
 import re
 import base64
@@ -59,8 +58,6 @@ class OCCICloudConnector(CloudConnector):
     def __init__(self, cloud_info, inf):
         self.add_public_ip_count = 0
         self.keystone_token = None
-        self.keystone_tenant = None
-        self.keystone_project = None
         if cloud_info.path.endswith("/"):
             cloud_info.path = cloud_info.path[:-1]
         CloudConnector.__init__(self, cloud_info, inf)
@@ -98,11 +95,14 @@ class OCCICloudConnector(CloudConnector):
             else:
                 url = "%s://%s%s" % (self.cloud.protocol, self.cloud.server, url)
 
-        auths = auth_data.getAuthInfo(self.type, self.cloud.server)
-        if not auths:
-            raise Exception("No correct auth data has been specified to OCCI.")
+        if auth_data:
+            auths = auth_data.getAuthInfo(self.type, self.cloud.server)
+            if not auths:
+                raise Exception("No correct auth data has been specified to OCCI.")
+            else:
+                auth = auths[0]
         else:
-            auth = auths[0]
+            auth = None
 
         return self.create_request_static(method, url, auth, headers, self.verify_ssl, body)
 
@@ -118,10 +118,11 @@ class OCCICloudConnector(CloudConnector):
             auth = auths[0]
 
         auth_header = None
-        keystone_uri = KeyStoneAuth.get_keystone_uri(self, auth_data)
+        keystone_uri, keystone_token = KeyStoneAuth.get_keystone_uri(self)
 
-        if keystone_uri:
-            # TODO: Check validity of token
+        if keystone_token:
+            auth_header = {'X-Auth-Token': keystone_token}
+        elif keystone_uri:
             keystone_token = KeyStoneAuth.get_keystone_token(self, keystone_uri, auth)
             auth_header = {'X-Auth-Token': keystone_token}
         else:
@@ -230,13 +231,13 @@ class OCCICloudConnector(CloudConnector):
                     res.append((num_interface, ip_address, not is_private, link))
         return link_to_public, res
 
-    def manage_public_ips(self, vm, auth_data):
+    def manage_public_ips(self, vm, auth_data, auth_header):
         """
         Manage public IPs in the VM
         """
         self.log_info("The VM does not have public IP trying to add one.")
         if self.add_public_ip_count < self.MAX_ADD_IP_COUNT:
-            success, msgs = self.add_public_ip(vm, auth_data)
+            success, msgs = self.add_public_ip(vm, auth_data, auth_header)
             if success:
                 self.log_info("Public IP successfully added.")
             else:
@@ -255,7 +256,7 @@ class OCCICloudConnector(CloudConnector):
             vm.inf.set_configured(False)
             vm.inf.stop()
 
-    def setIPs(self, vm, occi_res, auth_data):
+    def setIPs(self, vm, occi_res, auth_data, auth_header):
         """
         Set to the VM info the IPs obtained from the OCCI info
         """
@@ -271,7 +272,7 @@ class OCCICloudConnector(CloudConnector):
 
         if (vm.state == VirtualMachine.RUNNING and not link_to_public and
                 not public_ips and vm.requested_radl.hasPublicNet(vm.info.systems[0].name)):
-            self.manage_public_ips(vm, auth_data)
+            self.manage_public_ips(vm, auth_data, auth_header)
 
         vm.setIps(public_ips, private_ips, remove_old=True)
 
@@ -309,14 +310,13 @@ class OCCICloudConnector(CloudConnector):
         else:
             return None
 
-    def get_net_name(self, auth_data, is_public):
+    def get_net_name(self, auth_data, auth_header, is_public):
         """
         Get the public/private network name contacting with the OCCI server
         """
-        auth = self.get_auth_header(auth_data)
         headers = {'Accept': 'text/plain', 'Connection': 'close'}
-        if auth:
-            headers.update(auth)
+        if auth_header:
+            headers.update(auth_header)
         try:
             resp = self.create_request('GET', self.cloud.path + "/network/", auth_data, headers)
 
@@ -363,21 +363,20 @@ class OCCICloudConnector(CloudConnector):
 
         return None
 
-    def add_public_ip(self, vm, auth_data):
+    def add_public_ip(self, vm, auth_data, auth_header):
         """
         Add a public IP to the VM
         """
-        network_name = self.get_net_name(auth_data, True)
+        network_name = self.get_net_name(auth_data, auth_header, True)
         if not network_name:
             return (False, "No correct network name found.")
 
-        _, occi_info = self.query_occi(auth_data)
+        _, occi_info = self.query_occi(auth_data, auth_header)
         url = self.get_property_from_category(occi_info, "networkinterface", "location")
         if not url:
             self.log_error("No location for networkinterface category.")
             return (False, "No location for networkinterface category.")
 
-        auth_header = self.get_auth_header(auth_data)
         try:
             net_id = "imnet.%s" % str(uuid.uuid1())
 
@@ -457,7 +456,7 @@ class OCCICloudConnector(CloudConnector):
                     vm.info.systems[0].setValue("console_vnc", console_vnc)
 
                 # Update the network data
-                self.setIPs(vm, resp.text, auth_data)
+                self.setIPs(vm, resp.text, auth_data, auth)
 
                 # Update disks data
                 self.set_disk_info(vm, resp.text)
@@ -481,14 +480,13 @@ class OCCICloudConnector(CloudConnector):
                     system.setValue("disk." + str(cont) + ".device", device)
                 cont += 1
 
-    def query_occi(self, auth_data):
+    def query_occi(self, auth_data, auth_header):
         """
         Get the info contacting with the OCCI server
         """
-        auth = self.get_auth_header(auth_data)
         headers = {'Accept': 'text/plain', 'Connection': 'close'}
-        if auth:
-            headers.update(auth)
+        if auth_header:
+            headers.update(auth_header)
         try:
             resp = self.create_request('GET', self.cloud.path + "/-/", auth_data, headers)
 
@@ -531,7 +529,7 @@ class OCCICloudConnector(CloudConnector):
         """
         return self.get_scheme(occi_info, os_tpl, 'os_tpl')
 
-    def create_volumes(self, system, auth_data):
+    def create_volumes(self, system, auth_data, auth_header):
         """
         Attach the required volumes (in the RADL) to the launched instance
 
@@ -557,15 +555,15 @@ class OCCICloudConnector(CloudConnector):
                 disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('G')
                 self.log_info("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
                 storage_name = "im-disk-%s" % str(uuid.uuid1())
-                success, volume_id = self.create_volume(int(disk_size), storage_name, auth_data)
+                success, volume_id = self.create_volume(int(disk_size), storage_name, auth_data, auth_header)
                 if success:
                     self.log_info("Volume id %s sucessfully created." % volume_id)
 
                     # let's wait the storage to be ready "online"
-                    wait_ok = self.wait_volume_state(volume_id, auth_data)
+                    wait_ok = self.wait_volume_state(volume_id, auth_data, auth_header)
                     if not wait_ok:
                         self.log_error("Error waiting volume %s. Deleting it." % volume_id)
-                        self.delete_volume(volume_id, auth_data)
+                        self.delete_volume(volume_id, auth_data, auth_header)
                         self.error_messages += "Error waiting volume: %s. Deleting it." % volume_id
                     else:
                         volumes.append((True, disk_device, volume_id))
@@ -578,7 +576,7 @@ class OCCICloudConnector(CloudConnector):
 
         return volumes
 
-    def wait_volume_state(self, volume_id, auth_data, wait_state="online", timeout=180, delay=5):
+    def wait_volume_state(self, volume_id, auth_data, auth_header, wait_state="online", timeout=180, delay=5):
         """
         Wait a storage to be in the specified state (by default "online")
         """
@@ -588,7 +586,7 @@ class OCCICloudConnector(CloudConnector):
             # sleep a bit at the beginning to assure a correct state of the vol
             time.sleep(delay)
             wait += delay
-            success, storage_info = self.get_volume_info(volume_id, auth_data)
+            success, storage_info = self.get_volume_info(volume_id, auth_data, auth_header)
             state = self.get_occi_attribute_value(storage_info, 'occi.storage.state')
             self.log_info("Waiting volume %s to be %s. Current state: %s" % (volume_id, wait_state, state))
             if success and state == wait_state:
@@ -599,14 +597,13 @@ class OCCICloudConnector(CloudConnector):
 
         return online
 
-    def get_volume_info(self, storage_id, auth_data):
+    def get_volume_info(self, storage_id, auth_data, auth_header):
         """
         Get the OCCI info about the storage
         """
-        auth = self.get_auth_header(auth_data)
         headers = {'Accept': 'text/plain', 'Connection': 'close'}
-        if auth:
-            headers.update(auth)
+        if auth_header:
+            headers.update(auth_header)
         try:
             resp = self.create_request('GET', self.cloud.path + "/storage/" + storage_id, auth_data, headers)
 
@@ -620,15 +617,13 @@ class OCCICloudConnector(CloudConnector):
             self.log_exception("Error getting volume info")
             return False, str(ex)
 
-    def create_volume(self, size, name, auth_data):
+    def create_volume(self, size, name, auth_data, auth_header):
         """
         Creates a volume of the specified data (in GB)
 
         returns the OCCI ID of the storage object
         """
         try:
-            auth_header = self.get_auth_header(auth_data)
-
             volume_id = "im-vol-%s" % str(uuid.uuid1())
             body = 'Category: storage; scheme="http://schemas.ogf.org/occi/infrastructure#"; class="kind"\n'
             body += 'X-OCCI-Attribute: occi.core.id="%s"\n' % volume_id
@@ -649,11 +644,10 @@ class OCCICloudConnector(CloudConnector):
             self.log_exception("Error creating volume")
             return False, str(ex)
 
-    def detach_volume(self, volume, auth_data, timeout=60, delay=5):
-        auth = self.get_auth_header(auth_data)
+    def detach_volume(self, volume, auth_data, auth_header, timeout=60, delay=5):
         headers = {'Accept': 'text/plain', 'Connection': 'close'}
-        if auth:
-            headers.update(auth)
+        if auth_header:
+            headers.update(auth_header)
 
         link, storage_id, _ = volume
         if not link.startswith("http"):
@@ -685,14 +679,13 @@ class OCCICloudConnector(CloudConnector):
 
         return (False, "Error detaching the Volume: Timeout.")
 
-    def delete_volume(self, storage_id, auth_data, timeout=180, delay=5):
+    def delete_volume(self, storage_id, auth_data, auth_header, timeout=180, delay=5):
         """
         Delete a volume
         """
-        auth = self.get_auth_header(auth_data)
         headers = {'Accept': 'text/plain', 'Connection': 'close'}
-        if auth:
-            headers.update(auth)
+        if auth_header:
+            headers.update(auth_header)
 
         if storage_id.startswith("http"):
             storage_id = uriparse(storage_id)[2]
@@ -775,11 +768,6 @@ class OCCICloudConnector(CloudConnector):
             user = self.DEFAULT_USER
             system.setValue('disk.0.os.credentials.username', user)
 
-        # Get the info about the OCCI server (GET /-/)
-        success, occi_info = self.query_occi(auth_data)
-        if not success:
-            raise Exception(occi_info)
-
         # Parse the info to get the os_tpl scheme
         url = uriparse(system.getValue("disk.0.image.url"))
 
@@ -794,6 +782,12 @@ class OCCICloudConnector(CloudConnector):
         else:
             # Get the Image ID from the last part of the path
             os_tpl = os.path.basename(url[2])
+
+        # Get the info about the OCCI server (GET /-/)
+        auth_header = self.get_auth_header(auth_data)
+        success, occi_info = self.query_occi(auth_data, auth_header)
+        if not success:
+            raise Exception(occi_info)
 
         os_tpl_scheme = self.get_os_tpl_scheme(occi_info, os_tpl)
         if not os_tpl_scheme:
@@ -816,7 +810,7 @@ class OCCICloudConnector(CloudConnector):
             volumes = []
             try:
                 # First create the volumes
-                volumes = self.create_volumes(system, auth_data)
+                volumes = self.create_volumes(system, auth_data, auth_header)
 
                 body = 'Category: compute; scheme="http://schemas.ogf.org/occi/infrastructure#"; class="kind"\n'
                 body += 'Category: ' + os_tpl + '; scheme="' + os_tpl_scheme + '"; class="mixin"\n'
@@ -860,10 +854,10 @@ class OCCICloudConnector(CloudConnector):
                 # Add volume links
                 for _, device, volume_id in volumes:
                     link_id = "im-%s" % str(uuid.uuid1())
-                    body += ('Link: <%s/storage/%s>;rel="http://schemas.ogf.org/occi/infrastructure#storage";'
-                             'category="http://schemas.ogf.org/occi/infrastructure#storagelink";'
-                             'occi.core.target="%s/storage/%s";'
-                             'occi.core.source="%s/compute/%s";'
+                    body += ('Link: <%s/storage/%s>; rel="http://schemas.ogf.org/occi/infrastructure#storage"; '
+                             'category="http://schemas.ogf.org/occi/infrastructure#storagelink"; '
+                             'occi.core.target="%s/storage/%s"; '
+                             'occi.core.source="%s/compute/%s"; '
                              'occi.core.id="%s"' % (self.cloud.path, volume_id,
                                                     self.cloud.path, volume_id,
                                                     self.cloud.path, compute_id, link_id))
@@ -881,7 +875,7 @@ class OCCICloudConnector(CloudConnector):
 
                 # This error is returned is some sites if the network id is not specified
                 if resp.status_code == 409:
-                    self.log_warn("Conflict creating the VM. Let's try to add the net id.")
+                    self.log_warn("Conflict creating the VM. Let's try to add the net id: %s" % resp.text)
 
                     net_ids = []
 
@@ -889,20 +883,20 @@ class OCCICloudConnector(CloudConnector):
                     if not self.get_floating_pool(occi_info):
                         # First add public ip (if needed)
                         if radl.hasPublicNet(system.name):
-                            pub_net_id = self.get_net_name(auth_data, True)
+                            pub_net_id = self.get_net_name(auth_data, auth_header, True)
                             if pub_net_id:
                                 net_ids.append(pub_net_id)
                     # Then add private one
-                    priv_net_id = self.get_net_name(auth_data, False)
+                    priv_net_id = self.get_net_name(auth_data, auth_header, False)
                     if priv_net_id and priv_net_id not in net_ids:
                         net_ids.append(priv_net_id)
 
                     for net_id in net_ids:
                         link_id = "im-%s" % str(uuid.uuid1())
-                        body += ('Link: <%s/network/%s>;rel="http://schemas.ogf.org/occi/infrastructure#network";'
-                                 'category="http://schemas.ogf.org/occi/infrastructure#networkinterface";'
-                                 'occi.core.target="%s/network/%s";'
-                                 'occi.core.source="%s/compute/%s";'
+                        body += ('Link: <%s/network/%s>; rel="http://schemas.ogf.org/occi/infrastructure#network"; '
+                                 'category="http://schemas.ogf.org/occi/infrastructure#networkinterface"; '
+                                 'occi.core.target="%s/network/%s"; '
+                                 'occi.core.source="%s/compute/%s"; '
                                  'occi.core.id="%s"' % (self.cloud.path, net_id,
                                                         self.cloud.path, net_id,
                                                         self.cloud.path, compute_id, link_id))
@@ -913,10 +907,11 @@ class OCCICloudConnector(CloudConnector):
 
                 # some servers return 201 and other 200
                 if resp.status_code not in [201, 200]:
+                    self.log_error("Error creating VM: %s. %s." % (resp.reason, resp.text))
                     res.append((False, resp.reason + "\n" + resp.text))
                     for created, _, volume_id in volumes:
                         if created:
-                            self.delete_volume(volume_id, auth_data)
+                            self.delete_volume(volume_id, auth_data, auth_header)
                 else:
                     if 'location' in resp.headers:
                         occi_vm_id = os.path.basename(resp.headers['location'])
@@ -935,7 +930,7 @@ class OCCICloudConnector(CloudConnector):
                 res.append((False, "ERROR: " + str(ex)))
                 for created, _, volume_id in volumes:
                     if created:
-                        self.delete_volume(volume_id, auth_data)
+                        self.delete_volume(volume_id, auth_data, auth_header)
 
             i += 1
 
@@ -967,11 +962,10 @@ class OCCICloudConnector(CloudConnector):
 
         return volumes
 
-    def get_attached_volumes(self, vm, auth_data):
-        auth = self.get_auth_header(auth_data)
+    def get_attached_volumes(self, vm, auth_data, auth_header):
         headers = {'Accept': 'text/plain', 'Connection': 'close'}
-        if auth:
-            headers.update(auth)
+        if auth_header:
+            headers.update(auth_header)
         try:
             resp = self.create_request('GET', self.cloud.path + "/compute/" + vm.id, auth_data, headers)
 
@@ -995,18 +989,18 @@ class OCCICloudConnector(CloudConnector):
             self.log_warn("No VM ID. Ignoring")
             return True, "No VM ID. Ignoring"
 
+        auth_header = self.get_auth_header(auth_data)
         # First try to get the volumes
-        get_vols_ok, volumes = self.get_attached_volumes(vm, auth_data)
+        get_vols_ok, volumes = self.get_attached_volumes(vm, auth_data, auth_header)
         if not get_vols_ok:
             self.log_error("Error getting attached volumes: %s" % volumes)
         else:
             for volume in volumes:
-                self.detach_volume(volume, auth_data)
+                self.detach_volume(volume, auth_data, auth_header)
 
-        auth = self.get_auth_header(auth_data)
         headers = {'Accept': 'text/plain', 'Connection': 'close'}
-        if auth:
-            headers.update(auth)
+        if auth_header:
+            headers.update(auth_header)
         try:
             resp = self.create_request('DELETE', self.cloud.path + "/compute/" + vm.id, auth_data, headers)
 
@@ -1023,13 +1017,13 @@ class OCCICloudConnector(CloudConnector):
             for _, storage_id, _ in volumes:
                 storage_path = uriparse(storage_id)[2]
                 if storage_path not in vols_not_to_delete:
-                    self.delete_volume(storage_id, auth_data)
+                    self.delete_volume(storage_id, auth_data, auth_header)
 
         # sometime we have created a volume that is not correctly attached to the vm
         # check the RADL of the VM to get them
         radl_volumes = self.get_volume_ids_from_radl(vm.info.systems[0])
         for num_storage in radl_volumes:
-            self.delete_volume(num_storage, auth_data)
+            self.delete_volume(num_storage, auth_data, auth_header)
 
         return (True, vm.id)
 
@@ -1073,7 +1067,7 @@ class OCCICloudConnector(CloudConnector):
             self.log_exception("Error connecting with OCCI server")
             return (False, "Error connecting with OCCI server")
 
-    def add_new_disks(self, vm, radl, auth_data):
+    def add_new_disks(self, vm, radl, auth_data, auth_header):
         """
         Add new disks specified in the radl to the vm
         """
@@ -1096,19 +1090,19 @@ class OCCICloudConnector(CloudConnector):
                     disk_device = "vd" + disk_device[-1]
                     system.setValue("disk." + str(cont) + ".device", disk_device)
                 self.log_info("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
-                success, volume_id = self.create_volume(int(disk_size), "im-disk-%d" % cont, auth_data)
+                success, volume_id = self.create_volume(int(disk_size), "im-disk-%d" % cont, auth_data, auth_header)
 
                 if success:
                     self.log_info("Volume id %s successfuly created." % volume_id)
                     # let's wait the storage to be ready "online"
-                    wait_ok = self.wait_volume_state(volume_id, auth_data)
+                    wait_ok = self.wait_volume_state(volume_id, auth_data, auth_header)
                     if not wait_ok:
                         self.log_info("Error waiting volume %s. Deleting it." % volume_id)
-                        self.delete_volume(volume_id, auth_data)
+                        self.delete_volume(volume_id, auth_data, auth_header)
                         return (False, "Error waiting volume %s. Deleting it." % volume_id)
                     else:
                         self.log_info("Attaching to the instance")
-                        attached = self.attach_volume(vm, volume_id, disk_device, mount_path, auth_data)
+                        attached = self.attach_volume(vm, volume_id, disk_device, mount_path, auth_data, auth_header)
                         if attached:
                             orig_system.setValue("disk." + str(cont) + ".size", disk_size, "G")
                             orig_system.setValue("disk." + str(cont) + ".provider_id", volume_id)
@@ -1119,7 +1113,7 @@ class OCCICloudConnector(CloudConnector):
                         else:
                             self.log_error("Error attaching a %d GB volume for the disk %d."
                                            " Deleting it." % (int(disk_size), cont))
-                            self.delete_volume(volume_id, auth_data)
+                            self.delete_volume(volume_id, auth_data, auth_header)
                             return (False, "Error attaching the new volume")
                 else:
                     self.log_error("Error creating volume: %s" % volume_id)
@@ -1143,16 +1137,15 @@ class OCCICloudConnector(CloudConnector):
                 break
         return link
 
-    def remove_public_ip(self, vm, auth_data):
+    def remove_public_ip(self, vm, auth_data, auth_header):
         """
         Remove/Detach public IP from VM
         """
         self.log_info("Removing Public IP from VM %s" % vm.id)
 
-        auth = self.get_auth_header(auth_data)
         headers = {'Accept': 'text/plain', 'Connection': 'close'}
-        if auth:
-            headers.update(auth)
+        if auth_header:
+            headers.update(auth_header)
 
         try:
             resp = self.create_request('GET', self.cloud.path + "/compute/" + vm.id, auth_data, headers)
@@ -1176,7 +1169,7 @@ class OCCICloudConnector(CloudConnector):
             self.log_exception("Error removing public IP")
             return (False, str(ex))
 
-    def manage_nics(self, vm, radl, auth_data):
+    def manage_nics(self, vm, radl, auth_data, auth_header):
         """
         Add/remove public IP if currently it does not have one and new RADL requests it or vice versa
         """
@@ -1186,7 +1179,7 @@ class OCCICloudConnector(CloudConnector):
             current_has_public_ip = vm.hasPublicIP()
             new_has_public_ip = radl.hasPublicNet(vm.info.systems[0].name)
             if new_has_public_ip and not current_has_public_ip:
-                success, msg = self.add_public_ip(vm, auth_data)
+                success, msg = self.add_public_ip(vm, auth_data, auth_header)
 
                 if success:
                     # Add public net in the Requested RADL
@@ -1196,7 +1189,7 @@ class OCCICloudConnector(CloudConnector):
                 else:
                     return False, msg
             if not new_has_public_ip and current_has_public_ip:
-                success, msg = self.remove_public_ip(vm, auth_data)
+                success, msg = self.remove_public_ip(vm, auth_data, auth_header)
 
                 if success:
                     # Remove all public net connections in the Requested RADL
@@ -1227,27 +1220,28 @@ class OCCICloudConnector(CloudConnector):
         if not radl.systems:
             return (True, "")
 
-        success, msg = self.add_new_disks(vm, radl, auth_data)
+        auth_header = self.get_auth_header(auth_data)
+
+        success, msg = self.add_new_disks(vm, radl, auth_data, auth_header)
         if not success:
             return (success, msg)
 
-        success, msg = self.manage_nics(vm, radl, auth_data)
+        success, msg = self.manage_nics(vm, radl, auth_data, auth_header)
         if not success:
             return (success, msg)
 
         return (True, "")
 
-    def attach_volume(self, vm, volume_id, device, mount_path, auth_data):
+    def attach_volume(self, vm, volume_id, device, mount_path, auth_data, auth_header):
         """
         Attach a volume to a running VM
         """
-        _, occi_info = self.query_occi(auth_data)
+        _, occi_info = self.query_occi(auth_data, auth_header)
         url = self.get_property_from_category(occi_info, "storagelink", "location")
         if not url:
             self.log_error("No location for storagelink category.")
             return (False, "No location for storagelink category.")
 
-        auth_header = self.get_auth_header(auth_data)
         try:
             headers = {'Accept': 'text/plain', 'Connection': 'close', 'Content-Type': 'text/plain,text/occi'}
             if auth_header:
@@ -1323,7 +1317,7 @@ class KeyStoneAuth:
     """
 
     @staticmethod
-    def get_keystone_uri(occi, auth_data):
+    def get_keystone_uri(occi):
         """
         Contact the OCCI server to check if it needs to contact a keystone server.
         It returns the keystone server URI or None.
@@ -1331,7 +1325,12 @@ class KeyStoneAuth:
         try:
             headers = {'Accept': 'text/plain', 'Connection': 'close'}
 
-            resp = occi.create_request('HEAD', occi.cloud.path + "/-/", auth_data, headers)
+            if occi.keystone_token:
+                headers = {'Accept': 'text/plain', 'X-Auth-Token': occi.keystone_token, 'Connection': 'close'}
+
+            resp = occi.create_request('HEAD', occi.cloud.path + "/-/", None, headers)
+            if resp.status_code == 200:
+                return None, occi.keystone_token
 
             www_auth_head = None
             if 'Www-Authenticate' in resp.headers:
@@ -1342,44 +1341,11 @@ class KeyStoneAuth:
                 # remove version in some old OpenStack sites
                 if keystone_uri.endswith("/v2.0"):
                     keystone_uri = keystone_uri[:-5]
-                return keystone_uri
+                return keystone_uri, None
             else:
-                return None
-        except SSLError as ex:
-            occi.log_exception(
-                "Error with the credentials when contacting with the OCCI server.")
-            raise Exception(
-                "Error with the credentials when contacting with the OCCI server: %s. Check your proxy file." % str(ex))
+                return None, None
         except:
-            occi.log_exception("Error contacting with the OCCI server.")
-            return None
-
-    @staticmethod
-    def check_keystone_token(occi, keystone_uri, version, auth):
-        """
-        Check if old keystone token is stil valid
-        """
-        if occi.keystone_token:
-            try:
-                headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
-                           'X-Auth-Token': occi.keystone_token, 'Connection': 'close'}
-                if version == 2:
-                    url = "%s/v2.0/tenants" % keystone_uri
-                elif version == 3:
-                    url = "%s/v3/auth/tokens" % keystone_uri
-                else:
-                    return None
-                resp = occi.create_request_static('GET', url, auth, headers, occi.verify_ssl)
-                if resp.status_code == 200:
-                    return occi.keystone_token
-                else:
-                    occi.log_warn("Keystone token invalid.")
-                    return None
-            except Exception:
-                occi.log_exception("Error checking Keystone token")
-                return None
-        else:
-            return None
+            return None, None
 
     @staticmethod
     def get_keystone_token(occi, keystone_uri, auth):
@@ -1387,10 +1353,6 @@ class KeyStoneAuth:
         Contact the specified keystone server to return the token
         """
         version = KeyStoneAuth.get_keystone_version(occi, keystone_uri, auth)
-
-        token = KeyStoneAuth.check_keystone_token(occi, keystone_uri, version, auth)
-        if token:
-            return token
 
         if version == 2:
             occi.log_info("Getting Keystone v2 token")
@@ -1471,20 +1433,17 @@ class KeyStoneAuth:
                 occi.log_exception("Error obtaining Keystone Token.")
                 raise Exception("Error obtaining Keystone Token: %s" % str(output))
 
-            if occi.keystone_tenant is None:
-                headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
-                           'X-Auth-Token': token_id, 'Connection': 'close'}
-                url = "%s/v2.0/tenants" % keystone_uri
-                resp = occi.create_request_static('GET', url, auth, headers, occi.verify_ssl)
-                resp.raise_for_status()
+            headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
+                       'X-Auth-Token': token_id, 'Connection': 'close'}
+            url = "%s/v2.0/tenants" % keystone_uri
+            resp = occi.create_request_static('GET', url, auth, headers, occi.verify_ssl)
+            resp.raise_for_status()
 
-                # format: -> "{\"tenants_links\": [], \"tenants\":
-                # [{\"description\": \"egi fedcloud\", \"enabled\": true, \"id\":
-                # \"fffd98393bae4bf0acf66237c8f292ad\", \"name\": \"egi\"}]}"
-                output = resp.json()
-                tenants = output['tenants']
-            else:
-                tenants = [occi.keystone_tenant]
+            # format: -> "{\"tenants_links\": [], \"tenants\":
+            # [{\"description\": \"egi fedcloud\", \"enabled\": true, \"id\":
+            # \"fffd98393bae4bf0acf66237c8f292ad\", \"name\": \"egi\"}]}"
+            output = resp.json()
+            tenants = output['tenants']
 
             tenant_token_id = None
 
@@ -1509,7 +1468,6 @@ class KeyStoneAuth:
                     output = resp.json()
                     if 'access' in output:
                         occi.log_info("Using tenant: %s" % tenant["name"])
-                        occi.keystone_tenant = tenant
                         tenant_token_id = str(output['access']['token']['id'])
                         break
 
@@ -1540,32 +1498,29 @@ class KeyStoneAuth:
 
             token = resp.headers['X-Subject-Token']
 
-            if occi.keystone_project is None:
-                headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
-                           'X-Auth-Token': token, 'Connection': 'close'}
-                url = "%s/v3/auth/projects" % keystone_uri
-                resp = occi.create_request_static('GET', url, auth, headers, occi.verify_ssl)
-                resp.raise_for_status()
+            headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
+                       'X-Auth-Token': token, 'Connection': 'close'}
+            url = "%s/v3/auth/projects" % keystone_uri
+            resp = occi.create_request_static('GET', url, auth, headers, occi.verify_ssl)
+            resp.raise_for_status()
 
-                output = resp.json()
+            output = resp.json()
 
-                if len(output['projects']) == 1:
-                    # If there are only one get the first project
-                    projects = output['projects']
-                elif len(output['projects']) > 1:
-                    # If there are more than one
-                    if auth and "project" in auth:
-                        project_found = None
-                        for elem in output['projects']:
-                            if elem['id'] == auth["project"] or elem['name'] == auth["project"]:
-                                project_found = elem
-                        if project_found:
-                            projects = [project_found]
-                        else:
-                            projects = output['projects']
-                            occi.log_warn("Keystone 3 project %s not found." % auth["project"])
-            else:
-                projects = [occi.keystone_project]
+            if len(output['projects']) == 1:
+                # If there are only one get the first project
+                projects = output['projects']
+            elif len(output['projects']) > 1:
+                # If there are more than one
+                if auth and "project" in auth:
+                    project_found = None
+                    for elem in output['projects']:
+                        if elem['id'] == auth["project"] or elem['name'] == auth["project"]:
+                            project_found = elem
+                    if project_found:
+                        projects = [project_found]
+                    else:
+                        projects = output['projects']
+                        occi.log_warn("Keystone 3 project %s not found." % auth["project"])
 
             scoped_token = None
             for project in projects:
@@ -1578,7 +1533,6 @@ class KeyStoneAuth:
                 resp = occi.create_request_static('POST', url, auth, headers, occi.verify_ssl, json.dumps(body))
                 if resp.status_code in [200, 201, 202]:
                     occi.log_info("Using project: %s" % project["name"])
-                    occi.keystone_project = project
                     scoped_token = resp.headers['X-Subject-Token']
                     break
 
