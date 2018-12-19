@@ -48,9 +48,6 @@ topology_template:
                 protocol: tcp
                 source: 80
       capabilities:
-        scalable:
-          properties:
-           count: 2
         # Host container properties
         host:
          properties:
@@ -98,6 +95,9 @@ topology_template:
     db_server:
       type: tosca.nodes.Compute
       capabilities:
+        scalable:
+          properties:
+           count: 2
         # Host container properties
         host:
          properties:

@@ -31,8 +31,8 @@ from IM.uriparse import uriparse
 from radl.radl_json import parse_radl as parse_radl_json
 
 PID = None
-RADL_ADD = """[{"class":"network","reference":true,"id":"publica"},
-{"class":"system","reference":true,"id":"front"},{"vm_number":1,"class":"deploy","system":"front"}]"""
+RADL_ADD = """[{"class":"network","reference":true,"id":"privada"},
+{"class":"system","reference":true,"id":"wn"},{"vm_number":1,"class":"deploy","system":"wn"}]"""
 HOSTNAME = "localhost"
 TEST_PORT = 8800
 
@@ -164,7 +164,7 @@ class TestIM(unittest.TestCase):
         self.assertEqual(resp.status_code, 200,
                          msg="ERROR getting the infrastructure info:" + resp.text)
         vm_ids = resp.text.split("\n")
-        self.assertEqual(len(vm_ids), 2, msg=("ERROR getting infrastructure info: Incorrect number of VMs(" +
+        self.assertEqual(len(vm_ids), 3, msg=("ERROR getting infrastructure info: Incorrect number of VMs(" +
                                               str(len(vm_ids)) + "). It must be 2"))
         all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 600)
         self.assertTrue(
