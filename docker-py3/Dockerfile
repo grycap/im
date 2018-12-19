@@ -1,7 +1,7 @@
 # Dockerfile to create a container with the IM service
 FROM ubuntu:16.04
 LABEL maintainer="Miguel Caballer <micafer1@upv.es>"
-LABEL version="1.7.6"
+LABEL version="1.7.7"
 LABEL description="Container image to run the IM service. (http://www.grycap.upv.es/im)"
 EXPOSE 8899 8800
 
@@ -18,7 +18,7 @@ RUN pip3 install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-c
 RUN apt-get update && apt-get install --no-install-recommends -y gcc libssl-dev libffi-dev libsqlite3-dev && \
      pip install pycrypto && \
      cd /tmp && git clone https://github.com/indigo-dc/tosca-parser && pip install /tmp/tosca-parser && \
-     pip3 install IM==1.7.6 && \
+     pip3 install IM==1.7.7 && \
      apt-get remove -y gcc libssl-dev libffi-dev libsqlite3-dev python-dev python-pip && \
      apt-get autoremove -y && \
      rm -rf /var/lib/apt/lists/*
