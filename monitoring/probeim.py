@@ -8,13 +8,6 @@ import requests
 import logging
 from logging.handlers import RotatingFileHandler
 
-try:
-    # To avoid annoying InsecureRequestWarning messages in some Connectors
-    from requests.packages.urllib3.exceptions import InsecureRequestWarning
-    requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
-except:
-    pass
-
 
 def read_file_as_string(file_name):
     tests_path = os.path.dirname(os.path.abspath(__file__))
