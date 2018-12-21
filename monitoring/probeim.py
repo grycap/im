@@ -10,7 +10,6 @@ from logging.handlers import RotatingFileHandler
 
 try:
     # To avoid annoying InsecureRequestWarning messages in some Connectors
-    import requests.packages
     from requests.packages.urllib3.exceptions import InsecureRequestWarning
     requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 except:
