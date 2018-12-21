@@ -41,16 +41,15 @@ class IM:
 
         for line in vlines.split("\n"):
             i += 1
-            line = line.rstrip()
-            if tokenstring:
-                authoriz += line + " token = " + tokenstring
-            else:
-                authoriz += line + " username = mon_user; password = mon_test_1X"
+            line = line.strip()
+            if line:
+                if tokenstring:
+                    authoriz += line + " token = " + tokenstring + ";"
+                else:
+                    authoriz += line + " username = mon_user; password = mon_test_1X;"
 
-            if len(vlines) > i:
-                authoriz += "\\n  "
-
-        authoriz += " ;"
+                if len(vlines) > i:
+                    authoriz += "\\n"
 
         UPD_HEADERS = {
             "Content-Type": "text/plain",
