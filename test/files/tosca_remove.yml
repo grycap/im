@@ -49,10 +49,6 @@ topology_template:
                 protocol: tcp
                 source: 80
       capabilities:
-        scalable:
-          properties:
-           count: 1
-           removal_list: ['2']
         # Host container properties
         host:
          properties:
@@ -98,8 +94,12 @@ topology_template:
             node: db_server
 
     db_server:
-      type: tosca.nodes.Compute
+      type: tosca.nodes.indigo.Compute
       capabilities:
+        scalable:
+          properties:
+           count: 1
+           removal_list: ['2']
         # Host container properties
         host:
          properties:
