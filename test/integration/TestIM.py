@@ -436,7 +436,40 @@ class TestIM(unittest.TestCase):
         self.assertTrue(
             all_configured, msg="ERROR waiting the infrastructure to be started (timeout).")
 
-    def test_32_stop_vm(self):
+    def test_32_stop(self):
+        """
+        Test StopInfrastructure function with suspend = False
+        """
+        time.sleep(30)
+        (success, res) = self.server.StopInfrastructure(
+            self.inf_id, self.auth_data, False)
+        self.assertTrue(
+            success, msg="ERROR calling StopInfrastructure: " + str(res))
+        time.sleep(30)
+
+        all_stopped = self.wait_inf_state(
+            self.inf_id, VirtualMachine.OFF, 120, [VirtualMachine.RUNNING])
+        self.assertTrue(
+            all_stopped, msg="ERROR waiting the infrastructure to be stopped (timeout).")
+
+    def test_33_start(self):
+        """
+        Test StartInfrastructure function
+        """
+        # Assure the VM to be stopped
+        time.sleep(30)
+        (success, res) = self.server.StartInfrastructure(
+            self.inf_id, self.auth_data)
+        self.assertTrue(
+            success, msg="ERROR calling StartInfrastructure: " + str(res))
+        time.sleep(30)
+
+        all_configured = self.wait_inf_state(
+            self.inf_id, VirtualMachine.CONFIGURED, 150, [VirtualMachine.RUNNING])
+        self.assertTrue(
+            all_configured, msg="ERROR waiting the infrastructure to be started (timeout).")
+
+    def test_34_stop_vm(self):
         """
         Test StopVM function
         """
@@ -452,7 +485,7 @@ class TestIM(unittest.TestCase):
         self.assertTrue(
             all_stopped, msg="ERROR waiting the vm to be stopped (timeout).")
 
-    def test_33_start_vm(self):
+    def test_35_start_vm(self):
         """
         Test StartVM function
         """
@@ -469,9 +502,9 @@ class TestIM(unittest.TestCase):
         self.assertTrue(
             all_configured, msg="ERROR waiting the vm to be started (timeout).")
 
-    def test_34_stop_vm(self):
+    def test_36_stop_vm(self):
         """
-        Test StopVM function
+        Test StopVM function with suspend = False
         """
         (success, vm_ids) = self.server.GetInfrastructureInfo(
             self.inf_id, self.auth_data)
@@ -480,12 +513,12 @@ class TestIM(unittest.TestCase):
         self.assertTrue(success, msg="ERROR calling StopVM: " + str(res))
         time.sleep(30)
 
-        all_stopped = self.wait_inf_state(self.inf_id, VirtualMachine.STOPPED, 120,
+        all_stopped = self.wait_inf_state(self.inf_id, VirtualMachine.OFF, 120,
                                           [VirtualMachine.RUNNING], [vm_ids[0]])
         self.assertTrue(
             all_stopped, msg="ERROR waiting the vm to be stopped (timeout).")
 
-    def test_35_start_vm(self):
+    def test_37_start_vm(self):
         """
         Test StartVM function
         """
