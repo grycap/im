@@ -311,6 +311,9 @@ class TestOCCIConnector(TestCloudConnectorBase):
         self.assertTrue(success, msg="ERROR: updating VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
+        memory = vm.info.systems[0].getValue("memory.size")
+        self.assertEqual(memory, 1824522240)
+
     @patch('requests.request')
     @patch('IM.connectors.OCCI.KeyStoneAuth.get_keystone_uri')
     def test_40_stop(self, get_keystone_uri, requests):
