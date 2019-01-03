@@ -149,7 +149,7 @@ class TestServiceRequests(unittest.TestCase):
     def test_stop(self, inflist):
         import IM.ServiceRequests
         req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.STOP_INFRASTRUCTURE,
-                                                              ("", ""))
+                                                              ("", "", True))
         req._call_function()
 
     @patch('IM.InfrastructureManager.InfrastructureManager')
@@ -163,7 +163,7 @@ class TestServiceRequests(unittest.TestCase):
     def test_vm_stop(self, inflist):
         import IM.ServiceRequests
         req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.STOP_VM,
-                                                              ("", "", ""))
+                                                              ("", "", "", True))
         req._call_function()
 
     @patch('IM.InfrastructureManager.InfrastructureManager')
