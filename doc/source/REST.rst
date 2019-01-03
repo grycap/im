@@ -5,6 +5,9 @@ Optionally, IM Service can be accessed through a REST(ful) API. The port number
 and the security settings are controlled by the options listed in
 :ref:`options-rest`.
 
+In the following link you can follow the IM REST API in Swaggerhub: 
+`Swagger API <https://app.swaggerhub.com/apis-docs/grycap/InfrastructureManager/>`_.
+
 Every HTTP request must be companied by the header ``AUTHORIZATION`` with
 the content of the :ref:`auth-file`, but putting all the elements in one line
 using "\\n" as separator. If the content cannot be parsed successfully, or the user and
