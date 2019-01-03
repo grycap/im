@@ -85,46 +85,25 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
                 self.log_error("Incorrect auth data")
                 return None
 
-    def concreteSystem(self, radl_system, auth_data):
-        image_urls = radl_system.getValue("disk.0.image.url")
-        if not image_urls:
-            return [radl_system.clone()]
+    def concrete_system(self, radl_system, str_url, auth_data):
+        url = uriparse(str_url)
+        protocol = url[0]
+        src_host = url[1].split(':')[0]
+
+        if protocol == "cst" and self.cloud.server == src_host:
+            driver = self.get_driver(auth_data)
+
+            res_system = radl_system.clone()
+            instance_type = self.get_instance_type(driver.list_sizes(), res_system)
+            self.update_system_info_from_instance(res_system, instance_type)
+
+            username = res_system.getValue('disk.0.os.credentials.username')
+            if not username:
+                res_system.setValue('disk.0.os.credentials.username', self.DEFAULT_USER)
+
+            return res_system
         else:
-            if not isinstance(image_urls, list):
-                image_urls = [image_urls]
-
-            res = []
-            for str_url in image_urls:
-                url = uriparse(str_url)
-                protocol = url[0]
-
-                src_host = url[1].split(':')[0]
-                # TODO: check the port
-                if protocol == "cst" and self.cloud.server == src_host:
-                    driver = self.get_driver(auth_data)
-
-                    res_system = radl_system.clone()
-                    instance_type = self.get_instance_type(driver.list_sizes(), res_system)
-                    self.update_system_info_from_instance(res_system, instance_type)
-
-                    res_system.addFeature(
-                        Feature("disk.0.image.url", "=", str_url), conflict="other", missing="other")
-
-                    res_system.addFeature(
-                        Feature("provider.type", "=", self.type), conflict="other", missing="other")
-                    res_system.addFeature(Feature(
-                        "provider.host", "=", self.cloud.server), conflict="other", missing="other")
-                    if self.cloud.port != -1:
-                        res_system.addFeature(Feature(
-                            "provider.port", "=", self.cloud.port), conflict="other", missing="other")
-
-                    username = res_system.getValue('disk.0.os.credentials.username')
-                    if not username:
-                        res_system.setValue('disk.0.os.credentials.username', self.DEFAULT_USER)
-
-                    res.append(res_system)
-
-            return res
+            return None
 
     def update_system_info_from_instance(self, system, instance_type):
         """
@@ -176,10 +155,10 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
 
             try:
                 # open always SSH port
-                success = driver.ex_authorize_security_group_ingress(securitygroupname=sg_name,
-                                                                     protocol='tcp',
-                                                                     startport=22,
-                                                                     cidrlist='0.0.0.0/0')
+                driver.ex_authorize_security_group_ingress(securitygroupname=sg_name,
+                                                           protocol='tcp',
+                                                           startport=22,
+                                                           cidrlist='0.0.0.0/0')
 
                 # open all the ports for the VMs in the security group
 #                 usersecuritygrouplist = [{'group': sg['name'], 'account': sg['account'],}]

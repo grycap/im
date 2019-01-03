@@ -21,8 +21,7 @@ def uriparse(url, scheme='', allow_fragments=1):
     Return a 6-tuple: (scheme, netloc, path, params, query, fragment).
     Note that we don't break the components up in smaller bits
     (e.g. netloc is a single string) and we don't expand % escapes."""
-    tuple = urisplit(url, scheme, allow_fragments)
-    scheme, netloc, url, query, fragment = tuple
+    scheme, netloc, url, query, fragment = urisplit(url, scheme, allow_fragments)
     if ';' in url:
         url, params = _splitparams(url)
     else:
@@ -57,8 +56,7 @@ def urisplit(url, scheme='', allow_fragments=1):
             url, fragment = url.split('#', 1)
         if '?' in url:
             url, query = url.split('?', 1)
-        tuple = scheme, netloc, url, query, fragment
-        return tuple
+        return scheme, netloc, url, query, fragment
 
     if url[:2] == '//':
         netloc, url = _splitnetloc(url, 2)
@@ -66,9 +64,8 @@ def urisplit(url, scheme='', allow_fragments=1):
         url, fragment = url.split('#', 1)
     if '?' in url:
         url, query = url.split('?', 1)
-    tuple = scheme, netloc, url, query, fragment
 
-    return tuple
+    return scheme, netloc, url, query, fragment
 
 
 def _splitnetloc(url, start=0):

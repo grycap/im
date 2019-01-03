@@ -5,6 +5,9 @@ Optionally, IM Service can be accessed through a REST(ful) API. The port number
 and the security settings are controlled by the options listed in
 :ref:`options-rest`.
 
+In the following link you can follow the IM REST API in Swaggerhub: 
+`Swagger API <https://app.swaggerhub.com/apis-docs/grycap/InfrastructureManager/>`_.
+
 Every HTTP request must be companied by the header ``AUTHORIZATION`` with
 the content of the :ref:`auth-file`, but putting all the elements in one line
 using "\\n" as separator. If the content cannot be parsed successfully, or the user and
@@ -39,7 +42,7 @@ Next tables summaries the resources and the HTTP methods available.
 +=============+=====================================================+====================================================+
 | **GET**     | | **Get** the specified property ``property_name``  | | **Get** the specified property ``property_name`` |
 |             | | associated to the machine ``vmId`` in ``infId``.  | | associated to the infrastructure ``infId``.      |
-|             | | It has one special property: ``contmsg``.         | | It has five properties: ``contmsg``, ``radl``,   |
+|             | | It has one special property: ``contmsg``.         | | It has six properties: ``contmsg``, ``radl``,   |
 |             |                                                     | | ``state``, ``outputs``, ``tosca`` and ``data``. |
 +-------------+-----------------------------------------------------+----------------------------------------------------+
 
@@ -139,10 +142,10 @@ GET ``http://imserver.com/infrastructures/<infId>``
 GET ``http://imserver.com/infrastructures/<infId>/<property_name>``
    :Response Content-type: text/plain or application/json
    :ok response: 200 OK
-   :input fields: ``headeronly`` (optional), ``delete`` (optional)
+   :input fields: ``headeronly`` (optional)
    :fail response: 401, 404, 400, 403
 
-   Return property ``property_name`` associated to the infrastructure with ID ``infId``. It has three properties:
+   Return property ``property_name`` associated to the infrastructure with ID ``infId``. It has the following properties::
       :``outputs``: in case of TOSCA documents it will return a JSON object with the outputs of the TOSCA document. 
       :``contmsg``: a string with the contextualization message. In case of ``headeronly`` flag is set to 'yes',
                     'true' or '1' only the initial part of the infrastructure contextualization log will be
@@ -257,7 +260,7 @@ GET ``http://imserver.com/infrastructures/<infId>/vms/<vmId>``
       "radl": "<radl_in_json>"
     }
 
-POST ``http://imserver.com/infrastructures/<infId>/vms/<vmId>``
+PUT ``http://imserver.com/infrastructures/<infId>/vms/<vmId>``
    :body: ``RADL document``
    :body Content-type: text/plain or application/json
    :Response Content-type: text/plain or application/json
@@ -287,24 +290,6 @@ GET ``http://imserver.com/infrastructures/<infId>/vms/<vmId>/<property_name>``
 
     {
       "<property_name>": "<property_value>"
-    }
-
-PUT ``http://imserver.com/infrastructures/<infId>/vms/<vmId>``
-   :body: ``RADL document``
-   :body Content-type: text/plain or application/json
-   :Response Content-type: text/plain or application/json
-   :ok response: 200 OK
-   :fail response: 401, 403, 404, 400, 415
-
-   Change the features of the virtual machine with ID ``vmId`` in the
-   infrastructure with with ID ``infId``, specified by the RADL document specified
-   in the body contents (in plain RADL or in JSON formats). If the operation has 
-   been performed successfully the return value the return value is an RADL document 
-   with the VM properties modified (also in plain RADL or in JSON formats).
-   The result is JSON format has the following format::
-   
-    {
-      "radl": <RADL_JSON_DATA>
     }
 
 DELETE ``http://imserver.com/infrastructures/<infId>/vms/<vmId>``
@@ -356,7 +341,7 @@ PUT ``http://imserver.com/infrastructures/<infId>/vms/<vmId>/disks/<diskNum>/sna
    :fail response: 401, 403, 404, 400
 
    Create a snapshot of the specified ``diskNum`` in the VM ``vmId``
-   of the infrastructure with ID ``infId`. 
+   of the infrastructure with ID ``infId``. 
    
    The ``autoDelete`` flag
    specifies that the snapshot will be deleted when the infrastructure is

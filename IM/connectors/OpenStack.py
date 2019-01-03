@@ -16,7 +16,6 @@
 
 import time
 import uuid
-import yaml
 from netaddr import IPNetwork, IPAddress
 import os.path
 import tempfile
@@ -210,45 +209,25 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         self.log_error("No compatible size found")
         return None
 
-    def concreteSystem(self, radl_system, auth_data):
-        image_urls = radl_system.getValue("disk.0.image.url")
-        if not image_urls:
-            return [radl_system.clone()]
+    def concrete_system(self, radl_system, str_url, auth_data):
+        url = uriparse(str_url)
+        protocol = url[0]
+        src_host = url[1].split(':')[0]
+
+        if protocol == "ost" and self.cloud.server == src_host:
+            driver = self.get_driver(auth_data)
+
+            res_system = radl_system.clone()
+            instance_type = self.get_instance_type(driver.list_sizes(), res_system)
+            self.update_system_info_from_instance(res_system, instance_type)
+
+            username = res_system.getValue('disk.0.os.credentials.username')
+            if not username:
+                res_system.setValue('disk.0.os.credentials.username', self.DEFAULT_USER)
+
+            return res_system
         else:
-            if not isinstance(image_urls, list):
-                image_urls = [image_urls]
-
-            res = []
-            for str_url in image_urls:
-                url = uriparse(str_url)
-                protocol = url[0]
-
-                src_host = url[1].split(':')[0]
-                # TODO: check the port
-                if protocol == "ost" and self.cloud.server == src_host:
-                    driver = self.get_driver(auth_data)
-
-                    res_system = radl_system.clone()
-                    instance_type = self.get_instance_type(driver.list_sizes(), res_system)
-                    self.update_system_info_from_instance(res_system, instance_type)
-
-                    res_system.addFeature(
-                        Feature("disk.0.image.url", "=", str_url), conflict="other", missing="other")
-
-                    res_system.addFeature(
-                        Feature("provider.type", "=", self.type), conflict="other", missing="other")
-                    res_system.addFeature(Feature(
-                        "provider.host", "=", self.cloud.server), conflict="other", missing="other")
-                    res_system.addFeature(Feature(
-                        "provider.port", "=", self.cloud.port), conflict="other", missing="other")
-
-                    username = res_system.getValue('disk.0.os.credentials.username')
-                    if not username:
-                        res_system.setValue('disk.0.os.credentials.username', self.DEFAULT_USER)
-
-                    res.append(res_system)
-
-            return res
+            return None
 
     def updateVMInfo(self, vm, auth_data):
         node = self.get_node_with_id(vm.id, auth_data)
@@ -281,7 +260,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         return (True, vm)
 
-    def map_radl_ost_networks(self, radl_nets, ost_nets):
+    @staticmethod
+    def map_radl_ost_networks(radl_nets, ost_nets):
         """
         Generate a mapping between the RADL networks and the OST networks
 
@@ -445,7 +425,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 system.addFeature(
                     Feature("cpu.count", "=", instance_type.vcpus), conflict="me", missing="other")
 
-    def get_ost_network_info(self, driver, pool_names):
+    @staticmethod
+    def get_ost_network_info(driver, pool_names):
         ost_nets = driver.ex_list_networks()
         get_subnets = False
         if "ex_list_subnets" in dir(driver):
@@ -471,12 +452,10 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                         # in the pool it should be a public net
                         ost_net.extra['is_public'] = True
 
-                    # otherwise a private one
-                    os_net_is_public = False
-
         return get_subnets, ost_nets
 
-    def map_networks(self, radl, ost_nets):
+    @staticmethod
+    def map_networks(radl, ost_nets):
         i = 0
         net_map = {}
         used_nets = []
@@ -696,7 +675,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         return res
 
-    def get_ip_pool(self, driver, pool_name=None):
+    @staticmethod
+    def get_ip_pool(driver, pool_name=None):
         """
         Return the most suitable IP pool
         """
@@ -721,6 +701,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         Arguments:
            - vm(:py:class:`IM.VirtualMachine`): VM information.
            - node(:py:class:`libcloud.compute.base.Node`): node object.
+           - public_ips(list of str): list of Public IPs of the node
         """
         n = 0
         requested_ips = []
@@ -741,11 +722,11 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 if ip not in public_ips:
                     # It has not been created yet, do it
                     self.log_info("Asking for a fixed ip: %s." % ip)
-                    success, msg = self.add_elastic_ip(vm, node, ip, pool_name)
+                    success, msg = self.add_elastic_ip_from_pool(vm, node, ip, pool_name)
             else:
                 if num >= len(public_ips):
                     self.log_info("Asking for public IP %d and there are %d" % (num + 1, len(public_ips)))
-                    success, msg = self.add_elastic_ip(vm, node, None, pool_name)
+                    success, msg = self.add_elastic_ip_from_pool(vm, node, None, pool_name)
 
             if not success:
                 self.add_public_ip_count += 1
@@ -770,7 +751,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         return False, "No Float IP free found."
 
-    def add_elastic_ip(self, vm, node, fixed_ip=None, pool_name=None):
+    def add_elastic_ip_from_pool(self, vm, node, fixed_ip=None, pool_name=None):
         """
         Add an elastic IP to an instance
 
@@ -778,6 +759,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
            - vm(:py:class:`IM.VirtualMachine`): VM information.
            - node(:py:class:`libcloud.compute.base.Node`): node object to attach the volumes.
            - fixed_ip(str, optional): specifies a fixed IP to add to the instance.
+           - pool_name(str, optional): specifies a pool to get the elastic IP
         Returns: a :py:class:`OpenStack_1_1_FloatingIpAddress` added or None if some problem occur.
         """
         try:

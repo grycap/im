@@ -35,8 +35,6 @@ from radl import radl_parse
 from radl.radl import Feature, RADL
 from radl.radl_json import dump_radl as dump_radl_json
 
-from IM.config import Config
-from IM.VirtualMachine import VirtualMachine
 from IM.openid.JWT import JWT
 from IM.openid.OpenIDClient import OpenIDClient
 
@@ -224,6 +222,9 @@ class InfrastructureManager:
             InfrastructureManager.logger.error("Error, incorrect Inf ID: %s" % inf_id)
             raise IncorrectInfrastructureException()
         sel_inf = IM.InfrastructureList.InfrastructureList.get_infrastructure(inf_id)
+        if not sel_inf:
+            InfrastructureManager.logger.error("Error loading Inf ID: %s" % inf_id)
+            raise IncorrectInfrastructureException("Error loading Inf ID data.")
         if not sel_inf.is_authorized(auth):
             InfrastructureManager.logger.error("Access Error to Inf ID: %s" % inf_id)
             raise UnauthorizedUserException()
@@ -764,14 +765,8 @@ class InfrastructureManager:
         else:
             radl = radl_parse.parse_radl(radl_data)
 
-        exception = None
-        try:
-            (success, alter_res) = vm.alter(radl, auth)
-        except Exception as e:
-            exception = e
+        (success, alter_res) = vm.alter(radl, auth)
 
-        if exception:
-            raise exception
         if not success:
             InfrastructureManager.logger.warn(
                 "Inf ID: " + str(inf_id) + ": " +

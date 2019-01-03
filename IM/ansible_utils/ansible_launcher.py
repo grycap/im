@@ -181,7 +181,8 @@ class AnsibleThread(Process):
 
         return loader, inventory, variable_manager
 
-    def version_info(self, ansible_version_string):
+    @staticmethod
+    def version_info(ansible_version_string):
         ''' return full ansible version info '''
         ansible_ver = ansible_version_string.split()[0]
         ansible_versions = ansible_ver.split('.')

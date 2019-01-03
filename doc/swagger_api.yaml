@@ -1,0 +1,857 @@
+swagger: '2.0'
+
+info:
+  description: Infrastructure Manager (IM) REST API.
+  version: 1.7.6
+  title: Infrastructure Manager (IM) REST API
+  contact:
+    email: products@grycap.upv.es
+  license:
+    name: GPL 3.0
+    url: https://www.gnu.org/licenses/gpl-3.0.en.html
+
+tags:
+  - name: infrastructures
+    description: Manages Virtual Infrastructures.
+  - name: version
+    description: Get IM server version.
+
+paths:
+ /version:
+    get:
+      tags:
+        - version
+      summary: Get IM server version.
+      description: Get IM server version.
+      operationId: GetVersion
+      produces:
+      - text/plain
+      responses:
+        200:
+          description: successful operation
+          schema:
+            type: string
+            example: 1.7.6
+        400:
+          description: Invalid status value
+
+ /infrastructures:
+    get:
+      tags:
+        - infrastructures
+      summary: List user infrastructures.
+      description: Return a list of URIs referencing the infrastructures associated to the IM user.
+      operationId: GetInfrastructures
+      produces:
+      - text/uri-list
+      - application/json
+      parameters:
+        - name: Authorization
+          in: header
+          description: |-
+            The Authentication header must provide the content of the [Authorization File](https://imdocs.readthedocs.io/en/latest/client.html#auth-file), but putting all the elements in one line using “\n” as separator.
+          required: true
+          type: string
+      responses:
+        200:
+          description: successful operation
+          examples:
+            text/uri-list: |
+              http://server.com:8800/infrastructures/inf_id1
+              http://server.com:8800/infrastructures/inf_id2
+            application/json: |
+              {
+                "uri-list": [
+                  {"uri": "http://server.com:8800/infrastructures/inf_id1"},
+                  {"uri": "http://server.com:8800/infrastructures/inf_id2"}
+                ]
+              }
+        400:
+          description: Invalid status value
+        401:
+          description: Unauthorized
+    post:
+      tags:
+        - infrastructures
+      summary: Creates an infrastructures.
+      description: Create and configure an infrastructure with the requirements specified in RADL or TOSCA document.
+      operationId: CreateInfrastructure
+      consumes:
+      - text/plain
+      - application/json
+      - text/yaml
+      produces:
+      - text/uri-list
+      - application/json
+      parameters:
+        - name: Authorization
+          in: header
+          description: |-
+            The Authentication header must provide the content of the [Authorization File](https://imdocs.readthedocs.io/en/latest/client.html#auth-file), but putting all the elements in one line using “\n” as separator.
+          required: true
+          type: string
+        - name: body
+          in: body
+          description: RADL (in plain RADL or in JSON formats) or TOSCA document (YAML).
+          required: true
+          schema:
+            type: string
+            example: |
+                network net (outbound = 'yes')
+                system node (
+                   cpu.count >= 2 and
+                   memory.size >= 2G and
+                   net_interface.0.connection = 'net' and
+                   disk.0.image.url = 'one://someserver.com/123'
+                )
+                deploy node 1
+      responses:
+        200:
+          description: successful operation
+          examples:
+            text/uri-list: http://server.com:8800/infrastructures/inf_id1
+            application/json: |
+                  {
+                    "uri": "http://server.com:8800/infrastructures/inf_id1"
+                  }
+        400:
+          description: Invalid status value
+        401:
+          description: Unauthorized
+    put:
+      tags:
+        - infrastructures
+      summary: Import an infrastructure.
+      description: Take control of the infrastructure serialized in in the body and return the ID associated in the server. (See GET /infrastructures/{infId}/data).
+      operationId: Importfrastructure
+      consumes:
+      - application/json
+      produces:
+      - text/uri-list
+      parameters:
+        - name: Authorization
+          in: header
+          description: |-
+            The Authentication header must provide the content of the [Authorization File](https://imdocs.readthedocs.io/en/latest/client.html#auth-file), but putting all the elements in one line using “\n” as separator.
+          required: true
+          type: string
+        - name: body
+          in: body
+          description: JSON data of the infrastructure obtained with GET /infrastructures/{infId}/data.
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: successful operation
+          examples:
+            text/uri-list: http://server.com:8800/infrastructures/inf_id1
+            application/json: |
+                  {
+                    "uri": "http://server.com:8800/infrastructures/inf_id1"
+                  }
+        400:
+          description: Invalid status value
+        401:
+          description: Unauthorized
+        415:
+          description: Unsupported Media type
+
+ /infrastructures/{InfId}:
+    get:
+      tags:
+        - infrastructures
+      summary: List of VMs in a infrastructure.
+      description: Return a list of URIs referencing the virtual machines associated to the infrastructure with ID InfId
+      operationId: GetVMList
+      produces:
+      - text/uri-list
+      - application/json
+      parameters:
+        - name: Authorization
+          in: header
+          description: |-
+            The Authentication header must provide the content of the [Authorization File](https://imdocs.readthedocs.io/en/latest/client.html#auth-file), but putting all the elements in one line using “\n” as separator.
+          required: true
+          type: string
+        - name: InfId
+          in: path
+          description: The ID of the specific infrastructure.
+          required: true
+          type: string
+      responses:
+        200:
+          description: successful operation
+          examples:
+            text/uri-list: |
+              http://server.com:8800/infrastructures/inf_id/vms/0
+              http://server.com:8800/infrastructures/inf_id/vms/1
+            application/json: |
+              {
+                "uri-list": [
+                  {"uri": "http://server.com:8800/infrastructures/inf_id/vms/0"},
+                  {"uri": "http://server.com:8800/infrastructures/inf_id/vms/1"}
+                ]
+              }
+        400:
+          description: Invalid status value
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden
+        404:
+          description: Not Found
+    post:
+      tags:
+        - infrastructures
+      summary: Add resources to an infrastructures.
+      description: |
+          Add the resources specified in the body contents (in TOSCA, RADL plain or in JSON formats) to the infrastructure with ID infId.
+          In case of using RADL as input the deploy instructions in the radl must refer to systems already defined. If all the systems defined in radl are new, they will be added. Otherwise the new systems defined will be ignored. All the systems specified in the deploy must be specified in the radl. If they has been already defined only a reference is needed. This is a simple example to deploy one new VM from an alreay defined system:
+          Using TOSCA as input this method can be used to add or remove resources depending on the number of resources specified in the new TOSCA document sent. If new nodes are added in the body compared with the last TOSCA sent to the IM, these new nodes will be added. For example an infrastructure has been created with this TOSCA document: [tosca_create.yml](https://github.com/grycap/im/blob/master/test/files/tosca_create.yml) it launches one DB server and one Web server. If this TOSCA document is sent as body of this POST function: [tosca_add.yml](https://github.com/grycap/im/blob/master/test/files/tosca_add.yml), a new web server will be added as the number of web servers has been increased to two (count parameter of scalable capability). However if this document is sent after the node addition (the number of web servers will be two): [tosca_remove.yml](https://github.com/grycap/im/blob/master/test/files/tosca_remove.yml) , a web server (the VM with the ID 2 as specified in the removal_list parameter) will be removed.      
+      operationId: AddResources
+      consumes:
+      - text/plain
+      - application/json
+      - text/yaml
+      produces:
+      - text/uri-list
+      parameters:
+        - name: Authorization
+          in: header
+          description: |-
+            The Authentication header must provide the content of the [Authorization File](https://imdocs.readthedocs.io/en/latest/client.html#auth-file), but putting all the elements in one line using “\n” as separator.
+          required: true
+          type: string
+        - name: InfId
+          in: path
+          description: The ID of the specific infrastructure.
+          required: true
+          type: string
+        - name: context
+          in: query
+          description: |-
+            The context parameter is optional and is a flag to specify if the contextualization step will be launched just after the VM addition.
+          required: false
+          default: true
+          type: string
+          enum:
+            - yes
+            - no
+            - true
+            - false
+            - 0
+            - 1
+        - name: body
+          in: body
+          description: RADL (in plain RADL or in JSON formats) or TOSCA document (YAML).
+          required: true
+          schema:
+            type: string
+            example: |
+                network net
+                system node
+                deploy node 1
+      responses:
+        200:
+          description: successful operation
+          examples:
+            text/uri-list: |
+              http://server.com:8800/infrastructures/inf_id/vms/0
+              http://server.com:8800/infrastructures/inf_id/vms/1
+            application/json: |
+              {
+                "uri-list": [
+                  {"uri": "http://server.com:8800/infrastructures/inf_id/vms/0"},
+                  {"uri": "http://server.com:8800/infrastructures/inf_id/vms/1"}
+                ]
+              }
+        400:
+          description: Invalid status value
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden
+        404:
+          description: Not Found
+        415:
+          description: Unsupported Media type
+    delete:
+      tags:
+        - infrastructures
+      summary: Delete an infrastructure.
+      description: Undeploy the virtual machines associated to the infrastructure with ID.
+      operationId: DestroyInfrastructure
+      produces:
+      - text/plain
+      parameters:
+        - name: Authorization
+          in: header
+          description: |-
+            The Authentication header must provide the content of the [Authorization File](https://imdocs.readthedocs.io/en/latest/client.html#auth-file), but putting all the elements in one line using “\n” as separator.
+          required: true
+          type: string
+        - name: InfId
+          in: path
+          description: The ID of the specific infrastructure.
+          required: true
+          type: string
+      responses:
+        200:
+          description: successful operation
+        400:
+          description: Invalid status value
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden
+        404:
+          description: Not Found
+
+ /infrastructures/{InfId}/{Property}:
+    get:
+      tags:
+        - infrastructures
+      summary: Get a infrastructure property.
+      description: Return a property associated to the infrastructure with ID InfId.
+      operationId: GetInfrastructureProperty
+      produces:
+      - text/plain
+      - application/json
+      parameters:
+        - name: Authorization
+          in: header
+          description: |-
+            The Authentication header must provide the content of the [Authorization File](https://imdocs.readthedocs.io/en/latest/client.html#auth-file), but putting all the elements in one line using “\n” as separator.
+          required: true
+          type: string
+        - name: InfId
+          in: path
+          description: The ID of the specific infrastructure.
+          required: true
+          type: string
+        - name: headeronly
+          in: query
+          description: Only used with `contmsg` property. In case of headeronly flag is set to `yes`, `true` or `1` only the initial part of the infrastructure contextualization log will be returned (without any VM contextualization log).
+          default: false
+          required: false
+          type: string
+          enum:
+            - yes
+            - no
+            - true
+            - false
+            - 0
+            - 1
+        - name: Property
+          in: path
+          description: |
+            The specific infrastructure property:
+            * `outputs`:  in case of TOSCA documents it will return a JSON object with the outputs of the TOSCA document.
+            * `contmsg`: a string with the contextualization message. In case of headeronly flag is set to ‘yes’, ‘true’ or ‘1’ only the initial part of the infrastructure contextualization log will be returned (without any VM contextualization log).
+            * `radl`: a string with the original specified RADL of the infrastructure.
+            * `tosca`: a string with the TOSCA representation of the infrastructure.
+            * `data`: a string with the JSOMN serialized data of the infrastructure. In case of delete flag is set to ‘yes’, ‘true’ or ‘1’ the data not only will be exported but also the infrastructure will be set deleted (the virtual infrastructure will not be modified).
+            * `state`: a JSON object with two elements:
+                * `state`:  a string with the aggregated state of the infrastructure.
+                * `vm_states`:  a dict indexed with the VM ID and the value the VM state.
+          required: true
+          type: string
+          enum:
+            - outputs
+            - contmsg
+            - radl
+            - tosca
+            - data
+            - state
+      responses:
+        200:
+          description: successful operation
+          examples:
+            text/plain: property_value
+            application/json: |
+                {
+                  "property_name": "property_value"
+                }
+        400:
+          description: Invalid status value
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden
+        404:
+          description: Not Found
+
+ /infrastructures/{InfId}/stop:
+    put:
+      tags:
+        - infrastructures
+      summary: Stop an infrastructure.
+      description: Perform the stop operation in all the virtual machines in the infrastructure.
+      operationId: StopInfrastructure
+      produces:
+      - text/plain
+      parameters:
+        - name: Authorization
+          in: header
+          description: |-
+            The Authentication header must provide the content of the [Authorization File](https://imdocs.readthedocs.io/en/latest/client.html#auth-file), but putting all the elements in one line using “\n” as separator.
+          required: true
+          type: string
+        - name: InfId
+          in: path
+          description: The ID of the specific infrastructure.
+          required: true
+          type: string
+      responses:
+        200:
+          description: successful operation
+        400:
+          description: Invalid status value
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden
+        404:
+          description: Not Found
+
+ /infrastructures/{InfId}/start:
+    put:
+      tags:
+        - infrastructures
+      summary: Start an infrastructure.
+      description: Perform the start operation in all the (previuosly stopped) virtual machines in the infrastructure.
+      operationId: StartInfrastructure
+      produces:
+      - text/plain
+      parameters:
+        - name: Authorization
+          in: header
+          description: |-
+            The Authentication header must provide the content of the [Authorization File](https://imdocs.readthedocs.io/en/latest/client.html#auth-file), but putting all the elements in one line using “\n” as separator.
+          required: true
+          type: string
+        - name: InfId
+          in: path
+          description: The ID of the specific infrastructure.
+          required: true
+          type: string
+      responses:
+        200:
+          description: successful operation
+        400:
+          description: Invalid status value
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden
+        404:
+          description: Not Found
+
+ /infrastructures/{InfId}/reconfigure:
+    put:
+      tags:
+        - infrastructures
+      summary: Reconfigure an infrastructure.
+      description: Re-start the contextualization process of the infrastructure.
+      operationId: ReconfigureInfrastructure
+      consumes:
+      - text/plain
+      - application/json
+      produces:
+      - text/plain
+      parameters:
+        - name: Authorization
+          in: header
+          description: |-
+            The Authentication header must provide the content of the [Authorization File](https://imdocs.readthedocs.io/en/latest/client.html#auth-file), but putting all the elements in one line using “\n” as separator.
+          required: true
+          type: string
+        - name: InfId
+          in: path
+          description: The ID of the specific infrastructure.
+          required: true
+          type: string
+        - name: vm_list
+          in: query
+          description: The vm_list parameter is optional and is a coma separated list of IDs of the VMs to reconfigure. If not specified all the VMs will be reconfigured
+          required: false
+          type: string
+        - name: body
+          in: body
+          description: Optional RADL (in plain RADL or in JSON formats) with new configuration recipes. If not specified the current configuration recipes will be executed again.
+          required: false
+          schema:
+            type: string
+            example: |
+                configure node (
+                @begin
+                ---
+                  - tasks:
+                      - debug: msg="Some message"
+                @end
+                )
+      responses:
+        200:
+          description: successful operation
+        400:
+          description: Invalid status value
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden
+        404:
+          description: Not Found
+        415:
+          description: Unsupported Media type
+
+ /infrastructures/{InfId}/vms/{VMId}:
+    get:
+      tags:
+        - infrastructures
+      summary: Get VM info.
+      description: Return information about the virtual machine with ID VMId associated to the infrastructure with ID InfId
+      operationId: GetVMInfo
+      produces:
+      - text/plain
+      - application/json
+      parameters:
+        - name: Authorization
+          in: header
+          description: |-
+            The Authentication header must provide the content of the [Authorization File](https://imdocs.readthedocs.io/en/latest/client.html#auth-file), but putting all the elements in one line using “\n” as separator.
+          required: true
+          type: string
+        - name: InfId
+          in: path
+          description: The ID of the specific infrastructure.
+          required: true
+          type: string
+        - name: VMId
+          in: path
+          description: The ID of the specific VM.
+          required: true
+          type: string
+      responses:
+        200:
+          description: successful operation
+          schema:
+            type: string
+            example: | 
+                network net (outbound = 'yes')
+                system node (
+                   cpu.count >= 2 and
+                   memory.size >= 2G and
+                   net_interface.0.ip = '8.8.8.8' and
+                   net_interface.0.connection = 'net' and
+                   disk.0.image.url = 'one://someserver.com/123'
+                )
+        400:
+          description: Invalid status value
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden
+        404:
+          description: Not Found
+    put:
+      tags:
+        - infrastructures
+      summary: Alter VM.
+      description: Change the features of the virtual machine with ID VMId in the infrastructure with with ID infId. 
+      operationId: AlterVM
+      consumes:
+      - text/plain
+      - application/json
+      produces:
+      - text/plain
+      - application/json
+      parameters:
+        - name: Authorization
+          in: header
+          description: |-
+            The Authentication header must provide the content of the [Authorization File](https://imdocs.readthedocs.io/en/latest/client.html#auth-file), but putting all the elements in one line using “\n” as separator.
+          required: true
+          type: string
+        - name: InfId
+          in: path
+          description: The ID of the specific infrastructure.
+          required: true
+          type: string
+        - name: VMId
+          in: path
+          description: The ID of the specific VM.
+          required: true
+          type: string
+        - name: body
+          in: body
+          description: RADL (in plain RADL or in JSON formats).
+          required: true
+          schema:
+            type: string
+            example: |
+                system node (
+                   memory.size >= 4G
+                )
+      responses:
+        200:
+          description: successful operation
+          schema:
+            type: string
+            example: | 
+                network net (outbound = 'yes')
+                system node (
+                   cpu.count >= 2 and
+                   memory.size >= 4G and
+                   net_interface.0.ip = '8.8.8.8' and
+                   net_interface.0.connection = 'net' and
+                   disk.0.image.url = 'one://someserver.com/123'
+                )
+        400:
+          description: Invalid status value
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden
+        404:
+          description: Not Found
+        415:
+          description: Unsupported Media type
+    delete:
+      tags:
+        - infrastructures
+      summary: Delete a VM.
+      description: Undeploy the virtual machine VMId associated to the infrastructure with ID infId
+      operationId: DestroyVM
+      produces:
+      - text/plain
+      parameters:
+        - name: Authorization
+          in: header
+          description: |-
+            The Authentication header must provide the content of the [Authorization File](https://imdocs.readthedocs.io/en/latest/client.html#auth-file), but putting all the elements in one line using “\n” as separator.
+          required: true
+          type: string
+        - name: InfId
+          in: path
+          description: The ID of the specific infrastructure.
+          required: true
+          type: string
+        - name: VMId
+          in: path
+          description: The ID of the specific VM.
+          required: true
+          type: string
+      responses:
+        200:
+          description: successful operation
+        400:
+          description: Invalid status value
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden
+        404:
+          description: Not Found
+       
+ /infrastructures/{InfId}/vms/{VMId}/{Property}:
+    get:
+      tags:
+        - infrastructures
+      summary: Get a VM property.
+      description: Return a property associated to the virtual machine with ID VMId in the infrastructure with with ID infId
+      operationId: GetVMProperty
+      produces:
+      - text/plain
+      - application/json
+      parameters:
+        - name: Authorization
+          in: header
+          description: |-
+            The Authentication header must provide the content of the [Authorization File](https://imdocs.readthedocs.io/en/latest/client.html#auth-file), but putting all the elements in one line using “\n” as separator.
+          required: true
+          type: string
+        - name: InfId
+          in: path
+          description: The ID of the specific infrastructure.
+          required: true
+          type: string
+        - name: VMId
+          in: path
+          description: The ID of the specific VM.
+          required: true
+          type: string
+        - name: Property
+          in: path
+          description: |
+            The specific infrastructure property:
+            * `radl property`: any VM RADL property.
+            * `contmsg`: a string with the contextualization message.
+          required: true
+          type: string
+      responses:
+        200:
+          description: successful operation
+          examples:
+            text/plain: property_value
+            application/json: |
+                {
+                  "property_name": "property_value"
+                }
+        400:
+          description: Invalid status value
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden
+        404:
+          description: Not Found
+
+ /infrastructures/{InfId}/vms/{VMId}/stop:
+    put:
+      tags:
+        - infrastructures
+      summary: Stop a VM.
+      description: Perform the stop operation in the virtual machine VMId of the infrastructure InfId.
+      operationId: StopVM
+      produces:
+      - text/plain
+      parameters:
+        - name: Authorization
+          in: header
+          description: |-
+            The Authentication header must provide the content of the [Authorization File](https://imdocs.readthedocs.io/en/latest/client.html#auth-file), but putting all the elements in one line using “\n” as separator.
+          required: true
+          type: string
+        - name: InfId
+          in: path
+          description: The ID of the specific infrastructure.
+          required: true
+          type: string
+        - name: VMId
+          in: path
+          description: The ID of the specific VM.
+          required: true
+          type: string
+      responses:
+        200:
+          description: successful operation
+        400:
+          description: Invalid status value
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden
+        404:
+          description: Not Found
+
+ /infrastructures/{InfId}/vms/{VMId}/start:
+    put:
+      tags:
+        - infrastructures
+      summary: Start a VM.
+      description: Perform the start operation in the (previuosly stopped) virtual machine VMId of the infrastructure InfId.
+      operationId: StartVM
+      produces:
+      - text/plain
+      parameters:
+        - name: Authorization
+          in: header
+          description: |-
+            The Authentication header must provide the content of the [Authorization File](https://imdocs.readthedocs.io/en/latest/client.html#auth-file), but putting all the elements in one line using “\n” as separator.
+          required: true
+          type: string
+        - name: InfId
+          in: path
+          description: The ID of the specific infrastructure.
+          required: true
+          type: string
+        - name: VMId
+          in: path
+          description: The ID of the specific VM.
+          required: true
+          type: string
+      responses:
+        200:
+          description: successful operation
+        400:
+          description: Invalid status value
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden
+        404:
+          description: Not Found
+
+ /infrastructures/{InfId}/vms/{VMId}/disks/{diskNum}/snapshot:
+    put:
+      tags:
+        - infrastructures
+      summary: Create a disk snapshot.
+      description: Create a snapshot of the specified diskNum in the VM VMId of the infrastructure with ID InfId and returns the image url of the new created image in IM format.
+      operationId: CreateSnapShot
+      produces:
+      - text/plain
+      parameters:
+        - name: Authorization
+          in: header
+          description: |-
+            The Authentication header must provide the content of the [Authorization File](https://imdocs.readthedocs.io/en/latest/client.html#auth-file), but putting all the elements in one line using “\n” as separator.
+          required: true
+          type: string
+        - name: InfId
+          in: path
+          description: The ID of the specific infrastructure.
+          required: true
+          type: string
+        - name: VMId
+          in: path
+          description: The ID of the specific VM.
+          required: true
+          type: string
+        - name: diskNum
+          in: path
+          description: The number of the specific disk.
+          required: true
+          type: string
+        - name: image_name
+          in: query
+          description: The name to assing to the created snapshot.
+          required: true
+          type: string
+        - name: auto_delete
+          in: query
+          description: The auto_delete flag specifies that the snapshot will be deleted when the infrastructure is destroyed
+          default: false
+          required: false
+          type: string
+          enum:
+            - yes
+            - no
+            - true
+            - false
+            - 0
+            - 1
+      responses:
+        200:
+          description: successful operation
+          schema:
+            type: string
+            example: one://server.com/image_id
+        400:
+          description: Invalid status value
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden
+        404:
+          description: Not Found
+
+externalDocs:
+  description: Find out more about IM
+  url: http://www.grycap.upv.es/im
+
+host: appsgrycap.i3m.upv.es:31443
+basePath: /im
+schemes:
+ - https

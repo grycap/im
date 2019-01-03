@@ -19,7 +19,7 @@ import uuid
 import os.path
 
 try:
-    from libcloud.compute.base import NodeImage, NodeAuthSSHKey, StorageVolume
+    from libcloud.compute.base import NodeImage, NodeAuthSSHKey
     from libcloud.compute.types import Provider, NodeState
     from libcloud.compute.providers import get_driver
 except Exception as ex:
@@ -128,48 +128,21 @@ class LibCloudCloudConnector(CloudConnector):
 
         return res
 
-    def concreteSystem(self, radl_system, auth_data):
-        image_urls = radl_system.getValue("disk.0.image.url")
-        if not image_urls:
-            return [radl_system.clone()]
+    def concrete_system(self, radl_system, str_url, auth_data):
+        url = uriparse(str_url)
+        protocol = url[0]
+        PROTOCOL_MAP = {"Amazon EC2": "aws", "OpenNebula": "one", "OpenStack": "ost", "LibVirt": "file"}
+
+        driver = self.get_driver(auth_data)
+        req_protocol = PROTOCOL_MAP.get(driver.name, None)
+
+        if req_protocol is None or protocol == req_protocol:
+            res_system = radl_system.clone()
+            instance_type = self.get_instance_type(driver.list_sizes(), res_system)
+            self.update_system_info_from_instance(res_system, instance_type)
+            return res_system
         else:
-            if not isinstance(image_urls, list):
-                image_urls = [image_urls]
-
-            res = []
-            for str_url in image_urls:
-                url = uriparse(str_url)
-                protocol = url[0]
-
-                protocol = url[0]
-                driver = self.get_driver(auth_data)
-
-                PROTOCOL_MAP = {
-                    "Amazon EC2": "aws", "OpenNebula": "one", "OpenStack": "ost", "LibVirt": "file"}
-
-                req_protocol = PROTOCOL_MAP.get(driver.name, None)
-
-                if req_protocol is None or protocol == req_protocol:
-                    res_system = radl_system.clone()
-                    instance_type = self.get_instance_type(
-                        driver.list_sizes(), res_system)
-                    self.update_system_info_from_instance(
-                        res_system, instance_type)
-
-                    res_system.addFeature(
-                        Feature("disk.0.image.url", "=", str_url), conflict="other", missing="other")
-
-                    res_system.addFeature(
-                        Feature("provider.type", "=", self.type), conflict="other", missing="other")
-                    if self.cloud.server:
-                        res_system.addFeature(Feature(
-                            "provider.host", "=", self.cloud.server), conflict="other", missing="other")
-                    if self.cloud.port != -1:
-                        res_system.addFeature(Feature(
-                            "provider.port", "=", self.cloud.port), conflict="other", missing="other")
-
-                    res.append(res_system)
-            return res
+            return None
 
     def update_system_info_from_instance(self, system, instance_type):
         """
@@ -367,15 +340,16 @@ class LibCloudCloudConnector(CloudConnector):
         """
 
         vm.setIps(node.public_ips, node.private_ips)
-        self.manage_elastic_ips(vm, node)
+        self.manage_elastic_ips(vm, node, node.public_ips)
 
-    def manage_elastic_ips(self, vm, node):
+    def manage_elastic_ips(self, vm, node, public_ips):
         """
         Manage the elastic IPs in case of EC2 and OpenStack
 
         Arguments:
            - vm(:py:class:`IM.VirtualMachine`): VM information.
            - node(:py:class:`libcloud.compute.base.Node`): node object.
+           - public_ips(list of str): list of Public IPs of the node
         """
         if node.driver.name in ["Amazon EC2", "OpenStack"]:
             n = 0
@@ -391,11 +365,11 @@ class LibCloudCloudConnector(CloudConnector):
             for num, ip in enumerate(sorted(requested_ips, reverse=True)):
                 if ip:
                     # It is a fixed IP
-                    if ip not in node.public_ips:
+                    if ip not in public_ips:
                         # It has not been created yet, do it
                         self.add_elastic_ip(vm, node, ip)
                 else:
-                    if num >= len(node.public_ips):
+                    if num >= len(public_ips):
                         self.add_elastic_ip(vm, node)
 
     def add_elastic_ip(self, vm, node, fixed_ip=None):
