@@ -167,7 +167,7 @@ def GetInfrastructureContMsg(inf_id, auth_data, headeronly=False):
     return WaitRequest(request)
 
 
-def StopVM(inf_id, vm_id, auth_data, suspend):
+def StopVM(inf_id, vm_id, auth_data, suspend=True):
     request = IMBaseRequest.create_request(
         IMBaseRequest.STOP_VM, (inf_id, vm_id, auth_data, suspend))
     return WaitRequest(request)
