@@ -449,7 +449,11 @@ class OCCICloudConnector(CloudConnector):
                     vm.info.systems[0].setValue("cpu.count", int(cores))
                 memory = self.get_occi_attribute_value(resp.text, 'occi.compute.memory')
                 if memory:
-                    vm.info.systems[0].setValue("memory.size", int(float(memory)), 'M')
+                    # a Patch to solve the issue that some site return memory in GB and other in MB
+                    # if the number is lower than 128 we assume that the unit is GB
+                    if float(memory) < 128:
+                        memory = float(memory) * 1024
+                    vm.info.systems[0].setValue("memory.size", int(memory), 'M')
 
                 console_vnc = self.get_occi_attribute_value(resp.text, 'org.openstack.compute.console.vnc')
                 if console_vnc:
