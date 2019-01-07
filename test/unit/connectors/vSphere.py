@@ -21,7 +21,7 @@ import unittest
 
 sys.path.append(".")
 sys.path.append("..")
-from CloudConn import TestCloudConnectorBase
+from .CloudConn import TestCloudConnectorBase
 from IM.CloudInfo import CloudInfo
 from IM.auth import Authentication
 from radl import radl_parse
