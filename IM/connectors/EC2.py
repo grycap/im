@@ -1402,6 +1402,17 @@ class EC2CloudConnector(CloudConnector):
 
         return (True, "")
 
+    def reboot(self, vm, auth_data):
+        region_name = vm.id.split(";")[0]
+        instance_id = vm.id.split(";")[1]
+
+        instance = self.get_instance_by_id(instance_id, region_name, auth_data)
+        if (instance is not None):
+            instance.update()
+            instance.reboot()
+
+        return (True, "")
+
     @staticmethod
     def waitStop(instance, timeout=120):
         """

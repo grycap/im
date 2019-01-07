@@ -663,5 +663,8 @@ class FogBowCloudConnector(CloudConnector):
     def start(self, vm, auth_data):
         return (False, "Not supported")
 
+    def reboot(self, vm, auth_data):
+        return (False, "Not supported")
+
     def alterVM(self, vm, radl, auth_data):
         return (False, "Not supported")

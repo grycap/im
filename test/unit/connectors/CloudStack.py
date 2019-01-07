@@ -258,6 +258,30 @@ class TestOSCConnector(TestCloudConnectorBase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('libcloud.compute.drivers.cloudstack.CloudStackNodeDriver')
+    def test_52_reboot(self, get_driver):
+        auth = Authentication([{'id': 'ost', 'type': 'CloudStack', 'username': 'apikey',
+                                'password': 'secretkey', 'host': 'http://server.com'}])
+        osc_cloud = self.get_osc_cloud()
+
+        inf = MagicMock()
+        vm = VirtualMachine(inf, "1", osc_cloud.cloud, "", "", osc_cloud, 1)
+
+        driver = MagicMock()
+        get_driver.return_value = driver
+
+        node = MagicMock()
+        node.id = "1"
+        node.state = "running"
+        node.driver = driver
+        driver.list_nodes.return_value = [node]
+        node.reboot_node.return_value = True
+
+        success, _ = osc_cloud.reboot(vm, auth)
+
+        self.assertTrue(success, msg="ERROR: rebooting VM info.")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
+    @patch('libcloud.compute.drivers.cloudstack.CloudStackNodeDriver')
     def test_55_alter(self, get_driver):
         radl_data = """
             network net ()

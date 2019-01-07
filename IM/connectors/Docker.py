@@ -703,29 +703,23 @@ class DockerCloudConnector(CloudConnector):
             return (False, "Error connecting with Docker server")
 
     def stop(self, vm, auth_data):
-        try:
-            if self._is_swarm(auth_data):
-                return (False, "Not supported")
-
-            resp = self.create_request('POST', "/containers/" + vm.id + "/stop", auth_data)
-
-            if resp.status_code != 204:
-                return (False, "Error stopping the Container: " + resp.text)
-            else:
-                return (True, vm.id)
-        except Exception:
-            self.log_exception("Error connecting with Docker server")
-            return (False, "Error connecting with Docker server")
+        return self.cont_action(vm, 'stop', auth_data)
 
     def start(self, vm, auth_data):
+        return self.cont_action(vm, 'start', auth_data)
+
+    def reboot(self, vm, auth_data):
+        return self.cont_action(vm, 'restart', auth_data)
+
+    def cont_action(self, vm, action, auth_data):
         try:
             if self._is_swarm(auth_data):
                 return (False, "Not supported")
 
-            resp = self.create_request('POST', "/containers/" + vm.id + "/start", auth_data)
+            resp = self.create_request('POST', "/containers/" + vm.id + "/" + action, auth_data)
 
             if resp.status_code != 204:
-                return (False, "Error starting the Container: " + resp.text)
+                return (False, "Error in Container Action the Container: " + resp.text)
             else:
                 return (True, vm.id)
         except Exception:
