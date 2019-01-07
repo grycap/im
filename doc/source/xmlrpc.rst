@@ -277,7 +277,7 @@ This is the list of method names:
 
    Reboot the specified virtual machine with ID ``vmId`` associated to the
    infrastructure with ID ``infId``.
- 
+
 .. _Reconfigure-xmlrpc:
 
 ``Reconfigure``

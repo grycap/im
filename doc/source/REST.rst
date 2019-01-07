@@ -328,7 +328,7 @@ PUT ``http://imserver.com/infrastructures/<infId>/vms/<vmId>/reboot``
    :ok response: 200 OK
    :fail response: 401, 403, 404, 400
 
-   Perform the ``reboot`` action in the virtual machine with ID 
+   Perform the ``reboot`` action in the virtual machine with ID
    ``vmId`` associated to the infrastructure with ID ``infId``.
    If the operation has been performed successfully the return value is an empty string.
 
