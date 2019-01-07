@@ -310,6 +310,21 @@ class TestAzureConnector(TestCloudConnectorBase):
         self.assertTrue(success, msg="ERROR: stopping VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
+    @patch('IM.connectors.Azure.ComputeManagementClient')
+    @patch('IM.connectors.Azure.UserPassCredentials')
+    def test_52_reboot(self, credentials, compute_client):
+        auth = Authentication([{'id': 'azure', 'type': 'Azure', 'subscription_id': 'subscription_id',
+                                'username': 'user', 'password': 'password'}])
+        azure_cloud = self.get_azure_cloud()
+
+        inf = MagicMock()
+        vm = VirtualMachine(inf, "rg0/vm0", azure_cloud.cloud, "", "", azure_cloud, 1)
+
+        success, _ = azure_cloud.reboot(vm, auth)
+
+        self.assertTrue(success, msg="ERROR: rebooting VM info.")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
     @patch('IM.connectors.Azure.ResourceManagementClient')
     @patch('IM.connectors.Azure.StorageManagementClient')
     @patch('IM.connectors.Azure.ComputeManagementClient')

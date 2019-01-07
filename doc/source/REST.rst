@@ -42,15 +42,15 @@ Next tables summaries the resources and the HTTP methods available.
 +=============+=====================================================+====================================================+
 | **GET**     | | **Get** the specified property ``property_name``  | | **Get** the specified property ``property_name`` |
 |             | | associated to the machine ``vmId`` in ``infId``.  | | associated to the infrastructure ``infId``.      |
-|             | | It has one special property: ``contmsg``.         | | It has six properties: ``contmsg``, ``radl``,   |
-|             |                                                     | | ``state``, ``outputs``, ``tosca`` and ``data``. |
+|             | | It has one special property: ``contmsg``.         | | It has six properties: ``contmsg``, ``radl``,    |
+|             |                                                     | | ``state``, ``outputs``, ``tosca`` and ``data``.  |
 +-------------+-----------------------------------------------------+----------------------------------------------------+
 
-+-------------+-----------------------------------------------+------------------------------------------------+
-| HTTP method | /infrastructures/<infId>/vms/<vmId>/stop      | /infrastructures/<infId>/start                 |
-+=============+===============================================+================================================+
-| **PUT**     | | **Stop** the machine ``vmId`` in ``infId``. | | **Start** the machine ``vmId`` in ``infId``. |
-+-------------+-----------------------------------------------+------------------------------------------------+
++-------------+-----------------------------------------------+------------------------------------------------+------------------------------------------------+
+| HTTP method | /infrastructures/<infId>/vms/<vmId>/stop      | /infrastructures/<infId>/start                 | /infrastructures/<infId>/reboot                |
++=============+===============================================+================================================+================================================+
+| **PUT**     | | **Stop** the machine ``vmId`` in ``infId``. | | **Start** the machine ``vmId`` in ``infId``. | | **Reboot** the machine ``vmId`` in ``infId``.|
++-------------+-----------------------------------------------+------------------------------------------------+------------------------------------------------+
 
 +-------------+--------------------------------------------------------------+
 | HTTP method | /infrastructures/<infId>/vms/<vmId>/disks/<diskNum>/snapshot |
@@ -320,6 +320,15 @@ PUT ``http://imserver.com/infrastructures/<infId>/vms/<vmId>/stop``
    :fail response: 401, 403, 404, 400
 
    Perform the ``stop`` action in the virtual machine with ID 
+   ``vmId`` associated to the infrastructure with ID ``infId``.
+   If the operation has been performed successfully the return value is an empty string.
+
+PUT ``http://imserver.com/infrastructures/<infId>/vms/<vmId>/reboot``
+   :Response Content-type: text/plain or application/json
+   :ok response: 200 OK
+   :fail response: 401, 403, 404, 400
+
+   Perform the ``reboot`` action in the virtual machine with ID
    ``vmId`` associated to the infrastructure with ID ``infId``.
    If the operation has been performed successfully the return value is an empty string.
 

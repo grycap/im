@@ -519,41 +519,37 @@ class vSphereCloudConnector(CloudConnector):
         return (True, vm)
 
     def start(self, vm, auth_data):
-        connection = self.get_connection(auth_data)
-        node = self.get_vm_by_name(connection.RetrieveContent(), vm.id)
-
-        if node:
-            if format(node.runtime.powerState) == "suspended":
-                task = node.PowerOn()
-                try:
-                    self.wait_for_tasks(connection, [task])
-                except Exception as ex:
-                    self.log_exception("Error starting VM " + str(vm.id))
-                    return (False, "Error starting the VM: " + str(ex))
-            else:
-                return (False, "Error starting the VM. The VM is not suspended.")
-
-            self.log_debug("VM " + str(vm.id) + " successfully started")
-        else:
-            self.log_warn("VM " + str(vm.id) + " not found.")
-        return (True, "")
+        return self.vm_action(vm, 'start', auth_data)
 
     def stop(self, vm, auth_data):
+        return self.vm_action(vm, 'stop', auth_data)
+
+    def reboot(self, vm, auth_data):
+        return self.vm_action(vm, 'reboot', auth_data)
+
+    def vm_action(self, vm, action, auth_data):
         connection = self.get_connection(auth_data)
         node = self.get_vm_by_name(connection.RetrieveContent(), vm.id)
 
         if node:
-            if format(node.runtime.powerState) == "poweredOn":
+            if action == 'stop':
+                if format(node.runtime.powerState) != "poweredOn":
+                    return (False, "Error stopping the VM. The VM is not running.")
                 task = node.Suspend()
-                try:
-                    self.wait_for_tasks(connection, [task])
-                except Exception as ex:
-                    self.log_exception("Error stopping VM " + str(vm.id))
-                    return (False, "Error stopping the VM: " + str(ex))
-            else:
-                return (False, "Error stopping the VM. The VM is not running.")
+            elif action == 'start':
+                if format(node.runtime.powerState) != "suspended":
+                    return (False, "Error starting the VM. The VM is not suspended.")
+                task = node.PowerOn()
+            elif action == 'reboot':
+                task = node.Reset()
 
-            self.log_debug("VM " + str(vm.id) + " successfully stopping")
+            try:
+                self.wait_for_tasks(connection, [task])
+            except Exception as ex:
+                self.log_exception("Error in VM action " + str(vm.id))
+                return (False, "Error in VM action: " + str(ex))
+
+            self.log_debug("VM " + str(vm.id) + " successfully " + action)
         else:
             self.log_warn("VM " + str(vm.id) + " not found.")
         return (True, "")

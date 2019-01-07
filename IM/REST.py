@@ -935,6 +935,31 @@ def RESTStopVM(infid=None, vmid=None):
         return return_error(400, "Error stopping VM: %s" % ex.message)
 
 
+@app.route('/infrastructures/:infid/vms/:vmid/reboot', method='PUT')
+def RESTRebootVM(infid=None, vmid=None):
+    try:
+        auth = get_auth_header()
+    except:
+        return return_error(401, "No authentication data provided")
+
+    try:
+        bottle.response.content_type = "text/plain"
+        return InfrastructureManager.RebootVM(infid, vmid, auth)
+    except DeletedInfrastructureException as ex:
+        return return_error(404, "Error rebooting VM: %s" % ex.message)
+    except IncorrectInfrastructureException as ex:
+        return return_error(404, "Error rebooting VM: %s" % ex.message)
+    except UnauthorizedUserException as ex:
+        return return_error(403, "Error rebooting VM: %s" % ex.message)
+    except DeletedVMException as ex:
+        return return_error(404, "Error rebooting VM: %s" % ex.message)
+    except IncorrectVMException as ex:
+        return return_error(404, "Error rebooting VM: %s" % ex.message)
+    except Exception as ex:
+        logger.exception("Error rebooting VM")
+        return return_error(400, "Error rebooting VM: %s" % ex.message)
+
+
 @app.route('/version', method='GET')
 def RESTGeVersion():
     try:

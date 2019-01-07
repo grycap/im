@@ -93,6 +93,7 @@ class TestvSphereConnector(TestCloudConnectorBase):
             c.Clone.return_value = vim.Task("CreateVM")
             c.Suspend.return_value = vim.Task("SuspendVM")
             c.PowerOn.return_value = vim.Task("PowerOnVM")
+            c.Reset.return_value = vim.Task("ResetVM")
             c.PowerOff.return_value = vim.Task("PowerOffVM")
             c.Destroy.return_value = vim.Task("DestroyVM")
             c.summary.runtime.powerState = self.vm_state
@@ -306,6 +307,43 @@ class TestvSphereConnector(TestCloudConnectorBase):
         self.vm_state = "poweredOn"
 
         self.assertTrue(success, msg="ERROR: stopping VM info.")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
+    @patch('IM.connectors.vSphere.vim')
+    @patch('IM.connectors.vSphere.SmartConnect')
+    def test_52_reboot(self, conn, pvim):
+        auth = Authentication([{'id': 'vsp', 'type': 'vSphere', 'host': 'https://vspherehost',
+                                'username': 'user', 'password': 'password'}])
+        vsphere_cloud = self.get_vsphere_cloud()
+
+        smatconn = MagicMock()
+        conn.return_value = smatconn
+        retcont = MagicMock()
+        smatconn.RetrieveContent.return_value = retcont
+        retcont.viewManager.CreateContainerView.side_effect = self.CreateContainerView
+        pvim.VirtualMachine = vim.VirtualMachine
+
+        pvim.TaskInfo.State.success = vim.TaskInfo.State.success
+        pvim.Task = vim.Task
+        property_collector = MagicMock()
+        smatconn.content.propertyCollector = property_collector
+        update = MagicMock()
+        property_collector.WaitForUpdates.return_value = update
+        fs = MagicMock()
+        update.filterSet = [fs]
+        objs = MagicMock()
+        fs.objectSet = [objs]
+        change = MagicMock()
+        objs.changeSet = [change]
+        objs.obj = vim.Task("ResetVM")
+        change.name = "info.state"
+        change.val = vim.TaskInfo.State.success
+        inf = MagicMock()
+        vm = VirtualMachine(inf, "vm-template", vsphere_cloud.cloud, "", "", vsphere_cloud, 1)
+
+        success, _ = vsphere_cloud.reboot(vm, auth)
+
+        self.assertTrue(success, msg="ERROR: rebooting VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('IM.connectors.vSphere.vim')
