@@ -464,3 +464,7 @@ IM 1.7.7:
     * Add support of Federated networks in FogBow conn.
     * Improve token check in OCCI conn.
     * Fix created volumes are not deleted in EC2 conn.
+
+IM 1.8.0:
+    * Add RebootVM function.
+    * Fix error reporting memory units in OCCI connector.
