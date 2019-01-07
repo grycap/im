@@ -203,6 +203,15 @@ class VirtualMachine:
         self.last_update = 0
         return (success, msg)
 
+    def reboot(self, auth):
+        """
+        Reboot the VM
+        """
+        (success, msg) = self.getCloudConnector().reboot(self, auth)
+        # force the update of the information
+        self.last_update = 0
+        return (success, msg)
+
     def create_snapshot(self, disk_num, image_name, auto_delete, auth):
         """
         Create a snapshot of one disk of the VM
