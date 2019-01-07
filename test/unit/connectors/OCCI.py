@@ -192,7 +192,7 @@ class TestOCCIConnector(TestCloudConnectorBase):
                 resp.status_code = 204
             elif params == "action=start":
                 resp.status_code = 200
-            elif params == "action=reboot":
+            elif params == "action=restart":
                 resp.status_code = 200
             elif url == "/storagelink/":
                 resp.status_code = 200

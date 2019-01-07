@@ -1038,7 +1038,7 @@ class OCCICloudConnector(CloudConnector):
         return self.vm_action(vm, 'start', auth_data)
 
     def reboot(self, vm, auth_data):
-        return self.vm_action(vm, 'reboot', auth_data)
+        return self.vm_action(vm, 'restart', auth_data)
 
     def vm_action(self, vm, action, auth_data):
         auth_header = self.get_auth_header(auth_data)
