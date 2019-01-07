@@ -2,7 +2,7 @@ swagger: '2.0'
 
 info:
   description: Infrastructure Manager (IM) REST API.
-  version: 1.7.6
+  version: 1.8.0
   title: Infrastructure Manager (IM) REST API
   contact:
     email: products@grycap.upv.es
