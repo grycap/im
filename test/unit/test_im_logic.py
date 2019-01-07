@@ -809,6 +809,8 @@ class TestIM(unittest.TestCase):
         self.assertEqual(res, "")
         res = IM.StopVM(infId, "0", auth0)
         self.assertEqual(res, "")
+        res = IM.RebootVM(infId, "0", auth0)
+        self.assertEqual(res, "")
 
         IM.DestroyInfrastructure(infId, auth0)
 

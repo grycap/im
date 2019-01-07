@@ -126,6 +126,8 @@ class TestDockerConnector(TestCloudConnectorBase):
                 resp.status_code = 204
             elif url.endswith("/stop"):
                 resp.status_code = 204
+            elif url.endswith("/restart"):
+                resp.status_code = 204
             elif url == "/volumes/create":
                 resp.status_code = 201
             elif url == "/networks/create":
@@ -258,6 +260,21 @@ class TestDockerConnector(TestCloudConnectorBase):
         success, _ = docker_cloud.start(vm, auth)
 
         self.assertTrue(success, msg="ERROR: stopping VM info.")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
+    @patch('requests.request')
+    def test_52_reboot(self, requests):
+        auth = Authentication([{'id': 'docker', 'type': 'Docker', 'host': 'http://server.com:2375'}])
+        docker_cloud = self.get_docker_cloud()
+
+        inf = MagicMock()
+        vm = VirtualMachine(inf, "1", docker_cloud.cloud, "", "", docker_cloud, 1)
+
+        requests.side_effect = self.get_response
+
+        success, _ = docker_cloud.reboot(vm, auth)
+
+        self.assertTrue(success, msg="ERROR: rebooting VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('requests.request')

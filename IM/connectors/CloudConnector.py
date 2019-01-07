@@ -245,6 +245,22 @@ class CloudConnector:
 
         raise NotImplementedError("Should have implemented this")
 
+    def reboot(self, vm, auth_data):
+        """ Reboots a VM
+
+                Arguments:
+                - vm(:py:class:`IM.VirtualMachine`): VM to stop.
+                - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
+
+                Returns: a tuple (success, vm).
+           - The first value is True if the operation finished successfully or false otherwise.
+           - The second value is a str with the ID of the stopped VM if the operation finished successfully
+             or an error message otherwise.
+
+        """
+
+        raise NotImplementedError("Should have implemented this")
+
     def create_snapshot(self, vm, disk_num, image_name, auto_delete, auth_data):
         """
         Create a snapshot of the specified num disk in a virtual machine.

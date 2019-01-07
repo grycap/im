@@ -179,6 +179,12 @@ def StartVM(inf_id, vm_id, auth_data):
     return WaitRequest(request)
 
 
+def RebootVM(inf_id, vm_id, auth_data):
+    request = IMBaseRequest.create_request(
+        IMBaseRequest.REBOOT_VM, (inf_id, vm_id, auth_data))
+    return WaitRequest(request)
+
+
 def GetInfrastructureState(inf_id, auth_data):
     request = IMBaseRequest.create_request(
         IMBaseRequest.GET_INFRASTRUCTURE_STATE, (inf_id, auth_data))
@@ -235,6 +241,7 @@ def launch_daemon():
     server.register_function(GetVMContMsg)
     server.register_function(StartVM)
     server.register_function(StopVM)
+    server.register_function(RebootVM)
     server.register_function(GetInfrastructureState)
     server.register_function(GetVersion)
     server.register_function(CreateDiskSnapshot)

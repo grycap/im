@@ -344,6 +344,34 @@ class TestOSTConnector(TestCloudConnectorBase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
+    def test_52_reboot(self, get_driver):
+        auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'username': 'user',
+                                'password': 'pass', 'tenant': 'tenant', 'host': 'https://server.com:5000'}])
+        ost_cloud = self.get_ost_cloud()
+
+        inf = MagicMock()
+        vm = VirtualMachine(inf, "1", ost_cloud.cloud, "", "", ost_cloud, 1)
+
+        driver = MagicMock()
+        get_driver.return_value = driver
+
+        node = MagicMock()
+        node.id = "1"
+        node.state = "running"
+        node.extra = {'flavorId': 'small'}
+        node.public_ips = ['158.42.1.1']
+        node.private_ips = ['10.0.0.1']
+        node.driver = driver
+        driver.ex_get_node_details.return_value = node
+
+        driver.ex_hard_reboot_node.return_value = True
+
+        success, _ = ost_cloud.reboot(vm, auth)
+
+        self.assertTrue(success, msg="ERROR: stopping VM info.")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
+    @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
     def test_55_alter(self, get_driver):
         radl_data = """
             network net ()
