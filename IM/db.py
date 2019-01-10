@@ -43,7 +43,7 @@ except:
 if not MYSQL_AVAILABLE:
     try:
         import pymysql as mdb
-        MONGO_AVAILABLE = True
+        MYSQL_AVAILABLE = True
     except:
         MYSQL_AVAILABLE = False
 
