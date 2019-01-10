@@ -65,7 +65,10 @@ Optional Packages
 * `The Python interface to MySQL <https://www.mysql.com/>`_, is needed to access MySQL server as IM data 
   backend. It is typically available as the package 'python-mysqldb' or 'MySQL-python' package. In case of
   using Python 3 use the PyMySQL package, available as the package 'python3-pymysql' on debian systems or PyMySQL
-  package in pip.  
+  package in pip.
+  *`The Python interface to MongoDB <https://www.mongodb.com/>`_, is needed to access MongoDB server as IM data 
+  backend. It is typically available as the package 'python-pymongo' package in most distributions or pymongo
+  package in pip.
 * `The Azure Python SDK <https://docs.microsoft.com/es-es/azure/python-how-to-install/>`_, is needed by the Azure
   connector. It is available as the package 'azure' at the pip repository.
 * `The VMware vSphere API Python Bindings <https://github.com/vmware/pyvmomi/>`_ are needed by the vSphere
@@ -227,8 +230,9 @@ Basic Options
 .. confval:: DATA_DB
 
    The URL to access the database to store the IM data.
-   It can be a MySQL DB: 'mysql://username:password@server/db_name' or 
-   a SQLite one: 'sqlite:///etc/im/inf.dat'.
+   It can be a MySQL DB: 'mysql://username:password@server/db_name', 
+   SQLite: 'sqlite:///etc/im/inf.dat' or
+   MongoDB: 'mongodb://username:password@server/db_name', 
    The default value is ``sqlite:///etc/im/inf.dat``.
    
 .. confval:: USER_DB
