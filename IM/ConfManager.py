@@ -911,11 +911,6 @@ class ConfManager(threading.Thread):
                     self.inf.set_configured(False)
                     return
 
-                # To avoid problems with the known hosts of previous calls
-                if os.path.isfile(os.path.expanduser("~/.ssh/known_hosts")):
-                    self.log_debug("Remove " + os.path.expanduser("~/.ssh/known_hosts"))
-                    os.remove(os.path.expanduser("~/.ssh/known_hosts"))
-
                 self.inf.add_cont_msg("Wait master VM to have the SSH active.")
                 is_connected, msg = self.wait_vm_ssh_acccess(self.inf.vm_master, Config.WAIT_SSH_ACCCESS_TIMEOUT)
                 if not is_connected:
