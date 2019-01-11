@@ -126,6 +126,10 @@ must be installed, typically available as the package ``python-mysqldb`` or ``My
 In case of using Python 3 use the PyMySQL package, available as the package ``python3-pymysql`` on 
 debian systems or ``PyMySQL`` package in pip.  
 
+In case of using the a MongoDB as the backend to store IM data. The Python interface to MongoDB
+must be installed, typically available as the package ``python-pymongo``package in most distributions
+or ``pymongo`` pip package.
+
 In case of using the SSL secured version of the REST API pyOpenSSL (https://pyopenssl.org/) must be installed.
 available as ``pyOpenSSL`` package in pip.  
 
@@ -308,8 +312,8 @@ Please pay attention to the next configuration variables, as they are the most i
 
 DATA_DB - must be set to the URL to access the database to store the IM data. 
          Be careful if you have two different instances of the IM service running in the same machine!!.
-         It can be a MySQL DB: 'mysql://username:password@server/db_name' or 
-         a SQLite one: 'sqlite:///etc/im/inf.dat'.
+         It can be a MySQL DB: 'mysql://username:password@server/db_name',
+         SQLite: 'sqlite:///etc/im/inf.dat' or MongoDB: 'mongodb://username:password@server/db_name',
 
 
 #### 3.1 SECURITY
