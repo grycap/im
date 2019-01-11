@@ -357,6 +357,11 @@ class CloudConnector:
 
             if configure_name:
                 cloud_config = yaml.safe_load(radl.get_configure_by_name(configure_name).recipes)
+                if not isinstance(cloud_config, dict):
+                    # The cloud_init data is a shell script
+                    cloud_config = radl.get_configure_by_name(configure_name).recipes
+                    self.log_debug(cloud_config)
+                    return cloud_config
 
         # Only for those VMs with private IP
         if Config.SSH_REVERSE_TUNNELS and vm and not vm.hasPublicNet():

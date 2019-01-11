@@ -501,6 +501,23 @@ users:
         res = occi_cloud.get_cloud_init_data(None, None, "pub_key", "user")
         self.assertEqual(res, expected_res)
 
+        radl_data = """
+system node ()
+configure node (
+@begin
+#!/bin/sh
+touch /tmp/hello
+@end
+)
+deploy node 1
+contextualize (
+    system node configure node with cloud_init
+)"""
+        radl = radl_parse.parse_radl(radl_data)
+        occi_cloud = self.get_occi_cloud()
+        res = occi_cloud.get_cloud_init_data(radl)
+        self.assertEqual(res, "\n#!/bin/sh\ntouch /tmp/hello\n")
+
         expected_res = """#cloud-config
 groups:
 - ubuntu:
