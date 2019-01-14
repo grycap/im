@@ -1092,6 +1092,12 @@ configure step2 (
             IM.check_auth_data(user_auth)
         self.assertEqual(str(ex.exception), "Invalid username used for the InfrastructureManager.")
 
+        Config.FORCE_OIDC_AUTH = True
+        with self.assertRaises(Exception) as ex:
+            IM.check_auth_data(user_auth)
+        self.assertEqual(str(ex.exception), "No token provided for the InfrastructureManager.")
+        Config.FORCE_OIDC_AUTH = False
+
         inf = InfrastructureInfo()
         inf.id = "1"
         inf.auth = user_auth

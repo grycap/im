@@ -1269,6 +1269,9 @@ class InfrastructureManager:
         if not im_auth:
             raise IncorrectVMCrecentialsException("No credentials provided for the InfrastructureManager.")
 
+        if Config.FORCE_OIDC_AUTH and "token" not in im_auth[0]:
+            raise IncorrectVMCrecentialsException("No token provided for the InfrastructureManager.")
+
         # First check if an OIDC token is included
         if "token" in im_auth[0]:
             InfrastructureManager.check_oidc_token(im_auth[0])
