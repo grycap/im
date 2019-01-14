@@ -492,6 +492,41 @@ REST API
    Full path to the SSL Certification Authorities (CA) certificate.
    The default value is :file:`/etc/im/pki/ca-chain.pem`.
 
+OPENID CONNECT OPTIONS
+^^^^^^^^^^^^^^^^^^^^^^
+
+.. confval:: OIDC_ISSUERS
+
+   List of OIDC issuers supported.
+   It must be a coma separated string of OIDC issuers URLs.
+   The default value is ``''``.
+
+.. confval:: OIDC_AUDIENCE
+
+   If set the IM will check that the string defined here appear in the "aud" claim of the OpenID access token
+   The default value is ``''``.
+
+.. confval:: OIDC_CLIENT_ID
+
+   OIDC client ID of the IM service
+   The default value is ``''``.
+
+.. confval:: OIDC_CLIENT_SECRET
+
+   OIDC secret of the IM service
+   The default value is ``''``.
+
+.. confval:: OIDC_SCOPES
+
+   List of scopes that must appear in the token request to access the IM service.
+   Client ID and Secret must be provided to make it work.
+   The default value is ``''``.
+
+.. confval:: FORCE_OIDC_AUTH
+
+   If ``True`` the IM will force the users to pass a valid OIDC token.
+   The default value is ``False``.
+
 NETWORK OPTIONS
 ^^^^^^^^^^^^^^^
 
