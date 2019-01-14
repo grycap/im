@@ -468,3 +468,6 @@ IM 1.7.7:
 IM 1.8.0:
     * Add RebootVM function.
     * Fix error reporting memory units in OCCI connector.
+    * Add support to MongoDB.
+    * Fix error Unable to get cloud-init contextualization to work with GCE in 1.7.5 & above.
+    * Enable to force OpenID auth.
