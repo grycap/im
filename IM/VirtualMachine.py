@@ -775,7 +775,12 @@ class VirtualMachine:
 
         initial_count_out = self.cont_out
         wait = 0
-        while self.ctxt_pid and not self.destroy:
+        while self.ctxt_pid:
+            if self.destroy:
+                # If the VM has been destroyed set pid to None and return
+                self.ctxt_pid = None
+                return None
+
             ctxt_pid = self.ctxt_pid
             if ctxt_pid != self.WAIT_TO_PID:
                 ssh = self.get_ssh_ansible_master()
