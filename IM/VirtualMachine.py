@@ -778,6 +778,7 @@ class VirtualMachine:
         while self.ctxt_pid:
             if self.destroy:
                 # If the VM has been destroyed set pid to None and return
+                self.log_debug("VM %s deleted. Exit check_ctxt_process thread." % self.im_id)
                 self.ctxt_pid = None
                 return None
 
