@@ -210,7 +210,7 @@ Azure python SDK is not available in CentOS. So if you need the Azure plugin you
 shown in the OPTIONAL PACKAGES section.
 
 
-#### 2.3.4 From Deb package (Tested with Ubuntu 14.04 and 16.04)
+#### 2.3.4 From Deb package (Tested with Ubuntu 14.04, 16.04 and 18.04)
 
 Download the Deb package from [GitHub](https://github.com/grycap/im/releases/latest).
 Also remember to download the Debs of the RADL and TOSCA parser packages from its corresponding GitHub repositories: [RADL](https://github.com/grycap/radl/releases/latest) and [TOSCA parser](https://github.com/indigo-dc/tosca-parser/releases/latest).
@@ -304,15 +304,15 @@ or set the name of the script file (im_service.py) if the file is in the PATH
 ### 3 CONFIGURATION
 
 Check the parameters in $IM_PATH/etc/im.cfg or /etc/im/im.cfg.
-See [IM Manual](https://imdocs.readthedocs.io/en/latest/manual.html#configuration) to get a full 
+See [IM Manual](https://imdocs.readthedocs.io/en/latest/manual.html#configuration) to get a full
 reference of the configuration variables.
 
 Please pay attention to the next configuration variables, as they are the most important:
 
 DATA_DB - must be set to the URL to access the database to store the IM data. 
          Be careful if you have two different instances of the IM service running in the same machine!!.
-         It can be a MySQL DB: 'mysql://username:password@server/db_name',
-         SQLite: 'sqlite:///etc/im/inf.dat' or MongoDB: 'mongodb://username:password@server/db_name',
+         It can be a MySQL DB: `mysql://username:password@server/db_name`,
+         SQLite: `sqlite:///etc/im/inf.dat` or MongoDB: `mongodb://username:password@server/db_name`,
 
 
 #### 3.1 SECURITY
