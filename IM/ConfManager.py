@@ -76,10 +76,9 @@ class ConfManager(threading.Thread):
         self.max_ctxt_time = max_ctxt_time
         self._stop_thread = False
         self.ansible_process = None
-        self.failed_step = []
         self.logger = logging.getLogger('ConfManager')
 
-    def check_running_pids(self, vms_configuring, failed_step):
+    def check_running_pids(self, vms_configuring):
         """
         Update the status of the configuration processes
         """
@@ -98,7 +97,6 @@ class ConfManager(threading.Thread):
                         if vm.configured:
                             self.log_info("Configuration process of VM %s success." % vm.im_id)
                         elif vm.configured is False:
-                            failed_step.append(step)
                             self.log_info("Configuration process of VM %s failed." % vm.im_id)
                         else:
                             self.log_warn("Configuration process of VM %s in unfinished state." % vm.im_id)
@@ -116,14 +114,13 @@ class ConfManager(threading.Thread):
                         if vm.configured:
                             self.log_info("Configuration process of master node successfully finished.")
                         elif vm.configured is False:
-                            failed_step.append(step)
                             self.log_info("Configuration process of master node failed.")
                         else:
                             self.log_warn("Configuration process of master node in unfinished state.")
                         # Force to save the data to store the log data
                         IM.InfrastructureList.InfrastructureList.save_data(self.inf.id)
 
-        return failed_step, res
+        return res
 
     def stop(self):
         self._stop_thread = True
@@ -203,7 +200,6 @@ class ConfManager(threading.Thread):
     def run(self):
         self.log_info("Starting the ConfManager Thread")
 
-        self.failed_step = []
         last_step = None
         vms_configuring = {}
 
@@ -225,7 +221,7 @@ class ConfManager(threading.Thread):
                         vm.configured = False
                 return
 
-            self.failed_step, vms_configuring = self.check_running_pids(vms_configuring, self.failed_step)
+            vms_configuring = self.check_running_pids(vms_configuring)
 
             # If the queue is empty but there are vms configuring wait and test
             # again
@@ -242,13 +238,11 @@ class ConfManager(threading.Thread):
 
             # if this task is from a next step
             if last_step is not None and last_step < step:
-                if self.failed_step and sorted(self.failed_step)[-1] < step:
-                    self.log_info("Configuration of process of step %s failed, "
-                                  "ignoring tasks of step %s." % (sorted(self.failed_step)[-1], step))
-                    vm.configured = False
+                if vm.is_configured() is False:
+                    self.log_debug("Configuration process of step " + str(last_step) +
+                                   " failed, ignoring tasks of later steps.")
                 else:
-                    # Add the task again to the queue only if the last step was
-                    # OK
+                    # Add the task again to the queue only if the last step was OK
                     self.inf.add_ctxt_tasks([(step, prio, vm, tasks)])
 
                     # If there are any process running of last step, wait
@@ -256,8 +250,7 @@ class ConfManager(threading.Thread):
                         self.log_info("Waiting processes of step " + str(last_step) + " to finish.")
                         time.sleep(Config.CONFMAMAGER_CHECK_STATE_INTERVAL)
                     else:
-                        # if not, update the step, to go ahead with the new
-                        # step
+                        # if not, update the step, to go ahead with the new step
                         self.log_info("Step " + str(last_step) + " finished. Go to step: " + str(step))
                         last_step = step
             else:
