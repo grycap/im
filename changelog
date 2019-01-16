@@ -471,3 +471,5 @@ IM 1.8.0:
     * Add support to MongoDB.
     * Fix error Unable to get cloud-init contextualization to work with GCE in 1.7.5 & above.
     * Enable to force OpenID auth.
+    * Do not stop ctxt process in all VMs in case of failure in a previous step.
+    * Fix error contextualization never ends if a VM is deleted during context step.
