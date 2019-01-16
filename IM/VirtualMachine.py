@@ -913,7 +913,7 @@ class VirtualMachine:
                     stdout += f.read() + "\n"
                 self.log_error(stdout)
                 msg += stdout
-            except:
+            except Exception:
                 self.log_exception("Error getting stdout and stderr to guess why the agent output is not there.")
         except Exception as ex:
             self.log_exception("Error getting contextualization agent output: " + remote_dir + '/ctxt_agent.out')
