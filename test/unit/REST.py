@@ -51,6 +51,7 @@ from IM.REST import (RESTDestroyInfrastructure,
                      RESTStopInfrastructure,
                      RESTStartVM,
                      RESTStopVM,
+                     RESTRebootVM,
                      RESTGeVersion,
                      RESTCreateDiskSnapshot,
                      RESTImportInfrastructure,
@@ -672,6 +673,40 @@ class TestREST(unittest.TestCase):
         StopVM.side_effect = IncorrectVMException()
         res = RESTStopVM("1", "1")
         self.assertEqual(res, "Error stopping VM: Invalid VM ID")
+
+    @patch("IM.InfrastructureManager.InfrastructureManager.RebootVM")
+    @patch("bottle.request")
+    def test_RebootVM(self, bottle_request, StopVM):
+        """Test REST RebootVM."""
+        bottle_request.return_value = MagicMock()
+        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
+                                                    "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
+                                                    "username = user; password = pass")}
+
+        StopVM.return_value = ""
+
+        res = RESTRebootVM("1", "1")
+        self.assertEqual(res, "")
+
+        StopVM.side_effect = DeletedInfrastructureException()
+        res = RESTRebootVM("1", "1")
+        self.assertEqual(res, "Error rebooting VM: Deleted infrastructure.")
+
+        StopVM.side_effect = IncorrectInfrastructureException()
+        res = RESTRebootVM("1", "1")
+        self.assertEqual(res, "Error rebooting VM: Invalid infrastructure ID or access not granted.")
+
+        StopVM.side_effect = UnauthorizedUserException()
+        res = RESTRebootVM("1", "1")
+        self.assertEqual(res, "Error rebooting VM: Access to this infrastructure not granted.")
+
+        StopVM.side_effect = DeletedVMException()
+        res = RESTRebootVM("1", "1")
+        self.assertEqual(res, "Error rebooting VM: Deleted VM.")
+
+        StopVM.side_effect = IncorrectVMException()
+        res = RESTRebootVM("1", "1")
+        self.assertEqual(res, "Error rebooting VM: Invalid VM ID")
 
     def test_GeVersion(self):
         res = RESTGeVersion()

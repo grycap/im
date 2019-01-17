@@ -1044,3 +1044,14 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         except Exception as ex:
             self.log_exception("Error deleting image.")
             return (False, "Error deleting image.: %s" % str(ex))
+
+    def reboot(self, vm, auth_data):
+        node = self.get_node_with_id(vm.id, auth_data)
+        if node:
+            success = node.driver.ex_hard_reboot_node(node)
+            if success:
+                return (True, "")
+            else:
+                return (False, "Error in reboot operation")
+        else:
+            return (False, "VM not found with id: " + vm.id)

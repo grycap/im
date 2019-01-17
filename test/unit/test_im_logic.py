@@ -809,6 +809,8 @@ class TestIM(unittest.TestCase):
         self.assertEqual(res, "")
         res = IM.StopVM(infId, "0", auth0)
         self.assertEqual(res, "")
+        res = IM.RebootVM(infId, "0", auth0)
+        self.assertEqual(res, "")
 
         IM.DestroyInfrastructure(infId, auth0)
 
@@ -1089,6 +1091,12 @@ configure step2 (
         with self.assertRaises(Exception) as ex:
             IM.check_auth_data(user_auth)
         self.assertEqual(str(ex.exception), "Invalid username used for the InfrastructureManager.")
+
+        Config.FORCE_OIDC_AUTH = True
+        with self.assertRaises(Exception) as ex:
+            IM.check_auth_data(user_auth)
+        self.assertEqual(str(ex.exception), "No token provided for the InfrastructureManager.")
+        Config.FORCE_OIDC_AUTH = False
 
         inf = InfrastructureInfo()
         inf.id = "1"

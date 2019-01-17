@@ -830,28 +830,29 @@ class AzureCloudConnector(CloudConnector):
         return True, ""
 
     def stop(self, vm, auth_data):
-        try:
-            group_name = vm.id.split('/')[0]
-            vm_name = vm.id.split('/')[1]
-            credentials, subscription_id = self.get_credentials(auth_data)
-            compute_client = ComputeManagementClient(credentials, subscription_id)
-            compute_client.virtual_machines.power_off(group_name, vm_name)
-        except Exception as ex:
-            self.log_exception("Error stopping the VM")
-            return False, "Error stopping the VM: " + str(ex)
-
-        return True, ""
+        return self.vm_action(vm, 'stop', auth_data)
 
     def start(self, vm, auth_data):
+        return self.vm_action(vm, 'start', auth_data)
+
+    def reboot(self, vm, auth_data):
+        return self.vm_action(vm, 'reboot', auth_data)
+
+    def vm_action(self, vm, action, auth_data):
         try:
             group_name = vm.id.split('/')[0]
             vm_name = vm.id.split('/')[1]
             credentials, subscription_id = self.get_credentials(auth_data)
             compute_client = ComputeManagementClient(credentials, subscription_id)
-            compute_client.virtual_machines.start(group_name, vm_name)
+            if action == 'stop':
+                compute_client.virtual_machines.power_off(group_name, vm_name)
+            elif action == 'start':
+                compute_client.virtual_machines.start(group_name, vm_name)
+            elif action == 'reboot':
+                compute_client.virtual_machines.restart(group_name, vm_name)
         except Exception as ex:
-            self.log_exception("Error starting the VM")
-            return False, "Error starting the VM: " + str(ex)
+            self.log_exception("Error restarting the VM")
+            return False, "Error restarting the VM: " + str(ex)
 
         return True, ""
 

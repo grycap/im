@@ -245,6 +245,22 @@ class CloudConnector:
 
         raise NotImplementedError("Should have implemented this")
 
+    def reboot(self, vm, auth_data):
+        """ Reboots a VM
+
+                Arguments:
+                - vm(:py:class:`IM.VirtualMachine`): VM to stop.
+                - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
+
+                Returns: a tuple (success, vm).
+           - The first value is True if the operation finished successfully or false otherwise.
+           - The second value is a str with the ID of the stopped VM if the operation finished successfully
+             or an error message otherwise.
+
+        """
+
+        raise NotImplementedError("Should have implemented this")
+
     def create_snapshot(self, vm, disk_num, image_name, auto_delete, auth_data):
         """
         Create a snapshot of the specified num disk in a virtual machine.
@@ -341,6 +357,11 @@ class CloudConnector:
 
             if configure_name:
                 cloud_config = yaml.safe_load(radl.get_configure_by_name(configure_name).recipes)
+                if not isinstance(cloud_config, dict):
+                    # The cloud_init data is a shell script
+                    cloud_config = radl.get_configure_by_name(configure_name).recipes
+                    self.log_debug(cloud_config)
+                    return cloud_config
 
         # Only for those VMs with private IP
         if Config.SSH_REVERSE_TUNNELS and vm and not vm.hasPublicNet():

@@ -192,6 +192,8 @@ class TestOCCIConnector(TestCloudConnectorBase):
                 resp.status_code = 204
             elif params == "action=start":
                 resp.status_code = 200
+            elif params == "action=restart":
+                resp.status_code = 200
             elif url == "/storagelink/":
                 resp.status_code = 200
             elif url == "/storage/":
@@ -311,6 +313,9 @@ class TestOCCIConnector(TestCloudConnectorBase):
         self.assertTrue(success, msg="ERROR: updating VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
+        memory = vm.info.systems[0].getValue("memory.size")
+        self.assertEqual(memory, 1824522240)
+
     @patch('requests.request')
     @patch('IM.connectors.OCCI.KeyStoneAuth.get_keystone_uri')
     def test_40_stop(self, get_keystone_uri, requests):
@@ -345,6 +350,24 @@ class TestOCCIConnector(TestCloudConnectorBase):
         success, _ = occi_cloud.start(vm, auth)
 
         self.assertTrue(success, msg="ERROR: stopping VM info.")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
+    @patch('requests.request')
+    @patch('IM.connectors.OCCI.KeyStoneAuth.get_keystone_uri')
+    def test_52_reboot(self, get_keystone_uri, requests):
+        auth = Authentication([{'id': 'occi', 'type': 'OCCI', 'proxy': 'proxy', 'host': 'https://server.com:11443'}])
+        occi_cloud = self.get_occi_cloud()
+
+        inf = MagicMock()
+        vm = VirtualMachine(inf, "1", occi_cloud.cloud, "", "", occi_cloud, 1)
+
+        requests.side_effect = self.get_response
+
+        get_keystone_uri.return_value = None, None
+
+        success, _ = occi_cloud.reboot(vm, auth)
+
+        self.assertTrue(success, msg="ERROR: rebooting VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('requests.request')
@@ -477,6 +500,23 @@ users:
         occi_cloud = self.get_occi_cloud()
         res = occi_cloud.get_cloud_init_data(None, None, "pub_key", "user")
         self.assertEqual(res, expected_res)
+
+        radl_data = """
+system node ()
+configure node (
+@begin
+#!/bin/sh
+touch /tmp/hello
+@end
+)
+deploy node 1
+contextualize (
+    system node configure node with cloud_init
+)"""
+        radl = radl_parse.parse_radl(radl_data)
+        occi_cloud = self.get_occi_cloud()
+        res = occi_cloud.get_cloud_init_data(radl)
+        self.assertEqual(res, "\n#!/bin/sh\ntouch /tmp/hello\n")
 
         expected_res = """#cloud-config
 groups:

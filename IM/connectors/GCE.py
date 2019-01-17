@@ -854,25 +854,15 @@ class GCECloudConnector(CloudConnector):
             return False
 
     def start(self, vm, auth_data):
-        driver = self.get_driver(auth_data)
-
-        try:
-            node = driver.ex_get_node(vm.id)
-        except ResourceNotFoundError:
-            return (False, "VM " + str(vm.id) + " does not exist.")
-        except Exception as ex:
-            self.log_exception("Error getting VM %s" % vm.id)
-            return (False, "Error getting VM %s: %s" % (vm.id, str(ex)))
-
-        try:
-            driver.ex_start_node(node)
-        except Exception as ex:
-            self.log_exception("Error starting VM %s" % vm.id)
-            return (False, "Error starting VM %s: %s" % (vm.id, str(ex)))
-
-        return (True, "")
+        return self.vm_action(vm, 'start', auth_data)
 
     def stop(self, vm, auth_data):
+        return self.vm_action(vm, 'stop', auth_data)
+
+    def reboot(self, vm, auth_data):
+        return self.vm_action(vm, 'reboot', auth_data)
+
+    def vm_action(self, vm, action, auth_data):
         driver = self.get_driver(auth_data)
 
         try:
@@ -884,10 +874,15 @@ class GCECloudConnector(CloudConnector):
             return (False, "Error getting VM %s: %s" % (vm.id, str(ex)))
 
         try:
-            driver.ex_stop_node(node)
+            if action == 'stop':
+                driver.ex_stop_node(node)
+            elif action == 'start':
+                driver.ex_start_node(node)
+            elif action == 'reboot':
+                driver.reboot_node(node)
         except Exception as ex:
-            self.log_exception("Error stopping VM %s" % vm.id)
-            return (False, "Error stopping VM %s: %s" % (vm.id, str(ex)))
+            self.log_exception("Error in VM action %s" % vm.id)
+            return (False, "Error in VM action %s: %s" % (vm.id, str(ex)))
 
         return (True, "")
 

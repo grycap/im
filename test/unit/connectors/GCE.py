@@ -302,6 +302,26 @@ class TestGCEConnector(TestCloudConnectorBase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('libcloud.compute.drivers.gce.GCENodeDriver')
+    def test_52_reboot(self, get_driver):
+        auth = Authentication([{'id': 'one', 'type': 'GCE', 'username': 'user',
+                                'password': 'pass\npass', 'project': 'proj'}])
+        gce_cloud = self.get_gce_cloud()
+
+        inf = MagicMock()
+        vm = VirtualMachine(inf, "1", gce_cloud.cloud, "", "", gce_cloud, 1)
+
+        driver = MagicMock()
+        get_driver.return_value = driver
+
+        driver.ex_get_node.return_value = MagicMock()
+        driver.reboot_node.return_value = True
+
+        success, _ = gce_cloud.reboot(vm, auth)
+
+        self.assertTrue(success, msg="ERROR: stopping VM info.")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
+    @patch('libcloud.compute.drivers.gce.GCENodeDriver')
     @patch('libcloud.dns.drivers.google.GoogleDNSDriver')
     @patch('time.sleep')
     def test_60_finalize(self, sleep, get_dns_driver, get_driver):

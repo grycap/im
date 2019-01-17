@@ -86,10 +86,14 @@ get the messages with the IM with the authorisation data with the cloud provider
 
 Security can be activated both in the XMLRPC and REST APIs. Setting this variables:
 
+```sh
 XMLRCP_SSL = True
+```
 
 or
 
+```sh
 REST_SSL = True
+```
 
 And then set the variables: XMLRCP_SSL_* or REST_SSL_* to your certificates paths.

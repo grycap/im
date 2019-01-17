@@ -471,6 +471,29 @@ class TestEC2Connector(TestCloudConnectorBase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('IM.connectors.EC2.EC2CloudConnector.get_connection')
+    def test_52_reboot(self, get_connection):
+        auth = Authentication([{'id': 'ec2', 'type': 'EC2', 'username': 'user', 'password': 'pass'}])
+        ec2_cloud = self.get_ec2_cloud()
+
+        inf = MagicMock()
+        vm = VirtualMachine(inf, "us-east-1;id-1", ec2_cloud.cloud, "", "", ec2_cloud, 1)
+
+        conn = MagicMock()
+        get_connection.return_value = conn
+
+        reservation = MagicMock()
+        instance = MagicMock()
+        instance.update.return_value = True
+        instance.reboot.return_value = True
+        reservation.instances = [instance]
+        conn.get_all_instances.return_value = [reservation]
+
+        success, _ = ec2_cloud.start(vm, auth)
+
+        self.assertTrue(success, msg="ERROR: stopping VM info.")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
+    @patch('IM.connectors.EC2.EC2CloudConnector.get_connection')
     def test_55_alter(self, get_connection):
         radl_data = """
             network net ()
