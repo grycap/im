@@ -1088,6 +1088,43 @@ class InfrastructureManager:
             return ""
 
     @staticmethod
+    def RebootVM(inf_id, vm_id, auth):
+        """
+        Reboot the specified virtual machine in an infrastructure
+
+        Args:
+
+        - inf_id(str): infrastructure id.
+        - vm_id(str): virtual machine id.
+        - auth(Authentication): parsed authentication tokens.
+
+        Return(str): error messages; empty string means all was ok.
+        """
+        # First check the auth data
+        auth = InfrastructureManager.check_auth_data(auth)
+
+        InfrastructureManager.logger.info(
+            "Rebooting the VM id %s from the Inf ID: %s" % (vm_id, inf_id))
+
+        vm = InfrastructureManager.get_vm_from_inf(inf_id, vm_id, auth)
+        success = False
+        try:
+            (success, msg) = vm.reboot(auth)
+        except Exception as e:
+            msg = str(e)
+
+        if not success:
+            InfrastructureManager.logger.info(
+                "Inf ID: " + str(inf_id) + ": " +
+                "The VM %s cannot be rebooted: %s" % (vm_id, msg))
+            raise Exception("Error rebooting the VM: %s" % msg)
+        else:
+            InfrastructureManager.logger.info(
+                "Inf ID: " + str(inf_id) + ": " +
+                "The VM %s successfully rebooted" % vm_id)
+            return ""
+
+    @staticmethod
     def DestroyInfrastructure(inf_id, auth):
         """
         Destroy all virtual machines in an infrastructure.
@@ -1231,6 +1268,9 @@ class InfrastructureManager:
 
         if not im_auth:
             raise IncorrectVMCrecentialsException("No credentials provided for the InfrastructureManager.")
+
+        if Config.FORCE_OIDC_AUTH and "token" not in im_auth[0]:
+            raise IncorrectVMCrecentialsException("No token provided for the InfrastructureManager.")
 
         # First check if an OIDC token is included
         if "token" in im_auth[0]:

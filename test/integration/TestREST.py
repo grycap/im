@@ -400,6 +400,17 @@ class TestIM(unittest.TestCase):
         self.assertTrue(
             all_configured, msg="ERROR waiting the vm to be started (timeout).")
 
+    def test_91_reboot_vm(self):
+        # To assure the VM is rebooted
+        resp = self.create_request("PUT", "/infrastructures/" + self.inf_id + "/vms/0/reboot")
+        self.assertEqual(resp.status_code, 200,
+                         msg="ERROR rebooting the vm:" + resp.text)
+
+        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 60, [
+                                             VirtualMachine.RUNNING], ["/infrastructures/" + self.inf_id + "/vms/0"])
+        self.assertTrue(
+            all_configured, msg="ERROR waiting the vm to be rebooted (timeout).")
+
     def test_92_destroy(self):
         resp = self.create_request("DELETE", "/infrastructures/" + self.inf_id)
         self.assertEqual(resp.status_code, 200,

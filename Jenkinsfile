@@ -40,6 +40,7 @@ azure-storage
 pywinrm
 MySQL-python
 pyVmomi
+pymongo
 defusedxml'''
         tox_envs = """
 [testenv:pep8]

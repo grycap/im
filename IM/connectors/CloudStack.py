@@ -419,6 +419,17 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
         else:
             return (False, "VM not found with id: " + vm.id)
 
+    def reboot(self, vm, auth_data):
+        node = self.get_node_with_id(vm.id, auth_data)
+        if node:
+            success = node.reboot_node()
+            if success:
+                return (True, "")
+            else:
+                return (False, "Error in reboot operation")
+        else:
+            return (False, "VM not found with id: " + vm.id)
+
     def alterVM(self, vm, radl, auth_data):
         node = self.get_node_with_id(vm.id, auth_data)
         if node:

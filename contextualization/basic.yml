@@ -18,7 +18,7 @@
       ignore_errors: yes
       register: python_install
       changed_when: python_install.stdout_lines|length > 1
-      when: python_exists|failed
+      when: python_exists is failed
 
     # In case of redhat systems libselinux-python is needed
     - name: Install libselinux-python on redhat systems
@@ -61,6 +61,6 @@
   
     - name: Ubuntu force apt update (avoid apt lock)
       command: apt update
-      when: ansible_distribution == "Ubuntu" and apt_update|failed
+      when: ansible_distribution == "Ubuntu" and apt_update is failed
       become: yes
       become_method: sudo

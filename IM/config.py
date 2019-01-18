@@ -105,6 +105,7 @@ class Config:
     VERIFI_SSL = False
     SSH_REVERSE_TUNNELS = True
     ACTIVATE_XMLRPC = True
+    FORCE_OIDC_AUTH = False
 
 
 config = ConfigParser()

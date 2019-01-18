@@ -130,7 +130,6 @@ class SSH:
             Returns: a paramiko SSHClient connected with the server.
         """
         client = paramiko.SSHClient()
-        client.load_system_host_keys()
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
         if self.password and self.private_key_obj:
