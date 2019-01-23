@@ -141,25 +141,24 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 except:
                     pass
 
+            kwargs = {}
+            for key, value in parameters.items():
+                if value:
+                    if key in ['base_url', 'auth_token', 'service_type', 'image_url',
+                               'network_url', 'service_region', 'auth_version', 'auth_url']:
+                        key = 'ex_force_%s' % key
+                    elif key == 'domain':
+                        key = 'ex_domain_name'
+                    elif key == 'api_version':
+                        key = 'api_version'
+                    kwargs[key] = value
+
             # Workaround to OTC to enable to set service_name as None
-            service_name = parameters["service_name"]
-            if parameters["service_name"] == "None":
-                service_name = None
+            if parameters["service_name"] is not None and parameters["service_name"]:
+                kwargs['ex_force_service_name'] = parameters["service_name"]
 
             cls = get_driver(Provider.OPENSTACK)
-            driver = cls(username, password,
-                         ex_tenant_name=tenant,
-                         api_version=parameters['api_version'],
-                         ex_domain_name=parameters['domain'],
-                         ex_force_auth_url=parameters["auth_url"],
-                         ex_force_auth_version=parameters["auth_version"],
-                         ex_force_service_region=parameters["service_region"],
-                         ex_force_base_url=parameters["base_url"],
-                         ex_force_network_url=parameters["network_url"],
-                         ex_force_image_url=parameters["image_url"],
-                         ex_force_service_name=service_name,
-                         ex_force_service_type=parameters["service_type"],
-                         ex_force_auth_token=parameters["auth_token"])
+            driver = cls(username, password, ex_tenant_name=tenant, **kwargs)
 
             # Workaround to OTC to enable to set service_name as None
             if parameters["service_name"] == "None":
