@@ -477,3 +477,4 @@ IM 1.8.0:
 IM 1.8.1:
     * Add check YAML in reconfigure operation.
     * Fix error in ctxt process when adding a new disk.
+    * Fix error in OpenStack conn if image_url or network_url not set.
