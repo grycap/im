@@ -473,3 +473,7 @@ IM 1.8.0:
     * Enable to force OpenID auth.
     * Do not stop ctxt process in all VMs in case of failure in a previous step.
     * Fix error contextualization never ends if a VM is deleted during context step.
+
+IM 1.8.1:
+    * Add check YAML in reconfigure operation.
+    * Fix error in ctxt process when adding a new disk.
