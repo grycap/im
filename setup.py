@@ -47,10 +47,10 @@ datafiles.append(('/usr/bin', ['im_service.py']))
 
 try:
     long_desc = open('README.md').read()
-    long_desc_type='text/markdown'
+    long_desc_type = 'text/markdown'
 except:
     long_desc = "IM is a tool to manage virtual infrastructures on Cloud deployments"
-    long_desc_type='text/plain'
+    long_desc_type = 'text/plain'
 
 setup(name="IM", version=version,
       author='GRyCAP - Universitat Politecnica de Valencia',
