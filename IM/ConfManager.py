@@ -635,7 +635,7 @@ class ConfManager(threading.Thread):
                     res += '    register: format\n'
                     res += condition + '\n'
                     res += with_dict
-                    res += '  - file: path=' + disk_mount_path + ' state=directory recurse=yes\n'
+                    res += '  - file: path=' + disk_mount_path + ' state=directory\n'
                     res += '  - mount: name=' + disk_mount_path + ' src=/dev/{{item.key}}1 state=mounted fstype=' + \
                         disk_fstype + '\n'
                     res += condition + ' and not format is failed\n'
