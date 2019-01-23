@@ -612,6 +612,12 @@ class TestIM(unittest.TestCase):
         IM.Reconfigure(infId, reconf_radl, auth0)
         IM.Reconfigure(infId, reconf_radl, auth0, ['0'])
 
+        reconf_radl = """configure test (\n@begin\n---\n  - roles:\n      - {role: 't', a:'t:q'}\n@end\n)"""
+
+        with self.assertRaises(Exception) as ex:
+            IM.Reconfigure(infId, reconf_radl, auth0)
+        self.assertIn('Error parsing YAML: ', str(ex.exception))
+
         IM.DestroyInfrastructure(infId, auth0)
 
     def test_inf_removeresources(self):
