@@ -152,7 +152,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     kwargs[key] = value
 
             # Workaround to OTC to enable to set service_name as None
-            if parameters["service_name"] and parameters["service_name"] != "None":
+            if parameters["service_name"] is not None and parameters["service_name"] != "None":
                 kwargs['ex_force_service_name'] = parameters["service_name"]
 
             cls = get_driver(Provider.OPENSTACK)
