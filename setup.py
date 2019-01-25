@@ -47,9 +47,10 @@ datafiles.append(('/usr/bin', ['im_service.py']))
 
 try:
     long_desc = open('README.md').read()
+    long_desc_type = 'text/markdown'
 except:
     long_desc = "IM is a tool to manage virtual infrastructures on Cloud deployments"
-
+    long_desc_type = 'text/plain'
 
 setup(name="IM", version=version,
       author='GRyCAP - Universitat Politecnica de Valencia',
@@ -61,6 +62,7 @@ setup(name="IM", version=version,
       data_files=datafiles,
       license="GPL version 3, http://www.gnu.org/licenses/gpl-3.0.txt",
       long_description=long_desc,
+      long_description_content_type=long_desc_type,
       description="IM is a tool to manage virtual infrastructures on Cloud deployments",
       platforms=["any"],
       install_requires=["ansible >= 2.0", "paramiko >= 1.14", "PyYAML", suds_pkg, sqlite_pkg, "cheroot",
