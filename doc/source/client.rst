@@ -203,7 +203,7 @@ The available keys are:
 * ``type`` indicates the service that refers the credential. The services
   supported are ``InfrastructureManager``, ``VMRC``, ``OpenNebula``, ``EC2``,, ``FogBow``, 
   ``OpenStack``, ``OCCI``, ``LibCloud``, ``Docker``, ``GCE``, ``Azure``, ``AzureClassic``,
-   ``Kubernetes`` and ``vSphere``.
+  ``Kubernetes`` and ``vSphere``.
 
 * ``username`` indicates the user name associated to the credential. In EC2
   it refers to the *Access Key ID*. In GCE it refers to *Service Account’s Email Address*. 
@@ -327,7 +327,7 @@ An example of the auth file::
    # Azure (RM) site auth data
    id = azure; type = Azure; subscription_id = subscription-id; username = user@domain.com; password = pass
    # Kubernetes site auth data
-   id = kub; type = Kubernetes; host = http://server:8080; username = user; password = pass
+   id = kub; type = Kubernetes; host = http://server:8080; token = auth_token
    # FogBow auth data
    id = fog; type = FogBow; host = http://server:8182; proxy = file(/tmp/proxy.pem)
    # Azure Classic auth data
