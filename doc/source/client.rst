@@ -158,7 +158,11 @@ The :program:`im_client` is called like this::
    ``stopvm infId vmId``
       Stop (but not remove) the specified virtual machine ``vmId`` associated to the infrastructure with ID
       infrastructure with ID ``infId``.
-      
+
+   ``rebootvm infId vmId``
+      Reboot the specified virtual machine ``vmId`` associated to the infrastructure with ID
+      infrastructure with ID ``infId``.
+
    ``sshvm infId vmId [show_only]``
       Connect with SSH with the specified virtual machine ``vmId`` associated to the infrastructure with ID
       infrastructure with ID ``infId``. The ``show_only`` parameter is optional and is a flag to specify if ssh
