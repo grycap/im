@@ -378,7 +378,7 @@ if __name__ == '__main__':
     DELAY = 1
 
     if len(sys.argv) > 3:
-        DELAY = int(sys.argv[3])
+        DELAY = float(sys.argv[3])
         del sys.argv[3]
 
     if len(sys.argv) > 2:
