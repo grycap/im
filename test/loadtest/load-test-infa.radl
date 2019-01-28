@@ -57,11 +57,16 @@ configure im (
     - role: 'grycap.docker'
 
     tasks:
+    - name: Download test inf.dat
+      get_url: url=https://raw.githubusercontent.com/grycap/im/master/test/loadtest/inf.dat dest=/var/tmp/inf.dat
+
     - name: im container
       docker_container:
         name: im
         image: "grycap/im"
         state: started
+        volumes:
+        - "/var/tmp/inf.dat:/etc/im/inf.dat"
         ports:
         - "8800:8800"
         - "8899:8899"
