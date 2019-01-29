@@ -445,7 +445,7 @@ class EC2CloudConnector(CloudConnector):
                             except Exception as addex:
                                 self.log_warn("Exception adding SG rules. Probably the rules exists:" + str(addex))
                         else:
-                            if outport.get_remote_port() != 22:
+                            if outport.get_remote_port() != 22 or not network.isPublic():
                                 try:
                                     sg.authorize(outport.get_protocol(), outport.get_remote_port(),
                                                  outport.get_remote_port(), '0.0.0.0/0')

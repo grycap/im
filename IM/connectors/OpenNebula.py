@@ -400,7 +400,7 @@ class OpenNebulaCloudConnector(CloudConnector):
                                                                            outport.get_port_init(),
                                                                            outport.get_port_end()))
                                 else:
-                                    if outport.get_remote_port() != 22:
+                                    if outport.get_remote_port() != 22 or not network.isPublic():
                                         sg_template += ("RULE = [ PROTOCOL = %s, RULE_TYPE = inbound, "
                                                         "RANGE = %d:%d ]\n" % (outport.get_protocol().upper(),
                                                                                outport.get_remote_port(),
