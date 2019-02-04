@@ -105,9 +105,10 @@ spec:
       containers:
         - name: im-mysql
           image: mysql:5.6
-          requests:
-            memory: "512Mi"
-            cpu: "250m"
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
           ports:
           - containerPort: 3306
             name: mysql
