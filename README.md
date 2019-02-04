@@ -1,7 +1,7 @@
 # IM - Infrastructure Manager
 
 [![Build Status](http://jenkins.i3m.upv.es/buildStatus/icon?job=indigo/im-unit)](http://jenkins.i3m.upv.es/job/indigo/job/im-unit/)
-[![Build Status](https://jenkins.indigo-datacloud.eu:8080/buildStatus/icon?job=Pipeline-as-code/im/master)](https://jenkins.indigo-datacloud.eu:8080/job/Pipeline-as-code/im/master)
+[![Build Status](https://jenkins.indigo-datacloud.eu:8080/buildStatus/icon?job=Pipeline-as-code/im/master)](https://jenkins.indigo-datacloud.eu:8080/job/Pipeline-as-code/job/im/job/master/)
 [![License](https://img.shields.io/badge/license-GPL%20v3.0-brightgreen.svg)](LICENSE)
 [![Docs](https://img.shields.io/badge/docs-latest-brightgreen.svg)](https://imdocs.readthedocs.io/en/latest/)
 
