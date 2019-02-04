@@ -363,7 +363,7 @@ spec:
     spec:
       containers:
         - name: im-web
-          image: grycap/im-web:1.5.8-dev
+          image: grycap/im-web
           ports:
           - containerPort: 80
             protocol: TCP
