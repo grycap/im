@@ -819,6 +819,7 @@ class ConfManager(threading.Thread):
                             for ansible_host in self.inf.radl.ansible_hosts:
                                 (user, passwd, private_key) = ansible_host.getCredentialValues()
                                 ssh = SSHRetry(ansible_host.getHost(), user, passwd, private_key)
+                                ssh.sftp_mkdir(Config.REMOTE_CONF_DIR, 0o755)
                                 ssh.sftp_mkdir(remote_dir, 0o700)
                                 ssh.sftp_mkdir(remote_dir + "/IM")
                                 ssh.sftp_put_files(files)
