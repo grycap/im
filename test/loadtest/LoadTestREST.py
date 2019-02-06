@@ -40,8 +40,8 @@ RADL_FILE = TESTS_PATH + '/load-test.radl'
 AUTH_FILE = TESTS_PATH + '/auth.dat'
 HOSTNAME = "imservice"
 TEST_PORT = 8800
-MIN_SLEEP = 1
-MAX_SLEEP = 10
+MIN_SLEEP = 0
+MAX_SLEEP = 5
 
 
 class LoadTest(unittest.TestCase):
@@ -67,13 +67,13 @@ class LoadTest(unittest.TestCase):
             pass
 
     @staticmethod
-    def wait(mint=MIN_SLEEP, maxt=MAX_SLEEP):
+    def wait():
+        mint = MIN_SLEEP
+        maxt = MAX_SLEEP
         delay = random.uniform(mint, maxt)
         time.sleep(delay)
 
     def create_request(self, method, path, headers=None, body=None):
-        before = time.time()
-
         if headers is None:
             headers = {'AUTHORIZATION': self.auth_data}
         elif headers != {}:
@@ -81,6 +81,7 @@ class LoadTest(unittest.TestCase):
                 headers['AUTHORIZATION'] = self.auth_data
         url = "http://%s:%d%s" % (HOSTNAME, TEST_PORT, path)
 
+        before = time.time()
         resp = requests.request(method, url, headers=headers, data=body)
         resp_time = time.time() - before
         self.__class__.response_times.append(resp_time)
@@ -321,6 +322,13 @@ class LoadTest(unittest.TestCase):
         resp = self.create_request("DELETE", "/infrastructures/" + self.inf_id)
         self.assertEqual(resp.status_code, 200,
                          msg="ERROR destroying the infrastructure:" + resp.text)
+        self.print_response_times()
+
+    def print_response_times(self):
+        total = 0.0
+        for time in self.response_times:
+            total += time
+        print("Mean Time: %.4f" % (total / len(self.response_times)))
 
 
 def test(num_client):
@@ -336,8 +344,11 @@ if __name__ == '__main__':
     MAX_CLIENTS = 1
     DELAY = 1
 
+    if len(sys.argv) > 4:
+        MAX_SLEEP = float(sys.argv[4])
+        del sys.argv[4]
     if len(sys.argv) > 3:
-        DELAY = int(sys.argv[3])
+        DELAY = float(sys.argv[3])
         del sys.argv[3]
 
     if len(sys.argv) > 2:
