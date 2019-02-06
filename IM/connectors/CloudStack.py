@@ -58,7 +58,7 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
         """
         auths = auth_data.getAuthInfo(self.type, self.cloud.server)
         if not auths:
-            raise Exception("No auth data has been specified to OpenStack.")
+            raise Exception("No auth data has been specified to CloudStack.")
         else:
             auth = auths[0]
 

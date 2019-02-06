@@ -894,7 +894,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                         except Exception as ex:
                             self.log_warn("Exception adding SG rules: " + str(ex))
                     else:
-                        if outport.get_remote_port() != 22:
+                        if outport.get_remote_port() != 22 or not network.isPublic():
                             try:
                                 driver.ex_create_security_group_rule(sg, outport.get_protocol(),
                                                                      outport.get_remote_port(),
