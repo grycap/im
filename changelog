@@ -478,3 +478,7 @@ IM 1.8.1:
     * Add check YAML in reconfigure operation.
     * Fix error in ctxt process when adding a new disk.
     * Fix error in OpenStack conn if image_url or network_url not set.
+    
+IM 1.8.2:
+    * Fix error port 22 is not opened in private nets.
+    * Fix error in directory creation in case of using external ansible host.
