@@ -58,7 +58,7 @@ configure im (
 
     tasks:
     - name: Download test inf.dat
-      get_url: url=https://raw.githubusercontent.com/grycap/im/master/test/loadtest/inf.dat dest=/var/tmp/inf.dat
+      get_url: url=https://raw.githubusercontent.com/grycap/im/devel/test/loadtest/inf.dat dest=/var/tmp/inf.dat
 
     - name: im container
       docker_container:
