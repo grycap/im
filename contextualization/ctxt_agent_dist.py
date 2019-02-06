@@ -992,7 +992,7 @@ class CtxtAgent():
                 else:
                     CtxtAgent.logger.error("File %s does not exist" % vm_conf_data['remote_dir'] + "/ctxt_agent.out")
                     return False
-            except:
+            except Exception:
                 CtxtAgent.logger.exception("Error copying back the results")
                 return False
 
