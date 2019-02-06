@@ -508,7 +508,7 @@ class TestIM(unittest.TestCase):
 
     def test_60_create_no_context(self):
         """
-        Test the CreateInfrastructure IM function
+        Test the CreateInfrastructure IM function without context
         """
         radl = """
             network net ()
@@ -547,7 +547,7 @@ class TestIM(unittest.TestCase):
 
     def test_70_create_cloud_init(self):
         """
-        Test the CreateInfrastructure IM function
+        Test the CreateInfrastructure IM function with cloud init ctxt
         """
         radl = """
             network net ()
