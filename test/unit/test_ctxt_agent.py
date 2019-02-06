@@ -113,7 +113,8 @@ class TestCtxtAgent(unittest.TestCase):
     def test_10_wait_ssh_access(self, test_connectivity):
         CtxtAgent.logger = self.logger
         vm = self.gen_vm_data()
-        res = CtxtAgent.wait_ssh_access(vm)
+        ctxt_agent = CtxtAgent()
+        res = ctxt_agent.wait_ssh_access(vm)
         self.assertEqual(res, "init")
 
     @patch("socket.socket.connect_ex")
@@ -121,7 +122,8 @@ class TestCtxtAgent(unittest.TestCase):
         socket_connect_ex.return_value = 0
         CtxtAgent.logger = self.logger
         vm = self.gen_vm_data("windows")
-        res = CtxtAgent.wait_winrm_access(vm)
+        ctxt_agent = CtxtAgent()
+        res = ctxt_agent.wait_winrm_access(vm)
         self.assertTrue(res)
 
     @patch("contextualization.ctxt_agent.SSH.execute_timeout")
@@ -186,39 +188,42 @@ class TestCtxtAgent(unittest.TestCase):
 
     @patch("contextualization.ctxt_agent.SSH.test_connectivity")
     def test_70_contextualize_vm(self, test_connectivity):
+        ctxt_agent = CtxtAgent()
         CtxtAgent.logger = self.logger
+        ctxt_agent.logger = self.logger
         CtxtAgent.changeVMCredentials = MagicMock()
         CtxtAgent.changeVMCredentials.return_value = True
         CtxtAgent.LaunchAnsiblePlaybook = MagicMock()
         queue = MagicMock()
         queue.get.return_value = None, 0, None
         CtxtAgent.LaunchAnsiblePlaybook.return_value = (MagicMock(), queue)
-        CtxtAgent.wait_winrm_access = MagicMock()
-        CtxtAgent.wait_winrm_access.return_value = True
-        CtxtAgent.wait_ssh_access = MagicMock()
-        CtxtAgent.wait_ssh_access.return_value = True
+        ctxt_agent.wait_winrm_access = MagicMock()
+        ctxt_agent.wait_winrm_access.return_value = True
+        ctxt_agent.wait_ssh_access = MagicMock()
+        ctxt_agent.wait_ssh_access.return_value = 'init'
         CtxtAgent.removeRequiretty = MagicMock()
         CtxtAgent.removeRequiretty.return_value = True
 
-        res = CtxtAgent.contextualize_vm(self.gen_general_conf(), self.gen_vm_conf(["basic"]))
+        res = ctxt_agent.contextualize_vm(self.gen_general_conf(), self.gen_vm_conf(["basic"]))
         expected_res = {'SSH_WAIT': True, 'OK': True, 'CHANGE_CREDS': True, 'basic': True}
         self.assertEqual(res, expected_res)
 
-        res = CtxtAgent.contextualize_vm(self.gen_general_conf(), self.gen_vm_conf(["main", "front"]))
+        res = ctxt_agent.contextualize_vm(self.gen_general_conf(), self.gen_vm_conf(["main", "front"]))
         expected_res = {'OK': True, 'front': True, 'main': True}
         self.assertEqual(res, expected_res)
 
     def test_80_run(self):
-        CtxtAgent.logger = self.logger
-        CtxtAgent.contextualize_vm = MagicMock()
-        CtxtAgent.contextualize_vm.return_value = {'SSH_WAIT': True, 'OK': True, 'CHANGE_CREDS': True, 'basic': True}
+        ctxt_agent = CtxtAgent()
+        ctxt_agent.logger = self.logger
+        ctxt_agent.contextualize_vm = MagicMock()
+        ctxt_agent.contextualize_vm.return_value = {'SSH_WAIT': True, 'OK': True, 'CHANGE_CREDS': True, 'basic': True}
 
         with open("/tmp/gen_data.json", "w+") as f:
             json.dump(self.gen_general_conf(), f)
         with open("/tmp/vm_data.json", "w+") as f:
             json.dump(self.gen_vm_conf(["basic"]), f)
 
-        res = CtxtAgent.run("/tmp/gen_data.json", "/tmp/vm_data.json")
+        res = ctxt_agent.run("/tmp/gen_data.json", "/tmp/vm_data.json")
         self.assertTrue(res)
 
     def test_90_replace_vm_ip(self):
