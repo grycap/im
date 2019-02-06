@@ -26,14 +26,27 @@ disk.0.os.credentials.new.password = 'Tututu+01'
 )
 
 system infra (
-cpu.count>=8 and
-memory.size>=8G and
+cpu.count>=2 and
+memory.size>=2G and
 net_interface.0.connection = 'privada' and
 net_interface.0.dns_name = 'infra' and
 disk.0.os.name='linux' and
 disk.0.os.flavour='ubuntu' and
-disk.0.os.version>='16.04' and
-disk.0.os.credentials.new.password = 'Tututu+01'
+disk.0.os.version >= '16.04' and
+disk.0.os.credentials.new.password = 'Tututu+01' and
+disk.0.applications contains (name='ansible.modules.grycap.kubernetes')
+)
+
+system infrawn (
+cpu.count>=4 and
+memory.size>=8G and
+net_interface.0.connection = 'privada' and
+net_interface.0.dns_name = 'infrawn' and
+disk.0.os.name='linux' and
+disk.0.os.flavour='ubuntu' and
+disk.0.os.version >= '16.04' and
+disk.0.os.credentials.new.password = 'Tututu+01' and
+disk.0.applications contains (name='ansible.modules.grycap.kubernetes')
 )
 
 
@@ -48,15 +61,8 @@ configure im (
     roles:
      - { role: 'grycap.docker' }
     tasks:
-#    - name: Upgrade pip version
-#      pip: name=pip extra_args='-I' state=latest
-
-    - name: install docker-py
-    # user 1.9 version as ansible fails in case of 1.10 or higher 
-      pip: name=docker-py version=1.9.0
-
     - name: mysql container
-      docker:
+      docker_container:
         name: immysql
         image: "mysql:5.7"
         state: started
@@ -65,7 +71,7 @@ configure im (
             MYSQL_DATABASE: imdb 
 
     - name: im container
-      docker:
+      docker_container:
         name: im-{{item.xmlrpc}}
         image: "grycap/im"
         state: started
@@ -179,7 +185,7 @@ configure imclient (
         content: |
             type = InfrastructureManager; username = imuser01; password = invitado
             type = VMRC; host = http://servproject.i3m.upv.es:8080/vmrc/vmrc; username = demo; password = demo
-            id = docker; type = Docker; host = http://{{INFRA_NODE_IP}}:2375
+            id = kube; type = Kubernetes; host = https://{{INFRA_NODE_IP}}:6443; token = sometoken
         mode: 0644
 
     - name: Download LoadTest files
@@ -194,12 +200,33 @@ configure imclient (
 @end
 )
 
-configure infra (
+configure infrawn (
 @begin
   - roles:
-    - { role: 'grycap.docker', docker_opts: '-H tcp://0.0.0.0:2375' }
-  - tasks:
-    - command: docker -H tcp://localhost:2375 pull ubuntu:14.04
+    - role: 'grycap.kubernetes'
+      kube_type_of_node: 'wn'
+      kube_server: 'infra'
+@end
+)
+
+configure infra (
+@begin
+  - pre_tasks:
+    - firewalld: port=6443/tcp permanent=true state=enabled immediate=yes
+      when: ansible_os_family == "RedHat"
+      ignore_errors: yes
+
+    - name: Create auth file dir
+      file: path=/etc/kubernetes/pki state=directory mode=755 recurse=yes
+    - name: Create auth data file with an admin user
+      copy: content='sometoken,kubeuser,100,"users,system:masters"' dest=/etc/kubernetes/pki/auth mode=600
+
+    roles:
+    - role: 'grycap.kubernetes'
+      kube_server: 'infra'
+      kube_apiserver_options: [{option: "--insecure-port", value: "8080"}, {option: "--token-auth-file", value: "/etc/kubernetes/pki/auth"}]
+      kube_deploy_dashboard: false
+      kube_install_helm: false
 @end
 )
 
