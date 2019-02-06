@@ -1064,11 +1064,6 @@ class EC2CloudConnector(CloudConnector):
         region = vm.id.split(";")[0]
         instance_id = vm.id.split(";")[1]
 
-        try:
-            conn = self.get_connection(region, auth_data)
-        except:
-            pass
-
         # Check if the instance_id starts with "sir" -> spot request
         if (instance_id[0] == "s"):
             # Check if the request has been fulfilled and the instance has been
@@ -1077,6 +1072,7 @@ class EC2CloudConnector(CloudConnector):
 
             self.log_info("Check if the request has been fulfilled and the instance has been deployed")
             job_sir_id = instance_id
+            conn = self.get_connection(region, auth_data)
             request_list = conn.get_all_spot_instance_requests()
             for sir in request_list:
                 # TODO: Check if the request had failed and launch it in
@@ -1268,7 +1264,7 @@ class EC2CloudConnector(CloudConnector):
         if last:
             try:
                 self.delete_security_groups(conn, vm)
-            except:
+            except Exception:
                 self.log_exception("Error deleting security group.")
 
         public_key = vm.getRequestedSystem().getValue('disk.0.os.credentials.public_key')
@@ -1277,31 +1273,31 @@ class EC2CloudConnector(CloudConnector):
             try:
                 # only delete in case of the user do not specify the keypair name
                 conn.delete_key_pair(vm.keypair_name)
-            except:
+            except Exception:
                 self.log_exception("Error deleting keypair.")
 
         # Delete the DNS entries
         try:
             self.del_dns_entries(vm, auth_data)
-        except:
+        except Exception:
             self.log_exception("Error deleting DNS entries")
 
         # Delete the elastic IPs
         try:
             self.delete_elastic_ips(conn, vm)
-        except:
+        except Exception:
             self.log_exception("Error deleting elastic IPs.")
 
         # Delete the  spot instance requests
         try:
             self.cancel_spot_requests(conn, vm)
-        except:
+        except Exception:
             self.log_exception("Error canceling spot requests.")
 
         # Delete the EBS volumes
         try:
             self.delete_volumes(conn, volumes, instance_id)
-        except:
+        except Exception:
             self.log_exception("Error deleting EBS volumes")
 
         return (True, "")
