@@ -35,8 +35,8 @@ RADL_FILE = TESTS_PATH + '/load-test.radl'
 AUTH_FILE = TESTS_PATH + '/auth.dat'
 HOSTNAME = "imservice"
 TEST_PORT = 8800
-MIN_SLEEP = 1
-MAX_SLEEP = 10
+MIN_SLEEP = 0
+MAX_SLEEP = 5
 
 
 class LoadTest(unittest.TestCase):
@@ -62,7 +62,9 @@ class LoadTest(unittest.TestCase):
             pass
 
     @staticmethod
-    def wait(mint=MIN_SLEEP, maxt=MAX_SLEEP):
+    def wait():
+        mint = MIN_SLEEP
+        maxt = MAX_SLEEP
         delay = random.uniform(mint, maxt)
         time.sleep(delay)
 
@@ -93,6 +95,8 @@ class LoadTest(unittest.TestCase):
                 self.getinfo(inf_id)
                 self.getstate(inf_id)
 
+        self.print_response_times()
+
     def getinfo(self, inf_id):
         resp = self.create_request("GET", "/infrastructures/" + inf_id)
         self.assertEqual(resp.status_code, 200,
@@ -105,7 +109,12 @@ class LoadTest(unittest.TestCase):
         res = json.loads(resp.text)
         state = res['state']['state']
         vm_states = res['state']['vm_states']
-        print(inf_id, " ", state)
+
+    def print_response_times(self):
+        total = 0.0
+        for time in self.response_times:
+            total += time
+        print("Mean Time: %.4f" % (total / len(self.response_times)))
 
 
 def test(num_client):
@@ -120,6 +129,10 @@ if __name__ == '__main__':
     MAX_THREADS = 1
     MAX_CLIENTS = 1
     DELAY = 1
+
+    if len(sys.argv) > 4:
+        MAX_SLEEP = float(sys.argv[4])
+        del sys.argv[4]
 
     if len(sys.argv) > 3:
         DELAY = float(sys.argv[3])
