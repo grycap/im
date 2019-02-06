@@ -198,6 +198,9 @@ machine.  The supported features are:
 
 ``ansible_host = '<ansible_host id>'``
    Set the ansible master node that will contextualize the virtual machine.
+   The ansible host need to have ansible (2.0 or later) installed and the
+   ansible.cfg file configured with similar values than the ansible in the IM
+   server.
 
 ``image_type = vmdk|qcow|qcow2|raw``
    Constrain the virtual machine image disk format.
