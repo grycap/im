@@ -859,10 +859,11 @@ class OCCICloudConnector(CloudConnector):
                 for _, device, volume_id in volumes:
                     link_id = "im-%s" % str(uuid.uuid1())
                     body += ('Link: <%s/storage/%s>; rel="http://schemas.ogf.org/occi/infrastructure#storage"; '
+                             'self="/storagelink/%s"; '
                              'category="http://schemas.ogf.org/occi/infrastructure#storagelink"; '
                              'occi.core.target="%s/storage/%s"; '
                              'occi.core.source="%s/compute/%s"; '
-                             'occi.core.id="%s"' % (self.cloud.path, volume_id,
+                             'occi.core.id="%s"' % (self.cloud.path, volume_id, link_id,
                                                     self.cloud.path, volume_id,
                                                     self.cloud.path, compute_id, link_id))
                     if device:
@@ -898,10 +899,11 @@ class OCCICloudConnector(CloudConnector):
                     for net_id in net_ids:
                         link_id = "im-%s" % str(uuid.uuid1())
                         body += ('Link: <%s/network/%s>; rel="http://schemas.ogf.org/occi/infrastructure#network"; '
+                                 'self="/networkinterface/%s"; '
                                  'category="http://schemas.ogf.org/occi/infrastructure#networkinterface"; '
                                  'occi.core.target="%s/network/%s"; '
                                  'occi.core.source="%s/compute/%s"; '
-                                 'occi.core.id="%s"' % (self.cloud.path, net_id,
+                                 'occi.core.id="%s"' % (self.cloud.path, net_id, link_id,
                                                         self.cloud.path, net_id,
                                                         self.cloud.path, compute_id, link_id))
                         body += '\n'
