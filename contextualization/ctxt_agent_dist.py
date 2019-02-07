@@ -304,7 +304,7 @@ class CtxtAgent(CtxtAgentBase):
 
             self.logger.debug("Copying playbooks to VM: " + vm['ip'])
             try:
-                ssh_client = self.get_ssh(vm, changed_pass, pk_file)
+                ssh_client = self.get_ssh(vm, pk_file, changed_pass)
                 out, _, code = ssh_client.execute("mkdir -p %s" % general_conf_data['conf_dir'])
                 if code != 0:
                     raise Exception("Error creating dir %s: %s" % (general_conf_data['conf_dir'],
@@ -356,7 +356,7 @@ class CtxtAgent(CtxtAgentBase):
                     if ctxt_vm['os'] != "windows":
                         try:
                             self.logger.info("Copy Facts cache to: %s" % ctxt_vm['ip'])
-                            ssh_client = self.get_ssh(ctxt_vm, True, CtxtAgent.PK_FILE)
+                            ssh_client = self.get_ssh(ctxt_vm, CtxtAgent.PK_FILE, True)
                             ssh_client.sftp_mkdir(cache_dir)
                             ssh_client.sftp_put_dir(cache_dir, cache_dir)
 
