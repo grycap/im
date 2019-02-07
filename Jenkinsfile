@@ -197,7 +197,13 @@ commands = bandit -r IM -f html -o bandit.html"""
                     "Check new artifacts at:\n\t- Docker image: [${dockerhub_image_id}:${env.BRANCH_NAME}|https://hub.docker.com/r/${dockerhub_image_id}/tags/]",
                     ['wp3', 'preview-testbed', "IM-${env.BRANCH_NAME}"],
 		    'Task',
-		    'mariojmdavid'
+                    'mariojmdavid',
+                    ['wgcastell',
+                     'vkozlov',
+                     'dlugo',
+                     'keiichiito',
+                     'laralloret',
+                     'ignacioheredia']
                 )
             }
         }
