@@ -16,13 +16,11 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
-import time
 import sys
 import os
 import getpass
 import json
 from multiprocessing import Queue
-import yaml
 
 from IM.CtxtAgentBase import CtxtAgentBase
 
@@ -86,74 +84,6 @@ class CtxtAgent(CtxtAgentBase):
                           passwd, retries, inventory_file, user, vault_pass, extra_vars)
         t.start()
         return (t, result)
-
-    def install_ansible_modules(self, general_conf_data, playbook):
-        new_playbook = playbook
-        if 'ansible_modules' in general_conf_data and general_conf_data['ansible_modules']:
-            play_dir = os.path.dirname(playbook)
-            play_filename = os.path.basename(playbook)
-            new_playbook = os.path.join(play_dir, "mod_" + play_filename)
-
-            with open(playbook) as f:
-                yaml_data = yaml.safe_load(f)
-
-            galaxy_dependencies = []
-            needs_git = False
-            for galaxy_name in general_conf_data['ansible_modules']:
-                galaxy_name = galaxy_name.encode()
-                if galaxy_name:
-                    self.logger.debug("Install " + galaxy_name + " with ansible-galaxy.")
-
-                    if galaxy_name.startswith("git"):
-                        needs_git = True
-
-                    parts = galaxy_name.split("|")
-                    if len(parts) > 1:
-                        url = parts[0]
-                        rolename = parts[1]
-                        dep = {"src": url, "name": rolename}
-                    else:
-                        url = rolename = galaxy_name
-                        dep = {"src": url}
-
-                    parts = url.split(",")
-                    if len(parts) > 1:
-                        url = parts[0]
-                        version = parts[1]
-                        dep = {"src": url, "version": version}
-
-                    galaxy_dependencies.append(dep)
-
-            if needs_git:
-                task = {"yum": "name=git"}
-                task["name"] = "Install git with yum"
-                task["become"] = "yes"
-                task["when"] = 'ansible_os_family == "RedHat"'
-                yaml_data[0]['tasks'].append(task)
-                task = {"apt": "name=git"}
-                task["name"] = "Install git with apt"
-                task["become"] = "yes"
-                task["when"] = 'ansible_os_family == "Debian"'
-                yaml_data[0]['tasks'].append(task)
-
-            if galaxy_dependencies:
-                now = str(int(time.time() * 100))
-                filename = "/tmp/galaxy_roles_%s.yml" % now
-                yaml_deps = yaml.safe_dump(galaxy_dependencies, indent=2)
-                self.logger.debug("Galaxy depencies file: %s" % yaml_deps)
-                task = {"copy": 'dest=%s content="%s"' % (filename, yaml_deps)}
-                task["name"] = "Create YAML file to install the roles with ansible-galaxy"
-                yaml_data[0]['tasks'].append(task)
-
-                task = {"command": "ansible-galaxy install -r %s" % filename}
-                task["name"] = "Install galaxy roles"
-                task["become"] = "yes"
-                yaml_data[0]['tasks'].append(task)
-
-            with open(new_playbook, 'w+') as f:
-                yaml.safe_dump(yaml_data, f)
-
-        return new_playbook
 
     def contextualize_vm(self, general_conf_data, vm_conf_data):
         vault_pass = None

@@ -24,7 +24,6 @@ import json
 import threading
 from multiprocessing import Queue
 from multiprocessing.pool import ThreadPool
-import yaml
 
 from IM.CtxtAgentBase import CtxtAgentBase
 from IM.SSHRetry import SSHRetry
@@ -170,55 +169,6 @@ class CtxtAgent(CtxtAgentBase):
         except Exception:
             self.logger.exception('Error launch Ctxt agent on node: %s' % vm['ip'])
         return ssh_client, pid
-
-    def install_ansible_modules(self, general_conf_data, playbook):
-        new_playbook = playbook
-        if 'ansible_modules' in general_conf_data and general_conf_data['ansible_modules']:
-            play_dir = os.path.dirname(playbook)
-            play_filename = os.path.basename(playbook)
-            new_playbook = os.path.join(play_dir, "mod_" + play_filename)
-
-            with open(playbook) as f:
-                yaml_data = yaml.safe_load(f)
-
-            for galaxy_name in general_conf_data['ansible_modules']:
-                galaxy_name = galaxy_name.encode()
-                if galaxy_name:
-                    self.logger.debug("Install " + galaxy_name + " with ansible-galaxy.")
-
-                    parts = galaxy_name.split("|")
-                    if len(parts) > 1:
-                        url = parts[0]
-                        rolename = parts[1]
-
-                        task = {"copy": 'dest=/tmp/%s.yml content="- src: %s\\n  name: %s"' % (rolename,
-                                                                                               url, rolename)}
-                        task["name"] = "Create YAML file to install the %s role with ansible-galaxy" % rolename
-                        yaml_data[0]['tasks'].append(task)
-                        url = "-r /tmp/%s.yml" % rolename
-                    else:
-                        url = rolename = galaxy_name
-
-                    if galaxy_name.startswith("git"):
-                        task = {"yum": "name=git"}
-                        task["name"] = "Install git with yum"
-                        task["become"] = "yes"
-                        task["when"] = 'ansible_os_family == "RedHat"'
-                        yaml_data[0]['tasks'].append(task)
-                        task = {"apt": "name=git"}
-                        task["name"] = "Install git with apt"
-                        task["become"] = "yes"
-                        task["when"] = 'ansible_os_family == "Debian"'
-                        yaml_data[0]['tasks'].append(task)
-                    task = {"command": "ansible-galaxy -f install %s" % url}
-                    task["name"] = "Install %s galaxy role" % galaxy_name
-                    task["become"] = "yes"
-                    yaml_data[0]['tasks'].append(task)
-
-            with open(new_playbook, 'w+') as f:
-                yaml.safe_dump(yaml_data, f)
-
-        return new_playbook
 
     @staticmethod
     def set_ansible_connection_local(general_conf_data, vm):
