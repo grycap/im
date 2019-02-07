@@ -1369,7 +1369,7 @@ class KeyStoneAuth:
 
         try:
             headers = {"Accept": "application/json"}
-            resp = occi.create_request_static('GET', keystone_uri, None, headers, occi.verify_ssl)
+            resp = occi.create_request_static('GET', keystone_uri, auth, headers, occi.verify_ssl)
             if resp.status_code in [200, 300]:
                 versions = []
                 json_data = resp.json()
