@@ -152,18 +152,18 @@ class CtxtAgent(CtxtAgentBase):
         ssh_client = self.get_ssh(vm, pk_file, changed_pass_ok)
         # copy the config file
         if not vm['master']:
-            ssh_client.execute("mkdir -p %s" % os.path.dirname(self.conf_data_filename))
-            ssh_client.sftp_put(self.conf_data_filename, self.conf_data_filename)
+            ssh_client.execute("mkdir -p %s" % os.path.dirname(self.vm_conf_data_filename))
+            ssh_client.sftp_put(self.vm_conf_data_filename, self.vm_conf_data_filename)
 
         vault_export = ""
         if vault_pass:
             vault_export = "export VAULT_PASS='%s' && " % vault_pass
         pid = None
-        vm_dir = os.path.abspath(os.path.dirname(self.conf_data_filename))
+        vm_dir = os.path.abspath(os.path.dirname(self.vm_conf_data_filename))
         remote_dir = os.path.abspath(os.path.dirname(self.conf_data_filename))
         try:
             (pid, _, _) = ssh_client.execute(vault_export + "nohup python " + remote_dir + "/ctxt_agent_dist.py " +
-                                             self.conf_data_filename + " " + self.conf_data_filename +
+                                             self.conf_data_filename + " " + self.vm_conf_data_filename +
                                              " 1 > " + vm_dir + "/stdout 2> " + vm_dir +
                                              "/stderr < /dev/null & echo -n $!")
         except Exception:
@@ -382,7 +382,7 @@ class CtxtAgent(CtxtAgentBase):
                         res_data['CHANGE_CREDS'] = self.changeVMCredentials(ctxt_vm, None)
                         self.logger.info("Windows VM do not install Ansible.")
                     elif not ctxt_vm['master']:
-                        vm_dir = os.path.abspath(os.path.dirname(self.conf_data_filename))
+                        vm_dir = os.path.abspath(os.path.dirname(self.vm_conf_data_filename))
                         # Create a temporary log file
                         with open(vm_dir + "/ctxt_agent.log", "w+") as f:
                             f.write("Waiting SSH access to VM: " + ctxt_vm['ip'])
