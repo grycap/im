@@ -19,7 +19,7 @@
 import paramiko
 try:
     import scp
-except:
+except Exception:
     pass
 import os
 try:
@@ -573,7 +573,7 @@ class SSH:
             transport = client.get_transport()
             sftp = paramiko.SFTPClient.from_transport(transport)
             sftp_avail = transport.active
-        except:
+        except Exception:
             sftp_avail = False
 
         if sftp_avail:
