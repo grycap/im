@@ -803,6 +803,7 @@ class ConfManager(threading.Thread):
                         remote_dir = Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/"
                         self.log_info("Copy the contextualization agent files")
                         files = []
+                        files.append((Config.IM_PATH + "/CtxtAgentBase.py", remote_dir + "/IM/CtxtAgentBase.py"))
                         files.append((Config.IM_PATH + "/SSH.py", remote_dir + "/IM/SSH.py"))
                         files.append((Config.IM_PATH + "/SSHRetry.py", remote_dir + "/IM/SSHRetry.py"))
                         files.append((Config.IM_PATH + "/retry.py", remote_dir + "/IM/retry.py"))
