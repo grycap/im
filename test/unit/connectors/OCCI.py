@@ -516,7 +516,7 @@ contextualize (
         radl = radl_parse.parse_radl(radl_data)
         occi_cloud = self.get_occi_cloud()
         res = occi_cloud.get_cloud_init_data(radl)
-        self.assertEqual(res, "\n#!/bin/sh\ntouch /tmp/hello\n")
+        self.assertEqual(res, "#!/bin/sh\ntouch /tmp/hello")
 
         expected_res = """#cloud-config
 groups:
