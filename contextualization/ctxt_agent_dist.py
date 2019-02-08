@@ -34,7 +34,7 @@ class CtxtAgent(CtxtAgentBase):
     MAX_SIMULTANEOUS_SSH = -1
 
     def __init__(self, conf_data_filename, vm_conf_data_filename):
-        self.conf_data_filename = os.path.abspath(conf_data_filename)
+        CtxtAgentBase.__init__(self, conf_data_filename)
         self.vm_conf_data_filename = os.path.abspath(vm_conf_data_filename)
 
     def wait_thread(self, thread_data, general_conf_data, copy, output=None, poll_delay=1, copy_step=10):
