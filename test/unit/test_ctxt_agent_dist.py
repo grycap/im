@@ -136,7 +136,7 @@ class TestCtxtAgent(unittest.TestCase):
         self.assertTrue(res)
 
     @patch('IM.ansible_utils.ansible_launcher.AnsibleThread')
-    @patch("contextualization.ctxt_agent_dist.Queue")
+    @patch("IM.CtxtAgentBase.Queue")
     @patch("IM.CtxtAgentBase.SSH.test_connectivity")
     def test_50_launch_ansible_thread(self, test_connectivity, queue, ansible_thread):
         ctxt_agent = CtxtAgent("", "/tmp/conf.dat")

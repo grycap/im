@@ -20,7 +20,6 @@ import sys
 import os
 import getpass
 import json
-from multiprocessing import Queue
 
 from IM.CtxtAgentBase import CtxtAgentBase
 
@@ -46,44 +45,6 @@ class CtxtAgent(CtxtAgentBase):
                 self.logger.error(output)
 
         return return_code == 0
-
-    def LaunchAnsiblePlaybook(self, output, remote_dir, playbook_file, vm, threads, inventory_file,
-                              pk_file, retries, change_pass_ok, vault_pass):
-        self.logger.debug('Call Ansible')
-
-        extra_vars = {'IM_HOST': vm['ip'] + "_" + str(vm['id'])}
-        user = None
-        if vm['os'] == "windows":
-            gen_pk_file = None
-            passwd = vm['passwd']
-            if 'new_passwd' in vm and vm['new_passwd'] and change_pass_ok:
-                passwd = vm['new_passwd']
-        else:
-            passwd = vm['passwd']
-            if 'new_passwd' in vm and vm['new_passwd'] and change_pass_ok:
-                passwd = vm['new_passwd']
-            if pk_file:
-                gen_pk_file = pk_file
-            else:
-                if vm['private_key'] and not vm['passwd']:
-                    gen_pk_file = "/tmp/pk_" + vm['ip'] + ".pem"
-                    pk_out = open(gen_pk_file, 'w')
-                    pk_out.write(vm['private_key'])
-                    pk_out.close()
-                    os.chmod(gen_pk_file, 0o600)
-                else:
-                    gen_pk_file = None
-
-        # Set local_tmp dir different for any VM
-        os.environ['DEFAULT_LOCAL_TMP'] = remote_dir + "/.ansible_tmp"
-        # it must be set before doing the import
-        from IM.ansible_utils.ansible_launcher import AnsibleThread
-
-        result = Queue()
-        t = AnsibleThread(result, output, playbook_file, threads, gen_pk_file,
-                          passwd, retries, inventory_file, user, vault_pass, extra_vars)
-        t.start()
-        return (t, result)
 
     def contextualize_vm(self, general_conf_data, vm_conf_data):
         vault_pass = None
