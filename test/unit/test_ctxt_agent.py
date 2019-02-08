@@ -144,7 +144,7 @@ class TestCtxtAgent(unittest.TestCase):
         self.assertIn("total", str(res))
 
     @patch('IM.ansible_utils.ansible_launcher.AnsibleThread')
-    @patch("contextualization.ctxt_agent.Queue")
+    @patch("IM.CtxtAgentBase.Queue")
     def test_50_launch_ansible_thread(self, queue, ansible_thread):
         ctxt_agent = CtxtAgent(None)
         ctxt_agent.logger = self.logger
@@ -257,27 +257,26 @@ class TestCtxtAgent(unittest.TestCase):
         ctxt_agent = CtxtAgent("")
         ctxt_agent.logger = self.logger
         general_conf_data = self.gen_general_conf()
-        general_conf_data['ansible_modules'] = ["ansible_role"]
+        general_conf_data['ansible_modules'] = ["ansible_role",
+                                                "git+https://github.com/micafer/ansible-role-hadoop|hadoop"]
 
         with open("/tmp/playbook.yaml", 'w') as f:
             f.write("- tasks: []")
 
         res = ctxt_agent.install_ansible_modules(general_conf_data, "/tmp/playbook.yaml")
         self.assertEqual(res, "/tmp/mod_playbook.yaml")
-        
+
         with open("/tmp/mod_playbook.yaml", 'r') as f:
             data = f.read()
-        exp_res = [{'tasks': [{'copy': 'dest=/tmp/galaxy_roles_154955474563.yml content="- {src: ansible_role}\n"',
-                               'name': 'Create YAML file to install the roles with ansible-galaxy'},
-                               {'become': 'yes',
-                                'command': 'ansible-galaxy install -r /tmp/galaxy_roles_154955474563.yml',
-                                'name': 'Install galaxy roles'}]}] 
         yaml_data = yaml.safe_load(data)
-        self.assertEqual(yaml_data[0]['tasks'][0]['copy'][:23], "dest=/tmp/galaxy_roles_")
-        self.assertEqual(yaml_data[0]['tasks'][0]['copy'][-23:], '- {src: ansible_role}\n"')
-        self.assertEqual(yaml_data[0]['tasks'][1]['command'][:44], "ansible-galaxy install -r /tmp/galaxy_roles_")
+        self.assertEqual(yaml_data[0]['tasks'][0]['package'], "name=git state=present")
+        self.assertEqual(yaml_data[0]['tasks'][1]['copy'][:23], "dest=/tmp/galaxy_roles_")
+        self.assertEqual(yaml_data[0]['tasks'][1]['copy'][-100:], '"- {src: ansible_role}\n- {name: hadoop, src: '
+                         '\'git+https://github.com/micafer/ansible-role-hadoop\'}\n"')
+        self.assertEqual(yaml_data[0]['tasks'][2]['command'][:44], "ansible-galaxy install -r /tmp/galaxy_roles_")
 
         os.unlink(res)
+
 
 if __name__ == '__main__':
     unittest.main()
