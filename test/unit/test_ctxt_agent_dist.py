@@ -16,6 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import threading
 import unittest
 import sys
 import logging
@@ -109,36 +110,50 @@ class TestCtxtAgent(unittest.TestCase):
         vm_conf_data['new_passwd'] = "new_passwd"
         return vm_conf_data
 
+    @patch("IM.CtxtAgentBase.SSH.execute")
+    @patch("IM.CtxtAgentBase.SSH.sftp_put")
+    def test_launch_ansible_remote(self, sftp_put, execute):
+        ctxt_agent = CtxtAgent("", "")
+        ctxt_agent.logger = self.logger
+        execute.return_value = ("pid", "", "")
+
+        with open("/tmp/gen_data.json", "w+") as f:
+            json.dump(self.gen_general_conf(), f)
+        with open("/tmp/vm_data.json", "w+") as f:
+            json.dump(self.gen_vm_conf(["basic"]), f)
+        ctxt_agent.vm_conf_data_filename = "/tmp/gen_data.json"
+        ctxt_agent.conf_data_filename = "/tmp/vm_data.json"
+
+        vm = self.gen_vm_data()
+        res = ctxt_agent.LaunchRemoteInstallAnsible(vm, None, False)
+        self.assertEqual(res[1], "pid")
+
+    @patch("contextualization.ctxt_agent_dist.SSHRetry.execute")
     @patch("IM.CtxtAgentBase.SSH.test_connectivity")
-    def test_10_wait_ssh_access(self, test_connectivity):
+    @patch("contextualization.ctxt_agent_dist.SSHRetry.sftp_chmod")
+    @patch("contextualization.ctxt_agent_dist.SSHRetry.sftp_put_dir")
+    def test_copy_playbooks(self, sftp_put_dir, sftp_chmod, test_connectivity, execute):
         ctxt_agent = CtxtAgent("", "")
         ctxt_agent.logger = self.logger
-        vm = self.gen_vm_data()
-        res = ctxt_agent.wait_ssh_access(vm)
-        self.assertEqual(res, "init")
+        execute.return_value = "out", "err", 0
 
-    @patch("socket.socket.connect_ex")
-    def test_20_wait_winrm_access(self, socket_connect_ex):
-        ctxt_agent = CtxtAgent("", "")
-        ctxt_agent.logger = self.logger
-        socket_connect_ex.return_value = 0
-        vm = self.gen_vm_data("windows")
-        res = ctxt_agent.wait_winrm_access(vm)
-        self.assertTrue(res)
-
-    @patch("IM.CtxtAgentBase.SSH.execute_timeout")
-    def test_30_removeRequiretty(self, execute_timeout):
-        ctxt_agent = CtxtAgent("", "")
-        ctxt_agent.logger = self.logger
-        execute_timeout.return_value = "", "", 0
+        general_conf_data = self.gen_general_conf()
         vm = self.gen_vm_data()
-        res = ctxt_agent.removeRequiretty(vm, None, False)
-        self.assertTrue(res)
+        lock = threading.Lock()
+        errors = []
+        ctxt_agent.copy_playbooks(vm, general_conf_data, errors, lock)
+        self.assertEqual(errors, [])
+
+    @patch("IM.ansible_utils.ansible_launcher.AnsibleThread")
+    def test_gen_facts_cache(self, ansible_thread):
+        ctxt_agent = CtxtAgent("", "")
+        ctxt_agent.logger = self.logger
+        ctxt_agent.gen_facts_cache('/tmp', '', None)
 
     @patch('IM.ansible_utils.ansible_launcher.AnsibleThread')
     @patch("IM.CtxtAgentBase.Queue")
     @patch("IM.CtxtAgentBase.SSH.test_connectivity")
-    def test_50_launch_ansible_thread(self, test_connectivity, queue, ansible_thread):
+    def test_launch_ansible_thread(self, test_connectivity, queue, ansible_thread):
         ctxt_agent = CtxtAgent("", "/tmp/conf.dat")
         ctxt_agent.logger = self.logger
         vm = self.gen_vm_data()
@@ -155,38 +170,12 @@ class TestCtxtAgent(unittest.TestCase):
         res = ctxt_agent.wait_thread(thread, self.gen_general_conf(), True)
         self.assertEqual(res, True)
 
-    @patch("IM.CtxtAgentBase.SSH.execute_timeout")
-    @patch("IM.CtxtAgentBase.SSH.execute")
-    @patch("winrm.Session")
-    def test_60_changeVMCredentials(self, winrm_session, execute, execute_timeout):
-        ctxt_agent = CtxtAgent("", "")
-        ctxt_agent.logger = self.logger
-        execute.return_value = "", "", 0
-        execute_timeout.return_value = "", "", 0
-        vm = self.gen_vm_data()
-        res = ctxt_agent.changeVMCredentials(vm, None)
-        self.assertTrue(res)
-
-        vm = self.gen_vm_data()
-        del vm['new_passwd']
-        vm['new_public_key'] = "new_public_key"
-        vm['new_private_key'] = "new_private_key"
-        res = ctxt_agent.changeVMCredentials(vm, None)
-        self.assertTrue(res)
-
-        session = MagicMock()
-        req = MagicMock
-        req.status_code = 0
-        session.run_cmd.return_value = req
-        winrm_session.return_value = session
-        vm = self.gen_vm_data("windows")
-        res = ctxt_agent.changeVMCredentials(vm, None)
-        self.assertTrue(res)
-
     @patch("IM.CtxtAgentBase.SSH.test_connectivity")
     @patch("contextualization.ctxt_agent_dist.SSHRetry.execute")
     @patch("contextualization.ctxt_agent_dist.SSHRetry.sftp_put")
-    def test_70_contextualize_vm(self, sftp_put, execute, test_connectivity):
+    @patch("contextualization.ctxt_agent_dist.SSHRetry.sftp_mkdir")
+    @patch("contextualization.ctxt_agent_dist.SSHRetry.sftp_put_dir")
+    def test_contextualize_vm(self, sftp_put_dir, sftp_mkdir, sftp_put, execute, test_connectivity):
         ctxt_agent = CtxtAgent("/tmp/gconf.dat", "/tmp/conf.dat")
         ctxt_agent.logger = self.logger
         ctxt_agent.changeVMCredentials = MagicMock()
@@ -233,8 +222,12 @@ class TestCtxtAgent(unittest.TestCase):
         expected_res = {'OK': True, 'front': True, 'main': True}
         self.assertEqual(res, expected_res)
 
+        res = ctxt_agent.contextualize_vm(self.gen_general_conf(), self.gen_vm_conf(["copy_facts_cache"]), ctxt_vm, 0)
+        expected_res = {'OK': True, 'copy_facts_cache': True}
+        self.assertEqual(res, expected_res)
+
     @patch("IM.CtxtAgentBase.SSH.sftp_put")
-    def test_80_run(self, sftp_put):
+    def test_run(self, sftp_put):
         ctxt_agent = CtxtAgent("/tmp/gen_data.json", "/tmp/vm_data.json")
         ctxt_agent.logger = self.logger
         ctxt_agent.contextualize_vm = MagicMock()
@@ -252,7 +245,7 @@ class TestCtxtAgent(unittest.TestCase):
         res = ctxt_agent.run(1)
         self.assertTrue(res)
 
-    def test_90_replace_vm_ip(self):
+    def test_replace_vm_ip(self):
         ctxt_agent = CtxtAgent("/tmp/gen_data.json", "")
         vm_data = self.gen_vm_data()
 
