@@ -144,8 +144,7 @@ class LibCloudCloudConnector(CloudConnector):
         else:
             return None
 
-    @staticmethod
-    def update_system_info_from_instance(system, instance_type):
+    def update_system_info_from_instance(self, system, instance_type):
         """
         Update the features of the system with the information of the instance_type
         """
