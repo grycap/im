@@ -1372,7 +1372,10 @@ class ConfManager(threading.Thread):
             for req_app in s.getApplications():
                 if req_app.getValue("name").startswith("ansible.modules."):
                     # Get the modules specified by the user in the RADL
-                    modules.append(req_app.getValue("name")[16:])
+                    app_name = req_app.getValue("name")[16:]
+                    if req_app.getValue("version"):
+                        app_name += ",%s" % req_app.getValue("version")
+                    modules.append(app_name)
                 else:
                     # Get the info about the apps from the recipes DB
                     vm_modules, _ = Recipe.getInfoApps([req_app])
