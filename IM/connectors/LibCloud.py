@@ -160,7 +160,8 @@ class LibCloudCloudConnector(CloudConnector):
         system.addFeature(Feature("instance_type", "=",
                                   instance_type.name), conflict="other", missing="other")
 
-    def get_image_id(self, path):
+    @staticmethod
+    def get_image_id(path):
         """
         Get the ID of the image to use from the location of the VMI
 
@@ -519,7 +520,8 @@ class LibCloudCloudConnector(CloudConnector):
         else:
             return (False, "VM not found with id: " + vm.id)
 
-    def wait_volume(self, volume, state='available', timeout=60):
+    @staticmethod
+    def wait_volume(volume, state='available', timeout=60):
         """
         Wait a volume (with the state extra parameter) to be in certain state.
 
@@ -605,7 +607,8 @@ class LibCloudCloudConnector(CloudConnector):
                 "Error creating or attaching the volume to the node")
             return False
 
-    def get_node_location(self, node):
+    @staticmethod
+    def get_node_location(node):
         """
         Get the location of a node
         Currently only works in EC2

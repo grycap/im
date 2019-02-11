@@ -138,7 +138,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 try:
                     import ssl
                     ssl._create_default_https_context = ssl._create_unverified_context
-                except:
+                except Exception:
                     pass
 
             kwargs = {}
@@ -954,7 +954,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             else:
                 # If this is not the last vm, we skip this step
                 self.log_info("There are active instances. Not removing the SG")
-        except:
+        except Exception:
             self.log_exception("Error deleting security groups.")
 
         return (True, "")
