@@ -394,6 +394,18 @@ class CloudConnector:
         else:
             return None
 
+    @staticmethod
+    def get_instance_tags(system):
+        tags = {}
+        if system.getValue('instance_tags'):
+            keypairs = system.getValue('instance_tags').split(",")
+            for keypair in keypairs:
+                parts = keypair.split("=")
+                key = parts[0].strip()
+                value = parts[1].strip()
+                tags[key] = value
+        return tags
+
     def log_msg(self, level, msg, exc_info=0):
         msg = "Inf ID: %s: %s" % (self.inf.id, msg)
         self.logger.log(level, msg, exc_info=exc_info)

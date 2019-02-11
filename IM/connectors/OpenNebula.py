@@ -588,13 +588,9 @@ class OpenNebulaCloudConnector(CloudConnector):
         ''' % (name, cpu, cpu, memory, arch, disks, ConfigOpenNebula.TEMPLATE_OTHER)
 
         user_template = ""
-        if system.getValue('instance_tags'):
-            keypairs = system.getValue('instance_tags').split(",")
-            for keypair in keypairs:
-                parts = keypair.split("=")
-                key = parts[0].strip()
-                value = parts[1].strip()
-                user_template += '%s = "%s", ' % (key, value)
+        tags = self.get_instance_tags(system)
+        for key, value in tags.items():
+            user_template += '%s = "%s", ' % (key, value)
 
         if user_template:
             res += "\nUSER_TEMPLATE = [%s]\n" % user_template[:-2]

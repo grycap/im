@@ -40,6 +40,16 @@ class LibCloudCloudConnector(CloudConnector):
     type = "LibCloud"
     """str with the name of the provider."""
 
+    VM_STATE_MAP = {
+        NodeState.RUNNING: VirtualMachine.RUNNING,
+        NodeState.REBOOTING: VirtualMachine.RUNNING,
+        NodeState.PENDING: VirtualMachine.PENDING,
+        NodeState.TERMINATED: VirtualMachine.OFF,
+        NodeState.STOPPED: VirtualMachine.STOPPED,
+        NodeState.ERROR: VirtualMachine.FAILED
+    }
+    """State map"""
+
     def __init__(self, cloud_info, inf):
         self.driver = None
         CloudConnector.__init__(self, cloud_info, inf)
@@ -144,21 +154,22 @@ class LibCloudCloudConnector(CloudConnector):
         else:
             return None
 
-    def update_system_info_from_instance(self, system, instance_type):
+    @staticmethod
+    def update_system_info_from_instance(system, instance_type):
         """
         Update the features of the system with the information of the instance_type
         """
-        system.addFeature(Feature(
-            "memory.size", "=", instance_type.ram, 'M'), conflict="other", missing="other")
-        if instance_type.disk:
+        if instance_type:
             system.addFeature(Feature(
-                "disk.0.free_size", "=", instance_type.disk, 'G'), conflict="other", missing="other")
-        if instance_type.price:
-            system.addFeature(
-                Feature("price", "=", instance_type.price), conflict="me", missing="other")
-
-        system.addFeature(Feature("instance_type", "=",
-                                  instance_type.name), conflict="other", missing="other")
+                "memory.size", "=", instance_type.ram, 'M'), conflict="other", missing="other")
+            if instance_type.disk:
+                system.addFeature(Feature(
+                    "disk.0.free_size", "=", instance_type.disk, 'G'), conflict="other", missing="other")
+            if instance_type.price:
+                system.addFeature(
+                    Feature("price", "=", instance_type.price), conflict="me", missing="other")
+            system.addFeature(Feature("instance_type", "=",
+                                      instance_type.name), conflict="other", missing="other")
 
     @staticmethod
     def get_image_id(path):
@@ -301,27 +312,12 @@ class LibCloudCloudConnector(CloudConnector):
     def updateVMInfo(self, vm, auth_data):
         node = self.get_node_with_id(vm.id, auth_data)
         if node:
-            if node.state == NodeState.RUNNING or node.state == NodeState.REBOOTING:
-                res_state = VirtualMachine.RUNNING
-            elif node.state == NodeState.PENDING:
-                res_state = VirtualMachine.PENDING
-            elif node.state == NodeState.TERMINATED:
-                res_state = VirtualMachine.OFF
-            elif node.state == NodeState.STOPPED:
-                res_state = VirtualMachine.STOPPED
-            elif node.state == NodeState.ERROR:
-                res_state = VirtualMachine.FAILED
-            else:
-                res_state = VirtualMachine.UNKNOWN
-
-            vm.state = res_state
+            vm.state = self.VM_STATE_MAP.get(node.state, VirtualMachine.UNKNOWN)
 
             if node.size:
-                self.update_system_info_from_instance(
-                    vm.info.systems[0], node.size)
+                self.update_system_info_from_instance(vm.info.systems[0], node.size)
             else:
-                self.log_debug(
-                    "VM " + str(vm.id) + " has no node.size info. Not updating system info.")
+                self.log_debug("VM " + str(vm.id) + " has no node.size info. Not updating system info.")
 
             self.setIPsFromInstance(vm, node)
             self.attach_volumes(vm, node)
