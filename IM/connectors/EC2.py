@@ -897,8 +897,8 @@ class EC2CloudConnector(CloudConnector):
 
             reservations = conn.get_all_instances([instance_id])
             instance = reservations[0].instances[0]
-        except:
-            pass
+        except Exception:
+            self.log_error("Error getting instance id: %s" % instance_id)
 
         return instance
 

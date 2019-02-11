@@ -239,13 +239,12 @@ class DataBase:
             Returns: True if the table exists or False otherwise
         """
         if self.db_type == DataBase.SQLITE:
-            res = self.select(
-                'select name from sqlite_master where type="table" and name="' + table_name + '"')
+            res = self.select('select name from sqlite_master where type="table" and name= %s', (table_name,))
         elif self.db_type == DataBase.MYSQL:
             uri = uriparse(self.db_url)
             db = uri[2][1:]
-            res = self.select('SELECT * FROM information_schema.tables WHERE table_name ="' +
-                              table_name + '" and table_schema = "' + db + '"')
+            res = self.select('SELECT * FROM information_schema.tables WHERE table_name = %s and table_schema = %s',
+                              (table_name, db))
         elif self.db_type == DataBase.MONGO:
             return table_name in self.connection.collection_names()
         else:
@@ -256,7 +255,7 @@ class DataBase:
         else:
             return True
 
-    def find(self, table_name, filter=None, projection=None, sort=None):
+    def find(self, table_name, filt=None, projection=None, sort=None):
         """ find elements """
         if self.db_type != DataBase.MONGO:
             raise Exception("Operation only supported in MongoDB")
@@ -266,9 +265,9 @@ class DataBase:
         else:
             if projection:
                 projection.update({'_id': False})
-            return list(self.connection[table_name].find(filter, projection, sort=sort))
+            return list(self.connection[table_name].find(filt, projection, sort=sort))
 
-    def replace(self, table_name, filter, replacement):
+    def replace(self, table_name, filt, replacement):
         """ insert/replace elements """
         if self.db_type != DataBase.MONGO:
             raise Exception("Operation only supported in MongoDB")
@@ -276,10 +275,10 @@ class DataBase:
         if self.connection is None:
             raise Exception("DataBase object not connected")
         else:
-            res = self.connection[table_name].replace_one(filter, replacement, True)
+            res = self.connection[table_name].replace_one(filt, replacement, True)
             return res.modified_count == 1 or res.upserted_id is not None
 
-    def delete(self, table_name, filter):
+    def delete(self, table_name, filt):
         """ delete elements """
         if self.db_type != DataBase.MONGO:
             raise Exception("Operation only supported in MongoDB")
@@ -287,13 +286,13 @@ class DataBase:
         if self.connection is None:
             raise Exception("DataBase object not connected")
         else:
-            return self.connection[table_name].delete_many(filter).deleted_count
+            return self.connection[table_name].delete_many(filt).deleted_count
 
 
 try:
     class IntegrityError(sqlite.IntegrityError):
         """ Class to return IntegrityError independently of the DB used"""
         pass
-except:
+except Exception:
     class IntegrityError:
         pass
