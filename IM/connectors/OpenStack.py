@@ -417,7 +417,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         Update the features of the system with the information of the instance_type
         """
         if instance_type:
-            LibCloudCloudConnector.update_system_info_from_instance(self, system, instance_type)
+            LibCloudCloudConnector.update_system_info_from_instance(system, instance_type)
             if instance_type.vcpus:
                 system.addFeature(
                     Feature("cpu.count", "=", instance_type.vcpus), conflict="me", missing="other")

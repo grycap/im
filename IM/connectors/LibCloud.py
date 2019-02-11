@@ -144,21 +144,22 @@ class LibCloudCloudConnector(CloudConnector):
         else:
             return None
 
-    def update_system_info_from_instance(self, system, instance_type):
+    @staticmethod
+    def update_system_info_from_instance(system, instance_type):
         """
         Update the features of the system with the information of the instance_type
         """
-        system.addFeature(Feature(
-            "memory.size", "=", instance_type.ram, 'M'), conflict="other", missing="other")
-        if instance_type.disk:
+        if instance_type:
             system.addFeature(Feature(
-                "disk.0.free_size", "=", instance_type.disk, 'G'), conflict="other", missing="other")
-        if instance_type.price:
-            system.addFeature(
-                Feature("price", "=", instance_type.price), conflict="me", missing="other")
-
-        system.addFeature(Feature("instance_type", "=",
-                                  instance_type.name), conflict="other", missing="other")
+                "memory.size", "=", instance_type.ram, 'M'), conflict="other", missing="other")
+            if instance_type.disk:
+                system.addFeature(Feature(
+                    "disk.0.free_size", "=", instance_type.disk, 'G'), conflict="other", missing="other")
+            if instance_type.price:
+                system.addFeature(
+                    Feature("price", "=", instance_type.price), conflict="me", missing="other")
+            system.addFeature(Feature("instance_type", "=",
+                                      instance_type.name), conflict="other", missing="other")
 
     @staticmethod
     def get_image_id(path):
