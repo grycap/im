@@ -248,14 +248,7 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
             user = self.DEFAULT_USER
             system.setValue('disk.0.os.credentials.username', user)
 
-        tags = {}
-        if system.getValue('instance_tags'):
-            keypairs = system.getValue('instance_tags').split(",")
-            for keypair in keypairs:
-                parts = keypair.split("=")
-                key = parts[0].strip()
-                value = parts[1].strip()
-                tags[key] = value
+        tags = self.get_instance_tags(system)
 
         res = []
         i = 0
