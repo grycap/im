@@ -47,6 +47,7 @@ except ImportError:
     # for Ansible version 2.3.2 or lower
     pass
 
+from IM.ansible_utils import merge_recipes
 from IM.ansible_utils.ansible_launcher import AnsibleThread
 
 import IM.InfrastructureManager
@@ -674,7 +675,7 @@ class ConfManager(threading.Thread):
 
             # If there are a recipe, use it
             if recipe:
-                conf_content = self.mergeYAML(conf_content, recipe)
+                conf_content = merge_recipes(conf_content, recipe)
                 conf_content += "\n\n"
             else:
                 # use the app name as the package to install
@@ -691,7 +692,7 @@ class ConfManager(threading.Thread):
                 install_app += "    action: yum pkg=" + short_app_name + " state=installed\n"
                 install_app += "    when: \"ansible_os_family == 'RedHat'\"\n"
                 install_app += "    ignore_errors: yes\n"
-                conf_content = self.mergeYAML(conf_content, install_app)
+                conf_content = merge_recipes(conf_content, install_app)
 
         conf_out.write(conf_content)
         conf_out.close()
@@ -737,10 +738,10 @@ class ConfManager(threading.Thread):
                     recipes = vault_edit.vault.decrypt(configure.recipes.strip())
                 else:
                     recipes = configure.recipes
-                conf_content = self.mergeYAML(conf_content, recipes)
+                conf_content = merge_recipes(conf_content, recipes)
                 conf_content = vault_edit.vault.encrypt(conf_content)
             else:
-                conf_content = self.mergeYAML(conf_content, configure.recipes)
+                conf_content = merge_recipes(conf_content, configure.recipes)
 
             conf_out = open(conf_filename, 'w')
             conf_out.write(conf_content)
@@ -1461,60 +1462,6 @@ class ConfManager(threading.Thread):
         self.log_debug("Ctxt agent vm configuration file: " + json.dumps(conf_data))
         json.dump(conf_data, conf_out, indent=2)
         conf_out.close()
-
-    def mergeYAML(self, yaml1, yaml2):
-        """
-        Merge two ansible yaml docs
-
-        Arguments:
-           - yaml1(str): string with the first YAML
-           - yaml1(str): string with the second YAML
-        Returns: The merged YAML. In case of errors, it concatenates both strings
-        """
-        yamlo1o = {}
-        try:
-            yamlo1o = yaml.safe_load(yaml1)[0]
-            if not isinstance(yamlo1o, dict):
-                yamlo1o = {}
-        except Exception:
-            self.log_exception("Error parsing YAML: " + yaml1 + "\n Ignore it")
-
-        try:
-            yamlo2s = yaml.safe_load(yaml2)
-            if not isinstance(yamlo2s, list) or any([not isinstance(d, dict) for d in yamlo2s]):
-                yamlo2s = {}
-        except Exception:
-            self.log_exception("Error parsing YAML: " + yaml2 + "\n Ignore it")
-            yamlo2s = {}
-
-        if not yamlo2s and not yamlo1o:
-            return ""
-
-        result = []
-        for yamlo2 in yamlo2s:
-            yamlo1 = copy.deepcopy(yamlo1o)
-            all_keys = []
-            all_keys.extend(yamlo1.keys())
-            all_keys.extend(yamlo2.keys())
-            all_keys = set(all_keys)
-
-            for key in all_keys:
-                if key in yamlo1 and yamlo1[key]:
-                    if key in yamlo2 and yamlo2[key]:
-                        if isinstance(yamlo1[key], dict):
-                            yamlo1[key].update(yamlo2[key])
-                        elif isinstance(yamlo1[key], list):
-                            yamlo1[key].extend(yamlo2[key])
-                        else:
-                            # Both use have the same key with merge in a lists
-                            v1 = yamlo1[key]
-                            v2 = yamlo2[key]
-                            yamlo1[key] = [v1, v2]
-                elif key in yamlo2 and yamlo2[key]:
-                    yamlo1[key] = yamlo2[key]
-            result.append(yamlo1)
-
-        return yaml.safe_dump(result, default_flow_style=False, explicit_start=True, width=256)
 
     def log_msg(self, level, msg, exc_info=0):
         msg = "Inf ID: %s: %s" % (self.inf.id, msg)
