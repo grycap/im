@@ -17,7 +17,10 @@
 import base64
 import json
 import requests
-from IM.uriparse import uriparse
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
 from radl.radl import Feature
@@ -64,7 +67,7 @@ class KubernetesCloudConnector(CloudConnector):
         """
         Generate the auth header needed to contact with the Kubernetes API server.
         """
-        url = uriparse(self.cloud.server)
+        url = urlparse(self.cloud.server)
         auths = auth_data.getAuthInfo(self.type, url[1])
         if not auths:
             self.log_error(
@@ -110,7 +113,7 @@ class KubernetesCloudConnector(CloudConnector):
         return version
 
     def concrete_system(self, radl_system, str_url, auth_data):
-        url = uriparse(str_url)
+        url = urlparse(str_url)
         protocol = url[0]
         if protocol == 'docker' and url[1]:
             res_system = radl_system.clone()

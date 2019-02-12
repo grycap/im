@@ -6,9 +6,10 @@ import time
 import yaml
 from radl.radl import Feature
 from IM.config import Config
+from IM.LoggerMixin import LoggerMixin
 
 
-class CloudConnector:
+class CloudConnector(LoggerMixin):
     """
     Base class to all the Cloud connectors
 
@@ -405,22 +406,3 @@ class CloudConnector:
                 value = parts[1].strip()
                 tags[key] = value
         return tags
-
-    def log_msg(self, level, msg, exc_info=0):
-        msg = "Inf ID: %s: %s" % (self.inf.id, msg)
-        self.logger.log(level, msg, exc_info=exc_info)
-
-    def log_error(self, msg):
-        self.log_msg(logging.ERROR, msg)
-
-    def log_debug(self, msg):
-        self.log_msg(logging.DEBUG, msg)
-
-    def log_warn(self, msg):
-        self.log_msg(logging.WARNING, msg)
-
-    def log_exception(self, msg):
-        self.log_msg(logging.ERROR, msg, exc_info=1)
-
-    def log_info(self, msg):
-        self.log_msg(logging.INFO, msg)

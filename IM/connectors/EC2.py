@@ -29,7 +29,10 @@ except Exception as ex:
     print("WARN: Boto library not correctly installed. EC2CloudConnector will not work!.")
     print(ex)
 
-from IM.uriparse import uriparse
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
 from radl.radl import Feature
@@ -101,7 +104,7 @@ class EC2CloudConnector(CloudConnector):
         CloudConnector.__init__(self, cloud_info, inf)
 
     def concrete_system(self, radl_system, str_url, auth_data):
-        url = uriparse(str_url)
+        url = urlparse(str_url)
         protocol = url[0]
 
         if protocol == "aws":
@@ -242,8 +245,8 @@ class EC2CloudConnector(CloudConnector):
            - path(str): URL of a VMI (some like this: aws://eu-west-1/ami-00685b74)
         Returns: a tuple (region, ami) with the region and the AMI ID
         """
-        region = uriparse(path)[1]
-        ami = uriparse(path)[2][1:]
+        region = urlparse(path)[1]
+        ami = urlparse(path)[2][1:]
 
         return (region, ami)
 

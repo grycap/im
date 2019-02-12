@@ -28,7 +28,10 @@ from radl import radl_parse
 from IM.VirtualMachine import VirtualMachine
 from IM.InfrastructureInfo import InfrastructureInfo
 from IM.connectors.Kubernetes import KubernetesCloudConnector
-from IM.uriparse import uriparse
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import urlparse
 from mock import patch, MagicMock
 
 
@@ -74,7 +77,7 @@ class TestKubernetesConnector(TestCloudConnectorBase):
 
     def get_response(self, method, url, verify, headers, data):
         resp = MagicMock()
-        parts = uriparse(url)
+        parts = urlparse(url)
         url = parts[2]
 
         if method == "GET":

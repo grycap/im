@@ -17,7 +17,10 @@
 """Class to manage DB operations"""
 import time
 
-from IM.uriparse import uriparse
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import urlparse
 
 try:
     import sqlite3 as sqlite
@@ -77,7 +80,7 @@ class DataBase:
             Returns: True if the connection is established correctly
                      of False in case of errors.
         """
-        uri = uriparse(self.db_url)
+        uri = urlparse(self.db_url)
         protocol = uri[0]
         if protocol == "mongodb":
             return self._connect_mongo(uri[0] + "://" + uri[1], uri[2][1:])
@@ -241,7 +244,7 @@ class DataBase:
         if self.db_type == DataBase.SQLITE:
             res = self.select('select name from sqlite_master where type="table" and name= %s', (table_name,))
         elif self.db_type == DataBase.MYSQL:
-            uri = uriparse(self.db_url)
+            uri = urlparse(self.db_url)
             db = uri[2][1:]
             res = self.select('SELECT * FROM information_schema.tables WHERE table_name = %s and table_schema = %s',
                               (table_name, db))
