@@ -18,7 +18,10 @@
 
 import unittest
 
-from IM.uriparse import uriparse
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import urlparse
 from IM.tts.tts import TTSClient
 from mock import patch, MagicMock
 
@@ -38,7 +41,7 @@ class TestTTSClient(unittest.TestCase):
 
     def get_response(self, method, url, verify=False, cert=None, headers={}, data=None):
         resp = MagicMock()
-        parts = uriparse(url)
+        parts = urlparse(url)
         url = parts[2]
 
         if method == "GET":

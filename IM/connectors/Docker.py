@@ -22,7 +22,10 @@ import socket
 import requests
 import random
 import uuid
-from IM.uriparse import uriparse
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from IM.config import Config
 from .CloudConnector import CloudConnector
@@ -104,7 +107,7 @@ class DockerCloudConnector(CloudConnector):
         return (cert_file, key_file)
 
     def concrete_system(self, radl_system, str_url, auth_data):
-        url = uriparse(str_url)
+        url = urlparse(str_url)
         protocol = url[0]
         if protocol == 'docker' and url[1]:
             res_system = radl_system.clone()

@@ -24,7 +24,10 @@ except Exception as ex:
     print("WARN: VMWare pyVmomi library not correctly installed. vSphereCloudConnector will not work!.")
     print(ex)
 
-from IM.uriparse import uriparse
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from IM.config import Config
 from .CloudConnector import CloudConnector
@@ -137,7 +140,7 @@ class vSphereCloudConnector(CloudConnector):
                 raise Exception("No correct auth data has been specified to vSpere: username, password")
 
     def concrete_system(self, radl_system, str_url, auth_data):
-        url = uriparse(str_url)
+        url = urlparse(str_url)
         protocol = url[0]
         src_host = url[1].split(':')[0]
 
@@ -308,7 +311,7 @@ class vSphereCloudConnector(CloudConnector):
            - path(str): URL of a VMI (some like this: vsp://template_name)
         Returns: a str with the template name
         """
-        uri = uriparse(path)
+        uri = urlparse(path)
         return uri[2][1:]
 
     @staticmethod

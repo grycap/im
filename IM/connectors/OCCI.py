@@ -25,7 +25,10 @@ import json
 import requests
 from netaddr import IPNetwork, IPAddress
 import xmltodict
-from IM.uriparse import uriparse
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
 from IM.config import Config
@@ -135,7 +138,7 @@ class OCCICloudConnector(CloudConnector):
         return auth_header
 
     def concrete_system(self, radl_system, str_url, auth_data):
-        url = uriparse(str_url)
+        url = urlparse(str_url)
         protocol = url[0]
         cloud_url = self.cloud.protocol + "://" + self.cloud.server
         if self.cloud.port > 0:
@@ -551,7 +554,7 @@ class OCCICloudConnector(CloudConnector):
                 disk_device = "vd" + disk_device[-1]
                 system.setValue("disk." + str(cont) + ".device", disk_device)
             if disk_image:
-                volume_id = os.path.basename(uriparse(disk_image)[2])
+                volume_id = os.path.basename(urlparse(disk_image)[2])
                 volumes.append((False, disk_device, volume_id))
                 system.setValue("disk." + str(cont) + ".provider_id", volume_id)
                 self.log_info("User set a specific Volume id %s." % volume_id)
@@ -692,7 +695,7 @@ class OCCICloudConnector(CloudConnector):
             headers.update(auth_header)
 
         if storage_id.startswith("http"):
-            storage_id = uriparse(storage_id)[2]
+            storage_id = urlparse(storage_id)[2]
         else:
             if not storage_id.startswith("/storage"):
                 storage_id = "/storage/%s" % storage_id
@@ -773,7 +776,7 @@ class OCCICloudConnector(CloudConnector):
             system.setValue('disk.0.os.credentials.username', user)
 
         # Parse the info to get the os_tpl scheme
-        url = uriparse(system.getValue("disk.0.image.url"))
+        url = urlparse(system.getValue("disk.0.image.url"))
 
         if url[0] == "appdb":
             # the url has this format appdb://UPV-GRyCAP/egi.docker.ubuntu.16.04?fedcloud.egi.eu
@@ -802,7 +805,7 @@ class OCCICloudConnector(CloudConnector):
         instance_type_uri = None
         if system.getValue('instance_type'):
             instance_type = self.get_instance_type_uri(occi_info, system.getValue('instance_type'))
-            instance_type_uri = uriparse(instance_type)
+            instance_type_uri = urlparse(instance_type)
             if not instance_type_uri[5]:
                 raise Exception("Error getting Instance type URI. Check that the instance_type specified is "
                                 "supported in the OCCI server.")
@@ -962,7 +965,7 @@ class OCCICloudConnector(CloudConnector):
         while system.getValue("disk." + str(cont) + ".image.url") or system.getValue("disk." + str(cont) + ".size"):
             disk_image = system.getValue("disk." + str(cont) + ".image.url")
             if disk_image:
-                volume_id = uriparse(disk_image)[2]
+                volume_id = urlparse(disk_image)[2]
                 volumes.append(volume_id)
             cont += 1
 
@@ -1021,7 +1024,7 @@ class OCCICloudConnector(CloudConnector):
         # now delete the volumes
         if get_vols_ok:
             for _, storage_id, _ in volumes:
-                storage_path = uriparse(storage_id)[2]
+                storage_path = urlparse(storage_id)[2]
                 if storage_path not in vols_not_to_delete:
                     self.delete_volume(storage_id, auth_data, auth_header)
 

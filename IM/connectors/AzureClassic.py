@@ -21,7 +21,10 @@ import os
 import uuid
 import tempfile
 from IM.xmlobject import XMLObject
-from IM.uriparse import uriparse
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
 from radl.radl import UserPassCredential, Feature
@@ -162,7 +165,7 @@ class AzureClassicCloudConnector(CloudConnector):
         return resp
 
     def concrete_system(self, radl_system, str_url, auth_data):
-        url = uriparse(str_url)
+        url = urlparse(str_url)
         protocol = url[0]
 
         if protocol == "azr":
@@ -341,7 +344,7 @@ class AzureClassicCloudConnector(CloudConnector):
             name = system.getValue("disk.0.image.name")
         if not name:
             name = "userimage" + str(num)
-        url = uriparse(system.getValue("disk.0.image.url"))
+        url = urlparse(system.getValue("disk.0.image.url"))
 
         label = name + " IM created VM"
         (hostname, _) = vm.getRequestedName(

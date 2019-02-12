@@ -10,10 +10,14 @@ try:
 except NameError:
     unicode = str
 
-from IM.uriparse import uriparse
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import urlparse
 from toscaparser.tosca_template import ToscaTemplate
 from toscaparser.elements.interfaces import InterfacesDef
 from toscaparser.functions import Function, is_function, get_function, GetAttribute, Concat, Token
+from IM.ansible_utils import merge_recipes
 from radl.radl import system, deploy, network, Feature, Features, configure, contextualize_item, RADL, contextualize
 
 
@@ -178,7 +182,7 @@ class Tosca:
         for s in radl.systems:
             image = s.getValue("disk.0.image.url")
             if image:
-                url = uriparse(image)
+                url = urlparse(image)
                 protocol = url[0]
                 src_host = url[1].split(':')[0]
                 for net_id in s.getNetworkIDs():
@@ -574,7 +578,7 @@ class Tosca:
                             os.path.basename(artifact) + \
                             " url='" + artifact + "'\n"
 
-                implementation_url = uriparse(
+                implementation_url = urlparse(
                     self._get_implementation_url(node, interface.implementation))
 
                 if implementation_url[0] in ['http', 'https', 'ftp']:
@@ -648,7 +652,7 @@ class Tosca:
 
             # Merge the main recipe with the other yaml files
             for recipe in recipe_list:
-                recipes = Tosca._merge_recipes(recipes, recipe)
+                recipes = merge_recipes(recipes, recipe)
 
             return configure(name, recipes)
         else:
@@ -1479,61 +1483,6 @@ class Tosca:
                 node_type = node_type.parent_type
             else:
                 return interfaces
-
-    @staticmethod
-    def _merge_recipes(yaml1, yaml2):
-        """
-        Merge two ansible recipes yaml docs
-
-        Arguments:
-           - yaml1(str): string with the first YAML
-           - yaml1(str): string with the second YAML
-        Returns: The merged YAML. In case of errors, it concatenates both strings
-        """
-        yamlo1o = {}
-        try:
-            yamlo1o = yaml.safe_load(yaml1)[0]
-            if not isinstance(yamlo1o, dict):
-                yamlo1o = {}
-        except Exception as ex:
-            raise Exception("Error parsing YAML: " + yaml1 + "\n. Error: %s" % str(ex))
-
-        yamlo2s = {}
-        try:
-            yamlo2s = yaml.safe_load(yaml2)
-            if not isinstance(yamlo2s, list) or any([not isinstance(d, dict) for d in yamlo2s]):
-                yamlo2s = {}
-        except Exception as ex:
-            raise Exception("Error parsing YAML: " + yaml2 + "\n. Error: %s" % str(ex))
-
-        if not yamlo2s and not yamlo1o:
-            return ""
-
-        result = []
-        for yamlo2 in yamlo2s:
-            yamlo1 = copy.deepcopy(yamlo1o)
-            all_keys = []
-            all_keys.extend(yamlo1.keys())
-            all_keys.extend(yamlo2.keys())
-            all_keys = set(all_keys)
-
-            for key in all_keys:
-                if key in yamlo1 and yamlo1[key]:
-                    if key in yamlo2 and yamlo2[key]:
-                        if isinstance(yamlo1[key], dict):
-                            yamlo1[key].update(yamlo2[key])
-                        elif isinstance(yamlo1[key], list):
-                            yamlo1[key].extend(yamlo2[key])
-                        else:
-                            # Both use have the same key with merge in a lists
-                            v1 = yamlo1[key]
-                            v2 = yamlo2[key]
-                            yamlo1[key] = [v1, v2]
-                elif key in yamlo2 and yamlo2[key]:
-                    yamlo1[key] = yamlo2[key]
-            result.append(yamlo1)
-
-        return yaml.safe_dump(result, default_flow_style=False, explicit_start=True, width=256)
 
     def get_outputs(self, inf_info):
         """
