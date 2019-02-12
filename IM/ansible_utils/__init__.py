@@ -14,10 +14,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import yaml 
+import yaml
 import copy
 
 __all__ = ['ansible_launcher', 'ansible_executor_v2']
+
 
 def merge_recipes(yaml1, yaml2):
     """
