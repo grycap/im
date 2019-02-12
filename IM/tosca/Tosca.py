@@ -13,7 +13,7 @@ except NameError:
 try:
     from urlparse import urlparse
 except ImportError:
-    from urllib.parse import  urlparse
+    from urllib.parse import urlparse
 from toscaparser.tosca_template import ToscaTemplate
 from toscaparser.elements.interfaces import InterfacesDef
 from toscaparser.functions import Function, is_function, get_function, GetAttribute, Concat, Token

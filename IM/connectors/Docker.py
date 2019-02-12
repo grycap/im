@@ -25,7 +25,7 @@ import uuid
 try:
     from urlparse import urlparse
 except ImportError:
-    from urllib.parse import  urlparse
+    from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from IM.config import Config
 from .CloudConnector import CloudConnector

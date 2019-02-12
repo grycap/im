@@ -30,7 +30,7 @@ from IM.VirtualMachine import VirtualMachine
 try:
     from urlparse import urlparse
 except ImportError:
-    from urllib.parse import  urlparse
+    from urllib.parse import urlparse
 from radl import radl_parse
 from IM import __version__ as version
 
