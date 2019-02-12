@@ -26,7 +26,10 @@ except Exception as ex:
     print(ex)
 
 from .LibCloud import LibCloudCloudConnector
-from IM.uriparse import uriparse
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import  urlparse
 from IM.VirtualMachine import VirtualMachine
 from radl.radl import Feature
 
@@ -86,7 +89,7 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
                 return None
 
     def concrete_system(self, radl_system, str_url, auth_data):
-        url = uriparse(str_url)
+        url = urlparse(str_url)
         protocol = url[0]
         src_host = url[1].split(':')[0]
 

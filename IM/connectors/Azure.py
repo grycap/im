@@ -18,7 +18,10 @@ import uuid
 import random
 import string
 import base64
-from IM.uriparse import uriparse
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import  urlparse
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
 from radl.radl import Feature
@@ -193,7 +196,7 @@ class AzureCloudConnector(CloudConnector):
                           conflict="other", missing="other")
 
     def concrete_system(self, radl_system, str_url, auth_data):
-        url = uriparse(str_url)
+        url = urlparse(str_url)
         protocol = url[0]
 
         if protocol == "azr":
@@ -398,7 +401,7 @@ class AzureCloudConnector(CloudConnector):
                                  custom_data, compute_client):
         """ Create the VM parameters structure. """
         system = radl.systems[0]
-        url = uriparse(system.getValue("disk.0.image.url"))
+        url = urlparse(system.getValue("disk.0.image.url"))
         # the url has to have the format: azr://publisher/offer/sku/version
         # azr://Canonical/UbuntuServer/16.04.0-LTS/latest
         # azr://MicrosoftWindowsServerEssentials/WindowsServerEssentials/WindowsServerEssentials/latest

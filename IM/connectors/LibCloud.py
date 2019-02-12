@@ -26,7 +26,10 @@ except Exception as ex:
     print("WARN: libcloud library not correctly installed. LibCloudCloudConnector will not work!.")
     print(ex)
 
-from IM.uriparse import uriparse
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import  urlparse
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
 from radl.radl import Feature
@@ -85,7 +88,7 @@ class LibCloudCloudConnector(CloudConnector):
                         return None
                 else:
                     if 'host' in auth[0]:
-                        uri = uriparse(auth[0]['host'])
+                        uri = urlparse(auth[0]['host'])
                         if uri[1].find(":"):
                             parts = uri[1].split(":")
                             params["host"] = parts[0]
@@ -139,7 +142,7 @@ class LibCloudCloudConnector(CloudConnector):
         return res
 
     def concrete_system(self, radl_system, str_url, auth_data):
-        url = uriparse(str_url)
+        url = urlparse(str_url)
         protocol = url[0]
         PROTOCOL_MAP = {"Amazon EC2": "aws", "OpenNebula": "one", "OpenStack": "ost", "LibVirt": "file"}
 
@@ -180,7 +183,7 @@ class LibCloudCloudConnector(CloudConnector):
            - path(str): URL with the location of the VMI
         Returns: a str with the ID
         """
-        return uriparse(path)[2][1:]
+        return urlparse(path)[2][1:]
 
     @staticmethod
     def driver_uses_keypair(driver):
