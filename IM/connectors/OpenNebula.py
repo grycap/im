@@ -27,7 +27,10 @@ import time
 
 from distutils.version import LooseVersion
 from IM.xmlobject import XMLObject
-from IM.uriparse import uriparse
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import  urlparse
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
 from radl.radl import Feature
@@ -170,7 +173,7 @@ class OpenNebulaCloudConnector(CloudConnector):
             self.cloud.server, self.cloud.port)
 
     def concrete_system(self, radl_system, str_url, auth_data):
-        url = uriparse(str_url)
+        url = urlparse(str_url)
         protocol = url[0]
         src_host = url[1].split(':')[0]
 
@@ -542,7 +545,7 @@ class OpenNebulaCloudConnector(CloudConnector):
             name = system.getValue("disk.0.image.name")
         if not name:
             name = "userimage"
-        url = uriparse(system.getValue("disk.0.image.url"))
+        url = urlparse(system.getValue("disk.0.image.url"))
         path = url[2]
 
         if path[1:].isdigit():
@@ -558,7 +561,7 @@ class OpenNebulaCloudConnector(CloudConnector):
         while system.getValue("disk." + str(cont) + ".image.url") or system.getValue("disk." + str(cont) + ".size"):
             disk_image = system.getValue("disk." + str(cont) + ".image.url")
             if disk_image:
-                disks += 'DISK = [ IMAGE_ID = "%s" ]\n' % uriparse(disk_image)[2][1:]
+                disks += 'DISK = [ IMAGE_ID = "%s" ]\n' % urlparse(disk_image)[2][1:]
             else:
                 disk_size = system.getFeature(
                     "disk." + str(cont) + ".size").getValue('M')
@@ -1169,7 +1172,7 @@ class OpenNebulaCloudConnector(CloudConnector):
             return (False, res_info)
 
     def get_image_id(self, image_url, session_id):
-        url = uriparse(image_url)
+        url = urlparse(image_url)
         image_id = url[2][1:]
         if image_id.isdigit():
             return int(image_id)

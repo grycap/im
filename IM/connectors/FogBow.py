@@ -23,7 +23,10 @@ from uuid import uuid1
 from netaddr import IPNetwork, IPAddress
 
 from IM.config import Config
-from IM.uriparse import uriparse
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import  urlparse
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
 from radl.radl import Feature
@@ -160,7 +163,7 @@ class FogBowCloudConnector(CloudConnector):
         return auth_headers
 
     def concrete_system(self, radl_system, str_url, auth_data):
-        url = uriparse(str_url)
+        url = urlparse(str_url)
         protocol = url[0]
         src_host = url[1].split(':')[0]
 

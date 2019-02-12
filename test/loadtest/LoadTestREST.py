@@ -29,7 +29,10 @@ import json
 sys.path.append("..")
 sys.path.append(".")
 
-from IM.uriparse import uriparse
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import  urlparse
 from IM.VirtualMachine import VirtualMachine
 from radl import radl_parse
 from IM import __version__ as version
@@ -111,7 +114,7 @@ class LoadTest(unittest.TestCase):
         while not all_ok and wait < timeout:
             all_ok = True
             for vm_id in vm_ids:
-                vm_uri = uriparse(vm_id)
+                vm_uri = urlparse(vm_id)
                 resp = self.create_request("GET", vm_uri[2] + "/state")
                 vm_state = resp.text
 
@@ -194,7 +197,7 @@ class LoadTest(unittest.TestCase):
                          msg="ERROR getting the infrastructure info:" + resp.text)
         vm_ids = resp.text.split("\n")
 
-        vm_uri = uriparse(vm_ids[0])
+        vm_uri = urlparse(vm_ids[0])
         resp = self.create_request("GET", vm_uri[2])
         self.assertEqual(resp.status_code, 200,
                          msg="ERROR getting VM info:" + resp.text)
@@ -205,7 +208,7 @@ class LoadTest(unittest.TestCase):
                          msg="ERROR getting the infrastructure info:" + resp.text)
         vm_ids = resp.text.split("\n")
 
-        vm_uri = uriparse(vm_ids[0])
+        vm_uri = urlparse(vm_ids[0])
         resp = self.create_request("GET", vm_uri[2] + "/contmsg")
         self.assertEqual(resp.status_code, 200,
                          msg="ERROR getting VM contmsg:" + resp.text)
@@ -233,7 +236,7 @@ class LoadTest(unittest.TestCase):
                          msg="ERROR getting the infrastructure info:" + resp.text)
         vm_ids = resp.text.split("\n")
 
-        vm_uri = uriparse(vm_ids[0])
+        vm_uri = urlparse(vm_ids[0])
         resp = self.create_request("GET", vm_uri[2] + "/state")
         self.assertEqual(resp.status_code, 200,
                          msg="ERROR getting VM property:" + resp.text)
@@ -272,7 +275,7 @@ class LoadTest(unittest.TestCase):
                          msg="ERROR getting the infrastructure info:" + resp.text)
         vm_ids = resp.text.split("\n")
 
-        vm_uri = uriparse(vm_ids[1])
+        vm_uri = urlparse(vm_ids[1])
         resp = self.create_request("DELETE", vm_uri[2])
         self.assertEqual(resp.status_code, 200,
                          msg="ERROR removing resources:" + resp.text)
@@ -306,7 +309,7 @@ class LoadTest(unittest.TestCase):
                          msg="ERROR getting the infrastructure info:" + resp.text)
         vm_ids = resp.text.split("\n")
 
-        vm_uri = uriparse(vm_ids[1])
+        vm_uri = urlparse(vm_ids[1])
         resp = self.create_request("DELETE", vm_uri[2] + "?context=0")
         self.assertEqual(resp.status_code, 200,
                          msg="ERROR removing resources:" + resp.text)

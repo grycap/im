@@ -33,7 +33,10 @@ except Exception as ex:
 
 from .CloudConnector import CloudConnector
 from IM.connectors.LibCloud import LibCloudCloudConnector
-from IM.uriparse import uriparse
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import  urlparse
 from IM.VirtualMachine import VirtualMachine
 from radl.radl import Feature
 from IM.config import Config
@@ -138,7 +141,7 @@ class GCECloudConnector(LibCloudCloudConnector):
                     "No correct auth data has been specified to GCE: username, password and project")
 
     def concrete_system(self, radl_system, str_url, auth_data):
-        url = uriparse(str_url)
+        url = urlparse(str_url)
         protocol = url[0]
 
         if protocol == "gce":
@@ -307,7 +310,7 @@ class GCECloudConnector(LibCloudCloudConnector):
            - path(str): URL of a VMI (some like this: gce://us-central1/debian-7 or gce://debian-7)
         Returns: a tuple (region, image_name) with the region and the AMI ID
         """
-        uri = uriparse(path)
+        uri = urlparse(path)
         if uri[2]:
             region = uri[1]
             image_name = uri[2][1:]
@@ -573,7 +576,7 @@ class GCECloudConnector(LibCloudCloudConnector):
         all_ok = True
         for disk in node.extra['disks']:
             try:
-                vol_name = os.path.basename(uriparse(disk['source'])[2])
+                vol_name = os.path.basename(urlparse(disk['source'])[2])
                 volume = node.driver.ex_get_volume(vol_name)
                 # First try to detach the volume
                 if volume:

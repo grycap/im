@@ -22,7 +22,10 @@ import unittest
 sys.path.append(".")
 sys.path.append("..")
 from .CloudConn import TestCloudConnectorBase
-from IM.uriparse import uriparse
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import  urlparse
 from IM.CloudInfo import CloudInfo
 from IM.auth import Authentication
 from radl import radl_parse
@@ -73,7 +76,7 @@ class TestFogBowConnector(TestCloudConnectorBase):
 
     def get_response(self, method, url, verify, headers={}, data=None):
         resp = MagicMock()
-        parts = uriparse(url)
+        parts = urlparse(url)
         url = parts[2]
         params = parts[4]
 

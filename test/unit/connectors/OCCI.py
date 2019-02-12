@@ -26,7 +26,10 @@ from .CloudConn import TestCloudConnectorBase
 from IM.CloudInfo import CloudInfo
 from IM.auth import Authentication
 from radl import radl_parse
-from IM.uriparse import uriparse
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import  urlparse
 from IM.VirtualMachine import VirtualMachine
 from IM.InfrastructureInfo import InfrastructureInfo
 from IM.connectors.OCCI import OCCICloudConnector
@@ -108,7 +111,7 @@ class TestOCCIConnector(TestCloudConnectorBase):
 
     def get_response(self, method, url, verify, cert=None, headers=None, data=None):
         resp = MagicMock()
-        parts = uriparse(url)
+        parts = urlparse(url)
         url = parts[2]
         params = parts[4]
 

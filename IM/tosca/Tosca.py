@@ -10,7 +10,10 @@ try:
 except NameError:
     unicode = str
 
-from IM.uriparse import uriparse
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import  urlparse
 from toscaparser.tosca_template import ToscaTemplate
 from toscaparser.elements.interfaces import InterfacesDef
 from toscaparser.functions import Function, is_function, get_function, GetAttribute, Concat, Token
@@ -178,7 +181,7 @@ class Tosca:
         for s in radl.systems:
             image = s.getValue("disk.0.image.url")
             if image:
-                url = uriparse(image)
+                url = urlparse(image)
                 protocol = url[0]
                 src_host = url[1].split(':')[0]
                 for net_id in s.getNetworkIDs():
@@ -574,7 +577,7 @@ class Tosca:
                             os.path.basename(artifact) + \
                             " url='" + artifact + "'\n"
 
-                implementation_url = uriparse(
+                implementation_url = urlparse(
                     self._get_implementation_url(node, interface.implementation))
 
                 if implementation_url[0] in ['http', 'https', 'ftp']:
