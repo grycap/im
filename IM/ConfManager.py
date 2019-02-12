@@ -14,7 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import copy
 import json
 import logging
 import os
@@ -22,7 +21,6 @@ import threading
 import time
 import tempfile
 import shutil
-import yaml
 from distutils.version import LooseVersion
 
 try:
@@ -50,8 +48,8 @@ except ImportError:
 from IM.ansible_utils import merge_recipes
 from IM.ansible_utils.ansible_launcher import AnsibleThread
 
-import IM.InfrastructureManager
 import IM.InfrastructureList
+from IM.LoggerMixin import LoggerMixin
 from IM.VirtualMachine import VirtualMachine
 from IM.SSH import AuthenticationException
 from IM.SSHRetry import SSHRetry
@@ -60,7 +58,7 @@ from IM.config import Config
 from radl.radl import system, contextualize_item
 
 
-class ConfManager(threading.Thread):
+class ConfManager(LoggerMixin, threading.Thread):
     """
     Class to manage the contextualization steps
     """
@@ -1462,22 +1460,3 @@ class ConfManager(threading.Thread):
         self.log_debug("Ctxt agent vm configuration file: " + json.dumps(conf_data))
         json.dump(conf_data, conf_out, indent=2)
         conf_out.close()
-
-    def log_msg(self, level, msg, exc_info=0):
-        msg = "Inf ID: %s: %s" % (self.inf.id, msg)
-        self.logger.log(level, msg, exc_info=exc_info)
-
-    def log_error(self, msg):
-        self.log_msg(logging.ERROR, msg)
-
-    def log_debug(self, msg):
-        self.log_msg(logging.DEBUG, msg)
-
-    def log_warn(self, msg):
-        self.log_msg(logging.WARNING, msg)
-
-    def log_exception(self, msg):
-        self.log_msg(logging.ERROR, msg, exc_info=1)
-
-    def log_info(self, msg):
-        self.log_msg(logging.INFO, msg)

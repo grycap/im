@@ -25,13 +25,14 @@ from netaddr import IPNetwork, IPAddress
 
 from radl.radl import network, RADL
 from radl.radl_parse import parse_radl
+from IM.LoggerMixin import LoggerMixin
 from IM.SSH import SSH
 from IM.SSHRetry import SSHRetry
 from IM.config import Config
 import IM.CloudInfo
 
 
-class VirtualMachine:
+class VirtualMachine(LoggerMixin):
 
     # VM states
     UNKNOWN = "unknown"
@@ -1037,22 +1038,3 @@ class VirtualMachine:
                                                                    ssh.host))
 
         return command
-
-    def log_msg(self, level, msg, exc_info=0):
-        msg = "Inf ID: %s: %s" % (self.inf.id, msg)
-        self.logger.log(level, msg, exc_info=exc_info)
-
-    def log_error(self, msg):
-        self.log_msg(logging.ERROR, msg)
-
-    def log_debug(self, msg):
-        self.log_msg(logging.DEBUG, msg)
-
-    def log_warn(self, msg):
-        self.log_msg(logging.WARNING, msg)
-
-    def log_exception(self, msg):
-        self.log_msg(logging.ERROR, msg, exc_info=1)
-
-    def log_info(self, msg):
-        self.log_msg(logging.INFO, msg)
