@@ -18,6 +18,9 @@ import logging
 
 
 class LoggerMixin(object):
+    """
+    Class add Inf ID in all log messages
+    """
 
     def log_msg(self, level, msg, exc_info=0):
         msg = "Inf ID: %s: %s" % (self.inf.id, msg)
