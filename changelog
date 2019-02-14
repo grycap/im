@@ -482,3 +482,7 @@ IM 1.8.1:
 IM 1.8.2:
     * Fix error port 22 is not opened in private nets.
     * Fix error in directory creation in case of using external ansible host.
+    * Enable to set ansible module version.
+    * Fix error attaching volumes in OCCI conn (OpenNebula site).
+    * Fix error in OCCI conn contacting with KeyStorm.
+    * Remove new line characters inserted into cloud-init shell scripts
