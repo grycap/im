@@ -271,8 +271,9 @@ machine.  The supported features are:
    * ``ost://<server>:<port>/<ami-id>``, for OpenStack;
    * ``aws://<region>/<ami-id>``, for Amazon Web Service;
    * ``gce://<region>/<image-id>``, for Google Cloud;
-   * ``azr://<image-id>``, for Microsoft Azure Clasic; and
-   * ``azr://<publisher>/<offer>/<sku>/<version>``, for Microsoft Azure; and
+   * ``azr://<image-id>``, for Microsoft Azure Clasic;
+   * ``azr://<publisher>/<offer>/<sku>/<version>``, for Microsoft Azure;
+   * ``azr://[snapshots|disk]/<rgname>/<diskname>``, for Microsoft Azure;
    * ``<fedcloud_endpoint_url>/<image_id>``, for FedCloud OCCI connector.
    * ``appdb://<site_name>/<apc_name>?<vo_name>``, for FedCloud OCCI connector using AppDB info (from ver. 1.6.0).
    * ``docker://<docker_image>``, for Docker images.
