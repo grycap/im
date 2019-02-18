@@ -486,3 +486,4 @@ IM 1.8.2:
     * Fix error attaching volumes in OCCI conn (OpenNebula site).
     * Fix error in OCCI conn contacting with KeyStorm.
     * Remove new line characters inserted into cloud-init shell scripts
+    * Enable to create Azure VM from user disk.
