@@ -17,7 +17,7 @@
 import yaml
 import copy
 
-__all__ = ['ansible_launcher', 'ansible_executor_v2']
+__all__ = ['ansible_launcher', 'ansible_executor']
 
 
 def merge_recipes(yaml1, yaml2):
