@@ -6,19 +6,18 @@ LABEL description="Container image to run the IM service. (http://www.grycap.upv
 EXPOSE 8899 8800
 
 # Ensure system is up to date with mandatory python packages installed
-RUN apt-get update && apt-get install --no-install-recommends -y python-dbg python-dev python-pip openssh-client sshpass vim libmysqlclient20 && \
-     pip install setuptools pip --upgrade -I && \
+RUN apt-get update && apt-get install --no-install-recommends -y openssh-client sshpass vim libmysqlclient20 && \
      apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && rm -rf ~/.cache/
 
-# Install pip optional libraries
-RUN pip install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns azure-storage cheroot xmltodict pymongo
-
 # Install IM
-RUN apt-get update && apt-get install --no-install-recommends -y gcc libmysqld-dev libssl-dev libffi-dev libsqlite3-dev && \
-     pip install pycrypto && \
-     pip install MySQL-python && \
-     pip install IM==1.8.2 && \
-     apt-get purge -y gcc libmysqld-dev libssl-dev libffi-dev libsqlite3-dev && \
+RUN apt-get update && apt-get install --no-install-recommends -y gcc python python-dev python-pip libmysqld-dev libssl-dev libffi-dev libsqlite3-dev && \
+     pip install setuptools --upgrade -I && \
+     pip install pip --upgrade -I && \
+     /usr/local/bin/pip install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns azure-storage && \
+     /usr/local/bin/pip install MySQL-python pycrypto cheroot xmltodict pymongo && \
+     /usr/local/bin/pip install IM==1.8.2 && \
+     /usr/local/bin/pip uninstall pip -y && \
+     apt-get purge -y gcc python-dev python-pip libmysqld-dev libssl-dev libffi-dev libsqlite3-dev && \
      apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && rm -rf ~/.cache/
 
 # Copy a ansible.cfg with correct minimum values

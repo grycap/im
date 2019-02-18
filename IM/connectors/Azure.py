@@ -36,7 +36,7 @@ try:
     from azure.common.credentials import UserPassCredentials
     from azure.common.credentials import ServicePrincipalCredentials
     from msrestazure.azure_exceptions import CloudError
-    from azure.mgmt.compute.models import DiskCreateOption
+    from azure.mgmt.compute.models import DiskCreateOption, CachingTypes
 except Exception as ex:
     print("WARN: Python Azure SDK not correctly installed. AzureCloudConnector will not work!.")
     print(ex)
@@ -397,8 +397,8 @@ class AzureCloudConnector(CloudConnector):
 
         return res
 
-    def get_azure_vm_create_json(self, storage_account, vm_name, nics, radl, instance_type,
-                                 custom_data, compute_client):
+    def get_azure_vm_create_json(self, group_name, storage_account, vm_name, nics, radl,
+                                 instance_type, custom_data, compute_client):
         """ Create the VM parameters structure. """
         system = radl.systems[0]
         url = urlparse(system.getValue("disk.0.image.url"))
@@ -406,8 +406,9 @@ class AzureCloudConnector(CloudConnector):
         # azr://Canonical/UbuntuServer/16.04.0-LTS/latest
         # azr://MicrosoftWindowsServerEssentials/WindowsServerEssentials/WindowsServerEssentials/latest
         image_values = (url[1] + url[2]).split("/")
-        if len(image_values) != 4:
-            raise Exception("The Azure image has to have the format: azr://publisher/offer/sku/version")
+        if len(image_values) not in [3, 4]:
+            raise Exception("The Azure image has to have the format: azr://publisher/offer/sku/version"
+                            " or azr://[snapshots|disk]/rgname/diskname")
 
         location = self.DEFAULT_LOCATION
         if system.getValue('availability_zone'):
@@ -422,27 +423,69 @@ class AzureCloudConnector(CloudConnector):
 
         vm = {
             'location': location,
-            'os_profile': {
-                'computer_name': vm_name,
-                'admin_username': user_credentials.username,
-                'admin_password': user_credentials.password,
-                'custom_data': custom_data
-            },
             'hardware_profile': {
                 'vm_size': instance_type.name
-            },
-            'storage_profile': {
-                'image_reference': {
-                    'publisher': image_values[0],
-                    'offer': image_values[1],
-                    'sku': image_values[2],
-                    'version': image_values[3]
-                },
             },
             'network_profile': {
                 'network_interfaces': [{'id': nic.id, 'primary': primary} for nic, primary in nics]
             },
         }
+
+        if len(image_values) == 3:
+            os_disk_name = "osdisk-" + str(uuid.uuid1())
+            if image_values[0] == "snapshot":
+                managed_disk = compute_client.snapshots.get(image_values[1], image_values[2])
+            elif image_values[0] == "disk":
+                managed_disk = compute_client.disks.get(image_values[1], image_values[2])
+            else:
+                raise Exception("Incorrect image url: it must be snapshot or disk.")
+
+            async_creation = compute_client.disks.create_or_update(
+                group_name,
+                os_disk_name,
+                {
+                    'location': location,
+                    'creation_data': {
+                        'create_option': DiskCreateOption.copy,
+                        'source_resource_id': managed_disk.id
+                    }
+                }
+            )
+
+            os_type = system.getValue("disk.0.os.name")
+            os_type = os_type if os_type else "Linux"
+            self.log_info("Creating OS disk %s of type %s from disk: %s/%s/%s." % (os_disk_name,
+                                                                                   os_type,
+                                                                                   image_values[0],
+                                                                                   image_values[1],
+                                                                                   image_values[2]))
+            disk_resource = async_creation.result()
+
+            vm['storage_profile'] = {
+                'os_disk': {
+                    'create_option': DiskCreateOption.attach,
+                    'os_type': os_type,
+                    'caching': CachingTypes.read_write,
+                    'managed_disk': {
+                        'id': disk_resource.id
+                    }
+                }
+            }
+        else:
+            vm['storage_profile'] = {
+                'image_reference': {
+                    'publisher': image_values[0],
+                    'offer': image_values[1],
+                    'sku': image_values[2],
+                    'version': image_values[3]
+                }
+            }
+            vm['os_profile'] = {
+                'computer_name': vm_name,
+                'admin_username': user_credentials.username,
+                'admin_password': user_credentials.password,
+                'custom_data': custom_data
+            }
 
         tags = self.get_instance_tags(system)
         if tags:
@@ -569,7 +612,7 @@ class AzureCloudConnector(CloudConnector):
 
                 custom_data = self.get_cloud_init_data(radl, vm)
                 instance_type = self.get_instance_type(radl.systems[0], credentials, subscription_id)
-                vm_parameters = self.get_azure_vm_create_json(storage_account_name, vm_name,
+                vm_parameters = self.get_azure_vm_create_json(group_name, storage_account_name, vm_name,
                                                               nics, radl, instance_type, custom_data,
                                                               compute_client)
 
@@ -610,8 +653,19 @@ class AzureCloudConnector(CloudConnector):
 
         credentials, subscription_id = self.get_credentials(auth_data)
 
-        resource_client = ResourceManagementClient(credentials, subscription_id)
+        url = urlparse(radl.systems[0].getValue("disk.0.image.url"))
+        # the url has to have the format: azr://publisher/offer/sku/version or
+        # azr://[snapshots|disk|image]/rgname/diskname
+        # azr://Canonical/UbuntuServer/16.04.0-LTS/latest
+        # azr://MicrosoftWindowsServerEssentials/WindowsServerEssentials/WindowsServerEssentials/latest
+        image_values = (url[1] + url[2]).split("/")
+        if len(image_values) not in [3, 4]:
+            raise Exception("The Azure image has to have the format: azr://publisher/offer/sku/version"
+                            " or azr://[snapshots|disk|image]/rgname/diskname")
+        if len(image_values) == 3 and image_values[0] not in ["snapshot", "disk"]:
+            raise Exception("Incorrect image url: it must be snapshot or disk.")
 
+        resource_client = ResourceManagementClient(credentials, subscription_id)
         storage_account_name = self.get_storage_account_name(inf.id)
 
         with inf._lock:
