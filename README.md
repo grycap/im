@@ -80,7 +80,7 @@ However, if you install IM from sources you should install:
  * TOSCA parser library for Python, available as the ``tosca-parser`` package in pip.
 
  * Ansible (http://www.ansibleworks.com/) to configure nodes in the infrastructures.
-   In particular, Ansible 2.4.0+ must be installed.
+   In particular, Ansible 2.0.0+ must be installed.
    To ensure the functionality the following values must be set in the ansible.cfg file (usually found in /etc/ansible/):
 
 ```yml
