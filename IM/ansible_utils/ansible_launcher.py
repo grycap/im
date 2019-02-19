@@ -25,17 +25,29 @@ from multiprocessing import Process
 import subprocess
 import signal
 import logging
+from distutils.version import LooseVersion
 from collections import namedtuple
-
 from ansible import errors
 from ansible import __version__ as ansible_version
-from ansible.parsing.dataloader import DataLoader
-from ansible.module_utils._text import to_bytes
-from ansible.vars.manager import VariableManager
-from ansible.inventory.manager import InventoryManager
-from ansible.parsing.vault import VaultSecret
 
-from .ansible_executor import IMPlaybookExecutor
+from ansible.parsing.dataloader import DataLoader
+try:
+    # for Ansible version 2.2.0 or higher
+    from ansible.module_utils._text import to_bytes
+except ImportError:
+    from ansible.utils.unicode import to_bytes
+
+try:
+    # for Ansible version 2.4.0 or higher
+    from ansible.vars.manager import VariableManager
+    from ansible.inventory.manager import InventoryManager
+    from ansible.parsing.vault import VaultSecret
+except ImportError:
+    # for Ansible version 2.3.2 or lower
+    from ansible.vars import VariableManager
+    from ansible.inventory import Inventory
+
+from .ansible_executor_v2 import IMPlaybookExecutor
 
 
 def display(msg, color=None, stderr=False, screen_only=False, log_only=False, output=None):
@@ -83,7 +95,7 @@ class AnsibleThread(Process):
     def teminate(self):
         try:
             self._kill_childs()
-        except Exception:
+        except:
             pass
         Process.terminate(self)
 
@@ -118,7 +130,7 @@ class AnsibleThread(Process):
             output = self.output
             if isinstance(output, logging.Logger):
                 output = None
-            self.result.put((0, self.launch_playbook(), output))
+            self.result.put((0, self.launch_playbook_v2(), output))
         except errors.AnsibleError as e:
             display("ERROR: %s" % e, output=self.output)
             self.result.put((0, 1, output))
@@ -126,6 +138,33 @@ class AnsibleThread(Process):
             self._kill_childs()
 
     def get_play_prereqs(self, options):
+        if LooseVersion(ansible_version) >= LooseVersion("2.4.0"):
+            # for Ansible version 2.4.0 or higher
+            return self.get_play_prereqs_2_4(options)
+        else:
+            # for Ansible version 2.3.2 or lower
+            return self.get_play_prereqs_2(options)
+
+    def get_play_prereqs_2(self, options):
+        loader = DataLoader()
+
+        if self.vault_pass:
+            loader.set_vault_password(self.vault_pass)
+
+        variable_manager = VariableManager()
+        variable_manager.extra_vars = self.extra_vars
+        variable_manager.options_vars = {'ansible_version': self.version_info(ansible_version)}
+
+        inventory = Inventory(loader=loader, variable_manager=variable_manager, host_list=options.inventory)
+        variable_manager.set_inventory(inventory)
+
+        # let inventory know which playbooks are using so it can know the
+        # basedirs
+        inventory.set_playbook_basedir(os.path.dirname(self.playbook_file))
+
+        return loader, inventory, variable_manager
+
+    def get_play_prereqs_2_4(self, options):
         loader = DataLoader()
 
         if self.vault_pass:
@@ -152,7 +191,7 @@ class AnsibleThread(Process):
                 ansible_versions[counter] = 0
             try:
                 ansible_versions[counter] = int(ansible_versions[counter])
-            except Exception:
+            except:
                 pass
         if len(ansible_versions) < 3:
             for counter in range(len(ansible_versions), 3):
@@ -189,8 +228,8 @@ class AnsibleThread(Process):
                           remote_user=self.user)
         return options
 
-    def launch_playbook(self):
-        ''' run ansible-playbook operations '''
+    def launch_playbook_v2(self):
+        ''' run ansible-playbook operations v2.X'''
         options = self._gen_options()
         passwords = {'become_pass': self.passwd}
 
