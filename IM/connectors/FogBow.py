@@ -211,7 +211,10 @@ class FogBowCloudConnector(CloudConnector):
                     body = {"name": net_name, "cidrNotation": cidr}
                     net_providers = net.getValue("providers")
                     if net_providers:
-                        body["allowedMembers"] = net_providers
+                        if isinstance(net_providers, list):
+                            body["allowedMembers"] = net_providers
+                        else:
+                            body["allowedMembers"] = [a.strip() for a in net_providers.split(",")]
                     self.log_debug(body)
                     net_info = self.post_and_get('/federatedNetworks/', json.dumps(body), auth_data,
                                                  ['FAILED_AFTER_SUCCESSUL_REQUEST', 'FAILED_ON_REQUEST'])
