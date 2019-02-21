@@ -498,7 +498,7 @@ class OCCICloudConnector(CloudConnector):
             resp = self.create_request('GET', self.cloud.path + "/-/", auth_data, headers)
 
             if resp.status_code != 200:
-                return False, "Error querying the OCCI server: %s" % resp.reason
+                return False, "Error querying the OCCI server: %s, %s" % (resp.reason, resp.text)
             else:
                 return True, resp.text
         except Exception as ex:
