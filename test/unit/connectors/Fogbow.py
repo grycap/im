@@ -112,6 +112,9 @@ class TestFogBowConnector(TestCloudConnectorBase):
             elif url == "/federatedNetworks/status":
                 resp.status_code = 200
                 resp.json.return_value = []
+            elif url == "/federatedNetworks/1":
+                resp.status_code = 200
+                resp.json.return_value = {"id": "1", "state": "READY"}
             elif url == "/publicIps/status":
                 resp.status_code = 200
                 resp.json.return_value = [{"instanceId": "1",
@@ -157,6 +160,9 @@ class TestFogBowConnector(TestCloudConnectorBase):
             elif url == "/tokens/":
                 resp.status_code = 201
                 resp.text = "token"
+            elif url == "/federatedNetworks/":
+                resp.status_code = 201
+                resp.text = "1"
         elif method == "DELETE":
             if url == "/computes/1":
                 resp.status_code = 204
@@ -181,6 +187,8 @@ class TestFogBowConnector(TestCloudConnectorBase):
         radl_data = """
             network net1 (outbound = 'yes' and outports = '8080,9000')
             network net2 ()
+            network net3 (federated = 'yes' and providers = 'p1,p2')
+            network net4 (federated = 'yes' and providers = ['p1','p2'])
             system test (
             cpu.arch='x86_64' and
             cpu.count>=1 and
@@ -188,6 +196,8 @@ class TestFogBowConnector(TestCloudConnectorBase):
             net_interface.0.connection = 'net1' and
             net_interface.0.dns_name = 'test' and
             net_interface.1.connection = 'net2' and
+            net_interface.2.connection = 'net3' and
+            net_interface.3.connection = 'net4' and
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'fbw://server.com/fogbow-ubuntu' and
             disk.0.os.credentials.username = 'user'
