@@ -9,9 +9,9 @@
       changed_when: false
 
     # Ubuntu 16 have an annoying apt boot process
-    - name: Delete apt processes
-      raw: ls /etc/debian_version && pgrep apt && (sudo killall apt ; sleep 1 ; sudo rm -f /var/lib/apt/lists/lock && sudo rm -f /var/lib/dpkg/lock && sudo dpkg --configure -a ; sudo apt-get -f -y install)
-      ignore_errors: yes
+#    - name: Delete apt processes
+#      raw: ls /etc/debian_version && pgrep apt && (sudo killall apt ; sleep 1 ; sudo rm -f /var/lib/apt/lists/lock && sudo rm -f /var/lib/dpkg/lock && sudo dpkg --configure -a ; sudo apt-get -f -y install)
+#      ignore_errors: yes
 
     - name: Bootstrap with python
       raw: sudo apt update; sudo apt install -y python; sudo yum install -y python; sudo zypper -n install python python-xml
