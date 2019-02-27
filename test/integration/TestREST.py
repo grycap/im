@@ -405,6 +405,8 @@ class TestIM(unittest.TestCase):
 
     def test_91_reboot_vm(self):
         # To assure the VM is rebooted
+        time.sleep(10)
+
         resp = self.create_request("PUT", "/infrastructures/" + self.inf_id + "/vms/0/reboot")
         self.assertEqual(resp.status_code, 200,
                          msg="ERROR rebooting the vm:" + resp.text)

@@ -207,7 +207,9 @@ class FogBowCloudConnector(CloudConnector):
                         net.setValue("provider_id", fbw_fed_nets[net_name])
                 else:
                     self.log_info("Creating federated net %s." % net_name)
-                    cidr = '10.0.%d.0/24' % random.randint(10, 250)
+                    cidr = net.getValue("cidr")
+                    if not cidr:
+                        cidr = '10.0.%d.0/24' % random.randint(10, 250)
                     body = {"name": net_name, "cidrNotation": cidr}
                     net_providers = net.getValue("providers")
                     if net_providers:
