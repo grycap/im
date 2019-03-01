@@ -20,6 +20,7 @@ import sys
 import os
 import getpass
 import json
+import time
 
 from IM.CtxtAgentBase import CtxtAgentBase
 
@@ -75,6 +76,8 @@ class CtxtAgent(CtxtAgentBase):
             task_ok = False
             num_retries = 0
             while not task_ok and num_retries < CtxtAgent.PLAYBOOK_RETRIES:
+                self.logger.info("Sleeping %s secs." % (num_retries ** 2 * 5))
+                time.sleep(num_retries ** 2 * 5)
                 num_retries += 1
                 self.logger.info('Launch task: ' + task)
                 if ctxt_vm['os'] == "windows":
