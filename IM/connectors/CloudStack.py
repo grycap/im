@@ -259,9 +259,11 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
             if cloud_init:
                 args['ex_userdata'] = cloud_init
 
+            msg = "Error creating the node"
             try:
                 node = driver.create_node(**args)
-            except:
+            except Exception as ex:
+                msg += ": %s" % str(ex)
                 self.log_exception("Error creating node.")
                 node = None
 
@@ -282,7 +284,7 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
                 inf.add_vm(vm)
                 res.append((True, vm))
             else:
-                res.append((False, "Error creating the node"))
+                res.append((False, msg))
 
             i += 1
 
