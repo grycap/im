@@ -488,4 +488,4 @@ IM 1.8.2:
     * Remove new line characters inserted into cloud-init shell scripts
     * Enable to create Azure VM from user disk.
     * Enable to set cidr in Fogbow federated networks.
-
+    * Add node creation error message in CloudStack conn.
