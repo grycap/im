@@ -572,31 +572,14 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         if tags:
             args['ex_metadata'] = tags
 
-        keypair = None
-        keypair_name = None
-        keypair_created = False
         public_key = system.getValue("disk.0.os.credentials.public_key")
-        if public_key:
-            keypair = driver.get_key_pair(public_key)
-            if keypair:
-                system.setUserKeyCredentials(
-                    system.getCredentials().username, None, keypair.private_key)
-            else:
-                if "ssh_key" in driver.features.get("create_node", []):
-                    args["auth"] = NodeAuthSSHKey(public_key)
+        if not public_key:
+            # We must generate them
+            (public_key, private_key) = self.keygen()
+            system.setValue('disk.0.os.credentials.private_key', private_key)
 
-        elif not system.getValue("disk.0.os.credentials.password"):
-            keypair_name = "im-%s" % str(uuid.uuid1())
-            self.log_info("Create keypair: %s" % keypair_name)
-            keypair = driver.create_key_pair(keypair_name)
-            keypair_created = True
-            public_key = keypair.public_key
-            system.setUserKeyCredentials(system.getCredentials().username, None, keypair.private_key)
-
-            if keypair.public_key and "ssh_key" in driver.features.get("create_node", []):
-                args["auth"] = NodeAuthSSHKey(keypair.public_key)
-            else:
-                args["ex_keyname"] = keypair_name
+        if "ssh_key" in driver.features.get("create_node", []):
+            args["auth"] = NodeAuthSSHKey(public_key)
 
         user = system.getValue('disk.0.os.credentials.username')
         if not user:
@@ -631,9 +614,6 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 vm.id = node.id
                 vm.info.systems[0].setValue('instance_id', str(node.id))
                 vm.info.systems[0].setValue('instance_name', str(node.name))
-                # Add the keypair name to remove it later
-                if keypair_name:
-                    vm.keypair = keypair_name
                 self.log_info("Node successfully created.")
                 all_failed = False
                 vm.destroy = False
@@ -643,12 +623,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
             i += 1
 
-        # if all the VMs have failed, remove the sgs and keypair
+        # if all the VMs have failed, remove the sgs
         if all_failed:
-            if keypair_created:
-                # only delete in case of the user do not specify the keypair name
-                self.log_info("Deleting keypair: %s." % keypair_name)
-                driver.delete_key_pair(keypair)
             for sg in sgs:
                 self.log_info("Deleting security group: %s." % sg.id)
                 driver.ex_delete_security_group(sg)
@@ -912,17 +888,6 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             self.log_warn("VM " + str(vm.id) + " not found.")
 
         driver = self.get_driver(auth_data)
-        try:
-            public_key = vm.getRequestedSystem().getValue('disk.0.os.credentials.public_key')
-            if (vm.keypair and public_key is None or len(public_key) == 0 or
-                    (len(public_key) >= 1 and public_key.find('-----BEGIN CERTIFICATE-----') != -1)):
-                # only delete in case of the user do not specify the
-                # keypair name
-                keypair = driver.get_key_pair(vm.keypair)
-                if keypair:
-                    driver.delete_key_pair(keypair)
-        except:
-            self.log_exception("Error deleting keypair.")
 
         try:
             # Delete the EBS volumes
