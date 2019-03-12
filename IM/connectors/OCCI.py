@@ -870,7 +870,7 @@ class OCCICloudConnector(CloudConnector):
                                                     self.cloud.path, volume_id,
                                                     self.cloud.path, compute_id, link_id))
                     if device:
-                        body += ';occi.storagelink.deviceid="/dev/%s"\n' % device
+                        body += ';occi.storagelink.deviceid="/dev/%s"' % device
                     body += '\n'
 
                 self.log_debug(body)
