@@ -15,13 +15,12 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import time
-import uuid
 from netaddr import IPNetwork, IPAddress
 import os.path
 import tempfile
 
 try:
-    from libcloud.compute.types import Provider, NodeState
+    from libcloud.compute.types import Provider
     from libcloud.compute.providers import get_driver
     from libcloud.compute.base import NodeImage, NodeAuthSSHKey
 except Exception as ex:
@@ -619,7 +618,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 vm.destroy = False
                 res.append((True, vm))
             except Exception as ex:
-                res.append((False, "%s" % ex.message))
+                res.append((False, ", ".join(ex.args)))
 
             i += 1
 
@@ -741,7 +740,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                             node.driver.ex_attach_floating_ip_to_node(node, floating_ip)
                         except Exception as atex:
                             self.log_warn("Error attaching a found Floating IP to the node. "
-                                          "Create a new one (%s)." % atex.message)
+                                          "Create a new one (%s)." % ", ".join(atex.args))
                     else:
                         self.log_debug(floating_ip)
 
@@ -768,7 +767,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                             node.driver.ex_attach_floating_ip_to_node(node, floating_ip)
                             attached = True
                         except Exception as atex:
-                            self.log_warn("Error attaching a Floating IP to the node: %s" % atex.message)
+                            self.log_warn("Error attaching a Floating IP to the node: %s" % ", ".join(atex.args))
                             cont += 1
                             if cont < retries:
                                 time.sleep(delay)
@@ -785,7 +784,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         except Exception as ex:
             self.log_exception("Error adding an Elastic/Floating IP to VM ID: %s" % vm.id)
-            return False, "%s" % ex.message
+            return False, ", ".join(ex.args)
 
     def _get_security_group(self, driver, sg_name):
         try:
@@ -840,7 +839,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 driver.ex_create_security_group_rule(sg, 'tcp', 1, 65535, source_security_group=sg)
                 driver.ex_create_security_group_rule(sg, 'udp', 1, 65535, source_security_group=sg)
             except Exception as addex:
-                self.log_warn("Exception adding SG rules. Probably the rules exists: %s" % addex.message)
+                self.log_warn("Exception adding SG rules. Probably the rules exists: %s" % ", ".join(addex.args))
 
             outports = network.getOutPorts()
             if outports:
@@ -851,7 +850,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                                                                  outport.get_port_init(),
                                                                  outport.get_port_end(), '0.0.0.0/0')
                         except Exception as ex:
-                            self.log_warn("Exception adding SG rules: %s" % ex.message)
+                            self.log_warn("Exception adding SG rules: %s" % ", ".join(ex.args))
                     else:
                         if outport.get_remote_port() != 22 or not network.isPublic():
                             try:
@@ -859,7 +858,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                                                                      outport.get_remote_port(),
                                                                      outport.get_remote_port(), '0.0.0.0/0')
                             except Exception as ex:
-                                self.log_warn("Exception adding SG rules: %s" % ex.message)
+                                self.log_warn("Exception adding SG rules: %s" % ", ".join(ex.args))
 
             i += 1
 
@@ -931,7 +930,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                         driver.ex_delete_security_group(sg)
                         deleted = True
                     except Exception as ex:
-                        self.log_warn("Error deleting the SG: %s" % ex.message)
+                        self.log_warn("Error deleting the SG: %s" % ", ".join(ex.args))
 
                     if not deleted:
                         time.sleep(delay)
@@ -967,7 +966,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 image = node.driver.create_image(node, image_name)
             except Exception as ex:
                 self.log_exception("Error creating image.")
-                return False, "Error creating image: %s." % ex.message
+                return False, "Error creating image: %s." % ", ".join(ex.args)
             new_url = "ost://%s/%s" % (self.cloud.server, image.id)
             if auto_delete:
                 vm.inf.snapshots.append(new_url)
@@ -982,13 +981,13 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             image = driver.get_image(image_id)
         except Exception as ex:
             self.log_exception("Error getting image.")
-            return (False, "Error getting image %s: %s" % (image_id, ex.message))
+            return (False, "Error getting image %s: %s" % (image_id, ", ".join(ex.args)))
         try:
             driver.delete_image(image)
             return True, ""
         except Exception as ex:
             self.log_exception("Error deleting image.")
-            return (False, "Error deleting image.: %s" % ex.message)
+            return (False, "Error deleting image.: %s" % ", ".join(ex.args))
 
     def reboot(self, vm, auth_data):
         node = self.get_node_with_id(vm.id, auth_data)
