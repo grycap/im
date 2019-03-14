@@ -538,7 +538,7 @@ class FogBowCloudConnector(CloudConnector):
                 return (True, vm)
         except Exception as ex:
             self.log_exception("Error connecting with FogBow Manager")
-            return (False, "Error connecting with FogBow Manager: %s" % ex.message)
+            return (False, "Error connecting with FogBow Manager: %s" % ", ".join(ex.args))
 
     def finalize(self, vm, last, auth_data):
         if not vm.id:
@@ -581,7 +581,7 @@ class FogBowCloudConnector(CloudConnector):
             return res
         except Exception as ex:
             self.log_exception("Error connecting with FogBow server")
-            return (False, "Error connecting with FogBow server: %s" % ex.message)
+            return (False, "Error connecting with FogBow server: %s" % ", ".join(ex.args))
 
     def delete_nets(self, vm, auth_data):
         """
