@@ -1478,7 +1478,7 @@ class EC2CloudConnector(CloudConnector):
                 else:
                     time.sleep(delay)
             except Exception as ex:
-                self.log_warn("Error getting ec2instances info: %s. (%s/%s)" % (ex.message, cont, retries))
+                self.log_warn("Error getting ec2instances info: %s. (%s/%s)" % (ex, cont, retries))
                 time.sleep(delay)
 
         instance_list = []
