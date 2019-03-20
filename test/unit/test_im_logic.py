@@ -597,7 +597,7 @@ class TestIM(unittest.TestCase):
         self.assertEqual(inf_ids, [infId])
         IM.DestroyInfrastructure(infId, auth0)
 
-    def test_00_reconfigure(self):
+    def test_reconfigure(self):
         """Reconfigure."""
         radl_str = """"
             system front (
@@ -617,12 +617,6 @@ class TestIM(unittest.TestCase):
         IM.Reconfigure(infId, reconf_radl, auth0, ['0'])
         inf = IM.get_infrastructure(infId, auth0)
         self.assertEqual(inf.radl.configures[0].recipes, '\n---\n  - tasks:\n      - debug: msg="RECONFIGURERADL"\n')
-
-        reconf_radl = """configure test (\n@begin\n---\n  - roles:\n      - {role: 't', a:'t:q'}\n@end\n)"""
-
-        with self.assertRaises(Exception) as ex:
-            IM.Reconfigure(infId, reconf_radl, auth0)
-        self.assertIn('Error parsing YAML: ', str(ex.exception))
 
         reconf_radl = """"
             system front (
