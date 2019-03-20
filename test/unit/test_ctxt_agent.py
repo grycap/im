@@ -272,10 +272,9 @@ class TestCtxtAgent(unittest.TestCase):
         self.assertEqual(yaml_data[0]['tasks'][0]['package'], "name=git state=present")
         self.assertEqual(yaml_data[0]['tasks'][1]['copy'][:23], "dest=/tmp/galaxy_roles_")
         pos = yaml_data[0]['tasks'][1]['copy'].find('content="')
-        copy_content = yaml.safe_load(yaml_data[0]['tasks'][1]['copy'][pos + 9:-2])
-        self.assertEqual(copy_content[0], {'src': 'ansible_role'})
-        self.assertEqual(copy_content[1], {'name': 'hadoop',
-                                           'src': 'git+https://github.com/micafer/ansible-role-hadoop'})
+        copy_content = yaml_data[0]['tasks'][1]['copy'][pos + 9:-2]
+        self.assertEqual(copy_content, "[{src: ansible_role}, {name: hadoop, src: "
+                         "'git+https://github.com/micafer/ansible-role-hadoop'}]")
         self.assertEqual(yaml_data[0]['tasks'][2]['command'][:44], "ansible-galaxy install -r /tmp/galaxy_roles_")
 
         os.unlink(res)
