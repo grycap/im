@@ -597,7 +597,7 @@ class TestIM(unittest.TestCase):
         self.assertEqual(inf_ids, [infId])
         IM.DestroyInfrastructure(infId, auth0)
 
-    def test_00_reconfigure(self):
+    def test_reconfigure(self):
         """Reconfigure."""
         radl_str = """"
             system front (
