@@ -102,6 +102,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                           "base_url": None,
                           "network_url": None,
                           "image_url": None,
+                          "volume_url": None,
                           "api_version": "2.0",
                           "domain": None}
 
@@ -146,7 +147,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             kwargs = {}
             for key, value in parameters.items():
                 if value:
-                    if key in ['base_url', 'auth_token', 'service_type', 'image_url',
+                    if key in ['base_url', 'auth_token', 'service_type', 'image_url', 'volume_url',
                                'network_url', 'service_region', 'auth_version', 'auth_url']:
                         key = 'ex_force_%s' % key
                     elif key == 'domain':

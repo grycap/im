@@ -275,6 +275,10 @@ OpenStack has a set of additional fields to access a cloud site:
   server catalog, but if this argument is provided, this step is skipped and the provided value is used directly.
   The value is: http://cloud_server.com:9292.
   
+  * ``volume_url`` base URL to the OpenStack API cinder endpoint. By default, the connector obtains API endpoint URL from the 
+  server catalog, but if this argument is provided, this step is skipped and the provided value is used directly.
+  The value is: http://cloud_server.com:8776/v2/<tenant_id>.
+
 * ``service_region`` the region of the cloud site (case sensitive). It is used to obtain the API 
   endpoint URL. The default value is: ``RegionOne``.
 
