@@ -618,12 +618,6 @@ class TestIM(unittest.TestCase):
         inf = IM.get_infrastructure(infId, auth0)
         self.assertEqual(inf.radl.configures[0].recipes, '\n---\n  - tasks:\n      - debug: msg="RECONFIGURERADL"\n')
 
-        reconf_radl = """configure test (\n@begin\n---\n  - roles:\n      - {role: 't', a:'t:q'}\n@end\n)"""
-
-        with self.assertRaises(Exception) as ex:
-            IM.Reconfigure(infId, reconf_radl, auth0)
-        self.assertIn('Error parsing YAML: ', str(ex.exception))
-
         reconf_radl = """"
             system front (
             disk.0.applications contains (name = 'ansible.modules.micafer.hadoop,version') and
