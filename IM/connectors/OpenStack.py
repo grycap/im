@@ -307,8 +307,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 for ip in pool.list_floating_ips():
                     if ip.node_id == node.id:
                         ips.append(ip.ip_address)
-        except:
-            self.log_exception("Error node floating ips")
+        except Exception:
+            self.log_exception("Error getting node floating ips")
         return ips
 
     def setIPsFromInstance(self, vm, node):
