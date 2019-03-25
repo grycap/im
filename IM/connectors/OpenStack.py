@@ -23,6 +23,7 @@ try:
     from libcloud.compute.types import Provider
     from libcloud.compute.providers import get_driver
     from libcloud.compute.base import NodeImage, NodeAuthSSHKey
+    from libcloud.compute.drivers.openstack import OpenStack_2_SubNet
 except Exception as ex:
     print("WARN: libcloud library not correctly installed. OpenStackCloudConnector will not work!.")
     print(ex)
@@ -475,6 +476,133 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         return net_map
 
+    @staticmethod
+    def get_router_public(driver):
+        pub_nets = []
+        for net in driver.ex_list_networks():
+            if 'router:external' in net.extra and net.extra['router:external']:
+                pub_nets.append(net.id)
+
+        for router in driver.ex_list_routers():
+            if router.extra['external_gateway_info']:
+                if router.extra['external_gateway_info']['network_id'] in pub_nets:
+                    return router
+
+        return None
+
+    @staticmethod
+    def is_net_in_router(driver, net, router):
+        """
+        Check if a net has an interface in a router
+        """
+        for port in driver.ex_list_ports():
+            if port.extra['device_id'] == router.id and port.extra['network_id'] == net.id:
+                return True
+        return False
+
+    def delete_networks(self, driver, vm):
+        """
+        Delete created OST networks
+        """
+        router = self.get_router_public(driver)
+        ost_nets = driver.ex_list_networks()
+        i = 0
+        msg = ""
+        while vm.info.systems[0].getValue("net_interface." + str(i) + ".connection"):
+            net_name = vm.info.systems[0].getValue("net_interface." + str(i) + ".connection")
+            i += 1
+            network = vm.info.get_network_by_id(net_name)
+            if network.getValue('create') == 'yes' and not network.isPublic():
+                ost_net_name = network.getValue('provider_id')
+                for ost_net in ost_nets:
+                    if ost_net.name == ost_net_name:
+                        if 'subnets' in ost_net.extra and len(ost_net.extra['subnets']) == 1:
+                            if router is None:
+                                self.log_warn("No public router found.")
+                            else:
+                                subnet_id = ost_net.extra['subnets'][0]
+                                self.log_debug("Deleting subnet %s to the router %s" % (subnet_id, router.name))
+                                subnet = OpenStack_2_SubNet(subnet_id, None, None, ost_net.id, driver)
+                                try:
+                                    driver.ex_del_router_subnet(router, subnet)
+                                except Exception:
+                                    self.log_exception("Error deleting subnet %s from the router %s" % (subnet_id,
+                                                                                                        router.name))
+                                    msg = "Error deleting subnet %s from the router %s: %s" % (subnet_id,
+                                                                                               router.name,
+                                                                                               ", ".join(ex.args))
+
+                            self.log_debug("Deleting net %s." % ost_net.name)
+                            driver.ex_delete_network(ost_net)
+                            break
+
+        return True, msg
+
+    def create_networks(self, driver, radl, inf):
+        """
+        Create OST networks
+        """
+        router = None
+        i = 0
+
+        try:
+            router = self.get_router_public(driver)
+            if router is None:
+                self.log_error("No public router found.")
+                return False, "No public router found."
+
+            while radl.systems[0].getValue("net_interface." + str(i) + ".connection"):
+                net_name = radl.systems[0].getValue("net_interface." + str(i) + ".connection")
+                i += 1
+                network = radl.get_network_by_id(net_name)
+                if network.getValue('create') == 'yes' and not network.isPublic():
+                    net_provider_id = network.getValue('provider_id')
+                    if not net_provider_id:
+                        net_cidr = network.getValue('cidr')
+                        net_dnsserver = network.getValue('dnsserver')
+
+                        # first create the network
+                        ost_net_name = "im-%s-%s" % (inf.id, net_name)
+                        try:
+                            self.log_debug("Creating ost network: %s" % ost_net_name)
+                            ost_net = driver.ex_create_network(ost_net_name)
+                        except Exception as ex:
+                            self.log_exception("Error creating ost network for net %s." % net_name)
+                            raise Exception("Error creating ost network for net %s: %s" % (net_name,
+                                                                                           ", ".join(ex.args)))
+
+                        # now create the subnet
+                        ost_subnet_name = "im-%s-sub%s" % (inf.id, net_name)
+                        try:
+                            self.log_debug("Creating ost subnet: %s" % ost_subnet_name)
+                            ost_subnet = driver.ex_create_subnet(ost_subnet_name, ost_net, net_cidr,
+                                                                 ip_version=4, dns_nameservers=[net_dnsserver])
+                        except Exception as ex:
+                            self.log_exception("Error creating ost subnet for net %s." % net_name)
+                            # in case of error delete the asociated network
+                            self.log_debug("Deleting net: %s" % ost_net_name)
+                            driver.ex_delete_network(ost_net)
+                            raise Exception("Error creating ost subnet for net %s: %s" % (net_name,
+                                                                                          ", ".join(ex.args)))
+
+                        if self.is_net_in_router(driver, ost_net, router):
+                            self.log_debug("Net %s already in the router %s" % (ost_net.name, router.name))
+                        else:
+                            self.log_debug("Adding subnet %s to the router %s" % (ost_subnet.name, router.name))
+                            try:
+                                driver.ex_add_router_subnet(router, ost_subnet)
+                                network.setValue('provider_id', ost_net_name)
+                            except Exception as ex:
+                                self.log_error("Error adding subnet to the router. Deleting net and subnet.")
+                                driver.ex_delete_subnet(ost_subnet)
+                                driver.ex_delete_network(ost_net)
+                                raise Exception("Error adding subnet to the router: %s" % ", ".join(ex.args))
+        except Exception as ext:
+            self.log_exception("Error creating networks.")
+            raise Exception("Error creating networks: %s" % ", ".join(ext.args))
+
+        return True
+
     def get_networks(self, driver, radl):
         """
         Get the list of networks to connect the VM
@@ -557,6 +685,9 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             name = system.getValue("disk.0.image.name")
         if not name:
             name = "userimage"
+
+        with inf._lock:
+            self.create_networks(driver, radl, inf)
 
         nets = self.get_networks(driver, radl)
 
@@ -872,16 +1003,19 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             self.log_warn("No VM ID. Ignoring")
             node = None
 
+        success = []
+        msgs = []
         if node:
-            success = node.destroy()
+            res = node.destroy()
+            success.append(res)
 
             try:
-                self.delete_elastic_ips(node, vm)
-            except:
-                self.log_exception("Error deleting elastic ips.")
-
-            if not success:
-                return (False, "Error destroying node: " + vm.id)
+                res, msg = self.delete_elastic_ips(node, vm)
+            except Exception as ex:
+                res = False
+                msg = ", ".join(ex.args)
+            success.append(res)
+            msgs.append(msg)
 
             self.log_info("VM " + str(vm.id) + " successfully destroyed")
         else:
@@ -889,23 +1023,38 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         driver = self.get_driver(auth_data)
 
+        # Delete the EBS volumes
         try:
-            # Delete the EBS volumes
-            self.delete_volumes(driver, vm)
-        except:
-            self.log_exception("Error deleting volumes.")
+            res, msg = self.delete_volumes(driver, vm)
+        except Exception as ex:
+            res = False
+            msg = ", ".join(ex.args)
+        success.append(res)
+        msgs.append(msg)
 
-        try:
+        if last:
             # Delete the SG if this is the last VM
-            if last:
-                self.delete_security_groups(driver, vm.inf)
-            else:
-                # If this is not the last vm, we skip this step
-                self.log_info("There are active instances. Not removing the SG")
-        except Exception:
-            self.log_exception("Error deleting security groups.")
+            try:
+                res, msg = self.delete_security_groups(driver, vm.inf)
+            except Exception as ex:
+                res = False
+                msg = ", ".join(ex.args)
+            success.append(res)
+            msgs.append(msg)
 
-        return (True, "")
+            # Delete the created networks
+            try:
+                res, msg = self.delete_networks(driver, vm)
+            except Exception as ex:
+                res = False
+                msg = ", ".join(ex.args)
+            success.append(res)
+            msgs.append(msg)
+        else:
+            # If this is not the last vm, we skip this step
+            self.log_info("There are active instances. Not removing the SGs or nets.")
+
+        return (all(success), "\n ".join(msgs))
 
     def delete_security_groups(self, driver, inf, timeout=180, delay=10):
         """
@@ -915,6 +1064,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         for net in inf.radl.networks:
             sg_names.append("im-%s-%s" % (inf.id, net.id))
 
+        msg = ""
+        deleted = True
         for sg_name in sg_names:
             # wait it to terminate and then remove the SG
             cont = 0
@@ -932,6 +1083,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                         deleted = True
                     except Exception as ex:
                         self.log_warn("Error deleting the SG: %s" % ", ".join(ex.args))
+                        msg = "Error deleting the SG: %s" % ", ".join(ex.args)
 
                     if not deleted:
                         time.sleep(delay)
@@ -939,6 +1091,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
             if not deleted:
                 self.log_error("Error deleting the SG: Timeout.")
+
+        return deleted, msg
 
     def get_node_location(self, node):
         """
