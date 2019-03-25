@@ -576,15 +576,10 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         Delete created OST networks
         """
         router = self.get_router_public(driver)
-        i = 0
         msg = ""
-        while vm.info.systems[0].getValue("net_interface." + str(i) + ".connection"):
-            net_name = vm.info.systems[0].getValue("net_interface." + str(i) + ".connection")
-            i += 1
-            network = vm.info.get_network_by_id(net_name)
-            if network.getValue('create') == 'yes' and not network.isPublic():
-                ost_net_name = network.getValue('provider_id')
-                ost_net = self.get_ost_net(driver, name=ost_net_name)
+        for ost_net in driver.ex_list_networks():
+            net_prefix = "im-%s-" % vm.inf.id
+            if ost_net.name.startswith(net_prefix):
                 if 'subnets' in ost_net.extra and len(ost_net.extra['subnets']) == 1:
                     if router is None:
                         self.log_warn("No public router found.")
@@ -594,7 +589,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                         subnet = OpenStack_2_SubNet(subnet_id, None, None, ost_net.id, driver)
                         try:
                             driver.ex_del_router_subnet(router, subnet)
-                        except Exception:
+                        except Exception as ex:
                             self.log_exception("Error deleting subnet %s from the router %s" % (subnet_id,
                                                                                                 router.name))
                             msg = "Error deleting subnet %s from the router %s: %s" % (subnet_id,
@@ -626,11 +621,17 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 if network.getValue('create') == 'yes' and not network.isPublic():
                     net_provider_id = network.getValue('provider_id')
                     if not net_provider_id:
+                        # First check if the net already exists
+                        ost_net_name = "im-%s-%s" % (inf.id, net_name)
+                        if self.get_ost_net(driver, name=ost_net_name):
+                            network.setValue('provider_id', ost_net_name)
+                            self.log_debug("Ost network %s exists. Do not create." % ost_net_name)
+                            continue
+
                         net_cidr = network.getValue('cidr')
                         net_dnsserver = network.getValue('dnsserver')
 
-                        # first create the network
-                        ost_net_name = "im-%s-%s" % (inf.id, net_name)
+                        # create the network
                         try:
                             self.log_debug("Creating ost network: %s" % ost_net_name)
                             ost_net = driver.ex_create_network(ost_net_name)
@@ -653,18 +654,20 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                             raise Exception("Error creating ost subnet for net %s: %s" % (net_name,
                                                                                           ", ".join(ex.args)))
 
-                        if self.is_net_in_router(driver, ost_net, router):
-                            self.log_debug("Net %s already in the router %s" % (ost_net.name, router.name))
-                        else:
-                            self.log_debug("Adding subnet %s to the router %s" % (ost_subnet.name, router.name))
-                            try:
-                                driver.ex_add_router_subnet(router, ost_subnet)
-                                network.setValue('provider_id', ost_net_name)
-                            except Exception as ex:
+                        self.log_debug("Adding subnet %s to the router %s" % (ost_subnet.name, router.name))
+                        try:
+                            driver.ex_add_router_subnet(router, ost_subnet)
+                        except Exception as ex:
+                            # some time the nets are auto added to the router
+                            if self.is_net_in_router(driver, ost_net, router):
+                                self.log_debug("Net %s already in the router %s" % (ost_net.name, router.name))
+                            else:
                                 self.log_error("Error adding subnet to the router. Deleting net and subnet.")
                                 driver.ex_delete_subnet(ost_subnet)
                                 driver.ex_delete_network(ost_net)
                                 raise Exception("Error adding subnet to the router: %s" % ", ".join(ex.args))
+
+                        network.setValue('provider_id', ost_net_name)
         except Exception as ext:
             self.log_exception("Error creating networks.")
             raise Exception("Error creating networks: %s" % ", ".join(ext.args))
