@@ -230,6 +230,64 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         else:
             return None
 
+    def addRouterInstance(self, vm, driver):
+        """
+        Add support for IndigoVR
+
+        openstack subnet set --host-route destination=10.0.0.0/16,gateway=10.0.1.5 subnet1
+        openstack port list --server net1-router
+        openstack port set --disable-port-security { port from previous step }
+        """
+        success = True
+        i = 0
+        while vm.info.systems[0].getValue("net_interface." + str(i) + ".connection"):
+            net_name = vm.info.systems[0].getValue("net_interface." + str(i) + ".connection")
+            i += 1
+            network = vm.info.get_network_by_id(net_name)
+            if network.getValue('router'):
+                net_provider_id = network.getValue('provider_id')
+                router_info = network.getValue('router').split(",")
+                if len(router_info) != 2:
+                    self.log_error("Incorrect router format.")
+                    success = False
+                    break
+
+                system_router = router_info[1]
+                router_cidr = router_info[0]
+
+                vrouter = None
+                for v in vm.inf.vm_list:
+                    if v.info.systems[0].name == system_router:
+                        vrouter = v.getIfaceIP(0)
+                        break
+                if not vrouter:
+                    self.log_error("No VRouter instance found with name %s" % system_router)
+                    success = False
+                    break
+
+                ost_net = self.get_ost_net(driver, name=net_provider_id)
+                if 'subnets' in ost_net.extra and len(ost_net.extra['subnets']) == 1:
+                    subnet_id = ost_net.extra['subnets'][0]
+                else:
+                    self.log_error("Unexpected subnet values in OST net.")
+                    success = False
+                    break
+
+                subnet = OpenStack_2_SubNet(subnet_id, None, None, ost_net.id, driver)
+
+                host_routes = [{"destination": router_cidr, "nexthop": vrouter}]
+                self.log_debug("Updating subnet %s setting host routes: %s" % (subnet.name, host_routes))
+                driver.ex_update_subnet(subnet, host_routes=host_routes)
+
+                for port in driver.ex_list_ports():
+                    if port.extra['device_id'] == ost_net.id:
+                        self.log_debug("Disabling security port in %s" % port.id)
+                        driver.ex_update_port(port, port_security_enabled=False)
+
+                # once set, delete it to not set it again
+                network.delValue('router')
+        return success
+
     def updateVMInfo(self, vm, auth_data):
         node = self.get_node_with_id(vm.id, auth_data)
         if node:
@@ -239,6 +297,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             instance_type = node.driver.ex_get_size(flavorId)
             self.update_system_info_from_instance(vm.info.systems[0], instance_type)
 
+            self.addRouterInstance(vm, node.driver)
             self.setIPsFromInstance(vm, node)
             self.attach_volumes(vm, node)
         else:
@@ -413,6 +472,18 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     Feature("cpu.count", "=", instance_type.vcpus), conflict="me", missing="other")
 
     @staticmethod
+    def get_ost_net(driver, name=None, id=None):
+        """
+        Get a OST network
+        """
+        for ost_net in driver.ex_list_networks():
+            if name and ost_net.name == name:
+                return ost_net
+            if id and ost_net.id == id:
+                return ost_net
+        return None
+
+    @staticmethod
     def get_ost_network_info(driver, pool_names):
         ost_nets = driver.ex_list_networks()
         get_subnets = False
@@ -505,7 +576,6 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         Delete created OST networks
         """
         router = self.get_router_public(driver)
-        ost_nets = driver.ex_list_networks()
         i = 0
         msg = ""
         while vm.info.systems[0].getValue("net_interface." + str(i) + ".connection"):
@@ -514,27 +584,25 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             network = vm.info.get_network_by_id(net_name)
             if network.getValue('create') == 'yes' and not network.isPublic():
                 ost_net_name = network.getValue('provider_id')
-                for ost_net in ost_nets:
-                    if ost_net.name == ost_net_name:
-                        if 'subnets' in ost_net.extra and len(ost_net.extra['subnets']) == 1:
-                            if router is None:
-                                self.log_warn("No public router found.")
-                            else:
-                                subnet_id = ost_net.extra['subnets'][0]
-                                self.log_debug("Deleting subnet %s to the router %s" % (subnet_id, router.name))
-                                subnet = OpenStack_2_SubNet(subnet_id, None, None, ost_net.id, driver)
-                                try:
-                                    driver.ex_del_router_subnet(router, subnet)
-                                except Exception:
-                                    self.log_exception("Error deleting subnet %s from the router %s" % (subnet_id,
-                                                                                                        router.name))
-                                    msg = "Error deleting subnet %s from the router %s: %s" % (subnet_id,
-                                                                                               router.name,
-                                                                                               ", ".join(ex.args))
+                ost_net = self.get_ost_net(driver, name=ost_net_name)
+                if 'subnets' in ost_net.extra and len(ost_net.extra['subnets']) == 1:
+                    if router is None:
+                        self.log_warn("No public router found.")
+                    else:
+                        subnet_id = ost_net.extra['subnets'][0]
+                        self.log_debug("Deleting subnet %s to the router %s" % (subnet_id, router.name))
+                        subnet = OpenStack_2_SubNet(subnet_id, None, None, ost_net.id, driver)
+                        try:
+                            driver.ex_del_router_subnet(router, subnet)
+                        except Exception:
+                            self.log_exception("Error deleting subnet %s from the router %s" % (subnet_id,
+                                                                                                router.name))
+                            msg = "Error deleting subnet %s from the router %s: %s" % (subnet_id,
+                                                                                       router.name,
+                                                                                       ", ".join(ex.args))
 
-                            self.log_debug("Deleting net %s." % ost_net.name)
-                            driver.ex_delete_network(ost_net)
-                            break
+                    self.log_debug("Deleting net %s." % ost_net.name)
+                    driver.ex_delete_network(ost_net)
 
         return True, msg
 

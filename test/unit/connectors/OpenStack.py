@@ -194,7 +194,7 @@ class TestOSTConnector(TestCloudConnectorBase):
     def test_30_updateVMInfo(self, get_driver):
         radl_data = """
             network net (outbound = 'yes' and provider_id = 'pool1')
-            network net1 (provider_id = 'os-lan')
+            network net1 (provider_id = 'os-lan' and router='10.0.0.0/16,vrouter1')
             system test (
             cpu.arch='x86_64' and
             cpu.count=1 and
@@ -221,6 +221,13 @@ class TestOSTConnector(TestCloudConnectorBase):
 
         inf = MagicMock()
         vm = VirtualMachine(inf, "1", ost_cloud.cloud, radl, radl, ost_cloud, 1)
+
+        vm2 = MagicMock()
+        syst = MagicMock()
+        syst.name = "vrouter1"
+        vm2.info.systems = [syst]
+        vm2.getIfaceIP.return_value = "10.0.0.1"
+        inf.vm_list = [vm2, vm]
 
         driver = MagicMock()
         get_driver.return_value = driver
@@ -255,6 +262,22 @@ class TestOSTConnector(TestCloudConnectorBase):
         pool.list_floating_ips.return_value = []
         pool.create_floating_ip.return_value = floating_ip
         driver.ex_list_floating_ip_pools.return_value = [pool]
+
+        net1 = MagicMock()
+        net1.id = 'net1id'
+        net1.name = "os-lan"
+        net1.cidr = None
+        net1.extra = {'subnets': ["subnet1"]}
+        net2 = MagicMock()
+        net2.id = 'net2id'
+        net2.name = "public"
+        net2.cidr = None
+        net2.extra = {'subnets': [], 'router:external': True}
+        driver.ex_list_networks.return_value = [net1, net2]
+
+        port = MagicMock()
+        port.extra = {'device_id': net1.id}
+        driver.ex_list_ports.return_value = [port]
 
         success, vm = ost_cloud.updateVMInfo(vm, auth)
 
@@ -487,7 +510,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         net2 = MagicMock()
         net2.name = "public"
         net2.cidr = None
-        net1.extra = {'subnets': [], 'router:external': True}
+        net2.extra = {'subnets': [], 'router:external': True}
         driver.ex_list_networks.return_value = [net1, net2]
 
         router = MagicMock()
@@ -582,7 +605,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         net2 = MagicMock()
         net2.name = "public"
         net2.cidr = None
-        net1.extra = {'subnets': [], 'router:external': True}
+        net2.extra = {'subnets': [], 'router:external': True}
         driver.ex_list_networks.return_value = [net1, net2]
 
         subnet = MagicMock()
