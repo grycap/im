@@ -419,8 +419,7 @@ class LibCloudCloudConnector(CloudConnector):
                     "Error adding an Elastic/Floating IP to VM ID: " + str(vm.id))
                 return None
         else:
-            self.log_debug(
-                "The VM is not running, not adding an Elastic/Floating IP.")
+            self.log_debug("The VM is not running, not adding an Elastic/Floating IP.")
             return None
 
     def delete_elastic_ips(self, node, vm):
@@ -453,6 +452,7 @@ class LibCloudCloudConnector(CloudConnector):
                     if not found:
                         self.log_debug("Now release it")
                         node.driver.ex_release_address(elastic_ip)
+                return True, ""
             elif node.driver.name == "OpenStack":
                 for floating_ip in node.driver.ex_list_floating_ips():
                     if floating_ip.node_id == node.id:
@@ -461,8 +461,11 @@ class LibCloudCloudConnector(CloudConnector):
                         node.driver.ex_detach_floating_ip_from_node(node, floating_ip)
                         # delete the ip
                         floating_ip.delete()
+                return True, ""
+            return False, "Unsupported Driver %s" % node.driver.name
         except Exception:
             self.log_exception("Error removing Elastic/Floating IPs to VM ID: " + str(vm.id))
+            return False, "Error removing Elastic/Floating IPs: %s" % ", ".join(ex.args)
 
     def start(self, vm, auth_data):
         node = self.get_node_with_id(vm.id, auth_data)
@@ -630,7 +633,8 @@ class LibCloudCloudConnector(CloudConnector):
            - vm(:py:class:`IM.VirtualMachine`): VM information.
            - timeout(int): Time needed to delete the volume.
         """
-        all_ok = True
+        alive_volumes = []
+        msg = ""
         if "volumes" in vm.__dict__.keys() and vm.volumes:
             for volumeid in vm.volumes:
                 self.log_debug("Deleting volume ID %s" % volumeid)
@@ -639,14 +643,19 @@ class LibCloudCloudConnector(CloudConnector):
                     success = self.wait_volume(volume, timeout=timeout)
                     if not success:
                         self.log_error("Error waiting the volume ID " + str(volume.id))
+                        msg += "Error waiting the volume %s. " % volume.id
                     success = volume.destroy()
                     if not success:
                         self.log_error("Error destroying the volume: " + str(volume.id))
-                except:
+                        msg += "Error destroying the volume %s. " % volume.id
+                except Exception as ex:
                     self.log_exception("Error destroying the volume: " + str(volume.id) +
                                        " from the node: " + str(vm.id))
                     success = False
+                    msg += "Error destroying the volume %s: %s. " % (volume.id, ", ".join(ex.args))
 
                 if not success:
-                    all_ok = False
-        return all_ok
+                    alive_volumes.append(volumeid)
+
+        vm.volumes = alive_volumes
+        return vm.volumes == [], msg
