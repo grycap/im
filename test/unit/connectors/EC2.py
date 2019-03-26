@@ -178,7 +178,15 @@ class TestEC2Connector(TestCloudConnectorBase):
             disk.1.mount_path='/mnt/path'
             )"""
         radl = radl_parse.parse_radl(radl_data)
-        conn.get_all_vpcs.return_value = []
+        vpc = MagicMock()
+        vpc.id = "vpcid"
+        vpc.is_default = True
+        conn.get_all_vpcs.return_value = [vpc]
+
+        subnet = MagicMock()
+        subnet.id = "subnetid"
+        conn.get_all_subnets.return_value = [subnet]
+
         inf = InfrastructureInfo()
         inf.auth = auth
         res = ec2_cloud.launch(inf, radl, radl, 1, auth)
@@ -186,7 +194,7 @@ class TestEC2Connector(TestCloudConnectorBase):
         print(self.log.getvalue())
         self.assertTrue(success, msg="ERROR: launching a VM.")
         # check the instance_type selected is correct
-        self.assertEquals(image.run.call_args_list[1][1]["instance_type"], "m1.small")
+        self.assertEquals(image.run.call_args_list[1][1]["instance_type"], "t3.micro")
 
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 

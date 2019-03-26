@@ -256,13 +256,12 @@ class EC2CloudConnector(CloudConnector):
 
         return (region, ami)
 
-    def get_instance_type(self, radl, vpc=None):
+    def get_instance_type(self, radl):
         """
         Get the name of the instance type to launch to EC2
 
         Arguments:
            - radl(str): RADL document with the requirements of the VM to get the instance type
-           - vpc(bool): VPC flag that specifies that the instance will be launched using VPC or Classic
         Returns: a str with the name of the instance type to launch to EC2
         """
         instance_type_name = radl.getValue('instance_type')
@@ -309,9 +308,6 @@ class EC2CloudConnector(CloudConnector):
                 str_compare += " and instace_type.mem " + memory_op + " memory "
                 str_compare += " and instace_type.cpu_perf " + performance_op + " performance"
                 str_compare += " and instace_type.disks * instace_type.disk_space " + disk_free_op + " disk_free"
-                # If the instance will use EC2 classic, get only instances without vpc_only flag
-                if vpc is False:
-                    str_compare += " and instace_type.vpc_only == False"
 
                 # if arch in instace_type.cpu_arch and
                 # instace_type.cores_per_cpu * instace_type.num_cpu >= cpu and
@@ -374,7 +370,7 @@ class EC2CloudConnector(CloudConnector):
         except Exception:
             return None
 
-    def create_security_groups(self, conn, inf, radl, vpc=None):
+    def create_security_groups(self, conn, inf, radl, vpc):
         res = []
         try:
             i = 0
@@ -400,10 +396,8 @@ class EC2CloudConnector(CloudConnector):
                             raise crex
                         else:
                             self.log_info("Security group: " + sg_name + " already created.")
-                if vpc:
-                    res.append(sg.id)
-                else:
-                    res.append(sg.name)
+
+                res.append(sg.id)
 
             while system.getValue("net_interface." + str(i) + ".connection"):
                 network_name = system.getValue("net_interface." + str(i) + ".connection")
@@ -429,10 +423,7 @@ class EC2CloudConnector(CloudConnector):
                             else:
                                 self.log_info("Security group: " + sg_name + " already created.")
 
-                if vpc:
-                    res.append(sg.id)
-                else:
-                    res.append(sg.name)
+                res.append(sg.id)
 
                 try:
                     # open always SSH port on public nets
@@ -463,12 +454,10 @@ class EC2CloudConnector(CloudConnector):
 
                 i += 1
         except Exception as ex:
-            self.log_exception("Error Creating the Security group")
-            if vpc:
-                raise Exception("Error Creating the Security group: " + str(ex))
+            raise Exception("Error Creating the Security group: " + str(ex))
 
         if not res:
-            return None
+            raise Exception("Error Creating the Security groups")
         else:
             return res
 
@@ -530,11 +519,9 @@ class EC2CloudConnector(CloudConnector):
                     block_device_name = name
 
             if not block_device_name:
-                self.log_error(
-                    "Error getting correct block_device name from AMI: " + str(ami))
+                self.log_error("Error getting correct block_device name from AMI: " + str(ami))
                 for i in range(num_vm):
-                    res.append(
-                        (False, "Error getting correct block_device name from AMI: " + str(ami)))
+                    res.append((False, "Error getting correct block_device name from AMI: " + str(ami)))
                 return res
 
             # Create the security group for the VMs
@@ -543,24 +530,16 @@ class EC2CloudConnector(CloudConnector):
                 vpc, subnet = provider_id
                 sg_names = None
                 sg_ids = self.create_security_groups(conn, inf, radl, vpc)
-                if not sg_ids:
-                    vpc = None
-                    subnet = None
-                    sg_ids = None
-                    sg_names = ['default']
             else:
                 # Check the default VPC and get the first subnet with a connection with a gateway
-                # If there are no default VPC, use EC2-classic
+                # If there are no default VPC, raise error
                 vpc, subnet = self.get_default_subnet(conn)
-                if vpc:
+                if vpc and subnet:
                     self.set_net_provider_id(radl, vpc, subnet)
                     sg_names = None
                     sg_ids = self.create_security_groups(conn, inf, radl, vpc)
                 else:
-                    sg_ids = None
-                    sg_names = self.create_security_groups(conn, inf, radl, vpc)
-                    if not sg_names:
-                        sg_names = ['default']
+                    raise Exception("No VPC.subnet specified and no VPC default found.")
 
             public_key = system.getValue("disk.0.os.credentials.public_key")
             private_key = system.getValue('disk.0.os.credentials.private_key')
@@ -593,10 +572,7 @@ class EC2CloudConnector(CloudConnector):
                 user_data = self.get_cloud_init_data(radl, vm, public_key, user)
 
                 err_msg = "Launching in region %s with image: %s" % (region_name, ami)
-                if vpc:
-                    err_msg += " in VPC: %s-%s " % (vpc, subnet)
-                else:
-                    err_msg += " in EC2 classic "
+                err_msg += " in VPC: %s-%s " % (vpc, subnet)
                 try:
                     spot = False
                     if system.getValue("spot") == "yes":
@@ -605,12 +581,11 @@ class EC2CloudConnector(CloudConnector):
                     if spot:
                         err_msg += " a spot instance "
                         self.log_info("Launching a spot instance")
-                        instance_type = self.get_instance_type(system, vpc is not None)
+                        instance_type = self.get_instance_type(system)
                         if not instance_type:
                             self.log_error("Error %s, no instance type available for the requirements." % err_msg)
                             self.log_debug(system)
-                            res.append(
-                                (False, "Error %s, no instance type available for the requirements." % err_msg))
+                            res.append((False, "Error %s, no instance type available for the requirements." % err_msg))
                         else:
                             err_msg += " of type: %s " % instance_type.name
                             price = system.getValue("price")
@@ -677,7 +652,7 @@ class EC2CloudConnector(CloudConnector):
                     else:
                         err_msg += " an ondemand instance "
                         self.log_info("Launching ondemand instance")
-                        instance_type = self.get_instance_type(system, vpc is not None)
+                        instance_type = self.get_instance_type(system)
                         if not instance_type:
                             self.log_error("Error %s, no instance type available for the requirements." % err_msg)
                             self.log_debug(system)
