@@ -258,10 +258,16 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 vrouter = None
                 for v in vm.inf.vm_list:
                     if v.info.systems[0].name == system_router:
-                        vrouter = v.getIfaceIP(0)
+                        vrouter = v
                         break
                 if not vrouter:
                     self.log_error("No VRouter instance found with name %s" % system_router)
+                    success = False
+                    break
+
+                vrouter = vrouter.getIfaceIP(0)
+                if not vrouter:
+                    self.log_error("VRouter %s has no IP. wait." % system_router)
                     success = False
                     break
 
@@ -276,12 +282,12 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 subnet = OpenStack_2_SubNet(subnet_id, None, None, ost_net.id, driver)
 
                 host_routes = [{"destination": router_cidr, "nexthop": vrouter}]
-                self.log_debug("Updating subnet %s setting host routes: %s" % (subnet.name, host_routes))
+                self.log_info("Updating subnet %s setting host routes: %s" % (subnet.name, host_routes))
                 driver.ex_update_subnet(subnet, host_routes=host_routes)
 
                 for port in driver.ex_list_ports():
                     if port.extra['device_id'] == ost_net.id:
-                        self.log_debug("Disabling security port in %s" % port.id)
+                        self.log_info("Disabling security port in %s" % port.id)
                         driver.ex_update_port(port, port_security_enabled=False)
 
                 # once set, delete it to not set it again
@@ -585,7 +591,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                         self.log_warn("No public router found.")
                     else:
                         subnet_id = ost_net.extra['subnets'][0]
-                        self.log_debug("Deleting subnet %s to the router %s" % (subnet_id, router.name))
+                        self.log_info("Deleting subnet %s to the router %s" % (subnet_id, router.name))
                         subnet = OpenStack_2_SubNet(subnet_id, None, None, ost_net.id, driver)
                         try:
                             driver.ex_del_router_subnet(router, subnet)
@@ -596,7 +602,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                                                                                        router.name,
                                                                                        ", ".join(ex.args))
 
-                    self.log_debug("Deleting net %s." % ost_net.name)
+                    self.log_info("Deleting net %s." % ost_net.name)
                     driver.ex_delete_network(ost_net)
 
         return True, msg
@@ -633,7 +639,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
                         # create the network
                         try:
-                            self.log_debug("Creating ost network: %s" % ost_net_name)
+                            self.log_info("Creating ost network: %s" % ost_net_name)
                             ost_net = driver.ex_create_network(ost_net_name)
                         except Exception as ex:
                             self.log_exception("Error creating ost network for net %s." % net_name)
@@ -643,7 +649,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                         # now create the subnet
                         ost_subnet_name = "im-%s-sub%s" % (inf.id, net_name)
                         try:
-                            self.log_debug("Creating ost subnet: %s" % ost_subnet_name)
+                            self.log_info("Creating ost subnet: %s" % ost_subnet_name)
                             ost_subnet = driver.ex_create_subnet(ost_subnet_name, ost_net, net_cidr,
                                                                  ip_version=4, dns_nameservers=[net_dnsserver])
                         except Exception as ex:
@@ -654,13 +660,13 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                             raise Exception("Error creating ost subnet for net %s: %s" % (net_name,
                                                                                           ", ".join(ex.args)))
 
-                        self.log_debug("Adding subnet %s to the router %s" % (ost_subnet.name, router.name))
+                        self.log_info("Adding subnet %s to the router %s" % (ost_subnet.name, router.name))
                         try:
                             driver.ex_add_router_subnet(router, ost_subnet)
                         except Exception as ex:
                             # some time the nets are auto added to the router
                             if self.is_net_in_router(driver, ost_net, router):
-                                self.log_debug("Net %s already in the router %s" % (ost_net.name, router.name))
+                                self.log_info("Net %s already in the router %s" % (ost_net.name, router.name))
                             else:
                                 self.log_error("Error adding subnet to the router. Deleting net and subnet.")
                                 driver.ex_delete_subnet(ost_subnet)
@@ -1133,7 +1139,10 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         """
         sg_names = ["im-%s" % inf.id]
         for net in inf.radl.networks:
-            sg_names.append("im-%s-%s" % (inf.id, net.id))
+            sg_name = net.getValue("sg_name")
+            if not sg_name:
+                sg_name = "im-%s-%s" % (inf.id, net.id)
+            sg_names.append(sg_name)
 
         msg = ""
         deleted = True
@@ -1148,13 +1157,17 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     self.log_info("The SG %s does not exist. Do not delete it." % sg_name)
                     deleted = True
                 else:
-                    try:
-                        self.log_info("Deleting SG: %s" % sg_name)
-                        driver.ex_delete_security_group(sg)
+                    if sg.description != "Security group created by the IM":
+                        self.log_info("SG %s not created by the IM. Do not delete it." % sg_name)
                         deleted = True
-                    except Exception as ex:
-                        self.log_warn("Error deleting the SG: %s" % ", ".join(ex.args))
-                        msg = "Error deleting the SG: %s" % ", ".join(ex.args)
+                    else:
+                        try:
+                            self.log_info("Deleting SG: %s" % sg_name)
+                            driver.ex_delete_security_group(sg)
+                            deleted = True
+                        except Exception as ex:
+                            self.log_warn("Error deleting the SG: %s" % ", ".join(ex.args))
+                            msg = "Error deleting the SG: %s" % ", ".join(ex.args)
 
                     if not deleted:
                         time.sleep(delay)
