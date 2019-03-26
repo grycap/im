@@ -21,7 +21,7 @@ import unittest
 
 sys.path.append(".")
 sys.path.append("..")
-from .CloudConn import TestCloudConnectorBase
+from CloudConn import TestCloudConnectorBase
 from IM.CloudInfo import CloudInfo
 from IM.auth import Authentication
 from radl import radl_parse
@@ -471,7 +471,7 @@ class TestOSTConnector(TestCloudConnectorBase):
 
         radl_data = """
             network public (outboud = 'yes')
-            network private (create = 'yes' and provider_id = 'private')
+            network private (create = 'yes' and provider_id = ' im-infid-private')
             system test (
             cpu.count>=2 and
             memory.size>=2048m and
@@ -501,10 +501,26 @@ class TestOSTConnector(TestCloudConnectorBase):
 
         driver.delete_security_group.return_value = True
 
-        driver.ex_list_floating_ips.return_value = []
+        fip = MagicMock()
+        fip.node_id = node.id
+        fip.ip_address = '158.42.1.1'
+        fip.delete.return_value = True
+        driver.ex_list_floating_ips.return_value = [fip]
+        driver.ex_detach_floating_ip_from_node.return_value = True
+
+        sg1 = MagicMock()
+        sg1.name = "im-infid-private"
+        sg1.description = "Security group created by the IM"
+        sg2 = MagicMock()
+        sg2.name = "im-infid-public"
+        sg2.description = "Security group created by the IM"
+        sg3 = MagicMock()
+        sg3.name = "im-infid"
+        sg3.description = ""
+        driver.ex_list_security_groups.return_value = [sg1, sg2, sg3]
 
         net1 = MagicMock()
-        net1.name = "private"
+        net1.name = "im-infid-private"
         net1.cidr = None
         net1.extra = {'subnets': ["subnet1"]}
         net2 = MagicMock()
@@ -516,7 +532,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         router = MagicMock()
         router.id = "id"
         router.name = "name"
-        router.extra = {'external_gateway_info': {'network_id': net1.id}}
+        router.extra = {'external_gateway_info': {'network_id': net2.id}}
         driver.ex_list_routers.return_value = [router]
         driver.ex_add_router_subnet.return_value = True
 
@@ -524,6 +540,15 @@ class TestOSTConnector(TestCloudConnectorBase):
 
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
+        self.assertEqual(node.destroy.call_args_list, [call()])
+        self.assertEqual(driver.ex_del_router_subnet.call_args_list[0][0][0], router)
+        self.assertEqual(driver.ex_del_router_subnet.call_args_list[0][0][1].id, "subnet1")
+        self.assertEqual(driver.ex_delete_network.call_args_list[0][0][0], net1)
+        self.assertEqual(driver.ex_delete_security_group.call_args_list[0][0][0], sg2)
+        self.assertEqual(driver.ex_delete_security_group.call_args_list[1][0][0], sg1)
+        self.assertEqual(fip.delete.call_args_list, [call()])
+        self.assertEqual(driver.ex_detach_floating_ip_from_node.call_args_list[0][0], (node, fip))
 
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
     def test_70_create_snapshot(self, get_driver):
