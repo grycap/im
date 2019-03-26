@@ -561,6 +561,7 @@ class AzureCloudConnector(CloudConnector):
                     {'address_prefix': '10.0.%d.0/24' % i}
                 )
                 subnets[net.id] = async_subnet_creation.result()
+                net.setValue('cidr', '10.0.%d.0/24' % i)
         else:
             subnets = {}
             for i, net in enumerate(radl.networks):
