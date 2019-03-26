@@ -21,7 +21,7 @@ import unittest
 
 sys.path.append(".")
 sys.path.append("..")
-from .CloudConn import TestCloudConnectorBase
+from CloudConn import TestCloudConnectorBase
 from IM.CloudInfo import CloudInfo
 from IM.auth import Authentication
 from radl import radl_parse
@@ -533,6 +533,7 @@ class TestEC2Connector(TestCloudConnectorBase):
     def test_60_finalize(self, record_sets, connect_to_region, sleep, get_connection):
         radl_data = """
             network net (outbound = 'yes')
+            network net2 (outbound = 'yes')
             system test (
             cpu.arch='x86_64' and
             cpu.count=1 and
@@ -540,6 +541,7 @@ class TestEC2Connector(TestCloudConnectorBase):
             net_interface.0.connection = 'net' and
             net_interface.0.ip = '158.42.1.1' and
             net_interface.0.dns_name = 'test.domain.com' and
+            net_interface.1.connection = 'net2' and
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'one://server.com/1' and
             disk.0.os.credentials.username = 'user' and
@@ -586,10 +588,23 @@ class TestEC2Connector(TestCloudConnectorBase):
 
         sg = MagicMock()
         sg.name = "im-1"
+        sg.description = "Security group created by the IM"
         sg.instances.return_value = []
         sg.revoke.return_value = True
         sg.delete.return_value = True
-        conn.get_all_security_groups.return_value = [sg]
+        sg1 = MagicMock()
+        sg1.name = "im-1-net"
+        sg1.description = ""
+        sg1.instances.return_value = []
+        sg1.revoke.return_value = True
+        sg1.delete.return_value = True
+        sg2 = MagicMock()
+        sg2.name = "im-1-net2"
+        sg2.description = "Security group created by the IM"
+        sg2.instances.return_value = []
+        sg2.revoke.return_value = True
+        sg2.delete.return_value = True
+        conn.get_all_security_groups.return_value = [sg, sg1, sg2]
 
         dns_conn = MagicMock()
         connect_to_region.return_value = dns_conn
@@ -608,11 +623,15 @@ class TestEC2Connector(TestCloudConnectorBase):
         success, _ = ec2_cloud.finalize(vm, True, auth)
 
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
         self.assertEquals(dns_conn.delete_hosted_zone.call_count, 1)
         self.assertEquals(dns_conn.delete_hosted_zone.call_args_list[0][0][0], zone.id)
         self.assertEquals(changes.add_change.call_args_list, [call('DELETE', 'test.domain.com.', 'A')])
         self.assertEquals(change.add_value.call_args_list, [call('158.42.1.1')])
-        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+        self.assertEquals(sg.delete.call_args_list, [call()])
+        self.assertEquals(sg1.delete.call_args_list, [])
+        self.assertEquals(sg2.delete.call_args_list, [call()])
 
     @patch('IM.connectors.EC2.EC2CloudConnector.get_connection')
     @patch('time.sleep')
