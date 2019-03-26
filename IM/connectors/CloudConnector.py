@@ -338,8 +338,10 @@ class CloudConnector(LoggerMixin):
                 success, msg = self.delete_image(image_url, auth_data)
                 if not success:
                     self.log_error("Error deleting snapshot: %s" % msg)
-        except:
+                return success, msg
+        except Exception as ex:
             self.log_exception("Error deleting snapshots.")
+            return success, str(ex)
 
     def get_cloud_init_data(self, radl=None, vm=None, public_key=None, user=None):
         """
