@@ -336,34 +336,6 @@ class EC2CloudConnector(CloudConnector):
                 net.setValue('provider_id', vpc + "." + subnet)
 
     @staticmethod
-    def get_net_provider_id(radl):
-        """
-        Get the provider ID of the first net that has specified it
-        Returns: The net provider ID or None if not defined
-        """
-        provider_id = None
-        system = radl.systems[0]
-        for i in range(system.getNumNetworkIfaces()):
-            net_id = system.getValue('net_interface.' + str(i) + '.connection')
-            net = radl.get_network_by_id(net_id)
-
-            if net:
-                provider_id = net.getValue('provider_id')
-            if provider_id:
-                break
-
-        if provider_id:
-            parts = provider_id.split(".")
-            if len(parts) == 2 and parts[0].startswith("vpc-") and parts[1].startswith("subnet-"):
-                # TODO: check that the VPC and subnet, exists
-                return parts[0], parts[1]
-            else:
-                raise Exception("Incorrect provider_id value: " +
-                                provider_id + ". It must be <vpc-id>.<subnet-id>.")
-        else:
-            return None
-
-    @staticmethod
     def _get_security_group(conn, sg_name):
         try:
             return conn.get_all_security_groups(filters={'group-name': sg_name})[0]
@@ -479,12 +451,115 @@ class EC2CloudConnector(CloudConnector):
 
         return vpc_id, subnet_id
 
+    @staticmethod
+    def get_net_provider_id(radl):
+        """
+        Get the provider ID of the first net that has specified it
+        Returns: The net provider ID or None if not defined
+        """
+        provider_id = None
+        system = radl.systems[0]
+        for i in range(system.getNumNetworkIfaces()):
+            net_id = system.getValue('net_interface.' + str(i) + '.connection')
+            net = radl.get_network_by_id(net_id)
+
+            if net:
+                provider_id = net.getValue('provider_id')
+            if provider_id:
+                break
+
+        return provider_id
+
+    def create_networks(self, conn, radl, inf):
+        """
+        Create the requested subnets and VPC
+        """
+        try:
+            vpc_id = None
+            for i, net in enumerate(radl.networks):
+                provider_id = net.getValue('provider_id')
+                if net.getValue('create') == 'yes' and not net.isPublic() and not provider_id:
+                    # First create the VPC
+                    if vpc_id is None:
+                        # Check if it already exists
+                        vpcs = conn.get_all_vpcs(filters={"tag:IM-INFRA-ID": inf.id})
+                        if vpcs:
+                            vpc_id = vpcs[0].id
+                            self.log_debug("VPC %s exists. Do not create." % vpc_id)
+                        else:
+                            # if not create it
+                            self.log_info("Creating VPC.")
+                            vpc = conn.create_vpc('10.0.0.0/16')
+                            vpc.add_tag("IM-INFRA-ID", inf.id)
+                            vpc_id = vpc.id
+
+                            ig = conn.create_internet_gateway()
+                            ig.add_tag("IM-INFRA-ID", inf.id)
+                            conn.attach_internet_gateway(ig.id, vpc_id)
+
+                    # Now create the subnet
+                    # Check if it already exists
+                    subnets = conn.get_all_subnets(filters={"tag:IM-INFRA-ID": inf.id,
+                                                            "tag:IM-SUBNET-ID": net.id})
+                    if subnets:
+                        subnet = subnets[0]
+                        self.log_debug("Subnet %s exists. Do not create." % net.id)
+                    else:
+                        self.log_info("Create subnet %s" % net.id)
+                        subnet = conn.create_subnet(vpc_id, '10.0.%d.0/24' % i)
+                        subnet.add_tag("IM-INFRA-ID", inf.id)
+                        subnet.add_tag("IM-SUBNET-ID", net.id)
+
+                    net.setValue('provider_id', "%s.%s" % (vpc_id, subnet.id))
+        except Exception as ex:
+            self.log_exception("Error creating subnets or vpc.")
+            try:
+                for subnet in conn.get_all_subnets(filters={"tag:IM-INFRA-ID": inf.id}):
+                    self.log_info("Deleting subnet: %s" % subnet.id)
+                    conn.delete_subnet(subnet.id)
+                for vpc in conn.get_all_vpcs(filters={"tag:IM-INFRA-ID": inf.id}):
+                    self.log_info("Deleting vpc: %s" % vpc.id)
+                    conn.delete_vpc(vpc.id)
+                for ig in conn.get_all_internet_gateways(filters={"tag:IM-INFRA-ID": inf.id}):
+                    self.log_info("Deleting Internet Gateway: %s" % ig.id)
+                    conn.delete_internet_gateways(ig.id)
+            except Exception:
+                self.log_exception("Error deleting subnets or vpc.")
+            raise ex
+
+    def get_networks(self, conn, radl):
+        """
+        Get VPC and Subnet info
+        """
+        provider_id = self.get_net_provider_id(radl)
+        if provider_id:
+            parts = provider_id.split(".")
+            if len(parts) == 2 and parts[0].startswith("vpc-") and parts[1].startswith("subnet-"):
+                vpc = conn.get_all_vpcs([parts[0]])
+                subnet = conn.get_all_subnets([parts[1]])
+                if vpc and subnet:
+                    return vpc[0].id, subnet[0].id
+                elif vpc:
+                    raise Exception("Incorrect subnet value in provider_id value: %s" % provider_id)
+                else:
+                    raise Exception("Incorrect vpc value in provider_id value: %s" % provider_id)
+            else:
+                raise Exception("Incorrect provider_id value: " +
+                                provider_id + ". It must be <vpc-id>.<subnet-id>.")
+        else:
+            # Check the default VPC and get the first subnet with a connection with a gateway
+            # If there are no default VPC, raise error
+            vpc, subnet = self.get_default_subnet(conn)
+            if vpc and subnet:
+                return vpc, subnet
+            else:
+                raise Exception("No VPC.subnet specified and no VPC default found.")
+
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
 
         im_username = "im_user"
         if auth_data.getAuthInfo('InfrastructureManager'):
-            im_username = auth_data.getAuthInfo(
-                'InfrastructureManager')[0]['username']
+            im_username = auth_data.getAuthInfo('InfrastructureManager')[0]['username']
 
         system = radl.systems[0]
 
@@ -493,8 +568,7 @@ class EC2CloudConnector(CloudConnector):
             system.delValue('disk.0.os.credentials.password')
             system.delValue('disk.0.os.credentials.new.password')
 
-        (region_name, ami) = self.getAMIData(
-            system.getValue("disk.0.image.url"))
+        (region_name, ami) = self.getAMIData(system.getValue("disk.0.image.url"))
 
         self.log_info("Connecting with the region: " + region_name)
         conn = self.get_connection(region_name, auth_data)
@@ -502,8 +576,7 @@ class EC2CloudConnector(CloudConnector):
         res = []
         if not conn:
             for i in range(num_vm):
-                res.append(
-                    (False, "Error connecting with EC2, check the credentials"))
+                res.append((False, "Error connecting with EC2, check the credentials"))
             return res
 
         image = conn.get_image(ami)
@@ -524,22 +597,12 @@ class EC2CloudConnector(CloudConnector):
                     res.append((False, "Error getting correct block_device name from AMI: " + str(ami)))
                 return res
 
-            # Create the security group for the VMs
-            provider_id = self.get_net_provider_id(radl)
-            if provider_id:
-                vpc, subnet = provider_id
-                sg_names = None
-                sg_ids = self.create_security_groups(conn, inf, radl, vpc)
-            else:
-                # Check the default VPC and get the first subnet with a connection with a gateway
-                # If there are no default VPC, raise error
-                vpc, subnet = self.get_default_subnet(conn)
-                if vpc and subnet:
-                    self.set_net_provider_id(radl, vpc, subnet)
-                    sg_names = None
-                    sg_ids = self.create_security_groups(conn, inf, radl, vpc)
-                else:
-                    raise Exception("No VPC.subnet specified and no VPC default found.")
+            with inf._lock:
+                self.create_networks(conn, radl, inf)
+
+            vpc, subnet = self.get_networks(conn, radl)
+
+            sg_ids = self.create_security_groups(conn, inf, radl, vpc)
 
             public_key = system.getValue("disk.0.os.credentials.public_key")
             private_key = system.getValue('disk.0.os.credentials.private_key')
@@ -591,8 +654,7 @@ class EC2CloudConnector(CloudConnector):
                             price = system.getValue("price")
                             # Realizamos el request de spot instances
                             if system.getValue("disk.0.os.name"):
-                                operative_system = system.getValue(
-                                    "disk.0.os.name")
+                                operative_system = system.getValue("disk.0.os.name")
                                 if operative_system == "linux":
                                     operative_system = 'Linux/UNIX'
                                     # TODO: diferenciar entre cuando sea
@@ -605,8 +667,7 @@ class EC2CloudConnector(CloudConnector):
                                 # operative_system = 'Linux/UNIX'
 
                             if system.getValue('availability_zone'):
-                                availability_zone = system.getValue(
-                                    'availability_zone')
+                                availability_zone = system.getValue('availability_zone')
                             else:
                                 availability_zone = 'us-east-1c'
                                 historical_price = 1000.0
@@ -624,14 +685,13 @@ class EC2CloudConnector(CloudConnector):
                             self.log_info("Launching the spot request in the zone " + availability_zone)
 
                             # Force to use magnetic volumes
-                            bdm = boto.ec2.blockdevicemapping.BlockDeviceMapping(
-                                conn)
+                            bdm = boto.ec2.blockdevicemapping.BlockDeviceMapping(conn)
                             bdm[block_device_name] = boto.ec2.blockdevicemapping.BlockDeviceType(
                                 volume_type="standard")
                             request = conn.request_spot_instances(price=price, image_id=image.id, count=1,
                                                                   type='one-time', instance_type=instance_type.name,
                                                                   placement=availability_zone, key_name=keypair_name,
-                                                                  security_groups=sg_names, security_group_ids=sg_ids,
+                                                                  security_group_ids=sg_ids,
                                                                   block_device_map=bdm, subnet_id=subnet,
                                                                   user_data=user_data)
 
@@ -667,11 +727,12 @@ class EC2CloudConnector(CloudConnector):
                             # Check if the user has specified the net provider
                             # id
                             reservation = image.run(min_count=1, max_count=1, key_name=keypair_name,
-                                                    instance_type=instance_type.name, security_groups=sg_names,
+                                                    instance_type=instance_type.name,
                                                     security_group_ids=sg_ids, placement=placement,
                                                     block_device_map=bdm, subnet_id=subnet, user_data=user_data)
 
                             if len(reservation.instances) == 1:
+                                time.sleep(1)
                                 instance = reservation.instances[0]
                                 instance.add_tag("IM-USER", im_username)
                                 for key, value in tags.items():
@@ -703,13 +764,6 @@ class EC2CloudConnector(CloudConnector):
                     for sgid in sg_ids:
                         self.log_info("Remove the SG: %s" % sgid)
                         conn.delete_security_group(group_id=sgid)
-                except:
-                    self.log_exception("Error deleting SG.")
-            if sg_names and sg_names[0] != 'default':
-                try:
-                    for sgname in sg_names:
-                        self.log_info("Remove the SG: %s" % sgname)
-                        conn.delete_security_group(sgname)
                 except:
                     self.log_exception("Error deleting SG.")
 
@@ -767,6 +821,8 @@ class EC2CloudConnector(CloudConnector):
                 try:
                     volume = self.create_volume(conn, int(disk_size), instance.placement, disk_type)
                     if volume:
+                        volume.add_tag("IM-INFRA-ID", vm.inf.id)
+                        volume.add_tag("IM-VM-ID", vm.id)
                         self.log_info("Attach the volume ID " + str(volume.id))
                         conn.attach_volume(volume.id, instance.id, "/dev/" + disk_device)
                 except:
@@ -779,35 +835,31 @@ class EC2CloudConnector(CloudConnector):
                             self.log_exception("Error deleting the volume")
                 cont += 1
 
-    def delete_volumes(self, conn, volumes, instance_id, timeout=240):
+    def delete_volumes(self, conn, vm, timeout=240):
         """
         Delete the volumes specified in the volumes list
 
         Arguments:
            - conn(:py:class:`boto.ec2.connection`): object to connect to EC2 API.
-           - volumes(list of strings): Volume IDs to delete.
+           - vm(:py:class:`IM.VirtualMachine`): VM information.
            - timeout(int): Time needed to delete the volume.
         """
-        for volume_id in volumes:
+        volumes = conn.get_all_volumes(filters={"tag:IM-INFRA-ID": vm.inf.id,
+                                                "tag:IM-VM-ID": vm.id})
+        for curr_vol in volumes:
             cont = 0
             deleted = False
             while not deleted and cont < timeout:
-                cont += 5
+                cont += 2
                 try:
-                    curr_vol = conn.get_all_volumes([volume_id])[0]
-                except:
-                    self.log_warn(
-                        "The volume " + volume_id + " does not exist. It cannot be removed. Ignore it.")
-                    deleted = True
-                    break
-                try:
-                    curr_vol = conn.get_all_volumes([volume_id])[0]
+                    curr_vol.update()
                     if str(curr_vol.attachment_state()) == "attached":
-                        self.log_info("Detaching the volume " + volume_id + " from the instance " + instance_id)
-                        conn.detach_volume(volume_id, instance_id, force=True)
-                    elif curr_vol.attachment_state() is None:
-                        self.log_info("Removing the volume " + volume_id)
-                        conn.delete_volume(volume_id)
+                        self.log_info("Detaching the volume " + curr_vol.id + " from the instance " + vm.id)
+                        conn.detach_volume(curr_vol.id, curr_vol.attach_data.instance_id, force=True)
+
+                    if curr_vol.attachment_state() is None:
+                        self.log_info("Removing the volume " + curr_vol.id)
+                        conn.delete_volume(curr_vol.id)
                         deleted = True
                     else:
                         self.log_info("State: " + str(curr_vol.attachment_state()))
@@ -815,10 +867,10 @@ class EC2CloudConnector(CloudConnector):
                     self.log_warn("Error removing the volume: " + str(ex))
 
                 if not deleted:
-                    time.sleep(5)
+                    time.sleep(2)
 
             if not deleted:
-                self.log_error("Error removing the volume " + volume_id)
+                self.log_error("Error removing the volume " + curr_vol.id)
 
     # Get the EC2 instance object with the specified ID
     def get_instance_by_id(self, instance_id, region_name, auth_data):
@@ -1177,6 +1229,29 @@ class EC2CloudConnector(CloudConnector):
         except Exception:
             self.log_exception("Error deleting the spot instance request")
 
+    def delete_networks(self, conn, vm):
+        """
+        Delete the created networks
+        """
+        for subnet in conn.get_all_subnets(filters={"tag:IM-INFRA-ID": vm.inf.id}):
+            self.log_info("Deleting subnet: %s" % subnet.id)
+            conn.delete_subnet(subnet.id)
+        vpc_id = None
+        for vpc in conn.get_all_vpcs(filters={"tag:IM-INFRA-ID": vm.inf.id}):
+            self.log_info("Deleting vpc: %s" % vpc.id)
+            vpc_id = vpc.id
+        ig_id = None
+        for ig in conn.get_all_internet_gateways(filters={"tag:IM-INFRA-ID": vm.inf.id}):
+            self.log_info("Deleting Internet Gateway: %s" % ig.id)
+            ig_id = ig.id
+
+        if ig_id and vpc_id:
+            conn.detach_internet_gateway(ig.id, vpc_id)
+        if ig_id:
+            conn.delete_internet_gateway(ig_id)
+        if vpc_id:
+            conn.delete_vpc(vpc_id)
+
     def finalize(self, vm, last, auth_data):
 
         # first delete the snapshots to avoid problems in EC3 deleting the IM front-end
@@ -1190,13 +1265,8 @@ class EC2CloudConnector(CloudConnector):
             conn = self.get_connection(region_name, auth_data)
 
             # Terminate the instance
-            volumes = []
             instance = self.get_instance_by_id(instance_id, region_name, auth_data)
             if instance is not None:
-                instance.update()
-                # Get the volumnes to delete
-                for volume in instance.block_device_mapping.values():
-                    volumes.append(volume.volume_id)
                 instance.terminate()
         else:
             self.log_info("VM with no ID. Ignore.")
@@ -1207,6 +1277,11 @@ class EC2CloudConnector(CloudConnector):
                 self.delete_security_groups(conn, vm)
             except Exception:
                 self.log_exception("Error deleting security group.")
+
+            try:
+                self.delete_networks(conn, vm)
+            except Exception:
+                self.log_exception("Error deleting networks.")
 
         # Delete the DNS entries
         try:
@@ -1228,7 +1303,7 @@ class EC2CloudConnector(CloudConnector):
 
         # Delete the EBS volumes
         try:
-            self.delete_volumes(conn, volumes, instance_id)
+            self.delete_volumes(conn, vm)
         except Exception:
             self.log_exception("Error deleting EBS volumes")
 
@@ -1263,55 +1338,26 @@ class EC2CloudConnector(CloudConnector):
         """
         sgs = self._get_security_groups(conn, vm)
 
+        if sgs:
+            # Get the default SG to set in the instances
+            def_sg_id = conn.get_all_security_groups(filters={'group-name': 'default',
+                                                              'vpc_id': sgs[0].vpc_id})[0].id
+
         for sg in sgs:
             if sg.description != "Security group created by the IM":
                 self.log_info("SG %s not created by the IM. Do not delete it." % sg.name)
                 continue
-            some_vm_running = False
             for instance in sg.instances():
-                if instance.state == 'running':
-                    some_vm_running = True
+                instance.modify_attribute("groupSet", [def_sg_id])
 
-            # Check that all there are only one active instance (this one)
-            if not some_vm_running:
-                # wait it to terminate and then remove the SG
-                cont = 0
-                all_vms_terminated = True
-                for instance in sg.instances():
-                    while instance.state != 'terminated' and cont < timeout:
-                        time.sleep(5)
-                        cont += 5
-                        instance.update()
+            self.log_info("Remove the SG: " + sg.name)
+            try:
+                sg.revoke('tcp', 0, 65535, src_group=sg)
+                sg.revoke('udp', 0, 65535, src_group=sg)
+            except Exception as ex:
+                self.log_warn("Error revoking self rules: " + str(ex))
 
-                    if instance.state != 'terminated':
-                        all_vms_terminated = False
-
-                if all_vms_terminated:
-                    self.log_info("Remove the SG: " + sg.name)
-                    try:
-                        sg.revoke('tcp', 0, 65535, src_group=sg)
-                        sg.revoke('udp', 0, 65535, src_group=sg)
-                    except Exception as ex:
-                        self.log_warn("Error revoking self rules: " + str(ex))
-
-                    deleted = False
-                    while not deleted and cont < timeout:
-                        time.sleep(5)
-                        cont += 5
-                        try:
-                            sg.delete()
-                            deleted = True
-                        except Exception as ex:
-                            # Check if it has been deleted yet
-                            sg = self._get_security_group(conn, sg.name)
-                            if not sg:
-                                self.log_info("Error deleting the SG. But it does not exist. Ignore. " + str(ex))
-                                deleted = True
-                            else:
-                                self.log_exception("Error deleting the SG.")
-            else:
-                # If there are more than 1, we skip this step
-                self.log_info("There are active instances. Not removing the SG")
+            sg.delete()
 
     def stop(self, vm, auth_data):
         region_name = vm.id.split(";")[0]

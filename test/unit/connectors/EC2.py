@@ -21,7 +21,7 @@ import unittest
 
 sys.path.append(".")
 sys.path.append("..")
-from CloudConn import TestCloudConnectorBase
+from .CloudConn import TestCloudConnectorBase
 from IM.CloudInfo import CloudInfo
 from IM.auth import Authentication
 from radl import radl_parse
@@ -160,7 +160,7 @@ class TestEC2Connector(TestCloudConnectorBase):
         # Check the case that we do not use VPC
         radl_data = """
             network net1 (outbound = 'yes' and outports='8080')
-            network net2 ()
+            network net2 (create='yes')
             system test (
             cpu.arch='x86_64' and
             cpu.count>=1 and
@@ -179,12 +179,12 @@ class TestEC2Connector(TestCloudConnectorBase):
             )"""
         radl = radl_parse.parse_radl(radl_data)
         vpc = MagicMock()
-        vpc.id = "vpcid"
+        vpc.id = "vpc-id"
         vpc.is_default = True
         conn.get_all_vpcs.return_value = [vpc]
 
         subnet = MagicMock()
-        subnet.id = "subnetid"
+        subnet.id = "subnet-id"
         conn.get_all_subnets.return_value = [subnet]
 
         inf = InfrastructureInfo()
@@ -590,6 +590,7 @@ class TestEC2Connector(TestCloudConnectorBase):
         conn.get_all_spot_instance_requests.return_value = []
 
         volume = MagicMock()
+        volume.id = "volid"
         volume.attachment_state.return_value = None
         conn.get_all_volumes.return_value = [volume]
         conn.delete_volume.return_value = True
@@ -628,6 +629,18 @@ class TestEC2Connector(TestCloudConnectorBase):
         change = MagicMock()
         changes.add_change.return_value = change
 
+        subnet = MagicMock()
+        subnet.id = "subnet-id"
+        conn.get_all_subnets.return_value = [subnet]
+
+        vpc = MagicMock()
+        vpc.id = "vpc-id"
+        conn.get_all_vpcs.return_value = [vpc]
+
+        ig = MagicMock()
+        ig.id = "ig-id"
+        conn.get_all_internet_gateways.return_value = [ig]
+
         success, _ = ec2_cloud.finalize(vm, True, auth)
 
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
@@ -640,6 +653,11 @@ class TestEC2Connector(TestCloudConnectorBase):
         self.assertEquals(sg.delete.call_args_list, [call()])
         self.assertEquals(sg1.delete.call_args_list, [])
         self.assertEquals(sg2.delete.call_args_list, [call()])
+        self.assertEquals(conn.delete_subnet.call_args_list, [call('subnet-id')])
+        self.assertEquals(conn.delete_vpc.call_args_list, [call('vpc-id')])
+        self.assertEquals(conn.delete_internet_gateway.call_args_list, [call('ig-id')])
+        self.assertEquals(conn.detach_internet_gateway.call_args_list, [call('ig-id', 'vpc-id')])
+        self.assertEquals(conn.delete_volume.call_args_list, [call(volume.id)])
 
     @patch('IM.connectors.EC2.EC2CloudConnector.get_connection')
     @patch('time.sleep')
