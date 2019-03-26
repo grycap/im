@@ -956,34 +956,29 @@ class EC2CloudConnector(CloudConnector):
            - conn(:py:class:`boto.ec2.connection`): object to connect to EC2 API.
            - vm(:py:class:`IM.VirtualMachine`): VM information.
         """
-        try:
-            instance_id = vm.id.split(";")[1]
-            # Get the elastic IPs
-            for address in conn.get_all_addresses():
-                if address.instance_id == instance_id:
-                    self.log_info("This VM has a Elastic IP, disassociate it")
-                    address.disassociate()
+        instance_id = vm.id.split(";")[1]
+        # Get the elastic IPs
+        for address in conn.get_all_addresses(filters={"instance-id": instance_id}):
+            self.log_info("This VM has a Elastic IP, disassociate it")
+            address.disassociate()
 
-                    n = 0
-                    found = False
-                    while vm.getRequestedSystem().getValue("net_interface." + str(n) + ".connection"):
-                        net_conn = vm.getRequestedSystem().getValue('net_interface.' + str(n) + '.connection')
-                        if vm.info.get_network_by_id(net_conn).isPublic():
-                            if vm.getRequestedSystem().getValue("net_interface." + str(n) + ".ip"):
-                                fixed_ip = vm.getRequestedSystem().getValue("net_interface." + str(n) + ".ip")
-                                # If it is a fixed IP we must not release it
-                                if fixed_ip == str(address.public_ip):
-                                    found = True
-                        n += 1
+            n = 0
+            found = False
+            while vm.getRequestedSystem().getValue("net_interface." + str(n) + ".connection"):
+                net_conn = vm.getRequestedSystem().getValue('net_interface.' + str(n) + '.connection')
+                if vm.info.get_network_by_id(net_conn).isPublic():
+                    if vm.getRequestedSystem().getValue("net_interface." + str(n) + ".ip"):
+                        fixed_ip = vm.getRequestedSystem().getValue("net_interface." + str(n) + ".ip")
+                        # If it is a fixed IP we must not release it
+                        if fixed_ip == str(address.public_ip):
+                            found = True
+                n += 1
 
-                    if not found:
-                        self.log_info("Now release it")
-                        address.release()
-                    else:
-                        self.log_info("This is a fixed IP, it is not released")
-        except Exception:
-            self.log_exception(
-                "Error deleting the Elastic IPs to VM ID: " + str(vm.id))
+            if not found:
+                self.log_info("Now release it")
+                address.release()
+            else:
+                self.log_info("This is a fixed IP, it is not released")
 
     def setIPsFromInstance(self, vm, instance):
         """
@@ -1272,16 +1267,19 @@ class EC2CloudConnector(CloudConnector):
             self.log_info("VM with no ID. Ignore.")
 
         # Delete the SG if this is the last VM
+        error_msg = ""
         if last:
             try:
                 self.delete_security_groups(conn, vm)
-            except Exception:
+            except Exception as ex:
                 self.log_exception("Error deleting security group.")
+                error_msg += "Error deleting security group: %s. " % ex
 
             try:
                 self.delete_networks(conn, vm)
-            except Exception:
+            except Exception as ex:
                 self.log_exception("Error deleting networks.")
+                error_msg += "Error deleting networks: %s. " % ex
 
         # Delete the DNS entries
         try:
@@ -1292,8 +1290,9 @@ class EC2CloudConnector(CloudConnector):
         # Delete the elastic IPs
         try:
             self.delete_elastic_ips(conn, vm)
-        except Exception:
+        except Exception as ex:
             self.log_exception("Error deleting elastic IPs.")
+            error_msg += "Error deleting elastic IPs: %s. " % ex
 
         # Delete the  spot instance requests
         try:
@@ -1307,7 +1306,7 @@ class EC2CloudConnector(CloudConnector):
         except Exception:
             self.log_exception("Error deleting EBS volumes")
 
-        return (True, "")
+        return (error_msg == "", error_msg)
 
     def _get_security_groups(self, conn, vm):
         """
@@ -1341,7 +1340,7 @@ class EC2CloudConnector(CloudConnector):
         if sgs:
             # Get the default SG to set in the instances
             def_sg_id = conn.get_all_security_groups(filters={'group-name': 'default',
-                                                              'vpc_id': sgs[0].vpc_id})[0].id
+                                                              'vpc-id': sgs[0].vpc_id})[0].id
 
         for sg in sgs:
             if sg.description != "Security group created by the IM":
