@@ -68,17 +68,6 @@ class TestEC2Connector(TestCloudConnectorBase):
         self.assertEqual(len(concrete), 1)
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
-    def create_key_pair(self, keypair_name):
-        keypair = MagicMock()
-        keypair.name = keypair_name
-
-        def save_key_pair(keypair_dir):
-            with open(keypair_dir + "/" + keypair_name + ".pem", 'a') as f:
-                f.write("key")
-
-        keypair.save.side_effect = save_key_pair
-        return keypair
-
     def test_15_get_all_instance_types(self):
         ec2_cloud = self.get_ec2_cloud()
         instances = ec2_cloud.get_all_instance_types()
@@ -158,8 +147,6 @@ class TestEC2Connector(TestCloudConnectorBase):
         conn.create_security_group.return_value = sg
 
         conn.get_all_security_groups.return_value = []
-
-        conn.create_key_pair.side_effect = self.create_key_pair
 
         blockdevicemapping.return_value = {'device': ''}
 
@@ -569,7 +556,6 @@ class TestEC2Connector(TestCloudConnectorBase):
         inf = MagicMock()
         inf.id = "1"
         vm = VirtualMachine(inf, "us-east-1;id-1", ec2_cloud.cloud, radl, radl, ec2_cloud, 1)
-        vm.keypair_name = "key"
 
         conn = MagicMock()
         get_connection.return_value = conn
@@ -583,8 +569,6 @@ class TestEC2Connector(TestCloudConnectorBase):
         device.volume_id = "volid"
         reservation.instances = [instance]
         conn.get_all_instances.return_value = [reservation]
-
-        conn.delete_key_pair.return_value = True
 
         address = MagicMock()
         address.public_ip = "158.42.1.1"

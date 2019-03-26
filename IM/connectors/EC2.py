@@ -93,6 +93,8 @@ class EC2CloudConnector(CloudConnector):
         'terminated': VirtualMachine.OFF
     }
     """Dictionary with a map with the EC3 VM states to the IM states."""
+    DEFAULT_USER = 'cloudadm'
+    """ default user to SSH access the VM """
 
     instance_type_list = []
     """ Information about the instance types """
@@ -466,43 +468,6 @@ class EC2CloudConnector(CloudConnector):
         else:
             return res
 
-    def create_keypair(self, system, conn):
-        # create the keypair
-        keypair_name = "im-" + str(uuid.uuid1())
-        created = False
-
-        try:
-            private = system.getValue('disk.0.os.credentials.private_key')
-            public = system.getValue('disk.0.os.credentials.public_key')
-            if private and public:
-                if public.find('-----BEGIN CERTIFICATE-----') != -1:
-                    self.log_info("The RADL specifies the PK, upload it to EC2")
-                    public_key = base64.b64encode(public)
-                    conn.import_key_pair(keypair_name, public_key)
-                else:
-                    # the public_key nodes specifies the keypair name
-                    keypair_name = public
-                # Update the credential data
-                system.setUserKeyCredentials(
-                    system.getCredentials().username, public, private)
-            else:
-                self.log_info("Creating the Keypair name: %s" % keypair_name)
-                tmp_dir = tempfile.mkdtemp()
-                keypair_file = tmp_dir + '/' + keypair_name + '.pem'
-                keypair = conn.create_key_pair(keypair_name)
-                created = True
-                keypair.save(tmp_dir)
-                os.chmod(keypair_file, 0o400)
-                with open(keypair_file, "r") as fkeypair:
-                    system.setUserKeyCredentials(system.getCredentials().username,
-                                                 None, fkeypair.read())
-                os.unlink(keypair_file)
-        except:
-            self.log_exception("Error kreating keypair.")
-            keypair_name = None
-
-        return (created, keypair_name)
-
     @staticmethod
     def get_default_subnet(conn):
         """
@@ -593,13 +558,23 @@ class EC2CloudConnector(CloudConnector):
                     if not sg_names:
                         sg_names = ['default']
 
-            # Now create the keypair
-            (created_keypair, keypair_name) = self.create_keypair(system, conn)
-            if not keypair_name:
-                self.log_error("Error managing the keypair.")
-                for i in range(num_vm):
-                    res.append((False, "Error managing the keypair."))
-                return res
+            public_key = system.getValue("disk.0.os.credentials.public_key")
+            private_key = system.getValue('disk.0.os.credentials.private_key')
+            keypair_name = None
+            if private_key and public_key:
+                # We assume that if the name key is shorter than 128 is a keypair name
+                if len(public_key) < 128:
+                    keypair_name = public_key
+
+            if not public_key:
+                # We must generate them
+                (public_key, private_key) = self.keygen()
+                system.setValue('disk.0.os.credentials.private_key', private_key)
+
+            user = system.getValue('disk.0.os.credentials.username')
+            if not user:
+                user = self.DEFAULT_USER
+                system.setValue('disk.0.os.credentials.username', user)
 
             tags = self.get_instance_tags(system)
 
@@ -611,7 +586,7 @@ class EC2CloudConnector(CloudConnector):
                 vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self)
                 vm.destroy = True
                 inf.add_vm(vm)
-                user_data = self.get_cloud_init_data(radl, vm)
+                user_data = self.get_cloud_init_data(radl, vm, public_key, user)
 
                 err_msg = "Launching in region %s with image: %s" % (region_name, ami)
                 if vpc:
@@ -689,8 +664,6 @@ class EC2CloudConnector(CloudConnector):
 
                                 vm.id = ec2_vm_id
                                 vm.info.systems[0].setValue('instance_id', str(vm.id))
-                                # Add the keypair name to remove it later
-                                vm.keypair_name = keypair_name
                                 self.log_info("Instance successfully launched.")
                                 all_failed = False
                                 vm.destroy = False
@@ -731,8 +704,6 @@ class EC2CloudConnector(CloudConnector):
 
                                 vm.id = ec2_vm_id
                                 vm.info.systems[0].setValue('instance_id', str(vm.id))
-                                # Add the keypair name to remove it later
-                                vm.keypair_name = keypair_name
                                 self.log_info("Instance successfully launched.")
                                 vm.destroy = False
                                 res.append((True, vm))
@@ -746,13 +717,8 @@ class EC2CloudConnector(CloudConnector):
 
                 i += 1
 
-        # if all the VMs have failed, remove the sg and keypair
+        # if all the VMs have failed, remove the sgs
         if all_failed:
-            if created_keypair:
-                try:
-                    conn.delete_key_pair(keypair_name)
-                except:
-                    self.log_exception("Error deleting keypair.")
             if sg_ids:
                 try:
                     for sgid in sg_ids:
@@ -1262,15 +1228,6 @@ class EC2CloudConnector(CloudConnector):
                 self.delete_security_groups(conn, vm)
             except Exception:
                 self.log_exception("Error deleting security group.")
-
-        public_key = vm.getRequestedSystem().getValue('disk.0.os.credentials.public_key')
-        if public_key is None or len(public_key) == 0 or (len(public_key) >= 1 and
-                                                          public_key.find('-----BEGIN CERTIFICATE-----') != -1):
-            try:
-                # only delete in case of the user do not specify the keypair name
-                conn.delete_key_pair(vm.keypair_name)
-            except Exception:
-                self.log_exception("Error deleting keypair.")
 
         # Delete the DNS entries
         try:
