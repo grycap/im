@@ -123,6 +123,10 @@ class EC2CloudConnector(CloudConnector):
                 res_system.delValue('disk.0.os.credentials.password')
                 res_system.delValue('disk.0.os.credentials.new.password')
 
+            username = res_system.getValue('disk.0.os.credentials.username')
+            if not username:
+                res_system.setValue('disk.0.os.credentials.username', self.DEFAULT_USER)
+
             self.update_system_info_from_instance(res_system, instance_type)
 
             return res_system
@@ -1261,7 +1265,10 @@ class EC2CloudConnector(CloudConnector):
         """
         sg_names = ["im-%s" % str(vm.inf.id)]
         for net in vm.inf.radl.networks:
-            sg_names.append("im-%s-%s" % (str(vm.inf.id), net.id))
+            sg_name = net.getValue("sg_name")
+            if not sg_name:
+                sg_name = "im-%s-%s" % (str(vm.inf.id), net.id)
+            sg_names.append(sg_name)
 
         sgs = []
         for sg_name in sg_names:
@@ -1282,6 +1289,9 @@ class EC2CloudConnector(CloudConnector):
         sgs = self._get_security_groups(conn, vm)
 
         for sg in sgs:
+            if sg.description != "Security group created by the IM":
+                self.log_info("SG %s not created by the IM. Do not delete it." % sg.name)
+                continue
             some_vm_running = False
             for instance in sg.instances():
                 if instance.state == 'running':
@@ -1306,7 +1316,6 @@ class EC2CloudConnector(CloudConnector):
                     try:
                         sg.revoke('tcp', 0, 65535, src_group=sg)
                         sg.revoke('udp', 0, 65535, src_group=sg)
-                        time.sleep(2)
                     except Exception as ex:
                         self.log_warn("Error revoking self rules: " + str(ex))
 
