@@ -955,7 +955,7 @@ class EC2CloudConnector(CloudConnector):
             self.log_info("The VM is not running, not adding an Elastic IP.")
             return None
 
-    def delete_elastic_ips(self, conn, vm):
+    def delete_elastic_ips(self, conn, vm, timeout=120):
         """
         remove the elastic IPs of a VM
 
@@ -973,17 +973,36 @@ class EC2CloudConnector(CloudConnector):
                     fixed_ips.append(fixed_ip)
             n += 1
 
-        instance_id = vm.id.split(";")[1]
-        # Get the elastic IPs
-        for address in conn.get_all_addresses(filters={"instance-id": instance_id}):
-            self.log_info("This VM has a Elastic IP, disassociate it")
-            address.disassociate()
+        pub_ips = []
+        n = 0
+        while vm.info.systems[0].getValue("net_interface." + str(n) + ".connection"):
+            net_conn = vm.info.systems[0].getValue('net_interface.' + str(n) + '.connection')
+            if vm.info.get_network_by_id(net_conn).isPublic():
+                if vm.info.systems[0].getValue("net_interface." + str(n) + ".ip"):
+                    pub_ip = vm.info.systems[0].getValue("net_interface." + str(n) + ".ip")
+                    pub_ips.append(pub_ip)
+            n += 1
 
-            if address.public_ip not in fixed_ips:
-                self.log_info("Now release it")
-                address.release()
+        for pub_ip in pub_ips:
+            if pub_ip in fixed_ips:
+                self.log_info("%s is a fixed IP, it is not released" % pub_ip)
             else:
-                self.log_info("This is a fixed IP, it is not released")
+                for address in conn.get_all_addresses(filters={"public-ip": pub_ip}):
+                    self.log_info("This VM has a Elastic IP %s." % address.public_ip)
+                    cont = 0
+                    while address.instance_id and cont < timeout:
+                        cont += 3
+                        try:
+                            self.log_debug("Disassociate it.")
+                            address.disassociate()
+                        except Exception:
+                            self.log_debug("Error disassociating the IP.")
+                        address = conn.get_all_addresses(filters={"public-ip": pub_ip})[0]
+                        self.log_info("It is attached. Wait.")
+                        time.sleep(3)
+
+                    self.log_info("Now release it.")
+                    address.release()
 
     def setIPsFromInstance(self, vm, instance):
         """
@@ -1244,7 +1263,7 @@ class EC2CloudConnector(CloudConnector):
             ig_id = ig.id
 
         if ig_id and vpc_id:
-            conn.detach_internet_gateway(ig.id, vpc_id)
+            conn.detach_internet_gateway(ig_id, vpc_id)
         if ig_id:
             conn.delete_internet_gateway(ig_id)
         if vpc_id:
@@ -1263,9 +1282,6 @@ class EC2CloudConnector(CloudConnector):
 
             conn = self.get_connection(region_name, auth_data)
 
-            # First delete the elastic IPs
-            self.delete_elastic_ips(conn, vm)
-
             # Terminate the instance
             instance = self.get_instance_by_id(instance_id, region_name, auth_data)
             if instance is not None:
@@ -1273,26 +1289,19 @@ class EC2CloudConnector(CloudConnector):
         else:
             self.log_info("VM with no ID. Ignore.")
 
-        # Delete the SG if this is the last VM
-        if last:
-            try:
-                self.delete_security_groups(conn, vm)
-            except Exception as ex:
-                self.log_exception("Error deleting security group.")
-                error_msg += "Error deleting security group: %s. " % ex
-
-            try:
-                self.delete_networks(conn, vm)
-            except Exception as ex:
-                self.log_exception("Error deleting networks.")
-                error_msg += "Error deleting networks: %s. " % ex
-
         # Delete the EBS volumes
         try:
             self.delete_volumes(conn, vm)
         except Exception as ex:
             self.log_exception("Error deleting EBS volumes")
             error_msg += "Error deleting EBS volumes: %s. " % ex
+
+        # Delete the elastic IPs
+        try:
+            self.delete_elastic_ips(conn, vm)
+        except Exception as ex:
+            self.log_exception("Error deleting elastic IPs")
+            error_msg += "Error deleting elastic IPs: %s. " % ex
 
         # Delete the spot instance requests
         try:
@@ -1307,6 +1316,20 @@ class EC2CloudConnector(CloudConnector):
         except Exception as ex:
             self.log_exception("Error deleting DNS entries")
             error_msg += "Error deleting DNS entries: %s. " % ex
+
+        # Delete the SG if this is the last VM
+        if last:
+            try:
+                self.delete_security_groups(conn, vm)
+            except Exception as ex:
+                self.log_exception("Error deleting security group.")
+                error_msg += "Error deleting security group: %s. " % ex
+
+            try:
+                self.delete_networks(conn, vm)
+            except Exception as ex:
+                self.log_exception("Error deleting networks.")
+                error_msg += "Error deleting networks: %s. " % ex
 
         return (error_msg == "", error_msg)
 
