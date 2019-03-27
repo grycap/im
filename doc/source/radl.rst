@@ -198,7 +198,6 @@ The supported features are:
 
 ``cidr = <string>``
    Indicate the CIDR of the network (e.g. 10.0.0.0/24) in case of network creation.
-   It is not supported in all the connectors (e.g. Azure).
    The default value is ``''``.
 
 ``sg_name = <string>``
