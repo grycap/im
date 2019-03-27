@@ -1079,12 +1079,28 @@ class EC2CloudConnector(CloudConnector):
         """
         success = True
         try:
+            route_table_id = None
+
             i = 0
             while vm.info.systems[0].getValue("net_interface." + str(i) + ".connection"):
                 net_name = vm.info.systems[0].getValue("net_interface." + str(i) + ".connection")
                 i += 1
                 network = vm.info.get_network_by_id(net_name)
                 if network.getValue('router'):
+                    if not route_table_id:
+                        vpc_id = None
+                        for vpc in conn.get_all_vpcs(filters={"tag:IM-INFRA-ID": vm.inf.id}):
+                            vpc_id = vpc.id
+                        if not vpc_id:
+                            self.log_error("No VPC found.")
+                            return False
+                        for rt in conn.get_all_route_tables(filters={"vpc-id": vpc_id}):
+                            route_table_id = rt.id
+
+                    if not route_table_id:
+                        self.log_error("No Route Table found with name.")
+                        return False
+
                     router_info = network.getValue('router').split(",")
                     if len(router_info) != 2:
                         self.log_error("Incorrect router format.")
@@ -1097,27 +1113,15 @@ class EC2CloudConnector(CloudConnector):
                     vrouter = None
                     for v in vm.inf.vm_list:
                         if v.info.systems[0].name == system_router:
-                            vrouter = v
+                            vrouter = v.id.split(";")[1]
                             break
                     if not vrouter:
                         self.log_error("No VRouter instance found with name %s" % system_router)
                         success = False
                         break
 
-                    vrouter = vrouter.id.split(";")[1]
-                    if not vrouter:
-                        self.log_error("VRouter %s has no Instance ID. wait." % system_router)
-                        success = False
-                        break
-
-                    vpc_id = None
-                    for vpc in conn.get_all_vpcs(filters={"tag:IM-INFRA-ID": vm.inf.id}):
-                        self.log_info("Deleting vpc: %s" % vpc.id)
-                        vpc_id = vpc.id
-
                     self.log_info("Adding route %s to instance ID: %s." % (router_cidr, vrouter))
-                    for route_table in conn.get_all_route_tables(filters={"vpc-id": vpc_id}):
-                        conn.create_route(route_table.id, router_cidr, instance_id=vrouter)
+                    conn.create_route(route_table_id, router_cidr, instance_id=vrouter)
 
                     # once set, delete it to not set it again
                     network.delValue('router')

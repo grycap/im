@@ -283,6 +283,7 @@ class TestEC2Connector(TestCloudConnectorBase):
     def test_30_updateVMInfo(self, record_sets, connect_to_region, get_connection):
         radl_data = """
             network net (outbound = 'yes')
+            network net2 (router = '10.0.10.0/24,vrouter')
             system test (
             cpu.arch='x86_64' and
             cpu.count=1 and
@@ -290,6 +291,7 @@ class TestEC2Connector(TestCloudConnectorBase):
             net_interface.0.connection = 'net' and
             net_interface.0.ip = '158.42.1.1' and
             net_interface.0.dns_name = 'test.domain.com' and
+            net_interface.1.connection = 'net2' and
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'one://server.com/1' and
             disk.0.os.credentials.username = 'user' and
@@ -305,6 +307,12 @@ class TestEC2Connector(TestCloudConnectorBase):
         ec2_cloud = self.get_ec2_cloud()
 
         inf = MagicMock()
+        vm1 = MagicMock()
+        system1 = MagicMock()
+        system1.name = 'vrouter'
+        vm1.info.systems = [system1]
+        vm1.id = "region;int-id"
+        inf.vm_list = [vm1]
         vm = VirtualMachine(inf, "us-east-1;id-1", ec2_cloud.cloud, radl, radl, ec2_cloud, 1)
 
         conn = MagicMock()
@@ -347,14 +355,28 @@ class TestEC2Connector(TestCloudConnectorBase):
         change = MagicMock()
         changes.add_change.return_value = change
 
+        vpc = MagicMock()
+        vpc.id = "vpc-id"
+        conn.get_all_vpcs.return_value = [vpc]
+
+        subnet = MagicMock()
+        subnet.id = "subnet-id"
+        conn.get_all_subnets.return_value = [subnet]
+
+        routet = MagicMock()
+        routet.id = "routet-id"
+        conn.get_all_route_tables.return_value = [routet]
+
         success, vm = ec2_cloud.updateVMInfo(vm, auth)
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
         self.assertEquals(dns_conn.create_zone.call_count, 1)
         self.assertEquals(dns_conn.create_zone.call_args_list[0][0][0], "domain.com.")
         self.assertEquals(changes.add_change.call_args_list, [call('CREATE', 'test.domain.com.', 'A')])
         self.assertEquals(change.add_value.call_args_list, [call('158.42.1.1')])
-        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+        self.assertEquals(conn.create_route.call_args_list, [call('routet-id', '10.0.10.0/24', instance_id='int-id')])
 
     @patch('IM.connectors.EC2.EC2CloudConnector.get_connection')
     def test_30_updateVMInfo_spot(self, get_connection):
