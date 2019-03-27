@@ -193,7 +193,7 @@ class GCECloudConnector(LibCloudCloudConnector):
                 net.setValue('provider_id', net_name)
 
     @staticmethod
-    def get_net_provider_id(radl):
+    def get_net_provider_id(radl, driver=None):
         """
         Get the provider ID of the first net that has specified it
         Returns: The net provider ID or None if not defined
@@ -207,9 +207,10 @@ class GCECloudConnector(LibCloudCloudConnector):
             if net:
                 provider_id = net.getValue('provider_id')
                 if provider_id:
+                    if driver and not driver.ex_get_network(provider_id):
+                        raise Exception("GCE network %s does not exist." % provider_id)
                     break
 
-        # TODO: check that the net exist in GCE
         return provider_id
 
     def get_instance_type(self, sizes, radl):
@@ -449,18 +450,14 @@ class GCECloudConnector(LibCloudCloudConnector):
         if metadata:
             args['ex_metadata'] = metadata
 
-        net_provider_id = self.get_net_provider_id(radl)
-        if net_provider_id:
-            args['ex_network'] = net_provider_id
-            self.create_firewall(inf, net_provider_id, radl, driver)
-        else:
-            net_name = self.get_default_net(driver)
-            if net_name:
-                args['ex_network'] = net_name
-            else:
-                net_name = "default"
-            self.set_net_provider_id(radl, net_name)
-            self.create_firewall(inf, net_name, radl, driver)
+        net_provider_id = self.get_net_provider_id(radl, driver)
+        if not net_provider_id:
+            net_provider_id = self.get_default_net(driver)
+            if not net_provider_id:
+                net_provider_id = "default"
+
+        args['ex_network'] = net_provider_id
+        self.create_firewall(inf, net_provider_id, radl, driver)
 
         if self.request_external_ip(radl):
             args['external_ip'] = 'ephemeral'
