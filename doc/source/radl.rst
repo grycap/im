@@ -201,6 +201,11 @@ The supported features are:
    It is not supported in all the connectors (e.g. Azure).
    The default value is ``''``.
 
+``sg_name = <string>``
+   The name of the Security Group associated with the network that will be created to
+   manage the security in this network.
+   The default value is ``''``.
+
 System Features
 ---------------
 
