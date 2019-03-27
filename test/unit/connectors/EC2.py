@@ -160,7 +160,8 @@ class TestEC2Connector(TestCloudConnectorBase):
         # Check the case that we do not use VPC
         radl_data = """
             network net1 (outbound = 'yes' and outports='8080')
-            network net2 (create='yes')
+            network net2 (create='yes' and cidr='10.0.10.0/24')
+            network net3 (create='yes' and cidr='10.0.20.0/24')
             system test (
             cpu.arch='x86_64' and
             cpu.count>=1 and
