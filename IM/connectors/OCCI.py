@@ -564,7 +564,7 @@ class OCCICloudConnector(CloudConnector):
                 storage_name = "im-disk-%s" % str(uuid.uuid1())
                 success, volume_id = self.create_volume(int(disk_size), storage_name, auth_data, auth_header)
                 if success:
-                    self.log_info("Volume id %s sucessfully created." % volume_id)
+                    self.log_info("Volume id %s successfully created." % volume_id)
 
                     # let's wait the storage to be ready "online"
                     wait_ok = self.wait_volume_state(volume_id, auth_data, auth_header)

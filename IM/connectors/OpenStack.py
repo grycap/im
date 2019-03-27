@@ -587,10 +587,10 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             net_prefix = "im-%s-" % vm.inf.id
             if ost_net.name.startswith(net_prefix):
                 if 'subnets' in ost_net.extra and len(ost_net.extra['subnets']) == 1:
+                    subnet_id = ost_net.extra['subnets'][0]
                     if router is None:
                         self.log_warn("No public router found.")
                     else:
-                        subnet_id = ost_net.extra['subnets'][0]
                         self.log_info("Deleting subnet %s to the router %s" % (subnet_id, router.name))
                         subnet = OpenStack_2_SubNet(subnet_id, None, None, ost_net.id, driver)
                         try:
@@ -611,14 +611,9 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         """
         Create OST networks
         """
-        router = None
-        i = 0
-
         try:
+            i = 0
             router = self.get_router_public(driver)
-            if router is None:
-                self.log_error("No public router found.")
-                return False, "No public router found."
 
             while radl.systems[0].getValue("net_interface." + str(i) + ".connection"):
                 net_name = radl.systems[0].getValue("net_interface." + str(i) + ".connection")
@@ -660,18 +655,21 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                             raise Exception("Error creating ost subnet for net %s: %s" % (net_name,
                                                                                           ", ".join(ex.args)))
 
-                        self.log_info("Adding subnet %s to the router %s" % (ost_subnet.name, router.name))
-                        try:
-                            driver.ex_add_router_subnet(router, ost_subnet)
-                        except Exception as ex:
-                            # some time the nets are auto added to the router
-                            if self.is_net_in_router(driver, ost_net, router):
-                                self.log_info("Net %s already in the router %s" % (ost_net.name, router.name))
-                            else:
-                                self.log_error("Error adding subnet to the router. Deleting net and subnet.")
-                                driver.ex_delete_subnet(ost_subnet)
-                                driver.ex_delete_network(ost_net)
-                                raise Exception("Error adding subnet to the router: %s" % ", ".join(ex.args))
+                        if router is None:
+                            self.log_warn("No public router found.")
+                        else:
+                            self.log_info("Adding subnet %s to the router %s" % (ost_subnet.name, router.name))
+                            try:
+                                driver.ex_add_router_subnet(router, ost_subnet)
+                            except Exception as ex:
+                                # some time the nets are auto added to the router
+                                if self.is_net_in_router(driver, ost_net, router):
+                                    self.log_info("Net %s already in the router %s" % (ost_net.name, router.name))
+                                else:
+                                    self.log_error("Error adding subnet to the router. Deleting net and subnet.")
+                                    driver.ex_delete_subnet(ost_subnet)
+                                    driver.ex_delete_network(ost_net)
+                                    raise Exception("Error adding subnet to the router: %s" % ", ".join(ex.args))
 
                         network.setValue('provider_id', ost_net_name)
         except Exception as ext:

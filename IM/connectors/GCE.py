@@ -684,20 +684,21 @@ class GCECloudConnector(LibCloudCloudConnector):
                         self.log_info("Attach the volume ID " + str(volume.id))
                         try:
                             volume.attach(node, disk_device)
-                        except:
-                            self.log_exception("Error attaching the volume ID " + str(
-                                volume.id) + " destroying it.")
+                        except Exception as attex:
+                            self.log_exception("Error attaching the volume ID %s Destroying it." % volume.id)
+                            self.error_messages += ("Error attaching the volume ID %s. Destroying it:"
+                                                    " %s.\n" % (volume.id, attex))
                             volume.destroy()
                     else:
-                        self.log_error("Error waiting the volume ID " + str(
-                            volume.id) + " not attaching to the VM and destroying it.")
+                        self.log_error("Error waiting the volume ID %s. Destroying it." % volume.id)
+                        self.error_messages += "Error waiting the volume ID %s. Destroying it.\n" % volume.id
                         volume.destroy()
 
                     cont += 1
             return True
-        except Exception:
-            self.log_exception(
-                "Error creating or attaching the volume to the node")
+        except Exception as ex:
+            self.log_exception("Error creating or attaching the volume to the node")
+            self.error_messages += "Error creating or attaching the volume to the node: %s\n" % ex
             return False
 
     def updateVMInfo(self, vm, auth_data):
