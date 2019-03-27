@@ -502,7 +502,7 @@ class EC2CloudConnector(CloudConnector):
                             self.log_info("Internet Gateway %s created." % ig.id)
                             conn.attach_internet_gateway(ig.id, vpc_id)
 
-                            self.log_info("Adding routes.")
+                            self.log_info("Adding route to the IG.")
                             for route_table in conn.get_all_route_tables(filters={"vpc-id": vpc_id}):
                                 conn.create_route(route_table.id, "0.0.0.0/0", ig.id)
 
@@ -1072,6 +1072,55 @@ class EC2CloudConnector(CloudConnector):
                     # EC2 only supports 1 elastic IP per instance (without
                     # VPC), so break
                     break
+
+    def addRouterInstance(self, vm, conn):
+        """
+        Add support for IndigoVR
+        """
+        success = True
+        i = 0
+        while vm.info.systems[0].getValue("net_interface." + str(i) + ".connection"):
+            net_name = vm.info.systems[0].getValue("net_interface." + str(i) + ".connection")
+            i += 1
+            network = vm.info.get_network_by_id(net_name)
+            if network.getValue('router'):
+                router_info = network.getValue('router').split(",")
+                if len(router_info) != 2:
+                    self.log_error("Incorrect router format.")
+                    success = False
+                    break
+
+                system_router = router_info[1]
+                router_cidr = router_info[0]
+
+                vrouter = None
+                for v in vm.inf.vm_list:
+                    if v.info.systems[0].name == system_router:
+                        vrouter = v
+                        break
+                if not vrouter:
+                    self.log_error("No VRouter instance found with name %s" % system_router)
+                    success = False
+                    break
+
+                vrouter = vrouter.id.split(";")[1]
+                if not vrouter:
+                    self.log_error("VRouter %s has no Instance ID. wait." % system_router)
+                    success = False
+                    break
+
+                vpc_id = None
+                for vpc in conn.get_all_vpcs(filters={"tag:IM-INFRA-ID": vm.inf.id}):
+                    self.log_info("Deleting vpc: %s" % vpc.id)
+                    vpc_id = vpc.id
+
+                self.log_info("Adding route %s to instance ID: %s." % (router_cidr, vrouter))
+                for route_table in conn.get_all_route_tables(filters={"vpc-id": vpc_id}):
+                    conn.create_route(route_table.id, router_cidr, instance_id=vrouter)
+
+                # once set, delete it to not set it again
+                network.delValue('router')
+        return success
 
     def updateVMInfo(self, vm, auth_data):
         region = vm.id.split(";")[0]
