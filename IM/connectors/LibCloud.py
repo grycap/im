@@ -460,7 +460,7 @@ class LibCloudCloudConnector(CloudConnector):
             return False, "Unsupported Driver %s" % node.driver.name
         except Exception:
             self.log_exception("Error removing Elastic/Floating IPs to VM ID: " + str(vm.id))
-            return False, "Error removing Elastic/Floating IPs: %s" % ", ".join(ex.args)
+            return False, "Error removing Elastic/Floating IPs: %s" % ex.args[0]
 
     def start(self, vm, auth_data):
         node = self.get_node_with_id(vm.id, auth_data)
@@ -574,7 +574,7 @@ class LibCloudCloudConnector(CloudConnector):
                             success = False
                             self.log_exception("Error getting volume ID %s" % volume_id)
                             self.error_messages += "Error getting volume ID %s: %s\n" % (volume_id,
-                                                                                         ", ".join(getex.args))
+                                                                                         getex.args[0])
                     else:
                         self.log_debug("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
                         volume_name = "im-%s" % str(uuid.uuid1())
@@ -601,7 +601,7 @@ class LibCloudCloudConnector(CloudConnector):
 
                 except Exception as ex:
                     self.log_exception("Error creating volume %s." % cont)
-                    self.error_messages += "Error creating volume %s: %s\n" % (cont, ", ".join(ex.args))
+                    self.error_messages += "Error creating volume %s: %s\n" % (cont, ex.args[0])
                     success = False
                     if volume and not disk_url:
                         self.log_error("Destroying it.")
@@ -654,7 +654,7 @@ class LibCloudCloudConnector(CloudConnector):
                     self.log_exception("Error destroying the volume: " + str(volume.id) +
                                        " from the node: " + str(vm.id))
                     success = False
-                    msg += "Error destroying the volume %s: %s. " % (volume.id, ", ".join(ex.args))
+                    msg += "Error destroying the volume %s: %s. " % (volume.id, ex.args[0])
 
                 if not success:
                     alive_volumes.append(volumeid)

@@ -123,7 +123,7 @@ class IMBaseRequest(AsyncRequest):
             return True
         except Exception as ex:
             logger.exception(self._error_mesage)
-            self.set(", ".join(ex.args))
+            self.set("%s" % ex.args[0])
             return False
 
 

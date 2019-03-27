@@ -478,14 +478,14 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     Feature("cpu.count", "=", instance_type.vcpus), conflict="me", missing="other")
 
     @staticmethod
-    def get_ost_net(driver, name=None, id=None):
+    def get_ost_net(driver, name=None, netid=None):
         """
         Get a OST network
         """
         for ost_net in driver.ex_list_networks():
             if name and ost_net.name == name:
                 return ost_net
-            if id and ost_net.id == id:
+            if netid and ost_net.id == netid:
                 return ost_net
         return None
 
@@ -600,7 +600,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                                                                                                 router.name))
                             msg = "Error deleting subnet %s from the router %s: %s" % (subnet_id,
                                                                                        router.name,
-                                                                                       ", ".join(ex.args))
+                                                                                       ex.args[0])
 
                     self.log_info("Deleting net %s." % ost_net.name)
                     driver.ex_delete_network(ost_net)
@@ -639,7 +639,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                         except Exception as ex:
                             self.log_exception("Error creating ost network for net %s." % net_name)
                             raise Exception("Error creating ost network for net %s: %s" % (net_name,
-                                                                                           ", ".join(ex.args)))
+                                                                                           ex.args[0]))
 
                         # now create the subnet
                         ost_subnet_name = "im-%s-sub%s" % (inf.id, net_name)
@@ -653,7 +653,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                             self.log_debug("Deleting net: %s" % ost_net_name)
                             driver.ex_delete_network(ost_net)
                             raise Exception("Error creating ost subnet for net %s: %s" % (net_name,
-                                                                                          ", ".join(ex.args)))
+                                                                                          ex.args[0]))
 
                         if router is None:
                             self.log_warn("No public router found.")
@@ -669,12 +669,12 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                                     self.log_error("Error adding subnet to the router. Deleting net and subnet.")
                                     driver.ex_delete_subnet(ost_subnet)
                                     driver.ex_delete_network(ost_net)
-                                    raise Exception("Error adding subnet to the router: %s" % ", ".join(ex.args))
+                                    raise Exception("Error adding subnet to the router: %s" % ex.args[0])
 
                         network.setValue('provider_id', ost_net_name)
         except Exception as ext:
             self.log_exception("Error creating networks.")
-            raise Exception("Error creating networks: %s" % ", ".join(ext.args))
+            raise Exception("Error creating networks: %s" % ex.args[0])
 
         return True
 
@@ -825,7 +825,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 vm.destroy = False
                 res.append((True, vm))
             except Exception as ex:
-                res.append((False, ", ".join(ex.args)))
+                res.append((False, "%s" % ex.args[0]))
 
             i += 1
 
@@ -947,7 +947,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                             node.driver.ex_attach_floating_ip_to_node(node, floating_ip)
                         except Exception as atex:
                             self.log_warn("Error attaching a found Floating IP to the node. "
-                                          "Create a new one (%s)." % ", ".join(atex.args))
+                                          "Create a new one (%s)." % atex.args[0])
                     else:
                         self.log_debug(floating_ip)
 
@@ -974,7 +974,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                             node.driver.ex_attach_floating_ip_to_node(node, floating_ip)
                             attached = True
                         except Exception as atex:
-                            self.log_warn("Error attaching a Floating IP to the node: %s" % ", ".join(atex.args))
+                            self.log_warn("Error attaching a Floating IP to the node: %s" % atex.args[0])
                             cont += 1
                             if cont < retries:
                                 time.sleep(delay)
@@ -991,7 +991,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         except Exception as ex:
             self.log_exception("Error adding an Elastic/Floating IP to VM ID: %s" % vm.id)
-            return False, ", ".join(ex.args)
+            return False, "%s" % ex.args[0]
 
     def _get_security_group(self, driver, sg_name):
         try:
@@ -1046,7 +1046,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 driver.ex_create_security_group_rule(sg, 'tcp', 1, 65535, source_security_group=sg)
                 driver.ex_create_security_group_rule(sg, 'udp', 1, 65535, source_security_group=sg)
             except Exception as addex:
-                self.log_warn("Exception adding SG rules. Probably the rules exists: %s" % ", ".join(addex.args))
+                self.log_warn("Exception adding SG rules. Probably the rules exists: %s" % addex.args[0])
 
             outports = network.getOutPorts()
             if outports:
@@ -1057,7 +1057,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                                                                  outport.get_port_init(),
                                                                  outport.get_port_end(), '0.0.0.0/0')
                         except Exception as ex:
-                            self.log_warn("Exception adding SG rules: %s" % ", ".join(ex.args))
+                            self.log_warn("Exception adding SG rules: %s" % ex.args[0])
                     else:
                         if outport.get_remote_port() != 22 or not network.isPublic():
                             try:
@@ -1065,7 +1065,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                                                                      outport.get_remote_port(),
                                                                      outport.get_remote_port(), '0.0.0.0/0')
                             except Exception as ex:
-                                self.log_warn("Exception adding SG rules: %s" % ", ".join(ex.args))
+                                self.log_warn("Exception adding SG rules: %s" % ex.args[0])
 
             i += 1
 
@@ -1088,7 +1088,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 res, msg = self.delete_elastic_ips(node, vm)
             except Exception as ex:
                 res = False
-                msg = ", ".join(ex.args)
+                msg = "%s" % ex.args[0]
             success.append(res)
             msgs.append(msg)
 
@@ -1103,7 +1103,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             res, msg = self.delete_volumes(driver, vm)
         except Exception as ex:
             res = False
-            msg = ", ".join(ex.args)
+            msg = "%s" % ex.args[0]
         success.append(res)
         msgs.append(msg)
 
@@ -1113,7 +1113,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 res, msg = self.delete_security_groups(driver, vm.inf)
             except Exception as ex:
                 res = False
-                msg = ", ".join(ex.args)
+                msg = "%s" % ex.args[0]
             success.append(res)
             msgs.append(msg)
 
@@ -1122,7 +1122,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 res, msg = self.delete_networks(driver, vm)
             except Exception as ex:
                 res = False
-                msg = ", ".join(ex.args)
+                msg = "%s" % ex.args[0]
             success.append(res)
             msgs.append(msg)
         else:
@@ -1164,8 +1164,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                             driver.ex_delete_security_group(sg)
                             deleted = True
                         except Exception as ex:
-                            self.log_warn("Error deleting the SG: %s" % ", ".join(ex.args))
-                            msg = "Error deleting the SG: %s" % ", ".join(ex.args)
+                            self.log_warn("Error deleting the SG: %s" % ex.args[0])
+                            msg = "Error deleting the SG: %s" % ex.args[0]
 
                     if not deleted:
                         time.sleep(delay)
@@ -1203,7 +1203,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 image = node.driver.create_image(node, image_name)
             except Exception as ex:
                 self.log_exception("Error creating image.")
-                return False, "Error creating image: %s." % ", ".join(ex.args)
+                return False, "Error creating image: %s." % ex.args[0]
             new_url = "ost://%s/%s" % (self.cloud.server, image.id)
             if auto_delete:
                 vm.inf.snapshots.append(new_url)
@@ -1218,13 +1218,13 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             image = driver.get_image(image_id)
         except Exception as ex:
             self.log_exception("Error getting image.")
-            return (False, "Error getting image %s: %s" % (image_id, ", ".join(ex.args)))
+            return (False, "Error getting image %s: %s" % (image_id, ex.args[0]))
         try:
             driver.delete_image(image)
             return True, ""
         except Exception as ex:
             self.log_exception("Error deleting image.")
-            return (False, "Error deleting image.: %s" % ", ".join(ex.args))
+            return (False, "Error deleting image.: %s" % ex.args[0])
 
     def reboot(self, vm, auth_data):
         node = self.get_node_with_id(vm.id, auth_data)
