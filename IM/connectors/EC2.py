@@ -836,7 +836,8 @@ class EC2CloudConnector(CloudConnector):
                         volume.add_tag("IM-VM-ID", vm.id)
                         self.log_info("Attach the volume ID " + str(volume.id))
                         conn.attach_volume(volume.id, instance.id, "/dev/" + disk_device)
-                except:
+                except Exception as ex:
+                    self.error_messages += "Error creating or attaching the volume to the instance: %s\n" % ex
                     self.log_exception("Error creating or attaching the volume to the instance")
                     if volume:
                         self.log_info("Removing the volume " + volume.id)
