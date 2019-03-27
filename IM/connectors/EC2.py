@@ -490,10 +490,12 @@ class EC2CloudConnector(CloudConnector):
                             # if not create it
                             self.log_info("Creating VPC.")
                             vpc = conn.create_vpc('10.0.0.0/16')
+                            time.sleep(1)
                             vpc.add_tag("IM-INFRA-ID", inf.id)
                             vpc_id = vpc.id
 
                             ig = conn.create_internet_gateway()
+                            time.sleep(1)
                             ig.add_tag("IM-INFRA-ID", inf.id)
                             conn.attach_internet_gateway(ig.id, vpc_id)
 
@@ -507,6 +509,7 @@ class EC2CloudConnector(CloudConnector):
                     else:
                         self.log_info("Create subnet %s" % net.id)
                         subnet = conn.create_subnet(vpc_id, '10.0.%d.0/24' % i)
+                        time.sleep(1)
                         subnet.add_tag("IM-INFRA-ID", inf.id)
                         subnet.add_tag("IM-SUBNET-ID", net.id)
 
@@ -870,7 +873,8 @@ class EC2CloudConnector(CloudConnector):
                     time.sleep(2)
 
             if not deleted:
-                self.log_error("Error removing the volume " + curr_vol.id)
+                self.log_error("Timeout (%s) removing the volume %s" % (timeout, curr_vol.id))
+                raise Exception("Timeout (%s) removing the volume %s" % (timeout, curr_vol.id))
 
     # Get the EC2 instance object with the specified ID
     def get_instance_by_id(self, instance_id, region_name, auth_data):
@@ -925,23 +929,18 @@ class EC2CloudConnector(CloudConnector):
                 else:
                     provider_id = self.get_net_provider_id(vm.info)
                     if provider_id:
-                        pub_address = instance.connection.allocate_address(
-                            domain="vpc")
-                        instance.connection.associate_address(
-                            instance.id, allocation_id=pub_address.allocation_id)
+                        pub_address = instance.connection.allocate_address(domain="vpc")
+                        instance.connection.associate_address(instance.id, allocation_id=pub_address.allocation_id)
                     else:
                         pub_address = instance.connection.allocate_address()
-                        instance.connection.associate_address(
-                            instance.id, pub_address.public_ip)
+                        instance.connection.associate_address(instance.id, pub_address.public_ip)
 
                 self.log_debug(pub_address)
                 return pub_address
             except Exception:
-                self.log_exception(
-                    "Error adding an Elastic IP to VM ID: " + str(vm.id))
+                self.log_exception("Error adding an Elastic IP to VM ID: " + str(vm.id))
                 if pub_address:
-                    self.log_exception(
-                        "The Elastic IP was allocated, release it.")
+                    self.log_exception("The Elastic IP was allocated, release it.")
                     pub_address.release()
                 return None
         else:
@@ -956,25 +955,23 @@ class EC2CloudConnector(CloudConnector):
            - conn(:py:class:`boto.ec2.connection`): object to connect to EC2 API.
            - vm(:py:class:`IM.VirtualMachine`): VM information.
         """
+        fixed_ips = []
+        n = 0
+        while vm.getRequestedSystem().getValue("net_interface." + str(n) + ".connection"):
+            net_conn = vm.getRequestedSystem().getValue('net_interface.' + str(n) + '.connection')
+            if vm.info.get_network_by_id(net_conn).isPublic():
+                if vm.getRequestedSystem().getValue("net_interface." + str(n) + ".ip"):
+                    fixed_ip = vm.getRequestedSystem().getValue("net_interface." + str(n) + ".ip")
+                    fixed_ips.append(fixed_ip)
+            n += 1
+
         instance_id = vm.id.split(";")[1]
         # Get the elastic IPs
         for address in conn.get_all_addresses(filters={"instance-id": instance_id}):
             self.log_info("This VM has a Elastic IP, disassociate it")
             address.disassociate()
 
-            n = 0
-            found = False
-            while vm.getRequestedSystem().getValue("net_interface." + str(n) + ".connection"):
-                net_conn = vm.getRequestedSystem().getValue('net_interface.' + str(n) + '.connection')
-                if vm.info.get_network_by_id(net_conn).isPublic():
-                    if vm.getRequestedSystem().getValue("net_interface." + str(n) + ".ip"):
-                        fixed_ip = vm.getRequestedSystem().getValue("net_interface." + str(n) + ".ip")
-                        # If it is a fixed IP we must not release it
-                        if fixed_ip == str(address.public_ip):
-                            found = True
-                n += 1
-
-            if not found:
+            if address.public_ip not in fixed_ips:
                 self.log_info("Now release it")
                 address.release()
             else:
@@ -1213,16 +1210,14 @@ class EC2CloudConnector(CloudConnector):
            - conn(:py:class:`boto.ec2.connection`): object to connect to EC2 API.
            - vm(:py:class:`IM.VirtualMachine`): VM information.
         """
-        try:
-            instance_id = vm.id.split(";")[1]
-            request_list = conn.get_all_spot_instance_requests()
+        instance_id = vm.id.split(";")[1]
+        # Check if the instance_id starts with "sir" -> spot request
+        if (instance_id[0] == "s"):
+            request_list = conn.get_all_spot_instance_requests([instance_id])
             for sir in request_list:
-                if sir.instance_id == instance_id:
-                    conn.cancel_spot_instance_requests(sir.id)
-                    self.log_info("Spot instance request " + str(sir.id) + " deleted")
-                    break
-        except Exception:
-            self.log_exception("Error deleting the spot instance request")
+                conn.cancel_spot_instance_requests(sir.id)
+                self.log_info("Spot instance request " + str(sir.id) + " deleted")
+                break
 
     def delete_networks(self, conn, vm):
         """
@@ -1253,11 +1248,15 @@ class EC2CloudConnector(CloudConnector):
         if last:
             self.delete_snapshots(vm, auth_data)
 
+        error_msg = ""
         if vm.id:
             region_name = vm.id.split(";")[0]
             instance_id = vm.id.split(";")[1]
 
             conn = self.get_connection(region_name, auth_data)
+
+            # First delete the elastic IPs
+            self.delete_elastic_ips(conn, vm)
 
             # Terminate the instance
             instance = self.get_instance_by_id(instance_id, region_name, auth_data)
@@ -1267,7 +1266,6 @@ class EC2CloudConnector(CloudConnector):
             self.log_info("VM with no ID. Ignore.")
 
         # Delete the SG if this is the last VM
-        error_msg = ""
         if last:
             try:
                 self.delete_security_groups(conn, vm)
@@ -1281,30 +1279,26 @@ class EC2CloudConnector(CloudConnector):
                 self.log_exception("Error deleting networks.")
                 error_msg += "Error deleting networks: %s. " % ex
 
-        # Delete the DNS entries
-        try:
-            self.del_dns_entries(vm, auth_data)
-        except Exception:
-            self.log_exception("Error deleting DNS entries")
-
-        # Delete the elastic IPs
-        try:
-            self.delete_elastic_ips(conn, vm)
-        except Exception as ex:
-            self.log_exception("Error deleting elastic IPs.")
-            error_msg += "Error deleting elastic IPs: %s. " % ex
-
-        # Delete the  spot instance requests
-        try:
-            self.cancel_spot_requests(conn, vm)
-        except Exception:
-            self.log_exception("Error canceling spot requests.")
-
         # Delete the EBS volumes
         try:
             self.delete_volumes(conn, vm)
-        except Exception:
+        except Exception as ex:
             self.log_exception("Error deleting EBS volumes")
+            error_msg += "Error deleting EBS volumes: %s. " % ex
+
+        # Delete the spot instance requests
+        try:
+            self.cancel_spot_requests(conn, vm)
+        except Exception as ex:
+            self.log_exception("Error canceling spot requests.")
+            error_msg += "Error canceling spot requests: %s. " % ex
+
+        # Delete the DNS entries
+        try:
+            self.del_dns_entries(vm, auth_data)
+        except Exception as ex:
+            self.log_exception("Error deleting DNS entries")
+            error_msg += "Error deleting DNS entries: %s. " % ex
 
         return (error_msg == "", error_msg)
 
