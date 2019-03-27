@@ -493,11 +493,18 @@ class EC2CloudConnector(CloudConnector):
                             time.sleep(1)
                             vpc.add_tag("IM-INFRA-ID", inf.id)
                             vpc_id = vpc.id
+                            self.log_info("VPC %s created." % vpc_id)
 
+                            self.log_info("Creating Internet Gateway.")
                             ig = conn.create_internet_gateway()
                             time.sleep(1)
                             ig.add_tag("IM-INFRA-ID", inf.id)
+                            self.log_info("Internet Gateway %s created." % ig.id)
                             conn.attach_internet_gateway(ig.id, vpc_id)
+
+                            self.log_info("Adding routes.")
+                            for route_table in conn.get_all_route_tables(filters={"vpc-id": vpc_id}):
+                                conn.create_route(route_table.id, "0.0.0.0/0", ig.id)
 
                     # Now create the subnet
                     # Check if it already exists
@@ -507,8 +514,9 @@ class EC2CloudConnector(CloudConnector):
                         subnet = subnets[0]
                         self.log_debug("Subnet %s exists. Do not create." % net.id)
                     else:
-                        self.log_info("Create subnet %s" % net.id)
+                        self.log_info("Create subnet for net %s." % net.id)
                         subnet = conn.create_subnet(vpc_id, '10.0.%d.0/24' % i)
+                        self.log_info("Subnet %s created." % subnet.id)
                         time.sleep(1)
                         subnet.add_tag("IM-INFRA-ID", inf.id)
                         subnet.add_tag("IM-SUBNET-ID", net.id)
