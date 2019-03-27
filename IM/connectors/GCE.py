@@ -560,11 +560,8 @@ class GCECloudConnector(LibCloudCloudConnector):
             self.log_exception("Error trying to get FW %s." % firewall_name)
 
         if firewall:
-            try:
-                firewall.destroy()
-                self.log_info("Firewall %s successfully deleted." % firewall_name)
-            except:
-                self.log_exception("Error trying to delete FW %s." % firewall_name)
+            firewall.destroy()
+            self.log_info("Firewall %s successfully deleted." % firewall_name)
 
     def delete_disks(self, node):
         """
@@ -582,21 +579,18 @@ class GCECloudConnector(LibCloudCloudConnector):
                 if volume:
                     success = volume.detach()
                     if not success:
-                        self.log_error(
-                            "Error detaching the volume: " + vol_name)
+                        self.log_error("Error detaching the volume: " + vol_name)
                     else:
                         # wait a bit to detach the disk
                         time.sleep(2)
                     success = volume.destroy()
                     if not success:
-                        self.log_error(
-                            "Error destroying the volume: " + vol_name)
+                        self.log_error("Error destroying the volume: " + vol_name)
             except ResourceNotFoundError:
                 self.log_info("The volume: " + vol_name + " does not exists. Ignore it.")
                 success = True
-            except:
-                self.log_exception(
-                    "Error destroying the volume: " + vol_name + " from the node: " + node.id)
+            except Exception:
+                self.log_exception("Error destroying the volume: " + vol_name + " from the node: " + node.id)
                 success = False
 
             if not success:
