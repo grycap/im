@@ -1078,53 +1078,59 @@ class EC2CloudConnector(CloudConnector):
         Add support for IndigoVR
         """
         success = True
-        i = 0
-        while vm.info.systems[0].getValue("net_interface." + str(i) + ".connection"):
-            net_name = vm.info.systems[0].getValue("net_interface." + str(i) + ".connection")
-            i += 1
-            network = vm.info.get_network_by_id(net_name)
-            if network.getValue('router'):
-                router_info = network.getValue('router').split(",")
-                if len(router_info) != 2:
-                    self.log_error("Incorrect router format.")
-                    success = False
-                    break
-
-                system_router = router_info[1]
-                router_cidr = router_info[0]
-
-                vrouter = None
-                for v in vm.inf.vm_list:
-                    if v.info.systems[0].name == system_router:
-                        vrouter = v
+        try:
+            i = 0
+            while vm.info.systems[0].getValue("net_interface." + str(i) + ".connection"):
+                net_name = vm.info.systems[0].getValue("net_interface." + str(i) + ".connection")
+                i += 1
+                network = vm.info.get_network_by_id(net_name)
+                if network.getValue('router'):
+                    router_info = network.getValue('router').split(",")
+                    if len(router_info) != 2:
+                        self.log_error("Incorrect router format.")
+                        success = False
                         break
-                if not vrouter:
-                    self.log_error("No VRouter instance found with name %s" % system_router)
-                    success = False
-                    break
 
-                vrouter = vrouter.id.split(";")[1]
-                if not vrouter:
-                    self.log_error("VRouter %s has no Instance ID. wait." % system_router)
-                    success = False
-                    break
+                    system_router = router_info[1]
+                    router_cidr = router_info[0]
 
-                vpc_id = None
-                for vpc in conn.get_all_vpcs(filters={"tag:IM-INFRA-ID": vm.inf.id}):
-                    self.log_info("Deleting vpc: %s" % vpc.id)
-                    vpc_id = vpc.id
+                    vrouter = None
+                    for v in vm.inf.vm_list:
+                        if v.info.systems[0].name == system_router:
+                            vrouter = v
+                            break
+                    if not vrouter:
+                        self.log_error("No VRouter instance found with name %s" % system_router)
+                        success = False
+                        break
 
-                self.log_info("Adding route %s to instance ID: %s." % (router_cidr, vrouter))
-                for route_table in conn.get_all_route_tables(filters={"vpc-id": vpc_id}):
-                    conn.create_route(route_table.id, router_cidr, instance_id=vrouter)
+                    vrouter = vrouter.id.split(";")[1]
+                    if not vrouter:
+                        self.log_error("VRouter %s has no Instance ID. wait." % system_router)
+                        success = False
+                        break
 
-                # once set, delete it to not set it again
-                network.delValue('router')
+                    vpc_id = None
+                    for vpc in conn.get_all_vpcs(filters={"tag:IM-INFRA-ID": vm.inf.id}):
+                        self.log_info("Deleting vpc: %s" % vpc.id)
+                        vpc_id = vpc.id
+
+                    self.log_info("Adding route %s to instance ID: %s." % (router_cidr, vrouter))
+                    for route_table in conn.get_all_route_tables(filters={"vpc-id": vpc_id}):
+                        conn.create_route(route_table.id, router_cidr, instance_id=vrouter)
+
+                    # once set, delete it to not set it again
+                    network.delValue('router')
+        except Exception:
+            success = False
+            self.log_exception("Error adding Router Instance")
+
         return success
 
     def updateVMInfo(self, vm, auth_data):
         region = vm.id.split(";")[0]
         instance_id = vm.id.split(";")[1]
+        conn = self.get_connection(region, auth_data)
 
         # Check if the instance_id starts with "sir" -> spot request
         if (instance_id[0] == "s"):
@@ -1134,7 +1140,6 @@ class EC2CloudConnector(CloudConnector):
 
             self.log_info("Check if the request has been fulfilled and the instance has been deployed")
             job_sir_id = instance_id
-            conn = self.get_connection(region, auth_data)
             request_list = conn.get_all_spot_instance_requests()
             for sir in request_list:
                 # TODO: Check if the request had failed and launch it in
@@ -1180,6 +1185,7 @@ class EC2CloudConnector(CloudConnector):
             self.setIPsFromInstance(vm, instance)
             self.attach_volumes(instance, vm)
             self.add_dns_entries(vm, auth_data)
+            self.addRouterInstance(vm, conn)
 
             try:
                 vm.info.systems[0].setValue('launch_time', int(time.mktime(

@@ -239,59 +239,64 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         openstack port set --disable-port-security { port from previous step }
         """
         success = True
-        i = 0
-        while vm.info.systems[0].getValue("net_interface." + str(i) + ".connection"):
-            net_name = vm.info.systems[0].getValue("net_interface." + str(i) + ".connection")
-            i += 1
-            network = vm.info.get_network_by_id(net_name)
-            if network.getValue('router'):
-                net_provider_id = network.getValue('provider_id')
-                router_info = network.getValue('router').split(",")
-                if len(router_info) != 2:
-                    self.log_error("Incorrect router format.")
-                    success = False
-                    break
-
-                system_router = router_info[1]
-                router_cidr = router_info[0]
-
-                vrouter = None
-                for v in vm.inf.vm_list:
-                    if v.info.systems[0].name == system_router:
-                        vrouter = v
+        try:
+            i = 0
+            while vm.info.systems[0].getValue("net_interface." + str(i) + ".connection"):
+                net_name = vm.info.systems[0].getValue("net_interface." + str(i) + ".connection")
+                i += 1
+                network = vm.info.get_network_by_id(net_name)
+                if network.getValue('router'):
+                    net_provider_id = network.getValue('provider_id')
+                    router_info = network.getValue('router').split(",")
+                    if len(router_info) != 2:
+                        self.log_error("Incorrect router format.")
+                        success = False
                         break
-                if not vrouter:
-                    self.log_error("No VRouter instance found with name %s" % system_router)
-                    success = False
-                    break
 
-                vrouter = vrouter.getIfaceIP(0)
-                if not vrouter:
-                    self.log_error("VRouter %s has no IP. wait." % system_router)
-                    success = False
-                    break
+                    system_router = router_info[1]
+                    router_cidr = router_info[0]
 
-                ost_net = self.get_ost_net(driver, name=net_provider_id)
-                if 'subnets' in ost_net.extra and len(ost_net.extra['subnets']) == 1:
-                    subnet_id = ost_net.extra['subnets'][0]
-                else:
-                    self.log_error("Unexpected subnet values in OST net.")
-                    success = False
-                    break
+                    vrouter = None
+                    for v in vm.inf.vm_list:
+                        if v.info.systems[0].name == system_router:
+                            vrouter = v
+                            break
+                    if not vrouter:
+                        self.log_error("No VRouter instance found with name %s" % system_router)
+                        success = False
+                        break
 
-                subnet = OpenStack_2_SubNet(subnet_id, None, None, ost_net.id, driver)
+                    vrouter = vrouter.getIfaceIP(0)
+                    if not vrouter:
+                        self.log_error("VRouter %s has no IP. wait." % system_router)
+                        success = False
+                        break
 
-                host_routes = [{"destination": router_cidr, "nexthop": vrouter}]
-                self.log_info("Updating subnet %s setting host routes: %s" % (subnet.name, host_routes))
-                driver.ex_update_subnet(subnet, host_routes=host_routes)
+                    ost_net = self.get_ost_net(driver, name=net_provider_id)
+                    if 'subnets' in ost_net.extra and len(ost_net.extra['subnets']) == 1:
+                        subnet_id = ost_net.extra['subnets'][0]
+                    else:
+                        self.log_error("Unexpected subnet values in OST net.")
+                        success = False
+                        break
 
-                for port in driver.ex_list_ports():
-                    if port.extra['device_id'] == ost_net.id:
-                        self.log_info("Disabling security port in %s" % port.id)
-                        driver.ex_update_port(port, port_security_enabled=False)
+                    subnet = OpenStack_2_SubNet(subnet_id, None, None, ost_net.id, driver)
 
-                # once set, delete it to not set it again
-                network.delValue('router')
+                    host_routes = [{"destination": router_cidr, "nexthop": vrouter}]
+                    self.log_info("Updating subnet %s setting host routes: %s" % (subnet.name, host_routes))
+                    driver.ex_update_subnet(subnet, host_routes=host_routes)
+
+                    for port in driver.ex_list_ports():
+                        if port.extra['device_id'] == ost_net.id:
+                            self.log_info("Disabling security port in %s" % port.id)
+                            driver.ex_update_port(port, port_security_enabled=False)
+
+                    # once set, delete it to not set it again
+                    network.delValue('router')
+        except Exception:
+            success = False
+            self.log_exception("Error adding Router Instance")
+
         return success
 
     def updateVMInfo(self, vm, auth_data):
