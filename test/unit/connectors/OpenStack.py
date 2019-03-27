@@ -283,6 +283,9 @@ class TestOSTConnector(TestCloudConnectorBase):
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
         self.assertEquals(vm.info.systems[0].getValue("net_interface.1.ip"), "10.0.0.1")
+        self.assertEquals(driver.ex_update_subnet.call_args_list[0][0][0].id, "subnet1")
+        self.assertEquals(driver.ex_update_subnet.call_args_list[0][1],
+                          {'host_routes': [{'nexthop': '10.0.0.1', 'destination': '10.0.0.0/16'}]})
 
         # In this case the Node has the float ip assigned
         # node.public_ips = ['8.8.8.8']
