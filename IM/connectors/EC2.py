@@ -15,11 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import time
-import base64
-import os
-import uuid
 import requests
-import tempfile
 
 try:
     import boto.ec2
@@ -33,6 +29,7 @@ try:
     from urlparse import urlparse
 except ImportError:
     from urllib.parse import urlparse
+
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
 from radl.radl import Feature
@@ -475,10 +472,15 @@ class EC2CloudConnector(CloudConnector):
         Create the requested subnets and VPC
         """
         try:
+            vpc_cird = self.get_nets_common_cird(radl)
             vpc_id = None
             for i, net in enumerate(radl.networks):
                 provider_id = net.getValue('provider_id')
                 if net.getValue('create') == 'yes' and not net.isPublic() and not provider_id:
+                    net_cidr = net.getValue('cidr')
+                    if not net_cidr:
+                        net_cidr = '10.0.%d.0/24' % i
+
                     # First create the VPC
                     if vpc_id is None:
                         # Check if it already exists
@@ -488,8 +490,8 @@ class EC2CloudConnector(CloudConnector):
                             self.log_debug("VPC %s exists. Do not create." % vpc_id)
                         else:
                             # if not create it
-                            self.log_info("Creating VPC.")
-                            vpc = conn.create_vpc('10.0.0.0/16')
+                            self.log_info("Creating VPC with cidr: %s." % vpc_cird)
+                            vpc = conn.create_vpc(vpc_cird)
                             time.sleep(1)
                             vpc.add_tag("IM-INFRA-ID", inf.id)
                             vpc_id = vpc.id
@@ -515,7 +517,7 @@ class EC2CloudConnector(CloudConnector):
                         self.log_debug("Subnet %s exists. Do not create." % net.id)
                     else:
                         self.log_info("Create subnet for net %s." % net.id)
-                        subnet = conn.create_subnet(vpc_id, '10.0.%d.0/24' % i)
+                        subnet = conn.create_subnet(vpc_id, net_cidr)
                         self.log_info("Subnet %s created." % subnet.id)
                         time.sleep(1)
                         subnet.add_tag("IM-INFRA-ID", inf.id)
