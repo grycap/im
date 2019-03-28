@@ -68,17 +68,6 @@ class TestEC2Connector(TestCloudConnectorBase):
         self.assertEqual(len(concrete), 1)
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
-    def create_key_pair(self, keypair_name):
-        keypair = MagicMock()
-        keypair.name = keypair_name
-
-        def save_key_pair(keypair_dir):
-            with open(keypair_dir + "/" + keypair_name + ".pem", 'a') as f:
-                f.write("key")
-
-        keypair.save.side_effect = save_key_pair
-        return keypair
-
     def test_15_get_all_instance_types(self):
         ec2_cloud = self.get_ec2_cloud()
         instances = ec2_cloud.get_all_instance_types()
@@ -159,8 +148,6 @@ class TestEC2Connector(TestCloudConnectorBase):
 
         conn.get_all_security_groups.return_value = []
 
-        conn.create_key_pair.side_effect = self.create_key_pair
-
         blockdevicemapping.return_value = {'device': ''}
 
         inf = InfrastructureInfo()
@@ -173,7 +160,8 @@ class TestEC2Connector(TestCloudConnectorBase):
         # Check the case that we do not use VPC
         radl_data = """
             network net1 (outbound = 'yes' and outports='8080')
-            network net2 ()
+            network net2 (create='yes' and cidr='10.0.10.0/24')
+            network net3 (create='yes' and cidr='10.0.20.0/24')
             system test (
             cpu.arch='x86_64' and
             cpu.count>=1 and
@@ -191,7 +179,15 @@ class TestEC2Connector(TestCloudConnectorBase):
             disk.1.mount_path='/mnt/path'
             )"""
         radl = radl_parse.parse_radl(radl_data)
-        conn.get_all_vpcs.return_value = []
+        vpc = MagicMock()
+        vpc.id = "vpc-id"
+        vpc.is_default = True
+        conn.get_all_vpcs.return_value = [vpc]
+
+        subnet = MagicMock()
+        subnet.id = "subnet-id"
+        conn.get_all_subnets.return_value = [subnet]
+
         inf = InfrastructureInfo()
         inf.auth = auth
         res = ec2_cloud.launch(inf, radl, radl, 1, auth)
@@ -199,7 +195,7 @@ class TestEC2Connector(TestCloudConnectorBase):
         print(self.log.getvalue())
         self.assertTrue(success, msg="ERROR: launching a VM.")
         # check the instance_type selected is correct
-        self.assertEquals(image.run.call_args_list[1][1]["instance_type"], "m1.small")
+        self.assertEquals(image.run.call_args_list[1][1]["instance_type"], "t3.micro")
 
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
@@ -288,6 +284,7 @@ class TestEC2Connector(TestCloudConnectorBase):
     def test_30_updateVMInfo(self, record_sets, connect_to_region, get_connection):
         radl_data = """
             network net (outbound = 'yes')
+            network net2 (router = '10.0.10.0/24,vrouter')
             system test (
             cpu.arch='x86_64' and
             cpu.count=1 and
@@ -295,6 +292,7 @@ class TestEC2Connector(TestCloudConnectorBase):
             net_interface.0.connection = 'net' and
             net_interface.0.ip = '158.42.1.1' and
             net_interface.0.dns_name = 'test.domain.com' and
+            net_interface.1.connection = 'net2' and
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'one://server.com/1' and
             disk.0.os.credentials.username = 'user' and
@@ -310,6 +308,12 @@ class TestEC2Connector(TestCloudConnectorBase):
         ec2_cloud = self.get_ec2_cloud()
 
         inf = MagicMock()
+        vm1 = MagicMock()
+        system1 = MagicMock()
+        system1.name = 'vrouter'
+        vm1.info.systems = [system1]
+        vm1.id = "region;int-id"
+        inf.vm_list = [vm1]
         vm = VirtualMachine(inf, "us-east-1;id-1", ec2_cloud.cloud, radl, radl, ec2_cloud, 1)
 
         conn = MagicMock()
@@ -352,14 +356,28 @@ class TestEC2Connector(TestCloudConnectorBase):
         change = MagicMock()
         changes.add_change.return_value = change
 
+        vpc = MagicMock()
+        vpc.id = "vpc-id"
+        conn.get_all_vpcs.return_value = [vpc]
+
+        subnet = MagicMock()
+        subnet.id = "subnet-id"
+        conn.get_all_subnets.return_value = [subnet]
+
+        routet = MagicMock()
+        routet.id = "routet-id"
+        conn.get_all_route_tables.return_value = [routet]
+
         success, vm = ec2_cloud.updateVMInfo(vm, auth)
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
         self.assertEquals(dns_conn.create_zone.call_count, 1)
         self.assertEquals(dns_conn.create_zone.call_args_list[0][0][0], "domain.com.")
         self.assertEquals(changes.add_change.call_args_list, [call('CREATE', 'test.domain.com.', 'A')])
         self.assertEquals(change.add_value.call_args_list, [call('158.42.1.1')])
-        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+        self.assertEquals(conn.create_route.call_args_list, [call('routet-id', '10.0.10.0/24', instance_id='int-id')])
 
     @patch('IM.connectors.EC2.EC2CloudConnector.get_connection')
     def test_30_updateVMInfo_spot(self, get_connection):
@@ -546,6 +564,7 @@ class TestEC2Connector(TestCloudConnectorBase):
     def test_60_finalize(self, record_sets, connect_to_region, sleep, get_connection):
         radl_data = """
             network net (outbound = 'yes')
+            network net2 (outbound = 'yes')
             system test (
             cpu.arch='x86_64' and
             cpu.count=1 and
@@ -553,6 +572,7 @@ class TestEC2Connector(TestCloudConnectorBase):
             net_interface.0.connection = 'net' and
             net_interface.0.ip = '158.42.1.1' and
             net_interface.0.dns_name = 'test.domain.com' and
+            net_interface.1.connection = 'net2' and
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'one://server.com/1' and
             disk.0.os.credentials.username = 'user' and
@@ -569,7 +589,6 @@ class TestEC2Connector(TestCloudConnectorBase):
         inf = MagicMock()
         inf.id = "1"
         vm = VirtualMachine(inf, "us-east-1;id-1", ec2_cloud.cloud, radl, radl, ec2_cloud, 1)
-        vm.keypair_name = "key"
 
         conn = MagicMock()
         get_connection.return_value = conn
@@ -584,8 +603,6 @@ class TestEC2Connector(TestCloudConnectorBase):
         reservation.instances = [instance]
         conn.get_all_instances.return_value = [reservation]
 
-        conn.delete_key_pair.return_value = True
-
         address = MagicMock()
         address.public_ip = "158.42.1.1"
         address.instance_id = "id-1"
@@ -596,16 +613,30 @@ class TestEC2Connector(TestCloudConnectorBase):
         conn.get_all_spot_instance_requests.return_value = []
 
         volume = MagicMock()
+        volume.id = "volid"
         volume.attachment_state.return_value = None
         conn.get_all_volumes.return_value = [volume]
         conn.delete_volume.return_value = True
 
         sg = MagicMock()
         sg.name = "im-1"
+        sg.description = "Security group created by the IM"
         sg.instances.return_value = []
         sg.revoke.return_value = True
         sg.delete.return_value = True
-        conn.get_all_security_groups.return_value = [sg]
+        sg1 = MagicMock()
+        sg1.name = "im-1-net"
+        sg1.description = ""
+        sg1.instances.return_value = []
+        sg1.revoke.return_value = True
+        sg1.delete.return_value = True
+        sg2 = MagicMock()
+        sg2.name = "im-1-net2"
+        sg2.description = "Security group created by the IM"
+        sg2.instances.return_value = []
+        sg2.revoke.return_value = True
+        sg2.delete.return_value = True
+        conn.get_all_security_groups.return_value = [sg, sg1, sg2]
 
         dns_conn = MagicMock()
         connect_to_region.return_value = dns_conn
@@ -621,14 +652,35 @@ class TestEC2Connector(TestCloudConnectorBase):
         change = MagicMock()
         changes.add_change.return_value = change
 
+        subnet = MagicMock()
+        subnet.id = "subnet-id"
+        conn.get_all_subnets.return_value = [subnet]
+
+        vpc = MagicMock()
+        vpc.id = "vpc-id"
+        conn.get_all_vpcs.return_value = [vpc]
+
+        ig = MagicMock()
+        ig.id = "ig-id"
+        conn.get_all_internet_gateways.return_value = [ig]
+
         success, _ = ec2_cloud.finalize(vm, True, auth)
 
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
         self.assertEquals(dns_conn.delete_hosted_zone.call_count, 1)
         self.assertEquals(dns_conn.delete_hosted_zone.call_args_list[0][0][0], zone.id)
         self.assertEquals(changes.add_change.call_args_list, [call('DELETE', 'test.domain.com.', 'A')])
         self.assertEquals(change.add_value.call_args_list, [call('158.42.1.1')])
-        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+        self.assertEquals(sg.delete.call_args_list, [call()])
+        self.assertEquals(sg1.delete.call_args_list, [])
+        self.assertEquals(sg2.delete.call_args_list, [call()])
+        self.assertEquals(conn.delete_subnet.call_args_list, [call('subnet-id')])
+        self.assertEquals(conn.delete_vpc.call_args_list, [call('vpc-id')])
+        self.assertEquals(conn.delete_internet_gateway.call_args_list, [call('ig-id')])
+        self.assertEquals(conn.detach_internet_gateway.call_args_list, [call('ig-id', 'vpc-id')])
+        self.assertEquals(conn.delete_volume.call_args_list, [call(volume.id)])
 
     @patch('IM.connectors.EC2.EC2CloudConnector.get_connection')
     @patch('time.sleep')

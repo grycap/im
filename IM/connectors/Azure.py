@@ -537,6 +537,7 @@ class AzureCloudConnector(CloudConnector):
             pass
 
         if not vnet:
+            vnet_cird = self.get_nets_common_cird(radl)
             # Create VNet in the RG of the Inf
             async_vnet_creation = network_client.virtual_networks.create_or_update(
                 group_name,
@@ -544,7 +545,7 @@ class AzureCloudConnector(CloudConnector):
                 {
                     'location': location,
                     'address_space': {
-                        'address_prefixes': ['10.0.0.0/16']
+                        'address_prefixes': [vnet_cird]
                     }
                 }
             )
@@ -553,14 +554,18 @@ class AzureCloudConnector(CloudConnector):
             subnets = {}
             for i, net in enumerate(radl.networks):
                 subnet_name = net.id
+                net_cidr = net.getValue('cidr')
+                if not net_cidr:
+                    net_cidr = '10.0.%d.0/24' % i
                 # Create Subnet in the RG of the Inf
                 async_subnet_creation = network_client.subnets.create_or_update(
                     group_name,
                     "privates",
                     subnet_name,
-                    {'address_prefix': '10.0.%d.0/24' % i}
+                    {'address_prefix': net_cidr}
                 )
                 subnets[net.id] = async_subnet_creation.result()
+                net.setValue('cidr', net_cidr)
         else:
             subnets = {}
             for i, net in enumerate(radl.networks):

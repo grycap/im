@@ -1390,7 +1390,10 @@ class InfrastructureManager:
                         break
                 if all_failed:
                     # If all VMs has failed, destroy then inf and return the error
-                    inf.destroy(auth)
+                    try:
+                        inf.destroy(auth)
+                    except Exception as de:
+                        error_msg += "%s" % de
                     raise Exception(error_msg)
         except Exception as e:
             InfrastructureManager.logger.exception("Error Creating Inf ID " + str(inf.id))

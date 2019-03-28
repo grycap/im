@@ -159,7 +159,7 @@ Network (LAN) that some virtual machines can share in order to communicate
 to themselves and to other external networks.
 The supported features are:
 
-``outbound = yes|no``
+``outbound = 'yes|no'``
    Indicate whether the IP that will have the virtual machines in this network
    will be public (accessible from any external network) or private.
    If ``yes``, IPs will be public, and if ``no``, they will be private.
@@ -188,6 +188,21 @@ The supported features are:
    
 ``pool_name = <string>``
    Indicate the name of floating ip pool to get the external IP (**Only for OpenStack**).
+   The default value is ``''``.
+
+``create = 'yes|no'``
+   Indicate if the IM must create the network or will try to find the most appropriate 
+   from the existing networks. In some connectors (e.g. Azure) the networks are always
+   created independently the value of this parameter.
+   The default value is ``'no'``.
+
+``cidr = <string>``
+   Indicate the CIDR of the network (e.g. 10.0.0.0/24) in case of network creation.
+   The default value is ``''``.
+
+``sg_name = <string>``
+   The name of the Security Group associated with the network that will be created to
+   manage the security in this network.
    The default value is ``''``.
 
 System Features
@@ -347,7 +362,7 @@ machine.  The supported features are:
 ``disk.0.os.credentials.new.password = <string>`` and ``disk.0.os.credentials.new.private_key = <string>``
    Changes the credentials of the user with admin privileges.
 
-``disk.<diskId>.applications contains (name=<string>, version=<string>, preinstalled=yes|no)``
+``disk.<diskId>.applications contains (name=<string>, version=<string>, preinstalled='yes|no')``
    Set that the disk must have installed the application with name ``name``.
    Optionally a version can be specified. Also if ``preinstalled`` is ``yes``
    the application must have already installed; and if ``no``, the application
@@ -518,7 +533,7 @@ To include a role available in Ansible Galaxy a special application requirement
 must be added: it must start with: "ansible.modules" as shown in the following
 example. In this case the Ansible Galaxy role called "micafer.hadoop" will be installed::
 
-   network net (outbound = "yes")
+   network net (outbound = 'yes')
 
    system node_ubuntu (
       cpu.arch = 'i686' and
@@ -631,17 +646,17 @@ The next RADL deploys ten Ubuntu of 32 bits with version 12.04 at least, that
 can be accessed from extern networks and with DNS names ``node-0``, ``node-1``,
 ..., ``node-9``::
 
-   network net (outbound = "yes")
+   network net (outbound = 'yes')
 
    system node_ubuntu (
       cpu.arch = 'i686' and
       memory.size >= 512M and
-      net_interface.0.connection = "net" and
-      net_interface.0.dns_name = "node-#N#" and
-      disk.0.os.name = "linux" and
-      disk.0.os.flavour = "ubuntu" and
-      disk.0.os.version >= "12.04" and
-      disk.0.applications contains (name="toncat")
+      net_interface.0.connection = 'net' and
+      net_interface.0.dns_name = 'node-#N#' and
+      disk.0.os.name = 'linux' and
+      disk.0.os.flavour = 'ubuntu' and
+      disk.0.os.version >= '12.04' and
+      disk.0.applications contains (name='toncat')
    )
 
    deploy node_ubuntu 10
