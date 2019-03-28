@@ -7,6 +7,7 @@ import yaml
 from radl.radl import Feature
 from IM.config import Config
 from IM.LoggerMixin import LoggerMixin
+from netaddr import IPNetwork
 
 
 class CloudConnector(LoggerMixin):
@@ -338,8 +339,10 @@ class CloudConnector(LoggerMixin):
                 success, msg = self.delete_image(image_url, auth_data)
                 if not success:
                     self.log_error("Error deleting snapshot: %s" % msg)
-        except:
+                return success, msg
+        except Exception as ex:
             self.log_exception("Error deleting snapshots.")
+            return success, str(ex)
 
     def get_cloud_init_data(self, radl=None, vm=None, public_key=None, user=None):
         """
@@ -397,6 +400,9 @@ class CloudConnector(LoggerMixin):
 
     @staticmethod
     def get_instance_tags(system):
+        """
+        Get the instance_tags value of the system object as a dict
+        """
         tags = {}
         if system.getValue('instance_tags'):
             keypairs = system.getValue('instance_tags').split(",")
@@ -406,3 +412,26 @@ class CloudConnector(LoggerMixin):
                 value = parts[1].strip()
                 tags[key] = value
         return tags
+
+    @staticmethod
+    def get_nets_common_cird(radl):
+        """
+        Get a common CIDR in all the RADL nets
+        """
+        mask = None
+        for net in radl.networks:
+            provider_id = net.getValue('provider_id')
+            if net.getValue('create') == 'yes' and not net.isPublic() and not provider_id:
+                net_cidr = net.getValue('cidr')
+                if net_cidr:
+                    if mask:
+                        if not IPNetwork(net_cidr) in IPNetwork(mask):
+                            raise Exception("Net cidr %s not in common cidr %s" % (net_cidr, mask))
+                    else:
+                        for m in Config.PRIVATE_NET_MASKS:
+                            if IPNetwork(net_cidr) in IPNetwork(m):
+                                mask = m
+                                break
+        if not mask:
+            mask = "10.0.0.0/16"
+        return mask

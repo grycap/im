@@ -206,10 +206,7 @@ class GCECloudConnector(LibCloudCloudConnector):
 
             if net:
                 provider_id = net.getValue('provider_id')
-                if provider_id:
-                    break
 
-        # TODO: check that the net exist in GCE
         return provider_id
 
     def get_instance_type(self, sizes, radl):
@@ -388,6 +385,48 @@ class GCECloudConnector(LibCloudCloudConnector):
                     except Exception as addex:
                         self.log_warn("Exception creating FW: " + str(addex))
 
+    def create_networks(self, driver, radl, inf):
+        """
+        Create GCE networks
+        """
+        try:
+            i = 0
+
+            while radl.systems[0].getValue("net_interface." + str(i) + ".connection"):
+                net_name = radl.systems[0].getValue("net_interface." + str(i) + ".connection")
+                i += 1
+                network = radl.get_network_by_id(net_name)
+                if network.getValue('create') == 'yes' and not network.isPublic():
+                    gce_net_name = network.getValue('provider_id')
+                    if not gce_net_name:
+                        gce_net_name = "im-%s-%s" % (inf.id, net_name)
+
+                    gce_net_name = "im-%s-%s" % (inf.id, net_name)
+                    # First check if the net already exists
+                    net = None
+                    try:
+                        net = driver.ex_get_network(gce_net_name)
+                    except:
+                        self.log_debug("Net %s does not exist." % gce_net_name)
+
+                    if net:
+                        self.log_debug("Net %s already exist. Do not create it." % gce_net_name)
+                    else:
+                        net_cidr = network.getValue('cidr')
+                        self.log_info("Create net %s with cidr %s." % (gce_net_name, net_cidr))
+                        driver.ex_create_network(gce_net_name, net_cidr, "Net created by the IM")
+
+                    network.setValue('provider_id', gce_net_name)
+        except Exception as ext:
+            self.log_exception("Error creating networks.")
+            try:
+                self.delete_networks(driver, inf)
+            except:
+                self.log_exception("Error deleting networks.")
+            raise Exception("Error creating networks: %s" % ext)
+
+        return True
+
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         system = radl.systems[0]
         region, image_id = self.get_image_data(system.getValue("disk.0.image.url"))
@@ -449,18 +488,17 @@ class GCECloudConnector(LibCloudCloudConnector):
         if metadata:
             args['ex_metadata'] = metadata
 
+        with inf._lock:
+            self.create_networks(driver, radl, inf)
+
         net_provider_id = self.get_net_provider_id(radl)
-        if net_provider_id:
-            args['ex_network'] = net_provider_id
-            self.create_firewall(inf, net_provider_id, radl, driver)
-        else:
-            net_name = self.get_default_net(driver)
-            if net_name:
-                args['ex_network'] = net_name
-            else:
-                net_name = "default"
-            self.set_net_provider_id(radl, net_name)
-            self.create_firewall(inf, net_name, radl, driver)
+        if not net_provider_id:
+            net_provider_id = self.get_default_net(driver)
+            if not net_provider_id:
+                net_provider_id = "default"
+
+        args['ex_network'] = net_provider_id
+        self.create_firewall(inf, net_provider_id, radl, driver)
 
         if self.request_external_ip(radl):
             args['external_ip'] = 'ephemeral'
@@ -515,6 +553,18 @@ class GCECloudConnector(LibCloudCloudConnector):
 
         return res
 
+    def delete_networks(self, driver, inf):
+        """
+        Delete created GCE networks
+        """
+        for gce_net in driver.ex_list_networks():
+            net_prefix = "im-%s-" % inf.id
+            if gce_net.name.startswith(net_prefix):
+                self.log_info("Deleting net %s." % gce_net.name)
+                gce_net.destroy()
+
+        return True
+
     def finalize(self, vm, last, auth_data):
         try:
             if vm.id:
@@ -540,6 +590,8 @@ class GCECloudConnector(LibCloudCloudConnector):
 
         if last:
             self.delete_firewall(vm, auth_data)
+            driver = self.get_driver(auth_data)
+            self.delete_networks(driver, vm.inf)
 
         return (True, "")
 
@@ -560,11 +612,8 @@ class GCECloudConnector(LibCloudCloudConnector):
             self.log_exception("Error trying to get FW %s." % firewall_name)
 
         if firewall:
-            try:
-                firewall.destroy()
-                self.log_info("Firewall %s successfully deleted." % firewall_name)
-            except:
-                self.log_exception("Error trying to delete FW %s." % firewall_name)
+            firewall.destroy()
+            self.log_info("Firewall %s successfully deleted." % firewall_name)
 
     def delete_disks(self, node):
         """
@@ -582,21 +631,18 @@ class GCECloudConnector(LibCloudCloudConnector):
                 if volume:
                     success = volume.detach()
                     if not success:
-                        self.log_error(
-                            "Error detaching the volume: " + vol_name)
+                        self.log_error("Error detaching the volume: " + vol_name)
                     else:
                         # wait a bit to detach the disk
                         time.sleep(2)
                     success = volume.destroy()
                     if not success:
-                        self.log_error(
-                            "Error destroying the volume: " + vol_name)
+                        self.log_error("Error destroying the volume: " + vol_name)
             except ResourceNotFoundError:
                 self.log_info("The volume: " + vol_name + " does not exists. Ignore it.")
                 success = True
-            except:
-                self.log_exception(
-                    "Error destroying the volume: " + vol_name + " from the node: " + node.id)
+            except Exception:
+                self.log_exception("Error destroying the volume: " + vol_name + " from the node: " + node.id)
                 success = False
 
             if not success:
@@ -690,20 +736,21 @@ class GCECloudConnector(LibCloudCloudConnector):
                         self.log_info("Attach the volume ID " + str(volume.id))
                         try:
                             volume.attach(node, disk_device)
-                        except:
-                            self.log_exception("Error attaching the volume ID " + str(
-                                volume.id) + " destroying it.")
+                        except Exception as attex:
+                            self.log_exception("Error attaching the volume ID %s Destroying it." % volume.id)
+                            self.error_messages += ("Error attaching the volume ID %s. Destroying it:"
+                                                    " %s.\n" % (volume.id, attex))
                             volume.destroy()
                     else:
-                        self.log_error("Error waiting the volume ID " + str(
-                            volume.id) + " not attaching to the VM and destroying it.")
+                        self.log_error("Error waiting the volume ID %s. Destroying it." % volume.id)
+                        self.error_messages += "Error waiting the volume ID %s. Destroying it.\n" % volume.id
                         volume.destroy()
 
                     cont += 1
             return True
-        except Exception:
-            self.log_exception(
-                "Error creating or attaching the volume to the node")
+        except Exception as ex:
+            self.log_exception("Error creating or attaching the volume to the node")
+            self.error_messages += "Error creating or attaching the volume to the node: %s\n" % ex
             return False
 
     def updateVMInfo(self, vm, auth_data):

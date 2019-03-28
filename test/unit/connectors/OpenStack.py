@@ -107,7 +107,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         radl_data = """
             network net1 (outbound = 'yes' and provider_id = 'public' and
                           outports = '8080,9000:9100' and sg_name= 'test')
-            network net2 ()
+            network net2 (cidr='10.0.1.0/24' and dnsserver='1.1.1.1' and create = 'yes')
             system test (
             cpu.arch='x86_64' and
             cpu.count=1 and
@@ -143,8 +143,11 @@ class TestOSTConnector(TestCloudConnectorBase):
 
         net1 = MagicMock()
         net1.name = "public"
+        net1.id = "net1id"
+        net1.extra = {'router:external': True}
         net2 = MagicMock()
         net2.name = "private"
+        net2.id = "net2id"
         driver.ex_list_networks.return_value = [net2, net1]
 
         sg = MagicMock()
@@ -153,13 +156,20 @@ class TestOSTConnector(TestCloudConnectorBase):
         driver.ex_list_security_groups.return_value = []
         driver.ex_create_security_group_rule.return_value = True
 
-        keypair = MagicMock()
-        keypair.public_key = "public"
-        keypair.private_key = "private"
-        driver.create_key_pair.return_value = keypair
         driver.features = {'create_node': ['ssh_key']}
 
         driver.create_node.side_effect = self.create_node
+
+        driver.ex_create_network.return_value = net2
+        subnet1 = MagicMock()
+        driver.ex_create_subnet.return_value = subnet1
+
+        router = MagicMock()
+        router.id = "id"
+        router.name = "name"
+        router.extra = {'external_gateway_info': {'network_id': net1.id}}
+        driver.ex_list_routers.return_value = [router]
+        driver.ex_add_router_subnet.return_value = True
 
         inf = InfrastructureInfo()
         inf.auth = auth
@@ -167,7 +177,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.assertEqual(driver.create_node.call_args_list[0][1]['networks'], [net1, net2])
+        self.assertEqual(driver.create_node.call_args_list[0][1]['networks'], [net1])
 
         # test with proxy auth data
         auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'proxy': 'proxy',
@@ -184,7 +194,7 @@ class TestOSTConnector(TestCloudConnectorBase):
     def test_30_updateVMInfo(self, get_driver):
         radl_data = """
             network net (outbound = 'yes' and provider_id = 'pool1')
-            network net1 (provider_id = 'os-lan')
+            network net1 (provider_id = 'os-lan' and router='10.0.0.0/16,vrouter1')
             system test (
             cpu.arch='x86_64' and
             cpu.count=1 and
@@ -211,6 +221,13 @@ class TestOSTConnector(TestCloudConnectorBase):
 
         inf = MagicMock()
         vm = VirtualMachine(inf, "1", ost_cloud.cloud, radl, radl, ost_cloud, 1)
+
+        vm2 = MagicMock()
+        syst = MagicMock()
+        syst.name = "vrouter1"
+        vm2.info.systems = [syst]
+        vm2.getIfaceIP.return_value = "10.0.0.1"
+        inf.vm_list = [vm2, vm]
 
         driver = MagicMock()
         get_driver.return_value = driver
@@ -246,10 +263,29 @@ class TestOSTConnector(TestCloudConnectorBase):
         pool.create_floating_ip.return_value = floating_ip
         driver.ex_list_floating_ip_pools.return_value = [pool]
 
+        net1 = MagicMock()
+        net1.id = 'net1id'
+        net1.name = "os-lan"
+        net1.cidr = None
+        net1.extra = {'subnets': ["subnet1"]}
+        net2 = MagicMock()
+        net2.id = 'net2id'
+        net2.name = "public"
+        net2.cidr = None
+        net2.extra = {'subnets': [], 'router:external': True}
+        driver.ex_list_networks.return_value = [net1, net2]
+
+        port = MagicMock()
+        port.extra = {'device_id': net1.id}
+        driver.ex_list_ports.return_value = [port]
+
         success, vm = ost_cloud.updateVMInfo(vm, auth)
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
         self.assertEquals(vm.info.systems[0].getValue("net_interface.1.ip"), "10.0.0.1")
+        self.assertEquals(driver.ex_update_subnet.call_args_list[0][0][0].id, "subnet1")
+        self.assertEquals(driver.ex_update_subnet.call_args_list[0][1],
+                          {'host_routes': [{'nexthop': '10.0.0.1', 'destination': '10.0.0.0/16'}]})
 
         # In this case the Node has the float ip assigned
         # node.public_ips = ['8.8.8.8']
@@ -438,9 +474,12 @@ class TestOSTConnector(TestCloudConnectorBase):
 
         radl_data = """
             network public (outboud = 'yes')
+            network private (create = 'yes' and provider_id = ' im-infid-private')
             system test (
             cpu.count>=2 and
-            memory.size>=2048m
+            memory.size>=2048m and
+            net_interface.0.connection = 'public' and
+            net_interface.1.connection = 'private'
             )"""
         radl = radl_parse.parse_radl(radl_data)
 
@@ -463,20 +502,56 @@ class TestOSTConnector(TestCloudConnectorBase):
         node.destroy.return_value = True
         driver.ex_get_node_details.return_value = node
 
-        keypair = MagicMock()
-        driver.get_key_pair.return_value = keypair
-        vm.keypair = keypair
-
-        driver.delete_key_pair.return_value = True
-
         driver.delete_security_group.return_value = True
 
-        driver.ex_list_floating_ips.return_value = []
+        fip = MagicMock()
+        fip.node_id = node.id
+        fip.ip_address = '158.42.1.1'
+        fip.delete.return_value = True
+        driver.ex_list_floating_ips.return_value = [fip]
+        driver.ex_detach_floating_ip_from_node.return_value = True
+
+        sg1 = MagicMock()
+        sg1.name = "im-infid-private"
+        sg1.description = "Security group created by the IM"
+        sg2 = MagicMock()
+        sg2.name = "im-infid-public"
+        sg2.description = "Security group created by the IM"
+        sg3 = MagicMock()
+        sg3.name = "im-infid"
+        sg3.description = ""
+        driver.ex_list_security_groups.return_value = [sg1, sg2, sg3]
+
+        net1 = MagicMock()
+        net1.name = "im-infid-private"
+        net1.cidr = None
+        net1.extra = {'subnets': ["subnet1"]}
+        net2 = MagicMock()
+        net2.name = "public"
+        net2.cidr = None
+        net2.extra = {'subnets': [], 'router:external': True}
+        driver.ex_list_networks.return_value = [net1, net2]
+
+        router = MagicMock()
+        router.id = "id"
+        router.name = "name"
+        router.extra = {'external_gateway_info': {'network_id': net2.id}}
+        driver.ex_list_routers.return_value = [router]
+        driver.ex_add_router_subnet.return_value = True
 
         success, _ = ost_cloud.finalize(vm, True, auth)
 
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
+        self.assertEqual(node.destroy.call_args_list, [call()])
+        self.assertEqual(driver.ex_del_router_subnet.call_args_list[0][0][0], router)
+        self.assertEqual(driver.ex_del_router_subnet.call_args_list[0][0][1].id, "subnet1")
+        self.assertEqual(driver.ex_delete_network.call_args_list[0][0][0], net1)
+        self.assertEqual(driver.ex_delete_security_group.call_args_list[0][0][0], sg2)
+        self.assertEqual(driver.ex_delete_security_group.call_args_list[1][0][0], sg1)
+        self.assertEqual(fip.delete.call_args_list, [call()])
+        self.assertEqual(driver.ex_detach_floating_ip_from_node.call_args_list[0][0], (node, fip))
 
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
     def test_70_create_snapshot(self, get_driver):
@@ -558,7 +633,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         net2 = MagicMock()
         net2.name = "public"
         net2.cidr = None
-        net1.extra = {'subnets': [], 'router:external': True}
+        net2.extra = {'subnets': [], 'router:external': True}
         driver.ex_list_networks.return_value = [net1, net2]
 
         subnet = MagicMock()
