@@ -683,7 +683,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 self.delete_networks(driver, inf)
             except:
                 self.log_exception("Error deleting networks.")
-            raise Exception("Error creating networks: %s" % ex.args[0])
+            raise Exception("Error creating networks: %s" % ext.args[0])
 
         return True
 
