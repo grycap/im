@@ -193,7 +193,7 @@ class GCECloudConnector(LibCloudCloudConnector):
                 net.setValue('provider_id', net_name)
 
     @staticmethod
-    def get_net_provider_id(radl, driver=None):
+    def get_net_provider_id(radl):
         """
         Get the provider ID of the first net that has specified it
         Returns: The net provider ID or None if not defined
@@ -206,10 +206,6 @@ class GCECloudConnector(LibCloudCloudConnector):
 
             if net:
                 provider_id = net.getValue('provider_id')
-                if provider_id:
-                    if driver and not driver.ex_get_network(provider_id):
-                        raise Exception("GCE network %s does not exist." % provider_id)
-                    break
 
         return provider_id
 
@@ -389,6 +385,48 @@ class GCECloudConnector(LibCloudCloudConnector):
                     except Exception as addex:
                         self.log_warn("Exception creating FW: " + str(addex))
 
+    def create_networks(self, driver, radl, inf):
+        """
+        Create GCE networks
+        """
+        try:
+            i = 0
+
+            while radl.systems[0].getValue("net_interface." + str(i) + ".connection"):
+                net_name = radl.systems[0].getValue("net_interface." + str(i) + ".connection")
+                i += 1
+                network = radl.get_network_by_id(net_name)
+                if network.getValue('create') == 'yes' and not network.isPublic():
+                    gce_net_name = network.getValue('provider_id')
+                    if not gce_net_name:
+                        gce_net_name = "im-%s-%s" % (inf.id, net_name)
+
+                    gce_net_name = "im-%s-%s" % (inf.id, net_name)
+                    # First check if the net already exists
+                    net = None
+                    try:
+                        net = driver.ex_get_network(gce_net_name)
+                    except:
+                        self.log_debug("Net %s does not exist." % gce_net_name)
+
+                    if net:
+                        self.log_debug("Net %s already exist. Do not create it." % gce_net_name)
+                    else:
+                        net_cidr = network.getValue('cidr')
+                        self.log_info("Create net %s with cidr %s." % (gce_net_name, net_cidr))
+                        driver.ex_create_network(gce_net_name, net_cidr, "Net created by the IM")
+
+                    network.setValue('provider_id', gce_net_name)
+        except Exception as ext:
+            self.log_exception("Error creating networks.")
+            try:
+                self.delete_networks(driver, inf)
+            except:
+                self.log_exception("Error deleting networks.")
+            raise Exception("Error creating networks: %s" % ext)
+
+        return True
+
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         system = radl.systems[0]
         region, image_id = self.get_image_data(system.getValue("disk.0.image.url"))
@@ -450,7 +488,10 @@ class GCECloudConnector(LibCloudCloudConnector):
         if metadata:
             args['ex_metadata'] = metadata
 
-        net_provider_id = self.get_net_provider_id(radl, driver)
+        with inf._lock:
+            self.create_networks(driver, radl, inf)
+
+        net_provider_id = self.get_net_provider_id(radl)
         if not net_provider_id:
             net_provider_id = self.get_default_net(driver)
             if not net_provider_id:
@@ -512,6 +553,18 @@ class GCECloudConnector(LibCloudCloudConnector):
 
         return res
 
+    def delete_networks(self, driver, inf):
+        """
+        Delete created GCE networks
+        """
+        for gce_net in driver.ex_list_networks():
+            net_prefix = "im-%s-" % inf.id
+            if gce_net.name.startswith(net_prefix):
+                self.log_info("Deleting net %s." % gce_net.name)
+                gce_net.destroy()
+
+        return True
+
     def finalize(self, vm, last, auth_data):
         try:
             if vm.id:
@@ -537,6 +590,8 @@ class GCECloudConnector(LibCloudCloudConnector):
 
         if last:
             self.delete_firewall(vm, auth_data)
+            driver = self.get_driver(auth_data)
+            self.delete_networks(driver, vm.inf)
 
         return (True, "")
 
