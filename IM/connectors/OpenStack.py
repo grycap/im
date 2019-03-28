@@ -582,14 +582,14 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 return True
         return False
 
-    def delete_networks(self, driver, vm):
+    def delete_networks(self, driver, inf):
         """
         Delete created OST networks
         """
         router = self.get_router_public(driver)
         msg = ""
         for ost_net in driver.ex_list_networks():
-            net_prefix = "im-%s-" % vm.inf.id
+            net_prefix = "im-%s-" % inf.id
             if ost_net.name.startswith(net_prefix):
                 if 'subnets' in ost_net.extra and len(ost_net.extra['subnets']) == 1:
                     subnet_id = ost_net.extra['subnets'][0]
@@ -654,7 +654,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                                                                  ip_version=4, dns_nameservers=[net_dnsserver])
                         except Exception as ex:
                             self.log_exception("Error creating ost subnet for net %s." % net_name)
-                            # in case of error delete the asociated network
+                            # in case of error delete the associated network
                             self.log_debug("Deleting net: %s" % ost_net_name)
                             driver.ex_delete_network(ost_net)
                             raise Exception("Error creating ost subnet for net %s: %s" % (net_name,
@@ -679,6 +679,10 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                         network.setValue('provider_id', ost_net_name)
         except Exception as ext:
             self.log_exception("Error creating networks.")
+            try:
+                self.delete_networks(driver, inf)
+            except:
+                self.log_exception("Error deleting networks.")
             raise Exception("Error creating networks: %s" % ex.args[0])
 
         return True
@@ -1124,7 +1128,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
             # Delete the created networks
             try:
-                res, msg = self.delete_networks(driver, vm)
+                res, msg = self.delete_networks(driver, vm.inf)
             except Exception as ex:
                 res = False
                 msg = "%s" % ex.args[0]
