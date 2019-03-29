@@ -575,6 +575,7 @@ class EC2CloudConnector(CloudConnector):
             im_username = auth_data.getAuthInfo('InfrastructureManager')[0]['username']
 
         system = radl.systems[0]
+        placement = system.getValue('availability_zone')
 
         # Currently EC2 plugin uses first private_key credentials
         if system.getValue('disk.0.os.credentials.private_key'):
@@ -587,213 +588,226 @@ class EC2CloudConnector(CloudConnector):
         conn = self.get_connection(region_name, auth_data)
 
         res = []
+        spot = False
+        if system.getValue("spot") == "yes":
+            spot = True
+
+        if spot:
+            if system.getValue("disk.0.os.name"):
+                operative_system = system.getValue("disk.0.os.name")
+                if operative_system == "linux":
+                    operative_system = 'Linux/UNIX'
+                    # TODO: diferenciar entre cuando sea
+                    # 'Linux/UNIX', 'SUSE Linux' o 'Windows'
+                    # teniendo en cuenta tambien el atributo
+                    # "flavour" del RADL
+            else:
+                for i in range(num_vm):
+                    res.append((False, ("Error launching the image: spot instances"
+                                        " need the OS defined in the RADL")))
+                return res
+
         if not conn:
             for i in range(num_vm):
                 res.append((False, "Error connecting with EC2, check the credentials"))
             return res
 
-        image = conn.get_image(ami)
+        instance_type = self.get_instance_type(system)
+        if not instance_type:
+            self.log_error("Error no instance type available for the requirements.")
+            self.log_debug(system)
+            for i in range(num_vm):
+                res.append((False, "Error no instance type available for the requirements."))
 
+        image = conn.get_image(ami)
         if not image:
             for i in range(num_vm):
                 res.append((False, "Incorrect AMI selected"))
             return res
-        else:
-            block_device_name = None
-            for name, device in image.block_device_mapping.items():
-                if device.snapshot_id or device.volume_id:
-                    block_device_name = name
 
-            if not block_device_name:
-                self.log_error("Error getting correct block_device name from AMI: " + str(ami))
-                for i in range(num_vm):
-                    res.append((False, "Error getting correct block_device name from AMI: " + str(ami)))
-                return res
+        block_device_name = None
+        for name, device in image.block_device_mapping.items():
+            if device.snapshot_id or device.volume_id:
+                block_device_name = name
 
-            with inf._lock:
-                self.create_networks(conn, radl, inf)
+        if not block_device_name:
+            self.log_error("Error getting correct block_device name from AMI: " + str(ami))
+            for i in range(num_vm):
+                res.append((False, "Error getting correct block_device name from AMI: " + str(ami)))
+            return res
 
-            vpc, subnet = self.get_networks(conn, radl)
+        with inf._lock:
+            self.create_networks(conn, radl, inf)
 
-            sg_ids = self.create_security_groups(conn, inf, radl, vpc)
+        vpc, subnet = self.get_networks(conn, radl)
 
-            public_key = system.getValue("disk.0.os.credentials.public_key")
-            private_key = system.getValue('disk.0.os.credentials.private_key')
-            keypair_name = None
-            if private_key and public_key:
-                # We assume that if the name key is shorter than 128 is a keypair name
-                if len(public_key) < 128:
-                    keypair_name = public_key
+        sg_ids = self.create_security_groups(conn, inf, radl, vpc)
 
-            if not public_key:
-                # We must generate them
-                (public_key, private_key) = self.keygen()
-                system.setValue('disk.0.os.credentials.private_key', private_key)
+        public_key = system.getValue("disk.0.os.credentials.public_key")
+        private_key = system.getValue('disk.0.os.credentials.private_key')
+        keypair_name = None
+        if private_key and public_key:
+            # We assume that if the name key is shorter than 128 is a keypair name
+            if len(public_key) < 128:
+                keypair_name = public_key
 
-            user = system.getValue('disk.0.os.credentials.username')
-            if not user:
-                user = self.DEFAULT_USER
-                system.setValue('disk.0.os.credentials.username', user)
+        if not public_key:
+            # We must generate them
+            (public_key, private_key) = self.keygen()
+            system.setValue('disk.0.os.credentials.private_key', private_key)
 
-            tags = self.get_instance_tags(system)
+        user = system.getValue('disk.0.os.credentials.username')
+        if not user:
+            user = self.DEFAULT_USER
+            system.setValue('disk.0.os.credentials.username', user)
 
-            all_failed = True
+        tags = self.get_instance_tags(system)
 
-            i = 0
-            while i < num_vm:
+        all_failed = True
+        volumes = {}
 
-                vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self)
-                vm.destroy = True
-                inf.add_vm(vm)
-                user_data = self.get_cloud_init_data(radl, vm, public_key, user)
+        i = 0
+        while i < num_vm:
 
-                err_msg = "Launching in region %s with image: %s" % (region_name, ami)
-                err_msg += " in VPC: %s-%s " % (vpc, subnet)
-                try:
-                    spot = False
-                    if system.getValue("spot") == "yes":
-                        spot = True
+            vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self)
+            vm.destroy = True
+            inf.add_vm(vm)
+            user_data = self.get_cloud_init_data(radl, vm, public_key, user)
 
-                    if spot:
-                        err_msg += " a spot instance "
-                        self.log_info("Launching a spot instance")
-                        instance_type = self.get_instance_type(system)
-                        if not instance_type:
-                            self.log_error("Error %s, no instance type available for the requirements." % err_msg)
-                            self.log_debug(system)
-                            res.append((False, "Error %s, no instance type available for the requirements." % err_msg))
-                        else:
-                            err_msg += " of type: %s " % instance_type.name
-                            price = system.getValue("price")
-                            # Realizamos el request de spot instances
-                            if system.getValue("disk.0.os.name"):
-                                operative_system = system.getValue("disk.0.os.name")
-                                if operative_system == "linux":
-                                    operative_system = 'Linux/UNIX'
-                                    # TODO: diferenciar entre cuando sea
-                                    # 'Linux/UNIX', 'SUSE Linux' o 'Windows'
-                                    # teniendo en cuenta tambien el atributo
-                                    # "flavour" del RADL
-                            else:
-                                res.append((False, ("Error launching the image: spot instances"
-                                                    " need the OS defined in the RADL")))
-                                # operative_system = 'Linux/UNIX'
+            volumes = self.create_volumes(conn, placement, vm)
 
-                            if system.getValue('availability_zone'):
-                                availability_zone = system.getValue('availability_zone')
-                            else:
-                                availability_zone = 'us-east-1c'
-                                historical_price = 1000.0
-                                availability_zone_list = conn.get_all_zones()
-                                for zone in availability_zone_list:
-                                    history = conn.get_spot_price_history(instance_type=instance_type.name,
-                                                                          product_description=operative_system,
-                                                                          availability_zone=zone.name,
-                                                                          max_results=1)
-                                    self.log_debug("Spot price history for the region " + zone.name)
-                                    self.log_debug(history)
-                                    if history and history[0].price < historical_price:
-                                        historical_price = history[0].price
-                                        availability_zone = zone.name
-                            self.log_info("Launching the spot request in the zone " + availability_zone)
+            bdm = boto.ec2.blockdevicemapping.BlockDeviceMapping(conn)
+            # Force to use magnetic volumes in root device
+            bdm[block_device_name] = boto.ec2.blockdevicemapping.BlockDeviceType(volume_type="standard",
+                                                                                 delete_on_termination=True)
+            for device, (vol_id, size) in volumes.items():
+                bdm[device] = boto.ec2.blockdevicemapping.BlockDeviceType(volume_id=vol_id, size=size,
+                                                                          delete_on_termination=True)
 
-                            # Force to use magnetic volumes
-                            bdm = boto.ec2.blockdevicemapping.BlockDeviceMapping(conn)
-                            bdm[block_device_name] = boto.ec2.blockdevicemapping.BlockDeviceType(
-                                volume_type="standard")
-                            request = conn.request_spot_instances(price=price, image_id=image.id, count=1,
-                                                                  type='one-time', instance_type=instance_type.name,
-                                                                  placement=availability_zone, key_name=keypair_name,
-                                                                  security_group_ids=sg_ids,
-                                                                  block_device_map=bdm, subnet_id=subnet,
-                                                                  user_data=user_data)
+            err_msg = "Launching in region %s with image: %s" % (region_name, ami)
+            err_msg += " in VPC: %s-%s " % (vpc, subnet)
+            try:
+                if spot:
+                    self.log_info("Launching a spot instance")
+                    err_msg += " a spot instance "
+                    err_msg += " of type: %s " % instance_type.name
+                    price = system.getValue("price")
+                    # Realizamos el request de spot instances
 
-                            if request:
-                                ec2_vm_id = region_name + ";" + request[0].id
-
-                                self.log_debug("RADL:")
-                                self.log_debug(system)
-
-                                vm.id = ec2_vm_id
-                                vm.info.systems[0].setValue('instance_id', str(vm.id))
-                                self.log_info("Instance successfully launched.")
-                                all_failed = False
-                                vm.destroy = False
-                                res.append((True, vm))
-                            else:
-                                res.append((False, "Error %s." % err_msg))
+                    if system.getValue('availability_zone'):
+                        availability_zone = system.getValue('availability_zone')
                     else:
-                        err_msg += " an ondemand instance "
-                        self.log_info("Launching ondemand instance")
-                        instance_type = self.get_instance_type(system)
-                        if not instance_type:
-                            self.log_error("Error %s, no instance type available for the requirements." % err_msg)
-                            self.log_debug(system)
-                            res.append(
-                                (False, "Error %s, no instance type available for the requirements." % err_msg))
-                        else:
-                            err_msg += " of type: %s " % instance_type.name
-                            placement = system.getValue('availability_zone')
-                            # Force to use magnetic volumes
-                            bdm = boto.ec2.blockdevicemapping.BlockDeviceMapping(conn)
-                            bdm[block_device_name] = boto.ec2.blockdevicemapping.BlockDeviceType(volume_type="standard")
-                            # Check if the user has specified the net provider
-                            # id
-                            reservation = image.run(min_count=1, max_count=1, key_name=keypair_name,
-                                                    instance_type=instance_type.name,
-                                                    security_group_ids=sg_ids, placement=placement,
-                                                    block_device_map=bdm, subnet_id=subnet, user_data=user_data)
+                        availability_zone = 'us-east-1c'
+                        historical_price = 1000.0
+                        availability_zone_list = conn.get_all_zones()
+                        for zone in availability_zone_list:
+                            history = conn.get_spot_price_history(instance_type=instance_type.name,
+                                                                  product_description=operative_system,
+                                                                  availability_zone=zone.name,
+                                                                  max_results=1)
+                            self.log_debug("Spot price history for the region " + zone.name)
+                            self.log_debug(history)
+                            if history and history[0].price < historical_price:
+                                historical_price = history[0].price
+                                availability_zone = zone.name
+                    self.log_info("Launching the spot request in the zone " + availability_zone)
 
-                            if len(reservation.instances) == 1:
-                                time.sleep(1)
-                                instance = reservation.instances[0]
-                                instance.add_tag("IM-USER", im_username)
-                                for key, value in tags.items():
-                                    instance.add_tag(key, value)
-                                ec2_vm_id = region_name + ";" + instance.id
+                    request = conn.request_spot_instances(price=price, image_id=image.id, count=1,
+                                                          type='one-time', instance_type=instance_type.name,
+                                                          placement=availability_zone, key_name=keypair_name,
+                                                          security_group_ids=sg_ids, block_device_map=bdm,
+                                                          subnet_id=subnet, user_data=user_data)
 
-                                self.log_debug("RADL:")
-                                self.log_debug(system)
+                    if request:
+                        ec2_vm_id = region_name + ";" + request[0].id
 
-                                vm.id = ec2_vm_id
-                                vm.info.systems[0].setValue('instance_id', str(vm.id))
-                                self.log_info("Instance successfully launched.")
-                                vm.destroy = False
-                                res.append((True, vm))
-                                all_failed = False
-                            else:
-                                res.append((False, "Error %s." % err_msg))
+                        self.log_debug("RADL:")
+                        self.log_debug(system)
 
-                except Exception as ex:
-                    self.log_exception("Error %s." % err_msg)
-                    res.append((False, "Error %s. %s" % (err_msg, str(ex))))
+                        vm.id = ec2_vm_id
+                        vm.info.systems[0].setValue('instance_id', str(vm.id))
+                        self.log_info("Instance successfully launched.")
+                        all_failed = False
+                        vm.destroy = False
+                        res.append((True, vm))
+                    else:
+                        try:
+                            self.delete_vm_volumes(conn, vm)
+                        except:
+                            self.log_exception("Error deleting created volumes.")
+                        res.append((False, "Error %s." % err_msg))
+                else:
+                    self.log_info("Launching ondemand instance")
+                    err_msg += " an ondemand instance "
+                    err_msg += " of type: %s " % instance_type.name
 
-                i += 1
+                    # Check if the user has specified the net provider
+                    # id
+                    reservation = image.run(min_count=1, max_count=1, key_name=keypair_name,
+                                            instance_type=instance_type.name, security_group_ids=sg_ids,
+                                            placement=placement, block_device_map=bdm, subnet_id=subnet,
+                                            user_data=user_data)
+
+                    if len(reservation.instances) == 1:
+                        time.sleep(1)
+                        instance = reservation.instances[0]
+                        instance.add_tag("IM-USER", im_username)
+                        for key, value in tags.items():
+                            instance.add_tag(key, value)
+                        ec2_vm_id = region_name + ";" + instance.id
+
+                        self.log_debug("RADL:")
+                        self.log_debug(system)
+
+                        vm.id = ec2_vm_id
+                        vm.info.systems[0].setValue('instance_id', str(vm.id))
+                        self.log_info("Instance successfully launched.")
+                        vm.destroy = False
+                        res.append((True, vm))
+                        all_failed = False
+                    else:
+                        try:
+                            self.delete_vm_volumes(conn, vm)
+                        except:
+                            self.log_exception("Error deleting created volumes.")
+                        res.append((False, "Error %s." % err_msg))
+
+            except Exception as ex:
+                self.log_exception("Error %s." % err_msg)
+                try:
+                    self.delete_vm_volumes(conn, vm)
+                except:
+                    self.log_exception("Error deleting created volumes.")
+                res.append((False, "Error %s. %s" % (err_msg, str(ex))))
+
+            i += 1
 
         # if all the VMs have failed, remove the sgs
         if all_failed:
             if sg_ids:
-                try:
-                    for sgid in sg_ids:
-                        self.log_info("Remove the SG: %s" % sgid)
+                for sgid in sg_ids:
+                    self.log_info("Remove the SG: %s" % sgid)
+                    try:
                         conn.delete_security_group(group_id=sgid)
-                except:
-                    self.log_exception("Error deleting SG.")
+                    except:
+                        self.log_exception("Error deleting SG.")
 
         return res
 
-    def create_volume(self, conn, disk_size, placement, vol_type=None, timeout=60):
+    def create_volume(self, conn, disk_size, placement=None, vol_type=None, timeout=60):
         """
         Create an EBS volume
 
         Arguments:
            - conn(:py:class:`boto.ec2.connection`): object to connect to EC2 API.
-           - disk_size(:py:class:`boto.ec2.connection`): The size of the new volume, in GiB
+           - disk_size(int): The size of the new volume, in GiB
            - placement(str): The availability zone in which the Volume will be created.
            - type(str): Type of the volume: standard | io1 | gp2.
            - timeout(int): Time needed to create the volume.
         Returns: a :py:class:`boto.ec2.volume.Volume` of the new volume
         """
+        if placement is None:
+            placement = conn.get_all_zones()[0]
         volume = conn.create_volume(disk_size, placement, volume_type=vol_type)
         cont = 0
         err_states = ["error"]
@@ -810,46 +824,47 @@ class EC2CloudConnector(CloudConnector):
             conn.delete_volume(volume.id)
             return None
 
-    def attach_volumes(self, instance, vm):
+    def create_volumes(self, conn, placement, vm):
         """
-        Attach a the required volumes (in the RADL) to the launched instance
+        Create the required volumes (in the RADL) for the VM.
 
         Arguments:
-           - instance(:py:class:`boto.ec2.instance`): object to connect to EC2 instance.
-           - vm(:py:class:`IM.VirtualMachine`): VM information.
+           - conn(:py:class:`boto.ec2.connection`): object to connect to EC2 API.
+           - placement(str): AWS zone.
+           - vm(:py:class:`IM.VirtualMachine`): VM to modify.
         """
-        if instance.state == 'running' and "volumes" not in vm.__dict__.keys():
-            # Flag to set that this VM has created (or is creating) the
-            # volumes
-            vm.volumes = True
-            conn = instance.connection
-            cont = 1
-            while (vm.info.systems[0].getValue("disk." + str(cont) + ".size") and
-                   vm.info.systems[0].getValue("disk." + str(cont) + ".device")):
-                disk_size = vm.info.systems[0].getFeature("disk." + str(cont) + ".size").getValue('G')
-                disk_device = vm.info.systems[0].getValue("disk." + str(cont) + ".device")
-                disk_type = vm.info.systems[0].getValue("disk." + str(cont) + ".type")
-                self.log_info("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
-                volume = None
-                try:
-                    volume = self.create_volume(conn, int(disk_size), instance.placement, disk_type)
+        res = {}
+
+        cont = 1
+        while (vm.info.systems[0].getValue("disk." + str(cont) + ".size") and
+               vm.info.systems[0].getValue("disk." + str(cont) + ".device")):
+            disk_size = vm.info.systems[0].getFeature("disk." + str(cont) + ".size").getValue('G')
+            disk_device = vm.info.systems[0].getValue("disk." + str(cont) + ".device")
+            disk_type = vm.info.systems[0].getValue("disk." + str(cont) + ".type")
+            volume = None
+            try:
+                volumes = conn.get_all_volumes(filters={"tag:IM-INFRA-ID": vm.inf.id,
+                                                        "tag:IM-VM-ID": vm.im_id,
+                                                        "tag:IM-DISK-ID": cont})
+                if not volumes:
+                    self.log_info("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
+                    volume = self.create_volume(conn, int(disk_size), placement, disk_type)
                     if volume:
                         volume.add_tag("IM-INFRA-ID", vm.inf.id)
-                        volume.add_tag("IM-VM-ID", vm.id)
-                        self.log_info("Attach the volume ID " + str(volume.id))
-                        conn.attach_volume(volume.id, instance.id, "/dev/" + disk_device)
-                except Exception as ex:
-                    self.error_messages += "Error creating or attaching the volume to the instance: %s\n" % ex
-                    self.log_exception("Error creating or attaching the volume to the instance")
-                    if volume:
-                        self.log_info("Removing the volume " + volume.id)
-                        try:
-                            conn.delete_volume(volume.id)
-                        except:
-                            self.log_exception("Error deleting the volume")
-                cont += 1
+                        volume.add_tag("IM-VM-ID", vm.im_id)
+                        volume.add_tag("IM-DISK-ID", cont)
+                else:
+                    volume = volumes[0]
+                    self.log_debug("Volume %s already exists." % volume.id)
+                res["/dev/" + disk_device] = (volume.id, disk_size)
+            except Exception as ex:
+                self.error_messages += "Error creating the volume: %s\n" % ex
+                self.log_exception("Error creating the volume")
+            cont += 1
 
-    def delete_volumes(self, conn, vm, timeout=240):
+        return res
+
+    def delete_inf_volumes(self, conn, inf, timeout=240):
         """
         Delete the volumes specified in the volumes list
 
@@ -858,8 +873,30 @@ class EC2CloudConnector(CloudConnector):
            - vm(:py:class:`IM.VirtualMachine`): VM information.
            - timeout(int): Time needed to delete the volume.
         """
+        volumes = conn.get_all_volumes(filters={"tag:IM-INFRA-ID": inf.id})
+        return self.delete_volumes(conn, volumes, timeout)
+
+    def delete_vm_volumes(self, conn, vm, timeout=240):
+        """
+        Delete the volumes related with the specified VM
+
+        Arguments:
+           - conn(:py:class:`boto.ec2.connection`): object to connect to EC2 API.
+           - vm(:py:class:`IM.VirtualMachine`): VM information.
+           - timeout(int): Time needed to delete the volume.
+        """
         volumes = conn.get_all_volumes(filters={"tag:IM-INFRA-ID": vm.inf.id,
-                                                "tag:IM-VM-ID": vm.id})
+                                                "tag:IM-VM-ID": vm.im_id})
+        return self.delete_volumes(conn, volumes, timeout)
+
+    def delete_volumes(self, conn, volumes, timeout=240):
+        """
+        Delete the volumes specified in the volumes list
+
+        Arguments:
+           - volumes(list): List of EC2 Volume objects.
+           - timeout(int): Time needed to delete the volume.
+        """
         for curr_vol in volumes:
             cont = 0
             deleted = False
@@ -868,7 +905,7 @@ class EC2CloudConnector(CloudConnector):
                 try:
                     curr_vol.update()
                     if str(curr_vol.attachment_state()) == "attached":
-                        self.log_info("Detaching the volume " + curr_vol.id + " from the instance " + vm.id)
+                        self.log_info("Detaching the volume " + curr_vol.id + " from the instance.")
                         conn.detach_volume(curr_vol.id, curr_vol.attach_data.instance_id, force=True)
 
                     if curr_vol.attachment_state() is None:
@@ -1189,7 +1226,6 @@ class EC2CloudConnector(CloudConnector):
             self.update_system_info_from_instance(vm.info.systems[0], instance_type)
 
             self.setIPsFromInstance(vm, instance)
-            self.attach_volumes(instance, vm)
             self.add_dns_entries(vm, auth_data)
             self.addRouterInstance(vm, conn)
 
@@ -1197,8 +1233,8 @@ class EC2CloudConnector(CloudConnector):
                 vm.info.systems[0].setValue('launch_time', int(time.mktime(
                     time.strptime(instance.launch_time[:19], '%Y-%m-%dT%H:%M:%S'))))
             except Exception as ex:
-                self.log_warn(
-                    "Error setting the launch_time of the instance. Probably the instance is not running:" + str(ex))
+                self.log_warn("Error setting the launch_time of the instance. "
+                              "Probably the instance is not running:" + str(ex))
 
         else:
             self.log_warn("Error updating the instance %s. VM not found." % instance_id)
@@ -1338,25 +1374,19 @@ class EC2CloudConnector(CloudConnector):
             self.delete_snapshots(vm, auth_data)
 
         error_msg = ""
-        if vm.id:
-            region_name = vm.id.split(";")[0]
-            instance_id = vm.id.split(";")[1]
-
-            conn = self.get_connection(region_name, auth_data)
-
-            # Terminate the instance
-            instance = self.get_instance_by_id(instance_id, region_name, auth_data)
-            if instance is not None:
-                instance.terminate()
-        else:
+        if vm.id is None:
             self.log_info("VM with no ID. Ignore.")
+            return True, ""
 
-        # Delete the EBS volumes
-        try:
-            self.delete_volumes(conn, vm)
-        except Exception as ex:
-            self.log_exception("Error deleting EBS volumes")
-            error_msg += "Error deleting EBS volumes: %s. " % ex
+        region_name = vm.id.split(";")[0]
+        instance_id = vm.id.split(";")[1]
+
+        conn = self.get_connection(region_name, auth_data)
+
+        # Terminate the instance
+        instance = self.get_instance_by_id(instance_id, region_name, auth_data)
+        if instance is not None:
+            instance.terminate()
 
         # Delete the elastic IPs
         try:
@@ -1379,14 +1409,23 @@ class EC2CloudConnector(CloudConnector):
             self.log_exception("Error deleting DNS entries")
             error_msg += "Error deleting DNS entries: %s. " % ex
 
-        # Delete the SG if this is the last VM
+        # if this is the last VM
         if last:
+            # Delete the EBS volumes
+            try:
+                self.delete_inf_volumes(conn, vm.inf)
+            except Exception as ex:
+                self.log_exception("Error deleting EBS volumes")
+                error_msg += "Error deleting EBS volumes: %s. " % ex
+
+            # Delete the SG
             try:
                 self.delete_security_groups(conn, vm)
             except Exception as ex:
                 self.log_exception("Error deleting security group.")
                 error_msg += "Error deleting security group: %s. " % ex
 
+            # And nets
             try:
                 self.delete_networks(conn, vm)
             except Exception as ex:
