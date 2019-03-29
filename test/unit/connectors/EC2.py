@@ -146,6 +146,12 @@ class TestEC2Connector(TestCloudConnectorBase):
         sg.authorize.return_value = True
         conn.create_security_group.return_value = sg
 
+        volume = MagicMock()
+        volume.status = "available"
+        volume.id = "volid"
+        conn.create_volume.return_value = volume
+        conn.get_all_volumes.return_value = []
+
         conn.get_all_security_groups.return_value = []
 
         blockdevicemapping.return_value = {'device': ''}
@@ -156,6 +162,11 @@ class TestEC2Connector(TestCloudConnectorBase):
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+        self.assertEquals(conn.create_volume.call_args_list[0][0][0], 1)
+        self.assertEquals(len(conn.create_security_group.call_args_list), 3)
+        self.assertEquals(conn.create_security_group.call_args_list[0][0][0], "im-%s" % inf.id)
+        self.assertEquals(conn.create_security_group.call_args_list[1][0][0], "sgname")
+        self.assertEquals(conn.create_security_group.call_args_list[2][0][0], "im-%s-net2" % inf.id)
 
         # Check the case that we do not use VPC
         radl_data = """
@@ -337,12 +348,6 @@ class TestEC2Connector(TestCloudConnectorBase):
         address = MagicMock()
         address.public_ip = "158.42.1.1"
         conn.get_all_addresses.return_value = [address]
-
-        volume = MagicMock()
-        volume.status = "available"
-        volume.id = "volid"
-        conn.create_volume.return_value = volume
-        conn.attach_volume.return_value = True
 
         dns_conn = MagicMock()
         connect_to_region.return_value = dns_conn
