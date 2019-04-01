@@ -458,7 +458,7 @@ class LibCloudCloudConnector(CloudConnector):
                         floating_ip.delete()
                 return True, ""
             return False, "Unsupported Driver %s" % node.driver.name
-        except Exception:
+        except Exception as ex:
             self.log_exception("Error removing Elastic/Floating IPs to VM ID: " + str(vm.id))
             return False, "Error removing Elastic/Floating IPs: %s" % ex.args[0]
 
