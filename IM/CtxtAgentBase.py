@@ -26,6 +26,7 @@ from multiprocessing import Queue
 
 from IM.SSH import SSH, AuthenticationException
 
+
 class CtxtAgentBase:
     """ Base Class for the Contextualization Agent """
 
