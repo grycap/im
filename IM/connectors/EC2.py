@@ -995,7 +995,7 @@ class EC2CloudConnector(CloudConnector):
             self.log_info("The VM is not running, not adding an Elastic IP.")
             return None
 
-    def delete_elastic_ips(self, conn, vm, timeout=120):
+    def delete_elastic_ips(self, conn, vm, timeout=240):
         """
         remove the elastic IPs of a VM
 
@@ -1156,6 +1156,14 @@ class EC2CloudConnector(CloudConnector):
                             break
                     if not vrouter:
                         self.log_error("No VRouter instance found with name %s" % system_router)
+                        success = False
+                        break
+
+                    reservations = conn.get_all_instances([vrouter])
+                    vrouter_instance = reservations[0].instances[0]
+
+                    if vrouter_instance.state != "running":
+                        self.log_debug("VRouter instance %s is not running." % system_router)
                         success = False
                         break
 
@@ -1344,13 +1352,28 @@ class EC2CloudConnector(CloudConnector):
                 self.log_info("Spot instance request " + str(sir.id) + " deleted")
                 break
 
-    def delete_networks(self, conn, vm):
+    def delete_networks(self, conn, vm, timeout=120):
         """
         Delete the created networks
         """
         for subnet in conn.get_all_subnets(filters={"tag:IM-INFRA-ID": vm.inf.id}):
             self.log_info("Deleting subnet: %s" % subnet.id)
-            conn.delete_subnet(subnet.id)
+            cont = 0
+            deleted = False
+            while not deleted and cont < timeout:
+                cont += 5
+                try:
+                    conn.delete_subnet(subnet.id)
+                    deleted = True
+                except Exception as ex:
+                    self.log_warn("Error removing subnet: " + str(ex))
+
+                if not deleted:
+                    time.sleep(5)
+
+            if not deleted:
+                self.log_error("Timeout (%s) removing the volume %s" % (timeout, subnet.id))
+
         vpc_id = None
         for vpc in conn.get_all_vpcs(filters={"tag:IM-INFRA-ID": vm.inf.id}):
             self.log_info("Deleting vpc: %s" % vpc.id)
