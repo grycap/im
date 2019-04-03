@@ -1209,13 +1209,23 @@ class Tosca:
 
         nework_type = self._final_function_result(node.get_property_value('network_type'), node)
         network_name = self._final_function_result(node.get_property_value('network_name'), node)
+        network_cidr = self._final_function_result(node.get_property_value('cidr'), node)
+        network_route = self._final_function_result(node.get_property_value('route'), node)
 
         # TODO: get more properties -> must be implemented in the RADL
-        if nework_type == "public":
+        if nework_type.lower() == "public":
             res.setValue("outbound", "yes")
 
         if network_name:
             res.setValue("provider_id", network_name)
+
+        if network_cidr:
+            res.setValue("cidr", network_cidr)
+            # assume that if the cidr is specified the net wiil be created
+            res.setValue("create", "yes")
+
+        if network_route:
+            res.setValue("route", network_route)
 
         return res
 
