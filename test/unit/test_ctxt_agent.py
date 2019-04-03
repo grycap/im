@@ -275,7 +275,7 @@ class TestCtxtAgent(unittest.TestCase):
         copy_content = yaml_data[0]['tasks'][1]['copy'][pos + 9:-2]
         self.assertEqual(copy_content, "[{src: ansible_role}, {name: hadoop, src: "
                          "'git+https://github.com/micafer/ansible-role-hadoop'}]")
-        self.assertEqual(yaml_data[0]['tasks'][2]['command'][:44], "ansible-galaxy install -r /tmp/galaxy_roles_")
+        self.assertEqual(yaml_data[0]['tasks'][2]['command'][:47], "ansible-galaxy install -c -r /tmp/galaxy_roles_")
 
         os.unlink(res)
 
