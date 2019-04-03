@@ -299,24 +299,26 @@ class InfrastructureManager:
                 # The user has new applications
                 curr_apps = system.getValue("disk.0.applications")
                 curr_apps_names = {}
-                for app_name in curr_apps.keys():
-                    orig_app_name = app_name
-                    if "," in app_name:
-                        # remove version substring
-                        pos = app_name.find(",")
-                        app_name = app_name[:pos]
-                    curr_apps_names[app_name] = orig_app_name
+                if curr_apps:
+                    for app_name in curr_apps.keys():
+                        orig_app_name = app_name
+                        if "," in app_name:
+                            # remove version substring
+                            pos = app_name.find(",")
+                            app_name = app_name[:pos]
+                        curr_apps_names[app_name] = orig_app_name
 
                 new_apps = new_system.getValue("disk.0.applications")
-                for app_name, app in new_apps.items():
-                    orig_app_name = app_name
-                    if "," in app_name:
-                        # remove version substring
-                        pos = app_name.find(",")
-                        app_name = app_name[:pos]
-                    if app_name in list(curr_apps_names.keys()):
-                        del curr_apps[curr_apps_names[app_name]]
-                    curr_apps[orig_app_name] = app
+                if new_apps:
+                    for app_name, app in new_apps.items():
+                        orig_app_name = app_name
+                        if "," in app_name:
+                            # remove version substring
+                            pos = app_name.find(",")
+                            app_name = app_name[:pos]
+                        if app_name in list(curr_apps_names.keys()):
+                            del curr_apps[curr_apps_names[app_name]]
+                        curr_apps[orig_app_name] = app
 
         # Stick all virtual machines to be reconfigured
         InfrastructureManager.logger.info("Contextualize the Inf ID: " + sel_inf.id)
