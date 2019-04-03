@@ -725,7 +725,13 @@ class VirtualMachine(LoggerMixin):
             if self.ctxt_pid != self.WAIT_TO_PID:
                 ssh = self.get_ssh_ansible_master()
                 try:
-                    self.log_info("Killing ctxt process with pid: " + str(self.ctxt_pid))
+                    if not ssh.test_connectivity(5):
+                        self.log_info("Timeout killing ctxt process: %s." % self.ctxt_pid)
+                        self.ctxt_pid = None
+                        self.configured = False
+                        return
+
+                    self.log_info("Killing ctxt process with pid: %s" % self.ctxt_pid)
 
                     # Try to get PGID to kill all child processes
                     pgkill_success = False
