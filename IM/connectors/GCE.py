@@ -602,6 +602,8 @@ class GCECloudConnector(LibCloudCloudConnector):
         """
         driver = self.get_driver(auth_data)
         net_provider_id = self.get_net_provider_id(vm.info)
+        if not net_provider_id:
+            net_provider_id = "default"
         firewall_name = "fw-im-%s" % net_provider_id
 
         firewall = None
