@@ -326,8 +326,7 @@ class VirtualMachine(LoggerMixin):
         # Or if both VMs are connected to the same network
         i = 0
         while self.info.systems[0].getValue("net_interface." + str(i) + ".connection"):
-            net_name = self.info.systems[0].getValue(
-                "net_interface." + str(i) + ".connection")
+            net_name = self.info.systems[0].getValue("net_interface." + str(i) + ".connection")
 
             common_net = False
             j = 0
