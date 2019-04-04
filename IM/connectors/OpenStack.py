@@ -318,7 +318,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         return (True, vm)
 
     @staticmethod
-    def map_radl_ost_networks(radl_nets, ost_nets):
+    def map_radl_ost_networks(vm, ost_nets):
         """
         Generate a mapping between the RADL networks and the OST networks
 
@@ -332,20 +332,30 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         res = {"#UNMAPPED#": []}
         for ip, (net_name, is_public) in ost_nets.items():
             if net_name:
-                for radl_net in radl_nets:
+                for radl_net in vm.info.networks:
                     net_provider_id = radl_net.getValue('provider_id')
+                    net_cidr = radl_net.getValue('cidr')
 
                     if net_provider_id:
                         if net_name == net_provider_id:
                             if radl_net.isPublic() == is_public:
                                 res[radl_net.id] = ip
+                                if ip in res["#UNMAPPED#"]:
+                                    res["#UNMAPPED#"].remove(ip)
                                 break
                             else:
                                 # the ip not matches the is_public value
-                                res["#UNMAPPED#"].append(ip)
+                                if ip not in res["#UNMAPPED#"]:
+                                    res["#UNMAPPED#"].append(ip)
+                    elif net_cidr and IPAddress(ip) in IPNetwork(net_cidr):
+                        res[radl_net.id] = ip
+                        radl_net.setValue('provider_id', net_name)
+                        if ip in res["#UNMAPPED#"]:
+                            res["#UNMAPPED#"].remove(ip)
+                        break
                     else:
                         if radl_net.id not in res:
-                            if radl_net.isPublic() == is_public:
+                            if radl_net.isPublic() == is_public and vm.getNumNetworkWithConnection(radl_net.id):
                                 res[radl_net.id] = ip
                                 radl_net.setValue('provider_id', net_name)
                                 if ip in res["#UNMAPPED#"]:
@@ -353,17 +363,18 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                                 break
                             else:
                                 # the ip not matches the is_public value
-                                res["#UNMAPPED#"].append(ip)
+                                if ip not in res["#UNMAPPED#"]:
+                                    res["#UNMAPPED#"].append(ip)
             else:
                 # It seems to be a floating IP
                 added = False
-                for radl_net in radl_nets:
+                for radl_net in vm.info.networks:
                     if radl_net.id not in res and radl_net.isPublic() == is_public:
                         res[radl_net.id] = ip
                         added = True
                         break
 
-                if not added:
+                if not added and ip not in res["#UNMAPPED#"]:
                     res["#UNMAPPED#"].append(ip)
 
         return res
@@ -414,7 +425,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     if not is_private:
                         public_ips.append(float_ip)
 
-            map_nets = self.map_radl_ost_networks(vm.info.networks, ip_net_map)
+            map_nets = self.map_radl_ost_networks(vm, ip_net_map)
 
             system = vm.info.systems[0]
             i = 0
