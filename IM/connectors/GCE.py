@@ -471,7 +471,7 @@ class GCECloudConnector(LibCloudCloudConnector):
 
         if not public or not private:
             # We must generate them
-            self.log_info("No keys. Generating key pair.")
+            self.log_debug("No keys. Generating key pair.")
             (public, private) = self.keygen()
             system.setValue('disk.0.os.credentials.private_key', private)
 
