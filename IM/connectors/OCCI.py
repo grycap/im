@@ -1339,6 +1339,8 @@ class KeyStoneAuth:
                 # remove version in some old OpenStack sites
                 if keystone_uri.endswith("/v2.0"):
                     keystone_uri = keystone_uri[:-5]
+                if keystone_uri.endswith("/v3"):
+                    keystone_uri = keystone_uri[:-3]
                 return keystone_uri, None
             else:
                 return None, None
