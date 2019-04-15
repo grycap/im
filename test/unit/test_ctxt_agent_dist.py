@@ -214,6 +214,7 @@ class TestCtxtAgent(unittest.TestCase):
             if vm['id'] == self.gen_vm_conf(["main", "front"])['id']:
                 ctxt_vm = vm
 
+        ctxt_agent.PK_FILE = None
         res = ctxt_agent.contextualize_vm(self.gen_general_conf(), self.gen_vm_conf(["main", "front"]), ctxt_vm, 0)
         expected_res = {'OK': True, 'front': True, 'main': True}
         self.assertEqual(res, expected_res)
