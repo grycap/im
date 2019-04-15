@@ -4,7 +4,10 @@ Created on 16 de jun. de 2016
 @author: micafer
 '''
 
-from IM.uriparse import uriparse
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import urlparse
 from IM.tts.tts import TTSClient
 
 
@@ -18,7 +21,7 @@ class ONETTSClient():
         """
         Get username and password from the TTS service
         """
-        tts_uri = uriparse(tts_url)
+        tts_uri = urlparse(tts_url)
         scheme = tts_uri[0]
         host = tts_uri[1]
         port = None

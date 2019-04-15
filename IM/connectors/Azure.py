@@ -18,7 +18,10 @@ import uuid
 import random
 import string
 import base64
-from IM.uriparse import uriparse
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
 from radl.radl import Feature
@@ -33,7 +36,7 @@ try:
     from azure.common.credentials import UserPassCredentials
     from azure.common.credentials import ServicePrincipalCredentials
     from msrestazure.azure_exceptions import CloudError
-    from azure.mgmt.compute.models import DiskCreateOption
+    from azure.mgmt.compute.models import DiskCreateOption, CachingTypes
 except Exception as ex:
     print("WARN: Python Azure SDK not correctly installed. AzureCloudConnector will not work!.")
     print(ex)
@@ -193,7 +196,7 @@ class AzureCloudConnector(CloudConnector):
                           conflict="other", missing="other")
 
     def concrete_system(self, radl_system, str_url, auth_data):
-        url = uriparse(str_url)
+        url = urlparse(str_url)
         protocol = url[0]
 
         if protocol == "azr":
@@ -394,17 +397,18 @@ class AzureCloudConnector(CloudConnector):
 
         return res
 
-    def get_azure_vm_create_json(self, storage_account, vm_name, nics, radl, instance_type,
-                                 custom_data, compute_client):
+    def get_azure_vm_create_json(self, group_name, storage_account, vm_name, nics, radl,
+                                 instance_type, custom_data, compute_client):
         """ Create the VM parameters structure. """
         system = radl.systems[0]
-        url = uriparse(system.getValue("disk.0.image.url"))
+        url = urlparse(system.getValue("disk.0.image.url"))
         # the url has to have the format: azr://publisher/offer/sku/version
         # azr://Canonical/UbuntuServer/16.04.0-LTS/latest
         # azr://MicrosoftWindowsServerEssentials/WindowsServerEssentials/WindowsServerEssentials/latest
         image_values = (url[1] + url[2]).split("/")
-        if len(image_values) != 4:
-            raise Exception("The Azure image has to have the format: azr://publisher/offer/sku/version")
+        if len(image_values) not in [3, 4]:
+            raise Exception("The Azure image has to have the format: azr://publisher/offer/sku/version"
+                            " or azr://[snapshots|disk]/rgname/diskname")
 
         location = self.DEFAULT_LOCATION
         if system.getValue('availability_zone'):
@@ -419,37 +423,71 @@ class AzureCloudConnector(CloudConnector):
 
         vm = {
             'location': location,
-            'os_profile': {
-                'computer_name': vm_name,
-                'admin_username': user_credentials.username,
-                'admin_password': user_credentials.password,
-                'custom_data': custom_data
-            },
             'hardware_profile': {
                 'vm_size': instance_type.name
-            },
-            'storage_profile': {
-                'image_reference': {
-                    'publisher': image_values[0],
-                    'offer': image_values[1],
-                    'sku': image_values[2],
-                    'version': image_values[3]
-                },
             },
             'network_profile': {
                 'network_interfaces': [{'id': nic.id, 'primary': primary} for nic, primary in nics]
             },
         }
 
-        tags = {}
-        if system.getValue('instance_tags'):
-            keypairs = system.getValue('instance_tags').split(",")
-            for keypair in keypairs:
-                parts = keypair.split("=")
-                key = parts[0].strip()
-                value = parts[1].strip()
-                tags[key] = value
+        if len(image_values) == 3:
+            os_disk_name = "osdisk-" + str(uuid.uuid1())
+            if image_values[0] == "snapshot":
+                managed_disk = compute_client.snapshots.get(image_values[1], image_values[2])
+            elif image_values[0] == "disk":
+                managed_disk = compute_client.disks.get(image_values[1], image_values[2])
+            else:
+                raise Exception("Incorrect image url: it must be snapshot or disk.")
 
+            async_creation = compute_client.disks.create_or_update(
+                group_name,
+                os_disk_name,
+                {
+                    'location': location,
+                    'creation_data': {
+                        'create_option': DiskCreateOption.copy,
+                        'source_resource_id': managed_disk.id
+                    }
+                }
+            )
+
+            os_type = system.getValue("disk.0.os.name")
+            os_type = os_type if os_type else "Linux"
+            self.log_info("Creating OS disk %s of type %s from disk: %s/%s/%s." % (os_disk_name,
+                                                                                   os_type,
+                                                                                   image_values[0],
+                                                                                   image_values[1],
+                                                                                   image_values[2]))
+            disk_resource = async_creation.result()
+
+            vm['storage_profile'] = {
+                'os_disk': {
+                    'create_option': DiskCreateOption.attach,
+                    'os_type': os_type,
+                    'caching': CachingTypes.read_write,
+                    'managed_disk': {
+                        'id': disk_resource.id
+                    }
+                }
+            }
+        else:
+            vm['storage_profile'] = {
+                'image_reference': {
+                    'publisher': image_values[0],
+                    'offer': image_values[1],
+                    'sku': image_values[2],
+                    'version': image_values[3]
+                }
+            }
+            vm['os_profile'] = {
+                'computer_name': vm_name,
+                'admin_username': user_credentials.username,
+                'admin_password': user_credentials.password,
+                'custom_data': custom_data
+            }
+
+        tags = self.get_instance_tags(system)
         if tags:
             vm['tags'] = tags
 
@@ -499,6 +537,7 @@ class AzureCloudConnector(CloudConnector):
             pass
 
         if not vnet:
+            vnet_cird = self.get_nets_common_cird(radl)
             # Create VNet in the RG of the Inf
             async_vnet_creation = network_client.virtual_networks.create_or_update(
                 group_name,
@@ -506,7 +545,7 @@ class AzureCloudConnector(CloudConnector):
                 {
                     'location': location,
                     'address_space': {
-                        'address_prefixes': ['10.0.0.0/16']
+                        'address_prefixes': [vnet_cird]
                     }
                 }
             )
@@ -515,14 +554,18 @@ class AzureCloudConnector(CloudConnector):
             subnets = {}
             for i, net in enumerate(radl.networks):
                 subnet_name = net.id
+                net_cidr = net.getValue('cidr')
+                if not net_cidr:
+                    net_cidr = '10.0.%d.0/24' % i
                 # Create Subnet in the RG of the Inf
                 async_subnet_creation = network_client.subnets.create_or_update(
                     group_name,
                     "privates",
                     subnet_name,
-                    {'address_prefix': '10.0.%d.0/24' % i}
+                    {'address_prefix': net_cidr}
                 )
                 subnets[net.id] = async_subnet_creation.result()
+                net.setValue('cidr', net_cidr)
         else:
             subnets = {}
             for i, net in enumerate(radl.networks):
@@ -574,7 +617,7 @@ class AzureCloudConnector(CloudConnector):
 
                 custom_data = self.get_cloud_init_data(radl, vm)
                 instance_type = self.get_instance_type(radl.systems[0], credentials, subscription_id)
-                vm_parameters = self.get_azure_vm_create_json(storage_account_name, vm_name,
+                vm_parameters = self.get_azure_vm_create_json(group_name, storage_account_name, vm_name,
                                                               nics, radl, instance_type, custom_data,
                                                               compute_client)
 
@@ -615,8 +658,19 @@ class AzureCloudConnector(CloudConnector):
 
         credentials, subscription_id = self.get_credentials(auth_data)
 
-        resource_client = ResourceManagementClient(credentials, subscription_id)
+        url = urlparse(radl.systems[0].getValue("disk.0.image.url"))
+        # the url has to have the format: azr://publisher/offer/sku/version or
+        # azr://[snapshots|disk|image]/rgname/diskname
+        # azr://Canonical/UbuntuServer/16.04.0-LTS/latest
+        # azr://MicrosoftWindowsServerEssentials/WindowsServerEssentials/WindowsServerEssentials/latest
+        image_values = (url[1] + url[2]).split("/")
+        if len(image_values) not in [3, 4]:
+            raise Exception("The Azure image has to have the format: azr://publisher/offer/sku/version"
+                            " or azr://[snapshots|disk|image]/rgname/diskname")
+        if len(image_values) == 3 and image_values[0] not in ["snapshot", "disk"]:
+            raise Exception("Incorrect image url: it must be snapshot or disk.")
 
+        resource_client = ResourceManagementClient(credentials, subscription_id)
         storage_account_name = self.get_storage_account_name(inf.id)
 
         with inf._lock:
@@ -830,28 +884,29 @@ class AzureCloudConnector(CloudConnector):
         return True, ""
 
     def stop(self, vm, auth_data):
-        try:
-            group_name = vm.id.split('/')[0]
-            vm_name = vm.id.split('/')[1]
-            credentials, subscription_id = self.get_credentials(auth_data)
-            compute_client = ComputeManagementClient(credentials, subscription_id)
-            compute_client.virtual_machines.power_off(group_name, vm_name)
-        except Exception as ex:
-            self.log_exception("Error stopping the VM")
-            return False, "Error stopping the VM: " + str(ex)
-
-        return True, ""
+        return self.vm_action(vm, 'stop', auth_data)
 
     def start(self, vm, auth_data):
+        return self.vm_action(vm, 'start', auth_data)
+
+    def reboot(self, vm, auth_data):
+        return self.vm_action(vm, 'reboot', auth_data)
+
+    def vm_action(self, vm, action, auth_data):
         try:
             group_name = vm.id.split('/')[0]
             vm_name = vm.id.split('/')[1]
             credentials, subscription_id = self.get_credentials(auth_data)
             compute_client = ComputeManagementClient(credentials, subscription_id)
-            compute_client.virtual_machines.start(group_name, vm_name)
+            if action == 'stop':
+                compute_client.virtual_machines.power_off(group_name, vm_name)
+            elif action == 'start':
+                compute_client.virtual_machines.start(group_name, vm_name)
+            elif action == 'reboot':
+                compute_client.virtual_machines.restart(group_name, vm_name)
         except Exception as ex:
-            self.log_exception("Error starting the VM")
-            return False, "Error starting the VM: " + str(ex)
+            self.log_exception("Error restarting the VM")
+            return False, "Error restarting the VM: " + str(ex)
 
         return True, ""
 

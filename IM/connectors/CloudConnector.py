@@ -6,9 +6,11 @@ import time
 import yaml
 from radl.radl import Feature
 from IM.config import Config
+from IM.LoggerMixin import LoggerMixin
+from netaddr import IPNetwork
 
 
-class CloudConnector:
+class CloudConnector(LoggerMixin):
     """
     Base class to all the Cloud connectors
 
@@ -245,6 +247,22 @@ class CloudConnector:
 
         raise NotImplementedError("Should have implemented this")
 
+    def reboot(self, vm, auth_data):
+        """ Reboots a VM
+
+                Arguments:
+                - vm(:py:class:`IM.VirtualMachine`): VM to stop.
+                - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
+
+                Returns: a tuple (success, vm).
+           - The first value is True if the operation finished successfully or false otherwise.
+           - The second value is a str with the ID of the stopped VM if the operation finished successfully
+             or an error message otherwise.
+
+        """
+
+        raise NotImplementedError("Should have implemented this")
+
     def create_snapshot(self, vm, disk_num, image_name, auto_delete, auth_data):
         """
         Create a snapshot of the specified num disk in a virtual machine.
@@ -321,8 +339,10 @@ class CloudConnector:
                 success, msg = self.delete_image(image_url, auth_data)
                 if not success:
                     self.log_error("Error deleting snapshot: %s" % msg)
-        except:
+                return success, msg
+        except Exception as ex:
             self.log_exception("Error deleting snapshots.")
+            return success, str(ex)
 
     def get_cloud_init_data(self, radl=None, vm=None, public_key=None, user=None):
         """
@@ -341,6 +361,11 @@ class CloudConnector:
 
             if configure_name:
                 cloud_config = yaml.safe_load(radl.get_configure_by_name(configure_name).recipes)
+                if not isinstance(cloud_config, dict):
+                    # The cloud_init data is a shell script
+                    cloud_config = radl.get_configure_by_name(configure_name).recipes.strip()
+                    self.log_debug(cloud_config)
+                    return cloud_config
 
         # Only for those VMs with private IP
         if Config.SSH_REVERSE_TUNNELS and vm and not vm.hasPublicNet():
@@ -373,21 +398,40 @@ class CloudConnector:
         else:
             return None
 
-    def log_msg(self, level, msg, exc_info=0):
-        msg = "Inf ID: %s: %s" % (self.inf.id, msg)
-        self.logger.log(level, msg, exc_info=exc_info)
+    @staticmethod
+    def get_instance_tags(system):
+        """
+        Get the instance_tags value of the system object as a dict
+        """
+        tags = {}
+        if system.getValue('instance_tags'):
+            keypairs = system.getValue('instance_tags').split(",")
+            for keypair in keypairs:
+                parts = keypair.split("=")
+                key = parts[0].strip()
+                value = parts[1].strip()
+                tags[key] = value
+        return tags
 
-    def log_error(self, msg):
-        self.log_msg(logging.ERROR, msg)
-
-    def log_debug(self, msg):
-        self.log_msg(logging.DEBUG, msg)
-
-    def log_warn(self, msg):
-        self.log_msg(logging.WARNING, msg)
-
-    def log_exception(self, msg):
-        self.log_msg(logging.ERROR, msg, exc_info=1)
-
-    def log_info(self, msg):
-        self.log_msg(logging.INFO, msg)
+    @staticmethod
+    def get_nets_common_cird(radl):
+        """
+        Get a common CIDR in all the RADL nets
+        """
+        mask = None
+        for net in radl.networks:
+            provider_id = net.getValue('provider_id')
+            if net.getValue('create') == 'yes' and not net.isPublic() and not provider_id:
+                net_cidr = net.getValue('cidr')
+                if net_cidr:
+                    if mask:
+                        if not IPNetwork(net_cidr) in IPNetwork(mask):
+                            raise Exception("Net cidr %s not in common cidr %s" % (net_cidr, mask))
+                    else:
+                        for m in Config.PRIVATE_NET_MASKS:
+                            if IPNetwork(net_cidr) in IPNetwork(m):
+                                mask = m
+                                break
+        if not mask:
+            mask = "10.0.0.0/16"
+        return mask

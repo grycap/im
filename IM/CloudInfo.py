@@ -15,7 +15,10 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import json
-from IM.uriparse import uriparse
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import urlparse
 
 
 class CloudInfo:
@@ -83,9 +86,9 @@ class CloudInfo:
                 try:
                     if 'host' in auth and auth['host']:
                         if auth['host'].find('://') == -1:
-                            uri = uriparse("NONE://" + auth['host'])
+                            uri = urlparse("NONE://" + auth['host'])
                         else:
-                            uri = uriparse(auth['host'])
+                            uri = urlparse(auth['host'])
                             if uri[0]:
                                 cloud_item.protocol = uri[0]
 

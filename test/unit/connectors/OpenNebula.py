@@ -218,6 +218,24 @@ class TestONEConnector(TestCloudConnectorBase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('IM.connectors.OpenNebula.ServerProxy')
+    def test_52_reboot(self, server_proxy):
+        auth = Authentication([{'id': 'one', 'type': 'OpenNebula', 'username': 'user',
+                                'password': 'pass', 'host': 'server.com:2633'}])
+        one_cloud = self.get_one_cloud()
+
+        inf = MagicMock()
+        vm = VirtualMachine(inf, "1", one_cloud.cloud, "", "", one_cloud, 1)
+
+        one_server = MagicMock()
+        one_server.one.vm.action.return_value = (True, "", 0)
+        server_proxy.return_value = one_server
+
+        success, _ = one_cloud.reboot(vm, auth)
+
+        self.assertTrue(success, msg="ERROR: stopping VM info.")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
+    @patch('IM.connectors.OpenNebula.ServerProxy')
     def test_55_alter(self, server_proxy):
         radl_data = """
             network net ()
@@ -345,6 +363,7 @@ class TestONEConnector(TestCloudConnectorBase):
         one_server.one.image.delete.return_value = (True, "", 0)
         one_server.one.imagepool.info.return_value = (True, "<IMAGE_POOL><IMAGE><ID>1</ID>"
                                                       "<NAME>imagename</NAME></IMAGE></IMAGE_POOL>", 0)
+        one_server.one.image.info.return_value = (True, "<IMAGE><STATE>1</STATE></IMAGE>", 0)
         server_proxy.return_value = one_server
 
         success, msg = one_cloud.delete_image('one://server.com/1', auth)

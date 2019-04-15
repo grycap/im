@@ -25,7 +25,10 @@ import json
 import requests
 from netaddr import IPNetwork, IPAddress
 import xmltodict
-from IM.uriparse import uriparse
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
 from IM.config import Config
@@ -135,7 +138,7 @@ class OCCICloudConnector(CloudConnector):
         return auth_header
 
     def concrete_system(self, radl_system, str_url, auth_data):
-        url = uriparse(str_url)
+        url = urlparse(str_url)
         protocol = url[0]
         cloud_url = self.cloud.protocol + "://" + self.cloud.server
         if self.cloud.port > 0:
@@ -495,7 +498,7 @@ class OCCICloudConnector(CloudConnector):
             resp = self.create_request('GET', self.cloud.path + "/-/", auth_data, headers)
 
             if resp.status_code != 200:
-                return False, "Error querying the OCCI server: %s" % resp.reason
+                return False, "Error querying the OCCI server: %s, %s" % (resp.reason, resp.text)
             else:
                 return True, resp.text
         except Exception as ex:
@@ -551,7 +554,7 @@ class OCCICloudConnector(CloudConnector):
                 disk_device = "vd" + disk_device[-1]
                 system.setValue("disk." + str(cont) + ".device", disk_device)
             if disk_image:
-                volume_id = os.path.basename(uriparse(disk_image)[2])
+                volume_id = os.path.basename(urlparse(disk_image)[2])
                 volumes.append((False, disk_device, volume_id))
                 system.setValue("disk." + str(cont) + ".provider_id", volume_id)
                 self.log_info("User set a specific Volume id %s." % volume_id)
@@ -561,7 +564,7 @@ class OCCICloudConnector(CloudConnector):
                 storage_name = "im-disk-%s" % str(uuid.uuid1())
                 success, volume_id = self.create_volume(int(disk_size), storage_name, auth_data, auth_header)
                 if success:
-                    self.log_info("Volume id %s sucessfully created." % volume_id)
+                    self.log_info("Volume id %s successfully created." % volume_id)
 
                     # let's wait the storage to be ready "online"
                     wait_ok = self.wait_volume_state(volume_id, auth_data, auth_header)
@@ -692,7 +695,7 @@ class OCCICloudConnector(CloudConnector):
             headers.update(auth_header)
 
         if storage_id.startswith("http"):
-            storage_id = uriparse(storage_id)[2]
+            storage_id = urlparse(storage_id)[2]
         else:
             if not storage_id.startswith("/storage"):
                 storage_id = "/storage/%s" % storage_id
@@ -773,7 +776,7 @@ class OCCICloudConnector(CloudConnector):
             system.setValue('disk.0.os.credentials.username', user)
 
         # Parse the info to get the os_tpl scheme
-        url = uriparse(system.getValue("disk.0.image.url"))
+        url = urlparse(system.getValue("disk.0.image.url"))
 
         if url[0] == "appdb":
             # the url has this format appdb://UPV-GRyCAP/egi.docker.ubuntu.16.04?fedcloud.egi.eu
@@ -802,7 +805,7 @@ class OCCICloudConnector(CloudConnector):
         instance_type_uri = None
         if system.getValue('instance_type'):
             instance_type = self.get_instance_type_uri(occi_info, system.getValue('instance_type'))
-            instance_type_uri = uriparse(instance_type)
+            instance_type_uri = urlparse(instance_type)
             if not instance_type_uri[5]:
                 raise Exception("Error getting Instance type URI. Check that the instance_type specified is "
                                 "supported in the OCCI server.")
@@ -859,14 +862,15 @@ class OCCICloudConnector(CloudConnector):
                 for _, device, volume_id in volumes:
                     link_id = "im-%s" % str(uuid.uuid1())
                     body += ('Link: <%s/storage/%s>; rel="http://schemas.ogf.org/occi/infrastructure#storage"; '
+                             'self="/storagelink/%s"; '
                              'category="http://schemas.ogf.org/occi/infrastructure#storagelink"; '
                              'occi.core.target="%s/storage/%s"; '
                              'occi.core.source="%s/compute/%s"; '
-                             'occi.core.id="%s"' % (self.cloud.path, volume_id,
+                             'occi.core.id="%s"' % (self.cloud.path, volume_id, link_id,
                                                     self.cloud.path, volume_id,
                                                     self.cloud.path, compute_id, link_id))
                     if device:
-                        body += ';occi.storagelink.deviceid="/dev/%s"\n' % device
+                        body += ';occi.storagelink.deviceid="/dev/%s"' % device
                     body += '\n'
 
                 self.log_debug(body)
@@ -898,10 +902,11 @@ class OCCICloudConnector(CloudConnector):
                     for net_id in net_ids:
                         link_id = "im-%s" % str(uuid.uuid1())
                         body += ('Link: <%s/network/%s>; rel="http://schemas.ogf.org/occi/infrastructure#network"; '
+                                 'self="/networkinterface/%s"; '
                                  'category="http://schemas.ogf.org/occi/infrastructure#networkinterface"; '
                                  'occi.core.target="%s/network/%s"; '
                                  'occi.core.source="%s/compute/%s"; '
-                                 'occi.core.id="%s"' % (self.cloud.path, net_id,
+                                 'occi.core.id="%s"' % (self.cloud.path, net_id, link_id,
                                                         self.cloud.path, net_id,
                                                         self.cloud.path, compute_id, link_id))
                         body += '\n'
@@ -960,7 +965,7 @@ class OCCICloudConnector(CloudConnector):
         while system.getValue("disk." + str(cont) + ".image.url") or system.getValue("disk." + str(cont) + ".size"):
             disk_image = system.getValue("disk." + str(cont) + ".image.url")
             if disk_image:
-                volume_id = uriparse(disk_image)[2]
+                volume_id = urlparse(disk_image)[2]
                 volumes.append(volume_id)
             cont += 1
 
@@ -1019,7 +1024,7 @@ class OCCICloudConnector(CloudConnector):
         # now delete the volumes
         if get_vols_ok:
             for _, storage_id, _ in volumes:
-                storage_path = uriparse(storage_id)[2]
+                storage_path = urlparse(storage_id)[2]
                 if storage_path not in vols_not_to_delete:
                     self.delete_volume(storage_id, auth_data, auth_header)
 
@@ -1032,39 +1037,28 @@ class OCCICloudConnector(CloudConnector):
         return (True, vm.id)
 
     def stop(self, vm, auth_data):
-        auth_header = self.get_auth_header(auth_data)
-        try:
-            headers = {'Accept': 'text/plain', 'Connection': 'close', 'Content-Type': 'text/plain,text/occi'}
-            if auth_header:
-                headers.update(auth_header)
-
-            body = ('Category: suspend;scheme="http://schemas.ogf.org/occi/infrastructure/compute/action#"'
-                    ';class="action";\n')
-            resp = self.create_request('POST', self.cloud.path + "/compute/" + vm.id + "?action=suspend",
-                                       auth_data, headers, body)
-
-            if resp.status_code not in [200, 204]:
-                return (False, "Error stopping the VM: " + resp.reason + "\n" + resp.text)
-            else:
-                return (True, vm.id)
-        except Exception:
-            self.log_exception("Error connecting with OCCI server")
-            return (False, "Error connecting with OCCI server")
+        return self.vm_action(vm, 'suspend', auth_data)
 
     def start(self, vm, auth_data):
+        return self.vm_action(vm, 'start', auth_data)
+
+    def reboot(self, vm, auth_data):
+        return self.vm_action(vm, 'restart', auth_data)
+
+    def vm_action(self, vm, action, auth_data):
         auth_header = self.get_auth_header(auth_data)
         try:
             headers = {'Accept': 'text/plain', 'Connection': 'close', 'Content-Type': 'text/plain,text/occi'}
             if auth_header:
                 headers.update(auth_header)
 
-            body = ('Category: start;scheme="http://schemas.ogf.org/occi/infrastructure/compute/action#"'
+            body = ('Category: ' + action + ';scheme="http://schemas.ogf.org/occi/infrastructure/compute/action#"'
                     ';class="action"\n')
-            resp = self.create_request('POST', self.cloud.path + "/compute/" + vm.id + "?action=start",
+            resp = self.create_request('POST', self.cloud.path + "/compute/" + vm.id + "?action=" + action,
                                        auth_data, headers, body)
 
             if resp.status_code not in [200, 204]:
-                return (False, "Error starting the VM: " + resp.reason + "\n" + resp.text)
+                return (False, "Error in " + action + " action in VM: " + resp.reason + "\n" + resp.text)
             else:
                 return (True, vm.id)
         except Exception:
@@ -1345,6 +1339,8 @@ class KeyStoneAuth:
                 # remove version in some old OpenStack sites
                 if keystone_uri.endswith("/v2.0"):
                     keystone_uri = keystone_uri[:-5]
+                if keystone_uri.endswith("/v3"):
+                    keystone_uri = keystone_uri[:-3]
                 return keystone_uri, None
             else:
                 return None, None
@@ -1380,7 +1376,7 @@ class KeyStoneAuth:
 
         try:
             headers = {"Accept": "application/json"}
-            resp = occi.create_request_static('GET', keystone_uri, None, headers, occi.verify_ssl)
+            resp = occi.create_request_static('GET', keystone_uri, auth, headers, occi.verify_ssl)
             if resp.status_code in [200, 300]:
                 versions = []
                 json_data = resp.json()

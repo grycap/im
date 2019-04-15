@@ -25,13 +25,14 @@ from netaddr import IPNetwork, IPAddress
 
 from radl.radl import network, RADL
 from radl.radl_parse import parse_radl
+from IM.LoggerMixin import LoggerMixin
 from IM.SSH import SSH
 from IM.SSHRetry import SSHRetry
 from IM.config import Config
 import IM.CloudInfo
 
 
-class VirtualMachine:
+class VirtualMachine(LoggerMixin):
 
     # VM states
     UNKNOWN = "unknown"
@@ -203,6 +204,15 @@ class VirtualMachine:
         self.last_update = 0
         return (success, msg)
 
+    def reboot(self, auth):
+        """
+        Reboot the VM
+        """
+        (success, msg) = self.getCloudConnector().reboot(self, auth)
+        # force the update of the information
+        self.last_update = 0
+        return (success, msg)
+
     def create_snapshot(self, disk_num, image_name, auto_delete, auth):
         """
         Create a snapshot of one disk of the VM
@@ -316,8 +326,7 @@ class VirtualMachine:
         # Or if both VMs are connected to the same network
         i = 0
         while self.info.systems[0].getValue("net_interface." + str(i) + ".connection"):
-            net_name = self.info.systems[0].getValue(
-                "net_interface." + str(i) + ".connection")
+            net_name = self.info.systems[0].getValue("net_interface." + str(i) + ".connection")
 
             common_net = False
             j = 0
@@ -715,7 +724,13 @@ class VirtualMachine:
             if self.ctxt_pid != self.WAIT_TO_PID:
                 ssh = self.get_ssh_ansible_master()
                 try:
-                    self.log_info("Killing ctxt process with pid: " + str(self.ctxt_pid))
+                    if not ssh.test_connectivity(5):
+                        self.log_info("Timeout killing ctxt process: %s." % self.ctxt_pid)
+                        self.ctxt_pid = None
+                        self.configured = False
+                        return
+
+                    self.log_info("Killing ctxt process with pid: %s" % self.ctxt_pid)
 
                     # Try to get PGID to kill all child processes
                     pgkill_success = False
@@ -766,7 +781,13 @@ class VirtualMachine:
 
         initial_count_out = self.cont_out
         wait = 0
-        while self.ctxt_pid and not self.destroy:
+        while self.ctxt_pid:
+            if self.destroy:
+                # If the VM has been destroyed set pid to None and return
+                self.log_debug("VM %s deleted. Exit check_ctxt_process thread." % self.im_id)
+                self.ctxt_pid = None
+                return None
+
             ctxt_pid = self.ctxt_pid
             if ctxt_pid != self.WAIT_TO_PID:
                 ssh = self.get_ssh_ansible_master()
@@ -898,7 +919,7 @@ class VirtualMachine:
                     stdout += f.read() + "\n"
                 self.log_error(stdout)
                 msg += stdout
-            except:
+            except Exception:
                 self.log_exception("Error getting stdout and stderr to guess why the agent output is not there.")
         except Exception as ex:
             self.log_exception("Error getting contextualization agent output: " + remote_dir + '/ctxt_agent.out')
@@ -1022,22 +1043,3 @@ class VirtualMachine:
                                                                    ssh.host))
 
         return command
-
-    def log_msg(self, level, msg, exc_info=0):
-        msg = "Inf ID: %s: %s" % (self.inf.id, msg)
-        self.logger.log(level, msg, exc_info=exc_info)
-
-    def log_error(self, msg):
-        self.log_msg(logging.ERROR, msg)
-
-    def log_debug(self, msg):
-        self.log_msg(logging.DEBUG, msg)
-
-    def log_warn(self, msg):
-        self.log_msg(logging.WARNING, msg)
-
-    def log_exception(self, msg):
-        self.log_msg(logging.ERROR, msg, exc_info=1)
-
-    def log_info(self, msg):
-        self.log_msg(logging.INFO, msg)

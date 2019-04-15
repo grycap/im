@@ -51,6 +51,7 @@ class IMBaseRequest(AsyncRequest):
     STOP_INFRASTRUCTURE = "StopInfrastructure"
     START_VM = "StartVM"
     STOP_VM = "StopVM"
+    REBOOT_VM = "RebootVM"
     GET_VERSION = "GetVersion"
     CREATE_DISK_SNAPSHOT = "CreateDiskSnapshot"
 
@@ -94,6 +95,8 @@ class IMBaseRequest(AsyncRequest):
             return Request_StartVM(arguments)
         elif function == IMBaseRequest.STOP_VM:
             return Request_StopVM(arguments)
+        elif function == IMBaseRequest.REBOOT_VM:
+            return Request_RebootVM(arguments)
         elif function == IMBaseRequest.GET_INFRASTRUCTURE_STATE:
             return Request_GetInfrastructureState(arguments)
         elif function == IMBaseRequest.GET_VERSION:
@@ -120,7 +123,7 @@ class IMBaseRequest(AsyncRequest):
             return True
         except Exception as ex:
             logger.exception(self._error_mesage)
-            self.set("%s" % ex.message)
+            self.set("%s" % ex.args[0])
             return False
 
 
@@ -346,6 +349,19 @@ class Request_StopVM(IMBaseRequest):
         self._error_mesage = "Error stopping VM"
         (inf_id, vm_id, auth_data) = self.arguments
         IM.InfrastructureManager.InfrastructureManager.StopVM(
+            inf_id, vm_id, Authentication(auth_data))
+        return ""
+
+
+class Request_RebootVM(IMBaseRequest):
+    """
+    Request class for the RebootVM function
+    """
+
+    def _call_function(self):
+        self._error_mesage = "Error rebooting VM"
+        (inf_id, vm_id, auth_data) = self.arguments
+        IM.InfrastructureManager.InfrastructureManager.RebootVM(
             inf_id, vm_id, Authentication(auth_data))
         return ""
 

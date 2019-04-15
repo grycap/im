@@ -27,7 +27,10 @@ sys.path.append("..")
 sys.path.append(".")
 
 from IM.VirtualMachine import VirtualMachine
-from IM.uriparse import uriparse
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import urlparse
 from radl.radl_json import parse_radl as parse_radl_json
 
 PID = None
@@ -95,7 +98,7 @@ class TestIM(unittest.TestCase):
         while not all_ok and wait < timeout:
             all_ok = True
             for vm_id in vm_ids:
-                vm_uri = uriparse(vm_id)
+                vm_uri = urlparse(vm_id)
                 resp = self.create_request("GET", vm_uri[2] + "/state")
                 vm_state = resp.text
 
@@ -142,7 +145,7 @@ class TestIM(unittest.TestCase):
                          msg="ERROR getting the infrastructure info:" + resp.text)
         vm_ids = resp.text.split("\n")
 
-        vm_uri = uriparse(vm_ids[0])
+        vm_uri = urlparse(vm_ids[0])
         resp = self.create_request("GET", vm_uri[2], headers={'Accept': 'application/json'})
         ct = resp.headers['Content-type']
         self.assertEqual(resp.status_code, 200,

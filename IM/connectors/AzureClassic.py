@@ -21,7 +21,10 @@ import os
 import uuid
 import tempfile
 from IM.xmlobject import XMLObject
-from IM.uriparse import uriparse
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
 from radl.radl import UserPassCredential, Feature
@@ -162,7 +165,7 @@ class AzureClassicCloudConnector(CloudConnector):
         return resp
 
     def concrete_system(self, radl_system, str_url, auth_data):
-        url = uriparse(str_url)
+        url = urlparse(str_url)
         protocol = url[0]
 
         if protocol == "azr":
@@ -185,7 +188,8 @@ class AzureClassicCloudConnector(CloudConnector):
         else:
             return None
 
-    def gen_input_endpoints(self, radl):
+    @staticmethod
+    def gen_input_endpoints(radl):
         """
         Gen the InputEndpoints part of the XML of the VM creation
         using the outports field of the RADL network
@@ -246,7 +250,8 @@ class AzureClassicCloudConnector(CloudConnector):
         res += "\n          </InputEndpoints>"
         return res
 
-    def gen_configuration_set(self, hostname, system):
+    @staticmethod
+    def gen_configuration_set(hostname, system):
         """
         Gen the ConfigurationSet part of the XML of the VM creation
         """
@@ -302,7 +307,8 @@ class AzureClassicCloudConnector(CloudConnector):
 
         return ConfigurationSet
 
-    def gen_data_disks(self, system, storage_account):
+    @staticmethod
+    def gen_data_disks(system, storage_account):
         """
         Gen the DataVirtualHardDisks part of the XML of the VM creation
         """
@@ -338,7 +344,7 @@ class AzureClassicCloudConnector(CloudConnector):
             name = system.getValue("disk.0.image.name")
         if not name:
             name = "userimage" + str(num)
-        url = uriparse(system.getValue("disk.0.image.url"))
+        url = urlparse(system.getValue("disk.0.image.url"))
 
         label = name + " IM created VM"
         (hostname, _) = vm.getRequestedName(
@@ -826,18 +832,19 @@ class AzureClassicCloudConnector(CloudConnector):
 
         try:
             role_instance = vm_info.RoleInstanceList.RoleInstance[0]
-        except:
+        except Exception as ex:
+            self.log_debug("%s" % str(ex))
             return
         try:
             if role_instance.IpAddress:
                 private_ips.append(role_instance.IpAddress)
-        except:
-            pass
+        except Exception as ex:
+            self.log_debug("%s" % str(ex))
         try:
             public_ips.append(
                 role_instance.InstanceEndpoints.InstanceEndpoint[0].Vip)
-        except:
-            pass
+        except Exception as ex:
+            self.log_debug("%s" % str(ex))
 
         vm.setIps(public_ips, private_ips)
 

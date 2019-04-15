@@ -289,6 +289,7 @@ data:
     ACTIVATE_XMLRPC = False
     ACTIVATE_REST = True
     INF_CACHE_TIME = 3600
+    PLAYBOOK_RETRIES = 3
   logging.conf: |
     [loggers]
     keys=root,ConfManager,CloudConnector,InfrastructureManager
@@ -633,7 +634,11 @@ spec:
     spec:
       containers:
         - name: im-web
-          image: grycap/im-web:1.5.8-dev
+          image: grycap/im-web
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
           ports:
           - containerPort: 80
             protocol: TCP

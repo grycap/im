@@ -464,3 +464,29 @@ IM 1.7.7:
     * Add support of Federated networks in FogBow conn.
     * Improve token check in OCCI conn.
     * Fix created volumes are not deleted in EC2 conn.
+
+IM 1.8.0:
+    * Add RebootVM function.
+    * Fix error reporting memory units in OCCI connector.
+    * Add support to MongoDB.
+    * Fix error Unable to get cloud-init contextualization to work with GCE in 1.7.5 & above.
+    * Enable to force OpenID auth.
+    * Do not stop ctxt process in all VMs in case of failure in a previous step.
+    * Fix error contextualization never ends if a VM is deleted during context step.
+
+IM 1.8.1:
+    * Add check YAML in reconfigure operation.
+    * Fix error in ctxt process when adding a new disk.
+    * Fix error in OpenStack conn if image_url or network_url not set.
+    
+IM 1.8.2:
+    * Fix error port 22 is not opened in private nets.
+    * Fix error in directory creation in case of using external ansible host.
+    * Enable to set ansible module version.
+    * Fix error attaching volumes in OCCI conn (OpenNebula site).
+    * Fix error in OCCI conn contacting with KeyStorm.
+    * Remove new line characters inserted into cloud-init shell scripts
+    * Enable to create Azure VM from user disk.
+    * Enable to set cidr in Fogbow federated networks.
+    * Add node creation error message in CloudStack conn.
+    * Add sleep among ctxt agent task retries.

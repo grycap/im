@@ -29,7 +29,10 @@ from radl import radl_parse
 from IM.VirtualMachine import VirtualMachine
 from IM.InfrastructureInfo import InfrastructureInfo
 from IM.connectors.Docker import DockerCloudConnector
-from IM.uriparse import uriparse
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import urlparse
 from mock import patch, MagicMock
 
 
@@ -83,7 +86,7 @@ class TestDockerConnector(TestCloudConnectorBase):
 
     def get_response(self, method, url, verify, cert, headers, data):
         resp = MagicMock()
-        parts = uriparse(url)
+        parts = urlparse(url)
         url = parts[2]
         params = parts[4]
 
@@ -125,6 +128,8 @@ class TestDockerConnector(TestCloudConnectorBase):
             elif url.endswith("/start"):
                 resp.status_code = 204
             elif url.endswith("/stop"):
+                resp.status_code = 204
+            elif url.endswith("/restart"):
                 resp.status_code = 204
             elif url == "/volumes/create":
                 resp.status_code = 201
@@ -258,6 +263,21 @@ class TestDockerConnector(TestCloudConnectorBase):
         success, _ = docker_cloud.start(vm, auth)
 
         self.assertTrue(success, msg="ERROR: stopping VM info.")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
+    @patch('requests.request')
+    def test_52_reboot(self, requests):
+        auth = Authentication([{'id': 'docker', 'type': 'Docker', 'host': 'http://server.com:2375'}])
+        docker_cloud = self.get_docker_cloud()
+
+        inf = MagicMock()
+        vm = VirtualMachine(inf, "1", docker_cloud.cloud, "", "", docker_cloud, 1)
+
+        requests.side_effect = self.get_response
+
+        success, _ = docker_cloud.reboot(vm, auth)
+
+        self.assertTrue(success, msg="ERROR: rebooting VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('requests.request')

@@ -26,7 +26,10 @@ from .CloudConn import TestCloudConnectorBase
 from IM.CloudInfo import CloudInfo
 from IM.auth import Authentication
 from radl import radl_parse
-from IM.uriparse import uriparse
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from IM.InfrastructureInfo import InfrastructureInfo
 from IM.connectors.OCCI import OCCICloudConnector
@@ -108,7 +111,7 @@ class TestOCCIConnector(TestCloudConnectorBase):
 
     def get_response(self, method, url, verify, cert=None, headers=None, data=None):
         resp = MagicMock()
-        parts = uriparse(url)
+        parts = urlparse(url)
         url = parts[2]
         params = parts[4]
 
@@ -191,6 +194,8 @@ class TestOCCIConnector(TestCloudConnectorBase):
             elif params == "action=suspend":
                 resp.status_code = 204
             elif params == "action=start":
+                resp.status_code = 200
+            elif params == "action=restart":
                 resp.status_code = 200
             elif url == "/storagelink/":
                 resp.status_code = 200
@@ -352,6 +357,24 @@ class TestOCCIConnector(TestCloudConnectorBase):
 
     @patch('requests.request')
     @patch('IM.connectors.OCCI.KeyStoneAuth.get_keystone_uri')
+    def test_52_reboot(self, get_keystone_uri, requests):
+        auth = Authentication([{'id': 'occi', 'type': 'OCCI', 'proxy': 'proxy', 'host': 'https://server.com:11443'}])
+        occi_cloud = self.get_occi_cloud()
+
+        inf = MagicMock()
+        vm = VirtualMachine(inf, "1", occi_cloud.cloud, "", "", occi_cloud, 1)
+
+        requests.side_effect = self.get_response
+
+        get_keystone_uri.return_value = None, None
+
+        success, _ = occi_cloud.reboot(vm, auth)
+
+        self.assertTrue(success, msg="ERROR: rebooting VM info.")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
+    @patch('requests.request')
+    @patch('IM.connectors.OCCI.KeyStoneAuth.get_keystone_uri')
     def test_55_alter(self, get_keystone_uri, requests):
         radl_data = """
             network net ()
@@ -480,6 +503,23 @@ users:
         occi_cloud = self.get_occi_cloud()
         res = occi_cloud.get_cloud_init_data(None, None, "pub_key", "user")
         self.assertEqual(res, expected_res)
+
+        radl_data = """
+system node ()
+configure node (
+@begin
+#!/bin/sh
+touch /tmp/hello
+@end
+)
+deploy node 1
+contextualize (
+    system node configure node with cloud_init
+)"""
+        radl = radl_parse.parse_radl(radl_data)
+        occi_cloud = self.get_occi_cloud()
+        res = occi_cloud.get_cloud_init_data(radl)
+        self.assertEqual(res, "#!/bin/sh\ntouch /tmp/hello")
 
         expected_res = """#cloud-config
 groups:

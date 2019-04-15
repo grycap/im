@@ -1,7 +1,11 @@
 # IM - Infrastructure Manager
 
-* Version ![PyPI](https://img.shields.io/pypi/v/im.svg)
-* Build Status [![Build Status](http://jenkins.i3m.upv.es/buildStatus/icon?job=grycap/im-unit)](http://jenkins.i3m.upv.es/job/grycap/job/im-unit/)
+[![PyPI](https://img.shields.io/pypi/v/im.svg)](https://pypi.org/project/im)
+[![Build Status](http://jenkins.i3m.upv.es/buildStatus/icon?job=grycap/im-unit)](http://jenkins.i3m.upv.es/job/grycap/job/im-unit/)
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/54da6332b53945cebd57867d4d61ab69)](https://www.codacy.com/app/micafer/im?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=grycap/im&amp;utm_campaign=Badge_Grade)
+[![Codacy Badge](https://api.codacy.com/project/badge/Coverage/54da6332b53945cebd57867d4d61ab69)](https://www.codacy.com/app/micafer/im?utm_source=github.com&utm_medium=referral&utm_content=grycap/im&utm_campaign=Badge_Coverage)
+[![License](https://img.shields.io/badge/license-GPL%20v3.0-brightgreen.svg)](LICENSE)
+[![Docs](https://img.shields.io/badge/docs-latest-brightgreen.svg)](https://imdocs.readthedocs.io/en/latest/)
 
 IM is a tool that deploys complex and customized virtual infrastructures on IaaS
 Cloud deployments (such as AWS, OpenStack, etc.). It eases the access and the
@@ -17,6 +21,11 @@ Read the documentation and more at http://www.grycap.upv.es/im.
 
 There is also an Infrastructure Manager YouTube reproduction list with a set of videos with demos
 of the functionality of the platform: https://www.youtube.com/playlist?list=PLgPH186Qwh_37AMhEruhVKZSfoYpHkrUp.
+
+Please acknowledge the use of this software in your scientific publications by including the following reference:
+
+Miguel Caballer, Ignacio Blanquer, Germán Moltó, and Carlos de Alfonso. "[Dynamic management of virtual infrastructures](https://link.springer.com/article/10.1007/s10723-014-9296-5)". Journal of Grid Computing, Volume 13, Issue 1, Pages 53-70, 2015, ISSN 1570-7873, DOI: 10.1007/s10723-014-9296-5.
+
 
 ## 1 DOCKER IMAGE
 
@@ -126,6 +135,10 @@ must be installed, typically available as the package ``python-mysqldb`` or ``My
 In case of using Python 3 use the PyMySQL package, available as the package ``python3-pymysql`` on 
 debian systems or ``PyMySQL`` package in pip.  
 
+In case of using the a MongoDB as the backend to store IM data. The Python interface to MongoDB
+must be installed, typically available as the package ``python-pymongo``package in most distributions
+or ``pymongo`` pip package.
+
 In case of using the SSL secured version of the REST API pyOpenSSL (https://pyopenssl.org/) must be installed.
 available as ``pyOpenSSL`` package in pip.  
 
@@ -207,7 +220,7 @@ Azure python SDK is not available in CentOS. So if you need the Azure plugin you
 shown in the OPTIONAL PACKAGES section.
 
 
-#### 2.3.4 From Deb package (Tested with Ubuntu 14.04 and 16.04)
+#### 2.3.4 From Deb package (Tested with Ubuntu 14.04, 16.04 and 18.04)
 
 Download the Deb package from [GitHub](https://github.com/grycap/im/releases/latest).
 Also remember to download the Debs of the RADL and TOSCA parser packages from its corresponding GitHub repositories: [RADL](https://github.com/grycap/radl/releases/latest) and [TOSCA parser](https://github.com/indigo-dc/tosca-parser/releases/latest).
@@ -301,15 +314,15 @@ or set the name of the script file (im_service.py) if the file is in the PATH
 ### 3 CONFIGURATION
 
 Check the parameters in $IM_PATH/etc/im.cfg or /etc/im/im.cfg.
-See [IM Manual](https://imdocs.readthedocs.io/en/latest/manual.html#configuration) to get a full 
+See [IM Manual](https://imdocs.readthedocs.io/en/latest/manual.html#configuration) to get a full
 reference of the configuration variables.
 
 Please pay attention to the next configuration variables, as they are the most important:
 
 DATA_DB - must be set to the URL to access the database to store the IM data. 
          Be careful if you have two different instances of the IM service running in the same machine!!.
-         It can be a MySQL DB: 'mysql://username:password@server/db_name' or 
-         a SQLite one: 'sqlite:///etc/im/inf.dat'.
+         It can be a MySQL DB: `mysql://username:password@server/db_name`,
+         SQLite: `sqlite:///etc/im/inf.dat` or MongoDB: `mongodb://username:password@server/db_name`,
 
 
 #### 3.1 SECURITY
@@ -319,11 +332,15 @@ get the messages with the IM with the authorisation data with the cloud provider
 
 Security can be activated both in the XMLRPC and REST APIs. Setting this variables:
 
+```sh
 XMLRCP_SSL = True
+```
 
 or
 
+```sh
 REST_SSL = True
+```
 
 And then set the variables: XMLRCP_SSL_* or REST_SSL_* to your certificates paths.
 
