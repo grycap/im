@@ -490,3 +490,15 @@ IM 1.8.2:
     * Enable to set cidr in Fogbow federated networks.
     * Add node creation error message in CloudStack conn.
     * Add sleep among ctxt agent task retries.
+
+IM 1.8.3:
+    * Fix error getting keystone token in OCCI conn.
+    * Fix error reconfiguring with a new RADL.
+    * Remove ec2 classic supoort.
+    * Add error messages in case of error creating volumes.
+    * Remove keypair creation in EC2 conn.
+    * Add missing volume_url parameter to OpenStack conn.
+    * Fix errors with PyYAML version 5.1.
+    * Fix Keypairs left behind on OpenStack.
+    * Handling of special characters in error messages from OpenStack.
+    * Fix error adding two volumes to a VM in OCCI conn.
