@@ -91,10 +91,6 @@
     - name: Upgrade setuptools with Pip
       pip: name=setuptools state=latest
 
-    - name: Upgrade pyOpenSSL with Pip
-      pip: name=pyOpenSSL state=latest
-      ignore_errors: yes
-
     - name: Install pkgs with Pip in RH6
       pip: name="{{ item.name }}" version="{{ item.version }}"
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int <= 6
