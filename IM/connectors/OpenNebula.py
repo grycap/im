@@ -27,7 +27,10 @@ import time
 
 from distutils.version import LooseVersion
 from IM.xmlobject import XMLObject
-from IM.uriparse import uriparse
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
 from radl.radl import Feature
@@ -170,7 +173,7 @@ class OpenNebulaCloudConnector(CloudConnector):
             self.cloud.server, self.cloud.port)
 
     def concrete_system(self, radl_system, str_url, auth_data):
-        url = uriparse(str_url)
+        url = urlparse(str_url)
         protocol = url[0]
         src_host = url[1].split(':')[0]
 
@@ -201,13 +204,12 @@ class OpenNebulaCloudConnector(CloudConnector):
         else:
             return None
 
-    def getSessionID(self, auth_data, hash_password=None):
+    def getSessionID(self, auth_data):
         """
         Get the ONE Session ID from the auth data
 
         Arguments:
            - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
-           - hash_password(bool, optional): specifies if the password must be hashed
 
          Returns: str with the Session ID
         """
@@ -219,12 +221,6 @@ class OpenNebulaCloudConnector(CloudConnector):
 
         if 'username' in auth and 'password' in auth:
             passwd = auth['password']
-            if hash_password is None:
-                one_ver = self.getONEVersion(auth_data)
-                if one_ver == "2.0.0" or one_ver == "3.0.0":
-                    hash_password = True
-            if hash_password:
-                passwd = hashlib.sha1(passwd.strip().encode('utf-8')).hexdigest()
             return auth['username'] + ":" + passwd
         elif 'token' in auth:
             username, passwd = ONETTSClient.get_auth_from_tts(ConfigOpenNebula.TTS_URL,
@@ -237,7 +233,8 @@ class OpenNebulaCloudConnector(CloudConnector):
         else:
             raise Exception("No correct auth data has been specified to OpenNebula: username and password")
 
-    def setDisksFromTemplate(self, vm, template):
+    @staticmethod
+    def setDisksFromTemplate(vm, template):
         """
         Set the Disks of the VM from the info obtained in the ONE template object
 
@@ -255,7 +252,8 @@ class OpenNebulaCloudConnector(CloudConnector):
                 vm.info.systems[0].setValue(
                     "disk." + str(disk.DISK_ID) + ".fstype", disk.FORMAT)
 
-    def setIPsFromTemplate(self, vm, template):
+    @staticmethod
+    def setIPsFromTemplate(vm, template):
         """
         Set the IPs of the VM from the info obtained in the ONE template object
 
@@ -286,14 +284,7 @@ class OpenNebulaCloudConnector(CloudConnector):
         if session_id is None:
             return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
 
-        func_res = server.one.vm.info(session_id, int(vm.id))
-        if len(func_res) == 2:
-            (success, res_info) = func_res
-        elif len(func_res) == 3:
-            (success, res_info, _) = func_res
-        else:
-            return [(False, "Error in the one.vm.info return value")]
-
+        success, res_info, _ = server.one.vm.info(session_id, int(vm.id))
         if success:
             res_vm = VM(res_info)
 
@@ -400,7 +391,7 @@ class OpenNebulaCloudConnector(CloudConnector):
                                                                            outport.get_port_init(),
                                                                            outport.get_port_end()))
                                 else:
-                                    if outport.get_remote_port() != 22:
+                                    if outport.get_remote_port() != 22 or not network.isPublic():
                                         sg_template += ("RULE = [ PROTOCOL = %s, RULE_TYPE = inbound, "
                                                         "RANGE = %d:%d ]\n" % (outport.get_protocol().upper(),
                                                                                outport.get_remote_port(),
@@ -442,13 +433,7 @@ class OpenNebulaCloudConnector(CloudConnector):
             inf.add_vm(vm)
             template = self.getONETemplate(vm.info, sgs, auth_data, vm)
 
-            func_res = server.one.vm.allocate(session_id, template)
-            if len(func_res) == 2:
-                (success, res_id) = func_res
-            elif len(func_res) == 3:
-                (success, res_id, _) = func_res
-            else:
-                return [(False, "Error in the one.vm.allocate return value")]
+            success, res_id, _ = server.one.vm.allocate(session_id, template)
 
             if success:
                 vm.id = str(res_id)
@@ -510,16 +495,7 @@ class OpenNebulaCloudConnector(CloudConnector):
             self.delete_snapshots(vm, auth_data)
 
         if vm.id:
-            func_res = server.one.vm.action(session_id, 'delete', int(vm.id))
-            if len(func_res) == 1:
-                success = True
-                err = vm.id
-            elif len(func_res) == 2:
-                (success, err) = func_res
-            elif len(func_res) == 3:
-                (success, err, _) = func_res
-            else:
-                return (False, "Error in the one.vm.action return value")
+            success, err, _ = server.one.vm.action(session_id, 'delete', int(vm.id))
         else:
             self.log_warn("No VM ID. Ignoring")
             err = ""
@@ -531,41 +507,20 @@ class OpenNebulaCloudConnector(CloudConnector):
         return (success, err)
 
     def stop(self, vm, auth_data):
-        server = ServerProxy(self.server_url, allow_none=True)
-        session_id = self.getSessionID(auth_data)
-        if session_id is None:
-            return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
-        func_res = server.one.vm.action(session_id, 'suspend', int(vm.id))
-
-        if len(func_res) == 1:
-            success = True
-            err = vm.id
-        elif len(func_res) == 2:
-            (success, err) = func_res
-        elif len(func_res) == 3:
-            (success, err, _) = func_res
-        else:
-            return (False, "Error in the one.vm.action return value")
-
-        return (success, err)
+        return self.vm_action(vm, 'suspend', auth_data)
 
     def start(self, vm, auth_data):
+        return self.vm_action(vm, 'resume', auth_data)
+
+    def reboot(self, vm, auth_data):
+        return self.vm_action(vm, 'reboot-hard', auth_data)
+
+    def vm_action(self, vm, action, auth_data):
         server = ServerProxy(self.server_url, allow_none=True)
         session_id = self.getSessionID(auth_data)
         if session_id is None:
             return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
-        func_res = server.one.vm.action(session_id, 'resume', int(vm.id))
-
-        if len(func_res) == 1:
-            success = True
-            err = vm.id
-        elif len(func_res) == 2:
-            (success, err) = func_res
-        elif len(func_res) == 3:
-            (success, err, _) = func_res
-        else:
-            return (False, "Error in the one.vm.action return value")
-
+        success, err, _ = server.one.vm.action(session_id, action, int(vm.id))
         return (success, err)
 
     def getONETemplate(self, radl, sgs, auth_data, vm):
@@ -590,7 +545,7 @@ class OpenNebulaCloudConnector(CloudConnector):
             name = system.getValue("disk.0.image.name")
         if not name:
             name = "userimage"
-        url = uriparse(system.getValue("disk.0.image.url"))
+        url = urlparse(system.getValue("disk.0.image.url"))
         path = url[2]
 
         if path[1:].isdigit():
@@ -606,7 +561,7 @@ class OpenNebulaCloudConnector(CloudConnector):
         while system.getValue("disk." + str(cont) + ".image.url") or system.getValue("disk." + str(cont) + ".size"):
             disk_image = system.getValue("disk." + str(cont) + ".image.url")
             if disk_image:
-                disks += 'DISK = [ IMAGE_ID = "%s" ]\n' % uriparse(disk_image)[2][1:]
+                disks += 'DISK = [ IMAGE_ID = "%s" ]\n' % urlparse(disk_image)[2][1:]
             else:
                 disk_size = system.getFeature(
                     "disk." + str(cont) + ".size").getValue('M')
@@ -636,13 +591,9 @@ class OpenNebulaCloudConnector(CloudConnector):
         ''' % (name, cpu, cpu, memory, arch, disks, ConfigOpenNebula.TEMPLATE_OTHER)
 
         user_template = ""
-        if system.getValue('instance_tags'):
-            keypairs = system.getValue('instance_tags').split(",")
-            for keypair in keypairs:
-                parts = keypair.split("=")
-                key = parts[0].strip()
-                value = parts[1].strip()
-                user_template += '%s = "%s", ' % (key, value)
+        tags = self.get_instance_tags(system)
+        for key, value in tags.items():
+            user_template += '%s = "%s", ' % (key, value)
 
         if user_template:
             res += "\nUSER_TEMPLATE = [%s]\n" % user_template[:-2]
@@ -701,7 +652,7 @@ class OpenNebulaCloudConnector(CloudConnector):
         version = "2.0.0"
         methods = server.system.listMethods()
         if "one.system.version" in methods:
-            session_id = self.getSessionID(auth_data, False)
+            session_id = self.getSessionID(auth_data)
             (success, res_info, _) = server.one.system.version(session_id)
             if success:
                 version = res_info
@@ -716,7 +667,8 @@ class OpenNebulaCloudConnector(CloudConnector):
         self.log_debug("OpenNebula version: " + version)
         return version
 
-    def free_range(self, ar_range, total_leases):
+    @staticmethod
+    def free_range(ar_range, total_leases):
         """
         Check if there are at least one address free
 
@@ -734,7 +686,8 @@ class OpenNebulaCloudConnector(CloudConnector):
             return True
         return False
 
-    def free_address(self, addres_pool, used_leases):
+    @staticmethod
+    def free_address(addres_pool, used_leases):
         """
         Check if there are at least one address free
 
@@ -752,7 +705,8 @@ class OpenNebulaCloudConnector(CloudConnector):
             return True
         return False
 
-    def free_leases(self, leases):
+    @staticmethod
+    def free_leases(leases):
         """
         Check if there are at least one lease free
 
@@ -780,16 +734,7 @@ class OpenNebulaCloudConnector(CloudConnector):
         session_id = self.getSessionID(auth_data)
         if session_id is None:
             return None
-        func_res = server.one.vnpool.info(session_id, -2, -1, -1)
-
-        if len(func_res) == 2:
-            (success, info) = func_res
-        elif len(func_res) == 3:
-            (success, info, _) = func_res
-        else:
-            self.log_error("Error in the  one.vnpool.info return value")
-            return None
-
+        success, info, _ = server.one.vnpool.info(session_id, -2, -1, -1)
         if success:
             pool_info = VNET_POOL(info)
         else:
@@ -865,7 +810,8 @@ class OpenNebulaCloudConnector(CloudConnector):
 
         return res
 
-    def map_radl_one_networks(self, radl_nets, one_nets):
+    @staticmethod
+    def map_radl_one_networks(radl_nets, one_nets):
         """
         Generate a mapping between the RADL networks and the ONE networks
 
@@ -1005,32 +951,14 @@ class OpenNebulaCloudConnector(CloudConnector):
         session_id = self.getSessionID(auth_data)
         if session_id is None:
             return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
-        func_res = server.one.vm.action(session_id, 'poweroff', int(vm.id))
-
-        if len(func_res) == 1:
-            success = True
-            err = vm.id
-        elif len(func_res) == 2:
-            (success, err) = func_res
-        elif len(func_res) == 3:
-            (success, err, _) = func_res
-        else:
-            return (False, "Error in the one.vm.action return value")
-
+        success, err, _ = server.one.vm.action(session_id, 'poweroff', int(vm.id))
         if not success:
             return (success, err)
 
         wait = 0
         powered_off = False
         while wait < timeout and not powered_off:
-            func_res = server.one.vm.info(session_id, int(vm.id))
-            if len(func_res) == 2:
-                (success, res_info) = func_res
-            elif len(func_res) == 3:
-                (success, res_info, _) = func_res
-            else:
-                return (False, "Error in the one.vm.info return value")
-
+            success, res_info, _ = server.one.vm.info(session_id, int(vm.id))
             res_vm = VM(res_info)
             powered_off = res_vm.STATE == 8
             if not powered_off:
@@ -1080,14 +1008,7 @@ class OpenNebulaCloudConnector(CloudConnector):
                 ]
         ''' % (disk_fstype, disk_size, disk_device)
 
-        func_res = server.one.vm.attach(session_id, int(vm.id), disk_temp, False)
-        if len(func_res) == 2:
-            (success, res_info) = func_res
-        elif len(func_res) == 3:
-            (success, res_info, _) = func_res
-        else:
-            return (False, "Error in the one.vm.info return value")
-
+        success, res_info, _ = server.one.vm.attach(session_id, int(vm.id), disk_temp, False)
         if success:
             return (True, "")
         else:
@@ -1178,15 +1099,11 @@ class OpenNebulaCloudConnector(CloudConnector):
         image_type = ""  # Use the default one
         one_ver = self.getONEVersion(auth_data)
         if one_ver.startswith("5."):
-            func_res = server.one.vm.disksaveas(session_id, int(vm.id), disk_num, image_name, image_type, -1)
+            success, res_info, _ = server.one.vm.disksaveas(session_id, int(vm.id), disk_num,
+                                                            image_name, image_type, -1)
         else:
-            func_res = server.one.vm.savedisk(session_id, int(vm.id), disk_num, image_name, image_type, True, False)
-        if len(func_res) == 2:
-            (success, res_info) = func_res
-        elif len(func_res) == 3:
-            (success, res_info, _) = func_res
-        else:
-            return (False, "Error in the one.vm.savedisk return value")
+            success, res_info, _ = server.one.vm.savedisk(session_id, int(vm.id), disk_num,
+                                                          image_name, image_type, True, False)
 
         if success:
             new_url = "one://%s/%d" % (self.cloud.server, res_info)
@@ -1198,7 +1115,7 @@ class OpenNebulaCloudConnector(CloudConnector):
             else:
                 try:
                     (success, res_info, _) = server.one.image.delete(session_id, res_info)
-                except:
+                except Exception:
                     self.logger.error("Error deleting image: %s" % res_info)
                 return (False, "Error waiting image to be ready: %s" % msg)
         else:
@@ -1217,14 +1134,7 @@ class OpenNebulaCloudConnector(CloudConnector):
             wait += 5
             time.sleep(5)
 
-            func_res = server.one.image.info(session_id, image_id)
-            if len(func_res) == 2:
-                (success, res_info) = func_res
-            elif len(func_res) == 3:
-                (success, res_info, _) = func_res
-            else:
-                return (False, "Error in the one.image.info return value")
-
+            success, res_info, _ = server.one.image.info(session_id, image_id)
             if success:
                 image_info = IMAGE(res_info)
                 state = image_info.STATE
@@ -1255,36 +1165,21 @@ class OpenNebulaCloudConnector(CloudConnector):
         if not success:
             self.logger.warn("Error waiting image to be READY: " + msg)
 
-        func_res = server.one.image.delete(session_id, image_id)
-        if len(func_res) == 2:
-            (success, res_info) = func_res
-        elif len(func_res) == 3:
-            (success, res_info, _) = func_res
-        else:
-            return (False, "Error in the one.image.delete return value")
-
+        success, res_info, _ = server.one.image.delete(session_id, image_id)
         if success:
             return (True, "")
         else:
             return (False, res_info)
 
     def get_image_id(self, image_url, session_id):
-        url = uriparse(image_url)
+        url = urlparse(image_url)
         image_id = url[2][1:]
         if image_id.isdigit():
             return int(image_id)
         else:
             # We have to find the ID of the image name
             server = ServerProxy(self.server_url, allow_none=True)
-            func_res = server.one.imagepool.info(session_id, -2, -1, -1)
-            if len(func_res) == 2:
-                (success, res_info) = func_res
-            elif len(func_res) == 3:
-                (success, res_info, _) = func_res
-            else:
-                self.logger.error("Error in the one.imagepool.info return value")
-                return None
-
+            success, res_info, _ = server.one.imagepool.info(session_id, -2, -1, -1)
             if success:
                 pool_info = IMAGE_POOL(res_info)
             else:

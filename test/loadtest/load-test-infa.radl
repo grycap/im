@@ -10,7 +10,8 @@ net_interface.1.dns_name = 'imservice' and
 disk.0.os.name='linux' and
 disk.0.os.flavour='ubuntu' and
 disk.0.os.version >= '16.04' and
-disk.0.os.credentials.new.password = 'Tututu+01'
+disk.0.os.credentials.new.password = 'Tututu+01' and
+disk.0.applications contains (name='ansible.modules.grycap.docker')
 )
 
 system imclient (
@@ -25,81 +26,53 @@ disk.0.os.credentials.new.password = 'Tututu+01'
 )
 
 system infra (
-cpu.count>=8 and
-memory.size>=8G and
+cpu.count>=2 and
+memory.size>=2G and
 net_interface.0.connection = 'privada' and
 net_interface.0.dns_name = 'infra' and
 disk.0.os.name='linux' and
 disk.0.os.flavour='ubuntu' and
 disk.0.os.version >= '16.04' and
 disk.0.os.credentials.new.password = 'Tututu+01' and
-disk.0.applications contains (name='ansible.modules.grycap.docker')
+disk.0.applications contains (name='ansible.modules.grycap.kubernetes')
+)
+
+system infrawn (
+cpu.count>=4 and
+memory.size>=8G and
+net_interface.0.connection = 'privada' and
+net_interface.0.dns_name = 'infrawn' and
+disk.0.os.name='linux' and
+disk.0.os.flavour='ubuntu' and
+disk.0.os.version >= '16.04' and
+disk.0.os.credentials.new.password = 'Tututu+01' and
+disk.0.applications contains (name='ansible.modules.grycap.kubernetes')
 )
 
 
-configure imdocker (
+configure im (
 @begin
 ---
+  - roles:
+    - role: 'grycap.docker'
+
+    tasks:
+    - name: Download test inf.dat
+      get_url: url=https://raw.githubusercontent.com/grycap/im/devel/test/loadtest/inf.dat dest=/var/tmp/inf.dat
+
     - name: im container
       docker_container:
         name: im
         image: "grycap/im"
         state: started
+        volumes:
+        - "/var/tmp/inf.dat:/etc/im/inf.dat"
         ports:
         - "8800:8800"
         - "8899:8899"
         expose:
         - 8899
         - 8800
-@end
-)
-
-configure iminstall (
-@begin
----
-    - name: Install Reqs
-      apt: name=git,gcc,python-dev,python-pip,python-mysqldb,openssh-client,sshpass,libssl-dev,libffi-dev,libsqlite3-dev update_cache=yes cache_valid_time=3600
-      when: ansible_os_family == "Debian"
-      
-    - name: Yum install requirements RH or Fedora
-      yum: name=git,gcc,python-distribute,gcc,python-devel,wget,openssh-clients,sshpass,python-pip,libffi-devel,openssl-devel,sqlite-devel
-      when: ansible_os_family == "RedHat"
-
-    - name: Install backports.ssl_match_hostname with Pip
-      pip: name=backports.ssl_match_hostname
-      
-    - name: Download IM
-      git: repo=https://github.com/grycap/im dest=/tmp/im
-
-    - name: pip install IM
-      pip: name=/tmp/im
-
-    - name: Start IM
-      service: name=im state=started
-
-    - firewalld: service="8800/tcp" permanent=true state=enabled
-      when: ansible_os_family == "RedHat"
-      ignore_errors: yes
-
-    - firewalld: service="8899/tcp" permanent=true state=enabled
-      when: ansible_os_family == "RedHat"
-      ignore_errors: yes
-@end
-)
-
-configure im (
-@begin
----
-# To test the im from a docker container
-  - roles:
-    - role: 'grycap.docker'
-
-    tasks:
-# To test the im from a docker container
-    - include: imdocker.yml
-# To test the im directly installed at the VM
-#    - include: iminstall.yml
-
 
     - name: Install Reqs Deb
       apt: name=sysstat update_cache=yes cache_valid_time=3600
@@ -150,7 +123,7 @@ configure imclient (
         content: |
             type = InfrastructureManager; username = imuser01; password = invitado
             type = VMRC; host = http://servproject.i3m.upv.es:8080/vmrc/vmrc; username = demo; password = demo
-            id = docker; type = Docker; host = http://{{INFRA_NODE_IP}}:2375
+            id = kube; type = Kubernetes; host = https://{{INFRA_NODE_IP}}:6443; token = sometoken
         mode: 0644
 
     - name: Download LoadTest.py
@@ -165,23 +138,39 @@ configure imclient (
 @end
 )
 
+configure infrawn (
+@begin
+  - roles:
+    - role: 'grycap.kubernetes'
+      kube_type_of_node: 'wn'
+      kube_server: 'infra'
+@end
+)
+
 configure infra (
 @begin
   - pre_tasks:
-    - firewalld: port=2375/tcp permanent=true state=enabled immediate=yes
+    - firewalld: port=6443/tcp permanent=true state=enabled immediate=yes
       when: ansible_os_family == "RedHat"
       ignore_errors: yes
 
-    roles:
-    - role: 'grycap.docker'
-      docker_opts: '-H tcp://0.0.0.0:2375'
+    - name: Create auth file dir
+      file: path=/etc/kubernetes/pki state=directory mode=755 recurse=yes
+    - name: Create auth data file with an admin user
+      copy: content='sometoken,kubeuser,100,"users,system:masters"' dest=/etc/kubernetes/pki/auth mode=600
 
-    tasks:
-    - meta: flush_handlers
-    - command: docker -H tcp://localhost:2375 pull ubuntu:14.04
+    roles:
+    - role: 'grycap.kubernetes'
+      kube_server: 'infra'
+      kube_apiserver_options: [{option: "--insecure-port", value: "8080"}, {option: "--token-auth-file", value: "/etc/kubernetes/pki/auth"}]
+      kube_deploy_dashboard: false
+      kube_install_helm: false
 @end
 )
+
+
 
 deploy im 1
 deploy imclient 1
 deploy infra 1
+deploy infrawn 1

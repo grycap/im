@@ -167,6 +167,13 @@ class TestServiceRequests(unittest.TestCase):
         req._call_function()
 
     @patch('IM.InfrastructureManager.InfrastructureManager')
+    def test_vm_reboot(self, inflist):
+        import IM.ServiceRequests
+        req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.REBOOT_VM,
+                                                              ("", "", ""))
+        req._call_function()
+
+    @patch('IM.InfrastructureManager.InfrastructureManager')
     def test_version(self, inflist):
         import IM.ServiceRequests
         req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.GET_VERSION)

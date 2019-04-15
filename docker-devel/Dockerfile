@@ -2,7 +2,7 @@
 FROM grycap/jenkins:ubuntu16.04-im
 ARG BRANCH=devel
 MAINTAINER Miguel Caballer <micafer1@upv.es>
-LABEL version="1.7.7"
+LABEL version="1.8.3"
 LABEL description="Container image to run the IM service. (http://www.grycap.upv.es/im)"
 
 EXPOSE 8899 8800
@@ -14,7 +14,7 @@ RUN cd tmp \
  && pip install /tmp/im
 
 # Install pip optional libraries
-RUN pip install MySQL-python msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns azure-storage
+RUN pip install MySQL-python pymongo msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns azure-storage
 
 # Set the VM_NUM_USE_CTXT_DIST to 3 for the tests
 RUN sed -i -e 's/VM_NUM_USE_CTXT_DIST = 30/VM_NUM_USE_CTXT_DIST = 3/g' /etc/im/im.cfg

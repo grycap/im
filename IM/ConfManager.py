@@ -14,7 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import copy
 import json
 import logging
 import os
@@ -22,7 +21,6 @@ import threading
 import time
 import tempfile
 import shutil
-import yaml
 from distutils.version import LooseVersion
 
 try:
@@ -47,10 +45,11 @@ except ImportError:
     # for Ansible version 2.3.2 or lower
     pass
 
+from IM.ansible_utils import merge_recipes
 from IM.ansible_utils.ansible_launcher import AnsibleThread
 
-import IM.InfrastructureManager
 import IM.InfrastructureList
+from IM.LoggerMixin import LoggerMixin
 from IM.VirtualMachine import VirtualMachine
 from IM.SSH import AuthenticationException
 from IM.SSHRetry import SSHRetry
@@ -59,7 +58,7 @@ from IM.config import Config
 from radl.radl import system, contextualize_item
 
 
-class ConfManager(threading.Thread):
+class ConfManager(LoggerMixin, threading.Thread):
     """
     Class to manage the contextualization steps
     """
@@ -76,10 +75,9 @@ class ConfManager(threading.Thread):
         self.max_ctxt_time = max_ctxt_time
         self._stop_thread = False
         self.ansible_process = None
-        self.failed_step = []
         self.logger = logging.getLogger('ConfManager')
 
-    def check_running_pids(self, vms_configuring, failed_step):
+    def check_running_pids(self, vms_configuring):
         """
         Update the status of the configuration processes
         """
@@ -98,7 +96,6 @@ class ConfManager(threading.Thread):
                         if vm.configured:
                             self.log_info("Configuration process of VM %s success." % vm.im_id)
                         elif vm.configured is False:
-                            failed_step.append(step)
                             self.log_info("Configuration process of VM %s failed." % vm.im_id)
                         else:
                             self.log_warn("Configuration process of VM %s in unfinished state." % vm.im_id)
@@ -116,14 +113,13 @@ class ConfManager(threading.Thread):
                         if vm.configured:
                             self.log_info("Configuration process of master node successfully finished.")
                         elif vm.configured is False:
-                            failed_step.append(step)
                             self.log_info("Configuration process of master node failed.")
                         else:
                             self.log_warn("Configuration process of master node in unfinished state.")
                         # Force to save the data to store the log data
                         IM.InfrastructureList.InfrastructureList.save_data(self.inf.id)
 
-        return failed_step, res
+        return res
 
     def stop(self):
         self._stop_thread = True
@@ -203,7 +199,6 @@ class ConfManager(threading.Thread):
     def run(self):
         self.log_info("Starting the ConfManager Thread")
 
-        self.failed_step = []
         last_step = None
         vms_configuring = {}
 
@@ -225,7 +220,7 @@ class ConfManager(threading.Thread):
                         vm.configured = False
                 return
 
-            self.failed_step, vms_configuring = self.check_running_pids(vms_configuring, self.failed_step)
+            vms_configuring = self.check_running_pids(vms_configuring)
 
             # If the queue is empty but there are vms configuring wait and test
             # again
@@ -242,13 +237,11 @@ class ConfManager(threading.Thread):
 
             # if this task is from a next step
             if last_step is not None and last_step < step:
-                if self.failed_step and sorted(self.failed_step)[-1] < step:
-                    self.log_info("Configuration of process of step %s failed, "
-                                  "ignoring tasks of step %s." % (sorted(self.failed_step)[-1], step))
-                    vm.configured = False
+                if vm.is_configured() is False:
+                    self.log_debug("Configuration process of step " + str(last_step) +
+                                   " failed, ignoring tasks of later steps.")
                 else:
-                    # Add the task again to the queue only if the last step was
-                    # OK
+                    # Add the task again to the queue only if the last step was OK
                     self.inf.add_ctxt_tasks([(step, prio, vm, tasks)])
 
                     # If there are any process running of last step, wait
@@ -256,8 +249,7 @@ class ConfManager(threading.Thread):
                         self.log_info("Waiting processes of step " + str(last_step) + " to finish.")
                         time.sleep(Config.CONFMAMAGER_CHECK_STATE_INTERVAL)
                     else:
-                        # if not, update the step, to go ahead with the new
-                        # step
+                        # if not, update the step, to go ahead with the new step
                         self.log_info("Step " + str(last_step) + " finished. Go to step: " + str(step))
                         last_step = step
             else:
@@ -641,7 +633,7 @@ class ConfManager(threading.Thread):
                     res += '    register: format\n'
                     res += condition + '\n'
                     res += with_dict
-                    res += '  - file: path=' + disk_mount_path + ' state=directory recurse=yes\n'
+                    res += '  - file: path=' + disk_mount_path + ' state=directory\n'
                     res += '  - mount: name=' + disk_mount_path + ' src=/dev/{{item.key}}1 state=mounted fstype=' + \
                         disk_fstype + '\n'
                     res += condition + ' and not format is failed\n'
@@ -680,7 +672,7 @@ class ConfManager(threading.Thread):
 
             # If there are a recipe, use it
             if recipe:
-                conf_content = self.mergeYAML(conf_content, recipe)
+                conf_content = merge_recipes(conf_content, recipe)
                 conf_content += "\n\n"
             else:
                 # use the app name as the package to install
@@ -697,7 +689,7 @@ class ConfManager(threading.Thread):
                 install_app += "    action: yum pkg=" + short_app_name + " state=installed\n"
                 install_app += "    when: \"ansible_os_family == 'RedHat'\"\n"
                 install_app += "    ignore_errors: yes\n"
-                conf_content = self.mergeYAML(conf_content, install_app)
+                conf_content = merge_recipes(conf_content, install_app)
 
         conf_out.write(conf_content)
         conf_out.close()
@@ -743,10 +735,10 @@ class ConfManager(threading.Thread):
                     recipes = vault_edit.vault.decrypt(configure.recipes.strip())
                 else:
                     recipes = configure.recipes
-                conf_content = self.mergeYAML(conf_content, recipes)
+                conf_content = merge_recipes(conf_content, recipes)
                 conf_content = vault_edit.vault.encrypt(conf_content)
             else:
-                conf_content = self.mergeYAML(conf_content, configure.recipes)
+                conf_content = merge_recipes(conf_content, configure.recipes)
 
             conf_out = open(conf_filename, 'w')
             conf_out.write(conf_content)
@@ -809,6 +801,7 @@ class ConfManager(threading.Thread):
                         remote_dir = Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/"
                         self.log_info("Copy the contextualization agent files")
                         files = []
+                        files.append((Config.IM_PATH + "/CtxtAgentBase.py", remote_dir + "/IM/CtxtAgentBase.py"))
                         files.append((Config.IM_PATH + "/SSH.py", remote_dir + "/IM/SSH.py"))
                         files.append((Config.IM_PATH + "/SSHRetry.py", remote_dir + "/IM/SSHRetry.py"))
                         files.append((Config.IM_PATH + "/retry.py", remote_dir + "/IM/retry.py"))
@@ -825,6 +818,7 @@ class ConfManager(threading.Thread):
                             for ansible_host in self.inf.radl.ansible_hosts:
                                 (user, passwd, private_key) = ansible_host.getCredentialValues()
                                 ssh = SSHRetry(ansible_host.getHost(), user, passwd, private_key)
+                                ssh.sftp_mkdir(Config.REMOTE_CONF_DIR, 0o755)
                                 ssh.sftp_mkdir(remote_dir, 0o700)
                                 ssh.sftp_mkdir(remote_dir + "/IM")
                                 ssh.sftp_put_files(files)
@@ -909,11 +903,6 @@ class ConfManager(threading.Thread):
                     self.inf.add_cont_msg("Contextualization Error: Error Waiting the Master VM to boot")
                     self.inf.set_configured(False)
                     return
-
-                # To avoid problems with the known hosts of previous calls
-                if os.path.isfile(os.path.expanduser("~/.ssh/known_hosts")):
-                    self.log_debug("Remove " + os.path.expanduser("~/.ssh/known_hosts"))
-                    os.remove(os.path.expanduser("~/.ssh/known_hosts"))
 
                 self.inf.add_cont_msg("Wait master VM to have the SSH active.")
                 is_connected, msg = self.wait_vm_ssh_acccess(self.inf.vm_master, Config.WAIT_SSH_ACCCESS_TIMEOUT)
@@ -1381,7 +1370,10 @@ class ConfManager(threading.Thread):
             for req_app in s.getApplications():
                 if req_app.getValue("name").startswith("ansible.modules."):
                     # Get the modules specified by the user in the RADL
-                    modules.append(req_app.getValue("name")[16:])
+                    app_name = req_app.getValue("name")[16:]
+                    if req_app.getValue("version"):
+                        app_name += ",%s" % req_app.getValue("version")
+                    modules.append(app_name)
                 else:
                     # Get the info about the apps from the recipes DB
                     vm_modules, _ = Recipe.getInfoApps([req_app])
@@ -1467,76 +1459,3 @@ class ConfManager(threading.Thread):
         self.log_debug("Ctxt agent vm configuration file: " + json.dumps(conf_data))
         json.dump(conf_data, conf_out, indent=2)
         conf_out.close()
-
-    def mergeYAML(self, yaml1, yaml2):
-        """
-        Merge two ansible yaml docs
-
-        Arguments:
-           - yaml1(str): string with the first YAML
-           - yaml1(str): string with the second YAML
-        Returns: The merged YAML. In case of errors, it concatenates both strings
-        """
-        yamlo1o = {}
-        try:
-            yamlo1o = yaml.safe_load(yaml1)[0]
-            if not isinstance(yamlo1o, dict):
-                yamlo1o = {}
-        except Exception:
-            self.log_exception("Error parsing YAML: " + yaml1 + "\n Ignore it")
-
-        try:
-            yamlo2s = yaml.safe_load(yaml2)
-            if not isinstance(yamlo2s, list) or any([not isinstance(d, dict) for d in yamlo2s]):
-                yamlo2s = {}
-        except Exception:
-            self.log_exception("Error parsing YAML: " + yaml2 + "\n Ignore it")
-            yamlo2s = {}
-
-        if not yamlo2s and not yamlo1o:
-            return ""
-
-        result = []
-        for yamlo2 in yamlo2s:
-            yamlo1 = copy.deepcopy(yamlo1o)
-            all_keys = []
-            all_keys.extend(yamlo1.keys())
-            all_keys.extend(yamlo2.keys())
-            all_keys = set(all_keys)
-
-            for key in all_keys:
-                if key in yamlo1 and yamlo1[key]:
-                    if key in yamlo2 and yamlo2[key]:
-                        if isinstance(yamlo1[key], dict):
-                            yamlo1[key].update(yamlo2[key])
-                        elif isinstance(yamlo1[key], list):
-                            yamlo1[key].extend(yamlo2[key])
-                        else:
-                            # Both use have the same key with merge in a lists
-                            v1 = yamlo1[key]
-                            v2 = yamlo2[key]
-                            yamlo1[key] = [v1, v2]
-                elif key in yamlo2 and yamlo2[key]:
-                    yamlo1[key] = yamlo2[key]
-            result.append(yamlo1)
-
-        return yaml.safe_dump(result, default_flow_style=False, explicit_start=True, width=256)
-
-    def log_msg(self, level, msg, exc_info=0):
-        msg = "Inf ID: %s: %s" % (self.inf.id, msg)
-        self.logger.log(level, msg, exc_info=exc_info)
-
-    def log_error(self, msg):
-        self.log_msg(logging.ERROR, msg)
-
-    def log_debug(self, msg):
-        self.log_msg(logging.DEBUG, msg)
-
-    def log_warn(self, msg):
-        self.log_msg(logging.WARNING, msg)
-
-    def log_exception(self, msg):
-        self.log_msg(logging.ERROR, msg, exc_info=1)
-
-    def log_info(self, msg):
-        self.log_msg(logging.INFO, msg)

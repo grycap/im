@@ -45,6 +45,13 @@ datafiles.append(('/etc/im', ['etc/logging.conf']))
 # force the im_service.py file to be allways in this path
 datafiles.append(('/usr/bin', ['im_service.py']))
 
+try:
+    long_desc = open('README.md').read()
+    long_desc_type = 'text/markdown'
+except:
+    long_desc = "IM is a tool to manage virtual infrastructures on Cloud deployments"
+    long_desc_type = 'text/plain'
+
 setup(name="IM", version=version,
       author='GRyCAP - Universitat Politecnica de Valencia',
       author_email='micafer1@upv.es',
@@ -54,15 +61,11 @@ setup(name="IM", version=version,
       scripts=["im_service.py"],
       data_files=datafiles,
       license="GPL version 3, http://www.gnu.org/licenses/gpl-3.0.txt",
-      long_description=("IM is a tool that ease the access and the usability of IaaS clouds by automating the VMI "
-                        "selection, deployment, configuration, software installation, monitoring and update of "
-                        "Virtual Appliances. It supports APIs from a large number of virtual platforms, making "
-                        "user applications cloud-agnostic. In addition it integrates a contextualization system to "
-                        "enable the installation and configuration of all the user required applications providing "
-                        "the user with a fully functional infrastructure."),
+      long_description=long_desc,
+      long_description_content_type=long_desc_type,
       description="IM is a tool to manage virtual infrastructures on Cloud deployments",
       platforms=["any"],
       install_requires=["ansible >= 2.0", "paramiko >= 1.14", "PyYAML", suds_pkg, sqlite_pkg, "cheroot",
                         "boto >= 2.29", "apache-libcloud >= 2.4.0", "RADL >= 1.1.2", "bottle", "netaddr",
-                        "requests >= 2.19", "ssh2-python", "tosca-parser", 'defusedxml']
+                        "requests >= 2.19", "ssh2-python", "tosca-parser", 'defusedxml', 'urllib3>=1.23']
       )

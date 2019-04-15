@@ -599,11 +599,15 @@ class TestIM(unittest.TestCase):
 
     def test_reconfigure(self):
         """Reconfigure."""
-        radl = RADL()
-        radl.add(system("s0", [Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
-                               Feature("disk.0.os.credentials.username", "=", "user"),
-                               Feature("disk.0.os.credentials.password", "=", "pass")]))
-        radl.add(deploy("s0", 1))
+        radl_str = """"
+            system front (
+            disk.0.image.url = 'mock0://linux.for.ev.er' and
+            disk.0.os.credentials.username = 'ubuntu' and
+            disk.0.os.credentials.password = 'pass' and
+            disk.0.applications contains (name = 'ansible.modules.micafer.hadoop')
+            )
+            deploy front 1"""
+        radl = parse_radl(radl_str)
 
         auth0 = self.getAuth([0], [], [("Dummy", 0)])
         infId = IM.CreateInfrastructure(str(radl), auth0)
@@ -611,6 +615,28 @@ class TestIM(unittest.TestCase):
         reconf_radl = """configure test (\n@begin\n---\n  - tasks:\n      - debug: msg="RECONFIGURERADL"\n@end\n)"""
         IM.Reconfigure(infId, reconf_radl, auth0)
         IM.Reconfigure(infId, reconf_radl, auth0, ['0'])
+        inf = IM.get_infrastructure(infId, auth0)
+        self.assertEqual(inf.radl.configures[0].recipes, '\n---\n  - tasks:\n      - debug: msg="RECONFIGURERADL"\n')
+
+        reconf_radl = """"
+            system front (
+            disk.0.applications contains (name = 'ansible.modules.micafer.hadoop,version') and
+            disk.0.applications contains (name = 'ansible.modules.micafer.hadoop1')
+            )"""
+        IM.Reconfigure(infId, reconf_radl, auth0)
+        inf = IM.get_infrastructure(infId, auth0)
+        self.assertIn("ansible.modules.micafer.hadoop,version", inf.radl.systems[0].getValue("disk.0.applications"))
+        self.assertIn("ansible.modules.micafer.hadoop1", inf.radl.systems[0].getValue("disk.0.applications"))
+
+        reconf_radl = """"
+            system front (
+            disk.0.applications contains (name = 'ansible.modules.micafer.hadoop,version') and
+            disk.0.applications contains (name = 'ansible.modules.micafer.hadoop1')
+            )"""
+        IM.Reconfigure(infId, reconf_radl, auth0)
+        inf = IM.get_infrastructure(infId, auth0)
+        self.assertIn("ansible.modules.micafer.hadoop,version", inf.radl.systems[0].getValue("disk.0.applications"))
+        self.assertIn("ansible.modules.micafer.hadoop1", inf.radl.systems[0].getValue("disk.0.applications"))
 
         IM.DestroyInfrastructure(infId, auth0)
 
@@ -808,6 +834,8 @@ class TestIM(unittest.TestCase):
         res = IM.StartVM(infId, "0", auth0)
         self.assertEqual(res, "")
         res = IM.StopVM(infId, "0", auth0)
+        self.assertEqual(res, "")
+        res = IM.RebootVM(infId, "0", auth0)
         self.assertEqual(res, "")
 
         IM.DestroyInfrastructure(infId, auth0)
@@ -1089,6 +1117,12 @@ configure step2 (
         with self.assertRaises(Exception) as ex:
             IM.check_auth_data(user_auth)
         self.assertEqual(str(ex.exception), "Invalid username used for the InfrastructureManager.")
+
+        Config.FORCE_OIDC_AUTH = True
+        with self.assertRaises(Exception) as ex:
+            IM.check_auth_data(user_auth)
+        self.assertEqual(str(ex.exception), "No token provided for the InfrastructureManager.")
+        Config.FORCE_OIDC_AUTH = False
 
         inf = InfrastructureInfo()
         inf.id = "1"

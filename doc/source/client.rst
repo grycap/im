@@ -158,7 +158,11 @@ The :program:`im_client` is called like this::
    ``stopvm infId vmId``
       Stop (but not remove) the specified virtual machine ``vmId`` associated to the infrastructure with ID
       infrastructure with ID ``infId``.
-      
+
+   ``rebootvm infId vmId``
+      Reboot the specified virtual machine ``vmId`` associated to the infrastructure with ID
+      infrastructure with ID ``infId``.
+
    ``sshvm infId vmId [show_only]``
       Connect with SSH with the specified virtual machine ``vmId`` associated to the infrastructure with ID
       infrastructure with ID ``infId``. The ``show_only`` parameter is optional and is a flag to specify if ssh
@@ -199,7 +203,7 @@ The available keys are:
 * ``type`` indicates the service that refers the credential. The services
   supported are ``InfrastructureManager``, ``VMRC``, ``OpenNebula``, ``EC2``,, ``FogBow``, 
   ``OpenStack``, ``OCCI``, ``LibCloud``, ``Docker``, ``GCE``, ``Azure``, ``AzureClassic``,
-   ``Kubernetes`` and ``vSphere``.
+  ``Kubernetes`` and ``vSphere``.
 
 * ``username`` indicates the user name associated to the credential. In EC2
   it refers to the *Access Key ID*. In GCE it refers to *Service Account’s Email Address*. 
@@ -271,6 +275,10 @@ OpenStack has a set of additional fields to access a cloud site:
   server catalog, but if this argument is provided, this step is skipped and the provided value is used directly.
   The value is: http://cloud_server.com:9292.
   
+  * ``volume_url`` base URL to the OpenStack API cinder endpoint. By default, the connector obtains API endpoint URL from the 
+  server catalog, but if this argument is provided, this step is skipped and the provided value is used directly.
+  The value is: http://cloud_server.com:8776/v2/<tenant_id>.
+
 * ``service_region`` the region of the cloud site (case sensitive). It is used to obtain the API 
   endpoint URL. The default value is: ``RegionOne``.
 
@@ -323,7 +331,7 @@ An example of the auth file::
    # Azure (RM) site auth data
    id = azure; type = Azure; subscription_id = subscription-id; username = user@domain.com; password = pass
    # Kubernetes site auth data
-   id = kub; type = Kubernetes; host = http://server:8080; username = user; password = pass
+   id = kub; type = Kubernetes; host = http://server:8080; token = auth_token
    # FogBow auth data
    id = fog; type = FogBow; host = http://server:8182; proxy = file(/tmp/proxy.pem)
    # Azure Classic auth data

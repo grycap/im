@@ -59,8 +59,10 @@ configure win (
 @begin
 ---
   - tasks:
-      - win_get_url: url=http://mafft.cbrc.jp/alignment/software/mafft-7.157-with-extensions-src.tgz dest=c:\Users\winuser\mafft-7.157-with-extensions-src.tgz
-
+      - name: Touch a file (creates if not present, updates modification time if present)
+        win_file:
+          path: C:\foo.conf
+          state: touch
 @end
 )
 

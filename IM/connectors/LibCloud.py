@@ -26,7 +26,10 @@ except Exception as ex:
     print("WARN: libcloud library not correctly installed. LibCloudCloudConnector will not work!.")
     print(ex)
 
-from IM.uriparse import uriparse
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
 from radl.radl import Feature
@@ -39,6 +42,16 @@ class LibCloudCloudConnector(CloudConnector):
 
     type = "LibCloud"
     """str with the name of the provider."""
+
+    VM_STATE_MAP = {
+        NodeState.RUNNING: VirtualMachine.RUNNING,
+        NodeState.REBOOTING: VirtualMachine.RUNNING,
+        NodeState.PENDING: VirtualMachine.PENDING,
+        NodeState.TERMINATED: VirtualMachine.OFF,
+        NodeState.STOPPED: VirtualMachine.STOPPED,
+        NodeState.ERROR: VirtualMachine.FAILED
+    }
+    """State map"""
 
     def __init__(self, cloud_info, inf):
         self.driver = None
@@ -75,7 +88,7 @@ class LibCloudCloudConnector(CloudConnector):
                         return None
                 else:
                     if 'host' in auth[0]:
-                        uri = uriparse(auth[0]['host'])
+                        uri = urlparse(auth[0]['host'])
                         if uri[1].find(":"):
                             parts = uri[1].split(":")
                             params["host"] = parts[0]
@@ -129,7 +142,7 @@ class LibCloudCloudConnector(CloudConnector):
         return res
 
     def concrete_system(self, radl_system, str_url, auth_data):
-        url = uriparse(str_url)
+        url = urlparse(str_url)
         protocol = url[0]
         PROTOCOL_MAP = {"Amazon EC2": "aws", "OpenNebula": "one", "OpenStack": "ost", "LibVirt": "file"}
 
@@ -144,23 +157,25 @@ class LibCloudCloudConnector(CloudConnector):
         else:
             return None
 
-    def update_system_info_from_instance(self, system, instance_type):
+    @staticmethod
+    def update_system_info_from_instance(system, instance_type):
         """
         Update the features of the system with the information of the instance_type
         """
-        system.addFeature(Feature(
-            "memory.size", "=", instance_type.ram, 'M'), conflict="other", missing="other")
-        if instance_type.disk:
+        if instance_type:
             system.addFeature(Feature(
-                "disk.0.free_size", "=", instance_type.disk, 'G'), conflict="other", missing="other")
-        if instance_type.price:
-            system.addFeature(
-                Feature("price", "=", instance_type.price), conflict="me", missing="other")
+                "memory.size", "=", instance_type.ram, 'M'), conflict="other", missing="other")
+            if instance_type.disk:
+                system.addFeature(Feature(
+                    "disk.0.free_size", "=", instance_type.disk, 'G'), conflict="other", missing="other")
+            if instance_type.price:
+                system.addFeature(
+                    Feature("price", "=", instance_type.price), conflict="me", missing="other")
+            system.addFeature(Feature("instance_type", "=",
+                                      instance_type.name), conflict="other", missing="other")
 
-        system.addFeature(Feature("instance_type", "=",
-                                  instance_type.name), conflict="other", missing="other")
-
-    def get_image_id(self, path):
+    @staticmethod
+    def get_image_id(path):
         """
         Get the ID of the image to use from the location of the VMI
 
@@ -168,7 +183,7 @@ class LibCloudCloudConnector(CloudConnector):
            - path(str): URL with the location of the VMI
         Returns: a str with the ID
         """
-        return uriparse(path)[2][1:]
+        return urlparse(path)[2][1:]
 
     @staticmethod
     def driver_uses_keypair(driver):
@@ -300,27 +315,12 @@ class LibCloudCloudConnector(CloudConnector):
     def updateVMInfo(self, vm, auth_data):
         node = self.get_node_with_id(vm.id, auth_data)
         if node:
-            if node.state == NodeState.RUNNING or node.state == NodeState.REBOOTING:
-                res_state = VirtualMachine.RUNNING
-            elif node.state == NodeState.PENDING:
-                res_state = VirtualMachine.PENDING
-            elif node.state == NodeState.TERMINATED:
-                res_state = VirtualMachine.OFF
-            elif node.state == NodeState.STOPPED:
-                res_state = VirtualMachine.STOPPED
-            elif node.state == NodeState.ERROR:
-                res_state = VirtualMachine.FAILED
-            else:
-                res_state = VirtualMachine.UNKNOWN
-
-            vm.state = res_state
+            vm.state = self.VM_STATE_MAP.get(node.state, VirtualMachine.UNKNOWN)
 
             if node.size:
-                self.update_system_info_from_instance(
-                    vm.info.systems[0], node.size)
+                self.update_system_info_from_instance(vm.info.systems[0], node.size)
             else:
-                self.log_debug(
-                    "VM " + str(vm.id) + " has no node.size info. Not updating system info.")
+                self.log_debug("VM " + str(vm.id) + " has no node.size info. Not updating system info.")
 
             self.setIPsFromInstance(vm, node)
             self.attach_volumes(vm, node)
@@ -394,33 +394,27 @@ class LibCloudCloudConnector(CloudConnector):
                                 elastic_ip = ip
                     if elastic_ip is None:
                         elastic_ip = node.driver.ex_allocate_address()
-                    node.driver.ex_associate_address_with_node(
-                        node, elastic_ip)
+                    node.driver.ex_associate_address_with_node(node, elastic_ip)
                     return elastic_ip
                 elif node.driver.name == "OpenStack":
                     if node.driver.ex_list_floating_ip_pools():
                         pool = node.driver.ex_list_floating_ip_pools()[0]
                         if fixed_ip:
-                            floating_ip = node.driver.ex_get_floating_ip(
-                                fixed_ip)
+                            floating_ip = node.driver.ex_get_floating_ip(fixed_ip)
                         else:
                             floating_ip = pool.create_floating_ip()
-                        node.driver.ex_attach_floating_ip_to_node(
-                            node, floating_ip)
+                        node.driver.ex_attach_floating_ip_to_node(node, floating_ip)
                         return floating_ip
                     else:
-                        self.log_error(
-                            "Error adding a Floating IP: No pools available.")
+                        self.log_error("Error adding a Floating IP: No pools available.")
                         return None
                 else:
                     return None
             except Exception:
-                self.log_exception(
-                    "Error adding an Elastic/Floating IP to VM ID: " + str(vm.id))
+                self.log_exception("Error adding an Elastic/Floating IP to VM ID: " + str(vm.id))
                 return None
         else:
-            self.log_debug(
-                "The VM is not running, not adding an Elastic/Floating IP.")
+            self.log_debug("The VM is not running, not adding an Elastic/Floating IP.")
             return None
 
     def delete_elastic_ips(self, node, vm):
@@ -453,6 +447,7 @@ class LibCloudCloudConnector(CloudConnector):
                     if not found:
                         self.log_debug("Now release it")
                         node.driver.ex_release_address(elastic_ip)
+                return True, ""
             elif node.driver.name == "OpenStack":
                 for floating_ip in node.driver.ex_list_floating_ips():
                     if floating_ip.node_id == node.id:
@@ -461,8 +456,11 @@ class LibCloudCloudConnector(CloudConnector):
                         node.driver.ex_detach_floating_ip_from_node(node, floating_ip)
                         # delete the ip
                         floating_ip.delete()
-        except Exception:
+                return True, ""
+            return False, "Unsupported Driver %s" % node.driver.name
+        except Exception as ex:
             self.log_exception("Error removing Elastic/Floating IPs to VM ID: " + str(vm.id))
+            return False, "Error removing Elastic/Floating IPs: %s" % ex.args[0]
 
     def start(self, vm, auth_data):
         node = self.get_node_with_id(vm.id, auth_data)
@@ -519,7 +517,8 @@ class LibCloudCloudConnector(CloudConnector):
         else:
             return (False, "VM not found with id: " + vm.id)
 
-    def wait_volume(self, volume, state='available', timeout=60):
+    @staticmethod
+    def wait_volume(volume, state='available', timeout=60):
         """
         Wait a volume (with the state extra parameter) to be in certain state.
 
@@ -550,27 +549,32 @@ class LibCloudCloudConnector(CloudConnector):
            - vm(:py:class:`IM.VirtualMachine`): VM information.
            - node(:py:class:`libcloud.compute.base.Node`): node object.
         """
-        try:
-            if node.state == NodeState.RUNNING and "volumes" not in vm.__dict__.keys():
-                vm.volumes = []
-                cont = 1
-                while (vm.info.systems[0].getValue("disk." + str(cont) + ".size") or
-                       vm.info.systems[0].getValue("disk." + str(cont) + ".image.url")):
+        success = True
+        if node.state == NodeState.RUNNING and "volumes" not in vm.__dict__.keys():
+            vm.volumes = []
+            cont = 1
+            while (vm.info.systems[0].getValue("disk." + str(cont) + ".size") or
+                   vm.info.systems[0].getValue("disk." + str(cont) + ".image.url")):
+                volume = None
+                try:
                     disk_size = None
                     if vm.info.systems[0].getValue("disk." + str(cont) + ".size"):
                         disk_size = vm.info.systems[0].getFeature("disk." + str(cont) + ".size").getValue('G')
                     disk_device = vm.info.systems[0].getValue("disk." + str(cont) + ".device")
-                    disk_url = vm.info.systems[0].getValue("disk." + str(cont) + ".image.url")
                     if disk_device:
                         disk_device = "/dev/" + disk_device
+
+                    disk_url = vm.info.systems[0].getValue("disk." + str(cont) + ".image.url")
                     if disk_url:
                         volume_id = os.path.basename(disk_url)
                         try:
                             volume = node.driver.ex_get_volume(volume_id)
                             success = True
-                        except:
+                        except Exception as getex:
                             success = False
                             self.log_exception("Error getting volume ID %s" % volume_id)
+                            self.error_messages += "Error getting volume ID %s: %s\n" % (volume_id,
+                                                                                         getex.args[0])
                     else:
                         self.log_debug("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
                         volume_name = "im-%s" % str(uuid.uuid1())
@@ -581,6 +585,8 @@ class LibCloudCloudConnector(CloudConnector):
                         if success:
                             # Add the volume to the VM to remove it later
                             vm.volumes.append(volume.id)
+                        else:
+                            raise Exception("Error waiting the volume ID %s." % volume_id)
 
                     if success:
                         self.log_debug("Attach the volume ID " + str(volume.id))
@@ -592,20 +598,21 @@ class LibCloudCloudConnector(CloudConnector):
                         if 'attachments' in volume.extra and volume.extra['attachments']:
                             disk_device = volume.extra['attachments'][0]['device']
                             vm.info.systems[0].setValue("disk." + str(cont) + ".device", disk_device)
-                    else:
-                        self.log_error("Error waiting the volume ID not attaching to the VM.")
-                        if not disk_url:
-                            self.log_error("Destroying it.")
-                            volume.destroy()
 
-                    cont += 1
-            return True
-        except Exception:
-            self.log_exception(
-                "Error creating or attaching the volume to the node")
-            return False
+                except Exception as ex:
+                    self.log_exception("Error creating volume %s." % cont)
+                    self.error_messages += "Error creating volume %s: %s\n" % (cont, ex.args[0])
+                    success = False
+                    if volume and not disk_url:
+                        self.log_error("Destroying it.")
+                        volume.destroy()
 
-    def get_node_location(self, node):
+                cont += 1
+
+        return success
+
+    @staticmethod
+    def get_node_location(node):
         """
         Get the location of a node
         Currently only works in EC2
@@ -628,7 +635,8 @@ class LibCloudCloudConnector(CloudConnector):
            - vm(:py:class:`IM.VirtualMachine`): VM information.
            - timeout(int): Time needed to delete the volume.
         """
-        all_ok = True
+        alive_volumes = []
+        msg = ""
         if "volumes" in vm.__dict__.keys() and vm.volumes:
             for volumeid in vm.volumes:
                 self.log_debug("Deleting volume ID %s" % volumeid)
@@ -637,14 +645,19 @@ class LibCloudCloudConnector(CloudConnector):
                     success = self.wait_volume(volume, timeout=timeout)
                     if not success:
                         self.log_error("Error waiting the volume ID " + str(volume.id))
+                        msg += "Error waiting the volume %s. " % volume.id
                     success = volume.destroy()
                     if not success:
                         self.log_error("Error destroying the volume: " + str(volume.id))
-                except:
+                        msg += "Error destroying the volume %s. " % volume.id
+                except Exception as ex:
                     self.log_exception("Error destroying the volume: " + str(volume.id) +
                                        " from the node: " + str(vm.id))
                     success = False
+                    msg += "Error destroying the volume %s: %s. " % (volume.id, ex.args[0])
 
                 if not success:
-                    all_ok = False
-        return all_ok
+                    alive_volumes.append(volumeid)
+
+        vm.volumes = alive_volumes
+        return vm.volumes == [], msg

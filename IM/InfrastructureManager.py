@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import yaml
 import json
 import os
 import string
@@ -268,6 +269,11 @@ class InfrastructureManager:
         # Update infrastructure RADL with this new RADL
         # Add or update configures
         for s in radl.configures:
+            # first check that the YAML is correct
+            try:
+                yaml.safe_load(s.recipes)
+            except Exception as ex:
+                raise Exception("Error parsing YAML: %s" % str(ex))
             sel_inf.radl.add(s.clone(), "replace")
             InfrastructureManager.logger.info(
                 "Inf ID: " + sel_inf.id + ": " +
@@ -289,6 +295,30 @@ class InfrastructureManager:
                         (_, password, public_key, private_key) = new_creds
                         system.setCredentialValues(
                             password=password, public_key=public_key, private_key=private_key, new=True)
+
+                # The user has new applications
+                curr_apps = system.getValue("disk.0.applications")
+                curr_apps_names = {}
+                if curr_apps:
+                    for app_name in curr_apps.keys():
+                        orig_app_name = app_name
+                        if "," in app_name:
+                            # remove version substring
+                            pos = app_name.find(",")
+                            app_name = app_name[:pos]
+                        curr_apps_names[app_name] = orig_app_name
+
+                new_apps = new_system.getValue("disk.0.applications")
+                if new_apps:
+                    for app_name, app in new_apps.items():
+                        orig_app_name = app_name
+                        if "," in app_name:
+                            # remove version substring
+                            pos = app_name.find(",")
+                            app_name = app_name[:pos]
+                        if app_name in list(curr_apps_names.keys()):
+                            del curr_apps[curr_apps_names[app_name]]
+                        curr_apps[orig_app_name] = app
 
         # Stick all virtual machines to be reconfigured
         InfrastructureManager.logger.info("Contextualize the Inf ID: " + sel_inf.id)
@@ -1088,6 +1118,43 @@ class InfrastructureManager:
             return ""
 
     @staticmethod
+    def RebootVM(inf_id, vm_id, auth):
+        """
+        Reboot the specified virtual machine in an infrastructure
+
+        Args:
+
+        - inf_id(str): infrastructure id.
+        - vm_id(str): virtual machine id.
+        - auth(Authentication): parsed authentication tokens.
+
+        Return(str): error messages; empty string means all was ok.
+        """
+        # First check the auth data
+        auth = InfrastructureManager.check_auth_data(auth)
+
+        InfrastructureManager.logger.info(
+            "Rebooting the VM id %s from the Inf ID: %s" % (vm_id, inf_id))
+
+        vm = InfrastructureManager.get_vm_from_inf(inf_id, vm_id, auth)
+        success = False
+        try:
+            (success, msg) = vm.reboot(auth)
+        except Exception as e:
+            msg = str(e)
+
+        if not success:
+            InfrastructureManager.logger.info(
+                "Inf ID: " + str(inf_id) + ": " +
+                "The VM %s cannot be rebooted: %s" % (vm_id, msg))
+            raise Exception("Error rebooting the VM: %s" % msg)
+        else:
+            InfrastructureManager.logger.info(
+                "Inf ID: " + str(inf_id) + ": " +
+                "The VM %s successfully rebooted" % vm_id)
+            return ""
+
+    @staticmethod
     def DestroyInfrastructure(inf_id, auth):
         """
         Destroy all virtual machines in an infrastructure.
@@ -1232,6 +1299,9 @@ class InfrastructureManager:
         if not im_auth:
             raise IncorrectVMCrecentialsException("No credentials provided for the InfrastructureManager.")
 
+        if Config.FORCE_OIDC_AUTH and "token" not in im_auth[0]:
+            raise IncorrectVMCrecentialsException("No token provided for the InfrastructureManager.")
+
         # First check if an OIDC token is included
         if "token" in im_auth[0]:
             InfrastructureManager.check_oidc_token(im_auth[0])
@@ -1322,7 +1392,10 @@ class InfrastructureManager:
                         break
                 if all_failed:
                     # If all VMs has failed, destroy then inf and return the error
-                    inf.destroy(auth)
+                    try:
+                        inf.destroy(auth)
+                    except Exception as de:
+                        error_msg += "%s" % de
                     raise Exception(error_msg)
         except Exception as e:
             InfrastructureManager.logger.exception("Error Creating Inf ID " + str(inf.id))

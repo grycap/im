@@ -199,6 +199,50 @@ class TestAzureConnector(TestCloudConnectorBase):
         self.assertEquals(json_vm_req['os_profile']['admin_username'], 'user')
         self.assertEquals(json_vm_req['os_profile']['admin_password'], 'pass')
 
+        radl_data = """
+            network net1 (outbound = 'yes')
+            network net2 ()
+            system test (
+            cpu.arch='x86_64' and
+            cpu.count>=1 and
+            memory.size>=512m and
+            instance_tags = 'key=value,key1=value2' and
+            net_interface.0.connection = 'net1' and
+            net_interface.0.dns_name = 'test' and
+            net_interface.1.connection = 'net2' and
+            disk.0.os.name = 'linux' and
+            disk.0.image.url = 'azr://error/rgname/diskname' and
+            disk.0.os.credentials.username = 'user' and
+            disk.0.os.credentials.password = 'pass'
+            )"""
+        radl = radl_parse.parse_radl(radl_data)
+        radl.check()
+        with self.assertRaises(Exception) as ex:
+            azure_cloud.launch(inf, radl, radl, 1, auth)
+        self.assertEquals(str(ex.exception), "Incorrect image url: it must be snapshot or disk.")
+
+        radl_data = """
+            network net1 (outbound = 'yes')
+            network net2 ()
+            system test (
+            cpu.arch='x86_64' and
+            cpu.count>=1 and
+            memory.size>=512m and
+            instance_tags = 'key=value,key1=value2' and
+            net_interface.0.connection = 'net1' and
+            net_interface.0.dns_name = 'test' and
+            net_interface.1.connection = 'net2' and
+            disk.0.os.name = 'linux' and
+            disk.0.image.url = 'azr://snapshot/rgname/diskname' and
+            disk.0.os.credentials.username = 'user' and
+            disk.0.os.credentials.password = 'pass'
+            )"""
+        radl = radl_parse.parse_radl(radl_data)
+        radl.check()
+        res = azure_cloud.launch(inf, radl, radl, 1, auth)
+        json_vm_req = cclient.virtual_machines.create_or_update.call_args_list[5][0][2]
+        self.assertEquals(json_vm_req['storage_profile']['os_disk']['os_type'], 'linux')
+
     @patch('IM.connectors.Azure.NetworkManagementClient')
     @patch('IM.connectors.Azure.ComputeManagementClient')
     @patch('IM.connectors.Azure.DnsManagementClient')
@@ -308,6 +352,21 @@ class TestAzureConnector(TestCloudConnectorBase):
         success, _ = azure_cloud.start(vm, auth)
 
         self.assertTrue(success, msg="ERROR: stopping VM info.")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
+    @patch('IM.connectors.Azure.ComputeManagementClient')
+    @patch('IM.connectors.Azure.UserPassCredentials')
+    def test_52_reboot(self, credentials, compute_client):
+        auth = Authentication([{'id': 'azure', 'type': 'Azure', 'subscription_id': 'subscription_id',
+                                'username': 'user', 'password': 'password'}])
+        azure_cloud = self.get_azure_cloud()
+
+        inf = MagicMock()
+        vm = VirtualMachine(inf, "rg0/vm0", azure_cloud.cloud, "", "", azure_cloud, 1)
+
+        success, _ = azure_cloud.reboot(vm, auth)
+
+        self.assertTrue(success, msg="ERROR: rebooting VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('IM.connectors.Azure.ResourceManagementClient')

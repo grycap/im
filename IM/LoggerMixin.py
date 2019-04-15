@@ -14,10 +14,29 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import logging
 
-__all__ = ['auth', 'CloudInfo', 'config', 'ConfManager', 'db',
-           'InfrastructureInfo', 'InfrastructureManager', 'recipe', 'request', 'REST', 'retry',
-           'ServiceRequests', 'SSH', 'SSHRetry', 'timedcall', 'UnixHTTPAdapter',
-           'VirtualMachine', 'VMRC', 'xmlobject']
-__version__ = '1.8.3'
-__author__ = 'Miguel Caballer'
+
+class LoggerMixin(object):
+    """
+    Class add Inf ID in all log messages
+    """
+
+    def log_msg(self, level, msg, exc_info=0):
+        msg = "Inf ID: %s: %s" % (self.inf.id, msg)
+        self.logger.log(level, msg, exc_info=exc_info)
+
+    def log_error(self, msg):
+        self.log_msg(logging.ERROR, msg)
+
+    def log_debug(self, msg):
+        self.log_msg(logging.DEBUG, msg)
+
+    def log_warn(self, msg):
+        self.log_msg(logging.WARNING, msg)
+
+    def log_exception(self, msg):
+        self.log_msg(logging.ERROR, msg, exc_info=1)
+
+    def log_info(self, msg):
+        self.log_msg(logging.INFO, msg)

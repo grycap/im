@@ -2,7 +2,7 @@ swagger: '2.0'
 
 info:
   description: Infrastructure Manager (IM) REST API.
-  version: 1.7.6
+  version: 1.8.0
   title: Infrastructure Manager (IM) REST API
   contact:
     email: products@grycap.upv.es
@@ -712,7 +712,7 @@ paths:
       tags:
         - infrastructures
       summary: Stop a VM.
-      description: Perform the stop operation in the virtual machine VMId of the infrastructure InfId.
+      description: Perform the stop operation in the virtual machine VMId of the infrastructure InfId. The default behavior is suspending the VM if this operation is not available the VM will be stopped.
       operationId: StopVM
       produces:
       - text/plain
@@ -752,6 +752,44 @@ paths:
       summary: Start a VM.
       description: Perform the start operation in the (previuosly stopped) virtual machine VMId of the infrastructure InfId.
       operationId: StartVM
+      produces:
+      - text/plain
+      parameters:
+        - name: Authorization
+          in: header
+          description: |-
+            The Authentication header must provide the content of the [Authorization File](https://imdocs.readthedocs.io/en/latest/client.html#auth-file), but putting all the elements in one line using “\n” as separator.
+          required: true
+          type: string
+        - name: InfId
+          in: path
+          description: The ID of the specific infrastructure.
+          required: true
+          type: string
+        - name: VMId
+          in: path
+          description: The ID of the specific VM.
+          required: true
+          type: string
+      responses:
+        200:
+          description: successful operation
+        400:
+          description: Invalid status value
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden
+        404:
+          description: Not Found
+
+ /infrastructures/{InfId}/vms/{VMId}/reboot:
+    put:
+      tags:
+        - infrastructures
+      summary: Reboot a VM.
+      description: Perform the reboot operation in the virtual machine VMId of the infrastructure InfId.
+      operationId: RebootVM
       produces:
       - text/plain
       parameters:

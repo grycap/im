@@ -16,6 +16,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import sys
+import time
 import logging
 import threading
 
@@ -157,7 +158,7 @@ class InfrastructureList():
                 if db.db_type == DataBase.MYSQL:
                     db.execute("CREATE TABLE inf_list(rowid INTEGER NOT NULL AUTO_INCREMENT UNIQUE,"
                                " id VARCHAR(255) PRIMARY KEY, deleted INTEGER, date TIMESTAMP, data LONGBLOB)")
-                else:
+                elif db.db_type == DataBase.SQLITE:
                     db.execute("CREATE TABLE inf_list(id VARCHAR(255) PRIMARY KEY, deleted INTEGER,"
                                " date TIMESTAMP, data LONGBLOB)")
                 db.close()
@@ -179,19 +180,26 @@ class InfrastructureList():
             if db.connect():
                 inf_list = {}
                 if inf_id:
-                    res = db.select("select data from inf_list where id = %s", (inf_id,))
+                    if db.db_type == DataBase.MONGO:
+                        res = db.find("inf_list", {"id": inf_id}, {"data": True})
+                    else:
+                        res = db.select("select data from inf_list where id = %s", (inf_id,))
                 else:
-                    res = db.select("select data from inf_list where deleted = 0 order by id desc")
+                    if db.db_type == DataBase.MONGO:
+                        res = db.find("inf_list", {"deleted": 0}, {"data": True}, [('_id', -1)])
+                    else:
+                        res = db.select("select data from inf_list where deleted = 0 order by rowid desc")
                 if len(res) > 0:
                     for elem in res:
-                        # inf_id = elem[0]
-                        # date = elem[1]
-                        # deleted = elem[2]
+                        if db.db_type == DataBase.MONGO:
+                            data = elem['data']
+                        else:
+                            data = elem[0]
                         try:
                             if auth:
-                                inf = IM.InfrastructureInfo.InfrastructureInfo.deserialize_auth(elem[0])
+                                inf = IM.InfrastructureInfo.InfrastructureInfo.deserialize_auth(data)
                             else:
-                                inf = IM.InfrastructureInfo.InfrastructureInfo.deserialize(elem[0])
+                                inf = IM.InfrastructureInfo.InfrastructureInfo.deserialize(data)
                             inf_list[inf.id] = inf
                         except:
                             InfrastructureList.logger.exception(
@@ -217,8 +225,13 @@ class InfrastructureList():
                 infs_to_save = {inf_id: inf_list[inf_id]}
 
             for inf in infs_to_save.values():
-                res = db.execute("replace into inf_list (id, deleted, data, date) values (%s, %s, %s, now())",
-                                 (inf.id, int(inf.deleted), inf.serialize()))
+                data = inf.serialize()
+                if db.db_type == DataBase.MONGO:
+                    res = db.replace("inf_list", {"id": inf.id}, {"id": inf.id, "deleted": int(inf.deleted),
+                                                                  "data": data, "date": time.time()})
+                else:
+                    res = db.execute("replace into inf_list (id, deleted, data, date) values (%s, %s, %s, now())",
+                                     (inf.id, int(inf.deleted), data))
 
             db.close()
             return res
@@ -232,9 +245,15 @@ class InfrastructureList():
             db = DataBase(Config.DATA_DB)
             if db.connect():
                 inf_list = []
-                res = db.select("select id from inf_list where deleted = 0 order by rowid desc")
+                if db.db_type == DataBase.MONGO:
+                    res = db.find("inf_list", {"deleted": 0}, {"id": True}, [('id', -1)])
+                else:
+                    res = db.select("select id from inf_list where deleted = 0 order by rowid desc")
                 for elem in res:
-                    inf_list.append(elem[0])
+                    if db.db_type == DataBase.MONGO:
+                        inf_list.append(elem['id'])
+                    else:
+                        inf_list.append(elem[0])
 
                 db.close()
                 return inf_list
@@ -252,5 +271,8 @@ class InfrastructureList():
         InfrastructureList._lock = threading.Lock()
         db = DataBase(Config.DATA_DB)
         if db.connect():
-            db.execute("delete from inf_list")
+            if db.db_type == DataBase.MONGO:
+                db.delete("inf_list", {})
+            else:
+                db.execute("delete from inf_list")
             db.close()

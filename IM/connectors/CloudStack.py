@@ -26,7 +26,10 @@ except Exception as ex:
     print(ex)
 
 from .LibCloud import LibCloudCloudConnector
-from IM.uriparse import uriparse
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from radl.radl import Feature
 
@@ -58,7 +61,7 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
         """
         auths = auth_data.getAuthInfo(self.type, self.cloud.server)
         if not auths:
-            raise Exception("No auth data has been specified to OpenStack.")
+            raise Exception("No auth data has been specified to CloudStack.")
         else:
             auth = auths[0]
 
@@ -86,7 +89,7 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
                 return None
 
     def concrete_system(self, radl_system, str_url, auth_data):
-        url = uriparse(str_url)
+        url = urlparse(str_url)
         protocol = url[0]
         src_host = url[1].split(':')[0]
 
@@ -110,17 +113,10 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
         Update the features of the system with the information of the instance_type
         """
         if instance_type:
-            system.addFeature(Feature(
-                "memory.size", "=", instance_type.ram, 'M'), conflict="other", missing="other")
-            if instance_type.disk:
-                system.addFeature(Feature("disk.0.free_size", "=", instance_type.disk, 'G'),
-                                  conflict="other", missing="other")
+            LibCloudCloudConnector.update_system_info_from_instance(system, instance_type)
             if 'cpu' in instance_type.extra:
                 system.addFeature(Feature("cpu.count", "=", instance_type.extra['cpu']),
                                   conflict="other", missing="other")
-
-            system.addFeature(Feature("instance_type", "=",
-                                      instance_type.name), conflict="other", missing="other")
 
     def _get_security_group(self, driver, sg_name):
         try:
@@ -248,14 +244,7 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
             user = self.DEFAULT_USER
             system.setValue('disk.0.os.credentials.username', user)
 
-        tags = {}
-        if system.getValue('instance_tags'):
-            keypairs = system.getValue('instance_tags').split(",")
-            for keypair in keypairs:
-                parts = keypair.split("=")
-                key = parts[0].strip()
-                value = parts[1].strip()
-                tags[key] = value
+        tags = self.get_instance_tags(system)
 
         res = []
         i = 0
@@ -270,9 +259,11 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
             if cloud_init:
                 args['ex_userdata'] = cloud_init
 
+            msg = "Error creating the node"
             try:
                 node = driver.create_node(**args)
-            except:
+            except Exception as ex:
+                msg += ": %s" % str(ex)
                 self.log_exception("Error creating node.")
                 node = None
 
@@ -293,7 +284,7 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
                 inf.add_vm(vm)
                 res.append((True, vm))
             else:
-                res.append((False, "Error creating the node"))
+                res.append((False, msg))
 
             i += 1
 
@@ -419,6 +410,17 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
         else:
             return (False, "VM not found with id: " + vm.id)
 
+    def reboot(self, vm, auth_data):
+        node = self.get_node_with_id(vm.id, auth_data)
+        if node:
+            success = node.reboot_node()
+            if success:
+                return (True, "")
+            else:
+                return (False, "Error in reboot operation")
+        else:
+            return (False, "VM not found with id: " + vm.id)
+
     def alterVM(self, vm, radl, auth_data):
         node = self.get_node_with_id(vm.id, auth_data)
         if node:
@@ -455,29 +457,6 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
                 return (False, "Error in resize operation")
         else:
             return (False, "VM not found with id: " + vm.id)
-
-    def wait_volume(self, volume, state='available', timeout=60):
-        """
-        Wait a volume (with the state extra parameter) to be in certain state.
-
-        Arguments:
-           - volume(:py:class:`libcloud.compute.base.StorageVolume`): volume object or boolean.
-           - state(str): State to wait for (default value 'available').
-           - timeout(int): Max time to wait in seconds (default value 60).
-        """
-        if volume:
-            if 'state' in volume.extra:
-                cont = 0
-                err_states = ["error"]
-                while volume.extra['state'] != state and volume.extra['state'] not in err_states and cont < timeout:
-                    cont += 2
-                    time.sleep(2)
-                    volume = volume.driver.ex_get_volume(volume.id)
-                return volume.extra['state'] == state
-
-            return True
-        else:
-            return False
 
     def attach_volumes(self, vm, node):
         """
@@ -524,32 +503,3 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
         except Exception:
             self.log_exception("Error creating or attaching the volume to the node")
             return False
-
-    def delete_volumes(self, driver, vm, timeout=300):
-        """
-        Delete the volumes of a VM
-
-        Arguments:
-           - vm(:py:class:`IM.VirtualMachine`): VM information.
-           - timeout(int): Time needed to delete the volume.
-        """
-        all_ok = True
-        if "volumes" in vm.__dict__.keys() and vm.volumes:
-            for volumeid in vm.volumes:
-                self.log_debug("Deleting volume ID %s" % volumeid)
-                try:
-                    volume = driver.ex_get_volume(volumeid)
-                    success = self.wait_volume(volume, timeout=timeout)
-                    if not success:
-                        self.log_error("Error waiting the volume ID " + str(volume.id))
-                    success = volume.destroy()
-                    if not success:
-                        self.log_error("Error destroying the volume: " + str(volume.id))
-                except:
-                    self.log_exception("Error destroying the volume: " + str(volume.id) +
-                                       " from the node: " + str(vm.id))
-                    success = False
-
-                if not success:
-                    all_ok = False
-        return all_ok

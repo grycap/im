@@ -27,7 +27,10 @@ sys.path.append("..")
 sys.path.append(".")
 
 from IM.VirtualMachine import VirtualMachine
-from IM.uriparse import uriparse
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import urlparse
 from radl import radl_parse
 from IM import __version__ as version
 
@@ -96,7 +99,7 @@ class TestIM(unittest.TestCase):
         while not all_ok and wait < timeout:
             all_ok = True
             for vm_id in vm_ids:
-                vm_uri = uriparse(vm_id)
+                vm_uri = urlparse(vm_id)
                 resp = self.create_request("GET", vm_uri[2] + "/state")
                 vm_state = resp.text
 
@@ -195,7 +198,7 @@ class TestIM(unittest.TestCase):
                          msg="ERROR getting the infrastructure info:" + resp.text)
         vm_ids = resp.text.split("\n")
 
-        vm_uri = uriparse(vm_ids[0])
+        vm_uri = urlparse(vm_ids[0])
         resp = self.create_request("GET", vm_uri[2])
         self.assertEqual(resp.status_code, 200,
                          msg="ERROR getting VM info:" + resp.text)
@@ -205,7 +208,7 @@ class TestIM(unittest.TestCase):
         self.assertEqual(resp.status_code, 200, msg="ERROR getting the infrastructure info:" + resp.text)
         vm_ids = resp.text.split("\n")
 
-        vm_uri = uriparse(vm_ids[0])
+        vm_uri = urlparse(vm_ids[0])
         resp = self.create_request("GET", vm_uri[2] + "/contmsg")
         self.assertEqual(resp.status_code, 200, msg="ERROR getting VM contmsg:" + resp.text)
         self.assertEqual(len(resp.text), 0, msg="Incorrect VM contextualization message: " + resp.text)
@@ -236,7 +239,7 @@ class TestIM(unittest.TestCase):
                          msg="ERROR getting the infrastructure info:" + resp.text)
         vm_ids = resp.text.split("\n")
 
-        vm_uri = uriparse(vm_ids[0])
+        vm_uri = urlparse(vm_ids[0])
         resp = self.create_request("GET", vm_uri[2] + "/state")
         self.assertEqual(resp.status_code, 200,
                          msg="ERROR getting VM property:" + resp.text)
@@ -247,7 +250,7 @@ class TestIM(unittest.TestCase):
                          msg="ERROR getting the infrastructure info:" + resp.text)
         vm_ids = resp.text.split("\n")
 
-        vm_uri = uriparse(vm_ids[0])
+        vm_uri = urlparse(vm_ids[0])
         resp = self.create_request("PUT", vm_uri[2] + "/disks/0/snapshot?"
                                    "image_name=im-rest-test-image&auto_delete=yes")
         self.assertEqual(resp.status_code, 200,
@@ -288,7 +291,7 @@ class TestIM(unittest.TestCase):
                          msg="ERROR getting the infrastructure info:" + resp.text)
         vm_ids = resp.text.split("\n")
 
-        vm_uri = uriparse(vm_ids[1])
+        vm_uri = urlparse(vm_ids[1])
         resp = self.create_request("DELETE", vm_uri[2])
         self.assertEqual(resp.status_code, 200,
                          msg="ERROR removing resources:" + resp.text)
@@ -322,7 +325,7 @@ class TestIM(unittest.TestCase):
                          msg="ERROR getting the infrastructure info:" + resp.text)
         vm_ids = resp.text.split("\n")
 
-        vm_uri = uriparse(vm_ids[1])
+        vm_uri = urlparse(vm_ids[1])
         resp = self.create_request("DELETE", vm_uri[2] + "?context=0")
         self.assertEqual(resp.status_code, 200,
                          msg="ERROR removing resources:" + resp.text)
@@ -399,6 +402,19 @@ class TestIM(unittest.TestCase):
                                              VirtualMachine.RUNNING], ["/infrastructures/" + self.inf_id + "/vms/0"])
         self.assertTrue(
             all_configured, msg="ERROR waiting the vm to be started (timeout).")
+
+    def test_91_reboot_vm(self):
+        # To assure the VM is rebooted
+        time.sleep(10)
+
+        resp = self.create_request("PUT", "/infrastructures/" + self.inf_id + "/vms/0/reboot")
+        self.assertEqual(resp.status_code, 200,
+                         msg="ERROR rebooting the vm:" + resp.text)
+
+        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 60, [
+                                             VirtualMachine.RUNNING], ["/infrastructures/" + self.inf_id + "/vms/0"])
+        self.assertTrue(
+            all_configured, msg="ERROR waiting the vm to be rebooted (timeout).")
 
     def test_92_destroy(self):
         resp = self.create_request("DELETE", "/infrastructures/" + self.inf_id)

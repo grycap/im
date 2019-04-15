@@ -469,6 +469,21 @@ class TestIM(unittest.TestCase):
         self.assertTrue(
             all_configured, msg="ERROR waiting the vm to be started (timeout).")
 
+    def test_34_reboot_vm(self):
+        """
+        Test RebootVM function
+        """
+        (success, vm_ids) = self.server.GetInfrastructureInfo(
+            self.inf_id, self.auth_data)
+
+        (success, res) = self.server.RebootVM(self.inf_id, vm_ids[0], self.auth_data)
+        self.assertTrue(success, msg="ERROR calling RebootVM: " + str(res))
+
+        all_configured = self.wait_inf_state(
+            self.inf_id, VirtualMachine.CONFIGURED, 60, [VirtualMachine.RUNNING], [vm_ids[0]])
+        self.assertTrue(
+            all_configured, msg="ERROR waiting the vm to be rebooted (timeout).")
+
     def test_40_export_import(self):
         """
         Test ExportInfrastructure and ImportInfrastructure functions
@@ -493,7 +508,7 @@ class TestIM(unittest.TestCase):
 
     def test_60_create_no_context(self):
         """
-        Test the CreateInfrastructure IM function
+        Test the CreateInfrastructure IM function without context
         """
         radl = """
             network net ()
@@ -532,7 +547,7 @@ class TestIM(unittest.TestCase):
 
     def test_70_create_cloud_init(self):
         """
-        Test the CreateInfrastructure IM function
+        Test the CreateInfrastructure IM function with cloud init ctxt
         """
         radl = """
             network net ()

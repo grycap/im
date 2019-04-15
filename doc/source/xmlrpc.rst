@@ -264,7 +264,19 @@ This is the list of method names:
    Resume the specified virtual machine with ID ``vmId`` associated to the
    infrastructure with ID ``infId``, previously stopped by
    :ref:`StopInfrastructure <stopinfrastructure-xmlrpc>` or
-   :ref:`StopVM <stopvm-xmlrpc>`
+   :ref:`StopVM <stopvm-xmlrpc>`.
+
+.. _RebootVM-xmlrpc:
+
+``RebootVM``
+   :parameter 0: ``infId``: integer
+   :parameter 1: ``vmId``: integer
+   :parameter 2: ``auth``: array of structs
+   :ok response: [true, string of length zero]
+   :fail response: [false, ``error``: string]
+
+   Reboot the specified virtual machine with ID ``vmId`` associated to the
+   infrastructure with ID ``infId``.
 
 .. _Reconfigure-xmlrpc:
 

@@ -37,8 +37,8 @@ TESTS_PATH = os.path.dirname(os.path.realpath(__file__))
 AUTH_FILE = TESTS_PATH + '/auth.dat'
 HOSTNAME = "imservice"
 TEST_PORT = 8899
-MIN_SLEEP = 1
-MAX_SLEEP = 10
+MIN_SLEEP = 0
+MAX_SLEEP = 5
 
 
 class LoadTest(unittest.TestCase):
@@ -53,7 +53,9 @@ class LoadTest(unittest.TestCase):
         cls.auth_data = Authentication.read_auth_data(AUTH_FILE)
 
     @staticmethod
-    def wait(mint=MIN_SLEEP, maxt=MAX_SLEEP):
+    def wait():
+        mint = MIN_SLEEP
+        maxt = MAX_SLEEP
         delay = random.uniform(mint, maxt)
         time.sleep(delay)
 
@@ -124,8 +126,11 @@ if __name__ == '__main__':
     MAX_CLIENTS = 1
     DELAY = 1
 
+    if len(sys.argv) > 4:
+        MAX_SLEEP = float(sys.argv[4])
+        del sys.argv[4]
     if len(sys.argv) > 3:
-        DELAY = int(sys.argv[3])
+        DELAY = float(sys.argv[3])
         del sys.argv[3]
 
     if len(sys.argv) > 2:

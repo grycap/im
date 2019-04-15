@@ -3,32 +3,32 @@ network privada ( )
 
 system front (
 cpu.arch='x86_64' and
-cpu.count>=1 and
+cpu.count>=0.5 and
 memory.size>=512m and
 net_interface.1.connection = 'privada' and
 net_interface.0.connection = 'publica' and
 net_interface.0.dns_name = 'front' and
 disk.0.os.name='linux' and
 disk.0.os.flavour='ubuntu' and
-disk.0.os.version>='12.04' and
+disk.0.os.version>='16.04' and
 disk.0.os.credentials.username = 'ubuntu' and
 disk.0.os.credentials.password = 'Tututu+01' and
 disk.0.os.credentials.new.password = 'Tututu+01' and
-disk.0.image.url = 'docker://ubuntu:14.04'
+disk.0.image.url = 'docker://ubuntu:18.04'
 )
 
 system wn (
 cpu.arch='x86_64' and
-cpu.count>=1 and
+cpu.count>=0.5 and
 memory.size>=512m and
 net_interface.0.connection = 'privada' and
 disk.0.os.name='linux' and
 disk.0.os.flavour='ubuntu' and
-disk.0.os.version>='12.04' and
+disk.0.os.version>='16.04' and
 disk.0.os.credentials.username = 'ubuntu' and
 disk.0.os.credentials.password = 'Tututu+01' and
 disk.0.os.credentials.new.password = 'Tututu+01' and
-disk.0.image.url = 'docker://ubuntu:14.04'
+disk.0.image.url = 'docker://ubuntu:18.04'
 )
 
 configure test (

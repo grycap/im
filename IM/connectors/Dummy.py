@@ -68,6 +68,9 @@ class DummyCloudConnector(CloudConnector):
         vm.state = VirtualMachine.RUNNING
         return (True, "")
 
+    def reboot(self, vm, auth_data):
+        return (True, "")
+
     def alterVM(self, vm, radl, auth_data):
         if not radl.systems:
             return (True, "")
