@@ -502,3 +502,4 @@ IM 1.8.3:
     * Fix Keypairs left behind on OpenStack.
     * Handling of special characters in error messages from OpenStack.
     * Fix error adding two volumes to a VM in OCCI conn.
+    * Enable network creation in connectors EC2, OpenStack and GCE.
