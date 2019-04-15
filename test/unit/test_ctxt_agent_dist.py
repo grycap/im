@@ -175,7 +175,8 @@ class TestCtxtAgent(unittest.TestCase):
     @patch("contextualization.ctxt_agent_dist.SSHRetry.sftp_put")
     @patch("contextualization.ctxt_agent_dist.SSHRetry.sftp_mkdir")
     @patch("contextualization.ctxt_agent_dist.SSHRetry.sftp_put_dir")
-    def test_contextualize_vm(self, sftp_put_dir, sftp_mkdir, sftp_put, execute, test_connectivity):
+    @patch("paramiko.RSAKey.from_private_key")
+    def test_contextualize_vm(self, from_private_key, sftp_put_dir, sftp_mkdir, sftp_put, execute, test_connectivity):
         ctxt_agent = CtxtAgent("/tmp/gconf.dat", "/tmp/conf.dat")
         ctxt_agent.logger = self.logger
         ctxt_agent.changeVMCredentials = MagicMock()
@@ -214,7 +215,6 @@ class TestCtxtAgent(unittest.TestCase):
             if vm['id'] == self.gen_vm_conf(["main", "front"])['id']:
                 ctxt_vm = vm
 
-        ctxt_agent.PK_FILE = None
         res = ctxt_agent.contextualize_vm(self.gen_general_conf(), self.gen_vm_conf(["main", "front"]), ctxt_vm, 0)
         expected_res = {'OK': True, 'front': True, 'main': True}
         self.assertEqual(res, expected_res)
