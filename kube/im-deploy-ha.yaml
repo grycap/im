@@ -476,8 +476,8 @@ spec:
       serviceAccountName: im-ingress-controller
       containers:
       - name: haproxy-ingress
-        #image: grycap/haproxy-ingress-im
-        image: quay.io/jcmoraisjr/haproxy-ingress
+        #image: nirmata/haproxy-ingress
+        image: quay.io/jcmoraisjr/haproxy-ingress:v0.6.3
         args:
         - --default-backend-service=$(POD_NAMESPACE)/im-backend
         - --configmap=$(POD_NAMESPACE)/haproxy-ingress
