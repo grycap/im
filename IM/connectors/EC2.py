@@ -812,7 +812,8 @@ class EC2CloudConnector(CloudConnector):
             conn.delete_volume(volume.id)
             return None
 
-    def get_volumes(self, vm):
+    @staticmethod
+    def get_volumes(vm):
         """
         Create the required volumes (in the RADL) for the VM.
 
