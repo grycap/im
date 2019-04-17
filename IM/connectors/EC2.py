@@ -674,14 +674,14 @@ class EC2CloudConnector(CloudConnector):
             inf.add_vm(vm)
             user_data = self.get_cloud_init_data(radl, vm, public_key, user)
 
-            volumes = self.create_volumes(conn, placement, vm)
-
             bdm = boto.ec2.blockdevicemapping.BlockDeviceMapping(conn)
             # Force to use magnetic volumes in root device
             bdm[block_device_name] = boto.ec2.blockdevicemapping.BlockDeviceType(volume_type="standard",
                                                                                  delete_on_termination=True)
-            for device, (vol_id, size) in volumes.items():
-                bdm[device] = boto.ec2.blockdevicemapping.BlockDeviceType(volume_id=vol_id, size=size,
+
+            volumes = self.get_volumes(vm)
+            for device, (size, disk_type) in volumes.items():
+                bdm[device] = boto.ec2.blockdevicemapping.BlockDeviceType(size=size, volume_type=disk_type,
                                                                           delete_on_termination=True)
 
             err_msg = "Launching in region %s with image: %s" % (region_name, ami)
@@ -731,10 +731,6 @@ class EC2CloudConnector(CloudConnector):
                         vm.destroy = False
                         res.append((True, vm))
                     else:
-                        try:
-                            self.delete_vm_volumes(conn, vm)
-                        except:
-                            self.log_exception("Error deleting created volumes.")
                         res.append((False, "Error %s." % err_msg))
                 else:
                     self.log_info("Launching ondemand instance")
@@ -766,18 +762,10 @@ class EC2CloudConnector(CloudConnector):
                         res.append((True, vm))
                         all_failed = False
                     else:
-                        try:
-                            self.delete_vm_volumes(conn, vm)
-                        except:
-                            self.log_exception("Error deleting created volumes.")
                         res.append((False, "Error %s." % err_msg))
 
             except Exception as ex:
                 self.log_exception("Error %s." % err_msg)
-                try:
-                    self.delete_vm_volumes(conn, vm)
-                except:
-                    self.log_exception("Error deleting created volumes.")
                 res.append((False, "Error %s. %s" % (err_msg, str(ex))))
 
             i += 1
@@ -824,13 +812,11 @@ class EC2CloudConnector(CloudConnector):
             conn.delete_volume(volume.id)
             return None
 
-    def create_volumes(self, conn, placement, vm):
+    def get_volumes(self, vm):
         """
         Create the required volumes (in the RADL) for the VM.
 
         Arguments:
-           - conn(:py:class:`boto.ec2.connection`): object to connect to EC2 API.
-           - placement(str): AWS zone.
            - vm(:py:class:`IM.VirtualMachine`): VM to modify.
         """
         res = {}
@@ -841,91 +827,13 @@ class EC2CloudConnector(CloudConnector):
             disk_size = vm.info.systems[0].getFeature("disk." + str(cont) + ".size").getValue('G')
             disk_device = vm.info.systems[0].getValue("disk." + str(cont) + ".device")
             disk_type = vm.info.systems[0].getValue("disk." + str(cont) + ".type")
-            volume = None
-            try:
-                volumes = conn.get_all_volumes(filters={"tag:IM-INFRA-ID": vm.inf.id,
-                                                        "tag:IM-VM-ID": vm.im_id,
-                                                        "tag:IM-DISK-ID": cont})
-                if not volumes:
-                    self.log_info("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
-                    volume = self.create_volume(conn, int(disk_size), placement, disk_type)
-                    if volume:
-                        volume.add_tag("IM-INFRA-ID", vm.inf.id)
-                        volume.add_tag("IM-VM-ID", vm.im_id)
-                        volume.add_tag("IM-DISK-ID", cont)
-                else:
-                    volume = volumes[0]
-                    self.log_debug("Volume %s already exists." % volume.id)
-                # Allways use sd as the device prefix
-                # https://docs.aws.amazon.com/es_es/AWSEC2/latest/UserGuide/device_naming.html
-                disk_device = "sd%s" % disk_device[-1]
-                res["/dev/" + disk_device] = (volume.id, disk_size)
-            except Exception as ex:
-                self.error_messages += "Error creating the volume: %s\n" % ex
-                self.log_exception("Error creating the volume")
+            # Allways use sd as the device prefix
+            # https://docs.aws.amazon.com/es_es/AWSEC2/latest/UserGuide/device_naming.html
+            disk_device = "sd%s" % disk_device[-1]
+            res["/dev/" + disk_device] = (disk_size, disk_type)
             cont += 1
 
         return res
-
-    def delete_inf_volumes(self, conn, inf, timeout=240):
-        """
-        Delete the volumes specified in the volumes list
-
-        Arguments:
-           - conn(:py:class:`boto.ec2.connection`): object to connect to EC2 API.
-           - vm(:py:class:`IM.VirtualMachine`): VM information.
-           - timeout(int): Time needed to delete the volume.
-        """
-        volumes = conn.get_all_volumes(filters={"tag:IM-INFRA-ID": inf.id})
-        return self.delete_volumes(conn, volumes, timeout)
-
-    def delete_vm_volumes(self, conn, vm, timeout=240):
-        """
-        Delete the volumes related with the specified VM
-
-        Arguments:
-           - conn(:py:class:`boto.ec2.connection`): object to connect to EC2 API.
-           - vm(:py:class:`IM.VirtualMachine`): VM information.
-           - timeout(int): Time needed to delete the volume.
-        """
-        volumes = conn.get_all_volumes(filters={"tag:IM-INFRA-ID": vm.inf.id,
-                                                "tag:IM-VM-ID": vm.im_id})
-        return self.delete_volumes(conn, volumes, timeout)
-
-    def delete_volumes(self, conn, volumes, timeout=240):
-        """
-        Delete the volumes specified in the volumes list
-
-        Arguments:
-           - volumes(list): List of EC2 Volume objects.
-           - timeout(int): Time needed to delete the volume.
-        """
-        for curr_vol in volumes:
-            cont = 0
-            deleted = False
-            while not deleted and cont < timeout:
-                cont += 2
-                try:
-                    curr_vol.update()
-                    if str(curr_vol.attachment_state()) == "attached":
-                        self.log_info("Detaching the volume " + curr_vol.id + " from the instance.")
-                        conn.detach_volume(curr_vol.id, curr_vol.attach_data.instance_id, force=True)
-
-                    if curr_vol.attachment_state() is None:
-                        self.log_info("Removing the volume " + curr_vol.id)
-                        conn.delete_volume(curr_vol.id)
-                        deleted = True
-                    else:
-                        self.log_info("State: " + str(curr_vol.attachment_state()))
-                except Exception as ex:
-                    self.log_warn("Error removing the volume: " + str(ex))
-
-                if not deleted:
-                    time.sleep(2)
-
-            if not deleted:
-                self.log_error("Timeout (%s) removing the volume %s" % (timeout, curr_vol.id))
-                raise Exception("Timeout (%s) removing the volume %s" % (timeout, curr_vol.id))
 
     # Get the EC2 instance object with the specified ID
     def get_instance_by_id(self, instance_id, region_name, auth_data):
@@ -1438,13 +1346,6 @@ class EC2CloudConnector(CloudConnector):
 
         # if this is the last VM
         if last:
-            # Delete the EBS volumes
-            try:
-                self.delete_inf_volumes(conn, vm.inf)
-            except Exception as ex:
-                self.log_exception("Error deleting EBS volumes")
-                error_msg += "Error deleting EBS volumes: %s. " % ex
-
             # Delete the SG
             try:
                 self.delete_security_groups(conn, vm)
