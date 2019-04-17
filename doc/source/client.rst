@@ -291,13 +291,57 @@ OpenStack has a set of additional fields to access a cloud site:
   flow involves hitting the auth service (Keystone) with the provided username and password and requesting an
   authentication token.
 
+OpenID Connect OpenStack sites
+++++++++++++++++++++++++++++++
+
+To connect with OpenStack sites that supports `OpenID Connect <https://docs.openstack.org/keystone/pike/advanced-topics/federation/openidc.html>`_
+some of the previous parameters has a diferent meaning:
+
+* username: Specifies the identity provider.
+* tenant: Specifies the authentication protocol to use (tipically ``oidc`` or ``openid``).
+* password: Specifies the OpenID access token.
+
+So the auth line will be like that::
+
+   id = ost; type = OpenStack; host = https://ostserver:5000; username = indentity_provider; tenant = oidc; password = access_token_value; auth_version = 3.x_oidc_access_token
+
+
+INDIGO specific parameters
+***************************
+
+To use the INDIGO IAM to authenticate with a Keystone server properly configured following this 
+`guidelines <https://indigo-dc.gitbooks.io/openid-keystone/content/indigo-configuration.html>`_.
+In this case the OpenID parameters are the following:
+
+* username: ``indigo-dc``.
+* tenant: ``oidc``.
+* password: Specifies the INDIGO IAM access token.
+
+So the auth line will be like that::
+
+   id = ost; type = OpenStack; host = https://ostserver:5000; username = indigo-dc; tenant = oidc; password = iam_token_value; auth_version = 3.x_oidc_access_token
+
+EGI FedCloud specific parameters
+*******************************
+
+To use the EGI CheckIn to authenticate with a Keystone server properly configured the parameters are the following:
+
+* username: ``egi.eu``.
+* tenant: ``oidc``.
+* password: Specifies the EGI CheckIn access token.
+
+So the auth line will be like that::
+
+   id = ost; type = OpenStack; host = https://ostserver:5000; username = indigo-dc; tenant = oidc; password = iam_token_value; auth_version = 3.x_oidc_access_token
+
+
 Open Telekom Cloud
 ++++++++++++++++++
 
 The Open Telekom Cloud (OTC) is the cloud provided by T-Systems. It is based on OpenStack and it can be accessed
-using the OpenStack IM connector using an authorization line similar to the following example:
+using the OpenStack IM connector using an authorization line similar to the following example::
 
-id = otc; type = OpenStack; host = https://iam.eu-de.otc.t-systems.com:443 ; username = user; password = pass; tenant = tenant; domain = domain; auth_version = 3.x_password; service_name = None; service_region = eu-de
+   id = otc; type = OpenStack; host = https://iam.eu-de.otc.t-systems.com:443 ; username = user; password = pass; tenant = tenant; domain = domain; auth_version = 3.x_password; service_name = None; service_region = eu-de
 
 You can get the username, password, tenant and domain values from the ``My Credentials`` section of your OTC access. 
 
@@ -312,7 +356,9 @@ An example of the auth file::
    id = ost; type = OpenStack; host = https://ostserver:5000; username = user; password = pass; tenant = tenant
    # OpenStack site using VOMS proxy authentication
    id = ostvoms; type = OpenStack; proxy = file(/tmp/proxy.pem); host = https://keystone:5000; tenant = tname
-   # IM auth data 
+   #  OpenStack site using OpenID authentication
+   id = ost; type = OpenStack; host = https://ostserver:5000; username = indentity_provider; tenant = oidc; password = access_token_value; auth_version = 3.x_oidc_access_token
+   # IM auth data
    id = im; type = InfrastructureManager; username = user; password = pass
    # VMRC auth data
    id = vmrc; type = VMRC; host = http://server:8080/vmrc; username = user; password = pass
@@ -345,19 +391,3 @@ An example of the auth file::
 IM Server does not store the credentials used in the creation of
 infrastructures. Then the user has to provide them in every call of
 :program:`im_client`.
-
-INDIGO IAM specific parameters
-...............................
-
-To use the INDIGO IAM to authenticate with a Keystone server properly configured following this 
-`guidelines <https://indigo-dc.gitbooks.io/openid-keystone/content/indigo-configuration.html>`_, some of 
-the previous parameters has a diferent meaning:
-
-* username: Specifies the identity provider. It must be: ``indigo-dc``.
-* tenant: Specifies the authentication protocol to use. It must be: ``oidc``.
-* password: Specifies the INDIGO IAM token.
-
-So the auth line will be like that::
-
-   id = ost; type = OpenStack; host = https://ostserver:5000; username = indigo-dc; tenant = oidc; password = iam_token_value; auth_version = 3.x_oidc_access_token
-
