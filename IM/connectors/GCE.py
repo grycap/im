@@ -427,7 +427,7 @@ class GCECloudConnector(LibCloudCloudConnector):
 
         return True
 
-    def gen_disks_gce_struct(self, radl, driver, inf, location):
+    def gen_disks_gce_struct(self, radl, driver, inf, image, location):
         """
         Return the required volumes (in the RADL) to be attached to the launched node
 
@@ -435,12 +435,27 @@ class GCECloudConnector(LibCloudCloudConnector):
            - radl(RADL): RADL document.
            - driver: libCloud driver object
            - inf: Infrastructure info
+           - image: image object
            - location: disks location
         Returns: A list of dicts as expected by the ex_disks_gce_struct
         See: https://cloud.google.com/compute/docs/reference/rest/v1/instances
         "disks" section
         """
-        res = []
+        boot_disk_name = "bootd-%s" % uuid.uuid1()
+        boot_disk = {
+            'autoDelete': True,
+            'boot': True,
+            'type': 'PERSISTENT',
+            'mode': 'READ_WRITE',
+            'deviceName': boot_disk_name,
+            'initializeParams': {
+                'diskName': boot_disk_name,
+                'diskType': driver.ex_get_disktype('pd-standard', zone=location).extra['selfLink'],
+                'sourceImage': image.extra['selfLink']
+            }
+        }
+
+        res = [boot_disk]
         cont = 1
         while ((radl.systems[0].getValue("disk." + str(cont) + ".size") or
                 radl.systems[0].getValue("disk." + str(cont) + ".image.url")) and
@@ -458,7 +473,9 @@ class GCECloudConnector(LibCloudCloudConnector):
 
             if disk_url:
                 # If the user has specified the volume name, try to get it
-                volume = driver.ex_get_volume(os.path.basename(disk_url), zone=location)
+                region, image_id = self.get_image_data(disk_url)
+                location = driver.ex_get_zone(region)
+                volume = driver.ex_get_volume(image_id, zone=location)
                 disk['source'] = volume.extra['selfLink']
                 disk['autoDelete'] = False
             else:
@@ -536,6 +553,9 @@ class GCECloudConnector(LibCloudCloudConnector):
         if metadata:
             args['ex_metadata'] = metadata
 
+        # Create the info about disks
+        args['ex_disks_gce_struct'] = self.gen_disks_gce_struct(radl, driver, inf, image, region)
+
         with inf._lock:
             self.create_networks(driver, radl, inf)
 
@@ -556,22 +576,6 @@ class GCECloudConnector(LibCloudCloudConnector):
                     raise Exception("A fixed IP cannot be specified to a set of nodes (deploy is higher than 1)")
 
                 args['external_ip'] = driver.ex_create_address(name="im-" + fixed_ip, region=region, address=fixed_ip)
-
-        boot_disk_name = "bootd-%s" % uuid.uuid1()
-        boot_disk = {
-            'autoDelete': True,
-            'boot': True,
-            'type': 'PERSISTENT',
-            'mode': 'READ_WRITE',
-            'deviceName': boot_disk_name,
-            'initializeParams': {
-                'diskName': boot_disk_name,
-                'diskType': driver.ex_get_disktype('pd-standard', zone=region).extra['selfLink'],
-                'sourceImage': image.extra['selfLink']
-            }
-        }
-        args['ex_disks_gce_struct'] = [boot_disk]
-        args['ex_disks_gce_struct'].extend(self.gen_disks_gce_struct(radl, driver, inf, region))
 
         res = []
         error_msg = "Error launching VM."
