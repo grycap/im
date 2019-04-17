@@ -324,7 +324,8 @@ So the auth line will be like that::
 EGI FedCloud specific parameters
 *******************************
 
-To use the EGI CheckIn to authenticate with a Keystone server properly configured the parameters are the following:
+To use the EGI CheckIn to authenticate with a Keystone server properly configured the parameters are the following (see
+more info at `EGI Wiki <https://wiki.egi.eu/wiki/Federated_Cloud_OpenStack_Providers>`_):
 
 * username: ``egi.eu``.
 * tenant: ``oidc``.
