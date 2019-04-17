@@ -856,6 +856,9 @@ class EC2CloudConnector(CloudConnector):
                 else:
                     volume = volumes[0]
                     self.log_debug("Volume %s already exists." % volume.id)
+                # Allways use sd as the device prefix
+                # https://docs.aws.amazon.com/es_es/AWSEC2/latest/UserGuide/device_naming.html
+                disk_device = "sd%s" % disk_device[-1]
                 res["/dev/" + disk_device] = (volume.id, disk_size)
             except Exception as ex:
                 self.error_messages += "Error creating the volume: %s\n" % ex
@@ -1041,6 +1044,7 @@ class EC2CloudConnector(CloudConnector):
                         self.log_info("It is attached. Wait.")
                         time.sleep(3)
 
+                    address = conn.get_all_addresses(filters={"public-ip": pub_ip})[0]
                     self.log_info("Now release it.")
                     address.release()
 

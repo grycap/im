@@ -23,7 +23,7 @@ try:
     from libcloud.compute.types import Provider
     from libcloud.compute.providers import get_driver
     from libcloud.compute.base import NodeImage, NodeAuthSSHKey
-    from libcloud.compute.drivers.openstack import OpenStack_2_SubNet
+    from libcloud.compute.drivers.openstack import OpenStack_2_NodeDriver, OpenStack_2_SubNet
 except Exception as ex:
     print("WARN: libcloud library not correctly installed. OpenStackCloudConnector will not work!.")
     print(ex)
@@ -93,13 +93,21 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             protocol = self.cloud.protocol
             if not protocol:
                 protocol = "http"
+            port = self.cloud.port
+            if port == -1:
+                if protocol == "http":
+                    port = 80
+                elif protocol == "https":
+                    port = 443
+                else:
+                    raise Exception("Invalid port/protocol specified for OpenStack site: %s" % self.cloud.server)
 
             parameters = {"auth_version": '2.0_password',
-                          "auth_url": protocol + "://" + self.cloud.server + ":" + str(self.cloud.port),
+                          "auth_url": protocol + "://" + self.cloud.server + ":" + str(port),
                           "auth_token": None,
                           "service_type": None,
                           "service_name": None,
-                          "service_region": 'RegionOne',
+                          "service_region": None,
                           "base_url": None,
                           "network_url": None,
                           "image_url": None,
@@ -165,6 +173,14 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             # Workaround to OTC to enable to set service_name as None
             if parameters["service_name"] == "None":
                 driver.connection.service_name = None
+            # Workaround to unset default service_region (RegionOne)
+            if parameters["service_region"] is None:
+                driver.connection.service_region = None
+                if isinstance(driver, OpenStack_2_NodeDriver):
+                    driver.connection.service_region = None
+                    driver.image_connection.service_region = None
+                    driver.network_connection.service_region = None
+                    driver.volumev2_connection.service_region = None
 
             self.driver = driver
             return driver

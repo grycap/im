@@ -750,6 +750,7 @@ class GCECloudConnector(LibCloudCloudConnector):
                         # If the user has specified the volume name, try to get it
                         volume = node.driver.ex_get_volume(os.path.basename(disk_url), zone=location)
                         try:
+                            self.log_info("Attach the volume ID " + str(volume.id))
                             volume.attach(node, disk_device)
                         except Exception as attex:
                             self.log_exception("Error attaching the volume ID %s." % volume.id)
