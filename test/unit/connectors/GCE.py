@@ -107,7 +107,10 @@ class TestGCEConnector(TestCloudConnectorBase):
             disk.0.os.credentials.username = 'user' and
             disk.1.size=1GB and
             disk.1.device='hdb' and
-            disk.1.mount_path='/mnt/path'
+            disk.1.mount_path='/mnt/path' and
+            disk.2.image.url='gce://us-central1-a/somedisk' and
+            disk.2.device='hdc' and
+            disk.2.mount_path='/mnt2/path'
             )"""
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
@@ -130,7 +133,9 @@ class TestGCEConnector(TestCloudConnectorBase):
         node_size.extra = {'guestCpus': 1}
         driver.list_sizes.return_value = [node_size]
 
-        driver.ex_get_image.return_value = "image"
+        image = MagicMock()
+        image.extra['selfLink'] = "image_selfLink"
+        driver.ex_get_image.return_value = image
         driver.ex_create_address.return_value = "ip"
         net = MagicMock()
         net.name = "default"
@@ -157,6 +162,10 @@ class TestGCEConnector(TestCloudConnectorBase):
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a single VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+        self.assertEqual(driver.create_node.call_args_list[0][1]['ex_disks_gce_struct'][1]['deviceName'], "hdb")
+        self.assertEqual(driver.create_node.call_args_list[0][1]['ex_disks_gce_struct'][1]['autoDelete'], True)
+        self.assertEqual(driver.create_node.call_args_list[0][1]['ex_disks_gce_struct'][2]['deviceName'], "hdc")
+        self.assertEqual(driver.create_node.call_args_list[0][1]['ex_disks_gce_struct'][2]['autoDelete'], False)
 
         inf = InfrastructureInfo()
         inf.auth = auth
@@ -210,13 +219,7 @@ class TestGCEConnector(TestCloudConnectorBase):
             net_interface.0.dns_name = 'test.domain.com' and
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'gce://us-central1-a/centos-6' and
-            disk.0.os.credentials.username = 'user' and
-            disk.1.size=1GB and
-            disk.1.device='hdb' and
-            disk.1.mount_path='/mnt/path' and
-            disk.2.image.url='vol2' and
-            disk.2.device='hdc' and
-            disk.2.mount_path='/mnt/path1'
+            disk.0.os.credentials.username = 'user'
             )"""
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
@@ -246,16 +249,6 @@ class TestGCEConnector(TestCloudConnectorBase):
         node.size = NodeSize("1", "name1", 512, 1, None, None, driver)
         driver.ex_get_node.return_value = node
 
-        volume = MagicMock()
-        volume.id = "vol1"
-        volume.attach.return_value = True
-        volume.extra = {'status': 'READY'}
-        driver.create_volume.return_value = volume
-        volume2 = MagicMock()
-        volume2.id = "vol2"
-        volume2.attach.return_value = True
-        driver.ex_get_volume.return_value = volume2
-
         dns_driver.iterate_zones.return_value = []
         dns_driver.iterate_records.return_value = []
 
@@ -269,8 +262,6 @@ class TestGCEConnector(TestCloudConnectorBase):
         self.assertEquals(dns_driver.create_record.call_args_list[0][0][0], 'test.domain.com.')
         self.assertEquals(dns_driver.create_record.call_args_list[0][0][2], 'A')
         self.assertEquals(dns_driver.create_record.call_args_list[0][0][3], {'rrdatas': ['158.42.1.1'], 'ttl': 300})
-        self.assertEquals(volume.attach.call_args_list, [call(node, 'hdb')])
-        self.assertEquals(volume2.attach.call_args_list, [call(node, 'hdc')])
 
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 

@@ -427,6 +427,54 @@ class GCECloudConnector(LibCloudCloudConnector):
 
         return True
 
+    def gen_disks_gce_struct(self, radl, driver, inf, location):
+        """
+        Return the required volumes (in the RADL) to be attached to the launched node
+
+        Arguments:
+           - radl(RADL): RADL document.
+           - driver: libCloud driver object
+           - inf: Infrastructure info
+           - location: disks location
+        Returns: A list of dicts as expected by the ex_disks_gce_struct
+        See: https://cloud.google.com/compute/docs/reference/rest/v1/instances
+        "disks" section
+        """
+        res = []
+        cont = 1
+        while ((radl.systems[0].getValue("disk." + str(cont) + ".size") or
+                radl.systems[0].getValue("disk." + str(cont) + ".image.url")) and
+                radl.systems[0].getValue("disk." + str(cont) + ".device")):
+            disk_url = radl.systems[0].getValue("disk." + str(cont) + ".image.url")
+            disk_device = radl.systems[0].getValue("disk." + str(cont) + ".device")
+            disk_type = radl.systems[0].getValue("disk." + str(cont) + ".type")
+            if not disk_type:
+                disk_type = 'pd-standard'
+
+            disk = {'boot': False,
+                    'type': 'PERSISTENT',
+                    'mode': 'READ_WRITE',
+                    'deviceName': disk_device}
+
+            if disk_url:
+                # If the user has specified the volume name, try to get it
+                volume = driver.ex_get_volume(os.path.basename(disk_url), zone=location)
+                disk['source'] = volume.extra['selfLink']
+                disk['autoDelete'] = False
+            else:
+                disk_size = radl.systems[0].getFeature("disk." + str(cont) + ".size").getValue('G')
+                disk['autoDelete'] = True
+                disk['initializeParams'] = {'diskName': "im-%s-%s" % (inf.id, str(cont)),
+                                            'diskSizeGb': str(disk_size),
+                                            'diskType': driver.ex_get_disktype(disk_type,
+                                                                               zone=location).extra['selfLink']}
+
+            res.append(disk)
+
+            cont += 1
+
+        return res
+
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         system = radl.systems[0]
         region, image_id = self.get_image_data(system.getValue("disk.0.image.url"))
@@ -509,6 +557,22 @@ class GCECloudConnector(LibCloudCloudConnector):
 
                 args['external_ip'] = driver.ex_create_address(name="im-" + fixed_ip, region=region, address=fixed_ip)
 
+        boot_disk_name = "bootd-%s" % uuid.uuid1()
+        boot_disk = {
+            'autoDelete': True,
+            'boot': True,
+            'type': 'PERSISTENT',
+            'mode': 'READ_WRITE',
+            'deviceName': boot_disk_name,
+            'initializeParams': {
+                'diskName': boot_disk_name,
+                'diskType': driver.ex_get_disktype('pd-standard', zone=region).extra['selfLink'],
+                'sourceImage': image.extra['selfLink']
+            }
+        }
+        args['ex_disks_gce_struct'] = [boot_disk]
+        args['ex_disks_gce_struct'].extend(self.gen_disks_gce_struct(radl, driver, inf, region))
+
         res = []
         error_msg = "Error launching VM."
         if num_vm > 1:
@@ -578,7 +642,6 @@ class GCECloudConnector(LibCloudCloudConnector):
 
         if node:
             success = node.destroy()
-            self.delete_node_disks(node, vm.inf)
             self.del_dns_entries(vm, auth_data)
 
             if not success:
@@ -592,7 +655,6 @@ class GCECloudConnector(LibCloudCloudConnector):
             self.delete_firewall(vm, auth_data)
             driver = self.get_driver(auth_data)
             self.delete_networks(driver, vm.inf)
-            self.delete_disks(driver, vm.inf)
 
         return (True, "")
 
@@ -617,59 +679,6 @@ class GCECloudConnector(LibCloudCloudConnector):
         if firewall:
             firewall.destroy()
             self.log_info("Firewall %s successfully deleted." % firewall_name)
-
-    def delete_disks(self, driver, inf):
-        """
-        Assure to delete all the remaining disks
-        """
-        for vol in driver.list_volumes():
-            if vol.name.startswith("im-%s-" % inf.id):
-                try:
-                    vol.detach()
-                    time.sleep(2)
-                except Exception as ex:
-                    self.log_warn("Error detaching volume %s: %s." % (vol.name, ex))
-
-                self.log_info("Deleting volume %s." % vol.name)
-                vol.destroy()
-
-    def delete_node_disks(self, node, inf):
-        """
-        Delete the disks of a node
-
-        Arguments:
-           - node(:py:class:`libcloud.compute.base.Node`): node object.
-        """
-        all_ok = True
-        for disk in node.extra['disks']:
-            try:
-                vol_name = os.path.basename(urlparse(disk['source'])[2])
-                if not vol_name.startswith("im-%s-" % inf.id):
-                    self.log_debug("Volume %s not created by the IM. Do not delete." % vol_name)
-                    continue
-                volume = node.driver.ex_get_volume(vol_name)
-                # First try to detach the volume
-                if volume:
-                    success = volume.detach()
-                    if not success:
-                        self.log_error("Error detaching the volume: " + vol_name)
-                    else:
-                        # wait a bit to detach the disk
-                        time.sleep(2)
-                    success = volume.destroy()
-                    if not success:
-                        self.log_error("Error destroying the volume: " + vol_name)
-            except ResourceNotFoundError:
-                self.log_info("The volume: " + vol_name + " does not exists. Ignore it.")
-                success = True
-            except Exception:
-                self.log_exception("Error destroying the volume: " + vol_name + " from the node: " + node.id)
-                success = False
-
-            if not success:
-                all_ok = False
-
-        return all_ok
 
     def get_node_with_id(self, node_id, auth_data):
         """
@@ -702,91 +711,6 @@ class GCECloudConnector(LibCloudCloudConnector):
         """
         return node.extra['zone']
 
-    @staticmethod
-    def wait_volume(volume, state='READY', timeout=60):
-        """
-        Wait a volume (with the state extra parameter) to be in certain state.
-
-        Arguments:
-           - volume(:py:class:`libcloud.compute.base.StorageVolume`): volume object or boolean.
-           - state(str): State to wait for (default value 'available').
-           - timeout(int): Max time to wait in seconds (default value 60).
-        """
-        if volume:
-            cont = 0
-            err_states = ["FAILED"]
-            while volume.extra['status'] != state and volume.extra['status'] not in err_states and cont < timeout:
-                cont += 2
-                time.sleep(2)
-                for vol in volume.driver.list_volumes():
-                    if vol.id == volume.id:
-                        volume = vol
-                        break
-            return volume.extra['status'] == state
-        else:
-            return False
-
-    def attach_volumes(self, vm, node):
-        """
-        Attach a the required volumes (in the RADL) to the launched node
-
-        Arguments:
-           - vm(:py:class:`IM.VirtualMachine`): VM information.
-           - node(:py:class:`libcloud.compute.base.Node`): node object.
-        """
-        try:
-            if node.state == NodeState.RUNNING and "volumes" not in vm.__dict__.keys():
-                vm.volumes = True
-                cont = 1
-                while ((vm.info.systems[0].getValue("disk." + str(cont) + ".size") or
-                        vm.info.systems[0].getValue("disk." + str(cont) + ".image.url")) and
-                        vm.info.systems[0].getValue("disk." + str(cont) + ".device")):
-                    disk_url = vm.info.systems[0].getValue("disk." + str(cont) + ".image.url")
-                    disk_device = vm.info.systems[0].getValue("disk." + str(cont) + ".device")
-                    disk_type = vm.info.systems[0].getValue("disk." + str(cont) + ".type")
-                    location = self.get_node_location(node)
-
-                    if disk_url:
-                        # If the user has specified the volume name, try to get it
-                        volume = node.driver.ex_get_volume(os.path.basename(disk_url), zone=location)
-                        try:
-                            self.log_info("Attach the volume ID " + str(volume.id))
-                            volume.attach(node, disk_device)
-                        except Exception as attex:
-                            self.log_exception("Error attaching the volume ID %s." % volume.id)
-                            self.error_messages += ("Error attaching the volume ID %s: %s.\n" % (volume.id, attex))
-                    else:
-                        disk_size = vm.info.systems[0].getFeature("disk." + str(cont) + ".size").getValue('G')
-                        self.log_info("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
-                        volume_name = "im-%s-%s" % (vm.inf.id, str(cont))
-
-                        if disk_type:
-                            volume = node.driver.create_volume(int(disk_size), volume_name,
-                                                               location=location, ex_disk_type=disk_type)
-                        else:
-                            volume = node.driver.create_volume(int(disk_size), volume_name, location=location)
-                        success = self.wait_volume(volume)
-                        if success:
-                            self.log_info("Attach the volume ID " + str(volume.id))
-                            try:
-                                volume.attach(node, disk_device)
-                            except Exception as attex:
-                                self.log_exception("Error attaching the volume ID %s Destroying it." % volume.id)
-                                self.error_messages += ("Error attaching the volume ID %s. Destroying it:"
-                                                        " %s.\n" % (volume.id, attex))
-                                volume.destroy()
-                        else:
-                            self.log_error("Error waiting the volume ID %s. Destroying it." % volume.id)
-                            self.error_messages += "Error waiting the volume ID %s. Destroying it.\n" % volume.id
-                            volume.destroy()
-
-                    cont += 1
-            return True
-        except Exception as ex:
-            self.log_exception("Error creating or attaching the volume to the node")
-            self.error_messages += "Error creating or attaching the volume to the node: %s\n" % ex
-            return False
-
     def updateVMInfo(self, vm, auth_data):
         driver = self.get_driver(auth_data)
 
@@ -811,7 +735,6 @@ class GCECloudConnector(LibCloudCloudConnector):
                 vm.info.systems[0], node.size)
 
             vm.setIps(node.public_ips, node.private_ips)
-            self.attach_volumes(vm, node)
             self.add_dns_entries(vm, auth_data)
         else:
             vm.state = VirtualMachine.OFF
