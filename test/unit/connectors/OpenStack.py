@@ -119,7 +119,9 @@ class TestOSTConnector(TestCloudConnectorBase):
             disk.0.image.url = 'ost://server.com/ami-id' and
             disk.0.os.credentials.username = 'user' and
             disk.1.size=1GB and
-            disk.1.device='hdb'
+            disk.1.device='hdb' and
+            disk.2.image.url = 'ost://server.com/vol-id' and
+            disk.2.device='hdc'
             )"""
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
@@ -174,6 +176,9 @@ class TestOSTConnector(TestCloudConnectorBase):
         image = MagicMock()
         image.id = 'imageid'
         driver.get_image.return_value = image
+        vol = MagicMock()
+        vol.id = 'volid'
+        driver.ex_get_volume.return_value = vol
 
         inf = InfrastructureInfo()
         inf.auth = auth
@@ -193,7 +198,13 @@ class TestOSTConnector(TestCloudConnectorBase):
              'device_name': 'vdb',
              'source_type': 'blank',
              'destination_type': 'volume',
-             'delete_on_termination': True}
+             'delete_on_termination': True},
+            {'boot_index': 2,
+             'delete_on_termination': False,
+             'destination_type': 'volume',
+             'device_name': 'vdc',
+             'source_type': 'volume',
+             'uuid': 'volid'}
         ]
         self.assertEqual(driver.create_node.call_args_list[0][1]['ex_blockdevicemappings'], mappings)
 
