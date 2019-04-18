@@ -815,7 +815,14 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             disk_size = None
             if disk_url:
                 volume = driver.ex_get_volume(os.path.basename(disk_url))
-                disk_url = volume.id
+                disk = {
+                    'boot_index': cont,
+                    'device_name': disk_device,
+                    'source_type': "volume",
+                    'delete_on_termination': False,
+                    'destination_type': "volume",
+                    'uuid': volume.id
+                }
             else:
                 disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('G')
 
@@ -828,7 +835,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     'delete_on_termination': True,
                     'volume_size': disk_size
                 }
-                res.append(disk)
+            res.append(disk)
             cont += 1
 
         return res
