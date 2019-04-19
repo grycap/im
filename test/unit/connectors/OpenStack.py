@@ -119,7 +119,9 @@ class TestOSTConnector(TestCloudConnectorBase):
             disk.0.image.url = 'ost://server.com/ami-id' and
             disk.0.os.credentials.username = 'user' and
             disk.1.size=1GB and
-            disk.1.device='hdb'
+            disk.1.device='hdb' and
+            disk.2.image.url = 'ost://server.com/vol-id' and
+            disk.2.device='hdc'
             )"""
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
@@ -171,13 +173,40 @@ class TestOSTConnector(TestCloudConnectorBase):
         driver.ex_list_routers.return_value = [router]
         driver.ex_add_router_subnet.return_value = True
 
+        image = MagicMock()
+        image.id = 'imageid'
+        driver.get_image.return_value = image
+        vol = MagicMock()
+        vol.id = 'volid'
+        driver.ex_get_volume.return_value = vol
+
         inf = InfrastructureInfo()
         inf.auth = auth
         res = ost_cloud.launch_with_retry(inf, radl, radl, 1, auth, 2, 1)
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
-        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         self.assertEqual(driver.create_node.call_args_list[0][1]['networks'], [net1])
+        mappings = [
+            {'source_type': 'image',
+             'uuid': 'imageid',
+             'boot_index': 0,
+             'delete_on_termination': False,
+             'device_name': 'vda'},
+            {'guest_format': 'ext3',
+             'boot_index': 1,
+             'volume_size': 1,
+             'device_name': 'vdb',
+             'source_type': 'blank',
+             'destination_type': 'volume',
+             'delete_on_termination': True},
+            {'boot_index': 2,
+             'delete_on_termination': False,
+             'destination_type': 'volume',
+             'device_name': 'vdc',
+             'source_type': 'volume',
+             'uuid': 'volid'}
+        ]
+        self.assertEqual(driver.create_node.call_args_list[0][1]['ex_blockdevicemappings'], mappings)
 
         # test with proxy auth data
         auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'proxy': 'proxy',

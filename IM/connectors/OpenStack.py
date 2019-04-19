@@ -326,7 +326,6 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
             self.addRouterInstance(vm, node.driver)
             self.setIPsFromInstance(vm, node)
-            self.attach_volumes(vm, node)
         else:
             self.log_warn("Error updating the instance %s. VM not found." % vm.id)
             return (False, "Error updating the instance %s. VM not found." % vm.id)
@@ -783,12 +782,70 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         return nets
 
+    @staticmethod
+    def get_volumes(driver, image, radl):
+        """
+        Create the required volumes (in the RADL) for the VM.
+
+        Arguments:
+           - vm(:py:class:`IM.VirtualMachine`): VM to modify.
+        """
+        system = radl.systems[0]
+
+        boot_disk = {
+            'boot_index': 0,
+            'device_name': 'vda',
+            'source_type': "image",
+            'delete_on_termination': False,
+            'uuid': image.id
+        }
+        res = [boot_disk]
+
+        cont = 1
+        while ((system.getValue("disk." + str(cont) + ".size") or
+                system.getValue("disk." + str(cont) + ".image.url")) and
+                system.getValue("disk." + str(cont) + ".device")):
+            disk_url = system.getValue("disk." + str(cont) + ".image.url")
+            disk_device = system.getValue("disk." + str(cont) + ".device")
+            disk_device = "vd%s" % disk_device[-1]
+            disk_fstype = system.getValue("disk." + str(cont) + ".fstype")
+            if not disk_fstype:
+                disk_fstype = 'ext3'
+
+            disk_size = None
+            if disk_url:
+                volume = driver.ex_get_volume(os.path.basename(disk_url))
+                disk = {
+                    'boot_index': cont,
+                    'device_name': disk_device,
+                    'source_type': "volume",
+                    'delete_on_termination': False,
+                    'destination_type': "volume",
+                    'uuid': volume.id
+                }
+            else:
+                disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('G')
+
+                disk = {
+                    'boot_index': cont,
+                    'device_name': disk_device,
+                    'source_type': "blank",
+                    'guest_format': disk_fstype,
+                    'destination_type': "volume",
+                    'delete_on_termination': True,
+                    'volume_size': disk_size
+                }
+            res.append(disk)
+            cont += 1
+
+        return res
+
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         driver = self.get_driver(auth_data)
 
         system = radl.systems[0]
         image_id = self.get_image_id(system.getValue("disk.0.image.url"))
-        image = NodeImage(id=image_id, name=None, driver=driver)
+        image = driver.get_image(image_id)
 
         instance_type = self.get_instance_type(driver.list_sizes(), system)
         if not instance_type:
@@ -800,6 +857,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         if not name:
             name = "userimage"
 
+        blockdevicemappings = self.get_volumes(driver, image, radl)
+
         with inf._lock:
             self.create_networks(driver, radl, inf)
 
@@ -808,9 +867,10 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         sgs = self.create_security_groups(driver, inf, radl)
 
         args = {'size': instance_type,
-                'image': image,
                 'networks': nets,
+                'image': image,
                 'ex_security_groups': sgs,
+                'ex_blockdevicemappings': blockdevicemappings,
                 'name': "%s-%s" % (name, int(time.time() * 100))}
 
         tags = self.get_instance_tags(system)
@@ -864,6 +924,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 vm.destroy = False
                 res.append((True, vm))
             except Exception as ex:
+                self.log_exception("Error creating node: %s." % ex.args[0])
                 res.append((False, "%s" % ex.args[0]))
 
             i += 1
@@ -958,7 +1019,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         Arguments:
            - vm(:py:class:`IM.VirtualMachine`): VM information.
-           - node(:py:class:`libcloud.compute.base.Node`): node object to attach the volumes.
+           - node(:py:class:`libcloud.compute.base.Node`): node object to attach the ip.
            - fixed_ip(str, optional): specifies a fixed IP to add to the instance.
            - pool_name(str, optional): specifies a pool to get the elastic IP
         Returns: a :py:class:`OpenStack_1_1_FloatingIpAddress` added or None if some problem occur.
@@ -1136,15 +1197,6 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             self.log_warn("VM " + str(vm.id) + " not found.")
 
         driver = self.get_driver(auth_data)
-
-        # Delete the EBS volumes
-        try:
-            res, msg = self.delete_volumes(driver, vm)
-        except Exception as ex:
-            res = False
-            msg = "%s" % ex.args[0]
-        success.append(res)
-        msgs.append(msg)
 
         if last:
             # Delete the SG if this is the last VM
