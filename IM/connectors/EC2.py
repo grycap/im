@@ -679,10 +679,11 @@ class EC2CloudConnector(CloudConnector):
             bdm[block_device_name] = boto.ec2.blockdevicemapping.BlockDeviceType(volume_type="standard",
                                                                                  delete_on_termination=True)
 
-            volumes = self.get_volumes(vm)
-            for device, (size, disk_type) in volumes.items():
-                bdm[device] = boto.ec2.blockdevicemapping.BlockDeviceType(size=size, volume_type=disk_type,
-                                                                          delete_on_termination=True)
+            volumes = self.get_volumes(conn, vm)
+            for device, (size, snapshot_id, disk_type) in volumes.items():
+                bdm[device] = boto.ec2.blockdevicemapping.BlockDeviceType(snapshot_id=snapshot_id,
+                                                                          volume_type=disk_type,
+                                                                          size=size, delete_on_termination=True)
 
             err_msg = "Launching in region %s with image: %s" % (region_name, ami)
             err_msg += " in VPC: %s-%s " % (vpc, subnet)
@@ -813,7 +814,7 @@ class EC2CloudConnector(CloudConnector):
             return None
 
     @staticmethod
-    def get_volumes(vm):
+    def get_volumes(conn, vm):
         """
         Create the required volumes (in the RADL) for the VM.
 
@@ -823,15 +824,25 @@ class EC2CloudConnector(CloudConnector):
         res = {}
 
         cont = 1
-        while (vm.info.systems[0].getValue("disk." + str(cont) + ".size") and
-               vm.info.systems[0].getValue("disk." + str(cont) + ".device")):
-            disk_size = vm.info.systems[0].getFeature("disk." + str(cont) + ".size").getValue('G')
+        while ((vm.info.systems[0].getValue("disk." + str(cont) + ".size") or
+                vm.info.systems[0].getValue("disk." + str(cont) + ".image.url")) and
+                vm.info.systems[0].getValue("disk." + str(cont) + ".device")):
+            disk_url = vm.info.systems[0].getValue("disk." + str(cont) + ".image.url")
             disk_device = vm.info.systems[0].getValue("disk." + str(cont) + ".device")
             disk_type = vm.info.systems[0].getValue("disk." + str(cont) + ".type")
             # Allways use sd as the device prefix
             # https://docs.aws.amazon.com/es_es/AWSEC2/latest/UserGuide/device_naming.html
             disk_device = "sd%s" % disk_device[-1]
-            res["/dev/" + disk_device] = (disk_size, disk_type)
+
+            disk_size = None
+            if disk_url:
+                _, snapshot_id = EC2CloudConnector.getAMIData(disk_url)
+                snapshot = conn.get_all_snapshots([snapshot_id])[0]
+                disk_url = snapshot.id
+            else:
+                disk_size = vm.info.systems[0].getFeature("disk." + str(cont) + ".size").getValue('G')
+
+            res["/dev/" + disk_device] = (disk_size, disk_url, disk_type)
             cont += 1
 
         return res
