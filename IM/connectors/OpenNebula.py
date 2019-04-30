@@ -1090,10 +1090,10 @@ class OpenNebulaCloudConnector(CloudConnector):
         one_ver = self.getONEVersion(auth_data)
         if one_ver.startswith("5."):
             success, res_info = server.one.vm.disksaveas(session_id, int(vm.id), disk_num,
-                                                            image_name, image_type, -1)[0:2]
+                                                         image_name, image_type, -1)[0:2]
         else:
             success, res_info = server.one.vm.savedisk(session_id, int(vm.id), disk_num,
-                                                          image_name, image_type, True, False)[0:2]
+                                                       image_name, image_type, True, False)[0:2]
 
         if success:
             new_url = "one://%s/%d" % (self.cloud.server, res_info)
