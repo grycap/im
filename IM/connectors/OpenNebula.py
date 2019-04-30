@@ -284,7 +284,7 @@ class OpenNebulaCloudConnector(CloudConnector):
         if session_id is None:
             return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
 
-        success, res_info, _ = server.one.vm.info(session_id, int(vm.id))
+        success, res_info = server.one.vm.info(session_id, int(vm.id))[0:2]
         if success:
             res_vm = VM(res_info)
 
@@ -342,7 +342,7 @@ class OpenNebulaCloudConnector(CloudConnector):
         server = ServerProxy(self.server_url, allow_none=True)
         session_id = self.getSessionID(auth_data)
 
-        success, res_info, _ = server.one.secgrouppool.info(session_id, -1, -1, -1)
+        success, res_info = server.one.secgrouppool.info(session_id, -1, -1, -1)[0:2]
         if success:
             sg_pool = SECURITY_GROUP_POOL(res_info)
             for sg in sg_pool.SECURITY_GROUP:
@@ -400,7 +400,7 @@ class OpenNebulaCloudConnector(CloudConnector):
                         if sg_template:
                             self.log_info("Creating security group: %s" % sg_name)
                             sg_template = ("NAME = %s\n" % sg_name) + sg_template
-                            success, sg_id, _ = server.one.secgroup.allocate(session_id, sg_template)
+                            success, sg_id = server.one.secgroup.allocate(session_id, sg_template)[0:2]
                             if not success:
                                 self.log_error("Error creating security group: %s" % sg_id)
 
@@ -433,7 +433,7 @@ class OpenNebulaCloudConnector(CloudConnector):
             inf.add_vm(vm)
             template = self.getONETemplate(vm.info, sgs, auth_data, vm)
 
-            success, res_id, _ = server.one.vm.allocate(session_id, template)
+            success, res_id = server.one.vm.allocate(session_id, template)[0:2]
 
             if success:
                 vm.id = str(res_id)
@@ -468,7 +468,7 @@ class OpenNebulaCloudConnector(CloudConnector):
                 else:
                     try:
                         self.log_info("Deleting SG: %s" % sg_name)
-                        success, sg_id, _ = server.one.secgroup.delete(session_id, sg)
+                        success, sg_id = server.one.secgroup.delete(session_id, sg)[0:2]
                         if success:
                             self.log_info("Deleted.")
                             deleted = True
@@ -495,7 +495,7 @@ class OpenNebulaCloudConnector(CloudConnector):
             self.delete_snapshots(vm, auth_data)
 
         if vm.id:
-            success, err, _ = server.one.vm.action(session_id, 'delete', int(vm.id))
+            success, err = server.one.vm.action(session_id, 'delete', int(vm.id))[0:2]
         else:
             self.log_warn("No VM ID. Ignoring")
             err = ""
@@ -520,7 +520,7 @@ class OpenNebulaCloudConnector(CloudConnector):
         session_id = self.getSessionID(auth_data)
         if session_id is None:
             return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
-        success, err, _ = server.one.vm.action(session_id, action, int(vm.id))
+        success, err = server.one.vm.action(session_id, action, int(vm.id))[0:2]
         return (success, err)
 
     def getONETemplate(self, radl, sgs, auth_data, vm):
@@ -653,7 +653,7 @@ class OpenNebulaCloudConnector(CloudConnector):
         methods = server.system.listMethods()
         if "one.system.version" in methods:
             session_id = self.getSessionID(auth_data)
-            (success, res_info, _) = server.one.system.version(session_id)
+            success, res_info = server.one.system.version(session_id)[0:2]
             if success:
                 version = res_info
             else:
@@ -734,7 +734,7 @@ class OpenNebulaCloudConnector(CloudConnector):
         session_id = self.getSessionID(auth_data)
         if session_id is None:
             return None
-        success, info, _ = server.one.vnpool.info(session_id, -2, -1, -1)
+        success, info = server.one.vnpool.info(session_id, -2, -1, -1)[0:2]
         if success:
             pool_info = VNET_POOL(info)
         else:
@@ -764,16 +764,7 @@ class OpenNebulaCloudConnector(CloudConnector):
             else:
                 self.log_warn(
                     "IP information is not in the VNET POOL. Use the vn.info")
-                info_res = server.one.vn.info(session_id, int(net.ID))
-
-                if len(info_res) == 2:
-                    (success, info) = info_res
-                elif len(func_res) == 3:
-                    (success, info, _) = info_res
-                else:
-                    self.log_warn(
-                        "Error in the one.vn.info return value. Ignoring network: " + net.NAME)
-                    continue
+                success, info = server.one.vn.info(session_id, int(net.ID))[0:2]
 
                 if not success:
                     self.log_warn(
@@ -951,14 +942,14 @@ class OpenNebulaCloudConnector(CloudConnector):
         session_id = self.getSessionID(auth_data)
         if session_id is None:
             return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
-        success, err, _ = server.one.vm.action(session_id, 'poweroff', int(vm.id))
+        success, err = server.one.vm.action(session_id, 'poweroff', int(vm.id))[0:2]
         if not success:
             return (success, err)
 
         wait = 0
         powered_off = False
         while wait < timeout and not powered_off:
-            success, res_info, _ = server.one.vm.info(session_id, int(vm.id))
+            success, res_info = server.one.vm.info(session_id, int(vm.id))[0:2]
             res_vm = VM(res_info)
             powered_off = res_vm.STATE == 8
             if not powered_off:
@@ -1008,7 +999,7 @@ class OpenNebulaCloudConnector(CloudConnector):
                 ]
         ''' % (disk_fstype, disk_size, disk_device)
 
-        success, res_info, _ = server.one.vm.attach(session_id, int(vm.id), disk_temp, False)
+        success, res_info = server.one.vm.attach(session_id, int(vm.id), disk_temp, False)[0:2]
         if success:
             return (True, "")
         else:
@@ -1070,8 +1061,7 @@ class OpenNebulaCloudConnector(CloudConnector):
                 (success, info) = self.poweroff(vm, auth_data)
                 if not success:
                     return (success, info)
-                (success, info, _) = server.one.vm.resize(
-                    session_id, int(vm.id), new_temp, False)
+                success, info = server.one.vm.resize(session_id, int(vm.id), new_temp, False)[0:2]
                 self.start(vm, auth_data)
 
                 if success:
@@ -1099,11 +1089,11 @@ class OpenNebulaCloudConnector(CloudConnector):
         image_type = ""  # Use the default one
         one_ver = self.getONEVersion(auth_data)
         if one_ver.startswith("5."):
-            success, res_info, _ = server.one.vm.disksaveas(session_id, int(vm.id), disk_num,
-                                                            image_name, image_type, -1)
+            success, res_info = server.one.vm.disksaveas(session_id, int(vm.id), disk_num,
+                                                            image_name, image_type, -1)[0:2]
         else:
-            success, res_info, _ = server.one.vm.savedisk(session_id, int(vm.id), disk_num,
-                                                          image_name, image_type, True, False)
+            success, res_info = server.one.vm.savedisk(session_id, int(vm.id), disk_num,
+                                                          image_name, image_type, True, False)[0:2]
 
         if success:
             new_url = "one://%s/%d" % (self.cloud.server, res_info)
@@ -1114,7 +1104,7 @@ class OpenNebulaCloudConnector(CloudConnector):
                 return (True, new_url)
             else:
                 try:
-                    (success, res_info, _) = server.one.image.delete(session_id, res_info)
+                    success, res_info, = server.one.image.delete(session_id, res_info)[0:2]
                 except Exception:
                     self.logger.error("Error deleting image: %s" % res_info)
                 return (False, "Error waiting image to be ready: %s" % msg)
@@ -1134,7 +1124,7 @@ class OpenNebulaCloudConnector(CloudConnector):
             wait += 5
             time.sleep(5)
 
-            success, res_info, _ = server.one.image.info(session_id, image_id)
+            success, res_info = server.one.image.info(session_id, image_id)[0:2]
             if success:
                 image_info = IMAGE(res_info)
                 state = image_info.STATE
@@ -1165,7 +1155,7 @@ class OpenNebulaCloudConnector(CloudConnector):
         if not success:
             self.logger.warn("Error waiting image to be READY: " + msg)
 
-        success, res_info, _ = server.one.image.delete(session_id, image_id)
+        success, res_info = server.one.image.delete(session_id, image_id)[0:2]
         if success:
             return (True, "")
         else:
@@ -1179,7 +1169,7 @@ class OpenNebulaCloudConnector(CloudConnector):
         else:
             # We have to find the ID of the image name
             server = ServerProxy(self.server_url, allow_none=True)
-            success, res_info, _ = server.one.imagepool.info(session_id, -2, -1, -1)
+            success, res_info = server.one.imagepool.info(session_id, -2, -1, -1)[0:2]
             if success:
                 pool_info = IMAGE_POOL(res_info)
             else:
