@@ -5,7 +5,7 @@
   gather_facts: false
   vars:
     # Ansible specific Version or "latest"
-    ANSIBLE_VERSION: 2.6.11
+    ANSIBLE_VERSION: 2.6.15
   tasks:
     # Some OSs does not have python by default
     - name: Check Python is installed
