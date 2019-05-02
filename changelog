@@ -503,3 +503,5 @@ IM 1.8.3:
     * Handling of special characters in error messages from OpenStack.
     * Fix error adding two volumes to a VM in OCCI conn.
     * Enable network creation in connectors EC2, OpenStack and GCE.
+    * Fix error in openstack conn in case of setting auth data with a host without port.
+    * Fix error in OpenNebula conn in case of error in function call.
