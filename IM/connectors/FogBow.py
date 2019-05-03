@@ -50,7 +50,9 @@ class FogBowCloudConnector(CloudConnector):
         'SPAWNING': VirtualMachine.PENDING,
         'READY': VirtualMachine.RUNNING,
         'IN_USE': VirtualMachine.RUNNING,
+        'BUSY': VirtualMachine.RUNNING,
         'FAILED': VirtualMachine.FAILED,
+        'ERROR': VirtualMachine.FAILED,
         'INCONSISTENT': VirtualMachine.UNKNOWN,
         'UNAVAILABLE': VirtualMachine.STOPPED
     }
@@ -86,14 +88,14 @@ class FogBowCloudConnector(CloudConnector):
 
         return resp
 
-    def post_and_get(self, path, body, auth_data, failed_states=['FAILED']):
+    def post_and_get(self, path, body, auth_data, failed_states=['FAILED', 'ERROR']):
         headers = {'Content-Type': 'application/json'}
         resp = self.create_request('POST', path, auth_data, headers, body)
         if resp.status_code not in [201, 200]:
             self.log_error("Error creating %s. %s. %s." % (path, resp.reason, resp.text))
             return None
         else:
-            obj_id = resp.text
+            obj_id = resp.json()['id']
             resp = self.create_request('GET', '%s%s' % (path, obj_id), auth_data, headers)
             if resp.status_code == 200:
                 obj_info = resp.json()
@@ -124,23 +126,31 @@ class FogBowCloudConnector(CloudConnector):
 
         if self.token:
             self.log_debug("We have a token. Check if it is valid.")
-            resp = requests.request('HEAD', self.get_full_url('/images/'), verify=self.verify_ssl,
-                                    headers={'federationTokenValue': self.token})
+            resp = requests.request('HEAD', self.get_full_url('/clouds/'), verify=self.verify_ssl,
+                                    headers={'Fogbow-User-Token': self.token})
             if resp.status_code in [200, 201]:
                 return self.token
             else:
                 self.log_debug("It is not valid. Request for a new one.")
                 self.token = None
 
-        body = {}
+        if 'as_host' not in auth_data:
+            raise Exception("No as_host provided in auth data.")
+
+        resp = requests.request('GET', self.get_full_url('/publicKey/'), verify=self.verify_ssl)
+        if resp.status_code == 200:
+            public_key = resp.json()['publicKey']
+
+        body = {'publicKey': public_key, 'credentials': {}}
         for key, value in auth_data.items():
-            if key not in ['id', 'type', 'host']:
-                body[key] = value
-        resp = requests.request('POST', self.get_full_url('/tokens/'), verify=self.verify_ssl,
+            if key not in ['id', 'type', 'host', 'as_host']:
+                body['credentials'][key] = value
+
+        resp = requests.request('POST', '%s/tokens/' % auth_data['as_host'], verify=self.verify_ssl,
                                 headers=headers, data=json.dumps(body))
         if resp.status_code in [200, 201]:
-            self.token = resp.text
-            return resp.text
+            self.token = resp.json()['token']
+            return self.token
         else:
             self.log_error("Error getting token: %s. %s" % (resp.reason, resp.text))
             raise Exception("Error getting token: %s. %s" % (resp.reason, resp.text))
@@ -158,7 +168,7 @@ class FogBowCloudConnector(CloudConnector):
         else:
             token = self.get_token(auth[0])
 
-        auth_headers = {'federationTokenValue': token}
+        auth_headers = {'Fogbow-User-Token': token}
 
         return auth_headers
 
@@ -197,6 +207,10 @@ class FogBowCloudConnector(CloudConnector):
         fbw_nets = self.get_fbw_nets(auth_data)
         fbw_fed_nets = self.get_fbw_nets(auth_data, True)
         member = radl.systems[0].getValue('availability_zone')
+        if member:
+            if '/' in member:
+                parts = member.split('/')
+                member = parts[0]
 
         for net in radl.networks:
             net_name = "im_%s_%s" % (inf.id, net.id)
@@ -214,12 +228,11 @@ class FogBowCloudConnector(CloudConnector):
                     net_providers = net.getValue("providers")
                     if net_providers:
                         if isinstance(net_providers, list):
-                            body["allowedMembers"] = net_providers
+                            body["providingMembers"] = net_providers
                         else:
-                            body["allowedMembers"] = [a.strip() for a in net_providers.split(",")]
+                            body["providingMembers"] = [a.strip() for a in net_providers.split(",")]
                     self.log_debug(body)
-                    net_info = self.post_and_get('/federatedNetworks/', json.dumps(body), auth_data,
-                                                 ['FAILED_AFTER_SUCCESSUL_REQUEST', 'FAILED_ON_REQUEST'])
+                    net_info = self.post_and_get('/federatedNetworks/', json.dumps(body), auth_data)
                     if net_info:
                         net.setValue("provider_id", net_info['id'])
                     else:
@@ -287,7 +300,7 @@ class FogBowCloudConnector(CloudConnector):
                             else:
                                 nets.append(provider_id)
 
-                body = {"computeOrder":
+                body = {"compute":
                         {"imageId": image,
                          "memory": memory,
                          "name": "%s-%s" % (name.lower().replace("_", "-"), str(uuid1())),
@@ -296,12 +309,17 @@ class FogBowCloudConnector(CloudConnector):
                         }
 
                 if nets:
-                    body["computeOrder"]["networkIds"] = nets
+                    body["compute"]["networkIds"] = nets
                 if fed_net:
                     body["federatedNetworkId"] = fed_net
 
                 if system.getValue('availability_zone'):
-                    body["computeOrder"]['provider'] = system.getValue('availability_zone')
+                    if '/' in system.getValue('availability_zone'):
+                        parts = system.getValue('availability_zone').split('/')
+                        body["compute"]['provider'] = parts[0]
+                        body["compute"]['cloudName'] = parts[1]
+                    else:
+                        body["compute"]['provider'] = system.getValue('availability_zone')
 
                 self.log_debug(body)
 
@@ -310,7 +328,7 @@ class FogBowCloudConnector(CloudConnector):
                 if resp.status_code not in [201, 200]:
                     res.append((False, resp.reason + "\n" + resp.text))
                 else:
-                    vm = VirtualMachine(inf, str(resp.text), self.cloud, radl, requested_radl)
+                    vm = VirtualMachine(inf, str(resp.json()['id']), self.cloud, radl, requested_radl)
                     vm.info.systems[0].setValue('instance_id', str(vm.id))
                     inf.add_vm(vm)
                     res.append((True, vm))
@@ -387,7 +405,7 @@ class FogBowCloudConnector(CloudConnector):
                         if resp.status_code not in [201, 200]:
                             self.log_error("Error creating volume: %s. %s" % (resp.reason, resp.text))
                         else:
-                            volume_id = resp.text
+                            volume_id = resp.json()['id']
 
                         success = self.wait_volume(volume_id, auth_data)
                         if success:
@@ -517,7 +535,17 @@ class FogBowCloudConnector(CloudConnector):
                         else:
                             private_ips.append(ip)
 
-                member = vm.info.systems[0].getValue('availability_zone')
+                member = None
+                if "provider" in output and output["provider"]:
+                    member = output["provider"]
+                cloud = None
+                if "cloudName" in output and output["cloudName"]:
+                    cloud = output["cloudName"]
+
+                if member or cloud:
+                    availability_zone = "%s/%s" % (member if member else "", cloud if cloud else "")
+                    vm.info.systems[0].setValue('availability_zone', availability_zone)
+
                 ip = self.add_elastic_ip(vm, public_ips, member, auth_data)
                 if ip:
                     public_ips.append(ip)

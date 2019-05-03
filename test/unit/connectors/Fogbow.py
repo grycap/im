@@ -141,28 +141,31 @@ class TestFogBowConnector(TestCloudConnectorBase):
                                           "volumeId": "1",
                                           "device": "/dev/sdb",
                                           "state": "READY"}
+            elif url == "/publicKey/":
+                resp.status_code = 200
+                resp.json.return_value = {"publicKey": "publicKey"}
         elif method == "POST":
             if url == "/computes/":
                 resp.status_code = 201
-                resp.text = "1"
+                resp.json.return_value = {"id": "1"}
             elif url == "/publicIps/":
                 resp.status_code = 201
-                resp.text = "1"
+                resp.json.return_value = {"id": "1"}
             elif url == "/volumes/":
                 resp.status_code = 201
-                resp.text = "1"
+                resp.json.return_value = {"id": "1"}
             elif url == "/attachments/":
                 resp.status_code = 201
-                resp.text = "1"
+                resp.json.return_value = {"id": "1"}
             elif url == "/networks/":
                 resp.status_code = 201
-                resp.text = "1"
-            elif url == "/tokens/":
+                resp.json.return_value = {"id": "1"}
+            elif url == "server1.com/tokens/":
                 resp.status_code = 201
-                resp.text = "token"
+                resp.json.return_value = {"token": "token"}
             elif url == "/federatedNetworks/":
                 resp.status_code = 201
-                resp.text = "1"
+                resp.json.return_value = {"id": "1"}
         elif method == "DELETE":
             if url == "/computes/1":
                 resp.status_code = 204
@@ -173,7 +176,7 @@ class TestFogBowConnector(TestCloudConnectorBase):
             elif url == "/publicIps/1":
                 resp.status_code = 204
         elif method == "HEAD":
-            if url == "/images/":
+            if url == "/clouds/":
                 resp.status_code = 200
 
         return resp
@@ -257,7 +260,7 @@ class TestFogBowConnector(TestCloudConnectorBase):
     @patch('requests.request')
     def test_60_finalize(self, requests):
         auth = Authentication([{'id': 'fogbow', 'type': 'FogBow', 'host': 'server.com',
-                                'username': 'user', 'password': 'pass'}])
+                                'username': 'user', 'password': 'pass', 'as_host': 'server1.com'}])
         fogbow_cloud = self.get_fogbow_cloud()
 
         radl_data = """
