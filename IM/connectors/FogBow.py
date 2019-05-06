@@ -206,9 +206,9 @@ class FogBowCloudConnector(CloudConnector):
         fbw_fed_nets = self.get_fbw_nets(auth_data, True)
         member = radl.systems[0].getValue('availability_zone')
         if member:
-            if '/' in member:
-                parts = member.split('/')
-                member = parts[0]
+            if '@' in member:
+                parts = member.split('@')
+                member = parts[1]
 
         for net in radl.networks:
             net_name = "im_%s_%s" % (inf.id, net.id)
@@ -348,10 +348,10 @@ class FogBowCloudConnector(CloudConnector):
                     body["federatedNetworkId"] = fed_net
 
                 if system.getValue('availability_zone'):
-                    if '/' in system.getValue('availability_zone'):
-                        parts = system.getValue('availability_zone').split('/')
-                        body["compute"]['provider'] = parts[0]
-                        body["compute"]['cloudName'] = parts[1]
+                    if '@' in system.getValue('availability_zone'):
+                        parts = system.getValue('availability_zone').split('@')
+                        body["compute"]['cloudName'] = parts[0]
+                        body["compute"]['provider'] = parts[1]
                     else:
                         body["compute"]['provider'] = system.getValue('availability_zone')
 
@@ -581,7 +581,7 @@ class FogBowCloudConnector(CloudConnector):
                     cloud = output["cloudName"]
 
                 if member or cloud:
-                    availability_zone = "%s/%s" % (member if member else "", cloud if cloud else "")
+                    availability_zone = "%s@%s" % (cloud if cloud else "", member if member else "")
                     vm.info.systems[0].setValue('availability_zone', availability_zone)
 
                 ip = self.add_elastic_ip(vm, public_ips, member, auth_data)

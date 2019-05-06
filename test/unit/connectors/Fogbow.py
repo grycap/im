@@ -208,6 +208,7 @@ class TestFogBowConnector(TestCloudConnectorBase):
             net_interface.1.connection = 'net2' and
             net_interface.2.connection = 'net3' and
             net_interface.3.connection = 'net4' and
+            availability_zone = 'cloud@site' and
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'fbw://server.com/fogbow-ubuntu' and
             disk.0.os.credentials.username = 'user'
@@ -229,6 +230,8 @@ class TestFogBowConnector(TestCloudConnectorBase):
         self.assertEqual(data["allocationMode"], "dynamic")
 
         data = json.loads(requests.call_args_list[9][1]["data"])
+        self.assertEqual(data["compute"]["cloudName"], "cloud")
+        self.assertEqual(data["compute"]["provider"], "site")
         self.assertEqual(data["compute"]["vCPU"], 1)
         self.assertEqual(data["compute"]["memory"], 512)
         self.assertEqual(data["compute"]["imageId"], "fogbow-ubuntu")
