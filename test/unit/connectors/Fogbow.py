@@ -145,6 +145,9 @@ class TestFogBowConnector(TestCloudConnectorBase):
             elif url == "/publicKey/":
                 resp.status_code = 200
                 resp.json.return_value = {"publicKey": "publicKey"}
+            elif url == "/publicIps/1/securityRules":
+                resp.status_code = 200
+                resp.json.return_value = []
         elif method == "POST":
             if url == "/computes/":
                 resp.status_code = 201
@@ -165,6 +168,9 @@ class TestFogBowConnector(TestCloudConnectorBase):
                 resp.status_code = 201
                 resp.json.return_value = {"token": "token"}
             elif url == "/federatedNetworks/":
+                resp.status_code = 201
+                resp.json.return_value = {"id": "1"}
+            elif url == "/publicIps/1/securityRules":
                 resp.status_code = 201
                 resp.json.return_value = {"id": "1"}
         elif method == "DELETE":
@@ -218,6 +224,7 @@ class TestFogBowConnector(TestCloudConnectorBase):
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
         data = json.loads(requests.call_args_list[8][1]["data"])
         self.assertEqual(data["compute"]["vCPU"], 1)
         self.assertEqual(data["compute"]["memory"], 512)
@@ -228,7 +235,7 @@ class TestFogBowConnector(TestCloudConnectorBase):
     @patch('time.sleep')
     def test_30_updateVMInfo(self, sleep, requests):
         radl_data = """
-            network net (outbound = 'yes')
+            network net (outbound = 'yes' and outports = '8080,9000')
             system test (
             cpu.arch='x86_64' and
             cpu.count=1 and
@@ -262,6 +269,19 @@ class TestFogBowConnector(TestCloudConnectorBase):
         self.assertEquals(vm.info.systems[0].getValue("net_interface.0.ip"), "8.8.8.8")
         self.assertEquals(vm.info.systems[0].getValue("memory.size"), 1073741824)
         self.assertEquals(vm.info.systems[0].getValue("disk.1.device"), "/dev/sdb")
+
+        data = json.loads(requests.call_args_list[1][1]["data"])
+        self.assertEqual(data["computeId"], '1')
+        data = json.loads(requests.call_args_list[4][1]["data"])
+        self.assertEqual(data, {'direction': 'ingress', 'protocol': 'tcp', 'etherType': 'IPv4',
+                                'portTo': 8080, 'portFrom': 8080, 'cidr': '0.0.0.0/0'})
+        data = json.loads(requests.call_args_list[5][1]["data"])
+        self.assertEqual(data, {'direction': 'ingress', 'protocol': 'tcp', 'etherType': 'IPv4',
+                                'portTo': 9000, 'portFrom': 9000, 'cidr': '0.0.0.0/0'})
+        data = json.loads(requests.call_args_list[6][1]["data"])
+        self.assertEqual(data["volumeSize"], 1)
+        data = json.loads(requests.call_args_list[8][1]["data"])
+        self.assertEqual(data, {"computeId": "1", "device": "/dev/hdb", "volumeId": "1"})
 
     @patch('requests.request')
     def test_60_finalize(self, requests):
