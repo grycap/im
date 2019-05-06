@@ -471,6 +471,44 @@ class FogBowCloudConnector(CloudConnector):
             self.log_exception("Error getting public IP info")
         return res
 
+    def open_public_ip_ports(self, vm, ip_id, auth_data):
+        """
+        Open the requested ports in the public IP
+        """
+        # First get the current opened ports
+        resp = self.create_request('GET', '/publicIps/%s/securityRules' % ip_id, auth_data)
+        sec_groups = []
+        if resp.status_code == 200:
+            sec_groups = resp.json()
+
+        for net in vm.info.networks:
+            if net.isPublic() and vm.info.systems[0].getNumNetworkWithConnection(net.id) is not None:
+                outports = net.getOutPorts()
+                if outports:
+                    for outport in outports:
+                        body = {"cidr": "0.0.0.0/0",
+                                "direction": "ingress",
+                                "etherType": "IPv4",
+                                "protocol": outport.get_protocol()
+                                }
+                        ports = []
+                        if outport.is_range():
+                            for i in range(outport.get_port_init(), outport.get_port_end() + 1):
+                                ports.append((i, i))
+                        else:
+                            ports.append((outport.get_remote_port(), outport.get_local_port()))
+
+                        for remote, local in ports:
+                            body["portFrom"] = remote
+                            body["portTo"] = local
+                            if body not in sec_groups:
+                                headers = {'Content-Type': 'application/json'}
+                                resp = self.create_request('POST', '/publicIps/%s/securityRules' % ip_id, auth_data,
+                                                           headers, json.dumps(body))
+                                if resp.status_code not in [201, 200]:
+                                    self.log_error("Error creating Public IP Security Rule. %s. %s." % (resp.reason,
+                                                                                                        resp.text))
+
     def add_elastic_ip(self, vm, public_ips, member, auth_data):
         """
         Get a public IP if needed.
@@ -490,6 +528,7 @@ class FogBowCloudConnector(CloudConnector):
             ip_info = self.post_and_get('/publicIps/', json.dumps(body), auth_data)
             if ip_info:
                 self.log_debug("IP obtained: %s." % ip_info['ip'])
+                self.open_public_ip_ports(vm, ip_info['id'], auth_data)
                 return ip_info['ip']
             else:
                 self.add_public_ip_count += 1
