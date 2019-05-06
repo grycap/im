@@ -18,6 +18,7 @@
 
 import sys
 import unittest
+import json
 
 sys.path.append(".")
 sys.path.append("..")
@@ -217,6 +218,11 @@ class TestFogBowConnector(TestCloudConnectorBase):
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+        data = json.loads(requests.call_args_list[8][1]["data"])
+        self.assertEqual(data["compute"]["vCPU"], 1)
+        self.assertEqual(data["compute"]["memory"], 512)
+        self.assertEqual(data["compute"]["imageId"], "fogbow-ubuntu")
+        self.assertEqual(data["federatedNetworkId"], "1")
 
     @patch('requests.request')
     @patch('time.sleep')
