@@ -102,8 +102,6 @@ class FogBowCloudConnector(CloudConnector):
                 state = None
                 if 'state' in obj_info:
                     state = obj_info['state']
-                elif 'orderState' in obj_info:
-                    state = obj_info['orderState']
                 if state in failed_states:
                     self.log_error("%s%s is in state %s." % (path, obj_id, state))
                     try:
