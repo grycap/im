@@ -22,7 +22,7 @@ import json
 
 sys.path.append(".")
 sys.path.append("..")
-from .CloudConn import TestCloudConnectorBase
+from CloudConn import TestCloudConnectorBase
 try:
     from urlparse import urlparse
 except ImportError:
@@ -235,7 +235,7 @@ class TestFogBowConnector(TestCloudConnectorBase):
     @patch('time.sleep')
     def test_30_updateVMInfo(self, sleep, requests):
         radl_data = """
-            network net (outbound = 'yes' and outports = '8080,9000')
+            network net (outbound = 'yes' and outports = '8080,9000:9010')
             system test (
             cpu.arch='x86_64' and
             cpu.count=1 and
@@ -277,7 +277,7 @@ class TestFogBowConnector(TestCloudConnectorBase):
                                 'portTo': 8080, 'portFrom': 8080, 'cidr': '0.0.0.0/0'})
         data = json.loads(requests.call_args_list[5][1]["data"])
         self.assertEqual(data, {'direction': 'ingress', 'protocol': 'tcp', 'etherType': 'IPv4',
-                                'portTo': 9000, 'portFrom': 9000, 'cidr': '0.0.0.0/0'})
+                                'portTo': 9000, 'portFrom': 9010, 'cidr': '0.0.0.0/0'})
         data = json.loads(requests.call_args_list[6][1]["data"])
         self.assertEqual(data["volumeSize"], 1)
         data = json.loads(requests.call_args_list[8][1]["data"])

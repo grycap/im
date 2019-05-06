@@ -491,23 +491,21 @@ class FogBowCloudConnector(CloudConnector):
                                 "etherType": "IPv4",
                                 "protocol": outport.get_protocol()
                                 }
-                        ports = []
-                        if outport.is_range():
-                            for i in range(outport.get_port_init(), outport.get_port_end() + 1):
-                                ports.append((i, i))
-                        else:
-                            ports.append((outport.get_remote_port(), outport.get_local_port()))
 
-                        for remote, local in ports:
-                            body["portFrom"] = remote
-                            body["portTo"] = local
-                            if body not in sec_groups:
-                                headers = {'Content-Type': 'application/json'}
-                                resp = self.create_request('POST', '/publicIps/%s/securityRules' % ip_id, auth_data,
-                                                           headers, json.dumps(body))
-                                if resp.status_code not in [201, 200]:
-                                    self.log_error("Error creating Public IP Security Rule. %s. %s." % (resp.reason,
-                                                                                                        resp.text))
+                        if outport.is_range():
+                            body["portTo"] = outport.get_port_init()
+                            body["portFrom"] = outport.get_port_end()
+                        else:
+                            body["portTo"] = outport.get_remote_port()
+                            body["portFrom"] = outport.get_remote_port()
+
+                        if body not in sec_groups:
+                            headers = {'Content-Type': 'application/json'}
+                            resp = self.create_request('POST', '/publicIps/%s/securityRules' % ip_id, auth_data,
+                                                       headers, json.dumps(body))
+                            if resp.status_code not in [201, 200]:
+                                self.log_error("Error creating Public IP Security Rule. %s. %s." % (resp.reason,
+                                                                                                    resp.text))
 
     def add_elastic_ip(self, vm, public_ips, member, auth_data):
         """
