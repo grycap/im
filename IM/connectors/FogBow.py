@@ -382,7 +382,7 @@ class FogBowCloudConnector(CloudConnector):
         if volume_id:
             count = 0
             vol_state = ""
-            while vol_state != state and vol_state != "FAILED" and count < timeout:
+            while vol_state != state and vol_state not in ["FAILED", "ERROR"] and count < timeout:
                 time.sleep(delay)
                 count += delay
                 resp = self.create_request('GET', '/volumes/%s' % volume_id, auth_data)
@@ -484,7 +484,7 @@ class FogBowCloudConnector(CloudConnector):
                     resp_ip = self.create_request('GET', '/publicIps/%s' % ipstatus['instanceId'], auth_data)
                     if resp_ip.status_code == 200:
                         ipdata = resp_ip.json()
-                        if ipdata['state'] == 'FAILED':
+                        if ipdata['state'] in ['FAILED', 'ERROR']:
                             try:
                                 self.log_warn("Public IP id: %s is FAILED. Trying to delete." % ipstatus['instanceId'])
                                 resp_del = self.create_request('DELETE', '/publicIps/%s' % ipstatus['instanceId'],
