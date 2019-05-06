@@ -225,7 +225,10 @@ class TestFogBowConnector(TestCloudConnectorBase):
         self.assertTrue(success, msg="ERROR: launching a VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
-        data = json.loads(requests.call_args_list[8][1]["data"])
+        data = json.loads(requests.call_args_list[2][1]["data"])
+        self.assertEqual(data["allocationMode"], "dynamic")
+
+        data = json.loads(requests.call_args_list[9][1]["data"])
         self.assertEqual(data["compute"]["vCPU"], 1)
         self.assertEqual(data["compute"]["memory"], 512)
         self.assertEqual(data["compute"]["imageId"], "fogbow-ubuntu")
