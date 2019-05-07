@@ -208,7 +208,8 @@ class SSH:
         """ Gets an sftp client object with the remote server
             or scp object in case of failure
         """
-        transport = self.connect().get_transport()
+        client = self.connect()
+        transport = client.get_transport()
 
         try:
             sftp = paramiko.SFTPClient.from_transport(transport)
@@ -222,7 +223,6 @@ class SSH:
 
     def sftp_get(self, src, dest):
         """ Gets a file from the remote server
-
             Arguments:
             - src: Source file in the remote server.
             - dest: Local destination path to copy.
@@ -277,7 +277,8 @@ class SSH:
             - src: Source directory in the remote server to copy.
             - dest: Local destination path.
         """
-        transport = self.connect().get_transport()
+        client = self.connect()
+        transport = client.get_transport()
         sftp = paramiko.SFTPClient.from_transport(transport)
 
         files = self.sftp_walk(src, None, sftp)
@@ -300,7 +301,8 @@ class SSH:
         """
         close = False
         if not sftp:
-            transport = self.connect().get_transport()
+            client = self.connect()
+            transport = client.get_transport()
             sftp = paramiko.SFTPClient.from_transport(transport)
             close = True
 
@@ -334,7 +336,8 @@ class SSH:
         if os.path.isdir(src):
             if src.endswith("/"):
                 src = src[:-1]
-            transport = self.connect().get_transport()
+            client = self.connect()
+            transport = client.get_transport()
             try:
                 sftp = paramiko.SFTPClient.from_transport(transport)
                 sftp_avail = transport.active
@@ -371,7 +374,8 @@ class SSH:
             - content: The string to put into the remote file.
             - dest: Destination path in the remote server.
         """
-        transport = self.connect().get_transport()
+        client = self.connect()
+        transport = client.get_transport()
         sftp = paramiko.SFTPClient.from_transport(transport)
         dest_file = sftp.file(dest, "w")
         dest_file.write(content)
@@ -388,7 +392,8 @@ class SSH:
             Returns: True if the directory is created or False if it exists.
         """
         try:
-            transport = self.connect().get_transport()
+            client = self.connect()
+            transport = client.get_transport()
             sftp = paramiko.SFTPClient.from_transport(transport)
             sftp_avail = transport.active
         except:
@@ -421,7 +426,8 @@ class SSH:
             Returns: A list with the contents of the directory
                      (see paramiko.SFTPClient.listdir)
         """
-        transport = self.connect().get_transport()
+        client = self.connect()
+        transport = client.get_transport()
         sftp = paramiko.SFTPClient.from_transport(transport)
         res = sftp.listdir(directory)
         sftp.close()
@@ -438,7 +444,8 @@ class SSH:
             Returns: A list containing SFTPAttributes object
                      (see paramiko.SFTPClient.listdir_attr)
         """
-        transport = self.connect().get_transport()
+        client = self.connect()
+        transport = client.get_transport()
         sftp = paramiko.SFTPClient.from_transport(transport)
         res = sftp.listdir_attr(directory)
         sftp.close()
@@ -451,7 +458,8 @@ class SSH:
             Returns: The current working directory.
         """
         try:
-            transport = self.connect().get_transport()
+            client = self.connect()
+            transport = client.get_transport()
             sftp = paramiko.SFTPClient.from_transport(transport)
             sftp_avail = transport.active
         except:
@@ -512,7 +520,8 @@ class SSH:
             Returns: True if the file is deleted or False if it exists.
         """
         try:
-            transport = self.connect().get_transport()
+            client = self.connect()
+            transport = client.get_transport()
             sftp = paramiko.SFTPClient.from_transport(transport)
             sftp_avail = transport.active
         except:
@@ -540,7 +549,8 @@ class SSH:
             - mode: Int with the new permissions
         """
         try:
-            transport = self.connect().get_transport()
+            client = self.connect()
+            transport = client.get_transport()
             sftp = paramiko.SFTPClient.from_transport(transport)
             sftp_avail = transport.active
         except Exception:
