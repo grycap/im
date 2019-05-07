@@ -236,10 +236,10 @@ class TestFogBowConnector(TestCloudConnectorBase):
         self.assertEqual(data["allocationMode"], "dynamic")
 
         data = json.loads(requests.call_args_list[5][1]["data"])
-        self.assertEqual(data, {"direction": "ingress", "protocol": "tcp", "etherType": "IPv4",
+        self.assertEqual(data, {"direction": "IN", "protocol": "TCP", "etherType": "IPv4",
                                 "portTo": 8080, "portFrom": 8080, "cidr": "0.0.0.0/0"})
         data = json.loads(requests.call_args_list[6][1]["data"])
-        self.assertEqual(data, {"direction": "ingress", "protocol": "udp", "etherType": "IPv4",
+        self.assertEqual(data, {"direction": "IN", "protocol": "UDP", "etherType": "IPv4",
                                 "portTo": 9000, "portFrom": 9000, "cidr": "0.0.0.0/0"})
 
         data = json.loads(requests.call_args_list[11][1]["data"])
@@ -292,14 +292,17 @@ class TestFogBowConnector(TestCloudConnectorBase):
         data = json.loads(requests.call_args_list[1][1]["data"])
         self.assertEqual(data["computeId"], '1')
         data = json.loads(requests.call_args_list[4][1]["data"])
-        self.assertEqual(data, {'direction': 'ingress', 'protocol': 'tcp', 'etherType': 'IPv4',
+        self.assertEqual(data, {'direction': 'IN', 'protocol': 'TCP', 'etherType': 'IPv4',
                                 'portTo': 8080, 'portFrom': 8080, 'cidr': '0.0.0.0/0'})
         data = json.loads(requests.call_args_list[5][1]["data"])
-        self.assertEqual(data, {'direction': 'ingress', 'protocol': 'tcp', 'etherType': 'IPv4',
+        self.assertEqual(data, {'direction': 'IN', 'protocol': 'TCP', 'etherType': 'IPv4',
                                 'portTo': 9000, 'portFrom': 9010, 'cidr': '0.0.0.0/0'})
         data = json.loads(requests.call_args_list[6][1]["data"])
+        self.assertEqual(data, {'direction': 'IN', 'protocol': 'TCP', 'etherType': 'IPv4',
+                                'portTo': 22, 'portFrom': 22, 'cidr': '0.0.0.0/0'})
+        data = json.loads(requests.call_args_list[7][1]["data"])
         self.assertEqual(data["volumeSize"], 1)
-        data = json.loads(requests.call_args_list[8][1]["data"])
+        data = json.loads(requests.call_args_list[9][1]["data"])
         self.assertEqual(data, {"computeId": "1", "device": "/dev/hdb", "volumeId": "1"})
 
     @patch('requests.request')
