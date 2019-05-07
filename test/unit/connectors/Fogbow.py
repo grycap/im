@@ -148,6 +148,9 @@ class TestFogBowConnector(TestCloudConnectorBase):
             elif url == "/publicIps/1/securityRules":
                 resp.status_code = 200
                 resp.json.return_value = []
+            elif url == "/networks/1/securityRules":
+                resp.status_code = 200
+                resp.json.return_value = []
         elif method == "POST":
             if url == "/computes/":
                 resp.status_code = 201
@@ -173,6 +176,9 @@ class TestFogBowConnector(TestCloudConnectorBase):
             elif url == "/publicIps/1/securityRules":
                 resp.status_code = 201
                 resp.json.return_value = {"id": "1"}
+            elif url == "/networks/1/securityRules":
+                resp.status_code = 201
+                resp.json.return_value = {"id": "1"}
         elif method == "DELETE":
             if url == "/computes/1":
                 resp.status_code = 204
@@ -195,8 +201,8 @@ class TestFogBowConnector(TestCloudConnectorBase):
     @patch('IM.InfrastructureList.InfrastructureList.save_data')
     def test_20_launch(self, save_data, requests):
         radl_data = """
-            network net1 (outbound = 'yes' and outports = '8080,9000')
-            network net2 ()
+            network net1 (outbound = 'yes')
+            network net2 (outports = '8080,9000/udp')
             network net3 (federated = 'yes' and providers = 'p1,p2')
             network net4 (federated = 'yes' and providers = ['p1','p2'])
             system test (
@@ -229,7 +235,14 @@ class TestFogBowConnector(TestCloudConnectorBase):
         data = json.loads(requests.call_args_list[2][1]["data"])
         self.assertEqual(data["allocationMode"], "dynamic")
 
-        data = json.loads(requests.call_args_list[9][1]["data"])
+        data = json.loads(requests.call_args_list[5][1]["data"])
+        self.assertEqual(data, {"direction": "ingress", "protocol": "tcp", "etherType": "IPv4",
+                                "portTo": 8080, "portFrom": 8080, "cidr": "0.0.0.0/0"})
+        data = json.loads(requests.call_args_list[6][1]["data"])
+        self.assertEqual(data, {"direction": "ingress", "protocol": "udp", "etherType": "IPv4",
+                                "portTo": 9000, "portFrom": 9000, "cidr": "0.0.0.0/0"})
+
+        data = json.loads(requests.call_args_list[11][1]["data"])
         self.assertEqual(data["compute"]["cloudName"], "cloud")
         self.assertEqual(data["compute"]["provider"], "site")
         self.assertEqual(data["compute"]["vCPU"], 1)
