@@ -206,6 +206,7 @@ class SSH:
 
     def _get_sftp_client(self):
         """ Gets an sftp client object with the remote server
+            or scp object in case of failure
         """
         transport = self.connect().get_transport()
 
