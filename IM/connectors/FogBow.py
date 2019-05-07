@@ -23,13 +23,14 @@ from uuid import uuid1
 from netaddr import IPNetwork, IPAddress
 
 from IM.config import Config
+
 try:
     from urlparse import urlparse
 except ImportError:
     from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
-from radl.radl import Feature
+from radl.radl import Feature, outport
 
 
 class FogBowCloudConnector(CloudConnector):
@@ -88,7 +89,7 @@ class FogBowCloudConnector(CloudConnector):
 
         return resp
 
-    def post_and_get(self, path, body, auth_data, failed_states=['FAILED', 'ERROR']):
+    def post_and_get(self, path, body, auth_data, failed_states=['FAILED', 'ERROR'], max_wait=30):
         headers = {'Content-Type': 'application/json'}
         resp = self.create_request('POST', path, auth_data, headers, body)
         if resp.status_code not in [201, 200]:
@@ -96,7 +97,15 @@ class FogBowCloudConnector(CloudConnector):
             return None
         else:
             obj_id = resp.json()['id']
-            resp = self.create_request('GET', '%s%s' % (path, obj_id), auth_data, headers)
+            cont = 0
+            while cont < max_wait:
+                cont += 1
+                resp = self.create_request('GET', '%s%s' % (path, obj_id), auth_data, headers)
+                if resp.status_code != 404:
+                    break
+                else:
+                    time.sleep(1)
+
             if resp.status_code == 200:
                 obj_info = resp.json()
                 state = None
@@ -116,6 +125,11 @@ class FogBowCloudConnector(CloudConnector):
                     return obj_info
             else:
                 self.log_error("Error %s%s. %s. %s." % (path, obj_id, resp.reason, resp.text))
+                resp = self.create_request('DELETE', '%s%s' % (path, obj_id), auth_data, headers)
+                if resp.status_code not in [200, 204]:
+                    self.log_error("Error deleting %s%s." % (path, obj_id))
+                else:
+                    self.log_info("%s%s deleted." % (path, obj_id))
 
         return None
 
@@ -267,20 +281,26 @@ class FogBowCloudConnector(CloudConnector):
             sec_groups = resp.json()
 
         outports = net.getOutPorts()
+
+        if path == "publicIps":
+            if outports is None:
+                outports = []
+            outports.append(outport(22, 22, 'tcp'))
+
         if outports:
-            for outport in outports:
+            for op in outports:
                 body = {"cidr": "0.0.0.0/0",
-                        "direction": "ingress",
+                        "direction": "IN",
                         "etherType": "IPv4",
-                        "protocol": outport.get_protocol()
+                        "protocol": op.get_protocol().upper()
                         }
 
-                if outport.is_range():
-                    body["portTo"] = outport.get_port_init()
-                    body["portFrom"] = outport.get_port_end()
+                if op.is_range():
+                    body["portTo"] = op.get_port_init()
+                    body["portFrom"] = op.get_port_end()
                 else:
-                    body["portTo"] = outport.get_remote_port()
-                    body["portFrom"] = outport.get_remote_port()
+                    body["portTo"] = op.get_remote_port()
+                    body["portFrom"] = op.get_remote_port()
 
                 if body not in sec_groups:
                     headers = {'Content-Type': 'application/json'}
@@ -614,6 +634,14 @@ class FogBowCloudConnector(CloudConnector):
         public_ips = self._get_instance_public_ips(vm.id, auth_data, "id")
 
         try:
+            # First delete the public IPs
+            retries = 3
+            success = False
+            cont = 0
+            while not success and cont < retries:
+                cont += 1
+                success = self.delete_public_ips(vm.id, public_ips, auth_data)
+
             resp = self.create_request('DELETE', "/computes/" + vm.id, auth_data)
 
             if resp.status_code == 404:
@@ -624,18 +652,11 @@ class FogBowCloudConnector(CloudConnector):
             else:
                 res = (True, "")
 
-            retries = 3
             success = False
             cont = 0
             while not success and cont < retries:
                 cont += 1
                 success = self.delete_volumes(vm, auth_data)
-
-            success = False
-            cont = 0
-            while not success and cont < retries:
-                cont += 1
-                success = self.delete_public_ips(vm.id, public_ips, auth_data)
 
             if last:
                 success = False
