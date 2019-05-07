@@ -201,7 +201,7 @@ class InfrastructureList():
                             else:
                                 inf = IM.InfrastructureInfo.InfrastructureInfo.deserialize(data)
                             inf_list[inf.id] = inf
-                        except:
+                        except Exception:
                             InfrastructureList.logger.exception(
                                 "ERROR reading infrastructure from database, ignoring it!.")
                 else:
