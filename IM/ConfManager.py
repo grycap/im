@@ -1236,6 +1236,7 @@ class ConfManager(LoggerMixin, threading.Thread):
 
         try:
             # Try to assure that the are no ansible process running
+            self.log_debug("Terminating ansible process: %s." % self.ansible_process.pid)
             self.ansible_process.teminate()
         except:
             self.log_exception('Problems terminating Ansible processes.')

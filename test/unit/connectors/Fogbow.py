@@ -18,6 +18,7 @@
 
 import sys
 import unittest
+import json
 
 sys.path.append(".")
 sys.path.append("..")
@@ -86,7 +87,7 @@ class TestFogBowConnector(TestCloudConnectorBase):
             self.call_count[method][url] = 0
         self.call_count[method][url] += 1
 
-        resp.status_code = 404
+        resp.status_code = 400
 
         if method == "GET":
             if url == "/computes/1":
@@ -114,7 +115,7 @@ class TestFogBowConnector(TestCloudConnectorBase):
                 resp.json.return_value = []
             elif url == "/federatedNetworks/1":
                 resp.status_code = 200
-                resp.json.return_value = {"id": "1"}
+                resp.json.return_value = {"instanceId": "1"}
             elif url == "/publicIps/status":
                 resp.status_code = 200
                 resp.json.return_value = [{"instanceId": "1",
@@ -141,28 +142,43 @@ class TestFogBowConnector(TestCloudConnectorBase):
                                           "volumeId": "1",
                                           "device": "/dev/sdb",
                                           "state": "READY"}
+            elif url == "/publicKey/":
+                resp.status_code = 200
+                resp.json.return_value = {"publicKey": "publicKey"}
+            elif url == "/publicIps/1/securityRules":
+                resp.status_code = 200
+                resp.json.return_value = []
+            elif url == "/networks/1/securityRules":
+                resp.status_code = 200
+                resp.json.return_value = []
         elif method == "POST":
             if url == "/computes/":
                 resp.status_code = 201
-                resp.text = "1"
+                resp.json.return_value = {"id": "1"}
             elif url == "/publicIps/":
                 resp.status_code = 201
-                resp.text = "1"
+                resp.json.return_value = {"id": "1"}
             elif url == "/volumes/":
                 resp.status_code = 201
-                resp.text = "1"
+                resp.json.return_value = {"id": "1"}
             elif url == "/attachments/":
                 resp.status_code = 201
-                resp.text = "1"
+                resp.json.return_value = {"id": "1"}
             elif url == "/networks/":
                 resp.status_code = 201
-                resp.text = "1"
-            elif url == "/tokens/":
+                resp.json.return_value = {"id": "1"}
+            elif url == "server1.com/tokens/":
                 resp.status_code = 201
-                resp.text = "token"
+                resp.json.return_value = {"token": "token"}
             elif url == "/federatedNetworks/":
                 resp.status_code = 201
-                resp.text = "1"
+                resp.json.return_value = {"id": "1"}
+            elif url == "/publicIps/1/securityRules":
+                resp.status_code = 201
+                resp.json.return_value = {"id": "1"}
+            elif url == "/networks/1/securityRules":
+                resp.status_code = 201
+                resp.json.return_value = {"id": "1"}
         elif method == "DELETE":
             if url == "/computes/1":
                 resp.status_code = 204
@@ -172,8 +188,10 @@ class TestFogBowConnector(TestCloudConnectorBase):
                 resp.status_code = 204
             elif url == "/publicIps/1":
                 resp.status_code = 204
+            elif url == "/attachments/1":
+                resp.status_code = 204
         elif method == "HEAD":
-            if url == "/images/":
+            if url == "/clouds/":
                 resp.status_code = 200
 
         return resp
@@ -185,8 +203,8 @@ class TestFogBowConnector(TestCloudConnectorBase):
     @patch('IM.InfrastructureList.InfrastructureList.save_data')
     def test_20_launch(self, save_data, requests):
         radl_data = """
-            network net1 (outbound = 'yes' and outports = '8080,9000')
-            network net2 ()
+            network net1 (outbound = 'yes')
+            network net2 (outports = '8080,9000/udp')
             network net3 (federated = 'yes' and providers = 'p1,p2')
             network net4 (federated = 'yes' and providers = ['p1','p2'])
             system test (
@@ -198,6 +216,7 @@ class TestFogBowConnector(TestCloudConnectorBase):
             net_interface.1.connection = 'net2' and
             net_interface.2.connection = 'net3' and
             net_interface.3.connection = 'net4' and
+            availability_zone = 'cloud@site' and
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'fbw://server.com/fogbow-ubuntu' and
             disk.0.os.credentials.username = 'user'
@@ -215,11 +234,29 @@ class TestFogBowConnector(TestCloudConnectorBase):
         self.assertTrue(success, msg="ERROR: launching a VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
+        data = json.loads(requests.call_args_list[2][1]["data"])
+        self.assertEqual(data["allocationMode"], "dynamic")
+
+        data = json.loads(requests.call_args_list[5][1]["data"])
+        self.assertEqual(data, {"direction": "IN", "protocol": "TCP", "etherType": "IPv4",
+                                "portTo": 8080, "portFrom": 8080, "cidr": "0.0.0.0/0"})
+        data = json.loads(requests.call_args_list[6][1]["data"])
+        self.assertEqual(data, {"direction": "IN", "protocol": "UDP", "etherType": "IPv4",
+                                "portTo": 9000, "portFrom": 9000, "cidr": "0.0.0.0/0"})
+
+        data = json.loads(requests.call_args_list[11][1]["data"])
+        self.assertEqual(data["compute"]["cloudName"], "cloud")
+        self.assertEqual(data["compute"]["provider"], "site")
+        self.assertEqual(data["compute"]["vCPU"], 1)
+        self.assertEqual(data["compute"]["memory"], 512)
+        self.assertEqual(data["compute"]["imageId"], "fogbow-ubuntu")
+        self.assertEqual(data["federatedNetworkId"], "1")
+
     @patch('requests.request')
     @patch('time.sleep')
     def test_30_updateVMInfo(self, sleep, requests):
         radl_data = """
-            network net (outbound = 'yes')
+            network net (outbound = 'yes' and outports = '8080,9000:9010')
             system test (
             cpu.arch='x86_64' and
             cpu.count=1 and
@@ -254,10 +291,26 @@ class TestFogBowConnector(TestCloudConnectorBase):
         self.assertEquals(vm.info.systems[0].getValue("memory.size"), 1073741824)
         self.assertEquals(vm.info.systems[0].getValue("disk.1.device"), "/dev/sdb")
 
+        data = json.loads(requests.call_args_list[1][1]["data"])
+        self.assertEqual(data["computeId"], '1')
+        data = json.loads(requests.call_args_list[4][1]["data"])
+        self.assertEqual(data, {'direction': 'IN', 'protocol': 'TCP', 'etherType': 'IPv4',
+                                'portTo': 8080, 'portFrom': 8080, 'cidr': '0.0.0.0/0'})
+        data = json.loads(requests.call_args_list[5][1]["data"])
+        self.assertEqual(data, {'direction': 'IN', 'protocol': 'TCP', 'etherType': 'IPv4',
+                                'portTo': 9000, 'portFrom': 9010, 'cidr': '0.0.0.0/0'})
+        data = json.loads(requests.call_args_list[6][1]["data"])
+        self.assertEqual(data, {'direction': 'IN', 'protocol': 'TCP', 'etherType': 'IPv4',
+                                'portTo': 22, 'portFrom': 22, 'cidr': '0.0.0.0/0'})
+        data = json.loads(requests.call_args_list[7][1]["data"])
+        self.assertEqual(data["volumeSize"], 1)
+        data = json.loads(requests.call_args_list[9][1]["data"])
+        self.assertEqual(data, {"computeId": "1", "device": "/dev/hdb", "volumeId": "1"})
+
     @patch('requests.request')
     def test_60_finalize(self, requests):
         auth = Authentication([{'id': 'fogbow', 'type': 'FogBow', 'host': 'server.com',
-                                'username': 'user', 'password': 'pass'}])
+                                'username': 'user', 'password': 'pass', 'as_host': 'server1.com'}])
         fogbow_cloud = self.get_fogbow_cloud()
 
         radl_data = """
@@ -269,13 +322,25 @@ class TestFogBowConnector(TestCloudConnectorBase):
         inf = MagicMock()
         vm = VirtualMachine(inf, "1", fogbow_cloud.cloud, radl, radl, fogbow_cloud, 1)
         vm.volumes = ["1"]
+        vm.attachments = ["1"]
 
         requests.side_effect = self.get_response
 
         success, _ = fogbow_cloud.finalize(vm, True, auth)
 
-        self.assertTrue(success, msg="ERROR: finalizing VM info.")
+        self.assertTrue(success, msg="ERROR: finalizing VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
+        self.assertEqual(requests.call_args_list[6][0], ('DELETE', 'http://server.com:8182/publicIps/1'))
+        self.assertEqual(requests.call_args_list[8][0], ('DELETE', 'http://server.com:8182/attachments/1'))
+        self.assertEqual(requests.call_args_list[10][0], ('DELETE', 'http://server.com:8182/computes/1'))
+        self.assertEqual(requests.call_args_list[12][0], ('DELETE', 'http://server.com:8182/volumes/1'))
+
+        vm.attachments = ["2"]
+        vm.volumes = ["2"]
+        success, msg = fogbow_cloud.finalize(vm, True, auth)
+        self.assertFalse(success, msg="ERROR not detected finalizing VM.")
+        self.assertEqual(msg, "Error deleting attachments.\nError deleting Volumes.")
 
 
 if __name__ == '__main__':
