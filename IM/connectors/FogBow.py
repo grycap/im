@@ -97,6 +97,7 @@ class FogBowCloudConnector(CloudConnector):
             return None
         else:
             obj_id = resp.json()['id']
+            time.sleep(1)
             cont = 0
             while cont < max_wait:
                 cont += 1
@@ -236,7 +237,7 @@ class FogBowCloudConnector(CloudConnector):
                     cidr = net.getValue("cidr")
                     if not cidr:
                         cidr = '10.0.%d.0/24' % random.randint(10, 250)
-                    body = {"name": net_name, "cidrNotation": cidr}
+                    body = {"name": net_name, "cidr": cidr}
                     net_providers = net.getValue("providers")
                     if net_providers:
                         if isinstance(net_providers, list):
@@ -246,7 +247,7 @@ class FogBowCloudConnector(CloudConnector):
                     self.log_debug(body)
                     net_info = self.post_and_get('/federatedNetworks/', json.dumps(body), auth_data)
                     if net_info:
-                        net.setValue("provider_id", net_info['id'])
+                        net.setValue("provider_id", net_info['instanceId'])
                     else:
                         self.log_error("Error creating federated net %s." % net_name)
             elif not net.isPublic():
@@ -428,6 +429,7 @@ class FogBowCloudConnector(CloudConnector):
             headers = {'Content-Type': 'application/json'}
             if "volumes" not in vm.__dict__.keys():
                 vm.volumes = []
+                vm.attachments = []
                 cont = 1
                 while (vm.info.systems[0].getValue("disk." + str(cont) + ".size") or
                        vm.info.systems[0].getValue("disk." + str(cont) + ".image.url")):
@@ -450,10 +452,11 @@ class FogBowCloudConnector(CloudConnector):
                             success = False
                             self.log_exception("Error getting volume ID %s" % volume_id)
                     else:
-                        self.log_debug("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
+                        self.log_info("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
                         volume_name = "im-%s" % str(uuid1())
 
                         body = '{"name": "%s", "volumeSize": %d}' % (volume_name, int(disk_size))
+                        self.log_debug(body)
                         resp = self.create_request('POST', '/volumes/', auth_data, headers, body)
 
                         if resp.status_code not in [201, 200]:
@@ -467,10 +470,12 @@ class FogBowCloudConnector(CloudConnector):
                             vm.volumes.append(volume_id)
 
                     if success:
-                        self.log_debug("Attach the volume ID %s" % volume_id)
+                        self.log_info("Attach the volume ID %s" % volume_id)
                         body = '{"computeId": "%s","device": "%s","volumeId": "%s"}' % (vm.id, disk_device, volume_id)
+                        self.log_debug(body)
                         attach_info = self.post_and_get('/attachments/', body, auth_data)
                         if attach_info:
+                            vm.attachments.append(attach_info['id'])
                             disk_device = attach_info["device"]
                             if disk_device:
                                 vm.info.systems[0].setValue("disk." + str(cont) + ".device", disk_device)
@@ -633,6 +638,7 @@ class FogBowCloudConnector(CloudConnector):
 
         public_ips = self._get_instance_public_ips(vm.id, auth_data, "id")
 
+        res = (True, "")
         try:
             # First delete the public IPs
             retries = 3
@@ -641,22 +647,37 @@ class FogBowCloudConnector(CloudConnector):
             while not success and cont < retries:
                 cont += 1
                 success = self.delete_public_ips(vm.id, public_ips, auth_data)
+            if not success:
+                res = (False, "Error deleting Public IPs")
+
+            # then delete the attachments
+            success = False
+            cont = 0
+            while not success and cont < retries:
+                cont += 1
+                success = self.delete_attachments(vm, auth_data)
+            if not success:
+                msg = res[1]
+                res = (False, "%s%sError deleting attachments." % (msg, "\n" if msg else ""))
 
             resp = self.create_request('DELETE', "/computes/" + vm.id, auth_data)
 
             if resp.status_code == 404:
                 vm.state = VirtualMachine.OFF
-                res = (True, "")
             elif resp.status_code not in [200, 204]:
-                res = (False, "Error removing the VM: " + resp.reason + "\n" + resp.text)
-            else:
-                res = (True, "")
+                msg = res[1]
+                res = (False, "%s%sError removing the VM: %s, %s." % (msg, "\n" if msg else "",
+                                                                      resp.reason, resp.text))
 
+            # then delete the volumes
             success = False
             cont = 0
             while not success and cont < retries:
                 cont += 1
                 success = self.delete_volumes(vm, auth_data)
+            if not success:
+                msg = res[1]
+                res = (False, "%s%sError deleting Volumes." % (msg, "\n" if msg else ""))
 
             if last:
                 success = False
@@ -664,6 +685,9 @@ class FogBowCloudConnector(CloudConnector):
                 while not success and cont < retries:
                     cont += 1
                     success = self.delete_nets(vm, auth_data)
+                if not success:
+                    msg = res[1]
+                    res = (False, "%s%sError deleting Networks." % (msg, "\n" if msg else ""))
 
             return res
         except Exception as ex:
@@ -706,6 +730,29 @@ class FogBowCloudConnector(CloudConnector):
             success = False
             self.log_exception("Error deleting net %s." % net_name)
         return success
+
+    def delete_attachments(self, vm, auth_data):
+        """
+        Delete the attachments of a VM
+        """
+        all_ok = True
+        if "attachments" in vm.__dict__.keys() and vm.attachments:
+            for attachmentid in vm.attachments:
+                self.log_debug("Deleting attachment ID %s" % attachmentid)
+                try:
+                    resp = self.create_request('DELETE', '/attachments/%s' % attachmentid, auth_data)
+                    if resp.status_code not in [200, 204, 404]:
+                        success = False
+                        raise Exception(resp.reason + "\n" + resp.text)
+                    else:
+                        success = True
+                except:
+                    self.log_exception("Error destroying attachment: %s from the node: %s" % (attachmentid, vm.id))
+                    success = False
+
+                if not success:
+                    all_ok = False
+        return all_ok
 
     def delete_volumes(self, vm, auth_data):
         """

@@ -22,7 +22,7 @@ import json
 
 sys.path.append(".")
 sys.path.append("..")
-from CloudConn import TestCloudConnectorBase
+from .CloudConn import TestCloudConnectorBase
 try:
     from urlparse import urlparse
 except ImportError:
@@ -87,7 +87,7 @@ class TestFogBowConnector(TestCloudConnectorBase):
             self.call_count[method][url] = 0
         self.call_count[method][url] += 1
 
-        resp.status_code = 404
+        resp.status_code = 400
 
         if method == "GET":
             if url == "/computes/1":
@@ -115,7 +115,7 @@ class TestFogBowConnector(TestCloudConnectorBase):
                 resp.json.return_value = []
             elif url == "/federatedNetworks/1":
                 resp.status_code = 200
-                resp.json.return_value = {"id": "1"}
+                resp.json.return_value = {"instanceId": "1"}
             elif url == "/publicIps/status":
                 resp.status_code = 200
                 resp.json.return_value = [{"instanceId": "1",
@@ -187,6 +187,8 @@ class TestFogBowConnector(TestCloudConnectorBase):
             elif url == "/networks/1":
                 resp.status_code = 204
             elif url == "/publicIps/1":
+                resp.status_code = 204
+            elif url == "/attachments/1":
                 resp.status_code = 204
         elif method == "HEAD":
             if url == "/clouds/":
@@ -320,13 +322,25 @@ class TestFogBowConnector(TestCloudConnectorBase):
         inf = MagicMock()
         vm = VirtualMachine(inf, "1", fogbow_cloud.cloud, radl, radl, fogbow_cloud, 1)
         vm.volumes = ["1"]
+        vm.attachments = ["1"]
 
         requests.side_effect = self.get_response
 
         success, _ = fogbow_cloud.finalize(vm, True, auth)
 
-        self.assertTrue(success, msg="ERROR: finalizing VM info.")
+        self.assertTrue(success, msg="ERROR: finalizing VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
+        self.assertEqual(requests.call_args_list[6][0], ('DELETE', 'http://server.com:8182/publicIps/1'))
+        self.assertEqual(requests.call_args_list[8][0], ('DELETE', 'http://server.com:8182/attachments/1'))
+        self.assertEqual(requests.call_args_list[10][0], ('DELETE', 'http://server.com:8182/computes/1'))
+        self.assertEqual(requests.call_args_list[12][0], ('DELETE', 'http://server.com:8182/volumes/1'))
+
+        vm.attachments = ["2"]
+        vm.volumes = ["2"]
+        success, msg = fogbow_cloud.finalize(vm, True, auth)
+        self.assertFalse(success, msg="ERROR not detected finalizing VM.")
+        self.assertEqual(msg, "Error deleting attachments.\nError deleting Volumes.")
 
 
 if __name__ == '__main__':
