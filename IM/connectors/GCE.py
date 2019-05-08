@@ -14,13 +14,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import time
 import uuid
 import os
 
 try:
     from libcloud.compute.base import NodeSize
-    from libcloud.compute.types import NodeState, Provider
+    from libcloud.compute.types import Provider
     from libcloud.compute.providers import get_driver
     from libcloud.common.google import ResourceNotFoundError
     from libcloud.dns.types import Provider as DNSProvider
@@ -58,7 +57,7 @@ class GCECloudConnector(LibCloudCloudConnector):
         self.datacenter = None
         self.driver = None
         self.dns_driver = None
-        CloudConnector.__init__(self, cloud_info, inf)
+        LibCloudCloudConnector.__init__(self, cloud_info, inf)
 
     def get_driver(self, auth_data, datacenter=None):
         """

@@ -23,13 +23,14 @@ from uuid import uuid1
 from netaddr import IPNetwork, IPAddress
 
 from IM.config import Config
+
 try:
     from urlparse import urlparse
 except ImportError:
     from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
-from radl.radl import Feature
+from radl.radl import Feature, outport
 
 
 class FogBowCloudConnector(CloudConnector):
@@ -50,7 +51,9 @@ class FogBowCloudConnector(CloudConnector):
         'SPAWNING': VirtualMachine.PENDING,
         'READY': VirtualMachine.RUNNING,
         'IN_USE': VirtualMachine.RUNNING,
+        'BUSY': VirtualMachine.RUNNING,
         'FAILED': VirtualMachine.FAILED,
+        'ERROR': VirtualMachine.FAILED,
         'INCONSISTENT': VirtualMachine.UNKNOWN,
         'UNAVAILABLE': VirtualMachine.STOPPED
     }
@@ -86,22 +89,29 @@ class FogBowCloudConnector(CloudConnector):
 
         return resp
 
-    def post_and_get(self, path, body, auth_data, failed_states=['FAILED']):
+    def post_and_get(self, path, body, auth_data, failed_states=['FAILED', 'ERROR'], max_wait=30):
         headers = {'Content-Type': 'application/json'}
         resp = self.create_request('POST', path, auth_data, headers, body)
         if resp.status_code not in [201, 200]:
             self.log_error("Error creating %s. %s. %s." % (path, resp.reason, resp.text))
             return None
         else:
-            obj_id = resp.text
-            resp = self.create_request('GET', '%s%s' % (path, obj_id), auth_data, headers)
+            obj_id = resp.json()['id']
+            time.sleep(1)
+            cont = 0
+            while cont < max_wait:
+                cont += 1
+                resp = self.create_request('GET', '%s%s' % (path, obj_id), auth_data, headers)
+                if resp.status_code != 404:
+                    break
+                else:
+                    time.sleep(1)
+
             if resp.status_code == 200:
                 obj_info = resp.json()
                 state = None
                 if 'state' in obj_info:
                     state = obj_info['state']
-                elif 'orderState' in obj_info:
-                    state = obj_info['orderState']
                 if state in failed_states:
                     self.log_error("%s%s is in state %s." % (path, obj_id, state))
                     try:
@@ -116,6 +126,11 @@ class FogBowCloudConnector(CloudConnector):
                     return obj_info
             else:
                 self.log_error("Error %s%s. %s. %s." % (path, obj_id, resp.reason, resp.text))
+                resp = self.create_request('DELETE', '%s%s' % (path, obj_id), auth_data, headers)
+                if resp.status_code not in [200, 204]:
+                    self.log_error("Error deleting %s%s." % (path, obj_id))
+                else:
+                    self.log_info("%s%s deleted." % (path, obj_id))
 
         return None
 
@@ -124,23 +139,31 @@ class FogBowCloudConnector(CloudConnector):
 
         if self.token:
             self.log_debug("We have a token. Check if it is valid.")
-            resp = requests.request('HEAD', self.get_full_url('/images/'), verify=self.verify_ssl,
-                                    headers={'federationTokenValue': self.token})
+            resp = requests.request('HEAD', self.get_full_url('/clouds/'), verify=self.verify_ssl,
+                                    headers={'Fogbow-User-Token': self.token})
             if resp.status_code in [200, 201]:
                 return self.token
             else:
                 self.log_debug("It is not valid. Request for a new one.")
                 self.token = None
 
-        body = {}
+        if 'as_host' not in auth_data:
+            raise Exception("No as_host provided in auth data.")
+
+        resp = requests.request('GET', self.get_full_url('/publicKey/'), verify=self.verify_ssl)
+        if resp.status_code == 200:
+            public_key = resp.json()['publicKey']
+
+        body = {'publicKey': public_key, 'credentials': {}}
         for key, value in auth_data.items():
-            if key not in ['id', 'type', 'host']:
-                body[key] = value
-        resp = requests.request('POST', self.get_full_url('/tokens/'), verify=self.verify_ssl,
+            if key not in ['id', 'type', 'host', 'as_host']:
+                body['credentials'][key] = value
+
+        resp = requests.request('POST', '%s/tokens/' % auth_data['as_host'], verify=self.verify_ssl,
                                 headers=headers, data=json.dumps(body))
         if resp.status_code in [200, 201]:
-            self.token = resp.text
-            return resp.text
+            self.token = resp.json()['token']
+            return self.token
         else:
             self.log_error("Error getting token: %s. %s" % (resp.reason, resp.text))
             raise Exception("Error getting token: %s. %s" % (resp.reason, resp.text))
@@ -158,7 +181,7 @@ class FogBowCloudConnector(CloudConnector):
         else:
             token = self.get_token(auth[0])
 
-        auth_headers = {'federationTokenValue': token}
+        auth_headers = {'Fogbow-User-Token': token}
 
         return auth_headers
 
@@ -197,6 +220,10 @@ class FogBowCloudConnector(CloudConnector):
         fbw_nets = self.get_fbw_nets(auth_data)
         fbw_fed_nets = self.get_fbw_nets(auth_data, True)
         member = radl.systems[0].getValue('availability_zone')
+        if member:
+            if '@' in member:
+                parts = member.split('@')
+                member = parts[1]
 
         for net in radl.networks:
             net_name = "im_%s_%s" % (inf.id, net.id)
@@ -210,18 +237,17 @@ class FogBowCloudConnector(CloudConnector):
                     cidr = net.getValue("cidr")
                     if not cidr:
                         cidr = '10.0.%d.0/24' % random.randint(10, 250)
-                    body = {"name": net_name, "cidrNotation": cidr}
+                    body = {"name": net_name, "cidr": cidr}
                     net_providers = net.getValue("providers")
                     if net_providers:
                         if isinstance(net_providers, list):
-                            body["allowedMembers"] = net_providers
+                            body["providingMembers"] = net_providers
                         else:
-                            body["allowedMembers"] = [a.strip() for a in net_providers.split(",")]
+                            body["providingMembers"] = [a.strip() for a in net_providers.split(",")]
                     self.log_debug(body)
-                    net_info = self.post_and_get('/federatedNetworks/', json.dumps(body), auth_data,
-                                                 ['FAILED_AFTER_SUCCESSUL_REQUEST', 'FAILED_ON_REQUEST'])
+                    net_info = self.post_and_get('/federatedNetworks/', json.dumps(body), auth_data)
                     if net_info:
-                        net.setValue("provider_id", net_info['id'])
+                        net.setValue("provider_id", net_info['instanceId'])
                     else:
                         self.log_error("Error creating federated net %s." % net_name)
             elif not net.isPublic():
@@ -239,9 +265,51 @@ class FogBowCloudConnector(CloudConnector):
 
                     net_info = self.post_and_get('/networks/', json.dumps(body), auth_data)
                     if net_info:
+                        self.log_debug("Network %s created successfully." % net_info['id'])
                         net.setValue("provider_id", net_info['id'])
+                        self.create_security_rules("networks", net, net_info['id'], auth_data)
                     else:
                         self.log_error("Error creating net %s." % net_name)
+
+    def create_security_rules(self, path, net, obj_id, auth_data):
+        """
+        Create security rules for a net
+        """
+        # First get the current opened ports
+        resp = self.create_request('GET', '/%s/%s/securityRules' % (path, obj_id), auth_data)
+        sec_groups = []
+        if resp.status_code == 200:
+            sec_groups = resp.json()
+
+        outports = net.getOutPorts()
+
+        if path == "publicIps":
+            if outports is None:
+                outports = []
+            outports.append(outport(22, 22, 'tcp'))
+
+        if outports:
+            for op in outports:
+                body = {"cidr": "0.0.0.0/0",
+                        "direction": "IN",
+                        "etherType": "IPv4",
+                        "protocol": op.get_protocol().upper()
+                        }
+
+                if op.is_range():
+                    body["portTo"] = op.get_port_init()
+                    body["portFrom"] = op.get_port_end()
+                else:
+                    body["portTo"] = op.get_remote_port()
+                    body["portFrom"] = op.get_remote_port()
+
+                if body not in sec_groups:
+                    headers = {'Content-Type': 'application/json'}
+                    resp = self.create_request('POST', '/%s/%s/securityRules' % (path, obj_id),
+                                               auth_data, headers, json.dumps(body))
+                    if resp.status_code not in [201, 200]:
+                        self.log_error("Error creating Security Rule in %s. %s. %s." % (resp.reason,
+                                                                                        path, resp.text))
 
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         system = radl.systems[0]
@@ -287,7 +355,7 @@ class FogBowCloudConnector(CloudConnector):
                             else:
                                 nets.append(provider_id)
 
-                body = {"computeOrder":
+                body = {"compute":
                         {"imageId": image,
                          "memory": memory,
                          "name": "%s-%s" % (name.lower().replace("_", "-"), str(uuid1())),
@@ -296,12 +364,17 @@ class FogBowCloudConnector(CloudConnector):
                         }
 
                 if nets:
-                    body["computeOrder"]["networkIds"] = nets
+                    body["compute"]["networkIds"] = nets
                 if fed_net:
                     body["federatedNetworkId"] = fed_net
 
                 if system.getValue('availability_zone'):
-                    body["computeOrder"]['provider'] = system.getValue('availability_zone')
+                    if '@' in system.getValue('availability_zone'):
+                        parts = system.getValue('availability_zone').split('@')
+                        body["compute"]['cloudName'] = parts[0]
+                        body["compute"]['provider'] = parts[1]
+                    else:
+                        body["compute"]['provider'] = system.getValue('availability_zone')
 
                 self.log_debug(body)
 
@@ -310,7 +383,7 @@ class FogBowCloudConnector(CloudConnector):
                 if resp.status_code not in [201, 200]:
                     res.append((False, resp.reason + "\n" + resp.text))
                 else:
-                    vm = VirtualMachine(inf, str(resp.text), self.cloud, radl, requested_radl)
+                    vm = VirtualMachine(inf, str(resp.json()['id']), self.cloud, radl, requested_radl)
                     vm.info.systems[0].setValue('instance_id', str(vm.id))
                     inf.add_vm(vm)
                     res.append((True, vm))
@@ -330,7 +403,7 @@ class FogBowCloudConnector(CloudConnector):
         if volume_id:
             count = 0
             vol_state = ""
-            while vol_state != state and vol_state != "FAILED" and count < timeout:
+            while vol_state != state and vol_state not in ["FAILED", "ERROR"] and count < timeout:
                 time.sleep(delay)
                 count += delay
                 resp = self.create_request('GET', '/volumes/%s' % volume_id, auth_data)
@@ -356,6 +429,7 @@ class FogBowCloudConnector(CloudConnector):
             headers = {'Content-Type': 'application/json'}
             if "volumes" not in vm.__dict__.keys():
                 vm.volumes = []
+                vm.attachments = []
                 cont = 1
                 while (vm.info.systems[0].getValue("disk." + str(cont) + ".size") or
                        vm.info.systems[0].getValue("disk." + str(cont) + ".image.url")):
@@ -378,16 +452,17 @@ class FogBowCloudConnector(CloudConnector):
                             success = False
                             self.log_exception("Error getting volume ID %s" % volume_id)
                     else:
-                        self.log_debug("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
+                        self.log_info("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
                         volume_name = "im-%s" % str(uuid1())
 
                         body = '{"name": "%s", "volumeSize": %d}' % (volume_name, int(disk_size))
+                        self.log_debug(body)
                         resp = self.create_request('POST', '/volumes/', auth_data, headers, body)
 
                         if resp.status_code not in [201, 200]:
                             self.log_error("Error creating volume: %s. %s" % (resp.reason, resp.text))
                         else:
-                            volume_id = resp.text
+                            volume_id = resp.json()['id']
 
                         success = self.wait_volume(volume_id, auth_data)
                         if success:
@@ -395,10 +470,12 @@ class FogBowCloudConnector(CloudConnector):
                             vm.volumes.append(volume_id)
 
                     if success:
-                        self.log_debug("Attach the volume ID %s" % volume_id)
+                        self.log_info("Attach the volume ID %s" % volume_id)
                         body = '{"computeId": "%s","device": "%s","volumeId": "%s"}' % (vm.id, disk_device, volume_id)
+                        self.log_debug(body)
                         attach_info = self.post_and_get('/attachments/', body, auth_data)
                         if attach_info:
+                            vm.attachments.append(attach_info['id'])
                             disk_device = attach_info["device"]
                             if disk_device:
                                 vm.info.systems[0].setValue("disk." + str(cont) + ".device", disk_device)
@@ -432,7 +509,7 @@ class FogBowCloudConnector(CloudConnector):
                     resp_ip = self.create_request('GET', '/publicIps/%s' % ipstatus['instanceId'], auth_data)
                     if resp_ip.status_code == 200:
                         ipdata = resp_ip.json()
-                        if ipdata['state'] == 'FAILED':
+                        if ipdata['state'] in ['FAILED', 'ERROR']:
                             try:
                                 self.log_warn("Public IP id: %s is FAILED. Trying to delete." % ipstatus['instanceId'])
                                 resp_del = self.create_request('DELETE', '/publicIps/%s' % ipstatus['instanceId'],
@@ -474,6 +551,10 @@ class FogBowCloudConnector(CloudConnector):
             ip_info = self.post_and_get('/publicIps/', json.dumps(body), auth_data)
             if ip_info:
                 self.log_debug("IP obtained: %s." % ip_info['ip'])
+                # Open ports for public IPs
+                for net in vm.info.networks:
+                    if net.isPublic() and vm.info.systems[0].getNumNetworkWithConnection(net.id) is not None:
+                        self.create_security_rules('publicIps', net, ip_info['id'], auth_data)
                 return ip_info['ip']
             else:
                 self.add_public_ip_count += 1
@@ -517,7 +598,17 @@ class FogBowCloudConnector(CloudConnector):
                         else:
                             private_ips.append(ip)
 
-                member = vm.info.systems[0].getValue('availability_zone')
+                member = None
+                if "provider" in output and output["provider"]:
+                    member = output["provider"]
+                cloud = None
+                if "cloudName" in output and output["cloudName"]:
+                    cloud = output["cloudName"]
+
+                if member or cloud:
+                    availability_zone = "%s@%s" % (cloud if cloud else "", member if member else "")
+                    vm.info.systems[0].setValue('availability_zone', availability_zone)
+
                 ip = self.add_elastic_ip(vm, public_ips, member, auth_data)
                 if ip:
                     public_ips.append(ip)
@@ -547,29 +638,46 @@ class FogBowCloudConnector(CloudConnector):
 
         public_ips = self._get_instance_public_ips(vm.id, auth_data, "id")
 
+        res = (True, "")
         try:
-            resp = self.create_request('DELETE', "/computes/" + vm.id, auth_data)
-
-            if resp.status_code == 404:
-                vm.state = VirtualMachine.OFF
-                res = (True, "")
-            elif resp.status_code not in [200, 204]:
-                res = (False, "Error removing the VM: " + resp.reason + "\n" + resp.text)
-            else:
-                res = (True, "")
-
+            # First delete the public IPs
             retries = 3
             success = False
             cont = 0
             while not success and cont < retries:
                 cont += 1
-                success = self.delete_volumes(vm, auth_data)
+                success = self.delete_public_ips(vm.id, public_ips, auth_data)
+            if not success:
+                res = (False, "Error deleting Public IPs")
 
+            # then delete the attachments
             success = False
             cont = 0
             while not success and cont < retries:
                 cont += 1
-                success = self.delete_public_ips(vm.id, public_ips, auth_data)
+                success = self.delete_attachments(vm, auth_data)
+            if not success:
+                msg = res[1]
+                res = (False, "%s%sError deleting attachments." % (msg, "\n" if msg else ""))
+
+            resp = self.create_request('DELETE', "/computes/" + vm.id, auth_data)
+
+            if resp.status_code == 404:
+                vm.state = VirtualMachine.OFF
+            elif resp.status_code not in [200, 204]:
+                msg = res[1]
+                res = (False, "%s%sError removing the VM: %s, %s." % (msg, "\n" if msg else "",
+                                                                      resp.reason, resp.text))
+
+            # then delete the volumes
+            success = False
+            cont = 0
+            while not success and cont < retries:
+                cont += 1
+                success = self.delete_volumes(vm, auth_data)
+            if not success:
+                msg = res[1]
+                res = (False, "%s%sError deleting Volumes." % (msg, "\n" if msg else ""))
 
             if last:
                 success = False
@@ -577,6 +685,9 @@ class FogBowCloudConnector(CloudConnector):
                 while not success and cont < retries:
                     cont += 1
                     success = self.delete_nets(vm, auth_data)
+                if not success:
+                    msg = res[1]
+                    res = (False, "%s%sError deleting Networks." % (msg, "\n" if msg else ""))
 
             return res
         except Exception as ex:
@@ -619,6 +730,29 @@ class FogBowCloudConnector(CloudConnector):
             success = False
             self.log_exception("Error deleting net %s." % net_name)
         return success
+
+    def delete_attachments(self, vm, auth_data):
+        """
+        Delete the attachments of a VM
+        """
+        all_ok = True
+        if "attachments" in vm.__dict__.keys() and vm.attachments:
+            for attachmentid in vm.attachments:
+                self.log_debug("Deleting attachment ID %s" % attachmentid)
+                try:
+                    resp = self.create_request('DELETE', '/attachments/%s' % attachmentid, auth_data)
+                    if resp.status_code not in [200, 204, 404]:
+                        success = False
+                        raise Exception(resp.reason + "\n" + resp.text)
+                    else:
+                        success = True
+                except:
+                    self.log_exception("Error destroying attachment: %s from the node: %s" % (attachmentid, vm.id))
+                    success = False
+
+                if not success:
+                    all_ok = False
+        return all_ok
 
     def delete_volumes(self, vm, auth_data):
         """

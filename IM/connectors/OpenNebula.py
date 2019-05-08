@@ -22,9 +22,7 @@ try:
 except ImportError:
     from xmlrpc.client import ServerProxy
 
-import hashlib
 import time
-
 from distutils.version import LooseVersion
 from IM.xmlobject import XMLObject
 try:

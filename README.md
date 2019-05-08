@@ -24,7 +24,7 @@ of the functionality of the platform: https://www.youtube.com/playlist?list=PLgP
 
 Please acknowledge the use of this software in your scientific publications by including the following reference:
 
-Miguel Caballer, Ignacio Blanquer, Germán Moltó, and Carlos de Alfonso. "[Dynamic management of virtual infrastructures](https://link.springer.com/article/10.1007/s10723-014-9296-5)". Journal of Grid Computing, Volume 13, Issue 1, Pages 53-70, 2015, ISSN 1570-7873, DOI: 10.1007/s10723-014-9296-5.
+Miguel Caballer, Ignacio Blanquer, German Molto, and Carlos de Alfonso. "[Dynamic management of virtual infrastructures](https://link.springer.com/article/10.1007/s10723-014-9296-5)". Journal of Grid Computing, Volume 13, Issue 1, Pages 53-70, 2015, ISSN 1570-7873, DOI: 10.1007/s10723-014-9296-5.
 
 
 ## 1 DOCKER IMAGE
