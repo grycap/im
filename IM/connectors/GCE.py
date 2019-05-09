@@ -343,11 +343,12 @@ class GCECloudConnector(LibCloudCloudConnector):
 
             ports = {"tcp": ["22"]}
             if public_net:
+                firewall_name = public_net.getValue("sg_name")
+                if not firewall_name:
+                    firewall_name = "fw-im-%s" % net_name
+
                 outports = public_net.getOutPorts()
                 if outports:
-                    firewall_name = public_net.getValue("sg_name")
-                    if not firewall_name:
-                        firewall_name = "fw-im-%s" % net_name
                     for outport in outports:
                         if outport.get_protocol() not in ports:
                             ports[outport.get_protocol()] = []
@@ -357,32 +358,32 @@ class GCECloudConnector(LibCloudCloudConnector):
                         elif outport.get_local_port() != 22:
                             ports[outport.get_protocol()].append(str(outport.get_remote_port()))
 
-                    allowed = [{'IPProtocol': 'tcp', 'ports': ports['tcp']}]
-                    if 'udp' in ports:
-                        allowed.append({'IPProtocol': 'udp', 'ports': ports['udp']})
+                allowed = [{'IPProtocol': 'tcp', 'ports': ports['tcp']}]
+                if 'udp' in ports:
+                    allowed.append({'IPProtocol': 'udp', 'ports': ports['udp']})
 
-                    firewall = None
+                firewall = None
+                try:
+                    firewall = driver.ex_get_firewall(firewall_name)
+                except ResourceNotFoundError:
+                    self.log_info("The firewall %s does not exist." % firewall_name)
+                except:
+                    self.log_exception("Error trying to get FW %s." % firewall_name)
+
+                if firewall:
                     try:
-                        firewall = driver.ex_get_firewall(firewall_name)
-                    except ResourceNotFoundError:
-                        self.log_info("The firewall %s does not exist." % firewall_name)
+                        firewall.allowed = allowed
+                        firewall.update()
+                        self.log_info("Firewall %s existing. Rules updated." % firewall_name)
                     except:
-                        self.log_exception("Error trying to get FW %s." % firewall_name)
+                        self.log_exception("Error updating the firewall %s." % firewall_name)
+                    return
 
-                    if firewall:
-                        try:
-                            firewall.allowed = allowed
-                            firewall.update()
-                            self.log_info("Firewall %s existing. Rules updated." % firewall_name)
-                        except:
-                            self.log_exception("Error updating the firewall %s." % firewall_name)
-                        return
-
-                    try:
-                        driver.ex_create_firewall(firewall_name, allowed, network=net_name)
-                        self.log_info("Firewall %s successfully created." % firewall_name)
-                    except Exception as addex:
-                        self.log_warn("Exception creating FW: " + str(addex))
+                try:
+                    driver.ex_create_firewall(firewall_name, allowed, network=net_name)
+                    self.log_info("Firewall %s successfully created." % firewall_name)
+                except Exception as addex:
+                    self.log_warn("Exception creating FW: " + str(addex))
 
     def create_networks(self, driver, radl, inf):
         """
