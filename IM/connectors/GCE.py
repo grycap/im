@@ -360,9 +360,7 @@ class GCECloudConnector(LibCloudCloudConnector):
 
             ports = {"tcp": ["22"]}
             if public_net:
-                firewall_name = public_net.getValue("sg_name")
-                if not firewall_name:
-                    firewall_name = "fw-%s" % net_name
+                firewall_name = "fw-%s" % net_name
 
                 outports = public_net.getOutPorts()
                 if outports:
