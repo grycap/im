@@ -162,6 +162,8 @@ class TestGCEConnector(TestCloudConnectorBase):
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a single VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+        self.assertEqual(driver.create_node.call_args_list[0][1]['ex_network'], "default")
+        self.assertEqual(driver.create_node.call_args_list[0][1]['external_ip'], "ephemeral")
         self.assertEqual(driver.create_node.call_args_list[0][1]['ex_disks_gce_struct'][1]['deviceName'], "hdb")
         self.assertEqual(driver.create_node.call_args_list[0][1]['ex_disks_gce_struct'][1]['autoDelete'], True)
         self.assertEqual(driver.create_node.call_args_list[0][1]['ex_disks_gce_struct'][2]['deviceName'], "hdc")
