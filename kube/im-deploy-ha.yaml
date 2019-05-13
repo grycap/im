@@ -151,6 +151,7 @@ spec:
     storage: 10Gi
   accessModes:
     - ReadWriteOnce
+    - ReadWriteMany
   mountOptions:
     - nolock
     - hard
@@ -171,6 +172,7 @@ spec:
     storage: 10Gi
   accessModes:
     - ReadWriteOnce
+    - ReadWriteMany
   mountOptions:
     - nolock
     - hard
@@ -664,9 +666,6 @@ spec:
             periodSeconds: 20
             timeoutSeconds: 2
       volumes:
-        - name: imdb
-          persistentVolumeClaim:
-            claimName: imdb
         - name: im-web
           configMap:
             name: im-web
