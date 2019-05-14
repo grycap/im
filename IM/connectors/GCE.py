@@ -791,7 +791,7 @@ class GCECloudConnector(LibCloudCloudConnector):
                         driver.ex_create_route(route_name, router_cidr, priority=800, network=gce_net,
                                                next_hop=vrouter_instance, tags=["imid-%s-nopubip" % vm.inf.id],
                                                description="Route created by the IM")
-                    except ResourceExistsError as ex:
+                    except ResourceExistsError:
                         self.log_debug("Route already exists. Ignore.")
 
                     # once set, delete it to not set it again

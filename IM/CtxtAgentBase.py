@@ -382,7 +382,8 @@ class CtxtAgentBase:
 
         return False
 
-    def add_nat_gateway_tasks(self, playbook):
+    @staticmethod
+    def add_nat_gateway_tasks(playbook):
         """
         Add tasks to enable NAT (Tested in GCE instances)
         https://cloud.google.com/vpc/docs/special-configurations

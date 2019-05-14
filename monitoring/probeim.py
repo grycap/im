@@ -12,7 +12,7 @@ try:
     # To avoid annoying InsecureRequestWarning messages in some Connectors
     from requests.packages.urllib3.exceptions import InsecureRequestWarning
     requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
-except:
+except Exception:
     pass
 
 
