@@ -303,7 +303,7 @@ class TestFogBowConnector(TestCloudConnectorBase):
         self.assertEqual(data, {'direction': 'IN', 'protocol': 'TCP', 'etherType': 'IPv4',
                                 'portTo': 22, 'portFrom': 22, 'cidr': '0.0.0.0/0'})
         data = json.loads(requests.call_args_list[7][1]["data"])
-        self.assertEqual(data["volumeSize"], 1)
+        self.assertEqual(data["size"], 1)
         data = json.loads(requests.call_args_list[9][1]["data"])
         self.assertEqual(data, {"computeId": "1", "device": "/dev/hdb", "volumeId": "1"})
 
