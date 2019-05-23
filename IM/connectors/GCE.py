@@ -353,7 +353,7 @@ class GCECloudConnector(LibCloudCloudConnector):
             try:
                 driver.ex_create_firewall(firewall_name, allowed, network=net_name, source_tags=['imid-%s' % inf.id])
                 self.log_info("Firewall %s successfully created." % firewall_name)
-            except ResourceExistsError as ex:
+            except ResourceExistsError:
                 self.log_debug("FW already exists. Ignore.")
             except Exception as addex:
                 self.log_warn("Exception creating FW: " + str(addex))
