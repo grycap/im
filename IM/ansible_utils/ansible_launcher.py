@@ -176,7 +176,11 @@ class AnsibleThread(Process):
         # create the variable manager, which will be shared throughout
         # the code, ensuring a consistent view of global variables
         variable_manager = VariableManager(loader=loader, inventory=inventory)
-        variable_manager.extra_vars = self.extra_vars
+        try:
+            # It fails in ansible 2.8
+            variable_manager.extra_vars = self.extra_vars
+        except:
+            variable_manager._extra_vars = self.extra_vars
         variable_manager.options_vars = {'ansible_version': self.version_info(ansible_version)}
 
         return loader, inventory, variable_manager
