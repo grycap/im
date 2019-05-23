@@ -179,7 +179,7 @@ class AnsibleThread(Process):
         try:
             # It fails in ansible 2.8
             variable_manager.extra_vars = self.extra_vars
-        except:
+        except AttributeError:
             variable_manager._extra_vars = self.extra_vars
         variable_manager.options_vars = {'ansible_version': self.version_info(ansible_version)}
 
