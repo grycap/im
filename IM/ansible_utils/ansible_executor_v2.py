@@ -361,14 +361,14 @@ class IMPlaybookExecutor(PlaybookExecutor):
                                          variable_manager=variable_manager,
                                          loader=loader, options=options,
                                          passwords=self.passwords,
-                                         stdout_callback = AnsibleCallbacks(output))
+                                         stdout_callback=AnsibleCallbacks(output))
         except TypeError:
             # In case of ansible 2.8 options parameter has been removed
             self._tqm = TaskQueueManager(inventory=inventory,
                                          variable_manager=variable_manager,
                                          loader=loader,
                                          passwords=self.passwords,
-                                         stdout_callback = AnsibleCallbacks(output))
+                                         stdout_callback=AnsibleCallbacks(output))
 
     def run(self):
         '''
