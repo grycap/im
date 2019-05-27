@@ -1210,7 +1210,7 @@ class Tosca:
         nework_type = self._final_function_result(node.get_property_value('network_type'), node)
         network_name = self._final_function_result(node.get_property_value('network_name'), node)
         network_cidr = self._final_function_result(node.get_property_value('cidr'), node)
-        network_route = self._final_function_result(node.get_property_value('route'), node)
+        network_router = self._final_function_result(node.get_property_value('router'), node)
 
         # TODO: get more properties -> must be implemented in the RADL
         if nework_type.lower() == "public":
@@ -1224,8 +1224,8 @@ class Tosca:
             # assume that if the cidr is specified the net wiil be created
             res.setValue("create", "yes")
 
-        if network_route:
-            res.setValue("route", network_route)
+        if network_router:
+            res.setValue("router", network_router)
 
         return res
 
