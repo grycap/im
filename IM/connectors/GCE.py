@@ -16,12 +16,13 @@
 
 import uuid
 import os
+import time
 
 try:
-    from libcloud.compute.base import NodeSize
+    from libcloud.compute.base import NodeSize, NodeState
     from libcloud.compute.types import Provider
     from libcloud.compute.providers import get_driver
-    from libcloud.common.google import ResourceNotFoundError
+    from libcloud.common.google import ResourceNotFoundError, ResourceExistsError
     from libcloud.dns.types import Provider as DNSProvider
     from libcloud.dns.types import RecordType
     from libcloud.dns.providers import get_driver as get_dns_driver
@@ -205,6 +206,8 @@ class GCECloudConnector(LibCloudCloudConnector):
 
             if net:
                 provider_id = net.getValue('provider_id')
+                if provider_id:
+                    return provider_id
 
         return provider_id
 
@@ -341,13 +344,26 @@ class GCECloudConnector(LibCloudCloudConnector):
                 if net.isPublic():
                     public_net = net
 
+            # Create FW rules to allow all inside the VMs
+            firewall_name = "fw-%s-allow-all" % net_name
+            allowed = [{'IPProtocol': 'udp', 'ports': '1-65535'},
+                       {'IPProtocol': 'tcp', 'ports': '1-65535'},
+                       {'IPProtocol': 'icmp'}]
+
+            try:
+                driver.ex_create_firewall(firewall_name, allowed, network=net_name, source_tags=['imid-%s' % inf.id])
+                self.log_info("Firewall %s successfully created." % firewall_name)
+            except ResourceExistsError:
+                self.log_debug("FW already exists. Ignore.")
+            except Exception as addex:
+                self.log_warn("Exception creating FW: " + str(addex))
+
             ports = {"tcp": ["22"]}
             if public_net:
+                firewall_name = "fw-%s" % net_name
+
                 outports = public_net.getOutPorts()
                 if outports:
-                    firewall_name = public_net.getValue("sg_name")
-                    if not firewall_name:
-                        firewall_name = "fw-im-%s" % net_name
                     for outport in outports:
                         if outport.get_protocol() not in ports:
                             ports[outport.get_protocol()] = []
@@ -357,32 +373,17 @@ class GCECloudConnector(LibCloudCloudConnector):
                         elif outport.get_local_port() != 22:
                             ports[outport.get_protocol()].append(str(outport.get_remote_port()))
 
-                    allowed = [{'IPProtocol': 'tcp', 'ports': ports['tcp']}]
-                    if 'udp' in ports:
-                        allowed.append({'IPProtocol': 'udp', 'ports': ports['udp']})
+                allowed = [{'IPProtocol': 'tcp', 'ports': ports['tcp']}]
+                if 'udp' in ports:
+                    allowed.append({'IPProtocol': 'udp', 'ports': ports['udp']})
 
-                    firewall = None
-                    try:
-                        firewall = driver.ex_get_firewall(firewall_name)
-                    except ResourceNotFoundError:
-                        self.log_info("The firewall %s does not exist." % firewall_name)
-                    except:
-                        self.log_exception("Error trying to get FW %s." % firewall_name)
-
-                    if firewall:
-                        try:
-                            firewall.allowed = allowed
-                            firewall.update()
-                            self.log_info("Firewall %s existing. Rules updated." % firewall_name)
-                        except:
-                            self.log_exception("Error updating the firewall %s." % firewall_name)
-                        return
-
-                    try:
-                        driver.ex_create_firewall(firewall_name, allowed, network=net_name)
-                        self.log_info("Firewall %s successfully created." % firewall_name)
-                    except Exception as addex:
-                        self.log_warn("Exception creating FW: " + str(addex))
+                try:
+                    driver.ex_create_firewall(firewall_name, allowed, network=net_name)
+                    self.log_info("Firewall %s successfully created." % firewall_name)
+                except ResourceExistsError:
+                    self.log_debug("FW already exists. Ignore.")
+                except Exception as addex:
+                    self.log_warn("Exception creating FW: " + str(addex))
 
     def create_networks(self, driver, radl, inf):
         """
@@ -396,11 +397,8 @@ class GCECloudConnector(LibCloudCloudConnector):
                 i += 1
                 network = radl.get_network_by_id(net_name)
                 if network.getValue('create') == 'yes' and not network.isPublic():
-                    gce_net_name = network.getValue('provider_id')
-                    if not gce_net_name:
-                        gce_net_name = "im-%s-%s" % (inf.id, net_name)
-
                     gce_net_name = "im-%s-%s" % (inf.id, net_name)
+
                     # First check if the net already exists
                     net = None
                     try:
@@ -413,7 +411,11 @@ class GCECloudConnector(LibCloudCloudConnector):
                     else:
                         net_cidr = network.getValue('cidr')
                         self.log_info("Create net %s with cidr %s." % (gce_net_name, net_cidr))
-                        driver.ex_create_network(gce_net_name, net_cidr, "Net created by the IM")
+                        if net_cidr:
+                            mode = "legacy"
+                        else:
+                            mode = "auto"
+                        driver.ex_create_network(gce_net_name, net_cidr, "Net created by the IM", mode=mode)
 
                     network.setValue('provider_id', gce_net_name)
         except Exception as ext:
@@ -543,7 +545,6 @@ class GCECloudConnector(LibCloudCloudConnector):
         if private and public:
             metadata = {"sshKeys": username + ":" + public}
             self.log_info("Setting ssh for user: " + username)
-            self.log_debug(metadata)
 
         startup_script = self.get_cloud_init_data(radl)
         if startup_script:
@@ -567,6 +568,9 @@ class GCECloudConnector(LibCloudCloudConnector):
         args['ex_network'] = net_provider_id
         self.create_firewall(inf, net_provider_id, radl, driver)
 
+        args['ex_can_ip_forward'] = self.can_ip_forward(radl)
+
+        node_tags = ["imid-%s" % inf.id]
         if self.request_external_ip(radl):
             args['external_ip'] = 'ephemeral'
             fixed_ip = self.request_fixed_ip(radl)
@@ -575,12 +579,16 @@ class GCECloudConnector(LibCloudCloudConnector):
                     raise Exception("A fixed IP cannot be specified to a set of nodes (deploy is higher than 1)")
 
                 args['external_ip'] = driver.ex_create_address(name="im-" + fixed_ip, region=region, address=fixed_ip)
+        else:
+            node_tags = ["imid-%s-nopubip" % inf.id, "imid-%s" % inf.id]
 
+        args['ex_tags'] = node_tags
         res = []
         error_msg = "Error launching VM."
         if num_vm > 1:
             args['number'] = num_vm
             args['base_name'] = "%s-%s" % (name.lower().replace("_", "-"), str(uuid.uuid1()))
+            self.log_debug(args)
             try:
                 nodes = driver.ex_create_multiple_nodes(**args)
             except Exception as ex:
@@ -589,6 +597,7 @@ class GCECloudConnector(LibCloudCloudConnector):
                 error_msg = str(ex)
         else:
             args['name'] = "%s-%s" % (name.lower().replace("_", "-"), str(uuid.uuid1()))
+            self.log_debug(args)
             try:
                 nodes = [driver.create_node(**args)]
             except Exception as ex:
@@ -620,7 +629,7 @@ class GCECloudConnector(LibCloudCloudConnector):
 
         return res
 
-    def delete_networks(self, driver, inf):
+    def delete_networks(self, driver, inf, timeout=120):
         """
         Delete created GCE networks
         """
@@ -628,7 +637,31 @@ class GCECloudConnector(LibCloudCloudConnector):
             net_prefix = "im-%s-" % inf.id
             if gce_net.name.startswith(net_prefix):
                 self.log_info("Deleting net %s." % gce_net.name)
-                gce_net.destroy()
+
+                cont = 0
+                deleted = False
+                while not deleted and cont < timeout:
+                    cont += 5
+                    try:
+                        gce_net.destroy()
+                        deleted = True
+                    except Exception as ex:
+                        self.log_warn("Error removing net: " + str(ex))
+
+                    if not deleted:
+                        time.sleep(5)
+
+        return True
+
+    def delete_routes(self, driver, inf):
+        """
+        Delete created GCE routes
+        """
+        for gce_route in driver.ex_list_routes():
+            name_prefix = "im-%s-" % inf.id
+            if gce_route.name.startswith(name_prefix):
+                self.log_info("Deleting route %s." % gce_route.name)
+                gce_route.destroy()
 
         return True
 
@@ -655,33 +688,22 @@ class GCECloudConnector(LibCloudCloudConnector):
             self.log_warn("VM " + str(vm.id) + " not found.")
 
         if last:
-            self.delete_firewall(vm, auth_data)
             driver = self.get_driver(auth_data)
+            self.delete_firewall(vm, driver)
+            self.delete_routes(driver, vm.inf)
             self.delete_networks(driver, vm.inf)
 
         return (True, "")
 
-    def delete_firewall(self, vm, auth_data):
+    def delete_firewall(self, vm, driver):
         """
-        Delete the FW
+        Delete the FWs
         """
-        driver = self.get_driver(auth_data)
-        net_provider_id = self.get_net_provider_id(vm.info)
-        if not net_provider_id:
-            net_provider_id = "default"
-        firewall_name = "fw-im-%s" % net_provider_id
-
-        firewall = None
-        try:
-            firewall = driver.ex_get_firewall(firewall_name)
-        except ResourceNotFoundError:
-            self.log_info("Firewall %s does not exist. Do not delete." % firewall_name)
-        except:
-            self.log_exception("Error trying to get FW %s." % firewall_name)
-
-        if firewall:
-            firewall.destroy()
-            self.log_info("Firewall %s successfully deleted." % firewall_name)
+        for gce_fw in driver.ex_list_firewalls():
+            name_prefix = "fw-im-%s-" % vm.inf.id
+            if gce_fw.name.startswith(name_prefix):
+                self.log_info("Deleting FW %s." % gce_fw.name)
+                gce_fw.destroy()
 
     def get_node_with_id(self, node_id, auth_data):
         """
@@ -702,6 +724,83 @@ class GCECloudConnector(LibCloudCloudConnector):
             self.log_warn("VM " + str(node_id) + " does not exist.")
 
         return node
+
+    def can_ip_forward(self, radl):
+        """
+        Check if this node is specified as router
+        """
+        for network in radl.networks:
+            if network.getValue('router'):
+                router_info = network.getValue('router').split(",")
+                if len(router_info) != 2:
+                    self.log_error("Incorrect router format.")
+                    break
+
+                if radl.systems[0].name == router_info[1]:
+                    return True
+
+        return False
+
+    def addRouterInstance(self, vm, driver):
+        """
+        Set an instance as router
+        """
+        success = True
+        try:
+            i = 0
+            while vm.info.systems[0].getValue("net_interface." + str(i) + ".connection"):
+                net_name = vm.info.systems[0].getValue("net_interface." + str(i) + ".connection")
+                i += 1
+
+                network = vm.info.get_network_by_id(net_name)
+                if not network.getValue('provider_id'):
+                    gce_net = driver.ex_get_network('default')
+                else:
+                    gce_net = driver.ex_get_network(network.getValue('provider_id'))
+
+                if network.getValue('router'):
+                    router_info = network.getValue('router').split(",")
+                    if len(router_info) != 2:
+                        self.log_error("Incorrect router format.")
+                        success = False
+                        break
+
+                    system_router = router_info[1]
+                    router_cidr = router_info[0]
+
+                    vrouter = None
+                    for v in vm.inf.vm_list:
+                        if v.info.systems[0].name == system_router:
+                            vrouter = v.id
+                            break
+                    if not vrouter:
+                        self.log_error("No VRouter instance found with name %s" % system_router)
+                        success = False
+                        break
+
+                    vrouter_instance = driver.ex_get_node(vrouter)
+
+                    if vrouter_instance.state != NodeState.RUNNING:
+                        self.log_debug("VRouter instance %s is not running." % system_router)
+                        success = False
+                        break
+
+                    route_name = "im-%s-%s" % (vm.inf.id, net_name)
+                    self.log_info("Adding route %s to instance ID: %s." % (router_cidr, vrouter))
+                    try:
+                        driver.ex_create_route(route_name, router_cidr, priority=800, network=gce_net,
+                                               next_hop=vrouter_instance, tags=["imid-%s-nopubip" % vm.inf.id],
+                                               description="Route created by the IM")
+                    except ResourceExistsError:
+                        self.log_debug("Route already exists. Ignore.")
+
+                    # once set, delete it to not set it again
+                    network.delValue('router')
+        except Exception:
+            success = False
+            self.log_exception("Error adding Router Instance")
+
+        return success
 
     @staticmethod
     def get_node_location(node):
@@ -731,14 +830,13 @@ class GCECloudConnector(LibCloudCloudConnector):
             vm.state = self.VM_STATE_MAP.get(node.state, VirtualMachine.UNKNOWN)
 
             if 'zone' in node.extra:
-                vm.info.systems[0].setValue(
-                    'availability_zone', node.extra['zone'].name)
+                vm.info.systems[0].setValue('availability_zone', node.extra['zone'].name)
 
-            self.update_system_info_from_instance(
-                vm.info.systems[0], node.size)
+            self.update_system_info_from_instance(vm.info.systems[0], node.size)
 
             vm.setIps(node.public_ips, node.private_ips)
             self.add_dns_entries(vm, auth_data)
+            self.addRouterInstance(vm, driver)
         else:
             vm.state = VirtualMachine.OFF
 
