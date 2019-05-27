@@ -177,7 +177,8 @@ class AnsibleThread(Process):
         # the code, ensuring a consistent view of global variables
         try:
             # Ansible 2.8
-            variable_manager = VariableManager(loader=loader, inventory=inventory, version_info=self.version_info(ansible_version))
+            variable_manager = VariableManager(loader=loader, inventory=inventory,
+                                               version_info=self.version_info(ansible_version))
             variable_manager._extra_vars = self.extra_vars
         except TypeError:
             variable_manager = VariableManager(loader=loader, inventory=inventory)
