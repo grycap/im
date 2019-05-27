@@ -444,6 +444,8 @@ class CtxtAgent(CtxtAgentBase):
                             if ctxt_vm['master']:
                                 # Install ansible modules
                                 playbook = self.install_ansible_modules(general_conf_data, playbook)
+                            if 'nat_instance' in ctxt_vm and ctxt_vm['nat_instance']:
+                                playbook = self.add_nat_gateway_tasks(playbook)
                             ansible_thread = self.LaunchAnsiblePlaybook(self.logger,
                                                                         vm_conf_data['remote_dir'],
                                                                         playbook, ctxt_vm, 2,

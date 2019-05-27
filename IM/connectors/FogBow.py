@@ -67,15 +67,19 @@ class FogBowCloudConnector(CloudConnector):
         self.token = None
         CloudConnector.__init__(self, cloud_info, inf)
 
-    def get_full_url(self, url):
+    def get_full_url(self, url, remove_path=False):
         protocol = "http"
         if self.cloud.protocol:
             protocol = self.cloud.protocol
 
-        if self.cloud.port > 0:
-            url = "%s://%s:%d%s%s" % (protocol, self.cloud.server, self.cloud.port, self.cloud.path, url)
+        if remove_path:
+            path = ''
         else:
-            url = "%s://%s%s%s" % (protocol, self.cloud.server, self.cloud.path, url)
+            path = self.cloud.path
+        if self.cloud.port > 0:
+            url = "%s://%s:%d%s%s" % (protocol, self.cloud.server, self.cloud.port, path, url)
+        else:
+            url = "%s://%s%s%s" % (protocol, self.cloud.server, path, url)
         return url
 
     def create_request(self, method, url, auth_data, headers=None, body=None):
@@ -147,8 +151,11 @@ class FogBowCloudConnector(CloudConnector):
                 self.log_debug("It is not valid. Request for a new one.")
                 self.token = None
 
-        if 'as_host' not in auth_data:
-            raise Exception("No as_host provided in auth data.")
+        if 'as_host' in auth_data:
+            # if no as_host specified assume the same host and default path /as
+            as_host = auth_data['as_host']
+        else:
+            as_host = self.get_full_url('/as', True)
 
         resp = requests.request('GET', self.get_full_url('/publicKey/'), verify=self.verify_ssl)
         if resp.status_code == 200:
@@ -159,7 +166,7 @@ class FogBowCloudConnector(CloudConnector):
             if key not in ['id', 'type', 'host', 'as_host']:
                 body['credentials'][key] = value
 
-        resp = requests.request('POST', '%s/tokens/' % auth_data['as_host'], verify=self.verify_ssl,
+        resp = requests.request('POST', '%s/tokens/' % as_host, verify=self.verify_ssl,
                                 headers=headers, data=json.dumps(body))
         if resp.status_code in [200, 201]:
             self.token = resp.json()['token']
@@ -241,9 +248,9 @@ class FogBowCloudConnector(CloudConnector):
                     net_providers = net.getValue("providers")
                     if net_providers:
                         if isinstance(net_providers, list):
-                            body["providingMembers"] = net_providers
+                            body["providers"] = net_providers
                         else:
-                            body["providingMembers"] = [a.strip() for a in net_providers.split(",")]
+                            body["providers"] = [a.strip() for a in net_providers.split(",")]
                     self.log_debug(body)
                     net_info = self.post_and_get('/federatedNetworks/', json.dumps(body), auth_data)
                     if net_info:
@@ -455,7 +462,7 @@ class FogBowCloudConnector(CloudConnector):
                         self.log_info("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
                         volume_name = "im-%s" % str(uuid1())
 
-                        body = '{"name": "%s", "volumeSize": %d}' % (volume_name, int(disk_size))
+                        body = '{"name": "%s", "size": %d}' % (volume_name, int(disk_size))
                         self.log_debug(body)
                         resp = self.create_request('POST', '/volumes/', auth_data, headers, body)
 

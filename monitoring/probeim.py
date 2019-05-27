@@ -8,6 +8,13 @@ import requests
 import logging
 from logging.handlers import RotatingFileHandler
 
+try:
+    # To avoid annoying InsecureRequestWarning messages in some Connectors
+    from requests.packages.urllib3.exceptions import InsecureRequestWarning
+    requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+except Exception:
+    pass
+
 
 def read_file_as_string(file_name):
     tests_path = os.path.dirname(os.path.abspath(__file__))
@@ -55,6 +62,7 @@ class IM:
     @staticmethod
     def requestIM(method, url, data, headers, verify):
         try:
+            logging.debug(method, url, data, headers)
             r = requests.request(method, url, data=data, headers=headers, verify=verify)
             rq = ResponseIM(r.status_code, r.text)
         except requests.ConnectionError as e:
@@ -256,7 +264,7 @@ def main(url, token):
 
 if __name__ == '__main__':
 
-    log_setup(logging.DEBUG)
+    log_setup('INFO')
 
     logging.info("Initializing --------------")
 

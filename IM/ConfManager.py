@@ -1423,8 +1423,8 @@ class ConfManager(LoggerMixin, threading.Thread):
                          'new_public_key'], vm_conf_data['new_private_key']) = new_creds
 
                 if not vm_conf_data['ip']:
-                    # if the vm does not have an IP, do not iclude it to avoid
-                    # errors configurin gother VMs
+                    # if the vm does not have an IP, do not include it to avoid
+                    # errors configuring other VMs
                     self.log_warn("The VM ID: " + str(vm.id) +
                                   " does not have an IP, do not include in the general conf file.")
                     self.inf.add_cont_msg("WARNING: The VM ID: " + str(vm.id) +
@@ -1432,8 +1432,9 @@ class ConfManager(LoggerMixin, threading.Thread):
                 else:
                     conf_data['vms'].append(vm_conf_data)
 
-        conf_data['conf_dir'] = Config.REMOTE_CONF_DIR + \
-            "/" + str(self.inf.id) + "/"
+                vm_conf_data['nat_instance'] = vm.info.systems[0].getValue('nat_instance') == 'yes'
+
+        conf_data['conf_dir'] = Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/"
 
         conf_out = open(conf_file, 'w')
         json.dump(conf_data, conf_out, indent=2)

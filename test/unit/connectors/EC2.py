@@ -199,7 +199,7 @@ class TestEC2Connector(TestCloudConnectorBase):
         print(self.log.getvalue())
         self.assertTrue(success, msg="ERROR: launching a VM.")
         # check the instance_type selected is correct
-        self.assertEquals(image.run.call_args_list[1][1]["instance_type"], "t3.micro")
+        self.assertEquals(image.run.call_args_list[1][1]["instance_type"], "t3a.micro")
 
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 

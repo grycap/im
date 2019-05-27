@@ -71,8 +71,10 @@ class TestCtxtAgent(unittest.TestCase):
             vm_conf_data['id'] = vm
             if vm == 0:
                 vm_conf_data['master'] = True
+                vm_conf_data['nat_instance'] = True
             else:
                 vm_conf_data['master'] = False
+                vm_conf_data['nat_instance'] = False
             if vm == 2:
                 vm_conf_data['os'] = "windows"
             else:
