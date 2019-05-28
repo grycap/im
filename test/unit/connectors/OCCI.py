@@ -93,7 +93,7 @@ class TestOCCIConnector(TestCloudConnectorBase):
             net_interface.0.connection = 'net' and
             net_interface.0.dns_name = 'test' and
             disk.0.os.name = 'linux' and
-            disk.0.image.url = 'appdb://CESNET-MetaCloud/egi.docker.ubuntu.16.04?fedcloud.egi.eu' and
+            disk.0.image.url = 'appdb://CESNET-MetaCloud/egi.ubuntu.16.04?fedcloud.egi.eu' and
             disk.0.os.credentials.username = 'user'
             )"""
         radl = radl_parse.parse_radl(radl_data)
@@ -163,11 +163,18 @@ class TestOCCIConnector(TestCloudConnectorBase):
                                 <virtualization:provider id="4454G0" in_production="true">
                                 <provider:endpoint_url>https://carach5.ics.muni.cz:11443</provider:endpoint_url>
                                 <provider:image
+                                    vmiversion="2019.01.21"
                                     va_provider_image_id="http://url/os_tpl#image_id"
                                     appcname="egi.docker.ubuntu.16.04"
                                     voname="fedcloud.egi.eu"/>
                                 <provider:image
+                                    vmiversion="2019.01.21"
                                     va_provider_image_id="http://url/os_tpl#image_id2"
+                                    appcname="egi.ubuntu.16.04"
+                                    voname="fedcloud.egi.eu"/>
+                                <provider:image
+                                    vmiversion="2018.01.21"
+                                    va_provider_image_id="http://url/os_tpl#image_id3"
                                     appcname="egi.ubuntu.16.04"
                                     voname="fedcloud.egi.eu"/>
                                 </virtualization:provider>
