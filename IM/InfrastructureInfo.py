@@ -545,10 +545,11 @@ class InfrastructureInfo:
                 max_ctxt_time = Config.MAX_CONTEXTUALIZATION_TIME
 
             ctxt_task = []
-            ctxt_task.append((-4, 0, self, ['kill_ctxt_processes']))
-            ctxt_task.append((-3, 0, self, ['check_vm_ips']))
-            ctxt_task.append((-2, 0, self, ['wait_master']))
-            ctxt_task.append((-1, 0, self, ['configure_master', 'generate_playbooks_and_hosts']))
+            ctxt_task.append((-5, 0, self, ['kill_ctxt_processes']))
+            ctxt_task.append((-4, 0, self, ['check_vm_ips']))
+            ctxt_task.append((-3, 0, self, ['wait_master']))
+            ctxt_task.append((-2, 0, self, ['configure_master']))
+            ctxt_task.append((-1, 0, self, ['generate_playbooks_and_hosts']))
 
             use_dist = len(self.get_vm_list()) > Config.VM_NUM_USE_CTXT_DIST
             for cont, vm in enumerate(self.get_vm_list()):
