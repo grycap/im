@@ -124,6 +124,11 @@ class TestIM(unittest.TestCase):
                 wait += 5
                 time.sleep(5)
 
+        if wait >= timeout:
+            # There is a timeout, print the contmsg
+            resp = self.create_request("GET", "/infrastructures/" + self.inf_id + "/contmsg")
+            print(resp.text)
+
         return all_ok
 
     def test_05_version(self):
