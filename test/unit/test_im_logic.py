@@ -769,6 +769,11 @@ class TestIM(unittest.TestCase):
         state = IM.GetInfrastructureState("1", auth0)
         self.assertEqual(state["state"], "running")
 
+        inf.get_vm_list.return_value = []
+        inf.configured = None
+        state = IM.GetInfrastructureState("1", auth0)
+        self.assertEqual(state["state"], "pending")
+
     def test_altervm(self):
         """Test AlterVM"""
         radl = RADL()
