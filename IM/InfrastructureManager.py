@@ -512,6 +512,8 @@ class InfrastructureManager:
                 sel_inf.update_radl(radl, [])
                 InfrastructureManager.logger.warn("Inf ID: " + sel_inf.id + ": without any deploy. Exiting.")
                 sel_inf.add_cont_msg("Infrastructure without any deploy. Exiting.")
+                if sel_inf.configured is None:
+                    sel_inf.configured = False
                 return []
         except Exception as ex:
             sel_inf.configured = False
@@ -570,6 +572,8 @@ class InfrastructureManager:
             if not deploy_group:
                 InfrastructureManager.logger.warning("Inf ID: %s: No VMs to deploy!" % sel_inf.id)
                 sel_inf.add_cont_msg("No VMs to deploy. Exiting.")
+                if sel_inf.configured is None:
+                    sel_inf.configured = False
                 return []
 
             cloud_id = deploys_group_cloud[id(deploy_group)]
@@ -901,14 +905,15 @@ class InfrastructureManager:
 
         sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
 
+        vm_list = sel_inf.get_vm_list()
         vm_states = {}
-        for vm in sel_inf.get_vm_list():
+        for vm in vm_list:
             # First try to update the status of the VM
             vm.update_status(auth)
             vm_states[str(vm.im_id)] = vm.state
 
         state = None
-        for vm in sel_inf.get_vm_list():
+        for vm in vm_list:
             # First try to update the status of the VM
             if vm.state == VirtualMachine.FAILED:
                 state = VirtualMachine.FAILED
@@ -937,6 +942,9 @@ class InfrastructureManager:
         if state is None:
             if sel_inf.configured is False:
                 state = VirtualMachine.FAILED
+            elif not vm_list and sel_inf.configured is None:
+                # if there are no vms we probably are in the vm creation process
+                state = VirtualMachine.PENDING
             else:
                 state = VirtualMachine.UNKNOWN
 

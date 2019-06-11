@@ -505,24 +505,25 @@ class VirtualMachine(LoggerMixin):
             updated = False
             # To avoid to refresh the information too quickly
             if force or now - self.last_update > Config.VM_INFO_UPDATE_FREQUENCY:
+                success = False
                 try:
                     (success, new_vm) = self.getCloudConnector().updateVMInfo(self, auth)
                     if success:
                         state = new_vm.state
                         updated = True
                         self.last_update = now
-                    elif self.creating:
-                        self.log_info("VM is in creation process, set pending state")
-                        state = VirtualMachine.PENDING
                     else:
                         self.log_error("Error updating VM status: %s" % new_vm)
-                except:
+                except Exception:
                     self.log_exception("Error updating VM status.")
-                    updated = False
+
+                if not success and self.creating:
+                    self.log_info("VM is in creation process, set pending state")
+                    state = VirtualMachine.PENDING
 
             # If we have problems to update the VM info too much time, set to
-            # unknown
-            if now - self.last_update > Config.VM_INFO_UPDATE_ERROR_GRACE_PERIOD:
+            # unknown unless we are still creating the VM
+            if now - self.last_update > Config.VM_INFO_UPDATE_ERROR_GRACE_PERIOD and not self.creating:
                 new_state = VirtualMachine.UNKNOWN
                 self.log_warn("Grace period to update VM info passed. Set state to 'unknown'")
             else:
