@@ -21,11 +21,12 @@ Next tables summaries the resources and the HTTP methods available.
 | **GET**     | | **List** the infrastructure IDs. | | **List** the virtual machines    | | **Get** information associated to the   |
 |             |                                    | | in the infrastructure ``infId``  | | virtual machine ``vmId`` in ``infId``.  |
 +-------------+------------------------------------+------------------------------------+-------------------------------------------+
-| **POST**    | | **Create** a new infrastructure  | | **Create** a new virtual machine | | **Alter** VM properties based on        |
-|             | | based on the RADL posted         | | based on the RADL posted.        | | then RADL posted                        |
+| **POST**    | | **Create** a new infrastructure  | | **Add or Remove** virtual        | | **Alter** VM properties based on        |
+|             | | based on the RADL or TOSCA       | | machines based on the RADL       | | then RADL posted.                       |
+|             | | posted.                          | | or TOSCA posted.                 |                                           |
 +-------------+------------------------------------+------------------------------------+-------------------------------------------+
 | **PUT**     | | **Import** an infrastructure     |                                    | | **Modify** the virtual machine based on |
-|             | | from another IM instance         |                                    | | the RADL posted.                        |
+|             | | from another IM instance         |                                    | | the RADL or TOSCA posted.               |
 +-------------+------------------------------------+------------------------------------+-------------------------------------------+
 | **DELETE**  |                                    | | **Undeploy** all the virtual     | | **Undeploy** the virtual machine.       |
 |             |                                    | | machines in the infrastructure.  |                                           |
