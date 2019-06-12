@@ -308,7 +308,7 @@ def get_ex_error(ex):
     """
     Return a secure string with the error of the exception in Py2 and Py3
     """
-    return getattr(ex, 'message', get_ex_error(ex) if len(ex.args) else repr(ex))
+    return getattr(ex, 'message', ex.args[0] if len(ex.args) else repr(ex))
 
 
 @app.route('/infrastructures/:infid', method='DELETE')
