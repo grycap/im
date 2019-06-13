@@ -505,3 +505,14 @@ IM 1.8.3:
     * Enable network creation in connectors EC2, OpenStack and GCE.
     * Fix error in openstack conn in case of setting auth data with a host without port.
     * Fix error in OpenNebula conn in case of error in function call.
+
+IM 1.8.4:
+    * Fix error 500 is returned in case of TOSCA parser errors.
+    * Fix error on infrastructure creation the VM status is unknown instead of pending.
+    * Fix error some floating IPs does not appear in the IM ctxt config files.
+    * Fix error adding a floating IP when there is a floating ip free.
+    * Change FogBow connector to new APIs (Buzios).
+    * Get last version of AppDB image in OCCI conn.
+    * Enable to add routes in GCE conn.
+    * Fix Issues with Ansible 2.8.
+    * Fix error creating FW in GCE conn if outports is empty.
