@@ -107,7 +107,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         radl_data = """
             network net1 (outbound = 'yes' and provider_id = 'public' and
                           outports = '8080,9000:9100' and sg_name= 'test')
-            network net2 (cidr='10.0.1.0/24' and dnsserver='1.1.1.1' and create = 'yes')
+            network net2 (dnsserver='1.1.1.1' and create = 'yes')
             system test (
             cpu.arch='x86_64' and
             cpu.count=1 and
@@ -147,9 +147,11 @@ class TestOSTConnector(TestCloudConnectorBase):
         net1.name = "public"
         net1.id = "net1id"
         net1.extra = {'router:external': True}
+        net1.cidr = None
         net2 = MagicMock()
         net2.name = "private"
         net2.id = "net2id"
+        net2.cidr = "10.0.0.0/24"
         driver.ex_list_networks.return_value = [net2, net1]
 
         sg = MagicMock()
@@ -207,6 +209,7 @@ class TestOSTConnector(TestCloudConnectorBase):
              'uuid': 'volid'}
         ]
         self.assertEqual(driver.create_node.call_args_list[0][1]['ex_blockdevicemappings'], mappings)
+        self.assertEqual(driver.ex_create_subnet.call_args_list[0][0][2], "10.0.1.0/24")
 
         # test with proxy auth data
         auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'proxy': 'proxy',
