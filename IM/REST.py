@@ -20,7 +20,7 @@ import json
 import base64
 import bottle
 
-from IM.InfrastructureInfo import IncorrectVMException, DeletedVMException
+from IM.InfrastructureInfo import IncorrectVMException, DeletedVMException, IncorrectStateException
 from IM.InfrastructureManager import (InfrastructureManager, DeletedInfrastructureException,
                                       IncorrectInfrastructureException, UnauthorizedUserException,
                                       InvaliddUserException)
@@ -328,6 +328,8 @@ def RESTDestroyInfrastructure(infid=None):
         return return_error(404, "Error Destroying Inf: %s" % get_ex_error(ex))
     except UnauthorizedUserException as ex:
         return return_error(403, "Error Destroying Inf: %s" % get_ex_error(ex))
+    except IncorrectStateException as ex:
+        return return_error(409, "Error Destroying Inf: %s" % get_ex_error(ex))
     except Exception as ex:
         logger.exception("Error Destroying Inf")
         return return_error(400, "Error Destroying Inf: %s" % get_ex_error(ex))
