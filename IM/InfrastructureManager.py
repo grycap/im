@@ -566,6 +566,9 @@ class InfrastructureManager:
         deploys_group_cloud = InfrastructureManager.sort_by_score(sel_inf, concrete_systems, cloud_list,
                                                                   deploy_groups, auth)
 
+        # We are going to start adding resources
+        sel_inf.set_adding()
+
         # Launch every group in the same cloud provider
         deployed_vm = {}
         for deploy_group in deploy_groups:
@@ -629,6 +632,9 @@ class InfrastructureManager:
             sel_inf.add_cont_msg("All VMs failed. No contextualize.")
         else:
             InfrastructureManager.logger.info("VMs %s successfully added to Inf ID: %s" % (new_vms, sel_inf.id))
+
+        # The resources has been added
+        sel_inf.adding = False
 
         # Let's contextualize!
         if context and new_vms and not all_failed:
@@ -1180,11 +1186,11 @@ class InfrastructureManager:
         InfrastructureManager.logger.info("Destroying the Inf ID: " + str(inf_id))
 
         sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
-        delete_list = list(reversed(sel_inf.get_vm_list()))
+        sel_inf.set_deleting()
         # First stop ctxt processes
         sel_inf.stop()
         # Destroy the Infrastructure
-        sel_inf.destroy(auth, delete_list)
+        sel_inf.destroy(auth)
         # Set the Infrastructure as deleted
         sel_inf.delete()
         IM.InfrastructureList.InfrastructureList.save_data(inf_id)
