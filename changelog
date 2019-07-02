@@ -516,3 +516,7 @@ IM 1.8.4:
     * Enable to add routes in GCE conn.
     * Fix Issues with Ansible 2.8.
     * Fix error creating FW in GCE conn if outports is empty.
+
+IM 1.8.5:
+    * Enable CIDR selection in network creation in OpenStack conn.
+    * Fix error infrastructure not correctly deleted if destroy is sent in initial stage.
