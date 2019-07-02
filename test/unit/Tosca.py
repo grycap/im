@@ -111,6 +111,26 @@ class TestTosca(unittest.TestCase):
                                                     'token': 'pass',
                                                     'user': 'ubuntu'}})
 
+    def test_tosca_nets_to_radl(self):
+        """Test TOSCA RADL translation with nets"""
+        tosca_data = read_file_as_string('../files/tosca_nets.yml')
+        tosca = Tosca(tosca_data)
+        _, radl = tosca.to_radl()
+        print(radl)
+        radl = parse_radl(str(radl))
+        net = radl.get_network_by_id('pub_network')
+        net1 = radl.get_network_by_id('network1')
+        self.assertEqual('1194/udp-1194/udp', net.getValue("outports"))
+        self.assertEqual('192.168.0.0/16,vr1_compute', net1.getValue("router"))
+        self.assertEqual('yes', net1.getValue("create"))
+        self.assertEqual('192.168.10.0/24', net1.getValue("cidr"))
+        lrms_wn = radl.get_system_by_name("lrms_wn")
+        self.assertEqual("network1", lrms_wn.getValue("net_interface.0.connection"))
+        lrms_server = radl.get_system_by_name("lrms_server")
+        self.assertEqual("network1", lrms_server.getValue("net_interface.0.connection"))
+        self.assertEqual("pub_network", lrms_server.getValue("net_interface.1.connection"))
+        self.assertEqual("slurmserver", lrms_server.getValue("net_interface.0.dns_name"))
+
 
 if __name__ == "__main__":
     unittest.main()
