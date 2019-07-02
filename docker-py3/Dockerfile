@@ -1,7 +1,7 @@
 # Dockerfile to create a container with the IM service
 FROM ubuntu:18.04
 LABEL maintainer="Miguel Caballer <micafer1@upv.es>"
-LABEL version="1.8.4"
+LABEL version="1.8.5"
 LABEL description="Container image to run the IM service. (http://www.grycap.upv.es/im)"
 EXPOSE 8899 8800
 
@@ -16,7 +16,7 @@ RUN pip3 install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-c
 # Install IM
 RUN apt-get update && apt-get install --no-install-recommends -y gcc libssl-dev libffi-dev libsqlite3-dev && \
      pip3 install pycrypto && \
-     pip3 install IM==1.8.4 && \
+     pip3 install IM==1.8.5 && \
      apt-get purge -y gcc libssl-dev libffi-dev libsqlite3-dev && \
      apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && rm -rf ~/.cache/
 
