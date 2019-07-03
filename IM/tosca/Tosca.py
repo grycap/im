@@ -92,20 +92,19 @@ class Tosca:
         interfaces = {}
         cont_intems = []
 
+        # first process the networks as they are referred later
+        for node in self.tosca.nodetemplates:
+            root_type = Tosca._get_root_parent_type(node).type
+            if root_type == "tosca.nodes.network.Network":
+                net = self._gen_network(node)
+                radl.networks.append(net)
+
         for node in self.tosca.nodetemplates:
             root_type = Tosca._get_root_parent_type(node).type
 
-            if root_type == "tosca.nodes.BlockStorage":
-                # The BlockStorage disks are processed later
+            if root_type in ["tosca.nodes.BlockStorage", "tosca.nodes.network.Port", "tosca.nodes.network.Network"]:
+                # These elements are processed in other parts
                 pass
-            elif root_type == "tosca.nodes.network.Port":
-                pass
-            elif root_type == "tosca.nodes.network.Network":
-                # TODO: check IM to support more network properties
-                # At this moment we only support the network_type with values,
-                # private and public
-                net = self._gen_network(node)
-                radl.networks.append(net)
             else:
                 if root_type == "tosca.nodes.Compute":
                     # Add the system RADL element
@@ -311,12 +310,72 @@ class Tosca:
         return endpoints
 
     def _add_node_nets(self, node, radl, system, nodetemplates):
+        public_ip = False
+        private_ip = True
+
+        # This is the solution using the deprecated public_ip property
+        node_props = node.get_properties()
+        if node_props and "public_ip" in node_props:
+            public_ip = self._final_function_result(node_props["public_ip"].value, node)
+
+        # This is the solution using endpoints
+        net_provider_id = None
+        dns_name = None
+        ports = {}
+        endpoints = self._get_node_endpoints(node, nodetemplates)
+
+        for endpoint in endpoints:
+            cap_props = endpoint.get_properties()
+            if cap_props and "network_name" in cap_props:
+                network_name = str(self._final_function_result(cap_props["network_name"].value, node))
+                pool_name = None
+                parts = network_name.split(",")
+                if len(parts) > 1:
+                    # This is for the special case of OST with net name and pool name
+                    network_name = parts[0].strip()
+                    pool_name = parts[1].strip()
+
+                if network_name == "PUBLIC":
+                    public_ip = True
+                # In this case the user is specifying the provider_id
+                elif network_name.endswith(".PUBLIC"):
+                    public_ip = True
+                    parts = network_name.split(".")
+                    net_provider_id = ".".join(parts[:-1])
+                elif network_name.endswith(".PRIVATE"):
+                    parts = network_name.split(".")
+                    net_provider_id = ".".join(parts[:-1])
+                elif network_name != "PRIVATE":
+                    # assume that is a private one
+                    net_provider_id = network_name
+            if cap_props and "dns_name" in cap_props:
+                dns_name = self._final_function_result(cap_props["dns_name"].value, node)
+            if cap_props and "private_ip" in cap_props:
+                private_ip = self._final_function_result(cap_props["private_ip"].value, node)
+            if cap_props and "ports" in cap_props:
+                ports = self._final_function_result(cap_props["ports"].value, node)
+            if cap_props and "port" in cap_props:
+                port = self._final_function_result(cap_props["port"].value, node)
+                protocol = "tcp"
+                if "protocol" in cap_props:
+                    protocol = self._final_function_result(cap_props["protocol"].value, node)
+                ports["im-%s-%s" % (protocol, port)] = {"protocol": protocol, "source": port}
+
+        if dns_name:
+            system.setValue('net_interface.0.dns_name', dns_name)
+
         # Find associated Networks
         nets = self._get_bind_networks(node, nodetemplates)
         if nets:
             # If there are network nodes, use it to define system network
             # properties
+            port_net = None
             for net_name, ip, dns_name, num in nets:
+                net = radl.get_network_by_id(net_name)
+                if not net:
+                    raise Exception("Node %s with a port binded to a non existing network: %s." % (node.name,
+                                                                                                   net_name))
+
                 system.setValue('net_interface.%d.connection' % num, net_name)
                 # This is not a normative property
                 if dns_name:
@@ -324,58 +383,18 @@ class Tosca:
                                     num, dns_name)
                 if ip:
                     system.setValue('net_interface.%d.ip' % num, ip)
+
+                if net.isPublic():
+                    port_net = net
+                elif port_net is None:
+                    port_net = net
+
+            if port_net and ports:
+                outports = Tosca._format_outports(ports)
+                if port_net.getValue("outports"):
+                    outports = "%s,%s" % (port_net.getValue("outports"), outports)
+                port_net.setValue("outports", outports)
         else:
-            public_ip = False
-            private_ip = True
-
-            # This is the solution using the deprecated public_ip property
-            node_props = node.get_properties()
-            if node_props and "public_ip" in node_props:
-                public_ip = self._final_function_result(node_props["public_ip"].value, node)
-
-            # This is the solution using endpoints
-            net_provider_id = None
-            dns_name = None
-            ports = {}
-            endpoints = self._get_node_endpoints(node, nodetemplates)
-
-            for endpoint in endpoints:
-                cap_props = endpoint.get_properties()
-                if cap_props and "network_name" in cap_props:
-                    network_name = str(self._final_function_result(cap_props["network_name"].value, node))
-                    pool_name = None
-                    parts = network_name.split(",")
-                    if len(parts) > 1:
-                        # This is for the special case of OST with net name and pool name
-                        network_name = parts[0].strip()
-                        pool_name = parts[1].strip()
-
-                    if network_name == "PUBLIC":
-                        public_ip = True
-                    # In this case the user is specifying the provider_id
-                    elif network_name.endswith(".PUBLIC"):
-                        public_ip = True
-                        parts = network_name.split(".")
-                        net_provider_id = ".".join(parts[:-1])
-                    elif network_name.endswith(".PRIVATE"):
-                        parts = network_name.split(".")
-                        net_provider_id = ".".join(parts[:-1])
-                    elif network_name != "PRIVATE":
-                        # assume that is a private one
-                        net_provider_id = network_name
-                if cap_props and "dns_name" in cap_props:
-                    dns_name = self._final_function_result(cap_props["dns_name"].value, node)
-                if cap_props and "private_ip" in cap_props:
-                    private_ip = self._final_function_result(cap_props["private_ip"].value, node)
-                if cap_props and "ports" in cap_props:
-                    ports = self._final_function_result(cap_props["ports"].value, node)
-                if cap_props and "port" in cap_props:
-                    port = self._final_function_result(cap_props["port"].value, node)
-                    protocol = "tcp"
-                    if "protocol" in cap_props:
-                        protocol = self._final_function_result(cap_props["protocol"].value, node)
-                    ports["im-%s-%s" % (protocol, port)] = {"protocol": protocol, "source": port}
-
             private_net = None
             # The private net is always added
             if not public_ip or private_ip:
@@ -447,9 +466,6 @@ class Tosca:
                         public_net.setValue("provider_id", pool_name)
                     elif not private_net:
                         public_net.setValue("provider_id", net_provider_id)
-
-            if dns_name:
-                system.setValue('net_interface.0.dns_name', dns_name)
 
     def _get_scalable_properties(self, node):
         count = min_instances = max_instances = default_instances = None
@@ -1210,7 +1226,7 @@ class Tosca:
         nework_type = self._final_function_result(node.get_property_value('network_type'), node)
         network_name = self._final_function_result(node.get_property_value('network_name'), node)
         network_cidr = self._final_function_result(node.get_property_value('cidr'), node)
-        network_router = self._final_function_result(node.get_property_value('router'), node)
+        network_router = self._final_function_result(node.get_property_value('gateway_ip'), node)
 
         # TODO: get more properties -> must be implemented in the RADL
         if nework_type.lower() == "public":
