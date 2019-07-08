@@ -167,8 +167,18 @@ class OpenNebulaCloudConnector(CloudConnector):
 
     def __init__(self, cloud_info, inf):
         CloudConnector.__init__(self, cloud_info, inf)
-        self.server_url = "http://%s:%d/RPC2" % (
-            self.cloud.server, self.cloud.port)
+        if self.cloud.path:
+            if self.cloud.port == -1:
+                if self.cloud.protocol == 'https':
+                    self.cloud.port = 443
+                elif self.cloud.protocol == 'http':
+                    self.cloud.port = 80
+                else:
+                    raise Exception("Invalid port/protocol specified for OpenNebula site: %s" % self.cloud.server)
+            self.server_url = "%s://%s:%d%s" % (self.cloud.protocol, self.cloud.server,
+                                                self.cloud.port, self.cloud.path)
+        else:
+            self.server_url = "http://%s:%d/RPC2" % (self.cloud.server, self.cloud.port)
 
     def concrete_system(self, radl_system, str_url, auth_data):
         url = urlparse(str_url)
