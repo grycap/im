@@ -22,6 +22,7 @@ try:
 except ImportError:
     from xmlrpc.client import ServerProxy
 
+import os.path
 import time
 from distutils.version import LooseVersion
 from IM.xmlobject import XMLObject
@@ -554,7 +555,7 @@ class OpenNebulaCloudConnector(CloudConnector):
         if not name:
             name = "userimage"
         url = urlparse(system.getValue("disk.0.image.url"))
-        path = url[2]
+        path = os.path.basename(url[2])
 
         if path[1:].isdigit():
             disks = 'DISK = [ IMAGE_ID = "%s" ]\n' % path[1:]
