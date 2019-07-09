@@ -584,17 +584,19 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         return net_map
 
-    @staticmethod
-    def get_router_public(driver):
-        pub_nets = []
-        for net in driver.ex_list_networks():
-            if 'router:external' in net.extra and net.extra['router:external']:
-                pub_nets.append(net.id)
+    def get_router_public(self, driver):
+        try:
+            pub_nets = []
+            for net in driver.ex_list_networks():
+                if 'router:external' in net.extra and net.extra['router:external']:
+                    pub_nets.append(net.id)
 
-        for router in driver.ex_list_routers():
-            if router.extra['external_gateway_info']:
-                if router.extra['external_gateway_info']['network_id'] in pub_nets:
-                    return router
+            for router in driver.ex_list_routers():
+                if router.extra['external_gateway_info']:
+                    if router.extra['external_gateway_info']['network_id'] in pub_nets:
+                        return router
+        except Exception:
+            self.log_exception("Error getting public router.")
 
         return None
 
