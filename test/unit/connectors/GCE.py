@@ -171,8 +171,8 @@ class TestGCEConnector(TestCloudConnectorBase):
         self.assertEqual(driver.ex_create_firewall.call_args_list[0][0][1], [{'IPProtocol': 'udp', 'ports': '1-65535'},
                                                                              {'IPProtocol': 'tcp', 'ports': '1-65535'},
                                                                              {'IPProtocol': 'icmp'}])
-        self.assertEqual(driver.ex_create_firewall.call_args_list[1][0][1],  [{'IPProtocol': 'tcp',
-                                                                               'ports': ['22', '8080', '9000-9100']}])
+        self.assertEqual(driver.ex_create_firewall.call_args_list[1][0][1], [{'IPProtocol': 'tcp',
+                                                                              'ports': ['22', '8080', '9000-9100']}])
 
         inf = InfrastructureInfo()
         inf.auth = auth
