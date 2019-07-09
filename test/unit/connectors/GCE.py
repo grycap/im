@@ -168,13 +168,11 @@ class TestGCEConnector(TestCloudConnectorBase):
         self.assertEqual(driver.create_node.call_args_list[0][1]['ex_disks_gce_struct'][1]['autoDelete'], True)
         self.assertEqual(driver.create_node.call_args_list[0][1]['ex_disks_gce_struct'][2]['deviceName'], "hdc")
         self.assertEqual(driver.create_node.call_args_list[0][1]['ex_disks_gce_struct'][2]['autoDelete'], False)
-        self.assertEqual(driver.ex_create_firewall.call_args_list[0][0], ('fw-default-allow-all',
-                                                                          [{'IPProtocol': 'udp', 'ports': '1-65535'},
-                                                                           {'IPProtocol': 'tcp', 'ports': '1-65535'},
-                                                                           {'IPProtocol': 'icmp'}]))
-        self.assertEqual(driver.ex_create_firewall.call_args_list[1][0], ('fw-default',
-                                                                          [{'IPProtocol': 'tcp',
-                                                                            'ports': ['22', '8080', '9000-9100']}]))
+        self.assertEqual(driver.ex_create_firewall.call_args_list[0][0][1], [{'IPProtocol': 'udp', 'ports': '1-65535'},
+                                                                             {'IPProtocol': 'tcp', 'ports': '1-65535'},
+                                                                             {'IPProtocol': 'icmp'}])
+        self.assertEqual(driver.ex_create_firewall.call_args_list[1][0][1], [{'IPProtocol': 'tcp',
+                                                                              'ports': ['22', '8080', '9000-9100']}])
 
         inf = InfrastructureInfo()
         inf.auth = auth
@@ -393,7 +391,7 @@ class TestGCEConnector(TestCloudConnectorBase):
         driver.ex_list_networks.return_value = [net]
 
         fw = MagicMock()
-        fw.name = "fw-im-infid-id"
+        fw.name = "infid-id"
         fw.destroy.return_value = True
         driver.ex_list_firewalls.return_value = [fw]
 

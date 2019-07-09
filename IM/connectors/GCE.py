@@ -345,7 +345,10 @@ class GCECloudConnector(LibCloudCloudConnector):
                     public_net = net
 
             # Create FW rules to allow all inside the VMs
-            firewall_name = "fw-%s-allow-all" % net_name
+            if inf.id in net_name:
+                firewall_name = "%s-all" % net_name
+            else:
+                firewall_name = "%s-%s-all" % (inf.id, net_name)
             allowed = [{'IPProtocol': 'udp', 'ports': '1-65535'},
                        {'IPProtocol': 'tcp', 'ports': '1-65535'},
                        {'IPProtocol': 'icmp'}]
@@ -360,7 +363,10 @@ class GCECloudConnector(LibCloudCloudConnector):
 
             ports = {"tcp": ["22"]}
             if public_net:
-                firewall_name = "fw-%s" % net_name
+                if inf.id in net_name:
+                    firewall_name = "%s" % net_name
+                else:
+                    firewall_name = "%s-%s" % (inf.id, net_name)
 
                 outports = public_net.getOutPorts()
                 if outports:
@@ -700,7 +706,7 @@ class GCECloudConnector(LibCloudCloudConnector):
         Delete the FWs
         """
         for gce_fw in driver.ex_list_firewalls():
-            name_prefix = "fw-im-%s-" % vm.inf.id
+            name_prefix = "%s" % vm.inf.id
             if gce_fw.name.startswith(name_prefix):
                 self.log_info("Deleting FW %s." % gce_fw.name)
                 gce_fw.destroy()

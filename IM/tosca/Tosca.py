@@ -62,7 +62,7 @@ class Tosca:
 
                 for node in node_list:
                     if node.name == sys_name:
-                        if prop in policy.properties:
+                        if policy.properties and prop in policy.properties:
                             Tosca.logger.debug("Set %s: %s to system: %s." % (prop,
                                                                               policy.properties[prop],
                                                                               sys_name))
