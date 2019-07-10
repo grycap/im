@@ -325,15 +325,15 @@ EGI FedCloud specific parameters
 *******************************
 
 To use the EGI CheckIn to authenticate with a Keystone server properly configured the parameters are the following (see
-more info at `EGI Wiki <https://wiki.egi.eu/wiki/Federated_Cloud_OpenStack_Providers>`_):
+more info at `EGI Documentation <https://egi-federated-cloud-integration.readthedocs.io/en/latest/openstack.html#cli-access>`_):
 
 * username: ``egi.eu``.
-* tenant: ``oidc``.
+* tenant: ``openid``.
 * password: Specifies the EGI CheckIn access token.
 
 So the auth line will be like that::
 
-   id = ost; type = OpenStack; host = https://ostserver:5000; username = indigo-dc; tenant = oidc; password = iam_token_value; auth_version = 3.x_oidc_access_token
+   id = ost; type = OpenStack; host = https://ostserver:5000; username = egi.eu; tenant = openid; password = egi_aai_token_value; auth_version = 3.x_oidc_access_token
 
 
 Open Telekom Cloud
