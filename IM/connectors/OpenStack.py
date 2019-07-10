@@ -128,7 +128,9 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 os.close(fproxy)
                 username = ''
                 password = proxy_filename
-                tenant = auth['tenant']
+                tenant = None
+                if 'tenant' in auth:
+                    tenant = auth['tenant']
                 parameters["auth_version"] = '2.0_voms'
 
                 for param in parameters:
