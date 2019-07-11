@@ -33,6 +33,13 @@ class CloudConnector(LoggerMixin):
         self.verify_ssl = Config.VERIFI_SSL
         """Verify SSL connections """
         if not self.verify_ssl:
+            # To avoid errors with host certificates
+            try:
+                import ssl
+                ssl._create_default_https_context = ssl._create_unverified_context
+            except Exception:
+                pass
+
             try:
                 # To avoid annoying InsecureRequestWarning messages in some Connectors
                 import requests.packages
