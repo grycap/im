@@ -208,6 +208,8 @@ class TestFogBowConnector(TestCloudConnectorBase):
             network net3 (federated = 'yes' and providers = 'p1,p2')
             network net4 (federated = 'yes' and providers = ['p1','p2'])
             system test (
+            gpu.count=1 and
+            cpu.sgx='true' and
             cpu.arch='x86_64' and
             cpu.count>=1 and
             memory.size>=512m and
@@ -250,6 +252,7 @@ class TestFogBowConnector(TestCloudConnectorBase):
         self.assertEqual(data["compute"]["vCPU"], 1)
         self.assertEqual(data["compute"]["memory"], 512)
         self.assertEqual(data["compute"]["imageId"], "fogbow-ubuntu")
+        self.assertEqual(data["compute"]["requirements"], {'sgx': 'true', 'gpu': 'true'})
         self.assertEqual(data["federatedNetworkId"], "1")
 
     @patch('requests.request')

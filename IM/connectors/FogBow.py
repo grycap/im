@@ -353,6 +353,13 @@ class FogBowCloudConnector(CloudConnector):
             name = system.getValue("disk.0.image.name")
         if not name:
             name = "userimage"
+        requirements = {}
+        sgx = system.getValue('cpu.sgx')
+        if sgx and sgx.lower() not in ["no", "false"]:
+            requirements["sgx"] = "true"
+        gpu = system.getValue('gpu.count')
+        if gpu:
+            requirements["gpu"] = "true"
 
         with inf._lock:
             self.create_nets(inf, radl, auth_data)
@@ -380,6 +387,8 @@ class FogBowCloudConnector(CloudConnector):
                          "vCPU": cpu}
                         }
 
+                if requirements:
+                    body["compute"]["requirements"] = requirements
                 if nets:
                     body["compute"]["networkIds"] = nets
                 if fed_net:
