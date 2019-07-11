@@ -511,7 +511,10 @@ class OpenNebulaCloudConnector(CloudConnector):
             success = True
 
         if last and success:
-            self.delete_security_groups(vm.inf, auth_data)
+            one_ver = self.getONEVersion(auth_data)
+            # Security Groups appears in version 4.12.0
+            if one_ver >= LooseVersion("4.12.0"):
+                self.delete_security_groups(vm.inf, auth_data)
 
         return (success, err)
 
