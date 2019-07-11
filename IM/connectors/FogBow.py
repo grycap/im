@@ -111,6 +111,16 @@ class FogBowCloudConnector(CloudConnector):
                 else:
                     time.sleep(1)
 
+            # in some cases at first stage it get an error, but then it becomes ready
+            if resp.status_code == 200:
+                obj_info = resp.json()
+                state = None
+                if 'state' in obj_info:
+                    state = obj_info['state']
+                if state in failed_states:
+                    time.sleep(4)
+                    resp = self.create_request('GET', '%s%s' % (path, obj_id), auth_data, headers)
+
             if resp.status_code == 200:
                 obj_info = resp.json()
                 state = None
