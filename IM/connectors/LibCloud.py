@@ -494,29 +494,6 @@ class LibCloudCloudConnector(CloudConnector):
         else:
             return (False, "VM not found with id: " + vm.id)
 
-    def alterVM(self, vm, radl, auth_data):
-        node = self.get_node_with_id(vm.id, auth_data)
-        if node:
-            resize_func = getattr(node.driver, "ex_resize", None)
-            if resize_func:
-                instance_type = self.get_instance_type(
-                    node.driver.list_sizes(), radl.systems[0])
-
-                try:
-                    success = resize_func(node, instance_type)
-                except Exception as ex:
-                    self.log_exception("Error resizing VM.")
-                    return (False, "Error resizing VM: " + str(ex))
-
-                if success:
-                    return (True, "")
-                else:
-                    return (False, "Error in stop operation")
-            else:
-                return (False, "Not supported")
-        else:
-            return (False, "VM not found with id: " + vm.id)
-
     @staticmethod
     def wait_volume(volume, state='available', timeout=60):
         """
@@ -586,7 +563,7 @@ class LibCloudCloudConnector(CloudConnector):
                             # Add the volume to the VM to remove it later
                             vm.volumes.append(volume.id)
                         else:
-                            raise Exception("Error waiting the volume ID %s." % volume_id)
+                            raise Exception("Error waiting the volume ID %s." % volume.id)
 
                     if success:
                         self.log_debug("Attach the volume ID " + str(volume.id))
