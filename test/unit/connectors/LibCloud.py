@@ -248,60 +248,6 @@ class TestOSTConnector(TestCloudConnectorBase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('libcloud.compute.drivers.ec2.EC2NodeDriver')
-    def test_55_alter(self, get_driver):
-        radl_data = """
-            network net ()
-            system test (
-            cpu.arch='x86_64' and
-            cpu.count=1 and
-            memory.size=512m and
-            net_interface.0.connection = 'net' and
-            net_interface.0.dns_name = 'test' and
-            disk.0.os.name = 'linux' and
-            disk.0.image.url = 'one://server.com/1' and
-            disk.0.os.credentials.username = 'user' and
-            disk.0.os.credentials.password = 'pass'
-            )"""
-        radl = radl_parse.parse_radl(radl_data)
-
-        new_radl_data = """
-            system test (
-            cpu.count>=2 and
-            memory.size>=2048m
-            )"""
-        new_radl = radl_parse.parse_radl(new_radl_data)
-
-        auth = Authentication([{'id': 'libcloud', 'type': 'LibCloud', 'username': 'user',
-                                'password': 'pass', 'driver': 'EC2'}])
-        lib_cloud = self.get_lib_cloud()
-
-        inf = MagicMock()
-        vm = VirtualMachine(inf, "1", lib_cloud.cloud, radl, radl, lib_cloud, 1)
-
-        driver = MagicMock()
-        get_driver.return_value = driver
-
-        node = MagicMock()
-        node.id = "1"
-        node.driver = driver
-        driver.list_nodes.return_value = [node]
-
-        node_size = MagicMock()
-        node_size.ram = 2048
-        node_size.price = 2
-        node_size.disk = 1
-        node_size.vcpus = 2
-        node_size.name = "medium"
-        driver.list_sizes.return_value = [node_size]
-
-        driver.ex_resize.return_value = True
-
-        success, _ = lib_cloud.alterVM(vm, new_radl, auth)
-
-        self.assertTrue(success, msg="ERROR: modifying VM info.")
-        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-
-    @patch('libcloud.compute.drivers.ec2.EC2NodeDriver')
     def test_60_finalize(self, get_driver):
         auth = Authentication([{'id': 'libcloud', 'type': 'LibCloud', 'username': 'user',
                                 'password': 'pass', 'driver': 'EC2'}])

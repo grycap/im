@@ -589,6 +589,10 @@ class OpenNebulaCloudConnector(CloudConnector):
 
             cont += 1
 
+        sched = ""
+        if system.getValue('availability_zone'):
+            sched = 'SCHED_REQUIREMENTS = "CLUSTER_ID=\\"%s\\""' % system.getValue('availability_zone')
+
         res = '''
             NAME = %s
 
@@ -600,7 +604,9 @@ class OpenNebulaCloudConnector(CloudConnector):
             %s
 
             %s
-        ''' % (name, cpu, cpu, memory, arch, disks, ConfigOpenNebula.TEMPLATE_OTHER)
+
+            %s
+        ''' % (name, cpu, cpu, memory, arch, disks, sched, ConfigOpenNebula.TEMPLATE_OTHER)
 
         user_template = ""
         tags = self.get_instance_tags(system)

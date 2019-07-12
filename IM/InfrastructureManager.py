@@ -808,9 +808,7 @@ class InfrastructureManager:
         (success, alter_res) = vm.alter(radl, auth)
 
         if not success:
-            InfrastructureManager.logger.warn(
-                "Inf ID: " + str(inf_id) + ": " +
-                "Error modifying the information about the VM " + str(vm_id) + ": " + str(alter_res))
+            raise Exception("Error modifying the information about the VM %s: %s" % (vm_id, alter_res))
 
         vm.update_status(auth)
         IM.InfrastructureList.InfrastructureList.save_data(inf_id)
