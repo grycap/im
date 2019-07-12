@@ -21,7 +21,7 @@ import unittest
 
 sys.path.append(".")
 sys.path.append("..")
-from .CloudConn import TestCloudConnectorBase
+from CloudConn import TestCloudConnectorBase
 from IM.CloudInfo import CloudInfo
 from IM.auth import Authentication
 from radl import radl_parse
@@ -644,6 +644,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         driver.ex_list_routers.return_value = [router]
         driver.ex_add_router_subnet.return_value = True
 
+        vm.volumes = ['volid']
         success, _ = ost_cloud.finalize(vm, True, auth)
 
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
