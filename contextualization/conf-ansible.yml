@@ -58,11 +58,11 @@
       when: ansible_distribution == "Ubuntu"
       ignore_errors: yes
       register: apt_update
-  
+
     - name: Ubuntu force apt update (avoid apt lock)
       command: apt update
       when: ansible_distribution == "Ubuntu" and apt_update is failed
-    
+
     - name: Debian/Ubuntu install requisites with apt
       apt: name=python-pip,python-jinja2,sshpass,openssh-client,unzip,gcc,python-dev,libffi-dev,libssl-dev update_cache=yes
       when: ansible_os_family == "Debian"
@@ -86,13 +86,13 @@
 
     # do not upgrade to 10 as it is failing
     - name: Upgrade pip
-      pip: name=pip version=9.0.3
+      pip: name=pip version=9.0.3 executable=pip2
 
     - name: Upgrade setuptools with Pip
-      pip: name=setuptools state=latest
+      pip: name=setuptools state=latest executable=pip2
 
     - name: Install pkgs with Pip in RH6
-      pip: name="{{ item.name }}" version="{{ item.version }}"
+      pip: name="{{ item.name }}" version="{{ item.version }}" executable=pip2
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int <= 6
       with_items:
         - { name: 'pyyaml', version: '3.13' }
@@ -101,28 +101,31 @@
         - { name: 'paramiko', version: '2.2.4' }
         - { name: 'xmltodict', version: '0.11.0' }
 
+    - name: Install pyyaml
+      pip: name=pyyaml executable=pip2
+
     - name: Install ansible {{ ANSIBLE_VERSION }} with Pip
-      pip: name=ansible version={{ ANSIBLE_VERSION }}
+      pip: name=ansible version={{ ANSIBLE_VERSION }} executable=pip2
       when: ANSIBLE_VERSION != "latest"
       
     - name: Install latest ansible version with Pip
-      pip: name=ansible state=latest
+      pip: name=ansible state=latest executable=pip2
       when: ANSIBLE_VERSION == "latest"
 
 #################################### Now install scp, jmespath and pywinrm with pip  ##################################
 
     - name: Install jmespath with Pip
-      pip: name=jmespath
+      pip: name=jmespath executable=pip2
 
     - name: Install cffi with Pip in RH6
-      pip: name=cffi
+      pip: name=cffi executable=pip2
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int <= 6
 
     - name: Install scp with Pip
-      pip: name=scp
+      pip: name=scp executable=pip2
 
     - name: Install pywinrm with Pip
-      pip: name=pywinrm
+      pip: name=pywinrm executable=pip2
       ignore_errors: yes
       
 ################################################ Configure Ansible  ###################################################

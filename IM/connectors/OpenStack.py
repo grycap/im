@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import uuid
 import time
 from netaddr import IPNetwork, IPAddress
 import os.path
@@ -148,12 +149,6 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 # http://libcloud.readthedocs.org/en/latest/other/ssl-certificate-validation.html
                 import libcloud.security
                 libcloud.security.VERIFY_SSL_CERT = False
-
-                try:
-                    import ssl
-                    ssl._create_default_https_context = ssl._create_unverified_context
-                except Exception:
-                    pass
 
             kwargs = {}
             for key, value in parameters.items():
@@ -831,12 +826,12 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         res = [boot_disk]
 
         cont = 1
-        while ((system.getValue("disk." + str(cont) + ".size") or
-                system.getValue("disk." + str(cont) + ".image.url")) and
-                system.getValue("disk." + str(cont) + ".device")):
+        while (system.getValue("disk." + str(cont) + ".size") or
+                system.getValue("disk." + str(cont) + ".image.url")):
             disk_url = system.getValue("disk." + str(cont) + ".image.url")
             disk_device = system.getValue("disk." + str(cont) + ".device")
-            disk_device = "vd%s" % disk_device[-1]
+            if disk_device:
+                disk_device = "vd%s" % disk_device[-1]
             disk_fstype = system.getValue("disk." + str(cont) + ".fstype")
             if not disk_fstype:
                 disk_fstype = 'ext3'
@@ -846,7 +841,6 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 volume = driver.ex_get_volume(os.path.basename(disk_url))
                 disk = {
                     'boot_index': cont,
-                    'device_name': disk_device,
                     'source_type': "volume",
                     'delete_on_termination': False,
                     'destination_type': "volume",
@@ -857,13 +851,14 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
                 disk = {
                     'boot_index': cont,
-                    'device_name': disk_device,
                     'source_type': "blank",
                     'guest_format': disk_fstype,
                     'destination_type': "volume",
                     'delete_on_termination': True,
                     'volume_size': disk_size
                 }
+            if disk_device:
+                disk['device_name'] = disk_device
             res.append(disk)
             cont += 1
 
@@ -934,6 +929,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             self.log_info("Creating node")
 
             vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self.cloud.getCloudConnector(inf))
+            vm.volumes = []
             vm.destroy = True
             inf.add_vm(vm)
             cloud_init = self.get_cloud_init_data(radl, vm, public_key, user)
@@ -1214,6 +1210,22 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             success.append(res)
             msgs.append(msg)
 
+            try:
+                for vol_id in vm.volumes:
+                    volume = None
+                    try:
+                        volume = node.driver.ex_get_volume(vol_id)
+                        self.wait_volume(volume)
+                    except Exception:
+                        self.log_exception("Error getting volume ID: %s. No deleting it." % vol_id)
+                    if volume:
+                        volume.destroy()
+            except Exception as ex:
+                res = False
+                msg = "%s" % ex.args[0]
+            success.append(res)
+            msgs.append(msg)
+
             self.log_info("VM " + str(vm.id) + " successfully destroyed")
         else:
             self.log_warn("VM " + str(vm.id) + " not found.")
@@ -1349,3 +1361,177 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 return (False, "Error in reboot operation")
         else:
             return (False, "VM not found with id: " + vm.id)
+
+    def alterVM(self, vm, radl, auth_data):
+        success, msg = self.resizeVM(vm, radl, auth_data)
+        if not success:
+            return (success, msg)
+
+        success, msg = self.add_new_disks(vm, radl, auth_data)
+        if not success:
+            return (success, msg)
+
+        success, msg = self.alter_public_ips(vm, radl, auth_data)
+        if not success:
+            return (success, msg)
+
+        return (True, "")
+
+    def resizeVM(self, vm, radl, auth_data):
+        node = self.get_node_with_id(vm.id, auth_data)
+        if node:
+            new_cpu = radl.systems[0].getValue('cpu.count')
+            new_memory = radl.systems[0].getValue('memory.size')
+            instance_type = radl.systems[0].getValue('instance_type')
+            if not any([new_cpu, new_memory, instance_type]):
+                self.log_debug("No memory nor cpu nor instance_type specified. VM not resized.")
+                return (True, "")
+            else:
+                instance_type = self.get_instance_type(node.driver.list_sizes(), radl.systems[0])
+                if instance_type is None:
+                    return (False, "Error resizing VM: No instance type found.")
+                if node.extra['flavorId'] != instance_type.id:
+                    try:
+                        self.log_debug("Resizing node: %s" % node.id)
+                        success = node.driver.ex_resize(node, instance_type)
+                        if success:
+                            cont = 0
+                            # wait the node to be in correct state to confirm
+                            while node.extra['vm_state'] != 'resized' and cont < 30:
+                                time.sleep(2)
+                                cont += 2
+                                self.log_debug("Confirming resize of the node: %s" % node.id)
+                                node = self.get_node_with_id(vm.id, auth_data)
+
+                            success = node.driver.ex_confirm_resize(node)
+                    except Exception as ex:
+                        self.log_exception("Error resizing VM.")
+                        return (False, "Error resizing VM: " + str(ex))
+                else:
+                    self.log_debug("Same instance_type of the current node. No need to resize.")
+                    return (True, "")
+
+                if success:
+                    return (True, "")
+                else:
+                    return (False, "Error in resize operation")
+        else:
+            return (False, "VM not found with id: " + vm.id)
+
+    def create_attach_volume(self, node, disk_size, disk_device, volume_name, location):
+        try:
+            volume = node.driver.create_volume(int(disk_size), volume_name, location=location)
+        except Exception as ex:
+            self.log_exception("Error creating volume.")
+            return False, None, ex.args[0]
+        success = self.wait_volume(volume)
+        if not success:
+            self.log_error("Error waiting the volume ID %s." % volume.id)
+            return False, volume, "Error waiting the volume ID %s." % volume.id
+        else:
+            self.log_debug("Attach the volume ID %s" % volume.id)
+            try:
+                volume.attach(node, disk_device)
+            except Exception as ex:
+                self.log_exception("Error attaching volume ID %s" % volume.id)
+                return False, volume, ex.args[0]
+            # wait the volume to be attached
+            success = self.wait_volume(volume, state='in-use')
+            # update the volume data
+            volume = volume.driver.ex_get_volume(volume.id)
+            return success, volume, ""
+
+    def add_new_disks(self, vm, radl, auth_data):
+        """
+        Add new disks specified in the radl to the vm
+        """
+        node = self.get_node_with_id(vm.id, auth_data)
+        if node:
+            try:
+                orig_system = vm.info.systems[0]
+
+                cont = 1
+                while (orig_system.getValue("disk." + str(cont) + ".image.url") or
+                       orig_system.getValue("disk." + str(cont) + ".size")):
+                    cont += 1
+
+                system = radl.systems[0]
+
+                while system.getValue("disk." + str(cont) + ".size"):
+                    disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('G')
+                    disk_device = system.getValue("disk." + str(cont) + ".device")
+                    self.log_info("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
+
+                    volume_name = "im-%s" % str(uuid.uuid1())
+
+                    location = self.get_node_location(node)
+                    success, volume, msg = self.create_attach_volume(node, disk_size, disk_device,
+                                                                     volume_name, location)
+                    if not success and volume:
+                        try:
+                            self.log_debug("Deleting volume %s" % volume.id)
+                            volume.destroy()
+                        except:
+                            self.log_exception("Error deleteing volume %s." % volume.id)
+
+                        return (False, "Error creating or attaching the Volume: %s" % msg)
+
+                    # Add the volume to the VM to remove it later
+                    vm.volumes.append(volume.id)
+                    vm.info.systems[0].setValue("disk." + str(cont) + ".size", disk_size, 'G')
+                    if 'attachments' in volume.extra and volume.extra['attachments']:
+                        disk_device = volume.extra['attachments'][0]['device']
+                    vm.info.systems[0].setValue("disk." + str(cont) + ".device", disk_device)
+
+                    cont += 1
+                return (True, "")
+            except Exception as ex:
+                self.log_exception("Error connecting with OpenStack server")
+                return (False, "Error connecting with OpenStack server: " + str(ex))
+
+    def alter_public_ips(self, vm, radl, auth_data):
+        """
+        Add/remove public IP if currently it does not have one and new RADL requests it or vice versa
+        """
+        # update VM info
+        try:
+            vm.update_status(auth_data, force=True)
+            node = self.get_node_with_id(vm.id, auth_data)
+            current_public_ip = vm.getPublicIP()
+            new_has_public_ip = radl.hasPublicNet(vm.info.systems[0].name)
+            if new_has_public_ip and not current_public_ip:
+                for net in radl.networks:
+                    if net.isPublic():
+                        new_public_net = net.clone()
+                new_public_net.id = "public.%d" % int(time.time() * 100)
+                vm.requested_radl.networks.append(new_public_net)
+                num_net = vm.requested_radl.systems[0].getNumNetworkIfaces()
+                vm.requested_radl.systems[0].setValue("net_interface.%d.connection" % num_net, new_public_net.id)
+                pool_name = new_public_net.getValue("provider_id")
+                return self.add_elastic_ip_from_pool(vm, node, None, pool_name)
+
+            if not new_has_public_ip and current_public_ip:
+                floating_ip = node.driver.get_floating_ip(current_public_ip)
+                if node.driver.ex_detach_floating_ip_from_node(node, floating_ip):
+                    floating_ip.delete()
+
+                    # Remove all public net connections in the Requested RADL
+                    nets_id = [net.id for net in vm.requested_radl.networks if net.isPublic()]
+                    system = vm.requested_radl.systems[0]
+
+                    i = 0
+                    while system.getValue('net_interface.%d.connection' % i):
+                        f = system.getFeature("net_interface.%d.connection" % i)
+                        if f.value in nets_id:
+                            system.delValue('net_interface.%d.connection' % i)
+                            if system.getValue('net_interface.%d.ip' % i):
+                                system.delValue('net_interface.%d.ip' % i)
+                        i += 1
+
+                    return True, ""
+                else:
+                    return False, "Error detaching IP %s from node %s" % (current_public_ip, node.id)
+        except Exception as ex:
+            self.log_exception("Error adding/removing new public IP")
+            return (False, "Error adding/removing new public IP: " + str(ex))
+        return True, ""
