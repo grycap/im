@@ -602,7 +602,7 @@ class OpenNebulaCloudConnector(CloudConnector):
             OS = [ ARCH = "%s" ]
 
             %s
-            
+
             %s
 
             %s

@@ -146,7 +146,7 @@ class TestONEConnector(TestCloudConnectorBase):
             DISK = [ IMAGE_ID = "1" ]
  DISK = [ TYPE = fs , FORMAT = ext3, SIZE = 1024,TARGET = hdb,SAVE = no ]
 
-            
+
             SCHED_REQUIREMENTS = "CLUSTER_ID=\\"0\\""\n"""
         self.assertIn(vm_template, one_server.one.vm.allocate.call_args_list[0][0][1])
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
