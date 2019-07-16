@@ -29,6 +29,10 @@
     - name: Get Facts
       setup:
 
+    - name: Install libselinux-python in RH
+      action: yum pkg=libselinux-python state=installed
+      when: ansible_os_family == "RedHat"
+
     - name: EPEL
       yum: name=epel-release
       when: ansible_os_family == "RedHat" and ansible_distribution != "Fedora"
@@ -45,10 +49,6 @@
     - name: Fedora install yum with dnf
       dnf: name=python2-rpm,yum
       when: ansible_distribution == "Fedora"
-
-    - name: Install libselinux-python in RH
-      action: yum pkg=libselinux-python state=installed
-      when: ansible_os_family == "RedHat"
 
   ################### Install Ansible in Ubuntu RHEL Debian and Fedora systems with apt and yum #########################
   ################### because they have recent versions of ansible in system repositories ###############################
