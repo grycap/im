@@ -207,7 +207,7 @@ class Tosca:
                                         s.setValue("net_interface.%d.connection" % i, new_net_id)
                                     i += 1
 
-                                priv_net_cloud_map[new_net.id] = "%s://%s" % (protocol, src_host)
+                                priv_net_cloud_map[new_net_id] = "%s://%s" % (protocol, src_host)
                         else:
                             priv_net_cloud_map[net_id] = "%s://%s" % (protocol, src_host)
 
