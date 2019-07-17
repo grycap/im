@@ -65,7 +65,7 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
         else:
             auth = auths[0]
 
-        if self.driver and self.auth.compare(auth_data, self.type):
+        if self.driver and self.auth.compare(auth_data, self.type, self.cloud.server):
             return self.driver
         else:
             self.auth = auth_data
