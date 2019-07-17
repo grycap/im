@@ -689,6 +689,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                             raise Exception("No net CIDR specified nor free net CIDR found.")
                         self.log_debug("Free net CIDR found: %s." % net_cidr)
                     net_dnsserver = network.getValue('dnsserver')
+                    if net_dnsserver:
+                        net_dnsserver = [net_dnsserver]
 
                     # create the network
                     try:
@@ -704,7 +706,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     try:
                         self.log_info("Creating ost subnet: %s" % ost_subnet_name)
                         ost_subnet = driver.ex_create_subnet(ost_subnet_name, ost_net, net_cidr,
-                                                             ip_version=4, dns_nameservers=[net_dnsserver])
+                                                             ip_version=4, dns_nameservers=net_dnsserver)
                     except Exception as ex:
                         self.log_exception("Error creating ost subnet for net %s." % net_name)
                         # in case of error delete the associated network
