@@ -86,7 +86,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         else:
             auth = auths[0]
 
-        if self.driver and self.auth.compare(auth_data, self.type):
+        if self.driver and self.auth.compare(auth_data, self.type, self.cloud.server):
             return self.driver
         else:
             self.auth = auth_data
@@ -281,7 +281,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
                     vrouter = vrouter.getIfaceIP(0)
                     if not vrouter:
-                        self.log_error("VRouter %s has no IP. wait." % system_router)
+                        self.log_warn("VRouter %s has no IP. wait." % system_router)
                         success = False
                         break
 
