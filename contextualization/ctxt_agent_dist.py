@@ -202,7 +202,7 @@ class CtxtAgent(CtxtAgentBase):
 
         private_key = ctxt_vm['private_key']
         if cred_used == "pk_file":
-            private_key = CtxtAgent.PK_FILE
+            private_key = CtxtAgentBase.PK_FILE
 
         vm_ip = ctxt_vm['ip']
         if 'ctxt_ip' in ctxt_vm:
@@ -240,7 +240,7 @@ class CtxtAgent(CtxtAgentBase):
             f.write(" - hosts: allnowindows\n")
 
         result = Queue()
-        t = AnsibleThread(result, self.logger, playbook_file, threads, CtxtAgent.PK_FILE,
+        t = AnsibleThread(result, self.logger, playbook_file, threads, CtxtAgentBase.PK_FILE,
                           None, CtxtAgent.PLAYBOOK_RETRIES, inventory_file)
         t.start()
         return (t, result)
@@ -260,7 +260,7 @@ class CtxtAgent(CtxtAgentBase):
             pk_file = None
             changed_pass = False
             if cred_used == "pk_file":
-                pk_file = CtxtAgent.PK_FILE
+                pk_file = CtxtAgentBase.PK_FILE
             elif cred_used == "new":
                 changed_pass = True
 
@@ -274,7 +274,7 @@ class CtxtAgent(CtxtAgentBase):
                 ssh_client.sftp_put_dir(general_conf_data['conf_dir'],
                                         general_conf_data['conf_dir'])
                 # Put the correct permissions on the key file
-                ssh_client.sftp_chmod(CtxtAgent.PK_FILE, 0o600)
+                ssh_client.sftp_chmod(CtxtAgentBase.PK_FILE, 0o600)
             except Exception as ex:
                 self.logger.exception("Error copying playbooks to VM: " + vm['ip'])
                 errors.append(ex)
@@ -288,9 +288,9 @@ class CtxtAgent(CtxtAgentBase):
         self.logger.info('Generate and copy the ssh key')
 
         # If the file exists, do not create it again
-        if not os.path.isfile(CtxtAgent.PK_FILE):
+        if not os.path.isfile(CtxtAgentBase.PK_FILE):
             out = self.run_command('ssh-keygen -t rsa -C ' + getpass.getuser() +
-                                   ' -q -N "" -f ' + CtxtAgent.PK_FILE)
+                                   ' -q -N "" -f ' + CtxtAgentBase.PK_FILE)
             self.logger.debug(out)
 
         if not ctxt_vm:
@@ -320,7 +320,7 @@ class CtxtAgent(CtxtAgentBase):
                     if ctxt_vm['os'] != "windows":
                         try:
                             self.logger.info("Copy Facts cache to: %s" % ctxt_vm['ip'])
-                            ssh_client = self.get_ssh(ctxt_vm, CtxtAgent.PK_FILE, True)
+                            ssh_client = self.get_ssh(ctxt_vm, CtxtAgentBase.PK_FILE, True)
                             ssh_client.sftp_mkdir(cache_dir)
                             ssh_client.sftp_put_dir(cache_dir, cache_dir)
 
@@ -369,7 +369,7 @@ class CtxtAgent(CtxtAgentBase):
                         pk_file = None
                         changed_pass = False
                         if cred_used == "pk_file":
-                            pk_file = CtxtAgent.PK_FILE
+                            pk_file = CtxtAgentBase.PK_FILE
                         elif cred_used == "new":
                             changed_pass = True
 
@@ -424,7 +424,7 @@ class CtxtAgent(CtxtAgentBase):
                     pk_file = None
                     changed_pass = False
                     if cred_used == "pk_file":
-                        pk_file = CtxtAgent.PK_FILE
+                        pk_file = CtxtAgentBase.PK_FILE
                     elif cred_used == "new":
                         changed_pass = True
                     elif cred_used == "local":
@@ -457,14 +457,14 @@ class CtxtAgent(CtxtAgentBase):
                 else:
                     # in the other tasks pk_file can be used
                     if ctxt_vm['os'] != "windows" and not ctxt_vm['master'] and not local:
-                        remote_process = self.LaunchRemoteAgent(ctxt_vm, vault_pass, CtxtAgent.PK_FILE,
+                        remote_process = self.LaunchRemoteAgent(ctxt_vm, vault_pass, CtxtAgentBase.PK_FILE,
                                                                 vm_conf_data['changed_pass'])
                     else:
                         if ctxt_vm['os'] != "windows":
                             self.set_ansible_connection_local(general_conf_data, ctxt_vm)
                         ansible_thread = self.LaunchAnsiblePlaybook(self.logger, vm_conf_data['remote_dir'],
                                                                     playbook, ctxt_vm, 2,
-                                                                    inventory_file, CtxtAgent.PK_FILE,
+                                                                    inventory_file, CtxtAgentBase.PK_FILE,
                                                                     CtxtAgent.INTERNAL_PLAYBOOK_RETRIES,
                                                                     vm_conf_data['changed_pass'], vault_pass)
 
@@ -525,7 +525,7 @@ class CtxtAgent(CtxtAgentBase):
         if 'playbook_retries' in general_conf_data:
             CtxtAgent.PLAYBOOK_RETRIES = general_conf_data['playbook_retries']
 
-        CtxtAgent.PK_FILE = general_conf_data['conf_dir'] + "/" + "ansible_key"
+        CtxtAgentBase.PK_FILE = general_conf_data['conf_dir'] + "/" + "ansible_key"
 
         res_data = self.contextualize_vm(general_conf_data, vm_conf_data, ctxt_vm, local)
 
