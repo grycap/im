@@ -107,7 +107,9 @@ topology_template:
               interfaces:
                 Configure:
                   pre_configure_source:
-                    implementation: https://raw.githubusercontent.com/indigo-dc/tosca-types/master/artifacts/onedata/oneclient_install.yml
+                    implementation:
+                      file: https://raw.githubusercontent.com/indigo-dc/tosca-types/master/artifacts/onedata/oneclient_install.yml
+                      type: tosca.artifacts.Implementation.YAML
                     inputs:
                       onedata_token: { get_property: [ TARGET, credential, token ] }
                       onedata_location: { get_property: [ SELF, location ] }
