@@ -164,7 +164,7 @@ GET ``http://imserver.com/infrastructures/<infId>/<property_name>``
    The result is JSON format has the following format::
    
     {
-      ["radl"|"state"|"contmsg"|"outputs"|"data"]: <property_value>
+      ["radl"|"tosca"|"state"|"contmsg"|"outputs"|"data"]: <property_value>
     }
 
 POST ``http://imserver.com/infrastructures/<infId>``
