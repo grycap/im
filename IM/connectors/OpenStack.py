@@ -296,11 +296,12 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     subnet = OpenStack_2_SubNet(subnet_id, None, None, ost_net.id, driver)
 
                     host_routes = [{"destination": router_cidr, "nexthop": vrouter}]
-                    self.log_info("Updating subnet %s setting host routes: %s" % (subnet.name, host_routes))
+                    self.log_info("Updating subnet %s setting host routes: %s" % (subnet.id, host_routes))
                     driver.ex_update_subnet(subnet, host_routes=host_routes)
 
                     for port in driver.ex_list_ports():
-                        if port.extra['device_id'] == ost_net.id:
+                        if (port.extra['device_owner'] == "compute:nova" and
+                                port.extra['network_id'] == ost_net.id):
                             self.log_info("Disabling security port in %s" % port.id)
                             driver.ex_update_port(port, port_security_enabled=False)
 
