@@ -516,24 +516,26 @@ class Tosca:
         return res
 
     def _get_artifact_full_uri(self, node, artifact_name):
-        res = None
+        artifact_def = artifact_name
         artifacts = self._get_node_artifacts(node)
         for name, artifact in artifacts.items():
             if name == artifact_name:
-                if isinstance(artifact, dict):
-                    res = artifact['file']
-                    if 'repository' in artifact:
-                        repo = artifact['repository']
-                        repositories = self.tosca.tpl.get('repositories')
+                artifact_def = artifact
 
-                        if repositories:
-                            for repo_name, repo_def in repositories.items():
-                                if repo_name == repo:
-                                    repo_url = (
-                                        (repo_def['url']).strip()).rstrip("//")
-                                    res = repo_url + "/" + artifact['file']
-                else:
-                    res = artifact
+        res = None
+        if isinstance(artifact_def, dict):
+            res = artifact_def['file']
+            if 'repository' in artifact_def:
+                repo = artifact_def['repository']
+                repositories = self.tosca.tpl.get('repositories')
+
+                if repositories:
+                    for repo_name, repo_def in repositories.items():
+                        if repo_name == repo:
+                            repo_url = ((repo_def['url']).strip()).rstrip("//")
+                            res = repo_url + "/" + artifact_def['file']
+        else:
+            res = artifact_def
 
         return res
 
@@ -568,15 +570,12 @@ class Tosca:
                         val = None
 
                         if self._is_artifact(param_value):
-                            artifact_uri = self._get_artifact_uri(
-                                param_value, node)
+                            artifact_uri = self._get_artifact_uri(param_value, node)
                             if artifact_uri:
-                                val = remote_artifacts_path + "/" + \
-                                    os.path.basename(artifact_uri)
+                                val = remote_artifacts_path + "/" + os.path.basename(artifact_uri)
                                 artifacts.append(artifact_uri)
                         else:
-                            val = self._final_function_result(
-                                param_value, node)
+                            val = self._final_function_result(param_value, node)
 
                         if val is not None:
                             env[param_name] = val
@@ -591,38 +590,36 @@ class Tosca:
                     for artifact in artifacts:
                         tasks += "  - name: Download artifact " + artifact + "\n"
                         tasks += "    get_url: dest=" + remote_artifacts_path + "/" + \
-                            os.path.basename(artifact) + \
-                            " url='" + artifact + "'\n"
+                            os.path.basename(artifact) + " url='" + artifact + "'\n"
 
-                implementation_url = urlparse(
-                    self._get_implementation_url(node, interface.implementation))
+                implementation = self._get_implementation_url(node, interface.implementation)
+                implementation_url = urlparse(implementation)
 
                 if implementation_url[0] in ['http', 'https', 'ftp']:
                     script_path = implementation_url[2]
                     try:
-                        resp = requests.get(interface.implementation)
+                        resp = requests.get(implementation)
                         script_content = resp.text
                         if resp.status_code != 200:
                             raise Exception(resp.reason + "\n" + resp.text)
                     except Exception as ex:
                         raise Exception("Error downloading the implementation script '%s': %s" % (
-                            interface.implementation, str(ex)))
+                            implementation, str(ex)))
                 else:
-                    script_path = os.path.join(
-                        Tosca.ARTIFACTS_PATH, interface.implementation)
+                    script_path = os.path.join(Tosca.ARTIFACTS_PATH, implementation)
                     if os.path.isfile(script_path):
                         f = open(script_path)
                         script_content = f.read()
                         f.close()
                     else:
                         try:
-                            resp = requests.get(Tosca.ARTIFACTS_REMOTE_REPO + interface.implementation)
+                            resp = requests.get(Tosca.ARTIFACTS_REMOTE_REPO + implementation)
                             script_content = resp.text
                             if resp.status_code != 200:
                                 raise Exception(resp.reason + "\n" + resp.text)
                         except Exception as ex:
                             raise Exception("Implementation file: '%s' is not located in the artifacts folder '%s' "
-                                            "or in the artifacts remote url '%s'." % (interface.implementation,
+                                            "or in the artifacts remote url '%s'." % (implementation,
                                                                                       Tosca.ARTIFACTS_PATH,
                                                                                       Tosca.ARTIFACTS_REMOTE_REPO))
 
@@ -1295,6 +1292,8 @@ class Tosca:
         Take a node of type "Compute" and get the RADL.system to represent it
         """
         res = system(node.name)
+
+        res.setValue("instance_name", node.name)
 
         property_map = {
             'architecture': 'cpu.arch',

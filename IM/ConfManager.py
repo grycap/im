@@ -162,6 +162,10 @@ class ConfManager(LoggerMixin, threading.Thread):
             self.log_warn("Error waiting all the VMs to have all the requested IPs")
         else:
             self.log_info("All the VMs have all the requested IPs")
+            # do a final update of all VMs
+            for vm in self.inf.get_vm_list():
+                if vm.state not in VirtualMachine.NOT_RUNNING_STATES:
+                    vm.update_status(self.auth)
 
         return success
 
