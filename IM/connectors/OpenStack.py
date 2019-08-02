@@ -24,7 +24,7 @@ try:
     from libcloud.compute.types import Provider
     from libcloud.compute.providers import get_driver
     from libcloud.compute.base import NodeImage, NodeAuthSSHKey
-    from libcloud.compute.drivers.openstack import OpenStack_2_NodeDriver, OpenStack_2_SubNet
+    from libcloud.compute.drivers.openstack import OpenStack_2_NodeDriver, OpenStack_2_SubNet, OpenStackSecurityGroup
 except Exception as ex:
     print("WARN: libcloud library not correctly installed. OpenStackCloudConnector will not work!.")
     print(ex)
@@ -299,9 +299,19 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     self.log_info("Updating subnet %s setting host routes: %s" % (subnet.id, host_routes))
                     driver.ex_update_subnet(subnet, host_routes=host_routes)
 
+                    # Disable port security in the node
+                    # first remove the default SG from the node
+                    node = driver.ex_get_node_details(vm.id)
+                    self.log_debug("Removing SG default from node %s" % node.id)
+                    try:
+                        security_group = OpenStackSecurityGroup(None, None, "default", "", driver)
+                        driver.ex_remove_security_group_from_node(security_group, node)
+                    except:
+                        self.log_warn("Removing SG default from node %s" % node.id)
+
+                    # Then disable port security
                     for port in driver.ex_list_ports():
-                        if (port.extra['device_owner'] == "compute:nova" and
-                                port.extra['network_id'] == ost_net.id):
+                        if port.extra['device_id'] == node.id:
                             self.log_info("Disabling security port in %s" % port.id)
                             driver.ex_update_port(port, port_security_enabled=False)
 
@@ -1128,8 +1138,17 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
     def create_security_groups(self, driver, inf, radl):
         res = []
-        i = 0
         system = radl.systems[0]
+
+        # First check if the node is "routed"
+        i = 0
+        while system.getValue("net_interface." + str(i) + ".connection"):
+            network_name = system.getValue("net_interface." + str(i) + ".connection")
+            i += 1
+            network = radl.get_network_by_id(network_name)
+            if network.getValue('router'):
+                self.log_info("Network has a router set. Do not create security groups.")
+                return res
 
         # First create a SG for the entire Infra
         # Use the InfrastructureInfo lock to assure that only one VM create the SG
@@ -1144,8 +1163,10 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 driver.ex_create_security_group_rule(sg, 'udp', 1, 65535, source_security_group=sg)
             res.append(sg)
 
+        i = 0
         while system.getValue("net_interface." + str(i) + ".connection"):
             network_name = system.getValue("net_interface." + str(i) + ".connection")
+            i += 1
             network = radl.get_network_by_id(network_name)
             sg_name = network.getValue("sg_name")
             if not sg_name:
@@ -1187,8 +1208,6 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                                                                      outport.get_remote_port(), '0.0.0.0/0')
                             except Exception as ex:
                                 self.log_warn("Exception adding SG rules: %s" % ex.args[0])
-
-            i += 1
 
         return res
 
