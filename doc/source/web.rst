@@ -84,6 +84,16 @@ the following variables:
    OpenID Client data.
    The default value is `""`.
 
+.. confval:: REDIRECT_URI
+
+   OpenID Redirect URI.
+   The default value is `""`.
+
+.. confval:: cred_crypt_key
+
+   Key to crypt the credentials data. It must be 32 chars long.
+   The default value is `"n04ykjinrswda5sdfnb5680yu21+qgh3"`.
+
 Docker Image
 ------------
 
@@ -111,6 +121,7 @@ This container is prepaired to work linked with the IM service container `grycap
   * `client_id`: OpenID Client data.
   * `client_secret`: OpenID Client secret.
   * `redirect_uri`: OpenID Redirect URI.
+  * `cred_crypt_key`: Key to crypt the credentials data. It must be 32 chars long.
 
 ``docker run -p 80:80 -e "im_use_rest=true" -e "im_host=server.domain" -e "im_port=8800" -d grycap/im-web``
 
