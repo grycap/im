@@ -16,10 +16,13 @@ This is the list of method names:
 
 ``GetInfrastructureList``
    :parameter 0: ``auth``: array of structs
+   :parameter 1: ``filter``: (optional, default value None) string
    :ok response: [true, ``infIds``: array of integers]
    :fail response: [false, ``error``: string]
 
    Return the ID associated to the infrastructure created by the user.
+   In case of using a filter it will be used as a regular expression to search
+   in the RADL or TOSCA used to create the infrastructure.
 
 ``CreateInfrastructure``
    :parameter 0: ``radl``: string

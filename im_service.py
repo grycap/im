@@ -125,9 +125,9 @@ def CreateInfrastructure(radl_data, auth_data, async_call=False):
     return WaitRequest(request)
 
 
-def GetInfrastructureList(auth_data):
+def GetInfrastructureList(auth_data, filter=None):
     request = IMBaseRequest.create_request(
-        IMBaseRequest.GET_INFRASTRUCTURE_LIST, (auth_data))
+        IMBaseRequest.GET_INFRASTRUCTURE_LIST, (auth_data, filter))
     return WaitRequest(request)
 
 
