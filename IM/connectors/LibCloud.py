@@ -453,7 +453,10 @@ class LibCloudCloudConnector(CloudConnector):
                     if floating_ip.node_id == node.id:
                         self.log_debug("Remove Floating IP: %s" % floating_ip.ip_address)
                         # remove it from the node
-                        node.driver.ex_detach_floating_ip_from_node(node, floating_ip)
+                        try:
+                            node.driver.ex_detach_floating_ip_from_node(node, floating_ip)
+                        except Exception as ex:
+                            self.log_warn("Error detaching Floating IP: %s. %s" % (floating_ip.ip_address, ex.args[0]))
                         # delete the ip
                         floating_ip.delete()
                 return True, ""
