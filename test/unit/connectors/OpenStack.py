@@ -308,7 +308,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         driver.ex_list_networks.return_value = [net1, net2]
 
         port = MagicMock()
-        port.extra = {'network_id': net1.id, 'device_owner': 'compute:nova'}
+        port.extra = {'device_id': node.id, 'device_owner': 'compute:nova'}
         driver.ex_list_ports.return_value = [port]
 
         success, vm = ost_cloud.updateVMInfo(vm, auth)
