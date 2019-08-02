@@ -129,6 +129,9 @@ class TestIM(unittest.TestCase):
         (success, res) = self.server.GetInfrastructureList(self.auth_data)
         self.assertTrue(
             success, msg="ERROR calling GetInfrastructureList: " + str(res))
+        (success, res) = self.server.GetInfrastructureList(self.auth_data, "*.")
+        self.assertTrue(
+            success, msg="ERROR calling GetInfrastructureList: " + str(res))
 
     def test_11_create(self):
         """
