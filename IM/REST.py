@@ -457,7 +457,7 @@ def RESTGetInfrastructureList():
     try:
         flt = None
         if "filter" in bottle.request.params.keys():
-            flt = bottle.request.params.get("filter").lower()
+            flt = bottle.request.params.get("filter")
 
         inf_ids = InfrastructureManager.GetInfrastructureList(auth, flt)
         res = []
