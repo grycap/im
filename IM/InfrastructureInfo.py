@@ -156,6 +156,8 @@ class InfrastructureInfo:
             dic['auth'] = Authentication.deserialize(dic['auth'])
         if dic['radl']:
             dic['radl'] = parse_radl(dic['radl'])
+        else:
+            dic['radl'] = RADL()
         if 'extra_info' in dic and dic['extra_info'] and "TOSCA" in dic['extra_info']:
             try:
                 dic['extra_info']['TOSCA'] = Tosca.deserialize(dic['extra_info']['TOSCA'])
