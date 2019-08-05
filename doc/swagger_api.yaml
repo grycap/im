@@ -2,7 +2,7 @@ swagger: '2.0'
 
 info:
   description: Infrastructure Manager (IM) REST API.
-  version: 1.8.0
+  version: 1.8.5
   title: Infrastructure Manager (IM) REST API
   contact:
     email: products@grycap.upv.es
@@ -55,7 +55,7 @@ paths:
         - name: filter
           in: query
           description: |-
-            The filter parameter is optional and it is a regular expression to search in the RADL or TOSCA used to create the infrastructure. If not specified all the infrastructures will be returned.          
+            The filter parameter is optional and it is a regular expression (python format) to search in the RADL or TOSCA used to create the infrastructure. If not specified all the user infrastructures will be returned.          
           required: false
           type: string
       responses:
