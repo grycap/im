@@ -455,11 +455,11 @@ def RESTGetInfrastructureList():
         return return_error(401, "No authentication data provided")
 
     try:
-        filter = None
+        flt = None
         if "filter" in bottle.request.params.keys():
-            filter = bottle.request.params.get("filter").lower()
+            flt = bottle.request.params.get("filter").lower()
 
-        inf_ids = InfrastructureManager.GetInfrastructureList(auth, filter)
+        inf_ids = InfrastructureManager.GetInfrastructureList(auth, flt)
         res = []
 
         for inf_id in inf_ids:
