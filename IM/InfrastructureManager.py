@@ -1422,14 +1422,14 @@ class InfrastructureManager:
         return inf.id
 
     @staticmethod
-    def GetInfrastructureList(auth, filter=None):
+    def GetInfrastructureList(auth, flt=None):
         """
         Return the infrastructure ids associated to IM tokens.
 
         Args:
 
         - auth(Authentication): parsed authentication tokens.
-        - filter(string): string to filter the list of returned infrastructures.
+        - flt(string): string to filter the list of returned infrastructures.
                           A regex to be applied in the RADL or TOSCA of the infra.
 
         Return(list of int): list of infrastructure ids.
@@ -1444,7 +1444,7 @@ class InfrastructureManager:
             raise InvaliddUserException()
 
         inf_ids = IM.InfrastructureList.InfrastructureList.get_inf_ids(auth)
-        if filter:
+        if flt:
             res = []
             for infid in inf_ids:
                 inf = InfrastructureManager.get_infrastructure(infid, auth)
@@ -1452,8 +1452,8 @@ class InfrastructureManager:
                 tosca = ""
                 if "TOSCA" in inf.extra_info:
                     tosca = inf.extra_info["TOSCA"].serialize()
-                
-                if re.search(filter, radl) or re.search(filter, tosca):
+
+                if re.search(flt, radl) or re.search(flt, tosca):
                     res.append(infid)
         else:
             res = inf_ids
