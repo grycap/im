@@ -601,7 +601,7 @@ def RESTGetVMProperty(infid=None, vmid=None, prop=None):
                 auth = sel_inf.auth.getAuthInfo("InfrastructureManager")[0]
                 imuser = auth['username']
                 impass = auth['password']
-                command = ('curl -s -H "Authorization: type = InfrastructureManager; '
+                command = ('curl --insecure -s -H "Authorization: type = InfrastructureManager; '
                            'username = %s; password = %s" -H "Accept: text/plain" %s' % (imuser, impass, url))
 
                 info = """
