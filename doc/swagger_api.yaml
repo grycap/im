@@ -2,7 +2,7 @@ swagger: '2.0'
 
 info:
   description: Infrastructure Manager (IM) REST API.
-  version: 1.8.0
+  version: 1.8.5
   title: Infrastructure Manager (IM) REST API
   contact:
     email: products@grycap.upv.es
@@ -52,6 +52,12 @@ paths:
             The Authentication header must provide the content of the [Authorization File](https://imdocs.readthedocs.io/en/latest/client.html#auth-file), but putting all the elements in one line using “\n” as separator.
           required: true
           type: string
+        - name: filter
+          in: query
+          description: |-
+            The filter parameter is optional and it is a regular expression (python format) to search in the RADL or TOSCA used to create the infrastructure. If not specified all the user infrastructures will be returned.          
+          required: false
+          type: string
       responses:
         200:
           description: successful operation
@@ -89,7 +95,21 @@ paths:
           description: |-
             The Authentication header must provide the content of the [Authorization File](https://imdocs.readthedocs.io/en/latest/client.html#auth-file), but putting all the elements in one line using “\n” as separator.
           required: true
+          type: string          
+        - name: async
+          in: query
+          description: |-
+            The async parameter is optional and is a flag to specify if the call will not wait the VMs to be created. 
+          required: false
+          default: false
           type: string
+          enum:
+            - yes
+            - no
+            - true
+            - false
+            - 0
+            - 1
         - name: body
           in: body
           description: RADL (in plain RADL or in JSON formats) or TOSCA document (YAML).

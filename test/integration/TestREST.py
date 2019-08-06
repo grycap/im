@@ -143,6 +143,10 @@ class TestIM(unittest.TestCase):
         self.assertEqual(resp.status_code, 200,
                          msg="ERROR listing user infrastructures:" + resp.text)
 
+        resp = self.create_request("GET", "/infrastructures?filter=.*")
+        self.assertEqual(resp.status_code, 200,
+                         msg="ERROR listing user infrastructures:" + resp.text)
+
     def test_12_list_with_incorrect_token(self):
         auth_data_lines = read_file_as_string('../auth.dat').split("\n")
         token = ("eyJraWQiOiJyc2ExIiwiYWxnIjoiUlMyNTYifQ.eyJzdWIiOiJkYzVkNWFiNy02ZGI5LTQwNzktOTg1Yy04MGFjMDUwMTcwNjYi"

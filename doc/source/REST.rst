@@ -74,11 +74,14 @@ The error message returned by the service will depend on the ``Accept`` header o
 
 GET ``http://imserver.com/infrastructures``
    :Response Content-type: text/uri-list or application/json
+   :input fields: ``filter`` (optional)
    :ok response: 200 OK
    :fail response: 401, 400
 
    Return a list of URIs referencing the infrastructures associated to the IM
-   user. The result is JSON format has the following format::
+   user. In case of using a filter it will be used as a regular expression to
+   search in the RADL or TOSCA used to create the infrastructure.
+   The result is JSON format has the following format::
 
     {
       "uri-list": [
