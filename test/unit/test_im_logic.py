@@ -591,10 +591,26 @@ class TestIM(unittest.TestCase):
     def test_get_infrastructure_list(self):
         """Get infrastructure List."""
 
-        auth0 = self.getAuth([0])
-        infId = IM.CreateInfrastructure("", auth0)
+        radl_str = """"
+            system front (
+            disk.0.image.url = 'mock0://linux.for.ev.er' and
+            disk.0.os.credentials.username = 'ubuntu' and
+            disk.0.os.credentials.password = 'pass' and
+            disk.0.applications contains (name = 'ansible.modules.micafer.hadoop')
+            )
+            deploy front 1"""
+        radl = parse_radl(radl_str)
+        auth0 = self.getAuth([0], [], [("Dummy", 0)])
+        infId = IM.CreateInfrastructure(radl, auth0)
         inf_ids = IM.GetInfrastructureList(auth0)
         self.assertEqual(inf_ids, [infId])
+
+        inf_ids = IM.GetInfrastructureList(auth0, ".*hadoop.*")
+        self.assertEqual(inf_ids, [infId])
+
+        inf_ids = IM.GetInfrastructureList(auth0, ".*nonexist.*")
+        self.assertEqual(inf_ids, [])
+
         IM.DestroyInfrastructure(infId, auth0)
 
     def test_reconfigure(self):

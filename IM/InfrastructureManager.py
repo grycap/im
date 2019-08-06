@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import re
 import yaml
 import json
 import os
@@ -1421,13 +1422,15 @@ class InfrastructureManager:
         return inf.id
 
     @staticmethod
-    def GetInfrastructureList(auth):
+    def GetInfrastructureList(auth, flt=None):
         """
         Return the infrastructure ids associated to IM tokens.
 
         Args:
 
         - auth(Authentication): parsed authentication tokens.
+        - flt(string): string to filter the list of returned infrastructures.
+                          A regex to be applied in the RADL or TOSCA of the infra.
 
         Return(list of int): list of infrastructure ids.
         """
@@ -1440,7 +1443,21 @@ class InfrastructureManager:
             InfrastructureManager.logger.error("No correct auth data has been specified.")
             raise InvaliddUserException()
 
-        return IM.InfrastructureList.InfrastructureList.get_inf_ids(auth)
+        inf_ids = IM.InfrastructureList.InfrastructureList.get_inf_ids(auth)
+        if flt:
+            res = []
+            for infid in inf_ids:
+                inf = InfrastructureManager.get_infrastructure(infid, auth)
+                radl = str(inf.get_radl())
+                tosca = ""
+                if "TOSCA" in inf.extra_info:
+                    tosca = inf.extra_info["TOSCA"].serialize()
+
+                if re.search(flt, radl) or re.search(flt, tosca):
+                    res.append(infid)
+        else:
+            res = inf_ids
+        return res
 
     @staticmethod
     def ExportInfrastructure(inf_id, delete, auth_data):

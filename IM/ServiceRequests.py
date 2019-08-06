@@ -253,8 +253,8 @@ class Request_GetInfrastructureList(IMBaseRequest):
 
     def _call_function(self):
         self._error_mesage = "Error Getting Inf. List."
-        (auth_data) = self.arguments
-        return IM.InfrastructureManager.InfrastructureManager.GetInfrastructureList(Authentication(auth_data))
+        (auth_data, flt) = self.arguments
+        return IM.InfrastructureManager.InfrastructureManager.GetInfrastructureList(Authentication(auth_data), flt)
 
 
 class Request_Reconfigure(IMBaseRequest):
