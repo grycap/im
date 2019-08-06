@@ -1011,7 +1011,7 @@ class VirtualMachine(LoggerMixin):
         auth = self.inf.auth.getAuthInfo("InfrastructureManager")[0]
         imuser = auth['username']
         impass = auth['password']
-        command = ('curl -s -H "Authorization: type = InfrastructureManager; '
+        command = ('curl -s --insecure -H "Authorization: type = InfrastructureManager; '
                    'username = %s; password = %s" -H "Accept: text/plain" %s' % (imuser, impass, url))
         return [command + " | bash &"]
 
