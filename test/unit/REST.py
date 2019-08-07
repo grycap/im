@@ -851,7 +851,7 @@ class TestREST(unittest.TestCase):
                 res="wait"
                 while [ "$res" == "wait" ]
                 do
-                  res=`curl -s -H "%s" -H "Accept: text/plain" %s`
+                  res=`curl --insecure -s -H "%s" -H "Accept: text/plain" %s`
                   if [ "$res" != "wait" ]
                   then
                     eval "$res"
