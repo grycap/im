@@ -592,17 +592,34 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         return net_map
 
-    def get_router_public(self, driver):
+    def get_router_public(self, driver, radl):
         try:
-            pub_nets = []
+            # Get the public net provider id
+            pub_net_provider_id = None
+            for net in radl.networks:
+                if net.isPublic():
+                    pub_net_provider_id = net.getValue('provider_id')
+                    break
+
+            # Get the OST public net ids and names
+            pub_nets = {}
             for net in driver.ex_list_networks():
                 if 'router:external' in net.extra and net.extra['router:external']:
-                    pub_nets.append(net.id)
+                    pub_nets[net.id] = net.name
 
+            # Get the routers associated with public nets
+            routers = {}
             for router in driver.ex_list_routers():
                 if router.extra['external_gateway_info']:
                     if router.extra['external_gateway_info']['network_id'] in pub_nets:
-                        return router
+                        routers[pub_nets[router.extra['external_gateway_info']['network_id']]] = router
+
+            # try to select first the router of the net provider id
+            if pub_net_provider_id in routers:
+                return routers[pub_net_provider_id]
+            else:
+                return routers[list(routers.keys())[0]]
+
         except Exception:
             self.log_exception("Error getting public router.")
 
@@ -622,7 +639,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         """
         Delete created OST networks
         """
-        router = self.get_router_public(driver)
+        router = self.get_router_public(driver, inf.radl)
         msg = ""
         res = True
         for ost_net in driver.ex_list_networks():
@@ -675,7 +692,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         """
         try:
             i = 0
-            router = self.get_router_public(driver)
+            router = self.get_router_public(driver, radl)
 
             while radl.systems[0].getValue("net_interface." + str(i) + ".connection"):
                 net_name = radl.systems[0].getValue("net_interface." + str(i) + ".connection")
