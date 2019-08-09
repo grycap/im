@@ -202,7 +202,7 @@ def get_auth_header():
     auth_header = bottle.request.headers['AUTHORIZATION']
     if Config.SINGLE_SITE:
         if auth_header.startswith("Basic "):
-            auth_data = base64.b64decode(auth_header[6:])
+            auth_data = str(base64.b64decode(auth_header[6:]))
             user_pass = auth_data.split(":")
             im_auth = {"type": "InfrastructureManager",
                        "username": user_pass[0],
