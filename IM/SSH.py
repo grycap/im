@@ -109,12 +109,11 @@ class SSH:
                     self.private_key = private_key.encode()
 
     def __str__(self):
-        res = "SSH: host: " + self.host + ", port: " + \
-            str(self.port) + ", user: " + self.username
+        res = "SSH: host: %s, port: %s, user: %s" % (self.host, self.port, self.username)
         if self.password is not None:
-            res += ", password: " + self.password
+            res += ", password: %s" % self.password
         if self.private_key is not None:
-            res += ", private_key: " + self.private_key
+            res += ", private_key: %s" % self.private_key
         return res
 
     def connect(self, time_out=None):
