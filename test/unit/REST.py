@@ -30,12 +30,13 @@ from radl.radl_parse import parse_radl
 sys.path.append("..")
 sys.path.append(".")
 
+from IM.config import Config
 from IM import __version__ as version
 from IM.InfrastructureManager import (DeletedInfrastructureException,
                                       IncorrectInfrastructureException,
                                       UnauthorizedUserException,
                                       InvaliddUserException)
-from IM.InfrastructureInfo import IncorrectVMException, DeletedVMException
+from IM.InfrastructureInfo import IncorrectVMException, DeletedVMException, IncorrectStateException
 from IM.REST import (RESTDestroyInfrastructure,
                      RESTGetInfrastructureInfo,
                      RESTGetInfrastructureProperty,
@@ -97,6 +98,33 @@ class TestREST(unittest.TestCase):
         res = json.loads(res)
         self.assertEqual(res, {"message": "Error Getting Inf. List: Access to this infrastructure not granted.",
                                "code": 400})
+
+    @patch("IM.InfrastructureManager.InfrastructureManager.GetInfrastructureList")
+    @patch("bottle.request")
+    def test_GetInfrastructureListSingleSite(self, bottle_request, GetInfrastructureList):
+        """Test REST GetInfrastructureList."""
+        bottle_request.environ = {'HTTP_HOST': 'imserver.com'}
+        bottle_request.return_value = MagicMock()
+
+        Config.SINGLE_SITE = True
+        Config.SINGLE_SITE_AUTH_HOST = 'host'
+
+        Config.SINGLE_SITE_TYPE = 'OpenNebula'
+        Config.SINGLE_SITE_IMAGE_URL_PREFIX = 'one'
+        bottle_request.headers = {"AUTHORIZATION": "Basic dXNlcjpwYXNz", "Accept": "application/json"}
+        GetInfrastructureList.return_value = ["1", "2"]
+        res = RESTGetInfrastructureList()
+        self.assertEqual(res, ('{"uri-list": [{"uri": "http://imserver.com/infrastructures/1"},'
+                               ' {"uri": "http://imserver.com/infrastructures/2"}]}'))
+
+        Config.SINGLE_SITE_TYPE = 'OpenStack'
+        Config.SINGLE_SITE_IMAGE_URL_PREFIX = 'ost'
+        bottle_request.headers = {"AUTHORIZATION": "Bearer access_token", "Accept": "application/json"}
+        GetInfrastructureList.return_value = ["1", "2"]
+        res = RESTGetInfrastructureList()
+        self.assertEqual(res, ('{"uri-list": [{"uri": "http://imserver.com/infrastructures/1"},'
+                               ' {"uri": "http://imserver.com/infrastructures/2"}]}'))
+        Config.SINGLE_SITE = False
 
     @patch("IM.InfrastructureManager.InfrastructureManager.GetInfrastructureList")
     @patch("bottle.request")
@@ -219,6 +247,10 @@ class TestREST(unittest.TestCase):
         DestroyInfrastructure.side_effect = UnauthorizedUserException()
         res = RESTDestroyInfrastructure("1")
         self.assertEqual(res, "Error Destroying Inf: Access to this infrastructure not granted.")
+
+        DestroyInfrastructure.side_effect = IncorrectStateException()
+        res = RESTDestroyInfrastructure("1")
+        self.assertEqual(res, "Error Destroying Inf: Invalid State to perform this operation.")
 
     @patch("IM.InfrastructureManager.InfrastructureManager.CreateInfrastructure")
     @patch("IM.InfrastructureManager.InfrastructureManager.get_infrastructure")
