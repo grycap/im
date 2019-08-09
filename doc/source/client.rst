@@ -85,8 +85,9 @@ The :program:`im_client` is called like this::
 
 .. option:: operation
 
-   ``list``
-      List the infrastructure IDs created by the user.
+   ``list filter``
+      List the infrastructure IDs created by the user. The ``filter`` parameter is
+      optional and is a regex that will be used to filter the list of infrastructures.
 
    ``create inputfile async_flag``
       Create an infrastructure using RADL/TOSCA specified in the file with path
