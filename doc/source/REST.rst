@@ -21,11 +21,12 @@ Next tables summaries the resources and the HTTP methods available.
 | **GET**     | | **List** the infrastructure IDs. | | **List** the virtual machines    | | **Get** information associated to the   |
 |             |                                    | | in the infrastructure ``infId``  | | virtual machine ``vmId`` in ``infId``.  |
 +-------------+------------------------------------+------------------------------------+-------------------------------------------+
-| **POST**    | | **Create** a new infrastructure  | | **Create** a new virtual machine | | **Alter** VM properties based on        |
-|             | | based on the RADL posted         | | based on the RADL posted.        | | then RADL posted                        |
+| **POST**    | | **Create** a new infrastructure  | | **Add or Remove** virtual        | | **Alter** VM properties based on        |
+|             | | based on the RADL or TOSCA       | | machines based on the RADL       | | then RADL posted.                       |
+|             | | posted.                          | | or TOSCA posted.                 |                                           |
 +-------------+------------------------------------+------------------------------------+-------------------------------------------+
 | **PUT**     | | **Import** an infrastructure     |                                    | | **Modify** the virtual machine based on |
-|             | | from another IM instance         |                                    | | the RADL posted.                        |
+|             | | from another IM instance         |                                    | | the RADL or TOSCA posted.               |
 +-------------+------------------------------------+------------------------------------+-------------------------------------------+
 | **DELETE**  |                                    | | **Undeploy** all the virtual     | | **Undeploy** the virtual machine.       |
 |             |                                    | | machines in the infrastructure.  |                                           |
@@ -73,11 +74,14 @@ The error message returned by the service will depend on the ``Accept`` header o
 
 GET ``http://imserver.com/infrastructures``
    :Response Content-type: text/uri-list or application/json
+   :input fields: ``filter`` (optional)
    :ok response: 200 OK
    :fail response: 401, 400
 
    Return a list of URIs referencing the infrastructures associated to the IM
-   user. The result is JSON format has the following format::
+   user. In case of using a filter it will be used as a regular expression to
+   search in the RADL or TOSCA used to create the infrastructure.
+   The result is JSON format has the following format::
 
     {
       "uri-list": [
@@ -163,7 +167,7 @@ GET ``http://imserver.com/infrastructures/<infId>/<property_name>``
    The result is JSON format has the following format::
    
     {
-      ["radl"|"state"|"contmsg"|"outputs"|"data"]: <property_value>
+      ["radl"|"tosca"|"state"|"contmsg"|"outputs"|"data"]: <property_value>
     }
 
 POST ``http://imserver.com/infrastructures/<infId>``

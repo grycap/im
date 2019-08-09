@@ -490,3 +490,33 @@ IM 1.8.2:
     * Enable to set cidr in Fogbow federated networks.
     * Add node creation error message in CloudStack conn.
     * Add sleep among ctxt agent task retries.
+
+IM 1.8.3:
+    * Fix error getting keystone token in OCCI conn.
+    * Fix error reconfiguring with a new RADL.
+    * Remove ec2 classic supoort.
+    * Add error messages in case of error creating volumes.
+    * Remove keypair creation in EC2 conn.
+    * Add missing volume_url parameter to OpenStack conn.
+    * Fix errors with PyYAML version 5.1.
+    * Fix Keypairs left behind on OpenStack.
+    * Handling of special characters in error messages from OpenStack.
+    * Fix error adding two volumes to a VM in OCCI conn.
+    * Enable network creation in connectors EC2, OpenStack and GCE.
+    * Fix error in openstack conn in case of setting auth data with a host without port.
+    * Fix error in OpenNebula conn in case of error in function call.
+
+IM 1.8.4:
+    * Fix error 500 is returned in case of TOSCA parser errors.
+    * Fix error on infrastructure creation the VM status is unknown instead of pending.
+    * Fix error some floating IPs does not appear in the IM ctxt config files.
+    * Fix error adding a floating IP when there is a floating ip free.
+    * Change FogBow connector to new APIs (Buzios).
+    * Get last version of AppDB image in OCCI conn.
+    * Enable to add routes in GCE conn.
+    * Fix Issues with Ansible 2.8.
+    * Fix error creating FW in GCE conn if outports is empty.
+
+IM 1.8.5:
+    * Enable CIDR selection in network creation in OpenStack conn.
+    * Fix error infrastructure not correctly deleted if destroy is sent in initial stage.

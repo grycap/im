@@ -107,7 +107,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         radl_data = """
             network net1 (outbound = 'yes' and provider_id = 'public' and
                           outports = '8080,9000:9100' and sg_name= 'test')
-            network net2 (cidr='10.0.1.0/24' and dnsserver='1.1.1.1' and create = 'yes')
+            network net2 (dnsserver='1.1.1.1' and create = 'yes')
             system test (
             cpu.arch='x86_64' and
             cpu.count=1 and
@@ -119,7 +119,9 @@ class TestOSTConnector(TestCloudConnectorBase):
             disk.0.image.url = 'ost://server.com/ami-id' and
             disk.0.os.credentials.username = 'user' and
             disk.1.size=1GB and
-            disk.1.device='hdb'
+            disk.1.device='hdb' and
+            disk.2.image.url = 'ost://server.com/vol-id' and
+            disk.2.device='hdc'
             )"""
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
@@ -145,9 +147,11 @@ class TestOSTConnector(TestCloudConnectorBase):
         net1.name = "public"
         net1.id = "net1id"
         net1.extra = {'router:external': True}
+        net1.cidr = None
         net2 = MagicMock()
         net2.name = "private"
         net2.id = "net2id"
+        net2.cidr = "10.0.0.0/24"
         driver.ex_list_networks.return_value = [net2, net1]
 
         sg = MagicMock()
@@ -171,13 +175,41 @@ class TestOSTConnector(TestCloudConnectorBase):
         driver.ex_list_routers.return_value = [router]
         driver.ex_add_router_subnet.return_value = True
 
+        image = MagicMock()
+        image.id = 'imageid'
+        driver.get_image.return_value = image
+        vol = MagicMock()
+        vol.id = 'volid'
+        driver.ex_get_volume.return_value = vol
+
         inf = InfrastructureInfo()
         inf.auth = auth
         res = ost_cloud.launch_with_retry(inf, radl, radl, 1, auth, 2, 1)
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
-        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         self.assertEqual(driver.create_node.call_args_list[0][1]['networks'], [net1])
+        mappings = [
+            {'source_type': 'image',
+             'uuid': 'imageid',
+             'boot_index': 0,
+             'delete_on_termination': False,
+             'device_name': 'vda'},
+            {'guest_format': 'ext3',
+             'boot_index': 1,
+             'volume_size': 1,
+             'device_name': 'vdb',
+             'source_type': 'blank',
+             'destination_type': 'volume',
+             'delete_on_termination': True},
+            {'boot_index': 2,
+             'delete_on_termination': False,
+             'destination_type': 'volume',
+             'device_name': 'vdc',
+             'source_type': 'volume',
+             'uuid': 'volid'}
+        ]
+        self.assertEqual(driver.create_node.call_args_list[0][1]['ex_blockdevicemappings'], mappings)
+        self.assertEqual(driver.ex_create_subnet.call_args_list[0][0][2], "10.0.1.0/24")
 
         # test with proxy auth data
         auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'proxy': 'proxy',
@@ -276,7 +308,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         driver.ex_list_networks.return_value = [net1, net2]
 
         port = MagicMock()
-        port.extra = {'device_id': net1.id}
+        port.extra = {'device_id': node.id, 'device_owner': 'compute:nova'}
         driver.ex_list_ports.return_value = [port]
 
         success, vm = ost_cloud.updateVMInfo(vm, auth)
@@ -408,7 +440,8 @@ class TestOSTConnector(TestCloudConnectorBase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
-    def test_55_alter(self, get_driver):
+    @patch('IM.connectors.OpenStack.OpenStackCloudConnector.add_elastic_ip_from_pool')
+    def test_55_alter(self, add_elastic_ip_from_pool, get_driver):
         radl_data = """
             network net ()
             system test (
@@ -437,6 +470,7 @@ class TestOSTConnector(TestCloudConnectorBase):
 
         inf = MagicMock()
         vm = VirtualMachine(inf, "1", ost_cloud.cloud, radl, radl, ost_cloud, 1)
+        vm.volumes = []
 
         driver = MagicMock()
         get_driver.return_value = driver
@@ -444,7 +478,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         node = MagicMock()
         node.id = "1"
         node.state = "running"
-        node.extra = {'flavorId': 'small'}
+        node.extra = {'flavorId': 'small', 'vm_state': 'resized'}
         node.public_ips = ['158.42.1.1']
         node.private_ips = ['10.0.0.1']
         node.driver = driver
@@ -459,10 +493,81 @@ class TestOSTConnector(TestCloudConnectorBase):
         driver.list_sizes.return_value = [node_size]
 
         driver.ex_resize.return_value = True
+        driver.ex_confirm_resize.return_value = True
 
         success, _ = ost_cloud.alterVM(vm, new_radl, auth)
 
         self.assertTrue(success, msg="ERROR: modifying VM info.")
+        self.assertEqual(driver.ex_resize.call_args_list[0][0], (node, node_size))
+        self.assertEqual(driver.ex_confirm_resize.call_args_list[0][0], (node,))
+
+        new_radl_data = """
+            system test (
+            disk.1.size = 10G
+            )"""
+        new_radl = radl_parse.parse_radl(new_radl_data)
+
+        volume = MagicMock()
+        volume.id = 'volid'
+        volume.extra = {'state': 'available'}
+        volume.attach.return_value = True
+        volumeused = MagicMock()
+        volumeused.extra = {'state': 'in-use', 'attachments': [{'device': 'hdc'}]}
+        volumeused.id = 'volid'
+        volume.driver.ex_get_volume.return_value = volumeused
+        driver.create_volume.return_value = volume
+
+        success, _ = ost_cloud.alterVM(vm, new_radl, auth)
+        self.assertEqual(vm.info.systems[0].getValue("disk.1.device"), 'hdc')
+        self.assertTrue(success, msg="ERROR: modifying VM info.")
+
+        new_radl_data = """
+            network net1 (outbound = 'yes' and provider_id = 'pool1')
+            system test (
+            net_interface.0.connection = 'net1'
+            )"""
+        new_radl = radl_parse.parse_radl(new_radl_data)
+
+        add_elastic_ip_from_pool.return_value = True, ""
+
+        success, _ = ost_cloud.alterVM(vm, new_radl, auth)
+        self.assertTrue(success, msg="ERROR: modifying VM info.")
+        self.assertEqual(add_elastic_ip_from_pool.call_args_list[0][0], (vm, node, None, 'pool1'))
+
+        radl_data = """
+            network net (outbound = 'yes' and provider_id = 'pool1')
+            system test (
+            cpu.arch='x86_64' and
+            cpu.count=1 and
+            memory.size=512m and
+            net_interface.0.connection = 'net' and
+            net_interface.0.ip = '8.8.8.8' and
+            net_interface.0.dns_name = 'test' and
+            disk.0.os.name = 'linux' and
+            disk.0.image.url = 'one://server.com/1' and
+            disk.0.os.credentials.username = 'user' and
+            disk.0.os.credentials.password = 'pass'
+            )"""
+        radl = radl_parse.parse_radl(radl_data)
+        vm = VirtualMachine(inf, "1", ost_cloud.cloud, radl, radl, ost_cloud, 1)
+
+        new_radl_data = """
+            network net ()
+            system test (
+            net_interface.0.connection = 'net'
+            )"""
+        new_radl = radl_parse.parse_radl(new_radl_data)
+
+        fip = MagicMock()
+        fip.delete.return_value = True
+        driver.get_floating_ip.return_value = fip
+        driver.ex_detach_floating_ip_from_node.return_value = True
+
+        success, _ = ost_cloud.alterVM(vm, new_radl, auth)
+        self.assertTrue(success, msg="ERROR: modifying VM info.")
+        self.assertEqual(driver.ex_detach_floating_ip_from_node.call_args_list[0][0], (node, fip))
+        self.assertIsNone(vm.requested_radl.systems[0].getValue('net_interface.0.ip'))
+
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
@@ -539,6 +644,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         driver.ex_list_routers.return_value = [router]
         driver.ex_add_router_subnet.return_value = True
 
+        vm.volumes = ['volid']
         success, _ = ost_cloud.finalize(vm, True, auth)
 
         self.assertTrue(success, msg="ERROR: finalizing VM info.")

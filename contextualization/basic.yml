@@ -58,9 +58,14 @@
       register: apt_update
       become: yes
       become_method: sudo
+      async: 120
+      poll: 1
   
     - name: Ubuntu force apt update (avoid apt lock)
       command: apt update
       when: ansible_distribution == "Ubuntu" and apt_update is failed
+      ignore_errors: yes
       become: yes
       become_method: sudo
+      async: 120
+      poll: 1

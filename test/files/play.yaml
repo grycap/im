@@ -1,12 +1,13 @@
 - hosts: localhost
   connection: local
   tasks:
+   - debug: msg="VERSION = {{ansible_version.major}}"
    - command: /bin/true
    - command: /bin/true {{item}}
      with_items:
        - OK1
        - OK2
-   - debug: msg=OK   
+   - debug: msg=OK
    - debug: msg=OK
      when: 0 == 1
    - debug: msg={{item}}

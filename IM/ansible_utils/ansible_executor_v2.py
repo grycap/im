@@ -356,13 +356,19 @@ class IMPlaybookExecutor(PlaybookExecutor):
         self.passwords = passwords
         self._unreachable_hosts = dict()
 
-        self._tqm = TaskQueueManager(inventory=inventory,
-                                     variable_manager=variable_manager,
-                                     loader=loader, options=options,
-                                     passwords=self.passwords)
-
-        # Set out Callback as the stdout one to avoid stdout messages
-        self._tqm._stdout_callback = AnsibleCallbacks(output)
+        try:
+            self._tqm = TaskQueueManager(inventory=inventory,
+                                         variable_manager=variable_manager,
+                                         loader=loader, options=options,
+                                         passwords=self.passwords,
+                                         stdout_callback=AnsibleCallbacks(output))
+        except TypeError:
+            # In case of ansible 2.8 options parameter has been removed
+            self._tqm = TaskQueueManager(inventory=inventory,
+                                         variable_manager=variable_manager,
+                                         loader=loader,
+                                         passwords=self.passwords,
+                                         stdout_callback=AnsibleCallbacks(output))
 
     def run(self):
         '''

@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import re
 import yaml
 import json
 import os
@@ -512,6 +513,8 @@ class InfrastructureManager:
                 sel_inf.update_radl(radl, [])
                 InfrastructureManager.logger.warn("Inf ID: " + sel_inf.id + ": without any deploy. Exiting.")
                 sel_inf.add_cont_msg("Infrastructure without any deploy. Exiting.")
+                if sel_inf.configured is None:
+                    sel_inf.configured = False
                 return []
         except Exception as ex:
             sel_inf.configured = False
@@ -564,12 +567,17 @@ class InfrastructureManager:
         deploys_group_cloud = InfrastructureManager.sort_by_score(sel_inf, concrete_systems, cloud_list,
                                                                   deploy_groups, auth)
 
+        # We are going to start adding resources
+        sel_inf.set_adding()
+
         # Launch every group in the same cloud provider
         deployed_vm = {}
         for deploy_group in deploy_groups:
             if not deploy_group:
                 InfrastructureManager.logger.warning("Inf ID: %s: No VMs to deploy!" % sel_inf.id)
                 sel_inf.add_cont_msg("No VMs to deploy. Exiting.")
+                if sel_inf.configured is None:
+                    sel_inf.configured = False
                 return []
 
             cloud_id = deploys_group_cloud[id(deploy_group)]
@@ -625,6 +633,9 @@ class InfrastructureManager:
             sel_inf.add_cont_msg("All VMs failed. No contextualize.")
         else:
             InfrastructureManager.logger.info("VMs %s successfully added to Inf ID: %s" % (new_vms, sel_inf.id))
+
+        # The resources has been added
+        sel_inf.adding = False
 
         # Let's contextualize!
         if context and new_vms and not all_failed:
@@ -798,9 +809,7 @@ class InfrastructureManager:
         (success, alter_res) = vm.alter(radl, auth)
 
         if not success:
-            InfrastructureManager.logger.warn(
-                "Inf ID: " + str(inf_id) + ": " +
-                "Error modifying the information about the VM " + str(vm_id) + ": " + str(alter_res))
+            raise Exception("Error modifying the information about the VM %s: %s" % (vm_id, alter_res))
 
         vm.update_status(auth)
         IM.InfrastructureList.InfrastructureList.save_data(inf_id)
@@ -901,14 +910,15 @@ class InfrastructureManager:
 
         sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
 
+        vm_list = sel_inf.get_vm_list()
         vm_states = {}
-        for vm in sel_inf.get_vm_list():
+        for vm in vm_list:
             # First try to update the status of the VM
             vm.update_status(auth)
             vm_states[str(vm.im_id)] = vm.state
 
         state = None
-        for vm in sel_inf.get_vm_list():
+        for vm in vm_list:
             # First try to update the status of the VM
             if vm.state == VirtualMachine.FAILED:
                 state = VirtualMachine.FAILED
@@ -937,6 +947,9 @@ class InfrastructureManager:
         if state is None:
             if sel_inf.configured is False:
                 state = VirtualMachine.FAILED
+            elif not vm_list and sel_inf.configured is None:
+                # if there are no vms we probably are in the vm creation process
+                state = VirtualMachine.PENDING
             else:
                 state = VirtualMachine.UNKNOWN
 
@@ -1172,11 +1185,11 @@ class InfrastructureManager:
         InfrastructureManager.logger.info("Destroying the Inf ID: " + str(inf_id))
 
         sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
-        delete_list = list(reversed(sel_inf.get_vm_list()))
+        sel_inf.set_deleting()
         # First stop ctxt processes
         sel_inf.stop()
         # Destroy the Infrastructure
-        sel_inf.destroy(auth, delete_list)
+        sel_inf.destroy(auth)
         # Set the Infrastructure as deleted
         sel_inf.delete()
         IM.InfrastructureList.InfrastructureList.save_data(inf_id)
@@ -1409,13 +1422,15 @@ class InfrastructureManager:
         return inf.id
 
     @staticmethod
-    def GetInfrastructureList(auth):
+    def GetInfrastructureList(auth, flt=None):
         """
         Return the infrastructure ids associated to IM tokens.
 
         Args:
 
         - auth(Authentication): parsed authentication tokens.
+        - flt(string): string to filter the list of returned infrastructures.
+                          A regex to be applied in the RADL or TOSCA of the infra.
 
         Return(list of int): list of infrastructure ids.
         """
@@ -1428,7 +1443,21 @@ class InfrastructureManager:
             InfrastructureManager.logger.error("No correct auth data has been specified.")
             raise InvaliddUserException()
 
-        return IM.InfrastructureList.InfrastructureList.get_inf_ids(auth)
+        inf_ids = IM.InfrastructureList.InfrastructureList.get_inf_ids(auth)
+        if flt:
+            res = []
+            for infid in inf_ids:
+                inf = InfrastructureManager.get_infrastructure(infid, auth)
+                radl = str(inf.get_radl())
+                tosca = ""
+                if "TOSCA" in inf.extra_info:
+                    tosca = inf.extra_info["TOSCA"].serialize()
+
+                if re.search(flt, radl) or re.search(flt, tosca):
+                    res.append(infid)
+        else:
+            res = inf_ids
+        return res
 
     @staticmethod
     def ExportInfrastructure(inf_id, delete, auth_data):

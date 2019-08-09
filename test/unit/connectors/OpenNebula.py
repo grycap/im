@@ -96,6 +96,7 @@ class TestONEConnector(TestCloudConnectorBase):
             cpu.arch='x86_64' and
             cpu.count=1 and
             memory.size=512m and
+            availability_zone='0' and
             net_interface.0.connection = 'net1' and
             net_interface.0.dns_name = 'test' and
             net_interface.1.connection = 'net2' and
@@ -134,6 +135,20 @@ class TestONEConnector(TestCloudConnectorBase):
                        'RULE = [ PROTOCOL = TCP, RULE_TYPE = inbound, RANGE = 8080:8080 ]\n'
                        'RULE = [ PROTOCOL = TCP, RULE_TYPE = inbound, RANGE = 9000:9100 ]\n')
         self.assertEqual(one_server.one.secgroup.allocate.call_args_list, [call('user:pass', sg_template)])
+        vm_template = """
+            NAME = userimage
+
+            CPU = 1
+            VCPU = 1
+            MEMORY = 512
+            OS = [ ARCH = "x86_64" ]
+
+            DISK = [ IMAGE_ID = "1" ]
+ DISK = [ TYPE = fs , FORMAT = ext3, SIZE = 1024,TARGET = hdb,SAVE = no ]
+
+
+            SCHED_REQUIREMENTS = "CLUSTER_ID=\\"0\\""\n"""
+        self.assertIn(vm_template, one_server.one.vm.allocate.call_args_list[0][0][1])
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
         # Now test an error in allocate

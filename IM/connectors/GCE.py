@@ -14,15 +14,15 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import time
 import uuid
 import os
+import time
 
 try:
-    from libcloud.compute.base import NodeSize
-    from libcloud.compute.types import NodeState, Provider
+    from libcloud.compute.base import NodeSize, NodeState
+    from libcloud.compute.types import Provider
     from libcloud.compute.providers import get_driver
-    from libcloud.common.google import ResourceNotFoundError
+    from libcloud.common.google import ResourceNotFoundError, ResourceExistsError
     from libcloud.dns.types import Provider as DNSProvider
     from libcloud.dns.types import RecordType
     from libcloud.dns.providers import get_driver as get_dns_driver
@@ -58,7 +58,7 @@ class GCECloudConnector(LibCloudCloudConnector):
         self.datacenter = None
         self.driver = None
         self.dns_driver = None
-        CloudConnector.__init__(self, cloud_info, inf)
+        LibCloudCloudConnector.__init__(self, cloud_info, inf)
 
     def get_driver(self, auth_data, datacenter=None):
         """
@@ -206,6 +206,8 @@ class GCECloudConnector(LibCloudCloudConnector):
 
             if net:
                 provider_id = net.getValue('provider_id')
+                if provider_id:
+                    return provider_id
 
         return provider_id
 
@@ -342,13 +344,32 @@ class GCECloudConnector(LibCloudCloudConnector):
                 if net.isPublic():
                     public_net = net
 
+            # Create FW rules to allow all inside the VMs
+            if inf.id in net_name:
+                firewall_name = "%s-all" % net_name
+            else:
+                firewall_name = "%s-%s-all" % (inf.id, net_name)
+            allowed = [{'IPProtocol': 'udp', 'ports': '1-65535'},
+                       {'IPProtocol': 'tcp', 'ports': '1-65535'},
+                       {'IPProtocol': 'icmp'}]
+
+            try:
+                driver.ex_create_firewall(firewall_name, allowed, network=net_name, source_tags=['imid-%s' % inf.id])
+                self.log_info("Firewall %s successfully created." % firewall_name)
+            except ResourceExistsError:
+                self.log_debug("FW already exists. Ignore.")
+            except Exception as addex:
+                self.log_warn("Exception creating FW: " + str(addex))
+
             ports = {"tcp": ["22"]}
             if public_net:
+                if inf.id in net_name:
+                    firewall_name = "%s" % net_name
+                else:
+                    firewall_name = "%s-%s" % (inf.id, net_name)
+
                 outports = public_net.getOutPorts()
                 if outports:
-                    firewall_name = public_net.getValue("sg_name")
-                    if not firewall_name:
-                        firewall_name = "fw-im-%s" % net_name
                     for outport in outports:
                         if outport.get_protocol() not in ports:
                             ports[outport.get_protocol()] = []
@@ -358,32 +379,17 @@ class GCECloudConnector(LibCloudCloudConnector):
                         elif outport.get_local_port() != 22:
                             ports[outport.get_protocol()].append(str(outport.get_remote_port()))
 
-                    allowed = [{'IPProtocol': 'tcp', 'ports': ports['tcp']}]
-                    if 'udp' in ports:
-                        allowed.append({'IPProtocol': 'udp', 'ports': ports['udp']})
+                allowed = [{'IPProtocol': 'tcp', 'ports': ports['tcp']}]
+                if 'udp' in ports:
+                    allowed.append({'IPProtocol': 'udp', 'ports': ports['udp']})
 
-                    firewall = None
-                    try:
-                        firewall = driver.ex_get_firewall(firewall_name)
-                    except ResourceNotFoundError:
-                        self.log_info("The firewall %s does not exist." % firewall_name)
-                    except:
-                        self.log_exception("Error trying to get FW %s." % firewall_name)
-
-                    if firewall:
-                        try:
-                            firewall.allowed = allowed
-                            firewall.update()
-                            self.log_info("Firewall %s existing. Rules updated." % firewall_name)
-                        except:
-                            self.log_exception("Error updating the firewall %s." % firewall_name)
-                        return
-
-                    try:
-                        driver.ex_create_firewall(firewall_name, allowed, network=net_name)
-                        self.log_info("Firewall %s successfully created." % firewall_name)
-                    except Exception as addex:
-                        self.log_warn("Exception creating FW: " + str(addex))
+                try:
+                    driver.ex_create_firewall(firewall_name, allowed, network=net_name)
+                    self.log_info("Firewall %s successfully created." % firewall_name)
+                except ResourceExistsError:
+                    self.log_debug("FW already exists. Ignore.")
+                except Exception as addex:
+                    self.log_warn("Exception creating FW: " + str(addex))
 
     def create_networks(self, driver, radl, inf):
         """
@@ -397,11 +403,8 @@ class GCECloudConnector(LibCloudCloudConnector):
                 i += 1
                 network = radl.get_network_by_id(net_name)
                 if network.getValue('create') == 'yes' and not network.isPublic():
-                    gce_net_name = network.getValue('provider_id')
-                    if not gce_net_name:
-                        gce_net_name = "im-%s-%s" % (inf.id, net_name)
-
                     gce_net_name = "im-%s-%s" % (inf.id, net_name)
+
                     # First check if the net already exists
                     net = None
                     try:
@@ -414,7 +417,11 @@ class GCECloudConnector(LibCloudCloudConnector):
                     else:
                         net_cidr = network.getValue('cidr')
                         self.log_info("Create net %s with cidr %s." % (gce_net_name, net_cidr))
-                        driver.ex_create_network(gce_net_name, net_cidr, "Net created by the IM")
+                        if net_cidr:
+                            mode = "legacy"
+                        else:
+                            mode = "auto"
+                        driver.ex_create_network(gce_net_name, net_cidr, "Net created by the IM", mode=mode)
 
                     network.setValue('provider_id', gce_net_name)
         except Exception as ext:
@@ -426,6 +433,71 @@ class GCECloudConnector(LibCloudCloudConnector):
             raise Exception("Error creating networks: %s" % ext)
 
         return True
+
+    def gen_disks_gce_struct(self, radl, driver, inf, image, location):
+        """
+        Return the required volumes (in the RADL) to be attached to the launched node
+
+        Arguments:
+           - radl(RADL): RADL document.
+           - driver: libCloud driver object
+           - inf: Infrastructure info
+           - image: image object
+           - location: disks location
+        Returns: A list of dicts as expected by the ex_disks_gce_struct
+        See: https://cloud.google.com/compute/docs/reference/rest/v1/instances
+        "disks" section
+        """
+        boot_disk_name = "bootd-%s" % uuid.uuid1()
+        boot_disk = {
+            'autoDelete': True,
+            'boot': True,
+            'type': 'PERSISTENT',
+            'mode': 'READ_WRITE',
+            'deviceName': boot_disk_name,
+            'initializeParams': {
+                'diskName': boot_disk_name,
+                'diskType': driver.ex_get_disktype('pd-standard', zone=location).extra['selfLink'],
+                'sourceImage': image.extra['selfLink']
+            }
+        }
+
+        res = [boot_disk]
+        cont = 1
+        while ((radl.systems[0].getValue("disk." + str(cont) + ".size") or
+                radl.systems[0].getValue("disk." + str(cont) + ".image.url")) and
+                radl.systems[0].getValue("disk." + str(cont) + ".device")):
+            disk_url = radl.systems[0].getValue("disk." + str(cont) + ".image.url")
+            disk_device = radl.systems[0].getValue("disk." + str(cont) + ".device")
+            disk_type = radl.systems[0].getValue("disk." + str(cont) + ".type")
+            if not disk_type:
+                disk_type = 'pd-standard'
+
+            disk = {'boot': False,
+                    'type': 'PERSISTENT',
+                    'mode': 'READ_WRITE',
+                    'deviceName': disk_device}
+
+            if disk_url:
+                # If the user has specified the volume name, try to get it
+                region, image_id = self.get_image_data(disk_url)
+                location = driver.ex_get_zone(region)
+                volume = driver.ex_get_volume(image_id, zone=location)
+                disk['source'] = volume.extra['selfLink']
+                disk['autoDelete'] = False
+            else:
+                disk_size = radl.systems[0].getFeature("disk." + str(cont) + ".size").getValue('G')
+                disk['autoDelete'] = True
+                disk['initializeParams'] = {'diskName': "im-%s-%s" % (inf.id, str(cont)),
+                                            'diskSizeGb': str(disk_size),
+                                            'diskType': driver.ex_get_disktype(disk_type,
+                                                                               zone=location).extra['selfLink']}
+
+            res.append(disk)
+
+            cont += 1
+
+        return res
 
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         system = radl.systems[0]
@@ -479,7 +551,6 @@ class GCECloudConnector(LibCloudCloudConnector):
         if private and public:
             metadata = {"sshKeys": username + ":" + public}
             self.log_info("Setting ssh for user: " + username)
-            self.log_debug(metadata)
 
         startup_script = self.get_cloud_init_data(radl)
         if startup_script:
@@ -487,6 +558,9 @@ class GCECloudConnector(LibCloudCloudConnector):
 
         if metadata:
             args['ex_metadata'] = metadata
+
+        # Create the info about disks
+        args['ex_disks_gce_struct'] = self.gen_disks_gce_struct(radl, driver, inf, image, region)
 
         with inf._lock:
             self.create_networks(driver, radl, inf)
@@ -500,6 +574,9 @@ class GCECloudConnector(LibCloudCloudConnector):
         args['ex_network'] = net_provider_id
         self.create_firewall(inf, net_provider_id, radl, driver)
 
+        args['ex_can_ip_forward'] = self.can_ip_forward(radl)
+
+        node_tags = ["imid-%s" % inf.id]
         if self.request_external_ip(radl):
             args['external_ip'] = 'ephemeral'
             fixed_ip = self.request_fixed_ip(radl)
@@ -508,12 +585,16 @@ class GCECloudConnector(LibCloudCloudConnector):
                     raise Exception("A fixed IP cannot be specified to a set of nodes (deploy is higher than 1)")
 
                 args['external_ip'] = driver.ex_create_address(name="im-" + fixed_ip, region=region, address=fixed_ip)
+        else:
+            node_tags = ["imid-%s-nopubip" % inf.id, "imid-%s" % inf.id]
 
+        args['ex_tags'] = node_tags
         res = []
         error_msg = "Error launching VM."
         if num_vm > 1:
             args['number'] = num_vm
             args['base_name'] = "%s-%s" % (name.lower().replace("_", "-"), str(uuid.uuid1()))
+            self.log_debug(args)
             try:
                 nodes = driver.ex_create_multiple_nodes(**args)
             except Exception as ex:
@@ -522,6 +603,7 @@ class GCECloudConnector(LibCloudCloudConnector):
                 error_msg = str(ex)
         else:
             args['name'] = "%s-%s" % (name.lower().replace("_", "-"), str(uuid.uuid1()))
+            self.log_debug(args)
             try:
                 nodes = [driver.create_node(**args)]
             except Exception as ex:
@@ -553,7 +635,7 @@ class GCECloudConnector(LibCloudCloudConnector):
 
         return res
 
-    def delete_networks(self, driver, inf):
+    def delete_networks(self, driver, inf, timeout=120):
         """
         Delete created GCE networks
         """
@@ -561,7 +643,31 @@ class GCECloudConnector(LibCloudCloudConnector):
             net_prefix = "im-%s-" % inf.id
             if gce_net.name.startswith(net_prefix):
                 self.log_info("Deleting net %s." % gce_net.name)
-                gce_net.destroy()
+
+                cont = 0
+                deleted = False
+                while not deleted and cont < timeout:
+                    cont += 5
+                    try:
+                        gce_net.destroy()
+                        deleted = True
+                    except Exception as ex:
+                        self.log_warn("Error removing net: " + str(ex))
+
+                    if not deleted:
+                        time.sleep(5)
+
+        return True
+
+    def delete_routes(self, driver, inf):
+        """
+        Delete created GCE routes
+        """
+        for gce_route in driver.ex_list_routes():
+            name_prefix = "im-%s-" % inf.id
+            if gce_route.name.startswith(name_prefix):
+                self.log_info("Deleting route %s." % gce_route.name)
+                gce_route.destroy()
 
         return True
 
@@ -578,7 +684,6 @@ class GCECloudConnector(LibCloudCloudConnector):
 
         if node:
             success = node.destroy()
-            self.delete_node_disks(node, vm.inf)
             self.del_dns_entries(vm, auth_data)
 
             if not success:
@@ -589,87 +694,22 @@ class GCECloudConnector(LibCloudCloudConnector):
             self.log_warn("VM " + str(vm.id) + " not found.")
 
         if last:
-            self.delete_firewall(vm, auth_data)
             driver = self.get_driver(auth_data)
+            self.delete_firewall(vm, driver)
+            self.delete_routes(driver, vm.inf)
             self.delete_networks(driver, vm.inf)
-            self.delete_disks(driver, vm.inf)
 
         return (True, "")
 
-    def delete_firewall(self, vm, auth_data):
+    def delete_firewall(self, vm, driver):
         """
-        Delete the FW
+        Delete the FWs
         """
-        driver = self.get_driver(auth_data)
-        net_provider_id = self.get_net_provider_id(vm.info)
-        if not net_provider_id:
-            net_provider_id = "default"
-        firewall_name = "fw-im-%s" % net_provider_id
-
-        firewall = None
-        try:
-            firewall = driver.ex_get_firewall(firewall_name)
-        except ResourceNotFoundError:
-            self.log_info("Firewall %s does not exist. Do not delete." % firewall_name)
-        except:
-            self.log_exception("Error trying to get FW %s." % firewall_name)
-
-        if firewall:
-            firewall.destroy()
-            self.log_info("Firewall %s successfully deleted." % firewall_name)
-
-    def delete_disks(self, driver, inf):
-        """
-        Assure to delete all the remaining disks
-        """
-        for vol in driver.list_volumes():
-            if vol.name.startswith("im-%s-" % inf.id):
-                try:
-                    vol.detach()
-                    time.sleep(2)
-                except Exception as ex:
-                    self.log_warn("Error detaching volume %s: %s." % (vol.name, ex))
-
-                self.log_info("Deleting volume %s." % vol.name)
-                vol.destroy()
-
-    def delete_node_disks(self, node, inf):
-        """
-        Delete the disks of a node
-
-        Arguments:
-           - node(:py:class:`libcloud.compute.base.Node`): node object.
-        """
-        all_ok = True
-        for disk in node.extra['disks']:
-            try:
-                vol_name = os.path.basename(urlparse(disk['source'])[2])
-                if not vol_name.startswith("im-%s-" % inf.id):
-                    self.log_debug("Volume %s not created by the IM. Do not delete." % vol_name)
-                    continue
-                volume = node.driver.ex_get_volume(vol_name)
-                # First try to detach the volume
-                if volume:
-                    success = volume.detach()
-                    if not success:
-                        self.log_error("Error detaching the volume: " + vol_name)
-                    else:
-                        # wait a bit to detach the disk
-                        time.sleep(2)
-                    success = volume.destroy()
-                    if not success:
-                        self.log_error("Error destroying the volume: " + vol_name)
-            except ResourceNotFoundError:
-                self.log_info("The volume: " + vol_name + " does not exists. Ignore it.")
-                success = True
-            except Exception:
-                self.log_exception("Error destroying the volume: " + vol_name + " from the node: " + node.id)
-                success = False
-
-            if not success:
-                all_ok = False
-
-        return all_ok
+        for gce_fw in driver.ex_list_firewalls():
+            name_prefix = "%s" % vm.inf.id
+            if gce_fw.name.startswith(name_prefix):
+                self.log_info("Deleting FW %s." % gce_fw.name)
+                gce_fw.destroy()
 
     def get_node_with_id(self, node_id, auth_data):
         """
@@ -691,6 +731,83 @@ class GCECloudConnector(LibCloudCloudConnector):
 
         return node
 
+    def can_ip_forward(self, radl):
+        """
+        Check if this node is specified as router
+        """
+        for network in radl.networks:
+            if network.getValue('router'):
+                router_info = network.getValue('router').split(",")
+                if len(router_info) != 2:
+                    self.log_error("Incorrect router format.")
+                    break
+
+                if radl.systems[0].name == router_info[1]:
+                    return True
+
+        return False
+
+    def addRouterInstance(self, vm, driver):
+        """
+        Set an instance as router
+        """
+        success = True
+        try:
+            i = 0
+            while vm.info.systems[0].getValue("net_interface." + str(i) + ".connection"):
+                net_name = vm.info.systems[0].getValue("net_interface." + str(i) + ".connection")
+                i += 1
+
+                network = vm.info.get_network_by_id(net_name)
+                if not network.getValue('provider_id'):
+                    gce_net = driver.ex_get_network('default')
+                else:
+                    gce_net = driver.ex_get_network(network.getValue('provider_id'))
+
+                if network.getValue('router'):
+                    router_info = network.getValue('router').split(",")
+                    if len(router_info) != 2:
+                        self.log_error("Incorrect router format.")
+                        success = False
+                        break
+
+                    system_router = router_info[1]
+                    router_cidr = router_info[0]
+
+                    vrouter = None
+                    for v in vm.inf.vm_list:
+                        if v.info.systems[0].name == system_router:
+                            vrouter = v.id
+                            break
+                    if not vrouter:
+                        self.log_error("No VRouter instance found with name %s" % system_router)
+                        success = False
+                        break
+
+                    vrouter_instance = driver.ex_get_node(vrouter)
+
+                    if vrouter_instance.state != NodeState.RUNNING:
+                        self.log_debug("VRouter instance %s is not running." % system_router)
+                        success = False
+                        break
+
+                    route_name = "im-%s-%s" % (vm.inf.id, net_name)
+                    self.log_info("Adding route %s to instance ID: %s." % (router_cidr, vrouter))
+                    try:
+                        driver.ex_create_route(route_name, router_cidr, priority=800, network=gce_net,
+                                               next_hop=vrouter_instance, tags=["imid-%s-nopubip" % vm.inf.id],
+                                               description="Route created by the IM")
+                    except ResourceExistsError:
+                        self.log_debug("Route already exists. Ignore.")
+
+                    # once set, delete it to not set it again
+                    network.delValue('router')
+        except Exception:
+            success = False
+            self.log_exception("Error adding Router Instance")
+
+        return success
+
     @staticmethod
     def get_node_location(node):
         """
@@ -701,90 +818,6 @@ class GCECloudConnector(LibCloudCloudConnector):
         Returns: a :py:class:`libcloud.compute.drivers.gce.GCEZone`
         """
         return node.extra['zone']
-
-    @staticmethod
-    def wait_volume(volume, state='READY', timeout=60):
-        """
-        Wait a volume (with the state extra parameter) to be in certain state.
-
-        Arguments:
-           - volume(:py:class:`libcloud.compute.base.StorageVolume`): volume object or boolean.
-           - state(str): State to wait for (default value 'available').
-           - timeout(int): Max time to wait in seconds (default value 60).
-        """
-        if volume:
-            cont = 0
-            err_states = ["FAILED"]
-            while volume.extra['status'] != state and volume.extra['status'] not in err_states and cont < timeout:
-                cont += 2
-                time.sleep(2)
-                for vol in volume.driver.list_volumes():
-                    if vol.id == volume.id:
-                        volume = vol
-                        break
-            return volume.extra['status'] == state
-        else:
-            return False
-
-    def attach_volumes(self, vm, node):
-        """
-        Attach a the required volumes (in the RADL) to the launched node
-
-        Arguments:
-           - vm(:py:class:`IM.VirtualMachine`): VM information.
-           - node(:py:class:`libcloud.compute.base.Node`): node object.
-        """
-        try:
-            if node.state == NodeState.RUNNING and "volumes" not in vm.__dict__.keys():
-                vm.volumes = True
-                cont = 1
-                while ((vm.info.systems[0].getValue("disk." + str(cont) + ".size") or
-                        vm.info.systems[0].getValue("disk." + str(cont) + ".image.url")) and
-                        vm.info.systems[0].getValue("disk." + str(cont) + ".device")):
-                    disk_url = vm.info.systems[0].getValue("disk." + str(cont) + ".image.url")
-                    disk_device = vm.info.systems[0].getValue("disk." + str(cont) + ".device")
-                    disk_type = vm.info.systems[0].getValue("disk." + str(cont) + ".type")
-                    location = self.get_node_location(node)
-
-                    if disk_url:
-                        # If the user has specified the volume name, try to get it
-                        volume = node.driver.ex_get_volume(os.path.basename(disk_url), zone=location)
-                        try:
-                            volume.attach(node, disk_device)
-                        except Exception as attex:
-                            self.log_exception("Error attaching the volume ID %s." % volume.id)
-                            self.error_messages += ("Error attaching the volume ID %s: %s.\n" % (volume.id, attex))
-                    else:
-                        disk_size = vm.info.systems[0].getFeature("disk." + str(cont) + ".size").getValue('G')
-                        self.log_info("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
-                        volume_name = "im-%s-%s" % (vm.inf.id, str(cont))
-
-                        if disk_type:
-                            volume = node.driver.create_volume(int(disk_size), volume_name,
-                                                               location=location, ex_disk_type=disk_type)
-                        else:
-                            volume = node.driver.create_volume(int(disk_size), volume_name, location=location)
-                        success = self.wait_volume(volume)
-                        if success:
-                            self.log_info("Attach the volume ID " + str(volume.id))
-                            try:
-                                volume.attach(node, disk_device)
-                            except Exception as attex:
-                                self.log_exception("Error attaching the volume ID %s Destroying it." % volume.id)
-                                self.error_messages += ("Error attaching the volume ID %s. Destroying it:"
-                                                        " %s.\n" % (volume.id, attex))
-                                volume.destroy()
-                        else:
-                            self.log_error("Error waiting the volume ID %s. Destroying it." % volume.id)
-                            self.error_messages += "Error waiting the volume ID %s. Destroying it.\n" % volume.id
-                            volume.destroy()
-
-                    cont += 1
-            return True
-        except Exception as ex:
-            self.log_exception("Error creating or attaching the volume to the node")
-            self.error_messages += "Error creating or attaching the volume to the node: %s\n" % ex
-            return False
 
     def updateVMInfo(self, vm, auth_data):
         driver = self.get_driver(auth_data)
@@ -803,15 +836,13 @@ class GCECloudConnector(LibCloudCloudConnector):
             vm.state = self.VM_STATE_MAP.get(node.state, VirtualMachine.UNKNOWN)
 
             if 'zone' in node.extra:
-                vm.info.systems[0].setValue(
-                    'availability_zone', node.extra['zone'].name)
+                vm.info.systems[0].setValue('availability_zone', node.extra['zone'].name)
 
-            self.update_system_info_from_instance(
-                vm.info.systems[0], node.size)
+            self.update_system_info_from_instance(vm.info.systems[0], node.size)
 
             vm.setIps(node.public_ips, node.private_ips)
-            self.attach_volumes(vm, node)
             self.add_dns_entries(vm, auth_data)
+            self.addRouterInstance(vm, driver)
         else:
             vm.state = VirtualMachine.OFF
 

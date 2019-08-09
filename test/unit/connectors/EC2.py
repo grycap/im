@@ -146,12 +146,6 @@ class TestEC2Connector(TestCloudConnectorBase):
         sg.authorize.return_value = True
         conn.create_security_group.return_value = sg
 
-        volume = MagicMock()
-        volume.status = "available"
-        volume.id = "volid"
-        conn.create_volume.return_value = volume
-        conn.get_all_volumes.return_value = []
-
         conn.get_all_security_groups.return_value = []
 
         blockdevicemapping.return_value = {'device': ''}
@@ -162,7 +156,6 @@ class TestEC2Connector(TestCloudConnectorBase):
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.assertEquals(conn.create_volume.call_args_list[0][0][0], 1)
         self.assertEquals(len(conn.create_security_group.call_args_list), 3)
         self.assertEquals(conn.create_security_group.call_args_list[0][0][0], "im-%s" % inf.id)
         self.assertEquals(conn.create_security_group.call_args_list[1][0][0], "sgname")
@@ -206,7 +199,7 @@ class TestEC2Connector(TestCloudConnectorBase):
         print(self.log.getvalue())
         self.assertTrue(success, msg="ERROR: launching a VM.")
         # check the instance_type selected is correct
-        self.assertEquals(image.run.call_args_list[1][1]["instance_type"], "t3.micro")
+        self.assertEquals(image.run.call_args_list[1][1]["instance_type"], "t3a.micro")
 
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
@@ -617,12 +610,6 @@ class TestEC2Connector(TestCloudConnectorBase):
 
         conn.get_all_spot_instance_requests.return_value = []
 
-        volume = MagicMock()
-        volume.id = "volid"
-        volume.attachment_state.return_value = None
-        conn.get_all_volumes.return_value = [volume]
-        conn.delete_volume.return_value = True
-
         sg = MagicMock()
         sg.name = "im-1"
         sg.description = "Security group created by the IM"
@@ -685,7 +672,6 @@ class TestEC2Connector(TestCloudConnectorBase):
         self.assertEquals(conn.delete_vpc.call_args_list, [call('vpc-id')])
         self.assertEquals(conn.delete_internet_gateway.call_args_list, [call('ig-id')])
         self.assertEquals(conn.detach_internet_gateway.call_args_list, [call('ig-id', 'vpc-id')])
-        self.assertEquals(conn.delete_volume.call_args_list, [call(volume.id)])
 
     @patch('IM.connectors.EC2.EC2CloudConnector.get_connection')
     @patch('time.sleep')
