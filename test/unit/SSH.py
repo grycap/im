@@ -19,7 +19,7 @@
 import unittest
 import os
 
-from IM.SSHRetry import SSHRetry
+from IM.SSHRetry import SSHRetry, SSH
 from mock import patch, MagicMock
 
 
@@ -33,6 +33,12 @@ class TestSSH(unittest.TestCase):
     """
     Class to test the SSH class
     """
+
+    def test_str(self):
+        ssh = SSH("host", "user", "passwd", read_file_as_string("../files/privatekey.pem"))
+        expected_res = ("SSH: host: host, port: 22, user: user, password: passwd, "
+                        "private_key: %s" % read_file_as_string("../files/privatekey.pem"))
+        self.assertEqual(str(ssh), expected_res)
 
     @patch('paramiko.SSHClient')
     def test_test_connectivity(self, ssh_client):
@@ -71,7 +77,7 @@ class TestSSH(unittest.TestCase):
     def test_sftp_get_files(self, sftp_client, ssh_client):
         ssh = SSHRetry("host", "user", "passwd", read_file_as_string("../files/privatekey.pem"))
 
-        ssh.sftp_get(["some_file"], ["some_file"])
+        ssh.sftp_get_files(["some_file"], ["some_file"])
 
     @patch('paramiko.SSHClient')
     @patch('paramiko.SFTPClient')
