@@ -382,6 +382,34 @@ class CtxtAgentBase:
 
         return False
 
+    @staticmethod
+    def add_nat_gateway_tasks(playbook):
+        """
+        Add tasks to enable NAT (Tested in GCE instances)
+        https://cloud.google.com/vpc/docs/special-configurations
+        """
+        play_dir = os.path.dirname(playbook)
+        play_filename = os.path.basename(playbook)
+        new_playbook = os.path.join(play_dir, "nat_" + play_filename)
+
+        with open(playbook) as f:
+            yaml_data = yaml.safe_load(f)
+
+            task = {"raw": ("sudo sysctl -w net.ipv4.ip_forward=1; "
+                            "sudo iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE; "
+                            "sudo iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE; "
+                            "sudo iptables -t nat -D POSTROUTING -o ens4 -j MASQUERADE; "
+                            "sudo iptables -t nat -A POSTROUTING -o ens4 -j MASQUERADE")}
+            task["name"] = "Activate NAT Gateway"
+            task["become"] = "yes"
+            task["ignore_errors"] = "yes"
+            yaml_data[0]['tasks'].append(task)
+
+            with open(new_playbook, 'w+') as f:
+                yaml.safe_dump(yaml_data, f)
+
+        return new_playbook
+
     def install_ansible_modules(self, general_conf_data, playbook):
         new_playbook = playbook
         if 'ansible_modules' in general_conf_data and general_conf_data['ansible_modules']:

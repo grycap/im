@@ -48,7 +48,7 @@ the following variables:
 
    Hostname or IP address of the host with the IM service.
    The default value is `localhost`.
-   
+
 .. confval:: im_port
 
    Port where the IM service is listening.
@@ -68,7 +68,7 @@ the following variables:
 
    OpenID Issuer supported use "" to disable OpenID support.
    The default value is `""`.
- 
+
 .. confval:: openid_name
 
    OpenID Issuer name.
@@ -83,6 +83,16 @@ the following variables:
 
    OpenID Client data.
    The default value is `""`.
+
+.. confval:: REDIRECT_URI
+
+   OpenID Redirect URI.
+   The default value is `""`.
+
+.. confval:: cred_crypt_key
+
+   Key to crypt the credentials data. It must be 32 chars long.
+   The default value is `"n04ykjinrswda5sdfnb5680yu21+qgh3"`.
 
 Docker Image
 ------------
@@ -101,6 +111,7 @@ This container is prepaired to work linked with the IM service container `grycap
 ``sudo docker run -d -p 80:80 --name im-web --link im:im grycap/im-web``
 
 * It also supports environment variables to set the IM service location:
+
   * `im_use_rest`: Uses the REST API instead of the XML-RPC that is the default one. Default value "false".
   * `im_use_ssl`: Uses HTTPS to connect with the REST or XML-RPC APIs. Default value "false".
   * `im_host`: Hostname of the IM service. Default value "im".
@@ -111,6 +122,7 @@ This container is prepaired to work linked with the IM service container `grycap
   * `client_id`: OpenID Client data.
   * `client_secret`: OpenID Client secret.
   * `redirect_uri`: OpenID Redirect URI.
+  * `cred_crypt_key`: Key to crypt the credentials data. It must be 32 chars long.
 
 ``docker run -p 80:80 -e "im_use_rest=true" -e "im_host=server.domain" -e "im_port=8800" -d grycap/im-web``
 

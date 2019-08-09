@@ -130,10 +130,51 @@ class ConfManager(LoggerMixin, threading.Thread):
             self.log_info("Stopping pending Ansible process.")
             self.ansible_process.terminate()
 
-    def check_vm_ips(self, timeout=Config.WAIT_RUNNING_VM_TIMEOUT):
-
+    def wait_all_vm_ips(self, timeout=Config.ANSIBLE_INSTALL_TIMEOUT):
+        """
+        Assure that all the VMs of the Inf. have all the requested public IPs assigned
+        """
         wait = 0
-        # Assure that all the VMs of the Inf. have one IP
+        success = False
+        while not success and wait < timeout and not self._stop_thread:
+            success = True
+            for vm in self.inf.get_vm_list():
+
+                # If the VM is not in a "running" state, ignore it
+                if vm.state in VirtualMachine.NOT_RUNNING_STATES:
+                    self.log_warn("The VM ID: " + str(vm.id) +
+                                  " is not running, do not wait it to have an IP.")
+                    continue
+
+                if vm.hasPublicNet():
+                    self.log_debug("VM %s requests a public IP." % vm.id)
+                    if not vm.getPublicIP():
+                        self.log_debug("And it does not have it assigned yet.")
+                        success = False
+                        vm.update_status(self.auth)
+
+            if not success:
+                self.log_warn("Still waiting all the VMs to have all the requested IPs")
+                wait += Config.CONFMAMAGER_CHECK_STATE_INTERVAL
+                time.sleep(Config.CONFMAMAGER_CHECK_STATE_INTERVAL)
+
+        if not success:
+            self.log_warn("Error waiting all the VMs to have all the requested IPs")
+        else:
+            self.log_info("All the VMs have all the requested IPs")
+            # do a final update of all VMs
+            for vm in self.inf.get_vm_list():
+                if vm.state not in VirtualMachine.NOT_RUNNING_STATES:
+                    vm.update_status(self.auth)
+
+        return success
+
+    def check_vm_ips(self, timeout=Config.WAIT_RUNNING_VM_TIMEOUT):
+        """
+        Assure that all the VMs of the Inf. have at least one IP
+        """
+        wait = 0
+
         success = False
         while not success and wait < timeout and not self._stop_thread:
             success = True
@@ -778,7 +819,11 @@ class ConfManager(LoggerMixin, threading.Thread):
                     if self.inf.radl.ansible_hosts:
                         configured_ok = True
                     else:
+                        if not self.inf.vm_master:
+                            raise Exception("No master VM found.")
                         ssh = self.inf.vm_master.get_ssh(retry=True)
+                        if not ssh:
+                            raise Exception("Master VM does not have IP.")
                         # Activate tty mode to avoid some problems with sudo in
                         # REL
                         ssh.tty = True
@@ -1235,6 +1280,7 @@ class ConfManager(LoggerMixin, threading.Thread):
 
         try:
             # Try to assure that the are no ansible process running
+            self.log_debug("Terminating ansible process: %s." % self.ansible_process.pid)
             self.ansible_process.teminate()
         except:
             self.log_exception('Problems terminating Ansible processes.')
@@ -1421,8 +1467,8 @@ class ConfManager(LoggerMixin, threading.Thread):
                          'new_public_key'], vm_conf_data['new_private_key']) = new_creds
 
                 if not vm_conf_data['ip']:
-                    # if the vm does not have an IP, do not iclude it to avoid
-                    # errors configurin gother VMs
+                    # if the vm does not have an IP, do not include it to avoid
+                    # errors configuring other VMs
                     self.log_warn("The VM ID: " + str(vm.id) +
                                   " does not have an IP, do not include in the general conf file.")
                     self.inf.add_cont_msg("WARNING: The VM ID: " + str(vm.id) +
@@ -1430,8 +1476,9 @@ class ConfManager(LoggerMixin, threading.Thread):
                 else:
                     conf_data['vms'].append(vm_conf_data)
 
-        conf_data['conf_dir'] = Config.REMOTE_CONF_DIR + \
-            "/" + str(self.inf.id) + "/"
+                vm_conf_data['nat_instance'] = vm.info.systems[0].getValue('nat_instance') == 'yes'
+
+        conf_data['conf_dir'] = Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/"
 
         conf_out = open(conf_file, 'w')
         json.dump(conf_data, conf_out, indent=2)

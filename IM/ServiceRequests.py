@@ -123,7 +123,7 @@ class IMBaseRequest(AsyncRequest):
             return True
         except Exception as ex:
             logger.exception(self._error_mesage)
-            self.set("%s" % ex.args[0])
+            self.set("%s" % getattr(ex, 'message', ex.args[0] if len(ex.args) else repr(ex)))
             return False
 
 
@@ -253,8 +253,8 @@ class Request_GetInfrastructureList(IMBaseRequest):
 
     def _call_function(self):
         self._error_mesage = "Error Getting Inf. List."
-        (auth_data) = self.arguments
-        return IM.InfrastructureManager.InfrastructureManager.GetInfrastructureList(Authentication(auth_data))
+        (auth_data, flt) = self.arguments
+        return IM.InfrastructureManager.InfrastructureManager.GetInfrastructureList(Authentication(auth_data), flt)
 
 
 class Request_Reconfigure(IMBaseRequest):

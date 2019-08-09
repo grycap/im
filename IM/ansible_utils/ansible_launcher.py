@@ -175,9 +175,15 @@ class AnsibleThread(Process):
 
         # create the variable manager, which will be shared throughout
         # the code, ensuring a consistent view of global variables
-        variable_manager = VariableManager(loader=loader, inventory=inventory)
-        variable_manager.extra_vars = self.extra_vars
-        variable_manager.options_vars = {'ansible_version': self.version_info(ansible_version)}
+        try:
+            # Ansible 2.8
+            variable_manager = VariableManager(loader=loader, inventory=inventory,
+                                               version_info=self.version_info(ansible_version))
+            variable_manager._extra_vars = self.extra_vars
+        except TypeError:
+            variable_manager = VariableManager(loader=loader, inventory=inventory)
+            variable_manager.extra_vars = self.extra_vars
+            variable_manager.options_vars = {'ansible_version': self.version_info(ansible_version)}
 
         return loader, inventory, variable_manager
 
@@ -203,6 +209,21 @@ class AnsibleThread(Process):
                 'revision': ansible_versions[2]}
 
     def _gen_options(self):
+        if LooseVersion(ansible_version) >= LooseVersion("2.8.0"):
+            from ansible.module_utils.common.collections import ImmutableDict
+            from ansible import context
+            context.CLIARGS = ImmutableDict(connection='ssh',
+                                            module_path=None,
+                                            forks=self.threads,
+                                            become=False,
+                                            become_method='sudo',
+                                            become_user='root',
+                                            check=False,
+                                            diff=False,
+                                            inventory=self.inventory_file,
+                                            private_key_file=self.pk_file,
+                                            remote_user=self.user)
+
         Options = namedtuple('Options',
                              ['connection',
                               'module_path',

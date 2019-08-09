@@ -184,10 +184,8 @@ The supported features are:
    
 ``provider_id = <string>``
    Indicate the name of the network in a specific Cloud provider.
-   The default value is ``''``.
-   
-``pool_name = <string>``
-   Indicate the name of floating ip pool to get the external IP (**Only for OpenStack**).
+   In case of setting this field in a public network in an **OpenStack** deployment
+   it specifies the name of floating ip pool to get the external floating IP.
    The default value is ``''``.
 
 ``create = 'yes|no'``

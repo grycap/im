@@ -36,6 +36,11 @@ class TestSSH(unittest.TestCase):
     """
     Class to test the SSH class
     """
+    def test_str(self):
+        ssh = SSH("host", "user", "passwd", read_file_as_string("../files/privatekey.pem"))
+        expected_res = ("SSH: host: host, port: 22, user: user, password: passwd, "
+                        "private_key: %s" % read_file_as_string("../files/privatekey.pem"))
+        self.assertEqual(str(ssh), expected_res)
 
     @patch('socket.socket')
     @patch('IM.SSH.Session')

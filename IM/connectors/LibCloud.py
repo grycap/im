@@ -453,7 +453,10 @@ class LibCloudCloudConnector(CloudConnector):
                     if floating_ip.node_id == node.id:
                         self.log_debug("Remove Floating IP: %s" % floating_ip.ip_address)
                         # remove it from the node
-                        node.driver.ex_detach_floating_ip_from_node(node, floating_ip)
+                        try:
+                            node.driver.ex_detach_floating_ip_from_node(node, floating_ip)
+                        except Exception as ex:
+                            self.log_warn("Error detaching Floating IP: %s. %s" % (floating_ip.ip_address, ex.args[0]))
                         # delete the ip
                         floating_ip.delete()
                 return True, ""
@@ -485,29 +488,6 @@ class LibCloudCloudConnector(CloudConnector):
                            getattr(node.driver, "ex_suspend_node", None))
             if func:
                 success = func(node)
-                if success:
-                    return (True, "")
-                else:
-                    return (False, "Error in stop operation")
-            else:
-                return (False, "Not supported")
-        else:
-            return (False, "VM not found with id: " + vm.id)
-
-    def alterVM(self, vm, radl, auth_data):
-        node = self.get_node_with_id(vm.id, auth_data)
-        if node:
-            resize_func = getattr(node.driver, "ex_resize", None)
-            if resize_func:
-                instance_type = self.get_instance_type(
-                    node.driver.list_sizes(), radl.systems[0])
-
-                try:
-                    success = resize_func(node, instance_type)
-                except Exception as ex:
-                    self.log_exception("Error resizing VM.")
-                    return (False, "Error resizing VM: " + str(ex))
-
                 if success:
                     return (True, "")
                 else:
@@ -586,7 +566,7 @@ class LibCloudCloudConnector(CloudConnector):
                             # Add the volume to the VM to remove it later
                             vm.volumes.append(volume.id)
                         else:
-                            raise Exception("Error waiting the volume ID %s." % volume_id)
+                            raise Exception("Error waiting the volume ID %s." % volume.id)
 
                     if success:
                         self.log_debug("Attach the volume ID " + str(volume.id))

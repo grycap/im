@@ -71,8 +71,10 @@ class TestCtxtAgent(unittest.TestCase):
             vm_conf_data['id'] = vm
             if vm == 0:
                 vm_conf_data['master'] = True
+                vm_conf_data['nat_instance'] = True
             else:
                 vm_conf_data['master'] = False
+                vm_conf_data['nat_instance'] = False
             if vm == 2:
                 vm_conf_data['os'] = "windows"
             else:
@@ -175,7 +177,8 @@ class TestCtxtAgent(unittest.TestCase):
     @patch("contextualization.ctxt_agent_dist.SSHRetry.sftp_put")
     @patch("contextualization.ctxt_agent_dist.SSHRetry.sftp_mkdir")
     @patch("contextualization.ctxt_agent_dist.SSHRetry.sftp_put_dir")
-    def test_contextualize_vm(self, sftp_put_dir, sftp_mkdir, sftp_put, execute, test_connectivity):
+    @patch("paramiko.RSAKey.from_private_key")
+    def test_contextualize_vm(self, from_private_key, sftp_put_dir, sftp_mkdir, sftp_put, execute, test_connectivity):
         ctxt_agent = CtxtAgent("/tmp/gconf.dat", "/tmp/conf.dat")
         ctxt_agent.logger = self.logger
         ctxt_agent.changeVMCredentials = MagicMock()

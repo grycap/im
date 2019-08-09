@@ -24,7 +24,7 @@ of the functionality of the platform: https://www.youtube.com/playlist?list=PLgP
 
 Please acknowledge the use of this software in your scientific publications by including the following reference:
 
-Miguel Caballer, Ignacio Blanquer, Germán Moltó, and Carlos de Alfonso. "[Dynamic management of virtual infrastructures](https://link.springer.com/article/10.1007/s10723-014-9296-5)". Journal of Grid Computing, Volume 13, Issue 1, Pages 53-70, 2015, ISSN 1570-7873, DOI: 10.1007/s10723-014-9296-5.
+Miguel Caballer, Ignacio Blanquer, German Molto, and Carlos de Alfonso. "[Dynamic management of virtual infrastructures](https://link.springer.com/article/10.1007/s10723-014-9296-5)". Journal of Grid Computing, Volume 13, Issue 1, Pages 53-70, 2015, ISSN 1570-7873, DOI: 10.1007/s10723-014-9296-5.
 
 
 ## 1 DOCKER IMAGE
@@ -57,10 +57,22 @@ Or you can also add a volume with all the IM configuration::
 $ sudo docker run -d -p 8899:8899 -p 8800:8800 -v "/some_local_path/im.cfg:/etc/im/im.cfg" --name im grycap/im
 ```
 
+## 2 Kubernetes Helm Chart
 
-## 2 INSTALLATION
+The IM service and web interface can be installed on top of [Kubernetes](https://kubernetes.io/) using [Helm](https://helm.sh/).
 
-### 2.1 REQUISITES
+How to install the IM chart:
+
+```sh
+$ helm repo add grycap https://grycap.github.io/helm-charts/
+$ helm install --namespace=im --name=im  grycap/IM
+```
+
+All the information about this chart is available at the [IM chart README](https://github.com/grycap/helm-charts/blob/master/IM/README.md).
+
+## 3 INSTALLATION
+
+### 3.1 REQUISITES
 
 IM is based on Python, so Python 2.6 or higher runtime and standard library must
 be installed in the system.
@@ -110,7 +122,7 @@ ssh_args = -o ControlMaster=auto -o ControlPersist=900s -o UserKnownHostsFile=/d
 pipelining = True
 ```
 
-### 2.2 OPTIONAL PACKAGES
+### 3.2 OPTIONAL PACKAGES
 
 The Bottle framework (http://bottlepy.org/) is used for the REST API. 
 It is typically available as the ``python-bottle`` system package or ``bottle`` pip package.
@@ -153,9 +165,9 @@ The VMware vSphere API Python Bindings (https://github.com/vmware/pyvmomi/) are 
 connector. It is available as the package ``pyvmomi`` at the pip repository.  
 
 
-### 2.3 INSTALLING
+### 3.3 INSTALLING
 
-#### 2.3.1 Using installer (Recommended option)
+#### 3.3.1 Using installer (Recommended option)
 
 The IM provides a script to install the IM in one single step (using pip).
 You only need to execute the following command:
@@ -167,7 +179,7 @@ $ wget -qO- https://raw.githubusercontent.com/grycap/im/master/install.sh | bash
 It works for the most recent version of the main Linux distributions (RHEL, CentOS, Fedora, Ubuntu, Debian).
 In case that you O.S. does not work with this install script see next sections.
 
-#### 2.3.2 From PIP
+#### 3.3.2 From PIP
 
 First you need to install pip tool and some packages needed to compile some of the IM requirements.
 To install them in Debian and Ubuntu based distributions, do::
@@ -198,7 +210,7 @@ of IM features that you need requires to install some of the packages of section
 You must also remember to modify the ansible.cfg file setting as specified in the 
 REQUISITES section.
 
-#### 2.3.3 From RPM packages (RH7)
+#### 3.3.3 From RPM packages (RH7)
 
 Download the RPM package from [GitHub](https://github.com/grycap/im/releases/latest).
 Also remember to download the RPMs of the RADL and TOSCA parser packages from its corresponding GitHub repositories: [RADL](https://github.com/grycap/radl/releases/latest) and [TOSCA parser](https://github.com/indigo-dc/tosca-parser/releases/latest).
@@ -220,7 +232,7 @@ Azure python SDK is not available in CentOS. So if you need the Azure plugin you
 shown in the OPTIONAL PACKAGES section.
 
 
-#### 2.3.4 From Deb package (Tested with Ubuntu 14.04, 16.04 and 18.04)
+#### 3.3.4 From Deb package (Tested with Ubuntu 14.04, 16.04 and 18.04)
 
 Download the Deb package from [GitHub](https://github.com/grycap/im/releases/latest).
 Also remember to download the Debs of the RADL and TOSCA parser packages from its corresponding GitHub repositories: [RADL](https://github.com/grycap/radl/releases/latest) and [TOSCA parser](https://github.com/indigo-dc/tosca-parser/releases/latest).
@@ -256,7 +268,7 @@ $ sudo dpkg -i *.deb
 $ sudo apt install -f -y
 ```
 
-#### 2.3.5 FROM SOURCE
+#### 3.3.5 FROM SOURCE
 
 Select a proper path where the IM service will be installed (i.e. /usr/local/im,
 /opt/im or other). This path will be called IM_PATH
@@ -273,7 +285,7 @@ Finally you must copy (or link) $IM_PATH/scripts/im file to /etc/init.d director
 $ ln -s /usr/local/im/scripts/im /etc/init.d/im
 ```
 
-### 2.4 START IM ON BOOT
+### 3.4 START IM ON BOOT
 
 In case that you want the IM service to be started at boot time, you must
 execute the next set of commands:
@@ -311,7 +323,7 @@ to the path where the IM im_service.py file is installed (e.g. /usr/local/im/im_
 or set the name of the script file (im_service.py) if the file is in the PATH
 (pip puts the im_service.py file in the PATH as default).
 
-### 3 CONFIGURATION
+### 4 CONFIGURATION
 
 Check the parameters in $IM_PATH/etc/im.cfg or /etc/im/im.cfg.
 See [IM Manual](https://imdocs.readthedocs.io/en/latest/manual.html#configuration) to get a full
@@ -325,7 +337,7 @@ DATA_DB - must be set to the URL to access the database to store the IM data.
          SQLite: `sqlite:///etc/im/inf.dat` or MongoDB: `mongodb://username:password@server/db_name`,
 
 
-#### 3.1 SECURITY
+#### 4.1 SECURITY
 
 Security is disabled by default. Please notice that someone with local network access can "sniff" the traffic and
 get the messages with the IM with the authorisation data with the cloud providers.
