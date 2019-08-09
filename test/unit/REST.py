@@ -36,7 +36,7 @@ from IM.InfrastructureManager import (DeletedInfrastructureException,
                                       IncorrectInfrastructureException,
                                       UnauthorizedUserException,
                                       InvaliddUserException)
-from IM.InfrastructureInfo import IncorrectVMException, DeletedVMException
+from IM.InfrastructureInfo import IncorrectVMException, DeletedVMException, IncorrectStateException
 from IM.REST import (RESTDestroyInfrastructure,
                      RESTGetInfrastructureInfo,
                      RESTGetInfrastructureProperty,
@@ -240,6 +240,11 @@ class TestREST(unittest.TestCase):
         DestroyInfrastructure.side_effect = UnauthorizedUserException()
         res = RESTDestroyInfrastructure("1")
         self.assertEqual(res, "Error Destroying Inf: Access to this infrastructure not granted.")
+
+        DestroyInfrastructure.side_effect = IncorrectStateException()
+        res = RESTDestroyInfrastructure("1")
+        self.assertEqual(res, "Error Destroying Inf: Invalid State to perform this operation.")
+        
 
     @patch("IM.InfrastructureManager.InfrastructureManager.CreateInfrastructure")
     @patch("IM.InfrastructureManager.InfrastructureManager.get_infrastructure")
