@@ -30,6 +30,7 @@ from radl.radl_parse import parse_radl
 sys.path.append("..")
 sys.path.append(".")
 
+from IM.config import Config
 from IM import __version__ as version
 from IM.InfrastructureManager import (DeletedInfrastructureException,
                                       IncorrectInfrastructureException,
@@ -85,6 +86,26 @@ class TestREST(unittest.TestCase):
         res = RESTGetInfrastructureList()
         self.assertEqual(res, ('{"uri-list": [{"uri": "http://imserver.com/infrastructures/1"},'
                                ' {"uri": "http://imserver.com/infrastructures/2"}]}'))
+
+        Config.SINGLE_SITE = True
+        Config.SINGLE_SITE_TYPE = 'OpenNebula'
+        Config.SINGLE_SITE_AUTH_HOST = 'host'
+        Config.SINGLE_SITE_IMAGE_URL_PREFIX = 'one'
+        bottle_request.headers = {"AUTHORIZATION": "Basic dXNlcjpwYXNz", "Accept": "application/json"}
+        GetInfrastructureList.return_value = ["1", "2"]
+        res = RESTGetInfrastructureList()
+        self.assertEqual(res, ('{"uri-list": [{"uri": "http://imserver.com/infrastructures/1"},'
+                               ' {"uri": "http://imserver.com/infrastructures/2"}]}'))
+
+        Config.SINGLE_SITE_TYPE = 'OpenStack'
+        Config.SINGLE_SITE_AUTH_HOST = 'host'
+        Config.SINGLE_SITE_IMAGE_URL_PREFIX = 'ost'
+        bottle_request.headers = {"AUTHORIZATION": "Bearer access_token", "Accept": "application/json"}
+        GetInfrastructureList.return_value = ["1", "2"]
+        res = RESTGetInfrastructureList()
+        self.assertEqual(res, ('{"uri-list": [{"uri": "http://imserver.com/infrastructures/1"},'
+                               ' {"uri": "http://imserver.com/infrastructures/2"}]}'))
+        Config.SINGLE_SITE = False
 
         GetInfrastructureList.side_effect = InvaliddUserException()
         res = RESTGetInfrastructureList()
