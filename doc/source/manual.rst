@@ -304,6 +304,13 @@ Basic Options
    Maximum size in KiB of the log file before being rotated.
    The default value is 10485760.
 
+.. confval:: BOOT_MODE
+
+   This flag set the IM boot mode. 
+   It can be: 0 (Normal) standard IM operation, 1 (ReadOnly) only read operations are allowed,
+   2 (ReadDelete) only read and delete operations are allowed.
+   The default value is 0.
+
 .. _options-default-vm:
 
 Default Virtual Machine Options
