@@ -520,3 +520,20 @@ IM 1.8.4:
 IM 1.8.5:
     * Enable CIDR selection in network creation in OpenStack conn.
     * Fix error infrastructure not correctly deleted if destroy is sent in initial stage.
+    * Fix error procesing TOSCA document if a policy does not have properties field.
+    * Fix error listing Routers in OpenStack conn.
+    * Fix error deleting FW in GCE conn.
+    * Fix error in OpenNebula conn in case API endpoint is behind a reverse proxy.
+    * Fix error deleting infra in case of Opennebula 4.8 trying to delete security groups.
+    * Add requirements in FogBow conn.
+    * Enable to specify the cluster to deploy the VM on OpenNebula conn.
+    * Support for adding block storage and networks to running VMs with OpenStack.
+    * Fix problems using tokens with OpenStack.
+    * Fix error in ctxt process testing ssh connection.
+    * Fix error parsing TOSCA in case of implemetation is a dict.
+    * Enable to filter the list of infrastructures.
+    * Optional tenant name for OpenStack using VOMS authentication.
+    * Fix SSH reverse tunnels does not work in IM service with HTTPS.
+    * Enable to specify GPU and SGX in Fogbow conn.
+    * Improve TOSCA network management to create L2 nets.
+    * Fix error attaching a new disk in OCCI conn.
