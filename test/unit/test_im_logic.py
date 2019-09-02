@@ -1165,6 +1165,7 @@ configure step2 (
         inf.auth = self.getAuth([0], [], [("Dummy", 0)])
         cloud = CloudInfo()
         cloud.type = "Dummy"
+        self.assertEqual(str(cloud), "type = Dummy, ")
         radl = RADL()
         radl.add(system("s0", [Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er")]))
         radl.add(deploy("s0", 1))
