@@ -1266,6 +1266,19 @@ configure step2 (
 
         IM.DestroyInfrastructure(infId, auth0)
 
+    def test_inf_delete_force(self):
+        """Force a DestroyInfrastructure"""
+
+        auth0 = self.getAuth([0])
+        infId = IM.CreateInfrastructure("", auth0)
+        inf = IM.get_infrastructure(infId, auth0)
+        inf.destroy = Mock(side_effect=Exception())
+        with self.assertRaises(Exception):
+            IM.DestroyInfrastructure(infId, auth0)
+        self.assertEqual(inf.deleted, False)
+        IM.DestroyInfrastructure(infId, auth0, True)
+        self.assertEqual(inf.deleted, True)
+
 
 if __name__ == "__main__":
     unittest.main()

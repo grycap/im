@@ -319,7 +319,17 @@ def RESTDestroyInfrastructure(infid=None):
         return return_error(401, "No authentication data provided")
 
     try:
-        InfrastructureManager.DestroyInfrastructure(infid, auth)
+        force = False
+        if "force" in bottle.request.params.keys():
+            str_force = bottle.request.params.get("force").lower()
+            if str_force in ['yes', 'true', '1']:
+                force = True
+            elif str_force in ['no', 'false', '0']:
+                force = False
+            else:
+                return return_error(400, "Incorrect value in force parameter")
+
+        InfrastructureManager.DestroyInfrastructure(infid, auth, force)
         bottle.response.content_type = "text/plain"
         return ""
     except DeletedInfrastructureException as ex:
@@ -378,7 +388,7 @@ def RESTGetInfrastructureProperty(infid=None, prop=None):
                 elif str_headeronly in ['no', 'false', '0']:
                     headeronly = False
                 else:
-                    return return_error(400, "Incorrect value in context parameter")
+                    return return_error(400, "Incorrect value in headeronly parameter")
 
             res = InfrastructureManager.GetInfrastructureContMsg(infid, auth, headeronly)
         elif prop == "radl":
@@ -1003,7 +1013,7 @@ def RESTCreateDiskSnapshot(infid=None, vmid=None, disknum=None):
             elif str_auto_delete in ['no', 'false', '0']:
                 auto_delete = False
             else:
-                return return_error(400, "Incorrect value in context parameter")
+                return return_error(400, "Incorrect value in auto_delete parameter")
         else:
             auto_delete = False
 

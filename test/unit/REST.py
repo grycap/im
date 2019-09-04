@@ -235,6 +235,14 @@ class TestREST(unittest.TestCase):
 
         res = RESTDestroyInfrastructure("1")
         self.assertEqual(res, "")
+        self.assertEqual(DestroyInfrastructure.call_args_list[0][0][0], "1")
+        self.assertEqual(DestroyInfrastructure.call_args_list[0][0][2], False)
+
+        bottle_request.params = {"force": "yes"}
+        res = RESTDestroyInfrastructure("1")
+        self.assertEqual(res, "")
+        self.assertEqual(DestroyInfrastructure.call_args_list[1][0][0], "1")
+        self.assertEqual(DestroyInfrastructure.call_args_list[1][0][2], True)
 
         DestroyInfrastructure.side_effect = DeletedInfrastructureException()
         res = RESTDestroyInfrastructure("1")

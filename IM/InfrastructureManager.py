@@ -1168,7 +1168,7 @@ class InfrastructureManager:
             return ""
 
     @staticmethod
-    def DestroyInfrastructure(inf_id, auth):
+    def DestroyInfrastructure(inf_id, auth, force=False):
         """
         Destroy all virtual machines in an infrastructure.
 
@@ -1176,6 +1176,7 @@ class InfrastructureManager:
 
         - inf_id(str): infrastructure id.
         - auth(Authentication): parsed authentication tokens.
+        - force(bool): delete the infra from the IM although not all resources are deleted.
 
         Return: None.
         """
@@ -1185,11 +1186,15 @@ class InfrastructureManager:
         InfrastructureManager.logger.info("Destroying the Inf ID: " + str(inf_id))
 
         sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
-        sel_inf.set_deleting()
-        # First stop ctxt processes
-        sel_inf.stop()
-        # Destroy the Infrastructure
-        sel_inf.destroy(auth)
+        try:
+            sel_inf.set_deleting()
+            # First stop ctxt processes
+            sel_inf.stop()
+            # Destroy the Infrastructure
+            sel_inf.destroy(auth)
+        except Exception as ex:
+            if not force:
+                raise ex
         # Set the Infrastructure as deleted
         sel_inf.delete()
         IM.InfrastructureList.InfrastructureList.save_data(inf_id)
