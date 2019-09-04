@@ -35,6 +35,7 @@ Config.MAX_SIMULTANEOUS_LAUNCHES = 2
 
 from IM.VirtualMachine import VirtualMachine
 from IM.InfrastructureManager import InfrastructureManager as IM
+from IM.InfrastructureManager import DisabledFunctionException
 from IM.InfrastructureList import InfrastructureList
 from IM.auth import Authentication
 from radl.radl import RADL, system, deploy, Feature, SoftFeatures
@@ -1278,6 +1279,26 @@ configure step2 (
         self.assertEqual(inf.deleted, False)
         IM.DestroyInfrastructure(infId, auth0, True)
         self.assertEqual(inf.deleted, True)
+
+    def test_boot_modes(self):
+        """Test boot modes"""
+        auth0 = self.getAuth([0], [], [("Dummy", 0), ("Dummy", 1)])
+        infId = IM.CreateInfrastructure('', auth0)
+
+        Config.BOOT_MODE = 1
+        with self.assertRaises(DisabledFunctionException):
+            IM.DestroyInfrastructure(infId, auth0)
+        with self.assertRaises(DisabledFunctionException):
+            IM.CreateInfrastructure('', auth0)
+        IM.GetInfrastructureList(auth0)
+
+        Config.BOOT_MODE = 2
+        with self.assertRaises(DisabledFunctionException):
+            IM.CreateInfrastructure('', auth0)
+        IM.DestroyInfrastructure(infId, auth0)
+        IM.GetInfrastructureList(auth0)
+
+        Config.BOOT_MODE = 0
 
 
 if __name__ == "__main__":
