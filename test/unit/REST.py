@@ -901,6 +901,24 @@ class TestREST(unittest.TestCase):
                 done""" % (auth_str, url)
         self.assertEqual(res, expected_res)
 
+        inf.auth = Authentication([{'type': 'InfrastructureManager', 'token': 'token'}])
+        res = RESTGetVMProperty("1", "1", "command")
+        auth_str = "Authorization: type = InfrastructureManager; token = token"
+        url = "http://imserver.com/infrastructures/1/vms/1/command?step=2"
+        expected_res = """
+                res="wait"
+                while [ "$res" == "wait" ]
+                do
+                  res=`curl --insecure -s -H "%s" -H "Accept: text/plain" %s`
+                  if [ "$res" != "wait" ]
+                  then
+                    eval "$res"
+                  else
+                    sleep 20
+                  fi
+                done""" % (auth_str, url)
+        self.assertEqual(res, expected_res)
+
         radl_master = parse_radl("""
             network publica (outbound = 'yes')
             network privada ()

@@ -1009,11 +1009,10 @@ class VirtualMachine(LoggerMixin):
         rest_url = REST_URL if REST_URL else ""
         url = rest_url + '/infrastructures/' + str(self.inf.id) + '/vms/' + str(self.creation_im_id) + '/command'
         auth = self.inf.auth.getAuthInfo("InfrastructureManager")[0]
-        imauth = "username = %s; " % auth['username']
         if 'token' in auth:
-            imauth += "token = %s" % auth['token']
+            imauth = "token = %s" % auth['token']
         else:
-            imauth += "password = %s" % auth['password']
+            imauth = "username = %s; password = %s" % (auth['username'], auth['password'])
         command = ('curl -s --insecure -H "Authorization: type = InfrastructureManager; %s" '
                    '-H "Accept: text/plain" %s' % (imauth, url))
         return [command + " | bash &"]
