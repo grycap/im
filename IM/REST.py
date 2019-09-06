@@ -615,10 +615,13 @@ def RESTGetVMProperty(infid=None, vmid=None, prop=None):
             if step == 1:
                 url = get_full_url('/infrastructures/' + str(infid) + '/vms/' + str(vmid) + '/command?step=2')
                 auth = sel_inf.auth.getAuthInfo("InfrastructureManager")[0]
-                imuser = auth['username']
-                impass = auth['password']
-                command = ('curl --insecure -s -H "Authorization: type = InfrastructureManager; '
-                           'username = %s; password = %s" -H "Accept: text/plain" %s' % (imuser, impass, url))
+                imauth = "username = %s; " % auth['username']
+                if 'token' in auth:
+                    imauth += "token = %s" % auth['token']
+                else:
+                    imauth += "password = %s" % auth['password']
+                command = ('curl --insecure -s -H "Authorization: type = InfrastructureManager; %s" '
+                           '-H "Accept: text/plain" %s' % (imauth, url))
 
                 info = """
                 res="wait"
