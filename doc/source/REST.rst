@@ -241,13 +241,16 @@ PUT ``http://imserver.com/infrastructures/<infId>/reconfigure``
    If the operation has been performed successfully the return value is an empty string.
 
 DELETE ``http://imserver.com/infrastructures/<infId>``
+   :input fields: ``force`` (optional)
    :Response Content-type: text/plain or application/json
    :ok response: 200 OK
    :fail response: 401, 403, 404, 400
 
    Undeploy the virtual machines associated to the infrastructure with ID
    ``infId``. If the operation has been performed successfully 
-   the return value is an empty string.
+   The ``force`` parameter is optional and is a flag to specify that the infra
+   will be from the IM although not all resources are deleted.
+   The return value is an empty string.
 
 GET ``http://imserver.com/infrastructures/<infId>/vms/<vmId>``
    :Response Content-type: text/plain or application/json

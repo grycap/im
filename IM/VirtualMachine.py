@@ -1009,10 +1009,12 @@ class VirtualMachine(LoggerMixin):
         rest_url = REST_URL if REST_URL else ""
         url = rest_url + '/infrastructures/' + str(self.inf.id) + '/vms/' + str(self.creation_im_id) + '/command'
         auth = self.inf.auth.getAuthInfo("InfrastructureManager")[0]
-        imuser = auth['username']
-        impass = auth['password']
-        command = ('curl -s --insecure -H "Authorization: type = InfrastructureManager; '
-                   'username = %s; password = %s" -H "Accept: text/plain" %s' % (imuser, impass, url))
+        if 'token' in auth:
+            imauth = "token = %s" % auth['token']
+        else:
+            imauth = "username = %s; password = %s" % (auth['username'], auth['password'])
+        command = ('curl -s --insecure -H "Authorization: type = InfrastructureManager; %s" '
+                   '-H "Accept: text/plain" %s' % (imauth, url))
         return [command + " | bash &"]
 
     def getSSHReversePort(self):

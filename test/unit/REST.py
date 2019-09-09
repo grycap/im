@@ -235,6 +235,14 @@ class TestREST(unittest.TestCase):
 
         res = RESTDestroyInfrastructure("1")
         self.assertEqual(res, "")
+        self.assertEqual(DestroyInfrastructure.call_args_list[0][0][0], "1")
+        self.assertEqual(DestroyInfrastructure.call_args_list[0][0][2], False)
+
+        bottle_request.params = {"force": "yes"}
+        res = RESTDestroyInfrastructure("1")
+        self.assertEqual(res, "")
+        self.assertEqual(DestroyInfrastructure.call_args_list[1][0][0], "1")
+        self.assertEqual(DestroyInfrastructure.call_args_list[1][0][2], True)
 
         DestroyInfrastructure.side_effect = DeletedInfrastructureException()
         res = RESTDestroyInfrastructure("1")
@@ -878,6 +886,24 @@ class TestREST(unittest.TestCase):
         bottle_request.params = {'step': '1'}
         res = RESTGetVMProperty("1", "1", "command")
         auth_str = "Authorization: type = InfrastructureManager; username = user; password = pass"
+        url = "http://imserver.com/infrastructures/1/vms/1/command?step=2"
+        expected_res = """
+                res="wait"
+                while [ "$res" == "wait" ]
+                do
+                  res=`curl --insecure -s -H "%s" -H "Accept: text/plain" %s`
+                  if [ "$res" != "wait" ]
+                  then
+                    eval "$res"
+                  else
+                    sleep 20
+                  fi
+                done""" % (auth_str, url)
+        self.assertEqual(res, expected_res)
+
+        inf.auth = Authentication([{'type': 'InfrastructureManager', 'token': 'token'}])
+        res = RESTGetVMProperty("1", "1", "command")
+        auth_str = "Authorization: type = InfrastructureManager; token = token"
         url = "http://imserver.com/infrastructures/1/vms/1/command?step=2"
         expected_res = """
                 res="wait"
