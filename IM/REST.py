@@ -23,7 +23,7 @@ import bottle
 from IM.InfrastructureInfo import IncorrectVMException, DeletedVMException, IncorrectStateException
 from IM.InfrastructureManager import (InfrastructureManager, DeletedInfrastructureException,
                                       IncorrectInfrastructureException, UnauthorizedUserException,
-                                      InvaliddUserException)
+                                      InvaliddUserException, DisabledFunctionException)
 from IM.auth import Authentication
 from IM.config import Config
 from radl.radl_json import parse_radl as parse_radl_json, dump_radl as dump_radl_json, featuresToSimple, radlToSimple
@@ -319,7 +319,17 @@ def RESTDestroyInfrastructure(infid=None):
         return return_error(401, "No authentication data provided")
 
     try:
-        InfrastructureManager.DestroyInfrastructure(infid, auth)
+        force = False
+        if "force" in bottle.request.params.keys():
+            str_force = bottle.request.params.get("force").lower()
+            if str_force in ['yes', 'true', '1']:
+                force = True
+            elif str_force in ['no', 'false', '0']:
+                force = False
+            else:
+                return return_error(400, "Incorrect value in force parameter")
+
+        InfrastructureManager.DestroyInfrastructure(infid, auth, force)
         bottle.response.content_type = "text/plain"
         return ""
     except DeletedInfrastructureException as ex:
@@ -330,6 +340,8 @@ def RESTDestroyInfrastructure(infid=None):
         return return_error(403, "Error Destroying Inf: %s" % get_ex_error(ex))
     except IncorrectStateException as ex:
         return return_error(409, "Error Destroying Inf: %s" % get_ex_error(ex))
+    except DisabledFunctionException as ex:
+        return return_error(403, "Error Destroying Inf: %s" % get_ex_error(ex))
     except Exception as ex:
         logger.exception("Error Destroying Inf")
         return return_error(400, "Error Destroying Inf: %s" % get_ex_error(ex))
@@ -378,7 +390,7 @@ def RESTGetInfrastructureProperty(infid=None, prop=None):
                 elif str_headeronly in ['no', 'false', '0']:
                     headeronly = False
                 else:
-                    return return_error(400, "Incorrect value in context parameter")
+                    return return_error(400, "Incorrect value in headeronly parameter")
 
             res = InfrastructureManager.GetInfrastructureContMsg(infid, auth, headeronly)
         elif prop == "radl":
@@ -520,6 +532,8 @@ def RESTCreateInfrastructure():
         return format_output(res, "text/uri-list", "uri")
     except InvaliddUserException as ex:
         return return_error(401, "Error Getting Inf. info: %s" % get_ex_error(ex))
+    except DisabledFunctionException as ex:
+        return return_error(403, "Error Destroying Inf: %s" % get_ex_error(ex))
     except Exception as ex:
         logger.exception("Error Creating Inf.")
         return return_error(400, "Error Creating Inf.: %s" % get_ex_error(ex))
@@ -548,6 +562,8 @@ def RESTImportInfrastructure():
         return format_output(res, "text/uri-list", "uri")
     except InvaliddUserException as ex:
         return return_error(401, "Error Impporting Inf.: %s" % get_ex_error(ex))
+    except DisabledFunctionException as ex:
+        return return_error(403, "Error Destroying Inf: %s" % get_ex_error(ex))
     except Exception as ex:
         logger.exception("Error Impporting Inf.")
         return return_error(400, "Error Impporting Inf.: %s" % get_ex_error(ex))
@@ -599,10 +615,12 @@ def RESTGetVMProperty(infid=None, vmid=None, prop=None):
             if step == 1:
                 url = get_full_url('/infrastructures/' + str(infid) + '/vms/' + str(vmid) + '/command?step=2')
                 auth = sel_inf.auth.getAuthInfo("InfrastructureManager")[0]
-                imuser = auth['username']
-                impass = auth['password']
-                command = ('curl --insecure -s -H "Authorization: type = InfrastructureManager; '
-                           'username = %s; password = %s" -H "Accept: text/plain" %s' % (imuser, impass, url))
+                if 'token' in auth:
+                    imauth = "token = %s" % auth['token']
+                else:
+                    imauth = "username = %s; password = %s" % (auth['username'], auth['password'])
+                command = ('curl --insecure -s -H "Authorization: type = InfrastructureManager; %s" '
+                           '-H "Accept: text/plain" %s' % (imauth, url))
 
                 info = """
                 res="wait"
@@ -733,6 +751,8 @@ def RESTAddResource(infid=None):
         return return_error(404, "Error Adding resources: %s" % get_ex_error(ex))
     except UnauthorizedUserException as ex:
         return return_error(403, "Error Adding resources: %s" % get_ex_error(ex))
+    except DisabledFunctionException as ex:
+        return return_error(403, "Error Destroying Inf: %s" % get_ex_error(ex))
     except Exception as ex:
         logger.exception("Error Adding resources")
         return return_error(400, "Error Adding resources: %s" % get_ex_error(ex))
@@ -769,6 +789,8 @@ def RESTRemoveResource(infid=None, vmid=None):
         return return_error(404, "Error Removing resources: %s" % get_ex_error(ex))
     except IncorrectVMException as ex:
         return return_error(404, "Error Removing resources: %s" % get_ex_error(ex))
+    except DisabledFunctionException as ex:
+        return return_error(403, "Error Destroying Inf: %s" % get_ex_error(ex))
     except Exception as ex:
         logger.exception("Error Removing resources")
         return return_error(400, "Error Removing resources: %s" % get_ex_error(ex))
@@ -809,6 +831,8 @@ def RESTAlterVM(infid=None, vmid=None):
         return return_error(404, "Error modifying resources: %s" % get_ex_error(ex))
     except IncorrectVMException as ex:
         return return_error(404, "Error modifying resources: %s" % get_ex_error(ex))
+    except DisabledFunctionException as ex:
+        return return_error(403, "Error Destroying Inf: %s" % get_ex_error(ex))
     except Exception as ex:
         logger.exception("Error modifying resources")
         return return_error(400, "Error modifying resources: %s" % get_ex_error(ex))
@@ -851,6 +875,8 @@ def RESTReconfigureInfrastructure(infid=None):
         return return_error(404, "Error reconfiguring infrastructure: %s" % get_ex_error(ex))
     except UnauthorizedUserException as ex:
         return return_error(403, "Error reconfiguring infrastructure: %s" % get_ex_error(ex))
+    except DisabledFunctionException as ex:
+        return return_error(403, "Error Destroying Inf: %s" % get_ex_error(ex))
     except Exception as ex:
         logger.exception("Error reconfiguring infrastructure")
         return return_error(400, "Error reconfiguring infrastructure: %s" % get_ex_error(ex))
@@ -872,6 +898,8 @@ def RESTStartInfrastructure(infid=None):
         return return_error(404, "Error starting infrastructure: %s" % get_ex_error(ex))
     except UnauthorizedUserException as ex:
         return return_error(403, "Error starting infrastructure: %s" % get_ex_error(ex))
+    except DisabledFunctionException as ex:
+        return return_error(403, "Error Destroying Inf: %s" % get_ex_error(ex))
     except Exception as ex:
         logger.exception("Error starting infrastructure")
         return return_error(400, "Error starting infrastructure: %s" % get_ex_error(ex))
@@ -893,6 +921,8 @@ def RESTStopInfrastructure(infid=None):
         return return_error(404, "Error stopping infrastructure: %s" % get_ex_error(ex))
     except UnauthorizedUserException as ex:
         return return_error(403, "Error stopping infrastructure: %s" % get_ex_error(ex))
+    except DisabledFunctionException as ex:
+        return return_error(403, "Error Destroying Inf: %s" % get_ex_error(ex))
     except Exception as ex:
         logger.exception("Error stopping infrastructure")
         return return_error(400, "Error stopping infrastructure: %s" % get_ex_error(ex))
@@ -918,6 +948,8 @@ def RESTStartVM(infid=None, vmid=None):
         return return_error(404, "Error starting VM: %s" % get_ex_error(ex))
     except IncorrectVMException as ex:
         return return_error(404, "Error starting VM: %s" % get_ex_error(ex))
+    except DisabledFunctionException as ex:
+        return return_error(403, "Error Destroying Inf: %s" % get_ex_error(ex))
     except Exception as ex:
         logger.exception("Error starting VM")
         return return_error(400, "Error starting VM: %s" % get_ex_error(ex))
@@ -943,6 +975,8 @@ def RESTStopVM(infid=None, vmid=None):
         return return_error(404, "Error stopping VM: %s" % get_ex_error(ex))
     except IncorrectVMException as ex:
         return return_error(404, "Error stopping VM: %s" % get_ex_error(ex))
+    except DisabledFunctionException as ex:
+        return return_error(403, "Error Destroying Inf: %s" % get_ex_error(ex))
     except Exception as ex:
         logger.exception("Error stopping VM")
         return return_error(400, "Error stopping VM: %s" % get_ex_error(ex))
@@ -968,6 +1002,8 @@ def RESTRebootVM(infid=None, vmid=None):
         return return_error(404, "Error rebooting VM: %s" % get_ex_error(ex))
     except IncorrectVMException as ex:
         return return_error(404, "Error rebooting VM: %s" % get_ex_error(ex))
+    except DisabledFunctionException as ex:
+        return return_error(403, "Error Destroying Inf: %s" % get_ex_error(ex))
     except Exception as ex:
         logger.exception("Error rebooting VM")
         return return_error(400, "Error rebooting VM: %s" % get_ex_error(ex))
@@ -1003,7 +1039,7 @@ def RESTCreateDiskSnapshot(infid=None, vmid=None, disknum=None):
             elif str_auto_delete in ['no', 'false', '0']:
                 auto_delete = False
             else:
-                return return_error(400, "Incorrect value in context parameter")
+                return return_error(400, "Incorrect value in auto_delete parameter")
         else:
             auto_delete = False
 
@@ -1018,6 +1054,8 @@ def RESTCreateDiskSnapshot(infid=None, vmid=None, disknum=None):
         return return_error(404, "Error creating snapshot: %s" % get_ex_error(ex))
     except IncorrectVMException as ex:
         return return_error(404, "Error creating snapshot: %s" % get_ex_error(ex))
+    except DisabledFunctionException as ex:
+        return return_error(403, "Error Destroying Inf: %s" % get_ex_error(ex))
     except Exception as ex:
         logger.exception("Error creating snapshot")
         return return_error(400, "Error creating snapshot: %s" % get_ex_error(ex))

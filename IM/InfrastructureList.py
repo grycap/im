@@ -205,7 +205,10 @@ class InfrastructureList():
                             InfrastructureList.logger.exception(
                                 "ERROR reading infrastructure from database, ignoring it!.")
                 else:
-                    InfrastructureList.logger.warn("No data in database!.")
+                    msg = ""
+                    if inf_id:
+                        msg = " for inf ID: %s" % inf_id
+                    InfrastructureList.logger.warn("No data in database%s!." % msg)
 
                 db.close()
                 return inf_list

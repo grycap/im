@@ -90,6 +90,14 @@ class IncorrectVMCrecentialsException(Exception):
         self.message = msg
 
 
+class DisabledFunctionException(Exception):
+    """ Disabled function called"""
+
+    def __init__(self, msg="Function currently disabled."):
+        Exception.__init__(self, msg)
+        self.message = msg
+
+
 class InfrastructureManager:
     """
     Front-end to the functionality of the service.
@@ -256,6 +264,9 @@ class InfrastructureManager:
 
         Return: "" if success.
         """
+        if Config.BOOT_MODE in [1, 2]:
+            raise DisabledFunctionException()
+
         auth = InfrastructureManager.check_auth_data(auth)
 
         InfrastructureManager.logger.info("Reconfiguring the Inf ID: " + str(inf_id))
@@ -490,6 +501,9 @@ class InfrastructureManager:
 
         Return(list of int): ids of the new virtual machine created.
         """
+        if Config.BOOT_MODE in [1, 2]:
+            raise DisabledFunctionException()
+
         auth = InfrastructureManager.check_auth_data(auth)
 
         InfrastructureManager.logger.info("Adding resources to Inf ID: " + str(inf_id))
@@ -659,6 +673,9 @@ class InfrastructureManager:
 
         Return(int): number of undeployed virtual machines.
         """
+        if Config.BOOT_MODE in [1, 2]:
+            raise DisabledFunctionException()
+
         auth = InfrastructureManager.check_auth_data(auth)
 
         InfrastructureManager.logger.info("Removing the VMs: " + str(vm_list) + " from Inf ID: '" + str(inf_id) + "'")
@@ -790,6 +807,9 @@ class InfrastructureManager:
 
         Return: a str with the information about the VM
         """
+        if Config.BOOT_MODE in [1, 2]:
+            raise DisabledFunctionException()
+
         auth = InfrastructureManager.check_auth_data(auth)
 
         InfrastructureManager.logger.info(
@@ -980,6 +1000,9 @@ class InfrastructureManager:
 
         Return(str): error messages; empty string means all was ok.
         """
+        if Config.BOOT_MODE in [1, 2]:
+            raise DisabledFunctionException()
+
         auth = InfrastructureManager.check_auth_data(auth)
 
         InfrastructureManager.logger.info("Stopping the Inf ID: " + str(inf_id))
@@ -1031,6 +1054,9 @@ class InfrastructureManager:
 
         Return(str): error messages; empty string means all was ok.
         """
+        if Config.BOOT_MODE in [1, 2]:
+            raise DisabledFunctionException()
+
         auth = InfrastructureManager.check_auth_data(auth)
 
         InfrastructureManager.logger.info("Starting the Inf ID: " + str(inf_id))
@@ -1071,6 +1097,9 @@ class InfrastructureManager:
 
         Return(str): error messages; empty string means all was ok.
         """
+        if Config.BOOT_MODE in [1, 2]:
+            raise DisabledFunctionException()
+
         auth = InfrastructureManager.check_auth_data(auth)
 
         InfrastructureManager.logger.info("Starting the VM id %s from the Inf ID: %s" % (vm_id, inf_id))
@@ -1106,6 +1135,9 @@ class InfrastructureManager:
 
         Return(str): error messages; empty string means all was ok.
         """
+        if Config.BOOT_MODE in [1, 2]:
+            raise DisabledFunctionException()
+
         # First check the auth data
         auth = InfrastructureManager.check_auth_data(auth)
 
@@ -1143,6 +1175,9 @@ class InfrastructureManager:
 
         Return(str): error messages; empty string means all was ok.
         """
+        if Config.BOOT_MODE in [1, 2]:
+            raise DisabledFunctionException()
+
         # First check the auth data
         auth = InfrastructureManager.check_auth_data(auth)
 
@@ -1168,7 +1203,7 @@ class InfrastructureManager:
             return ""
 
     @staticmethod
-    def DestroyInfrastructure(inf_id, auth):
+    def DestroyInfrastructure(inf_id, auth, force=False):
         """
         Destroy all virtual machines in an infrastructure.
 
@@ -1176,20 +1211,28 @@ class InfrastructureManager:
 
         - inf_id(str): infrastructure id.
         - auth(Authentication): parsed authentication tokens.
+        - force(bool): delete the infra from the IM although not all resources are deleted.
 
         Return: None.
         """
+        if Config.BOOT_MODE == 1:
+            raise DisabledFunctionException()
+
         # First check the auth data
         auth = InfrastructureManager.check_auth_data(auth)
 
         InfrastructureManager.logger.info("Destroying the Inf ID: " + str(inf_id))
 
         sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
-        sel_inf.set_deleting()
-        # First stop ctxt processes
-        sel_inf.stop()
-        # Destroy the Infrastructure
-        sel_inf.destroy(auth)
+        try:
+            sel_inf.set_deleting()
+            # First stop ctxt processes
+            sel_inf.stop()
+            # Destroy the Infrastructure
+            sel_inf.destroy(auth)
+        except Exception as ex:
+            if not force:
+                raise ex
         # Set the Infrastructure as deleted
         sel_inf.delete()
         IM.InfrastructureList.InfrastructureList.save_data(inf_id)
@@ -1360,6 +1403,8 @@ class InfrastructureManager:
 
         Return(int): the new infrastructure ID if successful.
         """
+        if Config.BOOT_MODE in [1, 2]:
+            raise DisabledFunctionException()
 
         # First check the auth data
         auth = InfrastructureManager.check_auth_data(auth)
@@ -1461,6 +1506,9 @@ class InfrastructureManager:
 
     @staticmethod
     def ExportInfrastructure(inf_id, delete, auth_data):
+        if delete and Config.BOOT_MODE == 1:
+            raise DisabledFunctionException()
+
         auth = Authentication(auth_data)
         auth = InfrastructureManager.check_auth_data(auth)
 
@@ -1475,6 +1523,9 @@ class InfrastructureManager:
 
     @staticmethod
     def ImportInfrastructure(str_inf, auth_data):
+        if Config.BOOT_MODE in [1, 2]:
+            raise DisabledFunctionException()
+
         auth = Authentication(auth_data)
         auth = InfrastructureManager.check_auth_data(auth)
 
@@ -1510,6 +1561,9 @@ class InfrastructureManager:
 
         Return: a str with url of the saved snapshot.
         """
+        if Config.BOOT_MODE in [1, 2]:
+            raise DisabledFunctionException()
+
         auth = InfrastructureManager.check_auth_data(auth)
         InfrastructureManager.logger.info("Creating a snapshot of VM id: %s Inf ID: %s" % (vm_id, inf_id))
 
