@@ -1089,7 +1089,8 @@ class OCCICloudConnector(CloudConnector):
                     disk_device = "vd" + disk_device[-1]
                     system.setValue("disk." + str(cont) + ".device", disk_device)
                 self.log_info("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
-                success, volume_id = self.create_volume(int(disk_size), "im-disk-%d" % cont, auth_data, auth_header)
+                storage_name = "im-disk-%s" % str(uuid.uuid1())
+                success, volume_id = self.create_volume(int(disk_size), storage_name, auth_data, auth_header)
 
                 if success:
                     self.log_info("Volume id %s successfuly created." % volume_id)

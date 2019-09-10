@@ -171,11 +171,13 @@ This is the list of method names:
 ``DestroyInfrastructure``
    :parameter 0: ``infId``: integer
    :parameter 1: ``auth``: array of structs
+   :parameter 2: ``force``: (optional, default value False) boolean
    :ok response: [true, string of length zero]
    :fail response: [false, ``error``: string]
 
    Undeploy all the virtual machines associated to the infrastructure with ID
-   ``infId``.
+   ``infId``. The ``force`` parameter is optional and is a flag to specify that the infra
+   will be from the IM although not all resources are deleted.
 
 .. _AddResource-xmlrpc:
 
