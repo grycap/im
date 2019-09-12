@@ -125,6 +125,30 @@ class TestVirtualMachine(unittest.TestCase):
         self.assertEqual(cont_out, "Contextualization agent output processed successfully")
         self.assertEqual(vm.info.systems[0].getCredentialValues(), ('user', 'newpass', None, None))
 
+    def test_setIps(self):
+        radl_data = """
+            system test (
+            )"""
+        radl = radl_parse.parse_radl(radl_data)
+        vm = VirtualMachine(None, "1", None, radl, radl)
+        public_ips = ['158.42.1.1']
+        private_ips = ['10.0.0.1']
+        vm.setIps(public_ips, private_ips)
+        self.assertEqual(vm.info.systems[0].getValue('net_interface.1.ip'), "10.0.0.1")
+        self.assertEqual(vm.info.systems[0].getValue('net_interface.0.ip'), "158.42.1.1")
+
+        radl_data = """
+            network net1 (cidr = '10.0.0.1')
+            system test (
+            net_interface.0.connection = 'net1'
+            )"""
+        radl = radl_parse.parse_radl(radl_data)
+        private_ips = ['192.168.0.1', '10.0.0.1']
+        vm = VirtualMachine(None, "1", None, radl, radl)
+        vm.setIps(public_ips, private_ips)
+        self.assertEqual(vm.info.systems[0].getValue('net_interface.0.ip'), "10.0.0.1")
+        self.assertEqual(vm.info.systems[0].getValue('net_interface.2.ip'), "192.168.0.1")
+
 
 if __name__ == '__main__':
     unittest.main()

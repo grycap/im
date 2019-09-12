@@ -382,7 +382,7 @@ class OCCICloudConnector(CloudConnector):
             return (False, "No location for networkinterface category.")
 
         try:
-            net_id = "imnet.%s" % str(uuid.uuid1())
+            net_id = "imnet-%s" % str(uuid.uuid1())
 
             body = 'Category: networkinterface;scheme="http://schemas.ogf.org/occi/infrastructure#";class="kind"\n'
             pool_name = self.get_floating_pool(occi_info)
@@ -1247,7 +1247,7 @@ class OCCICloudConnector(CloudConnector):
             if auth_header:
                 headers.update(auth_header)
 
-            disk_id = "imdisk.%s" % str(uuid.uuid1())
+            disk_id = "imdisk-%s" % str(uuid.uuid1())
 
             body = 'Category: storagelink;scheme="http://schemas.ogf.org/occi/infrastructure#";class="kind"\n'
             body += 'X-OCCI-Attribute: occi.core.id="%s"\n' % disk_id
