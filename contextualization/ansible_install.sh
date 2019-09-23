@@ -38,17 +38,22 @@ distribution_id() {
 }
 
 distribution_major_version() {
-    for RELEASE_FILE in /etc/system-release \
-                        /etc/centos-release \
-                        /etc/fedora-release \
-                        /etc/redhat-release
-    do
-        if [ -e "${RELEASE_FILE}" ]; then
-            RELEASE_VERSION=$(head -n1 ${RELEASE_FILE})
-            break
-        fi
-    done
-    echo ${RELEASE_VERSION} | sed -e 's|\(.\+\) release \([0-9]\+\)\([0-9.]*\).*|\2|'
+	if [ -f /etc/lsb-release ]; then
+		. /etc/lsb-release
+		echo ${DISTRIB_RELEASE} | sed -e 's|\([0-9]\+\)\([0-9.]*\).*|\1|'
+	else
+	    for RELEASE_FILE in /etc/system-release \
+	                        /etc/centos-release \
+	                        /etc/fedora-release \
+	                        /etc/redhat-release
+	    do
+	        if [ -e "${RELEASE_FILE}" ]; then
+	            RELEASE_VERSION=$(head -n1 ${RELEASE_FILE})
+	            break
+	        fi
+	    done
+	    echo ${RELEASE_VERSION} | sed -e 's|\(.\+\) release \([0-9]\+\)\([0-9.]*\).*|\2|'
+	fi
 }
 
 if [ $(which ansible-playbook) ]; then
@@ -62,23 +67,32 @@ else
             apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 93C4A3FD7BB9C367
             apt-get update
             apt-get -y install wget ansible
+            wget https://github.com/ParallelSSH/ssh2-python/releases/download/0.15.0.post9/python-ssh2-python_0.15.0.post9-debian8_amd64.deb
+            dpkg -i python-ssh2-python_0.15.0.post9-debian8_amd64.deb
+            apt install -f -y
             ;;
         ubuntu)
             apt-get -y install software-properties-common
             apt-add-repository -y ppa:ansible/ansible
             apt-get update
             apt-get -y install wget ansible
+            wget https://github.com/ParallelSSH/ssh2-python/releases/download/0.15.0.post9/python-ssh2-python_0.15.0.post9-ubuntu$(distribution_major_version)_amd64.deb
+            dpkg -i python-ssh2-python_0.15.0.post9-ubuntu$(distribution_major_version)_amd64.deb
+            apt install -f -y
             ;;
         rhel)
             yum install -y http://dl.fedoraproject.org/pub/epel/epel-release-latest-$(distribution_major_version).noarch.rpm
             yum install -y wget ansible
+            yum install -y https://github.com/ParallelSSH/ssh2-python/releases/download/0.15.0.post9/python-ssh2-python-0.15.0.post9-1.el7.x86_64.rpm
             ;;
         centos)
             yum install -y epel-release wget
             yum install -y ansible
+            yum install -y https://github.com/ParallelSSH/ssh2-python/releases/download/0.15.0.post9/python-ssh2-python-0.15.0.post9-1.el7.x86_64.rpm
             ;;
         fedora)
             yum install -y wget ansible python2-rpm yum
+            yum install -y https://github.com/ParallelSSH/ssh2-python/releases/download/0.15.0.post9/python-ssh2-python-0.15.0.post9-1.fc$(distribution_major_version).x86_64.rpm
             ;;
     	*)
             echo "Unsupported distribution: $DISTRO"

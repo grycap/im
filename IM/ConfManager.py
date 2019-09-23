@@ -379,8 +379,7 @@ class ConfManager(LoggerMixin, threading.Thread):
                 # Copy the contextualization agent config file
                 ssh = vm.get_ssh_ansible_master()
                 ssh.sftp_mkdir(remote_dir)
-                ssh.sftp_put(conf_file, remote_dir + "/" +
-                             os.path.basename(conf_file))
+                ssh.sftp_put(conf_file, remote_dir + "/" + os.path.basename(conf_file))
 
                 if vm.configured is None:
                     if len(self.inf.get_vm_list()) > Config.VM_NUM_USE_CTXT_DIST:
@@ -1362,7 +1361,7 @@ class ConfManager(LoggerMixin, threading.Thread):
 
             self.inf.add_cont_msg("Creating and copying Ansible playbook files")
 
-            ssh.sftp_mkdir(Config.REMOTE_CONF_DIR, 0o777)
+            ssh.sftp_mkdir(Config.REMOTE_CONF_DIR)
             ssh.sftp_mkdir(Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/", 0o700)
 
             for galaxy_name in modules:
