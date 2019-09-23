@@ -654,19 +654,41 @@ class VirtualMachine(LoggerMixin):
                         private_net = net
 
                 # Search in the RADL nets, first in the nets this VM is
-                # connected to
+                # connected to and check the CIDR of the nets
                 if private_net is None:
                     for net in self.info.networks:
                         if (not net.isPublic() and net not in private_net_map.values() and
-                                net.id not in ignore_nets and self.getNumNetworkWithConnection(net.id) is not None):
+                                net.id not in ignore_nets and self.getNumNetworkWithConnection(net.id) is not None and
+                                net.getValue('cidr') and IPAddress(private_ip) in IPNetwork(net.getValue('cidr'))):
+                            private_net = net
+                            private_net_map[net.getValue('cidr')] = net
+                            break
+
+                # Now in the RADL nets this VM is connected to
+                # but without CIDR set
+                if private_net is None:
+                    for net in self.info.networks:
+                        if (not net.isPublic() and net not in private_net_map.values() and
+                                net.id not in ignore_nets and self.getNumNetworkWithConnection(net.id) is not None and
+                                not net.getValue('cidr')):
                             private_net = net
                             private_net_map[private_net_mask] = net
                             break
 
                 # Search in the rest of RADL nets
                 if private_net is None:
+                    # First check the CIDR
                     for net in self.info.networks:
-                        if not net.isPublic() and net not in private_net_map.values() and net.id not in ignore_nets:
+                        if (not net.isPublic() and net not in private_net_map.values() and net.id not in ignore_nets and
+                                net.getValue('cidr') and IPAddress(private_ip) in IPNetwork(net.getValue('cidr'))):
+                            private_net = net
+                            private_net_map[private_net_mask] = net
+                            break
+
+                    # The search in the rest
+                    for net in self.info.networks:
+                        if (not net.isPublic() and net not in private_net_map.values() and net.id not in ignore_nets and
+                                not net.getValue('cidr')):
                             private_net = net
                             private_net_map[private_net_mask] = net
                             break

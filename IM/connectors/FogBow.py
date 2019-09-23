@@ -354,9 +354,9 @@ class FogBowCloudConnector(CloudConnector):
         if not name:
             name = "userimage"
         requirements = {}
-        sgx = system.getValue('cpu.sgx')
-        if sgx and sgx.lower() not in ["no", "false"]:
-            requirements["sgx"] = "true"
+        sgx = system.getValue('cpu.sgx.epc_size')
+        if sgx:
+            requirements["sgx:epc_size"] = str(sgx)
         gpu = system.getValue('gpu.count')
         if gpu:
             requirements["gpu"] = "true"
