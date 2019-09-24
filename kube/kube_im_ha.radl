@@ -75,7 +75,7 @@ configure front (
                }
 
       - name: Create the PVs
-        shell: kubectl apply -f http://raw.githubusercontent.com/grycap/im/devel/kube/pvs.yaml
+        shell: kubectl apply -f http://raw.githubusercontent.com/grycap/im/master/kube/pvs.yaml
         environment:
           KUBECONFIG: /etc/kubernetes/admin.conf
 
