@@ -85,7 +85,7 @@ configure front (
           KUBECONFIG: /etc/kubernetes/admin.conf
 
       - name: Add GRyCAP Helm repo
-        command: https://grycap.github.io/helm-charts/
+        command: helm repo add grycap https://grycap.github.io/helm-charts/
 
       - name: Check if IM chart is installed
         command: helm status im
