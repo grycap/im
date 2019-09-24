@@ -18,6 +18,7 @@
 
 import unittest
 import os
+import tempfile
 
 from IM.VirtualMachine import VirtualMachine
 from radl import radl_parse
@@ -106,9 +107,10 @@ class TestVirtualMachine(unittest.TestCase):
     def test_get_ctxt_output(self, mkdtemp, get_ssh_ansible_master):
         ssh = MagicMock()
         get_ssh_ansible_master.return_value = ssh
-        mkdtemp.return_value = "/tmp/test_get_ctxt"
-        os.mkdir("/tmp/test_get_ctxt")
-        with open('/tmp/test_get_ctxt/ctxt_agent.out', 'w+') as f:
+        tmp_dir = "%s/test_get_ctxt" % tempfile.gettempdir()
+        mkdtemp.return_value = tmp_dir
+        os.mkdir(tmp_dir)
+        with open('%s/ctxt_agent.out' % tmp_dir, 'w+') as f:
             f.write('{"OK": true, "CHANGE_CREDS": true}')
 
         radl_data = """
@@ -124,6 +126,16 @@ class TestVirtualMachine(unittest.TestCase):
         cont_out = vm.get_ctxt_output("", delete=True)
         self.assertEqual(cont_out, "Contextualization agent output processed successfully")
         self.assertEqual(vm.info.systems[0].getCredentialValues(), ('user', 'newpass', None, None))
+
+        os.mkdir(tmp_dir)
+        ssh.sftp_get.side_effect = IOError()
+        with open('%s/stderr' % tmp_dir, 'w+') as f:
+            f.write('stderr')
+        with open('%s/stdout' % tmp_dir, 'w+') as f:
+            f.write('stdout')
+        cont_out = vm.get_ctxt_output("", delete=True)
+        self.assertEqual(cont_out, "Error getting contextualization agent output /ctxt_agent.out:"
+                         "  No such file.\nstdout\nstderr\n")
 
     def test_setIps(self):
         radl_data = """

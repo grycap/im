@@ -121,8 +121,8 @@
       pip: name=cffi executable=pip2
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int <= 6
 
-    - name: Install scp with Pip
-      pip: name=scp executable=pip2
+    - name: Install ssh2-python with Pip
+      pip: name=ssh2-python executable=pip2
 
     - name: Install pywinrm with Pip
       pip: name=pywinrm executable=pip2
