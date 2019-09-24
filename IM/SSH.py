@@ -14,20 +14,17 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-""" Classes to encapsulate SSH operations using paramiko """
+""" Classes to encapsulate SSH operations using ssh2-python lib """
 
-import paramiko
-try:
-    import scp
-except Exception:
-    pass
+import socket
+from ssh2.session import Session
+from ssh2.exceptions import AuthenticationError, SFTPProtocolError
+from ssh2.sftp import LIBSSH2_FXF_CREAT, LIBSSH2_FXF_WRITE, LIBSSH2_FXF_TRUNC, \
+    LIBSSH2_SFTP_S_IRUSR, LIBSSH2_SFTP_S_IRGRP, LIBSSH2_SFTP_S_IWUSR, \
+    LIBSSH2_SFTP_S_IROTH, LIBSSH2_FXF_READ, LIBSSH2_SFTP_S_IFDIR
+
 import os
-try:
-    from StringIO import StringIO
-except ImportError:
-    from io import StringIO
 from threading import Thread
-from stat import S_ISDIR
 
 
 class TimeOutException(Exception):
@@ -56,39 +53,44 @@ class ThreadSSH(Thread):
         Close the SSH client connection
         """
         if self.client:
-            self.client.close()
+            del self.client
             self.client = None
 
     def run(self):
         if self.command:
             self.client = self.ssh.connect()
 
-            channel = self.client.get_transport().open_session()
+            channel = self.client.open_session()
             if self.ssh.tty:
-                channel.get_pty()
-            channel.exec_command(self.command + "\n")
-            stdout = channel.makefile()
-            stderr = channel.makefile_stderr()
-            exit_status = channel.recv_exit_status()
+                channel.pty()
 
-            res_stdout = ""
-            for line in stdout:
-                res_stdout += line
-            res_stderr = ""
-            for line in stderr:
-                res_stderr += line
+            channel.execute(self.command + "\n")
+            channel.wait_eof()
+            channel.close()
+            channel.wait_closed()
 
-            if self.ssh.tty:
-                channel.close()
+            stdout = ""
+            size, data = channel.read()
+            while size > 0:
+                stdout += data
+                size, data = channel.read()
 
-            self.command_return = (res_stdout, res_stderr, exit_status)
+            stderr = ""
+            size, data = channel.read_stderr()
+            while size > 0:
+                stderr += data
+                size, data = channel.read_stderr()
+
+            exit_status = channel.get_exit_status()
+
+            self.command_return = (stdout, stderr, exit_status)
 
 
 class SSH:
-    """ Class to encapsulate SSH operations using paramiko """
+    """ Class to encapsulate SSH operations using ssh2-python lib """
 
     def __init__(self, host, user, passwd, private_key=None, port=22):
-        # Atributo para la version "thread"
+        # Attribute for the "thread" version
         self.thread = None
 
         self.tty = False
@@ -96,29 +98,22 @@ class SSH:
         self.host = host
         self.username = user
         self.password = passwd
-        self.private_key = private_key
-        self.private_key_obj = None
-        if (private_key is not None and private_key.strip() != ""):
-            private_key_obj = StringIO()
-            if os.path.isfile(private_key):
-                pkfile = open(private_key)
-                for line in pkfile.readlines():
-                    private_key_obj.write(line)
-                pkfile.close()
-            else:
-                private_key_obj.write(private_key)
-
-            private_key_obj.seek(0)
-            self.private_key_obj = paramiko.RSAKey.from_private_key(
-                private_key_obj)
+        self.private_key = None
+        if private_key:
+            self.private_key = ""
+            if (private_key is not None and private_key.strip() != ""):
+                if os.path.isfile(private_key):
+                    with open(private_key, "rb") as pkfile:
+                        self.private_key = pkfile.read()
+                else:
+                    self.private_key = private_key.encode()
 
     def __str__(self):
-        res = "SSH: host: " + self.host + ", port: " + \
-            str(self.port) + ", user: " + self.username
+        res = "SSH: host: %s, port: %s, user: %s" % (self.host, self.port, self.username)
         if self.password is not None:
-            res += ", password: " + self.password
+            res += ", password: %s" % self.password
         if self.private_key is not None:
-            res += ", private_key: " + self.private_key
+            res += ", private_key: %s" % self.private_key
         return res
 
     def connect(self, time_out=None):
@@ -127,26 +122,31 @@ class SSH:
             Arguments:
             - time_out: Timeout to connect.
 
-            Returns: a paramiko SSHClient connected with the server.
+            Returns: a ssh2 Session connected with the server.
         """
-        client = paramiko.SSHClient()
-        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        if time_out:
+            sock.settimeout(time_out)
+        sock.connect((self.host, self.port))
 
-        if self.password and self.private_key_obj:
+        # Initialise
+        session = Session()
+        session.handshake(sock)
+
+        if self.password and self.private_key:
             # If both credentials are provided first try to use the password
             try:
-                client.connect(self.host, self.port, username=self.username,
-                               password=self.password, timeout=time_out)
-            except paramiko.AuthenticationException:
-                # and then use the private key
-                client.connect(self.host, self.port, username=self.username,
-                               pkey=self.private_key_obj, timeout=time_out)
+                session.userauth_password(self.username, self.password)
+            except AuthenticationError:
+                session.userauth_publickey_frommemory(self.username, self.private_key, '', b'')
+        elif self.private_key:
+            session.userauth_publickey_frommemory(self.username, self.private_key, '', b'')
+        elif self.password:
+            session.userauth_password(self.username, self.password)
         else:
-            client.connect(self.host, self.port, username=self.username,
-                           password=self.password, timeout=time_out,
-                           pkey=self.private_key_obj)
+            return None
 
-        return client
+        return session
 
     def test_connectivity(self, time_out=None):
         """ Tests if the SSH is active
@@ -160,15 +160,10 @@ class SSH:
                 Exception
         """
         try:
-            client = self.connect(time_out)
-            client.close()
+            self.connect(time_out)
             return True
-        except paramiko.AuthenticationException:
+        except AuthenticationError:
             raise AuthenticationException("Authentication Error!!")
-        except paramiko.SSHException as e:
-            if str(e) == "No authentication methods available":
-                raise AuthenticationException("Authentication Error!!")
-            return False
         except:
             return False
 
@@ -182,27 +177,38 @@ class SSH:
 
             Returns: A tuple (stdout, stderr, exit_code) with the output of the command and the exit code
         """
-        client = self.connect(time_out=timeout)
-        channel = client.get_transport().open_session()
+        session = self.connect(time_out=timeout)
+        channel = session.open_session()
 
         if self.tty:
-            channel.get_pty()
+            channel.pty()
 
-        channel.exec_command(command + "\n")
-        stdout = channel.makefile()
-        stderr = channel.makefile_stderr()
-        exit_status = channel.recv_exit_status()
-
-        res_stdout = ""
-        for line in stdout:
-            res_stdout += line
-        res_stderr = ""
-        for line in stderr:
-            res_stderr += line
-
+        channel.execute(command + "\n")
+        channel.wait_eof()
         channel.close()
-        client.close()
-        return (res_stdout, res_stderr, exit_status)
+        channel.wait_closed()
+
+        stdout = ""
+        size, data = channel.read()
+        while size > 0:
+            stdout += data
+            size, data = channel.read()
+
+        stderr = ""
+        size, data = channel.read_stderr()
+        while size > 0:
+            stderr += data
+            size, data = channel.read_stderr()
+
+        exit_status = channel.get_exit_status()
+
+        return (stdout, stderr, exit_status)
+
+    @staticmethod
+    def _sftp_get(sftp, src, dest):
+        with sftp.open(src, LIBSSH2_FXF_READ, LIBSSH2_SFTP_S_IRUSR) as fh, open(dest, "wb+") as fdest:
+            for _, data in fh:
+                fdest.write(data)
 
     def sftp_get(self, src, dest):
         """ Gets a file from the remote server
@@ -212,63 +218,21 @@ class SSH:
             - dest: Local destination path to copy.
         """
         client = self.connect()
-        transport = client.get_transport()
-
         try:
-            sftp = paramiko.SFTPClient.from_transport(transport)
-            if not transport.active:
-                sftp = scp.SCPClient(transport)
-        except:
-            # in case of failure try to use scp
-            sftp = scp.SCPClient(transport)
+            sftp = client.sftp_init()
+            self._sftp_get(sftp, src, dest)
+        except SFTPProtocolError:
+            self._raise_sftp_error(sftp)
 
-        sftp.get(src, dest)
-        sftp.close()
-        transport.close()
-
-    def sftp_get_files(self, src, dest):
-        """ Gets a list of files from the remote server
-
-            Arguments:
-            - src: A list with the source files in the remote server.
-            - dest: A list with the local destination paths to copy.
-        """
-        client = self.connect()
-        transport = client.get_transport()
-        try:
-            sftp = paramiko.SFTPClient.from_transport(transport)
-            if not transport.active:
-                sftp = scp.SCPClient(transport)
-        except:
-            # in case of failure try to use scp
-            sftp = scp.SCPClient(transport)
-
-        for file0, file1 in zip(src, dest):
-            sftp.get(file0, file1)
-        sftp.close()
-        transport.close()
-
-    def sftp_put_files(self, files):
-        """ Puts a list of files to the remote server
-
-            Arguments:
-            - files: A tuple where the first elements is the local source file to copy and the second
-                     element the destination paths in the remote server.
-        """
-        client = self.connect()
-        transport = client.get_transport()
-        try:
-            sftp = paramiko.SFTPClient.from_transport(transport)
-            if not transport.active:
-                sftp = scp.SCPClient(transport)
-        except:
-            # in case of failure try to use scp
-            sftp = scp.SCPClient(transport)
-
-        for src, dest in files:
-            sftp.put(src, dest)
-        sftp.close()
-        transport.close()
+    @staticmethod
+    def _sftp_put(sftp, src, dest):
+        f_flags = LIBSSH2_FXF_CREAT | LIBSSH2_FXF_WRITE | LIBSSH2_FXF_TRUNC
+        fileinfo = os.stat(src)
+        remote_fh = sftp.open(dest, f_flags, fileinfo.st_mode)
+        with open(src, 'rb') as local_fh:
+            for data in local_fh:
+                remote_fh.write(data)
+        remote_fh.close()
 
     def sftp_put(self, src, dest):
         """ Puts a file to the remote server
@@ -278,40 +242,42 @@ class SSH:
             - dest: Destination path in the remote server.
         """
         client = self.connect()
-        transport = client.get_transport()
         try:
-            sftp = paramiko.SFTPClient.from_transport(transport)
-            if not transport.active:
-                sftp = scp.SCPClient(transport)
-        except:
-            # in case of failure try to use scp
-            sftp = scp.SCPClient(transport)
-        sftp.put(src, dest)
-        sftp.close()
-        transport.close()
+            sftp = client.sftp_init()
+            self._sftp_put(sftp, src, dest)
+        except SFTPProtocolError:
+            self._raise_sftp_error(sftp)
 
-    def sftp_get_dir(self, src, dest):
-        """ Gets recursively a directory from the remote server
+    def sftp_get_files(self, src, dest):
+        """ Gets a list of files from the remote server
 
             Arguments:
-            - src: Source directory in the remote server to copy.
-            - dest: Local destination path.
+            - src: A list with the source files in the remote server.
+            - dest: A list with the local destination paths to copy.
         """
         client = self.connect()
-        transport = client.get_transport()
-        sftp = paramiko.SFTPClient.from_transport(transport)
 
-        files = self.sftp_walk(src, None, sftp)
+        try:
+            sftp = client.sftp_init()
+            for file0, file1 in zip(src, dest):
+                self._sftp_get(sftp, file0, file1)
+        except SFTPProtocolError:
+            self._raise_sftp_error(sftp)
 
-        for filename in files:
-            dirname = os.path.dirname(filename)
-            if not os.path.exists(dirname):
-                os.mkdir(dirname)
-            full_dest = filename.replace(src, dest)
-            sftp.get(filename, full_dest)
+    def sftp_put_files(self, files):
+        """ Puts a list of files to the remote server
 
-        sftp.close()
-        transport.close()
+            Arguments:
+            - files: A tuple where the first elements is the local source file to copy and the second
+                     element the destination paths in the remote server.
+        """
+        client = self.connect()
+        try:
+            sftp = client.sftp_init()
+            for src, dest in files:
+                self._sftp_put(sftp, src, dest)
+        except SFTPProtocolError:
+            self._raise_sftp_error(sftp)
 
     def sftp_walk(self, src, files=None, sftp=None):
         """ Gets recursively the list of items in a directory from the remote server
@@ -319,32 +285,55 @@ class SSH:
             Arguments:
             - src: Source directory in the remote server to copy.
         """
-        close = False
-        if not sftp:
-            client = self.connect()
-            transport = client.get_transport()
-            sftp = paramiko.SFTPClient.from_transport(transport)
-            close = True
-
         folders = []
         if not files:
             files = []
-        for f in sftp.listdir_attr(src):
-            if S_ISDIR(f.st_mode):
-                folder = os.path.join(src, f.filename)
-                folders.append(folder)
+
+        if not sftp:
+            client = self.connect()
+            sftp = client.sftp_init()
+
+        fh = sftp.opendir(src)
+        for _, name, attrs in fh.readdir():
+            if attrs.permissions & LIBSSH2_SFTP_S_IFDIR > 0:
+                if name not in [".", ".."]:
+                    folder = os.path.join(src, name)
+                    folders.append(folder)
             else:
-                filename = os.path.join(src, f.filename)
+                filename = os.path.join(src, name)
                 files.append(filename)
+        fh.close()
 
         for folder in folders:
             self.sftp_walk(folder, files, sftp)
 
-        if close:
-            sftp.close()
-            transport.close()
-
         return files
+
+    def sftp_get_dir(self, src, dest):
+        """ Gets recursively a directory from the remote server
+
+            Arguments:
+            - src: Source directory in the remote server to copy.
+            - dest: Local destination path.
+
+            Returns: The list of files copied
+        """
+        client = self.connect()
+        try:
+            sftp = client.sftp_init()
+
+            files = self.sftp_walk(src, None, sftp)
+
+            for filename in files:
+                dirname = os.path.dirname(filename)
+                if not os.path.exists(dirname):
+                    os.mkdir(dirname)
+                full_dest = filename.replace(src, dest)
+                self._sftp_get(sftp, filename, full_dest)
+
+            return files
+        except SFTPProtocolError:
+            self._raise_sftp_error(sftp)
 
     def sftp_put_dir(self, src, dest):
         """ Puts recursively the contents of a directory to the remote server
@@ -352,40 +341,36 @@ class SSH:
             Arguments:
             - src: Source local directory to copy.
             - dest: Destination path in the remote server.
-        """
-        if os.path.isdir(src):
-            if src.endswith("/"):
-                src = src[:-1]
-            client = self.connect()
-            transport = client.get_transport()
-            try:
-                sftp = paramiko.SFTPClient.from_transport(transport)
-                sftp_avail = transport.active
-            except:
-                # in case of failure try to use scp
-                sftp = scp.SCPClient(transport)
-                sftp_avail = False
 
-            for dirname, dirnames, filenames in os.walk(src):
-                for subdirname in dirnames:
-                    src_path = os.path.join(dirname, subdirname)
-                    dest_path = os.path.join(dest, src_path[len(src) + 1:])
-                    if sftp_avail:
+            Returns: The list of the remote path of the files copied
+        """
+        try:
+            if os.path.isdir(src):
+                if src.endswith("/"):
+                    src = src[:-1]
+
+                files = []
+                client = self.connect()
+                sftp = client.sftp_init()
+                for dirname, dirnames, filenames in os.walk(src):
+                    for subdirname in dirnames:
+                        src_path = os.path.join(dirname, subdirname)
+                        dest_path = os.path.join(dest, src_path[len(src) + 1:])
+                        fileinfo = os.stat(src_path)
                         try:
                             # if it exists we do not try to create it
                             sftp.stat(dest_path)
                         except:
-                            sftp.mkdir(dest_path)
-                    else:
-                        self.execute("mkdir -p %s" % dest_path)
-                for filename in filenames:
-                    src_file = os.path.join(dirname, filename)
-                    dest_file = os.path.join(dest, dirname[len(src) + 1:],
-                                             filename)
-                    sftp.put(src_file, dest_file)
-
-            sftp.close()
-            transport.close()
+                            sftp.mkdir(dest_path, fileinfo.st_mode & 0o777)
+                    for filename in filenames:
+                        src_file = os.path.join(dirname, filename)
+                        dest_file = os.path.join(dest, dirname[len(src) + 1:],
+                                                 filename)
+                        files.append(dest_file)
+                        self._sftp_put(sftp, src_file, dest_file)
+                return files
+        except SFTPProtocolError:
+            self._raise_sftp_error(sftp)
 
     def sftp_put_content(self, content, dest):
         """ Puts the contents of a string in a remote file
@@ -394,32 +379,28 @@ class SSH:
             - content: The string to put into the remote file.
             - dest: Destination path in the remote server.
         """
+        mode = LIBSSH2_SFTP_S_IRUSR | LIBSSH2_SFTP_S_IWUSR | LIBSSH2_SFTP_S_IRGRP | LIBSSH2_SFTP_S_IROTH
         client = self.connect()
-        transport = client.get_transport()
-        sftp = paramiko.SFTPClient.from_transport(transport)
-        dest_file = sftp.file(dest, "w")
-        dest_file.write(content)
-        dest_file.close()
-        sftp.close()
-        transport.close()
+        try:
+            sftp = client.sftp_init()
+            f_flags = LIBSSH2_FXF_CREAT | LIBSSH2_FXF_WRITE
+            with sftp.open(dest, f_flags, mode) as remote_fh:
+                remote_fh.write(content.encode())
+        except SFTPProtocolError:
+            self._raise_sftp_error(sftp)
 
     def sftp_mkdir(self, directory, mode=0o777):
         """ Creates a remote directory
 
             Arguments:
             - directory: Name of the directory in the remote server.
+            - mode: Int with the new permissions
 
             Returns: True if the directory is created or False if it exists.
         """
+        client = self.connect()
         try:
-            client = self.connect()
-            transport = client.get_transport()
-            sftp = paramiko.SFTPClient.from_transport(transport)
-            sftp_avail = transport.active
-        except:
-            sftp_avail = False
-
-        if sftp_avail:
+            sftp = client.sftp_init()
             try:
                 # if it exists we do not try to create it
                 sftp.stat(directory)
@@ -427,13 +408,8 @@ class SSH:
             except:
                 sftp.mkdir(directory, mode)
                 res = True
-
-            sftp.close()
-            transport.close()
-        else:
-            # use mkdir over ssh to create the directory
-            _, _, status = self.execute("mkdir -p %s" % directory)
-            res = status == 0
+        except SFTPProtocolError:
+            self._raise_sftp_error(sftp)
 
         return res
 
@@ -444,15 +420,18 @@ class SSH:
             - directory: Name of the directory in the remote server.
 
             Returns: A list with the contents of the directory
-                     (see paramiko.SFTPClient.listdir)
         """
         client = self.connect()
-        transport = client.get_transport()
-        sftp = paramiko.SFTPClient.from_transport(transport)
-        res = sftp.listdir(directory)
-        sftp.close()
-        transport.close()
-        return res
+        try:
+            sftp = client.sftp_init()
+            res = []
+            fh = sftp.opendir(directory)
+            for _, name, _ in fh.readdir():
+                res.append(name)
+            fh.close()
+            return res
+        except SFTPProtocolError:
+            self._raise_sftp_error(sftp)
 
     def sftp_list_attr(self, directory):
         """ Return a list containing SFTPAttributes objects corresponding to
@@ -465,33 +444,24 @@ class SSH:
                      (see paramiko.SFTPClient.listdir_attr)
         """
         client = self.connect()
-        transport = client.get_transport()
-        sftp = paramiko.SFTPClient.from_transport(transport)
-        res = sftp.listdir_attr(directory)
-        sftp.close()
-        transport.close()
-        return res
+        try:
+            sftp = client.sftp_init()
+            res = []
+            fh = sftp.opendir(directory)
+            for _, _, attrs in fh.readdir():
+                res.append(attrs)
+            fh.close()
+            return res
+        except SFTPProtocolError:
+            self._raise_sftp_error(sftp)
 
     def getcwd(self):
         """ Get the current working directory.
 
             Returns: The current working directory.
         """
-        try:
-            client = self.connect()
-            transport = client.get_transport()
-            sftp = paramiko.SFTPClient.from_transport(transport)
-            sftp_avail = transport.active
-        except:
-            sftp_avail = False
-
-        if sftp_avail:
-            cwd = sftp.getcwd()
-            sftp.close()
-            transport.close()
-        else:
-            # use rm over ssh to delete the file
-            cwd, _, _ = self.execute("pwd")
+        # use pwd over ssh to delete the cwd
+        cwd, _, _ = self.execute("pwd")
 
         return str(cwd.strip("\n"))
 
@@ -539,24 +509,19 @@ class SSH:
 
             Returns: True if the file is deleted or False if it exists.
         """
+        client = self.connect()
         try:
-            client = self.connect()
-            transport = client.get_transport()
-            sftp = paramiko.SFTPClient.from_transport(transport)
-            sftp_avail = transport.active
-        except:
-            sftp_avail = False
-
-        if sftp_avail:
-            res = sftp.remove(path)
-            sftp.close()
-            transport.close()
-        else:
-            # use rm over ssh to delete the file
-            _, _, status = self.execute("rm -f %s" % path)
-            res = status == 0
-
-        return res
+            sftp = client.sftp_init()
+            try:
+                # if it exists we do not try to delete it
+                sftp.stat(path)
+                sftp.unlink(path)
+                res = True
+            except:
+                res = False
+            return res
+        except SFTPProtocolError:
+            self._raise_sftp_error(sftp)
 
     def sftp_chmod(self, path, mode):
         """
@@ -568,22 +533,41 @@ class SSH:
             - path: String with the path of the file to change the permissions of
             - mode: Int with the new permissions
         """
+        client = self.connect()
         try:
-            client = self.connect()
-            transport = client.get_transport()
-            sftp = paramiko.SFTPClient.from_transport(transport)
-            sftp_avail = transport.active
-        except Exception:
-            sftp_avail = False
+            sftp = client.sftp_init()
 
-        if sftp_avail:
-            sftp.chmod(path, mode)
-            res = True
-            sftp.close()
-            transport.close()
+            attrs = sftp.stat(path)
+            attrs.permissions = attrs.permissions | mode
+            sftp.setstat(path, attrs)
+
+            return True
+        except SFTPProtocolError:
+            self._raise_sftp_error(sftp)
+
+    @staticmethod
+    def _raise_sftp_error(sftp):
+        """
+        Raises SFTPProtocolError with the correct error message
+        """
+        code = sftp.last_error()
+        messages = ["OK",
+                    "EOF error",
+                    "No such file",
+                    "Permission denied",
+                    "Failure",
+                    "Bad Message",
+                    "No connection",
+                    "Connection lost",
+                    "Op Unsupported"]
+
+        msg = "Error code: %d." % code
+        if code == 0:
+            return
+        elif code in range(1, 9):
+            msg += " %s." % messages[code]
+
+        if code == 1:
+            raise EOFError(msg)
         else:
-            # use chmod over ssh to change permissions
-            _, _, status = self.execute("chmod %s %s" % (oct(mode), path))
-            res = status == 0
-
-        return res
+            raise IOError(msg)
