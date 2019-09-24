@@ -1,0 +1,44 @@
+# Persistent Volumes in NFS
+# Adapt to you real installation
+# Volume for MySQL data
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  namespace: im
+  name: pvnfsmysql
+spec:
+  storageClassName: imdb
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+    - ReadWriteMany
+  mountOptions:
+    - nolock
+    - hard
+  nfs:
+    path: /pv/mysql
+    server: kubeserver
+
+# Volume for log data
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  namespace: im
+  name: pvnfslog
+spec:
+  storageClassName: imlog
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+    - ReadWriteMany
+  mountOptions:
+    - nolock
+    - hard
+  nfs:
+    path: /pv/log
+    server: kubeserver
+

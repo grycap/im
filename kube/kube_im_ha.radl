@@ -28,7 +28,9 @@ disk.0.image.url = 'one://ramses.i3m.upv.es/476'
 configure front (
 @begin
 ---
- - pre_tasks:
+ - vars:
+     IM_REPLICAS: 4
+   pre_tasks:
     - name: Create dir for the NFS PV Top dir
       file: path=/pv state=directory mode=755
     - name: Create dir for the im NFS PV Top dir
@@ -49,8 +51,13 @@ configure front (
 
     - role: 'grycap.kubernetes'
       kube_server: 'kubeserver'
-      kube_apiserver_options: [{option: "--insecure-port", value: "8080"}, {option: "--token-auth-file", value: "/etc/kubernetes/pki/auth"}]
+      kube_apiserver_options:
+        - {option: "--insecure-port", value: "8080"}
+        - {option: "--token-auth-file", value: "/etc/kubernetes/pki/auth"}
+        - {option: "--service-node-port-range", value: "80-32767"}
       kube_deploy_dashboard: true
+      kube_install_ingress: true
+      kube_install_helm: true
 
    tasks:
       - name: Create logrotate file
@@ -67,17 +74,28 @@ configure front (
                        copytruncate
                }
 
-      - name: Launch IM in HA mode
-        shell: kubectl apply -f http://raw.githubusercontent.com/grycap/im/master/kube/im-deploy-ha.yaml
+      - name: Create the PVs
+        shell: kubectl apply -f http://raw.githubusercontent.com/grycap/im/master/kube/pvs.yaml
         environment:
           KUBECONFIG: /etc/kubernetes/admin.conf
 
+      - name: Wait for tiller-deploy ready status
+        command: kubectl rollout status deployment/tiller-deploy -n kube-system
+        environment:
+          KUBECONFIG: /etc/kubernetes/admin.conf
 
-#      - name: Launch IM in standalone mode
-#        shell: kubectl apply -f http://raw.githubusercontent.com/grycap/im/master/kube/im-deploy.yaml
-#        environment:
-#          KUBECONFIG: /etc/kubernetes/admin.conf
+      - name: Add GRyCAP Helm repo
+        command: helm repo add grycap https://grycap.github.io/helm-charts/
 
+      - name: Check if IM chart is installed
+        command: helm status im
+        register: helm_status
+        ignore_errors: yes
+        changed_when: false
+      
+      - name: Install IM chart
+        command: helm install --namespace=im --name=im  grycap/IM --set 'mysql.persistence.enabled=true,im.log.persistence.enabled=true,im.replicas={{ IM_REPLICAS }}'
+        when: helm_status.rc != 0
 
 @end
 )
