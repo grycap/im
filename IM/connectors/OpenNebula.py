@@ -572,20 +572,21 @@ class OpenNebulaCloudConnector(CloudConnector):
         cont = 1
         while system.getValue("disk." + str(cont) + ".image.url") or system.getValue("disk." + str(cont) + ".size"):
             disk_image = system.getValue("disk." + str(cont) + ".image.url")
+            disk_device = system.getValue("disk." + str(cont) + ".device")
             if disk_image:
-                disks += 'DISK = [ IMAGE_ID = "%s" ]\n' % urlparse(disk_image)[2][1:]
+                disks += 'DISK = [ IMAGE_ID = "%s"' % urlparse(disk_image)[2][1:]
             else:
                 disk_size = system.getFeature(
                     "disk." + str(cont) + ".size").getValue('M')
-                disk_device = system.getValue("disk." + str(cont) + ".device")
                 disk_fstype = system.getValue("disk." + str(cont) + ".fstype")
                 if not disk_fstype:
                     disk_fstype = 'ext3'
 
-                disks += ' DISK = [ TYPE = fs , FORMAT = %s, SIZE = %d,' % (disk_fstype, int(disk_size))
-                if disk_device:
-                    disks += 'TARGET = %s,' % disk_device
-                disks += 'SAVE = no ]\n'
+                disks += ' DISK = [ SAVE = no, TYPE = fs , FORMAT = %s, SIZE = %d' % (disk_fstype, int(disk_size))
+
+            if disk_device:
+                disks += ', TARGET = %s' % disk_device
+            disks += ' ]\n'
 
             cont += 1
 
