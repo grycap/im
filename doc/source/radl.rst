@@ -257,8 +257,8 @@ machine.  The supported features are:
 ``availability_zone``
    Set the availability zone or region where this VM will be launched.
    It only applies to Google Cloud, Microsoft Azure, Amazon AWS, and Fogbow
-   connectors. In the Fogbow case it specifies the manager where the VM will
-   be launched (Glue2CloudComputeManagerID).
+   connectors. In the Fogbow case it specifies the site and cloud where the VM will
+   be launched (in format cloud@site).
 
 ``instance_id``
    Get the instance ID assigned by the Cloud provider for this VM. 
