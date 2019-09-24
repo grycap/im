@@ -582,7 +582,7 @@ class OpenNebulaCloudConnector(CloudConnector):
                 if not disk_fstype:
                     disk_fstype = 'ext3'
 
-                disks += ' DISK = [ SAVE = no, TYPE = fs , FORMAT = %s, SIZE = %d,' % (disk_fstype, int(disk_size))
+                disks += ' DISK = [ SAVE = no, TYPE = fs , FORMAT = %s, SIZE = %d' % (disk_fstype, int(disk_size))
 
             if disk_device:
                 disks += ', TARGET = %s' % disk_device
