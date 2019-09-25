@@ -442,6 +442,8 @@ class OpenNebulaCloudConnector(CloudConnector):
             inf.add_vm(vm)
             template = self.getONETemplate(vm.info, sgs, auth_data, vm)
 
+            self.log_debug("ONE Template: %s" % template)
+
             success, res_id = server.one.vm.allocate(session_id, template)[0:2]
 
             if success:
