@@ -83,8 +83,9 @@ However, if you install IM from sources you should install:
  * The RADL parser (https://github.com/grycap/radl), available in pip
    as the ``RADL`` package.
 
- * The paramiko ssh2 protocol library for python version 1.14 or later
-(http://www.lag.net/paramiko/), typically available as the ``python-paramiko`` package.
+ * The ssh2-python library for python version 0.17 or later
+(https://github.com/ParallelSSH/ssh2-python), typically available as the ``ssh2-python`` Pip package.
+   You can generate the system bynary packages following the [installation docs](https://github.com/ParallelSSH/ssh2-python/blob/master/doc/installation.rst#system-binary-packages).
 
  * The YAML library for Python, typically available as the ``python-yaml`` or ``PyYAML`` package.
 
@@ -210,10 +211,16 @@ of IM features that you need requires to install some of the packages of section
 You must also remember to modify the ansible.cfg file setting as specified in the 
 REQUISITES section.
 
-#### 3.3.3 From RPM packages (RH7)
+#### 3.3.3 From System packages
+
+This option is not recommended as in most of the cases some packages will not have the last version,
+so part of the IM functionality may not be available.
+
+##### 3.3.3.1 From RPM packages (RH7)
 
 Download the RPM package from [GitHub](https://github.com/grycap/im/releases/latest).
 Also remember to download the RPMs of the RADL and TOSCA parser packages from its corresponding GitHub repositories: [RADL](https://github.com/grycap/radl/releases/latest) and [TOSCA parser](https://github.com/indigo-dc/tosca-parser/releases/latest).
+You also need download the ssh2-python package you can do it from our mirror [link](http://ftpgrycap.i3m.upv.es/ssh2-python/python-ssh2-python-0.18.0_1_ge5fdd3e-1.el7.x86_64.rpm)
 
 
 You must have the epel repository enabled:
@@ -232,10 +239,11 @@ Azure python SDK is not available in CentOS. So if you need the Azure plugin you
 shown in the OPTIONAL PACKAGES section.
 
 
-#### 3.3.4 From Deb package (Tested with Ubuntu 14.04, 16.04 and 18.04)
+##### 3.3.3.2 From Deb package (Tested with Ubuntu 14.04, 16.04 and 18.04)
 
 Download the Deb package from [GitHub](https://github.com/grycap/im/releases/latest).
 Also remember to download the Debs of the RADL and TOSCA parser packages from its corresponding GitHub repositories: [RADL](https://github.com/grycap/radl/releases/latest) and [TOSCA parser](https://github.com/indigo-dc/tosca-parser/releases/latest).
+You also need download the ssh2-python package you can do it from our mirror [ubuntu14](http://ftpgrycap.i3m.upv.es/ssh2-python/python-ssh2-python_0.18.0-1-ge5fdd3e-ubuntu14_amd64.deb), [ubuntu16](http://ftpgrycap.i3m.upv.es/ssh2-python/python-ssh2-python_0.18.0-1-ge5fdd3e-ubuntu16_amd64.deb), [ubuntu18](http://ftpgrycap.i3m.upv.es/ssh2-python/python-ssh2-python_0.18.0-1-ge5fdd3e-ubuntu18_amd64.deb)
 
 
 In Ubuntu 14.04 there are some requisites not available for the "trusty" version or are too old, so you have to manually install them manually.
@@ -268,7 +276,7 @@ $ sudo dpkg -i *.deb
 $ sudo apt install -f -y
 ```
 
-#### 3.3.5 FROM SOURCE
+#### 3.3.4 FROM SOURCE
 
 Select a proper path where the IM service will be installed (i.e. /usr/local/im,
 /opt/im or other). This path will be called IM_PATH
