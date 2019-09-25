@@ -69,7 +69,7 @@ else
             apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 93C4A3FD7BB9C367
             apt-get update
             apt-get -y install wget ansible
-            wget http://ftpgrycap.i3m.upv.es/ssh2-python/python-ssh2-python-$(SSH2_PYHTON_VERSION)-1.debian8.x86_64.rpm
+            wget http://ftpgrycap.i3m.upv.es/ssh2-python/python-ssh2-python-$SSH2_PYHTON_VERSION-1.debian8.x86_64.rpm
             dpkg -i python-ssh2-python-0.18.0_1_ge5fdd3e-1.debian8.x86_64.rpm
             apt install -f -y
             ;;
@@ -78,23 +78,23 @@ else
             apt-add-repository -y ppa:ansible/ansible
             apt-get update
             apt-get -y install wget ansible
-            wget http://ftpgrycap.i3m.upv.es/ssh2-python/python-ssh2-python-$(SSH2_PYHTON_VERSION)-1.ubuntu$(distribution_major_version).x86_64.rpm
+            wget http://ftpgrycap.i3m.upv.es/ssh2-python/python-ssh2-python-$SSH2_PYHTON_VERSION-1.ubuntu$(distribution_major_version).x86_64.rpm
             dpkg -i python-ssh2-python-0.18.0_1_ge5fdd3e-1.ubuntu$(distribution_major_version).x86_64.rpm
             apt install -f -y
             ;;
         rhel)
             yum install -y http://dl.fedoraproject.org/pub/epel/epel-release-latest-$(distribution_major_version).noarch.rpm
             yum install -y wget ansible
-            yum install -y http://ftpgrycap.i3m.upv.es/ssh2-python/python-ssh2-python-$(SSH2_PYHTON_VERSION)-1.el7.x86_64.rpm
+            yum install -y http://ftpgrycap.i3m.upv.es/ssh2-python/python-ssh2-python-$SSH2_PYHTON_VERSION-1.el7.x86_64.rpm
             ;;
         centos)
             yum install -y epel-release wget
             yum install -y ansible
-            yum install -y http://ftpgrycap.i3m.upv.es/ssh2-python/python-ssh2-python-$(SSH2_PYHTON_VERSION)-1.el7.x86_64.rpm
+            yum install -y http://ftpgrycap.i3m.upv.es/ssh2-python/python-ssh2-python-$SSH2_PYHTON_VERSION-1.el7.x86_64.rpm
             ;;
         fedora)
             yum install -y wget ansible python2-rpm yum
-            yum install -y http://ftpgrycap.i3m.upv.es/ssh2-python/python-ssh2-python-$(SSH2_PYHTON_VERSION)-1.fc$(distribution_major_version).x86_64.rpm
+            yum install -y http://ftpgrycap.i3m.upv.es/ssh2-python/python-ssh2-python-$SSH2_PYHTON_VERSION-1.fc$(distribution_major_version).x86_64.rpm
             ;;
     	*)
             echo "Unsupported distribution: $DISTRO"
