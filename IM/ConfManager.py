@@ -1361,7 +1361,7 @@ class ConfManager(LoggerMixin, threading.Thread):
 
             self.inf.add_cont_msg("Creating and copying Ansible playbook files")
 
-            ssh.sftp_mkdir(Config.REMOTE_CONF_DIR)
+            ssh.sftp_mkdir(Config.REMOTE_CONF_DIR, 0o777)
             ssh.sftp_mkdir(Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/", 0o700)
 
             for galaxy_name in modules:
