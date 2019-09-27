@@ -210,7 +210,12 @@ of IM features that you need requires to install some of the packages of section
 You must also remember to modify the ansible.cfg file setting as specified in the 
 REQUISITES section.
 
-#### 3.3.3 From RPM packages (RH7)
+#### 3.3.3 From System packages
+
+This option is not recommended as in most of the cases some packages will not have the last version,
+so part of the IM functionality may not be available.
+
+##### 3.3.3.1 From RPM packages (RH7)
 
 Download the RPM package from [GitHub](https://github.com/grycap/im/releases/latest).
 Also remember to download the RPMs of the RADL and TOSCA parser packages from its corresponding GitHub repositories: [RADL](https://github.com/grycap/radl/releases/latest) and [TOSCA parser](https://github.com/indigo-dc/tosca-parser/releases/latest).
@@ -232,7 +237,7 @@ Azure python SDK is not available in CentOS. So if you need the Azure plugin you
 shown in the OPTIONAL PACKAGES section.
 
 
-#### 3.3.4 From Deb package (Tested with Ubuntu 14.04, 16.04 and 18.04)
+##### 3.3.3.2 From Deb package (Tested with Ubuntu 14.04, 16.04 and 18.04)
 
 Download the Deb package from [GitHub](https://github.com/grycap/im/releases/latest).
 Also remember to download the Debs of the RADL and TOSCA parser packages from its corresponding GitHub repositories: [RADL](https://github.com/grycap/radl/releases/latest) and [TOSCA parser](https://github.com/indigo-dc/tosca-parser/releases/latest).
@@ -268,7 +273,7 @@ $ sudo dpkg -i *.deb
 $ sudo apt install -f -y
 ```
 
-#### 3.3.5 FROM SOURCE
+#### 3.3.4 FROM SOURCE
 
 Select a proper path where the IM service will be installed (i.e. /usr/local/im,
 /opt/im or other). This path will be called IM_PATH
