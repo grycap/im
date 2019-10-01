@@ -88,6 +88,49 @@ class TestOSTConnector(TestCloudConnectorBase):
         self.assertEqual(len(concrete), 1)
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
+    @patch('IM.AppDB.AppDB.get_site_id')
+    @patch('IM.AppDB.AppDB.get_site_url')
+    @patch('IM.AppDB.AppDB.get_image_id')
+    @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
+    def test_15_concrete_appdb(self, get_driver, get_image_id, get_site_url, get_site_id):
+        radl_data = """
+            network net ()
+            system test (
+            cpu.arch='x86_64' and
+            cpu.count>=1 and
+            memory.size>=512m and
+            net_interface.0.connection = 'net' and
+            net_interface.0.dns_name = 'test' and
+            disk.0.os.name = 'linux' and
+            disk.0.image.url = 'appdb://CESNET-MetaCloud/egi.ubuntu.16.04?fedcloud.egi.eu' and
+            disk.0.os.credentials.username = 'user'
+            )"""
+        radl = radl_parse.parse_radl(radl_data)
+        radl_system = radl.systems[0]
+
+        auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'username': 'user',
+                                'password': 'pass', 'tenant': 'tenant', 'host': 'https://server.com:5000'}])
+        ost_cloud = self.get_ost_cloud()
+        ost_cloud.cloud.server = "server.com"
+
+        driver = MagicMock()
+        get_driver.return_value = driver
+
+        node_size = MagicMock()
+        node_size.ram = 512
+        node_size.price = 1
+        node_size.disk = 1
+        node_size.vcpus = 1
+        node_size.name = "small"
+        driver.list_sizes.return_value = [node_size]
+
+        get_site_url.return_value = "https://server.com:5000"
+        get_site_id.return_value = "8016G0"
+        get_image_id.return_value = "imageid1"
+        concrete = ost_cloud.concreteSystem(radl_system, auth)
+        self.assertEqual(len(concrete), 1)
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
     def create_node(self, **kwargs):
         """
         Create VMs returning error only first time
@@ -103,7 +146,8 @@ class TestOSTConnector(TestCloudConnectorBase):
 
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
     @patch('IM.InfrastructureList.InfrastructureList.save_data')
-    def test_20_launch(self, save_data, get_driver):
+    @patch('IM.AppDB.AppDB.get_image_data')
+    def test_20_launch(self, get_image_data, save_data, get_driver):
         radl_data = """
             network net1 (outbound = 'yes' and provider_id = 'public' and
                           outports = '8080,9000:9100' and sg_name= 'test')
@@ -221,6 +265,13 @@ class TestOSTConnector(TestCloudConnectorBase):
         res = ost_cloud.launch(inf, radl, radl, 1, auth)
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
+
+        get_image_data.return_value = "https://cloud.recas.ba.infn.it:5000", "image_id2", ""
+        radl.systems[0].setValue('disk.0.image.url', 'appdb://CESNET-MetaCloud/egi.ubuntu.16.04?fedcloud.egi.eu')
+        res = ost_cloud.launch(inf, radl, radl, 1, auth)
+        success, _ = res[0]
+        self.assertTrue(success, msg="ERROR: launching a VM.")
+        self.assertEqual(driver.get_image.call_args_list[3][0][0], "image_id2")
 
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
     def test_30_updateVMInfo(self, get_driver):
