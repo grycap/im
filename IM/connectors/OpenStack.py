@@ -37,6 +37,7 @@ except ImportError:
     from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from radl.radl import Feature
+from IM.AppDB import AppDB
 
 
 class OpenStackCloudConnector(LibCloudCloudConnector):
@@ -227,6 +228,16 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         url = urlparse(str_url)
         protocol = url[0]
         src_host = url[1].split(':')[0]
+
+        if protocol == "appdb":
+            site_url, image_id, msg = AppDB.get_image_data(str_url, type="openstack")
+            if not image_id or not site_url:
+                self.log_error(msg)
+                return None
+
+            protocol = "ost"
+            url = urlparse(site_url)
+            src_host = url[1].split(':')[0]
 
         if protocol == "ost" and self.cloud.server == src_host:
             driver = self.get_driver(auth_data)
@@ -898,7 +909,17 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         driver = self.get_driver(auth_data)
 
         system = radl.systems[0]
-        image_id = self.get_image_id(system.getValue("disk.0.image.url"))
+
+        image_url = system.getValue("disk.0.image.url")
+        if urlparse(image_url)[0] == "appdb":
+            site_url, image_id, msg = AppDB.get_image_data(image_url, type="openstack")
+            if not image_id or not site_url:
+                self.log_error(msg)
+                return None
+            src_host = urlparse(site_url)[1].split(':')[0]
+            image_id = self.get_image_id("ost://%s/%s" % (src_host, image_id))
+        else:
+            image_id = self.get_image_id(system.getValue("disk.0.image.url"))
         image = driver.get_image(image_id)
 
         instance_type = self.get_instance_type(driver.list_sizes(), system)
