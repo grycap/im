@@ -366,8 +366,7 @@ class ConfManager(LoggerMixin, threading.Thread):
                 self.log_error("VM with ID %s (%s) does not have an IP!!. "
                                "We cannot launch the ansible process!!" % (str(vm.im_id), vm.id))
             else:
-                remote_dir = Config.REMOTE_CONF_DIR + "/" + \
-                    str(self.inf.id) + "/" + ip + "_" + str(vm.im_id)
+                remote_dir = Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/" + ip + "_" + str(vm.im_id)
                 tmp_dir = tempfile.mkdtemp()
 
                 self.log_info("Create the configuration file for the contextualization agent")
@@ -1361,7 +1360,7 @@ class ConfManager(LoggerMixin, threading.Thread):
 
             self.inf.add_cont_msg("Creating and copying Ansible playbook files")
 
-            ssh.sftp_mkdir(Config.REMOTE_CONF_DIR)
+            ssh.sftp_mkdir(Config.REMOTE_CONF_DIR, 0o777)
             ssh.sftp_mkdir(Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/", 0o700)
 
             for galaxy_name in modules:
