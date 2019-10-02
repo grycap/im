@@ -59,7 +59,7 @@ class TestOCCIConnector(TestCloudConnectorBase):
         cloud = OCCICloudConnector(cloud_info, inf)
         return cloud
 
-    def test_10_concrete(self):
+    def test_concrete(self):
         radl_data = """
             network net ()
             system test (
@@ -82,8 +82,9 @@ class TestOCCIConnector(TestCloudConnectorBase):
         self.assertEqual(len(concrete), 1)
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
-    @patch('requests.request')
-    def test_15_concrete_appdb(self, requests):
+    @patch('IM.AppDB.AppDB.get_site_id')
+    @patch('IM.AppDB.AppDB.get_site_url')
+    def test_concrete_appdb(self, get_site_url, get_site_id):
         radl_data = """
             network net ()
             system test (
@@ -104,7 +105,8 @@ class TestOCCIConnector(TestCloudConnectorBase):
         occi_cloud = self.get_occi_cloud()
         occi_cloud.cloud.server = "carach5.ics.muni.cz"
 
-        requests.side_effect = self.get_response
+        get_site_url.return_value = "https://carach5.ics.muni.cz:11443"
+        get_site_id.return_value = "siteid"
         concrete = occi_cloud.concreteSystem(radl_system, auth)
         self.assertEqual(len(concrete), 1)
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
@@ -147,15 +149,16 @@ class TestOCCIConnector(TestCloudConnectorBase):
                 resp.headers = {'X-Subject-Token': 'token1'}
             elif url.endswith("/link/storagelink/compute_10_disk_1"):
                 resp.status_code = 404
-            elif url == "/rest/1.0/va_providers":
+            elif url == "/rest/1.0/sites":
                 resp.status_code = 200
                 resp.text = """<appdb:appdb>
-                                <virtualization:provider id="4454G0" in_production="true">
-                                    <provider:name>CESNET-MetaCloud</provider:name>
-                                </virtualization:provider>
-                                <virtualization:provider id="id" in_production="true">
-                                    <provider:name>some</provider:name>
-                                </virtualization:provider>
+                                <appdb:site id="14454G0" name="CESNET-MetaCloud" infrastructure="Production"
+                                status="Certified">
+                                    <site:service type="openstack" id="4454G0" host="https://carach5.ics.muni.cz:5000">
+                                    </site:service>
+                                    <site:service type="occi" id="4455G0" host="https://carach5.ics.muni.cz:11443">
+                                    </site:service>
+                                </appdb:site>
                                 </appdb:appdb>"""
             elif url == "/rest/1.0/va_providers/4454G0":
                 resp.status_code = 200
