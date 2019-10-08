@@ -633,7 +633,11 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             if pub_net_provider_id in routers:
                 return routers[pub_net_provider_id]
             else:
-                return routers[list(routers.keys())[0]]
+                if len(routers) > 0:
+                    return routers[list(routers.keys())[0]]
+                else:
+                    self.log_warn("No public router found!.")
+                    return None
 
         except Exception:
             self.log_exception("Error getting public router.")
