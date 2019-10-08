@@ -537,3 +537,13 @@ IM 1.8.5:
     * Enable to specify GPU and SGX in Fogbow conn.
     * Improve TOSCA network management to create L2 nets.
     * Fix error attaching a new disk in OCCI conn.
+
+IM 1.8.6:
+    * Fix error in SSH reverse tunnels in case of using IM auth token.
+    * Enable to boot IM in "ReadOnly" modes.
+    * Enable to force the deletion of an infrastructure.
+    * Fix error attaching new disks in OCCI conn in OpenNebula site.
+    * Fix error in Network mapping in case of using CIDR.
+    * Enable to specify GPU and SGX in Fogbow conn.
+    * Fix error assigning target to disks with image url in OpenNebula conn.
+    * Enable to use appdb urls in OpenStack conn. 
