@@ -557,14 +557,18 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                                                                    for mask in Config.PRIVATE_NET_MASKS]))
                             break
 
-                # If we do not have the IP range try to use the router:external to identify a net as public
-                if 'is_public' not in ost_net.extra:
-                    if 'router:external' in ost_net.extra and ost_net.extra['router:external']:
-                        ost_net.extra['is_public'] = True
-                    elif ost_net.name in pool_names:
-                        # If we do not have any clue assume that if it is
-                        # in the pool it should be a public net
-                        ost_net.extra['is_public'] = True
+        for ost_net in ost_nets:
+            # If we do not have the IP range try to use the router:external to identify a net as public
+            if 'is_public' not in ost_net.extra:
+                if 'router:external' in ost_net.extra and ost_net.extra['router:external']:
+                    ost_net.extra['is_public'] = True
+                elif ost_net.name in pool_names:
+                    # If we do not have any clue assume that if it is
+                    # in the pool it should be a public net
+                    ost_net.extra['is_public'] = True
+                else:
+                    # let's assume that is not public
+                    ost_net.extra['is_public'] = False
 
         return get_subnets, ost_nets
 
@@ -629,7 +633,11 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             if pub_net_provider_id in routers:
                 return routers[pub_net_provider_id]
             else:
-                return routers[list(routers.keys())[0]]
+                if len(routers) > 0:
+                    return routers[list(routers.keys())[0]]
+                else:
+                    self.log_warn("No public router found!.")
+                    return None
 
         except Exception:
             self.log_exception("Error getting public router.")
