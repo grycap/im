@@ -50,7 +50,11 @@ class AppDB:
         if data:
             for site in data['appdb:appdb']['appdb:site']:
                 if site_name == site['@name'] and site['@infrastructure'] == "Production":
-                    for service in site['site:service']:
+                    if isinstance(site['site:service'], list):
+                        services = site['site:service']
+                    else:
+                        services = [site['site:service']]
+                    for service in services:
                         if service['@type'] == stype:
                             return service['@id']
         else:
