@@ -8,7 +8,7 @@ and the security settings are controlled by the options listed in
 In the following link you can follow the IM REST API in Swaggerhub: 
 `Swagger API <https://app.swaggerhub.com/apis-docs/grycap/InfrastructureManager/>`_.
 
-Every HTTP request must be companied by the header ``AUTHORIZATION`` with
+Every HTTP request must be accompanied by the header ``AUTHORIZATION`` with
 the content of the :ref:`auth-file`, but putting all the elements in one line
 using "\\n" as separator. If the content cannot be parsed successfully, or the user and
 password are not valid, it is returned the HTTP error code 401.
@@ -358,9 +358,8 @@ PUT ``http://imserver.com/infrastructures/<infId>/vms/<vmId>/disks/<diskNum>/sna
 
    Create a snapshot of the specified ``diskNum`` in the VM ``vmId``
    of the infrastructure with ID ``infId``. 
-   
-   The ``autoDelete`` flag
-   specifies that the snapshot will be deleted when the infrastructure is
-   destroyed. If the operation has been performed successfully the return
-   value is the image url of the new created image in IM format
-   (see disk.<diskId>.image.url format in RADL).
+
+   The ``autoDelete`` flag specifies that the snapshot will be deleted when
+   the infrastructure is destroyed (default value false). If the operation has been performed
+   successfully the return value is the image url of the new created image in
+   IM format (see disk.<diskId>.image.url format in RADL).
