@@ -658,6 +658,9 @@ class InfrastructureInfo:
                 if self_im_auth['password'] != password:
                     return False
 
+                # In case of OIDC token update it in each call to get a fresh version
+                self_im_auth['token'] = other_im_auth['token']
+
             if (self_im_auth['username'].startswith(InfrastructureInfo.OPENID_USER_PREFIX) and
                     'token' not in other_im_auth):
                 # This is a OpenID user do not enable to get data using user/pass creds
