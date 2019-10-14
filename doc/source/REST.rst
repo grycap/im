@@ -8,7 +8,7 @@ and the security settings are controlled by the options listed in
 In the following link you can follow the IM REST API in Swaggerhub: 
 `Swagger API <https://app.swaggerhub.com/apis-docs/grycap/InfrastructureManager/>`_.
 
-Every HTTP request must be companied by the header ``AUTHORIZATION`` with
+Every HTTP request must be accompanied by the header ``AUTHORIZATION`` with
 the content of the :ref:`auth-file`, but putting all the elements in one line
 using "\\n" as separator. If the content cannot be parsed successfully, or the user and
 password are not valid, it is returned the HTTP error code 401.
@@ -48,7 +48,7 @@ Next tables summaries the resources and the HTTP methods available.
 +-------------+-----------------------------------------------------+----------------------------------------------------+
 
 +-------------+-----------------------------------------------+------------------------------------------------+------------------------------------------------+
-| HTTP method | /infrastructures/<infId>/vms/<vmId>/stop      | /infrastructures/<infId>/start                 | /infrastructures/<infId>/reboot                |
+| HTTP method | /infrastructures/<infId>/vms/<vmId>/stop      | /infrastructures/<infId>/vms/<vmId>/start      | /infrastructures/<infId>/vms/<vmId>/reboot     |
 +=============+===============================================+================================================+================================================+
 | **PUT**     | | **Stop** the machine ``vmId`` in ``infId``. | | **Start** the machine ``vmId`` in ``infId``. | | **Reboot** the machine ``vmId`` in ``infId``.|
 +-------------+-----------------------------------------------+------------------------------------------------+------------------------------------------------+
