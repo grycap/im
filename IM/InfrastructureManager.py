@@ -242,6 +242,12 @@ class InfrastructureManager:
             InfrastructureManager.logger.error("Inf ID: %s is deleted." % inf_id)
             raise DeletedInfrastructureException()
 
+        # In case of OIDC token update it in each call to get a fresh version
+        sel_inf_auth = sel_inf.auth.getAuthInfo("InfrastructureManager")[0]
+        other_im_auth = auth.getAuthInfo("InfrastructureManager")[0]
+        if 'token' in sel_inf_auth and 'token' in other_im_auth:
+            sel_inf_auth['token'] = other_im_auth['token']
+
         return sel_inf
 
     @staticmethod
