@@ -1152,20 +1152,19 @@ configure step2 (
         res = inf.is_authorized(user_auth)
         self.assertEqual(res, False)
 
-
         user_auth1 = Authentication([{'id': 'im', 'type': 'InfrastructureManager',
-                                     'username': im_auth['username'],
-                                     'password': im_auth['password'],
-                                     'token': im_auth['token']}])
+                                      'username': im_auth['username'],
+                                      'password': im_auth['password'],
+                                      'token': im_auth['token']}])
         res = inf.is_authorized(user_auth1)
         self.assertEqual(res, True)
 
         inf.auth = user_auth1
         new_token = self.gen_token()
         user_auth2 = Authentication([{'id': 'im', 'type': 'InfrastructureManager',
-                                         'username': im_auth['username'],
-                                         'password': im_auth['password'],
-                                         'token': new_token}])
+                                      'username': im_auth['username'],
+                                      'password': im_auth['password'],
+                                      'token': new_token}])
         res = inf.is_authorized(user_auth2)
         self.assertEqual(res, True)
         self.assertEqual(inf.auth.getAuthInfo("InfrastructureManager")[0]['token'], new_token)
