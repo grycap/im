@@ -29,18 +29,18 @@ class TestAuth(unittest.TestCase):
     """
 
     def test_auth_read(self):
-        auth_lines = ["""id = 1; type = InfrastructureManager; username = someuser; password = somepass """,
-                      """id = 2; type = VMRC; username = someuser; password = somepass; """,
-                      """id = 3; type = OpenNebula; username = someuser; password = "some;'pass" """,
-                      """id = 4; type = EC2; username = someuser; password = 'some;"pass' """]
+        auth_lines = ["""id = a1; type = InfrastructureManager; username = someuser; password = somepass """,
+                      """id = a2; type = VMRC; username = someuser; password = somepass; """,
+                      """id = a3; type = OpenNebula; username = someuser; password = "some;'pass" """,
+                      """id = a4; type = EC2; username = someuser; password = 'some;"pass' """]
         auth = Authentication.read_auth_data(auth_lines)
-        self.assertEqual(auth, [{'id': '1', 'password': "somepass",
+        self.assertEqual(auth, [{'id': 'a1', 'password': "somepass",
                                  'type': 'InfrastructureManager', 'username': 'someuser'},
-                                {'id': '2', 'password': "somepass",
+                                {'id': 'a2', 'password': "somepass",
                                  'type': 'VMRC', 'username': 'someuser'},
-                                {'id': '3', 'password': "some;'pass",
+                                {'id': 'a3', 'password': "some;'pass",
                                  'type': 'OpenNebula', 'username': 'someuser'},
-                                {'id': '4', 'password': 'some;"pass',
+                                {'id': 'a4', 'password': 'some;"pass',
                                  'type': 'EC2', 'username': 'someuser'}])
 
         tests_path = os.path.dirname(os.path.abspath(__file__))
@@ -51,15 +51,20 @@ class TestAuth(unittest.TestCase):
         os.unlink("/tmp/privatekey.pem")
 
     def test_get_auth(self):
-        auth_lines = ["""id = 1; type = InfrastructureManager; username = someuser; password = somepass """,
-                      """id = 2; type = VMRC; username = someuser; password = somepass; """]
+        auth_lines = ["""id = a1; type = InfrastructureManager; username = someuser; password = somepass """,
+                      """id = a2; type = VMRC; username = someuser; password = somepass; """]
         auth = Authentication(Authentication.read_auth_data(auth_lines))
-        auth_data = auth.getAuthInfoByID("1")
-        self.assertEqual(auth_data, [{'id': '1', 'password': "somepass",
+        auth_data = auth.getAuthInfoByID("a1")
+        self.assertEqual(auth_data, [{'id': 'a1', 'password': "somepass",
                                       'type': 'InfrastructureManager', 'username': 'someuser'}])
         auth_data = auth.getAuthInfo("VMRC")
-        self.assertEqual(auth_data, [{'id': '2', 'password': "somepass",
+        self.assertEqual(auth_data, [{'id': 'a2', 'password': "somepass",
                                       'type': 'VMRC', 'username': 'someuser'}])
+
+        auth_lines = ["""id = 1a; type = InfrastructureManager; username = someuser; password = somepass """]
+        with self.assertRaises(Exception) as ex:
+            auth = Authentication(Authentication.read_auth_data(auth_lines))
+        self.assertEqual("Incorrect value in auth item id: 1a", str(ex.exception))
 
 
 if __name__ == '__main__':
