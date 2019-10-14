@@ -15,6 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import json
+import re
 
 
 class Authentication:
@@ -39,6 +40,12 @@ class Authentication:
             self.auth_list = auth_data.auth_list
         else:
             self.auth_list = auth_data
+
+        for auth in self.auth_list:
+            if 'id' in auth:
+                pattern = re.compile(r'[a-zA-Z_.][\w\d_.-]*')
+                if not pattern.match(auth['id']):
+                    raise Exception('Incorrect value in auth item id: %s' % auth['id'])
 
     def getAuthInfo(self, auth_type, host=None):
         """
