@@ -2,7 +2,6 @@ import os
 import logging
 import yaml
 import copy
-import time
 import requests
 
 try:
