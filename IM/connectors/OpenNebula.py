@@ -637,7 +637,7 @@ class OpenNebulaCloudConnector(CloudConnector):
             if private and public:
                 res += 'SSH_PUBLIC_KEY = "%s"' % public
 
-            if Config.SSH_REVERSE_TUNNELS:
+            if Config.SSH_REVERSE_TUNNELS and not vm.hasPublicNet():
                 if private and public:
                     res += ", "
                 inst_command = "apt update; apt install -y sshpass curl > /tmp/sshpass.out 2> /tmp/sshpass.err;"
