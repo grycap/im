@@ -633,13 +633,13 @@ class OpenNebulaCloudConnector(CloudConnector):
             system.setValue('disk.0.os.credentials.private_key', private)
 
         if (private and public) or ConfigOpenNebula.TEMPLATE_CONTEXT or Config.SSH_REVERSE_TUNNELS:
-            res += 'CONTEXT = ['
+            context = ""
             if private and public:
-                res += 'SSH_PUBLIC_KEY = "%s"' % public
+                context += 'SSH_PUBLIC_KEY = "%s"' % public
 
-            if Config.SSH_REVERSE_TUNNELS:
+            if Config.SSH_REVERSE_TUNNELS and not vm.hasPublicNet():
                 if private and public:
-                    res += ", "
+                    context += ", "
                 inst_command = "apt update; apt install -y sshpass curl > /tmp/sshpass.out 2> /tmp/sshpass.err;"
                 inst_command += "yum install sshpass curl -y;"
                 inst_command += "zypper install -y sshpass curl;"
@@ -647,13 +647,14 @@ class OpenNebulaCloudConnector(CloudConnector):
                 command = "which sshpass && which curl || %s" % inst_command
 
                 command += vm.get_boot_curl_commands()[0]
-                res += 'START_SCRIPT = "%s"' % command.replace('"', '\\"')
+                context += 'START_SCRIPT = "%s"' % command.replace('"', '\\"')
 
             if ConfigOpenNebula.TEMPLATE_CONTEXT:
                 if private and public or Config.SSH_REVERSE_TUNNELS:
-                    res += ", "
-                res += ConfigOpenNebula.TEMPLATE_CONTEXT
-            res += ']'
+                    context += ", "
+                context += ConfigOpenNebula.TEMPLATE_CONTEXT
+            if context:
+                res += 'CONTEXT = [%s]' % context
 
         self.log_debug("Template: " + res)
 
