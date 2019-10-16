@@ -546,4 +546,6 @@ IM 1.8.6:
     * Fix error in Network mapping in case of using CIDR.
     * Enable to specify GPU and SGX in Fogbow conn.
     * Fix error assigning target to disks with image url in OpenNebula conn.
-    * Enable to use appdb urls in OpenStack conn. 
+    * Enable to use appdb urls in OpenStack conn.
+    * Fix error loading infra data from DB.
+    * Fix error in hybrid clusters, no WN deployed in external site.
