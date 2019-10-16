@@ -331,10 +331,12 @@ more info at `EGI Documentation <https://egi-federated-cloud-integration.readthe
 * username: ``egi.eu``.
 * tenant: ``openid``.
 * password: Specifies the EGI CheckIn access token.
+* domain: Specifies the OpenStack project to use. This parameter is optional. If not set the first project returned
+  by Keystone will be selected.
 
 So the auth line will be like that::
 
-   id = ost; type = OpenStack; host = https://ostserver:5000; username = egi.eu; tenant = openid; password = egi_aai_token_value; auth_version = 3.x_oidc_access_token
+   id = ost; type = OpenStack; host = https://ostserver:5000; username = egi.eu; tenant = openid; password = egi_aai_token_value; auth_version = 3.x_oidc_access_token; domain = project_name
 
 
 Open Telekom Cloud
