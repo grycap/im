@@ -391,7 +391,7 @@ class TestGCEConnector(TestCloudConnectorBase):
         driver.ex_list_networks.return_value = [net]
 
         fw = MagicMock()
-        fw.name = "infid-id"
+        fw.name = "im-infid-id"
         fw.destroy.return_value = True
         driver.ex_list_firewalls.return_value = [fw]
 
