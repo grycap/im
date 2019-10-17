@@ -668,26 +668,26 @@ class EC2CloudConnector(CloudConnector):
 
         i = 0
         while i < num_vm:
-
-            vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self)
-            vm.destroy = True
-            inf.add_vm(vm)
-            user_data = self.get_cloud_init_data(radl, vm, public_key, user)
-
-            bdm = boto.ec2.blockdevicemapping.BlockDeviceMapping(conn)
-            # Force to use magnetic volumes in root device
-            bdm[block_device_name] = boto.ec2.blockdevicemapping.BlockDeviceType(volume_type="standard",
-                                                                                 delete_on_termination=True)
-
-            volumes = self.get_volumes(conn, vm)
-            for device, (size, snapshot_id, disk_type) in volumes.items():
-                bdm[device] = boto.ec2.blockdevicemapping.BlockDeviceType(snapshot_id=snapshot_id,
-                                                                          volume_type=disk_type,
-                                                                          size=size, delete_on_termination=True)
-
-            err_msg = "Launching in region %s with image: %s" % (region_name, ami)
-            err_msg += " in VPC: %s-%s " % (vpc, subnet)
             try:
+                err_msg = "Launching in region %s with image: %s" % (region_name, ami)
+                err_msg += " in VPC: %s-%s " % (vpc, subnet)
+
+                vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self)
+                vm.destroy = True
+                inf.add_vm(vm)
+                user_data = self.get_cloud_init_data(radl, vm, public_key, user)
+
+                bdm = boto.ec2.blockdevicemapping.BlockDeviceMapping(conn)
+                # Force to use magnetic volumes in root device
+                bdm[block_device_name] = boto.ec2.blockdevicemapping.BlockDeviceType(volume_type="standard",
+                                                                                     delete_on_termination=True)
+
+                volumes = self.get_volumes(conn, vm)
+                for device, (size, snapshot_id, disk_type) in volumes.items():
+                    bdm[device] = boto.ec2.blockdevicemapping.BlockDeviceType(snapshot_id=snapshot_id,
+                                                                              volume_type=disk_type,
+                                                                              size=size, delete_on_termination=True)
+
                 if spot:
                     self.log_info("Launching a spot instance")
                     err_msg += " a spot instance "
@@ -835,14 +835,22 @@ class EC2CloudConnector(CloudConnector):
             disk_device = "sd%s" % disk_device[-1]
 
             disk_size = None
+            snapshot_id = None
             if disk_url:
-                _, snapshot_id = EC2CloudConnector.getAMIData(disk_url)
-                snapshot = conn.get_all_snapshots([snapshot_id])[0]
-                disk_url = snapshot.id
+                _, elem_id = EC2CloudConnector.getAMIData(disk_url)
+                if elem_id.startswith('snap-'):
+                    snapshot_id = conn.get_all_snapshots([elem_id])[0].id
+                else:
+                    raise Exception("Incorrect snapshot ID: %s" % elem_id)
             else:
                 disk_size = vm.info.systems[0].getFeature("disk." + str(cont) + ".size").getValue('G')
 
-            res["/dev/" + disk_device] = (disk_size, disk_url, disk_type)
+            # Set standard as default type
+            if not disk_type:
+                disk_type = "standard"
+                vm.info.systems[0].setValue("disk." + str(cont) + ".type", disk_type)
+
+            res["/dev/" + disk_device] = (disk_size, snapshot_id, disk_type)
             cont += 1
 
         return res
