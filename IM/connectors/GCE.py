@@ -366,7 +366,7 @@ class GCECloudConnector(LibCloudCloudConnector):
                 if inf.id in net_name:
                     firewall_name = "%s" % net_name
                 else:
-                    firewall_name = "%s-%s" % (inf.id, net_name)
+                    firewall_name = "im-%s-%s" % (inf.id, net_name)
 
                 outports = public_net.getOutPorts()
                 if outports:
