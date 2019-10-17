@@ -624,10 +624,13 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
             # Get the routers associated with public nets
             routers = {}
-            for router in driver.ex_list_routers():
-                if router.extra['external_gateway_info']:
-                    if router.extra['external_gateway_info']['network_id'] in pub_nets:
-                        routers[pub_nets[router.extra['external_gateway_info']['network_id']]] = router
+            try:
+                for router in driver.ex_list_routers():
+                    if router.extra['external_gateway_info']:
+                        if router.extra['external_gateway_info']['network_id'] in pub_nets:
+                            routers[pub_nets[router.extra['external_gateway_info']['network_id']]] = router
+            except Exception as ex:
+                self.log_warn("Error listing routers: %s." % ex.args[0])
 
             # try to select first the router of the net provider id
             if pub_net_provider_id in routers:
