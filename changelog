@@ -549,3 +549,4 @@ IM 1.8.6:
     * Enable to use appdb urls in OpenStack conn.
     * Fix error loading infra data from DB.
     * Fix error in hybrid clusters, no WN deployed in external site.
+    * Fix error creating GCE FW.
