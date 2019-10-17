@@ -706,8 +706,7 @@ class GCECloudConnector(LibCloudCloudConnector):
         Delete the FWs
         """
         for gce_fw in driver.ex_list_firewalls():
-            name_prefix = "im-%s" % vm.inf.id
-            if gce_fw.name.startswith(name_prefix):
+            if vm.inf.id in gce_fw.name:
                 self.log_info("Deleting FW %s." % gce_fw.name)
                 gce_fw.destroy()
 
