@@ -550,3 +550,4 @@ IM 1.8.6:
     * Fix error loading infra data from DB.
     * Fix error in hybrid clusters, no WN deployed in external site.
     * Fix error creating GCE FW.
+    * Enable to specify the snapshot name in disk url in EC2 conn.
