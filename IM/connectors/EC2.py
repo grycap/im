@@ -841,7 +841,11 @@ class EC2CloudConnector(CloudConnector):
                 if elem_id.startswith('snap-'):
                     snapshot_id = conn.get_all_snapshots([elem_id])[0].id
                 else:
-                    raise Exception("Incorrect snapshot ID: %s" % elem_id)
+                    snapshot = conn.get_all_snapshots(filters={'tag:Name': elem_id})
+                    if snapshot:
+                        snapshot_id = snapshot[0].id
+                    else:
+                        raise Exception("No snapshot found with name: %s" % elem_id)
             else:
                 disk_size = vm.info.systems[0].getFeature("disk." + str(cont) + ".size").getValue('G')
 
