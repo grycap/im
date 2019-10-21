@@ -52,13 +52,13 @@ class TestAuth(unittest.TestCase):
 
     def test_get_auth(self):
         auth_lines = ["""id = a1; type = InfrastructureManager; username = someuser; password = somepass """,
-                      """id = a2; type = VMRC; username = someuser; password = somepass; """]
+                      """id = ''; type = VMRC; username = someuser; password = somepass; """]
         auth = Authentication(Authentication.read_auth_data(auth_lines))
         auth_data = auth.getAuthInfoByID("a1")
         self.assertEqual(auth_data, [{'id': 'a1', 'password': "somepass",
                                       'type': 'InfrastructureManager', 'username': 'someuser'}])
         auth_data = auth.getAuthInfo("VMRC")
-        self.assertEqual(auth_data, [{'id': 'a2', 'password': "somepass",
+        self.assertEqual(auth_data, [{'id': '', 'password': "somepass",
                                       'type': 'VMRC', 'username': 'someuser'}])
 
         auth_lines = ["""id = 1a; type = InfrastructureManager; username = someuser; password = somepass """]
