@@ -42,7 +42,7 @@ class Authentication:
             self.auth_list = auth_data
 
         for auth in self.auth_list:
-            if 'id' in auth:
+            if 'id' in auth and auth['id']:
                 pattern = re.compile(r'[a-zA-Z_.][\w\d_.-]*')
                 if not pattern.match(auth['id']):
                     raise Exception('Incorrect value in auth item id: %s' % auth['id'])
