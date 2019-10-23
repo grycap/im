@@ -1429,6 +1429,8 @@ class EC2CloudConnector(CloudConnector):
                     instance.modify_attribute("groupSet", [def_sg_id])
             except Exception as ex:
                 self.log_warn("Error removing the SG %s from the instance: %s. %s" % (sg.name, instance.id, ex))
+                # try to wait some seconds to free the SGs
+                time.sleep(5)
 
             self.log_info("Remove the SG: " + sg.name)
             try:
