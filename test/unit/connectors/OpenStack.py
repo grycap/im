@@ -318,7 +318,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         node = MagicMock()
         node.id = "1"
         node.state = "running"
-        node.extra = {'flavorId': 'small',
+        node.extra = {'flavorId': 'small', 'volumes_attached': [{'id': 'vol1'}],
                       'addresses': {'os-lan': [{'addr': '10.0.0.1', 'OS-EXT-IPS:type': 'fixed'}]}}
         node.public_ips = []
         node.private_ips = ['10.0.0.1']
@@ -335,8 +335,11 @@ class TestOSTConnector(TestCloudConnectorBase):
 
         volume = MagicMock()
         volume.id = "vol1"
+        volume.size = 1
+        volume.extra = {'attachments': [{'device': 'vdb'}]}
         volume.attach.return_value = True
         driver.create_volume.return_value = volume
+        driver.ex_get_volume.return_value = volume
 
         pool = MagicMock()
         pool.name = "pool1"
@@ -369,6 +372,8 @@ class TestOSTConnector(TestCloudConnectorBase):
         self.assertEquals(driver.ex_update_subnet.call_args_list[0][0][0].id, "subnet1")
         self.assertEquals(driver.ex_update_subnet.call_args_list[0][1],
                           {'host_routes': [{'nexthop': '10.0.0.1', 'destination': '10.0.0.0/16'}]})
+        self.assertEquals(vm.info.systems[0].getValue("disk.1.device"), "vdb")
+        self.assertEquals(vm.info.systems[0].getValue("disk.1.image.url"), "ost://server.com/vol1")
 
         # In this case the Node has the float ip assigned
         # node.public_ips = ['8.8.8.8']
