@@ -334,6 +334,34 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         return success
 
+    def setVolumesInfo(self, vm, node):
+        try:
+            cont = 1
+            if 'volumes_attached' in node.extra and node.extra['volumes_attached']:
+                for vol_id in node.extra['volumes_attached']:
+                    self.log_debug("Getting Volume info %s" % vol_id)
+                    volume = node.driver.ex_get_volume(vol_id['id'])
+                    disk_size = vm.info.systems[0].getFeature("disk." + str(cont) + ".size").getValue('G')
+                    if disk_size and disk_size != volume.size:
+                        self.log_warn("Volume ID %s does not have the expected size %s != %s" % (vol_id,
+                                                                                                 volume.size,
+                                                                                                 disk_size))
+                        continue
+                    vm.info.systems[0].setValue("disk." + str(cont) + ".size", volume.size, 'G')
+
+                    disk_url = vm.info.systems[0].getValue("disk." + str(cont) + ".image.url")
+                    if disk_url and os.path.basename(disk_url) != vol_id:
+                        self.log_warn("Volume does not have the expected id %s != %s" % (vol_id,
+                                                                                         os.path.basename(disk_url)))
+                    vm.info.systems[0].setValue("disk." + str(cont) + ".image.url", "ost://%s/%s" % (self.cloud.server,
+                                                                                                     volume.id))
+                    if 'attachments' in volume.extra and volume.extra['attachments']:
+                        vm.info.systems[0].setValue("disk." + str(cont) + ".device",
+                                                    os.path.basename(volume.extra['attachments'][0]['device']))
+                    cont += 1
+        except Exception as ex:
+            self.log_warn("Error getting volume info: %s" % ex.args[0])
+
     def updateVMInfo(self, vm, auth_data):
         node = self.get_node_with_id(vm.id, auth_data)
         if node:
@@ -345,6 +373,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
             self.addRouterInstance(vm, node.driver)
             self.setIPsFromInstance(vm, node)
+            self.setVolumesInfo(vm, node)
         else:
             self.log_warn("Error updating the instance %s. VM not found." % vm.id)
             return (False, "Error updating the instance %s. VM not found." % vm.id)
