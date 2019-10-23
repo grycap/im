@@ -1424,8 +1424,11 @@ class EC2CloudConnector(CloudConnector):
             if sg.description != "Security group created by the IM":
                 self.log_info("SG %s not created by the IM. Do not delete it." % sg.name)
                 continue
-            for instance in sg.instances():
-                instance.modify_attribute("groupSet", [def_sg_id])
+            try:
+                for instance in sg.instances():
+                    instance.modify_attribute("groupSet", [def_sg_id])
+            except Exception as ex:
+                self.log_warn("Error removing the SG %s from the instance: %s. %s" % (sg.name, instance.id, ex))
 
             self.log_info("Remove the SG: " + sg.name)
             try:
