@@ -646,15 +646,16 @@ class EC2CloudConnector(CloudConnector):
         public_key = system.getValue("disk.0.os.credentials.public_key")
         private_key = system.getValue('disk.0.os.credentials.private_key')
         keypair_name = None
-        if private_key and public_key:
-            # We assume that if the name key is shorter than 128 is a keypair name
-            if len(public_key) < 128:
-                keypair_name = public_key
 
         if not public_key:
             # We must generate them
             (public_key, private_key) = self.keygen()
             system.setValue('disk.0.os.credentials.private_key', private_key)
+
+        # We assume that if the name key is shorter than 128 is a keypair name
+        if len(public_key) < 128:
+            keypair_name = public_key
+            public_key = None
 
         user = system.getValue('disk.0.os.credentials.username')
         if not user:
