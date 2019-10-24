@@ -569,6 +569,46 @@ The configuration values under the ``OpenNebula`` section:
    The default value is ``GRAPHICS = [type="vnc",listen="0.0.0.0"]``. 
 
 
+.. _logging:
+
+Logging Configuration
+^^^^^^^^^^^^^^^^^^^^^
+
+IM uses Python logging library (see the `documentation <https://docs.python.org/2/howto/logging.html>`_).
+You have two options to configure it: use the configuration variables at the IM configuration file or
+use the file ``/etc/im/logging.conf``.
+
+The configuration variables are the following:
+
+.. confval:: LOG_LEVEL 
+
+   Set the level of the log messages: DEBUG, INFO, WARNING, ERROR, CRITICAL
+   The default value is ``'INFO'``.
+
+.. confval:: LOG_FILE
+
+   Set the destination file of the log messages.
+   The default value is ``'/var/log/im/im.log'``.
+
+.. confval:: LOG_FILE_MAX_SIZE 
+
+   Set the maximum file size of the log file. It will be rotated when size exceed this size,
+   with a default depth of 3 files.
+   The default value is ``'10485760'``.
+
+If you need to specify more advanced details of the logging configuration you have to use the file
+``/etc/im/logging.conf``. For example to set a syslogd server as the destination of the log messages::
+
+	[handler_fileHandler]
+	class=logging.handlers.SysLogHandler
+	level=INFO
+	formatter=simpleFormatter
+	args=(('<syslog_ip>', 514),)
+	[formatter_simpleFormatter]
+	format=%(asctime)s - %(hostname)s - %(name)s - %(levelname)s - %(message)s
+	datefmt=
+
+
 Docker Image
 ============
 
