@@ -551,3 +551,8 @@ IM 1.8.6:
     * Fix error in hybrid clusters, no WN deployed in external site.
     * Fix error creating GCE FW.
     * Enable to specify the snapshot name in disk url in EC2 conn.
+
+IM 1.8.7:
+    * Get device info from disks on OpenStack conn.
+    * Fix error setting keypair name as public_key in the EC2 conn.
+
