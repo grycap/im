@@ -339,9 +339,10 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         try:
             cont = 1
             if 'volumes_attached' in node.extra and node.extra['volumes_attached']:
-                for vol_id in node.extra['volumes_attached']:
+                for vol_info in node.extra['volumes_attached']:
+                    vol_id = vol_info['id']
                     self.log_debug("Getting Volume info %s" % vol_id)
-                    volume = node.driver.ex_get_volume(vol_id['id'])
+                    volume = node.driver.ex_get_volume(vol_id)
                     disk_size = vm.info.systems[0].getFeature("disk." + str(cont) + ".size").getValue('G')
                     if disk_size and disk_size != volume.size:
                         self.log_warn("Volume ID %s does not have the expected size %s != %s" % (vol_id,
