@@ -19,6 +19,7 @@ import time
 from netaddr import IPNetwork, IPAddress
 import os.path
 import tempfile
+from libcloud.common.exceptions import BaseHTTPError
 
 try:
     from libcloud.compute.types import Provider
@@ -452,6 +453,9 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 for ip in pool.list_floating_ips():
                     if ip.node_id == node.id:
                         ips.append(ip.ip_address)
+        except BaseHTTPError as ex:
+            if ex.code == 404:
+                self.log_warn("Error getting node floating ips. It seems that the site does not support them.")
         except Exception:
             self.log_exception("Error getting node floating ips")
         return ips
@@ -911,6 +915,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 system.getValue("disk." + str(cont) + ".image.url")):
             disk_url = system.getValue("disk." + str(cont) + ".image.url")
             disk_device = system.getValue("disk." + str(cont) + ".device")
+            disk_type = system.getValue("disk." + str(cont) + ".type")
             if disk_device:
                 disk_device = "vd%s" % disk_device[-1]
             disk_fstype = system.getValue("disk." + str(cont) + ".fstype")
@@ -938,6 +943,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     'delete_on_termination': True,
                     'volume_size': disk_size
                 }
+                if disk_type:
+                    disk['volume_type'] = disk_type
             if disk_device:
                 disk['device_name'] = disk_device
             res.append(disk)
