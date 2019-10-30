@@ -180,9 +180,10 @@ class InfrastructureManager:
             requested_radl = radl.clone()
             requested_radl.systems = [radl.get_system_by_name(deploy.id)]
             if not concrete_system:
-                InfrastructureManager.logger.error(
-                    "Error, no concrete system to deploy: " + deploy.id + " in cloud: " +
-                    cloud_id + ". Check if a correct image is being used")
+                InfrastructureManager.logger.error("Inf ID: " + str(sel_inf.id) +
+                                                   ". Error, no concrete system to deploy: " +
+                                                   deploy.id + " in cloud: " + cloud_id +
+                                                   ". Check if a correct image is being used")
                 for _ in range(deploy.vm_number):
                     launched_vms.append((False, "Error, no concrete system to deploy: " + deploy.id +
                                          " in cloud: " + cloud_id + ". Check if a correct image is being used"))
@@ -197,8 +198,8 @@ class InfrastructureManager:
                     for _ in range(deploy.vm_number):
                         launched_vms.append((False, "No username for deploy: " + deploy.id))
                 else:
-                    InfrastructureManager.logger.debug(
-                        "Launching %d VMs of type %s" % (deploy.vm_number, concrete_system.name))
+                    InfrastructureManager.logger.debug("Inf ID: %s. Launching %d VMs of type %s" %
+                                                       (sel_inf.id, deploy.vm_number, concrete_system.name))
                     launched_vms = cloud.cloud.getCloudConnector(sel_inf).launch_with_retry(
                         sel_inf, launch_radl, requested_radl, deploy.vm_number, auth, Config.MAX_VM_FAILS,
                         Config.DELAY_BETWEEN_VM_RETRIES)
@@ -210,11 +211,13 @@ class InfrastructureManager:
 
             for success, launched_vm in launched_vms:
                 if success:
-                    InfrastructureManager.logger.debug("VM successfully launched: %s" % launched_vm.id)
+                    InfrastructureManager.logger.debug("Inf ID: %s. VM successfully launched: %s" % (sel_inf.id,
+                                                                                                     launched_vm.id))
                     deployed_vm.setdefault(deploy, []).append(launched_vm)
                     deploy.cloud_id = cloud_id
                 else:
-                    InfrastructureManager.logger.error("Error launching some of the VMs: %s" % launched_vm)
+                    InfrastructureManager.logger.error("Inf ID: %s. Error launching some of the "
+                                                       "VMs: %s" % (sel_inf.id, launched_vm))
                     vm = VirtualMachine(sel_inf, None, cloud.cloud, launch_radl, requested_radl)
                     vm.state = VirtualMachine.FAILED
                     vm.info.systems[0].setValue('state', VirtualMachine.FAILED)
