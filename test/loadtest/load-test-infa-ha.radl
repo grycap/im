@@ -128,7 +128,7 @@ configure im (
       template: src=/etc/haproxy_tomcat.cfg.j2 dest=/etc/haproxy.cfg mode=0644
 
     - name: start haproxy container
-      docker:
+      docker_container:
         name: haproxy
         image: "haproxy:latest"
         state: started
