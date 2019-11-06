@@ -233,3 +233,4 @@ configure infra (
 deploy im 1
 deploy imclient 1
 deploy infra 1
+deploy infrawn 1
