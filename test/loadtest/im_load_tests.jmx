@@ -58,6 +58,16 @@
             <stringProp name="Argument.value">${__P(IMPROT,http)}</stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
+          <elementProp name="CONST_DELAY" elementType="Argument">
+            <stringProp name="Argument.name">CONST_DELAY</stringProp>
+            <stringProp name="Argument.value">${__P(CONST_DELAY,0)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="RAND_DELAY" elementType="Argument">
+            <stringProp name="Argument.name">RAND_DELAY</stringProp>
+            <stringProp name="Argument.value">${__P(RAND_DELAY,0)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
         </collectionProp>
       </Arguments>
       <hashTree/>
@@ -121,8 +131,8 @@
             <hashTree/>
           </hashTree>
           <UniformRandomTimer guiclass="UniformRandomTimerGui" testclass="UniformRandomTimer" testname="Uniform Random Timer" enabled="true">
-            <stringProp name="ConstantTimer.delay">10</stringProp>
-            <stringProp name="RandomTimer.range">10.0</stringProp>
+            <stringProp name="ConstantTimer.delay">${CONST_DELAY}</stringProp>
+            <stringProp name="RandomTimer.range">${RAND_DELAY}</stringProp>
           </UniformRandomTimer>
           <hashTree/>
           <ForeachController guiclass="ForeachControlPanel" testclass="ForeachController" testname="ForEach Controller" enabled="true">
@@ -289,6 +299,11 @@ contextualize (&#xd;
               </JSONPostProcessor>
               <hashTree/>
             </hashTree>
+            <UniformRandomTimer guiclass="UniformRandomTimerGui" testclass="UniformRandomTimer" testname="Uniform Random Timer" enabled="true">
+              <stringProp name="ConstantTimer.delay">${CONST_DELAY}</stringProp>
+              <stringProp name="RandomTimer.range">${RAND_DELAY}</stringProp>
+            </UniformRandomTimer>
+            <hashTree/>
             <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Get VM info" enabled="true">
               <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="Variables definidas por el Usuario" enabled="true">
                 <collectionProp name="Arguments.arguments"/>
@@ -308,6 +323,11 @@ contextualize (&#xd;
               <stringProp name="HTTPSampler.response_timeout"></stringProp>
             </HTTPSamplerProxy>
             <hashTree/>
+            <UniformRandomTimer guiclass="UniformRandomTimerGui" testclass="UniformRandomTimer" testname="Uniform Random Timer" enabled="true">
+              <stringProp name="ConstantTimer.delay">${CONST_DELAY}</stringProp>
+              <stringProp name="RandomTimer.range">${RAND_DELAY}</stringProp>
+            </UniformRandomTimer>
+            <hashTree/>
             <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Get contmsg" enabled="true">
               <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="Variables definidas por el Usuario" enabled="true">
                 <collectionProp name="Arguments.arguments"/>
@@ -326,6 +346,11 @@ contextualize (&#xd;
               <stringProp name="HTTPSampler.connect_timeout"></stringProp>
               <stringProp name="HTTPSampler.response_timeout"></stringProp>
             </HTTPSamplerProxy>
+            <hashTree/>
+            <UniformRandomTimer guiclass="UniformRandomTimerGui" testclass="UniformRandomTimer" testname="Uniform Random Timer" enabled="true">
+              <stringProp name="ConstantTimer.delay">${CONST_DELAY}</stringProp>
+              <stringProp name="RandomTimer.range">${RAND_DELAY}</stringProp>
+            </UniformRandomTimer>
             <hashTree/>
             <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Get VM state" enabled="true">
               <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="Variables definidas por el Usuario" enabled="true">
@@ -411,6 +436,11 @@ deploy wn 1</stringProp>
               </JSONPostProcessor>
               <hashTree/>
             </hashTree>
+            <UniformRandomTimer guiclass="UniformRandomTimerGui" testclass="UniformRandomTimer" testname="Uniform Random Timer" enabled="true">
+              <stringProp name="ConstantTimer.delay">${CONST_DELAY}</stringProp>
+              <stringProp name="RandomTimer.range">${RAND_DELAY}</stringProp>
+            </UniformRandomTimer>
+            <hashTree/>
             <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Get VM info" enabled="true">
               <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="Variables definidas por el Usuario" enabled="true">
                 <collectionProp name="Arguments.arguments"/>
@@ -430,6 +460,11 @@ deploy wn 1</stringProp>
               <stringProp name="HTTPSampler.response_timeout"></stringProp>
             </HTTPSamplerProxy>
             <hashTree/>
+            <UniformRandomTimer guiclass="UniformRandomTimerGui" testclass="UniformRandomTimer" testname="Uniform Random Timer" enabled="true">
+              <stringProp name="ConstantTimer.delay">${CONST_DELAY}</stringProp>
+              <stringProp name="RandomTimer.range">${RAND_DELAY}</stringProp>
+            </UniformRandomTimer>
+            <hashTree/>
             <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Get VM contmsg" enabled="true">
               <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="Variables definidas por el Usuario" enabled="true">
                 <collectionProp name="Arguments.arguments"/>
@@ -448,6 +483,11 @@ deploy wn 1</stringProp>
               <stringProp name="HTTPSampler.connect_timeout"></stringProp>
               <stringProp name="HTTPSampler.response_timeout"></stringProp>
             </HTTPSamplerProxy>
+            <hashTree/>
+            <UniformRandomTimer guiclass="UniformRandomTimerGui" testclass="UniformRandomTimer" testname="Uniform Random Timer" enabled="true">
+              <stringProp name="ConstantTimer.delay">${CONST_DELAY}</stringProp>
+              <stringProp name="RandomTimer.range">${RAND_DELAY}</stringProp>
+            </UniformRandomTimer>
             <hashTree/>
             <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Get VM state" enabled="true">
               <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="Variables definidas por el Usuario" enabled="true">
@@ -663,7 +703,7 @@ deploy wn 1</stringProp>
             <connectTime>true</connectTime>
           </value>
         </objProp>
-        <stringProp name="filename"></stringProp>
+        <stringProp name="filename">/var/tmp/tree.log</stringProp>
       </ResultCollector>
       <hashTree/>
       <ResultCollector guiclass="SummaryReport" testclass="ResultCollector" testname="Summary Report" enabled="true">
