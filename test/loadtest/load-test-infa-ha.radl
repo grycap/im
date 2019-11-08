@@ -2,7 +2,7 @@ network publica (outbound = 'yes')
 network privada ()
 
 system im (
-cpu.count>=1 and
+cpu.count>=2 and
 memory.size>=2G and
 net_interface.0.connection = 'publica' and
 net_interface.1.connection = 'privada' and
@@ -14,9 +14,21 @@ disk.0.os.credentials.new.password = 'Tututu+01' and
 disk.0.applications contains (name='ansible.modules.grycap.docker')
 )
 
+system immysql (
+cpu.count>=2 and
+memory.size>=4G and
+net_interface.0.connection = 'privada' and
+net_interface.0.dns_name = 'immysql' and
+disk.0.os.name='linux' and
+disk.0.os.flavour='ubuntu' and
+disk.0.os.version>='16.04' and
+disk.0.os.credentials.new.password = 'Tututu+01' and
+disk.0.applications contains (name='ansible.modules.grycap.docker')
+)
+
 system imclient (
-cpu.count>=1 and
-memory.size>=1G and
+cpu.count>=2 and
+memory.size>=2G and
 net_interface.0.connection = 'privada' and
 net_interface.0.dns_name = 'imclient' and
 disk.0.os.name='linux' and
@@ -54,6 +66,8 @@ configure im (
 @begin
 ---
   - vars:
+     IMVERSION: 1.8.7-dev2
+     IM_MYSQL_IP: "{{ hostvars[groups['immysql'][0]]['IM_NODE_PRIVATE_IP'] }}"
      IM_SERVICE_IP: "{{ hostvars[groups['im'][0]]['IM_NODE_PRIVATE_IP'] }}"
      IM_PORTS: 
          - {xmlrpc: 7799, rest: 8801}
@@ -61,19 +75,15 @@ configure im (
     roles:
      - { role: 'grycap.docker' }
     tasks:
-    - name: mysql container
-      docker_container:
-        name: immysql
-        image: "mysql:5.7"
-        state: started
-        env:
-            MYSQL_ROOT_PASSWORD: impass
-            MYSQL_DATABASE: imdb 
+    - name: Waits for MySQL to start
+      wait_for:
+        host: "{{ IM_MYSQL_IP }}"
+        port: 3306
 
     - name: im container
       docker_container:
         name: im-{{item.xmlrpc}}
-        image: "grycap/im"
+        image: "grycap/im:{{ IMVERSION }}"
         state: started
         ports:
         - "{{item.rest}}:8800"
@@ -81,10 +91,8 @@ configure im (
         expose:
         - 8899
         - 8800
-        links:
-        - "immysql:immysql"
         env:
-            IM_DATA_DB: "mysql://root:impass@immysql/imdb"
+            IM_DATA_DB: "mysql://root:impass@{{ IM_MYSQL_IP }}/imdb"
       with_items: "{{IM_PORTS}}"
       
     - name: Create HAProxy template
@@ -167,35 +175,92 @@ configure im (
 @end
 )
 
+configure immysql (
+@begin
+---
+  - roles:
+    - role: 'grycap.docker'
+
+    tasks:
+    - name: mysql container
+      docker_container:
+        name: immysql
+        image: "mysql:5.7"
+        state: started
+        published_ports:
+          - "3306:3306"
+        env:
+            MYSQL_ROOT_PASSWORD: impass
+            MYSQL_DATABASE: imdb 
+
+    - name: Download test inf.dat
+      get_url: url=https://raw.githubusercontent.com/grycap/im/devel/test/loadtest/data.sql dest=/var/tmp/data.sql
+
+    - name: Initialize IM data
+      shell: docker exec -i immysql mysql -uroot -pimpass imdb < /var/tmp/data.sql
+
+    - name: Install Reqs Deb
+      apt: name=sysstat update_cache=yes cache_valid_time=3600
+      when: ansible_os_family == "Debian"
+      
+    - name: Install Reqs RH
+      yum: name=sysstat
+      when: ansible_os_family == "RedHat"
+
+    - name: Configure sysstat
+      lineinfile: dest=/etc/default/sysstat regexp="^ENABLED=" line='ENABLED="true"'
+      when: ansible_os_family == "Debian"
+
+    - name: Configure cron sysstat
+      #copy: dest=/etc/cron.d/sysstat content="*/1 * * * * root date >> /tmp/dates && /usr/lib/sysstat/debian-sa1 1 1\n"
+      copy: dest=/etc/cron.d/sysstat content="*/1 * * * * root command -v /usr/lib/sysstat/debian-sa1 > /dev/null && /usr/lib/sysstat/debian-sa1 1 1\n"
+      when: ansible_os_family == "Debian"
+
+    - name: Restart sysstat
+      service: name=sysstat state=restarted
+      
+    - name: Start sysstat
+      shell: /usr/lib/sysstat/debian-sa1 1 1
+      when: ansible_os_family == "Debian"
+@end
+)
+
 configure imclient (
 @begin
 ---
   - vars:
-    - INFRA_NODE_IP: "{{ hostvars[groups['infra'][0]]['IM_NODE_NET_0_IP'] }}"
+     INFRA_NODE_IP: "{{ hostvars[groups['infra'][0]]['IM_NODE_NET_0_IP'] }}"
+     DURATION: 300
+     THREADS_READ: 10
+     THREADS_WRITE: 5
+     RAND_DELAY: 10
+     CONST_DELAY: 10
     tasks:
     - name: Install Reqs
-      apt: name=gcc,python-dev,python-pip,python-mysqldb,openssh-client,sshpass,libssl-dev,libffi-dev,libsqlite3-dev update_cache=yes cache_valid_time=3600
+      apt: name=openjdk-8-jdk update_cache=yes cache_valid_time=3600
 
-    - name: Install IM with Pip
-      pip: name=IM
+    - name: Download apache-jmeter-5.1.1.tgz
+      get_url: url=http://ftpgrycap.i3m.upv.es/src/apache-jmeter-5.1.1.tgz dest=/opt/apache-jmeter-5.1.1.tgz
+      
+    - name: Extract apache-jmeter in /opt
+      unarchive:
+        src: /opt/apache-jmeter-5.1.1.tgz
+        dest: /opt/
+        creates: /opt/apache-jmeter-5.1.1
+        remote_src: yes
 
-    - name: Create auth.dat file
+    - name: Create test.sh file
       copy:
-        dest: /tmp/auth.dat
+        dest: /var/tmp/test.sh
         content: |
-            type = InfrastructureManager; username = imuser01; password = invitado
-            type = VMRC; host = http://servproject.i3m.upv.es:8080/vmrc/vmrc; username = demo; password = demo
-            id = kube; type = Kubernetes; host = https://{{INFRA_NODE_IP}}:6443; token = sometoken
-        mode: 0644
+          #!/bin/bash 
+          /opt/apache-jmeter-5.1.1/bin/jmeter -n -t /var/tmp/im_load_tests.jmx -JIMHOST=imservice -JKUBE_IP={{INFRA_NODE_IP}} -JTHREADS_READ={{ THREADS_READ }} -JTHREADS_WRITE={{ THREADS_WRITE }} -JDURATION={{ DURATION }} -JCONST_DELAY={{ CONST_DELAY }} -JRAND_DELAY={{ RAND_DELAY }}          
+        mode: 0755
 
     - name: Download LoadTest files
-      get_url: url=https://raw.githubusercontent.com/grycap/im/devel/test/loadtest/{{item}} dest=/tmp/{{item}}
+      get_url: url=https://raw.githubusercontent.com/grycap/im/devel/test/loadtest/{{item}} dest=/var/tmp/{{item}}
       with_items:
-       - LoadTest.py
-       - LoadTestR.py
-       - load-test.radl
-       - LoadTestREST.py
-       - LoadTestRESTR.py
+       - im_load_tests.jmx
 
 @end
 )
@@ -234,3 +299,4 @@ deploy im 1
 deploy imclient 1
 deploy infra 1
 deploy infrawn 1
+deploy immysql 1
