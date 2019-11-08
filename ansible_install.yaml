@@ -76,7 +76,7 @@
       ignore_errors: yes
 
     - name: Install pip libraries
-      pip: executable=pip name=pycrypto,pyOpenSSL,mysql-connector-python,msrest,msrestazure,azure-common,azure-mgmt-storage,azure-mgmt-compute,azure-mgmt-network,azure-mgmt-resource,azure-mgmt-dns,azure-storage,xmltodict
+      pip: executable=pip name=pycrypto,pyOpenSSL,MySQL-python,msrest,msrestazure,azure-common,azure-mgmt-storage,azure-mgmt-compute,azure-mgmt-network,azure-mgmt-resource,azure-mgmt-dns,azure-storage,xmltodict
       
     - name: Install IM dependencies for CentOS 6
       pip: name=pysqlite version=2.7.0
