@@ -70,8 +70,9 @@ configure im (
      IM_MYSQL_IP: "{{ hostvars[groups['immysql'][0]]['IM_NODE_PRIVATE_IP'] }}"
      IM_SERVICE_IP: "{{ hostvars[groups['im'][0]]['IM_NODE_PRIVATE_IP'] }}"
      IM_PORTS: 
-         - {xmlrpc: 7799, rest: 8801}
-         - {xmlrpc: 6699, rest: 8802}
+#         - {xmlrpc: 7799, rest: 8801}
+#         - {xmlrpc: 6699, rest: 8802}
+         - {xmlrpc: 8899, rest: 8800}
     roles:
      - { role: 'grycap.docker' }
     tasks:
@@ -94,60 +95,64 @@ configure im (
         env:
             IM_DATA_DB: "mysql://root:impass@{{ IM_MYSQL_IP }}/imdb"
       with_items: "{{IM_PORTS}}"
+
+    - block:
       
-    - name: Create HAProxy template
-      copy:
-        dest: /etc/haproxy_tomcat.cfg.j2
-        content: |
-            defaults
-                timeout connect      5000
-                timeout client       50000
-                timeout server       50000
-                mode http
+      - name: Create HAProxy template
+        copy:
+          dest: /etc/haproxy_tomcat.cfg.j2
+          content: |
+              defaults
+                  timeout connect      5000
+                  timeout client       50000
+                  timeout server       50000
+                  mode http
 
-            listen statistics
-                bind *:9000
-                mode http
-                stats enable
-                stats realm Haproxy\ Statistics
-                stats uri /haproxy_stats
-                stats auth micafer:grycap01
+              listen statistics
+                  bind *:9000
+                  mode http
+                  stats enable
+                  stats realm Haproxy\ Statistics
+                  stats uri /haproxy_stats
+                  stats auth micafer:grycap01
 
-            frontend http-frontend
-                bind *:8800
-                default_backend imbackend
+              frontend http-frontend
+                  bind *:8800
+                  default_backend imbackend
 
-            backend imbackend
-                balance roundrobin
-                stick-table type string len 32 size 30k expire 120m
-                stick store-response hdr(InfID)
-                #stick on hdr(InfID)
-                acl inf_id path -m beg /infrastructures/
-                #acl inf_id path_len gt 40
-                stick on path,field(3,/) if inf_id
+              backend imbackend
+                  balance roundrobin
+                  stick-table type string len 32 size 30k expire 120m
+                  stick store-response hdr(InfID)
+                  #stick on hdr(InfID)
+                  acl inf_id path -m beg /infrastructures/
+                  #acl inf_id path_len gt 40
+                  stick on path,field(3,/) if inf_id
 
 
-            {% raw %}
-            {% for port in IM_PORTS %}
-                server im-{{port.rest}} {{IM_SERVICE_IP}}:{{port.rest}} check
-            {% endfor %}{% endraw %}
+              {% raw %}
+              {% for port in IM_PORTS %}
+                  server im-{{port.rest}} {{IM_SERVICE_IP}}:{{port.rest}} check
+              {% endfor %}{% endraw %}
 
-    - name: Configure HAProxy
-      template: src=/etc/haproxy_tomcat.cfg.j2 dest=/etc/haproxy.cfg mode=0644
+      - name: Configure HAProxy
+        template: src=/etc/haproxy_tomcat.cfg.j2 dest=/etc/haproxy.cfg mode=0644
 
-    - name: start haproxy container
-      docker_container:
-        name: haproxy
-        image: "haproxy:latest"
-        state: started
-        ports:
-        - "8800:8800"
-        - "9000:9000"
-        expose:
-        - 8800
-        - 9000
-        volumes:
-        - "/etc/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg"
+      - name: start haproxy container
+        docker_container:
+          name: haproxy
+          image: "haproxy:latest"
+          state: started
+          ports:
+          - "8800:8800"
+          - "9000:9000"
+          expose:
+          - 8800
+          - 9000
+          volumes:
+          - "/etc/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg"
+
+      when: IM_PORTS|length>1
 
     - name: Install Reqs
       apt: name=sysstat update_cache=yes cache_valid_time=3600
