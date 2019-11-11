@@ -63,9 +63,9 @@ Optional Packages
   with SSL certificates (see :confval:`REST_SSL`).
   pyOpenSSL can be installed using pip.
 * `The Python interface to MySQL <https://www.mysql.com/>`_, is needed to access MySQL server as IM data 
-  backend. It is typically available as the package as the package 'python-mysql.connector' in Debian based
-  distributions or 'mysql-connector-python' in RedHat ones. It is also available on pip as the 
-  'mysql-connector-python' package.
+  backend. It is typically available as the package 'python-mysqldb' or 'MySQL-python' package. In case of
+  using Python 3 use the PyMySQL package, available as the package 'python3-pymysql' on debian systems or PyMySQL
+  package in pip.
   *`The Python interface to MongoDB <https://www.mongodb.com/>`_, is needed to access MongoDB server as IM data 
   backend. It is typically available as the package 'python-pymongo' package in most distributions or pymongo
   package in pip.

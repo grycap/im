@@ -143,9 +143,9 @@ distributions or ``boto`` pip package. It can also be downloaded from boto GitHu
 Download the file and copy the boto subdirectory into the IM install path.
 
 In case of using the a MySQL DB as the backend to store IM data. The Python interface to MySQL
-must be installed, typically available as the package ``python-mysql.connector`` in Debian based
-distributions or ``mysql-connector-python`` in RedHat ones. It is also available on pip as the 
-``mysql-connector-python`` package.
+must be installed, typically available as the package ``python-mysqldb`` or ``MySQL-python`` package.
+In case of using Python 3 use the PyMySQL package, available as the package ``python3-pymysql`` on 
+debian systems or ``PyMySQL`` package in pip.  
 
 In case of using the a MongoDB as the backend to store IM data. The Python interface to MongoDB
 must be installed, typically available as the package ``python-pymongo``package in most distributions
