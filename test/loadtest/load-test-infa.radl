@@ -2,8 +2,8 @@ network publica (outbound = 'yes')
 network privada ()
 
 system im (
-cpu.count>=1 and
-memory.size>=2G and
+cpu.count>=2 and
+memory.size>=4G and
 net_interface.0.connection = 'publica' and
 net_interface.1.connection = 'privada' and
 net_interface.1.dns_name = 'imservice' and
@@ -15,8 +15,8 @@ disk.0.applications contains (name='ansible.modules.grycap.docker')
 )
 
 system imclient (
-cpu.count>=1 and
-memory.size>=1G and
+cpu.count>=2 and
+memory.size>=2G and
 net_interface.0.connection = 'privada' and
 net_interface.0.dns_name = 'imclient' and
 disk.0.os.name='linux' and
@@ -53,26 +53,66 @@ disk.0.applications contains (name='ansible.modules.grycap.kubernetes')
 configure im (
 @begin
 ---
-  - roles:
+  - vars:
+     MYSQL: true
+     IMVERSION: 1.8.7-dev2
+     #IMVERSION: latest
+
+    roles:
     - role: 'grycap.docker'
 
     tasks:
-    - name: Download test inf.dat
-      get_url: url=https://raw.githubusercontent.com/grycap/im/devel/test/loadtest/inf.dat dest=/var/tmp/inf.dat
+    - block:
+      - name: Download test inf.dat
+        get_url: url=https://raw.githubusercontent.com/grycap/im/devel/test/loadtest/inf.dat dest=/var/tmp/inf.dat
 
-    - name: im container
-      docker_container:
-        name: im
-        image: "grycap/im"
-        state: started
-        volumes:
-        - "/var/tmp/inf.dat:/etc/im/inf.dat"
-        ports:
-        - "8800:8800"
-        - "8899:8899"
-        expose:
-        - 8899
-        - 8800
+      - name: im container
+        docker_container:
+          name: im
+          image: "grycap/im:{{ IMVERSION }}"
+          state: started
+          volumes:
+          - "/var/tmp/inf.dat:/etc/im/inf.dat"
+          ports:
+          - "8800:8800"
+          - "8899:8899"
+          expose:
+          - 8899
+          - 8800
+      when: not MYSQL
+
+    - block:
+      - name: mysql container
+        docker_container:
+          name: immysql
+          image: "mysql:5.7"
+          state: started
+          env:
+              MYSQL_ROOT_PASSWORD: impass
+              MYSQL_DATABASE: imdb 
+
+      - name: Download test inf.dat
+        get_url: url=https://raw.githubusercontent.com/grycap/im/devel/test/loadtest/data.sql dest=/var/tmp/data.sql
+
+      - name: Initialize IM data
+        shell: docker exec -i immysql mysql -uroot -pimpass imdb < /var/tmp/data.sql
+
+      - name: im container
+        docker_container:
+          name: im
+          image: "grycap/im:{{ IMVERSION }}"
+          state: started
+          ports:
+          - "8800:8800"
+          - "8899:8899"
+          expose:
+          - 8899
+          - 8800
+          links:
+          - "immysql:immysql"
+          env:
+            IM_DATA_DB: "mysql://root:impass@immysql/imdb"
+      when: MYSQL
 
     - name: Install Reqs Deb
       apt: name=sysstat update_cache=yes cache_valid_time=3600
@@ -104,36 +144,38 @@ configure imclient (
 @begin
 ---
   - vars:
-    - INFRA_NODE_IP: "{{ hostvars[groups['infra'][0]]['IM_NODE_NET_0_IP'] }}"
+     INFRA_NODE_IP: "{{ hostvars[groups['infra'][0]]['IM_NODE_NET_0_IP'] }}"
+     DURATION: 300
+     THREADS_READ: 10
+     THREADS_WRITE: 5
+     RAND_DELAY: 10
+     CONST_DELAY: 10
     tasks:
     - name: Install Reqs
-      apt: name=gcc,python-dev,python-pip,python-mysqldb,openssh-client,sshpass,libssl-dev,libffi-dev,libsqlite3-dev,make update_cache=yes cache_valid_time=3600
-      when: ansible_os_family == "Debian"
+      apt: name=openjdk-8-jdk update_cache=yes cache_valid_time=3600
+
+    - name: Download apache-jmeter-5.1.1.tgz
+      get_url: url=http://ftpgrycap.i3m.upv.es/src/apache-jmeter-5.1.1.tgz dest=/opt/apache-jmeter-5.1.1.tgz
       
-    - name: Yum install requirements RH or Fedora
-      yum: name=git,gcc,python-distribute,gcc,python-devel,wget,openssh-clients,sshpass,python-pip,libffi-devel,openssl-devel,sqlite-devel,make
-      when: ansible_os_family == "RedHat"
+    - name: Extract apache-jmeter in /opt
+      unarchive:
+        src: /opt/apache-jmeter-5.1.1.tgz
+        dest: /opt/
+        creates: /opt/apache-jmeter-5.1.1
+        remote_src: yes
 
-    - name: Install IM with Pip
-      pip: name=IM
-
-    - name: Create auth.dat file
+    - name: Create test.sh file
       copy:
-        dest: /tmp/auth.dat
+        dest: /var/tmp/test.sh
         content: |
-            type = InfrastructureManager; username = imuser01; password = invitado
-            type = VMRC; host = http://servproject.i3m.upv.es:8080/vmrc/vmrc; username = demo; password = demo
-            id = kube; type = Kubernetes; host = https://{{INFRA_NODE_IP}}:6443; token = sometoken
-        mode: 0644
+          #!/bin/bash 
+          /opt/apache-jmeter-5.1.1/bin/jmeter -n -t /var/tmp/im_load_tests.jmx -JIMHOST=imservice -JKUBE_IP={{INFRA_NODE_IP}} -JTHREADS_READ={{ THREADS_READ }} -JTHREADS_WRITE={{ THREADS_WRITE }} -JDURATION={{ DURATION }} -JCONST_DELAY={{ CONST_DELAY }} -JRAND_DELAY={{ RAND_DELAY }}          
+        mode: 0755
 
-    - name: Download LoadTest.py
-      get_url: url=https://raw.githubusercontent.com/grycap/im/master/test/loadtest/{{item}} dest=/tmp/{{item}}
+    - name: Download LoadTest files
+      get_url: url=https://raw.githubusercontent.com/grycap/im/devel/test/loadtest/{{item}} dest=/var/tmp/{{item}}
       with_items:
-       - LoadTest.py
-       - load-test.radl
-       - LoadTestR.py
-       - LoadTestREST.py
-       - LoadTestRESTR.py
+       - im_load_tests.jmx
 
 @end
 )

@@ -5,8 +5,12 @@
   gather_facts: false
   vars:
     # Ansible specific Version or "latest"
-    ANSIBLE_VERSION: 2.6.15
+    ANSIBLE_VERSION: 2.6.20
   tasks:
+    - name: Set Ansible version from env
+      set_fact: ANSIBLE_VERSION={{ lookup('env','ANSIBLE_VERSION') }} 
+      when: lookup('env','ANSIBLE_VERSION') != ""
+
     # Some OSs does not have python by default
     - name: Check Python is installed
       raw: which python
