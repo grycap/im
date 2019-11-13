@@ -3,7 +3,7 @@ network privada ()
 
 system im (
 cpu.count>=2 and
-memory.size>=4G and
+memory.size>=2G and
 net_interface.0.connection = 'publica' and
 net_interface.1.connection = 'privada' and
 net_interface.1.dns_name = 'imservice' and

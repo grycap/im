@@ -715,6 +715,11 @@ class TestOSTConnector(TestCloudConnectorBase):
         self.assertEqual(fip.delete.call_args_list, [call()])
         self.assertEqual(driver.ex_detach_floating_ip_from_node.call_args_list[0][0], (node, fip))
 
+        vm.floating_ips = ['158.42.1.1']
+        success, _ = ost_cloud.finalize(vm, True, auth)
+        self.assertEqual(fip.delete.call_args_list, [call()])
+        self.assertEqual(node.destroy.call_args_list, [call(), call()])
+
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
     def test_70_create_snapshot(self, get_driver):
         auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'username': 'user',
