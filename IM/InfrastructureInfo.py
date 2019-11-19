@@ -193,9 +193,9 @@ class InfrastructureInfo:
             newinf.auth = Authentication.deserialize(dic['auth'])
         return newinf
 
-    def destroy(self, auth):
+    def destroy_vms(self, auth):
         """
-        Destroy the all the VMs
+        Destroy all the VMs
         """
         delete_list = list(reversed(self.get_vm_list()))
 
@@ -240,6 +240,26 @@ class InfrastructureInfo:
         # Create a new empty queue
         with self._lock:
             self.ctxt_tasks = PriorityQueue()
+
+    def destroy(self, auth, force=False):
+        """
+        Destroy the infrastructure
+        """
+        InfrastructureInfo.logger.info("Destroying the Inf ID: " + str(self.id))
+        try:
+            self.set_deleting()
+            # First stop ctxt processes
+            self.stop()
+            # Destroy the Infrastructure
+            self.destroy_vms(auth)
+        except Exception as ex:
+            if not force:
+                raise ex
+        # Set the Infrastructure as deleted
+        self.delete()
+        InfrastructureInfo.logger.info("Inf ID: %s: Successfully destroyed" % self.id)
+        IM.InfrastructureList.InfrastructureList.save_data(self.id)
+        IM.InfrastructureList.InfrastructureList.remove_inf(self)
 
     def get_cont_out(self):
         """

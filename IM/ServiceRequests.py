@@ -208,9 +208,9 @@ class Request_DestroyInfrastructure(IMBaseRequest):
 
     def _call_function(self):
         self._error_mesage = "Error Destroying Inf."
-        (inf_id, auth_data, force) = self.arguments
+        (inf_id, auth_data, force, async_call) = self.arguments
         return IM.InfrastructureManager.InfrastructureManager.DestroyInfrastructure(inf_id, Authentication(auth_data),
-                                                                                    force)
+                                                                                    force, async_call)
 
 
 class Request_StopInfrastructure(IMBaseRequest):

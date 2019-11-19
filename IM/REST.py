@@ -329,7 +329,17 @@ def RESTDestroyInfrastructure(infid=None):
             else:
                 return return_error(400, "Incorrect value in force parameter")
 
-        InfrastructureManager.DestroyInfrastructure(infid, auth, force)
+        async_call = False
+        if "async" in bottle.request.params.keys():
+            str_ctxt = bottle.request.params.get("async").lower()
+            if str_ctxt in ['yes', 'true', '1']:
+                async_call = True
+            elif str_ctxt in ['no', 'false', '0']:
+                async_call = False
+            else:
+                return return_error(400, "Incorrect value in async parameter")
+
+        InfrastructureManager.DestroyInfrastructure(infid, auth, force, async_call)
         bottle.response.content_type = "text/plain"
         return ""
     except DeletedInfrastructureException as ex:
