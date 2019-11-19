@@ -111,9 +111,9 @@ def StartInfrastructure(inf_id, auth_data):
     return WaitRequest(request)
 
 
-def DestroyInfrastructure(inf_id, auth_data, force=False):
+def DestroyInfrastructure(inf_id, auth_data, force=False, async_call=False):
     request = IMBaseRequest.create_request(
-        IMBaseRequest.DESTROY_INFRASTRUCTURE, (inf_id, auth_data, force))
+        IMBaseRequest.DESTROY_INFRASTRUCTURE, (inf_id, auth_data, force, async_call))
     # This function take a lot of time in some connectors. We can make it
     # async: return (True, "")
     return WaitRequest(request)

@@ -2,7 +2,7 @@ swagger: '2.0'
 
 info:
   description: Infrastructure Manager (IM) REST API.
-  version: 1.8.6
+  version: 1.8.7
   title: Infrastructure Manager (IM) REST API
   contact:
     email: products@grycap.upv.es
@@ -321,7 +321,21 @@ paths:
           description: |-
             The force parameter is optional and is a flag to specify that the infra will be from the IM although not all resources are deleted.
           required: false
-          default: true
+          default: false
+          type: string
+          enum:
+            - yes
+            - no
+            - true
+            - false
+            - 0
+            - 1
+        - name: async
+          in: query
+          description: |-
+            The async parameter is optional and is a flag to specify if the call will not wait the infrastructure to be deleted. 
+          required: false
+          default: false
           type: string
           enum:
             - yes
