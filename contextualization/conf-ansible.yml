@@ -107,6 +107,7 @@
       pip: name="{{ item.name }}" version="{{ item.version }}" executable=pip2
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int <= 6
       with_items:
+        - { name: 'setuptools', version: '28.8.1' }
         - { name: 'pyyaml', version: '3.13' }
         - { name: 'idna', version: '2.7' }
         - { name: 'argparse', version: '1.4.0' }
