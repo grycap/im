@@ -65,7 +65,7 @@
         apt: name=wget install_recommends=no
 
       - name: Add ansible repo keys
-        shell: wget --no-check-certificate -qO -"https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x6125e2a8c77f2818fb7bd15b93c4a3fd7bb9c367" | apt-key add -qq - >/dev/null
+        shell: wget --no-check-certificate -qO - https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x6125e2a8c77f2818fb7bd15b93c4a3fd7bb9c367 | apt-key add -qq - >/dev/null
       
       - name: Add ansible repo
         copy:
