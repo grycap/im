@@ -90,7 +90,7 @@
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 6 
 
     - name: Yum install extra requisites RH 6
-      yum: name=libffi-devel,openssl-devel update_cache=yes
+      yum: name=gcc,libffi-devel,openssl-devel update_cache=yes
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int <= 6 
 
     - name: Zypper install requirements Suse
@@ -144,28 +144,35 @@
     - name: Install pywinrm with Pip
       pip: name=pywinrm executable=pip2
       ignore_errors: yes
-      
+
 ################################################ Configure Ansible  ###################################################
 
     - name: Disable SELinux
       selinux: state=disabled
       when: ansible_os_family == "RedHat"
       ignore_errors: yes
-  
+
     - name: Create /etc/ansible
       file: path=/etc/ansible state=directory
-        
+
     - name: Create /etc/ansible/ansible.cfg
       file: path=/etc/ansible/ansible.cfg state=touch owner=root group=root mode=0644
-  
-    - name: Set host_key_checking to false in ansible.cfg
-      ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=host_key_checking value=False
 
-    - name: Set nocolor to 1 in ansible.cfg to avoid strange chars in Ansible outputs
-      ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=nocolor value=1
-
-    - name: Set timeout to 30 in ansible.cfg to avoid problems with some VMs
-      ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=timeout value=30
+    - name: Set Ansible config file values
+      ini_file: dest=/etc/ansible/ansible.cfg section={{ item.section }} option={{ item.option }} value="{{ item.value }}"
+      with_items:
+      - { section: 'defaults', option: 'host_key_checking', value: 'False' }
+      - { section: 'defaults', option: 'nocolor', value: '1' }
+      - { section: 'defaults', option: 'timeout', value: '30' }
+      - { section: 'ssh_connection', option: 'pipelining', value: 'True' }
+      - { section: 'defaults', option: 'jinja2_extensions', value: 'jinja2.ext.do' }
+      - { section: 'defaults', option: 'allow_world_readable_tmpfiles', value: 'True' }
+      - { section: 'defaults', option: 'fact_caching', value: 'jsonfile' }
+      - { section: 'defaults', option: 'fact_caching_connection', value: '/var/tmp/facts_cache' }
+      - { section: 'defaults', option: 'fact_caching_timeout', value: '86400' }
+      - { section: 'defaults', option: 'gathering', value: 'smart' }
+      - { section: 'defaults', option: 'roles_path', value: '/etc/ansible/roles' }
+      - { section: 'defaults', option: 'timeout', value: '30' }
   
     - name: Set transport to ssh in ansible.cfg
       ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=transport value=ssh
@@ -183,26 +190,4 @@
       ini_file: dest=/etc/ansible/ansible.cfg section=ssh_connection option=ssh_args value="-o UserKnownHostsFile=/dev/null"
       when: (ansible_os_family == "RedHat" and ansible_distribution_major_version|int < 7) or (ansible_os_family == "Suse" and ansible_distribution_major_version|int < 12)
         
-    - name: Activate SSH pipelining in ansible.cfg
-      ini_file: dest=/etc/ansible/ansible.cfg section=ssh_connection option=pipelining value=True
-  
-    - name: Set jinja2.ext.do to jinja2_extensions in ansible.cfg
-      ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=jinja2_extensions value=jinja2.ext.do
 
-    - name: Set allow_world_readable_tmpfiles to True ansible.cfg
-      ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=allow_world_readable_tmpfiles value=True
-
-    - name: Set fact_caching in ansible.cfg
-      ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=fact_caching value=jsonfile
-
-    - name: Set fact_caching_connection in ansible.cfg
-      ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=fact_caching_connection value=/var/tmp/facts_cache
-
-    - name: Set fact_caching_timeout in ansible.cfg
-      ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=fact_caching_timeout value=86400
-        
-    - name: Set fact_caching_timeout in ansible.cfg
-      ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=gathering value=smart
-
-    - name: Set roles_path in ansible.cfg
-      ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=roles_path value=/etc/ansible/roles
