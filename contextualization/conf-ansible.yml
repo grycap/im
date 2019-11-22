@@ -78,11 +78,11 @@
       when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int < 18
 
     - name: Debian/Ubuntu install requisites with apt
-      apt: name=python-pip,python-jinja2,sshpass,openssh-client,unzip,python-crypto install_recommends=no
+      apt: name=python-pip,python-setuptools,python-jinja2,sshpass,openssh-client,unzip,python-crypto install_recommends=no
       when: ansible_os_family == "Debian"
 
     - name: Yum install requisites RH 6/7/Fedora
-      yum: name=libselinux-python,python-pip,python-jinja2,sshpass,openssh-clients update_cache=yes
+      yum: name=libselinux-python,python-pip,python-setuptools,python-jinja2,sshpass,openssh-clients update_cache=yes
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 6 
 
     - name: Zypper install requirements Suse
