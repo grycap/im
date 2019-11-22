@@ -50,7 +50,7 @@ class TestServiceRequests(unittest.TestCase):
     def test_destroy(self, inflist):
         import IM.ServiceRequests
         req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.DESTROY_INFRASTRUCTURE,
-                                                              ("", "", False))
+                                                              ("", "", False, True))
         req._call_function()
 
     @patch('IM.InfrastructureManager.InfrastructureManager')
