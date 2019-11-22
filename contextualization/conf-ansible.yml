@@ -11,17 +11,12 @@
       set_fact: ANSIBLE_VERSION={{ lookup('env','ANSIBLE_VERSION') }} 
       when: lookup('env','ANSIBLE_VERSION') != ""
 
-    # Some OSs does not have python by default
+  ################### Some OSs does not have python by default #########################
     - name: Check Python is installed
       raw: which python
       ignore_errors: yes
       register: python_exists
       changed_when: false
-
-    # Ubuntu 16 have an annoying apt-daily.service boot process
-#    - name: Delete apt processes
-#      raw: ls /etc/debian_version && pgrep apt && (sudo killall apt ; sleep 1 ; sudo rm -f /var/lib/apt/lists/lock && sudo rm -f /var/lib/dpkg/lock && sudo dpkg --configure -a ; sudo apt-get -f -y install)
-#      ignore_errors: yes
 
     - name: Bootstrap with python
       raw: sudo apt update; sudo apt install -y python; sudo yum install -y python; sudo zypper -n install python python-xml
@@ -30,12 +25,9 @@
       changed_when: python_install.stdout_lines|length > 1
       when: python_exists is failed
 
+  ################### Some basic OSs operations #########################
     - name: Get Facts
       setup:
-
-    - name: Install libselinux-python in RH
-      action: yum pkg=libselinux-python state=installed
-      when: ansible_os_family == "RedHat"
 
     - name: EPEL
       yum: name=epel-release
@@ -54,43 +46,53 @@
       dnf: name=python2-rpm,yum
       when: ansible_distribution == "Fedora"
 
-  ################### Install Ansible in Ubuntu RHEL Debian and Fedora systems with apt and yum #########################
-  ################### because they have recent versions of ansible in system repositories ###############################
-  
-    - name: Ubuntu apt update
+    - name: Ubuntu/Debian apt update
       apt: update_cache=yes cache_valid_time=3600
-      when: ansible_distribution == "Ubuntu"
+      when: ansible_os_family == "Debian"
       ignore_errors: yes
       register: apt_update
 
-    - name: Ubuntu force apt update (avoid apt lock)
+    - name: Ubuntu/Debian force apt update (avoid apt lock)
       command: apt update
-      when: ansible_distribution == "Ubuntu" and apt_update is failed
+      when: ansible_os_family == "Debian" and apt_update is failed
+
+  ################### Install Ansible requisites #########################
+
+    - name: Install ansible repo in old Ubuntu to have a good python-crypto version
+      block:
+
+      - name: Install wget
+        apt: name=wget install_recommends=no
+
+      - name: Add ansible repo keys
+        shell: wget --no-check-certificate -qO -"https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x6125e2a8c77f2818fb7bd15b93c4a3fd7bb9c367" | apt-key add -qq - >/dev/null
+      
+      - name: Add ansible repo
+        copy:
+          content: "deb http://ppa.launchpad.net/ansible/ansible/ubuntu {{ ansible_distribution_release }} main"
+          dest: /etc/apt/sources.list.d/ansible.list
+
+      - name: Apt update
+        apt: update_cache=yes
+
+      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int < 18
 
     - name: Debian/Ubuntu install requisites with apt
-      apt: name=python-pip,python-jinja2,sshpass,openssh-client,unzip,gcc,python-dev,libffi-dev,libssl-dev update_cache=yes
+      apt: name=python-pip,python-jinja2,sshpass,openssh-client,unzip,python-crypto install_recommends=no
       when: ansible_os_family == "Debian"
 
     - name: Yum install requisites RH 6/7/Fedora
-      yum: name=python-pip,python-jinja2,sshpass,openssh-clients,wget,gcc,python-devel,libffi-devel,openssl-devel update_cache=yes
-      when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 6
-
-    - name: Ubuntu install Cryptography with apt
-      apt: name=python-cryptography
-      when: (ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int >= 16) or (ansible_distribution == "Debian" and ansible_distribution_major_version|int >= 8)
-
-  ############################################ In other systems use pip #################################################
+      yum: name=libselinux-python,python-pip,python-jinja2,sshpass,openssh-clients update_cache=yes
+      when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 6 
 
     - name: Zypper install requirements Suse
       zypper: name=python,python-pip,gcc,python-devel,wget,libffi-devel,openssl-devel,python-cryptography,make state=present
       when: ansible_os_family == "Suse"
 
-#    - name: Install Pip (alternative)
-#      shell: wget https://bootstrap.pypa.io/get-pip.py && python get-pip.py creates=/usr/local/bin/pip
+  ######################################### Use pip to enable to set the version #############################################
 
-    # do not upgrade to 10 as it is failing
     - name: Upgrade pip
-      pip: name=pip version=9.0.3 executable=pip2
+      pip: name=pip version=latest executable=pip2
 
     - name: Upgrade setuptools with Pip
       pip: name=setuptools state=latest executable=pip2
