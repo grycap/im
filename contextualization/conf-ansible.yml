@@ -89,6 +89,10 @@
       yum: name=libselinux-python,python-pip,python-setuptools,python-jinja2,sshpass,openssh-clients update_cache=yes
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 6 
 
+    - name: Yum install extra requisites RH 6
+      yum: name=libffi-devel,openssl-devel update_cache=yes
+      when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int <= 6 
+
     - name: Zypper install requirements Suse
       zypper: name=python,python-pip,python-setuptools,gcc,python-devel,wget,libffi-devel,openssl-devel,python-cryptography,make state=present
       when: ansible_os_family == "Suse"
