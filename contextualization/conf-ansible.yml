@@ -90,7 +90,7 @@
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 6 
 
     - name: Yum install extra requisites RH 6
-      yum: name=gcc,libffi-devel,openssl-devel update_cache=yes
+      yum: name=gcc,libffi-devel,openssl-devel,python-devel update_cache=yes
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int <= 6 
 
     - name: Zypper install requirements Suse
