@@ -87,6 +87,10 @@
 
     - name: Yum install requisites RH 6/7/Fedora
       yum: name=libselinux-python,python-pip,python-setuptools,python-jinja2,sshpass,openssh-clients update_cache=yes
+      when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 6  and ansible_distribution_major_version|int < 8 
+
+    - name: Yum install requisites RH 8
+      yum: name=python2-pip,python2-setuptools,python2-jinja2,sshpass,openssh-clients update_cache=yes
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 6 
 
     - name: Yum install extra requisites RH 6
@@ -100,7 +104,6 @@
   ######################################### Use pip to enable to set the version #############################################
 
     - name: Upgrade pip
-      #pip: name=pip version=latest executable=pip2
       pip: name=pip version=9.0.3 executable=pip2
 
     - name: Upgrade setuptools with Pip
