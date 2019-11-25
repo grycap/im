@@ -91,7 +91,7 @@
 
     - name: Yum install requisites RH 8
       yum: name=python2-pip,python2-setuptools,python2-jinja2,sshpass,openssh-clients update_cache=yes
-      when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 6 
+      when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 8 
 
     - name: Yum install extra requisites RH 6
       yum: name=gcc,libffi-devel,openssl-devel,python-devel update_cache=yes
