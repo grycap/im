@@ -247,7 +247,6 @@ class InfrastructureInfo:
         """
         InfrastructureInfo.logger.info("Destroying the Inf ID: " + str(self.id))
         try:
-            self.set_deleting()
             # First stop ctxt processes
             self.stop()
             # Destroy the Infrastructure
