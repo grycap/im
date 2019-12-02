@@ -1226,6 +1226,9 @@ class InfrastructureManager:
         auth = InfrastructureManager.check_auth_data(auth)
 
         sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
+        # First set this infra as "deleting"
+        sel_inf.set_deleting()
+
         if async_call:
             t = threading.Thread(name="DestroyResource-%s" % sel_inf.id,
                                  target=sel_inf.destroy,
