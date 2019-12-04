@@ -31,6 +31,12 @@
       changed_when: python_install.stdout_lines|length > 1
       when: python_exists is failed and python2_exists is failed
 
+    - name: Check Python2 or Python3 path
+      raw: which python2 || which python3
+      ignore_errors: yes
+      register: python2_path
+      changed_when: false
+
   ################### Some basic OSs operations #########################
     - name: Get Facts
       setup:
@@ -102,7 +108,7 @@
     - name: Set correct python version
       alternatives:
         name: python
-        path: "{{ python2_exists.stdout | trim }}"
+        path: "{{ python2_path.stdout | trim }}"
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 8 
 
     - name: Yum install extra requisites RH 6
