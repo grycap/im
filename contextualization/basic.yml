@@ -27,6 +27,11 @@
       become: yes
       ignore_errors: yes
 
+    # In some cases python link is not created
+    - name: Link python 2 or 3 in case is needed
+      shell: ls /usr/bin/python || { ls /usr/bin/python2 && ln -s /usr/bin/python2 /usr/bin/python; } || { ls /usr/bin/python3 && ln -s /usr/bin/python3 /usr/bin/python; }
+      ignore_errors: yes
+
     # Set the correct hostname
     - name: Set the hostname of the node
       hostname: name={{ IM_NODE_FQDN }}
@@ -50,11 +55,7 @@
       ignore_errors: yes
 
     - name: Gather Facts
-      setup: 
-
-    - name: Link python 2 or 3 in case is needed
-      shell: ls /usr/bin/python || { ls /usr/bin/python2 && ln -s /usr/bin/python2 /usr/bin/python; } || { ls /usr/bin/python3 && ln -s /usr/bin/python3 /usr/bin/python; }
-      ignore_errors: yes
+      setup:
 
     - name: Ubuntu apt update
       apt: update_cache=yes cache_valid_time=3600
