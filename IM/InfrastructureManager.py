@@ -652,7 +652,7 @@ class InfrastructureManager:
             InfrastructureManager.logger.info("VMs %s successfully added to Inf ID: %s" % (new_vms, sel_inf.id))
 
         # The resources has been added
-        sel_inf.adding = False
+        sel_inf.set_adding(False)
 
         # Let's contextualize!
         if context and new_vms and not all_failed:
