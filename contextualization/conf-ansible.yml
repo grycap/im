@@ -99,11 +99,11 @@
       yum: name=python2-pip,python2-setuptools,python2-jinja2,sshpass,openssh-clients update_cache=yes
       when: (ansible_distribution != "Fedora" and ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 8) or (ansible_distribution == "Fedora" and ansible_distribution_major_version|int >= 28)
 
-    - name: Set correct python version
+    - name: Set correct python version on RH 8
       alternatives:
         name: python
         path: /usr/bin/python2
-      when: (ansible_distribution != "Fedora" and ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 8) or (ansible_distribution == "Fedora" and ansible_distribution_major_version|int >= 28)
+      when: ansible_distribution != "Fedora" and ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 8
 
     - name: Yum install extra requisites RH 6
       yum: name=gcc,libffi-devel,openssl-devel,python-devel update_cache=yes
