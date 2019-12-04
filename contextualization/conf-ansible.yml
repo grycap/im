@@ -18,12 +18,18 @@
       register: python_exists
       changed_when: false
 
+    - name: Check Python2 or Python3 is installed
+      raw: which python2 || which python3
+      ignore_errors: yes
+      register: python2_exists
+      changed_when: false
+
     - name: Bootstrap with python
-      raw: sudo apt update; sudo apt install --no-install-recommends -y python python-apt; sudo yum install -y python; sudo zypper -n install python python-xml
+      raw: sudo apt update && sudo apt install -y python; sudo yum install -y python || sudo yum install -y python2; sudo zypper -n install python python-xml
       ignore_errors: yes
       register: python_install
       changed_when: python_install.stdout_lines|length > 1
-      when: python_exists is failed
+      when: python_exists is failed and python2_exists is failed
 
   ################### Some basic OSs operations #########################
     - name: Get Facts
@@ -96,7 +102,7 @@
     - name: Set correct python version
       alternatives:
         name: python
-        path: /usr/bin/python2
+        path: "{{ python2_exists.stdout | trim }}"
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 8 
 
     - name: Yum install extra requisites RH 6
