@@ -8,17 +8,18 @@
       register: python_exists
       changed_when: false
 
-    # Ubuntu 16 have an annoying apt boot process
-#    - name: Delete apt processes
-#      raw: ls /etc/debian_version && pgrep apt && (sudo killall apt ; sleep 1 ; sudo rm -f /var/lib/apt/lists/lock && sudo rm -f /var/lib/dpkg/lock && sudo dpkg --configure -a ; sudo apt-get -f -y install)
-#      ignore_errors: yes
+    - name: Check Python2 or Python3 is installed
+      raw: which python2 || which python3
+      ignore_errors: yes
+      register: python2_exists
+      changed_when: false
 
     - name: Bootstrap with python
-      raw: sudo apt update; sudo apt install -y python; sudo yum install -y python; sudo zypper -n install python python-xml
+      raw: sudo apt update && sudo apt install -y python; sudo yum install -y python || sudo yum install -y python2; sudo zypper -n install python python-xml
       ignore_errors: yes
       register: python_install
       changed_when: python_install.stdout_lines|length > 1
-      when: python_exists is failed
+      when: python_exists is failed and python2_exists is failed
 
     # In case of redhat systems libselinux-python is needed
     - name: Install libselinux-python on redhat systems
@@ -50,6 +51,12 @@
 
     - name: Gather Facts
       setup: 
+
+    - name: Set correct python version
+      alternatives:
+        name: python
+        path: "{{ python2_exists.stdout | trim }}"
+      when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 8
 
     - name: Ubuntu apt update
       apt: update_cache=yes cache_valid_time=3600
