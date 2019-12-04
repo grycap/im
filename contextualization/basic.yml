@@ -3,13 +3,13 @@
   tasks: 
       # Some OSs does not have python by default
     - name: Check Python is installed
-      raw: which python
+      raw: python --version
       ignore_errors: yes
       register: python_exists
       changed_when: false
 
     - name: Check Python2 or Python3 is installed
-      raw: which python2 || which python3
+      raw: python2 --version || python3 --version
       ignore_errors: yes
       register: python2_exists
       changed_when: false
@@ -52,11 +52,19 @@
     - name: Gather Facts
       setup: 
 
-    - name: Set correct python version
+    - name: Set python2 alt
       alternatives:
         name: python
-        path: "{{ python2_exists.stdout | trim }}"
+        path: /usr/bin/python2
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 8
+      ignore_errors: yes
+      register: python2_alt
+
+    - name: Set python3 alt
+      alternatives:
+        name: python
+        path: /usr/bin/python3
+      when: python2_alt is failed and ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 8 
 
     - name: Ubuntu apt update
       apt: update_cache=yes cache_valid_time=3600
