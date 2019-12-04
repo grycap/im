@@ -13,13 +13,13 @@
 
   ################### Some OSs does not have python by default #########################
     - name: Check Python is installed
-      raw: which python
+      raw: python --version
       ignore_errors: yes
       register: python_exists
       changed_when: false
 
     - name: Check Python2 or Python3 is installed
-      raw: which python2 || which python3
+      raw: python2 --version || python3 --version
       ignore_errors: yes
       register: python2_exists
       changed_when: false
@@ -30,12 +30,6 @@
       register: python_install
       changed_when: python_install.stdout_lines|length > 1
       when: python_exists is failed and python2_exists is failed
-
-    - name: Check Python2 or Python3 path
-      raw: which python2 || which python3
-      ignore_errors: yes
-      register: python2_path
-      changed_when: false
 
   ################### Some basic OSs operations #########################
     - name: Get Facts
@@ -108,7 +102,7 @@
     - name: Set correct python version
       alternatives:
         name: python
-        path: "{{ python2_path.stdout | trim }}"
+        path: /usr/bin/python2
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 8 
 
     - name: Yum install extra requisites RH 6
