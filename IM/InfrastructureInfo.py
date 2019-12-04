@@ -254,6 +254,8 @@ class InfrastructureInfo:
         except Exception as ex:
             if not force:
                 raise ex
+        finally:
+            self.set_deleting(False)
         # Set the Infrastructure as deleted
         self.delete()
         InfrastructureInfo.logger.info("Inf ID: %s: Successfully destroyed" % self.id)
@@ -706,16 +708,16 @@ class InfrastructureInfo:
         else:
             return False
 
-    def set_deleting(self):
+    def set_deleting(self, value=True):
         """
         Set this inf as deleting
         """
         with self._lock:
             if self.adding:
                 raise IncorrectStateException()
-            self.deleting = True
+            self.deleting = value
 
-    def set_adding(self):
+    def set_adding(self, value=True):
         """
         Set this inf as adding
         """
@@ -723,4 +725,4 @@ class InfrastructureInfo:
             if self.deleting:
                 self.add_cont_msg("Infrastructure deleted. Do not add resources.")
                 raise Exception("Infrastructure deleted. Do not add resources.")
-            self.adding = True
+            self.adding = value
