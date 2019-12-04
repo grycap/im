@@ -52,11 +52,17 @@
     - name: Gather Facts
       setup: 
 
+    - name: Check Python is installed (again)
+      raw: python --version
+      ignore_errors: yes
+      register: python_exists
+      changed_when: false
+
     - name: Set python2 alt
       alternatives:
         name: python
         path: /usr/bin/python2
-      when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 8
+      when: python_exists is failed
       ignore_errors: yes
       register: python2_alt
 
@@ -64,7 +70,7 @@
       alternatives:
         name: python
         path: /usr/bin/python3
-      when: python2_alt is failed and ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 8 
+      when: python_exists is failed and python2_alt is failed 
 
     - name: Ubuntu apt update
       apt: update_cache=yes cache_valid_time=3600
