@@ -21,28 +21,28 @@
       changed_when: python_install.stdout_lines|length > 1
       when: python_exists is failed and python2_exists is failed
 
-    # In case of redhat systems libselinux-python is needed
+    # In case of redhat systems libselinux-python is needed    
     - name: Install libselinux-python on redhat systems
-      action: yum pkg=libselinux-python state=installed
+      raw: yum -y install libselinux-python || yum -y install http://mirror.centos.org/centos/8/AppStream/x86_64/os/Packages/libselinux-python-2.8-6.module_el8.0.0+111+16bc5e61.x86_64.rpm
       become: yes
       ignore_errors: yes
 
     # Set the correct hostname
     - name: Set the hostname of the node
-      action: hostname name={{ IM_NODE_FQDN }}
+      hostname: name={{ IM_NODE_FQDN }}
       become: yes
       ignore_errors: yes
 
     # In case of redhat systems disable SELinux
     - name: Disable SELinux in REL systems
-      action: selinux state=disabled
+      selinux: state=disabled
       become: yes
       ignore_errors: yes
 
     # Add the authorized_key to the nodes to enable accessing without password
     # pk_file var must be added by the ctxt agent
     - name: Add the authorized_key to the nodes
-      action: authorized_key user={{ansible_user}} key="{{ lookup('file', pk_file) }}"
+      authorized_key: user={{ansible_user}} key="{{ lookup('file', pk_file) }}"
 
     # Added to solve GCE issues removing the key
     - name: Add the authorized_key to the nodes again
@@ -52,11 +52,9 @@
     - name: Gather Facts
       setup: 
 
-    - name: Set correct python version on RH 8
-      alternatives:
-        name: python
-        path: /usr/bin/python2
-      when: ansible_distribution != "Fedora" and ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 8
+    - name: Link python 2 or 3 in case is needed
+      shell: ls /usr/bin/python || { ls /usr/bin/python2 && ln -s /usr/bin/python2 /usr/bin/python; } || { ls /usr/bin/python3 && ln -s /usr/bin/python3 /usr/bin/python; }
+      ignore_errors: yes
 
     - name: Ubuntu apt update
       apt: update_cache=yes cache_valid_time=3600
