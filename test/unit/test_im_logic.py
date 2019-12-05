@@ -1293,7 +1293,7 @@ configure step2 (
     def sleep_5(self, _):
         time.sleep(5)
 
-    def test_00inf_delete_async(self):
+    def test_inf_delete_async(self):
         """ DestroyInfrastructure async """
 
         auth0 = self.getAuth([0])
