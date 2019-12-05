@@ -343,8 +343,8 @@ class TestIM(unittest.TestCase):
         with self.assertRaises(Exception) as ex:
             vms = IM.AddResource(infId, str(radl), auth0)
 
-        self.assertEqual(str(ex.exception),("Error adding VMs: Error launching the VMs of type s0 "
-                                            "to cloud ID cloud0 of type Dummy. No username for deploy: s0\n"))
+        self.assertEqual(str(ex.exception), ("Error adding VMs: Error launching the VMs of type s0 "
+                                             "to cloud ID cloud0 of type Dummy. No username for deploy: s0\n"))
 
         IM.DestroyInfrastructure(infId, auth0)
 
