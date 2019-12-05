@@ -530,7 +530,7 @@ class TestIM(unittest.TestCase):
         Config.MAX_SIMULTANEOUS_LAUNCHES = 1
         vms = IM.AddResource(infId, str(radl), auth0)
         delay = int(time.time()) - before
-        self.assertLess(delay, 17)
+        self.assertLess(delay, 19)
         self.assertGreater(delay, 14)
 
         self.assertEqual(vms, [0, 1, 2, 3, 4, 5])
@@ -1290,13 +1290,16 @@ configure step2 (
         IM.DestroyInfrastructure(infId, auth0, True)
         self.assertEqual(inf.deleted, True)
 
-    def test_inf_delete_async(self):
+    def sleep_5(self, _):
+        time.sleep(5)
+
+    def test_00inf_delete_async(self):
         """ DestroyInfrastructure async """
 
         auth0 = self.getAuth([0])
         infId = IM.CreateInfrastructure("", auth0)
         inf = IM.get_infrastructure(infId, auth0)
-        inf.destroy_vms = Mock(side_effect=time.sleep(5))
+        inf.destroy_vms = Mock(side_effect=self.sleep_5)
         IM.DestroyInfrastructure(infId, auth0, False, True)
         self.assertEqual(inf.deleted, False)
         time.sleep(10)
