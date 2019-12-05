@@ -668,7 +668,7 @@ class InfrastructureManager:
 
         IM.InfrastructureList.InfrastructureList.save_data(inf_id)
 
-        if all_failed:
+        if all_failed and new_vms:
             raise Exception("Error adding VMs: %s" % error_msg)
 
         return [vm.im_id for vm in new_vms]
