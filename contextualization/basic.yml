@@ -3,45 +3,51 @@
   tasks: 
       # Some OSs does not have python by default
     - name: Check Python is installed
-      raw: which python
+      raw: python --version
       ignore_errors: yes
       register: python_exists
       changed_when: false
 
-    # Ubuntu 16 have an annoying apt boot process
-#    - name: Delete apt processes
-#      raw: ls /etc/debian_version && pgrep apt && (sudo killall apt ; sleep 1 ; sudo rm -f /var/lib/apt/lists/lock && sudo rm -f /var/lib/dpkg/lock && sudo dpkg --configure -a ; sudo apt-get -f -y install)
-#      ignore_errors: yes
+    - name: Check Python2 or Python3 is installed
+      raw: python2 --version || python3 --version
+      ignore_errors: yes
+      register: python2_exists
+      changed_when: false
 
     - name: Bootstrap with python
-      raw: sudo apt update; sudo apt install -y python; sudo yum install -y python; sudo zypper -n install python python-xml
+      raw: sudo apt update && sudo apt install -y python; sudo yum install -y python || sudo yum install -y python2; sudo zypper -n install python python-xml
       ignore_errors: yes
       register: python_install
       changed_when: python_install.stdout_lines|length > 1
-      when: python_exists is failed
+      when: python_exists is failed and python2_exists is failed
 
-    # In case of redhat systems libselinux-python is needed
+    # In case of redhat systems libselinux-python is needed    
     - name: Install libselinux-python on redhat systems
-      action: yum pkg=libselinux-python state=installed
+      raw: yum -y install libselinux-python || yum -y install http://mirror.centos.org/centos/8/AppStream/x86_64/os/Packages/libselinux-python-2.8-6.module_el8.0.0+111+16bc5e61.x86_64.rpm
       become: yes
+      ignore_errors: yes
+
+    # In some cases python link is not created
+    - name: Link python 2 or 3 in case is needed
+      shell: ls /usr/bin/python || { ls /usr/bin/python2 && ln -s /usr/bin/python2 /usr/bin/python; } || { ls /usr/bin/python3 && ln -s /usr/bin/python3 /usr/bin/python; }
       ignore_errors: yes
 
     # Set the correct hostname
     - name: Set the hostname of the node
-      action: hostname name={{ IM_NODE_FQDN }}
+      hostname: name={{ IM_NODE_FQDN }}
       become: yes
       ignore_errors: yes
 
     # In case of redhat systems disable SELinux
     - name: Disable SELinux in REL systems
-      action: selinux state=disabled
+      selinux: state=disabled
       become: yes
       ignore_errors: yes
 
     # Add the authorized_key to the nodes to enable accessing without password
     # pk_file var must be added by the ctxt agent
     - name: Add the authorized_key to the nodes
-      action: authorized_key user={{ansible_user}} key="{{ lookup('file', pk_file) }}"
+      authorized_key: user={{ansible_user}} key="{{ lookup('file', pk_file) }}"
 
     # Added to solve GCE issues removing the key
     - name: Add the authorized_key to the nodes again
@@ -49,7 +55,7 @@
       ignore_errors: yes
 
     - name: Gather Facts
-      setup: 
+      setup:
 
     - name: Ubuntu apt update
       apt: update_cache=yes cache_valid_time=3600

@@ -1172,7 +1172,7 @@ class Tosca:
         if node.requirements:
             maxl = 0
             for r, n in node.relationships.items():
-                if Tosca._is_derived_from(r, [r.HOSTEDON, r.DEPENDSON]):
+                if Tosca._is_derived_from(r, [r.HOSTEDON, r.DEPENDSON, r.CONNECTSTO]):
                     level = Tosca._get_dependency_level(n)
                 else:
                     level = 0

@@ -172,12 +172,14 @@ This is the list of method names:
    :parameter 0: ``infId``: integer
    :parameter 1: ``auth``: array of structs
    :parameter 2: ``force``: (optional, default value False) boolean
+   :parameter 3: ``async``: (optional, default value False) boolean
    :ok response: [true, string of length zero]
    :fail response: [false, ``error``: string]
 
    Undeploy all the virtual machines associated to the infrastructure with ID
    ``infId``. The ``force`` parameter is optional and is a flag to specify that the infra
-   will be from the IM although not all resources are deleted.
+   will be from the IM although not all resources are deleted. If ``async`` is set to ``True``
+   the call will not wait the infrastructure to be deleted.
 
 .. _AddResource-xmlrpc:
 

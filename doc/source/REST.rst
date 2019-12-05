@@ -241,7 +241,7 @@ PUT ``http://imserver.com/infrastructures/<infId>/reconfigure``
    If the operation has been performed successfully the return value is an empty string.
 
 DELETE ``http://imserver.com/infrastructures/<infId>``
-   :input fields: ``force`` (optional)
+   :input fields: ``force`` (optional), ``async`` (optional)
    :Response Content-type: text/plain or application/json
    :ok response: 200 OK
    :fail response: 401, 403, 404, 400
@@ -250,7 +250,8 @@ DELETE ``http://imserver.com/infrastructures/<infId>``
    ``infId``. If the operation has been performed successfully 
    The ``force`` parameter is optional and is a flag to specify that the infra
    will be from the IM although not all resources are deleted.
-   The return value is an empty string.
+   The return value is an empty string. If ``async`` is set to ``True``
+   the call will not wait the infrastructure to be deleted.
 
 GET ``http://imserver.com/infrastructures/<infId>/vms/<vmId>``
    :Response Content-type: text/plain or application/json

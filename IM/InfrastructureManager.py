@@ -652,7 +652,7 @@ class InfrastructureManager:
             InfrastructureManager.logger.info("VMs %s successfully added to Inf ID: %s" % (new_vms, sel_inf.id))
 
         # The resources has been added
-        sel_inf.adding = False
+        sel_inf.set_adding(False)
 
         # Let's contextualize!
         if context and new_vms and not all_failed:
@@ -1206,7 +1206,7 @@ class InfrastructureManager:
             return ""
 
     @staticmethod
-    def DestroyInfrastructure(inf_id, auth, force=False):
+    def DestroyInfrastructure(inf_id, auth, force=False, async_call=False):
         """
         Destroy all virtual machines in an infrastructure.
 
@@ -1215,6 +1215,7 @@ class InfrastructureManager:
         - inf_id(str): infrastructure id.
         - auth(Authentication): parsed authentication tokens.
         - force(bool): delete the infra from the IM although not all resources are deleted.
+        - async_call(bool): Destroy the inf in an async way.
 
         Return: None.
         """
@@ -1224,23 +1225,18 @@ class InfrastructureManager:
         # First check the auth data
         auth = InfrastructureManager.check_auth_data(auth)
 
-        InfrastructureManager.logger.info("Destroying the Inf ID: " + str(inf_id))
-
         sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
-        try:
-            sel_inf.set_deleting()
-            # First stop ctxt processes
-            sel_inf.stop()
-            # Destroy the Infrastructure
-            sel_inf.destroy(auth)
-        except Exception as ex:
-            if not force:
-                raise ex
-        # Set the Infrastructure as deleted
-        sel_inf.delete()
-        IM.InfrastructureList.InfrastructureList.save_data(inf_id)
-        IM.InfrastructureList.InfrastructureList.remove_inf(sel_inf)
-        InfrastructureManager.logger.info("Inf ID: %s: Successfully destroyed" % inf_id)
+        # First set this infra as "deleting"
+        sel_inf.set_deleting()
+
+        if async_call:
+            t = threading.Thread(name="DestroyResource-%s" % sel_inf.id,
+                                 target=sel_inf.destroy,
+                                 args=(auth, force))
+            t.daemon = True
+            t.start()
+        else:
+            sel_inf.destroy(auth, force)
         return ""
 
     @staticmethod
