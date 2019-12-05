@@ -244,6 +244,12 @@ class TestREST(unittest.TestCase):
         self.assertEqual(DestroyInfrastructure.call_args_list[1][0][0], "1")
         self.assertEqual(DestroyInfrastructure.call_args_list[1][0][2], True)
 
+        bottle_request.params = {"async": "yes"}
+        res = RESTDestroyInfrastructure("1")
+        self.assertEqual(res, "")
+        self.assertEqual(DestroyInfrastructure.call_args_list[2][0][0], "1")
+        self.assertEqual(DestroyInfrastructure.call_args_list[2][0][3], True)
+
         DestroyInfrastructure.side_effect = DeletedInfrastructureException()
         res = RESTDestroyInfrastructure("1")
         self.assertEqual(res, "Error Destroying Inf: Deleted infrastructure.")

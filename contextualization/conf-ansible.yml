@@ -11,31 +11,29 @@
       set_fact: ANSIBLE_VERSION={{ lookup('env','ANSIBLE_VERSION') }} 
       when: lookup('env','ANSIBLE_VERSION') != ""
 
-    # Some OSs does not have python by default
+  ################### Some OSs does not have python by default #########################
     - name: Check Python is installed
-      raw: which python
+      raw: python --version
       ignore_errors: yes
       register: python_exists
       changed_when: false
 
-    # Ubuntu 16 have an annoying apt-daily.service boot process
-#    - name: Delete apt processes
-#      raw: ls /etc/debian_version && pgrep apt && (sudo killall apt ; sleep 1 ; sudo rm -f /var/lib/apt/lists/lock && sudo rm -f /var/lib/dpkg/lock && sudo dpkg --configure -a ; sudo apt-get -f -y install)
-#      ignore_errors: yes
+    - name: Check Python2 or Python3 is installed
+      raw: python2 --version || python3 --version
+      ignore_errors: yes
+      register: python2_exists
+      changed_when: false
 
     - name: Bootstrap with python
-      raw: sudo apt update; sudo apt install -y python; sudo yum install -y python; sudo zypper -n install python python-xml
+      raw: sudo apt update && sudo apt install -y python; sudo yum install -y python || sudo yum install -y python2; sudo zypper -n install python python-xml
       ignore_errors: yes
       register: python_install
       changed_when: python_install.stdout_lines|length > 1
-      when: python_exists is failed
+      when: python_exists is failed and python2_exists is failed
 
+  ################### Some basic OSs operations #########################
     - name: Get Facts
       setup:
-
-    - name: Install libselinux-python in RH
-      action: yum pkg=libselinux-python state=installed
-      when: ansible_os_family == "RedHat"
 
     - name: EPEL
       yum: name=epel-release
@@ -54,51 +52,88 @@
       dnf: name=python2-rpm,yum
       when: ansible_distribution == "Fedora"
 
-  ################### Install Ansible in Ubuntu RHEL Debian and Fedora systems with apt and yum #########################
-  ################### because they have recent versions of ansible in system repositories ###############################
-  
-    - name: Ubuntu apt update
+    - name: Ubuntu/Debian apt update
       apt: update_cache=yes cache_valid_time=3600
-      when: ansible_distribution == "Ubuntu"
+      when: ansible_os_family == "Debian"
       ignore_errors: yes
       register: apt_update
 
-    - name: Ubuntu force apt update (avoid apt lock)
+    - name: Ubuntu/Debian force apt update (avoid apt lock)
       command: apt update
-      when: ansible_distribution == "Ubuntu" and apt_update is failed
+      when: ansible_os_family == "Debian" and apt_update is failed
+
+  ################### Install Ansible/pip requisites #########################
+
+    - name: Install ansible repo in old Ubuntu to have a good python-crypto version
+      block:
+
+      - name: Install wget
+        apt: name=wget install_recommends=no
+
+      - name: Add ansible repo keys
+        shell: wget --no-check-certificate -qO - 'https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x6125e2a8c77f2818fb7bd15b93c4a3fd7bb9c367' | apt-key add -qq - >/dev/null
+      
+      - name: Add ansible repo
+        copy:
+          content: "deb http://ppa.launchpad.net/ansible/ansible/ubuntu {{ ansible_distribution_release }} main"
+          dest: /etc/apt/sources.list.d/ansible.list
+
+      - name: Apt update
+        apt: update_cache=yes
+
+      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int < 18
 
     - name: Debian/Ubuntu install requisites with apt
-      apt: name=python-pip,python-jinja2,sshpass,openssh-client,unzip,gcc,python-dev,libffi-dev,libssl-dev update_cache=yes
+      apt: name=python-pip,python-setuptools,python-jinja2,sshpass,openssh-client,unzip,python-crypto install_recommends=no
       when: ansible_os_family == "Debian"
 
-    - name: Yum install requisites RH 6/7/Fedora
-      yum: name=python-pip,python-jinja2,sshpass,openssh-clients,wget,gcc,python-devel,libffi-devel,openssl-devel update_cache=yes
-      when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 6
+    - name: Ubuntu 14 extra packages needed
+      apt: name=gcc,python-dev,libffi-dev,libssl-dev install_recommends=no
+      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int <= 14
 
-    - name: Ubuntu install Cryptography with apt
-      apt: name=python-cryptography
-      when: (ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int >= 16) or (ansible_distribution == "Debian" and ansible_distribution_major_version|int >= 8)
+    - name: Yum install requisites RH 6/7/ Fedora 27-
+      yum: name=python-pip,python-setuptools,python-jinja2,sshpass,openssh-clients update_cache=yes
+      when: (ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 6  and ansible_distribution_major_version|int < 8) or (ansible_distribution == "Fedora" and ansible_distribution_major_version|int < 28)
 
-  ############################################ In other systems use pip #################################################
+    - name: Yum install requisites RH 8 / Fedora 28+
+      yum: name=python2-pip,python2-setuptools,python2-jinja2,sshpass,openssh-clients update_cache=yes
+      when: (ansible_distribution != "Fedora" and ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 8) or (ansible_distribution == "Fedora" and ansible_distribution_major_version|int >= 28)
+
+    - name: Yum install extra requisites RH 6
+      yum: name=gcc,libffi-devel,openssl-devel,python-devel update_cache=yes
+      when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int <= 6 
 
     - name: Zypper install requirements Suse
-      zypper: name=python,python-pip,gcc,python-devel,wget,libffi-devel,openssl-devel,python-cryptography,make state=present
+      zypper: name=python,python-pip,python-setuptools,gcc,python-devel,wget,libffi-devel,openssl-devel,python-cryptography,make state=present
       when: ansible_os_family == "Suse"
 
-#    - name: Install Pip (alternative)
-#      shell: wget https://bootstrap.pypa.io/get-pip.py && python get-pip.py creates=/usr/local/bin/pip
+    # In some cases python link is not created
+    - name: Check if python exists
+      stat:
+        path: /usr/bin/python
+      register: python
 
-    # do not upgrade to 10 as it is failing
+    - name: Create a symbolic link to python2
+      file:
+        src: /usr/bin/python2
+        dest: /usr/bin/python
+        state: link
+      when: not python.stat.exists
+
+  ######################################### Use pip to enable to set the version #############################################
+
     - name: Upgrade pip
       pip: name=pip version=9.0.3 executable=pip2
 
     - name: Upgrade setuptools with Pip
       pip: name=setuptools state=latest executable=pip2
+      when: ansible_os_family != "RedHat" or ansible_distribution_major_version|int > 6
 
     - name: Install pkgs with Pip in RH6
       pip: name="{{ item.name }}" version="{{ item.version }}" executable=pip2
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int <= 6
       with_items:
+        - { name: 'setuptools', version: '28.8.1' }
         - { name: 'pyyaml', version: '3.13' }
         - { name: 'idna', version: '2.7' }
         - { name: 'argparse', version: '1.4.0' }
@@ -131,28 +166,30 @@
     - name: Install pywinrm with Pip
       pip: name=pywinrm executable=pip2
       ignore_errors: yes
-      
+
 ################################################ Configure Ansible  ###################################################
 
-    - name: Disable SELinux
-      selinux: state=disabled
-      when: ansible_os_family == "RedHat"
-      ignore_errors: yes
-  
     - name: Create /etc/ansible
       file: path=/etc/ansible state=directory
-        
+
     - name: Create /etc/ansible/ansible.cfg
       file: path=/etc/ansible/ansible.cfg state=touch owner=root group=root mode=0644
-  
-    - name: Set host_key_checking to false in ansible.cfg
-      ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=host_key_checking value=False
 
-    - name: Set nocolor to 1 in ansible.cfg to avoid strange chars in Ansible outputs
-      ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=nocolor value=1
-
-    - name: Set timeout to 30 in ansible.cfg to avoid problems with some VMs
-      ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=timeout value=30
+    - name: Set Ansible config file values
+      ini_file: dest=/etc/ansible/ansible.cfg section={{ item.section }} option={{ item.option }} value="{{ item.value }}"
+      with_items:
+      - { section: 'defaults', option: 'host_key_checking', value: 'False' }
+      - { section: 'defaults', option: 'nocolor', value: '1' }
+      - { section: 'defaults', option: 'timeout', value: '30' }
+      - { section: 'ssh_connection', option: 'pipelining', value: 'True' }
+      - { section: 'defaults', option: 'jinja2_extensions', value: 'jinja2.ext.do' }
+      - { section: 'defaults', option: 'allow_world_readable_tmpfiles', value: 'True' }
+      - { section: 'defaults', option: 'fact_caching', value: 'jsonfile' }
+      - { section: 'defaults', option: 'fact_caching_connection', value: '/var/tmp/facts_cache' }
+      - { section: 'defaults', option: 'fact_caching_timeout', value: '86400' }
+      - { section: 'defaults', option: 'gathering', value: 'smart' }
+      - { section: 'defaults', option: 'roles_path', value: '/etc/ansible/roles' }
+      - { section: 'defaults', option: 'timeout', value: '30' }
   
     - name: Set transport to ssh in ansible.cfg
       ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=transport value=ssh
@@ -170,26 +207,4 @@
       ini_file: dest=/etc/ansible/ansible.cfg section=ssh_connection option=ssh_args value="-o UserKnownHostsFile=/dev/null"
       when: (ansible_os_family == "RedHat" and ansible_distribution_major_version|int < 7) or (ansible_os_family == "Suse" and ansible_distribution_major_version|int < 12)
         
-    - name: Activate SSH pipelining in ansible.cfg
-      ini_file: dest=/etc/ansible/ansible.cfg section=ssh_connection option=pipelining value=True
-  
-    - name: Set jinja2.ext.do to jinja2_extensions in ansible.cfg
-      ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=jinja2_extensions value=jinja2.ext.do
 
-    - name: Set allow_world_readable_tmpfiles to True ansible.cfg
-      ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=allow_world_readable_tmpfiles value=True
-
-    - name: Set fact_caching in ansible.cfg
-      ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=fact_caching value=jsonfile
-
-    - name: Set fact_caching_connection in ansible.cfg
-      ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=fact_caching_connection value=/var/tmp/facts_cache
-
-    - name: Set fact_caching_timeout in ansible.cfg
-      ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=fact_caching_timeout value=86400
-        
-    - name: Set fact_caching_timeout in ansible.cfg
-      ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=gathering value=smart
-
-    - name: Set roles_path in ansible.cfg
-      ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=roles_path value=/etc/ansible/roles

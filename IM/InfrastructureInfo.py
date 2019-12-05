@@ -193,9 +193,9 @@ class InfrastructureInfo:
             newinf.auth = Authentication.deserialize(dic['auth'])
         return newinf
 
-    def destroy(self, auth):
+    def destroy_vms(self, auth):
         """
-        Destroy the all the VMs
+        Destroy all the VMs
         """
         delete_list = list(reversed(self.get_vm_list()))
 
@@ -240,6 +240,27 @@ class InfrastructureInfo:
         # Create a new empty queue
         with self._lock:
             self.ctxt_tasks = PriorityQueue()
+
+    def destroy(self, auth, force=False):
+        """
+        Destroy the infrastructure
+        """
+        InfrastructureInfo.logger.info("Destroying the Inf ID: " + str(self.id))
+        try:
+            # First stop ctxt processes
+            self.stop()
+            # Destroy the Infrastructure
+            self.destroy_vms(auth)
+        except Exception as ex:
+            if not force:
+                raise ex
+        finally:
+            self.set_deleting(False)
+        # Set the Infrastructure as deleted
+        self.delete()
+        InfrastructureInfo.logger.info("Inf ID: %s: Successfully destroyed" % self.id)
+        IM.InfrastructureList.InfrastructureList.save_data(self.id)
+        IM.InfrastructureList.InfrastructureList.remove_inf(self)
 
     def get_cont_out(self):
         """
@@ -687,16 +708,16 @@ class InfrastructureInfo:
         else:
             return False
 
-    def set_deleting(self):
+    def set_deleting(self, value=True):
         """
         Set this inf as deleting
         """
         with self._lock:
             if self.adding:
                 raise IncorrectStateException()
-            self.deleting = True
+            self.deleting = value
 
-    def set_adding(self):
+    def set_adding(self, value=True):
         """
         Set this inf as adding
         """
@@ -704,4 +725,4 @@ class InfrastructureInfo:
             if self.deleting:
                 self.add_cont_msg("Infrastructure deleted. Do not add resources.")
                 raise Exception("Infrastructure deleted. Do not add resources.")
-            self.adding = True
+            self.adding = value
