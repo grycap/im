@@ -643,11 +643,19 @@ class InfrastructureManager:
                     random_password = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(8))
                     vm.info.systems[0].setCredentialValues(password=random_password, new=True)
 
+        error_msg = ""
         # Add the new virtual machines to the infrastructure
         sel_inf.update_radl(radl, [(d, deployed_vm[d], concrete_systems[d.cloud_id][d.id][0]) for d in deployed_vm])
         if all_failed:
             InfrastructureManager.logger.error("VMs failed when adding to Inf ID: %s" % sel_inf.id)
             sel_inf.add_cont_msg("All VMs failed. No contextualize.")
+
+            # in case of all VMs are failed delete it
+            delete_list = list(reversed(sel_inf.get_vm_list()))
+            for vm in new_vms:
+                if vm.error_msg:
+                    error_msg += "%s\n" % vm.error_msg
+                vm.delete(delete_list, auth, [])
         else:
             InfrastructureManager.logger.info("VMs %s successfully added to Inf ID: %s" % (new_vms, sel_inf.id))
 
@@ -659,6 +667,12 @@ class InfrastructureManager:
             sel_inf.Contextualize(auth)
 
         IM.InfrastructureList.InfrastructureList.save_data(inf_id)
+
+        if all_failed and new_vms:
+            # if there are no VMs, set it as unconfigured
+            if not sel_inf.get_vm_list():
+                sel_inf.configured = False
+            raise Exception("Error adding VMs: %s" % error_msg)
 
         return [vm.im_id for vm in new_vms]
 
