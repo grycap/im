@@ -515,12 +515,12 @@ OPENID CONNECT OPTIONS
 
 .. confval:: OIDC_CLIENT_ID
 
-   OIDC client ID of the IM service
+   OIDC client ID of the IM service. Only needed in case of setting OIDC_SCOPES.
    The default value is ``''``.
 
 .. confval:: OIDC_CLIENT_SECRET
 
-   OIDC secret of the IM service
+   OIDC secret of the IM service. Only needed in case of setting OIDC_SCOPES.
    The default value is ``''``.
 
 .. confval:: OIDC_SCOPES
