@@ -669,6 +669,9 @@ class InfrastructureManager:
         IM.InfrastructureList.InfrastructureList.save_data(inf_id)
 
         if all_failed and new_vms:
+            # if there are no VMs, set it as unconfigured
+            if not sel_inf.get_vm_list():
+                sel_inf.configured = False
             raise Exception("Error adding VMs: %s" % error_msg)
 
         return [vm.im_id for vm in new_vms]
