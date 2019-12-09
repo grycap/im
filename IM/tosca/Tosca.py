@@ -585,7 +585,7 @@ class Tosca:
                                 val = remote_artifacts_path + "/" + os.path.basename(artifact_uri)
                                 artifacts.append(artifact_uri)
                         else:
-                            val = self._final_function_result(param_value, node)
+                            val = self._final_function_result(param_value, node).replace("\n", "\\n")
 
                         if val is not None:
                             env[param_name] = val
