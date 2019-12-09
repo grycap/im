@@ -640,6 +640,7 @@ class Tosca:
                                 var_value = '"%s"' % var_value
                             else:
                                 var_value = str(var_value)
+                            var_value = var_value.replace("\n", "\\n")
                             variables += '    %s: %s ' % (var_name, var_value) + "\n"
                         variables += "\n"
 
