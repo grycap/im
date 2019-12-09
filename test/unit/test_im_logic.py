@@ -340,16 +340,11 @@ class TestIM(unittest.TestCase):
         auth0 = self.getAuth([0], [], [("Dummy", 0)])
         infId = IM.CreateInfrastructure("", auth0)
 
-        vms = IM.AddResource(infId, str(radl), auth0)
+        with self.assertRaises(Exception) as ex:
+            vms = IM.AddResource(infId, str(radl), auth0)
 
-        self.assertEqual(vms, [0])
-
-        res = IM.GetInfrastructureState(infId, auth0)
-        self.assertEqual(res['state'], VirtualMachine.FAILED)
-
-        res = IM.GetVMContMsg(infId, 0, auth0)
-        self.assertEqual(res, ("Error launching the VMs of type s0 to cloud ID cloud0 of type Dummy."
-                               " No username for deploy: s0\n"))
+        self.assertEqual(str(ex.exception), ("Error adding VMs: Error launching the VMs of type s0 "
+                                             "to cloud ID cloud0 of type Dummy. No username for deploy: s0\n"))
 
         IM.DestroyInfrastructure(infId, auth0)
 
@@ -1293,7 +1288,7 @@ configure step2 (
     def sleep_5(self, _):
         time.sleep(5)
 
-    def test_00inf_delete_async(self):
+    def test_inf_delete_async(self):
         """ DestroyInfrastructure async """
 
         auth0 = self.getAuth([0])
