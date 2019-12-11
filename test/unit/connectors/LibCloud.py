@@ -219,7 +219,7 @@ class TestOSTConnector(TestCloudConnectorBase):
 
         success, _ = lib_cloud.stop(vm, auth)
 
-        self.assertTrue(success, msg="ERROR: stopping VM info.")
+        self.assertTrue(success, msg="ERROR: stopping VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('libcloud.compute.drivers.ec2.EC2NodeDriver')
@@ -244,11 +244,35 @@ class TestOSTConnector(TestCloudConnectorBase):
 
         success, _ = lib_cloud.start(vm, auth)
 
-        self.assertTrue(success, msg="ERROR: stopping VM info.")
+        self.assertTrue(success, msg="ERROR: starting VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('libcloud.compute.drivers.ec2.EC2NodeDriver')
-    def test_60_finalize(self, get_driver):
+    def test_60_reboot(self, get_driver):
+        auth = Authentication([{'id': 'libcloud', 'type': 'LibCloud', 'username': 'user',
+                                'password': 'pass', 'driver': 'EC2'}])
+        lib_cloud = self.get_lib_cloud()
+
+        inf = MagicMock()
+        vm = VirtualMachine(inf, "1", lib_cloud.cloud, "", "", lib_cloud, 1)
+
+        driver = MagicMock()
+        get_driver.return_value = driver
+
+        node = MagicMock()
+        node.id = "1"
+        node.state = "running"
+        node.driver = driver
+        node.reboot.return_value = True
+        driver.list_nodes.return_value = [node]
+
+        success, _ = lib_cloud.reboot(vm, auth)
+
+        self.assertTrue(success, msg="ERROR: rebooting VM.")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
+    @patch('libcloud.compute.drivers.ec2.EC2NodeDriver')
+    def test_70_finalize(self, get_driver):
         auth = Authentication([{'id': 'libcloud', 'type': 'LibCloud', 'username': 'user',
                                 'password': 'pass', 'driver': 'EC2'}])
         lib_cloud = self.get_lib_cloud()
