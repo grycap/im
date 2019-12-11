@@ -327,7 +327,7 @@ class CloudConnector(LoggerMixin):
     def keygen():
         """
         Generates a keypair using the cryptography lib and returns a tuple (public, private)
-        """        
+        """
         key = rsa.generate_private_key(
             public_exponent=65537,
             key_size=2048,
