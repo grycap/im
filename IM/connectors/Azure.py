@@ -144,23 +144,7 @@ class AzureCloudConnector(CloudConnector):
         if system.getValue('availability_zone'):
             location = system.getValue('availability_zone')
 
-        cpu = 1
-        cpu_op = ">="
-        if system.getFeature('cpu.count'):
-            cpu = system.getValue('cpu.count')
-            cpu_op = system.getFeature('cpu.count').getLogOperator()
-
-        memory = 1
-        memory_op = ">="
-        if system.getFeature('memory.size'):
-            memory = system.getFeature('memory.size').getValue('M')
-            memory_op = system.getFeature('memory.size').getLogOperator()
-
-        disk_free = 0
-        disk_free_op = ">="
-        if system.getValue('disks.free_size'):
-            disk_free = system.getFeature('disks.free_size').getValue('M')
-            disk_free_op = system.getFeature('disks.free_size').getLogOperator()
+        (cpu, cpu_op, memory, memory_op, disk_free, disk_free_op) = self.get_instance_selectors(system)
 
         compute_client = ComputeManagementClient(credentials, subscription_id)
         instace_types = list(compute_client.virtual_machine_sizes.list(location))
@@ -171,11 +155,11 @@ class AzureCloudConnector(CloudConnector):
             if instace_type.name == self.INSTANCE_TYPE:
                 default = instace_type
 
-            str_compare = "instace_type.number_of_cores " + cpu_op + " cpu "
-            str_compare += " and instace_type.memory_in_mb " + memory_op + " memory "
-            str_compare += " and instace_type.resource_disk_size_in_mb " + disk_free_op + " disk_free"
+            comparison = cpu_op(instace_type.number_of_cores, cpu)
+            comparison = comparison and memory_op(instace_type.memory_in_mb, memory)
+            comparison = comparison and disk_free_op(instace_type.resource_disk_size_in_mb, disk_free)
 
-            if eval(str_compare):
+            if comparison:
                 if not instance_type_name or instace_type.name == instance_type_name:
                     return instace_type
 
