@@ -114,25 +114,17 @@ class LibCloudCloudConnector(CloudConnector):
         """
         instance_type_name = radl.getValue('instance_type')
 
-        memory = 1
-        memory_op = ">="
-        if radl.getFeature('memory.size'):
-            memory = radl.getFeature('memory.size').getValue('M')
-            memory_op = radl.getFeature('memory.size').getLogOperator()
-        disk_free = 0
-        disk_free_op = ">="
-        if radl.getValue('disk.0.free_size'):
-            disk_free = radl.getFeature('disk.0.free_size').getValue('G')
-            disk_free_op = radl.getFeature('memory.size').getLogOperator()
+        (_, _, memory, memory_op, disk_free, disk_free_op) = self.get_instance_selectors(radl, disk_unit='G')
 
         res = None
         for size in sizes:
             # get the node size with the lowest price and memory (in the case
             # of the price is not set)
             if res is None or (size.price <= res.price and size.ram <= res.ram):
-                str_compare = "size.ram " + memory_op + " memory"
-                str_compare += " and size.disk " + disk_free_op + " disk_free"
-                if eval(str_compare):
+                comparison = memory_op(size.ram, memory)
+                comparison = comparison and disk_free_op(size.disk, disk_free)
+
+                if comparison:
                     if not instance_type_name or size.name == instance_type_name:
                         res = size
 

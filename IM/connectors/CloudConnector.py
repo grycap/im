@@ -15,6 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import logging
+import operator
 import time
 import yaml
 
@@ -36,6 +37,8 @@ class CloudConnector(LoggerMixin):
             - cloud_info(:py:class:`IM.CloudInfo`): Data about the Cloud Provider
     """
 
+    OPERATORSMAP = {"<": operator.lt, "<=": operator.le, "=": operator.eq,
+                    ">=": operator.ge, ">": operator.gt, "==": operator.eq}
     type = "BaseClass"
     """str with the name of the provider."""
 
@@ -448,3 +451,28 @@ class CloudConnector(LoggerMixin):
         if not mask:
             mask = "10.0.0.0/16"
         return mask
+
+    @staticmethod
+    def get_instance_selectors(system, mem_unit="M", disk_unit="M"):
+        cpu = 1
+        cpu_op_str = ">="
+        if system.getFeature('cpu.count'):
+            cpu = system.getValue('cpu.count')
+            cpu_op_str = system.getFeature('cpu.count').getLogOperator()
+        cpu_op = CloudConnector.OPERATORSMAP.get(cpu_op_str)
+
+        memory = 0
+        memory_op_str = ">="
+        if system.getFeature('memory.size'):
+            memory = system.getFeature('memory.size').getValue(mem_unit)
+            memory_op_str = system.getFeature('memory.size').getLogOperator()
+        memory_op = CloudConnector.OPERATORSMAP.get(memory_op_str)
+
+        disk_free = 0
+        disk_free_op_str = ">="
+        if system.getValue('disks.free_size'):
+            disk_free = system.getFeature('disks.free_size').getValue(disk_unit)
+            disk_free_op_str = system.getFeature('disks.free_size').getLogOperator()
+        disk_free_op = CloudConnector.OPERATORSMAP.get(disk_free_op_str)
+
+        return (cpu, cpu_op, memory, memory_op, disk_free, disk_free_op)
