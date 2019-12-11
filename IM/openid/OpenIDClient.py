@@ -73,7 +73,7 @@ class OpenIDClient(object):
                     return True, "Token expired"
                 else:
                     return False, "Valid Token for %d seconds" % validity
-            except:
+            except Exception:
                 return True, "Error getting token info"
         else:
             return True, "No token specified"
