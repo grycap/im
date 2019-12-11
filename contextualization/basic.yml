@@ -21,15 +21,16 @@
       changed_when: python_install.stdout_lines|length > 1
       when: python_exists is failed and python2_exists is failed
 
+    # In some cases python link is not created
+    - name: Link python 2 or 3 in case is needed
+      raw: ls /usr/bin/python || { ls /usr/bin/python2 && ln -s /usr/bin/python2 /usr/bin/python; } || { ls /usr/bin/python3 && ln -s /usr/bin/python3 /usr/bin/python; }
+      become: yes
+      ignore_errors: yes
+
     # In case of redhat systems libselinux-python is needed    
     - name: Install libselinux-python on redhat systems
       raw: yum -y install libselinux-python || yum -y install http://mirror.centos.org/centos/8/AppStream/x86_64/os/Packages/libselinux-python-2.8-6.module_el8.0.0+111+16bc5e61.x86_64.rpm
       become: yes
-      ignore_errors: yes
-
-    # In some cases python link is not created
-    - name: Link python 2 or 3 in case is needed
-      shell: ls /usr/bin/python || { ls /usr/bin/python2 && ln -s /usr/bin/python2 /usr/bin/python; } || { ls /usr/bin/python3 && ln -s /usr/bin/python3 /usr/bin/python; }
       ignore_errors: yes
 
     # Set the correct hostname
