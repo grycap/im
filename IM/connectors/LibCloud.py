@@ -641,3 +641,20 @@ class LibCloudCloudConnector(CloudConnector):
 
         vm.volumes = alive_volumes
         return vm.volumes == [], msg
+
+    def create_snapshot(self, vm, disk_num, image_name, auto_delete, auth_data):
+        raise Exception("Not supported")
+
+    def delete_image(self, image_url, auth_data):
+        raise Exception("Not supported")
+
+    def reboot(self, vm, auth_data):
+        node = self.get_node_with_id(vm.id, auth_data)
+        if node:
+            node.reboot()
+            return (True, "")
+        else:
+            return (False, "VM not found with id: " + vm.id)
+
+    def alterVM(self, vm, radl, auth_data):
+        raise Exception("Not supported")

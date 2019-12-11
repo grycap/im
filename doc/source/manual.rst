@@ -17,7 +17,7 @@ IM needs at least Python 2.6 to run, as well as the next libraries:
   and manipulating network addresses.
 * `Requests <http://docs.python-requests.org>`_, A Python library for access REST APIs.
     
-Also, IM uses `Ansible <http://www.ansible.com>`_ (2.0.0 or later) to configure the
+Also, IM uses `Ansible <http://www.ansible.com>`_ (2.4 or later) to configure the
 infrastructure nodes.
  
 These components are usually available from the distribution repositories.
@@ -107,7 +107,7 @@ Then you only have to call the install command of the pip tool with the IM packa
 
 	$ pip install IM
 
-Pip will also install the, non installed, pre-requisites needed. So Ansible 1.4.2 or later will 
+Pip will also install the, non installed, pre-requisites needed. So Ansible 2.4 or later will 
 be installed in the system. Some of the optional packages are also installed please check if some
 of IM features that you need requires to install some of the packages of section "Optional Packages". 
 
@@ -515,12 +515,12 @@ OPENID CONNECT OPTIONS
 
 .. confval:: OIDC_CLIENT_ID
 
-   OIDC client ID of the IM service
+   OIDC client ID of the IM service. Only needed in case of setting OIDC_SCOPES.
    The default value is ``''``.
 
 .. confval:: OIDC_CLIENT_SECRET
 
-   OIDC secret of the IM service
+   OIDC secret of the IM service. Only needed in case of setting OIDC_SCOPES.
    The default value is ``''``.
 
 .. confval:: OIDC_SCOPES
