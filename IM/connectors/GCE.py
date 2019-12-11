@@ -31,7 +31,6 @@ except Exception as ex:
     print("WARN: libcloud library not correctly installed. GCECloudConnector will not work!.")
     print(ex)
 
-from .CloudConnector import CloudConnector
 from IM.connectors.LibCloud import LibCloudCloudConnector
 try:
     from urlparse import urlparse
