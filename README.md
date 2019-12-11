@@ -97,7 +97,7 @@ However, if you install IM from sources you should install:
  * TOSCA parser library for Python, available as the ``tosca-parser`` package in pip.
 
  * Ansible (http://www.ansibleworks.com/) to configure nodes in the infrastructures.
-   In particular, Ansible 2.0.0+ must be installed.
+   In particular, Ansible 2.4+ must be installed.
    To ensure the functionality the following values must be set in the ansible.cfg file (usually found in /etc/ansible/):
 
 ```yml
@@ -203,7 +203,7 @@ Then you only have to call the install command of the pip tool with the IM packa
 $ pip install IM
 ```
 
-Pip will also install the, non installed, pre-requisites needed. So Ansible  2.0.0 or later will 
+Pip will also install the, non installed, pre-requisites needed. So Ansible  2.4 or later will 
 be installed in the system. Some of the optional packages are also installed please check if some
 of IM features that you need requires to install some of the packages of section OPTIONAL PACKAGES. 
 
