@@ -195,30 +195,16 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         """
         instance_type_name = radl.getValue('instance_type')
 
-        cpu = 1
-        cpu_op = ">="
-        if radl.getFeature('cpu.count'):
-            cpu = radl.getValue('cpu.count')
-            cpu_op = radl.getFeature('cpu.count').getLogOperator()
-
-        memory = 1
-        memory_op = ">="
-        if radl.getFeature('memory.size'):
-            memory = radl.getFeature('memory.size').getValue('M')
-            memory_op = radl.getFeature('memory.size').getLogOperator()
-        disk_free = 0
-        disk_free_op = ">="
-        if radl.getValue('disks.free_size'):
-            disk_free = radl.getFeature('disks.free_size').getValue('G')
-            disk_free_op = radl.getFeature('disks.free_size').getLogOperator()
+        (cpu, cpu_op, memory, memory_op, disk_free, disk_free_op) = self.get_instance_selectors(radl, disk_unit="G")
 
         # get the node size with the lowest price, vcpus, memory and disk
         sizes.sort(key=lambda x: (x.price, x.vcpus, x.ram, x.disk))
         for size in sizes:
-            str_compare = "size.ram " + memory_op + " memory"
-            str_compare += " and size.vcpus " + cpu_op + " cpu "
-            str_compare += " and size.disk " + disk_free_op + " disk_free"
-            if eval(str_compare):
+            comparison = cpu_op(size.vcpus, cpu)
+            comparison = comparison and memory_op(size.ram, memory)
+            comparison = comparison and disk_free_op(size.disk, disk_free)
+
+            if comparison:
                 if not instance_type_name or size.name == instance_type_name:
                     return size
 

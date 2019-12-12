@@ -221,17 +221,7 @@ class GCECloudConnector(LibCloudCloudConnector):
         """
         instance_type_name = radl.getValue('instance_type')
 
-        cpu = 1
-        cpu_op = ">="
-        if radl.getFeature('cpu.count'):
-            cpu = radl.getValue('cpu.count')
-            cpu_op = radl.getFeature('cpu.count').getLogOperator()
-
-        memory = 1
-        memory_op = ">="
-        if radl.getFeature('memory.size'):
-            memory = radl.getFeature('memory.size').getValue('M')
-            memory_op = radl.getFeature('memory.size').getLogOperator()
+        (cpu, cpu_op, memory, memory_op, _, _) = self.get_instance_selectors(radl)
 
         res = None
         for size in sizes:
@@ -240,12 +230,11 @@ class GCECloudConnector(LibCloudCloudConnector):
             if size.price is None:
                 size.price = 9999
             if res is None or (size.price <= res.price or size.ram <= res.ram):
-                str_compare = ""
+                comparison = memory_op(size.ram, memory)
                 if 'guestCpus' in size.extra and size.extra['guestCpus']:
-                    str_compare = "size.extra['guestCpus'] " + cpu_op + " cpu and "
-                str_compare += "size.ram " + memory_op + " memory"
+                    comparison = comparison and cpu_op(size.extra['guestCpus'], cpu)
 
-                if eval(str_compare):
+                if comparison:
                     if not instance_type_name or size.name == instance_type_name:
                         res = size
 

@@ -731,23 +731,7 @@ class AzureClassicCloudConnector(CloudConnector):
         """
         instance_type_name = system.getValue('instance_type')
 
-        cpu = 1
-        cpu_op = ">="
-        if system.getFeature('cpu.count'):
-            cpu = system.getValue('cpu.count')
-            cpu_op = system.getFeature('cpu.count').getLogOperator()
-
-        memory = 1
-        memory_op = ">="
-        if system.getFeature('memory.size'):
-            memory = system.getFeature('memory.size').getValue('M')
-            memory_op = system.getFeature('memory.size').getLogOperator()
-
-        disk_free = 0
-        disk_free_op = ">="
-        if system.getValue('disks.free_size'):
-            disk_free = system.getFeature('disks.free_size').getValue('M')
-            disk_free_op = system.getFeature('disks.free_size').getLogOperator()
+        (cpu, cpu_op, memory, memory_op, disk_free, disk_free_op) = self.get_instance_selectors(system)
 
         instace_types = self.get_all_instance_types(auth_data)
 
@@ -755,17 +739,12 @@ class AzureClassicCloudConnector(CloudConnector):
         for instace_type in instace_types:
             # get the instance type with the lowest Memory
             if res is None or (instace_type.MemoryInMb <= res.MemoryInMb):
-                str_compare = "instace_type.Cores " + cpu_op + " cpu "
-                str_compare += " and instace_type.MemoryInMb " + memory_op + " memory "
-                str_compare += " and instace_type.VirtualMachineResourceDiskSizeInMb " + \
-                    disk_free_op + " disk_free"
 
-                # if arch in instace_type.cpu_arch and
-                # instace_type.cores_per_cpu * instace_type.num_cpu >= cpu and
-                # instace_type.mem >= memory and instace_type.cpu_perf >=
-                # performance and instace_type.disks * instace_type.disk_space
-                # >= disk_free:
-                if eval(str_compare):
+                comparison = cpu_op(instace_type.Cores, cpu)
+                comparison = comparison and memory_op(instace_type.MemoryInMb, memory)
+                comparison = comparison and disk_free_op(instace_type.VirtualMachineResourceDiskSizeInMb, disk_free)
+
+                if comparison:
                     if not instance_type_name or instace_type.Name == instance_type_name:
                         res = instace_type
 
