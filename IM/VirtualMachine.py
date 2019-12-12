@@ -43,6 +43,7 @@ class VirtualMachine(LoggerMixin):
     FAILED = "failed"
     CONFIGURED = "configured"
     UNCONFIGURED = "unconfigured"
+    DELETING = "deleting"
 
     WAIT_TO_PID = "WAIT"
 
@@ -92,6 +93,8 @@ class VirtualMachine(LoggerMixin):
         """Flag to specify that this VM is creation process"""
         self.error_msg = None
         """Message with the cause of the the error in the VM (if known) """
+        self.deleting = False
+        """Flag to specify that this VM is deletion process"""
 
     def serialize(self):
         with self._lock:
@@ -155,16 +158,20 @@ class VirtualMachine(LoggerMixin):
         last = self.is_last_in_cloud(delete_list, remain_vms)
         success = False
         try:
+            self.deleting = True
             VirtualMachine.logger.info("Inf ID: " + self.inf.id + ": Finalizing the VM id: " + str(self.id))
 
             self.kill_check_ctxt_process()
             (success, msg) = self.getCloudConnector().finalize(self, last, auth)
-            if success:
-                self.destroy = True
-            # force the update of the information
-            self.last_update = 0
         except Exception as e:
             msg = str(e)
+        finally:
+            self.deleting = False
+
+        if success:
+            self.destroy = True
+        # force the update of the information
+        self.last_update = 0
 
         if not success:
             VirtualMachine.logger.info("Inf ID: " + self.inf.id + ": The VM cannot be finalized: %s" % msg)
@@ -499,6 +506,10 @@ class VirtualMachine(LoggerMixin):
             # In case of a VM failed during creation, do not update
             if self.state == VirtualMachine.FAILED and self.id is None:
                 return False
+
+            if self.deleting:
+                self.state = VirtualMachine.DELETING
+                return True
 
             now = int(time.time())
             state = self.state
