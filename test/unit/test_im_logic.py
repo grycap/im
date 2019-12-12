@@ -731,6 +731,7 @@ class TestIM(unittest.TestCase):
         inf.id = "1"
         inf.auth = auth0
         inf.deleted = False
+        inf.deleting = False
         inf.has_expired.return_value = False
         vm1 = MagicMock()
         vm1.im_id = 0
@@ -1297,6 +1298,8 @@ configure step2 (
         inf.destroy_vms = Mock(side_effect=self.sleep_5)
         IM.DestroyInfrastructure(infId, auth0, False, True)
         self.assertEqual(inf.deleted, False)
+        state = IM.GetInfrastructureState(infId, auth0)
+        self.assertEqual(state["state"], VirtualMachine.DELETING)
         time.sleep(10)
         self.assertEqual(inf.deleted, True)
 

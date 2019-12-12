@@ -161,8 +161,8 @@ GET ``http://imserver.com/infrastructures/<infId>/<property_name>``
                  (the virtual infrastructure will not be modified).
       :``state``: a JSON object with two elements:
       
-         :``state``: a string with the aggregated state of the infrastructure. 
-         :``vm_states``: a dict indexed with the VM ID and the value the VM state.
+         :``state``: a string with the aggregated state of the infrastructure (see list of valid states in :IM-States_).
+         :``vm_states``: a dict indexed with the VM ID and the value the VM state (see list of valid states in :IM-States_).
 
    The result is JSON format has the following format::
    
