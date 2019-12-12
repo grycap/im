@@ -616,7 +616,7 @@ class TestOSTConnector(TestCloudConnectorBase):
 
         fip = MagicMock()
         fip.delete.return_value = True
-        driver.get_floating_ip.return_value = fip
+        driver.ex_get_floating_ip.return_value = fip
         driver.ex_detach_floating_ip_from_node.return_value = True
 
         success, _ = ost_cloud.alterVM(vm, new_radl, auth)
