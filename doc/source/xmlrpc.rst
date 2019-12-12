@@ -14,6 +14,9 @@ structs.
 
 .. _IM-States:
 
+IM valid States
+----------------
+
 List of valid VM and infrastructure states:
 
    The ``state`` can be
@@ -42,6 +45,9 @@ List of valid VM and infrastructure states:
       "configured" -> "running";
       "stopped" -> "pending";
       "configured" -> "deleting";
+
+Methods
+-------
 
 This is the list of method names:
 
