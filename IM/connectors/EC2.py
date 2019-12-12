@@ -263,36 +263,20 @@ class EC2CloudConnector(CloudConnector):
         """
         instance_type_name = radl.getValue('instance_type')
 
-        cpu = 1
-        cpu_op = ">="
-        if radl.getFeature('cpu.count'):
-            cpu = radl.getValue('cpu.count')
-            cpu_op = radl.getFeature('cpu.count').getLogOperator()
-
+        (cpu, cpu_op, memory, memory_op, disk_free, disk_free_op) = self.get_instance_selectors(radl, disk_unit="G")
         arch = radl.getValue('cpu.arch', 'x86_64')
 
-        memory = 1
-        memory_op = ">="
-        if radl.getFeature('memory.size'):
-            memory = radl.getFeature('memory.size').getValue('M')
-            memory_op = radl.getFeature('memory.size').getLogOperator()
-
-        disk_free = 0
-        disk_free_op = ">="
-        if radl.getValue('disks.free_size'):
-            disk_free = radl.getFeature('disks.free_size').getValue('G')
-            disk_free_op = radl.getFeature('disks.free_size').getLogOperator()
-
         performance = 0
-        performance_op = ">="
+        performance_op_str = ">="
         if radl.getValue("cpu.performance"):
             cpu_perf = radl.getFeature("cpu.performance")
             # Assume that GCEU = ECU
             if cpu_perf.unit == "ECU" or cpu_perf.unidad == "GCEU":
                 performance = float(cpu_perf.value)
-                performance_op = cpu_perf.getLogOperator()
+                performance_op_str = cpu_perf.getLogOperator()
             else:
                 self.log_warn("Performance unit unknown: " + cpu_perf.unit + ". Ignore it")
+        performance_op = CloudConnector.OPERATORSMAP.get(performance_op_str)
 
         instace_types = self.get_all_instance_types()
 
@@ -300,18 +284,14 @@ class EC2CloudConnector(CloudConnector):
         for instace_type in instace_types:
             # get the instance type with the lowest price
             if res is None or (instace_type.price <= res.price):
-                str_compare = "arch in instace_type.cpu_arch "
-                str_compare += " and instace_type.cores_per_cpu * instace_type.num_cpu " + cpu_op + " cpu "
-                str_compare += " and instace_type.mem " + memory_op + " memory "
-                str_compare += " and instace_type.cpu_perf " + performance_op + " performance"
-                str_compare += " and instace_type.disks * instace_type.disk_space " + disk_free_op + " disk_free"
 
-                # if arch in instace_type.cpu_arch and
-                # instace_type.cores_per_cpu * instace_type.num_cpu >= cpu and
-                # instace_type.mem >= memory and instace_type.cpu_perf >=
-                # performance and instace_type.disks * instace_type.disk_space
-                # >= disk_free:
-                if eval(str_compare):
+                comparison = arch in instace_type.cpu_arch
+                comparison = comparison and cpu_op(instace_type.cores_per_cpu * instace_type.num_cpu, cpu)
+                comparison = comparison and memory_op(instace_type.mem, memory)
+                comparison = comparison and disk_free_op(instace_type.disks * instace_type.disk_space, disk_free)
+                comparison = comparison and performance_op(instace_type.cpu_perf, performance)
+
+                if comparison:
                     if not instance_type_name or instace_type.name == instance_type_name:
                         res = instace_type
 
