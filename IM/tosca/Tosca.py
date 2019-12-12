@@ -2,6 +2,7 @@ import os
 import logging
 import yaml
 import copy
+import operator
 import requests
 
 try:
@@ -692,12 +693,10 @@ class Tosca:
         try:
             yamlo = yaml.safe_load(script_content)
             if not isinstance(yamlo, list):
-                Tosca.logger.warn("Error parsing YAML: " +
-                                  script_content + "\n.Do not remove header.")
+                Tosca.logger.warn("Error parsing YAML: " + script_content + "\n.Do not remove header.")
                 return script_content
         except Exception:
-            Tosca.logger.exception(
-                "Error parsing YAML: " + script_content + "\n.Do not remove header.")
+            Tosca.logger.exception("Error parsing YAML: " + script_content + "\n.Do not remove header.")
             return script_content
 
         for elem in yamlo:
@@ -841,7 +840,7 @@ class Tosca:
         if len(func.args) == 3:
             try:
                 index = int(func.args[2])
-            except:
+            except Exception:
                 capability_name = func.args[1]
                 attribute_name = func.args[2]
         elif len(func.args) == 4:
@@ -849,7 +848,7 @@ class Tosca:
             attribute_name = func.args[2]
             try:
                 index = int(func.args[3])
-            except:
+            except Exception:
                 Tosca.logger.exception("Error getting get_attribute index.")
 
         if node_name == "HOST":
@@ -1099,50 +1098,33 @@ class Tosca:
                                 filter_props[p_name] = ("equal", p_value)
 
         operator_map = {
-            'equal': '==',
-            'greater_than': '>',
-            'greater_or_equal': '>=',
-            'less_than': '<',
-            'less_or_equal': '<='
+            'equal': operator.eq,
+            'greater_than': operator.gt,
+            'greater_or_equal': operator.ge,
+            'less_than': operator.lt,
+            'less_or_equal': operator.le
         }
 
         # Compare the properties
         for name, value in filter_props.items():
-            operator, filter_value = value
+            op, filter_value = value
             if name in ['disk_size', 'mem_size']:
                 filter_value, _ = Tosca._get_size_and_unit(filter_value)
 
             if name in node_props:
                 node_value, _ = node_props[name]
-
-                if isinstance(node_value, str) or isinstance(node_value, unicode):
-                    str_node_value = "'" + node_value + "'"
-                else:
-                    str_node_value = str(node_value)
-
-                conv_operator = operator_map.get(operator, None)
+                conv_operator = operator_map.get(op, None)
                 if conv_operator:
-                    if isinstance(filter_value, str) or isinstance(filter_value, unicode):
-                        str_filter_value = "'" + filter_value + "'"
-                    else:
-                        str_filter_value = str(filter_value)
-
-                    comparation = str_node_value + conv_operator + str_filter_value
+                    comparation = conv_operator(node_value, filter_value)
                 else:
-                    if operator == "in_range":
-                        minv = filter_value[0]
-                        maxv = filter_value[1]
-                        comparation = str_node_value + ">=" + \
-                            str(minv) + " and " + \
-                            str_node_value + "<=" + str(maxv)
-                    elif operator == "valid_values":
-                        comparation = str_node_value + \
-                            " in " + str(filter_value)
+                    if op == "in_range":
+                        comparation = node_value >= filter_value[0] and node_value <= filter_value[1]
+                    elif op == "valid_values":
+                        comparation = node_value in filter_value
                     else:
-                        Tosca.logger.warn(
-                            "Logical operator %s not supported." % operator)
+                        Tosca.logger.warn("Logical operator %s not supported." % op)
 
-                if not eval(comparation):
+                if not comparation:
                     return False
             else:
                 # if this property is not specified in the node, return False
@@ -1484,7 +1466,7 @@ class Tosca:
         """
         try:
             node_type = node.type_definition
-        except:
+        except AttributeError:
             node_type = node.definition
 
         while True:
