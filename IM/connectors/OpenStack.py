@@ -456,6 +456,14 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
            - node(:py:class:`libcloud.compute.base.Node`): object to connect to EC2 instance.
         """
 
+        # First remove old
+        system = vm.info.systems[0]
+        cont = 0
+        while system.getValue('net_interface.%d.connection' % cont):
+            if system.getValue('net_interface.%d.ip' % cont):
+                system.delValue('net_interface.%d.ip' % cont)
+            cont += 1
+
         if 'addresses' in node.extra:
             public_ips = []
             ip_net_map = {}
@@ -481,7 +489,6 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
             map_nets = self.map_radl_ost_networks(vm, ip_net_map)
 
-            system = vm.info.systems[0]
             i = 0
             ips_assigned = []
             while system.getValue("net_interface." + str(i) + ".connection"):
@@ -1621,6 +1628,19 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     # Remove all public net connections in the Requested RADL
                     nets_id = [net.id for net in vm.requested_radl.networks if net.isPublic()]
                     system = vm.requested_radl.systems[0]
+
+                    i = 0
+                    while system.getValue('net_interface.%d.connection' % i):
+                        f = system.getFeature("net_interface.%d.connection" % i)
+                        if f.value in nets_id:
+                            system.delValue('net_interface.%d.connection' % i)
+                            if system.getValue('net_interface.%d.ip' % i):
+                                system.delValue('net_interface.%d.ip' % i)
+                        i += 1
+
+                    # Also remove them from the info RADL
+                    nets_id = [net.id for net in vm.info.networks if net.isPublic()]
+                    system = vm.info.systems[0]
 
                     i = 0
                     while system.getValue('net_interface.%d.connection' % i):
