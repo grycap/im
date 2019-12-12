@@ -990,6 +990,9 @@ class InfrastructureManager:
             else:
                 state = VirtualMachine.UNKNOWN
 
+        if sel_inf.deleting:
+            state = VirtualMachine.DELETING
+
         InfrastructureManager.logger.info("Inf ID: " + str(inf_id) + " is in state: " + state)
         return {'state': state, 'vm_states': vm_states}
 

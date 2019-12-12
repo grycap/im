@@ -356,13 +356,87 @@ paths:
         404:
           description: Not Found
 
- /infrastructures/{InfId}/{Property}:
+ /infrastructures/{InfId}/state:
     get:
       tags:
         - infrastructures
-      summary: Get a infrastructure property.
-      description: Return a property associated to the infrastructure with ID InfId.
-      operationId: GetInfrastructureProperty
+      summary: Get infrastructure state.
+      description: Return a the state of the infrastructure with ID InfId.
+      operationId: GetInfrastructureState
+      produces:
+      - application/json
+      parameters:
+        - name: Authorization
+          in: header
+          description: |-
+            The Authentication header must provide the content of the [Authorization File](https://imdocs.readthedocs.io/en/latest/client.html#auth-file), but putting all the elements in one line using “\n” as separator.
+          required: true
+          type: string
+        - name: InfId
+          in: path
+          description: The ID of the specific infrastructure.
+          required: true
+          type: string
+      responses:
+        200:
+          description: successful operation
+          schema:
+            $ref: '#/definitions/InfrastructureState'
+        400:
+          description: Invalid status value
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden
+        404:
+          description: Not Found
+
+ /infrastructures/{InfId}/outputs:
+    get:
+      tags:
+        - infrastructures
+      summary: Get the infrastructure outputs.
+      description: In case of TOSCA documents it will return a JSON object with the outputs of the TOSCA document.
+      operationId: GetInfrastructureOutpus
+      produces:
+      - application/json
+      parameters:
+        - name: Authorization
+          in: header
+          description: |-
+            The Authentication header must provide the content of the [Authorization File](https://imdocs.readthedocs.io/en/latest/client.html#auth-file), but putting all the elements in one line using “\n” as separator.
+          required: true
+          type: string
+        - name: InfId
+          in: path
+          description: The ID of the specific infrastructure.
+          required: true
+          type: string
+      responses:
+        200:
+          description: successful operation
+          examples:
+            application/json: |
+                {
+                  "output_name1": "output_value1",
+                  "output_name2": "output_value2",
+                }
+        400:
+          description: Invalid status value
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden
+        404:
+          description: Not Found
+
+ /infrastructures/{InfId}/contmsg:
+    get:
+      tags:
+        - infrastructures
+      summary: Get a infrastructure contextualization message.
+      description: Return a string with the contextualization message. In case of headeronly flag is set to ‘yes’, ‘true’ or ‘1’ only the initial part of the infrastructure contextualization log will be returned (without any VM contextualization log).
+      operationId: GetInfrastructureContmsg
       produces:
       - text/plain
       - application/json
@@ -380,7 +454,7 @@ paths:
           type: string
         - name: headeronly
           in: query
-          description: Only used with `contmsg` property. In case of headeronly flag is set to `yes`, `true` or `1` only the initial part of the infrastructure contextualization log will be returned (without any VM contextualization log).
+          description: In case of headeronly flag is set to `yes`, `true` or `1` only the initial part of the infrastructure contextualization log will be returned (without any VM contextualization log).
           default: false
           required: false
           type: string
@@ -391,35 +465,151 @@ paths:
             - false
             - 0
             - 1
-        - name: Property
-          in: path
-          description: |
-            The specific infrastructure property:
-            * `outputs`:  in case of TOSCA documents it will return a JSON object with the outputs of the TOSCA document.
-            * `contmsg`: a string with the contextualization message. In case of headeronly flag is set to ‘yes’, ‘true’ or ‘1’ only the initial part of the infrastructure contextualization log will be returned (without any VM contextualization log).
-            * `radl`: a string with the original specified RADL of the infrastructure.
-            * `tosca`: a string with the TOSCA representation of the infrastructure.
-            * `data`: a string with the JSOMN serialized data of the infrastructure. In case of delete flag is set to ‘yes’, ‘true’ or ‘1’ the data not only will be exported but also the infrastructure will be set deleted (the virtual infrastructure will not be modified).
-            * `state`: a JSON object with two elements:
-                * `state`:  a string with the aggregated state of the infrastructure.
-                * `vm_states`:  a dict indexed with the VM ID and the value the VM state.
-          required: true
-          type: string
-          enum:
-            - outputs
-            - contmsg
-            - radl
-            - tosca
-            - data
-            - state
       responses:
         200:
           description: successful operation
           examples:
-            text/plain: property_value
+            text/plain: |              
+              2019-12-11 11:08:14.574891: Select master VM
+              2019-12-11 11:08:14.576685: Wait master VM to boot
+              2019-12-11 11:08:14.577905: Wait master VM to have the SSH active.
             application/json: |
                 {
-                  "property_name": "property_value"
+                  "contmsg": "              2019-12-11 11:08:14.574891: Select master VM\n              2019-12-11 11:08:14.576685: Wait master VM to boot\n              2019-12-11 11:08:14.577905: Wait master VM to have the SSH active."
+                }
+        400:
+          description: Invalid status value
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden
+        404:
+          description: Not Found
+
+ /infrastructures/{InfId}/data:
+    get:
+      tags:
+        - infrastructures
+      summary: Export an infrastructure.
+      description: Return the serialization of the infrastructure with ID InfId. This function is useful to transfer the control of an infrastructure to other IM server (See PUT /infrastructures). In case of delete flag is set to ‘yes’, ‘true’ or ‘1’ the data not only will be exported but also the infrastructure will be set deleted (the virtual infrastructure will not be modified). 
+      operationId: GetInfrastructureData
+      produces:
+      - application/json
+      parameters:
+        - name: Authorization
+          in: header
+          description: |-
+            The Authentication header must provide the content of the [Authorization File](https://imdocs.readthedocs.io/en/latest/client.html#auth-file), but putting all the elements in one line using “\n” as separator.
+          required: true
+          type: string
+        - name: InfId
+          in: path
+          description: The ID of the specific infrastructure.
+          required: true
+          type: string
+        - name: delete
+          in: query
+          description: In case of delete flag is set to ‘yes’, ‘true’ or ‘1’ the data not only will be exported but also the infrastructure will be set deleted (the virtual infrastructure will not be modified).
+          default: false
+          required: false
+          type: string
+          enum:
+            - yes
+            - no
+            - true
+            - false
+            - 0
+            - 1
+      responses:
+        200:
+          description: successful operation
+          examples:
+            application/json: |
+                {
+                  "vm_list": [],
+                  ...
+                }
+        400:
+          description: Invalid status value
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden
+        404:
+          description: Not Found
+
+ /infrastructures/{InfId}/radl:
+    get:
+      tags:
+        - infrastructures
+      summary: Get the infrastructure RADL used to create it.
+      description: Return a string with the original specified RADL of the infrastructure with ID InfId.
+      operationId: GetInfrastructureRADL
+      produces:
+      - text/plain
+      - application/json
+      parameters:
+        - name: Authorization
+          in: header
+          description: |-
+            The Authentication header must provide the content of the [Authorization File](https://imdocs.readthedocs.io/en/latest/client.html#auth-file), but putting all the elements in one line using “\n” as separator.
+          required: true
+          type: string
+        - name: InfId
+          in: path
+          description: The ID of the specific infrastructure.
+          required: true
+          type: string
+      responses:
+        200:
+          description: successful operation
+          examples:
+            text/plain: |
+                network net (outbound = 'yes')
+                system node (
+                  ...
+                )
+            application/json: |
+                {
+                  "radl": "network net (outbound = 'yes')\nsystem node ( ... )"
+                }
+        400:
+          description: Invalid status value
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden
+        404:
+          description: Not Found
+
+ /infrastructures/{InfId}/tosca:
+    get:
+      tags:
+        - infrastructures
+      summary: Get the TOSCA representation of the infrastructure.
+      description: Return a string with the TOSCA representation of the infrastructure with ID InfId.
+      operationId: GetInfrastructureTOSCA
+      produces:
+      - application/json
+      parameters:
+        - name: Authorization
+          in: header
+          description: |-
+            The Authentication header must provide the content of the [Authorization File](https://imdocs.readthedocs.io/en/latest/client.html#auth-file), but putting all the elements in one line using “\n” as separator.
+          required: true
+          type: string
+        - name: InfId
+          in: path
+          description: The ID of the specific infrastructure.
+          required: true
+          type: string
+      responses:
+        200:
+          description: successful operation
+          examples:
+            application/json: |
+                {
+                  "tosca": "tosca_definitions_version: tosca_simple_yaml_1_0\ndescription: Some TOSCA template\n..."
                 }
         400:
           description: Invalid status value
@@ -701,7 +891,54 @@ paths:
           description: Forbidden
         404:
           description: Not Found
-       
+
+ /infrastructures/{InfId}/vms/{VMId}/contmsg:
+    get:
+      tags:
+        - infrastructures
+      summary: Get a VM contextualization message.
+      description: Return a string with the contextualization message associated to the virtual machine with ID VMId in the infrastructure with with ID infId
+      operationId: GetVMContMsg
+      produces:
+      - text/plain
+      - application/json
+      parameters:
+        - name: Authorization
+          in: header
+          description: |-
+            The Authentication header must provide the content of the [Authorization File](https://imdocs.readthedocs.io/en/latest/client.html#auth-file), but putting all the elements in one line using “\n” as separator.
+          required: true
+          type: string
+        - name: InfId
+          in: path
+          description: The ID of the specific infrastructure.
+          required: true
+          type: string
+        - name: VMId
+          in: path
+          description: The ID of the specific VM.
+          required: true
+          type: string
+      responses:
+        200:
+          description: successful operation
+          examples:
+            text/plain: |
+              Launch task: basic
+              ...
+            application/json: |
+                {
+                  "contmsg": "Launch task: basic\n..."
+                }
+        400:
+          description: Invalid status value
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden
+        404:
+          description: Not Found
+
  /infrastructures/{InfId}/vms/{VMId}/{Property}:
     get:
       tags:
@@ -731,10 +968,7 @@ paths:
           type: string
         - name: Property
           in: path
-          description: |
-            The specific infrastructure property:
-            * `radl property`: any VM RADL property.
-            * `contmsg`: a string with the contextualization message.
+          description: The specific VM RADL property to get. 
           required: true
           type: string
       responses:
@@ -932,6 +1166,38 @@ paths:
           description: Forbidden
         404:
           description: Not Found
+
+definitions:
+
+  State:
+    type: string
+    enum:
+      - pending
+      - running
+      - configured
+      - unconfigured
+      - stopped
+      - off
+      - failed
+      - unknown
+      - deleting
+    title: State
+    example: running
+    
+  InfrastructureState:
+    type: object
+    properties:
+      state:
+        $ref: '#/definitions/State'
+      vm_states:
+        type: array
+        items:
+          $ref: '#/definitions/State'
+        example:
+          - running
+          - running
+    title: InfrastructureState
+
 
 externalDocs:
   description: Find out more about IM
