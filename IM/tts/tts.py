@@ -25,7 +25,7 @@ class TTSClient:
             self.uri_scheme = "http"
         self.ssl_verify = ssl_verify
 
-    def _perform_get(self, url, headers={}):
+    def _perform_get(self, url, headers=None):
         """
         Perform the GET operation on the TTS with the specified URL
         """

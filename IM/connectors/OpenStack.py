@@ -1614,7 +1614,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 return self.add_elastic_ip_from_pool(vm, node, None, pool_name)
 
             if not new_has_public_ip and current_public_ip:
-                floating_ip = node.driver.get_floating_ip(current_public_ip)
+                floating_ip = node.driver.ex_get_floating_ip(current_public_ip)
                 if node.driver.ex_detach_floating_ip_from_node(node, floating_ip):
                     floating_ip.delete()
 
