@@ -535,7 +535,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         node.id = "1"
         node.state = "running"
         node.extra = {'flavorId': 'small', 'vm_state': 'resized'}
-        node.public_ips = ['158.42.1.1']
+        node.public_ips = []
         node.private_ips = ['10.0.0.1']
         node.driver = driver
         driver.ex_get_node_details.return_value = node
@@ -547,6 +547,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         node_size.vcpus = 2
         node_size.name = "small"
         driver.list_sizes.return_value = [node_size]
+        driver.ex_get_size.return_value = node_size
 
         driver.ex_resize.return_value = True
         driver.ex_confirm_resize.return_value = True
@@ -618,6 +619,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         fip.delete.return_value = True
         driver.ex_get_floating_ip.return_value = fip
         driver.ex_detach_floating_ip_from_node.return_value = True
+        node.public_ips = ['158.42.1.1']
 
         success, _ = ost_cloud.alterVM(vm, new_radl, auth)
         self.assertTrue(success, msg="ERROR: modifying VM info.")

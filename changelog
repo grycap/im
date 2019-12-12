@@ -552,7 +552,7 @@ IM 1.8.6:
     * Fix error creating GCE FW.
     * Enable to specify the snapshot name in disk url in EC2 conn.
 
-IM 1.8.7:
+IM 1.9.0:
     * Get device info from disks on OpenStack conn.
     * Fix error setting keypair name as public_key in the EC2 conn.
     * Enable to set volume_type in OpenStack conn.
@@ -560,3 +560,5 @@ IM 1.8.7:
     * Fix error do not release floating IPs if they are not created by the IM in OpenStack conn.
     * Fix error new line chars removed in TOSCA values.
     * Remove added VMs in case that all of them fails in the addition process.
+    * Fix error OpenStack_2_NodeDriver object has no attribute 'get_floating_ip'.
+    * Add deleting state.
