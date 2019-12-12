@@ -1079,3 +1079,27 @@ class VirtualMachine(LoggerMixin):
                                                                    ssh.host))
 
         return command
+
+    @staticmethod
+    def delete_public_nets(radl):
+        """
+        Helper function to correctly delete references to public nets in an RADL
+        """
+        nets_id = [net.id for net in radl.networks if net.isPublic()]
+        system = radl.systems[0]
+
+        i = 0
+        while system.getValue('net_interface.%d.connection' % i):
+            next_net = system.getValue('net_interface.%d.connection' % (i + 1))
+            next_dns = system.getValue('net_interface.%d.connection' % (i + 1))
+            f = system.getFeature("net_interface.%d.connection" % i)
+            if f.value in nets_id:
+                if next_net:
+                    system.setValue('net_interface.%d.connection' % i, next_net)
+                    system.setValue('net_interface.%d.dns_name' % i, next_dns)
+                else:
+                    system.delValue('net_interface.%d.connection' % i)
+                    system.delValue('net_interface.%d.dns_name' % i)
+                if system.getValue('net_interface.%d.ip' % i):
+                    system.delValue('net_interface.%d.ip' % i)
+            i += 1

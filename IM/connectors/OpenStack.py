@@ -551,8 +551,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         if instance_type:
             LibCloudCloudConnector.update_system_info_from_instance(system, instance_type)
             if instance_type.vcpus:
-                system.addFeature(
-                    Feature("cpu.count", "=", instance_type.vcpus), conflict="me", missing="other")
+                system.addFeature(Feature("cpu.count", "=", instance_type.vcpus), conflict="me", missing="other")
 
     @staticmethod
     def get_ost_net(driver, name=None, netid=None):
@@ -1088,7 +1087,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         while vm.getRequestedSystem().getValue("net_interface." + str(n) + ".connection"):
             net_conn = vm.getRequestedSystem().getValue('net_interface.' + str(n) + '.connection')
             net = vm.info.get_network_by_id(net_conn)
-            if net.isPublic():
+            if net and net.isPublic():
                 fixed_ip = vm.getRequestedSystem().getValue("net_interface." + str(n) + ".ip")
                 pool_name = net.getValue("provider_id")
                 requested_ips.append((fixed_ip, pool_name))
@@ -1610,6 +1609,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             current_public_ip = vm.getPublicIP()
             new_has_public_ip = radl.hasPublicNet(vm.info.systems[0].name)
             if new_has_public_ip and not current_public_ip:
+                self.log_info("Adding Public IP.")
                 for net in radl.networks:
                     if net.isPublic():
                         new_public_net = net.clone()
@@ -1622,34 +1622,12 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
             if not new_has_public_ip and current_public_ip:
                 floating_ip = node.driver.ex_get_floating_ip(current_public_ip)
+                self.log_info("Removing Public IP: %s." % floating_ip)
                 if node.driver.ex_detach_floating_ip_from_node(node, floating_ip):
                     floating_ip.delete()
 
                     # Remove all public net connections in the Requested RADL
-                    nets_id = [net.id for net in vm.requested_radl.networks if net.isPublic()]
-                    system = vm.requested_radl.systems[0]
-
-                    i = 0
-                    while system.getValue('net_interface.%d.connection' % i):
-                        f = system.getFeature("net_interface.%d.connection" % i)
-                        if f.value in nets_id:
-                            system.delValue('net_interface.%d.connection' % i)
-                            if system.getValue('net_interface.%d.ip' % i):
-                                system.delValue('net_interface.%d.ip' % i)
-                        i += 1
-
-                    # Also remove them from the info RADL
-                    nets_id = [net.id for net in vm.info.networks if net.isPublic()]
-                    system = vm.info.systems[0]
-
-                    i = 0
-                    while system.getValue('net_interface.%d.connection' % i):
-                        f = system.getFeature("net_interface.%d.connection" % i)
-                        if f.value in nets_id:
-                            system.delValue('net_interface.%d.connection' % i)
-                            if system.getValue('net_interface.%d.ip' % i):
-                                system.delValue('net_interface.%d.ip' % i)
-                        i += 1
+                    vm.delete_public_nets(vm.requested_radl)
 
                     return True, ""
                 else:

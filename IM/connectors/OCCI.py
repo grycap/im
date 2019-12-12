@@ -1193,18 +1193,7 @@ class OCCICloudConnector(CloudConnector):
 
                 if success:
                     # Remove all public net connections in the Requested RADL
-                    nets_id = [net.id for net in vm.requested_radl.networks if net.isPublic()]
-                    system = vm.requested_radl.systems[0]
-
-                    i = 0
-                    while system.getValue('net_interface.%d.connection' % i):
-                        f = system.getFeature("net_interface.%d.connection" % i)
-                        if f.value in nets_id:
-                            system.delValue('net_interface.%d.connection' % i)
-                            if system.getValue('net_interface.%d.ip' % i):
-                                system.delValue('net_interface.%d.ip' % i)
-                        i += 1
-
+                    vm.delete_public_nets(vm.requested_radl)
                     return True, ""
                 else:
                     return False, msg
