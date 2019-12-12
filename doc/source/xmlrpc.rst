@@ -12,6 +12,43 @@ Every credential is represented as a struct datatype, whose keys and values are
 described in :ref:`auth-file`. Then the parameter is an array of these
 structs.
 
+.. _IM-States:
+
+IM valid States
+----------------
+
+List of valid VM and infrastructure states:
+
+   The ``state`` can be
+
+   * ``pending``, launched, but still in initialization stage;
+   * ``running``, created successfully and running, but still in the configuration stage;
+   * ``configured``, running and contextualized;
+   * ``unconfigured``, running but not correctly contextualized;
+   * ``stopped``, stopped or suspended;
+   * ``off``, shutdown or removed from the infrastructure;
+   * ``failed``, an error happened during the launching; or
+   * ``unknown``, unable to obtain the status.
+   * ``deleting``, in the deletion process.
+
+   The next figure shows a state diagram of virtual machine status. This figure is illustrative
+   as if may differ in case of Cloud Providers.
+
+   .. digraph:: stategraph
+   
+      layout=dot;
+      node [shape=circle, fontsize=10, fixedsize=true, height=.9, weight=.9];
+      "pending" -> "running" -> "configured" -> "off" ;
+      "pending" -> "failed";
+      "running" -> "unconfigured";
+      "configured" -> "stopped";
+      "configured" -> "running";
+      "stopped" -> "pending";
+      "configured" -> "deleting";
+
+Methods
+-------
+
 This is the list of method names:
 
 ``GetInfrastructureList``
@@ -64,17 +101,6 @@ This is the list of method names:
 
    Return the aggregated state associated to the 
    infrastructure with ID ``infId``. 
-   
-   The ``state`` can be
-
-   * ``pending``, At least one VM is still in initialization stage;
-   * ``running``, All the VMs are created successfully and running, but at least one of them are still in the configuration stage;
-   * ``configured``, All the VMs are running and contextualized;
-   * ``unconfigured``, All the VMs are running but at least one of them are not correctly contextualized;
-   * ``stopped``, All the VMs are stopped or suspended;
-   * ``off``, All the VMs are shutdown or removed from the infrastructure;
-   * ``failed``, There are at least one VM in status ``failed``.
-   * ``unknown``, There are at least one VM in status ``unknown``.
 
 ``GetInfrastructureRADL``
    :parameter 0: ``infId``: integer
@@ -96,31 +122,6 @@ This is the list of method names:
 
    Return a string with information about the virtual machine with ID ``vmId``
    in the infrastructure with ID ``infId``. The returned string is in RADL format.
-
-   The ``state`` can be
-
-   * ``pending``, launched, but still in initialization stage;
-   * ``running``, created successfully and running, but still in the configuration stage;
-   * ``configured``, running and contextualized;
-   * ``unconfigured``, running but not correctly contextualized;
-   * ``stopped``, stopped or suspended;
-   * ``off``, shutdown or removed from the infrastructure;
-   * ``failed``, an error happened during the launching; or
-   * ``unknown``, unable to obtain the status.
-
-   The next figure shows a state diagram of virtual machine status. This figure is illustrative
-   as if may differ in case of Cloud Providers.
-
-   .. digraph:: stategraph
-   
-      layout=dot;
-      node [shape=circle, fontsize=10, fixedsize=true, height=.9, weight=.9];
-      "pending" -> "running" -> "configured" -> "off" ;
-      "pending" -> "failed";
-      "running" -> "unconfigured";
-      "configured" -> "stopped";
-      "configured" -> "running";
-      "stopped" -> "pending";
    
 ``GetVMProperty``
    :parameter 0: ``infId``: integer
