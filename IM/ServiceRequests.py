@@ -23,6 +23,7 @@ import IM.InfrastructureManager
 from IM.config import Config
 from IM.auth import Authentication
 from IM import __version__ as version
+from IM import get_ex_error
 
 logger = logging.getLogger('InfrastructureManager')
 
@@ -123,7 +124,7 @@ class IMBaseRequest(AsyncRequest):
             return True
         except Exception as ex:
             logger.exception(self._error_mesage)
-            self.set("%s" % getattr(ex, 'message', ex.args[0] if len(ex.args) else repr(ex)))
+            self.set(get_ex_error(ex))
             return False
 
 
