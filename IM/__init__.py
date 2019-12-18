@@ -30,8 +30,7 @@ def get_ex_error(ex):
     try:
         return "%s" % ex
     except Exception:
-        pass
-    error = getattr(ex, 'message', None)
-    if not error:
-        error = ex.args[0] if len(ex.args) else repr(ex)
-    return error
+        error = getattr(ex, 'message', None)
+        if not error:
+            error = ex.args[0] if len(ex.args) else repr(ex)
+        return error
