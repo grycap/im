@@ -1657,7 +1657,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     try:
                         node.driver.ex_detach_floating_ip_from_node(node, floating_ip)
                     except Exception as ex:
-                        self.log_warn("Error detaching Floating IP: %s. %s" % (floating_ip.ip_address, get_ex_error(ex)))
+                        self.log_warn("Error detaching Floating IP: %s. %s" % (floating_ip.ip_address,
+                                                                               get_ex_error(ex)))
                     # if it is in the list do not release it
                     if floating_ip.ip_address in no_delete_ips:
                         self.log_debug("Do not remove Floating IP: %s" % floating_ip.ip_address)
