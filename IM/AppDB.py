@@ -105,6 +105,7 @@ class AppDB:
     def get_image_data(str_url, stype="occi"):
         """
         The url has this format: appdb://UPV-GRyCAP/egi.docker.ubuntu.16.04?fedcloud.egi.eu
+        or this one appdb://UPV-GRyCAP/83d5e854-a128-5b1f-9457-d32e10a720a6:8135
         Get the Site url from the AppDB
         """
         url = urlparse(str_url)
@@ -114,17 +115,49 @@ class AppDB:
             site_name = url[1]
             image_name = url[2][1:]
             vo_name = url[4]
+
             site_id = AppDB.get_site_id(site_name, stype)
             if not site_id:
                 return None, None, "No site ID returned from EGI AppDB for site: %s." % site_name
+
             site_url = AppDB.get_site_url(site_id, stype)
             if not site_url:
                 return None, None, "No site URL returned from EGI AppDB for site id: %s." % site_id
-            image_id = AppDB.get_image_id(site_id, image_name, vo_name)
-            if not image_id:
-                return None, None, "No image ID returned from EGI AppDB for image: %s/%s/%s." % (site_id,
-                                                                                                 image_name,
-                                                                                                 vo_name)
+
+            if not vo_name and len(image_name) >= 37 and ":" in image_name:
+                image_id = AppDB.get_image_id_from_uri(site_id, image_name)
+                if not image_id:
+                    return None, None, "No image ID returned from EGI AppDB for image: %s/%s." % (site_id,
+                                                                                                  image_name)
+            else:
+                image_id = AppDB.get_image_id(site_id, image_name, vo_name)
+                if not image_id:
+                    return None, None, "No image ID returned from EGI AppDB for image: %s/%s/%s." % (site_id,
+                                                                                                     image_name,
+                                                                                                     vo_name)
+
             return site_url, image_id, ""
 
         return None, None, "Incorrect Protocol"
+
+    @staticmethod
+    def get_image_id_from_uri(site_id, image_mp_uri):
+        """
+        Get the image ID from the site id and image mp_uri
+        """
+        if not image_mp_uri.startswith("http"):
+            image_mp_uri = "https://appdb.egi.eu/store/vo/image/%s/" % image_mp_uri
+
+        data = AppDB.appdb_call('/rest/1.0/va_providers/%s' % site_id)
+        if data:
+            if 'provider:image' in data['appdb:appdb']['virtualization:provider']:
+                for image in data['appdb:appdb']['virtualization:provider']['provider:image']:
+                    if image['@mp_uri'] == image_mp_uri:
+                        image_basename = os.path.basename(image['@va_provider_image_id'])
+                        parts = image_basename.split("#")
+                        if len(parts) > 1:
+                            return parts[1]
+                        else:
+                            return image_basename
+
+        return None

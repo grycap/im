@@ -51,23 +51,26 @@ class TestAppDB(unittest.TestCase):
                                 http://cloud.recas.ba.infn.it:8774/v2.1/f41187320a504846b132582e172fa268
                                 </provider:endpoint_url>
                                 <provider:image
-                                    archived="false"
-                                    vmiversion="2019.01.21"
-                                    va_provider_image_id="http://url/os_tpl#image_id"
-                                    appcname="egi.docker.ubuntu.16.04"
-                                    voname="fedcloud.egi.eu"/>
+                                mp_uri="https://appdb.egi.eu/store/vo/image/6c43f8b5-2e26-5e42-82d5-79bb738fa8e2:8187/"
+                                archived="false"
+                                vmiversion="2019.01.21"
+                                va_provider_image_id="http://url/os_tpl#image_id"
+                                appcname="egi.docker.ubuntu.16.04"
+                                voname="fedcloud.egi.eu"/>
                                 <provider:image
-                                    archived="false"
-                                    vmiversion="2019.01.21"
-                                    va_provider_image_id="http://url/os_tpl#image_id2"
-                                    appcname="egi.ubuntu.16.04"
-                                    voname="fedcloud.egi.eu"/>
+                                mp_uri="https://appdb.egi.eu/store/vo/image/60c0ed25-fea5-5e63-b443-034df484b502:7661/"
+                                archived="false"
+                                vmiversion="2019.01.21"
+                                va_provider_image_id="http://url/os_tpl#image_id2"
+                                appcname="egi.ubuntu.16.04"
+                                voname="fedcloud.egi.eu"/>
                                 <provider:image
-                                    archived="true"
-                                    vmiversion="2018.01.21"
-                                    va_provider_image_id="http://url/os_tpl#image_id3"
-                                    appcname="egi.ubuntu.16.04"
-                                    voname="fedcloud.egi.eu"/>
+                                mp_uri="https://appdb.egi.eu/store/vo/image/83d5e854-a128-5b1f-9457-d32e10a720a6:8135/"
+                                archived="true"
+                                vmiversion="2018.01.21"
+                                va_provider_image_id="http://url/os_tpl#image_id3"
+                                appcname="egi.ubuntu.16.04"
+                                voname="fedcloud.egi.eu"/>
                                 </virtualization:provider>
                                 </appdb:appdb>"""
 
@@ -96,9 +99,20 @@ class TestAppDB(unittest.TestCase):
         self.assertEqual(res, "image_id2")
 
     @patch('requests.request')
+    def test_get_image_id_from_uri(self, requests):
+        requests.side_effect = self.get_response
+        res = AppDB.get_image_id_from_uri("8016G0", "83d5e854-a128-5b1f-9457-d32e10a720a6:8135")
+        self.assertEqual(res, "image_id3")
+
+    @patch('requests.request')
     def test_get_image_data(self, requests):
         requests.side_effect = self.get_response
         str_url = "appdb://RECAS-BARI/egi.ubuntu.16.04?fedcloud.egi.eu"
-        site_url, image_id, msg = AppDB.get_image_data(str_url, "openstack")
+        site_url, image_id, _ = AppDB.get_image_data(str_url, "openstack")
+        self.assertEqual(site_url, "https://cloud.recas.ba.infn.it:5000")
+        self.assertEqual(image_id, "image_id2")
+
+        str_url = "appdb://RECAS-BARI/60c0ed25-fea5-5e63-b443-034df484b502:7661"
+        site_url, image_id, _ = AppDB.get_image_data(str_url, "openstack")
         self.assertEqual(site_url, "https://cloud.recas.ba.infn.it:5000")
         self.assertEqual(image_id, "image_id2")
