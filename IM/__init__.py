@@ -21,3 +21,16 @@ __all__ = ['auth', 'CloudInfo', 'config', 'ConfManager', 'db',
            'VirtualMachine', 'VMRC', 'xmlobject']
 __version__ = '1.9.0'
 __author__ = 'Miguel Caballer'
+
+
+def get_ex_error(ex):
+    """
+    Return a secure string with the error of the exception in Py2 and Py3
+    """
+    try:
+        return "%s" % ex
+    except Exception:
+        error = getattr(ex, 'message', None)
+        if not error:
+            error = ex.args[0] if len(ex.args) else repr(ex)
+        return error

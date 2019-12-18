@@ -26,6 +26,7 @@ from IM.InfrastructureManager import (InfrastructureManager, DeletedInfrastructu
                                       InvaliddUserException, DisabledFunctionException)
 from IM.auth import Authentication
 from IM.config import Config
+from IM import get_ex_error
 from radl.radl_json import parse_radl as parse_radl_json, dump_radl as dump_radl_json, featuresToSimple, radlToSimple
 from radl.radl import RADL, Features, Feature
 from IM.tosca.Tosca import Tosca
@@ -302,13 +303,6 @@ def format_output(res, default_type="text/plain", field_name=None, list_field_na
         bottle.response.content_type = default_type
 
     return info
-
-
-def get_ex_error(ex):
-    """
-    Return a secure string with the error of the exception in Py2 and Py3
-    """
-    return getattr(ex, 'message', ex.args[0] if len(ex.args) else repr(ex))
 
 
 @app.route('/infrastructures/:infid', method='DELETE')
