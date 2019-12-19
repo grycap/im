@@ -558,7 +558,13 @@ class InfrastructureManager:
                         break
 
         # Concrete systems using VMRC
-        systems_with_vmrc = InfrastructureManager.systems_with_vmrc(sel_inf, radl, auth)
+        try:
+            systems_with_vmrc = InfrastructureManager.systems_with_vmrc(sel_inf, radl, auth)
+        except Exception as ex:
+            sel_inf.configured = False
+            sel_inf.add_cont_msg("Error getting VM images: %s" % str(ex))
+            InfrastructureManager.logger.exception("Inf ID: " + sel_inf.id + " error getting VM images")
+            raise ex
 
         # Concrete systems with cloud providers and select systems with the greatest score
         # in every cloud
