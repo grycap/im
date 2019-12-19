@@ -562,3 +562,4 @@ IM 1.9.0:
     * Remove added VMs in case that all of them fails in the addition process.
     * Fix error OpenStack_2_NodeDriver object has no attribute 'get_floating_ip'.
     * Add deleting state.
+    * Error is shown if a VM does not set the image in case of async creation.
