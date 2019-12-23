@@ -536,11 +536,12 @@ class AzureCloudConnector(CloudConnector):
             async_vnet_creation.wait()
 
             subnets = {}
+            used_cidrs = []
             for i, net in enumerate(radl.networks):
                 subnet_name = net.id
-                net_cidr = net.getValue('cidr')
-                if not net_cidr:
-                    net_cidr = '10.0.%d.0/24' % i
+                net_cidr = self.get_free_cidr(net.getValue('cidr'), used_cidrs)
+                used_cidrs.append(net_cidr)
+
                 # Create Subnet in the RG of the Inf
                 async_subnet_creation = network_client.subnets.create_or_update(
                     group_name,

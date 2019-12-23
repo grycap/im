@@ -435,10 +435,10 @@ class CloudConnector(LoggerMixin):
         Get a common CIDR in all the RADL nets
         """
         mask = None
-        for net in radl.networks:
+        for num, net in enumerate(radl.networks):
             provider_id = net.getValue('provider_id')
             if net.getValue('create') == 'yes' and not net.isPublic() and not provider_id:
-                net_cidr = net.getValue('cidr')
+                net_cidr = net.getValue('cidr').replace("*", str(num + 1))
                 if net_cidr:
                     if mask:
                         if not IPNetwork(net_cidr) in IPNetwork(mask):
@@ -476,3 +476,46 @@ class CloudConnector(LoggerMixin):
         disk_free_op = CloudConnector.OPERATORSMAP.get(disk_free_op_str)
 
         return (cpu, cpu_op, memory, memory_op, disk_free, disk_free_op)
+
+    @staticmethod
+    def cidr_wildcard_iterator(cidr):
+        """
+        Returns an interator with all the cidr nets that expand the wildcards passed.
+        For example: with cidr = 192.168.*.0/24
+        it will return:
+         - 192.168.1.1/24
+         - 192.168.2.1/24
+         - 192.168.3.1/24
+         - ...
+         - 192.168.253.1/24
+        """
+        if "*" in cidr:
+            for val in range(1, 254):
+                icidr = cidr.replace("*", str(val), 1)
+                if "*" in icidr:
+                    for elem in CloudConnector.cidr_wildcard_iterator(icidr):
+                        yield elem
+                else:
+                    yield icidr
+            cidr = icidr
+        else:
+            yield cidr
+
+    @staticmethod
+    def get_free_cidr(net_cidr, used_cidrs):
+        """
+        Get a CIDR that is not used (is not in used_cidrs list)
+        """
+        if not net_cidr:
+            net_cidr = "10.*.*.0/24"
+
+        if "*" not in net_cidr:
+            return net_cidr
+
+        used_cidr_nets = [IPNetwork(net) for net in used_cidrs]
+
+        for cidr in CloudConnector.cidr_wildcard_iterator(net_cidr):
+            if not any([IPNetwork(cidr) in IPNetwork(mask) for mask in used_cidr_nets]):
+                return cidr
+
+        return None

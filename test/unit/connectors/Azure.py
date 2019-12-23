@@ -198,6 +198,9 @@ class TestAzureConnector(TestCloudConnectorBase):
         self.assertEquals(json_vm_req['hardware_profile']['vm_size'], 'instance_type1')
         self.assertEquals(json_vm_req['os_profile']['admin_username'], 'user')
         self.assertEquals(json_vm_req['os_profile']['admin_password'], 'pass')
+        self.assertEquals(json_vm_req['os_profile']['admin_password'], 'pass')
+        self.assertEquals(nclient.subnets.create_or_update.call_args_list[0][0][3], {'address_prefix': '10.1.1.0/24'})
+        self.assertEquals(nclient.subnets.create_or_update.call_args_list[1][0][3], {'address_prefix': '10.1.2.0/24'})
 
         radl_data = """
             network net1 (outbound = 'yes')
@@ -223,7 +226,7 @@ class TestAzureConnector(TestCloudConnectorBase):
 
         radl_data = """
             network net1 (outbound = 'yes')
-            network net2 ()
+            network net2 (cidr = '192.168.*.0/24')
             system test (
             cpu.arch='x86_64' and
             cpu.count>=1 and
@@ -242,6 +245,8 @@ class TestAzureConnector(TestCloudConnectorBase):
         res = azure_cloud.launch(inf, radl, radl, 1, auth)
         json_vm_req = cclient.virtual_machines.create_or_update.call_args_list[5][0][2]
         self.assertEquals(json_vm_req['storage_profile']['os_disk']['os_type'], 'linux')
+        self.assertEquals(nclient.subnets.create_or_update.call_args_list[5][0][3],
+                          {'address_prefix': '192.168.1.0/24'})
 
     @patch('IM.connectors.Azure.NetworkManagementClient')
     @patch('IM.connectors.Azure.ComputeManagementClient')

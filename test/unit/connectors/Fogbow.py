@@ -112,10 +112,13 @@ class TestFogBowConnector(TestCloudConnectorBase):
                                            "state": "READY"}]
             elif url == "/federatedNetworks/status":
                 resp.status_code = 200
-                resp.json.return_value = []
+                resp.json.return_value = [{"instanceId": "1",
+                                           "instanceName": "fednetname",
+                                           "state": "READY"}]
             elif url == "/federatedNetworks/1":
                 resp.status_code = 200
-                resp.json.return_value = {"instanceId": "1"}
+                resp.json.return_value = {"instanceId": "1",
+                                          "cidr": "10.0.1.0/24"}
             elif url == "/publicIps/status":
                 resp.status_code = 200
                 resp.json.return_value = [{"instanceId": "1",
@@ -131,7 +134,7 @@ class TestFogBowConnector(TestCloudConnectorBase):
                 resp.status_code = 200
                 resp.json.return_value = {"id": "1",
                                           "name": "netname",
-                                          "address": "192.168.0.0/24",
+                                          "cidr": "192.168.0.0/24",
                                           "gateway": "192.168.0.1",
                                           "allocation": "dynamic",
                                           "state": "READY"}
@@ -236,17 +239,20 @@ class TestFogBowConnector(TestCloudConnectorBase):
         self.assertTrue(success, msg="ERROR: launching a VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
-        data = json.loads(requests.call_args_list[2][1]["data"])
+        data = json.loads(requests.call_args_list[4][1]["data"])
         self.assertEqual(data["allocationMode"], "dynamic")
 
-        data = json.loads(requests.call_args_list[5][1]["data"])
+        data = json.loads(requests.call_args_list[7][1]["data"])
         self.assertEqual(data, {"direction": "IN", "protocol": "TCP", "etherType": "IPv4",
                                 "portTo": 8080, "portFrom": 8080, "cidr": "0.0.0.0/0"})
-        data = json.loads(requests.call_args_list[6][1]["data"])
+        data = json.loads(requests.call_args_list[8][1]["data"])
         self.assertEqual(data, {"direction": "IN", "protocol": "UDP", "etherType": "IPv4",
                                 "portTo": 9000, "portFrom": 9000, "cidr": "0.0.0.0/0"})
 
-        data = json.loads(requests.call_args_list[11][1]["data"])
+        data = json.loads(requests.call_args_list[9][1]["data"])
+        self.assertEqual(data['cidr'], "10.1.1.0/24")
+
+        data = json.loads(requests.call_args_list[13][1]["data"])
         self.assertEqual(data["compute"]["cloudName"], "cloud")
         self.assertEqual(data["compute"]["provider"], "site")
         self.assertEqual(data["compute"]["vCPU"], 1)
