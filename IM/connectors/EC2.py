@@ -16,7 +16,6 @@
 
 import time
 import requests
-from netaddr import IPNetwork
 
 try:
     import boto.ec2
