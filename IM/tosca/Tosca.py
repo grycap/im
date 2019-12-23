@@ -1227,7 +1227,7 @@ class Tosca:
 
         if network_cidr:
             res.setValue("cidr", network_cidr)
-            # assume that if the cidr is specified the net wiil be created
+            # assume that if the cidr is specified the net will be created
             res.setValue("create", "yes")
 
         if network_router:

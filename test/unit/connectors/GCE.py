@@ -154,8 +154,6 @@ class TestGCEConnector(TestCloudConnectorBase):
         node3.name = "gce3name"
         driver.ex_create_multiple_nodes.return_value = [node, node2, node3]
 
-        driver.ex_get_network.return_value = None
-
         inf = InfrastructureInfo()
         inf.auth = auth
         res = gce_cloud.launch(inf, radl, radl, 1, auth)
@@ -185,7 +183,7 @@ class TestGCEConnector(TestCloudConnectorBase):
 
         radl_data = """
             network net1 (outbound = 'yes' and outports = '8080,9000:9100')
-            network net2 (create='yes' and cidr='10.0.10.0/24')
+            network net2 (create='yes' and cidr='10.0.*.0/24')
             system test (
             cpu.arch='x86_64' and
             cpu.count=1 and
@@ -204,6 +202,12 @@ class TestGCEConnector(TestCloudConnectorBase):
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
         driver.create_node.side_effect = Exception("Error msg")
+
+        net = MagicMock()
+        net.cidr = "10.0.1.0/24"
+        driver.ex_list_networks.return_value = [net]
+
+        driver.ex_get_network.return_value = None
         inf = InfrastructureInfo()
         inf.auth = auth
         res = gce_cloud.launch(inf, radl, radl, 1, auth)
@@ -213,7 +217,7 @@ class TestGCEConnector(TestCloudConnectorBase):
         self.assertEqual(driver.ex_destroy_address.call_count, 1)
         self.assertEqual(driver.ex_destroy_address.call_args_list, [call('ip')])
         self.assertEqual(driver.ex_create_network.call_args_list[0][0][0], "im-%s-net2" % inf.id)
-        self.assertEqual(driver.ex_create_network.call_args_list[0][0][1], "10.0.10.0/24")
+        self.assertEqual(driver.ex_create_network.call_args_list[0][0][1], "10.0.2.0/24")
 
     @patch('libcloud.compute.drivers.gce.GCENodeDriver')
     @patch('libcloud.dns.drivers.google.GoogleDNSDriver')
