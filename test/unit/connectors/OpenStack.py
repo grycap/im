@@ -253,7 +253,7 @@ class TestOSTConnector(TestCloudConnectorBase):
              'uuid': 'volid'}
         ]
         self.assertEqual(driver.create_node.call_args_list[0][1]['ex_blockdevicemappings'], mappings)
-        self.assertEqual(driver.ex_create_subnet.call_args_list[0][0][2], "10.0.1.0/24")
+        self.assertEqual(driver.ex_create_subnet.call_args_list[0][0][2], "10.1.1.0/24")
 
         # test with proxy auth data
         auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'proxy': 'proxy',
@@ -813,6 +813,15 @@ class TestOSTConnector(TestCloudConnectorBase):
         ost_cloud = self.get_ost_cloud()
         nets = ost_cloud.get_networks(driver, radl)
         self.assertEqual(nets, [net1])
+
+    def test_cidr_wildcard_iterator(self):
+        ost_cloud = self.get_ost_cloud()
+        res = list(ost_cloud.cidr_wildcard_iterator("10.*.*.0/24"))
+        expected_res = []
+        for i in range(1, 254):
+            for j in range(1, 254):
+                expected_res.append("10.%d.%d.0/24" % (i, j))
+        self.assertEqual(res, expected_res)
 
 
 if __name__ == '__main__':

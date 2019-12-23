@@ -457,9 +457,8 @@ class EC2CloudConnector(CloudConnector):
             for i, net in enumerate(radl.networks):
                 provider_id = net.getValue('provider_id')
                 if net.getValue('create') == 'yes' and not net.isPublic() and not provider_id:
-                    net_cidr = net.getValue('cidr')
-                    if not net_cidr:
-                        net_cidr = '10.0.%d.0/24' % i
+                    net_cidr = self.get_free_cidr(net.getValue('cidr'),
+                                                  [subnet.cidr_block for subnet in conn.get_all_subnets()])
 
                     # First create the VPC
                     if vpc_id is None:

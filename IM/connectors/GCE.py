@@ -404,11 +404,13 @@ class GCECloudConnector(LibCloudCloudConnector):
                         self.log_debug("Net %s already exist. Do not create it." % gce_net_name)
                     else:
                         net_cidr = network.getValue('cidr')
-                        self.log_info("Create net %s with cidr %s." % (gce_net_name, net_cidr))
                         if net_cidr:
                             mode = "legacy"
+                            used_cidrs = [gce_net.cidr for gce_net in driver.ex_list_networks()]
+                            net_cidr = self.get_free_cidr(net_cidr, used_cidrs)
                         else:
                             mode = "auto"
+                        self.log_info("Create net %s with cidr %s." % (gce_net_name, net_cidr))
                         driver.ex_create_network(gce_net_name, net_cidr, "Net created by the IM", mode=mode)
 
                     network.setValue('provider_id', gce_net_name)
