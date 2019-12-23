@@ -83,6 +83,17 @@ class TestEC2Connector(TestCloudConnectorBase):
                 self.assertEqual(instance.cores_per_cpu, 1)
                 self.assertEqual(instance.disk_space, 160)
 
+    def get_all_subnets(self, subnet_ids=None, filters=None):
+        subnet = MagicMock()
+        subnet.id = "subnet-id"
+        if filters:
+            return []
+        elif subnet_ids:
+            subnet.cidr_block = "10.10.0.1/24"
+            return [subnet]
+        subnet.cidr_block = "10.0.1.0/24"
+        return [subnet]
+
     @patch('boto.ec2.get_region')
     @patch('boto.vpc.VPCConnection')
     @patch('boto.ec2.blockdevicemapping.BlockDeviceMapping')
@@ -165,7 +176,7 @@ class TestEC2Connector(TestCloudConnectorBase):
         radl_data = """
             network net1 (outbound = 'yes' and outports='8080')
             network net2 (create='yes' and cidr='10.0.10.0/24')
-            network net3 (create='yes' and cidr='10.0.20.0/24')
+            network net3 (create='yes' and cidr='10.0.*.0/24')
             system test (
             cpu.arch='x86_64' and
             cpu.count>=1 and
@@ -190,16 +201,19 @@ class TestEC2Connector(TestCloudConnectorBase):
 
         subnet = MagicMock()
         subnet.id = "subnet-id"
-        conn.get_all_subnets.return_value = [subnet]
+        subnet.cidr_block = "10.10.0.1/24"
+        conn.create_subnet.return_value = subnet
+        conn.get_all_subnets.side_effect = self.get_all_subnets
 
         inf = InfrastructureInfo()
         inf.auth = auth
         res = ec2_cloud.launch(inf, radl, radl, 1, auth)
         success, _ = res[0]
-        print(self.log.getvalue())
         self.assertTrue(success, msg="ERROR: launching a VM.")
         # check the instance_type selected is correct
         self.assertEquals(image.run.call_args_list[1][1]["instance_type"], "t3a.micro")
+        self.assertEquals(conn.create_subnet.call_args_list[0][0], ('vpc-id', '10.0.10.0/24'))
+        self.assertEquals(conn.create_subnet.call_args_list[1][0], ('vpc-id', '10.0.2.0/24'))
 
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 

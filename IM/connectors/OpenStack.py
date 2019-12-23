@@ -716,25 +716,6 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         return res, msg
 
-    def get_free_cidr(self, driver):
-        """
-        Get a CIDR that is not used in the site
-        """
-        _, ost_nets = self.get_ost_network_info(driver, [])
-
-        used_cidrs = []
-        for ost_net in ost_nets:
-            if ost_net.cidr:
-                used_cidrs.append(IPNetwork(ost_net.cidr))
-
-        for i in range(0, 254):
-            for j in range(0, 254):
-                cidr = "10.%d.%d.0/24" % (i, j)
-                if not all([IPNetwork(cidr) in IPNetwork(mask) for mask in used_cidrs]):
-                    return cidr
-
-        return None
-
     def create_networks(self, driver, radl, inf):
         """
         Create OST networks
@@ -759,8 +740,10 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                         continue
 
                     net_cidr = network.getValue('cidr')
-                    if not net_cidr:
-                        net_cidr = self.get_free_cidr(driver)
+                    if not net_cidr or "*" in net_cidr:
+                        _, ost_nets = self.get_ost_network_info(driver, [])
+                        used_cidrs = [ost_net.cidr for ost_net in ost_nets if ost_net.cidr]
+                        net_cidr = self.get_free_cidr(net_cidr, used_cidrs)
                         if not net_cidr:
                             self.log_error("No free net CIDR found.")
                             raise Exception("No net CIDR specified nor free net CIDR found.")

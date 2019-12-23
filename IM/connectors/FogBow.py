@@ -217,7 +217,7 @@ class FogBowCloudConnector(CloudConnector):
         else:
             return None
 
-    def get_fbw_nets(self, auth_data, fed=False):
+    def get_fbw_nets(self, auth_data, fed=False, fetch=False):
         """
         Get a dict with the name and ID of the fogbow nets
         """
@@ -227,15 +227,28 @@ class FogBowCloudConnector(CloudConnector):
         else:
             resp = self.create_request('GET', '/networks/status', auth_data)
         if resp.status_code == 200:
-            for net in resp.json():
-                fbw_nets[net['instanceName']] = net['instanceId']
+            if fetch:
+                for net in resp.json():
+                    if fed:
+                        resp = self.create_request('GET', '/federatedNetworks/%s' % net['instanceId'], auth_data)
+                    else:
+                        resp = self.create_request('GET', '/networks/%s' % net['instanceId'], auth_data)
+                    if resp.status_code == 200:
+                        fbw_nets[net['instanceName']] = resp.json()
+                    else:
+                        self.log_error("Error getting network info ID %s: %s" % (net['instanceId'], resp.text))
+                        fbw_nets[net['instanceName']] = net['instanceId']
+            else:
+                for net in resp.json():
+                    fbw_nets[net['instanceName']] = net['instanceId']
+
         else:
             raise Exception("Error getting networks: %s. %s" % (resp.reason, resp.text))
         return fbw_nets
 
     def create_nets(self, inf, radl, auth_data):
-        fbw_nets = self.get_fbw_nets(auth_data)
-        fbw_fed_nets = self.get_fbw_nets(auth_data, True)
+        fbw_nets = self.get_fbw_nets(auth_data, False, True)
+        fbw_fed_nets = self.get_fbw_nets(auth_data, True, True)
         member = radl.systems[0].getValue('availability_zone')
         if member:
             if '@' in member:
@@ -248,12 +261,12 @@ class FogBowCloudConnector(CloudConnector):
                 if net_name in fbw_fed_nets:
                     self.log_info("Fed Net %s exists in FogBow do not create it again." % net_name)
                     if not net.getValue("provider_id"):
-                        net.setValue("provider_id", fbw_fed_nets[net_name])
+                        net.setValue("provider_id", fbw_fed_nets[net_name]["id"])
                 else:
                     self.log_info("Creating federated net %s." % net_name)
-                    cidr = net.getValue("cidr")
-                    if not cidr:
-                        cidr = '10.0.%d.0/24' % random.randint(10, 250)
+                    used_cidrs = [elem['cidr'] for elem in list(fbw_fed_nets.values())]
+                    cidr = self.get_free_cidr(net.getValue("cidr"), used_cidrs)
+
                     body = {"name": net_name, "cidr": cidr}
                     net_providers = net.getValue("providers")
                     if net_providers:
@@ -271,7 +284,7 @@ class FogBowCloudConnector(CloudConnector):
                 if net_name in fbw_nets:
                     self.log_info("Net %s exists in FogBow do not create it again." % net_name)
                     if not net.getValue("provider_id"):
-                        net.setValue("provider_id", fbw_nets[net_name])
+                        net.setValue("provider_id", fbw_nets[net_name]["id"])
                 else:
                     self.log_info("Creating net %s." % net_name)
 
