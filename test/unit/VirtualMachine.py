@@ -98,7 +98,9 @@ class TestVirtualMachine(unittest.TestCase):
         with open('/tmp/test_get_ctxt/ctxt_agent.log', 'w+') as f:
             f.write("cont_log")
 
-        vm = VirtualMachine(None, "1", None, None, None)
+        inf = MagicMock()
+        inf.id = "1"
+        vm = VirtualMachine(inf, "1", None, None, None)
         cont_log = vm.get_ctxt_log("", delete=True)
         self.assertEqual(cont_log, "cont_log")
 

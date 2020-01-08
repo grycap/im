@@ -823,6 +823,7 @@ class VirtualMachine(LoggerMixin):
                 try:
                     self.log_info("Getting status of ctxt process with pid: " + str(ctxt_pid))
                     (_, _, exit_status) = ssh.execute("ps " + str(ctxt_pid))
+                    self.ssh_connect_errors = 0
                 except Exception as ex:
                     self.log_warn("Error getting status of ctxt process with pid: %s. %s" % (ctxt_pid, ex))
                     exit_status = 0
