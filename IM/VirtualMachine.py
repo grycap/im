@@ -807,12 +807,6 @@ class VirtualMachine(LoggerMixin):
             self.ctxt_pid = None
             self.configured = False
 
-        ip = self.getPublicIP()
-        if not ip:
-            ip = ip = self.getPrivateIP()
-        remote_dir = Config.REMOTE_CONF_DIR + "/" + \
-            str(self.inf.id) + "/" + ip + "_" + str(self.im_id)
-
         initial_count_out = self.cont_out
         wait = 0
         while self.ctxt_pid:
@@ -829,8 +823,8 @@ class VirtualMachine(LoggerMixin):
                 try:
                     self.log_info("Getting status of ctxt process with pid: " + str(ctxt_pid))
                     (_, _, exit_status) = ssh.execute("ps " + str(ctxt_pid))
-                except:
-                    self.log_warn("Error getting status of ctxt process with pid: " + str(ctxt_pid))
+                except Exception as ex:
+                    self.log_warn("Error getting status of ctxt process with pid: %s. %s" % (ctxt_pid, ex))
                     exit_status = 0
                     self.ssh_connect_errors += 1
                     if self.ssh_connect_errors > Config.MAX_SSH_ERRORS:
@@ -843,6 +837,11 @@ class VirtualMachine(LoggerMixin):
                                                              " Check some network connection problems or if user "
                                                              "credentials has been changed.")
                         return None
+
+                ip = self.getPublicIP()
+                if not ip:
+                    ip = ip = self.getPrivateIP()
+                remote_dir = "%s/%s/%s_%s" % (Config.REMOTE_CONF_DIR, self.inf.id, ip, self.im_id)
 
                 if exit_status != 0:
                     # The process has finished, get the outputs
@@ -892,6 +891,7 @@ class VirtualMachine(LoggerMixin):
         # Download the contextualization agent log
         try:
             # Get the messages of the contextualization process
+            self.log_debug("Get File: " + remote_dir + '/ctxt_agent.log')
             ssh.sftp_get(remote_dir + '/ctxt_agent.log', tmp_dir + '/ctxt_agent.log')
             with open(tmp_dir + '/ctxt_agent.log') as f:
                 conf_out = f.read()
@@ -922,8 +922,8 @@ class VirtualMachine(LoggerMixin):
         # Download the contextualization agent log
         try:
             # Get the JSON output of the ctxt_agent
-            ssh.sftp_get(remote_dir + '/ctxt_agent.out',
-                         tmp_dir + '/ctxt_agent.out')
+            self.log_debug("Get File: " + remote_dir + '/ctxt_agent.out')
+            ssh.sftp_get(remote_dir + '/ctxt_agent.out', tmp_dir + '/ctxt_agent.out')
             with open(tmp_dir + '/ctxt_agent.out') as f:
                 ctxt_agent_out = json.load(f)
             try:
