@@ -88,11 +88,9 @@ class TestVirtualMachine(unittest.TestCase):
         port = vm.getRemoteAccessPort()
         self.assertEqual(port, 105986)
 
-    @patch("IM.VirtualMachine.VirtualMachine.get_ssh_ansible_master")
     @patch("tempfile.mkdtemp")
-    def test_get_ctxt_log(self, mkdtemp, get_ssh_ansible_master):
+    def test_get_ctxt_log(self, mkdtemp):
         ssh = MagicMock()
-        get_ssh_ansible_master.return_value = ssh
         mkdtemp.return_value = "/tmp/test_get_ctxt"
         os.mkdir("/tmp/test_get_ctxt")
         with open('/tmp/test_get_ctxt/ctxt_agent.log', 'w+') as f:
@@ -101,14 +99,12 @@ class TestVirtualMachine(unittest.TestCase):
         inf = MagicMock()
         inf.id = "1"
         vm = VirtualMachine(inf, "1", None, None, None)
-        cont_log = vm.get_ctxt_log("", delete=True)
+        cont_log = vm.get_ctxt_log("", ssh, delete=True)
         self.assertEqual(cont_log, "cont_log")
 
-    @patch("IM.VirtualMachine.VirtualMachine.get_ssh_ansible_master")
     @patch("tempfile.mkdtemp")
-    def test_get_ctxt_output(self, mkdtemp, get_ssh_ansible_master):
+    def test_get_ctxt_output(self, mkdtemp):
         ssh = MagicMock()
-        get_ssh_ansible_master.return_value = ssh
         tmp_dir = "%s/test_get_ctxt" % tempfile.gettempdir()
         mkdtemp.return_value = tmp_dir
         os.mkdir(tmp_dir)
@@ -125,7 +121,7 @@ class TestVirtualMachine(unittest.TestCase):
         inf = MagicMock()
         inf.id = "1"
         vm = VirtualMachine(inf, "1", None, radl, radl)
-        cont_out = vm.get_ctxt_output("", delete=True)
+        cont_out = vm.get_ctxt_output("", ssh, delete=True)
         self.assertEqual(cont_out, "Contextualization agent output processed successfully")
         self.assertEqual(vm.info.systems[0].getCredentialValues(), ('user', 'newpass', None, None))
 
@@ -135,7 +131,7 @@ class TestVirtualMachine(unittest.TestCase):
             f.write('stderr')
         with open('%s/stdout' % tmp_dir, 'w+') as f:
             f.write('stdout')
-        cont_out = vm.get_ctxt_output("", delete=True)
+        cont_out = vm.get_ctxt_output("", ssh, delete=True)
         self.assertEqual(cont_out, "Error getting contextualization agent output /ctxt_agent.out:"
                          "  No such file.\nstdout\nstderr\n")
 
