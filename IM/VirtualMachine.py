@@ -732,6 +732,7 @@ class VirtualMachine(LoggerMixin):
         if ip is None:
             ip = self.getPrivateIP()
         if ip is None:
+            self.log_warn("VM ID %s does not have IP. Do not return SSH Object." % self.im_id)
             return None
         if retry:
             return SSHRetry(ip, user, passwd, private_key, self.getSSHPort())
@@ -847,8 +848,8 @@ class VirtualMachine(LoggerMixin):
                 if exit_status != 0:
                     # The process has finished, get the outputs
                     self.log_info("The process %s has finished, get the outputs" % ctxt_pid)
-                    ctxt_log = self.get_ctxt_log(remote_dir, True)
-                    msg = self.get_ctxt_output(remote_dir, True)
+                    ctxt_log = self.get_ctxt_log(remote_dir, ssh, True)
+                    msg = self.get_ctxt_output(remote_dir, ssh, True)
                     if ctxt_log:
                         self.cont_out = initial_count_out + msg + ctxt_log
                     else:
@@ -861,7 +862,7 @@ class VirtualMachine(LoggerMixin):
                     if Config.UPDATE_CTXT_LOG_INTERVAL > 0 and wait > Config.UPDATE_CTXT_LOG_INTERVAL:
                         wait = 0
                         self.log_info("Get the log of the ctxt process with pid: " + str(ctxt_pid))
-                        ctxt_log = self.get_ctxt_log(remote_dir)
+                        ctxt_log = self.get_ctxt_log(remote_dir, ssh)
                         self.cont_out = initial_count_out + ctxt_log
                     # The process is still running, wait
                     self.log_info("The process %s is still running. wait." % ctxt_pid)
@@ -884,8 +885,7 @@ class VirtualMachine(LoggerMixin):
                 # Otherwise return the value of configured
                 return self.configured
 
-    def get_ctxt_log(self, remote_dir, delete=False):
-        ssh = self.get_ssh_ansible_master()
+    def get_ctxt_log(self, remote_dir, ssh, delete=False):
         tmp_dir = tempfile.mkdtemp()
         conf_out = ""
 
@@ -915,8 +915,7 @@ class VirtualMachine(LoggerMixin):
 
         return conf_out
 
-    def get_ctxt_output(self, remote_dir, delete=False):
-        ssh = self.get_ssh_ansible_master()
+    def get_ctxt_output(self, remote_dir, ssh, delete=False):
         tmp_dir = tempfile.mkdtemp()
         msg = ""
 
@@ -1005,6 +1004,7 @@ class VirtualMachine(LoggerMixin):
             if self.inf.vm_master:
                 return self.inf.vm_master.get_ssh(retry=retry)
             else:
+                self.log_warn("There is not master VM. Do not return SSH object.")
                 return None
 
     def __lt__(self, other):
