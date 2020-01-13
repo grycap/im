@@ -727,10 +727,12 @@ class VirtualMachine(LoggerMixin):
         """
         Get SSH object to connect with this VM
         """
-        (user, passwd, _, private_key) = self.getCredentialValues()
-        ip = self.getPublicIP()
-        if ip is None:
-            ip = self.getPrivateIP()
+        with self._lock:
+            (user, passwd, _, private_key) = self.getCredentialValues()
+            ip = self.getPublicIP()
+            if ip is None:
+                ip = self.getPrivateIP()
+
         if ip is None:
             self.log_warn("VM ID %s does not have IP. Do not return SSH Object." % self.im_id)
             return None
