@@ -196,6 +196,8 @@ The supported features are:
 
 ``cidr = <string>``
    Indicate the CIDR of the network (e.g. 10.0.0.0/24) in case of network creation.
+   Wildcards can be used (i.e. 10.*.*.0/24) and the IM will select the first option
+   that is not used in the current Cloud provider.
    The default value is ``''``.
 
 ``sg_name = <string>``

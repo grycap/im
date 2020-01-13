@@ -732,6 +732,7 @@ class VirtualMachine(LoggerMixin):
         if ip is None:
             ip = self.getPrivateIP()
         if ip is None:
+            self.log_warn("VM ID %s does not have IP. Do not return SSH Object." % self.im_id)
             return None
         if retry:
             return SSHRetry(ip, user, passwd, private_key, self.getSSHPort())
@@ -807,12 +808,6 @@ class VirtualMachine(LoggerMixin):
             self.ctxt_pid = None
             self.configured = False
 
-        ip = self.getPublicIP()
-        if not ip:
-            ip = ip = self.getPrivateIP()
-        remote_dir = Config.REMOTE_CONF_DIR + "/" + \
-            str(self.inf.id) + "/" + ip + "_" + str(self.im_id)
-
         initial_count_out = self.cont_out
         wait = 0
         while self.ctxt_pid:
@@ -829,8 +824,9 @@ class VirtualMachine(LoggerMixin):
                 try:
                     self.log_info("Getting status of ctxt process with pid: " + str(ctxt_pid))
                     (_, _, exit_status) = ssh.execute("ps " + str(ctxt_pid))
-                except:
-                    self.log_warn("Error getting status of ctxt process with pid: " + str(ctxt_pid))
+                    self.ssh_connect_errors = 0
+                except Exception as ex:
+                    self.log_warn("Error getting status of ctxt process with pid: %s. %s" % (ctxt_pid, ex))
                     exit_status = 0
                     self.ssh_connect_errors += 1
                     if self.ssh_connect_errors > Config.MAX_SSH_ERRORS:
@@ -844,11 +840,16 @@ class VirtualMachine(LoggerMixin):
                                                              "credentials has been changed.")
                         return None
 
+                ip = self.getPublicIP()
+                if not ip:
+                    ip = ip = self.getPrivateIP()
+                remote_dir = "%s/%s/%s_%s" % (Config.REMOTE_CONF_DIR, self.inf.id, ip, self.im_id)
+
                 if exit_status != 0:
                     # The process has finished, get the outputs
                     self.log_info("The process %s has finished, get the outputs" % ctxt_pid)
-                    ctxt_log = self.get_ctxt_log(remote_dir, True)
-                    msg = self.get_ctxt_output(remote_dir, True)
+                    ctxt_log = self.get_ctxt_log(remote_dir, ssh, True)
+                    msg = self.get_ctxt_output(remote_dir, ssh, True)
                     if ctxt_log:
                         self.cont_out = initial_count_out + msg + ctxt_log
                     else:
@@ -861,7 +862,7 @@ class VirtualMachine(LoggerMixin):
                     if Config.UPDATE_CTXT_LOG_INTERVAL > 0 and wait > Config.UPDATE_CTXT_LOG_INTERVAL:
                         wait = 0
                         self.log_info("Get the log of the ctxt process with pid: " + str(ctxt_pid))
-                        ctxt_log = self.get_ctxt_log(remote_dir)
+                        ctxt_log = self.get_ctxt_log(remote_dir, ssh)
                         self.cont_out = initial_count_out + ctxt_log
                     # The process is still running, wait
                     self.log_info("The process %s is still running. wait." % ctxt_pid)
@@ -884,14 +885,14 @@ class VirtualMachine(LoggerMixin):
                 # Otherwise return the value of configured
                 return self.configured
 
-    def get_ctxt_log(self, remote_dir, delete=False):
-        ssh = self.get_ssh_ansible_master()
+    def get_ctxt_log(self, remote_dir, ssh, delete=False):
         tmp_dir = tempfile.mkdtemp()
         conf_out = ""
 
         # Download the contextualization agent log
         try:
             # Get the messages of the contextualization process
+            self.log_debug("Get File: " + remote_dir + '/ctxt_agent.log')
             ssh.sftp_get(remote_dir + '/ctxt_agent.log', tmp_dir + '/ctxt_agent.log')
             with open(tmp_dir + '/ctxt_agent.log') as f:
                 conf_out = f.read()
@@ -914,16 +915,15 @@ class VirtualMachine(LoggerMixin):
 
         return conf_out
 
-    def get_ctxt_output(self, remote_dir, delete=False):
-        ssh = self.get_ssh_ansible_master()
+    def get_ctxt_output(self, remote_dir, ssh, delete=False):
         tmp_dir = tempfile.mkdtemp()
         msg = ""
 
         # Download the contextualization agent log
         try:
             # Get the JSON output of the ctxt_agent
-            ssh.sftp_get(remote_dir + '/ctxt_agent.out',
-                         tmp_dir + '/ctxt_agent.out')
+            self.log_debug("Get File: " + remote_dir + '/ctxt_agent.out')
+            ssh.sftp_get(remote_dir + '/ctxt_agent.out', tmp_dir + '/ctxt_agent.out')
             with open(tmp_dir + '/ctxt_agent.out') as f:
                 ctxt_agent_out = json.load(f)
             try:
@@ -1004,6 +1004,7 @@ class VirtualMachine(LoggerMixin):
             if self.inf.vm_master:
                 return self.inf.vm_master.get_ssh(retry=retry)
             else:
+                self.log_warn("There is not master VM. Do not return SSH object.")
                 return None
 
     def __lt__(self, other):
