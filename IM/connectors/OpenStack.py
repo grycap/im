@@ -456,14 +456,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
            - vm(:py:class:`IM.VirtualMachine`): VM information.
            - node(:py:class:`libcloud.compute.base.Node`): object to connect to EC2 instance.
         """
-
-        # First remove old
         system = vm.info.systems[0]
-        cont = 0
-        while system.getValue('net_interface.%d.connection' % cont):
-            if system.getValue('net_interface.%d.ip' % cont):
-                system.delValue('net_interface.%d.ip' % cont)
-            cont += 1
 
         if 'addresses' in node.extra:
             public_ips = []
@@ -493,6 +486,9 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             i = 0
             ips_assigned = []
             while system.getValue("net_interface." + str(i) + ".connection"):
+                # First remove old
+                if system.getValue('net_interface.%d.ip' % i):
+                    system.delValue('net_interface.%d.ip' % i)
                 net_name = system.getValue("net_interface." + str(i) + ".connection")
                 if net_name in map_nets:
                     ip = map_nets[net_name]
@@ -534,7 +530,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     private_ips.append(ip)
                 else:
                     public_ips.append(ip)
-            vm.setIps(public_ips, private_ips)
+            vm.setIps(public_ips, private_ips, True)
 
         if vm.state == VirtualMachine.RUNNING:
             if self.add_public_ip_count < self.MAX_ADD_IP_COUNT:
