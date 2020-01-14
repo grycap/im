@@ -31,7 +31,7 @@ Miguel Caballer, Ignacio Blanquer, German Molto, and Carlos de Alfonso. "[Dynami
 
 The recommended option to use the Infrastructure Manager service is using the available docker image.
 A Docker image named `grycap/im` has been created to make easier the deployment of an IM service using the 
-default configuration. Information about this image can be found here: https://registry.hub.docker.com/u/grycap/im/.
+default configuration. Information about this image can be found here: https://hub.docker.com/r/grycap/im/.
 
 How to launch the IM service using docker::
 
