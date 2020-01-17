@@ -566,3 +566,6 @@ IM 1.9.0:
 
 IM 1.9.1:
     * Improve network creation with wildcard (192.168.*.0/24).
+    * Fix intermittent errors in SSH connections.
+    * Fix ssh_connect_errors count must be reset when a ssh connection is ok.
+    * Fix check_ctxt_process thread dies and contextalization never ends.
