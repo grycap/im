@@ -399,6 +399,9 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                                 # the ip not matches the is_public value
                                 if ip not in res["#UNMAPPED#"]:
                                     res["#UNMAPPED#"].append(ip)
+                    elif net_cidr and "*" in net_cidr:
+                        # in this case the net is not connected to this VM
+                        continue
                     elif net_cidr and IPAddress(ip) in IPNetwork(net_cidr):
                         res[radl_net.id] = ip
                         radl_net.setValue('provider_id', net_name)
@@ -732,6 +735,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     # First check if the net already exists
                     if self.get_ost_net(driver, name=ost_net_name):
                         network.setValue('provider_id', ost_net_name)
+                        network.delValue('cidr')
                         self.log_debug("Ost network %s exists. Do not create." % ost_net_name)
                         continue
 
@@ -744,6 +748,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                             self.log_error("No free net CIDR found.")
                             raise Exception("No net CIDR specified nor free net CIDR found.")
                         self.log_debug("Free net CIDR found: %s." % net_cidr)
+                        network.setValue('cidr', net_cidr)
                     net_dnsserver = network.getValue('dnsserver')
                     if net_dnsserver:
                         net_dnsserver = [net_dnsserver]
