@@ -305,14 +305,17 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     try:
                         security_group = OpenStackSecurityGroup(None, None, "default", "", driver)
                         driver.ex_remove_security_group_from_node(security_group, node)
-                    except:
+                    except Exception:
                         self.log_warn("Removing SG default from node %s" % node.id)
 
                     # Then disable port security
                     for port in driver.ex_list_ports():
                         if port.extra['device_id'] == node.id:
                             self.log_info("Disabling security port in %s" % port.id)
-                            driver.ex_update_port(port, port_security_enabled=False)
+                            try:
+                                driver.ex_update_port(port, port_security_enabled=False)
+                            except Exception:
+                                self.log_exception("Error disabling security port in %s" % port.id)
 
                     # once set, delete it to not set it again
                     network.delValue('router')
