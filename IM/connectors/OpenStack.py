@@ -305,14 +305,17 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     try:
                         security_group = OpenStackSecurityGroup(None, None, "default", "", driver)
                         driver.ex_remove_security_group_from_node(security_group, node)
-                    except:
+                    except Exception:
                         self.log_warn("Removing SG default from node %s" % node.id)
 
                     # Then disable port security
                     for port in driver.ex_list_ports():
                         if port.extra['device_id'] == node.id:
                             self.log_info("Disabling security port in %s" % port.id)
-                            driver.ex_update_port(port, port_security_enabled=False)
+                            try:
+                                driver.ex_update_port(port, port_security_enabled=False)
+                            except Exception:
+                                self.log_exception("Error disabling security port in %s" % port.id)
 
                     # once set, delete it to not set it again
                     network.delValue('router')
@@ -356,9 +359,12 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         if node:
             vm.state = self.VM_STATE_MAP.get(node.state, VirtualMachine.UNKNOWN)
 
-            flavorId = node.extra['flavorId']
-            instance_type = node.driver.ex_get_size(flavorId)
-            self.update_system_info_from_instance(vm.info.systems[0], instance_type)
+            try:
+                flavorId = node.extra['flavorId']
+                instance_type = node.driver.ex_get_size(flavorId)
+                self.update_system_info_from_instance(vm.info.systems[0], instance_type)
+            except Exception as ex:
+                self.log_warn("Error updating VM info from flavor ID: %s" % get_ex_error(ex))
 
             self.addRouterInstance(vm, node.driver)
             self.setIPsFromInstance(vm, node)
@@ -399,6 +405,9 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                                 # the ip not matches the is_public value
                                 if ip not in res["#UNMAPPED#"]:
                                     res["#UNMAPPED#"].append(ip)
+                    elif net_cidr and "*" in net_cidr:
+                        # in this case the net is not connected to this VM
+                        continue
                     elif net_cidr and IPAddress(ip) in IPNetwork(net_cidr):
                         res[radl_net.id] = ip
                         radl_net.setValue('provider_id', net_name)
@@ -732,6 +741,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     # First check if the net already exists
                     if self.get_ost_net(driver, name=ost_net_name):
                         network.setValue('provider_id', ost_net_name)
+                        network.delValue('cidr')
                         self.log_debug("Ost network %s exists. Do not create." % ost_net_name)
                         continue
 
@@ -744,6 +754,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                             self.log_error("No free net CIDR found.")
                             raise Exception("No net CIDR specified nor free net CIDR found.")
                         self.log_debug("Free net CIDR found: %s." % net_cidr)
+                        network.setValue('cidr', net_cidr)
                     net_dnsserver = network.getValue('dnsserver')
                     if net_dnsserver:
                         net_dnsserver = [net_dnsserver]
