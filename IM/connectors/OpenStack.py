@@ -359,9 +359,12 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         if node:
             vm.state = self.VM_STATE_MAP.get(node.state, VirtualMachine.UNKNOWN)
 
-            flavorId = node.extra['flavorId']
-            instance_type = node.driver.ex_get_size(flavorId)
-            self.update_system_info_from_instance(vm.info.systems[0], instance_type)
+            try:
+                flavorId = node.extra['flavorId']
+                instance_type = node.driver.ex_get_size(flavorId)
+                self.update_system_info_from_instance(vm.info.systems[0], instance_type)
+            except Exception as ex:
+                self.log_warn("Error updating VM info from flavor ID: %s" % get_ex_error(ex))
 
             self.addRouterInstance(vm, node.driver)
             self.setIPsFromInstance(vm, node)
