@@ -662,6 +662,7 @@ class InfrastructureManager:
                 if vm.error_msg:
                     error_msg += "%s\n" % vm.error_msg
                 vm.delete(delete_list, auth, [])
+            sel_inf.add_cont_msg(error_msg)
         else:
             InfrastructureManager.logger.info("VMs %s successfully added to Inf ID: %s" % (new_vms, sel_inf.id))
 

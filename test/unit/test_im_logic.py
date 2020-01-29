@@ -238,7 +238,7 @@ class TestIM(unittest.TestCase):
                       " are asked to be deployed in different cloud providers",
                       str(ex.exception))
 
-    def test_inf_creation_errors(self):
+    def test_00_inf_creation_errors(self):
         """Create infrastructure with errors"""
 
         radl = """"
@@ -311,6 +311,17 @@ class TestIM(unittest.TestCase):
                        "Attempt 1: e1\nAttempt 2: e1\nAttempt 3: e1"), str(ex.exception))
 
         self.assertEqual(cloud.finalize.call_count, 1)
+
+        # test error in the async case to get the whole error
+        Config.MAX_VM_FAILS = 1
+        inf_id = IM.CreateInfrastructure(str(radl), auth0, True)
+        cont_msg = ""
+        wait = 0
+        while cont_msg == "" and wait < 20:
+            cont_msg = IM.GetInfrastructureContMsg(inf_id, auth0)
+            time.sleep(1)
+            wait += 1
+        self.assertIn("Error launching the VMs of type s0 to cloud ID cloud0 of type Mock. Attempt 1: e1", cont_msg)
 
     def test_inf_auth(self):
         """Try to access not owned Infs."""
