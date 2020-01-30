@@ -131,6 +131,13 @@ class TestTosca(unittest.TestCase):
         self.assertEqual("pub_network", lrms_server.getValue("net_interface.1.connection"))
         self.assertEqual("slurmserver", lrms_server.getValue("net_interface.0.dns_name"))
 
+    def test_merge_yaml(self):
+        """Test TOSCA merge two yamls"""
+        a = {"wn_port": {"requirements": [{"binding": "lrms_wn"}, {"link": "network1"}]}}
+        b = {"wn_port": {"requirements": [{"binding": "lrms_wn"}, {"link": "network2"}]}}
+        c = Tosca._merge_yaml(a, b)
+        self.assertEqual(c, b)
+
 
 if __name__ == "__main__":
     unittest.main()
