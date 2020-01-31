@@ -156,6 +156,7 @@ class TestGCEConnector(TestCloudConnectorBase):
 
         inf = InfrastructureInfo()
         inf.auth = auth
+        inf.radl = radl
         res = gce_cloud.launch(inf, radl, radl, 1, auth)
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a single VM.")
@@ -176,6 +177,7 @@ class TestGCEConnector(TestCloudConnectorBase):
 
         inf = InfrastructureInfo()
         inf.auth = auth
+        inf.radl = radl
         res = gce_cloud.launch(inf, radl, radl, 3, auth)
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching 3 VMs.")
@@ -210,6 +212,7 @@ class TestGCEConnector(TestCloudConnectorBase):
         driver.ex_get_network.return_value = None
         inf = InfrastructureInfo()
         inf.auth = auth
+        inf.radl = radl
         res = gce_cloud.launch(inf, radl, radl, 1, auth)
         success, msg = res[0]
         self.assertFalse(success)
