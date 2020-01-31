@@ -524,10 +524,10 @@ class InfrastructureManager:
 
             # Update infrastructure RADL with this new RADL
             sel_inf.complete_radl(radl)
+            sel_inf.update_radl(radl, [])
 
             # If any deploy is defined, only update definitions.
             if not radl.deploys:
-                sel_inf.update_radl(radl, [])
                 InfrastructureManager.logger.warn("Inf ID: " + sel_inf.id + ": without any deploy. Exiting.")
                 sel_inf.add_cont_msg("Infrastructure without any deploy. Exiting.")
                 if sel_inf.configured is None:
@@ -651,7 +651,9 @@ class InfrastructureManager:
 
         error_msg = ""
         # Add the new virtual machines to the infrastructure
-        sel_inf.update_radl(radl, [(d, deployed_vm[d], concrete_systems[d.cloud_id][d.id][0]) for d in deployed_vm])
+        sel_inf.update_radl(radl,
+                            [(d, deployed_vm[d], concrete_systems[d.cloud_id][d.id][0]) for d in deployed_vm],
+                            False)
         if all_failed:
             InfrastructureManager.logger.error("VMs failed when adding to Inf ID: %s" % sel_inf.id)
             sel_inf.add_cont_msg("All VMs failed. No contextualize.")

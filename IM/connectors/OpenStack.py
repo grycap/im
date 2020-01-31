@@ -749,12 +749,14 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     if not net_cidr or "*" in net_cidr:
                         _, ost_nets = self.get_ost_network_info(driver, [])
                         used_cidrs = [ost_net.cidr for ost_net in ost_nets if ost_net.cidr]
-                        net_cidr = self.get_free_cidr(net_cidr, used_cidrs)
+                        net_cidr = self.get_free_cidr(net_cidr, used_cidrs, inf)
                         if not net_cidr:
                             self.log_error("No free net CIDR found.")
                             raise Exception("No net CIDR specified nor free net CIDR found.")
                         self.log_debug("Free net CIDR found: %s." % net_cidr)
                         network.setValue('cidr', net_cidr)
+                        # Set also the cidr in the inf RADL
+                        inf.radl.get_network_by_id(net_name).setValue('cidr', net_cidr)
                     net_dnsserver = network.getValue('dnsserver')
                     if net_dnsserver:
                         net_dnsserver = [net_dnsserver]
