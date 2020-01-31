@@ -502,7 +502,7 @@ class CloudConnector(LoggerMixin):
             yield cidr
 
     @staticmethod
-    def get_free_cidr(net_cidr, used_cidrs):
+    def get_free_cidr(net_cidr, used_cidrs, inf=None):
         """
         Get a CIDR that is not used (is not in used_cidrs list)
         """
@@ -513,6 +513,13 @@ class CloudConnector(LoggerMixin):
             return net_cidr
 
         used_cidr_nets = [IPNetwork(net) for net in used_cidrs]
+
+        # add current used cidrs in other inf networks
+        if inf:
+            for net in inf.radl.networks:
+                cidr = net.getValue('cidr')
+                if cidr and "*" not in cidr:
+                    used_cidr_nets.append(IPNetwork(cidr))
 
         for cidr in CloudConnector.cidr_wildcard_iterator(net_cidr):
             if not any([IPNetwork(cidr) in IPNetwork(mask) for mask in used_cidr_nets]):
