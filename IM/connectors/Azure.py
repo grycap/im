@@ -508,7 +508,7 @@ class AzureCloudConnector(CloudConnector):
 
         return vm
 
-    def create_nets(self, radl, credentials, subscription_id, group_name):
+    def create_nets(self, radl, credentials, subscription_id, group_name, inf):
         network_client = NetworkManagementClient(credentials, subscription_id)
         location = self.DEFAULT_LOCATION
         if radl.systems[0].getValue('availability_zone'):
@@ -539,7 +539,7 @@ class AzureCloudConnector(CloudConnector):
             used_cidrs = []
             for i, net in enumerate(radl.networks):
                 subnet_name = net.id
-                net_cidr = self.get_free_cidr(net.getValue('cidr'), used_cidrs)
+                net_cidr = self.get_free_cidr(net.getValue('cidr'), used_cidrs, inf)
                 used_cidrs.append(net_cidr)
 
                 # Create Subnet in the RG of the Inf
@@ -551,6 +551,8 @@ class AzureCloudConnector(CloudConnector):
                 )
                 subnets[net.id] = async_subnet_creation.result()
                 net.setValue('cidr', net_cidr)
+                # Set also the cidr in the inf RADL
+                inf.radl.get_network_by_id(net.id).setValue('cidr', net_cidr)
         else:
             subnets = {}
             for i, net in enumerate(radl.networks):
@@ -682,7 +684,7 @@ class AzureCloudConnector(CloudConnector):
                     self.log_exception("Error creating storage account: %s" % storage_account)
                     self.delete_resource_group("rg-%s" % inf.id, resource_client)
 
-            subnets = self.create_nets(radl, credentials, subscription_id, "rg-%s" % inf.id)
+            subnets = self.create_nets(radl, credentials, subscription_id, "rg-%s" % inf.id, inf)
 
         res = []
         vms = self.create_vms(inf, radl, requested_radl, num_vm, location,
