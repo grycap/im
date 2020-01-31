@@ -359,8 +359,9 @@ class InfrastructureInfo:
 
             # Add or update configures and systems
             for s in radl.configures + radl.systems:
+                if self.radl.get(s):
+                    InfrastructureInfo.logger.warn("(Re)definition of %s %s" % (type(s), s.getId()))
                 self.radl.add(s.clone(), "replace")
-                InfrastructureInfo.logger.warn("(Re)definition of %s %s" % (type(s), s.getId()))
 
             # Append contextualize
             self.radl.add(radl.contextualize)
