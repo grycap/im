@@ -163,6 +163,7 @@ class TestEC2Connector(TestCloudConnectorBase):
 
         inf = InfrastructureInfo()
         inf.auth = auth
+        inf.radl = radl
         res = ec2_cloud.launch(inf, radl, radl, 1, auth)
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
@@ -207,6 +208,7 @@ class TestEC2Connector(TestCloudConnectorBase):
 
         inf = InfrastructureInfo()
         inf.auth = auth
+        inf.radl = radl
         res = ec2_cloud.launch(inf, radl, radl, 1, auth)
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")

@@ -181,6 +181,7 @@ class TestAzureConnector(TestCloudConnectorBase):
 
         inf = InfrastructureInfo()
         inf.auth = auth
+        inf.radl = radl
         res = azure_cloud.launch_with_retry(inf, radl, radl, 3, auth, 2, 0)
         self.assertEqual(len(res), 3)
         self.assertTrue(res[0][0])

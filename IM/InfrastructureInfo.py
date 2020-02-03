@@ -338,7 +338,7 @@ class InfrastructureInfo:
                 groups[vm.getRequestedSystem().name] = [vm]
         return groups
 
-    def update_radl(self, radl, deployed_vms):
+    def update_radl(self, radl, deployed_vms, warn=True):
         """
         Update the stored radl with the passed one.
 
@@ -348,19 +348,21 @@ class InfrastructureInfo:
         - deployed_vms(list of tuple of deploy, system and list of VirtualMachines): list of
            tuples composed of the deploy, the concrete system deployed and the list of
            virtual machines deployed.
+        - warn(bool): Log a Warn message in case of redefinition
         """
 
         with self._lock:
             original_radl = self.radl.clone()
             # Add new networks ad ansible_hosts only
             for s in radl.networks + radl.ansible_hosts:
-                if not self.radl.add(s.clone(), "ignore"):
+                if not self.radl.add(s.clone(), "ignore") and warn:
                     InfrastructureInfo.logger.warn("Ignoring the redefinition of %s %s" % (type(s), s.getId()))
 
             # Add or update configures and systems
             for s in radl.configures + radl.systems:
+                if self.radl.get(s) and warn:
+                    InfrastructureInfo.logger.warn("(Re)definition of %s %s" % (type(s), s.getId()))
                 self.radl.add(s.clone(), "replace")
-                InfrastructureInfo.logger.warn("(Re)definition of %s %s" % (type(s), s.getId()))
 
             # Append contextualize
             self.radl.add(radl.contextualize)

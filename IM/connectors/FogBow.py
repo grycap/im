@@ -265,7 +265,7 @@ class FogBowCloudConnector(CloudConnector):
                 else:
                     self.log_info("Creating federated net %s." % net_name)
                     used_cidrs = [elem['cidr'] for elem in list(fbw_fed_nets.values())]
-                    cidr = self.get_free_cidr(net.getValue("cidr"), used_cidrs)
+                    cidr = self.get_free_cidr(net.getValue("cidr"), used_cidrs, inf)
 
                     body = {"name": net_name, "cidr": cidr}
                     net_providers = net.getValue("providers")
@@ -278,6 +278,9 @@ class FogBowCloudConnector(CloudConnector):
                     net_info = self.post_and_get('/federatedNetworks/', json.dumps(body), auth_data)
                     if net_info:
                         net.setValue("provider_id", net_info['instanceId'])
+                        net.setValue('cidr', cidr)
+                        # Set also the cidr in the inf RADL
+                        inf.radl.get_network_by_id(net.id).setValue('cidr', cidr)
                     else:
                         self.log_error("Error creating federated net %s." % net_name)
             elif not net.isPublic():
