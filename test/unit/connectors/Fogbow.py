@@ -234,7 +234,10 @@ class TestFogBowConnector(TestCloudConnectorBase):
 
         requests.side_effect = self.get_response
 
-        res = fogbow_cloud.launch(InfrastructureInfo(), radl, radl, 1, auth)
+        inf = InfrastructureInfo()
+        inf.auth = auth
+        inf.radl = radl
+        res = fogbow_cloud.launch(inf, radl, radl, 1, auth)
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())

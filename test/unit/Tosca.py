@@ -21,11 +21,14 @@ import unittest
 import sys
 import yaml
 
+from mock import MagicMock
+
 sys.path.append("..")
 sys.path.append(".")
 
 from IM.VirtualMachine import VirtualMachine
 from radl.radl_parse import parse_radl
+from radl.radl import system, Feature
 from IM.InfrastructureInfo import InfrastructureInfo
 from IM.tosca.Tosca import Tosca
 
@@ -130,6 +133,51 @@ class TestTosca(unittest.TestCase):
         self.assertEqual("network1", lrms_server.getValue("net_interface.0.connection"))
         self.assertEqual("pub_network", lrms_server.getValue("net_interface.1.connection"))
         self.assertEqual("slurmserver", lrms_server.getValue("net_interface.0.dns_name"))
+
+    def test_merge_yaml(self):
+        """Test TOSCA merge two yamls"""
+        a = {"wn_port": {"requirements": [{"binding": "lrms_wn"}, {"link": "network1"}]}}
+        b = {"wn_port": {"requirements": [{"binding": "lrms_wn"}, {"link": "network2"}]}}
+        c = Tosca._merge_yaml(a, b)
+        self.assertEqual(c, b)
+
+    def test_tosca_add_hybrid1(self):
+        tosca_data = read_file_as_string('../files/tosca_add_hybrid_l2.yml')
+        tosca = Tosca(tosca_data)
+        inf_info = MagicMock()
+        vm1 = MagicMock()
+        system1 = system("lrms_server", [Feature("disk.0.image.url", "=", "ost://cloud1.com/image1"),
+                                         Feature("net_interface.0.connection", "=", "network1")])
+        vm1.info.systems = [system1]
+        vm2 = MagicMock()
+        system2 = system("lrms_wn", [Feature("disk.0.image.url", "=", "ost://cloud1.com/image1"),
+                                     Feature("net_interface.0.connection", "=", "network1")])
+        vm2.info.systems = [system2]
+        inf_info.get_vm_list_by_system_name.return_value = {"lrms_server": [vm1], "lrms_wn": [vm2]}
+        _, radl = tosca.to_radl(inf_info)
+        print(radl)
+        radl = parse_radl(str(radl))
+        lrms_wn = radl.get_system_by_name("lrms_wn")
+        self.assertEqual("network2", lrms_wn.getValue("net_interface.0.connection"))
+
+    def test_tosca_add_hybrid2(self):
+        tosca_data = read_file_as_string('../files/tosca_add_hybrid.yml')
+        tosca = Tosca(tosca_data)
+        inf_info = MagicMock()
+        vm1 = MagicMock()
+        system1 = system("lrms_server", [Feature("disk.0.image.url", "=", "ost://cloud1.com/image1"),
+                                         Feature("net_interface.0.connection", "=", "private_net")])
+        vm1.info.systems = [system1]
+        vm2 = MagicMock()
+        system2 = system("lrms_wn", [Feature("disk.0.image.url", "=", "ost://cloud1.com/image1"),
+                                     Feature("net_interface.0.connection", "=", "private_net")])
+        vm2.info.systems = [system2]
+        inf_info.get_vm_list_by_system_name.return_value = {"lrms_server": [vm1], "lrms_wn": [vm2]}
+        _, radl = tosca.to_radl(inf_info)
+        print(radl)
+        radl = parse_radl(str(radl))
+        lrms_wn = radl.get_system_by_name("lrms_wn")
+        self.assertEqual("private.cloud2.com", lrms_wn.getValue("net_interface.0.connection"))
 
 
 if __name__ == "__main__":

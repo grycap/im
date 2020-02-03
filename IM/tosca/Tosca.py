@@ -179,19 +179,21 @@ class Tosca:
         """
         priv_net_cloud_map = {}
 
+        # in case of an AddResource
+        # first process already deployed VMs
+        systems = [[], []]
+        if inf_info:
+            for elem in inf_info.get_vm_list_by_system_name().items():
+                systems[0].append(elem[1][-1].info.systems[0])
+
         # make that deployed nodes are checked first
         to_deploy = [d.id for d in radl.deploys]
-        systems = [[s for s in radl.systems if s.name not in to_deploy],
-                   [s for s in radl.systems if s.name in to_deploy]]
+        systems[1] = [s for s in radl.systems if s.name in to_deploy]
 
         for s1 in systems:
             for s in s1:
                 image = s.getValue("disk.0.image.url")
-                # in case of an AddResource
-                if inf_info:
-                    vm_list = inf_info.get_vm_list_by_system_name()
-                    if s.name in vm_list and vm_list[s.name][-1].info.systems[0].getValue("disk.0.image.url"):
-                        image = vm_list[s.name][-1].info.systems[0].getValue("disk.0.image.url")
+
                 if image:
                     url = urlparse(image)
                     protocol = url[0]
@@ -1532,9 +1534,8 @@ class Tosca:
                 else:
                     yaml1[k] = Tosca._merge_yaml(yaml1[k], v)
         elif isinstance(yaml1, list) and isinstance(yaml2, (list, tuple)):
-            for v in yaml2:
-                if v not in yaml1:
-                    yaml1.append(v)
+            for i, v in enumerate(yaml2):
+                yaml1[i] = Tosca._merge_yaml(yaml1[i], v)
         else:
             yaml1 = yaml2
 

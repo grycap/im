@@ -227,6 +227,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         driver.ex_get_volume.return_value = vol
 
         inf = InfrastructureInfo()
+        inf.radl = radl
         inf.auth = auth
         res = ost_cloud.launch_with_retry(inf, radl, radl, 1, auth, 2, 1)
         success, _ = res[0]
@@ -262,6 +263,7 @@ class TestOSTConnector(TestCloudConnectorBase):
                                 'password': 'pass'}])
         inf = InfrastructureInfo()
         inf.auth = auth
+        inf.radl = radl
         res = ost_cloud.launch(inf, radl, radl, 1, auth)
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
@@ -272,6 +274,38 @@ class TestOSTConnector(TestCloudConnectorBase):
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
         self.assertEqual(driver.get_image.call_args_list[3][0][0], "image_id2")
+
+        radl_data = """
+            network net1 (outbound = 'yes')
+            network net2 (create = 'yes')
+            network net3 (create = 'yes')
+            system test (
+            cpu.arch='x86_64' and
+            cpu.count=1 and
+            memory.size=512m and
+            instance_tags='key=value,key1=value2' and
+            net_interface.1.connection = 'net1' and
+            net_interface.0.connection = 'net2' and
+            net_interface.2.connection = 'net3' and
+            disk.0.os.name = 'linux' and
+            disk.0.image.url = 'ost://server.com/ami-id' and
+            disk.0.os.credentials.username = 'user' and
+            disk.1.size=1GB and
+            disk.1.device='hdb' and
+            disk.2.image.url = 'ost://server.com/vol-id' and
+            disk.2.device='hdc'
+            )
+            """
+        radl = radl_parse.parse_radl(radl_data)
+        radl.check()
+
+        inf = InfrastructureInfo()
+        inf.auth = auth
+        inf.radl = radl
+        res = ost_cloud.launch(inf, radl, radl, 1, auth)
+        success, _ = res[0]
+        self.assertTrue(success, msg="ERROR: launching a VM.")
+        self.assertEqual(driver.ex_create_subnet.call_args_list[5][0][2], "10.1.2.0/24")
 
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
     def test_30_updateVMInfo(self, get_driver):

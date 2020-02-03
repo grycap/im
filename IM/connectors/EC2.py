@@ -458,7 +458,8 @@ class EC2CloudConnector(CloudConnector):
                 provider_id = net.getValue('provider_id')
                 if net.getValue('create') == 'yes' and not net.isPublic() and not provider_id:
                     net_cidr = self.get_free_cidr(net.getValue('cidr'),
-                                                  [subnet.cidr_block for subnet in conn.get_all_subnets()])
+                                                  [subnet.cidr_block for subnet in conn.get_all_subnets()],
+                                                  inf)
 
                     # First create the VPC
                     if vpc_id is None:
@@ -501,6 +502,9 @@ class EC2CloudConnector(CloudConnector):
                         time.sleep(1)
                         subnet.add_tag("IM-INFRA-ID", inf.id)
                         subnet.add_tag("IM-SUBNET-ID", net.id)
+                        net.setValue('cidr', net_cidr)
+                        # Set also the cidr in the inf RADL
+                        inf.radl.get_network_by_id(net.id).setValue('cidr', net_cidr)
 
                     net.setValue('provider_id', "%s.%s" % (vpc_id, subnet.id))
         except Exception as ex:
