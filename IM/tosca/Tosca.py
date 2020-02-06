@@ -1221,7 +1221,7 @@ class Tosca:
         network_router = self._final_function_result(node.get_property_value('gateway_ip'), node)
 
         # TODO: get more properties -> must be implemented in the RADL
-        if nework_type.lower() == "public":
+        if nework_type and nework_type.lower() == "public":
             res.setValue("outbound", "yes")
 
         if network_name:
