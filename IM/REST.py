@@ -626,6 +626,7 @@ def RESTGetVMProperty(infid=None, vmid=None, prop=None):
                 command = ('curl --insecure -s -H "Authorization: type = InfrastructureManager; %s" '
                            '-H "Accept: text/plain" %s' % (imauth, url))
 
+                ps_command = "ps aux | grep -v grep | grep 'ssh -N -R'"
                 info = """
                 res="wait"
                 while [ "$res" == "wait" ]
@@ -633,11 +634,14 @@ def RESTGetVMProperty(infid=None, vmid=None, prop=None):
                   res=`%s`
                   if [ "$res" != "wait" ]
                   then
-                    eval "$res"
+                    echo "$res" > /var/tmp/reverse_ssh.sh
+                    chmod a+x /var/tmp/reverse_ssh.sh
+                    echo "*/1 * * * * root %s || /var/tmp/reverse_ssh.sh" > /etc/cron.d/reverse_ssh
+                    /var/tmp/reverse_ssh.sh
                   else
                     sleep 20
                   fi
-                done""" % command
+                done""" % (command, ps_command)
                 logger.debug("Step 1 command: %s" % info)
             elif step == 2:
                 sel_vm = None
