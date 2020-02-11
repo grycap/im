@@ -569,3 +569,10 @@ IM 1.9.1:
     * Fix intermittent errors in SSH connections.
     * Fix ssh_connect_errors count must be reset when a ssh connection is ok.
     * Fix check_ctxt_process thread dies and contextalization never ends.
+    * Fix error not setting network_type in TOSCA network.
+    * Enable to mount nvme disks in EC2.
+    * Fix error merging TOSCA documents.
+    * Fix error getting VM errors in the cont msg in case of all VMs has failed.
+    * Fix Error creating OpenStack Network.
+    * Fix error updating VM info in OpenStack conn.
+
