@@ -1390,7 +1390,17 @@ class Tosca:
                 link = None
                 for requires in port.requirements:
                     binding = requires.get('binding', binding)
+                    if isinstance(binding, dict):
+                        if "node" in binding:
+                            binding = binding["node"]
+                        else:
+                            raise Exception("Incorrect binding in Port node %s" % node.name)
                     link = requires.get('link', link)
+                    if isinstance(link, dict):
+                        if "node" in link:
+                            link = link["node"]
+                        else:
+                            raise Exception("Incorrect link in Port node %s" % node.name)
 
                 if binding == node.name:
                     ip = self._final_function_result(port.get_property_value('ip_address'), port)
