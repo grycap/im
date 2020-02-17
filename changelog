@@ -573,6 +573,5 @@ IM 1.9.1:
     * Enable to mount nvme disks in EC2.
     * Fix error merging TOSCA documents.
     * Fix error getting VM errors in the cont msg in case of all VMs has failed.
-    * Fix Error creating OpenStack Network.
     * Fix error updating VM info in OpenStack conn.
 
