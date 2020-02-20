@@ -220,6 +220,7 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
         args = {'size': instance_type,
                 'image': image,
                 'ex_security_groups': sgs,
+                'ex_start_vm': True,
                 'name': "%s-%s" % (name, str(uuid.uuid1()))}
 
         if system.getValue('availability_zone'):
