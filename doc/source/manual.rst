@@ -643,6 +643,8 @@ It is a experimental issue currently it is not intended to be used in a producti
 
 This is an example of the HAProxy configuration file::
 
+    global
+        tune.bufsize 131072
     defaults
         timeout connect 600s
         timeout client 600s

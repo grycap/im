@@ -76,7 +76,11 @@ topology_template:
         order: 0
       requirements:
         - binding: lrms_wn
-        - link: network1
+        - link:
+            node: network1
+            capability: tosca.capabilities.network.Linkable
+            relationship:
+              type: tosca.relationships.network.LinksTo
 
     elastic_cluster_front_end:
       type: tosca.nodes.indigo.ElasticCluster
