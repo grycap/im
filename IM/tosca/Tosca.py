@@ -181,8 +181,9 @@ class Tosca:
 
         # in case of an AddResource
         # first process already deployed VMs
-        systems = [(inf_info, []), (radl, [])]
+        systems = [(None, []), (radl, [])]
         if inf_info:
+            systems[0] = (inf_info.radl, [])
             for elem in inf_info.get_vm_list_by_system_name().items():
                 systems[0][1].append(elem[1][-1].info.systems[0])
 
