@@ -175,7 +175,7 @@ class TestTosca(unittest.TestCase):
         inf_info.get_vm_list_by_system_name.return_value = {"lrms_server": [vm1], "lrms_wn": [vm2]}
         net = MagicMock()
         net.isPublic.return_value = False
-        inf_info.get_network_by_id.return_value = net
+        inf_info.radl.get_network_by_id.return_value = net
         _, radl = tosca.to_radl(inf_info)
         print(radl)
         radl = parse_radl(str(radl))
