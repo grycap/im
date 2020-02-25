@@ -575,3 +575,5 @@ IM 1.9.1:
     * Fix error getting VM errors in the cont msg in case of all VMs has failed.
     * Fix error updating VM info in OpenStack conn.
 
+IM 1.9.2:
+    * 
