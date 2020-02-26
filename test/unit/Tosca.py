@@ -169,10 +169,13 @@ class TestTosca(unittest.TestCase):
                                          Feature("net_interface.0.connection", "=", "private_net")])
         vm1.info.systems = [system1]
         vm2 = MagicMock()
-        system2 = system("lrms_wn", [Feature("disk.0.image.url", "=", "ost://cloud1.com/image1"),
-                                     Feature("net_interface.0.connection", "=", "private_net")])
+        system2 = system("lrms_wn", [Feature("disk.0.image.url", "=", "ost://cloud3.com/image1"),
+                                     Feature("net_interface.0.connection", "=", "private.cloud3.com")])
         vm2.info.systems = [system2]
         inf_info.get_vm_list_by_system_name.return_value = {"lrms_server": [vm1], "lrms_wn": [vm2]}
+        net = MagicMock()
+        net.isPublic.return_value = False
+        inf_info.radl.get_network_by_id.return_value = net
         _, radl = tosca.to_radl(inf_info)
         print(radl)
         radl = parse_radl(str(radl))
