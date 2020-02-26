@@ -503,7 +503,8 @@ packages:
         expected_res = """#cloud-config
 merge_how: list(append)+dict(recurse_array,no_replace)+str()
 users:
-- lock-passwd: true
+- homedir: /opt/user
+  lock-passwd: true
   name: user
   ssh-authorized-keys:
   - pub_key
@@ -550,7 +551,8 @@ users:
   name: cloudy
   system: true
 - snapuser: joe@joeuser.io
-- lock-passwd: true
+- homedir: /opt/user
+  lock-passwd: true
   name: user
   ssh-authorized-keys:
   - pub_key
