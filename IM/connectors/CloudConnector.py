@@ -400,6 +400,8 @@ class CloudConnector(LoggerMixin):
             user_data['sudo'] = "ALL=(ALL) NOPASSWD:ALL"
             user_data['lock-passwd'] = True
             user_data['ssh-import-id'] = user
+            # avoid to use default /home dir
+            user_data['homedir'] = "/opt/%s" % user
             user_data['ssh-authorized-keys'] = [public_key.strip()]
             if 'users' not in cloud_config:
                 cloud_config['users'] = []
