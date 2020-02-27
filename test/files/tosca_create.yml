@@ -43,7 +43,8 @@ topology_template:
             ports:
               ssh_port:
                 protocol: tcp
-                source: 22
+                source: 10022
+                target: 22
               http_port:
                 protocol: tcp
                 source: 80
