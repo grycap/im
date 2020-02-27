@@ -637,9 +637,8 @@ class OpenNebulaCloudConnector(CloudConnector):
             if private and public:
                 context += 'SSH_PUBLIC_KEY = "%s"' % public
 
+            command = ""
             if Config.SSH_REVERSE_TUNNELS and not vm.hasPublicNet():
-                if private and public:
-                    context += ", "
                 inst_command = "apt update; apt install -y sshpass curl > /tmp/sshpass.out 2> /tmp/sshpass.err;"
                 inst_command += "yum install sshpass curl -y;"
                 inst_command += "zypper install -y sshpass curl;"
@@ -647,6 +646,14 @@ class OpenNebulaCloudConnector(CloudConnector):
                 command = "which sshpass && which curl || %s" % inst_command
 
                 command += vm.get_boot_curl_commands()[0]
+
+            if vm.getSSHPort() != 22:
+                command += "sed -i '/Port 22/c\\Port %d' /etc/ssh/sshd_config; " % vm.getSSHPort()
+                command += "service sshd restart; "
+
+            if command:
+                if context:
+                    context += ", "
                 context += 'START_SCRIPT = "%s"' % command.replace('"', '\\"')
 
             if ConfigOpenNebula.TEMPLATE_CONTEXT:
