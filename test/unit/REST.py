@@ -903,8 +903,11 @@ class TestREST(unittest.TestCase):
                   then
                     echo "$res" > /var/tmp/reverse_ssh.sh
                     chmod a+x /var/tmp/reverse_ssh.sh
-                    echo "*/1 * * * * root %s || /var/tmp/reverse_ssh.sh" > /etc/cron.d/reverse_ssh
                     /var/tmp/reverse_ssh.sh
+                    if [ "$res" != "true" ]
+                    then
+                      echo "*/1 * * * * root %s || /var/tmp/reverse_ssh.sh" > /etc/cron.d/reverse_ssh
+                    fi
                   else
                     sleep 20
                   fi
@@ -924,8 +927,11 @@ class TestREST(unittest.TestCase):
                   then
                     echo "$res" > /var/tmp/reverse_ssh.sh
                     chmod a+x /var/tmp/reverse_ssh.sh
-                    echo "*/1 * * * * root %s || /var/tmp/reverse_ssh.sh" > /etc/cron.d/reverse_ssh
                     /var/tmp/reverse_ssh.sh
+                    if [ "$res" != "true" ]
+                    then
+                      echo "*/1 * * * * root %s || /var/tmp/reverse_ssh.sh" > /etc/cron.d/reverse_ssh
+                    fi
                   else
                     sleep 20
                   fi
