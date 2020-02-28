@@ -212,6 +212,11 @@ class Tosca:
                                     else:
                                         # This net appears in two cloud, create another one
                                         new_net = network.createNetwork("private.%s" % src_host, False)
+                                        # Move also the net params to the new one
+                                        for item in ["provider_id", "cidr"]:
+                                            if net.getValue(item):
+                                                new_net.setValue(item, net.getValue(item))
+                                                net.delValue(item)
                                         radl.networks.append(new_net)
                                         new_net_id = new_net.id
                                         # and replace the connection id in the system

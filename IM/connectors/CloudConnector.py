@@ -394,12 +394,20 @@ class CloudConnector(LoggerMixin):
                 cloud_config['bootcmd'] = []
             cloud_config['bootcmd'].extend(curl_command)
 
+        if vm and vm.getSSHPort() != 22:
+            if 'bootcmd' not in cloud_config:
+                cloud_config['bootcmd'] = []
+            cloud_config['bootcmd'].append("sed -i '/Port 22/c\\Port %s' /etc/ssh/sshd_config" % vm.getSSHPort())
+            cloud_config['bootcmd'].append("service sshd restart")
+
         if public_key:
             user_data = {}
             user_data['name'] = user
             user_data['sudo'] = "ALL=(ALL) NOPASSWD:ALL"
             user_data['lock-passwd'] = True
             user_data['ssh-import-id'] = user
+            # avoid to use default /home dir
+            user_data['homedir'] = "/opt/%s" % user
             user_data['ssh-authorized-keys'] = [public_key.strip()]
             if 'users' not in cloud_config:
                 cloud_config['users'] = []
