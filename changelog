@@ -576,4 +576,8 @@ IM 1.9.1:
     * Fix error updating VM info in OpenStack conn.
 
 IM 1.9.2:
-    * 
+    * Fix error processing tosca.nodes.network.Port requirements in long format.
+    * Fix CloudStack VMs start in Stopped state.
+    * Fix error adding nodes in third site in Hybrid case with TOSCA.
+    * Enable to configure infrastructures where port SSH is closed by organization firewalls.
+
