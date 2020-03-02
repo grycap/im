@@ -1109,20 +1109,21 @@ class ConfManager(LoggerMixin, threading.Thread):
                     self.log_warn('VM: ' + str(vm.id) + " is in state Failed. Does not wait for SSH.")
                     return False, "VM Failure."
 
+                ssh = None
                 ip = vm.getPublicIP()
-                if ip is not None:
+                if ip is not None or (vm.getPrivateIP() and vm.getProxyHost()):
                     ssh = vm.get_ssh()
-                    self.log_info('SSH Connecting with: ' + ip + ' to the VM: ' + str(vm.id))
+                    self.log_info('SSH Connecting with: ' + ssh.host + ' to the VM: ' + str(vm.id))
 
                     try:
                         connected = ssh.test_connectivity(5)
                     except AuthenticationException:
-                        self.log_warn("Error connecting with ip: " + ip + " incorrect credentials.")
+                        self.log_warn("Error connecting with ip: " + ssh.host + " incorrect credentials.")
                         auth_errors += 1
 
                         if auth_errors >= auth_error_retries:
                             self.log_error("Too many authentication errors")
-                            return False, "Error connecting with ip: " + ip + " incorrect credentials."
+                            return False, "Error connecting with ip: " + ssh.host + " incorrect credentials."
 
                     if connected:
                         self.log_info('Works!')
@@ -1326,8 +1327,16 @@ class ConfManager(LoggerMixin, threading.Thread):
         try:
             # Create the ansible inventory file
             with open(tmp_dir + "/inventory.cfg", 'w') as inv_out:
-                inv_out.write("%s  ansible_port=%d  ansible_ssh_port=%d" % (
-                    ssh.host, ssh.port, ssh.port))
+                ssh_args = ""
+                if ssh.proxy_host:
+                    proxy_command = "sshpass -p %s ssh %s %s@%s nc %s 22" % (ssh.proxy_host.password,
+                                                                             "-o StrictHostKeyChecking=no",
+                                                                             ssh.proxy_host.username,
+                                                                             ssh.proxy_host.host,
+                                                                             ssh.host)
+                    ssh_args = "ansible_ssh_extra_args=\" -oProxyCommand='%s'\"" % proxy_command
+                inv_out.write("%s  ansible_port=%d  ansible_ssh_port=%d %s" % (ssh.host, ssh.port,
+                                                                               ssh.port, ssh_args))
 
             shutil.copy(Config.CONTEXTUALIZATION_DIR + "/" +
                         ConfManager.MASTER_YAML, tmp_dir + "/" + ConfManager.MASTER_YAML)
