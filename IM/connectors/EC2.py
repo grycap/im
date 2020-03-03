@@ -375,9 +375,8 @@ class EC2CloudConnector(CloudConnector):
                 res.append(sg.id)
 
                 try:
-                    # open always SSH port on public nets
-                    if network.isPublic():
-                        sg.authorize('tcp', 22, 22, '0.0.0.0/0')
+                    # open always SSH port
+                    sg.authorize('tcp', 22, 22, '0.0.0.0/0')
                     # open all the ports for the VMs in the security group
                     sg.authorize('tcp', 0, 65535, src_group=sg)
                     sg.authorize('udp', 0, 65535, src_group=sg)
