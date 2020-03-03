@@ -1113,6 +1113,7 @@ class ConfManager(LoggerMixin, threading.Thread):
                 ip = vm.getPublicIP()
                 if ip is not None or (vm.getPrivateIP() and vm.getProxyHost()):
                     ssh = vm.get_ssh()
+                    msg = ""
                     if vm.getProxyHost():
                         msg = " (via %s)" % vm.getProxyHost().host
                     self.log_info('SSH Connecting with: ' + ssh.host + msg + ' to the VM: ' + str(vm.id))
