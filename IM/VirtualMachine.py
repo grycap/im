@@ -29,6 +29,7 @@ from IM.LoggerMixin import LoggerMixin
 from IM.SSH import SSH
 from IM.SSHRetry import SSHRetry
 from IM.config import Config
+from IM import get_user_pass_host_port
 import IM.CloudInfo
 
 
@@ -273,6 +274,19 @@ class VirtualMachine(LoggerMixin):
         Get the number of the interface connected with the net id specified
         """
         return self.info.systems[0].getNumNetworkWithConnection(connection)
+
+    def getProxyHost(self):
+        """
+        Return the proxy_host data if available
+        """
+        for netid in self.info.systems[0].getNetworkIDs():
+            net = self.info.get_network_by_id(netid)
+            if net.getValue("proxy_host"):
+                proxy_user, proxy_pass, proxy_ip, proxy_port = get_user_pass_host_port(net.getValue("proxy_host"))
+                if not proxy_port:
+                    proxy_port = 22
+                return SSH(proxy_ip, proxy_user, proxy_pass, net.getValue("proxy_key"), proxy_port)
+        return None
 
     def getIfaceIP(self, iface_num):
         """
@@ -727,19 +741,22 @@ class VirtualMachine(LoggerMixin):
         """
         Get SSH object to connect with this VM
         """
+        proxy_host = None
         with self._lock:
             (user, passwd, _, private_key) = self.getCredentialValues()
             ip = self.getPublicIP()
             if ip is None:
                 ip = self.getPrivateIP()
+                if ip and self.getProxyHost():
+                    proxy_host = self.getProxyHost()
 
         if ip is None:
             self.log_warn("VM ID %s does not have IP. Do not return SSH Object." % self.im_id)
             return None
         if retry:
-            return SSHRetry(ip, user, passwd, private_key, self.getSSHPort())
+            return SSHRetry(ip, user, passwd, private_key, self.getSSHPort(), proxy_host)
         else:
-            return SSH(ip, user, passwd, private_key, self.getSSHPort())
+            return SSH(ip, user, passwd, private_key, self.getSSHPort(), proxy_host)
 
     def is_ctxt_process_running(self):
         """ Return the PID of the running process or None if it is not running """
