@@ -730,6 +730,69 @@ echo "Hello World" >> /tmp/data.txt
 #             self.assertTrue(
 #                 success, msg="ERROR calling DestroyInfrastructure: " + str(res))
 
+    def test_100_proxy(self):
+        """
+        Test connecting a VM using a proxy host
+        """
+        radl = """
+            network net (outbound = 'yes')
+            network priv (provider_id = '16')
+            system test (
+            cpu.count>=1 and
+            memory.size>=1g and
+            net_interface.0.connection = 'net' and
+            net_interface.1.connection = 'priv' and
+            disk.0.os.name='linux' and
+            disk.0.image.url = 'one://ramses.i3m.upv.es/1145' and
+            disk.0.os.credentials.username = 'ubuntu' and
+            disk.0.os.credentials.password = 'yoyoyo'
+            )
+
+            deploy test 1
+            """
+
+        (success, inf_id) = self.server.CreateInfrastructure(radl, self.auth_data)
+        self.assertTrue(success, msg="ERROR calling CreateInfrastructure: " + str(inf_id))
+        self.__class__.inf_id = [inf_id]
+
+        all_configured = self.wait_inf_state(inf_id, VirtualMachine.CONFIGURED, 600)
+        self.assertTrue(all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
+
+        (success, vminfo) = self.server.GetVMInfo(inf_id, 0, self.auth_data)
+        self.assertTrue(success, msg="ERROR calling GetVMInfo: " + str(vminfo))
+
+        vm = radl_parse.parse_radl(vminfo)
+        proxy_ip = vm.systems[0].getValue("net_interface.0.ip")
+        proxy_user = vm.systems[0].getValue("disk.0.os.credentials.username")
+        proxy_pass = vm.systems[0].getValue("disk.0.os.credentials.password")
+        proxy_host = "%s:%s@%s" % (proxy_user, proxy_pass, proxy_ip)
+
+        radl = """
+            network net (proxy_host = '%s' and provider_id = '16')
+            system test (
+            cpu.count>=1 and
+            memory.size>=1g and
+            net_interface.0.connection = 'net' and
+            disk.0.os.name='linux' and
+            disk.0.image.url = 'one://ramses.i3m.upv.es/476'
+            )
+
+            deploy test 1
+            """ % proxy_host
+        (success, inf_id2) = self.server.CreateInfrastructure(radl, self.auth_data)
+        self.__class__.inf_id.append(inf_id2)
+
+        all_configured = self.wait_inf_state(inf_id2, VirtualMachine.CONFIGURED, 600)
+        self.assertTrue(all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
+
+    def test_110_destroy(self):
+        """
+        Test DestroyInfrastructure function
+        """
+        for inf_id in self.inf_id:
+            (success, res) = self.server.DestroyInfrastructure(inf_id, self.auth_data)
+            self.assertTrue(success, msg="ERROR calling DestroyInfrastructure: " + str(res))
+
 
 if __name__ == '__main__':
     unittest.main()
