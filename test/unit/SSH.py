@@ -47,6 +47,16 @@ class TestSSH(unittest.TestCase):
         self.assertTrue(success)
 
     @patch('paramiko.SSHClient')
+    def test_test_connectivity_proxy(self, ssh_client):
+        proxy = SSH("proxy", "userp", "passwdp")
+        ssh = SSHRetry("host", "user", "passwd", read_file_as_string("../files/privatekey.pem"), proxy_host=proxy)
+        client = MagicMock()
+        ssh_client.return_value = client
+        success = ssh.test_connectivity(5)
+        self.assertNotEqual(client.connect.call_args_list[1][1]['sock'], None)
+        self.assertTrue(success)
+
+    @patch('paramiko.SSHClient')
     def test_execute(self, ssh_client):
         ssh = SSHRetry("host", "user", "passwd", read_file_as_string("../files/privatekey.pem"))
 

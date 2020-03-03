@@ -50,6 +50,7 @@ class ThreadSSH(Thread):
         self.command = None
         self.command_return = None
         self.client = None
+        self.proxy = None
 
     def close(self):
         """
@@ -58,10 +59,13 @@ class ThreadSSH(Thread):
         if self.client:
             self.client.close()
             self.client = None
+        if self.proxy:
+            self.proxy.close()
+            self.proxy = None
 
     def run(self):
         if self.command:
-            self.client = self.ssh.connect()
+            self.client, self.proxy = self.ssh.connect()
 
             channel = self.client.get_transport().open_session()
             if self.ssh.tty:
@@ -87,10 +91,11 @@ class ThreadSSH(Thread):
 class SSH:
     """ Class to encapsulate SSH operations using paramiko """
 
-    def __init__(self, host, user, passwd, private_key=None, port=22):
+    def __init__(self, host, user, passwd=None, private_key=None, port=22, proxy_host=None):
         # Atributo para la version "thread"
         self.thread = None
 
+        self.proxy_host = proxy_host
         self.tty = False
         self.port = port
         self.host = host
@@ -119,6 +124,8 @@ class SSH:
             res += ", password: " + self.password
         if self.private_key is not None:
             res += ", private_key: " + self.private_key
+        if self.proxy_host:
+            res += " via proxy: %s" % str(self.proxy_host)
         return res
 
     def connect(self, time_out=None):
@@ -132,21 +139,40 @@ class SSH:
         client = paramiko.SSHClient()
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
+        proxy = None
+        proxy_channel = None
+        if self.proxy_host:
+            proxy = paramiko.SSHClient()
+            proxy.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            proxy.connect(self.proxy_host.host, self.proxy_host.port, username=self.proxy_host.username,
+                          password=self.proxy_host.password, pkey=self.proxy_host.private_key_obj)
+            proxy_transport = proxy.get_transport()
+            dest_addr = (self.host, self.port)
+            local_addr = (self.proxy_host.host, self.proxy_host.port)
+            proxy_channel = proxy_transport.open_channel("direct-tcpip", dest_addr, local_addr)
+
+            # proxy_command = "sshpass -p %s ssh %s %s@%s nc %s 22" % (self.proxy_host.password,
+            #                                                         '-o StrictHostKeyChecking=no',
+            #                                                         self.proxy_host.username,
+            #                                                         self.proxy_host.host,
+            #                                                         self.host)
+            # proxy_channel =  paramiko.ProxyCommand(proxy_command)
+
         if self.password and self.private_key_obj:
             # If both credentials are provided first try to use the password
             try:
                 client.connect(self.host, self.port, username=self.username,
-                               password=self.password, timeout=time_out)
+                               password=self.password, timeout=time_out, sock=proxy_channel)
             except paramiko.AuthenticationException:
                 # and then use the private key
                 client.connect(self.host, self.port, username=self.username,
-                               pkey=self.private_key_obj, timeout=time_out)
+                               pkey=self.private_key_obj, timeout=time_out, sock=proxy_channel)
         else:
             client.connect(self.host, self.port, username=self.username,
-                           password=self.password, timeout=time_out,
+                           password=self.password, timeout=time_out, sock=proxy_channel,
                            pkey=self.private_key_obj)
 
-        return client
+        return client, proxy
 
     def test_connectivity(self, time_out=None):
         """ Tests if the SSH is active
@@ -160,8 +186,10 @@ class SSH:
                 Exception
         """
         try:
-            client = self.connect(time_out)
+            client, proxy = self.connect(time_out)
             client.close()
+            if proxy:
+                proxy.close()
             return True
         except paramiko.AuthenticationException:
             raise AuthenticationException("Authentication Error!!")
@@ -182,7 +210,7 @@ class SSH:
 
             Returns: A tuple (stdout, stderr, exit_code) with the output of the command and the exit code
         """
-        client = self.connect(time_out=timeout)
+        client, proxy = self.connect(time_out=timeout)
         channel = client.get_transport().open_session()
 
         if self.tty:
@@ -202,6 +230,8 @@ class SSH:
 
         channel.close()
         client.close()
+        if proxy:
+            proxy.close()
         return (res_stdout, res_stderr, exit_status)
 
     def sftp_get(self, src, dest):
@@ -211,7 +241,7 @@ class SSH:
             - src: Source file in the remote server.
             - dest: Local destination path to copy.
         """
-        client = self.connect()
+        client, proxy = self.connect()
         transport = client.get_transport()
 
         try:
@@ -224,6 +254,8 @@ class SSH:
 
         sftp.get(src, dest)
         sftp.close()
+        if proxy:
+            proxy.close()
         transport.close()
 
     def sftp_get_files(self, src, dest):
@@ -233,7 +265,7 @@ class SSH:
             - src: A list with the source files in the remote server.
             - dest: A list with the local destination paths to copy.
         """
-        client = self.connect()
+        client, proxy = self.connect()
         transport = client.get_transport()
         try:
             sftp = paramiko.SFTPClient.from_transport(transport)
@@ -246,6 +278,8 @@ class SSH:
         for file0, file1 in zip(src, dest):
             sftp.get(file0, file1)
         sftp.close()
+        if proxy:
+            proxy.close()
         transport.close()
 
     def sftp_put_files(self, files):
@@ -255,7 +289,7 @@ class SSH:
             - files: A tuple where the first elements is the local source file to copy and the second
                      element the destination paths in the remote server.
         """
-        client = self.connect()
+        client, proxy = self.connect()
         transport = client.get_transport()
         try:
             sftp = paramiko.SFTPClient.from_transport(transport)
@@ -268,6 +302,8 @@ class SSH:
         for src, dest in files:
             sftp.put(src, dest)
         sftp.close()
+        if proxy:
+            proxy.close()
         transport.close()
 
     def sftp_put(self, src, dest):
@@ -277,7 +313,7 @@ class SSH:
             - src: Source local file to copy.
             - dest: Destination path in the remote server.
         """
-        client = self.connect()
+        client, proxy = self.connect()
         transport = client.get_transport()
         try:
             sftp = paramiko.SFTPClient.from_transport(transport)
@@ -288,6 +324,8 @@ class SSH:
             sftp = scp.SCPClient(transport)
         sftp.put(src, dest)
         sftp.close()
+        if proxy:
+            proxy.close()
         transport.close()
 
     def sftp_get_dir(self, src, dest):
@@ -297,7 +335,7 @@ class SSH:
             - src: Source directory in the remote server to copy.
             - dest: Local destination path.
         """
-        client = self.connect()
+        client, proxy = self.connect()
         transport = client.get_transport()
         sftp = paramiko.SFTPClient.from_transport(transport)
 
@@ -311,6 +349,8 @@ class SSH:
             sftp.get(filename, full_dest)
 
         sftp.close()
+        if proxy:
+            proxy.close()
         transport.close()
 
     def sftp_walk(self, src, files=None, sftp=None):
@@ -321,7 +361,7 @@ class SSH:
         """
         close = False
         if not sftp:
-            client = self.connect()
+            client, proxy = self.connect()
             transport = client.get_transport()
             sftp = paramiko.SFTPClient.from_transport(transport)
             close = True
@@ -343,6 +383,8 @@ class SSH:
         if close:
             sftp.close()
             transport.close()
+            if proxy:
+                proxy.close()
 
         return files
 
@@ -356,7 +398,7 @@ class SSH:
         if os.path.isdir(src):
             if src.endswith("/"):
                 src = src[:-1]
-            client = self.connect()
+            client, proxy = self.connect()
             transport = client.get_transport()
             try:
                 sftp = paramiko.SFTPClient.from_transport(transport)
@@ -385,6 +427,8 @@ class SSH:
                     sftp.put(src_file, dest_file)
 
             sftp.close()
+            if proxy:
+                proxy.close()
             transport.close()
 
     def sftp_put_content(self, content, dest):
@@ -394,13 +438,15 @@ class SSH:
             - content: The string to put into the remote file.
             - dest: Destination path in the remote server.
         """
-        client = self.connect()
+        client, proxy = self.connect()
         transport = client.get_transport()
         sftp = paramiko.SFTPClient.from_transport(transport)
         dest_file = sftp.file(dest, "w")
         dest_file.write(content)
         dest_file.close()
         sftp.close()
+        if proxy:
+            proxy.close()
         transport.close()
 
     def sftp_mkdir(self, directory, mode=0o777):
@@ -412,7 +458,7 @@ class SSH:
             Returns: True if the directory is created or False if it exists.
         """
         try:
-            client = self.connect()
+            client, proxy = self.connect()
             transport = client.get_transport()
             sftp = paramiko.SFTPClient.from_transport(transport)
             sftp_avail = transport.active
@@ -429,6 +475,8 @@ class SSH:
                 res = True
 
             sftp.close()
+            if proxy:
+                proxy.close()
             transport.close()
         else:
             # use mkdir over ssh to create the directory
@@ -446,11 +494,13 @@ class SSH:
             Returns: A list with the contents of the directory
                      (see paramiko.SFTPClient.listdir)
         """
-        client = self.connect()
+        client, proxy = self.connect()
         transport = client.get_transport()
         sftp = paramiko.SFTPClient.from_transport(transport)
         res = sftp.listdir(directory)
         sftp.close()
+        if proxy:
+            proxy.close()
         transport.close()
         return res
 
@@ -464,12 +514,14 @@ class SSH:
             Returns: A list containing SFTPAttributes object
                      (see paramiko.SFTPClient.listdir_attr)
         """
-        client = self.connect()
+        client, proxy = self.connect()
         transport = client.get_transport()
         sftp = paramiko.SFTPClient.from_transport(transport)
         res = sftp.listdir_attr(directory)
         sftp.close()
         transport.close()
+        if proxy:
+            proxy.close()
         return res
 
     def getcwd(self):
@@ -478,7 +530,7 @@ class SSH:
             Returns: The current working directory.
         """
         try:
-            client = self.connect()
+            client, proxy = self.connect()
             transport = client.get_transport()
             sftp = paramiko.SFTPClient.from_transport(transport)
             sftp_avail = transport.active
@@ -488,6 +540,8 @@ class SSH:
         if sftp_avail:
             cwd = sftp.getcwd()
             sftp.close()
+            if proxy:
+                proxy.close()
             transport.close()
         else:
             # use rm over ssh to delete the file
@@ -540,7 +594,7 @@ class SSH:
             Returns: True if the file is deleted or False if it exists.
         """
         try:
-            client = self.connect()
+            client, proxy = self.connect()
             transport = client.get_transport()
             sftp = paramiko.SFTPClient.from_transport(transport)
             sftp_avail = transport.active
@@ -550,6 +604,8 @@ class SSH:
         if sftp_avail:
             res = sftp.remove(path)
             sftp.close()
+            if proxy:
+                proxy.close()
             transport.close()
         else:
             # use rm over ssh to delete the file
@@ -569,7 +625,7 @@ class SSH:
             - mode: Int with the new permissions
         """
         try:
-            client = self.connect()
+            client, proxy = self.connect()
             transport = client.get_transport()
             sftp = paramiko.SFTPClient.from_transport(transport)
             sftp_avail = transport.active
@@ -580,6 +636,8 @@ class SSH:
             sftp.chmod(path, mode)
             res = True
             sftp.close()
+            if proxy:
+                proxy.close()
             transport.close()
         else:
             # use chmod over ssh to change permissions
