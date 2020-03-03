@@ -151,11 +151,12 @@ class SSH:
             local_addr = (self.proxy_host.host, self.proxy_host.port)
             proxy_channel = proxy_transport.open_channel("direct-tcpip", dest_addr, local_addr)
 
-            # proxy_command = "sshpass -p %s ssh -o StrictHostKeyChecking=no %s@%s nc %s 22" % (self.proxy_host.password,
-            #                                                                                  self.proxy_host.username,
-            #                                                                                  self.proxy_host.host,
-            #                                                                                  self.host)
-            #proxy_channel =  paramiko.ProxyCommand(proxy_command)
+            # proxy_command = "sshpass -p %s ssh %s %s@%s nc %s 22" % (self.proxy_host.password,
+            #                                                         '-o StrictHostKeyChecking=no',
+            #                                                         self.proxy_host.username,
+            #                                                         self.proxy_host.host,
+            #                                                         self.host)
+            # proxy_channel =  paramiko.ProxyCommand(proxy_command)
 
         if self.password and self.private_key_obj:
             # If both credentials are provided first try to use the password
