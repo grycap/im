@@ -471,7 +471,7 @@ class InfrastructureInfo:
         max_vms_connected = -1
         for vm in self.get_vm_list():
             vms_connected = -1
-            if vm.getOS() and vm.getOS().lower() == 'linux' and vm.hasPublicNet():
+            if vm.getOS() and vm.getOS().lower() == 'linux' and (vm.hasPublicNet() or vm.getProxyHost()):
                 # check that is connected with other VMs
                 vms_connected = 0
                 for other_vm in self.get_vm_list():
