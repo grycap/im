@@ -34,3 +34,30 @@ def get_ex_error(ex):
         if not error:
             error = ex.args[0] if len(ex.args) else repr(ex)
         return error
+
+
+def get_user_pass_host_port(url):
+    """
+    Returns a tuple parsing values for this kind of urls:
+    username:pass@servername.com:port
+    """
+    username = None
+    password = None
+    port = None
+    if "@" in url:
+        parts = url.split("@")
+        user_pass = parts[0]
+        server_port = parts[1]
+        user_pass = user_pass.split(':')
+        username = user_pass[0]
+        if len(user_pass) > 1:
+            password = user_pass[1]
+    else:
+        server_port = url
+
+    server_port = server_port.split(':')
+    server = server_port[0]
+    if len(server_port) > 1:
+        port = int(server_port[1])
+
+    return username, password, server, port
