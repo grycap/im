@@ -106,7 +106,7 @@ class CloudInfo:
                         # If there is a path
                         if uri[2]:
                             cloud_item.path = uri[2]
-                except:
+                except Exception:
                     pass
 
                 res.append(cloud_item)

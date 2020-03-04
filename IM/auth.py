@@ -207,7 +207,7 @@ class Authentication:
                                 value_file = open(filename, 'r')
                                 value = value_file.read()
                                 value_file.close()
-                            except:
+                            except Exception:
                                 pass
                         auth[key_value[0].strip()] = value
                 res.append(auth)

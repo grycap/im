@@ -68,7 +68,7 @@ class MySSLCherryPy(bottle.ServerAdapter):
             from cheroot.ssl.pyopenssl import pyOpenSSLAdapter
             from cheroot import wsgi
             server = wsgi.Server((self.host, self.port), handler, request_queue_size=32)
-        except:
+        except Exception:
             from cherrypy.wsgiserver.ssl_pyopenssl import pyOpenSSLAdapter
             from cherrypy import wsgiserver
             server = wsgiserver.CherryPyWSGIServer((self.host, self.port), handler, request_queue_size=32)
@@ -96,7 +96,7 @@ class MyCherryPy(bottle.ServerAdapter):
             # First try to use the new version
             from cheroot import wsgi
             server = wsgi.Server((self.host, self.port), handler, request_queue_size=32)
-        except:
+        except Exception:
             from cherrypy import wsgiserver
             server = wsgiserver.CherryPyWSGIServer((self.host, self.port), handler, request_queue_size=32)
 
@@ -309,7 +309,7 @@ def format_output(res, default_type="text/plain", field_name=None, list_field_na
 def RESTDestroyInfrastructure(infid=None):
     try:
         auth = get_auth_header()
-    except:
+    except Exception:
         return return_error(401, "No authentication data provided")
 
     try:
@@ -355,7 +355,7 @@ def RESTDestroyInfrastructure(infid=None):
 def RESTGetInfrastructureInfo(infid=None):
     try:
         auth = get_auth_header()
-    except:
+    except Exception:
         return return_error(401, "No authentication data provided")
 
     try:
@@ -381,7 +381,7 @@ def RESTGetInfrastructureInfo(infid=None):
 def RESTGetInfrastructureProperty(infid=None, prop=None):
     try:
         auth = get_auth_header()
-    except:
+    except Exception:
         return return_error(401, "No authentication data provided")
 
     try:
@@ -467,7 +467,7 @@ def RESTGetInfrastructureProperty(infid=None, prop=None):
 def RESTGetInfrastructureList():
     try:
         auth = get_auth_header()
-    except:
+    except Exception:
         return return_error(401, "No authentication data provided")
 
     try:
@@ -493,7 +493,7 @@ def RESTGetInfrastructureList():
 def RESTCreateInfrastructure():
     try:
         auth = get_auth_header()
-    except:
+    except Exception:
         return return_error(401, "No authentication data provided")
 
     try:
@@ -547,7 +547,7 @@ def RESTCreateInfrastructure():
 def RESTImportInfrastructure():
     try:
         auth = get_auth_header()
-    except:
+    except Exception:
         return return_error(401, "No authentication data provided")
 
     try:
@@ -577,7 +577,7 @@ def RESTImportInfrastructure():
 def RESTGetVMInfo(infid=None, vmid=None):
     try:
         auth = get_auth_header()
-    except:
+    except Exception:
         return return_error(401, "No authentication data provided")
 
     try:
@@ -602,7 +602,7 @@ def RESTGetVMInfo(infid=None, vmid=None):
 def RESTGetVMProperty(infid=None, vmid=None, prop=None):
     try:
         auth = get_auth_header()
-    except:
+    except Exception:
         return return_error(401, "No authentication data provided")
 
     try:
@@ -706,7 +706,7 @@ def RESTGetVMProperty(infid=None, vmid=None, prop=None):
 def RESTAddResource(infid=None):
     try:
         auth = get_auth_header()
-    except:
+    except Exception:
         return return_error(401, "No authentication data provided")
 
     try:
@@ -773,7 +773,7 @@ def RESTAddResource(infid=None):
 def RESTRemoveResource(infid=None, vmid=None):
     try:
         auth = get_auth_header()
-    except:
+    except Exception:
         return return_error(401, "No authentication data provided")
 
     try:
@@ -811,7 +811,7 @@ def RESTRemoveResource(infid=None, vmid=None):
 def RESTAlterVM(infid=None, vmid=None):
     try:
         auth = get_auth_header()
-    except:
+    except Exception:
         return return_error(401, "No authentication data provided")
 
     try:
@@ -853,7 +853,7 @@ def RESTAlterVM(infid=None, vmid=None):
 def RESTReconfigureInfrastructure(infid=None):
     try:
         auth = get_auth_header()
-    except:
+    except Exception:
         return return_error(401, "No authentication data provided")
 
     try:
@@ -862,7 +862,7 @@ def RESTReconfigureInfrastructure(infid=None):
             str_vm_list = bottle.request.params.get("vm_list")
             try:
                 vm_list = [int(vm_id) for vm_id in str_vm_list.split(",")]
-            except:
+            except Exception:
                 return return_error(400, "Incorrect vm_list format.")
 
         content_type = get_media_type('Content-Type')
@@ -897,7 +897,7 @@ def RESTReconfigureInfrastructure(infid=None):
 def RESTStartInfrastructure(infid=None):
     try:
         auth = get_auth_header()
-    except:
+    except Exception:
         return return_error(401, "No authentication data provided")
 
     try:
@@ -920,7 +920,7 @@ def RESTStartInfrastructure(infid=None):
 def RESTStopInfrastructure(infid=None):
     try:
         auth = get_auth_header()
-    except:
+    except Exception:
         return return_error(401, "No authentication data provided")
 
     try:
@@ -943,7 +943,7 @@ def RESTStopInfrastructure(infid=None):
 def RESTStartVM(infid=None, vmid=None):
     try:
         auth = get_auth_header()
-    except:
+    except Exception:
         return return_error(401, "No authentication data provided")
 
     try:
@@ -970,7 +970,7 @@ def RESTStartVM(infid=None, vmid=None):
 def RESTStopVM(infid=None, vmid=None):
     try:
         auth = get_auth_header()
-    except:
+    except Exception:
         return return_error(401, "No authentication data provided")
 
     try:
@@ -997,7 +997,7 @@ def RESTStopVM(infid=None, vmid=None):
 def RESTRebootVM(infid=None, vmid=None):
     try:
         auth = get_auth_header()
-    except:
+    except Exception:
         return return_error(401, "No authentication data provided")
 
     try:
@@ -1033,7 +1033,7 @@ def RESTGeVersion():
 def RESTCreateDiskSnapshot(infid=None, vmid=None, disknum=None):
     try:
         auth = get_auth_header()
-    except:
+    except Exception:
         return return_error(401, "No authentication data provided")
 
     try:

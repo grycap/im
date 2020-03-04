@@ -164,7 +164,8 @@ class vSphereCloudConnector(CloudConnector):
         else:
             return None
 
-    def gen_nic(self, num, network):
+    @staticmethod
+    def gen_nic(num, network):
         """
         Get a nic for the specified network
         """
@@ -303,7 +304,8 @@ class vSphereCloudConnector(CloudConnector):
         return task
 
     # The path must be: vsp://template_name
-    def get_template_name(self, path):
+    @staticmethod
+    def get_template_name(path):
         """
         Get the region and the image name from an URL of a VMI
 
@@ -325,7 +327,8 @@ class vSphereCloudConnector(CloudConnector):
             obj[c.name] = c
         return obj
 
-    def map_radl_vsphere_networks(self, radl_nets, vsphere_nets):
+    @staticmethod
+    def map_radl_vsphere_networks(radl_nets, vsphere_nets):
         """
         Generate a mapping between the RADL networks and the ONE networks
 
@@ -472,7 +475,7 @@ class vSphereCloudConnector(CloudConnector):
                 task = node.PowerOff()
                 try:
                     self.wait_for_tasks(connection, [task])
-                except:
+                except Exception:
                     self.log_exception("Error powering off VM " + str(vm.id))
 
             task = node.Destroy()
@@ -487,7 +490,8 @@ class vSphereCloudConnector(CloudConnector):
             self.log_warn("VM " + str(vm.id) + " not found.")
         return (True, "")
 
-    def setIps(self, vm, node):
+    @staticmethod
+    def setIps(vm, node):
         """
         Set the IPs of the VM from the info obtained from vSphere
         """
@@ -631,5 +635,5 @@ class vSphereCloudConnector(CloudConnector):
                     self.log_info("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
                     self.add_disk(node, conn, disk_size)
                     cont += 1
-        except:
+        except Exception:
             self.log_exception("Error creating or attaching the volume to the instance")

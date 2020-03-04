@@ -799,7 +799,7 @@ class AzureClassicCloudConnector(CloudConnector):
                                                VirtualMachine.UNKNOWN)
             else:
                 return self.DEPLOY_STATE_MAP.get(vm_info.Status, VirtualMachine.UNKNOWN)
-        except:
+        except Exception:
             return self.DEPLOY_STATE_MAP.get(vm_info.Status, VirtualMachine.UNKNOWN)
 
     def setIPs(self, vm, vm_info):

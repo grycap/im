@@ -26,7 +26,7 @@ try:
     import sqlite3 as sqlite
     SQLITE3_AVAILABLE = True
     SQLITE_AVAILABLE = True
-except:
+except Exception:
     SQLITE3_AVAILABLE = False
     SQLITE_AVAILABLE = False
 
@@ -34,26 +34,26 @@ if not SQLITE_AVAILABLE:
     try:
         import sqlite
         SQLITE_AVAILABLE = True
-    except:
+    except Exception:
         SQLITE_AVAILABLE = False
 
 try:
     import MySQLdb as mdb
     MYSQL_AVAILABLE = True
-except:
+except Exception:
     MYSQL_AVAILABLE = False
 
 if not MYSQL_AVAILABLE:
     try:
         import pymysql as mdb
         MYSQL_AVAILABLE = True
-    except:
+    except Exception:
         MYSQL_AVAILABLE = False
 
 try:
     from pymongo import MongoClient
     MONGO_AVAILABLE = True
-except:
+except Exception:
     MONGO_AVAILABLE = False
 
 

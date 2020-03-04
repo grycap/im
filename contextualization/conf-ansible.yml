@@ -7,8 +7,8 @@
     # Ansible specific Version or "latest"
     ANSIBLE_VERSION: 2.6.20
   tasks:
-    - name: Set Ansible version from env
-      set_fact: ANSIBLE_VERSION={{ lookup('env','ANSIBLE_VERSION') }} 
+    - name: Set Ansible version from env if defined
+      set_fact: ANSIBLE_VERSION={{ lookup('env','ANSIBLE_VERSION') }}
       when: lookup('env','ANSIBLE_VERSION') != ""
 
   ################### Some OSs does not have python by default #########################
@@ -44,7 +44,7 @@
     - name: EPEL
       yum: name=epel-release
       when: ansible_os_family == "RedHat" and ansible_distribution != "Fedora"
-      
+
     - name: Ensure to Enable EPEL repo
       ini_file:
         dest: /etc/yum.repos.d/epel.repo
@@ -115,6 +115,7 @@
 
   ######################################### Use pip to enable to set the version #############################################
 
+    # do not upgrade to 10 as it is failing
     - name: Upgrade pip
       pip: name=pip version=9.0.3 executable=pip2
 
@@ -139,7 +140,7 @@
     - name: Install ansible {{ ANSIBLE_VERSION }} with Pip
       pip: name=ansible version={{ ANSIBLE_VERSION }} executable=pip2
       when: ANSIBLE_VERSION != "latest"
-      
+
     - name: Install latest ansible version with Pip
       pip: name=ansible state=latest executable=pip2
       when: ANSIBLE_VERSION == "latest"
@@ -187,15 +188,15 @@
     - name: Set transport to ssh in ansible.cfg
       ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=transport value=ssh
       when: ansible_os_family == "Debian" or (ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 6)  or (ansible_os_family == "Suse" and ansible_distribution_major_version|int >= 10)
-        
+
     - name: Set transport to smart in ansible.cfg
       ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=transport value=smart
       when: (ansible_os_family == "RedHat" and ansible_distribution_major_version|int < 6) or (ansible_os_family == "Suse" and ansible_distribution_major_version|int < 10)
-  
+
     - name: Change ssh_args to set ControlPersist to 15 min in ansible.cfg
       ini_file: dest=/etc/ansible/ansible.cfg section=ssh_connection option=ssh_args value="-o ControlMaster=auto -o ControlPersist=900s -o UserKnownHostsFile=/dev/null"
       when: ansible_os_family == "Debian" or (ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 7) or (ansible_os_family == "Suse" and ansible_distribution_major_version|int >= 12)
-        
+
     - name: Change ssh_args to remove ControlPersist in REL 6 and older in ansible.cfg
       ini_file: dest=/etc/ansible/ansible.cfg section=ssh_connection option=ssh_args value="-o UserKnownHostsFile=/dev/null"
       when: (ansible_os_family == "RedHat" and ansible_distribution_major_version|int < 7) or (ansible_os_family == "Suse" and ansible_distribution_major_version|int < 12)
