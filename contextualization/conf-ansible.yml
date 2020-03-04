@@ -71,7 +71,7 @@
   ################### Install Ansible/pip requisites #########################
 
     - name: Debian/Ubuntu install requisites with apt
-      apt: name=python3-pip,python3-setuptools,python3-jinja2,sshpass,openssh-client,unzip install_recommends=no
+      apt: name=python3-pip,python3-setuptools,sshpass,openssh-client,unzip install_recommends=no
       when: ansible_os_family == "Debian"
 
     - name: Ubuntu 14 extra packages needed
@@ -79,11 +79,11 @@
       when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int <= 14
 
     - name: Yum install requisites RH 6/7/ Fedora 27-
-      yum: name=python3-pip,python3-setuptools,python3-jinja2,sshpass,openssh-clients update_cache=yes
+      yum: name=python3-pip,python3-setuptools,sshpass,openssh-clients update_cache=yes
       when: (ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 6  and ansible_distribution_major_version|int < 8) or (ansible_distribution == "Fedora" and ansible_distribution_major_version|int < 28)
 
     - name: Yum install requisites RH 8 / Fedora 28+
-      yum: name=python3-pip,python3-setuptools,python3-jinja2,sshpass,openssh-clients update_cache=yes
+      yum: name=python3-pip,python3-setuptools,sshpass,openssh-clients update_cache=yes
       when: (ansible_distribution != "Fedora" and ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 8) or (ansible_distribution == "Fedora" and ansible_distribution_major_version|int >= 28)
 
     - name: Yum install extra requisites RH 6
@@ -117,6 +117,9 @@
 
     - name: Install pyyaml
       pip: name=pyyaml
+
+    - name: Install jinja2
+      pip: name=jinja2
 
     - name: Install ansible {{ ANSIBLE_VERSION }} with Pip
       pip: name=ansible version={{ ANSIBLE_VERSION }}
