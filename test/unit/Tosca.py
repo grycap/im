@@ -141,6 +141,11 @@ class TestTosca(unittest.TestCase):
         c = Tosca._merge_yaml(a, b)
         self.assertEqual(c, b)
 
+        a = {"requirements": [{"binding": "lrms_wn"}, {"link": "network1"}]}
+        b = {"requirements": [{"binding": "lrms_wn"}, {"link": "network2"}, {"other": "value"}]}
+        c = Tosca._merge_yaml(a, b)
+        self.assertEqual(c, b)
+
     def test_tosca_add_hybrid1(self):
         tosca_data = read_file_as_string('../files/tosca_add_hybrid_l2.yml')
         tosca = Tosca(tosca_data)
