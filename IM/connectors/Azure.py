@@ -285,7 +285,7 @@ class AzureCloudConnector(CloudConnector):
         ngs = None
         try:
             ngs = network_client.network_security_groups.create_or_update(group_name, nsg_name, params).result()
-        except:
+        except Exception:
             self.log_exception("Error creating NGS")
 
         return ngs
@@ -537,7 +537,7 @@ class AzureCloudConnector(CloudConnector):
 
             subnets = {}
             used_cidrs = []
-            for i, net in enumerate(radl.networks):
+            for net in radl.networks:
                 subnet_name = net.id
                 net_cidr = self.get_free_cidr(net.getValue('cidr'), used_cidrs, inf)
                 used_cidrs.append(net_cidr)
@@ -680,7 +680,7 @@ class AzureCloudConnector(CloudConnector):
                                                             'kind': 'storage',
                                                             'location': location}
                                                            ).wait()
-                except:
+                except Exception:
                     self.log_exception("Error creating storage account: %s" % storage_account)
                     self.delete_resource_group("rg-%s" % inf.id, resource_client)
 
@@ -706,7 +706,7 @@ class AzureCloudConnector(CloudConnector):
                     try:
                         group_name = vm.id.split('/')[0]
                         self.delete_resource_group(group_name, resource_client)
-                    except:
+                    except Exception:
                         self.log_exception("Error removing resource group: %s." % group_name)
 
                     res.append((False, "Error waiting the VM %s: %s" % (vm.id, str(ex))))

@@ -86,7 +86,7 @@ class OCCICloudConnector(CloudConnector):
             if cert:
                 try:
                     os.unlink(cert)
-                except:
+                except Exception:
                     pass
 
         return resp
@@ -327,7 +327,7 @@ class OCCICloudConnector(CloudConnector):
             if resp.status_code != 200:
                 self.log_error("Error querying the OCCI server: %s" % resp.reason)
                 return None
-        except:
+        except Exception:
             self.log_exception("Error querying the OCCI server")
             return None
 
@@ -1292,7 +1292,7 @@ class KeyStoneAuth:
                 return keystone_uri, None
             else:
                 return None, None
-        except:
+        except Exception:
             return None, None
 
     @staticmethod

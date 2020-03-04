@@ -95,7 +95,7 @@ class AnsibleThread(Process):
     def teminate(self):
         try:
             self._kill_childs()
-        except:
+        except Exception:
             pass
         Process.terminate(self)
 
@@ -197,7 +197,7 @@ class AnsibleThread(Process):
                 ansible_versions[counter] = 0
             try:
                 ansible_versions[counter] = int(ansible_versions[counter])
-            except:
+            except Exception:
                 pass
         if len(ansible_versions) < 3:
             for counter in range(len(ansible_versions), 3):

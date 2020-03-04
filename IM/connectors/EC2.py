@@ -761,7 +761,7 @@ class EC2CloudConnector(CloudConnector):
                     self.log_info("Remove the SG: %s" % sgid)
                     try:
                         conn.delete_security_group(group_id=sgid)
-                    except:
+                    except Exception:
                         self.log_exception("Error deleting SG.")
 
         return res

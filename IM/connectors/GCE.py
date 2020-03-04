@@ -21,7 +21,7 @@ import time
 try:
     from libcloud.compute.base import NodeSize, NodeState
     from libcloud.compute.types import Provider
-    from libcloud.compute.providers import get_driver
+    from libcloud.compute.providers import get_driver as libcloud_get_driver
     from libcloud.common.google import ResourceNotFoundError, ResourceExistsError
     from libcloud.dns.types import Provider as DNSProvider
     from libcloud.dns.types import RecordType
@@ -82,7 +82,7 @@ class GCECloudConnector(LibCloudCloudConnector):
             self.datacenter = datacenter
 
             if 'username' in auth and 'password' in auth and 'project' in auth:
-                cls = get_driver(Provider.GCE)
+                cls = libcloud_get_driver(Provider.GCE)
                 # Patch to solve some client problems with \\n
                 auth['password'] = auth['password'].replace('\\n', '\n')
                 lines = len(auth['password'].replace(" ", "").split())
@@ -397,7 +397,7 @@ class GCECloudConnector(LibCloudCloudConnector):
                     net = None
                     try:
                         net = driver.ex_get_network(gce_net_name)
-                    except:
+                    except Exception:
                         self.log_debug("Net %s does not exist." % gce_net_name)
 
                     if net:
@@ -422,7 +422,7 @@ class GCECloudConnector(LibCloudCloudConnector):
             self.log_exception("Error creating networks.")
             try:
                 self.delete_networks(driver, inf)
-            except:
+            except Exception:
                 self.log_exception("Error deleting networks.")
             raise Exception("Error creating networks: %s" % ext)
 
@@ -624,7 +624,7 @@ class GCECloudConnector(LibCloudCloudConnector):
             if args['external_ip'] != 'ephemeral':
                 try:
                     driver.ex_destroy_address(args['external_ip'])
-                except:
+                except Exception:
                     self.log_exception("Error deleting extenal IP.")
 
         return res

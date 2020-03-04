@@ -179,20 +179,20 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
                 for op in outports:
                     if op.is_range():
                         try:
-                            success = driver.ex_authorize_security_group_ingress(securitygroupname=sg_name,
-                                                                                 protocol=op.get_protocol(),
-                                                                                 startport=op.get_port_init(),
-                                                                                 endport=op.get_port_end(),
-                                                                                 cidrlist='0.0.0.0/0')
+                            driver.ex_authorize_security_group_ingress(securitygroupname=sg_name,
+                                                                       protocol=op.get_protocol(),
+                                                                       startport=op.get_port_init(),
+                                                                       endport=op.get_port_end(),
+                                                                       cidrlist='0.0.0.0/0')
                         except Exception as ex:
                             self.log_warn("Exception adding SG rules: " + str(ex))
                     else:
                         if op.get_remote_port() != 22:
                             try:
-                                success = driver.ex_authorize_security_group_ingress(securitygroupname=sg_name,
-                                                                                     protocol=op.get_protocol(),
-                                                                                     startport=op.get_remote_port(),
-                                                                                     cidrlist='0.0.0.0/0')
+                                driver.ex_authorize_security_group_ingress(securitygroupname=sg_name,
+                                                                           protocol=op.get_protocol(),
+                                                                           startport=op.get_remote_port(),
+                                                                           cidrlist='0.0.0.0/0')
                             except Exception as ex:
                                 self.log_warn("Exception adding SG rules: " + str(ex))
 
@@ -272,7 +272,7 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
                 if tags:
                     try:
                         driver.ex_create_tags([node.id], tags)
-                    except:
+                    except Exception:
                         self.log_exception("Error adding tags to node %s." % node.id)
 
                 vm.id = node.id
@@ -352,7 +352,7 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
             else:
                 # If this is not the last vm, we skip this step
                 self.log_info("There are active instances. Not removing the SG")
-        except:
+        except Exception:
             self.log_exception("Error deleting security groups.")
 
         return (True, "")

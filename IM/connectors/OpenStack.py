@@ -24,7 +24,7 @@ from libcloud.common.exceptions import BaseHTTPError
 try:
     from libcloud.compute.types import Provider
     from libcloud.compute.providers import get_driver
-    from libcloud.compute.base import NodeImage, NodeAuthSSHKey
+    from libcloud.compute.base import NodeAuthSSHKey
     from libcloud.compute.drivers.openstack import OpenStack_2_NodeDriver, OpenStack_2_SubNet, OpenStackSecurityGroup
 except Exception as ex:
     print("WARN: libcloud library not correctly installed. OpenStackCloudConnector will not work!.")
@@ -805,7 +805,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             self.log_exception("Error creating networks.")
             try:
                 self.delete_networks(driver, inf)
-            except:
+            except Exception:
                 self.log_exception("Error deleting networks.")
             raise Exception("Error creating networks: %s" % ext.args[0])
 
@@ -1573,7 +1573,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                         try:
                             self.log_debug("Deleting volume %s" % volume.id)
                             volume.destroy()
-                        except:
+                        except Exception:
                             self.log_exception("Error deleteing volume %s." % volume.id)
 
                         return (False, "Error creating or attaching the Volume: %s" % msg)

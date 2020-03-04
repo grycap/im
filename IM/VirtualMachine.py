@@ -801,7 +801,7 @@ class VirtualMachine(LoggerMixin):
                                 else:
                                     self.log_error("Error getting PGID of pid: " + str(self.ctxt_pid) +
                                                    ": " + stderr + ". Using only PID.")
-                            except:
+                            except Exception:
                                 self.log_exception("Error getting PGID of pid: " + str(self.ctxt_pid) +
                                                    ": " + stderr + ". Using only PID.")
                         else:
@@ -813,7 +813,7 @@ class VirtualMachine(LoggerMixin):
 
                     if not pgkill_success:
                         ssh.execute("kill -9 " + str(int(self.ctxt_pid)), 5)
-                except:
+                except Exception:
                     self.log_exception("Error killing ctxt process with pid: " + str(self.ctxt_pid))
 
             self.ctxt_pid = None
@@ -922,10 +922,10 @@ class VirtualMachine(LoggerMixin):
             try:
                 if delete:
                     ssh.sftp_remove(remote_dir + '/ctxt_agent.log')
-            except:
+            except Exception:
                 self.log_exception(
                     "Error deleting remote contextualization process log: " + remote_dir + '/ctxt_agent.log')
-        except:
+        except Exception:
             self.log_exception(
                 "Error getting contextualization process log: " + remote_dir + '/ctxt_agent.log')
             self.configured = False
@@ -948,7 +948,7 @@ class VirtualMachine(LoggerMixin):
             try:
                 if delete:
                     ssh.sftp_remove(remote_dir + '/ctxt_agent.out')
-            except:
+            except Exception:
                 self.log_exception(
                     "Error deleting remote contextualization process output: " + remote_dir + '/ctxt_agent.out')
             # And process it

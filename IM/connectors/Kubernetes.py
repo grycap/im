@@ -347,7 +347,7 @@ class KubernetesCloudConnector(CloudConnector):
                     res.append((False, "Error creating the Container: " + resp.text))
                     try:
                         self._delete_volume_claims(pod_data, auth_data)
-                    except:
+                    except Exception:
                         self.log_exception("Error deleting volumes.")
                 else:
                     output = json.loads(resp.text)
@@ -405,7 +405,8 @@ class KubernetesCloudConnector(CloudConnector):
             self.log_error("Error getting info about the POD: code: %s, msg: %s" % (status, output))
             return (False, "Error getting info about the POD: code: %s, msg: %s" % (status, output))
 
-    def setIPs(self, vm, pod_info):
+    @staticmethod
+    def setIPs(vm, pod_info):
         """
         Adapt the RADL information of the VM to the real IPs assigned by the cloud provider
 
