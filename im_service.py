@@ -340,9 +340,8 @@ def im_stop():
             # we have to stop the REST server
             import IM.REST
             IM.REST.stop()
-    except:
-        InfrastructureManager.logger.exception(
-            "Error stopping Infrastructure Manager daemon")
+    except Exception:
+        InfrastructureManager.logger.exception("Error stopping Infrastructure Manager daemon")
 
     # Assure that there are no Ansible process pending
     kill_childs()

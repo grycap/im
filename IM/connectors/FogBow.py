@@ -18,7 +18,6 @@ import json
 import os
 import requests
 import time
-import random
 from uuid import uuid1
 from netaddr import IPNetwork, IPAddress
 
@@ -134,7 +133,7 @@ class FogBowCloudConnector(CloudConnector):
                             self.log_error("Error deleting %s%s." % (path, obj_id))
                         else:
                             self.log_info("%s%s deleted." % (path, obj_id))
-                    except:
+                    except Exception:
                         self.log_exception("Error deleting %s%s." % (path, obj_id))
                 else:
                     return obj_info
@@ -490,7 +489,7 @@ class FogBowCloudConnector(CloudConnector):
                             resp = self.create_request('GET', '/volumes/%s' % volume_id, auth_data, headers)
                             resp.raise_for_status()
                             success = True
-                        except:
+                        except Exception:
                             success = False
                             self.log_exception("Error getting volume ID %s" % volume_id)
                     else:
@@ -561,7 +560,7 @@ class FogBowCloudConnector(CloudConnector):
                                 else:
                                     self.log_warn("Error deleting public IP id: %s. %s. %s." % (ipstatus['instanceId'],
                                                                                                 resp.reason, resp.text))
-                            except:
+                            except Exception:
                                 self.log_warn("Error deleting public IP id: %s" % ipstatus['instanceId'])
 
                         elif ipdata['computeId'] == vm_id:
@@ -570,7 +569,7 @@ class FogBowCloudConnector(CloudConnector):
                         self.log_error("Error getting public IP info: %s. %s." % (resp.reason, resp.text))
             else:
                 self.log_error("Error getting public IP info: %s. %s." % (resp.reason, resp.text))
-        except:
+        except Exception:
             self.log_exception("Error getting public IP info")
         return res
 
@@ -743,7 +742,7 @@ class FogBowCloudConnector(CloudConnector):
         try:
             fbw_nets = self.get_fbw_nets(auth_data)
             fbw_fed_nets = self.get_fbw_nets(auth_data, True)
-        except:
+        except Exception:
             self.log_exception("Error getting FogBow nets.")
             fbw_nets = {}
             fbw_fed_nets = {}
@@ -768,7 +767,7 @@ class FogBowCloudConnector(CloudConnector):
                             self.log_info("Net %s: Successfully deleted." % net_name)
                     else:
                         self.log_warn("Net %s not appears in the list of FogBow nets." % net_name)
-        except:
+        except Exception:
             success = False
             self.log_exception("Error deleting net %s." % net_name)
         return success
@@ -788,7 +787,7 @@ class FogBowCloudConnector(CloudConnector):
                         raise Exception(resp.reason + "\n" + resp.text)
                     else:
                         success = True
-                except:
+                except Exception:
                     self.log_exception("Error destroying attachment: %s from the node: %s" % (attachmentid, vm.id))
                     success = False
 
@@ -811,7 +810,7 @@ class FogBowCloudConnector(CloudConnector):
                         raise Exception(resp.reason + "\n" + resp.text)
                     else:
                         success = True
-                except:
+                except Exception:
                     self.log_exception("Error destroying the volume: " + str(volumeid) +
                                        " from the node: " + str(vm.id))
                     success = False
@@ -833,7 +832,7 @@ class FogBowCloudConnector(CloudConnector):
                     success = False
                     raise Exception(resp.reason + "\n" + resp.text)
                 success = True
-            except:
+            except Exception:
                 self.log_exception("Error releasing the IP: " + str(ip_id) +
                                    " from the node: " + str(vm_id))
                 success = False

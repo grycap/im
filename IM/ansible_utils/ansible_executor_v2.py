@@ -456,7 +456,7 @@ class IMPlaybookExecutor(PlaybookExecutor):
         try:
             # Remove the local temp
             shutil.rmtree(C.DEFAULT_LOCAL_TMP, True)
-        except:
+        except Exception:
             pass
 
         return result

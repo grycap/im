@@ -233,7 +233,7 @@ class ConfManager(LoggerMixin, threading.Thread):
             self.log_info("Killing ctxt processes in VM: %s" % vm.id)
             try:
                 vm.kill_check_ctxt_process()
-            except:
+            except Exception:
                 self.log_exception("Error killing ctxt processes in VM: %s" % vm.id)
             vm.configured = None
 
@@ -404,7 +404,7 @@ class ConfManager(LoggerMixin, threading.Thread):
                     vm.launch_check_ctxt_process()
                 else:
                     self.log_warn("Ansible process to configure " + str(vm.im_id) + " NOT launched")
-        except:
+        except Exception:
             pid = None
             self.log_exception("Error launching the ansible process to configure VM with ID %s" % str(vm.im_id))
         finally:
@@ -959,7 +959,7 @@ class ConfManager(LoggerMixin, threading.Thread):
                 IM.InfrastructureList.InfrastructureList.save_data(self.inf.id)
 
                 self.inf.set_configured(True)
-            except:
+            except Exception:
                 self.log_exception("Error waiting the master VM to be running")
                 self.inf.set_configured(False)
         else:
@@ -1199,7 +1199,7 @@ class ConfManager(LoggerMixin, threading.Thread):
 
                 if change_creds:
                     self.inf.vm_master.info.systems[0].updateNewCredentialValues()
-        except:
+        except Exception:
             self.log_exception("Error changing credentials to master VM.")
 
         return change_creds
@@ -1249,7 +1249,7 @@ class ConfManager(LoggerMixin, threading.Thread):
                 try:
                     # Try to assure that the are no ansible process running
                     self.ansible_process.teminate()
-                except:
+                except Exception:
                     self.log_exception('Problems terminating Ansible processes.')
                 self.ansible_process = None
                 return (False, "Timeout. Ansible process terminated.")
@@ -1265,7 +1265,7 @@ class ConfManager(LoggerMixin, threading.Thread):
             _, return_code, output = result.get(timeout=10, block=False)
             msg = output.getvalue()
             self.log_info('Results obtained')
-        except:
+        except Exception:
             self.log_exception('Error getting ansible results.')
             return_code = 1
             msg = "Error getting ansible results."
@@ -1274,7 +1274,7 @@ class ConfManager(LoggerMixin, threading.Thread):
             # Try to assure that the are no ansible process running
             self.log_debug("Terminating ansible process: %s." % self.ansible_process.pid)
             self.ansible_process.teminate()
-        except:
+        except Exception:
             self.log_exception('Problems terminating Ansible processes.')
         self.ansible_process = None
 
@@ -1385,7 +1385,7 @@ class ConfManager(LoggerMixin, threading.Thread):
                     cmd = "echo '" + ssh.password + "' | " + cmd
                 (stdout, stderr, _) = ssh.execute(cmd, 120)
                 self.log_info(stdout + "\n" + stderr)
-            except:
+            except Exception:
                 self.log_exception("Error removing requiretty. Ignoring.")
 
             self.inf.add_cont_msg("Configure Ansible in the master VM.")
