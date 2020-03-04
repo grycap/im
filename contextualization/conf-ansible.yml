@@ -201,4 +201,3 @@
       ini_file: dest=/etc/ansible/ansible.cfg section=ssh_connection option=ssh_args value="-o UserKnownHostsFile=/dev/null"
       when: (ansible_os_family == "RedHat" and ansible_distribution_major_version|int < 7) or (ansible_os_family == "Suse" and ansible_distribution_major_version|int < 12)
         
-

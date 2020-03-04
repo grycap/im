@@ -1550,7 +1550,10 @@ class Tosca:
                     yaml1[k] = Tosca._merge_yaml(yaml1[k], v)
         elif isinstance(yaml1, list) and isinstance(yaml2, (list, tuple)):
             for i, v in enumerate(yaml2):
-                yaml1[i] = Tosca._merge_yaml(yaml1[i], v)
+                if i < len(yaml1):
+                    yaml1[i] = Tosca._merge_yaml(yaml1[i], v)
+                else:
+                    yaml1.append(v)
         else:
             yaml1 = yaml2
 
