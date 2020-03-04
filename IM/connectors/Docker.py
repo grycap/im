@@ -83,7 +83,7 @@ class DockerCloudConnector(CloudConnector):
                         cert_file, key_file = cert
                         os.unlink(cert_file)
                         os.unlink(key_file)
-                    except:
+                    except Exception:
                         pass
 
         return resp

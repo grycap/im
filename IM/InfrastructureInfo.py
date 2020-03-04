@@ -161,7 +161,7 @@ class InfrastructureInfo:
         if 'extra_info' in dic and dic['extra_info'] and "TOSCA" in dic['extra_info']:
             try:
                 dic['extra_info']['TOSCA'] = Tosca.deserialize(dic['extra_info']['TOSCA'])
-            except:
+            except Exception:
                 del dic['extra_info']['TOSCA']
                 InfrastructureInfo.logger.exception("Error deserializing TOSCA document")
         newinf.__dict__.update(dic)
@@ -289,7 +289,7 @@ class InfrastructureInfo:
         """
         try:
             str_msg = str(msg.decode('utf8', 'ignore'))
-        except:
+        except Exception:
             str_msg = msg
         self.cont_out += str(datetime.now()) + ": " + str_msg + "\n"
 
@@ -314,7 +314,7 @@ class InfrastructureInfo:
         """
         try:
             vm_id = int(str_vm_id)
-        except:
+        except Exception:
             raise IncorrectVMException()
 
         with self._lock:

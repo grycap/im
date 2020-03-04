@@ -88,7 +88,7 @@ class XMLObject:
         try:
             fieldElements = VM.getElementsByTagName(fieldName)[0]
             return XMLObject.getText(fieldElements.childNodes)
-        except:
+        except Exception:
             return None
 
     @staticmethod
@@ -99,7 +99,7 @@ class XMLObject:
             for fieldElement in fieldElements:
                 local_list.append(XMLObject.getText(fieldElement.childNodes))
             return local_list
-        except:
+        except Exception:
             return []
 
     def __setattr__(self, name, value):
@@ -125,7 +125,7 @@ class XMLObject:
                 newObj = className(objs[0])
                 try:
                     dom.removeChild(objs[0])
-                except:
+                except Exception:
                     pass
             else:
                 newObj = None
@@ -152,7 +152,7 @@ class XMLObject:
                     value = float(value)
                     if (value == int(value)):
                         value = int(value)
-                except:
+                except Exception:
                     logging.error(
                         "Incorrect type for %s i must be numeric but it is %s" % (tag, value))
             self.__setattr__(tag, value)

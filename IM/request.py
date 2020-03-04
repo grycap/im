@@ -128,7 +128,7 @@ def get_system_queue():
     global SYSTEM_REQUESTS_QUEUE
     try:
         SYSTEM_REQUESTS_QUEUE
-    except:
+    except Exception:
         SYSTEM_REQUESTS_QUEUE = RequestQueue()
     return SYSTEM_REQUESTS_QUEUE
 

@@ -197,7 +197,7 @@ class SSH:
             if str(e) == "No authentication methods available":
                 raise AuthenticationException("Authentication Error!!")
             return False
-        except:
+        except Exception:
             return False
 
     def execute(self, command, timeout=None):
@@ -248,7 +248,7 @@ class SSH:
             sftp = paramiko.SFTPClient.from_transport(transport)
             if not transport.active:
                 sftp = scp.SCPClient(transport)
-        except:
+        except Exception:
             # in case of failure try to use scp
             sftp = scp.SCPClient(transport)
 
@@ -271,7 +271,7 @@ class SSH:
             sftp = paramiko.SFTPClient.from_transport(transport)
             if not transport.active:
                 sftp = scp.SCPClient(transport)
-        except:
+        except Exception:
             # in case of failure try to use scp
             sftp = scp.SCPClient(transport)
 
@@ -295,7 +295,7 @@ class SSH:
             sftp = paramiko.SFTPClient.from_transport(transport)
             if not transport.active:
                 sftp = scp.SCPClient(transport)
-        except:
+        except Exception:
             # in case of failure try to use scp
             sftp = scp.SCPClient(transport)
 
@@ -319,7 +319,7 @@ class SSH:
             sftp = paramiko.SFTPClient.from_transport(transport)
             if not transport.active:
                 sftp = scp.SCPClient(transport)
-        except:
+        except Exception:
             # in case of failure try to use scp
             sftp = scp.SCPClient(transport)
         sftp.put(src, dest)
@@ -403,7 +403,7 @@ class SSH:
             try:
                 sftp = paramiko.SFTPClient.from_transport(transport)
                 sftp_avail = transport.active
-            except:
+            except Exception:
                 # in case of failure try to use scp
                 sftp = scp.SCPClient(transport)
                 sftp_avail = False
@@ -416,7 +416,7 @@ class SSH:
                         try:
                             # if it exists we do not try to create it
                             sftp.stat(dest_path)
-                        except:
+                        except Exception:
                             sftp.mkdir(dest_path)
                     else:
                         self.execute("mkdir -p %s" % dest_path)
@@ -462,7 +462,7 @@ class SSH:
             transport = client.get_transport()
             sftp = paramiko.SFTPClient.from_transport(transport)
             sftp_avail = transport.active
-        except:
+        except Exception:
             sftp_avail = False
 
         if sftp_avail:
@@ -470,7 +470,7 @@ class SSH:
                 # if it exists we do not try to create it
                 sftp.stat(directory)
                 res = False
-            except:
+            except Exception:
                 sftp.mkdir(directory, mode)
                 res = True
 
@@ -534,7 +534,7 @@ class SSH:
             transport = client.get_transport()
             sftp = paramiko.SFTPClient.from_transport(transport)
             sftp_avail = transport.active
-        except:
+        except Exception:
             sftp_avail = False
 
         if sftp_avail:
@@ -598,7 +598,7 @@ class SSH:
             transport = client.get_transport()
             sftp = paramiko.SFTPClient.from_transport(transport)
             sftp_avail = transport.active
-        except:
+        except Exception:
             sftp_avail = False
 
         if sftp_avail:
