@@ -1341,19 +1341,21 @@ class ConfManager(LoggerMixin, threading.Thread):
                         ssh.proxy_host.sftp_put_content(ssh.proxy_host.private_key, priv_key_filename)
                         ssh.proxy_host.sftp_chmod(priv_key_filename, 0o600)
 
-                        proxy_command = "ssh -p %d -i %s %s %s@%s nc %s 22" % (ssh.proxy_host.port,
+                        proxy_command = "ssh -p %d -i %s %s %s@%s nc %s %d" % (ssh.proxy_host.port,
                                                                                priv_key_filename,
                                                                                "-o StrictHostKeyChecking=no",
                                                                                ssh.proxy_host.username,
                                                                                ssh.proxy_host.host,
-                                                                               ssh.host)
+                                                                               ssh.host,
+                                                                               ssh.port)
                     else:
-                        proxy_command = "sshpass -p %s ssh -p %d %s %s@%s nc %s 22" % (ssh.proxy_host.port,
-                                                                                       ssh.proxy_host.password,
+                        proxy_command = "sshpass -p %s ssh -p %d %s %s@%s nc %s %d" % (ssh.proxy_host.password,
+                                                                                       ssh.proxy_host.port,
                                                                                        "-o StrictHostKeyChecking=no",
                                                                                        ssh.proxy_host.username,
                                                                                        ssh.proxy_host.host,
-                                                                                       ssh.host)
+                                                                                       ssh.host,
+                                                                                       ssh.port)
                     ssh_args = "ansible_ssh_extra_args=\" -oProxyCommand='%s'\"" % proxy_command
                 inv_out.write("%s  ansible_port=%d  ansible_ssh_port=%d %s" % (ssh.host, ssh.port,
                                                                                ssh.port, ssh_args))
