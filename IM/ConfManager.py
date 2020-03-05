@@ -1332,11 +1332,26 @@ class ConfManager(LoggerMixin, threading.Thread):
             with open(tmp_dir + "/inventory.cfg", 'w') as inv_out:
                 ssh_args = ""
                 if ssh.proxy_host:
-                    proxy_command = "sshpass -p %s ssh %s %s@%s nc %s 22" % (ssh.proxy_host.password,
-                                                                             "-o StrictHostKeyChecking=no",
-                                                                             ssh.proxy_host.username,
-                                                                             ssh.proxy_host.host,
-                                                                             ssh.host)
+                    # if user set the private key
+                    if ssh.proxy_host.private_key:
+                        # we must copy it to the proxy host
+                        priv_key_filename = "/var/tmp/%s_%s.pem" % (ssh.username, ssh.host)
+                        ssh.proxy_host.sftp_put_content(ssh.proxy_host.private_key, priv_key_filename)
+                        ssh.proxy_host.sftp_chmod(priv_key_filename, 0o400)
+
+                        proxy_command = "ssh -p %d -i %s %s %s@%s nc %s 22" % (ssh.proxy_host.port,
+                                                                               priv_key_filename,
+                                                                               "-o StrictHostKeyChecking=no",
+                                                                               ssh.proxy_host.username,
+                                                                               ssh.proxy_host.host,
+                                                                               ssh.host)
+                    else:
+                        proxy_command = "sshpass -p %s ssh -p %d %s %s@%s nc %s 22" % (ssh.proxy_host.port,
+                                                                                       ssh.proxy_host.password,
+                                                                                       "-o StrictHostKeyChecking=no",
+                                                                                       ssh.proxy_host.username,
+                                                                                       ssh.proxy_host.host,
+                                                                                       ssh.host)
                     ssh_args = "ansible_ssh_extra_args=\" -oProxyCommand='%s'\"" % proxy_command
                 inv_out.write("%s  ansible_port=%d  ansible_ssh_port=%d %s" % (ssh.host, ssh.port,
                                                                                ssh.port, ssh_args))
@@ -1390,8 +1405,7 @@ class ConfManager(LoggerMixin, threading.Thread):
 
             self.inf.add_cont_msg("Configure Ansible in the master VM.")
             self.log_info("Call Ansible to (re)configure in the master node")
-            (success, msg) = self.call_ansible(
-                tmp_dir, "inventory.cfg", ConfManager.MASTER_YAML, ssh)
+            (success, msg) = self.call_ansible(tmp_dir, "inventory.cfg", ConfManager.MASTER_YAML, ssh)
 
             if not success:
                 self.log_error("Error configuring master node: " + msg + "\n\n")
