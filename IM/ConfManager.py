@@ -1339,7 +1339,7 @@ class ConfManager(LoggerMixin, threading.Thread):
                                                                        ssh.username,
                                                                        ssh.host)
                         ssh.proxy_host.sftp_put_content(ssh.proxy_host.private_key, priv_key_filename)
-                        ssh.proxy_host.sftp_chmod(priv_key_filename, 0o400)
+                        ssh.proxy_host.sftp_chmod(priv_key_filename, 0o600)
 
                         proxy_command = "ssh -p %d -i %s %s %s@%s nc %s 22" % (ssh.proxy_host.port,
                                                                                priv_key_filename,
