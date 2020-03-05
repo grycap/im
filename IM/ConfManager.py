@@ -1335,7 +1335,9 @@ class ConfManager(LoggerMixin, threading.Thread):
                     # if user set the private key
                     if ssh.proxy_host.private_key:
                         # we must copy it to the proxy host
-                        priv_key_filename = "/var/tmp/%s_%s.pem" % (ssh.username, ssh.host)
+                        priv_key_filename = "/var/tmp/%s_%s_%s.pem" % (ssh.proxy_host.username,
+                                                                       ssh.username,
+                                                                       ssh.host)
                         ssh.proxy_host.sftp_put_content(ssh.proxy_host.private_key, priv_key_filename)
                         ssh.proxy_host.sftp_chmod(priv_key_filename, 0o400)
 
