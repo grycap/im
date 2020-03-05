@@ -1334,12 +1334,16 @@ class ConfManager(LoggerMixin, threading.Thread):
                 if ssh.proxy_host:
                     # if user set the private key
                     if ssh.proxy_host.private_key:
-                        # we must copy it to the proxy host
                         priv_key_filename = "/var/tmp/%s_%s_%s.pem" % (ssh.proxy_host.username,
                                                                        ssh.username,
                                                                        ssh.host)
+                        # copy it to the proxy host to enable im_client to use it
                         ssh.proxy_host.sftp_put_content(ssh.proxy_host.private_key, priv_key_filename)
                         ssh.proxy_host.sftp_chmod(priv_key_filename, 0o600)
+                        # we must create it in the localhost
+                        with open(priv_key_filename, 'w') as f:
+                            f.write(ssh.proxy_host.private_key)
+                        os.chmod(priv_key_filename, 0o600)
 
                         proxy_command = "ssh -p %d -i %s %s %s@%s nc %s %d" % (ssh.proxy_host.port,
                                                                                priv_key_filename,
