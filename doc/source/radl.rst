@@ -217,6 +217,11 @@ The supported features are:
    Format of the URI: 'username:password@servername:port'.
    The default value is ``''``.
 
+``proxy_key = <string>``
+   Set the private key to connect with the proxy host. If it is specified it overrides the
+   password set in the ``proxy_host`` url.
+   The default value is ``''``.
+
 System Features
 ---------------
 
