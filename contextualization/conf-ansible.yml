@@ -32,8 +32,8 @@
       when: python_exists is failed and python2_exists is failed
       
      # In some cases python link is not created
-    - name: Link python 2 or 3 in case is needed
-      raw: ls /usr/bin/python || { ls /usr/bin/python2 && ln -s /usr/bin/python2 /usr/bin/python; } || { ls /usr/bin/python3 && ln -s /usr/bin/python3 /usr/bin/python; }
+    - name: Link python 3 or 2 in case is needed
+      raw: ls /usr/bin/python || { ls /usr/bin/python3 && ln -s /usr/bin/python3 /usr/bin/python; } || { ls /usr/bin/python2 && ln -s /usr/bin/python2 /usr/bin/python; }
       become: yes
       ignore_errors: yes
 
@@ -72,27 +72,8 @@
 
   ################### Install Ansible/pip requisites #########################
 
-    - name: Install ansible repo in old Ubuntu to have a good python-crypto version
-      block:
-
-      - name: Install wget
-        apt: name=wget install_recommends=no
-
-      - name: Add ansible repo keys
-        shell: wget --no-check-certificate -qO - 'https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x6125e2a8c77f2818fb7bd15b93c4a3fd7bb9c367' | apt-key add -qq - >/dev/null
-      
-      - name: Add ansible repo
-        copy:
-          content: "deb http://ppa.launchpad.net/ansible/ansible/ubuntu {{ ansible_distribution_release }} main"
-          dest: /etc/apt/sources.list.d/ansible.list
-
-      - name: Apt update
-        apt: update_cache=yes
-
-      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int < 18
-
     - name: Debian/Ubuntu install requisites with apt
-      apt: name=python-pip,python-setuptools,python-jinja2,sshpass,openssh-client,unzip,python-crypto install_recommends=no
+      apt: name=python-pip,python-setuptools,python-jinja2,sshpass,openssh-client,unzip install_recommends=no
       when: ansible_os_family == "Debian"
 
     - name: Ubuntu 14 extra packages needed
@@ -101,7 +82,7 @@
 
     - name: Yum install requisites RH 6/7/ Fedora 27-
       yum: name=python-pip,python-setuptools,python-jinja2,sshpass,openssh-clients update_cache=yes
-      when: (ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 6  and ansible_distribution_major_version|int < 8) or (ansible_distribution == "Fedora" and ansible_distribution_major_version|int < 28)
+      when: (ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 6 and ansible_distribution_major_version|int < 8) or (ansible_distribution == "Fedora" and ansible_distribution_major_version|int < 28)
 
     - name: Yum install requisites RH 8 / Fedora 28+
       command: yum install -y python2-pip python2-setuptools python2-jinja2 sshpass openssh-clients
@@ -115,18 +96,23 @@
       zypper: name=python,python-pip,python-setuptools,gcc,python-devel,wget,libffi-devel,openssl-devel,python-cryptography,make state=present
       when: ansible_os_family == "Suse"
 
+    - name: Install pip and setuptools Py3
+      package: name=python3-setuptools,python3-pip
+      when: ansible_python.version.major > 2
+      ignore_errors: yes
+
   ######################################### Use pip to enable to set the version #############################################
 
     # do not upgrade to 10 as it is failing
     - name: Upgrade pip
-      pip: name=pip version=9.0.3 executable=pip2
+      pip: name=pip version=9.0.3
 
     - name: Upgrade setuptools with Pip
-      pip: name=setuptools state=latest executable=pip2
+      pip: name=setuptools state=latest
       when: ansible_os_family != "RedHat" or ansible_distribution_major_version|int > 6
 
     - name: Install pkgs with Pip in RH6
-      pip: name="{{ item.name }}" version="{{ item.version }}" executable=pip2
+      pip: name="{{ item.name }}" version="{{ item.version }}"
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int <= 6
       with_items:
         - { name: 'setuptools', version: '28.8.1' }
@@ -137,30 +123,34 @@
         - { name: 'xmltodict', version: '0.11.0' }
 
     - name: Install pyyaml
-      pip: name=pyyaml executable=pip2
+      pip: name=pyyaml
 
     - name: Install ansible {{ ANSIBLE_VERSION }} with Pip
-      pip: name=ansible version={{ ANSIBLE_VERSION }} executable=pip2
+      pip: name=ansible version={{ ANSIBLE_VERSION }}
       when: ANSIBLE_VERSION != "latest"
 
     - name: Install latest ansible version with Pip
-      pip: name=ansible state=latest executable=pip2
+      pip: name=ansible state=latest
       when: ANSIBLE_VERSION == "latest"
+
+    - name: Ubuntu 14 extra pip packages needed to avoid https issues
+      pip: name=urllib3,pyOpenSSL,ndg-httpsclient,pyasn1
+      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int <= 14
 
 #################################### Now install scp, jmespath and pywinrm with pip  ##################################
 
     - name: Install jmespath with Pip
-      pip: name=jmespath executable=pip2
+      pip: name=jmespath
 
     - name: Install cffi with Pip in RH6
-      pip: name=cffi executable=pip2
+      pip: name=cffi
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int <= 6
 
     - name: Install scp with Pip
-      pip: name=scp executable=pip2
+      pip: name=scp
 
     - name: Install pywinrm with Pip
-      pip: name=pywinrm executable=pip2
+      pip: name=pywinrm
       ignore_errors: yes
 
 ################################################ Configure Ansible  ###################################################
