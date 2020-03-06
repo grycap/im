@@ -56,10 +56,6 @@
       when: ansible_os_family == "RedHat" and ansible_distribution != "Fedora"
       ignore_errors: yes
 
-    - name: Fedora install yum with dnf
-      dnf: name=python2-rpm,yum
-      when: ansible_distribution == "Fedora"
-
     - name: Ubuntu/Debian apt update
       apt: update_cache=yes cache_valid_time=3600
       when: ansible_os_family == "Debian"
@@ -73,7 +69,7 @@
   ################### Install Ansible/pip requisites #########################
 
     - name: Debian/Ubuntu install requisites with apt
-      apt: name=python-pip,python-setuptools,python-jinja2,sshpass,openssh-client,unzip install_recommends=no
+      apt: name=python-pip,python-setuptools,sshpass,openssh-client,unzip install_recommends=no
       when: ansible_os_family == "Debian"
 
     - name: Ubuntu 14 extra packages needed
@@ -81,11 +77,11 @@
       when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int <= 14
 
     - name: Yum install requisites RH 6/7/ Fedora 27-
-      yum: name=python-pip,python-setuptools,python-jinja2,sshpass,openssh-clients update_cache=yes
+      yum: name=python-pip,python-setuptools,sshpass,openssh-clients update_cache=yes
       when: (ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 6 and ansible_distribution_major_version|int < 8) or (ansible_distribution == "Fedora" and ansible_distribution_major_version|int < 28)
 
     - name: Yum install requisites RH 8 / Fedora 28+
-      command: yum install -y python2-pip python2-setuptools python2-jinja2 sshpass openssh-clients
+      command: yum install -y python2-pip python2-setuptools sshpass openssh-clients
       when: (ansible_distribution != "Fedora" and ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 8) or (ansible_distribution == "Fedora" and ansible_distribution_major_version|int >= 28)
 
     - name: Yum install extra requisites RH 6
@@ -93,7 +89,7 @@
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int <= 6 
 
     - name: Zypper install requirements Suse
-      zypper: name=python,python-pip,python-setuptools,gcc,python-devel,wget,libffi-devel,openssl-devel,python-cryptography,make state=present
+      zypper: name=python-pip,python-setuptools,gcc,python-devel,wget,libffi-devel,openssl-devel,python-cryptography,make state=present
       when: ansible_os_family == "Suse"
 
     - name: Install pip and setuptools Py3
