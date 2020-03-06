@@ -72,27 +72,8 @@
 
   ################### Install Ansible/pip requisites #########################
 
-    - name: Install ansible repo in old Ubuntu to have a good python-crypto version
-      block:
-
-      - name: Install wget
-        apt: name=wget install_recommends=no
-
-      - name: Add ansible repo keys
-        shell: wget --no-check-certificate -qO - 'https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x6125e2a8c77f2818fb7bd15b93c4a3fd7bb9c367' | apt-key add -qq - >/dev/null
-      
-      - name: Add ansible repo
-        copy:
-          content: "deb http://ppa.launchpad.net/ansible/ansible/ubuntu {{ ansible_distribution_release }} main"
-          dest: /etc/apt/sources.list.d/ansible.list
-
-      - name: Apt update
-        apt: update_cache=yes
-
-      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int < 18
-
     - name: Debian/Ubuntu install requisites with apt
-      apt: name=python-pip,python-setuptools,python-jinja2,sshpass,openssh-client,unzip,python-crypto install_recommends=no
+      apt: name=python-pip,python-setuptools,python-jinja2,sshpass,openssh-client,unzip install_recommends=no
       when: ansible_os_family == "Debian"
 
     - name: Ubuntu 14 extra packages needed
@@ -124,8 +105,7 @@
 
     # do not upgrade to 10 as it is failing
     - name: Upgrade pip
-      #pip: name=pip version=9.0.3
-      pip: name=pip version=20.0.2
+      pip: name=pip version=9.0.3
 
     - name: Upgrade setuptools with Pip
       pip: name=setuptools state=latest
@@ -152,6 +132,10 @@
     - name: Install latest ansible version with Pip
       pip: name=ansible state=latest
       when: ANSIBLE_VERSION == "latest"
+
+    - name: Ubuntu 14 extra pip packages needed to avoid https issues
+      pip: name=urllib3,pyOpenSSL,ndg-httpsclient,pyasn1
+      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int <= 14
 
 #################################### Now install scp, jmespath and pywinrm with pip  ##################################
 
