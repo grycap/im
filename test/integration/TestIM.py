@@ -743,9 +743,9 @@ echo "Hello World" >> /tmp/data.txt
             net_interface.0.connection = 'net' and
             net_interface.1.connection = 'priv' and
             disk.0.os.name='linux' and
-            disk.0.image.url = 'one://ramses.i3m.upv.es/1145' and
-            disk.0.os.credentials.username = 'ubuntu' and
-            disk.0.os.credentials.password = 'yoyoyo'
+            disk.0.image.url = 'one://ramses.i3m.upv.es/1138' and
+            disk.0.os.credentials.username = 'root' and
+            disk.0.os.credentials.password = 'grycap01'
             )
 
             deploy test 1
