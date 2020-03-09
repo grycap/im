@@ -580,4 +580,4 @@ IM 1.9.2:
     * Fix CloudStack VMs start in Stopped state.
     * Fix error adding nodes in third site in Hybrid case with TOSCA.
     * Enable to configure infrastructures where port SSH is closed by organization firewalls.
-
+    * Enable to configure infrastructures without any VM with public IP.
