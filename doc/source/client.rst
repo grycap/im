@@ -48,7 +48,7 @@ user can specify the following parameters::
 	[im_client]
 	# only set one of the urls
 	#xmlrpc_url=http://localhost:8899
-	restapi_url==http://localhost:8800
+	restapi_url=http://localhost:8800
 	auth_file=auth.dat
 	xmlrpc_ssl_ca_certs=/tmp/pki/ca-chain.pem
 
