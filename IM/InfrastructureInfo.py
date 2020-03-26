@@ -467,6 +467,10 @@ class InfrastructureInfo:
         It will select the first created VM that fulfills this requirements
         and store the value in the vm_master field
         """
+        # If it was previously selected do no select a new one
+        if self.vm_master and not self.vm_master.destroy and not self.vm_master.deleting:
+            return self.vm_master
+
         self.vm_master = None
         max_vms_connected = -1
         for vm in self.get_vm_list():
