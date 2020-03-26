@@ -479,7 +479,7 @@ class InfrastructureInfo:
                 # check that is connected with other VMs
                 vms_connected = 0
                 for other_vm in self.get_vm_list():
-                    if not vm.isConnectedWith(other_vm):
+                    if vm.isConnectedWith(other_vm):
                         vms_connected += 1
 
                 if vms_connected > max_vms_connected:
