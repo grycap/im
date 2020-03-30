@@ -446,8 +446,9 @@ class CloudConnector(LoggerMixin):
         for num, net in enumerate(radl.networks):
             provider_id = net.getValue('provider_id')
             if net.getValue('create') == 'yes' and not net.isPublic() and not provider_id:
-                net_cidr = net.getValue('cidr').replace("*", str(num + 1))
+                net_cidr = net.getValue('cidr')
                 if net_cidr:
+                    net_cidr = net_cidr.replace("*", str(num + 1))
                     if mask:
                         if not IPNetwork(net_cidr) in IPNetwork(mask):
                             raise Exception("Net cidr %s not in common cidr %s" % (net_cidr, mask))
