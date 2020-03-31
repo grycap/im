@@ -26,7 +26,7 @@ from cryptography.hazmat.primitives import serialization
 from radl.radl import Feature
 from IM.config import Config
 from IM.LoggerMixin import LoggerMixin
-from netaddr import IPNetwork
+from netaddr import IPNetwork, spanning_cidr
 
 
 class CloudConnector(LoggerMixin):
@@ -442,24 +442,18 @@ class CloudConnector(LoggerMixin):
         """
         Get a common CIDR in all the RADL nets
         """
-        mask = None
+        nets = []
         for num, net in enumerate(radl.networks):
             provider_id = net.getValue('provider_id')
             if net.getValue('create') == 'yes' and not net.isPublic() and not provider_id:
-                net_cidr = net.getValue('cidr')
-                if net_cidr:
-                    net_cidr = net_cidr.replace("*", str(num + 1))
-                    if mask:
-                        if not IPNetwork(net_cidr) in IPNetwork(mask):
-                            raise Exception("Net cidr %s not in common cidr %s" % (net_cidr, mask))
-                    else:
-                        for m in Config.PRIVATE_NET_MASKS:
-                            if IPNetwork(net_cidr) in IPNetwork(m):
-                                mask = m
-                                break
-        if not mask:
-            mask = "10.0.0.0/16"
-        return mask
+                if net.getValue('cidr'):
+                    net_cidr = IPNetwork(net.getValue('cidr').replace("*", str(num + 1)))
+                    nets.append(net_cidr.ip)
+
+        if nets:
+            return spanning_cidr(nets)
+        else:
+            return "10.0.0.0/16"
 
     @staticmethod
     def get_instance_selectors(system, mem_unit="M", disk_unit="M"):
