@@ -94,6 +94,15 @@ class TestEC2Connector(TestCloudConnectorBase):
         subnet.cidr_block = "10.0.1.0/24"
         return [subnet]
 
+    def _get_all_vpcs(self, vpc_ids=None, filters=None, dry_run=False):
+        vpc = MagicMock()
+        vpc.id = "vpc-id"
+        vpc.default = True
+        if vpc_ids:
+            return [vpc]
+        else:
+            return []
+
     @patch('boto.ec2.get_region')
     @patch('boto.vpc.VPCConnection')
     @patch('boto.ec2.blockdevicemapping.BlockDeviceMapping')
@@ -196,10 +205,11 @@ class TestEC2Connector(TestCloudConnectorBase):
             disk.1.mount_path='/mnt/path'
             )"""
         radl = radl_parse.parse_radl(radl_data)
+
         vpc = MagicMock()
         vpc.id = "vpc-id"
-        vpc.is_default = True
-        conn.get_all_vpcs.return_value = [vpc]
+        conn.create_vpc.return_value = vpc
+        conn.get_all_vpcs.side_effect = self._get_all_vpcs
 
         subnet = MagicMock()
         subnet.id = "subnet-id"
@@ -215,6 +225,7 @@ class TestEC2Connector(TestCloudConnectorBase):
         self.assertTrue(success, msg="ERROR: launching a VM.")
         # check the instance_type selected is correct
         self.assertEquals(image.run.call_args_list[1][1]["instance_type"], "t3a.micro")
+        self.assertEquals(conn.create_vpc.call_args_list[0][0][0], "10.0.0.0/16")
         self.assertEquals(conn.create_subnet.call_args_list[0][0], ('vpc-id', '10.0.10.0/24'))
         self.assertEquals(conn.create_subnet.call_args_list[1][0], ('vpc-id', '10.0.2.0/24'))
         self.assertEquals(conn.create_subnet.call_args_list[2][0], ('vpc-id', '10.0.3.0/24'))

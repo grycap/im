@@ -16,6 +16,7 @@
 
 import time
 import requests
+from netaddr import IPNetwork
 
 try:
     import boto.ec2
@@ -451,7 +452,9 @@ class EC2CloudConnector(CloudConnector):
         Create the requested subnets and VPC
         """
         try:
-            vpc_cird = self.get_nets_common_cird(radl)
+            common_cird = self.get_nets_common_cird(radl)
+            # EC2 only accepts /16 CIDRs
+            vpc_cird = "%s/16" % str(IPNetwork(common_cird).ip)
             vpc_id = None
             for i, net in enumerate(radl.networks):
                 provider_id = net.getValue('provider_id')
