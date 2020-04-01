@@ -450,10 +450,13 @@ class CloudConnector(LoggerMixin):
                     net_cidr = IPNetwork(net.getValue('cidr').replace("*", str(num + 1)))
                     nets.append(net_cidr.ip)
 
-        if nets:
-            return spanning_cidr(nets)
-        else:
+        if len(nets) == 0: # there is no CIDR return the default one
             return "10.0.0.0/16"
+        elif len(nets) == 1: # there is only one, return it
+            return nets[0]
+        else: # there are more, get the common CIDR
+            return spanning_cidr(nets)
+
 
     @staticmethod
     def get_instance_selectors(system, mem_unit="M", disk_unit="M"):
