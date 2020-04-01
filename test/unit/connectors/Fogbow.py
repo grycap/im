@@ -253,7 +253,7 @@ class TestFogBowConnector(TestCloudConnectorBase):
                                 "portTo": 9000, "portFrom": 9000, "cidr": "0.0.0.0/0"})
 
         data = json.loads(requests.call_args_list[9][1]["data"])
-        self.assertEqual(data['cidr'], "10.1.1.0/24")
+        self.assertEqual(data['cidr'], "10.0.2.0/24")
 
         data = json.loads(requests.call_args_list[13][1]["data"])
         self.assertEqual(data["compute"]["cloudName"], "cloud")
