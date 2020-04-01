@@ -41,7 +41,7 @@ class CloudConnector(LoggerMixin):
                     ">=": operator.ge, ">": operator.gt, "==": operator.eq}
     type = "BaseClass"
     """str with the name of the provider."""
-    DEFAULT_NET_CIDR = "10.*.*.0/24"
+    DEFAULT_NET_CIDR = "10.0.*.0/24"
 
     def __init__(self, cloud_info, inf):
         self.cloud = cloud_info

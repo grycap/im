@@ -228,7 +228,7 @@ class TestEC2Connector(TestCloudConnectorBase):
         self.assertEquals(conn.create_vpc.call_args_list[0][0][0], "10.0.0.0/16")
         self.assertEquals(conn.create_subnet.call_args_list[0][0], ('vpc-id', '10.0.10.0/24'))
         self.assertEquals(conn.create_subnet.call_args_list[1][0], ('vpc-id', '10.0.2.0/24'))
-        self.assertEquals(conn.create_subnet.call_args_list[2][0], ('vpc-id', '10.1.1.0/24'))
+        self.assertEquals(conn.create_subnet.call_args_list[2][0], ('vpc-id', '10.0.3.0/24'))
 
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
