@@ -200,8 +200,8 @@ class TestAzureConnector(TestCloudConnectorBase):
         self.assertEquals(json_vm_req['os_profile']['admin_username'], 'user')
         self.assertEquals(json_vm_req['os_profile']['admin_password'], 'pass')
         self.assertEquals(json_vm_req['os_profile']['admin_password'], 'pass')
-        self.assertEquals(nclient.subnets.create_or_update.call_args_list[0][0][3], {'address_prefix': '10.1.1.0/24'})
-        self.assertEquals(nclient.subnets.create_or_update.call_args_list[1][0][3], {'address_prefix': '10.1.2.0/24'})
+        self.assertEquals(nclient.subnets.create_or_update.call_args_list[0][0][3], {'address_prefix': '10.0.1.0/24'})
+        self.assertEquals(nclient.subnets.create_or_update.call_args_list[1][0][3], {'address_prefix': '10.0.2.0/24'})
 
         radl_data = """
             network net1 (outbound = 'yes')
