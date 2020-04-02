@@ -109,6 +109,7 @@
 
     - name: Install pyOpenSSL
       pip: name=pyOpenSSL state=latest
+      when: ansible_os_family != "RedHat" or ansible_distribution_major_version|int > 6
 
     - name: Install pkgs with Pip in RH6
       pip: name="{{ item.name }}" version="{{ item.version }}"
@@ -120,6 +121,8 @@
         - { name: 'argparse', version: '1.4.0' }
         - { name: 'paramiko', version: '2.2.4' }
         - { name: 'xmltodict', version: '0.11.0' }
+        - { name: 'cryptography', version: '2.1.0' }
+        - { name: 'pyOpenSSL', version: '17.0.0' }
 
     - name: Install pyyaml
       pip: name=pyyaml
