@@ -107,7 +107,7 @@
       pip: name=setuptools state=latest
       when: ansible_os_family != "RedHat" or ansible_distribution_major_version|int > 6
 
-    - name: Upgrade pip
+    - name: Install pyOpenSSL
       pip: name=pyOpenSSL state=latest
 
     - name: Install pkgs with Pip in RH6
