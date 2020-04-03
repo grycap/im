@@ -452,9 +452,12 @@ class EC2CloudConnector(CloudConnector):
         Create the requested subnets and VPC
         """
         try:
-            common_cird = self.get_nets_common_cird(radl)
-            # EC2 only accepts /16 CIDRs
-            vpc_cird = "%s/16" % str(IPNetwork(common_cird).ip)
+            common_cird = IPNetwork(self.get_nets_common_cird(radl))
+            # EC2 does not accept less that /16 CIDRs
+            if common_cird.prefixlen < 16:
+                vpc_cird = "%s/16" % str(common_cird.ip)
+            else:
+                vpc_cird = str(common_cird)
             vpc_id = None
             for i, net in enumerate(radl.networks):
                 provider_id = net.getValue('provider_id')
