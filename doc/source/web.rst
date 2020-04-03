@@ -56,7 +56,8 @@ the following variables:
 
 .. confval:: im_db
 
-   Location of the D.B. used by the web interface.
+   Location of the D.B. used by the web interface. It can be a local SQLite file or a MySQL DB.
+   In case of using a MySQL server use this format: 'mysql://user:pass@mysqlserver/im_web_db'
    The default value is `/home/www-data/im.db`.
 
 .. confval:: recipes_db
