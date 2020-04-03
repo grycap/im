@@ -462,6 +462,7 @@ class EC2CloudConnector(CloudConnector):
                     net_cidr = self.get_free_cidr(net.getValue('cidr'),
                                                   [subnet.cidr_block for subnet in conn.get_all_subnets()],
                                                   inf)
+                    net.delValue('cidr')
 
                     # First create the VPC
                     if vpc_id is None:
@@ -497,6 +498,7 @@ class EC2CloudConnector(CloudConnector):
                     if subnets:
                         subnet = subnets[0]
                         self.log_debug("Subnet %s exists. Do not create." % net.id)
+                        net.setValue('cidr', subnet.cidr_block)
                     else:
                         self.log_info("Create subnet for net %s." % net.id)
                         subnet = conn.create_subnet(vpc_id, net_cidr)
