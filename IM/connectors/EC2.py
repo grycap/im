@@ -1083,7 +1083,7 @@ class EC2CloudConnector(CloudConnector):
                                 self.log_warn("Unexpected value in VRouter instance (%s): %s" % (system_router, v.id))
                             else:
                                 vrouter = v.id.split(";")[1]
-                            break
+                                break
                     if not vrouter:
                         self.log_error("No VRouter instance found with name %s" % system_router)
                         success = False
