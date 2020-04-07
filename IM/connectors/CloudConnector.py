@@ -458,7 +458,7 @@ class CloudConnector(LoggerMixin):
         elif len(nets) == 1:  # there is only one, return it
             return nets[0]
         else:  # there are more, get the common CIDR
-            return spanning_cidr(nets)
+            return str(spanning_cidr(nets))
 
     @staticmethod
     def get_instance_selectors(system, mem_unit="M", disk_unit="M"):

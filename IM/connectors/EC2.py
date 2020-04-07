@@ -452,9 +452,12 @@ class EC2CloudConnector(CloudConnector):
         Create the requested subnets and VPC
         """
         try:
-            common_cird = self.get_nets_common_cird(radl)
-            # EC2 only accepts /16 CIDRs
-            vpc_cird = "%s/16" % str(IPNetwork(common_cird).ip)
+            common_cird = IPNetwork(self.get_nets_common_cird(radl))
+            # EC2 does not accept less that /16 CIDRs
+            if common_cird.prefixlen < 16:
+                vpc_cird = "%s/16" % str(common_cird.ip)
+            else:
+                vpc_cird = str(common_cird)
             vpc_id = None
             for i, net in enumerate(radl.networks):
                 provider_id = net.getValue('provider_id')
@@ -1076,8 +1079,11 @@ class EC2CloudConnector(CloudConnector):
                     vrouter = None
                     for v in vm.inf.vm_list:
                         if v.info.systems[0].name == system_router:
-                            vrouter = v.id.split(";")[1]
-                            break
+                            if v.id is None or len(v.id.split(";")) < 2:
+                                self.log_warn("Unexpected value in VRouter instance (%s): %s" % (system_router, v.id))
+                            else:
+                                vrouter = v.id.split(";")[1]
+                                break
                     if not vrouter:
                         self.log_error("No VRouter instance found with name %s" % system_router)
                         success = False
