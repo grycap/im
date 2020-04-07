@@ -225,7 +225,7 @@ class TestEC2Connector(TestCloudConnectorBase):
         self.assertTrue(success, msg="ERROR: launching a VM.")
         # check the instance_type selected is correct
         self.assertEquals(image.run.call_args_list[1][1]["instance_type"], "t3a.micro")
-        self.assertEquals(conn.create_vpc.call_args_list[0][0][0], "10.0.0.0/16")
+        self.assertEquals(conn.create_vpc.call_args_list[0][0][0], "10.0.0.0/20")
         self.assertEquals(conn.create_subnet.call_args_list[0][0], ('vpc-id', '10.0.10.0/24'))
         self.assertEquals(conn.create_subnet.call_args_list[1][0], ('vpc-id', '10.0.2.0/24'))
         self.assertEquals(conn.create_subnet.call_args_list[2][0], ('vpc-id', '10.0.3.0/24'))
