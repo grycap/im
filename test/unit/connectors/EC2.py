@@ -149,7 +149,7 @@ class TestEC2Connector(TestCloudConnectorBase):
         instance.add_tag.return_value = True
         instance.id = "iid"
         reservation.instances = [instance]
-        image.run.return_value = reservation
+        conn.run_instances.return_value = reservation
         conn.get_image.return_value = image
 
         subnet = MagicMock()
@@ -224,7 +224,7 @@ class TestEC2Connector(TestCloudConnectorBase):
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
         # check the instance_type selected is correct
-        self.assertEquals(image.run.call_args_list[1][1]["instance_type"], "t3a.micro")
+        self.assertEquals(conn.run_instances.call_args_list[1][1]["instance_type"], "t3a.micro")
         self.assertEquals(conn.create_vpc.call_args_list[0][0][0], "10.0.0.0/20")
         self.assertEquals(conn.create_subnet.call_args_list[0][0], ('vpc-id', '10.0.10.0/24'))
         self.assertEquals(conn.create_subnet.call_args_list[1][0], ('vpc-id', '10.0.2.0/24'))
@@ -280,7 +280,7 @@ class TestEC2Connector(TestCloudConnectorBase):
         instance.add_tag.return_value = True
         instance.id = "iid"
         reservation.instances = [instance]
-        image.run.return_value = reservation
+        conn.run_instances.return_value = reservation
         conn.get_image.return_value = image
 
         sg = MagicMock()
