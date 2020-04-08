@@ -631,6 +631,10 @@ class EC2CloudConnector(CloudConnector):
 
         vpc, subnet = self.get_networks(conn, radl)
 
+        add_public_ip = True
+        if not radl.hasPublicNet(system.name) and system.getValue("ec2.associate_public_ip_address") == "no":
+            add_public_ip = False
+
         sg_ids = self.create_security_groups(conn, inf, radl, vpc)
 
         public_key = system.getValue("disk.0.os.credentials.public_key")
@@ -729,12 +733,14 @@ class EC2CloudConnector(CloudConnector):
                     err_msg += " an ondemand instance "
                     err_msg += " of type: %s " % instance_type.name
 
-                    # Check if the user has specified the net provider
-                    # id
-                    reservation = image.run(min_count=1, max_count=1, key_name=keypair_name,
-                                            instance_type=instance_type.name, security_group_ids=sg_ids,
-                                            placement=placement, block_device_map=bdm, subnet_id=subnet,
-                                            user_data=user_data)
+                    interface = boto.ec2.networkinterface.NetworkInterfaceSpecification(subnet_id=subnet,
+                                                                                        groups=sg_ids,
+                                                                                        associate_public_ip_address=add_public_ip)
+                    interfaces = boto.ec2.networkinterface.NetworkInterfaceCollection(interface)
+
+                    reservation = conn.run_instances(image.id, min_count=1, max_count=1, key_name=keypair_name,
+                                                     instance_type=instance_type.name, network_interfaces=interfaces,
+                                                     placement=placement, block_device_map=bdm, user_data=user_data)
 
                     if len(reservation.instances) == 1:
                         time.sleep(1)
