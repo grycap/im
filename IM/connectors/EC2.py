@@ -733,9 +733,10 @@ class EC2CloudConnector(CloudConnector):
                     err_msg += " an ondemand instance "
                     err_msg += " of type: %s " % instance_type.name
 
-                    interface = boto.ec2.networkinterface.NetworkInterfaceSpecification(subnet_id=subnet,
-                                                                                        groups=sg_ids,
-                                                                                        associate_public_ip_address=add_public_ip)
+                    interface = boto.ec2.networkinterface.NetworkInterfaceSpecification(
+                        subnet_id=subnet,
+                        groups=sg_ids,
+                        associate_public_ip_address=add_public_ip)
                     interfaces = boto.ec2.networkinterface.NetworkInterfaceCollection(interface)
 
                     reservation = conn.run_instances(image.id, min_count=1, max_count=1, key_name=keypair_name,
