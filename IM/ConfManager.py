@@ -443,14 +443,7 @@ class ConfManager(LoggerMixin, threading.Thread):
         vm_group = self.inf.get_vm_list_by_system_name()
         for group in vm_group:
             vm = vm_group[group][0]
-            user = vm.getCredentialValues()[0]
             out.write('[' + group + ':vars]\n')
-            if user:
-                out.write('ansible_user=' + user + '\n')
-                # For compatibility with Ansible 1.X versions
-                out.write('ansible_ssh_user=' + user + '\n')
-            else:
-                self.log_warn("The VM ID: " + str(vm.id) + " does not have username!!")
 
             if vm.getOS().lower() == "windows":
                 out.write('ansible_connection=winrm\n')
@@ -516,6 +509,14 @@ class ConfManager(LoggerMixin, threading.Thread):
                 node_line += ' ansible_port=%d' % vm.getRemoteAccessPort()
                 # For compatibility with Ansible 1.X versions
                 node_line += ' ansible_ssh_port=%d' % vm.getRemoteAccessPort()
+
+                user = vm.getCredentialValues()[0]
+                if user:
+                    node_line += ' ansible_user=%s' % user
+                    # For compatibility with Ansible 1.X versions
+                    node_line += ' ansible_ssh_user=%s' % user
+                else:
+                    self.log_warn("The VM ID: " + str(vm.id) + " does not have username!!")
 
                 if self.inf.vm_master and vm.id == self.inf.vm_master.id:
                     node_line += ' ansible_connection=local'
