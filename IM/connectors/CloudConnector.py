@@ -450,8 +450,11 @@ class CloudConnector(LoggerMixin):
                 net_cidr = net.getValue('cidr')
                 if not net_cidr:
                     net_cidr = CloudConnector.DEFAULT_NET_CIDR
+                net_cidr_0 = IPNetwork(net_cidr.replace("*", "0"))
+                if net_cidr_0 not in nets:
+                    nets.append(net_cidr_0)
                 net_cidr = IPNetwork(net_cidr.replace("*", str(num + 1)))
-                nets.append(net_cidr.ip)
+                nets.append(net_cidr)
 
         if len(nets) == 0:  # there is no CIDR return the default one
             return "10.0.0.0/16"
