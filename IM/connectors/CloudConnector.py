@@ -534,8 +534,10 @@ class CloudConnector(LoggerMixin):
                     used_cidr_nets.append(IPNetwork(cidr))
 
             # and the nets from the VMs
-            for vm in inf.get_vm_list():
+            # Use direct access to the list to avoid lock
+            for vm in inf.vm_list:
                 for net in vm.info.networks:
+                    print(net)
                     cidr = net.getValue('cidr')
                     if cidr and "*" not in cidr:
                         used_cidr_nets.append(IPNetwork(cidr))
