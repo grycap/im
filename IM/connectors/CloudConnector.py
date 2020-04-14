@@ -527,10 +527,18 @@ class CloudConnector(LoggerMixin):
 
         # add current used cidrs in other inf networks
         if inf:
+            # Add the general RADL nets
             for net in inf.radl.networks:
                 cidr = net.getValue('cidr')
                 if cidr and "*" not in cidr:
                     used_cidr_nets.append(IPNetwork(cidr))
+
+            # and the nets from the VMs
+            for vm in inf.get_vm_list():
+                for net in vm.info.networks:
+                    cidr = net.getValue('cidr')
+                    if cidr and "*" not in cidr:
+                        used_cidr_nets.append(IPNetwork(cidr))
 
         for cidr in CloudConnector.cidr_wildcard_iterator(net_cidr):
             if not any([IPNetwork(cidr) in IPNetwork(mask) for mask in used_cidr_nets]):
