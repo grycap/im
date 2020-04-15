@@ -16,7 +16,7 @@
 
 import time
 import requests
-from netaddr import IPNetwork
+from netaddr import IPNetwork, spanning_cidr
 
 try:
     import boto.ec2
@@ -447,12 +447,32 @@ class EC2CloudConnector(CloudConnector):
 
         return provider_id
 
+    def get_vpc_cidr(self, radl, conn, inf):
+        """
+        Get a common CIDR in all the RADL nets
+        """
+        nets = []
+        for i, net in enumerate(radl.networks):
+            provider_id = net.getValue('provider_id')
+            if net.getValue('create') == 'yes' and not net.isPublic() and not provider_id:
+                net_cidr = self.get_free_cidr(net.getValue('cidr'),
+                                              [subnet.cidr_block for subnet in conn.get_all_subnets()] + nets,
+                                              inf)
+                nets.append(net_cidr)
+
+        if len(nets) == 0:  # there is no CIDR return the default one
+            return "10.0.0.0/16"
+        elif len(nets) == 1:  # there is only one, return it
+            return nets[0]
+        else:  # there are more, get the common CIDR
+            return str(spanning_cidr(nets))
+
     def create_networks(self, conn, radl, inf):
         """
         Create the requested subnets and VPC
         """
         try:
-            common_cird = IPNetwork(self.get_nets_common_cird(radl))
+            common_cird = IPNetwork(self.get_vpc_cidr(radl, conn, inf))
             # EC2 does not accept less that /16 CIDRs
             if common_cird.prefixlen < 16:
                 vpc_cird = "%s/16" % str(common_cird.ip)
