@@ -1126,6 +1126,8 @@ class EC2CloudConnector(CloudConnector):
 
                     self.log_info("Adding route %s to instance ID: %s." % (router_cidr, vrouter))
                     conn.create_route(route_table_id, router_cidr, instance_id=vrouter)
+                    self.log_debug("Disabling sourceDestCheck to instance ID: %s." % vrouter)
+                    conn.modify_instance_attribute(vrouter, attribute='sourceDestCheck', value=False)
 
                     # once set, delete it to not set it again
                     network.delValue('router')
