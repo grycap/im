@@ -185,7 +185,7 @@ class TestEC2Connector(TestCloudConnectorBase):
         # Check the case that we do not use VPC
         radl_data = """
             network net1 (outbound = 'yes' and outports='8080')
-            network net2 (create='yes' and cidr='10.0.10.0/24')
+            network net2 (create='yes' and cidr='10.0.128.0/24')
             network net3 (create='yes' and cidr='10.0.*.0/24')
             network net4 (create='yes')
             system test (
@@ -213,7 +213,7 @@ class TestEC2Connector(TestCloudConnectorBase):
 
         subnet = MagicMock()
         subnet.id = "subnet-id"
-        subnet.cidr_block = "10.10.0.1/24"
+        subnet.cidr_block = "10.10.129.0/24"
         conn.create_subnet.return_value = subnet
         conn.get_all_subnets.side_effect = self.get_all_subnets
 
@@ -225,10 +225,10 @@ class TestEC2Connector(TestCloudConnectorBase):
         self.assertTrue(success, msg="ERROR: launching a VM.")
         # check the instance_type selected is correct
         self.assertEquals(conn.run_instances.call_args_list[1][1]["instance_type"], "t3a.micro")
-        self.assertEquals(conn.create_vpc.call_args_list[0][0][0], "10.0.0.0/20")
-        self.assertEquals(conn.create_subnet.call_args_list[0][0], ('vpc-id', '10.0.10.0/24'))
-        self.assertEquals(conn.create_subnet.call_args_list[1][0], ('vpc-id', '10.0.2.0/24'))
-        self.assertEquals(conn.create_subnet.call_args_list[2][0], ('vpc-id', '10.0.3.0/24'))
+        self.assertEquals(conn.create_vpc.call_args_list[0][0][0], "10.0.128.0/22")
+        self.assertEquals(conn.create_subnet.call_args_list[0][0], ('vpc-id', '10.0.128.0/24'))
+        self.assertEquals(conn.create_subnet.call_args_list[1][0], ('vpc-id', '10.0.129.0/24'))
+        self.assertEquals(conn.create_subnet.call_args_list[2][0], ('vpc-id', '10.0.130.0/24'))
 
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
