@@ -489,7 +489,7 @@ class CloudConnector(LoggerMixin):
         return (cpu, cpu_op, memory, memory_op, disk_free, disk_free_op)
 
     @staticmethod
-    def cidr_wildcard_iterator(cidr):
+    def cidr_wildcard_iterator(cidr, init=0):
         """
         Returns an interator with all the cidr nets that expand the wildcards passed.
         For example: with cidr = 192.168.*.0/24
@@ -501,7 +501,8 @@ class CloudConnector(LoggerMixin):
          - 192.168.253.1/24
         """
         if "*" in cidr:
-            for val in range(1, 254):
+            for val in range(init, 253 + init):
+                val = val % 254 + 1
                 icidr = cidr.replace("*", str(val), 1)
                 if "*" in icidr:
                     for elem in CloudConnector.cidr_wildcard_iterator(icidr):
@@ -513,7 +514,7 @@ class CloudConnector(LoggerMixin):
             yield cidr
 
     @staticmethod
-    def get_free_cidr(net_cidr, used_cidrs, inf=None):
+    def get_free_cidr(net_cidr, used_cidrs, inf=None, init=0):
         """
         Get a CIDR that is not used (is not in used_cidrs list)
         """
@@ -542,7 +543,7 @@ class CloudConnector(LoggerMixin):
                     if cidr and "*" not in cidr:
                         used_cidr_nets.append(IPNetwork(cidr))
 
-        for cidr in CloudConnector.cidr_wildcard_iterator(net_cidr):
+        for cidr in CloudConnector.cidr_wildcard_iterator(net_cidr, init):
             if not any([IPNetwork(cidr) in IPNetwork(mask) for mask in used_cidr_nets]):
                 return cidr
 
