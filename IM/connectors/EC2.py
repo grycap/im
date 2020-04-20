@@ -457,7 +457,7 @@ class EC2CloudConnector(CloudConnector):
             if net.getValue('create') == 'yes' and not net.isPublic() and not provider_id:
                 net_cidr = self.get_free_cidr(net.getValue('cidr'),
                                               [subnet.cidr_block for subnet in conn.get_all_subnets()] + nets,
-                                              inf)
+                                              inf, 127)
                 nets.append(net_cidr)
 
         if len(nets) == 0:  # there is no CIDR return the default one
@@ -484,7 +484,7 @@ class EC2CloudConnector(CloudConnector):
                 if net.getValue('create') == 'yes' and not net.isPublic() and not provider_id:
                     net_cidr = self.get_free_cidr(net.getValue('cidr'),
                                                   [subnet.cidr_block for subnet in conn.get_all_subnets()],
-                                                  inf)
+                                                  inf, 127)
                     net.delValue('cidr')
 
                     # First create the VPC
