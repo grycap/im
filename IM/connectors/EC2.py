@@ -1311,7 +1311,7 @@ class EC2CloudConnector(CloudConnector):
                 self.log_info("Spot instance request " + str(sir.id) + " deleted")
                 break
 
-    def delete_networks(self, conn, vm, timeout=180):
+    def delete_networks(self, conn, vm, timeout=240):
         """
         Delete the created networks
         """
