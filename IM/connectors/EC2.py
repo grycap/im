@@ -1311,7 +1311,7 @@ class EC2CloudConnector(CloudConnector):
                 self.log_info("Spot instance request " + str(sir.id) + " deleted")
                 break
 
-    def delete_networks(self, conn, vm, timeout=120):
+    def delete_networks(self, conn, vm, timeout=180):
         """
         Delete the created networks
         """
@@ -1331,7 +1331,7 @@ class EC2CloudConnector(CloudConnector):
                     time.sleep(5)
 
             if not deleted:
-                self.log_error("Timeout (%s) removing the volume %s" % (timeout, subnet.id))
+                self.log_error("Timeout (%s) deleting the subnet %s" % (timeout, subnet.id))
 
         vpc_id = None
         for vpc in conn.get_all_vpcs(filters={"tag:IM-INFRA-ID": vm.inf.id}):
