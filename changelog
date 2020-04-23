@@ -581,3 +581,8 @@ IM 1.9.2:
     * Fix error adding nodes in third site in Hybrid case with TOSCA.
     * Enable to configure infrastructures where port SSH is closed by organization firewalls.
     * Enable to configure infrastructures without any VM with public IP.
+    * In reconfigure do not change master VM.
+    * Fix error selecting master VM.
+    * Fix error in get_nets_common_cird if cidr is not set.
+    * Fix error creating VPC in case of common network do not uses /16 range.
+    * Fir error adding routers in EC2 conn.
