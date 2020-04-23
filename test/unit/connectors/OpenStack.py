@@ -786,7 +786,7 @@ class TestOSTConnector(TestCloudConnectorBase):
 
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
     def test_80_delete_image(self, get_driver):
-        auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'username': 'user',
+        auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'username': 'user', 'tenant_domain_id': "tdi",
                                 'password': 'pass', 'tenant': 'tenant', 'host': 'https://server.com:5000'}])
         ost_cloud = self.get_ost_cloud()
 
@@ -802,6 +802,7 @@ class TestOSTConnector(TestCloudConnectorBase):
 
         self.assertTrue(success, msg="ERROR: deleting image. %s" % msg)
         self.assertEqual(driver.delete_image.call_args_list, [call(image)])
+        self.assertEqual(get_driver.call_args_list[0][1]["ex_tenant_domain_id"], "tdi")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     def test_get_networks(self):

@@ -117,7 +117,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                           "image_url": None,
                           "volume_url": None,
                           "api_version": "2.0",
-                          "domain": None}
+                          "domain": None,
+                          "tenant_domain_id": None}
 
             if 'username' in auth and 'password' in auth and 'tenant' in auth:
                 username = auth['username']
@@ -161,6 +162,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                         key = 'ex_force_%s' % key
                     elif key == 'domain':
                         key = 'ex_domain_name'
+                    elif key == 'tenant_domain_id':
+                        key = 'ex_tenant_domain_id'
                     kwargs[key] = value
 
             # Workaround to OTC to enable to set service_name as None
