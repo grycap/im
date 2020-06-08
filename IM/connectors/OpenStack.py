@@ -832,7 +832,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     if public == network.isPublic():
                         if net_map[i]:
                             network.setValue('provider_id', net_map[i].name)
-                            if net_map[i].name not in pool_names:
+                            if net_map[i].name not in nets:
                                 nets.append(net_map[i])
                     i += 1
         else:
