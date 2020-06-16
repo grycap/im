@@ -1580,7 +1580,7 @@ class EC2CloudConnector(CloudConnector):
         else:
             for instance_type in data:
                 price = 50
-                if instance_type['pricing']:
+                if instance_type['pricing'] and 'us-east-1' in instance_type['pricing']:
                     price = float(instance_type['pricing']['us-east-1']['linux']['ondemand'])
                 disks = 0
                 disk_space = 0
