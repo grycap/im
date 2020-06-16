@@ -18,3 +18,13 @@ xmltodict
 mysqlclient
 pywinrm
 pymongo
+apache-libcloud
+msrest
+msrestazure
+azure-common
+azure-mgmt-storage
+azure-mgmt-compute
+azure-mgmt-network
+azure-mgmt-resource
+azure-mgmt-dns
+azure-storage
