@@ -181,12 +181,12 @@ class OCCICloudConnector(CloudConnector):
         # kvm_file0";occi.core.target="/storage/0";occi.core.source="/compute/10";occi.storagelink.deviceid="/dev/hda";occi.storagelink.state="active"
         lines = occi_res.split("\n")
         res = []
-        for l in lines:
-            if 'Link:' in l and '/storage/' in l:
+        for line in lines:
+            if 'Link:' in line and '/storage/' in line:
                 num_link = None
                 num_storage = None
                 device = None
-                parts = l.split(';')
+                parts = line.split(';')
                 for part in parts:
                     kv = part.split('=')
                     if kv[0].strip() == "self":
@@ -214,11 +214,11 @@ class OCCICloudConnector(CloudConnector):
         num_interface = None
         ip_address = None
         link = None
-        for l in lines:
-            if 'Link:' in l and '/network/public' in l:
+        for line in lines:
+            if 'Link:' in line and '/network/public' in line:
                 link_to_public = True
-            if 'Link:' in l and ('/network/' in l or '/networklink/' in l):
-                parts = l.split(';')
+            if 'Link:' in line and ('/network/' in line or '/networklink/' in line):
+                parts = line.split(';')
                 for part in parts:
                     kv = part.split('=')
                     if kv[0].strip() == "occi.networkinterface.address":
@@ -286,9 +286,9 @@ class OCCICloudConnector(CloudConnector):
         Get a property of an OCCI category returned by an OCCI server
         """
         lines = occi_res.split("\n")
-        for l in lines:
-            if l.find('Category: ' + category + ';') != -1:
-                for elem in l.split(';'):
+        for line in lines:
+            if line.find('Category: ' + category + ';') != -1:
+                for elem in line.split(';'):
                     kv = elem.split('=')
                     if len(kv) == 2:
                         key = kv[0].strip()
@@ -304,8 +304,8 @@ class OCCICloudConnector(CloudConnector):
         """
         lines = occi_data.split("\n")
         pools = []
-        for l in lines:
-            if 'http://schemas.openstack.org/network/floatingippool#' in l:
+        for line in lines:
+            if 'http://schemas.openstack.org/network/floatingippool#' in line:
                 for elem in l.split(';'):
                     if elem.startswith('Category: '):
                         pools.append(elem[10:])
@@ -337,10 +337,10 @@ class OCCICloudConnector(CloudConnector):
             return os.path.basename(lines[0][17:])
 
         # if not, try to find one with a public ip
-        for l in lines:
-            if l.startswith("X-OCCI-Location: "):
-                net_url = l[17:]
-                net_name = os.path.basename(l[17:])
+        for line in lines:
+            if line.startswith("X-OCCI-Location: "):
+                net_url = line[17:]
+                net_name = os.path.basename(line[17:])
                 resp = self.create_request('GET', net_url, auth_data, headers)
                 if resp.status_code == 200:
                     net_addr = self.get_occi_attribute_value(resp.text, "occi.network.address")
@@ -351,9 +351,9 @@ class OCCICloudConnector(CloudConnector):
                             return net_name
 
         # if not, try to find one with the expected names
-        for l in lines:
-            if l.startswith("X-OCCI-Location: "):
-                net_name = os.path.basename(l[17:])
+        for line in lines:
+            if line.startswith("X-OCCI-Location: "):
+                net_name = os.path.basename(line[17:])
             if is_public:
                 if net_name.startswith(tuple(self.PUBLIC_NET_NAMES)):
                     return net_name
@@ -414,9 +414,9 @@ class OCCICloudConnector(CloudConnector):
         Get the value of an OCCI attribute returned by an OCCI server
         """
         lines = occi_res.split("\n")
-        for l in lines:
-            if l.find('X-OCCI-Attribute: ' + attr_name + '=') != -1:
-                return l.split('=')[1].strip('"')
+        for line in lines:
+            if line.find('X-OCCI-Attribute: ' + attr_name + '=') != -1:
+                return line.split('=')[1].strip('"')
         return None
 
     def updateVMInfo(self, vm, auth_data):
@@ -510,9 +510,9 @@ class OCCICloudConnector(CloudConnector):
         Get the scheme of an OCCI category contacting with the OCCI server
         """
         lines = occi_info.split("\n")
-        for l in lines:
-            if l.find('Category: ' + category) != -1 and l.find(ctype) != -1:
-                parts = l.split(';')
+        for line in lines:
+            if line.find('Category: ' + category) != -1 and line.find(ctype) != -1:
+                parts = line.split(';')
                 for p in parts:
                     kv = p.split("=")
                     if kv[0].strip() == "scheme":
