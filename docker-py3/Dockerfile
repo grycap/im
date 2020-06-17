@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y python3 openssh
 # Install IM
 RUN apt-get update && apt-get install --no-install-recommends -y git python3-pip && \
      pip3 install pip setuptools --upgrade && \
-     /usr/local/bin/pip3 install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns azure-storage && \
+     /usr/local/bin/pip3 install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns && \
      /usr/local/bin/pip3 install pyOpenSSL cheroot xmltodict pymongo ansible==2.7.16 && \
      # Install github version until the v 3.0 is released
      cd /tmp && git clone https://github.com/apache/libcloud && /usr/local/bin/pip3 install /tmp/libcloud && \
