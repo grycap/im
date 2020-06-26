@@ -1304,6 +1304,21 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         success = []
         msgs = []
         if node:
+            # First try to detach the volumes and the SGs
+            for vol_id in vm.volumes:
+                try:
+                    volume = node.driver.ex_get_volume(vol_id)
+                    node.driver.detach_volume(volume)
+                except Exception as ex:
+                    self.log_exception("Error dettaching volume %s." % vol_id)
+
+            try:
+                for sg_name in self._get_security_names(vm.inf):
+                    security_group = OpenStackSecurityGroup(None, None, sg_name, "", node.driver)
+                    node.driver.ex_remove_security_group_from_node(security_group, node)
+            except Exception as ex:
+                self.log_exception("Error dettaching volume %s." % vol_id)
+
             res = node.destroy()
             success.append(res)
 
@@ -1361,9 +1376,9 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         return (all(success), "\n ".join(msgs))
 
-    def delete_security_groups(self, driver, inf, timeout=180, delay=10):
+    def _get_security_names(self, inf):
         """
-        Delete the SG of this inf
+        Get the list of SGs for this infra
         """
         sg_names = ["im-%s" % inf.id]
         for net in inf.radl.networks:
@@ -1371,6 +1386,14 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             if not sg_name:
                 sg_name = "im-%s-%s" % (inf.id, net.id)
             sg_names.append(sg_name)
+
+        return sg_names
+
+    def delete_security_groups(self, driver, inf, timeout=180, delay=10):
+        """
+        Delete the SG of this inf
+        """
+        sg_names = self._get_security_names(inf)
 
         msg = ""
         deleted = True
