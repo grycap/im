@@ -736,6 +736,11 @@ class TestOSTConnector(TestCloudConnectorBase):
         driver.ex_list_routers.return_value = [router]
         driver.ex_add_router_subnet.return_value = True
 
+        volume = MagicMock()
+        driver.ex_get_volume.return_value = volume
+        driver.detach_volume.return_value = True
+        driver.ex_remove_security_group_from_node.return_value = True
+
         vm.volumes = ['volid']
         success, _ = ost_cloud.finalize(vm, True, auth)
 
@@ -743,6 +748,10 @@ class TestOSTConnector(TestCloudConnectorBase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
         self.assertEqual(node.destroy.call_args_list, [call()])
+        self.assertEqual(driver.detach_volume.call_args_list[0][0][0], volume)
+        self.assertEqual(driver.ex_remove_security_group_from_node.call_args_list[0][0][0].name, "im-infid")
+        self.assertEqual(driver.ex_remove_security_group_from_node.call_args_list[1][0][0].name, "im-infid-public")
+        self.assertEqual(driver.ex_remove_security_group_from_node.call_args_list[2][0][0].name, "im-infid-private")
         self.assertEqual(driver.ex_del_router_subnet.call_args_list[0][0][0], router)
         self.assertEqual(driver.ex_del_router_subnet.call_args_list[0][0][1].id, "subnet1")
         self.assertEqual(driver.ex_delete_network.call_args_list[0][0][0], net1)
@@ -786,7 +795,7 @@ class TestOSTConnector(TestCloudConnectorBase):
 
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
     def test_80_delete_image(self, get_driver):
-        auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'username': 'user',
+        auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'username': 'user', 'tenant_domain_id': "tdi",
                                 'password': 'pass', 'tenant': 'tenant', 'host': 'https://server.com:5000'}])
         ost_cloud = self.get_ost_cloud()
 
@@ -802,6 +811,7 @@ class TestOSTConnector(TestCloudConnectorBase):
 
         self.assertTrue(success, msg="ERROR: deleting image. %s" % msg)
         self.assertEqual(driver.delete_image.call_args_list, [call(image)])
+        self.assertEqual(get_driver.call_args_list[0][1]["ex_tenant_domain_id"], "tdi")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     def test_get_networks(self):

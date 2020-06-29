@@ -292,6 +292,9 @@ OpenStack has a set of additional fields to access a cloud site:
   flow involves hitting the auth service (Keystone) with the provided username and password and requesting an
   authentication token.
 
+* ``tenant_domain_id`` tenant domain id to set to the identity service. Some cloud providers require the tenant 
+  domain id to be provided at authentication time. Others will use a default tenant domain id if none is provided.
+
 OpenID Connect OpenStack sites
 ++++++++++++++++++++++++++++++
 
