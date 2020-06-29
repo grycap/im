@@ -29,6 +29,8 @@ To access the IM service two client tools can be used (apart from the two APIs):
 
     $ sudo docker run -d -p 80:80 --name im-web --link im:im grycap/im-web
 
+  Then you can access the im-web interface using the following url: `http://localhost/im-web`.
+  
   See full manual in IM Web :ref:`use-web`.
 
 In this first examples we will use the IM-client tool to create, manage and finally destroy a single VM.

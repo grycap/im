@@ -31,7 +31,7 @@ Miguel Caballer, Ignacio Blanquer, German Molto, and Carlos de Alfonso. "[Dynami
 
 The recommended option to use the Infrastructure Manager service is using the available docker image.
 A Docker image named `grycap/im` has been created to make easier the deployment of an IM service using the 
-default configuration. Information about this image can be found here: https://registry.hub.docker.com/u/grycap/im/.
+default configuration. Information about this image can be found here: https://hub.docker.com/r/grycap/im/.
 
 How to launch the IM service using docker::
 
@@ -63,9 +63,23 @@ The IM service and web interface can be installed on top of [Kubernetes](https:/
 
 How to install the IM chart:
 
+First add the GRyCAP repo:
+
 ```sh
-$ helm repo add grycap https://grycap.github.io/helm-charts/
-$ helm install --namespace=im --name=im  grycap/IM
+helm repo add grycap https://grycap.github.io/helm-charts/
+```
+
+Then install the IM chart (with Helm v2):
+
+```sh
+helm install --namespace=im --name=im  grycap/IM
+```
+
+Then install the IM chart (with Helm v3):
+
+```sh
+kubectl create namespace im
+helm install --namespace=im im  grycap/IM
 ```
 
 All the information about this chart is available at the [IM chart README](https://github.com/grycap/helm-charts/blob/master/IM/README.md).
