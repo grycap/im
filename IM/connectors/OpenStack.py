@@ -1307,6 +1307,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             # First try to detach the volumes and the SGs
             for vol_id in vm.volumes:
                 try:
+                    self.log_debug("Dettaching volume %s." % vol_id)
                     volume = node.driver.ex_get_volume(vol_id)
                     node.driver.detach_volume(volume)
                 except Exception as ex:
@@ -1314,10 +1315,11 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
             try:
                 for sg_name in self._get_security_names(vm.inf):
+                    self.log_debug("Dettaching SG %s." % sg_name)
                     security_group = OpenStackSecurityGroup(None, None, sg_name, "", node.driver)
                     node.driver.ex_remove_security_group_from_node(security_group, node)
             except Exception as ex:
-                self.log_exception("Error dettaching volume %s." % vol_id)
+                self.log_exception("Error dettaching SG %s." % sg_name)
 
             res = node.destroy()
             success.append(res)
