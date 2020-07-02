@@ -586,3 +586,8 @@ IM 1.9.2:
     * Fix error in get_nets_common_cird if cidr is not set.
     * Fix error creating VPC in case of common network do not uses /16 range.
     * Fir error adding routers in EC2 conn.
+
+IM 1.9.3:
+    * Support for ex_tenant_domain_id due to change in libcloud.
+    * Error getting EC2 instance types.
+    * Error deleting SGs in some OpenStack sites.

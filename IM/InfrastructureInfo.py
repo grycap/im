@@ -245,7 +245,7 @@ class InfrastructureInfo:
         """
         Destroy the infrastructure
         """
-        InfrastructureInfo.logger.info("Destroying the Inf ID: " + str(self.id))
+        InfrastructureInfo.logger.info("Destroying the Inf ID: %s (force=%s)" % (self.id, force))
         try:
             # First stop ctxt processes
             self.stop()
