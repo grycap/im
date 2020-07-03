@@ -69,16 +69,19 @@
   ################### Install Ansible/pip requisites #########################
 
     - name: Debian/Ubuntu install requisites with apt
-      apt: name=curl,python-setuptools,sshpass,openssh-client,unzip install_recommends=no
+      apt: name=curl,sshpass,openssh-client,unzip install_recommends=no
       when: ansible_os_family == "Debian"
 
     - name: Debian/Ubuntu install python-pip with apt
-      apt: name=python-pip install_recommends=no
+      apt: name=python-pip,python-setuptools install_recommends=no
       when: ansible_os_family == "Debian" and not (ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int >= 20)
 
     - name: Install pip in in Ubuntu 20+
-      shell: curl --silent --show-error --retry 5 https://bootstrap.pypa.io/get-pip.py | python creates=/usr/local/bin/pip
+      shell:
+        cmd: curl --insecure --silent --show-error --retry 5 https://bootstrap.pypa.io/get-pip.py | python2
+        creates: /usr/local/bin/pip
       when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int >= 20
+      warn: false
 
     - name: Ubuntu 14 extra packages needed
       apt: name=gcc,python-dev,libffi-dev,libssl-dev install_recommends=no
