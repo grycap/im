@@ -77,7 +77,7 @@
       when: ansible_os_family == "Debian" and not (ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int >= 20)
 
     - name: Install pip in in Ubuntu 20+
-      command: curl --silent --show-error --retry 5 https://bootstrap.pypa.io/get-pip.py | sudo python
+      shell: curl --silent --show-error --retry 5 https://bootstrap.pypa.io/get-pip.py | python creates=/usr/local/bin/pip
       when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int >= 20
 
     - name: Ubuntu 14 extra packages needed
