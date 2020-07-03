@@ -80,8 +80,8 @@
       shell:
         cmd: curl --insecure --silent --show-error --retry 5 https://bootstrap.pypa.io/get-pip.py | python2
         creates: /usr/local/bin/pip
+        warn: no
       when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int >= 20
-      warn: false
 
     - name: Ubuntu 14 extra packages needed
       apt: name=gcc,python-dev,libffi-dev,libssl-dev install_recommends=no
