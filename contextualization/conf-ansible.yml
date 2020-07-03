@@ -68,6 +68,13 @@
 
   ################### Install Ansible/pip requisites #########################
 
+    - name: Make sure universe repository is enabled in Ubuntu 20+
+      apt_repository:
+       repo: deb http://archive.ubuntu.com/ubuntu {{ansible_distribution_release}} universe
+       state: present
+       update_cache: True
+      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int >= 20
+
     - name: Debian/Ubuntu install requisites with apt
       apt: name=python-pip,python-setuptools,sshpass,openssh-client,unzip install_recommends=no
       when: ansible_os_family == "Debian"
