@@ -222,7 +222,8 @@ class AnsibleThread(Process):
                                             diff=False,
                                             inventory=self.inventory_file,
                                             private_key_file=self.pk_file,
-                                            remote_user=self.user)
+                                            remote_user=self.user,
+                                            verbosity=0)
 
         Options = namedtuple('Options',
                              ['connection',
@@ -235,7 +236,8 @@ class AnsibleThread(Process):
                               'diff',
                               'inventory',
                               'private_key_file',
-                              'remote_user'])
+                              'remote_user',
+                              'verbosity'])
         options = Options(connection='ssh',
                           module_path=None,
                           forks=self.threads,
@@ -246,7 +248,8 @@ class AnsibleThread(Process):
                           diff=False,
                           inventory=self.inventory_file,
                           private_key_file=self.pk_file,
-                          remote_user=self.user)
+                          remote_user=self.user,
+                          verbosity=0)
         return options
 
     def launch_playbook_v2(self):
