@@ -69,15 +69,15 @@
   ################### Install Ansible/pip requisites #########################
 
     - name: Debian/Ubuntu install requisites with apt
-      apt: name=curl,sshpass,openssh-client,unzip install_recommends=no
+      apt: name=wget,python-setuptools,sshpass,openssh-client,unzip install_recommends=no
       when: ansible_os_family == "Debian"
 
     - name: Debian/Ubuntu install python-pip with apt
-      apt: name=python-pip,python-setuptools install_recommends=no
+      apt: name=python-pip install_recommends=no
       when: ansible_os_family == "Debian" and not (ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int >= 20)
 
     - name: Install pip in in Ubuntu 20+
-      apt: name=python3-pip,python3-setuptools install_recommends=no
+      shell: wget https://bootstrap.pypa.io/get-pip.py && python2 get-pip.py warn=false creates=/usr/local/bin/pip2 chdir=/tmp
       when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int >= 20
 
     - name: Ubuntu 14 extra packages needed
@@ -107,9 +107,8 @@
 
   ######################################### Use pip to enable to set the version #############################################
 
-    # do not upgrade to 10 as it is failing
     - name: Upgrade pip
-      pip: name=pip version=9.0.3
+      pip: name=pip version=20.1.1
 
     - name: Upgrade setuptools with Pip
       pip: name=setuptools state=latest
