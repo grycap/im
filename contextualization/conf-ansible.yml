@@ -108,7 +108,7 @@
   ######################################### Use pip to enable to set the version #############################################
 
     - name: Upgrade pip
-      pip: name=pip version=20.1.1
+      pip: name=pip version=9.0.3
 
     - name: Upgrade setuptools with Pip
       pip: name=setuptools state=latest
