@@ -68,15 +68,15 @@
       yum: name=python-pip,redhat-rpm-config,gcc,python-devel,wget,openssh-clients,sshpass,libffi-devel,openssl-devel,mysql-devel,sqlite-devel
       when: ansible_distribution == "Fedora"
 
+    - name: Install last pip version
+      pip:
+        name: pip>=9.0.3
+
     - name: Install setuptools with pip
       pip: executable=pip name=setuptools,six extra_args="-I"
 
-    - name: Install last pip version
-      easy_install: name=pip state=latest
-      ignore_errors: yes
-
     - name: Install pip libraries
-      pip: executable=pip name=pycrypto,pyOpenSSL,MySQL-python,msrest,msrestazure,azure-common,azure-mgmt-storage,azure-mgmt-compute,azure-mgmt-network,azure-mgmt-resource,azure-mgmt-dns,azure-storage,xmltodict
+      pip: executable=pip name=pycrypto,pyOpenSSL,MySQL-python,msrest,msrestazure,azure-common,azure-mgmt-storage,azure-mgmt-compute,azure-mgmt-network,azure-mgmt-resource,azure-mgmt-dns,xmltodict
       
     - name: Install IM dependencies for CentOS 6
       pip: name=pysqlite version=2.7.0
