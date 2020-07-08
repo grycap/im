@@ -38,17 +38,22 @@ distribution_id() {
 }
 
 distribution_major_version() {
-    for RELEASE_FILE in /etc/system-release \
-                        /etc/centos-release \
-                        /etc/fedora-release \
-                        /etc/redhat-release
-    do
-        if [ -e "${RELEASE_FILE}" ]; then
-            RELEASE_VERSION=$(head -n1 ${RELEASE_FILE})
-            break
-        fi
-    done
-    echo ${RELEASE_VERSION} | sed -e 's|\(.\+\) release \([0-9]\+\)\([0-9.]*\).*|\2|'
+	if [ -f /etc/lsb-release ]; then
+		. /etc/lsb-release
+		echo ${DISTRIB_RELEASE} | sed -e 's|\([0-9]\+\)\([0-9.]*\).*|\1|'
+	else
+	    for RELEASE_FILE in /etc/system-release \
+	                        /etc/centos-release \
+	                        /etc/fedora-release \
+	                        /etc/redhat-release
+	    do
+	        if [ -e "${RELEASE_FILE}" ]; then
+	            RELEASE_VERSION=$(head -n1 ${RELEASE_FILE})
+	            break
+	        fi
+	    done
+	    echo ${RELEASE_VERSION} | sed -e 's|\(.\+\) release \([0-9]\+\)\([0-9.]*\).*|\2|'
+	fi
 }
 
 ansible_installed=`type -p ansible-playbook`
@@ -70,10 +75,15 @@ else
             ;;
         ubuntu)
             apt-get update
-            apt-get -y install software-properties-common
-            apt-add-repository -y ppa:ansible/ansible
-            apt-get update
-            apt-get -y install wget ansible
+	    if [ $(distribution_major_version) -eq "20" ]
+	    then
+	        apt-get -y install wget ansible
+	    else:
+                apt-get -y install software-properties-common
+                apt-add-repository -y ppa:ansible/ansible
+                apt-get update
+                apt-get -y install wget ansible
+	    fi
             ;;
         rhel)
             yum install -y http://dl.fedoraproject.org/pub/epel/epel-release-latest-$(distribution_major_version).noarch.rpm
