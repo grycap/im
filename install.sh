@@ -78,7 +78,7 @@ else
 	    if [ $(distribution_major_version) -eq "20" ]
 	    then
 	        apt-get -y install wget ansible
-	    else:
+	    else
                 apt-get -y install software-properties-common
                 apt-add-repository -y ppa:ansible/ansible
                 apt-get update
