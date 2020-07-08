@@ -61,8 +61,15 @@
       when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int >= 20
 
     - name: Apt install requirements Debian
-      apt: name=libmariadbd-dev
+      apt: name=default-libmysqlclient-dev
       when: ansible_distribution == "Debian" or (ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int >= 20)
+
+    - name: Assure that my_config.h exists
+      file:
+        path: /usr/include/mysql/my_config.h
+        state: touch
+        mode: '0644'
+      ignore_errors: yes
 
     - name: Apt install requirements Ubuntu
       apt: name=libmysqld-dev
@@ -85,7 +92,7 @@
       pip: executable=pip name=setuptools,six extra_args="-I"
 
     - name: Install pip libraries
-      pip: executable=pip name=pycrypto,pyOpenSSL,MySQL-python,msrest,msrestazure,azure-common,azure-mgmt-storage,azure-mgmt-compute,azure-mgmt-network,azure-mgmt-resource,azure-mgmt-dns,xmltodict
+      pip: executable=pip name=pycrypto,pyOpenSSL,mysqlclient,msrest,msrestazure,azure-common,azure-mgmt-storage,azure-mgmt-compute,azure-mgmt-network,azure-mgmt-resource,azure-mgmt-dns,xmltodict
       
     - name: Install IM dependencies for CentOS 6
       pip: name=pysqlite version=2.7.0
