@@ -49,8 +49,16 @@
       when: ansible_os_family == "Debian"
 
     - name: Apt install requirements Ubuntu/Debian
-      apt: name=python-pip,gcc,python-dev,python-pysqlite2,openssh-client,sshpass,libssl-dev,libffi-dev
+      apt: name=gcc,python-dev,python-pysqlite2,openssh-client,sshpass,libssl-dev,libffi-dev
       when: ansible_os_family == "Debian"
+
+    - name: Debian/Ubuntu install python-pip with apt
+      apt: name=python-pip install_recommends=no
+      when: ansible_os_family == "Debian" and not (ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int >= 20)
+
+    - name: Install pip in in Ubuntu 20+
+      shell: wget https://bootstrap.pypa.io/get-pip.py && python2 get-pip.py warn=false creates=/usr/local/bin/pip2 chdir=/tmp
+      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int >= 20
 
     - name: Apt install requirements Debian
       apt: name=libmariadbd-dev
