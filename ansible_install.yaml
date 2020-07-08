@@ -7,7 +7,7 @@
 
     - name: Install libselinux-python in RH
       action: yum pkg=libselinux-python state=installed
-      when: ansible_os_family == "RedHat"
+      when: ansible_os_family == "RedHat" and ansible_distribution != "Fedora"
 
 ################################################ Configure Ansible  ###################################################
 
@@ -70,6 +70,7 @@
         state: touch
         mode: '0644'
       ignore_errors: yes
+      when: ansible_distribution == "Debian"
 
     - name: Apt install requirements Ubuntu
       apt: name=libmysqld-dev
