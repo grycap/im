@@ -79,6 +79,7 @@
     - name: Install last pip version
       pip:
         name: pip>=9.0.3
+        executable: pip
 
     - name: Install setuptools with pip
       pip: executable=pip name=setuptools,six extra_args="-I"
