@@ -240,7 +240,7 @@ The available keys are:
   `here <https://msdn.microsoft.com/en-us/library/azure/gg551722.aspx>`_
 
 * ``id`` associates an identifier to the credential. The identifier should be
-  used as the label in the *deploy* section in the RADL.
+  used as the label in the *deploy* section in the RADL. **The id field MUST start by a letter (not a number).**
 
 * ``subscription_id`` indicates the subscription_id name associated to the credential.
   This field is only used in the Azure and Azure Classic plugins. To create a user to use the Azure (ARM)
