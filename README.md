@@ -1,7 +1,7 @@
 # IM - Infrastructure Manager
 
 [![PyPI](https://img.shields.io/pypi/v/im.svg)](https://pypi.org/project/im)
-[![Build Status](https://jenkins.i3m.upv.es/buildStatus/icon?job=grycap/im-unit-master&test)](https://jenkins.i3m.upv.es/job/grycap/job/im-unit-master/)
+[![Build Status](https://jenkins.i3m.upv.es/buildStatus/icon?job=grycap/im-unit-master)](https://jenkins.i3m.upv.es/job/grycap/job/im-unit-master/)
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/54da6332b53945cebd57867d4d61ab69)](https://www.codacy.com/app/micafer/im?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=grycap/im&amp;utm_campaign=Badge_Grade)
 [![Codacy Badge](https://api.codacy.com/project/badge/Coverage/54da6332b53945cebd57867d4d61ab69)](https://www.codacy.com/app/micafer/im?utm_source=github.com&utm_medium=referral&utm_content=grycap/im&utm_campaign=Badge_Coverage)
 [![License](https://img.shields.io/badge/license-GPL%20v3.0-brightgreen.svg)](LICENSE)
