@@ -172,7 +172,7 @@ Azure python SDK (https://azure.microsoft.com/es-es/develop/python/) is used to 
 Microsoft Azure platform. The easiest way is to install all the required packages with pip:
 
 ```sh
-$ pip install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns azure-storage 
+$ pip install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns
 ```
 
 The VMware vSphere API Python Bindings (https://github.com/vmware/pyvmomi/) are needed by the vSphere
