@@ -1,12 +1,12 @@
 # Dockerfile to create a container with the IM service
 FROM ubuntu:18.04
 LABEL maintainer="Miguel Caballer <micafer1@upv.es>"
-LABEL version="1.9.3"
+LABEL version="1.9.4"
 LABEL description="Container image to run the IM service. (http://www.grycap.upv.es/im)"
 EXPOSE 8899 8800
 
 # Ensure system is up to date with mandatory python packages installed
-RUN apt-get update && apt-get install --no-install-recommends -y python3 openssh-client sshpass vim libmysqlclient20 python3-mysqldb && \
+RUN apt-get update && apt-get install --no-install-recommends -y python3 python3-distutils openssh-client sshpass vim libmysqlclient20 python3-mysqldb && \
      apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && rm -rf ~/.cache/
 
 # Install IM
@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y git python3-pip
      pip3 install pip setuptools --upgrade && \
      /usr/local/bin/pip3 install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns && \
      /usr/local/bin/pip3 install pyOpenSSL cheroot xmltodict pymongo ansible==2.9.10&& \
-     /usr/local/bin/pip3 install IM==1.9.3 && \
+     /usr/local/bin/pip3 install IM==1.9.4 && \
      /usr/local/bin/pip3 uninstall pip -y && \
      apt-get purge -y git python3-pip && \
      apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && rm -rf ~/.cache/

@@ -2,7 +2,7 @@
 FROM grycap/jenkins:ubuntu16.04-im
 ARG BRANCH=devel
 LABEL maintainer="Miguel Caballer <micafer1@upv.es>"
-LABEL version="1.9.3"
+LABEL version="1.9.4"
 LABEL description="Container image to run the IM service. (http://www.grycap.upv.es/im)"
 
 EXPOSE 8899 8800
