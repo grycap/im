@@ -175,7 +175,6 @@
       with_items:
       - { section: 'defaults', option: 'host_key_checking', value: 'False' }
       - { section: 'defaults', option: 'nocolor', value: '1' }
-      - { section: 'defaults', option: 'timeout', value: '30' }
       - { section: 'ssh_connection', option: 'pipelining', value: 'True' }
       - { section: 'defaults', option: 'jinja2_extensions', value: 'jinja2.ext.do' }
       - { section: 'defaults', option: 'allow_world_readable_tmpfiles', value: 'True' }
