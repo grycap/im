@@ -133,6 +133,8 @@ Add your own in the docker command:
 
 ``docker run -p 80:80 -p 443:443 -v server.crt:/etc/ssl/certs/server.crt -v server.key:/etc/ssl/certs/server.key -d grycap/im-web:1.5.5-ssl``
 
+Then you can access the IM Web portal in the following URL: http://localhost/im-web/.
+
 .. _use-web:
 
 Usage
