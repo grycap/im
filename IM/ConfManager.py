@@ -355,6 +355,7 @@ class ConfManager(LoggerMixin, threading.Thread):
         """
         Launch the ctxt agent to configure the specified tasks in the specified VM
         """
+        ssh = None
         pid = None
         tmp_dir = None
         try:
@@ -376,7 +377,7 @@ class ConfManager(LoggerMixin, threading.Thread):
                 self.log_info("Copy the contextualization agent config file")
 
                 # Copy the contextualization agent config file
-                ssh = vm.get_ssh_ansible_master()
+                ssh = vm.get_ssh_ansible_master(auto_close=False)
                 ssh.sftp_mkdir(remote_dir)
                 ssh.sftp_put(conf_file, remote_dir + "/" + os.path.basename(conf_file))
 
@@ -408,6 +409,8 @@ class ConfManager(LoggerMixin, threading.Thread):
             pid = None
             self.log_exception("Error launching the ansible process to configure VM with ID %s" % str(vm.im_id))
         finally:
+            if ssh:
+                ssh.close()
             if tmp_dir:
                 shutil.rmtree(tmp_dir, ignore_errors=True)
 
@@ -802,6 +805,7 @@ class ConfManager(LoggerMixin, threading.Thread):
                 self.log_info("Sleeping %s secs." % (cont ** 2 * 5))
                 time.sleep(cont ** 2 * 5)
                 cont += 1
+                ssh = None
                 try:
                     self.log_info("Start the contextualization process.")
 
@@ -810,7 +814,7 @@ class ConfManager(LoggerMixin, threading.Thread):
                     else:
                         if not self.inf.vm_master:
                             raise Exception("No master VM found.")
-                        ssh = self.inf.vm_master.get_ssh(retry=True)
+                        ssh = self.inf.vm_master.get_ssh(retry=True, auto_close=False)
                         if not ssh:
                             raise Exception("Master VM does not have IP.")
                         # Activate tty mode to avoid some problems with sudo in
@@ -882,6 +886,8 @@ class ConfManager(LoggerMixin, threading.Thread):
                         self.inf.ansible_configured = False
                     success = False
                 finally:
+                    if ssh:
+                        ssh.close()
                     if tmp_dir:
                         shutil.rmtree(tmp_dir, ignore_errors=True)
 
@@ -915,6 +921,7 @@ class ConfManager(LoggerMixin, threading.Thread):
         success = True
         if not self.inf.ansible_configured:
             # Select the master VM
+            ssh = None
             try:
                 self.inf.add_cont_msg("Select master VM")
                 self.inf.select_vm_master()
@@ -951,7 +958,7 @@ class ConfManager(LoggerMixin, threading.Thread):
 
                 # Check and change if necessary the credentials of the master
                 # vm
-                ssh = self.inf.vm_master.get_ssh(retry=True)
+                ssh = self.inf.vm_master.get_ssh(retry=True, auto_close=False)
                 # Activate tty mode to avoid some problems with sudo in REL
                 ssh.tty = True
                 self.change_master_credentials(ssh)
@@ -963,6 +970,9 @@ class ConfManager(LoggerMixin, threading.Thread):
             except Exception:
                 self.log_exception("Error waiting the master VM to be running")
                 self.inf.set_configured(False)
+            finally:
+                if ssh:
+                    ssh.close()
         else:
             self.inf.set_configured(True)
 
@@ -1035,8 +1045,7 @@ class ConfManager(LoggerMixin, threading.Thread):
             if self.inf.radl.ansible_hosts:
                 for ansible_host in self.inf.radl.ansible_hosts:
                     (user, passwd, private_key) = ansible_host.getCredentialValues()
-                    ssh = SSHRetry(ansible_host.getHost(),
-                                   user, passwd, private_key)
+                    ssh = SSHRetry(ansible_host.getHost(), user, passwd, private_key)
                     ssh.sftp_mkdir(remote_dir)
                     ssh.sftp_put_files(recipe_files)
             else:
@@ -1062,7 +1071,7 @@ class ConfManager(LoggerMixin, threading.Thread):
            - timeout(int): Max time to wait the VM to be running.
         Returns: True if all the VMs are running or false otherwise
         """
-        delay = 10
+        delay = Config.CHECK_CTXT_PROCESS_INTERVAL
         wait = 0
         while not self._stop_thread and wait < timeout:
             if not vm.destroy:
