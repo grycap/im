@@ -7,18 +7,17 @@ LABEL description="Container image to run the IM service. (http://www.grycap.upv
 EXPOSE 8899 8800
 
 # Ensure system is up to date with mandatory python packages installed
-RUN apt-get update && apt-get install --no-install-recommends -y openssh-client sshpass vim libmysqlclient20 && \
+RUN apt-get update && apt-get install --no-install-recommends -y python3 python3-distutils openssh-client sshpass vim libmysqlclient20 python3-mysqldb && \
      apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && rm -rf ~/.cache/
 
 # Install IM
-RUN apt-get update && apt-get install --no-install-recommends -y gcc git python python-dev python-pip libmysqld-dev libssl-dev libffi-dev libsqlite3-dev && \
-     pip install setuptools --upgrade -I && \
-     pip install pip --upgrade -I && \
-     /usr/local/bin/pip install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns && \
-     /usr/local/bin/pip install MySQL-python pyOpenSSL pycrypto xmltodict pymongo && \
-     cd tmp && git clone https://github.com/grycap/im.git -b $BRANCH && cd im && pip install /tmp/im && \
-     /usr/local/bin/pip uninstall pip -y && \
-     apt-get purge -y gcc git python-dev python-pip libmysqld-dev libssl-dev libffi-dev libsqlite3-dev && \
+RUN apt-get update && apt-get install --no-install-recommends -y git python3-pip && \
+     pip3 install pip setuptools --upgrade && \
+     /usr/local/bin/pip3 install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns && \
+     /usr/local/bin/pip3 install pyOpenSSL cheroot xmltodict pymongo ansible==2.9.10&& \
+     cd tmp && git clone https://github.com/grycap/im.git -b $BRANCH && cd im && /usr/local/bin/pip3 install /tmp/im && \
+     /usr/local/bin/pip3 uninstall pip -y && \
+     apt-get purge -y git python3-pip && \
      apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && rm -rf ~/.cache/
 
 # Set the VM_NUM_USE_CTXT_DIST to 3 for the tests
