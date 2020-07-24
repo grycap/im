@@ -105,7 +105,6 @@ topology_template:
            architecture: x86_64
            type: linux
            distribution: ubuntu
-           version: 16.04
 
   outputs:
     server_url:
