@@ -61,11 +61,13 @@ configure test (
   - vars:
       NODENAME: '{{IM_INFRASTRUCTURE_RADL|json_query("[?id == ''front''].net_interface_0_dns_name|[0]")}}'
     pre_tasks:
-     - apt: name=python-setuptools update_cache=yes cache_valid_time=3600
+     - apt: name=python-setuptools,python-pip update_cache=yes cache_valid_time=3600
        when: ansible_os_family == "Debian"
-     - yum: name=python-setuptools
+     - yum: name=epel-release
        when: ansible_os_family == "RedHat"
-     - easy_install: name=jmespath
+     - yum: name=python-setuptools,python-pip
+       when: ansible_os_family == "RedHat"
+     - pip: name=jmespath
     tasks:
       - debug: msg="NODENAME = {{NODENAME}}"
       - debug: msg="VERSION = {{ansible_version.major}}"
