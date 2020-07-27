@@ -774,7 +774,7 @@ class ConfManager(LoggerMixin, threading.Thread):
                 conf_content = merge_recipes(conf_content, configure.recipes)
 
             conf_out = open(conf_filename, 'w')
-            conf_out.write(conf_content)
+            conf_out.write(str(conf_content))
             conf_out.close()
             recipe_files.append(ctxt_elem.configure + "_" + ctxt_elem.system + "_task.yml")
 
