@@ -765,7 +765,7 @@ class ConfManager(LoggerMixin, threading.Thread):
             if vault_password:
                 vault_edit = self.get_vault_editor(vault_password)
                 if configure.recipes.strip().startswith("$ANSIBLE_VAULT"):
-                    recipes = vault_edit.vault.decrypt(configure.recipes.strip())
+                    recipes = str(vault_edit.vault.decrypt(configure.recipes.strip()))
                 else:
                     recipes = configure.recipes
                 conf_content = merge_recipes(conf_content, recipes)
