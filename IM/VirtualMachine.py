@@ -913,7 +913,6 @@ class VirtualMachine(LoggerMixin):
 
     def get_ctxt_log(self, remote_dir, ssh, delete=False):
         tmp_dir = tempfile.mkdtemp()
-        conf_out = ""
 
         # Download the contextualization agent log
         try:
@@ -933,6 +932,7 @@ class VirtualMachine(LoggerMixin):
                 self.log_exception(
                     "Error deleting remote contextualization process log: " + remote_dir + '/ctxt_agent.log')
         except Exception:
+            conf_out = ""
             self.log_exception(
                 "Error getting contextualization process log: " + remote_dir + '/ctxt_agent.log')
             self.configured = False
