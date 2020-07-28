@@ -765,11 +765,11 @@ class ConfManager(LoggerMixin, threading.Thread):
             if vault_password:
                 vault_edit = self.get_vault_editor(vault_password)
                 if configure.recipes.strip().startswith("$ANSIBLE_VAULT"):
-                    recipes = str(vault_edit.vault.decrypt(configure.recipes.strip()))
+                    recipes = vault_edit.vault.decrypt(configure.recipes.strip()).decode()
                 else:
                     recipes = configure.recipes
                 conf_content = merge_recipes(conf_content, recipes)
-                conf_content = str(vault_edit.vault.encrypt(conf_content))
+                conf_content = vault_edit.vault.encrypt(conf_content).decode()
             else:
                 conf_content = merge_recipes(conf_content, configure.recipes)
 
@@ -1026,8 +1026,7 @@ class ConfManager(LoggerMixin, threading.Thread):
                 for ctxt_elem in contextualizes[ctxt_num]:
                     if ctxt_elem.system in vm_group and ctxt_elem.get_ctxt_tool() == "Ansible":
                         vm = vm_group[ctxt_elem.system][0]
-                        filenames.extend(self.generate_playbook(
-                            vm, ctxt_elem, tmp_dir))
+                        filenames.extend(self.generate_playbook(vm, ctxt_elem, tmp_dir))
 
             filenames.append(self.generate_etc_hosts(tmp_dir))
             filenames.append(self.generate_inventory(tmp_dir))
