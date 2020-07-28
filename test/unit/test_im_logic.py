@@ -91,7 +91,7 @@ class TestIM(unittest.TestCase):
         sys.modules['IM.connectors.' + name] = type('MyConnector', (object,),
                                                     {name + 'CloudConnector': cloud_connector})
 
-    def get_dummy_ssh(self, retry=False):
+    def get_dummy_ssh(self, retry=False, auto_close=True):
         ssh = SSH("", "", "")
         ssh.test_connectivity = Mock(return_value=True)
         ssh.execute = Mock(return_value=("10", "", 0))

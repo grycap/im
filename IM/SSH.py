@@ -91,9 +91,13 @@ class ThreadSSH(Thread):
 class SSH:
     """ Class to encapsulate SSH operations using paramiko """
 
-    def __init__(self, host, user, passwd=None, private_key=None, port=22, proxy_host=None):
+    def __init__(self, host, user, passwd=None, private_key=None, port=22, proxy_host=None, auto_close=True):
         # Atributo para la version "thread"
         self.thread = None
+
+        self.client = None
+        self.proxy = None
+        self.auto_close = auto_close
 
         self.proxy_host = proxy_host
         self.tty = False
@@ -117,6 +121,17 @@ class SSH:
             self.private_key_obj = paramiko.RSAKey.from_private_key(
                 private_key_obj)
 
+    def close(self):
+        """
+        Close the SSH client connection
+        """
+        if self.client:
+            self.client.close()
+            self.client = None
+        if self.proxy:
+            self.proxy.close()
+            self.proxy = None
+
     def __str__(self):
         res = "SSH: host: " + self.host + ", port: " + \
             str(self.port) + ", user: " + self.username
@@ -136,6 +151,9 @@ class SSH:
 
             Returns: a paramiko SSHClient connected with the server.
         """
+        if self.client and self.client.get_transport() and self.client.get_transport().is_authenticated():
+            return self.client, self.proxy
+
         client = paramiko.SSHClient()
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
@@ -171,6 +189,9 @@ class SSH:
             client.connect(self.host, self.port, username=self.username,
                            password=self.password, timeout=time_out, sock=proxy_channel,
                            pkey=self.private_key_obj)
+
+        self.client = client
+        self.proxy = proxy
 
         return client, proxy
 
@@ -228,10 +249,11 @@ class SSH:
         for line in stderr:
             res_stderr += line
 
-        channel.close()
-        client.close()
-        if proxy:
-            proxy.close()
+        if self.auto_close:
+            channel.close()
+            client.close()
+            if proxy:
+                proxy.close()
         return (res_stdout, res_stderr, exit_status)
 
     def sftp_get(self, src, dest):
@@ -253,10 +275,11 @@ class SSH:
             sftp = scp.SCPClient(transport)
 
         sftp.get(src, dest)
-        sftp.close()
-        if proxy:
-            proxy.close()
-        transport.close()
+        if self.auto_close:
+            sftp.close()
+            if proxy:
+                proxy.close()
+            transport.close()
 
     def sftp_get_files(self, src, dest):
         """ Gets a list of files from the remote server
@@ -277,10 +300,11 @@ class SSH:
 
         for file0, file1 in zip(src, dest):
             sftp.get(file0, file1)
-        sftp.close()
-        if proxy:
-            proxy.close()
-        transport.close()
+        if self.auto_close:
+            sftp.close()
+            if proxy:
+                proxy.close()
+            transport.close()
 
     def sftp_put_files(self, files):
         """ Puts a list of files to the remote server
@@ -301,10 +325,11 @@ class SSH:
 
         for src, dest in files:
             sftp.put(src, dest)
-        sftp.close()
-        if proxy:
-            proxy.close()
-        transport.close()
+        if self.auto_close:
+            sftp.close()
+            if proxy:
+                proxy.close()
+            transport.close()
 
     def sftp_put(self, src, dest):
         """ Puts a file to the remote server
@@ -323,10 +348,11 @@ class SSH:
             # in case of failure try to use scp
             sftp = scp.SCPClient(transport)
         sftp.put(src, dest)
-        sftp.close()
-        if proxy:
-            proxy.close()
-        transport.close()
+        if self.auto_close:
+            sftp.close()
+            if proxy:
+                proxy.close()
+            transport.close()
 
     def sftp_get_dir(self, src, dest):
         """ Gets recursively a directory from the remote server
@@ -348,10 +374,11 @@ class SSH:
             full_dest = filename.replace(src, dest)
             sftp.get(filename, full_dest)
 
-        sftp.close()
-        if proxy:
-            proxy.close()
-        transport.close()
+        if self.auto_close:
+            sftp.close()
+            if proxy:
+                proxy.close()
+            transport.close()
 
     def sftp_walk(self, src, files=None, sftp=None):
         """ Gets recursively the list of items in a directory from the remote server
@@ -474,10 +501,11 @@ class SSH:
                 sftp.mkdir(directory, mode)
                 res = True
 
-            sftp.close()
-            if proxy:
-                proxy.close()
-            transport.close()
+            if self.auto_close:
+                sftp.close()
+                if proxy:
+                    proxy.close()
+                transport.close()
         else:
             # use mkdir over ssh to create the directory
             _, _, status = self.execute("mkdir -p %s" % directory)
@@ -498,10 +526,11 @@ class SSH:
         transport = client.get_transport()
         sftp = paramiko.SFTPClient.from_transport(transport)
         res = sftp.listdir(directory)
-        sftp.close()
-        if proxy:
-            proxy.close()
-        transport.close()
+        if self.auto_close:
+            sftp.close()
+            if proxy:
+                proxy.close()
+            transport.close()
         return res
 
     def sftp_list_attr(self, directory):
@@ -518,10 +547,11 @@ class SSH:
         transport = client.get_transport()
         sftp = paramiko.SFTPClient.from_transport(transport)
         res = sftp.listdir_attr(directory)
-        sftp.close()
-        transport.close()
-        if proxy:
-            proxy.close()
+        if self.auto_close:
+            sftp.close()
+            transport.close()
+            if proxy:
+                proxy.close()
         return res
 
     def getcwd(self):
@@ -539,10 +569,11 @@ class SSH:
 
         if sftp_avail:
             cwd = sftp.getcwd()
-            sftp.close()
-            if proxy:
-                proxy.close()
-            transport.close()
+            if self.auto_close:
+                sftp.close()
+                if proxy:
+                    proxy.close()
+                transport.close()
         else:
             # use rm over ssh to delete the file
             cwd, _, _ = self.execute("pwd")
@@ -603,10 +634,11 @@ class SSH:
 
         if sftp_avail:
             res = sftp.remove(path)
-            sftp.close()
-            if proxy:
-                proxy.close()
-            transport.close()
+            if self.auto_close:
+                sftp.close()
+                if proxy:
+                    proxy.close()
+                transport.close()
         else:
             # use rm over ssh to delete the file
             _, _, status = self.execute("rm -f %s" % path)
@@ -635,10 +667,11 @@ class SSH:
         if sftp_avail:
             sftp.chmod(path, mode)
             res = True
-            sftp.close()
-            if proxy:
-                proxy.close()
-            transport.close()
+            if self.auto_close:
+                sftp.close()
+                if proxy:
+                    proxy.close()
+                transport.close()
         else:
             # use chmod over ssh to change permissions
             _, _, status = self.execute("chmod %s %s" % (oct(mode), path))

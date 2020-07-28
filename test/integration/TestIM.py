@@ -730,7 +730,7 @@ echo "Hello World" >> /tmp/data.txt
 #             self.assertTrue(
 #                 success, msg="ERROR calling DestroyInfrastructure: " + str(res))
 
-    def test_100_proxy(self):
+    def test_97_proxy(self):
         """
         Test connecting a VM using a proxy host
         """
@@ -785,7 +785,7 @@ echo "Hello World" >> /tmp/data.txt
         all_configured = self.wait_inf_state(inf_id2, VirtualMachine.CONFIGURED, 600)
         self.assertTrue(all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
-    def test_110_destroy(self):
+    def test_99_destroy(self):
         """
         Test DestroyInfrastructure function
         """
