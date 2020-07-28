@@ -737,7 +737,7 @@ class VirtualMachine(LoggerMixin):
                     vm_system.setValue('net_interface.%s.ip' % num_net, str(private_ip))
                 vm_system.setValue('net_interface.%s.connection' % num_net, private_net.id)
 
-    def get_ssh(self, retry=False):
+    def get_ssh(self, retry=False, auto_close=True):
         """
         Get SSH object to connect with this VM
         """
@@ -754,9 +754,9 @@ class VirtualMachine(LoggerMixin):
             self.log_warn("VM ID %s does not have IP. Do not return SSH Object." % self.im_id)
             return None
         if retry:
-            return SSHRetry(ip, user, passwd, private_key, self.getSSHPort(), proxy_host)
+            return SSHRetry(ip, user, passwd, private_key, self.getSSHPort(), proxy_host, auto_close=auto_close)
         else:
-            return SSH(ip, user, passwd, private_key, self.getSSHPort(), proxy_host)
+            return SSH(ip, user, passwd, private_key, self.getSSHPort(), proxy_host, auto_close=auto_close)
 
     def is_ctxt_process_running(self):
         """ Return the PID of the running process or None if it is not running """
@@ -827,70 +827,77 @@ class VirtualMachine(LoggerMixin):
             self.ctxt_pid = None
             self.configured = False
 
+        ssh = None
         initial_count_out = self.cont_out
         wait = 0
-        while self.ctxt_pid:
-            if self.destroy:
-                # If the VM has been destroyed set pid to None and return
-                self.log_debug("VM %s deleted. Exit check_ctxt_process thread." % self.im_id)
-                self.ctxt_pid = None
-                return None
-
-            ctxt_pid = self.ctxt_pid
-            if ctxt_pid != self.WAIT_TO_PID:
-                ssh = self.get_ssh_ansible_master()
-
-                try:
-                    self.log_info("Getting status of ctxt process with pid: " + str(ctxt_pid))
-                    (_, _, exit_status) = ssh.execute("ps " + str(ctxt_pid))
-                    self.ssh_connect_errors = 0
-                except Exception as ex:
-                    self.log_warn("Error getting status of ctxt process with pid: %s. %s" % (ctxt_pid, ex))
-                    exit_status = 0
-                    self.ssh_connect_errors += 1
-                    if self.ssh_connect_errors > Config.MAX_SSH_ERRORS:
-                        self.log_error("Too much errors getting status of ctxt process with pid: " +
-                                       str(ctxt_pid) + ". Forget it.")
-                        self.ssh_connect_errors = 0
-                        self.configured = False
-                        self.ctxt_pid = None
-                        self.cont_out = initial_count_out + ("Too much errors getting the status of ctxt process."
-                                                             " Check some network connection problems or if user "
-                                                             "credentials has been changed.")
-                        return None
-
-                ip = self.getPublicIP()
-                if not ip:
-                    ip = ip = self.getPrivateIP()
-                remote_dir = "%s/%s/%s_%s" % (Config.REMOTE_CONF_DIR, self.inf.id, ip, self.im_id)
-
-                if exit_status != 0:
-                    # The process has finished, get the outputs
-                    self.log_info("The process %s has finished, get the outputs" % ctxt_pid)
-                    ctxt_log = self.get_ctxt_log(remote_dir, ssh, True)
-                    msg = self.get_ctxt_output(remote_dir, ssh, True)
-                    if ctxt_log:
-                        self.cont_out = initial_count_out + msg + ctxt_log
-                    else:
-                        self.cont_out = initial_count_out + msg + \
-                            "Error getting contextualization process log."
+        try:
+            while self.ctxt_pid:
+                if self.destroy:
+                    # If the VM has been destroyed set pid to None and return
+                    self.log_debug("VM %s deleted. Exit check_ctxt_process thread." % self.im_id)
                     self.ctxt_pid = None
-                else:
-                    # Get the log of the process to update the cont_out
-                    # dynamically
-                    if Config.UPDATE_CTXT_LOG_INTERVAL > 0 and wait > Config.UPDATE_CTXT_LOG_INTERVAL:
-                        wait = 0
-                        self.log_info("Get the log of the ctxt process with pid: " + str(ctxt_pid))
-                        ctxt_log = self.get_ctxt_log(remote_dir, ssh)
-                        self.cont_out = initial_count_out + ctxt_log
-                    # The process is still running, wait
-                    self.log_info("The process %s is still running. wait." % ctxt_pid)
-                    time.sleep(Config.CHECK_CTXT_PROCESS_INTERVAL)
-                    wait += Config.CHECK_CTXT_PROCESS_INTERVAL
-            else:
-                # We are waiting the PID, sleep
-                time.sleep(Config.CHECK_CTXT_PROCESS_INTERVAL)
+                    return None
 
+                ctxt_pid = self.ctxt_pid
+                if ctxt_pid != self.WAIT_TO_PID:
+                    if not ssh:
+                        ssh = self.get_ssh_ansible_master(auto_close=False)
+
+                    try:
+                        self.log_info("Getting status of ctxt process with pid: " + str(ctxt_pid))
+                        (_, _, exit_status) = ssh.execute("ps " + str(ctxt_pid))
+                        self.ssh_connect_errors = 0
+                    except Exception as ex:
+                        self.log_warn("Error getting status of ctxt process with pid: %s. %s" % (ctxt_pid, ex))
+                        exit_status = 0
+                        self.ssh_connect_errors += 1
+                        if self.ssh_connect_errors > Config.MAX_SSH_ERRORS:
+                            self.log_error("Too much errors getting status of ctxt process with pid: " +
+                                           str(ctxt_pid) + ". Forget it.")
+                            self.ssh_connect_errors = 0
+                            self.configured = False
+                            self.ctxt_pid = None
+                            self.cont_out = initial_count_out + ("Too much errors getting the status of ctxt process."
+                                                                 " Check some network connection problems or if user "
+                                                                 "credentials has been changed.")
+                            return None
+
+                    ip = self.getPublicIP()
+                    if not ip:
+                        ip = ip = self.getPrivateIP()
+                    remote_dir = "%s/%s/%s_%s" % (Config.REMOTE_CONF_DIR, self.inf.id, ip, self.im_id)
+
+                    if exit_status != 0:
+                        # The process has finished, get the outputs
+                        self.log_info("The process %s has finished, get the outputs" % ctxt_pid)
+                        ctxt_log = self.get_ctxt_log(remote_dir, ssh, True)
+                        msg = self.get_ctxt_output(remote_dir, ssh, True)
+                        if ctxt_log:
+                            self.cont_out = initial_count_out + msg + ctxt_log
+                        else:
+                            self.cont_out = initial_count_out + msg + \
+                                "Error getting contextualization process log."
+                        self.ctxt_pid = None
+                    else:
+                        # Get the log of the process to update the cont_out
+                        # dynamically
+                        if Config.UPDATE_CTXT_LOG_INTERVAL > 0 and wait > Config.UPDATE_CTXT_LOG_INTERVAL:
+                            wait = 0
+                            self.log_info("Get the log of the ctxt process with pid: " + str(ctxt_pid))
+                            ctxt_log = self.get_ctxt_log(remote_dir, ssh)
+                            self.cont_out = initial_count_out + ctxt_log
+                        # The process is still running, wait
+                        self.log_info("The process %s is still running. wait." % ctxt_pid)
+                        time.sleep(Config.CHECK_CTXT_PROCESS_INTERVAL)
+                        wait += Config.CHECK_CTXT_PROCESS_INTERVAL
+                else:
+                    # We are waiting the PID, sleep
+                    time.sleep(Config.CHECK_CTXT_PROCESS_INTERVAL)
+        except Exception as gex:
+            self.log_warn("Error getting status of ctxt process with pid: %s. %s" % (self.ctxt_pid, gex))
+        finally:
+            if ssh:
+                ssh.close()
         return self.ctxt_pid
 
     def is_configured(self):
@@ -906,7 +913,6 @@ class VirtualMachine(LoggerMixin):
 
     def get_ctxt_log(self, remote_dir, ssh, delete=False):
         tmp_dir = tempfile.mkdtemp()
-        conf_out = ""
 
         # Download the contextualization agent log
         try:
@@ -926,6 +932,7 @@ class VirtualMachine(LoggerMixin):
                 self.log_exception(
                     "Error deleting remote contextualization process log: " + remote_dir + '/ctxt_agent.log')
         except Exception:
+            conf_out = ""
             self.log_exception(
                 "Error getting contextualization process log: " + remote_dir + '/ctxt_agent.log')
             self.configured = False
@@ -1011,17 +1018,17 @@ class VirtualMachine(LoggerMixin):
 
         return ansible_host
 
-    def get_ssh_ansible_master(self, retry=True):
+    def get_ssh_ansible_master(self, retry=True, auto_close=True):
         ansible_host = self.get_ansible_host()
         if ansible_host:
             (user, passwd, private_key) = ansible_host.getCredentialValues()
             if retry:
-                return SSHRetry(ansible_host.getHost(), user, passwd, private_key)
+                return SSHRetry(ansible_host.getHost(), user, passwd, private_key, auto_close=auto_close)
             else:
-                return SSH(ansible_host.getHost(), user, passwd, private_key)
+                return SSH(ansible_host.getHost(), user, passwd, private_key, auto_close=auto_close)
         else:
             if self.inf.vm_master:
-                return self.inf.vm_master.get_ssh(retry=retry)
+                return self.inf.vm_master.get_ssh(retry=retry, auto_close=auto_close)
             else:
                 self.log_warn("There is not master VM. Do not return SSH object.")
                 return None
