@@ -591,3 +591,7 @@ IM 1.9.3:
     * Support for ex_tenant_domain_id due to change in libcloud.
     * Error getting EC2 instance types.
     * Error deleting SGs in some OpenStack sites.
+
+IM 1.9.4:
+    * Reduce the number of SSH logins.
+    * Fix python 3 issues.
