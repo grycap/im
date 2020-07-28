@@ -769,7 +769,7 @@ class ConfManager(LoggerMixin, threading.Thread):
                 else:
                     recipes = configure.recipes
                 conf_content = merge_recipes(conf_content, recipes)
-                conf_content = vault_edit.vault.encrypt(conf_content)
+                conf_content = str(vault_edit.vault.encrypt(conf_content))
             else:
                 conf_content = merge_recipes(conf_content, configure.recipes)
 
