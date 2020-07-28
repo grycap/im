@@ -756,8 +756,7 @@ class ConfManager(LoggerMixin, threading.Thread):
         """
         recipe_files = []
 
-        conf_filename = tmp_dir + "/" + ctxt_elem.configure + \
-            "_" + ctxt_elem.system + "_task.yml"
+        conf_filename = tmp_dir + "/" + ctxt_elem.configure + "_" + ctxt_elem.system + "_task.yml"
         if not os.path.isfile(conf_filename):
             configure = self.inf.radl.get_configure_by_name(ctxt_elem.configure)
             conf_content = self.add_ansible_header(vm.getOS().lower())
@@ -996,8 +995,7 @@ class ConfManager(LoggerMixin, threading.Thread):
             if self.inf.radl.configures:
                 for elem in self.inf.radl.configures:
                     if elem is not None and not os.path.isfile(tmp_dir + "/" + elem.name + ".yml"):
-                        conf_out = open(
-                            tmp_dir + "/" + elem.name + ".yml", 'w')
+                        conf_out = open(tmp_dir + "/" + elem.name + ".yml", 'w')
                         conf_out.write(elem.recipes)
                         conf_out.write("\n\n")
                         conf_out.close()
