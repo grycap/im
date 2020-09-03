@@ -121,21 +121,22 @@
     - name: Upgrade pip
       pip:
         name: pip>=9.0.3
+        executable: pip3
 
     - name: Upgrade setuptools with Pip
-      pip: name=setuptools state=latest
+      pip: name=setuptools state=latest executable=pip3
       when: ansible_os_family != "RedHat" or ansible_distribution_major_version|int > 6
 
     - name: Install pyOpenSSL
-      pip: name=pyOpenSSL state=latest
+      pip: name=pyOpenSSL state=latest executable=pip3
       when: ansible_os_family != "RedHat" or ansible_distribution_major_version|int > 6
 
     - name: Ubuntu 14 pip cryptography
-      pip: name=cryptography version=2.9.2
+      pip: name=cryptography version=2.9.2 executable=pip3
       when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int <= 14
 
     - name: Install pkgs with Pip in RH6
-      pip: name="{{ item.name }}" version="{{ item.version }}"
+      pip: name="{{ item.name }}" version="{{ item.version }}" executable=pip3
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int <= 6
       with_items:
         - { name: 'setuptools', version: '28.8.1' }
@@ -148,34 +149,34 @@
         - { name: 'pyOpenSSL', version: '17.0.0' }
 
     - name: Install pyyaml
-      pip: name=pyyaml
+      pip: name=pyyaml executable=pip3
 
     - name: Install ansible {{ ANSIBLE_VERSION }} with Pip
-      pip: name=ansible version={{ ANSIBLE_VERSION }}
+      pip: name=ansible version={{ ANSIBLE_VERSION }} executable=pip3
       when: ANSIBLE_VERSION != "latest"
 
     - name: Install latest ansible version with Pip
-      pip: name=ansible state=latest
+      pip: name=ansible state=latest executable=pip3
       when: ANSIBLE_VERSION == "latest"
 
     - name: Ubuntu 14 extra pip packages needed to avoid https issues
-      pip: name=urllib3,ndg-httpsclient,pyasn1
+      pip: name=urllib3,ndg-httpsclient,pyasn1 executable=pip3
       when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int <= 14
 
 #################################### Now install scp, jmespath and pywinrm with pip  ##################################
 
     - name: Install jmespath with Pip
-      pip: name=jmespath
+      pip: name=jmespath executable=pip3
 
     - name: Install cffi with Pip in RH6
-      pip: name=cffi
+      pip: name=cffi executable=pip3
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int <= 6
 
     - name: Install scp with Pip
-      pip: name=scp
+      pip: name=scp executable=pip3
 
     - name: Install pywinrm with Pip
-      pip: name=pywinrm
+      pip: name=pywinrm executable=pip3
       ignore_errors: yes
 
 ################################################ Configure Ansible  ###################################################
@@ -190,6 +191,7 @@
       ini_file: dest=/etc/ansible/ansible.cfg section={{ item.section }} option={{ item.option }} value="{{ item.value }}"
       with_items:
       - { section: 'defaults', option: 'host_key_checking', value: 'False' }
+      - { section: 'defaults', option: 'interpreter_python ', value: '/usr/bin/python3' }
       - { section: 'defaults', option: 'nocolor', value: '1' }
       - { section: 'ssh_connection', option: 'pipelining', value: 'True' }
       - { section: 'defaults', option: 'jinja2_extensions', value: 'jinja2.ext.do' }
