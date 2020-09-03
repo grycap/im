@@ -13,23 +13,35 @@
 
   ################### Some OSs does not have python by default #########################
     - name: Check Python is installed
-      raw: python --version
+      raw: python3 -c 'import sys; print(sys.version_info[1])'
       ignore_errors: yes
-      register: python_exists
+      register: python3_version
       changed_when: false
 
-    - name: Check Python2 or Python3 is installed
-      raw: python2 --version || python3 --version
-      ignore_errors: yes
-      register: python2_exists
-      changed_when: false
-
-    - name: Bootstrap with python
-      raw: sudo apt update && sudo apt install -y python; sudo yum install -y python || sudo yum install -y python2; sudo zypper -n install python python-xml
+    - name: Bootstrap with python Debian/Ubuntu
+      raw: sudo apt update && sudo apt install -y python3.5; sudo apt install -y python3
       ignore_errors: yes
       register: python_install
       changed_when: python_install.stdout_lines|length > 1
-      when: python_exists is failed and python2_exists is failed
+      when: python3_version is failed or python3_version.stdout|int < 5
+
+    - name: Link correct python version in Ubuntu 14
+      raw: rm -f /usr/bin/python3 && ln -s /usr/bin/python3.5 /usr/bin/python3
+      when: python3_version is success and python3_version.stdout|int < 5
+
+    - name: Bootstrap with python RedHat/CentOS
+      raw: sudo yum install -y python3 || { sudo yum install -y epel-release https://repo.ius.io/ius-release-el6.rpm && sudo yum install -y python36 && ln -s /usr/bin/python3.6 /usr/bin/python3; }
+      ignore_errors: yes
+      register: python_install
+      changed_when: python_install.stdout_lines|length > 1
+      when: python3_version is failed
+
+    - name: Bootstrap with python SUSE
+      raw: sudo zypper -n install python3 python3-xml
+      ignore_errors: yes
+      register: python_install
+      changed_when: python_install.stdout_lines|length > 1
+      when: python3_version is failed
 
      # In some cases python link is not created
     - name: Link python 3 or 2 in case is needed
@@ -69,46 +81,46 @@
   ################### Install Ansible/pip requisites #########################
 
     - name: Debian/Ubuntu install requisites with apt
-      apt: name=wget,python-setuptools,sshpass,openssh-client,unzip install_recommends=no
-      when: ansible_os_family == "Debian"
+      apt: name=python3-pip,wget,python3-setuptools,sshpass,openssh-client,unzip install_recommends=no
+      when: ansible_os_family == "Debian" and not (ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int <= 14)
 
-    - name: Debian/Ubuntu install python-pip with apt
-      apt: name=python-pip install_recommends=no
-      when: ansible_os_family == "Debian" and not (ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int >= 20)
-
-    - name: Install pip in in Ubuntu 20+
-      shell: wget https://bootstrap.pypa.io/get-pip.py && python2 get-pip.py warn=false creates=/usr/local/bin/pip2 chdir=/tmp
-      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int >= 20
-
-    - name: Ubuntu 14 extra packages needed
-      apt: name=gcc,python-dev,libffi-dev,libssl-dev install_recommends=no
+    - name: Ubuntu 14 install requisites with apt
+      command: apt install -y --no-install-recommends gcc python3.5-dev libffi-dev libssl-dev python3-pip wget python3-setuptools sshpass openssh-client unzip
       when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int <= 14
 
-    - name: Yum install requisites RH 6/7/ Fedora 27-
-      yum: name=python-pip,python-setuptools,sshpass,openssh-clients update_cache=yes
-      when: (ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 6 and ansible_distribution_major_version|int < 8) or (ansible_distribution == "Fedora" and ansible_distribution_major_version|int < 28)
+    - name: Ubuntu 14 install pip3.5
+      command: python3.5 /usr/lib/python3/dist-packages/easy_install.py "pip>=9.0.3" creates=/usr/local/bin/pip3.5
+      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int <= 14
 
-    - name: Yum install requisites RH 8 / Fedora 28+
-      command: yum install -y python2-pip python2-setuptools sshpass openssh-clients
-      when: (ansible_distribution != "Fedora" and ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 8) or (ansible_distribution == "Fedora" and ansible_distribution_major_version|int >= 28)
+    - name: Remove old pip3 in Ubuntu 14
+      file: path=/usr/bin/pip3 state=absent
+      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int <= 14
 
-    - name: Yum install extra requisites RH 6
-      yum: name=gcc,libffi-devel,openssl-devel,python-devel update_cache=yes
+    - name: Link pip3.5 in Ubuntu 14
+      file: src=/usr/local/bin/pip3.5 dest=/usr/bin/pip3 state=link
+      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int <= 14
+
+    - name: Yum install requisites RH 7/8 or Fedora
+      command: yum install -y python3-pip python3-setuptools sshpass openssh-clients
+      when: (ansible_os_family == "RedHat" and ansible_distribution_major_version|int > 6)
+
+    - name: Yum install requisites RH 6
+      command: yum install -y python36-pip python36-setuptools sshpass openssh-clients gcc libffi-devel openssl-devel python36-devel
+      when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int <= 6 
+
+    - name: Link pip3 in RH 6
+      command: ln -s /usr/bin/pip3.6 /usr/bin/pip3 creates=/usr/bin/pip3
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int <= 6 
 
     - name: Zypper install requirements Suse
-      zypper: name=python-pip,python-setuptools,gcc,python-devel,wget,libffi-devel,openssl-devel,python-cryptography,make state=present
+      zypper: name=python3-pip,python3-setuptools,gcc,python3-devel,wget,libffi-devel,openssl-devel,python3-cryptography,make state=present
       when: ansible_os_family == "Suse"
-
-    - name: Install pip and setuptools Py3
-      package: name=python3-setuptools,python3-pip
-      when: ansible_python.version.major > 2
-      ignore_errors: yes
 
   ######################################### Use pip to enable to set the version #############################################
 
     - name: Upgrade pip
-      pip: name=pip version=9.0.3
+      pip:
+        name: pip>=9.0.3
 
     - name: Upgrade setuptools with Pip
       pip: name=setuptools state=latest
