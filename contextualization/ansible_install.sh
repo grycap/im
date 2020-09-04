@@ -1,5 +1,7 @@
 #!/bin/sh
 
+ANSIBLE_VERSION="2.6.20"
+
 distribution_id() {
     RETVAL=""
     if [ -z "${RETVAL}" -a -e "/etc/os-release" ]; then
@@ -63,35 +65,47 @@ else
     DISTRO=$(distribution_id)
     case $DISTRO in
         debian)
-            echo "deb http://ppa.launchpad.net/ansible/ansible/ubuntu trusty main" >> /etc/apt/sources.list
-            apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 93C4A3FD7BB9C367
-            apt-get update
-            apt-get -y install wget ansible
+            apt install -y --no-install-recommends python3 python3-pip wget python3-setuptools sshpass openssh-client unzip
             ;;
         ubuntu)
-            apt-get -y install software-properties-common
-            apt-add-repository -y ppa:ansible/ansible
-            apt-get update
-            apt-get -y install wget ansible
+            apt update
+            if [ "$(distribution_major_version)" == "14"]
+            then
+                rm -f /usr/bin/python3 && ln -s /usr/bin/python3.5 /usr/bin/python3
+                apt install -y --no-install-recommends python3.5 wget gcc python3.5-dev libffi-dev libssl-dev python3-pip wget python3-setuptools sshpass openssh-client unzip
+                rm -f /usr/bin/pip3
+                ln -s /usr/local/bin/pip3.5 /usr/bin/pip3
+                pip3 install cryptography==2.9.2
+                pip3 install urllib3 ndg-httpsclient pyasn1
+            else
+                apt install -y --no-install-recommends python3 python3-pip wget python3-setuptools sshpass openssh-client unzip
+            fi
             ;;
         rhel)
-            yum install -y http://dl.fedoraproject.org/pub/epel/epel-release-latest-$(distribution_major_version).noarch.rpm
-            yum install -y wget ansible
+            yum install -y epel-release wget
+            yum install -y python3 libselinux-python3 python3-pip python3-setuptools sshpass openssh-clients
             ;;
         centos)
             yum install -y epel-release wget
-            yum install -y ansible
+            yum install -y python3 libselinux-python3 python3-pip python3-setuptools sshpass openssh-clients
             ;;
         fedora)
-            yum install -y wget ansible python2-rpm yum
+            yum install -y wget python3 libselinux-python3 python3-pip python3-setuptools sshpass openssh-clients
+
             ;;
     	*)
             echo "Unsupported distribution: $DISTRO"
             ;;
     esac
+
+    pip3 install "pip>=9.0.3"
+    pip3 install -U setuptools
+    pip3 install pyOpenSSL pyyaml jmespath scp
+    pip3 install ansible==$ANSIBLE_VERSION
 fi
 
 # Create the config file
+mkdir /etc/ansible
 cat > /etc/ansible/ansible.cfg <<EOL
 [defaults]
 transport  = smart
@@ -102,6 +116,7 @@ become_method = sudo
 fact_caching = jsonfile
 fact_caching_connection = /var/tmp/facts_cache
 fact_caching_timeout = 86400
+interpreter_python=/usr/bin/python3
 gathering = smart
 [paramiko_connection]
 record_host_keys=False
