@@ -49,6 +49,12 @@
       become: yes
       ignore_errors: yes
 
+    # In case of redhat systems libselinux-python3 is needed
+    - name: Install libselinux-python3 on RH systems
+      raw: yum -y install libselinux-python3
+      become: yes
+      ignore_errors: yes
+
   ################### Some basic OSs operations #########################
     - name: Get Facts
       setup:
