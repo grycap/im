@@ -922,7 +922,7 @@ class VirtualMachine(LoggerMixin):
             with open(tmp_dir + '/ctxt_agent.log') as f:
                 # Read removing problematic chars
                 conf_out = str("".join(list(filter(lambda x: x in string.printable,
-                                                   f.read()))).encode("ascii", "replace").decode("utf-8"))
+                                                   f.read()))).encode("ascii", "replace").decode("utf-8", "replace"))
             try:
                 if delete:
                     ssh.sftp_remove(remote_dir + '/ctxt_agent.log')
