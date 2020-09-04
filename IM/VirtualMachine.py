@@ -923,18 +923,19 @@ class VirtualMachine(LoggerMixin):
                 # Read removing problematic chars
                 conf_out = str("".join(list(filter(lambda x: x in string.printable,
                                                    f.read()))).encode("ascii", "replace").decode("utf-8", "replace"))
-            try:
-                if delete:
-                    ssh.sftp_remove(remote_dir + '/ctxt_agent.log')
-            except Exception:
-                self.log_exception(
-                    "Error deleting remote contextualization process log: " + remote_dir + '/ctxt_agent.log')
         except Exception:
             conf_out = ""
             self.log_exception(
                 "Error getting contextualization process log: " + remote_dir + '/ctxt_agent.log')
             self.configured = False
         finally:
+            try:
+                if delete:
+                    ssh.sftp_remove(remote_dir + '/ctxt_agent.log')
+            except Exception:
+                self.log_exception(
+                    "Error deleting remote contextualization process log: " + remote_dir + '/ctxt_agent.log')
+
             shutil.rmtree(tmp_dir, ignore_errors=True)
 
         return conf_out
