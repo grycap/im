@@ -660,8 +660,7 @@ class ConfManager(LoggerMixin, threading.Thread):
                 if disk_mount_path and disk_fstype:
                     # This recipe works with EC2, OpenNebula and Azure. It must be
                     # tested/completed with other providers
-                    res += '  - tasks:\n'
-                    res += '    - include_tasks: utils/tasks/disk_format_mount.yml\n'
+                    res += '  - include_tasks: utils/tasks/disk_format_mount.yml\n'
                     res += '    vars:\n'
                     res += '      device: "/dev/{{item.key}}"\n'
                     res += '      mount_path: "' + disk_mount_path + '"\n'
