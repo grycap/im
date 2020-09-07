@@ -521,7 +521,7 @@ class TestIM(unittest.TestCase):
             memory.size>=512m and
             net_interface.0.connection = 'net' and
             disk.0.os.flavour='ubuntu' and
-            disk.0.os.version>='14.04'
+            disk.0.os.version>='16.04'
             )
 
             deploy test 1
@@ -613,7 +613,7 @@ echo "Hello World" >> /tmp/data.txt
              net_interface.0.connection = 'publicnet' and
              net_interface.1.connection = 'net' and
              disk.0.os.flavour='ubuntu' and
-             disk.0.os.version>='14.04'
+             disk.0.os.version>='18.04'
             )
 
             deploy node 1
@@ -651,7 +651,7 @@ echo "Hello World" >> /tmp/data.txt
              memory.size>=512m and
              net_interface.0.connection = 'net' and
              disk.0.os.flavour='ubuntu' and
-             disk.0.os.version>='14.04'
+             disk.0.os.version>='20.04'
             )
 
             deploy node 1
