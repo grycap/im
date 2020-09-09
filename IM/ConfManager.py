@@ -392,11 +392,11 @@ class ConfManager(LoggerMixin, threading.Thread):
                     vault_password = vm.info.systems[0].getValue("vault.password")
                     if vault_password:
                         vault_export = "export VAULT_PASS='%s' && " % vault_password
-                    (pid, _, _) = ssh.execute(vault_export + "nohup python3 " + Config.REMOTE_CONF_DIR + "/" +
+                    (pid, _, _) = ssh.execute("nohup sh -c \"" + vault_export + "nohup python3 " + Config.REMOTE_CONF_DIR + "/" +
                                               str(self.inf.id) + "/" + ctxt_agent_command +
                                               Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/" +
                                               "/general_info.cfg " + remote_dir + "/" + os.path.basename(conf_file) +
-                                              " > " + remote_dir + "/stdout" + " 2> " + remote_dir +
+                                              "\" > " + remote_dir + "/stdout" + " 2> " + remote_dir +
                                               "/stderr < /dev/null & echo -n $!")
 
                     self.log_info("Ansible process to configure " + str(vm.im_id) + " launched with pid: " + pid)
