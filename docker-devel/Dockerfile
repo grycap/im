@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y python3 python3
      apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && rm -rf ~/.cache/
 
 # Install IM
-RUN apt-get install --no-install-recommends -y git python3-setuptools python3-pip && \
+RUN apt-get update && apt-get install --no-install-recommends -y python3-setuptools python3-pip git && \
      pip3 install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns && \
      pip3 install pyOpenSSL cheroot xmltodict pymongo ansible==2.9.10&& \
      cd tmp && git clone https://github.com/grycap/im.git -b $BRANCH && cd im && pip3 install /tmp/im && \
