@@ -10,8 +10,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y python3 python3
      apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && rm -rf ~/.cache/
 
 # Install IM
-RUN apt-get update && apt-get install --no-install-recommends -y git python3-pip && \
-     pip3 install setuptools --upgrade && \
+RUN apt-get update && apt-get install --no-install-recommends -y git python3-setuptools python3-pip && \
      pip3 install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns && \
      pip3 install pyOpenSSL cheroot xmltodict pymongo ansible==2.9.10&& \
      pip3 install IM==1.9.5 && \
