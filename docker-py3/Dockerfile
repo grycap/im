@@ -10,12 +10,12 @@ RUN apt-get update && apt-get install --no-install-recommends -y python3 python3
      apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && rm -rf ~/.cache/
 
 # Install IM
-RUN apt-get update && apt-get install --no-install-recommends -y git python3-setuptools python3-pip && \
+RUN apt-get update && apt-get install --no-install-recommends -y python3-setuptools python3-pip && \
      pip3 install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns && \
      pip3 install pyOpenSSL cheroot xmltodict pymongo ansible==2.9.10&& \
      pip3 install IM==1.9.5 && \
      /usr/local/bin/pip3 uninstall pip -y && \
-     apt-get purge -y git python3-pip && \
+     apt-get purge -y python3-pip && \
      apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && rm -rf ~/.cache/
 
 # Copy a ansible.cfg with correct minimum values
