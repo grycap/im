@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import io
 import time
 import threading
 import shutil
@@ -919,10 +920,9 @@ class VirtualMachine(LoggerMixin):
             # Get the messages of the contextualization process
             self.log_debug("Get File: " + remote_dir + '/ctxt_agent.log')
             ssh.sftp_get(remote_dir + '/ctxt_agent.log', tmp_dir + '/ctxt_agent.log')
-            with open(tmp_dir + '/ctxt_agent.log') as f:
-                # Read removing problematic chars
-                conf_out = str("".join(list(filter(lambda x: x in string.printable,
-                                                   f.read()))).encode("ascii", "replace").decode("utf-8", "replace"))
+            with io.open(tmp_dir + '/ctxt_agent.log', encoding="utf-8", errors="replace") as f:
+                # Read removing problematic chars in python2 and python3
+                conf_out = str(f.read().encode("ascii", "replace").decode("utf-8", "replace"))
         except Exception:
             conf_out = ""
             self.log_exception(
@@ -933,8 +933,8 @@ class VirtualMachine(LoggerMixin):
                 if delete:
                     ssh.sftp_remove(remote_dir + '/ctxt_agent.log')
             except Exception:
-                self.log_exception(
-                    "Error deleting remote contextualization process log: " + remote_dir + '/ctxt_agent.log')
+                self.log_exception("Error deleting remote contextualization process log: " +
+                                   remote_dir + '/ctxt_agent.log')
 
             shutil.rmtree(tmp_dir, ignore_errors=True)
 
