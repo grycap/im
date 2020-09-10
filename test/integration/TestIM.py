@@ -92,6 +92,8 @@ class TestIM(unittest.TestCase):
                 self.assertTrue(success, msg="ERROR getting VM info:" + str(vm_state))
 
                 if vm_state == VirtualMachine.UNCONFIGURED:
+                    _, cont_msg = self.server.GetInfrastructureContMsg(inf_id, self.auth_data, True)
+                    print(cont_msg)
                     _, cont_msg = self.server.GetVMContMsg(inf_id, vm_id, self.auth_data)
                     print(cont_msg)
 
