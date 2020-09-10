@@ -1,3 +1,26 @@
+IM Docker Image (Recommended Option)
+====================================
+
+The recommended option to use the Infrastructure Manager service is using the available docker image.
+A Docker image named `grycap/im` has been created to make easier the deployment of an IM service using the 
+default configuration. Information about this image can be found here: `https://registry.hub.docker.com/u/grycap/im/ <https://registry.hub.docker.com/u/grycap/im/>`_.
+
+How to launch the IM service using docker::
+
+  $ sudo docker run -d -p 8899:8899 -p 8800:8800 --name im grycap/im
+
+To make the IM data persistent you also have to specify a persistent location for the IM database using
+the IM_DATA_DB environment variable and adding a volume::
+
+  $ sudo docker run -d -p 8899:8899 -p 8800:8800 -v "/some_local_path/db:/db" -e IM_DATA_DB=/db/inf.dat --name im grycap/im
+
+You can also specify an external MySQL server to store IM data using the IM_DATA_DB environment variable::
+  
+  $ sudo docker run -d -p 8899:8899 -e IM_DATA_DB=mysql://username:password@server/db_name --name im grycap/im 
+
+Or you can also add a volume with all the IM configuration::
+
+  $ sudo docker run -d -p 8899:8899 -p 8800:8800 -v "/some_local_path/im.cfg:/etc/im/im.cfg" --name im grycap/im
 
 IM Service Installation
 =======================
@@ -5,7 +28,7 @@ IM Service Installation
 Prerequisites
 -------------
 
-IM needs at least Python 2.6 to run, as well as the next libraries:
+IM needs at least Python 2.7 (Python 3.5 or higher recommended) to run, as well as the next libraries:
 
 * `The RADL parser <https://github.com/grycap/radl>`_.
   (Since IM version 1.5.3, it requires RADL version 1.1.0 or later).
@@ -53,7 +76,7 @@ Optional Packages
    It is typically available as the 'python-cherrypy' or 'python-cherrypy3' package.
    In newer versions (9.0 and later) the functionality has been moved `the cheroot
    library<https://github.com/cherrypy/cheroot>`_ it can be installed using pip.
-* `apache-libcloud <http://libcloud.apache.org/>`_ 0.17 or later is used in the
+* `apache-libcloud <http://libcloud.apache.org/>`_ 3.0 or later is used in the
   LibCloud, OpenStack and GCE connectors.
 * `boto <http://boto.readthedocs.org>`_ 2.29.0 or later is used as interface to
   Amazon EC2. It is available as package named ``python-boto`` in Debian based
@@ -608,29 +631,6 @@ If you need to specify more advanced details of the logging configuration you ha
 	format=%(asctime)s - %(hostname)s - %(name)s - %(levelname)s - %(message)s
 	datefmt=
 
-
-Docker Image
-============
-
-A Docker image named `grycap/im` has been created to make easier the deployment of an IM service using the 
-default configuration. Information about this image can be found here: `https://registry.hub.docker.com/u/grycap/im/ <https://registry.hub.docker.com/u/grycap/im/>`_.
-
-How to launch the IM service using docker::
-
-  $ sudo docker run -d -p 8899:8899 -p 8800:8800 --name im grycap/im
-
-To make the IM data persistent you also have to specify a persistent location for the IM database using
-the IM_DATA_DB environment variable and adding a volume::
-
-  $ sudo docker run -d -p 8899:8899 -p 8800:8800 -v "/some_local_path/db:/db" -e IM_DATA_DB=/db/inf.dat --name im grycap/im
-
-You can also specify an external MySQL server to store IM data using the IM_DATA_DB environment variable::
-  
-  $ sudo docker run -d -p 8899:8899 -e IM_DATA_DB=mysql://username:password@server/db_name --name im grycap/im 
-
-Or you can also add a volume with all the IM configuration::
-
-  $ sudo docker run -d -p 8899:8899 -p 8800:8800 -v "/some_local_path/im.cfg:/etc/im/im.cfg" --name im grycap/im
 
 .. _options-ha:
 
