@@ -16,7 +16,7 @@
       when: python3_version is failed or python3_version.stdout|int < 5
 
     - name: Link correct python version in Ubuntu 14
-      raw: sudo rm -f /usr/bin/python3 && sudo ln -s /usr/bin/python3.5 /usr/bin/python3
+      raw: ls /usr/bin/python3.5 && sudo rm -f /usr/bin/python3 && sudo ln -s /usr/bin/python3.5 /usr/bin/python3
       when: python3_version is success and python3_version.stdout|int < 5
 
     - name: Bootstrap with python RedHat/CentOS
