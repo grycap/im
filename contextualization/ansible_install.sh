@@ -71,7 +71,7 @@ else
             apt update
             if [ "$(distribution_major_version)" == "14"]
             then
-                rm -f /usr/bin/python3 && ln -s /usr/bin/python3.5 /usr/bin/python3
+                ls /usr/bin/python3.5 && rm -f /usr/bin/python3 && ln -s /usr/bin/python3.5 /usr/bin/python3
                 apt install -y --no-install-recommends python3.5 wget gcc python3.5-dev libffi-dev libssl-dev python3-pip wget python3-setuptools sshpass openssh-client unzip
                 rm -f /usr/bin/pip3
                 ln -s /usr/local/bin/pip3.5 /usr/bin/pip3
