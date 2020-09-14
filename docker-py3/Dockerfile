@@ -1,7 +1,7 @@
 # Dockerfile to create a container with the IM service
 FROM ubuntu:20.04
 LABEL maintainer="Miguel Caballer <micafer1@upv.es>"
-LABEL version="1.9.5"
+LABEL version="1.10.0"
 LABEL description="Container image to run the IM service. (http://www.grycap.upv.es/im)"
 EXPOSE 8899 8800
 
@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y python3 python3
 RUN apt-get update && apt-get install --no-install-recommends -y python3-setuptools python3-pip && \
      pip3 install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns && \
      pip3 install pyOpenSSL cheroot xmltodict pymongo ansible==2.9.10&& \
-     pip3 install IM==1.9.5 && \
+     pip3 install IM==1.10.0 && \
      /usr/local/bin/pip3 uninstall pip -y && \
      apt-get purge -y python3-pip && \
      apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && rm -rf ~/.cache/
