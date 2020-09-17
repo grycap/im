@@ -1,0 +1,44 @@
+tosca_definitions_version: tosca_simple_yaml_1_0
+
+description: TOSCA test for the IM
+
+repositories:
+  indigo_repository:
+    description: INDIGO Custom types repository
+    url: https://raw.githubusercontent.com/indigo-dc/tosca-types/master/
+
+imports:
+  - indigo_custom_types:
+      file: custom_types.yaml
+      repository: indigo_repository
+
+topology_template:
+
+  node_templates:
+
+
+    test:
+      type: tosca.nodes.indigo.LRMS.FrontEnd.Slurm
+      properties:
+        wn_ips:
+        - { get_attribute: [ server, public_address, 0 ] }
+      requirements:
+        - host: server
+
+
+    server:
+      type: tosca.nodes.indigo.Compute
+      capabilities:
+        scalable:
+          properties:
+           count: 2
+        host:
+         properties:
+           num_cpus: 1
+           disk_size: 10 GB
+           mem_size: 4 GB
+        os:
+         properties:
+           architecture: x86_64
+           type: linux
+           distribution: ubuntu
