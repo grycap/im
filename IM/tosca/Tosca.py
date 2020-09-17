@@ -1013,31 +1013,36 @@ class Tosca:
         Take a translator.toscalib.functions.Function and return the final result
         (in some cases the result of a function is another function)
         """
-        if isinstance(func, dict):
-            if is_function(func):
-                func = get_function(self.tosca, node, func)
-
-        while isinstance(func, Function):
+        if not isinstance(func, (Function, dict, list)):
+            return func
+        elif isinstance(func, Function):
             if isinstance(func, GetAttribute):
                 func = self._get_attribute_result(func, node, inf_info)
             elif isinstance(func, Concat):
-                func = self._get_intrinsic_value(
-                    {"concat": func.args}, node, inf_info)
+                func = self._get_intrinsic_value({"concat": func.args}, node, inf_info)
             elif isinstance(func, Token):
-                func = self._get_intrinsic_value(
-                    {"token": func.args}, node, inf_info)
+                func = self._get_intrinsic_value({"token": func.args}, node, inf_info)
             else:
                 func = func.result()
-
-        if isinstance(func, dict):
-            if self._is_intrinsic(func):
+            return self._final_function_result(func, node, inf_info)
+        elif isinstance(func, list):
+            for i, elem in enumerate(func):
+                func[i] = self._final_function_result(elem, node, inf_info)
+            return func
+        else: # is a dict
+            if is_function(func):
+                func = get_function(self.tosca, node, func)
+                return self._final_function_result(func, node, inf_info)
+            elif self._is_intrinsic(func):
                 func = self._get_intrinsic_value(func, node, inf_info)
+                return self._final_function_result(func, node, inf_info)
+            else: # a plain dict
+                for k, v in func.items():
+                    func[k] = self._final_function_result(v, node, inf_info)
+                return func
+        # TODO: resolve function values related with run-time values as IM
+        # or ansible variables
 
-        if func is None:
-            # TODO: resolve function values related with run-time values as IM
-            # or ansible variables
-            pass
-        return func
 
     def _find_host_compute(self, node, nodetemplates):
         """

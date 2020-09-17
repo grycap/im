@@ -119,7 +119,6 @@ class TestTosca(unittest.TestCase):
         tosca_data = read_file_as_string('../files/tosca_nets.yml')
         tosca = Tosca(tosca_data)
         _, radl = tosca.to_radl()
-        print(radl)
         radl = parse_radl(str(radl))
         net = radl.get_network_by_id('pub_network')
         net1 = radl.get_network_by_id('network1')
@@ -160,7 +159,6 @@ class TestTosca(unittest.TestCase):
         vm2.info.systems = [system2]
         inf_info.get_vm_list_by_system_name.return_value = {"lrms_server": [vm1], "lrms_wn": [vm2]}
         _, radl = tosca.to_radl(inf_info)
-        print(radl)
         radl = parse_radl(str(radl))
         lrms_wn = radl.get_system_by_name("lrms_wn")
         self.assertEqual("network2", lrms_wn.getValue("net_interface.0.connection"))
@@ -182,10 +180,23 @@ class TestTosca(unittest.TestCase):
         net.isPublic.return_value = False
         inf_info.radl.get_network_by_id.return_value = net
         _, radl = tosca.to_radl(inf_info)
-        print(radl)
         radl = parse_radl(str(radl))
         lrms_wn = radl.get_system_by_name("lrms_wn")
         self.assertEqual("private.cloud2.com", lrms_wn.getValue("net_interface.0.connection"))
+
+    def test_00_tosca_param_get_att(self):
+        tosca_data = read_file_as_string('../files/tosca_param_get_att.yml')
+        tosca = Tosca(tosca_data)
+        inf_info = MagicMock()
+        vm1 = MagicMock()
+        vm1.getPublicIP.return_value = "8.8.8.8"
+        system1 = system("server", [Feature("disk.0.image.url", "=", "ost://cloud1.com/image1"),
+                                    Feature("net_interface.0.connection", "=", "publi")])
+        vm1.info.systems = [system1]
+        inf_info.get_vm_list_by_system_name.return_value = {"server": [vm1]}
+        _, radl = tosca.to_radl(inf_info)
+        conf = yaml.safe_load(radl.configures[0].recipes)[0]
+        self.assertEqual(conf['vars']['wn_ips'], "")
 
 
 if __name__ == "__main__":
