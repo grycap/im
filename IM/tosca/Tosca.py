@@ -1029,20 +1029,19 @@ class Tosca:
             for i, elem in enumerate(func):
                 func[i] = self._final_function_result(elem, node, inf_info)
             return func
-        else: # is a dict
+        else:  # is a dict
             if is_function(func):
                 func = get_function(self.tosca, node, func)
                 return self._final_function_result(func, node, inf_info)
             elif self._is_intrinsic(func):
                 func = self._get_intrinsic_value(func, node, inf_info)
                 return self._final_function_result(func, node, inf_info)
-            else: # a plain dict
+            else:  # a plain dict
                 for k, v in func.items():
                     func[k] = self._final_function_result(v, node, inf_info)
                 return func
         # TODO: resolve function values related with run-time values as IM
         # or ansible variables
-
 
     def _find_host_compute(self, node, nodetemplates):
         """
