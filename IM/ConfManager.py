@@ -392,11 +392,11 @@ class ConfManager(LoggerMixin, threading.Thread):
                     vault_password = vm.info.systems[0].getValue("vault.password")
                     if vault_password:
                         vault_export = "export VAULT_PASS='%s' && " % vault_password
-                    (pid, _, _) = ssh.execute(vault_export + "nohup python " + Config.REMOTE_CONF_DIR + "/" +
-                                              str(self.inf.id) + "/" + ctxt_agent_command +
+                    (pid, _, _) = ssh.execute("nohup sh -c \"" + vault_export + "python3 " + Config.REMOTE_CONF_DIR +
+                                              "/" + str(self.inf.id) + "/" + ctxt_agent_command +
                                               Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/" +
                                               "/general_info.cfg " + remote_dir + "/" + os.path.basename(conf_file) +
-                                              " > " + remote_dir + "/stdout" + " 2> " + remote_dir +
+                                              "\" > " + remote_dir + "/stdout" + " 2> " + remote_dir +
                                               "/stderr < /dev/null & echo -n $!")
 
                     self.log_info("Ansible process to configure " + str(vm.im_id) + " launched with pid: " + pid)
@@ -660,7 +660,7 @@ class ConfManager(LoggerMixin, threading.Thread):
                 if disk_mount_path and disk_fstype:
                     # This recipe works with EC2, OpenNebula and Azure. It must be
                     # tested/completed with other providers
-                    res += '  - include: utils/tasks/disk_format_mount.yml\n'
+                    res += '  - include_tasks: utils/tasks/disk_format_mount.yml\n'
                     res += '    vars:\n'
                     res += '      device: "/dev/{{item.key}}"\n'
                     res += '      mount_path: "' + disk_mount_path + '"\n'
@@ -692,7 +692,7 @@ class ConfManager(LoggerMixin, threading.Thread):
 
         conf_content += "  pre_tasks: \n"
         # Basic tasks set copy /etc/hosts ...
-        conf_content += "  - include: utils/tasks/main.yml\n"
+        conf_content += "  - include_tasks: utils/tasks/main.yml\n"
 
         conf_content += "  tasks: \n"
         conf_content += "  - debug: msg='Install user requested apps'\n"
@@ -1320,7 +1320,7 @@ class ConfManager(LoggerMixin, threading.Thread):
         conf_all_out = open(tmp_dir + "/" + all_filename, 'w')
         conf_all_out.write("---\n")
         conf_all_out.write("- hosts: " + group + "\n")
-        conf_all_out.write("- include: " + filename + ".yml\n")
+        conf_all_out.write("- import_playbook: " + filename + ".yml\n")
         conf_all_out.write("\n\n")
         conf_all_out.close()
         return all_filename

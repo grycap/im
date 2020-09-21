@@ -92,6 +92,8 @@ class TestIM(unittest.TestCase):
                 self.assertTrue(success, msg="ERROR getting VM info:" + str(vm_state))
 
                 if vm_state == VirtualMachine.UNCONFIGURED:
+                    _, cont_msg = self.server.GetInfrastructureContMsg(inf_id, self.auth_data, True)
+                    print(cont_msg)
                     _, cont_msg = self.server.GetVMContMsg(inf_id, vm_id, self.auth_data)
                     print(cont_msg)
 
@@ -145,7 +147,7 @@ class TestIM(unittest.TestCase):
         self.__class__.inf_id = inf_id
 
         all_configured = self.wait_inf_state(
-            inf_id, VirtualMachine.CONFIGURED, 900)
+            inf_id, VirtualMachine.CONFIGURED, 1800)
         self.assertTrue(
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
@@ -521,7 +523,7 @@ class TestIM(unittest.TestCase):
             memory.size>=512m and
             net_interface.0.connection = 'net' and
             disk.0.os.flavour='ubuntu' and
-            disk.0.os.version>='14.04'
+            disk.0.os.version>='16.04'
             )
 
             deploy test 1
@@ -613,7 +615,7 @@ echo "Hello World" >> /tmp/data.txt
              net_interface.0.connection = 'publicnet' and
              net_interface.1.connection = 'net' and
              disk.0.os.flavour='ubuntu' and
-             disk.0.os.version>='14.04'
+             disk.0.os.version>='18.04'
             )
 
             deploy node 1
@@ -651,7 +653,7 @@ echo "Hello World" >> /tmp/data.txt
              memory.size>=512m and
              net_interface.0.connection = 'net' and
              disk.0.os.flavour='ubuntu' and
-             disk.0.os.version>='14.04'
+             disk.0.os.version>='20.04'
             )
 
             deploy node 1
@@ -689,7 +691,7 @@ echo "Hello World" >> /tmp/data.txt
         self.__class__.inf_id = [inf_id]
 
         all_configured = self.wait_inf_state(
-            inf_id, VirtualMachine.CONFIGURED, 1200)
+            inf_id, VirtualMachine.CONFIGURED, 900)
         self.assertTrue(
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
