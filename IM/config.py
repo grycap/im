@@ -55,7 +55,7 @@ class Config:
     WAIT_SSH_ACCCESS_TIMEOUT = 300
     XMLRCP_PORT = 8899
     XMLRCP_ADDRESS = "0.0.0.0"
-    ACTIVATE_REST = False
+    ACTIVATE_REST = True
     REST_PORT = 8800
     REST_ADDRESS = "0.0.0.0"
     USER_DB = ""
@@ -107,6 +107,8 @@ class Config:
     ACTIVATE_XMLRPC = True
     FORCE_OIDC_AUTH = False
     BOOT_MODE = 0  # It can be 0-Normal, 1-ReadOnly, 2-ReadDelete
+    ENABLE_CORS = False
+    CORS_ORIGIN = '*'
 
 
 config = ConfigParser()
