@@ -8,6 +8,7 @@ UPV offers an IM endpoint deployed in H.A. mode over a kubernetes cluster on it 
 This service exposes the **web-based GUI and REST API** in the following URLs:
 
 * IM web portal: `https://appsgrycap.i3m.upv.es:31443/im-web/ <https://appsgrycap.i3m.upv.es:31443/im-web/>`_.
+* IM Dashboard: `https://appsgrycap.i3m.upv.es:31443/im-dashboard/ <https://appsgrycap.i3m.upv.es:31443/im-dashboard/>`_.
 * IM REST API: `https://appsgrycap.i3m.upv.es:31443/im/ <https://appsgrycap.i3m.upv.es:31443/im/>`_.
 
 This IM instance is provided by the `Grid and High Performance Computing Group (GRyCAP) <http://www.grycap.upv.es>`_ at 
