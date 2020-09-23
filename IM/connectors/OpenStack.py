@@ -1048,7 +1048,10 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         if all_failed:
             for sg in sgs:
                 self.log_info("Deleting security group: %s." % sg.id)
-                driver.ex_delete_security_group(sg)
+                try:
+                    driver.ex_delete_security_group(sg)
+                except Exception as ex:
+                    self.log_exception("Error deleting security group: %s." % get_ex_error(ex))
 
         return res
 
