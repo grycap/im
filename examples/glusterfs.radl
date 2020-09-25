@@ -1,0 +1,73 @@
+network public (outbound = 'yes')
+network private ()
+
+system front (
+cpu.count>=2 and
+memory.size>=4096m and
+instance_type = 'medium' and
+net_interface.0.connection = 'private' and
+net_interface.0.dns_name = 'wn-#N#' and
+net_interface.1.connection = 'public' and
+net_interface.0.dns_name = 'glusterfe' and
+disk.0.os.name='linux' and
+disk.0.os.flavour='ubuntu' and
+disk.0.os.version>='18.04' and
+disk.0.applications contains (name='ansible.modules.geerlingguy.glusterfs')
+)
+
+system wn (
+cpu.count>=2 and
+memory.size>=4096m and
+instance_type = 'medium' and
+net_interface.0.connection = 'private' and
+net_interface.0.dns_name = 'wn-#N#' and
+disk.0.os.name='linux' and
+disk.0.os.flavour='ubuntu' and
+disk.0.os.version>='18.04'
+)
+
+configure gluster (
+@begin
+---
+ - vars: 
+     gluster_brick_dir: /data
+     gluster_brick_name: glusterdata
+     gluster_mount_dir: /mnt/gluster
+     gluster_nodes: '{{ groups["wn"]|map("extract", hostvars, "IM_NODE_PRIVATE_IP")|list + [hostvars[groups["front"][0]]["IM_NODE_PRIVATE_IP"]]  }}'
+   roles:
+    - role: 'geerlingguy.glusterfs'
+   tasks:
+    - name: Ensure Gluster brick and mount directories exist.
+      file: "path={{ item }} state=directory mode=0775"
+      with_items:
+        - "{{ gluster_brick_dir }}"
+        - "{{ gluster_mount_dir }}"
+
+    - name: Configure Gluster volume.
+      gluster_volume:
+        state: present
+        name: "{{ gluster_brick_name }}"
+        brick: "{{ gluster_brick_dir }}"
+        replicas: 2
+        cluster: "{{ gluster_nodes | join(',') }}"
+        host: "{{ inventory_hostname }}"
+        force: yes
+      run_once: true
+
+    - name: Ensure Gluster volume is mounted.
+      mount:
+        name: "{{ gluster_mount_dir }}"
+        src: "{{ IM_NODE_PRIVATE_IP }}:/{{ gluster_brick_name }}"
+        fstype: glusterfs
+        opts: "defaults,_netdev"
+        state: mounted
+@end
+)
+
+contextualize (
+        system front configure gluster	
+        system wn configure gluster
+)
+
+deploy front 1
+deploy wn 1
