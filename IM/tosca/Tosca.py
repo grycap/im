@@ -513,24 +513,47 @@ class Tosca:
         for rel_tpl in rel_tpls:
             if rel.type == rel_tpl.type:
                 return rel_tpl
+            else:
+                root_type = Tosca._get_root_parent_type(rel_tpl).type
+                if root_type == rel.type:
+                    return rel_tpl
+        return None
 
     @staticmethod
     def _get_relationships_interfaces(relationships, node):
         res = {}
         for src, trgt, rel in relationships:
             rel_tpl = Tosca._get_relationship_template(rel, src, trgt)
-            if rel_tpl.interfaces:
-                if src.name == node.name:
-                    for name in ['pre_configure_source', 'post_configure_source', 'add_source']:
+
+            rel_tlp_def_interfaces = {}
+            if rel_tpl.type_definition.interfaces and 'Standard' in rel_tpl.type_definition.interfaces:
+                rel_tlp_def_interfaces = rel_tpl.type_definition.interfaces['Standard']
+
+            if src.name == node.name:
+                for name in ['pre_configure_source', 'post_configure_source', 'add_source']:
+                    if rel_tpl.interfaces:
                         for iface in rel_tpl.interfaces:
                             if iface.name == name:
                                 res[name] = iface
-                elif trgt.name == node.name:
-                    for name in ['pre_configure_target', 'post_configure_target', 'add_target',
-                                 'target_changed', 'remove_target']:
+
+                    if rel_tlp_def_interfaces and name in rel_tlp_def_interfaces:
+                        res[name] = InterfacesDef(rel_tpl.type_definition, 'Standard',
+                                                  name=name, value=rel_tlp_def_interfaces[name],
+                                                  node_template=rel_tpl)
+
+            elif trgt.name == node.name:
+                for name in ['pre_configure_target', 'post_configure_target', 'add_target',
+                             'target_changed', 'remove_target']:
+                    if rel_tpl.interfaces:
                         for iface in rel_tpl.interfaces:
                             if iface.name == name:
                                 res[name] = iface
+
+                    if rel_tlp_def_interfaces and name in rel_tlp_def_interfaces:
+                        res[name] = InterfacesDef(rel_tpl.type_definition, 'Standard',
+                                                  name=name, value=rel_tlp_def_interfaces[name],
+                                                  node_template=rel_tpl)
+
         return res
 
     def _get_artifact_full_uri(self, node, artifact_name):
@@ -580,6 +603,9 @@ class Tosca:
                      'add_source', 'target_changed', 'remove_target']:
             interface = interfaces.get(name, None)
             if interface:
+                if interface.node_template:
+                    orig_node = node
+                    node = interface.node_template
                 artifacts = []
                 # Get the inputs
                 env = {}
@@ -624,7 +650,10 @@ class Tosca:
                         raise Exception("Error downloading the implementation script '%s': %s" % (
                             implementation, str(ex)))
                 else:
-                    script_path = os.path.join(Tosca.ARTIFACTS_PATH, implementation)
+                    if implementation_url[0] == 'file':
+                        script_path = implementation_url[2]
+                    else:
+                        script_path = os.path.join(Tosca.ARTIFACTS_PATH, implementation)
                     if os.path.isfile(script_path):
                         f = open(script_path)
                         script_content = f.read()
@@ -672,7 +701,10 @@ class Tosca:
                     recipe_list.append(recipe)
 
         if tasks or recipe_list:
-            name = node.name + "_conf"
+            if node != orig_node:
+                name = node.name + "_" + orig_node.name + "_conf"
+            else:
+                name = node.name + "_conf"
             if variables:
                 recipes = "---\n- vars:\n" + variables + "\n"
                 recipes += "  "
@@ -1515,8 +1547,8 @@ class Tosca:
                 for name, elems in node_type.interfaces['Standard'].items():
                     if name in ['create', 'configure', 'start', 'stop', 'delete']:
                         if name not in interfaces:
-                            interfaces[name] = InterfacesDef(
-                                node_type, 'Standard', name=name, value=elems)
+                            interfaces[name] = InterfacesDef(node_type, 'Standard', name=name,
+                                                             value=elems, node_template=node)
 
             if node_type.parent_type is not None:
                 node_type = node_type.parent_type
