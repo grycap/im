@@ -4,6 +4,7 @@ import yaml
 import copy
 import operator
 import requests
+from toscaparser.nodetemplate import NodeTemplate
 
 try:
     unicode("hola")
@@ -156,8 +157,7 @@ class Tosca:
                     level = Tosca._get_dependency_level(node)
                     radl.configures.append(conf)
                     if compute:
-                        cont_intems.append(contextualize_item(
-                            compute.name, conf.name, level))
+                        cont_intems.append(contextualize_item(compute.name, conf.name, level))
 
         if cont_intems:
             radl.contextualize = contextualize(cont_intems)
@@ -1288,15 +1288,24 @@ class Tosca:
     @staticmethod
     def _get_node_artifacts(node):
         """ Get a dict will the node artifacts """
-        artifacts_dict = {}
-        artifacts = node.type_definition.get_value('artifacts', node.entity_tpl, True)
+        artifacts = []
+        artifacts.append(node.type_definition.get_value('artifacts', node.entity_tpl, True))
 
-        if artifacts:
-            if isinstance(artifacts, dict):
-                artifacts_dict = artifacts
-            else:
-                for elem in artifacts:
-                    artifacts_dict.update(elem)
+        if (isinstance(node, NodeTemplate)):
+            # Get also artifacts of related nodes and relations
+            for relationship, trgt in node.relationships.items():
+                artifacts.append(relationship.get_value('artifacts'))
+                artifacts.append(trgt.type_definition.get_value('artifacts', trgt.entity_tpl, True))
+
+        artifacts_dict = {}
+
+        for artifact in artifacts:
+            if artifact:
+                if isinstance(artifact, dict):
+                    artifacts_dict.update(artifact)
+                else:
+                    for elem in artifact:
+                        artifacts_dict.update(elem)
 
         return artifacts_dict
 
