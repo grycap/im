@@ -111,18 +111,6 @@
           name: python-apt
           executable: pip3
 
-      - name: Link apt_pkg in Ubuntu 14
-        file:
-          src: /usr/lib/python3/dist-packages/apt_pkg.cpython-34m-x86_64-linux-gnu.so
-          dest: /usr/local/lib/python3.5/dist-packages/apt_pkg.cpython-35m-x86_64-linux-gnu.so
-          state: link
-
-      - name: Link apt_inst in Ubuntu 14
-        file:
-          src: /usr/lib/python3/dist-packages/apt_inst.cpython-34m-x86_64-linux-gnu.so
-          dest: /usr/local/lib/python3.5/dist-packages/apt_inst.cpython-35m-x86_64-linux-gnu.so
-          state: link
-
       when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int <= 14
 
     - name: Yum install requisites RH 7/8 or Fedora
