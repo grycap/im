@@ -91,26 +91,38 @@
       apt: name=python3-pip,wget,python3-setuptools,sshpass,openssh-client,unzip install_recommends=no
       when: ansible_os_family == "Debian" and not (ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int <= 14)
 
-    - name: Ubuntu 14 install requisites with apt
-      command: apt install -y --no-install-recommends gcc python3.5-dev libffi-dev libssl-dev python3-pip wget python3-setuptools sshpass openssh-client unzip
-      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int <= 14
+    # We need some hacks to make Ubuntu 14 to work
+    - block:
 
-    - name: Ubuntu 14 install pip3.5
-      command: python3.5 /usr/lib/python3/dist-packages/easy_install.py "pip>=9.0.3" creates=/usr/local/bin/pip3.5
-      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int <= 14
+      - name: Ubuntu 14 install requisites with apt
+        command: apt install -y --no-install-recommends gcc python3-apt python3.5-dev libffi-dev libssl-dev python3-pip wget python3-setuptools sshpass openssh-client unzip
+      
+      - name: Ubuntu 14 install pip3.5
+        command: python3.5 /usr/lib/python3/dist-packages/easy_install.py "pip>=9.0.3" creates=/usr/local/bin/pip3.5
 
-    - name: Remove old pip3 in Ubuntu 14
-      file: path=/usr/bin/pip3 state=absent
-      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int <= 14
+      - name: Remove old pip3 in Ubuntu 14
+        file: path=/usr/bin/pip3 state=absent
 
-    - name: Link pip3.5 in Ubuntu 14
-      file: src=/usr/local/bin/pip3.5 dest=/usr/bin/pip3 state=link
-      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int <= 14
+      - name: Link pip3.5 in Ubuntu 14
+        file: src=/usr/local/bin/pip3.5 dest=/usr/bin/pip3 state=link
 
-    - name: Install python3-apt in Ubuntu 14
-      pip:
-        name: python-apt
-        executable: pip3
+      - name: Install python3-apt in Ubuntu 14
+        pip:
+          name: python-apt
+          executable: pip3
+
+      - name: Link apt_pkg in Ubuntu 14
+        file:
+          src: /usr/lib/python3/dist-packages/apt_pkg.cpython-34m-x86_64-linux-gnu.so
+          dest: /usr/local/lib/python3.5/dist-packages/apt_pkg.cpython-35m-x86_64-linux-gnu.so
+          state: link
+
+      - name: Link apt_inst in Ubuntu 14
+        file:
+          src: /usr/lib/python3/dist-packages/apt_inst.cpython-34m-x86_64-linux-gnu.so
+          dest: /usr/local/lib/python3.5/dist-packages/apt_inst.cpython-35m-x86_64-linux-gnu.so
+          state: link
+
       when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int <= 14
 
     - name: Yum install requisites RH 7/8 or Fedora
