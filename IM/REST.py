@@ -312,7 +312,7 @@ def enable_cors():
     """
     if Config.ENABLE_CORS:
         bottle.response.headers['Access-Control-Allow-Origin'] = Config.CORS_ORIGIN
-        bottle.response.headers['Access-Control-Allow-Methods'] = 'PUT, GET, POST, DELETE'
+        bottle.response.headers['Access-Control-Allow-Methods'] = 'PUT, GET, POST, DELETE, OPTIONS'
         bottle.response.headers['Access-Control-Allow-Headers'] = 'Origin, Accept, Content-Type, Authorization'
 
 
@@ -1030,6 +1030,9 @@ def RESTRebootVM(infid=None, vmid=None):
         logger.exception("Error rebooting VM")
         return return_error(400, "Error rebooting VM: %s" % get_ex_error(ex))
 
+@app.route("/<url:re:.+>", method='OPTIONS')
+def ReturnOptions(**kwargs):
+    return {}
 
 @app.route('/version', method='GET')
 def RESTGeVersion():
