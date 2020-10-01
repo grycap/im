@@ -107,6 +107,8 @@ class Config:
     ACTIVATE_XMLRPC = True
     FORCE_OIDC_AUTH = False
     BOOT_MODE = 0  # It can be 0-Normal, 1-ReadOnly, 2-ReadDelete
+    ENABLE_CORS = False
+    CORS_ORIGIN = '*'
 
 
 config = ConfigParser()
