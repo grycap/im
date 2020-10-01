@@ -304,6 +304,7 @@ def format_output(res, default_type="text/plain", field_name=None, list_field_na
 
     return info
 
+
 @app.hook('after_request')
 def enable_cors():
     """
@@ -313,6 +314,7 @@ def enable_cors():
         bottle.response.headers['Access-Control-Allow-Origin'] = Config.CORS_ORIGIN
         bottle.response.headers['Access-Control-Allow-Methods'] = 'PUT, GET, POST, DELETE'
         bottle.response.headers['Access-Control-Allow-Headers'] = 'Origin, Accept, Content-Type, Authorization'
+
 
 @app.route('/infrastructures/:infid', method='DELETE')
 def RESTDestroyInfrastructure(infid=None):
