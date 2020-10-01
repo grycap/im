@@ -2,7 +2,7 @@
 FROM ubuntu:18.04
 ARG BRANCH=devel
 LABEL maintainer="Miguel Caballer <micafer1@upv.es>"
-LABEL version="1.9.4"
+LABEL version="1.9.5"
 LABEL description="Container image to run the IM service. (http://www.grycap.upv.es/im)"
 EXPOSE 8899 8800
 
@@ -15,7 +15,9 @@ RUN apt-get update && apt-get install --no-install-recommends -y git python3-pip
      pip3 install pip setuptools --upgrade && \
      /usr/local/bin/pip3 install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns && \
      /usr/local/bin/pip3 install pyOpenSSL cheroot xmltodict pymongo ansible==2.9.10&& \
-     cd tmp && git clone https://github.com/grycap/im.git -b $BRANCH && cd im && /usr/local/bin/pip3 install /tmp/im && \
+     # Install it untill changes are merged upstream
+     cd /tmp && git clone https://github.com/micafer/tosca-parser && /usr/local/bin/pip3 install /tmp/tosca-parser && \
+     cd /tmp && git clone https://github.com/grycap/im.git -b $BRANCH && /usr/local/bin/pip3 install /tmp/im && \
      /usr/local/bin/pip3 uninstall pip -y && \
      apt-get purge -y git python3-pip && \
      apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && rm -rf ~/.cache/
