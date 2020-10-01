@@ -17,7 +17,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y git python3-pip
      /usr/local/bin/pip3 install pyOpenSSL cheroot xmltodict pymongo ansible==2.9.10&& \
      # Install it untill changes are merged upstream
      cd /tmp && git clone https://github.com/micafer/tosca-parser && /usr/local/bin/pip3 install /tmp/tosca-parser && \
-     cd tmp && git clone https://github.com/grycap/im.git -b $BRANCH && cd im && /usr/local/bin/pip3 install /tmp/im && \
+     cd /tmp && git clone https://github.com/grycap/im.git -b $BRANCH && /usr/local/bin/pip3 install /tmp/im && \
      /usr/local/bin/pip3 uninstall pip -y && \
      apt-get purge -y git python3-pip && \
      apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && rm -rf ~/.cache/
