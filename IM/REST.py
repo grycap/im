@@ -1030,9 +1030,11 @@ def RESTRebootVM(infid=None, vmid=None):
         logger.exception("Error rebooting VM")
         return return_error(400, "Error rebooting VM: %s" % get_ex_error(ex))
 
+
 @app.route("/<url:re:.+>", method='OPTIONS')
 def ReturnOptions(**kwargs):
     return {}
+
 
 @app.route('/version', method='GET')
 def RESTGeVersion():
