@@ -17,7 +17,11 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
-import xmlrpclib
+try:
+    from xmlrpclib import ServerProxy
+except ImportError:
+    from xmlrpc.client import ServerProxy
+
 import time
 import sys
 import os
@@ -51,8 +55,7 @@ class TestIM(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.server = xmlrpclib.ServerProxy(
-            "http://" + HOSTNAME + ":" + str(TEST_PORT), allow_none=True)
+        cls.server = ServerProxy("http://" + HOSTNAME + ":" + str(TEST_PORT), allow_none=True)
         tests_path = os.path.dirname(os.path.realpath(__file__))
         auth_file = tests_path + '/../auth.dat'
         cls.auth_data = Authentication.read_auth_data(auth_file)
