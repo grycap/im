@@ -245,7 +245,7 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
             user = self.DEFAULT_USER
             system.setValue('disk.0.os.credentials.username', user)
 
-        tags = self.get_instance_tags(system)
+        tags = self.get_instance_tags(system, auth_data)
 
         res = []
         i = 0

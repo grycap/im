@@ -612,7 +612,7 @@ class OpenNebulaCloudConnector(CloudConnector):
         ''' % (name, cpu, cpu, memory, arch, disks, sched, ConfigOpenNebula.TEMPLATE_OTHER)
 
         user_template = ""
-        tags = self.get_instance_tags(system)
+        tags = self.get_instance_tags(system, auth_data)
         for key, value in tags.items():
             user_template += '%s = "%s", ' % (key, value)
 
