@@ -984,7 +984,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 'ex_blockdevicemappings': blockdevicemappings,
                 'name': "%s-%s" % (name, int(time.time() * 100))}
 
-        tags = self.get_instance_tags(system)
+        tags = self.get_instance_tags(system, auth_data)
         if tags:
             args['ex_metadata'] = tags
 
