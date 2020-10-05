@@ -614,6 +614,7 @@ class OpenNebulaCloudConnector(CloudConnector):
         user_template = ""
         tags = self.get_instance_tags(system, auth_data)
         for key, value in tags.items():
+            key = key.replace("-", "_")
             user_template += '%s = "%s", ' % (key, value)
 
         if user_template:
