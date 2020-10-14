@@ -382,7 +382,7 @@ class AzureCloudConnector(CloudConnector):
         return res
 
     def get_azure_vm_create_json(self, group_name, storage_account, vm_name, nics, radl,
-                                 instance_type, custom_data, compute_client):
+                                 instance_type, custom_data, compute_client, tags):
         """ Create the VM parameters structure. """
         system = radl.systems[0]
         url = urlparse(system.getValue("disk.0.image.url"))
@@ -471,7 +471,6 @@ class AzureCloudConnector(CloudConnector):
                 'custom_data': custom_data
             }
 
-        tags = self.get_instance_tags(system)
         if tags:
             vm['tags'] = tags
 
@@ -561,7 +560,7 @@ class AzureCloudConnector(CloudConnector):
         return subnets
 
     def create_vms(self, inf, radl, requested_radl, num_vm, location, storage_account_name,
-                   subnets, credentials, subscription_id):
+                   subnets, credentials, subscription_id, tags):
         """
         Creates a set of VMs
         """
@@ -580,15 +579,6 @@ class AzureCloudConnector(CloudConnector):
             group_name = "rg-%s" % (vm_name)
 
             try:
-                tags = {}
-                if radl.systems[0].getValue('instance_tags'):
-                    keypairs = radl.systems[0].getValue('instance_tags').split(",")
-                    for keypair in keypairs:
-                        parts = keypair.split("=")
-                        key = parts[0].strip()
-                        value = parts[1].strip()
-                        tags[key] = value
-
                 args = {'location': location}
                 if tags:
                     args['tags'] = tags
@@ -606,7 +596,7 @@ class AzureCloudConnector(CloudConnector):
                 instance_type = self.get_instance_type(radl.systems[0], credentials, subscription_id)
                 vm_parameters = self.get_azure_vm_create_json(group_name, storage_account_name, vm_name,
                                                               nics, radl, instance_type, custom_data,
-                                                              compute_client)
+                                                              compute_client, tags)
 
                 async_vm_creation = compute_client.virtual_machines.create_or_update(group_name,
                                                                                      vm_name,
@@ -660,6 +650,8 @@ class AzureCloudConnector(CloudConnector):
         resource_client = ResourceManagementClient(credentials, subscription_id)
         storage_account_name = self.get_storage_account_name(inf.id)
 
+        tags = self.get_instance_tags(radl.systems[0], auth_data)
+
         with inf._lock:
             # Create resource group for the Infrastructure if it does not exists
             if not self.get_rg("rg-%s" % inf.id, credentials, subscription_id):
@@ -688,7 +680,7 @@ class AzureCloudConnector(CloudConnector):
 
         res = []
         vms = self.create_vms(inf, radl, requested_radl, num_vm, location,
-                              storage_account_name, subnets, credentials, subscription_id)
+                              storage_account_name, subnets, credentials, subscription_id, tags)
 
         remaining_vms = num_vm
         for success, data in vms:
