@@ -526,7 +526,7 @@ class GCECloudConnector(LibCloudCloudConnector):
                 'external_ip': None,
                 'location': region}
 
-        tags = self.get_instance_tags(system)
+        tags = self.get_instance_tags(system, auth_data)
         if tags:
             args['ex_metadata'] = tags
 
