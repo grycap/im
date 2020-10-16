@@ -425,7 +425,7 @@ class CloudConnector(LoggerMixin):
             return None
 
     @staticmethod
-    def get_instance_tags(system, auth_data=None):
+    def get_instance_tags(system, auth_data=None, inf=None):
         """
         Get the instance_tags value of the system object as a dict
         """
@@ -441,6 +441,8 @@ class CloudConnector(LoggerMixin):
         if auth_data and auth_data.getAuthInfo('InfrastructureManager'):
             im_username = auth_data.getAuthInfo('InfrastructureManager')[0]['username']
             tags["IM-USER"] = im_username
+        if inf:
+            tags["IM_INFRA_ID"] = inf.id
         return tags
 
     @staticmethod

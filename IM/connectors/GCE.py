@@ -522,7 +522,7 @@ class GCECloudConnector(LibCloudCloudConnector):
                 'external_ip': None,
                 'location': region}
 
-        tags = self.get_instance_tags(system, auth_data)
+        tags = self.get_instance_tags(system, auth_data, inf)
         if tags:
             args['ex_labels'] = {}
             for key, value in tags.items():
