@@ -672,7 +672,7 @@ class EC2CloudConnector(CloudConnector):
             user = self.DEFAULT_USER
             system.setValue('disk.0.os.credentials.username', user)
 
-        tags = self.get_instance_tags(system, auth_data)
+        tags = self.get_instance_tags(system, auth_data, inf)
 
         all_failed = True
         volumes = {}

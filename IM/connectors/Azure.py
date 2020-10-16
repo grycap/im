@@ -643,7 +643,7 @@ class AzureCloudConnector(CloudConnector):
         resource_client = ResourceManagementClient(credentials, subscription_id)
         storage_account_name = self.get_storage_account_name(inf.id)
 
-        tags = self.get_instance_tags(radl.systems[0], auth_data)
+        tags = self.get_instance_tags(radl.systems[0], auth_data, inf)
 
         with inf._lock:
             # Create resource group for the Infrastructure if it does not exists
