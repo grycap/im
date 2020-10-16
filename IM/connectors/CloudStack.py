@@ -209,19 +209,13 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
 
         instance_type = self.get_instance_type(driver.list_sizes(), system)
 
-        name = system.getValue("instance_name")
-        if not name:
-            name = system.getValue("disk.0.image.name")
-        if not name:
-            name = "userimage"
-
         sgs = self.create_security_groups(driver, inf, radl)
 
         args = {'size': instance_type,
                 'image': image,
                 'ex_security_groups': sgs,
                 'ex_start_vm': True,
-                'name': "%s-%s" % (name, str(uuid.uuid1()))}
+                'name': self.gen_instance_name(system)}
 
         if system.getValue('availability_zone'):
             args['location'] = system.getValue('availability_zone')

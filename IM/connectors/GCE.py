@@ -515,11 +515,7 @@ class GCECloudConnector(LibCloudCloudConnector):
         if not instance_type:
             raise Exception("No compatible size found")
 
-        name = system.getValue("instance_name")
-        if not name:
-            name = system.getValue("disk.0.image.name")
-        if not name:
-            name = "userimage"
+        name = self.gen_instance_name(system)
 
         args = {'size': instance_type,
                 'image': image,
@@ -587,7 +583,7 @@ class GCECloudConnector(LibCloudCloudConnector):
         error_msg = "Error launching VM."
         if num_vm > 1:
             args['number'] = num_vm
-            args['base_name'] = "%s-%s" % (name.lower().replace("_", "-"), str(uuid.uuid1()))
+            args['base_name'] = name
             self.log_debug(args)
             try:
                 nodes = driver.ex_create_multiple_nodes(**args)
@@ -596,7 +592,7 @@ class GCECloudConnector(LibCloudCloudConnector):
                 self.log_exception("Error launching VMs.")
                 error_msg = str(ex)
         else:
-            args['name'] = "%s-%s" % (name.lower().replace("_", "-"), str(uuid.uuid1()))
+            args['name'] = name
             self.log_debug(args)
             try:
                 nodes = [driver.create_node(**args)]

@@ -762,6 +762,7 @@ class EC2CloudConnector(CloudConnector):
                     if len(reservation.instances) == 1:
                         time.sleep(1)
                         instance = reservation.instances[0]
+                        instance.add_tag("Name", self.gen_instance_name(system))
                         for key, value in tags.items():
                             instance.add_tag(key, value)
                         ec2_vm_id = region_name + ";" + instance.id
