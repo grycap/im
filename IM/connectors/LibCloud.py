@@ -198,15 +198,9 @@ class LibCloudCloudConnector(CloudConnector):
 
         instance_type = self.get_instance_type(driver.list_sizes(), system)
 
-        name = system.getValue("instance_name")
-        if not name:
-            name = system.getValue("disk.0.image.name")
-        if not name:
-            name = "userimage"
-
         args = {'size': instance_type,
                 'image': image,
-                'name': "%s-%s" % (name, str(uuid.uuid1()))}
+                'name': self.gen_instance_name(system)}
 
         keypair = None
         public_key = system.getValue("disk.0.os.credentials.public_key")

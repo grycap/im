@@ -397,10 +397,6 @@ class vSphereCloudConnector(CloudConnector):
 
         template = self.get_template_name(system.getValue("disk.0.image.url"))
 
-        name = system.getValue("disk.0.image.name")
-        if not name:
-            name = "userimage"
-
         datastores = self.get_datastores(content)
         networks = self.get_networks(content, datacenter)
 
@@ -412,7 +408,7 @@ class vSphereCloudConnector(CloudConnector):
         while i < num_vm:
             self.log_debug("Creating node")
 
-            vm_name = "%s-%s" % (name.lower().replace("_", "-"), int(time.time() * 100))
+            vm_name = self.gen_instance_name(system)
             vm = VirtualMachine(inf, vm_name, self.cloud, radl, requested_radl, self)
             task = self.create_vm(radl, vm_name, connection, vm_folder, resource_pool,
                                   list(datastores.values())[0], template, cpu, memory, nets, vm)

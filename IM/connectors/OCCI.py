@@ -746,11 +746,7 @@ class OCCICloudConnector(CloudConnector):
         memory = None
         if system.getFeature('memory.size'):
             memory = system.getFeature('memory.size').getValue('G')
-        name = system.getValue("instance_name")
-        if not name:
-            name = system.getValue("disk.0.image.name")
-        if not name:
-            name = "im_userimage"
+        name = self.gen_instance_name(system, False)
         arch = system.getValue('cpu.arch')
 
         if arch.find('64'):
