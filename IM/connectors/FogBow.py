@@ -363,11 +363,6 @@ class FogBowCloudConnector(CloudConnector):
 
         cpu = system.getValue('cpu.count')
         memory = system.getFeature('memory.size').getValue('M')
-        name = system.getValue("instance_name")
-        if not name:
-            name = system.getValue("disk.0.image.name")
-        if not name:
-            name = "userimage"
         requirements = {}
         sgx = system.getValue('cpu.sgx.epc_size')
         if sgx:
@@ -397,7 +392,7 @@ class FogBowCloudConnector(CloudConnector):
                 body = {"compute":
                         {"imageId": image,
                          "memory": memory,
-                         "name": "%s-%s" % (name.lower().replace("_", "-"), str(uuid1())),
+                         "name": self.gen_instance_name(system),
                          "publicKey": public_key,
                          "vCPU": cpu}
                         }

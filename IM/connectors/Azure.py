@@ -568,14 +568,7 @@ class AzureCloudConnector(CloudConnector):
         vms = []
         i = 0
         while i < num_vm:
-            uid = str(uuid.uuid1())
-
-            vm_name = radl.systems[0].getValue("instance_name")
-            if vm_name:
-                vm_name = "%s-%s" % (vm_name, uid)
-            else:
-                vm_name = "userimage-%s" % uid
-
+            vm_name = self.gen_instance_name(radl.systems[0])
             group_name = "rg-%s" % (vm_name)
 
             try:
@@ -650,7 +643,7 @@ class AzureCloudConnector(CloudConnector):
         resource_client = ResourceManagementClient(credentials, subscription_id)
         storage_account_name = self.get_storage_account_name(inf.id)
 
-        tags = self.get_instance_tags(radl.systems[0], auth_data)
+        tags = self.get_instance_tags(radl.systems[0], auth_data, inf)
 
         with inf._lock:
             # Create resource group for the Infrastructure if it does not exists
