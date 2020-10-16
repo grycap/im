@@ -554,11 +554,7 @@ class OpenNebulaCloudConnector(CloudConnector):
         cpu = system.getValue('cpu.count')
         arch = system.getValue('cpu.arch')
         memory = system.getFeature('memory.size').getValue('M')
-        name = system.getValue("instance_name")
-        if not name:
-            name = system.getValue("disk.0.image.name")
-        if not name:
-            name = "userimage"
+        name = self.gen_instance_name(system, False)
         url = urlparse(system.getValue("disk.0.image.url"))
         path = os.path.basename(url[2])
 

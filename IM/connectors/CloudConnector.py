@@ -18,6 +18,7 @@ import logging
 import operator
 import time
 import yaml
+import uuid
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -552,3 +553,16 @@ class CloudConnector(LoggerMixin):
                 return cidr
 
         return None
+
+    @staticmethod
+    def gen_instance_name(system, unique=True, default="im-userimage"):
+        name = system.getValue("instance_name")
+        if not name:
+            name = system.getValue("disk.0.image.name")
+        if not name:
+            name = default
+        name = name.lower().replace("_", "-")
+        if unique:
+            return "%s-%s" % (name, str(uuid.uuid1()))
+        else:
+            return name

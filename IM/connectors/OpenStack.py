@@ -962,12 +962,6 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         if not instance_type:
             raise Exception("No flavor found for the specified VM requirements.")
 
-        name = system.getValue("instance_name")
-        if not name:
-            name = system.getValue("disk.0.image.name")
-        if not name:
-            name = "userimage"
-
         blockdevicemappings = self.get_volumes(driver, image, radl)
 
         with inf._lock:
@@ -982,7 +976,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 'image': image,
                 'ex_security_groups': sgs,
                 'ex_blockdevicemappings': blockdevicemappings,
-                'name': "%s-%s" % (name, int(time.time() * 100))}
+                'name': self.gen_instance_name(system)}
 
         tags = self.get_instance_tags(system, auth_data)
         if tags:

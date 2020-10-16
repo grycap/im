@@ -568,14 +568,7 @@ class AzureCloudConnector(CloudConnector):
         vms = []
         i = 0
         while i < num_vm:
-            uid = str(uuid.uuid1())
-
-            vm_name = radl.systems[0].getValue("instance_name")
-            if vm_name:
-                vm_name = "%s-%s" % (vm_name, uid)
-            else:
-                vm_name = "userimage-%s" % uid
-
+            vm_name = self.gen_instance_name(radl.systems[0])
             group_name = "rg-%s" % (vm_name)
 
             try:
