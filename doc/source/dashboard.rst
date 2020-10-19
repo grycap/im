@@ -235,6 +235,8 @@ Service Crecentials
 
 This page enable the user to specify the project/VO to be used to access available sites. In the list 
 (:ref:`Fig. 2 <figure_dash_cred_list>`) the user can edit or delete the current value for the selected site.
+This must be done before using a site in case that the user belongs to more that one project in the specific site.
+In this case if not set some erros may appear in the dropdown list of Site images or deploying the VMs.
 
 .. _figure_dash_cred_list:
 .. figure:: images/dash_cred_list.png
