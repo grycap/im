@@ -183,7 +183,7 @@ Run the docker container::
             grycap/im-dashboard:latest
 
 
-Warning!! Remember to update the redirect uri in the OIDC client to `https://<PROXY_HOST>/login/oidc/authorized`
+**Warning!!** Remember to update the redirect uri in the OIDC client to `https://<PROXY_HOST>/login/oidc/authorized`
 
 Access the dashboard at `https://<PROXY_HOST>/`
 
