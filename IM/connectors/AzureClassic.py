@@ -339,11 +339,7 @@ class AzureClassicCloudConnector(CloudConnector):
         Generate the XML to create the VM
         """
         system = radl.systems[0]
-        name = system.getValue("instance_name")
-        if not name:
-            name = system.getValue("disk.0.image.name")
-        if not name:
-            name = "userimage" + str(num)
+        name = self.gen_instance_name(system)
         url = urlparse(system.getValue("disk.0.image.url"))
 
         label = name + " IM created VM"
