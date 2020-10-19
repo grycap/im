@@ -13,9 +13,10 @@ Functionalities:
 - Delete infrastructure
 - Create new infrastructure
 
-The im-dashboard is a Python application built with the [Flask](http://flask.pocoo.org/) microframework; [Flask-Dance](https://flask-dance.readthedocs.io/en/latest/) is used for Openid-Connect/OAuth2 integration.
+The im-dashboard is a Python application built with the `Flask <http://flask.pocoo.org/>`_ microframework; 
+`Flask-Dance <https://flask-dance.readthedocs.io/en/latest>`_) is used for Openid-Connect/OAuth2 integration.
 
-The docker image uses [Gunicorn](https://gunicorn.org/) as WSGI HTTP server to serve the Flask Application.
+The docker image uses `Gunicorn <https://gunicorn.org/>`_ as WSGI HTTP server to serve the Flask Application.
 
 How to deploy the dashboard
 ---------------------------
@@ -96,24 +97,23 @@ In particular, the following tags are supported:
 +-----------------------+----------------------------------------------------------------------------------------------------------------------+
 
 
-Example of template metadata:
+Example of template metadata::
 
-```yaml
-tosca_definitions_version: tosca_simple_yaml_1_0
+   tosca_definitions_version: tosca_simple_yaml_1_0
 
-imports:
-  - indigo_custom_types: https://raw.githubusercontent.com/indigo-dc/tosca-types/v4.0.0/custom_types.yaml
+   imports:
+   - indigo_custom_types: https://raw.githubusercontent.com/indigo-dc/tosca-types/v4.0.0/custom_types.yaml
 
-description: Deploy a Mesos Cluster (with Marathon and Chronos frameworks) on top of Virtual machines
+   description: Deploy a Mesos Cluster (with Marathon and Chronos frameworks) on top of Virtual machines
 
-metadata:
-  display_name: Deploy a Mesos cluster
-  icon: images/mesos.png
+   metadata:
+   display_name: Deploy a Mesos cluster
+   icon: images/mesos.png
 
-topology_template:
+   topology_template:
 
-....
-```
+   ....
+
 
 Enabling HTTPS
 ^^^^^^^^^^^^^^
@@ -123,66 +123,65 @@ You would need to provide
 - a pair certificate/key that the container will read from the container paths `/certs/cert.pem` and `/certs/key.pem`;
 - the environment variable `ENABLE_HTTPS` set to `True`
 
-Run the docker container:
+Run the docker container::
 
-```sh
-docker run -d -p 443:5001 --name='im-dashboard' \
-           -e ENABLE_HTTPS=True \
-           -v $PWD/cert.pem:/certs/cert.pem \
-           -v $PWD/key.pem:/certs/key.pem \
-           -v $PWD/config.json:/app/app/config.json \
-           -v $PWD/tosca-templates:/opt/tosca-templates \
-           grycap/im-dashboard:latest
-```
+
+   $ docker run -d -p 443:5001 --name='im-dashboard' \
+            -e ENABLE_HTTPS=True \
+            -v $PWD/cert.pem:/certs/cert.pem \
+            -v $PWD/key.pem:/certs/key.pem \
+            -v $PWD/config.json:/app/app/config.json \
+            -v $PWD/tosca-templates:/opt/tosca-templates \
+            grycap/im-dashboard:latest
+
 
 Access the dashboard at `https://<DASHBOARD_HOST>/`
 
 Using an HTTPS Proxy
 ^^^^^^^^^^^^^^^^^^^^
 
-Example of configuration for nginx:
+Example of configuration for nginx::
 
-```
-server {
-      listen         80;
-      server_name    YOUR_SERVER_NAME;
-      return         301 https://$server_name$request_uri;
-}
 
-server {
-  listen        443 ssl;
-  server_name   YOUR_SERVER_NAME;
-  access_log    /var/log/nginx/proxy-paas.access.log  combined;
+   server {
+         listen         80;
+         server_name    YOUR_SERVER_NAME;
+         return         301 https://$server_name$request_uri;
+   }
 
-  ssl on;
-  ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
-  ssl_certificate           /etc/nginx/cert.pem;
-  ssl_certificate_key       /etc/nginx/key.pem;
-  ssl_trusted_certificate   /etc/nginx/trusted_ca_cert.pem;
+   server {
+   listen        443 ssl;
+   server_name   YOUR_SERVER_NAME;
+   access_log    /var/log/nginx/proxy-paas.access.log  combined;
 
-  location / {
-                # Pass the request to Gunicorn
-                proxy_pass http://127.0.0.1:5001/;
+   ssl on;
+   ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
+   ssl_certificate           /etc/nginx/cert.pem;
+   ssl_certificate_key       /etc/nginx/key.pem;
+   ssl_trusted_certificate   /etc/nginx/trusted_ca_cert.pem;
 
-                proxy_set_header        X-Real-IP $remote_addr;
-                proxy_set_header        X-Forwarded-For $proxy_add_x_forwarded_for;
-                proxy_set_header        X-Forwarded-Proto https;
-                proxy_set_header        Host $http_host;
-                proxy_redirect          http:// https://;
-                proxy_buffering         off;
-  }
+   location / {
+                  # Pass the request to Gunicorn
+                  proxy_pass http://127.0.0.1:5001/;
 
-}
-```
+                  proxy_set_header        X-Real-IP $remote_addr;
+                  proxy_set_header        X-Forwarded-For $proxy_add_x_forwarded_for;
+                  proxy_set_header        X-Forwarded-Proto https;
+                  proxy_set_header        Host $http_host;
+                  proxy_redirect          http:// https://;
+                  proxy_buffering         off;
+   }
 
-Run the docker container:
+   }
 
-```sh
-docker run -d -p 5001:5001 --name='im-dashboard' \
-           -v $PWD/config.json:/app/app/config.json \
-           -v $PWD/tosca-templates:/opt/tosca-templates \
-           grycap/im-dashboard:latest
-```
+Run the docker container::
+
+
+   $ docker run -d -p 5001:5001 --name='im-dashboard' \
+            -v $PWD/config.json:/app/app/config.json \
+            -v $PWD/tosca-templates:/opt/tosca-templates \
+            grycap/im-dashboard:latest
+
 
 Warning!! Remember to update the redirect uri in the OIDC client to `https://<PROXY_HOST>/login/oidc/authorized`
 
@@ -193,9 +192,7 @@ Performance tuning
 
 You can change the number of gunicorn worker processes using the environment variable WORKERS.
 E.g. if you want to use 2 workers, launch the container with the option `-e WORKERS=2`
-Check the [documentation](http://docs.gunicorn.org/en/stable/design.html#how-many-workers) for ideas on tuning this parameter.
-
-
+Check the `documentation <http://docs.gunicorn.org/en/stable/design.html#how-many-workers>`_ for ideas on tuning this parameter.
 
 .. _use-dashboard:
 
@@ -342,6 +339,12 @@ actions to perform to it (:ref:`Fig. 8 <figure_dash_inf_actions>`).
 
 **VM Info page**:
 
+The VM Info page will show all the information about the selected VM and will enable to manage the lifecycle of it.
+On the top right corner the "Manage VM" dropdown menu will enable: Stop, Start, Reboot and Terminate the VM. Furthermore
+the user can check the error/contextualization log of this particular VM.
+
+The VM infomation is splitted in two dofferent tables, the first one with the main information: State, IPs, HW features and
+the SSH credentials needed to access it. Second table will show other additional fields.
 
 .. _figure_dash_vm_info:
 .. figure:: images/dash_vm_info.png
