@@ -145,7 +145,7 @@ management of the life-cycle of his virtual infrastructures.
 Register
 ^^^^^^^^
 
-To access the we interface the user must register first to the application. Each user
+To access the Web interface the user must register first to the application. Each user
 must include a username and a password to access the platform. From 1.5.6 version OpenID
 authentication has been added.
 
