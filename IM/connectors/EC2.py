@@ -580,10 +580,6 @@ class EC2CloudConnector(CloudConnector):
 
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
 
-        im_username = "im_user"
-        if auth_data.getAuthInfo('InfrastructureManager'):
-            im_username = auth_data.getAuthInfo('InfrastructureManager')[0]['username']
-
         system = radl.systems[0]
         placement = system.getValue('availability_zone')
 
@@ -676,7 +672,7 @@ class EC2CloudConnector(CloudConnector):
             user = self.DEFAULT_USER
             system.setValue('disk.0.os.credentials.username', user)
 
-        tags = self.get_instance_tags(system)
+        tags = self.get_instance_tags(system, auth_data, inf)
 
         all_failed = True
         volumes = {}
@@ -766,7 +762,7 @@ class EC2CloudConnector(CloudConnector):
                     if len(reservation.instances) == 1:
                         time.sleep(1)
                         instance = reservation.instances[0]
-                        instance.add_tag("IM-USER", im_username)
+                        instance.add_tag("Name", self.gen_instance_name(system))
                         for key, value in tags.items():
                             instance.add_tag(key, value)
                         ec2_vm_id = region_name + ";" + instance.id

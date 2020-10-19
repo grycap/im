@@ -56,6 +56,7 @@ def read_file_as_string(file_name):
 class TestIM(unittest.TestCase):
 
     def __init__(self, *args):
+        """Init test class."""
         unittest.TestCase.__init__(self, *args)
 
     def setUp(self):
@@ -87,11 +88,13 @@ class TestIM(unittest.TestCase):
             {'id': 'cloud%s' % i, 'type': c, 'username': 'user%s' % i,
              'password': 'pass%s' % i, 'host': 'http://server.com:80/path'} for c, i in clouds])
 
-    def register_cloudconnector(self, name, cloud_connector):
+    @staticmethod
+    def register_cloudconnector(name, cloud_connector):
         sys.modules['IM.connectors.' + name] = type('MyConnector', (object,),
                                                     {name + 'CloudConnector': cloud_connector})
 
-    def get_dummy_ssh(self, retry=False, auto_close=True):
+    @staticmethod
+    def get_dummy_ssh(retry=False, auto_close=True):
         ssh = SSH("", "", "")
         ssh.test_connectivity = Mock(return_value=True)
         ssh.execute = Mock(return_value=("10", "", 0))
@@ -129,7 +132,8 @@ class TestIM(unittest.TestCase):
         cloud.launch = Mock(side_effect=self.gen_launch_res)
         return cloud
 
-    def gen_token(self, aud=None, exp=None):
+    @staticmethod
+    def gen_token(aud=None, exp=None):
         data = {
             "sub": "user_sub",
             "iss": "https://iam-test.indigo-datacloud.eu/",
@@ -146,14 +150,12 @@ class TestIM(unittest.TestCase):
 
     def test_inf_creation0(self):
         """Create infrastructure with empty RADL."""
-
         auth0 = self.getAuth([0])
         infId = IM.CreateInfrastructure("", auth0)
         IM.DestroyInfrastructure(infId, auth0)
 
     def test_inf_creation1(self):
         """Create infrastructure with an incorrect RADL in two cloud providers."""
-
         radl = """"
             network publica (outbound = 'yes')
             network privada ()
@@ -194,7 +196,6 @@ class TestIM(unittest.TestCase):
 
     def test_inf_creation_addition_clouds(self):
         """Add resources infrastructure with an incorrect RADL with 2 clouds."""
-
         radl = """"
             network publica (outbound = 'yes')
             network privada ()
@@ -239,8 +240,7 @@ class TestIM(unittest.TestCase):
                       str(ex.exception))
 
     def test_00_inf_creation_errors(self):
-        """Create infrastructure with errors"""
-
+        """Create infrastructure with errors."""
         radl = """"
             network publica (outbound = 'yes')
             network privada ()
@@ -325,7 +325,6 @@ class TestIM(unittest.TestCase):
 
     def test_inf_auth(self):
         """Try to access not owned Infs."""
-
         auth0, auth1 = self.getAuth([0]), self.getAuth([1])
         infId0 = IM.CreateInfrastructure("", auth0)
         infId1 = IM.CreateInfrastructure("", auth1)
@@ -342,7 +341,6 @@ class TestIM(unittest.TestCase):
 
     def test_inf_addresources_without_credentials(self):
         """Deploy single virtual machine without credentials to check that it raises the correct exception."""
-
         radl = RADL()
         radl.add(
             system("s0", [Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er")]))
@@ -352,7 +350,7 @@ class TestIM(unittest.TestCase):
         infId = IM.CreateInfrastructure("", auth0)
 
         with self.assertRaises(Exception) as ex:
-            vms = IM.AddResource(infId, str(radl), auth0)
+            IM.AddResource(infId, str(radl), auth0)
 
         self.assertEqual(str(ex.exception), ("Error adding VMs: Error launching the VMs of type s0 "
                                              "to cloud ID cloud0 of type Dummy. No username for deploy: s0\n"))
@@ -360,8 +358,7 @@ class TestIM(unittest.TestCase):
         IM.DestroyInfrastructure(infId, auth0)
 
     def test_inf_auth_with_userdb(self):
-        """Test access im with user db"""
-
+        """Test access im with user db."""
         Config.USER_DB = os.path.dirname(os.path.realpath(__file__)) + '/../files/users.txt'
 
         auth0 = self.getAuth([0])
@@ -400,7 +397,6 @@ class TestIM(unittest.TestCase):
 
     def test_inf_addresources1(self):
         """Deploy n independent virtual machines."""
-
         n = 20  # Machines to deploy
         Config.MAX_SIMULTANEOUS_LAUNCHES = int(n / 2)  # Test the pool
         radl = RADL()
@@ -421,7 +417,6 @@ class TestIM(unittest.TestCase):
 
     def test_inf_addresources2(self):
         """Deploy independent virtual machines in two cloud providers."""
-
         n0, n1 = 2, 5  # Machines to deploy
         radl = RADL()
         radl.add(system("s0", [Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
@@ -457,7 +452,6 @@ class TestIM(unittest.TestCase):
     @patch('IM.VMRC.Client')
     def test_inf_addresources3(self, suds_cli):
         """Test cloud selection."""
-
         n0, n1 = 2, 5  # Machines to deploy
         radl = RADL()
         radl.add(system("s0", [Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
@@ -493,7 +487,6 @@ class TestIM(unittest.TestCase):
 
     def test_inf_addresources_parallel(self):
         """Deploy parallel virtual machines."""
-
         radl = """"
             network publica (outbound = 'yes')
             network privada ()
@@ -572,7 +565,6 @@ class TestIM(unittest.TestCase):
     @patch('IM.VMRC.Client')
     def test_inf_cloud_order(self, suds_cli):
         """Test cloud selection in base of the auth data order."""
-
         n0, n1 = 1, 1  # Machines to deploy
         radl = RADL()
         radl.add(system("s0", [Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
@@ -597,7 +589,6 @@ class TestIM(unittest.TestCase):
 
     def test_get_infrastructure_list(self):
         """Get infrastructure List."""
-
         radl_str = """"
             system front (
             disk.0.image.url = 'mock0://linux.for.ev.er' and
@@ -731,9 +722,7 @@ class TestIM(unittest.TestCase):
 
     @patch('IM.InfrastructureList.InfrastructureList.get_inf_ids')
     def test_get_inf_state(self, get_inf_ids):
-        """
-        Test GetInfrastructureState.
-        """
+        """Test GetInfrastructureState."""
         auth0 = self.getAuth([0], [], [("Dummy", 0)])
 
         inf = MagicMock()
@@ -799,7 +788,7 @@ class TestIM(unittest.TestCase):
         self.assertEqual(state["state"], "pending")
 
     def test_altervm(self):
-        """Test AlterVM"""
+        """Test AlterVM."""
         radl = RADL()
         radl.add(system("s0", [Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
                                Feature("disk.0.os.credentials.username", "=", "user"),
@@ -845,7 +834,7 @@ class TestIM(unittest.TestCase):
         IM.DestroyInfrastructure(infId, auth0)
 
     def test_start_stop(self):
-        """Test Start and Stop operations"""
+        """Test Start and Stop operations."""
         radl = RADL()
         radl.add(system("s0", [Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
                                Feature("disk.0.os.credentials.username", "=", "user"),
@@ -870,7 +859,7 @@ class TestIM(unittest.TestCase):
         IM.DestroyInfrastructure(infId, auth0)
 
     def test_export_import(self):
-        """Test ExportInfrastructure and ImportInfrastructure operations"""
+        """Test ExportInfrastructure and ImportInfrastructure operations."""
         radl = RADL()
         radl.add(system("s0", [Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
                                Feature("disk.0.os.credentials.username", "=", "user"),
@@ -886,7 +875,7 @@ class TestIM(unittest.TestCase):
         IM.DestroyInfrastructure(new_inf_id, auth0)
 
     def test_create_disk_snapshot(self):
-        """Test CreateDiskSnapshot """
+        """Test CreateDiskSnapshot"""
         radl = RADL()
         radl.add(system("s0", [Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
                                Feature("disk.0.os.credentials.username", "=", "user"),
@@ -910,7 +899,7 @@ class TestIM(unittest.TestCase):
         self.assertEqual(cloud0.create_snapshot.call_count, 1)
 
     def test_contextualize(self):
-        """Test Contextualization process"""
+        """Test Contextualization process."""
         radl = """"
             network publica (outbound = 'yes')
 
@@ -994,7 +983,7 @@ configure step2 (
         IM.DestroyInfrastructure(infId, auth0)
 
     def test_contextualize_timeout(self):
-        """Test Contextualization process timeout"""
+        """Test Contextualization process timeout."""
         radl = """"
             network publica (outbound = 'yes')
 
@@ -1177,7 +1166,7 @@ configure step2 (
         self.assertEqual(inf.auth.getAuthInfo("InfrastructureManager")[0]['token'], new_token)
 
     def test_db(self):
-        """ Test DB data access """
+        """ Test DB data access."""
         inf = InfrastructureInfo()
         inf.id = "1"
         inf.auth = self.getAuth([0], [], [("Dummy", 0)])
@@ -1206,8 +1195,7 @@ configure step2 (
         self.assertTrue(res['1'].auth.compare(inf.auth, "InfrastructureManager"))
 
     def test_inf_remove_two_clouds(self):
-        """ Test remove VMs from 2 cloud providers """
-
+        """Test remove VMs from 2 cloud providers."""
         radl = """"
             network publica (outbound = 'yes')
             system front (
@@ -1260,8 +1248,7 @@ configure step2 (
         self.assertEqual(cloud1.finalize.call_count, 2)
 
     def test_create_async(self):
-        """Create Inf. async"""
-
+        """Create Inf. async."""
         radl = RADL()
         radl.add(system("s0", [Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er"),
                                Feature("disk.0.os.credentials.username", "=", "user"),
@@ -1285,8 +1272,7 @@ configure step2 (
         IM.DestroyInfrastructure(infId, auth0)
 
     def test_inf_delete_force(self):
-        """Force a DestroyInfrastructure"""
-
+        """Force a DestroyInfrastructure."""
         auth0 = self.getAuth([0])
         infId = IM.CreateInfrastructure("", auth0)
         inf = IM.get_infrastructure(infId, auth0)
@@ -1301,8 +1287,7 @@ configure step2 (
         time.sleep(5)
 
     def test_inf_delete_async(self):
-        """ DestroyInfrastructure async """
-
+        """DestroyInfrastructure async."""
         auth0 = self.getAuth([0])
         infId = IM.CreateInfrastructure("", auth0)
         inf = IM.get_infrastructure(infId, auth0)
@@ -1315,7 +1300,7 @@ configure step2 (
         self.assertEqual(inf.deleted, True)
 
     def test_boot_modes(self):
-        """Test boot modes"""
+        """Test boot modes."""
         auth0 = self.getAuth([0], [], [("Dummy", 0), ("Dummy", 1)])
         infId = IM.CreateInfrastructure('', auth0)
 

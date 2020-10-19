@@ -14,13 +14,13 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-""" Classes to encapsulate SSH operations using paramiko """
+"""Classes to encapsulate SSH operations using paramiko."""
 
 import paramiko
 try:
     import scp
 except Exception:
-    pass
+    print("WARN: Python Azure SDK not correctly installed. AzureCloudConnector will not work!.")
 import os
 try:
     from StringIO import StringIO

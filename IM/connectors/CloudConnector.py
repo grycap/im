@@ -18,6 +18,7 @@ import logging
 import operator
 import time
 import yaml
+import uuid
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -424,7 +425,7 @@ class CloudConnector(LoggerMixin):
             return None
 
     @staticmethod
-    def get_instance_tags(system):
+    def get_instance_tags(system, auth_data=None, inf=None):
         """
         Get the instance_tags value of the system object as a dict
         """
@@ -436,6 +437,12 @@ class CloudConnector(LoggerMixin):
                 key = parts[0].strip()
                 value = parts[1].strip()
                 tags[key] = value
+        # If available try to set the IM username as a tag
+        if auth_data and auth_data.getAuthInfo('InfrastructureManager'):
+            im_username = auth_data.getAuthInfo('InfrastructureManager')[0]['username']
+            tags["IM-USER"] = im_username
+        if inf:
+            tags["IM_INFRA_ID"] = inf.id
         return tags
 
     @staticmethod
@@ -548,3 +555,16 @@ class CloudConnector(LoggerMixin):
                 return cidr
 
         return None
+
+    @staticmethod
+    def gen_instance_name(system, unique=True, default="im-userimage"):
+        name = system.getValue("instance_name")
+        if not name:
+            name = system.getValue("disk.0.image.name")
+        if not name:
+            name = default
+        name = name.lower().replace("_", "-")
+        if unique:
+            return "%s-%s" % (name, str(uuid.uuid1()))
+        else:
+            return name
