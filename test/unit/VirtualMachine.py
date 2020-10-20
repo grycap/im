@@ -159,6 +159,18 @@ class TestVirtualMachine(unittest.TestCase):
         self.assertEqual(vm.info.systems[0].getValue('net_interface.0.ip'), "10.0.0.1")
         self.assertEqual(vm.info.systems[0].getValue('net_interface.2.ip'), "192.168.0.1")
 
+    def test_replace_dns_name(self):
+        radl_data = """
+            system test (
+            net_interface.0.connection = 'public' and
+            net_interface.0.dns_name = 'vnode-#N#'
+            )"""
+        radl = radl_parse.parse_radl(radl_data)
+        cloud_con = MagicMock()
+        vm = VirtualMachine(None, "1", None, radl, radl, cloud_con, 1)
+        vm.update_status(None)
+        self.assertEqual(vm.info.systems[0].getValue('net_interface.0.dns_name'), "vnode-1")
+
 
 if __name__ == '__main__':
     unittest.main()
