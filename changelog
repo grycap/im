@@ -595,3 +595,11 @@ IM 1.9.3:
 IM 1.9.4:
     * Reduce the number of SSH logins.
     * Fix python 3 issues.
+
+IM 1.9.5:
+    * Return the dns_name of a VM with the special string #N# correctly replaced.
+    * TOSCA not correctly managed in case of Relationships with interfaces defined in custom types.
+    * Fix error returning incorrect error msg in VM creation in OpenStack conn in case of error deleting SG.
+    * Fix error returning TOSCA function values.
+    * Enable CORS.
+    * Fix incorrect contextualizarion in case of using vault password.
