@@ -565,16 +565,22 @@ class VirtualMachine(LoggerMixin):
             self.info.systems[0].setValue("state", new_state)
 
             # Replace the #N# in dns_names
-            vm_system = self.info.systems[0]
-            cont = 0
-            while vm_system.getValue('net_interface.%d.connection' % cont):
-                vm_dns_name = vm_system.getValue('net_interface.%d.dns_name' % cont)
-                if vm_dns_name and "#N#" in vm_dns_name:
-                    vm_dns_name = vm_dns_name.replace("#N#", str(self.im_id))
-                    vm_system.setValue('net_interface.%d.dns_name' % cont, vm_dns_name)
-                cont += 1
+            self.replace_dns_name(self.info.systems[0])
 
         return updated
+
+    def replace_dns_name(self, vm_system):
+        """Replace the #N# in dns_names."""
+        cont = 0
+        while vm_system.getValue('net_interface.%d.connection' % cont):
+            vm_dns_name = vm_system.getValue('net_interface.%d.dns_name' % cont)
+            # if dns_name is not set in iface 0 set the default one
+            if cont == 0 and vm_dns_name is None:
+                vm_dns_name = Config.DEFAULT_VM_NAME
+            if vm_dns_name and "#N#" in vm_dns_name:
+                vm_dns_name = vm_dns_name.replace("#N#", str(self.im_id))
+                vm_system.setValue('net_interface.%d.dns_name' % cont, vm_dns_name)
+            cont += 1
 
     @staticmethod
     def add_public_net(radl):
