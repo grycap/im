@@ -1318,7 +1318,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     security_group = OpenStackSecurityGroup(None, None, sg_name, "", node.driver)
                     node.driver.ex_remove_security_group_from_node(security_group, node)
             except Exception as ex:
-                self.log_exception("Error dettaching SG %s." % sg_name)
+                self.log_exception("Error dettaching SGs.")
 
             res = node.destroy()
             success.append(res)
