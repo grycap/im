@@ -239,7 +239,7 @@ class TestIM(unittest.TestCase):
                       " are asked to be deployed in different cloud providers",
                       str(ex.exception))
 
-    def test_00_inf_creation_errors(self):
+    def test_inf_creation_errors(self):
         """Create infrastructure with errors."""
         radl = """"
             network publica (outbound = 'yes')
@@ -1234,6 +1234,9 @@ configure step2 (
 
         cont = IM.RemoveResource(infId, ['0', '1'], auth0)
 
+        InfrastructureList.infrastructure_list[infId].vm_list[2].cloud_connector = cloud1
+        InfrastructureList.infrastructure_list[infId].vm_list[3].cloud_connector = cloud1
+
         self.assertEqual(cont, 2)
         self.assertEqual(cloud0.finalize.call_args_list[0][0][1], False)
         self.assertEqual(cloud0.finalize.call_args_list[1][0][1], True)
@@ -1242,10 +1245,10 @@ configure step2 (
 
         IM.DestroyInfrastructure(infId, auth0)
 
-        self.assertEqual(cloud1.finalize.call_args_list[0][0][1], False)
-        self.assertEqual(cloud1.finalize.call_args_list[1][0][1], True)
         self.assertEqual(cloud0.finalize.call_count, 2)
         self.assertEqual(cloud1.finalize.call_count, 2)
+        self.assertEqual(cloud1.finalize.call_args_list[0][0][1], False)
+        self.assertEqual(cloud1.finalize.call_args_list[1][0][1], True)
 
     def test_create_async(self):
         """Create Inf. async."""
