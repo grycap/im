@@ -130,7 +130,7 @@ class ConfManager(LoggerMixin, threading.Thread):
             self.log_info("Stopping pending Ansible process.")
             self.ansible_process.terminate()
 
-    def wait_all_vm_ips(self, timeout=Config.ANSIBLE_INSTALL_TIMEOUT):
+    def wait_all_vm_ips(self, timeout=Config.WAIT_PUBLIC_IP_TIMEOUT):
         """
         Assure that all the VMs of the Inf. have all the requested public IPs assigned
         """
@@ -159,8 +159,10 @@ class ConfManager(LoggerMixin, threading.Thread):
                 time.sleep(Config.CONFMAMAGER_CHECK_STATE_INTERVAL)
 
         if not success:
+            self.inf.set_configured(False)
             self.log_warn("Error waiting all the VMs to have all the requested IPs")
         else:
+            self.inf.set_configured(True)
             self.log_info("All the VMs have all the requested IPs")
             # do a final update of all VMs
             for vm in self.inf.get_vm_list():
