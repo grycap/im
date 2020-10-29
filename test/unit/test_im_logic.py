@@ -1250,7 +1250,6 @@ configure step2 (
         self.assertEqual(cloud1.finalize.call_args_list[0][0][1], False)
         self.assertEqual(cloud1.finalize.call_args_list[1][0][1], True)
 
-
     def test_create_async(self):
         """Create Inf. async."""
         radl = RADL()
