@@ -603,3 +603,4 @@ IM 1.9.5:
     * Fix error returning TOSCA function values.
     * Enable CORS.
     * Fix incorrect contextualizarion in case of using vault password.
+    * Fix IP public not attached in case of disabled contextualization.
