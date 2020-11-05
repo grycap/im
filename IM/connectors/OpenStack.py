@@ -191,10 +191,11 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
     @staticmethod
     def guess_instance_type_gpu(size):
         """Try to guess if this NodeSize has GPU support"""
-        extra_specs = size.driver.ex_get_size_extra_specs(size.id)
-        for k,v in extra_specs.items():
-            if k.lower().find("gpu") and v.lower() not in ['false', 'no', '0']:
-                return True
+        # comment until libcloud PR is accepted
+        # extra_specs = size.driver.ex_get_size_extra_specs(size.id)
+        # for k,v in extra_specs.items():
+        #    if k.lower().find("gpu") and v.lower() not in ['false', 'no', '0']:
+        #        return True
         return False
 
     def get_instance_type(self, sizes, radl):
