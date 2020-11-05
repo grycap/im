@@ -379,7 +379,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
             if vm.state == VirtualMachine.FAILED:
                 if 'fault' in node.extra and node.extra['fault']:
-                    self.error_messages += str(node.extra['fault'])
+                    self.error_messages += str(node.extra['fault']['message'])
 
             try:
                 flavorId = node.extra['flavorId']
