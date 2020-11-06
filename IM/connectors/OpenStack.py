@@ -188,6 +188,17 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             self.driver = driver
             return driver
 
+    def guess_instance_type_gpu(self, size):
+        """Try to guess if this NodeSize has GPU support"""
+        try:
+            extra_specs = size.driver.ex_get_size_extra_specs(size.id)
+            for k,v in extra_specs.items():
+                if k.lower().find("gpu") and v.lower() not in ['false', 'no', '0']:
+                    return True
+        except Exception:
+            self.log_exception("Error trying to get flavor extra_specs.")
+        return False
+
     def get_instance_type(self, sizes, radl):
         """
         Get the name of the instance type to launch to LibCloud
@@ -200,6 +211,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         instance_type_name = radl.getValue('instance_type')
 
         (cpu, cpu_op, memory, memory_op, disk_free, disk_free_op) = self.get_instance_selectors(radl, disk_unit="G")
+        gpu = radl.getValue('gpu.count')
 
         # get the node size with the lowest price, vcpus, memory and disk
         sizes.sort(key=lambda x: (x.price, x.vcpus, x.ram, x.disk))
@@ -207,6 +219,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             comparison = cpu_op(size.vcpus, cpu)
             comparison = comparison and memory_op(size.ram, memory)
             comparison = comparison and disk_free_op(size.disk, disk_free)
+            if gpu and not self.guess_instance_type_gpu(size):
+                continue
 
             if comparison:
                 if not instance_type_name or size.name == instance_type_name:
@@ -363,6 +377,12 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         node = self.get_node_with_id(vm.id, auth_data)
         if node:
             vm.state = self.VM_STATE_MAP.get(node.state, VirtualMachine.UNKNOWN)
+
+            if vm.state == VirtualMachine.FAILED:
+                if 'fault' in node.extra and node.extra['fault']:
+                    error_msg = str(node.extra['fault']['message'])
+                    if error_msg not in self.error_messages:
+                        self.error_messages += error_msg
 
             try:
                 flavorId = node.extra['flavorId']
