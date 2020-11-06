@@ -298,7 +298,6 @@ class OpenNebulaCloudConnector(CloudConnector):
             return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
 
         success, res_info = server.one.vm.info(session_id, int(vm.id))[0:2]
-        success, res_info = server.one.vm.info("oneadmin:Ojvabful", 3788)[0:2]
         if success:
             res_vm = VM(res_info)
 
