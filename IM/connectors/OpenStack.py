@@ -192,7 +192,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         """Try to guess if this NodeSize has GPU support"""
         try:
             extra_specs = size.driver.ex_get_size_extra_specs(size.id)
-            for k,v in extra_specs.items():
+            for k, v in extra_specs.items():
                 if k.lower().find("gpu") and v.lower() not in ['false', 'no', '0']:
                     return True
         except Exception:
