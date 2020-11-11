@@ -1552,7 +1552,10 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                                 self.log_debug("Confirming resize of the node: %s" % node.id)
                                 node = self.get_node_with_id(vm.id, auth_data)
 
-                            success = node.driver.ex_confirm_resize(node)
+                            if node.extra['vm_state'] == 'resized':
+                                success = node.driver.ex_confirm_resize(node)
+                            else:
+                                return (False, "Error resizing VM: Resize cannot be confirmed.")
                     except Exception as ex:
                         self.log_exception("Error resizing VM.")
                         return (False, "Error resizing VM: " + str(ex))
