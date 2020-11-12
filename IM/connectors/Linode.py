@@ -1,5 +1,5 @@
 # IM - Infrastructure Manager
-# Copyright (C) 2011 - GRyCAP - Universitat Politecnica de Valencia
+# Copyright (C) 2020 - GRyCAP - Universitat Politecnica de Valencia
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,6 +17,7 @@
 import uuid
 import random
 import string
+import time
 
 try:
     from libcloud.compute.base import NodeImage, NodeLocation
@@ -42,7 +43,7 @@ class LinodeCloudConnector(LibCloudCloudConnector):
     type = "Linode"
     """str with the name of the provider."""
 
-    DEFAULT_USER = 'cloudadm'
+    DEFAULT_USER = 'root'
     """ default user to SSH access the VM """
     DEFAULT_LOCATION = 'us-central'
     """ Linode default location """
@@ -94,9 +95,7 @@ class LinodeCloudConnector(LibCloudCloudConnector):
             instance_type = self.get_instance_type(driver.list_sizes(), res_system)
             self.update_system_info_from_instance(res_system, instance_type)
 
-            username = res_system.getValue('disk.0.os.credentials.username')
-            if not username:
-                res_system.setValue('disk.0.os.credentials.username', self.DEFAULT_USER)
+            res_system.setValue('disk.0.os.credentials.username', self.DEFAULT_USER)
 
             return res_system
         else:
@@ -243,11 +242,28 @@ class LinodeCloudConnector(LibCloudCloudConnector):
         if node:
             volumes = self.get_node_volumes(node)
 
-            success = node.destroy()
+            for volume in volumes:
+                self.log_debug("Detaching volume id: %s" % volume.id)
+                volume.detach()
+                volume.extra['linode_id'] = None
 
             for volume in volumes:
-                volume.dettach()
-                volume.destroy()
+                self.log_debug("Deleting volume id: %s" % volume.id)
+                cont = 0
+                deleted = False
+                while not deleted and cont < 30:
+                    try:
+                        volume.destroy()
+                        deleted = True
+                        self.log_debug("volume id: %s, successfully deleted." % volume.id)
+                    except Exception as ex:
+                        self.log_warn("Error deleting volume id: %s. %s" % (volume.id, str(ex)))
+                    cont += 2
+                    time.sleep(2)
+                if not deleted:
+                    return (False, "Error deleting volumes.")
+
+            success = node.destroy()
 
             if not success:
                 return (False, "Error destroying node: " + vm.id)
@@ -314,6 +330,8 @@ class LinodeCloudConnector(LibCloudCloudConnector):
                     if volume_name[-1:] == "-":
                         volume_name = volume_name[:-1]
                     volume = node.driver.create_volume(volume_name, int(disk_size), node=node)
+                    if 'filesystem_path' in volume.extra and volume.extra['filesystem_path']:
+                        vm.info.systems[0].setValue("disk." + str(cont) + ".device", volume.extra['filesystem_path'])
                     cont += 1
             return True
         except Exception:
