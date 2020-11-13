@@ -82,13 +82,13 @@ class LinodeCloudConnector(LibCloudCloudConnector):
 
         Returns: a :py:class:`libcloud.compute.base.NodeDriver` or None in case of error
         """
-        auths = auth_data.getAuthInfo(self.type, self.cloud.server)
+        auths = auth_data.getAuthInfo(self.type)
         if not auths:
             raise Exception("No auth data has been specified to Linode.")
         else:
             auth = auths[0]
 
-        if self.driver and self.auth.compare(auth_data, self.type, self.cloud.server):
+        if self.driver and self.auth.compare(auth_data, self.type):
             return self.driver
         else:
             self.auth = auth_data
