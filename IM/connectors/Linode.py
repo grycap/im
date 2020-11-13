@@ -118,7 +118,8 @@ class LinodeCloudConnector(LibCloudCloudConnector):
         else:
             return None
 
-    def get_location(self, driver, loc):
+    @staticmethod
+    def get_location(driver, loc):
         """Return a NodeLocation"""
         for location in driver.list_locations():
             if loc == location.id or loc.lower() in location.name.lower():
@@ -221,7 +222,8 @@ class LinodeCloudConnector(LibCloudCloudConnector):
 
         return res
 
-    def get_size(self, node):
+    @staticmethod
+    def get_size(node):
         """Get a NodeSize object"""
         for size in node.driver.list_sizes():
             if size.id == node.size:
@@ -246,7 +248,8 @@ class LinodeCloudConnector(LibCloudCloudConnector):
 
         return (True, vm)
 
-    def get_node_volumes(self, node):
+    @staticmethod
+    def get_node_volumes(node):
         volumes = []
         for volume in node.driver.list_volumes():
             if str(volume.extra['linode_id']) == str(node.id):
@@ -324,6 +327,16 @@ class LinodeCloudConnector(LibCloudCloudConnector):
         else:
             return (False, "VM not found with id: " + vm.id)
 
+    def create_volume(self, node, system, cont):
+        disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('G')
+        if disk_size < 10:
+            disk_size = 10
+        self.log_debug("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
+        volume_name = ("im-%s" % str(uuid.uuid1()))[:32]
+        if volume_name[-1:] == "-":
+            volume_name = volume_name[:-1]
+        return node.driver.create_volume(volume_name, int(disk_size), node=node)
+
     def attach_volumes(self, vm, node):
         """
         Attach a the required volumes (in the RADL) to the launched node
@@ -339,14 +352,7 @@ class LinodeCloudConnector(LibCloudCloudConnector):
                     return True
                 cont = 1
                 while vm.info.systems[0].getValue("disk." + str(cont) + ".size"):
-                    disk_size = vm.info.systems[0].getFeature("disk." + str(cont) + ".size").getValue('G')
-                    if disk_size < 10:
-                        disk_size = 10
-                    self.log_debug("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
-                    volume_name = ("im-%s" % str(uuid.uuid1()))[:32]
-                    if volume_name[-1:] == "-":
-                        volume_name = volume_name[:-1]
-                    volume = node.driver.create_volume(volume_name, int(disk_size), node=node)
+                    volume = self.create_volume(node, vm.info.systems[0], cont)
                     if 'filesystem_path' in volume.extra and volume.extra['filesystem_path']:
                         vm.info.systems[0].setValue("disk." + str(cont) + ".device", volume.extra['filesystem_path'])
                     cont += 1
@@ -354,3 +360,71 @@ class LinodeCloudConnector(LibCloudCloudConnector):
         except Exception:
             self.log_exception("Error creating or attaching the volume to the node")
             return False
+
+    def alterVM(self, vm, radl, auth_data):
+        success, msg = self.resizeVM(vm, radl, auth_data)
+        if not success:
+            return (success, msg)
+
+        success, msg = self.add_new_disks(vm, radl, auth_data)
+        if not success:
+            return (success, msg)
+
+        return (True, "")
+
+    def resizeVM(self, vm, radl, auth_data):
+        node = self.get_node_with_id(vm.id, auth_data)
+        if node:
+            new_cpu = radl.systems[0].getValue('cpu.count')
+            new_memory = radl.systems[0].getValue('memory.size')
+            instance_type = radl.systems[0].getValue('instance_type')
+            if not any([new_cpu, new_memory, instance_type]):
+                self.log_debug("No memory nor cpu nor instance_type specified. VM not resized.")
+                return (True, "")
+            else:
+                instance_type = self.get_instance_type(node.driver.list_sizes(), radl.systems[0])
+                if instance_type is None:
+                    return (False, "Error resizing VM: No instance type found.")
+                if node.size != instance_type.id:
+                    try:
+                        self.log_debug("Resizing node: %s" % node.id)
+                        success = node.driver.ex_resize_node(node, instance_type)
+                    except Exception as ex:
+                        self.log_exception("Error resizing VM.")
+                        return (False, "Error resizing VM: " + str(ex))
+                else:
+                    self.log_debug("Same instance_type of the current node. No need to resize.")
+                    return (True, "")
+
+                if success:
+                    return (True, "")
+                else:
+                    return (False, "Error in resize operation")
+        else:
+            return (False, "VM not found with id: " + vm.id)
+
+    def add_new_disks(self, vm, radl, auth_data):
+        """
+        Add new disks specified in the radl to the vm
+        """
+        node = self.get_node_with_id(vm.id, auth_data)
+        if node:
+            try:
+                orig_system = vm.info.systems[0]
+
+                cont = 1
+                while (orig_system.getValue("disk." + str(cont) + ".image.url") or
+                       orig_system.getValue("disk." + str(cont) + ".size")):
+                    cont += 1
+
+                system = radl.systems[0]
+
+                while system.getValue("disk." + str(cont) + ".size"):
+                    volume = self.create_volume(node, system, cont)
+                    if 'filesystem_path' in volume.extra and volume.extra['filesystem_path']:
+                        orig_system.setValue("disk." + str(cont) + ".device", volume.extra['filesystem_path'])
+                    cont += 1
+                return (True, "")
+            except Exception as ex:
+                self.log_exception("Error connecting with Linode")
+                return (False, "Error connecting with Linode: " + str(ex))
