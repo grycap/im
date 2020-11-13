@@ -455,32 +455,22 @@ class LibCloudCloudConnector(CloudConnector):
     def start(self, vm, auth_data):
         node = self.get_node_with_id(vm.id, auth_data)
         if node:
-            func = getattr(node.driver, "ex_start_node",
-                           getattr(node.driver, "ex_resume_node", None))
-            if func:
-                success = func(node)
-                if success:
-                    return (True, "")
-                else:
-                    return (False, "Error in start operations")
+            success = node.start()
+            if success:
+                return (True, "")
             else:
-                return (False, "Not supported")
+                return (False, "Error in stop operation")
         else:
             return (False, "VM not found with id: " + vm.id)
 
     def stop(self, vm, auth_data):
         node = self.get_node_with_id(vm.id, auth_data)
         if node:
-            func = getattr(node.driver, "ex_stop_node",
-                           getattr(node.driver, "ex_suspend_node", None))
-            if func:
-                success = func(node)
-                if success:
-                    return (True, "")
-                else:
-                    return (False, "Error in stop operation")
+            success = node.stop_node()
+            if success:
+                return (True, "")
             else:
-                return (False, "Not supported")
+                return (False, "Error in stop operation")
         else:
             return (False, "VM not found with id: " + vm.id)
 

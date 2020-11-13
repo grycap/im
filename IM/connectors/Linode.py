@@ -18,6 +18,7 @@ import uuid
 import random
 import string
 import time
+import os.path
 
 try:
     from libcloud.compute.base import NodeImage, NodeLocation
@@ -33,6 +34,7 @@ try:
 except ImportError:
     from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
+from radl.radl import Feature
 
 
 class LinodeCloudConnector(LibCloudCloudConnector):
@@ -61,6 +63,7 @@ class LinodeCloudConnector(LibCloudCloudConnector):
         NodeState.UPDATING: VirtualMachine.RUNNING,
         NodeState.ERROR: VirtualMachine.FAILED,
         NodeState.REBOOTING: VirtualMachine.RUNNING,
+        NodeState.RECONFIGURING: VirtualMachine.PENDING,
         NodeState.UNKNOWN: VirtualMachine.UNKNOWN
     }
     """State map"""
@@ -100,6 +103,43 @@ class LinodeCloudConnector(LibCloudCloudConnector):
             else:
                 self.log_error("Incorrect auth data")
                 return None
+
+    def get_instance_type(self, sizes, radl):
+        """
+        Get the name of the instance type to launch to LibCloud
+
+        Arguments:
+           - size(list of :py:class: `libcloud.compute.base.NodeSize`): List of sizes on a provider
+           - radl(str): RADL document with the requirements of the VM to get the instance type
+        Returns: a :py:class:`libcloud.compute.base.NodeSize` with the instance type to launch
+        """
+        instance_type_name = radl.getValue('instance_type')
+
+        (cpu, cpu_op, memory, memory_op, disk_free, disk_free_op) = self.get_instance_selectors(radl, disk_unit="G")
+
+        # get the node size with the lowest price, vcpus, memory and disk
+        sizes.sort(key=lambda x: (x.price, x.extra['vcpus'], x.ram, x.disk))
+        for size in sizes:
+            comparison = cpu_op(size.extra['vcpus'], cpu)
+            comparison = comparison and memory_op(size.ram, memory)
+            comparison = comparison and disk_free_op(size.disk, disk_free)
+
+            if comparison:
+                if not instance_type_name or size.name == instance_type_name:
+                    return size
+
+        self.log_error("No compatible size found")
+        return None
+
+    def update_system_info_from_instance(self, system, instance_type):
+        """
+        Update the features of the system with the information of the instance_type
+        """
+        if instance_type:
+            LibCloudCloudConnector.update_system_info_from_instance(system, instance_type)
+            if 'vcpus' in instance_type.extra and instance_type.extra['vcpus']:
+                system.addFeature(Feature("cpu.count", "=", instance_type.extra['vcpus']),
+                                  conflict="me", missing="other")
 
     def concrete_system(self, radl_system, str_url, auth_data):
         url = urlparse(str_url)
@@ -294,39 +334,6 @@ class LinodeCloudConnector(LibCloudCloudConnector):
 
         return (True, "")
 
-    def start(self, vm, auth_data):
-        node = self.get_node_with_id(vm.id, auth_data)
-        if node:
-            success = node.start_node()
-            if success:
-                return (True, "")
-            else:
-                return (False, "Error in stop operation")
-        else:
-            return (False, "VM not found with id: " + vm.id)
-
-    def stop(self, vm, auth_data):
-        node = self.get_node_with_id(vm.id, auth_data)
-        if node:
-            success = node.stop_node()
-            if success:
-                return (True, "")
-            else:
-                return (False, "Error in stop operation")
-        else:
-            return (False, "VM not found with id: " + vm.id)
-
-    def reboot(self, vm, auth_data):
-        node = self.get_node_with_id(vm.id, auth_data)
-        if node:
-            success = node.reboot_node()
-            if success:
-                return (True, "")
-            else:
-                return (False, "Error in reboot operation")
-        else:
-            return (False, "VM not found with id: " + vm.id)
-
     def create_volume(self, node, system, cont):
         disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('G')
         if disk_size < 10:
@@ -354,7 +361,8 @@ class LinodeCloudConnector(LibCloudCloudConnector):
                 while vm.info.systems[0].getValue("disk." + str(cont) + ".size"):
                     volume = self.create_volume(node, vm.info.systems[0], cont)
                     if 'filesystem_path' in volume.extra and volume.extra['filesystem_path']:
-                        vm.info.systems[0].setValue("disk." + str(cont) + ".device", volume.extra['filesystem_path'])
+                        device = os.path.basename(volume.extra['filesystem_path'])
+                        vm.info.systems[0].setValue("disk." + str(cont) + ".device", device)
                     cont += 1
             return True
         except Exception:
@@ -422,7 +430,8 @@ class LinodeCloudConnector(LibCloudCloudConnector):
                 while system.getValue("disk." + str(cont) + ".size"):
                     volume = self.create_volume(node, system, cont)
                     if 'filesystem_path' in volume.extra and volume.extra['filesystem_path']:
-                        orig_system.setValue("disk." + str(cont) + ".device", volume.extra['filesystem_path'])
+                        device = os.path.basename(volume.extra['filesystem_path'])
+                        orig_system.setValue("disk." + str(cont) + ".device", device)
                     cont += 1
                 return (True, "")
             except Exception as ex:
