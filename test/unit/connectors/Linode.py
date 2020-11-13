@@ -88,8 +88,8 @@ class TestLinodeConnector(TestCloudConnectorBase):
             network net1 (outbound = 'yes')
             network net2 ()
             system test (
-            cpu.arch='x86_64' and
             cpu.count=1 and
+            gpu.count=1 and
             memory.size=512m and
             net_interface.0.connection = 'net1' and
             net_interface.0.dns_name = 'test' and
@@ -115,9 +115,16 @@ class TestLinodeConnector(TestCloudConnectorBase):
         node_size.ram = 512
         node_size.price = 1
         node_size.disk = 1
-        node_size.extra = {'vcpus': 1}
+        node_size.extra = {'vcpus': 1, 'gpus': None}
         node_size.name = "small"
-        driver.list_sizes.return_value = [node_size]
+
+        node_sizeg = MagicMock()
+        node_sizeg.ram = 512
+        node_sizeg.price = 2
+        node_sizeg.disk = 1
+        node_sizeg.extra = {'vcpus': 1, 'gpus': 1}
+        node_sizeg.name = "gsmall"
+        driver.list_sizes.return_value = [node_size, node_sizeg]
 
         driver.get_key_pair.return_value = ""
 
@@ -135,7 +142,7 @@ class TestLinodeConnector(TestCloudConnectorBase):
         res = linode_cloud.launch(InfrastructureInfo(), radl, radl, 1, auth)
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
-        self.assertEqual(driver.create_node.call_args_list[0][1]['size'], node_size)
+        self.assertEqual(driver.create_node.call_args_list[0][1]['size'], node_sizeg)
         self.assertEqual(driver.create_node.call_args_list[0][1]['image'].id, 'linode/ubuntu')
         self.assertEqual(driver.create_node.call_args_list[0][1]['location'], location)
         self.assertEqual(len(driver.create_node.call_args_list[0][1]['root_pass']), 8)

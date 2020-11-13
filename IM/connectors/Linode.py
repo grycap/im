@@ -116,6 +116,10 @@ class LinodeCloudConnector(LibCloudCloudConnector):
         instance_type_name = radl.getValue('instance_type')
 
         (cpu, cpu_op, memory, memory_op, disk_free, disk_free_op) = self.get_instance_selectors(radl, disk_unit="G")
+        gpu = radl.getValue('gpu.count')
+        if gpu:
+            gpu_op_str = radl.getFeature('gpu.count').getLogOperator()
+            gpu_op = self.OPERATORSMAP.get(gpu_op_str)
 
         # get the node size with the lowest price, vcpus, memory and disk
         sizes.sort(key=lambda x: (x.price, x.extra['vcpus'], x.ram, x.disk))
@@ -123,6 +127,10 @@ class LinodeCloudConnector(LibCloudCloudConnector):
             comparison = cpu_op(size.extra['vcpus'], cpu)
             comparison = comparison and memory_op(size.ram, memory)
             comparison = comparison and disk_free_op(size.disk, disk_free)
+
+            if gpu:
+                comparison = (comparison and 'gpus' in size.extra and
+                              size.extra['gpus'] and gpu_op(size.extra['gpus'], gpu))
 
             if comparison:
                 if not instance_type_name or size.name == instance_type_name:
