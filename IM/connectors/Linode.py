@@ -69,7 +69,6 @@ class LinodeCloudConnector(LibCloudCloudConnector):
     """State map"""
 
     def __init__(self, cloud_info, inf):
-        self.driver = None
         self.auth = None
         LibCloudCloudConnector.__init__(self, cloud_info, inf)
 
@@ -145,6 +144,8 @@ class LinodeCloudConnector(LibCloudCloudConnector):
         """
         if instance_type:
             LibCloudCloudConnector.update_system_info_from_instance(system, instance_type)
+            system.addFeature(Feature("instance_type", "=", instance_type.id),
+                              conflict="other", missing="other")
             if 'vcpus' in instance_type.extra and instance_type.extra['vcpus']:
                 system.addFeature(Feature("cpu.count", "=", instance_type.extra['vcpus']),
                                   conflict="me", missing="other")
@@ -256,7 +257,7 @@ class LinodeCloudConnector(LibCloudCloudConnector):
                 vm.id = node.id
                 vm.info.systems[0].setValue('instance_id', str(node.id))
                 vm.info.systems[0].setValue('instance_name', str(node.name))
-                self.log_debug("Node successfully created.")
+                self.log_debug("Node %s successfully created." % node.id)
                 vm.destroy = False
                 inf.add_vm(vm)
                 res.append((True, vm))
@@ -339,15 +340,21 @@ class LinodeCloudConnector(LibCloudCloudConnector):
 
         return (True, "")
 
-    def create_volume(self, node, system, cont):
+    def create_volume(self, node, system, orig_system, cont):
         disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('G')
+        # The minimum size is 10 GB
         if disk_size < 10:
             disk_size = 10
+            orig_system.setValue("disk." + str(cont) + ".size", 10, "g")
         self.log_debug("Creating a %d GB volume for the disk %d" % (int(disk_size), cont))
         volume_name = ("im-%s" % str(uuid.uuid1()))[:32]
         if volume_name[-1:] == "-":
             volume_name = volume_name[:-1]
-        return node.driver.create_volume(volume_name, int(disk_size), node=node)
+        volume = node.driver.create_volume(volume_name, int(disk_size), node=node)
+        if 'filesystem_path' in volume.extra and volume.extra['filesystem_path']:
+            device = os.path.basename(volume.extra['filesystem_path'])
+            orig_system.setValue("disk." + str(cont) + ".device", device)
+        return volume
 
     def attach_volumes(self, vm, node):
         """
@@ -364,10 +371,7 @@ class LinodeCloudConnector(LibCloudCloudConnector):
                     return True
                 cont = 1
                 while vm.info.systems[0].getValue("disk." + str(cont) + ".size"):
-                    volume = self.create_volume(node, vm.info.systems[0], cont)
-                    if 'filesystem_path' in volume.extra and volume.extra['filesystem_path']:
-                        device = os.path.basename(volume.extra['filesystem_path'])
-                        vm.info.systems[0].setValue("disk." + str(cont) + ".device", device)
+                    self.create_volume(node, vm.info.systems[0], vm.info.systems[0], cont)
                     cont += 1
             return True
         except Exception:
@@ -433,10 +437,7 @@ class LinodeCloudConnector(LibCloudCloudConnector):
                 system = radl.systems[0]
 
                 while system.getValue("disk." + str(cont) + ".size"):
-                    volume = self.create_volume(node, system, cont)
-                    if 'filesystem_path' in volume.extra and volume.extra['filesystem_path']:
-                        device = os.path.basename(volume.extra['filesystem_path'])
-                        orig_system.setValue("disk." + str(cont) + ".device", device)
+                    self.create_volume(node, system, orig_system, cont)
                     cont += 1
                 return (True, "")
             except Exception as ex:
