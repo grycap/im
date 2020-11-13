@@ -48,6 +48,23 @@ class LinodeCloudConnector(LibCloudCloudConnector):
     DEFAULT_LOCATION = 'us-central'
     """ Linode default location """
 
+    VM_STATE_MAP = {
+        NodeState.RUNNING: VirtualMachine.RUNNING,
+        NodeState.REBOOTING: VirtualMachine.RUNNING,
+        NodeState.PENDING: VirtualMachine.PENDING,
+        NodeState.STARTING: VirtualMachine.PENDING,
+        NodeState.PENDING: VirtualMachine.PENDING,
+        NodeState.TERMINATED: VirtualMachine.OFF,
+        NodeState.STOPPED: VirtualMachine.STOPPED,
+        NodeState.STOPPING: VirtualMachine.RUNNING,
+        NodeState.MIGRATING: VirtualMachine.RUNNING,
+        NodeState.UPDATING: VirtualMachine.RUNNING,
+        NodeState.ERROR: VirtualMachine.FAILED,
+        NodeState.REBOOTING: VirtualMachine.RUNNING,
+        NodeState.UNKNOWN: VirtualMachine.UNKNOWN
+    }
+    """State map"""
+
     def __init__(self, cloud_info, inf):
         self.driver = None
         self.auth = None
@@ -146,7 +163,7 @@ class LinodeCloudConnector(LibCloudCloudConnector):
             else:
                 raise Exception('Invalid Linode datacenter specified: %s' % system.getValue('availability_zone'))
         else:
-            args['location'] = NodeLocation(self.DEFAULT_LOCATION, None, None, None, driver)
+            args['location'] = NodeLocation(self.DEFAULT_LOCATION, '', '', driver)
 
         public_key = system.getValue("disk.0.os.credentials.public_key")
         private_key = system.getValue('disk.0.os.credentials.private_key')

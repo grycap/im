@@ -28,6 +28,7 @@ from radl import radl_parse
 from IM.VirtualMachine import VirtualMachine
 from IM.InfrastructureInfo import InfrastructureInfo
 from IM.connectors.Linode import LinodeCloudConnector
+from IM.connectors.Linode import NodeState
 from mock import patch, MagicMock
 
 
@@ -93,8 +94,9 @@ class TestLinodeConnector(TestCloudConnectorBase):
             net_interface.0.connection = 'net1' and
             net_interface.0.dns_name = 'test' and
             net_interface.1.connection = 'net2' and
+            availability_zone = 'us-east' and
             disk.0.os.name = 'linux' and
-            disk.0.image.url = 'aws://ami-id' and
+            disk.0.image.url = 'lin://linode/ubuntu' and
             disk.0.os.credentials.username = 'user' and
             disk.1.size=1GB and
             disk.1.device='hdb' and
@@ -107,7 +109,6 @@ class TestLinodeConnector(TestCloudConnectorBase):
         linode_cloud = self.get_lib_cloud()
 
         driver = MagicMock()
-        driver.features = {"create_node": ["ssh_key", "password"]}
         get_driver.return_value = driver
 
         node_size = MagicMock()
@@ -123,14 +124,25 @@ class TestLinodeConnector(TestCloudConnectorBase):
         node = MagicMock()
         node.id = "1"
         node.name = "name"
+        node.driver = driver
         driver.create_node.return_value = node
+
+        location = MagicMock()
+        location.id = 'us-east'
+        location.name = 'us-east'
+        driver.list_locations.return_value = [location]
 
         res = linode_cloud.launch(InfrastructureInfo(), radl, radl, 1, auth)
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
+        self.assertEqual(driver.create_node.call_args_list[0][1]['size'], node_size)
+        self.assertEqual(driver.create_node.call_args_list[0][1]['image'].id, 'linode/ubuntu')
+        self.assertEqual(driver.create_node.call_args_list[0][1]['location'], location)
+        self.assertEqual(len(driver.create_node.call_args_list[0][1]['root_pass']), 8)
+        self.assertLess(len(driver.create_node.call_args_list[0][1]['name']), 32)
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
-    @patch('libcloud.compute.drivers.ec2.EC2NodeDriver')
+    @patch('libcloud.compute.drivers.linode.LinodeNodeDriver')
     def test_30_updateVMInfo(self, get_driver):
         radl_data = """
             network net (outbound = 'yes')
@@ -139,113 +151,106 @@ class TestLinodeConnector(TestCloudConnectorBase):
             cpu.count=1 and
             memory.size=512m and
             net_interface.0.connection = 'net' and
-            net_interface.0.ip = '158.42.1.1' and
             net_interface.0.dns_name = 'test' and
             disk.0.os.name = 'linux' and
-            disk.0.image.url = 'aws://ami-id' and
+            disk.0.image.url = 'lin://linode/ubuntu' and
             disk.0.os.credentials.username = 'user' and
             disk.0.os.credentials.password = 'pass'
             )"""
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
 
-        auth = Authentication([{'id': 'libcloud', 'type': 'LibCloud', 'username': 'user',
-                                'password': 'pass', 'driver': 'EC2'}])
-        lib_cloud = self.get_lib_cloud()
+        auth = Authentication([{'id': 'linode', 'type': 'Linode', 'username': 'apiKey'}])
+        linode_cloud = self.get_lib_cloud()
 
         inf = MagicMock()
-        vm = VirtualMachine(inf, "1", lib_cloud.cloud, radl, radl, lib_cloud, 1)
+        vm = VirtualMachine(inf, "1", linode_cloud.cloud, radl, radl, linode_cloud, 1)
 
         driver = MagicMock()
-        driver.name = "Amazon EC2"
         get_driver.return_value = driver
 
         node = MagicMock()
         node.id = "1"
-        node.state = "running"
-        node.extra = {'availability': 'use-east-1'}
+        node.state = NodeState.RUNNING
         node.public_ips = []
         node.private_ips = ['10.0.0.1']
         node.driver = driver
-        node.size = MagicMock()
-        node.size.ram = 512
-        node.size.price = 1
-        node.size.disk = 1
-        node.size.vcpus = 1
-        node.size.name = "small"
+        node.size = "small"
         driver.list_nodes.return_value = [node]
+
+        node_size = MagicMock()
+        node_size.ram = 512
+        node_size.price = 1
+        node_size.disk = 1
+        node_size.vcpus = 1
+        node_size.name = "small"
+        driver.list_sizes.return_value = [node_size]
 
         volume = MagicMock()
         volume.id = "vol1"
-        volume.extra = {"state": "available"}
-        volume.attach.return_value = True
+        volume.extra = {"filesystem_path": "/dev/algo", "linode_id": "1"}
         driver.create_volume.return_value = volume
 
-        driver.ex_allocate_address.return_value = "10.0.0.1"
-
-        success, vm = lib_cloud.updateVMInfo(vm, auth)
+        success, vm = linode_cloud.updateVMInfo(vm, auth)
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
-    @patch('libcloud.compute.drivers.ec2.EC2NodeDriver')
+    @patch('libcloud.compute.drivers.linode.LinodeNodeDriver')
     def test_40_stop(self, get_driver):
-        auth = Authentication([{'id': 'libcloud', 'type': 'LibCloud', 'username': 'user',
-                                'password': 'pass', 'driver': 'EC2'}])
-        lib_cloud = self.get_lib_cloud()
+        auth = Authentication([{'id': 'linode', 'type': 'Linode', 'username': 'apiKey'}])
+        linode_cloud = self.get_lib_cloud()
 
         inf = MagicMock()
-        vm = VirtualMachine(inf, "1", lib_cloud.cloud, "", "", lib_cloud, 1)
+        vm = VirtualMachine(inf, "1", linode_cloud.cloud, "", "", linode_cloud, 1)
 
         driver = MagicMock()
         get_driver.return_value = driver
 
         node = MagicMock()
         node.id = "1"
-        node.state = "running"
+        node.state = NodeState.RUNNING
         node.driver = driver
         driver.list_nodes.return_value = [node]
 
-        driver.ex_stop_node.return_value = True
+        driver.stop_node.return_value = True
 
-        success, _ = lib_cloud.stop(vm, auth)
+        success, _ = linode_cloud.stop(vm, auth)
 
         self.assertTrue(success, msg="ERROR: stopping VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
-    @patch('libcloud.compute.drivers.ec2.EC2NodeDriver')
+    @patch('libcloud.compute.drivers.linode.LinodeNodeDriver')
     def test_50_start(self, get_driver):
-        auth = Authentication([{'id': 'libcloud', 'type': 'LibCloud', 'username': 'user',
-                                'password': 'pass', 'driver': 'EC2'}])
-        lib_cloud = self.get_lib_cloud()
+        auth = Authentication([{'id': 'linode', 'type': 'Linode', 'username': 'apiKey'}])
+        linode_cloud = self.get_lib_cloud()
 
         inf = MagicMock()
-        vm = VirtualMachine(inf, "1", lib_cloud.cloud, "", "", lib_cloud, 1)
+        vm = VirtualMachine(inf, "1", linode_cloud.cloud, "", "", linode_cloud, 1)
 
         driver = MagicMock()
         get_driver.return_value = driver
 
         node = MagicMock()
         node.id = "1"
-        node.state = "running"
+        node.state = NodeState.RUNNING
         node.driver = driver
         driver.list_nodes.return_value = [node]
 
-        driver.ex_stop_node.return_value = True
+        driver.start_node.return_value = True
 
-        success, _ = lib_cloud.start(vm, auth)
+        success, _ = linode_cloud.start(vm, auth)
 
         self.assertTrue(success, msg="ERROR: starting VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
-    @patch('libcloud.compute.drivers.ec2.EC2NodeDriver')
+    @patch('libcloud.compute.drivers.linode.LinodeNodeDriver')
     def test_60_reboot(self, get_driver):
-        auth = Authentication([{'id': 'libcloud', 'type': 'LibCloud', 'username': 'user',
-                                'password': 'pass', 'driver': 'EC2'}])
-        lib_cloud = self.get_lib_cloud()
+        auth = Authentication([{'id': 'linode', 'type': 'Linode', 'username': 'apiKey'}])
+        linode_cloud = self.get_lib_cloud()
 
         inf = MagicMock()
-        vm = VirtualMachine(inf, "1", lib_cloud.cloud, "", "", lib_cloud, 1)
+        vm = VirtualMachine(inf, "1", linode_cloud.cloud, "", "", linode_cloud, 1)
 
         driver = MagicMock()
         get_driver.return_value = driver
@@ -254,18 +259,17 @@ class TestLinodeConnector(TestCloudConnectorBase):
         node.id = "1"
         node.state = "running"
         node.driver = driver
-        node.reboot.return_value = True
+        node.reboot_node.return_value = True
         driver.list_nodes.return_value = [node]
 
-        success, _ = lib_cloud.reboot(vm, auth)
+        success, _ = linode_cloud.reboot(vm, auth)
 
         self.assertTrue(success, msg="ERROR: rebooting VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
-    @patch('libcloud.compute.drivers.ec2.EC2NodeDriver')
+    @patch('libcloud.compute.drivers.linode.LinodeNodeDriver')
     def test_70_finalize(self, get_driver):
-        auth = Authentication([{'id': 'libcloud', 'type': 'LibCloud', 'username': 'user',
-                                'password': 'pass', 'driver': 'EC2'}])
+        auth = Authentication([{'id': 'linode', 'type': 'Linode', 'username': 'apiKey'}])
         lib_cloud = self.get_lib_cloud()
 
         radl_data = """
@@ -280,35 +284,28 @@ class TestLinodeConnector(TestCloudConnectorBase):
         vm.keypair = ""
 
         driver = MagicMock()
-        driver.name = "Amazon EC2"
         get_driver.return_value = driver
 
         node = MagicMock()
         node.id = "1"
-        node.state = "running"
+        node.state = NodeState.RUNNING
         node.driver = driver
         node.destroy.return_value = True
         driver.list_nodes.return_value = [node]
 
-        sg = MagicMock()
-        sg.id = sg.name = "sg1"
-        driver.ex_get_node_security_groups.return_value = [sg]
-
-        keypair = MagicMock()
-        driver.get_key_pair.return_value = keypair
-        vm.keypair = keypair
         volume = MagicMock()
         volume.id = "id"
-        vm.volumes = [volume]
-
-        driver.delete_key_pair.return_value = True
-
-        driver.ex_describe_addresses_for_node.return_value = ["ip"]
-        driver.ex_disassociate_address.return_value = True
+        volume.extra = {'linode_id': '1'}
+        volume.detach.return_value = True
+        volume.destroy.return_value = True
+        driver.list_volumes.return_value = [volume]
 
         success, _ = lib_cloud.finalize(vm, True, auth)
 
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
+        self.assertEqual(node.destroy.call_count, 1)
+        self.assertEqual(volume.detach.call_count, 1)
+        self.assertEqual(volume.destroy.call_count, 1)
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
 
