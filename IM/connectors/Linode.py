@@ -195,8 +195,6 @@ class LinodeCloudConnector(LibCloudCloudConnector):
                 'image': image,
                 'name': instance_name}
 
-        args
-
         if system.getValue('availability_zone'):
             location = self.get_location(driver, system.getValue('availability_zone'))
             if location:
@@ -216,12 +214,11 @@ class LinodeCloudConnector(LibCloudCloudConnector):
 
         args['ex_authorized_keys'] = [public_key]
 
-        password = system.getValue('disk.0.os.credentials.new.password')
-        if not password:
-            password = system.getValue('disk.0.os.credentials.password')
-        if not password:
-            password = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(8))
-        args['root_pass'] = password
+        args['root_pass'] = system.getValue('disk.0.os.credentials.new.password')
+        if not args['root_pass']:
+            args['root_pass'] = system.getValue('disk.0.os.credentials.password')
+        if not args['root_pass']:
+            args['root_pass'] = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(8))
 
         user = system.getValue('disk.0.os.credentials.username')
         if not user:
