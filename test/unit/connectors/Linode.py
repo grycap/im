@@ -73,7 +73,7 @@ class TestLinodeConnector(TestCloudConnectorBase):
         node_size.ram = 512
         node_size.price = 1
         node_size.disk = 1
-        node_size.vcpus = 1
+        node_size.extra = {'vcpus': 1}
         node_size.name = "small"
         driver.list_sizes.return_value = [node_size]
 
@@ -115,7 +115,7 @@ class TestLinodeConnector(TestCloudConnectorBase):
         node_size.ram = 512
         node_size.price = 1
         node_size.disk = 1
-        node_size.vcpus = 1
+        node_size.extra = {'vcpus': 1}
         node_size.name = "small"
         driver.list_sizes.return_value = [node_size]
 
@@ -182,7 +182,7 @@ class TestLinodeConnector(TestCloudConnectorBase):
         node_size.ram = 512
         node_size.price = 1
         node_size.disk = 1
-        node_size.vcpus = 1
+        node_size.extra = {'vcpus': 1}
         node_size.name = "small"
         driver.list_sizes.return_value = [node_size]
 
@@ -237,7 +237,7 @@ class TestLinodeConnector(TestCloudConnectorBase):
         node.driver = driver
         driver.list_nodes.return_value = [node]
 
-        driver.start_node.return_value = True
+        driver.start.return_value = True
 
         success, _ = linode_cloud.start(vm, auth)
 
@@ -290,7 +290,7 @@ class TestLinodeConnector(TestCloudConnectorBase):
         node_size.ram = 2048
         node_size.price = 1
         node_size.disk = 1
-        node_size.vcpus = 2
+        node_size.extra = {'vcpus': 2}
         node_size.name = "big"
         node_size.id = "big"
         driver.list_sizes.return_value = [node_size]
@@ -310,12 +310,12 @@ class TestLinodeConnector(TestCloudConnectorBase):
 
         volume = MagicMock()
         volume.id = 'volid'
-        volume.extra = {"filesystem_path": "/dev/algo"}
+        volume.extra = {"filesystem_path": "/dev/deviceid"}
 
         driver.create_volume.return_value = volume
 
         success, _ = linode_cloud.alterVM(vm, new_radl, auth)
-        self.assertEqual(vm.info.systems[0].getValue("disk.1.device"), '/dev/algo')
+        self.assertEqual(vm.info.systems[0].getValue("disk.1.device"), 'deviceid')
         self.assertTrue(success, msg="ERROR: modifying VM info.")
 
     @patch('libcloud.compute.drivers.linode.LinodeNodeDriver')
@@ -333,7 +333,7 @@ class TestLinodeConnector(TestCloudConnectorBase):
         node.id = "1"
         node.state = "running"
         node.driver = driver
-        node.reboot_node.return_value = True
+        node.reboot.return_value = True
         driver.list_nodes.return_value = [node]
 
         success, _ = linode_cloud.reboot(vm, auth)
