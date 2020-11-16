@@ -204,11 +204,11 @@ The available keys are:
 * ``type`` indicates the service that refers the credential. The services
   supported are ``InfrastructureManager``, ``VMRC``, ``OpenNebula``, ``EC2``,, ``FogBow``, 
   ``OpenStack``, ``OCCI``, ``LibCloud``, ``Docker``, ``GCE``, ``Azure``, ``AzureClassic``,
-  ``Kubernetes`` and ``vSphere``.
+  ``Kubernetes``, ``vSphere`` and ``Linode``.
 
 * ``username`` indicates the user name associated to the credential. In EC2
   it refers to the *Access Key ID*. In GCE it refers to *Service Account’s Email Address*. 
-  In CloudStack refers to Api Key value.
+  In CloudStack and Linode refers to Api Key value.
 
 * ``password`` indicates the password associated to the credential. In EC2
   it refers to the *Secret Access Key*. In GCE it refers to *Service  Private Key*
@@ -393,6 +393,8 @@ An example of the auth file::
    id = vsphere; type = vSphere; host = http://server; username = user; password = pass
    # CloudStack site auth data
    id = cloudstack; type = CloudStack; host = http://server; username = apikey; password = secret
+   # Linode auth data
+   id = linode; type = Linode; username = apikey
    
 
 IM Server does not store the credentials used in the creation of

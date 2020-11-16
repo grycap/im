@@ -224,8 +224,8 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
         public_key = system.getValue("disk.0.os.credentials.public_key")
 
         if public_key and public_key.find('-----BEGIN CERTIFICATE-----') == -1:
-            public_key = None
             keypair = driver.get_key_pair(public_key)
+            public_key = None
             if keypair:
                 system.setUserKeyCredentials(system.getCredentials().username, None, keypair.private_key)
             else:
