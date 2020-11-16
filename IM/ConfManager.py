@@ -672,7 +672,11 @@ class ConfManager(LoggerMixin, threading.Thread):
                     # Devices hdb, sdb, xvdb, etc
                     res += "item.key.endswith('d%s') or " % disk_device[-1]
                     # Devices nvme0n1 (NVMe type in EC2)
-                    res += "item.key.startswith('nvme%sn1')" % (ord(disk_device[-1]) - 97)
+                    res += "item.key.startswith('nvme%sn1') or " % (ord(disk_device[-1]) - 97)
+                    # Full name device
+                    res += "item.key == '%s' or " % disk_device
+                    # Use also link names (Linode case)
+                    res += "'%s' in item.value.links.ids" % disk_device
                     res += ")\n"
 
             cont += 1
