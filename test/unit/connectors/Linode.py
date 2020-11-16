@@ -66,10 +66,10 @@ class TestLinodeConnector(TestCloudConnectorBase):
         auth = Authentication([{'id': 'linode', 'type': 'Linode', 'username': 'apiKey'}])
         linode_cloud = self.get_lib_cloud()
 
-        driver = MagicMock()
+        driver = MagicMock(['list_sizes'])
         get_driver.return_value = driver
 
-        node_size = MagicMock()
+        node_size = MagicMock(['ram', 'name', 'id', 'price', 'disk', 'extra'])
         node_size.ram = 512
         node_size.price = 1
         node_size.disk = 1
@@ -97,10 +97,7 @@ class TestLinodeConnector(TestCloudConnectorBase):
             availability_zone = 'us-east' and
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'lin://linode/ubuntu' and
-            disk.0.os.credentials.username = 'user' and
-            disk.1.size=1GB and
-            disk.1.device='hdb' and
-            disk.1.mount_path='/mnt/path'
+            disk.0.os.credentials.username = 'user'
             )"""
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
@@ -108,17 +105,17 @@ class TestLinodeConnector(TestCloudConnectorBase):
         auth = Authentication([{'id': 'linode', 'type': 'Linode', 'username': 'apiKey'}])
         linode_cloud = self.get_lib_cloud()
 
-        driver = MagicMock()
+        driver = MagicMock(['list_sizes', 'create_node', 'list_locations'])
         get_driver.return_value = driver
 
-        node_size = MagicMock()
+        node_size = MagicMock(['ram', 'price', 'disk', 'extra'])
         node_size.ram = 512
         node_size.price = 1
         node_size.disk = 1
         node_size.extra = {'vcpus': 1, 'gpus': None}
         node_size.name = "small"
 
-        node_sizeg = MagicMock()
+        node_sizeg = MagicMock(['ram', 'price', 'disk', 'extra'])
         node_sizeg.ram = 512
         node_sizeg.price = 2
         node_sizeg.disk = 1
@@ -126,15 +123,13 @@ class TestLinodeConnector(TestCloudConnectorBase):
         node_sizeg.name = "gsmall"
         driver.list_sizes.return_value = [node_size, node_sizeg]
 
-        driver.get_key_pair.return_value = ""
-
-        node = MagicMock()
+        node = MagicMock(['id', 'name', 'driver'])
         node.id = "1"
         node.name = "name"
         node.driver = driver
         driver.create_node.return_value = node
 
-        location = MagicMock()
+        location = MagicMock(['id', 'name'])
         location.id = 'us-east'
         location.name = 'us-east'
         driver.list_locations.return_value = [location]
@@ -162,7 +157,9 @@ class TestLinodeConnector(TestCloudConnectorBase):
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'lin://linode/ubuntu' and
             disk.0.os.credentials.username = 'user' and
-            disk.0.os.credentials.password = 'pass'
+            disk.0.os.credentials.password = 'pass' and
+            disk.1.size=1GB and
+            disk.1.mount_path='/mnt/path'
             )"""
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
@@ -170,13 +167,14 @@ class TestLinodeConnector(TestCloudConnectorBase):
         auth = Authentication([{'id': 'linode', 'type': 'Linode', 'username': 'apiKey'}])
         linode_cloud = self.get_lib_cloud()
 
-        inf = MagicMock()
+        inf = MagicMock(['id'])
         vm = VirtualMachine(inf, "1", linode_cloud.cloud, radl, radl, linode_cloud, 1)
 
-        driver = MagicMock()
+        driver = MagicMock(['name', 'list_nodes', 'list_sizes', 'create_volume', 'list_volumes'])
         get_driver.return_value = driver
+        driver.name = 'Linode'
 
-        node = MagicMock()
+        node = MagicMock(['id', 'state', 'public_ips', 'private_ips', 'driver', 'size'])
         node.id = "1"
         node.state = NodeState.RUNNING
         node.public_ips = []
@@ -185,7 +183,8 @@ class TestLinodeConnector(TestCloudConnectorBase):
         node.size = "small"
         driver.list_nodes.return_value = [node]
 
-        node_size = MagicMock()
+        node_size = MagicMock(['id', 'ram', 'price', 'disk', 'extra'])
+        node_size.id = 'small'
         node_size.ram = 512
         node_size.price = 1
         node_size.disk = 1
@@ -193,14 +192,17 @@ class TestLinodeConnector(TestCloudConnectorBase):
         node_size.name = "small"
         driver.list_sizes.return_value = [node_size]
 
-        volume = MagicMock()
+        volume = MagicMock(['id', 'extra'])
         volume.id = "vol1"
         volume.extra = {"filesystem_path": "/dev/algo", "linode_id": "1"}
         driver.create_volume.return_value = volume
+        driver.list_volumes.return_value = []
 
         success, vm = linode_cloud.updateVMInfo(vm, auth)
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
+        self.assertEqual(driver.create_volume.call_args_list[0][0][1], 10)
+        self.assertEqual(driver.create_volume.call_args_list[0][1]['node'], node)
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('libcloud.compute.drivers.linode.LinodeNodeDriver')
@@ -211,16 +213,16 @@ class TestLinodeConnector(TestCloudConnectorBase):
         inf = MagicMock()
         vm = VirtualMachine(inf, "1", linode_cloud.cloud, "", "", linode_cloud, 1)
 
-        driver = MagicMock()
+        driver = MagicMock(['list_nodes'])
         get_driver.return_value = driver
 
-        node = MagicMock()
+        node = MagicMock(['id', 'state', 'driver', 'stop_node'])
         node.id = "1"
         node.state = NodeState.RUNNING
         node.driver = driver
         driver.list_nodes.return_value = [node]
 
-        driver.stop_node.return_value = True
+        node.stop_node.return_value = True
 
         success, _ = linode_cloud.stop(vm, auth)
 
@@ -235,16 +237,15 @@ class TestLinodeConnector(TestCloudConnectorBase):
         inf = MagicMock()
         vm = VirtualMachine(inf, "1", linode_cloud.cloud, "", "", linode_cloud, 1)
 
-        driver = MagicMock()
+        driver = MagicMock(['list_nodes'])
         get_driver.return_value = driver
 
-        node = MagicMock()
+        node = MagicMock(['id', 'state', 'driver', 'start'])
         node.id = "1"
         node.state = NodeState.RUNNING
         node.driver = driver
+        node.start.return_value = True
         driver.list_nodes.return_value = [node]
-
-        driver.start.return_value = True
 
         success, _ = linode_cloud.start(vm, auth)
 
@@ -278,13 +279,13 @@ class TestLinodeConnector(TestCloudConnectorBase):
         auth = Authentication([{'id': 'linode', 'type': 'Linode', 'username': 'apiKey'}])
         linode_cloud = self.get_lib_cloud()
 
-        inf = MagicMock()
+        inf = MagicMock(['id'])
         vm = VirtualMachine(inf, "1", linode_cloud.cloud, radl, radl, linode_cloud, 1)
 
-        driver = MagicMock()
+        driver = MagicMock(['list_nodes', 'list_sizes', 'ex_resize_node', 'create_volume'])
         get_driver.return_value = driver
 
-        node = MagicMock()
+        node = MagicMock(['id', 'state', 'driver', 'size', 'public_ips', 'private_ips'])
         node.id = "1"
         node.state = NodeState.RUNNING
         node.size = "small"
@@ -293,7 +294,7 @@ class TestLinodeConnector(TestCloudConnectorBase):
         node.driver = driver
         driver.list_nodes.return_value = [node]
 
-        node_size = MagicMock()
+        node_size = MagicMock(['id', 'ram', 'price', 'disk', 'extra', 'name'])
         node_size.ram = 2048
         node_size.price = 1
         node_size.disk = 1
@@ -330,13 +331,13 @@ class TestLinodeConnector(TestCloudConnectorBase):
         auth = Authentication([{'id': 'linode', 'type': 'Linode', 'username': 'apiKey'}])
         linode_cloud = self.get_lib_cloud()
 
-        inf = MagicMock()
+        inf = MagicMock(['id'])
         vm = VirtualMachine(inf, "1", linode_cloud.cloud, "", "", linode_cloud, 1)
 
-        driver = MagicMock()
+        driver = MagicMock(['list_nodes'])
         get_driver.return_value = driver
 
-        node = MagicMock()
+        node = MagicMock(['id', 'state', 'driver', 'reboot'])
         node.id = "1"
         node.state = "running"
         node.driver = driver
@@ -360,21 +361,20 @@ class TestLinodeConnector(TestCloudConnectorBase):
             )"""
         radl = radl_parse.parse_radl(radl_data)
 
-        inf = MagicMock()
+        inf = MagicMock(['id'])
         vm = VirtualMachine(inf, "1", lib_cloud.cloud, radl, radl, lib_cloud, 1)
-        vm.keypair = ""
 
-        driver = MagicMock()
+        driver = MagicMock(['list_nodes', 'list_volumes'])
         get_driver.return_value = driver
 
-        node = MagicMock()
+        node = MagicMock(['id', 'state', 'driver', 'destroy'])
         node.id = "1"
         node.state = NodeState.RUNNING
         node.driver = driver
         node.destroy.return_value = True
         driver.list_nodes.return_value = [node]
 
-        volume = MagicMock()
+        volume = MagicMock(['id', 'extra', 'detach', 'destroy'])
         volume.id = "id"
         volume.extra = {'linode_id': '1'}
         volume.detach.return_value = True
