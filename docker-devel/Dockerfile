@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y python3 python3
 RUN apt-get update && apt-get install --no-install-recommends -y git python3-pip && \
      pip3 install pip setuptools --upgrade && \
      /usr/local/bin/pip3 install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns && \
-     /usr/local/bin/pip3 install pyOpenSSL cheroot xmltodict pymongo ansible==2.9.10&& \
+     /usr/local/bin/pip3 install pyOpenSSL cheroot xmltodict pymongo ansible==2.9.15&& \
      # Install it untill changes are merged upstream
      cd /tmp && git clone https://github.com/micafer/tosca-parser && /usr/local/bin/pip3 install /tmp/tosca-parser && \
      cd /tmp && git clone https://github.com/micafer/libcloud --branch linodev4 && /usr/local/bin/pip install /tmp/libcloud && \
