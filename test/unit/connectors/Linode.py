@@ -316,7 +316,7 @@ class TestLinodeConnector(TestCloudConnectorBase):
             )"""
         new_radl = radl_parse.parse_radl(new_radl_data)
 
-        volume = MagicMock()
+        volume = MagicMock(['id', 'extra'])
         volume.id = 'volid'
         volume.extra = {"filesystem_path": "/dev/deviceid"}
 
