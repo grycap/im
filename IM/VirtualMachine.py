@@ -21,6 +21,7 @@ import string
 import json
 import tempfile
 import logging
+import sys
 from netaddr import IPNetwork, IPAddress
 
 from radl.radl import network, RADL
@@ -935,7 +936,14 @@ class VirtualMachine(LoggerMixin):
             # Get the messages of the contextualization process
             self.log_debug("Get File: " + remote_dir + '/ctxt_agent.log')
             ssh.sftp_get(remote_dir + '/ctxt_agent.log', tmp_dir + '/ctxt_agent.log')
-            with open(tmp_dir + '/ctxt_agent.log') as f:
+
+            # patch for support python2 and avoid UnicodeDecodeError in python3
+            if sys.version_info[0] < 3:
+                open_args = {}
+            else:
+                open_args = {'encoding': 'utf-8'}
+
+            with open(tmp_dir + '/ctxt_agent.log', **open_args) as f:
                 # Read removing problematic chars
                 conf_out = str("".join(list(filter(lambda x: x in string.printable,
                                                    f.read()))).encode("ascii", "replace").decode("utf-8"))
