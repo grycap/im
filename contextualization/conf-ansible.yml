@@ -100,6 +100,35 @@
       zypper: name=python-pip,python-setuptools,gcc,python-devel,wget,libffi-devel,openssl-devel,python-cryptography,make state=present
       when: ansible_os_family == "Suse"
 
+    - name: Apk install requirements Alpine
+      package: name=py-setuptools,sshpass,openssh-client,unzip,gcc,libffi-dev,openssl-dev,musl-dev,make,wget,python2-dev
+      when: ansible_os_family == "Alpine"
+
+    - name: Apk install pip in Alpine 3.11-
+      package: name=py-pip
+      when: ansible_os_family == "Alpine" and ansible_distribution_version is version('3.12', '<')
+
+    - name: Apk install pip in Alpine 3.12+
+      shell: wget https://bootstrap.pypa.io/get-pip.py && python2 get-pip.py warn=false creates=/usr/local/bin/pip2 chdir=/tmp
+      when: ansible_os_family == "Alpine" and ansible_distribution_version is version('3.12', '>=')
+
+    - name: Move original ps in Alpine
+      command: mv /bin/ps /sbin/ps creates=/sbin/ps
+      when: ansible_os_family == "Alpine"
+
+    - name: Install ps with -p support in Alpine
+      get_url:
+        url: https://gist.githubusercontent.com/micafer/f74de4dc21a636df30d51202cbeee475/raw/388945406b9e9d225a0c7e95b97fc2515f1a17ef/ps_opt_p_enabled_for_alpine.sh
+        dest: /bin/ps
+        mode: 0755
+        owner: root
+        group: root
+      when: ansible_os_family == "Alpine"
+
+    - name: Pip install cffi Alpine
+      pip: name=wheel
+      when: ansible_os_family == "Alpine"
+
     - name: Install pip and setuptools Py3
       package: name=python3-setuptools,python3-pip
       when: ansible_python.version.major > 2
