@@ -68,7 +68,8 @@ class TestKubernetesConnector(TestCloudConnectorBase):
         radl = radl_parse.parse_radl(radl_data)
         radl_system = radl.systems[0]
 
-        auth = Authentication([{'id': 'fogbow', 'type': 'Kubernetes', 'host': 'http://server.com:8080'}])
+        auth = Authentication([{'id': 'kube', 'type': 'Kubernetes',
+                                'host': 'http://server.com:8080', 'token': 'token'}])
         kube_cloud = self.get_kube_cloud()
 
         concrete = kube_cloud.concreteSystem(radl_system, auth)
@@ -135,7 +136,8 @@ class TestKubernetesConnector(TestCloudConnectorBase):
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
 
-        auth = Authentication([{'id': 'fogbow', 'type': 'Kubernetes', 'host': 'http://server.com:8080'}])
+        auth = Authentication([{'id': 'kube', 'type': 'Kubernetes',
+                                'host': 'http://server.com:8080', 'token': 'token'}])
         kube_cloud = self.get_kube_cloud()
 
         requests.side_effect = self.get_response
@@ -163,7 +165,8 @@ class TestKubernetesConnector(TestCloudConnectorBase):
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
 
-        auth = Authentication([{'id': 'fogbow', 'type': 'Kubernetes', 'host': 'http://server.com:8080'}])
+        auth = Authentication([{'id': 'kube', 'type': 'Kubernetes',
+                                'host': 'http://server.com:8080', 'token': 'token'}])
         kube_cloud = self.get_kube_cloud()
 
         inf = MagicMock()
@@ -203,7 +206,8 @@ class TestKubernetesConnector(TestCloudConnectorBase):
             )"""
         new_radl = radl_parse.parse_radl(new_radl_data)
 
-        auth = Authentication([{'id': 'fogbow', 'type': 'Kubernetes', 'host': 'http://server.com:8080'}])
+        auth = Authentication([{'id': 'kube', 'type': 'Kubernetes',
+                                'host': 'http://server.com:8080', 'token': 'token'}])
         kube_cloud = self.get_kube_cloud()
 
         inf = MagicMock()
@@ -219,7 +223,8 @@ class TestKubernetesConnector(TestCloudConnectorBase):
 
     @patch('requests.request')
     def test_60_finalize(self, requests):
-        auth = Authentication([{'id': 'fogbow', 'type': 'Kubernetes', 'host': 'http://server.com:8080'}])
+        auth = Authentication([{'id': 'kube', 'type': 'Kubernetes',
+                                'host': 'http://server.com:8080', 'token': 'token'}])
         kube_cloud = self.get_kube_cloud()
 
         inf = MagicMock()

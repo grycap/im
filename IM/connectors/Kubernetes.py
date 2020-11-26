@@ -270,11 +270,11 @@ class KubernetesCloudConnector(CloudConnector):
             'namespace': namespace,
             'labels': {'name': name}
         }
-        command = "yum install -y openssh-server python"
+        command = "yum install -y openssh-server python sudo"
         command += " ; "
-        command += "apt-get update && apt-get install -y openssh-server python"
+        command += "apt-get update && apt-get install -y openssh-server python sudo"
         command += " ; "
-        command += "apk add --no-cache openssh-server  python"
+        command += "apk add --no-cache openssh-server python2 sudo"
         command += " ; "
         command += "mkdir /var/run/sshd"
         command += " ; "
@@ -290,7 +290,7 @@ class KubernetesCloudConnector(CloudConnector):
         containers = [{
             'name': name,
             'image': image_name,
-            'command': ["/bin/bash", "-c", command],
+            'command': ["/bin/sh", "-c", command],
             'imagePullPolicy': 'IfNotPresent',
             'ports': ports,
             'resources': {'limits': {'cpu': cpu, 'memory': memory}}

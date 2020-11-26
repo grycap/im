@@ -1191,7 +1191,7 @@ class ConfManager(LoggerMixin, threading.Thread):
                     # passwd value
                     if passwd and new_passwd:
                         self.log_info("Changing password to master VM")
-                        (out, err, code) = ssh.execute('echo "' + passwd + '" | sudo -S bash -c \'echo "' +
+                        (out, err, code) = ssh.execute('echo "' + passwd + '" | sudo -S sh -c \'echo "' +
                                                        user + ':' + new_passwd +
                                                        '" | /usr/sbin/chpasswd && echo "OK"\' 2> /dev/null')
 
