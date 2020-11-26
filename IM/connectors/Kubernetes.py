@@ -24,7 +24,7 @@ except ImportError:
     from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
-from radl.radl import Feature, outport
+from radl.radl import Feature
 from IM.config import Config
 
 
