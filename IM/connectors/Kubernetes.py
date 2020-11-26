@@ -75,9 +75,7 @@ class KubernetesCloudConnector(CloudConnector):
         url = urlparse(self.cloud.server)
         auths = auth_data.getAuthInfo(self.type, url[1])
         if not auths:
-            self.log_error(
-                "No correct auth data has been specified to Kubernetes.")
-            return None
+            raise Exception("No correct auth data has been specified to Kubernetes.")
         else:
             auth = auths[0]
 
@@ -91,6 +89,8 @@ class KubernetesCloudConnector(CloudConnector):
         elif 'token' in auth:
             token = auth['token']
             auth_header = {'Authorization': 'Bearer ' + token}
+        else:
+            raise Exception("No correct auth data has been specified to Kubernetes: username and password or token.")
 
         return auth_header
 
