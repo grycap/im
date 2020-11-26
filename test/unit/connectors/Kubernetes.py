@@ -93,12 +93,16 @@ class TestKubernetesConnector(TestCloudConnectorBase):
             if url.endswith("/pods"):
                 resp.status_code = 201
                 resp.text = '{"metadata": {"namespace":"namespace", "name": "name"}}'
-            if url.endswith("/namespaces"):
+            elif url.endswith("/services"):
+                resp.status_code = 201
+            elif url.endswith("/namespaces"):
                 resp.status_code = 201
         elif method == "DELETE":
             if url.endswith("/pods/1"):
                 resp.status_code = 200
-            if url.endswith("/namespaces/namespace"):
+            elif url.endswith("/services/1"):
+                resp.status_code = 200
+            elif url.endswith("/namespaces/namespace"):
                 resp.status_code = 200
             elif "persistentvolumeclaims" in url:
                 resp.status_code = 200
@@ -171,6 +175,8 @@ class TestKubernetesConnector(TestCloudConnectorBase):
         success, vm = kube_cloud.updateVMInfo(vm, auth)
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
+        self.assertEqual(vm.info.systems[0].getValue("net_interface.0.ip"), "158.42.1.1")
+        self.assertEqual(vm.info.systems[0].getValue("net_interface.1.ip"), "10.0.0.1")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('requests.request')
