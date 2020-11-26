@@ -56,6 +56,10 @@ class KubernetesCloudConnector(CloudConnector):
         self.apiVersion = None
         CloudConnector.__init__(self, cloud_info, inf)
 
+    def _get_api_url(self, auth_data, namespace, path):
+        apiVersion = self.get_api_version(auth_data)
+        return "/api/" + apiVersion + "/namespaces/" + namespace + path
+
     @staticmethod
     def _get_port():
         KubernetesCloudConnector._port_counter += 1
@@ -70,8 +74,12 @@ class KubernetesCloudConnector(CloudConnector):
                 headers = {}
             headers.update(auth_header)
 
+        if body and isinstance(body, dict):
+            data = json.dumps(body)
+        else:
+            data = body
         url = "%s://%s:%d%s%s" % (self.cloud.protocol, self.cloud.server, self.cloud.port, self.cloud.path, url)
-        resp = requests.request(method, url, verify=self.verify_ssl, headers=headers, data=body)
+        resp = requests.request(method, url, verify=self.verify_ssl, headers=headers, data=data)
 
         return resp
 
@@ -146,10 +154,8 @@ class KubernetesCloudConnector(CloudConnector):
 
     def _delete_volume_claim(self, namespace, vc_name, auth_data):
         try:
-            apiVersion = self.get_api_version(auth_data)
-
             self.log_debug("Deleting PVC: %s/%s" % (namespace, vc_name))
-            uri = "/api/" + apiVersion + "/namespaces/" + namespace + "/persistentvolumeclaims/" + vc_name
+            uri = self._get_api_url(auth_data, namespace, "/persistentvolumeclaims/" + vc_name)
             resp = self.create_request('DELETE', uri, auth_data)
 
             if resp.status_code == 404:
@@ -175,14 +181,9 @@ class KubernetesCloudConnector(CloudConnector):
 
     def _create_volume_claim(self, claim_data, auth_data):
         try:
-            apiVersion = self.get_api_version(auth_data)
-
             headers = {'Content-Type': 'application/json'}
-            uri = ("/api/" + apiVersion + "/namespaces/" +
-                   claim_data['metadata']['namespace'] +
-                   "/persistentvolumeclaims")
-            body = json.dumps(claim_data)
-            resp = self.create_request('POST', uri, auth_data, headers, body)
+            uri = self._get_api_url(auth_data, claim_data['metadata']['namespace'], "/persistentvolumeclaims")
+            resp = self.create_request('POST', uri, auth_data, headers, claim_data)
 
             output = str(resp.text)
             if resp.status_code != 201:
@@ -191,11 +192,10 @@ class KubernetesCloudConnector(CloudConnector):
             else:
                 return True
         except Exception:
-            self.log_exception(
-                "Error connecting with Kubernetes API server")
+            self.log_exception("Error connecting with Kubernetes API server")
             return False
 
-    def _create_volumes(self, apiVersion, namespace, system, pod_name, auth_data, persistent=False):
+    def _create_volumes(self, namespace, system, pod_name, auth_data, persistent=False):
         res = []
         cont = 1
         while (system.getValue("disk." + str(cont) + ".size") and
@@ -213,7 +213,7 @@ class KubernetesCloudConnector(CloudConnector):
             name = "%s-%d" % (pod_name, cont)
 
             if persistent:
-                claim_data = {'apiVersion': apiVersion, 'kind': 'PersistentVolumeClaim'}
+                claim_data = {'apiVersion': 'v1', 'kind': 'PersistentVolumeClaim'}
                 claim_data['metadata'] = {'name': name, 'namespace': namespace}
                 claim_data['spec'] = {'accessModes': ['ReadWriteOnce'], 'resources': {
                     'requests': {'storage': disk_size}}}
@@ -231,8 +231,8 @@ class KubernetesCloudConnector(CloudConnector):
 
         return res
 
-    def _generate_service_data(self, apiVersion, namespace, name, outports, ssh_port):
-        service_data = {'apiVersion': apiVersion, 'kind': 'Service'}
+    def _generate_service_data(self, namespace, name, outports, ssh_port):
+        service_data = {'apiVersion': 'v1', 'kind': 'Service'}
         service_data['metadata'] = {
             'name': name,
             'namespace': namespace,
@@ -262,7 +262,7 @@ class KubernetesCloudConnector(CloudConnector):
 
         return service_data
 
-    def _generate_pod_data(self, apiVersion, namespace, name, outports, system, volumes):
+    def _generate_pod_data(self, namespace, name, outports, system, volumes):
         cpu = str(system.getValue('cpu.count'))
         memory = "%s" % system.getFeature('memory.size').getValue('B')
         # The URI has this format: docker://image_name
@@ -276,7 +276,7 @@ class KubernetesCloudConnector(CloudConnector):
                 elif outport.get_local_port() != 22:
                     ports.append({'containerPort': outport.get_local_port(), 'protocol': outport.get_protocol().upper()})
 
-        pod_data = {'apiVersion': apiVersion, 'kind': 'Pod'}
+        pod_data = {'apiVersion': 'v1', 'kind': 'Pod'}
         pod_data['metadata'] = {
             'name': name,
             'namespace': namespace,
@@ -348,21 +348,18 @@ class KubernetesCloudConnector(CloudConnector):
         if public_net:
             outports = public_net.getOutPorts()
 
-        apiVersion = self.get_api_version(auth_data)
-
         res = []
         # First create the namespace for the infrastructure
         namespace = inf.id
         headers = {'Content-Type': 'application/json'}
-        uri = "/api/" + apiVersion + "/namespaces"
+        uri = self._get_api_url(auth_data, "", "")
         with inf._lock:
-            resp = self.create_request('GET', uri + "/" + namespace, auth_data, headers)
+            resp = self.create_request('GET', uri + namespace, auth_data, headers)
             if resp.status_code != 200:
                 self.log_debug("Creating Namespace: %s" % namespace)
-                namespace_data = {'apiVersion': apiVersion, 'kind': 'Namespace',
+                namespace_data = {'apiVersion': 'v1', 'kind': 'Namespace',
                                   'metadata': {'name': namespace}}
-                body = json.dumps(namespace_data)
-                resp = self.create_request('POST', uri, auth_data, headers, body)
+                resp = self.create_request('POST', uri, auth_data, headers, namespace_data)
 
                 if resp.status_code != 201:
                     for _ in range(num_vm):
@@ -382,14 +379,13 @@ class KubernetesCloudConnector(CloudConnector):
                 pod_name = nodename
 
                 # Do not use the Persistent volumes yet
-                volumes = self._create_volumes(apiVersion, namespace, system, pod_name, auth_data)
+                volumes = self._create_volumes(namespace, system, pod_name, auth_data)
 
-                pod_data = self._generate_pod_data(apiVersion, namespace, pod_name, outports, system, volumes)
-                body = json.dumps(pod_data)
+                pod_data = self._generate_pod_data(namespace, pod_name, outports, system, volumes)
 
                 self.log_debug("Creating POD: %s/%s" % (namespace, pod_name))
-                uri = "/api/" + apiVersion + "/namespaces/" + namespace + "/pods"
-                resp = self.create_request('POST', uri, auth_data, headers, body)
+                uri = self._get_api_url(auth_data, namespace, '/pods')
+                resp = self.create_request('POST', uri, auth_data, headers, pod_data)
 
                 if resp.status_code != 201:
                     res.append((False, "Error creating the Container: " + resp.text))
@@ -403,11 +399,10 @@ class KubernetesCloudConnector(CloudConnector):
                         ssh_port = self._get_port()
 
                     try:
-                        service_data = self._generate_service_data(apiVersion, namespace, pod_name, outports, ssh_port)
-                        body = json.dumps(service_data)
+                        service_data = self._generate_service_data(namespace, pod_name, outports, ssh_port)
                         self.log_debug("Creating Service: %s/%s" % (namespace, pod_name))
-                        uri = "/api/" + apiVersion + "/namespaces/" + namespace + "/services"
-                        svc_resp = self.create_request('POST', uri, auth_data, headers, body)
+                        uri = self._get_api_url(auth_data, namespace, '/services')
+                        svc_resp = self.create_request('POST', uri, auth_data, headers, service_data)
                         if svc_resp.status_code != 201:
                             self.error_messages += "Error creating service to access pod %s: %s" % (pod_name, svc_resp.text)
                             self.log_warn("Error creating service: %s" % svc_resp.text)
@@ -439,9 +434,7 @@ class KubernetesCloudConnector(CloudConnector):
             namespace = vm.inf.id
             pod_name = vm.id
 
-            apiVersion = self.get_api_version(auth_data)
-
-            uri = "/api/" + apiVersion + "/namespaces/" + namespace + "/pods/" + pod_name
+            uri = self._get_api_url(auth_data, namespace, "/pods/" + pod_name)
             resp = self.create_request('GET', uri, auth_data)
 
             if resp.status_code == 200:
@@ -515,11 +508,9 @@ class KubernetesCloudConnector(CloudConnector):
         return success, msg
 
     def _delete_namespace(self, vm, auth_data):
-        apiVersion = self.get_api_version(auth_data)
-        headers = {'Content-Type': 'application/json'}
         self.log_debug("Deleting Namespace: %s" % vm.inf.id)
-        uri = "/api/" + apiVersion + "/namespaces/" + vm.inf.id
-        resp = self.create_request('DELETE', uri, auth_data, headers)
+        uri = self._get_api_url(auth_data, vm.inf.id, '')
+        resp = self.create_request('DELETE', uri, auth_data)
         if resp.status_code == 404:
             self.log_warn("Trying to remove a non existing Namespace id: " + vm.inf.id)
         elif resp.status_code != 200:
@@ -533,8 +524,7 @@ class KubernetesCloudConnector(CloudConnector):
             service_name = vm.id
 
             self.log_debug("Deleting Service: %s/%s" % (namespace, service_name))
-            apiVersion = self.get_api_version(auth_data)
-            uri = "/api/" + apiVersion + "/namespaces/" + namespace + "/services/" + service_name
+            uri = self._get_api_url(auth_data, namespace, "/services/" + service_name)
             resp = self.create_request('DELETE', uri, auth_data)
 
             if resp.status_code == 404:
@@ -554,8 +544,7 @@ class KubernetesCloudConnector(CloudConnector):
             pod_name = vm.id
 
             self.log_debug("Deleting POD: %s/%s" % (namespace, pod_name))
-            apiVersion = self.get_api_version(auth_data)
-            uri = "/api/" + apiVersion + "/namespaces/" + namespace + "/pods/" + pod_name
+            uri = self._get_api_url(auth_data, namespace, "/pods/" + pod_name)
             resp = self.create_request('DELETE', uri, auth_data)
 
             if resp.status_code == 404:
@@ -582,8 +571,6 @@ class KubernetesCloudConnector(CloudConnector):
         # This function is correctly implemented
         # But kubernetes does not permit cpu to be updated yet
         system = radl.systems[0]
-
-        apiVersion = self.get_api_version(auth_data)
 
         try:
             pod_data = []
@@ -613,9 +600,8 @@ class KubernetesCloudConnector(CloudConnector):
             pod_name = vm.id
 
             headers = {'Content-Type': 'application/json-patch+json'}
-            uri = "/api/" + apiVersion + "/namespaces/" + namespace + "/pods/" + pod_name
-            body = json.dumps(pod_data)
-            resp = self.create_request('PATCH', uri, auth_data, headers, body)
+            uri = self._get_api_url(auth_data, namespace, "/pods/" + pod_name)
+            resp = self.create_request('PATCH', uri, auth_data, headers, pod_data)
 
             if resp.status_code != 201:
                 return (False, "Error updating the Pod: " + resp.text)

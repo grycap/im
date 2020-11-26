@@ -96,7 +96,7 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                 resp.text = '{"metadata": {"namespace":"namespace", "name": "name"}}'
             elif url.endswith("/services"):
                 resp.status_code = 201
-            elif url.endswith("/namespaces"):
+            elif url.endswith("/namespaces/"):
                 resp.status_code = 201
         elif method == "DELETE":
             if url.endswith("/pods/1"):
