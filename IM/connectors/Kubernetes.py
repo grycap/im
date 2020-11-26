@@ -56,6 +56,13 @@ class KubernetesCloudConnector(CloudConnector):
         self.apiVersion = None
         CloudConnector.__init__(self, cloud_info, inf)
 
+    @staticmethod
+    def _get_port():
+        KubernetesCloudConnector._port_counter += 1
+        KubernetesCloudConnector._port_counter %= 35535
+        port = KubernetesCloudConnector._port_base_num + KubernetesCloudConnector._port_counter
+        return port
+
     def create_request(self, method, url, auth_data, headers=None, body=None):
         auth_header = self.get_auth_header(auth_data)
         if auth_header:
@@ -238,8 +245,13 @@ class KubernetesCloudConnector(CloudConnector):
                 if outport.is_range():
                     self.log_warn("Port range not allowed in Kubernetes connector. Ignoring.")
                 elif outport.get_local_port() != 22:
+
+                    remote_port = outport.get_remote_port()
+                    if outport.get_local_port() == remote_port:
+                        remote_port = self._get_port()
+
                     ports.append({'port': outport.get_local_port(), 'protocol': outport.get_protocol().upper(),
-                                  'targetPort': outport.get_local_port(), 'nodePort': outport.get_remote_port(),
+                                  'targetPort': outport.get_local_port(), 'nodePort': remote_port,
                                   'name': 'port%s' % outport.get_local_port()})
 
         service_data['spec'] = {
@@ -388,8 +400,7 @@ class KubernetesCloudConnector(CloudConnector):
                 else:
                     ssh_port = vm.getSSHPort()
                     if ssh_port == 22:
-                        ssh_port = (KubernetesCloudConnector._port_base_num + KubernetesCloudConnector._port_counter) % 65535
-                        KubernetesCloudConnector._port_counter += 1
+                        ssh_port = self._get_port()
 
                     try:
                         service_data = self._generate_service_data(apiVersion, namespace, pod_name, outports, ssh_port)
@@ -398,8 +409,8 @@ class KubernetesCloudConnector(CloudConnector):
                         uri = "/api/" + apiVersion + "/namespaces/" + namespace + "/services"
                         svc_resp = self.create_request('POST', uri, auth_data, headers, body)
                         if svc_resp.status_code != 201:
-                            self.error_messages += "Error creating service to access pod %s" % pod_name
-                            self.log_warn("Error creating service.")
+                            self.error_messages += "Error creating service to access pod %s: %s" % (pod_name, svc_resp.text)
+                            self.log_warn("Error creating service: %s" % svc_resp.text)
                     except Exception:
                         self.error_messages += "Error creating service to access pod %s" % pod_name
                         self.log_exception("Error creating service.")
@@ -509,7 +520,9 @@ class KubernetesCloudConnector(CloudConnector):
         self.log_debug("Deleting Namespace: %s" % vm.inf.id)
         uri = "/api/" + apiVersion + "/namespaces/" + vm.inf.id
         resp = self.create_request('DELETE', uri, auth_data, headers)
-        if resp.status_code != 200:
+        if resp.status_code == 404:
+            self.log_warn("Trying to remove a non existing Namespace id: " + vm.inf.id)
+        elif resp.status_code != 200:
             self.log_error("Error deleting Namespace")
             return False
         return True
