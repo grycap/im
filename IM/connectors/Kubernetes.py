@@ -274,7 +274,8 @@ class KubernetesCloudConnector(CloudConnector):
                 if outport.is_range():
                     self.log_warn("Port range not allowed in Kubernetes connector. Ignoring.")
                 elif outport.get_local_port() != 22:
-                    ports.append({'containerPort': outport.get_local_port(), 'protocol': outport.get_protocol().upper()})
+                    ports.append({'containerPort': outport.get_local_port(),
+                                  'protocol': outport.get_protocol().upper()})
 
         pod_data = {'apiVersion': 'v1', 'kind': 'Pod'}
         pod_data['metadata'] = {
@@ -296,7 +297,8 @@ class KubernetesCloudConnector(CloudConnector):
         command += " ; "
         command += "echo 'root:" + self._root_password + "' | chpasswd"
         command += " ; "
-        command += "sed 's@session\\s*required\\s*pam_loginuid.so@session optional pam_loginuid.so@g' -i /etc/pam.d/sshd"
+        command += ("sed 's@session\\s*required\\s*pam_loginuid.so@session"
+                    " optional pam_loginuid.so@g' -i /etc/pam.d/sshd")
         command += " ; "
         command += " /usr/sbin/sshd -D"
         containers = [{
@@ -404,7 +406,7 @@ class KubernetesCloudConnector(CloudConnector):
                         uri = self._get_api_url(auth_data, namespace, '/services')
                         svc_resp = self.create_request('POST', uri, auth_data, headers, service_data)
                         if svc_resp.status_code != 201:
-                            self.error_messages += "Error creating service to access pod %s: %s" % (pod_name, svc_resp.text)
+                            self.error_messages += "Error creating service for pod %s: %s" % (pod_name, svc_resp.text)
                             self.log_warn("Error creating service: %s" % svc_resp.text)
                     except Exception:
                         self.error_messages += "Error creating service to access pod %s" % pod_name
