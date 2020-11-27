@@ -90,6 +90,8 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                 resp.text = ('{"metadata": {"namespace":"namespace", "name": "name"}, "status": '
                              '{"phase":"Running", "hostIP": "158.42.1.1", "podIP": "10.0.0.1"}, '
                              '"spec": {"volumes": [{"persistentVolumeClaim": {"claimName" : "cname"}}]}}')
+            if url == "/api/v1/namespaces/infid":
+                resp.status_code = 200
         elif method == "POST":
             if url.endswith("/pods"):
                 resp.status_code = 201
@@ -142,7 +144,9 @@ class TestKubernetesConnector(TestCloudConnectorBase):
 
         requests.side_effect = self.get_response
 
-        res = kube_cloud.launch(InfrastructureInfo(), radl, radl, 1, auth)
+        inf = MagicMock(["id", "_lock", "add_vm"])
+        inf.id = "infid"
+        res = kube_cloud.launch(inf, radl, radl, 1, auth)
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
