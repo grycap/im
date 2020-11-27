@@ -368,6 +368,13 @@ class KubernetesCloudConnector(CloudConnector):
                         res.append((False, "Error creating the Namespace: " + resp.text))
                         return res
 
+                # we need to assure it has been created before creating other resources
+                resp = self.create_request('GET', uri + namespace, auth_data, headers)
+                if resp.status_code != 200:
+                    for _ in range(num_vm):
+                        res.append((False, "Error creating the Namespace"))
+                        return res
+
         i = 0
         while i < num_vm:
             try:
@@ -390,6 +397,7 @@ class KubernetesCloudConnector(CloudConnector):
                 resp = self.create_request('POST', uri, auth_data, headers, pod_data)
 
                 if resp.status_code != 201:
+                    self.log_error("Error creating the Container: " + resp.text)
                     res.append((False, "Error creating the Container: " + resp.text))
                     try:
                         self._delete_volume_claims(pod_data, auth_data)
