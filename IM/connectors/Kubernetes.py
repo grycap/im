@@ -17,6 +17,7 @@
 import base64
 import json
 import requests
+import time
 from netaddr import IPNetwork, IPAddress
 try:
     from urlparse import urlparse
@@ -35,10 +36,6 @@ class KubernetesCloudConnector(CloudConnector):
 
     type = "Kubernetes"
 
-    _port_base_num = 30000
-    """ Base number to assign SSH port on Kubernetes node."""
-    _port_counter = 0
-    """ Counter to assign SSH port on Kubernetes node."""
     _root_password = "Aspecial+0ne"
     """ Default password to set to the root in the container"""
     _apiVersions = ["v1", "v1beta3"]
@@ -59,13 +56,6 @@ class KubernetesCloudConnector(CloudConnector):
     def _get_api_url(self, auth_data, namespace, path):
         apiVersion = self.get_api_version(auth_data)
         return "/api/" + apiVersion + "/namespaces/" + namespace + path
-
-    @staticmethod
-    def _get_port():
-        KubernetesCloudConnector._port_counter += 1
-        KubernetesCloudConnector._port_counter %= 35535
-        port = KubernetesCloudConnector._port_base_num + KubernetesCloudConnector._port_counter
-        return port
 
     def create_request(self, method, url, auth_data, headers=None, body=None):
         auth_header = self.get_auth_header(auth_data)
@@ -231,7 +221,32 @@ class KubernetesCloudConnector(CloudConnector):
 
         return res
 
-    def _generate_service_data(self, namespace, name, outports, ssh_port):
+    def create_service_data(self, namespace, name, outports, auth_data, vm):
+        try:
+            service_data = self._generate_service_data(namespace, name, outports)
+            self.log_debug("Creating Service: %s/%s" % (namespace, name))
+            headers = {'Content-Type': 'application/json'}
+            uri = self._get_api_url(auth_data, namespace, '/services')
+            svc_resp = self.create_request('POST', uri, auth_data, headers, service_data)
+            if svc_resp.status_code != 201:
+                self.error_messages += "Error creating service for pod %s: %s" % (name, svc_resp.text)
+                self.log_warn("Error creating service: %s" % svc_resp.text)
+            else:
+                # Wait a bit to assure the service has been created
+                time.sleep(0.5)
+                # Get Service data to get assigned nodePort
+                uri = self._get_api_url(auth_data, namespace, '/services/%s' % name)
+                svc_resp = self.create_request('GET', uri, auth_data)
+                if svc_resp.status_code == 200:
+                    for port in svc_resp.json()['spec']['ports']:
+                        # Set Out port in the RADL info of the VM
+                        vm.setOutPort(int(port['port']), int(port['nodePort']))
+
+        except Exception:
+            self.error_messages += "Error creating service to access pod %s" % name
+            self.log_exception("Error creating service.")
+
+    def _generate_service_data(self, namespace, name, outports):
         service_data = {'apiVersion': 'v1', 'kind': 'Service'}
         service_data['metadata'] = {
             'name': name,
@@ -239,20 +254,14 @@ class KubernetesCloudConnector(CloudConnector):
             'labels': {'name': name}
         }
 
-        ports = [{'port': 22, 'targetPort': 22, 'protocol': 'TCP', 'nodePort': ssh_port, 'name': 'ssh'}]
+        ports = [{'port': 22, 'targetPort': 22, 'protocol': 'TCP', 'name': 'ssh'}]
         if outports:
             for outport in outports:
                 if outport.is_range():
                     self.log_warn("Port range not allowed in Kubernetes connector. Ignoring.")
                 elif outport.get_local_port() != 22:
-
-                    remote_port = outport.get_remote_port()
-                    if outport.get_local_port() == remote_port:
-                        remote_port = self._get_port()
-
                     ports.append({'port': outport.get_local_port(), 'protocol': outport.get_protocol().upper(),
-                                  'targetPort': outport.get_local_port(), 'nodePort': remote_port,
-                                  'name': 'port%s' % outport.get_local_port()})
+                                  'targetPort': outport.get_local_port(), 'name': 'port%s' % outport.get_local_port()})
 
         service_data['spec'] = {
             'type': 'NodePort',
@@ -404,26 +413,10 @@ class KubernetesCloudConnector(CloudConnector):
                     except Exception:
                         self.log_exception("Error deleting volumes.")
                 else:
-                    ssh_port = vm.getSSHPort()
-                    if ssh_port == 22:
-                        ssh_port = self._get_port()
-
-                    try:
-                        service_data = self._generate_service_data(namespace, pod_name, outports, ssh_port)
-                        self.log_debug("Creating Service: %s/%s" % (namespace, pod_name))
-                        uri = self._get_api_url(auth_data, namespace, '/services')
-                        svc_resp = self.create_request('POST', uri, auth_data, headers, service_data)
-                        if svc_resp.status_code != 201:
-                            self.error_messages += "Error creating service for pod %s: %s" % (pod_name, svc_resp.text)
-                            self.log_warn("Error creating service: %s" % svc_resp.text)
-                    except Exception:
-                        self.error_messages += "Error creating service to access pod %s" % pod_name
-                        self.log_exception("Error creating service.")
+                    self.create_service_data(namespace, pod_name, outports, auth_data, vm)
 
                     output = json.loads(resp.text)
                     vm.id = output["metadata"]["name"]
-                    # Set SSH port in the RADL info of the VM
-                    vm.setSSHPort(ssh_port)
                     # Set the default user and password to access the container
                     vm.info.systems[0].setValue('disk.0.os.credentials.username', 'root')
                     vm.info.systems[0].setValue('disk.0.os.credentials.password', self._root_password)
