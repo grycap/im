@@ -132,7 +132,7 @@ class LinodeCloudConnector(LibCloudCloudConnector):
                               size.extra['gpus'] and gpu_op(size.extra['gpus'], gpu))
 
             if comparison:
-                if not instance_type_name or size.name == instance_type_name:
+                if not instance_type_name or size.id == instance_type_name:
                     return size
 
         self.log_error("No compatible size found")
@@ -166,6 +166,18 @@ class LinodeCloudConnector(LibCloudCloudConnector):
             return res_system
         else:
             return None
+
+    def get_node_with_id(self, node_id, auth_data):
+        """
+        Get the node with the specified ID
+
+        Arguments:
+           - node_id(str): ID of the node to get
+           - auth(Authentication): parsed authentication tokens.
+        Returns: a :py:class:`libcloud.compute.base.Node` with the node info
+        """
+        driver = self.get_driver(auth_data)
+        return driver.ex_get_node(node_id)
 
     @staticmethod
     def get_location(driver, loc):
