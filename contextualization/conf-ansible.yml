@@ -204,7 +204,6 @@
       ini_file: dest=/etc/ansible/ansible.cfg section={{ item.section }} option={{ item.option }} value="{{ item.value }}"
       with_items:
       - { section: 'defaults', option: 'host_key_checking', value: 'False' }
-      - { section: 'defaults', option: 'interpreter_python ', value: '/usr/bin/python3' }
       - { section: 'defaults', option: 'nocolor', value: '1' }
       - { section: 'ssh_connection', option: 'pipelining', value: 'True' }
       - { section: 'defaults', option: 'jinja2_extensions', value: 'jinja2.ext.do' }
