@@ -170,7 +170,7 @@ class TestLinodeConnector(TestCloudConnectorBase):
         inf = MagicMock(['id'])
         vm = VirtualMachine(inf, "1", linode_cloud.cloud, radl, radl, linode_cloud, 1)
 
-        driver = MagicMock(['name', 'list_nodes', 'list_sizes', 'create_volume', 'list_volumes'])
+        driver = MagicMock(['name', 'ex_get_node', 'list_sizes', 'create_volume', 'list_volumes'])
         get_driver.return_value = driver
         driver.name = 'Linode'
 
@@ -181,7 +181,7 @@ class TestLinodeConnector(TestCloudConnectorBase):
         node.private_ips = ['10.0.0.1']
         node.driver = driver
         node.size = "small"
-        driver.list_nodes.return_value = [node]
+        driver.ex_get_node.return_value = node
 
         node_size = MagicMock(['id', 'ram', 'price', 'disk', 'extra'])
         node_size.id = 'small'
@@ -213,14 +213,14 @@ class TestLinodeConnector(TestCloudConnectorBase):
         inf = MagicMock()
         vm = VirtualMachine(inf, "1", linode_cloud.cloud, "", "", linode_cloud, 1)
 
-        driver = MagicMock(['list_nodes'])
+        driver = MagicMock(['ex_get_node'])
         get_driver.return_value = driver
 
         node = MagicMock(['id', 'state', 'driver', 'stop_node'])
         node.id = "1"
         node.state = NodeState.RUNNING
         node.driver = driver
-        driver.list_nodes.return_value = [node]
+        driver.ex_get_node.return_value = node
 
         node.stop_node.return_value = True
 
@@ -237,7 +237,7 @@ class TestLinodeConnector(TestCloudConnectorBase):
         inf = MagicMock()
         vm = VirtualMachine(inf, "1", linode_cloud.cloud, "", "", linode_cloud, 1)
 
-        driver = MagicMock(['list_nodes'])
+        driver = MagicMock(['ex_get_node'])
         get_driver.return_value = driver
 
         node = MagicMock(['id', 'state', 'driver', 'start'])
@@ -245,7 +245,7 @@ class TestLinodeConnector(TestCloudConnectorBase):
         node.state = NodeState.RUNNING
         node.driver = driver
         node.start.return_value = True
-        driver.list_nodes.return_value = [node]
+        driver.ex_get_node.return_value = node
 
         success, _ = linode_cloud.start(vm, auth)
 
@@ -282,7 +282,7 @@ class TestLinodeConnector(TestCloudConnectorBase):
         inf = MagicMock(['id'])
         vm = VirtualMachine(inf, "1", linode_cloud.cloud, radl, radl, linode_cloud, 1)
 
-        driver = MagicMock(['list_nodes', 'list_sizes', 'ex_resize_node', 'create_volume'])
+        driver = MagicMock(['ex_get_node', 'list_sizes', 'ex_resize_node', 'create_volume'])
         get_driver.return_value = driver
 
         node = MagicMock(['id', 'state', 'driver', 'size', 'public_ips', 'private_ips'])
@@ -292,7 +292,7 @@ class TestLinodeConnector(TestCloudConnectorBase):
         node.public_ips = []
         node.private_ips = ['10.0.0.1']
         node.driver = driver
-        driver.list_nodes.return_value = [node]
+        driver.ex_get_node.return_value = node
 
         node_size = MagicMock(['id', 'ram', 'price', 'disk', 'extra', 'name'])
         node_size.ram = 2048
@@ -334,7 +334,7 @@ class TestLinodeConnector(TestCloudConnectorBase):
         inf = MagicMock(['id'])
         vm = VirtualMachine(inf, "1", linode_cloud.cloud, "", "", linode_cloud, 1)
 
-        driver = MagicMock(['list_nodes'])
+        driver = MagicMock(['ex_get_node'])
         get_driver.return_value = driver
 
         node = MagicMock(['id', 'state', 'driver', 'reboot'])
@@ -342,7 +342,7 @@ class TestLinodeConnector(TestCloudConnectorBase):
         node.state = "running"
         node.driver = driver
         node.reboot.return_value = True
-        driver.list_nodes.return_value = [node]
+        driver.ex_get_node.return_value = node
 
         success, _ = linode_cloud.reboot(vm, auth)
 
@@ -364,7 +364,7 @@ class TestLinodeConnector(TestCloudConnectorBase):
         inf = MagicMock(['id'])
         vm = VirtualMachine(inf, "1", lib_cloud.cloud, radl, radl, lib_cloud, 1)
 
-        driver = MagicMock(['list_nodes', 'list_volumes'])
+        driver = MagicMock(['ex_get_node', 'list_volumes'])
         get_driver.return_value = driver
 
         node = MagicMock(['id', 'state', 'driver', 'destroy'])
@@ -372,7 +372,7 @@ class TestLinodeConnector(TestCloudConnectorBase):
         node.state = NodeState.RUNNING
         node.driver = driver
         node.destroy.return_value = True
-        driver.list_nodes.return_value = [node]
+        driver.ex_get_node.return_value = node
 
         volume = MagicMock(['id', 'extra', 'detach', 'destroy'])
         volume.id = "id"
