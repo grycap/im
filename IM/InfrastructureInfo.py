@@ -567,12 +567,28 @@ class InfrastructureInfo:
                         ctxt = True
                         break
 
+        ctxt_task = []
+        max_ctxt_time = self.radl.contextualize.max_time
+        if not max_ctxt_time:
+            max_ctxt_time = Config.MAX_CONTEXTUALIZATION_TIME
+
+        self.configured = None
+        for vm in self.get_vm_list():
+            # Assure to update the VM status before running the ctxt process
+            vm.update_status(auth)
+            vm.cont_out = ""
+            vm.cloud_connector = None
+            vm.configured = None
+
         if not ctxt:
-            InfrastructureInfo.logger.info("Inf ID: " + str(self.id) + ": Contextualization disabled by the RADL.")
-            self.cont_out = "Contextualization disabled by the RADL."
-            self.configured = True
+            InfrastructureInfo.logger.info("Inf ID: " + str(self.id) + ": Contextualization disabled by the RADL. " +
+                                           "Only wait for VM IPs.")
+
+            ctxt_task.append((-2, 0, self, ['check_vm_ips']))
+            ctxt_task.append((-1, 0, self, ['wait_all_vm_ips']))
+
+            self.cont_out = "Contextualization disabled by the RADL.\n\n"
             for vm in self.get_vm_list():
-                vm.cont_out = ""
                 vm.configured = True
         else:
             self.cont_out = ""
@@ -584,11 +600,6 @@ class InfrastructureInfo:
             # default value
             contextualizes = self.radl.contextualize.get_contextualize_items_by_step({1: ctxts})
 
-            max_ctxt_time = self.radl.contextualize.max_time
-            if not max_ctxt_time:
-                max_ctxt_time = Config.MAX_CONTEXTUALIZATION_TIME
-
-            ctxt_task = []
             ctxt_task.append((-5, 0, self, ['kill_ctxt_processes']))
             ctxt_task.append((-4, 0, self, ['check_vm_ips']))
             ctxt_task.append((-3, 0, self, ['wait_master']))
@@ -597,12 +608,6 @@ class InfrastructureInfo:
 
             use_dist = len(self.get_vm_list()) > Config.VM_NUM_USE_CTXT_DIST
             for cont, vm in enumerate(self.get_vm_list()):
-                # Assure to update the VM status before running the ctxt
-                # process
-                vm.update_status(auth)
-                vm.cont_out = ""
-                vm.cloud_connector = None
-                vm.configured = None
                 tasks = {}
 
                 # Add basic tasks for all VMs
@@ -645,19 +650,19 @@ class InfrastructureInfo:
                     priority = 0
                     ctxt_task.append((step, priority, vm, tasks[step]))
 
-            self.add_ctxt_tasks(ctxt_task)
+        self.add_ctxt_tasks(ctxt_task)
 
-            if self.cm is None or not self.cm.isAlive():
-                self.cm = IM.ConfManager.ConfManager(self, auth, max_ctxt_time)
-                self.cm.start()
-            else:
-                # update the ConfManager reference to the inf object
-                self.cm.inf = self
-                # update the ConfManager auth
-                self.cm.auth = auth
-                self.cm.init_time = time.time()
-                # restart the failed step
-                self.cm.failed_step = []
+        if self.cm is None or not self.cm.isAlive():
+            self.cm = IM.ConfManager.ConfManager(self, auth, max_ctxt_time)
+            self.cm.start()
+        else:
+            # update the ConfManager reference to the inf object
+            self.cm.inf = self
+            # update the ConfManager auth
+            self.cm.auth = auth
+            self.cm.init_time = time.time()
+            # restart the failed step
+            self.cm.failed_step = []
 
     def is_authorized(self, auth):
         """

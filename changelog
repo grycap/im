@@ -595,3 +595,19 @@ IM 1.9.3:
 IM 1.9.4:
     * Reduce the number of SSH logins.
     * Fix python 3 issues.
+
+IM 1.9.5:
+    * Return the dns_name of a VM with the special string #N# correctly replaced.
+    * TOSCA not correctly managed in case of Relationships with interfaces defined in custom types.
+    * Fix error returning incorrect error msg in VM creation in OpenStack conn in case of error deleting SG.
+    * Fix error returning TOSCA function values.
+    * Enable CORS.
+    * Fix incorrect contextualizarion in case of using vault password.
+    * Fix IP public not attached in case of disabled contextualization.
+
+IM 1.9.6:
+    * Return OpenStack and OpenNebula error in case of failed VM.
+    * Enable to request GPUs in OpenStack conn.
+    * Add Linode support.
+    * Fix error when reading contextualization log in case of "strange" chars.
+    * Update ansible version to avoid errors in Ubuntu 20.04.
