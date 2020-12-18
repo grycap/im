@@ -129,6 +129,29 @@
       zypper: name=python3-pip,python3-setuptools,gcc,python3-devel,wget,libffi-devel,openssl-devel,python3-cryptography,make state=present
       when: ansible_os_family == "Suse"
 
+  ##################################################### Alpine support #######################################################
+
+    - name: Apk install requirements Alpine
+      package: name=py3-pip,py3-setuptools,sshpass,openssh-client,unzip,gcc,libffi-dev,openssl-dev,musl-dev,make,wget,python3-dev
+      when: ansible_os_family == "Alpine"
+
+    - name: Move original ps in Alpine
+      command: mv /bin/ps /sbin/ps creates=/sbin/ps
+      when: ansible_os_family == "Alpine"
+
+    - name: Install ps with -p support in Alpine
+      get_url:
+        url: https://gist.githubusercontent.com/micafer/f74de4dc21a636df30d51202cbeee475/raw/388945406b9e9d225a0c7e95b97fc2515f1a17ef/ps_opt_p_enabled_for_alpine.sh
+        dest: /bin/ps
+        mode: 0755
+        owner: root
+        group: root
+      when: ansible_os_family == "Alpine"
+
+    - name: Pip install wheel Alpine
+      pip: name=wheel
+      when: ansible_os_family == "Alpine"
+
   ######################################### Use pip to enable to set the version #############################################
 
     - name: Upgrade pip

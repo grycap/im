@@ -618,7 +618,7 @@ echo "Hello World" >> /tmp/data.txt
              net_interface.0.connection = 'publicnet' and
              net_interface.1.connection = 'net' and
              disk.0.os.flavour='ubuntu' and
-             disk.0.os.version>='18.04'
+             disk.0.os.version>='20.04'
             )
 
             deploy node 1
