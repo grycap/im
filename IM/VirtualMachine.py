@@ -960,13 +960,6 @@ class VirtualMachine(LoggerMixin):
                 "Error getting contextualization process log: " + remote_dir + '/ctxt_agent.log')
             self.configured = False
         finally:
-            try:
-                if delete:
-                    ssh.sftp_remove(remote_dir + '/ctxt_agent.log')
-            except Exception:
-                self.log_exception("Error deleting remote contextualization process log: " +
-                                   remote_dir + '/ctxt_agent.log')
-
             shutil.rmtree(tmp_dir, ignore_errors=True)
 
         return conf_out
