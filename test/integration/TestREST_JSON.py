@@ -194,7 +194,7 @@ class TestIM(unittest.TestCase):
                                    body=new_config)
         self.assertEqual(resp.status_code, 200, msg="ERROR reconfiguring:" + resp.text)
 
-        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 300)
+        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 500)
         self.assertTrue(
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
