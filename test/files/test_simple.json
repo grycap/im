@@ -12,7 +12,7 @@
     "class": "system",
     "cpu.arch": "x86_64",
     "cpu.count_min": 1,
-    "disk.0.image.url": "one://ramses.i3m.upv.es/1269",
+    "disk.0.image.url": "one://ramses.i3m.upv.es/1396",
     "disk.0.os.credentials.password": "GRyCAP01",
     "disk.0.os.credentials.username": "ubuntu",
     "disk.0.os.name": "linux",
