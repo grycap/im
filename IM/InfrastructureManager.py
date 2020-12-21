@@ -1447,7 +1447,8 @@ class InfrastructureManager:
         inf.auth = Authentication(auth.getAuthInfo("InfrastructureManager"))
         IM.InfrastructureList.InfrastructureList.add_infrastructure(inf)
         IM.InfrastructureList.InfrastructureList.save_data(inf.id)
-        InfrastructureManager.logger.info("Creating new Inf ID: " + str(inf.id))
+        im_user = auth.getAuthInfo("InfrastructureManager")[0]['username']
+        InfrastructureManager.logger.info("Creating new Inf ID: %s by %s." % (inf.id, im_user))
 
         # Add the resources in radl_data
         try:
