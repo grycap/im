@@ -593,6 +593,10 @@ class InfrastructureManager:
         # We are going to start adding resources
         sel_inf.set_adding()
 
+        if sel_inf.deleted:
+            InfrastructureManager.logger.info("Inf ID: %s: Deleted Infrastructure. Stop deploying!" % sel_inf.id)
+            return []
+
         # Launch every group in the same cloud provider
         deployed_vm = {}
         for deploy_group in deploy_groups:
