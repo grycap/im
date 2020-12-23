@@ -147,6 +147,10 @@
       pip: name=pyOpenSSL state=latest
       when: ansible_os_family != "RedHat" or ansible_distribution_major_version|int > 6
 
+    - name: Ubuntu 14 extra pip packages needed to avoid https issues
+      pip: name=urllib3,ndg-httpsclient,pyasn1
+      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int <= 14
+
     - name: Ubuntu 14 pip cryptography
       pip: name=cryptography version=2.9.2
       when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int <= 14
@@ -174,10 +178,6 @@
     - name: Install latest ansible version with Pip
       pip: name=ansible state=latest
       when: ANSIBLE_VERSION == "latest"
-
-    - name: Ubuntu 14 extra pip packages needed to avoid https issues
-      pip: name=urllib3,ndg-httpsclient,pyasn1
-      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int <= 14
 
 #################################### Now install scp, jmespath and pywinrm with pip  ##################################
 
