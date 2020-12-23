@@ -58,7 +58,7 @@ topology_template:
             # host Operating System image properties
             type: linux
             distribution: ubuntu
-            version: 16.04
+            version: 18.04
 
     test_db:
       type: tosca.nodes.indigo.Database.MySQL
