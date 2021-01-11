@@ -2,7 +2,13 @@
 - gather_facts: False
   tasks: 
     # Some OSs does not have python by default
-    - name: Check Python is installed
+    - name: Check Python2 is installed
+      raw: python2 -c 'import sys; print(sys.version_info[1])'
+      ignore_errors: yes
+      register: python2_version
+      changed_when: false
+
+    - name: Check Python3 is installed
       raw: python3 -c 'import sys; print(sys.version_info[1])'
       ignore_errors: yes
       register: python3_version
@@ -13,7 +19,7 @@
       ignore_errors: yes
       register: python_install
       changed_when: python_install.stdout_lines|length > 1
-      when: python3_version is failed or python3_version.stdout|int < 5
+      when: (python2_version is failed and python3_version is failed) or python3_version.stdout|int < 5
 
     - name: Link correct python version in Ubuntu 14
       raw: ls /usr/bin/python3.5 && sudo rm -f /usr/bin/python3 && sudo ln -s /usr/bin/python3.5 /usr/bin/python3
@@ -25,18 +31,29 @@
       ignore_errors: yes
       register: python_install
       changed_when: python_install.stdout_lines|length > 1
-      when: python3_version is failed
+      when: python2_version is failed and python3_version is failed
 
     - name: Bootstrap with python SUSE
       raw: sudo zypper -n install python3 python3-xml
       ignore_errors: yes
       register: python_install
       changed_when: python_install.stdout_lines|length > 1
-      when: python3_version is failed
+      when: python2_version is failed and python3_version is failed
+
+    - name: Link python 3 or 2 in case is needed
+      raw: ls /usr/bin/python || { ls /usr/bin/python3 && ln -s /usr/bin/python3 /usr/bin/python; } || { ls /usr/bin/python2 && ln -s /usr/bin/python2 /usr/bin/python; }
+      become: yes
+      ignore_errors: yes
 
     # In case of redhat systems libselinux-python3 is needed
     - name: Install libselinux-python3 on RH systems
-      raw: yum -y install libselinux-python3
+      raw: ls /usr/bin/python3 && yum -y install libselinux-python3
+      become: yes
+      ignore_errors: yes
+
+    # In case of redhat systems libselinux-python is needed
+    - name: Install libselinux-python on RH systems
+      raw: ls /usr/bin/python2 && yum -y install libselinux-python
       become: yes
       ignore_errors: yes
 

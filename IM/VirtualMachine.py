@@ -22,6 +22,7 @@ import string
 import json
 import tempfile
 import logging
+import sys
 from netaddr import IPNetwork, IPAddress
 
 from radl.radl import network, RADL
@@ -565,7 +566,23 @@ class VirtualMachine(LoggerMixin):
             self.state = new_state
             self.info.systems[0].setValue("state", new_state)
 
+            # Replace the #N# in dns_names
+            self.replace_dns_name(self.info.systems[0])
+
         return updated
+
+    def replace_dns_name(self, vm_system):
+        """Replace the #N# in dns_names."""
+        cont = 0
+        while vm_system.getValue('net_interface.%d.connection' % cont):
+            vm_dns_name = vm_system.getValue('net_interface.%d.dns_name' % cont)
+            # if dns_name is not set in iface 0 set the default one
+            if cont == 0 and vm_dns_name is None:
+                vm_dns_name = Config.DEFAULT_VM_NAME
+            if vm_dns_name and "#N#" in vm_dns_name:
+                vm_dns_name = vm_dns_name.replace("#N#", str(self.im_id))
+                vm_system.setValue('net_interface.%d.dns_name' % cont, vm_dns_name)
+            cont += 1
 
     @staticmethod
     def add_public_net(radl):
@@ -920,22 +937,29 @@ class VirtualMachine(LoggerMixin):
             # Get the messages of the contextualization process
             self.log_debug("Get File: " + remote_dir + '/ctxt_agent.log')
             ssh.sftp_get(remote_dir + '/ctxt_agent.log', tmp_dir + '/ctxt_agent.log')
-            with io.open(tmp_dir + '/ctxt_agent.log', encoding="utf-8", errors="replace") as f:
-                # Read removing problematic chars in python2 and python3
-                conf_out = str(f.read().encode("ascii", "replace").decode("utf-8", "replace"))
+
+            # patch for support python2 and avoid UnicodeDecodeError in python3
+            if sys.version_info[0] < 3:
+                open_args = {}
+            else:
+                open_args = {'encoding': 'utf-8'}
+
+            with open(tmp_dir + '/ctxt_agent.log', **open_args) as f:
+                # Read removing problematic chars
+                conf_out = str("".join(list(filter(lambda x: x in string.printable,
+                                                   f.read()))).encode("ascii", "replace").decode("utf-8"))
+            try:
+                if delete:
+                    ssh.sftp_remove(remote_dir + '/ctxt_agent.log')
+            except Exception:
+                self.log_exception(
+                    "Error deleting remote contextualization process log: " + remote_dir + '/ctxt_agent.log')
         except Exception:
             conf_out = ""
             self.log_exception(
                 "Error getting contextualization process log: " + remote_dir + '/ctxt_agent.log')
             self.configured = False
         finally:
-            try:
-                if delete:
-                    ssh.sftp_remove(remote_dir + '/ctxt_agent.log')
-            except Exception:
-                self.log_exception("Error deleting remote contextualization process log: " +
-                                   remote_dir + '/ctxt_agent.log')
-
             shutil.rmtree(tmp_dir, ignore_errors=True)
 
         return conf_out

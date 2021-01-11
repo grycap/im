@@ -20,6 +20,7 @@ Contents:
    REST
    client
    web
+   dashboard
    endpoints
 
 ..   mods

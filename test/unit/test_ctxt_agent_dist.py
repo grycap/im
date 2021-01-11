@@ -34,9 +34,7 @@ from mock import patch, MagicMock
 
 
 class TestCtxtAgent(unittest.TestCase):
-    """
-    Class to test the CtxtAgent
-    """
+    """Class to test the CtxtAgent."""
     def setUp(self):
         self.last_op = None, None
         self.log = StringIO()
@@ -61,7 +59,8 @@ class TestCtxtAgent(unittest.TestCase):
         self.log = StringIO()
         self.handler.close()
 
-    def gen_general_conf(self):
+    @staticmethod
+    def gen_general_conf():
         conf_data = {}
 
         conf_data['playbook_retries'] = 3
@@ -90,7 +89,8 @@ class TestCtxtAgent(unittest.TestCase):
         conf_data['conf_dir'] = "/tmp"
         return conf_data
 
-    def gen_vm_conf(self, tasks):
+    @staticmethod
+    def gen_vm_conf(tasks):
         conf_data = {}
         conf_data['id'] = 1
         conf_data['tasks'] = tasks
@@ -98,7 +98,8 @@ class TestCtxtAgent(unittest.TestCase):
         conf_data['changed_pass'] = True
         return conf_data
 
-    def gen_vm_data(self, os="linux"):
+    @staticmethod
+    def gen_vm_data(os="linux"):
         vm_conf_data = {}
         vm_conf_data['id'] = 1
         vm_conf_data['master'] = False

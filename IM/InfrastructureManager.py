@@ -593,6 +593,10 @@ class InfrastructureManager:
         # We are going to start adding resources
         sel_inf.set_adding()
 
+        if sel_inf.deleted:
+            InfrastructureManager.logger.info("Inf ID: %s: Deleted Infrastructure. Stop deploying!" % sel_inf.id)
+            return []
+
         # Launch every group in the same cloud provider
         deployed_vm = {}
         for deploy_group in deploy_groups:
@@ -1447,7 +1451,8 @@ class InfrastructureManager:
         inf.auth = Authentication(auth.getAuthInfo("InfrastructureManager"))
         IM.InfrastructureList.InfrastructureList.add_infrastructure(inf)
         IM.InfrastructureList.InfrastructureList.save_data(inf.id)
-        InfrastructureManager.logger.info("Creating new Inf ID: " + str(inf.id))
+        im_user = auth.getAuthInfo("InfrastructureManager")[0]['username']
+        InfrastructureManager.logger.info("Creating new Inf ID: %s by %s." % (inf.id, im_user))
 
         # Add the resources in radl_data
         try:
