@@ -67,6 +67,10 @@ class TEMPLATE(XMLObject):
     noneval = 0
 
 
+class USER_TEMPLATE(XMLObject):
+    values = ['ERROR']
+
+
 class HISTORY(XMLObject):
     values = ['SEQ', 'HOSTNAME', 'HID', 'STIME', 'ETIME', 'PSTIME',
               'PETIME', 'RSTIME', 'RETIME', 'ESTIME', 'EETIME', 'REASON']
@@ -84,7 +88,7 @@ class VM(XMLObject):
     STATE_POWEROFF = 8
     values = ['ID', 'UID', 'NAME', 'LAST_POLL', 'STATE', 'LCM_STATE',
               'DEPLOY_ID', 'MEMORY', 'CPU', 'NET_TX', 'NET_RX', 'STIME', 'ETIME']
-    tuples = {'TEMPLATE': TEMPLATE}
+    tuples = {'TEMPLATE': TEMPLATE, 'USER_TEMPLATE': USER_TEMPLATE}
     numeric = ['ID', 'UID', 'STATE', 'LCM_STATE', 'STIME', 'ETIME']
 
 
@@ -329,6 +333,13 @@ class OpenNebulaCloudConnector(CloudConnector):
                 res_state = VirtualMachine.UNKNOWN
             vm.state = res_state
 
+            if vm.state == VirtualMachine.FAILED:
+                # in case of error try to get the error message
+                if res_vm.USER_TEMPLATE and res_vm.USER_TEMPLATE.ERROR:
+                    error_msg = res_vm.USER_TEMPLATE.ERROR
+                    if error_msg not in self.error_messages:
+                        self.error_messages += error_msg
+
             # Update network data
             self.setIPsFromTemplate(vm, res_vm.TEMPLATE)
 
@@ -554,11 +565,7 @@ class OpenNebulaCloudConnector(CloudConnector):
         cpu = system.getValue('cpu.count')
         arch = system.getValue('cpu.arch')
         memory = system.getFeature('memory.size').getValue('M')
-        name = system.getValue("instance_name")
-        if not name:
-            name = system.getValue("disk.0.image.name")
-        if not name:
-            name = "userimage"
+        name = self.gen_instance_name(system, False)
         url = urlparse(system.getValue("disk.0.image.url"))
         path = os.path.basename(url[2])
 
@@ -612,8 +619,9 @@ class OpenNebulaCloudConnector(CloudConnector):
         ''' % (name, cpu, cpu, memory, arch, disks, sched, ConfigOpenNebula.TEMPLATE_OTHER)
 
         user_template = ""
-        tags = self.get_instance_tags(system)
+        tags = self.get_instance_tags(system, auth_data, vm.inf)
         for key, value in tags.items():
+            key = key.replace("-", "_")
             user_template += '%s = "%s", ' % (key, value)
 
         if user_template:

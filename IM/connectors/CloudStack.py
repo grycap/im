@@ -209,19 +209,13 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
 
         instance_type = self.get_instance_type(driver.list_sizes(), system)
 
-        name = system.getValue("instance_name")
-        if not name:
-            name = system.getValue("disk.0.image.name")
-        if not name:
-            name = "userimage"
-
         sgs = self.create_security_groups(driver, inf, radl)
 
         args = {'size': instance_type,
                 'image': image,
                 'ex_security_groups': sgs,
                 'ex_start_vm': True,
-                'name': "%s-%s" % (name, str(uuid.uuid1()))}
+                'name': self.gen_instance_name(system)}
 
         if system.getValue('availability_zone'):
             args['location'] = system.getValue('availability_zone')
@@ -230,8 +224,8 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
         public_key = system.getValue("disk.0.os.credentials.public_key")
 
         if public_key and public_key.find('-----BEGIN CERTIFICATE-----') == -1:
-            public_key = None
             keypair = driver.get_key_pair(public_key)
+            public_key = None
             if keypair:
                 system.setUserKeyCredentials(system.getCredentials().username, None, keypair.private_key)
             else:
@@ -245,7 +239,7 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
             user = self.DEFAULT_USER
             system.setValue('disk.0.os.credentials.username', user)
 
-        tags = self.get_instance_tags(system)
+        tags = self.get_instance_tags(system, auth_data, inf)
 
         res = []
         i = 0

@@ -15,6 +15,9 @@ RUN apt-get update && apt-get install --no-install-recommends -y gcc git python 
      pip install pip --upgrade -I && \
      /usr/local/bin/pip install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns && \
      /usr/local/bin/pip install MySQL-python pyOpenSSL pycrypto xmltodict pymongo && \
+     # Install it until changes are released
+     cd /tmp && git clone https://github.com/openstack/tosca-parser && /usr/local/bin/pip install /tmp/tosca-parser && \
+     cd /tmp && git clone https://github.com/apache/libcloud && /usr/local/bin/pip install /tmp/libcloud && \
      /usr/local/bin/pip install IM==1.10.0 && \
      /usr/local/bin/pip uninstall pip -y && \
      apt-get purge -y gcc git python-dev python-pip libmysqld-dev libssl-dev libffi-dev libsqlite3-dev && \

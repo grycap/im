@@ -188,8 +188,8 @@ class TestAzureConnector(TestCloudConnectorBase):
         self.assertTrue(res[1][0])
         self.assertTrue(res[2][0])
         self.assertEquals(rclient.resource_groups.delete.call_count, 2)
-        self.assertIn("rg-userimage-", rclient.resource_groups.delete.call_args_list[0][0][0])
-        self.assertIn("rg-userimage-", rclient.resource_groups.delete.call_args_list[1][0][0])
+        self.assertIn("rg-im-userimage-", rclient.resource_groups.delete.call_args_list[0][0][0])
+        self.assertIn("rg-im-userimage-", rclient.resource_groups.delete.call_args_list[1][0][0])
 
         json_vm_req = cclient.virtual_machines.create_or_update.call_args_list[0][0][2]
         self.assertEquals(json_vm_req['storage_profile']['data_disks'][0]['disk_size_gb'], 1)

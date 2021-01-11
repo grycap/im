@@ -68,7 +68,8 @@ class TestKubernetesConnector(TestCloudConnectorBase):
         radl = radl_parse.parse_radl(radl_data)
         radl_system = radl.systems[0]
 
-        auth = Authentication([{'id': 'fogbow', 'type': 'Kubernetes', 'host': 'http://server.com:8080'}])
+        auth = Authentication([{'id': 'kube', 'type': 'Kubernetes',
+                                'host': 'http://server.com:8080', 'token': 'token'}])
         kube_cloud = self.get_kube_cloud()
 
         concrete = kube_cloud.concreteSystem(radl_system, auth)
@@ -89,16 +90,22 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                 resp.text = ('{"metadata": {"namespace":"namespace", "name": "name"}, "status": '
                              '{"phase":"Running", "hostIP": "158.42.1.1", "podIP": "10.0.0.1"}, '
                              '"spec": {"volumes": [{"persistentVolumeClaim": {"claimName" : "cname"}}]}}')
+            if url == "/api/v1/namespaces/infid":
+                resp.status_code = 200
         elif method == "POST":
             if url.endswith("/pods"):
                 resp.status_code = 201
                 resp.text = '{"metadata": {"namespace":"namespace", "name": "name"}}'
-            if url.endswith("/namespaces"):
+            elif url.endswith("/services"):
+                resp.status_code = 201
+            elif url.endswith("/namespaces/"):
                 resp.status_code = 201
         elif method == "DELETE":
             if url.endswith("/pods/1"):
                 resp.status_code = 200
-            if url.endswith("/namespaces/namespace"):
+            elif url.endswith("/services/1"):
+                resp.status_code = 200
+            elif url.endswith("/namespaces/namespace"):
                 resp.status_code = 200
             elif "persistentvolumeclaims" in url:
                 resp.status_code = 200
@@ -131,12 +138,15 @@ class TestKubernetesConnector(TestCloudConnectorBase):
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
 
-        auth = Authentication([{'id': 'fogbow', 'type': 'Kubernetes', 'host': 'http://server.com:8080'}])
+        auth = Authentication([{'id': 'kube', 'type': 'Kubernetes',
+                                'host': 'http://server.com:8080', 'token': 'token'}])
         kube_cloud = self.get_kube_cloud()
 
         requests.side_effect = self.get_response
 
-        res = kube_cloud.launch(InfrastructureInfo(), radl, radl, 1, auth)
+        inf = MagicMock(["id", "_lock", "add_vm"])
+        inf.id = "infid"
+        res = kube_cloud.launch(inf, radl, radl, 1, auth)
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
@@ -159,7 +169,8 @@ class TestKubernetesConnector(TestCloudConnectorBase):
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
 
-        auth = Authentication([{'id': 'fogbow', 'type': 'Kubernetes', 'host': 'http://server.com:8080'}])
+        auth = Authentication([{'id': 'kube', 'type': 'Kubernetes',
+                                'host': 'http://server.com:8080', 'token': 'token'}])
         kube_cloud = self.get_kube_cloud()
 
         inf = MagicMock()
@@ -171,6 +182,8 @@ class TestKubernetesConnector(TestCloudConnectorBase):
         success, vm = kube_cloud.updateVMInfo(vm, auth)
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
+        self.assertEqual(vm.info.systems[0].getValue("net_interface.0.ip"), "158.42.1.1")
+        self.assertEqual(vm.info.systems[0].getValue("net_interface.1.ip"), "10.0.0.1")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('requests.request')
@@ -197,7 +210,8 @@ class TestKubernetesConnector(TestCloudConnectorBase):
             )"""
         new_radl = radl_parse.parse_radl(new_radl_data)
 
-        auth = Authentication([{'id': 'fogbow', 'type': 'Kubernetes', 'host': 'http://server.com:8080'}])
+        auth = Authentication([{'id': 'kube', 'type': 'Kubernetes',
+                                'host': 'http://server.com:8080', 'token': 'token'}])
         kube_cloud = self.get_kube_cloud()
 
         inf = MagicMock()
@@ -213,7 +227,8 @@ class TestKubernetesConnector(TestCloudConnectorBase):
 
     @patch('requests.request')
     def test_60_finalize(self, requests):
-        auth = Authentication([{'id': 'fogbow', 'type': 'Kubernetes', 'host': 'http://server.com:8080'}])
+        auth = Authentication([{'id': 'kube', 'type': 'Kubernetes',
+                                'host': 'http://server.com:8080', 'token': 'token'}])
         kube_cloud = self.get_kube_cloud()
 
         inf = MagicMock()

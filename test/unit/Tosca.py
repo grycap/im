@@ -49,6 +49,7 @@ class TestTosca(unittest.TestCase):
         tosca_data = read_file_as_string('../files/tosca_long.yml')
         tosca = Tosca(tosca_data)
         _, radl = tosca.to_radl()
+        print(radl)
         radl = parse_radl(str(radl))
         net = radl.get_network_by_id('public_net')
         net1 = radl.get_network_by_id('public_net_1')
@@ -85,7 +86,7 @@ class TestTosca(unittest.TestCase):
         self.assertEqual(lrms_wn.getValue("spot"), 'no')
         self.assertEqual(lrms_wn.getValue("instance_type"), 'some_type')
 
-        lrms_front_end_conf = radl.get_configure_by_name('lrms_front_end_conf')
+        lrms_front_end_conf = radl.get_configure_by_name('lrms_front_end_lrms_server_conf')
         conf = yaml.safe_load(lrms_front_end_conf.recipes)[0]
         self.assertEqual(conf['vars']['front_end_ip'],
                          "{{ hostvars[groups['lrms_server'][0]]['IM_NODE_PRIVATE_IP'] }}")
@@ -195,9 +196,10 @@ class TestTosca(unittest.TestCase):
         vm1.info.systems = [system1]
         inf_info.get_vm_list_by_system_name.return_value = {"server": [vm1]}
         _, radl = tosca.to_radl(inf_info)
+        print(radl)
         conf = None
         for elem in radl.configures:
-            if elem.name == "test_conf":
+            if elem.name == "test_server_conf":
                 conf = elem
         conf = yaml.safe_load(conf.recipes)[0]
         print(str(radl))
