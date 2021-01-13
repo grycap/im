@@ -187,22 +187,14 @@ class TestOrangeConnector(TestCloudConnectorBase):
         self.assertTrue(success, msg="ERROR: launching a VM.")
         self.assertEqual(driver.create_node.call_args_list[0][1]['networks'], [net1])
         mappings = [
-            {'source_type': 'image',
-             'uuid': 'imageid',
-             'boot_index': 0,
-             'delete_on_termination': False,
-             'device_name': 'vda'},
-            {'guest_format': 'ext3',
-             'boot_index': 1,
-             'volume_size': 1,
-             'device_name': 'vdb',
+            {'boot_index': -1,
+             'volume_size': 10,
              'source_type': 'blank',
              'destination_type': 'volume',
              'delete_on_termination': True},
-            {'boot_index': 2,
+            {'boot_index': -1,
              'delete_on_termination': False,
              'destination_type': 'volume',
-             'device_name': 'vdc',
              'source_type': 'volume',
              'uuid': 'volid'}
         ]
