@@ -19,6 +19,7 @@ import os.path
 import requests
 from IM.connectors.OpenStack import OpenStackCloudConnector
 from IM.config import Config
+from IM.VirtualMachine import VirtualMachine
 try:
     from urlparse import urlparse
 except ImportError:
@@ -80,7 +81,7 @@ class OrangeCloudConnector(OpenStackCloudConnector):
                 if 'region' in auth:
                     region = auth['region']
 
-                auth_url = "iam.%s.prod-cloud-ocb.orange-business.com" % region
+                auth_url = "https://iam.%s.prod-cloud-ocb.orange-business.com" % region
 
                 cls = get_driver(Provider.OPENSTACK)
                 driver = cls(username, password,
@@ -128,38 +129,114 @@ class OrangeCloudConnector(OpenStackCloudConnector):
         else:
             return None
 
+    @staticmethod
+    def get_volumes(driver, image, radl):
+        """
+        Create the required volumes (in the RADL) for the VM.
+
+        Arguments:
+           - vm(:py:class:`IM.VirtualMachine`): VM to modify.
+        """
+        system = radl.systems[0]
+        res = []
+        cont = 1
+        while (system.getValue("disk." + str(cont) + ".size") or
+                system.getValue("disk." + str(cont) + ".image.url")):
+            disk_url = system.getValue("disk." + str(cont) + ".image.url")
+
+            if disk_url:
+                volume = driver.ex_get_volume(os.path.basename(disk_url))
+                disk = {
+                    'boot_index': -1,
+                    'source_type': "volume",
+                    'delete_on_termination': False,
+                    'destination_type': "volume",
+                    'uuid': volume.id
+                }
+            else:
+                disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('G')
+                # Min size is 10 GB
+                if disk_size < 10:
+                    disk_size = 10
+
+                disk = {
+                    'boot_index': -1,
+                    'source_type': "blank",
+                    'destination_type': "volume",
+                    'delete_on_termination': True,
+                    'volume_size': disk_size
+                }
+
+            res.append(disk)
+            cont += 1
+
+        return res
+
+    def updateVMInfo(self, vm, auth_data):
+        node = self.get_node_with_id(vm.id, auth_data)
+        if node:
+            vm.state = self.VM_STATE_MAP.get(node.state, VirtualMachine.UNKNOWN)
+
+            if vm.state == VirtualMachine.FAILED:
+                if 'fault' in node.extra and node.extra['fault']:
+                    error_msg = str(node.extra['fault']['message'])
+                    if error_msg not in self.error_messages:
+                        self.error_messages += error_msg
+
+            try:
+                flavorId = node.extra['flavorId']
+                instance_type = node.driver.ex_get_size(flavorId)
+                self.update_system_info_from_instance(vm.info.systems[0], instance_type)
+            except Exception as ex:
+                self.log_warn("Error updating VM info from flavor ID: %s" % str(ex))
+
+            self.addRouterInstance(vm, node.driver)
+            self.setIPsFromInstance(vm, node)
+            self.setVolumesInfo(vm, node)
+        else:
+            self.log_warn("Error updating the instance %s. VM not found." % vm.id)
+            return (False, "Error updating the instance %s. VM not found." % vm.id)
+
+        return (True, vm)
+
     def setVolumesInfo(self, vm, node):
         try:
-            cont = 1
             if 'volumes_attached' in node.extra and node.extra['volumes_attached']:
                 if 'availability_zone' in node.extra and node.extra['availability_zone']:
                     region = node.extra['availability_zone'][:-1]
                 else:
                     region = self.REGIONS[0]
+
                 for vol_info in node.extra['volumes_attached']:
                     vol_id = vol_info['id']
                     self.log_debug("Getting Volume info %s" % vol_id)
                     volume = node.driver.ex_get_volume(vol_id)
-                    disk_size = None
-                    if vm.info.systems[0].getValue("disk." + str(cont) + ".size"):
-                        disk_size = vm.info.systems[0].getFeature("disk." + str(cont) + ".size").getValue('G')
-                    if disk_size and disk_size != volume.size:
-                        self.log_warn("Volume ID %s does not have the expected size %s != %s" % (vol_id,
-                                                                                                 volume.size,
-                                                                                                 disk_size))
-                        continue
-                    vm.info.systems[0].setValue("disk." + str(cont) + ".size", volume.size, 'G')
 
-                    disk_url = vm.info.systems[0].getValue("disk." + str(cont) + ".image.url")
-                    if disk_url and os.path.basename(disk_url) != vol_id:
-                        self.log_warn("Volume does not have the expected id %s != %s" % (vol_id,
-                                                                                         os.path.basename(disk_url)))
-                    vm.info.systems[0].setValue("disk." + str(cont) + ".image.url", "ora://%s/%s" % (region,
-                                                                                                     volume.id))
                     if 'attachments' in volume.extra and volume.extra['attachments']:
-                        vm.info.systems[0].setValue("disk." + str(cont) + ".device",
-                                                    os.path.basename(volume.extra['attachments'][0]['device']))
-                    cont += 1
+                        disk_device = volume.extra['attachments'][0]['device']
+                        cont = ord(disk_device[-1:]) - 97
+
+                        disk_size = None
+                        if vm.info.systems[0].getValue("disk." + str(cont) + ".size"):
+                            disk_size = vm.info.systems[0].getFeature("disk." + str(cont) + ".size").getValue('G')
+                        if disk_size and disk_size != volume.size:
+                            self.log_warn("Volume ID %s does not have the expected size %s != %s" % (vol_id,
+                                                                                                     volume.size,
+                                                                                                     disk_size))
+                            continue
+
+                        disk_url = vm.info.systems[0].getValue("disk." + str(cont) + ".image.url")
+                        if disk_url and os.path.basename(disk_url) != vol_id:
+                            self.log_warn("Volume does not have the expected id %s != %s" % (vol_id,
+                                                                                             os.path.basename(disk_url)))
+                            continue
+
+                        vm.info.systems[0].setValue("disk." + str(cont) + ".size", volume.size, 'G')
+                        if cont != 0:
+                            vm.info.systems[0].setValue("disk." + str(cont) + ".image.url", "ora://%s/%s" % (region,
+                                                                                                             volume.id))
+                            vm.info.systems[0].setValue("disk." + str(cont) + ".device", os.path.basename(disk_device))
+
         except Exception as ex:
             self.log_warn("Error getting volume info: %s" % str(ex))
 

@@ -995,8 +995,10 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 'networks': nets,
                 'image': image,
                 'ex_security_groups': sgs,
-                'ex_blockdevicemappings': blockdevicemappings,
                 'name': self.gen_instance_name(system)}
+
+        if blockdevicemappings:
+            'ex_blockdevicemappings': blockdevicemappings,
 
         tags = self.get_instance_tags(system, auth_data, inf)
         if tags:
