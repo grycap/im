@@ -19,9 +19,9 @@ import time
 from netaddr import IPNetwork, IPAddress
 import os.path
 import tempfile
-from libcloud.common.exceptions import BaseHTTPError
 
 try:
+    from libcloud.common.exceptions import BaseHTTPError
     from libcloud.compute.types import Provider
     from libcloud.compute.providers import get_driver
     from libcloud.compute.base import NodeAuthSSHKey
