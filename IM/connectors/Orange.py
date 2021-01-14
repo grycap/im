@@ -218,15 +218,15 @@ class OrangeCloudConnector(OpenStackCloudConnector):
                         if vm.info.systems[0].getValue("disk." + str(cont) + ".size"):
                             disk_size = vm.info.systems[0].getFeature("disk." + str(cont) + ".size").getValue('G')
                         if disk_size and disk_size != volume.size:
-                            self.log_warn("Volume ID %s does not have the expected size %s != %s" % (vol_id,
-                                                                                                     volume.size,
-                                                                                                     disk_size))
+                            self.log_warn("Volume ID %s without the expected size %s != %s" % (vol_id,
+                                                                                               volume.size,
+                                                                                               disk_size))
                             continue
 
                         disk_url = vm.info.systems[0].getValue("disk." + str(cont) + ".image.url")
                         if disk_url and os.path.basename(disk_url) != vol_id:
-                            self.log_warn("Volume does not have the expected id %s != %s" % (vol_id,
-                                                                                             os.path.basename(disk_url)))
+                            self.log_warn("Volume without the expected id %s != %s" % (vol_id,
+                                                                                       os.path.basename(disk_url)))
                             continue
 
                         vm.info.systems[0].setValue("disk." + str(cont) + ".size", volume.size, 'G')
