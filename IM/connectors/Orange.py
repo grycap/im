@@ -44,6 +44,7 @@ class OrangeCloudConnector(OpenStackCloudConnector):
     """ Current available regions """
 
     def __init__(self, cloud_info, inf):
+        # Patch to solve SSL error
         requests.packages.urllib3.util.ssl_.DEFAULT_CIPHERS += 'HIGH:!DH:!aNULL'
         OpenStackCloudConnector.__init__(self, cloud_info, inf)
 
@@ -187,6 +188,8 @@ class OrangeCloudConnector(OpenStackCloudConnector):
                 flavorId = node.extra['flavorId']
                 instance_type = node.driver.ex_get_size(flavorId)
                 self.update_system_info_from_instance(vm.info.systems[0], instance_type)
+                if 'availability_zone' in node.extra:
+                    vm.info.systems[0].setValue('availability_zone', node.extra['availability_zone'])
             except Exception as ex:
                 self.log_warn("Error updating VM info from flavor ID: %s" % str(ex))
 
@@ -202,11 +205,6 @@ class OrangeCloudConnector(OpenStackCloudConnector):
     def setVolumesInfo(self, vm, node):
         try:
             if 'volumes_attached' in node.extra and node.extra['volumes_attached']:
-                if 'availability_zone' in node.extra and node.extra['availability_zone']:
-                    region = node.extra['availability_zone'][:-1]
-                else:
-                    region = self.REGIONS[0]
-
                 for vol_info in node.extra['volumes_attached']:
                     vol_id = vol_info['id']
                     self.log_debug("Getting Volume info %s" % vol_id)
@@ -233,6 +231,7 @@ class OrangeCloudConnector(OpenStackCloudConnector):
 
                         vm.info.systems[0].setValue("disk." + str(cont) + ".size", volume.size, 'G')
                         if cont != 0:
+                            region = volume.extra['location'][:-1]
                             vm.info.systems[0].setValue("disk." + str(cont) + ".image.url", "ora://%s/%s" % (region,
                                                                                                              volume.id))
                             vm.info.systems[0].setValue("disk." + str(cont) + ".device", os.path.basename(disk_device))

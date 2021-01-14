@@ -116,9 +116,7 @@ class TestOrangeConnector(TestCloudConnectorBase):
             disk.0.image.url = 'ost://server.com/ami-id' and
             disk.0.os.credentials.username = 'user' and
             disk.1.size=1GB and
-            disk.1.device='hdb' and
-            disk.2.image.url = 'ost://server.com/vol-id' and
-            disk.2.device='hdc'
+            disk.2.image.url = 'ost://server.com/vol-id'
             )"""
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
@@ -217,8 +215,7 @@ class TestOrangeConnector(TestCloudConnectorBase):
             disk.0.image.url = 'ost://server.com/ami-id' and
             disk.0.os.credentials.username = 'user' and
             disk.0.os.credentials.password = 'pass' and
-            disk.1.size=1GB and
-            disk.1.device='hdb' and
+            disk.1.size=10GB and
             disk.1.mount_path='/mnt/path' and
             disk.2.image.url='ost://server.com/ami-id1' and
             disk.2.mount_path='/mnt/path'
@@ -263,8 +260,8 @@ class TestOrangeConnector(TestCloudConnectorBase):
 
         volume = MagicMock()
         volume.id = "vol1"
-        volume.size = 1
-        volume.extra = {'attachments': [{'device': 'vdb'}]}
+        volume.size = 10
+        volume.extra = {'location': 'na-east-0a', 'attachments': [{'device': 'vdb'}]}
         volume.attach.return_value = True
         driver.create_volume.return_value = volume
         driver.ex_get_volume.return_value = volume
