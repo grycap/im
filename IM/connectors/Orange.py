@@ -18,7 +18,6 @@
 import os.path
 import requests
 from IM.connectors.OpenStack import OpenStackCloudConnector
-from IM.config import Config
 from IM.VirtualMachine import VirtualMachine
 try:
     from urlparse import urlparse
