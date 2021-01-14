@@ -19,9 +19,9 @@ import time
 from netaddr import IPNetwork, IPAddress
 import os.path
 import tempfile
-from libcloud.common.exceptions import BaseHTTPError
 
 try:
+    from libcloud.common.exceptions import BaseHTTPError
     from libcloud.compute.types import Provider
     from libcloud.compute.providers import get_driver
     from libcloud.compute.base import NodeAuthSSHKey
@@ -37,7 +37,6 @@ try:
 except ImportError:
     from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
-from radl.radl import Feature
 from IM.AppDB import AppDB
 from IM import get_ex_error
 
@@ -55,6 +54,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
     """ Max number of retries to get a public IP """
     CONFIG_DRIVE = False
     """ Enable config drive """
+    CONFIRM_TIMEOUT = 120
+    """ Confirm Timeout """
 
     def __init__(self, cloud_info, inf):
         self.auth = None
@@ -582,7 +583,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         if instance_type:
             LibCloudCloudConnector.update_system_info_from_instance(system, instance_type)
             if instance_type.vcpus:
-                system.addFeature(Feature("cpu.count", "=", instance_type.vcpus), conflict="me", missing="other")
+                system.setValue("cpu.count", instance_type.vcpus)
 
     @staticmethod
     def get_ost_net(driver, name=None, netid=None):
@@ -995,8 +996,10 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 'networks': nets,
                 'image': image,
                 'ex_security_groups': sgs,
-                'ex_blockdevicemappings': blockdevicemappings,
                 'name': self.gen_instance_name(system)}
+
+        if blockdevicemappings:
+            args['ex_blockdevicemappings'] = blockdevicemappings
 
         tags = self.get_instance_tags(system, auth_data, inf)
         if tags:
@@ -1546,9 +1549,9 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                         if success:
                             cont = 0
                             # wait the node to be in correct state to confirm
-                            while node.extra['vm_state'] != 'resized' and cont < 30:
-                                time.sleep(2)
-                                cont += 2
+                            while node.extra['vm_state'] != 'resized' and cont < self.CONFIRM_TIMEOUT:
+                                time.sleep(3)
+                                cont += 3
                                 self.log_debug("Confirming resize of the node: %s" % node.id)
                                 node = self.get_node_with_id(vm.id, auth_data)
 
