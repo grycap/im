@@ -37,6 +37,7 @@ try:
 except ImportError:
     from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
+from radl.radl import Feature
 from IM.AppDB import AppDB
 from IM import get_ex_error
 
@@ -583,7 +584,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         if instance_type:
             LibCloudCloudConnector.update_system_info_from_instance(system, instance_type)
             if instance_type.vcpus:
-                system.setValue("cpu.count", instance_type.vcpus)
+                system.addFeature(Feature("cpu.count", "=", instance_type.vcpus), conflict="other", missing="other")
 
     @staticmethod
     def get_ost_net(driver, name=None, netid=None):
