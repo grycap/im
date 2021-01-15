@@ -227,6 +227,7 @@ class InfrastructureInfo:
         """
         self.stop()
         self.deleted = True
+        self.touch()
 
     def stop(self):
         """
