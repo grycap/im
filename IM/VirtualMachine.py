@@ -97,6 +97,8 @@ class VirtualMachine(LoggerMixin):
         """Message with the cause of the the error in the VM (if known) """
         self.deleting = False
         """Flag to specify that this VM is deletion process"""
+        self.creation_date = int(time.time())
+        """ Creation time of this Inf. """
 
     def serialize(self):
         with self._lock:
@@ -132,6 +134,7 @@ class VirtualMachine(LoggerMixin):
         newvm = VirtualMachine(None, None, None, None, None, None, dic['im_id'])
         # Set creating to False as default to VMs stored with 1.5.5 or old versions
         newvm.creating = False
+        newvm.creation_date = None
         newvm.__dict__.update(dic)
         # If we load a VM that is not configured, set it to False
         # because the configuration process will be lost
@@ -172,8 +175,7 @@ class VirtualMachine(LoggerMixin):
 
         if success:
             self.destroy = True
-        # force the update of the information
-        self.last_update = 0
+            self.last_update = int(time.time())
 
         if not success:
             VirtualMachine.logger.info("Inf ID: " + self.inf.id + ": The VM cannot be finalized: %s" % msg)
@@ -520,6 +522,10 @@ class VirtualMachine(LoggerMixin):
         with self._lock:
             # In case of a VM failed during creation, do not update
             if self.state == VirtualMachine.FAILED and self.id is None:
+                return False
+
+            if self.destroy:
+                self.state = VirtualMachine.OFF
                 return False
 
             if self.deleting:
