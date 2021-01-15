@@ -117,6 +117,8 @@ class InfrastructureInfo:
         """Flag to specify that this Inf is adding resources """
         self.deleting = False
         """Flag to specify that this Inf is deleting resources """
+        self.creation_date = datetime.now()
+        """ Creation time of this Inf. """
 
     def serialize(self):
         with self._lock:
