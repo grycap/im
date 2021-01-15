@@ -149,6 +149,7 @@ class InfrastructureInfo:
     @staticmethod
     def deserialize(str_data):
         newinf = InfrastructureInfo()
+        newinf.creation_date = None
         dic = json.loads(str_data)
         vm_list = dic['vm_list']
         vm_master_id = dic['vm_master']
