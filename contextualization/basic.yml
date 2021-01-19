@@ -29,7 +29,7 @@
 
     # In case of redhat systems libselinux-python is needed    
     - name: Install libselinux-python on redhat systems
-      raw: yum -y install libselinux-python || yum -y install http://mirror.centos.org/centos/8/AppStream/x86_64/os/Packages/libselinux-python-2.8-6.module_el8.0.0+111+16bc5e61.x86_64.rpm
+      raw: yum -y install libselinux-python || yum -y install http://ftpgrycap.i3m.upv.es/src/libselinux-python-2.8-6.module_el8.0.0+111+16bc5e61.x86_64.rpm
       become: yes
       ignore_errors: yes
 
