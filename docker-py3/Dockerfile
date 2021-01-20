@@ -16,7 +16,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y git python3-pip
      /usr/local/bin/pip3 install pyOpenSSL cheroot xmltodict pymongo ansible==2.9.15&& \
      # Install it until changes are released
      cd /tmp && git clone https://github.com/openstack/tosca-parser && /usr/local/bin/pip3 install /tmp/tosca-parser && \
-     cd /tmp && git clone https://github.com/apache/libcloud && /usr/local/bin/pip install /tmp/libcloud && \
+     cd /tmp && git clone https://github.com/micafer/libcloud -b min_ost_fix && pip3 install /tmp/libcloud && \
      /usr/local/bin/pip3 install IM==1.9.7 && \
      /usr/local/bin/pip3 uninstall pip -y && \
      apt-get purge -y git python3-pip && \
