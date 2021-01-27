@@ -237,7 +237,8 @@ class OpenNebulaCloudConnector(CloudConnector):
             return auth['username'] + ":" + passwd
         elif 'token' in auth:
             username, passwd = ONETTSClient.get_auth_from_tts(ConfigOpenNebula.TTS_URL,
-                                                              self.cloud.server, auth['token'])
+                                                              self.cloud.server, auth['token'],
+                                                              Config.VERIFI_SSL)
             if not username or not passwd:
                 raise Exception("Error getting ONE credentials using TTS.")
             auth["username"] = username
