@@ -77,7 +77,7 @@
       when: ansible_os_family == "Debian" and not (ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int >= 20)
 
     - name: Install pip in in Ubuntu 20+
-      shell: wget https://bootstrap.pypa.io/get-pip.py && python2 get-pip.py warn=false creates=/usr/local/bin/pip2 chdir=/tmp
+      shell: wget https://bootstrap.pypa.io/2.7/get-pip.py && python2 get-pip.py warn=false creates=/usr/local/bin/pip2 chdir=/tmp
       when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int >= 20
 
     - name: Ubuntu 14 extra packages needed
