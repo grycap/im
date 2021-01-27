@@ -140,7 +140,6 @@
     - name: Upgrade pip
       pip:
         name: pip>=9.0.3,<21.0
-        executable: pip3
 
     - name: Upgrade setuptools with Pip
       pip: name=setuptools state=latest
