@@ -24,10 +24,8 @@ from .JWT import JWT
 
 class OpenIDClient(object):
 
-    VERIFY_SSL = False
-
     @staticmethod
-    def get_user_info_request(token):
+    def get_user_info_request(token, verify_ssl=False):
         """
         Get a the user info from a token
         """
@@ -35,7 +33,7 @@ class OpenIDClient(object):
             decoded_token = JWT().get_info(token)
             headers = {'Authorization': 'Bearer %s' % token}
             url = "%s%s" % (decoded_token['iss'], "/userinfo")
-            resp = requests.request("GET", url, verify=OpenIDClient.VERIFY_SSL, headers=headers)
+            resp = requests.request("GET", url, verify=verify_ssl, headers=headers)
             if resp.status_code != 200:
                 return False, "Code: %d. Message: %s." % (resp.status_code, resp.text)
             return True, json.loads(resp.text)
@@ -43,14 +41,14 @@ class OpenIDClient(object):
             return False, str(ex)
 
     @staticmethod
-    def get_token_introspection(token, client_id, client_secret):
+    def get_token_introspection(token, client_id, client_secret, verify_ssl=False):
         """
         Get token introspection
         """
         try:
             decoded_token = JWT().get_info(token)
             url = "%s%s" % (decoded_token['iss'], "/introspect?token=%s&token_type_hint=access_token" % token)
-            resp = requests.request("GET", url, verify=OpenIDClient.VERIFY_SSL,
+            resp = requests.request("GET", url, verify=verify_ssl,
                                     auth=requests.auth.HTTPBasicAuth(client_id, client_secret))
             if resp.status_code != 200:
                 return False, "Code: %d. Message: %s." % (resp.status_code, resp.text)
