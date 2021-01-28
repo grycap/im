@@ -154,9 +154,10 @@
 
   ######################################### Use pip to enable to set the version #############################################
 
+    # Version over 21 raises error in older S.O. as ubuntu 16
     - name: Upgrade pip
       pip:
-        name: pip>=9.0.3
+        name: pip>=9.0.3,<21.0
         executable: pip3
 
     - name: Upgrade setuptools with Pip
@@ -237,6 +238,7 @@
       - { section: 'defaults', option: 'gathering', value: 'smart' }
       - { section: 'defaults', option: 'roles_path', value: '/etc/ansible/roles' }
       - { section: 'defaults', option: 'timeout', value: '30' }
+      - { section: 'defaults', option: 'ansible_python_interpreter', value: 'auto' }
  
     - name: Set transport to ssh in ansible.cfg
       ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=transport value=ssh

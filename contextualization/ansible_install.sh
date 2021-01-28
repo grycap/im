@@ -1,6 +1,6 @@
 #!/bin/sh
 
-ANSIBLE_VERSION="2.9.13"
+ANSIBLE_VERSION="2.9.15"
 
 distribution_id() {
     RETVAL=""
@@ -116,7 +116,7 @@ become_method = sudo
 fact_caching = jsonfile
 fact_caching_connection = /var/tmp/facts_cache
 fact_caching_timeout = 86400
-interpreter_python=/usr/bin/python3
+interpreter_python = /usr/bin/python3
 gathering = smart
 [paramiko_connection]
 record_host_keys=False
