@@ -1218,3 +1218,23 @@ class OpenNebulaCloudConnector(CloudConnector):
                     return image.ID
 
             return None
+
+    def list_images(self, auth_data):
+        server = ServerProxy(self.server_url, allow_none=True)
+        session_id = self.getSessionID(auth_data)
+        if session_id is None:
+            return [(False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")]
+
+        success, res_info = server.one.imagepool.info(session_id, -1, -1, -1)[0:2]
+
+        if success:
+            pool_info = IMAGE_POOL(res_info)
+        else:
+            self.logger.error("Error in the function one.imagepool.info: " + res_info)
+            return None
+
+        images = []
+        for image in pool_info.IMAGE:
+            images.append("one://%s/%s" % (self.cloud.server, image.ID))
+
+        return images

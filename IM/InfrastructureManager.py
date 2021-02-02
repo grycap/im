@@ -82,14 +82,6 @@ class InvaliddUserException(Exception):
         self.message = msg
 
 
-class IncorrectVMCrecentialsException(Exception):
-    """ Invalid InfrastructureManager credentials """
-
-    def __init__(self, msg="Incorrect VM credentials"):
-        Exception.__init__(self, msg)
-        self.message = msg
-
-
 class DisabledFunctionException(Exception):
     """ Disabled function called"""
 
@@ -1382,10 +1374,10 @@ class InfrastructureManager:
         im_auth = auth.getAuthInfo("InfrastructureManager")
 
         if not im_auth:
-            raise IncorrectVMCrecentialsException("No credentials provided for the InfrastructureManager.")
+            raise InvaliddUserException("No credentials provided for the InfrastructureManager.")
 
         if Config.FORCE_OIDC_AUTH and "token" not in im_auth[0]:
-            raise IncorrectVMCrecentialsException("No token provided for the InfrastructureManager.")
+            raise InvaliddUserException("No token provided for the InfrastructureManager.")
 
         # First check if an OIDC token is included
         if "token" in im_auth[0]:
@@ -1393,9 +1385,9 @@ class InfrastructureManager:
         elif "username" in im_auth[0]:
             if im_auth[0]['username'].startswith(IM.InfrastructureInfo.InfrastructureInfo.OPENID_USER_PREFIX):
                 # This is a OpenID user do not enable to get data using user/pass creds
-                raise IncorrectVMCrecentialsException("Invalid username used for the InfrastructureManager.")
+                raise InvaliddUserException("Invalid username used for the InfrastructureManager.")
         else:
-            raise IncorrectVMCrecentialsException("No username nor token for the InfrastructureManager.")
+            raise InvaliddUserException("No username nor token for the InfrastructureManager.")
 
         # Now check if the user is in authorized
         if not InfrastructureManager.check_im_user(im_auth):
@@ -1610,3 +1602,63 @@ class InfrastructureManager:
     @staticmethod
     def stop():
         IM.InfrastructureList.InfrastructureList.stop()
+
+    @staticmethod
+    def _get_cloud_conn(cloud_id, auth):
+        """
+        Get the CloudConnection object for the specified cloud_id
+
+        Arguments:
+          - cloud_id(string): ID of the cloud provider specified in the Authentication data
+          - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
+
+        Returns: a CloudConnection object.
+        """
+        cloud_conn = None
+        for cloud in CloudInfo.get_cloud_list(auth):
+            if cloud.id == cloud_id:
+                cloud_conn = cloud.getCloudConnector(None)
+
+        if cloud_conn:
+            return cloud_conn
+        else:
+            InfrastructureManager.logger.error("Cloud ID %s not found." % cloud_id)
+            raise Exception("Cloud ID %s not found." % cloud_id)
+
+    @staticmethod
+    def GetCloudImageList(cloud_id, auth):
+        """
+        Get a list of images on the cloud provider using IM URI format.
+
+        Arguments:
+          - cloud_id(string): ID of the cloud provider specified in the Authentication data
+          - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
+
+        Returns: a list of strings.
+        """
+        # First check the auth data
+        auth = InfrastructureManager.check_auth_data(auth)
+        return InfrastructureManager._get_cloud_conn(cloud_id, auth).list_images(auth)
+
+    @staticmethod
+    def GetCloudQuotas(cloud_id, auth):
+        """
+        Get the number of used and available resources in the cloud provider
+
+        Arguments:
+          - cloud_id(string): ID of the cloud provider specified in the Authentication data
+          - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
+
+        Returns: dict with the following structure:
+                    {
+                        "cores": {"used": 1, "limit": 10},
+                        "ram": {"used": 1, "limit": 10},
+                        "instances": {"used": 1, "limit": 10},
+                        "floating_ips": {"used": 1, "limit": 10},
+                        "security_groups": {"used": 1, "limit": 10}
+                    }
+                 Some providers may provide more elements.
+        """
+        # First check the auth data
+        auth = InfrastructureManager.check_auth_data(auth)
+        return InfrastructureManager._get_cloud_conn(cloud_id, auth).get_quotas(auth)

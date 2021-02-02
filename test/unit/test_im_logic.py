@@ -1322,6 +1322,21 @@ configure step2 (
 
         Config.BOOT_MODE = 0
 
+    def test_get_cloud_info(self):
+        auth = self.getAuth([0], [], [("Dummy", 0), ("Dummy", 1)])
+        res = IM.GetCloudImageList("cloud1", auth)
+
+        self.assertEqual(res, ["mock0://linux.for.ev.er/image1", "mock0://linux.for.ev.er/image2"])
+        res = IM.GetCloudQuotas("cloud0", auth)
+        self.assertEqual(res, {"cores": {"used": 1, "limit": 10},
+                               "ram": {"used": 1, "limit": 10},
+                               "instances": {"used": 1, "limit": 10},
+                               "floating_ips": {"used": 1, "limit": 10},
+                               "security_groups": {"used": 1, "limit": 10}})
+
+        with self.assertRaises(Exception):
+            IM.GetCloudQuotas("cloud2", auth)
+
 
 if __name__ == "__main__":
     unittest.main()

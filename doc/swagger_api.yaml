@@ -2,7 +2,7 @@ swagger: '2.0'
 
 info:
   description: Infrastructure Manager (IM) REST API.
-  version: 1.9.0
+  version: 1.10.0
   title: Infrastructure Manager (IM) REST API
   contact:
     email: products@grycap.upv.es
@@ -15,6 +15,8 @@ tags:
     description: Manages Virtual Infrastructures.
   - name: version
     description: Get IM server version.
+  - name: clouds
+    description: Get cloud information.
 
 paths:
  /version:
@@ -1166,6 +1168,81 @@ paths:
           description: Forbidden
         404:
           description: Not Found
+
+/clouds/{cloudId}/images:
+    get:
+      tags:
+        - clouds
+      summary: Get the list of available images in the specified cloud provider.
+      description: >
+        Return a list of URIs referencing the available images in the specified cloud provider.
+        The id cloudId is relative to the id field in the AUTHORIZATION header.
+      operationId: GetCloudImages
+      produces:
+      - text/uri-list
+      - application/json
+      parameters:
+        - name: Authorization
+          in: header
+          description: |-
+            The Authentication header must provide the content of the [Authorization File](https://imdocs.readthedocs.io/en/latest/client.html#auth-file), but putting all the elements in one line using “\n” as separator.
+          required: true
+          type: string
+      responses:
+        200:
+          description: successful operation
+          examples:
+            text/uri-list: |
+              ost://server.com/image-id1
+              ost://server.com/image-id2
+            application/json: |
+              {
+                "uri-list": [
+                  { "uri" : "ost://server.com/image-id1" },
+                  { "uri" : "ost://server.com/image-id2" }
+                ] 
+              }
+        400:
+          description: Invalid status value
+        401:
+          description: Unauthorized
+
+/clouds/{cloudId}/quotas:
+    get:
+      tags:
+        - clouds
+      summary: Get available and used resources for the current user in the specified cloud provider.
+      description: >
+        Return a dictionary with available and used resources for the current user in the specified cloud provider.
+        The id cloudId is relative to the id field in the AUTHORIZATION header.
+      operationId: GetCloudQuotas
+      produces:
+      - application/json
+      parameters:
+        - name: Authorization
+          in: header
+          description: |-
+            The Authentication header must provide the content of the [Authorization File](https://imdocs.readthedocs.io/en/latest/client.html#auth-file), but putting all the elements in one line using “\n” as separator.
+          required: true
+          type: string
+      responses:
+        200:
+          description: successful operation
+          examples:
+            application/json: |
+              {
+                "quotas": {
+                  "cores": {"used": 1, "limit": 10},
+                  "ram": {"used": 1, "limit": 10},
+                  "instances": {"used": 1, "limit": 10},
+                  "floating_ips": {"used": 1, "limit": 10},
+                  "security_groups": {"used": 1, "limit": 10}
+                }
+              }
+        400:
+          description: Invalid status value
+        401:
+          description: Unauthorized
 
 definitions:
 

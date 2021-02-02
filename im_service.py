@@ -245,6 +245,8 @@ def launch_daemon():
     server.register_function(GetInfrastructureState)
     server.register_function(GetVersion)
     server.register_function(CreateDiskSnapshot)
+    server.register_function(GetCloudImageList)
+    server.register_function(GetCloudQuotas)
 
     InfrastructureManager.logger.info(
         '************ Start Infrastructure Manager daemon (v.%s) ************' % version)
