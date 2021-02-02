@@ -243,3 +243,16 @@ class OrangeCloudConnector(OpenStackCloudConnector):
 
     def delete_image(self, image_url, auth_data):
         raise Exception("Not supported.")
+
+    def list_images(self, auth_data):
+        driver = self.get_driver(auth_data)
+        auth = auth_data.getAuthInfo(self.type, self.cloud.server)[0]
+        if 'region' in auth:
+            region = auth['region']
+        else:
+            region = self.REGIONS[0]
+
+        images = []
+        for image in driver.list_images():
+            images.append({"uri": "ora://%s/%s" % (region, image.id), "name": image.name})
+        return images
