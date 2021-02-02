@@ -1031,7 +1031,10 @@ class TestREST(unittest.TestCase):
         bottle_request.environ = {'HTTP_HOST': 'imserver.com'}
 
         res = RESTGetCloudInfo("cloud1", "images")
-        self.assertEqual(res, "mock0://linux.for.ev.er/image1\nmock0://linux.for.ev.er/image2")
+        self.assertEqual(json.loads(res), {"images": [{"uri": "mock0://linux.for.ev.er/image1",
+                                                       "name": "Image Name1"},
+                                                      {"uri": "mock0://linux.for.ev.er/image2",
+                                                       "name": "Image Name2"}]})
 
         res = RESTGetCloudInfo("cloud1", "quotas")
         self.assertEqual(json.loads(res), {"quotas": {"cores": {"used": 1, "limit": 10},

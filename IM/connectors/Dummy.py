@@ -95,7 +95,8 @@ class DummyCloudConnector(CloudConnector):
         return (True, "")
 
     def list_images(self, auth_data):
-        return ["mock0://linux.for.ev.er/image1", "mock0://linux.for.ev.er/image2"]
+        return [{"uri": "mock0://linux.for.ev.er/image1", "name": "Image Name1"},
+                {"uri": "mock0://linux.for.ev.er/image2", "name": "Image Name2"}]
 
     def get_quotas(self, auth_data):
         return {"cores": {"used": 1, "limit": 10},

@@ -876,13 +876,14 @@ class TestOSTConnector(TestCloudConnectorBase):
         driver = MagicMock()
         get_driver.return_value = driver
 
-        image = MagicMock(['id'])
+        image = MagicMock(['id', 'name'])
         image.id = "image_id"
+        image.name = "image_name"
         driver.list_images.return_value = [image]
 
         res = ost_cloud.list_images(auth)
 
-        self.assertEqual(res, ["ost://server.com/image_id"])
+        self.assertEqual(res, [{"uri": "ost://server.com/image_id", "name": "image_name"}])
 
         quotas = MagicMock(['cores', 'ram', 'instances', 'floating_ips', 'security_groups'])
         quotas.cores = MagicMock(['in_use', 'reserved', 'limit'])

@@ -1179,7 +1179,6 @@ paths:
         The id cloudId is relative to the id field in the AUTHORIZATION header.
       operationId: GetCloudImages
       produces:
-      - text/uri-list
       - application/json
       parameters:
         - name: Authorization
@@ -1192,15 +1191,19 @@ paths:
         200:
           description: successful operation
           examples:
-            text/uri-list: |
-              ost://server.com/image-id1
-              ost://server.com/image-id2
             application/json: |
               {
-                "uri-list": [
-                  { "uri" : "ost://server.com/image-id1" },
-                  { "uri" : "ost://server.com/image-id2" }
-                ] 
+                  "images":
+                    [
+                        {
+                          "uri" : "ost://hostname/image-id1",
+                          "name" : "Image Name1"
+                        },
+                        {
+                          "uri" : "ost://hostname/image-id2",
+                          "name" : "Image Name2"
+                        }
+                    ]
               }
         400:
           description: Invalid status value

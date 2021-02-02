@@ -457,6 +457,7 @@ class TestGCEConnector(TestCloudConnectorBase):
 
         image = MagicMock(['id'])
         image.id = "image_id"
+        image.name = "image_name"
         driver.list_images.return_value = [image]
         location = MagicMock(['id', 'name'])
         location.name = "location"
@@ -464,7 +465,7 @@ class TestGCEConnector(TestCloudConnectorBase):
 
         res = gce_cloud.list_images(auth)
 
-        self.assertEqual(res, ["gce://location/image_id"])
+        self.assertEqual(res, [{"uri": "gce://location/image_id", "name": "image_name"}])
 
 
 if __name__ == '__main__':

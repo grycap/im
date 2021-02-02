@@ -973,5 +973,5 @@ class GCECloudConnector(LibCloudCloudConnector):
         gce_images = driver.list_images()
         for location in driver.list_locations():
             for image in gce_images:
-                images.append("gce://%s/%s" % (location.name, image.id))
+                images.append({"uri": "gce://%s/%s" % (location.name, image.id), "name": image.name})
         return images

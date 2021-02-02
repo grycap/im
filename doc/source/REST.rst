@@ -373,7 +373,7 @@ PUT ``http://imserver.com/infrastructures/<infId>/vms/<vmId>/disks/<diskNum>/sna
    IM format (see disk.<diskId>.image.url format in RADL).
 
 GET ``http://imserver.com/clouds/<cloudId>/images``
-   :Response Content-type: text/uri-list or application/json
+   :Response Content-type: application/json
    :ok response: 200 OK
    :fail response: 401, 400
 
@@ -382,12 +382,19 @@ GET ``http://imserver.com/clouds/<cloudId>/images``
    The id ``cloudId`` is relative to the id field in the AUTHORIZATION header.
    The result is JSON format has the following format::
 
-    {
-      "uri-list": [
-         { "uri" : "ost://server.com/image-id1" },
-         { "uri" : "ost://server.com/image-id2" }
-       ] 
-    }
+   {
+      "images":
+         [
+            {
+               "uri" : "ost://hostname/image-id1",
+               "name" : "Image Name1"
+            },
+            {
+               "uri" : "ost://hostname/image-id2",
+               "name" : "Image Name2"
+            }
+         ]
+   }
 
 GET ``http://imserver.com/clouds/<cloudId>/quotas``
    :Response Content-type: application/json

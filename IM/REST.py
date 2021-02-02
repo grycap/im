@@ -1098,7 +1098,8 @@ def RESTGetCloudInfo(cloudid=None, param=None):
     try:
         if param == 'images':
             images = InfrastructureManager.GetCloudImageList(cloudid, auth)
-            return format_output(images, "text/uri-list", "uri-list", "uri")
+            bottle.response.content_type = "application/json"
+            return format_output(images, default_type="application/json", field_name="images")
         elif param == 'quotas':
             quotas = InfrastructureManager.GetCloudQuotas(cloudid, auth)
             bottle.response.content_type = "application/json"

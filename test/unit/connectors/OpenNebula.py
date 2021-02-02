@@ -409,7 +409,7 @@ class TestONEConnector(TestCloudConnectorBase):
 
         res = one_cloud.list_images(auth)
 
-        self.assertEqual(res, ['one://server.com/1'])
+        self.assertEqual(res, [{'uri': 'one://server.com/1', 'name': 'imagename'}])
 
 
 if __name__ == '__main__':
