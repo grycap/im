@@ -1225,7 +1225,7 @@ class OpenNebulaCloudConnector(CloudConnector):
         if session_id is None:
             return [(False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")]
 
-        success, res_info = server.one.imagepool.info(session_id, -1, -1, -1)[0:2]
+        success, res_info = server.one.imagepool.info(session_id, -2, -1, -1)[0:2]
 
         if success:
             pool_info = IMAGE_POOL(res_info)
