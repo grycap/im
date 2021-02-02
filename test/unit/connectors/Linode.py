@@ -389,6 +389,23 @@ class TestLinodeConnector(TestCloudConnectorBase):
         self.assertEqual(volume.destroy.call_count, 1)
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
+    @patch('libcloud.compute.drivers.linode.LinodeNodeDriver')
+    def test_get_cloud_info(self, get_driver):
+        auth = Authentication([{'id': 'linode', 'type': 'Linode', 'username': 'apiKey'}])
+        lib_cloud = self.get_lib_cloud()
+
+        driver = MagicMock()
+        get_driver.return_value = driver
+
+        image = MagicMock(['id', 'name'])
+        image.id = "image_id"
+        image.name = "image_name"
+        driver.list_images.return_value = [image]
+
+        res = lib_cloud.list_images(auth)
+
+        self.assertEqual(res, [{"uri": "lin://linode/image_id", "name": "image_name"}])
+
 
 if __name__ == '__main__':
     unittest.main()
