@@ -1231,7 +1231,7 @@ class OpenNebulaCloudConnector(CloudConnector):
             pool_info = IMAGE_POOL(res_info)
         else:
             self.logger.error("Error in the function one.imagepool.info: " + res_info)
-            return None
+            raise Exception(res_info)
 
         images = []
         for image in pool_info.IMAGE:
