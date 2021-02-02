@@ -1721,7 +1721,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         driver = self.get_driver(auth_data)
         images = []
         for image in driver.list_images():
-            images.append("ost://%s/%s" % (self.cloud.server, image.id))
+            images.append({"uri": "ost://%s/%s" % (self.cloud.server, image.id), "name": image.name})
         return images
 
     def get_quotas(self, auth_data):

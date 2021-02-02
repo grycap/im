@@ -1235,6 +1235,6 @@ class OpenNebulaCloudConnector(CloudConnector):
 
         images = []
         for image in pool_info.IMAGE:
-            images.append("one://%s/%s" % (self.cloud.server, image.ID))
+            images.append({"uri": "one://%s/%s" % (self.cloud.server, image.ID), "name": image.NAME})
 
         return images

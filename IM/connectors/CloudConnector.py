@@ -335,7 +335,7 @@ class CloudConnector(LoggerMixin):
         Arguments:
           - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
 
-        Returns: a list of strings.
+        Returns: a list dicts with at least two fields "uri" and "name".
         """
         raise NotImplementedError("Should have implemented this")
 
