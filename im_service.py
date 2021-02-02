@@ -202,6 +202,18 @@ def CreateDiskSnapshot(inf_id, vm_id, disk_num, image_name, auto_delete, auth_da
     return WaitRequest(request)
 
 
+def GetCloudImageList(cloud_id, auth_data):
+    request = IMBaseRequest.create_request(
+        IMBaseRequest.GET_CLOUD_IMAGE_LIST, (cloud_id, auth_data))
+    return WaitRequest(request)
+
+
+def GetCloudQuotas(cloud_id, auth_data):
+    request = IMBaseRequest.create_request(
+        IMBaseRequest.GET_CLOUD_QUOTAS, (cloud_id, auth_data))
+    return WaitRequest(request)
+
+
 def launch_daemon():
     """
     Launch the IM daemon
