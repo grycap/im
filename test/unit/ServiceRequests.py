@@ -179,6 +179,20 @@ class TestServiceRequests(unittest.TestCase):
         req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.GET_VERSION)
         req._call_function()
 
+    @patch('IM.InfrastructureManager.InfrastructureManager')
+    def test_cloud_quotas(self, inflist):
+        import IM.ServiceRequests
+        req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.GET_CLOUD_QUOTAS,
+                                                              ("", ""))
+        req._call_function()
+
+    @patch('IM.InfrastructureManager.InfrastructureManager')
+    def test_cloud_images(self, inflist):
+        import IM.ServiceRequests
+        req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.GET_CLOUD_IMAGE_LIST,
+                                                              ("", ""))
+        req._call_function()
+
 
 if __name__ == '__main__':
     unittest.main()

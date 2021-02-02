@@ -867,6 +867,58 @@ class TestOSTConnector(TestCloudConnectorBase):
                 expected_res.append("10.%d.%d.0/24" % (i, j))
         self.assertEqual(res, expected_res)
 
+    @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
+    def test_get_cloud_info(self, get_driver):
+        auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'username': 'user',
+                                'password': 'pass', 'tenant': 'tenant', 'host': 'https://server.com:5000'}])
+        ost_cloud = self.get_ost_cloud()
+
+        driver = MagicMock()
+        get_driver.return_value = driver
+
+        image = MagicMock(['id'])
+        image.id = "image_id"
+        driver.list_images.return_value = [image]
+
+        res = ost_cloud.list_images(auth)
+
+        self.assertEqual(res, ["ost://server.com/image_id"])
+
+        quotas = MagicMock(['cores', 'ram', 'instances', 'floating_ips', 'security_groups'])
+        quotas.cores = MagicMock(['in_use', 'reserved', 'limit'])
+        quotas.cores.in_use = quotas.cores.reserved = 1
+        quotas.cores.limit = 4
+        quotas.ram = MagicMock(['in_use', 'reserved', 'limit'])
+        quotas.ram.in_use = quotas.ram.reserved = 1024
+        quotas.ram.limit = 4096
+        quotas.instances = MagicMock(['in_use', 'reserved', 'limit'])
+        quotas.instances.in_use = quotas.instances.reserved = 1
+        quotas.instances.limit = 4
+        quotas.floating_ips = MagicMock(['in_use', 'reserved', 'limit'])
+        quotas.floating_ips.in_use = quotas.floating_ips.reserved = 1
+        quotas.floating_ips.limit = 4
+        quotas.security_groups = MagicMock(['in_use', 'reserved', 'limit'])
+        quotas.security_groups.in_use = quotas.security_groups.reserved = 1
+        quotas.security_groups.limit = 4
+        driver.ex_get_quota_set.return_value = quotas
+
+        net_quotas = MagicMock(['floatingip', 'security_group'])
+        net_quotas.floatingip = MagicMock(['in_use', 'reserved', 'limit'])
+        net_quotas.floatingip.in_use = net_quotas.floatingip.reserved = 2
+        net_quotas.floatingip.limit = 6
+        net_quotas.security_group = MagicMock(['in_use', 'reserved', 'limit'])
+        net_quotas.security_group.in_use = net_quotas.security_group.reserved = 2
+        net_quotas.security_group.limit = 6
+        driver.ex_get_network_quotas.return_value = net_quotas
+
+        self.maxDiff = None
+        res = ost_cloud.get_quotas(auth)
+        self.assertEquals(res, {"cores": {"used": 2, "limit": 4},
+                                "ram": {"used": 2, "limit": 4},
+                                "instances": {"used": 2, "limit": 4},
+                                "floating_ips": {"used": 4, "limit": 6},
+                                "security_groups": {"used": 4, "limit": 6}})
+
 
 if __name__ == '__main__':
     unittest.main()

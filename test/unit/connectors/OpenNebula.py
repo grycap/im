@@ -251,7 +251,8 @@ class TestONEConnector(TestCloudConnectorBase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('IM.connectors.OpenNebula.ServerProxy')
-    def test_55_alter(self, server_proxy):
+    @patch('time.sleep')
+    def test_55_alter(self, sleep, server_proxy):
         radl_data = """
             network net ()
             system test (
@@ -392,6 +393,23 @@ class TestONEConnector(TestCloudConnectorBase):
         self.assertTrue(success, msg="ERROR: deleting image. %s" % msg)
         self.assertEqual(one_server.one.image.delete.call_args_list[1], call('user:pass', 1))
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
+    @patch('IM.connectors.OpenNebula.ServerProxy')
+    @patch('IM.connectors.OpenNebula.OpenNebulaCloudConnector.getONEVersion')
+    def test_get_cloud_info(self, getONEVersion, server_proxy):
+        auth = Authentication([{'id': 'one', 'type': 'OpenNebula', 'username': 'user',
+                                'password': 'pass', 'host': 'server.com:2633'}])
+        one_cloud = self.get_one_cloud()
+
+        getONEVersion.return_value = "5.2.1"
+        one_server = MagicMock()
+        one_server.one.imagepool.info.return_value = (True, "<IMAGE_POOL><IMAGE><ID>1</ID>"
+                                                      "<NAME>imagename</NAME></IMAGE></IMAGE_POOL>", 0)
+        server_proxy.return_value = one_server
+
+        res = one_cloud.list_images(auth)
+
+        self.assertEqual(res, ['one://server.com/1'])
 
 
 if __name__ == '__main__':

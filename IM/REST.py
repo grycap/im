@@ -1088,6 +1088,28 @@ def RESTCreateDiskSnapshot(infid=None, vmid=None, disknum=None):
         return return_error(400, "Error creating snapshot: %s" % get_ex_error(ex))
 
 
+@app.route('/clouds/:cloudid/:param', method='GET')
+def RESTGetCloudInfo(cloudid=None, param=None):
+    try:
+        auth = get_auth_header()
+    except Exception:
+        return return_error(401, "No authentication data provided")
+
+    try:
+        if param == 'images':
+            images = InfrastructureManager.GetCloudImageList(cloudid, auth)
+            return format_output(images, "text/uri-list", "uri-list", "uri")
+        elif param == 'quotas':
+            quotas = InfrastructureManager.GetCloudQuotas(cloudid, auth)
+            bottle.response.content_type = "application/json"
+            return format_output(quotas, default_type="application/json", field_name="quotas")
+    except InvaliddUserException as ex:
+        return return_error(401, "Error getting cloud info: %s" % get_ex_error(ex))
+    except Exception as ex:
+        logger.exception("Error getting cloud info")
+        return return_error(400, "Error getting cloud info: %s" % get_ex_error(ex))
+
+
 @app.error(403)
 def error_mesage_403(error):
     return return_error(403, error.body)

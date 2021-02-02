@@ -346,3 +346,34 @@ This is the list of method names:
    specifies that the snapshot will be deleted when the infrastructure is
    destroyed. It returns the image url of the new created image in IM format
    (see disk.<diskId>.image.url format in RADL).
+
+.. _GetCloudImageList-xmlrpc:
+
+``GetCloudImageList``
+   :parameter 0: ``cloudId``: integer
+   :parameter 1: ``auth``: array of structs
+   :ok response: [true, ``imageUrls``: array of strings]
+   :fail response: [false, ``error``: string]
+
+   Get the list of available images in the specified cloud provider.
+   The id ``cloudId`` is relative to the id field in the ``auth`` paramater.
+
+.. _GetCloudQuotas-xmlrpc:
+
+``GetCloudQuotas``
+   :parameter 0: ``cloudId``: integer
+   :parameter 1: ``auth``: array of structs
+   :ok response: [true, struct]
+   :fail response: [false, ``error``: string]
+
+   Get available and used resources for the current user in the specified cloud provider.
+   The id ``cloudId`` is relative to the id field in the ``auth`` paramater.
+   Response format::
+
+      {
+         "cores": {"used": 1, "limit": 10},
+         "ram": {"used": 1, "limit": 10},
+         "instances": {"used": 1, "limit": 10},
+         "floating_ips": {"used": 1, "limit": 10},
+         "security_groups": {"used": 1, "limit": 10}
+      }
