@@ -404,7 +404,7 @@ class TestLinodeConnector(TestCloudConnectorBase):
 
         res = lib_cloud.list_images(auth)
 
-        self.assertEqual(res, [{"uri": "lin://linode/image_id", "name": "image_name"}])
+        self.assertEqual(res, [{"uri": "lin://image_id", "name": "image_name"}])
 
 
 if __name__ == '__main__':
