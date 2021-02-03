@@ -1643,7 +1643,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 return (True, "")
             except Exception as ex:
                 self.log_exception("Error connecting with OpenStack server")
-                return (False, "Error connecting with OpenStack server: " + str(ex))
+                return (False, "Error connecting with OpenStack server: " + get_ex_error(ex))
 
     def alter_public_ips(self, vm, radl, auth_data):
         """
@@ -1681,7 +1681,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     return False, "Error detaching IP %s from node %s" % (current_public_ip, node.id)
         except Exception as ex:
             self.log_exception("Error adding/removing new public IP")
-            return (False, "Error adding/removing new public IP: " + str(ex))
+            return (False, "Error adding/removing new public IP: " + get_ex_error(ex))
         return True, ""
 
     def delete_elastic_ips(self, node, vm):
@@ -1724,12 +1724,26 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             images.append({"uri": "ost://%s/%s" % (self.cloud.server, image.id), "name": image.name})
         return images
 
+    def _get_tenant_id(self, driver, auth):
+        """
+        Workaround function to get tenant id from tenant name
+        """
+        if auth['auth_version'] == '3.x_oidc_access_token':
+            return auth['domain']
+        else:
+            if 'tenant_id' in auth:
+                return auth['tenant_id']
+            else:
+                return auth['tenant']
+
+        return None
+
     def get_quotas(self, auth_data):
         driver = self.get_driver(auth_data)
-        tenant = auth_data.getAuthInfo(self.type, self.cloud.server)[0]['tenant']
-        quotas = driver.ex_get_quota_set(tenant)
+        tenant_id = self._get_tenant_id(driver, auth_data.getAuthInfo(self.type, self.cloud.server)[0])
+        quotas = driver.ex_get_quota_set(tenant_id)
         try:
-            net_quotas = driver.ex_get_network_quotas(tenant)
+            net_quotas = driver.ex_get_network_quotas(tenant_id)
         except Exception:
             net_quotas = None
 
