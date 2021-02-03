@@ -23,7 +23,8 @@ class LoggerMixin(object):
     """
 
     def log_msg(self, level, msg, exc_info=0):
-        msg = "Inf ID: %s: %s" % (self.inf.id, msg)
+        if self.inf:
+            msg = "Inf ID: %s: %s" % (self.inf.id, msg)
         self.logger.log(level, msg, exc_info=exc_info)
 
     def log_error(self, msg):
