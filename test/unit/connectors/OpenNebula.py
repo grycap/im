@@ -409,7 +409,17 @@ class TestONEConnector(TestCloudConnectorBase):
 
         res = one_cloud.list_images(auth)
 
-        self.assertEqual(res, [{'uri': 'one://server.com/1', 'name': 'imagename'}])
+        one_server.one.vnpool.info.return_value = (True, self.read_file_as_string("files/nets.xml"), 0)
+        one_server.one.user.info.return_value = (True, self.read_file_as_string("files/user.xml"), 0)
+
+        res = one_cloud.get_quotas(auth)
+
+        expected_res = {'cores': {'limit': 100, 'used': 5},
+                        'floating_ips': {'limit': 3, 'used': 0},
+                        'instances': {'limit': -1, 'used': 3},
+                        'ram': {'limit': 102400, 'used': 10240},
+                        'security_groups': {'limit': -1, 'used': 0}}
+        self.assertEqual(res, expected_res)
 
 
 if __name__ == '__main__':

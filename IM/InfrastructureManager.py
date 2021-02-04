@@ -1649,7 +1649,7 @@ class InfrastructureManager:
           - cloud_id(string): ID of the cloud provider specified in the Authentication data
           - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
 
-        Returns: dict with the following structure:
+        Returns: dict with the following structure (if there are no limit in some metric, value is set to 1):
                     {
                         "cores": {"used": 1, "limit": 10},
                         "ram": {"used": 1, "limit": 10},

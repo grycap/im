@@ -160,6 +160,57 @@ class SECURITY_GROUP_POOL(XMLObject):
     tuples_lists = {'SECURITY_GROUP': SECURITY_GROUP}
 
 
+class DATASTORE_QUOTA_ITEM(XMLObject):
+    values = ['ID', 'IMAGES', 'IMAGES_USED', 'SIZE', 'SIZE_USED']
+    numeric = ['ID', 'IMAGES', 'IMAGES_USED', 'SIZE', 'SIZE_USED']
+
+
+class DATASTORE_QUOTA(XMLObject):
+    tuples_lists = {'DATASTORE': DATASTORE_QUOTA_ITEM}
+
+
+class NETWORK_QUOTA_ITEM(XMLObject):
+    values = ['ID', 'LEASES', 'LEASES_USED']
+    numeric = ['LEASES', 'LEASES_USED']
+
+
+class NETWORK_QUOTA(XMLObject):
+    tuples_lists = {'NETWORK': NETWORK_QUOTA_ITEM}
+
+
+class VM_QUOTA_ITEM(XMLObject):
+    values = ['CPU', 'CPU_USED', 'MEMORY', 'MEMORY_USED', 'RUNNING_CPU', 'RUNNING_CPU_USED',
+              'RUNNING_MEMORY', 'RUNNING_MEMORY_USED', 'RUNNING_VMS', 'RUNNING_VMS_USED',
+              'SYSTEM_DISK_SIZE', 'SYSTEM_DISK_SIZE_USED', 'VMS', 'VMS_USED']
+    numeric = ['CPU', 'CPU_USED', 'MEMORY', 'MEMORY_USED', 'RUNNING_CPU', 'RUNNING_CPU_USED',
+               'RUNNING_MEMORY', 'RUNNING_MEMORY_USED', 'RUNNING_VMS', 'RUNNING_VMS_USED',
+               'SYSTEM_DISK_SIZE', 'SYSTEM_DISK_SIZE_USED', 'VMS', 'VMS_USED']
+
+
+class VM_QUOTA(XMLObject):
+    tuples = {'VM': VM_QUOTA_ITEM}
+
+
+class IMAGE_QUOTA_ITEM(XMLObject):
+    values = ['ID', 'RVMS', 'RVMS_USED']
+    numeric = ['ID', 'RVMS', 'RVMS_USED']
+
+
+class IMAGE_QUOTA(XMLObject):
+    tuples_lists = {'IMAGE': IMAGE_QUOTA_ITEM}
+
+
+class DEFAULT_USER_QUOTAS(XMLObject):
+    tuples = {'DATASTORE_QUOTA': DATASTORE_QUOTA, 'NETWORK_QUOTA': NETWORK_QUOTA,
+              'VM_QUOTA': VM_QUOTA, 'IMAGE_QUOTA': IMAGE_QUOTA}
+
+
+class USER(XMLObject):
+    values = ['ID', 'GID', 'GNAME', 'NAME']
+    tuples = {'DATASTORE_QUOTA': DATASTORE_QUOTA, 'NETWORK_QUOTA': NETWORK_QUOTA, 'VM_QUOTA': VM_QUOTA,
+              'IMAGE_QUOTA': IMAGE_QUOTA, 'DEFAULT_USER_QUOTAS': DEFAULT_USER_QUOTAS}
+
+
 class OpenNebulaCloudConnector(CloudConnector):
     """
     Cloud Launcher to the OpenNebula platform
@@ -1238,3 +1289,54 @@ class OpenNebulaCloudConnector(CloudConnector):
             images.append({"uri": "one://%s/%s" % (self.cloud.server, image.ID), "name": image.NAME})
 
         return images
+
+    def _get_public_ip_quota(self, net_quotas, net_info):
+        res = {"used": 0, "limit": None}
+
+        net_dict = {}
+        for _, net_id, public in net_info:
+            net_dict[net_id] = public
+
+        for net in net_quotas.NETWORK:
+            if net.ID in net_dict and net_dict[net.ID]:
+                res['used'] += net.LEASES_USED
+                # if one net has not limit, all has no limit
+                if res['limit'] != -1:
+                    if res['limit'] is None:
+                        res['limit'] = net.LEASES
+                    else:
+                        res['limit'] += net.LEASES
+
+        return res
+
+    def get_quotas(self, auth_data):
+        server = ServerProxy(self.server_url, allow_none=True)
+        session_id = self.getSessionID(auth_data)
+        if session_id is None:
+            return [(False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")]
+
+        success, res_info = server.one.user.info(session_id, -1)[0:2]
+
+        if success:
+            user_info = USER(res_info)
+        else:
+            self.logger.error("Error in the function one.user.info: " + res_info)
+            raise Exception(res_info)
+
+        res = {"cores": {"used": 0, "limit": -1},
+               "ram": {"used": 0, "limit": -1},
+               "instances": {"used": 0, "limit": -1},
+               "security_groups": {"used": 0, "limit": -1}}
+
+        res["cores"]["used"] = user_info.VM_QUOTA.VM.CPU_USED
+        res["cores"]["limit"] = user_info.VM_QUOTA.VM.CPU
+        res["ram"]["used"] = user_info.VM_QUOTA.VM.MEMORY_USED
+        res["ram"]["limit"] = user_info.VM_QUOTA.VM.MEMORY
+        res["instances"]["used"] = user_info.VM_QUOTA.VM.VMS_USED
+        res["instances"]["limit"] = user_info.VM_QUOTA.VM.VMS
+
+        # Ine ONE map floating IPs to public IP leases
+        one_nets = self.getONENetworks(auth_data)
+        res["floating_ips"] = self._get_public_ip_quota(user_info.NETWORK_QUOTA, one_nets)
+
+        return res
