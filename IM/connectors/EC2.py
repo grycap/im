@@ -1677,12 +1677,18 @@ class EC2CloudConnector(CloudConnector):
         regions = None
         if filters and 'region' in filters and filters['region']:
             regions = [filters['region']]
+            del filters['region']
         if not regions:
             regions = [region.name for region in boto.ec2.regions()]
 
         images_filter = {'architecture': 'x86_64', 'image-type': 'machine',
                          'virtualization-type': 'hvm', 'state': 'available',
                          'root-device-type': 'ebs'}
+
+        # enable the user to add or overwrite the filters
+        if filters:
+            images_filter.update(filters)
+
         images = []
         for region in regions:
             conn = self.get_connection(region, auth_data)
