@@ -973,6 +973,9 @@ class GCECloudConnector(LibCloudCloudConnector):
         gce_images = driver.list_images()
 
         region = None
+        auth = auth_data.getAuthInfo(self.type)[0]
+        if 'region' in auth and auth['region']:
+            region = auth['region']
         if filters and 'region' in filters and filters['region']:
             region = filters['region']
 

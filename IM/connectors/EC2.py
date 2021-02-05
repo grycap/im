@@ -1675,6 +1675,9 @@ class EC2CloudConnector(CloudConnector):
 
     def list_images(self, auth_data, filters=None):
         regions = None
+        auth = auth_data.getAuthInfo(self.type)[0]
+        if 'region' in auth and auth['region']:
+            regions = [auth['region']]
         if filters and 'region' in filters and filters['region']:
             regions = [filters['region']]
             del filters['region']
