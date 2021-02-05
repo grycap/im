@@ -1672,3 +1672,25 @@ class EC2CloudConnector(CloudConnector):
             return (True, "")
         else:
             return (False, "Error deregistering AMI image" + image_url)
+
+    def list_images(self, auth_data, filters=None):
+        regions = None
+        if filters and 'region' in filters and filters['region']:
+            regions = [filters['region']]
+        if not regions:
+            regions = [region.name for region in boto.ec2.regions()]
+
+        images_filter = {'architecture': 'x86_64', 'image-type': 'machine',
+                         'virtualization-type': 'hvm', 'state': 'available',
+                         'root-device-type': 'ebs'}
+        images = []
+        for region in regions:
+            conn = self.get_connection(region, auth_data)
+            try:
+                for image in conn.get_all_images(owners=['self', 'amazon'], filters=images_filter):
+                    if len(image.id) > 12:  # do not add old images
+                        images.append({"uri": "aws://%s/%s" % (region, image.id),
+                                       "name": "%s/%s" % (region, image.name)})
+            except Exception:
+                continue
+        return images

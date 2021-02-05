@@ -1187,6 +1187,14 @@ paths:
             The Authentication header must provide the content of the [Authorization File](https://imdocs.readthedocs.io/en/latest/client.html#auth-file), but putting all the elements in one line using “\n” as separator.
           required: true
           type: string
+        - name: filters
+          in: query
+          description: |-
+              The optional filters parameter enables filterin the list of images. It is a comma separated list of keypair values ('key1=val1,key2=value2').
+              This field is cloud provider specific (e.g. 'region=region_name' for Amazon EC2, GCE or Azure).
+          default: ''
+          required: false
+          type: string
       responses:
         200:
           description: successful operation

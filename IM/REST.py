@@ -1088,6 +1088,17 @@ def RESTCreateDiskSnapshot(infid=None, vmid=None, disknum=None):
         return return_error(400, "Error creating snapshot: %s" % get_ex_error(ex))
 
 
+def _filters_str_to_dict(filters_str):
+    filters = {}
+    for elem in filters_str.split(","):
+        kv = elem.split("=")
+        if len(kv) != 2:
+            raise Exception("Incorrect format")
+        else:
+            filters[kv[0]] = kv[1]
+    return filters
+
+
 @app.route('/clouds/:cloudid/:param', method='GET')
 def RESTGetCloudInfo(cloudid=None, param=None):
     try:
@@ -1097,7 +1108,13 @@ def RESTGetCloudInfo(cloudid=None, param=None):
 
     try:
         if param == 'images':
-            images = InfrastructureManager.GetCloudImageList(cloudid, auth)
+            filters = None
+            if "filters" in bottle.request.params.keys():
+                try:
+                    filters = _filters_str_to_dict(bottle.request.params.get("filters"))
+                except:
+                    return return_error(400, "Invalid format in filters parameter.")
+            images = InfrastructureManager.GetCloudImageList(cloudid, auth, filters)
             bottle.response.content_type = "application/json"
             return format_output(images, default_type="application/json", field_name="images")
         elif param == 'quotas':

@@ -1043,6 +1043,19 @@ class TestREST(unittest.TestCase):
                                                       "floating_ips": {"used": 1, "limit": 10},
                                                       "security_groups": {"used": 1, "limit": 10}}})
 
+    @patch("bottle.request")
+    @patch("IM.InfrastructureManager.InfrastructureManager.GetCloudImageList")
+    def test_GetCloudInfo(self, GetCloudImageList, bottle_request):
+        """Test REST StopInfrastructure."""
+        bottle_request.return_value = MagicMock()
+        bottle_request.headers = {"AUTHORIZATION": "type = InfrastructureManager; username = user; password = pass"}
+
+        bottle_request.params = {'filters': 'region=region_name'}
+        GetCloudImageList.return_value = []
+        res = RESTGetCloudInfo("cloud1", "images")
+        self.assertEqual(json.loads(res), {"images": []})
+        self.assertEqual(GetCloudImageList.call_args_list[0][0][2], {'region': 'region_name'})
+
 
 if __name__ == "__main__":
     unittest.main()

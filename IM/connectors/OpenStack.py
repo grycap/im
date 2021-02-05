@@ -1717,7 +1717,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             self.log_exception("Error removing Floating IPs to VM ID: " + str(vm.id))
             return False, "Error removing Floating IPs: %s" % get_ex_error(ex)
 
-    def list_images(self, auth_data):
+    def list_images(self, auth_data, filters=None):
         driver = self.get_driver(auth_data)
         images = []
         for image in driver.list_images():
@@ -1728,7 +1728,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         """
         Workaround function to get tenant id from tenant name
         """
-        if auth['auth_version'] == '3.x_oidc_access_token':
+        if 'auth_version' in auth and auth['auth_version'] == '3.x_oidc_access_token':
             return auth['domain']
         else:
             if 'tenant_id' in auth:
