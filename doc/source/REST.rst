@@ -375,10 +375,15 @@ PUT ``http://imserver.com/infrastructures/<infId>/vms/<vmId>/disks/<diskNum>/sna
 GET ``http://imserver.com/clouds/<cloudId>/images``
    :Response Content-type: application/json
    :ok response: 200 OK
+   :input fields: ``filters`` (optional)
    :fail response: 401, 400
 
    Return a list of URIs referencing the images available in the specified
    cloud provider ``cloudId``.
+   The optional filters parameter enables filterin the list of images. It is
+   a comma separated list of keypair values (``key1=val1,key2=value2``).
+   This field is cloud provider specific (e.g. ``region=region_name`` for
+   Amazon EC2, GCE or Azure).
    The id ``cloudId`` is relative to the id field in the AUTHORIZATION header.
    The result is JSON format has the following format::
 

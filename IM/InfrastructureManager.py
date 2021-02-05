@@ -1626,15 +1626,17 @@ class InfrastructureManager:
             raise Exception("Cloud ID %s not found." % cloud_id)
 
     @staticmethod
-    def GetCloudImageList(cloud_id, auth):
+    def GetCloudImageList(cloud_id, auth, filters=None):
         """
         Get a list of images on the cloud provider using IM URI format.
 
         Arguments:
           - cloud_id(string): ID of the cloud provider specified in the Authentication data
           - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
+          - filters(:py:class:`dict` of str objects): Pair key value to filter the list of images.
+                                                     It is cloud provider specific.
 
-        Returns: a list of strings.
+        Returns: a list dicts with at least two fields "uri" and "name".
         """
         # First check the auth data
         auth = InfrastructureManager.check_auth_data(auth)

@@ -1326,7 +1326,8 @@ configure step2 (
         auth = self.getAuth([0], [], [("Dummy", 0), ("Dummy", 1)])
         res = IM.GetCloudImageList("cloud1", auth)
 
-        self.assertEqual(res, ["mock0://linux.for.ev.er/image1", "mock0://linux.for.ev.er/image2"])
+        self.assertEqual(res, [{'name': 'Image Name1', 'uri': 'mock0://linux.for.ev.er/image1'},
+                               {'name': 'Image Name2', 'uri': 'mock0://linux.for.ev.er/image2'}])
         res = IM.GetCloudQuotas("cloud0", auth)
         self.assertEqual(res, {"cores": {"used": 1, "limit": 10},
                                "ram": {"used": 1, "limit": 10},

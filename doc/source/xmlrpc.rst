@@ -352,12 +352,15 @@ This is the list of method names:
 ``GetCloudImageList``
    :parameter 0: ``cloudId``: integer
    :parameter 1: ``auth``: array of structs
+   :parameter 2: ``filters``: (optional, default value None) struct
    :ok response: [true, ``imageUrls``: array of structs]
    :fail response: [false, ``error``: string]
 
    Get the list of available images in the specified cloud provider.
-   The id ``cloudId`` is relative to the id field in the ``auth`` paramater.
-   Response format::
+   The optional filters parameter enables filterin the list of images.
+   This field is cloud provider specific (e.g. ``{"region": "<region_name>"}`` for
+   Amazon EC2, GCE or Azure). The id ``cloudId`` is relative to the id field in the
+   ``auth`` paramater. Response format::
 
       [
          {

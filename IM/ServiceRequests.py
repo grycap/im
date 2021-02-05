@@ -414,8 +414,9 @@ class Request_GetCloudImageList(IMBaseRequest):
 
     def _call_function(self):
         self._error_mesage = "Error getting cloud image list"
-        (cloud_id, auth_data) = self.arguments
-        return IM.InfrastructureManager.InfrastructureManager.GetCloudImageList(cloud_id, Authentication(auth_data))
+        (cloud_id, auth_data, filters) = self.arguments
+        return IM.InfrastructureManager.InfrastructureManager.GetCloudImageList(cloud_id, Authentication(auth_data),
+                                                                                filters)
 
 
 class Request_GetCloudQuotas(IMBaseRequest):

@@ -202,9 +202,9 @@ def CreateDiskSnapshot(inf_id, vm_id, disk_num, image_name, auto_delete, auth_da
     return WaitRequest(request)
 
 
-def GetCloudImageList(cloud_id, auth_data):
+def GetCloudImageList(cloud_id, auth_data, filters=None):
     request = IMBaseRequest.create_request(
-        IMBaseRequest.GET_CLOUD_IMAGE_LIST, (cloud_id, auth_data))
+        IMBaseRequest.GET_CLOUD_IMAGE_LIST, (cloud_id, auth_data, filters))
     return WaitRequest(request)
 
 

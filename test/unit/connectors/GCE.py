@@ -465,7 +465,7 @@ class TestGCEConnector(TestCloudConnectorBase):
 
         res = gce_cloud.list_images(auth)
 
-        self.assertEqual(res, [{"uri": "gce://location/image_id", "name": "image_name"}])
+        self.assertEqual(res, [{"uri": "gce://location/image_id", "name": "location/image_name"}])
 
 
 if __name__ == '__main__':

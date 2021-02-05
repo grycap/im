@@ -328,12 +328,14 @@ class CloudConnector(LoggerMixin):
         """
         raise NotImplementedError("Should have implemented this")
 
-    def list_images(self, auth_data):
+    def list_images(self, auth_data, filters=None):
         """
         Get a list of images on the cloud provider using IM URI format.
 
         Arguments:
           - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
+          - filters(:py:class:`dict` of str objects): Pair key value to filter the list of images.
+                                                     It is cloud provider specific.
 
         Returns: a list dicts with at least two fields "uri" and "name".
         """

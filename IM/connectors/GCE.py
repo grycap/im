@@ -967,11 +967,18 @@ class GCECloudConnector(LibCloudCloudConnector):
     def alterVM(self, vm, radl, auth_data):
         return (False, "Not supported")
 
-    def list_images(self, auth_data):
+    def list_images(self, auth_data, filters=None):
         driver = self.get_driver(auth_data)
         images = []
         gce_images = driver.list_images()
+
+        region = None
+        if filters and 'region' in filters and filters['region']:
+            region = filters['region']
+
         for location in driver.list_locations():
-            for image in gce_images:
-                images.append({"uri": "gce://%s/%s" % (location.name, image.id), "name": image.name})
+            if not region or region == location.name:
+                for image in gce_images:
+                    images.append({"uri": "gce://%s/%s" % (location.name, image.id),
+                                   "name": "%s/%s" % (location.name, image.name)})
         return images
