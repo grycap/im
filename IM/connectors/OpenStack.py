@@ -1724,7 +1724,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             images.append({"uri": "ost://%s/%s" % (self.cloud.server, image.id), "name": image.name})
         return images
 
-    def _get_tenant_id(self, driver, auth):
+    @staticmethod
+    def _get_tenant_id(driver, auth):
         """
         Workaround function to get tenant id from tenant name
         """

@@ -1024,7 +1024,7 @@ class TestREST(unittest.TestCase):
 
     @patch("bottle.request")
     def test_GetCloudInfo(self, bottle_request):
-        """Test REST StopInfrastructure."""
+        """Test REST GetCloudInfo."""
         bottle_request.return_value = MagicMock()
         bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\\n"
                                                     "id = cloud1; type = Dummy; host = http://dummy;")}
@@ -1045,8 +1045,8 @@ class TestREST(unittest.TestCase):
 
     @patch("bottle.request")
     @patch("IM.InfrastructureManager.InfrastructureManager.GetCloudImageList")
-    def test_GetCloudInfo(self, GetCloudImageList, bottle_request):
-        """Test REST StopInfrastructure."""
+    def test_GetCloudInfo_filters(self, GetCloudImageList, bottle_request):
+        """Test REST GetCloudInfo with filters."""
         bottle_request.return_value = MagicMock()
         bottle_request.headers = {"AUTHORIZATION": "type = InfrastructureManager; username = user; password = pass"}
 
