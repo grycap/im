@@ -47,13 +47,11 @@
      # In some cases python link is not created
     - name: Link python 3 or 2 in case is needed
       raw: ls /usr/bin/python || { ls /usr/bin/python3 && ln -s /usr/bin/python3 /usr/bin/python; } || { ls /usr/bin/python2 && ln -s /usr/bin/python2 /usr/bin/python; }
-      become: yes
       ignore_errors: yes
 
     # In case of redhat systems libselinux-python3 is needed
     - name: Install libselinux-python3 on RH systems
       raw: yum -y install libselinux-python3
-      become: yes
       ignore_errors: yes
 
   ################### Some basic OSs operations #########################
@@ -157,7 +155,7 @@
     # Version over 21 raises error in older S.O. as ubuntu 16
     - name: Upgrade pip
       pip:
-        name: pip>=9.0.3,<21.0
+        name: pip>18.0,<21.0
         executable: pip3
 
     - name: Upgrade setuptools with Pip

@@ -57,8 +57,15 @@ Next tables summaries the resources and the HTTP methods available.
 | HTTP method | /infrastructures/<infId>/vms/<vmId>/disks/<diskNum>/snapshot |
 +=============+==============================================================+
 | **PUT**     | | **Create** an snapshot of the disk ``diskNum`` of the      |
-|             | | machine ``vmId`` in ``infId``                              |
+|             | | machine ``vmId`` in ``infId``.                             |
 +-------------+--------------------------------------------------------------+
+
++-------------+---------------------------------------+---------------------------------------------+
+| HTTP method | /clouds/<infId>/images                | /clouds/<infId>/quotas                      | 
++=============+=======================================+=============================================+
+| **GET**     | | **List** the available images       | | **Get** the used and available resources  |
+|             | | in the ``cloudId`` provider.        | | in the ``cloudId`` provider.              |
++-------------+---------------------------------------+---------------------------------------------+
 
 The error message returned by the service will depend on the ``Accept`` header of the request:
 
@@ -364,3 +371,52 @@ PUT ``http://imserver.com/infrastructures/<infId>/vms/<vmId>/disks/<diskNum>/sna
    the infrastructure is destroyed (default value false). If the operation has been performed
    successfully the return value is the image url of the new created image in
    IM format (see disk.<diskId>.image.url format in RADL).
+
+GET ``http://imserver.com/clouds/<cloudId>/images``
+   :Response Content-type: application/json
+   :ok response: 200 OK
+   :input fields: ``filters`` (optional)
+   :fail response: 401, 400
+
+   Return a list of URIs referencing the images available in the specified
+   cloud provider ``cloudId``.
+   The optional filters parameter enables filterin the list of images. It is
+   a comma separated list of keypair values (``key1=val1,key2=value2``).
+   This field is cloud provider specific (e.g. ``region=region_name`` for
+   Amazon EC2, GCE or Azure).
+   The id ``cloudId`` is relative to the id field in the AUTHORIZATION header.
+   The result is JSON format has the following format::
+
+   {
+      "images":
+         [
+            {
+               "uri" : "ost://hostname/image-id1",
+               "name" : "Image Name1"
+            },
+            {
+               "uri" : "ost://hostname/image-id2",
+               "name" : "Image Name2"
+            }
+         ]
+   }
+
+GET ``http://imserver.com/clouds/<cloudId>/quotas``
+   :Response Content-type: application/json
+   :ok response: 200 OK
+   :fail response: 401, 400
+
+   Get the used and available resources in the specified
+   cloud provider ``cloudId``.
+   The id ``cloudId`` is relative to the id field in the AUTHORIZATION header.
+   The result is JSON format has the following format::
+
+    {
+      "quotas": {
+         "cores": {"used": 1, "limit": 10},
+         "ram": {"used": 1, "limit": 10},
+         "instances": {"used": 1, "limit": 10},
+         "floating_ips": {"used": 1, "limit": 10},
+         "security_groups": {"used": 1, "limit": 10}
+      }
+    }

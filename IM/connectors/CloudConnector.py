@@ -328,6 +328,38 @@ class CloudConnector(LoggerMixin):
         """
         raise NotImplementedError("Should have implemented this")
 
+    def list_images(self, auth_data, filters=None):
+        """
+        Get a list of images on the cloud provider using IM URI format.
+
+        Arguments:
+          - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
+          - filters(:py:class:`dict` of str objects): Pair key value to filter the list of images.
+                                                     It is cloud provider specific.
+
+        Returns: a list dicts with at least two fields "uri" and "name".
+        """
+        raise NotImplementedError("Should have implemented this")
+
+    def get_quotas(self, auth_data):
+        """
+        Get the number of used and available resources in the cloud provider
+
+        Arguments:
+          - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
+
+        Returns: dict with the following structure (if there are no limit in some metric, value is set to 1):
+                    {
+                        "cores": {"used": 1, "limit": 10},
+                        "ram": {"used": 1, "limit": 10},
+                        "instances": {"used": 1, "limit": 10},
+                        "floating_ips": {"used": 1, "limit": 10},
+                        "security_groups": {"used": 1, "limit": 10}
+                    }
+                 Some providers may provide more elements.
+        """
+        raise NotImplementedError("Should have implemented this")
+
     @staticmethod
     def keygen():
         """

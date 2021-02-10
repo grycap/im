@@ -55,6 +55,8 @@ class IMBaseRequest(AsyncRequest):
     REBOOT_VM = "RebootVM"
     GET_VERSION = "GetVersion"
     CREATE_DISK_SNAPSHOT = "CreateDiskSnapshot"
+    GET_CLOUD_IMAGE_LIST = "GetCloudImageList"
+    GET_CLOUD_QUOTAS = "GetCloudQuotas"
 
     @staticmethod
     def create_request(function, arguments=()):
@@ -104,6 +106,10 @@ class IMBaseRequest(AsyncRequest):
             return Request_GetVersion(arguments)
         elif function == IMBaseRequest.CREATE_DISK_SNAPSHOT:
             return Request_CreateDiskSnapshot(arguments)
+        elif function == IMBaseRequest.GET_CLOUD_IMAGE_LIST:
+            return Request_GetCloudImageList(arguments)
+        elif function == IMBaseRequest.GET_CLOUD_QUOTAS:
+            return Request_GetCloudQuotas(arguments)
         else:
             raise NotImplementedError("Function not Implemented")
 
@@ -399,3 +405,26 @@ class Request_CreateDiskSnapshot(IMBaseRequest):
         (inf_id, vm_id, disk_num, image_name, auto_delete, auth_data) = self.arguments
         return IM.InfrastructureManager.InfrastructureManager.CreateDiskSnapshot(inf_id, vm_id, disk_num, image_name,
                                                                                  auto_delete, Authentication(auth_data))
+
+
+class Request_GetCloudImageList(IMBaseRequest):
+    """
+    Request class for the GetCloudImageList function
+    """
+
+    def _call_function(self):
+        self._error_mesage = "Error getting cloud image list"
+        (cloud_id, auth_data, filters) = self.arguments
+        return IM.InfrastructureManager.InfrastructureManager.GetCloudImageList(cloud_id, Authentication(auth_data),
+                                                                                filters)
+
+
+class Request_GetCloudQuotas(IMBaseRequest):
+    """
+    Request class for the GetCloudQuotas function
+    """
+
+    def _call_function(self):
+        self._error_mesage = "Error getting cloud quotas"
+        (cloud_id, auth_data) = self.arguments
+        return IM.InfrastructureManager.InfrastructureManager.GetCloudQuotas(cloud_id, Authentication(auth_data))
