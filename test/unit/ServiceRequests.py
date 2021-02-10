@@ -190,7 +190,7 @@ class TestServiceRequests(unittest.TestCase):
     def test_cloud_images(self, inflist):
         import IM.ServiceRequests
         req = IM.ServiceRequests.IMBaseRequest.create_request(IM.ServiceRequests.IMBaseRequest.GET_CLOUD_IMAGE_LIST,
-                                                              ("", ""))
+                                                              ("", "", ""))
         req._call_function()
 
 
