@@ -94,7 +94,7 @@ class DummyCloudConnector(CloudConnector):
     def delete_image(self, image_url, auth_data):
         return (True, "")
 
-    def list_images(self, auth_data):
+    def list_images(self, auth_data, filters=None):
         return [{"uri": "mock0://linux.for.ev.er/image1", "name": "Image Name1"},
                 {"uri": "mock0://linux.for.ev.er/image2", "name": "Image Name2"}]
 

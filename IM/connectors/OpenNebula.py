@@ -1270,7 +1270,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 
             return None
 
-    def list_images(self, auth_data):
+    def list_images(self, auth_data, filters=None):
         server = ServerProxy(self.server_url, allow_none=True)
         session_id = self.getSessionID(auth_data)
         if session_id is None:
@@ -1290,7 +1290,8 @@ class OpenNebulaCloudConnector(CloudConnector):
 
         return images
 
-    def _get_public_ip_quota(self, net_quotas, net_info):
+    @staticmethod
+    def _get_public_ip_quota(net_quotas, net_info):
         res = {"used": 0, "limit": None}
 
         net_dict = {}

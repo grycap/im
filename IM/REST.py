@@ -1112,7 +1112,7 @@ def RESTGetCloudInfo(cloudid=None, param=None):
             if "filters" in bottle.request.params.keys():
                 try:
                     filters = _filters_str_to_dict(bottle.request.params.get("filters"))
-                except:
+                except Exception:
                     return return_error(400, "Invalid format in filters parameter.")
             images = InfrastructureManager.GetCloudImageList(cloudid, auth, filters)
             bottle.response.content_type = "application/json"
