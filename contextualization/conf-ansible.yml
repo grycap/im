@@ -157,7 +157,7 @@
     # Version over 21 raises error in older S.O. as ubuntu 16
     - name: Upgrade pip
       pip:
-        name: pip>=9.0.3,<21.0
+        name: pip>18.0,<21.0
         executable: pip3
 
     - name: Upgrade setuptools with Pip
