@@ -464,6 +464,7 @@ class CtxtAgentBase:
                 task = {"command": "ansible-galaxy install -c -r %s" % filename}
                 task["name"] = "Install galaxy roles"
                 task["become"] = "yes"
+                # Some times ansible is installed at /usr/local/bin and it is not in root path
                 task["environment"] = [{"PATH": "{{ ansible_env.PATH }}:/usr/local/bin"}]
                 yaml_data[0]['tasks'].append(task)
 
