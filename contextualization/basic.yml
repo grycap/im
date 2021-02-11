@@ -103,7 +103,7 @@
 
     - name: RedHat/CentOS install python3-dnf
       command: yum install -y python3 python3-dnf
-      when: ansible_distribution == "RedHat"
+      when: ansible_os_family == "RedHat"
       ignore_errors: yes
       become: yes
       become_method: sudo
