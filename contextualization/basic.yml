@@ -100,3 +100,10 @@
       become_method: sudo
       async: 120
       poll: 1
+
+    - name: RedHat/CentOS install python3-dnf
+      command: yum install -y python3 python3-dnf
+      when: ansible_distribution == "RedHat"
+      ignore_errors: yes
+      become: yes
+      become_method: sudo
