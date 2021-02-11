@@ -33,6 +33,10 @@
       changed_when: python_install.stdout_lines|length > 1
       when: python2_version is failed and python3_version is failed
 
+    - name: RedHat/CentOS install python3-dnf
+      command: sudo yum install -y python3 python3-dnf
+      ignore_errors: yes
+
     - name: Bootstrap with python SUSE
       raw: sudo zypper -n install python3 python3-xml
       ignore_errors: yes
