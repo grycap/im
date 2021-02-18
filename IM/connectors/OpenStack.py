@@ -921,6 +921,15 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             'delete_on_termination': False,
             'uuid': image.id
         }
+
+        # if the user sets the size, we create a volume with this size
+        # instead of booting directly from the image
+        if system.getValue("disk.0.size"):
+            boot_disk['destination_type'] = 'volume'
+            boot_disk['volume_size'] = system.getFeature("disk.0.size").getValue('G')
+            boot_disk['delete_on_termination'] = True
+            del boot_disk['device_name']
+
         res = [boot_disk]
 
         cont = 1
