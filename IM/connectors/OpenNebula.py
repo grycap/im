@@ -247,7 +247,7 @@ class OpenNebulaCloudConnector(CloudConnector):
                 disk_free = int(radl_system.getFeature('disks.free_size').getValue('M'))
                 # The VMRC specified the value in MB
                 if radl_system.getValue("disk.0.size"):
-                    disk_size = radl_system.getValue("disk.0.size").getValue('M')
+                    disk_size = radl_system.getFeature("disk.0.size").getValue('M')
                 else:
                     disk_size = 0
 
