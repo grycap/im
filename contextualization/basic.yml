@@ -58,6 +58,7 @@
     # In case of redhat systems libselinux-python is needed
     - name: Install libselinux-python on RH systems
       raw: ls /usr/bin/python2 && yum -y install libselinux-python
+
       become: yes
       ignore_errors: yes
 

@@ -5,7 +5,7 @@ Public IM Endpoints at UPV
 
 UPV offers an IM endpoint deployed in H.A. mode over a kubernetes cluster on it premises. 
 
-This service exposes the **web-based GUI and REST API** in the following URLs:
+This service exposes the **web-based GUIs and REST API** in the following URLs:
 
 * IM web portal: `https://appsgrycap.i3m.upv.es:31443/im-web/ <https://appsgrycap.i3m.upv.es:31443/im-web/>`_.
 * IM Dashboard: `https://appsgrycap.i3m.upv.es:31443/im-dashboard/ <https://appsgrycap.i3m.upv.es:31443/im-dashboard/>`_.
