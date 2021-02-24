@@ -1484,7 +1484,7 @@ class InfrastructureManager:
             IM.InfrastructureList.InfrastructureList.remove_inf(inf)
             raise e
 
-        InfrastructureManager.logger.info("Inf ID:" + str(inf.id) + ": Successfully created")
+        InfrastructureManager.logger.info("Inf ID: " + str(inf.id) + ": Successfully created")
 
         return inf.id
 
