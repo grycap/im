@@ -834,7 +834,7 @@ class ConfManager(LoggerMixin, threading.Thread):
                         ansible_version = None
                         if self.inf.radl.contextualize.options:
                             if 'ansible_version' in self.inf.radl.contextualize.options:
-                                    ansible_version = self.inf.radl.contextualize.options['ansible_version'].getValue()
+                                ansible_version = self.inf.radl.contextualize.options['ansible_version'].getValue()
                         configured_ok = self.configure_ansible(ssh, tmp_dir, ansible_version)
 
                         if not configured_ok:
