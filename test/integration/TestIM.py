@@ -708,34 +708,31 @@ echo "Hello World" >> /tmp/data.txt
             self.assertTrue(
                 success, msg="ERROR calling DestroyInfrastructure: " + str(res))
 
-#     It does not work in the jenkins env.
-#     def test_97_create(self):
-#         """
-#         Test the CreateInfrastructure IM function with reverse SSH support
-#         """
-#         radl = read_file_as_string("../files/reverse.radl")
-#
-#         (success, inf_id) = self.server.CreateInfrastructure(radl, self.auth_data)
-#         self.assertTrue(
-#             success, msg="ERROR calling CreateInfrastructure: " + str(inf_id))
-#         self.__class__.inf_id = [inf_id]
-#
-#         all_configured = self.wait_inf_state(
-#             inf_id, VirtualMachine.CONFIGURED, 600)
-#         self.assertTrue(
-#             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
-#
-#     def test_99_destroy(self):
-#         """
-#         Test DestroyInfrastructure function
-#         """
-#         for inf_id in self.inf_id:
-#             (success, res) = self.server.DestroyInfrastructure(
-#                 inf_id, self.auth_data)
-#             self.assertTrue(
-#                 success, msg="ERROR calling DestroyInfrastructure: " + str(res))
+    def test_96_create(self):
+        """
+        Test the CreateInfrastructure IM function setting Ansible version
+        """
+        radl = read_file_as_string("../files/test_ansible.radl")
 
-    def test_97_proxy(self):
+        (success, inf_id) = self.server.CreateInfrastructure(radl, self.auth_data)
+        self.assertTrue(
+            success, msg="ERROR calling CreateInfrastructure: " + str(inf_id))
+        self.__class__.inf_id = [inf_id]
+
+        all_configured = self.wait_inf_state(inf_id, VirtualMachine.CONFIGURED, 600)
+        self.assertTrue(
+            all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
+
+    def test_97_destroy(self):
+        """
+        Test DestroyInfrastructure function
+        """
+        for inf_id in self.inf_id:
+            (success, res) = self.server.DestroyInfrastructure(inf_id, self.auth_data)
+            self.assertTrue(
+                success, msg="ERROR calling DestroyInfrastructure: " + str(res))
+
+    def test_98_proxy(self):
         """
         Test connecting a VM using a proxy host
         """
