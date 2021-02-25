@@ -95,6 +95,8 @@ class TestIM(unittest.TestCase):
                 self.assertTrue(success, msg="ERROR getting VM info:" + str(vm_state))
 
                 if vm_state == VirtualMachine.UNCONFIGURED:
+                    _, cont_msg = self.server.GetInfrastructureContMsg(inf_id, self.auth_data, True)
+                    print(cont_msg)
                     _, cont_msg = self.server.GetVMContMsg(inf_id, vm_id, self.auth_data)
                     print(cont_msg)
 
@@ -148,7 +150,7 @@ class TestIM(unittest.TestCase):
         self.__class__.inf_id = inf_id
 
         all_configured = self.wait_inf_state(
-            inf_id, VirtualMachine.CONFIGURED, 900)
+            inf_id, VirtualMachine.CONFIGURED, 1800)
         self.assertTrue(
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
@@ -524,7 +526,7 @@ class TestIM(unittest.TestCase):
             memory.size>=512m and
             net_interface.0.connection = 'net' and
             disk.0.os.flavour='ubuntu' and
-            disk.0.os.version>='14.04'
+            disk.0.os.version>='16.04'
             )
 
             deploy test 1
@@ -616,7 +618,7 @@ echo "Hello World" >> /tmp/data.txt
              net_interface.0.connection = 'publicnet' and
              net_interface.1.connection = 'net' and
              disk.0.os.flavour='ubuntu' and
-             disk.0.os.version>='14.04'
+             disk.0.os.version>='20.04'
             )
 
             deploy node 1
@@ -654,7 +656,7 @@ echo "Hello World" >> /tmp/data.txt
              memory.size>=512m and
              net_interface.0.connection = 'net' and
              disk.0.os.flavour='ubuntu' and
-             disk.0.os.version>='14.04'
+             disk.0.os.version>='20.04'
             )
 
             deploy node 1
@@ -692,7 +694,7 @@ echo "Hello World" >> /tmp/data.txt
         self.__class__.inf_id = [inf_id]
 
         all_configured = self.wait_inf_state(
-            inf_id, VirtualMachine.CONFIGURED, 1200)
+            inf_id, VirtualMachine.CONFIGURED, 900)
         self.assertTrue(
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
@@ -706,34 +708,31 @@ echo "Hello World" >> /tmp/data.txt
             self.assertTrue(
                 success, msg="ERROR calling DestroyInfrastructure: " + str(res))
 
-#     It does not work in the jenkins env.
-#     def test_97_create(self):
-#         """
-#         Test the CreateInfrastructure IM function with reverse SSH support
-#         """
-#         radl = read_file_as_string("../files/reverse.radl")
-#
-#         (success, inf_id) = self.server.CreateInfrastructure(radl, self.auth_data)
-#         self.assertTrue(
-#             success, msg="ERROR calling CreateInfrastructure: " + str(inf_id))
-#         self.__class__.inf_id = [inf_id]
-#
-#         all_configured = self.wait_inf_state(
-#             inf_id, VirtualMachine.CONFIGURED, 600)
-#         self.assertTrue(
-#             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
-#
-#     def test_99_destroy(self):
-#         """
-#         Test DestroyInfrastructure function
-#         """
-#         for inf_id in self.inf_id:
-#             (success, res) = self.server.DestroyInfrastructure(
-#                 inf_id, self.auth_data)
-#             self.assertTrue(
-#                 success, msg="ERROR calling DestroyInfrastructure: " + str(res))
+    def test_96_create(self):
+        """
+        Test the CreateInfrastructure IM function setting Ansible version
+        """
+        radl = read_file_as_string("../files/test_ansible.radl")
 
-    def test_97_proxy(self):
+        (success, inf_id) = self.server.CreateInfrastructure(radl, self.auth_data)
+        self.assertTrue(
+            success, msg="ERROR calling CreateInfrastructure: " + str(inf_id))
+        self.__class__.inf_id = [inf_id]
+
+        all_configured = self.wait_inf_state(inf_id, VirtualMachine.CONFIGURED, 600)
+        self.assertTrue(
+            all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
+
+    def test_97_destroy(self):
+        """
+        Test DestroyInfrastructure function
+        """
+        for inf_id in self.inf_id:
+            (success, res) = self.server.DestroyInfrastructure(inf_id, self.auth_data)
+            self.assertTrue(
+                success, msg="ERROR calling DestroyInfrastructure: " + str(res))
+
+    def test_98_proxy(self):
         """
         Test connecting a VM using a proxy host
         """
@@ -746,7 +745,7 @@ echo "Hello World" >> /tmp/data.txt
             net_interface.0.connection = 'net' and
             net_interface.1.connection = 'priv' and
             disk.0.os.name='linux' and
-            disk.0.image.url = 'one://ramses.i3m.upv.es/1138' and
+            disk.0.image.url = 'one://ramses.i3m.upv.es/1452' and
             disk.0.os.credentials.username = 'root' and
             disk.0.os.credentials.password = 'grycap01'
             )

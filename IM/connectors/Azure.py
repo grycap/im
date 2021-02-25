@@ -936,3 +936,34 @@ class AzureCloudConnector(CloudConnector):
             self.log_info("Resource group %s successfully deleted." % group_name)
 
         return deleted, msg
+
+    def list_images(self, auth_data, filters=None):
+        location = self.DEFAULT_LOCATION
+        publisher = ['Canonical', 'MicrosoftSQLServer', 'MicrosoftWindowsDesktop',
+                     'MicrosoftWindowsServer', 'nvidia', 'Oracle', 'RedHat', 'SUSE']
+        if filters and 'location' in filters and filters['location']:
+            location = filters['location']
+        if filters and 'publisher' in filters and filters['publisher']:
+            publisher = filters['publisher'].split(",")
+
+        credentials, subscription_id = self.get_credentials(auth_data)
+        compute_client = ComputeManagementClient(credentials, subscription_id)
+
+        # If publisher is "*" it means all
+        if publisher == ["*"]:
+            pubs = compute_client.virtual_machine_images.list_publishers(location)
+            publisher = [pub.name for pub in pubs]
+
+        images = []
+        for pub in publisher:
+            offers = compute_client.virtual_machine_images.list_offers(location, pub)
+            for offer in offers:
+                skus = compute_client.virtual_machine_images.list_skus(location, pub, offer.name)
+                for sku in skus:
+                    images.append((pub, offer.name, sku.name))
+
+        res = []
+        for pub, offer, sku in images:
+            res.append({"uri": "azr://%s/%s/%s/latest" % (pub, offer, sku),
+                               "name": "%s %s %s" % (pub, offer, sku)})
+        return res
