@@ -656,6 +656,24 @@ class TestOrangeConnector(TestCloudConnectorBase):
         self.assertEqual(fip.delete.call_args_list, [call()])
         self.assertEqual(node.destroy.call_args_list, [call(), call()])
 
+    @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
+    def test_get_cloud_info(self, get_driver):
+        auth = Authentication([{'id': 'ost', 'type': 'Orange', 'username': 'user',
+                                'password': 'pass', 'ragion': 'region', 'domain': 'domain'}])
+        ora_cloud = self.get_ora_cloud()
+
+        driver = MagicMock()
+        get_driver.return_value = driver
+
+        image = MagicMock(['id', 'name'])
+        image.id = "image_id"
+        image.name = "image_name"
+        driver.list_images.return_value = [image]
+
+        res = ora_cloud.list_images(auth)
+
+        self.assertEqual(res, [{"uri": "ora://eu-west-0/image_id", "name": "image_name"}])
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -91,7 +91,7 @@ class Tosca:
 
         radl = RADL()
         interfaces = {}
-        cont_intems = []
+        cont_items = []
 
         # first process the networks as they are referred later
         for node in self.tosca.nodetemplates:
@@ -157,10 +157,10 @@ class Tosca:
                     level = Tosca._get_dependency_level(node)
                     radl.configures.append(conf)
                     if compute:
-                        cont_intems.append(contextualize_item(compute.name, conf.name, level))
+                        cont_items.append(contextualize_item(compute.name, conf.name, level))
 
-        if cont_intems:
-            radl.contextualize = contextualize(cont_intems)
+        if cont_items:
+            radl.contextualize = contextualize(cont_items)
         else:
             # If there are no configures, disable contextualization
             radl.contextualize = contextualize({})
