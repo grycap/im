@@ -205,6 +205,15 @@ class TestTosca(unittest.TestCase):
         print(str(radl))
         self.assertEqual(conf['vars']['wn_ips'], ["{{ hostvars[groups['server'][0]]['IM_NODE_PUBLIC_IP'] }}"])
 
+    def test_tosca_compute_tags(self):
+        """Test TOSCA RADL translation with Compute tags"""
+        tosca_data = read_file_as_string('../files/tosca_tags.yml')
+        tosca = Tosca(tosca_data)
+        _, radl = tosca.to_radl()
+        radl = parse_radl(str(radl))
+        node = radl.get_system_by_name('node')
+        self.assertEqual('tag1=value1,tag2=value2', node.getValue("instance_tags"))
+
 
 if __name__ == "__main__":
     unittest.main()
