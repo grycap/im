@@ -284,6 +284,8 @@ class Tosca:
             else:
                 if "source" in port:
                     remote_port = port["source"]
+                else:
+                    raise Exception("source port must be specified in PortSpec type.")
                 if "target" in port:
                     local_port = port["target"]
                 else:
