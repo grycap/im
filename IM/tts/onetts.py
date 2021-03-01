@@ -17,7 +17,7 @@ class ONETTSClient():
     """
 
     @staticmethod
-    def get_auth_from_tts(tts_url, one_server, token):
+    def get_auth_from_tts(tts_url, one_server, token, verify_ssl=False):
         """
         Get username and password from the TTS service
         """
@@ -30,7 +30,7 @@ class ONETTSClient():
             host = parts[0]
             port = int(parts[1])
 
-        ttsc = TTSClient(token, host, port, scheme)
+        ttsc = TTSClient(token, host, port, scheme, verify_ssl)
 
         success, svc = ttsc.find_service(one_server)
         if not success:
