@@ -36,15 +36,15 @@ class VMRC:
 
         # Pass common features
         VMRC_RADL_MAP = {
-            'hypervisor': ('virtual_system_type', str),
-            'diskSize': ('disk.0.size', int),
-            'arch': ('cpu.arch', str),
-            'location': ('disk.0.image.url', str),
-            'name': ('disk.0.image.name', str),
-            'userLogin': ('disk.0.os.credentials.username', str),
-            'userPassword': ('disk.0.os.credentials.password', str)
+            'hypervisor': ('virtual_system_type', str, ''),
+            'diskSize': ('disk.0.size', int, 'M'),
+            'arch': ('cpu.arch', str, ''),
+            'location': ('disk.0.image.url', str, ''),
+            'name': ('disk.0.image.name', str, ''),
+            'userLogin': ('disk.0.os.credentials.username', str, ''),
+            'userPassword': ('disk.0.os.credentials.password', str, '')
         }
-        fs = [Feature(VMRC_RADL_MAP[prop][0], "=", VMRC_RADL_MAP[prop][1](getattr(vmi, prop)))
+        fs = [Feature(VMRC_RADL_MAP[prop][0], "=", VMRC_RADL_MAP[prop][1](getattr(vmi, prop)), VMRC_RADL_MAP[prop][2])
               for prop in VMRC_RADL_MAP if hasattr(vmi, prop) and getattr(vmi, prop)]
         fs.extend([Feature("disk.0.os." + prop, "=", getattr(vmi.os, prop))
                    for prop in ['name', "flavour", "version"]])

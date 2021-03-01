@@ -56,6 +56,7 @@ from IM.REST import (RESTDestroyInfrastructure,
                      RESTGeVersion,
                      RESTCreateDiskSnapshot,
                      RESTImportInfrastructure,
+                     RESTGetCloudInfo,
                      return_error,
                      format_output)
 
@@ -77,7 +78,7 @@ class TestREST(unittest.TestCase):
         """Test REST GetInfrastructureList."""
         bottle_request.environ = {'HTTP_HOST': 'imserver.com'}
         bottle_request.return_value = MagicMock()
-        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
+        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\\n"
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass"),
                                   "Accept": "application/json"}
@@ -145,7 +146,7 @@ class TestREST(unittest.TestCase):
         """Test REST GetInfrastructureInfo."""
         bottle_request.environ = {'HTTP_HOST': 'imserver.com'}
         bottle_request.return_value = MagicMock()
-        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
+        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\\n"
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass")}
         GetInfrastructureInfo.return_value = ["1", "2"]
@@ -174,7 +175,7 @@ class TestREST(unittest.TestCase):
                                        GetInfrastructureRADL, GetInfrastructureContMsg):
         """Test REST GetInfrastructureProperty."""
         bottle_request.return_value = MagicMock()
-        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
+        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\\n"
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass")}
 
@@ -229,7 +230,7 @@ class TestREST(unittest.TestCase):
     def test_DestroyInfrastructure(self, bottle_request, DestroyInfrastructure):
         """Test REST DestroyInfrastructure."""
         bottle_request.return_value = MagicMock()
-        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
+        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\\n"
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass")}
 
@@ -273,7 +274,7 @@ class TestREST(unittest.TestCase):
         """Test REST CreateInfrastructure."""
         bottle_request.environ = {'HTTP_HOST': 'imserver.com'}
         bottle_request.return_value = MagicMock()
-        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
+        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\\n"
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass")}
         bottle_request.body = BytesIO(b"radl")
@@ -287,7 +288,7 @@ class TestREST(unittest.TestCase):
         res = RESTCreateInfrastructure()
         self.assertEqual(res, "http://imserver.com/infrastructures/1")
 
-        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
+        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\\n"
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass"),
                                   "Content-Type": "application/json"}
@@ -298,7 +299,7 @@ class TestREST(unittest.TestCase):
         res = RESTCreateInfrastructure()
         self.assertEqual(res, "http://imserver.com/infrastructures/1")
 
-        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
+        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\\n"
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass"),
                                   "Content-Type": "text/yaml"}
@@ -325,7 +326,7 @@ class TestREST(unittest.TestCase):
         """Test REST CreateInfrastructure."""
         bottle_request.environ = {'HTTP_HOST': 'imserver.com'}
         bottle_request.return_value = MagicMock()
-        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
+        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\\n"
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass"),
                                   "Content-Type": "application/pdf", "Accept": "application/json"}
@@ -342,7 +343,7 @@ class TestREST(unittest.TestCase):
     def test_GetVMInfo(self, bottle_request, GetVMInfo):
         """Test REST GetVMInfo."""
         bottle_request.return_value = MagicMock()
-        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
+        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\\n"
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass"),
                                   "Accept": "application/json"}
@@ -382,7 +383,7 @@ class TestREST(unittest.TestCase):
     def test_GetVMProperty(self, bottle_request, GetVMContMsg, GetVMProperty):
         """Test REST GetVMProperty."""
         bottle_request.return_value = MagicMock()
-        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
+        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\\n"
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass")}
 
@@ -422,7 +423,7 @@ class TestREST(unittest.TestCase):
         """Test REST AddResource."""
         bottle_request.environ = {'HTTP_HOST': 'imserver.com'}
         bottle_request.return_value = MagicMock()
-        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
+        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\\n"
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass")}
         bottle_request.body = BytesIO(b"radl")
@@ -433,7 +434,7 @@ class TestREST(unittest.TestCase):
         res = RESTAddResource("1")
         self.assertEqual(res, "http://imserver.com/infrastructures/1/vms/1")
 
-        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
+        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\\n"
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass"),
                                   "Content-Type": "application/json"}
@@ -442,7 +443,7 @@ class TestREST(unittest.TestCase):
         res = RESTAddResource("1")
         self.assertEqual(res, "http://imserver.com/infrastructures/1/vms/1")
 
-        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
+        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\\n"
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass"),
                                   "Content-Type": "text/yaml"}
@@ -471,7 +472,7 @@ class TestREST(unittest.TestCase):
     def test_RemoveResource(self, bottle_request, RemoveResource):
         """Test REST RemoveResource."""
         bottle_request.return_value = MagicMock()
-        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
+        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\\n"
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass")}
         bottle_request.params = {'context': 'yes'}
@@ -506,7 +507,7 @@ class TestREST(unittest.TestCase):
     def test_AlterVM(self, bottle_request, AlterVM):
         """Test REST AlterVM."""
         bottle_request.return_value = MagicMock()
-        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
+        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\\n"
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass")}
         bottle_request.body = BytesIO(b"radl")
@@ -517,7 +518,7 @@ class TestREST(unittest.TestCase):
         res = RESTAlterVM("1", "1")
         self.assertEqual(res, "vm_info")
 
-        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
+        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\\n"
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass"),
                                   "Content-Type": "text/yaml"}
@@ -526,7 +527,7 @@ class TestREST(unittest.TestCase):
         res = RESTAlterVM("1", "1")
         self.assertEqual(res, "vm_info")
 
-        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
+        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\\n"
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass"),
                                   "Content-Type": "application/json"}
@@ -565,7 +566,7 @@ class TestREST(unittest.TestCase):
     def test_Reconfigure(self, bottle_request, Reconfigure):
         """Test REST Reconfigure."""
         bottle_request.return_value = MagicMock()
-        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
+        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\\n"
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass")}
         bottle_request.body = BytesIO(b"radl")
@@ -576,7 +577,7 @@ class TestREST(unittest.TestCase):
         res = RESTReconfigureInfrastructure("1")
         self.assertEqual(res, "")
 
-        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
+        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\\n"
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass"),
                                   "Content-Type": "application/json"}
@@ -605,7 +606,7 @@ class TestREST(unittest.TestCase):
     def test_StartInfrastructure(self, bottle_request, StartInfrastructure):
         """Test REST StartInfrastructure."""
         bottle_request.return_value = MagicMock()
-        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
+        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\\n"
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass")}
 
@@ -631,7 +632,7 @@ class TestREST(unittest.TestCase):
     def test_StopInfrastructure(self, bottle_request, StopInfrastructure):
         """Test REST StopInfrastructure."""
         bottle_request.return_value = MagicMock()
-        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
+        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\\n"
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass")}
 
@@ -657,7 +658,7 @@ class TestREST(unittest.TestCase):
     def test_StartVM(self, bottle_request, StartVM):
         """Test REST StartVM."""
         bottle_request.return_value = MagicMock()
-        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
+        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\\n"
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass")}
 
@@ -691,7 +692,7 @@ class TestREST(unittest.TestCase):
     def test_StopVM(self, bottle_request, StopVM):
         """Test REST StopVM."""
         bottle_request.return_value = MagicMock()
-        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
+        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\\n"
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass")}
 
@@ -725,7 +726,7 @@ class TestREST(unittest.TestCase):
     def test_RebootVM(self, bottle_request, StopVM):
         """Test REST RebootVM."""
         bottle_request.return_value = MagicMock()
-        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
+        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\\n"
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass")}
 
@@ -763,7 +764,7 @@ class TestREST(unittest.TestCase):
     def test_CreateDiskSnapshot(self, bottle_request, CreateDiskSnapshot):
         """Test REST StopVM."""
         bottle_request.return_value = MagicMock()
-        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
+        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\\n"
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass")}
 
@@ -798,7 +799,7 @@ class TestREST(unittest.TestCase):
     def test_ExportInfrastructure(self, bottle_request, ExportInfrastructure):
         """Test REST StopInfrastructure."""
         bottle_request.return_value = MagicMock()
-        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
+        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\\n"
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass")}
 
@@ -812,7 +813,7 @@ class TestREST(unittest.TestCase):
     def test_ImportInfrastructure(self, bottle_request, ImportInfrastructure):
         """Test REST StopInfrastructure."""
         bottle_request.return_value = MagicMock()
-        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
+        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\\n"
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass")}
         bottle_request.environ = {'HTTP_HOST': 'imserver.com'}
@@ -879,7 +880,7 @@ class TestREST(unittest.TestCase):
     def test_commands(self, bottle_request, check_auth_data, get_infrastructure, SSH):
         """Test REST StopInfrastructure."""
         bottle_request.return_value = MagicMock()
-        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\n"
+        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\\n"
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass")}
         bottle_request.environ = {'HTTP_HOST': 'imserver.com'}
@@ -1020,6 +1021,40 @@ class TestREST(unittest.TestCase):
         expected_res = ('sshpass -pyoyoyo ssh -N -R 20002:localhost:22 -p 22 -o "UserKnownHostsFile=/dev/null"'
                         ' -o "StrictHostKeyChecking=no" ubuntu@8.8.8.8 &')
         self.assertEqual(res, expected_res)
+
+    @patch("bottle.request")
+    def test_GetCloudInfo(self, bottle_request):
+        """Test REST GetCloudInfo."""
+        bottle_request.return_value = MagicMock()
+        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\\n"
+                                                    "id = cloud1; type = Dummy; host = http://dummy;")}
+        bottle_request.environ = {'HTTP_HOST': 'imserver.com'}
+
+        res = RESTGetCloudInfo("cloud1", "images")
+        self.assertEqual(json.loads(res), {"images": [{"uri": "mock0://linux.for.ev.er/image1",
+                                                       "name": "Image Name1"},
+                                                      {"uri": "mock0://linux.for.ev.er/image2",
+                                                       "name": "Image Name2"}]})
+
+        res = RESTGetCloudInfo("cloud1", "quotas")
+        self.assertEqual(json.loads(res), {"quotas": {"cores": {"used": 1, "limit": 10},
+                                                      "ram": {"used": 1, "limit": 10},
+                                                      "instances": {"used": 1, "limit": 10},
+                                                      "floating_ips": {"used": 1, "limit": 10},
+                                                      "security_groups": {"used": 1, "limit": 10}}})
+
+    @patch("bottle.request")
+    @patch("IM.InfrastructureManager.InfrastructureManager.GetCloudImageList")
+    def test_GetCloudInfo_filters(self, GetCloudImageList, bottle_request):
+        """Test REST GetCloudInfo with filters."""
+        bottle_request.return_value = MagicMock()
+        bottle_request.headers = {"AUTHORIZATION": "type = InfrastructureManager; username = user; password = pass"}
+
+        bottle_request.params = {'filters': 'region=region_name'}
+        GetCloudImageList.return_value = []
+        res = RESTGetCloudInfo("cloud1", "images")
+        self.assertEqual(json.loads(res), {"images": []})
+        self.assertEqual(GetCloudImageList.call_args_list[0][0][2], {'region': 'region_name'})
 
 
 if __name__ == "__main__":

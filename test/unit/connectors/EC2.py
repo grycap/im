@@ -745,6 +745,22 @@ class TestEC2Connector(TestCloudConnectorBase):
         self.assertEqual(conn.deregister_image.call_args_list, [call('image-ami', delete_snapshot=True)])
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
+    @patch('IM.connectors.EC2.EC2CloudConnector.get_connection')
+    @patch('time.sleep')
+    def test_90_list_images(self, sleep, get_connection):
+        auth = Authentication([{'id': 'ec2', 'type': 'EC2', 'username': 'user', 'password': 'pass'}])
+        ec2_cloud = self.get_ec2_cloud()
+
+        conn = MagicMock()
+        get_connection.return_value = conn
+        image = MagicMock()
+        image.id = "ami-123456789012"
+        image.name = "image_name"
+        conn.get_all_images.return_value = [image]
+
+        res = ec2_cloud.list_images(auth, filters={'region': 'us-east-1'})
+        self.assertEqual(res, [{'uri': 'aws://us-east-1/ami-123456789012', 'name': 'us-east-1/image_name'}])
+
 
 if __name__ == '__main__':
     unittest.main()

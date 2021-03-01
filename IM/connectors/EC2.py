@@ -419,7 +419,7 @@ class EC2CloudConnector(CloudConnector):
         subnet_id = None
 
         for vpc in conn.get_all_vpcs():
-            if vpc.is_default:
+            if vpc.is_default or vpc.tags['Name'] == "default":
                 vpc_id = vpc.id
                 for subnet in conn.get_all_subnets(filters={"vpcId": vpc_id}):
                     subnet_id = subnet.id
@@ -1672,3 +1672,34 @@ class EC2CloudConnector(CloudConnector):
             return (True, "")
         else:
             return (False, "Error deregistering AMI image" + image_url)
+
+    def list_images(self, auth_data, filters=None):
+        regions = None
+        auth = auth_data.getAuthInfo(self.type)[0]
+        if 'region' in auth and auth['region']:
+            regions = [auth['region']]
+        if filters and 'region' in filters and filters['region']:
+            regions = [filters['region']]
+            del filters['region']
+        if not regions:
+            regions = [region.name for region in boto.ec2.regions()]
+
+        images_filter = {'architecture': 'x86_64', 'image-type': 'machine',
+                         'virtualization-type': 'hvm', 'state': 'available',
+                         'root-device-type': 'ebs'}
+
+        # enable the user to add or overwrite the filters
+        if filters:
+            images_filter.update(filters)
+
+        images = []
+        for region in regions:
+            conn = self.get_connection(region, auth_data)
+            try:
+                for image in conn.get_all_images(owners=['self', 'aws-marketplace'], filters=images_filter):
+                    if len(image.id) > 12:  # do not add old images
+                        images.append({"uri": "aws://%s/%s" % (region, image.id),
+                                       "name": "%s/%s" % (region, image.name)})
+            except Exception:
+                continue
+        return images
