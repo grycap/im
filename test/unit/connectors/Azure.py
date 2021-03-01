@@ -482,6 +482,33 @@ class TestAzureConnector(TestCloudConnectorBase):
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
+    @patch('IM.connectors.Azure.ComputeManagementClient')
+    @patch('IM.connectors.Azure.UserPassCredentials')
+    def test_list_images(self, credentials, compute_client):
+        auth = Authentication([{'id': 'azure', 'type': 'Azure', 'subscription_id': 'subscription_id',
+                                'username': 'user', 'password': 'password'}])
+        azure_cloud = self.get_azure_cloud()
+
+        cclient = MagicMock()
+        compute_client.return_value = cclient
+        offer = MagicMock()
+        offer.name = "offer1"
+        cclient.virtual_machine_images.list_offers.return_value = [offer]
+        sku = MagicMock()
+        sku.name = "sku1"
+        cclient.virtual_machine_images.list_skus.return_value = [sku]
+        pub = MagicMock()
+        pub.name = "pub1"
+        cclient.virtual_machine_images.list_publishers.return_value = [pub]
+
+        images = azure_cloud.list_images(auth)
+
+        self.assertEqual(len(images), 8)
+        self.assertEqual(images[0], {'uri': 'azr://Canonical/offer1/sku1/latest', 'name': 'Canonical offer1 sku1'})
+
+        images = azure_cloud.list_images(auth, filters={"publisher": "*"})
+        self.assertEqual(images, [{'uri': 'azr://pub1/offer1/sku1/latest', 'name': 'pub1 offer1 sku1'}])
+
 
 if __name__ == '__main__':
     unittest.main()
