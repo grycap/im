@@ -174,10 +174,6 @@
       pip: name=cryptography version=2.9.2 executable=pip3
       when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int <= 14
 
-    - name: Install pyOpenSSL
-      pip: name=pyOpenSSL state=latest
-      when: ansible_os_family != "RedHat" or ansible_distribution_major_version|int > 6
-
     - name: Install pkgs with Pip in RH6
       pip: name="{{ item.name }}" version="{{ item.version }}" executable=pip3
       when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int <= 6
