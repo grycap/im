@@ -27,7 +27,7 @@
       ignore_errors: yes
 
     - name: Bootstrap with python RedHat/CentOS
-      raw: sudo yum install -y python3 || { sudo yum install -y epel-release https://repo.ius.io/ius-release-el6.rpm && sudo yum install -y python36 && ln -s /usr/bin/python3.6 /usr/bin/python3; }
+      raw: sudo yum install -y python3
       ignore_errors: yes
       register: python_install
       changed_when: python_install.stdout_lines|length > 1
