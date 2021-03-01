@@ -53,7 +53,7 @@ class Tosca:
         Get the specified property of the deployment based on policies
         """
         for policy in self.tosca.policies:
-            if policy.type_definition.type == "tosca.policies.Placement":
+            if policy.type_definition.type in ["tosca.policies.Placement", "tosca.policies.indigo.Placement"]:
                 node_list = []
                 if policy.targets_type == "node_templates":
                     node_list = policy.targets_list
@@ -91,7 +91,7 @@ class Tosca:
 
         radl = RADL()
         interfaces = {}
-        cont_intems = []
+        cont_items = []
 
         # first process the networks as they are referred later
         for node in self.tosca.nodetemplates:
@@ -157,10 +157,10 @@ class Tosca:
                     level = Tosca._get_dependency_level(node)
                     radl.configures.append(conf)
                     if compute:
-                        cont_intems.append(contextualize_item(compute.name, conf.name, level))
+                        cont_items.append(contextualize_item(compute.name, conf.name, level))
 
-        if cont_intems:
-            radl.contextualize = contextualize(cont_intems)
+        if cont_items:
+            radl.contextualize = contextualize(cont_items)
         else:
             # If there are no configures, disable contextualization
             radl.contextualize = contextualize({})
@@ -284,6 +284,8 @@ class Tosca:
             else:
                 if "source" in port:
                     remote_port = port["source"]
+                else:
+                    raise Exception("source port must be specified in PortSpec type.")
                 if "target" in port:
                     local_port = port["target"]
                 else:
@@ -1346,6 +1348,18 @@ class Tosca:
         res = system(node.name)
 
         res.setValue("instance_name", node.name)
+
+        for prop in node.get_properties_objects():
+            if prop.name == "tags" and prop.value:
+                if isinstance(prop.value, dict):
+                    instance_tags = ""
+                    for k, v in prop.value.items():
+                        if instance_tags != "":
+                            instance_tags += ","
+                        instance_tags += "%s=%s" % (k, v)
+                    res.setValue("instance_tags", instance_tags)
+                else:
+                    raise Exception("tags property must be a dictionary.")
 
         property_map = {
             'architecture': 'cpu.arch',

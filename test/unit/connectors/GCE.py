@@ -446,6 +446,27 @@ class TestGCEConnector(TestCloudConnectorBase):
         instance = gce_cloud.get_instance_type(sizes, radl.systems[0])
         self.assertEquals(instance.name, "sizenamne")
 
+    @patch('libcloud.compute.drivers.gce.GCENodeDriver')
+    def test_get_cloud_info(self, get_driver):
+        auth = Authentication([{'id': 'one', 'type': 'GCE', 'username': 'user',
+                                'password': 'pass\npass', 'project': 'proj'}])
+        gce_cloud = self.get_gce_cloud()
+
+        driver = MagicMock()
+        get_driver.return_value = driver
+
+        image = MagicMock(['id'])
+        image.id = "image_id"
+        image.name = "image_name"
+        driver.list_images.return_value = [image]
+        location = MagicMock(['id', 'name'])
+        location.name = "location"
+        driver.list_locations.return_value = [location]
+
+        res = gce_cloud.list_images(auth)
+
+        self.assertEqual(res, [{"uri": "gce://location/image_id", "name": "location/image_name"}])
+
 
 if __name__ == '__main__':
     unittest.main()

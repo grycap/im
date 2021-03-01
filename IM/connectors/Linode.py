@@ -455,3 +455,11 @@ class LinodeCloudConnector(LibCloudCloudConnector):
             except Exception as ex:
                 self.log_exception("Error connecting with Linode")
                 return (False, "Error connecting with Linode: " + str(ex))
+
+    def list_images(self, auth_data, filters=None):
+        driver = self.get_driver(auth_data)
+
+        images = []
+        for image in driver.list_images():
+            images.append({"uri": "lin://%s" % image.id, "name": image.name})
+        return images
