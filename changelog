@@ -620,3 +620,4 @@ IM 1.10.0:
     * Enable to set the ansible version to install per infrastructure.
     * Add new API functions to get Cloud providers info.
     * Move contextualization to python3 as default.
+    * Enable to set instance_tags using TOSCA.
