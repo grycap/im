@@ -612,5 +612,12 @@ IM 1.9.6:
     * Fix error when reading contextualization log in case of "strange" chars.
     * Update ansible version to avoid errors in Ubuntu 20.04.
 
-IM 1.9.7:
+IM 1.10.0:
     * Race condition makes successsfully deleted infrastructure not to be deleted.
+    * Fix error in CentOS 8 Contextualization.
+    * Add Orange Cloud connector.
+    * Use verify_ssl config option in all the IM code.
+    * Enable to set the ansible version to install per infrastructure.
+    * Add new API functions to get Cloud providers info.
+    * Move contextualization to python3 as default.
+    * Enable to set instance_tags using TOSCA.

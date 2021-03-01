@@ -56,7 +56,7 @@ class Config:
     WAIT_PUBLIC_IP_TIMEOUT = 90
     XMLRCP_PORT = 8899
     XMLRCP_ADDRESS = "0.0.0.0"
-    ACTIVATE_REST = False
+    ACTIVATE_REST = True
     REST_PORT = 8800
     REST_ADDRESS = "0.0.0.0"
     USER_DB = ""

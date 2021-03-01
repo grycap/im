@@ -1,35 +1,64 @@
 ---
 - gather_facts: False
   tasks: 
-      # Some OSs does not have python by default
-    - name: Check Python is installed
-      raw: python --version
+    # Some OSs does not have python by default
+    - name: Check Python2 is installed
+      raw: python2 -c 'import sys; print(sys.version_info[1])'
       ignore_errors: yes
-      register: python_exists
+      register: python2_version
       changed_when: false
 
-    - name: Check Python2 or Python3 is installed
-      raw: python2 --version || python3 --version
+    - name: Check Python3 is installed
+      raw: python3 -c 'import sys; print(sys.version_info[1])'
       ignore_errors: yes
-      register: python2_exists
+      register: python3_version
       changed_when: false
 
-    - name: Bootstrap with python
-      raw: sudo apt update && sudo apt install -y python; sudo yum install -y python || sudo yum install -y python2; sudo zypper -n install python python-xml
+    - name: Bootstrap with python Debian/Ubuntu
+      raw: sudo apt update && sudo apt install -y python3.5; sudo apt install -y python3
       ignore_errors: yes
       register: python_install
       changed_when: python_install.stdout_lines|length > 1
-      when: python_exists is failed and python2_exists is failed
+      when: (python2_version is failed and python3_version is failed) or python3_version.stdout|int < 5
 
-    # In some cases python link is not created
-    - name: Link python 2 or 3 in case is needed
-      raw: ls /usr/bin/python || { ls /usr/bin/python2 && ln -s /usr/bin/python2 /usr/bin/python; } || { ls /usr/bin/python3 && ln -s /usr/bin/python3 /usr/bin/python; }
+    - name: Link correct python version in Ubuntu 14
+      raw: ls /usr/bin/python3.5 && sudo rm -f /usr/bin/python3 && sudo ln -s /usr/bin/python3.5 /usr/bin/python3
+      when: python3_version is success and python3_version.stdout|int < 5
+      ignore_errors: yes
+
+    - name: Bootstrap with python RedHat/CentOS
+      raw: sudo yum install -y python3 || { sudo yum install -y epel-release https://repo.ius.io/ius-release-el6.rpm && sudo yum install -y python36 && ln -s /usr/bin/python3.6 /usr/bin/python3; }
+      ignore_errors: yes
+      register: python_install
+      changed_when: python_install.stdout_lines|length > 1
+      when: python2_version is failed and python3_version is failed
+
+    - name: RedHat/CentOS install python3-dnf
+      command: sudo yum install -y python3 python3-dnf
+      ignore_errors: yes
+
+    - name: Bootstrap with python SUSE
+      raw: sudo zypper -n install python3 python3-xml
+      ignore_errors: yes
+      register: python_install
+      changed_when: python_install.stdout_lines|length > 1
+      when: python2_version is failed and python3_version is failed
+
+    - name: Link python 3 or 2 in case is needed
+      raw: ls /usr/bin/python || { ls /usr/bin/python3 && ln -s /usr/bin/python3 /usr/bin/python; } || { ls /usr/bin/python2 && ln -s /usr/bin/python2 /usr/bin/python; }
       become: yes
       ignore_errors: yes
 
-    # In case of redhat systems libselinux-python is needed    
-    - name: Install libselinux-python on redhat systems
-      raw: yum -y install libselinux-python || yum -y install http://ftpgrycap.i3m.upv.es/src/libselinux-python-2.8-6.module_el8.0.0+111+16bc5e61.x86_64.rpm
+    # In case of redhat systems libselinux-python3 is needed
+    - name: Install libselinux-python3 on RH systems
+      raw: ls /usr/bin/python3 && yum -y install libselinux-python3
+      become: yes
+      ignore_errors: yes
+
+    # In case of redhat systems libselinux-python is needed
+    - name: Install libselinux-python on RH systems
+      raw: ls /usr/bin/python2 && yum -y install libselinux-python
+
       become: yes
       ignore_errors: yes
 

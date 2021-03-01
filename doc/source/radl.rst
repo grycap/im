@@ -33,6 +33,7 @@ An RADL document has the next general structure::
    configure <configure_id> (<Ansible recipes>)
 
    contextualize [max_time] (
+     option <option_name> = <value>
      system <system_id> configure <configure_id> [step <num>]
      ...
    )
@@ -608,12 +609,19 @@ tool to use en each case.
 The contextualize section has the next structure::
 
    contextualize <max_context_time> (
+      option <option_name> = <value>
       system <system_id> configure <configure_id> [step <num>] [with (Ansible|cloud_init)]
       ...
    )
 
 The ``max_context_time`` value enables to set a timeout for the contextualization step to enable to
 kill the process if some of the steps takes more time than expected.
+
+The optional "option" lines enable to specify some contextualizacion option values. Currently only
+``ansible_version`` is supported. It enables the user to specify the ansible version to be installed
+in the "master" VM that will be used to configure all the VMs of the infrastructure. For example::
+
+   option ansible_version = 2.6.20
 
 Each line inside the contextualize section enables to specify which configure section ``configure_id``
 will be applied in the nodes of type ``system_id``. Optionally a step number can be specified to set
