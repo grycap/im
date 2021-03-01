@@ -212,7 +212,8 @@ class TestTosca(unittest.TestCase):
         _, radl = tosca.to_radl()
         radl = parse_radl(str(radl))
         node = radl.get_system_by_name('node')
-        self.assertEqual('tag1=value1,tag2=value2', node.getValue("instance_tags"))
+        self.assertIn('tag1=value1', node.getValue("instance_tags"))
+        self.assertIn('tag2=value2', node.getValue("instance_tags"))
 
 
 if __name__ == "__main__":
