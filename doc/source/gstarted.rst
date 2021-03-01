@@ -77,6 +77,8 @@ Cloud providers:
    * **appdb://<site_name>/<apc_name>?<vo_name>**, for FedCloud OCCI connector using AppDB info (from ver. 1.6.0).
    * **docker://<docker_image>**, for Docker images.
    * **fbw://<fns_server>/<image-id>**, for FogBow images.
+   * **lin://linode/<image-id>**, for Linode images.
+   * **ora://<region>/<image-id>**, for Orange Flexible Engine images.
 
 See full information about RADL language at :ref:`radl`. More RADL examples are available at the IM GitHub repo
 `examples folder <https://github.com/grycap/im/tree/master/examples>`_.

@@ -1326,7 +1326,8 @@ class InfrastructureManager:
         if Config.OIDC_SCOPES and Config.OIDC_CLIENT_ID and Config.OIDC_CLIENT_SECRET:
             success, res = OpenIDClient.get_token_introspection(token,
                                                                 Config.OIDC_CLIENT_ID,
-                                                                Config.OIDC_CLIENT_SECRET)
+                                                                Config.OIDC_CLIENT_SECRET,
+                                                                Config.VERIFI_SSL)
             if not success:
                 raise InvaliddUserException("Invalid InfrastructureManager credentials. "
                                             "Invalid token or Client credentials.")
@@ -1349,7 +1350,7 @@ class InfrastructureManager:
 
         try:
             # Now try to get user info
-            success, userinfo = OpenIDClient.get_user_info_request(token)
+            success, userinfo = OpenIDClient.get_user_info_request(token, Config.VERIFI_SSL)
             if success:
                 # convert to username to use it in the rest of the IM
                 im_auth['username'] = IM.InfrastructureInfo.InfrastructureInfo.OPENID_USER_PREFIX

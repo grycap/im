@@ -314,6 +314,8 @@ machine.  The supported features are:
    * ``appdb://<site_name>/<apc_name>?<vo_name>``, for FedCloud OCCI or OpenStack connector using AppDB info (from vers. 1.6.0 and 1.8.6).
    * ``docker://<docker_image>``, for Docker images.
    * ``fbw://<fns_server>/<image-id>``, for FogBow images.
+   * ``lin://linode/<image-id>``, for Linode images.
+   * ``ora://<region>/<image-id>``, for Orange Flexible Engine images.
 
    In case of using a list of URLs, the IM will select the final image based on
    the credentials provided by the user. 
