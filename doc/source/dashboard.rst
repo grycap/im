@@ -230,27 +230,28 @@ The main menu bar is located on top of the pages:
   and an avatar obtained from `Gravatar <https://www.gravatar.com/>`_. In this menu the user can access their 
   "Service Credentials" with the cloud providers or logout the application.
 
-Service Crecentials
+Cloud Crecentials
 ^^^^^^^^^^^^^^^^^^^
 
-This page enable the user to specify the project/VO to be used to access available sites. In the list 
-(:ref:`Fig. 2 <figure_dash_cred_list>`) the user can edit or delete the current value for the selected site.
-This must be done before using a site in case that the user belongs to more that one project in the specific site.
-In this case if not set some erros may appear in the dropdown list of Site images or deploying the VMs.
+This page enable the user to specify the credentials to access any cloud provider it has access to.
+In the list (:ref:`Fig. 2 <figure_dash_cred_list>`) the user can edit, delete and enable/disable the selected
+cloud credential.
 
 .. _figure_dash_cred_list:
 .. figure:: images/dash_cred_list.png
 
-   Fig 2. List of Service Crecentials.
+   Fig 2. List of Cloud Crecentials.
 
-Editing the Credentials will show a modal form (:ref:`Fig. 3 <figure_dash_edit_cred>`) where the user has the 
-ability to select the project/VO from a dropdown list. This list is generated using the information available
-from the sites and the list of VOs the user is member.
+Editing or adding the credentials will show a modal form (:ref:`Fig. 3 <figure_dash_edit_cred>`) where the user has the 
+ability to specify all the parameters needed to access each cloud provider supported. In particular for
+`EGI Cloud Compute sites <https://www.egi.eu/services/cloud-compute/>`_ sites the user only has to select one of
+the VOs he is member and one of sites that supports that VO. These dropdown fields are generated using the information
+available from the sites and the list of VOs the user is member.
 
 .. _figure_dash_edit_cred:
 .. figure:: images/dash_edit_cred.png
 
-   Fig 3. Edit a Crecential.
+   Fig 3. Edit/Add a Crecential.
 
 
 TOSCA Templates
@@ -279,15 +280,19 @@ easier the input values selection.
 
    Fig 5. TOSCA input values.
 
-The final tab will be the "Site Selection" (:ref:`Fig. 6 <figure_dash_site>`).
-In this tab the user has to select, first the VO, then the Site and finally the base image used to deploy the VMs.
-In the case of the image the user has two options, he can select an image from the list of images provided by the
+The final tab will be the "Cloud Provider Selection" (:ref:`Fig. 6 <figure_dash_site>`).
+In this tab the user has to select, first one of the Cloud providers that has been previously added in the
+"Cloud Crecentials" page, then it has to select the base image used to deploy the VMs.
+In case of EGI Cloud Compute sites the user has two options, he can select an image from the list of images provided by the
 `EGI AppDB information system <https://appdb.egi.eu/>`_ or from the list provided directly by the Cloud site.
+Other providers will only show a dropdown list with the available images to use. Only in the case of AWS Cloud provider
+the user has to specify manually the AMI id of the image to use.
+
 
 .. _figure_dash_site:
 .. figure:: images/dash_site.png
 
-   Fig 6. Select deployment VO, Site and Image.
+   Fig 6. Select Cloud Provider and Image.
 
 
 Infrastructures
