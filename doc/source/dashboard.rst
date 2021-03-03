@@ -74,6 +74,18 @@ You need to run the IM dashboard on HTTPS (otherwise you will get an error); you
 
 Details are provided in the next paragraphs.
 
+Enabling Credentials encryption
+-------------------------------
+
+To enable the encryption of the Cloud providers credentials (sensitive data), you have to set the `CREDS_KEY`
+environment varible with a valid key used to encrypt/decrypt de data. To get a valid one you can use this 
+python code (you will need `Cryptography <https://cryptography.io/>`_ ) library)::
+
+   from cryptography.fernet import Fernet
+   key = Fernet.generate_key()
+   print(key.decode())
+
+
 TOSCA Template Metadata
 -----------------------
 
