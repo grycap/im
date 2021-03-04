@@ -394,11 +394,11 @@ class ConfManager(LoggerMixin, threading.Thread):
                     vault_password = vm.info.systems[0].getValue("vault.password")
                     if vault_password:
                         vault_export = "export VAULT_PASS='%s' && " % vault_password
-                    (pid, _, _) = ssh.execute(vault_export + "nohup python " + Config.REMOTE_CONF_DIR + "/" +
-                                              str(self.inf.id) + "/" + ctxt_agent_command +
+                    (pid, _, _) = ssh.execute("nohup sh -c \"" + vault_export + "python3 " + Config.REMOTE_CONF_DIR +
+                                              "/" + str(self.inf.id) + "/" + ctxt_agent_command +
                                               Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/" +
                                               "/general_info.cfg " + remote_dir + "/" + os.path.basename(conf_file) +
-                                              " > " + remote_dir + "/stdout" + " 2> " + remote_dir +
+                                              "\" > " + remote_dir + "/stdout" + " 2> " + remote_dir +
                                               "/stderr < /dev/null & echo -n $!")
 
                     self.log_info("Ansible process to configure " + str(vm.im_id) + " launched with pid: " + pid)
@@ -831,7 +831,11 @@ class ConfManager(LoggerMixin, threading.Thread):
                         tmp_dir = tempfile.mkdtemp()
                         # Now call the ansible installation process on the
                         # master node
-                        configured_ok = self.configure_ansible(ssh, tmp_dir)
+                        ansible_version = None
+                        if self.inf.radl.contextualize.options:
+                            if 'ansible_version' in self.inf.radl.contextualize.options:
+                                ansible_version = self.inf.radl.contextualize.options['ansible_version'].getValue()
+                        configured_ok = self.configure_ansible(ssh, tmp_dir, ansible_version)
 
                         if not configured_ok:
                             self.log_error("Error in the ansible installation process")
@@ -1331,7 +1335,7 @@ class ConfManager(LoggerMixin, threading.Thread):
         conf_all_out.close()
         return all_filename
 
-    def configure_ansible(self, ssh, tmp_dir):
+    def configure_ansible(self, ssh, tmp_dir, ansible_version=None):
         """
         Install ansible in the master node
 
@@ -1420,9 +1424,18 @@ class ConfManager(LoggerMixin, threading.Thread):
             except Exception:
                 self.log_exception("Error removing requiretty. Ignoring.")
 
-            self.inf.add_cont_msg("Configure Ansible in the master VM.")
-            self.log_info("Call Ansible to (re)configure in the master node")
+            ver_msg = " (v. %s)" % ansible_version if ansible_version else ""
+            self.inf.add_cont_msg("Configure Ansible%s in the master VM." % ver_msg)
+            self.log_info("Call Ansible%s to (re)configure in the master node" % ver_msg)
+            ansible_version_env = None
+            if ansible_version:
+                # Set ansible verion env var
+                ansible_version_env = os.getenv('ANSIBLE_VERSION')
+                os.environ['ANSIBLE_VERSION'] = ansible_version
             (success, msg) = self.call_ansible(tmp_dir, "inventory.cfg", ConfManager.MASTER_YAML, ssh)
+            if ansible_version_env:
+                # restore original value
+                os.environ['ANSIBLE_VERSION'] = ansible_version_env
 
             if not success:
                 self.log_error("Error configuring master node: " + msg + "\n\n")

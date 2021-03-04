@@ -27,7 +27,7 @@ Please acknowledge the use of this software in your scientific publications by i
 Miguel Caballer, Ignacio Blanquer, German Molto, and Carlos de Alfonso. "[Dynamic management of virtual infrastructures](https://link.springer.com/article/10.1007/s10723-014-9296-5)". Journal of Grid Computing, Volume 13, Issue 1, Pages 53-70, 2015, ISSN 1570-7873, DOI: 10.1007/s10723-014-9296-5.
 
 
-## 1 DOCKER IMAGE
+## 1 DOCKER IMAGE (Recommended Option)
 
 The recommended option to use the Infrastructure Manager service is using the available docker image.
 A Docker image named `grycap/im` has been created to make easier the deployment of an IM service using the 
@@ -88,8 +88,8 @@ All the information about this chart is available at the [IM chart README](https
 
 ### 3.1 REQUISITES
 
-IM is based on Python, so Python 2.6 or higher runtime and standard library must
-be installed in the system.
+IM is based on Python, so Python 2.7 or higher (Python 3.5 or higher recommended) runtime and
+standard library must be installed in the system.
 
 If you use pip to install the IM, all the requisites will be installed.
 However, if you install IM from sources you should install:
@@ -147,7 +147,7 @@ or ``CherryPy`` pip package.
 In newer versions (9.0 and later) the functionality has been moved to the ``cheroot`` library
 (https://github.com/cherrypy/cheroot) it can be installed using pip.
 
-Apache-libcloud (http://libcloud.apache.org/) 2.0 or later is used in the
+Apache-libcloud (http://libcloud.apache.org/) 3.0 or later is used in the
 LibCloud, OpenStack and GCE connectors. It is typically available as the ``python-libcloud`` 
 system package or ``apache-libcloud`` pip package.
 
