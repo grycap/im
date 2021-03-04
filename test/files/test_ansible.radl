@@ -1,0 +1,28 @@
+network publica (outbound = 'yes')
+
+system node (
+cpu.arch='x86_64' and
+cpu.count>=1 and
+memory.size>=1g and
+net_interface.0.connection = 'publica' and
+disk.0.os.name='linux' and
+disk.0.os.flavour='ubuntu' and
+disk.0.image.url = 'one://ramses.i3m.upv.es/476'
+)
+
+configure node (
+@begin
+---
+ - tasks:
+     - fail: msg="Incorrect Ansible Version"
+       when: ansible_version.string != "2.6.20"
+
+@end
+)
+
+contextualize (
+  option ansible_version = '2.6.20'
+  system node configure node
+)
+
+deploy node 1

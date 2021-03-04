@@ -204,7 +204,7 @@ The available keys are:
 * ``type`` indicates the service that refers the credential. The services
   supported are ``InfrastructureManager``, ``VMRC``, ``OpenNebula``, ``EC2``,, ``FogBow``, 
   ``OpenStack``, ``OCCI``, ``LibCloud``, ``Docker``, ``GCE``, ``Azure``, ``AzureClassic``,
-  ``Kubernetes``, ``vSphere`` and ``Linode``.
+  ``Kubernetes``, ``vSphere``, ``Linode`` and ``Orange``.
 
 * ``username`` indicates the user name associated to the credential. In EC2
   it refers to the *Access Key ID*. In GCE it refers to *Service Account’s Email Address*. 
@@ -217,7 +217,7 @@ The available keys are:
   In CloudStack refers to Secret Key value.
 
 * ``tenant`` indicates the tenant associated to the credential.
-  This field is only used in the OpenStack plugin.
+  This field is only used in the OpenStack and Orange plugins.
 
 * ``host`` indicates the address of the access point to the cloud provider.
   This field is not used in IM, GCE, Azure, and EC2 credentials.
@@ -395,7 +395,8 @@ An example of the auth file::
    id = cloudstack; type = CloudStack; host = http://server; username = apikey; password = secret
    # Linode auth data
    id = linode; type = Linode; username = apikey
-   
+   # Orange Flexible Cloud auth data
+   id = orange; type = Orange; username = usern; password = pass; domain = DOMAIN; region = region; tenant = tenant
 
 IM Server does not store the credentials used in the creation of
 infrastructures. Then the user has to provide them in every call of
