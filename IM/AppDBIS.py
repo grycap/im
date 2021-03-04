@@ -21,6 +21,7 @@ try:
 except ImportError:
     from urllib.parse import urlparse
 
+from IM.config import Config
 from radl.radl import Feature, system
 
 
@@ -50,7 +51,7 @@ class AppDBIS:
 
         sep_char = "?"
         if "?" in url:
-          sep_char = "&"
+            sep_char = "&"
 
         while skip < total_count:
             surl = url + sep_char + "limit=%s&skip=%s" % (limit, skip)
@@ -80,7 +81,7 @@ class AppDBIS:
         """
         url = self.appdbis_url + self.REST_API_PATH + "/images"
         if filter:
-          url += "?filter=" + filter
+            url += "?filter=" + filter
         return self.get_all_paged_results(url, limit)
 
     def get_image(self, image_id):
@@ -213,7 +214,11 @@ class AppDBIS:
         if not version:
             version = "*"
         cpus = radl_system.getValue("cpu.count")
-        mem_in_mb = radl_system.getFeature('memory.size').getValue('M')
+        if not cpus:
+            cpus = Config.DEFAULT_VM_CPUS
+        mem_in_mb = Config.DEFAULT_VM_MEMORY
+        if radl_system.getFeature('memory.size'):
+            mem_in_mb = radl_system.getFeature('memory.size').getValue('M')
         vo = radl_system.getValue("disk.0.os.image.vo")
         if not vo:
             vo = "*"

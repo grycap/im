@@ -32,7 +32,8 @@ class TestAppDBIS(unittest.TestCase):
             elif url == "/rest/cloud/computing/images" and query == "limit=10&skip=10":
                 resp.status_code = 200
                 resp.json.return_value = json.loads(read_file_as_string('../files/appdbis_images_p2.json'))
-            elif url == "/rest/cloud/computing/images/egi.top.vaproviders.images.00716434466174a6823f0224254aa7c91acff60d":
+            elif url == ("/rest/cloud/computing/images/egi.top.vaproviders."
+                         "images.00716434466174a6823f0224254aa7c91acff60d"):
                 resp.status_code = 200
                 resp.json.return_value = json.loads(read_file_as_string('../files/appdbis_image.json'))
         elif method == "POST":
