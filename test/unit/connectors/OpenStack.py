@@ -77,15 +77,30 @@ class TestOSTConnector(TestCloudConnectorBase):
         get_driver.return_value = driver
 
         node_size = MagicMock()
+        node_size.id = '1'
         node_size.ram = 512
         node_size.price = 1
         node_size.disk = 1
         node_size.vcpus = 1
-        node_size.name = "small"
-        driver.list_sizes.return_value = [node_size]
+        node_size.name = "g.small"
+        node_size.extra = {'pci_passthrough:alias': 'GPU:2,FPGA:1'}
+        node_size2 = MagicMock()
+        node_size.id = '2'
+        node_size2.ram = 512
+        node_size2.price = 1
+        node_size2.disk = 1
+        node_size2.vcpus = 1
+        node_size2.name = "small"
+        node_size2.extra = {}
+        driver.list_sizes.return_value = [node_size, node_size2]
+        driver.ex_get_size_extra_specs.return_value = {}
+
+        sizes = ost_cloud.get_list_sizes_details(driver)
+        self.assertEqual(sizes[0].extra['pci_devices'], 3)
 
         concrete = ost_cloud.concreteSystem(radl_system, auth)
         self.assertEqual(len(concrete), 1)
+        self.assertEqual(concrete[0].getValue("instance_type"), "small")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('IM.AppDB.AppDB.get_site_id')

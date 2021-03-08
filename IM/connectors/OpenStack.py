@@ -195,38 +195,64 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
     def guess_instance_type_gpu(self, size, num_gpus):
         """Try to guess if this NodeSize has GPU support"""
-        try:
-            extra_specs = size.driver.ex_get_size_extra_specs(size.id)
-            for k, v in extra_specs.items():
-                if k.lower().find("gpu") != -1 and v.lower() not in ['false', 'no', '0']:
-                    return True
-            # From EGI FedCloud TF
-            if 'Accelerator:Type' in extra_specs and extra_specs['Accelerator:Type'] == 'GPU':
-                if num_gpus > 1.0:
-                    if 'Accelerator:Number' in extra_specs and extra_specs['Accelerator:Number']:
-                        return float(extra_specs['Accelerator:Number']) > num_gpus
-                else:
-                    return True
-        except Exception:
-            self.log_exception("Error trying to get flavor extra_specs.")
+        for k, v in size.extra.items():
+            if k.lower().find("gpu") != -1 and v.lower() not in ['false', 'no', '0']:
+                return True
+        # From EGI FedCloud TF
+        if 'Accelerator:Type' in size.extra and size.extra['Accelerator:Type'] == 'GPU':
+            if num_gpus > 1.0:
+                if 'Accelerator:Number' in size.extra and size.extra['Accelerator:Number']:
+                    return float(size.extra['Accelerator:Number']) > num_gpus
+            else:
+                return True
+
         return False
 
-    def get_instance_type(self, sizes, radl):
+    def get_list_sizes_details(self, driver):
+        """Assure to get extra_specs in all the sizes"""
+        res = []
+        for size in driver.list_sizes():
+            # If extra specs are not fetch in the list_sizes function
+            if len(size.extra) == 0:
+                try:
+                    # get it now
+                    size.extra = driver.ex_get_size_extra_specs(size.id)
+                except Exception:
+                    self.log_exception("Error trying to get flavor '%s' extra_specs." % size.id)
+
+            size.extra['pci_devices'] = 0
+            # Count to pci devices to enable sorting
+            if 'pci_passthrough:alias' in size.extra:
+                pci_devices = size.extra['pci_passthrough:alias'].split(',')
+                for device in pci_devices:
+                    device_info = device.split(':')
+                    if len(device_info) > 1:
+                        if device_info[1] and device_info[1].isnumeric():
+                            size.extra['pci_devices'] += int(device_info[1])
+                    else:
+                        size.extra['pci_devices'] += 1
+
+            res.append(size)
+
+        return res
+
+    def get_instance_type(self, driver, radl):
         """
         Get the name of the instance type to launch to LibCloud
 
         Arguments:
-           - size(list of :py:class: `libcloud.compute.base.NodeSize`): List of sizes on a provider
+           - driver(:py:class:`libcloud.compute.base.NodeDriver`): Driver to use.
            - radl(str): RADL document with the requirements of the VM to get the instance type
         Returns: a :py:class:`libcloud.compute.base.NodeSize` with the instance type to launch
         """
+        sizes = self.get_list_sizes_details(driver)
         instance_type_name = radl.getValue('instance_type')
 
         (cpu, cpu_op, memory, memory_op, disk_free, disk_free_op) = self.get_instance_selectors(radl, disk_unit="G")
         gpu = radl.getValue('gpu.count')
 
         # get the node size with the lowest price, vcpus, memory and disk
-        sizes.sort(key=lambda x: (x.price, x.vcpus, x.ram, x.disk))
+        sizes.sort(key=lambda x: (x.price, x.vcpus, x.ram, x.disk, x.extra['pci_devices']))
         for size in sizes:
             comparison = cpu_op(size.vcpus, cpu)
             comparison = comparison and memory_op(size.ram, memory)
@@ -260,7 +286,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             driver = self.get_driver(auth_data)
 
             res_system = radl_system.clone()
-            instance_type = self.get_instance_type(driver.list_sizes(), res_system)
+            instance_type = self.get_instance_type(driver, res_system)
             self.update_system_info_from_instance(res_system, instance_type)
 
             username = res_system.getValue('disk.0.os.credentials.username')
@@ -999,7 +1025,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             image_id = self.get_image_id(system.getValue("disk.0.image.url"))
         image = driver.get_image(image_id)
 
-        instance_type = self.get_instance_type(driver.list_sizes(), system)
+        instance_type = self.get_instance_type(driver, system)
         if not instance_type:
             raise Exception("No flavor found for the specified VM requirements.")
 
@@ -1559,7 +1585,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 self.log_debug("No memory nor cpu nor instance_type specified. VM not resized.")
                 return (True, "")
             else:
-                instance_type = self.get_instance_type(node.driver.list_sizes(), radl.systems[0])
+                instance_type = self.get_instance_type(node.driver, radl.systems[0])
                 if instance_type is None:
                     return (False, "Error resizing VM: No instance type found.")
                 if node.extra['flavorId'] != instance_type.id:
