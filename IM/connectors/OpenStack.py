@@ -193,12 +193,19 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             self.driver = driver
             return driver
 
-    def guess_instance_type_gpu(self, size):
+    def guess_instance_type_gpu(self, size, num_gpus):
         """Try to guess if this NodeSize has GPU support"""
         try:
             extra_specs = size.driver.ex_get_size_extra_specs(size.id)
             for k, v in extra_specs.items():
-                if k.lower().find("gpu") and v.lower() not in ['false', 'no', '0']:
+                if k.lower().find("gpu") != -1 and v.lower() not in ['false', 'no', '0']:
+                    return True
+            # From EGI FedCloud TF
+            if 'Accelerator:Type' in extra_specs and extra_specs['Accelerator:Type'] == 'GPU':
+                if num_gpus > 1.0:
+                    if 'Accelerator:Number' in extra_specs and extra_specs['Accelerator:Number']:
+                        return float(extra_specs['Accelerator:Number']) > num_gpus
+                else:
                     return True
         except Exception:
             self.log_exception("Error trying to get flavor extra_specs.")
@@ -224,7 +231,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             comparison = cpu_op(size.vcpus, cpu)
             comparison = comparison and memory_op(size.ram, memory)
             comparison = comparison and disk_free_op(size.disk, disk_free)
-            if gpu and not self.guess_instance_type_gpu(size):
+            if gpu and not self.guess_instance_type_gpu(size, gpu):
                 continue
 
             if comparison:
