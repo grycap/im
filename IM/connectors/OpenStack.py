@@ -193,7 +193,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             self.driver = driver
             return driver
 
-    def guess_instance_type_gpu(self, size, num_gpus):
+    @staticmethod
+    def guess_instance_type_gpu(size, num_gpus):
         """Try to guess if this NodeSize has GPU support"""
         for k, v in size.extra.items():
             if k.lower().find("gpu") != -1 and v.lower() not in ['false', 'no', '0']:
@@ -236,15 +237,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         return res
 
-    def get_instance_type(self, driver, radl):
-        """
-        Get the name of the instance type to launch to LibCloud
-
-        Arguments:
-           - driver(:py:class:`libcloud.compute.base.NodeDriver`): Driver to use.
-           - radl(str): RADL document with the requirements of the VM to get the instance type
-        Returns: a :py:class:`libcloud.compute.base.NodeSize` with the instance type to launch
-        """
+    def get_instance_type(self, driver, radl, location=None):
         sizes = self.get_list_sizes_details(driver)
         instance_type_name = radl.getValue('instance_type')
 
