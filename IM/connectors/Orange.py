@@ -100,13 +100,11 @@ class OrangeCloudConnector(OpenStackCloudConnector):
                 raise Exception(
                     "No correct auth data has been specified to Orange: username, password, domain, tenant and region")
 
-    def guess_instance_type_gpu(self, size):
+    @staticmethod
+    def guess_instance_type_gpu(size, num_gpus):
         """Try to guess if this NodeSize has GPU support"""
-        try:
-            if 'ecs:performancetype' in size.extra and size.extra['ecs:performancetype'] == 'gpu':
-                return True
-        except Exception:
-            self.log_exception("Error trying to get flavor extra_specs.")
+        if 'ecs:performancetype' in size.extra and size.extra['ecs:performancetype'] == 'gpu':
+            return True
         return False
 
     def concrete_system(self, radl_system, str_url, auth_data):
