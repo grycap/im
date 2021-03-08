@@ -186,6 +186,9 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     driver.image_connection.service_region = None
                     driver.network_connection.service_region = None
                     driver.volumev2_connection.service_region = None
+                    # To avoid error with old versions of LibCloud
+                    if 'volumev3_connection' in driver.__dict__:
+                        driver.volumev3_connection.service_region = None
 
             self.driver = driver
             return driver
