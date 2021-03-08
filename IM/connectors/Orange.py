@@ -103,8 +103,7 @@ class OrangeCloudConnector(OpenStackCloudConnector):
     def guess_instance_type_gpu(self, size):
         """Try to guess if this NodeSize has GPU support"""
         try:
-            extra_specs = size.driver.ex_get_size_extra_specs(size.id)
-            if 'ecs:performancetype' in extra_specs and extra_specs['ecs:performancetype'] == 'gpu':
+            if 'ecs:performancetype' in size.extra and size.extra['ecs:performancetype'] == 'gpu':
                 return True
         except Exception:
             self.log_exception("Error trying to get flavor extra_specs.")
@@ -118,7 +117,7 @@ class OrangeCloudConnector(OpenStackCloudConnector):
             driver = self.get_driver(auth_data)
 
             res_system = radl_system.clone()
-            instance_type = self.get_instance_type(driver.list_sizes(), res_system)
+            instance_type = self.get_instance_type(driver, res_system)
             self.update_system_info_from_instance(res_system, instance_type)
 
             username = res_system.getValue('disk.0.os.credentials.username')
