@@ -97,7 +97,7 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
             driver = self.get_driver(auth_data)
 
             res_system = radl_system.clone()
-            instance_type = self.get_instance_type(driver.list_sizes(), res_system)
+            instance_type = self.get_instance_type(driver, res_system)
             self.update_system_info_from_instance(res_system, instance_type)
 
             username = res_system.getValue('disk.0.os.credentials.username')
@@ -207,7 +207,7 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
         image_id = self.get_image_id(system.getValue("disk.0.image.url"))
         image = NodeImage(id=image_id, name=None, driver=driver)
 
-        instance_type = self.get_instance_type(driver.list_sizes(), system)
+        instance_type = self.get_instance_type(driver, system)
 
         sgs = self.create_security_groups(driver, inf, radl)
 
@@ -419,8 +419,7 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
     def alterVM(self, vm, radl, auth_data):
         node = self.get_node_with_id(vm.id, auth_data)
         if node:
-            instance_type = self.get_instance_type(
-                node.driver.list_sizes(), radl.systems[0])
+            instance_type = self.get_instance_type(node.driver, radl.systems[0])
 
             try:
                 if node.ex_stop() == "Stopped":
