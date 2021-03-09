@@ -103,15 +103,8 @@ class LinodeCloudConnector(LibCloudCloudConnector):
                 self.log_error("Incorrect auth data")
                 return None
 
-    def get_instance_type(self, sizes, radl):
-        """
-        Get the name of the instance type to launch to LibCloud
-
-        Arguments:
-           - size(list of :py:class: `libcloud.compute.base.NodeSize`): List of sizes on a provider
-           - radl(str): RADL document with the requirements of the VM to get the instance type
-        Returns: a :py:class:`libcloud.compute.base.NodeSize` with the instance type to launch
-        """
+    def get_instance_type(self, driver, radl, location=None):
+        sizes = driver.list_sizes()
         instance_type_name = radl.getValue('instance_type')
 
         (cpu, cpu_op, memory, memory_op, disk_free, disk_free_op) = self.get_instance_selectors(radl, disk_unit="G")
@@ -158,7 +151,7 @@ class LinodeCloudConnector(LibCloudCloudConnector):
             driver = self.get_driver(auth_data)
 
             res_system = radl_system.clone()
-            instance_type = self.get_instance_type(driver.list_sizes(), res_system)
+            instance_type = self.get_instance_type(driver, res_system)
             self.update_system_info_from_instance(res_system, instance_type)
 
             res_system.setValue('disk.0.os.credentials.username', self.DEFAULT_USER)
@@ -206,7 +199,7 @@ class LinodeCloudConnector(LibCloudCloudConnector):
         image_id = self.get_image_id(system.getValue("disk.0.image.url"))
         image = NodeImage(id=image_id, name=None, driver=driver)
 
-        instance_type = self.get_instance_type(driver.list_sizes(), system)
+        instance_type = self.get_instance_type(driver, system)
 
         instance_name = self.gen_instance_name(system)[:32]
         if instance_name[-1:] == "-":
@@ -411,7 +404,7 @@ class LinodeCloudConnector(LibCloudCloudConnector):
                 self.log_debug("No memory nor cpu nor instance_type specified. VM not resized.")
                 return (True, "")
             else:
-                instance_type = self.get_instance_type(node.driver.list_sizes(), radl.systems[0])
+                instance_type = self.get_instance_type(node.driver, radl.systems[0])
                 if instance_type is None:
                     return (False, "Error resizing VM: No instance type found.")
                 if node.size != instance_type.id:

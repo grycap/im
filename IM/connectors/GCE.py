@@ -154,7 +154,7 @@ class GCECloudConnector(LibCloudCloudConnector):
             else:
                 region, _ = self.get_image_data(str_url)
 
-            instance_type = self.get_instance_type(driver.list_sizes(region), res_system)
+            instance_type = self.get_instance_type(driver, res_system, region)
             if not instance_type:
                 return None
 
@@ -210,15 +210,8 @@ class GCECloudConnector(LibCloudCloudConnector):
 
         return provider_id
 
-    def get_instance_type(self, sizes, radl):
-        """
-        Get the name of the instance type to launch to LibCloud
-
-        Arguments:
-           - size(list of :py:class: `libcloud.compute.base.NodeSize`): List of sizes on a provider
-           - radl(str): RADL document with the requirements of the VM to get the instance type
-        Returns: a :py:class:`libcloud.compute.base.NodeSize` with the instance type to launch
-        """
+    def get_instance_type(self, driver, radl, location=None):
+        sizes = driver.list_sizes(location)
         instance_type_name = radl.getValue('instance_type')
 
         (cpu, cpu_op, memory, memory_op, _, _) = self.get_instance_selectors(radl)
@@ -510,7 +503,7 @@ class GCECloudConnector(LibCloudCloudConnector):
         if not image:
             return [(False, "Incorrect image name") for _ in range(num_vm)]
 
-        instance_type = self.get_instance_type(driver.list_sizes(region), system)
+        instance_type = self.get_instance_type(driver, system, region)
 
         if not instance_type:
             raise Exception("No compatible size found")

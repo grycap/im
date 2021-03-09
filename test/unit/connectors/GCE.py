@@ -433,8 +433,9 @@ class TestGCEConnector(TestCloudConnectorBase):
         size.extra = {"selfLink": "/some/path/sizenamne", "guestCpus": 1}
         size.ram = 1024
         size.name = "sizenamne"
-        sizes = [size]
-        instance = gce_cloud.get_instance_type(sizes, radl.systems[0])
+        driver = MagicMock()
+        driver.list_sizes.return_value = [size]
+        instance = gce_cloud.get_instance_type(driver, radl.systems[0])
         self.assertEquals(instance.name, "custom-2-2048")
         self.assertEquals(instance.extra['selfLink'], "/some/path/custom-2-2048")
 
@@ -442,8 +443,8 @@ class TestGCEConnector(TestCloudConnectorBase):
         size2.extra = {"selfLink": "/some/path/sizenamne", "guestCpus": 2}
         size2.ram = 2048
         size2.name = "sizenamne"
-        sizes.append(size2)
-        instance = gce_cloud.get_instance_type(sizes, radl.systems[0])
+        driver.list_sizes.return_value = [size, size2]
+        instance = gce_cloud.get_instance_type(driver, radl.systems[0])
         self.assertEquals(instance.name, "sizenamne")
 
     @patch('libcloud.compute.drivers.gce.GCENodeDriver')

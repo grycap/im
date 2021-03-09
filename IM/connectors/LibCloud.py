@@ -104,15 +104,17 @@ class LibCloudCloudConnector(CloudConnector):
                 self.log_error("Incorrect auth data")
                 return None
 
-    def get_instance_type(self, sizes, radl):
+    def get_instance_type(self, driver, radl, location=None):
         """
         Get the name of the instance type to launch to LibCloud
 
         Arguments:
-           - size(list of :py:class: `libcloud.compute.base.NodeSize`): List of sizes on a provider
+           - driver(:py:class:`libcloud.compute.base.NodeDriver`): Driver to use.
            - radl(str): RADL document with the requirements of the VM to get the instance type
+           - location:(:class:`.NodeLocation`): optional location.
         Returns: a :py:class:`libcloud.compute.base.NodeSize` with the instance type to launch
         """
+        sizes = driver.list_sizes()
         instance_type_name = radl.getValue('instance_type')
 
         (_, _, memory, memory_op, disk_free, disk_free_op) = self.get_instance_selectors(radl, disk_unit='G')
@@ -144,7 +146,7 @@ class LibCloudCloudConnector(CloudConnector):
 
         if req_protocol is None or protocol == req_protocol:
             res_system = radl_system.clone()
-            instance_type = self.get_instance_type(driver.list_sizes(), res_system)
+            instance_type = self.get_instance_type(driver, res_system)
             self.update_system_info_from_instance(res_system, instance_type)
             return res_system
         else:
@@ -197,7 +199,7 @@ class LibCloudCloudConnector(CloudConnector):
         image_id = self.get_image_id(system.getValue("disk.0.image.url"))
         image = NodeImage(id=image_id, name=None, driver=driver)
 
-        instance_type = self.get_instance_type(driver.list_sizes(), system)
+        instance_type = self.get_instance_type(driver, system)
 
         args = {'size': instance_type,
                 'image': image,
