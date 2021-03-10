@@ -101,7 +101,7 @@ class OrangeCloudConnector(OpenStackCloudConnector):
                     "No correct auth data has been specified to Orange: username, password, domain, tenant and region")
 
     @staticmethod
-    def guess_instance_type_gpu(size, num_gpus):
+    def guess_instance_type_gpu(size, num_gpus, vendor=None, model=None):
         """Try to guess if this NodeSize has GPU support"""
         if 'ecs:performancetype' in size.extra and size.extra['ecs:performancetype'] == 'gpu':
             return True
