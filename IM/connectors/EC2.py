@@ -53,10 +53,12 @@ class InstanceTypeInfo:
             - disk_space(int, optional): size of the disks
             - vpc_only(bool, optional): the instance works only on VPC
             - gpu(int, optional): the number of gpus of this instance
+            - gpu_model(str, optional): the model of the gpus of this instance
     """
 
     def __init__(self, name="", cpu_arch=None, num_cpu=1, cores_per_cpu=1, mem=0,
-                 price=0, cpu_perf=0, disks=0, disk_space=0, vpc_only=None, gpu=0):
+                 price=0, cpu_perf=0, disks=0, disk_space=0, vpc_only=None, gpu=0,
+                 gpu_model=None):
         self.name = name
         self.num_cpu = num_cpu
         self.cores_per_cpu = cores_per_cpu
@@ -70,6 +72,7 @@ class InstanceTypeInfo:
         self.disk_space = disk_space
         self.vpc_only = vpc_only
         self.gpu = gpu
+        self.gpu_model = gpu_model
 
 
 class EC2CloudConnector(CloudConnector):
@@ -266,6 +269,9 @@ class EC2CloudConnector(CloudConnector):
 
         (cpu, cpu_op, memory, memory_op, disk_free, disk_free_op) = self.get_instance_selectors(radl, disk_unit="G")
         arch = radl.getValue('cpu.arch', 'x86_64')
+        gpu = radl.getValue('gpu.count')
+        gpu_model = radl.getValue('gpu.model')
+        gpu_vendor = radl.getValue('gpu.vendor')
 
         performance = 0
         performance_op_str = ">="
@@ -291,6 +297,16 @@ class EC2CloudConnector(CloudConnector):
                 comparison = comparison and memory_op(instace_type.mem, memory)
                 comparison = comparison and disk_free_op(instace_type.disks * instace_type.disk_space, disk_free)
                 comparison = comparison and performance_op(instace_type.cpu_perf, performance)
+                if gpu and instace_type.gpu < gpu:
+                    continue
+                elif gpu:
+                    print("a")
+                if gpu_model and (not instace_type.gpu_model or
+                                  gpu_model.lower() not in instace_type.gpu_model.lower()):
+                    continue
+                if gpu_vendor and (not instace_type.gpu_model or
+                                   gpu_vendor.lower() not in instace_type.gpu_model.lower()):
+                    continue
 
                 if comparison:
                     if not instance_type_name or instace_type.name == instance_type_name:
@@ -1596,7 +1612,8 @@ class EC2CloudConnector(CloudConnector):
                                                       disks=disks,
                                                       disk_space=disk_space,
                                                       vpc_only=instance_type['vpc_only'],
-                                                      gpu=instance_type['GPU']))
+                                                      gpu=instance_type['GPU'],
+                                                      gpu_model=instance_type['GPU_model']))
             EC2CloudConnector.instance_type_list = instance_list
 
         return instance_list

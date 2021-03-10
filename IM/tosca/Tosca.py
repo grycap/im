@@ -1374,6 +1374,9 @@ class Tosca:
             'cpu_frequency': 'cpu.performance',
             'instance_type': 'instance_type',
             'preemtible_instance': 'spot',
+            'num_gpus': 'gpu.count',
+            'gpu_vendor': 'gpu.vendor',
+            'gpu_model': 'gpu.model',
         }
 
         for cap_type in ['os', 'host']:
