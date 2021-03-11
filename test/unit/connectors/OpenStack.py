@@ -894,6 +894,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         image = MagicMock(['id', 'name'])
         image.id = "image_id"
         image.name = "image_name"
+        image.extra = {'status': 'active'}
         driver.list_images.return_value = [image]
 
         res = ost_cloud.list_images(auth)
