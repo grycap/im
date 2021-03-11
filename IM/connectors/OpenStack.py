@@ -1761,7 +1761,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         driver = self.get_driver(auth_data)
         images = []
         for image in driver.list_images():
-            images.append({"uri": "ost://%s/%s" % (self.cloud.server, image.id), "name": image.name})
+            if 'status' not in image.extra or image.extra['status'] == 'active':
+                images.append({"uri": "ost://%s/%s" % (self.cloud.server, image.id), "name": image.name})
         return images
 
     @staticmethod
