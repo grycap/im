@@ -131,6 +131,7 @@ class VNET_POOL(XMLObject):
 
 class IMAGE(XMLObject):
     STATE_READY = 1
+    STATE_USED = 2
     STATE_ERROR = 5
     values = ['ID', 'UID', 'GID', 'UNAME', 'GNAME', 'NAME', 'SOURCE', 'PATH'
               'FSTYPE', 'TYPE', 'DISK_TYPE', 'PERSISTENT', 'SIZE', 'STATE']
@@ -1226,7 +1227,7 @@ class OpenNebulaCloudConnector(CloudConnector):
                 self.logger.error("Error in the function one.image.info: " + res_info)
                 return False, "Error getting image info: %s" % res_info
 
-        if state == IMAGE.STATE_READY:
+        if state in [IMAGE.STATE_READY, IMAGE.STATE_USED]:
             return True, ""
         elif state == IMAGE.STATE_ERROR:
             return False, "Image in Error state"
