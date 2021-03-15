@@ -404,10 +404,12 @@ class TestONEConnector(TestCloudConnectorBase):
         getONEVersion.return_value = "5.2.1"
         one_server = MagicMock()
         one_server.one.imagepool.info.return_value = (True, "<IMAGE_POOL><IMAGE><ID>1</ID>"
-                                                      "<NAME>imagename</NAME></IMAGE></IMAGE_POOL>", 0)
+                                                      "<NAME>imagename</NAME><STATE>1</STATE></IMAGE></IMAGE_POOL>", 0)
         server_proxy.return_value = one_server
 
         res = one_cloud.list_images(auth)
+
+        self.assertEqual(res, [{'uri': 'one://server.com/1', 'name': 'imagename'}])
 
         one_server.one.vnpool.info.return_value = (True, self.read_file_as_string("files/nets.xml"), 0)
         one_server.one.user.info.return_value = (True, self.read_file_as_string("files/user.xml"), 0)
