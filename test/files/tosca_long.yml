@@ -201,12 +201,12 @@ topology_template:
 
   policies:
     - deploy_on_cloudid:
-       type: tosca.policies.Placement
+       type: tosca.policies.indigo.Placement
        properties: { cloud_id: cloudid, availability_zone: some_zone }
        targets: [ other_server ]
 
     - deploy_group_on_cloudid:
-       type: tosca.policies.Placement
+       type: tosca.policies.indigo.Placement
        properties: { cloud_id: cloudid }
        targets: [ my_placement_group ]
 
