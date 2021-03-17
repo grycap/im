@@ -161,11 +161,11 @@ topology_template:
 
   policies:
     - deploy_on_ifca:
-        type: tosca.policies.Placement
+        type: tosca.policies.indigo.Placement
         properties: { sla_id: 5cf12da6cb0e8f527dfb3c97 }
         targets: [ lrms_wn ]
 
     - deploy_on_recas:
-        type: tosca.policies.Placement
+        type: tosca.policies.indigo.Placement
         properties: { sla_id: 5bfbc091a9a88f528bf5114b }
         targets: [ lrms_server ]
