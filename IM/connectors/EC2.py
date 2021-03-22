@@ -299,8 +299,7 @@ class EC2CloudConnector(CloudConnector):
                 comparison = comparison and performance_op(instace_type.cpu_perf, performance)
                 if gpu and instace_type.gpu < gpu:
                     continue
-                elif gpu:
-                    print("a")
+
                 if gpu_model and (not instace_type.gpu_model or
                                   gpu_model.lower() not in instace_type.gpu_model.lower()):
                     continue
