@@ -621,3 +621,9 @@ IM 1.10.0:
     * Add new API functions to get Cloud providers info.
     * Move contextualization to python3 as default.
     * Enable to set instance_tags using TOSCA.
+
+IM 1.10.1:
+    * Fix error destroying OpenStack infrastructure when dettaching SGs.
+    * Only show active images in OpenStack and OpenNebula conn.
+    * Enable to request GPUs in TOSCA.
+    * Improve OpenStack flavor selection.
