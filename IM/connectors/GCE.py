@@ -215,6 +215,9 @@ class GCECloudConnector(LibCloudCloudConnector):
         instance_type_name = radl.getValue('instance_type')
 
         (cpu, cpu_op, memory, memory_op, _, _) = self.get_instance_selectors(radl)
+        gpu = radl.getValue('gpu.count')
+        gpu_model = radl.getValue('gpu.model')
+        gpu_vendor = radl.getValue('gpu.vendor')
 
         res = None
         for size in sizes:
@@ -226,6 +229,19 @@ class GCECloudConnector(LibCloudCloudConnector):
                 comparison = memory_op(size.ram, memory)
                 if 'guestCpus' in size.extra and size.extra['guestCpus']:
                     comparison = comparison and cpu_op(size.extra['guestCpus'], cpu)
+
+                if gpu:
+                    if 'accelerators' in size.extra and size.extra['accelerators']:
+                        if gpu < size.extra['accelerators']['guestAcceleratorCount']:
+                            continue
+                        if gpu_model and (gpu_vendor.lower() not in
+                                          size.extra['accelerators']['guestAcceleratorType'].lower()):
+                            continue
+                        if gpu_vendor and (gpu_vendor.lower() not in
+                                           size.extra['accelerators']['guestAcceleratorType'].lower()):
+                            continue
+                    else:
+                        continue
 
                 if comparison:
                     if not instance_type_name or size.name == instance_type_name:
