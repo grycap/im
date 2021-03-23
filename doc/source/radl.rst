@@ -416,6 +416,16 @@ machine.  The supported features are:
    It will configure the node to enable nat with the appropriate iptables rules
    (experimental).
 
+``gpu.count <=|=|=> <positive integer value>``
+   Constrain the number of virtual GPUs in the virtual machine.
+
+``gpu.vendor = <string>``
+   Constrain the vendor name of the GPU in the virtual machine like ``NVIDIA`` or ``AMD``.
+
+``gpu.model = <string>``
+   Constrain the model name of the GPU in the virtual machine like ``Tesla-v100`` or ``Radeon RX 5000``
+
+
 Disk Management
 ^^^^^^^^^^^^^^^
 
