@@ -1227,7 +1227,7 @@ class OpenNebulaCloudConnector(CloudConnector):
                 self.logger.error("Error in the function one.image.info: " + res_info)
                 return False, "Error getting image info: %s" % res_info
 
-        if state in [IMAGE.STATE_READY, IMAGE.STATE_USED]:
+        if state == IMAGE.STATE_READY:
             return True, ""
         elif state == IMAGE.STATE_ERROR:
             return False, "Image in Error state"
@@ -1293,7 +1293,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 
         images = []
         for image in pool_info.IMAGE:
-            if image.STATE == IMAGE.STATE_READY:
+            if image.STATE in [IMAGE.STATE_READY, IMAGE.STATE_USED]:
                 images.append({"uri": "one://%s/%s" % (self.cloud.server, image.ID), "name": image.NAME})
 
         return images
