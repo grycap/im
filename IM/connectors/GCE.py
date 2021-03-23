@@ -210,12 +210,27 @@ class GCECloudConnector(LibCloudCloudConnector):
 
         return provider_id
 
+    @staticmethod
+    def guess_instance_type_gpu(size, num_gpus, vendor=None, model=None):
+        """Try to guess if this NodeSize has GPU support"""
+        if 'accelerators' in size.extra and size.extra['accelerators']:
+            for accelerator in size.extra['accelerators']:
+                if num_gpus < accelerator['guestAcceleratorCount']:
+                    continue
+                if model and model.lower() not in accelerator['guestAcceleratorType'].lower():
+                    continue
+                if vendor and vendor.lower() not in accelerator['guestAcceleratorType'].lower():
+                    continue
+                return True
+
+        return False
+
     def get_instance_type(self, driver, radl, location=None):
         sizes = driver.list_sizes(location)
         instance_type_name = radl.getValue('instance_type')
 
         (cpu, cpu_op, memory, memory_op, _, _) = self.get_instance_selectors(radl)
-        gpu = radl.getValue('gpu.count')
+        num_gpus = radl.getValue('gpu.count')
         gpu_model = radl.getValue('gpu.model')
         gpu_vendor = radl.getValue('gpu.vendor')
 
@@ -230,18 +245,8 @@ class GCECloudConnector(LibCloudCloudConnector):
                 if 'guestCpus' in size.extra and size.extra['guestCpus']:
                     comparison = comparison and cpu_op(size.extra['guestCpus'], cpu)
 
-                if gpu:
-                    if 'accelerators' in size.extra and size.extra['accelerators']:
-                        if gpu < size.extra['accelerators']['guestAcceleratorCount']:
-                            continue
-                        if gpu_model and (gpu_vendor.lower() not in
-                                          size.extra['accelerators']['guestAcceleratorType'].lower()):
-                            continue
-                        if gpu_vendor and (gpu_vendor.lower() not in
-                                           size.extra['accelerators']['guestAcceleratorType'].lower()):
-                            continue
-                    else:
-                        continue
+                if num_gpus and not self.guess_instance_type_gpu(size, num_gpus, gpu_vendor, gpu_model):
+                    continue
 
                 if comparison:
                     if not instance_type_name or size.name == instance_type_name:
