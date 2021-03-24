@@ -139,23 +139,27 @@ class EC2CloudConnector(CloudConnector):
         """
         Update the features of the system with the information of the instance_type
         """
-        system.addFeature(Feature("cpu.count", "=", instance_type.num_cpu *
-                                  instance_type.cores_per_cpu), conflict="other", missing="other")
-        system.addFeature(Feature(
-            "memory.size", "=", instance_type.mem, 'M'), conflict="other", missing="other")
+        system.addFeature(Feature("cpu.count", "=", instance_type.num_cpu * instance_type.cores_per_cpu),
+                          conflict="other", missing="other")
+        system.addFeature(Feature("memory.size", "=", instance_type.mem, 'M'),
+                          conflict="other", missing="other")
         if instance_type.disks > 0:
-            system.addFeature(Feature("disks.free_size", "=", instance_type.disks *
-                                      instance_type.disk_space, 'G'), conflict="other", missing="other")
+            system.addFeature(Feature("disks.free_size", "=", instance_type.disks * instance_type.disk_space, 'G'),
+                              conflict="other", missing="other")
             for i in range(1, instance_type.disks + 1):
-                system.addFeature(Feature("disk.%d.free_size" % i, "=",
-                                          instance_type.disk_space, 'G'), conflict="other", missing="other")
-        system.addFeature(Feature("cpu.performance", "=",
-                                  instance_type.cpu_perf, 'ECU'), conflict="other", missing="other")
-        system.addFeature(
-            Feature("price", "=", instance_type.price), conflict="me", missing="other")
+                system.addFeature(Feature("disk.%d.free_size" % i, "=", instance_type.disk_space, 'G'),
+                                  conflict="other", missing="other")
+        system.addFeature(Feature("cpu.performance", "=", instance_type.cpu_perf, 'ECU'),
+                          conflict="other", missing="other")
+        system.addFeature(Feature("price", "=", instance_type.price), conflict="me", missing="other")
 
-        system.addFeature(Feature("instance_type", "=",
-                                  instance_type.name), conflict="other", missing="other")
+        system.addFeature(Feature("instance_type", "=", instance_type.name), conflict="other", missing="other")
+
+        if instance_type.gpu:
+            system.addFeature(Feature("gpu.count", "=", instance_type.gpu), conflict="other", missing="other")
+        if instance_type.gpu_model:
+            system.addFeature(Feature("gpu.model", "=", instance_type.gpu_model), conflict="other", missing="other")
+
 
     # Get the EC2 connection object
     def get_connection(self, region_name, auth_data):
