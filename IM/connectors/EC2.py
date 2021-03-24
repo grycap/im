@@ -160,7 +160,6 @@ class EC2CloudConnector(CloudConnector):
         if instance_type.gpu_model:
             system.addFeature(Feature("gpu.model", "=", instance_type.gpu_model), conflict="other", missing="other")
 
-
     # Get the EC2 connection object
     def get_connection(self, region_name, auth_data):
         """
