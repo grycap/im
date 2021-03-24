@@ -536,7 +536,7 @@ class VirtualMachine(LoggerMixin):
             state = self.state
             updated = False
             # To avoid to refresh the information too quickly
-            if force or now - self.last_update > Config.VM_INFO_UPDATE_FREQUENCY:
+            if force or now - self.last_update > Config.VM_INFO_UPDATE_FREQUENCY or state == VirtualMachine.UNKNOWN:
                 success = False
                 try:
                     (success, new_vm) = self.getCloudConnector().updateVMInfo(self, auth)
