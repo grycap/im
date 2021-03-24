@@ -270,6 +270,15 @@ class AzureCloudConnector(CloudConnector):
                           conflict="other", missing="other")
         system.addFeature(Feature("instance_type", "=", instance_type.name),
                           conflict="other", missing="other")
+        if instance_type.gpu:
+            system.addFeature(Feature("gpu.count", "=", instance_type.gpu),
+                              conflict="other", missing="other")
+        if instance_type.gpu_model:
+            system.addFeature(Feature("gpu.model", "=", instance_type.gpu_model),
+                              conflict="other", missing="other")
+        if instance_type.gpu_vendor:
+            system.addFeature(Feature("gpu.vendor", "=", instance_type.gpu_vendor),
+                              conflict="other", missing="other")
 
     def concrete_system(self, radl_system, str_url, auth_data):
         url = urlparse(str_url)
