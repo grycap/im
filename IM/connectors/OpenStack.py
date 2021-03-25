@@ -616,6 +616,9 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             LibCloudCloudConnector.update_system_info_from_instance(system, instance_type)
             if instance_type.vcpus:
                 system.addFeature(Feature("cpu.count", "=", instance_type.vcpus), conflict="other", missing="other")
+            if instance_type.ephemeral_disk:
+                system.addFeature(Feature("disk.0.free_size", "=", instance_type.ephemeral_disk),
+                                  conflict="other", missing="other")
 
     @staticmethod
     def get_ost_net(driver, name=None, netid=None):
