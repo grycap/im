@@ -525,6 +525,9 @@ the virtual machine.
 ``IM_NODE_CLOUD_TYPE``
    Cloud type where the VM has been deployed.
 
+``IM_NODE_CLOUD_SERVER``
+   Cloud server where the VM has been deployed (if available, if not this variable is not defined).
+
 ``IM_MASTER_HOSTNAME``
    Hostname (without the domain) of the virtual machine doing the *master*
    role.
