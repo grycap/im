@@ -285,6 +285,8 @@ class TestGCEConnector(TestCloudConnectorBase):
         zone.name = 'us-central1-a'
         node.extra = {'zone': zone}
         node.size = NodeSize("1", "name1", 512, 1, None, None, driver)
+        node.size.extra = {'accelerators': [{'guestAcceleratorCount': 1,
+                                             'guestAcceleratorType': 'nvidia-tesla-v100'}]}
         driver.ex_get_node.return_value = node
 
         dns_driver.iterate_zones.return_value = []
@@ -300,6 +302,8 @@ class TestGCEConnector(TestCloudConnectorBase):
         self.assertEquals(dns_driver.create_record.call_args_list[0][0][0], 'test.domain.com.')
         self.assertEquals(dns_driver.create_record.call_args_list[0][0][2], 'A')
         self.assertEquals(dns_driver.create_record.call_args_list[0][0][3], {'rrdatas': ['158.42.1.1'], 'ttl': 300})
+        self.assertEquals(vm.info.systems[0].getValue('gpu.count'), 1)
+        self.assertEquals(vm.info.systems[0].getValue('gpu.model'), 'nvidia-tesla-v100')
 
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 

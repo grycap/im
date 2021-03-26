@@ -176,8 +176,14 @@ class GCECloudConnector(LibCloudCloudConnector):
         if isinstance(instance_type, NodeSize):
             LibCloudCloudConnector.update_system_info_from_instance(system, instance_type)
             if 'guestCpus' in instance_type.extra:
-                system.addFeature(Feature("cpu.count", "=", instance_type.extra[
-                                  'guestCpus']), conflict="other", missing="other")
+                system.addFeature(Feature("cpu.count", "=", instance_type.extra['guestCpus']),
+                                  conflict="other", missing="other")
+            if 'accelerators' in instance_type.extra and instance_type.extra['accelerators']:
+                gpu_info = instance_type.extra['accelerators'][0]
+                system.addFeature(Feature("gpu.count", "=", gpu_info['guestAcceleratorCount']),
+                                  conflict="other", missing="other")
+                system.addFeature(Feature("gpu.model", "=", gpu_info['guestAcceleratorType']),
+                                  conflict="other", missing="other")
 
     @staticmethod
     def set_net_provider_id(radl, net_name):
