@@ -142,6 +142,9 @@ class LinodeCloudConnector(LibCloudCloudConnector):
             if 'vcpus' in instance_type.extra and instance_type.extra['vcpus']:
                 system.addFeature(Feature("cpu.count", "=", instance_type.extra['vcpus']),
                                   conflict="me", missing="other")
+            if 'gpus' in instance_type.extra and instance_type.extra['gpus']:
+                system.addFeature(Feature("gpu.count", "=", instance_type.extra['gpus']),
+                                  conflict="me", missing="other")
 
     def concrete_system(self, radl_system, str_url, auth_data):
         url = urlparse(str_url)

@@ -201,13 +201,26 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 return True
         # From EGI FedCloud TF
         if 'Accelerator:Type' in size.extra and size.extra['Accelerator:Type'] == 'GPU':
-            if num_gpus > 1.0:
-                if 'Accelerator:Number' in size.extra and size.extra['Accelerator:Number']:
-                    return float(size.extra['Accelerator:Number']) > num_gpus
+            if 'Accelerator:Number' in size.extra and size.extra['Accelerator:Number']:
+                if float(size.extra['Accelerator:Number']) < num_gpus:
+                    return False
             else:
-                return True
-
-        return False
+                return False
+            if vendor:
+                if 'Accelerator:Vendor' in size.extra and size.extra['Accelerator:Vendor']:
+                    if size.extra['Accelerator:Vendor'].lower() != vendor.lower():
+                        return False
+                else:
+                    return False
+            if model:
+                if 'Accelerator:Model' in size.extra and size.extra['Accelerator:Model']:
+                    if size.extra['Accelerator:Model'].lower() != model.lower():
+                        return False
+                else:
+                    return False
+            return True
+        else:
+            return False
 
     def get_list_sizes_details(self, driver):
         """Assure to get extra_specs in all the sizes"""
@@ -420,6 +433,12 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             try:
                 flavorId = node.extra['flavorId']
                 instance_type = node.driver.ex_get_size(flavorId)
+                if len(instance_type.extra) == 0:
+                    try:
+                        # get it now
+                        instance_type.extra = node.driver.ex_get_size_extra_specs(instance_type.id)
+                    except Exception:
+                        self.log_exception("Error trying to get flavor '%s' extra_specs." % instance_type.id)
                 self.update_system_info_from_instance(vm.info.systems[0], instance_type)
             except Exception as ex:
                 self.log_warn("Error updating VM info from flavor ID: %s" % get_ex_error(ex))
@@ -619,6 +638,17 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             if instance_type.ephemeral_disk:
                 system.addFeature(Feature("disk.0.free_size", "=", instance_type.ephemeral_disk),
                                   conflict="other", missing="other")
+            # From EGI FedCloud TF
+            if 'Accelerator:Type' in instance_type.extra and instance_type.extra['Accelerator:Type'] == 'GPU':
+                if 'Accelerator:Number' in instance_type.extra:
+                    system.addFeature(Feature("gpu.count", "=", float(instance_type.extra['Accelerator:Number'])),
+                                      conflict="other", missing="other")
+                if 'Accelerator:Vendor' in instance_type.extra:
+                    system.addFeature(Feature("gpu.vendor", "=", instance_type.extra['Accelerator:Vendor']),
+                                      conflict="other", missing="other")
+                if 'Accelerator:Model' in instance_type.extra:
+                    system.addFeature(Feature("gpu.model", "=", instance_type.extra['Accelerator:Model']),
+                                      conflict="other", missing="other")
 
     @staticmethod
     def get_ost_net(driver, name=None, netid=None):
