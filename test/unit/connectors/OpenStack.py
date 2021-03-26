@@ -381,6 +381,10 @@ class TestOSTConnector(TestCloudConnectorBase):
         node_size.vcpus = 1
         node_size.name = "small"
         driver.ex_get_size.return_value = node_size
+        driver.ex_get_size_extra_specs.return_value = {'Accelerator:Model': 'Tesla V100',
+                                                       'Accelerator:Number': '1.0',
+                                                       'Accelerator:Type': 'GPU',
+                                                       'Accelerator:Vendor': 'NVIDIA'}
 
         volume = MagicMock()
         volume.id = "vol1"
@@ -423,6 +427,9 @@ class TestOSTConnector(TestCloudConnectorBase):
                           {'host_routes': [{'nexthop': '10.0.0.1', 'destination': '10.0.0.0/16'}]})
         self.assertEquals(vm.info.systems[0].getValue("disk.1.device"), "vdb")
         self.assertEquals(vm.info.systems[0].getValue("disk.1.image.url"), "ost://server.com/vol1")
+        self.assertEquals(vm.info.systems[0].getValue("gpu.count"), 1)
+        self.assertEquals(vm.info.systems[0].getValue("gpu.model"), 'Tesla V100')
+        self.assertEquals(vm.info.systems[0].getValue("gpu.vendor"), 'NVIDIA')
 
         # In this case the Node has the float ip assigned
         # node.public_ips = ['8.8.8.8']
