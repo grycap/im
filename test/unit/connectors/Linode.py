@@ -145,7 +145,8 @@ class TestLinodeConnector(TestCloudConnectorBase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('libcloud.compute.drivers.linode.LinodeNodeDriver')
-    def test_30_updateVMInfo(self, get_driver):
+    @patch('libcloud.dns.drivers.linode.LinodeDNSDriver')
+    def test_30_updateVMInfo(self, get_dns_driver, get_driver):
         radl_data = """
             network net (outbound = 'yes')
             system test (
@@ -153,7 +154,7 @@ class TestLinodeConnector(TestCloudConnectorBase):
             cpu.count=1 and
             memory.size=512m and
             net_interface.0.connection = 'net' and
-            net_interface.0.dns_name = 'test' and
+            net_interface.0.dns_name = 'test.domain.com' and
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'lin://linode/ubuntu' and
             disk.0.os.credentials.username = 'user' and
@@ -173,11 +174,13 @@ class TestLinodeConnector(TestCloudConnectorBase):
         driver = MagicMock(['name', 'ex_get_node', 'list_sizes', 'create_volume', 'list_volumes'])
         get_driver.return_value = driver
         driver.name = 'Linode'
+        dns_driver = MagicMock()
+        get_dns_driver.return_value = dns_driver
 
         node = MagicMock(['id', 'state', 'public_ips', 'private_ips', 'driver', 'size'])
         node.id = "1"
         node.state = NodeState.RUNNING
-        node.public_ips = []
+        node.public_ips = ['8.8.8.8']
         node.private_ips = ['10.0.0.1']
         node.driver = driver
         node.size = "small"
@@ -198,11 +201,22 @@ class TestLinodeConnector(TestCloudConnectorBase):
         driver.create_volume.return_value = volume
         driver.list_volumes.return_value = []
 
+        dns_driver.list_zones.return_value = []
+        dns_driver.list_records.return_value = []
+
         success, vm = linode_cloud.updateVMInfo(vm, auth)
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
         self.assertEqual(driver.create_volume.call_args_list[0][0][1], 10)
         self.assertEqual(driver.create_volume.call_args_list[0][1]['node'], node)
+
+        self.assertEquals(dns_driver.create_zone.call_count, 1)
+        self.assertEquals(dns_driver.create_record.call_count, 1)
+        self.assertEquals(dns_driver.create_zone.call_args_list[0][0][0], 'domain.com.')
+        self.assertEquals(dns_driver.create_record.call_args_list[0][0][0], 'test.domain.com.')
+        self.assertEquals(dns_driver.create_record.call_args_list[0][0][2], 'A')
+        self.assertEquals(dns_driver.create_record.call_args_list[0][0][3], '8.8.8.8')
+
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('libcloud.compute.drivers.linode.LinodeNodeDriver')
