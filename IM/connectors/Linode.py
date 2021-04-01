@@ -371,10 +371,10 @@ class LinodeCloudConnector(LibCloudCloudConnector):
 
                     if zone:
                         fqdn = hostname + "." + domain
-                        record = [r for r in driver.list_records(zone) if r.name == fqdn]
+                        record = [r for r in driver.list_records(zone) if r.name == hostname]
                         if not record:
                             self.log_info("Creating DNS record %s." % fqdn)
-                            driver.create_record(fqdn, zone, 'A', ip, dict(TTL_sec=300))
+                            driver.create_record(hostname, zone, 'A', ip, dict(TTL_sec=300))
                         else:
                             self.log_info("DNS record %s exists. Do not create." % fqdn)
 
@@ -392,24 +392,18 @@ class LinodeCloudConnector(LibCloudCloudConnector):
            - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
         """
         try:
-            driver = self.get_dns_driver(auth_data)
-            system = vm.info.systems[0]
-            for net_name in system.getNetworkIDs():
-                num_conn = system.getNumNetworkWithConnection(net_name)
-                ip = system.getIfaceIP(num_conn)
-                (hostname, domain) = vm.getRequestedNameIface(num_conn,
-                                                              default_hostname=Config.DEFAULT_VM_NAME,
-                                                              default_domain=Config.DEFAULT_DOMAIN)
-                if domain != "localdomain" and ip:
-                    if not domain.endswith("."):
-                        domain += "."
+            dns_entries = self.get_dns_entries(vm)
+            if dns_entries:
+                driver = self.get_dns_driver(auth_data)
+                for hostname, domain, ip in dns_entries:
+                    domain = domain[:-1]
                     zone = [z for z in driver.list_zones() if z.domain == domain]
                     if not zone:
                         self.log_info("The DNS zone %s does not exists. Do not delete records." % domain)
                     else:
                         zone = zone[0]
                         fqdn = hostname + "." + domain
-                        record = [r for r in driver.list_records(zone) if r.name == fqdn]
+                        record = [r for r in driver.list_records(zone) if r.name == hostname]
                         if not record:
                             self.log_info("DNS record %s does not exists. Do not delete." % fqdn)
                         else:
