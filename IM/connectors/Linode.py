@@ -361,6 +361,7 @@ class LinodeCloudConnector(LibCloudCloudConnector):
             if dns_entries:
                 driver = self.get_dns_driver(auth_data)
                 for hostname, domain, ip in dns_entries:
+                    domain = domain[:-1]
                     zone = [z for z in driver.list_zones() if z.domain == domain]
                     if not zone:
                         self.log_info("Creating DNS zone %s" % domain)
