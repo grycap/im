@@ -601,7 +601,8 @@ class CloudConnector(LoggerMixin):
         else:
             return name
 
-    def get_dns_entries(self, vm):
+    @staticmethod
+    def get_dns_entries(vm):
         """
         Get the required entries in the to add in the Cloud provider DNS service
 
@@ -615,8 +616,8 @@ class CloudConnector(LoggerMixin):
             num_conn = system.getNumNetworkWithConnection(net_name)
             ip = system.getIfaceIP(num_conn)
             (hostname, domain) = vm.getRequestedNameIface(num_conn,
-                                                            default_hostname=Config.DEFAULT_VM_NAME,
-                                                            default_domain=Config.DEFAULT_DOMAIN)
+                                                          default_hostname=Config.DEFAULT_VM_NAME,
+                                                          default_domain=Config.DEFAULT_DOMAIN)
             if domain != "localdomain" and ip and hostname:
                 if not domain.endswith("."):
                     domain += "."
