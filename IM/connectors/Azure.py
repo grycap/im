@@ -853,16 +853,12 @@ class AzureCloudConnector(CloudConnector):
            - credentials, subscription_id: Authentication data to access cloud provider.
         """
         try:
-            group_name = vm.id.split('/')[0]
-            dns_client = DnsManagementClient(credentials, subscription_id)
-            system = vm.info.systems[0]
-            for net_name in system.getNetworkIDs():
-                num_conn = system.getNumNetworkWithConnection(net_name)
-                ip = system.getIfaceIP(num_conn)
-                (hostname, domain) = vm.getRequestedNameIface(num_conn,
-                                                              default_hostname=Config.DEFAULT_VM_NAME,
-                                                              default_domain=Config.DEFAULT_DOMAIN)
-                if domain != "localdomain" and ip:
+            dns_entries = self.get_dns_entries(vm)
+            if dns_entries:
+                group_name = vm.id.split('/')[0]
+                dns_client = DnsManagementClient(credentials, subscription_id)
+                for hostname, domain, ip in dns_entries:
+                    domain = domain[:-1]
                     zone = None
                     try:
                         zone = dns_client.zones.get(group_name, domain)

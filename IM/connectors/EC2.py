@@ -1232,18 +1232,10 @@ class EC2CloudConnector(CloudConnector):
            - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
         """
         try:
-            region = vm.id.split(";")[0]
-            conn = self.get_route53_connection(region, auth_data)
-            system = vm.info.systems[0]
-            for net_name in system.getNetworkIDs():
-                num_conn = system.getNumNetworkWithConnection(net_name)
-                ip = system.getIfaceIP(num_conn)
-                (hostname, domain) = vm.getRequestedNameIface(num_conn,
-                                                              default_hostname=Config.DEFAULT_VM_NAME,
-                                                              default_domain=Config.DEFAULT_DOMAIN)
-                if domain != "localdomain" and ip:
-                    if not domain.endswith("."):
-                        domain += "."
+            dns_entries = self.get_dns_entries(vm)
+            if dns_entries:
+                conn = self.get_route53_connection('universal', auth_data)
+                for hostname, domain, ip in dns_entries:
                     zone = conn.get_zone(domain)
                     if not zone:
                         self.log_info("Creating DNS zone %s" % domain)
@@ -1276,8 +1268,7 @@ class EC2CloudConnector(CloudConnector):
            - vm(:py:class:`IM.VirtualMachine`): VM information.
            - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
         """
-        region = vm.id.split(";")[0]
-        conn = self.get_route53_connection(region, auth_data)
+        conn = self.get_route53_connection('universal', auth_data)
         system = vm.info.systems[0]
         for net_name in system.getNetworkIDs():
             num_conn = system.getNumNetworkWithConnection(net_name)
