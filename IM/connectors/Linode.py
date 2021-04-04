@@ -24,6 +24,9 @@ try:
     from libcloud.compute.base import NodeImage, NodeLocation
     from libcloud.compute.types import Provider, NodeState
     from libcloud.compute.providers import get_driver
+    from libcloud.dns.types import Provider as DNSProvider
+    from libcloud.dns.types import RecordType
+    from libcloud.dns.providers import get_driver as get_dns_driver
 except Exception as ex:
     print("WARN: Linode library not correctly installed. LinodeCloudConnector will not work!.")
     print(ex)
@@ -70,6 +73,8 @@ class LinodeCloudConnector(LibCloudCloudConnector):
 
     def __init__(self, cloud_info, inf):
         self.auth = None
+        self.driver = None
+        self.dns_driver = None
         LibCloudCloudConnector.__init__(self, cloud_info, inf)
 
     def get_driver(self, auth_data):
@@ -97,6 +102,37 @@ class LinodeCloudConnector(LibCloudCloudConnector):
                 Driver = get_driver(Provider.LINODE)
                 driver = Driver(key=apikey)
                 self.driver = driver
+
+                return driver
+            else:
+                self.log_error("Incorrect auth data")
+                return None
+
+    def get_dns_driver(self, auth_data):
+        """
+        Get the driver from the auth data
+
+        Arguments:
+                - auth(Authentication): parsed authentication tokens.
+
+        Returns: a :py:class:`libcloud.compute.base.NodeDriver` or None in case of error
+        """
+        auths = auth_data.getAuthInfo(self.type)
+        if not auths:
+            raise Exception("No auth data has been specified to Linode.")
+        else:
+            auth = auths[0]
+
+        if self.dns_driver and self.auth.compare(auth_data, self.type):
+            return self.dns_driver
+        else:
+            self.auth = auth_data
+            if 'username' in auth:
+                apikey = auth['username']
+
+                Driver = get_dns_driver(DNSProvider.LINODE)
+                driver = Driver(key=apikey)
+                self.dns_driver = driver
 
                 return driver
             else:
@@ -295,6 +331,7 @@ class LinodeCloudConnector(LibCloudCloudConnector):
                 self.log_debug("VM " + str(vm.id) + " has no node.size info. Not updating system info.")
 
             self.setIPsFromInstance(vm, node)
+            self.add_dns_entries(vm, auth_data)
             self.attach_volumes(vm, node)
         else:
             self.log_warn("Error updating the instance %s. VM not found." % vm.id)
@@ -309,6 +346,86 @@ class LinodeCloudConnector(LibCloudCloudConnector):
             if str(volume.extra['linode_id']) == str(node.id):
                 volumes.append(volume)
         return volumes
+
+    def add_dns_entries(self, vm, auth_data):
+        """
+        Add the required entries in the Google DNS system
+
+        Arguments:
+           - vm(:py:class:`IM.VirtualMachine`): VM information.
+           - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
+        """
+        try:
+            dns_entries = self.get_dns_entries(vm)
+            if dns_entries:
+                driver = self.get_dns_driver(auth_data)
+                for hostname, domain, ip in dns_entries:
+                    domain = domain[:-1]
+                    zone = [z for z in driver.list_zones() if z.domain == domain]
+                    if not zone:
+                        self.log_info("Creating DNS zone %s" % domain)
+                        zone = driver.create_zone(domain)
+                    else:
+                        zone = zone[0]
+                        self.log_info("DNS zone %s exists. Do not create." % domain)
+
+                    if zone:
+                        fqdn = hostname + "." + domain
+                        record = [r for r in driver.list_records(zone) if r.name == hostname]
+                        if not record:
+                            self.log_info("Creating DNS record %s." % fqdn)
+                            driver.create_record(hostname, zone, 'A', ip, dict(TTL_sec=300))
+                        else:
+                            self.log_info("DNS record %s exists. Do not create." % fqdn)
+
+            return True
+        except Exception:
+            self.log_exception("Error creating DNS entries")
+            return False
+
+    def del_dns_entries(self, vm, auth_data):
+        """
+        Delete the added entries in the Google DNS system
+
+        Arguments:
+           - vm(:py:class:`IM.VirtualMachine`): VM information.
+           - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
+        """
+        try:
+            dns_entries = self.get_dns_entries(vm)
+            if dns_entries:
+                driver = self.get_dns_driver(auth_data)
+                for hostname, domain, ip in dns_entries:
+                    domain = domain[:-1]
+                    zone = [z for z in driver.list_zones() if z.domain == domain]
+                    if not zone:
+                        self.log_info("The DNS zone %s does not exists. Do not delete records." % domain)
+                    else:
+                        zone = zone[0]
+                        fqdn = hostname + "." + domain
+                        record = [r for r in driver.list_records(zone) if r.name == hostname]
+                        if not record:
+                            self.log_info("DNS record %s does not exists. Do not delete." % fqdn)
+                        else:
+                            record = record[0]
+                            if record.data != ip:
+                                self.log_info("DNS record %s mapped to unexpected IP: %s != %s."
+                                              "Do not delete." % (fqdn, record.data, ip))
+                            else:
+                                self.log_info("Deleting DNS record %s." % fqdn)
+                                if not driver.delete_record(record):
+                                    self.log_error("Error deleting DNS record %s." % fqdn)
+
+                        # if there are no records (except the NS and SOA auto added ones), delete the zone
+                        all_records = [r for r in driver.list_records(zone)
+                                       if r.type not in [RecordType.NS, RecordType.SOA]]
+                        if not all_records:
+                            driver.delete_zone(zone)
+
+            return True
+        except Exception:
+            self.log_exception("Error deleting DNS entries")
+            return False
 
     def finalize(self, vm, last, auth_data):
         node = self.get_node_with_id(vm.id, auth_data)
@@ -338,6 +455,8 @@ class LinodeCloudConnector(LibCloudCloudConnector):
                     return (False, "Error deleting volumes.")
 
             success = node.destroy()
+
+            self.del_dns_entries(vm, auth_data)
 
             if not success:
                 return (False, "Error destroying node: " + vm.id)

@@ -600,3 +600,27 @@ class CloudConnector(LoggerMixin):
             return "%s-%s" % (name, str(uuid.uuid1()))
         else:
             return name
+
+    @staticmethod
+    def get_dns_entries(vm):
+        """
+        Get the required entries in the to add in the Cloud provider DNS service
+
+        Arguments:
+           - vm(:py:class:`IM.VirtualMachine`): VM information.
+        Returns: List of triplets (record, domain, ip)
+        """
+        res = []
+        system = vm.info.systems[0]
+        for net_name in system.getNetworkIDs():
+            num_conn = system.getNumNetworkWithConnection(net_name)
+            ip = system.getIfaceIP(num_conn)
+            (hostname, domain) = vm.getRequestedNameIface(num_conn,
+                                                          default_hostname=Config.DEFAULT_VM_NAME,
+                                                          default_domain=Config.DEFAULT_DOMAIN)
+            if domain != "localdomain" and ip and hostname:
+                if not domain.endswith("."):
+                    domain += "."
+                res.append((hostname, domain, ip))
+
+        return res
