@@ -103,7 +103,6 @@ topology_template:
            mem_size: 4 GB
         os:
          properties:
-           architecture: x86_64
            type: linux
            distribution: ubuntu
            version: 18.04
