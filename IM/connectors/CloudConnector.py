@@ -594,6 +594,8 @@ class CloudConnector(LoggerMixin):
         if not name:
             name = system.getValue("disk.0.image.name")
         if not name:
+            name = system.name
+        if not name:
             name = default
         name = name.lower().replace("_", "-")
         if unique:
