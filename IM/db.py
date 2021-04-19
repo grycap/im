@@ -297,5 +297,5 @@ try:
         """ Class to return IntegrityError independently of the DB used"""
         pass
 except Exception:
-    class IntegrityError:
+    class IntegrityError(Exception):
         pass
