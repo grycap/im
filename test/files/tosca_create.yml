@@ -99,11 +99,9 @@ topology_template:
         host:
          properties:
            num_cpus: 1
-           disk_size: 10 GB
            mem_size: 4 GB
         os:
          properties:
-           architecture: x86_64
            type: linux
            distribution: ubuntu
            version: 18.04
