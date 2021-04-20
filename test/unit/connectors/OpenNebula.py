@@ -136,7 +136,7 @@ class TestONEConnector(TestCloudConnectorBase):
                        'RULE = [ PROTOCOL = TCP, RULE_TYPE = inbound, RANGE = 9000:9100 ]\n')
         self.assertEqual(one_server.one.secgroup.allocate.call_args_list, [call('user:pass', sg_template)])
         vm_template = """
-            NAME = im-userimage
+            NAME = test
 
             CPU = 1
             VCPU = 1
