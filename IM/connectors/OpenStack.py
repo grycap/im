@@ -514,6 +514,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 added = False
                 for radl_net in vm.info.networks:
                     if radl_net.id not in res and radl_net.isPublic() == is_public:
+                        if radl_net.id not in res:
+                            res[radl_net.id] = []
                         res[radl_net.id].append(ip)
                         added = True
                         break
