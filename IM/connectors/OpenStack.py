@@ -500,18 +500,19 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                             res["#UNMAPPED#"].remove(ip)
                         break
                     else:
-                        if (radl_net.isPublic() == is_public and
-                                vm.getNumNetworkWithConnection(radl_net.id) is not None):
-                            if ip not in res[radl_net.id]:
-                                res[radl_net.id].append(ip)
-                            radl_net.setValue('provider_id', net_name)
-                            if ip in res["#UNMAPPED#"]:
-                                res["#UNMAPPED#"].remove(ip)
-                            break
-                        else:
-                            # the ip not matches the is_public value
-                            if ip not in res["#UNMAPPED#"]:
-                                res["#UNMAPPED#"].append(ip)
+                        if not res[radl_net.id]:
+                            if (radl_net.isPublic() == is_public and
+                                    vm.getNumNetworkWithConnection(radl_net.id) is not None):
+                                if ip not in res[radl_net.id]:
+                                    res[radl_net.id].append(ip)
+                                radl_net.setValue('provider_id', net_name)
+                                if ip in res["#UNMAPPED#"]:
+                                    res["#UNMAPPED#"].remove(ip)
+                                break
+                            else:
+                                # the ip not matches the is_public value
+                                if ip not in res["#UNMAPPED#"]:
+                                    res["#UNMAPPED#"].append(ip)
             else:
                 # It seems to be a floating IP
                 added = False
@@ -603,7 +604,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             for net_name, ip in map_nets.items():
                 if net_name != '#UNMAPPED#':
                     for ipu in ip:
-                        if ip not in ips_assigned:
+                        if ipu not in ips_assigned:
                             num_net = system.getNumNetworkIfaces()
                             if IPAddress(ipu).version == 6:
                                 system.setValue('net_interface.' + str(num_net) + '.ipv6', ipu)
