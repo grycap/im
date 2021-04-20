@@ -368,7 +368,9 @@ class TestOSTConnector(TestCloudConnectorBase):
         node.id = "1"
         node.state = "running"
         node.extra = {'flavorId': 'small', 'volumes_attached': [{'id': 'vol1'}],
-                      'addresses': {'os-lan': [{'addr': '10.0.0.1', 'OS-EXT-IPS:type': 'fixed'}]}}
+                      'addresses': {'os-lan': [{'addr': '10.0.0.1', 'OS-EXT-IPS:type': 'fixed'}],
+                                    'public': [{'version': '4', 'addr': '8.8.8.8'},
+                                               {'version': '6', 'addr': 'fec0:4801:7808:52:16:3eff:fe6e:b7e2'}]}}
         node.public_ips = []
         node.private_ips = ['10.0.0.1']
         node.driver = driver
@@ -421,6 +423,8 @@ class TestOSTConnector(TestCloudConnectorBase):
         success, vm = ost_cloud.updateVMInfo(vm, auth)
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
+        self.assertEquals(vm.info.systems[0].getValue("net_interface.0.ip"), "8.8.8.8")
+        self.assertEquals(vm.info.systems[0].getValue("net_interface.0.ipv6"), "fec0:4801:7808:52:16:3eff:fe6e:b7e2")
         self.assertEquals(vm.info.systems[0].getValue("net_interface.1.ip"), "10.0.0.1")
         self.assertEquals(driver.ex_update_subnet.call_args_list[0][0][0].id, "subnet1")
         self.assertEquals(driver.ex_update_subnet.call_args_list[0][1],
