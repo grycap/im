@@ -161,3 +161,24 @@ class AppDB:
                             return image_basename
 
         return None
+
+    @staticmethod
+    def get_project_ids(site_id):
+        projects = {}
+        # Until it is on the prod instance use the Devel one
+
+        data = AppDB.appdb_call('/rest/1.0/va_providers/%s' % site_id)
+        if (data and 'virtualization:provider' in data and data['virtualization:provider'] and
+                'provider:shares' in data['virtualization:provider'] and
+                data['virtualization:provider']['provider:shares'] and
+                'vo:vo' in data['virtualization:provider']['provider:shares'] and
+                data['virtualization:provider']['provider:shares']['vo:vo']):
+            if isinstance(data['virtualization:provider']['provider:shares']['vo:vo'], list):
+                shares = data['virtualization:provider']['provider:shares']['vo:vo']
+            else:
+                shares = [data['virtualization:provider']['provider:shares']['vo:vo']]
+
+            for vo in shares:
+                projects[vo["#text"]] = vo['@projectid']
+
+        return projects
