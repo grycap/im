@@ -476,7 +476,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     if net_provider_id:
                         if net_name == net_provider_id:
                             if radl_net.isPublic() == is_public:
-                                res[radl_net.id].append(ip)
+                                if ip not in res[radl_net.id]:
+                                    res[radl_net.id].append(ip)
                                 if ip in res["#UNMAPPED#"]:
                                     res["#UNMAPPED#"].remove(ip)
                                 break
@@ -492,7 +493,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                         # in this case the net is not connected to this VM
                         continue
                     elif net_cidr and IPAddress(ip) in IPNetwork(net_cidr):
-                        res[radl_net.id].append(ip)
+                        if ip not in res[radl_net.id]:
+                            res[radl_net.id].append(ip)
                         radl_net.setValue('provider_id', net_name)
                         if ip in res["#UNMAPPED#"]:
                             res["#UNMAPPED#"].remove(ip)
@@ -500,7 +502,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     else:
                         if (radl_net.isPublic() == is_public and
                                 vm.getNumNetworkWithConnection(radl_net.id) is not None):
-                            res[radl_net.id].append(ip)
+                            if ip not in res[radl_net.id]:
+                                res[radl_net.id].append(ip)
                             radl_net.setValue('provider_id', net_name)
                             if ip in res["#UNMAPPED#"]:
                                 res["#UNMAPPED#"].remove(ip)
@@ -516,7 +519,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     if radl_net.id not in res and radl_net.isPublic() == is_public:
                         if radl_net.id not in res:
                             res[radl_net.id] = []
-                        res[radl_net.id].append(ip)
+                        if ip not in res[radl_net.id]:
+                            res[radl_net.id].append(ip)
                         added = True
                         break
 
