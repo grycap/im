@@ -233,5 +233,6 @@ class TestEGIConnector(TestCloudConnectorBase):
         self.assertEqual(driver.create_node.call_args_list[0][1]['ex_blockdevicemappings'], mappings)
         self.assertEqual(driver.ex_create_subnet.call_args_list[0][0][2], "10.0.1.0/24")
 
+
 if __name__ == '__main__':
     unittest.main()
