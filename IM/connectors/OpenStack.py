@@ -470,11 +470,14 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 for radl_net in vm.info.networks:
                     net_provider_id = radl_net.getValue('provider_id')
                     net_cidr = radl_net.getValue('cidr')
+                    if radl_net.id not in res:
+                        res[radl_net.id] = []
 
                     if net_provider_id:
                         if net_name == net_provider_id:
                             if radl_net.isPublic() == is_public:
-                                res[radl_net.id] = ip
+                                if ip not in res[radl_net.id]:
+                                    res[radl_net.id].append(ip)
                                 if ip in res["#UNMAPPED#"]:
                                     res["#UNMAPPED#"].remove(ip)
                                 break
@@ -482,19 +485,26 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                                 # the ip not matches the is_public value
                                 if ip not in res["#UNMAPPED#"]:
                                     res["#UNMAPPED#"].append(ip)
+                        else:
+                            # the ip not matches the is_public value
+                            if ip not in res["#UNMAPPED#"]:
+                                res["#UNMAPPED#"].append(ip)
                     elif net_cidr and "*" in net_cidr:
                         # in this case the net is not connected to this VM
                         continue
                     elif net_cidr and IPAddress(ip) in IPNetwork(net_cidr):
-                        res[radl_net.id] = ip
+                        if ip not in res[radl_net.id]:
+                            res[radl_net.id].append(ip)
                         radl_net.setValue('provider_id', net_name)
                         if ip in res["#UNMAPPED#"]:
                             res["#UNMAPPED#"].remove(ip)
                         break
                     else:
-                        if radl_net.id not in res:
-                            if radl_net.isPublic() == is_public and vm.getNumNetworkWithConnection(radl_net.id):
-                                res[radl_net.id] = ip
+                        if not res[radl_net.id]:
+                            if (radl_net.isPublic() == is_public and
+                                    vm.getNumNetworkWithConnection(radl_net.id) is not None):
+                                if ip not in res[radl_net.id]:
+                                    res[radl_net.id].append(ip)
                                 radl_net.setValue('provider_id', net_name)
                                 if ip in res["#UNMAPPED#"]:
                                     res["#UNMAPPED#"].remove(ip)
@@ -508,7 +518,10 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 added = False
                 for radl_net in vm.info.networks:
                     if radl_net.id not in res and radl_net.isPublic() == is_public:
-                        res[radl_net.id] = ip
+                        if radl_net.id not in res:
+                            res[radl_net.id] = []
+                        if ip not in res[radl_net.id]:
+                            res[radl_net.id].append(ip)
                         added = True
                         break
 
@@ -553,7 +566,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     ip = ipo['addr']
                     is_private = any([IPAddress(ip) in IPNetwork(mask) for mask in Config.PRIVATE_NET_MASKS])
 
-                    if ipo['OS-EXT-IPS:type'] == 'floating':
+                    if 'OS-EXT-IPS:type' in ipo and ipo['OS-EXT-IPS:type'] == 'floating':
                         ip_net_map[ip] = (None, not is_private)
                     else:
                         ip_net_map[ip] = (net_name, not is_private)
@@ -577,12 +590,12 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     system.delValue('net_interface.%d.ip' % i)
                 net_name = system.getValue("net_interface." + str(i) + ".connection")
                 if net_name in map_nets:
-                    ip = map_nets[net_name]
-                    if IPAddress(ip).version == 6:
-                        system.setValue("net_interface." + str(i) + ".ipv6", ip)
-                    else:
-                        system.setValue("net_interface." + str(i) + ".ip", ip)
-                    ips_assigned.append(ip)
+                    for ip in map_nets[net_name]:
+                        if IPAddress(ip).version == 6:
+                            system.setValue("net_interface." + str(i) + ".ipv6", ip)
+                        else:
+                            system.setValue("net_interface." + str(i) + ".ip", ip)
+                        ips_assigned.append(ip)
                 i += 1
 
             # For IPs not correctly mapped
@@ -590,13 +603,14 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             # not correctly mapped
             for net_name, ip in map_nets.items():
                 if net_name != '#UNMAPPED#':
-                    if ip not in ips_assigned:
-                        num_net = system.getNumNetworkIfaces()
-                        if IPAddress(ip).version == 6:
-                            system.setValue('net_interface.' + str(num_net) + '.ipv6', ip)
-                        else:
-                            system.setValue('net_interface.' + str(num_net) + '.ip', ip)
-                        system.setValue('net_interface.' + str(num_net) + '.connection', net_name)
+                    for ipu in ip:
+                        if ipu not in ips_assigned:
+                            num_net = system.getNumNetworkIfaces()
+                            if IPAddress(ipu).version == 6:
+                                system.setValue('net_interface.' + str(num_net) + '.ipv6', ipu)
+                            else:
+                                system.setValue('net_interface.' + str(num_net) + '.ip', ipu)
+                            system.setValue('net_interface.' + str(num_net) + '.connection', net_name)
                 else:
                     pub_ips = []
                     priv_ips = []

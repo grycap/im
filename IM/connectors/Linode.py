@@ -240,7 +240,7 @@ class LinodeCloudConnector(LibCloudCloudConnector):
 
         instance_type = self.get_instance_type(driver, system)
 
-        instance_name = self.gen_instance_name(system)[:32]
+        instance_name = self.gen_instance_name(system)[:31]
         if instance_name[-1:] == "-":
             instance_name = instance_name[:-1]
 
