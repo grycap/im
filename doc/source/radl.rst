@@ -302,7 +302,7 @@ machine.  The supported features are:
 
    * ``one://<server>:<port>/<image-id>``, for OpenNebula;
    * ``one://<server>:<port>/<image-name>``, for OpenNebula;
-   * ``ost://<server>:<port>/<image-id>``, for OpenStack;
+   * ``ost://<server>:<port>/<image-id>``, for OpenStack or EGI;
    * ``aws://<region>/<ami-id>``, for Amazon Web Service;
    * ``aws://<region>/<snapshot-id>``, for Amazon Web Service;
    * ``aws://<region>/<snapshot-name>``, for Amazon Web Service;
@@ -311,7 +311,7 @@ machine.  The supported features are:
    * ``azr://<publisher>/<offer>/<sku>/<version>``, for Microsoft Azure;
    * ``azr://[snapshots|disk]/<rgname>/<diskname>``, for Microsoft Azure;
    * ``<fedcloud_endpoint_url>/<image_id>``, for FedCloud OCCI connector.
-   * ``appdb://<site_name>/<apc_name>?<vo_name>``, for FedCloud OCCI or OpenStack connector using AppDB info (from vers. 1.6.0 and 1.8.6).
+   * ``appdb://<site_name>/<apc_name>?<vo_name>``, for FedCloud OCCI, OpenStack or EGI connectors using AppDB info (from vers. 1.6.0 and 1.8.6).
    * ``docker://<docker_image>``, for Docker images.
    * ``fbw://<fns_server>/<image-id>``, for FogBow images.
    * ``lin://linode/<image-id>``, for Linode images.
