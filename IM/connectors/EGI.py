@@ -24,6 +24,7 @@ try:
 except ImportError:
     from urllib.parse import urlparse
 
+
 class EGICloudConnector(OpenStackCloudConnector):
     """
     Cloud Launcher to EGI using LibCloud
@@ -31,6 +32,10 @@ class EGICloudConnector(OpenStackCloudConnector):
 
     type = "EGI"
     """str with the name of the provider."""
+
+    def __init__(self, cloud_info, inf):
+        self.egi_auth = None
+        OpenStackCloudConnector.__init__(self, cloud_info, inf)
 
     def get_driver(self, auth_data):
         """
@@ -47,53 +52,58 @@ class EGICloudConnector(OpenStackCloudConnector):
         else:
             auth = auths[0]
 
-        if 'host' in auth and 'vo' in auth and 'token' in auth:
-            ost_auth = {'id': auth['id'], 'type': 'OpenStack', 'username': 'egi.eu', 'tenant': 'openid',
-                        'password': auth['token'], 'auth_version': '3.x_oidc_access_token'}
-            site_id = AppDB.get_site_id(auth["host"])
-            site_url = AppDB.get_site_url(site_id)
-            ost_auth['host'] = site_url
-            projects = AppDB.get_project_ids(site_id)
-            # If the VO does not appear in the project IDs
-            if auth['vo'] in projects:
-                ost_auth['domain'] = projects[auth['vo']]
-            else:
-                # let's use the VO name directly
-                ost_auth['domain'] = auth['vo']
-
-            new_auth = Authentication([ost_auth])
-
-            orig_cloud = self.cloud
-            self.cloud = CloudInfo.get_cloud_list(new_auth)[0]
-            self.type = OpenStackCloudConnector.type
-            driver = OpenStackCloudConnector.get_driver(self, new_auth)
-            self.type = EGICloudConnector.type
-            self.cloud = orig_cloud
-            return driver
+        if self.driver and self.egi_auth.compare(auth_data, self.type, self.cloud.server):
+            return self.driver
         else:
-            self.log_error("No correct auth data has been specified to EGI: host, vo, and token")
-            raise Exception("No correct auth data has been specified to EG: host, vo, and token")
+            self.egi_auth = auth_data
+
+            if 'host' in auth and 'vo' in auth and 'token' in auth:
+                ost_auth = {'id': auth['id'], 'type': 'OpenStack', 'username': 'egi.eu', 'tenant': 'openid',
+                            'password': auth['token'], 'auth_version': '3.x_oidc_access_token', 'vo': auth['vo']}
+                site_id = AppDB.get_site_id(auth["host"], stype="openstack")
+                site_url = AppDB.get_site_url(site_id)
+                if not site_url:
+                    raise Exception("Invalid site name '%s'. Not found at AppDB." % auth['host'])
+                ost_auth['host'] = site_url
+                projects = AppDB.get_project_ids(site_id)
+                # If the VO does not appear in the project IDs
+                if auth['vo'] in projects:
+                    ost_auth['domain'] = projects[auth['vo']]
+                else:
+                    # let's use the VO name directly
+                    ost_auth['domain'] = auth['vo']
+
+                if 'api_version' in auth:
+                    ost_auth['api_version'] = auth['api_version']
+
+                new_auth = Authentication([ost_auth])
+
+                orig_cloud = self.cloud
+                self.cloud = CloudInfo.get_cloud_list(new_auth)[0]
+                self.type = OpenStackCloudConnector.type
+                driver = OpenStackCloudConnector.get_driver(self, new_auth)
+                self.type = EGICloudConnector.type
+                self.cloud = orig_cloud
+
+                self.driver = driver
+                return driver
+            else:
+                self.log_error("No correct auth data has been specified to EGI: host, vo, and token")
+                raise Exception("No correct auth data has been specified to EG: host, vo, and token")
 
     def concrete_system(self, radl_system, str_url, auth_data):
         url = urlparse(str_url)
         protocol = url[0]
         src_host = url[1].split(':')[0]
 
-        if protocol == "appdb":
-            site_url, image_id, msg = AppDB.get_image_data(str_url, "openstack")
-            if not image_id or not site_url:
-                self.log_error(msg)
-                return None
+        if protocol in ["ost", "appdb"] and self.cloud.server and not self.cloud.protocol:
+            site_host = ""
+            if protocol == "ost":
+                site_url = AppDB.get_site_url(self.cloud.server)
+                site_host = urlparse(site_url)[1].split(':')[0]
 
-            protocol = "ost"
-            url = urlparse(site_url)
-            src_host = url[1].split(':')[0]
-
-        if protocol == "ost" and self.cloud.server and not self.cloud.protocol:
-            site_url = AppDB.get_site_url(self.cloud.server)
-            site_host = urlparse(str_url)[1].split(':')[0]
-
-            if protocol == "ost" and site_host == src_host:
+            if ((protocol == "ost" and site_host == src_host) or
+                    (protocol == "appdb" and src_host == self.cloud.server)):
                 driver = self.get_driver(auth_data)
 
                 res_system = radl_system.clone()
