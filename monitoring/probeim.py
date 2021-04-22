@@ -51,7 +51,7 @@ class ResponseIM:
 
 class IM:
 
-    def __init__(self, url, user="mon_user", password="mon_test_1X", token=None, verify=False, timeout=5):
+    def __init__(self, url, user, password, token=None, verify=False, timeout=5):
         self.url = url
         self.verify_ssl = verify
         self.timeout = timeout
@@ -65,6 +65,7 @@ class IM:
 
         authoriz = 'id = dummy; type = Dummy;\\nid = im; type = InfrastructureManager;'
 
+        # Token has prececende over user/pass auth
         if self.token:
             authoriz += " token = %s;" % self.token
         else:
@@ -78,7 +79,7 @@ class IM:
 
         return UPD_HEADERS
 
-    def requestIM(self, method, url, data={}):
+    def requestIM(self, method, url, data=None):
         try:
             logging.debug(method, self.url, data, self.headers)
             r = requests.request(method, url, data=data, headers=self.headers,
@@ -260,9 +261,9 @@ def log_setup(loglevel, log_file):
     logger.setLevel(lvl)
 
 
-def main(url, token, delay=0.5):
+def main(url, token, username, password, delay=0.5):
 
-    im = IM(url, token=token)
+    im = IM(url, username, password, token)
 
     vi = im.get_im_version()
 
@@ -348,15 +349,17 @@ if __name__ == '__main__':
         # Parse input arguments
         parser = argparse.ArgumentParser(description='Monitorize IM operations.')
         parser.add_argument('-u', '--url', help='URL of the IM REST API endpoint', default="http://localhost:8800")
-        parser.add_argument('-t', '--token', help='OIDC access token', default=None)
+        parser.add_argument('-t', '--token', help='OIDC access token to autenticate with IM', default=None)
         parser.add_argument('-f', '--log_file', help='Path to the log file', default=None)
         parser.add_argument('-l', '--log_level', help='Set the log level', default='INFO')
+        parser.add_argument('-p', '--password', help='Password to autenticate with IM', default='monz')
+        parser.add_argument('-n', '--username', help='Username to autenticate with IM', default='mon_test_1X')
         args = parser.parse_args()
 
         log_setup(args.log_level, args.log_file)
         logging.info("Initializing --------------")
 
-        rc, msg, mean_time = main(args.url, args.token)
+        rc, msg, mean_time = main(args.url, args.token, args.username, args.password)
     except Exception as ex:
         rc = 3
         msg = str(ex)
