@@ -23,7 +23,7 @@ class TestProbeIMZabbix(unittest.TestCase):
     def test_list_infrastructure(self, request_get_mock):
         """ Testing IM.list_infrastructure """
         request_get_mock.return_value = MockResponse({"key2": "value2"}, 200)
-        im = probeim.IM("http://server.com:8800")
+        im = probeim.IM("http://server.com:8800", "", "")
         rl = im.list_infrastructure()
         self.assertEqual(rl.statuscode, 200)
         self.assertEqual(rl.info, 'list method OK')
@@ -32,7 +32,7 @@ class TestProbeIMZabbix(unittest.TestCase):
     def test_create_infrastructure(self, request_post_mock):
         """ Testing IM.create_infrastructure """
         request_post_mock.return_value = MockResponse('{"uri": "any/url"}', 200)
-        im = probeim.IM("http://server.com:8800")
+        im = probeim.IM("http://server.com:8800", "", "")
         rc = im.create_infrastructure()
         jsonuri = json.loads(str(request_post_mock.return_value.info))
         self.assertEqual(rc.statuscode, 200)
@@ -42,7 +42,7 @@ class TestProbeIMZabbix(unittest.TestCase):
     def test_start_infrastructure(self, request_put_mock):
         """ Testing IM.start_infrastructure """
         request_put_mock.return_value = MockResponse({}, 200)
-        im = probeim.IM("http://server.com:8800")
+        im = probeim.IM("http://server.com:8800", "", "")
         rc = im.start_infrastructure('any/url')
         self.assertEqual(rc.statuscode, 200)
         self.assertEqual(rc.info, 'start method OK')
@@ -51,7 +51,7 @@ class TestProbeIMZabbix(unittest.TestCase):
     def test_create_vm(self, request_vmpost_mock):
         """ Testing IM.create_vm """
         request_vmpost_mock.return_value = MockResponse({"uri-list": []}, 200)
-        im = probeim.IM("http://server.com:8800")
+        im = probeim.IM("http://server.com:8800", "", "")
         cv = im.create_vm('any/url')
         self.assertEqual(cv.statuscode, 200)
         self.assertEqual(cv.info, 'Creation of VM is OK')
@@ -60,7 +60,7 @@ class TestProbeIMZabbix(unittest.TestCase):
     def test_delete_vm(self, request_delete_mock):
         """ Testing IM.delete_infrastructure """
         request_delete_mock.return_value = MockResponse({}, 200)
-        im = probeim.IM("http://server.com:8800")
+        im = probeim.IM("http://server.com:8800", "", "")
         dv = im.delete_infrastructure('any/url')
         self.assertEqual(dv.statuscode, 200)
         self.assertEqual(dv.info, 'delete_infrastructure is OK')
@@ -69,7 +69,7 @@ class TestProbeIMZabbix(unittest.TestCase):
     def test_get_infrastructure_vms(self, get_infrastructure_vms):
         """ Testing IM.get_infrastructure_vms """
         get_infrastructure_vms.return_value = MockResponse('{"uri-list": [{"uri": "uri1"}]}', 200)
-        im = probeim.IM("http://server.com:8800")
+        im = probeim.IM("http://server.com:8800", "", "")
         dv = im.get_infrastructure_vms('any/url')
         self.assertEqual(dv.statuscode, 200)
         self.assertEqual(dv.info, [{"uri": "uri1"}])
@@ -78,7 +78,7 @@ class TestProbeIMZabbix(unittest.TestCase):
     def test_get_im_version(self, get_im_version):
         """ Testing IM.get_im_version """
         get_im_version.return_value = MockResponse('{"version": "1.10.0"}', 200)
-        im = probeim.IM("http://server.com:8800")
+        im = probeim.IM("http://server.com:8800", "", "")
         dv = im.get_im_version()
         self.assertEqual(dv.statuscode, 200)
         self.assertEqual(dv.info, 'get version method OK')
