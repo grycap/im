@@ -25,10 +25,9 @@ from .CloudConn import TestCloudConnectorBase
 from IM.CloudInfo import CloudInfo
 from IM.auth import Authentication
 from radl import radl_parse
-from IM.VirtualMachine import VirtualMachine
 from IM.InfrastructureInfo import InfrastructureInfo
 from IM.connectors.EGI import EGICloudConnector
-from mock import patch, MagicMock, call
+from mock import patch, MagicMock
 
 
 class TestEGIConnector(TestCloudConnectorBase):
