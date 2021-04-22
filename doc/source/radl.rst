@@ -311,7 +311,8 @@ machine.  The supported features are:
    * ``azr://<publisher>/<offer>/<sku>/<version>``, for Microsoft Azure;
    * ``azr://[snapshots|disk]/<rgname>/<diskname>``, for Microsoft Azure;
    * ``<fedcloud_endpoint_url>/<image_id>``, for FedCloud OCCI connector.
-   * ``appdb://<site_name>/<apc_name>?<vo_name>``, for FedCloud OCCI, OpenStack or EGI connectors using AppDB info (from vers. 1.6.0 and 1.8.6).
+   * ``appdb://<site_name>/<apc_name>?<vo_name>``, for FedCloud OCCI, OpenStack or EGI connectors using AppDB info (from vers. 1.6.0, 1.8.6 and 1.10.2 respectively).
+     In case of EGI connector the ``vo_name`` is not required as it will be get from auth data.
    * ``docker://<docker_image>``, for Docker images.
    * ``fbw://<fns_server>/<image-id>``, for FogBow images.
    * ``lin://linode/<image-id>``, for Linode images.
