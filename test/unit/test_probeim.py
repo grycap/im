@@ -100,7 +100,7 @@ class TestProbeIMZabbix(unittest.TestCase):
         create.return_value = MockResponse("any/url", 200)
         get_im_version.return_value = MockResponse('{"version": "1.10.0"}', 200)
         get_infrastructure_vms.side_effect = [MockResponse(["vm"], 200), MockResponse(["vm", "vm2"], 200)]
-        rc, _, _ = probeim.main("", None)
+        rc, _, _ = probeim.main("", None, "user", "pass")
         self.assertEqual(rc, 0)
 
 
