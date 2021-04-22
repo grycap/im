@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/python3
 import time
 import os
 import argparse
@@ -15,7 +15,7 @@ try:
 except Exception:
     pass
 
-DEFAULT_RADL = """
+CREATE_RADL = """
 network net (outbound = 'no')
 system small_node (
   cpu.arch = 'x86_64' and
@@ -26,6 +26,12 @@ system small_node (
   disk.0.image.url = 'dummy://image' and
   disk.0.os.credentials.username = 'dummy'
 )
+deploy small_node 1
+"""
+
+ADD_RADL = """
+network net
+system small_node
 deploy small_node 1
 """
 
@@ -107,12 +113,7 @@ class IM:
 
     def create_infrastructure(self):
 
-        try:
-            radl = read_file_as_string('./conf/test.radl')
-        except Exception as ex:
-            logging.warn("Cannot find conf/test.radl. Using default. %s" % ex)
-            radl = DEFAULT_RADL
-        r = self.requestIM('POST', self.url + "/infrastructures", radl)
+        r = self.requestIM('POST', self.url + "/infrastructures", CREATE_RADL)
 
         if r.statuscode == 200:
             try:
@@ -153,12 +154,7 @@ class IM:
 
     def create_vm(self, uri_inf_id):
 
-        try:
-            radl = read_file_as_string('./conf/test.radl')
-        except Exception as ex:
-            logging.warn("Cannot find conf/test.radl. Using default. %s" % ex)
-            radl = DEFAULT_RADL
-        r = self.requestIM('POST', uri_inf_id, radl)
+        r = self.requestIM('POST', uri_inf_id, ADD_RADL)
 
         if r.statuscode == 200:
             ret = ResponseIM(r.statuscode, 'Creation of VM is OK')
@@ -189,6 +185,43 @@ class IM:
             except ValueError as e:
                 ret = ResponseIM(111, e)
                 logging.error("delete_infrastructure" + str(e))
+
+        return ret
+
+    def get_infrastructure_vms(self, uri_inf_id):
+
+        r = self.requestIM('GET', uri_inf_id)
+
+        if r.statuscode == 200:
+            json_data = json.loads(r.info)
+            ret = ResponseIM(r.statuscode, json_data['uri-list'])
+        elif r.statuscode == 111:
+            ret = ResponseIM(r.statuscode, r.info)
+        else:
+            try:
+                json_data = json.loads(r.info)
+                ret = ResponseIM(r.statuscode, json_data['message'])
+            except ValueError as e:
+                ret = ResponseIM(111, e)
+                logging.error("get_infrastructure_vms" + str(e))
+
+        return ret
+
+    def get_im_version(self):
+
+        r = self.requestIM('GET', self.url + "/version")
+
+        if r.statuscode == 200:
+            ret = ResponseIM(r.statuscode, 'get version method OK')
+        elif r.statuscode == 111:
+            ret = ResponseIM(r.statuscode, r.info)
+        else:
+            try:
+                json_data = json.loads(r.info)
+                ret = ResponseIM(r.statuscode, json_data['version'])
+            except ValueError as e:
+                ret = ResponseIM(111, e)
+                logging.error("get_infrastructure_vms" + str(e))
 
         return ret
 
@@ -230,6 +263,12 @@ def main(url, token, delay=0.5):
 
     im = IM(url, token=token)
 
+    vi = im.get_im_version()
+
+    if vi.statuscode != 200:
+        logging.error("Could NOT get IM version: %s" % vi.info)
+        return 2, str(vi.info), 0
+
     # CREATE INFRASTRUCTURE
     ci = im.create_infrastructure()
     url_infr = ci.info
@@ -241,46 +280,61 @@ def main(url, token, delay=0.5):
         logging.error("Could NOT start CREATION INFRASTRUCTURE process: %s" % ci.info)
         return 2, str(ci.info), 0
 
-    elif ci.statuscode == 200:
-        # START INFRASTRUCTUREWARNING
-        time.sleep(delay)
-        si = im.start_infrastructure(url_infr)
-
-        if si.statuscode == 200:
-
-            time.sleep(delay)
-            # LIST INFRASTRUCTURE
-            li = im.list_infrastructure()
-
-            if li.statuscode == 200:
-                # CREATE VM
-                time.sleep(delay)
-                cv = im.create_vm(url_infr)
-
-                if cv.statuscode == 200:
-                    # DELETE INFRASTRUCTURE
-                    time.sleep(delay)
-                    di = im.delete_infrastructure(url_infr)
-
-                    if di.statuscode == 200:
-                        logging.info("All operations have been completed successfully.")
-                        return 0, "All operations have been completed successfully.", im.get_mean_response_time()
-                    else:
-                        logging.error("Infrastructure could NOT be DELETED")
-                        return 1, str(di.info), im.get_mean_response_time()
-
-                else:
-                    logging.error("VM could NOT be CREATED")
-                    return 1, str(cv.info), im.get_mean_response_time()
-            else:
-                logging.error("Infrastructure could NOT be LISTED")
-                return 1, str(li.info), im.get_mean_response_time()
-        else:
-            logging.error("Infrastructure could NOT be STARTED")
-            return 1, str(si.info), im.get_mean_response_time()
-    else:
+    elif ci.statuscode != 200:
         logging.error("Infrastructure could NOT be CREATED")
         return 1, str(ci.info), im.get_mean_response_time()
+
+    # GET VMS
+    vms = im.get_infrastructure_vms(url_infr)
+    if vms.statuscode == 200:
+        if len(vms.info) != 1:
+            return 1, "Unexpected number of VMs: %s != 1" % vms.info, im.get_mean_response_time()
+    else:
+        return 1, "Error getting infrastructure VMs", im.get_mean_response_time()
+
+    # START INFRASTRUCTURE
+    time.sleep(delay)
+    si = im.start_infrastructure(url_infr)
+
+    if si.statuscode != 200:
+        logging.error("Infrastructure could NOT be STARTED")
+        return 1, str(si.info), im.get_mean_response_time()
+
+    time.sleep(delay)
+    # LIST INFRASTRUCTURE
+    li = im.list_infrastructure()
+
+    if li.statuscode != 200:
+        logging.error("Infrastructure could NOT be LISTED")
+        return 1, str(li.info), im.get_mean_response_time()
+    
+    # CREATE VM
+    time.sleep(delay)
+    cv = im.create_vm(url_infr)
+
+    if cv.statuscode != 200:
+        logging.error("VM could NOT be CREATED")
+        return 1, str(cv.info), im.get_mean_response_time()
+
+    # GET VMS
+    vms = im.get_infrastructure_vms(url_infr)
+    if vms.statuscode == 200:
+        if len(vms.info) != 2:
+            return 1, "Unexpected number of VMs: %s != 2" % vms.info, im.get_mean_response_time()
+    else:
+        return 1, "Error getting infrastructure VMs", im.get_mean_response_time()
+
+    # DELETE INFRASTRUCTURE
+    time.sleep(delay)
+    di = im.delete_infrastructure(url_infr)
+
+    if di.statuscode != 200:
+        logging.error("Infrastructure could NOT be DELETED")
+        return 1, str(di.info), im.get_mean_response_time()
+
+    logging.info("All operations have been completed successfully.")
+    return 0, "All operations have been completed successfully.", im.get_mean_response_time()
+
 
 # ----- RUN -----------------------------------------------------------------
 
