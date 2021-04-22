@@ -347,7 +347,7 @@ if __name__ == '__main__':
         # Parse input arguments
         parser = argparse.ArgumentParser(description='Monitorize IM operations.')
         parser.add_argument('-u', '--url', help='URL of the IM REST API endpoint', default="http://localhost:8800")
-        parser.add_argument('-t', '--token', help='STRING of access token', default=None)
+        parser.add_argument('-t', '--token', help='OIDC access token', default=None)
         parser.add_argument('-f', '--log_file', help='Path to the log file', default=None)
         parser.add_argument('-l', '--log_level', help='Set the log level', default='INFO')
         args = parser.parse_args()
