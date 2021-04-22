@@ -102,7 +102,7 @@ class AppDB:
         return None
 
     @staticmethod
-    def get_image_data(str_url, stype="occi"):
+    def get_image_data(str_url, stype="occi", vo=None):
         """
         The url has this format: appdb://UPV-GRyCAP/egi.docker.ubuntu.16.04?fedcloud.egi.eu
         or this one appdb://UPV-GRyCAP/83d5e854-a128-5b1f-9457-d32e10a720a6:8135
@@ -130,6 +130,8 @@ class AppDB:
                     return None, None, "No image ID returned from EGI AppDB for image: %s/%s." % (site_id,
                                                                                                   image_name)
             else:
+                if not vo_name:
+                    vo_name = vo
                 image_id = AppDB.get_image_id(site_id, image_name, vo_name)
                 if not image_id:
                     return None, None, "No image ID returned from EGI AppDB for image: %s/%s/%s." % (site_id,
@@ -161,3 +163,24 @@ class AppDB:
                             return image_basename
 
         return None
+
+    @staticmethod
+    def get_project_ids(site_id):
+        projects = {}
+        # Until it is on the prod instance use the Devel one
+
+        data = AppDB.appdb_call('/rest/1.0/va_providers/%s' % site_id)
+        if (data and 'virtualization:provider' in data and data['virtualization:provider'] and
+                'provider:shares' in data['virtualization:provider'] and
+                data['virtualization:provider']['provider:shares'] and
+                'vo:vo' in data['virtualization:provider']['provider:shares'] and
+                data['virtualization:provider']['provider:shares']['vo:vo']):
+            if isinstance(data['virtualization:provider']['provider:shares']['vo:vo'], list):
+                shares = data['virtualization:provider']['provider:shares']['vo:vo']
+            else:
+                shares = [data['virtualization:provider']['provider:shares']['vo:vo']]
+
+            for vo in shares:
+                projects[vo["#text"]] = vo['@projectid']
+
+        return projects

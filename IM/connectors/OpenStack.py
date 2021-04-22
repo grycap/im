@@ -1052,6 +1052,15 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         return res
 
+    def get_vo_name(self, auth_data):
+        """Get vo field from auth data if present"""
+        auths = auth_data.getAuthInfo(self.type, self.cloud.server)
+        if auths:
+            auth = auths[0]
+            if 'vo' in auth and auth['vo']:
+                return auth['vo']
+        return None
+
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         driver = self.get_driver(auth_data)
 
@@ -1059,7 +1068,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         image_url = system.getValue("disk.0.image.url")
         if urlparse(image_url)[0] == "appdb":
-            _, image_id, msg = AppDB.get_image_data(image_url, "openstack")
+            vo = self.get_vo_name(auth_data)
+            _, image_id, msg = AppDB.get_image_data(image_url, "openstack", vo)
             if not image_id:
                 self.log_error(msg)
                 raise Exception("Error in appdb image: %s" % msg)
