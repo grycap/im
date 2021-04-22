@@ -204,7 +204,7 @@ The available keys are:
 * ``type`` indicates the service that refers the credential. The services
   supported are ``InfrastructureManager``, ``VMRC``, ``OpenNebula``, ``EC2``,, ``FogBow``, 
   ``OpenStack``, ``OCCI``, ``LibCloud``, ``Docker``, ``GCE``, ``Azure``, ``AzureClassic``,
-  ``Kubernetes``, ``vSphere``, ``Linode`` and ``Orange``.
+  ``Kubernetes``, ``vSphere``, ``Linode``, ``Orange`` and ``EGI``.
 
 * ``username`` indicates the user name associated to the credential. In EC2
   it refers to the *Access Key ID*. In GCE it refers to *Service Account’s Email Address*. 
@@ -220,6 +220,7 @@ The available keys are:
   This field is only used in the OpenStack and Orange plugins.
 
 * ``host`` indicates the address of the access point to the cloud provider.
+  In case of EGI connector it indicates the site name.
   This field is not used in IM, GCE, Azure, and EC2 credentials.
   
 * ``proxy`` indicates the content of the proxy file associated to the credential.
@@ -247,7 +248,10 @@ The available keys are:
   plugin check the documentation of the Azure python SDK:
   `here <https://docs.microsoft.com/en-us/python/azure/python-sdk-azure-authenticate?view=azure-python>`_
 
-* ``token`` indicates the OpenID token associated to the credential. This field is used in the OCCI plugin (from version 1.6.2). 
+* ``token`` indicates the OpenID token associated to the credential. This field is used in the EGI and OCCI plugins. 
+
+* ``vo`` indicates the VO name associated to the credential. This field is used in the EGI plugin. 
+
 
 OpenStack additional fields
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -341,6 +345,9 @@ So the auth line will be like that::
 
    id = ost; type = OpenStack; host = https://ostserver:5000; username = egi.eu; tenant = openid; password = egi_aai_token_value; auth_version = 3.x_oidc_access_token; domain = project_name
 
+From IM version 1.10.2 the EGI connector is available and you can use this kind of auth line::
+
+   id = egi; type = EGI; host = CESGA; vo = vo.access.egi.eu; token = egi_aai_token_value
 
 Open Telekom Cloud
 ++++++++++++++++++
@@ -397,6 +404,8 @@ An example of the auth file::
    id = linode; type = Linode; username = apikey
    # Orange Flexible Cloud auth data
    id = orange; type = Orange; username = usern; password = pass; domain = DOMAIN; region = region; tenant = tenant
+   #  EGI auth data
+   id = egi; type = EGI; host = SITE_NAME; vo = vo_name; token = egi_aai_token_value
 
 IM Server does not store the credentials used in the creation of
 infrastructures. Then the user has to provide them in every call of
