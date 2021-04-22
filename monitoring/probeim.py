@@ -35,6 +35,7 @@ system small_node
 deploy small_node 1
 """
 
+
 def read_file_as_string(file_name):
     tests_path = os.path.dirname(os.path.abspath(__file__))
     abs_file_path = os.path.join(tests_path, file_name)
@@ -307,7 +308,7 @@ def main(url, token, delay=0.5):
     if li.statuscode != 200:
         logging.error("Infrastructure could NOT be LISTED")
         return 1, str(li.info), im.get_mean_response_time()
-    
+
     # CREATE VM
     time.sleep(delay)
     cv = im.create_vm(url_infr)
