@@ -1,5 +1,4 @@
 %define dir /usr/libexec/argo-monitoring/probes/es.upv.grycap.im
-%define etc_dir /etc/nagios/plugins/es.upv.grycap.im
 
 Summary: Nagios monitoring tool IM probe.
 Name: im-probe
