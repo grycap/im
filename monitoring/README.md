@@ -22,3 +22,11 @@ optional arguments:
   -l LOG_LEVEL, --log_level LOG_LEVEL
                         Set the log level
 ```
+
+## Generate ARGO RPM package
+
+To generate the RPM package for the ARGO monitoring system:
+
+```sh
+rpmbuild -ba probeim.spec
+```
