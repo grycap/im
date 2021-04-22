@@ -28,5 +28,5 @@ optional arguments:
 To generate the RPM package for the ARGO monitoring system:
 
 ```sh
-rpmbuild -ba probeim.spec
+$ rpmbuild -ba probeim.spec
 ```
