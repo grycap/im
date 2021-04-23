@@ -627,3 +627,10 @@ IM 1.10.1:
     * Only show active images in OpenStack and OpenNebula conn.
     * Enable to request GPUs in TOSCA.
     * Improve OpenStack flavor selection.
+
+IM 1.10.2:
+    * Fix error mapping OpenNebula nets.
+    * Fix error getting IPv4 IP in OpenStack conn.
+    * Create EGI connector.
+    * Implement disk_size TOSCA compute property.
+    * Add IM_NODE_CLOUD_SERVER variable in ansible variables.
