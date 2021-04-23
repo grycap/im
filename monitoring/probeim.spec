@@ -1,7 +1,7 @@
 %define dir /usr/libexec/argo-monitoring/probes/es.upv.grycap.im
 
 Summary: Nagios monitoring tool IM probe.
-Name: im-probe
+Name: nagios-plugins-grycap-im
 Version: 0.1.0 
 Release: 1 
 License: GPL version 3, http://www.gnu.org/licenses/gpl-3.0.txt
