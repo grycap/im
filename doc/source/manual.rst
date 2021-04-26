@@ -77,7 +77,7 @@ Optional Packages
    In newer versions (9.0 and later) the functionality has been moved `the cheroot
    library<https://github.com/cherrypy/cheroot>`_ it can be installed using pip.
 * `apache-libcloud <http://libcloud.apache.org/>`_ 3.0 or later is used in the
-  LibCloud, OpenStack and GCE connectors.
+  LibCloud, OpenStack, EGI and GCE connectors.
 * `boto <http://boto.readthedocs.org>`_ 2.29.0 or later is used as interface to
   Amazon EC2. It is available as package named ``python-boto`` in Debian based
   distributions. It can also be downloaded from `boto GitHub repository <https://github.com/boto/boto>`_.
