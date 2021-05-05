@@ -818,7 +818,7 @@ class ConfManager(LoggerMixin, threading.Thread):
             # if there are no files, reconfigure ansible
             if len(files) < 4:
                 self.log_warn("Remote dir %s not found. Reinstall ansible on master node." % remote_dir)
-                self.inf.ansible_configured
+                self.inf.ansible_configured = False
 
         if not self.inf.ansible_configured:
             success = False
