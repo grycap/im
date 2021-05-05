@@ -102,7 +102,7 @@ class TestIM(unittest.TestCase):
         ssh.sftp_mkdir = Mock(return_value=True)
         ssh.sftp_put_dir = Mock(return_value=True)
         ssh.sftp_put = Mock(return_value=True)
-        ssh.sftp_list = Mock(return_value=["","","","",""])
+        ssh.sftp_list = Mock(return_value=["", "", "", "", ""])
         return ssh
 
     def gen_launch_res(self, inf, radl, requested_radl, num_vm, auth_data):
