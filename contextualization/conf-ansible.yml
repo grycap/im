@@ -119,6 +119,10 @@
       zypper: name=python3-pip,python3-setuptools,gcc,python3-devel,wget,libffi-devel,openssl-devel,python3-cryptography,make state=present
       when: ansible_os_family == "Suse"
 
+    - name: Install python-setuptools
+      package: name=python-setuptools
+      when: ansible_os_family != "Alpine" and ansible_python_version is version('3', '<')
+
   ##################################################### Alpine support #######################################################
 
     - name: Apk install requirements Alpine
