@@ -1331,11 +1331,14 @@ class OpenNebulaCloudConnector(CloudConnector):
                "security_groups": {"used": 0, "limit": -1}}
 
         res["cores"]["used"] = user_info.VM_QUOTA.VM.CPU_USED
-        res["cores"]["limit"] = user_info.VM_QUOTA.VM.CPU
+        if user_info.VM_QUOTA.VM.CPU:
+            res["cores"]["limit"] = user_info.VM_QUOTA.VM.CPU
         res["ram"]["used"] = user_info.VM_QUOTA.VM.MEMORY_USED / 1024
-        res["ram"]["limit"] = user_info.VM_QUOTA.VM.MEMORY / 1024
+        if user_info.VM_QUOTA.VM.MEMORY:
+            res["ram"]["limit"] = user_info.VM_QUOTA.VM.MEMORY / 1024
         res["instances"]["used"] = user_info.VM_QUOTA.VM.VMS_USED
-        res["instances"]["limit"] = user_info.VM_QUOTA.VM.VMS
+        if user_info.VM_QUOTA.VM.VMS:
+            res["instances"]["limit"] = user_info.VM_QUOTA.VM.VMS
 
         # Ine ONE map floating IPs to public IP leases
         one_nets = self.getONENetworks(auth_data)
