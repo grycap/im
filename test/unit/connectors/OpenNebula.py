@@ -419,7 +419,7 @@ class TestONEConnector(TestCloudConnectorBase):
         expected_res = {'cores': {'limit': 100, 'used': 5},
                         'floating_ips': {'limit': 3, 'used': 0},
                         'instances': {'limit': -1, 'used': 3},
-                        'ram': {'limit': 102400, 'used': 10240},
+                        'ram': {'limit': 100, 'used': 10},
                         'security_groups': {'limit': -1, 'used': 0}}
         self.assertEqual(res, expected_res)
 
