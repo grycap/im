@@ -3,8 +3,8 @@ paramiko >= 1.14
 PyYAML
 cheroot
 boto >= 2.29
-apache-libcloud >= 2.6.0
-RADL >= 1.1.2
+apache-libcloud >= 3.3.1
+RADL >= 1.1.5
 bottle
 netaddr
 requests >= 2.19
