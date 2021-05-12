@@ -78,8 +78,7 @@ helm install --namespace=im --name=im  grycap/IM
 Then install the IM chart (with Helm v3):
 
 ```sh
-kubectl create namespace im
-helm install --namespace=im im  grycap/IM
+helm install --namespace=im --create-namespace im  grycap/IM
 ```
 
 All the information about this chart is available at the [IM chart README](https://github.com/grycap/helm-charts/blob/master/IM/README.md).
