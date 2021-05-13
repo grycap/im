@@ -215,6 +215,21 @@ class TestTosca(unittest.TestCase):
         self.assertIn('tag1=value1', node.getValue("instance_tags"))
         self.assertIn('tag2=value2', node.getValue("instance_tags"))
 
+    def test_tosca_ansible_host(self):
+        """Test TOSCA RADL translation with an Ansible host"""
+        tosca_data = read_file_as_string('../files/tosca_ansible_host.yaml')
+        tosca = Tosca(tosca_data)
+        _, radl = tosca.to_radl()
+        radl = parse_radl(str(radl))
+        ansible = radl.ansible_hosts[0]
+        self.assertEqual('ansible_host_ip_or_name', ansible.getValue("host"))
+        self.assertEqual('username', ansible.getValue("credentials.username"))
+        self.assertEqual('password', ansible.getValue("credentials.password"))
+        node = radl.get_system_by_name('simple_node')
+        self.assertEqual('deployed_node_ip', node.getValue("net_interface.0.ip"))
+        self.assertEqual('password', node.getValue("disk.0.os.credentials.password"))
+        self.assertEqual('username', node.getValue("disk.0.os.credentials.username"))
+
 
 if __name__ == "__main__":
     unittest.main()

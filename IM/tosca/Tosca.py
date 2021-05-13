@@ -19,7 +19,8 @@ from toscaparser.tosca_template import ToscaTemplate
 from toscaparser.elements.interfaces import InterfacesDef
 from toscaparser.functions import Function, is_function, get_function, GetAttribute, Concat, Token
 from IM.ansible_utils import merge_recipes
-from radl.radl import system, deploy, network, Feature, Features, configure, contextualize_item, RADL, contextualize
+from radl.radl import (system, deploy, network, Feature, Features, configure,
+                       contextualize_item, RADL, contextualize, ansible)
 
 
 class Tosca:
@@ -106,6 +107,32 @@ class Tosca:
             if root_type in ["tosca.nodes.BlockStorage", "tosca.nodes.network.Port", "tosca.nodes.network.Network"]:
                 # These elements are processed in other parts
                 pass
+            elif root_type == "tosca.nodes.im.AnsibleHost":
+                # Only allow 1 ansible_host per document
+                ansible_host = ansible("ansible_host", None)
+                node_props = node.get_properties()
+                if node_props and "host" in node_props:
+                    host = self._final_function_result(node_props["host"].value, node)
+                    if host:
+                        ansible_host.setValue("host", host)
+                if node_props and "credential" in node_props:
+                    credentials = self._final_function_result(node_props["credential"].value, node)
+                    if 'user' in credentials:
+                        ansible_host.setValue("credentials.username", credentials['user'])
+                    token_type = "password"
+                    if 'token_type' in credentials and credentials['token_type']:
+                        token_type = credentials['token_type']
+                    token = None
+                    if 'token' in credentials and credentials['token']:
+                        token = credentials['token']
+                    if token:
+                        if token_type == "password":
+                            ansible_host.setValue("credentials.password", token)
+                        elif token_type == "private_key":
+                            ansible_host.setValue("credentials.private_key", token)
+                        else:
+                            Tosca.logger.warn("Unknown tyoe of token %s. Ignoring." % token_type)
+                radl.ansible_hosts = [ansible_host]
             else:
                 if root_type == "tosca.nodes.Compute":
                     # Add the system RADL element
