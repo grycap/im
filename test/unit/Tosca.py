@@ -230,5 +230,6 @@ class TestTosca(unittest.TestCase):
         self.assertEqual('password', node.getValue("disk.0.os.credentials.password"))
         self.assertEqual('username', node.getValue("disk.0.os.credentials.username"))
 
+
 if __name__ == "__main__":
     unittest.main()
