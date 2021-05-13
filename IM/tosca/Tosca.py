@@ -115,8 +115,8 @@ class Tosca:
                     host = self._final_function_result(node_props["host"].value, node)
                     if host:
                         ansible_host.setValue("host", host)
-                if node_props and "credentials" in node_props:
-                    credentials = self._final_function_result(node_props["credentials"].value, node)
+                if node_props and "credential" in node_props:
+                    credentials = self._final_function_result(node_props["credential"].value, node)
                     if 'user' in credentials:
                         ansible_host.setValue("credentials.username", credentials['user'])
                     token_type = "password"
