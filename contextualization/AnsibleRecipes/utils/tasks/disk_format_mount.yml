@@ -27,7 +27,7 @@
 - package: name=parted
   ignore_errors: yes
 
-- parted: device={{device}} number=1 state=present part_type=primary
+- parted: device={{device}} number=1 state=present part_type=primary label=gpt
 
 - filesystem: fstype={{fstype}} dev={{partition}}
   ignore_errors: yes
