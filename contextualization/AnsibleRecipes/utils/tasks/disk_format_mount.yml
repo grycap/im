@@ -27,7 +27,12 @@
 - package: name=parted
   ignore_errors: yes
 
+- stat:
+    path: "{{partition}}"
+  register: partition_stat
+
 - parted: device={{device}} number=1 state=present part_type=primary label=gpt
+  when: not partition_stat.stat.exists
 
 - filesystem: fstype={{fstype}} dev={{partition}}
   ignore_errors: yes
