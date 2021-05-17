@@ -228,9 +228,5 @@
       - { section: 'defaults', option: 'roles_path', value: '/etc/ansible/roles' }
       - { section: 'defaults', option: 'timeout', value: '30' }
       - { section: 'defaults', option: 'ansible_python_interpreter', value: 'auto' }
- 
-    - name: Set transport to ssh in ansible.cfg
-      ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=transport value=ssh
-
-    - name: Change ssh_args to set ControlPersist to 15 min in ansible.cfg
-      ini_file: dest=/etc/ansible/ansible.cfg section=ssh_connection option=ssh_args value="-o ControlMaster=auto -o ControlPersist=900s -o UserKnownHostsFile=/dev/null"
+      - { section: 'defaults', option: 'transport', value: 'ssh' }
+      - { section: 'ssh_connection', option: 'ssh_args', value: '-o ControlMaster=auto -o ControlPersist=900s -o UserKnownHostsFile=/dev/null' }

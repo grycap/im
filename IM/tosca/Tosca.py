@@ -109,14 +109,14 @@ class Tosca:
                 pass
             elif root_type == "tosca.nodes.im.AnsibleHost":
                 # Only allow 1 ansible_host per document
-                ansible_host = ansible("ansible_host")
+                ansible_host = ansible("ansible_host", None)
                 node_props = node.get_properties()
                 if node_props and "host" in node_props:
                     host = self._final_function_result(node_props["host"].value, node)
                     if host:
                         ansible_host.setValue("host", host)
-                if node_props and "credentials" in node_props:
-                    credentials = self._final_function_result(node_props["credentials"].value, node)
+                if node_props and "credential" in node_props:
+                    credentials = self._final_function_result(node_props["credential"].value, node)
                     if 'user' in credentials:
                         ansible_host.setValue("credentials.username", credentials['user'])
                     token_type = "password"
