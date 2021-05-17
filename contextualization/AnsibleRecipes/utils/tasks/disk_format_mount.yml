@@ -25,6 +25,7 @@
 #    creates: "{{partition}}"
 
 - package: name=parted
+  ignore_errors: yes
 
 - parted: device={{device}} number=1 state=present part_type=primary
 
