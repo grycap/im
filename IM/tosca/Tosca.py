@@ -1467,11 +1467,11 @@ class Tosca:
                     res.setValue('disk.%d.type' % num, vol_type)
                 if size:
                     res.setValue('disk.%d.size' % num, size, unit)
-                if device:
-                    res.setValue('disk.%d.device' % num, device)
-                if location:
-                    res.setValue('disk.%d.mount_path' % num, location)
-                    res.setValue('disk.%d.fstype' % num, fstype)
+            if device:
+                res.setValue('disk.%d.device' % num, device)
+            if location:
+                res.setValue('disk.%d.mount_path' % num, location)
+                res.setValue('disk.%d.fstype' % num, fstype)
 
         self._add_ansible_roles(node, nodetemplates, res)
 
