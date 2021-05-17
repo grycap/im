@@ -634,3 +634,10 @@ IM 1.10.2:
     * Create EGI connector.
     * Implement disk_size TOSCA compute property.
     * Add IM_NODE_CLOUD_SERVER variable in ansible variables.
+
+IM 1.10.2:
+    * Fix In TOSCA If volume id is set, mount_path is ignored.
+    * Add suppport for ansible host in TOSCA.
+    * Fix OpenNebula memory quota is returned in MB and should be in GB.
+    * Fix error in ctxt in case of ansible uses python2 but not setuptools is installed.
+    * Fix error in context if IM remote dir is deleted.
