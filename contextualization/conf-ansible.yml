@@ -25,11 +25,6 @@
       changed_when: python_install.stdout_lines|length > 1
       when: python3_version is failed or python3_version.stdout|int < 5
 
-    - name: Link correct python version in Ubuntu 14
-      raw: ls /usr/bin/python3.5 && sudo rm -f /usr/bin/python3 && sudo ln -s /usr/bin/python3.5 /usr/bin/python3
-      when: python3_version is success and python3_version.stdout|int < 5
-      ignore_errors: yes
-
     - name: Bootstrap with python RedHat/CentOS
       raw: sudo yum install -y python3
       ignore_errors: yes
@@ -87,29 +82,7 @@
 
     - name: Debian/Ubuntu install requisites with apt
       apt: name=python3-pip,wget,python3-setuptools,sshpass,openssh-client,unzip install_recommends=no
-      when: ansible_os_family == "Debian" and not (ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int <= 14)
-
-    # We need some hacks to make Ubuntu 14 to work
-    - block:
-
-      - name: Ubuntu 14 install requisites with apt
-        command: apt install -y --no-install-recommends gcc python3-apt python3.5-dev libffi-dev libssl-dev python3-pip wget python3-setuptools sshpass openssh-client unzip
-      
-      - name: Ubuntu 14 install pip3.5
-        command: python3.5 /usr/lib/python3/dist-packages/easy_install.py "pip>=18.0,<21.0" creates=/usr/local/bin/pip3.5
-
-      - name: Remove old pip3 in Ubuntu 14
-        file: path=/usr/bin/pip3 state=absent
-
-      - name: Link pip3.5 in Ubuntu 14
-        file: src=/usr/local/bin/pip3.5 dest=/usr/bin/pip3 state=link
-
-      - name: Install python3-apt in Ubuntu 14
-        pip:
-          name: python-apt
-          executable: pip3
-
-      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int <= 14
+      when: ansible_os_family == "Debian"
 
     - name: Yum install requisites RH 7/8 or Fedora
       command: yum install -y python3-pip python3-setuptools sshpass openssh-clients
@@ -173,14 +146,6 @@
       pip:
         name: pyOpenSSL>20.0
         executable: pip3
-
-    - name: Ubuntu 14 extra pip packages needed to avoid https issues
-      pip: name=urllib3,ndg-httpsclient,pyasn1 executable=pip3
-      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int <= 14
-
-    - name: Ubuntu 14 pip cryptography
-      pip: name=cryptography version=2.9.2 executable=pip3
-      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int <= 14
 
     - name: Install pyyaml
       pip: name=pyyaml executable=pip3

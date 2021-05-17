@@ -20,11 +20,14 @@
 - set_fact: partition={{device}}1
   when: "'nvme' not in device"
 
-- shell: (echo n; echo p; echo 1; echo ; echo; echo w) | fdisk {{device}} creates={{partition}}
-  args:
-    creates: "{{partition}}"
+#- shell: (echo n; echo p; echo 1; echo ; echo; echo w) | fdisk {{device}} creates={{partition}}
+#  args:
+#    creates: "{{partition}}"
 
-#- parted: device={{device}} number=1 state=present
+- package: name=parted
+  ignore_errors: yes
+
+- parted: device={{device}} number=1 state=present part_type=primary
 
 - filesystem: fstype={{fstype}} dev={{partition}}
   ignore_errors: yes
