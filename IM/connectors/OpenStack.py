@@ -994,7 +994,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         boot_disk = {
             'boot_index': 0,
-            'device_name': 'vda',
+#            'device_name': 'vda',
             'source_type': "image",
             'delete_on_termination': False,
             'uuid': image.id
