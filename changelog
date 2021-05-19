@@ -635,9 +635,11 @@ IM 1.10.2:
     * Implement disk_size TOSCA compute property.
     * Add IM_NODE_CLOUD_SERVER variable in ansible variables.
 
-IM 1.10.2:
+IM 1.10.3:
     * Fix In TOSCA If volume id is set, mount_path is ignored.
     * Add suppport for ansible host in TOSCA.
     * Fix OpenNebula memory quota is returned in MB and should be in GB.
     * Fix error in ctxt in case of ansible uses python2 but not setuptools is installed.
     * Fix error in context if IM remote dir is deleted.
+    * Fix error in OpenStack getting sda as the device of an attached volume.
+    * Use ansible parted to create partitions in ctxt.
