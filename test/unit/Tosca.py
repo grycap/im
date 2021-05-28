@@ -127,6 +127,9 @@ class TestTosca(unittest.TestCase):
         self.assertEqual('192.168.0.0/16,vr1_compute', net1.getValue("router"))
         self.assertEqual('yes', net1.getValue("create"))
         self.assertEqual('192.168.10.0/24', net1.getValue("cidr"))
+        self.assertEqual('username@proxy.host.com', net1.getValue("proxy_host"))
+        proxy_key = """-----BEGIN RSA PRIVATE KEY-----\naaa\n-----END RSA PRIVATE KEY-----\n"""
+        self.assertEqual(proxy_key, net1.getValue("proxy_key"))
         lrms_wn = radl.get_system_by_name("lrms_wn")
         self.assertEqual("network1", lrms_wn.getValue("net_interface.0.connection"))
         lrms_server = radl.get_system_by_name("lrms_server")

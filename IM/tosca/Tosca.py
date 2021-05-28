@@ -119,12 +119,7 @@ class Tosca:
                     credentials = self._final_function_result(node_props["credential"].value, node)
                     if 'user' in credentials:
                         ansible_host.setValue("credentials.username", credentials['user'])
-                    token_type = "password"
-                    if 'token_type' in credentials and credentials['token_type']:
-                        token_type = credentials['token_type']
-                    token = None
-                    if 'token' in credentials and credentials['token']:
-                        token = credentials['token']
+                    token_type, token = self._get_credential_values(credentials)
                     if token:
                         if token_type == "password":
                             ansible_host.setValue("credentials.password", token)
@@ -1296,6 +1291,8 @@ class Tosca:
         network_name = self._final_function_result(node.get_property_value('network_name'), node)
         network_cidr = self._final_function_result(node.get_property_value('cidr'), node)
         network_router = self._final_function_result(node.get_property_value('gateway_ip'), node)
+        proxy_host = self._final_function_result(node.get_property_value('proxy_host'), node)
+        proxy_credential = self._final_function_result(node.get_property_value('proxy_credential'), node)
 
         # TODO: get more properties -> must be implemented in the RADL
         if nework_type and nework_type.lower() == "public":
@@ -1312,7 +1309,34 @@ class Tosca:
         if network_router:
             res.setValue("router", network_router)
 
+        if proxy_host:
+            host = proxy_host
+            if proxy_credential:
+                user = ""
+                if "user" in proxy_credential:
+                    user = proxy_credential["user"]
+                else:
+                    raise Exception("Property 'user' must bet set in proxy_credential.")
+                token_type, token = self._get_credential_values(proxy_credential)
+                if token_type == "password" and token:
+                    host = "%s:%s@%s" % (user, token, host)
+                else:
+                    host = "%s@%s" % (user, host)
+                res.setValue("proxy_host", host)
+                if token_type == "private_key" and token:
+                    res.setValue("proxy_key", token)
+
         return res
+
+    @staticmethod
+    def _get_credential_values(credential):
+        token_type = "password"
+        if 'token_type' in credential and credential['token_type']:
+            token_type = credential['token_type']
+        token = None
+        if 'token' in credential and credential['token']:
+            token = credential['token']
+        return token_type, token
 
     @staticmethod
     def _get_node_artifacts(node):
@@ -1421,14 +1445,7 @@ class Tosca:
                             if value.find("://") == -1:
                                 value = "docker://%s" % value
                         elif prop.name == "credential":
-                            token_type = "password"
-                            if 'token_type' in value and value['token_type']:
-                                token_type = value['token_type']
-
-                            token = None
-                            if 'token' in value and value['token']:
-                                token = value['token']
-
+                            token_type, token = self._get_credential_values(value)
                             if token:
                                 if token_type == "password":
                                     feature = Feature("disk.0.os.credentials.password", "=", token)
