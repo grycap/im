@@ -56,11 +56,19 @@ topology_template:
         - link: pub_network
 
     network1:
-      type: tosca.nodes.network.Network
+      type: tosca.nodes.indigo.network.Network
       properties:
         cidr: '192.168.10.0/24'
         gateway_ip: '192.168.0.0/16,vr1_compute'
         network_type: private
+        proxy_host: proxy.host.com
+        proxy_credential:
+          user: username
+          token_type: private_key
+          token: |
+            -----BEGIN RSA PRIVATE KEY-----
+            aaa
+            -----END RSA PRIVATE KEY-----
 
     server_port:
       type: tosca.nodes.network.Port
